@@ -1,35 +1,212 @@
 module Fable.Import.Node
 open System
+open System.Text.RegularExpressions
 open Fable.Core
 open Fable.Import.JS
 
-type [<AllowNullLiteral>] Error =
-    abstract stack: string option with get, set
+// Events start
+module event_types =
+    type [<AllowNullLiteral>] EventEmitter =
+        [<Emit("new $0()")>] abstract Create: unit -> EventEmitter
+        abstract defaultMaxListeners: float with get, set
+        abstract addListener: ev: U2<string, Symbol> * listener: Function -> EventEmitter
+        abstract on: ev: U2<string, Symbol> * listener: Function -> EventEmitter
+        abstract once: ev: U2<string, Symbol> * listener: Function -> EventEmitter
+        abstract prependListener: ev: U2<string, Symbol> * listener: Function -> EventEmitter
+        abstract prependOnceListener: ev: U2<string, Symbol> * listener: Function -> EventEmitter
+        abstract removeListener: ev: U2<string, Symbol> * listener: Function -> EventEmitter
+        abstract removeAllListener: ev: U2<string, Symbol> * listener: Function -> EventEmitter
+        abstract setMaxListeners: n: int -> EventEmitter
+        abstract getMaxListeners: unit -> int
+        abstract listeners: ev: U2<string, Symbol> -> ResizeArray<Function>
+        abstract emit: ev: string * [<ParamArray>] args: obj[] -> bool
+        abstract eventNames: unit -> ResizeArray<U2<string, Symbol>>
+        
+    type Globals =
+        member __.EventEmitter with get(): EventEmitter = jsNative and set(v: EventEmitter): unit = jsNative
+let [<Import("*","events")>] events: event_types.Globals = jsNative
+// Events end
 
-// and [<AllowNullLiteral>] MapConstructor =
-//     interface end
-// 
-// and [<AllowNullLiteral>] WeakMapConstructor =
-//     interface end
-// 
-// and [<AllowNullLiteral>] SetConstructor =
-//     interface end
-// 
-// and [<AllowNullLiteral>] WeakSetConstructor =
-//     interface end
+// Stream Start
+module stream_types =
+    type [<AllowNullLiteral>] Stream =
+        [<Emit("new $0()")>] abstract Create: unit -> Stream
+        abstract pipe: destination: 'T * ?options: obj -> 'T
+
+    and ReadableOptions = {
+        highWaterMark: float option
+        encoding: string;
+        objectMode: bool option;
+        read: Func<float, obj> option;
+    }
+
+    and [<AllowNullLiteral>] Readable =
+        inherit Stream
+        [<Emit("new $0($1)")>] abstract Create: ReadableOptions -> Readable
+        abstract readable: bool with get, set
+        abstract push: chunk: obj * ?encoding: string -> bool
+        abstract unshift: chunk: obj -> unit
+        abstract unpipe: ?destination: 'T -> unit
+        abstract wrap: oldStream: Readable -> Readable
+        abstract pause: unit -> Readable
+        abstract resume: unit -> Readable
+        abstract isPaused: unit -> bool
+        abstract setEncoding: string -> unit
+        abstract read: ?size: int -> U2<string option, Buffer option>
+
+    and WritableOptions = {
+        highWaterMark: float option;
+        decodeStrings: bool option;
+        objectMode: bool option;
+        write: Func<U2<string, Buffer>, string, Function, obj> option;
+        writev: Func<ResizeArray<obj>, Function, obj> option;
+    }
+
+    and [<AllowNullLiteral>] Writable =
+        inherit Stream
+        [<Emit("new $0($1)")>] abstract Create: WritableOptions -> Writable
+        abstract writable: bool with get, set
+        abstract write: chunk: obj * ?cb: Function -> bool
+        abstract ``end``:unit -> unit
+        abstract ``end``: obj: obj * ?cb: Function -> unit
+        abstract ``end``: obj: obj * ?encoding: string * ?cb: Function -> unit
+            
+    type DuplexOptions = {
+        decodeStrings: bool option;
+        encoding: string;
+        objectMode: bool option;
+        allowHalfOpen: bool option;
+        readableObjectMode: bool option;
+        writableObjectMode: bool option;
+        read: Func<float, obj> option;
+        write: Func<U2<string, Buffer>, string, Function, obj> option;
+        writev: Func<ResizeArray<obj>, Function, obj> option;
+    }
+
+    and [<AllowNullLiteral>] Duplex =
+        inherit Readable
+        inherit Writable
+        [<Emit("new $0($1)")>] abstract Create: DuplexOptions -> Duplex
+
+    and TransformOptions = {
+        decodeStrings: bool option;
+        encoding: string option;
+        objectMode: bool option;
+        allowHalfOpen: bool option;
+        readableObjectMode: bool option;
+        writableObjectMode: bool option;
+        transform: Func<U2<string, Buffer>, string, Function, obj> option;
+        flush: Func<Function, obj> option;
+    }
+
+    and [<AllowNullLiteral>] Transform = 
+        inherit Readable
+        inherit Writable
+        [<Emit("new $0($1)")>] abstract Create: TransformOptions -> Transform
+        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
+        abstract _flush: callback: Function -> unit
+
+    and [<AllowNullLiteral>] PassThrough =
+        [<Emit("new $0()")>] abstract Create: unit -> PassThrough
+        inherit Transform
+    
+    and Globals =
+        member __.Stream with get(): Stream = jsNative and set(v: Stream): unit = jsNative
+        member __.Readable with get(): Readable = jsNative and set(v: Readable): unit = jsNative
+        member __.Writable with get(): Writable = jsNative and set(v: Writable): unit = jsNative
+        member __.Duplex with get(): Duplex = jsNative and set(v: Duplex): unit = jsNative
+        member __.TransformOptions with get(): TransformOptions = jsNative and set(v: TransformOptions): unit = jsNative
+        member __.Transform with get(): Transform = jsNative and set(v: Transform): unit = jsNative
+        member __.PassThrough with get(): PassThrough = jsNative and set(v: PassThrough): unit = jsNative
+
+
+let [<Import("*","stream")>] stream: stream_types.Globals = jsNative
+// Stream End
+
+
+type [<AllowNullLiteral>] Console =
+    abstract ``assert``: value: obj * ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
+    abstract dir: obj: obj * ?options: obj -> unit
+    abstract error: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+    abstract info: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+    abstract log: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+    abstract time: label: string -> unit
+    abstract timeEnd: label: string -> unit
+    abstract trace: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+    abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+
+and [<AllowNullLiteral>] Error =
+    abstract stack: string option with get, set
+    abstract message: string option with get, set
+
+and [<AllowNullLiteral>] NodeRequireFunction =
+    [<Emit("$0($1...)")>] abstract Invoke: id: string -> obj
+
+and [<AllowNullLiteral>] NodeRequire =
+    inherit NodeRequireFunction
+    abstract cache: obj with get, set
+    abstract extensions: obj with get, set
+    abstract main: obj with get, set
+    abstract resolve: id: string -> string
+
+and [<AllowNullLiteral>] NodeModule =
+    abstract exports: obj with get, set
+    abstract require: NodeRequireFunction with get, set
+    abstract id: string with get, set
+    abstract filename: string with get, set
+    abstract loaded: bool with get, set
+    abstract parent: U2<NodeModule, obj> with get, set
+    abstract ``null``: obj with get, set
+    abstract children: ResizeArray<NodeModule> with get, set
+
+and [<AllowNullLiteral>] SlowBufferType =
+    abstract prototype: Buffer with get, set
+    [<Emit("new $0($1...)")>] abstract Create: str: string * ?encoding: string -> Buffer
+    [<Emit("new $0($1...)")>] abstract Create: size: float -> Buffer
+    [<Emit("new $0($1...)")>] abstract Create: size: Uint8Array -> Buffer
+    [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<obj> -> Buffer
+    abstract isBuffer: obj: obj -> bool
+    abstract byteLength: string: string * ?encoding: string -> float
+    abstract concat: list: ResizeArray<Buffer> * ?totalLength: float -> Buffer
+
+and BufferEncoding =
+    (* TODO StringEnum ascii | utf8 | utf16le | ucs2 | binary | hex *) string
 
 and [<AllowNullLiteral>] Buffer =
     inherit NodeBuffer
 
+
+and [<AllowNullLiteral>] BufferType =
+    abstract prototype: Buffer with get, set
+    [<Emit("new $0($1...)")>] abstract Create: str: string * ?encoding: string -> Buffer
+    [<Emit("new $0($1...)")>] abstract Create: size: float -> Buffer
+    [<Emit("new $0($1...)")>] abstract Create: array: Uint8Array -> Buffer
+    [<Emit("new $0($1...)")>] abstract Create: arrayBuffer: ArrayBuffer -> Buffer
+    [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<obj> -> Buffer
+    [<Emit("new $0($1...)")>] abstract Create: buffer: Buffer -> Buffer
+    abstract from: array: ResizeArray<obj> -> Buffer
+    abstract from: arrayBuffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Buffer
+    abstract from: buffer: Buffer -> Buffer
+    abstract from: str: string * ?encoding: string -> Buffer
+    abstract isBuffer: obj: obj -> obj
+    abstract isEncoding: encoding: string -> bool
+    abstract byteLength: string: string * ?encoding: string -> float
+    abstract concat: list: ResizeArray<Buffer> * ?totalLength: float -> Buffer
+    abstract compare: buf1: Buffer * buf2: Buffer -> float
+    abstract alloc: size: float * ?fill: U3<string, Buffer, float> * ?encoding: string -> Buffer
+    abstract allocUnsafe: size: float -> Buffer
+    abstract allocUnsafeSlow: size: float -> Buffer
+
+and [<AllowNullLiteral>] IterableIterator<'T> =
+    interface end
+
 and [<AllowNullLiteral>] NodeBuffer =
-    [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
-    abstract length: float with get, set
-    abstract from: string: string * ?encoding: string -> Buffer
+    inherit Uint8Array
     abstract write: string: string * ?offset: float * ?length: float * ?encoding: string -> float
     abstract toString: ?encoding: string * ?start: float * ?``end``: float -> string
     abstract toJSON: unit -> obj
     abstract equals: otherBuffer: Buffer -> bool
-    abstract compare: otherBuffer: Buffer -> float
+    abstract compare: otherBuffer: Buffer * ?targetStart: float * ?targetEnd: float * ?sourceStart: float * ?sourceEnd: float -> float
     abstract copy: targetBuffer: Buffer * ?targetStart: float * ?sourceStart: float * ?sourceEnd: float -> float
     abstract slice: ?start: float * ?``end``: float -> Buffer
     abstract writeUIntLE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
@@ -40,7 +217,7 @@ and [<AllowNullLiteral>] NodeBuffer =
     abstract readUIntBE: offset: float * byteLength: float * ?noAssert: bool -> float
     abstract readIntLE: offset: float * byteLength: float * ?noAssert: bool -> float
     abstract readIntBE: offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract readUInt8: offset: float * ?noAsset: bool -> float
+    abstract readUInt8: offset: float * ?noAssert: bool -> float
     abstract readUInt16LE: offset: float * ?noAssert: bool -> float
     abstract readUInt16BE: offset: float * ?noAssert: bool -> float
     abstract readUInt32LE: offset: float * ?noAssert: bool -> float
@@ -54,6 +231,9 @@ and [<AllowNullLiteral>] NodeBuffer =
     abstract readFloatBE: offset: float * ?noAssert: bool -> float
     abstract readDoubleLE: offset: float * ?noAssert: bool -> float
     abstract readDoubleBE: offset: float * ?noAssert: bool -> float
+    abstract swap16: unit -> Buffer
+    abstract swap32: unit -> Buffer
+    abstract swap64: unit -> Buffer
     abstract writeUInt8: value: float * offset: float * ?noAssert: bool -> float
     abstract writeUInt16LE: value: float * offset: float * ?noAssert: bool -> float
     abstract writeUInt16BE: value: float * offset: float * ?noAssert: bool -> float
@@ -68,8 +248,13 @@ and [<AllowNullLiteral>] NodeBuffer =
     abstract writeFloatBE: value: float * offset: float * ?noAssert: bool -> float
     abstract writeDoubleLE: value: float * offset: float * ?noAssert: bool -> float
     abstract writeDoubleBE: value: float * offset: float * ?noAssert: bool -> float
-    abstract fill: value: obj * ?offset: float * ?``end``: float -> Buffer
-
+    abstract fill: value: obj * ?offset: float * ?``end``: float -> obj
+    abstract indexOf: value: U3<string, float, Buffer> * ?byteOffset: float * ?encoding: string -> float
+    abstract lastIndexOf: value: U3<string, float, Buffer> * ?byteOffset: float * ?encoding: string -> float
+    abstract entries: unit -> IterableIterator<float * float>
+    abstract includes: value: U3<string, float, Buffer> * ?byteOffset: float * ?encoding: string -> bool
+    abstract keys: unit -> IterableIterator<float>
+    abstract values: unit -> IterableIterator<float>
 
 module NodeJS =
     type [<AllowNullLiteral>] ErrnoException =
@@ -80,60 +265,60 @@ module NodeJS =
         abstract syscall: string option with get, set
         abstract stack: string option with get, set
 
-    and [<AllowNullLiteral>] EventEmitter =
-        abstract addListener: ``event``: string * listener: Function -> EventEmitter
-        abstract on: ``event``: string * listener: Function -> EventEmitter
-        abstract once: ``event``: string * listener: Function -> EventEmitter
-        abstract removeListener: ``event``: string * listener: Function -> EventEmitter
-        abstract removeAllListeners: ?``event``: string -> EventEmitter
-        abstract setMaxListeners: n: int -> unit
-        abstract getMaxListeners: unit -> int
-        abstract listeners: ``event``: string -> ResizeArray<Function>
-        abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
-        abstract listenerCount: ``type``: string -> int
+    and [<AllowNullLiteral>] ProcessVersions =
+        abstract http_parser: string with get, set
+        abstract node: string with get, set
+        abstract v8: string with get, set
+        abstract ares: string with get, set
+        abstract uv: string with get, set
+        abstract zlib: string with get, set
+        abstract modules: string with get, set
+        abstract openssl: string with get, set
 
-    and [<AllowNullLiteral>] ReadableStream =
-        inherit EventEmitter
-        abstract readable: bool with get, set
-        abstract read: ?size: float -> U2<string, Buffer>
-        abstract setEncoding: encoding: string -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-        abstract unpipe: ?destination: 'T -> unit
-        abstract unshift: chunk: string -> unit
-        abstract unshift: chunk: Buffer -> unit
-        abstract wrap: oldStream: ReadableStream -> ReadableStream
+    and [<AllowNullLiteral>] MemoryUsage =
+        abstract rss: float with get, set
+        abstract heapTotal: float with get, set
+        abstract heapUsed: float with get, set
 
-    and [<AllowNullLiteral>] WritableStream =
-        inherit EventEmitter
-        abstract writable: bool with get, set
-        abstract write: buffer: U2<Buffer, string> * ?cb: Function -> bool
-        abstract write: str: string * ?encoding: string * ?cb: Function -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
-        abstract ``end``: str: string * ?cb: Function -> unit
-        abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
+    and [<AllowNullLiteral>] CpuUsage =
+        abstract user: float with get, set
+        abstract system: float with get, set
 
-    and [<AllowNullLiteral>] ReadWriteStream =
-        inherit ReadableStream
-        inherit WritableStream
+    and [<StringEnum>] Platform =
+        | Aix | Android | Darwin | Freebsd | Linux | Openbsd | Sunos | Win32
 
     and [<AllowNullLiteral>] Process =
-        inherit EventEmitter
-        abstract stdout: WritableStream with get, set
-        abstract stderr: WritableStream with get, set
-        abstract stdin: ReadableStream with get, set
+        abstract addListener: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract on: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract once: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract removeListener: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract removeAllListeners: ?``event``: U2<string, Symbol> -> obj
+        abstract setMaxListeners: n: float -> obj
+        abstract getMaxListeners: unit -> float
+        abstract listeners: ``event``: U2<string, Symbol> -> ResizeArray<Function>
+        abstract emit: ``event``: U2<string, Symbol> * [<ParamArray>] args: obj[] -> bool
+        abstract listenerCount: ``type``: U2<string, Symbol> -> float
+        abstract prependListener: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract prependOnceListener: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract eventNames: unit -> ResizeArray<U2<string, Symbol>>
+        abstract stdout: stream_types.Writable with get, set
+        abstract stderr: stream_types.Writable with get, set
+        abstract stdin: stream_types.Readable with get, set
         abstract argv: ResizeArray<string> with get, set
+        abstract argv0: string with get, set
+        abstract execArgv: ResizeArray<string> with get, set
         abstract execPath: string with get, set
         abstract env: obj with get, set
+        abstract exitCode: float with get, set
         abstract version: string with get, set
-        abstract versions: obj with get, set
+        abstract versions: ProcessVersions with get, set
         abstract config: obj with get, set
         abstract pid: float with get, set
         abstract title: string with get, set
         abstract arch: string with get, set
-        abstract platform: string with get, set
+        abstract platform: Platform with get, set
+        abstract mainModule: NodeModule option with get, set
+        abstract connected: bool with get, set
         abstract abort: unit -> unit
         abstract chdir: directory: string -> unit
         abstract cwd: unit -> string
@@ -144,13 +329,15 @@ module NodeJS =
         abstract getuid: unit -> float
         abstract setuid: id: float -> unit
         abstract setuid: id: string -> unit
-        abstract kill: pid: float * ?signal: string -> unit
-        abstract memoryUsage: unit -> obj
-        abstract nextTick: callback: Function -> unit
+        abstract kill: pid: float * ?signal: U2<string, float> -> unit
+        abstract memoryUsage: unit -> MemoryUsage
+        abstract cpuUsage: ?previousValue: CpuUsage -> CpuUsage
+        abstract nextTick: callback: Function * [<ParamArray>] args: obj[] -> unit
         abstract umask: ?mask: float -> float
         abstract uptime: unit -> float
-        abstract hrtime: ?time: ResizeArray<float> -> ResizeArray<float>
+        abstract hrtime: ?time: float * float -> float * float
         abstract send: message: obj * ?sendHandle: obj -> unit
+        abstract disconnect: unit -> unit
 
     and [<AllowNullLiteral>] Global =
         abstract Array: obj with get, set
@@ -215,17 +402,50 @@ module NodeJS =
         abstract undefined: obj with get, set
         abstract unescape: Func<string, string> with get, set
         abstract gc: Func<unit, unit> with get, set
+        abstract v8debug: obj option with get, set
 
     and [<AllowNullLiteral>] Timer =
         abstract ref: unit -> unit
         abstract unref: unit -> unit
-        
-open NodeJS
 
 
+type [<Erase>]Globals =
+    [<Global>] static member ``process`` with get(): NodeJS.Process = jsNative and set(v: NodeJS.Process): unit = jsNative
+    [<Global>] static member ``global`` with get(): NodeJS.Global = jsNative and set(v: NodeJS.Global): unit = jsNative
+    [<Global>] static member console with get(): Console = jsNative and set(v: Console): unit = jsNative
+    [<Global>] static member ___filename with get(): string = jsNative and set(v: string): unit = jsNative
+    [<Global>] static member ___dirname with get(): string = jsNative and set(v: string): unit = jsNative
+    [<Global>] static member require with get(): NodeRequire = jsNative and set(v: NodeRequire): unit = jsNative
+    [<Global>] static member ``module`` with get(): NodeModule = jsNative and set(v: NodeModule): unit = jsNative
+    [<Global>] static member exports with get(): obj = jsNative and set(v: obj): unit = jsNative
+    [<Global>] static member SlowBuffer with get(): SlowBufferType = jsNative and set(v: SlowBufferType): unit = jsNative
+    [<Global>] static member Buffer with get(): BufferType = jsNative and set(v: BufferType): unit = jsNative
+
+module buffer =
+    type [<Import("*","buffer")>] Globals =
+        static member INSPECT_MAX_BYTES with get(): float = jsNative and set(v: float): unit = jsNative
+        static member BuffType with get(): obj = jsNative and set(v: obj): unit = jsNative
+        static member SlowBuffType with get(): obj = jsNative and set(v: obj): unit = jsNative
+
+module querystring =
+    type [<AllowNullLiteral>] StringifyOptions =
+        abstract encodeURIComponent: Function option with get, set
+
+    and [<AllowNullLiteral>] ParseOptions =
+        abstract maxKeys: float option with get, set
+        abstract decodeURIComponent: Function option with get, set
+
+    type [<Import("*","querystring")>] Globals =
+        static member stringify(obj: 'T, ?sep: string, ?eq: string, ?options: StringifyOptions): string = jsNative
+        static member parse(str: string, ?sep: string, ?eq: string, ?options: ParseOptions): obj = jsNative
+        static member parse(str: string, ?sep: string, ?eq: string, ?options: ParseOptions): 'T = jsNative
+        static member escape(str: string): string = jsNative
+        static member unescape(str: string): string = jsNative
+
+// net start
 module net_types =
     type [<AllowNullLiteral>] Socket =
-        inherit NodeJS.ReadableStream
+        inherit stream_types.Readable
         abstract writable: bool with get, set
         abstract _write: chunk: obj * encoding: string * callback: Function -> unit
         abstract write: chunk: obj * ?cb: Function -> bool
@@ -288,7 +508,969 @@ module net_types =
         member __.isIPv6(input: string): bool = jsNative
         
 let [<Import("*","net")>] net: net_types.Globals = jsNative
+//net end
 
+module http =
+    type [<AllowNullLiteral>] RequestOptions =
+        abstract protocol: string option with get, set
+        abstract host: string option with get, set
+        abstract hostname: string option with get, set
+        abstract family: float option with get, set
+        abstract port: float option with get, set
+        abstract localAddress: string option with get, set
+        abstract socketPath: string option with get, set
+        abstract ``method``: string option with get, set
+        abstract path: string option with get, set
+        abstract headers: obj option with get, set
+        abstract auth: string option with get, set
+        abstract agent: U2<Agent, bool> option with get, set
+
+    and [<AllowNullLiteral>] Server =
+        inherit net_types.Server
+        abstract maxHeadersCount: float with get, set
+        abstract timeout: float with get, set
+        abstract listening: bool with get, set
+        abstract setTimeout: msecs: float * callback: Function -> unit
+
+    and [<AllowNullLiteral>] ServerRequest =
+        inherit IncomingMessage
+        abstract connection: net_types.Socket with get, set
+
+    and [<AllowNullLiteral>] ServerResponse =
+        inherit stream_types.Writable
+        abstract statusCode: float with get, set
+        abstract statusMessage: string with get, set
+        abstract headersSent: bool with get, set
+        abstract sendDate: bool with get, set
+        abstract finished: bool with get, set
+        abstract write: buffer: Buffer -> bool
+        abstract write: buffer: Buffer * ?cb: Function -> bool
+        abstract write: str: string * ?cb: Function -> bool
+        abstract write: str: string * ?encoding: string * ?cb: Function -> bool
+        abstract write: str: string * ?encoding: string * ?fd: string -> bool
+        abstract writeContinue: unit -> unit
+        abstract writeHead: statusCode: float * ?reasonPhrase: string * ?headers: obj -> unit
+        abstract writeHead: statusCode: float * ?headers: obj -> unit
+        abstract setHeader: name: string * value: U2<string, ResizeArray<string>> -> unit
+        abstract setTimeout: msecs: float * callback: Function -> ServerResponse
+        abstract getHeader: name: string -> string
+        abstract removeHeader: name: string -> unit
+        abstract write: chunk: obj * ?encoding: string -> obj
+        abstract addTrailers: headers: obj -> unit
+        abstract ``end``: unit -> unit
+        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
+        abstract ``end``: str: string * ?cb: Function -> unit
+        abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
+        abstract ``end``: ?data: obj * ?encoding: string -> unit
+
+    and [<AllowNullLiteral>] ClientRequest =
+        inherit stream_types.Writable
+        abstract write: buffer: Buffer -> bool
+        abstract write: buffer: Buffer * ?cb: Function -> bool
+        abstract write: str: string * ?cb: Function -> bool
+        abstract write: str: string * ?encoding: string * ?cb: Function -> bool
+        abstract write: str: string * ?encoding: string * ?fd: string -> bool
+        abstract write: chunk: obj * ?encoding: string -> unit
+        abstract abort: unit -> unit
+        abstract setTimeout: timeout: float * ?callback: Function -> unit
+        abstract setNoDelay: ?noDelay: bool -> unit
+        abstract setSocketKeepAlive: ?enable: bool * ?initialDelay: float -> unit
+        abstract setHeader: name: string * value: U2<string, ResizeArray<string>> -> unit
+        abstract getHeader: name: string -> string
+        abstract removeHeader: name: string -> unit
+        abstract addTrailers: headers: obj -> unit
+        abstract ``end``: unit -> unit
+        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
+        abstract ``end``: str: string * ?cb: Function -> unit
+        abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
+        abstract ``end``: ?data: obj * ?encoding: string -> unit
+
+    and [<AllowNullLiteral>] IncomingMessage =
+        inherit stream_types.Readable
+        abstract httpVersion: string with get, set
+        abstract httpVersionMajor: float with get, set
+        abstract httpVersionMinor: float with get, set
+        abstract connection: net_types.Socket with get, set
+        abstract headers: obj with get, set
+        abstract rawHeaders: ResizeArray<string> with get, set
+        abstract trailers: obj with get, set
+        abstract rawTrailers: obj with get, set
+        abstract ``method``: string option with get, set
+        abstract url: string option with get, set
+        abstract statusCode: float option with get, set
+        abstract statusMessage: string option with get, set
+        abstract socket: net_types.Socket with get, set
+        abstract setTimeout: msecs: float * callback: Function -> NodeJS.Timer
+        abstract destroy: ?error: Error -> unit
+
+    and [<AllowNullLiteral>] ClientResponse =
+        inherit IncomingMessage
+
+
+    and [<AllowNullLiteral>] AgentOptions =
+        abstract keepAlive: bool option with get, set
+        abstract keepAliveMsecs: float option with get, set
+        abstract maxSockets: float option with get, set
+        abstract maxFreeSockets: float option with get, set
+
+    and [<AllowNullLiteral>] [<Import("Agent","http")>] Agent(?opts: AgentOptions) =
+        member __.maxSockets with get(): float = jsNative and set(v: float): unit = jsNative
+        member __.sockets with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.requests with get(): obj = jsNative and set(v: obj): unit = jsNative
+        member __.destroy(): unit = jsNative
+
+    and [<AllowNullLiteral>] STATUS_CODESType =
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: errorCode: float -> string with get, set
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: errorCode: string -> string with get, set
+
+    type [<Import("*","http")>] Globals =
+        static member METHODS with get(): ResizeArray<string> = jsNative and set(v: ResizeArray<string>): unit = jsNative
+        static member STATUS_CODES with get(): STATUS_CODESType = jsNative and set(v: STATUS_CODESType): unit = jsNative
+        static member globalAgent with get(): Agent = jsNative and set(v: Agent): unit = jsNative
+        static member createServer(?requestListener: Func<IncomingMessage, ServerResponse, unit>): Server = jsNative
+        static member createClient(?port: float, ?host: string): obj = jsNative
+        static member request(options: RequestOptions, ?callback: Func<IncomingMessage, unit>): ClientRequest = jsNative
+        static member get(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = jsNative
+
+
+
+module zlib =
+    type [<AllowNullLiteral>] ZlibOptions =
+        abstract chunkSize: float option with get, set
+        abstract windowBits: float option with get, set
+        abstract level: float option with get, set
+        abstract memLevel: float option with get, set
+        abstract strategy: float option with get, set
+        abstract dictionary: obj option with get, set
+        abstract finishFlush: float option with get, set
+
+    and [<AllowNullLiteral>] Gzip =
+        inherit stream_types.Transform
+
+
+    and [<AllowNullLiteral>] Gunzip =
+        inherit stream_types.Transform
+
+
+    and [<AllowNullLiteral>] Deflate =
+        inherit stream_types.Transform
+
+
+    and [<AllowNullLiteral>] Inflate =
+        inherit stream_types.Transform
+
+
+    and [<AllowNullLiteral>] DeflateRaw =
+        inherit stream_types.Transform
+
+
+    and [<AllowNullLiteral>] InflateRaw =
+        inherit stream_types.Transform
+
+
+    and [<AllowNullLiteral>] Unzip =
+        inherit stream_types.Transform
+
+
+    type [<Import("*","zlib")>] Globals =
+        static member Z_NO_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_PARTIAL_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_SYNC_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_FULL_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_FINISH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_BLOCK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_TREES with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_OK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_STREAM_END with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_NEED_DICT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_ERRNO with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_STREAM_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_DATA_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_MEM_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_BUF_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_VERSION_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_NO_COMPRESSION with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_BEST_SPEED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_BEST_COMPRESSION with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_DEFAULT_COMPRESSION with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_FILTERED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_HUFFMAN_ONLY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_RLE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_FIXED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_DEFAULT_STRATEGY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_BINARY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_TEXT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_ASCII with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_UNKNOWN with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_DEFLATED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Z_NULL with get(): float = jsNative and set(v: float): unit = jsNative
+        static member createGzip(?options: ZlibOptions): Gzip = jsNative
+        static member createGunzip(?options: ZlibOptions): Gunzip = jsNative
+        static member createDeflate(?options: ZlibOptions): Deflate = jsNative
+        static member createInflate(?options: ZlibOptions): Inflate = jsNative
+        static member createDeflateRaw(?options: ZlibOptions): DeflateRaw = jsNative
+        static member createInflateRaw(?options: ZlibOptions): InflateRaw = jsNative
+        static member createUnzip(?options: ZlibOptions): Unzip = jsNative
+        static member deflate(buf: U2<Buffer, string>, callback: Func<Error, Buffer, unit>): unit = jsNative
+        static member deflateSync(buf: U2<Buffer, string>, ?options: ZlibOptions): Buffer = jsNative
+        static member deflateRaw(buf: U2<Buffer, string>, callback: Func<Error, Buffer, unit>): unit = jsNative
+        static member deflateRawSync(buf: U2<Buffer, string>, ?options: ZlibOptions): Buffer = jsNative
+        static member gzip(buf: Buffer, callback: Func<Error, Buffer, unit>): unit = jsNative
+        static member gzipSync(buf: Buffer, ?options: ZlibOptions): Buffer = jsNative
+        static member gunzip(buf: Buffer, callback: Func<Error, Buffer, unit>): unit = jsNative
+        static member gunzipSync(buf: Buffer, ?options: ZlibOptions): Buffer = jsNative
+        static member inflate(buf: Buffer, callback: Func<Error, Buffer, unit>): unit = jsNative
+        static member inflateSync(buf: Buffer, ?options: ZlibOptions): Buffer = jsNative
+        static member inflateRaw(buf: Buffer, callback: Func<Error, Buffer, unit>): unit = jsNative
+        static member inflateRawSync(buf: Buffer, ?options: ZlibOptions): Buffer = jsNative
+        static member unzip(buf: Buffer, callback: Func<Error, Buffer, unit>): unit = jsNative
+        static member unzipSync(buf: Buffer, ?options: ZlibOptions): Buffer = jsNative
+
+
+module os =
+    type [<AllowNullLiteral>] CpuInfo =
+        abstract model: string with get, set
+        abstract speed: float with get, set
+        abstract times: obj with get, set
+
+    and [<AllowNullLiteral>] NetworkInterfaceInfo =
+        abstract address: string with get, set
+        abstract netmask: string with get, set
+        abstract family: string with get, set
+        abstract mac: string with get, set
+        abstract ``internal``: bool with get, set
+
+    and [<AllowNullLiteral>] constantsType =
+        abstract UV_UDP_REUSEADDR: float with get, set
+        abstract errno: obj with get, set
+        abstract signals: obj with get, set
+
+    type [<Import("*","os")>] Globals =
+        static member constants with get(): constantsType = jsNative and set(v: constantsType): unit = jsNative
+        static member EOL with get(): string = jsNative and set(v: string): unit = jsNative
+        static member hostname(): string = jsNative
+        static member loadavg(): ResizeArray<float> = jsNative
+        static member uptime(): float = jsNative
+        static member freemem(): float = jsNative
+        static member totalmem(): float = jsNative
+        static member cpus(): ResizeArray<CpuInfo> = jsNative
+        static member ``type``(): string = jsNative
+        static member release(): string = jsNative
+        static member networkInterfaces(): obj = jsNative
+        static member homedir(): string = jsNative
+        static member userInfo(?options: obj): obj = jsNative
+        static member arch(): string = jsNative
+        static member platform(): NodeJS.Platform = jsNative
+        static member tmpdir(): string = jsNative
+        static member endianness(): (* TODO StringEnum BE | LE *) string = jsNative
+
+module vm =
+    type [<AllowNullLiteral>] Context =
+        interface end
+
+    and [<AllowNullLiteral>] ScriptOptions =
+        abstract filename: string option with get, set
+        abstract lineOffset: float option with get, set
+        abstract columnOffset: float option with get, set
+        abstract displayErrors: bool option with get, set
+        abstract timeout: float option with get, set
+        abstract cachedData: Buffer option with get, set
+        abstract produceCachedData: bool option with get, set
+
+    and [<AllowNullLiteral>] RunningScriptOptions =
+        abstract filename: string option with get, set
+        abstract lineOffset: float option with get, set
+        abstract columnOffset: float option with get, set
+        abstract displayErrors: bool option with get, set
+        abstract timeout: float option with get, set
+
+    and [<AllowNullLiteral>] [<Import("Script","vm")>] Script(code: string, ?options: ScriptOptions) =
+        member __.runInContext(contextifiedSandbox: Context, ?options: RunningScriptOptions): obj = jsNative
+        member __.runInNewContext(?sandbox: Context, ?options: RunningScriptOptions): obj = jsNative
+        member __.runInThisContext(?options: RunningScriptOptions): obj = jsNative
+
+    type [<Import("*","vm")>] Globals =
+        static member createContext(?sandbox: Context): Context = jsNative
+        static member isContext(sandbox: Context): bool = jsNative
+        static member runInContext(code: string, contextifiedSandbox: Context, ?options: RunningScriptOptions): obj = jsNative
+        static member runInDebugContext(code: string): obj = jsNative
+        static member runInNewContext(code: string, ?sandbox: Context, ?options: RunningScriptOptions): obj = jsNative
+        static member runInThisContext(code: string, ?options: RunningScriptOptions): obj = jsNative
+
+module child_process_types =
+    type [<AllowNullLiteral>] ChildProcess =
+        inherit event_types.EventEmitter
+        abstract stdin: stream_types.Writable with get, set
+        abstract stdout: stream_types.Readable with get, set
+        abstract stderr: stream_types.Readable with get, set
+        abstract stdio: U2<stream_types.Readable,stream_types.Writable>[] with get, set
+        abstract pid: float with get, set
+        abstract kill: ?signal: string -> unit
+        abstract send: message: obj * ?sendHandle: obj -> unit
+        abstract disconnect: unit -> unit
+        abstract unref: unit -> unit
+
+    type Globals =
+        member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
+        member __.exec(command: string, options: obj, ?callback: Func<Error option, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.exec(command: string, ?callback: Func<Error option, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.execFile(file: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.fork(modulePath: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
+        member __.spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = jsNative
+        member __.execSync(command: string, ?options: obj): U2<string, Buffer> = jsNative
+        member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, Buffer> = jsNative
+
+let [<Import("*","child_process")>] child_process: child_process_types.Globals = jsNative
+
+
+module cluster_types =
+    type [<AllowNullLiteral>] ClusterSettings =
+        abstract exec: string option with get, set
+        abstract args: ResizeArray<string> option with get, set
+        abstract silent: bool option with get, set
+
+    and [<AllowNullLiteral>] [<Import("Worker","cluster")>] Worker =
+        inherit event_types.EventEmitter
+        abstract id: string with get, set
+        abstract ``process``: child_process_types.ChildProcess with get, set
+        abstract suicide: bool with get, set
+        abstract send: message: obj * ?sendHandle: obj -> unit
+        abstract kill: ?signal: string -> unit
+        abstract destroy: ?signal: string -> unit
+        abstract disconnect: unit -> unit
+
+    type Globals =
+        member __.settings with get(): ClusterSettings = jsNative and set(v: ClusterSettings): unit = jsNative
+        member __.isMaster with get(): bool = jsNative and set(v: bool): unit = jsNative
+        member __.isWorker with get(): bool = jsNative and set(v: bool): unit = jsNative
+        member __.worker with get(): Worker = jsNative and set(v: Worker): unit = jsNative
+        member __.workers with get(): ResizeArray<Worker> = jsNative and set(v: ResizeArray<Worker>): unit = jsNative
+        member __.setupMaster(?settings: ClusterSettings): unit = jsNative
+        member __.fork(?env: obj): Worker = jsNative
+        member __.disconnect(?callback: Function): unit = jsNative
+        member __.addListener(``event``: string, listener: Function): unit = jsNative
+        member __.on(``event``: string, listener: Function): obj = jsNative
+        member __.once(``event``: string, listener: Function): unit = jsNative
+        member __.removeListener(``event``: string, listener: Function): unit = jsNative
+        member __.removeAllListeners(?``event``: string): unit = jsNative
+        member __.setMaxListeners(n: float): unit = jsNative
+        member __.listeners(``event``: string): ResizeArray<Function> = jsNative
+        member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = jsNative
+
+let [<Import("*","cluster")>] cluster: cluster_types.Globals = jsNative
+
+module url =
+    type [<AllowNullLiteral>] Url =
+        abstract href: string option with get, set
+        abstract protocol: string option with get, set
+        abstract auth: string option with get, set
+        abstract hostname: string option with get, set
+        abstract port: string option with get, set
+        abstract host: string option with get, set
+        abstract pathname: string option with get, set
+        abstract search: string option with get, set
+        abstract query: U2<string, obj> option with get, set
+        abstract slashes: bool option with get, set
+        abstract hash: string option with get, set
+        abstract path: string option with get, set
+
+    type [<Import("*","url")>] Globals =
+        static member parse(urlStr: string, ?parseQueryString: bool, ?slashesDenoteHost: bool): Url = jsNative
+        static member format(url: Url): string = jsNative
+        static member resolve(from: string, ``to``: string): string = jsNative
+
+
+
+module dns =
+    type [<AllowNullLiteral>] MxRecord =
+        abstract exchange: string with get, set
+        abstract priority: float with get, set
+
+    type [<Import("*","dns")>] Globals =
+        static member NODATA with get(): string = jsNative and set(v: string): unit = jsNative
+        static member FORMERR with get(): string = jsNative and set(v: string): unit = jsNative
+        static member SERVFAIL with get(): string = jsNative and set(v: string): unit = jsNative
+        static member NOTFOUND with get(): string = jsNative and set(v: string): unit = jsNative
+        static member NOTIMP with get(): string = jsNative and set(v: string): unit = jsNative
+        static member REFUSED with get(): string = jsNative and set(v: string): unit = jsNative
+        static member BADQUERY with get(): string = jsNative and set(v: string): unit = jsNative
+        static member BADNAME with get(): string = jsNative and set(v: string): unit = jsNative
+        static member BADFAMILY with get(): string = jsNative and set(v: string): unit = jsNative
+        static member BADRESP with get(): string = jsNative and set(v: string): unit = jsNative
+        static member CONNREFUSED with get(): string = jsNative and set(v: string): unit = jsNative
+        static member TIMEOUT with get(): string = jsNative and set(v: string): unit = jsNative
+        static member EOF with get(): string = jsNative and set(v: string): unit = jsNative
+        static member FILE with get(): string = jsNative and set(v: string): unit = jsNative
+        static member NOMEM with get(): string = jsNative and set(v: string): unit = jsNative
+        static member DESTRUCTION with get(): string = jsNative and set(v: string): unit = jsNative
+        static member BADSTR with get(): string = jsNative and set(v: string): unit = jsNative
+        static member BADFLAGS with get(): string = jsNative and set(v: string): unit = jsNative
+        static member NONAME with get(): string = jsNative and set(v: string): unit = jsNative
+        static member BADHINTS with get(): string = jsNative and set(v: string): unit = jsNative
+        static member NOTINITIALIZED with get(): string = jsNative and set(v: string): unit = jsNative
+        static member LOADIPHLPAPI with get(): string = jsNative and set(v: string): unit = jsNative
+        static member ADDRGETNETWORKPARAMS with get(): string = jsNative and set(v: string): unit = jsNative
+        static member CANCELLED with get(): string = jsNative and set(v: string): unit = jsNative
+        static member lookup(domain: string, family: float, callback: Func<Error, string, float, unit>): string = jsNative
+        static member lookup(domain: string, callback: Func<Error, string, float, unit>): string = jsNative
+        static member resolve(domain: string, rrtype: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        static member resolve(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        static member resolve4(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        static member resolve6(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        static member resolveMx(domain: string, callback: Func<Error, ResizeArray<MxRecord>, unit>): ResizeArray<string> = jsNative
+        static member resolveTxt(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        static member resolveSrv(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        static member resolveNs(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        static member resolveCname(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        static member reverse(ip: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
+        static member setServers(servers: ResizeArray<string>): unit = jsNative
+
+
+
+module net =
+    type [<AllowNullLiteral>] Socket =
+        inherit stream_types.Duplex
+        abstract bufferSize: float with get, set
+        abstract remoteAddress: string with get, set
+        abstract remoteFamily: string with get, set
+        abstract remotePort: float with get, set
+        abstract localAddress: string with get, set
+        abstract localPort: float with get, set
+        abstract bytesRead: float with get, set
+        abstract bytesWritten: float with get, set
+        abstract destroyed: bool with get, set
+        abstract write: buffer: Buffer -> bool
+        abstract write: buffer: Buffer * ?cb: Function -> bool
+        abstract write: str: string * ?cb: Function -> bool
+        abstract write: str: string * ?encoding: string * ?cb: Function -> bool
+        abstract write: str: string * ?encoding: string * ?fd: string -> bool
+        abstract connect: port: float * ?host: string * ?connectionListener: Function -> unit
+        abstract connect: path: string * ?connectionListener: Function -> unit
+        abstract setEncoding: ?encoding: string -> unit
+        abstract write: data: obj * ?encoding: string * ?callback: Function -> unit
+        abstract destroy: unit -> unit
+        abstract pause: unit -> Socket
+        abstract resume: unit -> Socket
+        abstract setTimeout: timeout: float * ?callback: Function -> unit
+        abstract setNoDelay: ?noDelay: bool -> unit
+        abstract setKeepAlive: ?enable: bool * ?initialDelay: float -> unit
+        abstract address: unit -> obj
+        abstract unref: unit -> unit
+        abstract ref: unit -> unit
+        abstract ``end``: unit -> unit
+        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
+        abstract ``end``: str: string * ?cb: Function -> unit
+        abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
+        abstract ``end``: ?data: obj * ?encoding: string -> unit
+        abstract addListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.addListener('close',$1...)")>] abstract addListener_close: listener: Func<bool, unit> -> obj
+        [<Emit("$0.addListener('connect',$1...)")>] abstract addListener_connect: listener: Func<unit, unit> -> obj
+        [<Emit("$0.addListener('data',$1...)")>] abstract addListener_data: listener: Func<Buffer, unit> -> obj
+        [<Emit("$0.addListener('drain',$1...)")>] abstract addListener_drain: listener: Func<unit, unit> -> obj
+        [<Emit("$0.addListener('end',$1...)")>] abstract addListener_end: listener: Func<unit, unit> -> obj
+        [<Emit("$0.addListener('error',$1...)")>] abstract addListener_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.addListener('lookup',$1...)")>] abstract addListener_lookup: listener: Func<Error, string, U2<string, float>, string, unit> -> obj
+        [<Emit("$0.addListener('timeout',$1...)")>] abstract addListener_timeout: listener: Func<unit, unit> -> obj
+        abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
+        [<Emit("$0.emit('close',$1...)")>] abstract emit_close: had_error: bool -> bool
+        [<Emit("$0.emit('connect')")>] abstract emit_connect: unit -> bool
+        [<Emit("$0.emit('data',$1...)")>] abstract emit_data: data: Buffer -> bool
+        [<Emit("$0.emit('drain')")>] abstract emit_drain: unit -> bool
+        [<Emit("$0.emit('end')")>] abstract emit_end: unit -> bool
+        [<Emit("$0.emit('error',$1...)")>] abstract emit_error: err: Error -> bool
+        [<Emit("$0.emit('lookup',$1...)")>] abstract emit_lookup: err: Error * address: string * family: U2<string, float> * host: string -> bool
+        [<Emit("$0.emit('timeout')")>] abstract emit_timeout: unit -> bool
+        abstract on: ``event``: string * listener: Function -> obj
+        [<Emit("$0.on('close',$1...)")>] abstract on_close: listener: Func<bool, unit> -> obj
+        [<Emit("$0.on('connect',$1...)")>] abstract on_connect: listener: Func<unit, unit> -> obj
+        [<Emit("$0.on('data',$1...)")>] abstract on_data: listener: Func<Buffer, unit> -> obj
+        [<Emit("$0.on('drain',$1...)")>] abstract on_drain: listener: Func<unit, unit> -> obj
+        [<Emit("$0.on('end',$1...)")>] abstract on_end: listener: Func<unit, unit> -> obj
+        [<Emit("$0.on('error',$1...)")>] abstract on_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.on('lookup',$1...)")>] abstract on_lookup: listener: Func<Error, string, U2<string, float>, string, unit> -> obj
+        [<Emit("$0.on('timeout',$1...)")>] abstract on_timeout: listener: Func<unit, unit> -> obj
+        abstract once: ``event``: string * listener: Function -> obj
+        [<Emit("$0.once('close',$1...)")>] abstract once_close: listener: Func<bool, unit> -> obj
+        [<Emit("$0.once('connect',$1...)")>] abstract once_connect: listener: Func<unit, unit> -> obj
+        [<Emit("$0.once('data',$1...)")>] abstract once_data: listener: Func<Buffer, unit> -> obj
+        [<Emit("$0.once('drain',$1...)")>] abstract once_drain: listener: Func<unit, unit> -> obj
+        [<Emit("$0.once('end',$1...)")>] abstract once_end: listener: Func<unit, unit> -> obj
+        [<Emit("$0.once('error',$1...)")>] abstract once_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.once('lookup',$1...)")>] abstract once_lookup: listener: Func<Error, string, U2<string, float>, string, unit> -> obj
+        [<Emit("$0.once('timeout',$1...)")>] abstract once_timeout: listener: Func<unit, unit> -> obj
+        abstract prependListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependListener('close',$1...)")>] abstract prependListener_close: listener: Func<bool, unit> -> obj
+        [<Emit("$0.prependListener('connect',$1...)")>] abstract prependListener_connect: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependListener('data',$1...)")>] abstract prependListener_data: listener: Func<Buffer, unit> -> obj
+        [<Emit("$0.prependListener('drain',$1...)")>] abstract prependListener_drain: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependListener('end',$1...)")>] abstract prependListener_end: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependListener('error',$1...)")>] abstract prependListener_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.prependListener('lookup',$1...)")>] abstract prependListener_lookup: listener: Func<Error, string, U2<string, float>, string, unit> -> obj
+        [<Emit("$0.prependListener('timeout',$1...)")>] abstract prependListener_timeout: listener: Func<unit, unit> -> obj
+        abstract prependOnceListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependOnceListener('close',$1...)")>] abstract prependOnceListener_close: listener: Func<bool, unit> -> obj
+        [<Emit("$0.prependOnceListener('connect',$1...)")>] abstract prependOnceListener_connect: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependOnceListener('data',$1...)")>] abstract prependOnceListener_data: listener: Func<Buffer, unit> -> obj
+        [<Emit("$0.prependOnceListener('drain',$1...)")>] abstract prependOnceListener_drain: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependOnceListener('end',$1...)")>] abstract prependOnceListener_end: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependOnceListener('error',$1...)")>] abstract prependOnceListener_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.prependOnceListener('lookup',$1...)")>] abstract prependOnceListener_lookup: listener: Func<Error, string, U2<string, float>, string, unit> -> obj
+        [<Emit("$0.prependOnceListener('timeout',$1...)")>] abstract prependOnceListener_timeout: listener: Func<unit, unit> -> obj
+
+    and [<AllowNullLiteral>] SocketType =
+        [<Emit("new $0($1...)")>] abstract Create: ?options: obj -> Socket
+
+    and [<AllowNullLiteral>] ListenOptions =
+        abstract port: float option with get, set
+        abstract host: string option with get, set
+        abstract backlog: float option with get, set
+        abstract path: string option with get, set
+        abstract exclusive: bool option with get, set
+
+    and [<AllowNullLiteral>] Server =
+        inherit event_types.EventEmitter
+        abstract maxConnections: float with get, set
+        abstract connections: float with get, set
+        abstract listen: port: float * ?hostname: string * ?backlog: float * ?listeningListener: Function -> Server
+        abstract listen: port: float * ?hostname: string * ?listeningListener: Function -> Server
+        abstract listen: port: float * ?backlog: float * ?listeningListener: Function -> Server
+        abstract listen: port: float * ?listeningListener: Function -> Server
+        abstract listen: path: string * ?backlog: float * ?listeningListener: Function -> Server
+        abstract listen: path: string * ?listeningListener: Function -> Server
+        abstract listen: options: ListenOptions * ?listeningListener: Function -> Server
+        abstract listen: handle: obj * ?backlog: float * ?listeningListener: Function -> Server
+        abstract listen: handle: obj * ?listeningListener: Function -> Server
+        abstract close: ?callback: Function -> Server
+        abstract address: unit -> obj
+        abstract getConnections: cb: Func<Error, float, unit> -> unit
+        abstract ref: unit -> Server
+        abstract unref: unit -> Server
+        abstract addListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.addListener('close',$1...)")>] abstract addListener_close: listener: Func<unit, unit> -> obj
+        [<Emit("$0.addListener('connection',$1...)")>] abstract addListener_connection: listener: Func<Socket, unit> -> obj
+        [<Emit("$0.addListener('error',$1...)")>] abstract addListener_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.addListener('listening',$1...)")>] abstract addListener_listening: listener: Func<unit, unit> -> obj
+        abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
+        [<Emit("$0.emit('close')")>] abstract emit_close: unit -> bool
+        [<Emit("$0.emit('connection',$1...)")>] abstract emit_connection: socket: Socket -> bool
+        [<Emit("$0.emit('error',$1...)")>] abstract emit_error: err: Error -> bool
+        [<Emit("$0.emit('listening')")>] abstract emit_listening: unit -> bool
+        abstract on: ``event``: string * listener: Function -> obj
+        [<Emit("$0.on('close',$1...)")>] abstract on_close: listener: Func<unit, unit> -> obj
+        [<Emit("$0.on('connection',$1...)")>] abstract on_connection: listener: Func<Socket, unit> -> obj
+        [<Emit("$0.on('error',$1...)")>] abstract on_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.on('listening',$1...)")>] abstract on_listening: listener: Func<unit, unit> -> obj
+        abstract once: ``event``: string * listener: Function -> obj
+        [<Emit("$0.once('close',$1...)")>] abstract once_close: listener: Func<unit, unit> -> obj
+        [<Emit("$0.once('connection',$1...)")>] abstract once_connection: listener: Func<Socket, unit> -> obj
+        [<Emit("$0.once('error',$1...)")>] abstract once_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.once('listening',$1...)")>] abstract once_listening: listener: Func<unit, unit> -> obj
+        abstract prependListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependListener('close',$1...)")>] abstract prependListener_close: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependListener('connection',$1...)")>] abstract prependListener_connection: listener: Func<Socket, unit> -> obj
+        [<Emit("$0.prependListener('error',$1...)")>] abstract prependListener_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.prependListener('listening',$1...)")>] abstract prependListener_listening: listener: Func<unit, unit> -> obj
+        abstract prependOnceListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependOnceListener('close',$1...)")>] abstract prependOnceListener_close: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependOnceListener('connection',$1...)")>] abstract prependOnceListener_connection: listener: Func<Socket, unit> -> obj
+        [<Emit("$0.prependOnceListener('error',$1...)")>] abstract prependOnceListener_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.prependOnceListener('listening',$1...)")>] abstract prependOnceListener_listening: listener: Func<unit, unit> -> obj
+
+    type [<Import("*","net")>] Globals =
+        static member Socket with get(): SocketType = jsNative and set(v: SocketType): unit = jsNative
+        static member createServer(?connectionListener: Func<Socket, unit>): Server = jsNative
+        static member createServer(?options: obj, ?connectionListener: Func<Socket, unit>): Server = jsNative
+        static member connect(options: obj, ?connectionListener: Function): Socket = jsNative
+        static member connect(port: float, ?host: string, ?connectionListener: Function): Socket = jsNative
+        static member connect(path: string, ?connectionListener: Function): Socket = jsNative
+        static member createConnection(options: obj, ?connectionListener: Function): Socket = jsNative
+        static member createConnection(port: float, ?host: string, ?connectionListener: Function): Socket = jsNative
+        static member createConnection(path: string, ?connectionListener: Function): Socket = jsNative
+        static member isIP(input: string): float = jsNative
+        static member isIPv4(input: string): bool = jsNative
+        static member isIPv6(input: string): bool = jsNative
+
+
+
+module dgram =
+    type [<AllowNullLiteral>] RemoteInfo =
+        abstract address: string with get, set
+        abstract family: string with get, set
+        abstract port: float with get, set
+
+    and [<AllowNullLiteral>] AddressInfo =
+        abstract address: string with get, set
+        abstract family: string with get, set
+        abstract port: float with get, set
+
+    and [<AllowNullLiteral>] BindOptions =
+        abstract port: float with get, set
+        abstract address: string option with get, set
+        abstract exclusive: bool option with get, set
+
+    and [<AllowNullLiteral>] SocketOptions =
+        abstract ``type``: (* TODO StringEnum udp4 | udp6 *) string with get, set
+        abstract reuseAddr: bool option with get, set
+
+    and [<AllowNullLiteral>] Socket =
+        inherit event_types.EventEmitter
+        abstract send: msg: U3<Buffer, string, ResizeArray<obj>> * port: float * address: string * ?callback: Func<Error, float, unit> -> unit
+        abstract send: msg: U3<Buffer, string, ResizeArray<obj>> * offset: float * length: float * port: float * address: string * ?callback: Func<Error, float, unit> -> unit
+        abstract bind: ?port: float * ?address: string * ?callback: Func<unit, unit> -> unit
+        abstract bind: options: BindOptions * ?callback: Function -> unit
+        abstract close: ?callback: obj -> unit
+        abstract address: unit -> AddressInfo
+        abstract setBroadcast: flag: bool -> unit
+        abstract setTTL: ttl: float -> unit
+        abstract setMulticastTTL: ttl: float -> unit
+        abstract setMulticastLoopback: flag: bool -> unit
+        abstract addMembership: multicastAddress: string * ?multicastInterface: string -> unit
+        abstract dropMembership: multicastAddress: string * ?multicastInterface: string -> unit
+        abstract ref: unit -> obj
+        abstract unref: unit -> obj
+        abstract addListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.addListener('close',$1...)")>] abstract addListener_close: listener: Func<unit, unit> -> obj
+        [<Emit("$0.addListener('error',$1...)")>] abstract addListener_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.addListener('listening',$1...)")>] abstract addListener_listening: listener: Func<unit, unit> -> obj
+        [<Emit("$0.addListener('message',$1...)")>] abstract addListener_message: listener: Func<Buffer, AddressInfo, unit> -> obj
+        abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
+        [<Emit("$0.emit('close')")>] abstract emit_close: unit -> bool
+        [<Emit("$0.emit('error',$1...)")>] abstract emit_error: err: Error -> bool
+        [<Emit("$0.emit('listening')")>] abstract emit_listening: unit -> bool
+        [<Emit("$0.emit('message',$1...)")>] abstract emit_message: msg: Buffer * rinfo: AddressInfo -> bool
+        abstract on: ``event``: string * listener: Function -> obj
+        [<Emit("$0.on('close',$1...)")>] abstract on_close: listener: Func<unit, unit> -> obj
+        [<Emit("$0.on('error',$1...)")>] abstract on_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.on('listening',$1...)")>] abstract on_listening: listener: Func<unit, unit> -> obj
+        [<Emit("$0.on('message',$1...)")>] abstract on_message: listener: Func<Buffer, AddressInfo, unit> -> obj
+        abstract once: ``event``: string * listener: Function -> obj
+        [<Emit("$0.once('close',$1...)")>] abstract once_close: listener: Func<unit, unit> -> obj
+        [<Emit("$0.once('error',$1...)")>] abstract once_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.once('listening',$1...)")>] abstract once_listening: listener: Func<unit, unit> -> obj
+        [<Emit("$0.once('message',$1...)")>] abstract once_message: listener: Func<Buffer, AddressInfo, unit> -> obj
+        abstract prependListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependListener('close',$1...)")>] abstract prependListener_close: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependListener('error',$1...)")>] abstract prependListener_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.prependListener('listening',$1...)")>] abstract prependListener_listening: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependListener('message',$1...)")>] abstract prependListener_message: listener: Func<Buffer, AddressInfo, unit> -> obj
+        abstract prependOnceListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependOnceListener('close',$1...)")>] abstract prependOnceListener_close: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependOnceListener('error',$1...)")>] abstract prependOnceListener_error: listener: Func<Error, unit> -> obj
+        [<Emit("$0.prependOnceListener('listening',$1...)")>] abstract prependOnceListener_listening: listener: Func<unit, unit> -> obj
+        [<Emit("$0.prependOnceListener('message',$1...)")>] abstract prependOnceListener_message: listener: Func<Buffer, AddressInfo, unit> -> obj
+
+    type [<Import("*","dgram")>] Globals =
+        static member createSocket(``type``: string, ?callback: Func<Buffer, RemoteInfo, unit>): Socket = jsNative
+        static member createSocket(options: SocketOptions, ?callback: Func<Buffer, RemoteInfo, unit>): Socket = jsNative
+
+
+
+module fs =
+    type [<AllowNullLiteral>] Stats =
+        abstract dev: float with get, set
+        abstract ino: float with get, set
+        abstract mode: float with get, set
+        abstract nlink: float with get, set
+        abstract uid: float with get, set
+        abstract gid: float with get, set
+        abstract rdev: float with get, set
+        abstract size: float with get, set
+        abstract blksize: float with get, set
+        abstract blocks: float with get, set
+        abstract atime: DateTime with get, set
+        abstract mtime: DateTime with get, set
+        abstract ctime: DateTime with get, set
+        abstract birthtime: DateTime with get, set
+        abstract isFile: unit -> bool
+        abstract isDirectory: unit -> bool
+        abstract isBlockDevice: unit -> bool
+        abstract isCharacterDevice: unit -> bool
+        abstract isSymbolicLink: unit -> bool
+        abstract isFIFO: unit -> bool
+        abstract isSocket: unit -> bool
+
+    and [<AllowNullLiteral>] FSWatcher =
+        inherit event_types.EventEmitter
+        abstract close: unit -> unit
+        abstract addListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.addListener('change',$1...)")>] abstract addListener_change: listener: Func<string, U2<string, Buffer>, unit> -> obj
+        [<Emit("$0.addListener('error',$1...)")>] abstract addListener_error: listener: Func<float, string, unit> -> obj
+        abstract on: ``event``: string * listener: Function -> obj
+        [<Emit("$0.on('change',$1...)")>] abstract on_change: listener: Func<string, U2<string, Buffer>, unit> -> obj
+        [<Emit("$0.on('error',$1...)")>] abstract on_error: listener: Func<float, string, unit> -> obj
+        abstract once: ``event``: string * listener: Function -> obj
+        [<Emit("$0.once('change',$1...)")>] abstract once_change: listener: Func<string, U2<string, Buffer>, unit> -> obj
+        [<Emit("$0.once('error',$1...)")>] abstract once_error: listener: Func<float, string, unit> -> obj
+        abstract prependListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependListener('change',$1...)")>] abstract prependListener_change: listener: Func<string, U2<string, Buffer>, unit> -> obj
+        [<Emit("$0.prependListener('error',$1...)")>] abstract prependListener_error: listener: Func<float, string, unit> -> obj
+        abstract prependOnceListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependOnceListener('change',$1...)")>] abstract prependOnceListener_change: listener: Func<string, U2<string, Buffer>, unit> -> obj
+        [<Emit("$0.prependOnceListener('error',$1...)")>] abstract prependOnceListener_error: listener: Func<float, string, unit> -> obj
+
+    and [<AllowNullLiteral>] ReadStream =
+        inherit stream_types.Readable
+        abstract bytesRead: float with get, set
+        abstract path: U2<string, Buffer> with get, set
+        abstract close: unit -> unit
+        abstract destroy: unit -> unit
+        abstract addListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.addListener('open',$1...)")>] abstract addListener_open: listener: Func<float, unit> -> obj
+        [<Emit("$0.addListener('close',$1...)")>] abstract addListener_close: listener: Func<unit, unit> -> obj
+        abstract on: ``event``: string * listener: Function -> obj
+        [<Emit("$0.on('open',$1...)")>] abstract on_open: listener: Func<float, unit> -> obj
+        [<Emit("$0.on('close',$1...)")>] abstract on_close: listener: Func<unit, unit> -> obj
+        abstract once: ``event``: string * listener: Function -> obj
+        [<Emit("$0.once('open',$1...)")>] abstract once_open: listener: Func<float, unit> -> obj
+        [<Emit("$0.once('close',$1...)")>] abstract once_close: listener: Func<unit, unit> -> obj
+        abstract prependListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependListener('open',$1...)")>] abstract prependListener_open: listener: Func<float, unit> -> obj
+        [<Emit("$0.prependListener('close',$1...)")>] abstract prependListener_close: listener: Func<unit, unit> -> obj
+        abstract prependOnceListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependOnceListener('open',$1...)")>] abstract prependOnceListener_open: listener: Func<float, unit> -> obj
+        [<Emit("$0.prependOnceListener('close',$1...)")>] abstract prependOnceListener_close: listener: Func<unit, unit> -> obj
+
+    and [<AllowNullLiteral>] WriteStream =
+        inherit stream_types.Writable
+        abstract bytesWritten: float with get, set
+        abstract path: U2<string, Buffer> with get, set
+        abstract close: unit -> unit
+        abstract addListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.addListener('open',$1...)")>] abstract addListener_open: listener: Func<float, unit> -> obj
+        [<Emit("$0.addListener('close',$1...)")>] abstract addListener_close: listener: Func<unit, unit> -> obj
+        abstract on: ``event``: string * listener: Function -> obj
+        [<Emit("$0.on('open',$1...)")>] abstract on_open: listener: Func<float, unit> -> obj
+        [<Emit("$0.on('close',$1...)")>] abstract on_close: listener: Func<unit, unit> -> obj
+        abstract once: ``event``: string * listener: Function -> obj
+        [<Emit("$0.once('open',$1...)")>] abstract once_open: listener: Func<float, unit> -> obj
+        [<Emit("$0.once('close',$1...)")>] abstract once_close: listener: Func<unit, unit> -> obj
+        abstract prependListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependListener('open',$1...)")>] abstract prependListener_open: listener: Func<float, unit> -> obj
+        [<Emit("$0.prependListener('close',$1...)")>] abstract prependListener_close: listener: Func<unit, unit> -> obj
+        abstract prependOnceListener: ``event``: string * listener: Function -> obj
+        [<Emit("$0.prependOnceListener('open',$1...)")>] abstract prependOnceListener_open: listener: Func<float, unit> -> obj
+        [<Emit("$0.prependOnceListener('close',$1...)")>] abstract prependOnceListener_close: listener: Func<unit, unit> -> obj
+
+    type [<Import("*","fs")>] Globals =
+        static member rename(oldPath: string, newPath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member renameSync(oldPath: string, newPath: string): unit = jsNative
+        static member truncate(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member truncate(path: U2<string, Buffer>, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member truncateSync(path: U2<string, Buffer>, ?len: float): unit = jsNative
+        static member ftruncate(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member ftruncate(fd: float, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member ftruncateSync(fd: float, ?len: float): unit = jsNative
+        static member chown(path: U2<string, Buffer>, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member chownSync(path: U2<string, Buffer>, uid: float, gid: float): unit = jsNative
+        static member fchown(fd: float, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member fchownSync(fd: float, uid: float, gid: float): unit = jsNative
+        static member lchown(path: U2<string, Buffer>, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member lchownSync(path: U2<string, Buffer>, uid: float, gid: float): unit = jsNative
+        static member chmod(path: U2<string, Buffer>, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member chmod(path: U2<string, Buffer>, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member chmodSync(path: U2<string, Buffer>, mode: float): unit = jsNative
+        static member chmodSync(path: U2<string, Buffer>, mode: string): unit = jsNative
+        static member fchmod(fd: float, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member fchmod(fd: float, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member fchmodSync(fd: float, mode: float): unit = jsNative
+        static member fchmodSync(fd: float, mode: string): unit = jsNative
+        static member lchmod(path: U2<string, Buffer>, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member lchmod(path: U2<string, Buffer>, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member lchmodSync(path: U2<string, Buffer>, mode: float): unit = jsNative
+        static member lchmodSync(path: U2<string, Buffer>, mode: string): unit = jsNative
+        static member stat(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
+        static member lstat(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
+        static member fstat(fd: float, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
+        static member statSync(path: U2<string, Buffer>): Stats = jsNative
+        static member lstatSync(path: U2<string, Buffer>): Stats = jsNative
+        static member fstatSync(fd: float): Stats = jsNative
+        static member link(srcpath: U2<string, Buffer>, dstpath: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member linkSync(srcpath: U2<string, Buffer>, dstpath: U2<string, Buffer>): unit = jsNative
+        static member symlink(srcpath: U2<string, Buffer>, dstpath: U2<string, Buffer>, ?``type``: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member symlinkSync(srcpath: U2<string, Buffer>, dstpath: U2<string, Buffer>, ?``type``: string): unit = jsNative
+        static member readlink(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
+        static member readlinkSync(path: U2<string, Buffer>): string = jsNative
+        static member realpath(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
+        static member realpath(path: U2<string, Buffer>, cache: obj, callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
+        static member realpathSync(path: U2<string, Buffer>, ?cache: obj): string = jsNative
+        static member unlink(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member unlinkSync(path: U2<string, Buffer>): unit = jsNative
+        static member rmdir(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member rmdirSync(path: U2<string, Buffer>): unit = jsNative
+        static member mkdir(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member mkdir(path: U2<string, Buffer>, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member mkdir(path: U2<string, Buffer>, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member mkdirSync(path: U2<string, Buffer>, ?mode: float): unit = jsNative
+        static member mkdirSync(path: U2<string, Buffer>, ?mode: string): unit = jsNative
+        static member mkdtemp(prefix: string, ?callback: Func<NodeJS.ErrnoException, string, unit>): unit = jsNative
+        static member mkdtempSync(prefix: string): string = jsNative
+        static member readdir(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, ResizeArray<string>, unit>): unit = jsNative
+        static member readdirSync(path: U2<string, Buffer>): ResizeArray<string> = jsNative
+        static member close(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member closeSync(fd: float): unit = jsNative
+        static member ``open``(path: U2<string, Buffer>, flags: U2<string, float>, callback: Func<NodeJS.ErrnoException, float, unit>): unit = jsNative
+        static member ``open``(path: U2<string, Buffer>, flags: U2<string, float>, mode: float, callback: Func<NodeJS.ErrnoException, float, unit>): unit = jsNative
+        static member openSync(path: U2<string, Buffer>, flags: U2<string, float>, ?mode: float): float = jsNative
+        static member utimes(path: U2<string, Buffer>, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member utimes(path: U2<string, Buffer>, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member utimesSync(path: U2<string, Buffer>, atime: float, mtime: float): unit = jsNative
+        static member utimesSync(path: U2<string, Buffer>, atime: DateTime, mtime: DateTime): unit = jsNative
+        static member futimes(fd: float, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member futimes(fd: float, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member futimesSync(fd: float, atime: float, mtime: float): unit = jsNative
+        static member futimesSync(fd: float, atime: DateTime, mtime: DateTime): unit = jsNative
+        static member fsync(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member fsyncSync(fd: float): unit = jsNative
+        static member write(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
+        static member write(fd: float, buffer: Buffer, offset: float, length: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
+        static member write(fd: float, data: obj, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
+        static member write(fd: float, data: obj, offset: float, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
+        static member write(fd: float, data: obj, offset: float, encoding: string, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
+        static member writeSync(fd: float, buffer: Buffer, offset: float, length: float, ?position: float): float = jsNative
+        static member writeSync(fd: float, data: obj, ?position: float, ?enconding: string): float = jsNative
+        static member read(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
+        static member readSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = jsNative
+        static member readFile(filename: string, encoding: string, callback: Func<NodeJS.ErrnoException, string, unit>): unit = jsNative
+        static member readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, string, unit>): unit = jsNative
+        static member readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = jsNative
+        static member readFile(filename: string, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = jsNative
+        static member readFileSync(filename: string, encoding: string): string = jsNative
+        static member readFileSync(filename: string, options: obj): string = jsNative
+        static member readFileSync(filename: string, ?options: obj): Buffer = jsNative
+        static member writeFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member writeFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member writeFileSync(filename: string, data: obj, ?options: obj): unit = jsNative
+        static member appendFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member appendFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member appendFileSync(filename: string, data: obj, ?options: obj): unit = jsNative
+        static member watchFile(filename: string, listener: Func<Stats, Stats, unit>): unit = jsNative
+        static member watchFile(filename: string, options: obj, listener: Func<Stats, Stats, unit>): unit = jsNative
+        static member unwatchFile(filename: string, ?listener: Func<Stats, Stats, unit>): unit = jsNative
+        static member watch(filename: string, ?listener: Func<string, string, obj>): FSWatcher = jsNative
+        static member watch(filename: string, encoding: string, ?listener: Func<string, U2<string, Buffer>, obj>): FSWatcher = jsNative
+        static member watch(filename: string, options: obj, ?listener: Func<string, U2<string, Buffer>, obj>): FSWatcher = jsNative
+        static member exists(path: U2<string, Buffer>, ?callback: Func<bool, unit>): unit = jsNative
+        static member existsSync(path: U2<string, Buffer>): bool = jsNative
+        static member access(path: U2<string, Buffer>, callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member access(path: U2<string, Buffer>, mode: float, callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member accessSync(path: U2<string, Buffer>, ?mode: float): unit = jsNative
+        static member createReadStream(path: U2<string, Buffer>, ?options: obj): ReadStream = jsNative
+        static member createWriteStream(path: U2<string, Buffer>, ?options: obj): WriteStream = jsNative
+        static member fdatasync(fd: float, callback: Function): unit = jsNative
+        static member fdatasyncSync(fd: float): unit = jsNative
+
+    module constants =
+        type [<Import("constants","fs")>] Globals =
+            static member F_OK with get(): float = jsNative and set(v: float): unit = jsNative
+            static member R_OK with get(): float = jsNative and set(v: float): unit = jsNative
+            static member W_OK with get(): float = jsNative and set(v: float): unit = jsNative
+            static member X_OK with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_RDONLY with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_WRONLY with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_RDWR with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_CREAT with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_EXCL with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_NOCTTY with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_TRUNC with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_APPEND with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_DIRECTORY with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_NOATIME with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_NOFOLLOW with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_SYNC with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_SYMLINK with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_DIRECT with get(): float = jsNative and set(v: float): unit = jsNative
+            static member O_NONBLOCK with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IFMT with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IFREG with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IFDIR with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IFCHR with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IFBLK with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IFIFO with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IFLNK with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IFSOCK with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IRWXU with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IRUSR with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IWUSR with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IXUSR with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IRWXG with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IRGRP with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IWGRP with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IXGRP with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IRWXO with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IROTH with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IWOTH with get(): float = jsNative and set(v: float): unit = jsNative
+            static member S_IXOTH with get(): float = jsNative and set(v: float): unit = jsNative
+
+
+
+module path =
+    type [<AllowNullLiteral>] ParsedPath =
+        abstract root: string with get, set
+        abstract dir: string with get, set
+        abstract ``base``: string with get, set
+        abstract ext: string with get, set
+        abstract name: string with get, set
+
+    type [<Import("*","path")>] Globals =
+        static member sep with get(): string = jsNative and set(v: string): unit = jsNative
+        static member delimiter with get(): string = jsNative and set(v: string): unit = jsNative
+        static member normalize(p: string): string = jsNative
+        static member join([<ParamArray>] paths: string[]): string = jsNative
+        static member resolve([<ParamArray>] pathSegments: obj[]): string = jsNative
+        static member isAbsolute(path: string): bool = jsNative
+        static member relative(from: string, ``to``: string): string = jsNative
+        static member dirname(p: string): string = jsNative
+        static member basename(p: string, ?ext: string): string = jsNative
+        static member extname(p: string): string = jsNative
+        static member parse(pathString: string): ParsedPath = jsNative
+        static member format(pathObject: ParsedPath): string = jsNative
+
+    module posix =
+        type [<Import("posix","path")>] Globals =
+            static member sep with get(): string = jsNative and set(v: string): unit = jsNative
+            static member delimiter with get(): string = jsNative and set(v: string): unit = jsNative
+            static member normalize(p: string): string = jsNative
+            static member join([<ParamArray>] paths: obj[]): string = jsNative
+            static member resolve([<ParamArray>] pathSegments: obj[]): string = jsNative
+            static member isAbsolute(p: string): bool = jsNative
+            static member relative(from: string, ``to``: string): string = jsNative
+            static member dirname(p: string): string = jsNative
+            static member basename(p: string, ?ext: string): string = jsNative
+            static member extname(p: string): string = jsNative
+            static member parse(p: string): ParsedPath = jsNative
+            static member format(pP: ParsedPath): string = jsNative
+
+
+
+    module win32 =
+        type [<Import("win32","path")>] Globals =
+            static member sep with get(): string = jsNative and set(v: string): unit = jsNative
+            static member delimiter with get(): string = jsNative and set(v: string): unit = jsNative
+            static member normalize(p: string): string = jsNative
+            static member join([<ParamArray>] paths: obj[]): string = jsNative
+            static member resolve([<ParamArray>] pathSegments: obj[]): string = jsNative
+            static member isAbsolute(p: string): bool = jsNative
+            static member relative(from: string, ``to``: string): string = jsNative
+            static member dirname(p: string): string = jsNative
+            static member basename(p: string, ?ext: string): string = jsNative
+            static member extname(p: string): string = jsNative
+            static member parse(p: string): ParsedPath = jsNative
+            static member format(pP: ParsedPath): string = jsNative
+
+
+
+module string_decoder =
+    type [<AllowNullLiteral>] NodeStringDecoder =
+        abstract write: buffer: Buffer -> string
+        abstract ``end``: ?buffer: Buffer -> string
+
+    and [<AllowNullLiteral>] StringDecoderType =
+        [<Emit("new $0($1...)")>] abstract Create: ?encoding: string -> NodeStringDecoder
+
+    type [<Import("*","string_decoder")>] Globals =
+        static member StringDecoder with get(): StringDecoderType = jsNative and set(v: StringDecoderType): unit = jsNative
 
 module crypto_types =
     type [<AllowNullLiteral>] CredentialDetails =
@@ -330,12 +1512,12 @@ module crypto_types =
         abstract setAutoPadding: auto_padding: bool -> unit
 
     and [<AllowNullLiteral>] Signer =
-        inherit NodeJS.WritableStream
+        inherit stream_types.Writable
         abstract update: data: obj -> unit
         abstract sign: private_key: string * output_format: string -> string
 
     and [<AllowNullLiteral>] Verify =
-        inherit NodeJS.WritableStream
+        inherit stream_types.Writable
         abstract update: data: obj -> unit
         abstract verify: ``object``: string * signature: string * ?signature_format: string -> bool
 
@@ -373,122 +1555,6 @@ module crypto_types =
         member __.pseudoRandomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = jsNative
 
 let [<Import("*","crypto")>] crypto: crypto_types.Globals = jsNative
-
-
-module events =
-    type [<AllowNullLiteral>] [<Import("EventEmitter","events")>] EventEmitter() =
-        interface NodeJS.EventEmitter with
-            member __.addListener(``event``: string, listener: Function): NodeJS.EventEmitter = jsNative
-            member __.on(``event``: string, listener: Function): NodeJS.EventEmitter = jsNative
-            member __.once(``event``: string, listener: Function): NodeJS.EventEmitter = jsNative
-            member __.removeListener(``event``: string, listener: Function): NodeJS.EventEmitter = jsNative
-            member __.removeAllListeners(?``event``: string): NodeJS.EventEmitter = jsNative
-            member __.setMaxListeners(n: int): unit = jsNative
-            member __.getMaxListeners(): int = jsNative
-            member __.listeners(``event``: string): ResizeArray<Function> = jsNative
-            member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = jsNative
-            member __.listenerCount(``type``: string): int = jsNative
-        member __.listenerCount(emitter: EventEmitter, ``event``: string): float = jsNative
-        static member EventEmitter with get(): EventEmitter = jsNative
-        static member defaultMaxListeners with get(): int = jsNative
-
-
-module stream =
-    type [<AllowNullLiteral>] Stream =
-        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-
-    and [<AllowNullLiteral>] ReadableOptions =
-        abstract highWaterMark: float option with get, set
-        abstract encoding: string option with get, set
-        abstract objectMode: bool option with get, set
-
-    and [<AllowNullLiteral>] [<Import("Readable","stream")>] Readable(?opts: ReadableOptions) =
-        inherit events.EventEmitter()
-        interface ReadableStream with
-            member __.readable with get(): bool = jsNative and set(v: bool): unit = jsNative
-            member __.read(?size: float): U2<string, Buffer> = jsNative
-            member __.setEncoding(encoding: string): unit = jsNative
-            member __.pause(): unit = jsNative
-            member __.resume(): unit = jsNative
-            member __.pipe(destination: 'T, ?options: obj): 'T = jsNative
-            member __.unpipe(?destination: 'T): unit = jsNative
-            member __.unshift(chunk: string): unit = jsNative
-            member __.unshift(chunk: Buffer): unit = jsNative
-            member __.wrap(oldStream: ReadableStream): ReadableStream = jsNative
-        member __._read(size: float): unit = jsNative
-        member __.unshift(chunk: obj): unit = jsNative
-        member __.wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream = jsNative
-        member __.push(chunk: obj, ?encoding: string): bool = jsNative
-
-    and [<AllowNullLiteral>] WritableOptions =
-        abstract highWaterMark: float option with get, set
-        abstract decodeStrings: bool option with get, set
-        abstract objectMode: bool option with get, set
-
-    and [<AllowNullLiteral>] [<Import("Writable","stream")>] Writable(?opts: WritableOptions) =
-        inherit events.EventEmitter()
-        interface WritableStream with
-            member __.writable with get(): bool = jsNative and set(v: bool): unit = jsNative
-            member __.write(buffer: U2<Buffer, string>, ?cb: Function): bool = jsNative
-            member __.write(str: string, ?encoding: string, ?cb: Function): bool = jsNative
-            member __.``end``(): unit = jsNative
-            member __.``end``(buffer: Buffer, ?cb: Function): unit = jsNative
-            member __.``end``(str: string, ?cb: Function): unit = jsNative
-            member __.``end``(str: string, ?encoding: string, ?cb: Function): unit = jsNative
-        member __._write(chunk: obj, encoding: string, callback: Function): unit = jsNative
-        member __.write(chunk: obj, ?cb: Function): bool = jsNative
-        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = jsNative
-        member __.``end``(chunk: obj, ?cb: Function): unit = jsNative
-        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = jsNative
-
-    and [<AllowNullLiteral>] DuplexOptions =
-        inherit ReadableOptions
-        inherit WritableOptions
-        abstract allowHalfOpen: bool option with get, set
-
-    and [<AllowNullLiteral>] [<Import("Duplex","stream")>] Duplex(?opts: DuplexOptions) =
-        inherit Readable()
-        // interface NodeJS.ReadWriteStream
-        member __.writable with get(): bool = jsNative and set(v: bool): unit = jsNative
-        member __._write(chunk: obj, encoding: string, callback: Function): unit = jsNative
-        member __.write(chunk: obj, ?cb: Function): bool = jsNative
-        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = jsNative
-        member __.``end``(): unit = jsNative
-        member __.``end``(chunk: obj, ?cb: Function): unit = jsNative
-        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = jsNative
-
-    and [<AllowNullLiteral>] TransformOptions =
-        abstract highWaterMark: float option with get, set
-        abstract decodeStrings: bool option with get, set
-        abstract objectMode: bool option with get, set
-        abstract encoding: string option with get, set
-
-    and [<AllowNullLiteral>] [<Import("Transform","stream")>] Transform(?opts: TransformOptions) =
-        inherit events.EventEmitter()
-        // interface NodeJS.ReadWriteStream
-        member __.readable with get(): bool = jsNative and set(v: bool): unit = jsNative
-        member __.writable with get(): bool = jsNative and set(v: bool): unit = jsNative
-        member __._transform(chunk: obj, encoding: string, callback: Function): unit = jsNative
-        member __._flush(callback: Function): unit = jsNative
-        member __.read(?size: float): obj = jsNative
-        member __.setEncoding(encoding: string): unit = jsNative
-        member __.pause(): unit = jsNative
-        member __.resume(): unit = jsNative
-        member __.pipe(destination: 'T, ?options: obj): 'T = jsNative
-        member __.unpipe(?destination: 'T): unit = jsNative
-        member __.unshift(chunk: obj): unit = jsNative
-        member __.wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream = jsNative
-        member __.push(chunk: obj, ?encoding: string): bool = jsNative
-        member __.write(chunk: obj, ?cb: Function): bool = jsNative
-        member __.write(chunk: obj, ?encoding: string, ?cb: Function): bool = jsNative
-        member __.``end``(): unit = jsNative
-        member __.``end``(chunk: obj, ?cb: Function): unit = jsNative
-        member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = jsNative
-
-    and [<AllowNullLiteral>] [<Import("PassThrough","stream")>] PassThrough() =
-        inherit Transform()
-
 
 module tls_types =
     type [<AllowNullLiteral>] TlsOptions =
@@ -575,472 +1641,7 @@ module tls_types =
 
 let [<Import("*","tls")>] tls: tls_types.Globals = jsNative
 
-
-module child_process_types =
-    type [<AllowNullLiteral>] ChildProcess =
-        inherit EventEmitter
-        abstract stdin: stream.Writable with get, set
-        abstract stdout: stream.Readable with get, set
-        abstract stderr: stream.Readable with get, set
-        abstract stdio: U2<stream.Readable,stream.Writable>[] with get, set
-        abstract pid: float with get, set
-        abstract kill: ?signal: string -> unit
-        abstract send: message: obj * ?sendHandle: obj -> unit
-        abstract disconnect: unit -> unit
-        abstract unref: unit -> unit
-
-    type Globals =
-        member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
-        member __.exec(command: string, options: obj, ?callback: Func<Error option, Buffer, Buffer, unit>): ChildProcess = jsNative
-        member __.exec(command: string, ?callback: Func<Error option, Buffer, Buffer, unit>): ChildProcess = jsNative
-        member __.execFile(file: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
-        member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
-        member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
-        member __.fork(modulePath: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
-        member __.spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = jsNative
-        member __.execSync(command: string, ?options: obj): U2<string, Buffer> = jsNative
-        member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, Buffer> = jsNative
-
-let [<Import("*","child_process")>] child_process: child_process_types.Globals = jsNative
-
-
-type [<AllowNullLiteral>] NodeRequireFunction =
-    [<Emit("$0($1...)")>] abstract Invoke: id: string -> obj
-
-and [<AllowNullLiteral>] NodeRequire =
-    inherit NodeRequireFunction
-    abstract cache: obj with get, set
-    abstract extensions: obj with get, set
-    abstract main: obj with get, set
-    abstract resolve: id: string -> string
-
-and [<AllowNullLiteral>] NodeModule =
-    abstract exports: obj with get, set
-    abstract require: NodeRequireFunction with get, set
-    abstract id: string with get, set
-    abstract filename: string with get, set
-    abstract loaded: bool with get, set
-    abstract parent: obj with get, set
-    abstract children: ResizeArray<obj> with get, set
-
-let [<Global>] ``process``: NodeJS.Process = jsNative
-let [<Global>] ``global``: NodeJS.Global = jsNative
-let [<Global>] __filename: string = jsNative
-let [<Global>] __dirname: string = jsNative
-let [<Global>] require: NodeRequire = jsNative
-let [<Global>] ``module``: NodeModule = jsNative
-let [<Global>] exports: obj = jsNative
-let [<Global>] SlowBuffer: obj = jsNative
-let [<Global>] Buffer: obj = jsNative
-
-
-module buffer_types =
-    type Globals =
-        member __.INSPECT_MAX_BYTES with get(): float = jsNative and set(v: float): unit = jsNative
-
-let [<Import("*","buffer")>] buffer: buffer_types.Globals = jsNative
-
-
-module querystring_types =
-    type Globals =
-        member __.stringify(obj: obj, ?sep: string, ?eq: string): string = jsNative
-        member __.parse(str: string, ?sep: string, ?eq: string, ?options: obj): obj = jsNative
-        member __.escape(str: string): string = jsNative
-        member __.unescape(str: string): string = jsNative
-
-let [<Import("*","querystring")>] querystring: querystring_types.Globals = jsNative
-
-
-module http_types =
-    type [<AllowNullLiteral>] Server =
-        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
-        abstract maxHeadersCount: float with get, set
-        abstract listen: port: float * ?hostname: string * ?backlog: float * ?callback: Function -> Server
-        abstract listen: port: float * ?hostname: string * ?callback: Function -> Server
-        abstract listen: path: string * ?callback: Function -> Server
-        abstract listen: handle: obj * ?listeningListener: Function -> Server
-        abstract close: ?cb: obj -> Server
-        abstract address: unit -> obj
-
-    and [<AllowNullLiteral>] ServerRequest =
-        inherit IncomingMessage
-        abstract connection: net_types.Socket with get, set
-
-    and [<AllowNullLiteral>] ServerResponse =
-        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
-        abstract writable: bool with get, set
-        abstract _write: chunk: obj * encoding: string * callback: Function -> unit
-        abstract write: chunk: obj * ?cb: Function -> bool
-        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: chunk: obj * ?cb: Function -> unit
-        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
-        abstract statusCode: float with get, set
-        abstract statusMessage: string with get, set
-        abstract sendDate: bool with get, set
-        abstract write: buffer: Buffer -> bool
-        abstract write: buffer: Buffer * ?cb: Function -> bool
-        abstract write: str: string * ?cb: Function -> bool
-        abstract write: str: string * ?encoding: string * ?cb: Function -> bool
-        abstract write: str: string * ?encoding: string * ?fd: string -> bool
-        abstract writeContinue: unit -> unit
-        abstract writeHead: statusCode: float * ?reasonPhrase: string * ?headers: obj -> unit
-        abstract writeHead: statusCode: float * ?headers: obj -> unit
-        abstract setHeader: name: string * value: string -> unit
-        abstract getHeader: name: string -> string
-        abstract removeHeader: name: string -> unit
-        abstract write: chunk: obj * ?encoding: string -> obj
-        abstract addTrailers: headers: obj -> unit
-        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
-        abstract ``end``: str: string * ?cb: Function -> unit
-        abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
-        abstract ``end``: ?data: obj * ?encoding: string -> unit
-
-    and [<AllowNullLiteral>] ClientRequest =
-        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
-        abstract writable: bool with get, set
-        abstract _write: chunk: obj * encoding: string * callback: Function -> unit
-        abstract write: chunk: obj * ?cb: Function -> bool
-        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: chunk: obj * ?cb: Function -> unit
-        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
-        abstract write: buffer: Buffer -> bool
-        abstract write: buffer: Buffer * ?cb: Function -> bool
-        abstract write: str: string * ?cb: Function -> bool
-        abstract write: str: string * ?encoding: string * ?cb: Function -> bool
-        abstract write: str: string * ?encoding: string * ?fd: string -> bool
-        abstract write: chunk: obj * ?encoding: string -> unit
-        abstract abort: unit -> unit
-        abstract setTimeout: timeout: float * ?callback: Function -> unit
-        abstract setNoDelay: ?noDelay: bool -> unit
-        abstract setSocketKeepAlive: ?enable: bool * ?initialDelay: float -> unit
-        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
-        abstract ``end``: str: string * ?cb: Function -> unit
-        abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
-        abstract ``end``: ?data: obj * ?encoding: string -> unit
-
-    and [<AllowNullLiteral>] IncomingMessage =
-        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
-        abstract readable: bool with get, set
-        abstract _read: size: float -> unit
-        abstract read: ?size: float -> obj
-        abstract setEncoding: encoding: string -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-        abstract unpipe: ?destination: 'T -> unit
-        abstract unshift: chunk: obj -> unit
-        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
-        abstract push: chunk: obj * ?encoding: string -> bool
-        abstract httpVersion: string with get, set
-        abstract headers: obj with get, set
-        abstract rawHeaders: ResizeArray<string> with get, set
-        abstract trailers: obj with get, set
-        abstract rawTrailers: obj with get, set
-        abstract ``method``: string option with get, set
-        abstract url: string option with get, set
-        abstract statusCode: float option with get, set
-        abstract statusMessage: string option with get, set
-        abstract socket: net_types.Socket with get, set
-        abstract setTimeout: msecs: float * callback: Function -> NodeJS.Timer
-
-    and [<AllowNullLiteral>] ClientResponse =
-        inherit IncomingMessage
-
-    and [<AllowNullLiteral>] AgentOptions =
-        abstract keepAlive: bool option with get, set
-        abstract keepAliveMsecs: float option with get, set
-        abstract maxSockets: float option with get, set
-        abstract maxFreeSockets: float option with get, set
-
-    and [<AllowNullLiteral>] [<Import("Agent","http")>] Agent(?opts: AgentOptions) =
-        member __.maxSockets with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.sockets with get(): obj = jsNative and set(v: obj): unit = jsNative
-        member __.requests with get(): obj = jsNative and set(v: obj): unit = jsNative
-        member __.destroy(): unit = jsNative
-
-    type Globals =
-        member __.METHODS with get(): ResizeArray<string> = jsNative and set(v: ResizeArray<string>): unit = jsNative
-        member __.STATUS_CODES with get(): obj = jsNative and set(v: obj): unit = jsNative
-        member __.globalAgent with get(): Agent = jsNative and set(v: Agent): unit = jsNative
-        member __.createServer(?requestListener: Func<IncomingMessage, ServerResponse, unit>): Server = jsNative
-        member __.createClient(?port: float, ?host: string): obj = jsNative
-        member __.request(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = jsNative
-        member __.get(options: obj, ?callback: Func<IncomingMessage, unit>): ClientRequest = jsNative
-
-let [<Import("*","http")>] http: http_types.Globals = jsNative
-
-module cluster_types =
-    type [<AllowNullLiteral>] ClusterSettings =
-        abstract exec: string option with get, set
-        abstract args: ResizeArray<string> option with get, set
-        abstract silent: bool option with get, set
-
-    and [<AllowNullLiteral>] [<Import("Worker","cluster")>] Worker() =
-        inherit events.EventEmitter()
-        member __.id with get(): string = jsNative and set(v: string): unit = jsNative
-        member __.``process`` with get(): child_process_types.ChildProcess = jsNative and set(v: child_process_types.ChildProcess): unit = jsNative
-        member __.suicide with get(): bool = jsNative and set(v: bool): unit = jsNative
-        member __.send(message: obj, ?sendHandle: obj): unit = jsNative
-        member __.kill(?signal: string): unit = jsNative
-        member __.destroy(?signal: string): unit = jsNative
-        member __.disconnect(): unit = jsNative
-
-    type Globals =
-        member __.settings with get(): ClusterSettings = jsNative and set(v: ClusterSettings): unit = jsNative
-        member __.isMaster with get(): bool = jsNative and set(v: bool): unit = jsNative
-        member __.isWorker with get(): bool = jsNative and set(v: bool): unit = jsNative
-        member __.worker with get(): Worker = jsNative and set(v: Worker): unit = jsNative
-        member __.workers with get(): ResizeArray<Worker> = jsNative and set(v: ResizeArray<Worker>): unit = jsNative
-        member __.setupMaster(?settings: ClusterSettings): unit = jsNative
-        member __.fork(?env: obj): Worker = jsNative
-        member __.disconnect(?callback: Function): unit = jsNative
-        member __.addListener(``event``: string, listener: Function): unit = jsNative
-        member __.on(``event``: string, listener: Function): obj = jsNative
-        member __.once(``event``: string, listener: Function): unit = jsNative
-        member __.removeListener(``event``: string, listener: Function): unit = jsNative
-        member __.removeAllListeners(?``event``: string): unit = jsNative
-        member __.setMaxListeners(n: float): unit = jsNative
-        member __.listeners(``event``: string): ResizeArray<Function> = jsNative
-        member __.emit(``event``: string, [<ParamArray>] args: obj[]): bool = jsNative
-
-let [<Import("*","cluster")>] cluster: cluster_types.Globals = jsNative
-
-
-module zlib_types =
-    type [<AllowNullLiteral>] ZlibOptions =
-        abstract chunkSize: float option with get, set
-        abstract windowBits: float option with get, set
-        abstract level: float option with get, set
-        abstract memLevel: float option with get, set
-        abstract strategy: float option with get, set
-        abstract dictionary: obj option with get, set
-
-    and [<AllowNullLiteral>] Gzip =
-        abstract readable: bool with get, set
-        abstract writable: bool with get, set
-        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
-        abstract _flush: callback: Function -> unit
-        abstract read: ?size: float -> obj
-        abstract setEncoding: encoding: string -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-        abstract unpipe: ?destination: 'T -> unit
-        abstract unshift: chunk: obj -> unit
-        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
-        abstract push: chunk: obj * ?encoding: string -> bool
-        abstract write: chunk: obj * ?cb: Function -> bool
-        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: chunk: obj * ?cb: Function -> unit
-        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
-
-
-    and [<AllowNullLiteral>] Gunzip =
-        abstract readable: bool with get, set
-        abstract writable: bool with get, set
-        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
-        abstract _flush: callback: Function -> unit
-        abstract read: ?size: float -> obj
-        abstract setEncoding: encoding: string -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-        abstract unpipe: ?destination: 'T -> unit
-        abstract unshift: chunk: obj -> unit
-        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
-        abstract push: chunk: obj * ?encoding: string -> bool
-        abstract write: chunk: obj * ?cb: Function -> bool
-        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: chunk: obj * ?cb: Function -> unit
-        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
-
-
-    and [<AllowNullLiteral>] Deflate =
-        abstract readable: bool with get, set
-        abstract writable: bool with get, set
-        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
-        abstract _flush: callback: Function -> unit
-        abstract read: ?size: float -> obj
-        abstract setEncoding: encoding: string -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-        abstract unpipe: ?destination: 'T -> unit
-        abstract unshift: chunk: obj -> unit
-        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
-        abstract push: chunk: obj * ?encoding: string -> bool
-        abstract write: chunk: obj * ?cb: Function -> bool
-        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: chunk: obj * ?cb: Function -> unit
-        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
-
-
-    and [<AllowNullLiteral>] Inflate =
-        abstract readable: bool with get, set
-        abstract writable: bool with get, set
-        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
-        abstract _flush: callback: Function -> unit
-        abstract read: ?size: float -> obj
-        abstract setEncoding: encoding: string -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-        abstract unpipe: ?destination: 'T -> unit
-        abstract unshift: chunk: obj -> unit
-        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
-        abstract push: chunk: obj * ?encoding: string -> bool
-        abstract write: chunk: obj * ?cb: Function -> bool
-        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: chunk: obj * ?cb: Function -> unit
-        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
-
-
-    and [<AllowNullLiteral>] DeflateRaw =
-        abstract readable: bool with get, set
-        abstract writable: bool with get, set
-        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
-        abstract _flush: callback: Function -> unit
-        abstract read: ?size: float -> obj
-        abstract setEncoding: encoding: string -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-        abstract unpipe: ?destination: 'T -> unit
-        abstract unshift: chunk: obj -> unit
-        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
-        abstract push: chunk: obj * ?encoding: string -> bool
-        abstract write: chunk: obj * ?cb: Function -> bool
-        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: chunk: obj * ?cb: Function -> unit
-        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
-
-
-    and [<AllowNullLiteral>] InflateRaw =
-        abstract readable: bool with get, set
-        abstract writable: bool with get, set
-        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
-        abstract _flush: callback: Function -> unit
-        abstract read: ?size: float -> obj
-        abstract setEncoding: encoding: string -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-        abstract unpipe: ?destination: 'T -> unit
-        abstract unshift: chunk: obj -> unit
-        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
-        abstract push: chunk: obj * ?encoding: string -> bool
-        abstract write: chunk: obj * ?cb: Function -> bool
-        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: chunk: obj * ?cb: Function -> unit
-        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
-
-
-    and [<AllowNullLiteral>] Unzip =
-        abstract readable: bool with get, set
-        abstract writable: bool with get, set
-        abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
-        abstract _flush: callback: Function -> unit
-        abstract read: ?size: float -> obj
-        abstract setEncoding: encoding: string -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-        abstract unpipe: ?destination: 'T -> unit
-        abstract unshift: chunk: obj -> unit
-        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
-        abstract push: chunk: obj * ?encoding: string -> bool
-        abstract write: chunk: obj * ?cb: Function -> bool
-        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: chunk: obj * ?cb: Function -> unit
-        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
-
-
-    type Globals =
-        member __.Z_NO_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_PARTIAL_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_SYNC_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_FULL_FLUSH with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_FINISH with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_BLOCK with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_TREES with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_OK with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_STREAM_END with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_NEED_DICT with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_ERRNO with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_STREAM_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_DATA_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_MEM_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_BUF_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_VERSION_ERROR with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_NO_COMPRESSION with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_BEST_SPEED with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_BEST_COMPRESSION with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_DEFAULT_COMPRESSION with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_FILTERED with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_HUFFMAN_ONLY with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_RLE with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_FIXED with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_DEFAULT_STRATEGY with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_BINARY with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_TEXT with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_ASCII with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_UNKNOWN with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_DEFLATED with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.Z_NULL with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.createGzip(?options: ZlibOptions): Gzip = jsNative
-        member __.createGunzip(?options: ZlibOptions): Gunzip = jsNative
-        member __.createDeflate(?options: ZlibOptions): Deflate = jsNative
-        member __.createInflate(?options: ZlibOptions): Inflate = jsNative
-        member __.createDeflateRaw(?options: ZlibOptions): DeflateRaw = jsNative
-        member __.createInflateRaw(?options: ZlibOptions): InflateRaw = jsNative
-        member __.createUnzip(?options: ZlibOptions): Unzip = jsNative
-        member __.deflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
-        member __.deflateSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
-        member __.deflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
-        member __.deflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
-        member __.gzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
-        member __.gzipSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
-        member __.gunzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
-        member __.gunzipSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
-        member __.inflate(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
-        member __.inflateSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
-        member __.inflateRaw(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
-        member __.inflateRawSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
-        member __.unzip(buf: Buffer, callback: Func<Error, obj, unit>): unit = jsNative
-        member __.unzipSync(buf: Buffer, ?options: ZlibOptions): obj = jsNative
-
-let [<Import("*","zlib")>] zlib: zlib_types.Globals = jsNative
-
-
-module os_types =
-    type Globals =
-        member __.EOL with get(): string = jsNative and set(v: string): unit = jsNative
-        member __.tmpdir(): string = jsNative
-        member __.hostname(): string = jsNative
-        member __.``type``(): string = jsNative
-        member __.platform(): string = jsNative
-        member __.arch(): string = jsNative
-        member __.release(): string = jsNative
-        member __.uptime(): float = jsNative
-        member __.loadavg(): ResizeArray<float> = jsNative
-        member __.totalmem(): float = jsNative
-        member __.freemem(): float = jsNative
-        member __.cpus(): ResizeArray<obj> = jsNative
-        member __.networkInterfaces(): obj = jsNative
-
-let [<Import("*","os")>] os: os_types.Globals = jsNative
-
-
-module https_types =
+module https =
     type [<AllowNullLiteral>] ServerOptions =
         abstract pfx: obj option with get, set
         abstract key: obj option with get, set
@@ -1053,17 +1654,10 @@ module https_types =
         abstract requestCert: bool option with get, set
         abstract rejectUnauthorized: bool option with get, set
         abstract NPNProtocols: obj option with get, set
-        abstract SNICallback: Func<string, obj> option with get, set
+        abstract SNICallback: Func<string, Func<Error, tls_types.SecureContext, obj>, obj> option with get, set
 
     and [<AllowNullLiteral>] RequestOptions =
-        abstract host: string option with get, set
-        abstract hostname: string option with get, set
-        abstract port: float option with get, set
-        abstract path: string option with get, set
-        abstract ``method``: string option with get, set
-        abstract headers: obj option with get, set
-        abstract auth: string option with get, set
-        abstract agent: obj option with get, set
+        inherit http.RequestOptions
         abstract pfx: obj option with get, set
         abstract key: obj option with get, set
         abstract passphrase: string option with get, set
@@ -1071,722 +1665,531 @@ module https_types =
         abstract ca: obj option with get, set
         abstract ciphers: string option with get, set
         abstract rejectUnauthorized: bool option with get, set
+        abstract secureProtocol: string option with get, set
 
     and [<AllowNullLiteral>] Agent =
         abstract maxSockets: float with get, set
         abstract sockets: obj with get, set
         abstract requests: obj with get, set
+        abstract destroy: unit -> unit
+
+
+    and [<AllowNullLiteral>] AgentOptions =
+        inherit http.AgentOptions
+        abstract pfx: obj option with get, set
+        abstract key: obj option with get, set
+        abstract passphrase: string option with get, set
+        abstract cert: obj option with get, set
+        abstract ca: obj option with get, set
+        abstract ciphers: string option with get, set
+        abstract rejectUnauthorized: bool option with get, set
+        abstract secureProtocol: string option with get, set
+        abstract maxCachedSessions: float option with get, set
+
+    and [<AllowNullLiteral>] AgentType =
+        [<Emit("new $0($1...)")>] abstract Create: ?options: AgentOptions -> Agent
 
     and [<AllowNullLiteral>] Server =
         inherit tls_types.Server
 
 
-    type Globals =
-        member __.Agent with get(): obj = jsNative and set(v: obj): unit = jsNative
-        member __.globalAgent with get(): Agent = jsNative and set(v: Agent): unit = jsNative
-        member __.createServer(options: ServerOptions, ?requestListener: Function): Server = jsNative
-        member __.request(options: RequestOptions, ?callback: Func<http_types.IncomingMessage, unit>): http_types.ClientRequest = jsNative
-        member __.get(options: RequestOptions, ?callback: Func<http_types.IncomingMessage, unit>): http_types.ClientRequest = jsNative
+    type [<Import("*","https")>] Globals =
+        static member Agent with get(): AgentType = jsNative and set(v: AgentType): unit = jsNative
+        static member globalAgent with get(): Agent = jsNative and set(v: Agent): unit = jsNative
+        static member createServer(options: ServerOptions, ?requestListener: Function): Server = jsNative
+        static member request(options: RequestOptions, ?callback: Func<http.IncomingMessage, unit>): http.ClientRequest = jsNative
+        static member get(options: RequestOptions, ?callback: Func<http.IncomingMessage, unit>): http.ClientRequest = jsNative
 
-let [<Import("*","https")>] https: https_types.Globals = jsNative
-
-
-module punycode_types =
-    type [<AllowNullLiteral>] ucs2 =
-        abstract decode: string: string -> string
-        abstract encode: codePoints: ResizeArray<float> -> string
-
-    type Globals =
-        member __.ucs2 with get(): ucs2 = jsNative and set(v: ucs2): unit = jsNative
-        member __.version with get(): obj = jsNative and set(v: obj): unit = jsNative
-        member __.decode(string: string): string = jsNative
-        member __.encode(string: string): string = jsNative
-        member __.toUnicode(domain: string): string = jsNative
-        member __.toASCII(domain: string): string = jsNative
-
-let [<Import("*","punycode")>] punycode: punycode_types.Globals = jsNative
-
-
-module repl_types =
-    type [<AllowNullLiteral>] ReplOptions =
-        abstract prompt: string option with get, set
-        abstract input: NodeJS.ReadableStream option with get, set
-        abstract output: NodeJS.WritableStream option with get, set
-        abstract terminal: bool option with get, set
-        abstract eval: Function option with get, set
-        abstract useColors: bool option with get, set
-        abstract useGlobal: bool option with get, set
-        abstract ignoreUndefined: bool option with get, set
-        abstract writer: Function option with get, set
-
-    type Globals =
-        member __.start(options: ReplOptions): events.EventEmitter = jsNative
-
-let [<Import("*","repl")>] repl: repl_types.Globals = jsNative
-
-
-module readline_types =
-    type [<AllowNullLiteral>] ReadLine =
-        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
-        abstract setPrompt: prompt: string -> unit
-        abstract prompt: ?preserveCursor: bool -> unit
-        abstract question: query: string * callback: Function -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract close: unit -> unit
-        abstract write: data: obj * ?key: obj -> unit
-
-    and [<AllowNullLiteral>] ReadLineOptions =
-        abstract input: NodeJS.ReadableStream with get, set
-        abstract output: NodeJS.WritableStream with get, set
-        abstract completer: Function option with get, set
-        abstract terminal: bool option with get, set
-
-    type Globals =
-        member __.createInterface(options: ReadLineOptions): ReadLine = jsNative
-
-let [<Import("*","readline")>] readline: readline_types.Globals = jsNative
-
-
-module vm_types =
-    type [<AllowNullLiteral>] Context =
-        interface end
-
-    and [<AllowNullLiteral>] Script =
-        abstract runInThisContext: unit -> unit
-        abstract runInNewContext: ?sandbox: Context -> unit
-
-    type Globals =
-        member __.runInThisContext(code: string, ?filename: string): unit = jsNative
-        member __.runInNewContext(code: string, ?sandbox: Context, ?filename: string): unit = jsNative
-        member __.runInContext(code: string, context: Context, ?filename: string): unit = jsNative
-        member __.createContext(?initSandbox: Context): Context = jsNative
-        member __.createScript(code: string, ?filename: string): Script = jsNative
-
-let [<Import("*","vm")>] vm: vm_types.Globals = jsNative
-
-
-module url_types =
-    type [<AllowNullLiteral>] Url =
-        abstract href: string with get, set
-        abstract protocol: string with get, set
-        abstract auth: string with get, set
-        abstract hostname: string with get, set
-        abstract port: string with get, set
-        abstract host: string with get, set
-        abstract pathname: string with get, set
-        abstract search: string with get, set
-        abstract query: obj with get, set
-        abstract slashes: bool with get, set
-        abstract hash: string option with get, set
-        abstract path: string option with get, set
-
-    and [<AllowNullLiteral>] UrlOptions =
-        abstract protocol: string option with get, set
-        abstract auth: string option with get, set
-        abstract hostname: string option with get, set
-        abstract port: string option with get, set
-        abstract host: string option with get, set
-        abstract pathname: string option with get, set
-        abstract search: string option with get, set
-        abstract query: obj option with get, set
-        abstract hash: string option with get, set
-        abstract path: string option with get, set
-
-    type Globals =
-        member __.parse(urlStr: string, ?parseQueryString: bool, ?slashesDenoteHost: bool): Url = jsNative
-        member __.format(url: UrlOptions): string = jsNative
-        member __.resolve(from: string, ``to``: string): string = jsNative
-
-let [<Import("*","url")>] url: url_types.Globals = jsNative
-
-
-module dns_types =
-    type Globals =
-        member __.lookup(domain: string, family: float, callback: Func<Error, string, float, unit>): string = jsNative
-        member __.lookup(domain: string, callback: Func<Error, string, float, unit>): string = jsNative
-        member __.resolve(domain: string, rrtype: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
-        member __.resolve(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
-        member __.resolve4(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
-        member __.resolve6(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
-        member __.resolveMx(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
-        member __.resolveTxt(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
-        member __.resolveSrv(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
-        member __.resolveNs(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
-        member __.resolveCname(domain: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
-        member __.reverse(ip: string, callback: Func<Error, ResizeArray<string>, unit>): ResizeArray<string> = jsNative
-
-let [<Import("*","dns")>] dns: dns_types.Globals = jsNative
-
-
-module dgram_types =
-    type [<AllowNullLiteral>] RemoteInfo =
-        abstract address: string with get, set
-        abstract port: float with get, set
-        abstract size: float with get, set
-
-    and [<AllowNullLiteral>] AddressInfo =
-        abstract address: string with get, set
-        abstract family: string with get, set
-        abstract port: float with get, set
-
-    and [<AllowNullLiteral>] Socket =
-        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
-        abstract send: buf: Buffer * offset: float * length: float * port: float * address: string * ?callback: Func<Error, float, unit> -> unit
-        abstract bind: port: float * ?address: string * ?callback: Func<unit, unit> -> unit
-        abstract close: unit -> unit
-        abstract address: unit -> AddressInfo
-        abstract setBroadcast: flag: bool -> unit
-        abstract setMulticastTTL: ttl: float -> unit
-        abstract setMulticastLoopback: flag: bool -> unit
-        abstract addMembership: multicastAddress: string * ?multicastInterface: string -> unit
-        abstract dropMembership: multicastAddress: string * ?multicastInterface: string -> unit
-
-    type Globals =
-        member __.createSocket(``type``: string, ?callback: Func<Buffer, RemoteInfo, unit>): Socket = jsNative
-
-let [<Import("*","dgram")>] dgram: dgram_types.Globals = jsNative
-
-
-module fs_types =
-    type [<AllowNullLiteral>] Stats =
-        abstract dev: float with get, set
-        abstract ino: float with get, set
-        abstract mode: float with get, set
-        abstract nlink: float with get, set
-        abstract uid: float with get, set
-        abstract gid: float with get, set
-        abstract rdev: float with get, set
-        abstract size: float with get, set
-        abstract blksize: float with get, set
-        abstract blocks: float with get, set
-        abstract atime: DateTime with get, set
-        abstract mtime: DateTime with get, set
-        abstract ctime: DateTime with get, set
-        abstract birthtime: DateTime with get, set
-        abstract isFile: unit -> bool
-        abstract isDirectory: unit -> bool
-        abstract isBlockDevice: unit -> bool
-        abstract isCharacterDevice: unit -> bool
-        abstract isSymbolicLink: unit -> bool
-        abstract isFIFO: unit -> bool
-        abstract isSocket: unit -> bool
-
-    and [<AllowNullLiteral>] FSWatcher =
-        abstract listenerCount: emitter: EventEmitter * ``event``: string -> float
-        abstract close: unit -> unit
-
-    and [<AllowNullLiteral>] ReadStream =
-        abstract readable: bool with get, set
-        abstract _read: size: float -> unit
-        abstract read: ?size: float -> obj
-        abstract setEncoding: encoding: string -> unit
-        abstract pause: unit -> unit
-        abstract resume: unit -> unit
-        abstract pipe: destination: 'T * ?options: obj -> 'T
-        abstract unpipe: ?destination: 'T -> unit
-        abstract unshift: chunk: obj -> unit
-        abstract wrap: oldStream: NodeJS.ReadableStream -> NodeJS.ReadableStream
-        abstract push: chunk: obj * ?encoding: string -> bool
-        abstract close: unit -> unit
-
-    and [<AllowNullLiteral>] WriteStream =
-        abstract writable: bool with get, set
-        abstract _write: chunk: obj * encoding: string * callback: Function -> unit
-        abstract write: chunk: obj * ?cb: Function -> bool
-        abstract write: chunk: obj * ?encoding: string * ?cb: Function -> bool
-        abstract ``end``: unit -> unit
-        abstract ``end``: chunk: obj * ?cb: Function -> unit
-        abstract ``end``: chunk: obj * ?encoding: string * ?cb: Function -> unit
-        abstract bytesWritten: float with get, set
-        abstract close: unit -> unit
-
-    type Globals =
-        member __.F_OK with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.R_OK with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.W_OK with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.X_OK with get(): float = jsNative and set(v: float): unit = jsNative
-        member __.rename(oldPath: string, newPath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.renameSync(oldPath: string, newPath: string): unit = jsNative
-        member __.truncate(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.truncate(path: string, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.truncateSync(path: string, ?len: float): unit = jsNative
-        member __.ftruncate(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.ftruncate(fd: float, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.ftruncateSync(fd: float, ?len: float): unit = jsNative
-        member __.chown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.chownSync(path: string, uid: float, gid: float): unit = jsNative
-        member __.fchown(fd: float, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.fchownSync(fd: float, uid: float, gid: float): unit = jsNative
-        member __.lchown(path: string, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.lchownSync(path: string, uid: float, gid: float): unit = jsNative
-        member __.chmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.chmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.chmodSync(path: string, mode: float): unit = jsNative
-        member __.chmodSync(path: string, mode: string): unit = jsNative
-        member __.fchmod(fd: float, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.fchmod(fd: float, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.fchmodSync(fd: float, mode: float): unit = jsNative
-        member __.fchmodSync(fd: float, mode: string): unit = jsNative
-        member __.lchmod(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.lchmod(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.lchmodSync(path: string, mode: float): unit = jsNative
-        member __.lchmodSync(path: string, mode: string): unit = jsNative
-        member __.stat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
-        member __.lstat(path: string, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
-        member __.fstat(fd: float, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
-        member __.statSync(path: string): Stats = jsNative
-        member __.lstatSync(path: string): Stats = jsNative
-        member __.fstatSync(fd: float): Stats = jsNative
-        member __.link(srcpath: string, dstpath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.linkSync(srcpath: string, dstpath: string): unit = jsNative
-        member __.symlink(srcpath: string, dstpath: string, ?``type``: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.symlinkSync(srcpath: string, dstpath: string, ?``type``: string): unit = jsNative
-        member __.readlink(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
-        member __.readlinkSync(path: string): string = jsNative
-        member __.realpath(path: string, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
-        member __.realpath(path: string, cache: obj, callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
-        member __.realpathSync(path: string, ?cache: obj): string = jsNative
-        member __.unlink(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.unlinkSync(path: string): unit = jsNative
-        member __.rmdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.rmdirSync(path: string): unit = jsNative
-        member __.mkdir(path: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.mkdir(path: string, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.mkdir(path: string, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.mkdirSync(path: string, ?mode: float): unit = jsNative
-        member __.mkdirSync(path: string, ?mode: string): unit = jsNative
-        member __.readdir(path: string, ?callback: Func<NodeJS.ErrnoException, ResizeArray<string>, unit>): unit = jsNative
-        member __.readdirSync(path: string): ResizeArray<string> = jsNative
-        member __.close(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.closeSync(fd: float): unit = jsNative
-        member __.``open``(path: string, flags: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = jsNative
-        member __.``open``(path: string, flags: string, mode: float, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = jsNative
-        member __.``open``(path: string, flags: string, mode: string, ?callback: Func<NodeJS.ErrnoException, float, obj>): unit = jsNative
-        member __.openSync(path: string, flags: string, ?mode: float): float = jsNative
-        member __.openSync(path: string, flags: string, ?mode: string): float = jsNative
-        member __.utimes(path: string, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.utimes(path: string, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.utimesSync(path: string, atime: float, mtime: float): unit = jsNative
-        member __.utimesSync(path: string, atime: DateTime, mtime: DateTime): unit = jsNative
-        member __.futimes(fd: float, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.futimes(fd: float, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.futimesSync(fd: float, atime: float, mtime: float): unit = jsNative
-        member __.futimesSync(fd: float, atime: DateTime, mtime: DateTime): unit = jsNative
-        member __.fsync(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.fsyncSync(fd: float): unit = jsNative
-        member __.write(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
-        member __.write(fd: float, buffer: Buffer, offset: float, length: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
-        member __.write(fd: float, data: obj, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
-        member __.write(fd: float, data: obj, offset: float, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
-        member __.write(fd: float, data: obj, offset: float, encoding: string, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
-        member __.writeSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = jsNative
-        member __.read(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
-        member __.readSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = jsNative
-        member __.readFile(filename: string, encoding: string, callback: Func<NodeJS.ErrnoException, string, unit>): unit = jsNative
-        member __.readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, string, unit>): unit = jsNative
-        member __.readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = jsNative
-        member __.readFile(filename: string, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = jsNative
-        member __.readFileSync(filename: string, encoding: string): string = jsNative
-        member __.readFileSync(filename: string, options: obj): string = jsNative
-        member __.readFileSync(filename: string, ?options: obj): Buffer = jsNative
-        member __.writeFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.writeFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.writeFileSync(filename: string, data: obj, ?options: obj): unit = jsNative
-        member __.appendFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.appendFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.appendFileSync(filename: string, data: obj, ?options: obj): unit = jsNative
-        member __.watchFile(filename: string, listener: Func<Stats, Stats, unit>): unit = jsNative
-        member __.watchFile(filename: string, options: obj, listener: Func<Stats, Stats, unit>): unit = jsNative
-        member __.unwatchFile(filename: string, ?listener: Func<Stats, Stats, unit>): unit = jsNative
-        member __.watch(filename: string, ?listener: Func<string, string, obj>): FSWatcher = jsNative
-        member __.watch(filename: string, options: obj, ?listener: Func<string, string, obj>): FSWatcher = jsNative
-        member __.exists(path: string, ?callback: Func<bool, unit>): unit = jsNative
-        member __.existsSync(path: string): bool = jsNative
-        member __.access(path: string, callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.access(path: string, mode: float, callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        member __.accessSync(path: string, ?mode: float): unit = jsNative
-        member __.createReadStream(path: string, ?options: obj): ReadStream = jsNative
-        member __.createWriteStream(path: string, ?options: obj): WriteStream = jsNative
-
-let [<Import("*","fs")>] fs: fs_types.Globals = jsNative
-
-
-module path_types =
-    type [<AllowNullLiteral>] ParsedPath =
-        abstract root: string with get, set
-        abstract dir: string with get, set
-        abstract ``base``: string with get, set
-        abstract ext: string with get, set
-        abstract name: string with get, set
-
-    type Globals =
-        member __.sep with get(): string = jsNative and set(v: string): unit = jsNative
-        member __.delimiter with get(): string = jsNative and set(v: string): unit = jsNative
-        member __.normalize(p: string): string = jsNative
-        member __.join([<ParamArray>] paths: obj[]): string = jsNative
-        member __.join([<ParamArray>] paths: string[]): string = jsNative
-        member __.resolve([<ParamArray>] pathSegments: obj[]): string = jsNative
-        member __.isAbsolute(path: string): bool = jsNative
-        member __.relative(from: string, ``to``: string): string = jsNative
-        member __.dirname(p: string): string = jsNative
-        member __.basename(p: string, ?ext: string): string = jsNative
-        member __.extname(p: string): string = jsNative
-        member __.parse(pathString: string): ParsedPath = jsNative
-        member __.format(pathObject: ParsedPath): string = jsNative
-
-    module posix_types =
-        type Globals =
-            member __.sep with get(): string = jsNative and set(v: string): unit = jsNative
-            member __.delimiter with get(): string = jsNative and set(v: string): unit = jsNative
-            member __.normalize(p: string): string = jsNative
-            member __.join([<ParamArray>] paths: obj[]): string = jsNative
-            member __.resolve([<ParamArray>] pathSegments: obj[]): string = jsNative
-            member __.isAbsolute(p: string): bool = jsNative
-            member __.relative(from: string, ``to``: string): string = jsNative
-            member __.dirname(p: string): string = jsNative
-            member __.basename(p: string, ?ext: string): string = jsNative
-            member __.extname(p: string): string = jsNative
-            member __.parse(p: string): ParsedPath = jsNative
-            member __.format(pP: ParsedPath): string = jsNative
-            
-    let [<Import("posix","path")>] posix: posix_types.Globals = jsNative
-
-    module win32_types =
-        type Globals =
-            member __.sep with get(): string = jsNative and set(v: string): unit = jsNative
-            member __.delimiter with get(): string = jsNative and set(v: string): unit = jsNative
-            member __.normalize(p: string): string = jsNative
-            member __.join([<ParamArray>] paths: obj[]): string = jsNative
-            member __.resolve([<ParamArray>] pathSegments: obj[]): string = jsNative
-            member __.isAbsolute(p: string): bool = jsNative
-            member __.relative(from: string, ``to``: string): string = jsNative
-            member __.dirname(p: string): string = jsNative
-            member __.basename(p: string, ?ext: string): string = jsNative
-            member __.extname(p: string): string = jsNative
-            member __.parse(p: string): ParsedPath = jsNative
-            member __.format(pP: ParsedPath): string = jsNative
-
-    let [<Import("win32","path")>] win32: win32_types.Globals = jsNative
-
-let [<Import("*","path")>] path: path_types.Globals = jsNative
-
-
-[<Import("*","string_decoder")>]
-module string_decoder =
-    type [<AllowNullLiteral>] NodeStringDecoder =
-        abstract write: buffer: Buffer -> string
-        abstract detectIncompleteChar: buffer: Buffer -> float
-
-    let StringDecoder: NodeStringDecoder = jsNative
-
-
-module util_types =
+module util =
     type [<AllowNullLiteral>] InspectOptions =
         abstract showHidden: bool option with get, set
         abstract depth: float option with get, set
         abstract colors: bool option with get, set
         abstract customInspect: bool option with get, set
 
-    type Globals =
-        member __.format(format: obj, [<ParamArray>] param: obj[]): string = jsNative
-        member __.debug(string: string): unit = jsNative
-        member __.error([<ParamArray>] param: obj[]): unit = jsNative
-        member __.puts([<ParamArray>] param: obj[]): unit = jsNative
-        member __.print([<ParamArray>] param: obj[]): unit = jsNative
-        member __.log(string: string): unit = jsNative
-        member __.inspect(``object``: obj, ?showHidden: bool, ?depth: float, ?color: bool): string = jsNative
-        member __.inspect(``object``: obj, options: InspectOptions): string = jsNative
-        member __.isArray(``object``: obj): bool = jsNative
-        member __.isRegExp(``object``: obj): bool = jsNative
-        member __.isDate(``object``: obj): bool = jsNative
-        member __.isError(``object``: obj): bool = jsNative
-        member __.inherits(``constructor``: obj, superConstructor: obj): unit = jsNative
-        member __.debuglog(key: string): Func<string, obj, unit> = jsNative
-
-let [<Import("*","util")>] util: util_types.Globals = jsNative
-
-
-module assert_types =
-    type [<AllowNullLiteral>] [<Import("AssertionError","assert")>] AssertionError(?options: obj) =
-        // interface Error
-        member __.name with get(): string = jsNative and set(v: string): unit = jsNative
-        member __.message with get(): string = jsNative and set(v: string): unit = jsNative
-        member __.actual with get(): obj = jsNative and set(v: obj): unit = jsNative
-        member __.expected with get(): obj = jsNative and set(v: obj): unit = jsNative
-        member __.operator with get(): string = jsNative and set(v: string): unit = jsNative
-        member __.generatedMessage with get(): bool = jsNative and set(v: bool): unit = jsNative
-
-    type Globals =
-        member __.throws with get(): obj = jsNative and set(v: obj): unit = jsNative
-        member __.doesNotThrow with get(): obj = jsNative and set(v: obj): unit = jsNative
-        member __.fail(?actual: obj, ?expected: obj, ?message: string, ?operator: string): unit = jsNative
-        member __.ok(value: obj, ?message: string): unit = jsNative
-        member __.equal(actual: obj, expected: obj, ?message: string): unit = jsNative
-        member __.notEqual(actual: obj, expected: obj, ?message: string): unit = jsNative
-        member __.deepEqual(actual: obj, expected: obj, ?message: string): unit = jsNative
-        member __.notDeepEqual(acutal: obj, expected: obj, ?message: string): unit = jsNative
-        member __.strictEqual(actual: obj, expected: obj, ?message: string): unit = jsNative
-        member __.notStrictEqual(actual: obj, expected: obj, ?message: string): unit = jsNative
-        member __.ifError(value: obj): unit = jsNative
-
-let [<Import("*","assert")>] ``assert``: assert_types.Globals = jsNative
+    type [<Import("*","util")>] Globals =
+        static member format(format: obj, [<ParamArray>] param: obj[]): string = jsNative
+        static member debug(string: string): unit = jsNative
+        static member error([<ParamArray>] param: obj[]): unit = jsNative
+        static member puts([<ParamArray>] param: obj[]): unit = jsNative
+        static member print([<ParamArray>] param: obj[]): unit = jsNative
+        static member log(string: string): unit = jsNative
+        static member inspect(``object``: obj, ?showHidden: bool, ?depth: float, ?color: bool): string = jsNative
+        static member inspect(``object``: obj, options: InspectOptions): string = jsNative
+        static member isArray(``object``: obj): bool = jsNative
+        static member isRegExp(``object``: obj): bool = jsNative
+        static member isDate(``object``: obj): bool = jsNative
+        static member isError(``object``: obj): bool = jsNative
+        static member inherits(``constructor``: obj, superConstructor: obj): unit = jsNative
+        static member debuglog(key: string): Func<string, obj, unit> = jsNative
+        static member isBoolean(``object``: obj): bool = jsNative
+        static member isBuffer(``object``: obj): bool = jsNative
+        static member isFunction(``object``: obj): bool = jsNative
+        static member isNull(``object``: obj): bool = jsNative
+        static member isNullOrUndefined(``object``: obj): bool = jsNative
+        static member isNumber(``object``: obj): bool = jsNative
+        static member isObject(``object``: obj): bool = jsNative
+        static member isPrimitive(``object``: obj): bool = jsNative
+        static member isString(``object``: obj): bool = jsNative
+        static member isSymbol(``object``: obj): bool = jsNative
+        static member isUndefined(``object``: obj): bool = jsNative
+        static member deprecate(fn: Function, message: string): Function = jsNative
 
 
-[<Import("*","tty")>] 
 module tty =
     type [<AllowNullLiteral>] ReadStream =
-        inherit net_types.Socket
+        inherit net.Socket
         abstract isRaw: bool with get, set
+        abstract isTTY: bool with get, set
         abstract setRawMode: mode: bool -> unit
 
     and [<AllowNullLiteral>] WriteStream =
-        inherit net_types.Socket
+        inherit net.Socket
         abstract columns: float with get, set
         abstract rows: float with get, set
+        abstract isTTY: bool with get, set
 
-    let isatty(fd: float): bool = jsNative
-
-
-[<Import("*","domain")>] 
-module domain =
-    type [<AllowNullLiteral>] [<Import("Domain","domain")>] Domain() =
-        inherit events.EventEmitter()
-        member __.run(fn: Function): unit = jsNative
-        member __.add(emitter: events.EventEmitter): unit = jsNative
-        member __.remove(emitter: events.EventEmitter): unit = jsNative
-        member __.bind(cb: Func<Error, obj, obj>): obj = jsNative
-        member __.intercept(cb: Func<obj, obj>): obj = jsNative
-        member __.dispose(): unit = jsNative
-        member __.addListener(``event``: string, listener: Function): Domain = jsNative
-        member __.on(``event``: string, listener: Function): Domain = jsNative
-        member __.once(``event``: string, listener: Function): Domain = jsNative
-        member __.removeListener(``event``: string, listener: Function): Domain = jsNative
-        member __.removeAllListeners(?``event``: string): Domain = jsNative
-
-    let create(): Domain = jsNative
+    type [<Import("*","tty")>] Globals =
+        static member isatty(fd: float): bool = jsNative
 
 
-[<Import("*","constants")>]
 module constants =
-    let E2BIG: float = jsNative
-    let EACCES: float = jsNative
-    let EADDRINUSE: float = jsNative
-    let EADDRNOTAVAIL: float = jsNative
-    let EAFNOSUPPORT: float = jsNative
-    let EAGAIN: float = jsNative
-    let EALREADY: float = jsNative
-    let EBADF: float = jsNative
-    let EBADMSG: float = jsNative
-    let EBUSY: float = jsNative
-    let ECANCELED: float = jsNative
-    let ECHILD: float = jsNative
-    let ECONNABORTED: float = jsNative
-    let ECONNREFUSED: float = jsNative
-    let ECONNRESET: float = jsNative
-    let EDEADLK: float = jsNative
-    let EDESTADDRREQ: float = jsNative
-    let EDOM: float = jsNative
-    let EEXIST: float = jsNative
-    let EFAULT: float = jsNative
-    let EFBIG: float = jsNative
-    let EHOSTUNREACH: float = jsNative
-    let EIDRM: float = jsNative
-    let EILSEQ: float = jsNative
-    let EINPROGRESS: float = jsNative
-    let EINTR: float = jsNative
-    let EINVAL: float = jsNative
-    let EIO: float = jsNative
-    let EISCONN: float = jsNative
-    let EISDIR: float = jsNative
-    let ELOOP: float = jsNative
-    let EMFILE: float = jsNative
-    let EMLINK: float = jsNative
-    let EMSGSIZE: float = jsNative
-    let ENAMETOOLONG: float = jsNative
-    let ENETDOWN: float = jsNative
-    let ENETRESET: float = jsNative
-    let ENETUNREACH: float = jsNative
-    let ENFILE: float = jsNative
-    let ENOBUFS: float = jsNative
-    let ENODATA: float = jsNative
-    let ENODEV: float = jsNative
-    let ENOENT: float = jsNative
-    let ENOEXEC: float = jsNative
-    let ENOLCK: float = jsNative
-    let ENOLINK: float = jsNative
-    let ENOMEM: float = jsNative
-    let ENOMSG: float = jsNative
-    let ENOPROTOOPT: float = jsNative
-    let ENOSPC: float = jsNative
-    let ENOSR: float = jsNative
-    let ENOSTR: float = jsNative
-    let ENOSYS: float = jsNative
-    let ENOTCONN: float = jsNative
-    let ENOTDIR: float = jsNative
-    let ENOTEMPTY: float = jsNative
-    let ENOTSOCK: float = jsNative
-    let ENOTSUP: float = jsNative
-    let ENOTTY: float = jsNative
-    let ENXIO: float = jsNative
-    let EOPNOTSUPP: float = jsNative
-    let EOVERFLOW: float = jsNative
-    let EPERM: float = jsNative
-    let EPIPE: float = jsNative
-    let EPROTO: float = jsNative
-    let EPROTONOSUPPORT: float = jsNative
-    let EPROTOTYPE: float = jsNative
-    let ERANGE: float = jsNative
-    let EROFS: float = jsNative
-    let ESPIPE: float = jsNative
-    let ESRCH: float = jsNative
-    let ETIME: float = jsNative
-    let ETIMEDOUT: float = jsNative
-    let ETXTBSY: float = jsNative
-    let EWOULDBLOCK: float = jsNative
-    let EXDEV: float = jsNative
-    let WSAEINTR: float = jsNative
-    let WSAEBADF: float = jsNative
-    let WSAEACCES: float = jsNative
-    let WSAEFAULT: float = jsNative
-    let WSAEINVAL: float = jsNative
-    let WSAEMFILE: float = jsNative
-    let WSAEWOULDBLOCK: float = jsNative
-    let WSAEINPROGRESS: float = jsNative
-    let WSAEALREADY: float = jsNative
-    let WSAENOTSOCK: float = jsNative
-    let WSAEDESTADDRREQ: float = jsNative
-    let WSAEMSGSIZE: float = jsNative
-    let WSAEPROTOTYPE: float = jsNative
-    let WSAENOPROTOOPT: float = jsNative
-    let WSAEPROTONOSUPPORT: float = jsNative
-    let WSAESOCKTNOSUPPORT: float = jsNative
-    let WSAEOPNOTSUPP: float = jsNative
-    let WSAEPFNOSUPPORT: float = jsNative
-    let WSAEAFNOSUPPORT: float = jsNative
-    let WSAEADDRINUSE: float = jsNative
-    let WSAEADDRNOTAVAIL: float = jsNative
-    let WSAENETDOWN: float = jsNative
-    let WSAENETUNREACH: float = jsNative
-    let WSAENETRESET: float = jsNative
-    let WSAECONNABORTED: float = jsNative
-    let WSAECONNRESET: float = jsNative
-    let WSAENOBUFS: float = jsNative
-    let WSAEISCONN: float = jsNative
-    let WSAENOTCONN: float = jsNative
-    let WSAESHUTDOWN: float = jsNative
-    let WSAETOOMANYREFS: float = jsNative
-    let WSAETIMEDOUT: float = jsNative
-    let WSAECONNREFUSED: float = jsNative
-    let WSAELOOP: float = jsNative
-    let WSAENAMETOOLONG: float = jsNative
-    let WSAEHOSTDOWN: float = jsNative
-    let WSAEHOSTUNREACH: float = jsNative
-    let WSAENOTEMPTY: float = jsNative
-    let WSAEPROCLIM: float = jsNative
-    let WSAEUSERS: float = jsNative
-    let WSAEDQUOT: float = jsNative
-    let WSAESTALE: float = jsNative
-    let WSAEREMOTE: float = jsNative
-    let WSASYSNOTREADY: float = jsNative
-    let WSAVERNOTSUPPORTED: float = jsNative
-    let WSANOTINITIALISED: float = jsNative
-    let WSAEDISCON: float = jsNative
-    let WSAENOMORE: float = jsNative
-    let WSAECANCELLED: float = jsNative
-    let WSAEINVALIDPROCTABLE: float = jsNative
-    let WSAEINVALIDPROVIDER: float = jsNative
-    let WSAEPROVIDERFAILEDINIT: float = jsNative
-    let WSASYSCALLFAILURE: float = jsNative
-    let WSASERVICE_NOT_FOUND: float = jsNative
-    let WSATYPE_NOT_FOUND: float = jsNative
-    let WSA_E_NO_MORE: float = jsNative
-    let WSA_E_CANCELLED: float = jsNative
-    let WSAEREFUSED: float = jsNative
-    let SIGHUP: float = jsNative
-    let SIGINT: float = jsNative
-    let SIGILL: float = jsNative
-    let SIGABRT: float = jsNative
-    let SIGFPE: float = jsNative
-    let SIGKILL: float = jsNative
-    let SIGSEGV: float = jsNative
-    let SIGTERM: float = jsNative
-    let SIGBREAK: float = jsNative
-    let SIGWINCH: float = jsNative
-    let SSL_OP_ALL: float = jsNative
-    let SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION: float = jsNative
-    let SSL_OP_CIPHER_SERVER_PREFERENCE: float = jsNative
-    let SSL_OP_CISCO_ANYCONNECT: float = jsNative
-    let SSL_OP_COOKIE_EXCHANGE: float = jsNative
-    let SSL_OP_CRYPTOPRO_TLSEXT_BUG: float = jsNative
-    let SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS: float = jsNative
-    let SSL_OP_EPHEMERAL_RSA: float = jsNative
-    let SSL_OP_LEGACY_SERVER_CONNECT: float = jsNative
-    let SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER: float = jsNative
-    let SSL_OP_MICROSOFT_SESS_ID_BUG: float = jsNative
-    let SSL_OP_MSIE_SSLV2_RSA_PADDING: float = jsNative
-    let SSL_OP_NETSCAPE_CA_DN_BUG: float = jsNative
-    let SSL_OP_NETSCAPE_CHALLENGE_BUG: float = jsNative
-    let SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG: float = jsNative
-    let SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG: float = jsNative
-    let SSL_OP_NO_COMPRESSION: float = jsNative
-    let SSL_OP_NO_QUERY_MTU: float = jsNative
-    let SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION: float = jsNative
-    let SSL_OP_NO_SSLv2: float = jsNative
-    let SSL_OP_NO_SSLv3: float = jsNative
-    let SSL_OP_NO_TICKET: float = jsNative
-    let SSL_OP_NO_TLSv1: float = jsNative
-    let SSL_OP_NO_TLSv1_1: float = jsNative
-    let SSL_OP_NO_TLSv1_2: float = jsNative
-    let SSL_OP_PKCS1_CHECK_1: float = jsNative
-    let SSL_OP_PKCS1_CHECK_2: float = jsNative
-    let SSL_OP_SINGLE_DH_USE: float = jsNative
-    let SSL_OP_SINGLE_ECDH_USE: float = jsNative
-    let SSL_OP_SSLEAY_080_CLIENT_DH_BUG: float = jsNative
-    let SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG: float = jsNative
-    let SSL_OP_TLS_BLOCK_PADDING_BUG: float = jsNative
-    let SSL_OP_TLS_D5_BUG: float = jsNative
-    let SSL_OP_TLS_ROLLBACK_BUG: float = jsNative
-    let ENGINE_METHOD_DSA: float = jsNative
-    let ENGINE_METHOD_DH: float = jsNative
-    let ENGINE_METHOD_RAND: float = jsNative
-    let ENGINE_METHOD_ECDH: float = jsNative
-    let ENGINE_METHOD_ECDSA: float = jsNative
-    let ENGINE_METHOD_CIPHERS: float = jsNative
-    let ENGINE_METHOD_DIGESTS: float = jsNative
-    let ENGINE_METHOD_STORE: float = jsNative
-    let ENGINE_METHOD_PKEY_METHS: float = jsNative
-    let ENGINE_METHOD_PKEY_ASN1_METHS: float = jsNative
-    let ENGINE_METHOD_ALL: float = jsNative
-    let ENGINE_METHOD_NONE: float = jsNative
-    let DH_CHECK_P_NOT_SAFE_PRIME: float = jsNative
-    let DH_CHECK_P_NOT_PRIME: float = jsNative
-    let DH_UNABLE_TO_CHECK_GENERATOR: float = jsNative
-    let DH_NOT_SUITABLE_GENERATOR: float = jsNative
-    let NPN_ENABLED: float = jsNative
-    let RSA_PKCS1_PADDING: float = jsNative
-    let RSA_SSLV23_PADDING: float = jsNative
-    let RSA_NO_PADDING: float = jsNative
-    let RSA_PKCS1_OAEP_PADDING: float = jsNative
-    let RSA_X931_PADDING: float = jsNative
-    let RSA_PKCS1_PSS_PADDING: float = jsNative
-    let POINT_CONVERSION_COMPRESSED: float = jsNative
-    let POINT_CONVERSION_UNCOMPRESSED: float = jsNative
-    let POINT_CONVERSION_HYBRID: float = jsNative
-    let O_RDONLY: float = jsNative
-    let O_WRONLY: float = jsNative
-    let O_RDWR: float = jsNative
-    let S_IFMT: float = jsNative
-    let S_IFREG: float = jsNative
-    let S_IFDIR: float = jsNative
-    let S_IFCHR: float = jsNative
-    let S_IFLNK: float = jsNative
-    let O_CREAT: float = jsNative
-    let O_EXCL: float = jsNative
-    let O_TRUNC: float = jsNative
-    let O_APPEND: float = jsNative
-    let F_OK: float = jsNative
-    let R_OK: float = jsNative
-    let W_OK: float = jsNative
-    let X_OK: float = jsNative
-    let UV_UDP_REUSEADDR: float = jsNative
+    type [<Import("*","constants")>] Globals =
+        static member E2BIG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EACCES with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EADDRINUSE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EADDRNOTAVAIL with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EAFNOSUPPORT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EAGAIN with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EALREADY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EBADF with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EBADMSG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EBUSY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ECANCELED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ECHILD with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ECONNABORTED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ECONNREFUSED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ECONNRESET with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EDEADLK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EDESTADDRREQ with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EDOM with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EEXIST with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EFAULT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EFBIG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EHOSTUNREACH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EIDRM with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EILSEQ with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EINPROGRESS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EINTR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EINVAL with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EIO with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EISCONN with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EISDIR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ELOOP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EMFILE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EMLINK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EMSGSIZE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENAMETOOLONG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENETDOWN with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENETRESET with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENETUNREACH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENFILE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOBUFS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENODATA with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENODEV with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOENT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOEXEC with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOLCK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOLINK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOMEM with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOMSG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOPROTOOPT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOSPC with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOSR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOSTR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOSYS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOTCONN with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOTDIR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOTEMPTY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOTSOCK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOTSUP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENOTTY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENXIO with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EOPNOTSUPP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EOVERFLOW with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EPERM with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EPIPE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EPROTO with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EPROTONOSUPPORT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EPROTOTYPE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ERANGE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EROFS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ESPIPE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ESRCH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ETIME with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ETIMEDOUT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ETXTBSY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EWOULDBLOCK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member EXDEV with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEINTR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEBADF with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEACCES with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEFAULT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEINVAL with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEMFILE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEWOULDBLOCK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEINPROGRESS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEALREADY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAENOTSOCK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEDESTADDRREQ with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEMSGSIZE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEPROTOTYPE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAENOPROTOOPT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEPROTONOSUPPORT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAESOCKTNOSUPPORT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEOPNOTSUPP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEPFNOSUPPORT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEAFNOSUPPORT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEADDRINUSE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEADDRNOTAVAIL with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAENETDOWN with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAENETUNREACH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAENETRESET with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAECONNABORTED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAECONNRESET with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAENOBUFS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEISCONN with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAENOTCONN with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAESHUTDOWN with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAETOOMANYREFS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAETIMEDOUT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAECONNREFUSED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAELOOP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAENAMETOOLONG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEHOSTDOWN with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEHOSTUNREACH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAENOTEMPTY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEPROCLIM with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEUSERS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEDQUOT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAESTALE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEREMOTE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSASYSNOTREADY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAVERNOTSUPPORTED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSANOTINITIALISED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEDISCON with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAENOMORE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAECANCELLED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEINVALIDPROCTABLE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEINVALIDPROVIDER with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEPROVIDERFAILEDINIT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSASYSCALLFAILURE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSASERVICE_NOT_FOUND with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSATYPE_NOT_FOUND with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSA_E_NO_MORE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSA_E_CANCELLED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member WSAEREFUSED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGHUP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGINT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGILL with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGABRT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGFPE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGKILL with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGSEGV with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGTERM with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGBREAK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGWINCH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_ALL with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_CIPHER_SERVER_PREFERENCE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_CISCO_ANYCONNECT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_COOKIE_EXCHANGE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_CRYPTOPRO_TLSEXT_BUG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_EPHEMERAL_RSA with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_LEGACY_SERVER_CONNECT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_MICROSOFT_SESS_ID_BUG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_MSIE_SSLV2_RSA_PADDING with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NETSCAPE_CA_DN_BUG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NETSCAPE_CHALLENGE_BUG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NO_COMPRESSION with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NO_QUERY_MTU with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NO_SSLv2 with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NO_SSLv3 with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NO_TICKET with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NO_TLSv1 with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NO_TLSv1_1 with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_NO_TLSv1_2 with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_PKCS1_CHECK_1 with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_PKCS1_CHECK_2 with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_SINGLE_DH_USE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_SINGLE_ECDH_USE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_SSLEAY_080_CLIENT_DH_BUG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_TLS_BLOCK_PADDING_BUG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_TLS_D5_BUG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SSL_OP_TLS_ROLLBACK_BUG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_DSA with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_DH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_RAND with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_ECDH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_ECDSA with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_CIPHERS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_DIGESTS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_STORE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_PKEY_METHS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_PKEY_ASN1_METHS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_ALL with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ENGINE_METHOD_NONE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member DH_CHECK_P_NOT_SAFE_PRIME with get(): float = jsNative and set(v: float): unit = jsNative
+        static member DH_CHECK_P_NOT_PRIME with get(): float = jsNative and set(v: float): unit = jsNative
+        static member DH_UNABLE_TO_CHECK_GENERATOR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member DH_NOT_SUITABLE_GENERATOR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member NPN_ENABLED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member RSA_PKCS1_PADDING with get(): float = jsNative and set(v: float): unit = jsNative
+        static member RSA_SSLV23_PADDING with get(): float = jsNative and set(v: float): unit = jsNative
+        static member RSA_NO_PADDING with get(): float = jsNative and set(v: float): unit = jsNative
+        static member RSA_PKCS1_OAEP_PADDING with get(): float = jsNative and set(v: float): unit = jsNative
+        static member RSA_X931_PADDING with get(): float = jsNative and set(v: float): unit = jsNative
+        static member RSA_PKCS1_PSS_PADDING with get(): float = jsNative and set(v: float): unit = jsNative
+        static member POINT_CONVERSION_COMPRESSED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member POINT_CONVERSION_UNCOMPRESSED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member POINT_CONVERSION_HYBRID with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_RDONLY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_WRONLY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_RDWR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IFMT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IFREG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IFDIR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IFCHR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IFBLK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IFIFO with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IFSOCK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IRWXU with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IRUSR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IWUSR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IXUSR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IRWXG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IRGRP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IWGRP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IXGRP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IRWXO with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IROTH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IWOTH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IXOTH with get(): float = jsNative and set(v: float): unit = jsNative
+        static member S_IFLNK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_CREAT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_EXCL with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_NOCTTY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_DIRECTORY with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_NOATIME with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_NOFOLLOW with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_SYNC with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_SYMLINK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_DIRECT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_NONBLOCK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_TRUNC with get(): float = jsNative and set(v: float): unit = jsNative
+        static member O_APPEND with get(): float = jsNative and set(v: float): unit = jsNative
+        static member F_OK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member R_OK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member W_OK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member X_OK with get(): float = jsNative and set(v: float): unit = jsNative
+        static member UV_UDP_REUSEADDR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGQUIT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGTRAP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGIOT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGBUS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGUSR1 with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGUSR2 with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGPIPE with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGALRM with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGCHLD with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGSTKFLT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGCONT with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGSTOP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGTSTP with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGTTIN with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGTTOU with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGURG with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGXCPU with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGXFSZ with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGVTALRM with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGPROF with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGIO with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGPOLL with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGPWR with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGSYS with get(): float = jsNative and set(v: float): unit = jsNative
+        static member SIGUNUSED with get(): float = jsNative and set(v: float): unit = jsNative
+        static member defaultCoreCipherList with get(): string = jsNative and set(v: string): unit = jsNative
+        static member defaultCipherList with get(): string = jsNative and set(v: string): unit = jsNative
+        static member ENGINE_METHOD_RSA with get(): float = jsNative and set(v: float): unit = jsNative
+        static member ALPN_ENABLED with get(): float = jsNative and set(v: float): unit = jsNative
+
+
+
+module v8 =
+    type [<AllowNullLiteral>] HeapSpaceInfo =
+        abstract space_name: string with get, set
+        abstract space_size: float with get, set
+        abstract space_used_size: float with get, set
+        abstract space_available_size: float with get, set
+        abstract physical_space_size: float with get, set
+
+    and DoesZapCodeSpaceFlag =
+        | Disabled = 0
+        | Enabled = 1
+
+    and [<AllowNullLiteral>] HeapInfo =
+        abstract total_heap_size: float with get, set
+        abstract total_heap_size_executable: float with get, set
+        abstract total_physical_size: float with get, set
+        abstract total_available_size: float with get, set
+        abstract used_heap_size: float with get, set
+        abstract heap_size_limit: float with get, set
+        abstract malloced_memory: float with get, set
+        abstract peak_malloced_memory: float with get, set
+        abstract does_zap_garbage: DoesZapCodeSpaceFlag with get, set
+
+    type [<Import("*","v8")>] Globals =
+        static member getHeapStatistics(): HeapInfo = jsNative
+        static member getHeapSpaceStatistics(): ResizeArray<HeapSpaceInfo> = jsNative
+        static member setFlagsFromString(flags: string): unit = jsNative
+
+
+
+module timers =
+    type [<Import("*","timers")>] Globals =
+        static member setTimeout(callback: Func<obj, unit>, ms: float, [<ParamArray>] args: obj[]): NodeJS.Timer = jsNative
+        static member clearTimeout(timeoutId: NodeJS.Timer): unit = jsNative
+        static member setInterval(callback: Func<obj, unit>, ms: float, [<ParamArray>] args: obj[]): NodeJS.Timer = jsNative
+        static member clearInterval(intervalId: NodeJS.Timer): unit = jsNative
+        static member setImmediate(callback: Func<obj, unit>, [<ParamArray>] args: obj[]): obj = jsNative
+        static member clearImmediate(immediateId: obj): unit = jsNative
+
+
+
+module _debugger =
+    type [<AllowNullLiteral>] Packet =
+        abstract raw: string with get, set
+        abstract headers: ResizeArray<string> with get, set
+        abstract body: Message with get, set
+
+    and [<AllowNullLiteral>] Message =
+        abstract seq: float with get, set
+        abstract ``type``: string with get, set
+
+    and [<AllowNullLiteral>] RequestInfo =
+        abstract command: string with get, set
+        abstract arguments: obj with get, set
+
+    and [<AllowNullLiteral>] Request =
+        inherit Message
+        inherit RequestInfo
+
+
+    and [<AllowNullLiteral>] Event =
+        inherit Message
+        abstract ``event``: string with get, set
+        abstract body: obj option with get, set
+
+    and [<AllowNullLiteral>] Response =
+        inherit Message
+        abstract request_seq: float with get, set
+        abstract success: bool with get, set
+        abstract message: string option with get, set
+        abstract body: obj option with get, set
+
+    and [<AllowNullLiteral>] BreakpointMessageBody =
+        abstract ``type``: string with get, set
+        abstract target: float with get, set
+        abstract line: float with get, set
+
+    and [<AllowNullLiteral>] [<Import("Protocol","_debugger")>] Protocol() =
+        member __.res with get(): Packet = jsNative and set(v: Packet): unit = jsNative
+        member __.state with get(): string = jsNative and set(v: string): unit = jsNative
+        member __.onResponse with get(): Func<Packet, unit> = jsNative and set(v: Func<Packet, unit>): unit = jsNative
+        member __.execute(data: string): unit = jsNative
+        member __.serialize(rq: Request): string = jsNative
+
+    and [<AllowNullLiteral>] ScriptDesc =
+        abstract name: string with get, set
+        abstract id: float with get, set
+        abstract isNative: bool option with get, set
+        abstract handle: float option with get, set
+        abstract ``type``: string with get, set
+        abstract lineOffset: float option with get, set
+        abstract columnOffset: float option with get, set
+        abstract lineCount: float option with get, set
+
+    and [<AllowNullLiteral>] Breakpoint =
+        abstract id: float with get, set
+        abstract scriptId: float with get, set
+        abstract script: ScriptDesc with get, set
+        abstract line: float with get, set
+        abstract condition: string option with get, set
+        abstract scriptReq: string option with get, set
+
+    and [<AllowNullLiteral>] RequestHandler =
+        abstract request_seq: float option with get, set
+        [<Emit("$0($1...)")>] abstract Invoke: err: bool * body: Message * res: Packet -> unit
+
+    and [<AllowNullLiteral>] ResponseBodyHandler =
+        abstract request_seq: float option with get, set
+        [<Emit("$0($1...)")>] abstract Invoke: err: bool * ?body: obj -> unit
+
+    and [<AllowNullLiteral>] ExceptionInfo =
+        abstract text: string with get, set
+
+    and [<AllowNullLiteral>] BreakResponse =
+        abstract script: ScriptDesc option with get, set
+        abstract ``exception``: ExceptionInfo option with get, set
+        abstract sourceLine: float with get, set
+        abstract sourceLineText: string with get, set
+        abstract sourceColumn: float with get, set
+
+    and [<AllowNullLiteral>] ClientInstance =
+        abstract addListener: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract on: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract once: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract removeListener: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract removeAllListeners: ?``event``: U2<string, Symbol> -> obj
+        abstract setMaxListeners: n: float -> obj
+        abstract getMaxListeners: unit -> float
+        abstract listeners: ``event``: U2<string, Symbol> -> ResizeArray<Function>
+        abstract emit: ``event``: U2<string, Symbol> * [<ParamArray>] args: obj[] -> bool
+        abstract listenerCount: ``type``: U2<string, Symbol> -> float
+        abstract prependListener: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract prependOnceListener: ``event``: U2<string, Symbol> * listener: Function -> obj
+        abstract eventNames: unit -> ResizeArray<U2<string, Symbol>>
+        abstract protocol: Protocol with get, set
+        abstract scripts: ResizeArray<ScriptDesc> with get, set
+        abstract handles: ResizeArray<ScriptDesc> with get, set
+        abstract breakpoints: ResizeArray<Breakpoint> with get, set
+        abstract currentSourceLine: float with get, set
+        abstract currentSourceColumn: float with get, set
+        abstract currentSourceLineText: string with get, set
+        abstract currentFrame: float with get, set
+        abstract currentScript: string with get, set
+        abstract connect: port: float * host: string -> unit
+        abstract req: req: obj * cb: RequestHandler -> unit
+        abstract reqFrameEval: code: string * frame: float * cb: RequestHandler -> unit
+        abstract mirrorObject: obj: obj * depth: float * cb: ResponseBodyHandler -> unit
+        abstract setBreakpoint: rq: BreakpointMessageBody * cb: RequestHandler -> unit
+        abstract clearBreakpoint: rq: Request * cb: RequestHandler -> unit
+        abstract listbreakpoints: cb: RequestHandler -> unit
+        abstract reqSource: from: float * ``to``: float * cb: RequestHandler -> unit
+        abstract reqScripts: cb: obj -> unit
+        abstract reqContinue: cb: RequestHandler -> unit
+
+    and [<AllowNullLiteral>] ClientType =
+        [<Emit("new $0($1...)")>] abstract Create: unit -> ClientInstance
+
+    type [<Import("*","_debugger")>] Globals =
+        static member NO_FRAME with get(): float = jsNative and set(v: float): unit = jsNative
+        static member port with get(): float = jsNative and set(v: float): unit = jsNative
+        static member Client with get(): ClientType = jsNative and set(v: ClientType): unit = jsNative
+        static member SourceInfo(body: BreakResponse): string = jsNative
