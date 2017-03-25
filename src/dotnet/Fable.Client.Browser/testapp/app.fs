@@ -5,7 +5,7 @@ open Fable.Client
 
 let metadataPath = "/temp/metadata/"
 
-#if !DOTNETCORE
+#if !(DOTNETCORE || DOTNET40)
 
 [<Fable.Core.Import("readFileSync", "fs")>]
 let readFileSync: System.Func<string, byte[]> = failwith "JS only"
@@ -24,7 +24,7 @@ let measureTime (f: unit -> 'a) =
     let elapsed = hrTimeElapsed(startTime)
     int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6), res
 
-#else // DOTNETCORE
+#else // (DOTNETCORE || DOTNET40)
 
 let readAllBytes = fun (fileName:string) -> System.IO.File.ReadAllBytes (metadataPath + fileName)
 let readAllText = fun (filePath:string) -> System.IO.File.ReadAllText (filePath, System.Text.Encoding.UTF8)
@@ -36,14 +36,13 @@ let measureTime (f: unit -> 'a) =
 
 #endif
 
-
-#if DOTNETCORE
-[<EntryPoint>]
-#endif
-let main argv =
+// #if (DOTNETCORE || DOTNET40)
+// [<EntryPoint>]
+// #endif
+let main () =
     try
         let references = [|"FSharp.Core";"mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics";"Fable.Core"|]
-        let opts = readOptions argv
+        let opts = getDefaultOptions ()
         let com = makeCompiler opts []
         let fileName = "test_script.fsx"
         let source = readAllText fileName
@@ -61,3 +60,5 @@ let main argv =
     with ex ->
         printfn "Error: %A" ex.Message
     0
+
+main () |> ignore

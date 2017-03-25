@@ -4,7 +4,7 @@
     <Version>1.0.0-alpha</Version>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp1.0</TargetFramework>
-    <DefineConstants>DOTNETCORE</DefineConstants>
+    <DefineConstants>DOTNET40</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
