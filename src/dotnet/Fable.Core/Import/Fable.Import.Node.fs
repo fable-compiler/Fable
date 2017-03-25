@@ -4,10 +4,113 @@ open System.Text.RegularExpressions
 open Fable.Core
 open Fable.Import.JS
 
+// Buffer Start
+module buffer_types =
+    type BufferEncoding =
+    (* TODO StringEnum ascii | utf8 | utf16le | ucs2 | binary | hex *) string
+
+    and Buffer = 
+        inherit Uint8Array
+        abstract write: string: string * ?offset: float * ?length: float * ?encoding: string -> float
+        abstract toString: ?encoding: string * ?start: float * ?``end``: float -> string
+        abstract toJSON: unit -> obj
+        abstract equals: otherBuffer: Buffer -> bool
+        abstract compare: otherBuffer: Buffer * ?targetStart: float * ?targetEnd: float * ?sourceStart: float * ?sourceEnd: float -> float
+        abstract copy: targetBuffer: Buffer * ?targetStart: float * ?sourceStart: float * ?sourceEnd: float -> float
+        abstract slice: ?start: float * ?``end``: float -> Buffer
+        abstract writeUIntLE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
+        abstract writeUIntBE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
+        abstract writeIntLE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
+        abstract writeIntBE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
+        abstract readUIntLE: offset: float * byteLength: float * ?noAssert: bool -> float
+        abstract readUIntBE: offset: float * byteLength: float * ?noAssert: bool -> float
+        abstract readIntLE: offset: float * byteLength: float * ?noAssert: bool -> float
+        abstract readIntBE: offset: float * byteLength: float * ?noAssert: bool -> float
+        abstract readUInt8: offset: float * ?noAssert: bool -> float
+        abstract readUInt16LE: offset: float * ?noAssert: bool -> float
+        abstract readUInt16BE: offset: float * ?noAssert: bool -> float
+        abstract readUInt32LE: offset: float * ?noAssert: bool -> float
+        abstract readUInt32BE: offset: float * ?noAssert: bool -> float
+        abstract readInt8: offset: float * ?noAssert: bool -> float
+        abstract readInt16LE: offset: float * ?noAssert: bool -> float
+        abstract readInt16BE: offset: float * ?noAssert: bool -> float
+        abstract readInt32LE: offset: float * ?noAssert: bool -> float
+        abstract readInt32BE: offset: float * ?noAssert: bool -> float
+        abstract readFloatLE: offset: float * ?noAssert: bool -> float
+        abstract readFloatBE: offset: float * ?noAssert: bool -> float
+        abstract readDoubleLE: offset: float * ?noAssert: bool -> float
+        abstract readDoubleBE: offset: float * ?noAssert: bool -> float
+        abstract swap16: unit -> Buffer
+        abstract swap32: unit -> Buffer
+        abstract swap64: unit -> Buffer
+        abstract writeUInt8: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeUInt16LE: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeUInt16BE: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeUInt32LE: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeUInt32BE: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeInt8: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeInt16LE: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeInt16BE: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeInt32LE: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeInt32BE: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeFloatLE: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeFloatBE: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeDoubleLE: value: float * offset: float * ?noAssert: bool -> float
+        abstract writeDoubleBE: value: float * offset: float * ?noAssert: bool -> float
+        abstract fill: value: obj * ?offset: float * ?``end``: float -> obj
+        abstract indexOf: value: U3<string, float, Buffer> * ?byteOffset: float * ?encoding: string -> float
+        abstract lastIndexOf: value: U3<string, float, Buffer> * ?byteOffset: float * ?encoding: string -> float
+        abstract entries: unit -> IterableIterator<float * float>
+        abstract includes: value: U3<string, float, Buffer> * ?byteOffset: float * ?encoding: string -> bool
+        abstract keys: unit -> IterableIterator<float>
+        abstract values: unit -> IterableIterator<float>
+        abstract from: array: ResizeArray<obj> -> Buffer
+        abstract from: arrayBuffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Buffer
+        abstract from: buffer: Buffer -> Buffer
+        abstract from: str: string * ?encoding: string -> Buffer
+        abstract isBuffer: obj: obj -> obj
+        abstract isEncoding: encoding: string -> bool
+        abstract byteLength: string: string * ?encoding: string -> float
+        abstract concat: list: ResizeArray<Buffer> * ?totalLength: float -> Buffer
+        abstract compare: buf1: Buffer * buf2: Buffer -> float
+        abstract alloc: size: float * ?fill: U3<string, Buffer, float> * ?encoding: string -> Buffer
+        abstract allocUnsafe: size: float -> Buffer
+        abstract allocUnsafeSlow: size: float -> Buffer
+    
+    and [<AllowNullLiteral>] BufferStatic =
+        [<Emit("new $0($1...)")>] static member Create(str: string, ?encoding: string): Buffer = jsNative
+        [<Emit("new $0($1...)")>] static member Create(str: float): Buffer = jsNative
+        [<Emit("new $0($1...)")>] static member Create(array: Uint8Array): Buffer = jsNative
+        [<Emit("new $0($1...)")>] static member Create(arrayBuffer: ArrayBuffer): Buffer = jsNative
+        [<Emit("new $0($1...)")>] static member Create(array: ResizeArray<obj>): Buffer = jsNative
+        [<Emit("new $0($1...)")>] static member Create(buffer: Buffer): Buffer = jsNative
+        static member from(array: ResizeArray<obj>): Buffer = jsNative
+        static member from(buffer: Buffer): Buffer = jsNative
+        static member from(arrayBuffer: ArrayBuffer, ?byteOffset: float, ?length: float): Buffer = jsNative
+        static member from(str: string, ?encoding: string): Buffer = jsNative
+
+    and [<AllowNullLiteral>] SlowBuffer =
+        abstract prototype: Buffer with get, set
+        abstract isBuffer: obj: obj -> bool
+        abstract byteLength: string: string * ?encoding: string -> float
+        abstract concat: list: ResizeArray<Buffer> * ?totalLength: float -> Buffer
+
+    and [<AllowNullLiteral>] SlowBufferStatic =
+        [<Emit("new $0($1...)")>] static member Create(str: string, ?encoding: string): Buffer = jsNative
+        [<Emit("new $0($1...)")>] static member Create(str: float): Buffer = jsNative
+        [<Emit("new $0($1...)")>] static member Create(array: Uint8Array): Buffer = jsNative
+        [<Emit("new $0($1...)")>] static member Create(array: ResizeArray<obj>): Buffer = jsNative
+
+    and Globals = 
+        member __.Buffer with get(): BufferStatic = jsNative and set(v: BufferStatic): unit = jsNative
+        member __.SlowBuffer with get(): SlowBufferStatic = jsNative and set(v: SlowBufferStatic): unit = jsNative
+
+let [<Import("*","buffer")>] buffer: buffer_types.Globals = jsNative
+// Buffer End
+
 // Events start
 module event_types =
     type [<AllowNullLiteral>] EventEmitter =
-        [<Emit("new $0()")>] abstract Create: unit -> EventEmitter
         abstract defaultMaxListeners: float with get, set
         abstract addListener: ev: U2<string, Symbol> * listener: Function -> EventEmitter
         abstract on: ev: U2<string, Symbol> * listener: Function -> EventEmitter
@@ -22,16 +125,21 @@ module event_types =
         abstract emit: ev: string * [<ParamArray>] args: obj[] -> bool
         abstract eventNames: unit -> ResizeArray<U2<string, Symbol>>
         
+    and [<AllowNullLiteral>] EventEmitterStatic =
+        [<Emit("new $0()")>] static member Create(): EventEmitter = jsNative
+
     type Globals =
-        member __.EventEmitter with get(): EventEmitter = jsNative and set(v: EventEmitter): unit = jsNative
+        member __.EventEmitter with get(): EventEmitterStatic = jsNative and set(v: EventEmitterStatic): unit = jsNative
 let [<Import("*","events")>] events: event_types.Globals = jsNative
 // Events end
 
 // Stream Start
 module stream_types =
     type [<AllowNullLiteral>] Stream =
-        [<Emit("new $0()")>] abstract Create: unit -> Stream
         abstract pipe: destination: 'T * ?options: obj -> 'T
+
+    and [<AllowNullLiteral>] StreamStatic = 
+        [<Emit("new $0()")>] static member Create(): Stream = jsNative
 
     and ReadableOptions = {
         highWaterMark: float option
@@ -42,7 +150,6 @@ module stream_types =
 
     and [<AllowNullLiteral>] Readable =
         inherit Stream
-        [<Emit("new $0($1)")>] abstract Create: ReadableOptions -> Readable
         abstract readable: bool with get, set
         abstract push: chunk: obj * ?encoding: string -> bool
         abstract unshift: chunk: obj -> unit
@@ -52,24 +159,29 @@ module stream_types =
         abstract resume: unit -> Readable
         abstract isPaused: unit -> bool
         abstract setEncoding: string -> unit
-        abstract read: ?size: int -> U2<string option, Buffer option>
+        abstract read: ?size: int -> U2<string option, buffer_types.Buffer option>
+
+    and [<AllowNullLiteral>] ReadableStatic = 
+        [<Emit("new $0()")>] static member Create(readableOptions:ReadableOptions): Readable = jsNative
 
     and WritableOptions = {
         highWaterMark: float option;
         decodeStrings: bool option;
         objectMode: bool option;
-        write: Func<U2<string, Buffer>, string, Function, obj> option;
+        write: Func<U2<string, buffer_types.Buffer>, string, Function, obj> option;
         writev: Func<ResizeArray<obj>, Function, obj> option;
     }
 
     and [<AllowNullLiteral>] Writable =
         inherit Stream
-        [<Emit("new $0($1)")>] abstract Create: WritableOptions -> Writable
         abstract writable: bool with get, set
         abstract write: chunk: obj * ?cb: Function -> bool
         abstract ``end``:unit -> unit
         abstract ``end``: obj: obj * ?cb: Function -> unit
         abstract ``end``: obj: obj * ?encoding: string * ?cb: Function -> unit
+
+    and [<AllowNullLiteral>] WritableStatic = 
+        [<Emit("new $0()")>] static member Create(writableOptions:WritableOptions): Writable = jsNative
             
     type DuplexOptions = {
         decodeStrings: bool option;
@@ -79,14 +191,16 @@ module stream_types =
         readableObjectMode: bool option;
         writableObjectMode: bool option;
         read: Func<float, obj> option;
-        write: Func<U2<string, Buffer>, string, Function, obj> option;
+        write: Func<U2<string, buffer_types.Buffer>, string, Function, obj> option;
         writev: Func<ResizeArray<obj>, Function, obj> option;
     }
 
     and [<AllowNullLiteral>] Duplex =
         inherit Readable
         inherit Writable
-        [<Emit("new $0($1)")>] abstract Create: DuplexOptions -> Duplex
+
+    and [<AllowNullLiteral>] DuplexStatic = 
+        [<Emit("new $0()")>] static member Create(duplexOptions:DuplexOptions): Duplex = jsNative
 
     and TransformOptions = {
         decodeStrings: bool option;
@@ -95,7 +209,7 @@ module stream_types =
         allowHalfOpen: bool option;
         readableObjectMode: bool option;
         writableObjectMode: bool option;
-        transform: Func<U2<string, Buffer>, string, Function, obj> option;
+        transform: Func<U2<string, buffer_types.Buffer>, string, Function, obj> option;
         flush: Func<Function, obj> option;
     }
 
@@ -106,18 +220,25 @@ module stream_types =
         abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
         abstract _flush: callback: Function -> unit
 
+    and [<AllowNullLiteral>] TransformStatic = 
+        [<Emit("new $0()")>] static member Create(transformOptions:TransformOptions): Transform = jsNative
+
+
     and [<AllowNullLiteral>] PassThrough =
-        [<Emit("new $0()")>] abstract Create: unit -> PassThrough
         inherit Transform
+
+    and [<AllowNullLiteral>] PassThroughStatic = 
+        [<Emit("new $0()")>] static member Create(): PassThrough = jsNative
+
     
     and Globals =
-        member __.Stream with get(): Stream = jsNative and set(v: Stream): unit = jsNative
-        member __.Readable with get(): Readable = jsNative and set(v: Readable): unit = jsNative
-        member __.Writable with get(): Writable = jsNative and set(v: Writable): unit = jsNative
-        member __.Duplex with get(): Duplex = jsNative and set(v: Duplex): unit = jsNative
+        member __.Stream with get(): StreamStatic = jsNative and set(v: StreamStatic): unit = jsNative
+        member __.Readable with get(): ReadableStatic = jsNative and set(v: ReadableStatic): unit = jsNative
+        member __.Writable with get(): WritableStatic = jsNative and set(v: WritableStatic): unit = jsNative
+        member __.Duplex with get(): DuplexStatic = jsNative and set(v: DuplexStatic): unit = jsNative
         member __.TransformOptions with get(): TransformOptions = jsNative and set(v: TransformOptions): unit = jsNative
-        member __.Transform with get(): Transform = jsNative and set(v: Transform): unit = jsNative
-        member __.PassThrough with get(): PassThrough = jsNative and set(v: PassThrough): unit = jsNative
+        member __.Transform with get(): TransformStatic = jsNative and set(v: TransformStatic): unit = jsNative
+        member __.PassThrough with get(): PassThroughStatic = jsNative and set(v: PassThroughStatic): unit = jsNative
 
 
 let [<Import("*","stream")>] stream: stream_types.Globals = jsNative
@@ -159,102 +280,8 @@ and [<AllowNullLiteral>] NodeModule =
     abstract ``null``: obj with get, set
     abstract children: ResizeArray<NodeModule> with get, set
 
-and [<AllowNullLiteral>] SlowBufferType =
-    abstract prototype: Buffer with get, set
-    [<Emit("new $0($1...)")>] abstract Create: str: string * ?encoding: string -> Buffer
-    [<Emit("new $0($1...)")>] abstract Create: size: float -> Buffer
-    [<Emit("new $0($1...)")>] abstract Create: size: Uint8Array -> Buffer
-    [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<obj> -> Buffer
-    abstract isBuffer: obj: obj -> bool
-    abstract byteLength: string: string * ?encoding: string -> float
-    abstract concat: list: ResizeArray<Buffer> * ?totalLength: float -> Buffer
-
-and BufferEncoding =
-    (* TODO StringEnum ascii | utf8 | utf16le | ucs2 | binary | hex *) string
-
-and [<AllowNullLiteral>] Buffer =
-    inherit NodeBuffer
-
-
-and [<AllowNullLiteral>] BufferType =
-    abstract prototype: Buffer with get, set
-    [<Emit("new $0($1...)")>] abstract Create: str: string * ?encoding: string -> Buffer
-    [<Emit("new $0($1...)")>] abstract Create: size: float -> Buffer
-    [<Emit("new $0($1...)")>] abstract Create: array: Uint8Array -> Buffer
-    [<Emit("new $0($1...)")>] abstract Create: arrayBuffer: ArrayBuffer -> Buffer
-    [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<obj> -> Buffer
-    [<Emit("new $0($1...)")>] abstract Create: buffer: Buffer -> Buffer
-    abstract from: array: ResizeArray<obj> -> Buffer
-    abstract from: arrayBuffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Buffer
-    abstract from: buffer: Buffer -> Buffer
-    abstract from: str: string * ?encoding: string -> Buffer
-    abstract isBuffer: obj: obj -> obj
-    abstract isEncoding: encoding: string -> bool
-    abstract byteLength: string: string * ?encoding: string -> float
-    abstract concat: list: ResizeArray<Buffer> * ?totalLength: float -> Buffer
-    abstract compare: buf1: Buffer * buf2: Buffer -> float
-    abstract alloc: size: float * ?fill: U3<string, Buffer, float> * ?encoding: string -> Buffer
-    abstract allocUnsafe: size: float -> Buffer
-    abstract allocUnsafeSlow: size: float -> Buffer
-
 and [<AllowNullLiteral>] IterableIterator<'T> =
     interface end
-
-and [<AllowNullLiteral>] NodeBuffer =
-    inherit Uint8Array
-    abstract write: string: string * ?offset: float * ?length: float * ?encoding: string -> float
-    abstract toString: ?encoding: string * ?start: float * ?``end``: float -> string
-    abstract toJSON: unit -> obj
-    abstract equals: otherBuffer: Buffer -> bool
-    abstract compare: otherBuffer: Buffer * ?targetStart: float * ?targetEnd: float * ?sourceStart: float * ?sourceEnd: float -> float
-    abstract copy: targetBuffer: Buffer * ?targetStart: float * ?sourceStart: float * ?sourceEnd: float -> float
-    abstract slice: ?start: float * ?``end``: float -> Buffer
-    abstract writeUIntLE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract writeUIntBE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract writeIntLE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract writeIntBE: value: float * offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract readUIntLE: offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract readUIntBE: offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract readIntLE: offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract readIntBE: offset: float * byteLength: float * ?noAssert: bool -> float
-    abstract readUInt8: offset: float * ?noAssert: bool -> float
-    abstract readUInt16LE: offset: float * ?noAssert: bool -> float
-    abstract readUInt16BE: offset: float * ?noAssert: bool -> float
-    abstract readUInt32LE: offset: float * ?noAssert: bool -> float
-    abstract readUInt32BE: offset: float * ?noAssert: bool -> float
-    abstract readInt8: offset: float * ?noAssert: bool -> float
-    abstract readInt16LE: offset: float * ?noAssert: bool -> float
-    abstract readInt16BE: offset: float * ?noAssert: bool -> float
-    abstract readInt32LE: offset: float * ?noAssert: bool -> float
-    abstract readInt32BE: offset: float * ?noAssert: bool -> float
-    abstract readFloatLE: offset: float * ?noAssert: bool -> float
-    abstract readFloatBE: offset: float * ?noAssert: bool -> float
-    abstract readDoubleLE: offset: float * ?noAssert: bool -> float
-    abstract readDoubleBE: offset: float * ?noAssert: bool -> float
-    abstract swap16: unit -> Buffer
-    abstract swap32: unit -> Buffer
-    abstract swap64: unit -> Buffer
-    abstract writeUInt8: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeUInt16LE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeUInt16BE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeUInt32LE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeUInt32BE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeInt8: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeInt16LE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeInt16BE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeInt32LE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeInt32BE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeFloatLE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeFloatBE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeDoubleLE: value: float * offset: float * ?noAssert: bool -> float
-    abstract writeDoubleBE: value: float * offset: float * ?noAssert: bool -> float
-    abstract fill: value: obj * ?offset: float * ?``end``: float -> obj
-    abstract indexOf: value: U3<string, float, Buffer> * ?byteOffset: float * ?encoding: string -> float
-    abstract lastIndexOf: value: U3<string, float, Buffer> * ?byteOffset: float * ?encoding: string -> float
-    abstract entries: unit -> IterableIterator<float * float>
-    abstract includes: value: U3<string, float, Buffer> * ?byteOffset: float * ?encoding: string -> bool
-    abstract keys: unit -> IterableIterator<float>
-    abstract values: unit -> IterableIterator<float>
 
 module NodeJS =
     type [<AllowNullLiteral>] ErrnoException =
@@ -408,24 +435,15 @@ module NodeJS =
         abstract ref: unit -> unit
         abstract unref: unit -> unit
 
-
-type [<Erase>]Globals =
-    [<Global>] static member ``process`` with get(): NodeJS.Process = jsNative and set(v: NodeJS.Process): unit = jsNative
-    [<Global>] static member ``global`` with get(): NodeJS.Global = jsNative and set(v: NodeJS.Global): unit = jsNative
-    [<Global>] static member console with get(): Console = jsNative and set(v: Console): unit = jsNative
-    [<Global>] static member ___filename with get(): string = jsNative and set(v: string): unit = jsNative
-    [<Global>] static member ___dirname with get(): string = jsNative and set(v: string): unit = jsNative
-    [<Global>] static member require with get(): NodeRequire = jsNative and set(v: NodeRequire): unit = jsNative
-    [<Global>] static member ``module`` with get(): NodeModule = jsNative and set(v: NodeModule): unit = jsNative
-    [<Global>] static member exports with get(): obj = jsNative and set(v: obj): unit = jsNative
-    [<Global>] static member SlowBuffer with get(): SlowBufferType = jsNative and set(v: SlowBufferType): unit = jsNative
-    [<Global>] static member Buffer with get(): BufferType = jsNative and set(v: BufferType): unit = jsNative
-
-module buffer =
-    type [<Import("*","buffer")>] Globals =
-        static member INSPECT_MAX_BYTES with get(): float = jsNative and set(v: float): unit = jsNative
-        static member BuffType with get(): obj = jsNative and set(v: obj): unit = jsNative
-        static member SlowBuffType with get(): obj = jsNative and set(v: obj): unit = jsNative
+let [<Global>] ``process``: NodeJS.Process = jsNative
+let [<Global>] ``global``: NodeJS.Global = jsNative
+let [<Global>] __filename: string = jsNative
+let [<Global>] __dirname: string = jsNative
+let [<Global>] require: NodeRequire = jsNative
+let [<Global>] ``module``: NodeModule = jsNative
+let [<Global>] exports: obj = jsNative
+let [<Global>] SlowBuffer: buffer_types.SlowBufferStatic = jsNative
+let [<Global>] Buffer: buffer_types.BufferStatic = jsNative
 
 module querystring =
     type [<AllowNullLiteral>] StringifyOptions =
@@ -461,8 +479,8 @@ module net_types =
         abstract localPort: float with get, set
         abstract bytesRead: float with get, set
         abstract bytesWritten: float with get, set
-        abstract write: buffer: Buffer -> bool
-        abstract write: buffer: Buffer * ?cb: Function -> bool
+        abstract write: buffer: buffer_types.Buffer -> bool
+        abstract write: buffer: buffer_types.Buffer * ?cb: Function -> bool
         abstract write: str: string * ?cb: Function -> bool
         abstract write: str: string * ?encoding: string * ?cb: Function -> bool
         abstract write: str: string * ?encoding: string * ?fd: string -> bool
@@ -478,7 +496,7 @@ module net_types =
         abstract address: unit -> obj
         abstract unref: unit -> unit
         abstract ref: unit -> unit
-        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
+        abstract ``end``: buffer: buffer_types.Buffer * ?cb: Function -> unit
         abstract ``end``: str: string * ?cb: Function -> unit
         abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
         abstract ``end``: ?data: obj * ?encoding: string -> unit
@@ -543,8 +561,8 @@ module http =
         abstract headersSent: bool with get, set
         abstract sendDate: bool with get, set
         abstract finished: bool with get, set
-        abstract write: buffer: Buffer -> bool
-        abstract write: buffer: Buffer * ?cb: Function -> bool
+        abstract write: buffer: buffer_types.Buffer -> bool
+        abstract write: buffer: buffer_types.Buffer * ?cb: Function -> bool
         abstract write: str: string * ?cb: Function -> bool
         abstract write: str: string * ?encoding: string * ?cb: Function -> bool
         abstract write: str: string * ?encoding: string * ?fd: string -> bool
@@ -558,15 +576,15 @@ module http =
         abstract write: chunk: obj * ?encoding: string -> obj
         abstract addTrailers: headers: obj -> unit
         abstract ``end``: unit -> unit
-        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
+        abstract ``end``: buffer: buffer_types.Buffer * ?cb: Function -> unit
         abstract ``end``: str: string * ?cb: Function -> unit
         abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
         abstract ``end``: ?data: obj * ?encoding: string -> unit
 
     and [<AllowNullLiteral>] ClientRequest =
         inherit stream_types.Writable
-        abstract write: buffer: Buffer -> bool
-        abstract write: buffer: Buffer * ?cb: Function -> bool
+        abstract write: buffer: buffer_types.Buffer -> bool
+        abstract write: buffer: buffer_types.Buffer * ?cb: Function -> bool
         abstract write: str: string * ?cb: Function -> bool
         abstract write: str: string * ?encoding: string * ?cb: Function -> bool
         abstract write: str: string * ?encoding: string * ?fd: string -> bool
@@ -580,7 +598,7 @@ module http =
         abstract removeHeader: name: string -> unit
         abstract addTrailers: headers: obj -> unit
         abstract ``end``: unit -> unit
-        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
+        abstract ``end``: buffer: buffer_types.Buffer * ?cb: Function -> unit
         abstract ``end``: str: string * ?cb: Function -> unit
         abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
         abstract ``end``: ?data: obj * ?encoding: string -> unit
@@ -711,20 +729,20 @@ module zlib =
         static member createDeflateRaw(?options: ZlibOptions): DeflateRaw = jsNative
         static member createInflateRaw(?options: ZlibOptions): InflateRaw = jsNative
         static member createUnzip(?options: ZlibOptions): Unzip = jsNative
-        static member deflate(buf: U2<Buffer, string>, callback: Func<Error, Buffer, unit>): unit = jsNative
-        static member deflateSync(buf: U2<Buffer, string>, ?options: ZlibOptions): Buffer = jsNative
-        static member deflateRaw(buf: U2<Buffer, string>, callback: Func<Error, Buffer, unit>): unit = jsNative
-        static member deflateRawSync(buf: U2<Buffer, string>, ?options: ZlibOptions): Buffer = jsNative
-        static member gzip(buf: Buffer, callback: Func<Error, Buffer, unit>): unit = jsNative
-        static member gzipSync(buf: Buffer, ?options: ZlibOptions): Buffer = jsNative
-        static member gunzip(buf: Buffer, callback: Func<Error, Buffer, unit>): unit = jsNative
-        static member gunzipSync(buf: Buffer, ?options: ZlibOptions): Buffer = jsNative
-        static member inflate(buf: Buffer, callback: Func<Error, Buffer, unit>): unit = jsNative
-        static member inflateSync(buf: Buffer, ?options: ZlibOptions): Buffer = jsNative
-        static member inflateRaw(buf: Buffer, callback: Func<Error, Buffer, unit>): unit = jsNative
-        static member inflateRawSync(buf: Buffer, ?options: ZlibOptions): Buffer = jsNative
-        static member unzip(buf: Buffer, callback: Func<Error, Buffer, unit>): unit = jsNative
-        static member unzipSync(buf: Buffer, ?options: ZlibOptions): Buffer = jsNative
+        static member deflate(buf: U2<buffer_types.Buffer, string>, callback: Func<Error, buffer_types.Buffer, unit>): unit = jsNative
+        static member deflateSync(buf: U2<buffer_types.Buffer, string>, ?options: ZlibOptions): buffer_types.Buffer = jsNative
+        static member deflateRaw(buf: U2<buffer_types.Buffer, string>, callback: Func<Error, buffer_types.Buffer, unit>): unit = jsNative
+        static member deflateRawSync(buf: U2<buffer_types.Buffer, string>, ?options: ZlibOptions): buffer_types.Buffer = jsNative
+        static member gzip(buf: buffer_types.Buffer, callback: Func<Error, buffer_types.Buffer, unit>): unit = jsNative
+        static member gzipSync(buf: buffer_types.Buffer, ?options: ZlibOptions): buffer_types.Buffer = jsNative
+        static member gunzip(buf: buffer_types.Buffer, callback: Func<Error, buffer_types.Buffer, unit>): unit = jsNative
+        static member gunzipSync(buf: buffer_types.Buffer, ?options: ZlibOptions): buffer_types.Buffer = jsNative
+        static member inflate(buf: buffer_types.Buffer, callback: Func<Error, buffer_types.Buffer, unit>): unit = jsNative
+        static member inflateSync(buf: buffer_types.Buffer, ?options: ZlibOptions): buffer_types.Buffer = jsNative
+        static member inflateRaw(buf: buffer_types.Buffer, callback: Func<Error, buffer_types.Buffer, unit>): unit = jsNative
+        static member inflateRawSync(buf: buffer_types.Buffer, ?options: ZlibOptions): buffer_types.Buffer = jsNative
+        static member unzip(buf: buffer_types.Buffer, callback: Func<Error, buffer_types.Buffer, unit>): unit = jsNative
+        static member unzipSync(buf: buffer_types.Buffer, ?options: ZlibOptions): buffer_types.Buffer = jsNative
 
 
 module os =
@@ -774,7 +792,7 @@ module vm =
         abstract columnOffset: float option with get, set
         abstract displayErrors: bool option with get, set
         abstract timeout: float option with get, set
-        abstract cachedData: Buffer option with get, set
+        abstract cachedData: buffer_types.Buffer option with get, set
         abstract produceCachedData: bool option with get, set
 
     and [<AllowNullLiteral>] RunningScriptOptions =
@@ -812,15 +830,15 @@ module child_process_types =
 
     type Globals =
         member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
-        member __.exec(command: string, options: obj, ?callback: Func<Error option, Buffer, Buffer, unit>): ChildProcess = jsNative
-        member __.exec(command: string, ?callback: Func<Error option, Buffer, Buffer, unit>): ChildProcess = jsNative
-        member __.execFile(file: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
-        member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
-        member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.exec(command: string, options: obj, ?callback: Func<Error option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
+        member __.exec(command: string, ?callback: Func<Error option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
+        member __.execFile(file: string, ?callback: Func<Error, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
+        member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
+        member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
         member __.fork(modulePath: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
         member __.spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = jsNative
-        member __.execSync(command: string, ?options: obj): U2<string, Buffer> = jsNative
-        member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, Buffer> = jsNative
+        member __.execSync(command: string, ?options: obj): U2<string, buffer_types.Buffer> = jsNative
+        member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, buffer_types.Buffer> = jsNative
 
 let [<Import("*","child_process")>] child_process: child_process_types.Globals = jsNative
 
@@ -941,8 +959,8 @@ module net =
         abstract bytesRead: float with get, set
         abstract bytesWritten: float with get, set
         abstract destroyed: bool with get, set
-        abstract write: buffer: Buffer -> bool
-        abstract write: buffer: Buffer * ?cb: Function -> bool
+        abstract write: buffer: buffer_types.Buffer -> bool
+        abstract write: buffer: buffer_types.Buffer * ?cb: Function -> bool
         abstract write: str: string * ?cb: Function -> bool
         abstract write: str: string * ?encoding: string * ?cb: Function -> bool
         abstract write: str: string * ?encoding: string * ?fd: string -> bool
@@ -960,14 +978,14 @@ module net =
         abstract unref: unit -> unit
         abstract ref: unit -> unit
         abstract ``end``: unit -> unit
-        abstract ``end``: buffer: Buffer * ?cb: Function -> unit
+        abstract ``end``: buffer: buffer_types.Buffer * ?cb: Function -> unit
         abstract ``end``: str: string * ?cb: Function -> unit
         abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
         abstract ``end``: ?data: obj * ?encoding: string -> unit
         abstract addListener: ``event``: string * listener: Function -> obj
         [<Emit("$0.addListener('close',$1...)")>] abstract addListener_close: listener: Func<bool, unit> -> obj
         [<Emit("$0.addListener('connect',$1...)")>] abstract addListener_connect: listener: Func<unit, unit> -> obj
-        [<Emit("$0.addListener('data',$1...)")>] abstract addListener_data: listener: Func<Buffer, unit> -> obj
+        [<Emit("$0.addListener('data',$1...)")>] abstract addListener_data: listener: Func<buffer_types.Buffer, unit> -> obj
         [<Emit("$0.addListener('drain',$1...)")>] abstract addListener_drain: listener: Func<unit, unit> -> obj
         [<Emit("$0.addListener('end',$1...)")>] abstract addListener_end: listener: Func<unit, unit> -> obj
         [<Emit("$0.addListener('error',$1...)")>] abstract addListener_error: listener: Func<Error, unit> -> obj
@@ -976,7 +994,7 @@ module net =
         abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
         [<Emit("$0.emit('close',$1...)")>] abstract emit_close: had_error: bool -> bool
         [<Emit("$0.emit('connect')")>] abstract emit_connect: unit -> bool
-        [<Emit("$0.emit('data',$1...)")>] abstract emit_data: data: Buffer -> bool
+        [<Emit("$0.emit('data',$1...)")>] abstract emit_data: data: buffer_types.Buffer -> bool
         [<Emit("$0.emit('drain')")>] abstract emit_drain: unit -> bool
         [<Emit("$0.emit('end')")>] abstract emit_end: unit -> bool
         [<Emit("$0.emit('error',$1...)")>] abstract emit_error: err: Error -> bool
@@ -985,7 +1003,7 @@ module net =
         abstract on: ``event``: string * listener: Function -> obj
         [<Emit("$0.on('close',$1...)")>] abstract on_close: listener: Func<bool, unit> -> obj
         [<Emit("$0.on('connect',$1...)")>] abstract on_connect: listener: Func<unit, unit> -> obj
-        [<Emit("$0.on('data',$1...)")>] abstract on_data: listener: Func<Buffer, unit> -> obj
+        [<Emit("$0.on('data',$1...)")>] abstract on_data: listener: Func<buffer_types.Buffer, unit> -> obj
         [<Emit("$0.on('drain',$1...)")>] abstract on_drain: listener: Func<unit, unit> -> obj
         [<Emit("$0.on('end',$1...)")>] abstract on_end: listener: Func<unit, unit> -> obj
         [<Emit("$0.on('error',$1...)")>] abstract on_error: listener: Func<Error, unit> -> obj
@@ -994,7 +1012,7 @@ module net =
         abstract once: ``event``: string * listener: Function -> obj
         [<Emit("$0.once('close',$1...)")>] abstract once_close: listener: Func<bool, unit> -> obj
         [<Emit("$0.once('connect',$1...)")>] abstract once_connect: listener: Func<unit, unit> -> obj
-        [<Emit("$0.once('data',$1...)")>] abstract once_data: listener: Func<Buffer, unit> -> obj
+        [<Emit("$0.once('data',$1...)")>] abstract once_data: listener: Func<buffer_types.Buffer, unit> -> obj
         [<Emit("$0.once('drain',$1...)")>] abstract once_drain: listener: Func<unit, unit> -> obj
         [<Emit("$0.once('end',$1...)")>] abstract once_end: listener: Func<unit, unit> -> obj
         [<Emit("$0.once('error',$1...)")>] abstract once_error: listener: Func<Error, unit> -> obj
@@ -1003,7 +1021,7 @@ module net =
         abstract prependListener: ``event``: string * listener: Function -> obj
         [<Emit("$0.prependListener('close',$1...)")>] abstract prependListener_close: listener: Func<bool, unit> -> obj
         [<Emit("$0.prependListener('connect',$1...)")>] abstract prependListener_connect: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependListener('data',$1...)")>] abstract prependListener_data: listener: Func<Buffer, unit> -> obj
+        [<Emit("$0.prependListener('data',$1...)")>] abstract prependListener_data: listener: Func<buffer_types.Buffer, unit> -> obj
         [<Emit("$0.prependListener('drain',$1...)")>] abstract prependListener_drain: listener: Func<unit, unit> -> obj
         [<Emit("$0.prependListener('end',$1...)")>] abstract prependListener_end: listener: Func<unit, unit> -> obj
         [<Emit("$0.prependListener('error',$1...)")>] abstract prependListener_error: listener: Func<Error, unit> -> obj
@@ -1012,7 +1030,7 @@ module net =
         abstract prependOnceListener: ``event``: string * listener: Function -> obj
         [<Emit("$0.prependOnceListener('close',$1...)")>] abstract prependOnceListener_close: listener: Func<bool, unit> -> obj
         [<Emit("$0.prependOnceListener('connect',$1...)")>] abstract prependOnceListener_connect: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependOnceListener('data',$1...)")>] abstract prependOnceListener_data: listener: Func<Buffer, unit> -> obj
+        [<Emit("$0.prependOnceListener('data',$1...)")>] abstract prependOnceListener_data: listener: Func<buffer_types.Buffer, unit> -> obj
         [<Emit("$0.prependOnceListener('drain',$1...)")>] abstract prependOnceListener_drain: listener: Func<unit, unit> -> obj
         [<Emit("$0.prependOnceListener('end',$1...)")>] abstract prependOnceListener_end: listener: Func<unit, unit> -> obj
         [<Emit("$0.prependOnceListener('error',$1...)")>] abstract prependOnceListener_error: listener: Func<Error, unit> -> obj
@@ -1116,8 +1134,8 @@ module dgram =
 
     and [<AllowNullLiteral>] Socket =
         inherit event_types.EventEmitter
-        abstract send: msg: U3<Buffer, string, ResizeArray<obj>> * port: float * address: string * ?callback: Func<Error, float, unit> -> unit
-        abstract send: msg: U3<Buffer, string, ResizeArray<obj>> * offset: float * length: float * port: float * address: string * ?callback: Func<Error, float, unit> -> unit
+        abstract send: msg: U3<buffer_types.Buffer, string, ResizeArray<obj>> * port: float * address: string * ?callback: Func<Error, float, unit> -> unit
+        abstract send: msg: U3<buffer_types.Buffer, string, ResizeArray<obj>> * offset: float * length: float * port: float * address: string * ?callback: Func<Error, float, unit> -> unit
         abstract bind: ?port: float * ?address: string * ?callback: Func<unit, unit> -> unit
         abstract bind: options: BindOptions * ?callback: Function -> unit
         abstract close: ?callback: obj -> unit
@@ -1134,36 +1152,36 @@ module dgram =
         [<Emit("$0.addListener('close',$1...)")>] abstract addListener_close: listener: Func<unit, unit> -> obj
         [<Emit("$0.addListener('error',$1...)")>] abstract addListener_error: listener: Func<Error, unit> -> obj
         [<Emit("$0.addListener('listening',$1...)")>] abstract addListener_listening: listener: Func<unit, unit> -> obj
-        [<Emit("$0.addListener('message',$1...)")>] abstract addListener_message: listener: Func<Buffer, AddressInfo, unit> -> obj
+        [<Emit("$0.addListener('message',$1...)")>] abstract addListener_message: listener: Func<buffer_types.Buffer, AddressInfo, unit> -> obj
         abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
         [<Emit("$0.emit('close')")>] abstract emit_close: unit -> bool
         [<Emit("$0.emit('error',$1...)")>] abstract emit_error: err: Error -> bool
         [<Emit("$0.emit('listening')")>] abstract emit_listening: unit -> bool
-        [<Emit("$0.emit('message',$1...)")>] abstract emit_message: msg: Buffer * rinfo: AddressInfo -> bool
+        [<Emit("$0.emit('message',$1...)")>] abstract emit_message: msg: buffer_types.Buffer * rinfo: AddressInfo -> bool
         abstract on: ``event``: string * listener: Function -> obj
         [<Emit("$0.on('close',$1...)")>] abstract on_close: listener: Func<unit, unit> -> obj
         [<Emit("$0.on('error',$1...)")>] abstract on_error: listener: Func<Error, unit> -> obj
         [<Emit("$0.on('listening',$1...)")>] abstract on_listening: listener: Func<unit, unit> -> obj
-        [<Emit("$0.on('message',$1...)")>] abstract on_message: listener: Func<Buffer, AddressInfo, unit> -> obj
+        [<Emit("$0.on('message',$1...)")>] abstract on_message: listener: Func<buffer_types.Buffer, AddressInfo, unit> -> obj
         abstract once: ``event``: string * listener: Function -> obj
         [<Emit("$0.once('close',$1...)")>] abstract once_close: listener: Func<unit, unit> -> obj
         [<Emit("$0.once('error',$1...)")>] abstract once_error: listener: Func<Error, unit> -> obj
         [<Emit("$0.once('listening',$1...)")>] abstract once_listening: listener: Func<unit, unit> -> obj
-        [<Emit("$0.once('message',$1...)")>] abstract once_message: listener: Func<Buffer, AddressInfo, unit> -> obj
+        [<Emit("$0.once('message',$1...)")>] abstract once_message: listener: Func<buffer_types.Buffer, AddressInfo, unit> -> obj
         abstract prependListener: ``event``: string * listener: Function -> obj
         [<Emit("$0.prependListener('close',$1...)")>] abstract prependListener_close: listener: Func<unit, unit> -> obj
         [<Emit("$0.prependListener('error',$1...)")>] abstract prependListener_error: listener: Func<Error, unit> -> obj
         [<Emit("$0.prependListener('listening',$1...)")>] abstract prependListener_listening: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependListener('message',$1...)")>] abstract prependListener_message: listener: Func<Buffer, AddressInfo, unit> -> obj
+        [<Emit("$0.prependListener('message',$1...)")>] abstract prependListener_message: listener: Func<buffer_types.Buffer, AddressInfo, unit> -> obj
         abstract prependOnceListener: ``event``: string * listener: Function -> obj
         [<Emit("$0.prependOnceListener('close',$1...)")>] abstract prependOnceListener_close: listener: Func<unit, unit> -> obj
         [<Emit("$0.prependOnceListener('error',$1...)")>] abstract prependOnceListener_error: listener: Func<Error, unit> -> obj
         [<Emit("$0.prependOnceListener('listening',$1...)")>] abstract prependOnceListener_listening: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependOnceListener('message',$1...)")>] abstract prependOnceListener_message: listener: Func<Buffer, AddressInfo, unit> -> obj
+        [<Emit("$0.prependOnceListener('message',$1...)")>] abstract prependOnceListener_message: listener: Func<buffer_types.Buffer, AddressInfo, unit> -> obj
 
     type [<Import("*","dgram")>] Globals =
-        static member createSocket(``type``: string, ?callback: Func<Buffer, RemoteInfo, unit>): Socket = jsNative
-        static member createSocket(options: SocketOptions, ?callback: Func<Buffer, RemoteInfo, unit>): Socket = jsNative
+        static member createSocket(``type``: string, ?callback: Func<buffer_types.Buffer, RemoteInfo, unit>): Socket = jsNative
+        static member createSocket(options: SocketOptions, ?callback: Func<buffer_types.Buffer, RemoteInfo, unit>): Socket = jsNative
 
 
 
@@ -1195,25 +1213,25 @@ module fs =
         inherit event_types.EventEmitter
         abstract close: unit -> unit
         abstract addListener: ``event``: string * listener: Function -> obj
-        [<Emit("$0.addListener('change',$1...)")>] abstract addListener_change: listener: Func<string, U2<string, Buffer>, unit> -> obj
+        [<Emit("$0.addListener('change',$1...)")>] abstract addListener_change: listener: Func<string, U2<string, buffer_types.Buffer>, unit> -> obj
         [<Emit("$0.addListener('error',$1...)")>] abstract addListener_error: listener: Func<float, string, unit> -> obj
         abstract on: ``event``: string * listener: Function -> obj
-        [<Emit("$0.on('change',$1...)")>] abstract on_change: listener: Func<string, U2<string, Buffer>, unit> -> obj
+        [<Emit("$0.on('change',$1...)")>] abstract on_change: listener: Func<string, U2<string, buffer_types.Buffer>, unit> -> obj
         [<Emit("$0.on('error',$1...)")>] abstract on_error: listener: Func<float, string, unit> -> obj
         abstract once: ``event``: string * listener: Function -> obj
-        [<Emit("$0.once('change',$1...)")>] abstract once_change: listener: Func<string, U2<string, Buffer>, unit> -> obj
+        [<Emit("$0.once('change',$1...)")>] abstract once_change: listener: Func<string, U2<string, buffer_types.Buffer>, unit> -> obj
         [<Emit("$0.once('error',$1...)")>] abstract once_error: listener: Func<float, string, unit> -> obj
         abstract prependListener: ``event``: string * listener: Function -> obj
-        [<Emit("$0.prependListener('change',$1...)")>] abstract prependListener_change: listener: Func<string, U2<string, Buffer>, unit> -> obj
+        [<Emit("$0.prependListener('change',$1...)")>] abstract prependListener_change: listener: Func<string, U2<string, buffer_types.Buffer>, unit> -> obj
         [<Emit("$0.prependListener('error',$1...)")>] abstract prependListener_error: listener: Func<float, string, unit> -> obj
         abstract prependOnceListener: ``event``: string * listener: Function -> obj
-        [<Emit("$0.prependOnceListener('change',$1...)")>] abstract prependOnceListener_change: listener: Func<string, U2<string, Buffer>, unit> -> obj
+        [<Emit("$0.prependOnceListener('change',$1...)")>] abstract prependOnceListener_change: listener: Func<string, U2<string, buffer_types.Buffer>, unit> -> obj
         [<Emit("$0.prependOnceListener('error',$1...)")>] abstract prependOnceListener_error: listener: Func<float, string, unit> -> obj
 
     and [<AllowNullLiteral>] ReadStream =
         inherit stream_types.Readable
         abstract bytesRead: float with get, set
-        abstract path: U2<string, Buffer> with get, set
+        abstract path: U2<string, buffer_types.Buffer> with get, set
         abstract close: unit -> unit
         abstract destroy: unit -> unit
         abstract addListener: ``event``: string * listener: Function -> obj
@@ -1235,7 +1253,7 @@ module fs =
     and [<AllowNullLiteral>] WriteStream =
         inherit stream_types.Writable
         abstract bytesWritten: float with get, set
-        abstract path: U2<string, Buffer> with get, set
+        abstract path: U2<string, buffer_types.Buffer> with get, set
         abstract close: unit -> unit
         abstract addListener: ``event``: string * listener: Function -> obj
         [<Emit("$0.addListener('open',$1...)")>] abstract addListener_open: listener: Func<float, unit> -> obj
@@ -1256,89 +1274,89 @@ module fs =
     type [<Import("*","fs")>] Globals =
         static member rename(oldPath: string, newPath: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member renameSync(oldPath: string, newPath: string): unit = jsNative
-        static member truncate(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member truncate(path: U2<string, Buffer>, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member truncateSync(path: U2<string, Buffer>, ?len: float): unit = jsNative
+        static member truncate(path: U2<string, buffer_types.Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member truncate(path: U2<string, buffer_types.Buffer>, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member truncateSync(path: U2<string, buffer_types.Buffer>, ?len: float): unit = jsNative
         static member ftruncate(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member ftruncate(fd: float, len: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member ftruncateSync(fd: float, ?len: float): unit = jsNative
-        static member chown(path: U2<string, Buffer>, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member chownSync(path: U2<string, Buffer>, uid: float, gid: float): unit = jsNative
+        static member chown(path: U2<string, buffer_types.Buffer>, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member chownSync(path: U2<string, buffer_types.Buffer>, uid: float, gid: float): unit = jsNative
         static member fchown(fd: float, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member fchownSync(fd: float, uid: float, gid: float): unit = jsNative
-        static member lchown(path: U2<string, Buffer>, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member lchownSync(path: U2<string, Buffer>, uid: float, gid: float): unit = jsNative
-        static member chmod(path: U2<string, Buffer>, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member chmod(path: U2<string, Buffer>, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member chmodSync(path: U2<string, Buffer>, mode: float): unit = jsNative
-        static member chmodSync(path: U2<string, Buffer>, mode: string): unit = jsNative
+        static member lchown(path: U2<string, buffer_types.Buffer>, uid: float, gid: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member lchownSync(path: U2<string, buffer_types.Buffer>, uid: float, gid: float): unit = jsNative
+        static member chmod(path: U2<string, buffer_types.Buffer>, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member chmod(path: U2<string, buffer_types.Buffer>, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member chmodSync(path: U2<string, buffer_types.Buffer>, mode: float): unit = jsNative
+        static member chmodSync(path: U2<string, buffer_types.Buffer>, mode: string): unit = jsNative
         static member fchmod(fd: float, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member fchmod(fd: float, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member fchmodSync(fd: float, mode: float): unit = jsNative
         static member fchmodSync(fd: float, mode: string): unit = jsNative
-        static member lchmod(path: U2<string, Buffer>, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member lchmod(path: U2<string, Buffer>, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member lchmodSync(path: U2<string, Buffer>, mode: float): unit = jsNative
-        static member lchmodSync(path: U2<string, Buffer>, mode: string): unit = jsNative
-        static member stat(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
-        static member lstat(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
+        static member lchmod(path: U2<string, buffer_types.Buffer>, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member lchmod(path: U2<string, buffer_types.Buffer>, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member lchmodSync(path: U2<string, buffer_types.Buffer>, mode: float): unit = jsNative
+        static member lchmodSync(path: U2<string, buffer_types.Buffer>, mode: string): unit = jsNative
+        static member stat(path: U2<string, buffer_types.Buffer>, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
+        static member lstat(path: U2<string, buffer_types.Buffer>, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
         static member fstat(fd: float, ?callback: Func<NodeJS.ErrnoException, Stats, obj>): unit = jsNative
-        static member statSync(path: U2<string, Buffer>): Stats = jsNative
-        static member lstatSync(path: U2<string, Buffer>): Stats = jsNative
+        static member statSync(path: U2<string, buffer_types.Buffer>): Stats = jsNative
+        static member lstatSync(path: U2<string, buffer_types.Buffer>): Stats = jsNative
         static member fstatSync(fd: float): Stats = jsNative
-        static member link(srcpath: U2<string, Buffer>, dstpath: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member linkSync(srcpath: U2<string, Buffer>, dstpath: U2<string, Buffer>): unit = jsNative
-        static member symlink(srcpath: U2<string, Buffer>, dstpath: U2<string, Buffer>, ?``type``: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member symlinkSync(srcpath: U2<string, Buffer>, dstpath: U2<string, Buffer>, ?``type``: string): unit = jsNative
-        static member readlink(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
-        static member readlinkSync(path: U2<string, Buffer>): string = jsNative
-        static member realpath(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
-        static member realpath(path: U2<string, Buffer>, cache: obj, callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
-        static member realpathSync(path: U2<string, Buffer>, ?cache: obj): string = jsNative
-        static member unlink(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member unlinkSync(path: U2<string, Buffer>): unit = jsNative
-        static member rmdir(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member rmdirSync(path: U2<string, Buffer>): unit = jsNative
-        static member mkdir(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member mkdir(path: U2<string, Buffer>, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member mkdir(path: U2<string, Buffer>, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member mkdirSync(path: U2<string, Buffer>, ?mode: float): unit = jsNative
-        static member mkdirSync(path: U2<string, Buffer>, ?mode: string): unit = jsNative
+        static member link(srcpath: U2<string, buffer_types.Buffer>, dstpath: U2<string, buffer_types.Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member linkSync(srcpath: U2<string, buffer_types.Buffer>, dstpath: U2<string, buffer_types.Buffer>): unit = jsNative
+        static member symlink(srcpath: U2<string, buffer_types.Buffer>, dstpath: U2<string, buffer_types.Buffer>, ?``type``: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member symlinkSync(srcpath: U2<string, buffer_types.Buffer>, dstpath: U2<string, buffer_types.Buffer>, ?``type``: string): unit = jsNative
+        static member readlink(path: U2<string, buffer_types.Buffer>, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
+        static member readlinkSync(path: U2<string, buffer_types.Buffer>): string = jsNative
+        static member realpath(path: U2<string, buffer_types.Buffer>, ?callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
+        static member realpath(path: U2<string, buffer_types.Buffer>, cache: obj, callback: Func<NodeJS.ErrnoException, string, obj>): unit = jsNative
+        static member realpathSync(path: U2<string, buffer_types.Buffer>, ?cache: obj): string = jsNative
+        static member unlink(path: U2<string, buffer_types.Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member unlinkSync(path: U2<string, buffer_types.Buffer>): unit = jsNative
+        static member rmdir(path: U2<string, buffer_types.Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member rmdirSync(path: U2<string, buffer_types.Buffer>): unit = jsNative
+        static member mkdir(path: U2<string, buffer_types.Buffer>, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member mkdir(path: U2<string, buffer_types.Buffer>, mode: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member mkdir(path: U2<string, buffer_types.Buffer>, mode: string, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member mkdirSync(path: U2<string, buffer_types.Buffer>, ?mode: float): unit = jsNative
+        static member mkdirSync(path: U2<string, buffer_types.Buffer>, ?mode: string): unit = jsNative
         static member mkdtemp(prefix: string, ?callback: Func<NodeJS.ErrnoException, string, unit>): unit = jsNative
         static member mkdtempSync(prefix: string): string = jsNative
-        static member readdir(path: U2<string, Buffer>, ?callback: Func<NodeJS.ErrnoException, ResizeArray<string>, unit>): unit = jsNative
-        static member readdirSync(path: U2<string, Buffer>): ResizeArray<string> = jsNative
+        static member readdir(path: U2<string, buffer_types.Buffer>, ?callback: Func<NodeJS.ErrnoException, ResizeArray<string>, unit>): unit = jsNative
+        static member readdirSync(path: U2<string, buffer_types.Buffer>): ResizeArray<string> = jsNative
         static member close(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member closeSync(fd: float): unit = jsNative
-        static member ``open``(path: U2<string, Buffer>, flags: U2<string, float>, callback: Func<NodeJS.ErrnoException, float, unit>): unit = jsNative
-        static member ``open``(path: U2<string, Buffer>, flags: U2<string, float>, mode: float, callback: Func<NodeJS.ErrnoException, float, unit>): unit = jsNative
-        static member openSync(path: U2<string, Buffer>, flags: U2<string, float>, ?mode: float): float = jsNative
-        static member utimes(path: U2<string, Buffer>, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member utimes(path: U2<string, Buffer>, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member utimesSync(path: U2<string, Buffer>, atime: float, mtime: float): unit = jsNative
-        static member utimesSync(path: U2<string, Buffer>, atime: DateTime, mtime: DateTime): unit = jsNative
+        static member ``open``(path: U2<string, buffer_types.Buffer>, flags: U2<string, float>, callback: Func<NodeJS.ErrnoException, float, unit>): unit = jsNative
+        static member ``open``(path: U2<string, buffer_types.Buffer>, flags: U2<string, float>, mode: float, callback: Func<NodeJS.ErrnoException, float, unit>): unit = jsNative
+        static member openSync(path: U2<string, buffer_types.Buffer>, flags: U2<string, float>, ?mode: float): float = jsNative
+        static member utimes(path: U2<string, buffer_types.Buffer>, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member utimes(path: U2<string, buffer_types.Buffer>, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member utimesSync(path: U2<string, buffer_types.Buffer>, atime: float, mtime: float): unit = jsNative
+        static member utimesSync(path: U2<string, buffer_types.Buffer>, atime: DateTime, mtime: DateTime): unit = jsNative
         static member futimes(fd: float, atime: float, mtime: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member futimes(fd: float, atime: DateTime, mtime: DateTime, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member futimesSync(fd: float, atime: float, mtime: float): unit = jsNative
         static member futimesSync(fd: float, atime: DateTime, mtime: DateTime): unit = jsNative
         static member fsync(fd: float, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member fsyncSync(fd: float): unit = jsNative
-        static member write(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
-        static member write(fd: float, buffer: Buffer, offset: float, length: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
+        static member write(fd: float, buffer: buffer_types.Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, buffer_types.Buffer, unit>): unit = jsNative
+        static member write(fd: float, buffer: buffer_types.Buffer, offset: float, length: float, ?callback: Func<NodeJS.ErrnoException, float, buffer_types.Buffer, unit>): unit = jsNative
         static member write(fd: float, data: obj, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
         static member write(fd: float, data: obj, offset: float, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
         static member write(fd: float, data: obj, offset: float, encoding: string, ?callback: Func<NodeJS.ErrnoException, float, string, unit>): unit = jsNative
-        static member writeSync(fd: float, buffer: Buffer, offset: float, length: float, ?position: float): float = jsNative
+        static member writeSync(fd: float, buffer: buffer_types.Buffer, offset: float, length: float, ?position: float): float = jsNative
         static member writeSync(fd: float, data: obj, ?position: float, ?enconding: string): float = jsNative
-        static member read(fd: float, buffer: Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, Buffer, unit>): unit = jsNative
-        static member readSync(fd: float, buffer: Buffer, offset: float, length: float, position: float): float = jsNative
+        static member read(fd: float, buffer: buffer_types.Buffer, offset: float, length: float, position: float, ?callback: Func<NodeJS.ErrnoException, float, buffer_types.Buffer, unit>): unit = jsNative
+        static member readSync(fd: float, buffer: buffer_types.Buffer, offset: float, length: float, position: float): float = jsNative
         static member readFile(filename: string, encoding: string, callback: Func<NodeJS.ErrnoException, string, unit>): unit = jsNative
         static member readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, string, unit>): unit = jsNative
-        static member readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = jsNative
-        static member readFile(filename: string, callback: Func<NodeJS.ErrnoException, Buffer, unit>): unit = jsNative
+        static member readFile(filename: string, options: obj, callback: Func<NodeJS.ErrnoException, buffer_types.Buffer, unit>): unit = jsNative
+        static member readFile(filename: string, callback: Func<NodeJS.ErrnoException, buffer_types.Buffer, unit>): unit = jsNative
         static member readFileSync(filename: string, encoding: string): string = jsNative
         static member readFileSync(filename: string, options: obj): string = jsNative
-        static member readFileSync(filename: string, ?options: obj): Buffer = jsNative
+        static member readFileSync(filename: string, ?options: obj): buffer_types.Buffer = jsNative
         static member writeFile(filename: string, data: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member writeFile(filename: string, data: obj, options: obj, ?callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
         static member writeFileSync(filename: string, data: obj, ?options: obj): unit = jsNative
@@ -1349,15 +1367,15 @@ module fs =
         static member watchFile(filename: string, options: obj, listener: Func<Stats, Stats, unit>): unit = jsNative
         static member unwatchFile(filename: string, ?listener: Func<Stats, Stats, unit>): unit = jsNative
         static member watch(filename: string, ?listener: Func<string, string, obj>): FSWatcher = jsNative
-        static member watch(filename: string, encoding: string, ?listener: Func<string, U2<string, Buffer>, obj>): FSWatcher = jsNative
-        static member watch(filename: string, options: obj, ?listener: Func<string, U2<string, Buffer>, obj>): FSWatcher = jsNative
-        static member exists(path: U2<string, Buffer>, ?callback: Func<bool, unit>): unit = jsNative
-        static member existsSync(path: U2<string, Buffer>): bool = jsNative
-        static member access(path: U2<string, Buffer>, callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member access(path: U2<string, Buffer>, mode: float, callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
-        static member accessSync(path: U2<string, Buffer>, ?mode: float): unit = jsNative
-        static member createReadStream(path: U2<string, Buffer>, ?options: obj): ReadStream = jsNative
-        static member createWriteStream(path: U2<string, Buffer>, ?options: obj): WriteStream = jsNative
+        static member watch(filename: string, encoding: string, ?listener: Func<string, U2<string, buffer_types.Buffer>, obj>): FSWatcher = jsNative
+        static member watch(filename: string, options: obj, ?listener: Func<string, U2<string, buffer_types.Buffer>, obj>): FSWatcher = jsNative
+        static member exists(path: U2<string, buffer_types.Buffer>, ?callback: Func<bool, unit>): unit = jsNative
+        static member existsSync(path: U2<string, buffer_types.Buffer>): bool = jsNative
+        static member access(path: U2<string, buffer_types.Buffer>, callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member access(path: U2<string, buffer_types.Buffer>, mode: float, callback: Func<NodeJS.ErrnoException, unit>): unit = jsNative
+        static member accessSync(path: U2<string, buffer_types.Buffer>, ?mode: float): unit = jsNative
+        static member createReadStream(path: U2<string, buffer_types.Buffer>, ?options: obj): ReadStream = jsNative
+        static member createWriteStream(path: U2<string, buffer_types.Buffer>, ?options: obj): WriteStream = jsNative
         static member fdatasync(fd: float, callback: Function): unit = jsNative
         static member fdatasyncSync(fd: float): unit = jsNative
 
@@ -1463,8 +1481,8 @@ module path =
 
 module string_decoder =
     type [<AllowNullLiteral>] NodeStringDecoder =
-        abstract write: buffer: Buffer -> string
-        abstract ``end``: ?buffer: Buffer -> string
+        abstract write: buffer: buffer_types.Buffer -> string
+        abstract ``end``: ?buffer: buffer_types.Buffer -> string
 
     and [<AllowNullLiteral>] StringDecoderType =
         [<Emit("new $0($1...)")>] abstract Create: ?encoding: string -> NodeStringDecoder
@@ -1487,27 +1505,27 @@ module crypto_types =
 
     and [<AllowNullLiteral>] Hash =
         abstract update: data: obj * ?input_encoding: string -> Hash
-        [<Emit("$0.digest('buffer')")>] abstract digest_buffer: unit -> Buffer
+        [<Emit("$0.digest('buffer')")>] abstract digest_buffer: unit -> buffer_types.Buffer
         abstract digest: encoding: string -> obj
-        abstract digest: unit -> Buffer
+        abstract digest: unit -> buffer_types.Buffer
 
     and [<AllowNullLiteral>] Hmac =
         abstract update: data: obj * ?input_encoding: string -> Hmac
-        [<Emit("$0.digest('buffer')")>] abstract digest_buffer: unit -> Buffer
+        [<Emit("$0.digest('buffer')")>] abstract digest_buffer: unit -> buffer_types.Buffer
         abstract digest: encoding: string -> obj
-        abstract digest: unit -> Buffer
+        abstract digest: unit -> buffer_types.Buffer
 
     and [<AllowNullLiteral>] Cipher =
-        abstract update: data: Buffer -> Buffer
+        abstract update: data: buffer_types.Buffer -> buffer_types.Buffer
         abstract update: data: string * ?input_encoding: string * ?output_encoding: string -> string
-        abstract final: unit -> Buffer
+        abstract final: unit -> buffer_types.Buffer
         abstract final: output_encoding: string -> string
         abstract setAutoPadding: auto_padding: bool -> unit
 
     and [<AllowNullLiteral>] Decipher =
-        abstract update: data: Buffer -> Buffer
+        abstract update: data: buffer_types.Buffer -> buffer_types.Buffer
         abstract update: data: string * ?input_encoding: string * ?output_encoding: string -> string
-        abstract final: unit -> Buffer
+        abstract final: unit -> buffer_types.Buffer
         abstract final: output_encoding: string -> string
         abstract setAutoPadding: auto_padding: bool -> unit
 
@@ -1535,7 +1553,7 @@ module crypto_types =
         member __.createCredentials(details: CredentialDetails): Credentials = jsNative
         member __.createHash(algorithm: string): Hash = jsNative
         member __.createHmac(algorithm: string, key: string): Hmac = jsNative
-        member __.createHmac(algorithm: string, key: Buffer): Hmac = jsNative
+        member __.createHmac(algorithm: string, key: buffer_types.Buffer): Hmac = jsNative
         member __.createCipher(algorithm: string, password: obj): Cipher = jsNative
         member __.createCipheriv(algorithm: string, key: obj, iv: obj): Cipher = jsNative
         member __.createDecipher(algorithm: string, password: obj): Decipher = jsNative
@@ -1545,14 +1563,14 @@ module crypto_types =
         member __.createDiffieHellman(prime_length: float): DiffieHellman = jsNative
         member __.createDiffieHellman(prime: float, ?encoding: string): DiffieHellman = jsNative
         member __.getDiffieHellman(group_name: string): DiffieHellman = jsNative
-        member __.pbkdf2(password: string, salt: string, iterations: float, keylen: float, callback: Func<Error, Buffer, obj>): unit = jsNative
-        member __.pbkdf2(password: string, salt: string, iterations: float, keylen: float, digest: string, callback: Func<Error, Buffer, obj>): unit = jsNative
-        member __.pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float): Buffer = jsNative
-        member __.pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float, digest: string): Buffer = jsNative
-        member __.randomBytes(size: float): Buffer = jsNative
-        member __.randomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = jsNative
-        member __.pseudoRandomBytes(size: float): Buffer = jsNative
-        member __.pseudoRandomBytes(size: float, callback: Func<Error, Buffer, unit>): unit = jsNative
+        member __.pbkdf2(password: string, salt: string, iterations: float, keylen: float, callback: Func<Error, buffer_types.Buffer, obj>): unit = jsNative
+        member __.pbkdf2(password: string, salt: string, iterations: float, keylen: float, digest: string, callback: Func<Error, buffer_types.Buffer, obj>): unit = jsNative
+        member __.pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float): buffer_types.Buffer = jsNative
+        member __.pbkdf2Sync(password: string, salt: string, iterations: float, keylen: float, digest: string): buffer_types.Buffer = jsNative
+        member __.randomBytes(size: float): buffer_types.Buffer = jsNative
+        member __.randomBytes(size: float, callback: Func<Error, buffer_types.Buffer, unit>): unit = jsNative
+        member __.pseudoRandomBytes(size: float): buffer_types.Buffer = jsNative
+        member __.pseudoRandomBytes(size: float, callback: Func<Error, buffer_types.Buffer, unit>): unit = jsNative
 
 let [<Import("*","crypto")>] crypto: crypto_types.Globals = jsNative
 
