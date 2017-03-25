@@ -103,6 +103,7 @@ let parseErrors errors =
     |> fun (ers, wns) -> Array.map snd ers, Array.map snd wns
 
 let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptions) =
+    printfn "Parsing F# project..."
     let checkProjectResults =
         projOptions
         |> checker.ParseAndCheckProject

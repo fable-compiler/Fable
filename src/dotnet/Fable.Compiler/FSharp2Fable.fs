@@ -124,7 +124,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
                     |> Seq.toList
                 let argExprs = ensureArity com argTypes argExprs
                 [tag; Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))]
-        buildApplyInfo com ctx (Some range) unionType unionType (unionType.FullName)
+        buildApplyInfo com ctx (Some range) unionType unionType unionType.FullName
             ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
         |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
         |> function
@@ -373,13 +373,15 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         if args.Length = 0 then callee else
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
         let args = List.map (transformExpr com ctx) args
-        if callee.Type.FullName = "Fable.Core.Applicable" then
+        match callee.Type with
+        | Fable.DeclaredType(ent,_) when ent.FullName = "Fable.Core.Applicable" ->
             let args =
                 match args with
                 | [Fable.Value(Fable.TupleConst args)] -> args
                 | args -> args
             Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
-        else makeApply com range typ callee args
+        | _ ->
+            makeApply com range typ callee args
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr, makeRangeFrom fsExpr)
@@ -623,7 +625,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                     |> fun argTypes -> ensureArity com (Seq.toList argTypes) argExprs
                 | None -> argExprs
             let recordType = makeType com ctx.typeArgs fsType
-            buildApplyInfo com ctx range recordType recordType (recordType.FullName)
+            buildApplyInfo com ctx range recordType recordType recordType.FullName
                 ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
             |> tryBoth (tryPlugin com) (tryReplace com tdef)
             |> function

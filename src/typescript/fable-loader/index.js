@@ -15,7 +15,7 @@ function join(arg) {
 }
 
 function ensureArray(obj) {
-    return Array.isArray(obj) ? obj : [];
+    return Array.isArray(obj) ? obj : (obj != null ? [obj] : []);
 }
 
 module.exports = function(buffer) {
@@ -32,8 +32,8 @@ module.exports = function(buffer) {
 
     var msg = {
         path: this.resourcePath,
-        define: or(opts.define, []),
-        plugins: or(opts.plugins, []),
+        define: ensureArray(or(opts.define, [])),
+        plugins: ensureArray(or(opts.plugins, [])),
         fableCore: or(opts.fableCore, null),
         declaration: or(opts.declaration, false),
         typedArrays: or(opts.typedArrays, true),

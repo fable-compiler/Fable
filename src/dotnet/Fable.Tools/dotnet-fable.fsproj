@@ -1,6 +1,6 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>1.0.0-narumi-903</Version>
+    <Version>1.0.0-narumi-904</Version>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp1.0</TargetFramework>
     <!-- See https://github.com/dotnet/netcorecli-fsc/issues/98 -->

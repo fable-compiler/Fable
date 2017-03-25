@@ -8,7 +8,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Parser
 open State
 
-let [<Literal>] VERSION = "1.0.0-narumi-903"
+let [<Literal>] VERSION = "1.0.0-narumi-904"
 let [<Literal>] DEFAULT_PORT = 61225
 
 let startProcess workingDir fileName args =
@@ -47,22 +47,18 @@ let argsToMap (argv: string[]) =
     with ex ->
         failwithf "Cannot convert arguments to dictionary: %A\n%s" argv ex.Message
 
-let startServer argsMap =
-    let port, timeout =
-        let port =
-            match Map.tryFind "port" argsMap with
-            | Some port -> int port
-            | None -> DEFAULT_PORT
-        let timeout =
-            match Map.tryFind "timeout" argsMap with
-            | Some timeout -> int timeout
-            | None -> -1
-        port, timeout
-    let agent = startAgent()
-    Server.start port timeout agent.Post
+let getPortAndTimeout argsMap =
+    let port =
+        match Map.tryFind "port" argsMap with
+        | Some port -> int port
+        | None -> DEFAULT_PORT
+    let timeout =
+        match Map.tryFind "timeout" argsMap with
+        | Some timeout -> int timeout
+        | None -> -1
+    port, timeout
 
 let debug (projFile: string) (define: string[]) =
-    let define = Array.append define [|"FABLE_COMPILER"|]
     let com = Compiler()
     let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
     try
@@ -89,12 +85,23 @@ let main argv =
   add            Adds one or several Fable npm packages
 """
     | Some "--version" -> printfn "%s" VERSION
-    | Some "start" -> argv.[1..] |> argsToMap |> startServer |> Async.RunSynchronously
+    | Some "start" ->
+        let port, timeout = argv.[1..] |> argsToMap |> getPortAndTimeout
+        let agent = startAgent()
+        Server.start port timeout agent.Post |> Async.RunSynchronously
     | Some "npm-run" ->
-        argv.[2..] |> argsToMap |> startServer |> Async.Start
+        let port, timeout = argv.[2..] |> argsToMap |> getPortAndTimeout
+        let agent = startAgent()
+        Server.start port timeout agent.Post |> Async.Start
         let workingDir = Directory.GetCurrentDirectory()
         let p = startProcess workingDir "npm" ("run " + argv.[1])
+        Console.CancelKeyPress.Add (fun _ ->
+            printfn "Killing process..."
+            p.Kill()
+            Server.stop port |> Async.RunSynchronously
+        )
         p.WaitForExit()
+        Server.stop port |> Async.RunSynchronously
     | Some "add" ->
         let packages = argv.[1..]
         let workingDir = Directory.GetCurrentDirectory()

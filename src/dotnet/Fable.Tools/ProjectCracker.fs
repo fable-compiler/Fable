@@ -243,6 +243,7 @@ let retryGetProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: s
     retry()
 
 let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
+    let define = Array.append define [|"FABLE_COMPILER"|]
     let projFile = Path.GetFullPath(projFile)
     if not(File.Exists(projFile)) then
         FableError("File does not exist: " + projFile) |> raise

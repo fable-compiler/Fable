@@ -72,7 +72,6 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     member x.FullName: string = fullName
     member x.Members: Member list = members.Value
     member x.GenericParameters: string list = genParams
-    // member x.Members: Member list = members
     member x.Interfaces: string list = interfaces
     member x.Decorators: Decorator list = decorators
     member x.IsPublic: bool = isPublic
@@ -109,7 +108,7 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     static member CreateRootModule fileName =
         Entity (lazy Module, Some fileName, "", lazy [], [], [], [], true)
 
-    override x.ToString() = sprintf "%s %A" x.Name kind
+    override x.ToString() = sprintf "%s %A" x.Name x.Kind
 
 and Declaration =
     | ActionDeclaration of Expr * SourceLocation option

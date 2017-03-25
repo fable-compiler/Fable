@@ -44,7 +44,7 @@ let makePathRelative path =
 let (|Parse|) (msg: string) =
     let json = JsonConvert.DeserializeObject<JObject>(msg)
     let path =  parseStringRequired "path" json |> Path.normalizeFullPath
-    let define = parseStringArray [||] "define" json |> Array.append [|"FABLE_COMPILER"|]
+    let define = parseStringArray [||] "define" json
     let plugins = parseStringArray [||] "plugins" json
     let opts =
         // TODO: Check fable-core version
