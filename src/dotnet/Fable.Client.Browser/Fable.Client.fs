@@ -8,6 +8,12 @@ open Fable.AST
 open Fable.Core
 
 
+let getDefaultOptions () : CompilerOptions =
+    { fableCore = "fable-core"
+    ; declaration = false
+    ; typedArrays = true
+    ; clampByteArrays = false }
+
 type State(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
     // let entities = ConcurrentDictionary<string, Fable.Entity>()
     // let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
@@ -47,12 +53,6 @@ type Compiler(options, plugins) =
             "$var" + (string id)
 
 let makeCompiler options plugins = Compiler(options, plugins)
-
-let readOptions _argv : CompilerOptions =
-    { fableCore = "fable-core"
-    ; declaration = false
-    ; typedArrays = true
-    ; clampByteArrays = false }
 
 /// Returns an (errors, warnings) tuple
 let parseErrors errors =
@@ -110,7 +110,7 @@ let createChecker readAllBytes references =
     InteractiveChecker(List.ofArray references, readAllBytes)
 
 let compileSource checker source =
-    let opts = readOptions [||]
+    let opts = getDefaultOptions ()
     let com = makeCompiler opts []
     let fileName = "stdin.fsx"
     let file = compileAst com checker (fileName, source)
