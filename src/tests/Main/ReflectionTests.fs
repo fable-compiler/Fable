@@ -227,6 +227,18 @@ let ``FSharp.Reflection: Record`` () =
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
+type RecordF = { F : int -> string }
+[<Test>]
+let ``FSharp.Reflection Functions``() = 
+    let recordType = typeof<RecordF>
+    let fields = FSharpType.GetRecordFields recordType
+    let funcProperty = Array.head fields
+    let funcType = funcProperty.PropertyType
+    let range, domain = FSharpType.GetFunctionElements funcType
+    equal range typeof<int>
+    equal domain typeof<string>
+    equal true (FSharpType.IsFunction funcType)
+
 [<Test>]
 let ``FSharp.Reflection: Tuple`` () =
     let typ = typeof<string * int>
