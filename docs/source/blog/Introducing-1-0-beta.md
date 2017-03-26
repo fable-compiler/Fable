@@ -35,7 +35,7 @@ Besides tooling, an ugly duckling was making hard to sell F# as a viable alterna
 
 Still XML, not a fancy modern markup language, but with a glance we can see now our list of files, references and CLI tools, that can be easily edited without fear to break anything in the build. Did I say CLI tools? Yes, in addition to project and [nuget](https://www.nuget.org/) references, the dotnet SDK accepts references for CLI tools. And this is how Fable will be distributed now, **no more npm's fable-compiler**. With a project file such as the one above after running `dotnet restore` we will be able to run Fable commands (from the project directory) prefixing them with `dotnet fable`. For example to start the Fable server you just need to type: `dotnet fable start`.
 
-> At the moment, the only editor that supports the new .fsproj format is [Ionide](http://ionide.io/) so you may need to wait a bit until it's supported in other IDEs. In principle, Fable 1.0 should still be compatible with the old format, but this has not been tested as the focus will now be in the new .fsproj. If you're interested please give it a try and let me know how it goes.
+> At the moment, the only editor that supports the new .fsproj format is [Ionide](http://ionide.io/) so you may need to wait a bit until it's supported in other IDEs. Also, if you have problems with Ionide recognizing the project references, try setting the environment variable `UseCommonOutputDirectory` to `true`.
 
 But what is that Fable server? Keep on reading to find the answer!
 
