@@ -455,6 +455,14 @@ Target "PublishJsonConverter" (fun _ ->
     publishNugetPackage pkg
 )
 
+Target "PublishNUnitPlugin" (fun _ ->
+    let srcDir = "src/plugins/nunit"
+    buildNUnitPlugin ()
+    FileUtils.cp "build/nunit/Fable.Plugins.NUnit.dll" srcDir
+    // TODO: Check the version and whether it needs the next tag or not
+    Npm.command srcDir "publish" ["--tag"; "next"]
+)
+
 Target "BrowseDocs" (fun _ ->
     let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "BrowseDocs"]
     if exit <> 0 then failwith "Browsing documentation failed"

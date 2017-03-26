@@ -8,18 +8,19 @@ module.exports = {
   entry: resolve('./QuickTest.fsx'),
   output: {
     filename: 'QuickTest.js',
-    path: path.resolve(__dirname, 'temp'),
+    path: resolve('temp'),
   },
   module: {
     rules: [
       {
         test: /\.fs[proj|x]?$/,
         use: {
-          loader: path.resolve(__dirname, "../typescript/fable-loader"),
-        //   options: {
-        //     define: ["DEBUG"],
-        //     babel: babelOptions
-        //   }
+          loader: resolve("../typescript/fable-loader"),
+          options: {
+            define: ["DEBUG"],
+            fableCore: resolve("../../build/fable-core")
+            // babel: babelOptions
+          }
         }
       },
     //   {
