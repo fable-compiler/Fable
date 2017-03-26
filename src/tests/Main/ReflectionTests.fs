@@ -234,9 +234,9 @@ let ``FSharp.Reflection Functions``() =
     let fields = FSharpType.GetRecordFields recordType
     let funcProperty = Array.head fields
     let funcType = funcProperty.PropertyType
-    let range, domain = FSharpType.GetFunctionElements funcType
-    equal range typeof<int>
-    equal domain typeof<string>
+    let domain, range = FSharpType.GetFunctionElements funcType
+    equal domain typeof<int>
+    equal range typeof<string>
     equal true (FSharpType.IsFunction funcType)
 
 [<Test>]
