@@ -328,19 +328,24 @@ const CaseRules = {
 
 export function createObj(fields: Iterable<[string, any]>, caseRule = CaseRules.None) {
   const iter = fields[Symbol.iterator]();
-  let cur = iter.next(), o: any = {}, value: any = null,
-    cases: any = null, caseInfo: any = null, key: string = null;
+  let cur = iter.next(), o: any = {}, casesCache: Map<FunctionConstructor,Array<any>> = null;
   while (!cur.done) {
-    value = cur.value;
+    let value: any = cur.value;
     if (Array.isArray(value)) {
       o[value[0]] = value[1];
     }
     else {
-      if (cases == null && typeof value[FSymbol.reflection] === "function") {
-        cases = value[FSymbol.reflection]().cases;
+      casesCache = casesCache || new Map();
+      let proto = Object.getPrototypeOf(value);
+      let cases = casesCache.get(proto), caseInfo: any = null;
+      if (cases == null) {
+        if (typeof proto[FSymbol.reflection] === "function") {
+          cases = proto[FSymbol.reflection]().cases;
+          casesCache.set(proto, cases);
+        }
       }
       if (cases != null && Array.isArray(caseInfo = cases[value.tag])) {
-        key = caseInfo[0];
+        let key = caseInfo[0];
         if (caseRule === CaseRules.LowerFirst) {
           key = key[0].toLowerCase() + key.substr(1)
         }

@@ -637,11 +637,6 @@ module Patterns =
                     else None)
                 |> defaultArg <| OtherType
 
-    let (|FableNull|_|) = function
-        | Fable.Wrapped(Fable.Value Fable.Null, _)
-        | Fable.Value Fable.Null as e -> Some e
-        | _ -> None
-
 module Types =
     open Helpers
     open Patterns

@@ -26,9 +26,13 @@ module Util =
             when coreMod' = coreMod -> Some CoreCons
         | _ -> None
 
+    let (|MaybeWrapped|) = function
+        | Fable.Wrapped(e,_) -> e
+        | e -> e
+
     let (|UnionCons|_|) expr =
         match expr with
-        | Fable.Apply(_, args, Fable.ApplyCons, Fable.DeclaredType(ent, _), _) ->
+        | MaybeWrapped(Fable.Apply(_, args, Fable.ApplyCons, Fable.DeclaredType(ent, _), _)) ->
             match ent.Kind with
             | Fable.Union cases ->
                 match args with
@@ -42,8 +46,7 @@ module Util =
         | _ -> None
 
     let (|Null|_|) = function
-        | Fable.Wrapped(Fable.Value Fable.Null,_)
-        | Fable.Value Fable.Null -> Some null
+        | MaybeWrapped(Fable.Value Fable.Null) -> Some null
         | _ -> None
 
     let (|Type|) (expr: Fable.Expr) = expr.Type

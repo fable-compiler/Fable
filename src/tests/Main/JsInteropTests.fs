@@ -62,37 +62,49 @@ let ``Lambdas are converted to delegates with dynamic operators``() =
     o?foo <- fun x y -> x / y
     o?foo(25, 5) |> unbox<int> |> equal 5
 
+type IMyOptions =
+    interface end
+
 type MyOptions =
     | Flag1
     | Name of string
     | [<CompiledName("Foo")>] QTY of int
+    interface IMyOptions
+
+type MyOptions2 =
+    | Bar of int*int
+    interface IMyOptions
 
 [<Test>]
 let ``KeyValueList works at compile time``() =
     let opts =
-        [ Name "Fable"
-        ; QTY 5
-        ; Flag1]
+        [ Name "Fable" :> IMyOptions
+        ; QTY 5 :> IMyOptions
+        ; Flag1 :> IMyOptions
+        ; Bar(2,3) :> IMyOptions ]
         |> keyValueList CaseRules.LowerFirst
     opts?name |> unbox |> equal "Fable"
     opts?foo |> unbox |> equal 5
     opts?flag1 |> unbox |> equal true
+    opts?bar?(1) |> unbox |> equal 3
     let opts2 = keyValueList CaseRules.None [ Name "Fable"]
     opts2?Name |> unbox |> equal "Fable"
 
 [<Test>]
 let ``KeyValueList works at runtime``() =
     let buildAtRuntime = function
-        | null | "" -> Flag1
-        | name -> Name name
+        | null | "" -> Flag1 :> IMyOptions
+        | name -> Name name :> IMyOptions
     let opts =
         [ buildAtRuntime "Fable"
-        ; QTY 5
+        ; QTY 5 :> IMyOptions
+        ; Bar(2,3) :> IMyOptions
         ; buildAtRuntime ""]
         |> keyValueList CaseRules.LowerFirst
     opts?name |> unbox |> equal "Fable"
     opts?foo |> unbox |> equal 5
     opts?flag1 |> unbox |> equal true
+    opts?bar?(0) |> unbox |> equal 2
     let opts2 = keyValueList CaseRules.None [ buildAtRuntime "Fable"]
     opts2?Name |> unbox |> equal "Fable"
 
