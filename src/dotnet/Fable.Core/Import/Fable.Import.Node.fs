@@ -102,11 +102,10 @@ module buffer_types =
         [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<obj> -> Buffer
 
     and Globals = 
-        [<Import("Buffer", "buffer")>] 
-        member __.Buffer with get(): BufferStatic = jsNative and set(v: BufferStatic): unit = jsNative
-        [<Import("SlowBuffer", "buffer")>] 
-        member __.SlowBuffer with get(): SlowBufferStatic = jsNative and set(v: SlowBufferStatic): unit = jsNative
+        abstract Buffer: BufferStatic with get, set
+        abstract SlowBuffer: SlowBufferStatic with get, set
 
+[<Import("*", "buffer")>] 
 let buffer: buffer_types.Globals = jsNative
 // Buffer End
 
@@ -131,11 +130,10 @@ module event_types =
         [<Emit("new $0()")>] abstract Create: unit -> EventEmitter
 
     type Globals =
-        [<Import("EventEmitter", "events")>]
-        member __.EventEmitter with get(): EventEmitterStatic = jsNative and set(v: EventEmitterStatic): unit = jsNative
-        [<Import("defaultMaxListeners", "events")>]
-        member __.defaultMaxListeners with get(): int = jsNative and set(v: int):unit = jsNative
+        abstract defaultMaxListeners: float with get, set
+        abstract EventEmitter: EventEmitterStatic with get, set
 
+[<Import("*", "events")>]
 let events: event_types.Globals = jsNative
 // Events end
 
@@ -235,23 +233,15 @@ module stream_types =
     and [<AllowNullLiteral>] PassThroughStatic = 
         [<Emit("new $0()")>] abstract Create: unit -> PassThrough
 
-    
     and Globals =
-        [<Import("Stream", "stream")>]
-        member __.Stream with get(): StreamStatic = jsNative and set(v: StreamStatic): unit = jsNative
-        [<Import("Readable", "stream")>]
-        member __.Readable with get(): ReadableStatic = jsNative and set(v: ReadableStatic): unit = jsNative
-        [<Import("Writable", "stream")>]
-        member __.Writable with get(): WritableStatic = jsNative and set(v: WritableStatic): unit = jsNative
-        [<Import("Duplex", "stream")>]
-        member __.Duplex with get(): DuplexStatic = jsNative and set(v: DuplexStatic): unit = jsNative
-        member __.TransformOptions with get(): TransformOptions = jsNative and set(v: TransformOptions): unit = jsNative
-        [<Import("Transform", "stream")>]
-        member __.Transform with get(): TransformStatic = jsNative and set(v: TransformStatic): unit = jsNative
-        [<Import("PassThrough", "stream")>]
-        member __.PassThrough with get(): PassThroughStatic = jsNative and set(v: PassThroughStatic): unit = jsNative
+        abstract Stream: StreamStatic with get, set
+        abstract Readable: ReadableStatic with get, set
+        abstract Writable: WritableStatic with get, set
+        abstract Duplex: DuplexStatic with get, set
+        abstract Transform: TransformStatic with get, set
+        abstract PassThrough: PassThroughStatic with get, set
 
-
+[<Import("*", "stream")>]
 let stream: stream_types.Globals = jsNative
 // Stream End
 
@@ -478,33 +468,34 @@ module child_process_types =
     and [<AllowNullLiteral>] ChildProcessStatic =
         [<Emit("new $0()")>] abstract Create: unit -> ChildProcess
 
-    and Globals =
-        member __.ExecError with get(): ExecError = jsNative and set(v: ExecError):unit = jsNative
-        [<Import("ChildProcess", "child_process")>]
-        member __.ChildProcess with get(): ChildProcessStatic = jsNative and set(v: ChildProcessStatic): unit = jsNative
-        [<Import("spawn", "child_process")>]
-        member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
-        [<Import("exec", "child_process")>]
-        member __.exec(command: string, options: obj, callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcessStatic = jsNative
-        [<Import("execFile", "child_process")>]
-        member __.execFile(file: string, ?callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
-        [<Import("execFile", "child_process")>]
-        member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
-        [<Import("execFile", "child_process")>]
-        member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
-        [<Import("fork", "child_process")>]
-        member __.fork(modulePath: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
-        [<Import("execSync", "child_process")>]
-        member __.execSync(command: string, ?options: obj):U2<string, buffer_types.Buffer> = jsNative
-        [<Import("execFileSync", "child_process")>]
-        member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, buffer_types.Buffer> = jsNative
-        [<Import("spawnSync", "child_process")>]
-        member __.spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = jsNative
+    and ExecOptions = {
+        encoding : string option;
+    }
 
+    and Globals =
+        abstract ChildProcess: ChildProcessStatic with get, set
+        abstract spawn: command: string * ?args: ResizeArray<string> * ?options: obj -> ChildProcess
+        abstract exec: command: string * options: ExecOptions * callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit> -> ChildProcessStatic
+
+        abstract execFile: file: string * ?callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit> -> ChildProcess
+        
+        abstract execFile: file: string * ?args: ResizeArray<string> * ?callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit> -> ChildProcess
+        
+        abstract execFile :file: string * ?args: ResizeArray<string> * ?options: ExecOptions * ?callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit> -> ChildProcess
+        
+        abstract fork: modulePath: string * ?args: ResizeArray<string> * ?options: obj -> ChildProcess
+        
+        abstract execSync: command: string * ?options: obj -> U2<string, buffer_types.Buffer>
+        
+        abstract execFileSync: command: string * ?args: ResizeArray<string> * ?options: obj -> U2<string, buffer_types.Buffer>
+        
+        abstract spawnSync: command: string * ?args: ResizeArray<string> * ?options: obj -> obj
+
+[<Import("*", "child_process")>]
 let child_process: child_process_types.Globals = jsNative
 // ChildProcess end
 
-module querystring =
+module querystring_types =
     type [<AllowNullLiteral>] StringifyOptions =
         abstract encodeURIComponent: Function option with get, set
 
@@ -512,12 +503,15 @@ module querystring =
         abstract maxKeys: float option with get, set
         abstract decodeURIComponent: Function option with get, set
 
-    type [<Import("*","querystring")>] Globals =
-        static member stringify(obj: 'T, ?sep: string, ?eq: string, ?options: StringifyOptions): string = jsNative
-        static member parse(str: string, ?sep: string, ?eq: string, ?options: ParseOptions): obj = jsNative
-        static member parse(str: string, ?sep: string, ?eq: string, ?options: ParseOptions): 'T = jsNative
-        static member escape(str: string): string = jsNative
-        static member unescape(str: string): string = jsNative
+    type Globals =
+        abstract stringify: obj: 'T * ?sep: string * ?eq: string * ?options: StringifyOptions -> string
+        abstract parse: str: string * ?sep: string * ?eq: string * ?options: ParseOptions -> obj
+        abstract parse: str: string * ?sep: string * ?eq: string * ?options: ParseOptions -> 'T
+        abstract escape: str: string -> string
+        abstract unescape: str: string -> string
+
+[<Import("*","querystring")>]
+let querystring: querystring_types.Globals = jsNative
 
 // net start
 module net_types =
@@ -583,8 +577,9 @@ module net_types =
         member __.isIP(input: string): float = jsNative
         member __.isIPv4(input: string): bool = jsNative
         member __.isIPv6(input: string): bool = jsNative
-        
-let [<Import("*","net")>] net: net_types.Globals = jsNative
+
+[<Import("*","net")>]
+let net: net_types.Globals = jsNative
 //net end
 
 module http =
@@ -981,168 +976,7 @@ module dns =
 
 
 
-module net =
-    type [<AllowNullLiteral>] Socket =
-        inherit stream_types.Duplex
-        abstract bufferSize: float with get, set
-        abstract remoteAddress: string with get, set
-        abstract remoteFamily: string with get, set
-        abstract remotePort: float with get, set
-        abstract localAddress: string with get, set
-        abstract localPort: float with get, set
-        abstract bytesRead: float with get, set
-        abstract bytesWritten: float with get, set
-        abstract destroyed: bool with get, set
-        abstract write: buffer: buffer_types.Buffer -> bool
-        abstract write: buffer: buffer_types.Buffer * ?cb: Function -> bool
-        abstract write: str: string * ?cb: Function -> bool
-        abstract write: str: string * ?encoding: string * ?cb: Function -> bool
-        abstract write: str: string * ?encoding: string * ?fd: string -> bool
-        abstract connect: port: float * ?host: string * ?connectionListener: Function -> unit
-        abstract connect: path: string * ?connectionListener: Function -> unit
-        abstract setEncoding: ?encoding: string -> unit
-        abstract write: data: obj * ?encoding: string * ?callback: Function -> unit
-        abstract destroy: unit -> unit
-        abstract pause: unit -> Socket
-        abstract resume: unit -> Socket
-        abstract setTimeout: timeout: float * ?callback: Function -> unit
-        abstract setNoDelay: ?noDelay: bool -> unit
-        abstract setKeepAlive: ?enable: bool * ?initialDelay: float -> unit
-        abstract address: unit -> obj
-        abstract unref: unit -> unit
-        abstract ref: unit -> unit
-        abstract ``end``: unit -> unit
-        abstract ``end``: buffer: buffer_types.Buffer * ?cb: Function -> unit
-        abstract ``end``: str: string * ?cb: Function -> unit
-        abstract ``end``: str: string * ?encoding: string * ?cb: Function -> unit
-        abstract ``end``: ?data: obj * ?encoding: string -> unit
-        abstract addListener: ``event``: string * listener: Function -> obj
-        [<Emit("$0.addListener('close',$1...)")>] abstract addListener_close: listener: Func<bool, unit> -> obj
-        [<Emit("$0.addListener('connect',$1...)")>] abstract addListener_connect: listener: Func<unit, unit> -> obj
-        [<Emit("$0.addListener('data',$1...)")>] abstract addListener_data: listener: Func<buffer_types.Buffer, unit> -> obj
-        [<Emit("$0.addListener('drain',$1...)")>] abstract addListener_drain: listener: Func<unit, unit> -> obj
-        [<Emit("$0.addListener('end',$1...)")>] abstract addListener_end: listener: Func<unit, unit> -> obj
-        [<Emit("$0.addListener('error',$1...)")>] abstract addListener_error: listener: Func<Error, unit> -> obj
-        [<Emit("$0.addListener('lookup',$1...)")>] abstract addListener_lookup: listener: Func<Error, string, U2<string, float>, string, unit> -> obj
-        [<Emit("$0.addListener('timeout',$1...)")>] abstract addListener_timeout: listener: Func<unit, unit> -> obj
-        abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
-        [<Emit("$0.emit('close',$1...)")>] abstract emit_close: had_error: bool -> bool
-        [<Emit("$0.emit('connect')")>] abstract emit_connect: unit -> bool
-        [<Emit("$0.emit('data',$1...)")>] abstract emit_data: data: buffer_types.Buffer -> bool
-        [<Emit("$0.emit('drain')")>] abstract emit_drain: unit -> bool
-        [<Emit("$0.emit('end')")>] abstract emit_end: unit -> bool
-        [<Emit("$0.emit('error',$1...)")>] abstract emit_error: err: Error -> bool
-        [<Emit("$0.emit('lookup',$1...)")>] abstract emit_lookup: err: Error * address: string * family: U2<string, float> * host: string -> bool
-        [<Emit("$0.emit('timeout')")>] abstract emit_timeout: unit -> bool
-        abstract on: ``event``: string * listener: Function -> obj
-        [<Emit("$0.on('close',$1...)")>] abstract on_close: listener: Func<bool, unit> -> obj
-        [<Emit("$0.on('connect',$1...)")>] abstract on_connect: listener: Func<unit, unit> -> obj
-        [<Emit("$0.on('data',$1...)")>] abstract on_data: listener: Func<buffer_types.Buffer, unit> -> obj
-        [<Emit("$0.on('drain',$1...)")>] abstract on_drain: listener: Func<unit, unit> -> obj
-        [<Emit("$0.on('end',$1...)")>] abstract on_end: listener: Func<unit, unit> -> obj
-        [<Emit("$0.on('error',$1...)")>] abstract on_error: listener: Func<Error, unit> -> obj
-        [<Emit("$0.on('lookup',$1...)")>] abstract on_lookup: listener: Func<Error, string, U2<string, float>, string, unit> -> obj
-        [<Emit("$0.on('timeout',$1...)")>] abstract on_timeout: listener: Func<unit, unit> -> obj
-        abstract once: ``event``: string * listener: Function -> obj
-        [<Emit("$0.once('close',$1...)")>] abstract once_close: listener: Func<bool, unit> -> obj
-        [<Emit("$0.once('connect',$1...)")>] abstract once_connect: listener: Func<unit, unit> -> obj
-        [<Emit("$0.once('data',$1...)")>] abstract once_data: listener: Func<buffer_types.Buffer, unit> -> obj
-        [<Emit("$0.once('drain',$1...)")>] abstract once_drain: listener: Func<unit, unit> -> obj
-        [<Emit("$0.once('end',$1...)")>] abstract once_end: listener: Func<unit, unit> -> obj
-        [<Emit("$0.once('error',$1...)")>] abstract once_error: listener: Func<Error, unit> -> obj
-        [<Emit("$0.once('lookup',$1...)")>] abstract once_lookup: listener: Func<Error, string, U2<string, float>, string, unit> -> obj
-        [<Emit("$0.once('timeout',$1...)")>] abstract once_timeout: listener: Func<unit, unit> -> obj
-        abstract prependListener: ``event``: string * listener: Function -> obj
-        [<Emit("$0.prependListener('close',$1...)")>] abstract prependListener_close: listener: Func<bool, unit> -> obj
-        [<Emit("$0.prependListener('connect',$1...)")>] abstract prependListener_connect: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependListener('data',$1...)")>] abstract prependListener_data: listener: Func<buffer_types.Buffer, unit> -> obj
-        [<Emit("$0.prependListener('drain',$1...)")>] abstract prependListener_drain: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependListener('end',$1...)")>] abstract prependListener_end: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependListener('error',$1...)")>] abstract prependListener_error: listener: Func<Error, unit> -> obj
-        [<Emit("$0.prependListener('lookup',$1...)")>] abstract prependListener_lookup: listener: Func<Error, string, U2<string, float>, string, unit> -> obj
-        [<Emit("$0.prependListener('timeout',$1...)")>] abstract prependListener_timeout: listener: Func<unit, unit> -> obj
-        abstract prependOnceListener: ``event``: string * listener: Function -> obj
-        [<Emit("$0.prependOnceListener('close',$1...)")>] abstract prependOnceListener_close: listener: Func<bool, unit> -> obj
-        [<Emit("$0.prependOnceListener('connect',$1...)")>] abstract prependOnceListener_connect: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependOnceListener('data',$1...)")>] abstract prependOnceListener_data: listener: Func<buffer_types.Buffer, unit> -> obj
-        [<Emit("$0.prependOnceListener('drain',$1...)")>] abstract prependOnceListener_drain: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependOnceListener('end',$1...)")>] abstract prependOnceListener_end: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependOnceListener('error',$1...)")>] abstract prependOnceListener_error: listener: Func<Error, unit> -> obj
-        [<Emit("$0.prependOnceListener('lookup',$1...)")>] abstract prependOnceListener_lookup: listener: Func<Error, string, U2<string, float>, string, unit> -> obj
-        [<Emit("$0.prependOnceListener('timeout',$1...)")>] abstract prependOnceListener_timeout: listener: Func<unit, unit> -> obj
 
-    and [<AllowNullLiteral>] SocketType =
-        [<Emit("new $0($1...)")>] abstract Create: ?options: obj -> Socket
-
-    and [<AllowNullLiteral>] ListenOptions =
-        abstract port: float option with get, set
-        abstract host: string option with get, set
-        abstract backlog: float option with get, set
-        abstract path: string option with get, set
-        abstract exclusive: bool option with get, set
-
-    and [<AllowNullLiteral>] Server =
-        inherit event_types.EventEmitter
-        abstract maxConnections: float with get, set
-        abstract connections: float with get, set
-        abstract listen: port: float * ?hostname: string * ?backlog: float * ?listeningListener: Function -> Server
-        abstract listen: port: float * ?hostname: string * ?listeningListener: Function -> Server
-        abstract listen: port: float * ?backlog: float * ?listeningListener: Function -> Server
-        abstract listen: port: float * ?listeningListener: Function -> Server
-        abstract listen: path: string * ?backlog: float * ?listeningListener: Function -> Server
-        abstract listen: path: string * ?listeningListener: Function -> Server
-        abstract listen: options: ListenOptions * ?listeningListener: Function -> Server
-        abstract listen: handle: obj * ?backlog: float * ?listeningListener: Function -> Server
-        abstract listen: handle: obj * ?listeningListener: Function -> Server
-        abstract close: ?callback: Function -> Server
-        abstract address: unit -> obj
-        abstract getConnections: cb: Func<Error, float, unit> -> unit
-        abstract ref: unit -> Server
-        abstract unref: unit -> Server
-        abstract addListener: ``event``: string * listener: Function -> obj
-        [<Emit("$0.addListener('close',$1...)")>] abstract addListener_close: listener: Func<unit, unit> -> obj
-        [<Emit("$0.addListener('connection',$1...)")>] abstract addListener_connection: listener: Func<Socket, unit> -> obj
-        [<Emit("$0.addListener('error',$1...)")>] abstract addListener_error: listener: Func<Error, unit> -> obj
-        [<Emit("$0.addListener('listening',$1...)")>] abstract addListener_listening: listener: Func<unit, unit> -> obj
-        abstract emit: ``event``: string * [<ParamArray>] args: obj[] -> bool
-        [<Emit("$0.emit('close')")>] abstract emit_close: unit -> bool
-        [<Emit("$0.emit('connection',$1...)")>] abstract emit_connection: socket: Socket -> bool
-        [<Emit("$0.emit('error',$1...)")>] abstract emit_error: err: Error -> bool
-        [<Emit("$0.emit('listening')")>] abstract emit_listening: unit -> bool
-        abstract on: ``event``: string * listener: Function -> obj
-        [<Emit("$0.on('close',$1...)")>] abstract on_close: listener: Func<unit, unit> -> obj
-        [<Emit("$0.on('connection',$1...)")>] abstract on_connection: listener: Func<Socket, unit> -> obj
-        [<Emit("$0.on('error',$1...)")>] abstract on_error: listener: Func<Error, unit> -> obj
-        [<Emit("$0.on('listening',$1...)")>] abstract on_listening: listener: Func<unit, unit> -> obj
-        abstract once: ``event``: string * listener: Function -> obj
-        [<Emit("$0.once('close',$1...)")>] abstract once_close: listener: Func<unit, unit> -> obj
-        [<Emit("$0.once('connection',$1...)")>] abstract once_connection: listener: Func<Socket, unit> -> obj
-        [<Emit("$0.once('error',$1...)")>] abstract once_error: listener: Func<Error, unit> -> obj
-        [<Emit("$0.once('listening',$1...)")>] abstract once_listening: listener: Func<unit, unit> -> obj
-        abstract prependListener: ``event``: string * listener: Function -> obj
-        [<Emit("$0.prependListener('close',$1...)")>] abstract prependListener_close: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependListener('connection',$1...)")>] abstract prependListener_connection: listener: Func<Socket, unit> -> obj
-        [<Emit("$0.prependListener('error',$1...)")>] abstract prependListener_error: listener: Func<Error, unit> -> obj
-        [<Emit("$0.prependListener('listening',$1...)")>] abstract prependListener_listening: listener: Func<unit, unit> -> obj
-        abstract prependOnceListener: ``event``: string * listener: Function -> obj
-        [<Emit("$0.prependOnceListener('close',$1...)")>] abstract prependOnceListener_close: listener: Func<unit, unit> -> obj
-        [<Emit("$0.prependOnceListener('connection',$1...)")>] abstract prependOnceListener_connection: listener: Func<Socket, unit> -> obj
-        [<Emit("$0.prependOnceListener('error',$1...)")>] abstract prependOnceListener_error: listener: Func<Error, unit> -> obj
-        [<Emit("$0.prependOnceListener('listening',$1...)")>] abstract prependOnceListener_listening: listener: Func<unit, unit> -> obj
-
-    type [<Import("*","net")>] Globals =
-        static member Socket with get(): SocketType = jsNative and set(v: SocketType): unit = jsNative
-        static member createServer(?connectionListener: Func<Socket, unit>): Server = jsNative
-        static member createServer(?options: obj, ?connectionListener: Func<Socket, unit>): Server = jsNative
-        static member connect(options: obj, ?connectionListener: Function): Socket = jsNative
-        static member connect(port: float, ?host: string, ?connectionListener: Function): Socket = jsNative
-        static member connect(path: string, ?connectionListener: Function): Socket = jsNative
-        static member createConnection(options: obj, ?connectionListener: Function): Socket = jsNative
-        static member createConnection(port: float, ?host: string, ?connectionListener: Function): Socket = jsNative
-        static member createConnection(path: string, ?connectionListener: Function): Socket = jsNative
-        static member isIP(input: string): float = jsNative
-        static member isIPv4(input: string): bool = jsNative
-        static member isIPv6(input: string): bool = jsNative
 
 
 
@@ -1790,13 +1624,13 @@ module util =
 
 module tty =
     type [<AllowNullLiteral>] ReadStream =
-        inherit net.Socket
+        inherit net_types.Socket
         abstract isRaw: bool with get, set
         abstract isTTY: bool with get, set
         abstract setRawMode: mode: bool -> unit
 
     and [<AllowNullLiteral>] WriteStream =
-        inherit net.Socket
+        inherit net_types.Socket
         abstract columns: float with get, set
         abstract rows: float with get, set
         abstract isTTY: bool with get, set
