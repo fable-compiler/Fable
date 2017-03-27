@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
         <id>Fable.Template</id>
-        <version>0.1.5</version>
+        <version>0.1.6</version>
         <description>Simple Fable App</description>
         <authors>Alfonso Garcia-Caro</authors>
         <language>en-US</language>
