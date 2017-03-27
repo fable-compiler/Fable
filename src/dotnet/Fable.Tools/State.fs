@@ -1,4 +1,4 @@
-module Fable.Client.Webpack.State
+module Fable.Tools.State
 
 open Fable
 open Fable.AST
@@ -208,8 +208,9 @@ let compile (com: Compiler) (state: State) (fileName: string) =
 
 let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
     let rec loop (checker: FSharpChecker) (com: Compiler) (state: State option) = async {
-        let! (Parse msg), replyChannel = agent.Receive()
+        let! msg, replyChannel = agent.Receive()
         try
+            let msg = Parser.parse msg
             com.Reset(msg.options, loadPlugins msg.plugins (com :> ICompiler).Plugins)
             let state = updateState checker com state msg.define msg.path
             async {

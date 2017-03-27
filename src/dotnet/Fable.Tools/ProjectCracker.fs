@@ -1,4 +1,4 @@
-module Fable.Client.Webpack.ProjectCracker
+module Fable.Tools.ProjectCracker
 
 open System
 open System.IO

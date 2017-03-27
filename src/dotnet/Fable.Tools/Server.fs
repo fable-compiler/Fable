@@ -1,4 +1,4 @@
-module Fable.Client.Webpack.Server
+module Fable.Tools.Server
 
 open System
 open System.IO

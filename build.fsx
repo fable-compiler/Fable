@@ -102,20 +102,15 @@ module Util =
         // File.Delete(fileName)
         // File.Move(tempFileName, fileName)
 
-    let replaceLineOnce (replacer: string->Match->string option) (reg: Regex) (fileName: string) =
-        let found = ref false
+    let replaceLines (replacer: string->Match->string option) (reg: Regex) (fileName: string) =
         fileName |> visitFile (fun line ->
-            if !found
+            let m = reg.Match(line)
+            if not m.Success
             then line
             else
-                let m = reg.Match(line)
-                if not m.Success
-                then line
-                else
-                    found := true
-                    match replacer line m with
-                    | None -> line
-                    | Some newLine -> newLine)
+                match replacer line m with
+                | None -> line
+                | Some newLine -> newLine)
 
     let compileScript symbols outDir fsxPath =
         let dllFile = Path.ChangeExtension(Path.GetFileName fsxPath, ".dll")
@@ -385,7 +380,7 @@ let pushNuget (releaseNotes: ReleaseNotes) projFile =
     let updated = ref false
     let version = releaseNotes.NugetVersion
     let reg = Regex("<Version>(.*?)</Version>")
-    (reg, projFile) ||> Util.replaceLineOnce (fun line m ->
+    (reg, projFile) ||> Util.replaceLines (fun line m ->
         if m.Groups.[1].Value = version
         then None
         else
@@ -395,10 +390,15 @@ let pushNuget (releaseNotes: ReleaseNotes) projFile =
     if !updated then
         // Update version in dotnet-fable Main file
         if projFile.Contains("dotnet-fable.fsproj") then
-            let reg = Regex(@"VERSION\s*=\s*""(.*?)""")
-            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Main.fs")
-            (reg, mainFile) ||> Util.replaceLineOnce (fun line m ->
-                reg.Replace(line, sprintf "VERSION = \"%s\"" version) |> Some)
+            let coreJsVersion = releaseCoreJs.Value.NugetVersion
+            let reg = Regex(@"(CORE_JS_)?VERSION\s*=\s*""(.*?)""")
+            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Constants.fs")
+            (reg, mainFile) ||> Util.replaceLines (fun line m ->
+                let replacement =
+                    if m.Groups.[1].Value = "CORE_JS_"
+                    then sprintf "CORE_JS_VERSION = \"%s\"" coreJsVersion
+                    else sprintf "VERSION = \"%s\"" version
+                reg.Replace(line, replacement) |> Some)
         Util.run projDir dotnetExePath "pack -c Release"
         Directory.GetFiles(projDir </> "bin" </> "Release", "*.nupkg")
         |> Array.tryFind (fun nupkg -> nupkg.Contains(version))
@@ -412,7 +412,7 @@ let pushNpm build (releaseNotes: ReleaseNotes) (projDir: string) =
     let updated = ref false
     let version = releaseNotes.NugetVersion
     let reg = Regex(@"""version"":\s*""(.*?)""")
-    (reg, projDir </> "package.json") ||> Util.replaceLineOnce (fun line m ->
+    (reg, projDir </> "package.json") ||> Util.replaceLines (fun line m ->
         if m.Groups.[1].Value = version
         then None
         else

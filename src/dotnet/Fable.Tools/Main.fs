@@ -1,4 +1,4 @@
-module Fable.Client.Webpack.Main
+module Fable.Tools.Main
 
 open System
 open System.IO
@@ -7,9 +7,6 @@ open System.Runtime.InteropServices
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Parser
 open State
-
-let [<Literal>] VERSION = "1.0.0-narumi-904"
-let [<Literal>] DEFAULT_PORT = 61225
 
 let startProcess workingDir fileName args =
     let fileName, args =
@@ -51,7 +48,7 @@ let getPortAndTimeout argsMap =
     let port =
         match Map.tryFind "port" argsMap with
         | Some port -> int port
-        | None -> DEFAULT_PORT
+        | None -> Constants.DEFAULT_PORT
     let timeout =
         match Map.tryFind "timeout" argsMap with
         | Some timeout -> int timeout
@@ -84,7 +81,7 @@ let main argv =
     --port         Port number (default 61225)
   add            Adds one or several Fable npm packages
 """
-    | Some "--version" -> printfn "%s" VERSION
+    | Some "--version" -> printfn "%s" Constants.VERSION
     | Some "start" ->
         let port, timeout = argv.[1..] |> argsToMap |> getPortAndTimeout
         let agent = startAgent()

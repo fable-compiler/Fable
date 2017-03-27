@@ -1,4 +1,4 @@
-module Fable.Client.Webpack.Printers
+module Fable.Tools.Printers
 
 open System
 open System.IO

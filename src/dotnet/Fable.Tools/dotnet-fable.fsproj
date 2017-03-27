@@ -1,6 +1,6 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>1.0.0-narumi-904</Version>
+    <Version>1.0.0-narumi-905</Version>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp1.0</TargetFramework>
     <!-- See https://github.com/dotnet/netcorecli-fsc/issues/98 -->
@@ -10,6 +10,7 @@
     <ProjectReference Include="../Fable.Compiler/Fable.Compiler.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Constants.fs" />
     <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
     <Compile Include="Parser.fs" />

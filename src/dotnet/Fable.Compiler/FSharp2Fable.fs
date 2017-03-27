@@ -344,7 +344,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                     | None -> methTypes
                     |> Seq.map (makeType com [])
                     |> Seq.toList
-                if compareConcreteAndGenericTypes argTypes methTypes
+                if compareDeclaredAndAppliedArgs methTypes argTypes
                 then Some meth else None)
             |> function Some m -> makeCall m | None -> giveUp()
         | None -> giveUp()
@@ -422,8 +422,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         | fsExpr -> transformExpr com ctx fsExpr
 
     | FlattenedLambda(args, tupleDestructs, body) ->
-        let rec getNestedLambdas acc = function
-            | Fable.Function(args, returnType) -> getNestedLambdas ((List.length args)::acc) returnType
+        let rec countNestedLambdas acc = function
+            | Fable.Function(args, returnType) -> countNestedLambdas (acc + 1) returnType
             | _ -> acc
         let ctx, args = makeLambdaArgs com ctx args
         let ctx =
@@ -436,15 +436,12 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         if ctx.isLambdaBody
         then lambda
         else
-            let nestedLambdas = getNestedLambdas [List.length args] body.Type
-            if List.length nestedLambdas <= 2
+            let nestedLambdas = countNestedLambdas 0 body.Type
+            if nestedLambdas <= 1
             then lambda
             else
                 let args =
-                    [ yield List.rev nestedLambdas
-                            |> List.map makeIntConst
-                            |> makeArray Fable.Any
-                      yield lambda
+                    [ yield lambda
                       if captureThis then yield Fable.Value Fable.This ]
                 CoreLibCall("CurriedLambda", None, false, args)
                 |> makeCall (makeRangeFrom fsExpr) lambda.Type

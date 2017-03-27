@@ -45,6 +45,10 @@ module.exports = function(buffer) {
             fableCoreVersion = require("fable-core/package.json").version;
         }
         msg.fableCore = path.join(__dirname, "../fable-core");
+        msg.fableCoreVersion = fableCoreVersion;
+    }
+    else {
+        msg.fableCoreVersion = "*";
     }
 
     console.log("Fable loader sent: " + msg.path)

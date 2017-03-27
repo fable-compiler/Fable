@@ -492,12 +492,11 @@ and makeApply com range typ callee (args: Expr list) =
 /// Helper when we need to compare the types of the arguments applied to a method
 /// (concrete) with the declared argument types for that method (may be generic)
 /// (e.g. when resolving a TraitCall)
-let compareConcreteAndGenericTypes appliedArgs declaredArgs =
+let compareDeclaredAndAppliedArgs declaredArgs appliedArgs =
     let listsEqual f li1 li2 =
         if not(List.sameLength li1 li2)
         then false
         else List.fold2 (fun b x y -> if b then f x y else false) true li1 li2
-    let genArgs = System.Collections.Generic.Dictionary<string, Type>()
     let rec argEqual x y =
         match x, y with
         | Option genArg1, Option genArg2
@@ -509,14 +508,10 @@ let compareConcreteAndGenericTypes appliedArgs declaredArgs =
             argEqual typ1 typ2 && listsEqual argEqual genArgs1 genArgs2
         | DeclaredType(ent1, genArgs1), DeclaredType(ent2, genArgs2) ->
             ent1 = ent2 && listsEqual argEqual genArgs1 genArgs2
-        | GenericParam name1, GenericParam name2 ->
-            name1 = name2
-        | x, GenericParam name ->
-            if genArgs.ContainsKey name
-            then genArgs.[name] = x
-            else genArgs.Add(name, x); true
+        | GenericParam _, _ ->
+            true
         | x, y -> x = y
-    listsEqual argEqual appliedArgs declaredArgs
+    listsEqual argEqual declaredArgs appliedArgs
 
 let addWarning (com: ICompiler) (file: string) (range: SourceLocation option) (warning: string) =
     let range =

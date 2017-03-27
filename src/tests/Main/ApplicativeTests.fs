@@ -345,3 +345,75 @@ let ``Arity is checked also when constructing records``() =
     let f i j = (i * 2) + (j * 3)
     let r = { arity2 = fun x -> f x >> fun y -> sprintf "foo%i" y }
     r.arity2 4 5 |> equal "foo23"
+
+type RecordB = {
+    A: string
+    B: bool
+}
+with
+    static member New = {
+        A = ""
+        B = false
+    }
+
+    // Aether
+    static member A_ : Lens<RecordB, string> = (fun x -> x.A), (fun value x -> { x with A = value })
+    static member B_ : Lens<RecordB, bool> = (fun x -> x.B), (fun value x -> { x with B = value })
+
+type RecordA = {
+    RecordB: RecordB
+}
+with
+    static member New = {
+        RecordB = RecordB.New
+    }
+
+    // Aether
+    static member RecordB_ : Lens<RecordA, RecordB> = (fun x -> x.RecordB), (fun value x -> { x with RecordB = value })
+
+type Action<'model> =
+    | InputChanged of Id: string * Value: string * Lens<'model, string>
+    | CheckboxChanged of Id: string * Value: bool * Lens<'model, bool>
+
+// type Action =
+//     | InputChanged of Id: string * Value: string * Lens<RecordB, string>
+//     | CheckboxChanged of Id: string * Value: bool * Lens<RecordB, bool>
+with
+    override x.ToString () =
+        match x with
+        | InputChanged (id, value, _) -> sprintf "InputChanged (%s, %s)" id value
+        | CheckboxChanged (id, value, _) -> sprintf "CheckboxChanged (%s, %b)" id value
+
+let makeInput<'model> id (model: 'model) (lens: Lens<'model, string>) =
+// let makeInput id (model: RecordB) (lens: Lens<RecordB, string>) =
+    Optic.get lens model
+
+let makeCheckbox<'model> id (model: 'model) (lens: Lens<'model, bool>) =
+// let makeCheckbox id (model: RecordB) (lens: Lens<RecordB, bool>) =
+    Optic.get lens model
+
+let view (model: RecordA) =
+    let subModel = Optic.get RecordA.RecordB_ model
+    makeInput<RecordB> "A" subModel RecordB.A_,
+    makeCheckbox<RecordB> "B" subModel RecordB.B_
+    // makeInput "A" subModel RecordB.A_,
+    // makeCheckbox "B" subModel RecordB.B_
+
+let update (model: RecordA) action =
+    match action with
+    | InputChanged (id, value, lens) ->
+        Optic.set (RecordA.RecordB_ >-> lens) value model
+    | CheckboxChanged (id, value, lens) ->
+        Optic.set (RecordA.RecordB_ >-> lens) value model
+
+
+[<Test>]
+let ``Aether with generics works``() = // See #750
+    let a = { RecordB = {A= "foo"; B=true} }
+    let input, checkbox = view a
+    input |> equal "foo"
+    checkbox |> equal true
+    let a2 = InputChanged("abc", "bar", RecordB.A_) |> update a
+    let input2, checkbox2 = view a2
+    input2 |> equal "bar"
+    checkbox2 |> equal true
