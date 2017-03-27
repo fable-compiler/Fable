@@ -78,16 +78,16 @@ module buffer_types =
         abstract allocUnsafeSlow: size: float -> Buffer
     
     and [<AllowNullLiteral>] BufferStatic =
-        [<Emit("new $0($1...)")>] static member Create(str: string, ?encoding: string): Buffer = jsNative
-        [<Emit("new $0($1...)")>] static member Create(str: float): Buffer = jsNative
-        [<Emit("new $0($1...)")>] static member Create(array: Uint8Array): Buffer = jsNative
-        [<Emit("new $0($1...)")>] static member Create(arrayBuffer: ArrayBuffer): Buffer = jsNative
-        [<Emit("new $0($1...)")>] static member Create(array: ResizeArray<obj>): Buffer = jsNative
-        [<Emit("new $0($1...)")>] static member Create(buffer: Buffer): Buffer = jsNative
-        static member from(array: ResizeArray<obj>): Buffer = jsNative
-        static member from(buffer: Buffer): Buffer = jsNative
-        static member from(arrayBuffer: ArrayBuffer, ?byteOffset: float, ?length: float): Buffer = jsNative
-        static member from(str: string, ?encoding: string): Buffer = jsNative
+        [<Emit("new $0($1...)")>] abstract Create: str: string * ?encoding: string -> Buffer
+        [<Emit("new $0($1...)")>] abstract Create: str: float -> Buffer
+        [<Emit("new $0($1...)")>] abstract Create: array: Uint8Array -> Buffer
+        [<Emit("new $0($1...)")>] abstract Create: arrayBuffer: ArrayBuffer -> Buffer
+        [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<obj> -> Buffer
+        [<Emit("new $0($1...)")>] abstract Create: buffer: Buffer -> Buffer
+        abstract from: array: ResizeArray<obj> -> Buffer
+        abstract from: buffer: Buffer -> Buffer
+        abstract from: arrayBuffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Buffer
+        abstract from: str: string * ?encoding: string -> Buffer
 
     and [<AllowNullLiteral>] SlowBuffer =
         abstract prototype: Buffer with get, set
@@ -96,16 +96,18 @@ module buffer_types =
         abstract concat: list: ResizeArray<Buffer> * ?totalLength: float -> Buffer
 
     and [<AllowNullLiteral>] SlowBufferStatic =
-        [<Emit("new $0($1...)")>] static member Create(str: string, ?encoding: string): Buffer = jsNative
-        [<Emit("new $0($1...)")>] static member Create(str: float): Buffer = jsNative
-        [<Emit("new $0($1...)")>] static member Create(array: Uint8Array): Buffer = jsNative
-        [<Emit("new $0($1...)")>] static member Create(array: ResizeArray<obj>): Buffer = jsNative
+        [<Emit("new $0($1...)")>] abstract Create: str: string * ?encoding: string -> Buffer
+        [<Emit("new $0($1...)")>] abstract Create: str: float -> Buffer
+        [<Emit("new $0($1...)")>] abstract Create: array: Uint8Array -> Buffer
+        [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<obj> -> Buffer
 
     and Globals = 
+        [<Import("Buffer", "buffer")>] 
         member __.Buffer with get(): BufferStatic = jsNative and set(v: BufferStatic): unit = jsNative
+        [<Import("SlowBuffer", "buffer")>] 
         member __.SlowBuffer with get(): SlowBufferStatic = jsNative and set(v: SlowBufferStatic): unit = jsNative
 
-let [<Import("*","buffer")>] buffer: buffer_types.Globals = jsNative
+let buffer: buffer_types.Globals = jsNative
 // Buffer End
 
 // Events start
@@ -126,11 +128,15 @@ module event_types =
         abstract eventNames: unit -> ResizeArray<U2<string, Symbol>>
         
     and [<AllowNullLiteral>] EventEmitterStatic =
-        [<Emit("new $0()")>] static member Create(): EventEmitter = jsNative
+        [<Emit("new $0()")>] abstract Create: unit -> EventEmitter
 
     type Globals =
+        [<Import("EventEmitter", "events")>]
         member __.EventEmitter with get(): EventEmitterStatic = jsNative and set(v: EventEmitterStatic): unit = jsNative
-let [<Import("*","events")>] events: event_types.Globals = jsNative
+        [<Import("defaultMaxListeners", "events")>]
+        member __.defaultMaxListeners with get(): int = jsNative and set(v: int):unit = jsNative
+
+let events: event_types.Globals = jsNative
 // Events end
 
 // Stream Start
@@ -139,7 +145,7 @@ module stream_types =
         abstract pipe: destination: 'T * ?options: obj -> 'T
 
     and [<AllowNullLiteral>] StreamStatic = 
-        [<Emit("new $0()")>] static member Create(): Stream = jsNative
+        [<Emit("new $0()")>] abstract Create: unit -> Stream
 
     and ReadableOptions = {
         highWaterMark: float option
@@ -162,7 +168,7 @@ module stream_types =
         abstract read: ?size: int -> U2<string option, buffer_types.Buffer option>
 
     and [<AllowNullLiteral>] ReadableStatic = 
-        [<Emit("new $0()")>] static member Create(readableOptions:ReadableOptions): Readable = jsNative
+        [<Emit("new $0()")>] abstract Create: readableOptions:ReadableOptions -> Readable
 
     and WritableOptions = {
         highWaterMark: float option;
@@ -181,7 +187,7 @@ module stream_types =
         abstract ``end``: obj: obj * ?encoding: string * ?cb: Function -> unit
 
     and [<AllowNullLiteral>] WritableStatic = 
-        [<Emit("new $0()")>] static member Create(writableOptions:WritableOptions): Writable = jsNative
+        [<Emit("new $0()")>] abstract Create: writableOptions:WritableOptions -> Writable
             
     type DuplexOptions = {
         decodeStrings: bool option;
@@ -200,7 +206,7 @@ module stream_types =
         inherit Writable
 
     and [<AllowNullLiteral>] DuplexStatic = 
-        [<Emit("new $0()")>] static member Create(duplexOptions:DuplexOptions): Duplex = jsNative
+        [<Emit("new $0()")>] abstract Create: duplexOptions:DuplexOptions -> Duplex
 
     and TransformOptions = {
         decodeStrings: bool option;
@@ -216,34 +222,38 @@ module stream_types =
     and [<AllowNullLiteral>] Transform = 
         inherit Readable
         inherit Writable
-        [<Emit("new $0($1)")>] abstract Create: TransformOptions -> Transform
         abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
         abstract _flush: callback: Function -> unit
 
     and [<AllowNullLiteral>] TransformStatic = 
-        [<Emit("new $0()")>] static member Create(transformOptions:TransformOptions): Transform = jsNative
+        [<Emit("new $0()")>] abstract Create: transformOptions:TransformOptions -> Transform
 
 
     and [<AllowNullLiteral>] PassThrough =
         inherit Transform
 
     and [<AllowNullLiteral>] PassThroughStatic = 
-        [<Emit("new $0()")>] static member Create(): PassThrough = jsNative
+        [<Emit("new $0()")>] abstract Create: unit -> PassThrough
 
     
     and Globals =
+        [<Import("Stream", "stream")>]
         member __.Stream with get(): StreamStatic = jsNative and set(v: StreamStatic): unit = jsNative
+        [<Import("Readable", "stream")>]
         member __.Readable with get(): ReadableStatic = jsNative and set(v: ReadableStatic): unit = jsNative
+        [<Import("Writable", "stream")>]
         member __.Writable with get(): WritableStatic = jsNative and set(v: WritableStatic): unit = jsNative
+        [<Import("Duplex", "stream")>]
         member __.Duplex with get(): DuplexStatic = jsNative and set(v: DuplexStatic): unit = jsNative
         member __.TransformOptions with get(): TransformOptions = jsNative and set(v: TransformOptions): unit = jsNative
+        [<Import("Transform", "stream")>]
         member __.Transform with get(): TransformStatic = jsNative and set(v: TransformStatic): unit = jsNative
+        [<Import("PassThrough", "stream")>]
         member __.PassThrough with get(): PassThroughStatic = jsNative and set(v: PassThroughStatic): unit = jsNative
 
 
-let [<Import("*","stream")>] stream: stream_types.Globals = jsNative
+let stream: stream_types.Globals = jsNative
 // Stream End
-
 
 type [<AllowNullLiteral>] Console =
     abstract ``assert``: value: obj * ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
@@ -444,6 +454,55 @@ let [<Global>] ``module``: NodeModule = jsNative
 let [<Global>] exports: obj = jsNative
 let [<Global>] SlowBuffer: buffer_types.SlowBufferStatic = jsNative
 let [<Global>] Buffer: buffer_types.BufferStatic = jsNative
+
+// ChildProcess start
+module child_process_types =
+    type ExecError = 
+        inherit Error
+        abstract code: int with get, set
+        abstract signal: string with get, set
+
+    and [<AllowNullLiteral>] ChildProcess =
+        inherit event_types.EventEmitter
+        abstract stdin: stream_types.Writable with get, set
+        abstract stdout: stream_types.Readable with get, set
+        abstract stderr: stream_types.Readable with get, set
+        abstract connected: bool with get, set
+        abstract stdio: U2<stream_types.Readable,stream_types.Writable>[] with get, set
+        abstract pid: float with get, set
+        abstract kill: ?signal: string -> unit
+        abstract send: message: obj * ?sendHandle: obj -> unit
+        abstract disconnect: unit -> unit
+        abstract unref: unit -> unit
+
+    and [<AllowNullLiteral>] ChildProcessStatic =
+        [<Emit("new $0()")>] abstract Create: unit -> ChildProcess
+
+    and Globals =
+        member __.ExecError with get(): ExecError = jsNative and set(v: ExecError):unit = jsNative
+        [<Import("ChildProcess", "child_process")>]
+        member __.ChildProcess with get(): ChildProcessStatic = jsNative and set(v: ChildProcessStatic): unit = jsNative
+        [<Import("spawn", "child_process")>]
+        member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
+        [<Import("exec", "child_process")>]
+        member __.exec(command: string, options: obj, callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcessStatic = jsNative
+        [<Import("execFile", "child_process")>]
+        member __.execFile(file: string, ?callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
+        [<Import("execFile", "child_process")>]
+        member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
+        [<Import("execFile", "child_process")>]
+        member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
+        [<Import("fork", "child_process")>]
+        member __.fork(modulePath: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
+        [<Import("execSync", "child_process")>]
+        member __.execSync(command: string, ?options: obj):U2<string, buffer_types.Buffer> = jsNative
+        [<Import("execFileSync", "child_process")>]
+        member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, buffer_types.Buffer> = jsNative
+        [<Import("spawnSync", "child_process")>]
+        member __.spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = jsNative
+
+let child_process: child_process_types.Globals = jsNative
+// ChildProcess end
 
 module querystring =
     type [<AllowNullLiteral>] StringifyOptions =
@@ -815,32 +874,7 @@ module vm =
         static member runInNewContext(code: string, ?sandbox: Context, ?options: RunningScriptOptions): obj = jsNative
         static member runInThisContext(code: string, ?options: RunningScriptOptions): obj = jsNative
 
-module child_process_types =
-    type [<AllowNullLiteral>] ChildProcess =
-        inherit event_types.EventEmitter
-        abstract stdin: stream_types.Writable with get, set
-        abstract stdout: stream_types.Readable with get, set
-        abstract stderr: stream_types.Readable with get, set
-        abstract stdio: U2<stream_types.Readable,stream_types.Writable>[] with get, set
-        abstract pid: float with get, set
-        abstract kill: ?signal: string -> unit
-        abstract send: message: obj * ?sendHandle: obj -> unit
-        abstract disconnect: unit -> unit
-        abstract unref: unit -> unit
 
-    type Globals =
-        member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
-        member __.exec(command: string, options: obj, ?callback: Func<Error option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
-        member __.exec(command: string, ?callback: Func<Error option, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
-        member __.execFile(file: string, ?callback: Func<Error, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
-        member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
-        member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, buffer_types.Buffer, buffer_types.Buffer, unit>): ChildProcess = jsNative
-        member __.fork(modulePath: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
-        member __.spawnSync(command: string, ?args: ResizeArray<string>, ?options: obj): obj = jsNative
-        member __.execSync(command: string, ?options: obj): U2<string, buffer_types.Buffer> = jsNative
-        member __.execFileSync(command: string, ?args: ResizeArray<string>, ?options: obj): U2<string, buffer_types.Buffer> = jsNative
-
-let [<Import("*","child_process")>] child_process: child_process_types.Globals = jsNative
 
 
 module cluster_types =
