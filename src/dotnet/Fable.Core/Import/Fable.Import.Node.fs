@@ -257,8 +257,8 @@ type [<AllowNullLiteral>] Console =
     abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
 
 and [<AllowNullLiteral>] Error =
-    abstract stack: string option with get, set
-    abstract message: string option with get, set
+    abstract stack: string with get, set
+    abstract message: string with get, set
 
 and [<AllowNullLiteral>] NodeRequireFunction =
     [<Emit("$0($1...)")>] abstract Invoke: id: string -> obj
@@ -450,7 +450,7 @@ module child_process_types =
     type ExecError = 
         inherit Error
         abstract code: int with get, set
-        abstract signal: string with get, set
+        abstract signal: string option with get, set
 
     and [<AllowNullLiteral>] ChildProcess =
         inherit event_types.EventEmitter
@@ -475,7 +475,7 @@ module child_process_types =
     and Globals =
         abstract ChildProcess: ChildProcessStatic with get, set
         abstract spawn: command: string * ?args: ResizeArray<string> * ?options: obj -> ChildProcess
-        abstract exec: command: string * options: ExecOptions * callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit> -> ChildProcessStatic
+        abstract exec: command: string * ?options: ExecOptions * ?callback:(ExecError option -> U2<string, buffer_types.Buffer> -> U2<string, buffer_types.Buffer> -> unit) -> ChildProcessStatic
 
         abstract execFile: file: string * ?callback: Func<ExecError option, buffer_types.Buffer, buffer_types.Buffer, unit> -> ChildProcess
         
