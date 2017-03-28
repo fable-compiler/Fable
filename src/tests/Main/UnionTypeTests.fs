@@ -158,24 +158,24 @@ let jsonStringify (json): string = jsNative
 [<Test>]
 let ``Pattern matching json parse union cases still works``() =
     // Test IntType
-    match jsonParse """{"tag":0,"fields":[1]}""" with
+    match jsonParse """{"tag":0,"data":1}""" with
     | IntType x -> x
     | _ -> failwith "unexpected"
     |> equal 1
     // Test StringType
-    match jsonParse """{"tag":1,"fields":["value1"]}""" with
+    match jsonParse """{"tag":1,"data":"value1"}""" with
     | StringType x -> x
     | _ -> failwith "unexpected"
     |> equal "value1"
     // Test TupleType
-    match jsonParse """{"tag":2,"fields":["value1",2]}""" with
+    match jsonParse """{"tag":2,"data":["value1",2]}""" with
     | TupleType(x, y) -> x, y
     | _ -> failwith "unexpected"
     |> fun (x, y) ->
         x |> equal "value1"
         y |> equal 2
     // Test ObjectType
-    match jsonParse """{"tag":3,"fields":[{"Prop1":"value1","Prop2":2}]}""" with
+    match jsonParse """{"tag":3,"data":{"Prop1":"value1","Prop2":2}}""" with
     | ObjectType(x) -> x
     | _ -> failwith "unexpected"
     |> fun x ->
@@ -186,7 +186,7 @@ let ``Pattern matching json parse union cases still works``() =
 let ``Union cases json stringify is as we expect``() =
     ObjectType({Prop1 = "value1"; Prop2 = 2})
     |> jsonStringify
-    |> equal """{"tag":3,"fields":[{"Prop1":"value1","Prop2":2}]}"""
+    |> equal """{"tag":3,"data":{"Prop1":"value1","Prop2":2}}"""
 #endif
 
 type Tree =

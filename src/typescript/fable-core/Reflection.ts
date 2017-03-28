@@ -160,7 +160,8 @@ export function getUnionFields(obj: any, typ?: any): any[] {
     if (info.cases) {
       const uci = info.cases[obj.tag];
       if (uci != null) {
-        return [new MemberInfo(uci[0], obj.tag, typ, null, uci.slice(1)), obj.fields];
+        const fields = uci.length > 2 ? obj.data : (uci.length > 1 ? [obj.data] : []);
+        return [new MemberInfo(uci[0], obj.tag, typ, null, uci.slice(1)), fields];
       }
     }
   }
@@ -169,7 +170,14 @@ export function getUnionFields(obj: any, typ?: any): any[] {
 
 export function makeUnion(caseInfo: MemberInfo, args: any[]): any {
   const Cons = getDefinition(caseInfo.declaringType);
-  return new Cons(caseInfo.index, ...args);
+  switch (args.length) {
+    case 0:
+      return new Cons(caseInfo.index);
+    case 1:
+      return new Cons(caseInfo.index, args[0]);
+    default:
+      return new Cons(caseInfo.index, args);
+  }
 }
 
 export function getTupleElements(typ: any): FunctionConstructor[] {

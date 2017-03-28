@@ -280,7 +280,7 @@ export function compareRecords(x: any, y: any): number {
 }
 
 export function equalsUnions(x: any, y: any): boolean {
-  return x === y || (x.tag === y.tag && equals(x.fields, y.fields));
+  return x === y || (x.tag === y.tag && equals(x.data, y.data));
 }
 
 export function compareUnions(x: any, y: any): number {
@@ -289,7 +289,7 @@ export function compareUnions(x: any, y: any): number {
   }
   else {
     let res = x.tag < y.tag ? -1 : (x.tag > y.tag ? 1 : 0);
-    return res !== 0 ? res : compare(x.fields, y.fields);
+    return res !== 0 ? res : compare(x.data, y.data);
   }
 }
 
@@ -328,8 +328,7 @@ export function createObj(fields: Iterable<[string, any]>, caseRule = CaseRules.
         if (caseRule === CaseRules.LowerFirst) {
           key = key[0].toLowerCase() + key.substr(1)
         }
-        o[key] = caseInfo.length === 1
-          ? true : (caseInfo.length === 2 ? value.fields[0] : value.fields);
+        o[key] = caseInfo.length === 1 ? true : value.data;
       }
       else {
         throw new Error("Cannot infer key and value of " + value)

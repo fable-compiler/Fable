@@ -911,7 +911,7 @@ module Util =
                     let props =
                         match ent.Kind with
                         | Fable.Union _ ->
-                            ["tag", (Fable.Number NumberKind.Int32)] // TODO: Add data fields?
+                            ["tag", (Fable.Number NumberKind.Int32)] // TODO: Add data?
                             |> List.map (fun (name, typ) -> declareProperty com ctx name typ)
                         | Fable.Record fields | Fable.Exception fields ->
                             fields |> List.map (fun (name, typ) -> declareProperty com ctx name typ)

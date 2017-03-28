@@ -41,6 +41,8 @@ module Util =
                 | [Fable.Value(Fable.NumberConst(tag, _));
                     Fable.Value(Fable.ArrayConst(Fable.ArrayValues fields, _))] ->
                     Some(int tag, fields, cases)
+                | [Fable.Value(Fable.NumberConst(tag, _)); expr] ->
+                    Some(int tag, [expr], cases)
                 | _ -> None
             | _ -> None
         | _ -> None

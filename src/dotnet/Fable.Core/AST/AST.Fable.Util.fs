@@ -293,12 +293,10 @@ let rec makeTypeTest com range (typ: Type) expr =
         |> attachRange range |> failwith
 
 let makeUnionCons cases =
-    let args = [Ident("tag", String); Ident("fields", Array Any)]
+    let args = [Ident("tag", String); Ident("data", Any)]
     let argTypes = List.map Ident.getType args
     let setter1 = Set(Value This, Some(makeStrConst "tag"), Value(IdentValue args.[0]), None)
-    let setter2 =
-        let binOp = Apply(Value (LogicalOp LogicalOr), [Value(IdentValue args.[1]); Value(ArrayConst(ArrayValues [], Any))], ApplyMeth, Array Any, None)
-        Set(Value This, Some(makeStrConst "fields"), binOp, None)
+    let setter2 = Set(Value This, Some(makeStrConst "data"), Value(IdentValue args.[1]), None)
     let body = Sequential([setter1; setter2], None)
     MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), None, args, body, None)
 
@@ -336,7 +334,19 @@ let private makeMeth argType returnType name coreMeth =
         |> makeCall None returnType
     MemberDeclaration(Member(name, Method, InstanceLoc, [arg.Type], returnType), None, [arg], body, None)
 
-let makeUnionEqualMethod argType = makeMeth argType Boolean "Equals" "equalsUnions"
+let makeUnionEqualMethod argType =
+    let this = Value This
+    let arg = Ident("other", argType)
+    let argValue = Value(IdentValue arg)
+    let equalsTag =
+        makeEqOp None [makeUntypedGet this "tag"; makeUntypedGet argValue "tag"] BinaryEqualStrict
+    let equalsData =
+        CoreLibCall("Util", Some "equals", false, [makeUntypedGet this "data"; makeUntypedGet argValue "data"])
+        |> makeCall None Boolean
+    let andOp = Apply(Value (LogicalOp LogicalAnd), [equalsTag; equalsData], ApplyMeth, Boolean, None)
+    let body = Apply(Value (LogicalOp LogicalOr), [makeEqOp None [this; argValue] BinaryEqualStrict; andOp], ApplyMeth, Boolean, None)
+    MemberDeclaration(Member("Equals", Method, InstanceLoc, [arg.Type], Boolean), None, [arg], body, None)
+
 let makeRecordEqualMethod argType = makeMeth argType Boolean "Equals" "equalsRecords"
 let makeUnionCompareMethod argType = makeMeth argType (Number Int32) "CompareTo" "compareUnions"
 let makeRecordCompareMethod argType = makeMeth argType (Number Int32) "CompareTo" "compareRecords"

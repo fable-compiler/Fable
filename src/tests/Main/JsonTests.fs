@@ -24,6 +24,7 @@ type Simple = {
 type U =
     | CaseA of int
     | CaseB of Simple list
+    | CaseC of Child * int
 
 type R() =
     member __.Foo() = "foo"
@@ -295,7 +296,7 @@ let ``Maps`` () =
 
 [<Test>]
 let ``Map string keys are not quoted``() = // #659
-    let v = [ "foo", 1 ] |> Map.ofList 
+    let v = [ "foo", 1 ] |> Map.ofList
     let serialised = toJson v
     (toJson v).Replace(" ", "") |> equal """{"foo":1}"""
 
@@ -328,6 +329,15 @@ let ``Union of list``() =
     let u2: U = toJson u |> ofJson
     u = u2 |> equal true
     let u3: U = ofJson """{"CaseB":[{"Name":"Sarah","Child":{"a":"John","b":14}}]}"""
+    u = u3 |> equal true
+
+
+[<Test>]
+let ``Union with multiple fields``() =
+    let u = CaseC({a="John";b=14}, 2)
+    let u2: U = toJson u |> ofJson
+    u = u2 |> equal true
+    let u3: U = ofJson """{"CaseC":[{"a":"John","b":14},2]}"""
     u = u3 |> equal true
 
 type UnionJson =

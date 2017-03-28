@@ -169,7 +169,7 @@ type TestRecord = {
 }
 
 type TestUnion =
-    | StringCase of String: string
+    | StringCase of String: string * string
     | IntCase of Int: int
 
 [<Test>]
@@ -259,7 +259,7 @@ let ``FSharp.Reflection: Tuple`` () =
 [<Test>]
 let ``FSharp.Reflection: Union`` () =
     let typ = typeof<TestUnion>
-    let unionCase1 = StringCase "a"
+    let unionCase1 = StringCase("a", "b")
     let unionCase2 = IntCase 1
     let unionTypeFields = FSharpType.GetUnionCases typ
     unionTypeFields |> Array.map (fun x -> x.Name) |> equal [| "StringCase"; "IntCase" |]
@@ -268,7 +268,7 @@ let ``FSharp.Reflection: Union`` () =
     let unionCaseInfos = [| unionCase1Info; unionCase2Info |]
     let unionCaseValueFields = [| unionCase1ValueFields; unionCase2ValueFields |]
 
-    let expectedUnionCase1Fields = 0, "StringCase", [| typeof<string> |], [| box "a" |]
+    let expectedUnionCase1Fields = 0, "StringCase", [| typeof<string>; typeof<string> |], [| box "a"; box "b" |]
     let expectedUnionCase2Fields = 1, "IntCase", [| typeof<int> |], [| box 1 |]
     let expectedUnionFields = [| expectedUnionCase1Fields; expectedUnionCase2Fields |]
 

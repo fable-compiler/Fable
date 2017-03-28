@@ -115,15 +115,15 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
     | OtherType ->
         let argExprs =
             let tag = getUnionCaseIndex fsExpr.Range fsType unionCase.Name |> makeIntConst
+            let argTypes =
+                unionCase.UnionCaseFields
+                |> Seq.map (fun x -> makeType com [] x.FieldType)
+                |> Seq.toList
+            let argExprs = ensureArity com argTypes argExprs
             match argExprs with
             | [] -> [tag]
-            | argExprs ->
-                let argTypes =
-                    unionCase.UnionCaseFields
-                    |> Seq.map (fun x -> makeType com [] x.FieldType)
-                    |> Seq.toList
-                let argExprs = ensureArity com argTypes argExprs
-                [tag; Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))]
+            | [argExpr] -> [tag; argExpr]
+            | argExprs -> [tag; Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))]
         buildApplyInfo com ctx (Some range) unionType unionType unionType.FullName
             ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
         |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
@@ -476,9 +476,12 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         | StringEnum ->
             FableError("StringEnum types cannot have fields", ?range=range) |> raise
         | OtherType ->
-            let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
-            let fields = makeGet range typ unionExpr (makeStrConst "fields")
-            makeGet range typ fields (makeIntConst i)
+            if unionCase.UnionCaseFields.Count > 1 then
+                let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
+                let data = makeGet range typ unionExpr (makeStrConst "data")
+                makeGet range typ data (makeIntConst i)
+            else
+                makeGet range typ unionExpr (makeStrConst "data")
 
     | BasicPatterns.ILFieldSet (callee, typ, fieldName, value) ->
         failwithf "Unsupported ILField reference %O: %A" (makeRange fsExpr.Range) fsExpr

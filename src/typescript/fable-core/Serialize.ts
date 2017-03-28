@@ -44,13 +44,9 @@ export function deflate(v: any) {
       if (fieldsLength === 0) {
         return caseName;
       }
-      else if (fieldsLength === 1) {
-        // Prevent undefined assignment from removing case property; see #611:
-        const fieldValue = typeof v.fields[0] === 'undefined' ? null : v.fields[0];
-        return { [caseName]: fieldValue };
-      }
       else {
-        return { [caseName]: v.fields };
+        // Prevent undefined assignment from removing case property; see #611:
+        return { [caseName]: (v.data !== void 0 ? v.data : null) };
       }
     }
   }
@@ -145,11 +141,10 @@ function inflateList(val: any, enclosing: List<any>, path: string) {
 }
 
 function inflateUnion(val: any, typ: FunctionConstructor, info: any, path: string, inflateField?: Function) {
-  let newVal: any, caseName: string;
+  let caseName: string;
   // Same shape as runtime DUs, for example, if they've been serialized with `JSON.stringify`
   if (typeof val.tag === "number") {
-    newVal = new typ();
-    return Object.assign(newVal, val);
+    return Object.assign(new typ(), val);
   }
   // Cases without fields are serialized as strings by `toJson`
   else if (typeof val === "string") {
@@ -171,19 +166,23 @@ function inflateUnion(val: any, typ: FunctionConstructor, info: any, path: strin
   if (tag === -1) {
     invalidate(val, typ, path);
   }
-  newVal = new typ(tag as any);
-  let caseInfo = info.cases[tag];
-  if (caseInfo.length > 1) {
-      const fields = caseInfo.length > 2 ? val[caseName] : [val[caseName]];
-      path = combine(path, caseName);
-      for (let i = 0; i < fields.length; i++) {
-          newVal.fields.push(inflateField
-            ? inflateField(fields[i], caseInfo[i + 1], combine(path, i))
-            : fields[i]);
-      }
+  let caseInfo = info.cases[tag], inflatedData: any = void 0;
+  if (caseInfo.length > 2) {
+    inflatedData = [];
+    const data = val[caseName];
+    path = combine(path, caseName);
+    for (let i = 0; i < data.length; i++) {
+        inflatedData.push(inflateField
+          ? inflateField(data[i], caseInfo[i + 1], combine(path, i))
+          : data[i]);
+    }
   }
-  return newVal;
-
+  else if (caseInfo.length > 1) {
+    inflatedData = inflateField
+      ? inflateField(val[caseName], caseInfo[1], combine(path, caseName))
+      : val[caseName];
+  }
+  return new typ(tag as any, inflatedData);
 }
 
 function inflate(val: any, typ: any, path: string): any {
@@ -308,7 +307,8 @@ export function toJsonWithTypeInfo(o: any): string {
       else if (info.cases) {
         const uci = info.cases[v.tag];
         return {
-          [uci[0]]: uci.length <= 2 ? v.fields[0] : v.fields,
+          // Prevent undefined assignment from removing case property; see #611:
+          [uci[0]]: (v.data !== void 0 ? v.data : null),
           $type: info.type
         };
       }
