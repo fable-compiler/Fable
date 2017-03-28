@@ -1,3 +1,7 @@
+### 0.7.30
+
+* Fix #776: Seq.collect on Option seq seq stops on first None value
+
 ### 0.7.29
 
 * Make TransformOptions not inherit #751
