@@ -98,7 +98,7 @@ export function averageBy(f: (a: number) => number, xs: Iterable<number>) {
 export function concat<T>(xs: Iterable<Iterable<T>>) {
   return delay(() => {
     let iter = xs[Symbol.iterator]();
-    let output: T = <any>{ value: null } ;
+    let output : any = { value: null } ;
     return unfold(innerIter => {
       let hasFinished = false;
       while (!hasFinished) {
@@ -112,14 +112,14 @@ export function concat<T>(xs: Iterable<Iterable<T>>) {
         } else {
           let cur = innerIter.next();
           if (!cur.done) {
-            output = <any>{ value: cur.value };
+            output = { value: cur.value };
             hasFinished = true;
           } else {
             innerIter = null;
           }
         }
       }
-      return innerIter != null && output != null ? [(<any>output).value, innerIter] : null;
+      return innerIter != null && output != null ? [output.value, innerIter] : null;
     }, null);
   });
 }
