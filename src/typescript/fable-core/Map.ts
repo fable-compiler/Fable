@@ -55,7 +55,7 @@ export class MapTree {
 
   constructor(tag: number, fields?: any[]) {
     this.tag = tag | 0;
-    this.fields = fields || [];
+    this.fields = fields;
   }
 }
 

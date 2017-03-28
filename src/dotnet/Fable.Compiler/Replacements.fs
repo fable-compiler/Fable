@@ -2099,6 +2099,8 @@ module CoreLibPass =
             fsharp + "Collections.FSharpSet" => ("Set", Static)
             fsharp + "Collections.SetModule" => ("Set", Static)
             fsharp + "Core.FSharpChoice" => ("Choice", Both)
+            fsharp + "Core.FSharpResult" => ("Result", Both)
+            fsharp + "Core.ResultModule" => ("Result", Static)
             fsharp + "Control.FSharpEvent" => ("Event", Both)
             fsharp + "Control.EventModule" => ("Event", Static)
         ]
@@ -2169,6 +2171,7 @@ let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fabl
             |> Fable.NonDeclTuple
             |> makeNonDeclaredTypeRef |> Some
     | "Microsoft.FSharp.Core.FSharpChoice" -> makeCoreRef "Choice" None |> Some
+    | "Microsoft.FSharp.Core.FSharpResult" -> makeCoreRef "Result" None |> Some
     | "Microsoft.FSharp.Control.FSharpAsync" -> makeCoreRef "Async" None |> Some
     | "Microsoft.FSharp.Collections.FSharpSet" ->
         makeCoreRef "Set" None |> makeGeneric genArgs |> Some

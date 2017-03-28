@@ -173,11 +173,15 @@ let addLogs (com: Compiler) (file: Babel.Program) =
     Babel.Program(file.fileName, loc, file.body, file.directives, infos, warnings)
 
 let updateState (checker: FSharpChecker) (com: Compiler) (state: State option)
-                (define: string[]) (fileName: string) =
+                astOutDir (define: string[]) (fileName: string) =
+    let createFromScratch () =
+        let state = createState checker None com define fileName
+        astOutDir |> Option.iter (fun dir -> Printers.printAst dir state.CheckedProject)
+        state
     match state with
     | Some state ->
         if fileName.EndsWith(".fsproj") || fileName = state.ProjectFile // Must be an .fsx script
-        then createState checker None com define fileName
+        then createFromScratch()
         else
             match state.CompiledFiles.TryGetValue(fileName) with
             // Watch compilation, restart state
@@ -192,8 +196,7 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State option)
             | false, _ ->
                 sprintf "%s doesn't belong to project %s" fileName state.ProjectFile
                 |> FableError |> raise
-    | None ->
-        createState checker None com define fileName
+    | None -> createFromScratch()
 
 let compile (com: Compiler) (state: State) (fileName: string) =
     if fileName.EndsWith(".fsproj")
@@ -211,8 +214,12 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
         let! msg, replyChannel = agent.Receive()
         try
             let msg = Parser.parse msg
+            let astOutDir =
+                match msg.extra.TryGetValue("saveAst") with
+                | true, value -> Some value
+                | _ -> None
             com.Reset(msg.options, loadPlugins msg.plugins (com :> ICompiler).Plugins)
-            let state = updateState checker com state msg.define msg.path
+            let state = updateState checker com state astOutDir msg.define msg.path
             async {
                 try
                     compile com state msg.path

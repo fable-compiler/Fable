@@ -12,6 +12,20 @@ let ``constructors can be generated``() =
     Error 10 |> equal error
 
 [<Test>]
+let ``pattern matching works``() =
+    let ok = Ok "foo"
+    match ok with
+    | Ok x -> Some x
+    | Error _ -> None
+    |> equal (Some "foo")
+
+    let error = Error 10
+    match Error 10 with
+    | Ok _ -> None
+    | Error y -> Some y
+    |> equal (Some 10)
+
+[<Test>]
 let ``map function can be generated``() =
     let f = (+) 1
     Ok 9 |> Result.map f |> equal (Ok 10)

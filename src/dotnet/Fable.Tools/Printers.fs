@@ -104,13 +104,13 @@ let printFableDecls decls = seq {
         yield sprintf "%A" decl
 }
 
-// Print AST
-// state.CheckedProject.AssemblyContents.ImplementationFiles
-// |> Seq.tryFind (fun f -> Path.normalizeFullPath f.FileName = fileName)
-// |> Option.iter (fun f ->
-//     let name = System.IO.Path.GetFileNameWithoutExtension(fileName)
-//     Printers.printFSharpDecls "" f.Declarations
-//     |> fun lines -> System.IO.File.WriteAllLines(name + ".fs.ast", lines)
-//     Printers.printFableDecls fableFile.Declarations
-//     |> fun lines -> System.IO.File.WriteAllLines(name + ".fable.ast", lines)
-// )
+let printAst outDir (proj: FSharpCheckProjectResults) =
+    for f in proj.AssemblyContents.ImplementationFiles do
+        let target =
+            let name = System.IO.Path.GetFileNameWithoutExtension(f.FileName)
+            Path.Combine(outDir, name + ".fs.ast")
+        printfn "Print AST %s" target
+        printFSharpDecls "" f.Declarations
+        |> fun lines -> System.IO.File.WriteAllLines(target, lines)
+        // printFableDecls fableFile.Declarations
+        // |> fun lines -> System.IO.File.WriteAllLines(Path.Combine(outDir, name + ".fable.ast"), lines)

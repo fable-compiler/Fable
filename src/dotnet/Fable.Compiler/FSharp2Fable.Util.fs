@@ -503,12 +503,19 @@ module Patterns =
                 else Some(List.rev args, List.rev tupleDestructs, body)
         flattenLambda [] [] fsExpr
 
+    // TODO: Careful with this. If the treatment of these expressions change
+    // this needs to change as well
+    let (|MaybeErased|) = function
+        | Application(expr,_,[]) -> expr
+        | AddressOf(expr) -> expr
+        | expr -> expr
+
     let (|ImmutableBinding|_|) = function
-        | Let((var, (Value v as value)), body)
+        | Let((var, MaybeErased(Value v as value)), body)
             when not var.IsMutable && not v.IsMutable && not v.IsMemberThisValue -> Some((var, value), body)
         | Let((var, (Const _ as value)), body)
             when not var.IsMutable -> Some((var, value), body)
-        | Let((var, (UnionCaseGet(Value v,_,_,_) as value)), body)
+        | Let((var, (UnionCaseGet(MaybeErased(Value v),_,_,_) as value)), body)
             when not var.IsMutable && not v.IsMutable -> Some((var, value), body)
         | Let((var, (TupleGet(_,_,Value v) as value)), body)
             when not var.IsMutable && not v.IsMutable -> Some((var, value), body)

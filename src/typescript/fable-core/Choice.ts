@@ -15,7 +15,7 @@ export default class Choice<T1, T2> implements IEquatable<Choice<T1, T2>>, IComp
   public fields: T1[] | T2[];
 
   constructor(tag: number, fields: T1[] | T2[]) {
-    this.tag = tag;
+    this.tag = tag | 0;
     this.fields = fields;
   }
 

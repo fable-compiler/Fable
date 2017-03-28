@@ -280,37 +280,16 @@ export function compareRecords(x: any, y: any): number {
 }
 
 export function equalsUnions(x: any, y: any): boolean {
-  // Optimization if they are referencially equal
-  if (x === y) {
-    return true;
-  }
-  else if (x.tag !== y.tag) {
-    return false;
-  }
-  else {
-    for (let i = 0; i < x.fields.length; i++) {
-      if (!equals(x.fields[i], y.fields[i]))
-        return false;
-    }
-    return true;
-  }
+  return x === y || (x.tag === y.tag && equals(x.fields, y.fields));
 }
 
 export function compareUnions(x: any, y: any): number {
-  // Optimization if they are referencially equal
   if (x === y) {
     return 0;
   }
   else {
     let res = x.tag < y.tag ? -1 : (x.tag > y.tag ? 1 : 0);
-    if (res !== 0)
-      return res;
-    for (let i = 0; i < x.fields.length; i++) {
-      res = compare(x.fields[i], y.fields[i]);
-      if (res !== 0)
-        return res;
-    }
-    return 0;
+    return res !== 0 ? res : compare(x.fields, y.fields);
   }
 }
 

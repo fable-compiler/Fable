@@ -59,7 +59,7 @@ let debug (projFile: string) (define: string[]) =
     let com = Compiler()
     let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
     try
-        let state = updateState checker com None define (Path.GetFullPath projFile)
+        let state = updateState checker com None None define (Path.GetFullPath projFile)
         for file in state.CompiledFiles.Keys |> Seq.rev do
             com.Reset()
             compile com state file |> printfn "%A"

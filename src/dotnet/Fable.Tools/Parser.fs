@@ -1,6 +1,7 @@
 module Fable.Tools.Parser
 
 open System
+open System.Collections.Generic
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 open Fable
@@ -9,7 +10,8 @@ type Message =
     { path: string
     ; define: string[]
     ; plugins: string[]
-    ; options: CompilerOptions }
+    ; options: CompilerOptions
+    ; extra: IDictionary<string,string> }
 
 let foldi f init (xs: 'T seq) =
     let mutable i = -1
@@ -70,6 +72,12 @@ let private parseStringRequired (key: string) (o: JObject)  =
     | :? JValue as v when v.Type = JTokenType.String -> v.ToObject<string>()
     | _ -> failwithf "Missing argument %s" key
 
+let private parseDic (key: string) (o: JObject): IDictionary<string,string> =
+    match o.[key] with
+    | null -> dict []
+    | :? JObject as v -> v.ToObject<IDictionary<string,string>>()
+    | _ -> dict []
+
 let makePathRelative path =
     let path = Path.normalizeFullPath path
     let cwd = System.IO.Directory.GetCurrentDirectory()
@@ -97,7 +105,7 @@ let parse (msg: string) =
         ; typedArrays = parseBoolean true "typedArrays" json
         ; clampByteArrays = parseBoolean false "clampByteArrays" json }
     // printfn "Parsed options: path=%s; define=%A; plugins=%A; options=%A" path define plugins opts
-    { path=path; define=define; plugins=plugins; options=opts }
+    { path=path; define=define; plugins=plugins; options=opts; extra=parseDic "extra" json }
 
 let getDefaultOptions() =
     { fableCore = "fable-core"

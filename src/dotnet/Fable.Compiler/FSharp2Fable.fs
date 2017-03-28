@@ -223,6 +223,9 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     // Sometimes these must be inlined, but that's resolved in BasicPatterns.Let (see below)
     | BasicPatterns.TypeLambda (_genArgs, Transform com ctx lambda) -> lambda
 
+    // TODO: Ask about this. I've seen it when accessing Result types (applicable to all structs?)
+    | BasicPatterns.AddressOf(Transform com ctx lvalueExpr) -> lvalueExpr
+
     (** ## Flow control *)
     | BasicPatterns.FastIntegerForLoop(Transform com ctx start, Transform com ctx limit, body, isUp) ->
         match body with
@@ -369,7 +372,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             FableError("Cannot resolve locally inlined value: " + var.DisplayName, range) |> raise
 
     | FlattenedApplication(Transform com ctx callee, typeArgs, args) ->
-        // So far I've only seen application without arguments when accessing None values
+        // TODO: Ask why application without aguments happen. So I've seen it for
+        // accessing None or struct values (like the Result type)
         if args.Length = 0 then callee else
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
         let args = List.map (transformExpr com ctx) args
@@ -762,7 +766,6 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     (** Not implemented *)
     | BasicPatterns.ILAsm _
     | BasicPatterns.ILFieldGet _
-    | BasicPatterns.AddressOf _ // (lvalueExpr)
     | BasicPatterns.AddressSet _ // (lvalueExpr, rvalueExpr)
     | _ -> failwithf "Cannot compile expression in %O: %A"
                      (makeRange fsExpr.Range) fsExpr

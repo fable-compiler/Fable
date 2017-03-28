@@ -44,7 +44,7 @@ export class SetTree {
 
   constructor(tag: number, fields?: any[]) {
     this.tag = tag | 0;
-    this.fields = fields || [];
+    this.fields = fields;
   }
 }
 

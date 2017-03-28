@@ -38,6 +38,7 @@ module.exports = function(buffer) {
         declaration: or(opts.declaration, false),
         typedArrays: or(opts.typedArrays, true),
         clampByteArrays: or(opts.clampByteArrays, false),
+        extra: opts.extra
     };
 
     if (opts.fableCore == null) {

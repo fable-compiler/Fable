@@ -5,7 +5,7 @@ function resolve(relativePath) {
 }
 
 module.exports = {
-  entry: resolve('./QuickTest.fsx'),
+  entry: resolve('./QuickTest.fsproj'),
   output: {
     filename: 'QuickTest.js',
     path: resolve('temp'),
@@ -13,13 +13,16 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.fs[proj|x]?$/,
+        test: /\.fs(proj|x)?$/,
         use: {
           loader: resolve("../typescript/fable-loader"),
           options: {
             define: ["DEBUG"],
-            fableCore: resolve("../../build/fable-core")
-            // babel: babelOptions
+            fableCore: resolve("../../build/fable-core"),
+            // babel: babelOptions,
+            extra: {
+              saveAst: resolve("temp")
+            }
           }
         }
       },
