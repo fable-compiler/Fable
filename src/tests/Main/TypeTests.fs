@@ -291,7 +291,7 @@ let ``lazy.IsValueCreated works``() =
 
 [<Test>]
 let ``Lazy constructor works``() =
-    let items = Lazy<_>(fun () -> ["a";"b";"c"])
+    let items = Lazy<string list>(fun () -> ["a";"b";"c"])
     let search e = items.Value |> List.tryFind (fun m -> m = e)
     search "b" |> equal (Some "b")
     search "d" |> equal None
