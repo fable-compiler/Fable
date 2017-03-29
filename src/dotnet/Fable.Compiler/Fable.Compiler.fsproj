@@ -1,6 +1,6 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>1.0.0-narumi-905</Version>
+    <Version>1.0.0-narumi-906</Version>
     <TargetFramework>netstandard1.6</TargetFramework>
     <!-- See https://github.com/dotnet/netcorecli-fsc/issues/98 -->
     <FscToolPath>../../../lib/fsharp.compiler.tools.4.1.0</FscToolPath>

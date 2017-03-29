@@ -4,6 +4,12 @@ function resolve(relativePath) {
     return path.join(__dirname, relativePath);
 }
 
+var babelOptions = {
+  "presets": [
+    ["es2015", {"modules": false}]
+  ]
+}
+
 module.exports = {
   entry: resolve('./QuickTest.fsproj'),
   output: {

@@ -35,6 +35,15 @@ let runProcess workingDir fileName args =
     | 0 -> ()
     | c -> failwithf "Process %s %s finished with code %i" fileName args c
 
+let rec findPackageJsonDir dir =
+    if File.Exists(Path.Combine(dir, "package.json"))
+    then dir
+    else
+        let parent = Directory.GetParent(dir)
+        if isNull parent then
+            failwith "Couldn't find package.json directory"
+        findPackageJsonDir parent.FullName
+
 let argsToMap (argv: string[]) =
     try
         argv
@@ -71,15 +80,20 @@ let main argv =
     match Array.tryHead argv with
     | Some ("--help"|"-h") ->
         printfn """Available options:
-  -h|--help      Show help
-  --version      Print version
-  start          Start Fable server
-    --port         Port number (default 61225)
-    --timeout      Stop the server if timeout (ms) is reached
-  npm-run        Start a server, run an npm script and shut it down
-    <script>       Name of the npm script, e.g.: `dotnet fable npm-run start`
-    --port         Port number (default 61225)
-  add            Adds one or several Fable npm packages
+  -h|--help           Show help
+  --version           Print version
+  add                 Add one or several Fable npm packages
+  start               Start Fable server
+    --port              Port number (default 61225)
+    --timeout           Stop the server if timeout (ms) is reached
+  npm-run             Start a server, run an npm script and shut it down
+    <script>            Name of the npm script, e.g.: `dotnet fable npm-run start`
+    --port              Port number (default 61225)
+    --args              Args for the npm script, e.g.: `dotnet fable npm-run build --args "-p --output-filename bundle.js"`
+  webpack             Start a server and invoke webpack (must be installed in current or a parent dir)
+    --port              Port number (default 61225)
+    --args              Args for Webpack, e.g.: `dotnet fable webpack --args -p`
+  webpack-dev-server  Same as `webpack` command but invokes webpack-dev-server
 """
     | Some "--version" -> printfn "%s" Constants.VERSION
     | Some "start" ->
@@ -87,30 +101,44 @@ let main argv =
         let agent = startAgent()
         Server.start port timeout agent.Post |> Async.RunSynchronously
     | Some "npm-run" ->
-        let port, timeout = argv.[2..] |> argsToMap |> getPortAndTimeout
+        let argsMap = argv.[2..] |> argsToMap
+        let port, _ = argsMap |> getPortAndTimeout
         let agent = startAgent()
-        Server.start port timeout agent.Post |> Async.Start
+        Server.start port -1 agent.Post |> Async.Start
         let workingDir = Directory.GetCurrentDirectory()
-        let p = startProcess workingDir "npm" ("run " + argv.[1])
+        let npmCommand =
+            match Map.tryFind "args" argsMap with
+            | Some npmArgs -> "run " + argv.[1] + " -- " + npmArgs
+            | None -> "run " + argv.[1]
+        let p = startProcess workingDir "npm" npmCommand
         Console.CancelKeyPress.Add (fun _ ->
             printfn "Killing process..."
             p.Kill()
-            Server.stop port |> Async.RunSynchronously
-        )
+            Server.stop port |> Async.RunSynchronously)
+        p.WaitForExit()
+        Server.stop port |> Async.RunSynchronously
+    | Some ("webpack" | "webpack-dev-server" as webpack) ->
+        let argsMap = argv.[1..] |> argsToMap
+        let port, _ = argsMap |> getPortAndTimeout
+        let agent = startAgent()
+        Server.start port -1 agent.Post |> Async.Start
+        let workingDir = Directory.GetCurrentDirectory()
+        let webpackScript =
+            let webpackScript = Path.Combine(findPackageJsonDir workingDir, "node_modules", webpack, "bin", webpack + ".js")
+            match Map.tryFind "args" argsMap with
+            | Some args -> webpackScript + " " + args
+            | None -> webpackScript
+        let p = startProcess workingDir "node" webpackScript
+        Console.CancelKeyPress.Add (fun _ ->
+            printfn "Killing process..."
+            p.Kill()
+            Server.stop port |> Async.RunSynchronously)
         p.WaitForExit()
         Server.stop port |> Async.RunSynchronously
     | Some "add" ->
         let packages = argv.[1..]
         let workingDir = Directory.GetCurrentDirectory()
         runProcess workingDir "npm" ("install --save-dev " + (String.concat " " packages))
-        let rec findPackageJsonDir dir =
-            if File.Exists(Path.Combine(dir, "package.json"))
-            then dir
-            else
-                let parent = Directory.GetParent(dir)
-                if isNull parent then
-                    failwith "Couldn't find package.json directory"
-                findPackageJsonDir parent.FullName
         let nodeModulesDir = Path.Combine(findPackageJsonDir workingDir, "node_modules")
         for pkg in packages do
             let pkg =
