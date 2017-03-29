@@ -8,7 +8,7 @@
   },
   "scripts": {
     "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",
-    "build": "node ../../../../node_modules/webpack/bin/webpack.js",
+    "build": "node ../../../../node_modules/webpack/bin/webpack.js -p",
     "test": "echo \"Error: no test specified\" && exit 1"
   }
 }

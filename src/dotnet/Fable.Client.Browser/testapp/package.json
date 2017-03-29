@@ -2,7 +2,7 @@
   "private": true,
   "scripts": {
     "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",
-    "build": "node ../../../../node_modules/webpack/bin/webpack.js",
+    "build": "node ../../../../node_modules/webpack/bin/webpack.js -p",
     "start": "node ./out/bundle.js"
   }
 }
