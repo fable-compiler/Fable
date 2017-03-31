@@ -84,6 +84,26 @@ let ``Seq.collect works``() =
     |> equal 15.
 
 [<Test>]
+let ``Seq.collect works with Options``() = 
+    let xss = [[Some 1; Some 2]; [None; Some 3]]
+    Seq.collect id xss
+    |> Seq.sumBy (function
+        | Some n -> n
+        | None -> 0
+    )
+    |> equal 6
+
+    seq {
+        for xs in xss do
+            for x in xs do
+                yield x
+    } 
+    |> Seq.length
+    |> equal 4
+
+
+
+[<Test>]
 let ``Seq.exists works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> Seq.exists (fun x -> x = 2.)

@@ -567,7 +567,7 @@ module Patterns =
         | "System.Double" -> Some Float64
         // TODO: Proper decimal implementation (move to ExtendedNumberKind)
         | "System.Decimal"
-        | "Microsoft.FSharp.Core.decimal`1" -> Some Float64
+        | Naming.StartsWith "Microsoft.FSharp.Core.decimal" _ -> Some Float64
         // Units of measure
         | Naming.StartsWith "Microsoft.FSharp.Core.int" _ -> Some Int32
         | Naming.StartsWith "Microsoft.FSharp.Core.float32" _ -> Some Float32

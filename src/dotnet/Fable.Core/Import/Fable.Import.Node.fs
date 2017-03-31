@@ -24,6 +24,7 @@ and [<AllowNullLiteral>] Buffer =
 and [<AllowNullLiteral>] NodeBuffer =
     [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
     abstract length: float with get, set
+    abstract from: string: string * ?encoding: string -> Buffer
     abstract write: string: string * ?offset: float * ?length: float * ?encoding: string -> float
     abstract toString: ?encoding: string * ?start: float * ?``end``: float -> string
     abstract toJSON: unit -> obj
@@ -224,6 +225,7 @@ open NodeJS
 
 module net_types =
     type [<AllowNullLiteral>] Socket =
+        inherit NodeJS.ReadableStream
         abstract writable: bool with get, set
         abstract _write: chunk: obj * encoding: string * callback: Function -> unit
         abstract write: chunk: obj * ?cb: Function -> bool
@@ -457,9 +459,10 @@ module stream =
         member __.``end``(chunk: obj, ?encoding: string, ?cb: Function): unit = jsNative
 
     and [<AllowNullLiteral>] TransformOptions =
-        inherit ReadableOptions
-        inherit WritableOptions
-
+        abstract highWaterMark: float option with get, set
+        abstract decodeStrings: bool option with get, set
+        abstract objectMode: bool option with get, set
+        abstract encoding: string option with get, set
 
     and [<AllowNullLiteral>] [<Import("Transform","stream")>] Transform(?opts: TransformOptions) =
         inherit events.EventEmitter()
@@ -588,8 +591,8 @@ module child_process_types =
 
     type Globals =
         member __.spawn(command: string, ?args: ResizeArray<string>, ?options: obj): ChildProcess = jsNative
-        member __.exec(command: string, options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
-        member __.exec(command: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.exec(command: string, options: obj, ?callback: Func<Error option, Buffer, Buffer, unit>): ChildProcess = jsNative
+        member __.exec(command: string, ?callback: Func<Error option, Buffer, Buffer, unit>): ChildProcess = jsNative
         member __.execFile(file: string, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
         member __.execFile(file: string, ?args: ResizeArray<string>, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative
         member __.execFile(file: string, ?args: ResizeArray<string>, ?options: obj, ?callback: Func<Error, Buffer, Buffer, unit>): ChildProcess = jsNative

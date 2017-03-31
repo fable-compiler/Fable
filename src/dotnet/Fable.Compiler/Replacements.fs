@@ -968,11 +968,11 @@ module AstPass =
         |> makeCall i.range i.returnType |> Some
 
     let parse (com: ICompiler) (i: Fable.ApplyInfo) isFloat =
-        let parseString str =
+        let parseString str numberBase=
             let meth, args, kind =
                 if isFloat
                 then "parseFloat", [str], Float64
-                else "parseInt", [str; makeIntConst 10], Int32
+                else "parseInt", [str; makeIntConst numberBase], Int32
             GlobalCall("Number", Some meth, false, args)
                 // Don't use Float64/Int32 as the return type here to prevent
                 // the result being wrapped with `| 0`
@@ -986,17 +986,27 @@ module AstPass =
                 |> Some
             | _ -> None
         | "parse" | "tryParse" ->
+            let hexConst = float System.Globalization.NumberStyles.HexNumber
             match i.methodName, i.args with
             | "parse", [str] ->
-                parseString str |> Some
+                parseString str 10 |> Some
+            | "parse", [str; Fable.Wrapped(Fable.Value(Fable.NumberConst(hexConst,_)), Fable.Enum _)] ->
+                parseString str 16 |> Some
             | "tryParse", [str; defValue] ->
                 let var = com.GetUniqueVar() |> makeIdent
-                let setter = Fable.VarDeclaration(var, parseString str, false)
+                let setter = Fable.VarDeclaration(var, parseString str 10, false)
                 let res = emit i "isNaN($0) ? [false, $1] : [true, $0]" [Fable.IdentValue var |> Fable.Value; defValue]
                 Fable.Sequential([setter; res], i.range) |> Some
             | _ ->
                 FableError(sprintf "%s.%s only accepts a single argument"
                             i.ownerFullName i.methodName, ?range=i.range) |> raise
+        | "toString" ->
+            match i.args with
+            | [Type Fable.String as format] ->
+                let format = emitNoInfo "'{0:' + $0 + '}'" [format]
+                CoreLibCall ("String", Some "format", false, [format;i.callee.Value])
+                |> makeCall i.range i.returnType |> Some
+            | _ -> toString com i i.callee.Value |> Some
         | _ -> None
 
     let convert com (i: Fable.ApplyInfo) =
