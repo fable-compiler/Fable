@@ -265,7 +265,7 @@ and private transformExprWithRole (role: Role) (com: IFableCompiler) ctx fsExpr 
         else
             if ctx.functionBody = DelegateFunctionBody
             then Fable.Value Fable.This
-            else err "`this` is alreay bound in the current context, please wrap `jsThis` in a delegate"
+            else err "`this` is already bound in the current context, please wrap `jsThis` in a delegate"
 
     (** ## Erased *)
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
