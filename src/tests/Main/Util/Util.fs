@@ -6,12 +6,12 @@ module Testing =
     #if FABLE_COMPILER
     type Assert = Fable.Core.Testing.Assert
     type TestAttribute = Fable.Core.Testing.TestAttribute
-    type TestFixtureAttribute = Fable.Core.Testing.TestFixtureAttribute
     #else
-    type Assert = NUnit.Framework.Assert
-    type TestAttribute = NUnit.Framework.TestAttribute
-    type TestFixtureAttribute = NUnit.Framework.TestFixtureAttribute
+    type Assert = Xunit.Assert
+    type TestAttribute = Xunit.FactAttribute
     #endif
+    type TestFixtureAttribute = Fable.Core.Testing.TestFixtureAttribute
+
 
 open Testing
 
@@ -29,7 +29,11 @@ let apply (f:Func<int,int,int>) (x:int) (y:int) = f.Invoke(x, y)
 #endif
 
 let equal (expected: 'T) (actual: 'T) =
+    #if FABLE_COMPILER
     Assert.AreEqual(expected, actual)
+    #else
+    Assert.Equal<'T>(expected, actual)
+    #endif
 
 let rec sumFirstSeq (zs: seq<float>) (n: int): float =
    match n with
@@ -63,3 +67,26 @@ let Int32Array = [|1;2|]
 
 module Float64Array =
     let Float64Array = [|3.;4.|]
+
+type private R = { a: int }
+let mutable private x = 5
+
+// Check that variables with same name (the compiler generated `matchValue` here)
+// at module level don't conflict. See https://github.com/fable-compiler/Fable/issues/718#issuecomment-281533299
+match { a = 5 } with
+| { a = 3 } -> ()
+| _ -> x <- 4
+
+match { a = 2 } with
+| { a = 2 } -> x <- 2
+| _ -> x <- 4
+
+module Foo =
+    let update () = ()
+
+module Bar =
+    let rec nestedRecursive i = update (i+2)
+    and update i = i + 5
+
+let rec nonNestedRecursive s = update s
+and update s = String.replicate 3 s

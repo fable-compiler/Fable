@@ -32,6 +32,28 @@ let ``Dictionary creation from IDictionary works``() =
     equal 10 idic.Count
     equal 11 dic.Count
 
+type MyRefType(i: int) =
+    member x.Value = i
+
+let ``Dictionaries with IEqualityComparer work``() =
+    let x = MyRefType(4)
+    let y = MyRefType(4)
+    let z = MyRefType(6)
+    let dic = Dictionary<_,_>()
+    dic.Add(x, "foo")
+    dic.ContainsKey(x) |> equal true
+    dic.ContainsKey(y) |> equal false
+
+    let comparer =
+        { new IEqualityComparer<MyRefType> with
+            member __.Equals(x, y) = x.Value = y.Value
+            member __.GetHashCode(x) = x.Value }
+    let dic2 = Dictionary<_,_>(comparer)
+    dic2.Add(x, "bar")
+    dic2.ContainsKey(x) |> equal true
+    dic2.ContainsKey(y) |> equal true
+    dic2.ContainsKey(z) |> equal false
+
 [<Test>]
 let ``Interface IDictionary iteration works``() =
     let dic = dict <| seq { for i in 1. .. 10. -> i.ToString(), i*i }
@@ -167,6 +189,20 @@ let ``Dictionary.Remove works``() =
     dic.Add("B", "World!")
     dic.Remove("A") |> equal true
     dic.Remove("C") |> equal false
+
+type MyRecord = { a: int }
+
+[<Test>]
+let ``Dictionary.Remove with records as keys works``() =
+    let x1 = { a = 5 }
+    let x2 = { a = 5 }
+    let x3 = { a = 10 }
+    let x4 = { a = 15 }
+    let dic = Dictionary<_,_>()
+    dic.Add(x1, "Hello")
+    dic.Add(x3, "World!")
+    dic.Remove(x2) |> equal true
+    dic.Remove(x4) |> equal false
 
 [<Test>]
 let ``Interface IDictionary.Count works``() =

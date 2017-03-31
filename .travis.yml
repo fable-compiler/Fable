@@ -1,10 +1,15 @@
 language: csharp
-
 sudo: false  # use the new container-based Travis infrastructure
+dist: trusty
+
+addons:
+    apt:
+        packages:
+            - libunwind8
 
 before_script:
-  - nvm install 4.4
-  - nvm use 4.4
+  - nvm install 4.7
+  - nvm use 4.7
 
 script:
   - ./build.sh All

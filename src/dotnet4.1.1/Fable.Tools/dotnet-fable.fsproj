@@ -1,0 +1,29 @@
+<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>1.0.0-narumi-902</Version>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net45</TargetFramework>
+    <DefineConstants>NETFX</DefineConstants>
+    <!-- See https://github.com/dotnet/netcorecli-fsc/issues/98 -->
+    <!--<FscToolPath>../../../lib/fsharp.compiler.tools.4.1.0</FscToolPath>-->
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Fable.Compiler/Fable.Compiler.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../dotnet/Fable.Tools/ProjectCracker.fs" />
+    <Compile Include="../../dotnet/Fable.Tools/Printers.fs" />
+    <Compile Include="../../dotnet/Fable.Tools/Parser.fs" />
+    <Compile Include="../../dotnet/Fable.Tools/State.fs" />
+    <Compile Include="../../dotnet/Fable.Tools/Server.fs" />
+    <Compile Include="../../dotnet/Fable.Tools/Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
+    <PackageReference Include="FSharp.Core" Version="4.1.*" />
+    <!--<PackageReference Include="System.Xml.XDocument" Version="4.3.0" />-->
+  </ItemGroup>
+  <ItemGroup>
+    <DotNetCliToolReference Include="Microsoft.DotNet.Watcher.Tools" Version="1.0.0-msbuild2-final" />
+  </ItemGroup>
+</Project>

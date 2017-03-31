@@ -85,7 +85,7 @@ let ``Infix applicative can be generated``() =
     let r' = match a <*> r with
              | Ok x -> x
              | _ -> failwith "expected Ok"
-    Assert.AreEqual ("1", r' )
+    equal "1" r'
 
 let inline apply (a:'a) (b:'b) =
     a <*> b
@@ -97,7 +97,7 @@ let ``Infix applicative with inline functions can be generated``() =
     let r' = match apply a r with
              | Ok x -> x
              | _ -> failwith "expected Ok"
-    Assert.AreEqual ("1", r' )
+    equal "1" r'
 
 type Foo1(i) =
     member x.Foo() = i
@@ -114,8 +114,8 @@ let ``Local inline typed lambdas work``() =
     let inline localFoo (x:^t) = foo x 5
     let x1 = Foo1(2)
     let x2 = Foo2(2)
-    Assert.AreEqual(7, localFoo x1)
-    Assert.AreEqual(14, localFoo x2)
+    equal 7 <| localFoo x1
+    equal 14 <| localFoo x2
 
 [<Test>]
 let ``Local inline values work``() =
@@ -141,7 +141,7 @@ let chars : Isomorphism<string, char[]> =
 let rev : Isomorphism<char[], char[]> =
     Array.rev, Array.rev
 
-let inline (=!) x y = Assert.AreEqual(y, x)
+let inline (=!) x y = equal y x
 
 [<Test>]
 let ``Lens.get returns correct values`` () =
@@ -170,3 +170,250 @@ let ``Ismorphism composition over a lens gets value over multiple isomorphisms``
 [<Test>]
 let ``Ismorphism composition over a lens sets value over multiple isomorphisms`` () =
     Lens_set (fst_ >-> chars >-> rev) [| 'd'; 'o'; 'o'; 'G' |] ("Bad",()) =! ("Good",())
+
+let mutable mutableValue = 0
+
+let moduleValueReturnsLambda =
+    mutableValue <- 5
+    fun () -> mutableValue * 2
+
+let moduleMethodReturnsLambda i =
+    mutableValue <- i
+    fun j -> mutableValue * j
+
+[<Test>]
+let ``Module values/methods returning lambdas work``() =
+    moduleValueReturnsLambda() |> equal 10
+    moduleMethodReturnsLambda 7 9 |> equal 63
+    // mutableValue has changed so this produces a different result
+    moduleValueReturnsLambda() |> equal 14
+
+let mutable mutableValue2 = 0
+
+type LambdaFactory() =
+    member x.ClassPropertyReturnsLambda =
+        mutableValue2 <- 5
+        fun i -> mutableValue2 * i
+    member x.ClassMethodReturnsLambda y =
+        mutableValue2 <- y
+        fun z -> mutableValue2 * z
+
+[<Test>]
+let ``Class properties/methods returning lambdas work``() =
+    let x = LambdaFactory()
+    x.ClassPropertyReturnsLambda 5 |> equal 25
+    x.ClassMethodReturnsLambda 2 8 |> equal 16
+    // Class properties are actually methods,
+    // so this should still give the same result
+    x.ClassPropertyReturnsLambda 5 |> equal 25
+
+[<Test>]
+let ``Local values returning lambdas work``() =
+    let mutable mutableValue = 0
+    let localValueReturnsLambda =
+        mutableValue <- 5
+        fun () -> mutableValue * 2
+    let localFunctionReturnsLambda i =
+        mutableValue <- i
+        fun j -> mutableValue * j
+    localValueReturnsLambda() |> equal 10
+    localFunctionReturnsLambda 7 9 |> equal 63
+    // mutableValue has changed so this produces a different result
+    localValueReturnsLambda() |> equal 14
+
+let genericLambdaArgument f = f 42
+let genericLambdaArgument2 f g = f (fun x -> g)
+
+[<Test>]
+let ``Generic lambda arguments work``() =
+    genericLambdaArgument (fun x y -> x + y) 3 |> equal 45
+    genericLambdaArgument ((+) 1) |> equal 43
+    genericLambdaArgument2 (fun f -> f 1) 3 |> equal 3
+    genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
+
+[<Test>]
+let ``Generic lambda arguments work locally``() =
+    let genericLambdaArgument f = f 42
+    genericLambdaArgument (+) 3 |> equal 45
+    genericLambdaArgument (fun x -> x + 1) |> equal 43
+
+    let genericLambdaArgument2 f g = f (fun x -> g)
+    genericLambdaArgument2 (fun f -> f 1) 3 |> equal 3
+    genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
+
+let partialApplication(f: int->int->int) =
+    let f2 = f 1
+    let f3 = fun x y -> x - y
+    let f3' = (*)
+    let f4 = f3 2
+    let f4' = f3' 3
+    f2 7 + f4 8 + f4' 9
+
+[<Test>]
+let ``Lambdas can be partially applied``() =
+    partialApplication (+) |> equal 29
+
+[<Test>]
+let ``Flattened lambdas can be composed``() = // See #704
+    let f = (+) >> id
+    List.foldBack f [1;2;3;4] 0
+    |> equal 10
+
+type ImplicitType<'a,'b> =
+    | Case1 of 'a
+    | Case2 of 'b
+    static member op_Implicit(x:'a) = ImplicitType.Case1 x
+    static member op_Implicit(x:'b) = ImplicitType.Case2 x
+
+let inline (!+) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_Implicit : ^t1 -> ^t2) x)
+
+let implicitMethod (arg: ImplicitType<string, int>) (i: int) =
+    match arg with
+    | ImplicitType.Case1 _ -> 1
+    | ImplicitType.Case2 _ -> 2
+
+[<Test>]
+let ``TraitCall can resolve overloads with a single generic argument``() =
+    implicitMethod !+"hello" 5 |> equal 1
+    implicitMethod !+6       5 |> equal 2
+
+[<Test>]
+let ``NestedLambdas``() =
+    let mutable m = 0
+    let f i =
+        m <- i
+        fun j ->
+            m <- m + j
+            fun k ->
+                m <- m + k
+                fun u ->
+                    m + u
+    let f2 = f 1
+    let f3 = f2 2
+    let f4 = f3 3
+    f4 4 |> equal 10
+    let f5 = f 6 7 8
+    f5 9 |> equal 30
+
+[<Test>]
+let ``More than two lambdas can be nested``() =
+    let mutable mut = 0
+    let f x =
+        mut <- mut + 1
+        fun y z ->
+            mut <- mut + 1
+            fun u w ->
+                x + y + z + u + w
+    f 1 2 3 4 5 |> equal 15
+    let f2 = f 3 4 5 6
+    f2 7 |> equal 25
+
+[<Test>]
+let ``Multiple nested lambdas can be partially applied``() =
+    let mutable mut = 0
+    let f x y z =
+        mut <- mut + 1
+        fun u ->
+            mut <- mut + 1
+            fun w ->
+                x + y + z + u + w
+    let f2 = f 1 2
+    f2 3 4 5 |> equal 15
+
+open Microsoft.FSharp.Core.OptimizedClosures
+
+[<Test>]
+let ``Partial application of optimized closures works``() =
+  let mutable m = 1
+  let f x = m <- m + 1; (fun y z -> x + y + z)
+  let f = FSharpFunc<_,_,_,_>.Adapt(f)
+  let r = f.Invoke(1, 2, 3)
+  equal 2 m
+  equal 6 r
+
+[<Test>]
+let ``No errors because references to missing unit args``() =
+    let foofy str =
+        fun () -> "foo" + str
+    let f1 = foofy "bar"
+    f1 () |> equal "foobar"
+
+type ArityRecord = { arity2: int->int->string }
+
+[<Test>]
+let ``Arity is checked also when constructing records``() =
+    let f i j = (i * 2) + (j * 3)
+    let r = { arity2 = fun x -> f x >> fun y -> sprintf "foo%i" y }
+    r.arity2 4 5 |> equal "foo23"
+
+type RecordB = {
+    A: string
+    B: bool
+}
+with
+    static member New = {
+        A = ""
+        B = false
+    }
+
+    // Aether
+    static member A_ : Lens<RecordB, string> = (fun x -> x.A), (fun value x -> { x with A = value })
+    static member B_ : Lens<RecordB, bool> = (fun x -> x.B), (fun value x -> { x with B = value })
+
+type RecordA = {
+    RecordB: RecordB
+}
+with
+    static member New = {
+        RecordB = RecordB.New
+    }
+
+    // Aether
+    static member RecordB_ : Lens<RecordA, RecordB> = (fun x -> x.RecordB), (fun value x -> { x with RecordB = value })
+
+type Action<'model> =
+    | InputChanged of Id: string * Value: string * Lens<'model, string>
+    | CheckboxChanged of Id: string * Value: bool * Lens<'model, bool>
+
+// type Action =
+//     | InputChanged of Id: string * Value: string * Lens<RecordB, string>
+//     | CheckboxChanged of Id: string * Value: bool * Lens<RecordB, bool>
+with
+    override x.ToString () =
+        match x with
+        | InputChanged (id, value, _) -> sprintf "InputChanged (%s, %s)" id value
+        | CheckboxChanged (id, value, _) -> sprintf "CheckboxChanged (%s, %b)" id value
+
+let makeInput<'model> id (model: 'model) (lens: Lens<'model, string>) =
+// let makeInput id (model: RecordB) (lens: Lens<RecordB, string>) =
+    Optic.get lens model
+
+let makeCheckbox<'model> id (model: 'model) (lens: Lens<'model, bool>) =
+// let makeCheckbox id (model: RecordB) (lens: Lens<RecordB, bool>) =
+    Optic.get lens model
+
+let view (model: RecordA) =
+    let subModel = Optic.get RecordA.RecordB_ model
+    makeInput<RecordB> "A" subModel RecordB.A_,
+    makeCheckbox<RecordB> "B" subModel RecordB.B_
+    // makeInput "A" subModel RecordB.A_,
+    // makeCheckbox "B" subModel RecordB.B_
+
+let update (model: RecordA) action =
+    match action with
+    | InputChanged (id, value, lens) ->
+        Optic.set (RecordA.RecordB_ >-> lens) value model
+    | CheckboxChanged (id, value, lens) ->
+        Optic.set (RecordA.RecordB_ >-> lens) value model
+
+
+[<Test>]
+let ``Aether with generics works``() = // See #750
+    let a = { RecordB = {A= "foo"; B=true} }
+    let input, checkbox = view a
+    input |> equal "foo"
+    checkbox |> equal true
+    let a2 = InputChanged("abc", "bar", RecordB.A_) |> update a
+    let input2, checkbox2 = view a2
+    input2 |> equal "bar"
+    checkbox2 |> equal true

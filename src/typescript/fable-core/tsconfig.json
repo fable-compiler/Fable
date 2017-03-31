@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "target": "es6",
+        "allowJs": true,
+        "noEmitOnError": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitAny": true,
+        "noImplicitReturns": true,
+        "noImplicitThis": false,
+        "removeComments": true,
+        //"noUnusedLocals": true,
+        //"noUnusedParameters": true,
+        //"strictNullChecks": true,
+        "declaration": false,
+        "outDir": "../../../build/fable-core",
+        "newLine": "LF"
+    }
+}

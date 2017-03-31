@@ -1,0 +1,27 @@
+<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>1.0.0-narumi-15</Version>
+    <TargetFramework>net45</TargetFramework>
+    <DefineConstants>NETFX</DefineConstants>
+    <!-- See https://github.com/dotnet/netcorecli-fsc/issues/98 -->
+    <!--<FscToolPath>../../../lib/fsharp.compiler.tools.4.1.0</FscToolPath>-->
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../dotnet/Fable.Compiler/Utils.fs" />
+    <Compile Include="../../dotnet/Fable.Compiler/Replacements.fs" />
+    <Compile Include="../../dotnet/Fable.Compiler/FSharp2Fable.Util.fs" />
+    <Compile Include="../../dotnet/Fable.Compiler/FSharp2Fable.fs" />
+    <Compile Include="../../dotnet/Fable.Compiler/Fable2Babel.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
+    <PackageReference Include="FSharp.Core" Version="4.1.*" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="11.0.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="9.0.2-beta2" />
+    <!--<PackageReference Include="System.Reflection.TypeExtensions" Version="4.3.0" />
+    <PackageReference Include="System.Runtime.Loader" Version="4.3.0" />-->
+  </ItemGroup>
+</Project>

@@ -1,6 +1,7 @@
 [<Util.Testing.TestFixture>]
 module Fable.Tests.Convert
 open System
+open System.Globalization
 open Util.Testing
 open Fable.Tests.Util
 
@@ -10,11 +11,20 @@ open Fable.Tests.Util
 
 [<Test>]
 let ``System.Double.Parse works``() =
+    #if FABLE_COMPILER
     Double.Parse("1.5") |> equal 1.5
+    #else
+    Double.Parse("1.5", CultureInfo("en-US")) |> equal 1.5
+    #endif
 
 [<Test>]
 let ``System.Double.TryParse works``() =
+    #if FABLE_COMPILER
     let success1, res1 = Double.TryParse("1.5")
+    #else
+    let mutable res1 = 0.
+    let success1 = Double.TryParse("1.5", NumberStyles.Number, CultureInfo("en-US"), &res1)
+    #endif
     equal true success1
     equal 1.5 res1
     let success2, _ = Double.TryParse("foo")
@@ -22,11 +32,20 @@ let ``System.Double.TryParse works``() =
 
 [<Test>]
 let ``System.Single.Parse works``() =
+    #if FABLE_COMPILER
     Single.Parse("1.5") |> equal 1.5f
+    #else
+    Single.Parse("1.5", CultureInfo("en-US")) |> equal 1.5f
+    #endif
 
 [<Test>]
 let ``System.Single.TryParse works``() =
+    #if FABLE_COMPILER
     let success1, res1 = Single.TryParse("1.5")
+    #else
+    let mutable res1 = 0.f
+    let success1 = Single.TryParse("1.5", NumberStyles.Number, CultureInfo("en-US"), &res1)
+    #endif
     equal true success1
     equal 1.5f res1
     let success2, _ = Single.TryParse("foo")

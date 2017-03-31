@@ -119,8 +119,8 @@ let ``POJOS can be inflated``() =
     x2.a |> equal "Hi"
     x2.b |> equal 10
 
-[<Fable.Core.MutatingUpdate>]
 #endif
+
 type MutatingRecord =
     { uniqueA: int; uniqueB: int }
 
@@ -131,7 +131,7 @@ let ``Mutating records work``() =
     equal 20 x.uniqueB
     let uniqueB' = -x.uniqueB
     let x' = { x with uniqueB = uniqueB' }
-    // equal 10 x.uniqueA // This would make Fable compilation fail
+    equal 10 x.uniqueA
     equal 10 x'.uniqueA
     equal -20 x'.uniqueB
     let x'' = { x' with uniqueA = -10 }

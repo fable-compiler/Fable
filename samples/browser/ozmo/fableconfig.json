@@ -1,7 +1,0 @@
-{
-    "projFile": "./ozmo.fsx",
-    "sourceMaps": true,
-    "rollup": {
-        "dest": "./out/bundle.js"
-    }
-}

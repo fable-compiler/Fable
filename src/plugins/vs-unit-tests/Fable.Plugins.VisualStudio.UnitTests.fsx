@@ -60,8 +60,10 @@ module Util =
                 AST.Fable.Util.CoreLibCall("Async", Some "startWithContinuations", false, args)
                 |> AST.Fable.Util.makeCall range Fable.Unit
             [doneFn], testBody
-        if List.length args > 0 then
-            failwithf "Test parameters are not supported (testName = '%s')." testMeth.Name
+        match args with
+        | [] -> ()
+        | [arg: Fable.Ident] when arg.Type = Fable.Unit -> ()
+        | _ -> failwithf "Test parameters are not supported (testName = '%s')." testMeth.Name
         let testArgs, testBody =
             let (|RunSync|_|) = function
                 | Fable.Sequential([Fable.Throw(Fable.Value(Fable.StringConst warning),_,_); arg],_)

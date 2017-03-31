@@ -1,4 +1,6 @@
 #r "packages/FAKE/tools/FakeLib.dll"
+#r "System.IO.Compression.FileSystem"
+#load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 
 open System
 open System.IO
@@ -6,6 +8,14 @@ open System.Text.RegularExpressions
 open System.Collections.Generic
 open Fake
 open Fake.AssemblyInfoFile
+open Fake.Git
+open Fake.ReleaseNotesHelper
+open Octokit
+
+#if MONO
+// prevent incorrect output encoding (e.g. https://github.com/fsharp/FAKE/issues/1196)
+System.Console.OutputEncoding <- System.Text.Encoding.UTF8
+#endif
 
 module Util =
     open System.Net
@@ -39,6 +49,14 @@ module Util =
                 info.WorkingDirectory <- workingDir
                 info.Arguments <- args) TimeSpan.MaxValue
         if not ok then failwith (sprintf "'%s> %s %s' task failed" workingDir fileName args)
+
+    let start workingDir fileName args =
+        let p = new System.Diagnostics.Process()
+        p.StartInfo.FileName <- fileName
+        p.StartInfo.WorkingDirectory <- workingDir
+        p.StartInfo.Arguments <- args
+        p.Start() |> ignore
+        p
 
     let runAndReturn workingDir fileName args =
         printfn "CWD: %s" workingDir
@@ -83,6 +101,16 @@ module Util =
         // writer.Close()
         // File.Delete(fileName)
         // File.Move(tempFileName, fileName)
+
+    let replaceLines (replacer: string->Match->string option) (reg: Regex) (fileName: string) =
+        fileName |> visitFile (fun line ->
+            let m = reg.Match(line)
+            if not m.Success
+            then line
+            else
+                match replacer line m with
+                | None -> line
+                | Some newLine -> newLine)
 
     let compileScript symbols outDir fsxPath =
         let dllFile = Path.ChangeExtension(Path.GetFileName fsxPath, ".dll")
@@ -177,244 +205,229 @@ module Fake =
         System.Threading.Thread.Sleep 1000
         exitCode
 
-// version info
-let releaseCompiler = Util.loadReleaseNotes "COMPILER"
+// Project info
+let project = "Fable"
+let authors = ["Alfonso García-Caro"]
+
+let gitOwner = "fable-compiler"
+let gitHome = "https://github.com/" + gitOwner
+
 let releaseCore = Util.loadReleaseNotes "CORE"
+let releaseCoreJs = Util.loadReleaseNotes "CORE_JS"
+let releaseCompiler = Util.loadReleaseNotes "COMPILER"
+let releaseTools = Util.loadReleaseNotes "TOOLS"
+let releaseLoader = Util.loadReleaseNotes "LOADER"
+
+let dotnetcliVersion = "1.0.1"
+let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
+
+let toolsBuildDir = "build/fable"
+let coreBuildDir = "build/fable-core"
+let testsBuildDir = "build/tests"
+let coreSrcDir = "src/dotnet/Fable.Core"
+let compilerSrcDir = "src/dotnet/Fable.Compiler"
+let toolsSrcDir = "src/dotnet/Fable.Tools"
+let coreJsSrcDir = "src/typescript/fable-core"
 
 // Targets
-Target "Clean" (fun _ ->
-    // Don't delete node_modules for faster builds
-    !! "build/fable/bin" ++ "src/fable/*/obj/"
+let installDotnetSdk () =
+    let dotnetSDKPath = FullName "./dotnetsdk"
+
+    let correctVersionInstalled =
+        try
+            let processResult =
+                ExecProcessAndReturnMessages (fun info ->
+                info.FileName <- dotnetExePath
+                info.WorkingDirectory <- Environment.CurrentDirectory
+                info.Arguments <- "--version") (TimeSpan.FromMinutes 30.)
+
+            processResult.Messages |> separated "" = dotnetcliVersion
+        with
+        | _ -> false
+
+    if correctVersionInstalled then
+        tracefn "dotnetcli %s already installed" dotnetcliVersion
+    else
+        CleanDir dotnetSDKPath
+        let archiveFileName =
+            if isWindows then
+                sprintf "dotnet-dev-win-x64.%s.zip" dotnetcliVersion
+            elif isLinux then
+                sprintf "dotnet-dev-ubuntu-x64.%s.tar.gz" dotnetcliVersion
+            else
+                sprintf "dotnet-dev-osx-x64.%s.tar.gz" dotnetcliVersion
+        let downloadPath =
+                sprintf "https://dotnetcli.azureedge.net/dotnet/Sdk/%s/%s" dotnetcliVersion archiveFileName
+        let localPath = Path.Combine(dotnetSDKPath, archiveFileName)
+
+        tracefn "Installing '%s' to '%s'" downloadPath localPath
+
+        use webclient = new Net.WebClient()
+        webclient.DownloadFile(downloadPath, localPath)
+
+        if not isWindows then
+            let assertExitCodeZero x =
+                if x = 0 then () else
+                failwithf "Command failed with exit code %i" x
+
+            Shell.Exec("tar", sprintf """-xvf "%s" -C "%s" """ localPath dotnetSDKPath)
+            |> assertExitCodeZero
+        else
+            System.IO.Compression.ZipFile.ExtractToDirectory(localPath, dotnetSDKPath)
+
+        tracefn "dotnet cli path - %s" dotnetSDKPath
+        System.IO.Directory.EnumerateFiles dotnetSDKPath
+        |> Seq.iter (fun path -> tracefn " - %s" path)
+        System.IO.Directory.EnumerateDirectories dotnetSDKPath
+        |> Seq.iter (fun path -> tracefn " - %s%c" path System.IO.Path.DirectorySeparatorChar)
+
+        dotnetExePath <- dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
+
+    // let oldPath = System.Environment.GetEnvironmentVariable("PATH")
+    // System.Environment.SetEnvironmentVariable("PATH", sprintf "%s%s%s" dotnetSDKPath (System.IO.Path.PathSeparator.ToString()) oldPath)
+
+let clean () =
+    !! "src/dotnet/**/bin" ++ "src/dotnet/**/obj/"
+        -- "src/dotnet/Fable.Client.Browser/demo/**"
+        -- "src/dotnet/Fable.Client.Browser/testapp/**"
+        ++ "build/fable-core" ++ "build/json-converter"
+        ++ "build/nunit" ++ "build/tests_dll"
     |> CleanDirs
 
+    // Don't delete node_modules for faster builds
     !! "build/fable/**/*.*" -- "build/fable/node_modules/**/*.*"
     |> Seq.iter FileUtils.rm
     !! "build/tests/**/*.*" -- "build/tests/node_modules/**/*.*"
     |> Seq.iter FileUtils.rm
-)
 
-let buildFableCompilerJs buildDir isNetcore =
-    // Compile TypeScript
-    FileUtils.mkdir buildDir
-    !! "src/fable/Fable.Client.Node/ts/*.*"
-    |> Seq.iter (fun file -> FileUtils.cp file buildDir)
+let nugetRestore baseDir () =
+    Util.run (baseDir </> "Fable.Core") dotnetExePath "restore"
+    Util.run (baseDir </> "Fable.Compiler") dotnetExePath "restore"
+    Util.run (baseDir </> "Fable.Tools") dotnetExePath "restore"
 
-    Npm.install buildDir []
+let buildTools baseDir isRelease () =
+    sprintf "publish -o ../../../%s -c %s -v n"
+        toolsBuildDir (if isRelease then "Release" else "Debug")
+    |> Util.run (baseDir </> "Fable.Tools") dotnetExePath
+
+    // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
+    FileUtils.cp (toolsBuildDir + "/runtimes/any/native/FSharp.Core.optdata") toolsBuildDir
+    FileUtils.cp (toolsBuildDir + "/runtimes/any/native/FSharp.Core.sigdata") toolsBuildDir
+
+let buildCoreJs () =
     Npm.install __SOURCE_DIRECTORY__ []
-    Npm.script __SOURCE_DIRECTORY__ "tsc" ["--project " + buildDir]
+    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" coreJsSrcDir]
+    FileUtils.cp (coreJsSrcDir </> "README.md")    "build/fable-core"
+    FileUtils.cp (coreJsSrcDir </> "package.json") "build/fable-core"
 
-    FileUtils.cp "README.md" buildDir
-    !! (buildDir + "/*.ts")  |> Seq.iter FileUtils.rm
-    Npm.command buildDir "version" [releaseCompiler.Value.NugetVersion]
+let buildCore isRelease () =
+    let config = if isRelease then "Release" else "Debug"
+    sprintf "build -c %s" config
+    |> Util.run coreSrcDir dotnetExePath
 
-    // Update constants.js
-    let pkgVersion =
-        releaseCompiler.Value.NugetVersion
-        |> sprintf "PKG_VERSION = \"%s\""
-    let pkgName =
-        if isNetcore then "-netcore" else ""
-        |> sprintf "PKG_NAME = \"fable-compiler%s\""
-    buildDir </> "constants.js"
-    |> Util.visitFile (function
-        | Util.RegexReplace "PKG_VERSION\s*=\s\".*?\"" pkgVersion newLine -> newLine
-        | Util.RegexReplace "PKG_NAME\s*=\s\".*?\"" pkgName newLine -> newLine
-        | line -> line)
+    CreateDir coreBuildDir
+    FileUtils.cp (sprintf "%s/bin/%s/netstandard1.6/Fable.Core.dll" coreSrcDir config) coreBuildDir
+    // TODO: Doc generation doesn't work with netcorecli-fsc atm
+    // FileUtils.cp (sprintf "%s/bin/%s/netstandard1.6/Fable.Core.xml" coreSrcDir config) coreBuildDir
 
-    // Update name and command in package.json if necessary
-    if isNetcore then
-        (buildDir, ["name"; "fable"])
-        ||> Npm.updatePackageKeyValue (function
-            | "name", _ -> Some("name", "fable-compiler-netcore")
-            | "fable", v -> Some("fable-netcore", v)
-            | _ -> None)
+let buildNUnitPlugin () =
+    let nunitDir = "src/plugins/nunit"
+    Util.run nunitDir dotnetExePath "restore"
+    Util.run nunitDir dotnetExePath "build -c Release"
+    CreateDir "build/nunit"
+    FileUtils.cp (nunitDir + "/bin/Release/netstandard1.6/Fable.Plugins.NUnit.dll") "build/nunit"
 
-Target "FableCompilerRelease" (fun _ ->
-    Util.assemblyInfo "src/fable/Fable.Core" releaseCore.Value.NugetVersion []
-    Util.assemblyInfo "src/fable/Fable.Compiler" releaseCompiler.Value.NugetVersion []
-    Util.assemblyInfo "src/fable/Fable.Client.Node" releaseCompiler.Value.NugetVersion [
-        Attribute.Metadata ("fableCoreVersion", Util.normalizeVersion releaseCore.Value.NugetVersion)
-    ]
+let buildJsonConverter () =
+    "restore src/dotnet/Fable.JsonConverter"
+    |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
-    let buildDir = "build/fable"
+    "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter"
+    |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
-    [ "src/fable/Fable.Core/Fable.Core.fsproj"
-      "src/fable/Fable.Compiler/Fable.Compiler.fsproj"
-      "src/fable/Fable.Client.Node/Fable.Client.Node.fsproj" ]
-    |> MSBuildRelease (buildDir + "/bin") "Build"
-    |> Log "Fable-Compiler-Release-Output: "
+let runTestsDotnet () =
+    Util.run "src/tests_external" dotnetExePath "restore"
+    Util.run "src/tests/DllRef" dotnetExePath "restore"
+    Util.run "src/tests/Project With Spaces" dotnetExePath "restore"
+    Util.run "src/tests/Main" dotnetExePath "restore"
 
-    FileUtils.cp "packages/FSharp.Core/lib/net40/FSharp.Core.optdata" (buildDir + "/bin")
-    FileUtils.cp "packages/FSharp.Core/lib/net40/FSharp.Core.sigdata" (buildDir + "/bin")
+    Util.run "src/tests/Main" dotnetExePath "test"
 
-    buildFableCompilerJs buildDir false
-)
+let runFableServer f =
+    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll start"
+    try f()
+    finally fableServer.Kill()
 
-Target "FableCompilerDebug" (fun _ ->
-    let buildDir = "build/fable"
+let runTestsJs () =
+    Npm.install __SOURCE_DIRECTORY__ []
+    runFableServer <| fun () ->
+        Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tests/webpack.config.js"]
+    Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
 
-    [ "src/fable/Fable.Core/Fable.Core.fsproj"
-      "src/fable/Fable.Compiler/Fable.Compiler.fsproj"
-      "src/fable/Fable.Client.Node/Fable.Client.Node.fsproj" ]
-    |> MSBuildDebug (buildDir + "/bin") "Build"
-    |> Log "Fable-Compiler-Debug-Output: "
-
-    FileUtils.cp "packages/FSharp.Core/lib/net40/FSharp.Core.optdata" (buildDir + "/bin")
-    FileUtils.cp "packages/FSharp.Core/lib/net40/FSharp.Core.sigdata" (buildDir + "/bin")
-
-    buildFableCompilerJs buildDir false
-)
-
-Target "FableCompilerNetcore" (fun _ ->
-    try
-        let buildDir = "build/fable"
-        buildFableCompilerJs buildDir true
-
-        // Restore packages
-        Util.run "." "dotnet" "restore"
-
-        // Publish Fable NetCore
-        let srcDir = "src/netcore/Fable.Client.Node"
-        Util.run srcDir "dotnet" "publish -c Release"
-        FileUtils.cp_r (srcDir + "/bin/Release/netcoreapp1.0/publish") (buildDir + "/bin")
-
-        // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
-        FileUtils.cp (buildDir + "/bin/runtimes/any/native/FSharp.Core.optdata") (buildDir + "/bin")
-        FileUtils.cp (buildDir + "/bin/runtimes/any/native/FSharp.Core.sigdata") (buildDir + "/bin")
-
-        // Compile NUnit plugin
-        let pluginDir = "src/plugins/nunit"
-        Util.run pluginDir "dotnet" "build -c Release"
-
-        // Run dotnet tests
-        let testDir = "src/netcore/tests"
-        Util.run testDir "dotnet" "test -c Release"
-
-        // Compile Fable.Core TypeScript
-        let fableCoreSrcDir = "src/fable/Fable.Core/ts"
-        Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/tsconfig.umd.json" fableCoreSrcDir]
-
-        // Compile JavaScript tests
-        //Node.run "." "build/fable" ["src/tests/DllRef"]
-        Node.run "." buildDir ["src/tests --target netcore"]
-        let testsBuildDir = "build/tests"
-        FileUtils.cp "src/tests/package.json" testsBuildDir
-        Npm.install testsBuildDir []
-
-        // Run JavaScript tests
-        Npm.script testsBuildDir "test" []
-    with
-    | ex ->
-        printfn "Target FableCompilerNetcore didn't work, make sure of the following:"
-        printfn "- You have NetCore SDK installed"
-        printfn "- You cloned FSharp.Compiler.Service on same level as Fable"
-        printfn "- FSharp.Compiler.Service > build All.NetCore run successfully"
-        raise ex
-)
-
-Target "NUnitTest" (fun _ ->
-    !! "src/tests/DllRef/Fable.Tests.DllRef.fsproj"
-    |> MSBuildDebug "build/tests_dll" "Build"
-    |> ignore
-
-    let testsBuildDir = "build/tests"
-    !! "src/tests/Main/Fable.Tests.fsproj"
-    |> MSBuildDebug testsBuildDir "Build"
-    |> ignore
-
-    [Path.Combine(testsBuildDir, "Fable.Tests.dll")]
-    |> Testing.NUnit3.NUnit3 id
-)
-
-let compileAndRunMochaTests es2015 =
-    let testsBuildDir = "build/tests"
-    let testCompileArgs =
-        ["--verbose" + if es2015 then " --ecma es2015" else ""]
-
-    Node.run "." "build/fable" ["src/tests/DllRef --verbose"]
-    Node.run "." "build/fable" ("src/tests/"::testCompileArgs)
-    FileUtils.cp "src/tests/package.json" testsBuildDir
-    Npm.install testsBuildDir []
-    Npm.script testsBuildDir "test" []
-
-Target "MochaTest" (fun _ ->
-    compileAndRunMochaTests false
-)
-
-Target "OnlyMochaTest" (fun _ ->
-    compileAndRunMochaTests false
-)
-
-Target "ES6MochaTest" (fun _ ->
-    compileAndRunMochaTests true
-)
-
-let quickTest _ =
-    Node.run "." "build/Fable" [
-        "src/tools/QuickTest.fsx"
-        "-o src/tools/temp"
-        "-m commonjs"
-        "--refs Fable.Core=./build/fable-core/umd"
-        "--extra noVersionCheck"
-    ]
+let quickTest isES2015 _ =
+    runFableServer <| fun () ->
+        Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tools/webpack.config.js"]
     Node.run "." "src/tools/temp/QuickTest.js" []
 
-Target "QuickTest" quickTest
+Target "QuickTest" (quickTest false)
 
-Target "QuickFableCompilerTest" quickTest
+Target "QuickTestES2015" (quickTest true)
 
-Target "QuickFableCoreTest" quickTest
+let pushNuget (releaseNotes: ReleaseNotes) projFile =
+    let projFile = __SOURCE_DIRECTORY__ </> projFile
+    let projDir = Path.GetDirectoryName(projFile)
+    // Restore dependencies here so they're updated to latest project versions
+    Util.run projDir dotnetExePath "restore"
+    let updated = ref false
+    let version = releaseNotes.NugetVersion
+    let reg = Regex("<Version>(.*?)</Version>")
+    (reg, projFile) ||> Util.replaceLines (fun line m ->
+        if m.Groups.[1].Value = version
+        then None
+        else
+            updated := true
+            reg.Replace(line, "<Version>"+version+"</Version>") |> Some)
+    // Publish package if version has been updated
+    if !updated then
+        // Update version in dotnet-fable Main file
+        if projFile.Contains("dotnet-fable.fsproj") then
+            let coreJsVersion = releaseCoreJs.Value.NugetVersion
+            let reg = Regex(@"(CORE_JS_)?VERSION\s*=\s*""(.*?)""")
+            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Constants.fs")
+            (reg, mainFile) ||> Util.replaceLines (fun line m ->
+                let replacement =
+                    if m.Groups.[1].Value = "CORE_JS_"
+                    then sprintf "CORE_JS_VERSION = \"%s\"" coreJsVersion
+                    else sprintf "VERSION = \"%s\"" version
+                reg.Replace(line, replacement) |> Some)
+        Util.run projDir dotnetExePath "pack -c Release"
+        Directory.GetFiles(projDir </> "bin" </> "Release", "*.nupkg")
+        |> Array.tryFind (fun nupkg -> nupkg.Contains(version))
+        |> Option.iter (fun nupkg ->
+            Path.GetFullPath nupkg
+            |> sprintf "nuget push %s -s nuget.org"
+            |> Util.run projDir dotnetExePath)
 
-Target "Plugins" (fun _ ->
-    !! "src/plugins/**/*.fsx"
-    |> Seq.iter (fun fsx -> Util.compileScript [] (Path.GetDirectoryName fsx) fsx)
-)
-
-Target "JsonConverter" (fun _ ->
-    !! "src/nuget/Fable.JsonConverter/Fable.JsonConverter.fsproj"
-    |> MSBuildRelease ("build/json-converter") "Build"
-    |> ignore
-)
-
-Target "Providers" (fun _ ->
-    !! "src/providers/**/*.fsx"
-    |> Seq.filter (fun path -> path.Contains("test") |> not)
-    |> Seq.iter (fun fsxPath ->
-        let buildDir = Path.GetDirectoryName(Path.GetDirectoryName(fsxPath))
-        Util.compileScript ["NO_GENERATIVE"] buildDir fsxPath)
-)
-
-Target "MakeArtifactLighter" (fun _ ->
-    Util.rmdir "build/fable/node_modules"
-    !! "build/fable/bin/*.pdb" ++ "build/fable/bin/*.xml"
-    |> Seq.iter FileUtils.rm
-)
-
-Target "PublishCompiler" (fun _ ->
-    let applyTag = function
-        | Some tag -> ["--tag"; tag]
-        | None -> []
-
-    // Check if version is prerelease or not
-    let fableCompilerTag =
-        if releaseCompiler.Value.NugetVersion.IndexOf("-") > 0 then Some "next" else None
-
-    let workingDir = "temp/build"
-    let url = "https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/build/fable.zip"
-    Util.downloadArtifact workingDir url
-    applyTag fableCompilerTag |> Npm.command workingDir "publish"
-)
-
-Target "PublishCore" (fun _ ->
-    // Check if version is prerelease or not
-    if releaseCore.Value.NugetVersion.IndexOf("-") > 0 then ["--tag next"] else []
-    |> Npm.command "build/fable-core" "publish"
-)
-
-Target "PublishCompilerNetcore" (fun _ ->
-    // Check if version is prerelease or not
-    if releaseCompiler.Value.NugetVersion.IndexOf("-") > 0 then ["--tag next"] else []
-    |> Npm.command "build/fable" "publish"
-)
+let pushNpm build (releaseNotes: ReleaseNotes) (projDir: string) =
+    let projDir = __SOURCE_DIRECTORY__ </> (projDir.TrimEnd('/'))
+    let updated = ref false
+    let version = releaseNotes.NugetVersion
+    let reg = Regex(@"""version"":\s*""(.*?)""")
+    (reg, projDir </> "package.json") ||> Util.replaceLines (fun line m ->
+        if m.Groups.[1].Value = version
+        then None
+        else
+            updated := true
+            reg.Replace(line, sprintf @"""version"": ""%s""" version) |> Some)
+    // Publish package if version has been updated
+    if !updated then
+        let projDir =
+            match build with
+            | None -> projDir
+            | Some build ->
+                build()
+                __SOURCE_DIRECTORY__ </> "build" </> (Path.GetFileName projDir)
+        if version.IndexOf("-") > 0 then ["--tag next"] else []
+        |> Npm.command projDir "publish"
 
 let publishNugetPackage pkg =
     let release =
@@ -442,73 +455,12 @@ Target "PublishJsonConverter" (fun _ ->
     publishNugetPackage pkg
 )
 
-Target "FableCoreRelease" (fun _ ->
-    let fableCoreNpmDir = "build/fable-core"
-    let fableCoreSrcDir = "src/fable/Fable.Core"
-
-    DeleteDir fableCoreNpmDir
-    CreateDir fableCoreNpmDir
-
-    // Update Fable.Core version
-    Util.assemblyInfo fableCoreSrcDir releaseCore.Value.NugetVersion []
-
-    !! (fableCoreSrcDir </> "Fable.Core.fsproj")
-    |> MSBuild fableCoreNpmDir "Build" [
-        "Configuration","Release"
-        "DebugSymbols", "False"
-        "DebugType", "None"
-        "DefineConstants","IMPORT"
-        "DocumentationFile","../../../build/fable-core/Fable.Core.xml"]
-    |> ignore // Log outputs all files in node_modules
-
-    // Remove unneeded files
-    !! (fableCoreNpmDir </> "*.*")
-    |> Seq.iter (fun file ->
-        let fileName = Path.GetFileName file
-        if fileName <> "Fable.Core.dll" && fileName <> "Fable.Core.xml" then
-            FileUtils.rm file
-    )
-
-    // Copy README and package.json
-    FileUtils.cp (fableCoreSrcDir </> "ts/README.md") fableCoreNpmDir
-    FileUtils.cp (fableCoreSrcDir </> "ts/package.json") fableCoreNpmDir
-
-    Npm.install __SOURCE_DIRECTORY__ []
-    Npm.command fableCoreNpmDir "version" [releaseCore.Value.NugetVersion]
-
-    // Compile TypeScript
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts" fableCoreSrcDir]
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts/tsconfig.umd.json" fableCoreSrcDir]
-)
-
-Target "FableCoreDebug" (fun _ ->
-    let fableCoreNpmDir = "build/fable-core"
-    let fableCoreSrcDir = "src/fable/Fable.Core"
-
-    !! (fableCoreSrcDir </> "Fable.Core.fsproj")
-    |> MSBuild fableCoreNpmDir "Build" [
-        "Configuration","Debug"
-        "DefineConstants","IMPORT"]
-    |> ignore // Log outputs all files in node_modules
-
-    Npm.install __SOURCE_DIRECTORY__ []
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts" fableCoreSrcDir]
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s/ts/tsconfig.umd.json" fableCoreSrcDir]
-)
-
-Target "UpdateSampleRequirements" (fun _ ->
-    let fableVersion = "^" + releaseCompiler.Value.NugetVersion
-    let fableCoreVersion = "^" + releaseCore.Value.NugetVersion
-
-    !! "samples/**/package.json"
-    |> Seq.iter (fun path ->
-        (Path.GetDirectoryName path, ["fable"; "fable-core"])
-        ||> Npm.updatePackageKeyValue (fun (k,v) ->
-            match k with
-            | "fable" when v <> fableVersion -> Some(k, fableVersion)
-            | "fable-core" when v <> fableCoreVersion -> Some(k, fableCoreVersion)
-            | _ -> None
-    ))
+Target "PublishNUnitPlugin" (fun _ ->
+    let srcDir = "src/plugins/nunit"
+    buildNUnitPlugin ()
+    FileUtils.cp "build/nunit/Fable.Plugins.NUnit.dll" srcDir
+    // TODO: Check the version and whether it needs the next tag or not
+    Npm.command srcDir "publish" ["--tag"; "next"]
 )
 
 Target "BrowseDocs" (fun _ ->
@@ -531,37 +483,117 @@ Target "PublishStaticPages" (fun _ ->
     if exit <> 0 then failwith "Publishing documentation failed"
 )
 
-Target "All" ignore
+Target "GitHubRelease" (fun _ ->
+    let release =
+        releaseCompiler.Value
+    let user =
+        match getBuildParam "github-user" with
+        | s when not (String.IsNullOrWhiteSpace s) -> s
+        | _ -> getUserInput "GitHub Username: "
+    let pw =
+        match getBuildParam "github-pw" with
+        | s when not (String.IsNullOrWhiteSpace s) -> s
+        | _ -> getUserPassword "GitHub Password: "
+    let remote =
+        Git.CommandHelper.getGitResult "" "remote -v"
+        |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
+        |> Seq.tryFind (fun (s: string) -> s.Contains(gitOwner + "/" + project))
+        |> function None -> gitHome + "/" + project | Some (s: string) -> s.Split().[0]
 
-// Build order
-"Clean"
-  ==> "FableCoreRelease"
-  ==> "FableCompilerRelease"
-  ==> "Plugins"
-  ==> "JsonConverter"
-  ==> "MochaTest"
-  =?> ("NUnitTest", environVar "APPVEYOR" = "True")
-  =?> ("NUnitTest", environVar "TRAVIS" = "true")
-  =?> ("MakeArtifactLighter", environVar "APPVEYOR" = "True")
-  ==> "All"
+    StageAll ""
+    Git.Commit.Commit "" (sprintf "Bump version to %s" release.NugetVersion)
+    Branches.pushBranch "" remote (Information.getBranchName "")
 
-"FableCoreRelease"
-  ==> "PublishCore"
+    Branches.tag "" release.NugetVersion
+    Branches.pushTag "" remote release.NugetVersion
 
-"Clean"
-  ==> "FableCompilerNetcore"
+    // release on github
+    createClient user pw
+    |> createDraft gitOwner project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
+    // |> uploadFile (buildDir</>("FSharp.Compiler.Service." + release.NugetVersion + ".nupkg"))
+    |> releaseDraft
+    |> Async.RunSynchronously
+)
 
-"FableCompilerNetcore"
-  ==> "PublishCompilerNetcore"
+Target "Clean" clean
+Target "NugetRestore" (nugetRestore "src/dotnet")
+Target "FableTools" (buildTools "src/dotnet" true)
+Target "FableCoreJs" buildCoreJs
+Target "RunTestsJs" runTestsJs
 
-"Plugins"
-  ==> "ES6MochaTest"
+Target "PublishPackages" (fun () ->
+    installDotnetSdk ()
+    clean ()
 
-"FableCompilerDebug"
-  ==> "QuickFableCompilerTest"
+    // Publish Nuget packages
+    pushNuget releaseCore.Value     "src/dotnet/Fable.Core/Fable.Core.fsproj"
+    pushNuget releaseCompiler.Value "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
+    pushNuget releaseTools.Value    "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
 
-"FableCoreDebug"
-  ==> "QuickFableCoreTest"
+    // Publish NPM packages
+    pushNpm (Some buildCoreJs) releaseCoreJs.Value "src/typescript/fable-core"
+    pushNpm None releaseLoader.Value "src/typescript/fable-loader"
+)
+
+Target "All" (fun () ->
+    installDotnetSdk ()
+    clean ()
+    nugetRestore "src/dotnet" ()
+    buildTools "src/dotnet" true ()
+    buildCoreJs ()
+    buildNUnitPlugin ()
+    buildJsonConverter ()
+    runTestsJs ()
+    runTestsDotnet ()
+)
+
+Target "BuildRelease_4.1.0" (fun () ->
+    clean ()
+    nugetRestore "src/dotnet" ()
+    buildTools "src/dotnet" true ()
+    buildCoreJs ()
+)
+
+Target "BuildDebug_4.1.0" (fun () ->
+    clean ()
+    nugetRestore "src/dotnet" ()
+    buildTools "src/dotnet" false ()
+    buildCoreJs ()
+)
+
+Target "BuildRelease_4.1.1" (fun () ->
+    clean ()
+    nugetRestore "src/dotnet4.1.1" ()
+    buildTools "src/dotnet4.1.1" true ()
+    buildCoreJs ()
+)
+
+Target "BuildDebug_4.1.1" (fun () ->
+    clean ()
+    nugetRestore "src/dotnet4.1.1" ()
+    buildTools "src/dotnet4.1.1" false ()
+    buildCoreJs ()
+)
+
+// For these target to work, you need the following:
+// - Clone github.com/ncave/FSharp.Compiler.Service/ `fable` branch and put it
+//   in a folder next to Fable repo named `FSharp.Compiler.Service_fable`
+// - In `FSharp.Compiler.Service_fable` run `build CodeGen.Netcore -d:FABLE_COMPILER`
+// - Clone https://github.com/mishoo/UglifyJS2 `harmony branch in a folder next to Fable repo
+// > Attention: the generation of libraries metadata is not included in this target
+Target "BuildREPL" (fun () ->
+    let replDir = "src/dotnet/Fable.Client.Browser/demo"
+    // Compile fable-core
+    CreateDir (replDir + "/fable-core")
+    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project src/typescript/fable-core -m amd --outDir %s/fable-core" replDir]
+
+    // Compile FCS with Fable
+    Node.run "." "build/fable" [replDir]
+
+    // Run uglify-js
+    Node.run (replDir + "/repl") "../../../../../../UglifyJS2/bin/uglifyjs"
+        ["bundle.js -c -m -o bundle.min.js --source-map bundle.min.js.map"]
+)
 
 // Start build
 RunTargetOrDefault "All"

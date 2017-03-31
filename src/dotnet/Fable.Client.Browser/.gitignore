@@ -1,0 +1,8 @@
+# Output
+demo/out
+demo/repl/
+demo/fable-core/
+testapp/out
+
+# Node
+node_modules/

@@ -289,6 +289,13 @@ let ``lazy.IsValueCreated works``() =
     lazyVal.Force() |> equal 5
     equal true lazyVal.IsValueCreated
 
+[<Test>]
+let ``Lazy constructor works``() =
+    let items = Lazy<string list>(fun () -> ["a";"b";"c"])
+    let search e = items.Value |> List.tryFind (fun m -> m = e)
+    search "b" |> equal (Some "b")
+    search "d" |> equal None
+
 [<AllowNullLiteral>]
 type Serializable(?i: int) =
     let mutable deserialized = false

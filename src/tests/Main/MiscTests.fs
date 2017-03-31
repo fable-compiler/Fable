@@ -195,6 +195,20 @@ let ``Conversion to Func<_> works``() =
     let f = Func<_>(fun () -> 6)
     f.Invoke() |> equal 6
 
+open Microsoft.FSharp.Core.OptimizedClosures
+
+[<Test>]
+let ``Conversion to FSharpFunc<_,_,_> works``() =
+    let f x y = x + y
+    let f = FSharpFunc<_,_,_>.Adapt(f)
+    f.Invoke(1, 2) |> equal 3
+
+[<Test>]
+let ``Conversion to FSharpFunc<_,_,_,_> works``() =
+    let f x y z = x + y + z
+    let f = FSharpFunc<_,_,_,_>.Adapt(f)
+    f.Invoke(1, 2, 3) |> equal 6
+
 let mutable myMutableField = 0
 
 let f4 i = myMutableField <- i
@@ -219,11 +233,15 @@ let ``Conversion to Action works``() =
     let f4' = Action(fun () -> myMutableField <- 7)
     let f5' = Action(f5)
     let f6' = Action(f7 3)
+    let f7' i () = myMutableField <- i * 3
+    let f8' = Action(f7' 3)
     f4'.Invoke()
     equal 7 myMutableField
     f5'.Invoke()
     equal 5 myMutableField
     f6'.Invoke()
+    equal 9 myMutableField
+    f8'.Invoke()
     equal 9 myMutableField
 
 let (|NonEmpty|_|) (s: string) =
@@ -442,6 +460,14 @@ let ``Naming values with same name as module works``() =
     equal 30 Same.Same.shouldEqual30
 
 [<Test>]
+let ``Can access nested recursive function with mangled name``() =
+    Util.Bar.nestedRecursive 3 |> equal 10
+
+[<Test>]
+let ``Can access non nested recursive function with mangled name``() =
+    Util.nonNestedRecursive "ja" |> equal "jajaja"
+
+[<Test>]
 let ``Module members don't conflict with JS names``() =
     Util.Int32Array |> Array.sum |> equal 3
 
@@ -528,6 +554,26 @@ let ``Inline custom operators with types work``(): unit = // See #230
     let p1 = { x=5.; y=10. }
     let p2 = { x=2.; y=1. }
     equal 10. (p1 * p2).x
+
+let inline genericAdd (x: ^a) (y: ^b): ^c = x + y
+
+type MyRecord =
+    { value: int }
+    static member (+) (x: MyRecord, y: int) = { value = x.value + y }
+    static member (+) (x: int, y: MyRecord) = x + y.value + 2
+
+[<Test>]
+let ``Overloads of a custom operators work``(): unit =
+    let x = { value = 5 }
+    x + 2 |> equal { value = 7 }
+    3 + x |> equal 10
+
+[<Test>]
+let ``Overloads of a custom operators can be inlined``(): unit =
+    let x = { value = 5 }
+    genericAdd 4 5 |> equal 9
+    genericAdd x 2 |> equal { value = 7 }
+    genericAdd 3 x |> equal 10
 
 let (+) x y = x * y
 
@@ -739,3 +785,8 @@ module private MyPrivateModule =
 [<Test>]
 let ``Public members of private modules can be accessed``() = // See #696
     MyPrivateModule.publicFoo() |> equal "foo bar"
+
+[<Test>]
+let ``Types declared in signature file work``() = // See #754
+    let t = Spaces.TRec.Create("haha", "hoho")
+    t.Value |> equal "hahahoho"

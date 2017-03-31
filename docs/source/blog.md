@@ -2,6 +2,22 @@
 
 # Fable blog
 
+## [Introducing Fable 1.0 beta (codename narumi)](blog/Introducing-1-0-beta.html)
+
+> By [Alfonso García-Caro](https://twitter.com/alfonsogcnunez) on March 20, 2017
+
+Fable has recently added support for a subset of the FSharp.Reflection namespace. Which is really great, allowing us to inspect type information at run-time in the browser. Today, we will be exploring an application of meta-programming using FSharp.Reflection to abstract a very common task in web development: client-server communication.
+
+[Read more...](blog/Introducing-1-0-beta.html)
+
+
+## [Statically Typed Client-Server Communication with F#: Proof of Concept](https://medium.com/@zaid.naom/statically-typed-client-server-communication-with-f-proof-of-concept-7e52cff4a625#.upg5r1mah)
+
+> By [Zaid Ajaj](https://twitter.com/zaid_ajaj) on March 19, 2017
+
+Fable has recently added support for a subset of the FSharp.Reflection namespace. Which is really great, allowing us to inspect type information at run-time in the browser. Today, we will be exploring an application of meta-programming using FSharp.Reflection to abstract a very common task in web development: client-server communication.
+
+[Read more...](https://medium.com/@zaid.naom/statically-typed-client-server-communication-with-f-proof-of-concept-7e52cff4a625#.upg5r1mah)
 
 ## [Implementing Pong in a functional manner with Fable](http://oopbase.de/implementing-pong-in-a-functional-manner-with-fable/)
 

@@ -104,7 +104,7 @@ let ``Async cancellation works``() =
     async {
         let sleepAndAssign token res =
             Async.StartImmediate(async {
-                do! Async.Sleep 100
+                do! Async.Sleep 200
                 res := true
             }, token)
         let res1, res2, res3 = ref false, ref false, ref false
@@ -115,8 +115,8 @@ let ``Async cancellation works``() =
         sleepAndAssign tcs2.Token res2
         sleepAndAssign tcs3.Token res3
         tcs2.Cancel()
-        tcs3.CancelAfter(150)
-        do! Async.Sleep 125
+        tcs3.CancelAfter(500)
+        do! Async.Sleep 300
         equal false !res1
         equal false !res2
         equal true !res3
@@ -181,7 +181,7 @@ let ``Async.Parallel works``() =
     async {
         let makeWork i =
             async {
-                do! Async.Sleep 50
+                do! Async.Sleep 200
                 return i
             }
         let res: int[] ref = ref [||]
@@ -190,7 +190,7 @@ let ``Async.Parallel works``() =
             let! x = Async.Parallel works
             res := x
         } |> Async.StartImmediate
-        do! Async.Sleep 100
+        do! Async.Sleep 500
         !res |> Array.sum |> equal 6
     } |> Async.RunSynchronously
 
@@ -249,7 +249,7 @@ let ``MailboxProcessor.post works``() =
         agent.Post(2)
         // Not necessary in the JS implementation, but in .NET
         // MailboxProcessor works in the background so we must wait a bit
-        do! Async.Sleep 100
+        do! Async.Sleep 200
         equal (Some 2) res
         agent.Post(3)
         equal (Some 2) res  // Mailbox has finished

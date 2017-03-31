@@ -98,7 +98,8 @@ let ``String.Format with extra formatting works``() =
       let i = 0.5466788
       let dt = DateTime(2014, 9, 26).AddMinutes(19.)
       String.Format("{0:F2} {0:P2} {1:yyyy-MM-dd HH:mm}", i, dt)
-      |> equal "0.55 54.67 % 2014-09-26 00:19"
+            .Replace(",", ".").Replace(" %", "%")
+      |> equal "0.55 54.67% 2014-09-26 00:19"
 
 [<Test>]
 let ``Padding works``() =
@@ -117,10 +118,10 @@ let ``Padding with sprintf works``() =
 
 [<Test>]
 let ``Padding with String.Format works``() =
-    String.Format("{0,10:F1}", 3.14)  |> equal "       3.1"
-    String.Format("{0,-10:F1}", 3.14) |> equal "3.1       "
-    String.Format("{0,10}", 22)       |> equal "        22"
-    String.Format("{0,-10}", -22)     |> equal "-22       "
+    String.Format("{0,10:F1}", 3.14).Replace(",", ".")  |> equal "       3.1"
+    String.Format("{0,-10:F1}", 3.14).Replace(",", ".") |> equal "3.1       "
+    String.Format("{0,10}", 22)                         |> equal "        22"
+    String.Format("{0,-10}", -22)                       |> equal "-22       "
 
 // Conversions
 
@@ -371,6 +372,14 @@ let ``String.StartsWith works``() =
       for arg in args do
             "abcd".StartsWith(fst arg)
             |> equal (snd arg)
+
+[<Test>]
+let ``String.StartsWith with StringComparison works``() =
+      let args = [("ab", true); ("cd", false); ("abcdx", false)]
+      for arg in args do
+            "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
+            |> equal (snd arg)
+
 
 [<Test>]
 let ``String.EndsWith works``() =

@@ -1,10 +1,6 @@
-### 0.7.30
+### 1.0.0-narumi-906
 
-* Fix #776: Seq.collect on Option seq seq stops on first None value
-
-### 0.7.29
-
-* Make TransformOptions not inherit #751
+* Test
 
 ### 0.7.28
 

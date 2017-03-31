@@ -6,3 +6,7 @@ type [<Sealed>] Helper =
     #if FABLE_COMPILER
     static member ConditionalExternalValue: string
     #endif
+
+type [<Sealed>] TRec =
+    static member Create : string * string -> TRec
+    member Value : string
