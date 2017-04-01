@@ -335,7 +335,7 @@ let buildNUnitPlugin () =
     Util.run nunitDir dotnetExePath "restore"
     Util.run nunitDir dotnetExePath "build -c Release"
     CreateDir "build/nunit"
-    FileUtils.cp (nunitDir + "/bin/Release/netstandard1.6/Fable.Plugins.NUnit.dll") "build/nunit"
+    FileUtils.cp (nunitDir + "/bin/MCD/Release/netstandard1.6/Fable.Plugins.NUnit.dll") "build/nunit"
 
 let buildJsonConverter () =
     "restore src/dotnet/Fable.JsonConverter"
