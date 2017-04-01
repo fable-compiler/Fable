@@ -465,7 +465,7 @@ module JS =
         [<Emit("$0($1...)")>] abstract Invoke: ?arrayLength: float -> ResizeArray<obj>
         [<Emit("$0($1...)")>] abstract Invoke: arrayLength: float -> ResizeArray<'T>
         [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] items: 'T[] -> ResizeArray<'T>
-        abstract isArray: arg: obj -> obj
+        abstract isArray: arg: obj -> bool
         abstract from: arrayLike: ArrayLike<'T> * mapfn: Func<'T, float, 'U> * ?thisArg: obj -> ResizeArray<'U>
         abstract from: iterable: Iterable<'T> * mapfn: Func<'T, float, 'U> * ?thisArg: obj -> ResizeArray<'U>
         abstract from: arrayLike: ArrayLike<'T> -> ResizeArray<'T>
