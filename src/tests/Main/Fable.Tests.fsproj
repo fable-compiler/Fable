@@ -1,4 +1,4 @@
-﻿<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
+<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp1.0</TargetFramework>
     <DefineConstants>DOTNETCORE</DefineConstants>
@@ -12,6 +12,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Util/b.fs" />
     <Compile Include="Util/Aether.fs" />
     <Compile Include="Util/Util.fs" />
     <Compile Include="Util/Util2.fs" />

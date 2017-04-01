@@ -1,8 +1,9 @@
-﻿<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
+<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard1.6</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Util\b.fs" />
     <Compile Include="Util\Util.fsi" />
     <Compile Include="Util\Util.fs" />
   </ItemGroup>

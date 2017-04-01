@@ -311,8 +311,8 @@ let buildTools baseDir isRelease () =
     |> Util.run (baseDir </> "Fable.Tools") dotnetExePath
 
     // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
-    FileUtils.cp (toolsBuildDir + "/runtimes/any/native/FSharp.Core.optdata") toolsBuildDir
-    FileUtils.cp (toolsBuildDir + "/runtimes/any/native/FSharp.Core.sigdata") toolsBuildDir
+    FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.optdata" toolsBuildDir
+    FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.sigdata" toolsBuildDir
 
 let buildCoreJs () =
     Npm.install __SOURCE_DIRECTORY__ []
@@ -336,12 +336,6 @@ let buildNUnitPlugin () =
     Util.run nunitDir dotnetExePath "restore"
     // pass output path to build command
     Util.run nunitDir dotnetExePath ("build -c Release -o ../../../build/nunit")
-    
-    //let nunitBinaryPath = 
-    //    match isWindows with
-    //    | true -> "/bin/MCD/Release/netstandard1.6/Fable.Plugins.NUnit.dll"
-    //    | false -> "/bin/Release/netstandard1.6/Fable.Plugins.NUnit.dll"
-    //FileUtils.cp (nunitDir + nunitBinaryPath) "build/nunit"
 
 let buildJsonConverter () =
     "restore src/dotnet/Fable.JsonConverter"
@@ -550,34 +544,6 @@ Target "All" (fun () ->
     buildJsonConverter ()
     runTestsJs ()
     runTestsDotnet ()
-)
-
-Target "BuildRelease_4.1.0" (fun () ->
-    clean ()
-    nugetRestore "src/dotnet" ()
-    buildTools "src/dotnet" true ()
-    buildCoreJs ()
-)
-
-Target "BuildDebug_4.1.0" (fun () ->
-    clean ()
-    nugetRestore "src/dotnet" ()
-    buildTools "src/dotnet" false ()
-    buildCoreJs ()
-)
-
-Target "BuildRelease_4.1.1" (fun () ->
-    clean ()
-    nugetRestore "src/dotnet4.1.1" ()
-    buildTools "src/dotnet4.1.1" true ()
-    buildCoreJs ()
-)
-
-Target "BuildDebug_4.1.1" (fun () ->
-    clean ()
-    nugetRestore "src/dotnet4.1.1" ()
-    buildTools "src/dotnet4.1.1" false ()
-    buildCoreJs ()
 )
 
 // For these target to work, you need the following:

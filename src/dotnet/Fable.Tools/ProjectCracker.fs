@@ -42,7 +42,8 @@ let getProjectOptionsFromScript (checker: FSharpChecker) (define: string[]) scri
     checker.GetProjectOptionsFromScript(scriptFile, File.ReadAllText scriptFile,
                                         assumeDotNetFramework=false, otherFlags=otherFlags)
     |> Async.RunSynchronously
-    |> fun opts ->
+    |> fun (opts, errors) ->
+        // TODO: Check errors
         opts.OtherOptions
         |> Array.filter (fun x ->
             // Keep only relative references

@@ -1,0 +1,5 @@
+FSharp.Core
+Newtonsoft.Json
+System.Reflection.TypeExtensions
+System.Runtime.Loader
+System.ValueTuple
