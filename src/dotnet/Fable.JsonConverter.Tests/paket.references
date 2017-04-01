@@ -1,0 +1,4 @@
+FSharp.Core
+Newtonsoft.Json
+xunit
+xunit.runner.visualstudio

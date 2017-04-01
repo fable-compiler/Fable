@@ -1,12 +1,12 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard1.6</TargetFramework>
-    <DefineConstants>DOTNETCORE</DefineConstants>
+    <TargetFramework>netcoreapp1.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Fable.JsonConverter.fs" />
+    <Compile Include="JsonConverterTests.fs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../Fable.JsonConverter/Fable.JsonConverter.fsproj" />
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />

@@ -790,3 +790,10 @@ let ``Public members of private modules can be accessed``() = // See #696
 let ``Types declared in signature file work``() = // See #754
     let t = Spaces.TRec.Create("haha", "hoho")
     t.Value |> equal "hahahoho"
+
+[<Test>]
+let ``Two types with same name in different folders work``() = // See #781
+    tempet.SayA.hello "Albert"
+    |> equal "Hello Albert from SayA"
+    tempet.SayB.hello "Albert"
+    |> equal "Hello Albert from SayB"
