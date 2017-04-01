@@ -332,14 +332,16 @@ let buildCore isRelease () =
 
 let buildNUnitPlugin () =
     let nunitDir = "src/plugins/nunit"
+    CreateDir "build/nunit"  // if it does not exist
     Util.run nunitDir dotnetExePath "restore"
-    Util.run nunitDir dotnetExePath "build -c Release"
-    CreateDir "build/nunit"
-    let nunitBinaryPath = 
-        match isWindows with
-        | true -> "/bin/MCD/Release/netstandard1.6/Fable.Plugins.NUnit.dll"
-        | false -> "/bin/Release/netstandard1.6/Fable.Plugins.NUnit.dll"
-    FileUtils.cp (nunitDir + nunitBinaryPath) "build/nunit"
+    // pass output path to build command
+    Util.run nunitDir dotnetExePath ("build -c Release -o ../../../build/nunit")
+    
+    //let nunitBinaryPath = 
+    //    match isWindows with
+    //    | true -> "/bin/MCD/Release/netstandard1.6/Fable.Plugins.NUnit.dll"
+    //    | false -> "/bin/Release/netstandard1.6/Fable.Plugins.NUnit.dll"
+    //FileUtils.cp (nunitDir + nunitBinaryPath) "build/nunit"
 
 let buildJsonConverter () =
     "restore src/dotnet/Fable.JsonConverter"
@@ -353,7 +355,6 @@ let runTestsDotnet () =
     Util.run "src/tests/DllRef" dotnetExePath "restore"
     Util.run "src/tests/Project With Spaces" dotnetExePath "restore"
     Util.run "src/tests/Main" dotnetExePath "restore"
-
     Util.run "src/tests/Main" dotnetExePath "test"
 
 let runFableServer f =
