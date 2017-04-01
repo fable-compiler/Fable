@@ -25,6 +25,7 @@ exports.transformMacroExpressions = {
                 return;
             }
             var buildArgs = {}, macro = node.value;
+            // console.log("MACRO 1: " + macro);
             try {
                 // Check if there are more placeholders than args, this may happen
                 // if null optional arguments have been removed.
@@ -53,14 +54,26 @@ exports.transformMacroExpressions = {
                     })
                     .replace(/\{\{\$(\d+)\?(.*?)\:(.*?)\}\}/g, function (_, g1, g2, g3) {
                         var i = parseInt(g1);
-                        return i < args.length && args[i].value ? g2 : g3;
+                        return typeof args[i] === "object" && args[i].value ? g2 : g3;
                     })
                     .replace(/\{\{([^\}]*\$(\d+).*?)\}\}/g, function (_, g1, g2) {
                         var i = parseInt(g2);
-                        return i < args.length ? g1 : "";
+                        return typeof args[i] === "object" && args[i].type !== "NullLiteral" ? g1 : "";
                     });
-                var buildMacro = template(macro);
-                path.replaceWithMultiple(buildMacro(buildArgs));
+                // console.log("MACRO 2: " + macro);
+                // console.log("MACRO ARGS: " + JSON.stringify(buildArgs));
+                // console.log("BUILT MACRO: " + JSON.stringify(template(macro)(buildArgs)));
+                var builtMacro = template(macro)(buildArgs);
+                if (builtMacro != null) {
+                    path.replaceWithMultiple(builtMacro);
+                }
+                else {
+                    // Apparently if the macro is just a string, babel-template will fail
+                    path.replaceWith({
+                        type: "StringLiteral",
+                        value: JSON.parse(macro)
+                    });
+                }
             }
             catch (err) {
                 err.message =
