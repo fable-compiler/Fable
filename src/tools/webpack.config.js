@@ -11,7 +11,7 @@ var babelOptions = {
 }
 
 module.exports = {
-  entry: resolve('./QuickTest.fsproj'),
+  entry: resolve('./QuickTest.fsx'),
   output: {
     filename: 'QuickTest.js',
     path: resolve('temp'),

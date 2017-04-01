@@ -155,3 +155,37 @@ let validatePassword = function
 let ``Pattern matching with StringEnum works``() =
     validatePassword NewPassword
     |> equal "np"
+
+type TextStyle =
+    [<Emit("\"foo\"")>]
+    abstract Bar : string
+    [<Emit("$1+$2")>]
+    abstract Add : int*int -> int
+    [<Emit("$0[$1]{{=$2}}")>]
+    abstract Item : int->string option with get, set
+    [<Emit("$0.fontFamily{{=$1}}")>]
+    abstract FontFamily : string option with get, set
+    [<Emit("{{$1?\"foo\":\"bar\"}}")>]
+    abstract FontSize : bool -> string
+
+[<Test>]
+let ``Emit attribute works``() =
+    let style = createEmpty<TextStyle>
+    style.Bar |> equal "foo"
+    style.Add(3,5) |> equal 8
+
+[<Test>]
+let ``Emit attribute conditional parameters works``() =
+    let style = createEmpty<TextStyle>
+    style.FontFamily <- Some "ha"
+    style.FontFamily |> equal (Some "ha")
+    !!style?fontFamily |> equal "ha"
+    style.[5] <- Some "ho"
+    style.[5] |> equal (Some "ho")
+    style.[10] |> equal None
+
+[<Test>]
+let ``Emit attribute conditional syntax works``() =
+    let style = createEmpty<TextStyle>
+    style.FontSize(true) |> equal "foo"
+    style.FontSize(false) |> equal "bar"
