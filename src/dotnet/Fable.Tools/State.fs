@@ -184,10 +184,12 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State option)
         then createFromScratch()
         else
             match state.CompiledFiles.TryGetValue(fileName) with
-            // Watch compilation, restart state
-            | true, true ->
-                createState checker (Some state.ProjectOptions) com define state.ProjectFile
-            | true, false ->
+            | true, alreadyCompiled ->
+                // Watch compilation, restart state
+                let state =
+                    if alreadyCompiled
+                    then createState checker (Some state.ProjectOptions) com define state.ProjectFile
+                    else state
                 // Set file as already compiled
                 state.CompiledFiles.[fileName] <- true
                 state
