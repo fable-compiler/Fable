@@ -132,30 +132,6 @@ let adder: IAdder = jsNative
 let ``Erase attribute works``() =
     adder.Add(4, 5) |> equal 9
 
-[<StringEnum>]
-type MyStrings =
-    | Vertical
-    | [<CompiledName("Horizontal")>] Horizontal
-
-[<Test>]
-let ``StringEnum attribute works``() =
-    Vertical |> unbox |> equal "vertical"
-    Horizontal |> unbox |> equal "Horizontal"
-
-[<StringEnum>]
-#endif
-type Field = OldPassword | NewPassword | ConfirmPassword
-
-let validatePassword = function
-    | OldPassword -> "op"
-    | NewPassword -> "np"
-    | ConfirmPassword -> "cp"
-
-[<Test>]
-let ``Pattern matching with StringEnum works``() =
-    validatePassword NewPassword
-    |> equal "np"
-
 type TextStyle =
     [<Emit("\"foo\"")>]
     abstract Bar : string
@@ -189,3 +165,27 @@ let ``Emit attribute conditional syntax works``() =
     let style = createEmpty<TextStyle>
     style.FontSize(true) |> equal "foo"
     style.FontSize(false) |> equal "bar"
+
+[<StringEnum>]
+type MyStrings =
+    | Vertical
+    | [<CompiledName("Horizontal")>] Horizontal
+
+[<Test>]
+let ``StringEnum attribute works``() =
+    Vertical |> unbox |> equal "vertical"
+    Horizontal |> unbox |> equal "Horizontal"
+
+[<StringEnum>]
+#endif
+type Field = OldPassword | NewPassword | ConfirmPassword
+
+let validatePassword = function
+    | OldPassword -> "op"
+    | NewPassword -> "np"
+    | ConfirmPassword -> "cp"
+
+[<Test>]
+let ``Pattern matching with StringEnum works``() =
+    validatePassword NewPassword
+    |> equal "np"

@@ -142,8 +142,8 @@ let toJsonAndReply =
     let jsonSettings =
         JsonSerializerSettings(
             Converters=[|Json.ErasedUnionConverter()|],
-            NullValueHandling=NullValueHandling.Ignore,
-            StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
+            NullValueHandling=NullValueHandling.Ignore)
+            // StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
     fun (replyChannel: string->unit) (value: obj) ->
         JsonConvert.SerializeObject(value, jsonSettings) |> replyChannel
 
