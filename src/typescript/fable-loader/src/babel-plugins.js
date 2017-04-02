@@ -21,7 +21,15 @@ exports.transformMacroExpressions = {
     visitor: {
         StringLiteral: function (path) {
             var node = path.node;
-            if (!node.macro || !node.value) {
+            if (!node.macro) {
+                // This has nothing to do with macros but it's necessary to prevent
+                // Babel from escaping Unicode strings. See #784
+                if (typeof node.value === "string") {
+                    node.extra = {
+                        raw: JSON.stringify(node.value),
+                        rawValue: node.value
+                    }
+                }
                 return;
             }
             var buildArgs = {}, macro = node.value;
