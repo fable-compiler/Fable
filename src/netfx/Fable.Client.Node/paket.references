@@ -1,3 +1,4 @@
 FSharp.Core
+System.Xml.XDocument
+Newtonsoft.Json 
 FSharp.Compiler.Service
-Newtonsoft.Json

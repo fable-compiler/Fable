@@ -4,6 +4,13 @@ nuget FAKE
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
 github fsharp/FAKE modules/Octokit/Octokit.fsx
 
+nuget FSharp.Core 
+nuget FSharp.Compiler.Service
+nuget System.Xml.XDocument
+nuget System.Reflection.TypeExtensions
+nuget System.Runtime.Loader
+nuget Newtonsoft.Json
+
 group Docs
   source https://www.nuget.org/api/v2
 
