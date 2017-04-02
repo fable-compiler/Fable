@@ -49,13 +49,18 @@ let main () =
         let createChecker() = references |> createChecker readAllBytes
         let ms, checker = measureTime createChecker
         printfn "InteractiveChecker created in %d ms" ms
-        let f() =
+        let parseFCS() =
+            parseFSharpProject com checker (fileName, source)
+            |> ignore
+        let parseAll() =
             compileAst com checker (fileName, source)
             |> Fable.Core.JsInterop.toJson
             |> ignore
         let bench i =
-            let ms, _ = measureTime f
-            printfn "iteration %d, duration %d ms" i ms
+            let ms, _ = measureTime parseFCS
+            printfn "iteration %d, parse time (FCS) = %d ms" i ms
+            let ms, _ = measureTime parseAll
+            printfn "iteration %d, parse time (ALL) = %d ms" i ms
         [1..10] |> List.iter bench
     with ex ->
         printfn "Error: %A" ex.Message

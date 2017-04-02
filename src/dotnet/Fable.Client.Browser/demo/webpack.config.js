@@ -30,6 +30,7 @@ module.exports = {
             fableCore: resolve("../../../../build/fable-core"),
             plugins: [],
             define: [
+              "COMPILER_SERVICE",
               "FX_NO_CORHOST_SIGNER",
               "FX_NO_LINKEDRESOURCES",
               "FX_NO_PDB_READER",
