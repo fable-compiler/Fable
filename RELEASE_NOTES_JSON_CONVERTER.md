@@ -1,3 +1,7 @@
+### 1.0.0-narumi-908
+
+* NETCore compatibility
+
 ### 0.1.1
 
 * `System.DateTime` fixes (see PR #613)
