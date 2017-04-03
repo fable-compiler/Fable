@@ -217,6 +217,7 @@ let releaseCoreJs = Util.loadReleaseNotes "CORE_JS"
 let releaseCompiler = Util.loadReleaseNotes "COMPILER"
 let releaseTools = Util.loadReleaseNotes "TOOLS"
 let releaseLoader = Util.loadReleaseNotes "LOADER"
+let releaseJsonConverter = Util.loadReleaseNotes "JSON_CONVERTER"
 
 let dotnetcliVersion = "1.0.1"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
@@ -528,6 +529,7 @@ Target "PublishPackages" (fun () ->
     pushNuget releaseCore.Value     "src/dotnet/Fable.Core/Fable.Core.fsproj"
     pushNuget releaseCompiler.Value "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
     pushNuget releaseTools.Value    "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
+    pushNuget releaseJsonConverter.Value "src/dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"
 
     // Publish NPM packages
     pushNpm (Some buildCoreJs) releaseCoreJs.Value "src/typescript/fable-core"
