@@ -634,6 +634,20 @@ let ``System.Convert.ToString Decimal works``() =
     let x = "101"
     Convert.ToString(101.m) |> equal x
 
+[<Test>]
+let ``FSharp.Core type converters can combined via the >> operator``() =
+    "1" |> (sbyte >> Ok) |> equal (Ok 1y)
+    "1" |> (int16 >> Ok) |> equal (Ok 1s)
+    "1" |> (int >> Ok) |> equal (Ok 1)
+    "1" |> (int64 >> Ok) |> equal (Ok 1L)
+    "1" |> (byte >> Ok) |> equal (Ok 1uy)
+    "1" |> (uint16 >> Ok) |> equal (Ok 1us)
+    "1" |> (uint32 >> Ok) |> equal (Ok 1u)
+    "1" |> (uint64 >> Ok) |> equal (Ok 1uL)
+    "1" |> (float32 >> Ok) |> equal (Ok 1.f)
+    "1" |> (float >> Ok) |> equal (Ok 1.)
+    "1" |> (double >> Ok) |> equal (Ok 1.)
+    "1" |> (decimal >> Ok) |> equal (Ok 1.m)
 
 //-------------------------------------
 // System.BitConverter
