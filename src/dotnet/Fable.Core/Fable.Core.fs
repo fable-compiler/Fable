@@ -180,8 +180,8 @@ module JsInterop =
     let importAll<'T> (path: string):'T = jsNative
 
     /// Convert F# unions, records and classes into plain JS objects
-    /// DEPRECATED: Use a Pojo record or union
-    let [<Obsolete>] toPlainJsObj (o: 'T): obj = jsNative
+    /// When designing APIs, consider also using a Pojo record or union
+    let toPlainJsObj (o: 'T): obj = jsNative
 
     /// Converts an F# object into a plain JS object (POJO)
     /// This is only intended if you're using a custom serialization method
@@ -204,6 +204,9 @@ module JsInterop =
     /// This is only intended if you're using a custom serialization method
     /// (that must produce same objects as `toJson`) instead of `ofJson`.
     let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
+
+    /// Reads the name of an identifier, a property or a type
+    let nameof(expr: obj): string = jsNative
 
     /// Compiles to JS `this` keyword.
     ///

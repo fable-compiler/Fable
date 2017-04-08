@@ -363,14 +363,17 @@ let runTestsJs () =
         Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tests/webpack.config.js"]
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
 
-let quickTest isES2015 _ =
-    runFableServer <| fun () ->
-        Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tools/webpack.config.js"]
+let quickTest() =
+    Util.run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll webpack"
     Node.run "." "src/tools/temp/QuickTest.js" []
 
-Target "QuickTest" (quickTest false)
-
-Target "QuickTestES2015" (quickTest true)
+Target "QuickTest" quickTest
+Target "QuickFableCompilerTest" (fun () ->
+    buildTools "src/dotnet" true ()
+    quickTest ())
+Target "QuickFableCoreTest" (fun () ->
+    buildCoreJs ()
+    quickTest ())
 
 let pushNuget (releaseNotes: ReleaseNotes) projFile =
     let projFile = __SOURCE_DIRECTORY__ </> projFile
