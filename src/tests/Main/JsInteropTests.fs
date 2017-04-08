@@ -166,6 +166,28 @@ let ``Emit attribute conditional syntax works``() =
     style.FontSize(true) |> equal "foo"
     style.FontSize(false) |> equal "bar"
 
+
+type InnerRecord = {
+    Float: float
+}
+
+type Record = {
+    String: string
+    Int: int
+    InnerRecord: InnerRecord
+}
+
+[<Test>]
+let ``nameof works``() =
+    let record = { String = ""; Int = 0; InnerRecord = { Float = 5.0 } }
+    nameof(record) |> equal "record"
+    nameof(record.String) |> equal "String"
+    nameof(record.Int) |> equal "Int"
+    nameof(record.InnerRecord) + "." + nameof(record.InnerRecord.Float)
+    |> equal "InnerRecord.Float"
+    nameof(typeof<Record>) |> equal "Record"
+    nameof(typeof<InnerRecord>) |> equal "InnerRecord"
+
 [<StringEnum>]
 type MyStrings =
     | Vertical

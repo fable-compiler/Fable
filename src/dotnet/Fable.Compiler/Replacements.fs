@@ -615,6 +615,13 @@ module AstPass =
         | "createEmpty" ->
             Fable.ObjExpr ([], [], None, i.range)
             |> wrap i.returnType |> Some
+        | "nameof" ->
+            match i.args with
+            | [Fable.Value(Fable.IdentValue ident)] -> ident.Name
+            | [Fable.Apply(_, [Fable.Value(Fable.StringConst prop)], Fable.ApplyGet, _, _)] -> prop
+            | [Fable.Value(Fable.TypeRef(ent,_))] -> ent.Name
+            | _ -> FableError("Cannot infer name of expression", ?range=i.range) |> raise
+            |> makeStrConst |> Some
         | "areEqual" ->
             match i.args with
             | [expected; actual] -> Some [actual; expected]
@@ -1791,6 +1798,14 @@ module AstPass =
             | "isGenericType" -> ent.GenericParameters.Length > 0 |> makeBoolConst |> Some
             | "getGenericTypeDefinition" -> makeTypeRefFrom com ent |> Some
             | "getTypeInfo" -> info.callee
+            | "makeGenericType" ->
+                if not <| List.sameLength ent.GenericParameters info.args then
+                    FableError("Arguments have different length than generic parameters", ?range=info.range) |> raise
+                let genArgs2 =
+                    List.zip ent.GenericParameters info.args
+                    |> makeJsObject None
+                CoreLibCall("Util", Some "makeGeneric", false, [info.callee.Value; genArgs2])
+                |> makeCall None Fable.MetaType |> Some
             | _ -> None
         | _ ->
             let getTypeFullName args =
@@ -1808,6 +1823,7 @@ module AstPass =
                 CoreLibCall("Util", Some "getDefinition", false, [info.callee.Value])
                 |> makeCall info.range info.returnType |> Some
             | _ -> None
+
     let unchecked com (info: Fable.ApplyInfo) =
         match info.methodName with
         | "defaultOf" ->

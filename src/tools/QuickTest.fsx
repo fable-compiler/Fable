@@ -20,10 +20,12 @@ let equal expected actual =
     if not areEqual then
         failwithf "Expected %A but got %A" expected actual
 
-// Write here the code you want to test,
-// you can later put the code in a unit test.
+// Write here your unit test, you can later move it
+// to Fable.Tests project. For example:
+// [<Test>]
+// let ``My Test``() =
+//     Seq.except [2] [1; 3; 2] |> Seq.last |> equal 3
+//     Seq.except [2] [2; 4; 6] |> Seq.head |> equal 4
 
-
-// Example:
-// Seq.except [2] [1; 3; 2] |> Seq.last |> equal 3
-// Seq.except [2] [2; 4; 6] |> Seq.head |> equal 4
+// You'll have to run your test manually, sorry!
+// ``My Test``()

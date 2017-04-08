@@ -45,6 +45,7 @@ let rec makeSequential range statements =
     | first::rest ->
         match first, rest with
         | Value Null, _ -> makeSequential range rest
+        | Sequential (statements, _), _ -> makeSequential range (statements@rest)
         | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
         // Calls to System.Object..ctor in class constructors
         | ObjExpr ([],[],_,_), _ -> makeSequential range rest
