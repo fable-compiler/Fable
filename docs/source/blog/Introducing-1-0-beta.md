@@ -37,7 +37,7 @@ Still XML, not a fancy modern markup language, but with a glance we can see now 
 
 > At the moment, the only editor that supports the new .fsproj format is [Ionide](http://ionide.io/) so you may need to wait a bit until it's supported in other IDEs. Also, if you have problems with Ionide recognizing the project references, try setting the environment variable `UseCommonOutputDirectory` to `true`.
 
-But what is that Fable server? Keep on reading to find the answer!
+But what about Fable server? Keep on reading to find the answer!
 
 ## Integration with Webpack
 
@@ -45,7 +45,7 @@ Under the hood Fable compiler is a hybrid of .NET and a [node](https://nodejs.or
 
 Webpack is a JS bundler with many powerful features that has become the standard build tool of choice for a vast majority of JS developers, though many (I among them) have been drawn back by its complexity. Luckily with Webpack 2 this is being addressed with a much better [documentation site](https://webpack.js.org) and great community support thanks to its widespread use. Tying Fable to Webpack may seem risky, but [most of the users are already using Webpack](https://twitter.com/FableCompiler/status/829372278878126080) anyways and the integration offers several advantages, like:
 
-- Only one configuration file. You read well, **no more fableconfig.json**, the config options can be passed now to the Fable loader.
+- Only one configuration file. You read correctly, **no more fableconfig.json**, the config options can be passed now to the Fable loader.
 - Better interaction with other languages like JS or Typescript. Just add the necessary loaders and Webpack will take care of merging everything into a single bundle.
 - Management of tasks like file watching. This frees development resources for Fable so we can focus on improving the code generation.
 
@@ -132,6 +132,18 @@ dotnet fable add fable-powerpack@next fable-react@next fable-elmish@next fable-e
 ```
 
 > At the moment Fable cannot resolve transitive dependencies so it's necessary to list them all.
+
+#### Important Note
+
+When adding new dependencies and making changes to the project file, it is often necessary to run the following commands again.
+
+```shell 
+ dotnet restore
+ dotnet build
+ dotnet fable npm-run build
+```
+
+A key indicator that you need to run these commands is that Intellisense stops working.  Also, be sure you are setting the environment variable correctly as mentioned above.
 
 <br />
 
