@@ -208,6 +208,9 @@ module JsInterop =
     /// Reads the name of an identifier, a property or a type
     let nameof(expr: obj): string = jsNative
 
+    /// Reads the name of a property or a type from the lambda body
+    let nameofLambda(f: 'a->'b): string = jsNative
+
     /// Compiles to JS `this` keyword.
     ///
     /// ## Sample

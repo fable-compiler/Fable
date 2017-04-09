@@ -100,6 +100,12 @@ module Util =
         | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
         | Float32 | Float64 -> Float
 
+    let (|Nameof|_|) = function
+        | Fable.Value(Fable.IdentValue ident) -> Some ident.Name
+        | Fable.Apply(_, [Fable.Value(Fable.StringConst prop)], Fable.ApplyGet, _, _) -> Some prop
+        | Fable.Value(Fable.TypeRef(ent,_)) -> Some ent.Name
+        | _ -> None
+
     let resolveTypeRef com (info: Fable.ApplyInfo) generic t =
         let genInfo =
             { makeGeneric = generic
@@ -617,9 +623,12 @@ module AstPass =
             |> wrap i.returnType |> Some
         | "nameof" ->
             match i.args with
-            | [Fable.Value(Fable.IdentValue ident)] -> ident.Name
-            | [Fable.Apply(_, [Fable.Value(Fable.StringConst prop)], Fable.ApplyGet, _, _)] -> prop
-            | [Fable.Value(Fable.TypeRef(ent,_))] -> ent.Name
+            | [Nameof name] -> name
+            | _ -> FableError("Cannot infer name of expression", ?range=i.range) |> raise
+            |> makeStrConst |> Some
+        | "nameofLambda" ->
+            match i.args with
+            | [Fable.Value(Fable.Lambda(_,Nameof name,_))] -> name
             | _ -> FableError("Cannot infer name of expression", ?range=i.range) |> raise
             |> makeStrConst |> Some
         | "areEqual" ->
