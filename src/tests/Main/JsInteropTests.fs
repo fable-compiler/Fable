@@ -188,6 +188,11 @@ let ``nameof works``() =
     nameof(typeof<Record>) |> equal "Record"
     nameof(typeof<InnerRecord>) |> equal "InnerRecord"
 
+[<Test>]
+let ``nameofLambda works``() =
+    nameofLambda(fun (x:Record) -> x.String) |> equal "String"
+    nameofLambda(fun (x:Record) -> x.Int) |> equal "Int"
+
 [<StringEnum>]
 type MyStrings =
     | Vertical
