@@ -79,4 +79,6 @@ let stop port = async {
     let data = Encoding.UTF8.GetBytes(SIGTERM)
     use stream = client.GetStream()
     stream.Write(data, 0, data.Length)
+    while client.Connected do
+        do! Async.Sleep 200
 }

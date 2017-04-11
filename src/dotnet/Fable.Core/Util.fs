@@ -1,5 +1,23 @@
 namespace Fable
 
+/// Each Position object consists of a line number (1-indexed) and a column number (0-indexed):
+type Position =
+    { line: int; column: int; }
+    static member Empty = { line = 1; column = 0 }
+
+type SourceLocation =
+    { (*source: string option;*) start: Position; ``end``: Position; }
+    member x.Collapse() =
+        { start = x.start; ``end`` = x.start }
+    static member (+) (r1: SourceLocation, r2: SourceLocation) =
+        { start = r1.start; ``end`` = r2.``end`` }
+    static member Empty =
+        { start = Position.Empty; ``end`` = Position.Empty }
+    override x.ToString() =
+        sprintf "(L%i,%i-L%i,%i)"
+            x.start.line x.start.column
+            x.``end``.line x.``end``.column
+
 module Map =
     let findOrRun<'T> (f: unit->'T) (k: string) (m: Map<string, obj>) =
         match Map.tryFind k m with

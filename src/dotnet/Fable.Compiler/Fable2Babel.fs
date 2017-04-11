@@ -3,6 +3,7 @@ module Fable.Fable2Babel
 open Fable
 open Fable.AST
 open Fable.AST.Babel
+open Fable.AST.Fable.Util
 open System
 open System.Collections.Generic
 open System.Text.RegularExpressions
@@ -519,7 +520,7 @@ module Util =
             | Fable.ApplyGet ->
                 if List.length args = 1
                 then getExpr com ctx callee args.Head
-                else FableError("Getter with none or multiple arguments detected", ?range=range) |> raise
+                else failwithf "Getter with none or multiple arguments detected at %A" range
 
     let block r statements =
         BlockStatement(statements, ?loc=r)
@@ -591,8 +592,10 @@ module Util =
         IfStatement(guardExpr, thenStmnt, ?alternate=elseStmnt, ?loc=r)
 
     // TODO: Experimental support for Quotations
-    let transformQuote com ctx r expr =
-        FableError("Quotations are not supported", ?range=r) |> raise
+    let transformQuote com (ctx: Context) r expr: Expression =
+        "Quotations are not supported"
+        |> addError com ctx.file.SourcePath r
+        upcast NullLiteral ()
         // let rec toJson (expr: obj): Expression =
         //     match expr with
         //     | :? Node ->
@@ -1109,7 +1112,8 @@ module Util =
                     if selector = "*"
                     then selector
                     elif selector = Naming.placeholder
-                    then FableError("`importMember` must be assigned to a variable") |> raise
+                    then "`importMember` must be assigned to a variable"
+                         |> addError bcom ctx.file.SourcePath None; selector
                     // Replace ident forbidden chars of root members, see #207
                     else Naming.replaceIdentForbiddenChars selector
                 let getLocalIdent (ctx: Context) (selector: string) =
@@ -1156,7 +1160,8 @@ module Util =
         interface ICompiler with
             member __.Options = com.Options
             member __.Plugins = com.Plugins
-            member __.AddLog msg = com.AddLog msg
+            member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
+                com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
             member __.GetUniqueVar() = com.GetUniqueVar() }
 
 module Compiler =
@@ -1227,5 +1232,4 @@ module Compiler =
             |> fun importDecls ->
                  Program(file.SourcePath, file.Range, (Seq.toList importDecls)@rootDecls)
         with
-        | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=file.SourcePath) |> raise
         | ex -> exn (sprintf "%s (%s)" ex.Message file.SourcePath, ex) |> raise

@@ -42,7 +42,7 @@ let private (|BaseCons|_|) com ctx (fsExpr: FSharpExpr) =
         | None -> false
     let validateGenArgs' typArgs =
         tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
-            validateGenArgs ctx (makeRangeFrom fsExpr) tdef.GenericParameters typArgs)
+            validateGenArgs com ctx (makeRangeFrom fsExpr) tdef.GenericParameters typArgs)
     match fsExpr with
     | BasicPatterns.NewObject(meth, typArgs, args) ->
         match ctx.baseClass with
@@ -54,8 +54,8 @@ let private (|BaseCons|_|) com ctx (fsExpr: FSharpExpr) =
         match ctx.baseClass with
         | Some baseFullName when meth.CompiledName = ".ctor" && equalsEntName meth baseFullName ->
             if not meth.IsImplicitConstructor then
-                FableError("Inheritance is only possible with base class primary constructor: "
-                            + baseFullName, makeRange fsExpr.Range) |> raise
+                "Inheritance is only possible with base class primary constructor: " + baseFullName
+                |> addError com ctx.fileName (makeRange fsExpr.Range |> Some)
             validateGenArgs' typArgs
             Some (meth, args)
         | _ -> None
@@ -100,11 +100,15 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         match argExprs with
         | [] -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
         | [expr] -> Fable.Wrapped(expr, unionType)
-        | _ -> FableError("Erased Union Cases must have one single field: " + unionType.FullName, range) |> raise
+        | _ ->
+            "Erased Union Cases must have one single field: " + unionType.FullName
+            |> addErrorAndReturnNull com ctx.fileName (Some range)
     | StringEnum ->
-        if not(List.isEmpty argExprs) then
-            FableError("StringEnum types cannot have fields", range) |> raise
-        lowerCaseName unionCase
+        if not(List.isEmpty argExprs)
+        then
+            "StringEnum types cannot have fields"
+            |> addErrorAndReturnNull com ctx.fileName (Some range)
+        else lowerCaseName unionCase
     | PojoUnion ->
         List.zip (Seq.toList unionCase.UnionCaseFields) argExprs
         |> List.map (fun (fi, e) -> fi.Name, e)
@@ -114,7 +118,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
         let argExprs =
-            let tag = getUnionCaseIndex fsExpr.Range fsType unionCase.Name |> makeIntConst
+            let tag = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
             let argTypes =
                 unionCase.UnionCaseFields
                 |> Seq.map (fun x -> makeType com [] x.FieldType)
@@ -126,7 +130,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             | argExprs -> [tag; Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))]
         buildApplyInfo com ctx (Some range) unionType unionType unionType.FullName
             ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
-        |> tryBoth (tryPlugin com) (tryReplace com (tryDefinition fsType))
+        |> tryBoth (tryPlugin com) (tryReplace com ctx (tryDefinition fsType))
         |> function
         | Some repl -> repl
         | None -> Fable.Apply(makeNonGenTypeRef com unionType, argExprs, Fable.ApplyCons, unionType, Some range)
@@ -140,7 +144,7 @@ and private transformComposableExpr com ctx fsExpr argExprs =
     | BasicPatterns.NewObject(meth, typArgs, _) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
-            validateGenArgs ctx r tdef.GenericParameters typArgs)
+            validateGenArgs com ctx r tdef.GenericParameters typArgs)
         makeCallFrom com ctx r typ meth (typArgs, []) None argExprs
     | BasicPatterns.NewUnionCase(fsType, unionCase, _) ->
         transformNonListNewUnionCase com ctx fsExpr fsType unionCase argExprs
@@ -258,7 +262,9 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         then
             match ctx.scopedInlines |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
             | Some (_,fsExpr) -> com.Transform ctx fsExpr
-            | None -> FableError("Cannot resolve locally inlined value: " + var.DisplayName, makeRange fsExpr.Range) |> raise
+            | None ->
+                "Cannot resolve locally inlined value: " + var.DisplayName
+                |> addErrorAndReturnNull com ctx.fileName (makeRange fsExpr.Range |> Some)
         else
             let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
             makeValueFrom com ctx r typ true var
@@ -302,7 +308,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         let giveUp() =
-            FableError("Cannot resolve trait call " + traitName, ?range=r) |> raise
+            "Cannot resolve trait call " + traitName
+            |> addErrorAndReturnNull com ctx.fileName r
         let (|ResolveGeneric|_|) genArgs (t: FSharpType) =
             if not t.IsGenericParameter then Some t else
             let genParam = t.GenericParameter
@@ -369,7 +376,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             let callee = com.Transform resolvedCtx fsExpr
             makeApply com (Some range) typ callee args
         | None ->
-            FableError("Cannot resolve locally inlined value: " + var.DisplayName, range) |> raise
+            "Cannot resolve locally inlined value: " + var.DisplayName
+            |> addErrorAndReturnNull com ctx.fileName (Some range)
 
     | FlattenedApplication(Transform com ctx callee, typeArgs, args) ->
         // TODO: Ask why application without aguments happen. So I've seen it for
@@ -474,7 +482,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         | PojoUnion ->
             makeStrConst fieldName |> makeGet range typ unionExpr
         | StringEnum ->
-            FableError("StringEnum types cannot have fields", ?range=range) |> raise
+            "StringEnum types cannot have fields"
+            |> addErrorAndReturnNull com ctx.fileName range
         | OtherType ->
             if unionCase.UnionCaseFields.Count > 1 then
                 let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
@@ -608,7 +617,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.NewObject(meth, typArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
-            validateGenArgs ctx r tdef.GenericParameters typArgs)
+            validateGenArgs com ctx r tdef.GenericParameters typArgs)
         List.map (com.Transform ctx) args
         |> makeCallFrom com ctx r typ meth (typArgs, []) None
 
@@ -631,7 +640,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             let recordType = makeType com ctx.typeArgs fsType
             buildApplyInfo com ctx range recordType recordType recordType.FullName
                 ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
-            |> tryBoth (tryPlugin com) (tryReplace com tdef)
+            |> tryBoth (tryPlugin com) (tryReplace com ctx tdef)
             |> function
             | Some repl -> repl
             | None -> Fable.Apply(makeNonGenTypeRef com recordType, argExprs, Fable.ApplyCons,
@@ -655,7 +664,8 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         | ErasedUnion ->
             let unionName = defaultArg fsType.TypeDefinition.TryFullName "unknown"
             if unionCase.UnionCaseFields.Count <> 1 then
-                FableError("Erased Union Cases must have one single field: " + unionName, makeRange fsExpr.Range) |> raise
+                "Erased Union Cases must have one single field: " + unionName
+                |> addErrorAndReturnNull com ctx.fileName (makeRange fsExpr.Range |> Some)
             else
                 let fi = unionCase.UnionCaseFields.[0]
                 if fi.FieldType.IsGenericParameter
@@ -680,7 +690,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
         | PojoUnion ->
             makeStrConst unionCase.Name |> checkCase "type"
         | OtherType ->
-            getUnionCaseIndex fsExpr.Range fsType unionCase.Name
+            getUnionCaseIndex fsType unionCase.Name
             |> makeIntConst
             |> checkCase "tag"
 
@@ -819,18 +829,17 @@ type private TmpDecl =
     | Ent of Fable.Entity * string * ResizeArray<Fable.Declaration> * SourceLocation option
     | IgnoredEnt
 
-type private DeclInfo() =
+type private DeclInfo(com, fileName) =
     let publicNames = ResizeArray<string>()
     // Check there're no conflicting entity or function names (see #166)
     let checkPublicNameConflicts name =
         if publicNames.Contains name then
-            FableError("Public types, modules or functions with same name "
-                        + "at same level are not supported: " + name) |> raise
+            "Public types, modules or functions with same name at same level are not supported: " + name
+            |> addError com fileName None
         publicNames.Add name
     let isErasedEntity (ent: FSharpEntity) =
         let fail (ent: FSharpEntity) msg =
-            let loc = getEntityLocation ent
-            FableError(msg, makeRange loc, loc.FileName) |> raise
+            addError com fileName (getEntityLocation ent |> makeRange |> Some) msg; false
         let check (ent: FSharpEntity) name att expected =
             if name <> att
             then false
@@ -916,7 +925,8 @@ type private DeclInfo() =
                 Fable.EntityDeclaration(ent, privateName, processMemberDecls com ctx ent decls, range))
         |> Seq.toList
 
-let private tryGetImport r methName (atts: #seq<FSharpAttribute>) (body: FSharpExpr option) =
+let private tryGetImport com (ctx: Context) r methName
+                (atts: #seq<FSharpAttribute>) (body: FSharpExpr option) =
     let (|ImportExpr|_|) e =
         let rec matchExpr = function
             | BasicPatterns.Call(None, meth, _, _, args)
@@ -928,7 +938,8 @@ let private tryGetImport r methName (atts: #seq<FSharpAttribute>) (body: FSharpE
         matchExpr e
     let getStringConst = function
         | BasicPatterns.Const(:? string as str, _) -> str
-        | _ -> FableError("Import expressions can only be used with string literals", r) |> raise
+        | _ -> "Import expressions can only be used with string literals"
+               |> addError com ctx.fileName (Some r); ""
     try
         match tryFindAtt ((=) Atts.import) atts, body with
         | Some att, _ ->
@@ -965,7 +976,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             | None ->
                 let info =
                     { isInstance = meth.IsInstanceMember
-                    ; passGenerics = hasPassGenericsAtt meth }
+                    ; passGenerics = hasPassGenericsAtt com ctx meth }
                 bindMemberArgs com ctx info args
                 |> fun (ctx, _, args, extraArgs) ->
                     if memberLoc <> Fable.StaticLoc
@@ -989,11 +1000,13 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         declInfo.AddMethod(meth, entMember)
         declInfo, ctx
     let range = getMethLocation meth |> makeRange
-    let import = tryGetImport range meth.DisplayName meth.Attributes (Some body)
-    if Option.isSome import && hasAtt Atts.emit meth.Attributes then
-        let msg = sprintf "%s cannot be combined with %s for relative paths" Atts.emit Atts.import
-        FableError(msg, range) |> raise
-    if Option.isSome import
+    let import = tryGetImport com ctx range meth.DisplayName meth.Attributes (Some body)
+    if Option.isSome import && hasAtt Atts.emit meth.Attributes
+    then
+        sprintf "%s cannot be combined with %s for relative paths" Atts.emit Atts.import
+        |> addError com ctx.fileName (Some range)
+        declInfo, ctx
+    elif Option.isSome import
     then
         addMethod range import meth args body
     elif declInfo.IsIgnoredMethod meth
@@ -1020,7 +1033,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
 let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                                     (ent: FSharpEntity) subDecls =
     let range = getEntityLocation ent |> makeRange
-    let import = tryGetImport range ent.DisplayName ent.Attributes None
+    let import = tryGetImport com ctx range ent.DisplayName ent.Attributes None
     if Option.isSome import
     then
         let selector, path = import.Value
@@ -1061,7 +1074,7 @@ and private transformDeclarations (com: IFableCompiler) ctx decls =
                 let e = com.Transform ctx fe
                 declInfo.AddDeclaration(Fable.ActionDeclaration (e, makeRangeFrom fe))
                 declInfo, ctx
-        ) (DeclInfo(), ctx)
+        ) (DeclInfo(com, ctx.fileName), ctx)
     declInfo.GetDeclarations(com, ctx)
 
 let private getRootModuleAndDecls decls =
@@ -1138,7 +1151,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharp
             state.GetOrAddEntity(getEntityFullName tdef, fun () ->
                 match tryGetEntityImplementation checkedProject tdef with
                 | Some tdef -> makeEntity fcom tdef
-                | None -> FableError("Cannot find implementation of " + (getEntityFullName tdef)) |> raise)
+                | None -> failwith ("Cannot find implementation of " + (getEntityFullName tdef)))
         member fcom.GetInlineExpr meth =
             state.GetOrAddInlineExpr(meth.FullName, fun () ->
                 match tryGetMethodArgsAndBody checkedProject meth with
@@ -1150,7 +1163,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharp
                         |> Seq.collect id |> countRefs body
                     (upcast vars, body)
                 | None ->
-                    FableError("Cannot find inline method " + meth.FullName) |> raise)
+                    failwith ("Cannot find inline method " + meth.FullName))
         member fcom.AddInlineExpr(fullName, inlineExpr) =
             state.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
         member fcom.AddUsedVarName varName =
@@ -1160,7 +1173,8 @@ type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharp
     interface ICompiler with
         member __.Options = com.Options
         member __.Plugins = com.Plugins
-        member __.AddLog msg = com.AddLog msg
+        member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
+            com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
         member __.GetUniqueVar() = com.GetUniqueVar()
 
 let getRootModuleFullName (file: FSharpImplementationFileContents) =
@@ -1178,7 +1192,7 @@ let transformFile (com: ICompiler) (state: ICompilerState)
             |> Seq.tryFind (fun f -> Path.normalizeFullPath f.FileName = fileName)
             |> function
                 | Some file -> file
-                | None -> FableError("File doesn't belong to parsed project") |> raise
+                | None -> failwithf "File %s doesn't belong to parsed project %s" fileName state.ProjectFile
         let fcom = FableCompiler(com, state, checkedProject)
         let rootEnt, rootDecls =
             let fcom = fcom :> IFableCompiler
@@ -1194,5 +1208,4 @@ let transformFile (com: ICompiler) (state: ICompilerState)
                 emptyRootEnt, transformDeclarations fcom ctx rootDecls
         Fable.File(file.FileName, rootEnt, rootDecls, usedVarNames=fcom.UsedVarNames)
     with
-    | :? FableError as e -> FableError(e.Message, ?range=e.Range, file=fileName) |> raise
     | ex -> exn (sprintf "%s (%s)" ex.Message fileName, ex) |> raise

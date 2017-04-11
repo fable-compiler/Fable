@@ -221,9 +221,6 @@ module Util =
             wrap i.returnType args.Head
 
     let toInt com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
-        let notImplemented typ =
-            FableError(sprintf "Converting from/to %s is not yet supported" typ, ?range=i.range)
-            |> raise
         let kindIndex t =            //         0   1   2   3   4   5   6   7   8   9  10  11
             match t with             //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
             | Number Int8 -> 0       //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
@@ -582,21 +579,21 @@ module AstPass =
         match i.methodName with
         | Naming.StartsWith "import" _ ->
             let fail() =
-                FableError(sprintf "%s.%s only accepts literal strings"
-                            i.ownerFullName i.methodName, ?range=i.range) |> raise
+                sprintf "%s.%s only accepts literal strings" i.ownerFullName i.methodName
+                |> addError com i.fileName i.range
             let selector, args =
                 match i.methodName with
                 | "import" ->
                     match i.args with
                     | Fable.Value(Fable.StringConst selector)::args -> selector, args
-                    | _ -> fail()
+                    | _ -> fail(); "*", [makeStrConst "unknown"]
                 | "importMember" -> Naming.placeholder, i.args
                 | "importDefault" -> "default", i.args
                 | _ -> "*", i.args // importAllFrom
             let path =
                 match args with
                 | [Fable.Value(Fable.StringConst path)] -> path
-                | _ -> fail()
+                | _ -> fail(); "unknown"
             Fable.ImportRef(selector, path, Fable.CustomImport) |> Fable.Value |> Some
         | "op_BangBang" ->
             Fable.Wrapped (i.args.Head, i.methodTypeArgs.Head) |> Some
@@ -633,12 +630,12 @@ module AstPass =
         | "nameof" ->
             match i.args with
             | [Nameof name] -> name
-            | _ -> FableError("Cannot infer name of expression", ?range=i.range) |> raise
+            | _ -> "Cannot infer name of expression" |> addError com i.fileName i.range; "unknown"
             |> makeStrConst |> Some
         | "nameofLambda" ->
             match i.args with
             | [Fable.Value(Fable.Lambda(_,Nameof name,_))] -> name
-            | _ -> FableError("Cannot infer name of expression", ?range=i.range) |> raise
+            | _ -> "Cannot infer name of expression" |> addError com i.fileName i.range; "unknown"
             |> makeStrConst |> Some
         | "areEqual" ->
             match i.args with
@@ -669,18 +666,21 @@ module AstPass =
         | "applySpread" ->
             let callee, args =
                 match i.args with
-                | [callee; Fable.Value(Fable.TupleConst args)] -> callee, args
-                | [callee; arg] -> callee, [arg]
-                | _ -> FableError("Unexpected args passed to JsInterop.applySpread", ?range=i.range) |> raise
+                | [callee; Fable.Value(Fable.TupleConst args)] -> Some callee, args
+                | [callee; arg] -> Some callee, [arg]
+                | _ -> "Unexpected args passed to JsInterop.applySpread"
+                       |> addError com i.fileName i.range; None, []
             let args =
                 match List.rev args with
-                | [] ->  []
+                | [] -> []
                 | CoreCons "List"::rest -> List.rev rest
                 | Fable.Apply(CoreMeth "List" "ofArray",
                                 [Fable.Value(Fable.ArrayConst(Fable.ArrayValues spreadValues, _))], _,_,_)::rest ->
                     (List.rev rest) @ spreadValues
                 | expr::rest -> (List.rev rest) @ [Fable.Value(Fable.Spread expr)]
-            Fable.Apply(callee, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+            match callee with
+            | Some callee -> Fable.Apply(callee, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+            | None -> Fable.Value Fable.Null |> Some
         | _ -> None
 
     let references com (i: Fable.ApplyInfo) =
@@ -925,7 +925,8 @@ module AstPass =
             | [Type Fable.String]
             | [Type Fable.Char; Type(Fable.Number Int32)]
             | [Type Fable.String; Type(Fable.Number Int32)] -> icall i i.methodName |> Some
-            | _ -> FableError("The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex.", ?range=i.range) |> raise
+            | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
+                   |> addErrorAndReturnNull com i.fileName i.range |> Some
         | "trim" | "trimStart" | "trimEnd" ->
             let side =
                 match i.methodName with
@@ -1027,8 +1028,8 @@ module AstPass =
                 let res = emit i "isNaN($0) ? [false, $1] : [true, $0]" [Fable.IdentValue var |> Fable.Value; defValue]
                 Fable.Sequential([setter; res], i.range) |> Some
             | _ ->
-                FableError(sprintf "%s.%s only accepts a single argument"
-                            i.ownerFullName i.methodName, ?range=i.range) |> raise
+                sprintf "%s.%s only accepts a single argument" i.ownerFullName i.methodName
+                |> addErrorAndReturnNull com i.fileName i.range |> Some
         | "toString" ->
             match i.args with
             | [Type Fable.String as format] ->
@@ -1062,7 +1063,8 @@ module AstPass =
     let decimals com (i: Fable.ApplyInfo) =
         match i.methodName, i.args with
         | ".ctor", [Fable.Value (Fable.IdentValue _)] ->
-            FableError("Passing bound values to the constructor is not supported.", ?range=i.range) |> raise
+            "Passing bound values to the constructor is not supported."
+            |> addErrorAndReturnNull com i.fileName i.range |> Some
         | ".ctor", [Fable.Value (Fable.NumberConst (x, _))] ->
 #if FABLE_COMPILER
             makeNumConst (float x) |> Some
@@ -1131,7 +1133,8 @@ module AstPass =
         | "index" ->
             if not isGroup
             then propStr "index" i.callee.Value |> Some
-            else FableError("Accessing index of Regex groups is not supported", ?range=i.range) |> raise
+            else "Accessing index of Regex groups is not supported"
+                 |> addErrorAndReturnNull com i.fileName i.range |> Some
         | "value" ->
             if isGroup
             then i.callee.Value |> wrap i.returnType |> Some
@@ -1823,13 +1826,16 @@ module AstPass =
             | "getGenericTypeDefinition" -> makeTypeRefFrom com ent |> Some
             | "getTypeInfo" -> info.callee
             | "makeGenericType" ->
-                if not <| List.sameLength ent.GenericParameters info.args then
-                    FableError("Arguments have different length than generic parameters", ?range=info.range) |> raise
-                let genArgs2 =
-                    List.zip ent.GenericParameters info.args
-                    |> makeJsObject None
-                CoreLibCall("Util", Some "makeGeneric", false, [info.callee.Value; genArgs2])
-                |> makeCall None Fable.MetaType |> Some
+                if not <| List.sameLength ent.GenericParameters info.args
+                then
+                    "Arguments have different length than generic parameters"
+                    |> addErrorAndReturnNull com info.fileName info.range |> Some
+                else
+                    let genArgs2 =
+                        List.zip ent.GenericParameters info.args
+                        |> makeJsObject None
+                    CoreLibCall("Util", Some "makeGeneric", false, [info.callee.Value; genArgs2])
+                    |> makeCall None Fable.MetaType |> Some
             | _ -> None
         | _ ->
             let getTypeFullName args =

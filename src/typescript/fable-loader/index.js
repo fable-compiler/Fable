@@ -65,8 +65,18 @@ module.exports = function(buffer) {
             }
             else {
                 console.log("Fable loader received: " + msg.path);
-                ensureArray(data.infos).forEach(x => console.log(x));
-                ensureArray(data.warnings).forEach(x => this.emitWarning(x));
+                if (typeof data.logs === "object") {
+                    Object.keys(data.logs).forEach(key => {
+                        // TODO: Fail if there's one or more error logs?
+                        // That would prevent compilation of other files
+                        if (key === "warning" || key === "error") {
+                            ensureArray(data.logs[key]).forEach(x => this.emitWarning(new Error(x)));
+                        }
+                        else {
+                            ensureArray(data.logs[key]).forEach(x => console.log(x));
+                        }
+                    })
+                }
                 try {
                     var fsCode = null;
                     if (this.sourceMap) {

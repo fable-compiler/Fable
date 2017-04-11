@@ -114,7 +114,7 @@ let tryEvalMsBuildCondition (projDir: string) (condition: string) =
         let contains = projDir.Contains(m.Groups.[2].Value)
         // printfn "ProjDir contains '%s': %b (negate: %b) (%s)" m.Groups.[2].Value contains negate projDir
         if negate then not contains else contains
-    else FableError("Cannot evaluate MSBuild condition " + condition) |> raise
+    else failwith ("Cannot evaluate MSBuild condition " + condition)
 
 /// Ultra-simplistic resolution of .fsproj files
 let crackFsproj (projFile: string) =
@@ -158,9 +158,8 @@ let crackFsproj (projFile: string) =
                 | Some x -> RelativeDllReference x.Value
                 | None -> Another
         | _ -> Another
-    // Use FableError to prevent retryGetProjectOpts keeps trying
     if not(File.Exists(projFile)) then
-        FableError("File does not exist: " + projFile) |> raise
+        failwith ("File does not exist: " + projFile)
     let doc = XDocument.Load(projFile)
     let projDir = Path.GetDirectoryName(projFile) |> Path.normalizePath
     let sourceFiles, projectReferences, relativeDllReferences =
@@ -247,7 +246,7 @@ let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: st
     let define = Array.append define [|"FABLE_COMPILER"|]
     let projFile = Path.GetFullPath(projFile)
     if not(File.Exists(projFile)) then
-        FableError("File does not exist: " + projFile) |> raise
+        failwith ("File does not exist: " + projFile)
     let projOpts = retryGetProjectOpts checker define projFile
     Array.append (getBasicCompilerArgs define false) projOpts.OtherOptions
     |> makeProjectOptions projOpts.ProjectFileName projOpts.ProjectFileNames

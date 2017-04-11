@@ -31,10 +31,11 @@ type State(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProj
     member __.ProjectFile = projectOptions.ProjectFileName
     member __.CompiledFiles = compiledFiles
     interface ICompilerState with
+        member this.ProjectFile = projectOptions.ProjectFileName
         member this.GetRootModule(fileName) =
             match Map.tryFind fileName rootModules with
             | Some rootModule -> rootModule
-            | None -> FableError("Cannot find root module for " + fileName) |> raise
+            | None -> failwithf "Cannot find root module for %s" fileName
         member this.GetOrAddEntity(fullName, generate) =
             entities.GetOrAdd(fullName, fun _ -> generate())
         member this.GetOrAddInlineExpr(fullName, generate) =
@@ -52,8 +53,9 @@ type Compiler() =
     let mutable id = 0
     let mutable options' = getDefaultOptions()
     let mutable plugins': PluginInfo list = []
-    let logs = ResizeArray()
-    member __.Logs: Log seq = upcast logs
+    let logs = Dictionary<string,ResizeArray<string>>()
+    member __.Logs: IDictionary<string,string[]> =
+        logs |> Seq.map (fun kv -> kv.Key, Seq.toArray kv.Value) |> dict
     member __.Reset(?options, ?plugins) =
         id <- 0
         options' <- defaultArg options options'
@@ -62,7 +64,25 @@ type Compiler() =
     interface ICompiler with
         member __.Options = options'
         member __.Plugins = plugins'
-        member __.AddLog msg = logs.Add msg
+        member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
+            let tag = defaultArg tag "FABLE"
+            let severity =
+                match severity with
+                | Warning -> "warning"
+                | Error -> "error"
+                | Info -> "info"
+            let formattedMsg =
+                match fileName with
+                | Some file ->
+                    let range =
+                        match range with
+                        | Some r -> sprintf "%i, %i" r.start.line r.start.column
+                        | None -> "1"
+                    sprintf "%s(%s) : %s %s: %s" file range severity tag msg
+                | None -> msg
+            match logs.TryGetValue(severity) with
+            | true, v -> v.Add(formattedMsg)
+            | false, _ -> logs.Add(severity, ResizeArray[|formattedMsg|])
         member __.GetUniqueVar() =
             "$var" + (System.Threading.Interlocked.Increment(&id).ToString())
 
@@ -83,8 +103,7 @@ let loadPlugins pluginPaths (loadedPlugins: PluginInfo list) =
                     { path = path
                     ; plugin = Activator.CreateInstance x :?> IPlugin })
             with
-            | :? FableError as er -> raise er
-            | ex -> FableError(sprintf "Cannot load plugin %s: %s" path ex.Message) |> raise)
+            | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
     |> Seq.toList
 
 /// Returns an (errors, warnings) tuple
@@ -102,22 +121,22 @@ let parseErrors errors =
     |> Array.partition fst
     |> fun (ers, wns) -> Array.map snd ers, Array.map snd wns
 
-let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptions) =
+let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptions) (com: ICompiler) =
     printfn "Parsing F# project..."
     let checkProjectResults =
         projOptions
         |> checker.ParseAndCheckProject
         |> Async.RunSynchronously
-    let errors, warnings =
-        parseErrors checkProjectResults.Errors
-    if errors.Length = 0
-    then
-        printfn "F# project parsed successfully"
-        warnings |> Array.map Warning, checkProjectResults
-    else errors
-        |> Seq.append ["F# project contains errors:"]
-        |> String.concat "\n"
-        |> FableError |> raise
+    for er in checkProjectResults.Errors do
+        let severity =
+            match er.Severity with
+            | FSharpErrorSeverity.Warning -> Warning
+            | FSharpErrorSeverity.Error -> Error
+        let range =
+            { start={ line=er.StartLineAlternate; column=er.StartColumn}
+            ; ``end``={ line=er.EndLineAlternate; column=er.EndColumn} }
+        com.AddLog(er.Message, severity, range, er.FileName, "FSHARP")
+    checkProjectResults
 
 let createState checker projectOptions (com: ICompiler) (define: string[]) projFile =
     let projectOptions =
@@ -132,10 +151,7 @@ let createState checker projectOptions (com: ICompiler) (define: string[]) projF
                 for file in projectOptions.ProjectFileNames do
                     printfn "   %s" file
             projectOptions
-    let logs, checkedProject =
-        parseFSharpProject checker projectOptions
-    for log in logs do
-        com.AddLog(log)
+    let checkedProject = parseFSharpProject checker projectOptions com
     State(projectOptions, checkedProject)
 
 let toJsonAndReply =
@@ -150,27 +166,13 @@ let toJsonAndReply =
 let sendError replyChannel (ex: Exception) =
     let rec innerStack (ex: Exception) =
         if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
-    match ex with
-    | :? FableError as err ->
-        let errMessage = err.FormattedMessage
-        // Don't print stack trace for known Fable errors
-        printfn "%s" errMessage
-        ["error", errMessage] |> dict |> toJsonAndReply replyChannel
-    | ex ->
-        let stack = innerStack ex
-        printfn "ERROR: %s\n%s" ex.Message stack
-        ["error", ex.Message] |> dict |> toJsonAndReply replyChannel
+    let stack = innerStack ex
+    printfn "ERROR: %s\n%s" ex.Message stack
+    ["error", ex.Message] |> dict |> toJsonAndReply replyChannel
 
 let addLogs (com: Compiler) (file: Babel.Program) =
     let loc = defaultArg file.loc SourceLocation.Empty
-    let infos, warnings =
-        com.Logs
-        |> Seq.toArray
-        |> Array.partition (function Info _ -> true | Warning _ -> false)
-        |> fun (infos, warnings) ->
-            Array.map Log.message infos,
-            Array.map Log.message warnings
-    Babel.Program(file.fileName, loc, file.body, file.directives, infos, warnings)
+    Babel.Program(file.fileName, loc, file.body, file.directives, com.Logs)
 
 let updateState (checker: FSharpChecker) (com: Compiler) (state: State option)
                 astOutDir (define: string[]) (fileName: string) =
@@ -196,8 +198,7 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State option)
             | false, _ when fileName.EndsWith(".fsx") ->
                 createState checker None com define fileName
             | false, _ ->
-                sprintf "%s doesn't belong to project %s" fileName state.ProjectFile
-                |> FableError |> raise
+                failwithf "%s doesn't belong to project %s" fileName state.ProjectFile
     | None -> createFromScratch()
 
 let compile (com: Compiler) (state: State) (fileName: string) =
