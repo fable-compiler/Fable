@@ -204,10 +204,10 @@ module Helpers =
         | Some loc -> loc
         | None -> meth.DeclarationLocation
 
-    let getUnionCaseIndex r fsType unionCaseName =
+    let getUnionCaseIndex fsType unionCaseName =
         match tryDefinition fsType with
         | None ->
-            FableError("Cannot find Type definition for union case " + unionCaseName, makeRange r) |> raise
+            failwithf "Cannot find Type definition for union case %s" unionCaseName
         | Some tdef ->
             tdef.UnionCases
             |> Seq.findIndex (fun uc -> uc.Name = unionCaseName)
@@ -277,11 +277,12 @@ module Helpers =
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
-    let hasPassGenericsAtt (meth: FSharpMemberOrFunctionOrValue) =
+    let hasPassGenericsAtt com (ctx: Context) (meth: FSharpMemberOrFunctionOrValue) =
         match hasAtt Atts.passGenerics meth.Attributes with
         | true when hasRestParams meth ->
-            let r = getMethLocation meth |> makeRange
-            FableError(Atts.passGenerics + " is not compatible with ParamArrayAttribute", r) |> raise
+            Atts.passGenerics + " is not compatible with ParamArrayAttribute"
+            |> addError com ctx.fileName (getMethLocation meth |> makeRange |> Some)
+            false
         | result -> result
 
     let removeOmittedOptionalArguments (meth: FSharpMemberOrFunctionOrValue) args =
@@ -955,11 +956,11 @@ module Util =
     open Types
     open Identifiers
 
-    let validateGenArgs (ctx: Context) r (genParams: FSharpGenericParameter seq) (typArgs: FSharpType seq) =
+    let validateGenArgs com (ctx: Context) r (genParams: FSharpGenericParameter seq) (typArgs: FSharpType seq) =
         let fail typName genName =
             let typName = defaultArg typName ""
             sprintf "Type %s passed as generic param '%s must be decorated with %s or be `obj`" typName genName Atts.pojo
-            |> fun msg -> FableError(msg, ?range=r, file=ctx.fileName) |> raise
+            |> addError com ctx.fileName r
         if Seq.length genParams = Seq.length typArgs then
             Seq.zip genParams typArgs
             |> Seq.iter (fun (par, arg) ->
@@ -1073,7 +1074,7 @@ module Util =
     let (|Plugin|_|) (com: IFableCompiler) (info: Fable.ApplyInfo) _ =
         tryPlugin com info
 
-    let tryReplace (com: IFableCompiler) (ent: FSharpEntity option) (info: Fable.ApplyInfo) =
+    let tryReplace (com: IFableCompiler) ctx (ent: FSharpEntity option) (info: Fable.ApplyInfo) =
         let isInterface = function
             | Fable.DeclaredType(ent, _) when ent.Kind = Fable.Interface -> true
             | _ -> false
@@ -1082,12 +1083,13 @@ module Util =
             match Replacements.tryReplace com info with
             | Some _ as repl -> repl
             | None when isInterface info.ownerType -> None
-            | None -> FableError("Cannot find replacement for " +
-                        info.ownerFullName + "::" + info.methodName, ?range=info.range) |> raise
+            | None ->
+                sprintf "Cannot find replacement for %s::%s" info.ownerFullName info.methodName
+                |> addErrorAndReturnNull com ctx.fileName info.range |> Some
         | _ -> None
 
-    let (|Replaced|_|) (com: IFableCompiler) i owner (meth: FSharpMemberOrFunctionOrValue) =
-        tryReplace com owner i
+    let (|Replaced|_|) (com: IFableCompiler) ctx owner i (_: FSharpMemberOrFunctionOrValue) =
+        tryReplace com ctx owner i
 
     let matchGenericParams com ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) =
         let (|ResolveGeneric|) ctx (t: FSharpType) =
@@ -1157,8 +1159,8 @@ module Util =
         else macro
         |> fun macro -> macro, args@(List.rev extraArgs)
 
-    let (|Erased|_|) r typ (owner: FSharpEntity option) (callee, args)
-                        (meth: FSharpMemberOrFunctionOrValue) =
+    let (|Erased|_|) com (ctx: Context) r typ (owner: FSharpEntity option)
+                    (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         match owner with
         | Some owner ->
             match owner.Attributes with
@@ -1175,10 +1177,12 @@ module Util =
                         let m = makeGet r Fable.Any callee (makeStrConst methName)
                         Fable.Apply(m, args, Fable.ApplyMeth, typ, r)
                     | Fable.Constructor ->
-                        FableError("Erased type cannot have constructors", ?range=r) |> raise
+                        "Erased type cannot have constructors"
+                        |> addErrorAndReturnNull com ctx.fileName r
                     |> Some
                 | None ->
-                    FableError("Cannot call a static method of an erased type: " + meth.DisplayName, ?range=r) |> raise
+                    "Cannot call a static method of an erased type: " + meth.DisplayName
+                    |> addErrorAndReturnNull com ctx.fileName r |> Some
             | _ -> None
         | None -> None
 
@@ -1207,7 +1211,6 @@ module Util =
                         | _ -> [|com; i|]
                     emitMeth.Invoke(emitInstance, args) |> unbox |> Some
                 with
-                | :? AST.FableError as err -> raise err
                 | ex -> let exMsg = if ex.GetType() = typeof<TargetInvocationException>
                                     then ex.InnerException.Message else ex.Message
                         sprintf "Error when invoking %s.%s"
@@ -1317,7 +1320,7 @@ module Util =
     let makeCallFrom (com: IFableCompiler) ctx r typ
                      (meth: FSharpMemberOrFunctionOrValue)
                      (typArgs, methTypArgs) callee args =
-        validateGenArgs ctx r meth.GenericParameters methTypArgs
+        validateGenArgs com ctx r meth.GenericParameters methTypArgs
         let methArgTypes = getArgTypes com meth.CurriedParameterGroups
         let args =
             let args = ensureArity com methArgTypes args
@@ -1340,8 +1343,8 @@ module Util =
         | Plugin com i replaced -> replaced
         | Imported com ctx r typ i (typArgs, methTypArgs) args imported -> imported
         | Emitted com ctx r typ i (typArgs, methTypArgs) (callee, args) emitted -> emitted
-        | Erased r typ owner (callee, args) erased -> erased
-        | Replaced com i owner replaced -> replaced
+        | Erased com ctx r typ owner (callee, args) erased -> erased
+        | Replaced com ctx owner i replaced -> replaced
         | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         | ExtensionMember com ctx r typ (callee, args, methArgTypes) owner expr -> expr
         | Try (tryGetBoundExpr ctx r) e ->
@@ -1445,7 +1448,7 @@ module Util =
             | Plugin com i replaced -> replaced
             | Imported com ctx r typ i ([], []) [] imported -> imported
             | Emitted com ctx r typ i ([], []) (None, []) emitted -> emitted
-            | Replaced com i owner replaced -> replaced
+            | Replaced com ctx owner i replaced -> replaced
             | v -> resolveValue com ctx r typ owner v
         else
             resolveValue com ctx r typ None v

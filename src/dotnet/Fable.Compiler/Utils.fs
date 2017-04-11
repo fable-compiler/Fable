@@ -7,6 +7,7 @@ open Fable.AST
 type InlineExpr = IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr
 
 type ICompilerState =
+    abstract ProjectFile: string
     abstract GetRootModule: string -> string
     abstract GetOrAddEntity: string * (unit->Fable.Entity) -> Fable.Entity
     abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
@@ -90,11 +91,9 @@ module Json =
 #endif //!FABLE_COMPILER
 
 module Plugins =
-    let tryPlugin<'T,'V when 'T:>IPlugin> r (f: 'T->'V option) =
+    let tryPlugin<'T,'V when 'T:>IPlugin> (r: SourceLocation option) (f: 'T->'V option) =
         Seq.tryPick (fun (path: string, plugin: 'T) ->
             try f plugin
             with
-            | :? AST.FableError as err when err.Range.IsNone -> AST.FableError(err.Message, ?range=r) |> raise
-            | :? AST.FableError as err -> raise err
             | ex when Option.isSome r -> System.Exception(sprintf "Error in plugin %s: %s %O" path ex.Message r.Value, ex) |> raise
             | ex -> System.Exception(sprintf "Error in plugin %s: %s" path ex.Message, ex) |> raise)

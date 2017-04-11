@@ -447,10 +447,9 @@ let rec ensureArity com argTypes args =
                 makeApply com f.Range typ f args
                 |> makeLambdaExpr innerArgs
         elif expectedArgsLength > actualArgsLength then
-            if Option.isSome f.Range then
-                sprintf "A function with less arguments than expected has been wrapped at %O. %s"
-                        f.Range.Value "Side effects may be delayed."
-                |> Warning |> com.AddLog
+            // if Option.isSome f.Range then
+            //     com.AddLog("A function with less arguments than expected has been wrapped. " +
+            //                 "Side effects may be delayed.", Warning, f.Range.Value) // filename
             let innerArgs = List.take actualArgsLength outerArgs |> List.map argIdentToExpr
             let outerArgs = List.skip actualArgsLength outerArgs |> List.map argIdentToExpr
             let innerApply = makeApply com f.Range (Function(List.map Expr.getType outerArgs,typ)) f innerArgs
@@ -524,10 +523,12 @@ let compareDeclaredAndAppliedArgs declaredArgs appliedArgs =
         | x, y -> x = y
     listsEqual argEqual declaredArgs appliedArgs
 
-let addWarning (com: ICompiler) (file: string) (range: SourceLocation option) (warning: string) =
-    let range =
-        match range with
-        | Some r -> sprintf "%i, %i" r.start.line r.start.column
-        | None -> "1"
-    sprintf "%s(%s) : warning FABLE: %s" file range warning
-    |> Warning |> com.AddLog
+let addWarning (com: ICompiler) (fileName: string) (range: SourceLocation option) (warning: string) =
+    com.AddLog(warning, Warning, ?range=range, fileName=fileName)
+
+let addError (com: ICompiler) (fileName: string) (range: SourceLocation option) (warning: string) =
+    com.AddLog(warning, Error, ?range=range, fileName=fileName)
+
+let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLocation option) (error: string) =
+    com.AddLog(error, Error, ?range=range, fileName=fileName)
+    Value Null

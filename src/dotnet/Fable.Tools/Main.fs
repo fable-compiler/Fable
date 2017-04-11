@@ -2,6 +2,7 @@ module Fable.Tools.Main
 
 open System
 open System.IO
+open System.Diagnostics
 open System.Reflection
 open System.Runtime.InteropServices
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -21,7 +22,7 @@ let startProcess workingDir fileName args =
         else fileName, args
     printfn "CWD: %s" workingDir
     printfn "%s %s" fileName args
-    let p = new System.Diagnostics.Process()
+    let p = new Process()
     p.StartInfo.FileName <- fileName
     p.StartInfo.Arguments <- args
     p.StartInfo.WorkingDirectory <- workingDir
@@ -75,17 +76,26 @@ let debug (projFile: string) (define: string[]) =
     with
     | ex -> printfn "ERROR: %s\n%s" ex.Message ex.StackTrace
 
+let startServer port timeout onMessage continuation =
+    try
+        let work = Server.start port timeout onMessage
+        continuation work
+    with
+    | ex ->
+        printfn "Cannot start server, please check the port %i is free: %s" port ex.Message
+
 let startServerWithProcess port exec args =
     let agent = startAgent()
-    Server.start port -1 agent.Post |> Async.Start
-    let workingDir = Directory.GetCurrentDirectory()
-    let p = startProcess workingDir exec args
-    Console.CancelKeyPress.Add (fun _ ->
+    startServer port -1 agent.Post <| fun listen ->
+        Async.Start listen
+        let workingDir = Directory.GetCurrentDirectory()
+        let p = startProcess workingDir exec args
+        Console.CancelKeyPress.Add (fun _ ->
+            Server.stop port |> Async.RunSynchronously
+            printfn "Killing process..."
+            p.Kill())
+        p.WaitForExit()
         Server.stop port |> Async.RunSynchronously
-        printfn "Killing process..."
-        p.Kill())
-    p.WaitForExit()
-    Server.stop port |> Async.RunSynchronously
 
 [<EntryPoint>]
 let main argv =
@@ -111,7 +121,7 @@ let main argv =
     | Some "start" ->
         let port, timeout = argv.[1..] |> argsToMap |> getPortAndTimeout
         let agent = startAgent()
-        Server.start port timeout agent.Post |> Async.RunSynchronously
+        startServer port timeout agent.Post Async.RunSynchronously
     | Some "npm-run" ->
         let argsMap = argv.[2..] |> argsToMap
         let port, _ = argsMap |> getPortAndTimeout

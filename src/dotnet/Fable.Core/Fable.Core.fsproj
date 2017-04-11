@@ -7,8 +7,8 @@
     <FscToolPath>../../../lib/fsharp.compiler.tools.4.1.0</FscToolPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Compiler.fs" />
     <Compile Include="Util.fs" />
+    <Compile Include="Compiler.fs" />
     <Compile Include="Fable.Core.fs" />
     <Compile Include="AST/AST.Common.fs" />
     <Compile Include="AST/AST.Fable.fs" />
