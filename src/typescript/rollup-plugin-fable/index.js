@@ -1,0 +1,103 @@
+const path = require('path');
+const babel = require('babel-core');
+const client = require('./src/client.js');
+const babelPlugins = require('./src/babel-plugins.js');
+const { createFilter } = require('rollup-pluginutils');
+
+let fableCoreVersion = null;
+
+module.exports = (
+  {
+    include,
+    exclude,
+    babel: babelOpts = {
+      plugins: []
+    },
+    define = [],
+    plugins = [],
+    fableCore = null,
+    declaration = false,
+    typedArrays = true,
+    clampByteArrays = false,
+    port = 61225,
+    extra
+  } = {}
+) => {
+  const filter = createFilter(include, exclude);
+
+  return {
+    name: 'fable',
+    transform(code, id) {
+      if (!filter(id)) return;
+
+      if (!/\.fs$/.test(id) && !/.fsx$/.test(id) && !/.fsproj$/.test(id))
+        return;
+
+      babelOpts.plugins = [
+        babelPlugins.transformMacroExpressions,
+        babelPlugins.removeUnneededNulls
+      ].concat(babelOpts.plugins || []);
+
+      const msg = {
+        path: id,
+        define,
+        plugins,
+        fableCore,
+        declaration,
+        typedArrays,
+        clampByteArrays,
+        extra
+      };
+
+      if (fableCore == null) {
+        if (fableCoreVersion == null)
+          fableCoreVersion = require('fable-core/package.json').version;
+
+        msg.fableCore = path.join(__dirname, '../fable-core');
+        msg.fableCoreVersion = fableCoreVersion;
+      } else {
+        msg.fableCoreVersion = '*';
+      }
+
+      console.log(`Fable Plugin sent: ${msg.path}`);
+
+      return client
+        .send(port, JSON.stringify(msg))
+        .then(r => {
+          console.log(`Fable Plugin received: ${msg.path}`);
+
+          const data = JSON.parse(r);
+
+          const {
+            error = null,
+            infos = [],
+            warnings = []
+          } = data;
+
+          if (error) throw new Error(error);
+
+          infos.forEach(x => console.log(x));
+          warnings.forEach(x => this.warn(x));
+
+          let fsCode = null;
+          if (this.sourceMap) {
+            fsCode = code;
+            babelOpts.sourceMaps = true;
+            babelOpts.sourceFileName = path.relative(
+              process.cwd(),
+              data.fileName.replace(/\\/g, '/')
+            );
+          }
+          const transformed = babel.transformFromAst(data, fsCode, babelOpts);
+
+          return { code: transformed.code, map: transformed.map };
+        })
+        .catch(err => {
+          const msg = err.message +
+            '\nMake sure Fable server is running on port ' +
+            port;
+          throw new Error(msg);
+        });
+    }
+  };
+};

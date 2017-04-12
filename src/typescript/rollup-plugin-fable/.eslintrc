@@ -1,0 +1,43 @@
+{
+  "plugins": [
+    "prettier"
+  ],
+  "rules": {
+    "no-var": 2,
+    "linebreak-style": [
+      2,
+      "unix"
+    ],
+    "no-console": "off",
+    "curly": [
+      2,
+      "multi",
+      "consistent"
+    ],
+    "prefer-const": [
+      "error",
+      {
+        "destructuring": "all",
+        "ignoreReadBeforeAssign": false
+      }
+    ],
+    "prettier/prettier": [
+      "error",
+      {
+        "singleQuote": true
+      }
+    ]
+  },
+  "env": {
+    "es6": true,
+    "node": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 6,
+    "sourceType": "module"
+  },
+  "extends": [
+    "eslint:recommended",
+    "prettier"
+  ]
+}
