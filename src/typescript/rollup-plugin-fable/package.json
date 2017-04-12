@@ -1,0 +1,40 @@
+{
+  "name": "rollup-plugin-fable",
+  "version": "0.0.0",
+  "description": "Rollup Plugin for fable-compiler",
+  "main": "index.js",
+  "scripts": {
+    "eslint": "eslint ./"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fable-compiler/Fable.git"
+  },
+  "publishConfig": {
+    "registry": " https://registry.npmjs.org"
+  },
+  "keywords": [
+    "fable",
+    "fsharp",
+    "F#",
+    "rollup",
+    "plugin"
+  ],
+  "author": "",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/fable-compiler/Fable/issues"
+  },
+  "homepage": "https://github.com/fable-compiler/Fable#readme",
+  "devDependencies": {
+    "eslint": "3.19.0",
+    "eslint-config-prettier": "1.6.0",
+    "eslint-plugin-prettier": "2.0.1",
+    "prettier": "0.22.0",
+    "rollup-pluginutils": "2.0.1"
+  },
+  "peerDependencies": {
+    "babel-core": "^6.24.1",
+    "fable-core": "^1.0.0-narumi-906"
+  }
+}
