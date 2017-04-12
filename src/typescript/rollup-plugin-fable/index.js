@@ -6,8 +6,8 @@ const { createFilter } = require('rollup-pluginutils');
 
 let fableCoreVersion = null;
 const customPlugins = [
-    babelPlugins.getRemoveUnneededNulls(),
-    babelPlugins.getTransformMacroExpressions(babel.template)
+  babelPlugins.getRemoveUnneededNulls(),
+  babelPlugins.getTransformMacroExpressions(babel.template)
 ];
 
 module.exports = (
