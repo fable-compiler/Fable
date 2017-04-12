@@ -30,14 +30,14 @@
     "eslint": "3.19.0",
     "eslint-config-prettier": "1.6.0",
     "eslint-plugin-prettier": "2.0.1",
-    "prettier": "0.22.0",
-    "rollup-pluginutils": "2.0.1"
+    "prettier": "0.22.0"
   },
   "peerDependencies": {
     "babel-core": "^6.24.1",
     "fable-core": "^1.0.0-narumi-906"
   },
   "dependencies": {
-    "fable-utils": "^1.0.0"
+    "fable-utils": "^1.0.0",
+    "rollup-pluginutils": "2.0.1"
   }
 }
