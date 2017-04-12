@@ -1,6 +1,6 @@
 {
   "name": "rollup-plugin-fable",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Rollup Plugin for fable-compiler",
   "main": "index.js",
   "scripts": {
@@ -20,7 +20,7 @@
     "rollup",
     "plugin"
   ],
-  "author": "",
+  "author": "Joe Grund",
   "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/fable-compiler/Fable/issues"
@@ -36,5 +36,8 @@
   "peerDependencies": {
     "babel-core": "^6.24.1",
     "fable-core": "^1.0.0-narumi-906"
+  },
+  "dependencies": {
+    "fable-utils": "^1.0.0"
   }
 }

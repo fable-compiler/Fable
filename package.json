@@ -1,17 +1,18 @@
 {
-    "private": true,
-    "scripts": {
-        "tsc": "tsc",
-        "mocha": "mocha",
-        "webpack": "webpack"
-    },
-    "devDependencies": {
-        "typescript": "^2.2.1",
-        "webpack": "^2.2.1",
-        "mocha": "^3.2.0",
-        "babel-core": "^6.24.0",
-        "babel-loader": "^6.4.1",
-        "babel-preset-es2015": "^6.24.0",
-        "babel-preset-babili": "^0.0.12"
-    }
+  "private": true,
+  "scripts": {
+    "tsc": "tsc",
+    "mocha": "mocha",
+    "webpack": "webpack"
+  },
+  "devDependencies": {
+    "babel-core": "^6.24.0",
+    "babel-loader": "^6.4.1",
+    "babel-preset-babili": "^0.0.12",
+    "babel-preset-es2015": "^6.24.0",
+    "fable-utils": "^1.0.0",
+    "mocha": "^3.2.0",
+    "typescript": "^2.2.1",
+    "webpack": "^2.2.1"
+  }
 }

@@ -12,7 +12,12 @@
     "type": "git",
     "url": "https://github.com/fable-compiler/Fable.git"
   },
-  "keywords": ["fable","fsharp","F#","webpack"],
+  "keywords": [
+    "fable",
+    "fsharp",
+    "F#",
+    "webpack"
+  ],
   "bugs": {
     "url": "https://github.com/fable-compiler/Fable/issues"
   },
@@ -23,5 +28,8 @@
   "peerDependencies": {
     "fable-core": "^1.0.0-narumi-8",
     "babel-core": "^6.23.1"
+  },
+  "dependencies": {
+    "fable-utils": "^1.0.0"
   }
 }

@@ -1,7 +1,7 @@
 var path = require("path");
 var babel = require("babel-core");
-var client = require("./src/client.js");
-var babelPlugins = require("./src/babel-plugins.js");
+var client = require("fable-utils/client");
+var babelPlugins = require("fable-utils/babel-plugins");
 
 var DEFAULT_PORT = 61225;
 var fableCoreVersion = null;
@@ -18,6 +18,11 @@ function ensureArray(obj) {
     return Array.isArray(obj) ? obj : (obj != null ? [obj] : []);
 }
 
+var customPlugins = [
+    babelPlugins.getRemoveUnneededNulls(),
+    babelPlugins.getTransformMacroExpressions(babel.template)
+];
+
 module.exports = function(buffer) {
     this.cacheable();
     var callback = this.async();
@@ -25,10 +30,7 @@ module.exports = function(buffer) {
     var port = or(opts.port, DEFAULT_PORT);
 
     var babelOptions = opts.babel || {};
-    babelOptions.plugins = [
-        babelPlugins.transformMacroExpressions,
-        babelPlugins.removeUnneededNulls,
-    ].concat(babelOptions.plugins || []);
+    babelOptions.plugins = customPlugins.concat(babelOptions.plugins || []);
 
     var msg = {
         path: this.resourcePath,

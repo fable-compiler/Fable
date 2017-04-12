@@ -1,10 +1,14 @@
 const path = require('path');
 const babel = require('babel-core');
-const client = require('./src/client.js');
-const babelPlugins = require('./src/babel-plugins.js');
+const client = require('fable-utils/client');
+const babelPlugins = require('fable-utils/babel-plugins');
 const { createFilter } = require('rollup-pluginutils');
 
 let fableCoreVersion = null;
+const customPlugins = [
+    babelPlugins.getRemoveUnneededNulls(),
+    babelPlugins.getTransformMacroExpressions(babel.template)
+];
 
 module.exports = (
   {
@@ -33,10 +37,7 @@ module.exports = (
       if (!/\.fs$/.test(id) && !/.fsx$/.test(id) && !/.fsproj$/.test(id))
         return;
 
-      babelOpts.plugins = [
-        babelPlugins.transformMacroExpressions,
-        babelPlugins.removeUnneededNulls
-      ].concat(babelOpts.plugins || []);
+      babelOpts.plugins = customPlugins.concat(babelOpts.plugins || []);
 
       const msg = {
         path: id,

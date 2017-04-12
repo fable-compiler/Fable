@@ -1,10 +1,8 @@
-var babel = require("babel-core");
-var template = babel.template;
-
 /**
  * Removes unnecessary null statements (e.g. at the end of constructors)
  */
-exports.removeUnneededNulls = {
+exports.getRemoveUnneededNulls = function() {
+  return {
     visitor: {
         // Remove `null;` statements (e.g. at the end of constructors)
         ExpressionStatement: function (path) {
@@ -13,11 +11,14 @@ exports.removeUnneededNulls = {
             }
         }
     }
+  }
 };
+
 /**
  * Custom plugin to simulate macro expressions.
  */
-exports.transformMacroExpressions = {
+exports.getTransformMacroExpressions = function(babelTemplate) {
+  return {
     visitor: {
         StringLiteral: function (path) {
             var node = path.node;
@@ -70,8 +71,8 @@ exports.transformMacroExpressions = {
                     });
                 // console.log("MACRO 2: " + macro);
                 // console.log("MACRO ARGS: " + JSON.stringify(buildArgs));
-                // console.log("BUILT MACRO: " + JSON.stringify(template(macro)(buildArgs)));
-                var builtMacro = template(macro)(buildArgs);
+                // console.log("BUILT MACRO: " + JSON.stringify(babelTemplate(macro)(buildArgs)));
+                var builtMacro = babelTemplate(macro)(buildArgs);
                 if (builtMacro != null) {
                     path.replaceWithMultiple(builtMacro);
                 }
@@ -92,4 +93,5 @@ exports.transformMacroExpressions = {
             }
         }
     }
+  }
 };
