@@ -1,6 +1,6 @@
 {
   "name": "rollup-plugin-fable",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Rollup Plugin for fable-compiler",
   "main": "index.js",
   "scripts": {
