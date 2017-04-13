@@ -1,4 +1,4 @@
-import { toString } from "./Util"
+import { toString, hasInterface } from "./Util"
 import { escape } from "./RegExp"
 import { DateKind } from "./Date"
 import { second } from "./Date"
@@ -94,9 +94,6 @@ function toHex(value : number) {
 }
 
 export function fsFormat(str: string, ...args: any[]): Function | string {
-  function isObject(x: any) {
-    return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
-  }
   function formatOnce(str: any, rep: any) {
     return str.replace(fsFormatRegExp, function (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) {
       switch (format) {
@@ -109,17 +106,7 @@ export function fsFormat(str: string, ...args: any[]): Function | string {
         case "O":
           rep = toString(rep); break;
         case "A":
-          try {
-            rep = JSON.stringify(rep, function (k, v) {
-              return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v)
-                : v && typeof v.ToString === "function" ? toString(v) : v;
-            });
-          }
-          catch (err) {
-            // Fallback for objects with circular references
-            rep = "{" + Object.getOwnPropertyNames(rep).map(k => k + ": " + String(rep[k])).join(", ") + "}";
-          }
-          break;
+          rep = toString(rep, true); break;
         case "x":
           rep = toHex(Number(rep)); break;
         case "X":

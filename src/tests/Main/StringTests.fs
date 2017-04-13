@@ -48,6 +48,38 @@ let ``sprintf with percent symbols in arguments works``() = // See #329
       same "%% %%"
       same "%% % % %%"
 
+type MyUnion = Bar of int * int | Foo1 of string | Foo2 of string*string | Foo3 | Foo4 of MyUnion
+
+[<Test>]
+let ``Unions with sprintf %A``() =
+    Bar(1,5) |> sprintf "%A" |> equal "Bar (1,5)"
+    #if FABLE_COMPILER
+    Foo1 "ja" |> sprintf "%A" |> equal "Foo1 (\"ja\")"
+    Foo4 Foo3 |> sprintf "%A" |> equal "Foo4 (Foo3)"
+    Foo4(Foo1 "boo") |> sprintf "%A" |> equal "Foo4 (Foo1 (\"boo\"))"
+    #else
+    Foo1 "ja" |> sprintf "%A" |> equal "Foo1 \"ja\""
+    Foo4 Foo3 |> sprintf "%A" |> equal "Foo4 Foo3"
+    Foo4(Foo1 "boo") |> sprintf "%A" |> equal "Foo4 (Foo1 \"boo\")"
+    #endif
+    Foo3 |> sprintf "%A" |> equal "Foo3"
+    Foo4(Foo2("foo","bar")) |> sprintf "%A" |> equal "Foo4 (Foo2 (\"foo\",\"bar\"))"
+
+[<Test>]
+let ``Unions with string operator``() =
+    Bar(1,5) |> string |> equal "Bar (1,5)"
+    #if FABLE_COMPILER
+    Foo1 "ja" |> string |> equal "Foo1 (\"ja\")"
+    Foo4 Foo3 |> string |> equal "Foo4 (Foo3)"
+    Foo4(Foo1 "boo") |>string |> equal "Foo4 (Foo1 (\"boo\"))"
+    #else
+    Foo1 "ja" |> string |> equal "Foo1 \"ja\""
+    Foo4 Foo3 |> string |> equal "Foo4 Foo3"
+    Foo4(Foo1 "boo") |>string |> equal "Foo4 (Foo1 \"boo\")"
+    #endif
+    Foo3 |> string |> equal "Foo3"
+    Foo4(Foo2("foo","bar")) |> string |> equal "Foo4 (Foo2 (\"foo\",\"bar\"))"
+
 type Test(i: int) =
       override __.ToString() = string(i + i)
 

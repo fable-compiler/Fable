@@ -25,7 +25,7 @@ export default class List<T> implements IEquatable<List<T>>, IComparable<List<T>
   }
 
   ToString() {
-    return "[" + Array.from(this).map(toString).join("; ") + "]";
+    return "[" + Array.from(this).map(x => toString(x)).join("; ") + "]";
   }
 
   Equals(x: List<T>) {

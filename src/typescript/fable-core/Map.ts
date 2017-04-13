@@ -507,7 +507,7 @@ export default class FableMap<K,V> implements IEquatable<FableMap<K,V>>, ICompar
   constructor () {}
 
   ToString() {
-    return "map [" + Array.from(this).map(toString).join("; ") + "]";
+    return "map [" + Array.from(this).map(x => toString(x)).join("; ") + "]";
   }
 
   Equals(m2: FableMap<K,V>) {

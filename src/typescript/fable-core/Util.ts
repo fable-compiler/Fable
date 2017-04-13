@@ -148,8 +148,42 @@ export function isArray(obj: any) {
   return Array.isArray(obj) || ArrayBuffer.isView(obj);
 }
 
-export function toString(o: any) {
-  return o != null && typeof o.ToString == "function" ? o.ToString() : String(o);
+export function toString(obj: any, quoteStrings = false): string {
+  function isObject(x: any) {
+    return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
+  }
+  if (obj == null || typeof obj === "number") {
+    return String(obj);
+  }
+  if (typeof obj === "string") {
+    return quoteStrings ? JSON.stringify(obj) : obj;
+  }
+  if (typeof obj.ToString == "function") {
+    return obj.ToString();
+  }
+  if (hasInterface(obj, "FSharpUnion")) {
+    const info = obj[FSymbol.reflection]();
+    const uci = info.cases[obj.tag];
+    switch (uci.length) {
+      case 1:
+        return uci[0];
+      case 2:
+        // For simplicity let's always use parens, in .NET they're ommitted in some cases
+        return uci[0] + " (" + toString(obj.data, true) + ")";
+      default:
+        return uci[0] + " (" + obj.data.map((x: any) => toString(x, true)).join(",") + ")";
+    }
+  }
+  try {
+      return JSON.stringify(obj, function (k, v) {
+        return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v)
+          : v && typeof v.ToString === "function" ? toString(v) : v;
+      });
+  }
+  catch (err) {
+    // Fallback for objects with circular references
+    return "{" + Object.getOwnPropertyNames(obj).map(k => k + ": " + String(obj[k])).join(", ") + "}";
+  }
 }
 
 export function hash(x: any): number {

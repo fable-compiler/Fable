@@ -683,7 +683,7 @@ export default class FableSet<T> implements IEquatable<FableSet<T>>, IComparable
   constructor () {}
 
   ToString() {
-    return "set [" + Array.from(this).map(toString).join("; ") + "]";
+    return "set [" + Array.from(this).map(x => toString(x)).join("; ") + "]";
   }
 
   Equals(s2: FableSet<T>) {
