@@ -216,6 +216,7 @@ let releaseCore = Util.loadReleaseNotes "CORE"
 let releaseCoreJs = Util.loadReleaseNotes "CORE_JS"
 let releaseCompiler = Util.loadReleaseNotes "COMPILER"
 let releaseTools = Util.loadReleaseNotes "TOOLS"
+let releaseToolsJs = Util.loadReleaseNotes "TOOLS_JS"
 let releaseLoader = Util.loadReleaseNotes "LOADER"
 let releaseJsonConverter = Util.loadReleaseNotes "JSON_CONVERTER"
 
@@ -536,6 +537,7 @@ Target "PublishPackages" (fun () ->
 
     // Publish NPM packages
     pushNpm (Some buildCoreJs) releaseCoreJs.Value "src/typescript/fable-core"
+    pushNpm None releaseToolsJs.Value "src/typescript/fable-utils"
     pushNpm None releaseLoader.Value "src/typescript/fable-loader"
 )
 

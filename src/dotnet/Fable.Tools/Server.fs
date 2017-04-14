@@ -65,6 +65,7 @@ let start port timeout onMessage =
     let cts = new CancellationTokenSource()
     let buffer = Array.zeroCreate<byte> 8192
     let server = new TcpListener(IPAddress.Parse("127.0.0.1"), port)
+    server.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true)
     server.Start()
     printfn "Fable server started on port %i%s" port
         (if timeout >= 0 then sprintf " (timeout %ims)" timeout else "")
