@@ -65,6 +65,8 @@ let start port timeout onMessage =
     let cts = new CancellationTokenSource()
     let buffer = Array.zeroCreate<byte> 8192
     let server = new TcpListener(IPAddress.Parse("127.0.0.1"), port)
+    // This is needed to prevent errors in Unix when Fable server is restarted quickly
+    // See https://github.com/fable-compiler/Fable/issues/809#issuecomment-294073328
     server.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true)
     server.Start()
     printfn "Fable server started on port %i%s" port
