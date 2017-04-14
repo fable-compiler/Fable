@@ -81,9 +81,9 @@ let startServerWithProcess port exec args =
     let workingDir = Directory.GetCurrentDirectory()
     let p = startProcess workingDir exec args
     Console.CancelKeyPress.Add (fun _ ->
+        Server.stop port |> Async.RunSynchronously
         printfn "Killing process..."
-        p.Kill()
-        Server.stop port |> Async.RunSynchronously)
+        p.Kill())
     p.WaitForExit()
     Server.stop port |> Async.RunSynchronously
 
