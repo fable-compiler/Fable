@@ -36,7 +36,7 @@
             "program": "${workspaceRoot}/src/tools/temp/QuickTest.js",
             // "program": "${workspaceRoot}/temp2/webpack_test/node_modules/webpack/bin/webpack.js",
             "args": ["--help"],
-            "cwd": "${workspaceRoot}/temp2/webpack_test",
+            "cwd": "${workspaceRoot}/src/tools/temp",
             "stopOnEntry": true
         }
     ]
