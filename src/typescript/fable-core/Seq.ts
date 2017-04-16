@@ -2,6 +2,7 @@ import { IDisposable } from "./Util"
 import { equals } from "./Util"
 import { compare, hasInterface } from "./Util"
 import { permute as arrayPermute } from "./Array"
+import { chunkBySize as arrayChunkBySize } from "./Array"
 import List from "./ListClass"
 
 export class Enumerator<T> {
@@ -85,6 +86,7 @@ export function average(xs: Iterable<number>) {
   }, xs);
   return sum / count;
 }
+
 
 export function averageBy(f: (a: number) => number, xs: Iterable<number>) {
   let count = 1;
@@ -434,6 +436,11 @@ export function map3<T1, T2, T3, U>(f: (x: T1, y: T2, z: T3) => U, xs: Iterable<
       return !cur1.done && !cur2.done && !cur3.done ? [f(cur1.value, cur2.value, cur3.value), null] : null;
     });
   });
+}
+
+export function chunkBySize<T>(size: number, xs: Iterable<T>) : Iterable<Iterable<T>> {
+  var result = arrayChunkBySize(size, Array.from(xs));
+  return ofArray(result.map(ofArray));
 }
 
 export function mapFold<T, ST, R>(f: (acc: ST, x: T) => [R, ST], acc: ST, xs: Iterable<T>) {
