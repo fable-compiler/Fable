@@ -326,6 +326,13 @@ export function replicate(n: number, x: string) {
   return initialize(n, () => x);
 }
 
+export function getCharAtIndex(input: string, index: number) {
+  if (index < 0 || index > input.length)  {
+    throw new Error("System.IndexOutOfRangeException: Index was outside the bounds of the array.")
+  }
+  return input[index];
+}
+
 export function split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
   count = typeof count == "number" ? count : null;
   removeEmpty = typeof removeEmpty == "number" ? removeEmpty : null;

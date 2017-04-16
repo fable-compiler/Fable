@@ -906,6 +906,10 @@ module AstPass =
         | "toUpperInvariant" -> icall i "toUpperCase" |> Some
         | "toLower" -> icall i "toLocaleLowerCase" |> Some
         | "toLowerInvariant" -> icall i "toLowerCase" |> Some
+        | "chars" -> 
+            CoreLibCall("String", Some "getCharAtIndex", false, i.callee.Value::i.args)
+            |> makeCall i.range i.returnType 
+            |> Some
         | "indexOf" | "lastIndexOf" ->
             match i.args with
             | [Type Fable.Char]

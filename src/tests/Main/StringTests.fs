@@ -456,6 +456,13 @@ let ``String.Empty works``() =
       s |> equal ""
 
 [<Test>]
+let ``String.Chars works``() = 
+      let input = "hello"
+      input.Chars(2)
+      |> equal 'l'
+
+
+[<Test>]
 let ``String.Substring works``() =
       "abcdefg".Substring(2)
       |> equal "cdefg"
