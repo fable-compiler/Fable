@@ -84,6 +84,30 @@ export function unzip3<T1, T2, T3>(xs: ArrayLike<[T1, T2, T3]>) {
   return [bs, cs, ds];
 }
 
+
+export function chunkBySize<T>(size: number, xs: Array<T>) : Array<Array<T>> {
+  if (size < 1) {
+     throw new Error("The input must be positive. parameter name: chunkSize");
+  }
+
+  if (xs.length === 0) {
+    return [[]];
+  }
+
+  var result = [];
+  // add each chunk to the result
+  for (var x = 0; x < Math.ceil(xs.length / size); x++) {
+            
+    var start = x * size;
+    var end = start + size;
+            
+    result.push(xs.slice(start, end));
+            
+  }
+        
+    return result;
+}
+
 export function getSubArray<T>(xs: Array<T>, startIndex: number, count: number) {
   return xs.slice(startIndex, startIndex + count);
 }

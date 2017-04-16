@@ -71,6 +71,24 @@ let ``Seq.concat works``() =
     sumFirstTwo ys
     |> equal 3.
 
+
+[<Test>]
+let ``Seq.chunkBySize works``() = 
+    let xs = [1;2;3]
+    Seq.chunkBySize 1 xs // [[1]; [2]; [3]]
+    |> Seq.length
+    |> equal 3
+
+    Seq.chunkBySize 2 xs // [[1;2]; [3]]
+    |> Seq.head
+    |> Seq.sum 
+    |> equal 3
+
+    Seq.chunkBySize 10 xs // [[1;2;3]]
+    |> Seq.head
+    |> Seq.sum
+    |> equal 6
+
 [<Test>]
 let ``Seq.collect works``() =
     let xs = [[1.]; [2.]; [3.]; [4.]]
