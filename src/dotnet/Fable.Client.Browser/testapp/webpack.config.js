@@ -9,13 +9,30 @@ var babelOptions = {
     [resolve("../../../../node_modules/babel-preset-es2015"), {"modules": false}],
     //[resolve("../../../../node_modules/babel-preset-babili"), {}]
   ]
-}
+};
+
+var fableOptions = {
+  babel: babelOptions,
+  fableCore: resolve("../../../../build/fable-core"),
+  plugins: [],
+  define: [
+    "COMPILER_SERVICE",
+    "FX_NO_CORHOST_SIGNER",
+    "FX_NO_LINKEDRESOURCES",
+    "FX_NO_PDB_READER",
+    "FX_NO_PDB_WRITER",
+    "FX_NO_WEAKTABLE",
+    "NO_COMPILER_BACKEND",
+    "NO_INLINE_IL_PARSER",
+    "TRACE"
+  ]
+};
 
 module.exports = {
   target: 'node',
-  entry: resolve('./project.fsproj'),
+  entry: resolve('./testapp.fsproj'),
   output: {
-    filename: 'bundle.js',
+    filename: 'bundle.min.js',
     path: resolve('./out')
   },
   //devtool: "source-map",
@@ -25,22 +42,7 @@ module.exports = {
         test: /\.fs(x|proj)?$/,
         use: {
           loader: resolve("../../../typescript/fable-loader"),
-          options: {
-            babel: babelOptions,
-            fableCore: resolve("../../../../build/fable-core"),
-            plugins: [],
-            define: [
-              "COMPILER_SERVICE",
-              "FX_NO_CORHOST_SIGNER",
-              "FX_NO_LINKEDRESOURCES",
-              "FX_NO_PDB_READER",
-              "FX_NO_PDB_WRITER",
-              "FX_NO_WEAKTABLE",
-              "NO_COMPILER_BACKEND",
-              "NO_INLINE_IL_PARSER",
-              "TRACE"
-            ]
-          }
+          options: fableOptions
         }
       },
       {
