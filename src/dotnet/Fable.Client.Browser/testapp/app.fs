@@ -54,7 +54,6 @@ let main () =
             |> ignore
         let parseAll() =
             compileAst com checker (fileName, source)
-            |> Fable.Core.JsInterop.toJson
             |> ignore
         let bench i =
             let ms, _ = measureTime parseFCS
