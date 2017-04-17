@@ -363,6 +363,9 @@ let ``System.Random works``() =
     let x = rnd.Next(5)
     equal(true, x >= 0 && x < 5)
 
+    let y = rnd.NextDouble()
+    equal(true, y >= 0.0 && y < 1.0)
+
 let equals (x:'a) (y:'a) = x = y
 let compareTo (x:'a) (y:'a) = compare x y
 

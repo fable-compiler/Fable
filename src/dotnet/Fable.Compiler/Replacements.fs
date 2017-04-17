@@ -1865,6 +1865,10 @@ module AstPass =
                 | [min; max] -> min, max
                 | _ -> failwith "Unexpected arg count for Random.Next"
             ccall info "Util" "randomNext" [min; max] |> Some
+        | "nextDouble" ->
+            GlobalCall ("Math", Some "random", false, [])
+            |> makeCall info.range info.returnType 
+            |> Some
         | _ -> None
 
     let enumerable com (info: Fable.ApplyInfo) =
