@@ -7,16 +7,23 @@ open Fable
 open Fable.AST
 open Fable.Core
 
-
 let getDefaultOptions () : CompilerOptions =
     { fableCore = "fable-core"
     ; declaration = false
     ; typedArrays = true
     ; clampByteArrays = false }
 
+type System.Collections.Generic.Dictionary<'TKey, 'TValue> with
+    member x.GetOrAdd (key, valueFactory) =
+        match x.TryGetValue key with
+        | true, v -> v
+        | false, _ -> let v = valueFactory(key) in x.[key] <- v; v
+
+type ConcurrentDictionary<'TKey, 'TValue> = System.Collections.Generic.Dictionary<'TKey, 'TValue>
+
 type State(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
-    // let entities = ConcurrentDictionary<string, Fable.Entity>()
-    // let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
+    let entities = ConcurrentDictionary<string, Fable.Entity>()
+    let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let compiledFiles =
         let dic = System.Collections.Generic.Dictionary()
         for file in projectOptions.ProjectFileNames do
@@ -36,9 +43,9 @@ type State(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProj
             | Some rootModule -> rootModule
             | None -> FableError("Cannot find root module for " + fileName) |> raise
         member __.GetOrAddEntity(fullName, generate) =
-            generate() //entities.GetOrAdd(fullName, fun _ -> generate())
+            entities.GetOrAdd(fullName, fun _ -> generate())
         member __.GetOrAddInlineExpr(fullName, generate) =
-            generate() //inlineExprs.GetOrAdd(fullName, fun _ -> generate())
+            inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
 type Compiler(options, plugins) =
     let mutable id = 0
