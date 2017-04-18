@@ -190,9 +190,9 @@ module Util =
         | Fable.Number _ | Fable.ExtendedNumber (Int64 | UInt64) ->
             let arg =
                 match args.Head.Type, args.Tail with
-                | Fable.Number Int16, [_] -> emit i "$0 < 0 && $1 !== 10 ? 0xFFFF + $0 + 1 : $0" args
-                | Fable.Number Int32, [_] -> emit i "$0 < 0 && $1 !== 10 ? 0xFFFFFFFF + $0 + 1 : $0" args
-                | Fable.ExtendedNumber Int64, [_] -> emit i "$0.isNegative() && $1 !== 10 ? $0.toUnsigned() : $0" args
+                | Fable.Number Int16, [_] -> emit i "((x,y) => x < 0 && y !== 10 ? 0xFFFF + x + 1 : x)($0,$1)" args
+                | Fable.Number Int32, [_] -> emit i "((x,y) => x < 0 && y !== 10 ? 0xFFFFFFFF + x + 1 : x)($0,$1)" args
+                | Fable.ExtendedNumber Int64, [_] -> emit i "((x,y) => x.isNegative() && y !== 10 ? x.toUnsigned() : x)($0,$1)" args
                 | _ -> args.Head
             InstanceCall (arg, "toString", args.Tail)
             |> makeCall i.range i.returnType
