@@ -469,6 +469,161 @@ let ``System.Convert.ToDecimal works``() =
     Convert.ToDecimal(1.) |> equal x
     Convert.ToDecimal(1.m) |> equal x
 
+// String to number convertions (with base)
+
+[<Test>]
+let ``System.Convert.ToSByte with base works``() =
+    let x = "101"
+    Convert.ToSByte(x) |> equal 101y
+    Convert.ToSByte(x, 2) |> equal 5y
+    Convert.ToSByte(x, 8) |> equal 65y
+    Convert.ToSByte(x, 10) |> equal 101y
+
+[<Test>]
+let ``System.Convert.ToInt16 with base works``() =
+    let x = "101"
+    Convert.ToInt16(x) |> equal 101s
+    Convert.ToInt16(x, 2) |> equal 5s
+    Convert.ToInt16(x, 8) |> equal 65s
+    Convert.ToInt16(x, 10) |> equal 101s
+    Convert.ToInt16(x, 16) |> equal 257s
+
+[<Test>]
+let ``System.Convert.ToInt32 with base works``() =
+    let x = "101"
+    Convert.ToInt32(x) |> equal 101
+    Convert.ToInt32(x, 2) |> equal 5
+    Convert.ToInt32(x, 8) |> equal 65
+    Convert.ToInt32(x, 10) |> equal 101
+    Convert.ToInt32(x, 16) |> equal 257
+
+[<Test>]
+let ``System.Convert.ToInt64 with base works``() =
+    let x = "101"
+    Convert.ToInt64(x) |> equal 101L
+    Convert.ToInt64(x, 2) |> equal 5L
+    Convert.ToInt64(x, 8) |> equal 65L
+    Convert.ToInt64(x, 10) |> equal 101L
+    Convert.ToInt64(x, 16) |> equal 257L
+
+[<Test>]
+let ``System.Convert.ToByte with base works``() =
+    let x = "101"
+    Convert.ToByte(x) |> equal 101uy
+    Convert.ToByte(x, 2) |> equal 5uy
+    Convert.ToByte(x, 8) |> equal 65uy
+    Convert.ToByte(x, 10) |> equal 101uy
+
+[<Test>]
+let ``System.Convert.ToUInt16 with base works``() =
+    let x = "101"
+    Convert.ToUInt16(x) |> equal 101us
+    Convert.ToUInt16(x, 2) |> equal 5us
+    Convert.ToUInt16(x, 8) |> equal 65us
+    Convert.ToUInt16(x, 10) |> equal 101us
+    Convert.ToUInt16(x, 16) |> equal 257us
+
+[<Test>]
+let ``System.Convert.ToUInt32 with base works``() =
+    let x = "101"
+    Convert.ToUInt32(x) |> equal 101u
+    Convert.ToUInt32(x, 2) |> equal 5u
+    Convert.ToUInt32(x, 8) |> equal 65u
+    Convert.ToUInt32(x, 10) |> equal 101u
+    Convert.ToUInt32(x, 16) |> equal 257u
+
+[<Test>]
+let ``System.Convert.ToUInt64 with base works``() =
+    let x = "101"
+    Convert.ToUInt64(x) |> equal 101uL
+    Convert.ToUInt64(x, 2) |> equal 5uL
+    Convert.ToUInt64(x, 8) |> equal 65uL
+    Convert.ToUInt64(x, 10) |> equal 101uL
+    Convert.ToUInt64(x, 16) |> equal 257uL
+
+// Number to string convertions (with base)
+
+[<Test>]
+let ``System.Convert.ToString with base works``() =
+    Convert.ToString(Byte.MaxValue,2) |> equal "11111111"
+    Convert.ToString(Int16.MaxValue,2) |> equal "111111111111111"
+    Convert.ToString(Int32.MaxValue,2) |> equal "1111111111111111111111111111111"
+    Convert.ToString(Int64.MaxValue,2) |> equal "111111111111111111111111111111111111111111111111111111111111111"
+
+[<Test>]
+let ``System.Convert.ToString SByte works``() =
+    let x = "101"
+    Convert.ToString(101y) |> equal x
+
+[<Test>]
+let ``System.Convert.ToString Int16 works``() =
+    let x = "101"
+    Convert.ToString(101s) |> equal x
+    Convert.ToString(5s, 2) |> equal x
+    Convert.ToString(65s, 8) |> equal x
+    Convert.ToString(101s, 10) |> equal x
+    Convert.ToString(257s, 16) |> equal x
+    Convert.ToString(-5s, 16) |> equal "fffb"
+
+[<Test>]
+let ``System.Convert.ToString Int32 works``() =
+    let x = "101"
+    Convert.ToString(101) |> equal x
+    Convert.ToString(5, 2) |> equal x
+    Convert.ToString(65, 8) |> equal x
+    Convert.ToString(101, 10) |> equal x
+    Convert.ToString(257, 16) |> equal x
+    Convert.ToString(-5, 16) |> equal "fffffffb"
+
+[<Test>]
+let ``System.Convert.ToString Int64 works``() =
+    let x = "101"
+    Convert.ToString(101L) |> equal x
+    Convert.ToString(5L, 2) |> equal x
+    Convert.ToString(65L, 8) |> equal x
+    Convert.ToString(101L, 10) |> equal x
+    Convert.ToString(257L, 16) |> equal x
+    Convert.ToString(-5L, 16) |> equal "fffffffffffffffb"
+
+[<Test>]
+let ``System.Convert.ToString Byte works``() =
+    let x = "101"
+    Convert.ToString(101uy) |> equal x
+    Convert.ToString(5uy, 2) |> equal x
+    Convert.ToString(65uy, 8) |> equal x
+    Convert.ToString(101uy, 10) |> equal x
+
+[<Test>]
+let ``System.Convert.ToString UInt16 works``() =
+    let x = "101"
+    Convert.ToString(101us) |> equal x
+
+[<Test>]
+let ``System.Convert.ToString UInt32 works``() =
+    let x = "101"
+    Convert.ToString(101u) |> equal x
+
+[<Test>]
+let ``System.Convert.ToString UInt64 works``() =
+    let x = "101"
+    Convert.ToString(101uL) |> equal x
+
+[<Test>]
+let ``System.Convert.ToString Single works``() =
+    let x = "101"
+    Convert.ToString(101.f) |> equal x
+
+[<Test>]
+let ``System.Convert.ToString Double works``() =
+    let x = "101"
+    Convert.ToString(101.) |> equal x
+
+[<Test>]
+let ``System.Convert.ToString Decimal works``() =
+    let x = "101"
+    Convert.ToString(101.m) |> equal x
+
+
 //-------------------------------------
 // System.BitConverter
 //-------------------------------------
