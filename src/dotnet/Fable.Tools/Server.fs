@@ -64,7 +64,7 @@ let rec private loop timeout (server: TcpListener) (buffer: byte[]) (onMessage: 
 let start port timeout onMessage =
     let cts = new CancellationTokenSource()
     let buffer = Array.zeroCreate<byte> 8192
-    let server = new TcpListener(IPAddress.Parse("127.0.0.1"), port)
+    let server = TcpListener(IPAddress.Parse("127.0.0.1"), port)
     // This is needed to prevent errors in Unix when Fable server is restarted quickly
     // See https://github.com/fable-compiler/Fable/issues/809#issuecomment-294073328
     server.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true)
@@ -79,6 +79,4 @@ let stop port = async {
     let data = Encoding.UTF8.GetBytes(SIGTERM)
     use stream = client.GetStream()
     stream.Write(data, 0, data.Length)
-    while client.Connected do
-        do! Async.Sleep 200
 }
