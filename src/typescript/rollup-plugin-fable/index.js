@@ -71,14 +71,21 @@ module.exports = (
 
           const {
             error = null,
-            infos = [],
-            warnings = []
+            logs = {},
           } = data;
 
           if (error) throw new Error(error);
 
-          infos.forEach(x => console.log(x));
-          warnings.forEach(x => this.warn(x));
+          Object.keys(logs).forEach(key => {
+            // TODO: Fail if there's one or more error logs?
+            // That would prevent compilation of other files
+            if (key === "warning" || key === "error") {
+              ensureArray(logs[key]).forEach(x => this.warn(x));
+            }
+            else {
+              ensureArray(logs[key]).forEach(x => console.log(x));
+            }
+          })
 
           let fsCode = null;
           if (this.sourceMap) {
