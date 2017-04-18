@@ -179,17 +179,26 @@ module Util =
         | _ -> GlobalCall ("String", Some "fromCharCode", false, [arg])
                |> makeCall i.range i.returnType
 
-    let toString com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
-        match arg.Type with
+    let toString com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
+        match args.Head.Type with
         | Fable.Char
-        | Fable.String -> arg
-        | Fable.Unit | Fable.Boolean | Fable.Number _
+        | Fable.String -> args.Head
+        | Fable.Unit | Fable.Boolean
         | Fable.Array _ | Fable.Tuple _ | Fable.Function _ | Fable.Enum _ ->
-            GlobalCall ("String", None, false, [arg])
+            GlobalCall ("String", None, false, [args.Head])
+            |> makeCall i.range i.returnType
+        | Fable.Number _ | Fable.ExtendedNumber (Int64 | UInt64) ->
+            let arg =
+                match args.Head.Type, args.Tail with
+                | Fable.Number Int16, [_] -> emit i "$0 < 0 && $1 !== 10 ? 0xFFFF + $0 + 1 : $0" args
+                | Fable.Number Int32, [_] -> emit i "$0 < 0 && $1 !== 10 ? 0xFFFFFFFF + $0 + 1 : $0" args
+                | Fable.ExtendedNumber Int64, [_] -> emit i "$0.isNegative() && $1 !== 10 ? $0.toUnsigned() : $0" args
+                | _ -> args.Head
+            InstanceCall (arg, "toString", args.Tail)
             |> makeCall i.range i.returnType
         | Fable.MetaType | Fable.Any | Fable.GenericParam _
-        | Fable.ExtendedNumber _ | Fable.DeclaredType _ | Fable.Option _ ->
-            CoreLibCall ("Util", Some "toString", false, [arg])
+        | Fable.ExtendedNumber BigInt | Fable.DeclaredType _ | Fable.Option _ ->
+            CoreLibCall ("Util", Some "toString", false, [args.Head])
             |> makeCall i.range i.returnType
 
     let toFloat com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
@@ -815,7 +824,7 @@ module AstPass =
             -> toInt com info args |> Some
         | "toSingle" | "toDouble" | "toDecimal" -> toFloat com info args |> Some
         | "toChar" -> toChar com info args.Head |> Some
-        | "toString" -> toString com info args.Head |> Some
+        | "toString" -> toString com info args |> Some
         | "toEnum" -> args.Head |> Some
         | "createDictionary" ->
             makeDictionaryOrHashSet r typ "Map" false info.methodTypeArgs.Head args |> Some
@@ -1026,7 +1035,7 @@ module AstPass =
                 let format = emitNoInfo "'{0:' + $0 + '}'" [format]
                 CoreLibCall ("String", Some "format", false, [format;i.callee.Value])
                 |> makeCall i.range i.returnType |> Some
-            | _ -> toString com i i.callee.Value |> Some
+            | _ -> toString com i [i.callee.Value] |> Some
         | _ -> None
 
     let convert com (i: Fable.ApplyInfo) =
@@ -1038,7 +1047,9 @@ module AstPass =
             -> toInt com i i.args |> Some
         | "toSingle" | "toDouble" | "toDecimal"
             -> toFloat com i i.args |> Some
-        | _ -> None
+        | "toString"
+            -> toString com i i.args |> Some
+         | _ -> None
 
     let console com (i: Fable.ApplyInfo) =
         match i.methodName with
@@ -1274,7 +1285,7 @@ module AstPass =
                 let format = emitNoInfo "'{0:' + $0 + '}'" [format]
                 CoreLibCall ("String", Some "format", false, [format;i.callee.Value])
                 |> makeCall i.range i.returnType |> Some
-            | _ -> toString com i i.callee.Value |> Some
+            | _ -> toString com i [i.callee.Value] |> Some
         | _ -> None
 
     let keyValuePairs com (i: Fable.ApplyInfo) =
@@ -1784,7 +1795,7 @@ module AstPass =
         | "getHashCode" -> ccall i "Util" "hash" [i.callee.Value] |> Some
         | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
         | "referenceEquals" -> makeEqOp i.range i.args BinaryEqualStrict |> Some
-        | "toString" -> toString com i i.callee.Value |> Some
+        | "toString" -> toString com i [i.callee.Value] |> Some
         | "equals" -> staticArgs i.callee i.args |> equals true com i
         | "getType" ->
             match i.callee.Value.Type with
