@@ -115,6 +115,10 @@ let main argv =
   webpack             Start a server and invoke webpack (must be installed in current or a parent dir)
     --port              Port number (default 61225)
     --args              Args for Webpack, e.g.: `dotnet fable webpack --args -p`
+  shell-run           Start a server, run an abritrary command and shut it down
+    <cmd>            Name of the command to run, e.g.: `dotnet fable shell-run make`
+    --port              Port number (default 61225)
+    --args              Args for the command, e.g.: `dotnet fable shell-run make --args "build"`
   webpack-dev-server  Same as `webpack` command but invokes webpack-dev-server
 """
     | Some "--version" -> printfn "%s" Constants.VERSION
@@ -140,6 +144,15 @@ let main argv =
             | Some args -> webpackScript + " " + args
             | None -> webpackScript
         startServerWithProcess port "node" webpackScript
+    | Some "shell-run" ->
+        let cmd = argv.[1]
+        let argsMap = argv.[2..] |> argsToMap
+        let port, _ = argsMap |> getPortAndTimeout
+        let execArgs =
+            match Map.tryFind "args" argsMap with
+            | Some args -> args
+            | None -> ""
+        startServerWithProcess port cmd execArgs
     | Some "add" ->
         let packages = argv.[1..]
         let workingDir = Directory.GetCurrentDirectory()
