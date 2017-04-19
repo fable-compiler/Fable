@@ -524,11 +524,11 @@ let compareDeclaredAndAppliedArgs declaredArgs appliedArgs =
     listsEqual argEqual declaredArgs appliedArgs
 
 let addWarning (com: ICompiler) (fileName: string) (range: SourceLocation option) (warning: string) =
-    com.AddLog(warning, Warning, ?range=range, fileName=fileName)
+    com.AddLog(warning, Severity.Warning, ?range=range, fileName=fileName)
 
 let addError (com: ICompiler) (fileName: string) (range: SourceLocation option) (warning: string) =
-    com.AddLog(warning, Error, ?range=range, fileName=fileName)
+    com.AddLog(warning, Severity.Error, ?range=range, fileName=fileName)
 
 let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLocation option) (error: string) =
-    com.AddLog(error, Error, ?range=range, fileName=fileName)
+    com.AddLog(error, Severity.Error, ?range=range, fileName=fileName)
     Value Null

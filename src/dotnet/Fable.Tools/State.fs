@@ -68,9 +68,9 @@ type Compiler() =
             let tag = defaultArg tag "FABLE"
             let severity =
                 match severity with
-                | Warning -> "warning"
-                | Error -> "error"
-                | Info -> "info"
+                | Severity.Warning -> "warning"
+                | Severity.Error -> "error"
+                | Severity.Info -> "info"
             let formattedMsg =
                 match fileName with
                 | Some file ->
@@ -130,8 +130,8 @@ let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptio
     for er in checkProjectResults.Errors do
         let severity =
             match er.Severity with
-            | FSharpErrorSeverity.Warning -> Warning
-            | FSharpErrorSeverity.Error -> Error
+            | FSharpErrorSeverity.Warning -> Severity.Warning
+            | FSharpErrorSeverity.Error -> Severity.Error
         let range =
             { start={ line=er.StartLineAlternate; column=er.StartColumn}
             ; ``end``={ line=er.EndLineAlternate; column=er.EndColumn} }

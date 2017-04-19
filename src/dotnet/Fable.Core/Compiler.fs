@@ -6,6 +6,7 @@ type CompilerOptions =
     ; typedArrays: bool
     ; clampByteArrays: bool }
 
+[<RequireQualifiedAccess>]
 type Severity =
     | Warning
     | Error
