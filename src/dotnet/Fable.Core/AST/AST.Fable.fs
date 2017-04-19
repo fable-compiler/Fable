@@ -201,8 +201,11 @@ and ApplyInfo = {
     range: SourceLocation option
     fileName: string
     decorators: Decorator list
+    /// Generic arguments applied to the callee (for instance methods)
     calleeTypeArgs: Type list
+    /// Generic arguments applied to the method (not to be confused with `methodArgTypes`)
     methodTypeArgs: Type list
+    /// Types of arguments as appearing in method signature (not to be confused with `methodTypeArgs`)
     methodArgTypes: Type list
     genericAvailability: bool
 }

@@ -365,7 +365,7 @@ let runTestsJs () =
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
 
 let quickTest() =
-    Util.run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll webpack"
+    Util.run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll npm-run rollup"
     Node.run "." "src/tools/temp/QuickTest.js" []
 
 Target "QuickTest" quickTest

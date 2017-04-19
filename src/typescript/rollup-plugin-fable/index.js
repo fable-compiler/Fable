@@ -4,10 +4,6 @@ const client = require('fable-utils/client');
 const babelPlugins = require('fable-utils/babel-plugins');
 const { createFilter } = require('rollup-pluginutils');
 
-function ensureArray(obj) {
-  return Array.isArray(obj) ? obj : (obj != null ? [obj] : []);
-}
-
 let fableCoreVersion = null;
 const customPlugins = [
   babelPlugins.getRemoveUnneededNulls(),
@@ -83,6 +79,7 @@ module.exports = (
             // TODO: Fail if there's one or more error logs?
             // That would prevent compilation of other files
             if (key === 'warning' || key === 'error')
+              // Don't use `this.error` as it will stop the bundle
               ensureArray(logs[key]).forEach(x => this.warn(x));
             else ensureArray(logs[key]).forEach(x => console.log(x));
           });

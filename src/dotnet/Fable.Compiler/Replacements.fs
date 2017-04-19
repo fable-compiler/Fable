@@ -172,15 +172,15 @@ module Util =
     let newError r t args =
         Fable.Apply(makeIdentExpr "Error", args, Fable.ApplyCons, t, r)
 
-    let toChar com (i: Fable.ApplyInfo) (arg: Fable.Expr) =
-        match arg.Type with
+    let toChar com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (arg: Fable.Expr) =
+        match sourceType with
         | Fable.Char
         | Fable.String -> arg
         | _ -> GlobalCall ("String", Some "fromCharCode", false, [arg])
                |> makeCall i.range i.returnType
 
-    let toString com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
-        match args.Head.Type with
+    let toString com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
+        match sourceType with
         | Fable.Char
         | Fable.String -> args.Head
         | Fable.Unit | Fable.Boolean
@@ -189,7 +189,7 @@ module Util =
             |> makeCall i.range i.returnType
         | Fable.Number _ | Fable.ExtendedNumber (Int64 | UInt64) ->
             let arg =
-                match args.Head.Type, args.Tail with
+                match sourceType, args.Tail with
                 | Fable.Number Int16, [_] -> emit i "((x,y) => x < 0 && y !== 10 ? 0xFFFF + x + 1 : x)($0,$1)" args
                 | Fable.Number Int32, [_] -> emit i "((x,y) => x < 0 && y !== 10 ? 0xFFFFFFFF + x + 1 : x)($0,$1)" args
                 | Fable.ExtendedNumber Int64, [_] -> emit i "((x,y) => x.isNegative() && y !== 10 ? x.toUnsigned() : x)($0,$1)" args
@@ -201,8 +201,8 @@ module Util =
             CoreLibCall ("Util", Some "toString", false, [args.Head])
             |> makeCall i.range i.returnType
 
-    let toFloat com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
-        match args.Head.Type with
+    let toFloat com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
+        match sourceType with
         | Fable.String ->
             GlobalCall ("Number", Some "parseFloat", false, args)
             |> makeCall i.range i.returnType
@@ -220,7 +220,7 @@ module Util =
         | _ ->
             wrap i.returnType args.Head
 
-    let toInt com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
+    let toInt com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
         let kindIndex t =            //         0   1   2   3   4   5   6   7   8   9  10  11
             match t with             //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
             | Number Int8 -> 0       //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
@@ -241,13 +241,13 @@ module Util =
             let h = kindIndex typeTo   // return type (horizontal)
             ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
         let emitLong unsigned (args: Fable.Expr list) =
-            match args.Head.Type with
+            match sourceType with
             | ExtNumber (Int64|UInt64) ->
                 CoreLibCall("Long", Some "fromValue", false, args)
             | _ -> CoreLibCall("Long", Some "fromNumber", false, args@[makeBoolConst unsigned])
             |> makeCall i.range i.returnType
         let emitBigInt (args: Fable.Expr list) =
-            match args.Head.Type with
+            match sourceType with
             | ExtNumber (Int64|UInt64) ->
                 CoreLibCall("BigInt", Some "fromInt64", false, args)
             | _ -> CoreLibCall("BigInt", Some "fromInt32", false, args)
@@ -280,7 +280,7 @@ module Util =
             | Number Float64 -> "toDouble"
             // | Number Decimal -> "toDecimal"
             | NoNumber -> failwith "Unexpected non-number type"
-        match args.Head.Type with
+        match sourceType with
         | Fable.Char ->
             InstanceCall(args.Head, "charCodeAt", [makeIntConst 0])
             |> makeCall i.range i.returnType
@@ -821,10 +821,10 @@ module AstPass =
         | "toInt" | "toUInt"
         | "toInt32" | "toUInt32"
         | "toInt64" | "toUInt64"
-            -> toInt com info args |> Some
-        | "toSingle" | "toDouble" | "toDecimal" -> toFloat com info args |> Some
-        | "toChar" -> toChar com info args.Head |> Some
-        | "toString" -> toString com info args |> Some
+            -> toInt com info info.methodTypeArgs.Head args |> Some
+        | "toSingle" | "toDouble" | "toDecimal" -> toFloat com info info.methodTypeArgs.Head args |> Some
+        | "toChar" -> toChar com info info.methodTypeArgs.Head args.Head |> Some
+        | "toString" -> toString com info info.methodTypeArgs.Head args |> Some
         | "toEnum" -> args.Head |> Some
         | "createDictionary" ->
             makeDictionaryOrHashSet r typ "Map" false info.methodTypeArgs.Head args |> Some
@@ -1050,7 +1050,7 @@ module AstPass =
                 let format = emitNoInfo "'{0:' + $0 + '}'" [format]
                 CoreLibCall ("String", Some "format", false, [format;i.callee.Value])
                 |> makeCall i.range i.returnType |> Some
-            | _ -> toString com i [i.callee.Value] |> Some
+            | _ -> ccall i "Util" "toString" [i.callee.Value] |> Some
         | _ -> None
 
     let convert com (i: Fable.ApplyInfo) =
@@ -1059,11 +1059,11 @@ module AstPass =
         | "toInt16" | "toUInt16"
         | "toInt32" | "toUInt32"
         | "toInt64" | "toUInt64"
-            -> toInt com i i.args |> Some
+            -> toInt com i i.methodArgTypes.Head i.args |> Some
         | "toSingle" | "toDouble" | "toDecimal"
-            -> toFloat com i i.args |> Some
+            -> toFloat com i i.methodArgTypes.Head i.args |> Some
         | "toString"
-            -> toString com i i.args |> Some
+            -> toString com i i.methodArgTypes.Head i.args |> Some
          | _ -> None
 
     let console com (i: Fable.ApplyInfo) =
@@ -1302,7 +1302,7 @@ module AstPass =
                 let format = emitNoInfo "'{0:' + $0 + '}'" [format]
                 CoreLibCall ("String", Some "format", false, [format;i.callee.Value])
                 |> makeCall i.range i.returnType |> Some
-            | _ -> toString com i [i.callee.Value] |> Some
+            | _ -> ccall i "Util" "toString" [i.callee.Value] |> Some
         | _ -> None
 
     let keyValuePairs com (i: Fable.ApplyInfo) =
@@ -1812,7 +1812,7 @@ module AstPass =
         | "getHashCode" -> ccall i "Util" "hash" [i.callee.Value] |> Some
         | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
         | "referenceEquals" -> makeEqOp i.range i.args BinaryEqualStrict |> Some
-        | "toString" -> toString com i [i.callee.Value] |> Some
+        | "toString" -> ccall i "Util" "toString" [i.callee.Value] |> Some
         | "equals" -> staticArgs i.callee i.args |> equals true com i
         | "getType" ->
             match i.callee.Value.Type with
