@@ -1202,3 +1202,5 @@ module JS =
     let [<Global>] decodeURIComponent: string -> string = jsNative
     let [<Global>] encodeURI: string -> string = jsNative
     let [<Global>] encodeURIComponent: string -> string = jsNative
+
+    let [<Emit("debugger;")>] debugger () : unit = jsNative
