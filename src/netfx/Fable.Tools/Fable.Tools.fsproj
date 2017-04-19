@@ -1,0 +1,159 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>f6f9fd93-9f6d-4ea0-b7f8-689b2fc0277c</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Fable.Tools</RootNamespace>
+    <AssemblyName>Fable.Tools</AssemblyName>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <TargetFSharpCoreVersion>4.4.1.0</TargetFSharpCoreVersion>
+    <Name>Fable.Tools</Name>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <Tailcalls>false</Tailcalls>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;NETFX</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\$(Configuration)\$(AssemblyName).XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
+    <StartArguments>debug temp2/Test.fsx</StartArguments>
+    <StartWorkingDirectory>C:\Users\Alfonso\Documents\GitHub\Fable\</StartWorkingDirectory>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <DefineConstants>TRACE;NETFX</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\$(Configuration)\$(AssemblyName).XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup>
+    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
+  </PropertyGroup>
+  <Choose>
+    <When Condition="'$(VisualStudioVersion)' == '11.0'">
+      <PropertyGroup Condition=" '$(FSharpTargetsPath)' == '' AND Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets') ">
+        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup Condition=" '$(FSharpTargetsPath)' == '' AND Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets') ">
+        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+  <Import Project="$(FSharpTargetsPath)" />
+  <ItemGroup>
+    <None Include="App.config" />
+    <Content Include="packages.config" />
+    <Compile Include="..\..\dotnet\Fable.Core\Util.fs">
+      <Link>Util.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Core\Compiler.fs">
+      <Link>Compiler.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Core\Fable.Core.fs">
+      <Link>Fable.Core.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Core\AST\AST.Common.fs">
+      <Link>AST.Common.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Core\AST\AST.Fable.fs">
+      <Link>AST.Fable.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Core\AST\AST.Fable.Util.fs">
+      <Link>AST.Fable.Util.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Core\AST\AST.Babel.fs">
+      <Link>AST.Babel.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Core\Plugins.fs">
+      <Link>Plugins.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Compiler\Utils.fs">
+      <Link>Utils.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Compiler\Replacements.fs">
+      <Link>Replacements.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Compiler\FSharp2Fable.Util.fs">
+      <Link>FSharp2Fable.Util.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Compiler\FSharp2Fable.fs">
+      <Link>FSharp2Fable.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Compiler\Fable2Babel.fs">
+      <Link>Fable2Babel.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Tools\Constants.fs">
+      <Link>Constants.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Tools\ProjectCracker.fs">
+      <Link>ProjectCracker.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Tools\Printers.fs">
+      <Link>Printers.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Tools\Parser.fs">
+      <Link>Parser.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Tools\State.fs">
+      <Link>State.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Tools\Server.fs">
+      <Link>Server.fs</Link>
+    </Compile>
+    <Compile Include="..\..\dotnet\Fable.Tools\Main.fs">
+      <Link>Main.fs</Link>
+    </Compile>
+    <None Include="any\netstandard1.6\FSharp.Core.sigdata">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="any\netstandard1.6\FSharp.Core.optdata">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="FSharp.Compiler.Service">
+      <HintPath>..\..\..\..\FSharp.Compiler.Service\bin\v4.5\FSharp.Compiler.Service.dll</HintPath>
+    </Reference>
+    <Reference Include="FSharp.Core">
+      <HintPath>..\packages\FSharp.Core.4.1.12\lib\net45\FSharp.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="mscorlib" />
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\packages\Newtonsoft.Json.10.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Collections.Immutable">
+      <HintPath>..\packages\System.Collections.Immutable.1.3.1\lib\portable-net45+win8+wp8+wpa81\System.Collections.Immutable.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Reflection.Metadata">
+      <HintPath>..\packages\System.Reflection.Metadata.1.4.2\lib\portable-net45+win8\System.Reflection.Metadata.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
