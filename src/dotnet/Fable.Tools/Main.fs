@@ -5,11 +5,12 @@ open System.IO
 open System.Diagnostics
 open System.Reflection
 open System.Runtime.InteropServices
+open System.Net
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Parser
 open State
 
-let startProcess workingDir fileName args =
+let startProcess workingDir fileName args port =
     let fileName, args =
         let isWindows =
             #if NETFX
@@ -26,11 +27,16 @@ let startProcess workingDir fileName args =
     p.StartInfo.FileName <- fileName
     p.StartInfo.Arguments <- args
     p.StartInfo.WorkingDirectory <- workingDir
+    
+    match port with
+        | Some x -> p.StartInfo.Environment.["FABLE_SERVER_PORT"] <- x
+        | None -> ()
+
     p.Start() |> ignore
     p
 
 let runProcess workingDir fileName args =
-    let p = startProcess workingDir fileName args
+    let p = startProcess workingDir fileName args None
     p.WaitForExit()
     match p.ExitCode with
     | 0 -> ()
@@ -54,9 +60,17 @@ let argsToMap (argv: string[]) =
     with ex ->
         failwithf "Cannot convert arguments to dictionary: %A\n%s" argv ex.Message
 
+let getFreePort () =
+    let l = Sockets.TcpListener(System.Net.IPAddress.Loopback, 0)
+    l.Start()
+    let port = (l.LocalEndpoint :?> IPEndPoint).Port
+    l.Stop()
+    port
+
 let getPortAndTimeout argsMap =
     let port =
         match Map.tryFind "port" argsMap with
+        | Some "free" -> getFreePort()
         | Some port -> int port
         | None -> Constants.DEFAULT_PORT
     let timeout =
@@ -89,7 +103,7 @@ let startServerWithProcess port exec args =
     startServer port -1 agent.Post <| fun listen ->
         Async.Start listen
         let workingDir = Directory.GetCurrentDirectory()
-        let p = startProcess workingDir exec args
+        let p = startProcess workingDir exec args (Some (port.ToString()))
         Console.CancelKeyPress.Add (fun _ ->
             Server.stop port |> Async.RunSynchronously
             printfn "Killing process..."
@@ -106,18 +120,18 @@ let main argv =
   --version           Print version
   add                 Add one or several Fable npm packages
   start               Start Fable server
-  --port              Port number (default 61225)
+  --port              Port number (default 61225) or "free" to choose a free port. 
   --timeout           Stop the server if timeout (ms) is reached
   npm-run             Start a server, run an npm script and shut it down
     <script>            Name of the npm script, e.g.: `dotnet fable npm-run start`
-    --port              Port number (default 61225)
+    --port              Port number (default 61225) or "free" to choose a free port. 
     --args              Args for the npm script, e.g.: `dotnet fable npm-run build --args "-p --output-filename bundle.js"`
   webpack             Start a server and invoke webpack (must be installed in current or a parent dir)
-    --port              Port number (default 61225)
+    --port              Port number (default 61225) or "free" to choose a free port. 
     --args              Args for Webpack, e.g.: `dotnet fable webpack --args -p`
   shell-run           Start a server, run an abritrary command and shut it down
     <cmd>            Name of the command to run, e.g.: `dotnet fable shell-run make`
-    --port              Port number (default 61225)
+    --port              Port number (default 61225) or "free" to choose a free port. 
     --args              Args for the command, e.g.: `dotnet fable shell-run make --args "build"`
   webpack-dev-server  Same as `webpack` command but invokes webpack-dev-server
 """
