@@ -14,6 +14,9 @@ const customPlugins = [
   babelPlugins.getTransformMacroExpressions(babel.template)
 ];
 
+const ensureArray = obj =>
+  (Array.isArray(obj) ? obj : obj != null ? [obj] : []);
+
 module.exports = (
   {
     include,
@@ -38,8 +41,7 @@ module.exports = (
     transform(code, id) {
       if (!filter(id)) return;
 
-      if (!/\.fs$/.test(id) && !/.fsx$/.test(id) && !/.fsproj$/.test(id))
-        return;
+      if (!/\.(?:fs|fsx|fsproj)$/.test(id)) return;
 
       babelOpts.plugins = customPlugins.concat(babelOpts.plugins || []);
 
@@ -73,23 +75,17 @@ module.exports = (
 
           const data = JSON.parse(r);
 
-          const {
-            error = null,
-            logs = {},
-          } = data;
+          const { error = null, logs = {} } = data;
 
           if (error) throw new Error(error);
 
           Object.keys(logs).forEach(key => {
             // TODO: Fail if there's one or more error logs?
             // That would prevent compilation of other files
-            if (key === "warning" || key === "error") {
+            if (key === 'warning' || key === 'error')
               ensureArray(logs[key]).forEach(x => this.warn(x));
-            }
-            else {
-              ensureArray(logs[key]).forEach(x => console.log(x));
-            }
-          })
+            else ensureArray(logs[key]).forEach(x => console.log(x));
+          });
 
           let fsCode = null;
           if (this.sourceMap) {
@@ -105,9 +101,7 @@ module.exports = (
           return { code: transformed.code, map: transformed.map };
         })
         .catch(err => {
-          const msg = err.message +
-            '\nMake sure Fable server is running on port ' +
-            port;
+          const msg = `${err.message} \n Make sure Fable server is running on port ${port}`;
           throw new Error(msg);
         });
     }
