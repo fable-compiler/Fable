@@ -13,6 +13,7 @@
     "fable-utils": "^1.0.0",
     "mocha": "^3.2.0",
     "rollup": "^0.41.6",
+    "rollup-pluginutils": "^2.0.1",
     "typescript": "^2.2.2",
     "webpack": "^2.4.1"
   }
