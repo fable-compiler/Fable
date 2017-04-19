@@ -1,3 +1,3 @@
-### 1.0.0-narumi-911
+### 1.0.3
 
 * Check `FABLE_SERVER_PORT` environmental variable

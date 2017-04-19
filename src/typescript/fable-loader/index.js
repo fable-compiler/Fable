@@ -3,8 +3,11 @@ var babel = require("babel-core");
 var client = require("fable-utils/client");
 var babelPlugins = require("fable-utils/babel-plugins");
 
-var DEFAULT_PORT = 61225;
 var fableCoreVersion = null;
+var DEFAULT_PORT =
+    typeof process.env.FABLE_SERVER_PORT === "number"
+    ? process.env.FABLE_SERVER_PORT
+    : 61225;
 
 function or(option, _default) {
     return option !== void 0 ? option : _default;

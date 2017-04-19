@@ -218,6 +218,7 @@ let releaseCompiler = Util.loadReleaseNotes "COMPILER"
 let releaseTools = Util.loadReleaseNotes "TOOLS"
 let releaseToolsJs = Util.loadReleaseNotes "TOOLS_JS"
 let releaseLoader = Util.loadReleaseNotes "LOADER"
+let releaseRollup = Util.loadReleaseNotes "ROLLUP"
 let releaseJsonConverter = Util.loadReleaseNotes "JSON_CONVERTER"
 
 let dotnetcliVersion = "1.0.1"
@@ -539,6 +540,7 @@ Target "PublishPackages" (fun () ->
     pushNpm (Some buildCoreJs) releaseCoreJs.Value "src/typescript/fable-core"
     pushNpm None releaseToolsJs.Value "src/typescript/fable-utils"
     pushNpm None releaseLoader.Value "src/typescript/fable-loader"
+    pushNpm None releaseRollup.Value "src/typescript/rollup-plugin-fable"
 )
 
 Target "All" (fun () ->

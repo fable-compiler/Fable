@@ -5,6 +5,11 @@ const babelPlugins = require('fable-utils/babel-plugins');
 const { createFilter } = require('rollup-pluginutils');
 
 let fableCoreVersion = null;
+const DEFAULT_PORT =
+    typeof process.env.FABLE_SERVER_PORT === "number"
+    ? process.env.FABLE_SERVER_PORT
+    : 61225;
+
 const customPlugins = [
   babelPlugins.getRemoveUnneededNulls(),
   babelPlugins.getTransformMacroExpressions(babel.template)
@@ -26,7 +31,7 @@ module.exports = (
     declaration = false,
     typedArrays = true,
     clampByteArrays = false,
-    port = 61225,
+    port = DEFAULT_PORT,
     extra
   } = {}
 ) => {
