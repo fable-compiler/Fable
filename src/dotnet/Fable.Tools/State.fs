@@ -76,8 +76,8 @@ type Compiler() =
                 | Some file ->
                     let range =
                         match range with
-                        | Some r -> sprintf "%i, %i" r.start.line r.start.column
-                        | None -> "1"
+                        | Some r -> sprintf "%i,%i,%i,%i" r.start.line r.start.column r.``end``.line r.``end``.column
+                        | None -> "1,1,1,1"
                     sprintf "%s(%s) : %s %s: %s" file range severity tag msg
                 | None -> msg
             match logs.TryGetValue(severity) with

@@ -69,12 +69,18 @@ module.exports = function(buffer) {
                     Object.keys(data.logs).forEach(key => {
                         // TODO: Fail if there's one or more error logs?
                         // That would prevent compilation of other files
-                        if (key === "warning" || key === "error") {
-                            ensureArray(data.logs[key]).forEach(x => this.emitWarning(new Error(x)));
-                        }
-                        else {
-                            ensureArray(data.logs[key]).forEach(x => console.log(x));
-                        }
+                        ensureArray(data.logs[key]).forEach(msg => {
+                            switch (key)  {
+                                case "error":
+                                    this.emitError(new Error(msg));
+                                    break;
+                                case "warning":
+                                    this.emitWarning(new Error(msg));
+                                    break;
+                                default:
+                                    console.log(msg)
+                            }
+                        });
                     })
                 }
                 try {

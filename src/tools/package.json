@@ -1,6 +1,7 @@
 {
   "private": true,
   "scripts": {
+    "webpack": "node ../../node_modules/webpack/bin/webpack",
     "rollup": "node ../../node_modules/rollup/bin/rollup -c"
   }
 }
