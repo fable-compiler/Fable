@@ -22210,6 +22210,16 @@ Special cases where representation uses Lambda.
  Get the location associated with an error
 </summary>
 </member>
+<member name="M:Microsoft.FSharp.Compiler.CompileOps.DeduplicateParsedInputModuleName(System.Collections.Generic.Dictionary{System.String,Microsoft.FSharp.Collections.FSharpSet{System.String}},Microsoft.FSharp.Compiler.Ast.ParsedInput)">
+<summary>
+ Checks if a ParsedInput is using a module name that was already given and deduplicates the name if needed.
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Compiler.CompileOps.DeduplicateModuleName(System.Collections.Generic.Dictionary{System.String,Microsoft.FSharp.Collections.FSharpSet{System.String}},Microsoft.FSharp.Collections.FSharpSet{System.String},System.String,Microsoft.FSharp.Compiler.Ast.QualifiedNameOfFile)">
+<summary>
+ Checks if a module name is already given and deduplicates the name if needed.
+</summary>
+</member>
 <member name="M:Microsoft.FSharp.Compiler.CompileOps.GetFSharpCoreLibraryName">
 <summary>
  Get the name used for FSharp.Core
@@ -25452,6 +25462,21 @@ Special cases where representation uses Lambda.
 <member name="T:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns">
 <summary>
  A collection of active patterns to analyze expressions
+</summary>
+</member>
+<member name="P:Microsoft.FSharp.Compiler.SourceCodeServices.Keywords.KeywordsWithDescription">
+<summary>
+ Keywords paired with their descriptions. Used in completion and quick info.
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.Keywords.NormalizeIdentifierBackticks(System.String)">
+<summary>
+ Remove backticks if present.
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.Keywords.QuoteIdentifierIfNeeded(System.String)">
+<summary>
+ Add backticks if the identifier is a keyword.
 </summary>
 </member>
 <member name="P:Microsoft.FSharp.Compiler.SourceCodeServices.FSharpTokenTag.QUOTE">

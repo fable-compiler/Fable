@@ -1,15 +1,15 @@
 {
   "runtimeTarget": {
     "name": ".NETStandard,Version=v1.6/",
-    "signature": "fb621e81899f5981c016c5f1e3a27cd1c706d20d"
+    "signature": "1cb79787e63e8a3dcbb2d4d2544229f3eb96fe0b"
   },
   "compilationOptions": {},
   "targets": {
     ".NETStandard,Version=v1.6": {},
     ".NETStandard,Version=v1.6/": {
-      "fsharp.compiler.service/12.0.2": {
+      "fsharp.compiler.service/12.0.5": {
         "dependencies": {
-          "FSharp.Core": "4.1.2",
+          "FSharp.Core": "4.1.12",
           "FSharp.NET.Sdk": "1.0.2",
           "Microsoft.DiaSymReader": "1.1.0",
           "Microsoft.DiaSymReader.PortablePdb": "1.2.0",
@@ -44,7 +44,6 @@
           "System.Text.Encoding.Extensions": "4.3.0",
           "System.Threading": "4.3.0",
           "System.Threading.Tasks": "4.3.0",
-          "System.ValueTuple": "4.3.0",
           "runtime.native.System": "4.3.0",
           "runtime.native.System.IO.Compression": "4.3.0"
         },
@@ -53,7 +52,7 @@
         }
       },
       "fsharp.compiler.tools/4.1.1": {},
-      "fsharp.core/4.1.2": {
+      "fsharp.core/4.1.12": {
         "dependencies": {
           "System.Collections": "4.3.0",
           "System.Console": "4.3.0",
@@ -989,16 +988,6 @@
           "System.Runtime": "4.3.0"
         }
       },
-      "system.valuetuple/4.3.0": {
-        "dependencies": {
-          "System.Collections": "4.3.0",
-          "System.Resources.ResourceManager": "4.3.0",
-          "System.Runtime": "4.3.0"
-        },
-        "runtime": {
-          "lib/netstandard1.0/System.ValueTuple.dll": {}
-        }
-      },
       "system.xml.readerwriter/4.3.0": {
         "dependencies": {
           "System.Collections": "4.3.0",
@@ -1043,7 +1032,7 @@
     }
   },
   "libraries": {
-    "fsharp.compiler.service/12.0.2": {
+    "fsharp.compiler.service/12.0.5": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -1055,12 +1044,12 @@
       "path": "fsharp.compiler.tools/4.1.1",
       "hashPath": "fsharp.compiler.tools.4.1.1.nupkg.sha512"
     },
-    "fsharp.core/4.1.2": {
+    "fsharp.core/4.1.12": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-NCuQ52zJvitDlKPKFaKN/tZQexBezzhQQ3Z5brY7MJtCo73SqFbEJYxphnmBTxHioroTy6/z/GMwTFZG74192w==",
-      "path": "fsharp.core/4.1.2",
-      "hashPath": "fsharp.core.4.1.2.nupkg.sha512"
+      "sha512": "sha512-gmFSgPqZ81bRkTWzsKzto/KH+VAjxSBlYNRd6trvNU6xjCtQpNg9eQFBNUEA8x2KQqZf0LrnFyKEaXGdUWlSRQ==",
+      "path": "fsharp.core/4.1.12",
+      "hashPath": "fsharp.core.4.1.12.nupkg.sha512"
     },
     "fsharp.net.sdk/1.0.2": {
       "type": "package",
@@ -1663,13 +1652,6 @@
       "sha512": "sha512-ucp/5Ko2DSdwKllqQo33sz6kPotY+fqF/+ZjY4sRXdGvAfQT39Pfn/R5E3+brgQMQ8K7mViKx9JYVwWH3oiQgw==",
       "path": "system.threading.timer/4.3.0",
       "hashPath": "system.threading.timer.4.3.0.nupkg.sha512"
-    },
-    "system.valuetuple/4.3.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-cNLEvBX3d6MMQRZe3SMFNukVbitDAEpVZO17qa0/2FHxZ7Y7PpFRpr6m2615XYM/tYYYf0B+WyHNujqIw8Luwg==",
-      "path": "system.valuetuple/4.3.0",
-      "hashPath": "system.valuetuple.4.3.0.nupkg.sha512"
     },
     "system.xml.readerwriter/4.3.0": {
       "type": "package",

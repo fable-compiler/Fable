@@ -39,3 +39,16 @@ let ``mapError function can be generated``() =
 let ``bind function can be generated``() =
     let f = Error
     Ok 10 |> Result.bind f |> equal (Error 10)
+
+type Foo =
+    | Foo of Result<int, string>
+
+let foo (a: Foo): bool =
+    match a with
+    | Foo(Ok(_)) -> true
+    | _ -> false
+
+[<Test>]
+let ``Nesting Result in pattern matching works``() = // See #816
+    Ok 5 |> Foo |> foo |> equal true
+    Error "error" |> Foo |> foo |> equal false
