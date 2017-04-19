@@ -9,6 +9,15 @@ open Fable.Tests.Util
 // Parse and TryParse
 //-------------------------------------
 
+let tryParse f initial value =
+    #if FABLE_COMPILER
+    f(value)
+    #else
+    let res = ref initial
+    let success = f(value, NumberStyles.Number, CultureInfo("en-US"), res)
+    (success, !res)
+    #endif
+
 [<Test>]
 let ``System.Double.Parse works``() =
     #if FABLE_COMPILER
@@ -19,16 +28,15 @@ let ``System.Double.Parse works``() =
 
 [<Test>]
 let ``System.Double.TryParse works``() =
-    #if FABLE_COMPILER
-    let success1, res1 = Double.TryParse("1.5")
-    #else
-    let mutable res1 = 0.
-    let success1 = Double.TryParse("1.5", NumberStyles.Number, CultureInfo("en-US"), &res1)
-    #endif
-    equal true success1
-    equal 1.5 res1
-    let success2, _ = Double.TryParse("foo")
-    equal false success2
+    tryParse Double.TryParse 0.0 "1" |> equal (true, 1.0)
+    tryParse Double.TryParse 0.0 "    1     " |> equal (true, 1.0)
+    tryParse Double.TryParse 0.0 "1.5" |> equal (true, 1.5)
+    tryParse Double.TryParse 0.0 "    1.5     " |> equal (true, 1.5)
+    tryParse Double.TryParse 0.0 "foo" |> equal (false, 0.0)
+    tryParse Double.TryParse 0.0 "9X" |> equal (false, 0.0)
+    tryParse Double.TryParse 0.0 "X9" |> equal (false, 0.0)
+    tryParse Double.TryParse 0.0 "X9TRE34" |> equal (false, 0.0)
+    tryParse Double.TryParse 0.0 "9SayWhat12Huh" |> equal (false, 0.0)
 
 [<Test>]
 let ``System.Single.Parse works``() =
@@ -40,16 +48,15 @@ let ``System.Single.Parse works``() =
 
 [<Test>]
 let ``System.Single.TryParse works``() =
-    #if FABLE_COMPILER
-    let success1, res1 = Single.TryParse("1.5")
-    #else
-    let mutable res1 = 0.f
-    let success1 = Single.TryParse("1.5", NumberStyles.Number, CultureInfo("en-US"), &res1)
-    #endif
-    equal true success1
-    equal 1.5f res1
-    let success2, _ = Single.TryParse("foo")
-    equal false success2
+    tryParse Single.TryParse 0.0f "1" |> equal (true, 1.0f)
+    tryParse Single.TryParse 0.0f "    1     " |> equal (true, 1.0f)
+    tryParse Single.TryParse 0.0f "1.5" |> equal (true, 1.5f)
+    tryParse Single.TryParse 0.0f "    1.5     " |> equal (true, 1.5f)
+    tryParse Single.TryParse 0.0f "foo" |> equal (false, 0.0f)
+    tryParse Single.TryParse 0.0f "9X" |> equal (false, 0.0f)
+    tryParse Single.TryParse 0.0f "X9" |> equal (false, 0.0f)
+    tryParse Single.TryParse 0.0f "X9TRE34" |> equal (false, 0.0f)
+    tryParse Single.TryParse 0.0f "9SayWhat12Huh" |> equal (false, 0.0f)
 
 [<Test>]
 let ``System.Int32.Parse works``() =
@@ -69,11 +76,15 @@ let ``System.Int32.ToString works``() =
 
 [<Test>]
 let ``System.Int32.TryParse works``() =
-    let success1, res1 = Int32.TryParse("5")
-    equal true success1
-    equal 5 res1
-    let success2, _ = Int32.TryParse("foo")
-    equal false success2
+    tryParse Int32.TryParse 0 "1" |> equal (true, 1)
+    tryParse Int32.TryParse 0 "    1     " |> equal (true, 1)
+    tryParse Int32.TryParse 0 "1.5" |> equal (false, 0)
+    tryParse Int32.TryParse 0 "    1.5     " |> equal (false, 0)
+    tryParse Int32.TryParse 0 "foo" |> equal (false, 0)
+    tryParse Int32.TryParse 0 "9X" |> equal (false, 0)
+    tryParse Int32.TryParse 0 "X9" |> equal (false, 0)
+    tryParse Int32.TryParse 0 "X9TRE34" |> equal (false, 0)
+    tryParse Int32.TryParse 0 "9SayWhat12Huh" |> equal (false, 0)
 
 //-------------------------------------
 // System.Convert

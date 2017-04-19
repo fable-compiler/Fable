@@ -915,9 +915,9 @@ module AstPass =
         | "toUpperInvariant" -> icall i "toUpperCase" |> Some
         | "toLower" -> icall i "toLocaleLowerCase" |> Some
         | "toLowerInvariant" -> icall i "toLowerCase" |> Some
-        | "chars" -> 
+        | "chars" ->
             CoreLibCall("String", Some "getCharAtIndex", false, i.callee.Value::i.args)
-            |> makeCall i.range i.returnType 
+            |> makeCall i.range i.returnType
             |> Some
         | "indexOf" | "lastIndexOf" ->
             match i.args with
@@ -998,15 +998,25 @@ module AstPass =
         |> makeCall i.range i.returnType |> Some
 
     let parse (com: ICompiler) (i: Fable.ApplyInfo) isFloat =
-        let parseString str numberBase=
-            let meth, args, kind =
-                if isFloat
-                then "parseFloat", [str], Float64
-                else "parseInt", [str; makeIntConst numberBase], Int32
-            GlobalCall("Number", Some meth, false, args)
-                // Don't use Float64/Int32 as the return type here to prevent
-                // the result being wrapped with `| 0`
-            |> makeCall i.range Fable.Any //(Fable.Number kind)
+        // TODO what about Single ?
+        let numberModule =
+            if isFloat then
+                "Double"
+            else
+                "Int32"
+
+        let zero =
+            if isFloat then
+                makeNumConst 0.0
+            else
+                makeIntConst 0
+
+        let tryParse str defValue parser transformer =
+            CoreLibCall ("Util", Some "tryParse", false, [str; defValue; makeCoreRef numberModule (Some parser); transformer])
+
+        let parse str parser transformer =
+            CoreLibCall ("Util", Some "parse", false, [str; zero; makeCoreRef numberModule (Some parser); transformer])
+
         match i.methodName with
         | "isNaN" when isFloat ->
             match i.args with
@@ -1015,18 +1025,22 @@ module AstPass =
                 |> makeCall i.range (Fable.Number Float64)
                 |> Some
             | _ -> None
+        // TODO verify that the number is within the Int32/Double/Single range
         | "parse" | "tryParse" ->
             let hexConst = float System.Globalization.NumberStyles.HexNumber
             match i.methodName, i.args with
             | "parse", [str] ->
-                parseString str 10 |> Some
+                parse str "parseRadix10" (makeCoreRef "Util" (Some "parseNumber"))
+                |> makeCall i.range i.returnType |> Some
+
             | "parse", [str; Fable.Wrapped(Fable.Value(Fable.NumberConst(hexConst,_)), Fable.Enum _)] ->
-                parseString str 16 |> Some
+                parse str "parseRadix16" (makeCoreRef numberModule (Some "parseInt16"))
+                |> makeCall i.range i.returnType |> Some
+
             | "tryParse", [str; defValue] ->
-                let var = com.GetUniqueVar() |> makeIdent
-                let setter = Fable.VarDeclaration(var, parseString str 10, false)
-                let res = emit i "isNaN($0) ? [false, $1] : [true, $0]" [Fable.IdentValue var |> Fable.Value; defValue]
-                Fable.Sequential([setter; res], i.range) |> Some
+                tryParse str defValue "parseRadix10" (makeCoreRef "Util" (Some "parseNumber"))
+                |> makeCall i.range i.returnType |> Some
+
             | _ ->
                 sprintf "%s.%s only accepts a single argument" i.ownerFullName i.methodName
                 |> addErrorAndReturnNull com i.fileName i.range |> Some
@@ -1884,7 +1898,7 @@ module AstPass =
             ccall info "Util" "randomNext" [min; max] |> Some
         | "nextDouble" ->
             GlobalCall ("Math", Some "random", false, [])
-            |> makeCall info.range info.returnType 
+            |> makeCall info.range info.returnType
             |> Some
         | _ -> None
 
