@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "scripts": {
+    "rollup": "node ../../node_modules/rollup/bin/rollup -c"
+  }
+}

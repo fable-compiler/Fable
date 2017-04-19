@@ -4,6 +4,10 @@ const client = require('fable-utils/client');
 const babelPlugins = require('fable-utils/babel-plugins');
 const { createFilter } = require('rollup-pluginutils');
 
+function ensureArray(obj) {
+  return Array.isArray(obj) ? obj : (obj != null ? [obj] : []);
+}
+
 let fableCoreVersion = null;
 const customPlugins = [
   babelPlugins.getRemoveUnneededNulls(),
