@@ -10,10 +10,12 @@
     "babel-loader": "^6.4.1",
     "babel-preset-babili": "^0.0.12",
     "babel-preset-es2015": "^6.24.1",
-    "fable-utils": "^1.0.0",
     "mocha": "^3.2.0",
     "rollup": "^0.41.6",
     "rollup-pluginutils": "^2.0.1",
+    "rollup-plugin-fable": "file:./src/typescript/rollup-plugin-fable",
+    "fable-loader": "file:./src/typescript/fable-loader",
+    "fable-utils": "file:./src/typescript/fable-utils",
     "typescript": "^2.2.2",
     "webpack": "^2.4.1"
   }

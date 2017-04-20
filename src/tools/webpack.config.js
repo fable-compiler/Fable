@@ -21,7 +21,7 @@ module.exports = {
       {
         test: /\.fs(proj|x)?$/,
         use: {
-          loader: resolve("../typescript/fable-loader"),
+          loader: "fable-loader",
           options: {
             define: ["DEBUG"],
             fableCore: resolve("../../build/fable-core"),

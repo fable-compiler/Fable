@@ -1,4 +1,4 @@
-var fable = require('../typescript/rollup-plugin-fable')
+var fable = require('rollup-plugin-fable')
 var path = require('path')
 
 function resolve(filePath) {
