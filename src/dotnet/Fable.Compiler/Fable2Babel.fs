@@ -175,9 +175,9 @@ module Util =
 
     let rec tryFindMember (ownerName: string) membName entName decls =
         decls |> List.tryPick (function
-            | Fable.EntityDeclaration(ent,_,subDecls,_) when ownerName.StartsWith(ent.FullName) ->
+            | Fable.EntityDeclaration(ent,_,_,subDecls,_) when ownerName.StartsWith(ent.FullName) ->
                 tryFindMember ownerName membName ent.FullName subDecls
-            | Fable.MemberDeclaration(m, privateName,_,_,_) when ownerName = entName && m.Name = membName ->
+            | Fable.MemberDeclaration(m,_,privateName,_,_,_) when ownerName = entName && m.Name = membName ->
                 Some(m, privateName)
             | _ -> None)
 
@@ -448,7 +448,7 @@ module Util =
         | Some _ as baseClass ->
             members
             |> List.map (fun (m, args, body: Fable.Expr) ->
-                Fable.MemberDeclaration(m, None, args, body, body.Range))
+                Fable.MemberDeclaration(m, true, None, args, body, body.Range))
             |> com.TransformClass ctx range baseClass
             |> fun c -> upcast NewExpression(c, [], ?loc=range)
         | None ->
@@ -885,7 +885,7 @@ module Util =
         let interfaces = match ent with | Some e -> e.Interfaces | None -> []
         decls
         |> List.map (function
-            | Fable.MemberDeclaration(m, _, args, body, range) ->
+            | Fable.MemberDeclaration(m, _, _, args, body, range) ->
                 let kind, name, loc, computed, body =
                     match m.Kind with
                     | Fable.Constructor ->
@@ -978,7 +978,7 @@ module Util =
             [expDecl :> ModuleDeclaration |> U2.Case2; decl :> Statement |> U2.Case1]
 
     let transformModMember (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent
-                           (m: Fable.Member, privName, args, body, range) =
+                           (m: Fable.Member, isPublic, privName, args, body, range) =
         let expr =
             match m.Kind with
             | Fable.Getter | Fable.Field ->
@@ -998,7 +998,7 @@ module Util =
             match range, expr.loc with Some r1, Some r2 -> Some(r1 + r2) | _ -> None
         if m.TryGetDecorator("EntryPoint").IsSome
         then declareEntryPoint com ctx expr |> U2.Case1 |> List.singleton
-        else helper.DeclareMember(memberRange, m.OverloadName, privName, m.IsPublic, m.IsMutable, modIdent, expr)
+        else helper.DeclareMember(memberRange, m.OverloadName, privName, isPublic, m.IsMutable, modIdent, expr)
 
     let declareInterfaceEntity (com: IBabelCompiler) (ent: Fable.Entity) =
         // TODO: Add `extends` (inherited interfaces)
@@ -1011,16 +1011,16 @@ module Util =
         |> U2.Case1 |> List.singleton
 
     let declareClass com ctx (helper: IDeclareMember) modIdent
-                     (ent: Fable.Entity) privateName entDecls entRange baseClass =
+                     (ent: Fable.Entity, isPublic, privateName, entDecls, entRange, baseClass) =
         let classDecl =
             // Don't create a new context for class declarations
             let classExpr = transformClass com ctx entRange (Some ent) baseClass entDecls
-            helper.DeclareMember(entRange, ent.Name, Some privateName, ent.IsPublic, false, modIdent, classExpr)
+            helper.DeclareMember(entRange, ent.Name, Some privateName, isPublic, false, modIdent, classExpr)
         let classDecl =
             (declareType com ctx ent |> U2.Case1)::classDecl
         // Check if there's a static constructor
         entDecls |> Seq.exists (function
-            | Fable.MemberDeclaration(m,_,_,_,_) ->
+            | Fable.MemberDeclaration(m,_,_,_,_,_) ->
                 match m.Name, m.Kind, m.Location with
                 | ".cctor", Fable.Method, Fable.StaticLoc -> true
                 | _ -> false
@@ -1066,25 +1066,25 @@ module Util =
                 // so we have to revert these too
                 |> List.rev
                 |> List.append <| acc
-            | Fable.MemberDeclaration(m,privName,args,body,r) ->
+            | Fable.MemberDeclaration(m, isPublic, privName, args, body, r) ->
                 match m.Kind with
                 | Fable.Constructor | Fable.Setter _ -> acc // Only happens for VS tests
-                | _ -> transformModMember com ctx helper modIdent (m,privName,args,body,r) @ acc
-            | Fable.EntityDeclaration (ent, privateName, entDecls, entRange) ->
+                | _ -> transformModMember com ctx helper modIdent (m,isPublic,privName,args,body,r) @ acc
+            | Fable.EntityDeclaration (ent, isPublic, privName, entDecls, entRange) ->
                 match ent.Kind with
                 | Fable.Interface ->
                     declareInterfaceEntity com ent
                 | Fable.Class(baseClass, _) ->
                     let baseClass = baseClass |> Option.map snd
-                    declareClass com ctx helper modIdent ent privateName entDecls entRange baseClass
+                    declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, baseClass)
                 | Fable.Exception _ ->
                     let baseClass = Some(Fable.Value(Fable.IdentValue(Fable.Ident("Error"))))
-                    declareClass com ctx helper modIdent ent privateName entDecls entRange baseClass
+                    declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, baseClass)
                 | Fable.Union _ | Fable.Record _ ->
-                    declareClass com ctx helper modIdent ent privateName entDecls entRange None
+                    declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, None)
                 | Fable.Module ->
                     let m = transformNestedModule com ctx ent entDecls entRange
-                    helper.DeclareMember(entRange, ent.Name, Some privateName, ent.IsPublic, false, modIdent, m)
+                    helper.DeclareMember(entRange, ent.Name, Some privName, isPublic, false, modIdent, m)
                 |> List.append <| acc) []
         |> fun decls ->
             match modIdent with
@@ -1186,7 +1186,7 @@ module Compiler =
                 rootEntitiesPrivateNames =
                     file.Declarations
                     |> Seq.choose (function
-                        | Fable.EntityDeclaration(ent, privName, _, _) when ent.Name <> privName ->
+                        | Fable.EntityDeclaration(ent,_,privName,_,_) when ent.Name <> privName ->
                             Some(ent.Name, privName)
                         | _ -> None)
                     |> Map

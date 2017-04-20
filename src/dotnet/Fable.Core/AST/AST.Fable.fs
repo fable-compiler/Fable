@@ -62,11 +62,10 @@ and EntityKind =
     | Interface
 
 and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
-           ?genParams, ?interfaces, ?decorators, ?isPublic) =
+           ?genParams, ?interfaces, ?decorators) =
     let genParams = defaultArg genParams []
     let decorators = defaultArg decorators []
     let interfaces = defaultArg interfaces []
-    let isPublic = defaultArg isPublic true
     member x.Kind: EntityKind = kind.Value
     member x.File: string option = file
     member x.FullName: string = fullName
@@ -74,7 +73,6 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     member x.GenericParameters: string list = genParams
     member x.Interfaces: string list = interfaces
     member x.Decorators: Decorator list = decorators
-    member x.IsPublic: bool = isPublic
     member x.Name =
         x.FullName.Substring(x.FullName.LastIndexOf('.') + 1)
     member x.Namespace =
@@ -106,7 +104,7 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
                 | [Unit] -> List.isEmpty m.ArgumentTypes
                 | argTypes -> argsEqual m.ArgumentTypes argTypes)
     static member CreateRootModule fileName =
-        Entity (lazy Module, Some fileName, "", lazy [], [], [], [], true)
+        Entity (lazy Module, Some fileName, "", lazy [])
 
     override x.ToString() = sprintf "%s %A" x.Name x.Kind
 
@@ -114,13 +112,13 @@ and Declaration =
     | ActionDeclaration of Expr * SourceLocation option
     /// Module members are also declared as variables, so they need
     /// a private name that doesn't conflict with enclosing scope (see #130)
-    | EntityDeclaration of Entity * privateName: string * Declaration list * SourceLocation option
-    | MemberDeclaration of Member * privateName: string option * args: Ident list * body: Expr * SourceLocation option
+    | EntityDeclaration of Entity * isPublic: bool * privateName: string * Declaration list * SourceLocation option
+    | MemberDeclaration of Member * isPublic: bool * privateName: string option * args: Ident list * body: Expr * SourceLocation option
     member x.Range =
         match x with
         | ActionDeclaration (_,r) -> r
-        | EntityDeclaration (_,_,_,r) -> r
-        | MemberDeclaration (_,_,_,_,r) -> r
+        | EntityDeclaration (_,_,_,_,r) -> r
+        | MemberDeclaration (_,_,_,_,_,r) -> r
 
 and MemberKind =
     | Constructor
@@ -135,7 +133,7 @@ and MemberLoc =
     | InterfaceLoc of string
 
 and Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?decorators,
-           ?isPublic, ?isMutable, ?computed, ?hasRestParams, ?overloadIndex) =
+           ?isMutable, ?computed, ?hasRestParams, ?overloadIndex) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
     member x.Location: MemberLoc = loc
@@ -144,7 +142,6 @@ and Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?de
     member x.OriginalCurriedType: Type = defaultArg originalType (Function(argTypes, returnType))
     member x.GenericParameters: string list = defaultArg genParams []
     member x.Decorators: Decorator list = defaultArg decorators []
-    member x.IsPublic: bool = defaultArg isPublic true
     member x.IsMutable: bool = defaultArg isMutable false
     member x.Computed: Expr option = computed
     member x.HasRestParams: bool = defaultArg hasRestParams false

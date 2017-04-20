@@ -299,7 +299,7 @@ let makeUnionCons cases =
     let setter1 = Set(Value This, Some(makeStrConst "tag"), Value(IdentValue args.[0]), None)
     let setter2 = Set(Value This, Some(makeStrConst "data"), Value(IdentValue args.[1]), None)
     let body = Sequential([setter1; setter2], None)
-    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), None, args, body, None)
+    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), true, None, args, body, None)
 
 // This is necessary when extending built-in JS types and compiling to ES5
 // See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work
@@ -326,14 +326,14 @@ let makeRecordCons com (ent: Entity) (props: (string*Type) list) =
                 let superCall = Apply(Value Super, [], ApplyMeth, Any, None)
                 Sequential(superCall::(setProto com ent)::setters, None)
             | _ -> Sequential(setters, None)
-    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, List.map Ident.getType args, Any), None, args, body, None)
+    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, List.map Ident.getType args, Any), true, None, args, body, None)
 
 let private makeMeth argType returnType name coreMeth =
     let arg = Ident("other", argType)
     let body =
         CoreLibCall("Util", Some coreMeth, false, [Value This; Value(IdentValue arg)])
         |> makeCall None returnType
-    MemberDeclaration(Member(name, Method, InstanceLoc, [arg.Type], returnType), None, [arg], body, None)
+    MemberDeclaration(Member(name, Method, InstanceLoc, [arg.Type], returnType), true, None, [arg], body, None)
 
 let makeUnionEqualMethod argType =
     let this = Value This
@@ -346,7 +346,7 @@ let makeUnionEqualMethod argType =
         |> makeCall None Boolean
     let andOp = Apply(Value (LogicalOp LogicalAnd), [equalsTag; equalsData], ApplyMeth, Boolean, None)
     let body = Apply(Value (LogicalOp LogicalOr), [makeEqOp None [this; argValue] BinaryEqualStrict; andOp], ApplyMeth, Boolean, None)
-    MemberDeclaration(Member("Equals", Method, InstanceLoc, [arg.Type], Boolean), None, [arg], body, None)
+    MemberDeclaration(Member("Equals", Method, InstanceLoc, [arg.Type], Boolean), true, None, [arg], body, None)
 
 let makeRecordEqualMethod argType = makeMeth argType Boolean "Equals" "equalsRecords"
 let makeUnionCompareMethod argType = makeMeth argType (Number Int32) "CompareTo" "compareUnions"
@@ -361,7 +361,7 @@ let makeIteratorMethodArgsAndBody() =
 
 let makeIteratorMethod() =
     let m, args, body = makeIteratorMethodArgsAndBody()
-    MemberDeclaration(m, None, args, body, None)
+    MemberDeclaration(m, true, None, args, body, None)
 
 let makeReflectionMethodArgsAndBody com (ent: Entity option) extend nullable interfaces cases properties =
     let members = [
@@ -409,7 +409,7 @@ let makeReflectionMethod com (ent: Fable.Entity) extend nullable cases propertie
         | Fable.Exception _ -> "FSharpException"::ent.Interfaces
         | _ -> ent.Interfaces
     let m, args, body = makeReflectionMethodArgsAndBody com (Some ent) extend nullable interfaces cases properties
-    MemberDeclaration(m, None, args, body, None)
+    MemberDeclaration(m, true, None, args, body, None)
 
 let (|Type|) (expr: Expr) = expr.Type
 

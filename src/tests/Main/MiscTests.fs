@@ -778,13 +778,25 @@ let ``Module generic methods without arguments work``() =
     let li = empty<string>
     Seq.length li |> equal 1
 
+type IInterface =
+  abstract member Member : thing1:string -> thing2:string -> string
+
 module private MyPrivateModule =
     let private bar = "bar"
     let publicFoo() = sprintf "foo %s" bar
+    type Concrete() =
+        interface IInterface with
+            member this.Member (thing1: string) (thing2: string) =
+                sprintf "%s %s" thing2 thing1
 
 [<Test>]
 let ``Public members of private modules can be accessed``() = // See #696
     MyPrivateModule.publicFoo() |> equal "foo bar"
+
+[<Test>]
+let ``Public types of private modules can be accessed``() = // See #841
+    let thing = MyPrivateModule.Concrete() :> IInterface
+    thing.Member "World" "Hello" |> equal "Hello World"
 
 [<Test>]
 let ``Types declared in signature file work``() = // See #754

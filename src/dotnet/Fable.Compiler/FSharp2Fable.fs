@@ -35,7 +35,7 @@ let private (|SpecialValue|_|) com ctx = function
         | _ -> None
     | _ -> None
 
-let private (|BaseCons|_|) com ctx (fsExpr: FSharpExpr) =
+let private (|BaseConsCall|_|) com ctx (fsExpr: FSharpExpr) =
     let equalsEntName meth entName =
         match tryEnclosingEntity meth with
         | Some ent -> (sanitizeEntityFullName ent) = entName
@@ -43,23 +43,22 @@ let private (|BaseCons|_|) com ctx (fsExpr: FSharpExpr) =
     let validateGenArgs' typArgs =
         tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
             validateGenArgs com ctx (makeRangeFrom fsExpr) tdef.GenericParameters typArgs)
-    match fsExpr with
-    | BasicPatterns.NewObject(meth, typArgs, args) ->
-        match ctx.baseClass with
-        | Some baseFullName when equalsEntName meth baseFullName ->
-            validateGenArgs' typArgs
-            Some (meth, args)
+    match ctx.derivedConstructor with
+    | Some derivedCons ->
+        match fsExpr with
+        | BasicPatterns.NewObject(meth, typArgs, args)
+            when equalsEntName meth derivedCons.BaseClassFullName ->
+                validateGenArgs' typArgs
+                Some (meth, args, derivedCons)
+        | BasicPatterns.Call(None, meth, typArgs, _, args)
+            when meth.CompiledName = ".ctor" && equalsEntName meth derivedCons.BaseClassFullName ->
+                if not meth.IsImplicitConstructor then
+                    "Inheritance is only possible with base class primary constructor: " + derivedCons.BaseClassFullName
+                    |> addError com ctx.fileName (makeRange fsExpr.Range |> Some)
+                validateGenArgs' typArgs
+                Some (meth, args, derivedCons)
         | _ -> None
-    | BasicPatterns.Call(None, meth, typArgs, _, args) ->
-        match ctx.baseClass with
-        | Some baseFullName when meth.CompiledName = ".ctor" && equalsEntName meth baseFullName ->
-            if not meth.IsImplicitConstructor then
-                "Inheritance is only possible with base class primary constructor: " + baseFullName
-                |> addError com ctx.fileName (makeRange fsExpr.Range |> Some)
-            validateGenArgs' typArgs
-            Some (meth, args)
-        | _ -> None
-    | _ -> None
+    | None -> None
 
 let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
     let rec flattenList (r: SourceLocation) accArgs = function
@@ -182,12 +181,12 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> transformComposableExpr com ctx expr2
         makeLambdaExpr [lambdaArg] expr2
 
-    | BaseCons com ctx (meth, args) ->
+    | BaseConsCall com ctx (meth, args, derivedCons) ->
         let args = List.map (transformExpr com ctx) args
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
         let superCall = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
-        if ctx.baseClass = Some "System.Exception"
-        then Fable.Sequential([superCall; setProto com ctx.enclosingEntity], range)
+        if derivedCons.BaseClassFullName = "System.Exception"
+        then Fable.Sequential([superCall; setProto com derivedCons.DerivedClass], range)
         else superCall
 
     | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
@@ -826,7 +825,7 @@ let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity
 // We use this type to correct that, see type DeclInfo below.
 type private TmpDecl =
     | Decl of Fable.Declaration
-    | Ent of Fable.Entity * string * ResizeArray<Fable.Declaration> * SourceLocation option
+    | Ent of Fable.Entity * isPublic:bool * privateName:string * ResizeArray<Fable.Declaration> * SourceLocation option
     | IgnoredEnt
 
 type private DeclInfo(com, fileName) =
@@ -890,16 +889,17 @@ type private DeclInfo(com, fileName) =
                 && not meth.IsExtensionMember then
                 checkPublicNameConflicts meth.CompiledName
             decls.Add(Decl methDecl)
-        | Some (Ent (_,_,entDecls,_)) -> entDecls.Add methDecl
+        | Some (Ent (_,_,_,entDecls,_)) -> entDecls.Add methDecl
         | Some _ -> () // TODO: log warning
     member self.AddDeclaration (decl: Fable.Declaration, ?publicName: string) =
         publicName |> Option.iter checkPublicNameConflicts
         decls.Add(Decl decl)
     member self.AddChild (com: IFableCompiler, ctx, newChild: FSharpEntity, privateName, newChildDecls: _ list) =
-        if not newChild.Accessibility.IsPrivate then
+        let isPublic = isPublicEntity ctx newChild
+        if isPublic then
             sanitizeEntityName newChild |> checkPublicNameConflicts
-        let ent = Ent (com.GetEntity newChild, privateName,
-                    ResizeArray<_> newChildDecls,
+        let ent = Ent (com.GetEntity newChild, isPublic,
+                    privateName, ResizeArray<_> newChildDecls,
                     getEntityLocation newChild |> makeRange |> Some)
         children.Add(newChild.FullName, ent)
         decls.Add(ent)
@@ -911,18 +911,18 @@ type private DeclInfo(com, fileName) =
         | None -> ()
     member self.TryGetOwner (meth: FSharpMemberOrFunctionOrValue) =
         match tryFindChild meth with
-        | Some (Ent (ent,_,_,_)) -> Some ent
+        | Some (Ent (ent,_,_,_,_)) -> Some ent
         | _ -> None
     member self.GetDeclarations (com, ctx): Fable.Declaration list =
         decls |> Seq.map (function
             | IgnoredEnt -> failwith "Unexpected ignored entity"
             | Decl decl -> decl
-            | Ent (ent, privateName, decls, range) ->
+            | Ent (ent, isPublic, privateName, decls, range) ->
                 let range =
                     match decls.Count, range with
                     | 0, _ | _, None -> range
                     | _, Some r1 -> (Seq.last decls).Range |> function Some r2 -> Some(r1+r2) | None -> range
-                Fable.EntityDeclaration(ent, privateName, processMemberDecls com ctx ent decls, range))
+                Fable.EntityDeclaration(ent, isPublic, privateName, processMemberDecls com ctx ent decls, range))
         |> Seq.toList
 
 let private tryGetImport com (ctx: Context) r methName
@@ -984,8 +984,9 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                     else ctx, args, extraArgs
                 |> fun (ctx, args, extraArgs) ->
                     match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
-                    | true, Some(EntityKind(Fable.Class(Some(fullName, _), _)) as ent) ->
-                        { ctx with baseClass = Some fullName; enclosingEntity=ent}, args, extraArgs
+                    | true, Some(EntityKind(Fable.Class(Some(fullName, _), _)) as derivedClass) ->
+                        let derivedCons = DerivedConstructorInfo(fullName, derivedClass)
+                        { ctx with derivedConstructor=Some derivedCons }, args, extraArgs
                     | _ -> ctx, args, extraArgs
                 |> fun (ctx, args, extraArgs) ->
                     getMemberKind meth, args, extraArgs, transformExpr com ctx body
@@ -996,7 +997,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             match tryEnclosingEntity meth with
             | Some (FableEntity com (Try tryGetMember m)) -> m
             | _ -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
-        let entMember = Fable.MemberDeclaration(entMember, privateName, args@extraArgs, body, Some range)
+        let entMember = Fable.MemberDeclaration(entMember, isPublicMethod meth, privateName, args@extraArgs, body, Some range)
         declInfo.AddMethod(meth, entMember)
         declInfo, ctx
     let range = getMethLocation meth |> makeRange
@@ -1037,13 +1038,13 @@ let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInf
     if Option.isSome import
     then
         let selector, path = import.Value
+        let isPublic = isPublicEntity ctx ent
         let entName, body = sanitizeEntityName ent, makeImport selector path
         // Bind entity name to context to prevent name clashes
         let ctx, ident = bindIdentWithExactName com ctx Fable.Any None entName
-        let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type,
-                            isPublic = not ent.Accessibility.IsPrivate)
-        let decl = Fable.MemberDeclaration(m, Some ident.Name, [], body, Some range)
-        let publicName = if m.IsPublic then Some entName else None
+        let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type)
+        let decl = Fable.MemberDeclaration(m, isPublic, Some ident.Name, [], body, Some range)
+        let publicName = if isPublic then Some entName else None
         declInfo.AddIgnoredChild ent
         declInfo.AddDeclaration(decl, ?publicName=publicName)
         declInfo, ctx
@@ -1052,7 +1053,9 @@ let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInf
         declInfo.AddIgnoredChild ent
         declInfo, ctx
     else
-    let childDecls = transformDeclarations com ctx subDecls
+    let childDecls =
+        let ctx = { ctx with enclosingModule = EnclosingModule(com.GetEntity ent, isPublicEntity ctx ent) }
+        transformDeclarations com ctx subDecls
     if List.isEmpty childDecls && ent.IsFSharpModule
     then
         declInfo, ctx

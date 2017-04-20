@@ -8,7 +8,7 @@ open Fable.Fable2Babel
 module Util =
     let (|TestFixture|_|) (decl: Fable.Declaration) =
         match decl with
-        | Fable.EntityDeclaration (ent, _, entDecls, entRange) ->
+        | Fable.EntityDeclaration (ent, _, _, entDecls, entRange) ->
             match ent.TryGetDecorator "TestFixture" with
             | Some _ -> Some (ent, entDecls, entRange)
             | None -> None
@@ -22,7 +22,7 @@ module Util =
 
     let (|Test|_|) (decl: Fable.Declaration) =
         match decl with
-        | Fable.MemberDeclaration(m,_,args,body,range) ->
+        | Fable.MemberDeclaration(m,_,_,args,body,range) ->
             match m.Kind, (m.Decorators |> List.tryFind (fun x -> Map.containsKey x.Name methodDecorators)) with
             | Fable.Method, Some decorator -> Some (m, decorator, args, body, range)
             | _ -> None

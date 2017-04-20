@@ -35,9 +35,17 @@ type MemberInfo =
     { isInstance: bool
     ; passGenerics: bool }
 
+type EnclosingModule(entity, isPublic) =
+    member val Entity: Fable.Entity = entity
+    member val IsPublic: bool = isPublic
+
+type DerivedConstructorInfo(baseClassFullName, derivedClass) =
+    member val BaseClassFullName: string = baseClassFullName
+    member val DerivedClass: Fable.Entity = derivedClass
+
 type Context =
     { fileName: string
-    ; enclosingEntity: Fable.Entity
+    ; enclosingModule: EnclosingModule
     ; scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
     ; scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
     /// Some expressions that create scope in F# don't do it in JS (like let bindings)
@@ -45,19 +53,19 @@ type Context =
     ; varNames: HashSet<string>
     ; typeArgs: (string * FSharpType) list
     ; decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
-    ; baseClass: string option
+    ; derivedConstructor: DerivedConstructorInfo option
     ; thisAvailability: ThisAvailability
     ; genericAvailability: bool
     ; isLambdaBody: bool }
     static member Create(fileName, enclosingModule) =
         { fileName = fileName
-        ; enclosingEntity = enclosingModule
+        ; enclosingModule = EnclosingModule(enclosingModule, true)
         ; scope = []
         ; scopedInlines = []
         ; varNames = HashSet()
         ; typeArgs = []
         ; decisionTargets = None
-        ; baseClass = None
+        ; derivedConstructor = None
         ; thisAvailability = ThisUnavailable
         ; genericAvailability = false
         ; isLambdaBody = false }
@@ -151,9 +159,19 @@ module Helpers =
     /// .IsPrivate for members of a private module always evaluate to true (see #696)
     /// so we just make all members of a private module public until a proper solution comes in FCS
     let isPublicMethod (meth: FSharpMemberOrFunctionOrValue) =
-        match tryEnclosingEntity meth with
-        | Some ent when ent.Accessibility.IsPrivate -> true
-        | _ -> not meth.Accessibility.IsPrivate
+        if meth.IsCompilerGenerated
+        then false
+        else
+            match tryEnclosingEntity meth with
+            | Some ent when ent.Accessibility.IsPrivate -> true
+            | _ -> not meth.Accessibility.IsPrivate
+
+    /// .IsPrivate for types of a private module always evaluate to true (see #841)
+    /// so we just make all members of a private module public until a proper solution comes in FCS
+    let isPublicEntity (ctx: Context) (ent: FSharpEntity) =
+        if not ctx.enclosingModule.IsPublic
+        then true
+        else not ent.RepresentationAccessibility.IsPrivate
 
     let isUnit (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
@@ -249,7 +267,7 @@ module Helpers =
             if args.Count = 0 then 0
             elif args.Count = 1 && args.[0].Count = 1 then
                 if isUnit args.[0].[0].Type then 0 else 1
-            else args |> Seq.map (fun li -> li.Count) |> Seq.sum
+            else args |> Seq.sumBy (fun li -> li.Count)
         let ent = tryEnclosingEntity meth
         // `.EnclosingEntity` only fails for compiler generated module members
         if ent.IsNone || (ent.Value.IsFSharpModule) then
@@ -312,7 +330,7 @@ module Patterns =
 
     let inline (|Rev|) x = List.rev x
     let inline (|AsArray|) x = Array.ofSeq x
-    let inline (|Transform|) (com: IFableCompiler) = com.Transform
+    let inline (|Transform|) (com: IFableCompiler) x = com.Transform x
     let inline (|FieldName|) (fi: FSharpField) = fi.Name
     let inline (|ExprType|) (expr: Fable.Expr) = expr.Type
     let inline (|EntityKind|) (ent: Fable.Entity) = ent.Kind
@@ -789,7 +807,6 @@ module Types =
             originalType = originalTyp,
             genParams = (meth.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList),
             decorators = (meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList),
-            isPublic = (isPublicMethod meth && not meth.IsCompilerGenerated),
             isMutable = meth.IsMutable,
             ?overloadIndex = overloadIndex,
             hasRestParams = hasRestParams meth)
@@ -904,8 +921,7 @@ module Types =
             |> Seq.choose (makeDecorator com)
             |> Seq.toList
         Fable.Entity (lazy getKind(), com.TryGetInternalFile tdef,
-            sanitizeEntityFullName tdef, lazy getMembers com tdef,
-            genParams, infcs, decs, not tdef.Accessibility.IsPrivate)
+            sanitizeEntityFullName tdef, lazy getMembers com tdef, genParams, infcs, decs)
 
     let inline (|FableEntity|) (com: IFableCompiler) e = com.GetEntity e
     let inline (|FableType|) com (ctx: Context) t = makeType com ctx.typeArgs t
@@ -1362,7 +1378,7 @@ module Util =
                     makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
                 // Cases when tryEnclosingEntity returns None are rare (see #237)
                 // Let's assume the method belongs to the current enclosing module
-                | _ -> Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef com
+                | _ -> Fable.DeclaredType(ctx.enclosingModule.Entity, []) |> makeNonGenTypeRef com
             let methName = sanitizeMethodName meth
     (**     *Check if this a getter or setter  *)
             match getMemberKind meth with
@@ -1436,7 +1452,7 @@ module Util =
                                 then gr.[0].Type |> makeType com ctx.typeArgs
                                 else Fable.Any) // TODO: Tuple type?
                             |> fun argTypes -> Fable.Function(Seq.toList argTypes, makeType com ctx.typeArgs v.ReturnParameter.Type)
-                        typ, Fable.DeclaredType(ctx.enclosingEntity, []) |> makeNonGenTypeRef com
+                        typ, Fable.DeclaredType(ctx.enclosingModule.Entity, []) |> makeNonGenTypeRef com
                 Fable.Apply (typeRef, [makeStrConst v.CompiledName], Fable.ApplyGet, typ, r)
         if eraseUnit && typ = Fable.Unit
         then Fable.Wrapped(Fable.Value Fable.Null, Fable.Unit)
