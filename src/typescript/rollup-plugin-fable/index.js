@@ -6,8 +6,8 @@ const { createFilter } = require('rollup-pluginutils');
 
 let fableCoreVersion = null;
 const DEFAULT_PORT =
-    typeof process.env.FABLE_SERVER_PORT === "number"
-    ? process.env.FABLE_SERVER_PORT
+    process.env.FABLE_SERVER_PORT != null
+    ? parseInt(process.env.FABLE_SERVER_PORT, 10)
     : 61225;
 
 const customPlugins = [
