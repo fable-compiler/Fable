@@ -5,8 +5,8 @@ var babelPlugins = require("fable-utils/babel-plugins");
 
 var fableCoreVersion = null;
 var DEFAULT_PORT =
-    typeof process.env.FABLE_SERVER_PORT === "number"
-    ? process.env.FABLE_SERVER_PORT
+    process.env.FABLE_SERVER_PORT != null
+    ? parseInt(process.env.FABLE_SERVER_PORT, 10)
     : 61225;
 
 function or(option, _default) {
