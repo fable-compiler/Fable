@@ -36,14 +36,11 @@ let measureTime (f: unit -> 'a) =
 
 #endif
 
-// #if (DOTNETCORE || DOTNET40)
-// [<EntryPoint>]
-// #endif
-let main () =
+[<EntryPoint>]
+let main argv =
     try
         let references = [|"FSharp.Core";"mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics";"Fable.Core"|]
-        let opts = getDefaultOptions ()
-        let com = makeCompiler opts []
+        let com = makeCompiler ()
         let fileName = "test_script.fsx"
         let source = readAllText fileName
         let createChecker() = references |> createChecker readAllBytes
@@ -64,5 +61,3 @@ let main () =
     with ex ->
         printfn "Error: %A" ex.Message
     0
-
-main () |> ignore

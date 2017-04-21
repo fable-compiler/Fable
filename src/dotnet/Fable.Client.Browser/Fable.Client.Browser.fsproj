@@ -11,8 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../Fable.Core/Compiler.fs"/>
     <Compile Include="../Fable.Core/Util.fs"/>
+    <Compile Include="../Fable.Core/Compiler.fs"/>
     <Compile Include="../Fable.Core/Fable.Core.fs"/>
     <Compile Include="../Fable.Core/AST/AST.Common.fs"/>
     <Compile Include="../Fable.Core/AST/AST.Fable.fs"/>
@@ -29,6 +29,8 @@
     <Compile Include="../Fable.Compiler/FSharp2Fable.Util.fs"/>
     <Compile Include="../Fable.Compiler/FSharp2Fable.fs"/>
     <Compile Include="../Fable.Compiler/Fable2Babel.fs"/>
+
+    <Compile Include="../Fable.Tools/State.fs"/>
 
     <Compile Include="Fable.Client.fs"/>
   </ItemGroup>

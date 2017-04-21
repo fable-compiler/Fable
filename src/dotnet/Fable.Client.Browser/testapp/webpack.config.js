@@ -6,8 +6,7 @@ function resolve(filePath) {
 
 var babelOptions = {
   "presets": [
-    [resolve("../../../../node_modules/babel-preset-es2015"), {"modules": false}],
-    //[resolve("../../../../node_modules/babel-preset-babili"), {}]
+    ["es2015", {"modules": false}]
   ]
 };
 
@@ -30,12 +29,12 @@ var fableOptions = {
 
 module.exports = {
   target: 'node',
+  //devtool: "source-map",
   entry: resolve('./testapp.fsproj'),
   output: {
     filename: 'bundle.min.js',
     path: resolve('./out')
   },
-  //devtool: "source-map",
   module: {
     rules: [
       {
@@ -47,9 +46,9 @@ module.exports = {
       },
       {
         test: /\.js$/,
-        exclude: /node_modules\/(?!fable)/,
+        exclude: /node_modules/,
         use: {
-          loader: '../../../../node_modules/babel-loader',
+          loader: 'babel-loader',
           options: babelOptions
         },
       }

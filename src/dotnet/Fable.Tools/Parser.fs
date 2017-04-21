@@ -106,9 +106,3 @@ let parse (msg: string) =
         ; clampByteArrays = parseBoolean false "clampByteArrays" json }
     // printfn "Parsed options: path=%s; define=%A; plugins=%A; options=%A" path define plugins opts
     { path=path; define=define; plugins=plugins; options=opts; extra=parseDic "extra" json }
-
-let getDefaultOptions() =
-    { fableCore = "fable-core"
-    ; declaration = false
-    ; typedArrays = true
-    ; clampByteArrays = false }
