@@ -355,6 +355,18 @@ let ``List.mapFoldBack works`` () =
     snd result |> equal -10.
 
 [<Test>]
+let ``List.mapFold works II``() = // See #842
+    let f x y = x,y
+    let xs,_ = List.mapFold f "a" ["b"]
+    equal "a" xs.Head 
+
+[<Test>]
+let ``List.mapFoldBack works II``() =
+    let f x y = x,y
+    let xs,_ = List.mapFoldBack f ["a"] "b"
+    equal "a" xs.Head 
+
+[<Test>]
 let ``List.max works``() =
       let xs = [1; 2]
       xs |> List.max

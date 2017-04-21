@@ -1702,6 +1702,11 @@ module AstPass =
             | _ -> ccall "Seq" meth args |> Some
         // Default to Seq implementation in core lib
         | Patterns.SetContains implementedSeqNonBuildFunctions meth ->
+            let args =
+                // mapFold & mapFoldBack must be transformed, but only the first member of the tuple result, see #842
+                match meth, kind with
+                | ("mapFold"|"mapFoldBack"), List -> args@[makeCoreRef "List" (Some "ofArray")]
+                | _ -> args
             ccall "Seq" meth args |> Some
         | Patterns.SetContains implementedSeqBuildFunctions meth ->
             let mod_ =

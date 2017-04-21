@@ -443,7 +443,7 @@ export function chunkBySize<T>(size: number, xs: Iterable<T>) : Iterable<Iterabl
   return ofArray(result.map(ofArray));
 }
 
-export function mapFold<T, ST, R>(f: (acc: ST, x: T) => [R, ST], acc: ST, xs: Iterable<T>) {
+export function mapFold<T, ST, R>(f: (acc: ST, x: T) => [R, ST], acc: ST, xs: Iterable<T>, transform?: (r: Iterable<R>)=>Iterable<R>): [Iterable<R>, ST] {
   let result: Array<R> = [];
   let r: R;
   let cur: IteratorResult<T>;
@@ -454,10 +454,10 @@ export function mapFold<T, ST, R>(f: (acc: ST, x: T) => [R, ST], acc: ST, xs: It
     [r, acc] = f(acc, cur.value);
     result.push(r);
   }
-  return [<Iterable<R>>result, acc];
+  return transform !== void 0 ? [transform(result), acc] : [result, acc];
 }
 
-export function mapFoldBack<T, ST, R>(f: (x: T, acc: ST) => [R, ST], xs: Iterable<T>, acc: ST) {
+export function mapFoldBack<T, ST, R>(f: (x: T, acc: ST) => [R, ST], xs: Iterable<T>, acc: ST, transform?: (r: Iterable<R>)=>Iterable<R>): [Iterable<R>, ST] {
   const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as Array<T> : Array.from(xs);
   let result: Array<R> = [];
   let r: R;
@@ -465,7 +465,7 @@ export function mapFoldBack<T, ST, R>(f: (x: T, acc: ST) => [R, ST], xs: Iterabl
     [r, acc] = f(arr[i], acc);
     result.push(r);
   }
-  return [<Iterable<R>>result, acc];
+  return transform !== void 0 ? [transform(result), acc] : [result, acc];
 }
 
 export function max<T extends number>(xs: Iterable<T>) {
