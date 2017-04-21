@@ -7,8 +7,7 @@ function resolve(filePath) {
 
 // var babelOptions = {
 //   "presets": [
-//     [resolve("../../../../node_modules/babel-preset-es2015"), {"modules": false}],
-//     //[resolve("../../../../node_modules/babel-preset-babili"), {}]
+//     ["es2015", {"modules": false}]
 //   ]
 // };
 

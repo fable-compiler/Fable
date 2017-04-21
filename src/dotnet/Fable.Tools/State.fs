@@ -2,17 +2,28 @@ module Fable.Tools.State
 
 open Fable
 open Fable.AST
-open Newtonsoft.Json
 open System
 open System.Reflection
 open System.Collections.Concurrent
 open System.Collections.Generic
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
+
+#if !FABLE_COMPILER
+open Newtonsoft.Json
 open ProjectCracker
 open Parser
+#endif
 
-type Command = string * (string -> unit)
+#if FABLE_COMPILER
+type Dictionary<'TKey, 'TValue> with
+    member x.GetOrAdd (key, valueFactory) =
+        match x.TryGetValue key with
+        | true, v -> v
+        | false, _ -> let v = valueFactory(key) in x.[key] <- v; v
+
+type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
+#endif
 
 type State(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
     let entities = ConcurrentDictionary<string, Fable.Entity>()
@@ -41,13 +52,11 @@ type State(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProj
         member this.GetOrAddInlineExpr(fullName, generate) =
             inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
-let loadAssembly path =
-#if NETFX
-    Assembly.LoadFrom(path)
-#else
-    let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
-    globalLoadContext.LoadFromAssemblyPath(path)
-#endif
+let getDefaultOptions() =
+    { fableCore = "fable-core"
+    ; declaration = false
+    ; typedArrays = true
+    ; clampByteArrays = false }
 
 type Compiler() =
     let mutable id = 0
@@ -84,7 +93,21 @@ type Compiler() =
             | true, v -> v.Add(formattedMsg)
             | false, _ -> logs.Add(severity, ResizeArray[|formattedMsg|])
         member __.GetUniqueVar() =
+#if FABLE_COMPILER
+            id <- id + 1; "$var" + (string id)
+#else
             "$var" + (System.Threading.Interlocked.Increment(&id).ToString())
+#endif
+
+#if !FABLE_COMPILER
+
+let loadAssembly path =
+#if NETFX
+    Assembly.LoadFrom(path)
+#else
+    let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
+    globalLoadContext.LoadFromAssemblyPath(path)
+#endif
 
 let loadPlugins pluginPaths (loadedPlugins: PluginInfo list) =
     let loadedPlugins =
@@ -106,20 +129,21 @@ let loadPlugins pluginPaths (loadedPlugins: PluginInfo list) =
             | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
     |> Seq.toList
 
-/// Returns an (errors, warnings) tuple
-let parseErrors errors =
-    let parseError (er: FSharpErrorInfo) =
-        let isError, severity =
-            match er.Severity with
-            | FSharpErrorSeverity.Warning -> false, "warning"
-            | FSharpErrorSeverity.Error -> true, "error"
-        isError, sprintf "%s(L%i,%i) : %s FSHARP: %s"
-            er.FileName er.StartLineAlternate er.StartColumn
-            severity er.Message
-    errors
-    |> Array.map parseError
-    |> Array.partition fst
-    |> fun (ers, wns) -> Array.map snd ers, Array.map snd wns
+// --- perhaps not used anymore? ---
+// /// Returns an (errors, warnings) tuple
+// let parseErrors errors =
+//     let parseError (er: FSharpErrorInfo) =
+//         let isError, severity =
+//             match er.Severity with
+//             | FSharpErrorSeverity.Warning -> false, "warning"
+//             | FSharpErrorSeverity.Error -> true, "error"
+//         isError, sprintf "%s(L%i,%i) : %s FSHARP: %s"
+//             er.FileName er.StartLineAlternate er.StartColumn
+//             severity er.Message
+//     errors
+//     |> Array.map parseError
+//     |> Array.partition fst
+//     |> fun (ers, wns) -> Array.map snd ers, Array.map snd wns
 
 let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptions) (com: ICompiler) =
     printfn "Parsing F# project..."
@@ -212,6 +236,8 @@ let compile (com: Compiler) (state: State) (fileName: string) =
         |> Fable2Babel.Compiler.transformFile com state
     |> addLogs com
 
+type Command = string * (string -> unit)
+
 let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
     let rec loop (checker: FSharpChecker) (com: Compiler) (state: State option) = async {
         let! msg, replyChannel = agent.Receive()
@@ -239,3 +265,5 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
     let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
     loop checker compiler None
   )
+
+#endif //!FABLE_COMPILER
