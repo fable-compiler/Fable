@@ -7,10 +7,15 @@ open System.Reflection
 open System.Runtime.InteropServices
 open System.Net
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open Newtonsoft.Json
 open Parser
 open State
 
-let startProcess workingDir fileName args port =
+type ProcessOptions(?envVars, ?redirectOutput) =
+    member val EnvVars = defaultArg envVars Map.empty<string,string>
+    member val RedirectOuput = defaultArg redirectOutput false
+
+let startProcess workingDir fileName args (opts: ProcessOptions) =
     let fileName, args =
         let isWindows =
             #if NETFX
@@ -27,20 +32,29 @@ let startProcess workingDir fileName args port =
     p.StartInfo.FileName <- fileName
     p.StartInfo.Arguments <- args
     p.StartInfo.WorkingDirectory <- workingDir
-    
-    match port with
-        | Some x -> p.StartInfo.Environment.["FABLE_SERVER_PORT"] <- x
-        | None -> ()
-
+    p.StartInfo.RedirectStandardOutput <- opts.RedirectOuput
+    opts.EnvVars |> Map.iter (fun k v ->
+        p.StartInfo.Environment.[k] <- v)
     p.Start() |> ignore
     p
 
 let runProcess workingDir fileName args =
-    let p = startProcess workingDir fileName args None
+    let p =
+        ProcessOptions()
+        |> startProcess workingDir fileName args
     p.WaitForExit()
     match p.ExitCode with
     | 0 -> ()
     | c -> failwithf "Process %s %s finished with code %i" fileName args c
+
+let runProcessAndReadOutput workingDir fileName args =
+    let p =
+        ProcessOptions(redirectOutput=true)
+        |> startProcess workingDir fileName args
+    let output = p.StandardOutput.ReadToEnd()
+    printfn "%s" output
+    p.WaitForExit()
+    output
 
 let rec findPackageJsonDir dir =
     if File.Exists(Path.Combine(dir, "package.json"))
@@ -103,7 +117,9 @@ let startServerWithProcess port exec args =
     startServer port -1 agent.Post <| fun listen ->
         Async.Start listen
         let workingDir = Directory.GetCurrentDirectory()
-        let p = startProcess workingDir exec args (Some (port.ToString()))
+        let p =
+            ProcessOptions(envVars=Map["FABLE_SERVER_PORT", string port])
+            |> startProcess workingDir exec args
         Console.CancelKeyPress.Add (fun _ ->
             Server.stop port |> Async.RunSynchronously
             printfn "Killing process..."
@@ -120,18 +136,18 @@ let main argv =
   --version           Print version
   add                 Add one or several Fable npm packages
   start               Start Fable server
-  --port              Port number (default 61225) or "free" to choose a free port. 
+  --port              Port number (default 61225) or "free" to choose a free port.
   --timeout           Stop the server if timeout (ms) is reached
   npm-run             Start a server, run an npm script and shut it down
     <script>            Name of the npm script, e.g.: `dotnet fable npm-run start`
-    --port              Port number (default 61225) or "free" to choose a free port. 
+    --port              Port number (default 61225) or "free" to choose a free port.
     --args              Args for the npm script, e.g.: `dotnet fable npm-run build --args "-p --output-filename bundle.js"`
   webpack             Start a server and invoke webpack (must be installed in current or a parent dir)
-    --port              Port number (default 61225) or "free" to choose a free port. 
+    --port              Port number (default 61225) or "free" to choose a free port.
     --args              Args for Webpack, e.g.: `dotnet fable webpack --args -p`
   shell-run           Start a server, run an abritrary command and shut it down
     <cmd>            Name of the command to run, e.g.: `dotnet fable shell-run make`
-    --port              Port number (default 61225) or "free" to choose a free port. 
+    --port              Port number (default 61225) or "free" to choose a free port.
     --args              Args for the command, e.g.: `dotnet fable shell-run make --args "build"`
   webpack-dev-server  Same as `webpack` command but invokes webpack-dev-server
 """
@@ -168,8 +184,23 @@ let main argv =
             | None -> ""
         startServerWithProcess port cmd execArgs
     | Some "add" ->
-        let packages = argv.[1..]
         let workingDir = Directory.GetCurrentDirectory()
+        let packages = argv.[1..]
+        let packages =
+            match packages with
+            | [||] -> failwith "Missing packages to install"
+            | [|package|] ->
+                let peers =
+                    sprintf "show %s peerDependencies" package
+                    |> runProcessAndReadOutput workingDir "npm"
+                if String.IsNullOrWhiteSpace(peers)
+                then [|package|]
+                else
+                    JsonConvert.DeserializeObject<Map<string,string>>(peers)
+                    |> Seq.map (fun kv -> kv.Key + "@" + kv.Value)
+                    |> Seq.append [|package|]
+                    |> Seq.toArray
+            | packages -> packages
         runProcess workingDir "npm" ("install --save-dev " + (String.concat " " packages))
         let nodeModulesDir = Path.Combine(findPackageJsonDir workingDir, "node_modules")
         for pkg in packages do
@@ -180,7 +211,7 @@ let main argv =
             let pkgDir = Path.Combine(nodeModulesDir, pkg)
             Directory.GetFiles(pkgDir, "*.fsproj") |> Array.tryHead |> function
             | Some projRef ->
-                runProcess workingDir "dotnet" ("add reference " + projRef)
+                runProcess workingDir "dotnet" ("add reference \"" + projRef + "\"")
             | None ->
                 printfn "Cannot find .fsproj in %s" pkgDir
         runProcess workingDir "dotnet" "restore"
