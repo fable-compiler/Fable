@@ -9,8 +9,8 @@ open Fable.AST
 open Fable.Core
 open Fable.Tools.State
 
-let parseFSharpProject (com: ICompiler) (checker: InteractiveChecker) (fileName,source) =
-    let _,_,checkProjectResults = (fileName,source) |> checker.ParseAndCheckScript
+let parseFSharpProject (checker: InteractiveChecker) (com: ICompiler) fileName source =
+    let _,_,checkProjectResults = checker.ParseAndCheckScript (fileName, source)
     for er in checkProjectResults.Errors do
         let severity =
             match er.Severity with
@@ -36,14 +36,16 @@ let makeProjOptions (com: ICompiler) projFile =
         ExtraProjectInfo = None }
     projOptions
 
-let compileAst (com: ICompiler) checker (fileName, source) =
+let compileAst (com: Compiler) checkedProject fileName =
+    let hasErrors, errors = com.Logs.TryGetValue("error")
+    if hasErrors then failwith (errors |> String.concat "\n")
     let projectOptions = makeProjOptions com fileName
-    let checkedProject = parseFSharpProject com checker (fileName, source)
     let state = State(projectOptions, checkedProject)
     let file: Babel.Program =
         FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
         |> Fable2Babel.Compiler.transformFile com state
-    file
+    let loc = defaultArg file.loc SourceLocation.Empty
+    Babel.Program(file.fileName, loc, file.body, file.directives, com.Logs)
 
 let createChecker readAllBytes references =
     InteractiveChecker(List.ofArray references, readAllBytes)
@@ -53,9 +55,10 @@ let makeCompiler () = Compiler()
 let compileSource checker source =
     let com = makeCompiler ()
     let fileName = "stdin.fsx"
-    let file = compileAst com checker (fileName, source)
+    let checkedProject = parseFSharpProject checker com fileName source
+    let file = compileAst com checkedProject fileName
     file
 
-let compileToJson checker source =
-    compileSource checker source
+let convertToJson babelAst =
+    babelAst
     |> Fable.Core.JsInterop.toJson

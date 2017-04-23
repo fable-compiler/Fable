@@ -52,10 +52,21 @@ function compile(source) {
             var references2 = references.filter(x => !isSigdata(x)).map(x => x.replace(".dll", ""));
             checker = Fable.createChecker(readAllBytes, references2);
         }
-        var startTime = performance.now();
-        var json = Fable.compileToJson(checker, source);
-        var elapsed = performance.now() - startTime;
-        postMessage({ json: json, elapsed: elapsed });
+        var com = Fable.makeCompiler();
+
+        // FSharp AST
+        var startTime1 = performance.now();
+        var fileName = "stdin.fsx"
+        let fsharpAst = Fable.parseFSharpProject(checker, com, fileName, source);
+        var elapsed1 = performance.now() - startTime1;
+
+        // Fable AST
+        var startTime2 = performance.now();
+        var babelAst = Fable.compileAst(com, fsharpAst, fileName);
+        var jsonAst = Fable.convertToJson(babelAst);
+        var elapsed2 = performance.now() - startTime2;
+
+        postMessage({ jsonAst: jsonAst, fsharpTime: elapsed1, fableTime: elapsed2 });
     }
     catch (err) {
         postMessage({ error: { message: err.message, stack: err.stack }});
