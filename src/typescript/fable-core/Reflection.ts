@@ -209,3 +209,16 @@ export function getFunctionElements(typ: Type): Type[] {
 export function isFunctionType(typ: Type): boolean {
   return typ === "function" || (typ instanceof NonDeclaredType && typ.kind === "Function");
 }
+
+export function getGenericArguments(typ: Type): Type[] {
+  if (typ instanceof NonDeclaredType) {
+    if (Array.isArray(typ.generics)) {
+      return typ.generics;
+    }
+    else {
+      const dic = typ.generics;
+      return Object.keys(dic).map(k => dic[k]);
+    }
+  }
+  return [];
+}

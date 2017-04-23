@@ -1835,6 +1835,11 @@ module AstPass =
 
     let types com (info: Fable.ApplyInfo) =
         let str x = Fable.Value(Fable.StringConst x)
+        let common com (info: Fable.ApplyInfo) =
+            match info.methodName with
+            | "getTypeInfo" -> info.callee
+            | "genericTypeArguments" -> ccall info "Reflection" "getGenericArguments" [info.callee.Value] |> Some
+            | _ -> None
         match info.callee with
         | Some(Fable.Value(Fable.TypeRef(ent,_))) ->
             match info.methodName with
@@ -1843,7 +1848,6 @@ module AstPass =
             | "name" -> str ent.Name |> Some
             | "isGenericType" -> ent.GenericParameters.Length > 0 |> makeBoolConst |> Some
             | "getGenericTypeDefinition" -> makeTypeRefFrom com ent |> Some
-            | "getTypeInfo" -> info.callee
             | "makeGenericType" ->
                 if not <| List.sameLength ent.GenericParameters info.args
                 then
@@ -1855,7 +1859,7 @@ module AstPass =
                         |> makeJsObject None
                     CoreLibCall("Util", Some "makeGeneric", false, [info.callee.Value; genArgs2])
                     |> makeCall None Fable.MetaType |> Some
-            | _ -> None
+            | _ -> common com info
         | _ ->
             let getTypeFullName args =
                 args |> Option.map (fun args ->
@@ -1871,7 +1875,10 @@ module AstPass =
             | "getGenericTypeDefinition" ->
                 CoreLibCall("Util", Some "getDefinition", false, [info.callee.Value])
                 |> makeCall info.range info.returnType |> Some
-            | _ -> None
+            | "makeGenericType" ->
+                "MakeGenericType won't work if type is not known at compile-time"
+                |> addErrorAndReturnNull com info.fileName info.range |> Some
+            | _ -> common com info
 
     let unchecked com (info: Fable.ApplyInfo) =
         match info.methodName with
@@ -2255,15 +2262,13 @@ let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fabl
             genArgs |> List.map snd
             |> Fable.NonDeclTuple
             |> makeNonDeclaredTypeRef |> Some
-    | "Microsoft.FSharp.Core.FSharpChoice" -> makeCoreRef "Choice" None |> Some
-    | "Microsoft.FSharp.Core.FSharpResult" -> makeCoreRef "Result" None |> Some
-    | "Microsoft.FSharp.Control.FSharpAsync" -> makeCoreRef "Async" None |> Some
-    | "Microsoft.FSharp.Collections.FSharpSet" ->
-        makeCoreRef "Set" None |> makeGeneric genArgs |> Some
-    | "Microsoft.FSharp.Collections.FSharpMap" ->
-        makeCoreRef "Map" None |> makeGeneric genArgs |> Some
-    | "Microsoft.FSharp.Collections.FSharpList" ->
-        makeCoreRef "List" None |> makeGeneric genArgs |> Some
+    | KeyValue "Microsoft.FSharp.Core.FSharpChoice" "Choice" name
+    | KeyValue "Microsoft.FSharp.Core.FSharpResult" "Result" name
+    | KeyValue "Microsoft.FSharp.Control.FSharpAsync" "Async" name
+    | KeyValue "Microsoft.FSharp.Collections.FSharpSet" "Set" name
+    | KeyValue "Microsoft.FSharp.Collections.FSharpMap" "Map" name
+    | KeyValue "Microsoft.FSharp.Collections.FSharpList" "List" name ->
+        makeCoreRef name None |> makeGeneric genArgs |> Some
     | Naming.EndsWith "Exception" _ ->
         makeIdentExpr "Error" |> Some
     | "Fable.Core.JsInterop.JsConstructor"

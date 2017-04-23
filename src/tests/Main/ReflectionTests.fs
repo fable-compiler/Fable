@@ -229,7 +229,7 @@ let ``FSharp.Reflection: Record`` () =
 
 type RecordF = { F : int -> string }
 [<Test>]
-let ``FSharp.Reflection Functions``() = 
+let ``FSharp.Reflection Functions``() =
     let recordType = typeof<RecordF>
     let fields = FSharpType.GetRecordFields recordType
     let funcProperty = Array.head fields
@@ -299,3 +299,13 @@ let ``FSharp.Reflection: Union`` () =
     FSharpType.IsUnion typ |> equal true
     unionFields |> equal expectedUnionFields
     canMakeSameUnionCases |> equal true
+
+type AsyncRecord = {
+  asyncProp : Async<string>
+}
+
+[<Test>]
+let ``Type.GenericTypeArguments works``() =
+    let recordType = typeof<AsyncRecord>
+    let asyncProp = FSharpType.GetRecordFields recordType |> Array.head
+    asyncProp.PropertyType.GenericTypeArguments |> Array.head |> equal typeof<string>
