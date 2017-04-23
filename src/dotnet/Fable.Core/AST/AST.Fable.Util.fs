@@ -186,7 +186,11 @@ let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
         match kind with
         | Int64|UInt64 -> makeCoreRef "Long" (Some "Long")
         | BigInt -> makeCoreRef "BigInt" None
-    | Function _ -> str "function"
+    | Function(argTypes, returnType) ->
+        argTypes@[returnType]
+        |> List.map (makeTypeRef com genInfo)
+        |> NonDeclFunction
+        |> makeNonDeclaredTypeRef
     | MetaType | Any -> makeNonDeclaredTypeRef NonDeclAny
     | Unit -> makeNonDeclaredTypeRef NonDeclUnit
     | Array (Number kind) when com.Options.typedArrays ->

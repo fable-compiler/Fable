@@ -49,6 +49,7 @@ and NonDeclaredType =
     | NonDeclOption of genericArg: Expr
     | NonDeclArray of genericArg: Expr
     | NonDeclTuple of genericArgs: Expr list
+    | NonDeclFunction of genericArgs: Expr list
     | NonDeclGenericParam of name: string
     | NonDeclInterface of name: string
 

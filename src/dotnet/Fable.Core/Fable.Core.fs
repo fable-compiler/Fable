@@ -186,6 +186,7 @@ module JsInterop =
     /// Converts an F# object into a plain JS object (POJO)
     /// This is only intended if you're using a custom serialization method
     /// and will produce the same object structure that `toJson` encodes
+    /// NOTE: `deflate` is currently NOT recursive
     let deflate(o: 'T): obj = jsNative
 
     /// Serialize F# objects to JSON
@@ -203,6 +204,7 @@ module JsInterop =
     /// Converts a plain JS object (POJO) to an instance of the specified type.
     /// This is only intended if you're using a custom serialization method
     /// (that must produce same objects as `toJson`) instead of `ofJson`.
+    /// NOTE: `inflate` is currently NOT recursive
     let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
 
     /// Reads the name of an identifier, a property or a type

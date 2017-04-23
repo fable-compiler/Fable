@@ -1,4 +1,4 @@
-import { NonDeclaredType, getPropertyNames, getDefinition } from "./Util"
+import { Type, NonDeclaredType, getPropertyNames, getDefinition } from "./Util"
 import List from "./List"
 import FSymbol from "./Symbol"
 
@@ -62,7 +62,7 @@ export function getType(obj: any): any {
 }
 
 // TODO: This needs improvement, check namespace for non-custom types?
-export function getTypeFullName(typ: any, option?: string): string {
+export function getTypeFullName(typ: Type, option?: string): string {
   function trim(fullName: string, option?: string) {
     if (typeof fullName !== "string") {
       return "unknown";
@@ -85,11 +85,13 @@ export function getTypeFullName(typ: any, option?: string): string {
         case "Unit":
           return "unit";
         case "Option":
-          return getTypeFullName(typ.generics, option) + " option";
+          return getTypeFullName((typ.generics as Type[])[0], option) + " option";
         case "Array":
-          return getTypeFullName(typ.generics, option) + "[]";
+          return getTypeFullName((typ.generics as Type[])[0], option) + "[]";
         case "Tuple":
           return (typ.generics as FunctionConstructor[]).map(x => getTypeFullName(x, option)).join(" * ");
+        case "Function":
+          return "Func<" + (typ.generics as FunctionConstructor[]).map(x => getTypeFullName(x, option)).join(", ") + ">";
         case "GenericParam":
         case "Interface":
           return typ.definition as string;
@@ -102,7 +104,7 @@ export function getTypeFullName(typ: any, option?: string): string {
   }
   else {
     // Attention: this doesn't work with Object.getPrototypeOf
-    const proto = typ.prototype;
+    const proto = typ.prototype as any;
     return trim(typeof proto[FSymbol.reflection] === "function"
       ? proto[FSymbol.reflection]().type : null, option);
   }
@@ -180,9 +182,9 @@ export function makeUnion(caseInfo: MemberInfo, args: any[]): any {
   }
 }
 
-export function getTupleElements(typ: any): FunctionConstructor[] {
+export function getTupleElements(typ: any): Type[] {
   if (typ instanceof NonDeclaredType && typ.kind === "Tuple") {
-    return typ.generics as FunctionConstructor[];
+    return typ.generics as Type[];
   }
   throw new Error("Type " + getTypeFullName(typ) + " is not a tuple type.");
 }

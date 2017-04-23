@@ -6,7 +6,7 @@ import FableSet from "./Set"
 import FableMap from "./Map"
 import { create as mapCreate } from "./Map"
 import { create as setCreate } from "./Set"
-import { NonDeclaredType, getDefinition } from "./Util"
+import { Type, NonDeclaredType, getDefinition } from "./Util"
 import { fold } from "./Seq"
 import { resolveGeneric, getTypeFullName } from "./Reflection"
 import { parse as dateParse } from "./Date"
@@ -30,7 +30,6 @@ export function deflate(v: any) {
         return o;
       }, {}, v);
     }
-
     const reflectionInfo = typeof v[FableSymbol.reflection] === "function" ? v[FableSymbol.reflection]() : {};
     if (reflectionInfo.properties) {
       return fold((o: any, prop: string) => {
@@ -90,10 +89,12 @@ function needsInflate(enclosing: List<any>): boolean {
     switch (typ.kind) {
       case "Option":
       case "Array":
-        return typ.definition != null || needsInflate(new List(typ.generics, enclosing));
+        return typ.definition != null || needsInflate(new List((typ.generics as Type[])[0], enclosing));
       case "Tuple":
-        return (typ.generics as FunctionConstructor[]).some((x: any) =>
+        return (typ.generics as Type[]).some(x =>
           needsInflate(new List(x, enclosing)));
+      case "Function":
+        return false;
       case "GenericParam":
         return needsInflate(resolveGeneric(typ.definition as string, enclosing.tail));
       case "GenericType":
@@ -211,17 +212,19 @@ function inflate(val: any, typ: any, path: string): any {
       case "Unit":
         return null;
       case "Option":
-        return inflate(val, new List(typ.generics, enclosing), path);
+        return inflate(val, new List((typ.generics as Type[])[0], enclosing), path);
       case "Array":
         if (typ.definition != null) { // Typed arrays
           return new (typ.definition as FunctionConstructor)(val);
         }
         else {
-          return inflateArray(val, new List(typ.generics, enclosing), path);
+          return inflateArray(val, new List((typ.generics as Type[])[0], enclosing), path);
         }
       case "Tuple":
-        return (typ.generics as FunctionConstructor[]).map((x, i) =>
+        return (typ.generics as Type[]).map((x, i) =>
           inflate(val[i], new List(x, enclosing), combine(path, i)));
+      case "Function":
+        return val;
       case "GenericParam":
         return inflate(val, resolveGeneric(typ.definition as string, enclosing.tail), path);
       case "GenericType":

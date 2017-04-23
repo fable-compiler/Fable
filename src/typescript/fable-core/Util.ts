@@ -22,18 +22,18 @@ export interface IDisposable {
 }
 
 export type NonDeclaredTypeKind =
-  | "Any" | "Unit" | "Option" | "Array" | "Tuple"
+  | "Any" | "Unit" | "Option" | "Array" | "Tuple" | "Function"
   | "GenericParam" | "GenericType" | "Interface"
 
-export type Type = FunctionConstructor;
+export type Type = string | NonDeclaredType | FunctionConstructor;
 export type Dic<T> = {[key: string]: T}
 
 export class NonDeclaredType implements IEquatable<NonDeclaredType> {
   public kind: NonDeclaredTypeKind;
-  public definition: string | Type;
-  public generics: Type | Type[] | Dic<Type>;
+  public definition: Type;
+  public generics: Type[] | Dic<Type>;
 
-  constructor(kind: NonDeclaredTypeKind, definition?: string | Type, generics?: Type | Type[] | Dic<Type>) {
+  constructor(kind: NonDeclaredTypeKind, definition?: string | Type, generics?: Type[] | Dic<Type>) {
     this.kind = kind;
     this.definition = definition;
     this.generics = generics;
@@ -55,7 +55,7 @@ export const Any = new NonDeclaredType("Any");
 export const Unit = new NonDeclaredType("Unit");
 
 export function Option(t: Type) {
-  return new NonDeclaredType("Option", null, t) as NonDeclaredType;
+  return new NonDeclaredType("Option", null, [t]) as NonDeclaredType;
 }
 
 function FableArray(t: Type, isTypedArray = false) {
@@ -66,13 +66,18 @@ function FableArray(t: Type, isTypedArray = false) {
   else {
     genArg = t;
   }
-  return new NonDeclaredType("Array", def, genArg) as NonDeclaredType;
+  return new NonDeclaredType("Array", def, [genArg]) as NonDeclaredType;
 }
 export { FableArray as Array }
 
-export function Tuple(ts: Type[]) {
-  return new NonDeclaredType("Tuple", null, ts) as NonDeclaredType;
+export function Tuple(types: Type[]) {
+  return new NonDeclaredType("Tuple", null, types) as NonDeclaredType;
 }
+
+function FableFunction(types: Type[]) {
+  return new NonDeclaredType("Function", null, types) as NonDeclaredType;
+}
+export { FableFunction as Function }
 
 export function GenericParam(definition: string) {
   return new NonDeclaredType("GenericParam", definition);
