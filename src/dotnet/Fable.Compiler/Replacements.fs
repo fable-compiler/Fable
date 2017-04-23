@@ -2014,6 +2014,8 @@ module AstPass =
             ccall i "Reflection" "getUnionCases" i.args |> Some
         | "getTupleElements" ->
             ccall i "Reflection" "getTupleElements" i.args |> Some
+        | "getFunctionElements" ->
+            ccall i "Reflection" "getFunctionElements" i.args |> Some
         | "isUnion" ->
             hasInterface "FSharpUnion" i.args.Head |> Some
         | "isRecord" ->
@@ -2022,6 +2024,8 @@ module AstPass =
             hasInterface "FSharpException" i.args.Head |> Some
         | "isTuple" ->
             ccall i "Reflection" "isTupleType" i.args |> Some
+        | "isFunction" ->
+            ccall i "Reflection" "isFunctionType" i.args |> Some
         | _ -> None
 
     let fsharpValue (com: ICompiler) (i: Fable.ApplyInfo) methName =

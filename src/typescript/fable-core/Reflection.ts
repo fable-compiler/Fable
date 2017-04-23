@@ -182,16 +182,30 @@ export function makeUnion(caseInfo: MemberInfo, args: any[]): any {
   }
 }
 
-export function getTupleElements(typ: any): Type[] {
+export function getTupleElements(typ: Type): Type[] {
   if (typ instanceof NonDeclaredType && typ.kind === "Tuple") {
     return typ.generics as Type[];
   }
   throw new Error("Type " + getTypeFullName(typ) + " is not a tuple type.");
 }
 
-export function isTupleType(typ: any): boolean {
+export function isTupleType(typ: Type): boolean {
   if (typ instanceof NonDeclaredType) {
     return typ.kind === "Tuple";
   }
   return false;
+}
+
+export function getFunctionElements(typ: Type): Type[] {
+  if (typ === "function") {
+    throw new Error("The type of the function must be known at compile time to get the elements.");
+  }
+  if (typ instanceof NonDeclaredType && typ.kind === "Function") {
+    return typ.generics as Type[];
+  }
+  throw new Error("Type " + getTypeFullName(typ) + " is not a function type.");
+}
+
+export function isFunctionType(typ: Type): boolean {
+  return typ === "function" || (typ instanceof NonDeclaredType && typ.kind === "Function");
 }

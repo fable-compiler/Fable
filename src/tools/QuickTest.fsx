@@ -29,4 +29,17 @@ let equal expected actual =
 
 // You'll have to run your test manually, sorry!
 // ``My Test``()
+open FSharp.Reflection
+type RecordF = { F : int -> string }
+[<Test>]
+let ``FSharp.Reflection Functions``() =
+    let recordType = typeof<RecordF>
+    let fields = FSharpType.GetRecordFields recordType
+    let funcProperty = Array.head fields
+    let funcType = funcProperty.PropertyType
+    let domain, range = FSharpType.GetFunctionElements funcType
+    equal domain typeof<int>
+    equal range typeof<string>
+    equal true (FSharpType.IsFunction funcType)
 
+``FSharp.Reflection Functions``()

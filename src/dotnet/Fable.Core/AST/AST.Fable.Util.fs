@@ -165,6 +165,9 @@ let makeNonDeclaredTypeRef (nonDeclType: NonDeclaredType) =
     | NonDeclTuple genArgs ->
         ArrayConst(ArrayValues genArgs, Any) |> Value
         |> List.singleton |> call "Tuple"
+    | NonDeclFunction genArgs ->
+        ArrayConst(ArrayValues genArgs, Any) |> Value
+        |> List.singleton |> call "Function"
     | NonDeclGenericParam name ->
         call "GenericParam" [Value(StringConst name)]
     | NonDeclInterface name ->
