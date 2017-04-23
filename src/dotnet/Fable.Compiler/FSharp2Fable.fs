@@ -1190,6 +1190,7 @@ let transformFile (com: ICompiler) (state: ICompilerState)
                   (checkedProject: FSharpCheckProjectResults) (fileName: string) =
     try
         let file =
+            // TODO: This shouldn't be necessary, but just in case
             let fileName = Path.normalizeFullPath fileName
             checkedProject.AssemblyContents.ImplementationFiles
             |> Seq.tryFind (fun f -> Path.normalizeFullPath f.FileName = fileName)
