@@ -268,7 +268,7 @@
         }
 
         var startTime = performance.now();
-        var ast = JSON.parse(data.json);
+        var ast = JSON.parse(data.jsonAst);
         var transformed = babel.transformFromAst(ast, null, options);
         var elapsed = performance.now() - startTime;
 
@@ -277,9 +277,10 @@
         this.runOutput();
 
         // print elapsed time
-        var elapsedMessage =
-            "FSharp compile time: " + Math.round(data.elapsed) + " ms, " +
-            "Babel compile time: " + Math.round(elapsed) + " ms";
+        var elapsedMessage = "Compile times - " +
+            "FCS: " + Math.round(data.fsharpTime) + " ms, " +
+            "Fable: " + Math.round(data.fableTime) + " ms, " +
+            "Babel: " + Math.round(elapsed) + " ms";
         this.printError(elapsedMessage);
       } catch (err) {
         //this.printError(err.message);
