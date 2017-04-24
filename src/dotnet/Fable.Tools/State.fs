@@ -20,12 +20,16 @@ type Dictionary<'TKey, 'TValue> with
     member x.GetOrAdd (key, valueFactory) =
         match x.TryGetValue key with
         | true, v -> v
-        | false, _ -> let v = valueFactory(key) in x.[key] <- v; v
+        | false, _ -> let v = valueFactory(key) in x.Add(key, v); v
+    member x.AddOrUpdate (key, valueFactory, updateFactory) =
+        if x.ContainsKey(key)
+        then let v = updateFactory key x.[key] in x.[key] <- v; v
+        else let v = valueFactory(key) in x.Add(key, v); v
 
 type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 #endif
 
-type State(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
+type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let compiledFiles =
@@ -51,6 +55,18 @@ type State(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProj
             entities.GetOrAdd(fullName, fun _ -> generate())
         member this.GetOrAddInlineExpr(fullName, generate) =
             inlineExprs.GetOrAdd(fullName, fun _ -> generate())
+
+type State() =
+    let projects = ConcurrentDictionary<string, Project>()
+    let mutable active = Unchecked.defaultof<Project>
+    member __.Projects = projects.Values
+    member __.ActiveProject = active
+    member __.IsLoadedProject(projectFileName) =
+        projects.ContainsKey(projectFileName)
+    member self.UpdateProject(project: Project) =
+        projects.AddOrUpdate(project.ProjectFile, (fun _ -> project), (fun _ _ -> project)) |> ignore
+        active <- project
+        self
 
 let getDefaultOptions() =
     { fableCore = "fable-core"
@@ -129,22 +145,6 @@ let loadPlugins pluginPaths (loadedPlugins: PluginInfo list) =
             | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
     |> Seq.toList
 
-// --- perhaps not used anymore? ---
-// /// Returns an (errors, warnings) tuple
-// let parseErrors errors =
-//     let parseError (er: FSharpErrorInfo) =
-//         let isError, severity =
-//             match er.Severity with
-//             | FSharpErrorSeverity.Warning -> false, "warning"
-//             | FSharpErrorSeverity.Error -> true, "error"
-//         isError, sprintf "%s(L%i,%i) : %s FSHARP: %s"
-//             er.FileName er.StartLineAlternate er.StartColumn
-//             severity er.Message
-//     errors
-//     |> Array.map parseError
-//     |> Array.partition fst
-//     |> fun (ers, wns) -> Array.map snd ers, Array.map snd wns
-
 let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptions) (com: ICompiler) =
     printfn "Parsing F# project..."
     let checkProjectResults =
@@ -162,7 +162,7 @@ let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptio
         com.AddLog(er.Message, severity, range, er.FileName, "FSHARP")
     checkProjectResults
 
-let createState checker projectOptions (com: ICompiler) (define: string[]) projFile =
+let createProject checker projectOptions (com: ICompiler) (define: string[]) projFile =
     let projectOptions =
         match projectOptions with
         | Some projectOptions -> projectOptions
@@ -176,7 +176,7 @@ let createState checker projectOptions (com: ICompiler) (define: string[]) projF
                     printfn "   %s" file
             projectOptions
     let checkedProject = parseFSharpProject checker projectOptions com
-    State(projectOptions, checkedProject)
+    Project(projectOptions, checkedProject)
 
 let toJsonAndReply =
     let jsonSettings =
@@ -198,48 +198,67 @@ let addLogs (com: Compiler) (file: Babel.Program) =
     let loc = defaultArg file.loc SourceLocation.Empty
     Babel.Program(file.fileName, loc, file.body, file.directives, com.Logs)
 
-let updateState (checker: FSharpChecker) (com: Compiler) (state: State option)
-                astOutDir (define: string[]) (fileName: string) =
-    let createFromScratch () =
-        let state = createState checker None com define fileName
-        astOutDir |> Option.iter (fun dir -> Printers.printAst dir state.CheckedProject)
-        state
-    match state with
-    | Some state ->
-        if fileName.EndsWith(".fsproj") || fileName = state.ProjectFile // Must be an .fsx script
-        then createFromScratch()
-        else
-            match state.CompiledFiles.TryGetValue(fileName) with
-            | true, alreadyCompiled ->
-                // Watch compilation, restart state
-                let state =
-                    if alreadyCompiled
-                    then createState checker (Some state.ProjectOptions) com define state.ProjectFile
-                    else state
-                // Set file as already compiled
-                state.CompiledFiles.[fileName] <- true
-                state
-            | false, _ when fileName.EndsWith(".fsx") ->
-                createState checker None com define fileName
-            | false, _ ->
-                failwithf "%s doesn't belong to project %s" fileName state.ProjectFile
-    | None -> createFromScratch()
+let getExtension (fileName: string) =
+    let i = fileName.LastIndexOf(".")
+    fileName.Substring(i).ToLower()
 
-let compile (com: Compiler) (state: State) (fileName: string) =
+let updateState (checker: FSharpChecker) (com: Compiler) (state: State) astOutDir (define: string[]) (fileName: string): State =
+    let createProject options projectFile =
+        let project = createProject checker options com define projectFile
+        astOutDir |> Option.iter (fun dir -> Printers.printAst dir project.CheckedProject)
+        project
+    let tryFindAndUpdateProject ext sourceFile =
+        // TODO: Optimize so the ActiveProject is searched first
+        state.Projects |> Seq.tryPick (fun project ->
+            match project.CompiledFiles.TryGetValue(sourceFile) with
+            | true, alreadyCompiled ->
+                let project =
+                    // When a script is modified, restart the project with new options
+                    // (to check for new references, loaded projects, etc.)
+                    if ext = ".fsx"
+                    then createProject None project.ProjectFile
+                    // Watch compilation of an .fs file, restart project with old options
+                    elif alreadyCompiled
+                    then createProject (Some project.ProjectOptions) project.ProjectFile
+                    else project
+                // Set file as already compiled
+                project.CompiledFiles.[sourceFile] <- true
+                Some project
+            | false, _ -> None)
+    match getExtension fileName with
+    | ".fsproj" ->
+        state.UpdateProject(createProject None fileName)
+    | ".fsx" as ext ->
+        if state.IsLoadedProject(fileName)
+        then state.UpdateProject(createProject None fileName)
+        else
+            match tryFindAndUpdateProject ext fileName with
+            | Some project -> state.UpdateProject(project)
+            | None -> state.UpdateProject(createProject None fileName)        
+    | ".fs" as ext ->        
+            match tryFindAndUpdateProject ext fileName with
+            | Some project -> state.UpdateProject(project)
+            | None ->
+                state.Projects |> Seq.map (fun x -> x.ProjectFile) |> Seq.toList
+                |> failwithf "%s doesn't belong to any of loaded projects %A" fileName
+    | ".fsi" -> failwithf "Signature files cannot be compiled to JS: %s" fileName
+    | _ -> failwithf "Not an F# source file: %s" fileName
+
+let compile (com: Compiler) (project: Project) (fileName: string) =
     if fileName.EndsWith(".fsproj")
     then
-        let lastFile = Array.last state.ProjectOptions.ProjectFileNames
+        let lastFile = Array.last project.ProjectOptions.ProjectFileNames
         Fable2Babel.Compiler.createFacade fileName lastFile
     else
         printfn "Compile %s" fileName
-        FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
-        |> Fable2Babel.Compiler.transformFile com state
+        FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
+        |> Fable2Babel.Compiler.transformFile com project
     |> addLogs com
 
 type Command = string * (string -> unit)
 
 let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
-    let rec loop (checker: FSharpChecker) (com: Compiler) (state: State option) = async {
+    let rec loop (checker: FSharpChecker) (com: Compiler) (state: State) = async {
         let! msg, replyChannel = agent.Receive()
         try
             let msg = Parser.parse msg
@@ -251,19 +270,19 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
             let state = updateState checker com state astOutDir msg.define msg.path
             async {
                 try
-                    compile com state msg.path
+                    compile com state.ActiveProject msg.path
                     |> toJsonAndReply replyChannel
                 with ex ->
                     sendError replyChannel ex
             } |> Async.Start
-            return! loop checker com (Some state)
+            return! loop checker com state
         with ex ->
             sendError replyChannel ex
             return! loop checker com state
     }
     let compiler = Compiler()
     let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
-    loop checker compiler None
+    loop checker compiler <| State()
   )
 
 #endif //!FABLE_COMPILER
