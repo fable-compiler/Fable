@@ -203,19 +203,23 @@ let getExtension (fileName: string) =
     fileName.Substring(i).ToLower()
 
 let updateState (checker: FSharpChecker) (com: Compiler) (state: State) astOutDir (define: string[]) (fileName: string): State =
-    let createProjectFromScratch projectFile =
-        let project = createProject checker None com define projectFile
+    let createProject options projectFile =
+        let project = createProject checker options com define projectFile
         astOutDir |> Option.iter (fun dir -> Printers.printAst dir project.CheckedProject)
         project
-    let tryFindAndUpdateProject sourceFile =
+    let tryFindAndUpdateProject ext sourceFile =
         // TODO: Optimize so the ActiveProject is searched first
         state.Projects |> Seq.tryPick (fun project ->
             match project.CompiledFiles.TryGetValue(sourceFile) with
             | true, alreadyCompiled ->
                 let project =
-                    // Watch compilation, restart project
-                    if alreadyCompiled
-                    then createProject checker (Some project.ProjectOptions) com define project.ProjectFile
+                    // When a script is modified, restart the project with new options
+                    // (to check for new references, loaded projects, etc.)
+                    if ext = ".fsx"
+                    then createProject None project.ProjectFile
+                    // Watch compilation of an .fs file, restart project with old options
+                    elif alreadyCompiled
+                    then createProject (Some project.ProjectOptions) project.ProjectFile
                     else project
                 // Set file as already compiled
                 project.CompiledFiles.[sourceFile] <- true
@@ -223,20 +227,20 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State) astOutDi
             | false, _ -> None)
     match getExtension fileName with
     | ".fsproj" ->
-        state.UpdateProject(createProjectFromScratch fileName)
-    | ".fsx" ->
+        state.UpdateProject(createProject None fileName)
+    | ".fsx" as ext ->
         if state.IsLoadedProject(fileName)
-        then state.UpdateProject(createProjectFromScratch fileName)
+        then state.UpdateProject(createProject None fileName)
         else
-            match tryFindAndUpdateProject fileName with
+            match tryFindAndUpdateProject ext fileName with
             | Some project -> state.UpdateProject(project)
-            | None -> state.UpdateProject(createProjectFromScratch fileName)
-    | ".fs" ->
-        match tryFindAndUpdateProject fileName with
-        | Some project -> state.UpdateProject(project)
-        | None ->
-            state.Projects |> Seq.map (fun x -> x.ProjectFile) |> Seq.toList
-            |> failwithf "%s doesn't belong to any of loaded projects %A" fileName
+            | None -> state.UpdateProject(createProject None fileName)        
+    | ".fs" as ext ->        
+            match tryFindAndUpdateProject ext fileName with
+            | Some project -> state.UpdateProject(project)
+            | None ->
+                state.Projects |> Seq.map (fun x -> x.ProjectFile) |> Seq.toList
+                |> failwithf "%s doesn't belong to any of loaded projects %A" fileName
     | ".fsi" -> failwithf "Signature files cannot be compiled to JS: %s" fileName
     | _ -> failwithf "Not an F# source file: %s" fileName
 
