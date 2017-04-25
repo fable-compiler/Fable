@@ -522,7 +522,9 @@ Target "GitHubRelease" (fun _ ->
 
 Target "Clean" clean
 Target "NugetRestore" (nugetRestore "src/dotnet")
-Target "FableTools" (buildTools "src/dotnet" true)
+Target "FableTools" (fun _ ->
+    nugetRestore "src/dotnet" ()
+    buildTools "src/dotnet" true ())
 Target "FableCoreJs" buildCoreJs
 Target "RunTestsJs" runTestsJs
 
