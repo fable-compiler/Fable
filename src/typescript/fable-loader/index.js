@@ -68,6 +68,9 @@ module.exports = function(buffer) {
             }
             else {
                 console.log("Fable loader received: " + msg.path);
+                ensureArray(data.dependencies).forEach(path => {
+                    this.addDependency(path)
+                });
                 if (typeof data.logs === "object") {
                     Object.keys(data.logs).forEach(key => {
                         // TODO: Fail if there's one or more error logs?

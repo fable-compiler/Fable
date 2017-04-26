@@ -99,7 +99,7 @@ let debug (projFile: string) (define: string[]) =
     try
         let state = updateState checker com (State()) None define (Path.GetFullPath projFile)
         for file in state.ActiveProject.CompiledFiles.Keys |> Seq.rev do
-            com.Reset()
+            let com = Compiler()
             compile com state.ActiveProject file |> printfn "%A"
     with
     | ex -> printfn "ERROR: %s\n%s" ex.Message ex.StackTrace

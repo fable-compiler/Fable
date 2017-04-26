@@ -74,23 +74,24 @@ let getDefaultOptions() =
     ; typedArrays = true
     ; clampByteArrays = false }
 
-type Compiler() =
+/// Type with utilities for compiling F# files to JS
+/// No thread-safe, an instance must be created per file
+type Compiler(?options, ?plugins) =
     let mutable id = 0
-    let mutable options' = getDefaultOptions()
-    let mutable plugins': PluginInfo list = []
-    let logs = Dictionary<string,ResizeArray<string>>()
-    member __.Logs: IDictionary<string,string[]> =
-        logs |> Seq.map (fun kv -> kv.Key, Seq.toArray kv.Value) |> dict
-    member __.Reset(?options, ?plugins) =
-        id <- 0
-        options' <- defaultArg options options'
-        plugins' <- defaultArg plugins plugins'
-        logs.Clear()
+    let mutable hasFSharpError = false
+    let options = defaultArg options <| getDefaultOptions()
+    let plugins: PluginInfo list = defaultArg plugins []
+    let logs = Dictionary<string, string list>()
+    member __.HasFSharpError = hasFSharpError
+    member __.Logs: Map<string, string list> =
+        logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value) |> Map
     interface ICompiler with
-        member __.Options = options'
-        member __.Plugins = plugins'
+        member __.Options = options
+        member __.Plugins = plugins
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             let tag = defaultArg tag "FABLE"
+            if tag = "FSHARP" && severity = Severity.Error then
+                hasFSharpError <- true
             let severity =
                 match severity with
                 | Severity.Warning -> "warning"
@@ -105,13 +106,15 @@ type Compiler() =
                         | None -> "1,1,1,1"
                     sprintf "%s(%s) : %s %s: %s" file range severity tag msg
                 | None -> msg
-            match logs.TryGetValue(severity) with
-            | true, v -> v.Add(formattedMsg)
-            | false, _ -> logs.Add(severity, ResizeArray[|formattedMsg|])
+            if logs.ContainsKey(severity)
+            then logs.[severity] <- formattedMsg::logs.[severity]
+            else logs.Add(severity, [formattedMsg])
         member __.GetUniqueVar() =
 #if FABLE_COMPILER
             id <- id + 1; "$var" + (string id)
 #else
+            // Actually this shouldn't be necessary as we've only
+            // one compiler instance per file
             "$var" + (System.Threading.Interlocked.Increment(&id).ToString())
 #endif
 
@@ -196,7 +199,7 @@ let sendError replyChannel (ex: Exception) =
 
 let addLogs (com: Compiler) (file: Babel.Program) =
     let loc = defaultArg file.loc SourceLocation.Empty
-    Babel.Program(file.fileName, loc, file.body, file.directives, com.Logs)
+    Babel.Program(file.fileName, loc, file.body, file.directives, com.Logs, file.dependencies)
 
 let getExtension (fileName: string) =
     let i = fileName.LastIndexOf(".")
@@ -234,8 +237,8 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State) astOutDi
         else
             match tryFindAndUpdateProject ext fileName with
             | Some project -> state.UpdateProject(project)
-            | None -> state.UpdateProject(createProject None fileName)        
-    | ".fs" as ext ->        
+            | None -> state.UpdateProject(createProject None fileName)
+    | ".fs" as ext ->
             match tryFindAndUpdateProject ext fileName with
             | Some project -> state.UpdateProject(project)
             | None ->
@@ -247,8 +250,15 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State) astOutDi
 let compile (com: Compiler) (project: Project) (fileName: string) =
     if fileName.EndsWith(".fsproj")
     then
-        let lastFile = Array.last project.ProjectOptions.ProjectFileNames
-        Fable2Babel.Compiler.createFacade fileName lastFile
+        if com.HasFSharpError
+        then
+            // If there are F# errors won't keep compiling because the project file
+            // would remain errored forever, but add all project files as dependencies.
+            let deps = Array.toList project.ProjectOptions.ProjectFileNames
+            Babel.Program(fileName, SourceLocation.Empty, [], dependencies=deps)
+        else
+            let lastFile = Array.last project.ProjectOptions.ProjectFileNames
+            Fable2Babel.Compiler.createFacade fileName lastFile
     else
         printfn "Compile %s" fileName
         FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
@@ -266,7 +276,7 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                 match msg.extra.TryGetValue("saveAst") with
                 | true, value -> Some value
                 | _ -> None
-            com.Reset(msg.options, loadPlugins msg.plugins (com :> ICompiler).Plugins)
+            let com = Compiler(msg.options, loadPlugins msg.plugins (com :> ICompiler).Plugins)
             let state = updateState checker com state astOutDir msg.define msg.path
             async {
                 try
