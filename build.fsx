@@ -137,6 +137,40 @@ module Util =
             sprintf "RELEASE_NOTES_%s.md" pkg
             |> ReleaseNotesHelper.LoadReleaseNotes)
 
+    type ComparisonResult = Smaller | Same | Bigger
+
+    let foldi f init (xs: 'T seq) =
+        let mutable i = -1
+        (init, xs) ||> Seq.fold (fun state x ->
+            i <- i + 1
+            f i state x)
+
+    let compareVersions (expected: string) (actual: string) =
+        if actual = "*" // Wildcard for custom fable-core builds
+        then Same
+        else
+            let expected = expected.Split('.', '-')
+            let actual = actual.Split('.', '-')
+            (Same, expected) ||> foldi (fun i comp expectedPart ->
+                match comp with
+                | Bigger -> Bigger
+                | Same when actual.Length <= i -> Smaller
+                | Same ->
+                    let actualPart = actual.[i]
+                    match Int32.TryParse(expectedPart), Int32.TryParse(actualPart) with
+                    // TODO: Don't allow bigger for major version?
+                    | (true, expectedPart), (true, actualPart) ->
+                        if actualPart > expectedPart
+                        then Bigger
+                        elif actualPart = expectedPart
+                        then Same
+                        else Smaller
+                    | _ ->
+                        if actualPart = expectedPart
+                        then Same
+                        else Smaller
+                | Smaller -> Smaller)            
+
 module Npm =
     let script workingDir script args =
         sprintf "run %s -- %s" script (String.concat " " args)
@@ -244,7 +278,10 @@ let installDotnetSdk () =
                 info.WorkingDirectory <- Environment.CurrentDirectory
                 info.Arguments <- "--version") (TimeSpan.FromMinutes 30.)
 
-            processResult.Messages |> separated "" = dotnetcliVersion
+            let installedVersion = processResult.Messages |> separated "" 
+            match Util.compareVersions dotnetcliVersion installedVersion with
+            | Util.Same | Util.Bigger -> true
+            | Util.Smaller -> false
         with
         | _ -> false
 
@@ -434,44 +471,10 @@ let pushNpm build (releaseNotes: ReleaseNotes) (projDir: string) =
         if version.IndexOf("-") > 0 then ["--tag next"] else []
         |> Npm.command projDir "publish"
 
-let publishNugetPackage pkg =
-    let release =
-        sprintf "src/nuget/%s/RELEASE_NOTES.md" pkg
-        |> ReleaseNotesHelper.LoadReleaseNotes
-    CleanDir <| sprintf "nuget/%s" pkg
-    Paket.Pack(fun p ->
-        { p with
-            Version = release.NugetVersion
-            OutputPath = sprintf "nuget/%s" pkg
-            TemplateFile = sprintf "src/nuget/%s/%s.fsproj.paket.template" pkg pkg
-            // IncludeReferencedProjects = true
-        })
-    Paket.Push(fun p ->
-        { p with
-            WorkingDir = sprintf "nuget/%s" pkg
-            PublishUrl = "https://www.nuget.org/api/v2/package" })
-
-Target "PublishJsonConverter" (fun _ ->
-    let pkg = "Fable.JsonConverter"
-    let pkgDir = "src" </> "nuget" </> pkg
-    !! (pkgDir + "/*.fsproj")
-    |> MSBuildRelease (pkgDir </> "bin" </> "Release") "Build"
-    |> Log (pkg + ": ")
-    publishNugetPackage pkg
-)
-
-Target "PublishNUnitPlugin" (fun _ ->
-    let srcDir = "src/plugins/nunit"
-    buildNUnitPlugin ()
-    FileUtils.cp "build/nunit/Fable.Plugins.NUnit.dll" srcDir
-    // TODO: Check the version and whether it needs the next tag or not
-    Npm.command srcDir "publish" ["--tag"; "next"]
-)
-
-Target "BrowseDocs" (fun _ ->
-    let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "BrowseDocs"]
-    if exit <> 0 then failwith "Browsing documentation failed"
-)
+// Target "BrowseDocs" (fun _ ->
+//     let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "BrowseDocs"]
+//     if exit <> 0 then failwith "Browsing documentation failed"
+// )
 
 Target "GenerateDocs" (fun _ ->
     let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "GenerateDocs"]
@@ -543,6 +546,7 @@ Target "PublishPackages" (fun () ->
     pushNpm None releaseToolsJs.Value "src/typescript/fable-utils"
     pushNpm None releaseLoader.Value "src/typescript/fable-loader"
     pushNpm None releaseRollup.Value "src/typescript/rollup-plugin-fable"
+    // TODO: Add NUnit plugin, it must be built first
 )
 
 Target "All" (fun () ->
