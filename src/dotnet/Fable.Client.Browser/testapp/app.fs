@@ -49,7 +49,6 @@ let main argv =
         let parseFSharp () = parseFSharpProject checker com fileName source
         let parseFable ast = compileAst com ast fileName
         let bench i =
-            com.Reset()
             let ms1, fsAST = measureTime parseFSharp ()
             let ms2, fableAST = measureTime parseFable fsAST
             printfn "iteration %d, FCS time: %d ms, Fable time: %d ms" i ms1 ms2

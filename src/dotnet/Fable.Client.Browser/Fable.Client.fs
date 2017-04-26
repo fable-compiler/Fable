@@ -37,13 +37,13 @@ let makeProjOptions (com: ICompiler) projFile =
     projOptions
 
 let compileAst (com: Compiler) checkedProject fileName =
-    let hasErrors, errors = com.Logs.TryGetValue("error")
-    if hasErrors then failwith (errors |> String.concat "\n")
+    let errors = com.Logs |> Map.tryFind "error"
+    if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let projectOptions = makeProjOptions com fileName
-    let state = State(projectOptions, checkedProject)
+    let project = Project(projectOptions, checkedProject)
     let file: Babel.Program =
-        FSharp2Fable.Compiler.transformFile com state state.CheckedProject fileName
-        |> Fable2Babel.Compiler.transformFile com state
+        FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
+        |> Fable2Babel.Compiler.transformFile com project
     let loc = defaultArg file.loc SourceLocation.Empty
     Babel.Program(file.fileName, loc, file.body, file.directives, com.Logs)
 
