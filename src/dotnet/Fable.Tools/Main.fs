@@ -169,7 +169,9 @@ let main argv =
         let port, _ = argsMap |> getPortAndTimeout
         let workingDir = Directory.GetCurrentDirectory()
         let webpackScript =
-            let webpackScript = Path.Combine(findPackageJsonDir workingDir, "node_modules", webpack, "bin", webpack + ".js")
+            let webpackScript = 
+                Path.Combine(findPackageJsonDir workingDir, "node_modules", webpack, "bin", webpack + ".js")
+                |> sprintf "\"%s\""
             match Map.tryFind "args" argsMap with
             | Some args -> webpackScript + " " + args
             | None -> webpackScript
