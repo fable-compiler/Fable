@@ -1,3 +1,5 @@
+module App
+
 (**
  - title: D3 world tour
  - tagline: Looping through countries of the world
@@ -12,9 +14,7 @@
    calling JavaScript libraries from Fable. You'll learn how to define mappings for
    imported scripts, how to pass lambdas to JS code and the `?` operator.
 *)
-(*** hide ***)
-#r "../../node_modules/fable-core/Fable.Core.dll"
-#load "../../node_modules/fable-import-d3/Fable.Import.D3.fs"
+
 (**
 JavaScript helpers and imports
 ------------------------------
@@ -30,8 +30,8 @@ open Fable.Core.JsInterop
 open Fable.Import
 open Fable.Import.Browser
 
-let queue = importDefault<unit->obj> "queue"
-let topojson = importAll<obj> "topojson"
+let queue(): obj = importDefault "queue"
+let topojson: obj = importAll "topojson"
 
 (**
 
@@ -68,7 +68,7 @@ let projection =
 
 let path =
   D3.Geo.Globals.path()
-    .projection(unbox<D3.Geo.Transform> projection)
+    .projection(projection :?> D3.Geo.Transform)
     .context(ctx)
 
 let title = D3.Globals.select(".country-name")
@@ -125,10 +125,10 @@ couuntries. We also find all countries for which we have both name and map:
     topojson?mesh(world, world?objects?countries, (<>))
 
   // Get countries for which we have a name and set
-  // their name property using the `?` operator
+  // their name property using the `?` operator.
+  // We also use the `!!` operator for dynamic casting.
   let countries =
-    topojson?feature(world, world?objects?countries)?features
-    |> unbox<obj[]>
+    !!topojson?feature(world, world?objects?countries)?features
     |> Array.filter (fun d ->
         names |> Seq.exists (fun n ->
           if (string d?id) = (string n?id)
@@ -154,13 +154,13 @@ rotation `angle`, the following function renders the map:
 
   /// Render background, current country, borders & globe
   let render country angle =
-      projection.rotate(unbox angle) |> ignore
+      projection.rotate(!!angle) |> ignore
       ctx.clearRect(0., 0., width, height)
       draw "#ACA2AD" 0.0 landFeature true
       draw "#9E4078" 0.0 country true
       draw "#EAF1F7" 0.5 borders false
       draw "#726B72" 2.0 globe false
-      box ()
+
 (**
 
 ### Creating the transition
@@ -175,18 +175,18 @@ then setting up a number of parameters:
       .duration(1250.)
       .each("start", fun _ _ ->
         // Set the text of the HTML element
-        let name = unbox<D3.Primitive> countries.[i]?name
-        title.text(name) |> box )
+        let name: D3.Primitive = !!countries.[i]?name
+        !!title.text(name))
       .tween("rotate", fun _ ->
         // Interpolate the rotation & return function
         // that renders everything at a given time 't'
         let p1, p2 = D3.Geo.Globals.centroid(countries.[i])
         let r = D3.Globals.interpolate(projection.rotate(), (-p1, -p2))
-        Func<_,_>(fun t -> render countries.[i] (r.Invoke(t))) )
+        Func<_,_>(fun t -> !!render countries.[i] (r.Invoke(t))) )
       .transition()
       .each("end", fun _ _ ->
         // At the end, start the transition again!
-        transition ((i + 1) % countries.Length) ) |> box
+        !!transition ((i + 1) % countries.Length))
 (*** hide ***)
   transition(0)
 (**
@@ -202,5 +202,6 @@ queue()
   ?defer((fun url callback -> D3.Globals.json(url, callback)), "data/world-110m.json")
   ?defer(D3.Globals.tsv, "data/world-country-names.tsv")
   ?await(fun error world names ->
-    if error then error |> unbox |> raise
+    if error <> null then raise error
     dataLoaded world names)
+|> ignore
