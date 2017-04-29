@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "scripts": {
+    "fable": "dotnet ../../build/fable/dotnet-fable.dll start",
+    "build": "node ../../node_modules/webpack/bin/webpack",
+    "rollup": "node ../../node_modules/rollup/bin/rollup -c"
+  }
+}

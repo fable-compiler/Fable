@@ -1,12 +1,8 @@
 {
   "private": true,
-  "devDependencies": {
-    "rollup": "^0.41.6",
-    "rollup-plugin-fable": "^1.0.3"
-  },
   "scripts": {
     "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",
     "build": "node ../../../../node_modules/webpack/bin/webpack -p",
-    "rollup": "rollup -c"
+    "rollup": "node ../../../../node_modules/rollup/bin/rollup -c"
   }
 }
