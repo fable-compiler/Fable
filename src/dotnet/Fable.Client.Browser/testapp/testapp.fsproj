@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Version>1.0.0-alpha</Version>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp1.0</TargetFramework>
+    <TargetFramework>netcoreapp1.1</TargetFramework>
     <DefineConstants>DOTNET40</DefineConstants>
   </PropertyGroup>
 

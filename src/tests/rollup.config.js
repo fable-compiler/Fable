@@ -6,14 +6,14 @@ function resolve(filePath) {
   return path.resolve(__dirname, filePath)
 }
 
-var babelOptions = {
-  "presets": [
-    ["es2015", {"modules": false}]
-  ]
-}
+// var babelOptions = {
+//   "presets": [
+//     ["es2015", {"modules": false}]
+//   ]
+// }
 
 var fableOptions = {
-  babel: babelOptions,
+  //babel: babelOptions,
   fableCore: resolve("../../build/fable-core"),
   define: "DOTNETCORE",
   plugins: resolve("../../build/nunit/Fable.Plugins.NUnit.dll")
