@@ -1,4 +1,4 @@
-module Fable.Import.Node
+namespace Fable.Import.Node
 
 
 open Fable.Import.Node.Base
