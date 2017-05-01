@@ -25,7 +25,6 @@
     <Compile Include="Import/Node/ChildProcess.fs" />
     <Compile Include="Import/Node/Process.fs" />
     <Compile Include="Import/Node/Globals.fs" />
-    <Compile Include="Import/Fable.Import.Node.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />
   </ItemGroup>
   <ItemGroup>
