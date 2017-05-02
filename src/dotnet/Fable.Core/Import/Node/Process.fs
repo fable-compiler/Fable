@@ -19,9 +19,9 @@ open Fable.Import.JS
       abstract prependListener: ``event``: U2<string, Symbol> * listener: Function -> obj
       abstract prependOnceListener: ``event``: U2<string, Symbol> * listener: Function -> obj
       abstract eventNames: unit -> ResizeArray<U2<string, Symbol>>
-      abstract stdout: stream_types.Writable with get, set
-      abstract stderr: stream_types.Writable with get, set
-      abstract stdin: stream_types.Readable with get, set
+      abstract stdout: stream_types.Writable<string> with get, set
+      abstract stderr: stream_types.Writable<string> with get, set
+      abstract stdin: stream_types.Readable<string> with get, set
       abstract argv: ResizeArray<string> with get, set
       abstract argv0: string with get, set
       abstract execArgv: ResizeArray<string> with get, set
