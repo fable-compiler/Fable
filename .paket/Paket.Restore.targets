@@ -12,7 +12,7 @@
     <PaketCommand Condition=" '$(OS)' != 'Windows_NT' ">$(MonoPath) --runtime=v4.0.30319 "$(PaketExePath)"</PaketCommand>
   </PropertyGroup>
 
-  <Target Name="PaketRestore" BeforeTargets="_GenerateRestoreGraphWalkPerFramework;CollectPackageReferences" >
+  <Target Name="PaketRestore" BeforeTargets="_GenerateProjectRestoreGraphPerFramework;_GenerateRestoreGraphWalkPerFramework;CollectPackageReferences" >
 
     <Exec Command='$(PaketCommand) restore --project "$(MSBuildProjectFullPath)" ' />
 

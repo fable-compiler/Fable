@@ -45,23 +45,24 @@ let samplesRoot = fableRoot </> "samples"
 
 let samples =
   [ // Browser samples with HTML content
-    "samples/browser/mario", true
-    "samples/browser/hokusai", true
-    "samples/browser/ozmo", true
-    "samples/browser/pacman", true
-    "samples/browser/d3map", true
-    "samples/browser/webGLTerrain", true
-    "samples/browser/samegame", true
-    "samples/browser/virtualdom", true
-    "samples/browser/react-todomvc", true
-    "samples/browser/redux-todomvc", true
-    "samples/browser/lsystem", true
     "samples/browser/pong", true
+    // "samples/browser/hokusai", true
+    // "samples/browser/ozmo", true
+    // "samples/browser/pacman", true
+    // "samples/browser/d3map", true
+    // "samples/browser/webGLTerrain", true
+    // "samples/browser/samegame", true
+    // "samples/browser/virtualdom", true
+    // "samples/browser/react-todomvc", true
+    // "samples/browser/redux-todomvc", true
+    // "samples/browser/lsystem", true
+    // "samples/browser/pong", true
 
-    // Non-browser samples without embedded HTML
-    "samples/node/server", false
-    "samples/node/express", false
-    "samples/node/nunit", false ]
+    // // Non-browser samples without embedded HTML
+    // "samples/node/server", false
+    // "samples/node/express", false
+    // "samples/node/nunit", false
+  ]
 
 
 // Set templates directory for DotLiquid
@@ -243,7 +244,7 @@ let generateSamplePage siteRoot name path =
 
     /// Find first `.fsx` file and format it using F# Formatting
     /// (and also extract meta-data from the first paragraph)
-    let script = Directory.GetFiles(fableRoot </> path, "*.fsx") |> Seq.head
+    let script = Directory.GetFiles(fableRoot </> path, "pong.fsx") |> Seq.head
     use f = TempFile.New()
     let attrs = System.Collections.Generic.Dictionary<_, _>()
     Literate.ProcessScriptFile(script, output=f.Name, generateAnchors=true, customizeDocument = fun _ doc ->
@@ -297,9 +298,9 @@ let generateSamplePages siteRoot recompile () =
       let name = Path.GetFileName(sample)
       traceImportant (sprintf "Generating sample page: %s" name)
       generateSamplePage siteRoot name sample
-      if recompile then
-        traceImportant (sprintf "Compiling sample: %s" name)
-        compileSample embed name sample
+    //   if recompile then
+    //     traceImportant (sprintf "Compiling sample: %s" name)
+    //     compileSample embed name sample
 
 
 // --------------------------------------------------------------------------------------
@@ -315,7 +316,7 @@ let refreshEvent = new Event<unit>()
 
 let socketHandler (webSocket : WebSocket) cx = socket {
     while true do
-      let byteResponse = 
+      let byteResponse =
         "refreshed"
         |> System.Text.Encoding.ASCII.GetBytes
         |> ByteSegment
@@ -358,7 +359,7 @@ Target "CleanDocs" (fun _ ->
 Target "GenerateDocs" (fun _ ->
     // copySharedScripts ()
     generateStaticPages publishSite true ()
-    // generateSamplePages publishSite true ()
+    generateSamplePages publishSite true ()
 )
 
 Target "BrowseDocs" (fun _ ->

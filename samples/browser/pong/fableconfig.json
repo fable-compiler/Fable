@@ -1,7 +1,0 @@
-{
-    "projFile": "./pong.fsx",
-    "sourceMaps": true,
-    "rollup": {
-        "dest": "./out/bundle.js"
-    }
-}

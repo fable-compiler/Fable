@@ -2,13 +2,11 @@
  - title: Fable Pong
  - tagline: Two player Pong clone using HTML5 canvas
  - intro: This demo shows a Fable implementation of Pong, which is also part of the [F# Advent Calendar in English 2016](https://sergeytihon.wordpress.com/2016/10/23/f-advent-calendar-in-english-2016/).
-
- You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/pong/pong.fsx).
-
+   You can find the [full source code on GitHub](https://github.com/fsprojects/Fable/blob/master/samples/browser/pong/pong.fsx) and learn more in [this post](http://oopbase.de/posts/implementing-pong-in-a-functional-manner-with-fable.html).
 *)
 
 (*** hide ***)
-#r "../../node_modules/fable-core/Fable.Core.dll"
+#r "../../../build/fable/Fable.Core.dll"
 #load "keyboard.fsx"
 #load "win.fsx"
 
@@ -22,28 +20,27 @@ open Win
 let w, h = Win.dimensions()
 
 (**
-   Defining the model
-   -----
- 
-   When thinking about the Pong game, there are basically three types of models:
+## Defining the model
 
-   1. **Paddles:** The paddles have got a position and a specific size.
-   2. **Ball:** The ball has got a position and a size as well. But it has also got speed and an angle.
-   3. **Game status:** Some kind of storage containing information about the current score.
+When thinking about the Pong game, there are basically three types of models:
+
+1. **Paddles:** The paddles have got a position and a specific size.
+2. **Ball:** The ball has got a position and a size as well. But it has also got speed and an angle.
+3. **Game status:** Some kind of storage containing information about the current score.
 
 *)
 
-type PongElement = { 
-    x : float; 
-    y : float; 
-    width : float; 
+type PongElement = {
+    x : float;
+    y : float;
+    width : float;
     height : float;
 }
 
-type BallElement = { 
-    element : PongElement; 
+type BallElement = {
+    element : PongElement;
     speed : float;
-    angle : float; 
+    angle : float;
 }
 
 type GameStatus = {
@@ -53,11 +50,10 @@ type GameStatus = {
 }
 
 (**
-   Controlling the paddles
-   -----
- 
-   To control a paddle there are only two functions necessary. A canMove-function, to indicate whether a paddle can move in a certain direction, and an actual move-function to move the paddle.
-   The parameter direction is a tuple (int * int). When the first parameter of the tuple is set to 1, we want the paddle to move up. When the second parameter of the tuple is set to 1, we want the paddle to move down. By using pattern matching we can check which value of the tuple is set to 1. Since every object is immutable, we either return a copy of the current paddle with its new Y-position (line 10 and 11) or simply return the input-paddle if no movement is allowed.
+## Controlling the paddles
+
+To control a paddle there are only two functions necessary. A canMove-function, to indicate whether a paddle can move in a certain direction, and an actual move-function to move the paddle.
+The parameter direction is a tuple (int * int). When the first parameter of the tuple is set to 1, we want the paddle to move up. When the second parameter of the tuple is set to 1, we want the paddle to move down. By using pattern matching we can check which value of the tuple is set to 1. Since every object is immutable, we either return a copy of the current paddle with its new Y-position (line 10 and 11) or simply return the input-paddle if no movement is allowed.
 *)
 
 let canMove direction paddle =
@@ -76,14 +72,13 @@ let move direction paddle =
         paddle
 
 (**
-   Collision detection
-   -----
- 
-   This discriminated union describes the whole collision system of the game: There can be no collision (None), the Top or Bottom of the canvas may be hit, the Left or Right part of the canvas may be hit (so a player scored) or finally a paddle was hit (LeftPaddle & RightPaddle). The following function takes the paddles and the ball as input parameters and returns the found type of collision.
+## Collision detection
+
+This discriminated union describes the whole collision system of the game: There can be no collision (None), the Top or Bottom of the canvas may be hit, the Left or Right part of the canvas may be hit (so a player scored) or finally a paddle was hit (LeftPaddle & RightPaddle). The following function takes the paddles and the ball as input parameters and returns the found type of collision.
 *)
 
 
-type Collision = 
+type Collision =
     | None
     | Top
     | Bottom
@@ -94,7 +89,7 @@ type Collision =
 
 
 (**
-   With this function, implementing a final collision-function to determine the new angle of the ball is straight forward again. (Thanks to pattern matching)
+With this function, implementing a final collision-function to determine the new angle of the ball is straight forward again. (Thanks to pattern matching)
 *)
 
 
@@ -115,7 +110,7 @@ let checkCollision leftPaddle rightPaddle ball =
     | _ -> None
 
 (**
-   When hitting either the top or the bottom of the canvas, we negate the value of the angle (angle of incidence is equal to the angle of reflection). When hitting the left or right part of the canvas, we simply keep the input angle, since evaluating the score isn’t done here. To actually calculate the angle when a paddle is hit, we use yet another function.
+When hitting either the top or the bottom of the canvas, we negate the value of the angle (angle of incidence is equal to the angle of reflection). When hitting the left or right part of the canvas, we simply keep the input angle, since evaluating the score isn’t done here. To actually calculate the angle when a paddle is hit, we use yet another function.
 *)
 
 let calculateAngle paddle hitRightPaddle determineAngle ball =
@@ -127,7 +122,7 @@ let calculateAngle paddle hitRightPaddle determineAngle ball =
         normalizedRelativeIntersectionY |> determineAngle
 
 (**
-  For the calculation, we determine the relative intersection where the ball hit the paddle. Afterwards we normalize that value. So for example, if the paddle is 20 pixels high, that value will be between -10 and 10. Therefore we can dynamically calculate the angle depending on the impact. As seen in the collision function, the determineAngle parameter of this calculation-function is a function itself. Depending on which paddle is hit, we have to use a slightly modified calculation of the final angle. As you can see in line 5, we’ve also got a special case we have to deal with. If the right paddle got hit in the exact center, so normalizedRelativeIntersectionY = 0. && hitRightPaddle, we will have to return Pi as the new angle, since the radiant value of Pi is equal to 180°.
+For the calculation, we determine the relative intersection where the ball hit the paddle. Afterwards we normalize that value. So for example, if the paddle is 20 pixels high, that value will be between -10 and 10. Therefore we can dynamically calculate the angle depending on the impact. As seen in the collision function, the determineAngle parameter of this calculation-function is a function itself. Depending on which paddle is hit, we have to use a slightly modified calculation of the final angle. As you can see in line 5, we’ve also got a special case we have to deal with. If the right paddle got hit in the exact center, so normalizedRelativeIntersectionY = 0. && hitRightPaddle, we will have to return Pi as the new angle, since the radiant value of Pi is equal to 180°.
 *)
 
 let collision leftPaddle rightPaddle ball =
@@ -138,13 +133,13 @@ let collision leftPaddle rightPaddle ball =
     | LeftPaddle -> ball |> calculateAngle leftPaddle false (fun intersection -> intersection * (5. * Math.PI / 12.)) // Max. bounce = 75°
     | RightPaddle -> ball |> calculateAngle rightPaddle true (fun intersection -> Math.PI - intersection * (5. * Math.PI / 12.))
 
-let moveBall angle ball = { 
+let moveBall angle ball = {
     element = { x = ball.element.x + ball.speed * cos angle;
-                y = ball.element.y + ball.speed * -sin angle; 
-                width = ball.element.width; 
-                height = ball.element.height }; 
+                y = ball.element.y + ball.speed * -sin angle;
+                width = ball.element.width;
+                height = ball.element.height };
     speed = ball.speed + 0.005;
-    angle = angle; 
+    angle = angle;
 }
 
 let checkGameStatus leftPaddle rightPaddle ball gameStatus =
@@ -167,8 +162,8 @@ let render (w, h) leftPaddle rightPaddle ball gameStatus  =
 
 let initialLeftPaddle = { x = 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
 let initialRightPaddle = { x = w - 15. - 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
-let initialBall = 
-    { element = { x = w / 2.; y = h / 2.; width = 5.; height = 5. }; 
+let initialBall =
+    { element = { x = w / 2.; y = h / 2.; width = 5.; height = 5. };
     speed = 3.;
     angle = 0. }
 

@@ -1,4 +1,4 @@
-#r "../../node_modules/fable-core/Fable.Core.dll"
+#r "../../../build/fable/Fable.Core.dll"
 open Fable.Import.Browser
 
 module Keyboard =

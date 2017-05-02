@@ -1,4 +1,4 @@
-#r "../../node_modules/fable-core/Fable.Core.dll"
+#r "../../../build/fable/Fable.Core.dll"
 open Fable.Core
 open Fable.Import.Browser
 
@@ -11,7 +11,7 @@ module Win =
         let ctx = context
         ctx.fillStyle <- U3.Case1 color
         ctx.fillRect rect
-    
+
     let drawCircle color (x, y, radius, startAngle, endAngle) =
         let ctx = context
         ctx.beginPath()
