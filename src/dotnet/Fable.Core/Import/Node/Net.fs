@@ -7,8 +7,8 @@ open Fable.Import.Node.Buffer
 
 module net_types =
     type [<AllowNullLiteral>] Socket =
-        inherit stream_types.Readable
-        inherit stream_types.Writable
+        inherit stream_types.Readable<buffer_types.Buffer>
+        inherit stream_types.Writable<buffer_types.Buffer>
         abstract bufferSize: float with get, set
         abstract remoteAddress: string with get, set
         abstract remoteFamily: string with get, set

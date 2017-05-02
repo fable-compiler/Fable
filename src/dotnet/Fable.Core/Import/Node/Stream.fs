@@ -8,44 +8,47 @@ open Fable.Import.Node.Events
 module stream_types =
     type [<AllowNullLiteral>] Stream =
         inherit event_types.EventEmitter
-        abstract pipe: destination: 'T * ?options: obj -> 'T
+        abstract pipe: destination: Writable<'a> * ?options: obj -> Writable<'a>
 
     type [<AllowNullLiteral>] StreamStatic = 
         [<Emit("new $0()")>] abstract Create: unit -> Stream
 
-    type ReadableOptions = {
-        highWaterMark: float option
-        encoding: string;
-        objectMode: bool option;
-        read: float -> obj option;
-    }
+    type [<AllowNullLiteral>] ReadableOptions =
+        abstract highWaterMark: float option with get, set
+        abstract encoding: string option with get, set
+        abstract objectMode: bool option with get, set
+        abstract read<'a> : (float -> 'a) with get, set
 
-    type [<AllowNullLiteral>] Readable =
+    type [<AllowNullLiteral>] Readable<'a> =
         inherit Stream
         abstract readable: bool with get, set
         abstract push: chunk: obj * ?encoding: string -> bool
         abstract unshift: chunk: obj -> unit
         abstract unpipe: ?destination: 'T -> unit
-        abstract wrap: oldStream: Readable -> Readable
-        abstract pause: unit -> Readable
-        abstract resume: unit -> Readable
+        abstract wrap: oldStream: Readable<'a> -> Readable<'a>
+        abstract pause: unit -> Readable<'a>
+        abstract resume: unit -> Readable<'a>
         abstract isPaused: unit -> bool
         abstract setEncoding: string -> unit
-        abstract read: ?size: int -> U2<string option, buffer_types.Buffer option>
+        abstract read: ?size: int -> 'a
 
-    type [<AllowNullLiteral>] ReadableStatic = 
-        [<Emit("new $0($1)")>] abstract Create: readableOptions:ReadableOptions -> Readable
-        [<Emit("new $0($1)")>] abstract Create: unit -> Readable
+    type [<AllowNullLiteral>] ReadableStatic =
+        [<Emit("new $0($1)")>] abstract Create<'a> : readableOptions:ReadableOptions -> Readable<'a>
+        [<Emit("new $0($1)")>] abstract Create<'a> : unit -> Readable<'a>
 
-    type WritableOptions = {
-        highWaterMark: float option;
-        decodeStrings: bool option;
-        objectMode: bool option;
-        write: U2<string, buffer_types.Buffer> -> string -> Function -> obj option;
-        writev: ResizeArray<obj> -> Function -> obj option;
+    type WritevChunk<'a> = {
+      chunk: 'a;
+      encoding: string
     }
 
-    type [<AllowNullLiteral>] Writable =
+    type [<AllowNullLiteral>] WritableOptions =
+        abstract highWaterMark: float option with get, set
+        abstract decodeStrings: bool option with get, set
+        abstract objectMode: bool option with get, set
+        abstract write<'a> : ('a -> string -> (Error option -> unit) -> unit) with get, set
+        abstract writev<'a> : Option<WritevChunk<'a> -> string -> (Error option -> unit) -> unit> with get, set
+
+    type [<AllowNullLiteral>] Writable<'a> =
         inherit Stream
         abstract writable: bool with get, set
         abstract write: chunk: obj * ?cb: Function -> bool
@@ -54,9 +57,9 @@ module stream_types =
         abstract ``end``: obj: obj * cb: Function -> unit
         abstract ``end``: obj: obj * encoding: string * cb: Function -> unit
 
-    type [<AllowNullLiteral>] WritableStatic = 
-        [<Emit("new $0($1)")>] abstract Create: writableOptions:WritableOptions -> Writable
-            
+    type [<AllowNullLiteral>] WritableStatic =
+        [<Emit("new $0($1)")>] abstract Create<'a> : writableOptions:WritableOptions -> Writable<'a>
+
     type DuplexOptions = {
         decodeStrings: bool option;
         encoding: string;
@@ -69,14 +72,14 @@ module stream_types =
         writev: ResizeArray<obj> -> Function -> obj option;
     }
 
-    type [<AllowNullLiteral>] Duplex =
-        inherit Readable
-        inherit Writable
+    type [<AllowNullLiteral>] Duplex<'a, 'b> =
+        inherit Readable<'a>
+        inherit Writable<'b>
 
-    type [<AllowNullLiteral>] DuplexStatic = 
-        [<Emit("new $0($1)")>] abstract Create: duplexOptions:DuplexOptions -> Duplex
+    type [<AllowNullLiteral>] DuplexStatic =
+        [<Emit("new $0($1)")>] abstract Create<'a, 'b> : duplexOptions:DuplexOptions -> Duplex<'a, 'b>
 
-    type [<AllowNullLiteral>] TransformOptions = 
+    type [<AllowNullLiteral>] TransformOptions =
         abstract decodeStrings: bool option with get, set
         abstract encoding: string option with get, set
         abstract objectMode: bool option with get, set
@@ -92,25 +95,25 @@ module stream_types =
         abstract allowHalfOpen: bool option with get, set
         abstract readableObjectMode: bool option with get, set
         abstract writableObjectMode: bool option with get, set
-        abstract transform: Option<buffer_types.Buffer -> string -> (Error option -> obj option -> unit) -> unit> with get, set
+        abstract transform<'a> : (buffer_types.Buffer -> string -> (Error option -> 'a option -> unit) -> unit) with get, set
         abstract flush: Option<(Error option -> unit) -> unit> with get, set
 
-    type [<AllowNullLiteral>] Transform = 
-        inherit Readable
-        inherit Writable
+    type [<AllowNullLiteral>] Transform<'a, 'b> =
+        inherit Readable<'a>
+        inherit Writable<'b>
         abstract _transform: chunk: obj * encoding: string * callback: Function -> unit
         abstract _flush: callback: Function -> unit
 
-    type [<AllowNullLiteral>] TransformStatic = 
-        [<Emit("new $0($1)")>] abstract Create: transformOptions:TransformOptions -> Transform
-        [<Emit("new $0($1)")>] abstract Create: transformOptions:TransformBufferOptions -> Transform
+    type [<AllowNullLiteral>] TransformStatic =
+        [<Emit("new $0($1)")>] abstract Create<'a, 'b> : transformOptions:TransformOptions -> Transform<'a, 'b>
+        [<Emit("new $0($1)")>] abstract Create<'a, 'b> : transformOptions:TransformBufferOptions -> Transform<'a, 'b>
 
 
-    type [<AllowNullLiteral>] PassThrough =
-        inherit Transform
+    type [<AllowNullLiteral>] PassThrough<'a, 'b> =
+        inherit Transform<'a, 'b>
 
-    type [<AllowNullLiteral>] PassThroughStatic = 
-        [<Emit("new $0()")>] abstract Create: unit -> PassThrough
+    type [<AllowNullLiteral>] PassThroughStatic =
+        [<Emit("new $0()")>] abstract Create<'a, 'b> : unit -> PassThrough<'a, 'b>
 
     type Globals =
         abstract Stream: StreamStatic with get, set

@@ -14,11 +14,11 @@ module child_process_types =
 
     type [<AllowNullLiteral>] ChildProcess =
         inherit event_types.EventEmitter
-        abstract stdin: stream_types.Writable with get, set
-        abstract stdout: stream_types.Readable with get, set
-        abstract stderr: stream_types.Readable with get, set
+        abstract stdin: stream_types.Writable<string> with get, set
+        abstract stdout: stream_types.Readable<string> with get, set
+        abstract stderr: stream_types.Readable<string> with get, set
         abstract connected: bool with get, set
-        abstract stdio: U2<stream_types.Readable,stream_types.Writable>[] with get, set
+        abstract stdio: U2<stream_types.Readable<string>,stream_types.Writable<string>>[] with get, set
         abstract pid: float with get, set
         abstract kill: ?signal: string -> unit
         abstract send: message: obj * ?sendHandle: obj -> unit
