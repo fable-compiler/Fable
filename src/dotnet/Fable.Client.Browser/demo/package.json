@@ -8,6 +8,7 @@
   "scripts": {
     "prebuild": "node ../../../../node_modules/webpack/bin/webpack --entry=./babel-standalone.js --output-path=./repl --output-filename=babel-standalone.js --output-library=Babel -p",
     "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",
-    "build": "node ../../../../node_modules/webpack/bin/webpack -p"
+    "build": "node ../../../../node_modules/webpack/bin/webpack -p",
+    "rollup": "node ../../../../node_modules/rollup/bin/rollup -c"
   }
 }
