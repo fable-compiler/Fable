@@ -56,6 +56,7 @@ let samples =
     "samples/browser/react-todomvc", true
     "samples/browser/redux-todomvc", true
     "samples/browser/lsystem", true
+    "samples/browser/pong", true
 
     // Non-browser samples without embedded HTML
     "samples/node/server", false

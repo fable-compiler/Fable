@@ -59,6 +59,13 @@ This demo is based on [L-system workshop](https://github.com/Andrea/Lsystem) by 
 and Ross McKinlay. Rather than working on the tasks they gave us, Tomas Petricek compiled it with Fable,
 so that you can play with it in a browser!
 
+<a href="samples/pong/index.html"><img src="samples/images/pong.png" style="width:100px;float:left;margin:15px 25px 10px 0px" /></a>
+
+### [Pong](samples/pong/index.html)
+
+This Fable version of pong is using HTML 5 canvas to render a whole two player pong game.
+The [full source code is on GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/pong/pong.fsx).
+
 ## Productivity
 
 <a href="samples/virtualdom/index.html"><img src="samples/images/elm.png" style="width:80px;float:left;margin:25px 35px 10px 10px" /></a>
