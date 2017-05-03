@@ -1,4 +1,5 @@
-#r "../../../build/fable/Fable.Core.dll"
+module Keyboard
+
 open Fable.Import.Browser
 
 module Keyboard =

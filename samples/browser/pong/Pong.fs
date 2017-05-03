@@ -6,9 +6,7 @@
 *)
 
 (*** hide ***)
-#r "../../../build/fable/Fable.Core.dll"
-#load "keyboard.fsx"
-#load "win.fsx"
+module Pong
 
 open Fable.Core
 open Fable.Import.Browser

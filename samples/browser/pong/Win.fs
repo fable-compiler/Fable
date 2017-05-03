@@ -1,4 +1,5 @@
-#r "../../../build/fable/Fable.Core.dll"
+module Win
+
 open Fable.Core
 open Fable.Import.Browser
 

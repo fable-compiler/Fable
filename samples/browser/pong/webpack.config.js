@@ -11,7 +11,7 @@ var babelOptions = {
 }
 
 module.exports = {
-  entry: resolve('./pong.fsx'),
+  entry: resolve('./Pong.fsproj'),
   output: {
     filename: 'bundle.js',
     path: resolve('./out'),
