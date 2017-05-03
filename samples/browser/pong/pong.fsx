@@ -96,10 +96,24 @@ With this function, implementing a final collision-function to determine the new
 let checkCollision leftPaddle rightPaddle ball =
     let hitTop = ball.element.y <= 0.
     let hitBottom = ball.element.y + ball.element.height >= h
-    let hitLeft = ball.element.x <= leftPaddle.x && ((ball.element.y >= leftPaddle.y && ball.element.y <= leftPaddle.y + leftPaddle.height) |> not)
-    let hitRight = ball.element.x + ball.element.width >= rightPaddle.x + rightPaddle.width && ((ball.element.y >= rightPaddle.y && ball.element.y <= rightPaddle.y + rightPaddle.height) |> not)
-    let hitLeftPaddle = ball.element.x <= leftPaddle.x + leftPaddle.width && ball.element.y >= leftPaddle.y && ball.element.y <= leftPaddle.y + leftPaddle.height
-    let hitRightPaddle = ball.element.x + ball.element.width >= rightPaddle.x && ball.element.y >= rightPaddle.y && ball.element.y <= rightPaddle.y + rightPaddle.height
+    let hitLeft =
+        ball.element.x <= leftPaddle.x 
+        && ((ball.element.y >= leftPaddle.y 
+            && ball.element.y <= leftPaddle.y + leftPaddle.height) 
+            |> not)
+    let hitRight =
+        ball.element.x + ball.element.width >= rightPaddle.x + rightPaddle.width 
+        && ((ball.element.y >= rightPaddle.y 
+            && ball.element.y <= rightPaddle.y + rightPaddle.height) 
+            |> not)
+    let hitLeftPaddle =
+        ball.element.x <= leftPaddle.x + leftPaddle.width 
+        && ball.element.y >= leftPaddle.y 
+        && ball.element.y <= leftPaddle.y + leftPaddle.height
+    let hitRightPaddle =
+        ball.element.x + ball.element.width >= rightPaddle.x 
+        && ball.element.y >= rightPaddle.y 
+        && ball.element.y <= rightPaddle.y + rightPaddle.height
     match (hitTop, hitBottom, hitLeft, hitRight, hitLeftPaddle, hitRightPaddle) with
     | (true, _, _, _, _, _) -> Top
     | (_, true, _, _, _, _) -> Bottom
@@ -130,8 +144,14 @@ let collision leftPaddle rightPaddle ball =
     | None -> ball.angle
     | Top | Bottom -> -ball.angle
     | Left | Right -> ball.angle
-    | LeftPaddle -> ball |> calculateAngle leftPaddle false (fun intersection -> intersection * (5. * Math.PI / 12.)) // Max. bounce = 75°
-    | RightPaddle -> ball |> calculateAngle rightPaddle true (fun intersection -> Math.PI - intersection * (5. * Math.PI / 12.))
+    | LeftPaddle -> ball 
+                    |> calculateAngle leftPaddle false 
+                        (fun intersection -> 
+                                intersection * (5. * Math.PI / 12.))
+    | RightPaddle -> ball 
+                    |> calculateAngle rightPaddle true 
+                        (fun intersection -> 
+                                Math.PI - intersection * (5. * Math.PI / 12.))
 
 let moveBall angle ball = {
     element = { x = ball.element.x + ball.speed * cos angle;
@@ -144,24 +164,38 @@ let moveBall angle ball = {
 
 let checkGameStatus leftPaddle rightPaddle ball gameStatus =
     match ball |> checkCollision leftPaddle rightPaddle with
-    | Left -> { gameStatus with scoreRight = gameStatus.scoreRight + 1; active = false }
-    | Right -> { gameStatus with scoreLeft = gameStatus.scoreLeft + 1; active = false }
+    | Left -> { gameStatus with scoreRight
+                                    = gameStatus.scoreRight + 1; active = false }
+    | Right -> { gameStatus with scoreLeft 
+                                    = gameStatus.scoreLeft + 1; active = false }
     | _ -> gameStatus
 
-// ------------------------------------------------------------------------------------------------------------------------
+
+(**
+## Game loop and rendering
+
+*)
 
 let render (w, h) leftPaddle rightPaddle ball gameStatus  =
     (0., 0., w, h) |> Win.drawRect("black")
-    (leftPaddle.x, leftPaddle.y, leftPaddle.width, leftPaddle.height) |> Win.drawRect("white")
-    (rightPaddle.x, rightPaddle.y, rightPaddle.width, rightPaddle.height) |> Win.drawRect("white")
-    (w / 4., 40.) |> Win.drawText (string(gameStatus.scoreLeft)) "white" "30px Arial"
-    (w / 1.25 - 30., 40.) |> Win.drawText (string(gameStatus.scoreRight)) "white" "30px Arial"
-    (ball.element.x, ball.element.y, ball.element.width, 0., 2. * Math.PI) |> Win.drawCircle("yellow")
+    (leftPaddle.x, leftPaddle.y, leftPaddle.width, leftPaddle.height)
+    |> Win.drawRect("white")
+    (rightPaddle.x, rightPaddle.y, rightPaddle.width, rightPaddle.height) 
+    |> Win.drawRect("white")
+    (w / 4., 40.) |> Win.drawText (string(gameStatus.scoreLeft)) 
+        "white" "30px Arial"
+    (w / 1.25 - 30., 40.) |> Win.drawText (string(gameStatus.scoreRight)) 
+        "white" "30px Arial"
+    (ball.element.x, ball.element.y, ball.element.width, 0., 2. * Math.PI) 
+    |> Win.drawCircle("yellow")
     if gameStatus.active |> not then
-        (w / 2. - 230., h / 2. + 40.) |> Win.drawText "Press space to start" "green" "40px Lucida Console"
+        (w / 2. - 230., h / 2. + 40.) 
+        |> Win.drawText "Press 'r' to start" "green" "40px Lucida Console"
 
-let initialLeftPaddle = { x = 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
-let initialRightPaddle = { x = w - 15. - 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
+let initialLeftPaddle =
+    { x = 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
+let initialRightPaddle =
+    { x = w - 15. - 10.; y = h / 2. - 70. / 2.; width = 15.; height = 70. }
 let initialBall =
     { element = { x = w / 2.; y = h / 2.; width = 5.; height = 5. };
     speed = 3.;
@@ -172,12 +206,27 @@ let initialGameStatus = { scoreLeft = 0; scoreRight = 0; active = false; }
 Keyboard.init()
 
 let rec update leftPaddle rightPaddle ball gameStatus () =
-    let leftPaddle = if gameStatus.active then leftPaddle |> move (Keyboard.leftControlsPressed()) else initialLeftPaddle
-    let rightPaddle = if gameStatus.active then rightPaddle |> move (Keyboard.rightControlsPressed()) else initialRightPaddle
-    let angle = if gameStatus.active then collision leftPaddle rightPaddle ball else ball.angle
-    let ball = if gameStatus.active then ball |> moveBall angle else { initialBall with angle = if angle = 0. then Math.PI else 0. }
-    let gameStatus = if Keyboard.spacePressed() = 1 then { gameStatus with active = true } else gameStatus |> checkGameStatus leftPaddle rightPaddle ball
+    let leftPaddle = if gameStatus.active then 
+                        leftPaddle 
+                        |> move (Keyboard.leftControlsPressed()) 
+                     else initialLeftPaddle
+    let rightPaddle = if gameStatus.active then
+                        rightPaddle
+                        |> move (Keyboard.rightControlsPressed()) 
+                      else initialRightPaddle
+    let angle = if gameStatus.active then
+                    collision leftPaddle rightPaddle ball 
+                else ball.angle
+    let ball = if gameStatus.active then
+                    ball |> moveBall angle 
+               else 
+                   { initialBall with angle = if angle = 0. then Math.PI else 0. }
+    let gameStatus = if Keyboard.rKeyPressed() = 1 then 
+                        { gameStatus with active = true } 
+                     else
+                        gameStatus |> checkGameStatus leftPaddle rightPaddle ball
     render (w, h) leftPaddle rightPaddle ball gameStatus
-    window.setTimeout(update leftPaddle rightPaddle ball gameStatus, 1000. / 60.) |> ignore
+    window.setTimeout(update leftPaddle rightPaddle ball gameStatus, 1000. / 60.)
+    |> ignore
 
 update initialLeftPaddle initialRightPaddle initialBall initialGameStatus ()
