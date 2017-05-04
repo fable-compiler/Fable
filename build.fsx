@@ -561,24 +561,21 @@ Target "All" (fun () ->
     runTestsDotnet ()
 )
 
-// For these target to work, you need the following:
+// For this target to work, you need the following:
 // - Clone github.com/ncave/FSharp.Compiler.Service/ `fable` branch and put it
 //   in a folder next to Fable repo named `FSharp.Compiler.Service_fable`
-// - In `FSharp.Compiler.Service_fable` run `build CodeGen.Netcore -d:FABLE_COMPILER`
-// - Clone https://github.com/mishoo/UglifyJS2 `harmony branch in a folder next to Fable repo
+// - In `FSharp.Compiler.Service_fable` run `build CodeGen.NetCore -d:FABLE_COMPILER`
 // > Attention: the generation of libraries metadata is not included in this target
-Target "BuildREPL" (fun () ->
+Target "REPL" (fun () ->
     let replDir = "src/dotnet/Fable.Client.Browser/demo"
+    Npm.install replDir []
+
     // Compile fable-core
     CreateDir (replDir + "/fable-core")
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project src/typescript/fable-core -m amd --outDir %s/fable-core" replDir]
 
-    // Compile FCS with Fable
-    Node.run "." "build/fable" [replDir]
-
-    // Run uglify-js
-    Node.run (replDir + "/repl") "../../../../../../UglifyJS2/bin/uglifyjs"
-        ["bundle.js -c -m -o bundle.min.js --source-map bundle.min.js.map"]
+    // Compile FCS/Fable with Fable
+    Util.run replDir dotnetExePath "../../../../build/fable/dotnet-fable.dll npm-run build"
 )
 
 // Start build

@@ -18,6 +18,6 @@
     "fable-loader": "file:./src/typescript/fable-loader",
     "fable-utils": "file:./src/typescript/fable-utils",
     "typescript": "^2.3.2",
-    "webpack": "^2.4.1"
+    "webpack": "^2.5.0"
   }
 }
