@@ -56,8 +56,8 @@ module.exports = function(buffer) {
     else {
         msg.fableCoreVersion = "*";
     }
-
-    console.log("Fable loader sent: " + msg.path)
+    // TODO: Reintroduce logging under a verbose mode
+    //console.log("Fable loader sent: " + msg.path)
     // console.log("Full message: " + JSON.stringify(msg))
 
     client.send(port, JSON.stringify(msg))
@@ -67,7 +67,7 @@ module.exports = function(buffer) {
                 callback(new Error(data.error));
             }
             else {
-                console.log("Fable loader received: " + msg.path);
+                //console.log("Fable loader received: " + msg.path);
                 ensureArray(data.dependencies).forEach(path => {
                     this.addDependency(path)
                 });
