@@ -15,7 +15,7 @@ type ReturnStrategy =
 type Import = {
     path: string
     selector: string
-    localIdent: string
+    localIdent: string option
     internalFile: string option
 }
 
@@ -1106,7 +1106,6 @@ module Util =
                 declarePlugins
             member bcom.GetRootModule(file) =
                 state.GetRootModule(file)
-            // TODO: Create a cache to optimize imports
             member bcom.GetImportExpr ctx selector path kind =
                 let sanitizeSelector selector =
                     if selector = "*"
@@ -1118,15 +1117,19 @@ module Util =
                     else Naming.replaceIdentForbiddenChars selector
                 let getLocalIdent (ctx: Context) (selector: string) =
                     match selector with
-                    | "*" | "default" | "" ->
+                    | "" -> None
+                    | "*" | "default" ->
                         let x = path.TrimEnd('/')
-                        x.Substring(x.LastIndexOf '/' + 1)
-                    | _ -> selector
-                    |> Naming.sanitizeIdent (fun s ->
+                        x.Substring(x.LastIndexOf '/' + 1) |> Some
+                    | selector -> Some selector
+                    |> Option.map (Naming.sanitizeIdent (fun s ->
                         ctx.file.UsedVarNames.Contains s
-                            || (imports.Values |> Seq.exists (fun i -> i.localIdent = s)))
+                            || (imports.Values |> Seq.exists (fun i -> i.localIdent = Some s))))
                 match imports.TryGetValue(path + "::" + selector) with
-                | true, i -> upcast Identifier(i.localIdent)
+                | true, i ->
+                    match i.localIdent with
+                    | Some localIdent -> upcast Identifier(localIdent)
+                    | None -> upcast NullLiteral ()
                 | false, _ ->
                     let localId = getLocalIdent ctx selector
                     let i = {
@@ -1147,7 +1150,9 @@ module Util =
                                 |> fun path -> path.TrimEnd('/')
                     }
                     imports.Add(path + "::" + selector, i)
-                    upcast Identifier (localId)
+                    match localId with
+                    | Some localId -> upcast Identifier(localId)
+                    | None -> upcast NullLiteral ()
             member bcom.GetAllImports () = upcast imports.Values
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
@@ -1206,24 +1211,32 @@ module Compiler =
             // Add imports
             com.GetAllImports()
             |> Seq.mapi (fun ident import ->
-                let localId = Identifier(import.localIdent)
                 let specifier =
-                    match import.selector with
-                    | "*" -> ImportNamespaceSpecifier(localId) |> U3.Case3
-                    | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
-                    | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1
+                    import.localIdent
+                    |> Option.map (fun localId ->
+                        let localId = Identifier(localId)
+                        match import.selector with
+                        | "*" -> ImportNamespaceSpecifier(localId) |> U3.Case3
+                        | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
+                        | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1)
                 import.path, specifier)
             |> Seq.groupBy (fun (path, _) -> path)
             |> Seq.collect (fun (path, specifiers) ->
                 let mems, defs, alls =
-                    (([], [], []), Seq.map snd specifiers)
+                    (([], [], []), Seq.choose snd specifiers)
                     ||> Seq.fold (fun (mems, defs, alls) x ->
                         match x.``type`` with
                         | "ImportNamespaceSpecifier" -> mems, defs, x::alls
                         | "ImportDefaultSpecifier" -> mems, x::defs, alls
                         | _ -> x::mems, defs, alls)
-                [mems; defs; alls]
-                |> Seq.choose (function
+                // There seem to be errors if we mix member, default and namespace imports
+                // so we must issue an import statement for each kind
+                match [mems; defs; alls] with
+                | [[];[];[]] ->
+                    // No specifiers, so this is just a import for side effects
+                    [ImportDeclaration([], StringLiteral path) :> ModuleDeclaration |> U2.Case2]
+                | specifiers ->
+                    specifiers |> List.choose (function
                     | [] -> None
                     | specifiers ->
                         ImportDeclaration(specifiers, StringLiteral path)

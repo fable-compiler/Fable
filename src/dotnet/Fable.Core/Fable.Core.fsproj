@@ -25,6 +25,7 @@
     <Compile Include="Import/Node/ChildProcess.fs" />
     <Compile Include="Import/Node/Process.fs" />
     <Compile Include="Import/Node/Globals.fs" />
+    <Compile Include="Fable.Core.JsInterop.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />
   </ItemGroup>
   <ItemGroup>

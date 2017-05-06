@@ -577,6 +577,9 @@ module AstPass =
             | expr when expr.Type = Fable.Unit -> []
             | expr -> [expr]
         match i.methodName with
+        | "importDynamic" ->
+            GlobalCall ("import", None, false, i.args)
+            |> makeCall i.range i.returnType |> Some
         | Naming.StartsWith "import" _ ->
             let fail() =
                 sprintf "%s.%s only accepts literal strings" i.ownerFullName i.methodName
@@ -589,7 +592,8 @@ module AstPass =
                     | _ -> fail(); "*", [makeStrConst "unknown"]
                 | "importMember" -> Naming.placeholder, i.args
                 | "importDefault" -> "default", i.args
-                | _ -> "*", i.args // importAllFrom
+                | "importSideEffects" -> "", i.args
+                | _ -> "*", i.args // importAll
             let path =
                 match args with
                 | [Fable.Value(Fable.StringConst path)] -> path

@@ -16,6 +16,7 @@ module.exports = {
     filename: 'QuickTest.js',
     path: resolve('temp'),
   },
+  target: "node",
   module: {
     rules: [
       {
