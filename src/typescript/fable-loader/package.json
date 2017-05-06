@@ -23,7 +23,8 @@
   },
   "homepage": "https://github.com/fable-compiler/Fable#readme",
   "devDependencies": {
-    "@types/node": "^7.0.5"
+    "@types/node": "^7.0.5",
+    "async": "^2.4.0"
   },
   "peerDependencies": {
     "fable-core": "^1.0.0-narumi-8",
