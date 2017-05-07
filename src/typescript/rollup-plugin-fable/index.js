@@ -5,10 +5,9 @@ const babelPlugins = require('fable-utils/babel-plugins');
 const { createFilter } = require('rollup-pluginutils');
 
 let fableCoreVersion = null;
-const DEFAULT_PORT =
-    process.env.FABLE_SERVER_PORT != null
-    ? parseInt(process.env.FABLE_SERVER_PORT, 10)
-    : 61225;
+const DEFAULT_PORT = process.env.FABLE_SERVER_PORT != null
+  ? parseInt(process.env.FABLE_SERVER_PORT, 10)
+  : 61225;
 
 const customPlugins = [
   babelPlugins.getRemoveUnneededNulls(),
