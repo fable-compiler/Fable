@@ -2,15 +2,12 @@ var path = require("path");
 var babel = require("babel-core");
 var client = require("fable-utils/client");
 var babelPlugins = require("fable-utils/babel-plugins");
-var asyncify = require("async/asyncify")
 
 var fableCoreVersion = null;
 var DEFAULT_PORT =
     process.env.FABLE_SERVER_PORT != null
     ? parseInt(process.env.FABLE_SERVER_PORT, 10)
     : 61225;
-
-asyncify(console.log);
 
 function or(option, _default) {
     return option !== void 0 ? option : _default;
@@ -70,7 +67,7 @@ module.exports = function(buffer) {
                 callback(new Error(data.error));
             }
             else {
-                console.log("Fable loader received: " + msg.path);
+                //console.log("Fable loader received: " + msg.path);
                 ensureArray(data.dependencies).forEach(path => {
                     this.addDependency(path)
                 });
