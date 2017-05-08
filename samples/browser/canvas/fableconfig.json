@@ -1,7 +1,0 @@
-{
-    "projFile": "./canvas.fsx",
-    "sourceMaps": true,
-    "rollup": {
-        "dest": "./out/bundle.js"
-    }
-}
