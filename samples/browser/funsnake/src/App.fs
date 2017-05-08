@@ -1,19 +1,16 @@
-// ---
-// FunSnake
-// Contributed by Alberto Ayuso: http://www.ayuscode.com/lab/funsnake/funsnake.html
-// ---
-
-#r "../../node_modules/fable-core/Fable.Core.dll"
+module Funsnake
 
 open Fable.Core
+open Fable.Core.JsInterop
+open Fable.Import
 open Fable.Import.Browser
 
 [<Emit("Math.random()")>]
 let random (): float = jsNative
 
-// ------------------------------------------------------------------
-// Initialization
 type Direction = Left | Right | Up | Down | None
+
+// Initial values
 let sizeLink = 10.
 let canvasSize = (300., 300.)
 let snake = [(sizeLink * 5.,sizeLink * 3.0,sizeLink,sizeLink);(sizeLink * 4.,sizeLink * 3.0,sizeLink,sizeLink);(sizeLink * 3.,sizeLink * 3.0,sizeLink,sizeLink);]
@@ -27,11 +24,9 @@ let mutable moveDone = true     // Avoid direction changes until move has done
 let mutable touch = (-1.,-1.)
 
 
-// ------------------------------------------------------------------
-// Utils functions
+// Helper functions
 
 let canvas =  document.getElementsByTagName_canvas().[0]
-
 // Check if element exist in a generic list
 let Contains (e:'T) (el:'T list) = el |> List.exists (fun x-> x = e)
 
@@ -53,8 +48,14 @@ let getColorLink (ctx:CanvasRenderingContext2D) (link :(float*float*float*float)
     else defaultGradientLink ctx link aliveColor "white"
 
 
-// ------------------------------------------------------------------
-// Module program
+/// skips last element of an array
+let skipLast xs = 
+    let rec auxSkipLast current rest = 
+        match rest with
+        | [] -> []
+        | head :: [lastElement] -> List.append current [head]
+        | head :: tail -> auxSkipLast (List.append current [head]) tail
+    auxSkipLast [] xs
 
 // Move the snake to next position, if snake eat some food increase snake size in one link
 let move xMove yMove snake food =
@@ -63,7 +64,7 @@ let move xMove yMove snake food =
         let newHead = (x + xMove, y + yMove , h, w)
         if (newHead = food)
         then newHead :: snake
-        else newHead :: (snake |> List.rev |> Seq.skip 1 |> Seq.toList |> List.rev)
+        else newHead :: (snake |> skipLast)
     | _ -> snake
 
 // Move direction shortcuts
