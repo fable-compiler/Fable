@@ -1,7 +1,0 @@
-{
-    "projFile": "./lsystem.fsx",
-    "sourceMaps": true,
-    "rollup": {
-        "dest": "./out/bundle.js"
-    }
-}

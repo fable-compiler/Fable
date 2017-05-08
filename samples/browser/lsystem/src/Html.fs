@@ -1,5 +1,4 @@
-﻿module Fable.Html
-module FsOption = FSharp.Core.Option
+module HtmlUtil
 
 open Fable.Import.Browser
 open Fable.Core
