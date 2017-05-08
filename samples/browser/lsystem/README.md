@@ -8,7 +8,7 @@ forward, `-` and `+` to turn (left and right) and `!` to randomly change color. 
 brackets, e.g. `[[-X]+X]`, for undoing state changes.
 
 # Install
-1. Install npm dependencies: `npm install`
+1. Install npm dependencies: `npm install` or `yarn install`
 2. Install dotnet dependencies: `dotnet restore`
 3. Start Fable server and Webpack dev server: `dotnet fable npm-run start`
 4. In your browser, open: http://localhost:8080/
@@ -27,7 +27,7 @@ type LineSegment = {startPoint : Point; endPoint : Point; color : Color }
 ```
 When rendering lines, we generate `<svg>` tag containing a number of
 `<line>` elements. This is done using a simple helper library (which you can find
-[in the Fable repository](https://github.com/fable-compiler/Fable/blob/lsystems/samples/browser/lsystem/html.fs)).
+[in the Fable repository](https://github.com/fable-compiler/Fable/blob/master/samples/browser/lsystem/src/Html.fs).
 The library uses the dynamic operator `?` to generate SVG elements. For example, you can write:
 
     s?svg [ "width" => 600 ] [
