@@ -23,13 +23,15 @@ export default {
 };
 ```
 
-You can then bundle your app by running: `dotnet fable npm-run rollup -c rollup-config.js `. Add this to your npm scripts.
+Add this to your npm scripts.
 
 ```
 "scripts": {
   "rollup": "dotnet fable npm-run rollup -c rollup-config.js"
 }
 ```
+
+You can then bundle your app by running: `npm run rollup`.
 
 You can alter the output from the compiler by passing in a babel config. Here is a more advanced example that targets the current node version using [babel-preset-env](https://github.com/babel/babel-preset-env)
 
