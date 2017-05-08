@@ -1,3 +1,7 @@
+### 1.0.0-narumi-916
+
+* We're going PAKET!
+
 ### 1.0.0-narumi-915
 
 * Fix curried lambdas assigned to generic params (see #888)
