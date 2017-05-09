@@ -22,7 +22,7 @@ let makeLoop range loopKind = Loop (loopKind, range)
 let makeIdent name = Ident(name)
 let makeTypedIdent name typ = Ident(name, typ)
 let makeIdentExpr name = makeIdent name |> IdentValue |> Value
-let makeLambdaExpr args body = Value(Lambda(args, body, true))
+let makeLambdaExpr args body = Value(Lambda(args, body, LambdaInfo(true)))
 
 let makeCoreRef modname prop =
     Value(ImportRef(defaultArg prop "default", modname, CoreLib))
@@ -441,6 +441,7 @@ let rec ensureArity com argTypes args =
             then Some(expected, actual, returnType)
             else None
         | _ -> None
+    let (|NeedsWrapping|_|) (expectedType, arg: Expr) = needsWrapping (expectedType, arg.Type)
     let wrap (com: ICompiler) typ (f: Expr) expectedArgs actualArgs =
         let outerArgs =
             expectedArgs |> List.map (fun t -> makeTypedIdent (com.GetUniqueVar()) t)
@@ -468,17 +469,22 @@ let rec ensureArity com argTypes args =
     if not(List.sameLength argTypes args) then args else // TODO: Raise warning?
     List.zip argTypes args
     |> List.map (fun (argType, arg: Expr) ->
-        match needsWrapping (argType, arg.Type) with
-        | Some (expected, actual, returnType) ->
+        match argType, arg with
+        // If the expected type is a generic parameter, we cannot infer the arity
+        // so generate a dynamic curried lambda just in case.
+        | GenericParam _, Value(Lambda(args,_,info)) when not info.IsDelegate && List.isMultiple args ->
+            CoreLibCall("CurriedLambda", None, false, [arg])
+            |> makeCall arg.Range arg.Type
+        | NeedsWrapping (expected, actual, returnType) ->
             wrap com returnType arg expected actual
-        | None -> arg)
+        | _ -> arg)
 
 and makeApply com range typ callee (args: Expr list) =
     let callee =
         match callee with
         // If we're applying against a F# let binding, wrap it with a lambda
         | Sequential _ ->
-            Apply(Value(Lambda([],callee,true)), [], ApplyMeth, callee.Type, callee.Range)
+            Apply(Value(Lambda([],callee,LambdaInfo(true))), [], ApplyMeth, callee.Type, callee.Range)
         | _ -> callee
     match callee.Type with
     // Make necessary transformations if we're applying more or less

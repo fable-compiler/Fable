@@ -1,4 +1,4 @@
-module Fable.FSharp2Fable.Compiler
+module rec Fable.FSharp2Fable.Compiler
 
 #if !FABLE_COMPILER
 open System.IO
@@ -60,7 +60,32 @@ let private (|BaseConsCall|_|) com ctx (fsExpr: FSharpExpr) =
         | _ -> None
     | None -> None
 
-let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
+let private transformLambda com ctx args tupleDestructs body isDelegate =
+    let rec countNestedLambdas acc = function
+        | Fable.Function(args, returnType) -> countNestedLambdas (acc + 1) returnType
+        | _ -> acc
+    let ctx, args = makeLambdaArgs com ctx args
+    let ctx =
+        (ctx, tupleDestructs)
+        ||> List.fold (fun ctx (var, value) ->
+            transformExpr com ctx value |> bindExpr ctx var)
+    let captureThis = ctx.thisAvailability <> ThisUnavailable
+    let body = transformExpr com { ctx with isLambdaBody = true } body
+    let lambda = Fable.Lambda(args, body, Fable.LambdaInfo(captureThis, isDelegate)) |> Fable.Value
+    if ctx.isLambdaBody
+    then lambda
+    else
+        let nestedLambdas = countNestedLambdas 0 body.Type
+        if nestedLambdas <= 1
+        then lambda
+        else
+            let args =
+                [ yield lambda
+                  if captureThis then yield Fable.Value Fable.This ]
+            CoreLibCall("CurriedLambda", None, false, args)
+            |> makeCall None lambda.Type
+
+let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
     let rec flattenList (r: SourceLocation) accArgs = function
         | [] -> accArgs, None
         | arg::[BasicPatterns.NewUnionCase(_, _, rest)] ->
@@ -85,7 +110,7 @@ let rec private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
             CoreLibCall("List", Some "ofArray", false, args)
     |> makeCall (Some range) unionType
 
-and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
+let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
     let unionType, range = makeType com ctx.typeArgs fsType, makeRange fsExpr.Range
     match fsType with
     | OptionUnion ->
@@ -134,7 +159,7 @@ and private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         | Some repl -> repl
         | None -> Fable.Apply(makeNonGenTypeRef com unionType, argExprs, Fable.ApplyCons, unionType, Some range)
 
-and private transformComposableExpr com ctx fsExpr argExprs =
+let private transformComposableExpr com ctx fsExpr argExprs =
     // See (|ComposableExpr|_|) active pattern to check which expressions are valid here
     match fsExpr with
     | BasicPatterns.Call(None, meth, typArgs, methTypArgs, _) ->
@@ -149,7 +174,7 @@ and private transformComposableExpr com ctx fsExpr argExprs =
         transformNonListNewUnionCase com ctx fsExpr fsType unionCase argExprs
     | _ -> failwithf "Expected ComposableExpr %O" (makeRange fsExpr.Range)
 
-and private transformExpr (com: IFableCompiler) ctx fsExpr =
+let private transformExpr (com: IFableCompiler) ctx fsExpr =
     match fsExpr with
     (** ## Custom patterns *)
     | SpecialValue com ctx replacement ->
@@ -416,7 +441,7 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
             let captureThis = ctx.thisAvailability <> ThisUnavailable
             let body =
                 Fable.Apply(fref, args, Fable.ApplyMeth, typ, r)
-            Fable.Lambda([], body, captureThis) |> Fable.Value
+            Fable.Lambda([], body, Fable.LambdaInfo(captureThis)) |> Fable.Value
         let isSpecialCase t =
             tryDefinition t
             |> Option.bind (fun tdef -> tdef.TryFullName)
@@ -430,32 +455,12 @@ and private transformExpr (com: IFableCompiler) ctx fsExpr =
                 when isSpecialCase delegateType ->
             let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
             makeValueFrom com ctx r typ false v |> wrapInZeroArgsLambda r typ args
+        | FlattenedLambda(args, tupleDestructs, body) ->
+            transformLambda com ctx args tupleDestructs body true
         | fsExpr -> transformExpr com ctx fsExpr
 
     | FlattenedLambda(args, tupleDestructs, body) ->
-        let rec countNestedLambdas acc = function
-            | Fable.Function(args, returnType) -> countNestedLambdas (acc + 1) returnType
-            | _ -> acc
-        let ctx, args = makeLambdaArgs com ctx args
-        let ctx =
-            (ctx, tupleDestructs)
-            ||> List.fold (fun ctx (var, value) ->
-                transformExpr com ctx value |> bindExpr ctx var)
-        let captureThis = ctx.thisAvailability <> ThisUnavailable
-        let body = transformExpr com { ctx with isLambdaBody = true } body
-        let lambda = Fable.Lambda(args, body, captureThis) |> Fable.Value
-        if ctx.isLambdaBody
-        then lambda
-        else
-            let nestedLambdas = countNestedLambdas 0 body.Type
-            if nestedLambdas <= 1
-            then lambda
-            else
-                let args =
-                    [ yield lambda
-                      if captureThis then yield Fable.Value Fable.This ]
-                CoreLibCall("CurriedLambda", None, false, args)
-                |> makeCall (makeRangeFrom fsExpr) lambda.Type
+        transformLambda com ctx args tupleDestructs body false
 
     (** ## Getters and Setters *)
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->

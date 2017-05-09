@@ -221,6 +221,10 @@ and Ident(name: string, ?typ: Type) =
     static member getType (i: Ident) = i.Type
     override __.ToString() = name
 
+and LambdaInfo(captureThis: bool, ?isDelegate: bool) =
+    member __.CaptureThis = captureThis
+    member __.IsDelegate = defaultArg isDelegate false    
+
 and ImportKind =
     | CoreLib
     | Internal of file: string
@@ -243,7 +247,7 @@ and ValueKind =
     | UnaryOp of UnaryOperator
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator
-    | Lambda of args: Ident list * body: Expr * captureThis: bool
+    | Lambda of args: Ident list * body: Expr * info: LambdaInfo
     | Emit of string
     member x.ImmediateSubExpressions: Expr list =
         match x with

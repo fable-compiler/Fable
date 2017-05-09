@@ -405,8 +405,8 @@ module Util =
             :> Expression
         | _ -> e
 
-    let transformLambda r captureThis args body: Expression =
-        if captureThis
+    let transformLambda r (info: Fable.LambdaInfo) args body: Expression =
+        if info.CaptureThis
         // Arrow functions capture the enclosing `this` in JS
         then upcast ArrowFunctionExpression (args, body, ?loc=r)
         else
@@ -430,9 +430,9 @@ module Util =
         | Fable.StringConst x -> upcast StringLiteral (x)
         | Fable.BoolConst x -> upcast BooleanLiteral (x)
         | Fable.RegexConst (source, flags) -> upcast RegExpLiteral (source, flags)
-        | Fable.Lambda (args, body, captureThis) ->
+        | Fable.Lambda (args, body, info) ->
             com.TransformFunction ctx None args body
-            ||> transformLambda r captureThis
+            ||> transformLambda r info
         | Fable.ArrayConst (cons, typ) -> buildArray com ctx cons typ
         | Fable.TupleConst vals -> buildArray com ctx (Fable.ArrayValues vals) Fable.Any
         | Fable.Emit emit -> macroExpression None emit []
@@ -657,11 +657,11 @@ module Util =
             let value = com.GetImportExpr ctx var.Name path kind
             [varDeclaration expr.Range (ident var) isMutable value :> Statement]
 
-        | Fable.VarDeclaration (var, Fable.Value(Fable.Lambda(args, body, captureThis)), false) ->
+        | Fable.VarDeclaration (var, Fable.Value(Fable.Lambda(args, body, info)), false) ->
             let value =
                 let tc = NamedTailCallOpportunity(com, var.Name, args) :> ITailCallOpportunity |> Some
                 com.TransformFunction ctx tc args body
-                ||> transformLambda body.Range captureThis
+                ||> transformLambda body.Range info
             [varDeclaration expr.Range (ident var) false value :> Statement]
 
         | Fable.VarDeclaration (var, value, isMutable) ->
