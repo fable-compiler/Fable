@@ -50,6 +50,7 @@
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
+    <Compile Include="ElmishParserTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -42,7 +42,6 @@ let ``bind function can be generated``() =
 
 type Foo =
     | Foo of Result<int, string>
-    | Bar of (int * string) option
 
 let foo (a: Foo): bool =
     match a with
@@ -53,10 +52,3 @@ let foo (a: Foo): bool =
 let ``Nesting Result in pattern matching works``() = // See #816
     Ok 5 |> Foo |> foo |> equal true
     Error "error" |> Foo |> foo |> equal false
-
-[<Test>]
-let ``DU constructor is a function``() =
-    let curry f a b = f (a,b)
-
-    curry (Some >> Bar) <| 1 <| "two" 
-    |> equal (Bar (Some(1,"two")))
