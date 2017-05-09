@@ -1,6 +1,6 @@
 {
   "name": "fable-loader",
-  "version": "1.0.0-narumi-911",
+  "version": "1.0.0-narumi-914",
   "description": "Webpack loader for Fable compiler",
   "main": "index.js",
   "scripts": {
