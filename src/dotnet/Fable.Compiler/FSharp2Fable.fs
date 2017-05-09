@@ -174,6 +174,215 @@ let private transformComposableExpr com ctx fsExpr argExprs =
         transformNonListNewUnionCase com ctx fsExpr fsType unionCase argExprs
     | _ -> failwithf "Expected ComposableExpr %O" (makeRange fsExpr.Range)
 
+let private transformTraitCall com ctx r typ sourceTypes traitName flags (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
+    let giveUp() =
+        "Cannot resolve trait call " + traitName
+        |> addErrorAndReturnNull com ctx.fileName r
+    let (|ResolveGeneric|_|) genArgs (t: FSharpType) =
+        if not t.IsGenericParameter then Some t else
+        let genParam = t.GenericParameter
+        genArgs |> Seq.tryPick (fun (name,t) ->
+            if name = genParam.Name then Some t else None)
+    let makeCall meth =
+        let callee, args =
+            if flags.IsInstance
+            then
+                (transformExpr com ctx argExprs.Head |> Some),
+                (List.map (transformExpr com ctx) argExprs.Tail)
+            else None, List.map (transformExpr com ctx) argExprs
+        makeCallFrom com ctx r typ meth ([],[]) callee args
+    sourceTypes
+    |> List.tryPick (function
+        | ResolveGeneric ctx.typeArgs (TypeDefinition tdef as typ) ->
+            tdef.MembersFunctionsAndValues |> Seq.filter (fun m ->
+                // Property members that are no getter nor setter don't actually get implemented
+                not(m.IsProperty && not(m.IsPropertyGetterMethod || m.IsPropertySetterMethod))
+                && m.IsInstanceMember = flags.IsInstance
+                && m.CompiledName = traitName)
+            |> Seq.toList |> function [] -> None | ms -> Some (typ, tdef, ms)
+        | _ -> None)
+    |> function
+    | Some(_, _, [meth]) ->
+        makeCall meth
+    | Some(typ, tdef, candidates) ->
+        let genArgs =
+            if tdef.GenericParameters.Count = typ.GenericArguments.Count
+            then Seq.zip (tdef.GenericParameters |> Seq.map (fun p -> p.Name)) typ.GenericArguments |> Seq.toArray |> Some
+            else None
+        let argTypes =
+            if not flags.IsInstance then argTypes else argTypes.Tail
+            |> List.map (makeType com ctx.typeArgs)
+        candidates |> List.tryPick (fun meth ->
+            let methTypes =
+                // FSharpParameters don't contain the `this` arg
+                // The F# compiler "untuples" the args in methods
+                let methTypes = Seq.concat meth.CurriedParameterGroups |> Seq.map (fun x -> x.Type)
+                match genArgs with
+                | Some genArgs -> methTypes |> Seq.map (function ResolveGeneric genArgs x -> x | x -> x)
+                | None -> methTypes
+                |> Seq.map (makeType com [])
+                |> Seq.toList
+            if compareDeclaredAndAppliedArgs methTypes argTypes
+            then Some meth else None)
+        |> function Some m -> makeCall m | None -> giveUp()
+    | None -> giveUp()
+
+let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) (objType: FSharpType) baseCallExpr (overrides: FSharpObjectExprOverride list) otherOverrides =
+    // If `this` is available, capture it to avoid conflicts (see #158)
+    let capturedThis =
+        match ctx.thisAvailability with
+        | ThisUnavailable -> None
+        | ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdentExpr]
+        | ThisCaptured(prevThis, prevVars) ->
+            (prevThis, com.GetUniqueVar() |> makeIdentExpr)::prevVars |> Some
+    let baseClass, baseCons =
+        match baseCallExpr with
+        | BasicPatterns.Call(None, meth, _, _, args) ->
+            let args = List.map (com.Transform ctx) args
+            let typ, range = makeType com ctx.typeArgs baseCallExpr.Type, makeRange baseCallExpr.Range
+            let baseClass =
+                tryEnclosingEntity meth
+                |> Option.map (fun ent ->
+                    makeTypeFromDef com ctx.typeArgs ent []
+                    |> makeNonGenTypeRef com)
+            let baseCons =
+                let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
+                let m = Fable.Member(".ctor", Fable.Constructor, Fable.InstanceLoc, [], Fable.Any)
+                Some(m, [], c)
+            baseClass, baseCons
+        | _ -> None, None
+    let members =
+        (objType, overrides)::otherOverrides
+        |> List.collect (fun (typ, overrides) ->
+            let overrides =
+                if not typ.HasTypeDefinition then overrides else
+                let typName = typ.TypeDefinition.FullName.Replace(".","-")
+                overrides |> List.where (fun x ->
+                    typName + "-" + x.Signature.Name
+                    |> Naming.ignoredInterfaceMethods.Contains
+                    |> not)
+            overrides |> List.map (fun over ->
+                let info = { isInstance = true; passGenerics = false }
+                let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
+                let ctx, thisArg, args', extraArgs' = bindMemberArgs com ctx info args
+                let args' = args'@extraArgs'
+                let ctx =
+                    match capturedThis, thisArg with
+                    | None, _ -> { ctx with thisAvailability = ThisAvailable }
+                    | Some(capturedThis), Some thisArg ->
+                        { ctx with thisAvailability=ThisCaptured(Some thisArg, capturedThis) }
+                    | Some _, None -> failwithf "Unexpected Object Expression method withouth `this` argument %O" range
+                // Don't use the typ argument as the override may come
+                // from another type, like ToString()
+                let typ =
+                    if over.Signature.DeclaringType.HasTypeDefinition
+                    then Some over.Signature.DeclaringType.TypeDefinition
+                    else None
+                // TODO: Check for indexed getter and setter also in object expressions?
+                let name = over.Signature.Name |> Naming.removeGetSetPrefix
+                let kind =
+                    match over.Signature.Name with
+                    | Naming.StartsWith "get_" _ -> Fable.Getter
+                    | Naming.StartsWith "set_" _ -> Fable.Setter
+                    | _ -> Fable.Method
+                // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
+                // information about ParamArray, we need to check the source method.
+                let hasRestParams =
+                    match typ with
+                    | None -> false
+                    | Some typ ->
+                        typ.MembersFunctionsAndValues
+                        |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
+                        |> function Some m -> hasRestParams m | None -> false
+                let body = transformExpr com ctx over.Body
+                let args = List.map Fable.Ident.getType args'
+                let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type, Fable.Function(args, body.Type),
+                            over.GenericParameters |> List.map (fun x -> x.Name),
+                            hasRestParams = hasRestParams)
+                m, args', body))
+    let interfaces =
+        objType::(otherOverrides |> List.map fst)
+        |> List.map (fun x -> sanitizeEntityFullName x.TypeDefinition)
+        |> List.filter (Naming.ignoredInterfaces.Contains >> not)
+        |> List.distinct
+    let members =
+        [ match baseCons with Some c -> yield c | None -> ()
+          yield! members
+          if List.contains "System.Collections.Generic.IEnumerable" interfaces
+          then yield makeIteratorMethodArgsAndBody()
+          yield makeReflectionMethodArgsAndBody com None false false interfaces None None
+        ]
+    let range = makeRangeFrom fsExpr
+    let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
+    match capturedThis with
+    | Some((_,Fable.Value(Fable.IdentValue capturedThis))::_) ->
+        let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
+        Fable.Sequential([varDecl; objExpr], range)
+    | _ -> objExpr
+
+let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) decisionExpr (decisionTargets: (FSharpMemberOrFunctionOrValue list * FSharpExpr) list) =
+    let rec getTargetRefsCount map = function
+        | BasicPatterns.IfThenElse (_, thenExpr, elseExpr)
+        | BasicPatterns.Let(_, BasicPatterns.IfThenElse (_, thenExpr, elseExpr)) ->
+            let map = getTargetRefsCount map thenExpr
+            getTargetRefsCount map elseExpr
+        | BasicPatterns.Let(_, e) ->
+            getTargetRefsCount map e
+        | BasicPatterns.DecisionTreeSuccess (idx, _) ->
+            match Map.tryFind idx map with
+            | Some refCount -> Map.add idx (refCount + 1) map
+            | None -> Map.add idx 1 map
+        | e ->
+            failwithf "Unexpected DecisionTree branch %O: %A" (makeRange e.Range) e
+    let targetRefsCount = getTargetRefsCount (Map.empty<int,int>) decisionExpr
+    if targetRefsCount |> Map.exists (fun _ v -> v > 1)
+    then
+        let ctx = { ctx with decisionTargets = None }
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        let tempVar = com.GetUniqueVar() |> makeIdent
+        let tempVarFirstItem =
+            (Fable.Value(Fable.IdentValue tempVar), makeIntConst 0)
+            ||> makeGet None (Fable.Number Int32)
+        let cases =
+            targetRefsCount
+            |> Seq.map (fun kv ->
+                let vars, body = decisionTargets.[kv.Key]
+                let ctx =
+                    let mutable i = 0
+                    (ctx, vars) ||> List.fold (fun ctx var ->
+                        i <- i + 1
+                        (Fable.Value(Fable.IdentValue tempVar), makeIntConst i)
+                        ||> makeGet None (makeType com ctx.typeArgs var.FullType)
+                        |> bindExpr ctx var)
+                [makeIntConst kv.Key], transformExpr com ctx body)
+            |> Seq.toList
+        [ Fable.VarDeclaration(tempVar, transformExpr com ctx decisionExpr, false)
+        ; Fable.Switch(tempVarFirstItem, cases, None, typ, r) ]
+        |> makeSequential r
+    else
+        let targets = targetRefsCount |> Map.map (fun k _ -> decisionTargets.[k])
+        let ctx = { ctx with decisionTargets = Some targets }
+        transformExpr com ctx decisionExpr
+
+let private transformDecisionTreeSuccess (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) decIndex decBindings =
+        match ctx.decisionTargets with
+        | Some decisionTargets ->
+            match Map.tryFind decIndex decisionTargets with
+            | None -> failwithf "Missing decision target %O" (makeRange fsExpr.Range)
+            | Some ([], Transform com ctx decBody) -> decBody
+            // If we have values, bind them to context
+            | Some (decVars, decBody) ->
+                let ctx =
+                    (ctx, decVars, decBindings)
+                    |||> List.fold2 (fun ctx var (Transform com ctx binding) ->
+                        bindExpr ctx var binding)
+                transformExpr com ctx decBody
+        | None ->
+            decBindings
+            |> List.map (transformExpr com ctx)
+            |> List.append [makeIntConst decIndex]
+            |> makeArray Fable.Any
+
 let private transformExpr (com: IFableCompiler) ctx fsExpr =
     match fsExpr with
     (** ## Custom patterns *)
@@ -331,57 +540,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     (** ## Applications *)
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        let giveUp() =
-            "Cannot resolve trait call " + traitName
-            |> addErrorAndReturnNull com ctx.fileName r
-        let (|ResolveGeneric|_|) genArgs (t: FSharpType) =
-            if not t.IsGenericParameter then Some t else
-            let genParam = t.GenericParameter
-            genArgs |> Seq.tryPick (fun (name,t) ->
-                if name = genParam.Name then Some t else None)
-        let makeCall meth =
-            let callee, args =
-                if flags.IsInstance
-                then
-                    (transformExpr com ctx argExprs.Head |> Some),
-                    (List.map (transformExpr com ctx) argExprs.Tail)
-                else None, List.map (transformExpr com ctx) argExprs
-            makeCallFrom com ctx r typ meth ([],[]) callee args
-        sourceTypes
-        |> List.tryPick (function
-            | ResolveGeneric ctx.typeArgs (TypeDefinition tdef as typ) ->
-                tdef.MembersFunctionsAndValues |> Seq.filter (fun m ->
-                    // Property members that are no getter nor setter don't actually get implemented
-                    not(m.IsProperty && not(m.IsPropertyGetterMethod || m.IsPropertySetterMethod))
-                    && m.IsInstanceMember = flags.IsInstance
-                    && m.CompiledName = traitName)
-                |> Seq.toList |> function [] -> None | ms -> Some (typ, tdef, ms)
-            | _ -> None)
-        |> function
-        | Some(_, _, [meth]) ->
-            makeCall meth
-        | Some(typ, tdef, candidates) ->
-            let genArgs =
-                if tdef.GenericParameters.Count = typ.GenericArguments.Count
-                then Seq.zip (tdef.GenericParameters |> Seq.map (fun p -> p.Name)) typ.GenericArguments |> Seq.toArray |> Some
-                else None
-            let argTypes =
-                if not flags.IsInstance then argTypes else argTypes.Tail
-                |> List.map (makeType com ctx.typeArgs)
-            candidates |> List.tryPick (fun meth ->
-                let methTypes =
-                    // FSharpParameters don't contain the `this` arg
-                    // The F# compiler "untuples" the args in methods
-                    let methTypes = Seq.concat meth.CurriedParameterGroups |> Seq.map (fun x -> x.Type)
-                    match genArgs with
-                    | Some genArgs -> methTypes |> Seq.map (function ResolveGeneric genArgs x -> x | x -> x)
-                    | None -> methTypes
-                    |> Seq.map (makeType com [])
-                    |> Seq.toList
-                if compareDeclaredAndAppliedArgs methTypes argTypes
-                then Some meth else None)
-            |> function Some m -> makeCall m | None -> giveUp()
-        | None -> giveUp()
+        transformTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
 
     | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
         let callee = Option.map (com.Transform ctx) callee
@@ -526,97 +685,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         argExprs |> List.map (transformExpr com ctx) |> Fable.TupleConst |> Fable.Value
 
     | BasicPatterns.ObjectExpr(objType, baseCallExpr, overrides, otherOverrides) ->
-        // If `this` is available, capture it to avoid conflicts (see #158)
-        let capturedThis =
-            match ctx.thisAvailability with
-            | ThisUnavailable -> None
-            | ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdentExpr]
-            | ThisCaptured(prevThis, prevVars) ->
-                (prevThis, com.GetUniqueVar() |> makeIdentExpr)::prevVars |> Some
-        let baseClass, baseCons =
-            match baseCallExpr with
-            | BasicPatterns.Call(None, meth, _, _, args) ->
-                let args = List.map (com.Transform ctx) args
-                let typ, range = makeType com ctx.typeArgs baseCallExpr.Type, makeRange baseCallExpr.Range
-                let baseClass =
-                    tryEnclosingEntity meth
-                    |> Option.map (fun ent ->
-                        makeTypeFromDef com ctx.typeArgs ent []
-                        |> makeNonGenTypeRef com)
-                let baseCons =
-                    let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
-                    let m = Fable.Member(".ctor", Fable.Constructor, Fable.InstanceLoc, [], Fable.Any)
-                    Some(m, [], c)
-                baseClass, baseCons
-            | _ -> None, None
-        let members =
-            (objType, overrides)::otherOverrides
-            |> List.collect (fun (typ, overrides) ->
-                let overrides =
-                    if not typ.HasTypeDefinition then overrides else
-                    let typName = typ.TypeDefinition.FullName.Replace(".","-")
-                    overrides |> List.where (fun x ->
-                        typName + "-" + x.Signature.Name
-                        |> Naming.ignoredInterfaceMethods.Contains
-                        |> not)
-                overrides |> List.map (fun over ->
-                    let info = { isInstance = true; passGenerics = false }
-                    let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
-                    let ctx, thisArg, args', extraArgs' = bindMemberArgs com ctx info args
-                    let args' = args'@extraArgs'
-                    let ctx =
-                        match capturedThis, thisArg with
-                        | None, _ -> { ctx with thisAvailability = ThisAvailable }
-                        | Some(capturedThis), Some thisArg ->
-                            { ctx with thisAvailability=ThisCaptured(Some thisArg, capturedThis) }
-                        | Some _, None -> failwithf "Unexpected Object Expression method withouth `this` argument %O" range
-                    // Don't use the typ argument as the override may come
-                    // from another type, like ToString()
-                    let typ =
-                        if over.Signature.DeclaringType.HasTypeDefinition
-                        then Some over.Signature.DeclaringType.TypeDefinition
-                        else None
-                    // TODO: Check for indexed getter and setter also in object expressions?
-                    let name = over.Signature.Name |> Naming.removeGetSetPrefix
-                    let kind =
-                        match over.Signature.Name with
-                        | Naming.StartsWith "get_" _ -> Fable.Getter
-                        | Naming.StartsWith "set_" _ -> Fable.Setter
-                        | _ -> Fable.Method
-                    // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
-                    // information about ParamArray, we need to check the source method.
-                    let hasRestParams =
-                        match typ with
-                        | None -> false
-                        | Some typ ->
-                            typ.MembersFunctionsAndValues
-                            |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
-                            |> function Some m -> hasRestParams m | None -> false
-                    let body = transformExpr com ctx over.Body
-                    let args = List.map Fable.Ident.getType args'
-                    let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type, Fable.Function(args, body.Type),
-                                over.GenericParameters |> List.map (fun x -> x.Name),
-                                hasRestParams = hasRestParams)
-                    m, args', body))
-        let interfaces =
-            objType::(otherOverrides |> List.map fst)
-            |> List.map (fun x -> sanitizeEntityFullName x.TypeDefinition)
-            |> List.filter (Naming.ignoredInterfaces.Contains >> not)
-            |> List.distinct
-        let members =
-            [ match baseCons with Some c -> yield c | None -> ()
-              yield! members
-              if List.contains "System.Collections.Generic.IEnumerable" interfaces
-              then yield makeIteratorMethodArgsAndBody()
-              yield makeReflectionMethodArgsAndBody com None false false interfaces None None
-            ]
-        let range = makeRangeFrom fsExpr
-        let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
-        match capturedThis with
-        | Some((_,Fable.Value(Fable.IdentValue capturedThis))::_) ->
-            let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
-            Fable.Sequential([varDecl; objExpr], range)
-        | _ -> objExpr
+        transformObjExpr com ctx fsExpr objType baseCallExpr overrides otherOverrides
 
     | BasicPatterns.NewObject(meth, typArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
@@ -715,67 +784,10 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.Switch(matchValue, cases, Some defaultCase, typ, r)
 
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
-        let rec getTargetRefsCount map = function
-            | BasicPatterns.IfThenElse (_, thenExpr, elseExpr)
-            | BasicPatterns.Let(_, BasicPatterns.IfThenElse (_, thenExpr, elseExpr)) ->
-                let map = getTargetRefsCount map thenExpr
-                getTargetRefsCount map elseExpr
-            | BasicPatterns.Let(_, e) ->
-                getTargetRefsCount map e
-            | BasicPatterns.DecisionTreeSuccess (idx, _) ->
-                match Map.tryFind idx map with
-                | Some refCount -> Map.add idx (refCount + 1) map
-                | None -> Map.add idx 1 map
-            | e ->
-                failwithf "Unexpected DecisionTree branch %O: %A" (makeRange e.Range) e
-        let targetRefsCount = getTargetRefsCount (Map.empty<int,int>) decisionExpr
-        if targetRefsCount |> Map.exists (fun _ v -> v > 1)
-        then
-            let ctx = { ctx with decisionTargets = None }
-            let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-            let tempVar = com.GetUniqueVar() |> makeIdent
-            let tempVarFirstItem =
-                (Fable.Value(Fable.IdentValue tempVar), makeIntConst 0)
-                ||> makeGet None (Fable.Number Int32)
-            let cases =
-                targetRefsCount
-                |> Seq.map (fun kv ->
-                    let vars, body = decisionTargets.[kv.Key]
-                    let ctx =
-                        let mutable i = 0
-                        (ctx, vars) ||> List.fold (fun ctx var ->
-                            i <- i + 1
-                            (Fable.Value(Fable.IdentValue tempVar), makeIntConst i)
-                            ||> makeGet None (makeType com ctx.typeArgs var.FullType)
-                            |> bindExpr ctx var)
-                    [makeIntConst kv.Key], transformExpr com ctx body)
-                |> Seq.toList
-            [ Fable.VarDeclaration(tempVar, transformExpr com ctx decisionExpr, false)
-            ; Fable.Switch(tempVarFirstItem, cases, None, typ, r) ]
-            |> makeSequential r
-        else
-            let targets = targetRefsCount |> Map.map (fun k _ -> decisionTargets.[k])
-            let ctx = { ctx with decisionTargets = Some targets }
-            transformExpr com ctx decisionExpr
+        transformDecisionTree com ctx fsExpr decisionExpr decisionTargets
 
     | BasicPatterns.DecisionTreeSuccess (decIndex, decBindings) ->
-        match ctx.decisionTargets with
-        | Some decisionTargets ->
-            match Map.tryFind decIndex decisionTargets with
-            | None -> failwithf "Missing decision target %O" (makeRange fsExpr.Range)
-            | Some ([], Transform com ctx decBody) -> decBody
-            // If we have values, bind them to context
-            | Some (decVars, decBody) ->
-                let ctx =
-                    (ctx, decVars, decBindings)
-                    |||> List.fold2 (fun ctx var (Transform com ctx binding) ->
-                        bindExpr ctx var binding)
-                transformExpr com ctx decBody
-        | None ->
-            decBindings
-            |> List.map (transformExpr com ctx)
-            |> List.append [makeIntConst decIndex]
-            |> makeArray Fable.Any
+        transformDecisionTreeSuccess com ctx fsExpr decIndex decBindings
 
     | BasicPatterns.Quote(Transform com ctx expr) ->
         Fable.Quote(expr)
