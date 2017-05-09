@@ -1,6 +1,6 @@
-### 1.0.0-narumi-912
+### 1.0.0-narumi-915
 
-* Test
+* Fix curried lambdas assigned to generic params (see #888)
 
 ### 0.7.28
 
