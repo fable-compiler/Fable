@@ -37,4 +37,5 @@ importAll "./TailCallTests.fs"
 importAll "./TupleTypeTests.fs"
 importAll "./TypeTests.fs"
 importAll "./UnionTypeTests.fs"
+importAll "./ElmishParserTests.fs"
 #endif
