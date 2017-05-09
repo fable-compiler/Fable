@@ -31,12 +31,16 @@ module net_types =
     type [<AllowNullLiteral>] SocketStatic =
         [<Emit("new $0()")>] abstract Create: unit -> Socket
 
+    type [<AllowNullLiteral>] Fd =
+      abstract fd: int with get, set
+
     type [<AllowNullLiteral>] Server =
         inherit Socket
         abstract maxConnections: float with get, set
         abstract connections: float with get, set
         abstract listen: port: float * ?host: string * ?backlog: float * ?listeningListener: Function -> Server
         abstract listen: path: string * ?listeningListener: Function -> Server
+        abstract listen: handle: Fd * ?listeningListener: Function -> Server
         abstract listen: handle: obj * ?listeningListener: Function -> Server
         abstract close: ?callback: Function -> Server
         abstract address: unit -> obj
@@ -44,10 +48,14 @@ module net_types =
     type [<AllowNullLiteral>] ServerStatic =
         [<Emit("new $0()")>] abstract Create: unit -> Server
 
+    type [<AllowNullLiteral>] CreateServerOptions =
+        abstract allowHalfOpen: bool option with get, set
+        abstract pauseOnConnect: bool option with get, set
+
     type Globals =
         abstract Socket: SocketStatic with get, set
         abstract createServer: ?connectionListener:(Socket -> unit) -> Server
-        abstract createServer: ?options: obj * ?connectionListener:(Socket -> unit) -> Server
+        abstract createServer: ?options: CreateServerOptions * ?connectionListener:(Socket -> unit) -> Server
         abstract connect: options: obj * ?connectionListener: Function -> Socket
         abstract connect: port: float * ?host: string * ?connectionListener: Function -> Socket
         abstract connect: path: string * ?connectionListener: Function -> Socket
