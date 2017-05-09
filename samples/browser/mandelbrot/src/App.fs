@@ -1,9 +1,5 @@
-// ---
-// header: Mandelbrot
-// tagline: Using HTML5 canvas
-// ---
+module Program
 
-#r "../../node_modules/fable-core/Fable.Core.dll"
 
 open Fable.Core
 open Fable.Import.Browser
@@ -11,10 +7,10 @@ open Fable.Import.Browser
 type Complex = { r : double; i : double }
 type Color = { r : int; g : int; b : int; a : int }
 
-let maxIter = 512
+let maxIter = 255
 
-let height = 800
-let width = 1000
+let height = 512
+let width = 512
 
 let minX = -2.1
 let maxX = 0.5
@@ -32,15 +28,11 @@ let getIterationCount (p : Complex) =
       i <- i + 1
     i
 
-let iterCountToColor (i : int) : Color =
-    let i = maxIter - i
-    { r = 0; g = i % 256; b = 100 * (i / 256); a = 255 }
-
 let getCoordColor (x : int, y : int) : Color =
     let p = { r = float x * (maxX - minX) / float width + minX
             ; i = float y * (maxY - minY) / float height + minY }
     let i = getIterationCount p
-    iterCountToColor i
+    { r = i; g = i; b = i; a = 255}
 
 let showSet() =
     let ctx = document.getElementsByTagName_canvas().[0].getContext_2d()
