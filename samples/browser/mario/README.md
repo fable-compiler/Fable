@@ -14,7 +14,7 @@ Any modification you do to the F# code will be reflected in the web page after s
 ## Mario and composable physics
 We keep information about Mario in a single record type with fields that represent the current x and y coordinates (`x` and `y`), current velocity (`vx` and `vy`) and the current direction (`dir`). The direction is used to pick the correct Mario image when rendering:
 ```fs
-type Mario =
+type MarioModel =
   { x:float; y:float;
     vx:float; vy:float;
     dir:string }
@@ -45,7 +45,7 @@ The `step` function takes a `dir` parameter representing the keyboard status
 and a current `Mario` state. It simply runs 4 components in a pipeline:
 ```fs
 // int * int -> Mario -> Mario
-let step dir mario =
+let marioStep dir mario =
   mario 
   |> physics 
   |> walk dir 
@@ -53,13 +53,12 @@ let step dir mario =
   |> jump dir
 ```
 ## Rendering Mario with HTML5
-Now we're ready to render Mario using HTML 5 canvas! To do that, we need the width and height of the canvas and the current state of Mario. The following function fills the bottom half of the canvas with green, upper half with blue and then chooses the right Mario image. It uses helpers from the `Win`module, which are discussed below:
+Now we're ready to render Mario using HTML 5 canvas! To do that, we need the width and height of the canvas and the current state of Mario. The following function fills the bottom half of the canvas with green, upper half with blue and then chooses the right Mario image. It uses helpers from the `Canvas` module, which are discussed below:
 ```fs
 /// Render mario on canvas
-let render (w,h) (mario:Mario) =
-    // Render background
-    (0.,0.,w,h) |> Win.filled (Win.rgb 174 238 238)
-    (0.,h-50.,w,50.) |> Win.filled (Win.rgb 74 163 41)
+let render (w,h) (mario: MarioModel) =
+    (0., 0., w, h) |> filled (rgb 174 238 238)
+    (0., h-50., w, 50.) |> filled (rgb 74 163 41)
     // Select and position Mario
     // (walking is represented as an animated gif)
     let verb =
@@ -67,21 +66,21 @@ let render (w,h) (mario:Mario) =
         elif mario.vx <> 0. then "walk"
         else "stand"
     "images/mario" + verb + mario.dir + ".gif"
-    |> Win.image
-    |> Win.position (w/2.-16.+mario.x,  h-50.-31.-mario.y)
+    |> image
+    |> position (w/2.-16.+mario.x,  h-50.-31.-mario.y)
 ```
 ## Driving the game
 The last thing that needs to be done is to write the `main` function that drives the game. The function does some initialization and then starts a recursive `update`
 function that calculates a new game state using `step` and renders it in a loop. The `Keyboard` helper module is discussed below.
 ```fs
-Keyboard.init()
-let w,h = Win.dimensions()
-// Recursive function that updates the state & renders it
+Keyboard.initKeyboard()
+let w, h = getWindowDimensions()
+
 let rec update mario () =
-    let mario = mario |> step (Keyboard.arrows())
+    let mario = mario |> Physics.marioStep (Keyboard.arrows())
     render (w,h) mario
     window.setTimeout(update mario, 1000. / 60.) |> ignore
-// Start the game with Mario in the center
+
 let mario = { x=0.; y=0.; vx=0.; vy=0.; dir="right" }
 update mario ()
 ```
