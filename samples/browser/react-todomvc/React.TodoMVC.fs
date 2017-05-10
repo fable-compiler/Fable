@@ -46,9 +46,9 @@ For more complicated structures see [JSON serialization with Fable](https://fabl
 *)
 
 module Util =
-    let load<'T> key =
-        Browser.localStorage.getItem(key) |> unbox
-        |> Option.map (JS.JSON.parse >> unbox<'T>)
+    let load<'T> key: 'T option =
+        !!Browser.localStorage.getItem(key)
+        |> Option.map (fun json -> !!JS.JSON.parse(json))
 
     let save key (data: 'T) =
         Browser.localStorage.setItem(key, JS.JSON.stringify data)
@@ -211,7 +211,7 @@ type TodoItem(props) =
                     Type "checkbox"
                     Checked this.props.todo.completed
                     OnChange (fun e -> this.props.onToggle(upcast e))
-                ] []
+                ]
                 R.label [ OnDoubleClick this.handleEdit ]
                         [ R.str this.props.todo.title ]
                 R.button [
@@ -225,7 +225,7 @@ type TodoItem(props) =
                 OnBlur this.handleSubmit
                 OnChange this.handleChange
                 OnKeyDown this.handleKeyDown
-            ] []
+            ]
         ]
 
 (**
@@ -335,7 +335,7 @@ type TodoApp(props) =
                 this.setState({ this.state with newTodo = "" })
 
     member this.toggleAll (ev: React.SyntheticEvent) =
-        this.props.model.toggleAll(unbox ev.target?``checked``)
+        this.props.model.toggleAll(!!ev.target?``checked``)
 
     member this.toggle (todoToToggle) =
         this.props.model.toggle(todoToToggle)
@@ -404,7 +404,7 @@ type TodoApp(props) =
                         Type "checkbox"
                         OnChange this.toggleAll
                         Checked (activeTodoCount = 0)
-                    ] []
+                    ]
                     R.ul [ ClassName "todo-list" ] todoItems
                 ] |> Some
             else None
@@ -418,7 +418,7 @@ type TodoApp(props) =
                     OnKeyDown this.handleNewTodoKeyDown
                     OnChange this.handleChange
                     AutoFocus true
-                ] []
+                ]
             ]
             R.opt main
             R.opt footer

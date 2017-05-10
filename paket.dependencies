@@ -14,6 +14,10 @@ nuget xunit.runner.visualstudio
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
 github fsharp/FAKE modules/Octokit/Octokit.fsx
 
+# Fable
+nuget Fable.Core
+nuget Fable.React
+
 group Docs
   source https://www.nuget.org/api/v2
 

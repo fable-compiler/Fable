@@ -190,8 +190,32 @@ let crackFsproj (projFile: string) =
         |> List.filter (fun x -> not(x.EndsWith("Fable.Core.dll")))
         |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath) }
 
+let getPaketProjRefs projFile =
+    let rec findPaketDependenciesDir dir =
+        if File.Exists(Path.Combine(dir, "paket.dependencies"))
+        then dir
+        else
+            let parent = Directory.GetParent(dir)
+            if isNull parent then
+                failwith "Couldn't find paket.dependencies directory"
+            findPaketDependenciesDir parent.FullName
+    let projDir = Path.GetDirectoryName(projFile)
+    let projFileName = Path.GetFileName(projFile)
+    let paketRefs = IO.Path.Combine(projDir, "obj", projFileName + ".references")
+    let paketDependenciesDir = lazy findPaketDependenciesDir projDir
+    if File.Exists(paketRefs) then
+        File.ReadLines(paketRefs)
+        |> Seq.filter(fun line -> line.StartsWith("Fable.") && not(line.StartsWith("Fable.Core")))
+        |> Seq.rev  // Paket orders dependencies in inverse compilation order
+        |> Seq.map (fun fableDependency ->
+            let fableDependency = fableDependency.Substring(0, fableDependency.IndexOf(','))
+            IO.Path.Combine(paketDependenciesDir.Value, "packages", fableDependency, "Content", fableDependency + ".fsproj"))
+        |> Seq.toList
+    else
+        []
+
 let getProjectOptionsFromFsproj projFile =
-    let rec crackProjects (acc: CrackedFsproj list) projFile =
+    let rec crackProjects (acc: CrackedFsproj list) extraProjRefs projFile =
         acc |> List.tryFind (fun x ->
             String.Equals(x.projectFile, projFile, StringComparison.OrdinalIgnoreCase))
         |> function
@@ -202,11 +226,11 @@ let getProjectOptionsFromFsproj projFile =
         | None ->
             let crackedFsproj = crackFsproj projFile
             let acc = crackedFsproj::acc
-            (crackedFsproj.projectReferences, acc)
+            (crackedFsproj.projectReferences @ extraProjRefs, acc)
             ||> Seq.foldBack (fun projFile acc ->
-                crackProjects acc projFile)
+                crackProjects acc [] projFile)
     let crackedFsprojs =
-        crackProjects [] projFile
+        crackProjects [] (getPaketProjRefs projFile) projFile
         |> List.distinctBy (fun x -> x.projectFile.ToLower())
     let sourceFiles =
         crackedFsprojs |> Seq.collect (fun x -> x.sourceFiles) |> Seq.toArray
