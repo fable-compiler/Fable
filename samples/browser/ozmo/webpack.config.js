@@ -1,39 +1,43 @@
-var path = require('path');
+var path = require("path");
+var webpack = require("webpack");
 
 function resolve(filePath) {
-  return path.resolve(__dirname, filePath)
+  return path.join(__dirname, filePath)
 }
 
 var babelOptions = {
-  "presets": [
-    [resolve("../../node_modules/babel-preset-es2015"), {"modules": false}]
-  ]
+  presets: [["es2015", {"modules": false}]],
+  plugins: ["transform-runtime"]
 }
 
 module.exports = {
-  entry: resolve('./ozmo.fsx'),
+  devtool: "source-map",
+  entry: resolve('./Ozmo.fsproj'),
   output: {
     filename: 'bundle.js',
-    path: resolve('./out'),
+    path: resolve('./public'),
   },
-  devtool: "source-map",
+  devServer: {
+    contentBase: resolve('./public'),
+    port: 8080
+ },
   module: {
     rules: [
       {
         test: /\.fs(x|proj)?$/,
         use: {
-          loader: resolve("../../../src/typescript/fable-loader"),
+          loader: "fable-loader",
           options: { babel: babelOptions }
         }
       },
       {
         test: /\.js$/,
-        exclude: /node_modules\/(?!fable)/,
+        exclude: /node_modules[\\\/](?!fable-)/,
         use: {
           loader: 'babel-loader',
           options: babelOptions
         },
       }
     ]
-  },
+  }
 };
