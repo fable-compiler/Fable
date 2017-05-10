@@ -1,71 +1,20 @@
-(**
- - title: Pacman game
- - tagline: Pacman finds himself in a grid filled with monsters...
- - app-style: height:300px; width:300px; margin:20px auto 20px auto; position:relative;
- - intro: Pacman finds himself in a grid filled with monsters... This is probably the most complex sample here.
-   It involves rendering the maze, AI for the ghosts, user interaction and even playing sound effects.
-   The game has some brief commentary, but if you want to learn Fable, look at the other examples
-   first. The [raw source code is on GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/pacman/pacman.fsx)
-   as usual!
+module Pacman.App
 
-   To play the game, click anywhere to start it and then use the arrow keys for moving pacman. Make sure to turn on your volume too :-).
-*)
-(*** hide ***)
-#r "../../node_modules/fable-core/Fable.Core.dll"
-
-open Fable.Core
 open Fable.Import
+open Fable.Core.JsInterop
 
-let random (): float = JS.Math.random()
+open Pacman.Images
+open Pacman.Keyboard
+open Pacman.Types
+open Pacman.Sound
+
 (**
-This is a full blown Pacman game. If you're looking for an introduction to Fable
-then visit other tutorials, in particular the [Mario game](../mario/index.html) which
-is much simpler.
-
-## Implementing the maze
-
-### Loading maze and graphics
-
-Some of the graphics, maze structure and walls are defined as embedded strings or
-arrays in the following section, so that the game is stand-alone and easily portable.
-
-The following block embeds the ghosts and other parts of graphics as Base64 encoded strings.
-This way, we can load them without making additional server requests:
-*)
-module Images =
-  let cyand = (*[omit:"data:image/png;base64,iVBOR..."]*)"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAiUlEQVQoU8WSURKAIAhE8Sh6Fc/tVfQoJdqiMDTVV4wfufAAmw3kxEHUz4pA1I8OJVjAKZZ6+XiC0ATTB/gW2mEFtlpHLqaktrQ6TxUQSRCAPX2AWPMLyM0VmPOcV8palxt6uoAMpDjfWJt+o6cr0DPDnfYjyL94NwIcYjXcR/FuYklcxrZ3OO0Ep4dJ/3dR5jcAAAAASUVORK5CYII="(*[/omit]*)
-  let oranged = (*[omit:"data:image/png;base64,iVBOR..."]*)"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAgklEQVQoU8WS0RGAIAxDZRRYhblZBUZBsBSaUk/9kj9CXlru4g7r1FxBdsFpGwoa2NwrYIFPEIeM6QS+hQQMYC70EjzuuOlt6gT5kRGGTf0Cx5qfwJYOYIw0L6W1bg+09Al2wAcCS8Y/WjqAZhluxD/B3ghZBO6n1sadzLLEbNSg8pzXIVLvbNvPwAAAAABJRU5ErkJggg=="(*[/omit]*)
-  (*[omit:(Other images omitted)]*)
-  let pinkd = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAj0lEQVQoU8WSsRWAIAxEZRQpXITGVZzIVWxYxAJHwRfwMInxqZV0XPIvgXeuM05eUuayG73TbULQwKWZGTTwCYIJphfwLcRhAW5DLfWrXFLrNLWBKAIBbOkFxJpfQDIXYAh1XoznumRo6Q0kwE8VTLN8o6UL0ArDnfYjSF/Mg4CEaA330sxD3ApHLvUdSdsBdgNkr9L8gxYAAAAASUVORK5CYII="
-  let redd = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAkklEQVQoU8WSvRWAIAyEZRQtXIRCV3EiVtGCRSx0FHxBD5MYn1pJl0u+/PDOVcZLY5e47PrJ6TIhaOBSzBoU8AlCE0zP4FuIwwJc25Bz9TyILbVOUwuIJAjAlp5BrPkFpOYC9H6fF+O5LjW09AIS0Az7jUuQN1q6AC0z3Gk/gvTF3AhwiNYQ52Ju4pI4fKljOG0DA3tp97vN6C8AAAAASUVORK5CYII="
-  let pu1 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAANCAYAAABy6+R8AAAAWElEQVQoU62SUQoAIAhD9f6HNiYYolYi9VfzuXIxDRYbI0LCTHsfe3ldi3BgRRUY9Rnku1Rupf4NgiPeVjVU7STckphBceSvrHHtNPI21HWz4NO3eUUAgwVpmjX/zwK8KQAAAABJRU5ErkJggg=="
-  let pu2 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAANCAYAAABy6+R8AAAAW0lEQVQoU8WSwQoAIAhD9f8/2lIwdKRIl7o1e010THBESJiJXca76qnoDxFC3SD9LRpWkLnsLt4gdImtlLX/EK4iDapqr4VuI2+BauQjaOrmSz8xillDp5gQrS054jv/0fkNVAAAAABJRU5ErkJggg=="
-  let pd1 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAANCAYAAABy6+R8AAAAXElEQVQoU62SUQoAIAhD9f6HNgyMWpMs6k/XU5mqwDMTw5yq6JwbAfucwR2qAFHAu75BN11Gt6+Qz54VpMJsMV3BaS9UR8txkUzfLC9DUY0BYbOPGfpyU3g2WdwAOvU1/9KZsT4AAAAASUVORK5CYII="
-  let pd2 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAANCAYAAABy6+R8AAAAU0lEQVQoU62SUQoAIAhD9f6HNgwUGw4s6q/pc6KqwDMTQ01VtGr56ZIZvKEJEAXc9Q26cUm3r5D3zgrywHeoG3ldJrZIRz6C0I1BoR83FTBCeHsLIlw7/wOkQycAAAAASUVORK5CYII="
-  let pl1 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAANCAYAAABy6+R8AAAAVUlEQVQoU62S2woAIAhD9f8/2jAwvGRMyDfF49iQKZUISZ4xE/vZaW7LHbwhBLADqjpSUjBAdglRDQa9hxfcQi+vf5RGnpDlkB4KlMgR0N6pBIH83gIPFCb/N+MLCwAAAABJRU5ErkJggg=="
-  let pl2 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAANCAYAAABy6+R8AAAAUklEQVQoU52SUQoAIAhD3f0PbRQoZgnT/hyttYeQdFRFswYIoubD73JlPibGYA/s1Jmpk+JpDIinWxbiXP3iQslCwbhTxzhHbsWZNFsnCkTevQW2bCb/VRTuVwAAAABJRU5ErkJggg=="
-  let pr1 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAANCAYAAABy6+R8AAAAWElEQVQoU52S4Q4AIASE3fs/tKalSTHyL/O5CyAXzMQ+BxBsbj9exRE8oQqgDUS1BalNVFSuP2WQL94WIygCBEzttZWOvbz2VBnGtLXg1sgV/L8I679yewN9sScO5wcxLQAAAABJRU5ErkJggg=="
-  let pr2 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAANCAYAAABy6+R8AAAAVElEQVQoU62SWwoAIAgE9f6HNgqU3BK2R3+J48KoCjwzMaypis61+OyaK3hADOADeuoddJISaQy0iKggbEz2viah7mVPTNq7cp/ApLmcdFPVdaDJBnWdJwjk629HAAAAAElFTkSuQmCC"
-  let blue = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAeklEQVQoU62S0Q3AIAhEyyi6UcfoRB2jG+koNkeCoVcaTaw/huMeEkS24KTUmpdrFWHbQ2CAzb5AB0eQFTFYwVnIw/+B5by0cD52vTmGhnaF25wBAb/A6HsibR0ctch5fRHi1zCigvCut4oR+wnbhrBmsZr9DlqCQfbcnfZjDyiZqCEAAAAASUVORK5CYII="
-  let eyed = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAUElEQVQoU2NkIBMwkqmPYYA13rt37z/I6UpKSiguwSYOVwCThPkZphmXOHU0OjtD7Nu7F+FckI3YxFH8oqgI8eP9+6h+xCY+wNFBSiqiv1MBDgYsD185vj8AAAAASUVORK5CYII="
-  let _200 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAS0lEQVQoU2NkIBMwkqmPYYA0vpVR+Q9zsvCTO4yE+CC1KE4FaYBpxEfDNWKzgWiNIIUw5xKyGa+N+PyM4UdS4nSA4pEUJ8LUku1UAMC0VA8iscBNAAAAAElFTkSuQmCC"
-  let _400 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAASElEQVQoU2NkIBMwkqmPYYA0vpVR+S/85A4jMg3zAkwcmQ9ig52KTSO6Qch8FI3oNhClEaaJWJvhNmLTSJQfyYnLAYpHujoVAChTXA9pVJi5AAAAAElFTkSuQmCC"
-  let _800 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAQElEQVQoU2NkIBMwkqmPYYA0vpVR+Q9zsvCTO4yE+CC1YKeCFMI0EEOjaES3EZ8BtLERn5/hNpITlwMUj3R1KgCe5lwPHtUmcwAAAABJRU5ErkJggg=="
-  let _1600 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAQ0lEQVQoU2NkIBMwkqmPYQA0vpVR+S/85A4jiIY5mxg+WANMIYiGaUYXR+ejaES3EdlAvBrxKSTJRnx+HoDoGDopBwDHLGwPAhDgRQAAAABJRU5ErkJggg=="
-(*[/omit]*)
-
-// Create image using the specified data
-let createImage data =
-  let img = Browser.document.createElement_img()
-  img.src <- data
-  img
-(**
-The second part defines the maze, tile bits and blank block. The maze is defined as one big string
+Here we define the maze, tile bits and blank block. The maze is defined as one big string
 using ASCII-art encoding. Where `/`, `7`, `L` and `J` represent corners (upper-left, upper-right,
 lower-left and lower-right), `!`, `|`, `-` and `_` represent walls (left, right, top, bottom) while
 `o` and `.` represent two kinds of pills in the maze.
 *)
-// Define the structure of the maze using ASCII
+
 let maze = ("\
 ##/------------7/------------7##,\
 ##|............|!............|##,\
@@ -99,11 +48,12 @@ _______7./7 |      ! /7./_______,\
 ##|..........................|##,\
 ##L--------------------------J##").Split(',')
 
+
 let tileBits =
  [| [|0b00000000;0b00000000;0b00000000;
       0b00000000;0b00000011;0b00000100;
       0b00001000;0b00001000|]
-    (*[omit:[|0b00000000;0b00000000;...]*) // tl
+
     [|0b00000000;0b00000000;0b00000000;0b00000000;0b11111111;0b00000000;0b00000000;0b00000000|] // top
     [|0b00000000;0b00000000;0b00000000;0b00000000;0b11000000;0b00100000;0b00010000;0b00010000|] // tr
     [|0b00001000;0b00001000;0b00001000;0b00001000;0b00001000;0b00001000;0b00001000;0b00001000|] // left
@@ -114,18 +64,18 @@ let tileBits =
     [|0b00000000;0b00000000;0b00000000;0b00000000;0b11111111;0b00000000;0b00000000;0b00000000|] // door
     [|0b00000000;0b00000000;0b00000000;0b00011000;0b00011000;0b00000000;0b00000000;0b00000000|] // pill
     [|0b00000000;0b00011000;0b00111100;0b01111110;0b01111110;0b00111100;0b00011000;0b00000000|] // power
-  (*[/omit]*) |]
+ |]
 
 let blank =
-  [| 0b00000000;0b00000000;0b00000000;
-     (*[omit:0b00000000;0b00000000; ...]*) 0b00000000;0b00000000;0b00000000;0b00000000;0b00000000 (*[/omit]*)|]
-(**
-### Checking for walls
+  [| 0b00000000;0b00000000;0b00000000; 0b00000000;0b00000000;0b00000000;0b00000000;0b00000000 |]
 
+
+(**
+Check for walls:
 The following functions parse the maze representation and check various properties of the maze.
 Those are used for rendering, but also for checking whether Pacman can go in a given direction.
-*)
-/// Characters _|!/7LJ represent different walls
+Characters _|!/7LJ represent different walls
+*) 
 let isWall (c:char) =
   "_|!/7LJ-".IndexOf(c) <> -1
 
@@ -142,6 +92,7 @@ let verticallyAligned (x,y) =  (x % 8) = 5
 let horizontallyAligned (x,y) = (y % 8) = 5
 let isAligned n = (n % 8) = 5
 
+
 // Check whether Pacman can go in given direction
 let noWall (x,y) (ex,ey) =
   let bx, by = (x+6+ex) >>> 3, (y+6+ey) >>> 3
@@ -152,16 +103,16 @@ let canGoDown (x,y) = isAligned x && noWall (x,y) (0,5)
 let canGoLeft (x,y) = isAligned y && noWall (x,y) (-4,0)
 let canGoRight (x,y) = isAligned y && noWall (x,y) (5,0)
 
-(**
-### Background rendering
 
+(**
+Background rendering
+================================
 To render the background, we first fill the background
 and then iterate over the string lines that represent the maze and we draw images of
 walls specified in the `tileBits` value earlier (or use `blank` tile for all other characters).
 
 The following is used to map from tile characters to the `tileBits` values and to draw individual lines:
 *)
-// Mapping from Maze walls to tileBits
 let tileColors = "BBBBBBBBBYY"
 let tileChars =  "/_7|!L-J=.o"
 
@@ -178,27 +129,27 @@ let draw f (lines:int[]) =
     for x = 0 to width-1 do
       let bit = (1 <<< (width - 1 - x))
       let pattern = line &&& bit
-      if pattern <> 0 then f (x,y) )
+      if pattern <> 0 then f (x,y) )  
 
 /// Creates a brush for rendering the given RGBA color
 let createBrush (context:Browser.CanvasRenderingContext2D) (r,g,b,a) =
-  let id = context.createImageData(U2.Case1 1.0, 1.0)
+  let id = context.createImageData(!^ 1.0, 1.0)
   let d = id.data
   d.[0] <- float r; d.[1] <- float g
   d.[2] <- float b; d.[3] <- float a
   id
+
 (**
 The main function for rendering background just fills the canvas with a black color and
 then iterates over the maze tiles and renders individual walls:
 *)
-
 let createBackground () =
   // Fill background with black
   let background = Browser.document.createElement_canvas()
   background.width <- 256.
   background.height <- 256.
   let context = background.getContext_2d()
-  context.fillStyle <- U3.Case1 "rgb(0,0,0)"
+  context.fillStyle <- !^ "rgb(0,0,0)"
   context.fillRect (0., 0. , 256., 256.);
 
   // Render individual tiles of the maze
@@ -220,67 +171,25 @@ let createBackground () =
 /// Clear whatever is rendered in the specified Maze cell
 let clearCell (background : Browser.HTMLCanvasElement) (x,y) =
   let context = background.getContext_2d()
-  context.fillStyle <- U3.Case1 "rgb(0,0,0)"
-  context.fillRect (float (x*8), float (y*8), 8., 8.);
+  context.fillStyle <- !^ "rgb(0,0,0)"
+  context.fillRect (float (x*8), float (y*8), 8., 8.)
 
-(**
-## Creating smart ghosts
-
-### Creating ghosts
-
-Ghosts are represented by a simple F# class type that contains the image of the ghost,
-current X, Y positions and a velocity in both directions. In Pacman, ghosts are mutable
-and expose `Move` and `Reset` methods that change their properties.
-*)
-
-/// Wrap around the sides of the Maze
-let wrap (x,y) (dx,dy) =
-  let x =
-    if dx = -1 && x = 0 then 30 * 8
-    elif dx = 1  && x = 30 *8 then 0
-    else x
-  x + dx, y + dy
-
-/// Mutable representation of a ghost
-type Ghost(image:Browser.HTMLImageElement,x,y,v) =
-  let mutable x' = x
-  let mutable y' = y
-  let mutable v' = v
-  member val Image = image
-  member val IsReturning = false with get, set
-  member __.X = x'
-  member __.Y = y'
-  member __.V = v'
-  /// Move back to initial location
-  member ghost.Reset() =
-    x' <- x
-    y' <- y
-  /// Move in the current direction
-  member ghost.Move(v) =
-    v' <- v
-    let dx,dy = v
-    let x,y = wrap (x',y') (dx,dy)
-    x' <- x
-    y' <- y
-(**
-At the beginning, we have red, cyan, pink and orange ghosts
-in the middle of the maze:
-*)
 let createGhosts context =
   [| Images.redd, (16, 11), (1,0)
      Images.cyand, (14, 15), (1,0)
      Images.pinkd, (16, 13), (0,-1)
      Images.oranged, (18, 15), (-1,0) |]
   |> Array.map (fun (data,(x,y),v) ->
-    Ghost(createImage data, (x*8)-7, (y*8)-3, v) )
+        Ghost(Images.createImage data, (x*8)-7, (y*8)-3, v) )
 
 (**
-### Generating Ghost movement
-
+Generating Ghost movement
+=========================
 For generating Ghost movements, we need an implementation of the [Flood fill algorithm](https://en.wikipedia.org/wiki/Flood_fill),
 which we use to generate the shortest path home when Ghosts are returning. The `fillValue` function does this, by starting
 at a specified location (which can be one of the directions in which ghosts can go).
 *)
+
 /// Recursive flood fill function
 let flood canFill fill (x,y) =
   let rec f n = function
@@ -293,7 +202,7 @@ let flood canFill fill (x,y) =
   f 0 [(x,y)]
 
 /// Possible routes that take the ghost home
-let route_home =
+let homeRoute =
   let numbers =
     maze |> Array.map (fun line ->
       line.ToCharArray()
@@ -311,14 +220,17 @@ let route_home =
 let fillValue (x,y) (ex,ey) =
   let bx = int (floor(float ((x+6+ex)/8)))
   let by = int (floor(float ((y+6+ey)/8)))
-  route_home.[by].[bx]
+  homeRoute.[by].[bx]
+
 
 let fillUp (x,y) = fillValue (x,y) (0,-4)
 let fillDown (x,y) = fillValue (x,y) (0,5)
 let fillLeft (x,y) = fillValue (x,y) (-4,0)
 let fillRight (x,y) = fillValue (x,y) (5,0)
-(**
 
+
+
+(**
 When choosing a direction, ghosts that are returning will go in the direction
 that leads them home. Other ghosts generate a list of possible directions (the `directions` array)
 and then filter those that are in the direction of Pacman and choose one of the options. If they
@@ -351,87 +263,17 @@ let chooseDirection (ghost:Ghost) =
       |> Array.filter (not << isBackwards)
     if xs.Length = 0 then 0, 0
     else
-      let i = random() * float xs.Length
+      let randomNum = System.Random().NextDouble()
+      let i = randomNum * float xs.Length
       xs.[int (floor i)]
 
-(**
-## Input and output helpers
-
-### Keyboard input
-The `Keyboard` module records the keys that are currently pressed in a set and
-registers `window` event handlers using the DOM interoperability layer.
-*)
-
-module Keyboard =
-  /// Set of currently pressed keys
-  let mutable keysPressed = Set.empty
-  /// Update the keys as requested
-  let reset () = keysPressed <- Set.empty
-  let isPressed keyCode = Set.contains keyCode keysPressed
-  /// Triggered when key is pressed/released
-  let update (e : Browser.KeyboardEvent, pressed) =
-    let keyCode = int e.keyCode
-    let op =  if pressed then Set.add else Set.remove
-    keysPressed <- op keyCode keysPressed
-    null
-  /// Register DOM event handlers
-  let init () =
-    Browser.window.addEventListener_keydown(fun e -> update(e, true))
-    Browser.window.addEventListener_keyup(fun e -> update(e, false))
-
-(**
-### Choosing Pacman image
-
-The `Pacman` module is a helper that exposes the `imageAt` function. The function
-returns the pacman image for the specified X and Y location, taking into account the
-direction in which Pacman is going. It keeps a mutable state with current step of Pacman's
-mouth.
-*)
-
-module Pacman =
-  // Load the different Pacman images
-  let private pu1, pu2 =
-    createImage Images.pu1, createImage Images.pu2
-  let private pd1, pd2 =
-    createImage Images.pd1, createImage Images.pd2
-  let private pl1, pl2 =
-    createImage Images.pl1, createImage Images.pl2
-  let private pr1, pr2 =
-    createImage Images.pr1, createImage Images.pr2
-
-  // Represent Pacman's mouth state
-  let private lastp = ref pr1
-
-  // Return imge for the given X, Y and V
-  let imageAt(x,y,v) =
-    let p1, p2 =
-      match !v with
-      | -1,  0 -> pl1, pl2
-      |  1,  0 -> pr1, pr2
-      |  0, -1 -> pu1, pu2
-      |  0,  1 -> pd1, pd2
-      |  _,  _ -> !lastp, !lastp
-    let x' = int (floor(float (!x/6)))
-    let y' = int (floor(float (!y/6)))
-    let p = if (x' + y') % 2 = 0 then p1 else p2
-    lastp := p
-    p
-(**
-### Sounds and dots
-
-We need two more helpers - the `sound` function plays an audio file. This uses JavaScript native
-`Audio` object, which we access via the `Emit` attribute. The other helper is `countDots` which
-counts dots in the maze:
-*)
-/// Uses Fable's Emit to call JavaScript directly
-[<Emit("(new Audio($0)).play();")>]
-let sound(file:string) : unit = failwith "never"
 
 /// Count number of dots in the maze
 let countDots () =
   maze |> Array.sumBy (fun line ->
     line.ToCharArray()
     |> Array.sumBy (function '.' -> 1 | 'o' -> 1 | _ -> 0))
+
 
 (**
 ## The game play function
@@ -460,19 +302,19 @@ left or until the Pacman is out of energy and then it calls one of the continuat
 
 In the following 5 sections, we'll look at the 5 blocks of code that define the body of the function.
 *)
-(*** hide ***)
+
 let playLevel (onLevelCompleted, onGameOver) =
-(**
-### Create canvas, background and ghosts
-In the first part, the function finds the `<canvas>` element, paints it with black background and
-creates other graphical elements - namely the game background, ghosts and eyes:
-*)
+  (**
+  ### Create canvas, background and ghosts
+  In the first part, the function finds the `<canvas>` element, paints it with black background and
+  creates other graphical elements - namely the game background, ghosts and eyes:
+  *)
   // Fill the canvas element
   let canvas = Browser.document.getElementsByTagName_canvas().[0]
   canvas.width <- 256.
   canvas.height <- 256.
   let context = canvas.getContext_2d()
-  context.fillStyle <- U3.Case1 "rgb(0,0,0)"
+  context.fillStyle <- !^ "rgb(0,0,0)"
   context.fillRect (0., 0. , 256., 256.);
   let bonusImages =
     [| createImage Images._200; createImage Images._400;
@@ -482,15 +324,15 @@ creates other graphical elements - namely the game background, ghosts and eyes:
   let background = createBackground()
   let ghosts = createGhosts(context)
   let blue,eyed = createImage Images.blue, createImage Images.eyed
-(**
-### Define the Pacman state
-Next, we define the game state. Pacman game uses mutable state, so the following uses
-F# reference cells; `ref 0` creates a mutable cell containing `0`. Later, we will access
-the value by writing `!score` and mutate it by writing `score := !score + 1`.
+  (**
+  ### Define the Pacman state
+  Next, we define the game state. Pacman game uses mutable state, so the following uses
+  F# reference cells; `ref 0` creates a mutable cell containing `0`. Later, we will access
+  the value by writing `!score` and mutate it by writing `score := !score + 1`.
 
-*)
+  *)
   let pills = maze |> Array.map (fun line ->
-    line.ToCharArray() |> Array.map (fun c -> c))
+    line.ToCharArray() |> Array.map id)
   let dotsLeft = ref (countDots())
   let score = ref 0
   let bonus = ref 0
@@ -500,14 +342,11 @@ the value by writing `!score` and mutate it by writing `score := !score + 1`.
   let powerCountdown = ref 0
   let x, y = ref (16 * 8 - 7), ref (23 * 8 - 3)
   let v = ref (0,0)
-(**
-### Move ghosts and Pacman
-At each step of the game, we need to update the positions of ghosts and the Pacman. This is handled
-in `moveGhosts` and `movePacman`:
-*)
+
   let moveGhosts () =
     ghosts |> Array.iter (fun ghost ->
-      ghost.Move(chooseDirection ghost) )
+      ghost.Move(chooseDirection ghost) 
+    )
 
   let movePacman () =
     // In which directions should pacman go?
@@ -545,15 +384,7 @@ in `moveGhosts` and `movePacman`:
     let x',y' = wrap (!x,!y) !v
     x := x'
     y := y'
-(**
-### Detect pills and collisions
-The most sophisticated part of the game logic is checking for various events. The following things can happen:
 
- - Pacman eats a small or a large pill - in which case, we play a sound and (optionally) switch to the power mode
- - Pacman clashes with a ghost - in which case it either loses energy, or eats the ghost when in power mode
-
-The logic is captured by `eatPill`, `touchingGhosts` and `collisionDetection` functions:
-*)
   // Check if Pacman eats a pill at current cell
   let eatPills () =
     let tx = int (floor(float ((!x+6)/8)))
@@ -565,7 +396,7 @@ The logic is captured by `eatPill`, `touchingGhosts` and `collisionDetection` fu
       clearCell background (tx,ty)
       score := !score + 10
       decr dotsLeft
-      sound("./fx/Dot5.wav")
+      Sound.play "./fx/Dot5.wav"
     if c = 'o' then
       // Eating a large pill turns on the power mode
       pills.[ty].[tx] <- ' '
@@ -574,7 +405,7 @@ The logic is captured by `eatPill`, `touchingGhosts` and `collisionDetection` fu
       score := !score + 50
       powerCountdown := 250
       decr dotsLeft
-      sound("./fx/Powerup.wav")
+      Sound.play "./fx/Powerup.wav"
 
   /// Are there any ghosts that collide with Pacman?
   let touchingGhosts () =
@@ -596,7 +427,7 @@ The `collisionDetection` function implements the right response to collision wit
         // Pacman is eating ghosts!
         touched |> Array.iter (fun ghost ->
           if not ghost.IsReturning then
-            sound "./fx/EatGhost.wav"
+            Sound.play "./fx/EatGhost.wav"
             ghost.IsReturning <- true
             let added = int (2. ** (float !bonus))
             score := !score + added * 200
@@ -606,7 +437,7 @@ The `collisionDetection` function implements the right response to collision wit
       else
         // Pacman loses energy when hitting ghosts
         decr energy
-        if !flashCountdown = 0 then sound "./fx/Hurt.wav"
+        if !flashCountdown = 0 then Sound.play "./fx/Hurt.wav"
         flashCountdown := 30
     if !flashCountdown > 0 then decr flashCountdown
 
@@ -637,12 +468,12 @@ Each of those is handled by a single nested function that are put together in `r
 We start with Pacman and remaining energy:
 *)
   let renderPacman () =
-    let p = Pacman.imageAt(x,y,v)
+    let p = Images.imageAt(x,y,v)
     if (!flashCountdown >>> 1) % 2 = 0
-    then context.drawImage(U3.Case1 p, float !x, float !y)
+    then context.drawImage(!^ p, float !x, float !y)
 
   let renderEnergy () =
-    context.fillStyle <- U3.Case1 "yellow"
+    context.fillStyle <- !^ "yellow"
     context.fillRect(120., 250., float !energy, 2.)
 (**
 The next three functions render ghosts, current score and bonuses:
@@ -656,28 +487,25 @@ The next three functions render ghosts, current score and bonuses:
           elif !powerCountdown > 100 ||
                 ((!powerCountdown >>> 3) % 2) <> 0 then blue
           else ghost.Image
-      context.drawImage(U3.Case1 image, float ghost.X, float ghost.Y) )
+      context.drawImage(!^ image, float ghost.X, float ghost.Y) )
 
   let renderScore () =
-    context.fillStyle <- U3.Case1 "white"
+    context.fillStyle <- !^ "white"
     context.font <- "bold 8px";
     context.fillText("Score " + (!score).ToString(), 0., 255.)
 
   let renderBonus () =
     !bonuses |> List.iter (fun (_,(image,x,y)) ->
-      context.drawImage(U3.Case1 image, float x, float y))
-(**
-Finally, the `render` function puts everything together - note that this needs
-to be done in the right order so that we do not accidentally draw dots over a Pacman!
-*)
+      context.drawImage(!^ image, float x, float y))
+
   let render () =
-    context.drawImage(U3.Case2 background, 0., 0.)
+    context.drawImage(!^ background, 0., 0.)
     renderScore ()
     renderEnergy ()
     renderPacman()
     renderGhosts ()
     renderBonus ()
-(*** hdie ***)
+
   let rec update () =
     logic ()
     render ()
@@ -688,8 +516,8 @@ to be done in the right order so that we do not accidentally draw dots over a Pa
   update()
 
 (**
-## Game entry point
-
+Game entry point
+================
 Now we have everything we need to start the game, so the last step is to define the
 `levelCompleted` and `gameOver` functions (that are called when the game ends), render
 the starting state of the game (with "CLICK TO START" text) and start the game!
@@ -702,7 +530,7 @@ let rec game () =
 
   // A helper function to draw text
   let drawText(text,x,y) =
-    context.fillStyle <- U3.Case1 "white"
+    context.fillStyle <- !^ "white"
     context.font <- "bold 8px";
     context.fillText(text, x, y)
 
@@ -718,8 +546,8 @@ let rec game () =
   // Start a new game after click!
   let start () =
     let background = createBackground()
-    context.drawImage(U3.Case2 background, 0., 0.)
-    context.fillStyle <- U3.Case1 "white"
+    context.drawImage(!^ background, 0., 0.)
+    context.fillStyle <- !^ "white"
     context.font <- "bold 8px";
     drawText("CLICK TO START", 88., 96.)
     canvas.onclick <- (fun e ->
@@ -733,6 +561,6 @@ let rec game () =
   canvas.height <- 256.
   start()
 
-// At the beginnin, initialize keyboard & start the first game.
+// At the beginning, initialize keyboard & start the first game.
 Keyboard.init ()
 game ()
