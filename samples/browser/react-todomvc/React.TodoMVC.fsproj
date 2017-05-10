@@ -1,4 +1,4 @@
-﻿<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
+<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard1.6</TargetFramework>
   </PropertyGroup>
@@ -6,13 +6,8 @@
     <Compile Include="React.TodoMVC.fs" />
   </ItemGroup>
   <ItemGroup>
-    <DotNetCliToolReference Include="dotnet-compile-fsc" Version="1.0.0-preview2-*" />
-    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.0-beta-060000" PrivateAssets="All" />
-    <PackageReference Include="FSharp.Core" Version="4.1.*" />
-    <PackageReference Include="Fable.Core" Version="1.0.0-narumi-*" />
+    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
     <DotNetCliToolReference Include="dotnet-fable" Version="1.0.0-narumi-*" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\..\fable-react\fable-react\Fable.React.fsproj" />
-  </ItemGroup>
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>
