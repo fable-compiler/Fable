@@ -33,7 +33,7 @@ open Fable.Import.JS
       abstract config: obj with get, set
       abstract pid: float with get, set
       abstract title: string with get, set
-      abstract arch: string with get, set
+      abstract arch: Arch with get, set
       abstract platform: Platform with get, set
       abstract connected: bool with get, set
       abstract abort: unit -> unit
