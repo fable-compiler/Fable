@@ -1,5 +1,25 @@
 importScripts('repl/bundle.min.js');
 
+// performance polyfill for Safari (see #902) from
+// https://gist.github.com/paulirish/5438650
+(function(){
+  if ("performance" in self == false) {
+      self.performance = {};
+  }
+  Date.now = (Date.now || function () {  // thanks IE8
+	  return new Date().getTime();
+  });
+  if ("now" in self.performance == false){
+    var nowOffset = Date.now();
+    if (performance.timing && performance.timing.navigationStart){
+      nowOffset = performance.timing.navigationStart
+    }
+    self.performance.now = function now(){
+      return Date.now() - nowOffset;
+    }
+  }
+})();
+
 var checker = null;
 var metadata = {}
 
