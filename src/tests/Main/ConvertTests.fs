@@ -112,6 +112,8 @@ let ``System.Convert.ToSByte works``() =
     sbyte(1.5) |> equal x
     sbyte(1.6) |> equal x
     sbyte(1.m) |> equal x
+    sbyte("1.4") |> equal x
+    (fun () -> sbyte("foo")) |> throwsError "Input string was not in a correct format."
 
     Convert.ToSByte(1y) |> equal x
     Convert.ToSByte(1uy) |> equal x
@@ -131,6 +133,8 @@ let ``System.Convert.ToSByte works``() =
     Convert.ToSByte(2.5) |> equal (x+x)
     Convert.ToSByte(2.6) |> equal (x+x+x)
     Convert.ToSByte(3.5) |> equal (x+x+x+x)
+    Convert.ToSByte("1.4") |> equal x
+    (fun () -> Convert.ToSByte("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Convert.ToInt16 works``() =
@@ -150,6 +154,8 @@ let ``System.Convert.ToInt16 works``() =
     int16(1.5) |> equal x
     int16(1.6) |> equal x
     int16(1.m) |> equal x
+    int16("1.6") |> equal x
+    (fun () -> int16("foo")) |> throwsError "Input string was not in a correct format."
 
     Convert.ToInt16(1y) |> equal x
     Convert.ToInt16(1uy) |> equal x
@@ -169,6 +175,8 @@ let ``System.Convert.ToInt16 works``() =
     Convert.ToInt16(2.5) |> equal (x+x)
     Convert.ToInt16(2.6) |> equal (x+x+x)
     Convert.ToInt16(3.5) |> equal (x+x+x+x)
+    Convert.ToInt16("1.4") |> equal x
+    (fun () -> Convert.ToInt16("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Convert.ToInt32 works``() =
@@ -188,6 +196,8 @@ let ``System.Convert.ToInt32 works``() =
     int(1.5) |> equal x
     int(1.6) |> equal x
     int(1.m) |> equal x
+    int("1.6") |> equal x
+    (fun () -> int("foo")) |> throwsError "Input string was not in a correct format."
 
     Convert.ToInt32(1y) |> equal x
     Convert.ToInt32(1uy) |> equal x
@@ -207,6 +217,8 @@ let ``System.Convert.ToInt32 works``() =
     Convert.ToInt32(2.5) |> equal (x+x)
     Convert.ToInt32(2.6) |> equal (x+x+x)
     Convert.ToInt32(3.5) |> equal (x+x+x+x)
+    Convert.ToInt32("1.4") |> equal x
+    (fun () -> Convert.ToInt32("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Convert.ToInt64 works``() =
@@ -226,6 +238,8 @@ let ``System.Convert.ToInt64 works``() =
     int64(1.5) |> equal x
     int64(1.6) |> equal x
     int64(1.m) |> equal x
+    int64("1.6") |> equal x
+    (fun () -> int64("foo")) |> throwsError "Input string was not in a correct format."
 
     Convert.ToInt64(1y) |> equal x
     Convert.ToInt64(1uy) |> equal x
@@ -245,6 +259,8 @@ let ``System.Convert.ToInt64 works``() =
     Convert.ToInt64(2.5) |> equal (x+x)
     Convert.ToInt64(2.6) |> equal (x+x+x)
     Convert.ToInt64(3.5) |> equal (x+x+x+x)
+    Convert.ToInt64("1.4") |> equal x
+    (fun () -> Convert.ToInt64("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Convert.ToByte works``() =
@@ -264,6 +280,8 @@ let ``System.Convert.ToByte works``() =
     byte(1.5) |> equal x
     byte(1.6) |> equal x
     byte(1.m) |> equal x
+    byte("1.6") |> equal x
+    (fun () -> byte("foo")) |> throwsError "Input string was not in a correct format."
 
     Convert.ToByte(1y) |> equal x
     Convert.ToByte(1uy) |> equal x
@@ -283,6 +301,8 @@ let ``System.Convert.ToByte works``() =
     Convert.ToByte(2.5) |> equal (x+x)
     Convert.ToByte(2.6) |> equal (x+x+x)
     Convert.ToByte(3.5) |> equal (x+x+x+x)
+    Convert.ToByte("1.4") |> equal x
+    (fun () -> Convert.ToByte("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Convert.ToUInt16 works``() =
@@ -302,6 +322,8 @@ let ``System.Convert.ToUInt16 works``() =
     uint16(1.5) |> equal x
     uint16(1.6) |> equal x
     uint16(1.m) |> equal x
+    uint16("1.6") |> equal x
+    (fun () -> uint16("foo")) |> throwsError "Input string was not in a correct format."
 
     Convert.ToUInt16(1y) |> equal x
     Convert.ToUInt16(1uy) |> equal x
@@ -321,6 +343,8 @@ let ``System.Convert.ToUInt16 works``() =
     Convert.ToUInt16(2.5) |> equal (x+x)
     Convert.ToUInt16(2.6) |> equal (x+x+x)
     Convert.ToUInt16(3.5) |> equal (x+x+x+x)
+    Convert.ToUInt16("1.4") |> equal x
+    (fun () -> Convert.ToUInt16("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Convert.ToUInt32 works``() =
@@ -340,6 +364,8 @@ let ``System.Convert.ToUInt32 works``() =
     uint32(1.5) |> equal x
     uint32(1.6) |> equal x
     uint32(1.m) |> equal x
+    uint32("1.6") |> equal x
+    (fun () -> uint32("foo")) |> throwsError "Input string was not in a correct format."
 
     Convert.ToUInt32(1y) |> equal x
     Convert.ToUInt32(1uy) |> equal x
@@ -359,6 +385,8 @@ let ``System.Convert.ToUInt32 works``() =
     Convert.ToUInt32(2.5) |> equal (x+x)
     Convert.ToUInt32(2.6) |> equal (x+x+x)
     Convert.ToUInt32(3.5) |> equal (x+x+x+x)
+    Convert.ToUInt32("1.4") |> equal x
+    (fun () -> Convert.ToUInt32("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Convert.ToUInt64 works``() =
@@ -378,6 +406,8 @@ let ``System.Convert.ToUInt64 works``() =
     uint64(1.5) |> equal x
     uint64(1.6) |> equal x
     uint64(1.m) |> equal x
+    uint64("1.6") |> equal x
+    (fun () -> uint64("foo")) |> throwsError "Input string was not in a correct format."
 
     Convert.ToUInt64(1y) |> equal x
     Convert.ToUInt64(1uy) |> equal x
@@ -397,6 +427,8 @@ let ``System.Convert.ToUInt64 works``() =
     Convert.ToUInt64(2.5) |> equal (x+x)
     Convert.ToUInt64(2.6) |> equal (x+x+x)
     Convert.ToUInt64(3.5) |> equal (x+x+x+x)
+    Convert.ToUInt64("1.4") |> equal x
+    (fun () -> Convert.ToUInt64("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Convert.ToSingle works``() =
@@ -413,6 +445,8 @@ let ``System.Convert.ToSingle works``() =
     float32(1.f) |> equal x
     float32(1.) |> equal x
     float32(1.m) |> equal x
+    float32("1.") |> equal x
+    (fun () -> float32("foo")) |> throwsError "Input string was not in a correct format."
 
     Convert.ToSingle(1y) |> equal x
     Convert.ToSingle(1uy) |> equal x
@@ -426,6 +460,8 @@ let ``System.Convert.ToSingle works``() =
     Convert.ToSingle(1.f) |> equal x
     Convert.ToSingle(1.) |> equal x
     Convert.ToSingle(1.m) |> equal x
+    Convert.ToSingle("1.") |> equal x
+    (fun () -> Convert.ToSingle("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Convert.ToDouble works``() =
@@ -442,6 +478,8 @@ let ``System.Convert.ToDouble works``() =
     float(1.f) |> equal x
     float(1.) |> equal x
     float(1.m) |> equal x
+    float("1.") |> equal x
+    (fun () -> float("foo")) |> throwsError "Input string was not in a correct format."
 
     Convert.ToDouble(1y) |> equal x
     Convert.ToDouble(1uy) |> equal x
@@ -455,6 +493,8 @@ let ``System.Convert.ToDouble works``() =
     Convert.ToDouble(1.f) |> equal x
     Convert.ToDouble(1.) |> equal x
     Convert.ToDouble(1.m) |> equal x
+    Convert.ToDouble("1.") |> equal x
+    (fun () -> Convert.ToDouble("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Convert.ToDecimal works``() =
@@ -470,6 +510,8 @@ let ``System.Convert.ToDecimal works``() =
     decimal(1.f) |> equal x
     decimal(1.) |> equal x
     decimal(1.m) |> equal x
+    decimal("1.") |> equal x
+    (fun () -> decimal("foo")) |> throwsError "Input string was not in a correct format."
 
     Convert.ToDecimal(1y) |> equal x
     Convert.ToDecimal(1uy) |> equal x
@@ -483,6 +525,8 @@ let ``System.Convert.ToDecimal works``() =
     Convert.ToDecimal(1.f) |> equal x
     Convert.ToDecimal(1.) |> equal x
     Convert.ToDecimal(1.m) |> equal x
+    Convert.ToDecimal("1.") |> equal x
+    (fun () -> Convert.ToDecimal("foo")) |> throwsError "Input string was not in a correct format."
 
 // String to number convertions (with base)
 
