@@ -3,7 +3,7 @@ NUGET
     Fable.Core (1.0.0-narumi-915)
       FSharp.Core (>= 4.1.2) - framework: >= net463, >= netstandard16
       NETStandard.Library (>= 1.6.1) - framework: >= net463, >= netstandard16
-    Fable.React (1.0.0-narumi-901)
+    Fable.React (1.0.0-narumi-902)
       Fable.Core (>= 1.0.0-narumi-912) - framework: >= net463, >= netstandard16
       FSharp.Core (>= 4.1.17) - framework: >= net463, >= netstandard16
       NETStandard.Library (>= 1.6.1) - framework: >= net463, >= netstandard16
@@ -734,9 +734,9 @@ NUGET
       System.Threading.ThreadPool (>= 4.0.10) - framework: netcore10
 GITHUB
   remote: fsprojects/FSharp.TypeProviders.StarterPack
-    src/ProvidedTypes.fs (45f4d8780b3213ef61ba4fccc716cd495565c1a4)
+    src/ProvidedTypes.fs (1dab4f94411500794342f61f877feab772e5a754)
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (5df6bb2d94cbe28a476fd23e79e411dca6678c4c)
+    modules/Octokit/Octokit.fsx (43917109af4ef38194d8993215c3e7c862b19d36)
       Octokit (>= 0.20)
 GROUP Docs
 NUGET
