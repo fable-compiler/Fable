@@ -18,13 +18,16 @@ let tryParse f initial value =
     (success, !res)
     #endif
 
+let parse f (a: string) =
+    #if FABLE_COMPILER
+    f(a)
+    #else
+    f(a, CultureInfo("en-US"))
+    #endif
+
 [<Test>]
 let ``System.Double.Parse works``() =
-    #if FABLE_COMPILER
-    Double.Parse("1.5") |> equal 1.5
-    #else
-    Double.Parse("1.5", CultureInfo("en-US")) |> equal 1.5
-    #endif
+    parse Double.Parse "1.5" |> equal 1.5
 
 [<Test>]
 let ``System.Double.TryParse works``() =
@@ -40,11 +43,7 @@ let ``System.Double.TryParse works``() =
 
 [<Test>]
 let ``System.Single.Parse works``() =
-    #if FABLE_COMPILER
-    Single.Parse("1.5") |> equal 1.5f
-    #else
-    Single.Parse("1.5", CultureInfo("en-US")) |> equal 1.5f
-    #endif
+    parse Single.Parse "1.5" |> equal 1.5f
 
 [<Test>]
 let ``System.Single.TryParse works``() =
@@ -61,10 +60,15 @@ let ``System.Single.TryParse works``() =
 [<Test>]
 let ``System.Int32.Parse works``() =
     Int32.Parse("5") |> equal 5
+    (fun () -> Int32.Parse("5f")) |> throwsError "Input string was not in a correct format."
+    (fun () -> Int32.Parse("f5")) |> throwsError "Input string was not in a correct format."
+    (fun () -> Int32.Parse("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Int32.Parse with hex works``() =
     Int32.Parse("555555", System.Globalization.NumberStyles.HexNumber) |> equal 5592405
+    (fun () -> Int32.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
+    (fun () -> Int32.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
 let ``System.Int32.ToString "x" works``() =
