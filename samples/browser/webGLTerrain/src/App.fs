@@ -1,28 +1,4 @@
-(**
- - title: WebGL Geometry Terrain
- - tagline: A 3D world right in the browser
- - app-style: height:450px; width:800px; margin:20px auto 50px auto;
- - intro: This demo is a Fable port of the [WebGL Geometry Terrain](http://threejs.org/examples/#webgl_geometry_terrain)
-   three.js demo. It uses the three.js library to randomly generate a 3D terrain which can be navigated in a first-person view.
-   The code was originally written by [John Quigley](https://github.com/jmquigs) for FunScript,
-   you can find [Fable's version on GitHub](https://github.com/fable-compiler/Fable/blob/master/samples/browser/webGLTerrain/webGLTerrain.fsx).
-
-   On the technical side, the demo shows some of the more interesting aspects of
-   calling JavaScript libraries from Fable. You'll learn how to define mapping for
-   global objects and other useful functions.
-*)
-(*** hide ***)
-#r "../../node_modules/fable-core/Fable.Core.dll"
-#load "../../node_modules/fable-import-three/Fable.Import.Three.fs"
-(**
-JavaScript helpers and imports
-------------------------------
-
-Fable comes with [an F# mapping for three.js](https://github.com/fable-compiler/Fable/tree/master/import/three),
-which defines all the types and functions for three.js that we'll need in this example.
-In addition this demo uses custom scripts for ImprovedNoise and FirstPersonControls.
-We'll write the mappings for those two inline.
-*)
+module WebGLTerrain
 
 open System
 open Fable.Core
@@ -41,16 +17,8 @@ type IFirstPersonControls =
     abstract update: float -> unit
 
 let ImprovedNoise: unit->IPerlin = importDefault "./js/ImprovedNoise.js"
-let FirstPersonControls: JsConstructor<Three.Camera * Browser.HTMLElement, IFirstPersonControls> =
+let FirstPersonControls: JsConstructor<Three.Camera, Browser.HTMLElement, IFirstPersonControls> =
     importDefault "./js/FirstPersonControls.js"
-
-(**
-Initial settings and helper functions
-------------------------------------
-
-Note: this sample is intended to be a direct port of the original
-and doesn't attempt to refactor the original to be more "functional".
-*)
 
 let worldWidth = 256
 let worldDepth = 256
@@ -59,15 +27,10 @@ let worldHalfDepth = worldDepth / 2
 
 let clock = Three.Clock()
 
-// We can also use `System.Random`, but the native JS `Math.random`
-// will be a bit more performant here.
 let inline rand() = JS.Math.random()
 
-(**
-Using the perlin library (ImprovedNoise script) define the peaks
-of the mountains in our random terrain.
-*)
-
+// Using the perlin library (ImprovedNoise script) define the peaks
+// of the mountains in our random terrain.
 let generateHeight width height =
     let size = width * height
     let data:float[] = Array.zeroCreate size
@@ -86,11 +49,8 @@ let generateHeight width height =
         quality <- quality * 5.0
     data
 
-(**
-To generate the textures for the terrain, we'll be using a canvas element
-to draw the image and later pass it directly to THREE.Texture class.
-*)
-
+// To generate the textures for the terrain, we'll be using a canvas element
+// to draw the image and later pass it directly to THREE.Texture class.
 let generateTexture (data:float[]) (width:int) (height:int) =
     let vector3 = Three.Vector3(0.0, 0.0, 0.0)
     let sun = (Three.Vector3(1.0, 1.0, 1.0) :> Three.Vector).normalize()
@@ -162,25 +122,14 @@ let generateTexture (data:float[]) (width:int) (height:int) =
     context.putImageData(image, 0.0, 0.0)
     canvasScaled
 
-(**
-Initialize elements
--------------------
+//Initialize elements
+//-------------------
 
-Here we initialize the elements necessary to draw the scene:
-the renderer, the scene itself, a camera and controls to move it.
-
-Note the use of a compiler directive: normally we take the whole window space,
-but if we are in the tutorial we should leave space for the explanations.
-*)
-
+// Here we initialize the elements necessary to draw the scene:
+// the renderer, the scene itself, a camera and controls to move it.
 let init() =
-    #if TUTORIAL
-    let getWidth() = 800.
-    let getHeight() = 450.
-    #else
-    let getWidth() = Browser.window.innerWidth
-    let getHeight() = Browser.window.innerHeight
-    #endif
+    let getWidth() = Browser.window.innerWidth - 300.0
+    let getHeight() = Browser.window.innerHeight - 40.0
 
     let container = Browser.document.getElementById("container")
     let camera = Three.PerspectiveCamera(
@@ -193,8 +142,8 @@ let init() =
     let domElement = (renderer :> Three.Renderer).domElement
     container.innerHTML <- ""
     container.appendChild(domElement) |> ignore
-
-    let controls = FirstPersonControls.Create(upcast camera, upcast domElement)
+    Browser.console.log(camera)
+    let controls = FirstPersonControls.Create(!!camera, !!domElement)
     controls.movementSpeed <- 1000.0
     controls.lookSpeed <- 0.1
 
@@ -252,15 +201,9 @@ let init() =
 
 let renderer,scene,camera,controls = init()
 
-
-(**
-Start animation
----------------
-
-Now the only thing left is to start the animation. Note we use the
-`window.requestAnimationFrame` function here, this will make sure
-`animate` is executed at a proper frame rate.
-*)
+// Now the only thing left is to start the animation. Note we use the
+// `window.requestAnimationFrame` function here, this will make sure
+// `animate` is executed at a proper frame rate.
 
 let render() =
     controls.update(clock.getDelta())
