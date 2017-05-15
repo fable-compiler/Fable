@@ -56,8 +56,8 @@ module.exports = function(buffer) {
     else {
         msg.fableCoreVersion = "*";
     }
-
-    console.log("Fable loader sent: " + msg.path)
+    // TODO: Reintroduce logging under a verbose mode
+    //console.log("Fable loader sent: " + msg.path)
     // console.log("Full message: " + JSON.stringify(msg))
 
     client.send(port, JSON.stringify(msg))

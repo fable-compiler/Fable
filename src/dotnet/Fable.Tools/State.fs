@@ -171,12 +171,13 @@ let createProject checker projectOptions (com: ICompiler) (define: string[]) pro
         | Some projectOptions -> projectOptions
         | None ->
             let projectOptions = getFullProjectOpts checker define projFile
-            if projFile.EndsWith(".fsproj") then
-                printfn "F# PROJECT: %s" projectOptions.ProjectFileName
+            // TODO: Enable the next line when in a verbose mode.
+            //if projFile.EndsWith(".fsproj") then                
+                // printfn "F# PROJECT: %s" projectOptions.ProjectFileName
                 // for option in projectOptions.OtherOptions do
                 //     printfn "%s" option
-                for file in projectOptions.ProjectFileNames do
-                    printfn "   %s" file
+                // for file in projectOptions.ProjectFileNames do
+                //     printfn "   %s" file
             projectOptions
     let checkedProject = parseFSharpProject checker projectOptions com
     Project(projectOptions, checkedProject)
