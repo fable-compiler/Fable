@@ -975,13 +975,14 @@ module Util =
     let validateGenArgs com (ctx: Context) r (genParams: FSharpGenericParameter seq) (typArgs: FSharpType seq) =
         let fail typName genName =
             let typName = defaultArg typName ""
-            sprintf "Type %s passed as generic param '%s must be decorated with %s or be `obj`" typName genName Atts.pojo
+            sprintf "Type %s passed as generic param '%s must be decorated with %s or be `obj`/interface" typName genName Atts.pojo
             |> addError com ctx.fileName r
         if Seq.length genParams = Seq.length typArgs then
             Seq.zip genParams typArgs
             |> Seq.iter (fun (par, arg) ->
                 if hasAtt Atts.pojo par.Attributes then
                     match tryDefinition arg with
+                    | Some argDef when argDef.IsInterface -> ()
                     | Some argDef when argDef.TryFullName = Some "System.Object" -> ()
                     | Some argDef when hasAtt Atts.pojo argDef.Attributes -> ()
                     | None when arg.IsGenericParameter

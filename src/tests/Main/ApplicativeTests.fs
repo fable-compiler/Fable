@@ -417,3 +417,18 @@ let ``Aether with generics works``() = // See #750
     let input2, checkbox2 = view a2
     input2 |> equal "bar"
     checkbox2 |> equal true
+
+type Id = Id of string
+
+type Ideable =
+    { Id: Id; Name: string }
+    member this.ToString() = this.Name
+
+let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
+    Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
+
+[<Test>]
+let ``Trait calls work with record fields``() =
+    let ar = [| {Id=Id"foo"; Name="Sarah"}; {Id=Id"bar"; Name="James"} |]
+    replaceById {Id=Id"ja"; Name="Voll"} ar |> Seq.head |> string |> equal "Sarah"
+    replaceById {Id=Id"foo"; Name="Anna"} ar |> Seq.head |> string |> equal "Anna"

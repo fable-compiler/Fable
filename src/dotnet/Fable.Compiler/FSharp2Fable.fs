@@ -183,6 +183,19 @@ let private transformTraitCall com ctx r typ sourceTypes traitName flags (argTyp
         let genParam = t.GenericParameter
         genArgs |> Seq.tryPick (fun (name,t) ->
             if name = genParam.Name then Some t else None)
+    let tryFields (tdef: FSharpEntity): Fable.Expr option =
+        // TODO: Check setters as well?
+        if flags.MemberKind = MemberKind.PropertyGet && tdef.IsFSharpRecord then
+            let traitName = traitName.Replace("get_", "")
+            tdef.FSharpFields |> Seq.tryPick (fun fi ->
+                if fi.Name = traitName then
+                    // TODO: Are static FSharpFields possible? Should we check flags.IsInstance?
+                    match Seq.tryHead argExprs with
+                    | None -> giveUp() |> Some
+                    | Some (Transform com ctx callee) ->
+                        makeGetFrom r typ callee (makeStrConst fi.Name) |> Some
+                else None)
+        else None
     let makeCall meth =
         let callee, args =
             if flags.IsInstance
@@ -199,12 +212,14 @@ let private transformTraitCall com ctx r typ sourceTypes traitName flags (argTyp
                 not(m.IsProperty && not(m.IsPropertyGetterMethod || m.IsPropertySetterMethod))
                 && m.IsInstanceMember = flags.IsInstance
                 && m.CompiledName = traitName)
-            |> Seq.toList |> function [] -> None | ms -> Some (typ, tdef, ms)
+            |> Seq.toList |> function
+                | [] -> tryFields tdef |> Option.map Choice1Of2
+                | ms -> Some(Choice2Of2(typ, tdef, ms))
         | _ -> None)
     |> function
-    | Some(_, _, [meth]) ->
-        makeCall meth
-    | Some(typ, tdef, candidates) ->
+    | Some(Choice1Of2 expr) -> expr
+    | Some(Choice2Of2(_, _, [meth])) -> makeCall meth
+    | Some(Choice2Of2(typ, tdef, candidates)) ->
         let genArgs =
             if tdef.GenericParameters.Count = typ.GenericArguments.Count
             then Seq.zip (tdef.GenericParameters |> Seq.map (fun p -> p.Name)) typ.GenericArguments |> Seq.toArray |> Some
@@ -627,7 +642,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> makeType com ctx.typeArgs calleeType
-                      |> makeNonGenTypeRef com
+                        |> makeNonGenTypeRef com
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeGetFrom r typ callee (makeStrConst fieldName)
 

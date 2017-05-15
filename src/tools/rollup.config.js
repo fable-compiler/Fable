@@ -16,7 +16,8 @@ var fableOptions = {
   //babel: babelOptions,
   fableCore: resolve("../../build/fable-core"),
   //plugins: [],
-  define: ["DEBUG"]
+  define: ["DEBUG"],
+  extra: { saveAst: resolve("temp") }
 };
 
 export default {
