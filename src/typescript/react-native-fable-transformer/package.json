@@ -1,0 +1,38 @@
+{
+  "name": "react-native-fable-transformer",
+  "version": "1.0.0",
+  "description": "React Native transformer for Fable",
+  "main": "index.js",
+  "scripts": {
+    "eslint": "eslint ./"
+  },
+  "repository": "https://github.com/fable-compiler/Fable/tree/master/src/typescript/react-native-fable-transformer",
+  "publishConfig": {
+    "registry": " https://registry.npmjs.org"
+  },
+  "keywords": [
+    "react native",
+    "native",
+    "F#",
+    "transformer"
+  ],
+  "author": "Joe Grund",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/fable-compiler/Fable/issues"
+  },
+  "homepage": "https://github.com/fable-compiler/Fable/tree/master/src/typescript/react-native-fable-transformer#readme",
+  "devDependencies": {
+    "eslint": "3.19.0",
+    "eslint-config-prettier": "1.7.0",
+    "eslint-plugin-prettier": "2.0.1",
+    "prettier": "1.3.1"
+  },
+  "peerDependencies": {
+    "babel-core": "^6.24.1",
+    "fable-core": "^1.0.0-narumi-906"
+  },
+  "dependencies": {
+    "fable-utils": "^1.0.0"
+  }
+}
