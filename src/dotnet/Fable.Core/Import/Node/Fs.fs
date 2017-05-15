@@ -27,6 +27,9 @@ type [<AllowNullLiteral>] Stats =
     abstract isFIFO: unit -> bool
     abstract isSocket: unit -> bool
 
+type [<StringEnum>] SymlinkType =
+    | Dir | File | Junction
+
 type [<StringEnum>] FsWatcherEncoding =
     | Utf8 | Buffer
 
@@ -163,8 +166,8 @@ type IExports =
     abstract fstatSync: fd: float -> Stats
     abstract link: srcpath: U2<string, Buffer.Buffer> * dstpath: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract linkSync: srcpath: U2<string, Buffer.Buffer> * dstpath: U2<string, Buffer.Buffer> -> unit
-    abstract symlink: srcpath: U2<string, Buffer.Buffer> * dstpath: U2<string, Buffer.Buffer> * ?``type``: string * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract symlinkSync: srcpath: U2<string, Buffer.Buffer> * dstpath: U2<string, Buffer.Buffer> * ?``type``: string -> unit
+    abstract symlink: srcpath: U2<string, Buffer.Buffer> * dstpath: U2<string, Buffer.Buffer> * ?``type``: SymlinkType * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract symlinkSync: srcpath: U2<string, Buffer.Buffer> * dstpath: U2<string, Buffer.Buffer> * ?``type``: SymlinkType -> unit
     abstract readlink: path: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> string -> obj) -> unit
     abstract readlinkSync: path: U2<string, Buffer.Buffer> -> string
     abstract realpath: path: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> string -> obj) -> unit
