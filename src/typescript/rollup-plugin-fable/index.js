@@ -4,7 +4,6 @@ const client = require('fable-utils/client');
 const babelPlugins = require('fable-utils/babel-plugins');
 const { createFilter } = require('rollup-pluginutils');
 
-let fableCoreVersion = null;
 const DEFAULT_PORT =
     process.env.FABLE_SERVER_PORT != null
     ? parseInt(process.env.FABLE_SERVER_PORT, 10)
@@ -56,16 +55,6 @@ module.exports = (
         clampByteArrays,
         extra
       };
-
-      if (fableCore == null) {
-        if (fableCoreVersion == null)
-          fableCoreVersion = require('fable-core/package.json').version;
-
-        msg.fableCore = path.join(__dirname, '../fable-core');
-        msg.fableCoreVersion = fableCoreVersion;
-      } else {
-        msg.fableCoreVersion = '*';
-      }
 
       console.log(`Fable Plugin sent: ${msg.path}`);
 

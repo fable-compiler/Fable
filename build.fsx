@@ -169,7 +169,7 @@ module Util =
                         if actualPart = expectedPart
                         then Same
                         else Smaller
-                | Smaller -> Smaller)            
+                | Smaller -> Smaller)
 
 module Npm =
     let script workingDir script args =
@@ -278,7 +278,7 @@ let installDotnetSdk () =
                 info.WorkingDirectory <- Environment.CurrentDirectory
                 info.Arguments <- "--version") (TimeSpan.FromMinutes 30.)
 
-            let installedVersion = processResult.Messages |> separated "" 
+            let installedVersion = processResult.Messages |> separated ""
             match Util.compareVersions dotnetcliVersion installedVersion with
             | Util.Same | Util.Bigger -> true
             | Util.Smaller -> false
@@ -357,8 +357,6 @@ let buildTools baseDir isRelease () =
 let buildCoreJs () =
     Npm.install __SOURCE_DIRECTORY__ []
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" coreJsSrcDir]
-    FileUtils.cp (coreJsSrcDir </> "README.md")    "build/fable-core"
-    FileUtils.cp (coreJsSrcDir </> "package.json") "build/fable-core"
 
 let buildCore isRelease () =
     let config = if isRelease then "Release" else "Debug"
@@ -430,16 +428,15 @@ let pushNuget (releaseNotes: ReleaseNotes) projFile =
             reg.Replace(line, "<Version>"+version+"</Version>") |> Some)
     // Publish package if version has been updated
     if !updated then
+        // If is Fable.Core build JS files
+        if projFile.Contains("Fable.Core.fsproj") then
+            buildCoreJs()
         // Update version in dotnet-fable Main file
         if projFile.Contains("dotnet-fable.fsproj") then
-            let coreJsVersion = releaseCoreJs.Value.NugetVersion
-            let reg = Regex(@"(CORE_JS_)?VERSION\s*=\s*""(.*?)""")
+            let reg = Regex(@"VERSION\s*=\s*""(.*?)""")
             let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Constants.fs")
             (reg, mainFile) ||> Util.replaceLines (fun line m ->
-                let replacement =
-                    if m.Groups.[1].Value = "CORE_JS_"
-                    then sprintf "CORE_JS_VERSION = \"%s\"" coreJsVersion
-                    else sprintf "VERSION = \"%s\"" version
+                let replacement = sprintf "VERSION = \"%s\"" version
                 reg.Replace(line, replacement) |> Some)
         Util.run projDir dotnetExePath "pack -c Release"
         Directory.GetFiles(projDir </> "bin" </> "Release", "*.nupkg")
@@ -449,7 +446,7 @@ let pushNuget (releaseNotes: ReleaseNotes) projFile =
             |> sprintf "nuget push %s -s nuget.org"
             |> Util.run projDir dotnetExePath)
 
-let pushNpm build (releaseNotes: ReleaseNotes) (projDir: string) =
+let pushNpm (releaseNotes: ReleaseNotes) (projDir: string) =
     let projDir = __SOURCE_DIRECTORY__ </> (projDir.TrimEnd('/'))
     let updated = ref false
     let version = releaseNotes.NugetVersion
@@ -462,12 +459,6 @@ let pushNpm build (releaseNotes: ReleaseNotes) (projDir: string) =
             reg.Replace(line, sprintf @"""version"": ""%s""" version) |> Some)
     // Publish package if version has been updated
     if !updated then
-        let projDir =
-            match build with
-            | None -> projDir
-            | Some build ->
-                build()
-                __SOURCE_DIRECTORY__ </> "build" </> (Path.GetFileName projDir)
         if version.IndexOf("-") > 0 then ["--tag next"] else []
         |> Npm.command projDir "publish"
 
@@ -536,16 +527,16 @@ Target "PublishPackages" (fun () ->
     clean ()
 
     // Publish Nuget packages
+    // TODO: Unify publishing of the three main Nuget packages
     pushNuget releaseCore.Value     "src/dotnet/Fable.Core/Fable.Core.fsproj"
     pushNuget releaseCompiler.Value "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
     pushNuget releaseTools.Value    "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
     pushNuget releaseJsonConverter.Value "src/dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"
 
     // Publish NPM packages
-    pushNpm (Some buildCoreJs) releaseCoreJs.Value "src/typescript/fable-core"
-    pushNpm None releaseToolsJs.Value "src/typescript/fable-utils"
-    pushNpm None releaseLoader.Value "src/typescript/fable-loader"
-    pushNpm None releaseRollup.Value "src/typescript/rollup-plugin-fable"
+    pushNpm releaseToolsJs.Value "src/typescript/fable-utils"
+    pushNpm releaseLoader.Value "src/typescript/fable-loader"
+    pushNpm releaseRollup.Value "src/typescript/rollup-plugin-fable"
     // TODO: Add NUnit plugin, it must be built first
 )
 

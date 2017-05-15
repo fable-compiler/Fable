@@ -30,8 +30,7 @@
     "prettier": "1.1.0"
   },
   "peerDependencies": {
-    "babel-core": "^6.24.1",
-    "fable-core": "^1.0.0-narumi-906"
+    "babel-core": "^6.24.1"
   },
   "dependencies": {
     "fable-utils": "^1.0.0",

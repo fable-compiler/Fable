@@ -12,7 +12,6 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 #if !FABLE_COMPILER
 open Newtonsoft.Json
 open ProjectCracker
-open Parser
 #endif
 
 #if FABLE_COMPILER
