@@ -6,6 +6,7 @@ open Fable.Import.Node.Stream
 open Fable.Import.Node.Buffer
 open Fable.Import.Node.Base
 
+[<AutoOpen>]
 module child_process_types =
     type ExecError = 
         inherit NodeJS.Error

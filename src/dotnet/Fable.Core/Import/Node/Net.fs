@@ -5,6 +5,7 @@ open Fable.Import.JS
 open Fable.Import.Node.Stream
 open Fable.Import.Node.Buffer
 
+[<AutoOpen>]
 module net_types =
     type [<AllowNullLiteral>] Socket =
         inherit stream_types.Readable<buffer_types.Buffer>

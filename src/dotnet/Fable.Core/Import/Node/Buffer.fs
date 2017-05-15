@@ -4,6 +4,7 @@ open Fable.Core
 open Fable.Import.Node
 open Fable.Import.JS
 
+[<AutoOpen>]
 module buffer_types =
     type BufferEncoding =
     (* TODO StringEnum ascii | utf8 | utf16le | ucs2 | binary | hex *) string
