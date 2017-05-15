@@ -85,21 +85,15 @@ let makePathRelative path =
 
 let parse (msg: string) =
     let json = JsonConvert.DeserializeObject<JObject>(msg)
-    // Check fable-core version
-    let actualCoreJsVersion = parseString "unknown" "fableCoreVersion" json
-    match compareVersions Constants.CORE_JS_VERSION actualCoreJsVersion with
-    | Bigger | Same -> ()
-    | Smaller ->
-        failwithf "Expected fable-core: %s - Actual: %s\n%s"
-            Constants.CORE_JS_VERSION actualCoreJsVersion
-            "Please update fable-core and/or fable-loader"
     let path =  parseStringRequired "path" json |> Path.normalizeFullPath
     let define = parseStringArray [||] "define" json
     let plugins = parseStringArray [||] "plugins" json
     let opts =
         { fableCore =
             match parseString "fable-core" "fableCore" json with
-            | "fable-core" -> "fable-core"
+            | "fable-core" ->
+                let path = Path.Combine(Path.GetDirectoryName(ProjectCracker.fsCoreLib),"../../fable-core")
+                (makePathRelative path).TrimEnd('/')
             | path -> (makePathRelative path).TrimEnd('/')
         ; declaration = parseBoolean false "declaration" json
         ; typedArrays = parseBoolean true "typedArrays" json

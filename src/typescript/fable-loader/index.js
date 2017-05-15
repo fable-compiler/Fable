@@ -3,7 +3,6 @@ var babel = require("babel-core");
 var client = require("fable-utils/client");
 var babelPlugins = require("fable-utils/babel-plugins");
 
-var fableCoreVersion = null;
 var DEFAULT_PORT =
     process.env.FABLE_SERVER_PORT != null
     ? parseInt(process.env.FABLE_SERVER_PORT, 10)
@@ -45,17 +44,6 @@ module.exports = function(buffer) {
         clampByteArrays: or(opts.clampByteArrays, false),
         extra: opts.extra
     };
-
-    if (opts.fableCore == null) {
-        if (fableCoreVersion == null) {
-            fableCoreVersion = require("fable-core/package.json").version;
-        }
-        msg.fableCore = path.join(__dirname, "../fable-core");
-        msg.fableCoreVersion = fableCoreVersion;
-    }
-    else {
-        msg.fableCoreVersion = "*";
-    }
 
     console.log("Fable loader sent: " + msg.path)
     // console.log("Full message: " + JSON.stringify(msg))
