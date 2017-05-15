@@ -6,7 +6,7 @@ open Fable.Import.Node.Stream
 open Fable.Import.Node.Base.NodeJS
 open Fable.Import.JS
 
-  type [<AllowNullLiteral>] Process =
+type [<AllowNullLiteral>] Process =
       abstract addListener: ``event``: U2<string, Symbol> * listener: Function -> obj
       abstract on: ``event``: U2<string, Symbol> * listener: Function -> obj
       abstract once: ``event``: U2<string, Symbol> * listener: Function -> obj

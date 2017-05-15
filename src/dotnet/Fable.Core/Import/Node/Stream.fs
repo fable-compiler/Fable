@@ -5,6 +5,7 @@ open Fable.Import.JS
 open Fable.Import.Node.Buffer
 open Fable.Import.Node.Events
 
+[<AutoOpen>]
 module stream_types =
     type [<AllowNullLiteral>] Stream =
         inherit event_types.EventEmitter

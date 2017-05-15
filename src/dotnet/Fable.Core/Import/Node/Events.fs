@@ -4,6 +4,7 @@ open System
 open Fable.Import.JS
 open Fable.Core
 
+[<AutoOpen>]
 module event_types =
     type [<AllowNullLiteral>] EventEmitter =
         abstract defaultMaxListeners: float with get, set
