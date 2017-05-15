@@ -15,6 +15,9 @@ type ProcessOptions(?envVars, ?redirectOutput) =
     member val EnvVars = defaultArg envVars Map.empty<string,string>
     member val RedirectOuput = defaultArg redirectOutput false
 
+type Arguments =
+    { timeout: int; port: int; commandArgs: string option }
+
 let startProcess workingDir fileName args (opts: ProcessOptions) =
     let fileName, args =
         let isWindows =
@@ -65,15 +68,6 @@ let rec findPackageJsonDir dir =
             failwith "Couldn't find package.json directory"
         findPackageJsonDir parent.FullName
 
-let argsToMap (argv: string[]) =
-    try
-        argv
-        |> Array.windowed 2
-        |> Array.map (fun kv -> kv.[0].Substring(2), kv.[1]) // Remove hyphens `--`
-        |> Map
-    with ex ->
-        failwithf "Cannot convert arguments to dictionary: %A\n%s" argv ex.Message
-
 let getFreePort () =
     let l = Sockets.TcpListener(System.Net.IPAddress.Loopback, 0)
     l.Start()
@@ -81,17 +75,29 @@ let getFreePort () =
     l.Stop()
     port
 
-let getPortAndTimeout argsMap =
+let parseArguments args =
+    let tryFindArgValue key (args: string[]) =
+        match args |> Array.tryFindIndex ((=) key) with
+        | Some i -> Some args.[i]
+        | None -> None
     let port =
-        match Map.tryFind "port" argsMap with
+        match tryFindArgValue "--port" args with
         | Some "free" -> getFreePort()
         | Some port -> int port
         | None -> Constants.DEFAULT_PORT
     let timeout =
-        match Map.tryFind "timeout" argsMap with
+        match tryFindArgValue "--timeout" args with
         | Some timeout -> int timeout
         | None -> -1
-    port, timeout
+    let commandArgs =
+        // Check first --args for compatibility with the old way
+        match tryFindArgValue "--args" args with
+        | Some commandArgs -> Some commandArgs
+        | None ->
+            match args |> Array.tryFindIndex ((=) "--") with
+            | Some i -> args.[(i+1)..] |> String.concat " " |> Some
+            | None -> None
+    { port = port; timeout = timeout; commandArgs = commandArgs}
 
 let debug (projFile: string) (define: string[]) =
     let com = Compiler()
@@ -131,94 +137,65 @@ let startServerWithProcess port exec args =
 let main argv =
     match Array.tryHead argv with
     | Some ("--help"|"-h") ->
-        printfn """Available options:
+        (Constants.VERSION, Constants.DEFAULT_PORT) ||> printfn """
+Fable, F# to JS compiler (%s)
+Usage: dotnet fable [command] [script] [fable arguments] [-- [script arguments]]
+
+Commands:
   -h|--help           Show help
   --version           Print version
-  add                 Add one or several Fable npm packages
   start               Start Fable server
-  --port              Port number (default 61225) or "free" to choose a free port.
+  npm-run             Run Fable while an npm script is running
+  node-run            Run Fable while a node script is running
+  shell-run           Run Fable while a shell script is running
+  webpack             Start Fable server, invoke Webpack and shut it down
+  webpack-dev-server  Run Fable while Webpack development server is running
+
+Fable arguments:
   --timeout           Stop the server if timeout (ms) is reached
-  npm-run             Start a server, run an npm script and shut it down
-    <script>            Name of the npm script, e.g.: `dotnet fable npm-run start`
-    --port              Port number (default 61225) or "free" to choose a free port.
-    --args              Args for the npm script, e.g.: `dotnet fable npm-run build --args "-p --output-filename bundle.js"`
-  webpack             Start a server and invoke webpack (must be installed in current or a parent dir)
-    --port              Port number (default 61225) or "free" to choose a free port.
-    --args              Args for Webpack, e.g.: `dotnet fable webpack --args -p`
-  shell-run           Start a server, run an abritrary command and shut it down
-    <cmd>            Name of the command to run, e.g.: `dotnet fable shell-run make`
-    --port              Port number (default 61225) or "free" to choose a free port.
-    --args              Args for the command, e.g.: `dotnet fable shell-run make --args "build"`
-  webpack-dev-server  Same as `webpack` command but invokes webpack-dev-server
+  --port              Port number (default %d) or "free" to choose a free port.
+
+To pass arguments to the script, write them after `--`.
+Example: `dotnet fable npm-run build --port free -- -p --config webpack.production.js`
 """
     | Some "--version" -> printfn "%s" Constants.VERSION
     | Some "start" ->
-        let port, timeout = argv.[1..] |> argsToMap |> getPortAndTimeout
+        let args = argv.[1..] |> parseArguments
         let agent = startAgent()
-        startServer port timeout agent.Post Async.RunSynchronously
+        startServer args.port args.timeout agent.Post Async.RunSynchronously
     | Some "npm-run" ->
-        let argsMap = argv.[2..] |> argsToMap
-        let port, _ = argsMap |> getPortAndTimeout
+        let args = argv.[2..] |> parseArguments
         let execArgs =
-            match Map.tryFind "args" argsMap with
+            match args.commandArgs with
             | Some npmArgs -> "run " + argv.[1] + " -- " + npmArgs
             | None -> "run " + argv.[1]
-        startServerWithProcess port "npm" execArgs
+        startServerWithProcess args.port "npm" execArgs
+    | Some "node-run" ->
+        let args = argv.[2..] |> parseArguments
+        let execArgs =
+            match args.commandArgs with
+            | Some scriptArgs -> argv.[1] + " " + scriptArgs
+            | None -> argv.[1]
+        startServerWithProcess args.port "node" execArgs
     | Some ("webpack" | "webpack-dev-server" as webpack) ->
-        let argsMap = argv.[1..] |> argsToMap
-        let port, _ = argsMap |> getPortAndTimeout
+        let args = argv.[1..] |> parseArguments
         let workingDir = Directory.GetCurrentDirectory()
         let webpackScript =
-            let webpackScript = 
+            let webpackScript =
                 Path.Combine(findPackageJsonDir workingDir, "node_modules", webpack, "bin", webpack + ".js")
                 |> sprintf "\"%s\""
-            match Map.tryFind "args" argsMap with
+            match args.commandArgs with
             | Some args -> webpackScript + " " + args
             | None -> webpackScript
-        startServerWithProcess port "node" webpackScript
+        startServerWithProcess args.port "node" webpackScript
     | Some "shell-run" ->
         let cmd = argv.[1]
-        let argsMap = argv.[2..] |> argsToMap
-        let port, _ = argsMap |> getPortAndTimeout
-        let execArgs =
-            match Map.tryFind "args" argsMap with
-            | Some args -> args
-            | None -> ""
-        startServerWithProcess port cmd execArgs
-    | Some "add" ->
-        let workingDir = Directory.GetCurrentDirectory()
-        let packages = argv.[1..]
-        let packages =
-            match packages with
-            | [||] -> failwith "Missing packages to install"
-            | [|package|] ->
-                let peers =
-                    sprintf "show %s peerDependencies" package
-                    |> runProcessAndReadOutput workingDir "npm"
-                if String.IsNullOrWhiteSpace(peers)
-                then [|package|]
-                else
-                    JsonConvert.DeserializeObject<Map<string,string>>(peers)
-                    |> Seq.map (fun kv -> kv.Key + "@" + kv.Value)
-                    |> Seq.append [|package|]
-                    |> Seq.toArray
-            | packages -> packages
-        runProcess workingDir "npm" ("install --save-dev " + (String.concat " " packages))
-        let nodeModulesDir = Path.Combine(findPackageJsonDir workingDir, "node_modules")
-        for pkg in packages do
-            let pkg =
-                match pkg.IndexOf("@") with
-                | -1 -> pkg
-                | i -> pkg.Substring(0,i)
-            let pkgDir = Path.Combine(nodeModulesDir, pkg)
-            Directory.GetFiles(pkgDir, "*.fsproj") |> Array.tryHead |> function
-            | Some projRef ->
-                runProcess workingDir "dotnet" ("add reference \"" + projRef + "\"")
-            | None ->
-                printfn "Cannot find .fsproj in %s" pkgDir
-        runProcess workingDir "dotnet" "restore"
+        let args = argv.[2..] |> parseArguments
+        let execArgs = defaultArg args.commandArgs ""
+        startServerWithProcess args.port cmd execArgs
     | Some "debug" ->
         debug argv.[1] argv.[2..]
-    | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options" cmd
-    | None -> printfn "Command missing. Use `dotnet fable --help` to see available options"
+    | Some "add" -> printfn "The add command has been deprecated. Use Paket to manage Fable libraries."
+    | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options." cmd
+    | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."
     0
