@@ -1,4 +1,4 @@
-### 1.0.0-narumi-914
+### 1.0.0
 
 * Don't check fable-core version
 

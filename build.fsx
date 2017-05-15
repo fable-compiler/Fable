@@ -431,10 +431,10 @@ let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
             (reg, mainFile) ||> Util.replaceLines (fun line m ->
                 let replacement = sprintf "VERSION = \"%s\"" releaseNotes.NugetVersion
                 reg.Replace(line, replacement) |> Some)
-        Util.run projDir dotnetExePath "pack -c Release"
+        Util.run projDir dotnetExePath (sprintf "pack -c Release /p:Version=%s" releaseNotes.NugetVersion)
         Directory.GetFiles(projDir </> "bin" </> "Release", "*.nupkg")
-        |> Array.tryFind (fun nupkg -> nupkg.Contains(releaseNotes.NugetVersion))
-        |> Option.iter (fun nupkg ->
+        |> Array.find (fun nupkg -> nupkg.Contains(releaseNotes.NugetVersion))
+        |> (fun nupkg ->
             (Path.GetFullPath nupkg, nugetKey)
             ||> sprintf "nuget push %s -s nuget.org -k %s"
             |> Util.run projDir dotnetExePath)
