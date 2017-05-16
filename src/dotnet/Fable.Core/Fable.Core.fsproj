@@ -18,6 +18,8 @@
     <Compile Include="Import/Fable.Import.JS.fs" />
     <Compile Include="Import/Fable.Import.Browser.fs" />
     <Compile Include="Import/Node/Base.fs" />
+    <Compile Include="src/Url.fs" />
+    <Compile Include="src/Querystring.fs" />
     <Compile Include="Import/Node/Events.fs" />
     <Compile Include="Import/Node/Buffer.fs" />
     <Compile Include="Import/Node/Stream.fs" />
