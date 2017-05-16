@@ -92,7 +92,7 @@ let parse (msg: string) =
         { fableCore =
             match parseString "fable-core" "fableCore" json with
             | "fable-core" ->
-                let path = Path.Combine(Path.GetDirectoryName(ProjectCracker.fsCoreLib),"../../fable-core")
+                let path = Path.Combine(Path.GetDirectoryName(ProjectCracker.fableCoreLib),"../../fable-core")
                 (makePathRelative path).TrimEnd('/')
             | path -> (makePathRelative path).TrimEnd('/')
         ; declaration = parseBoolean false "declaration" json

@@ -1,3 +1,7 @@
+### 1.0.0-narumi-917
+
+* Fix location of fable-core files
+
 ### 1.0.0-narumi-916
 
 * We're going PAKET!
