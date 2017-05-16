@@ -4,3 +4,4 @@ Newtonsoft.Json
 System.Reflection.TypeExtensions
 System.Runtime.Loader
 System.ValueTuple
+System.Xml.XDocument

@@ -1,19 +1,24 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
     <Version>1.0.0-narumi-917</Version>
-    <TargetFramework>netstandard1.6</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp1.0</TargetFramework>
   </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
-  </ItemGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="Fable2Babel.fs" />
+    <Compile Include="Tools/ProjectCracker.fs" />
+    <Compile Include="Tools/Printers.fs" />
+    <Compile Include="Tools/Parser.fs" />
+    <Compile Include="Tools/State.fs" />
+    <Compile Include="Tools/Server.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />

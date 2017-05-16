@@ -1,4 +1,4 @@
-module Fable.Tools.Main
+module Fable.Main
 
 open System
 open System.IO
@@ -8,7 +8,7 @@ open System.Runtime.InteropServices
 open System.Net
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
-open Parser
+open Fable.Tools
 open State
 
 type ProcessOptions(?envVars, ?redirectOutput) =
@@ -182,7 +182,7 @@ Example: `dotnet fable npm-run build --port free -- -p --config webpack.producti
         let workingDir = Directory.GetCurrentDirectory()
         let webpackScript =
             let webpackScript =
-                Path.Combine(findPackageJsonDir workingDir, "node_modules", webpack, "bin", webpack + ".js")
+                IO.Path.Combine(findPackageJsonDir workingDir, "node_modules", webpack, "bin", webpack + ".js")
                 |> sprintf "\"%s\""
             match args.commandArgs with
             | Some args -> webpackScript + " " + args
