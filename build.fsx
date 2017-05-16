@@ -576,10 +576,10 @@ Target "REPL" (fun () ->
 
     // Compile fable-core
     CreateDir (replDir + "/fable-core")
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project src/typescript/fable-core -m amd --outDir %s/fable-core" replDir]
+    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s -m amd --outDir %s/fable-core" coreJsSrcDir replDir]
 
     // Compile FCS/Fable with Fable
-    Util.run replDir dotnetExePath "../../../../build/fable/dotnet-fable.dll npm-run build"
+    Npm.script replDir "build" []
 )
 
 // Start build
