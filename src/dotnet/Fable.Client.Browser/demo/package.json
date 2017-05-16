@@ -1,14 +1,16 @@
 {
   "private": true,
+  "scripts": {
+    "preinstall": "dotnet restore .. --no-cache",
+    "prebuild": "node ../../../../node_modules/webpack/bin/webpack --entry=./babel-standalone.js --output-path=./repl --output-filename=babel-standalone.js --output-library=Babel -p",
+    "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run webpack",
+    "webpack": "node ../../../../node_modules/webpack/bin/webpack -p",
+    "rollup": "node ../../../../node_modules/rollup/bin/rollup -c",
+    "start": "node server"
+  },
   "dependencies": {
     "babel-plugin-transform-es2015-block-scoping": "^6.24.1",
-    "babel-standalone": "^6.24.0",
+    "babel-standalone": "^6.24.2",
     "babel-template": "^6.24.1"
-  },
-  "scripts": {
-    "prebuild": "node ../../../../node_modules/webpack/bin/webpack --entry=./babel-standalone.js --output-path=./repl --output-filename=babel-standalone.js --output-library=Babel -p",
-    "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",
-    "build": "node ../../../../node_modules/webpack/bin/webpack -p",
-    "rollup": "node ../../../../node_modules/rollup/bin/rollup -c"
   }
 }
