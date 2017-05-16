@@ -1,3 +1,7 @@
+### 1.0.0-narumi-920
+
+* Redirect dotnet-fable CLI to Fable.Compiler managed by Paket
+
 ### 1.0.0-narumi-917
 
 * Fix location of fable-core files

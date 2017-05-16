@@ -14,7 +14,7 @@ type ICompilerState =
 
 module Constants =
     let [<Literal>] DEFAULT_PORT = 61225
-    let [<Literal>] VERSION = "1.0.0-narumi-917"
+    let [<Literal>] VERSION = "1.0.0-narumi-920"
 
 #if !NETFX && !FABLE_COMPILER
 [<AutoOpen>]

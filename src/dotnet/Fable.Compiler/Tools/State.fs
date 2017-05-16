@@ -4,7 +4,6 @@ open Fable
 open Fable.AST
 open System
 open System.Reflection
-open System.Collections.Concurrent
 open System.Collections.Generic
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -12,6 +11,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 #if !FABLE_COMPILER
 open Newtonsoft.Json
 open ProjectCracker
+open System.Collections.Concurrent
 #endif
 
 #if FABLE_COMPILER

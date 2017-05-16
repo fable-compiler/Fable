@@ -1,6 +1,7 @@
 module Fable.Tools.Parser
 
 open System
+open System.Reflection
 open System.Collections.Generic
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
@@ -78,6 +79,9 @@ let private parseDic (key: string) (o: JObject): IDictionary<string,string> =
     | :? JObject as v -> v.ToObject<IDictionary<string,string>>()
     | _ -> dict []
 
+let private getAssemblyDir() =
+    Path.GetDirectoryName(typeof<Message>.GetTypeInfo().Assembly.Location)
+
 let makePathRelative path =
     let path = Path.normalizeFullPath path
     let cwd = System.IO.Directory.GetCurrentDirectory()
@@ -92,7 +96,7 @@ let parse (msg: string) =
         { fableCore =
             match parseString "fable-core" "fableCore" json with
             | "fable-core" ->
-                let path = Path.Combine(Path.GetDirectoryName(ProjectCracker.fableCoreLib),"../../fable-core")
+                let path = Path.Combine(getAssemblyDir(),"../fable-core")
                 (makePathRelative path).TrimEnd('/')
             | path -> (makePathRelative path).TrimEnd('/')
         ; declaration = parseBoolean false "declaration" json

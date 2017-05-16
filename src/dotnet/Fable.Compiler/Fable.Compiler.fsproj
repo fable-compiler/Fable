@@ -1,6 +1,6 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>1.0.0-narumi-917</Version>
+    <Version>1.0.0-narumi-920</Version>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp1.0</TargetFramework>
   </PropertyGroup>
@@ -20,6 +20,10 @@
   <ItemGroup>
     <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\..\build\fable\" PackagePath="fable\" />
+    <Content Include="..\..\..\build\fable-core\" PackagePath="fable-core\" />
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

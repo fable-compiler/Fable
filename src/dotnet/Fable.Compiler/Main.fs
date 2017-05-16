@@ -153,9 +153,9 @@ Commands:
 
 Fable arguments:
   --timeout           Stop the server if timeout (ms) is reached
-  --port              Port number (default %d) or "free" to choose a free port.
+  --port              Port number (default %d) or "free" to choose a free port
 
-To pass arguments to the script, write them after `--`.
+To pass arguments to the script, write them after `--`
 Example: `dotnet fable npm-run build --port free -- -p --config webpack.production.js`
 """
     | Some "--version" -> printfn "%s" Constants.VERSION

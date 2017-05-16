@@ -420,13 +420,13 @@ let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
             | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
         // Restore dependencies here so they're updated to latest project versions
         Util.run projDir dotnetExePath "restore"
-        // If this is Fable.Core, build JS files
-        if projFile.Contains("Fable.Core.fsproj") then
-            buildCoreJs()
-        // Update version in Utils.fs
+        // If this is Fable.Compiler, build fable and fable-core
+        // and update version in Utils.fs
         if projFile.Contains("Fable.Compiler.fsproj") then
+            buildCoreJs ()
+            buildCompiler "src/dotnet" true ()
             let reg = Regex(@"VERSION\s*=\s*""(.*?)""")
-            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Constants.fs")
+            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Utils.fs")
             (reg, mainFile) ||> Util.replaceLines (fun line m ->
                 let replacement = sprintf "VERSION = \"%s\"" releaseNotes.NugetVersion
                 reg.Replace(line, replacement) |> Some)
