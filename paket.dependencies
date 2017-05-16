@@ -3,7 +3,7 @@ source https://www.nuget.org/api/v2
 nuget FAKE
 nuget FSharp.NET.Sdk
 nuget FSharp.Core
-#nuget FSharp.Compiler.Service
+nuget FSharp.Compiler.Service
 nuget Newtonsoft.Json
 nuget System.ValueTuple
 nuget System.Xml.XDocument
