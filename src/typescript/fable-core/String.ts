@@ -1,12 +1,12 @@
-import { toString, hasInterface } from "./Util"
-import { escape } from "./RegExp"
-import { DateKind } from "./Date"
-import { second } from "./Date"
-import { minute } from "./Date"
-import { hour } from "./Date"
-import { day } from "./Date"
-import { month } from "./Date"
-import { year } from "./Date"
+import { DateKind } from "./Date";
+import { second } from "./Date";
+import { minute } from "./Date";
+import { hour } from "./Date";
+import { day } from "./Date";
+import { month } from "./Date";
+import { year } from "./Date";
+import { escape } from "./RegExp";
+import { hasInterface, toString } from "./Util";
 
 const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
@@ -31,14 +31,13 @@ function cmp(x: string, y: string, ic: any) {
     return i === StringComparison.Ordinal ||
       i === StringComparison.OrdinalIgnoreCase;
   }
-  if (x == null) return y == null ? 0 : -1;
-  if (y == null) return 1; // everything is bigger than null
+  if (x == null) { return y == null ? 0 : -1; }
+  if (y == null) { return 1; } // everything is bigger than null
 
   if (isOrdinal(ic)) {
     if (isIgnoreCase(ic)) { x = x.toLowerCase(); y = y.toLowerCase(); }
     return (x === y) ? 0 : (x < y ? -1 : 1);
-  }
-  else {
+  } else {
     if (isIgnoreCase(ic)) { x = x.toLocaleLowerCase(); y = y.toLocaleLowerCase(); }
     return x.localeCompare(y);
   }
@@ -67,190 +66,201 @@ export function startsWith(str: string, pattern: string, ic: number) {
   return false;
 }
 
-export function indexOfAny (str: string, anyOf: string[], ...args: number[]) {
-  if (str == null || str === "")
+export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
+  if (str == null || str === "") {
     return -1;
-  var startIndex = (args.length > 0) ? args[0] : 0;
-  if (startIndex < 0)
+  }
+  const startIndex = (args.length > 0) ? args[0] : 0;
+  if (startIndex < 0) {
     throw new Error("String.indexOfAny: Start index cannot be negative");
-  var length = (args.length > 1) ? args[1] : str.length - startIndex;
-  if (length < 0)
+  }
+  const length = (args.length > 1) ? args[1] : str.length - startIndex;
+  if (length < 0) {
     throw new Error("String.indexOfAny: Length cannot be negative");
-  if (length > str.length - startIndex)
+  }
+  if (length > str.length - startIndex) {
     throw new Error("String.indexOfAny: Invalid startIndex and length");
+  }
   str = str.substr(startIndex, length);
-  for (let c of anyOf) {
-    let index = str.indexOf(c);
-    if (index > -1)
+  for (const c of anyOf) {
+    const index = str.indexOf(c);
+    if (index > -1) {
       return index + startIndex;
+    }
   }
   return -1;
 }
 
-function toHex(value : number) {
+function toHex(value: number) {
   return value < 0
     ? "ff" + (16777215 - (Math.abs(value) - 1)).toString(16)
     : value.toString(16);
 }
 
-export function fsFormat(str: string, ...args: any[]): Function | string {
-  function formatOnce(str: any, rep: any) {
-    return str.replace(fsFormatRegExp, function (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) {
-      switch (format) {
-        case "f": case "F":
-          rep = rep.toFixed(precision || 6); break;
-        case "g": case "G":
-          rep = rep.toPrecision(precision); break;
-        case "e": case "E":
-          rep = rep.toExponential(precision); break;
-        case "O":
-          rep = toString(rep); break;
-        case "A":
-          rep = toString(rep, true); break;
-        case "x":
-          rep = toHex(Number(rep)); break;
-        case "X":
-          rep = toHex(Number(rep)).toUpperCase(); break;
-      }
-      const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep) >= 0;
-      if (!isNaN(pad = parseInt(pad))) {
-        const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
-        rep = padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
-      }
-      let once = prefix + (plusPrefix ? "+" + rep : rep);
-      return once.replace(/%/g, "%%");
-    });
+export function fsFormat(str: string, ...args: any[]): ((...args: any[]) => any) | string {
+  function formatOnce(str2: any, rep: any) {
+    return str2.replace(fsFormatRegExp,
+      (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) => {
+        switch (format) {
+          case "f": case "F":
+            rep = rep.toFixed(precision || 6); break;
+          case "g": case "G":
+            rep = rep.toPrecision(precision); break;
+          case "e": case "E":
+            rep = rep.toExponential(precision); break;
+          case "O":
+            rep = toString(rep); break;
+          case "A":
+            rep = toString(rep, true); break;
+          case "x":
+            rep = toHex(Number(rep)); break;
+          case "X":
+            rep = toHex(Number(rep)).toUpperCase(); break;
+        }
+        const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep, 10) >= 0;
+        pad = parseInt(pad, 10);
+        if (!isNaN(pad)) {
+          const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
+          rep = padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
+        }
+        const once = prefix + (plusPrefix ? "+" + rep : rep);
+        return once.replace(/%/g, "%%");
+      });
   }
   if (args.length === 0) {
-    return (cont: Function) => {
+    return (cont: (...args: any[]) => any) => {
       if (fsFormatRegExp.test(str)) {
-        return function () {
-          var strCopy = str;
-          for (let i = 0; i < arguments.length; i++) {
-            strCopy = formatOnce(strCopy, arguments[i]);
+        return (...args2: any[]) => {
+          let strCopy = str;
+          for (const arg of args2) {
+            strCopy = formatOnce(strCopy, arg);
           }
           return cont(strCopy.replace(/%%/g, "%"));
-        }
-      }
-      else {
-        return cont(str)
+        };
+      } else {
+        return cont(str);
       }
     };
-  }
-  else {
-    for (let i = 0; i < args.length; i++) {
-      str = formatOnce(str, args[i]);
+  } else {
+    for (const arg of args) {
+      str = formatOnce(str, arg);
     }
     return str.replace(/%%/g, "%");
   }
 }
 
 export function format(str: string, ...args: any[]) {
-  return str.replace(formatRegExp, function (match: any, idx: any, pad: any, format: any) {
-    let rep = args[idx], padSymbol = " ";
-    if (typeof rep === "number") {
-      switch ((format || "").substring(0, 1)) {
-        case "f": case "F":
-          rep = format.length > 1 ? rep.toFixed(format.substring(1)) : rep.toFixed(2);
-          break;
-        case "g": case "G":
-          rep = format.length > 1 ? rep.toPrecision(format.substring(1)) : rep.toPrecision();
-          break;
-        case "e": case "E":
-          rep = format.length > 1 ? rep.toExponential(format.substring(1)) : rep.toExponential();
-          break;
-        case "p": case "P":
-          rep = (format.length > 1 ? (rep * 100).toFixed(format.substring(1)) : (rep * 100).toFixed(2)) + " %";
-          break;
-        case "x":
-         rep = toHex(Number(rep)); break;
-        case "X":
-          rep = toHex(Number(rep)).toUpperCase(); break;
-        default:
-          const m = /^(0+)(\.0+)?$/.exec(format);
-          if (m != null) {
-            let decs = 0;
-            if (m[2] != null)
-              rep = rep.toFixed(decs = m[2].length - 1);
-            pad = "," + (m[1].length + (decs ? decs + 1 : 0)).toString();
-            padSymbol = "0";
-          } else if (format) {
-            rep = format;
-          }
-      }
-    } else if (rep instanceof Date) {
-      if (format.length === 1) {
-        switch (format) {
-          case "D":
-            rep = rep.toDateString(); break;
-          case "T":
-            rep = rep.toLocaleTimeString(); break;
-          case "d":
-            rep = rep.toLocaleDateString(); break;
-          case "t":
-            rep = rep.toLocaleTimeString().replace(/:\d\d(?!:)/, ""); break;
-          case "o": case "O":
-            if ((rep as any).kind === DateKind.Local) {
-              const offset = rep.getTimezoneOffset() * -1;
-              rep = format("{0:yyyy-MM-dd}T{0:HH:mm}:{1:00.000}{2}{3:00}:{4:00}",
-                                    rep, second(rep), offset >= 0 ? "+" : "-",
-                                    ~~(offset / 60), offset % 60);
-            }
-            else {
-              rep = rep.toISOString()
+  return str.replace(formatRegExp,
+    (match: any, idx: any, pad: any, format: any) => {
+      let rep = args[idx];
+      let padSymbol = " ";
+      if (typeof rep === "number") {
+        switch ((format || "").substring(0, 1)) {
+          case "f": case "F":
+            rep = format.length > 1 ? rep.toFixed(format.substring(1)) : rep.toFixed(2);
+            break;
+          case "g": case "G":
+            rep = format.length > 1 ? rep.toPrecision(format.substring(1)) : rep.toPrecision();
+            break;
+          case "e": case "E":
+            rep = format.length > 1 ? rep.toExponential(format.substring(1)) : rep.toExponential();
+            break;
+          case "p": case "P":
+            rep = (format.length > 1 ? (rep * 100).toFixed(format.substring(1)) : (rep * 100).toFixed(2)) + " %";
+            break;
+          case "x":
+            rep = toHex(Number(rep)); break;
+          case "X":
+            rep = toHex(Number(rep)).toUpperCase(); break;
+          default:
+            const m = /^(0+)(\.0+)?$/.exec(format);
+            if (m != null) {
+              let decs = 0;
+              if (m[2] != null) {
+                rep = rep.toFixed(decs = m[2].length - 1);
+              }
+              pad = "," + (m[1].length + (decs ? decs + 1 : 0)).toString();
+              padSymbol = "0";
+            } else if (format) {
+              rep = format;
             }
         }
-      } else {
-        rep = format.replace(/\w+/g, function (match2: any) {
-          let rep2 = match2;
-          switch (match2.substring(0, 1)) {
-            case "y":
-              rep2 = match2.length < 4 ? year(rep) % 100 : year(rep);
-              break;
-            case "h":
-              rep2 = rep.getHours() > 12 ? hour(rep) % 12 : hour(rep);
-              break;
-            case "M":
-              rep2 = month(rep);
-              break;
+      } else if (rep instanceof Date) {
+        if (format.length === 1) {
+          switch (format) {
+            case "D":
+              rep = rep.toDateString(); break;
+            case "T":
+              rep = rep.toLocaleTimeString(); break;
             case "d":
-              rep2 = day(rep);
-              break;
-            case "H":
-              rep2 = hour(rep);
-              break;
-            case "m":
-              rep2 = minute(rep);
-              break;
-            case "s":
-              rep2 = second(rep);
-              break;
+              rep = rep.toLocaleDateString(); break;
+            case "t":
+              rep = rep.toLocaleTimeString().replace(/:\d\d(?!:)/, ""); break;
+            case "o": case "O":
+              if ((rep as any).kind === DateKind.Local) {
+                const offset = rep.getTimezoneOffset() * -1;
+                rep = format("{0:yyyy-MM-dd}T{0:HH:mm}:{1:00.000}{2}{3:00}:{4:00}",
+                  rep, second(rep), offset >= 0 ? "+" : "-",
+                  ~~(offset / 60), offset % 60);
+              } else {
+                rep = rep.toISOString();
+              }
           }
-          if (rep2 !== match2 && rep2 < 10 && match2.length > 1) {
-            rep2 = "0" + rep2;
-          }
-          return rep2;
-        });
+        } else {
+          rep = format.replace(/\w+/g,
+            (match2: any) => {
+              let rep2 = match2;
+              switch (match2.substring(0, 1)) {
+                case "y":
+                  rep2 = match2.length < 4 ? year(rep) % 100 : year(rep);
+                  break;
+                case "h":
+                  rep2 = rep.getHours() > 12 ? hour(rep) % 12 : hour(rep);
+                  break;
+                case "M":
+                  rep2 = month(rep);
+                  break;
+                case "d":
+                  rep2 = day(rep);
+                  break;
+                case "H":
+                  rep2 = hour(rep);
+                  break;
+                case "m":
+                  rep2 = minute(rep);
+                  break;
+                case "s":
+                  rep2 = second(rep);
+                  break;
+              }
+              if (rep2 !== match2 && rep2 < 10 && match2.length > 1) {
+                rep2 = "0" + rep2;
+              }
+              return rep2;
+            });
+        }
       }
-    }
-    if (!isNaN(pad = parseInt((pad || "").substring(1)))) {
-      rep = padLeft(rep, Math.abs(pad), padSymbol, pad < 0);
-    }
-    return rep;
-  });
+      pad = parseInt((pad || "").substring(1), 10);
+      if (!isNaN(pad)) {
+        rep = padLeft(rep, Math.abs(pad), padSymbol, pad < 0);
+      }
+      return rep;
+    });
 }
 
 export function endsWith(str: string, search: string) {
   const idx = str.lastIndexOf(search);
-  return idx >= 0 && idx == str.length - search.length;
+  return idx >= 0 && idx === str.length - search.length;
 }
 
 export function initialize(n: number, f: (i: number) => string) {
-  if (n < 0)
+  if (n < 0) {
     throw new Error("String length must be non-negative");
+  }
   const xs = new Array(n);
-  for (let i = 0; i < n; i++)
+  for (let i = 0; i < n; i++) {
     xs[i] = f(i);
+  }
   return xs.join("");
 }
 
@@ -262,7 +272,7 @@ export function insert(str: string, startIndex: number, value: string) {
 }
 
 export function isNullOrEmpty(str: string | any) {
-  return typeof str !== "string" || str.length == 0;
+  return typeof str !== "string" || str.length === 0;
 }
 
 export function isNullOrWhiteSpace(str: string | any) {
@@ -274,10 +284,10 @@ export function join(delimiter: string, xs: ArrayLike<string>) {
   if (typeof xs === "string") {
     const len = arguments.length;
     xs2 = Array(len - 1);
-    for (let key = 1; key < len; key++)
+    for (let key = 1; key < len; key++) {
       xs2[key - 1] = arguments[key];
-  }
-  else if (!Array.isArray(xs)) {
+    }
+  } else if (!Array.isArray(xs)) {
     xs2 = Array.from(xs);
   }
   return xs2.join(delimiter);
@@ -287,8 +297,9 @@ export function newGuid() {
   let uuid = "";
   for (let i = 0; i < 32; i++) {
     const random = Math.random() * 16 | 0;
-    if (i === 8 || i === 12 || i === 16 || i === 20)
+    if (i === 8 || i === 12 || i === 16 || i === 20) {
       uuid += "-";
+    }
     uuid += (i === 12 ? 4 : i === 16 ? random & 3 | 8 : random).toString(16);
   }
   return uuid;
@@ -298,8 +309,9 @@ export function padLeft(str: any, len: number, ch?: string, isRight?: boolean) {
   ch = ch || " ";
   str = String(str);
   len = len - str.length;
-  for (let i = -1; ++i < len;)
+  for (let i = 0; i < len; i++) {
     str = isRight ? str + ch : ch + str;
+  }
   return str;
 }
 
@@ -312,11 +324,10 @@ export function remove(str: string, startIndex: number, count?: number) {
     throw new Error("startIndex must be less than length of string");
   }
   if (typeof count === "number" && (startIndex + count) > str.length) {
-    throw new Error("Index and count must refer to a location within the string.")
+    throw new Error("Index and count must refer to a location within the string.");
   }
   return str.slice(0, startIndex) + (typeof count === "number" ? str.substr(startIndex + count) : "");
 }
-
 
 export function replace(str: string, search: string, replace: string) {
   return str.replace(new RegExp(escape(search), "g"), replace);
@@ -327,53 +338,59 @@ export function replicate(n: number, x: string) {
 }
 
 export function getCharAtIndex(input: string, index: number) {
-  if (index < 0 || index > input.length)  {
-    throw new Error("System.IndexOutOfRangeException: Index was outside the bounds of the array.")
+  if (index < 0 || index > input.length) {
+    throw new Error("System.IndexOutOfRangeException: Index was outside the bounds of the array.");
   }
   return input[index];
 }
 
 export function split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
-  count = typeof count == "number" ? count : null;
-  removeEmpty = typeof removeEmpty == "number" ? removeEmpty : null;
-  if (count < 0)
+  count = typeof count === "number" ? count : null;
+  removeEmpty = typeof removeEmpty === "number" ? removeEmpty : null;
+  if (count < 0) {
     throw new Error("Count cannot be less than zero");
-  if (count === 0)
+  }
+  if (count === 0) {
     return [];
+  }
   let splitters2 = splitters;
   if (!Array.isArray(splitters)) {
     const len = arguments.length;
     splitters2 = Array(len - 1);
-    for (let key = 1; key < len; key++)
+    for (let key = 1; key < len; key++) {
       splitters2[key - 1] = arguments[key];
+    }
   }
-  splitters2 = splitters2.map(x => escape(x));
+  splitters2 = splitters2.map((x) => escape(x));
   splitters2 = splitters2.length > 0 ? splitters2 : [" "];
-  let m: RegExpExecArray;
   let i = 0;
   const splits: string[] = [];
   const reg = new RegExp(splitters2.join("|"), "g");
-  while ((count == null || count > 1) && (m = reg.exec(str)) !== null) {
+  while (count == null || count > 1) {
+    const m = reg.exec(str);
+    if (m === null) { break; }
     if (!removeEmpty || (m.index - i) > 0) {
       count = count != null ? count - 1 : count;
       splits.push(str.substring(i, m.index));
     }
     i = reg.lastIndex;
   }
-  if (!removeEmpty || (str.length - i) > 0)
+  if (!removeEmpty || (str.length - i) > 0) {
     splits.push(str.substring(i));
+  }
   return splits;
 }
 
 export function trim(str: string, side: "start" | "end" | "both", ...chars: string[]) {
-  if (side == "both" && chars.length == 0)
+  if (side === "both" && chars.length === 0) {
     return str.trim();
-  if (side == "start" || side == "both") {
-    const reg = chars.length == 0 ? /^\s+/ : new RegExp("^[" + escape(chars.join("")) + "]+");
+  }
+  if (side === "start" || side === "both") {
+    const reg = chars.length === 0 ? /^\s+/ : new RegExp("^[" + escape(chars.join("")) + "]+");
     str = str.replace(reg, "");
   }
-  if (side == "end" || side == "both") {
-    const reg = chars.length == 0 ? /\s+$/ : new RegExp("[" + escape(chars.join("")) + "]+$");
+  if (side === "end" || side === "both") {
+    const reg = chars.length === 0 ? /\s+$/ : new RegExp("[" + escape(chars.join("")) + "]+$");
     str = str.replace(reg, "");
   }
   return str;

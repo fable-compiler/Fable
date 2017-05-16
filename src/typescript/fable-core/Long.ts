@@ -1,5 +1,8 @@
 // Source: https://github.com/dcodeIO/long.js/blob/master/LICENSE
 
+// tslint:disable:curly
+// tslint:disable:member-access
+// tslint:disable:member-ordering
 import _Symbol from "./Symbol";
 
 // The internal representation of a long is the two given signed, 32-bit values.
@@ -46,7 +49,7 @@ export class Long {
      * @param {number} high The high (signed) 32 bits of the long
      * @param {boolean=} unsigned Whether unsigned or not, defaults to `false` for signed
      */
-    constructor (low: number, high: number, unsigned: boolean) {
+    constructor(low: number, high: number, unsigned: boolean) {
         this.low = low | 0;
         this.high = high | 0;
         this.unsigned = !!unsigned;
@@ -80,37 +83,37 @@ export class Long {
     toString(radix: number = 10): string {
         radix = radix || 10;
         if (radix < 2 || 36 < radix)
-            throw RangeError('radix');
+            throw RangeError("radix");
         if (this.isZero())
-            return '0';
+            return "0";
         if (this.isNegative()) { // Unsigned Longs are never negative
             if (this.eq(MIN_VALUE)) {
                 // We need to change the Long value before it can be negated, so we remove
                 // the bottom-most digit in this base and then recurse to do the rest.
-                var radixLong = fromNumber(radix),
-                    div = this.div(radixLong),
-                    rem1 = div.mul(radixLong).sub(this);
+                const radixLong = fromNumber(radix);
+                const div = this.div(radixLong);
+                const rem1 = div.mul(radixLong).sub(this);
                 return div.toString(radix) + rem1.toInt().toString(radix);
             } else
-                return '-' + this.neg().toString(radix);
+                return "-" + this.neg().toString(radix);
         }
 
         // Do several (6) digits each time through the loop, so as to
         // minimize the calls to the very expensive emulated div.
-        var radixToPower = fromNumber(pow_dbl(radix, 6), this.unsigned),
-            rem: Long = this;
-        var result = '';
+        const radixToPower = fromNumber(pow_dbl(radix, 6), this.unsigned);
+        let rem: Long = this;
+        let result = "";
         while (true) {
-            var remDiv = rem.div(radixToPower),
-                intval = rem.sub(remDiv.mul(radixToPower)).toInt() >>> 0,
-                digits = intval.toString(radix);
+            const remDiv = rem.div(radixToPower);
+            const intval = rem.sub(remDiv.mul(radixToPower)).toInt() >>> 0;
+            let digits = intval.toString(radix);
             rem = remDiv;
             if (rem.isZero())
                 return digits + result;
             else {
                 while (digits.length < 6)
-                    digits = '0' + digits;
-                result = '' + digits + result;
+                    digits = "0" + digits;
+                result = "" + digits + result;
             }
         }
     }
@@ -154,11 +157,12 @@ export class Long {
     getNumBitsAbs(): number {
         if (this.isNegative()) // Unsigned Longs are never negative
             return this.eq(MIN_VALUE) ? 64 : this.neg().getNumBitsAbs();
-        var val = this.high != 0 ? this.high : this.low;
-        for (var bit = 31; bit > 0; bit--)
-            if ((val & (1 << bit)) != 0)
+        const val = this.high !== 0 ? this.high : this.low;
+        let bit: number;
+        for (bit = 31; bit > 0; bit--)
+            if ((val & (1 << bit)) !== 0)
                 break;
-        return this.high != 0 ? bit + 33 : bit + 1;
+        return this.high !== 0 ? bit + 33 : bit + 1;
     }
 
     /**
@@ -206,7 +210,7 @@ export class Long {
      * @param {!Long|number|string} other Other value
      * @returns {boolean}
      */
-    equals(other: Long|number|string) {
+    equals(other: Long | number | string) {
         if (!isLong(other))
             other = fromValue(other);
         if (this.unsigned !== other.unsigned && (this.high >>> 31) === 1 && (other.high >>> 31) === 1)
@@ -226,7 +230,7 @@ export class Long {
      * @param {!Long|number|string} other Other value
      * @returns {boolean}
      */
-    notEquals(other: Long|number|string) {
+    notEquals(other: Long | number | string) {
         return !this.eq(/* validates */ other);
     }
 
@@ -242,7 +246,7 @@ export class Long {
      * @param {!Long|number|string} other Other value
      * @returns {boolean}
      */
-    lessThan(other: Long|number|string) {
+    lessThan(other: Long | number | string) {
         return this.comp(/* validates */ other) < 0;
     }
 
@@ -258,12 +262,13 @@ export class Long {
      * @param {!Long|number|string} other Other value
      * @returns {boolean}
      */
-    lessThanOrEqual(other: Long|number|string) {
+    lessThanOrEqual(other: Long | number | string) {
         return this.comp(/* validates */ other) <= 0;
     }
 
     /**
-     * Tests if this Long's value is less than or equal the specified's. This is an alias of {@link Long#lessThanOrEqual}.
+     * Tests if this Long's value is less than or equal the specified's.
+     * This is an alias of {@link Long#lessThanOrEqual}.
      * @param {!Long|number|string} other Other value
      * @returns {boolean}
      */
@@ -274,7 +279,7 @@ export class Long {
      * @param {!Long|number|string} other Other value
      * @returns {boolean}
      */
-    greaterThan(other: Long|number|string) {
+    greaterThan(other: Long | number | string) {
         return this.comp(/* validates */ other) > 0;
     }
 
@@ -290,12 +295,13 @@ export class Long {
      * @param {!Long|number|string} other Other value
      * @returns {boolean}
      */
-    greaterThanOrEqual(other: Long|number|string) {
+    greaterThanOrEqual(other: Long | number | string) {
         return this.comp(/* validates */ other) >= 0;
     }
 
     /**
-     * Tests if this Long's value is greater than or equal the specified's. This is an alias of {@link Long#greaterThanOrEqual}.
+     * Tests if this Long's value is greater than or equal the specified's.
+     * This is an alias of {@link Long#greaterThanOrEqual}.
      * @param {!Long|number|string} other Other value
      * @returns {boolean}
      */
@@ -307,13 +313,13 @@ export class Long {
      * @returns {number} 0 if they are the same, 1 if the this is greater and -1
      *  if the given one is greater
      */
-    compare(other: Long|number|string) {
+    compare(other: Long | number | string) {
         if (!isLong(other))
             other = fromValue(other);
         if (this.eq(other))
             return 0;
-        var thisNeg = this.isNegative(),
-            otherNeg = other.isNegative();
+        const thisNeg = this.isNegative();
+        const otherNeg = other.isNegative();
         if (thisNeg && !otherNeg)
             return -1;
         if (!thisNeg && otherNeg)
@@ -322,7 +328,8 @@ export class Long {
         if (!this.unsigned)
             return this.sub(other).isNegative() ? -1 : 1;
         // Both are positive if at least one is unsigned
-        return (other.high >>> 0) > (this.high >>> 0) || (other.high === this.high && (other.low >>> 0) > (this.low >>> 0)) ? -1 : 1;
+        return (other.high >>> 0) > (this.high >>> 0) ||
+            (other.high === this.high && (other.low >>> 0) > (this.low >>> 0)) ? -1 : 1;
     }
 
     /**
@@ -371,23 +378,26 @@ export class Long {
      * @param {!Long|number|string} addend Addend
      * @returns {!Long} Sum
      */
-    add(addend: Long|number|string) {
+    add(addend: Long | number | string) {
         if (!isLong(addend))
             addend = fromValue(addend);
 
         // Divide each number into 4 chunks of 16 bits, and then sum the chunks.
 
-        var a48 = this.high >>> 16;
-        var a32 = this.high & 0xFFFF;
-        var a16 = this.low >>> 16;
-        var a00 = this.low & 0xFFFF;
+        const a48 = this.high >>> 16;
+        const a32 = this.high & 0xFFFF;
+        const a16 = this.low >>> 16;
+        const a00 = this.low & 0xFFFF;
 
-        var b48 = addend.high >>> 16;
-        var b32 = addend.high & 0xFFFF;
-        var b16 = addend.low >>> 16;
-        var b00 = addend.low & 0xFFFF;
+        const b48 = addend.high >>> 16;
+        const b32 = addend.high & 0xFFFF;
+        const b16 = addend.low >>> 16;
+        const b00 = addend.low & 0xFFFF;
 
-        var c48 = 0, c32 = 0, c16 = 0, c00 = 0;
+        let c48 = 0;
+        let c32 = 0;
+        let c16 = 0;
+        let c00 = 0;
         c00 += a00 + b00;
         c16 += c00 >>> 16;
         c00 &= 0xFFFF;
@@ -407,7 +417,7 @@ export class Long {
      * @param {!Long|number|string} subtrahend Subtrahend
      * @returns {!Long} Difference
      */
-    subtract(subtrahend: Long|number|string) {
+    subtract(subtrahend: Long | number | string) {
         if (!isLong(subtrahend))
             subtrahend = fromValue(subtrahend);
         return this.add(subtrahend.neg());
@@ -425,7 +435,7 @@ export class Long {
      * @param {!Long|number|string} multiplier Multiplier
      * @returns {!Long} Product
      */
-    multiply(multiplier: Long|number|string): Long {
+    multiply(multiplier: Long | number | string): Long {
         if (this.isZero())
             return ZERO;
         if (!isLong(multiplier))
@@ -452,17 +462,20 @@ export class Long {
         // Divide each long into 4 chunks of 16 bits, and then add up 4x4 products.
         // We can skip products that would overflow.
 
-        var a48 = this.high >>> 16;
-        var a32 = this.high & 0xFFFF;
-        var a16 = this.low >>> 16;
-        var a00 = this.low & 0xFFFF;
+        const a48 = this.high >>> 16;
+        const a32 = this.high & 0xFFFF;
+        const a16 = this.low >>> 16;
+        const a00 = this.low & 0xFFFF;
 
-        var b48 = multiplier.high >>> 16;
-        var b32 = multiplier.high & 0xFFFF;
-        var b16 = multiplier.low >>> 16;
-        var b00 = multiplier.low & 0xFFFF;
+        const b48 = multiplier.high >>> 16;
+        const b32 = multiplier.high & 0xFFFF;
+        const b16 = multiplier.low >>> 16;
+        const b00 = multiplier.low & 0xFFFF;
 
-        var c48 = 0, c32 = 0, c16 = 0, c00 = 0;
+        let c48 = 0;
+        let c32 = 0;
+        let c16 = 0;
+        let c00 = 0;
         c00 += a00 * b00;
         c16 += c00 >>> 16;
         c00 &= 0xFFFF;
@@ -499,14 +512,15 @@ export class Long {
      * @param {!Long|number|string} divisor Divisor
      * @returns {!Long} Quotient
      */
-    divide(divisor: Long|number|string): Long {
+    divide(divisor: Long | number | string): Long {
         if (!isLong(divisor))
             divisor = fromValue(divisor);
         if (divisor.isZero())
-            throw Error('division by zero');
+            throw Error("division by zero");
         if (this.isZero())
             return this.unsigned ? UZERO : ZERO;
-        var approx = 0, rem = ZERO, res = ZERO;
+        let rem = ZERO;
+        let res = ZERO;
         if (!this.unsigned) {
             // This section is only relevant for signed longs and is derived from the
             // closure library as a whole.
@@ -517,8 +531,8 @@ export class Long {
                     return ONE;
                 else {
                     // At this point, we have |other| >= 2, so |this/other| < |MIN_VALUE|.
-                    var halfThis = this.shr(1);
-                    let approx = halfThis.div(divisor).shl(1);
+                    const halfThis = this.shr(1);
+                    const approx = halfThis.div(divisor).shl(1);
                     if (approx.eq(ZERO)) {
                         return divisor.isNegative() ? ONE : NEG_ONE;
                     } else {
@@ -557,17 +571,19 @@ export class Long {
         while (rem.gte(divisor)) {
             // Approximate the result of division. This may be a little greater or
             // smaller than the actual value.
-            approx = Math.max(1, Math.floor(rem.toNumber() / divisor.toNumber()));
+            let approx = Math.max(1, Math.floor(rem.toNumber() / divisor.toNumber()));
 
             // We will tweak the approximate result by changing it in the 48-th digit or
             // the smallest non-fractional digit, whichever is larger.
-            var log2 = Math.ceil(Math.log(approx) / Math.LN2),
-                delta = (log2 <= 48) ? 1 : pow_dbl(2, log2 - 48),
+            // tslint:disable-next-line:prefer-const
+            // tslint:disable-next-line:semicolon
+            const log2 = Math.ceil(Math.log(approx) / Math.LN2);
+            const delta = (log2 <= 48) ? 1 : pow_dbl(2, log2 - 48);
 
             // Decrease the approximation until it is smaller than the remainder.  Note
             // that if it is too large, the product overflows and is negative.
-                approxRes = fromNumber(approx),
-                approxRem = approxRes.mul(divisor);
+            let approxRes = fromNumber(approx);
+            let approxRem = approxRes.mul(divisor);
             while (approxRem.isNegative() || approxRem.gt(rem)) {
                 approx -= delta;
                 approxRes = fromNumber(approx, this.unsigned);
@@ -597,11 +613,11 @@ export class Long {
      * @param {!Long|number|string} divisor Divisor
      * @returns {!Long} Remainder
      */
-    modulo(divisor: Long|number|string) {
+    modulo(divisor: Long | number | string) {
         if (!isLong(divisor))
             divisor = fromValue(divisor);
         return this.sub(this.div(divisor).mul(divisor));
-    };
+    }
 
     /**
      * Returns this Long modulo the specified. This is an alias of {@link Long#modulo}.
@@ -616,14 +632,14 @@ export class Long {
      */
     not() {
         return fromBits(~this.low, ~this.high, this.unsigned);
-    };
+    }
 
     /**
      * Returns the bitwise AND of this Long and the specified.
      * @param {!Long|number|string} other Other Long
      * @returns {!Long}
      */
-    and(other: Long|number|string) {
+    and(other: Long | number | string) {
         if (!isLong(other))
             other = fromValue(other);
         return fromBits(this.low & other.low, this.high & other.high, this.unsigned);
@@ -634,7 +650,7 @@ export class Long {
      * @param {!Long|number|string} other Other Long
      * @returns {!Long}
      */
-    or(other: Long|number|string) {
+    or(other: Long | number | string) {
         if (!isLong(other))
             other = fromValue(other);
         return fromBits(this.low | other.low, this.high | other.high, this.unsigned);
@@ -645,7 +661,7 @@ export class Long {
      * @param {!Long|number|string} other Other Long
      * @returns {!Long}
      */
-    xor(other: Long|number|string) {
+    xor(other: Long | number | string) {
         if (!isLong(other))
             other = fromValue(other);
         return fromBits(this.low ^ other.low, this.high ^ other.high, this.unsigned);
@@ -656,7 +672,7 @@ export class Long {
      * @param {number|!Long} numBits Number of bits
      * @returns {!Long} Shifted Long
      */
-    shiftLeft(numBits: number|Long) {
+    shiftLeft(numBits: number | Long) {
         if (isLong(numBits))
             numBits = numBits.toInt();
         numBits = numBits & 63;
@@ -680,20 +696,22 @@ export class Long {
      * @param {number|!Long} numBits Number of bits
      * @returns {!Long} Shifted Long
      */
-    shiftRight(numBits: number|Long) {
+    shiftRight(numBits: number | Long) {
         if (isLong(numBits))
             numBits = numBits.toInt();
         numBits = numBits & 63;
         if (numBits === 0)
             return this;
         else if (numBits < 32)
-            return fromBits((this.low >>> numBits) | (this.high << (32 - numBits)), this.high >> numBits, this.unsigned);
+            return fromBits((this.low >>> numBits) | (this.high << (32 - numBits)),
+                this.high >> numBits, this.unsigned);
         else
             return fromBits(this.high >> (numBits - 32), this.high >= 0 ? 0 : -1, this.unsigned);
     }
 
     /**
-     * Returns this Long with bits arithmetically shifted to the right by the given amount. This is an alias of {@link Long#shiftRight}.
+     * Returns this Long with bits arithmetically shifted to the right by the given amount.
+     * This is an alias of {@link Long#shiftRight}.
      * @param {number|!Long} numBits Number of bits
      * @returns {!Long} Shifted Long
      */
@@ -704,16 +722,16 @@ export class Long {
      * @param {number|!Long} numBits Number of bits
      * @returns {!Long} Shifted Long
      */
-    shiftRightUnsigned(numBits: number|Long) {
+    shiftRightUnsigned(numBits: number | Long) {
         if (isLong(numBits))
             numBits = numBits.toInt();
         numBits = numBits & 63;
         if (numBits === 0)
             return this;
         else {
-            var high = this.high;
+            const high = this.high;
             if (numBits < 32) {
-                var low = this.low;
+                const low = this.low;
                 return fromBits((low >>> numBits) | (high << (32 - numBits)), high >>> numBits, this.unsigned);
             } else if (numBits === 32)
                 return fromBits(high, 0, this.unsigned);
@@ -723,7 +741,8 @@ export class Long {
     }
 
     /**
-     * Returns this Long with bits logically shifted to the right by the given amount. This is an alias of {@link Long#shiftRightUnsigned}.
+     * Returns this Long with bits logically shifted to the right by the given amount.
+     * This is an alias of {@link Long#shiftRightUnsigned}.
      * @param {number|!Long} numBits Number of bits
      * @returns {!Long} Shifted Long
      */
@@ -763,17 +782,17 @@ export class Long {
      * @returns {!Array.<number>} Little endian byte representation
      */
     toBytesLE() {
-        var hi = this.high,
-            lo = this.low;
+        const hi = this.high;
+        const lo = this.low;
         return [
-            lo          & 0xff,
-            (lo >>>  8) & 0xff,
+            lo & 0xff,
+            (lo >>> 8) & 0xff,
             (lo >>> 16) & 0xff,
             (lo >>> 24) & 0xff,
-            hi          & 0xff,
-            (hi >>>  8) & 0xff,
+            hi & 0xff,
+            (hi >>> 8) & 0xff,
             (hi >>> 16) & 0xff,
-            (hi >>> 24) & 0xff
+            (hi >>> 24) & 0xff,
         ];
     }
 
@@ -782,17 +801,17 @@ export class Long {
      * @returns {!Array.<number>} Big endian byte representation
      */
     toBytesBE() {
-        var hi = this.high,
-            lo = this.low;
+        const hi = this.high;
+        const lo = this.low;
         return [
             (hi >>> 24) & 0xff,
             (hi >>> 16) & 0xff,
-            (hi >>>  8) & 0xff,
-            hi          & 0xff,
+            (hi >>> 8) & 0xff,
+            hi & 0xff,
             (lo >>> 24) & 0xff,
             (lo >>> 16) & 0xff,
-            (lo >>>  8) & 0xff,
-            lo          & 0xff
+            (lo >>> 8) & 0xff,
+            lo & 0xff,
         ];
     }
 
@@ -808,19 +827,17 @@ export class Long {
             properties: {
                 low: "number",
                 high: "number",
-                unsigned: "boolean"
-            }
+                unsigned: "boolean",
+            },
         };
-    } 
+    }
 }
 
-
 // A cache of the Long representations of small integer values.
-var INT_CACHE: { [i: number]: Long; } = {};
+const INT_CACHE: { [i: number]: Long; } = {};
 
 // A cache of the Long representations of small unsigned integer values.
-var UINT_CACHE: { [i: number]: Long; } = {};
-
+const UINT_CACHE: { [i: number]: Long; } = {};
 
 /**
  * Tests if the specified object is a
@@ -838,10 +855,13 @@ export function isLong(obj: any): obj is Long {
  * @returns {!Long} The corresponding Long value
  */
 export function fromInt(value: number, unsigned: boolean = false) {
-    var obj: Long, cachedObj: Long, cache: boolean;
+    let obj: Long;
+    let cachedObj: Long;
+    let cache = false;
     if (unsigned) {
         value >>>= 0;
-        if (cache = (0 <= value && value < 256)) {
+        if (0 <= value && value < 256) {
+            cache = true;
             cachedObj = UINT_CACHE[value];
             if (cachedObj)
                 return cachedObj;
@@ -852,7 +872,8 @@ export function fromInt(value: number, unsigned: boolean = false) {
         return obj;
     } else {
         value |= 0;
-        if (cache = (-128 <= value && value < 128)) {
+        if (-128 <= value && value < 128) {
+            cache = true;
             cachedObj = INT_CACHE[value];
             if (cachedObj)
                 return cachedObj;
@@ -906,7 +927,7 @@ export function fromBits(lowBits: number, highBits: number, unsigned: boolean) {
  * @param {number} exponent
  * @returns {number}
  */
-var pow_dbl = Math.pow; // Used 4 times (4*8 to 15+4)
+const pow_dbl = Math.pow; // Used 4 times (4*8 to 15+4)
 
 /**
  * Returns a Long representation of the given string, written using the specified radix.
@@ -917,37 +938,37 @@ var pow_dbl = Math.pow; // Used 4 times (4*8 to 15+4)
  */
 export function fromString(str: string, unsigned: boolean = false, radix: number = 10): Long {
     if (str.length === 0)
-        throw Error('empty string');
+        throw Error("empty string");
     if (str === "NaN" || str === "Infinity" || str === "+Infinity" || str === "-Infinity")
         return ZERO;
-    if (typeof unsigned === 'number') {
+    if (typeof unsigned === "number") {
         // For goog.math.long compatibility
         radix = unsigned,
-        unsigned = false;
+            unsigned = false;
     } else {
-        unsigned = !! unsigned;
+        unsigned = !!unsigned;
     }
     radix = radix || 10;
     if (radix < 2 || 36 < radix)
-        throw RangeError('radix');
+        throw RangeError("radix");
 
-    let p = str.indexOf('-');
+    const p = str.indexOf("-");
     if (p > 0)
-        throw Error('interior hyphen');
+        throw Error("interior hyphen");
     else if (p === 0) {
         return fromString(str.substring(1), unsigned, radix).neg();
     }
 
     // Do several (8) digits each time through the loop, so as to
     // minimize the calls to the very expensive emulated div.
-    var radixToPower = fromNumber(pow_dbl(radix, 8));
+    const radixToPower = fromNumber(pow_dbl(radix, 8));
 
-    var result = ZERO;
-    for (var i = 0; i < str.length; i += 8) {
-        var size = Math.min(8, str.length - i),
-            value = parseInt(str.substring(i, i + size), radix);
+    let result = ZERO;
+    for (let i = 0; i < str.length; i += 8) {
+        const size = Math.min(8, str.length - i);
+        const value = parseInt(str.substring(i, i + size), radix);
         if (size < 8) {
-            var power = fromNumber(pow_dbl(radix, size));
+            const power = fromNumber(pow_dbl(radix, size));
             result = result.mul(power).add(fromNumber(value));
         } else {
             result = result.mul(radixToPower);
@@ -963,12 +984,12 @@ export function fromString(str: string, unsigned: boolean = false, radix: number
  * @param {!Long|number|string|!{low: number, high: number, unsigned: boolean}} val Value
  * @returns {!Long}
  */
-export function fromValue(val: Long|number|string|{low: number, high: number, unsigned: boolean}) {
+export function fromValue(val: Long | number | string | { low: number, high: number, unsigned: boolean }) {
     if (val /* is compatible */ instanceof Long)
         return val;
-    if (typeof val === 'number')
+    if (typeof val === "number")
         return fromNumber(val);
-    if (typeof val === 'string')
+    if (typeof val === "string")
         return fromString(val);
     // Throws for non-objects, converts non-instanceof Long:
     return fromBits(val.low, val.high, val.unsigned);
@@ -1013,14 +1034,14 @@ export const NEG_ONE = fromInt(-1);
  * Maximum signed value.
  * @type {!Long}
  */
-export const MAX_VALUE = fromBits(0xFFFFFFFF|0, 0x7FFFFFFF|0, false);
+export const MAX_VALUE = fromBits(0xFFFFFFFF | 0, 0x7FFFFFFF | 0, false);
 /**
  * Maximum unsigned value.
  * @type {!Long}
  */
-export const MAX_UNSIGNED_VALUE = fromBits(0xFFFFFFFF|0, 0xFFFFFFFF|0, true);
+export const MAX_UNSIGNED_VALUE = fromBits(0xFFFFFFFF | 0, 0xFFFFFFFF | 0, true);
 /**
  * Minimum signed value.
  * @type {!Long}
  */
-export const MIN_VALUE = fromBits(0, 0x80000000|0, false);
+export const MIN_VALUE = fromBits(0, 0x80000000 | 0, false);

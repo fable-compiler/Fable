@@ -1,5 +1,5 @@
 export function createFromValue<T>(v: T) {
-    return new Lazy(() => v);
+  return new Lazy(() => v);
 }
 
 export default class Lazy<T> {

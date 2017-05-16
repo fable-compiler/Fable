@@ -254,7 +254,7 @@ let releaseLoader = Util.loadReleaseNotes "LOADER"
 let releaseRollup = Util.loadReleaseNotes "ROLLUP"
 let releaseJsonConverter = Util.loadReleaseNotes "JSON_CONVERTER"
 
-let dotnetcliVersion = "1.0.1"
+let dotnetcliVersion = "1.0.4"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let toolsBuildDir = "build/fable"
@@ -355,6 +355,7 @@ let buildTools baseDir isRelease () =
 
 let buildCoreJs () =
     Npm.install __SOURCE_DIRECTORY__ []
+    Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" coreJsSrcDir]
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" coreJsSrcDir]
 
 let buildCore isRelease () =
