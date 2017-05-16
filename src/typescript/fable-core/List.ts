@@ -1,13 +1,12 @@
-import List from "./ListClass"
-import { map as seqMap } from "./Seq"
-import { fold as seqFold } from "./Seq"
-import { foldBack as seqFoldBack } from "./Seq"
-import { toList as seqToList } from "./Seq"
-import { groupBy as mapGroupBy } from "./Map"
+import List from "./ListClass";
+import { groupBy as mapGroupBy } from "./Map";
+import { map as seqMap } from "./Seq";
+import { fold as seqFold } from "./Seq";
+import { foldBack as seqFoldBack } from "./Seq";
+import { toList as seqToList } from "./Seq";
 
-
-export default List
-export { ofArray } from "./ListClass"
+export default List;
+export { ofArray } from "./ListClass";
 
 export function append<T>(xs: List<T>, ys: List<T>) {
   return seqFold((acc, x) => new List<T>(x, acc), ys, reverse(xs));
@@ -27,7 +26,7 @@ export function collect<T, U>(f: (x: T) => List<U>, xs: List<T>) {
 // TODO: should be xs: Iterable<List<T>>
 
 export function concat<T>(xs: List<List<T>>) {
-  return collect(x => x, xs);
+  return collect((x) => x, xs);
 }
 
 export function filter<T>(f: (x: T) => boolean, xs: List<T>) {
@@ -59,7 +58,8 @@ export function mapIndexed<T, U>(f: (i: number, x: T) => U, xs: List<T>) {
 
 export function partition<T>(f: (x: T) => boolean, xs: List<T>) {
   return seqFold((acc, x) => {
-    const lacc = acc[0], racc = acc[1];
+    const lacc = acc[0];
+    const racc = acc[1];
     return f(x) ? [new List<T>(x, lacc), racc] : [lacc, new List<T>(x, racc)];
   }, [new List<T>(), new List<T>()], reverse(xs));
 }
@@ -79,21 +79,28 @@ export function singleton<T>(x: T) {
 export function slice<T>(lower: number, upper: number, xs: List<T>) {
   const noLower = (lower == null);
   const noUpper = (upper == null);
-  return reverse(seqFold((acc, x, i) => (noLower || lower <= i) && (noUpper || i <= upper) ? new List<T>(x, acc) : acc, new List<T>(), xs));
+  return reverse(seqFold((acc, x, i) =>
+    (noLower || lower <= i) && (noUpper || i <= upper) ? new List<T>(x, acc) : acc, new List<T>(), xs));
 }
 /* ToDo: instance unzip() */
 
 export function unzip<T1, T2>(xs: List<[T1, T2]>) {
   return seqFoldBack((xy, acc) =>
-    [new List<T1>(xy[0], acc[0]), new List<T2>(xy[1], acc[1])] as [List<T1>, List<T2>], xs, [new List<T1>(), new List<T2>()] as [List<T1>, List<T2>]);
+    [new List<T1>(xy[0], acc[0]), new List<T2>(xy[1], acc[1])] as [List<T1>, List<T2>],
+    xs,
+    [new List<T1>(), new List<T2>()] as [List<T1>, List<T2>]);
 }
 /* ToDo: instance unzip3() */
 
 export function unzip3<T1, T2, T3>(xs: List<[T1, T2, T3]>) {
   return seqFoldBack((xyz, acc) =>
-    [new List<T1>(xyz[0], acc[0]), new List<T2>(xyz[1], acc[1]), new List<T3>(xyz[2], acc[2])] as [List<T1>, List<T2>, List<T3>], xs, [new List<T1>(), new List<T2>(), new List<T3>()] as [List<T1>, List<T2>, List<T3>]);
+    [new List<T1>(xyz[0], acc[0]), new List<T2>(xyz[1], acc[1]), new List<T3>(xyz[2], acc[2]),
+    ] as [List<T1>, List<T2>, List<T3>],
+    xs,
+    [new List<T1>(), new List<T2>(), new List<T3>(),
+    ] as [List<T1>, List<T2>, List<T3>]);
 }
 
 export function groupBy<T, K>(f: (x: T) => K, xs: List<T>): List<[K, List<T>]> {
-  return seqToList(seqMap(k => [k[0], seqToList(k[1])], mapGroupBy(f, xs))) as List<[K, List<T>]>;
+  return seqToList(seqMap((k) => [k[0], seqToList(k[1])], mapGroupBy(f, xs))) as List<[K, List<T>]>;
 }

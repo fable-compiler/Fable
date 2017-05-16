@@ -1,13 +1,13 @@
-import { Type, NonDeclaredType, getPropertyNames, getDefinition } from "./Util"
-import List from "./List"
-import FSymbol from "./Symbol"
+import List from "./List";
+import FSymbol from "./Symbol";
+import { getDefinition, getPropertyNames, NonDeclaredType, Type } from "./Util";
 
 export class MemberInfo {
-  name: string;
-  index: number;
-  declaringType: any;
-  propertyType: any;
-  unionFields: any[];
+  public name: string;
+  public index: number;
+  public declaringType: any;
+  public propertyType: any;
+  public unionFields: any[];
 
   constructor(name: string, index: number, declaringType: any, propertyType?: any, unionFields?: any[]) {
     this.name = name;
@@ -17,8 +17,8 @@ export class MemberInfo {
     this.unionFields = unionFields;
   }
 
-  getUnionFields() {
-    return this.unionFields.map((fi,i) => new MemberInfo("unknown", i, this.declaringType, fi));
+  public getUnionFields() {
+    return this.unionFields.map((fi, i) => new MemberInfo("unknown", i, this.declaringType, fi));
   }
 }
 
@@ -26,24 +26,20 @@ export function resolveGeneric(idx: string | number, enclosing: List<any>): List
   try {
     const t = enclosing.head;
     if (t.generics == null) {
-      return resolveGeneric(idx, enclosing.tail)
-    }
-    else {
+      return resolveGeneric(idx, enclosing.tail);
+    } else {
       const name = typeof idx === "string"
         ? idx : Object.getOwnPropertyNames(t.generics)[idx];
       const resolved = t.generics[name];
       if (resolved == null) {
-          return resolveGeneric(idx, enclosing.tail);
-      }
-      else if (resolved instanceof NonDeclaredType && resolved.kind === "GenericParam") {
-          return resolveGeneric(resolved.definition as string, enclosing.tail);
-      }
-      else {
-          return new List(resolved, enclosing);
+        return resolveGeneric(idx, enclosing.tail);
+      } else if (resolved instanceof NonDeclaredType && resolved.kind === "GenericParam") {
+        return resolveGeneric(resolved.definition as string, enclosing.tail);
+      } else {
+        return new List(resolved, enclosing);
       }
     }
-  }
-  catch (err) {
+  } catch (err) {
     throw new Error(`Cannot resolve generic argument ${idx}: ${err}`);
   }
 }
@@ -57,52 +53,52 @@ export function getType(obj: any): any {
     case "function":
       return t;
     default:
-      return Object.getPrototypeOf(obj).constructor
+      return Object.getPrototypeOf(obj).constructor;
   }
 }
 
 // TODO: This needs improvement, check namespace for non-custom types?
 export function getTypeFullName(typ: Type, option?: string): string {
-  function trim(fullName: string, option?: string) {
-    if (typeof fullName !== "string") {
+  function trim(fullName: string, opt?: string) {
+    if (typeof fullName !== "string") {
       return "unknown";
     }
-    if (option === "name") {
-      const i = fullName.lastIndexOf('.');
+    if (opt === "name") {
+      const i = fullName.lastIndexOf(".");
       return fullName.substr(i + 1);
     }
-    if (option === "namespace") {
-      const i = fullName.lastIndexOf('.');
+    if (opt === "namespace") {
+      const i = fullName.lastIndexOf(".");
       return i > -1 ? fullName.substr(0, i) : "";
     }
     return fullName;
   }
+
   if (typeof typ === "string") {
     return typ;
-  }
-  else if (typ instanceof NonDeclaredType) {
-      switch (typ.kind) {
-        case "Unit":
-          return "unit";
-        case "Option":
-          return getTypeFullName((typ.generics as Type[])[0], option) + " option";
-        case "Array":
-          return getTypeFullName((typ.generics as Type[])[0], option) + "[]";
-        case "Tuple":
-          return (typ.generics as FunctionConstructor[]).map(x => getTypeFullName(x, option)).join(" * ");
-        case "Function":
-          return "Func<" + (typ.generics as FunctionConstructor[]).map(x => getTypeFullName(x, option)).join(", ") + ">";
-        case "GenericParam":
-        case "Interface":
-          return typ.definition as string;
-        case "GenericType":
-          return getTypeFullName(typ.definition, option);
-        case "Any":
-        default:
-          return "unknown";
-      }
-  }
-  else {
+  } else if (typ instanceof NonDeclaredType) {
+    switch (typ.kind) {
+      case "Unit":
+        return "unit";
+      case "Option":
+        return getTypeFullName((typ.generics as Type[])[0], option) + " option";
+      case "Array":
+        return getTypeFullName((typ.generics as Type[])[0], option) + "[]";
+      case "Tuple":
+        return (typ.generics as FunctionConstructor[]).map((x) => getTypeFullName(x, option)).join(" * ");
+      case "Function":
+        return "Func<" + (typ.generics as FunctionConstructor[]).map((x) =>
+          getTypeFullName(x, option)).join(", ") + ">";
+      case "GenericParam":
+      case "Interface":
+        return typ.definition as string;
+      case "GenericType":
+        return getTypeFullName(typ.definition, option);
+      case "Any":
+      default:
+        return "unknown";
+    }
+  } else {
     // Attention: this doesn't work with Object.getPrototypeOf
     const proto = typ.prototype as any;
     return trim(typeof proto[FSymbol.reflection] === "function"
@@ -120,11 +116,9 @@ export function getName(x: any): string {
 export function getPrototypeOfType(typ: FunctionConstructor) {
   if (typeof typ === "string") {
     return null;
-  }
-  else if (typ instanceof NonDeclaredType) {
+  } else if (typ instanceof NonDeclaredType) {
     return typ.kind === "GenericType" ? (typ.definition as any).prototype : null;
-  }
-  else {
+  } else {
     return typ.prototype;
   }
 }
@@ -135,7 +129,7 @@ export function getProperties(typ: any): any[] {
     const info = proto[FSymbol.reflection]();
     if (info.properties) {
       return Object.getOwnPropertyNames(info.properties)
-        .map((k,i) => new MemberInfo(k, i, typ, info.properties[k]));
+        .map((k, i) => new MemberInfo(k, i, typ, info.properties[k]));
     }
   }
   throw new Error("Type " + getTypeFullName(typ) + " doesn't contain property info.");
@@ -153,7 +147,7 @@ export function getUnionCases(typ: any): any[] {
 }
 
 export function getPropertyValues(obj: any): any[] {
-  return getPropertyNames(obj).map(k => obj[k]);
+  return getPropertyNames(obj).map((k) => obj[k]);
 }
 
 export function getUnionFields(obj: any, typ?: any): any[] {
@@ -214,10 +208,9 @@ export function getGenericArguments(typ: Type): Type[] {
   if (typ instanceof NonDeclaredType) {
     if (Array.isArray(typ.generics)) {
       return typ.generics;
-    }
-    else {
+    } else {
       const dic = typ.generics;
-      return Object.keys(dic).map(k => dic[k]);
+      return Object.keys(dic).map((k) => dic[k]);
     }
   }
   return [];

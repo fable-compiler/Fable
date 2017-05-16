@@ -1,6 +1,6 @@
-import { IDisposable } from "./Util"
-import Event from "./Event"
-import FSymbol from "./Symbol"
+import Event from "./Event";
+import FSymbol from "./Symbol";
+import { IDisposable } from "./Util";
 
 export default class Timer implements IDisposable {
   public Interval: number;
@@ -27,20 +27,23 @@ export default class Timer implements IDisposable {
   }
 
   set Enabled(x: boolean) {
-    if (!this._isDisposed && this._enabled != x) {
-      if (this._enabled = x) {
+    if (!this._isDisposed && this._enabled !== x) {
+      this._enabled = x;
+      if (this._enabled) {
         if (this.AutoReset) {
           this._intervalId = setInterval(() => {
-            if (!this.AutoReset)
+            if (!this.AutoReset) {
               this.Enabled = false;
+            }
             this._elapsed.Trigger(new Date());
           }, this.Interval) as any;
         } else {
           this._timeoutId = setTimeout(() => {
             this.Enabled = false;
             this._timeoutId = 0;
-            if (this.AutoReset)
+            if (this.AutoReset) {
               this.Enabled = true;
+            }
             this._elapsed.Trigger(new Date());
           }, this.Interval) as any;
         }
@@ -57,27 +60,27 @@ export default class Timer implements IDisposable {
     }
   }
 
-  Dispose() {
+  public Dispose() {
     this.Enabled = false;
     this._isDisposed = true;
   }
 
-  Close() {
+  public Close() {
     this.Dispose();
   }
 
-  Start() {
+  public Start() {
     this.Enabled = true;
   }
 
-  Stop() {
+  public Stop() {
     this.Enabled = false;
   }
 
-  [FSymbol.reflection]() {
+  public [FSymbol.reflection]() {
     return {
       type: "System.Timers.Timer",
-      interfaces: ["System.IDisposable"]
-    }
+      interfaces: ["System.IDisposable"],
+    };
   }
 }

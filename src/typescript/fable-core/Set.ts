@@ -1,18 +1,19 @@
-import List from "./List"
-import { ofArray as listOfArray } from "./List"
-import { IComparer } from "./Util"
-import { IEquatable } from "./Util"
-import { IComparable } from "./Util"
-import { toString } from "./Util"
-import Comparer from "./Comparer"
-import FSymbol from "./Symbol"
-import { iterate as seqIterate } from "./Seq"
-import { fold as seqFold } from "./Seq"
-import { reduce as seqReduce } from "./Seq"
-import { forAll as seqForAll } from "./Seq"
-import { exists as seqExists } from "./Seq"
-import { choose as seqChoose } from "./Seq"
-import { scan as seqScan } from "./Seq"
+// tslint:disable:max-line-length
+import Comparer from "./Comparer";
+import List from "./List";
+import { ofArray as listOfArray } from "./List";
+import { exists as seqExists } from "./Seq";
+import { forAll as seqForAll } from "./Seq";
+import { reduce as seqReduce } from "./Seq";
+import { scan as seqScan } from "./Seq";
+import { choose as seqChoose } from "./Seq";
+import { iterate as seqIterate } from "./Seq";
+import { fold as seqFold } from "./Seq";
+import FSymbol from "./Symbol";
+import { toString } from "./Util";
+import { IComparable } from "./Util";
+import { IEquatable } from "./Util";
+import { IComparer } from "./Util";
 
 // ----------------------------------------------
 // These functions belong to Seq.ts but are
@@ -24,12 +25,12 @@ export function distinctBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
     seqScan((tup: [T, FableSet<K>], x: T) => {
       const acc = tup[1];
       const k = f(x);
-      return acc.has(k) ? [<T>null, acc] : [x, add(k, acc)];
-    }, [<T>null, create<K>()] as [T, FableSet<K>], xs));
+      return acc.has(k) ? [null as T, acc] : [x, add(k, acc)];
+    }, [null as T, create<K>()] as [T, FableSet<K>], xs));
 }
 
 export function distinct<T>(xs: Iterable<T>) {
-  return distinctBy(x => x, xs);
+  return distinctBy((x) => x, xs);
 }
 // ----------------------------------------------
 
@@ -39,7 +40,7 @@ interface SetIterator {
 }
 
 export class SetTree {
-  public tag: number; //"SetEmpty" | "SetOne" | "SetNode"
+  public tag: number; // "SetEmpty" | "SetOne" | "SetNode"
   public data: any[];
 
   constructor(tag: number, data?: any[]) {
@@ -95,17 +96,18 @@ function tree_mk(l: SetTree, k: any, r: SetTree) {
       return tree_SetNode(k, l, r, m + 1);
   }
 
-  throw new Error("internal error: Set.tree_mk")
+  throw new Error("internal error: Set.tree_mk");
 }
 
 function tree_rebalance(t1: SetTree, k: any, t2: SetTree) {
-  var t1h = tree_height(t1);
-  var t2h = tree_height(t2);
+  const t1h = tree_height(t1);
+  const t2h = tree_height(t2);
   if (t2h > t1h + tree_tolerance) {
     if (t2.tag === 2) {
       if (tree_height(t2.data[1]) > t1h + 1) {
         if (t2.data[1].tag === 2) {
-          return tree_mk(tree_mk(t1, k, t2.data[1].data[1]), t2.data[1].data[0], tree_mk(t2.data[1].data[2], t2.data[0], t2.data[2]));
+          return tree_mk(tree_mk(t1, k, t2.data[1].data[1]), t2.data[1].data[0],
+            tree_mk(t2.data[1].data[2], t2.data[0], t2.data[2]));
         } else {
           throw new Error("rebalance");
         }
@@ -120,7 +122,8 @@ function tree_rebalance(t1: SetTree, k: any, t2: SetTree) {
       if (t1.tag === 2) {
         if (tree_height(t1.data[2]) > t2h + 1) {
           if (t1.data[2].tag === 2) {
-            return tree_mk(tree_mk(t1.data[1], t1.data[0], t1.data[2].data[1]), t1.data[2].data[0], tree_mk(t1.data[2].data[2], k, t2));
+            return tree_mk(tree_mk(t1.data[1], t1.data[0], t1.data[2].data[1]),
+              t1.data[2].data[0], tree_mk(t1.data[2].data[2], k, t2));
           } else {
             throw new Error("rebalance");
           }
@@ -291,23 +294,22 @@ function tree_mem(comparer: IComparer<any>, k: any, t: SetTree): boolean {
   }
 }
 
-function tree_iter(f: (x:any)=>void, t: SetTree) {
+function tree_iter(f: (x: any) => void, t: SetTree) {
   if (t.tag === 1) {
     f(t.data[0]);
-  } else {
-    if (t.tag === 0) {} else {
-      tree_iter(f, t.data[1]);
-      f(t.data[0]);
-      tree_iter(f, t.data[2]);
-    }
+  } else if (t.tag !== 0) {
+    tree_iter(f, t.data[1]);
+    f(t.data[0]);
+    tree_iter(f, t.data[2]);
   }
 }
 
-function tree_foldBack(f: (x:any, acc:any)=>any, m: SetTree, x: any): any {
-  return m.tag === 1 ? f(m.data[0], x) : m.tag === 0 ? x : tree_foldBack(f, m.data[1], f(m.data[0], tree_foldBack(f, m.data[2], x)));
+function tree_foldBack(f: (x: any, acc: any) => any, m: SetTree, x: any): any {
+  return m.tag === 1 ? f(m.data[0], x) : m.tag === 0 ?
+    x : tree_foldBack(f, m.data[1], f(m.data[0], tree_foldBack(f, m.data[2], x)));
 }
 
-function tree_fold(f: (acc:any, x:any)=>any, x: any, m: SetTree): any {
+function tree_fold(f: (acc: any, x: any) => any, x: any, m: SetTree): any {
   if (m.tag === 1) {
     return f(x, m.data[0]);
   } else if (m.tag === 0) {
@@ -319,12 +321,14 @@ function tree_fold(f: (acc:any, x:any)=>any, x: any, m: SetTree): any {
   }
 }
 
-function tree_forall(f: (x:any)=>boolean, m: SetTree): boolean {
-  return m.tag === 1 ? f(m.data[0]) : m.tag === 0 ? true : (f(m.data[0]) ? tree_forall(f, m.data[1]) : false) ? tree_forall(f, m.data[2]) : false;
+function tree_forall(f: (x: any) => boolean, m: SetTree): boolean {
+  return m.tag === 1 ? f(m.data[0]) : m.tag === 0 ? true : (f(m.data[0]) ?
+    tree_forall(f, m.data[1]) : false) ? tree_forall(f, m.data[2]) : false;
 }
 
-function tree_exists(f: (x:any)=>boolean, m: SetTree): boolean {
-  return m.tag === 1 ? f(m.data[0]) : m.tag === 0 ? false : (f(m.data[0]) ? true : tree_exists(f, m.data[1])) ? true : tree_exists(f, m.data[2]);
+function tree_exists(f: (x: any) => boolean, m: SetTree): boolean {
+  return m.tag === 1 ? f(m.data[0]) : m.tag === 0 ? false : (f(m.data[0]) ?
+    true : tree_exists(f, m.data[1])) ? true : tree_exists(f, m.data[2]);
 }
 
 function tree_isEmpty(m: SetTree): boolean {
@@ -332,14 +336,14 @@ function tree_isEmpty(m: SetTree): boolean {
 }
 
 function tree_subset(comparer: IComparer<any>, a: SetTree, b: SetTree) {
-  return tree_forall(x => tree_mem(comparer, x, b), a);
+  return tree_forall((x) => tree_mem(comparer, x, b), a);
 }
 
 function tree_psubset(comparer: IComparer<any>, a: SetTree, b: SetTree) {
-  return tree_forall(x => tree_mem(comparer, x, b), a) ? tree_exists(x => !tree_mem(comparer, x, a), b) : false;
+  return tree_forall((x) => tree_mem(comparer, x, b), a) ? tree_exists((x) => !tree_mem(comparer, x, a), b) : false;
 }
 
-function tree_filterAux(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree, acc: SetTree): SetTree {
+function tree_filterAux(comparer: IComparer<any>, f: (x: any) => boolean, s: SetTree, acc: SetTree): SetTree {
   if (s.tag === 1) {
     if (f(s.data[0])) {
       return tree_add(comparer, s.data[0], acc);
@@ -354,7 +358,7 @@ function tree_filterAux(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTre
   }
 }
 
-function tree_filter(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree): SetTree {
+function tree_filter(comparer: IComparer<any>, f: (x: any) => boolean, s: SetTree): SetTree {
   return tree_filterAux(comparer, f, s, new SetTree(0));
 }
 
@@ -386,10 +390,12 @@ function tree_union(comparer: IComparer<any>, t1: SetTree, t2: SetTree): SetTree
     case 0:
       if (matchValue[1] > matchValue[2]) {
         const patternInput = tree_split(comparer, matchValue[3], t2);
-        return tree_balance(comparer, tree_union(comparer, matchValue[5], patternInput[0]), matchValue[3], tree_union(comparer, matchValue[6], patternInput[2]));
+        return tree_balance(comparer, tree_union(comparer, matchValue[5],
+          patternInput[0]), matchValue[3], tree_union(comparer, matchValue[6], patternInput[2]));
       } else {
         const patternInput_1 = tree_split(comparer, matchValue[4], t1);
-        return tree_balance(comparer, tree_union(comparer, matchValue[7], patternInput_1[0]), matchValue[4], tree_union(comparer, matchValue[8], patternInput_1[2]));
+        return tree_balance(comparer, tree_union(comparer, matchValue[7], patternInput_1[0]),
+          matchValue[4], tree_union(comparer, matchValue[8], patternInput_1[2]));
       }
 
     case 1:
@@ -405,7 +411,7 @@ function tree_union(comparer: IComparer<any>, t1: SetTree, t2: SetTree): SetTree
       return tree_add(comparer, matchValue[1], matchValue[2]);
   }
 
-  throw new Error("internal error: Set.tree_union")
+  throw new Error("internal error: Set.tree_union");
 }
 
 function tree_intersectionAux(comparer: IComparer<any>, b: SetTree, m: SetTree, acc: SetTree): SetTree {
@@ -434,12 +440,12 @@ function tree_intersection(comparer: IComparer<any>, a: SetTree, b: SetTree) {
   return tree_intersectionAux(comparer, b, a, new SetTree(0));
 }
 
-function tree_partition1(comparer: IComparer<any>, f: (x:any)=>boolean, k: any, acc1: SetTree, acc2: SetTree): [SetTree, SetTree] {
+function tree_partition1(comparer: IComparer<any>, f: (x: any) => boolean, k: any, acc1: SetTree, acc2: SetTree): [SetTree, SetTree] {
   return f(k) ? [tree_add(comparer, k, acc1), acc2] : [acc1, tree_add(comparer, k, acc2)];
 }
 
-function tree_partitionAux(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree, acc_0: SetTree, acc_1: SetTree): [SetTree, SetTree] {
-  var acc = <[SetTree,SetTree]>[acc_0, acc_1];
+function tree_partitionAux(comparer: IComparer<any>, f: (x: any) => boolean, s: SetTree, acc_0: SetTree, acc_1: SetTree): [SetTree, SetTree] {
+  const acc = [acc_0, acc_1] as [SetTree, SetTree];
   if (s.tag === 1) {
     return tree_partition1(comparer, f, s.data[0], acc[0], acc[1]);
   } else if (s.tag === 0) {
@@ -451,7 +457,7 @@ function tree_partitionAux(comparer: IComparer<any>, f: (x:any)=>boolean, s: Set
   }
 }
 
-function tree_partition(comparer: IComparer<any>, f: (x:any)=>boolean, s: SetTree) {
+function tree_partition(comparer: IComparer<any>, f: (x: any) => boolean, s: SetTree) {
   return tree_partitionAux(comparer, f, s, new SetTree(0), new SetTree(0));
 }
 
@@ -476,7 +482,7 @@ function tree_maximumElementOpt(s: SetTree): any {
 }
 
 function tree_minimumElement(s: SetTree): any {
-  var matchValue = tree_minimumElementOpt(s);
+  const matchValue = tree_minimumElementOpt(s);
   if (matchValue == null) {
     throw new Error("Set contains no elements");
   } else {
@@ -485,7 +491,7 @@ function tree_minimumElement(s: SetTree): any {
 }
 
 function tree_maximumElement(s: SetTree) {
-  var matchValue = tree_maximumElementOpt(s);
+  const matchValue = tree_maximumElementOpt(s);
   if (matchValue == null) {
     throw new Error("Set contains no elements");
   } else {
@@ -513,7 +519,7 @@ function tree_collapseLHS(stack: List<SetTree>): List<SetTree> {
 
 function tree_mkIterator(s: SetTree): SetIterator {
   return { stack: tree_collapseLHS(new List<SetTree>(s, new List<SetTree>())), started: false };
-};
+}
 
 // function tree_notStarted() {
 //   throw new Error("Enumeration not started");
@@ -524,12 +530,11 @@ function tree_mkIterator(s: SetTree): SetIterator {
 // };
 
 function tree_moveNext(i: SetIterator): IteratorResult<any> {
-  function current(i: SetIterator): any {
-    if (i.stack.tail == null) {
+  function current(it: SetIterator): any {
+    if (it.stack.tail == null) {
       return null;
-    }
-    else if (i.stack.head.tag === 1) {
-      return i.stack.head.data[0];
+    } else if (it.stack.head.tag === 1) {
+      return it.stack.head.data[0];
     }
     throw new Error("Please report error: Set iterator, unexpected stack for current");
   }
@@ -541,20 +546,19 @@ function tree_moveNext(i: SetIterator): IteratorResult<any> {
         i.stack = tree_collapseLHS(i.stack.tail);
         return {
           done: i.stack.tail == null,
-          value: current(i)
+          value: current(i),
         };
       } else {
         throw new Error("Please report error: Set iterator, unexpected stack for moveNext");
       }
     }
-  }
-  else {
+  } else {
     i.started = true;
     return {
       done: i.stack.tail == null,
-      value: current(i)
+      value: current(i),
     };
-  };
+  }
 }
 
 function tree_compareStacks(comparer: IComparer<any>, l1: List<SetTree>, l2: List<SetTree>): number {
@@ -670,7 +674,7 @@ function tree_mkFromEnumerator(comparer: IComparer<any>, acc: SetTree, e: Iterat
 }
 
 function tree_ofSeq(comparer: IComparer<any>, c: Iterable<any>) {
-  var ie = c[Symbol.iterator]();
+  const ie = c[Symbol.iterator]();
   return tree_mkFromEnumerator(comparer, new SetTree(0), ie);
 }
 
@@ -680,43 +684,43 @@ export default class FableSet<T> implements IEquatable<FableSet<T>>, IComparable
   public comparer: IComparer<T>;
 
   /** Do not call, use Set.create instead. */
-  constructor () {}
+  constructor() { return; }
 
-  ToString() {
-    return "set [" + Array.from(this).map(x => toString(x)).join("; ") + "]";
+  public ToString() {
+    return "set [" + Array.from(this).map((x) => toString(x)).join("; ") + "]";
   }
 
-  Equals(s2: FableSet<T>) {
+  public Equals(s2: FableSet<T>) {
     return this.CompareTo(s2) === 0;
   }
 
-  CompareTo(s2: FableSet<T>) {
+  public CompareTo(s2: FableSet<T>) {
     return this === s2 ? 0 : tree_compare(this.comparer, this.tree, s2.tree);
   }
 
-  [Symbol.iterator](): Iterator<T> {
-    let i = tree_mkIterator(this.tree);
-    return <Iterator<T>>{
-      next: () => tree_moveNext(i)
-    };
+  public [Symbol.iterator](): Iterator<T> {
+    const i = tree_mkIterator(this.tree);
+    return {
+      next: () => tree_moveNext(i),
+    } as Iterator<T>;
   }
 
-  values() {
+  public values() {
     return this[Symbol.iterator]();
   }
 
-  has(v: T) {
+  public has(v: T) {
     return tree_mem(this.comparer, v, this.tree);
   }
 
   /** Mutating method */
-  add(v: T): FableSet<T> {
+  public add(v: T): FableSet<T> {
     this.tree = tree_add(this.comparer, v, this.tree);
     return this;
   }
 
   /** Mutating method */
-  delete(v: T): boolean {
+  public delete(v: T): boolean {
     // TODO: Is calculating the size twice is more performant than calling tree_mem?
     const oldSize = tree_count(this.tree);
     this.tree = tree_remove(this.comparer, v, this.tree);
@@ -724,7 +728,7 @@ export default class FableSet<T> implements IEquatable<FableSet<T>>, IComparable
   }
 
   /** Mutating method */
-  clear(): void {
+  public clear(): void {
     this.tree = new SetTree(0);
   }
 
@@ -732,17 +736,17 @@ export default class FableSet<T> implements IEquatable<FableSet<T>>, IComparable
     return tree_count(this.tree);
   }
 
-  [FSymbol.reflection]() {
+  public [FSymbol.reflection]() {
     return {
       type: "Microsoft.FSharp.Collections.FSharpSet",
-      interfaces: ["System.IEquatable", "System.IComparable"]
-    }
+      interfaces: ["System.IEquatable", "System.IComparable"],
+    };
   }
 }
 
 function from<T>(comparer: IComparer<T>, tree: SetTree) {
-  let s = new FableSet<T>();
-  s.tree = tree
+  const s = new FableSet<T>();
+  s.tree = tree;
   s.comparer = comparer || new Comparer<T>();
   return s;
 }
@@ -781,13 +785,13 @@ export function op_Addition<T>(set1: FableSet<T>, set2: FableSet<T>) {
 }
 
 export function unionInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
-  seqIterate(function (x) { set1.add(x) }, set2);
+  seqIterate((x) => { set1.add(x); }, set2);
 }
 
 export function unionMany<T>(sets: Iterable<FableSet<T>>) {
   // Pass args as union(s, acc) instead of union(acc, s)
   // to discard the comparer of the first empty set
-  return seqFold((acc, s) => <FableSet<T>>union(s, acc), create<T>(), sets);
+  return seqFold((acc, s) => union(s, acc) as FableSet<T>, create<T>(), sets);
 }
 
 export function difference<T>(set1: FableSet<T>, set2: FableSet<T>) {
@@ -803,7 +807,7 @@ export function op_Subtraction<T>(set1: FableSet<T>, set2: FableSet<T>) {
 }
 
 export function differenceInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
-  seqIterate(function (x) { set1.delete(x) }, set2);
+  seqIterate((x) => { set1.delete(x); }, set2);
 }
 
 export function intersect<T>(set1: FableSet<T>, set2: FableSet<T>) {
@@ -816,20 +820,19 @@ export function intersect<T>(set1: FableSet<T>, set2: FableSet<T>) {
 
 export function intersectInPlace<T>(set1: Set<T>, set2: Iterable<T>) {
   const set2_ = set2 instanceof Set ? set2 : new Set(set2);
-  seqIterate(function (x) { if (!set2_.has(x)) { set1.delete(x); } }, set1);
+  seqIterate((x) => { if (!set2_.has(x)) { set1.delete(x); } }, set1);
 }
 
 export function intersectMany<T>(sets: Iterable<FableSet<T>>) {
-  return seqReduce((s1, s2) => <FableSet<T>>intersect(s1, s2), sets);
+  return seqReduce((s1, s2) => intersect(s1, s2) as FableSet<T>, sets);
 }
 
 export function isProperSubsetOf<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
   if (set1 instanceof FableSet && set2 instanceof FableSet) {
     return tree_psubset(set1.comparer, set1.tree, (set2 as FableSet<T>).tree);
-  }
-  else {
+  } else {
     set2 = set2 instanceof Set ? set2 : new Set(set2);
-    return seqForAll(x => set2.has(x), set1) && seqExists(x => !set1.has(x), set2);
+    return seqForAll((x) => set2.has(x), set1) && seqExists((x) => !set1.has(x), set2);
   }
 }
 
@@ -840,10 +843,9 @@ export function isProperSubset<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> 
 export function isSubsetOf<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
   if (set1 instanceof FableSet && set2 instanceof FableSet) {
     return tree_subset(set1.comparer, set1.tree, (set2 as FableSet<T>).tree);
-  }
-  else {
+  } else {
     set2 = set2 instanceof Set ? set2 : new Set(set2);
-    return seqForAll(x => set2.has(x), set1);
+    return seqForAll((x) => set2.has(x), set1);
   }
 }
 
@@ -854,8 +856,7 @@ export function isSubset<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<
 export function isProperSupersetOf<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
   if (set1 instanceof FableSet && set2 instanceof FableSet) {
     return tree_psubset(set1.comparer, (set2 as FableSet<T>).tree, set1.tree);
-  }
-  else {
+  } else {
     return isProperSubset(set2 instanceof Set ? set2 : new Set(set2), set1);
   }
 }
@@ -867,8 +868,7 @@ export function isProperSuperset<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T
 export function isSupersetOf<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Set<T>) {
   if (set1 instanceof FableSet && set2 instanceof FableSet) {
     return tree_subset(set1.comparer, set2.tree, set1.tree);
-  }
-  else {
+  } else {
     return isSubset(set2 instanceof Set ? set2 : new Set(set2), set1);
   }
 }
@@ -878,24 +878,24 @@ export function isSuperset<T>(set1: FableSet<T> | Set<T>, set2: FableSet<T> | Se
 }
 
 export function copyTo<T>(xs: FableSet<T> | Set<T>, arr: ArrayLike<T>, arrayIndex?: number, count?: number) {
-  if (!Array.isArray(arr) && !ArrayBuffer.isView(arr))
+  if (!Array.isArray(arr) && !ArrayBuffer.isView(arr)) {
     throw new Error("Array is invalid");
+  }
 
-count = count || arr.length;
+  count = count || arr.length;
   let i = arrayIndex || 0;
   const iter = xs[Symbol.iterator]();
   while (count--) {
     const el = iter.next();
-    if (el.done) break;
+    if (el.done) { break; }
     (arr as any)[i++] = el.value;
   }
 }
 
-export function partition<T>(f: (x: T) => boolean, s: FableSet<T>): [FableSet<T>,FableSet<T>] {
+export function partition<T>(f: (x: T) => boolean, s: FableSet<T>): [FableSet<T>, FableSet<T>] {
   if (s.tree.tag === 0) {
-    return [s,s];
-  }
-  else {
+    return [s, s];
+  } else {
     const tuple = tree_partition(s.comparer, f, s.tree);
     return [from(s.comparer, tuple[0]), from(s.comparer, tuple[1])];
   }
@@ -904,13 +904,12 @@ export function partition<T>(f: (x: T) => boolean, s: FableSet<T>): [FableSet<T>
 export function filter<T>(f: (x: T) => boolean, s: FableSet<T>): FableSet<T> {
   if (s.tree.tag === 0) {
     return s;
-  }
-  else {
+  } else {
     return from(s.comparer, tree_filter(s.comparer, f, s.tree));
   }
 }
 
-export function map<T,U>(f: (x: T) => U, s: FableSet<T>): FableSet<U> {
+export function map<T, U>(f: (x: T) => U, s: FableSet<T>): FableSet<U> {
   const comparer = new Comparer<U>();
   return from(comparer, tree_fold((acc, k) => tree_add(comparer, f(k), acc), new SetTree(0), s.tree));
 }
@@ -923,11 +922,11 @@ export function forAll<T>(f: (x: T) => boolean, s: FableSet<T>): boolean {
   return tree_forall(f, s.tree);
 }
 
-export function fold<T,U>(f: (acc: U, x: T) => U, seed: U, s: FableSet<T>): U {
+export function fold<T, U>(f: (acc: U, x: T) => U, seed: U, s: FableSet<T>): U {
   return tree_fold(f, seed, s.tree);
 }
 
-export function foldBack<T,U>(f: (x: T, acc: U) => U, s: FableSet<T>, seed: U): U {
+export function foldBack<T, U>(f: (x: T, acc: U) => U, s: FableSet<T>, seed: U): U {
   return tree_foldBack(f, s.tree, seed);
 }
 

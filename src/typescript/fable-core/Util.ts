@@ -1,4 +1,4 @@
-import FSymbol from "./Symbol"
+import FSymbol from "./Symbol";
 
 export interface IComparer<T> {
   Compare(x: T, y: T): number;
@@ -23,10 +23,10 @@ export interface IDisposable {
 
 export type NonDeclaredTypeKind =
   | "Any" | "Unit" | "Option" | "Array" | "Tuple" | "Function"
-  | "GenericParam" | "GenericType" | "Interface"
+  | "GenericParam" | "GenericType" | "Interface";
 
 export type Type = string | NonDeclaredType | FunctionConstructor;
-export type Dic<T> = {[key: string]: T}
+export interface Dic<T> { [key: string]: T; }
 
 export class NonDeclaredType implements IEquatable<NonDeclaredType> {
   public kind: NonDeclaredTypeKind;
@@ -39,7 +39,7 @@ export class NonDeclaredType implements IEquatable<NonDeclaredType> {
     this.generics = generics;
   }
 
-  Equals(other: NonDeclaredType) {
+  public Equals(other: NonDeclaredType) {
     if (this.kind === other.kind && this.definition === other.definition) {
       return typeof this.generics === "object"
         // equalsRecords should also work for Type[] (tuples)
@@ -59,16 +59,16 @@ export function Option(t: Type) {
 }
 
 function FableArray(t: Type, isTypedArray = false) {
-  let def: Type = null, genArg: Type = null;
+  let def: Type = null;
+  let genArg: Type = null;
   if (isTypedArray) {
     def = t;
-  }
-  else {
+  } else {
     genArg = t;
   }
   return new NonDeclaredType("Array", def, [genArg]) as NonDeclaredType;
 }
-export { FableArray as Array }
+export { FableArray as Array };
 
 export function Tuple(types: Type[]) {
   return new NonDeclaredType("Tuple", null, types) as NonDeclaredType;
@@ -77,7 +77,7 @@ export function Tuple(types: Type[]) {
 function FableFunction(types: Type[]) {
   return new NonDeclaredType("Function", null, types) as NonDeclaredType;
 }
-export { FableFunction as Function }
+export { FableFunction as Function };
 
 export function GenericParam(definition: string) {
   return new NonDeclaredType("GenericParam", definition);
@@ -98,7 +98,7 @@ export function isGeneric(typ: any): boolean {
 /**
  * Returns the parent if this is a declared generic type or the argument otherwise.
  * Attention: Unlike .NET this doesn't throw an exception if type is not generic.
-*/
+ */
 export function getDefinition(typ: any): any {
   return isGeneric(typ) ? typ.definition : typ;
 }
@@ -106,15 +106,15 @@ export function getDefinition(typ: any): any {
 export function extendInfo(cons: FunctionConstructor, info: any) {
   const parent: any = Object.getPrototypeOf(cons.prototype);
   if (typeof parent[FSymbol.reflection] === "function") {
-    const newInfo: any = {}, parentInfo = parent[FSymbol.reflection]();
-    Object.getOwnPropertyNames(info).forEach(k => {
+    const newInfo: any = {};
+    const parentInfo = parent[FSymbol.reflection]();
+    Object.getOwnPropertyNames(info).forEach((k) => {
       const i = info[k];
       if (typeof i === "object") {
         newInfo[k] = Array.isArray(i)
-          ? (parentInfo[k] || []).concat(i)
+          ? (parentInfo[k] || []).concat(i)
           : Object.assign(parentInfo[k] || {}, i);
-      }
-      else {
+      } else {
         newInfo[k] = i;
       }
     });
@@ -126,8 +126,7 @@ export function extendInfo(cons: FunctionConstructor, info: any) {
 export function hasInterface(obj: any, interfaceName: string) {
   if (interfaceName === "System.Collections.Generic.IEnumerable") {
     return typeof obj[Symbol.iterator] === "function";
-  }
-  else if (typeof obj[FSymbol.reflection] === "function") {
+  } else if (typeof obj[FSymbol.reflection] === "function") {
     const interfaces = obj[FSymbol.reflection]().interfaces;
     return Array.isArray(interfaces) && interfaces.indexOf(interfaceName) > -1;
   }
@@ -155,7 +154,8 @@ export function isArray(obj: any) {
 
 export function toString(obj: any, quoteStrings = false): string {
   function isObject(x: any) {
-    return x !== null && typeof x === "object" && !(x instanceof Number) && !(x instanceof String) && !(x instanceof Boolean);
+    return x !== null && typeof x === "object" && !(x instanceof Number)
+      && !(x instanceof String) && !(x instanceof Boolean);
   }
   if (obj == null || typeof obj === "number") {
     return String(obj);
@@ -163,7 +163,7 @@ export function toString(obj: any, quoteStrings = false): string {
   if (typeof obj === "string") {
     return quoteStrings ? JSON.stringify(obj) : obj;
   }
-  if (typeof obj.ToString == "function") {
+  if (typeof obj.ToString === "function") {
     return obj.ToString();
   }
   if (hasInterface(obj, "FSharpUnion")) {
@@ -180,24 +180,24 @@ export function toString(obj: any, quoteStrings = false): string {
     }
   }
   try {
-      return JSON.stringify(obj, function (k, v) {
-        return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v)
-          : v && typeof v.ToString === "function" ? toString(v) : v;
-      });
-  }
-  catch (err) {
+    return JSON.stringify(obj, (k, v) => {
+      return v && v[Symbol.iterator] && !Array.isArray(v) && isObject(v) ? Array.from(v)
+        : v && typeof v.ToString === "function" ? toString(v) : v;
+    });
+  } catch (err) {
     // Fallback for objects with circular references
-    return "{" + Object.getOwnPropertyNames(obj).map(k => k + ": " + String(obj[k])).join(", ") + "}";
+    return "{" + Object.getOwnPropertyNames(obj).map((k) => k + ": " + String(obj[k])).join(", ") + "}";
   }
 }
 
 export function hash(x: any): number {
-  if (x != null && typeof x.GetHashCode == "function") {
+  if (x != null && typeof x.GetHashCode === "function") {
     return x.GetHashCode();
-  }
-  else {
-    let s = JSON.stringify(x);
-    let h = 5381, i = 0, len = s.length;
+  } else {
+    const s = JSON.stringify(x);
+    let h = 5381;
+    let i = 0;
+    const len = s.length;
     while (i < len) { h = (h * 33) ^ s.charCodeAt(i++); }
     return h;
   }
@@ -205,34 +205,36 @@ export function hash(x: any): number {
 
 export function equals(x: any, y: any): boolean {
   // Optimization if they are referencially equal
-  if (x === y)
+  if (x === y) {
     return true;
-  else if (x == null) // Return true if both are null or undefined
+  } else if (x == null) { // Return true if both are null or undefined
     return y == null;
-  else if (y == null)
+  } else if (y == null) {
     return false;
-  else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
+  } else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y)) {
     return false;
-  // Equals override or IEquatable implementation
-  else if (typeof x.Equals === "function")
+    // Equals override or IEquatable implementation
+  } else if (typeof x.Equals === "function") {
     return x.Equals(y);
-  else if (Array.isArray(x)) {
-    if (x.length != y.length) return false;
-    for (let i = 0; i < x.length; i++)
-      if (!equals(x[i], y[i])) return false;
+  } else if (Array.isArray(x)) {
+    if (x.length !== y.length) { return false; }
+    for (let i = 0; i < x.length; i++) {
+      if (!equals(x[i], y[i])) { return false; }
+    }
     return true;
-  }
-  else if (ArrayBuffer.isView(x)) {
-    if (x.byteLength !== y.byteLength) return false;
-    const dv1 = new DataView(x.buffer), dv2 = new DataView(y.buffer);
-    for (let i = 0; i < x.byteLength; i++)
-      if (dv1.getUint8(i) !== dv2.getUint8(i)) return false;
+  } else if (ArrayBuffer.isView(x)) {
+    if (x.byteLength !== y.byteLength) { return false; }
+    const dv1 = new DataView(x.buffer);
+    const dv2 = new DataView(y.buffer);
+    for (let i = 0; i < x.byteLength; i++) {
+      if (dv1.getUint8(i) !== dv2.getUint8(i)) { return false; }
+    }
     return true;
-  }
-  else if (x instanceof Date)
+  } else if (x instanceof Date) {
     return x.getTime() === y.getTime();
-  else
+  } else {
     return false;
+  }
 }
 
 export function comparePrimitives(x: any, y: any): number {
@@ -241,62 +243,62 @@ export function comparePrimitives(x: any, y: any): number {
 
 export function compare(x: any, y: any): number {
   // Optimization if they are referencially equal
-  if (x === y)
+  if (x === y) {
     return 0;
-  if (x == null) // Return 0 if both are null or undefined
+  } else if (x == null) { // Return 0 if both are null or undefined
     return y == null ? 0 : -1;
-  else if (y == null)
+  } else if (y == null) {
     return 1; // everything is bigger than null
-  else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))
+  } else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y)) {
     return -1;
-  // Some types (see Long.ts) may just implement the function and not the interface
-  // else if (hasInterface(x, "System.IComparable"))
-  else if (typeof x.CompareTo === "function")
+    // Some types (see Long.ts) may just implement the function and not the interface
+    // else if (hasInterface(x, "System.IComparable"))
+  } else if (typeof x.CompareTo === "function") {
     return x.CompareTo(y);
-  else if (Array.isArray(x)) {
-    if (x.length != y.length) return x.length < y.length ? -1 : 1;
-    for (let i = 0, j = 0; i < x.length; i++)
-      if ((j = compare(x[i], y[i])) !== 0)
-        return j;
+  } else if (Array.isArray(x)) {
+    if (x.length !== y.length) { return x.length < y.length ? -1 : 1; }
+    for (let i = 0, j = 0; i < x.length; i++) {
+      j = compare(x[i], y[i]);
+      if (j !== 0) { return j; }
+    }
     return 0;
-  }
-  else if (ArrayBuffer.isView(x)) {
-    if (x.byteLength != y.byteLength) return x.byteLength < y.byteLength ? -1 : 1;
-    const dv1 = new DataView(x.buffer), dv2 = new DataView(y.buffer);
+  } else if (ArrayBuffer.isView(x)) {
+    if (x.byteLength !== y.byteLength) { return x.byteLength < y.byteLength ? -1 : 1; }
+    const dv1 = new DataView(x.buffer);
+    const dv2 = new DataView(y.buffer);
     for (let i = 0, b1 = 0, b2 = 0; i < x.byteLength; i++) {
       b1 = dv1.getUint8(i), b2 = dv2.getUint8(i);
-      if (b1 < b2) return -1;
-      if (b1 > b2) return 1;
+      if (b1 < b2) { return -1; }
+      if (b1 > b2) { return 1; }
     }
     return 0;
-  }
-  else if (x instanceof Date) {
-    let xtime = x.getTime(), ytime = y.getTime();
+  } else if (x instanceof Date) {
+    const xtime = x.getTime();
+    const ytime = y.getTime();
     return xtime === ytime ? 0 : (xtime < ytime ? -1 : 1);
-  }
-  else if (typeof x === "object") {
-    let xhash = hash(x), yhash = hash(y);
+  } else if (typeof x === "object") {
+    const xhash = hash(x);
+    const yhash = hash(y);
     if (xhash === yhash) {
       return equals(x, y) ? 0 : -1;
-    }
-    else {
+    } else {
       return xhash < yhash ? -1 : 1;
     }
-  }
-  else
+  } else {
     return x < y ? -1 : 1;
+  }
 }
 
 export function equalsRecords(x: any, y: any): boolean {
   // Optimization if they are referencially equal
   if (x === y) {
     return true;
-  }
-  else {
+  } else {
     const keys = getPropertyNames(x);
-    for (let i=0; i<keys.length; i++) {
-      if (!equals(x[keys[i]], y[keys[i]]))
+    for (const key of keys) {
+      if (!equals(x[key], y[key])) {
         return false;
+      }
     }
     return true;
   }
@@ -306,13 +308,13 @@ export function compareRecords(x: any, y: any): number {
   // Optimization if they are referencially equal
   if (x === y) {
     return 0;
-  }
-  else {
+  } else {
     const keys = getPropertyNames(x);
-    for (let i=0; i<keys.length; i++) {
-      let res = compare(x[keys[i]], y[keys[i]]);
-      if (res !== 0)
+    for (const key of keys) {
+      const res = compare(x[key], y[key]);
+      if (res !== 0) {
         return res;
+      }
     }
     return 0;
   }
@@ -325,9 +327,8 @@ export function equalsUnions(x: any, y: any): boolean {
 export function compareUnions(x: any, y: any): number {
   if (x === y) {
     return 0;
-  }
-  else {
-    let res = x.tag < y.tag ? -1 : (x.tag > y.tag ? 1 : 0);
+  } else {
+    const res = x.tag < y.tag ? -1 : (x.tag > y.tag ? 1 : 0);
     return res !== 0 ? res : compare(x.data, y.data);
   }
 }
@@ -335,8 +336,8 @@ export function compareUnions(x: any, y: any): number {
 export function createDisposable(f: () => void): IDisposable {
   return {
     Dispose: f,
-    [FSymbol.reflection]() { return { interfaces: ["System.IDisposable"] } }
-  }
+    [FSymbol.reflection]() { return { interfaces: ["System.IDisposable"] }; },
+  };
 }
 
 const CaseRules = {
@@ -346,31 +347,32 @@ const CaseRules = {
 
 export function createObj(fields: Iterable<[string, any]>, caseRule = CaseRules.None) {
   const iter = fields[Symbol.iterator]();
-  let cur = iter.next(), o: any = {}, casesCache: Map<FunctionConstructor,Array<any>> = null;
+  let cur = iter.next();
+  const o: any = {};
+  let casesCache: Map<FunctionConstructor, any[]> = null;
   while (!cur.done) {
-    let value: any = cur.value;
+    const value: any = cur.value;
     if (Array.isArray(value)) {
       o[value[0]] = value[1];
-    }
-    else {
+    } else {
       casesCache = casesCache || new Map();
-      let proto = Object.getPrototypeOf(value);
-      let cases = casesCache.get(proto), caseInfo: any = null;
+      const proto = Object.getPrototypeOf(value);
+      let cases = casesCache.get(proto);
       if (cases == null) {
         if (typeof proto[FSymbol.reflection] === "function") {
           cases = proto[FSymbol.reflection]().cases;
           casesCache.set(proto, cases);
         }
       }
-      if (cases != null && Array.isArray(caseInfo = cases[value.tag])) {
+      const caseInfo = (cases != null) ? cases[value.tag] : null;
+      if (cases != null && Array.isArray(caseInfo)) {
         let key = caseInfo[0];
         if (caseRule === CaseRules.LowerFirst) {
-          key = key[0].toLowerCase() + key.substr(1)
+          key = key[0].toLowerCase() + key.substr(1);
         }
         o[key] = caseInfo.length === 1 ? true : value.data;
-      }
-      else {
-        throw new Error("Cannot infer key and value of " + value)
+      } else {
+        throw new Error("Cannot infer key and value of " + value);
       }
     }
     cur = iter.next();
@@ -379,52 +381,51 @@ export function createObj(fields: Iterable<[string, any]>, caseRule = CaseRules.
 }
 
 export function toPlainJsObj(source: any) {
-  if (source != null && source.constructor != Object) {
-    let target: { [index: string]: string } = {};
+  if (source != null && source.constructor !== Object) {
+    const target: { [index: string]: string } = {};
     let props = Object.getOwnPropertyNames(source);
-    for (let i = 0; i < props.length; i++) {
-      target[props[i]] = source[props[i]];
+    for (const p of props) {
+      target[p] = source[p];
     }
     // Copy also properties from prototype, see #192
     const proto = Object.getPrototypeOf(source);
     if (proto != null) {
       props = Object.getOwnPropertyNames(proto);
-      for (let i = 0; i < props.length; i++) {
-        const prop = Object.getOwnPropertyDescriptor(proto, props[i]);
+      for (const p of props) {
+        const prop = Object.getOwnPropertyDescriptor(proto, p);
         if (prop.value) {
-          target[props[i]] = prop.value;
-        }
-        else if (prop.get) {
-          target[props[i]] = prop.get.apply(source);
+          target[p] = prop.value;
+        } else if (prop.get) {
+          target[p] = prop.get.apply(source);
         }
       }
     }
     return target;
-  }
-  else {
+  } else {
     return source;
   }
 }
 
-export function round(value : number, digits: number = 0) {
-    const m = Math.pow(10, digits);
-    const n = +(digits ? value * m : value).toFixed(8);
-    const i = Math.floor(n), f = n - i;
-    const e = 1e-8;
-    const r = (f > 0.5 - e && f < 0.5 + e) ? ((i % 2 == 0) ? i : i + 1) : Math.round(n);
-    return digits ? r / m : r;
+export function round(value: number, digits: number = 0) {
+  const m = Math.pow(10, digits);
+  const n = +(digits ? value * m : value).toFixed(8);
+  const i = Math.floor(n);
+  const f = n - i;
+  const e = 1e-8;
+  const r = (f > 0.5 - e && f < 0.5 + e) ? ((i % 2 === 0) ? i : i + 1) : Math.round(n);
+  return digits ? r / m : r;
 }
 
 export function randomNext(min: number, max: number) {
   return Math.floor(Math.random() * (max - min)) + min;
 }
 
-export function defaultArg<T,U>(arg: T, defaultValue: T, f?: (x:T)=>U) {
+export function defaultArg<T, U>(arg: T, defaultValue: T, f?: (x: T) => U) {
   return arg == null ? defaultValue : (f != null ? f(arg) : arg);
 }
 
 export function applyOperator(x: any, y: any, operator: string): any {
-  function getMethod(obj: any): Function {
+  function getMethod(obj: any): (...args: any[]) => any {
     if (typeof obj === "object") {
       const cons = Object.getPrototypeOf(obj).constructor;
       if (typeof cons[operator] === "function") {
@@ -478,11 +479,9 @@ export function applyOperator(x: any, y: any, operator: string): any {
   }
 }
 
-
 export function parseNumber(v: string): number {
   return +v;
 }
-
 
 export function tryParse<A>(v: string | null, initial: A, parser: RegExp, fn: (s: string) => A): [boolean, A] {
   if (v != null) {
@@ -495,7 +494,6 @@ export function tryParse<A>(v: string | null, initial: A, parser: RegExp, fn: (s
 
   return [false, initial];
 }
-
 
 export function parse<A>(v: string | null, initial: A, parser: RegExp, fn: (s: string) => A): A {
   const a = tryParse(v, initial, parser, fn);

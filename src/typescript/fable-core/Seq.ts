@@ -1,14 +1,14 @@
-import { IDisposable } from "./Util"
-import { equals } from "./Util"
-import { compare, hasInterface } from "./Util"
-import { permute as arrayPermute } from "./Array"
-import { chunkBySize as arrayChunkBySize } from "./Array"
-import List from "./ListClass"
+import { permute as arrayPermute } from "./Array";
+import { chunkBySize as arrayChunkBySize } from "./Array";
+import List from "./ListClass";
+import { IDisposable } from "./Util";
+import { equals } from "./Util";
+import { compare, hasInterface } from "./Util";
 
 export class Enumerator<T> {
   private current: T;
   constructor(private iter: Iterator<T>) { }
-  MoveNext() {
+  public MoveNext() {
     const cur = this.iter.next();
     this.current = cur.value;
     return !cur.done;
@@ -16,10 +16,10 @@ export class Enumerator<T> {
   get Current() {
     return this.current;
   }
-  Reset() {
+  public Reset() {
     throw new Error("JS iterators cannot be reset");
   }
-  Dispose() { }
+  public Dispose() { return; }
 }
 
 export function getEnumerator<T>(o: any): Enumerator<T> {
@@ -32,14 +32,15 @@ export function toIterator<T>(en: Enumerator<T>): Iterator<T> {
     next() {
       return en.MoveNext()
         ? { done: false, value: en.Current }
-        : { done: true, value: null }
-    }
-  }
+        : { done: true, value: null };
+    },
+  };
 }
 
 function __failIfNone<T>(res: T) {
-  if (res == null)
+  if (res == null) {
     throw new Error("Seq did not contain any matching element");
+  }
   return res;
 }
 
@@ -49,18 +50,18 @@ export function toList<T>(xs: Iterable<T>) {
 }
 
 export function ofList<T>(xs: List<T>) {
-  return delay(() => unfold(x => x.tail != null ? [x.head, x.tail] : null, xs));
+  return delay(() => unfold((x) => x.tail != null ? [x.head, x.tail] : null, xs));
 }
 
 export function ofArray<T>(xs: ArrayLike<T>) {
-  return delay(() => unfold(i => i < xs.length ? [xs[i], i + 1] : null, 0));
+  return delay(() => unfold((i) => i < xs.length ? [xs[i], i + 1] : null, 0));
 }
 
 export function append<T>(xs: Iterable<T>, ys: Iterable<T>) {
   return delay(() => {
     let firstDone = false;
-    let i = xs[Symbol.iterator]();
-    let iters = [i, <Iterator<T>>null];
+    const i = xs[Symbol.iterator]();
+    let iters = [i, null as Iterator<T>];
     return unfold(() => {
       let cur: IteratorResult<T>;
       if (!firstDone) {
@@ -69,7 +70,7 @@ export function append<T>(xs: Iterable<T>, ys: Iterable<T>) {
           return [cur.value, iters];
         } else {
           firstDone = true;
-          iters = [<Iterator<T>>null, ys[Symbol.iterator]()];
+          iters = [null as Iterator<T>, ys[Symbol.iterator]()];
         }
       }
       cur = iters[1].next();
@@ -87,7 +88,6 @@ export function average(xs: Iterable<number>) {
   return sum / count;
 }
 
-
 export function averageBy(f: (a: number) => number, xs: Iterable<number>) {
   let count = 1;
   const sum = reduce((acc: number, x: number) => {
@@ -99,20 +99,20 @@ export function averageBy(f: (a: number) => number, xs: Iterable<number>) {
 
 export function concat<T>(xs: Iterable<Iterable<T>>) {
   return delay(() => {
-    let iter = xs[Symbol.iterator]();
-    let output : any = { value: null } ;
-    return unfold(innerIter => {
+    const iter = xs[Symbol.iterator]();
+    let output: any = { value: null };
+    return unfold((innerIter) => {
       let hasFinished = false;
       while (!hasFinished) {
         if (innerIter == null) {
-          let cur = iter.next();
+          const cur = iter.next();
           if (!cur.done) {
             innerIter = cur.value[Symbol.iterator]();
           } else {
             hasFinished = true;
           }
         } else {
-          let cur = innerIter.next();
+          const cur = innerIter.next();
           if (!cur.done) {
             output = { value: cur.value };
             hasFinished = true;
@@ -140,23 +140,23 @@ export function choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
     return void 0;
   };
   return delay(() =>
-    unfold(iter =>
+    unfold((iter) =>
       trySkipToNext(iter), xs[Symbol.iterator]()));
 }
 
 export function compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: Iterable<T>) {
-  let nonZero = tryFind((i: number) => i != 0, map2((x: T, y: T) => f(x, y), xs, ys));
+  const nonZero = tryFind((i: number) => i !== 0, map2((x: T, y: T) => f(x, y), xs, ys));
   return nonZero != null ? nonZero : count(xs) - count(ys);
 }
 
 export function delay<T>(f: () => Iterable<T>) {
-  return <Iterable<T>>{
-    [Symbol.iterator]: () => f()[Symbol.iterator]()
-  };
+  return {
+    [Symbol.iterator]: () => f()[Symbol.iterator](),
+  } as Iterable<T>;
 }
 
 export function empty<T>() {
-  return unfold((): [T, T] => { return void 0; });
+  return unfold((): [T, T] => void 0);
 }
 
 export function enumerateWhile<T>(cond: () => boolean, xs: Iterable<T>) {
@@ -173,10 +173,10 @@ export function enumerateThenFinally<T>(xs: Iterable<T>, finalFn: () => void) {
     } finally {
       finalFn();
     }
-    return unfold(iter => {
+    return unfold((it) => {
       try {
-        const cur = iter.next();
-        return !cur.done ? [cur.value, iter] : null;
+        const cur = it.next();
+        return !cur.done ? [cur.value, it] : null;
       } catch (err) {
         return void 0;
       } finally {
@@ -206,17 +206,20 @@ export function enumerateUsing<T extends IDisposable, U>(disp: T, work: (x: T) =
 export function exactlyOne<T>(xs: Iterable<T>) {
   const iter = xs[Symbol.iterator]();
   const fst = iter.next();
-  if (fst.done)
+  if (fst.done) {
     throw new Error("Seq was empty");
+  }
   const snd = iter.next();
-  if (!snd.done)
+  if (!snd.done) {
     throw new Error("Seq had multiple items");
+  }
   return fst.value;
 }
 
 export function except<T>(itemsToExclude: Iterable<T>, source: Iterable<T>) {
   const exclusionItems = Array.from(itemsToExclude);
-  const testIsNotInExclusionItems = (element: T) => !exclusionItems.some(excludedItem => equals(excludedItem, element));
+  const testIsNotInExclusionItems = (element: T) =>
+    !exclusionItems.some((excludedItem) => equals(excludedItem, element));
   return filter(testIsNotInExclusionItems, source);
 }
 
@@ -230,7 +233,8 @@ export function exists<T>(f: (x: T) => boolean, xs: Iterable<T>) {
 
 export function exists2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
   function aux(iter1: Iterator<T1>, iter2: Iterator<T2>): boolean {
-    const cur1 = iter1.next(), cur2 = iter2.next();
+    const cur1 = iter1.next();
+    const cur2 = iter2.next();
     return !cur1.done && !cur2.done && (f(cur1.value, cur2.value) || aux(iter1, iter2));
   }
   return aux(xs[Symbol.iterator](), ys[Symbol.iterator]());
@@ -240,7 +244,7 @@ export function filter<T>(f: (x: T) => boolean, xs: Iterable<T>) {
   function trySkipToNext(iter: Iterator<T>): [T, Iterator<T>] {
     let cur = iter.next();
     while (!cur.done) {
-      if (f(cur.value)) { return [cur.value, iter]; }
+      if (f(cur.value)) { return [cur.value, iter]; }
       cur = iter.next();
     }
     return void 0;
@@ -254,13 +258,12 @@ export function where<T>(f: (x: T) => boolean, xs: Iterable<T>) {
 
 export function fold<T, ST>(f: (acc: ST, x: T, i?: number) => ST, acc: ST, xs: Iterable<T>) {
   if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
-    return (xs as Array<T>).reduce(f, acc);
+    return (xs as T[]).reduce(f, acc);
   } else {
     let cur: IteratorResult<T>;
     for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
       cur = iter.next();
-      if (cur.done)
-        break;
+      if (cur.done) { break; }
       acc = f(acc, cur.value, i);
     }
     return acc;
@@ -268,16 +271,19 @@ export function fold<T, ST>(f: (acc: ST, x: T, i?: number) => ST, acc: ST, xs: I
 }
 
 export function foldBack<T, ST>(f: (x: T, acc: ST, i?: number) => ST, xs: Iterable<T>, acc: ST) {
-  const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as Array<T> : Array.from(xs);
+  const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as T[] : Array.from(xs);
   for (let i = arr.length - 1; i >= 0; i--) {
     acc = f(arr[i], acc, i);
   }
   return acc;
 }
 
-export function fold2<T1, T2, ST>(f: (acc: ST, x: T1, y: T2, i?: number) => ST, acc: ST, xs: Iterable<T1>, ys: Iterable<T2>) {
-  const iter1 = xs[Symbol.iterator](), iter2 = ys[Symbol.iterator]();
-  let cur1: IteratorResult<T1>, cur2: IteratorResult<T2>;
+export function fold2<T1, T2, ST>(
+  f: (acc: ST, x: T1, y: T2, i?: number) => ST, acc: ST, xs: Iterable<T1>, ys: Iterable<T2>) {
+  const iter1 = xs[Symbol.iterator]();
+  const iter2 = ys[Symbol.iterator]();
+  let cur1: IteratorResult<T1>;
+  let cur2: IteratorResult<T2>;
   for (let i = 0; ; i++) {
     cur1 = iter1.next();
     cur2 = iter2.next();
@@ -289,9 +295,10 @@ export function fold2<T1, T2, ST>(f: (acc: ST, x: T1, y: T2, i?: number) => ST, 
   return acc;
 }
 
-export function foldBack2<T1, T2, ST>(f: (x: T1, y: T2, acc: ST, i?: number) => ST, xs: Iterable<T1>, ys: Iterable<T2>, acc: ST) {
-  const ar1: Array<T1> = Array.isArray(xs) || ArrayBuffer.isView(xs) ? <Array<T1>>xs : Array.from(xs);
-  const ar2: Array<T2> = Array.isArray(ys) || ArrayBuffer.isView(ys) ? <Array<T2>>ys : Array.from(ys);
+export function foldBack2<T1, T2, ST>(
+  f: (x: T1, y: T2, acc: ST, i?: number) => ST, xs: Iterable<T1>, ys: Iterable<T2>, acc: ST) {
+  const ar1: T1[] = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as T1[] : Array.from(xs);
+  const ar2: T2[] = Array.isArray(ys) || ArrayBuffer.isView(ys) ? ys as T2[] : Array.from(ys);
   for (let i = ar1.length - 1; i >= 0; i--) {
     acc = f(ar1[i], ar2[i], acc, i);
   }
@@ -318,25 +325,29 @@ export function head<T>(xs: Iterable<T>) {
 
 export function initialize<T>(n: number, f: (i: number) => T) {
   return delay(() =>
-    unfold(i => i < n ? [f(i), i + 1] : null, 0));
+    unfold((i) => i < n ? [f(i), i + 1] : null, 0));
 }
 
 export function initializeInfinite<T>(f: (i: number) => T) {
   return delay(() =>
-    unfold(i => [f(i), i + 1], 0));
+    unfold((i) => [f(i), i + 1], 0));
 }
 
 export function tryItem<T>(i: number, xs: Iterable<T>) {
-  if (i < 0)
+  if (i < 0) {
     return null;
-  if (Array.isArray(xs) || ArrayBuffer.isView(xs))
-    return i < (<Array<T>>xs).length ? (<Array<T>>xs)[i] : null;
+  }
+  if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
+    return i < (xs as T[]).length ? (xs as T[])[i] : null;
+  }
   for (let j = 0, iter = xs[Symbol.iterator](); ; j++) {
     const cur = iter.next();
-    if (cur.done)
+    if (cur.done) {
       return null;
-    if (j === i)
+    }
+    if (j === i) {
       return cur.value;
+    }
   }
 }
 
@@ -368,8 +379,7 @@ export function isEmpty<T>(xs: Iterable<T>) {
 export function tryLast<T>(xs: Iterable<T>) {
   try {
     return reduce((_, x) => x, xs);
-  }
-  catch (err) {
+  } catch (err) {
     return null;
   }
 }
@@ -382,12 +392,12 @@ export function last<T>(xs: Iterable<T>) {
 
 export function count<T>(xs: Iterable<T>) {
   return Array.isArray(xs) || ArrayBuffer.isView(xs)
-    ? (xs as Array<T>).length
+    ? (xs as T[]).length
     : fold((acc, x) => acc + 1, 0, xs);
 }
 
 export function map<T, U>(f: (x: T) => U, xs: Iterable<T>) {
-  return delay(() => unfold(iter => {
+  return delay(() => unfold((iter) => {
     const cur = iter.next();
     return !cur.done ? [f(cur.value), iter] : null;
   }, xs[Symbol.iterator]()));
@@ -396,7 +406,7 @@ export function map<T, U>(f: (x: T) => U, xs: Iterable<T>) {
 export function mapIndexed<T, U>(f: (i: number, x: T) => U, xs: Iterable<T>) {
   return delay(() => {
     let i = 0;
-    return unfold(iter => {
+    return unfold((iter) => {
       const cur = iter.next();
       return !cur.done ? [f(i++, cur.value), iter] : null;
     }, xs[Symbol.iterator]());
@@ -408,7 +418,8 @@ export function map2<T1, T2, U>(f: (x: T1, y: T2) => U, xs: Iterable<T1>, ys: It
     const iter1 = xs[Symbol.iterator]();
     const iter2 = ys[Symbol.iterator]();
     return unfold(() => {
-      const cur1 = iter1.next(), cur2 = iter2.next();
+      const cur1 = iter1.next();
+      const cur2 = iter2.next();
       return !cur1.done && !cur2.done ? [f(cur1.value, cur2.value), null] : null;
     });
   });
@@ -420,46 +431,55 @@ export function mapIndexed2<T1, T2, U>(f: (i: number, x: T1, y: T2) => U, xs: It
     const iter1 = xs[Symbol.iterator]();
     const iter2 = ys[Symbol.iterator]();
     return unfold(() => {
-      const cur1 = iter1.next(), cur2 = iter2.next();
+      const cur1 = iter1.next();
+      const cur2 = iter2.next();
       return !cur1.done && !cur2.done ? [f(i++, cur1.value, cur2.value), null] : null;
     });
   });
 }
 
-export function map3<T1, T2, T3, U>(f: (x: T1, y: T2, z: T3) => U, xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterable<T3>) {
+export function map3<T1, T2, T3, U>(
+  f: (x: T1, y: T2, z: T3) => U, xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterable<T3>) {
   return delay(() => {
     const iter1 = xs[Symbol.iterator]();
     const iter2 = ys[Symbol.iterator]();
     const iter3 = zs[Symbol.iterator]();
     return unfold(() => {
-      const cur1 = iter1.next(), cur2 = iter2.next(), cur3 = iter3.next();
+      const cur1 = iter1.next();
+      const cur2 = iter2.next();
+      const cur3 = iter3.next();
       return !cur1.done && !cur2.done && !cur3.done ? [f(cur1.value, cur2.value, cur3.value), null] : null;
     });
   });
 }
 
-export function chunkBySize<T>(size: number, xs: Iterable<T>) : Iterable<Iterable<T>> {
-  var result = arrayChunkBySize(size, Array.from(xs));
+export function chunkBySize<T>(size: number, xs: Iterable<T>): Iterable<Iterable<T>> {
+  const result = arrayChunkBySize(size, Array.from(xs));
   return ofArray(result.map(ofArray));
 }
 
-export function mapFold<T, ST, R>(f: (acc: ST, x: T) => [R, ST], acc: ST, xs: Iterable<T>, transform?: (r: Iterable<R>)=>Iterable<R>): [Iterable<R>, ST] {
-  let result: Array<R> = [];
+export function mapFold<T, ST, R>(
+  f: (acc: ST, x: T) => [R, ST], acc: ST, xs: Iterable<T>,
+  transform?: (r: Iterable<R>) => Iterable<R>): [Iterable<R>, ST] {
+  const result: R[] = [];
   let r: R;
   let cur: IteratorResult<T>;
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     cur = iter.next();
-    if (cur.done)
+    if (cur.done) {
       break;
+    }
     [r, acc] = f(acc, cur.value);
     result.push(r);
   }
   return transform !== void 0 ? [transform(result), acc] : [result, acc];
 }
 
-export function mapFoldBack<T, ST, R>(f: (x: T, acc: ST) => [R, ST], xs: Iterable<T>, acc: ST, transform?: (r: Iterable<R>)=>Iterable<R>): [Iterable<R>, ST] {
-  const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as Array<T> : Array.from(xs);
-  let result: Array<R> = [];
+export function mapFoldBack<T, ST, R>(
+  f: (x: T, acc: ST) => [R, ST], xs: Iterable<T>, acc: ST,
+  transform?: (r: Iterable<R>) => Iterable<R>): [Iterable<R>, ST] {
+  const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as T[] : Array.from(xs);
+  const result: R[] = [];
   let r: R;
   for (let i = arr.length - 1; i >= 0; i--) {
     [r, acc] = f(arr[i], acc);
@@ -493,13 +513,14 @@ export function permute<T>(f: (i: number) => number, xs: Iterable<T>) {
 }
 
 export function rangeStep(first: number, step: number, last: number) {
-  if (step === 0)
+  if (step === 0) {
     throw new Error("Step cannot be 0");
-  return delay(() => unfold(x => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : null, first));
+  }
+  return delay(() => unfold((x) => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : null, first));
 }
 
 export function rangeChar(first: string, last: string) {
-  return delay(() => unfold(x => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null, first));
+  return delay(() => unfold((x) => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null, first));
 }
 
 export function range(first: number, last: number) {
@@ -507,33 +528,38 @@ export function range(first: number, last: number) {
 }
 
 export function readOnly<T>(xs: Iterable<T>) {
-  return map(x => x, xs);
+  return map((x) => x, xs);
 }
 
 export function reduce<T>(f: (acc: T, x: T) => T, xs: Iterable<T>) {
-  if (Array.isArray(xs) || ArrayBuffer.isView(xs))
-    return (<Array<T>>xs).reduce(f);
+  if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
+    return (xs as T[]).reduce(f);
+  }
   const iter = xs[Symbol.iterator]();
   let cur = iter.next();
-  if (cur.done)
+  if (cur.done) {
     throw new Error("Seq was empty");
+  }
   let acc = cur.value;
-  for (; ;) {
+  while (true) {
     cur = iter.next();
-    if (cur.done)
+    if (cur.done) {
       break;
+    }
     acc = f(acc, cur.value);
   }
   return acc;
 }
 
 export function reduceBack<T>(f: (acc: T, x: T, i?: number) => T, xs: Iterable<T>) {
-  const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? <Array<T>>xs : Array.from(xs);
-  if (ar.length === 0)
+  const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as T[] : Array.from(xs);
+  if (ar.length === 0) {
     throw new Error("Seq was empty");
+  }
   let acc = ar[ar.length - 1];
-  for (let i = ar.length - 2; i >= 0; i--)
+  for (let i = ar.length - 2; i >= 0; i--) {
     acc = f(ar[i], acc, i);
+  }
   return acc;
 }
 
@@ -542,23 +568,24 @@ export function replicate<T>(n: number, x: T) {
 }
 
 export function reverse<T>(xs: Iterable<T>) {
-  const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (<Array<T>>xs).slice(0) : Array.from(xs);
+  const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
   return ofArray(ar.reverse());
 }
 
 export function scan<T, ST>(f: (st: ST, x: T) => ST, seed: ST, xs: Iterable<T>) {
   return delay(() => {
     const iter = xs[Symbol.iterator]();
-    return unfold(acc => {
-      if (acc == null)
+    return unfold((acc) => {
+      if (acc == null) {
         return [seed, seed];
+      }
       const cur = iter.next();
       if (!cur.done) {
         acc = f(acc, cur.value);
         return [acc, acc];
       }
       return void 0;
-    }, <ST>null);
+    }, null as ST);
   });
 }
 
@@ -566,20 +593,22 @@ export function scanBack<T, ST>(f: (x: T, st: ST) => ST, xs: Iterable<T>, seed: 
   return reverse(scan((acc, x) => f(x, acc), seed, reverse(xs)));
 }
 
-export function singleton<T>(x: T) {
-  return unfold(x => x != null ? [x, null] : null, x);
+export function singleton<T>(y: T) {
+  return unfold((x) => x != null ? [x, null] : null, y);
 }
 
 export function skip<T>(n: number, xs: Iterable<T>) {
-  return <Iterable<T>>{
+  return {
     [Symbol.iterator]: () => {
       const iter = xs[Symbol.iterator]();
-      for (let i = 1; i <= n; i++)
-        if (iter.next().done)
+      for (let i = 1; i <= n; i++) {
+        if (iter.next().done) {
           throw new Error("Seq has not enough elements");
+        }
+      }
       return iter;
-    }
-  };
+    },
+  } as Iterable<T>;
 }
 
 export function skipWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
@@ -605,23 +634,26 @@ export function sumBy<T>(f: (x: T) => number, xs: Iterable<T>) {
 export function tail<T>(xs: Iterable<T>) {
   const iter = xs[Symbol.iterator]();
   const cur = iter.next();
-  if (cur.done)
+  if (cur.done) {
     throw new Error("Seq was empty");
-  return <Iterable<T>>{
-    [Symbol.iterator]: () => iter
-  };
+  }
+  return {
+    [Symbol.iterator]: () => iter,
+  } as Iterable<T>;
 }
 
 export function take<T>(n: number, xs: Iterable<T>, truncate: boolean = false) {
   return delay(() => {
     const iter = xs[Symbol.iterator]();
-    return unfold(i => {
+    return unfold((i) => {
       if (i < n) {
         const cur = iter.next();
-        if (!cur.done)
+        if (!cur.done) {
           return [cur.value, i + 1];
-        if (!truncate)
+        }
+        if (!truncate) {
           throw new Error("Seq has not enough elements");
+        }
       }
       return void 0;
     }, 0);
@@ -635,10 +667,11 @@ export function truncate<T>(n: number, xs: Iterable<T>) {
 export function takeWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
   return delay(() => {
     const iter = xs[Symbol.iterator]();
-    return unfold(i => {
+    return unfold((i) => {
       const cur = iter.next();
-      if (!cur.done && f(cur.value))
+      if (!cur.done && f(cur.value)) {
         return [cur.value, null];
+      }
       return void 0;
     }, 0);
   });
@@ -647,10 +680,12 @@ export function takeWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
 export function tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T) {
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
-    if (cur.done)
+    if (cur.done) {
       return defaultValue === void 0 ? null : defaultValue;
-    if (f(cur.value, i))
+    }
+    if (f(cur.value, i)) {
       return cur.value;
+    }
   }
 }
 
@@ -659,13 +694,15 @@ export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
 }
 
 export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T) {
-  let match = <T>null;
+  let match = null as T;
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
-    if (cur.done)
+    if (cur.done) {
       return match === null ? (defaultValue === void 0 ? null : defaultValue) : match;
-    if (f(cur.value, i))
+    }
+    if (f(cur.value, i)) {
       match = cur.value;
+    }
   }
 }
 
@@ -676,10 +713,12 @@ export function findBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
 export function tryFindIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
-    if (cur.done)
+    if (cur.done) {
       return null;
-    if (f(cur.value, i))
+    }
+    if (f(cur.value, i)) {
       return i;
+    }
   }
 }
 
@@ -691,10 +730,12 @@ export function tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterab
   let match = -1;
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
-    if (cur.done)
+    if (cur.done) {
       return match === -1 ? null : match;
-    if (f(cur.value, i))
+    }
+    if (f(cur.value, i)) {
       match = i;
+    }
   }
 }
 
@@ -705,11 +746,13 @@ export function findIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<
 export function tryPick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
-    if (cur.done)
+    if (cur.done) {
       break;
+    }
     const y = f(cur.value, i);
-    if (y != null)
+    if (y != null) {
       return y;
+    }
   }
   return void 0;
 }
@@ -719,7 +762,7 @@ export function pick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
 }
 
 export function unfold<T, ST>(f: (st: ST) => [T, ST], acc?: ST) {
-  return <Iterable<T>>{
+  return {
     [Symbol.iterator]: () => {
       return {
         next: () => {
@@ -729,10 +772,10 @@ export function unfold<T, ST>(f: (st: ST) => [T, ST], acc?: ST) {
             return { done: false, value: res[0] };
           }
           return { done: true };
-        }
+        },
       };
-    }
-  };
+    },
+  } as Iterable<T>;
 }
 
 export function zip<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>) {

@@ -1,29 +1,20 @@
-export default function CurriedLambda(f: Function, _this?: any, expectedArgsLength?: number): any {
-  return function(): any {
-    _this = _this || this;
-    let args: any[] = [];
+export default function CurriedLambda(f: (...args: any[]) => any, _this?: any, expectedArgsLength?: number): any {
+  return (...args: any[]) => {
+    // _this = _this || this;
     expectedArgsLength = expectedArgsLength || f.length;
-    for (let i = 0; i < arguments.length; i++) {
-        args.push(arguments[i])
-    }
     if (args.length >= expectedArgsLength) {
-      let restArgs = args.splice(expectedArgsLength);
-      let res = f.apply(_this, args);
+      const restArgs = args.splice(expectedArgsLength);
+      const res = f.apply(_this, args);
       if (typeof res === "function") {
-        let newLambda = CurriedLambda(res, _this);
+        const newLambda = CurriedLambda(res, _this);
         return restArgs.length === 0 ? newLambda : newLambda.apply(_this, restArgs);
-      }
-      else {
+      } else {
         return res;
       }
-    }
-    else {
-      return CurriedLambda(function () {
-        for (let i = 0; i < arguments.length; i++) {
-          args.push(arguments[i]);
-        }
-        return f.apply(_this, args);
+    } else {
+      return CurriedLambda((...args2: any[]) => {
+        return f.apply(_this, args.concat(args2));
       }, _this, expectedArgsLength - args.length);
     }
-  }
+  };
 }
