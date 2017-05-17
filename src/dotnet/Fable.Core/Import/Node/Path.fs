@@ -7,7 +7,7 @@ module path_types =
     type PathObjectProps = 
         abstract dir : string
         abstract root : string
-        [<Emit("$0.base{{=$1}}")>] // using this because back ticks are way too ugly in read in code
+        [<Emit("$0.base{{=$1}}")>] // using this because back ticks are way too ugly to read in code
         abstract baseName : string
         abstract name : string
         abstract ext : string
