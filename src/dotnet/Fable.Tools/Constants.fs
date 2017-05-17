@@ -1,4 +1,4 @@
 module Fable.Tools.Constants
 
-let [<Literal>] VERSION = "1.0.0-narumi-917"
+let [<Literal>] VERSION = "1.0.4"
 let [<Literal>] DEFAULT_PORT = 61225

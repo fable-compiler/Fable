@@ -239,7 +239,7 @@ let getPaketProjRefs paketDir projFile =
                 else None)
             |> Seq.toList
         else
-            failwithf "Missing %s. Run `dotnet restore` to generate the file." paketRefs
+            []
 
 let getProjectOptionsFromFsproj projFile =
     let paketDir = tryFindPaketDirFromProject projFile
