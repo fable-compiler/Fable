@@ -85,15 +85,15 @@ let makePathRelative path =
 
 let parse (msg: string) =
     let json = JsonConvert.DeserializeObject<JObject>(msg)
-    let path =  parseStringRequired "path" json |> Path.normalizeFullPath
+    let path = parseStringRequired "path" json |> Path.normalizeFullPath
     let define = parseStringArray [||] "define" json
     let plugins = parseStringArray [||] "plugins" json
     let opts =
         { fableCore =
             match parseString "fable-core" "fableCore" json with
             | "fable-core" ->
-                let path = Path.Combine(Path.GetDirectoryName(ProjectCracker.fableCoreLib),"../../fable-core")
-                (makePathRelative path).TrimEnd('/')
+                let paketDir = Path.GetDirectoryName(path) |> ProjectCracker.findPaketDependenciesDir
+                IO.Path.Combine(paketDir, "packages", "Fable.Core", "fable-core") |> makePathRelative
             | path -> (makePathRelative path).TrimEnd('/')
         ; declaration = parseBoolean false "declaration" json
         ; typedArrays = parseBoolean true "typedArrays" json

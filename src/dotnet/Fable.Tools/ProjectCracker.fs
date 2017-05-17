@@ -190,14 +190,15 @@ let crackFsproj (projFile: string) =
         |> List.filter (fun x -> not(x.EndsWith("Fable.Core.dll")))
         |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath) }
 
-let findPaketDir projFile =
-    let rec findPaketDependenciesDir dir =
-        if File.Exists(Path.Combine(dir, "paket.dependencies")) then
-            dir
-        else
-            match Directory.GetParent(dir) with
-            | null -> failwith "Couldn't find paket.dependencies directory"
-            | parent -> findPaketDependenciesDir parent.FullName
+let rec findPaketDependenciesDir dir =
+    if File.Exists(Path.Combine(dir, "paket.dependencies")) then
+        dir
+    else
+        match Directory.GetParent(dir) with
+        | null -> failwith "Couldn't find paket.dependencies directory"
+        | parent -> findPaketDependenciesDir parent.FullName
+
+let tryFindPaketDirFromProject projFile =
     let projDir = Path.GetDirectoryName(projFile)
     if File.Exists(Path.Combine(projDir, "paket.references"))
     then findPaketDependenciesDir projDir |> Some
@@ -241,7 +242,7 @@ let getPaketProjRefs paketDir projFile =
             failwithf "Missing %s. Run `dotnet restore` to generate the file." paketRefs
 
 let getProjectOptionsFromFsproj projFile =
-    let paketDir = findPaketDir projFile
+    let paketDir = tryFindPaketDirFromProject projFile
     paketDir |> Option.iter checkFableCoreVersion
     let rec crackProjects (acc: CrackedFsproj list) extraProjRefs projFile =
         acc |> List.tryFind (fun x ->
