@@ -506,3 +506,4 @@ export function parse<A>(v: string | null, initial: A, parser: RegExp, fn: (s: s
     throw new Error("Input string was not in a correct format.");
   }
 }
+

@@ -3,7 +3,7 @@ open Fable.Core
 [<Emit("(parsed => isNaN(parsed) ? null : parsed)(parseFloat($0))")>]
 let parseFloat (input: string) : float option = failwith "JS"
 
-[<Emit("(parsed => isNaN(parsed) ? null : parsed)(parseInt($0))")>]
+[<Emit("(parsed => isNaN(parsed) ? null : parsed)(parseInt($0, 10))")>]
 let parseInt (input: string) : int option = failwith "JS"
 
 [<Emit("((o, p) => p in o ? o[p] : null)($1,$0)")>]

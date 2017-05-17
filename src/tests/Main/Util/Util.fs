@@ -35,6 +35,18 @@ let equal (expected: 'T) (actual: 'T) =
     Assert.Equal<'T>(expected, actual)
     #endif
 
+let throwsError (expected: string) (f: unit -> 'a): unit =
+    let success =
+        try
+            f () |> ignore
+            true
+        with e ->
+            equal e.Message expected
+            false
+
+    // TODO better error messages
+    equal false success
+
 let rec sumFirstSeq (zs: seq<float>) (n: int): float =
    match n with
    | 0 -> 0.
