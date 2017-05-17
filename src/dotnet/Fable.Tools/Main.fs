@@ -137,8 +137,7 @@ let startServerWithProcess port exec args =
 let main argv =
     match Array.tryHead argv with
     | Some ("--help"|"-h") ->
-        (Constants.VERSION, Constants.DEFAULT_PORT) ||> printfn """
-Fable, F# to JS compiler (%s)
+        (Constants.VERSION, Constants.DEFAULT_PORT) ||> printfn """Fable F# to JS compiler (%s)
 Usage: dotnet fable [command] [script] [fable arguments] [-- [script arguments]]
 
 Commands:
@@ -153,9 +152,9 @@ Commands:
 
 Fable arguments:
   --timeout           Stop the server if timeout (ms) is reached
-  --port              Port number (default %d) or "free" to choose a free port.
+  --port              Port number (default %d) or "free" to choose a free port
 
-To pass arguments to the script, write them after `--`.
+To pass arguments to the script, write them after `--`
 Example: `dotnet fable npm-run build --port free -- -p --config webpack.production.js`
 """
     | Some "--version" -> printfn "%s" Constants.VERSION

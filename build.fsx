@@ -412,7 +412,7 @@ Target "QuickFableCoreTest" (fun () ->
     quickTest ())
 
 let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
-    let versionRegex = Regex("<Version>(.*?)</Version>")
+    let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
     let pushProject (releaseNotes: ReleaseNotes) projFile =
         let projDir = Path.GetDirectoryName(projFile)
         let nugetKey =
