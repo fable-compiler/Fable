@@ -204,7 +204,7 @@ module Util =
     let toFloat com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
         match sourceType with
         | Fable.String ->
-            GlobalCall ("Number", Some "parseFloat", false, args)
+            CoreLibCall ("Double", Some "parse", false, args)
             |> makeCall i.range i.returnType
         | Fable.ExtendedNumber (Int64 | UInt64) ->
             InstanceCall (args.Head, "toNumber", args.Tail)
@@ -292,7 +292,7 @@ module Util =
                 CoreLibCall ("Long", Some "fromString", false, args)
                 |> makeCall i.range i.returnType
             | _ ->
-                GlobalCall ("Number", Some "parseInt", false, args)
+                CoreLibCall ("Int32", Some "parse", false, args)
                 |> makeCall i.range i.returnType
         | ExtNumber BigInt ->
             let meth = castBigIntMethod i.returnType
@@ -1009,18 +1009,6 @@ module AstPass =
             else
                 "Int32"
 
-        let zero =
-            if isFloat then
-                makeNumConst 0.0
-            else
-                makeIntConst 0
-
-        let tryParse str defValue parser transformer =
-            CoreLibCall ("Util", Some "tryParse", false, [str; defValue; makeCoreRef numberModule (Some parser); transformer])
-
-        let parse str parser transformer =
-            CoreLibCall ("Util", Some "parse", false, [str; zero; makeCoreRef numberModule (Some parser); transformer])
-
         match i.methodName with
         | "isNaN" when isFloat ->
             match i.args with
@@ -1034,15 +1022,25 @@ module AstPass =
             let hexConst = float System.Globalization.NumberStyles.HexNumber
             match i.methodName, i.args with
             | "parse", [str] ->
-                parse str "parseRadix10" (makeCoreRef "Util" (Some "parseNumber"))
+                CoreLibCall (numberModule, Some "parse", false, [
+                    str
+                    (if isFloat then makeNumConst 10.0 else makeIntConst 10)
+                ])
                 |> makeCall i.range i.returnType |> Some
 
             | "parse", [str; Fable.Wrapped(Fable.Value(Fable.NumberConst(hexConst,_)), Fable.Enum _)] ->
-                parse str "parseRadix16" (makeCoreRef numberModule (Some "parseInt16"))
+                CoreLibCall (numberModule, Some "parse", false, [
+                    str
+                    (if isFloat then makeNumConst 16.0 else makeIntConst 16)
+                ])
                 |> makeCall i.range i.returnType |> Some
 
             | "tryParse", [str; defValue] ->
-                tryParse str defValue "parseRadix10" (makeCoreRef "Util" (Some "parseNumber"))
+                CoreLibCall (numberModule, Some "tryParse", false, [
+                    str
+                    (if isFloat then makeNumConst 10.0 else makeIntConst 10)
+                    defValue
+                ])
                 |> makeCall i.range i.returnType |> Some
 
             | _ ->

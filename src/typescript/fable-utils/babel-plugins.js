@@ -41,7 +41,7 @@ exports.getTransformMacroExpressions = function(babelTemplate) {
                 var placeholders = [], m = null;
                 var reg = /\$\d+/g, args = node.args;
                 while (m = reg.exec(macro)) {
-                    placeholders.push(parseInt(m[0].substr(1)))
+                    placeholders.push(parseInt(m[0].substr(1), 10))
                 }
                 if (placeholders.length > 0) {
                     var max = placeholders.reduce((x, y) => Math.max(x, y))
@@ -55,18 +55,18 @@ exports.getTransformMacroExpressions = function(babelTemplate) {
                 }
                 macro = macro
                     .replace(/\$(\d+)\.\.\./, function (m, i) {
-                        var rep = [], j = parseInt(i);
+                        var rep = [], j = parseInt(i, 10);
                         for (; j < args.length; j++) {
                             rep.push("$" + j);
                         }
                         return rep.join(",");
                     })
                     .replace(/\{\{\$(\d+)\?(.*?)\:(.*?)\}\}/g, function (_, g1, g2, g3) {
-                        var i = parseInt(g1);
+                        var i = parseInt(g1, 10);
                         return typeof args[i] === "object" && args[i].value ? g2 : g3;
                     })
                     .replace(/\{\{([^\}]*\$(\d+).*?)\}\}/g, function (_, g1, g2) {
-                        var i = parseInt(g2);
+                        var i = parseInt(g2, 10);
                         return typeof args[i] === "object" && args[i].type !== "NullLiteral" ? g1 : "";
                     });
                 // console.log("MACRO 2: " + macro);

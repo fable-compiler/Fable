@@ -1,6 +1,7 @@
 // Source: https://github.com/dcodeIO/long.js/blob/master/LICENSE
 
 import _Symbol from "./Symbol";
+import { isValid } from "./Int32";
 
 // The internal representation of a long is the two given signed, 32-bit values.
 // We use 32-bit pieces because these are the size of integers on which
@@ -811,7 +812,7 @@ export class Long {
                 unsigned: "boolean"
             }
         };
-    } 
+    }
 }
 
 
@@ -871,8 +872,11 @@ export function fromInt(value: number, unsigned: boolean = false) {
  * @returns {!Long} The corresponding Long value
  */
 export function fromNumber(value: number, unsigned: boolean = false): Long {
-    if (isNaN(value) || !isFinite(value))
-        return unsigned ? UZERO : ZERO;
+    if (isNaN(value) || !isFinite(value)) {
+        // TODO FormatException ?
+        throw new Error("Input string was not in a correct format.");
+    }
+
     if (unsigned) {
         if (value < 0)
             return UZERO;
@@ -916,6 +920,11 @@ var pow_dbl = Math.pow; // Used 4 times (4*8 to 15+4)
  * @returns {!Long} The corresponding Long value
  */
 export function fromString(str: string, unsigned: boolean = false, radix: number = 10): Long {
+    if (isValid(str, radix) === null) {
+      // TODO FormatException ?
+      throw new Error("Input string was not in a correct format.");
+    }
+
     if (str.length === 0)
         throw Error('empty string');
     if (str === "NaN" || str === "Infinity" || str === "+Infinity" || str === "-Infinity")

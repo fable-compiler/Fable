@@ -112,8 +112,8 @@ export function fsFormat(str: string, ...args: any[]): Function | string {
         case "X":
           rep = toHex(Number(rep)).toUpperCase(); break;
       }
-      const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep) >= 0;
-      if (!isNaN(pad = parseInt(pad))) {
+      const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep, 10) >= 0;
+      if (!isNaN(pad = parseInt(pad, 10))) {
         const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
         rep = padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
       }
@@ -233,7 +233,7 @@ export function format(str: string, ...args: any[]) {
         });
       }
     }
-    if (!isNaN(pad = parseInt((pad || "").substring(1)))) {
+    if (!isNaN(pad = parseInt((pad || "").substring(1), 10))) {
       rep = padLeft(rep, Math.abs(pad), padSymbol, pad < 0);
     }
     return rep;

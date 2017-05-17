@@ -477,34 +477,3 @@ export function applyOperator(x: any, y: any, operator: string): any {
       return null;
   }
 }
-
-
-export function parseNumber(v: string): number {
-  return +v;
-}
-
-
-export function tryParse<A>(v: string | null, initial: A, parser: RegExp, fn: (s: string) => A): [boolean, A] {
-  if (v != null) {
-    const a = parser.exec(v);
-
-    if (a !== null) {
-      return [true, fn(a[1])];
-    }
-  }
-
-  return [false, initial];
-}
-
-
-export function parse<A>(v: string | null, initial: A, parser: RegExp, fn: (s: string) => A): A {
-  const a = tryParse(v, initial, parser, fn);
-
-  if (a[0]) {
-    return a[1];
-
-  } else {
-    // TODO FormatException ?
-    throw new Error("Input string was not in a correct format.");
-  }
-}

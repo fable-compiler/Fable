@@ -2767,7 +2767,7 @@ function fresh$2(req, res) {
   if (!modifiedSince && !noneMatch) return false;
 
   // check for no-cache cache request directive
-  if (cc && cc.indexOf('no-cache') !== -1) return false;  
+  if (cc && cc.indexOf('no-cache') !== -1) return false;
 
   // parse if-none-match
   if (noneMatch) noneMatch = noneMatch.split(/ *, */);
@@ -5318,8 +5318,8 @@ function fsFormat(str) {
                     }
                     break;
             }
-            var plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep) >= 0;
-            if (!isNaN(pad = parseInt(pad))) {
+            var plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep, 10) >= 0;
+            if (!isNaN(pad = parseInt(pad, 10))) {
                 var ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
                 rep = padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
             }
