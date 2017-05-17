@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module rec Fable.Import.Node.Querystring
 
 open Fable.Core
@@ -16,4 +17,4 @@ type Globals =
     abstract unescape: str: string -> string
 
 [<Import("*", "querystring")>] 
-let exports: Globals = jsNative
+let querystring: Globals = jsNative

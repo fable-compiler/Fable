@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module rec Fable.Import.Node.Url
 
 open Fable.Core
@@ -25,4 +26,4 @@ type Globals =
     abstract resolve: from: string * ``to``: string -> string
 
 [<Import("*","url")>]
-let exports: Globals = jsNative
+let url: Globals = jsNative
