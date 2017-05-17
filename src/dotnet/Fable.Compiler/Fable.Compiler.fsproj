@@ -1,29 +1,29 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>1.0.0-narumi-917</Version>
-    <TargetFramework>netstandard1.6</TargetFramework>
-    <!-- See https://github.com/dotnet/netcorecli-fsc/issues/98 -->
-    <FscToolPath>../../../lib/fsharp.compiler.tools.4.1.0</FscToolPath>
+    <Version>1.0.0-narumi-920</Version>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp1.0</TargetFramework>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="../../../lib/fsharp.compiler.service/FSharp.Compiler.Service.dll" />
-    <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="../../../lib/fsharp.compiler.service/FSharp.Compiler.Service.dll">
-      <PackagePath>lib/netstandard1.6</PackagePath>
-      <Pack>true</Pack>
-    </Content>
-  </ItemGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="Fable2Babel.fs" />
+    <Compile Include="Tools/ProjectCracker.fs" />
+    <Compile Include="Tools/Printers.fs" />
+    <Compile Include="Tools/Parser.fs" />
+    <Compile Include="Tools/State.fs" />
+    <Compile Include="Tools/Server.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\..\build\fable\" PackagePath="fable\" />
+    <Content Include="..\..\..\build\fable-core\" PackagePath="fable-core\" />
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

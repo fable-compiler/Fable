@@ -262,7 +262,6 @@ let coreBuildDir = "build/fable-core"
 let testsBuildDir = "build/tests"
 let coreSrcDir = "src/dotnet/Fable.Core"
 let compilerSrcDir = "src/dotnet/Fable.Compiler"
-let toolsSrcDir = "src/dotnet/Fable.Tools"
 let coreJsSrcDir = "src/typescript/fable-core"
 
 // Targets
@@ -342,12 +341,12 @@ let clean () =
 let nugetRestore baseDir () =
     Util.run (baseDir </> "Fable.Core") dotnetExePath "restore"
     Util.run (baseDir </> "Fable.Compiler") dotnetExePath "restore"
-    Util.run (baseDir </> "Fable.Tools") dotnetExePath "restore"
+    // Util.run (baseDir </> "dotnet-fable") dotnetExePath "restore"
 
-let buildTools baseDir isRelease () =
+let buildCompiler baseDir isRelease () =
     sprintf "publish -o ../../../%s -c %s -v n"
         toolsBuildDir (if isRelease then "Release" else "Debug")
-    |> Util.run (baseDir </> "Fable.Tools") dotnetExePath
+    |> Util.run (baseDir </> "Fable.Compiler") dotnetExePath
 
     // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
     FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.optdata" toolsBuildDir
@@ -389,7 +388,7 @@ let runTestsDotnet () =
     Util.run "src/tests/Main" dotnetExePath "test"
 
 let runFableServer f =
-    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll start"
+    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath "build/fable/Fable.Compiler.dll start"
     try f()
     finally fableServer.Kill()
 
@@ -400,12 +399,12 @@ let runTestsJs () =
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
 
 let quickTest() =
-    Util.run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll npm-run rollup"
+    Util.run "src/tools" dotnetExePath "../../build/fable/Fable.Compiler.dll npm-run rollup"
     Node.run "." "src/tools/temp/QuickTest.js" []
 
 Target "QuickTest" quickTest
 Target "QuickFableCompilerTest" (fun () ->
-    buildTools "src/dotnet" true ()
+    buildCompiler "src/dotnet" true ()
     quickTest ())
 Target "QuickFableCoreTest" (fun () ->
     buildCoreJs ()
@@ -421,13 +420,13 @@ let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
             | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
         // Restore dependencies here so they're updated to latest project versions
         Util.run projDir dotnetExePath "restore"
-        // If is Fable.Core build JS files
-        if projFile.Contains("Fable.Core.fsproj") then
-            buildCoreJs()
-        // Update version in dotnet-fable Main file
-        if projFile.Contains("dotnet-fable.fsproj") then
+        // If this is Fable.Compiler, build fable and fable-core
+        // and update version in Utils.fs
+        if projFile.Contains("Fable.Compiler.fsproj") then
+            buildCoreJs ()
+            buildCompiler "src/dotnet" true ()
             let reg = Regex(@"VERSION\s*=\s*""(.*?)""")
-            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Constants.fs")
+            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Utils.fs")
             (reg, mainFile) ||> Util.replaceLines (fun line m ->
                 let replacement = sprintf "VERSION = \"%s\"" releaseNotes.NugetVersion
                 reg.Replace(line, replacement) |> Some)
@@ -525,9 +524,9 @@ Target "GitHubRelease" (fun _ ->
 
 Target "Clean" clean
 Target "NugetRestore" (nugetRestore "src/dotnet")
-Target "FableTools" (fun _ ->
+Target "FableCompiler" (fun _ ->
     nugetRestore "src/dotnet" ()
-    buildTools "src/dotnet" true ())
+    buildCompiler "src/dotnet" true ())
 Target "FableCoreJs" buildCoreJs
 Target "RunTestsJs" runTestsJs
 
@@ -536,11 +535,9 @@ Target "PublishPackages" (fun () ->
     clean ()
 
     // Publish Nuget packages
-    // TODO: Unify publishing of the three main Nuget packages
     pushNuget release.Value [
         "src/dotnet/Fable.Core/Fable.Core.fsproj"
         "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
-        "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
     ]
     pushNuget releaseJsonConverter.Value
         ["src/dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"]
@@ -553,11 +550,11 @@ Target "PublishPackages" (fun () ->
 )
 
 Target "All" (fun () ->
-    installDotnetSdk ()
     clean ()
-    nugetRestore "src/dotnet" ()
-    buildTools "src/dotnet" true ()
     buildCoreJs ()
+    installDotnetSdk ()
+    nugetRestore "src/dotnet" ()
+    buildCompiler "src/dotnet" true ()
     buildNUnitPlugin ()
     buildJsonConverter ()
     runTestsJs ()
@@ -578,7 +575,7 @@ Target "REPL" (fun () ->
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project src/typescript/fable-core -m amd --outDir %s/fable-core" replDir]
 
     // Compile FCS/Fable with Fable
-    Util.run replDir dotnetExePath "../../../../build/fable/dotnet-fable.dll npm-run build"
+    Util.run replDir dotnetExePath "../../../../build/fable/Fable.Compiler.dll npm-run build"
 )
 
 // Start build
