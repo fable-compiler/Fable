@@ -9,5 +9,5 @@ export function getType(fullName: string) {
 }
 
 export default {
-  reflection: Symbol("reflection")
-}
+  reflection: Symbol("reflection"),
+};

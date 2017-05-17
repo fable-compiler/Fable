@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Simple Fable App</Description>
+    <Authors>Alfonso Garcia-Caro</Authors>
+    <PackageProjectUrl>https://github.com/fable-compiler/Fable</PackageProjectUrl>
+    <PackageLicenseUrl>https://github.com/fable-compiler/Fable/blob/master/LICENSE</PackageLicenseUrl>
+    <RepositoryUrl>https://github.com/fable-compiler/Fable.git</RepositoryUrl>
+    <PackageTags>fable;template;fsharp</PackageTags>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <PackageType>Template</PackageType>
+    <Version>0.2.0</Version>
+    <PackProjectInputFile>$(MSBuildProjectFullPath)</PackProjectInputFile>
+    <NoBuild>true</NoBuild>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <TargetFramework>netstandard1.0</TargetFramework>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ExcludeFromPackage>
+        Content/node_modules/**/*;
+        Content/packages/**/*;
+        Content/public/bundle.js*;
+        Content/bin/**/*;
+        Content/obj/**/*;
+    </ExcludeFromPackage>
+</PropertyGroup>
+  <ItemGroup>
+    <Content Include="Content/**/*" Exclude="$(ExcludeFromPackage)" >
+        <PackagePath>Content\</PackagePath>
+    </Content>
+  </ItemGroup>
+</Project>

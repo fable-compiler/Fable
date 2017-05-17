@@ -1,11 +1,11 @@
-import { create as timeSpanCreate } from "./TimeSpan"
-import { compare as utilCompare } from "./Util"
-import * as Long from "./Long"
+import * as Long from "./Long";
+import { create as timeSpanCreate } from "./TimeSpan";
+import { compare as utilCompare } from "./Util";
 
 export const enum DateKind {
   Unspecified = 0,
   UTC = 1,
-  Local = 2
+  Local = 2,
 }
 
 export function minValue() {
@@ -18,9 +18,9 @@ export function maxValue() {
 
 export function parse(v?: any, kind?: DateKind): any {
   if (kind == null) {
-    kind = typeof v == "string" && v.slice(-1) == "Z" ? DateKind.UTC : DateKind.Local;
+    kind = typeof v === "string" && v.slice(-1) === "Z" ? DateKind.UTC : DateKind.Local;
   }
-  let date = (v == null) ? new Date() : new Date(v);
+  const date = (v == null) ? new Date() : new Date(v);
   if (kind === DateKind.Local) {
     (date as any).kind = kind;
   }
@@ -33,19 +33,20 @@ export function parse(v?: any, kind?: DateKind): any {
 export function tryParse(v: any): [boolean, Date] {
   try {
     return [true, parse(v)];
-  }
-  catch (_err) {
+  } catch (_err) {
     return [false, minValue()];
   }
 }
 
-export function create(year: number, month: number, day: number, h: number = 0, m: number = 0, s: number = 0, ms: number = 0, kind: DateKind = DateKind.Local) {
+export function create(
+  year: number, month: number, day: number,
+  h: number = 0, m: number = 0, s: number = 0,
+  ms: number = 0, kind: DateKind = DateKind.Local) {
   let date: Date;
   if (kind === DateKind.Local) {
     date = new Date(year, month - 1, day, h, m, s, ms);
     (date as any).kind = kind;
-  }
-  else {
+  } else {
     date = new Date(Date.UTC(year, month - 1, day, h, m, s, ms));
   }
   if (isNaN(date.getTime())) {
@@ -67,13 +68,13 @@ export function today() {
 }
 
 export function isLeapYear(year: number) {
-  return year % 4 == 0 && year % 100 != 0 || year % 400 == 0;
+  return year % 4 === 0 && year % 100 !== 0 || year % 400 === 0;
 }
 
 export function daysInMonth(year: number, month: number) {
-  return month == 2
+  return month === 2
     ? isLeapYear(year) ? 29 : 28
-    : month >= 8 ? month % 2 == 0 ? 31 : 30 : month % 2 == 0 ? 30 : 31;
+    : month >= 8 ? month % 2 === 0 ? 31 : 30 : month % 2 === 0 ? 30 : 31;
 }
 
 export function toUniversalTime(d: Date) {
@@ -83,9 +84,8 @@ export function toUniversalTime(d: Date) {
 export function toLocalTime(d: Date) {
   if ((d as any).kind === DateKind.Local) {
     return d;
-  }
-  else {
-    let d2 = new Date(d.getTime());
+  } else {
+    const d2 = new Date(d.getTime());
     (d2 as any).kind = DateKind.Local;
     return d2;
   }
@@ -137,9 +137,9 @@ export function dayOfWeek(d: Date) {
 
 export function ticks(d: Date) {
   return Long.fromNumber(d.getTime())
-             .add(62135596800000) // UnixEpochMilliseconds
-             .sub((d as any).kind == DateKind.Local ? d.getTimezoneOffset()*60*1000 : 0)
-             .mul(10000);
+    .add(62135596800000) // UnixEpochMilliseconds
+    .sub((d as any).kind === DateKind.Local ? d.getTimezoneOffset() * 60 * 1000 : 0)
+    .mul(10000);
 }
 
 export function toBinary(d: Date) {
@@ -150,13 +150,14 @@ export function dayOfYear(d: Date) {
   const _year = year(d);
   const _month = month(d);
   let _day = day(d);
-  for (let i = 1; i < _month; i++)
+  for (let i = 1; i < _month; i++) {
     _day += daysInMonth(_year, i);
+  }
   return _day;
 }
 
 export function add(d: Date, ts: number) {
-  return parse(d.getTime() + <number>ts, (d as any).kind || DateKind.UTC);
+  return parse(d.getTime() + ts as number, (d as any).kind || DateKind.UTC);
 }
 
 export function addDays(d: Date, v: number) {
@@ -188,7 +189,8 @@ export function addYears(d: Date, v: number) {
   const newYear = year(d) + v;
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, day(d));
-  return create(newYear, newMonth, newDay, hour(d), minute(d), second(d), millisecond(d), (d as any).kind || DateKind.UTC);
+  return create(newYear, newMonth, newDay, hour(d), minute(d), second(d),
+    millisecond(d), (d as any).kind || DateKind.UTC);
 }
 
 export function addMonths(d: Date, v: number) {
@@ -201,19 +203,20 @@ export function addMonths(d: Date, v: number) {
     newMonth = newMonth_;
   } else if (newMonth < 1) {
     newMonth_ = 12 + newMonth % 12;
-    yearOffset = Math.floor(newMonth / 12) + (newMonth_ == 12 ? -1 : 0);
+    yearOffset = Math.floor(newMonth / 12) + (newMonth_ === 12 ? -1 : 0);
     newMonth = newMonth_;
   }
   const newYear = year(d) + yearOffset;
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, day(d));
-  return create(newYear, newMonth, newDay, hour(d), minute(d), second(d), millisecond(d), (d as any).kind || DateKind.UTC);
+  return create(newYear, newMonth, newDay, hour(d), minute(d), second(d),
+    millisecond(d), (d as any).kind || DateKind.UTC);
 }
 
 export function subtract(d: Date, that: Date | number) {
-  return typeof that == "number"
-    ? parse(d.getTime() - <number>that, (d as any).kind || DateKind.UTC)
-    : d.getTime() - (<Date>that).getTime();
+  return typeof that === "number"
+    ? parse(d.getTime() - that as number, (d as any).kind || DateKind.UTC)
+    : d.getTime() - (that as Date).getTime();
 }
 
 export function toLongDateString(d: Date) {
@@ -233,15 +236,15 @@ export function toShortTimeString(d: Date) {
 }
 
 export function equals(d1: Date, d2: Date) {
-  return d1.getTime() == d2.getTime();
+  return d1.getTime() === d2.getTime();
 }
 
 export function compare(x: Date, y: Date) {
-  return utilCompare(x, y)
+  return utilCompare(x, y);
 }
 
 export function compareTo(x: Date, y: Date) {
-  return utilCompare(x, y)
+  return utilCompare(x, y);
 }
 
 export function op_Addition(x: Date, y: number) {

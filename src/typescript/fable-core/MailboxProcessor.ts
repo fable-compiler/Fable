@@ -1,14 +1,14 @@
-import { IAsync } from "./AsyncBuilder"
-import { IAsyncContext } from "./AsyncBuilder"
-import { Continuation } from "./AsyncBuilder"
-import { CancellationToken } from "./AsyncBuilder"
-import { defaultCancellationToken } from "./Async"
-import { fromContinuations } from "./Async"
-import { startImmediate } from "./Async"
+import { defaultCancellationToken } from "./Async";
+import { fromContinuations } from "./Async";
+import { startImmediate } from "./Async";
+import { IAsync } from "./AsyncBuilder";
+import { IAsyncContext } from "./AsyncBuilder";
+import { Continuation } from "./AsyncBuilder";
+import { CancellationToken } from "./AsyncBuilder";
 
 class QueueCell<Msg> {
-  value: Msg;
-  next: QueueCell<Msg>;
+  public value: Msg;
+  public next: QueueCell<Msg>;
 
   constructor(message: Msg) {
     this.value = message;
@@ -18,23 +18,24 @@ class QueueCell<Msg> {
 class MailboxQueue<Msg> {
   private firstAndLast: [QueueCell<Msg>, QueueCell<Msg>];
 
-  add(message: Msg) {
+  public add(message: Msg) {
     const itCell = new QueueCell(message);
     if (this.firstAndLast) {
       this.firstAndLast[1].next = itCell;
       this.firstAndLast = [this.firstAndLast[0], itCell];
-    }
-    else
+    } else {
       this.firstAndLast = [itCell, itCell];
+    }
   }
 
-  tryGet() {
+  public tryGet() {
     if (this.firstAndLast) {
       const value = this.firstAndLast[0].value;
-      if (this.firstAndLast[0].next)
+      if (this.firstAndLast[0].next) {
         this.firstAndLast = [this.firstAndLast[0].next, this.firstAndLast[1]];
-      else
+      } else {
         delete this.firstAndLast;
+      }
       return value;
     }
     return void 0;
@@ -60,7 +61,7 @@ export default class MailboxProcessor<Msg> {
     this.messages = new MailboxQueue<Msg>();
   }
 
-  __processEvents() {
+  public __processEvents() {
     if (this.continuation) {
       const value = this.messages.tryGet();
       if (value) {
@@ -71,37 +72,38 @@ export default class MailboxProcessor<Msg> {
     }
   }
 
-  start() {
+  public start() {
     startImmediate(this.body(this), this.cancellationToken);
   }
 
-  receive() {
+  public receive() {
     return fromContinuations((conts: Array<Continuation<Msg>>) => {
-      if (this.continuation)
+      if (this.continuation) {
         throw new Error("Receive can only be called once!");
-
+      }
       this.continuation = conts[0];
       this.__processEvents();
     });
   }
 
-  post(message: Msg) {
+  public post(message: Msg) {
     this.messages.add(message);
     this.__processEvents();
   }
 
-  postAndAsyncReply<Reply>(buildMessage: (c: AsyncReplyChannel<Reply>) => Msg) {
+  public postAndAsyncReply<Reply>(buildMessage: (c: AsyncReplyChannel<Reply>) => Msg) {
     let result: Reply;
     let continuation: Continuation<Reply>;
     function checkCompletion() {
-      if (result && continuation)
+      if (result && continuation) {
         continuation(result);
+      }
     }
     const reply = {
       reply: (res: Reply) => {
         result = res;
         checkCompletion();
-      }
+      },
     };
     this.messages.add(buildMessage(reply));
     this.__processEvents();
@@ -117,4 +119,3 @@ export function start<Msg>(body: MailboxBody<Msg>, cancellationToken?: Cancellat
   mbox.start();
   return mbox;
 }
-

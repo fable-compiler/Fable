@@ -422,7 +422,7 @@ type Id = Id of string
 
 type Ideable =
     { Id: Id; Name: string }
-    member this.ToString() = this.Name
+    with override this.ToString() = this.Name
 
 let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar

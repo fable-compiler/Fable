@@ -254,7 +254,7 @@ let releaseLoader = Util.loadReleaseNotes "LOADER"
 let releaseRollup = Util.loadReleaseNotes "ROLLUP"
 let releaseJsonConverter = Util.loadReleaseNotes "JSON_CONVERTER"
 
-let dotnetcliVersion = "1.0.1"
+let dotnetcliVersion = "1.0.4"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let toolsBuildDir = "build/fable"
@@ -355,6 +355,7 @@ let buildTools baseDir isRelease () =
 
 let buildCoreJs () =
     Npm.install __SOURCE_DIRECTORY__ []
+    Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" coreJsSrcDir]
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" coreJsSrcDir]
 
 let buildCore isRelease () =
@@ -412,7 +413,7 @@ Target "QuickFableCoreTest" (fun () ->
     quickTest ())
 
 let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
-    let versionRegex = Regex("<Version>(.*?)</Version>")
+    let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
     let pushProject (releaseNotes: ReleaseNotes) projFile =
         let projDir = Path.GetDirectoryName(projFile)
         let nugetKey =
@@ -421,10 +422,10 @@ let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
             | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
         // Restore dependencies here so they're updated to latest project versions
         Util.run projDir dotnetExePath "restore"
-        // If is Fable.Core build JS files
+        // If this is Fable.Core, build JS files
         if projFile.Contains("Fable.Core.fsproj") then
             buildCoreJs()
-        // Update version in dotnet-fable Main file
+        // Update version in dotnet-fable Constants.fs file
         if projFile.Contains("dotnet-fable.fsproj") then
             let reg = Regex(@"VERSION\s*=\s*""(.*?)""")
             let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Constants.fs")
@@ -575,10 +576,10 @@ Target "REPL" (fun () ->
 
     // Compile fable-core
     CreateDir (replDir + "/fable-core")
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project src/typescript/fable-core -m amd --outDir %s/fable-core" replDir]
+    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s -m amd --outDir %s/fable-core" coreJsSrcDir replDir]
 
     // Compile FCS/Fable with Fable
-    Util.run replDir dotnetExePath "../../../../build/fable/dotnet-fable.dll npm-run build"
+    Npm.script replDir "build" []
 )
 
 // Start build

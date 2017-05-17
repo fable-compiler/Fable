@@ -11,18 +11,27 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../Fable.Core/Util.fs"/>
-    <Compile Include="../Fable.Core/Compiler.fs"/>
-    <Compile Include="../Fable.Core/Fable.Core.fs"/>
-    <Compile Include="../Fable.Core/AST/AST.Common.fs"/>
-    <Compile Include="../Fable.Core/AST/AST.Fable.fs"/>
-    <Compile Include="../Fable.Core/AST/AST.Fable.Util.fs"/>
-    <Compile Include="../Fable.Core/AST/AST.Babel.fs"/>
-    <Compile Include="../Fable.Core/Plugins.fs"/>
-    <!--<Compile Include="../Fable.Core/Import/Fable.Import.JS.fs"/>-->
-    <!--<Compile Include="../Fable.Core/Import/Fable.Import.Browser.fs"/>-->
-    <!--<Compile Include="../Fable.Core/Import/Fable.Import.Node.fs"/>-->
-    <!--<Compile Include="../Fable.Core/Fable.Core.Extensions.fs"/>-->
+    <Compile Include="../Fable.Core/Util.fs" />
+    <Compile Include="../Fable.Core/Compiler.fs" />
+    <Compile Include="../Fable.Core/Fable.Core.fs" />
+    <Compile Include="../Fable.Core/AST/AST.Common.fs" />
+    <Compile Include="../Fable.Core/AST/AST.Fable.fs" />
+    <Compile Include="../Fable.Core/AST/AST.Fable.Util.fs" />
+    <Compile Include="../Fable.Core/AST/AST.Babel.fs" />
+    <Compile Include="../Fable.Core/Plugins.fs" />
+    <Compile Include="../Fable.Core/Import/Fable.Import.JS.fs" />
+    <!--<Compile Include="../Fable.Core/Import/Fable.Import.Browser.fs" />-->
+    <!--<Compile Include="../Fable.Core/Import/Node/Base.fs" />-->
+    <!--<Compile Include="../Fable.Core/Import/Node/Events.fs" />-->
+    <!--<Compile Include="../Fable.Core/Import/Node/Buffer.fs" />-->
+    <!--<Compile Include="../Fable.Core/Import/Node/Stream.fs" />-->
+    <!--<Compile Include="../Fable.Core/Import/Node/Fs.fs" />-->
+    <!--<Compile Include="../Fable.Core/Import/Node/Net.fs" />-->
+    <!--<Compile Include="../Fable.Core/Import/Node/ChildProcess.fs" />-->
+    <!--<Compile Include="../Fable.Core/Import/Node/Process.fs" />-->
+    <!--<Compile Include="../Fable.Core/Import/Node/Globals.fs" />-->
+    <Compile Include="../Fable.Core/Fable.Core.JsInterop.fs" />
+    <Compile Include="../Fable.Core/Fable.Core.Extensions.fs" />
 
     <Compile Include="../Fable.Compiler/Utils.fs"/>
     <Compile Include="../Fable.Compiler/Replacements.fs"/>

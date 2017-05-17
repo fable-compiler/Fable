@@ -1,13 +1,10 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>1.0.0-narumi-917</Version>
+    <Version>1.0.4</Version>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp1.0</TargetFramework>
-    <!-- See https://github.com/dotnet/netcorecli-fsc/issues/98 -->
-    <FscToolPath>../../../lib/fsharp.compiler.tools.4.1.0</FscToolPath>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="../../../lib/fsharp.compiler.service/FSharp.Compiler.Service.dll" />
     <ProjectReference Include="../Fable.Compiler/Fable.Compiler.fsproj" />
   </ItemGroup>
   <ItemGroup>
