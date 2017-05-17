@@ -45,5 +45,5 @@ module path_types =
         abstract posix : obj
 
 
-[<Import("*","path")>]
-let path: path_types.Globals = jsNative
+// [<Import("*","path")>]
+// let path: path_types.Globals = jsNative
