@@ -190,7 +190,7 @@ let crackFsproj (projFile: string) =
         |> List.filter (fun x -> not(x.EndsWith("Fable.Core.dll")))
         |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath) }
 
-let getPaketProjRefs projFile =
+let findPaketDir projFile =
     let rec findPaketDependenciesDir dir =
         if File.Exists(Path.Combine(dir, "paket.dependencies")) then
             dir
@@ -199,22 +199,50 @@ let getPaketProjRefs projFile =
             | null -> failwith "Couldn't find paket.dependencies directory"
             | parent -> findPaketDependenciesDir parent.FullName
     let projDir = Path.GetDirectoryName(projFile)
-    let projFileName = Path.GetFileName(projFile)
-    let paketRefs = IO.Path.Combine(projDir, "obj", projFileName + ".references")
-    let paketDependenciesDir = lazy findPaketDependenciesDir projDir
-    if File.Exists(paketRefs) then
-        File.ReadLines(paketRefs)
-        |> Seq.choose(fun line ->
-            if line.StartsWith("Fable.") && not(line.StartsWith("Fable.Core")) then
-                let fableDependency = line.Substring(0, line.IndexOf(','))
-                IO.Path.Combine(paketDependenciesDir.Value, "packages", fableDependency, "fable", fableDependency + ".fsproj")
-                |> Some
-            else None)
-        |> Seq.toList
+    if File.Exists(Path.Combine(projDir, "paket.references"))
+    then findPaketDependenciesDir projDir |> Some
+    else None
+
+let checkFableCoreVersion paketDir =
+    let nuspec = IO.Path.Combine(paketDir, "packages", "Fable.Core", "Fable.Core.nuspec")
+    if File.Exists(nuspec) then
+        let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
+        File.ReadLines(nuspec)
+        |> Seq.tryPick (fun line ->
+            let m = versionRegex.Match(line)
+            if m.Success then Some m.Groups.[1].Value else None)
+        |> function
+            | Some fableCoreVersion ->
+                if fableCoreVersion <> Constants.VERSION then
+                    failwithf "Version mismatch! Fable.Core: %s - dotnet-fable: %s"
+                                fableCoreVersion Constants.VERSION
+            | None ->
+                failwith "Cannot find version in packages/Fable.Core/Fable.Core.nuspec"
     else
-        [] // TODO: Raise warning if `obj` folder exists but no `*.references` file?
+        failwith "Missing packages/Fable.Core/Fable.Core.nuspec"
+
+let getPaketProjRefs paketDir projFile =
+    match paketDir with
+    | None -> []
+    | Some paketDir ->
+        let projDir = Path.GetDirectoryName(projFile)
+        let projFileName = Path.GetFileName(projFile)
+        let paketRefs = IO.Path.Combine(projDir, "obj", projFileName + ".references")
+        if File.Exists(paketRefs) then
+            File.ReadLines(paketRefs)
+            |> Seq.choose(fun line ->
+                if line.StartsWith("Fable.") && not(line.StartsWith("Fable.Core")) then
+                    let fableDependency = line.Substring(0, line.IndexOf(','))
+                    IO.Path.Combine(paketDir, "packages", fableDependency, "fable", fableDependency + ".fsproj")
+                    |> Some
+                else None)
+            |> Seq.toList
+        else
+            failwithf "Missing %s. Run `dotnet restore` to generate the file." paketRefs
 
 let getProjectOptionsFromFsproj projFile =
+    let paketDir = findPaketDir projFile
+    paketDir |> Option.iter checkFableCoreVersion
     let rec crackProjects (acc: CrackedFsproj list) extraProjRefs projFile =
         acc |> List.tryFind (fun x ->
             String.Equals(x.projectFile, projFile, StringComparison.OrdinalIgnoreCase))
@@ -228,9 +256,9 @@ let getProjectOptionsFromFsproj projFile =
             let acc = crackedFsproj::acc
             (crackedFsproj.projectReferences @ extraProjRefs, acc)
             ||> Seq.foldBack (fun projFile acc ->
-                crackProjects acc (getPaketProjRefs projFile) projFile)
+                crackProjects acc (getPaketProjRefs paketDir projFile) projFile)
     let crackedFsprojs =
-        crackProjects [] (getPaketProjRefs projFile) projFile
+        crackProjects [] (getPaketProjRefs paketDir projFile) projFile
         |> List.distinctBy (fun x -> x.projectFile.ToLower())
     let sourceFiles =
         crackedFsprojs |> Seq.collect (fun x -> x.sourceFiles) |> Seq.toArray
