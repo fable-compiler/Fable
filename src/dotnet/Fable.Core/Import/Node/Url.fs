@@ -1,4 +1,3 @@
-[<AutoOpen>]
 module rec Fable.Import.Node.Url
 
 open Fable.Core
@@ -17,13 +16,10 @@ type [<AllowNullLiteral>] Url<'a> =
     abstract hash: string option with get, set
     abstract path: string option with get, set
 
-type Globals =
+type IExports =
     abstract parse: urlStr: string -> Url<string>
     abstract parse: urlStr: string * ?parseQueryString: bool -> Url<obj>
     abstract parse: urlStr: string * ?parseQueryString: bool * ?slashesDenoteHost: bool -> Url<U2<string, obj>>
     abstract format: url: Url<string> -> string
     abstract format: url: Url<obj> -> string
     abstract resolve: from: string * ``to``: string -> string
-
-[<Import("*","url")>]
-let url: Globals = jsNative
