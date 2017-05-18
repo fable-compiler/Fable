@@ -5,25 +5,25 @@ open Fable.Import.Node
 open Fable.Core
 
 [<Import("*", "buffer")>] 
-let buffer: Buffer.IExports = jsNative
+let Buffer: Buffer.IExports = jsNative
 
 [<Import("*", "child_process")>]
-let child_process: ChildProcess.IExports = jsNative
+let ChildProcess: ChildProcess.IExports = jsNative
 
 [<Import("*", "events")>]
-let events: Events.IExports = jsNative
+let Events: Events.IExports = jsNative
 
 [<Import("*", "fs")>]
-let fs: Fs.IExports = jsNative
+let Fs: Fs.IExports = jsNative
 
 [<Import("*","net")>]
-let net: Net.IExports = jsNative
+let Net: Net.IExports = jsNative
 
 [<Import("*", "querystring")>]
-let querystring: Querystring.IExports = jsNative
+let Querystring: Querystring.IExports = jsNative
 
 [<Import("*", "stream")>]
-let stream: Stream.IExports = jsNative
+let Stream: Stream.IExports = jsNative
 
 [<Import("*", "url")>]
-let url: Url.IExports = jsNative
+let Url: Url.IExports = jsNative
