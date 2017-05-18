@@ -2,9 +2,7 @@ module rec Fable.Import.Node.Fs
 
 open System
 open Fable.Core
-open Fable.Import.Node.Stream
-open Fable.Import.Node.Events
-open Fable.Import.Node.Buffer
+open Fable.Import.Node
 
 type [<AllowNullLiteral>] Stats =
     abstract dev: float with get, set
@@ -38,7 +36,7 @@ type [<AllowNullLiteral>] FsWatcherOptions =
     abstract encoding: FsWatcherEncoding option with get, set
 
 type [<AllowNullLiteral>] FSWatcher =
-    inherit EventEmitter
+    inherit Events.EventEmitter
     abstract close: unit -> unit
 
 type [<AllowNullLiteral>] ReadStreamOptions =
@@ -51,7 +49,7 @@ type [<AllowNullLiteral>] ReadStreamOptions =
     abstract ``end``: int option with get, set
 
 type [<AllowNullLiteral>] ReadStream<'a> =
-    inherit Readable<Buffer>
+    inherit Stream.Readable<Buffer.Buffer>
     abstract bytesRead: float with get, set
     abstract path: 'a with get, set
     abstract close: unit -> unit
@@ -59,7 +57,7 @@ type [<AllowNullLiteral>] ReadStream<'a> =
 
 type [<AllowNullLiteral>] ReadStreamStatic =
     [<Emit("new $0($1, $2)")>] abstract Create: path:string * opts:ReadStreamOptions option -> ReadStream<string>
-    [<Emit("new $0($1, $2)")>] abstract Create: path:Buffer * opts:ReadStreamOptions option -> ReadStream<Buffer>
+    [<Emit("new $0($1, $2)")>] abstract Create: path:Buffer.Buffer * opts:ReadStreamOptions option -> ReadStream<Buffer.Buffer>
 
 type [<AllowNullLiteral>] WriteStreamOptions =
     abstract flags: string option with get, set
@@ -70,14 +68,14 @@ type [<AllowNullLiteral>] WriteStreamOptions =
     abstract start: int option with get, set
 
 type [<AllowNullLiteral>] WriteStream<'a> =
-    inherit Writable<Buffer>
+    inherit Stream.Writable<Buffer.Buffer>
     abstract bytesWritten: float with get, set
     abstract path: 'a with get, set
     abstract close: unit -> unit
 
 type [<AllowNullLiteral>] WriteStreamStatic =
     [<Emit("new $0($1, $2)")>] abstract Create: path:string * opts:WriteStreamOptions option -> WriteStream<string>
-    [<Emit("new $0($1, $2)")>] abstract Create: path:Buffer * opts:WriteStreamOptions option -> WriteStream<Buffer>
+    [<Emit("new $0($1, $2)")>] abstract Create: path:Buffer.Buffer * opts:WriteStreamOptions option -> WriteStream<Buffer.Buffer>
 
 type FsConstants =
     abstract F_OK: float with get, set
@@ -126,96 +124,96 @@ type IExports =
     abstract watch: filename: string * options: FsWatcherOptions * ?listener: (string -> string -> unit) -> FSWatcher
     abstract ReadStream: ReadStreamStatic with get, set
     abstract WriteStream: WriteStreamStatic with get, set
-    abstract createReadStream: path: string * ?options: ReadableOptions -> ReadStream<string>
-    abstract createReadStream: path: Buffer * ?options: ReadableOptions -> ReadStream<Buffer>
-    abstract createWriteStream: path: string * ?options: WritableOptions -> WriteStream<string>
-    abstract createWriteStream: path: Buffer * ?options: WritableOptions -> WriteStream<Buffer>
+    abstract createReadStream: path: string * ?options: Stream.ReadableOptions -> ReadStream<string>
+    abstract createReadStream: path: Buffer.Buffer * ?options: Stream.ReadableOptions -> ReadStream<Buffer.Buffer>
+    abstract createWriteStream: path: string * ?options: Stream.WritableOptions -> WriteStream<string>
+    abstract createWriteStream: path: Buffer.Buffer * ?options: Stream.WritableOptions -> WriteStream<Buffer.Buffer>
     abstract constants: FsConstants
     abstract rename: oldPath: string * newPath: string * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract renameSync: oldPath: string * newPath: string -> unit
-    abstract truncate: path: U2<string, Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract truncate: path: U2<string, Buffer> * len: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract truncateSync: path: U2<string, Buffer> * ?len: float -> unit
+    abstract truncate: path: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract truncate: path: U2<string, Buffer.Buffer> * len: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract truncateSync: path: U2<string, Buffer.Buffer> * ?len: float -> unit
     abstract ftruncate: fd: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract ftruncate: fd: float * len: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract ftruncateSync: fd: float * ?len: float -> unit
-    abstract chown: path: U2<string, Buffer> * uid: float * gid: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract chownSync: path: U2<string, Buffer> * uid: float * gid: float -> unit
+    abstract chown: path: U2<string, Buffer.Buffer> * uid: float * gid: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract chownSync: path: U2<string, Buffer.Buffer> * uid: float * gid: float -> unit
     abstract fchown: fd: float * uid: float * gid: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract fchownSync: fd: float * uid: float * gid: float -> unit
-    abstract lchown: path: U2<string, Buffer> * uid: float * gid: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract lchownSync: path: U2<string, Buffer> * uid: float * gid: float -> unit
-    abstract chmod: path: U2<string, Buffer> * mode: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract chmod: path: U2<string, Buffer> * mode: string * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract chmodSync: path: U2<string, Buffer> * mode: float -> unit
-    abstract chmodSync: path: U2<string, Buffer> * mode: string -> unit
+    abstract lchown: path: U2<string, Buffer.Buffer> * uid: float * gid: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract lchownSync: path: U2<string, Buffer.Buffer> * uid: float * gid: float -> unit
+    abstract chmod: path: U2<string, Buffer.Buffer> * mode: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract chmod: path: U2<string, Buffer.Buffer> * mode: string * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract chmodSync: path: U2<string, Buffer.Buffer> * mode: float -> unit
+    abstract chmodSync: path: U2<string, Buffer.Buffer> * mode: string -> unit
     abstract fchmod: fd: float * mode: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract fchmod: fd: float * mode: string * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract fchmodSync: fd: float * mode: float -> unit
     abstract fchmodSync: fd: float * mode: string -> unit
-    abstract lchmod: path: U2<string, Buffer> * mode: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract lchmod: path: U2<string, Buffer> * mode: string * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract lchmodSync: path: U2<string, Buffer> * mode: float -> unit
-    abstract lchmodSync: path: U2<string, Buffer> * mode: string -> unit
-    abstract stat: path: U2<string, Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> Stats -> obj) -> unit
-    abstract lstat: path: U2<string, Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> Stats -> obj) -> unit
+    abstract lchmod: path: U2<string, Buffer.Buffer> * mode: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract lchmod: path: U2<string, Buffer.Buffer> * mode: string * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract lchmodSync: path: U2<string, Buffer.Buffer> * mode: float -> unit
+    abstract lchmodSync: path: U2<string, Buffer.Buffer> * mode: string -> unit
+    abstract stat: path: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> Stats -> obj) -> unit
+    abstract lstat: path: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> Stats -> obj) -> unit
     abstract fstat: fd: float * ?callback: (Base.NodeJS.ErrnoException option -> Stats -> obj) -> unit
-    abstract statSync: path: U2<string, Buffer> -> Stats
-    abstract lstatSync: path: U2<string, Buffer> -> Stats
+    abstract statSync: path: U2<string, Buffer.Buffer> -> Stats
+    abstract lstatSync: path: U2<string, Buffer.Buffer> -> Stats
     abstract fstatSync: fd: float -> Stats
-    abstract link: srcpath: U2<string, Buffer> * dstpath: U2<string, Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract linkSync: srcpath: U2<string, Buffer> * dstpath: U2<string, Buffer> -> unit
-    abstract symlink: srcpath: U2<string, Buffer> * dstpath: U2<string, Buffer> * ?``type``: string * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract symlinkSync: srcpath: U2<string, Buffer> * dstpath: U2<string, Buffer> * ?``type``: string -> unit
-    abstract readlink: path: U2<string, Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> string -> obj) -> unit
-    abstract readlinkSync: path: U2<string, Buffer> -> string
-    abstract realpath: path: U2<string, Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> string -> obj) -> unit
-    abstract realpath: path: U2<string, Buffer> * cache: obj * callback: (Base.NodeJS.ErrnoException option -> string -> obj) -> unit
-    abstract realpathSync: path: U2<string, Buffer> * ?cache: obj -> string
-    abstract unlink: path: U2<string, Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract unlinkSync: path: U2<string, Buffer> -> unit
-    abstract rmdir: path: U2<string, Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract rmdirSync: path: U2<string, Buffer> -> unit
-    abstract mkdir: path: U2<string, Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract mkdir: path: U2<string, Buffer> * mode: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract mkdir: path: U2<string, Buffer> * mode: string * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract mkdirSync: path: U2<string, Buffer> * ?mode: float -> unit
-    abstract mkdirSync: path: U2<string, Buffer> * ?mode: string -> unit
+    abstract link: srcpath: U2<string, Buffer.Buffer> * dstpath: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract linkSync: srcpath: U2<string, Buffer.Buffer> * dstpath: U2<string, Buffer.Buffer> -> unit
+    abstract symlink: srcpath: U2<string, Buffer.Buffer> * dstpath: U2<string, Buffer.Buffer> * ?``type``: string * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract symlinkSync: srcpath: U2<string, Buffer.Buffer> * dstpath: U2<string, Buffer.Buffer> * ?``type``: string -> unit
+    abstract readlink: path: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> string -> obj) -> unit
+    abstract readlinkSync: path: U2<string, Buffer.Buffer> -> string
+    abstract realpath: path: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> string -> obj) -> unit
+    abstract realpath: path: U2<string, Buffer.Buffer> * cache: obj * callback: (Base.NodeJS.ErrnoException option -> string -> obj) -> unit
+    abstract realpathSync: path: U2<string, Buffer.Buffer> * ?cache: obj -> string
+    abstract unlink: path: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract unlinkSync: path: U2<string, Buffer.Buffer> -> unit
+    abstract rmdir: path: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract rmdirSync: path: U2<string, Buffer.Buffer> -> unit
+    abstract mkdir: path: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract mkdir: path: U2<string, Buffer.Buffer> * mode: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract mkdir: path: U2<string, Buffer.Buffer> * mode: string * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract mkdirSync: path: U2<string, Buffer.Buffer> * ?mode: float -> unit
+    abstract mkdirSync: path: U2<string, Buffer.Buffer> * ?mode: string -> unit
     abstract mkdtemp: prefix: string * ?callback: (Base.NodeJS.ErrnoException option -> string -> unit) -> unit
     abstract mkdtempSync: prefix: string -> string
-    abstract readdir: path: U2<string, Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> ResizeArray<string> -> unit) -> unit
-    abstract readdirSync: path: U2<string, Buffer> -> ResizeArray<string>
+    abstract readdir: path: U2<string, Buffer.Buffer> * ?callback: (Base.NodeJS.ErrnoException option -> ResizeArray<string> -> unit) -> unit
+    abstract readdirSync: path: U2<string, Buffer.Buffer> -> ResizeArray<string>
     abstract close: fd: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract closeSync: fd: float -> unit
-    abstract ``open``: path: U2<string, Buffer> * flags: U2<string, float> * callback: (Base.NodeJS.ErrnoException option -> float -> unit) -> unit
-    abstract ``open``: path: U2<string, Buffer> * flags: U2<string, float> * mode: float * callback: (Base.NodeJS.ErrnoException option -> float -> unit) -> unit
-    abstract openSync: path: U2<string, Buffer> * flags: U2<string, float> * ?mode: float -> float
-    abstract utimes: path: U2<string, Buffer> * atime: float * mtime: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract utimes: path: U2<string, Buffer> * atime: DateTime * mtime: DateTime * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract utimesSync: path: U2<string, Buffer> * atime: float * mtime: float -> unit
-    abstract utimesSync: path: U2<string, Buffer> * atime: DateTime * mtime: DateTime -> unit
+    abstract ``open``: path: U2<string, Buffer.Buffer> * flags: U2<string, float> * callback: (Base.NodeJS.ErrnoException option -> float -> unit) -> unit
+    abstract ``open``: path: U2<string, Buffer.Buffer> * flags: U2<string, float> * mode: float * callback: (Base.NodeJS.ErrnoException option -> float -> unit) -> unit
+    abstract openSync: path: U2<string, Buffer.Buffer> * flags: U2<string, float> * ?mode: float -> float
+    abstract utimes: path: U2<string, Buffer.Buffer> * atime: float * mtime: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract utimes: path: U2<string, Buffer.Buffer> * atime: DateTime * mtime: DateTime * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract utimesSync: path: U2<string, Buffer.Buffer> * atime: float * mtime: float -> unit
+    abstract utimesSync: path: U2<string, Buffer.Buffer> * atime: DateTime * mtime: DateTime -> unit
     abstract futimes: fd: float * atime: float * mtime: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract futimes: fd: float * atime: DateTime * mtime: DateTime * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract futimesSync: fd: float * atime: float * mtime: float -> unit
     abstract futimesSync: fd: float * atime: DateTime * mtime: DateTime -> unit
     abstract fsync: fd: float * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract fsyncSync: fd: float -> unit
-    abstract write: fd: float * buffer: Buffer * offset: float * length: float * position: float * ?callback: (Base.NodeJS.ErrnoException option -> float -> Buffer -> unit) -> unit
-    abstract write: fd: float * buffer: Buffer * offset: float * length: float * ?callback: (Base.NodeJS.ErrnoException option -> float -> Buffer -> unit) -> unit
+    abstract write: fd: float * buffer: Buffer.Buffer * offset: float * length: float * position: float * ?callback: (Base.NodeJS.ErrnoException option -> float -> Buffer.Buffer -> unit) -> unit
+    abstract write: fd: float * buffer: Buffer.Buffer * offset: float * length: float * ?callback: (Base.NodeJS.ErrnoException option -> float -> Buffer.Buffer -> unit) -> unit
     abstract write: fd: float * data: obj * ?callback: (Base.NodeJS.ErrnoException option -> float -> string -> unit) -> unit
     abstract write: fd: float * data: obj * offset: float * ?callback: (Base.NodeJS.ErrnoException option -> float -> string -> unit) -> unit
     abstract write: fd: float * data: obj * offset: float * encoding: string * ?callback: (Base.NodeJS.ErrnoException option -> float -> string -> unit) -> unit
-    abstract writeSync: fd: float * buffer: Buffer * offset: float * length: float * ?position: float -> float
+    abstract writeSync: fd: float * buffer: Buffer.Buffer * offset: float * length: float * ?position: float -> float
     abstract writeSync: fd: float * data: obj * ?position: float * ?enconding: string -> float
-    abstract read: fd: float * buffer: Buffer * offset: float * length: float * position: float * ?callback: (Base.NodeJS.ErrnoException option -> float -> Buffer -> unit) -> unit
-    abstract readSync: fd: float * buffer: Buffer * offset: float * length: float * position: float -> float
+    abstract read: fd: float * buffer: Buffer.Buffer * offset: float * length: float * position: float * ?callback: (Base.NodeJS.ErrnoException option -> float -> Buffer.Buffer -> unit) -> unit
+    abstract readSync: fd: float * buffer: Buffer.Buffer * offset: float * length: float * position: float -> float
     abstract readFile: filename: string * encoding: string * callback: (Base.NodeJS.ErrnoException option -> string -> unit) -> unit
     abstract readFile: filename: string * options: obj * callback: (Base.NodeJS.ErrnoException option -> string -> unit) -> unit
-    abstract readFile: filename: string * options: obj * callback: (Base.NodeJS.ErrnoException option -> Buffer -> unit) -> unit
-    abstract readFile: filename: string * callback: (Base.NodeJS.ErrnoException option -> Buffer -> unit) -> unit
+    abstract readFile: filename: string * options: obj * callback: (Base.NodeJS.ErrnoException option -> Buffer.Buffer -> unit) -> unit
+    abstract readFile: filename: string * callback: (Base.NodeJS.ErrnoException option -> Buffer.Buffer -> unit) -> unit
     abstract readFileSync: filename: string * encoding: string -> string
     abstract readFileSync: filename: string * options: obj -> string
-    abstract readFileSync: filename: string * ?options: obj -> Buffer
+    abstract readFileSync: filename: string * ?options: obj -> Buffer.Buffer
     abstract writeFile: filename: string * data: obj * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract writeFile: filename: string * data: obj * options: obj * ?callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract writeFileSync: filename: string * data: obj * ?options: obj -> unit
@@ -226,11 +224,11 @@ type IExports =
     abstract watchFile: filename: string * options: obj * listener: (Stats -> Stats -> unit) -> unit
     abstract unwatchFile: filename: string * ?listener: (Stats -> Stats -> unit) -> unit
 
-    abstract exists: path: U2<string, Buffer> * ?callback: (bool -> unit) -> unit
-    abstract existsSync: path: U2<string, Buffer> -> bool
-    abstract access: path: U2<string, Buffer> * callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract access: path: U2<string, Buffer> * mode: float * callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
-    abstract accessSync: path: U2<string, Buffer> * ?mode: float -> unit
+    abstract exists: path: U2<string, Buffer.Buffer> * ?callback: (bool -> unit) -> unit
+    abstract existsSync: path: U2<string, Buffer.Buffer> -> bool
+    abstract access: path: U2<string, Buffer.Buffer> * callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract access: path: U2<string, Buffer.Buffer> * mode: float * callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
+    abstract accessSync: path: U2<string, Buffer.Buffer> * ?mode: float -> unit
     
     abstract fdatasync: fd: float * callback: (Base.NodeJS.ErrnoException option -> unit) -> unit
     abstract fdatasyncSync: fd: float -> unit
