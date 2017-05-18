@@ -2,12 +2,11 @@ module rec Fable.Import.Node.Net
 
 open Fable.Core
 open Fable.Import.JS
-open Fable.Import.Node.Stream
-open Fable.Import.Node.Buffer
+open Fable.Import.Node
 
 type [<AllowNullLiteral>] Socket =
-    inherit stream_types.Readable<buffer_types.Buffer>
-    inherit stream_types.Writable<buffer_types.Buffer>
+    inherit Stream.Readable<Buffer.Buffer>
+    inherit Stream.Writable<Buffer.Buffer>
     abstract bufferSize: float with get, set
     abstract remoteAddress: string with get, set
     abstract remoteFamily: string with get, set

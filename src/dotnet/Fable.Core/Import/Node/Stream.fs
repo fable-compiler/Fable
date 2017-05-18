@@ -2,11 +2,10 @@ module rec Fable.Import.Node.Stream
 
 open Fable.Core
 open Fable.Import.JS
-open Fable.Import.Node.Buffer
-open Fable.Import.Node.Events
+open Fable.Import.Node
 
 type [<AllowNullLiteral>] Stream =
-    inherit event_types.EventEmitter
+    inherit Events.EventEmitter
     abstract pipe: destination: Writable<'a> * ?options: obj -> Writable<'a>
 
 type [<AllowNullLiteral>] StreamStatic = 
@@ -67,7 +66,7 @@ type DuplexOptions = {
     readableObjectMode: bool option;
     writableObjectMode: bool option;
     read: float -> obj option;
-    write: U2<string, buffer_types.Buffer> -> string -> Function -> obj option;
+    write: U2<string, Buffer.Buffer> -> string -> Function -> obj option;
     writev: ResizeArray<obj> -> Function -> obj option;
 }
 
@@ -94,7 +93,7 @@ type [<AllowNullLiteral>] TransformBufferOptions =
     abstract allowHalfOpen: bool option with get, set
     abstract readableObjectMode: bool option with get, set
     abstract writableObjectMode: bool option with get, set
-    abstract transform<'a> : (buffer_types.Buffer -> string -> (Error option -> 'a option -> unit) -> unit) with get, set
+    abstract transform<'a> : (Buffer.Buffer -> string -> (Error option -> 'a option -> unit) -> unit) with get, set
     abstract flush: Option<(Error option -> unit) -> unit> with get, set
 
 type [<AllowNullLiteral>] Transform<'a, 'b> =
