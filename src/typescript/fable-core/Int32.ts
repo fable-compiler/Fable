@@ -4,7 +4,7 @@ const parseRadix10 = /^ *([\+\-]?[0-9]+) *$/;
 // TODO verify that this matches the behavior of .NET
 const parseRadix16 = /^ *([\+\-]?[0-9a-fA-F]+) *$/;
 
-export function isValid(s: string | null, radix: number): Array<string> | null {
+export function isValid(s: string | null, radix: number): string[] | null {
   if (s != null) {
     if (radix === 16) {
       return parseRadix16.exec(s);
