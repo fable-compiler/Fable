@@ -5,7 +5,7 @@ open Fable.Import.Node
 open Fable.Core
 
 [<Import("*", "querystring")>]
-let Querystring: Querystring.IExports = jsNative
+let querystring: Querystring.IExports = jsNative
 
 [<Import("*", "url")>]
-let Url: Url.IExports = jsNative
+let url: Url.IExports = jsNative
