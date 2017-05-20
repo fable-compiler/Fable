@@ -1,0 +1,35 @@
+{
+  "name": "fable-splitter",
+  "version": "1.0.0-alpha-001",
+  "description": "F# to JavaScript compiler",
+  "author": "ncave",
+  "license": "Apache-2.0",
+  "main": "index.js",
+  "homepage": "https://github.com/fable-compiler/Fable/tree/master/src/typescript/fable-splitter#readme",
+  "repository": "https://github.com/fable-compiler/Fable/tree/master/src/typescript/fable-splitter",
+  "keywords": [
+    "fable",
+    "fsharp",
+    "F#"
+  ],
+  "publishConfig": {
+    "registry": " https://registry.npmjs.org"
+  },
+  "bugs": {
+    "url": "https://github.com/fable-compiler/Fable/issues"
+  },
+  "scripts": {
+    "fable": "dotnet ../../../build/fable/dotnet-fable.dll start",
+    "prebuild": "node ../../../node_modules/tslint/bin/tslint index.ts",
+    "build": "node ../../../node_modules/typescript/bin/tsc"
+  },
+  "peerDependencies": {
+    "babel-core": "^6.24.1",
+    "fable-core": "^1.0.0-narumi-914"
+  },
+  "dependencies": {
+    "@types/node": "^7.0.21",
+    "@types/babel-core": "^6.7.14",
+    "fable-utils": "^1.0.0"
+  }
+}
