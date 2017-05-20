@@ -1,0 +1,7 @@
+# artifacts
+**/*.js
+**/*.js.map
+**/*.d.ts
+
+# packages
+node_modules/
