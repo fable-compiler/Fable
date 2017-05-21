@@ -1022,25 +1022,18 @@ module AstPass =
             let hexConst = float System.Globalization.NumberStyles.HexNumber
             match i.methodName, i.args with
             | "parse", [str] ->
-                CoreLibCall (numberModule, Some "parse", false, [
-                    str
-                    (if isFloat then makeNumConst 10.0 else makeIntConst 10)
-                ])
+                CoreLibCall (numberModule, Some "parse", false,
+                    [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10)])
                 |> makeCall i.range i.returnType |> Some
 
             | "parse", [str; Fable.Wrapped(Fable.Value(Fable.NumberConst(hexConst,_)), Fable.Enum _)] ->
-                CoreLibCall (numberModule, Some "parse", false, [
-                    str
-                    (if isFloat then makeNumConst 16.0 else makeIntConst 16)
-                ])
+                CoreLibCall (numberModule, Some "parse", false,
+                    [str; (if isFloat then makeNumConst 16.0 else makeIntConst 16)])
                 |> makeCall i.range i.returnType |> Some
 
             | "tryParse", [str; defValue] ->
-                CoreLibCall (numberModule, Some "tryParse", false, [
-                    str
-                    (if isFloat then makeNumConst 10.0 else makeIntConst 10)
-                    defValue
-                ])
+                CoreLibCall (numberModule, Some "tryParse", false,
+                    [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10); defValue])
                 |> makeCall i.range i.returnType |> Some
 
             | _ ->

@@ -2,6 +2,15 @@
 
 # Fable blog
 
+## [Paket Integration](blog/Paket-integration.html)
+
+> By [Alfonso García-Caro](https://twitter.com/alfonsogcnunez) on May 18, 2017
+
+Fable 1.0 beta has been out in the wild for several weeks now and the community has already provided very valuable feedback. Some people are concerned about the mix of .NET and JS tools and it's true there were some friction points we had to fix. The main one concerned Fable libraries: by nature they belong to the .NET ecosystem, but their destiny is to be converted to JS.
+
+[Read more...](blog/Paket-integration.html)
+
+
 ## [Introducing Fable 1.0 beta (codename narumi)](blog/Introducing-1-0-beta.html)
 
 > By [Alfonso García-Caro](https://twitter.com/alfonsogcnunez) on March 20, 2017

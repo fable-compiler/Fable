@@ -2,8 +2,8 @@ module rec Fable.Import.Node.Process
 
 open System
 open Fable.Core
-open Fable.Import.Node.Stream
-open Fable.Import.Node.Base.NodeJS
+open Fable.Import.Node
+open Fable.Import.Node.Base
 open Fable.Import.JS
 
 type [<AllowNullLiteral>] Process =
@@ -20,9 +20,9 @@ type [<AllowNullLiteral>] Process =
       abstract prependListener: ``event``: U2<string, Symbol> * listener: Function -> obj
       abstract prependOnceListener: ``event``: U2<string, Symbol> * listener: Function -> obj
       abstract eventNames: unit -> ResizeArray<U2<string, Symbol>>
-      abstract stdout: stream_types.Writable<string> with get, set
-      abstract stderr: stream_types.Writable<string> with get, set
-      abstract stdin: stream_types.Readable<string> with get, set
+      abstract stdout: Stream.Writable<string> with get, set
+      abstract stderr: Stream.Writable<string> with get, set
+      abstract stdin: Stream.Readable<string> with get, set
       abstract argv: ResizeArray<string> with get, set
       abstract argv0: string with get, set
       abstract execArgv: ResizeArray<string> with get, set
@@ -33,8 +33,8 @@ type [<AllowNullLiteral>] Process =
       abstract config: obj with get, set
       abstract pid: float with get, set
       abstract title: string with get, set
-      abstract arch: Arch with get, set
-      abstract platform: Platform with get, set
+      abstract arch: NodeJS.Arch with get, set
+      abstract platform: NodeJS.Platform with get, set
       abstract connected: bool with get, set
       abstract abort: unit -> unit
       abstract chdir: directory: string -> unit

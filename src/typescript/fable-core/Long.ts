@@ -3,8 +3,8 @@
 // tslint:disable:curly
 // tslint:disable:member-access
 // tslint:disable:member-ordering
-import _Symbol from "./Symbol";
 import { isValid } from "./Int32";
+import _Symbol from "./Symbol";
 
 // The internal representation of a long is the two given signed, 32-bit values.
 // We use 32-bit pieces because these are the size of integers on which

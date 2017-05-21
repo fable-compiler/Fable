@@ -116,7 +116,7 @@ module NodeJS =
         abstract Uint8ClampedArray: Function with get, set
         abstract WeakMap: WeakMapConstructor with get, set
         abstract WeakSet: WeakSetConstructor with get, set
-        abstract console: obj with get, set
+        abstract console: Console with get, set
         abstract decodeURI: obj with get, set
         abstract decodeURIComponent: obj with get, set
         abstract encodeURI: obj with get, set
