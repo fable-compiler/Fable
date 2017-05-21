@@ -27,3 +27,6 @@ let Stream: Stream.IExports = jsNative
 
 [<Import("*", "url")>]
 let Url: Url.IExports = jsNative
+
+[<Import("*", "path")>] 
+let Path: Path.IExports = jsNative

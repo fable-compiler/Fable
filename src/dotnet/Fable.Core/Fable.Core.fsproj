@@ -22,6 +22,7 @@
     <Compile Include="Import/Node/Buffer.fs" />
     <Compile Include="Import/Node/Stream.fs" />
     <Compile Include="Import/Node/Fs.fs" />
+    <Compile Include="Import/Node/Path.fs" />
     <Compile Include="Import/Node/Net.fs" />
     <Compile Include="Import/Node/ChildProcess.fs" />
     <Compile Include="Import/Node/Process.fs" />
