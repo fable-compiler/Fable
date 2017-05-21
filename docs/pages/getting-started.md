@@ -36,4 +36,4 @@ To build your app for production without running webpack developement server, yo
 ```
 dotnet fable npm-run build
 ```
-which, depending on how you configured webpack inside `webpack.config.js` will compile you app and bundle it into a single file, ready for proeuction. By default, that file is compiled to the `public` directory and is named `bundle.js`.
+which, depending on how you configured webpack inside `webpack.config.js` will compile you app and bundle it into a single file, ready for production. By default, that file is compiled to the `public` directory and is named `bundle.js`.
