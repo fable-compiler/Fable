@@ -28,7 +28,7 @@ To run the app in developement mode, you run:
 ```
 dotnet fable npm-run start
 ```
-This will do two things, first, it will run the Fable server/daemon in the background. Also, it will run the webpack developement server.
+This will run two servers in parallel: the Fable compilation server and the webpack development server.
 
 You can navigate to `http://localhost:8080` in your browser to see your simple Fable running. At this point, when you make changes to your files,webpack developement server will detect these changes, recompile your app and refreshes the browser on your behalf. 
 
