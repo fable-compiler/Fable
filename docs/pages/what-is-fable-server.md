@@ -6,4 +6,4 @@ At first you have the `fable-loader`. A loader in webpack tells webpack how to r
 ## Why
 Since there isn't a "Babel server" for the `bable-loader`, one might ask why do we need a "Fable server" running in the background? 
 
-The asnwer is incremental compilation. When Fable server compiles your app, it keeps track of the _state_ of the compilation such that, when a file is edited during developement mode (using webpack-dev-server), only a portion of your app will be recompiled instead of a full recompilation which a lot faster becuase on the first full compilation, all the dependencies will also get compiled and the state of these is kept during while you make changes to your app.
+The asnwer is incremental compilation. When Fable server compiles your app, it keeps track of the _state_ of the compilation such that, when a file is edited during developement mode (using webpack-dev-server), only a portion of your app will be recompiled instead of a full recompilation which is a lot faster. Only the first compilation is the slowest because all the dependencies will also get compiled and the state of these is kept. 
