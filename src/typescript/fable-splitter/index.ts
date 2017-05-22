@@ -175,7 +175,7 @@ async function transformAsync(path: string, options: FableCompilerOptions) {
     }
 }
 
-export default function fableCompiler(options: FableCompilerOptions) {
+export default function fableSplitter(options: FableCompilerOptions) {
     options = options || {};
 
     const babelOptions = options.babel || {};
