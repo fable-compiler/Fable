@@ -1,7 +1,7 @@
 module rec Fable.Import.Node.Path
 
+open System
 open Fable.Core
-
 
 type PathObjectProps = 
     abstract dir : string with get, set
@@ -27,7 +27,7 @@ type IExports =
     /// Determines if path is an absolute path.
     abstract isAbsolute : path:string -> bool 
     /// Joins all given path segments together using the platform specific separator as a delimiter, then normalizes the resulting path. Zero-length path segments are ignored. If the joined path string is a zero-length string then '.' will be returned, representing the current working directory.  
-    abstract join : [<ParamArray>] string [] -> string
+    abstract join : [<ParamArray>] paths : string [] -> string
     /// Normalizes the given path, resolving '..' and '.' segments.
     abstract normalize : string -> string
     /// Returns an object whose properties represent significant elements of the path. Trailing directory separators are ignored.
@@ -35,7 +35,7 @@ type IExports =
     /// returns the relative path from from to to. If from and to each resolve to the same path (after calling path.resolve() on each), a zero-length string is returned.
     abstract relative : string * string -> string
     /// resolves a sequence of paths or path segments into an absolute path.
-    abstract resolve : [<ParamArray>] string [] -> string
+    abstract resolve : [<ParamArray>] paths : string [] -> string
     /// Provides the platform-specific path segment separator. "\" On Windows, "/" on POSIX
     abstract sep : string
     /// Provides access to Windows-specific implementations of the path methods.
