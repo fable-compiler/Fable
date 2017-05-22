@@ -1,0 +1,8 @@
+source https://nuget.org/api/v2
+
+nuget FSharp.Core
+
+# Keep this version synced with dotnet-fable in .fsproj
+nuget Fable.Core 1.0.4
+
+# Add here other Fable libraries like Fable.PowerPack
