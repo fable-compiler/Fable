@@ -10,12 +10,13 @@ const customPlugins = [
     babelPlugins.getTransformMacroExpressions(Babel.template),
 ];
 
-const DEFAULT_PORT = parseInt(process.env.FABLE_SERVER_PORT || "61225", 10);
+const DEFAULT_PORT = parseInt(Process.env.FABLE_SERVER_PORT || "61225", 10);
 const FSHARP_EXT = /\.(fs|fsx|fsproj)$/;
 const FSPROJ_EXT = /\.fsproj$/;
 const JAVASCRIPT_EXT = /\.js$/;
 
 let alreadyCompiled: Set<string>;
+let dedupFlatPaths: Set<string>;
 
 export type FableOptions = {
     path?: string;
@@ -59,10 +60,18 @@ function ensureDirExists(dir: string) {
 
 // flat folder structure (one level deep)
 function flatPath(fullPath: string) {
+    // file name without extensions
     const fileName = Path.basename(fullPath)
-        .replace(FSHARP_EXT, "").replace(JAVASCRIPT_EXT, "");
+        .replace(FSHARP_EXT, "")
+        .replace(JAVASCRIPT_EXT, "");
     const fileDir = Path.basename(Path.dirname(fullPath));
-    const newPath = Path.join(fileDir, fileName);
+    const filePath = Path.join(fileDir, fileName);
+    // dedup new path
+    let newPath = filePath;
+    let i = 0;
+    while (dedupFlatPaths.has(newPath)) {
+        newPath = `${filePath}${++i}`;
+    }
     return newPath;
 }
 
@@ -191,6 +200,7 @@ export default function fableCompiler(options: FableCompilerOptions) {
     };
 
     alreadyCompiled = new Set<string>();
+    dedupFlatPaths = new Set<string>();
 
     // main loop
     console.log("Fable compiler started ...");
