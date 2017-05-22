@@ -1,11 +1,11 @@
 # fable-splitter
 
-F# to JavaScript compiler.
+Fable (F# to JavaScript compiler) file splitter.
 
 ## Installation
 
-todo
+todo:
 
 ## Usage
 
-todo
+todo:

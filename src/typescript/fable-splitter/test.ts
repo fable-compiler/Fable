@@ -30,7 +30,7 @@ const fableOptions = {
 
 const options = {
   entry: "../../dotnet/Fable.Client.Browser/testapp/testapp.fsproj",
-  outDir: "../../dotnet/Fable.Client.Browser/testapp/out",
+  outDir: "./out",
   // port: 61225,
   babel: babelOptions,
   fable: fableOptions,
