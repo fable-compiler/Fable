@@ -1,6 +1,6 @@
 # fable-splitter
 
-Fable (F# to JavaScript compiler) file splitter.
+File splitter for Fable (F# to JavaScript compiler).
 
 ## Installation
 
@@ -21,7 +21,7 @@ Add the following to your package.json:
 Create a `splitter.config.js` like the following:
 
 ```
-import fableSplitter from "fable-splitter";
+const fableSplitter = require("fable-splitter").default;
 
 const babelOptions = {
   plugins: [
