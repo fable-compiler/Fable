@@ -1,10 +1,4 @@
-import fableSplitter from "./index";
-
-// const Path = require("path");
-
-// function resolve(filePath: string) {
-//   return Path.resolve(__dirname, filePath);
-// }
+const fableSplitter = require("fable-splitter").default;
 
 const babelOptions = {
   plugins: [
@@ -16,7 +10,7 @@ const babelOptions = {
 };
 
 const fableOptions = {
-  fableCore: "../../../build/fable-core",
+  fableCore: "../../../../build/fable-core",
   // plugins: [],
   define: [
     "COMPILER_SERVICE",
@@ -32,7 +26,7 @@ const fableOptions = {
 };
 
 const options = {
-  entry: "../../dotnet/Fable.Client.Browser/testapp/testapp.fsproj",
+  entry: "./testapp.fsproj",
   outDir: "./out",
   // port: 61225,
   babel: babelOptions,

@@ -1,7 +1,7 @@
 {
   "name": "fable-splitter",
   "version": "0.0.3",
-  "description": "Fable (F# to JavaScript compiler) file splitter",
+  "description": "File splitter for Fable (F# to JavaScript compiler)",
   "author": "ncave",
   "license": "Apache-2.0",
   "main": "index.js",
