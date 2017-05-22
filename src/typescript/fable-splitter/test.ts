@@ -1,4 +1,4 @@
-import fableCompiler from "./index";
+import fableSplitter from "./index";
 
 // const Path = require("path");
 
@@ -39,4 +39,4 @@ const options = {
   fable: fableOptions,
 };
 
-fableCompiler(options);
+fableSplitter(options);
