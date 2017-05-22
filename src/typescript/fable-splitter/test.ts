@@ -7,9 +7,12 @@ import fableCompiler from "./index";
 // }
 
 const babelOptions = {
-  presets: [
-    ["es2015", {modules: false}],
+  plugins: [
+    ["transform-es2015-modules-commonjs", { }],
   ],
+  // presets: [
+  //   ["es2015", { modules: false }],
+  // ],
 };
 
 const fableOptions = {
