@@ -121,9 +121,12 @@ type [<AllowNullLiteral>] STATUS_CODESType =
     [<Emit("$0[$1]{{=$2}}")>] abstract Item: errorCode: float -> string with get, set
     [<Emit("$0[$1]{{=$2}}")>] abstract Item: errorCode: string -> string with get, set
 
+type [<StringEnum>] METHODS =
+    | ACL | BIND | CHECKOUT | CONNECT | COPY | DELETE | GET | HEAD | LINK | LOCK | ``M-SEARCH`` | MERGE | MKACTIVITY | MKCALENDAR | MKCOL | MOVE | NOTIFY | OPTIONS | PATCH | POST | PROPFIND | PROPPATCH | PURGE | PUT | REBIND | REPORT | SEARCH | SUBSCRIBE | TRACE | UNBIND | UNLINK | UNLOCK | UNSUBSCRIBE
+
 type IExports =
     abstract Agent: AgentStatic with get, set
-    abstract METHODS: ResizeArray<string> with get, set
+    abstract METHODS: METHODS with get, set
     abstract STATUS_CODES: STATUS_CODESType with get, set
     abstract globalAgent: Agent with get, set
     abstract createServer: ?requestListener: (IncomingMessage -> ServerResponse -> unit) -> Server
