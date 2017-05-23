@@ -14,7 +14,7 @@ type [<AllowNullLiteral>] RequestOptions =
     abstract port: int option with get, set
     abstract localAddress: string option with get, set
     abstract socketPath: string option with get, set
-    abstract ``method``: string option with get, set
+    abstract ``method``: Methods option with get, set
     abstract path: string option with get, set
     abstract headers: obj option with get, set
     abstract auth: string option with get, set
@@ -121,12 +121,12 @@ type [<AllowNullLiteral>] STATUS_CODESType =
     [<Emit("$0[$1]{{=$2}}")>] abstract Item: errorCode: float -> string with get, set
     [<Emit("$0[$1]{{=$2}}")>] abstract Item: errorCode: string -> string with get, set
 
-type [<StringEnum>] METHODS =
-    | [<CompiledName("ACL")>] ACL | [<CompiledName("BIND")>] BIND | [<CompiledName("CHECKOUT")>] CHECKOUT | [<CompiledName("CONNECT")>] CONNECT | [<CompiledName("COPY")>] COPY | [<CompiledName("DELETE")>] DELETE | [<CompiledName("GET")>] GET | [<CompiledName("HEAD")>] HEAD | [<CompiledName("LINK")>] LINK | [<CompiledName("LOCK")>] LOCK | [<CompiledName("M-SEARCH")>] ``M-SEARCH`` | [<CompiledName("MERGE")>] MERGE | [<CompiledName("MKACTIVITY")>] MKACTIVITY | [<CompiledName("MKCALENDAR")>] MKCALENDAR | [<CompiledName("MKCOL")>] MKCOL | [<CompiledName("MOVE")>] MOVE | [<CompiledName("NOTIFY")>] NOTIFY | [<CompiledName("OPTIONS")>] OPTIONS | [<CompiledName("PATCH")>] PATCH | [<CompiledName("POST")>] POST | [<CompiledName("PROPFIND")>] PROPFIND | [<CompiledName("PROPPATCH")>] PROPPATCH | [<CompiledName("PURGE")>] PURGE | [<CompiledName("PUT")>] PUT | [<CompiledName("REBIND")>] REBIND | [<CompiledName("REPORT")>] REPORT | [<CompiledName("SEARCH")>] SEARCH | [<CompiledName("SUBSCRIBE")>] SUBSCRIBE | [<CompiledName("TRACE")>] TRACE | [<CompiledName("UNBIND")>] UNBIND | [<CompiledName("UNLINK")>] UNLINK | [<CompiledName("UNLOCK")>] UNLOCK | [<CompiledName("UNSUBSCRIBE")>] UNSUBSCRIBE
+type [<StringEnum>] Methods =
+    | [<CompiledName("ACL")>] Acl | [<CompiledName("BIND")>] Bind | [<CompiledName("CHECKOUT")>] Checkout | [<CompiledName("CONNECT")>] Connect | [<CompiledName("COPY")>] Copy | [<CompiledName("DELETE")>] Delete | [<CompiledName("GET")>] Get | [<CompiledName("HEAD")>] Head | [<CompiledName("LINK")>] Link | [<CompiledName("LOCK")>] Lock | [<CompiledName("M-SEARCH")>] ``M-search`` | [<CompiledName("MERGE")>] Merge | [<CompiledName("MKACTIVITY")>] Mkactivity | [<CompiledName("MKCALENDAR")>] Mkcalendar | [<CompiledName("MKCOL")>] Mkcol | [<CompiledName("MOVE")>] Move | [<CompiledName("NOTIFY")>] Notify | [<CompiledName("OPTIONS")>] Options | [<CompiledName("PATCH")>] Patch | [<CompiledName("POST")>] Post | [<CompiledName("PROPFIND")>] Propfind | [<CompiledName("PROPPATCH")>] Proppatch | [<CompiledName("PURGE")>] Purge | [<CompiledName("PUT")>] Put | [<CompiledName("REBIND")>] Rebind | [<CompiledName("REPORT")>] Report | [<CompiledName("SEARCH")>] Search | [<CompiledName("SUBSCRIBE")>] Subscribe | [<CompiledName("TRACE")>] Trace | [<CompiledName("UNBIND")>] Unbind | [<CompiledName("UNLINK")>] Unlink | [<CompiledName("UNLOCK")>] Unlock | [<CompiledName("UNSUBSCRIBE")>] Unsubscribe
 
 type IExports =
     abstract Agent: AgentStatic with get, set
-    abstract METHODS: METHODS with get, set
+    abstract METHODS: Methods with get, set
     abstract STATUS_CODES: STATUS_CODESType with get, set
     abstract globalAgent: Agent with get, set
     abstract createServer: ?requestListener: (IncomingMessage -> ServerResponse -> unit) -> Server
