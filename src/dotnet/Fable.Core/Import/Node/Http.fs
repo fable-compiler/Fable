@@ -11,7 +11,7 @@ type [<AllowNullLiteral>] RequestOptions =
     abstract host: string option with get, set
     abstract hostname: string option with get, set
     abstract family: float option with get, set
-    abstract port: float option with get, set
+    abstract port: int option with get, set
     abstract localAddress: string option with get, set
     abstract socketPath: string option with get, set
     abstract ``method``: string option with get, set
