@@ -6,20 +6,20 @@ open Fable.Core
 
 type [<AllowNullLiteral>] EventEmitter =
     abstract defaultMaxListeners: float with get, set
-    abstract addListener: ev: U2<string, Symbol> * listener: Function -> EventEmitter
+    abstract addListener: ev: string * listener: Function -> EventEmitter
     abstract on: ev: string * listener: ('a -> unit) -> EventEmitter
     abstract on: ev: string * listener: ('a -> 'b -> unit) -> EventEmitter
     abstract once: ev: string * listener: ('a -> unit) -> EventEmitter
     abstract once: ev: string * listener: ('a -> 'b -> unit) -> EventEmitter
-    abstract prependListener: ev: U2<string, Symbol> * listener: Function -> EventEmitter
-    abstract prependOnceListener: ev: U2<string, Symbol> * listener: Function -> EventEmitter
-    abstract removeListener: ev: U2<string, Symbol> * listener: Function -> EventEmitter
-    abstract removeAllListener: ev: U2<string, Symbol> * listener: Function -> EventEmitter
+    abstract prependListener: ev: string * listener: Function -> EventEmitter
+    abstract prependOnceListener: ev: string * listener: Function -> EventEmitter
+    abstract removeListener: ev: string * listener: Function -> EventEmitter
+    abstract removeAllListener: ev: string * listener: Function -> EventEmitter
     abstract setMaxListeners: n: int -> EventEmitter
     abstract getMaxListeners: unit -> int
-    abstract listeners: ev: U2<string, Symbol> -> ResizeArray<Function>
+    abstract listeners: ev: string -> ResizeArray<Function>
     abstract emit: ev: string * [<ParamArray>] args: obj[] -> bool
-    abstract eventNames: unit -> ResizeArray<U2<string, Symbol>>
+    abstract eventNames: unit -> ResizeArray<string>
     
 type [<AllowNullLiteral>] EventEmitterStatic =
     [<Emit("new $0()")>] abstract Create: unit -> EventEmitter

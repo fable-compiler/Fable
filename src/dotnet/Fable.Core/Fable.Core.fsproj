@@ -24,6 +24,10 @@
     <Compile Include="Import/Node/Fs.fs" />
     <Compile Include="Import/Node/Path.fs" />
     <Compile Include="Import/Node/Net.fs" />
+    <Compile Include="Import/Node/Crypto.fs" />
+    <Compile Include="Import/Node/Tls.fs" />
+    <Compile Include="Import/Node/Http.fs" />
+    <Compile Include="Import/Node/Https.fs" />
     <Compile Include="Import/Node/ChildProcess.fs" />
     <Compile Include="Import/Node/Process.fs" />
     <Compile Include="Import/Node/Globals.fs" />
