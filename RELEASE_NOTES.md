@@ -1,3 +1,7 @@
+### 1.0.6
+
+* Propagate subprocess exit code
+
 ### 1.0.5
 
 * Fix #946: --port free throws exception

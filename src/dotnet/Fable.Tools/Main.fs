@@ -18,6 +18,8 @@ type ProcessOptions(?envVars, ?redirectOutput) =
 type Arguments =
     { timeout: int; port: int; commandArgs: string option }
 
+let konst k _ = k    
+
 let startProcess workingDir fileName args (opts: ProcessOptions) =
     let fileName, args =
         let isWindows =
@@ -131,6 +133,7 @@ let startServer port timeout onMessage continuation =
     with
     | ex ->
         printfn "Cannot start server, please check the port %i is free: %s" port ex.Message
+        1
 
 let startServerWithProcess port exec args =
     let agent = startAgent()
@@ -141,11 +144,12 @@ let startServerWithProcess port exec args =
             ProcessOptions(envVars=Map["FABLE_SERVER_PORT", string port])
             |> startProcess workingDir exec args
         Console.CancelKeyPress.Add (fun _ ->
-            Server.stop port |> Async.RunSynchronously
             printfn "Killing process..."
-            p.Kill())
+            p.Kill()
+            Server.stop port |> Async.RunSynchronously)
         p.WaitForExit()
         Server.stop port |> Async.RunSynchronously
+        p.ExitCode
 
 [<EntryPoint>]
 let main argv =
@@ -171,11 +175,12 @@ Fable arguments:
 To pass arguments to the script, write them after `--`
 Example: `dotnet fable npm-run build --port free -- -p --config webpack.production.js`
 """
-    | Some "--version" -> printfn "%s" Constants.VERSION
+        0
+    | Some "--version" -> printfn "%s" Constants.VERSION; 0
     | Some "start" ->
         let args = argv.[1..] |> parseArguments
         let agent = startAgent()
-        startServer args.port args.timeout agent.Post Async.RunSynchronously
+        startServer args.port args.timeout agent.Post (Async.RunSynchronously >> konst 0)
     | Some "npm-run" ->
         let args = argv.[2..] |> parseArguments
         let execArgs =
@@ -207,8 +212,7 @@ Example: `dotnet fable npm-run build --port free -- -p --config webpack.producti
         let execArgs = defaultArg args.commandArgs ""
         startServerWithProcess args.port cmd execArgs
     | Some "debug" ->
-        debug argv.[1] argv.[2..]
-    | Some "add" -> printfn "The add command has been deprecated. Use Paket to manage Fable libraries."
-    | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options." cmd
-    | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."
-    0
+        debug argv.[1] argv.[2..]; 0
+    | Some "add" -> printfn "The add command has been deprecated. Use Paket to manage Fable libraries."; 0
+    | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options." cmd; 0
+    | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; 0
