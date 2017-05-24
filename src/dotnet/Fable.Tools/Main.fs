@@ -96,7 +96,7 @@ let parseArguments args =
             match Int32.TryParse portArg with
             | true, port -> port
             | false, _ -> 
-                printf "Value for --port is not a valid integer, using default port"
+                printfn "Value for --port is not a valid integer, using default port"
                 Constants.DEFAULT_PORT
         | None -> Constants.DEFAULT_PORT
     let timeout =
@@ -157,15 +157,15 @@ Usage: dotnet fable [command] [script] [fable arguments] [-- [script arguments]]
 Commands:
   -h|--help           Show help
   --version           Print version
-  start               Start Fable server
+  start               Start Fable daemon
   npm-run             Run Fable while an npm script is running
   node-run            Run Fable while a node script is running
   shell-run           Run Fable while a shell script is running
-  webpack             Start Fable server, invoke Webpack and shut it down
+  webpack             Start Fable daemon, invoke Webpack and shut it down
   webpack-dev-server  Run Fable while Webpack development server is running
 
 Fable arguments:
-  --timeout           Stop the server if timeout (ms) is reached
+  --timeout           Stop the daemon if timeout (ms) is reached
   --port              Port number (default %d) or "free" to choose a free port
 
 To pass arguments to the script, write them after `--`

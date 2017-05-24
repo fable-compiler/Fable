@@ -1,3 +1,7 @@
+### 1.0.5
+
+* Fix #946: --port free throws exception
+
 ### 1.0.4
 
 * Don't redirect dotnet-fable commands but check version and locate fable-core JS files in packages/Fable.Core
