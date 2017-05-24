@@ -1,3 +1,7 @@
+### 1.0.7
+
+* Fix #944: Import and Emit on same function
+
 ### 1.0.6
 
 * Propagate subprocess exit code

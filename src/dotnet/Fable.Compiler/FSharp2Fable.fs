@@ -1034,12 +1034,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         declInfo, ctx
     let range = getMethLocation meth |> makeRange
     let import = tryGetImport com ctx range meth.DisplayName meth.Attributes (Some body)
-    if Option.isSome import && hasAtt Atts.emit meth.Attributes
-    then
-        sprintf "%s cannot be combined with %s for relative paths" Atts.emit Atts.import
-        |> addError com ctx.fileName (Some range)
-        declInfo, ctx
-    elif Option.isSome import
+    if Option.isSome import
     then
         addMethod range import meth args body
     elif declInfo.IsIgnoredMethod meth
