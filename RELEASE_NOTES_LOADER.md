@@ -1,3 +1,7 @@
+### 1.0.1
+
+* Add `extra.throwOnError` option, to make build fail on errors
+
 ### 1.0.0
 
 * Don't check fable-core version
