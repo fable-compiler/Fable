@@ -78,7 +78,13 @@ let getFreePort () =
 let parseArguments args =
     let tryFindArgValue key (args: string[]) =
         match args |> Array.tryFindIndex ((=) key) with
-        | Some i -> Some args.[i]
+        // i is the index of the key
+        // i + 1 is the index of arg value
+        | Some i -> 
+            // if args.[i] is the last element
+            if args.Length = i + 1 
+            then None 
+            else Some args.[i + 1] 
         | None -> None
     let port =
         match tryFindArgValue "--port" args with
