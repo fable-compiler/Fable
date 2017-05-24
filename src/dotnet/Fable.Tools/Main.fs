@@ -79,17 +79,25 @@ let parseArguments args =
     let tryFindArgValue key (args: string[]) =
         match args |> Array.tryFindIndex ((=) key) with
         // i is the index of the key
-        // i + 1 is the index of arg value
+        // i + 1 is the index of key value
         | Some i -> 
             // if args.[i] is the last element
             if args.Length = i + 1 
+            // then there is no value for this key/flag
             then None 
             else Some args.[i + 1] 
-        | None -> None
+        | None -> 
+            None
     let port =
         match tryFindArgValue "--port" args with
         | Some "free" -> getFreePort()
-        | Some port -> int port
+        | Some portArg -> 
+            // make sure port is parsable as an integer
+            match Int32.TryParse portArg with
+            | true, port -> port
+            | false, _ -> 
+                printf "Value for --port is not a valid integer, using default port"
+                Constants.DEFAULT_PORT
         | None -> Constants.DEFAULT_PORT
     let timeout =
         match tryFindArgValue "--timeout" args with
