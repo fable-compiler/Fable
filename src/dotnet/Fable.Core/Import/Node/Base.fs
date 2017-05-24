@@ -17,6 +17,7 @@ module NodeJS =
         abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
 
     type [<AllowNullLiteral>] Error =
+        abstract name: string with get, set
         abstract stack: string with get, set
         abstract message: string with get, set
 
@@ -75,6 +76,10 @@ module NodeJS =
 
     type [<StringEnum>] Platform =
         | Aix | Android | Darwin | Freebsd | Linux | Openbsd | Sunos | Win32
+
+    type [<AllowNullLiteral>] Timer =
+        abstract ref: unit -> unit
+        abstract unref: unit -> unit
 
     type [<AllowNullLiteral>] Global =
         abstract Array: obj with get, set

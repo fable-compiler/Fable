@@ -19,7 +19,7 @@
     "rollup-plugin-fable": "file:./src/typescript/rollup-plugin-fable",
     "fable-loader": "file:./src/typescript/fable-loader",
     "fable-utils": "file:./src/typescript/fable-utils",
-    "tslint": "^5.2.0",
+    "tslint": "5.2.0",
     "typescript": "^2.3.2",
     "webpack": "^2.5.1"
   }
