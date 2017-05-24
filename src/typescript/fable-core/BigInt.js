@@ -14,8 +14,8 @@ export default class BigInteger {
       interfaces: ["FSharpRecord", "System.IComparable"],
       properties: {
         signInt: "number",
-        v: BigNat
-      }
+        v: BigNat,
+      },
     };
   }
 
@@ -89,7 +89,7 @@ export default class BigInteger {
       const that = obj;
       return compare(this, that);
     } else {
-      throw new Error("the objects are not comparable" + '\nParameter name: ' + "obj");
+      throw new Error("the objects are not comparable" + "\nParameter name: " + "obj");
     }
   }
 
@@ -197,7 +197,7 @@ export function op_Equality(x, y) {
         return false;
       }
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else if (matchValue[0] === 0) {
     if (matchValue[1] === -1) {
@@ -207,7 +207,7 @@ export function op_Equality(x, y) {
     } else if (matchValue[1] === 1) {
       return isZero(y.V);
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else if (matchValue[0] === 1) {
     if (matchValue[1] === -1) {
@@ -221,10 +221,10 @@ export function op_Equality(x, y) {
     } else if (matchValue[1] === 1) {
       return equal(x.V, y.V);
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else {
-    throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+    throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
   }
 }
 
@@ -247,7 +247,7 @@ export function op_LessThan(x, y) {
         return !isZero(y.V);
       }
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else if (matchValue[0] === 0) {
     if (matchValue[1] === -1) {
@@ -257,7 +257,7 @@ export function op_LessThan(x, y) {
     } else if (matchValue[1] === 1) {
       return !isZero(y.V);
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else if (matchValue[0] === 1) {
     if (matchValue[1] === -1) {
@@ -267,10 +267,10 @@ export function op_LessThan(x, y) {
     } else if (matchValue[1] === 1) {
       return lt(x.V, y.V);
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else {
-    throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+    throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
   }
 }
 
@@ -285,7 +285,7 @@ export function op_GreaterThan(x, y) {
     } else if (matchValue[1] === 1) {
       return false;
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else if (matchValue[0] === 0) {
     if (matchValue[1] === -1) {
@@ -295,7 +295,7 @@ export function op_GreaterThan(x, y) {
     } else if (matchValue[1] === 1) {
       return false;
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else if (matchValue[0] === 1) {
     if (matchValue[1] === -1) {
@@ -309,10 +309,10 @@ export function op_GreaterThan(x, y) {
     } else if (matchValue[1] === 1) {
       return gt(x.V, y.V);
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else {
-    throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+    throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
   }
 }
 
@@ -380,7 +380,7 @@ export function op_Addition(x, y) {
       } else if (matchValue[1] === 1) {
         return subnn(y.V, x.V);
       } else {
-        throw new Error("signs should be +/- 1" + '\nParameter name: ' + "x");
+        throw new Error("signs should be +/- 1" + "\nParameter name: " + "x");
       }
     } else if (matchValue[0] === 1) {
       if (matchValue[1] === -1) {
@@ -388,10 +388,10 @@ export function op_Addition(x, y) {
       } else if (matchValue[1] === 1) {
         return addnn(x.V, y.V);
       } else {
-        throw new Error("signs should be +/- 1" + '\nParameter name: ' + "x");
+        throw new Error("signs should be +/- 1" + "\nParameter name: " + "x");
       }
     } else {
-      throw new Error("signs should be +/- 1" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1" + "\nParameter name: " + "x");
     }
   }
 }
@@ -410,7 +410,7 @@ export function op_Subtraction(x, y) {
       } else if (matchValue[1] === 1) {
         return op_UnaryNegation(addnn(x.V, y.V));
       } else {
-        throw new Error("signs should be +/- 1" + '\nParameter name: ' + "x");
+        throw new Error("signs should be +/- 1" + "\nParameter name: " + "x");
       }
     } else if (matchValue[0] === 1) {
       if (matchValue[1] === -1) {
@@ -418,10 +418,10 @@ export function op_Subtraction(x, y) {
       } else if (matchValue[1] === 1) {
         return subnn(x.V, y.V);
       } else {
-        throw new Error("signs should be +/- 1" + '\nParameter name: ' + "x");
+        throw new Error("signs should be +/- 1" + "\nParameter name: " + "x");
       }
     } else {
-      throw new Error("signs should be +/- 1" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1" + "\nParameter name: " + "x");
     }
   }
 }
@@ -458,7 +458,7 @@ export function divRem(x, y) {
       } else if (matchValue[1] === 1) {
         return [negn(patternInput[0]), negn(patternInput[1])];
       } else {
-        throw new Error("signs should be +/- 1" + '\nParameter name: ' + "x");
+        throw new Error("signs should be +/- 1" + "\nParameter name: " + "x");
       }
     } else if (matchValue[0] === 1) {
       if (matchValue[1] === -1) {
@@ -466,10 +466,10 @@ export function divRem(x, y) {
       } else if (matchValue[1] === 1) {
         return [posn(patternInput[0]), posn(patternInput[1])];
       } else {
-        throw new Error("signs should be +/- 1" + '\nParameter name: ' + "x");
+        throw new Error("signs should be +/- 1" + "\nParameter name: " + "x");
       }
     } else {
-      throw new Error("signs should be +/- 1" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1" + "\nParameter name: " + "x");
     }
   }
 }
@@ -533,7 +533,7 @@ export function op_LessThanOrEqual(x, y) {
     } else if (matchValue[1] === 1) {
       return true;
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else if (matchValue[0] === 0) {
     if (matchValue[1] === -1) {
@@ -543,7 +543,7 @@ export function op_LessThanOrEqual(x, y) {
     } else if (matchValue[1] === 1) {
       return true;
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else if (matchValue[0] === 1) {
     if (matchValue[1] === -1) {
@@ -557,10 +557,10 @@ export function op_LessThanOrEqual(x, y) {
     } else if (matchValue[1] === 1) {
       return lte(x.V, y.V);
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else {
-    throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+    throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
   }
 }
 
@@ -579,7 +579,7 @@ export function op_GreaterThanOrEqual(x, y) {
         return false;
       }
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else if (matchValue[0] === 0) {
     if (matchValue[1] === -1) {
@@ -589,7 +589,7 @@ export function op_GreaterThanOrEqual(x, y) {
     } else if (matchValue[1] === 1) {
       return isZero(y.V);
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else if (matchValue[0] === 1) {
     if (matchValue[1] === -1) {
@@ -599,10 +599,10 @@ export function op_GreaterThanOrEqual(x, y) {
     } else if (matchValue[1] === 1) {
       return gte(x.V, y.V);
     } else {
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
     }
   } else {
-    throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+    throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
   }
 }
 
@@ -688,7 +688,7 @@ export function toDouble(x) {
       break;
 
     default:
-      throw new Error("signs should be +/- 1 or 0" + '\nParameter name: ' + "x");
+      throw new Error("signs should be +/- 1 or 0" + "\nParameter name: " + "x");
   }
 
   return $var20;
@@ -735,7 +735,7 @@ export function parse(text) {
 
 export function factorial(x) {
   if (x.IsNegative) {
-    throw new Error("mustBeNonNegative" + '\nParameter name: ' + "x");
+    throw new Error("mustBeNonNegative" + "\nParameter name: " + "x");
   }
 
   if (x.IsPositive) {

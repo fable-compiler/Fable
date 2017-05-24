@@ -19,8 +19,8 @@ export default class BigNat {
       interfaces: ["FSharpRecord"],
       properties: {
         bound: "number",
-        digits: FArray(Int32Array, true)
-      }
+        digits: FArray(Int32Array, true),
+      },
     };
   }
 
@@ -445,7 +445,7 @@ export function mulSchoolBook(p, q) {
     return mulSchoolBookNeitherSmall(p, q);
   }
 }
-export class encoding {
+export class Encoding {
   constructor(bigL, twoToBigL, k, bigK, bigN, split, splits) {
     this.bigL = bigL;
     this.twoToBigL = twoToBigL;
@@ -458,7 +458,7 @@ export class encoding {
 
   [_Symbol.reflection]() {
     return {
-      type: "Microsoft.FSharp.Math.BigNatModule.encoding",
+      type: "Microsoft.FSharp.Math.BigNatModule.Encoding",
       interfaces: ["FSharpRecord"],
       properties: {
         bigL: "number",
@@ -467,15 +467,15 @@ export class encoding {
         bigK: "number",
         bigN: "number",
         split: "number",
-        splits: Int32Array
-      }
+        splits: Int32Array,
+      },
     };
   }
 
 }
-setType("Microsoft.FSharp.Math.BigNatModule.encoding", encoding);
+setType("Microsoft.FSharp.Math.BigNatModule.Encoding", Encoding);
 export function mkEncoding(bigL, k, bigK, bigN) {
-  return new encoding(bigL, pow32(2, bigL), k, bigK, bigN, ~~(baseBits / bigL), Int32Array.from(initialize(~~(baseBits / bigL), i => pow32(2, bigL * i))));
+  return new Encoding(bigL, pow32(2, bigL), k, bigK, bigN, ~~(baseBits / bigL), Int32Array.from(initialize(~~(baseBits / bigL), i => pow32(2, bigL * i))));
 }
 export const table = [mkEncoding(1, 28, 268435456, 268435456), mkEncoding(2, 26, 67108864, 134217728), mkEncoding(3, 24, 16777216, 50331648), mkEncoding(4, 22, 4194304, 16777216), mkEncoding(5, 20, 1048576, 5242880), mkEncoding(6, 18, 262144, 1572864), mkEncoding(7, 16, 65536, 458752), mkEncoding(8, 14, 16384, 131072), mkEncoding(9, 12, 4096, 36864), mkEncoding(10, 10, 1024, 10240), mkEncoding(11, 8, 256, 2816), mkEncoding(12, 6, 64, 768), mkEncoding(13, 4, 16, 208)];
 export function calculateTableTow(bigL) {
@@ -994,7 +994,7 @@ export function ofString(str) {
   const len = str.length;
 
   if (isNullOrEmpty(str)) {
-    throw new Error("empty string" + '\nParameter name: ' + "str");
+    throw new Error("empty string" + "\nParameter name: " + "str");
   }
 
   const ten = embed(10);

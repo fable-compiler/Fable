@@ -3,7 +3,13 @@
   "extends": [
     "tslint:recommended"
   ],
-  "jsRules": {},
+  "jsRules": {
+    "max-line-length": [false],
+    "no-bitwise": false,
+    "no-empty": false,
+    "object-literal-sort-keys": false,
+    "variable-name": false
+  },
   "rules": {
     "interface-name": [false],
     "max-classes-per-file": [false],
