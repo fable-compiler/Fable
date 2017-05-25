@@ -252,6 +252,7 @@ let release = Util.loadReleaseNotes ""
 let releaseToolsJs = Util.loadReleaseNotes "TOOLS_JS"
 let releaseLoader = Util.loadReleaseNotes "LOADER"
 let releaseRollup = Util.loadReleaseNotes "ROLLUP"
+let releaseSplitter = Util.loadReleaseNotes "SPLITTER"
 let releaseJsonConverter = Util.loadReleaseNotes "JSON_CONVERTER"
 
 let dotnetcliVersion = "1.0.4"
@@ -358,6 +359,15 @@ let buildCoreJs () =
     Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" coreJsSrcDir]
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" coreJsSrcDir]
 
+let buildSplitter () =
+    let buildDir = __SOURCE_DIRECTORY__ </> "build/fable-splitter"
+    FileUtils.cp_r (__SOURCE_DIRECTORY__ </> "src/typescript/fable-splitter") buildDir
+    Npm.install __SOURCE_DIRECTORY__ []
+    Npm.install buildDir []
+    Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" buildDir]
+    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" buildDir]
+    buildDir
+
 let buildCore isRelease () =
     let config = if isRelease then "Release" else "Debug"
     sprintf "build -c %s" config
@@ -412,9 +422,21 @@ Target "QuickFableCoreTest" (fun () ->
     buildCoreJs ()
     quickTest ())
 
+let needsPublishing (versionRegex: Regex) (releaseNotes: ReleaseNotes) projFile =
+    File.ReadLines(projFile)
+    |> Seq.tryPick (fun line ->
+        let m = versionRegex.Match(line)
+        if m.Success then Some m else None)
+    |> function
+        | None -> failwithf "Couldn't find version in %s" projFile
+        | Some m -> m.Groups.[1].Value <> releaseNotes.NugetVersion
+
 let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
     let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
-    let pushProject (releaseNotes: ReleaseNotes) projFile =
+    projFiles
+    |> Seq.map (fun projFile -> __SOURCE_DIRECTORY__ </> projFile)
+    |> Seq.filter (needsPublishing versionRegex releaseNotes)
+    |> Seq.iter (fun projFile ->
         let projDir = Path.GetDirectoryName(projFile)
         let nugetKey =
             match environVarOrNone "NUGET_KEY" with
@@ -442,36 +464,23 @@ let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
         // After successful publishing, update the project file
         (versionRegex, projFile) ||> Util.replaceLines (fun line _ ->
             versionRegex.Replace(line, "<Version>"+releaseNotes.NugetVersion+"</Version>") |> Some)
-    let checkProject (releaseNotes: ReleaseNotes) projFile =
-        let projFile = __SOURCE_DIRECTORY__ </> projFile
-        File.ReadLines(projFile)
-        |> Seq.tryPick (fun line ->
-            let m = versionRegex.Match(line)
-            if m.Success then Some m else None)
-        |> function
-            | None -> failwithf "Couldn't find version in %s" projFile
-            | Some m ->
-                // Publish package if version has been updated
-                if m.Groups.[1].Value <> releaseNotes.NugetVersion then
-                    pushProject releaseNotes projFile
-    for projFile in projFiles do
-        checkProject releaseNotes projFile
+    )
 
-let pushNpm (releaseNotes: ReleaseNotes) (projDir: string) =
-    let projDir = __SOURCE_DIRECTORY__ </> (projDir.TrimEnd('/'))
-    let updated = ref false
-    let version = releaseNotes.NugetVersion
-    let reg = Regex(@"""version"":\s*""(.*?)""")
-    (reg, projDir </> "package.json") ||> Util.replaceLines (fun line m ->
-        if m.Groups.[1].Value = version
-        then None
-        else
-            updated := true
-            reg.Replace(line, sprintf @"""version"": ""%s""" version) |> Some)
-    // Publish package if version has been updated
-    if !updated then
+let pushNpm build (releaseNotes: ReleaseNotes) (projDir: string) =
+    let versionRegex = Regex(@"""version"":\s*""(.*?)""")
+    let projDir = __SOURCE_DIRECTORY__ </> projDir
+    let pkgJson = projDir </> "package.json"
+    if needsPublishing versionRegex releaseNotes pkgJson then
+        let version = releaseNotes.NugetVersion
+        let buildDir =
+            match build with
+            | None -> projDir
+            | Some build -> build()
         if version.IndexOf("-") > 0 then ["--tag next"] else []
         |> Npm.command projDir "publish"
+        // After successful publishing, update the project file
+        (versionRegex, pkgJson) ||> Util.replaceLines (fun line _ ->
+            versionRegex.Replace(line, sprintf @"""version"": ""%s""" version) |> Some)
 
 // Target "BrowseDocs" (fun _ ->
 //     let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "BrowseDocs"]
@@ -547,9 +556,10 @@ Target "PublishPackages" (fun () ->
         ["src/dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"]
 
     // Publish NPM packages
-    pushNpm releaseToolsJs.Value "src/typescript/fable-utils"
-    pushNpm releaseLoader.Value "src/typescript/fable-loader"
-    pushNpm releaseRollup.Value "src/typescript/rollup-plugin-fable"
+    pushNpm None releaseToolsJs.Value "src/typescript/fable-utils"
+    pushNpm None releaseLoader.Value "src/typescript/fable-loader"
+    pushNpm None releaseRollup.Value "src/typescript/rollup-plugin-fable"
+    pushNpm (Some buildSplitter) releaseSplitter.Value "src/typescript/fable-splitter"
     // TODO: Add NUnit plugin, it must be built first
 )
 
