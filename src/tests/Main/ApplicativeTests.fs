@@ -432,3 +432,13 @@ let ``Trait calls work with record fields``() =
     let ar = [| {Id=Id"foo"; Name="Sarah"}; {Id=Id"bar"; Name="James"} |]
     replaceById {Id=Id"ja"; Name="Voll"} ar |> Seq.head |> string |> equal "Sarah"
     replaceById {Id=Id"foo"; Name="Anna"} ar |> Seq.head |> string |> equal "Anna"
+
+let doNothing () = ()
+
+[<Test>]
+let ``Unit expression arguments are not removed``() =
+    let mutable x = 0
+    let foo i =
+        x <- i
+    doNothing <| foo 5
+    equal 5 x

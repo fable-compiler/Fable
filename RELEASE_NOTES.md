@@ -1,5 +1,6 @@
 ### 1.0.7
 
+* Fix #952: Don't remove non-null unit arguments
 * Fix #944: Import and Emit on same function
 
 ### 1.0.6

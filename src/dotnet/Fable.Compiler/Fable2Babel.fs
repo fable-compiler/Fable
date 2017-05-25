@@ -124,10 +124,6 @@ module Util =
 
     let consBack tail head = head::tail
 
-    let isNull = function
-        | Fable.Value Fable.Null | Fable.Wrapped(Fable.Value Fable.Null,_) -> true
-        | _ -> false
-
     let prepareArgs (com: IBabelCompiler) ctx =
         List.map (function
             | Fable.Value (Fable.Spread expr) ->
@@ -486,7 +482,7 @@ module Util =
     let transformApply com ctx (callee, args, kind, range): Expression =
         let args =
             match args with
-            | [unitArg: Fable.Expr] when unitArg.Type = Fable.Unit -> []
+            | [unitArg: Fable.Expr] when unitArg.Type = Fable.Unit && unitArg.IsNull -> []
             | args -> args
         match callee, args with
         // Logical, Binary and Unary Operations
@@ -583,8 +579,8 @@ module Util =
         let guardExpr = com.TransformExpr ctx guardExpr
         let thenStmnt = transformBlock com ctx ret thenStmnt
         let elseStmnt =
-            match elseStmnt with
-            | e when Option.isNone ret && isNull e -> None
+            match elseStmnt: Fable.Expr with
+            | e when Option.isNone ret && e.IsNull -> None
             | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt, r) ->
                 transformIfStatement com ctx r ret guardExpr thenStmnt elseStmnt
                 :> Statement |> Some

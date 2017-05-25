@@ -303,14 +303,13 @@ module Helpers =
             false
         | result -> result
 
-    let removeOmittedOptionalArguments (meth: FSharpMemberOrFunctionOrValue) args =
+    let removeOmittedOptionalArguments (meth: FSharpMemberOrFunctionOrValue) (args: Fable.Expr list) =
         let rec removeArgs (args: (Fable.Expr*FSharpParameter) list) =
             match args with
             | (arg, p)::rest ->
-                match arg with
-                | (Fable.Wrapped(Fable.Value Fable.Null, _) | Fable.Value Fable.Null)
-                    when p.IsOptionalArg -> removeArgs rest
-                | _ -> args
+                if arg.IsNull && p.IsOptionalArg
+                then removeArgs rest
+                else args
             | _ -> args
         if meth.CurriedParameterGroups.Count <> 1
         then args

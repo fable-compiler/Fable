@@ -223,7 +223,7 @@ and Ident(name: string, ?typ: Type) =
 
 and LambdaInfo(captureThis: bool, ?isDelegate: bool) =
     member __.CaptureThis = captureThis
-    member __.IsDelegate = defaultArg isDelegate false    
+    member __.IsDelegate = defaultArg isDelegate false
 
 and ImportKind =
     | CoreLib
@@ -393,3 +393,9 @@ and Expr =
                 yield body
               yield! Option.toList defCase]
         | DebugBreak _ -> []
+
+    member x.IsNull =
+        match x with
+        // Check also cases when null is wrapped to represent a specific type
+        | Value Null | Wrapped(Value Null, _) -> true
+        | _ -> false
