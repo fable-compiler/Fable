@@ -2,7 +2,7 @@
 
 File splitter for Fable (F# to JavaScript compiler).
 
-## Usage
+## Setup
 
 Add the following to your package.json:
 ```
@@ -14,7 +14,7 @@ Add the following to your package.json:
   }
 ```
 
-Create a `splitter.config.js` like the following:
+Create a `splitter.config.js` like that:
 
 ```
 const fableSplitter = require("fable-splitter").default;
@@ -30,16 +30,18 @@ const babelOptions = {
   // ],
   // -- add this to generate source maps
   // sourceMaps: true,
+  // etc.
 };
 
 const fableOptions = {
-  // fableCore: "../../../build/fable-core",
+  // fableCore: "./node_modules/fable-core",
   // plugins: [],
-  define: [ "TRACE" ],
+  // define: [],
+  // etc.
 };
 
 const options = {
-  entry: "./fable-test.fsproj",
+  entry: "./test.fsproj",
   outDir: "./out",
   // port: 61225,
   babel: babelOptions,
@@ -49,3 +51,6 @@ const options = {
 fableSplitter(options);
 ```
 
+## Usage
+
+dotnet fable npm-run splitter

@@ -2,7 +2,6 @@
 **/*.js
 **/*.js.map
 **/*.d.ts
-out/
 
 # npm packages
 node_modules/
