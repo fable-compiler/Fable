@@ -206,7 +206,11 @@ let ``Unions can be JSON serialized forth and back``() =
     let tree2 = Fable.Core.JsInterop.ofJson<Tree> json
     let sum2 = tree2.Sum()
     equal true (box tree2 :? Tree) // Type is kept
-    equal true (sum1 = sum2) // Prototype methods can be accessed
+    equal true (sum1 = sum2) // Prototype methods can be accessed    
+    let tree2 = Fable.Core.JsInterop.ofJsonAsType json (tree.GetType()) :?> Tree
+    let sum2 = tree2.Sum()
+    equal true (box tree2 :? Tree) // Type is kept
+    equal true (sum1 = sum2) // Prototype methods can be accessed    
     let json = Fable.Core.JsInterop.toJsonWithTypeInfo tree
     let tree2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Tree> json
     #else
