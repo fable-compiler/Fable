@@ -87,6 +87,9 @@ let toJson(o: 'T): string = jsNative
 /// Instantiate F# objects from JSON
 let [<PassGenerics>] ofJson<'T>(json: string): 'T = jsNative
 
+/// Instantiate F# objects from a JSON string and a type object
+let ofJsonAsType (json: string) (typ: System.Type) : obj = jsNative
+
 /// Serialize F# objects to JSON adding $type info
 let toJsonWithTypeInfo(o: 'T): string = jsNative
 
