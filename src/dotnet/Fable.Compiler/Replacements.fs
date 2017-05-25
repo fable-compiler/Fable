@@ -571,7 +571,7 @@ module Util =
 module AstPass =
     open Util
 
-    let rec fableCoreLib com (i: Fable.ApplyInfo) =
+    let fableCoreLib com (i: Fable.ApplyInfo) =
         let destruct = function
             | Fable.Value(Fable.TupleConst exprs) -> exprs
             | expr when expr.Type = Fable.Unit -> []
@@ -655,14 +655,9 @@ module AstPass =
                 then "awaitPromise" else "startAsPromise"
             CoreLibCall("Async", Some meth, false, i.args)
             |> makeCall i.range i.returnType |> Some
-        | "ofJsonAsType" ->            
-            match i.args with
-            | [arg; typ] -> fableCoreLib com { i with methodName = "ofJson"; args = [arg; makeJsObject None ["T", typ]] }
-            | _ -> failwithf "Unexpected number of arguments for %s" i.methodName
-        | "toJson" | "toJsonWithTypeInfo"
-        | "ofJson" | "ofJsonWithTypeInfo" 
-        | "deflate" | "inflate" | "toPlainJsObj" ->           
-            let modName = if i.methodName = "toPlainJsObj" then "Util" else "Serialize"            
+        | "toJson" | "ofJson" | "deflate" | "inflate" | "toPlainJsObj"
+        | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo" ->
+            let modName = if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
             CoreLibCall(modName, Some i.methodName, false, i.args)
             |> makeCall i.range i.returnType |> Some
         | "jsNative" ->

@@ -73,10 +73,6 @@ let ``Records can be JSON serialized forth and back``() =
     let sum2 = parent.Sum()
     equal true (box parent2 :? Parent) // Type is kept
     equal true (sum1 = sum2) // Prototype methods can be accessed
-    let parent2 = Fable.Core.JsInterop.ofJsonAsType json (parent.GetType()) :?> Parent
-    let sum2 = parent.Sum()
-    equal true (box parent2 :? Parent) // Type is kept
-    equal true (sum1 = sum2) // Prototype methods can be accessed    
     let json = Fable.Core.JsInterop.toJsonWithTypeInfo parent
     let parent2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Parent> json
     #else

@@ -207,8 +207,6 @@ let ``Maps can be JSON serialized forth and back``() =
     let json = Fable.Core.JsInterop.toJson x
     let x2 = Fable.Core.JsInterop.ofJson<Map<string, R>> json
     (0, x2) ||> Map.fold (fun acc k v -> acc + v.i) |> equal 3
-    let x2 = Fable.Core.JsInterop.ofJsonAsType json (x.GetType()) :?> Map<string, R>
-    (0, x2) ||> Map.fold (fun acc k v -> acc + v.i) |> equal 3
     let json = Fable.Core.JsInterop.toJsonWithTypeInfo x
     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Map<string, R>> json
     #else
