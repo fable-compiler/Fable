@@ -190,18 +190,28 @@ let crackFsproj (projFile: string) =
         |> List.filter (fun x -> not(x.EndsWith("Fable.Core.dll")))
         |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath) }
 
-let rec findPaketDependenciesDir dir =
-    if File.Exists(Path.Combine(dir, "paket.dependencies")) then
+let rec findPaketDependenciesDir dir searchedDirs = 
+    printfn "findPaketDependenciesDir %s %A" dir searchedDirs
+    let path = Path.Combine(dir, "paket.dependencies")
+    if File.Exists(path) then
+        printfn "Found %s inside %s" path dir
         dir
     else
         match Directory.GetParent(dir) with
-        | null -> failwith "Couldn't find paket.dependencies directory"
-        | parent -> findPaketDependenciesDir parent.FullName
+        | null -> 
+            let errorMessage = 
+                let dirs = String.concat "\n" searchedDirs
+                sprintf "Couldn't find paket.dependencies directory, searched in: \n%s" dirs
+            failwith errorMessage
+        | parent -> 
+            let searched = searchedDirs |> List.append [dir]
+            findPaketDependenciesDir parent.FullName searched
 
 let tryFindPaketDirFromProject projFile =
+    printfn "tryFindPaketDirFromProject %s" projFile
     let projDir = Path.GetDirectoryName(projFile)
     if File.Exists(Path.Combine(projDir, "paket.references"))
-    then findPaketDependenciesDir projDir |> Some
+    then findPaketDependenciesDir projDir [] |> Some
     else None
 
 let checkFableCoreVersion paketDir =
@@ -242,8 +252,9 @@ let getPaketProjRefs paketDir projFile =
             []
 
 let getProjectOptionsFromFsproj projFile =
-    let paketDir = tryFindPaketDirFromProject projFile
-    paketDir |> Option.iter checkFableCoreVersion
+    //let paketDir = tryFindPaketDirFromProject projFile
+    //paketDir |> Option.iter checkFableCoreVersion
+    let paketDir = None
     let rec crackProjects (acc: CrackedFsproj list) extraProjRefs projFile =
         acc |> List.tryFind (fun x ->
             String.Equals(x.projectFile, projFile, StringComparison.OrdinalIgnoreCase))

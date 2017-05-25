@@ -44,6 +44,7 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectOptions.ProjectFileName
     member __.CompiledFiles = compiledFiles
+    member __.PaketDirectory = ProjectCracker.findPaketDependenciesDir projectOptions.ProjectFileName []
     interface ICompilerState with
         member this.ProjectFile = projectOptions.ProjectFileName
         member this.GetRootModule(fileName) =
@@ -260,9 +261,22 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
             Fable2Babel.Compiler.createFacade fileName lastFile
     else
         printfn "Compile %s" fileName
-        FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
-        |> Fable2Babel.Compiler.transformFile com project
-    |> addLogs com
+        let usingFableCore =  (com :> ICompiler).Options.fableCore = "fable-core"
+        let nextCompiler = 
+            match usingFableCore with
+            | false -> com
+            | true -> 
+                let prevPlugins = (com :> ICompiler).Plugins
+                let prevOptions = (com :> ICompiler).Options
+                let fableCoreLocation = 
+                    let paketDirectory = project.PaketDirectory
+                    IO.Path.Combine(paketDirectory, "packages", "Fable.Core", "fable-core") 
+                    |> Parser.makePathRelative
+                let nextOptions = { prevOptions with fableCore = fableCoreLocation }
+                Compiler(nextOptions, prevPlugins)
+        FSharp2Fable.Compiler.transformFile nextCompiler project project.CheckedProject fileName
+        |> Fable2Babel.Compiler.transformFile nextCompiler project
+        |> addLogs nextCompiler
 
 type Command = string * (string -> unit)
 

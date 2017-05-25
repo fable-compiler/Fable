@@ -96,7 +96,7 @@ let parseArguments args =
             match Int32.TryParse portArg with
             | true, port -> port
             | false, _ -> 
-                printf "Value for --port is not a valid integer, using default port"
+                printfn "Value for --port is not a valid integer, using default port"
                 Constants.DEFAULT_PORT
         | None -> Constants.DEFAULT_PORT
     let timeout =
