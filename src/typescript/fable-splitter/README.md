@@ -2,10 +2,6 @@
 
 File splitter for Fable (F# to JavaScript compiler).
 
-## Installation
-
-todo:
-
 ## Usage
 
 Add the following to your package.json:
@@ -24,13 +20,16 @@ Create a `splitter.config.js` like the following:
 const fableSplitter = require("fable-splitter").default;
 
 const babelOptions = {
-  plugins: [
-    ["transform-es2015-modules-commonjs", { }],
-  ],
+  // -- add this for CommonJS modules
+  // plugins: [
+  //   ["transform-es2015-modules-commonjs", { }],
+  // ],
+  // -- add this to transpile to ES5
   // presets: [
   //   ["es2015", { modules: false }],
   // ],
-  //sourceMaps: true,
+  // -- add this to generate source maps
+  // sourceMaps: true,
 };
 
 const fableOptions = {

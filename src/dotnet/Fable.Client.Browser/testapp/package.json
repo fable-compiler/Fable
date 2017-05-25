@@ -2,15 +2,14 @@
   "private": true,
   "scripts": {
     "preinstall": "dotnet restore --no-cache",
+    "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",
     "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run splitter",
     "webpack": "node ../../../../node_modules/webpack/bin/webpack -p",
     "rollup": "node ../../../../node_modules/rollup/bin/rollup -c",
-    "closure": "java -jar node_modules/google-closure-compiler/compiler.jar --compilation_level SIMPLE out/bundle.js --js_output_file out/bundle.min.js",
     "splitter": "node splitter.config.js",
     "start": "node out/testapp/app"
   },
   "devDependencies": {
-    "fable-splitter": "file:../../../typescript/fable-splitter",
-    "google-closure-compiler": "20170423.0.0"
+    "fable-splitter": "file:../../../typescript/fable-splitter"
   }
 }
