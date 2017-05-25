@@ -7,6 +7,7 @@ const babelOptions = {
   // presets: [
   //   ["es2015", { modules: false }],
   // ],
+  sourceMaps: true,
 };
 
 const fableOptions = {

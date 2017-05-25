@@ -15,8 +15,9 @@ const FSHARP_EXT = /\.(fs|fsx|fsproj)$/;
 const FSPROJ_EXT = /\.fsproj$/;
 const JAVASCRIPT_EXT = /\.js$/;
 
-let alreadyCompiled: Set<string>;
-let dedupFlatPaths: Set<string>;
+let compiledPaths: Set<string>; // already compiled paths
+let dedupOutPaths: Set<string>; // lookup of output paths
+let mapInOutPaths: Map<string, string>; // map of input to output paths
 
 export type FableOptions = {
     path?: string;
@@ -58,28 +59,43 @@ function ensureDirExists(dir: string) {
     }
 }
 
-// flat folder structure (one level deep)
-function flatPath(fullPath: string) {
-    // file name without extensions
-    const fileName = Path.basename(fullPath)
-        .replace(FSHARP_EXT, "")
-        .replace(JAVASCRIPT_EXT, "");
-    const fileDir = Path.basename(Path.dirname(fullPath));
-    const filePath = Path.join(fileDir, fileName);
-    // dedup new path
-    let newPath = filePath;
-    let i = 0;
-    while (dedupFlatPaths.has(newPath)) {
-        newPath = `${filePath}${++i}`;
+// TODO: implement better folder structure
+function getOutPath(fullPath: string) {
+    const srcPath = fullPath.replace(/\\/g, "/");
+    let outPath = mapInOutPaths.get(srcPath);
+    if (!outPath) {
+        // get file name without extensions
+        const fileName = Path.basename(srcPath)
+            .replace(FSHARP_EXT, "").replace(JAVASCRIPT_EXT, "");
+        // flat folder structure (one level deep)
+        const fileDir = Path.basename(Path.dirname(srcPath));
+        const newPath = Path.join(fileDir, fileName).replace(/\\/g, "/");
+        // dedup output path
+        let i = 0;
+        outPath = newPath;
+        while (dedupOutPaths.has(outPath)) {
+            outPath = `${newPath}${++i}`;
+        }
+        dedupOutPaths.add(outPath);
+        mapInOutPaths.set(srcPath, outPath);
     }
-    return newPath;
+    return outPath;
+}
+
+function getFullPath(relPath: string) {
+    const fullPath = Path.resolve(relPath).replace(/\\/g, "/");
+    if (FSHARP_EXT.test(fullPath) || JAVASCRIPT_EXT.test(fullPath)) {
+        return fullPath;
+    } else {
+        return fullPath + ".js";
+    }
 }
 
 function fixPath(dir: string, path: string) {
-    if (!path.startsWith(".")) { return path; } // node package
+    if (!path.startsWith(".")) { return path; } // no need to fix, i.e. node package
     const relPath = Path.join(dir, path);
-    const fullPath = Path.resolve(relPath);
-    const newPath = Path.join("..", flatPath(fullPath));
+    const fullPath = getFullPath(relPath);
+    const newPath = Path.join("..", getOutPath(fullPath)); // assumes flat folder structure
     return newPath.replace(/\\/g, "/");
 }
 
@@ -95,23 +111,6 @@ function fixImportPaths(dir: string, ast: any) {
     decls
         .filter((d) => d.source != null)
         .forEach((d) => { d.source.value = fixPath(dir, d.source.value); });
-}
-
-function transformAst(ast: any, babelOptions?: Babel.TransformOptions) {
-    const code: string | undefined = undefined;
-    if (babelOptions && babelOptions.sourceMaps) {
-        babelOptions.sourceFileName = Path.relative(Process.cwd(), ast.fileName.replace(/\\/g, "/"));
-    }
-    const result = Babel.transformFromAst(ast, code, babelOptions);
-    return result;
-}
-
-// TODO: better folder structure
-function saveToFile(fullPath: any, code: string, options: FableCompilerOptions) {
-    console.log(`Fable compiled: ${fullPath}`);
-    const jsPath = Path.join(options.outDir, flatPath(fullPath) + ".js");
-    ensureDirExists(Path.dirname(jsPath));
-    fs.writeFileSync(jsPath, code);
 }
 
 async function getFileAstAsync(path: string, options: FableCompilerOptions) {
@@ -136,22 +135,34 @@ async function getFileAstAsync(path: string, options: FableCompilerOptions) {
     return result;
 }
 
-function getFullPath(relPath: string) {
-    const fullPath = Path.resolve(relPath).replace(/\\/g, "/");
-    if (FSHARP_EXT.test(fullPath) || JAVASCRIPT_EXT.test(fullPath)) {
-        return fullPath;
-    } else {
-        return fullPath + ".js";
+function transformAndSaveAst(fullPath: string, ast: any, options: FableCompilerOptions) {
+    // resolve output paths
+    const outPath = getOutPath(fullPath) + ".js";
+    const jsPath = Path.join(options.outDir, outPath);
+    const jsDir = Path.dirname(jsPath);
+    ensureDirExists(jsDir);
+    // set sourcemap paths
+    const code: string | undefined = undefined;
+    if (options.babel && options.babel.sourceMaps) {
+        // code = fs.readFileSync(fullPath, "utf8");
+        const relPath = Path.relative(jsDir, fullPath);
+        options.babel.sourceFileName = relPath.replace(/\\/g, "/");
+        options.babel.sourceMapTarget = Path.basename(outPath);
     }
+    // transform and save
+    const transformed = Babel.transformFromAst(ast, code, options.babel);
+    if (transformed.code) { fs.writeFileSync(jsPath, transformed.code); }
+    if (transformed.map) { fs.writeFileSync(jsPath + ".map", JSON.stringify(transformed.map)); }
+    console.log(`Fable compiled: ${fullPath}`);
 }
 
 async function transformAsync(path: string, options: FableCompilerOptions) {
     // if already compiled, do nothing
     const fullPath = getFullPath(path);
-    if (alreadyCompiled.has(fullPath)) {
+    if (compiledPaths.has(fullPath)) {
         return;
     }
-    alreadyCompiled.add(fullPath);
+    compiledPaths.add(fullPath);
 
     // get file AST (no transformation)
     const result = await getFileAstAsync(path, options);
@@ -162,8 +173,7 @@ async function transformAsync(path: string, options: FableCompilerOptions) {
 
         // if not a .fsproj, transform and save
         if (!FSPROJ_EXT.test(path)) {
-            const transformed = transformAst(result.ast, options.babel);
-            saveToFile(fullPath, transformed.code || "", options);
+            transformAndSaveAst(fullPath, result.ast, options);
         }
 
         // compile all dependencies (imports)
@@ -199,8 +209,10 @@ export default function fableSplitter(options: FableCompilerOptions) {
         fable: fableOptions,
     };
 
-    alreadyCompiled = new Set<string>();
-    dedupFlatPaths = new Set<string>();
+    // path lookups
+    compiledPaths = new Set<string>();
+    dedupOutPaths = new Set<string>();
+    mapInOutPaths = new Map<string, string>();
 
     // main loop
     console.log("Fable compiler started ...");
