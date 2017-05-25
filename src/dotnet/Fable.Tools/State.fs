@@ -261,22 +261,17 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
             Fable2Babel.Compiler.createFacade fileName lastFile
     else
         printfn "Compile %s" fileName
-        let usingFableCore =  (com :> ICompiler).Options.fableCore = "fable-core"
-        let nextCompiler = 
-            match usingFableCore with
-            | false -> com
-            | true -> 
-                let prevPlugins = (com :> ICompiler).Plugins
-                let prevOptions = (com :> ICompiler).Options
-                let fableCoreLocation = 
-                    let paketDirectory = project.PaketDirectory
-                    IO.Path.Combine(paketDirectory, "packages", "Fable.Core", "fable-core") 
+        let com =
+            // Resolve the fable-core location if not defined by user
+            if (com :> ICompiler).Options.fableCore = "fable-core" then
+                let fableCoreLocation =
+                    IO.Path.Combine(project.PaketDirectory, "packages", "Fable.Core", "fable-core")
                     |> Parser.makePathRelative
-                let nextOptions = { prevOptions with fableCore = fableCoreLocation }
-                Compiler(nextOptions, prevPlugins)
-        FSharp2Fable.Compiler.transformFile nextCompiler project project.CheckedProject fileName
-        |> Fable2Babel.Compiler.transformFile nextCompiler project
-        |> addLogs nextCompiler
+                Compiler({ (com :> ICompiler).Options with fableCore = fableCoreLocation }, (com :> ICompiler).Plugins)
+            else com
+        FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
+        |> Fable2Babel.Compiler.transformFile com project
+    |> addLogs com
 
 type Command = string * (string -> unit)
 
