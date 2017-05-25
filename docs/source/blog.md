@@ -2,6 +2,15 @@
 
 # Fable blog
 
+## [How Fable helped kids win a contest](blog/How-Fable-Helped-Kids.html)
+
+> By [François Nicaise](https://twitter.com/thewhitetigle) on May 19, 2017
+
+Yesterday, when I fell asleep, it was with the clear memory of smiles shining on the faces of our kids. After several months of hard work, they did it. They **won the Junior Achievement Young Entreprise** regional contest organized in Bordeaux and were qualified for the National contest!
+
+[Read more...](blog/How-Fable-Helped-Kids.html)
+
+
 ## [Paket Integration](blog/Paket-integration.html)
 
 > By [Alfonso García-Caro](https://twitter.com/alfonsogcnunez) on May 18, 2017
