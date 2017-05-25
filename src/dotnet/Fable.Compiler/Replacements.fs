@@ -571,7 +571,7 @@ module Util =
 module AstPass =
     open Util
 
-    let fableCoreLib com (i: Fable.ApplyInfo) =
+    let rec fableCoreLib com (i: Fable.ApplyInfo) =
         let destruct = function
             | Fable.Value(Fable.TupleConst exprs) -> exprs
             | expr when expr.Type = Fable.Unit -> []
