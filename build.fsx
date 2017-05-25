@@ -423,13 +423,23 @@ Target "QuickFableCoreTest" (fun () ->
     quickTest ())
 
 let needsPublishing (versionRegex: Regex) (releaseNotes: ReleaseNotes) projFile =
-    File.ReadLines(projFile)
-    |> Seq.tryPick (fun line ->
-        let m = versionRegex.Match(line)
-        if m.Success then Some m else None)
-    |> function
-        | None -> failwithf "Couldn't find version in %s" projFile
-        | Some m -> m.Groups.[1].Value <> releaseNotes.NugetVersion
+    printfn "Project: %s" projFile
+    if releaseNotes.NugetVersion.ToUpper().EndsWith("NEXT")
+    then
+        printfn "Version in Release Notes ends with NEXT, don't publish yet."
+        false
+    else
+        File.ReadLines(projFile)
+        |> Seq.tryPick (fun line ->
+            let m = versionRegex.Match(line)
+            if m.Success then Some m else None)
+        |> function
+            | None -> failwith "Couldn't find version in project file"
+            | Some m ->
+                let sameVersion = m.Groups.[1].Value = releaseNotes.NugetVersion
+                if sameVersion then
+                    printfn "Already version %s, no need to publish." releaseNotes.NugetVersion
+                not sameVersion
 
 let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
     let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
@@ -471,16 +481,18 @@ let pushNpm build (releaseNotes: ReleaseNotes) (projDir: string) =
     let projDir = __SOURCE_DIRECTORY__ </> projDir
     let pkgJson = projDir </> "package.json"
     if needsPublishing versionRegex releaseNotes pkgJson then
-        let version = releaseNotes.NugetVersion
         let buildDir =
             match build with
             | None -> projDir
             | Some build -> build()
-        if version.IndexOf("-") > 0 then ["--tag next"] else []
-        |> Npm.command projDir "publish"
-        // After successful publishing, update the project file
-        (versionRegex, pkgJson) ||> Util.replaceLines (fun line _ ->
-            versionRegex.Replace(line, sprintf @"""version"": ""%s""" version) |> Some)
+        Npm.command buildDir "version" [releaseNotes.NugetVersion]
+        let publishArgs =
+            if releaseNotes.NugetVersion.IndexOf("-") > 0
+            then ["--tag next"]
+            else []
+        Npm.command buildDir "publish" publishArgs
+        // After successful publishing, update the project file in source dir
+        Npm.command projDir "version" [releaseNotes.NugetVersion]
 
 // Target "BrowseDocs" (fun _ ->
 //     let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "BrowseDocs"]
