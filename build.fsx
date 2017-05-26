@@ -190,7 +190,7 @@ module Npm =
         let npmInstall () =
             sprintf "install %s" (String.concat " " modules)
             |> Util.run workingDir "npm"
-        
+
         // On windows, retry npm install to avoid bug related to https://github.com/npm/npm/issues/9696
         Util.retryIfFails (if isWindows then 3 else 0) npmInstall
 
@@ -266,6 +266,7 @@ let releaseLoader = Util.loadReleaseNotes "LOADER"
 let releaseRollup = Util.loadReleaseNotes "ROLLUP"
 let releaseSplitter = Util.loadReleaseNotes "SPLITTER"
 let releaseJsonConverter = Util.loadReleaseNotes "JSON_CONVERTER"
+let releaseNUnitPlugin = Util.loadReleaseNotes "NUNIT_PLUGIN"
 
 let dotnetcliVersion = "1.0.4"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
@@ -578,6 +579,8 @@ Target "PublishPackages" (fun () ->
     ]
     pushNuget releaseJsonConverter.Value
         ["src/dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"]
+    pushNuget releaseNUnitPlugin.Value
+        ["src/plugins/nunit/Fable.Plugins.NUnit.fsproj"]
 
     // Publish NPM packages
     pushNpm None releaseToolsJs.Value "src/typescript/fable-utils"
