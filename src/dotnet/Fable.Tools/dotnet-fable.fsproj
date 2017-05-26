@@ -18,6 +18,13 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Required in the package root to run the cli tool alway with bundled runtime -->
+    <Content Include="prefercliruntime">
+      <PackagePath>prefercliruntime</PackagePath>
+      <Pack>true</Pack>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
     <DotNetCliToolReference Include="Microsoft.DotNet.Watcher.Tools" Version="1.0.0-msbuild2-final" />
   </ItemGroup>
