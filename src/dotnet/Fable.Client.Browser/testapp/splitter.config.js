@@ -1,13 +1,13 @@
 const fableSplitter = require("fable-splitter").default;
 
 const babelOptions = {
-  plugins: [
-    ["transform-es2015-modules-commonjs", { }],
-  ],
-  // presets: [
-  //   ["es2015", { modules: false }],
+  // plugins: [
+  //   ["transform-es2015-modules-umd"],
   // ],
-  sourceMaps: true,
+  presets: [
+    ["es2015", { modules: "umd" }],
+  ],
+  // sourceMaps: true,
 };
 
 const fableOptions = {

@@ -20,13 +20,13 @@ Create a `splitter.config.js` like that:
 const fableSplitter = require("fable-splitter").default;
 
 const babelOptions = {
-  // -- add this for CommonJS modules
+  // -- add this to generate UMD modules
   // plugins: [
-  //   ["transform-es2015-modules-commonjs", { }],
+  //   ["transform-es2015-modules-umd"],
   // ],
-  // -- add this to transpile to ES5
+  // -- or add this to transpile to ES5
   // presets: [
-  //   ["es2015", { modules: false }],
+  //   ["es2015", { modules: "umd" }],
   // ],
   // -- add this to generate source maps
   // sourceMaps: true,
@@ -40,12 +40,17 @@ const fableOptions = {
   // etc.
 };
 
+const prepackOptions = {
+  // etc.
+};
+
 const options = {
   entry: "./test.fsproj",
   outDir: "./out",
   // port: 61225,
   babel: babelOptions,
   fable: fableOptions,
+  // prepack: prepackOptions, // if added, fable ==> babel ==> prepack
 };
 
 fableSplitter(options);
