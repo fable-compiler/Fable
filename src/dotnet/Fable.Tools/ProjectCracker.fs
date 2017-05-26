@@ -190,18 +190,25 @@ let crackFsproj (projFile: string) =
         |> List.filter (fun x -> not(x.EndsWith("Fable.Core.dll")))
         |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath) }
 
-let rec findPaketDependenciesDir dir =
-    if File.Exists(Path.Combine(dir, "paket.dependencies")) then
+let rec findPaketDependenciesDir dir searchedDirs = 
+    let path = Path.Combine(dir, "paket.dependencies")
+    if File.Exists(path) then
+        Log.print false "Found %s inside %s" path dir
         dir
     else
         match Directory.GetParent(dir) with
-        | null -> failwith "Couldn't find paket.dependencies directory"
-        | parent -> findPaketDependenciesDir parent.FullName
+        | null -> 
+            searchedDirs 
+            |> String.concat "\n" 
+            |> failwithf "Couldn't find paket.dependencies directory, searched in: \n%s"
+        | parent -> 
+            let searched = dir :: searchedDirs
+            findPaketDependenciesDir parent.FullName searched
 
 let tryFindPaketDirFromProject projFile =
     let projDir = Path.GetDirectoryName(projFile)
     if File.Exists(Path.Combine(projDir, "paket.references"))
-    then findPaketDependenciesDir projDir |> Some
+    then findPaketDependenciesDir projDir [] |> Some
     else None
 
 let checkFableCoreVersion paketDir =
@@ -242,7 +249,7 @@ let getPaketProjRefs paketDir projFile =
             []
 
 let getProjectOptionsFromFsproj projFile =
-    let paketDir = tryFindPaketDirFromProject projFile
+    let paketDir = findPaketDependenciesDir projFile [] |> Some
     paketDir |> Option.iter checkFableCoreVersion
     let rec crackProjects (acc: CrackedFsproj list) extraProjRefs projFile =
         acc |> List.tryFind (fun x ->

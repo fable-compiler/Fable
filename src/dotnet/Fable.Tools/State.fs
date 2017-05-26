@@ -44,6 +44,7 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectOptions.ProjectFileName
     member __.CompiledFiles = compiledFiles
+    member __.PaketDirectory = ProjectCracker.findPaketDependenciesDir projectOptions.ProjectFileName []
     interface ICompilerState with
         member this.ProjectFile = projectOptions.ProjectFileName
         member this.GetRootModule(fileName) =
@@ -260,6 +261,14 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
             Fable2Babel.Compiler.createFacade fileName lastFile
     else
         printfn "Compile %s" fileName
+        let com =
+            // Resolve the fable-core location if not defined by user
+            if (com :> ICompiler).Options.fableCore = "fable-core" then
+                let fableCoreLocation =
+                    IO.Path.Combine(project.PaketDirectory, "packages", "Fable.Core", "fable-core")
+                    |> Parser.makePathRelative
+                Compiler({ (com :> ICompiler).Options with fableCore = fableCoreLocation }, (com :> ICompiler).Plugins)
+            else com
         FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
         |> Fable2Babel.Compiler.transformFile com project
     |> addLogs com

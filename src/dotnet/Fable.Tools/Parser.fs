@@ -91,9 +91,7 @@ let parse (msg: string) =
     let opts =
         { fableCore =
             match parseString "fable-core" "fableCore" json with
-            | "fable-core" ->
-                let paketDir = Path.GetDirectoryName(path) |> ProjectCracker.findPaketDependenciesDir
-                IO.Path.Combine(paketDir, "packages", "Fable.Core", "fable-core") |> makePathRelative
+            | "fable-core" -> "fable-core"
             | path -> (makePathRelative path).TrimEnd('/')
         ; declaration = parseBoolean false "declaration" json
         ; typedArrays = parseBoolean true "typedArrays" json
