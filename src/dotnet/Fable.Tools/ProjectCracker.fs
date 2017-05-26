@@ -208,11 +208,7 @@ let rec findPaketDependenciesDir dir searchedDirs =
 let tryFindPaketDirFromProject projFile =
     let projDir = Path.GetDirectoryName(projFile)
     if File.Exists(Path.Combine(projDir, "paket.references"))
-    then 
-        try 
-            findPaketDependenciesDir projDir [] |> Some
-        with
-        | _ -> None
+    then findPaketDependenciesDir projDir [] |> Some
     else None
 
 let checkFableCoreVersion paketDir =
@@ -253,7 +249,7 @@ let getPaketProjRefs paketDir projFile =
             []
 
 let getProjectOptionsFromFsproj projFile =
-    let paketDir = tryFindPaketDirFromProject projFile
+    let paketDir = findPaketDependenciesDir projFile [] |> Some
     paketDir |> Option.iter checkFableCoreVersion
     let rec crackProjects (acc: CrackedFsproj list) extraProjRefs projFile =
         acc |> List.tryFind (fun x ->
