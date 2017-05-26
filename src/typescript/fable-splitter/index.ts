@@ -36,6 +36,7 @@ export type FableCompilerOptions = {
     port?: number;
     babel?: Babel.TransformOptions;
     fable?: FableOptions;
+    prepack?: any;
 };
 
 function output(key: string) {
@@ -150,9 +151,13 @@ function transformAndSaveAst(fullPath: string, ast: any, options: FableCompilerO
         options.babel.sourceMapTarget = Path.basename(outPath);
     }
     // transform and save
-    const transformed = Babel.transformFromAst(ast, code, options.babel);
-    if (transformed.code) { fs.writeFileSync(jsPath, transformed.code); }
-    if (transformed.map) { fs.writeFileSync(jsPath + ".map", JSON.stringify(transformed.map)); }
+    let result = Babel.transformFromAst(ast, code, options.babel);
+    if (options.prepack) {
+        const prepack = require("prepack");
+        result = prepack.prepackFromAst(result.ast, result.code, options.prepack);
+    }
+    if (result && result.code) { fs.writeFileSync(jsPath, result.code); }
+    if (result && result.map) { fs.writeFileSync(jsPath + ".map", JSON.stringify(result.map)); }
     console.log(`Fable compiled: ${fullPath}`);
 }
 
@@ -186,28 +191,26 @@ async function transformAsync(path: string, options: FableCompilerOptions) {
 }
 
 export default function fableSplitter(options: FableCompilerOptions) {
+    // set defaults
     options = options || {};
+    options.entry = options.entry || "";
+    options.outDir = options.outDir || ".";
+    options.port = options.port || DEFAULT_PORT;
 
-    const babelOptions = options.babel || {};
-    babelOptions.plugins = customPlugins.concat(babelOptions.plugins || []);
+    options.babel = options.babel || {};
+    options.babel.plugins = customPlugins.concat(options.babel.plugins || []);
 
-    const fableOptions = options.fable || {};
-    fableOptions.path = fableOptions.path;
-    fableOptions.define = fableOptions.define || [];
-    fableOptions.plugins = fableOptions.plugins || [];
-    fableOptions.fableCore = fableOptions.fableCore;
-    fableOptions.declaration = fableOptions.declaration || false;
-    fableOptions.typedArrays = fableOptions.typedArrays || true;
-    fableOptions.clampByteArrays = fableOptions.clampByteArrays || false;
-    fableOptions.extra = fableOptions.extra;
+    options.fable = options.fable || {};
+    // options.fable.path = options.fable.path;
+    options.fable.define = options.fable.define || [];
+    options.fable.plugins = options.fable.plugins || [];
+    // options.fable.fableCore = options.fable.fableCore;
+    options.fable.declaration = options.fable.declaration || false;
+    options.fable.typedArrays = options.fable.typedArrays || true;
+    options.fable.clampByteArrays = options.fable.clampByteArrays || false;
+    // options.fable.extra = options.fable.extra;
 
-    options = {
-        entry: options.entry || "",
-        outDir: options.outDir || ".",
-        port: options.port || DEFAULT_PORT,
-        babel: babelOptions,
-        fable: fableOptions,
-    };
+    // options.prepack = options.prepack;
 
     // path lookups
     compiledPaths = new Set<string>();

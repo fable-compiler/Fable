@@ -1,3 +1,7 @@
+### 0.1.2
+
+* Added prepack support
+
 ### 0.1.1
 
 * Added .npmignore
