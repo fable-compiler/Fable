@@ -20,6 +20,14 @@ System.Console.OutputEncoding <- System.Text.Encoding.UTF8
 module Util =
     open System.Net
 
+    let retryIfFails maxRetries f =
+        let rec loop retriesRemaining =
+            try
+                f ()
+            with _ when retriesRemaining > 0 ->
+                loop (retriesRemaining - 1)
+        loop maxRetries
+
     let (|RegexReplace|_|) =
         let cache = new Dictionary<string, Regex>()
         fun pattern (replacement: string) input ->
@@ -179,8 +187,12 @@ module Npm =
         |> Util.run workingDir "npm"
 
     let install workingDir modules =
-        sprintf "install %s" (String.concat " " modules)
-        |> Util.run workingDir "npm"
+        let npmInstall () =
+            sprintf "install %s" (String.concat " " modules)
+            |> Util.run workingDir "npm"
+        
+        // On windows, retry npm install to avoid bug related to https://github.com/npm/npm/issues/9696
+        Util.retryIfFails (if isWindows then 3 else 0) npmInstall
 
     let command workingDir command args =
         sprintf "%s %s" command (String.concat " " args)
