@@ -1,6 +1,6 @@
 NUGET
   remote: https://www.nuget.org/api/v2
-    Fable.Core (1.0.2)
+    Fable.Core (1.0.6)
       FSharp.Core (>= 4.1.17) - framework: >= net463, >= netstandard16
       NETStandard.Library (>= 1.6.1) - framework: >= net463, >= netstandard16
     Fable.React (1.0.0-narumi-902)
@@ -863,7 +863,7 @@ GITHUB
   remote: fsprojects/FSharp.TypeProviders.StarterPack
     src/ProvidedTypes.fs (1dab4f94411500794342f61f877feab772e5a754)
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (43917109af4ef38194d8993215c3e7c862b19d36)
+    modules/Octokit/Octokit.fsx (0723523ede994a213a5c9835144dfd2ad3a7fe01)
       Octokit (>= 0.20)
 GROUP Docs
 NUGET
