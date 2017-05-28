@@ -44,7 +44,9 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectOptions.ProjectFileName
     member __.CompiledFiles = compiledFiles
+#if !FABLE_COMPILER
     member __.PaketDirectory = ProjectCracker.findPaketDependenciesDir projectOptions.ProjectFileName []
+#endif
     interface ICompilerState with
         member this.ProjectFile = projectOptions.ProjectFileName
         member this.GetRootModule(fileName) =
