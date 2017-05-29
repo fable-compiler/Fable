@@ -1,5 +1,5 @@
 # Getting started
-When you have installed all the [prerequisites](/prerequisites.md) you are good to go.
+When you have installed all the [prerequisites](https://github.com/fable-compiler/Fable/blob/master/docs/pages/prerequisites.md) you are good to go.
 
 Start by installing the Simple Fable template:
 ```
