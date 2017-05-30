@@ -1,3 +1,4 @@
+var fs = require("fs");
 var path = require("path");
 var babel = require("babel-core");
 var client = require("fable-utils/client");
@@ -25,6 +26,16 @@ var customPlugins = [
     babelPlugins.getTransformMacroExpressions(babel.template)
 ];
 
+function transformBabelAst(babelAst, babelOptions, sourcePath, sourceCodeBuffer) {
+    var fsCode = null;
+    if (this.sourceMap && sourcePath && sourceCodeBuffer) {
+        fsCode = sourceCodeBuffer.toString();
+        babelOptions.sourceMaps = true;
+        babelOptions.sourceFileName = path.relative(process.cwd(), sourcePath.replace(/\\/g, '/'));
+    }
+    return babel.transformFromAst(babelAst, fsCode, babelOptions);
+}
+
 module.exports = function(buffer) {
     this.cacheable();
     var callback = this.async();
@@ -45,7 +56,7 @@ module.exports = function(buffer) {
         extra: opts.extra
     };
 
-    // console.log("Fable loader sent: " + msg.path)
+    // console.log("fable: Requested " + msg.path)
     // console.log("Full message: " + JSON.stringify(msg))
 
     client.send(port, JSON.stringify(msg))
@@ -55,37 +66,59 @@ module.exports = function(buffer) {
                 callback(new Error(data.error));
             }
             else {
-                console.log("fable: Compiled " + path.basename(msg.path));
-                ensureArray(data.dependencies).forEach(path => {
-                    this.addDependency(path)
-                });
-                if (typeof data.logs === "object") {
-                    Object.keys(data.logs).forEach(key => {
-                        // TODO: Fail if there's one or more error logs?
-                        // That would prevent compilation of other files
-                        ensureArray(data.logs[key]).forEach(msg => {
-                            switch (key)  {
-                                case "error":
-                                    this.emitError(new Error(msg));
-                                    break;
-                                case "warning":
-                                    this.emitWarning(new Error(msg));
-                                    break;
-                                default:
-                                    console.log(msg)
-                            }
-                        });
-                    })
-                }
                 try {
-                    var fsCode = null;
-                    if (this.sourceMap) {
-                        fsCode = buffer.toString();
-                        babelOptions.sourceMaps = true;
-                        babelOptions.sourceFileName = path.relative(process.cwd(), data.fileName.replace(/\\/g, '/'));
+                    var babelParsed;
+                    if (data.cache) {
+                        var babelCache = data.cache + ".babel";
+                        if (fs.existsSync(babelCache)) {
+                            // console.log("Babel cache found: " + msg.path)
+                            try {
+                                babelParsed = JSON.parse(fs.readFileSync(babelCache, "utf8").toString());
+                            }
+                            catch (err) {
+                                fs.unlinkSync(babelCache);
+                                throw err;
+                            }
+                        }
+                        else {
+                            // console.log("No Babel cache: " + msg.path)
+                            var fableAst = JSON.parse(fs.readFileSync(data.cache, "utf8").toString());
+                            babelParsed = transformBabelAst(fableAst, babelOptions, data.fileName, buffer);
+                            fs.writeFileSync(babelCache, JSON.stringify(babelParsed), {encoding: "utf8"});
+                        }
                     }
-                    var transformed = babel.transformFromAst(data, fsCode, babelOptions);
-                    callback(null, transformed.code, transformed.map);
+                    else {
+                        ensureArray(data.dependencies).forEach(path => {
+                            this.addDependency(path)
+                        });
+                        if (typeof data.logs === "object") {
+                            Object.keys(data.logs).forEach(key => {
+                                // TODO: Fail if there's one or more error logs?
+                                // That would prevent compilation of other files
+                                ensureArray(data.logs[key]).forEach(msg => {
+                                    switch (key)  {
+                                        case "error":
+                                            this.emitError(new Error(msg));
+                                            break;
+                                        case "warning":
+                                            this.emitWarning(new Error(msg));
+                                            break;
+                                        default:
+                                            console.log(msg)
+                                    }
+                                });
+                            })
+                        }
+                        var fsCode = null;
+                        if (this.sourceMap) {
+                            fsCode = buffer.toString();
+                            babelOptions.sourceMaps = true;
+                            babelOptions.sourceFileName = path.relative(process.cwd(), data.fileName.replace(/\\/g, '/'));
+                        }
+                        babelParsed = transformBabelAst(data, babelOptions, data.fileName, buffer);
+                    }
+                    console.log("fable: Compiled " + path.basename(msg.path));
+                    callback(null, babelParsed.code, babelParsed.map);
                 }
                 catch (err) {
                     callback(err)
