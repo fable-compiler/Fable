@@ -109,7 +109,7 @@ let printAst outDir (proj: FSharpCheckProjectResults) =
         let target =
             let name = System.IO.Path.GetFileNameWithoutExtension(f.FileName)
             Path.Combine(outDir, name + ".fs.ast")
-        printfn "Print AST %s" target
+        Log.logVerbose(sprintf "Print AST %s" target)
         printFSharpDecls "" f.Declarations
         |> fun lines -> System.IO.File.WriteAllLines(target, lines)
         // printFableDecls fableFile.Declarations

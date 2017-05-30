@@ -104,30 +104,10 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "-r:" + fableCoreLib // "FSharp.Core"
     |]
 
-/// At the moment this only supports conditions like "$(MSBuildThisFileDirectory.Contains('node_modules')"
-let tryEvalMsBuildCondition (projDir: string) (condition: string) =
-    let reg = Regex("(!)?\$\(MSBuildThisFileDirectory\.Contains\('(.*?)'\)", RegexOptions.Compiled)
-    let m = reg.Match(condition)
-    if m.Success
-    then
-        let negate = m.Groups.[1].Value = "!"
-        let contains = projDir.Contains(m.Groups.[2].Value)
-        // printfn "ProjDir contains '%s': %b (negate: %b) (%s)" m.Groups.[2].Value contains negate projDir
-        if negate then not contains else contains
-    else failwith ("Cannot evaluate MSBuild condition " + condition)
-
 /// Ultra-simplistic resolution of .fsproj files
 let crackFsproj (projFile: string) =
     let withName s (xs: XElement seq) =
         xs |> Seq.filter (fun x -> x.Name.LocalName = s)
-    let withNameAndFulfillingCondition projDir s (xs: XElement seq) =
-        xs |> Seq.filter (fun el ->
-            if el.Name.LocalName = s
-            then
-                match el.Attribute(XName.Get "Condition") with
-                | null -> true
-                | att -> tryEvalMsBuildCondition projDir att.Value
-            else false)
     let (|BeforeComma|) (att: XAttribute) =
         let str = att.Value
         match str.IndexOf(',', 0) with
@@ -164,7 +144,7 @@ let crackFsproj (projFile: string) =
     let projDir = Path.GetDirectoryName(projFile) |> Path.normalizePath
     let sourceFiles, projectReferences, relativeDllReferences =
         doc.Root.Elements()
-        |> withNameAndFulfillingCondition projDir "ItemGroup"
+        |> withName "ItemGroup"
         |> Seq.map (fun item ->
             (item.Elements(), ([], [], []))
             ||> Seq.foldBack (fun item (src, prj, dll) ->
@@ -190,18 +170,18 @@ let crackFsproj (projFile: string) =
         |> List.filter (fun x -> not(x.EndsWith("Fable.Core.dll")))
         |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath) }
 
-let rec findPaketDependenciesDir dir searchedDirs = 
+let rec findPaketDependenciesDir dir searchedDirs =
     let path = Path.Combine(dir, "paket.dependencies")
     if File.Exists(path) then
-        Log.print false "Found %s inside %s" path dir
+        Log.logVerbose(sprintf "Found %s inside %s" path dir)
         dir
     else
         match Directory.GetParent(dir) with
-        | null -> 
-            searchedDirs 
-            |> String.concat "\n" 
+        | null ->
+            searchedDirs
+            |> String.concat "\n"
             |> failwithf "Couldn't find paket.dependencies directory, searched in: \n%s"
-        | parent -> 
+        | parent ->
             let searched = dir :: searchedDirs
             findPaketDependenciesDir parent.FullName searched
 
@@ -249,7 +229,7 @@ let getPaketProjRefs paketDir projFile =
             []
 
 let getProjectOptionsFromFsproj projFile =
-    let paketDir = findPaketDependenciesDir projFile [] |> Some
+    let paketDir = tryFindPaketDirFromProject projFile
     paketDir |> Option.iter checkFableCoreVersion
     let rec crackProjects (acc: CrackedFsproj list) extraProjRefs projFile =
         acc |> List.tryFind (fun x ->

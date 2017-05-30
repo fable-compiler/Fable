@@ -149,7 +149,7 @@ let loadPlugins pluginPaths (loadedPlugins: PluginInfo list) =
     |> Seq.toList
 
 let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptions) (com: ICompiler) =
-    printfn "Parsing F# project..."
+    Log.logAllways("Parsing F# project...")
     let checkProjectResults =
         projOptions
         |> checker.ParseAndCheckProject
@@ -172,11 +172,11 @@ let createProject checker projectOptions (com: ICompiler) (define: string[]) pro
         | None ->
             let projectOptions = getFullProjectOpts checker define projFile
             if projFile.EndsWith(".fsproj") then
-                printfn "F# PROJECT: %s" projectOptions.ProjectFileName
-                // for option in projectOptions.OtherOptions do
-                //     printfn "%s" option
+                Log.logVerbose("F# PROJECT: " + projectOptions.ProjectFileName)
+                for option in projectOptions.OtherOptions do
+                     Log.logVerbose(option)
                 for file in projectOptions.ProjectFileNames do
-                    printfn "   %s" file
+                    Log.logVerbose("   " + file)
             projectOptions
     let checkedProject = parseFSharpProject checker projectOptions com
     Project(projectOptions, checkedProject)
@@ -194,7 +194,7 @@ let sendError replyChannel (ex: Exception) =
     let rec innerStack (ex: Exception) =
         if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
     let stack = innerStack ex
-    printfn "ERROR: %s\n%s" ex.Message stack
+    Log.logAllways(sprintf "ERROR: %s\n%s" ex.Message stack)
     ["error", ex.Message] |> dict |> toJsonAndReply replyChannel
 
 let addLogs (com: Compiler) (file: Babel.Program) =
@@ -260,7 +260,7 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
             let lastFile = Array.last project.ProjectOptions.ProjectFileNames
             Fable2Babel.Compiler.createFacade fileName lastFile
     else
-        printfn "Compile %s" fileName
+        Log.logVerbose("Compile " + fileName)
         let com =
             // Resolve the fable-core location if not defined by user
             if (com :> ICompiler).Options.fableCore = "fable-core" then

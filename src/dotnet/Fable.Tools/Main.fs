@@ -18,7 +18,7 @@ type ProcessOptions(?envVars, ?redirectOutput) =
 type Arguments =
     { timeout: int; port: int; commandArgs: string option }
 
-let konst k _ = k    
+let konst k _ = k
 
 let startProcess workingDir fileName args (opts: ProcessOptions) =
     let fileName, args =
@@ -77,27 +77,30 @@ let getFreePort () =
     l.Stop()
     port
 
+let tryFindArgValue key (args: string[]) =
+    args
+    |> Array.takeWhile (fun arg -> arg <> "--")
+    |> Array.tryFindIndex ((=) key)
+    |> function
+    // i is the index of the key
+    // i + 1 is the index of key value
+    | Some i ->
+        // Check if args.[i] is the last element or has no value
+        if args.Length = i + 1 || args.[i + 1].StartsWith("--")
+        then Some ""
+        else Some args.[i + 1]
+    | None ->
+        None
+
 let parseArguments args =
-    let tryFindArgValue key (args: string[]) =
-        match args |> Array.tryFindIndex ((=) key) with
-        // i is the index of the key
-        // i + 1 is the index of key value
-        | Some i -> 
-            // if args.[i] is the last element
-            if args.Length = i + 1 
-            // then there is no value for this key/flag
-            then None 
-            else Some args.[i + 1] 
-        | None -> 
-            None
     let port =
         match tryFindArgValue "--port" args with
         | Some "free" -> getFreePort()
-        | Some portArg -> 
+        | Some portArg ->
             // make sure port is parsable as an integer
             match Int32.TryParse portArg with
             | true, port -> port
-            | false, _ -> 
+            | false, _ ->
                 printfn "Value for --port is not a valid integer, using default port"
                 Constants.DEFAULT_PORT
         | None -> Constants.DEFAULT_PORT
@@ -153,6 +156,8 @@ let startServerWithProcess port exec args =
 
 [<EntryPoint>]
 let main argv =
+    tryFindArgValue "--verbose" argv
+    |> Option.iter (ignore >> Log.setVerbose)
     match Array.tryHead argv with
     | Some ("--help"|"-h") ->
         (Constants.VERSION, Constants.DEFAULT_PORT) ||> printfn """Fable F# to JS compiler (%s)
@@ -171,6 +176,7 @@ Commands:
 Fable arguments:
   --timeout           Stop the daemon if timeout (ms) is reached
   --port              Port number (default %d) or "free" to choose a free port
+  --verbose           Print more info during execution
 
 To pass arguments to the script, write them after `--`
 Example: `dotnet fable npm-run build --port free -- -p --config webpack.production.js`
