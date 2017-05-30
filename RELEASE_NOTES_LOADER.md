@@ -1,6 +1,6 @@
-### 1.0.1
+### 1.0.2
 
-* Add `extra.throwOnError` option, to make build fail on errors
+* Less verbose output
 
 ### 1.0.0
 

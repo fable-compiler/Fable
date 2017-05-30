@@ -97,5 +97,5 @@ let parse (msg: string) =
         ; typedArrays = parseBoolean true "typedArrays" json
         ; clampByteArrays = parseBoolean false "clampByteArrays" json }
     let options = { path=path; define=define; plugins=plugins; options=opts; extra=parseDic "extra" json }
-    Log.logVerbose(sprintf "Parsed options: %A" options)
+    // Log.logVerbose(sprintf "Parsed options: %A" options)
     options

@@ -36,13 +36,14 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let fileInfos, _ =
-        ((Map.empty, true), projectOptions.ProjectFileNames)
-        ||> Seq.fold (fun (map, cacheable) filepath ->
+        ((Map.empty, DateTime.MinValue), projectOptions.ProjectFileNames)
+        ||> Seq.fold (fun (map, cacheMinTimestamp) filepath ->
             // If the previous file wasn't cached, don't get any other from the cache
             // to prevent inline functions still use old code
             let filepath = Path.normalizeFullPath filepath
-            let cacheable = cacheable && Cache.isCached filepath
-            Map.add filepath { IsCompiled = false; IsCached = cacheable } map, cacheable)
+            let cacheMinTimestamp = IO.File.GetLastWriteTime(filepath) |> max cacheMinTimestamp
+            let cacheable = Cache.isCached(filepath, cacheMinTimestamp)
+            Map.add filepath { IsCompiled = false; IsCached = cacheable } map, cacheMinTimestamp)
     let rootModules =
         checkedProject.AssemblyContents.ImplementationFiles
         |> Seq.map (fun file -> file.FileName, FSharp2Fable.Compiler.getRootModuleFullName file)
@@ -52,7 +53,7 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
     member __.ProjectFile = projectOptions.ProjectFileName
     member __.FileInfos = fileInfos
 #if !FABLE_COMPILER
-    member __.PaketDirectory = ProjectCracker.findPaketDependenciesDir projectOptions.ProjectFileName []
+    member val FableCoreJsDir = ProjectCracker.tryGetFableCoreJsDir projectOptions.ProjectFileName
 #endif
     interface ICompilerState with
         member this.ProjectFile = projectOptions.ProjectFileName
@@ -94,6 +95,8 @@ type Compiler(?options, ?plugins) =
     member __.HasFSharpError = hasFSharpError
     member __.Logs: Map<string, string list> =
         logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value) |> Map
+    member __.Options = options
+    member __.Plugins = plugins
     interface ICompiler with
         member __.Options = options
         member __.Plugins = plugins
@@ -109,11 +112,9 @@ type Compiler(?options, ?plugins) =
             let formattedMsg =
                 match fileName with
                 | Some file ->
-                    let range =
-                        match range with
-                        | Some r -> sprintf "%i,%i,%i,%i" r.start.line r.start.column r.``end``.line r.``end``.column
-                        | None -> "1,1,1,1"
-                    sprintf "%s(%s) : %s %s: %s" file range severity tag msg
+                    match range with
+                    | Some r -> sprintf "%s(%i,%i): (%i,%i) %s %s: %s" file r.start.line r.start.column r.``end``.line r.``end``.column severity tag msg
+                    | None -> sprintf "%s(1,1): %s %s: %s" file severity tag msg
                 | None -> msg
             if logs.ContainsKey(severity)
             then logs.[severity] <- formattedMsg::logs.[severity]
@@ -183,7 +184,7 @@ let createProject checker projectOptions (com: ICompiler) (define: string[]) pro
             if projFile.EndsWith(".fsproj") then
                 Log.logVerbose("F# PROJECT: " + projectOptions.ProjectFileName)
                 for option in projectOptions.OtherOptions do
-                     Log.logVerbose(option)
+                     Log.logVerbose("   " + option)
                 for file in projectOptions.ProjectFileNames do
                     Log.logVerbose("   " + file)
             projectOptions
@@ -270,28 +271,32 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
             Fable2Babel.Compiler.createFacade fileName lastFile
         |> addLogs com |> toJson
     else
-        Log.logVerbose("Compile " + fileName)
         let cache =
             if project.FileInfos.[fileName].IsCached
             then Cache.tryGetCached(fileName)
             else None
         match cache with
-        | Some cache -> cache
+        | Some cache ->
+            Log.logVerbose("From cache: " + fileName)
+            cache
         | None ->
             let com =
                 // Resolve the fable-core location if not defined by user
-                if (com :> ICompiler).Options.fableCore = "fable-core" then
-                    let fableCoreLocation =
-                        IO.Path.Combine(project.PaketDirectory, "packages", "Fable.Core", "fable-core")
-                        |> Parser.makePathRelative
-                    Compiler({ (com :> ICompiler).Options with fableCore = fableCoreLocation }, (com :> ICompiler).Plugins)
+                if com.Options.fableCore = "fable-core" then
+                    match project.FableCoreJsDir with
+                    | Some fableCoreJsDir -> 
+                        Compiler({ com.Options with fableCore = Parser.makePathRelative fableCoreJsDir }, com.Plugins)
+                    | None ->
+                        failwith "Cannot find fable-core directory"
                 else com
+            Log.logVerbose("Compile: " + fileName)
             let json =
                 FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
                 |> Fable2Babel.Compiler.transformFile com project
                 |> addLogs com
                 |> toJson
-            Cache.tryCache(fileName, json) |> ignore
+            Cache.tryCache(fileName, json) |> Option.iter (fun _ ->
+                Log.logVerbose("Cached successfully"))
             json
 
 type Command = string * (string -> unit)

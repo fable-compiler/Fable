@@ -123,7 +123,7 @@ let debug (projFile: string) (define: string[]) =
     let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
     try
         let state = updateState checker com (State()) None define (Path.GetFullPath projFile)
-        for file in state.ActiveProject.CompiledFiles.Keys |> Seq.rev do
+        for file in state.ActiveProject.ProjectOptions.ProjectFileNames |> Seq.rev do
             let com = Compiler()
             compile com state.ActiveProject file |> printfn "%A"
     with
@@ -155,10 +155,13 @@ let startServerWithProcess port exec args =
         p.ExitCode
 
 let checkFlags(args: string[]) =
-    tryFindArgValue "--verbose" args
-    |> Option.iter (ignore >> Log.setVerbose)
-    tryFindArgValue "--no-cache" args
-    |> Option.iter (ignore >> Cache.disable)
+    let hasFlag flag =
+        match tryFindArgValue flag args with
+        | Some _ -> true
+        | None -> false
+    Flags.logVerbose <- hasFlag "--verbose"
+    Flags.cacheFiles <- not(hasFlag "--no-cache")
+    Flags.checkCoreVersion <- not(hasFlag "--no-version-check")
 
 [<EntryPoint>]
 let main argv =
