@@ -1,22 +1,30 @@
-module Log
+[<RequireQualifiedAccess>]
+module Fable.Tools.Log
 
-let rec mkKn (ty: System.Type) =
-    if Reflection.FSharpType.IsFunction(ty) then
-        let _, ran = Reflection.FSharpType.GetFunctionElements(ty)
-        // NOTICE: do not delay `mkKn` invocation until runtime
-        let f = mkKn ran
-        Reflection.FSharpValue.MakeFunction(ty, fun _ -> f)
-    else
-        box ()
+type private LogActions =
+    | SetVerbose
+    | SetSilent
+    | LogVerbose of string
+    | LogAllways of string
 
-[<Sealed>]
-type Format<'T> private () =
-    static let instance : 'T =
-        unbox (mkKn typeof<'T>)
-    static member Instance = instance
+let private actor =
+    MailboxProcessor.Start(fun box ->
+        let mutable verbose = false
+        let rec loop () = async {
+            let! msg = box.Receive()
+            match msg with
+            | SetVerbose -> verbose <- true
+            | SetSilent -> verbose <- false
+            | LogVerbose txt ->
+                if verbose then printfn "%s" txt
+            | LogAllways txt ->
+                printfn "%s" txt
+            return! loop()
+        }
+        loop()
+    )
 
-let print verbose args =
-    if verbose then
-        printfn args
-    else
-        Format<_>.Instance
+let setVerbose() = actor.Post(SetVerbose)
+let setSilent() = actor.Post(SetSilent)
+let logVerbose(msg) = actor.Post(LogVerbose msg)
+let logAllways(msg) = actor.Post(LogAllways msg)
