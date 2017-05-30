@@ -8,8 +8,7 @@
     <ProjectReference Include="../Fable.Compiler/Fable.Compiler.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Constants.fs" />
-    <Compile Include="Log.fs" />
+    <Compile Include="Util.fs" />
     <Compile Include="Cache.fs" />    
     <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />

@@ -10,6 +10,72 @@ open Newtonsoft.Json
 open Fable
 open Fable.AST
 
+// PAKET -----------------------------------------------------
+let rec findPaketDependenciesDir dir searchedDirs =
+    let path = Path.Combine(dir, "paket.dependencies")
+    if File.Exists(path) then
+        Log.logVerbose(sprintf "Found %s inside %s" path dir)
+        dir
+    else
+        match Directory.GetParent(dir) with
+        | null ->
+            searchedDirs
+            |> String.concat "\n"
+            |> failwithf "Couldn't find paket.dependencies directory, searched in: \n%s"
+        | parent ->
+            let searched = dir :: searchedDirs
+            findPaketDependenciesDir parent.FullName searched
+
+let tryFindPaketDirFromProject projFile =
+    let projDir = Path.GetDirectoryName(projFile)
+    if File.Exists(Path.Combine(projDir, "paket.references"))
+    then findPaketDependenciesDir projDir [] |> Some
+    else None
+
+let getPaketProjRefs paketDir projFile =
+    match paketDir with
+    | None -> []
+    | Some paketDir ->
+        let projDir = Path.GetDirectoryName(projFile)
+        let projFileName = Path.GetFileName(projFile)
+        let paketRefs = IO.Path.Combine(projDir, "obj", projFileName + ".references")
+        if File.Exists(paketRefs) then
+            File.ReadLines(paketRefs)
+            |> Seq.choose(fun line ->
+                if line.StartsWith("Fable.") && not(line.StartsWith("Fable.Core")) then
+                    let fableDependency = line.Substring(0, line.IndexOf(','))
+                    // TODO: If fable folder doesn't exist in package use .dll ref
+                    IO.Path.Combine(paketDir, "packages", fableDependency, "fable", fableDependency + ".fsproj")
+                    |> Some
+                else None)
+            |> Seq.toList
+        else
+            []
+
+let checkFableCoreVersion paketDir =
+    if Flags.checkCoreVersion then
+        let nuspec = IO.Path.Combine(paketDir, "packages", "Fable.Core", "Fable.Core.nuspec")
+        if File.Exists(nuspec) then
+            let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
+            File.ReadLines(nuspec)
+            |> Seq.tryPick (fun line ->
+                let m = versionRegex.Match(line)
+                if m.Success then Some m.Groups.[1].Value else None)
+            |> function
+                | Some fableCoreVersion ->
+                    if fableCoreVersion <> Constants.VERSION then
+                        failwithf "Version mismatch! Fable.Core: %s - dotnet-fable: %s"
+                                    fableCoreVersion Constants.VERSION
+                | None ->
+                    failwith "Cannot find version in packages/Fable.Core/Fable.Core.nuspec"
+        else
+            failwith "Missing packages/Fable.Core/Fable.Core.nuspec"
+
+let tryGetFableCoreJsDir projFile =
+    tryFindPaketDirFromProject projFile
+    |> Option.map (fun paketDir -> IO.Path.Combine(paketDir, "packages", "Fable.Core", "fable-core"))
+// ------------------------------------------------------------
+
 type CrackedFsproj = {
     projectFile: string
     sourceFiles: string list
@@ -169,64 +235,6 @@ let crackFsproj (projFile: string) =
         relativeDllReferences
         |> List.filter (fun x -> not(x.EndsWith("Fable.Core.dll")))
         |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath) }
-
-let rec findPaketDependenciesDir dir searchedDirs =
-    let path = Path.Combine(dir, "paket.dependencies")
-    if File.Exists(path) then
-        Log.logVerbose(sprintf "Found %s inside %s" path dir)
-        dir
-    else
-        match Directory.GetParent(dir) with
-        | null ->
-            searchedDirs
-            |> String.concat "\n"
-            |> failwithf "Couldn't find paket.dependencies directory, searched in: \n%s"
-        | parent ->
-            let searched = dir :: searchedDirs
-            findPaketDependenciesDir parent.FullName searched
-
-let tryFindPaketDirFromProject projFile =
-    let projDir = Path.GetDirectoryName(projFile)
-    if File.Exists(Path.Combine(projDir, "paket.references"))
-    then findPaketDependenciesDir projDir [] |> Some
-    else None
-
-let checkFableCoreVersion paketDir =
-    let nuspec = IO.Path.Combine(paketDir, "packages", "Fable.Core", "Fable.Core.nuspec")
-    if File.Exists(nuspec) then
-        let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
-        File.ReadLines(nuspec)
-        |> Seq.tryPick (fun line ->
-            let m = versionRegex.Match(line)
-            if m.Success then Some m.Groups.[1].Value else None)
-        |> function
-            | Some fableCoreVersion ->
-                if fableCoreVersion <> Constants.VERSION then
-                    failwithf "Version mismatch! Fable.Core: %s - dotnet-fable: %s"
-                                fableCoreVersion Constants.VERSION
-            | None ->
-                failwith "Cannot find version in packages/Fable.Core/Fable.Core.nuspec"
-    else
-        failwith "Missing packages/Fable.Core/Fable.Core.nuspec"
-
-let getPaketProjRefs paketDir projFile =
-    match paketDir with
-    | None -> []
-    | Some paketDir ->
-        let projDir = Path.GetDirectoryName(projFile)
-        let projFileName = Path.GetFileName(projFile)
-        let paketRefs = IO.Path.Combine(projDir, "obj", projFileName + ".references")
-        if File.Exists(paketRefs) then
-            File.ReadLines(paketRefs)
-            |> Seq.choose(fun line ->
-                if line.StartsWith("Fable.") && not(line.StartsWith("Fable.Core")) then
-                    let fableDependency = line.Substring(0, line.IndexOf(','))
-                    IO.Path.Combine(paketDir, "packages", fableDependency, "fable", fableDependency + ".fsproj")
-                    |> Some
-                else None)
-            |> Seq.toList
-        else
-            []
 
 let getProjectOptionsFromFsproj projFile =
     let paketDir = tryFindPaketDirFromProject projFile

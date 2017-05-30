@@ -45,7 +45,7 @@ module.exports = function(buffer) {
         extra: opts.extra
     };
 
-    console.log("Fable loader sent: " + msg.path)
+    // console.log("Fable loader sent: " + msg.path)
     // console.log("Full message: " + JSON.stringify(msg))
 
     client.send(port, JSON.stringify(msg))
@@ -55,34 +55,29 @@ module.exports = function(buffer) {
                 callback(new Error(data.error));
             }
             else {
+                console.log("fable: Compiled " + path.basename(msg.path));
+                ensureArray(data.dependencies).forEach(path => {
+                    this.addDependency(path)
+                });
+                if (typeof data.logs === "object") {
+                    Object.keys(data.logs).forEach(key => {
+                        // TODO: Fail if there's one or more error logs?
+                        // That would prevent compilation of other files
+                        ensureArray(data.logs[key]).forEach(msg => {
+                            switch (key)  {
+                                case "error":
+                                    this.emitError(new Error(msg));
+                                    break;
+                                case "warning":
+                                    this.emitWarning(new Error(msg));
+                                    break;
+                                default:
+                                    console.log(msg)
+                            }
+                        });
+                    })
+                }
                 try {
-                    console.log("Fable loader received: " + msg.path);
-                    ensureArray(data.dependencies).forEach(path => {
-                        this.addDependency(path)
-                    });
-                    if (typeof data.logs === "object") {
-                        Object.keys(data.logs).forEach(key => {
-                            // TODO: Fail if there's one or more error logs?
-                            // That would prevent compilation of other files
-                            ensureArray(data.logs[key]).forEach(msg => {
-                                switch (key)  {
-                                    case "error":
-                                        if (opts.extra && opts.extra.throwOnError) {
-                                            throw new Error(msg);
-                                        }
-                                        else {
-                                            this.emitError(new Error(msg));
-                                        }
-                                        break;
-                                    case "warning":
-                                        this.emitWarning(new Error(msg));
-                                        break;
-                                    default:
-                                        console.log(msg)
-                                }
-                            });
-                        })
-                    }
                     var fsCode = null;
                     if (this.sourceMap) {
                         fsCode = buffer.toString();

@@ -412,14 +412,15 @@ let runTestsDotnet () =
     Util.run "src/tests/Main" dotnetExePath "restore"
     Util.run "src/tests/Main" dotnetExePath "test"
 
-let runFableServer f =
-    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll start"
+let runFableServer args f =
+    let args = String.concat " " args
+    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath ("build/fable/dotnet-fable.dll start " + args)
     try f()
     finally fableServer.Kill()
 
 let runTestsJs () =
     Npm.install __SOURCE_DIRECTORY__ []
-    runFableServer <| fun () ->
+    runFableServer ["--no-cache"; "--verbose"] <| fun () ->
         Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tests/webpack.config.js"]
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
 
@@ -470,10 +471,10 @@ let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
         // If this is Fable.Core, build JS files
         if projFile.Contains("Fable.Core.fsproj") then
             buildCoreJs()
-        // Update version in dotnet-fable Constants.fs file
+        // Update version in dotnet-fable Util.fs file
         if projFile.Contains("dotnet-fable.fsproj") then
             let reg = Regex(@"VERSION\s*=\s*""(.*?)""")
-            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Constants.fs")
+            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Util.fs")
             (reg, mainFile) ||> Util.replaceLines (fun line m ->
                 let replacement = sprintf "VERSION = \"%s\"" releaseNotes.NugetVersion
                 reg.Replace(line, replacement) |> Some)

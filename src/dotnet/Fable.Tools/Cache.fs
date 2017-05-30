@@ -1,20 +1,20 @@
 [<RequireQualifiedAccess>]
 module Fable.Tools.Cache
 
+open System
 open System.IO
 open System.Text
 
 let private cacheDir =
-    try
-        let tmpDir = Path.Combine(Path.GetTempPath(), "fable")
-        if Directory.Exists(tmpDir) = false then
-            Directory.CreateDirectory(tmpDir) |> ignore
-        Some tmpDir
-    with ex ->
-        Log.logVerbose("Error when creating temp directory: " + ex.Message)
-        None
-
-let mutable private enabled = true
+    lazy
+        try
+            let tmpDir = Path.Combine(Path.GetTempPath(), "fable")
+            if Directory.Exists(tmpDir) = false then
+                Directory.CreateDirectory(tmpDir) |> ignore
+            Some tmpDir
+        with ex ->
+            Log.logVerbose("Error when creating temp directory: " + ex.Message)
+            None
 
 let private computeHash(input: string) =
     // Use input string to calculate MD5 hash
@@ -28,8 +28,8 @@ let private computeHash(input: string) =
     sb.ToString()
 
 let private tryCacheDir (f: string->'T option) =
-    if enabled then
-        cacheDir |> Option.bind (fun cacheDir ->
+    if Flags.cacheFiles then
+        cacheDir.Value |> Option.bind (fun cacheDir ->
             try
                 f cacheDir
             with ex ->
@@ -37,17 +37,19 @@ let private tryCacheDir (f: string->'T option) =
                 None)
     else None
 
-let isCached(filepath: string) =
+let isCached(filepath: string, minTimestamp: DateTime) =
     tryCacheDir (fun cacheDir ->
         let hash = computeHash filepath
         let cachedFile = Path.Combine(cacheDir, hash)
         if File.Exists(cachedFile) then
             let cacheTimestamp = File.GetLastWriteTime(cachedFile)
-            let fileTimestamp = File.GetLastWriteTime(filepath)
-            if fileTimestamp < cacheTimestamp
-            then Some cachedFile
-            else None
+            if cacheTimestamp > minTimestamp then
+                Some cachedFile
+            else
+                // Log.logVerbose(sprintf "Cache is outdated (%O)" cacheTimestamp)
+                None
         else
+            // Log.logVerbose("Not cached: " + filepath)
             None
     ) |> function Some _ -> true | None -> false
 
@@ -72,6 +74,3 @@ let tryCache(filepath: string, content: string) =
         File.WriteAllText(cachedFile, content)
         Some cachedFile
     )
-
-let disable() = enabled <- false
-let enable() = enabled <- true
