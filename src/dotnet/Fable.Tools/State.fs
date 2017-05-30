@@ -38,9 +38,8 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
     let fileInfos, _ =
         ((Map.empty, DateTime.MinValue), projectOptions.ProjectFileNames)
         ||> Seq.fold (fun (map, cacheMinTimestamp) filepath ->
-            // If the previous file wasn't cached, don't get any other from the cache
-            // to prevent inline functions still use old code
             let filepath = Path.normalizeFullPath filepath
+            // The current file sets the lower cache timestamp for files behind it
             let cacheMinTimestamp = IO.File.GetLastWriteTime(filepath) |> max cacheMinTimestamp
             let cacheable = Cache.isCached(filepath, cacheMinTimestamp)
             Map.add filepath { IsCompiled = false; IsCached = cacheable } map, cacheMinTimestamp)
@@ -271,14 +270,14 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
             Fable2Babel.Compiler.createFacade fileName lastFile
         |> addLogs com |> toJson
     else
-        let cache =
+        let cachePath =
             if project.FileInfos.[fileName].IsCached
-            then Cache.tryGetCached(fileName)
+            then Cache.tryGetCachePath(fileName)
             else None
-        match cache with
-        | Some cache ->
+        match cachePath with
+        | Some cachePath ->
             Log.logVerbose("From cache: " + fileName)
-            cache
+            ["cache", cachePath; "fileName", fileName] |> dict |> toJson
         | None ->
             let com =
                 // Resolve the fable-core location if not defined by user
@@ -289,12 +288,12 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
                     | None ->
                         failwith "Cannot find fable-core directory"
                 else com
-            Log.logVerbose("Compile: " + fileName)
             let json =
                 FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
                 |> Fable2Babel.Compiler.transformFile com project
                 |> addLogs com
                 |> toJson
+            Log.logVerbose("Compiled: " + fileName)
             Cache.tryCache(fileName, json) |> Option.iter (fun _ ->
                 Log.logVerbose("Cached successfully"))
             json

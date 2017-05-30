@@ -53,18 +53,10 @@ let isCached(filepath: string, minTimestamp: DateTime) =
             None
     ) |> function Some _ -> true | None -> false
 
-let tryGetCached(filepath: string) =
+let tryGetCachePath(filepath: string) =
     tryCacheDir (fun cacheDir ->
         let hash = computeHash filepath
-        let cachedFile = Path.Combine(cacheDir, hash)
-        if File.Exists(cachedFile) then
-            let cacheTimestamp = File.GetLastWriteTime(cachedFile)
-            let fileTimestamp = File.GetLastWriteTime(filepath)
-            if fileTimestamp < cacheTimestamp
-            then File.ReadAllText(cachedFile) |> Some
-            else None
-        else
-            None
+        Path.Combine(cacheDir, hash) |> Some
     )
 
 let tryCache(filepath: string, content: string) =
