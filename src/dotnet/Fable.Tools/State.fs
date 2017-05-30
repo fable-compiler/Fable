@@ -28,14 +28,21 @@ type Dictionary<'TKey, 'TValue> with
 type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 #endif
 
+type FileInfo =
+    { mutable IsCompiled: bool 
+      IsCached: bool }
+
 type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
-    let compiledFiles =
-        let dic = Dictionary()
-        for file in projectOptions.ProjectFileNames do
-            dic.Add(Path.normalizeFullPath file, false)
-        dic
+    let fileInfos, _ =
+        ((Map.empty, true), projectOptions.ProjectFileNames)
+        ||> Seq.fold (fun (map, cacheable) filepath ->
+            // If the previous file wasn't cached, don't get any other from the cache
+            // to prevent inline functions still use old code
+            let filepath = Path.normalizeFullPath filepath
+            let cacheable = cacheable && Cache.isCached filepath
+            Map.add filepath { IsCompiled = false; IsCached = cacheable } map, cacheable)
     let rootModules =
         checkedProject.AssemblyContents.ImplementationFiles
         |> Seq.map (fun file -> file.FileName, FSharp2Fable.Compiler.getRootModuleFullName file)
@@ -43,7 +50,7 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
     member __.CheckedProject = checkedProject
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectOptions.ProjectFileName
-    member __.CompiledFiles = compiledFiles
+    member __.FileInfos = fileInfos
 #if !FABLE_COMPILER
     member __.PaketDirectory = ProjectCracker.findPaketDependenciesDir projectOptions.ProjectFileName []
 #endif
@@ -183,21 +190,21 @@ let createProject checker projectOptions (com: ICompiler) (define: string[]) pro
     let checkedProject = parseFSharpProject checker projectOptions com
     Project(projectOptions, checkedProject)
 
-let toJsonAndReply =
+let toJson =
     let jsonSettings =
         JsonSerializerSettings(
             Converters=[|Json.ErasedUnionConverter()|],
             NullValueHandling=NullValueHandling.Ignore)
             // StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
-    fun (replyChannel: string->unit) (value: obj) ->
-        JsonConvert.SerializeObject(value, jsonSettings) |> replyChannel
+    fun (value: obj) ->
+        JsonConvert.SerializeObject(value, jsonSettings)
 
 let sendError replyChannel (ex: Exception) =
     let rec innerStack (ex: Exception) =
         if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
     let stack = innerStack ex
     Log.logAllways(sprintf "ERROR: %s\n%s" ex.Message stack)
-    ["error", ex.Message] |> dict |> toJsonAndReply replyChannel
+    ["error", ex.Message] |> dict |> toJson |> replyChannel
 
 let addLogs (com: Compiler) (file: Babel.Program) =
     let loc = defaultArg file.loc SourceLocation.Empty
@@ -215,21 +222,21 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State) astOutDi
     let tryFindAndUpdateProject ext sourceFile =
         // TODO: Optimize so the ActiveProject is searched first
         state.Projects |> Seq.tryPick (fun project ->
-            match project.CompiledFiles.TryGetValue(sourceFile) with
-            | true, alreadyCompiled ->
+            match Map.tryFind sourceFile project.FileInfos with
+            | Some fileInfo ->
                 let project =
                     // When a script is modified, restart the project with new options
                     // (to check for new references, loaded projects, etc.)
                     if ext = ".fsx"
                     then createProject None project.ProjectFile
                     // Watch compilation of an .fs file, restart project with old options
-                    elif alreadyCompiled
+                    elif fileInfo.IsCompiled
                     then createProject (Some project.ProjectOptions) project.ProjectFile
                     else project
                 // Set file as already compiled
-                project.CompiledFiles.[sourceFile] <- true
+                fileInfo.IsCompiled <- true
                 Some project
-            | false, _ -> None)
+            | None -> None)
     match getExtension fileName with
     | ".fsproj" ->
         state.UpdateProject(createProject None fileName)
@@ -261,19 +268,31 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
         else
             let lastFile = Array.last project.ProjectOptions.ProjectFileNames
             Fable2Babel.Compiler.createFacade fileName lastFile
+        |> addLogs com |> toJson
     else
         Log.logVerbose("Compile " + fileName)
-        let com =
-            // Resolve the fable-core location if not defined by user
-            if (com :> ICompiler).Options.fableCore = "fable-core" then
-                let fableCoreLocation =
-                    IO.Path.Combine(project.PaketDirectory, "packages", "Fable.Core", "fable-core")
-                    |> Parser.makePathRelative
-                Compiler({ (com :> ICompiler).Options with fableCore = fableCoreLocation }, (com :> ICompiler).Plugins)
-            else com
-        FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
-        |> Fable2Babel.Compiler.transformFile com project
-    |> addLogs com
+        let cache =
+            if project.FileInfos.[fileName].IsCached
+            then Cache.tryGetCached(fileName)
+            else None
+        match cache with
+        | Some cache -> cache
+        | None ->
+            let com =
+                // Resolve the fable-core location if not defined by user
+                if (com :> ICompiler).Options.fableCore = "fable-core" then
+                    let fableCoreLocation =
+                        IO.Path.Combine(project.PaketDirectory, "packages", "Fable.Core", "fable-core")
+                        |> Parser.makePathRelative
+                    Compiler({ (com :> ICompiler).Options with fableCore = fableCoreLocation }, (com :> ICompiler).Plugins)
+                else com
+            let json =
+                FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
+                |> Fable2Babel.Compiler.transformFile com project
+                |> addLogs com
+                |> toJson
+            Cache.tryCache(fileName, json) |> ignore
+            json
 
 type Command = string * (string -> unit)
 
@@ -290,8 +309,7 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
             let state = updateState checker com state astOutDir msg.define msg.path
             async {
                 try
-                    compile com state.ActiveProject msg.path
-                    |> toJsonAndReply replyChannel
+                    compile com state.ActiveProject msg.path |> replyChannel
                 with ex ->
                     sendError replyChannel ex
             } |> Async.Start

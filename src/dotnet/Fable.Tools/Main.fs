@@ -154,10 +154,15 @@ let startServerWithProcess port exec args =
         Server.stop port |> Async.RunSynchronously
         p.ExitCode
 
+let checkFlags(args: string[]) =
+    tryFindArgValue "--verbose" args
+    |> Option.iter (ignore >> Log.setVerbose)
+    tryFindArgValue "--no-cache" args
+    |> Option.iter (ignore >> Cache.disable)
+
 [<EntryPoint>]
 let main argv =
-    tryFindArgValue "--verbose" argv
-    |> Option.iter (ignore >> Log.setVerbose)
+    checkFlags(argv)
     match Array.tryHead argv with
     | Some ("--help"|"-h") ->
         (Constants.VERSION, Constants.DEFAULT_PORT) ||> printfn """Fable F# to JS compiler (%s)
@@ -177,6 +182,7 @@ Fable arguments:
   --timeout           Stop the daemon if timeout (ms) is reached
   --port              Port number (default %d) or "free" to choose a free port
   --verbose           Print more info during execution
+  --no-cache          Disable file cache
 
 To pass arguments to the script, write them after `--`
 Example: `dotnet fable npm-run build --port free -- -p --config webpack.production.js`
