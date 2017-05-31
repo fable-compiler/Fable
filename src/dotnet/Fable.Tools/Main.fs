@@ -119,10 +119,11 @@ let parseArguments args =
     { port = port; timeout = timeout; commandArgs = commandArgs}
 
 let debug (projFile: string) (define: string[]) =
-    let com = Compiler()
-    let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
     try
-        let state = updateState checker com (State()) None define (Path.GetFullPath projFile)
+        let com = Compiler()
+        let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)     
+        let msg = { path=(Path.GetFullPath projFile); define=define; plugins=[||]; options=com.Options; extra = dict [] }
+        let state = updateState checker com (State()) msg
         for file in state.ActiveProject.ProjectOptions.ProjectFileNames |> Seq.rev do
             let com = Compiler()
             compile com state.ActiveProject file |> printfn "%A"
@@ -160,7 +161,6 @@ let checkFlags(args: string[]) =
         | Some _ -> true
         | None -> false
     Flags.logVerbose <- hasFlag "--verbose"
-    Flags.cacheFiles <- not(hasFlag "--no-cache")
     Flags.checkCoreVersion <- not(hasFlag "--no-version-check")
 
 [<EntryPoint>]
@@ -185,7 +185,6 @@ Fable arguments:
   --timeout           Stop the daemon if timeout (ms) is reached
   --port              Port number (default %d) or "free" to choose a free port
   --verbose           Print more info during execution
-  --no-cache          Disable file cache
 
 To pass arguments to the script, write them after `--`
 Example: `dotnet fable npm-run build --port free -- -p --config webpack.production.js`

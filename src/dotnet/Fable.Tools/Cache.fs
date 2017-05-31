@@ -5,6 +5,11 @@ open System
 open System.IO
 open System.Text
 
+#if FABLE_COMPILER
+let isCached(filepath: string, minTimestamp: DateTime): DateTime * bool = DateTime.MinValue, false
+let tryGetCachePath(filepath: string): string option = None
+let tryCache(filepath: string, content: string): string option = None
+#else
 let private cacheDir =
     lazy
         try
@@ -27,17 +32,17 @@ let private computeHash(input: string) =
         sb.Append(hashBytes.[i].ToString("X2")) |> ignore
     sb.ToString()
 
-let private tryCacheDir (f: string->'T option) =
-    if Flags.cacheFiles then
-        cacheDir.Value |> Option.bind (fun cacheDir ->
-            try
-                f cacheDir
-            with ex ->
-                Log.logVerbose("Error when accessing cache: " + ex.Message)
-                None)
-    else None
+let private tryCacheDir (f: string->'T option): 'T option =
+    cacheDir.Value |> Option.bind (fun cacheDir ->
+        try
+            f cacheDir
+        with ex ->
+            Log.logVerbose("Error when accessing cache: " + ex.Message)
+            None)
 
-let isCached(filepath: string, minTimestamp: DateTime) =
+let isCached(filepath: string, minTimestamp: DateTime): DateTime * bool =
+    // The current file sets the lower cache timestamp for files behind it
+    let minTimestamp = IO.File.GetLastWriteTime(filepath) |> max minTimestamp
     tryCacheDir (fun cacheDir ->
         let hash = computeHash filepath
         let cachedFile = Path.Combine(cacheDir, hash)
@@ -51,18 +56,19 @@ let isCached(filepath: string, minTimestamp: DateTime) =
         else
             // Log.logVerbose("Not cached: " + filepath)
             None
-    ) |> function Some _ -> true | None -> false
+    ) |> function Some _ -> minTimestamp, true | None -> minTimestamp, false
 
-let tryGetCachePath(filepath: string) =
+let tryGetCachePath(filepath: string): string option =
     tryCacheDir (fun cacheDir ->
         let hash = computeHash filepath
         Path.Combine(cacheDir, hash) |> Some
     )
 
-let tryCache(filepath: string, content: string) =
+let tryCache(filepath: string, content: string): string option =
     tryCacheDir (fun cacheDir ->
         let hash = computeHash filepath
         let cachedFile = Path.Combine(cacheDir, hash)
         File.WriteAllText(cachedFile, content)
         Some cachedFile
     )
+#endif
