@@ -32,28 +32,35 @@ type FileInfo =
     { mutable IsCompiled: bool 
       IsCached: bool }
 
-type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
+type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, ?useCache: bool) =
+    let useCache = defaultArg useCache false
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let fileInfos, _ =
         ((Map.empty, DateTime.MinValue), projectOptions.ProjectFileNames)
         ||> Seq.fold (fun (map, cacheMinTimestamp) filepath ->
             let filepath = Path.normalizeFullPath filepath
-            // The current file sets the lower cache timestamp for files behind it
-            let cacheMinTimestamp = IO.File.GetLastWriteTime(filepath) |> max cacheMinTimestamp
-            let cacheable = Cache.isCached(filepath, cacheMinTimestamp)
+            let cacheMinTimestamp, cacheable =
+                if useCache
+                then Cache.isCached(filepath, cacheMinTimestamp)
+                else cacheMinTimestamp, false
             Map.add filepath { IsCompiled = false; IsCached = cacheable } map, cacheMinTimestamp)
     let rootModules =
         checkedProject.AssemblyContents.ImplementationFiles
         |> Seq.map (fun file -> file.FileName, FSharp2Fable.Compiler.getRootModuleFullName file)
         |> Map
+    let fableCoreJsDir =
+        #if FABLE_COMPILER
+            Some "fable-core"
+        #else
+            ProjectCracker.tryGetFableCoreJsDir projectOptions.ProjectFileName
+        #endif    
+    member __.UseCache = useCache
     member __.CheckedProject = checkedProject
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectOptions.ProjectFileName
     member __.FileInfos = fileInfos
-#if !FABLE_COMPILER
-    member val FableCoreJsDir = ProjectCracker.tryGetFableCoreJsDir projectOptions.ProjectFileName
-#endif
+    member __.FableCoreJsDir = fableCoreJsDir
     interface ICompilerState with
         member this.ProjectFile = projectOptions.ProjectFileName
         member this.GetRootModule(fileName) =
@@ -174,12 +181,25 @@ let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptio
         com.AddLog(er.Message, severity, range, er.FileName, "FSHARP")
     checkProjectResults
 
-let createProject checker projectOptions (com: ICompiler) (define: string[]) projFile =
+let hasFlag flagName (opts: IDictionary<string, string>) =
+    match opts.TryGetValue(flagName) with
+    | true, value ->
+        match bool.TryParse(value) with
+        | true, value -> value
+        | _ -> false
+    | _ -> false
+
+let tryGetOption name (opts: IDictionary<string, string>) =
+    match opts.TryGetValue(name) with
+    | true, value -> Some value
+    | _ -> None
+
+let createProject checker projectOptions (com: ICompiler) (msg: Parser.Message) projFile =
     let projectOptions =
         match projectOptions with
         | Some projectOptions -> projectOptions
         | None ->
-            let projectOptions = getFullProjectOpts checker define projFile
+            let projectOptions = getFullProjectOpts checker msg.define projFile
             if projFile.EndsWith(".fsproj") then
                 Log.logVerbose("F# PROJECT: " + projectOptions.ProjectFileName)
                 for option in projectOptions.OtherOptions do
@@ -188,7 +208,7 @@ let createProject checker projectOptions (com: ICompiler) (define: string[]) pro
                     Log.logVerbose("   " + file)
             projectOptions
     let checkedProject = parseFSharpProject checker projectOptions com
-    Project(projectOptions, checkedProject)
+    Project(projectOptions, checkedProject, useCache = hasFlag "useCache" msg.extra)
 
 let toJson =
     let jsonSettings =
@@ -214,10 +234,11 @@ let getExtension (fileName: string) =
     let i = fileName.LastIndexOf(".")
     fileName.Substring(i).ToLower()
 
-let updateState (checker: FSharpChecker) (com: Compiler) (state: State) astOutDir (define: string[]) (fileName: string): State =
+let updateState (checker: FSharpChecker) (com: Compiler) (state: State) (msg: Parser.Message): State =
     let createProject options projectFile =
-        let project = createProject checker options com define projectFile
-        astOutDir |> Option.iter (fun dir -> Printers.printAst dir project.CheckedProject)
+        let project = createProject checker options com msg projectFile
+        tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
+            Printers.printAst dir project.CheckedProject)
         project
     let tryFindAndUpdateProject ext sourceFile =
         // TODO: Optimize so the ActiveProject is searched first
@@ -237,6 +258,7 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State) astOutDi
                 fileInfo.IsCompiled <- true
                 Some project
             | None -> None)
+    let fileName = msg.path
     match getExtension fileName with
     | ".fsproj" ->
         state.UpdateProject(createProject None fileName)
@@ -271,7 +293,7 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
         |> addLogs com |> toJson
     else
         let cachePath =
-            if project.FileInfos.[fileName].IsCached
+            if project.UseCache && project.FileInfos.[fileName].IsCached
             then Cache.tryGetCachePath(fileName)
             else None
         match cachePath with
@@ -294,8 +316,9 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
                 |> addLogs com
                 |> toJson
             Log.logVerbose("Compiled: " + fileName)
-            Cache.tryCache(fileName, json) |> Option.iter (fun _ ->
-                Log.logVerbose("Cached successfully"))
+            if project.UseCache then
+                Cache.tryCache(fileName, json) |> Option.iter (fun _ ->
+                    Log.logVerbose("Cached successfully"))
             json
 
 type Command = string * (string -> unit)
@@ -305,12 +328,8 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
         let! msg, replyChannel = agent.Receive()
         try
             let msg = Parser.parse msg
-            let astOutDir =
-                match msg.extra.TryGetValue("saveAst") with
-                | true, value -> Some value
-                | _ -> None
             let com = Compiler(msg.options, loadPlugins msg.plugins (com :> ICompiler).Plugins)
-            let state = updateState checker com state astOutDir msg.define msg.path
+            let state = updateState checker com state msg
             async {
                 try
                     compile com state.ActiveProject msg.path |> replyChannel

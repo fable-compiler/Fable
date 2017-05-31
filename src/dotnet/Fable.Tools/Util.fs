@@ -9,7 +9,6 @@ module Constants =
 [<RequireQualifiedAccess>]
 module Flags =
   let mutable logVerbose = false
-  let mutable cacheFiles = true
   let mutable checkCoreVersion = true
 
 [<RequireQualifiedAccess>]
