@@ -269,6 +269,14 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
                 let fableCoreLocation =
                     IO.Path.Combine(project.PaketDirectory, "packages", "Fable.Core", "fable-core")
                     |> Parser.makePathRelative
+                let fableCoreLocation =
+                    if IO.File.Exists fableCoreLocation then fableCoreLocation
+                    else // fallback to Fable.Core NuGet package folder
+                        let fableCoreDir =
+                            typeof<Fable.Core.EraseAttribute>.GetTypeInfo().Assembly.Location
+                            |> IO.Path.GetDirectoryName
+                        IO.Path.Combine(fableCoreDir, "../../fable-core")
+                        |> Parser.makePathRelative
                 Compiler({ (com :> ICompiler).Options with fableCore = fableCoreLocation }, (com :> ICompiler).Plugins)
             else com
         FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
