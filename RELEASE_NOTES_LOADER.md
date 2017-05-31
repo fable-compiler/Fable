@@ -1,6 +1,6 @@
 ### 1.0.2
 
-* Less verbose output
+* Less verbose output and cache capabilities
 
 ### 1.0.0
 

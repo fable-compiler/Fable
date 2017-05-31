@@ -1,3 +1,7 @@
+### 1.0.8-NEXT
+
+* Add cache capabilities as an opt-in from fable-loader
+
 ### 1.0.7
 
 * Fix #952: Don't remove non-null unit arguments
