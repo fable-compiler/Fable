@@ -20,28 +20,10 @@ Some of its main features are:
 - Interacts seamlessly with other [JavaScript libraries](http://fable-compiler.github.io/docs/interacting.html)
 - Bonus: compile [NUnit tests to Mocha](http://fable-compiler.github.io/docs/compiling.html#Testing)
 
-## Usage
+## Usage 
 
-Fable is distributed through [npm](https://www.npmjs.com/package/fable-compiler)! You can install and run it just by typing:
-
-```shell
-npm install -g fable-compiler
-fable path/to/your/project.fsproj
-```
-
-> Note the package name is `fable-compiler` while the command is just `fable`
-
-You can find more detailed instructions about F# to JS compilation in the [docs](http://fable-compiler.github.io/docs/compiling.html).
-Also you can have a look at the [samples](http://fable-compiler.github.io/samples.html) or download them from [here](https://ci.appveyor.com/api/projects/alfonsogarciacaro/fable/artifacts/samples.zip).
-
-## Requirements
-
-You must have [F# 4](http://fsharp.org) and [node 4.4](https://nodejs.org/en/) or higher installed in your computer.
-
-If you are having problems to use Fable under Windows, try the following:
-
-- Make sure `fsc.exe` is added to the path.
-- Install MSBuild tools 2013.
+  - Make sure you have the [Prerequisites](https://github.com/fable-compiler/Fable/blob/master/docs/pages/prerequisites.md)
+  - [Getting started](https://github.com/fable-compiler/Fable/blob/master/docs/pages/getting-started.md)
 
 ## Contributing
 
