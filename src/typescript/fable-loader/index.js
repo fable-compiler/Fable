@@ -1,6 +1,9 @@
+var os = require("os")
 var fs = require("fs");
 var path = require("path");
+var crypto = require('crypto');
 var babel = require("babel-core");
+var msgpack = require("msgpack-lite");
 var client = require("fable-utils/client");
 var babelPlugins = require("fable-utils/babel-plugins");
 
@@ -36,6 +39,44 @@ function transformBabelAst(babelAst, babelOptions, sourcePath, sourceCodeBuffer)
     return babel.transformFromAst(babelAst, fsCode, babelOptions);
 }
 
+function getCachePath(fileName) {
+    var hash = crypto.createHash('md5').update(fileName).digest('hex');
+    return path.join(os.tmpdir(), "fable", hash);
+}
+
+function tryLoadCache(opts, fileName) {
+    if (!opts.extra || !opts.extra.useCache || path.extname(fileName) !== ".fs") {
+        return Promise.resolve(null);
+    }
+
+    return new Promise(resolve => {
+        var cachePath = getCachePath(fileName);
+        if (fs.existsSync(cachePath)) {
+            var sourcemtime = fs.statSync(fileName).mtime;
+            var cachemtime = fs.statSync(cachePath).mtime;
+            if (sourcemtime < cachemtime) {
+                var readStream = fs.createReadStream(cachePath);
+                var decodeStream = msgpack.createDecodeStream();
+                readStream.pipe(decodeStream).on("data", data => { resolve(data) });
+                return;
+                // return JSON.parse(fs.readFileSync(cachePath, "utf8").toString());
+            }
+        }
+        resolve(null);
+    });
+}
+
+function trySaveCache(opts, fileName, data) {
+    if (opts.extra && opts.extra.useCache && opts.extra.useCache !== "readonly") {
+        // fs.writeFileSync(getCachePath(data.fileName), JSON.stringify(babelParsed), {encoding: "utf8"});
+        var writeStream = fs.createWriteStream(getCachePath(fileName));
+        var encodeStream = msgpack.createEncodeStream();
+        encodeStream.pipe(data);
+        encodeStream.write(babelParsed);
+        encodeStream.end();
+    }
+}
+
 module.exports = function(buffer) {
     this.cacheable();
     var callback = this.async();
@@ -56,78 +97,62 @@ module.exports = function(buffer) {
         extra: opts.extra
     };
 
-    // console.log("fable: Requested " + msg.path)
-    // console.log("Full message: " + JSON.stringify(msg))
 
-    client.send(port, JSON.stringify(msg))
-        .then(data => {
-            var data = JSON.parse(data);
-            if (data.error) {
-                callback(new Error(data.error));
-            }
-            else {
-                try {
-                    var babelParsed;
-                    if (data.cache) {
-                        var babelCache = data.cache + ".babel";
-                        if (fs.existsSync(babelCache)) {
-                            // console.log("Babel cache found: " + msg.path)
-                            try {
-                                babelParsed = JSON.parse(fs.readFileSync(babelCache, "utf8").toString());
+    tryLoadCache(opts, msg.path).then(cache => {
+        if (cache != null) {
+            console.log("fable: Cached " + path.basename(msg.path));
+            callback(null, cache.code, cache.map);
+            return Promise.resolve(null);
+        }
+        else {
+            return client.send(port, JSON.stringify(msg));
+        }
+    })
+    .then(data => {
+        if (data == null) {
+            return;
+        }
+
+        data = JSON.parse(data);
+        if (data.error) {
+            callback(new Error(data.error));
+        }
+        else {
+            try {
+                ensureArray(data.dependencies).forEach(path => {
+                    this.addDependency(path)
+                });
+                if (typeof data.logs === "object") {
+                    Object.keys(data.logs).forEach(key => {
+                        // TODO: Fail if there's one or more error logs?
+                        // That would prevent compilation of other files
+                        ensureArray(data.logs[key]).forEach(msg => {
+                            switch (key)  {
+                                case "error":
+                                    this.emitError(new Error(msg));
+                                    break;
+                                case "warning":
+                                    this.emitWarning(new Error(msg));
+                                    break;
+                                default:
+                                    console.log(msg)
                             }
-                            catch (err) {
-                                fs.unlinkSync(babelCache);
-                                throw err;
-                            }
-                        }
-                        else {
-                            // console.log("No Babel cache: " + msg.path)
-                            var fableAst = JSON.parse(fs.readFileSync(data.cache, "utf8").toString());
-                            babelParsed = transformBabelAst(fableAst, babelOptions, data.fileName, buffer);
-                            fs.writeFileSync(babelCache, JSON.stringify(babelParsed), {encoding: "utf8"});
-                        }
-                    }
-                    else {
-                        ensureArray(data.dependencies).forEach(path => {
-                            this.addDependency(path)
                         });
-                        if (typeof data.logs === "object") {
-                            Object.keys(data.logs).forEach(key => {
-                                // TODO: Fail if there's one or more error logs?
-                                // That would prevent compilation of other files
-                                ensureArray(data.logs[key]).forEach(msg => {
-                                    switch (key)  {
-                                        case "error":
-                                            this.emitError(new Error(msg));
-                                            break;
-                                        case "warning":
-                                            this.emitWarning(new Error(msg));
-                                            break;
-                                        default:
-                                            console.log(msg)
-                                    }
-                                });
-                            })
-                        }
-                        var fsCode = null;
-                        if (this.sourceMap) {
-                            fsCode = buffer.toString();
-                            babelOptions.sourceMaps = true;
-                            babelOptions.sourceFileName = path.relative(process.cwd(), data.fileName.replace(/\\/g, '/'));
-                        }
-                        babelParsed = transformBabelAst(data, babelOptions, data.fileName, buffer);
-                    }
-                    console.log("fable: Compiled " + path.basename(msg.path));
-                    callback(null, babelParsed.code, babelParsed.map);
+                    })
                 }
-                catch (err) {
-                    callback(err)
-                }
+                var babelParsed = transformBabelAst(data, babelOptions, data.fileName, buffer);
+                console.log("fable: Compiled " + path.basename(msg.path));
+                trySaveCache(opts, data.fileName, babelParsed);
+                callback(null, babelParsed.code, babelParsed.map);
             }
-        })
-        .catch(err => {
-            var msg = err.message + "\nMake sure Fable server is running on port " + port;
-            callback(new Error(msg))
-        })
+            catch (err) {
+                callback(err)
+            }
+        }
+    })
+    .catch(err => {
+        var msg = err.message + "\nMake sure Fable server is running on port " + port;
+        callback(new Error(msg))
+    })
 };
 module.exports.raw = true;
