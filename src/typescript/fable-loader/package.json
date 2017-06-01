@@ -29,6 +29,7 @@
     "babel-core": "^6.23.1"
   },
   "dependencies": {
-    "fable-utils": "^1.0.0"
+    "fable-utils": "^1.0.0",
+    "msgpack-lite": "^0.1.26"
   }
 }
