@@ -291,7 +291,8 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
         match cachePath with
         | Some cachePath ->
             Log.logVerbose("From cache: " + fileName)
-            ["cache", cachePath; "fileName", fileName] |> dict |> toJson
+            let json = IO.File.ReadAllText(cachePath)
+            json
         | None ->
             let com =
                 // Resolve the fable-core location if not defined by user

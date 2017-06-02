@@ -72,9 +72,15 @@ let checkFableCoreVersion paketDir =
             failwith "Missing packages/Fable.Core/Fable.Core.nuspec"
 
 let tryGetFableCoreJsDir projFile =
-    tryFindPaketDirFromProject projFile
-    |> Option.map (fun paketDir -> IO.Path.Combine(paketDir, "packages", "Fable.Core", "fable-core"))
-// ------------------------------------------------------------
+    match tryFindPaketDirFromProject projFile with
+    | Some paketDir ->
+        IO.Path.Combine(paketDir, "packages", "Fable.Core", "fable-core") |> Some
+    | None -> // fallback to Fable.Core NuGet package folder
+        let fableCoreDir =
+            typeof<Fable.Core.EraseAttribute>.GetTypeInfo().Assembly.Location
+            |> IO.Path.GetDirectoryName
+        let fableCoreJsDir = IO.Path.Combine(fableCoreDir, "../../fable-core")
+        if IO.Directory.Exists fableCoreJsDir then Some fableCoreJsDir else None
 
 type CrackedFsproj = {
     projectFile: string

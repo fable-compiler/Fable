@@ -25,7 +25,8 @@ var fableOptions = {
     "NO_COMPILER_BACKEND",
     "NO_INLINE_IL_PARSER",
     "TRACE"
-  ]
+  ],
+  // extra: { useCache: true },
 };
 
 export default {
