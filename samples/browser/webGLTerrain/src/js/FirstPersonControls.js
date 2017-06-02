@@ -262,7 +262,7 @@ export default function FirstPersonControls ( object, domElement ) {
 		}
 
 		var targetPosition = this.target,
-			position = this.object.position;
+			position = object.position;
 
 		targetPosition.x = position.x + 100 * Math.sin( this.phi ) * Math.cos( this.theta );
 		targetPosition.y = position.y + 100 * Math.cos( this.phi );
