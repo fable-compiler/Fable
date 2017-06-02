@@ -39,8 +39,7 @@
     <Compile Include="../Fable.Compiler/FSharp2Fable.fs"/>
     <Compile Include="../Fable.Compiler/Fable2Babel.fs"/>
 
-    <Compile Include="../Fable.Tools/Log.fs"/>
-    <Compile Include="../Fable.Tools/Cache.fs"/>
+    <Compile Include="../Fable.Tools/Util.fs"/>
     <Compile Include="../Fable.Tools/State.fs"/>
 
     <Compile Include="Fable.Client.fs"/>
