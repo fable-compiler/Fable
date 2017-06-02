@@ -3,9 +3,13 @@ var fs = require("fs");
 var path = require("path");
 var crypto = require('crypto');
 var babel = require("babel-core");
-var msgpack = require("msgpack-lite");
 var client = require("fable-utils/client");
 var babelPlugins = require("fable-utils/babel-plugins");
+
+// In theory, msgpack should be more performant than JSON serialization,
+// but I haven't noted that in my tests and it also caused some problems.
+// For now, msgpack code is kept in tryLoadCache and trySaveCache
+// var msgpack = require("msgpack-lite");
 
 var DEFAULT_PORT =
     process.env.FABLE_SERVER_PORT != null
@@ -50,30 +54,38 @@ function tryLoadCache(opts, fileName) {
     }
 
     return new Promise(resolve => {
-        var cachePath = getCachePath(fileName);
-        if (fs.existsSync(cachePath)) {
-            var sourcemtime = fs.statSync(fileName).mtime;
-            var cachemtime = fs.statSync(cachePath).mtime;
-            if (sourcemtime < cachemtime) {
-                var readStream = fs.createReadStream(cachePath);
-                var decodeStream = msgpack.createDecodeStream();
-                readStream.pipe(decodeStream).on("data", data => { resolve(data) });
-                return;
-                // return JSON.parse(fs.readFileSync(cachePath, "utf8").toString());
+        try {
+            var cachePath = getCachePath(fileName);
+            if (fs.existsSync(cachePath)) {
+                var sourcemtime = fs.statSync(fileName).mtime;
+                var cachemtime = fs.statSync(cachePath).mtime;
+                if (sourcemtime < cachemtime) {
+                    resolve(JSON.parse(fs.readFileSync(cachePath, "utf8").toString()));
+                    // var readStream = fs.createReadStream(cachePath);
+                    // var decodeStream = msgpack.createDecodeStream();
+                    // readStream.pipe(decodeStream).on("data", data => { resolve(data) });
+                    return;
+                }
             }
+        }
+        catch (err) {
+            console.log("fable: Error when loading cache", err);
+            // Do nothing, just fall through
         }
         resolve(null);
     });
 }
 
+// This may need some kind of lock when building projects in parallel which share files
+// and both try to cache the same file at the same time
 function trySaveCache(opts, fileName, data) {
     if (opts.extra && opts.extra.useCache && opts.extra.useCache !== "readonly") {
-        // fs.writeFileSync(getCachePath(data.fileName), JSON.stringify(babelParsed), {encoding: "utf8"});
-        var writeStream = fs.createWriteStream(getCachePath(fileName));
-        var encodeStream = msgpack.createEncodeStream();
-        encodeStream.pipe(data);
-        encodeStream.write(babelParsed);
-        encodeStream.end();
+        fs.writeFileSync(getCachePath(fileName), JSON.stringify(data), {encoding: "utf8"});
+        // var writeStream = fs.createWriteStream(getCachePath(fileName));
+        // var encodeStream = msgpack.createEncodeStream();
+        // encodeStream.pipe(data);
+        // encodeStream.write(babelParsed);
+        // encodeStream.end();
     }
 }
 
@@ -110,7 +122,7 @@ module.exports = function(buffer) {
     })
     .then(data => {
         if (data == null) {
-            return;
+            return; // Webpack callback has already been called
         }
 
         data = JSON.parse(data);
