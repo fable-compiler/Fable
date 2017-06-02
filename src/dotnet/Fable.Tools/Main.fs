@@ -121,12 +121,12 @@ let parseArguments args =
 let debug (projFile: string) (define: string[]) =
     try
         let com = Compiler()
-        let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)     
+        let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
         let msg = { path=(Path.GetFullPath projFile); define=define; plugins=[||]; options=com.Options; extra = dict [] }
-        let state = updateState checker com (State()) msg
-        for file in state.ActiveProject.ProjectOptions.ProjectFileNames |> Seq.rev do
+        let state, project = updateState checker com Map.empty msg
+        for file in project.ProjectOptions.ProjectFileNames |> Seq.rev do
             let com = Compiler()
-            compile com state.ActiveProject file |> printfn "%A"
+            compile com project file |> printfn "%A"
     with
     | ex -> printfn "ERROR: %s\n%s" ex.Message ex.StackTrace
 

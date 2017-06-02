@@ -29,7 +29,7 @@ type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 #endif
 
 type FileInfo =
-    { mutable IsCompiled: bool 
+    { mutable IsCompiled: bool
       IsCached: bool }
 
 type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, ?useCache: bool) =
@@ -54,7 +54,7 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
             Some "fable-core"
         #else
             ProjectCracker.tryGetFableCoreJsDir projectOptions.ProjectFileName
-        #endif    
+        #endif
     member __.UseCache = useCache
     member __.CheckedProject = checkedProject
     member __.ProjectOptions = projectOptions
@@ -72,17 +72,7 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
         member this.GetOrAddInlineExpr(fullName, generate) =
             inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
-type State() =
-    let projects = ConcurrentDictionary<string, Project>()
-    let mutable active = Unchecked.defaultof<Project>
-    member __.Projects = projects.Values
-    member __.ActiveProject = active
-    member __.IsLoadedProject(projectFileName) =
-        projects.ContainsKey(projectFileName)
-    member self.UpdateProject(project: Project) =
-        projects.AddOrUpdate(project.ProjectFile, (fun _ -> project), (fun _ _ -> project)) |> ignore
-        active <- project
-        self
+type State = Map<string, Project>
 
 let getDefaultOptions() =
     { fableCore = "fable-core"
@@ -234,15 +224,14 @@ let getExtension (fileName: string) =
     let i = fileName.LastIndexOf(".")
     fileName.Substring(i).ToLower()
 
-let updateState (checker: FSharpChecker) (com: Compiler) (state: State) (msg: Parser.Message): State =
+let updateState (checker: FSharpChecker) (com: Compiler) (state: State) (msg: Parser.Message): State * Project =
     let createProject options projectFile =
         let project = createProject checker options com msg projectFile
         tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
             Printers.printAst dir project.CheckedProject)
         project
     let tryFindAndUpdateProject ext sourceFile =
-        // TODO: Optimize so the ActiveProject is searched first
-        state.Projects |> Seq.tryPick (fun project ->
+        state |> Map.tryPick (fun _ project ->
             match Map.tryFind sourceFile project.FileInfos with
             | Some fileInfo ->
                 let project =
@@ -258,23 +247,26 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State) (msg: Pa
                 fileInfo.IsCompiled <- true
                 Some project
             | None -> None)
+    let addOrUpdateProject (project: Project) state =
+        let state = Map.add project.ProjectFile project state
+        state, project
     let fileName = msg.path
     match getExtension fileName with
     | ".fsproj" ->
-        state.UpdateProject(createProject None fileName)
+        addOrUpdateProject (createProject None fileName) state
     | ".fsx" as ext ->
-        if state.IsLoadedProject(fileName)
-        then state.UpdateProject(createProject None fileName)
+        if Map.containsKey fileName state
+        then addOrUpdateProject (createProject None fileName) state
         else
             match tryFindAndUpdateProject ext fileName with
-            | Some project -> state.UpdateProject(project)
-            | None -> state.UpdateProject(createProject None fileName)
+            | Some project -> addOrUpdateProject project state
+            | None -> addOrUpdateProject (createProject None fileName) state
     | ".fs" as ext ->
-            match tryFindAndUpdateProject ext fileName with
-            | Some project -> state.UpdateProject(project)
-            | None ->
-                state.Projects |> Seq.map (fun x -> x.ProjectFile) |> Seq.toList
-                |> failwithf "%s doesn't belong to any of loaded projects %A" fileName
+        match tryFindAndUpdateProject ext fileName with
+        | Some project -> addOrUpdateProject project state
+        | None ->
+            state |> Map.map (fun _ p -> p.ProjectFile) |> Seq.toList
+            |> failwithf "%s doesn't belong to any of loaded projects %A" fileName
     | ".fsi" -> failwithf "Signature files cannot be compiled to JS: %s" fileName
     | _ -> failwithf "Not an F# source file: %s" fileName
 
@@ -305,7 +297,7 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
                 // Resolve the fable-core location if not defined by user
                 if com.Options.fableCore = "fable-core" then
                     match project.FableCoreJsDir with
-                    | Some fableCoreJsDir -> 
+                    | Some fableCoreJsDir ->
                         Compiler({ com.Options with fableCore = Parser.makePathRelative fableCoreJsDir }, com.Plugins)
                     | None ->
                         failwith "Cannot find fable-core directory"
@@ -329,10 +321,10 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
         try
             let msg = Parser.parse msg
             let com = Compiler(msg.options, loadPlugins msg.plugins (com :> ICompiler).Plugins)
-            let state = updateState checker com state msg
+            let state, activeProject = updateState checker com state msg
             async {
                 try
-                    compile com state.ActiveProject msg.path |> replyChannel
+                    compile com activeProject msg.path |> replyChannel
                 with ex ->
                     sendError replyChannel ex
             } |> Async.Start
@@ -343,7 +335,7 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
     }
     let compiler = Compiler()
     let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
-    loop checker compiler <| State()
+    loop checker compiler Map.empty
   )
 
 #endif //!FABLE_COMPILER
