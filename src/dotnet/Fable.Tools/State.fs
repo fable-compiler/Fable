@@ -29,22 +29,15 @@ type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 #endif
 
 type FileInfo =
-    { mutable IsCompiled: bool
-      IsCached: bool }
+    { mutable IsCompiled: bool }
 
-type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, ?useCache: bool) =
-    let useCache = defaultArg useCache false
+type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
-    let fileInfos, _ =
-        ((Map.empty, DateTime.MinValue), projectOptions.ProjectFileNames)
-        ||> Seq.fold (fun (map, cacheMinTimestamp) filepath ->
-            let filepath = Path.normalizeFullPath filepath
-            let cacheMinTimestamp, cacheable =
-                if useCache
-                then Cache.isCached(filepath, cacheMinTimestamp)
-                else cacheMinTimestamp, false
-            Map.add filepath { IsCompiled = false; IsCached = cacheable } map, cacheMinTimestamp)
+    let fileInfos =
+        projectOptions.ProjectFileNames
+        |> Seq.map (fun filepath -> Path.normalizeFullPath filepath, { IsCompiled = false })
+        |> Map
     let rootModules =
         checkedProject.AssemblyContents.ImplementationFiles
         |> Seq.map (fun file -> file.FileName, FSharp2Fable.Compiler.getRootModuleFullName file)
@@ -55,7 +48,6 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
         #else
             ProjectCracker.tryGetFableCoreJsDir projectOptions.ProjectFileName
         #endif
-    member __.UseCache = useCache
     member __.CheckedProject = checkedProject
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectOptions.ProjectFileName
@@ -198,7 +190,7 @@ let createProject checker projectOptions (com: ICompiler) (msg: Parser.Message) 
                     Log.logVerbose("   " + file)
             projectOptions
     let checkedProject = parseFSharpProject checker projectOptions com
-    Project(projectOptions, checkedProject, useCache = hasFlag "useCache" msg.extra)
+    Project(projectOptions, checkedProject)
 
 let toJson =
     let jsonSettings =
@@ -284,35 +276,22 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
             Fable2Babel.Compiler.createFacade fileName lastFile
         |> addLogs com |> toJson
     else
-        let cachePath =
-            if project.UseCache && project.FileInfos.[fileName].IsCached
-            then Cache.tryGetCachePath(fileName)
-            else None
-        match cachePath with
-        | Some cachePath ->
-            Log.logVerbose("From cache: " + fileName)
-            let json = IO.File.ReadAllText(cachePath)
-            json
-        | None ->
-            let com =
-                // Resolve the fable-core location if not defined by user
-                if com.Options.fableCore = "fable-core" then
-                    match project.FableCoreJsDir with
-                    | Some fableCoreJsDir ->
-                        Compiler({ com.Options with fableCore = Parser.makePathRelative fableCoreJsDir }, com.Plugins)
-                    | None ->
-                        failwith "Cannot find fable-core directory"
-                else com
-            let json =
-                FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
-                |> Fable2Babel.Compiler.transformFile com project
-                |> addLogs com
-                |> toJson
-            Log.logVerbose("Compiled: " + fileName)
-            if project.UseCache then
-                Cache.tryCache(fileName, json) |> Option.iter (fun _ ->
-                    Log.logVerbose("Cached successfully"))
-            json
+        let com =
+            // Resolve the fable-core location if not defined by user
+            if com.Options.fableCore = "fable-core" then
+                match project.FableCoreJsDir with
+                | Some fableCoreJsDir -> 
+                    Compiler({ com.Options with fableCore = Parser.makePathRelative fableCoreJsDir }, com.Plugins)
+                | None ->
+                    failwith "Cannot find fable-core directory"
+            else com
+        let json =
+            FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
+            |> Fable2Babel.Compiler.transformFile com project
+            |> addLogs com
+            |> toJson
+        Log.logVerbose("Compiled: " + fileName)
+        json
 
 type Command = string * (string -> unit)
 
