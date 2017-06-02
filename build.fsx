@@ -506,7 +506,8 @@ let pushNpm build (releaseNotes: ReleaseNotes) (projDir: string) =
             else []
         Npm.command buildDir "publish" publishArgs
         // After successful publishing, update the project file in source dir
-        Npm.command projDir "version" [releaseNotes.NugetVersion]
+        if buildDir <> projDir then
+            Npm.command projDir "version" [releaseNotes.NugetVersion]
 
 // Target "BrowseDocs" (fun _ ->
 //     let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "BrowseDocs"]

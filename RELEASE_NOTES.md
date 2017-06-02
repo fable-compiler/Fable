@@ -1,6 +1,5 @@
-### 1.0.8-NEXT
+### 1.0.8
 
-* Add cache capabilities as an opt-in from fable-loader
 * Fix #940: Compilation of multiple projects in parallel
 
 ### 1.0.7
