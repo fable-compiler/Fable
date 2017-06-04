@@ -21,15 +21,7 @@
     <Compile Include="../Fable.Core/Plugins.fs" />
     <Compile Include="../Fable.Core/Import/Fable.Import.JS.fs" />
     <!--<Compile Include="../Fable.Core/Import/Fable.Import.Browser.fs" />-->
-    <!--<Compile Include="../Fable.Core/Import/Node/Base.fs" />-->
-    <!--<Compile Include="../Fable.Core/Import/Node/Events.fs" />-->
-    <!--<Compile Include="../Fable.Core/Import/Node/Buffer.fs" />-->
-    <!--<Compile Include="../Fable.Core/Import/Node/Stream.fs" />-->
-    <!--<Compile Include="../Fable.Core/Import/Node/Fs.fs" />-->
-    <!--<Compile Include="../Fable.Core/Import/Node/Net.fs" />-->
-    <!--<Compile Include="../Fable.Core/Import/Node/ChildProcess.fs" />-->
-    <!--<Compile Include="../Fable.Core/Import/Node/Process.fs" />-->
-    <!--<Compile Include="../Fable.Core/Import/Node/Globals.fs" />-->
+    <!--<Compile Include="../Fable.Core/Import/Node/*.fs" />-->
     <Compile Include="../Fable.Core/Fable.Core.JsInterop.fs" />
     <Compile Include="../Fable.Core/Fable.Core.Extensions.fs" />
 
@@ -39,7 +31,6 @@
     <Compile Include="../Fable.Compiler/FSharp2Fable.fs"/>
     <Compile Include="../Fable.Compiler/Fable2Babel.fs"/>
 
-    <Compile Include="../Fable.Tools/Util.fs"/>
     <Compile Include="../Fable.Tools/State.fs"/>
 
     <Compile Include="Fable.Client.fs"/>
