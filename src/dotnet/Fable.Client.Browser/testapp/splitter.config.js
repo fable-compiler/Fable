@@ -24,7 +24,6 @@ const fableOptions = {
     "NO_INLINE_IL_PARSER",
     "TRACE",
   ],
-  // extra: { useCache: true },
 };
 
 const options = {
