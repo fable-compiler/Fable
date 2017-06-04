@@ -442,3 +442,19 @@ let ``Unit expression arguments are not removed``() =
         x <- i
     doNothing <| foo 5
     equal 5 x
+
+[<Test>]
+let ``Basic currying works``() =
+    let curry (fn: 'a -> 'b -> 'c) =
+      let first = fun (a: 'a) ->
+        let second = fun (b: 'b) ->
+          let result = fn a b
+          result
+        second
+      first
+
+    let plus = curry (+)
+    let result = plus 2 3
+    equal 5 result
+    equal 5 (plus 2 3)
+    equal 5 ((curry (+)) 2 3)
