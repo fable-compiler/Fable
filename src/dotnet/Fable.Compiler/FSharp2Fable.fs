@@ -990,7 +990,7 @@ let private tryGetImport com (ctx: Context) r methName
 
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    let addMethod range import meth args body =
+    let addMethod range import meth args (body: FSharpExpr) =
         let memberName = sanitizeMethodName meth
         let memberLoc = getMemberLoc meth
         let ctx, privateName =
@@ -1021,7 +1021,16 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                         { ctx with derivedConstructor=Some derivedCons }, args, extraArgs
                     | _ -> ctx, args, extraArgs
                 |> fun (ctx, args, extraArgs) ->
-                    getMemberKind meth, args, extraArgs, transformExpr com ctx body
+                    let body =
+                        match makeType com [] body.Type with
+                        // If we're returning a multi-argument lambda, wrap it
+                        // with CurriedLambda just in case. See #980.
+                        | Fable.Function(args,_) as returnType when args.Length > 1 ->
+                            let args = [transformExpr com ctx body; Fable.Value Fable.This]
+                            CoreLibCall("CurriedLambda", None, false, args)
+                            |> makeCall None returnType
+                        | _ -> transformExpr com ctx body
+                    getMemberKind meth, args, extraArgs, body
         let entMember =
             let argTypes = List.map Fable.Ident.getType args
             let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type

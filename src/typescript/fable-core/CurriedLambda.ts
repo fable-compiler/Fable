@@ -1,5 +1,8 @@
 export default function CurriedLambda(f: (...args: any[]) => any, _this?: any, expectedArgsLength?: number): any {
-  return (...args: any[]) => {
+  if ((f as any).curried === true) {
+    return f;
+  }
+  const curriedFn = (...args: any[]) => {
     // _this = _this || this;
     expectedArgsLength = expectedArgsLength || f.length;
     if (args.length >= expectedArgsLength) {
@@ -17,4 +20,6 @@ export default function CurriedLambda(f: (...args: any[]) => any, _this?: any, e
       }, _this, expectedArgsLength - args.length);
     }
   };
+  (curriedFn as any).curried = true;
+  return curriedFn;
 }
