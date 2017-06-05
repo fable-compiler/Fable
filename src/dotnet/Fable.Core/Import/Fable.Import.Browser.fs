@@ -2956,7 +2956,7 @@ module Browser =
         abstract getContext: contextId: string * [<ParamArray>] args: obj[] -> U2<CanvasRenderingContext2D, WebGLRenderingContext>
         abstract msToBlob: unit -> Blob
         abstract toDataURL: ?``type``: string * [<ParamArray>] args: obj[] -> string
-        abstract toBlob: unit -> Blob
+        abstract toBlob : (Blob -> unit) * ?mimeType:string * ?quality: int -> unit
 
     and [<AllowNullLiteral>] HTMLCanvasElementType =
         abstract prototype: HTMLCanvasElement with get, set
