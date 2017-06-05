@@ -196,6 +196,23 @@ Example: `dotnet fable npm-run build --port free -- -p --config webpack.producti
         let agent = startAgent()
         startServer args.port args.timeout agent.Post (Async.RunSynchronously >> konst 0)
     | Some "npm-run" ->
+        if (argv.Length < 2) then 
+            printfn """
+Missing argument(s) after npm-run, expected at least one more argument corresponding with the name of an npm-script.
+
+Examples: 
+
+  `dotnet fable npm-run start`
+  `dotnet fable npm-run build`
+
+Where 'start' and 'build' are the names of two npm-scripts located at package.json:
+
+"scripts" :{
+    "start": "webpack-dev-server"
+    "build": "webpack" 
+}"""
+            0
+        else
         let args = argv.[2..] |> parseArguments
         let execArgs =
             match args.commandArgs with
