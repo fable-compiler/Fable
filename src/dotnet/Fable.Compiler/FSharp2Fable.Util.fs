@@ -329,6 +329,7 @@ module Patterns =
 
     let inline (|Rev|) x = List.rev x
     let inline (|AsArray|) x = Array.ofSeq x
+    let inline (|LazyValue|) (x: Lazy<'T>) = x.Value
     let inline (|Transform|) (com: IFableCompiler) x = com.Transform x
     let inline (|FieldName|) (fi: FSharpField) = fi.Name
     let inline (|ExprType|) (expr: Fable.Expr) = expr.Type

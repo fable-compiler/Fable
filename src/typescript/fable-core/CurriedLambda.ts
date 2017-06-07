@@ -1,8 +1,13 @@
-export default function CurriedLambda(f: (...args: any[]) => any, _this?: any, expectedArgsLength?: number): any {
-  if ((f as any).curried === true) {
+export interface ICurriedLambda {
+  curried?: boolean;
+  (...args: any[]): any;
+}
+
+export default function CurriedLambda(f: ICurriedLambda, _this?: any, expectedArgsLength?: number): any {
+  if (f.curried === true) {
     return f;
   }
-  const curriedFn = (...args: any[]) => {
+  const curriedFn: ICurriedLambda = (...args: any[]) => {
     // _this = _this || this;
     expectedArgsLength = expectedArgsLength || f.length;
     if (args.length >= expectedArgsLength) {
@@ -20,6 +25,6 @@ export default function CurriedLambda(f: (...args: any[]) => any, _this?: any, e
       }, _this, expectedArgsLength - args.length);
     }
   };
-  (curriedFn as any).curried = true;
+  curriedFn.curried = true;
   return curriedFn;
 }

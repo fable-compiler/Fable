@@ -61,9 +61,17 @@ let private (|BaseConsCall|_|) com ctx (fsExpr: FSharpExpr) =
     | None -> None
 
 let private transformLambda com ctx args tupleDestructs body isDelegate =
-    let rec countNestedLambdas acc = function
-        | Fable.Function(args, returnType) -> countNestedLambdas (acc + 1) returnType
-        | _ -> acc
+    let hasNestedLambda isDelegate (lambda: Fable.Expr) =
+        let rec getTotalArgTypes acc = function
+            | Fable.Function(args, returnType) -> getTotalArgTypes (acc @ args) returnType
+            | returnType -> acc, returnType
+        match isDelegate, lambda.Type with
+        | true, _ -> None
+        // We should also probably check if the nested function is delegate (non-curried) or not,
+        // but then we would have to include that info in the type too not only the expression.
+        | false, Fable.Function(outerArgs, Fable.Function(innerArgs, returnType)) ->
+            getTotalArgTypes (outerArgs @ innerArgs) returnType |> Some
+        | _ -> None
     let ctx, args = makeLambdaArgs com ctx args
     let ctx =
         (ctx, tupleDestructs)
@@ -72,18 +80,13 @@ let private transformLambda com ctx args tupleDestructs body isDelegate =
     let captureThis = ctx.thisAvailability <> ThisUnavailable
     let body = transformExpr com { ctx with isLambdaBody = true } body
     let lambda = Fable.Lambda(args, body, Fable.LambdaInfo(captureThis, isDelegate)) |> Fable.Value
-    if ctx.isLambdaBody
-    then lambda
-    else
-        let nestedLambdas = countNestedLambdas 0 body.Type
-        if nestedLambdas <= 1
-        then lambda
-        else
-            let args =
-                [ yield lambda
-                  if captureThis then yield Fable.Value Fable.This ]
-            CoreLibCall("CurriedLambda", None, false, args)
-            |> makeCall None lambda.Type
+    match ctx.isLambdaBody, lazy hasNestedLambda isDelegate lambda with
+    | true, _ -> lambda
+    | false, LazyValue None -> lambda
+    | false, LazyValue(Some(totalArgs, returnType)) ->
+        let args = if captureThis then [lambda; Fable.Value Fable.This] else [lambda]
+        CoreLibCall("CurriedLambda", None, false, args)
+        |> makeCall None (Fable.Function(totalArgs, returnType))
 
 let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
     let rec flattenList (r: SourceLocation) accArgs = function
@@ -1021,16 +1024,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                         { ctx with derivedConstructor=Some derivedCons }, args, extraArgs
                     | _ -> ctx, args, extraArgs
                 |> fun (ctx, args, extraArgs) ->
-                    let body =
-                        match makeType com [] body.Type with
-                        // If we're returning a multi-argument lambda, wrap it
-                        // with CurriedLambda just in case. See #980.
-                        | Fable.Function(args,_) as returnType when args.Length > 1 ->
-                            let args = [transformExpr com ctx body; Fable.Value Fable.This]
-                            CoreLibCall("CurriedLambda", None, false, args)
-                            |> makeCall None returnType
-                        | _ -> transformExpr com ctx body
-                    getMemberKind meth, args, extraArgs, body
+                    getMemberKind meth, args, extraArgs, transformExpr com ctx body
         let entMember =
             let argTypes = List.map Fable.Ident.getType args
             let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
