@@ -708,10 +708,14 @@ module AstPass =
     let fsFormat com (i: Fable.ApplyInfo) =
         let emit macro =
             let emit = Fable.Emit macro |> Fable.Value
-            Fable.Apply(i.args.Head, [emit], Fable.ApplyMeth, i.returnType, i.range)
+            let formatFn = makeGet None i.returnType i.args.Head (makeStrConst "formatFn") 
+            Fable.Apply(formatFn, [emit], Fable.ApplyMeth, i.returnType, i.range)
             |> Some
         match i.methodName with
-        | "printFormatToString"
+        | "value" -> 
+            makeGet None i.returnType i.callee.Value (makeStrConst "input") 
+            |> Some
+        | "printFormatToString" -> emit "x=>x"
         | "printFormatToStringThen" ->
             emit "x=>x"
         | "printFormat" ->
@@ -720,13 +724,19 @@ module AstPass =
         | "printFormatLine" ->
             emit "x=>{console.log(x)}"
         | "printFormatThen" ->
-            Fable.Apply(i.args.Tail.Head, [i.args.Head], Fable.ApplyMeth, i.returnType, i.range)
+            let formatFn = makeGet None i.returnType i.args.Tail.Head (makeStrConst "formatFn")
+            Fable.Apply(formatFn, [i.args.Head], Fable.ApplyMeth, i.returnType, i.range)
             |> Some
         | "printFormatToStringThenFail" ->
             emit "x=>{throw new Error(x)}"
         | ".ctor" ->
-            CoreLibCall("String", Some "fsFormat", false, i.args)
-            |> makeCall i.range i.returnType |> Some
+            let callResultFunc = 
+                CoreLibCall("String", Some "fsFormat", false, i.args)
+                |> makeCall i.range i.returnType
+            makeJsObject i.range 
+                [ "formatFn", callResultFunc
+                  "input", i.args.Head  ]
+            |> Some
         | _ -> None
 
     let operators (com: ICompiler) (info: Fable.ApplyInfo) =
