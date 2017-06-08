@@ -476,7 +476,7 @@ let ``System.Convert.ToSingle works``() =
     Convert.ToSingle(1.f) |> equal x
     Convert.ToSingle(1.) |> equal x
     Convert.ToSingle(1.m) |> equal x
-    Convert.ToSingle("1.") |> equal x
+    parse Convert.ToSingle "1." |> equal x
     (fun () -> Convert.ToSingle("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
@@ -509,7 +509,7 @@ let ``System.Convert.ToDouble works``() =
     Convert.ToDouble(1.f) |> equal x
     Convert.ToDouble(1.) |> equal x
     Convert.ToDouble(1.m) |> equal x
-    Convert.ToDouble("1.") |> equal x
+    parse Convert.ToDouble "1." |> equal x
     (fun () -> Convert.ToDouble("foo")) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
@@ -541,7 +541,7 @@ let ``System.Convert.ToDecimal works``() =
     Convert.ToDecimal(1.f) |> equal x
     Convert.ToDecimal(1.) |> equal x
     Convert.ToDecimal(1.m) |> equal x
-    Convert.ToDecimal("1.") |> equal x
+    parse Convert.ToDecimal "1." |> equal x
     (fun () -> Convert.ToDecimal("foo")) |> throwsError "Input string was not in a correct format."
 
 // String to number convertions (with base)
