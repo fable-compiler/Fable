@@ -270,6 +270,9 @@ let releaseNUnitPlugin = Util.loadReleaseNotes "NUNIT_PLUGIN"
 
 let dotnetcliVersion = "1.0.4"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
+let dotnetSDKPath = FullName "./dotnetsdk"
+let localDotnetExePath =
+    dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
 
 let toolsBuildDir = "build/fable"
 let coreBuildDir = "build/fable-core"
@@ -281,9 +284,7 @@ let coreJsSrcDir = "src/typescript/fable-core"
 
 // Targets
 let installDotnetSdk () =
-    let dotnetSDKPath = FullName "./dotnetsdk"
-
-    let correctVersionInstalled =
+    let correctVersionInstalled dotnetExePath =
         try
             let processResult =
                 ExecProcessAndReturnMessages (fun info ->
@@ -297,6 +298,15 @@ let installDotnetSdk () =
             | Util.Smaller -> false
         with
         | _ -> false
+
+    let correctVersionInstalled =
+        if correctVersionInstalled dotnetExePath
+        then true
+        elif correctVersionInstalled localDotnetExePath
+        then
+            dotnetExePath <- localDotnetExePath
+            true
+        else false
 
     if correctVersionInstalled then
         tracefn "dotnetcli %s already installed" dotnetcliVersion
