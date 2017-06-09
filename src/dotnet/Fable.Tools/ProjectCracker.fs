@@ -23,7 +23,7 @@ type PaketRef =
 let rec findPaketDependenciesDir dir searchedDirs =
     let path = Path.Combine(dir, "paket.dependencies")
     if File.Exists(path) then
-        Log.logVerbose(sprintf "Found %s inside %s" path dir)
+        Log.logVerbose(sprintf "Found paket.dependencies inside %s" dir)
         dir
     else
         match Directory.GetParent(dir) with
@@ -81,9 +81,16 @@ let getPaketRefs paketDir targetFramework projFile: PaketRef list =
         let projFileName = Path.GetFileName(projFile)
         let paketRefs = IO.Path.Combine(projDir, "obj", projFileName + ".references")
         if File.Exists(paketRefs) then
-            File.ReadLines(paketRefs)
-            |> Seq.choose (tryGePaketRef paketDir targetFramework)
-            |> Seq.toList
+            let paketRefs =
+                File.ReadLines(paketRefs)
+                |> Seq.choose (tryGePaketRef paketDir targetFramework)
+                |> Seq.toList
+            // paketRefs
+            // |> Seq.map (sprintf "> %A")
+            // |> String.concat "\n"
+            // |> sprintf "Paket refs for %s\n%s" (Path.GetFileName(projFile))
+            // |> Log.logVerbose
+            paketRefs
         else []
 
 let checkFableCoreVersion paketDir =
@@ -300,7 +307,7 @@ let getProjectOptionsFromFsproj projFile =
             | None -> failwithf "Cannot find TargetFramework in %s" projFile
     let paketDir = tryFindPaketDirFromProject projFile
     paketDir |> Option.iter checkFableCoreVersion
-    let rec crackProjects (acc: CrackedFsproj list) paketRefs projFile =
+    let rec crackProjects (acc: CrackedFsproj list) projFile =
         acc |> List.tryFind (fun x ->
             String.Equals(x.projectFile, projFile, StringComparison.OrdinalIgnoreCase))
         |> function
@@ -311,7 +318,8 @@ let getProjectOptionsFromFsproj projFile =
         | None ->
             let crackedFsproj = crackFsproj projFile
             let paketProjRefs, paketDllRefs =
-                paketRefs |> partitionMap (function
+                getPaketRefs paketDir targetFramework projFile
+                |> partitionMap (function
                     | PaketRef.Project r -> Choice1Of2 r
                     | PaketRef.Dll r -> Choice2Of2 r)
             let crackedFsproj =
@@ -320,9 +328,9 @@ let getProjectOptionsFromFsproj projFile =
                     dllReferences = crackedFsproj.dllReferences @ paketDllRefs }
             (crackedFsproj.projectReferences, crackedFsproj::acc)
             ||> Seq.foldBack (fun projFile acc ->
-                crackProjects acc (getPaketRefs paketDir targetFramework projFile) projFile)
+                crackProjects acc projFile)
     let crackedFsprojs =
-        crackProjects [] (getPaketRefs paketDir targetFramework projFile) projFile
+        crackProjects [] projFile
         |> List.distinctBy (fun x -> x.projectFile.ToLower())
     let sourceFiles =
         crackedFsprojs |> Seq.collect (fun x -> x.sourceFiles) |> Seq.toArray
