@@ -271,8 +271,7 @@ let releaseNUnitPlugin = Util.loadReleaseNotes "NUNIT_PLUGIN"
 let dotnetcliVersion = "1.0.4"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 let dotnetSDKPath = FullName "./dotnetsdk"
-let localDotnetExePath =
-    dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
+let localDotnetExePath = dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
 
 let toolsBuildDir = "build/fable"
 let coreBuildDir = "build/fable-core"
@@ -344,7 +343,7 @@ let installDotnetSdk () =
         System.IO.Directory.EnumerateDirectories dotnetSDKPath
         |> Seq.iter (fun path -> tracefn " - %s%c" path System.IO.Path.DirectorySeparatorChar)
 
-        dotnetExePath <- dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
+        dotnetExePath <- localDotnetExePath
 
     // let oldPath = System.Environment.GetEnvironmentVariable("PATH")
     // System.Environment.SetEnvironmentVariable("PATH", sprintf "%s%s%s" dotnetSDKPath (System.IO.Path.PathSeparator.ToString()) oldPath)
