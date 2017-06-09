@@ -102,3 +102,16 @@ module Bar =
 
 let rec nonNestedRecursive s = update s
 and update s = String.replicate 3 s
+
+let mutable mutableValue = 1
+
+let getValueTimes2() = mutableValue * 2
+
+module Nested =
+    let mutable nestedMutableValue = "a"
+
+    let getValueTimes2() = nestedMutableValue + nestedMutableValue
+
+    let getOuterValueTimes4() = mutableValue * 4
+
+let getNestedValueTimes3() = Nested.nestedMutableValue + Nested.nestedMutableValue + Nested.nestedMutableValue

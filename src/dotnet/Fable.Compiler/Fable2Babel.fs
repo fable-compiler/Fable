@@ -937,13 +937,7 @@ module Util =
     let declareNestedModMember range publicName privateName isPublic isMutable modIdent expr =
         let privateName = defaultArg privateName publicName
         match isPublic, modIdent with
-        | true, Some modIdent ->
-            // TODO: Define also get-only properties for non-mutable values?
-            if isMutable then
-                let macro = sprintf "Object.defineProperty($0,'%s',{get:()=>$1,set:x=>$1=x}),$2" publicName
-                macroExpression range macro [modIdent; identFromName privateName; expr]
-            else
-                assign range (get modIdent publicName) expr
+        | true, Some modIdent -> assign range (get modIdent publicName) expr
         | _ -> expr
         |> varDeclaration range (identFromName privateName) isMutable :> Statement
         |> U2.Case1 |> List.singleton
@@ -979,6 +973,12 @@ module Util =
             match m.Kind with
             | Fable.Getter | Fable.Field ->
                 transformExpr com ctx body
+            | Fable.Method when m.IsMutable ->
+                // Mutable module values are compiled as functions, because values
+                // imported from ES2015 modules cannot be modified (see #986)
+                let expr = transformExpr com ctx body
+                let import = getCoreLibImport com ctx "Util" "createAtom"
+                upcast CallExpression(import, [U2.Case1 expr])
             | Fable.Method ->
                 let bodyRange = body.Range
                 let id = defaultArg privName m.OverloadName

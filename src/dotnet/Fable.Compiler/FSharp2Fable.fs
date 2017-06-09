@@ -692,8 +692,17 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | BasicPatterns.ValueSet (valToSet, Transform com ctx valueExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs valToSet.FullType
-        let valToSet = makeValueFrom com ctx r typ false valToSet
-        Fable.Set (valToSet, None, valueExpr, r)
+        match tryEnclosingEntity valToSet with
+        | Some ent when ent.IsFSharpModule ->
+            // Mutable module values are compiled as functions, because values
+            // imported from ES2015 modules cannot be modified (see #986)
+            // TODO: We should check for plugin, emit attribute...
+            let callee = makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
+            let m = makeGet r Fable.Any callee (sanitizeMethodName valToSet |> makeStrConst)
+            Fable.Apply(m, [valueExpr], Fable.ApplyMeth, typ, r)
+        | _ ->
+            let valToSet = makeValueFrom com ctx r typ false valToSet
+            Fable.Set (valToSet, None, valueExpr, r)
 
     (** Instantiation *)
     | BasicPatterns.NewArray(FableType com ctx elTyp, arrExprs) ->

@@ -139,3 +139,17 @@ let ``Only omitted optional arguments are removed``() = // See #231, #640
     x.Foo2(5,Some "3") |> equal 2
     x.Foo3(5, "3") |> equal 2
 #endif
+
+[<Test>]
+let ``Module mutable values work``() = // See #986
+    Util.mutableValue <- 3
+    Util.mutableValue |> equal 3
+    Util.getValueTimes2() |> equal 6
+    Util.Nested.getOuterValueTimes4() |> equal 12
+
+[<Test>]
+let ``Nested module mutable values work``() = // See #986
+    Util.Nested.nestedMutableValue <- "C"
+    Util.Nested.nestedMutableValue |> equal "C"
+    Util.Nested.getValueTimes2() |> equal "CC"
+    Util.getNestedValueTimes3() |> equal "CCC"

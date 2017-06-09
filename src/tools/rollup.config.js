@@ -22,7 +22,7 @@ var fableOptions = {
 
 export default {
   entry: resolve('./QuickTest.fsx'),
-  dest: resolve('./temp/./QuickTest.js'),
+  dest: resolve('./temp/QuickTest.js'),
   format: 'cjs', // 'amd', 'cjs', 'es', 'iife', 'umd'
   //sourceMap: 'inline',
   plugins: [

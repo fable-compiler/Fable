@@ -340,6 +340,19 @@ export function createDisposable(f: () => void): IDisposable {
   };
 }
 
+// tslint forbids non-arrow functions, but it's
+// necessary here to use the arguments object
+/* tslint:disable */
+export function createAtom<T>(value: T): (v?: T) => T|undefined {
+  let atom = value;
+  return function() {
+    return arguments.length === 0
+      ? atom
+      : (atom = arguments[0], void 0);
+  };
+}
+/* tslint:enable */
+
 const CaseRules = {
   None: 0,
   LowerFirst: 1,
