@@ -10,7 +10,16 @@ open Newtonsoft.Json
 open Fable
 open Fable.AST
 
+type TargetFramework =
+    { Framework: string; Version: string }
+    member this.Full = this.Framework + this.Version
+
 // PAKET -----------------------------------------------------
+[<RequireQualifiedAccess>]
+type PaketRef =
+    | Project of string
+    | Dll of string
+
 let rec findPaketDependenciesDir dir searchedDirs =
     let path = Path.Combine(dir, "paket.dependencies")
     if File.Exists(path) then
@@ -32,7 +41,39 @@ let tryFindPaketDirFromProject projFile =
     then findPaketDependenciesDir projDir [] |> Some
     else None
 
-let getPaketProjRefs paketDir projFile =
+let tryGePaketRef paketDir (targetFramework: TargetFramework) (refLine: string): PaketRef option =
+    if refLine.StartsWith("Fable.") && not(refLine.StartsWith("Fable.Core")) then
+        let parts = refLine.Split(',')
+        let refName, refGroup =
+            if parts.Length = 4 then
+                match parts.[3].ToLower() with
+                | "main" -> parts.[0], None
+                | group -> parts.[0], Some group
+            else parts.[0], None
+        let pkgDir =
+            match refGroup with
+            | Some group -> IO.Path.Combine(paketDir, "packages", group, refName)
+            | None -> IO.Path.Combine(paketDir, "packages", refName)
+        let fableProj = IO.Path.Combine(pkgDir, "fable", refName + ".fsproj")
+        if File.Exists(fableProj)
+        then PaketRef.Project fableProj |> Some
+        else
+            Directory.GetDirectories(IO.Path.Combine(pkgDir, "lib"))
+            |> Seq.map Path.GetFileName
+            |> Seq.sortDescending
+            |> Seq.tryFind (fun framework ->
+                framework.StartsWith(targetFramework.Framework)
+                    && framework <= targetFramework.Full)
+            |> function
+                | Some framework ->
+                    IO.Path.Combine(pkgDir, "lib", framework, refName + ".dll")
+                    |> PaketRef.Dll |> Some
+                | None ->
+                    failwithf "Cannot match target %s for library %s"
+                        targetFramework.Full refName
+    else None
+
+let getPaketRefs paketDir targetFramework projFile: PaketRef list =
     match paketDir with
     | None -> []
     | Some paketDir ->
@@ -41,16 +82,9 @@ let getPaketProjRefs paketDir projFile =
         let paketRefs = IO.Path.Combine(projDir, "obj", projFileName + ".references")
         if File.Exists(paketRefs) then
             File.ReadLines(paketRefs)
-            |> Seq.choose(fun line ->
-                if line.StartsWith("Fable.") && not(line.StartsWith("Fable.Core")) then
-                    let fableDependency = line.Substring(0, line.IndexOf(','))
-                    // TODO: If fable folder doesn't exist in package use .dll ref
-                    IO.Path.Combine(paketDir, "packages", fableDependency, "fable", fableDependency + ".fsproj")
-                    |> Some
-                else None)
+            |> Seq.choose (tryGePaketRef paketDir targetFramework)
             |> Seq.toList
-        else
-            []
+        else []
 
 let checkFableCoreVersion paketDir =
     if Flags.checkCoreVersion then
@@ -242,10 +276,31 @@ let crackFsproj (projFile: string) =
         |> List.filter (fun x -> not(x.EndsWith("Fable.Core.dll")))
         |> List.map (fun x -> Path.Combine(projDir, Path.normalizePath x) |> Path.GetFullPath) }
 
+let partitionMap (f: 'T->Choice<'T1,'T2>) (xs: 'T list): 'T1 list * 'T2 list =
+    (xs, ([], []))
+    ||> List.foldBack (fun item (list1, list2) ->
+        match f item with
+        | Choice1Of2 item -> item::list1, list2
+        | Choice2Of2 item -> list1, item::list2)
+
 let getProjectOptionsFromFsproj projFile =
+    let targetFrameworkRegex =
+        Regex("<TargetFramework>([a-z]*)(.*?)</TargetFramework>", RegexOptions.IgnoreCase)
+    let targetFramework =
+        File.ReadLines(projFile)
+        |> Seq.tryPick(fun line ->
+            let m = targetFrameworkRegex.Match(line)
+            if m.Success
+            then Some(m.Groups.[1].Value, m.Groups.[2].Value)
+            else None)
+        |> function
+            | Some(framework, version) ->
+                let framewor = if framework = "netcoreapp" then "netstandard" else framework
+                { Framework = "netstandard"; Version = version }
+            | None -> failwithf "Cannot find TargetFramework in %s" projFile
     let paketDir = tryFindPaketDirFromProject projFile
     paketDir |> Option.iter checkFableCoreVersion
-    let rec crackProjects (acc: CrackedFsproj list) extraProjRefs projFile =
+    let rec crackProjects (acc: CrackedFsproj list) paketRefs projFile =
         acc |> List.tryFind (fun x ->
             String.Equals(x.projectFile, projFile, StringComparison.OrdinalIgnoreCase))
         |> function
@@ -255,12 +310,19 @@ let getProjectOptionsFromFsproj projFile =
             crackedFsproj::acc
         | None ->
             let crackedFsproj = crackFsproj projFile
-            let acc = crackedFsproj::acc
-            (crackedFsproj.projectReferences @ extraProjRefs, acc)
+            let paketProjRefs, paketDllRefs =
+                paketRefs |> partitionMap (function
+                    | PaketRef.Project r -> Choice1Of2 r
+                    | PaketRef.Dll r -> Choice2Of2 r)
+            let crackedFsproj =
+                { crackedFsproj with
+                    projectReferences = crackedFsproj.projectReferences @ paketProjRefs
+                    dllReferences = crackedFsproj.dllReferences @ paketDllRefs }
+            (crackedFsproj.projectReferences, crackedFsproj::acc)
             ||> Seq.foldBack (fun projFile acc ->
-                crackProjects acc (getPaketProjRefs paketDir projFile) projFile)
+                crackProjects acc (getPaketRefs paketDir targetFramework projFile) projFile)
     let crackedFsprojs =
-        crackProjects [] (getPaketProjRefs paketDir projFile) projFile
+        crackProjects [] (getPaketRefs paketDir targetFramework projFile) projFile
         |> List.distinctBy (fun x -> x.projectFile.ToLower())
     let sourceFiles =
         crackedFsprojs |> Seq.collect (fun x -> x.sourceFiles) |> Seq.toArray
