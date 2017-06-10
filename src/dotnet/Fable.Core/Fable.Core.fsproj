@@ -14,24 +14,6 @@
     <Compile Include="AST/AST.Babel.fs" />
     <Compile Include="Plugins.fs" />
     <Compile Include="Import/Fable.Import.JS.fs" />
-    <Compile Include="Import/Fable.Import.Browser.fs" />
-    <Compile Include="Import/Node/Base.fs" />
-    <Compile Include="Import/Node/Url.fs" />
-    <Compile Include="Import/Node/Querystring.fs" />
-    <Compile Include="Import/Node/Events.fs" />
-    <Compile Include="Import/Node/Buffer.fs" />
-    <Compile Include="Import/Node/Stream.fs" />
-    <Compile Include="Import/Node/Fs.fs" />
-    <Compile Include="Import/Node/Path.fs" />
-    <Compile Include="Import/Node/Net.fs" />
-    <Compile Include="Import/Node/Crypto.fs" />
-    <Compile Include="Import/Node/Tls.fs" />
-    <Compile Include="Import/Node/Http.fs" />
-    <Compile Include="Import/Node/Https.fs" />
-    <Compile Include="Import/Node/ChildProcess.fs" />
-    <Compile Include="Import/Node/Process.fs" />
-    <Compile Include="Import/Node/Globals.fs" />
-    <Compile Include="Import/Node/Exports.fs" />
     <Compile Include="Fable.Core.JsInterop.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />
   </ItemGroup>
