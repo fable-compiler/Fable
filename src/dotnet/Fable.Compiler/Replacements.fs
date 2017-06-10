@@ -655,10 +655,10 @@ module AstPass =
                 then "awaitPromise" else "startAsPromise"
             CoreLibCall("Async", Some meth, false, i.args)
             |> makeCall i.range i.returnType |> Some
-        | "ofJsonAsType" ->            
+        | "ofJsonAsType" ->
             match i.args with
             | [arg; typ] -> fableCoreLib com { i with methodName = "ofJson"; args = [arg; makeJsObject None ["T", typ]] }
-            | _ -> failwithf "Unexpected number of arguments for %s" i.methodName            
+            | _ -> failwithf "Unexpected number of arguments for %s" i.methodName
         | "toJson" | "ofJson" | "deflate" | "inflate" | "toPlainJsObj"
         | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo" ->
             let modName = if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
@@ -708,12 +708,12 @@ module AstPass =
     let fsFormat com (i: Fable.ApplyInfo) =
         let emit macro =
             let emit = Fable.Emit macro |> Fable.Value
-            let formatFn = makeGet None i.returnType i.args.Head (makeStrConst "formatFn") 
+            let formatFn = makeGet None i.returnType i.args.Head (makeStrConst "formatFn")
             Fable.Apply(formatFn, [emit], Fable.ApplyMeth, i.returnType, i.range)
             |> Some
         match i.methodName with
-        | "value" -> 
-            makeGet None i.returnType i.callee.Value (makeStrConst "input") 
+        | "value" ->
+            makeGet None i.returnType i.callee.Value (makeStrConst "input")
             |> Some
         | "printFormatToString" -> emit "x=>x"
         | "printFormatToStringThen" ->
@@ -730,10 +730,10 @@ module AstPass =
         | "printFormatToStringThenFail" ->
             emit "x=>{throw new Error(x)}"
         | ".ctor" ->
-            let callResultFunc = 
+            let callResultFunc =
                 CoreLibCall("String", Some "fsFormat", false, i.args)
                 |> makeCall i.range i.returnType
-            makeJsObject i.range 
+            makeJsObject i.range
                 [ "formatFn", callResultFunc
                   "input", i.args.Head  ]
             |> Some
@@ -1292,6 +1292,14 @@ module AstPass =
             wrap i.returnType i.args.Head |> Some
         | "totalMilliseconds" ->
             wrap i.returnType i.callee.Value |> Some
+        | _ -> None
+
+    let systemEnv com (i: Fable.ApplyInfo) =
+        match i.methodName with
+        | "newLine" ->
+            match i.methodKind with
+                | Fable.Getter -> Some (Fable.Value (Fable.StringConst "\n"))
+                | _ -> None
         | _ -> None
 
     let dates com (i: Fable.ApplyInfo) =
@@ -2095,6 +2103,7 @@ module AstPass =
         | "System.Diagnostics.Debugger" -> debug com info
         | "System.DateTime" -> dates com info
         | "System.TimeSpan" -> timeSpans com info
+        | "System.Environment" -> systemEnv com info
         | "System.Action" | "System.Func"
         | "Microsoft.FSharp.Core.FSharpFunc"
         | "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" -> funcs com info
