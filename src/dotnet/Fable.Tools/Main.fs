@@ -140,6 +140,14 @@ let startServer port timeout onMessage continuation =
         1
 
 let startServerWithProcess port exec args =
+    let killProcessAndServer =
+        let mutable disposed = false
+        fun (p: Process) ->
+            if not disposed then
+                disposed <- true
+                printfn "Killing process..."
+                p.Kill()
+                Server.stop port |> Async.RunSynchronously
     let agent = startAgent()
     startServer port -1 agent.Post <| fun listen ->
         Async.Start listen
@@ -147,10 +155,10 @@ let startServerWithProcess port exec args =
         let p =
             ProcessOptions(envVars=Map["FABLE_SERVER_PORT", string port])
             |> startProcess workingDir exec args
-        Console.CancelKeyPress.Add (fun _ ->
-            printfn "Killing process..."
-            p.Kill()
-            Server.stop port |> Async.RunSynchronously)
+        // Console.CancelKeyPress.Add (fun _ -> killProcessAndServer p)
+        // System.AppDomain.CurrentDomain.ProcessExit.Add (fun _ -> killProcessAndServer p)
+        System.Runtime.Loader.AssemblyLoadContext.Default.add_Unloading(fun _ ->
+            killProcessAndServer p)
         p.WaitForExit()
         Server.stop port |> Async.RunSynchronously
         p.ExitCode
@@ -196,11 +204,11 @@ Example: `dotnet fable npm-run build --port free -- -p --config webpack.producti
         let agent = startAgent()
         startServer args.port args.timeout agent.Post (Async.RunSynchronously >> konst 0)
     | Some "npm-run" ->
-        if (argv.Length < 2) then 
+        if (argv.Length < 2) then
             printfn """
 Missing argument(s) after npm-run, expected at least one more argument corresponding with the name of an npm-script.
 
-Examples: 
+Examples:
 
   `dotnet fable npm-run start`
   `dotnet fable npm-run build`
@@ -209,7 +217,7 @@ Where 'start' and 'build' are the names of two npm-scripts located at package.js
 
 "scripts" :{
     "start": "webpack-dev-server"
-    "build": "webpack" 
+    "build": "webpack"
 }"""
             0
         else
