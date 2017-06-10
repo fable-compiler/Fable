@@ -582,7 +582,6 @@ Target "PublishPackages" (fun () ->
     clean ()
 
     // Publish Nuget packages
-    // TODO: Unify publishing of the three main Nuget packages
     pushNuget release.Value [
         "src/dotnet/Fable.Core/Fable.Core.fsproj"
         "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
@@ -598,7 +597,6 @@ Target "PublishPackages" (fun () ->
     pushNpm None releaseLoader.Value "src/typescript/fable-loader"
     pushNpm None releaseRollup.Value "src/typescript/rollup-plugin-fable"
     pushNpm (Some buildSplitter) releaseSplitter.Value "src/typescript/fable-splitter"
-    // TODO: Add NUnit plugin, it must be built first
 )
 
 Target "All" (fun () ->
