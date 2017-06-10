@@ -153,7 +153,7 @@ module.exports = function(buffer) {
                     })
                 }
                 var babelParsed = transformBabelAst(data, babelOptions, data.fileName, buffer);
-                console.log("fable: Compiled " + path.basename(msg.path));
+                console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
                 trySaveCache(opts, data.fileName, babelParsed);
                 callback(null, babelParsed.code, babelParsed.map);
             }
