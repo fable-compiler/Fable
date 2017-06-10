@@ -413,9 +413,12 @@ type UnionWithCaseOfObj =
     | CaseOfObj of obj
     | AnotherCase
 
+[<Fable.Core.Emit("void 0")>]
+let jsUndefined = obj()
+
 [<Test>]
 let ``Union with case of obj with single undefined field value`` () =
-    let x = UnionWithCaseOfObj.CaseOfObj Fable.Import.Node.Globals.undefined
+    let x = UnionWithCaseOfObj.CaseOfObj jsUndefined
     let json = toJson x
     let x2 = ofJson<UnionWithCaseOfObj> json
     x2 |> equal x
