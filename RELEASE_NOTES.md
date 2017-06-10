@@ -1,3 +1,7 @@
+### 1.1.0-rc-001
+
+* Support Paket groups and move Browser and Node bindings out of Fable.Core
+
 ### 1.0.8
 
 * Fix #940: Compilation of multiple projects in parallel

@@ -480,10 +480,10 @@ let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
         // If this is Fable.Core, build JS files
         if projFile.Contains("Fable.Core.fsproj") then
             buildCoreJs()
-        // Update version in dotnet-fable Util.fs file
+        // Update version in dotnet-fable ToolsUtil.fs file
         if projFile.Contains("dotnet-fable.fsproj") then
             let reg = Regex(@"VERSION\s*=\s*""(.*?)""")
-            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "Util.fs")
+            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "ToolsUtil.fs")
             (reg, mainFile) ||> Util.replaceLines (fun line m ->
                 let replacement = sprintf "VERSION = \"%s\"" releaseNotes.NugetVersion
                 reg.Replace(line, replacement) |> Some)

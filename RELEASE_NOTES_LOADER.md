@@ -1,3 +1,7 @@
+### 1.0.3
+
+* Fix #988: Print relative path of compiled files (PR #994)
+
 ### 1.0.2
 
 * Less verbose output and cache capabilities
