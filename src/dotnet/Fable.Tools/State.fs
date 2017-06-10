@@ -147,7 +147,9 @@ let loadPlugins pluginPaths (loadedPlugins: PluginInfo list) =
     |> Seq.toList
 
 let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptions) (com: ICompiler) =
-    Log.logAllways("Parsing F# project...")
+    Path.getRelativePath (IO.Directory.GetCurrentDirectory()) projOptions.ProjectFileName
+    |> sprintf "Parsing %s..."
+    |> Log.logAllways
     let checkProjectResults =
         projOptions
         |> checker.ParseAndCheckProject
@@ -280,7 +282,7 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
             // Resolve the fable-core location if not defined by user
             if com.Options.fableCore = "fable-core" then
                 match project.FableCoreJsDir with
-                | Some fableCoreJsDir -> 
+                | Some fableCoreJsDir ->
                     Compiler({ com.Options with fableCore = Parser.makePathRelative fableCoreJsDir }, com.Plugins)
                 | None ->
                     failwith "Cannot find fable-core directory"
