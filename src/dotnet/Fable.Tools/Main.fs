@@ -155,10 +155,9 @@ let startServerWithProcess port exec args =
         let p =
             ProcessOptions(envVars=Map["FABLE_SERVER_PORT", string port])
             |> startProcess workingDir exec args
-        // Console.CancelKeyPress.Add (fun _ -> killProcessAndServer p)
+        Console.CancelKeyPress.Add (fun _ -> killProcessAndServer p)
+        System.Runtime.Loader.AssemblyLoadContext.Default.add_Unloading(fun _ -> killProcessAndServer p)
         // System.AppDomain.CurrentDomain.ProcessExit.Add (fun _ -> killProcessAndServer p)
-        System.Runtime.Loader.AssemblyLoadContext.Default.add_Unloading(fun _ ->
-            killProcessAndServer p)
         p.WaitForExit()
         Server.stop port |> Async.RunSynchronously
         p.ExitCode
