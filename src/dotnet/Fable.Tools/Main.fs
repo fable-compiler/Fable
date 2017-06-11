@@ -140,8 +140,8 @@ let startServer port timeout onMessage continuation =
         1
 
 let startServerWithProcess port exec args =
+    let mutable disposed = false
     let killProcessAndServer =
-        let mutable disposed = false
         fun (p: Process) ->
             if not disposed then
                 disposed <- true
@@ -160,6 +160,7 @@ let startServerWithProcess port exec args =
         // System.AppDomain.CurrentDomain.ProcessExit.Add (fun _ -> killProcessAndServer p)
         p.WaitForExit()
         Server.stop port |> Async.RunSynchronously
+        disposed <- true
         p.ExitCode
 
 let checkFlags(args: string[]) =
