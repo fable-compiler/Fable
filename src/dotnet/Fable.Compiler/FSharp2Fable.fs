@@ -84,9 +84,7 @@ let private transformLambda com ctx args tupleDestructs body isDelegate =
     | true, _ -> lambda
     | false, LazyValue None -> lambda
     | false, LazyValue(Some(totalArgs, returnType)) ->
-        let args = if captureThis then [lambda; Fable.Value Fable.This] else [lambda]
-        CoreLibCall("CurriedLambda", None, false, args)
-        |> makeCall None (Fable.Function(totalArgs, returnType))
+        makeCurriedLambda body.Range (Fable.Function(totalArgs, returnType)) lambda
 
 let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
     let rec flattenList (r: SourceLocation) accArgs = function

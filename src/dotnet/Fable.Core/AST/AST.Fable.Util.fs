@@ -427,6 +427,19 @@ let argIdentToExpr (id: Ident) =
     | Unit -> Value Null
     | _ -> IdentValue id |> Value
 
+let makeCurriedLambda range typ lambda =
+    let args =
+        match lambda with
+        | Value(Lambda(_,_,info)) when info.CaptureThis -> [lambda; Value This]
+        | _ -> [lambda]
+    CoreLibCall("CurriedLambda", None, false, args)
+    |> makeCall range typ
+
+let (|CurriedLambda|_|) = function
+    | Apply(Value(ImportRef("default", "CurriedLambda", CoreLib)),_,_,_,_) ->
+        Some CurriedLambda
+    | _ -> None
+
 // Deal with function arguments with higher arity than expected
 // E.g.: [|"1";"2"|] |> Array.map (fun x y -> x + y)
 // JS: ["1","2"].map($var1 => $var2 => ((x, y) => x + y)($var1, $var2))
@@ -470,11 +483,13 @@ let rec ensureArity com argTypes args =
     List.zip argTypes args
     |> List.map (fun (argType, arg: Expr) ->
         match argType, arg with
+        // Dynamic CurriedLambda shouldn't be wrapped, see #996
+        | _, (CurriedLambda as curriedLambda) -> curriedLambda
         // If the expected type is a generic parameter, we cannot infer the arity
         // so generate a dynamic curried lambda just in case.
-        | GenericParam _, Value(Lambda(args,_,info)) when not info.IsDelegate && List.isMultiple args ->
-            CoreLibCall("CurriedLambda", None, false, [arg])
-            |> makeCall arg.Range arg.Type
+        | GenericParam _, (Value(Lambda(lambdaArgs,_,info)) as lambda)
+            when not info.IsDelegate && List.isMultiple lambdaArgs ->
+            makeCurriedLambda lambda.Range lambda.Type lambda
         | NeedsWrapping (expected, actual, returnType) ->
             wrap com returnType arg expected actual
         | _ -> arg)
@@ -486,10 +501,12 @@ and makeApply com range typ callee (args: Expr list) =
         | Sequential _ ->
             Apply(Value(Lambda([],callee,LambdaInfo(true))), [], ApplyMeth, callee.Type, callee.Range)
         | _ -> callee
-    match callee.Type with
+    match callee with
+    // Dynamic CurriedLambda shouldn't be wrapped, see #996
+    | CurriedLambda _ -> Apply(callee, args, ApplyMeth, typ, range)
     // Make necessary transformations if we're applying more or less
     // arguments than the specified function arity
-    | Function(argTypes, _) ->
+    | Type(Function(argTypes, _)) ->
         let argsLength = List.length args
         let argTypesLength = List.length argTypes
         if argTypesLength < argsLength && argTypesLength >= 1 // TODO: Remove >= 1

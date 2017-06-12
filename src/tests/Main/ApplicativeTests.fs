@@ -459,3 +459,31 @@ let ``Basic currying works``() =
     equal 5 result
     equal 5 (plus 2 3)
     equal 5 ((curry (+)) 2 3)
+
+let applyTup2 f1 f2 x =
+  let a = f1 x
+  let b = f2 x
+  (a,b)
+
+let inline applyTup2Inline f1 f2 x =
+  let a = f1 x
+  let b = f2 x
+  (a,b)
+
+let mutable mutableValue3 = 0
+
+let mutateAndLambdify x =
+    mutableValue3 <- x
+    (fun _ -> x)
+
+[<Test>]
+let ``CurriedLambda don't delay side effects unnecessarily``() = // See #996
+      let a, b = applyTup2 id mutateAndLambdify 2685397
+      sprintf "%A" mutableValue3 |> equal "2685397"
+      let a2, b2 = applyTup2Inline id mutateAndLambdify 843252
+      sprintf "%A" mutableValue3 |> equal "843252"
+      let a3, b3 =
+          let a = id 349787
+          let b = mutateAndLambdify 349787
+          (a,b)
+      sprintf "%A" mutableValue3 |> equal "349787"

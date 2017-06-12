@@ -22,7 +22,7 @@ module Util =
 
     let (|CoreCons|_|) coreMod expr =
         match expr with
-        | Fable.Apply(Fable.Value(Fable.ImportRef("default", coreMod', Fable.CoreLib)),[], Fable.ApplyCons,_,_)
+        | Fable.Apply(Fable.Value(Fable.ImportRef("default", coreMod', Fable.CoreLib)),_,Fable.ApplyCons,_,_)
             when coreMod' = coreMod -> Some CoreCons
         | _ -> None
 
@@ -655,10 +655,10 @@ module AstPass =
                 then "awaitPromise" else "startAsPromise"
             CoreLibCall("Async", Some meth, false, i.args)
             |> makeCall i.range i.returnType |> Some
-        | "ofJsonAsType" ->            
+        | "ofJsonAsType" ->
             match i.args with
             | [arg; typ] -> fableCoreLib com { i with methodName = "ofJson"; args = [arg; makeJsObject None ["T", typ]] }
-            | _ -> failwithf "Unexpected number of arguments for %s" i.methodName            
+            | _ -> failwithf "Unexpected number of arguments for %s" i.methodName
         | "toJson" | "ofJson" | "deflate" | "inflate" | "toPlainJsObj"
         | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo" ->
             let modName = if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
@@ -708,12 +708,12 @@ module AstPass =
     let fsFormat com (i: Fable.ApplyInfo) =
         let emit macro =
             let emit = Fable.Emit macro |> Fable.Value
-            let formatFn = makeGet None i.returnType i.args.Head (makeStrConst "formatFn") 
+            let formatFn = makeGet None i.returnType i.args.Head (makeStrConst "formatFn")
             Fable.Apply(formatFn, [emit], Fable.ApplyMeth, i.returnType, i.range)
             |> Some
         match i.methodName with
-        | "value" -> 
-            makeGet None i.returnType i.callee.Value (makeStrConst "input") 
+        | "value" ->
+            makeGet None i.returnType i.callee.Value (makeStrConst "input")
             |> Some
         | "printFormatToString" -> emit "x=>x"
         | "printFormatToStringThen" ->
@@ -730,10 +730,10 @@ module AstPass =
         | "printFormatToStringThenFail" ->
             emit "x=>{throw new Error(x)}"
         | ".ctor" ->
-            let callResultFunc = 
+            let callResultFunc =
                 CoreLibCall("String", Some "fsFormat", false, i.args)
                 |> makeCall i.range i.returnType
-            makeJsObject i.range 
+            makeJsObject i.range
                 [ "formatFn", callResultFunc
                   "input", i.args.Head  ]
             |> Some
@@ -1767,16 +1767,19 @@ module AstPass =
             | "truncate" ->
                 // Array.truncate count array
                 emit i "$1.slice(0, $0)" i.args |> Some
-            | "map" ->
-                match i.methodTypeArgs with
-                // Native JS map is risky with typed arrays as they coerce
-                // the final result (see #120, #171)
-                | Fable.Any::_ | Fable.GenericParam _::_ -> None
-                | (Number _ as tin)::[tout] when tin = tout ->
-                    icall "map" (i.args.[1], [i.args.[0]])
-                | (ExtNumber _|NoNumber)::[ExtNumber _|NoNumber] ->
-                    icall "map" (i.args.[1], [i.args.[0]])
-                | _ -> None
+            // TODO: JS native Array.map, which accepts a 3-argument function,
+            // conflicts with dynamic CurriedLambda. Uncommenting this makes
+            // ArrayTests.``Mapping from values to functions works`` fail.
+            // | "map" ->
+            //     match i.methodTypeArgs with
+            //     // Native JS map is risky with typed arrays as they coerce
+            //     // the final result (see #120, #171)
+            //     | Fable.Any::_ | Fable.GenericParam _::_ -> None
+            //     | (Number _ as tin)::[tout] when tin = tout ->
+            //         icall "map" (i.args.[1], [i.args.[0]])
+            //     | (ExtNumber _|NoNumber)::[ExtNumber _|NoNumber] ->
+            //         icall "map" (i.args.[1], [i.args.[0]])
+            //     | _ -> None
             | "append" ->
                 match i.methodTypeArgs with
                 | [Fable.Any] | [Number _] -> None
