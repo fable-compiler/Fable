@@ -1,3 +1,7 @@
+### 1.0.5
+
+* Less verbose output
+
 ### 1.0.4
 
 * Don't check fable-core version

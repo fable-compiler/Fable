@@ -56,12 +56,12 @@ module.exports = (
         extra
       };
 
-      console.log(`Fable Plugin sent: ${msg.path}`);
+      // console.log(`Fable Plugin sent: ${msg.path}`);
 
       return client
         .send(port, JSON.stringify(msg))
         .then(r => {
-          console.log(`Fable Plugin received: ${msg.path}`);
+          console.log(`fable: Compiled ${path.relative(process.cwd(), msg.path)}`);
 
           const data = JSON.parse(r);
 
