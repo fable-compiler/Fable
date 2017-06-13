@@ -358,11 +358,22 @@ const CaseRules = {
   LowerFirst: 1,
 };
 
-export function createObj(fields: Iterable<[string, any]>, caseRule = CaseRules.None) {
+function isList(o: any) {
+  if (o != null) {
+    if (typeof o[FSymbol.reflection] === "function") {
+      return o[FSymbol.reflection]().type === "Microsoft.FSharp.Collections.FSharpList";
+    }
+  }
+  return false;
+}
+
+export function createObj(
+      fields: Iterable<[string, any]>,
+      caseRule = CaseRules.None,
+      casesCache?: Map<FunctionConstructor, any[]>) {
   const iter = fields[Symbol.iterator]();
   let cur = iter.next();
   const o: any = {};
-  let casesCache: Map<FunctionConstructor, any[]> = null;
   while (!cur.done) {
     const value: any = cur.value;
     if (Array.isArray(value)) {
@@ -378,12 +389,14 @@ export function createObj(fields: Iterable<[string, any]>, caseRule = CaseRules.
         }
       }
       const caseInfo = (cases != null) ? cases[value.tag] : null;
-      if (cases != null && Array.isArray(caseInfo)) {
+      if (Array.isArray(caseInfo)) {
         let key = caseInfo[0];
         if (caseRule === CaseRules.LowerFirst) {
           key = key[0].toLowerCase() + key.substr(1);
         }
-        o[key] = caseInfo.length === 1 ? true : value.data;
+        o[key] = caseInfo.length === 1
+          ? true
+          : (isList(value.data) ? createObj(value.data, caseRule, casesCache) : value.data);
       } else {
         throw new Error("Cannot infer key and value of " + value);
       }
