@@ -31,7 +31,7 @@ type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 type FileInfo =
     { mutable IsCompiled: bool }
 
-type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
+type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, ?fableCoreJsDir) =
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let fileInfos =
@@ -43,6 +43,9 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
         |> Seq.map (fun file -> file.FileName, FSharp2Fable.Compiler.getRootModuleFullName file)
         |> Map
     let fableCoreJsDir =
+        match fableCoreJsDir with
+        | Some dir -> Some dir
+        | None ->
         #if FABLE_COMPILER
             Some "fable-core"
         #else
@@ -146,9 +149,11 @@ let loadPlugins pluginPaths (loadedPlugins: PluginInfo list) =
             | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
     |> Seq.toList
 
+let getRelativePath path =
+    Path.getRelativePath (IO.Directory.GetCurrentDirectory()) path
+
 let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptions) (com: ICompiler) =
-    Path.getRelativePath (IO.Directory.GetCurrentDirectory()) projOptions.ProjectFileName
-    |> sprintf "Parsing %s..."
+    sprintf "Parsing %s..." (getRelativePath projOptions.ProjectFileName)
     |> Log.logAllways
     let checkProjectResults =
         projOptions
@@ -228,6 +233,9 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State) (msg: Pa
         state |> Map.tryPick (fun _ project ->
             match Map.tryFind sourceFile project.FileInfos with
             | Some fileInfo ->
+                // sprintf "File %s (compiled %b) belongs to project %s"
+                //     (getRelativePath sourceFile) fileInfo.IsCompiled (getRelativePath project.ProjectFile)
+                // |> Log.logVerbose
                 let project =
                     // When a script is modified, restart the project with new options
                     // (to check for new references, loaded projects, etc.)
@@ -238,7 +246,7 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State) (msg: Pa
                     then createProject (Some project.ProjectOptions) project.ProjectFile
                     else project
                 // Set file as already compiled
-                fileInfo.IsCompiled <- true
+                project.FileInfos.[sourceFile].IsCompiled <- true
                 Some project
             | None -> None)
     let addOrUpdateProject (project: Project) state =
