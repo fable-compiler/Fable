@@ -15,15 +15,15 @@ module Util =
 
     let (|CoreMeth|_|) coreMod meth expr =
         match expr with
-        | Fable.Value(Fable.ImportRef(meth', coreMod', Fable.CoreLib))
+        | Fable.Apply(Fable.Value(Fable.ImportRef(meth', coreMod', Fable.CoreLib)),args,Fable.ApplyMeth,_,_)
             when meth' = meth && coreMod' = coreMod ->
-            Some CoreMeth
+            Some args
         | _ -> None
 
-    let (|CoreCons|_|) coreMod expr =
+    let (|CoreCons|_|) coreMod meth expr =
         match expr with
-        | Fable.Apply(Fable.Value(Fable.ImportRef("default", coreMod', Fable.CoreLib)),_,Fable.ApplyCons,_,_)
-            when coreMod' = coreMod -> Some CoreCons
+        | Fable.Apply(Fable.Value(Fable.ImportRef(meth', coreMod', Fable.CoreLib)),args,Fable.ApplyCons,_,_)
+            when meth' = meth && coreMod' = coreMod -> Some args
         | _ -> None
 
     let (|MaybeWrapped|) = function
@@ -327,8 +327,8 @@ module Util =
             |> makeCall i.range i.returnType
         match expr, i.returnType with
         // Optimization
-        | Fable.Apply(CoreMeth "List" "ofArray" _, [arr], Fable.ApplyMeth,_,_), _ -> arr
-        | CoreCons "List", _ ->
+        | CoreMeth "List" "ofArray" [arr], _ -> arr
+        | CoreCons "List" "default" [], _ ->
             Fable.ArrayConst(Fable.ArrayValues [], genArg i.returnType) |> Fable.Value
         // Typed arrays
         | _, Fable.Array(Fable.Number numberKind) when com.Options.typedArrays ->
@@ -542,30 +542,37 @@ module Util =
                 GlobalCall(modName, None, true, args) |> makeCall r t
 
     let makeJsLiteral r caseRule keyValueList =
-        let (|Fields|_|) caseRule = function
+        let rec (|Fields|_|) caseRule = function
             | Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, _)) ->
                 (Some [], exprs) ||> List.fold (fun acc e ->
-                    match acc, e with
-                    | Some acc, Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) ->
-                        (key, value)::acc |> Some
-                    | Some acc, UnionCons(tag, fields, cases) ->
-                        let key =
-                            let key = cases |> List.item tag |> fst
-                            match caseRule with
-                            | CaseRules.LowerFirst -> Naming.lowerFirst key
-                            | _ -> key
-                        let value =
-                            match fields with
-                            | [] -> Fable.Value(Fable.BoolConst true)
-                            | [expr] -> expr
-                            | exprs -> Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, Fable.Any))
-                        (key, value)::acc |> Some
-                    | _ -> None)
+                    acc |> Option.bind (fun acc ->
+                        match e with
+                        | Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) ->
+                            (key, value)::acc |> Some
+                        | UnionCons(tag, fields, cases) ->
+                            let key =
+                                let key = cases |> List.item tag |> fst
+                                match caseRule with
+                                | CaseRules.LowerFirst -> Naming.lowerFirst key
+                                | _ -> key
+                            let value =
+                                match fields with
+                                | [] -> Fable.Value(Fable.BoolConst true) |> Some
+                                | [CoreCons "List" "default" []] -> makeJsObject r [] |> Some
+                                | [CoreMeth "List" "ofArray" [Fields caseRule fields]] -> makeJsObject r fields |> Some
+                                | [expr] ->
+                                    match expr.Type with
+                                    // Lists references must be converted to objects at runtime
+                                    | Fable.DeclaredType(ent,_) when ent.FullName = "Microsoft.FSharp.Collections.FSharpList" -> None
+                                    | _ -> Some expr
+                                | exprs -> Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, Fable.Any)) |> Some
+                            value |> Option.map (fun value -> (key, value)::acc)
+                        | _ -> None))
                 |> Option.map List.rev
             | _ -> None
         match keyValueList with
-        | CoreCons "List" -> makeJsObject r []
-        | Fable.Apply(CoreMeth "List" "ofArray" _, [Fields caseRule fields], _, _, _) -> makeJsObject r fields
+        | CoreCons "List" "default" [] -> makeJsObject r []
+        | CoreMeth "List" "ofArray" [Fields caseRule fields] -> makeJsObject r fields
         | _ -> ccall_ r Fable.Any "Util" "createObj" [keyValueList; caseRule |> int |> makeIntConst]
 
 module AstPass =
@@ -681,9 +688,8 @@ module AstPass =
             let args =
                 match List.rev args with
                 | [] -> []
-                | CoreCons "List"::rest -> List.rev rest
-                | Fable.Apply(CoreMeth "List" "ofArray",
-                                [Fable.Value(Fable.ArrayConst(Fable.ArrayValues spreadValues, _))], _,_,_)::rest ->
+                | (CoreCons "List" "default" [])::rest -> List.rev rest
+                | (CoreMeth "List" "ofArray" [Fable.Value(Fable.ArrayConst(Fable.ArrayValues spreadValues, _))])::rest ->
                     (List.rev rest) @ spreadValues
                 | expr::rest -> (List.rev rest) @ [Fable.Value(Fable.Spread expr)]
             match callee with
