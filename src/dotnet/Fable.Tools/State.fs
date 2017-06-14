@@ -31,26 +31,25 @@ type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 type FileInfo =
     { mutable IsCompiled: bool }
 
-type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, ?fableCoreJsDir) =
+type ProjectInfo(fableCoreDir: string option, ?projOptions: FSharpProjectOptions) =
+    member __.ProjectOptions = projOptions
+    member __.FableCoreJsDir = fableCoreDir
+
+type Project
+    (projectOptions: FSharpProjectOptions,
+     checkedProject: FSharpCheckProjectResults,
+     ?isWatchcompilation: bool, ?fableCoreJsDir: string) =
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let fileInfos =
+        let isCompiled = defaultArg isWatchcompilation false
         projectOptions.ProjectFileNames
-        |> Seq.map (fun filepath -> Path.normalizeFullPath filepath, { IsCompiled = false })
+        |> Seq.map (fun filepath -> Path.normalizeFullPath filepath, { IsCompiled = isCompiled })
         |> Map
     let rootModules =
         checkedProject.AssemblyContents.ImplementationFiles
         |> Seq.map (fun file -> file.FileName, FSharp2Fable.Compiler.getRootModuleFullName file)
         |> Map
-    let fableCoreJsDir =
-        match fableCoreJsDir with
-        | Some dir -> Some dir
-        | None ->
-        #if FABLE_COMPILER
-            Some "fable-core"
-        #else
-            ProjectCracker.tryGetFableCoreJsDir projectOptions.ProjectFileName
-        #endif
     member __.CheckedProject = checkedProject
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectOptions.ProjectFileName
@@ -183,9 +182,10 @@ let tryGetOption name (opts: IDictionary<string, string>) =
     | true, value -> Some value
     | _ -> None
 
-let createProject checker projectOptions (com: ICompiler) (msg: Parser.Message) projFile =
+let createProject checker (projInfo: ProjectInfo option)
+                  (com: ICompiler) (msg: Parser.Message) projFile =
     let projectOptions =
-        match projectOptions with
+        projInfo |> Option.bind (fun i -> i.ProjectOptions) |> function
         | Some projectOptions -> projectOptions
         | None ->
             let projectOptions = getFullProjectOpts checker msg.define projFile
@@ -197,7 +197,14 @@ let createProject checker projectOptions (com: ICompiler) (msg: Parser.Message) 
                     Log.logVerbose("   " + file)
             projectOptions
     let checkedProject = parseFSharpProject checker projectOptions com
-    Project(projectOptions, checkedProject)
+    tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
+        Printers.printAst dir checkedProject)
+    let isWatch, fableCoreJsDir =
+        match projInfo with
+        // If we have info from previous project, assume it's a watch compilation
+        | Some info -> true, info.FableCoreJsDir
+        | None -> false, ProjectCracker.tryGetFableCoreJsDir projectOptions.ProjectFileName
+    Project(projectOptions, checkedProject, isWatch, ?fableCoreJsDir=fableCoreJsDir)
 
 let toJson =
     let jsonSettings =
@@ -224,11 +231,6 @@ let getExtension (fileName: string) =
     fileName.Substring(i).ToLower()
 
 let updateState (checker: FSharpChecker) (com: Compiler) (state: State) (msg: Parser.Message): State * Project =
-    let createProject options projectFile =
-        let project = createProject checker options com msg projectFile
-        tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
-            Printers.printAst dir project.CheckedProject)
-        project
     let tryFindAndUpdateProject ext sourceFile =
         state |> Map.tryPick (fun _ project ->
             match Map.tryFind sourceFile project.FileInfos with
@@ -239,33 +241,41 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State) (msg: Pa
                 let project =
                     // When a script is modified, restart the project with new options
                     // (to check for new references, loaded projects, etc.)
-                    if ext = ".fsx"
-                    then createProject None project.ProjectFile
+                    if ext = ".fsx" then
+                        let projInfo = ProjectInfo(project.FableCoreJsDir) |> Some
+                        createProject checker projInfo com msg project.ProjectFile
                     // Watch compilation of an .fs file, restart project with old options
-                    elif fileInfo.IsCompiled
-                    then createProject (Some project.ProjectOptions) project.ProjectFile
+                    elif fileInfo.IsCompiled then
+                        let projInfo = ProjectInfo(project.FableCoreJsDir, project.ProjectOptions) |> Some
+                        createProject checker projInfo com msg project.ProjectFile
                     else project
                 // Set file as already compiled
                 project.FileInfos.[sourceFile].IsCompiled <- true
                 Some project
             | None -> None)
-    let addOrUpdateProject (project: Project) state =
+    let addOrUpdateProject state (project: Project) =
         let state = Map.add project.ProjectFile project state
         state, project
     let fileName = msg.path
     match getExtension fileName with
     | ".fsproj" ->
-        addOrUpdateProject (createProject None fileName) state
+        createProject checker None com msg fileName
+        |> addOrUpdateProject state
     | ".fsx" as ext ->
-        if Map.containsKey fileName state
-        then addOrUpdateProject (createProject None fileName) state
-        else
+        match Map.tryFind fileName state with
+        | Some project ->
+            let projInfo = ProjectInfo(project.FableCoreJsDir) |> Some
+            createProject checker projInfo com msg fileName
+            |> addOrUpdateProject state
+        | None ->
             match tryFindAndUpdateProject ext fileName with
-            | Some project -> addOrUpdateProject project state
-            | None -> addOrUpdateProject (createProject None fileName) state
+            | Some project -> addOrUpdateProject state project
+            | None ->
+                createProject checker None com msg fileName
+                |> addOrUpdateProject state
     | ".fs" as ext ->
         match tryFindAndUpdateProject ext fileName with
-        | Some project -> addOrUpdateProject project state
+        | Some project -> addOrUpdateProject state project
         | None ->
             state |> Map.map (fun _ p -> p.ProjectFile) |> Seq.toList
             |> failwithf "%s doesn't belong to any of loaded projects %A" fileName
