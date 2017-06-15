@@ -1,3 +1,7 @@
+### 1.1.0
+
+* Fable stablish, yeah!
+
 ### 1.1.0-rc-002
 
 * Fix #996: Don't wrap dynamic CurriedLambdas

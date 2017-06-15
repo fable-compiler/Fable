@@ -1,3 +1,7 @@
+### 1.0.4
+
+* Fix sourcemap generation
+
 ### 1.0.3
 
 * Fix #988: Print relative path of compiled files (PR #994)
