@@ -1296,10 +1296,7 @@ module AstPass =
 
     let systemEnv com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | "newLine" ->
-            match i.methodKind with
-                | Fable.Getter -> Some (Fable.Value (Fable.StringConst "\n"))
-                | _ -> None
+        | "newLine" -> Some (Fable.Value (Fable.StringConst "\n"))
         | _ -> None
 
     let dates com (i: Fable.ApplyInfo) =
