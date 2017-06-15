@@ -1155,6 +1155,27 @@ module JS =
         static member set(target: obj, propertyKey: PropertyKey, value: obj, ?receiver: obj): bool = jsNative
         static member setPrototypeOf(target: obj, proto: obj): bool = jsNative
 
+    and [<AllowNullLiteral>] Console =
+        abstract ``assert``: ?test: bool * ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract clear: unit -> unit
+        abstract count: ?countTitle: string -> unit
+        abstract debug: ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract dir: ?value: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract dirxml: value: obj -> unit
+        abstract error: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract group: ?groupTitle: string -> unit
+        abstract groupCollapsed: ?groupTitle: string -> unit
+        abstract groupEnd: unit -> unit
+        abstract info: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract log: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract profile: ?reportName: string -> unit
+        abstract profileEnd: unit -> unit
+        abstract time: ?timerName: string -> unit
+        abstract timeEnd: ?timerName: string -> unit
+        abstract trace: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
+        abstract table: ?data: obj -> unit
+
     let [<Global>] NaN: float = jsNative
     let [<Global>] Infinity: float = jsNative
     let [<Global>] Object: ObjectConstructor = jsNative
@@ -1202,5 +1223,6 @@ module JS =
     let [<Global>] decodeURIComponent: string -> string = jsNative
     let [<Global>] encodeURI: string -> string = jsNative
     let [<Global>] encodeURIComponent: string -> string = jsNative
+    let [<Global>] console : Console = jsNative
 
     let [<Emit("debugger;")>] debugger () : unit = jsNative
