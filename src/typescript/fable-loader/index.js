@@ -33,12 +33,12 @@ var customPlugins = [
     babelPlugins.getTransformMacroExpressions(babel.template)
 ];
 
-function transformBabelAst(babelAst, babelOptions, sourcePath, sourceCodeBuffer) {
+function transformBabelAst(babelAst, babelOptions, sourceMapOptions) {
     var fsCode = null;
-    if (this.sourceMap && sourcePath && sourceCodeBuffer) {
-        fsCode = sourceCodeBuffer.toString();
+    if (sourceMapOptions != null) {
+        fsCode = sourceMapOptions.buffer.toString();
         babelOptions.sourceMaps = true;
-        babelOptions.sourceFileName = path.relative(process.cwd(), sourcePath.replace(/\\/g, '/'));
+        babelOptions.sourceFileName = path.relative(process.cwd(), sourceMapOptions.path.replace(/\\/g, '/'));
     }
     return babel.transformFromAst(babelAst, fsCode, babelOptions);
 }
@@ -152,7 +152,11 @@ module.exports = function(buffer) {
                         });
                     })
                 }
-                var babelParsed = transformBabelAst(data, babelOptions, data.fileName, buffer);
+                var sourceMapOpts = this.sourceMap ? {
+                    path: data.fileName,
+                    buffer: buffer
+                } : null;
+                var babelParsed = transformBabelAst(data, babelOptions, sourceMapOpts);
                 console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
                 trySaveCache(opts, data.fileName, babelParsed);
                 callback(null, babelParsed.code, babelParsed.map);
