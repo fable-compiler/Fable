@@ -809,3 +809,10 @@ let ``Two types with same name in different folders work``() = // See #781
     |> equal "Hello Albert from SayA"
     tempet.SayB.hello "Albert"
     |> equal "Hello Albert from SayB"
+
+#if FABLE_COMPILER
+[<Test>]
+let ``System.Environment.NewLine works``() =
+      System.Environment.NewLine
+      |> equal "\n"
+#endif

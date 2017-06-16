@@ -1300,6 +1300,11 @@ module AstPass =
             wrap i.returnType i.callee.Value |> Some
         | _ -> None
 
+    let systemEnv com (i: Fable.ApplyInfo) =
+        match i.methodName with
+        | "newLine" -> Some (Fable.Value (Fable.StringConst "\n"))
+        | _ -> None
+
     let dates com (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" ->
@@ -2104,6 +2109,7 @@ module AstPass =
         | "System.Diagnostics.Debugger" -> debug com info
         | "System.DateTime" -> dates com info
         | "System.TimeSpan" -> timeSpans com info
+        | "System.Environment" -> systemEnv com info
         | "System.Action" | "System.Func"
         | "Microsoft.FSharp.Core.FSharpFunc"
         | "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" -> funcs com info
