@@ -113,35 +113,40 @@ let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
 
 let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
     let unionType, range = makeType com ctx.typeArgs fsType, makeRange fsExpr.Range
-    match fsType with
-    | OptionUnion ->
+    let genericArg = fsType.GenericArguments |> List.ofSeq |> List.tryHead
+
+    match (fsType, genericArg) with
+    | (OptionUnion, Some OptionUnion) ->
+        "Nested option in option won't work at runtime"
+        |> addErrorAndReturnNull com ctx.fileName (Some range)
+    | (OptionUnion, _) ->
         match argExprs: Fable.Expr list with
         // Represent `Some ()` with an empty object, see #478
         | expr::_ when expr.Type = Fable.Unit ->
             Fable.Wrapped(Fable.ObjExpr([], [], None, Some range), unionType)
         | expr::_ -> Fable.Wrapped(expr, unionType)
         | _ -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
-    | ErasedUnion ->
+    | (ErasedUnion, _) ->
         match argExprs with
         | [] -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
         | [expr] -> Fable.Wrapped(expr, unionType)
         | _ ->
             "Erased Union Cases must have one single field: " + unionType.FullName
             |> addErrorAndReturnNull com ctx.fileName (Some range)
-    | StringEnum ->
+    | (StringEnum, _) ->
         if not(List.isEmpty argExprs)
         then
             "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com ctx.fileName (Some range)
         else lowerCaseName unionCase
-    | PojoUnion ->
+    | (PojoUnion, _) ->
         List.zip (Seq.toList unionCase.UnionCaseFields) argExprs
         |> List.map (fun (fi, e) -> fi.Name, e)
         |> List.append ["type", makeStrConst unionCase.Name]
         |> makeJsObject (Some range)
-    | ListUnion ->
+    | (ListUnion, _) ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
-    | OtherType ->
+    | (OtherType, _) ->
         let argExprs =
             let tag = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
             let argTypes =
