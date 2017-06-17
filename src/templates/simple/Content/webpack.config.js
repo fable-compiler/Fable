@@ -27,6 +27,7 @@ module.exports = {
   },
   devServer: {
     contentBase: resolve('./public'),
+    publicPath: "/dist/",
     port: 8080
   },
   module: {
