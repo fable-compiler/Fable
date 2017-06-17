@@ -1,5 +1,12 @@
 # Fable - Simple App
 
+## Requirements
+
+To use this template please make sure you have the following sofware on your machine:
+
+- [NodeJS](https://nodejs.org/en/)
+- [Yarn](https://yarnpkg.com/lang/en/)
+
 ## Quickstart - Development
 
 1. Run `build.cmd Watch` or `build.sh Watch`
