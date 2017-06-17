@@ -1281,6 +1281,12 @@ module AstPass =
             let opt = toArray None i.args.Tail.Head
             let args = i.args.Head::opt::i.args.Tail.Tail
             ccall i "Seq" "foldBack" args |> Some
+        | "defaultValue" ->
+            let defValue = i.args.Head
+            let arg = i.args.Tail.Head
+            CoreLibCall("Util", Some  "defaultArg", false, [arg ;defValue])
+            |> makeCall i.range Fable.Any
+            |> Some
         | meth ->
             let args =
                 let args = List.rev i.args
