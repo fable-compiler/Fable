@@ -1,8 +1,19 @@
-## Build and running the app
+# Fable - Simple App
 
-1. Install npm dependencies: `yarn install`
-2. Install dotnet dependencies: `dotnet restore`
-3. Start Fable server and Webpack dev server: `dotnet fable npm-run start`
-4. In your browser, open: http://localhost:8080/
+## Quickstart - Development
+
+1. Run `build.cmd Watch` or `build.sh Watch`
+2. In your browser, open: [http://localhost:8080/](http://localhost:8080/)
 
 Any modification you do to the F# code will be reflected in the web page after saving.
+
+## Available targets
+
+This templates provides the following targets.
+
+| Target | Description |
+|:-|:-|
+| Build | Setup the project and build your project. Bundles are under: `public/dist/` |
+| QuickBuild | Only build the project. Bundles are under: `public/dist/` |
+| Watch | Setup the project and start the dev server |
+| QuickWatch | Only start the dev server |
