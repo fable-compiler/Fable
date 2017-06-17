@@ -18,7 +18,7 @@ module.exports = {
   entry: resolve('./FableTemplate.fsproj'),
   output: {
     filename: 'bundle.js',
-    path: resolve('./public'),
+    path: resolve('./public/dist'),
   },
   resolve: {
     modules: [
