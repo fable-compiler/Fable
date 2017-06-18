@@ -816,3 +816,11 @@ let ``System.Environment.NewLine works``() =
       System.Environment.NewLine
       |> equal "\n"
 #endif
+
+[<Test>]
+let ``Option.defaultValue works``() =
+    let a = Some "MyValue"
+    let b = None
+
+    a |> Option.defaultValue "" |> equal "MyValue"
+    b |> Option.defaultValue "default" |> equal "default"
