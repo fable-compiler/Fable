@@ -76,13 +76,16 @@ let getDefaultOptions() =
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
-type Compiler(?options, ?plugins) =
+type Compiler(?options, ?plugins, ?logs) =
     let mutable id = 0
-    let mutable hasFSharpError = false
     let options = defaultArg options <| getDefaultOptions()
     let plugins: PluginInfo list = defaultArg plugins []
-    let logs = Dictionary<string, string list>()
-    member __.HasFSharpError = hasFSharpError
+    let logs =
+        let dic = Dictionary<string, string list>()
+        logs |> Option.iter (fun logs ->
+            for KeyValue(key,value) in logs do
+                dic.Add(key, value))
+        dic
     member __.Logs: Map<string, string list> =
         logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value) |> Map
     member __.Options = options
@@ -92,8 +95,6 @@ type Compiler(?options, ?plugins) =
         member __.Plugins = plugins
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             let tag = defaultArg tag "FABLE"
-            if tag = "FSHARP" && severity = Severity.Error then
-                hasFSharpError <- true
             let severity =
                 match severity with
                 | Severity.Warning -> "warning"
@@ -110,13 +111,7 @@ type Compiler(?options, ?plugins) =
             then logs.[severity] <- formattedMsg::logs.[severity]
             else logs.Add(severity, [formattedMsg])
         member __.GetUniqueVar() =
-#if FABLE_COMPILER
             id <- id + 1; "$var" + (string id)
-#else
-            // Actually this shouldn't be necessary as we've only
-            // one compiler instance per file
-            "$var" + (System.Threading.Interlocked.Increment(&id).ToString())
-#endif
 
 #if !FABLE_COMPILER
 
@@ -282,13 +277,23 @@ let updateState (checker: FSharpChecker) (com: Compiler) (state: State) (msg: Pa
     | ".fsi" -> failwithf "Signature files cannot be compiled to JS: %s" fileName
     | _ -> failwithf "Not an F# source file: %s" fileName
 
+let resolveFableCoreLocation (com: Compiler) (project: Project) =
+    // Resolve the fable-core location if not defined by user
+    if com.Options.fableCore = "fable-core" then
+        match project.FableCoreJsDir with
+        | Some fableCoreJsDir ->
+            let newOpts = { com.Options with fableCore = Parser.makePathRelative fableCoreJsDir }
+            Compiler(newOpts, com.Plugins, com.Logs)
+        | None ->
+            failwith "Cannot find fable-core directory"
+    else com
+
 let compile (com: Compiler) (project: Project) (fileName: string) =
-    if fileName.EndsWith(".fsproj")
-    then
-        if com.HasFSharpError
-        then
-            // If there are F# errors won't keep compiling because the project file
-            // would remain errored forever, but add all project files as dependencies.
+    if fileName.EndsWith(".fsproj") then
+        // If there are errors at this stage they must come from the F# compiler
+        if com.Logs.ContainsKey("error") then
+            // Don't keep compiling because the project file would remain
+            // errored forever, but add all project files as dependencies.
             let deps = Array.toList project.ProjectOptions.ProjectFileNames
             Babel.Program(fileName, SourceLocation.Empty, [], dependencies=deps)
         else
@@ -296,22 +301,10 @@ let compile (com: Compiler) (project: Project) (fileName: string) =
             Fable2Babel.Compiler.createFacade fileName lastFile
         |> addLogs com |> toJson
     else
-        let com =
-            // Resolve the fable-core location if not defined by user
-            if com.Options.fableCore = "fable-core" then
-                match project.FableCoreJsDir with
-                | Some fableCoreJsDir ->
-                    Compiler({ com.Options with fableCore = Parser.makePathRelative fableCoreJsDir }, com.Plugins)
-                | None ->
-                    failwith "Cannot find fable-core directory"
-            else com
-        let json =
-            FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
-            |> Fable2Babel.Compiler.transformFile com project
-            |> addLogs com
-            |> toJson
-        Log.logVerbose("Compiled: " + fileName)
-        json
+        let com = resolveFableCoreLocation com project
+        FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
+        |> Fable2Babel.Compiler.transformFile com project
+        |> addLogs com |> toJson
 
 type Command = string * (string -> unit)
 
