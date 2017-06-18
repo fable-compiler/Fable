@@ -172,11 +172,11 @@ module Util =
     let newError r t args =
         Fable.Apply(makeIdentExpr "Error", args, Fable.ApplyCons, t, r)
 
-    let toChar com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (arg: Fable.Expr) =
+    let toChar com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
         match sourceType with
         | Fable.Char
-        | Fable.String -> arg
-        | _ -> GlobalCall ("String", Some "fromCharCode", false, [arg])
+        | Fable.String -> args.Head
+        | _ -> GlobalCall ("String", Some "fromCharCode", false, [args.Head])
                |> makeCall i.range i.returnType
 
     let toString com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
@@ -187,7 +187,7 @@ module Util =
         | Fable.Array _ | Fable.Tuple _ | Fable.Function _ | Fable.Enum _ ->
             GlobalCall ("String", None, false, [args.Head])
             |> makeCall i.range i.returnType
-        | Fable.Number _ | Fable.ExtendedNumber (Int64 | UInt64) ->
+        | Fable.Number _ | Fable.ExtendedNumber (Int64 | UInt64 | Decimal) ->
             let arg =
                 match sourceType, args.Tail with
                 | Fable.Number Int16, [_] -> emit i "((x,y) => x < 0 && y !== 10 ? 0xFFFF + x + 1 : x)($0,$1)" args
@@ -213,7 +213,7 @@ module Util =
             let meth = match i.returnType with
                         | Number Float32 -> "toSingle"
                         | Number Float64 -> "toDouble"
-                        // | Number Decimal -> "toDecimal"
+                        | ExtNumber Decimal -> "toDecimal"
                         | _ -> failwith "Unexpected conversion"
             CoreLibCall("BigInt", Some meth, false, args)
             |> makeCall i.range i.returnType
@@ -221,20 +221,20 @@ module Util =
             wrap i.returnType args.Head
 
     let toInt com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
-        let kindIndex t =            //         0   1   2   3   4   5   6   7   8   9  10  11
-            match t with             //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
-            | Number Int8 -> 0       //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
-            | Number Int16 -> 1      //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
-            | Number Int32 -> 2      //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
-            | ExtNumber Int64 -> 3   //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
-            | Number UInt8 -> 4      //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
-            | Number UInt16 -> 5     //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
-            | Number UInt32 -> 6     //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
-            | ExtNumber UInt64 -> 7  //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
-            | Number Float32 -> 8    //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
-            | Number Float64 -> 9    //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
-            // | Number Decimal -> 10   // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
-            | ExtNumber BigInt -> 11 // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
+        let kindIndex t =             //         0   1   2   3   4   5   6   7   8   9  10  11
+            match t with              //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
+            | Number Int8 -> 0        //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
+            | Number Int16 -> 1       //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
+            | Number Int32 -> 2       //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
+            | ExtNumber Int64 -> 3    //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
+            | Number UInt8 -> 4       //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
+            | Number UInt16 -> 5      //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
+            | Number UInt32 -> 6      //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
+            | ExtNumber UInt64 -> 7   //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
+            | Number Float32 -> 8     //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
+            | Number Float64 -> 9     //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
+            | ExtNumber Decimal -> 10 // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
+            | ExtNumber BigInt -> 11  // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
             | NoNumber -> failwith "Unexpected non-number type"
         let needToCast typeFrom typeTo =
             let v = kindIndex typeFrom // argument type (vertical)
@@ -263,7 +263,9 @@ module Util =
             | Number UInt8 -> emit i "$0 & 0xFF" args
             | Number UInt16 -> emit i "$0 & 0xFFFF" args
             | Number UInt32 -> emit i "$0 >>> 0" args
-            | Number _ -> emit i "$0" args
+            | Number Float32 -> emit i "$0" args
+            | Number Float64 -> emit i "$0" args
+            | ExtNumber Decimal -> emit i "$0" args
             | NoNumber -> failwith "Unexpected non-number type"
         let castBigIntMethod typeTo =
             match typeTo with
@@ -278,7 +280,7 @@ module Util =
             | ExtNumber UInt64 -> "toUInt64"
             | Number Float32 -> "toSingle"
             | Number Float64 -> "toDouble"
-            // | Number Decimal -> "toDecimal"
+            | ExtNumber Decimal -> "toDecimal"
             | NoNumber -> failwith "Unexpected non-number type"
         match sourceType with
         | Fable.Char ->
@@ -302,10 +304,10 @@ module Util =
             match i.returnType with
             | Number _ | ExtNumber _ as typeTo when needToCast typeFrom typeTo ->
                 match typeFrom, typeTo with
-                | ExtNumber (UInt64|Int64), Number _ ->
+                | ExtNumber (UInt64|Int64), (ExtNumber Decimal | Number _) ->
                     InstanceCall (args.Head, "toNumber", args.Tail)
                     |> makeCall i.range (Fable.Number Float64)
-                | Number Float, (Number Integer | ExtNumber(Int64|UInt64)) when i.ownerFullName = "System.Convert" ->
+                | (ExtNumber Decimal | Number Float), (Number Integer | ExtNumber(Int64|UInt64)) when i.ownerFullName = "System.Convert" ->
                     CoreLibCall("Util", Some "round", false, args)
                     |> makeCall i.range i.returnType
                 | _, _ -> args.Head
@@ -351,6 +353,7 @@ module Util =
             match kind with
             | Int64 | UInt64 ->
                 ccall_ None t "Long" "fromInt" [makeIntConst 0]
+            | Decimal -> makeDecConst 0m
             | BigInt ->
                 ccall_ None t "BigInt" "fromInt32" [makeIntConst 0]
         | Fable.Char | Fable.String -> makeStrConst ""
@@ -450,12 +453,13 @@ module Util =
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpMap"
                 || ent.FullName = "Microsoft.FSharp.Collections.FSharpSet" ->
             icall args equal
-        | Fable.ExtendedNumber _ ->
-            icall args equal
         | EntFullName "System.Guid"
         | EntFullName "System.TimeSpan"
+        | Fable.ExtendedNumber Decimal
         | Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _ ->
             Fable.Apply(op equal, args, Fable.ApplyMeth, i.returnType, i.range) |> Some
+        | Fable.ExtendedNumber (Int64|UInt64|BigInt) ->
+            icall args equal
         | Fable.Array _ | Fable.Tuple _
         | Fable.Unit | Fable.Any | Fable.MetaType | Fable.DeclaredType _
         | Fable.GenericParam _ | Fable.Option _ | Fable.Function _ ->
@@ -479,14 +483,15 @@ module Util =
                 && ent.FullName <> "System.TimeSpan"
                 && ent.FullName <> "System.DateTime" ->
             icall args op
-        | Fable.ExtendedNumber _ ->
-            icall args op
         | EntFullName "System.Guid"
         | EntFullName "System.TimeSpan"
+        | Fable.ExtendedNumber Decimal
         | Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _ ->
             match op with
             | Some op -> makeEqOp r args op
             | None -> ccall_ r (Fable.Number Int32) "Util" "comparePrimitives" args
+        | Fable.ExtendedNumber (Int64|UInt64|BigInt) ->
+            icall args op
         | Fable.Array _ | Fable.Tuple _
         | Fable.Unit | Fable.Any | Fable.MetaType | Fable.DeclaredType _
         | Fable.GenericParam _ | Fable.Option _ | Fable.Function _ ->
@@ -501,7 +506,7 @@ module Util =
                 makeCoreRef "Util" (Some "comparePrimitives")
             | Some(EntFullName "System.DateTime") ->
                 emitNoInfo "(x,y) => x = x.getTime(), y = y.getTime(), x === y ? 0 : (x < y ? -1 : 1)" []
-            | Some(Fable.ExtendedNumber _) ->
+            | Some(Fable.ExtendedNumber (Int64|UInt64|BigInt)) ->
                 emitNoInfo "(x,y) => x.CompareTo(y)" []
             | Some(Fable.DeclaredType(ent, _))
                 when ent.HasInterface "System.IComparable" ->
@@ -532,7 +537,8 @@ module Util =
         then makeFSharp typArg args
         else
             match typArg with
-            | Fable.ExtendedNumber _ | Fable.Array _ | Fable.Tuple _ ->
+            | Fable.ExtendedNumber (Int64|UInt64|BigInt)
+            | Fable.Array _ | Fable.Tuple _ ->
                 makeFSharp typArg args
             | Fable.DeclaredType(ent, _) when ent.HasInterface "System.IComparable"
                     && ent.FullName <> "System.TimeSpan"
@@ -847,7 +853,7 @@ module AstPass =
         | "toInt64" | "toUInt64"
             -> toInt com info info.methodTypeArgs.Head args |> Some
         | "toSingle" | "toDouble" | "toDecimal" -> toFloat com info info.methodTypeArgs.Head args |> Some
-        | "toChar" -> toChar com info info.methodTypeArgs.Head args.Head |> Some
+        | "toChar" -> toChar com info info.methodTypeArgs.Head args |> Some
         | "toString" -> toString com info info.methodTypeArgs.Head args |> Some
         | "toEnum" -> args.Head |> Some
         | "createDictionary" ->
@@ -1077,8 +1083,8 @@ module AstPass =
             -> toInt com i i.methodArgTypes.Head i.args |> Some
         | "toSingle" | "toDouble" | "toDecimal"
             -> toFloat com i i.methodArgTypes.Head i.args |> Some
-        | "toString"
-            -> toString com i i.methodArgTypes.Head i.args |> Some
+        | "toChar" -> toChar com i i.methodArgTypes.Head i.args |> Some
+        | "toString" -> toString com i i.methodArgTypes.Head i.args |> Some
          | _ -> None
 
     let console com (i: Fable.ApplyInfo) =
@@ -1091,40 +1097,42 @@ module AstPass =
 
     let decimals com (i: Fable.ApplyInfo) =
         match i.methodName, i.args with
-        | ".ctor", [Fable.Value (Fable.IdentValue _)] ->
-            "Passing bound values to the constructor is not supported."
-            |> addErrorAndReturnNull com i.fileName i.range |> Some
         | ".ctor", [Fable.Value (Fable.NumberConst (x, _))] ->
 #if FABLE_COMPILER
             makeNumConst (float x) |> Some
 #else
-            makeDecConst (new decimal(x)) |> Some
+            makeDecConst (decimal(x)) |> Some
 #endif
         | ".ctor", [Fable.Value(Fable.ArrayConst(Fable.ArrayValues arVals, _))] ->
             match arVals with
             | [ Fable.Value (Fable.NumberConst (low, Int32));
-                Fable.Value (Fable.NumberConst (medium, Int32));
+                Fable.Value (Fable.NumberConst (mid, Int32));
                 Fable.Value (Fable.NumberConst (high, Int32));
                 Fable.Value (Fable.NumberConst (scale, Int32)) ] ->
 #if FABLE_COMPILER
-                    makeNumConst ((float ((uint64 (uint32 medium)) <<< 32 ||| (uint64 (uint32 low))))
-                        / System.Math.Pow(10.0, float ((int scale) >>> 16 &&& 0xFF)) * (if scale < 0.0 then -1.0 else 1.0)) |> Some
+                    let x = (float ((uint64 (uint32 mid)) <<< 32 ||| (uint64 (uint32 low))))
+                            / System.Math.Pow(10.0, float ((int scale) >>> 16 &&& 0xFF))
+                    makeNumConst (if scale < 0.0 then -x else x) |> Some
 #else
-                    makeDecConst (new decimal([| int low; int medium; int high; int scale |])) |> Some
+                    makeDecConst (new decimal([| int low; int mid; int high; int scale |])) |> Some
 #endif
             | _ -> None
         | (".ctor" | "makeDecimal"),
               [ Fable.Value (Fable.NumberConst (low, Int32));
-                Fable.Value (Fable.NumberConst (medium, Int32));
+                Fable.Value (Fable.NumberConst (mid, Int32));
                 Fable.Value (Fable.NumberConst (high, Int32));
                 Fable.Value (Fable.BoolConst isNegative);
                 Fable.Value (Fable.NumberConst (scale, UInt8)) ] ->
 #if FABLE_COMPILER
-                    makeNumConst ((float ((uint64 (uint32 medium)) <<< 32 ||| (uint64 (uint32 low))))
-                        / System.Math.Pow(10.0, float scale) * (if isNegative then -1.0 else 1.0)) |> Some
+                    let x = (float ((uint64 (uint32 mid)) <<< 32 ||| (uint64 (uint32 low))))
+                            / System.Math.Pow(10.0, float scale)
+                    makeNumConst (if isNegative then -x else x) |> Some
 #else
-                    makeDecConst (new decimal(int low, int medium, int high, isNegative, byte scale)) |> Some
+                    makeDecConst (new decimal(int low, int mid, int high, isNegative, byte scale)) |> Some
 #endif
+        | ".ctor", [Fable.Value (Fable.IdentValue _)] ->
+            addWarning com i.fileName i.range "Decimals are implemented with floats."
+            wrap i.returnType i.args.Head |> Some
         | _,_ -> None
 
     let debug com (i: Fable.ApplyInfo) =

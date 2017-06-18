@@ -583,10 +583,9 @@ module Patterns =
         | "System.UInt32" -> Some UInt32
         | "System.Single" -> Some Float32
         | "System.Double" -> Some Float64
-        // TODO: Proper decimal implementation (move to ExtendedNumberKind)
-        | "System.Decimal"
-        | Naming.StartsWith "Microsoft.FSharp.Core.decimal" _ -> Some Float64
         // Units of measure
+        | Naming.StartsWith "Microsoft.FSharp.Core.sbyte" _ -> Some Int8
+        | Naming.StartsWith "Microsoft.FSharp.Core.int16" _ -> Some Int16
         | Naming.StartsWith "Microsoft.FSharp.Core.int" _ -> Some Int32
         | Naming.StartsWith "Microsoft.FSharp.Core.float32" _ -> Some Float32
         | Naming.StartsWith "Microsoft.FSharp.Core.float" _ -> Some Float64
@@ -595,7 +594,11 @@ module Patterns =
     let (|ExtendedNumberKind|_|) = function
         | "System.Int64" -> Some Int64
         | "System.UInt64" -> Some UInt64
+        | "System.Decimal" -> Some Decimal
         | "System.Numerics.BigInteger" -> Some BigInt
+        // Units of measure
+        | Naming.StartsWith "Microsoft.FSharp.Core.int64" _ -> Some Int64
+        | Naming.StartsWith "Microsoft.FSharp.Core.decimal" _ -> Some Decimal
         | _ -> None
 
     let (|Switch|_|) fsExpr =

@@ -5,7 +5,7 @@ type NumberKind =
 
 /// Numbers that are not represented with JS native number type
 type ExtendedNumberKind =
-    | Int64 | UInt64 | BigInt
+    | Int64 | UInt64 | Decimal | BigInt
 
 type RegexFlag =
     | RegexGlobal | RegexIgnoreCase | RegexMultiline | RegexSticky
