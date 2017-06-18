@@ -171,12 +171,13 @@ let checkFlags(args: string[]) =
     Flags.logVerbose <- hasFlag "--verbose"
     Flags.checkCoreVersion <- not(hasFlag "--no-version-check")
 
-[<EntryPoint>]
-let main argv =
-    checkFlags(argv)
-    match Array.tryHead argv with
-    | Some ("--help"|"-h") ->
-        (Constants.VERSION, Constants.DEFAULT_PORT) ||> printfn """Fable F# to JS compiler (%s)
+let (|StartsWith|_|) pattern (str: string) =
+    if str.StartsWith(pattern)
+    then str.Substring(pattern.Length) |> Some
+    else None
+
+let printHelp() =
+    (Constants.VERSION, Constants.DEFAULT_PORT) ||> printfn """Fable F# to JS compiler (%s)
 Usage: dotnet fable [command] [script] [fable arguments] [-- [script arguments]]
 
 Commands:
@@ -184,6 +185,7 @@ Commands:
   --version           Print version
   start               Start Fable daemon
   npm-run             Run Fable while an npm script is running
+  yarn-run             Run Fable while a yarn script is running
   node-run            Run Fable while a node script is running
   shell-run           Run Fable while a shell script is running
   webpack             Start Fable daemon, invoke Webpack and shut it down
@@ -194,39 +196,56 @@ Fable arguments:
   --port              Port number (default %d) or "free" to choose a free port
   --verbose           Print more info during execution
 
-To pass arguments to the script, write them after `--`
-Example: `dotnet fable npm-run build --port free -- -p --config webpack.production.js`
+To pass arguments to the script, write them after `--`. Example:
+
+    dotnet fable npm-run build --port free -- -p --config webpack.production.js
+
+You can use shortcuts for npm and yarn scripts in the following way:
+
+    dotnet fable yarn-start       # Same as `dotnet fable yarn-run start`
 """
+
+let runNpmOrYarn npmOrYarn (args: string[]) =
+    if args.Length = 0 then
+        printfn """Missing argument after %s-run, expected the name of a script. Examples:
+
+    dotnet fable npm-run start
+    dotnet fable npm-run build
+
+Where 'start' and 'build' are the names of scripts in package.json:
+
+    "scripts" :{
+        "start": "webpack-dev-server"
+        "build": "webpack"
+    }""" npmOrYarn
         0
+    else
+        let fableArgs = args.[1..] |> parseArguments
+        let execArgs =
+            match fableArgs.commandArgs with
+            | Some cargs -> "run " + args.[0] + " -- " + cargs
+            | None -> "run " + args.[0]
+        startServerWithProcess fableArgs.port npmOrYarn execArgs
+
+[<EntryPoint>]
+let main argv =
+    checkFlags(argv)
+    match Array.tryHead argv with
+    | Some ("--help"|"-h") ->
+        printHelp(); 0
     | Some "--version" -> printfn "%s" Constants.VERSION; 0
     | Some "start" ->
         let args = argv.[1..] |> parseArguments
         let agent = startAgent()
         startServer args.port args.timeout agent.Post (Async.RunSynchronously >> konst 0)
     | Some "npm-run" ->
-        if (argv.Length < 2) then
-            printfn """
-Missing argument(s) after npm-run, expected at least one more argument corresponding with the name of an npm-script.
-
-Examples:
-
-  `dotnet fable npm-run start`
-  `dotnet fable npm-run build`
-
-Where 'start' and 'build' are the names of two npm-scripts located at package.json:
-
-"scripts" :{
-    "start": "webpack-dev-server"
-    "build": "webpack"
-}"""
-            0
-        else
-        let args = argv.[2..] |> parseArguments
-        let execArgs =
-            match args.commandArgs with
-            | Some npmArgs -> "run " + argv.[1] + " -- " + npmArgs
-            | None -> "run " + argv.[1]
-        startServerWithProcess args.port "npm" execArgs
+        runNpmOrYarn "npm" argv.[1..]
+    | Some (StartsWith "npm-" command) ->
+        Array.append [|command|] argv.[1..] |> runNpmOrYarn "npm"
+    | Some "yarn-run" ->
+        runNpmOrYarn "yarn" argv.[1..]
+    | Some (StartsWith "yarn-" command) ->
+        Array.append [|command|] argv.[1..] |> runNpmOrYarn "yarn"
     | Some "node-run" ->
         let args = argv.[2..] |> parseArguments
         let execArgs =
