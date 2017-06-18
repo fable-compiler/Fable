@@ -13,17 +13,13 @@ open Fake.YarnHelper
 
 let dotnetcliVersion = "1.0.4"
 
-let mutable dotnetExePath = "dotnet"
+let dotnetExePath = "dotnet"
 
 let runDotnet =
     DotNetCli.RunCommand (fun p -> { p with ToolPath = dotnetExePath
                                             TimeOut =  TimeSpan.FromHours 12. } ) 
                                             // Extra timeout allow us to run watch mode
                                             // Otherwise, the process is stopped every 30 minutes by default
-
-Target "InstallDotNetCore" (fun _ ->
-   dotnetExePath <- DotNetCli.InstallDotNetSDK dotnetcliVersion
-)
 
 Target "Install" (fun _ ->
     runDotnet "restore"
@@ -65,8 +61,7 @@ Target "QuickWatch" (fun _ ->
 
 Target "Setup" DoNothing
 
-"InstallDotNetCore"
-    ==> "Clean"
+"Clean"
     ==> "Install"
     ==> "YarnInstal"
     ==> "Setup"
