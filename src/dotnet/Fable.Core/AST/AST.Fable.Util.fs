@@ -74,6 +74,8 @@ let makeTypeConst (typ: Type) (value: obj) =
     // Long Integer types
     | ExtendedNumber Int64, (:? int64 as x) -> makeLongInt (uint64 x) false
     | ExtendedNumber UInt64, (:? uint64 as x) -> makeLongInt x true
+    // Decimal type
+    | ExtendedNumber Decimal, (:? decimal as x) -> makeDecConst x
     // Enum 64-bit types (TODO: proper JS support, as Enum has no type)
     | Enum _, (:? int64 as x) -> makeLongInt (uint64 x) false
     | Enum _, (:? uint64 as x) -> makeLongInt x true
@@ -93,7 +95,6 @@ let makeTypeConst (typ: Type) (value: obj) =
         | Number UInt32, (:? uint32 as x) -> NumberConst (float x, UInt32)
         // Float types
         | Number Float64, (:? float as x) -> NumberConst (float x, Float64)
-        | Number Float64, (:? decimal as x) -> NumberConst (float x, Float64)
         // Enums (TODO: proper JS support, as Enum has no type)
         | Enum _, (:? byte as x) -> NumberConst (float x, UInt8)
         | Enum _, (:? sbyte as x) -> NumberConst (float x, Int8)
@@ -188,6 +189,7 @@ let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
     | ExtendedNumber kind ->
         match kind with
         | Int64|UInt64 -> makeCoreRef "Long" (Some "Long")
+        | Decimal -> str "number"
         | BigInt -> makeCoreRef "BigInt" None
     | Function(argTypes, returnType) ->
         argTypes@[returnType]
@@ -279,6 +281,7 @@ let rec makeTypeTest com range (typ: Type) expr =
     | Number _ | Enum _ -> jsTypeof "number" expr
     | ExtendedNumber (Int64|UInt64) ->
         makeBinOp range Boolean [expr; makeCoreRef "Long" (Some "Long")] BinaryInstanceOf
+    | ExtendedNumber Decimal -> jsTypeof "number" expr
     | ExtendedNumber BigInt ->
         makeBinOp range Boolean [expr; makeCoreRef "BigInt" None] BinaryInstanceOf
     | Boolean -> jsTypeof "boolean" expr

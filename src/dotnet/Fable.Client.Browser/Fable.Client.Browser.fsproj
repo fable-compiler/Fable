@@ -38,7 +38,7 @@
 
   <ItemGroup>
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
-    <PackageReference Include="FSharp.Core" Version="4.1.*" />
+    <PackageReference Include="FSharp.Core" Version="4.2.*" />
   </ItemGroup>
 
 </Project>

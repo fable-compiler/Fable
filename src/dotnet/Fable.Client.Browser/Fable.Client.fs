@@ -48,7 +48,7 @@ let compileAst (com: Compiler) checkedProject fileName =
     Babel.Program(file.fileName, loc, file.body, file.directives, com.Logs)
 
 let createChecker readAllBytes references =
-    InteractiveChecker(List.ofArray references, readAllBytes)
+    InteractiveChecker.Create(List.ofArray references, readAllBytes)
 
 let makeCompiler () = Compiler()
 
