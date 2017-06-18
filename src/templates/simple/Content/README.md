@@ -20,7 +20,7 @@ This templates provides the following targets.
 
 | Target | Description |
 |:-|:-|
-| Build | Setup the project and build your project. Bundles are under: `public/dist/` |
+| Build | Restore the dependencies and build your project. Bundles are under: `public/dist/` |
 | QuickBuild | Only build the project. Bundles are under: `public/dist/` |
-| Watch | Setup the project and start the dev server |
+| Watch | Restore the dependencies and start the dev server |
 | QuickWatch | Only start the dev server |
