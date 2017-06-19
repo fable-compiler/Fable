@@ -1,6 +1,6 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <TargetFrameworks>netstandard1.6;net45</TargetFrameworks>
     <DefineConstants Condition="'$(TargetFramework)' == 'netstandard1.6'">DOTNETCORE</DefineConstants>
   </PropertyGroup>
@@ -8,8 +8,8 @@
     <Compile Include="Fable.JsonConverter.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="4.2.1" />
+    <PackageReference Include="FSharp.Core" Version="4.1.17" />
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
-    <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="9.0.1" />
   </ItemGroup>
 </Project>

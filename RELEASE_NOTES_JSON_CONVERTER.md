@@ -1,3 +1,7 @@
+### 1.0.1
+
+* Lower dependency expectations
+
 ### 1.0.0
 
 * Stable version also with net45 support
