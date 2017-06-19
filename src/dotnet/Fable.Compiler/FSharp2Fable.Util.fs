@@ -706,16 +706,16 @@ module Types =
             if fullName.StartsWith("System.Action")
             then
                 if Seq.length genArgs = 1
-                then [Seq.head genArgs |> makeType com typeArgs], Fable.Unit
-                else [Fable.Unit], Fable.Unit
+                then [Seq.head genArgs |> makeType com typeArgs], Fable.Unit, false
+                else [Fable.Unit], Fable.Unit, false
                 |> Fable.Function
             elif fullName.StartsWith("System.Func")
             then
                 match Seq.length genArgs with
-                | 0 -> [Fable.Unit], Fable.Unit
-                | 1 -> [Fable.Unit], Seq.head genArgs |> makeType com typeArgs
+                | 0 -> [Fable.Unit], Fable.Unit, false
+                | 1 -> [Fable.Unit], Seq.head genArgs |> makeType com typeArgs, false
                 | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com typeArgs) |> Seq.toList,
-                        Seq.last genArgs |> makeType com typeArgs
+                        Seq.last genArgs |> makeType com typeArgs, false
                 |> Fable.Function
             else
             try
@@ -724,8 +724,8 @@ module Types =
                     |> Seq.map (snd >> makeType com typeArgs) |> Seq.toList
                 let retType =
                     makeType com typeArgs tdef.FSharpDelegateSignature.DelegateReturnType
-                Fable.Function(argTypes, retType)
-            with _ -> Fable.Function([Fable.Any], Fable.Any)
+                Fable.Function(argTypes, retType, false)
+            with _ -> Fable.Function([Fable.Any], Fable.Any, false)
         // Object
         elif fullName = "System.Object"
         then Fable.Any
@@ -788,7 +788,7 @@ module Types =
             let gs = getFnGenArgs [t.GenericArguments.[0]] t.GenericArguments.[1]
             let argTypes = List.rev gs.Tail |> List.map (makeType com typeArgs)
             let returnType = makeType com typeArgs gs.Head
-            Fable.Function(argTypes, returnType)
+            Fable.Function(argTypes, returnType, true)
         elif t.HasTypeDefinition
         then makeTypeFromDef com typeArgs t.TypeDefinition t.GenericArguments
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
@@ -823,7 +823,7 @@ module Types =
             match List.ofSeq tuple with
             | [singleArg] -> singleArg
             | args -> Fable.Tuple(args) )
-        Seq.append tys [returnType] |> Seq.reduceBack (fun a b -> Fable.Function([a], b))
+        Seq.append tys [returnType] |> Seq.reduceBack (fun a b -> Fable.Function([a], b, true))
 
     let getMembers com (tdef: FSharpEntity) =
         let isAbstract =
@@ -886,7 +886,7 @@ module Types =
             |> Seq.choose (fun x ->
                 if not x.IsPropertyGetterMethod then None else
                 match makeType com [] x.FullType with
-                | Fable.Function(_, returnType) ->
+                | Fable.Function(_, returnType, _) ->
                     Some(x.DisplayName, returnType)
                 | _ -> None)
             |> Seq.toList
@@ -1297,7 +1297,7 @@ module Util =
             | Fable.Option genericArg -> hasUnresolvedGenerics genericArg
             | Fable.Array genericArg -> hasUnresolvedGenerics genericArg
             | Fable.Tuple genericArgs -> genericArgs |> Seq.tryPick hasUnresolvedGenerics
-            | Fable.Function (argTypes, returnType ) -> returnType::argTypes |> Seq.tryPick hasUnresolvedGenerics
+            | Fable.Function (argTypes, returnType, _) -> returnType::argTypes |> Seq.tryPick hasUnresolvedGenerics
             | Fable.DeclaredType (_, genericArgs) -> genericArgs |> Seq.tryPick hasUnresolvedGenerics
             | _ -> None
         let genInfo = { makeGeneric=true; genericAvailability=ctx.genericAvailability }
