@@ -1,3 +1,7 @@
+### 1.0.0
+
+* Stable version also with net45 support
+
 ### 1.0.0-narumi-908
 
 * NETCore compatibility
