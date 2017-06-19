@@ -1,3 +1,12 @@
+### 1.1.1
+
+* Fix F# compiler errors in recompilation
+* Fix Elmish.Browser parser (#1003)
+* Add support for Option.defaultValue
+* Warn when there are nested options
+* Add replacement for System.Environment.NewLine (#993)
+* Expose Console among JS import globals
+
 ### 1.1.0
 
 * Fable stablish, yeah!
