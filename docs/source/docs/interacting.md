@@ -513,7 +513,7 @@ Caveats:
 
 Fable.JsonConverter:
 
-You can install directly via [nuget](https://www.nuget.org/packages/Fable.Core/) by simply adding it as a dependency to you `paket.dependencies` file:
+You can install directly via [nuget](https://www.nuget.org/packages/Fable.JsonConvert/) by simply adding it as a dependency to you `paket.dependencies` file:
 
 ```
 nuget Fable.JsonConverter
