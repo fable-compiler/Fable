@@ -1,3 +1,7 @@
+### 1.1.2
+
+* Fix Paket groups for Fable.Core
+
 ### 1.1.1
 
 * Fix F# compiler errors in recompilation
