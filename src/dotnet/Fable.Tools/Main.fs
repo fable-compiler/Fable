@@ -136,7 +136,7 @@ let startServer port timeout onMessage continuation =
         continuation work
     with
     | ex ->
-        printfn "Cannot start server, please check the port %i is free: %s" port ex.Message
+        printfn "Cannot start Fable daemon, please check the port %i is free: %s" port ex.Message
         1
 
 let startServerWithProcess port exec args =
@@ -185,7 +185,7 @@ Commands:
   --version           Print version
   start               Start Fable daemon
   npm-run             Run Fable while an npm script is running
-  yarn-run             Run Fable while a yarn script is running
+  yarn-run            Run Fable while a yarn script is running
   node-run            Run Fable while a node script is running
   shell-run           Run Fable while a shell script is running
   webpack             Start Fable daemon, invoke Webpack and shut it down
@@ -209,15 +209,15 @@ let runNpmOrYarn npmOrYarn (args: string[]) =
     if args.Length = 0 then
         printfn """Missing argument after %s-run, expected the name of a script. Examples:
 
-    dotnet fable npm-run start
-    dotnet fable npm-run build
+    dotnet fable %s-run start
+    dotnet fable %s-run build
 
 Where 'start' and 'build' are the names of scripts in package.json:
 
     "scripts" :{
         "start": "webpack-dev-server"
         "build": "webpack"
-    }""" npmOrYarn
+    }""" npmOrYarn npmOrYarn npmOrYarn
         0
     else
         let fableArgs = args.[1..] |> parseArguments

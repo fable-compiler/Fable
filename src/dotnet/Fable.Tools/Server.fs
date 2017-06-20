@@ -40,7 +40,7 @@ let rec private loop timeout (server: TcpListener) (buffer: byte[]) (onMessage: 
             let data = Encoding.UTF8.GetString(buffer, 0, i)
             if data = SIGTERM
             then
-                Log.logAllways("Closing server...")
+                Log.logAllways("Closing Fable daemon...")
                 return ()
             else
                 onMessage(data, fun (reply: string) ->
@@ -54,7 +54,7 @@ let rec private loop timeout (server: TcpListener) (buffer: byte[]) (onMessage: 
                 )
                 return! loop timeout server buffer onMessage
         | None ->
-            Log.logAllways(sprintf "Timeout (%ims) reached. Closing server..." timeout)
+            Log.logAllways(sprintf "Timeout (%ims) reached. Closing Fable daemon..." timeout)
             return ()
     with ex ->
         Log.logAllways("TCP ERROR: " + ex.Message)
@@ -69,7 +69,7 @@ let start port timeout onMessage =
     // See https://github.com/fable-compiler/Fable/issues/809#issuecomment-294073328
     server.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true)
     server.Start()
-    Log.logAllways(sprintf "Fable server started on port %i%s" port
+    Log.logAllways(sprintf "Fable daemon started on port %i%s" port
         (if timeout >= 0 then sprintf " (timeout %ims)" timeout else ""))
     loop timeout server buffer onMessage
 
