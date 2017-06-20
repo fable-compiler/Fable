@@ -1,3 +1,7 @@
+### 1.1.3
+
+* Add System.Console reference
+
 ### 1.1.2
 
 * Fix Paket groups for Fable.Core
