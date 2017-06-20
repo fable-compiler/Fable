@@ -216,6 +216,7 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "-r:" + sysCoreLib // "CoreLib"
 #endif
         yield "-r:" + resolve "mscorlib"
+        yield "-r:" + resolve "System.Console"
         yield "-r:" + resolve "System.Collections"
         yield "-r:" + resolve "System.Diagnostics.Debug"
         yield "-r:" + resolve "System.IO"
