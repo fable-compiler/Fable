@@ -411,7 +411,7 @@ let buildJsonConverter () =
     "restore src/dotnet/Fable.JsonConverter"
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
-    "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter"
+    "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter /p:TargetFramework=netstandard1.6"
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
 let runTestsDotnet () =
