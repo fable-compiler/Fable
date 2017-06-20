@@ -513,26 +513,10 @@ Caveats:
 
 Fable.JsonConverter:
 
-You can install directly via [nuget](https://www.nuget.org/packages/Fable.JsonConverter/1.0.0-narumi-908) if your project is a dotnet core project by simply adding it as a dependency to you `paket.dependencies` file:
+You can install directly via [nuget](https://www.nuget.org/packages/Fable.JsonConvert/) by simply adding it as a dependency to you `paket.dependencies` file:
 
 ```
-nuget Fable.JsonConverter prerelease
-```
-
-If you are not using dotnet core you can add it as file dependency to your `paket.dependencies`:
-
-```
-github fable-compiler/Fable src/dotnet/Fable.JsonConverter/Fable.JsonConverter.fs
-nuget Newtonsoft.Json prerelease
-```
-
-Make sure you also include `Newtonsoft.Json`.
-
-And in your projects `paket.references` file add:
-
-```
-Newtonsoft.Json
-File: Fable.JsonConverter.fs
+nuget Fable.JsonConverter
 ```
 
 Now you can use the converter directly in your code by passing it to the `JsonConvert.SerializeObject` method.
