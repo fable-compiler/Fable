@@ -1,20 +1,24 @@
-- tagline: How Fable and Fable-elmish helped Casque Noir, A non profit organization 
+- tagline: How Fable and Fable-elmish helped Casque Noir, A non profit organization
 
-## Casque Noir: Raising awareness on Haïti social and environmental issues
+# Casque Noir: Raising awareness on Haïti social and environmental issues
 
 For several years, Casque Noir, a Canadian non-profit organization, has been researching about urban mutations of Haïti Island's capital, Port-au-Prince's most famous deprived urban neighbourhood: Jalousie
 
-![Jalousie](http://www.casquenoir.com/img/jalousie/j_1_1a.jpg) _Credit: Nathalie Claude_
+<img src="http://www.casquenoir.com/img/jalousie/j_1_1a.jpg" alt="Jalousie" width="800px" />
+
+_Credit: Nathalie Claude_
 
 One of the main problem in *Jalousie* is rubbish spreading everywhere, mostly thanks to plastic based items, one being water bags called *Alaska*. The Guardian made a [photo report](https://www.theguardian.com/cities/gallery/2015/sep/28/cleaning-up-haiti-safest-water-source-contaminating-in-pictures) about it a few years ago.
 
-![street filled with rubbish](http://www.casquenoir.com/img/jalousie/j_1_1b.jpg) _Credit: Nathalie Claude_
+<img src="http://www.casquenoir.com/img/jalousie/j_1_1b.jpg" alt="Street filled with rubbish" width="800px" />
 
+_Credit: Nathalie Claude_
 
 The [Blok’ô Kalité Materyo project](http://www.casquenoir.com/#jalousie) is an initiative to recycle water bags through the creation of light concrete blocks built by mixing platic and concrete.
 
-![Blok’ô Kalité Materyo](http://www.casquenoir.com/img/jalousie/j_3_1a.jpg) _Credit: Nathalie Claude_
+<img src="http://www.casquenoir.com/img/jalousie/j_3_1a.jpg" alt="Blok’ô Kalité Materyo" width="800px" />
 
+_Credit: Nathalie Claude_
 
 ## The Web site
 
@@ -36,7 +40,7 @@ So with a very early mockup we gathered a list of requirements:
 
 ## The Tech stack
 
-![Fable logo](https://user-images.githubusercontent.com/1197905/27047311-56453e74-4fb0-11e7-905c-0a05e5fd87ca.png)
+<img src="https://user-images.githubusercontent.com/1197905/27047311-56453e74-4fb0-11e7-905c-0a05e5fd87ca.png" alt="Fable logo" width="800px" />
 
 Once again, I decided I would go with [Fable](http://fable.io/). And I asked my friend [Maxime Mangel](https://twitter.com/MangelMaxime) what he thought about using [Fable-Elmish](https://fable-elmish.github.io/elmish/) to build the site. He validated the combo fable-elmish with [bulma css framework](http://bulma.io/)
 
