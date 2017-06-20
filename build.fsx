@@ -429,12 +429,12 @@ let runFableServer args f =
 
 let runTestsJs () =
     Npm.install __SOURCE_DIRECTORY__ []
-    runFableServer ["--no-cache"; "--verbose"] <| fun () ->
+    runFableServer ["--no-version-check"; "--verbose"] <| fun () ->
         Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tests/webpack.config.js"]
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
 
 let quickTest() =
-    Util.run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll npm-run rollup"
+    Util.run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll npm-run rollup --no-version-check"
     Node.run "." "src/tools/temp/QuickTest.js" []
 
 Target "QuickTest" quickTest
