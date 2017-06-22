@@ -463,3 +463,21 @@ let ``LanguagePrimitives.PhysicalEquality works``() =
     LanguagePrimitives.PhysicalEquality "2" "3" |> equal false
     LanguagePrimitives.PhysicalEquality [1] [1] |> equal false
     LanguagePrimitives.PhysicalEquality [2] [3] |> equal false
+    
+type Status =
+| CreateScenePicture
+| ReadingOldDevice
+| CreateOldMeterReadingPicture
+| SelectingNewDevice
+| ReadingNewDevice
+| CreateNewMeterReadingPicture
+| GetSignature
+| Done
+
+let hasStatusReached expectedStatus status =
+    status >= expectedStatus
+
+[<Test>]
+let ``DU comparison works``() =
+    hasStatusReached Status.SelectingNewDevice Status.CreateNewMeterReadingPicture
+    |> equal true
