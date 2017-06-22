@@ -1,4 +1,4 @@
-- tagline: How Fable and Fable-elmish helped Casque Noir, A non profit organization
+- tagline: 
 
 # Fable daemon
 
