@@ -45,7 +45,7 @@ let samplesRoot = fableRoot </> "samples"
 
 let samples =
   [ // Browser samples with HTML content
-    "samples/browser/pong", true
+    // "samples/browser/pong", true
     // "samples/browser/hokusai", true
     // "samples/browser/ozmo", true
     // "samples/browser/pacman", true

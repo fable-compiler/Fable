@@ -1,6 +1,8 @@
+- tagline: How Fable and Fable-elmish helped Casque Noir, A non profit organization
+
 # Getting started
 
-When you have installed all the [prerequisites](prerequisites.md) you are good to go.
+When you have installed all the [prerequisites](prerequisites.html) you are good to go.
 
 Start by installing the Simple Fable template:
 

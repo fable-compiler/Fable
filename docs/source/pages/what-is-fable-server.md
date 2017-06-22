@@ -1,3 +1,5 @@
+- tagline: How Fable and Fable-elmish helped Casque Noir, A non profit organization
+
 # Fable daemon
 
 When you build your Fable app or run the app on development mode, a Fable daemon will run in the background. This daemon will work and orchestrate the compilation process with Webpack.

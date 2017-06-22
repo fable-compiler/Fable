@@ -1,3 +1,5 @@
+- tagline: How Fable and Fable-elmish helped Casque Noir, A non profit organization
+
 # Prerequisites
 
 To get started with Fable, you will need a couple of things installed on your machine.
