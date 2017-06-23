@@ -6,8 +6,16 @@ When you have installed all the [prerequisites](prerequisites.html) you are good
 
 Start by installing the Simple Fable template:
 
+**.NET Core less than v2** (you can find this by typing ```dotnet --version``` in your terminal)
+
 ```shell
 dotnet new -i "Fable.Template::*"
+```
+
+**.NET Core v2+** 
+
+```shell
+dotnet new -i Fable.Template
 ```
 
 Scaffold a Fable app from the template:
