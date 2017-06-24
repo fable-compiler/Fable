@@ -1,3 +1,7 @@
+### 1.1.4
+
+* Fix fable-import/#9: Don't try to replace method calls in bindings
+
 ### 1.1.3
 
 * Add System.Console reference

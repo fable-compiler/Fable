@@ -1185,7 +1185,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharp
         member fcom.IsReplaceCandidate ent =
             match ent.TryFullName, ent.Assembly.FileName with
             // TODO: Temporary HACK to fix #577
-            | Some fullName, _ when fullName.StartsWith("Fable.Import.Node") -> false
+            | Some fullName, _ when fullName.StartsWith("Fable.Import") -> false
             | Some fullName, _ when fullName.StartsWith("Fable.Core.JsInterop") -> true // needed for REPL
             | _, Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> true
             | _ -> false

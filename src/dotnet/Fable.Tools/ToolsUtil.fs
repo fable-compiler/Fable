@@ -2,7 +2,7 @@ namespace Fable.Tools
 
 module Constants =
 
-  let [<Literal>] VERSION = "1.1.3"
+  let [<Literal>] VERSION = "1.1.4"
   let [<Literal>] DEFAULT_PORT = 61225
 
 /// These values must be only set by the Main method
