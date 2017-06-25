@@ -1257,7 +1257,7 @@ module AstPass =
             CoreLibCall("Util", Some  "defaultArg", false, [expr; defValue; f])
             |> makeCall r Fable.Any
         let toArray r arg =
-            let ident = makeIdent "x"
+            let ident = makeIdent (com.GetUniqueVar())
             makeLambdaExpr [ident] (makeArray Fable.Any [Fable.IdentValue ident |> Fable.Value])
             |> runIfSome r arg (makeArray Fable.Any [])
         let getCallee() = match i.callee with Some c -> c | None -> i.args.Head
@@ -1528,7 +1528,7 @@ module AstPass =
                "reduce" => "reduce"; "reduceBack" => "reduceRight";
                "sortInPlace" => "sort"; "sortInPlaceWith" => "sort" ]
 
-    let collectionsSecondPass com (i: Fable.ApplyInfo) kind =
+    let collectionsSecondPass (com: ICompiler) (i: Fable.ApplyInfo) kind =
         let prop (meth: string) callee =
             makeGet i.range i.returnType callee (makeStrConst meth)
         let icall meth (callee, args) =
@@ -1582,7 +1582,7 @@ module AstPass =
                 then Some args.Head, args.Tail
                 else None, args
             let compareFn =
-                let fnArgs = [makeIdent "x"; makeIdent "y"]
+                let fnArgs = [makeIdent (com.GetUniqueVar()); makeIdent (com.GetUniqueVar())]
                 let identValue x =
                     let x = Fable.Value(Fable.IdentValue x)
                     match proyector with
@@ -1662,7 +1662,7 @@ module AstPass =
                 emit i "$0.indexOf($1) > -1" (c::args) |> Some
             | None, [item;xs] ->
                 let f =
-                    wrapInLambda [makeIdent "x"] (fun exprs ->
+                    wrapInLambda [makeIdent (com.GetUniqueVar())] (fun exprs ->
                         CoreLibCall("Util", Some "equals", false, item::exprs)
                         |> makeCall None Fable.Boolean)
                 ccall "Seq" "exists" [f;xs] |> Some
@@ -1712,7 +1712,7 @@ module AstPass =
                 ccall "Seq" meth args |> Some
             | t ->
                 let zero = getZero t
-                let fargs = [makeTypedIdent "x" t; makeTypedIdent "y" t]
+                let fargs = [makeTypedIdent (com.GetUniqueVar()) t; makeTypedIdent (com.GetUniqueVar()) t]
                 let addFn = wrapInLambda fargs (fun args ->
                     applyOp None Fable.Any args "op_Addition")
                 if meth = "sum"
