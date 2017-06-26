@@ -32,6 +32,3 @@ You can use any F# compatible IDE, for example:
 - Visual Studio for Mac
 - Emacs with fsharp-mode
 - [JetBrains Rider](https://www.jetbrains.com/rider/)
-- Visual Studio 2017
-
-> Please note Visual Studio 2017 doesn't support new F# project format at the time of writing
