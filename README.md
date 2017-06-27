@@ -4,7 +4,7 @@
 
 [![Mono Build Status](https://travis-ci.org/fable-compiler/Fable.svg "Mono Build Status")](https://travis-ci.org/fable-compiler/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![npm](https://img.shields.io/npm/v/fable-compiler.svg)](https://www.npmjs.com/package/fable-compiler) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-[RELEASE NOTES](https://github.com/fable-compiler/Fable/blob/master/RELEASE_NOTES_COMPILER.md) · [Follow us on Twitter!](https://twitter.com/FableCompiler)
+[RELEASE NOTES](https://github.com/fable-compiler/Fable/blob/master/RELEASE_NOTES.md) · [Follow us on Twitter!](https://twitter.com/FableCompiler)
 
 Fable brings together the power of the [F# compiler](http://fsharp.github.io/FSharp.Compiler.Service/)
 and [Babel](http://babeljs.io) to make JavaScript a true backend for F#.
@@ -22,8 +22,8 @@ Some of its main features are:
 
 ## Usage 
 
-  - Make sure you have the [Prerequisites](https://github.com/fable-compiler/Fable/blob/master/docs/pages/prerequisites.md)
-  - [Getting started](https://github.com/fable-compiler/Fable/blob/master/docs/pages/getting-started.md)
+  - Make sure you have the [Prerequisites](http://fable.io/pages/prerequisites.html)
+  - [Getting started](http://fable.io/pages/getting-started.html)
 
 ## Contributing
 
