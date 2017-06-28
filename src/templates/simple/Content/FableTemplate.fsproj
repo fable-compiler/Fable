@@ -8,7 +8,7 @@
   <ItemGroup>
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
     <!-- Keep dotnet-fable version synced with Fable.Core version in paket.dependencies -->
-    <DotNetCliToolReference Include="dotnet-fable" Version="1.1.1" />
+    <DotNetCliToolReference Include="dotnet-fable" Version="1.1.5" />
   </ItemGroup>
   <Import Project=".paket\Paket.Restore.targets" />
 </Project>
