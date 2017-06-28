@@ -1,3 +1,7 @@
+### 1.1.5
+
+* Fix #1028: Arguments of auto-generated lambdas conflicting with outer variables
+
 ### 1.1.4
 
 * Fix fable-import/#9: Don't try to replace method calls in bindings
