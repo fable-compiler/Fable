@@ -44,7 +44,7 @@ At this point, when you navigate through your code, you should have tooltips and
 To run the app in development mode, you run:
 
 ```shell
-dotnet fable yarn-run start
+dotnet fable npm-run start
 ```
 
 This will start the Fable daemon and run a package.json script in parallel. In this case, `start` will run a Webpack development server. You could run the Fable daemon and webpack development server in separate commands:
