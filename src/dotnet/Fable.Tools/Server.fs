@@ -41,6 +41,7 @@ let rec private loop timeout (server: TcpListener) (buffer: byte[]) (onMessage: 
             if data = SIGTERM
             then
                 Log.logAlways("Closing Fable daemon...")
+                Environment.Exit 1
                 return ()
             else
                 onMessage(data, fun (reply: string) ->
@@ -55,9 +56,11 @@ let rec private loop timeout (server: TcpListener) (buffer: byte[]) (onMessage: 
                 return! loop timeout server buffer onMessage
         | None ->
             Log.logAlways(sprintf "Timeout (%ims) reached. Closing Fable daemon..." timeout)
+            Environment.Exit 2
             return ()
     with ex ->
         Log.logAlways("TCP ERROR: " + ex.Message)
+        Environment.Exit 3
         return ()
 }
 
