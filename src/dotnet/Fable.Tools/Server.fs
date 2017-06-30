@@ -41,8 +41,7 @@ let rec private loop timeout (server: TcpListener) (buffer: byte[]) (onMessage: 
             if data = SIGTERM
             then
                 Log.logAlways("Closing Fable daemon...")
-                Environment.Exit 1
-                return ()
+                return 1
             else
                 onMessage(data, fun (reply: string) ->
                     let msg = Encoding.UTF8.GetBytes(reply)
@@ -56,18 +55,18 @@ let rec private loop timeout (server: TcpListener) (buffer: byte[]) (onMessage: 
                 return! loop timeout server buffer onMessage
         | None ->
             Log.logAlways(sprintf "Timeout (%ims) reached. Closing Fable daemon..." timeout)
-            Environment.Exit 2
-            return ()
+            return 2
     with ex ->
         Log.logAlways("TCP ERROR: " + ex.Message)
-        Environment.Exit 3
-        return ()
+        return 3
 }
+
+let serverIP = IPAddress.Parse("127.0.0.1")
 
 let start port timeout onMessage =
     let cts = new CancellationTokenSource()
     let buffer = Array.zeroCreate<byte> 8192
-    let server = TcpListener(IPAddress.Parse("127.0.0.1"), port)
+    let server = TcpListener(serverIP, port)
     // This is needed to prevent errors in Unix when Fable server is restarted quickly
     // See https://github.com/fable-compiler/Fable/issues/809#issuecomment-294073328
     server.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true)
@@ -78,7 +77,7 @@ let start port timeout onMessage =
 
 let stop port = async {
     use client = new TcpClient()
-    do! client.ConnectAsync(IPAddress.Parse("127.0.0.1"), port) |> Async.AwaitTask
+    do! client.ConnectAsync(serverIP, port) |> Async.AwaitTask
     let data = Encoding.UTF8.GetBytes(SIGTERM)
     use stream = client.GetStream()
     stream.Write(data, 0, data.Length)
