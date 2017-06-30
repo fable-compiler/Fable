@@ -11,7 +11,7 @@ To get started with Fable, you will need a couple of things installed on your ma
 
 ## Node
 
-Node is a JavaScript runtime. That means Node to javascript is what .NET is to F#. Node is central to the JavaScript ecosystem. You can install Node from the [official website](https://nodejs.org/en/). You need it because Fable has dependencies that run on Node. Other than that, you could compile your F# code and run it yourself using Node.
+Node is a JavaScript runtime. That means Node to JavaScript is what .NET is to F#. Node is central to the JavaScript ecosystem. You can install Node from the [official website](https://nodejs.org/en/). You need it because Fable has dependencies that run on Node. Other than that, you could compile your F# code and run it yourself using Node.
 
 ## Yarn
 
