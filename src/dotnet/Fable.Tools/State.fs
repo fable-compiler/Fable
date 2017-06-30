@@ -148,7 +148,7 @@ let getRelativePath path =
 
 let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptions) (com: ICompiler) =
     sprintf "Parsing %s..." (getRelativePath projOptions.ProjectFileName)
-    |> Log.logAllways
+    |> Log.logAlways
     let checkProjectResults =
         projOptions
         |> checker.ParseAndCheckProject
@@ -214,7 +214,7 @@ let sendError replyChannel (ex: Exception) =
     let rec innerStack (ex: Exception) =
         if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
     let stack = innerStack ex
-    Log.logAllways(sprintf "ERROR: %s\n%s" ex.Message stack)
+    Log.logAlways(sprintf "ERROR: %s\n%s" ex.Message stack)
     ["error", ex.Message] |> dict |> toJson |> replyChannel
 
 let addLogs (com: Compiler) (file: Babel.Program) =

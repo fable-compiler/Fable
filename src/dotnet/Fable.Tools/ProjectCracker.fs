@@ -132,7 +132,7 @@ let checkFableCoreVersion paketDir projFile =
                         if fableCoreVersion <> Constants.VERSION then
                             failwith ("Version mismatch! " + versions)
                     | None -> failwithf "Cannot find version in %s" nuspec
-            else Log.logAllways(sprintf "Fable.Core: Missing %s, cannot verify version" nuspec)
+            else Log.logAlways(sprintf "Fable.Core: Missing %s, cannot verify version" nuspec)
         | None -> failwith "Cannot find Fable.Core package location"
 
 type CrackedFsproj = {
