@@ -70,12 +70,16 @@ module.exports = (
           if (error) throw new Error(error);
 
           Object.keys(logs).forEach(key => {
-            // TODO: Fail if there's one or more error logs?
-            // That would prevent compilation of other files
-            if (key === 'warning' || key === 'error')
-              // Don't use `this.error` as it will stop the bundle
-              ensureArray(logs[key]).forEach(x => this.warn(x));
-            else ensureArray(logs[key]).forEach(x => console.log(x));
+            let print = x => console.log(x);
+            if (key === "warning") {
+              print = x => this.warn(x);
+            }
+            else if (key === "error") {
+              // `this.error` stops compilation (also watching), so we force
+              // the user explictly pass the `extra.failOnError option
+              print = extra && extra.failOnError ? x => this.error(x) : x => this.warn(x);
+            }
+            ensureArray(logs[key]).forEach(print);
           });
 
           let fsCode = null;

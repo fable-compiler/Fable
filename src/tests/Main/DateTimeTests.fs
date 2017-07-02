@@ -64,6 +64,13 @@ let ``DateTime.MinValue works``() =
     d1 < d2 |> equal false
 
 [<Test>]
+let ``DateTime.MinValue works in pattern match``() =
+    let d1 = Some DateTime.Now
+    match d1 with
+    | Some date when date <> DateTime.MinValue -> ()
+    | _ -> failwith "expected pattern match above"
+    
+[<Test>]
 let ``DateTime.ToLocalTime works``() =
     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
     let d' = d.ToLocalTime()

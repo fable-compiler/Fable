@@ -262,7 +262,7 @@ module Util =
             List.map (typeAnnotation com ctx) genArgs
             |> TupleTypeAnnotation
             :> TypeAnnotationInfo
-        | Fable.Function(argTypes, returnType) ->
+        | Fable.Function(argTypes, returnType, _) ->
             argTypes
             |> List.mapi (fun i argType ->
                 FunctionTypeParam(

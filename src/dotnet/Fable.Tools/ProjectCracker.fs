@@ -41,8 +41,8 @@ let tryFindPaketDirFromProject projFile =
     then findPaketDependenciesDir projDir [] |> Some
     else None
 
-let tryGePaketRef paketDir (targetFramework: TargetFramework) (refLine: string): PaketRef option =
-    if refLine.StartsWith("Fable.") && not(refLine.StartsWith("Fable.Core")) then
+let private tryGetPaketRefNameAndDir paketDir (filter: string->bool) (refLine: string) =
+    if filter refLine then
         let parts = refLine.Split(',')
         let refName, refGroup =
             if parts.Length = 4 then
@@ -50,78 +50,90 @@ let tryGePaketRef paketDir (targetFramework: TargetFramework) (refLine: string):
                 | "main" -> parts.[0], None
                 | group -> parts.[0], Some group
             else parts.[0], None
-        let pkgDir =
-            match refGroup with
-            | Some group -> IO.Path.Combine(paketDir, "packages", group, refName)
-            | None -> IO.Path.Combine(paketDir, "packages", refName)
+        match refGroup with
+        | Some group -> Some(refName, IO.Path.Combine(paketDir, "packages", group, refName))
+        | None -> Some(refName, IO.Path.Combine(paketDir, "packages", refName))
+    else None
+
+let tryGetPaketRef paketDir (targetFramework: TargetFramework) (refLine: string): PaketRef option =
+    tryGetPaketRefNameAndDir paketDir (fun l -> l.StartsWith("Fable.") && not(l.StartsWith("Fable.Core"))) refLine
+    |> Option.map (fun (refName, pkgDir) ->
         let fableProj = IO.Path.Combine(pkgDir, "fable", refName + ".fsproj")
-        if File.Exists(fableProj)
-        then PaketRef.Project fableProj |> Some
+        if File.Exists(fableProj) then
+            PaketRef.Project fableProj
         else
             Directory.GetDirectories(IO.Path.Combine(pkgDir, "lib"))
             |> Seq.map Path.GetFileName
             |> Seq.sortDescending
             |> Seq.tryFind (fun framework ->
-                framework.StartsWith(targetFramework.Framework)
-                    && framework <= targetFramework.Full)
+                framework.StartsWith(targetFramework.Framework) && framework <= targetFramework.Full)
             |> function
-                | Some framework ->
-                    IO.Path.Combine(pkgDir, "lib", framework, refName + ".dll")
-                    |> PaketRef.Dll |> Some
-                | None ->
-                    failwithf "Cannot match target %s for library %s"
-                        targetFramework.Full refName
-    else None
+                | Some framework -> IO.Path.Combine(pkgDir, "lib", framework, refName + ".dll") |> PaketRef.Dll
+                | None -> failwithf "Cannot match target %s for library %s" targetFramework.Full refName)
+
+let private readPaketProjectRefLines projFile =
+    let projDir = Path.GetDirectoryName(projFile)
+    let projFileName = Path.GetFileName(projFile)
+    let paketRefs = IO.Path.Combine(projDir, "obj", projFileName + ".references")
+    if File.Exists(paketRefs)
+    then File.ReadLines(paketRefs)
+    else upcast [||] // TODO: Fail if .fsproj.references file not found?
 
 let getPaketRefs paketDir targetFramework projFile: PaketRef list =
     match paketDir with
     | None -> []
     | Some paketDir ->
-        let projDir = Path.GetDirectoryName(projFile)
-        let projFileName = Path.GetFileName(projFile)
-        let paketRefs = IO.Path.Combine(projDir, "obj", projFileName + ".references")
-        if File.Exists(paketRefs) then
-            let paketRefs =
-                File.ReadLines(paketRefs)
-                |> Seq.choose (tryGePaketRef paketDir targetFramework)
-                |> Seq.toList
-            // paketRefs
-            // |> Seq.map (sprintf "> %A")
-            // |> String.concat "\n"
-            // |> sprintf "Paket refs for %s\n%s" (Path.GetFileName(projFile))
-            // |> Log.logVerbose
-            paketRefs
-        else []
+        let paketRefs =
+            readPaketProjectRefLines projFile
+            |> Seq.choose (tryGetPaketRef paketDir targetFramework)
+            |> Seq.toList
+        // paketRefs
+        // |> Seq.map (sprintf "> %A")
+        // |> String.concat "\n"
+        // |> sprintf "Paket refs for %s\n%s" (Path.GetFileName(projFile))
+        // |> Log.logVerbose
+        paketRefs
 
-let checkFableCoreVersion paketDir =
-    if Flags.checkCoreVersion then
-        let nuspec = IO.Path.Combine(paketDir, "packages", "Fable.Core", "Fable.Core.nuspec")
-        if File.Exists(nuspec) then
-            let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
-            File.ReadLines(nuspec)
-            |> Seq.tryPick (fun line ->
-                let m = versionRegex.Match(line)
-                if m.Success then Some m.Groups.[1].Value else None)
-            |> function
-                | Some fableCoreVersion ->
-                    if fableCoreVersion <> Constants.VERSION then
-                        failwithf "Version mismatch! Fable.Core: %s - dotnet-fable: %s"
-                                    fableCoreVersion Constants.VERSION
-                | None ->
-                    failwith "Cannot find version in packages/Fable.Core/Fable.Core.nuspec"
-        else
-            failwith "Missing packages/Fable.Core/Fable.Core.nuspec"
-
-let tryGetFableCoreJsDir projFile =
-    match tryFindPaketDirFromProject projFile with
+let private tryGetFableCorePkgDir paketDir projFile =
+    match paketDir with
     | Some paketDir ->
-        IO.Path.Combine(paketDir, "packages", "Fable.Core", "fable-core") |> Some
+        readPaketProjectRefLines projFile
+        |> Seq.choose (tryGetPaketRefNameAndDir paketDir (fun l -> l.StartsWith("Fable.Core")))
+        |> Seq.tryHead
+        |> Option.map snd
     | None -> // fallback to Fable.Core NuGet package folder
         let fableCoreDir =
             typeof<Fable.Core.EraseAttribute>.GetTypeInfo().Assembly.Location
             |> IO.Path.GetDirectoryName
-        let fableCoreJsDir = IO.Path.Combine(fableCoreDir, "../../fable-core")
-        if IO.Directory.Exists fableCoreJsDir then Some fableCoreJsDir else None
+        IO.Path.Combine(fableCoreDir, "../..") |> Some
+
+let tryGetFableCoreJsDir projFile =
+    let paketDir = tryFindPaketDirFromProject projFile
+    tryGetFableCorePkgDir paketDir projFile
+    |> Option.map (fun corePkgDir -> IO.Path.Combine(corePkgDir, "fable-core"))
+
+let checkFableCoreVersion paketDir projFile =
+    if Flags.checkCoreVersion then
+        match tryGetFableCorePkgDir paketDir projFile with
+        | Some corePkgDir ->
+            let nuspec = IO.Path.Combine(corePkgDir, "Fable.Core.nuspec")
+            if File.Exists(nuspec) then
+                let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
+                File.ReadLines(nuspec)
+                |> Seq.tryPick (fun line ->
+                    let m = versionRegex.Match(line)
+                    if m.Success then Some m.Groups.[1].Value else None)
+                |> function
+                    | Some fableCoreVersion ->
+                        let versions =
+                            sprintf "Fable.Core: %s - dotnet-fable: %s"
+                                fableCoreVersion Constants.VERSION
+                        Log.logVerbose(versions)
+                        if fableCoreVersion <> Constants.VERSION then
+                            failwith ("Version mismatch! " + versions)
+                    | None -> failwithf "Cannot find version in %s" nuspec
+            else Log.logAlways(sprintf "Fable.Core: Missing %s, cannot verify version" nuspec)
+        | None -> failwith "Cannot find Fable.Core package location"
 
 type CrackedFsproj = {
     projectFile: string
@@ -204,6 +216,7 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "-r:" + sysCoreLib // "CoreLib"
 #endif
         yield "-r:" + resolve "mscorlib"
+        yield "-r:" + resolve "System.Console"
         yield "-r:" + resolve "System.Collections"
         yield "-r:" + resolve "System.Diagnostics.Debug"
         yield "-r:" + resolve "System.IO"
@@ -306,7 +319,7 @@ let getProjectOptionsFromFsproj projFile =
                 { Framework = "netstandard"; Version = version }
             | None -> failwithf "Cannot find TargetFramework in %s" projFile
     let paketDir = tryFindPaketDirFromProject projFile
-    paketDir |> Option.iter checkFableCoreVersion
+    checkFableCoreVersion paketDir projFile
     let rec crackProjects (acc: CrackedFsproj list) projFile =
         acc |> List.tryFind (fun x ->
             String.Equals(x.projectFile, projFile, StringComparison.OrdinalIgnoreCase))

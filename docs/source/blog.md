@@ -2,6 +2,14 @@
 
 # Fable blog
 
+## [Casque Noir: Raising awareness on Haïti social and environmental issues](blog/Development-For-Haiti.html)
+
+> By [François Nicaise](https://twitter.com/thewhitetigle) on June 20, 2017
+
+For several years, Casque Noir, a Canadian non-profit organization, has been researching about urban mutations of Haïti Island's capital, Port-au-Prince's most famous deprived urban neighbourhood: Jalousie
+
+[Read more...](blog/Development-For-Haiti.html)
+
 ## [How Fable helped kids win a contest](blog/How-Fable-Helped-Kids.html)
 
 > By [François Nicaise](https://twitter.com/thewhitetigle) on May 19, 2017

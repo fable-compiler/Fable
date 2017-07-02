@@ -1,3 +1,7 @@
+### 1.0.5
+
+* Fix cache option
+
 ### 1.0.4
 
 * Fix sourcemap generation

@@ -2,7 +2,7 @@ namespace Fable.Tools
 
 module Constants =
 
-  let [<Literal>] VERSION = "1.1.0"
+  let [<Literal>] VERSION = "1.1.5"
   let [<Literal>] DEFAULT_PORT = 61225
 
 /// These values must be only set by the Main method
@@ -19,5 +19,5 @@ module Log =
     if Flags.logVerbose then
       Console.WriteLine(msg)
  
-  let logAllways(msg: string) =
+  let logAlways(msg: string) =
     Console.WriteLine(msg)

@@ -411,7 +411,7 @@ let buildJsonConverter () =
     "restore src/dotnet/Fable.JsonConverter"
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
-    "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter"
+    "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter /p:TargetFramework=netstandard1.6"
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
 let runTestsDotnet () =
@@ -429,7 +429,7 @@ let runFableServer args f =
 
 let runTestsJs () =
     Npm.install __SOURCE_DIRECTORY__ []
-    runFableServer ["--no-cache"; "--verbose"] <| fun () ->
+    runFableServer ["--verbose"] <| fun () ->
         Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tests/webpack.config.js"]
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
 

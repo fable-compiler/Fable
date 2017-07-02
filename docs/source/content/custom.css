@@ -91,6 +91,10 @@ body {
   font-size:16pt;
   font-weight:700;
 }
+.fable-content-wrapper h4 {
+  font-size:14pt;
+  font-weight:700;
+}
 .fable-content-wrapper h3 .anchor, .fable-content-wrapper h2 .anchor, .fable-content-wrapper h1 .anchor {
   color:#7A325D;
 }

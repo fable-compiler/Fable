@@ -22,7 +22,7 @@ type Type =
     | Option of genericArg: Type
     | Array of genericArg: Type
     | Tuple of genericArgs: Type list
-    | Function of argTypes: Type list * returnType: Type
+    | Function of argTypes: Type list * returnType: Type * isCurried: bool
     | GenericParam of name: string
     | Enum of fullName: string
     | DeclaredType of Entity * genericArgs: Type list
@@ -31,7 +31,7 @@ type Type =
         | Number numberKind -> sprintf "%A" x
         | Enum fullName -> fullName
         | Array typ -> typ.FullName + "[]"
-        | Function (argTypes, returnType) ->
+        | Function (argTypes, returnType, _) ->
             "(" + (argTypes |> Seq.map (fun x -> x.FullName) |> String.concat ", ") + ")=>" + returnType.FullName
         | DeclaredType(ent,_) -> ent.FullName
         | _ -> sprintf "%A" x
@@ -39,7 +39,7 @@ type Type =
         match x with
         | Array genArg -> [genArg]
         | Tuple genArgs -> genArgs
-        | Function(argTypes, returnType) -> argTypes@[returnType]
+        | Function(argTypes, returnType, _) -> argTypes@[returnType]
         | DeclaredType(_, genArgs) -> genArgs
         | _ -> []
 
@@ -140,7 +140,7 @@ and Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?de
     member x.Location: MemberLoc = loc
     member x.ArgumentTypes: Type list = argTypes
     member x.ReturnType: Type = returnType
-    member x.OriginalCurriedType: Type = defaultArg originalType (Function(argTypes, returnType))
+    member x.OriginalCurriedType: Type option = originalType
     member x.GenericParameters: string list = defaultArg genParams []
     member x.Decorators: Decorator list = defaultArg decorators []
     member x.IsMutable: bool = defaultArg isMutable false
@@ -277,9 +277,9 @@ and ValueKind =
         | BoolConst _ -> Boolean
         | ArrayConst (_, typ) -> Array typ
         | TupleConst exprs -> List.map Expr.getType exprs |> Tuple
-        | UnaryOp _ -> Function([Any], Any)
-        | BinaryOp _ | LogicalOp _ -> Function([Any; Any], Any)
-        | Lambda (args, body, _) -> Function(List.map Ident.getType args, body.Type)
+        | UnaryOp _ -> Function([Any], Any, true)
+        | BinaryOp _ | LogicalOp _ -> Function([Any; Any], Any, true)
+        | Lambda (args, body, info) -> Function(List.map Ident.getType args, body.Type, not info.IsDelegate)
     member x.Range: SourceLocation option =
         match x with
         | Lambda (_, body, _) -> body.Range

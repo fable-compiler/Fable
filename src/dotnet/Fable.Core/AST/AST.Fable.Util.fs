@@ -74,6 +74,8 @@ let makeTypeConst (typ: Type) (value: obj) =
     // Long Integer types
     | ExtendedNumber Int64, (:? int64 as x) -> makeLongInt (uint64 x) false
     | ExtendedNumber UInt64, (:? uint64 as x) -> makeLongInt x true
+    // Decimal type
+    | ExtendedNumber Decimal, (:? decimal as x) -> makeDecConst x
     // Enum 64-bit types (TODO: proper JS support, as Enum has no type)
     | Enum _, (:? int64 as x) -> makeLongInt (uint64 x) false
     | Enum _, (:? uint64 as x) -> makeLongInt x true
@@ -93,7 +95,6 @@ let makeTypeConst (typ: Type) (value: obj) =
         | Number UInt32, (:? uint32 as x) -> NumberConst (float x, UInt32)
         // Float types
         | Number Float64, (:? float as x) -> NumberConst (float x, Float64)
-        | Number Float64, (:? decimal as x) -> NumberConst (float x, Float64)
         // Enums (TODO: proper JS support, as Enum has no type)
         | Enum _, (:? byte as x) -> NumberConst (float x, UInt8)
         | Enum _, (:? sbyte as x) -> NumberConst (float x, Int8)
@@ -188,8 +189,9 @@ let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
     | ExtendedNumber kind ->
         match kind with
         | Int64|UInt64 -> makeCoreRef "Long" (Some "Long")
+        | Decimal -> str "number"
         | BigInt -> makeCoreRef "BigInt" None
-    | Function(argTypes, returnType) ->
+    | Function(argTypes, returnType, _) ->
         argTypes@[returnType]
         |> List.map (makeTypeRef com genInfo)
         |> NonDeclFunction
@@ -279,6 +281,7 @@ let rec makeTypeTest com range (typ: Type) expr =
     | Number _ | Enum _ -> jsTypeof "number" expr
     | ExtendedNumber (Int64|UInt64) ->
         makeBinOp range Boolean [expr; makeCoreRef "Long" (Some "Long")] BinaryInstanceOf
+    | ExtendedNumber Decimal -> jsTypeof "number" expr
     | ExtendedNumber BigInt ->
         makeBinOp range Boolean [expr; makeCoreRef "BigInt" None] BinaryInstanceOf
     | Boolean -> jsTypeof "boolean" expr
@@ -445,7 +448,7 @@ let (|CurriedLambda|_|) = function
 // JS: ["1","2"].map($var1 => $var2 => ((x, y) => x + y)($var1, $var2))
 let rec ensureArity com argTypes args =
     let rec needsWrapping = function
-        | Function(expected,_), Function(actual,returnType) ->
+        | Function(expected,_,_), Function(actual,returnType,_) ->
             let expectedLength = List.length expected
             let actualLength = List.length actual
             if (expectedLength < actualLength)
@@ -473,7 +476,7 @@ let rec ensureArity com argTypes args =
             //                 "Side effects may be delayed.", Warning, f.Range.Value) // filename
             let innerArgs = List.take actualArgsLength outerArgs |> List.map argIdentToExpr
             let outerArgs = List.skip actualArgsLength outerArgs |> List.map argIdentToExpr
-            let innerApply = makeApply com f.Range (Function(List.map Expr.getType outerArgs,typ)) f innerArgs
+            let innerApply = makeApply com f.Range (Function(List.map Expr.getType outerArgs,typ,true)) f innerArgs
             makeApply com f.Range typ innerApply outerArgs
         else
             outerArgs |> List.map argIdentToExpr
@@ -487,8 +490,8 @@ let rec ensureArity com argTypes args =
         | _, (CurriedLambda as curriedLambda) -> curriedLambda
         // If the expected type is a generic parameter, we cannot infer the arity
         // so generate a dynamic curried lambda just in case.
-        | GenericParam _, (Value(Lambda(lambdaArgs,_,info)) as lambda)
-            when not info.IsDelegate && List.isMultiple lambdaArgs ->
+        | GenericParam _, (Type(Function(args,_,isCurried)) as lambda)
+                when isCurried && List.isMultiple args ->
             makeCurriedLambda lambda.Range lambda.Type lambda
         | NeedsWrapping (expected, actual, returnType) ->
             wrap com returnType arg expected actual
@@ -506,7 +509,7 @@ and makeApply com range typ callee (args: Expr list) =
     | CurriedLambda _ -> Apply(callee, args, ApplyMeth, typ, range)
     // Make necessary transformations if we're applying more or less
     // arguments than the specified function arity
-    | Type(Function(argTypes, _)) ->
+    | Type(Function(argTypes, _, _)) ->
         let argsLength = List.length args
         let argTypesLength = List.length argTypes
         if argTypesLength < argsLength && argTypesLength >= 1 // TODO: Remove >= 1
@@ -514,7 +517,7 @@ and makeApply com range typ callee (args: Expr list) =
             let innerArgs = List.take argTypesLength args
             let outerArgs = List.skip argTypesLength args
             Apply(callee, ensureArity com argTypes innerArgs, ApplyMeth,
-                    Function(List.map Expr.getType outerArgs, typ), range)
+                    Function(List.map Expr.getType outerArgs, typ, true), range)
             |> makeApply com range typ <| outerArgs
         elif argTypesLength > argsLength && argsLength >= 1 // TODO: Remove >= 1
         then
@@ -544,8 +547,8 @@ let compareDeclaredAndAppliedArgs declaredArgs appliedArgs =
             argEqual genArg1 genArg2
         | Tuple genArgs1, Tuple genArgs2 ->
             listsEqual argEqual genArgs1 genArgs2
-        | Function (genArgs1, typ1), Function (genArgs2, typ2) ->
-            argEqual typ1 typ2 && listsEqual argEqual genArgs1 genArgs2
+        | Function (genArgs1, typ1, isCurried1), Function (genArgs2, typ2, isCurried2) ->
+            isCurried1 = isCurried2 && argEqual typ1 typ2 && listsEqual argEqual genArgs1 genArgs2
         | DeclaredType(ent1, genArgs1), DeclaredType(ent2, genArgs2) ->
             ent1 = ent2 && listsEqual argEqual genArgs1 genArgs2
         | GenericParam _, _ ->

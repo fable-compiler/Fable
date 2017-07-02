@@ -1,12 +1,12 @@
 open System.Collections.Generic
 
 let fastFib (n: int) : int =
-  let a = (1.0 + sqrt 5.0) / 2.0
-  let b = (1.0 - sqrt 5.0) / 2.0
+  let sqrt5 = sqrt 5.0
+  let a = (1.0 + sqrt5) / 2.0
+  let b = (1.0 - sqrt5) / 2.0
   let power = float n
-  let result = ((a ** power) - (b ** power)) / sqrt 5.0
-  int result
-
+  let result = ((a ** power) - (b ** power)) / sqrt5
+  int (round result)
 
 let rec slowFib n =
     match n with

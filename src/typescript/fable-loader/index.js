@@ -44,8 +44,12 @@ function transformBabelAst(babelAst, babelOptions, sourceMapOptions) {
 }
 
 function getCachePath(fileName) {
+    var fableTempDir = path.join(os.tmpdir(), "fable");
+    if (!fs.existsSync(fableTempDir)){
+        fs.mkdirSync(fableTempDir);
+    }
     var hash = crypto.createHash('md5').update(fileName).digest('hex');
-    return path.join(os.tmpdir(), "fable", hash);
+    return path.join(fableTempDir, hash);
 }
 
 function tryLoadCache(opts, fileName) {

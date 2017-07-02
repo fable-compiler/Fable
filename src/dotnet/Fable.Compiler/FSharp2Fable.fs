@@ -61,15 +61,14 @@ let private (|BaseConsCall|_|) com ctx (fsExpr: FSharpExpr) =
     | None -> None
 
 let private transformLambda com ctx args tupleDestructs body isDelegate =
-    let hasNestedLambda isDelegate (lambda: Fable.Expr) =
+    let hasNestedLambda (lambda: Fable.Expr) =
         let rec getTotalArgTypes acc = function
-            | Fable.Function(args, returnType) -> getTotalArgTypes (acc @ args) returnType
+            | Fable.Function(args, returnType, isCurried) when isCurried ->
+                getTotalArgTypes (acc @ args) returnType
             | returnType -> acc, returnType
-        match isDelegate, lambda.Type with
-        | true, _ -> None
-        // We should also probably check if the nested function is delegate (non-curried) or not,
-        // but then we would have to include that info in the type too not only the expression.
-        | false, Fable.Function(outerArgs, Fable.Function(innerArgs, returnType)) ->
+        match lambda.Type with
+        | Fable.Function(outerArgs, Fable.Function(innerArgs, returnType, isCurriedInner), isCurriedOuter)
+                when isCurriedInner && isCurriedOuter ->
             getTotalArgTypes (outerArgs @ innerArgs) returnType |> Some
         | _ -> None
     let ctx, args = makeLambdaArgs com ctx args
@@ -80,11 +79,11 @@ let private transformLambda com ctx args tupleDestructs body isDelegate =
     let captureThis = ctx.thisAvailability <> ThisUnavailable
     let body = transformExpr com { ctx with isLambdaBody = true } body
     let lambda = Fable.Lambda(args, body, Fable.LambdaInfo(captureThis, isDelegate)) |> Fable.Value
-    match ctx.isLambdaBody, lazy hasNestedLambda isDelegate lambda with
+    match ctx.isLambdaBody, lazy hasNestedLambda lambda with
     | true, _ -> lambda
     | false, LazyValue None -> lambda
     | false, LazyValue(Some(totalArgs, returnType)) ->
-        makeCurriedLambda body.Range (Fable.Function(totalArgs, returnType)) lambda
+        makeCurriedLambda body.Range (Fable.Function(totalArgs, returnType, true)) lambda
 
 let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
     let rec flattenList (r: SourceLocation) accArgs = function
@@ -113,8 +112,15 @@ let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
 
 let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
     let unionType, range = makeType com ctx.typeArgs fsType, makeRange fsExpr.Range
+    let genericArg = fsType.GenericArguments |> List.ofSeq |> List.tryHead
+
     match fsType with
     | OptionUnion ->
+        match genericArg with
+        | Some OptionUnion ->
+            "Nested option in option won't work at runtime"
+            |> addWarning com ctx.fileName (Some range)
+        | _ -> ()
         match argExprs: Fable.Expr list with
         // Represent `Some ()` with an empty object, see #478
         | expr::_ when expr.Type = Fable.Unit ->
@@ -312,8 +318,8 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FShar
                         |> function Some m -> hasRestParams m | None -> false
                 let body = transformExpr com ctx over.Body
                 let args = List.map Fable.Ident.getType args'
-                let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type, Fable.Function(args, body.Type),
-                            over.GenericParameters |> List.map (fun x -> x.Name),
+                let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type,
+                            genParams = (over.GenericParameters |> List.map (fun x -> x.Name)),
                             hasRestParams = hasRestParams)
                 m, args', body))
     let interfaces =
@@ -1179,7 +1185,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, checkedProject: FSharp
         member fcom.IsReplaceCandidate ent =
             match ent.TryFullName, ent.Assembly.FileName with
             // TODO: Temporary HACK to fix #577
-            | Some fullName, _ when fullName.StartsWith("Fable.Import.Node") -> false
+            | Some fullName, _ when fullName.StartsWith("Fable.Import") -> false
             | Some fullName, _ when fullName.StartsWith("Fable.Core.JsInterop") -> true // needed for REPL
             | _, Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> true
             | _ -> false

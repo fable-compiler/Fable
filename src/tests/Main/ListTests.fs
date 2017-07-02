@@ -131,6 +131,19 @@ let ``List.contains works``() =
       let xs = [1; 2; 3; 4]
       xs |> List.contains 2 |> equal true
       xs |> List.contains 0 |> equal false
+[<Test>]
+let ``List.contains lambda doesn't clash``() =
+      let modifyList current x =
+          let contains = current |> List.contains x
+          match contains with
+              | true -> current |> (List.filter (fun a -> a <> x))
+              | false -> x::current
+
+
+
+      let l = [1;2;3;4]
+      (modifyList l 1) |> List.contains 1 |> equal false
+      (modifyList l 5) |> List.contains 5 |> equal true
 
 [<Test>]
 let ``List.distinct works``() =
@@ -358,13 +371,13 @@ let ``List.mapFoldBack works`` () =
 let ``List.mapFold works II``() = // See #842
     let f x y = x,y
     let xs,_ = List.mapFold f "a" ["b"]
-    equal "a" xs.Head 
+    equal "a" xs.Head
 
 [<Test>]
 let ``List.mapFoldBack works II``() =
     let f x y = x,y
     let xs,_ = List.mapFoldBack f ["a"] "b"
-    equal "a" xs.Head 
+    equal "a" xs.Head
 
 [<Test>]
 let ``List.max works``() =

@@ -1,3 +1,28 @@
+### 1.1.5
+
+* Fix #1028: Arguments of auto-generated lambdas conflicting with outer variables
+
+### 1.1.4
+
+* Fix fable-import/#9: Don't try to replace method calls in bindings
+
+### 1.1.3
+
+* Add System.Console reference
+
+### 1.1.2
+
+* Fix Paket groups for Fable.Core
+
+### 1.1.1
+
+* Fix F# compiler errors in recompilation
+* Fix Elmish.Browser parser (#1003)
+* Add support for Option.defaultValue
+* Warn when there are nested options
+* Add replacement for System.Environment.NewLine (#993)
+* Expose Console among JS import globals
+
 ### 1.1.0
 
 * Fable stablish, yeah!

@@ -115,8 +115,8 @@ let ``Async cancellation works``() =
         sleepAndAssign tcs2.Token res2
         sleepAndAssign tcs3.Token res3
         tcs2.Cancel()
-        tcs3.CancelAfter(500)
-        do! Async.Sleep 300
+        tcs3.CancelAfter(1000)
+        do! Async.Sleep 500
         equal false !res1
         equal false !res2
         equal true !res3

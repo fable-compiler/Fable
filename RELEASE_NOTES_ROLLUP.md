@@ -1,3 +1,7 @@
+### 1.0.6
+
+* Add `extra.failOnError` option, to stop compilation on F#/Fable errors
+
 ### 1.0.5
 
 * Less verbose output
