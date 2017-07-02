@@ -1,7 +1,5 @@
-# Fable - Simple App
 # Fable Simple Template
 
-## Requirements
 This template can be used to generate a simple web app with [Fable](http://fable.io/).
 You can find more templates by searching `Fable.Template` packages in [Nuget](https://www.nuget.org).
 
@@ -24,29 +22,7 @@ Although is not a Fable requirement, on macOS and Linux you'll need [Mono](http:
 3. Start Fable daemon and [Webpack](https://webpack.js.org/) dev server: `dotnet fable yarn-run start`
 4. In your browser, open: http://localhost:8080/
 
-To use this template please make sure you have the following sofware on your machine:
-
-- [NodeJS](https://nodejs.org/en/)
-- [Yarn](https://yarnpkg.com/lang/en/)
-
-## Quickstart - Development
-
-1. Run `build.cmd Watch` or `build.sh Watch`
-2. In your browser, open: [http://localhost:8080/](http://localhost:8080/)
-
-Any modification you do to the F# code will be reflected in the web page after saving.
 > `dotnet fable yarn-run` (or `npm-run`) is used to start the Fable daemon and run a script in package.json concurrently. You can use `yarn-[SCRIP_NAME]` as a shortcut, e.g. `dotnet fable yarn-start`.
-
-## Available targets
-
-This templates provides the following targets.
-
-| Target | Description |
-|:-|:-|
-| Build | Restore the dependencies and build your project. Bundles are under: `public/dist/` |
-| QuickBuild | Only build the project. Bundles are under: `public/dist/` |
-| Watch | Restore the dependencies and start the dev server |
-| QuickWatch | Only start the dev server |
 
 If you are using VS Code + [Ionide](http://ionide.io/), you can also use the key combination: Ctrl+Shift+B (Cmd+Shift+B on macOS) instead of typing the `dotnet fable yarn-start` command. This also has the advantage that Fable-specific errors will be highlighted in the editor along with other F# errors.
 
