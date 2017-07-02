@@ -147,12 +147,14 @@ NUGET
       Microsoft.NETCore.Platforms (>= 1.1) - restriction: || (&& (< net45) (>= netstandard1.0) (< netstandard1.3) (< monoandroid) (< win8) (< wp8) (< wpa81)) (&& (< net45) (>= netstandard1.3) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wpa81)) (>= dnxcore50)
       Microsoft.NETCore.Targets (>= 1.1) - restriction: || (&& (< net45) (>= netstandard1.0) (< netstandard1.3) (< monoandroid) (< win8) (< wp8) (< wpa81)) (&& (< net45) (>= netstandard1.3) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wpa81)) (>= dnxcore50)
       System.Runtime (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.0) (< netstandard1.3) (< monoandroid) (< win8) (< wp8) (< wpa81)) (&& (< net45) (>= netstandard1.3) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wpa81)) (>= dnxcore50)
-    System.Diagnostics.DiagnosticSource (4.3.1) - restriction: || (&& (>= dnxcore50) (>= netstandard1.6)) (&& (>= netstandard1.6) (< monotouch) (< xamarinios) (< xamarinmac))
-      System.Collections (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.1) (< netstandard1.3) (< monoandroid) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.3) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wpa81))
-      System.Diagnostics.Tracing (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.1) (< netstandard1.3) (< monoandroid) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.3) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wpa81))
-      System.Reflection (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.1) (< netstandard1.3) (< monoandroid) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.3) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wpa81))
-      System.Runtime (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.1) (< netstandard1.3) (< monoandroid) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.3) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wpa81))
-      System.Threading (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.1) (< netstandard1.3) (< monoandroid) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.3) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wpa81))
+    System.Diagnostics.DiagnosticSource (4.4) - restriction: || (&& (>= dnxcore50) (>= netstandard1.6)) (&& (>= netstandard1.6) (< monotouch) (< xamarinios) (< xamarinmac))
+      System.Collections (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.1) (< netstandard1.3)) (&& (< net45) (>= netstandard1.3) (< netcore2.0) (< xamarinmac))
+      System.Diagnostics.Debug (>= 4.3) - restriction: && (< net45) (>= netstandard1.3) (< netcore2.0) (< xamarinmac)
+      System.Diagnostics.Tracing (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.1) (< netstandard1.3)) (&& (< net45) (>= netstandard1.3) (< netcore2.0) (< xamarinmac))
+      System.Reflection (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.1) (< netstandard1.3)) (&& (< net45) (>= netstandard1.3) (< netcore2.0) (< xamarinmac))
+      System.Runtime (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.1) (< netstandard1.3)) (&& (< net45) (>= netstandard1.3) (< netcore2.0) (< xamarinmac))
+      System.Runtime.Extensions (>= 4.3) - restriction: && (< net45) (>= netstandard1.3) (< netcore2.0) (< xamarinmac)
+      System.Threading (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.1) (< netstandard1.3)) (&& (< net45) (>= netstandard1.3) (< netcore2.0) (< xamarinmac))
     System.Diagnostics.Tools (4.3) - restriction: >= netstandard1.6
       Microsoft.NETCore.Platforms (>= 1.1) - restriction: || (&& (< net45) (>= netstandard1.0) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wp8) (< wpa81)) (>= dnxcore50)
       Microsoft.NETCore.Targets (>= 1.1) - restriction: || (&& (< net45) (>= netstandard1.0) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wp8) (< wpa81)) (>= dnxcore50)
@@ -563,10 +565,11 @@ NUGET
       System.Text.Encoding (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.3) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wpa81)) (>= dnxcore50)
       System.Threading (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.3) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wpa81)) (>= dnxcore50)
       System.Xml.ReaderWriter (>= 4.3) - restriction: || (&& (< net45) (>= netstandard1.0) (< netstandard1.3) (< monoandroid) (< win8) (< wp8) (< wpa81)) (&& (< net45) (>= netstandard1.3) (< monotouch) (< xamarinios) (< xamarinmac) (< win8) (< wpa81)) (>= dnxcore50)
-
+//#if (fake)
 GROUP Build
 RESTRICTION: == net46
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (4.61.3)
+    FAKE (4.62.1)
     FSharp.Core (4.2.1) - content: none, redirects: force
+//#endif
