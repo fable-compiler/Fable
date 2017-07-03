@@ -140,13 +140,6 @@ module Util =
         (Attribute.Version version)::extra
         |> CreateFSharpAssemblyInfo asmInfoPath
 
-    let loadReleaseNotes pkg =
-        Lazy<_>(fun () ->
-            match pkg with
-            | "" -> "RELEASE_NOTES.md"
-            | pkg -> sprintf "RELEASE_NOTES_%s.md" pkg
-            |> ReleaseNotesHelper.LoadReleaseNotes)
-
     type ComparisonResult = Smaller | Same | Bigger
 
     let foldi f init (xs: 'T seq) =
@@ -259,14 +252,6 @@ let authors = ["Alfonso García-Caro"]
 
 let gitOwner = "fable-compiler"
 let gitHome = "https://github.com/" + gitOwner
-
-let release = Util.loadReleaseNotes ""
-let releaseToolsJs = Util.loadReleaseNotes "TOOLS_JS"
-let releaseLoader = Util.loadReleaseNotes "LOADER"
-let releaseRollup = Util.loadReleaseNotes "ROLLUP"
-let releaseSplitter = Util.loadReleaseNotes "SPLITTER"
-let releaseJsonConverter = Util.loadReleaseNotes "JSON_CONVERTER"
-let releaseNUnitPlugin = Util.loadReleaseNotes "NUNIT_PLUGIN"
 
 let dotnetcliVersion = "1.0.4"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
@@ -445,11 +430,14 @@ Target "QuickFableCoreTest" (fun () ->
     buildCoreJs ()
     quickTest ())
 
-let needsPublishing (versionRegex: Regex) (releaseNotes: ReleaseNotes) projFile =
-    printfn "Project: %s" projFile
+let needsPublishing silent (versionRegex: Regex) (releaseNotes: ReleaseNotes) projFile =
+    let print msg =
+        if not silent then
+            let projName = Path.GetFileNameWithoutExtension(projFile)
+            printfn "%s > %s" projName msg
     if releaseNotes.NugetVersion.ToUpper().EndsWith("NEXT")
     then
-        printfn "Version in Release Notes ends with NEXT, don't publish yet."
+        print "Version in Release Notes ends with NEXT, don't publish yet."
         false
     else
         File.ReadLines(projFile)
@@ -457,36 +445,45 @@ let needsPublishing (versionRegex: Regex) (releaseNotes: ReleaseNotes) projFile 
             let m = versionRegex.Match(line)
             if m.Success then Some m else None)
         |> function
-            | None -> failwith "Couldn't find version in project file"
+            | None -> failwithf "Couldn't find version in %s" projFile
             | Some m ->
                 let sameVersion = m.Groups.[1].Value = releaseNotes.NugetVersion
                 if sameVersion then
-                    printfn "Already version %s, no need to publish." releaseNotes.NugetVersion
+                    sprintf "Already version %s, no need to publish" releaseNotes.NugetVersion |> print
                 not sameVersion
 
-let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
+let updateVersionInToolsUtil versionName version =
+    let reg = Regex(@"\b" + versionName + @"\s*=\s*""(.*?)""")
+    let mainFile = __SOURCE_DIRECTORY__ </> "src/dotnet/Fable.Tools/ToolsUtil.fs"
+    (reg, mainFile) ||> Util.replaceLines (fun line m ->
+        let replacement = sprintf "%s = \"%s\"" versionName version
+        reg.Replace(line, replacement) |> Some)
+
+let pushNuget (projFile: string) =
+    let projFile = __SOURCE_DIRECTORY__ </> projFile
+    let projDir = Path.GetDirectoryName(projFile)
     let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
-    projFiles
-    |> Seq.map (fun projFile -> __SOURCE_DIRECTORY__ </> projFile)
-    |> Seq.filter (needsPublishing versionRegex releaseNotes)
-    |> Seq.iter (fun projFile ->
-        let projDir = Path.GetDirectoryName(projFile)
+    let releaseNotes = ReleaseNotesHelper.LoadReleaseNotes(projDir </> "RELEASE_NOTES.md")
+    if needsPublishing false versionRegex releaseNotes projFile then
         let nugetKey =
             match environVarOrNone "NUGET_KEY" with
             | Some nugetKey -> nugetKey
             | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
+        // If necessary, update version in ToolsUtil.fs and build JS files
+        if projFile.Contains("Fable.Core.fsproj") then
+            updateVersionInToolsUtil "CORE_VERSION" releaseNotes.NugetVersion
+            buildCoreJs()
+        if projFile.Contains("Fable.Compiler.fsproj") then
+            let cliProj = __SOURCE_DIRECTORY__ </> "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
+            let cliRelease =
+                __SOURCE_DIRECTORY__ </> "src/dotnet/Fable.Tools/RELEASE_NOTES.md"
+                |> ReleaseNotesHelper.LoadReleaseNotes
+            if not(needsPublishing true versionRegex cliRelease cliProj) then
+                failwith "dotnet-fable version must also be bumped when pushing a new Fable.Compiler release"
+        if projFile.Contains("dotnet-fable.fsproj") then
+            updateVersionInToolsUtil "VERSION" releaseNotes.NugetVersion
         // Restore dependencies here so they're updated to latest project versions
         Util.run projDir dotnetExePath "restore"
-        // If this is Fable.Core, build JS files
-        if projFile.Contains("Fable.Core.fsproj") then
-            buildCoreJs()
-        // Update version in dotnet-fable ToolsUtil.fs file
-        if projFile.Contains("dotnet-fable.fsproj") then
-            let reg = Regex(@"VERSION\s*=\s*""(.*?)""")
-            let mainFile = Path.Combine(Path.GetDirectoryName(projFile), "ToolsUtil.fs")
-            (reg, mainFile) ||> Util.replaceLines (fun line m ->
-                let replacement = sprintf "VERSION = \"%s\"" releaseNotes.NugetVersion
-                reg.Replace(line, replacement) |> Some)
         Util.run projDir dotnetExePath (sprintf "pack -c Release /p:Version=%s" releaseNotes.NugetVersion)
         Directory.GetFiles(projDir </> "bin" </> "Release", "*.nupkg")
         |> Array.find (fun nupkg -> nupkg.Contains(releaseNotes.NugetVersion))
@@ -497,13 +494,13 @@ let pushNuget (releaseNotes: ReleaseNotes) (projFiles: string list) =
         // After successful publishing, update the project file
         (versionRegex, projFile) ||> Util.replaceLines (fun line _ ->
             versionRegex.Replace(line, "<Version>"+releaseNotes.NugetVersion+"</Version>") |> Some)
-    )
 
-let pushNpm build (releaseNotes: ReleaseNotes) (projDir: string) =
+let pushNpm build (projDir: string) =
     let versionRegex = Regex(@"""version"":\s*""(.*?)""")
     let projDir = __SOURCE_DIRECTORY__ </> projDir
+    let releaseNotes = ReleaseNotesHelper.LoadReleaseNotes(projDir </> "RELEASE_NOTES.md")
     let pkgJson = projDir </> "package.json"
-    if needsPublishing versionRegex releaseNotes pkgJson then
+    if needsPublishing false versionRegex releaseNotes pkgJson then
         let buildDir =
             match build with
             | None -> projDir
@@ -539,7 +536,9 @@ Target "PublishStaticPages" (fun _ ->
 )
 
 Target "GitHubRelease" (fun _ ->
-    let release = release.Value
+    let release =
+        __SOURCE_DIRECTORY__ </> "src/dotnet/Fable.Tools/RELEASE_NOTES.md"
+        |> ReleaseNotesHelper.LoadReleaseNotes
     let user =
         match getBuildParam "github-user" with
         | s when not (String.IsNullOrWhiteSpace s) -> s
@@ -578,25 +577,21 @@ Target "FableCoreJs" buildCoreJs
 Target "RunTestsJs" runTestsJs
 
 Target "PublishPackages" (fun () ->
-    installDotnetSdk ()
-    clean ()
+    // installDotnetSdk ()
+    // clean ()
 
     // Publish Nuget packages
-    pushNuget release.Value [
-        "src/dotnet/Fable.Core/Fable.Core.fsproj"
-        "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
-        "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
-    ]
-    pushNuget releaseJsonConverter.Value
-        ["src/dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"]
-    pushNuget releaseNUnitPlugin.Value
-        ["src/plugins/nunit/Fable.Plugins.NUnit.fsproj"]
+    pushNuget "src/dotnet/Fable.Core/Fable.Core.fsproj"
+    pushNuget "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
+    pushNuget "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
+    pushNuget "src/dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"
+    pushNuget "src/plugins/nunit/Fable.Plugins.NUnit.fsproj"
 
     // Publish NPM packages
-    pushNpm None releaseToolsJs.Value "src/typescript/fable-utils"
-    pushNpm None releaseLoader.Value "src/typescript/fable-loader"
-    pushNpm None releaseRollup.Value "src/typescript/rollup-plugin-fable"
-    pushNpm (Some buildSplitter) releaseSplitter.Value "src/typescript/fable-splitter"
+    pushNpm None "src/typescript/fable-utils"
+    pushNpm None "src/typescript/fable-loader"
+    pushNpm None "src/typescript/rollup-plugin-fable"
+    pushNpm (Some buildSplitter) "src/typescript/fable-splitter"
 )
 
 Target "All" (fun () ->
