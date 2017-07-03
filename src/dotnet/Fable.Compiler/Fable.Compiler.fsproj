@@ -12,6 +12,7 @@
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="Fable2Babel.fs" />
+    <Compile Include="State.fs" />    
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
