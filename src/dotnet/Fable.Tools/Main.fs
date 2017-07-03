@@ -9,7 +9,7 @@ open System.Net
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open Parser
-open State
+open StateUtil
 
 type ProcessOptions(?envVars, ?redirectOutput) =
     member val EnvVars = defaultArg envVars Map.empty<string,string>
@@ -120,12 +120,12 @@ let parseArguments args =
 
 let debug (projFile: string) (define: string[]) =
     try
-        let com = Compiler()
+        let com = Fable.State.Compiler()
         let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
         let msg = { path=(Path.GetFullPath projFile); define=define; plugins=[||]; options=com.Options; extra = dict [] }
         let state, project = updateState checker com Map.empty msg
         for file in project.ProjectOptions.ProjectFileNames |> Seq.rev do
-            let com = Compiler()
+            let com = Fable.State.Compiler()
             compile com project file |> printfn "%A"
     with
     | ex -> printfn "ERROR: %s\n%s" ex.Message ex.StackTrace
