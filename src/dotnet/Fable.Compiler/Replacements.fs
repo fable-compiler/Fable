@@ -1519,7 +1519,7 @@ module AstPass =
               "replicate"; "reverse"; "singleton"; "unzip"; "unzip3" ]
 
     let implementedArrayFunctions =
-        set [ "copyTo"; "partition"; "permute"; "sortInPlaceBy"; "unzip"; "unzip3" ]
+        set [ "chunkBySize"; "copyTo"; "partition"; "permute"; "sortInPlaceBy"; "unzip"; "unzip3" ]
 
     let nativeArrayFunctions =
         dict [ "exists" => "some"; "filter" => "filter";

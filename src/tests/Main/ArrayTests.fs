@@ -203,7 +203,7 @@ let ``Array distinct works`` () =
     let xs =
         [| "b"
            "a"
-           "b" |] 
+           "b" |]
         |> Array.distinct
     xs.Length |> equal 2
     xs.[0] |> equal "b"
@@ -214,7 +214,7 @@ let ``Array distinctBy works`` () =
     let xs =
         [| "a"
            "b"
-           "a" |] 
+           "a" |]
         |> Array.distinctBy(fun x -> x + "_")
     xs.Length |> equal 2
     xs.[0] |> equal "a"
@@ -225,7 +225,7 @@ let ``Array distinctBy with tuples works`` () =
     let xs =
         [| (0,0),"a"
            (1,1),"b"
-           (0,0),"c" |] 
+           (0,0),"c" |]
         |> Array.distinctBy(fun (x, _) -> x)
     xs.Length |> equal 2
     xs.[0] |> snd |> equal "a"
@@ -858,3 +858,10 @@ let ``Array indexed works`` () =
     xs.Length |> equal 3
     fst xs.[2] |> equal 2
     snd xs.[2] |> equal "c"
+
+[<Test>]
+let ``Array.chunkBySize works`` () =
+    Array.chunkBySize 4 [|1..8|]
+    |> equal [| [|1..4|]; [|5..8|] |]
+    Array.chunkBySize 4 [|1..10|]
+    |> equal [| [|1..4|]; [|5..8|]; [|9..10|] |]
