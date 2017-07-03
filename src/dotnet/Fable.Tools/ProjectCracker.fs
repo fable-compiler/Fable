@@ -230,8 +230,18 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "-r:" + fableCoreLib // "FSharp.Core"
     |]
 
+let tryGetTargetFramework (xmlDoc: XDocument) =
+    xmlDoc.Root.Elements()
+    |> Seq.tryPick (fun el ->
+        if el.Name.LocalName = "PropertyGroup" then
+            el.Elements() |> Seq.tryPick (fun el ->
+                if el.Name.LocalName = "TargetFramework"
+                then Some el.Value
+                else None)
+        else None)
+
 /// Ultra-simplistic resolution of .fsproj files
-let crackFsproj (projFile: string) =
+let crackFsproj (projFile: string) (xmlDoc: XDocument option) =
     let withName s (xs: XElement seq) =
         xs |> Seq.filter (fun x -> x.Name.LocalName = s)
     let (|BeforeComma|) (att: XAttribute) =
@@ -264,12 +274,16 @@ let crackFsproj (projFile: string) =
                 | Some x -> RelativeDllReference x.Value
                 | None -> Another
         | _ -> Another
-    if not(File.Exists(projFile)) then
-        failwith ("File does not exist: " + projFile)
-    let doc = XDocument.Load(projFile)
+    let xmlDoc =
+        match xmlDoc with
+        | Some doc -> doc
+        | None ->
+            if not(File.Exists(projFile)) then
+                failwith ("File does not exist: " + projFile)
+            XDocument.Load(projFile)
     let projDir = Path.GetDirectoryName(projFile) |> Path.normalizePath
     let sourceFiles, projectReferences, relativeDllReferences =
-        doc.Root.Elements()
+        xmlDoc.Root.Elements()
         |> withName "ItemGroup"
         |> Seq.map (fun item ->
             (item.Elements(), ([], [], []))
@@ -303,24 +317,20 @@ let partitionMap (f: 'T->Choice<'T1,'T2>) (xs: 'T list): 'T1 list * 'T2 list =
         | Choice1Of2 item -> item::list1, list2
         | Choice2Of2 item -> list1, item::list2)
 
-let getProjectOptionsFromFsproj projFile =
-    let targetFrameworkRegex =
-        Regex("<TargetFramework>([a-z]*)(.*?)</TargetFramework>", RegexOptions.IgnoreCase)
+let getProjectOptionsFromFsproj (projFile: string) =
+    let xmlDoc = XDocument.Load(projFile)
     let targetFramework =
-        File.ReadLines(projFile)
-        |> Seq.tryPick(fun line ->
-            let m = targetFrameworkRegex.Match(line)
-            if m.Success
-            then Some(m.Groups.[1].Value, m.Groups.[2].Value)
-            else None)
-        |> function
-            | Some(framework, version) ->
-                let framewor = if framework = "netcoreapp" then "netstandard" else framework
-                { Framework = "netstandard"; Version = version }
-            | None -> failwithf "Cannot find TargetFramework in %s" projFile
+        match tryGetTargetFramework xmlDoc with
+        | Some framework ->
+            let framework, version =
+                if framework.StartsWith("netcoreapp1") then "netstandard", "1.6"
+                elif framework.StartsWith("netcoreapp2") then "netstandard", "2.0"
+                else framework, ""
+            { Framework = framework; Version = version }
+        | None -> failwithf "Cannot find TargetFramework in %s" projFile
     let paketDir = tryFindPaketDirFromProject projFile
     checkFableCoreVersion paketDir projFile
-    let rec crackProjects (acc: CrackedFsproj list) projFile =
+    let rec crackProjects (acc: CrackedFsproj list) projFile xmlDoc =
         acc |> List.tryFind (fun x ->
             String.Equals(x.projectFile, projFile, StringComparison.OrdinalIgnoreCase))
         |> function
@@ -329,7 +339,7 @@ let getProjectOptionsFromFsproj projFile =
             // Duplicated items will be removed later
             crackedFsproj::acc
         | None ->
-            let crackedFsproj = crackFsproj projFile
+            let crackedFsproj = crackFsproj projFile xmlDoc
             let paketProjRefs, paketDllRefs =
                 getPaketRefs paketDir targetFramework projFile
                 |> partitionMap (function
@@ -341,9 +351,9 @@ let getProjectOptionsFromFsproj projFile =
                     dllReferences = crackedFsproj.dllReferences @ paketDllRefs }
             (crackedFsproj.projectReferences, crackedFsproj::acc)
             ||> Seq.foldBack (fun projFile acc ->
-                crackProjects acc projFile)
+                crackProjects acc projFile None)
     let crackedFsprojs =
-        crackProjects [] projFile
+        crackProjects [] projFile (Some xmlDoc)
         |> List.distinctBy (fun x -> x.projectFile.ToLower())
     let sourceFiles =
         crackedFsprojs |> Seq.collect (fun x -> x.sourceFiles) |> Seq.toArray
