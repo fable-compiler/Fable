@@ -1037,7 +1037,16 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                         { ctx with derivedConstructor=Some derivedCons }, args, extraArgs
                     | _ -> ctx, args, extraArgs
                 |> fun (ctx, args, extraArgs) ->
-                    getMemberKind meth, args, extraArgs, transformExpr com ctx body
+                    match getMemberKind meth, args, body.Type with
+                    // When a module field (no args) returns a function, it means
+                    // point-free style, which doesn't work well with the uncurrying optimization,
+                    // so we create a dynamic curried lambda (See #1041)
+                    | Fable.Field, [], t when t.IsFunctionType && (countFuncArgs t) > 1 ->
+                        let body = transformExpr com ctx body
+                        let body = makeCurriedLambda body.Range body.Type body
+                        Fable.Field, [], extraArgs, body
+                    | kind, args, _ ->
+                        kind, args, extraArgs, transformExpr com ctx body
         let entMember =
             let argTypes = List.map Fable.Ident.getType args
             let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type

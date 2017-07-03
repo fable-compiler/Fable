@@ -487,3 +487,38 @@ let ``CurriedLambda don't delay side effects unnecessarily``() = // See #996
           let b = mutateAndLambdify 349787
           (a,b)
       sprintf "%A" mutableValue3 |> equal "349787"
+
+module Types =
+    let inline flip f a b = f b a
+
+    type StringField =
+        { Value : string }
+
+        static member Empty =
+            { Value = "" }
+
+    let setValue value stringField =
+        { stringField with Value = value }
+
+    type Model =
+        { Email : StringField }
+
+    let setEmail email model =
+        { model with Email = email }
+
+    let asEmailIn =
+        flip setEmail
+
+module State =
+    open Types
+
+    let update email (model: Types.Model) =
+        model.Email
+        |> setValue email
+        |> asEmailIn model
+
+[<Test>]
+let ``Point-free style with multiple arguments works``() = // See #1041
+    let initialValue = { Types.Email = Types.StringField.Empty }
+    let m = State.update "m" initialValue
+    m.Email.Value |> equal "m"
