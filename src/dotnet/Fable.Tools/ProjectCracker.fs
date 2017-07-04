@@ -218,6 +218,7 @@ let getBasicCompilerArgs (define: string[]) optimize =
 #else
         yield "--targetprofile:netcore"
         yield "-r:" + sysCoreLib // "CoreLib"
+        yield "-r:" + sysUriLib //required for System.Uri types
 #endif
         yield "-r:" + resolve "mscorlib"
         yield "-r:" + resolve "System.Console"
@@ -232,7 +233,6 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "-r:" + resolve "System.Text.RegularExpressions"
         yield "-r:" + fsCoreLib // "FSharp.Core"
         yield "-r:" + fableCoreLib // "FSharp.Core"
-        yield "-r:" + sysUriLib //required for System.Uri types
     |]
 
 let tryGetTargetFramework (xmlDoc: XDocument) =
