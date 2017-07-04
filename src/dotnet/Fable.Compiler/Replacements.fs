@@ -1984,6 +1984,20 @@ module AstPass =
             |> Fable.Value |> Some
         | _ -> None
 
+    let uris com (info: Fable.ApplyInfo) =
+        printfn "try to replace uri %s" info.methodName
+        match info.methodName with
+        | "unescapeDataString" ->
+            CoreLibCall("Util", Some "urldecode", false, info.args)
+            |> makeCall info.range info.returnType |> Some
+        | "escapeDataString" ->
+            CoreLibCall("Util", Some "escapeDataString", false, info.args)
+            |> makeCall info.range info.returnType |> Some
+        | "escapeUriString" ->
+            CoreLibCall("Util", Some "escapeUriString", false, info.args)
+            |> makeCall info.range info.returnType |> Some
+        | _ -> None
+
     let laziness com (info: Fable.ApplyInfo) =
         let coreCall meth isCons args =
             CoreLibCall("Lazy", meth, isCons, args)
@@ -2174,6 +2188,7 @@ module AstPass =
         | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel" -> mailbox com info
         | "Microsoft.FSharp.Control.FSharpAsync" -> asyncs com info
         | "System.Guid" -> guids com info
+        | "System.Uri" -> uris com info
         | "System.Lazy" | "Microsoft.FSharp.Control.Lazy"
         | "Microsoft.FSharp.Control.LazyExtensions" -> laziness com info
         | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com info
