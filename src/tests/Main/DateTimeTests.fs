@@ -69,7 +69,7 @@ let ``DateTime.MinValue works in pattern match``() =
     match d1 with
     | Some date when date <> DateTime.MinValue -> ()
     | _ -> failwith "expected pattern match above"
-    
+
 [<Test>]
 let ``DateTime.ToLocalTime works``() =
     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
@@ -152,6 +152,14 @@ let ``DateTime.Parse works``() =
     d.Year + d.Month + d.Day + d.Hour + d.Minute
     |> equal 2096
 
+[<Test>]
+let ``DateTime.Parse with time-only string works``() = // See #1045
+    let d = DateTime.Parse("13:50:34")
+    d.Hour + d.Minute + d.Second |> equal 97
+    let d = DateTime.Parse("1:5:34 AM")
+    d.Hour + d.Minute + d.Second |> equal 40
+    let d = DateTime.Parse("1:5:34 PM")
+    d.Hour + d.Minute + d.Second |> equal 52
 
 [<Test>]
 let ``DateTime.TryParse works``() =

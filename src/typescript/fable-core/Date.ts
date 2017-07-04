@@ -16,19 +16,28 @@ export function maxValue() {
   return parse(8640000000000000, 1);
 }
 
+/* tslint:disable */
 export function parse(v?: any, kind?: DateKind): any {
   if (kind == null) {
     kind = typeof v === "string" && v.slice(-1) === "Z" ? DateKind.UTC : DateKind.Local;
   }
-  const date = (v == null) ? new Date() : new Date(v);
-  if (kind === DateKind.Local) {
-    (date as any).kind = kind;
-  }
+  let date = (v == null) ? new Date() : new Date(v);
   if (isNaN(date.getTime())) {
-    throw new Error("The string is not a valid Date.");
+    // Check if this is a time-only string, which JS Date parsing cannot handle (see #1045)
+    if (typeof v === "string" && /^(?:[01]?\d|2[0-3]):(?:[0-5]?\d)(?::[0-5]?\d(?:\.\d+)?)?(?:\s*[AaPp][Mm])?$/.test(v)) {
+      const d = new Date();
+      date = new Date(d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + v);
+    }
+    else {
+      throw new Error("The string is not a valid Date.");
+    }
+  }
+  if (kind === 2 /* Local */) {
+    (date as any).kind = kind;
   }
   return date;
 }
+/* tslint:enable */
 
 export function tryParse(v: any): [boolean, Date] {
   try {
