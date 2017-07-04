@@ -832,11 +832,16 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
 
 let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity) (childDecls: #seq<Fable.Declaration>) =
     if fableEnt.Kind = Fable.Module then Seq.toList childDecls else
-    // If F# union or records implement System.IComparable/System.Equatable generate the methods
+    
+    let isException = match fableEnt.Kind with Fable.Exception _ -> true | _ -> false
+
+    // If F# union or records implement System.IComparable/System.Equatable generate the methods.            
     // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
+    // Include F# exceptions as well because they have compiler-generated implementation 
+    // of Equals method but don't implement System.IEquatable.
     let needsEqImpl =
-        fableEnt.HasInterface "System.IEquatable"
-        && fableEnt.TryGetFullDecorator("Microsoft.FSharp.Core.CustomEquality").IsNone
+        (fableEnt.HasInterface "System.IEquatable" || isException)
+         && fableEnt.TryGetFullDecorator("Microsoft.FSharp.Core.CustomEquality").IsNone
     let needsCompImpl =
         fableEnt.HasInterface "System.IComparable"
         && fableEnt.TryGetFullDecorator("Microsoft.FSharp.Core.CustomComparison").IsNone
