@@ -161,6 +161,7 @@ let ``DateTime.TryParse works``() =
         | false, _ -> false
     f "foo" |> equal false
     f "9/10/2014 1:50:34 PM" |> equal true
+    f "1:50:34" |> equal true
 
 [<Test>]
 let ``DateTime.Today works``() =
