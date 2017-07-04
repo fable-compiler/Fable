@@ -108,24 +108,34 @@ let ``KeyValueList works at runtime``() =
     let opts2 = keyValueList CaseRules.None [ buildAtRuntime "Fable"]
     opts2?Name |> unbox |> equal "Fable"
 
-// TODO: Test for sublists
-// [<Test>]
-// let ``KeyValueList works with sublists``() =
-//     let opts1 =
-//         [ Bar(2,3)
-//           Foo [ Name "Fable"
-//                 ; QTY 5
-//                 ; Flag1 ] ]
-//         |> keyValueList CaseRules.LowerFirst
-//     let opts2 =
-//         let subList =
-//             [ Name "Fable"
-//                 ; QTY 5
-//                 ; Flag1 ]
-//         [ Bar(2,3)
-//           Foo subList ]
-//         |> keyValueList CaseRules.LowerFirst
-//     opts1, opts2
+type MyOptions3 =
+    | Bar2 of int*int
+    | Foo2 of MyOptions list
+
+[<Test>]
+let ``KeyValueList works with sublists``() =
+    let opts1 =
+        [ Bar2(2,3)
+          Foo2 [ Name "Fable"
+                 QTY 5
+                 Flag1 ] ]
+        |> keyValueList CaseRules.LowerFirst
+    let opts2 =
+        let subList =
+            [ Name "Fábula"
+              QTY 5
+              Flag1 ]
+        [ Bar2(2,3)
+          Foo2 subList ]
+        |> keyValueList CaseRules.LowerFirst
+    opts1?foo2?name |> unbox |> equal "Fable"
+    opts1?foo2?foo |> unbox |> equal 5
+    opts1?foo2?flag1 |> unbox |> equal true
+    opts1?bar2?(0) |> unbox |> equal 2
+    opts2?foo2?name |> unbox |> equal "Fábula"
+    opts2?foo2?foo |> unbox |> equal 5
+    opts2?foo2?flag1 |> unbox |> equal true
+    opts2?bar2?(1) |> unbox |> equal 3
 
 let [<Emit("arguments.length")>] argCount: int = jsNative
 
