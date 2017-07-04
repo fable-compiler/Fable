@@ -7,7 +7,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open Fable.Core
-open Fable.Tools.State
+open Fable.State
 
 let parseFSharpProject (checker: InteractiveChecker) (com: ICompiler) fileName source =
     let _,_,checkProjectResults = checker.ParseAndCheckScript (fileName, source)
