@@ -125,12 +125,15 @@ let checkFableCoreVersion paketDir projFile =
                     if m.Success then Some m.Groups.[1].Value else None)
                 |> function
                     | Some fableCoreVersion ->
-                        let versions =
-                            sprintf "Fable.Core: %s - dotnet-fable: %s"
-                                fableCoreVersion Constants.VERSION
-                        Log.logVerbose(versions)
-                        if fableCoreVersion <> Constants.VERSION then
-                            failwith ("Version mismatch! " + versions)
+                        sprintf "Fable.Core > actual: %s - expected: %s" fableCoreVersion Constants.CORE_VERSION
+                        |> Log.logVerbose
+                        if fableCoreVersion <> Constants.CORE_VERSION then
+                            String.Format("Expecting Fable.Core {0} but got {1}. " +
+                                "Pin Fable.Core version in paket.dependencies " +
+                                "or update dotnet-fable in .fsproj to latest version " +
+                                "(check https://www.nuget.org/packages/dotnet-fable)",
+                                Constants.CORE_VERSION, fableCoreVersion)
+                            |> failwith
                     | None -> failwithf "Cannot find version in %s" nuspec
             else Log.logAlways(sprintf "Fable.Core: Missing %s, cannot verify version" nuspec)
         | None -> failwith "Cannot find Fable.Core package location"
