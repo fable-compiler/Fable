@@ -137,6 +137,13 @@ let ``Record equality works``() =
     Object.ReferenceEquals(r1, r1) |> equal true
     Object.ReferenceEquals(r1, r2) |> equal false
 
+exception Ex of int
+
+[<Test>]
+let ``Exception equality works``() =
+    equal true ((Ex 1) = (Ex 1))
+    equal false ((Ex 1) = (Ex 2))
+
 #if FABLE_COMPILER
 
 [<Test>]
