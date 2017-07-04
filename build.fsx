@@ -367,13 +367,10 @@ let buildCoreJs () =
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" coreJsSrcDir]
 
 let buildSplitter () =
-    let buildDir = __SOURCE_DIRECTORY__ </> "build/fable-splitter"
-    FileUtils.cp_r (__SOURCE_DIRECTORY__ </> "src/typescript/fable-splitter") buildDir
+    let buildDir = __SOURCE_DIRECTORY__ </> "src/typescript/fable-splitter"
     Npm.install __SOURCE_DIRECTORY__ []
-    Npm.install buildDir []
     Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" buildDir]
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" buildDir]
-    buildDir
 
 let buildCore isRelease () =
     let config = if isRelease then "Release" else "Debug"
@@ -574,6 +571,7 @@ Target "FableTools" (fun _ ->
     nugetRestore "src/dotnet" ()
     buildTools "src/dotnet" true ())
 Target "FableCoreJs" buildCoreJs
+Target "FableSplitter" buildSplitter
 Target "RunTestsJs" runTestsJs
 
 Target "PublishPackages" (fun () ->
@@ -591,7 +589,8 @@ Target "PublishPackages" (fun () ->
     pushNpm None "src/typescript/fable-utils"
     pushNpm None "src/typescript/fable-loader"
     pushNpm None "src/typescript/rollup-plugin-fable"
-    pushNpm (Some buildSplitter) "src/typescript/fable-splitter"
+    buildSplitter ()
+    pushNpm None "src/typescript/fable-splitter"
 )
 
 Target "All" (fun () ->
@@ -600,6 +599,7 @@ Target "All" (fun () ->
     nugetRestore "src/dotnet" ()
     buildTools "src/dotnet" true ()
     buildCoreJs ()
+    buildSplitter ()
     buildNUnitPlugin ()
     buildJsonConverter ()
     runTestsJs ()

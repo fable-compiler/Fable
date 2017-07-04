@@ -20,8 +20,6 @@
     <Compile Include="../Fable.Core/AST/AST.Babel.fs" />
     <Compile Include="../Fable.Core/Plugins.fs" />
     <Compile Include="../Fable.Core/Import/Fable.Import.JS.fs" />
-    <!--<Compile Include="../Fable.Core/Import/Fable.Import.Browser.fs" />-->
-    <!--<Compile Include="../Fable.Core/Import/Node/*.fs" />-->
     <Compile Include="../Fable.Core/Fable.Core.JsInterop.fs" />
     <Compile Include="../Fable.Core/Fable.Core.Extensions.fs" />
 
@@ -30,8 +28,7 @@
     <Compile Include="../Fable.Compiler/FSharp2Fable.Util.fs"/>
     <Compile Include="../Fable.Compiler/FSharp2Fable.fs"/>
     <Compile Include="../Fable.Compiler/Fable2Babel.fs"/>
-
-    <Compile Include="../Fable.Tools/State.fs"/>
+    <Compile Include="../Fable.Compiler/State.fs"/>
 
     <Compile Include="Fable.Client.fs"/>
   </ItemGroup>
