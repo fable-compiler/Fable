@@ -532,3 +532,18 @@ export function parse<A>(v: string | null, initial: A, parser: RegExp, fn: (s: s
     throw new Error("Input string was not in a correct format.");
   }
 }
+
+export function unescapeDataString(s: string): string {
+  // https://stackoverflow.com/a/4458580/524236
+  return decodeURIComponent((s).replace(/\+/g, "%20"));
+}
+export function escapeDataString(s: string): string {
+  return encodeURIComponent(s).replace(/!/g, "%21")
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29")
+    .replace(/\*/g, "%2A");
+}
+export function escapeUriString(s: string): string {
+  return encodeURI(s);
+}

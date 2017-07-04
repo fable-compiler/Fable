@@ -181,6 +181,7 @@ let getProjectOptionsFromScript (checker: FSharpChecker) (define: string[]) scri
 let fsCoreLib = typeof<Microsoft.FSharp.Core.MeasureAttribute>.GetTypeInfo().Assembly.Location
 let fableCoreLib = typeof<Fable.Core.EraseAttribute>.GetTypeInfo().Assembly.Location
 let sysCoreLib = typeof<System.Object>.GetTypeInfo().Assembly.Location
+let sysUriLib = typeof<System.Uri>.GetTypeInfo().Assembly.Location
 let sysPath = Path.GetDirectoryName(sysCoreLib)
 let localPath = Path.GetDirectoryName(typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location)
 
@@ -217,6 +218,7 @@ let getBasicCompilerArgs (define: string[]) optimize =
 #else
         yield "--targetprofile:netcore"
         yield "-r:" + sysCoreLib // "CoreLib"
+        yield "-r:" + sysUriLib //required for System.Uri types
 #endif
         yield "-r:" + resolve "mscorlib"
         yield "-r:" + resolve "System.Console"
