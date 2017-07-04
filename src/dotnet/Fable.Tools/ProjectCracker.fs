@@ -181,6 +181,7 @@ let getProjectOptionsFromScript (checker: FSharpChecker) (define: string[]) scri
 let fsCoreLib = typeof<Microsoft.FSharp.Core.MeasureAttribute>.GetTypeInfo().Assembly.Location
 let fableCoreLib = typeof<Fable.Core.EraseAttribute>.GetTypeInfo().Assembly.Location
 let sysCoreLib = typeof<System.Object>.GetTypeInfo().Assembly.Location
+let sysUriLib = typeof<System.Uri>.GetTypeInfo().Assembly.Location
 let sysPath = Path.GetDirectoryName(sysCoreLib)
 let localPath = Path.GetDirectoryName(typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location)
 
@@ -225,13 +226,13 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "-r:" + resolve "System.IO"
         yield "-r:" + resolve "System.Reflection"
         yield "-r:" + resolve "System.Runtime"
-        yield "-r:" + resolve "System.Private.Uri" //required for System.Uri types
         yield "-r:" + resolve "System.Runtime.Numerics"
         yield "-r:" + resolve "System.Threading"
         yield "-r:" + resolve "System.Threading.Tasks"
         yield "-r:" + resolve "System.Text.RegularExpressions"
         yield "-r:" + fsCoreLib // "FSharp.Core"
         yield "-r:" + fableCoreLib // "FSharp.Core"
+        yield "-r:" + sysUriLib //required for System.Uri types
     |]
 
 let tryGetTargetFramework (xmlDoc: XDocument) =
