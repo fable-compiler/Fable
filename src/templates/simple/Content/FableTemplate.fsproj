@@ -7,8 +7,10 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
-    <!-- Keep dotnet-fable version synced with Fable.Core version in paket.dependencies -->
-    <DotNetCliToolReference Include="dotnet-fable" Version="1.1.5" />
+  <!-- When updating Fable, make sure both dotnet-fable and Fable.Core in paket.dependencies
+  are updated to latest versions (see https://www.nuget.org/packages/dotnet-fable).
+  To update Fable.Core (and other F# libraries) just run `.paket/paket.exe update` -->
+    <DotNetCliToolReference Include="dotnet-fable" Version="1.1.6" />
   </ItemGroup>
   <Import Project=".paket\Paket.Restore.targets" />
 </Project>
