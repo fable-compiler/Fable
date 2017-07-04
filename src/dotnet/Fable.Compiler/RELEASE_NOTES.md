@@ -1,3 +1,9 @@
+### 1.1.6
+
+* Fix #1040: Expose Array.chunkBySize
+* Fix #1041: Point-free style with multiple arguments
+* Support some System.Uri static methods (#1048)
+
 ### 1.1.5
 
 * Fix #1028: Arguments of auto-generated lambdas conflicting with outer variables

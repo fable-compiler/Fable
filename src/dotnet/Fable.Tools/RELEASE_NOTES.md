@@ -1,3 +1,8 @@
+### 1.1.6
+
+* Parse XML to read TargetFramework
+* Release Fable packages independently
+
 ### 1.1.5
 
 * Fix #1028: Arguments of auto-generated lambdas conflicting with outer variables

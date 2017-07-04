@@ -452,6 +452,15 @@ let needsPublishing silent (versionRegex: Regex) (releaseNotes: ReleaseNotes) pr
                     sprintf "Already version %s, no need to publish" releaseNotes.NugetVersion |> print
                 not sameVersion
 
+let checkDependent versionRegex projFile dependentProjFile =
+    let dependentProjFile = Path.GetFullPath(dependentProjFile)
+    let dependentRelease =
+        Path.GetDirectoryName(dependentProjFile) </> "RELEASE_NOTES.md"
+        |> ReleaseNotesHelper.LoadReleaseNotes
+    if not(needsPublishing true versionRegex dependentRelease dependentProjFile) then
+        (Path.GetFileNameWithoutExtension(dependentProjFile), Path.GetFileNameWithoutExtension(projFile))
+        ||> failwithf "%s version must also be bumped when pushing a new %s release"
+
 let updateVersionInToolsUtil versionName version =
     let reg = Regex(@"\b" + versionName + @"\s*=\s*""(.*?)""")
     let mainFile = __SOURCE_DIRECTORY__ </> "src/dotnet/Fable.Tools/ToolsUtil.fs"
@@ -471,15 +480,11 @@ let pushNuget (projFile: string) =
             | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
         // If necessary, update version in ToolsUtil.fs and build JS files
         if projFile.Contains("Fable.Core.fsproj") then
+            checkDependent versionRegex projFile "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
             updateVersionInToolsUtil "CORE_VERSION" releaseNotes.NugetVersion
             buildCoreJs()
         if projFile.Contains("Fable.Compiler.fsproj") then
-            let cliProj = __SOURCE_DIRECTORY__ </> "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
-            let cliRelease =
-                __SOURCE_DIRECTORY__ </> "src/dotnet/Fable.Tools/RELEASE_NOTES.md"
-                |> ReleaseNotesHelper.LoadReleaseNotes
-            if not(needsPublishing true versionRegex cliRelease cliProj) then
-                failwith "dotnet-fable version must also be bumped when pushing a new Fable.Compiler release"
+            checkDependent versionRegex projFile "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
         if projFile.Contains("dotnet-fable.fsproj") then
             updateVersionInToolsUtil "VERSION" releaseNotes.NugetVersion
         // Restore dependencies here so they're updated to latest project versions

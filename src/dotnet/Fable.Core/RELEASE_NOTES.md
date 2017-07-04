@@ -1,3 +1,8 @@
+### 1.1.6
+
+* Fix #1046: Parse time-only strings
+* Support some System.Uri static methods (#1048)
+
 ### 1.1.5
 
 * Fix #1028: Arguments of auto-generated lambdas conflicting with outer variables
