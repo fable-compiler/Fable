@@ -1,11 +1,35 @@
 {
-  "author": "Alfonso Garcia-Caro",
-  "classifications": [ "Fable" ],
+  "author": "Alfonso Garcia-Caro; Maxime Mangel",
+  "classifications": [
+    "Fable"
+  ],
   "name": "Simple Fable App",
   "tags": {
     "language": "F#",
     "type": "project"
   },
+  "symbols": {
+    "fake": {
+      "type": "parameter",
+      "dataType": "bool",
+      "defaultValue": "false",
+      "description": "If set then, the template will include Fake as build system."
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "condition": "(!fake)",
+          "exclude": [
+            "build.cmd",
+            "build.sh",
+            "build.fsx"
+          ]
+        }
+      ]
+    }
+  ],
   "identity": "Fable.Template",
   "groupIdentity": "Fable",
   "shortName": "fable",

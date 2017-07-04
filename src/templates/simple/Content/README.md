@@ -2,7 +2,6 @@
 
 This template can be used to generate a simple web app with [Fable](http://fable.io/).
 You can find more templates by searching `Fable.Template` packages in [Nuget](https://www.nuget.org).
-
 ## Requirements
 
 * [dotnet SDK](https://www.microsoft.com/net/download/core) 1.0.4 or higher
@@ -12,6 +11,27 @@ You can find more templates by searching `Fable.Template` packages in [Nuget](ht
 > npm comes bundled with node.js, but we recommend to use at least npm 5. If you have npm installed you can upgrade it by running `npm install -g npm`.
 
 Although is not a Fable requirement, on macOS and Linux you'll need [Mono](http://www.mono-project.com/) for other F# tooling like Paket or editor support.
+
+//#if (fake)
+## Quickstart - Development
+
+1. Run `build.cmd Watch` or `build.sh Watch`
+2. In your browser, open: [http://localhost:8080/](http://localhost:8080/)
+
+Any modification you do to the F# code will be reflected in the web page after saving.
+
+## Available targets
+
+This templates provides the following targets.
+
+| Target | Description |
+|:-|:-|
+| Build | Restore the dependencies and build your project. Bundles are under: `public/dist/` |
+| QuickBuild | Only build the project. Bundles are under: `public/dist/` |
+| Watch | Restore the dependencies and start the dev server |
+| QuickWatch | Only start the dev server |
+
+//#else
 
 ## Building and running the app
 
@@ -58,3 +78,4 @@ Any modification you do to the F# code will be reflected in the web page after s
 ### F# source files
 
 The template only contains two F# source files: the project (.fsproj) and a source file (.fs) in `src` folder. Note Fable is a local dotnet CLI tool that is downloaded by the project file.
+//#endif
