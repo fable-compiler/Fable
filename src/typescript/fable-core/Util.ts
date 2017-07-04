@@ -533,7 +533,7 @@ export function parse<A>(v: string | null, initial: A, parser: RegExp, fn: (s: s
   }
 }
 
-export function urldecode(s: string): string {
+export function unescapeDataString(s: string): string {
   // https://stackoverflow.com/a/4458580/524236
   return decodeURIComponent((s).replace(/\+/g, "%20"));
 }

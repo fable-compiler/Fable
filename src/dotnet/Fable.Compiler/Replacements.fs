@@ -1988,7 +1988,7 @@ module AstPass =
         printfn "try to replace uri %s" info.methodName
         match info.methodName with
         | "unescapeDataString" ->
-            CoreLibCall("Util", Some "urldecode", false, info.args)
+            CoreLibCall("Util", Some "unescapeDataString", false, info.args)
             |> makeCall info.range info.returnType |> Some
         | "escapeDataString" ->
             CoreLibCall("Util", Some "escapeDataString", false, info.args)
