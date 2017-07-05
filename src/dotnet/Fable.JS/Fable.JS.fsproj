@@ -30,7 +30,7 @@
     <Compile Include="../Fable.Compiler/Fable2Babel.fs"/>
     <Compile Include="../Fable.Compiler/State.fs"/>
 
-    <Compile Include="Fable.Client.fs"/>
+    <Compile Include="Main.fs"/>
   </ItemGroup>
 
   <ItemGroup>
