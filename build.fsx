@@ -261,7 +261,7 @@ let localDotnetExePath = dotnetSDKPath </> (if isWindows then "dotnet.exe" else 
 let cliBuildDir = "build/fable"
 let coreBuildDir = "build/fable-core"
 let coreSrcDir = "src/dotnet/Fable.Core"
-let coreJsSrcDir = "src/typescript/fable-core"
+let coreJsSrcDir = "src/js/fable-core"
 
 // Targets
 let installDotnetSdk () =
@@ -364,7 +364,7 @@ let buildCoreJs () =
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" coreJsSrcDir]
 
 let buildSplitter () =
-    let buildDir = __SOURCE_DIRECTORY__ </> "src/typescript/fable-splitter"
+    let buildDir = __SOURCE_DIRECTORY__ </> "src/js/fable-splitter"
     Npm.install __SOURCE_DIRECTORY__ []
     Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" buildDir]
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" buildDir]
@@ -588,11 +588,11 @@ Target "PublishPackages" (fun () ->
     pushNuget "src/plugins/nunit/Fable.Plugins.NUnit.fsproj"
 
     // Publish NPM packages
-    pushNpm None "src/typescript/fable-utils"
-    pushNpm None "src/typescript/fable-loader"
-    pushNpm None "src/typescript/rollup-plugin-fable"
+    pushNpm None "src/js/fable-utils"
+    pushNpm None "src/js/fable-loader"
+    pushNpm None "src/js/rollup-plugin-fable"
     buildSplitter ()
-    pushNpm None "src/typescript/fable-splitter"
+    pushNpm None "src/js/fable-splitter"
 )
 
 Target "All" (fun () ->

@@ -12,4 +12,4 @@ The main folders you can go from here are:
 
 - `tools`: A place to put some files to help development of the other projects. The most interesting is QuickTest.fsx, to quickly test changes to the compiler (more instructions in the file itself).
 
-- `typescript`: Despite the name, it contains both Typescript and JS projects, like the JS part of fable-core and the Webpack/Rollup loaders.
+- `js`: Despite the name, it contains both Typescript and JS projects, like the JS part of fable-core and the Webpack/Rollup loaders.
