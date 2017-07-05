@@ -20,11 +20,6 @@ module.exports = {
     filename: 'bundle.js',
     path: resolve('./public'),
   },
-  resolve: {
-    modules: [
-      "node_modules", resolve("./node_modules/")
-    ]
-  },
   devServer: {
     contentBase: resolve('./public'),
     port: 8080
