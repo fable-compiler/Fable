@@ -1985,7 +1985,6 @@ module AstPass =
         | _ -> None
 
     let uris com (info: Fable.ApplyInfo) =
-        printfn "try to replace uri %s" info.methodName
         match info.methodName with
         | "unescapeDataString" ->
             CoreLibCall("Util", Some "unescapeDataString", false, info.args)

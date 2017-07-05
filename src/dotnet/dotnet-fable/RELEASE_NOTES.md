@@ -1,3 +1,7 @@
+### 1.1.7
+
+* Add Fable.Core as direct dependency
+
 ### 1.1.6
 
 * Parse XML to read TargetFramework

@@ -1,3 +1,7 @@
+### 1.1.7
+
+* Update FCS dependency
+
 ### 1.1.6
 
 * Fix #1040: Expose Array.chunkBySize
