@@ -6,8 +6,8 @@
     <Compile Include="JsonConverterTests.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../Fable.JsonConverter/Fable.JsonConverter.fsproj" />
+    <ProjectReference Include="../Fable.JsonConverter.fsproj" />
     <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
   </ItemGroup>
-  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
+  <Import Project="..\..\..\..\.paket\Paket.Restore.targets" />
 </Project>

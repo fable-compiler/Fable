@@ -1,4 +1,4 @@
-module Fable.Tools.Main
+module Fable.CLI.Main
 
 open System
 open System.IO

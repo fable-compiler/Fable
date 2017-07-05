@@ -1,4 +1,4 @@
-module Fable.Client
+module Fable.JS
 
 open System
 open System.Collections.Generic

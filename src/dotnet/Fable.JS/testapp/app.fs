@@ -1,7 +1,7 @@
 module App
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
-open Fable.Client
+open Fable.JS
 
 let metadataPath = "/temp/metadata/"
 
