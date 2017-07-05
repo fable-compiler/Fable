@@ -1,4 +1,4 @@
-module Fable.Tools.ProjectCracker
+module Fable.CLI.ProjectCracker
 
 open System
 open System.IO

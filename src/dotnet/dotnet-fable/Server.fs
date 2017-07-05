@@ -1,4 +1,4 @@
-module Fable.Tools.Server
+module Fable.CLI.Server
 
 open System
 open System.IO

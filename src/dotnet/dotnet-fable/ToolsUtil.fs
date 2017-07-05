@@ -1,4 +1,4 @@
-namespace Fable.Tools
+namespace Fable.CLI
 
 module Constants =
 

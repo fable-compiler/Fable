@@ -1,4 +1,4 @@
-module Fable.Tools.StateUtil
+module Fable.CLI.StateUtil
 
 open Fable
 open Fable.AST

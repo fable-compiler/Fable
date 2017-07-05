@@ -1,4 +1,4 @@
-module Fable.Tools.Printers
+module Fable.CLI.Printers
 
 open System
 open System.IO

@@ -1,4 +1,4 @@
-module Fable.Tools.Parser
+module Fable.CLI.Parser
 
 open System
 open System.Collections.Generic

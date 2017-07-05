@@ -258,12 +258,9 @@ let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 let dotnetSDKPath = FullName "./dotnetsdk"
 let localDotnetExePath = dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
 
-let toolsBuildDir = "build/fable"
+let cliBuildDir = "build/fable"
 let coreBuildDir = "build/fable-core"
-let testsBuildDir = "build/tests"
 let coreSrcDir = "src/dotnet/Fable.Core"
-let compilerSrcDir = "src/dotnet/Fable.Compiler"
-let toolsSrcDir = "src/dotnet/Fable.Tools"
 let coreJsSrcDir = "src/typescript/fable-core"
 
 // Targets
@@ -350,16 +347,16 @@ let clean () =
 let nugetRestore baseDir () =
     Util.run (baseDir </> "Fable.Core") dotnetExePath "restore"
     Util.run (baseDir </> "Fable.Compiler") dotnetExePath "restore"
-    Util.run (baseDir </> "Fable.Tools") dotnetExePath "restore"
+    Util.run (baseDir </> "dotnet-fable") dotnetExePath "restore"
 
-let buildTools baseDir isRelease () =
+let buildCLI baseDir isRelease () =
     sprintf "publish -o ../../../%s -c %s -v n"
-        toolsBuildDir (if isRelease then "Release" else "Debug")
-    |> Util.run (baseDir </> "Fable.Tools") dotnetExePath
+        cliBuildDir (if isRelease then "Release" else "Debug")
+    |> Util.run (baseDir </> "dotnet-fable") dotnetExePath
 
     // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
-    FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.optdata" toolsBuildDir
-    FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.sigdata" toolsBuildDir
+    FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.optdata" cliBuildDir
+    FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.sigdata" cliBuildDir
 
 let buildCoreJs () =
     Npm.install __SOURCE_DIRECTORY__ []
@@ -421,7 +418,7 @@ let quickTest() =
 
 Target "QuickTest" quickTest
 Target "QuickFableCompilerTest" (fun () ->
-    buildTools "src/dotnet" true ()
+    buildCLI "src/dotnet" true ()
     quickTest ())
 Target "QuickFableCoreTest" (fun () ->
     buildCoreJs ()
@@ -460,7 +457,7 @@ let checkDependent versionRegex projFile dependentProjFile =
 
 let updateVersionInToolsUtil versionName version =
     let reg = Regex(@"\b" + versionName + @"\s*=\s*""(.*?)""")
-    let mainFile = __SOURCE_DIRECTORY__ </> "src/dotnet/Fable.Tools/ToolsUtil.fs"
+    let mainFile = __SOURCE_DIRECTORY__ </> "src/dotnet/dotnet-fable/ToolsUtil.fs"
     (reg, mainFile) ||> Util.replaceLines (fun line m ->
         let replacement = sprintf "%s = \"%s\"" versionName version
         reg.Replace(line, replacement) |> Some)
@@ -481,7 +478,7 @@ let pushNuget (projFile: string) =
             updateVersionInToolsUtil "CORE_VERSION" releaseNotes.NugetVersion
             buildCoreJs()
         if projFile.Contains("Fable.Compiler.fsproj") then
-            checkDependent versionRegex projFile "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
+            checkDependent versionRegex projFile "src/dotnet/dotnet-fable/dotnet-fable.fsproj"
         if projFile.Contains("dotnet-fable.fsproj") then
             updateVersionInToolsUtil "VERSION" releaseNotes.NugetVersion
         // Restore dependencies here so they're updated to latest project versions
@@ -539,7 +536,7 @@ Target "PublishStaticPages" (fun _ ->
 
 Target "GitHubRelease" (fun _ ->
     let release =
-        __SOURCE_DIRECTORY__ </> "src/dotnet/Fable.Tools/RELEASE_NOTES.md"
+        __SOURCE_DIRECTORY__ </> "src/dotnet/dotnet-fable/RELEASE_NOTES.md"
         |> ReleaseNotesHelper.LoadReleaseNotes
     let user =
         match getBuildParam "github-user" with
@@ -572,9 +569,9 @@ Target "GitHubRelease" (fun _ ->
 
 Target "Clean" clean
 Target "NugetRestore" (nugetRestore "src/dotnet")
-Target "FableTools" (fun _ ->
+Target "FableCLI" (fun _ ->
     nugetRestore "src/dotnet" ()
-    buildTools "src/dotnet" true ())
+    buildCLI "src/dotnet" true ())
 Target "FableCoreJs" buildCoreJs
 Target "FableSplitter" buildSplitter
 Target "RunTestsJs" runTestsJs
@@ -586,7 +583,7 @@ Target "PublishPackages" (fun () ->
     // Publish Nuget packages
     pushNuget "src/dotnet/Fable.Core/Fable.Core.fsproj"
     pushNuget "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
-    pushNuget "src/dotnet/Fable.Tools/dotnet-fable.fsproj"
+    pushNuget "src/dotnet/dotnet-fable/dotnet-fable.fsproj"
     pushNuget "src/dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"
     pushNuget "src/plugins/nunit/Fable.Plugins.NUnit.fsproj"
 
@@ -602,7 +599,7 @@ Target "All" (fun () ->
     installDotnetSdk ()
     clean ()
     nugetRestore "src/dotnet" ()
-    buildTools "src/dotnet" true ()
+    buildCLI "src/dotnet" true ()
     buildCoreJs ()
     buildSplitter ()
     buildNUnitPlugin ()
