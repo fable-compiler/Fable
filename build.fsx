@@ -358,7 +358,7 @@ let buildCLI baseDir isRelease () =
     FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.optdata" cliBuildDir
     FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.sigdata" cliBuildDir
 
-let buildCoreJs () =
+let buildCoreJS () =
     Npm.install __SOURCE_DIRECTORY__ []
     Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" coreJsSrcDir]
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" coreJsSrcDir]
@@ -406,7 +406,7 @@ let runFableServer args f =
     try f()
     finally fableServer.Kill()
 
-let runTestsJs () =
+let runTestsJS () =
     Npm.install __SOURCE_DIRECTORY__ []
     runFableServer ["--verbose"] <| fun () ->
         Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tests/webpack.config.js"]
@@ -421,7 +421,7 @@ Target "QuickFableCompilerTest" (fun () ->
     buildCLI "src/dotnet" true ()
     quickTest ())
 Target "QuickFableCoreTest" (fun () ->
-    buildCoreJs ()
+    buildCoreJS ()
     quickTest ())
 
 let needsPublishing silent (versionRegex: Regex) (releaseNotes: ReleaseNotes) projFile =
@@ -476,7 +476,7 @@ let pushNuget (projFile: string) =
         if projFile.Contains("Fable.Core.fsproj") then
             checkDependent versionRegex projFile "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
             updateVersionInToolsUtil "CORE_VERSION" releaseNotes.NugetVersion
-            buildCoreJs()
+            buildCoreJS()
         if projFile.Contains("Fable.Compiler.fsproj") then
             checkDependent versionRegex projFile "src/dotnet/dotnet-fable/dotnet-fable.fsproj"
         if projFile.Contains("dotnet-fable.fsproj") then
@@ -572,9 +572,9 @@ Target "NugetRestore" (nugetRestore "src/dotnet")
 Target "FableCLI" (fun _ ->
     nugetRestore "src/dotnet" ()
     buildCLI "src/dotnet" true ())
-Target "FableCoreJs" buildCoreJs
+Target "FableCoreJS" buildCoreJS
 Target "FableSplitter" buildSplitter
-Target "RunTestsJs" runTestsJs
+Target "RunTestsJS" runTestsJS
 
 Target "PublishPackages" (fun () ->
     // installDotnetSdk ()
@@ -600,11 +600,11 @@ Target "All" (fun () ->
     clean ()
     nugetRestore "src/dotnet" ()
     buildCLI "src/dotnet" true ()
-    buildCoreJs ()
+    buildCoreJS ()
     buildSplitter ()
     buildNUnitPlugin ()
     buildJsonConverter ()
-    runTestsJs ()
+    runTestsJS ()
     runTestsDotnet ()
 )
 

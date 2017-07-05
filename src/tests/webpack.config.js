@@ -16,12 +16,17 @@ const config = {
     path: resolve('../../build/tests'),
     filename: 'bundle.js'
   },
+  resolve: {
+    modules: [
+      "node_modules", resolve("../../node_modules/")
+    ]
+  },
   module: {
     rules: [
       {
         test: /\.fs(x|proj)?$/,
         use: {
-            loader: resolve("../typescript/fable-loader"),
+            loader: "fable-loader",
             options: {
                 fableCore: resolve("../../build/fable-core"),
                 define: "DOTNETCORE",
@@ -39,15 +44,7 @@ const config = {
         },
       }
     ]
-  },
-  // externals: [
-  //   function(context, request, callback) {
-  //     if (/fable-core/.test(request)){
-  //       return callback(null, 'commonjs ' + request);
-  //     }
-  //     callback();
-  //   }
-  // ],
+  }
 };
 
 module.exports = config;
