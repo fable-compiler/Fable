@@ -596,3 +596,14 @@ let ``String.mapi works``() =
 let ``String.replicate works``() =
       String.replicate 3 "hi there"
       |> equal "hi therehi therehi there"
+      
+[<Test>]
+let ``String.IsNullOrWhiteSpace works on string with blanks``() =
+      String.IsNullOrWhiteSpace "Fri Jun 30 2017 12:30:00 GMT+0200 (Mitteleuropäische Sommerzeit)"
+      |> equal false
+      
+
+[<Test>]
+let ``String.IsNullOrWhiteSpace works on blank only string``() =
+      String.IsNullOrWhiteSpace "      "
+      |> equal true
