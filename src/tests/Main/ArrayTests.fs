@@ -870,12 +870,12 @@ let ``Array.chunkBySize works`` () =
 
 open Fable.Core
 open Fable.Core.JsInterop
-type ActionProp = { Name: string }
-type DialogProps =
-    | Actions of ActionProp array
+type NameProp = { Name: string }
+type Props =
+    | Names of NameProp array
 [<Test>]
-let ``Array as keyValueList is preserved`` () =
-    let actions = [ Actions [| { Name = "name" } |] ]
-    let prop = [ Actions [| { Name = "name" } |] ] |> keyValueList CaseRules.LowerFirst
-    let expected = actions |> keyValueList CaseRules.LowerFirst
-    prop |> equal expected
+let ``Array inside keyValueList is preserved`` () =
+    let props = [ Names [| { Name = "name" } |] ]
+    let actual = [ Names [| { Name = "name" } |] ] |> keyValueList CaseRules.LowerFirst
+    let expected = props |> keyValueList CaseRules.LowerFirst
+    actual |> equal expected
