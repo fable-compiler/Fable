@@ -137,6 +137,16 @@ let ``KeyValueList works with sublists``() =
     opts2?foo2?flag1 |> unbox |> equal true
     opts2?bar2?(1) |> unbox |> equal 3
 
+type NameProp = { Name: string }
+type Props = Names of NameProp array
+
+[<Test>]
+let ``Array inside keyValueList is preserved`` () =
+    let props = [ Names [| { Name = "name" } |] ]
+    let actual = [ Names [| { Name = "name" } |] ] |> keyValueList CaseRules.LowerFirst |> toJson
+    let expected = props |> keyValueList CaseRules.LowerFirst |> toJson
+    actual |> equal expected
+
 let [<Emit("arguments.length")>] argCount: int = jsNative
 
 type ArgCounter() =
