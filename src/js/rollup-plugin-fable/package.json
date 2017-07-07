@@ -1,6 +1,6 @@
 {
   "name": "rollup-plugin-fable",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Rollup Plugin for Fable",
   "main": "index.js",
   "scripts": {
@@ -33,7 +33,7 @@
     "babel-core": "^6.24.1"
   },
   "dependencies": {
-    "fable-utils": "^1.0.0",
+    "fable-utils": "^1.0.1",
     "rollup-pluginutils": "2.0.1"
   }
 }

@@ -1,8 +1,11 @@
 {
   "name": "fable-utils",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Webpack loader for Fable compiler",
   "main": "index.js",
+  "bin": {
+    "fable": "./fable.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -12,7 +15,9 @@
     "type": "git",
     "url": "https://github.com/fable-compiler/Fable.git"
   },
-  "keywords": ["fable"],
+  "keywords": [
+    "fable"
+  ],
   "bugs": {
     "url": "https://github.com/fable-compiler/Fable/issues"
   },

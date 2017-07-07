@@ -1,5 +1,8 @@
+/// @ts-check
+
 const path = require('path');
 const babel = require('babel-core');
+var cache = require("fable-utils/cache");
 const client = require('fable-utils/client');
 const babelPlugins = require('fable-utils/babel-plugins');
 const { createFilter } = require('rollup-pluginutils');
@@ -19,8 +22,8 @@ const ensureArray = obj =>
 
 module.exports = (
   {
-    include,
-    exclude,
+    include = [],
+    exclude = [],
     babel: babelOpts = {
       plugins: []
     },
@@ -31,7 +34,7 @@ module.exports = (
     typedArrays = true,
     clampByteArrays = false,
     port = DEFAULT_PORT,
-    extra
+    extra = {}
   } = {}
 ) => {
   const filter = createFilter(include, exclude);
@@ -58,10 +61,20 @@ module.exports = (
 
       // console.log(`Fable Plugin sent: ${msg.path}`);
 
-      return client
-        .send(port, JSON.stringify(msg))
+      return cache.tryLoadCache(extra, msg.path)
+        .then(cache => {
+            if (cache != null) {
+                console.log("fable: Cached " + path.basename(msg.path));
+                return cache;
+            }
+            else {
+                return client.send(port, JSON.stringify(msg));
+            }
+        })
         .then(r => {
-          console.log(`fable: Compiled ${path.relative(process.cwd(), msg.path)}`);
+          if (r instanceof cache.CachedFile) {
+            return { code: r.code, map: r.map };
+          }
 
           const data = JSON.parse(r);
 
@@ -92,6 +105,9 @@ module.exports = (
             );
           }
           const transformed = babel.transformFromAst(data, fsCode, babelOpts);
+
+          console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
+          cache.trySaveCache(extra, data.fileName, transformed);
 
           return { code: transformed.code, map: transformed.map };
         })

@@ -32,11 +32,19 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Node",
+            "name": "Launch Quicktest.js",
             "program": "${workspaceRoot}/src/tools/temp/QuickTest.js",
-            // "program": "${workspaceRoot}/temp2/webpack_test/node_modules/webpack/bin/webpack.js",
             "args": ["--help"],
             "cwd": "${workspaceRoot}/src/tools/temp",
+            "stopOnEntry": true
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Bundler",
+            "program": "${workspaceRoot}/node_modules/.bin/rollup", "args": ["-c"],
+            // "program": "${workspaceRoot}/node_modules/.bin/webpack",
+            "cwd": "${workspaceRoot}/src/tools",
             "stopOnEntry": true
         }
     ]

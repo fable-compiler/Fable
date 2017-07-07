@@ -1,15 +1,10 @@
-var os = require("os")
-var fs = require("fs");
+/// @ts-check
+
 var path = require("path");
-var crypto = require('crypto');
 var babel = require("babel-core");
+var cache = require("fable-utils/cache");
 var client = require("fable-utils/client");
 var babelPlugins = require("fable-utils/babel-plugins");
-
-// In theory, msgpack should be more performant than JSON serialization,
-// but I haven't noted that in my tests and it also caused some problems.
-// For now, msgpack code is kept in tryLoadCache and trySaveCache
-// var msgpack = require("msgpack-lite");
 
 var DEFAULT_PORT =
     process.env.FABLE_SERVER_PORT != null
@@ -43,57 +38,7 @@ function transformBabelAst(babelAst, babelOptions, sourceMapOptions) {
     return babel.transformFromAst(babelAst, fsCode, babelOptions);
 }
 
-function getCachePath(fileName) {
-    var fableTempDir = path.join(os.tmpdir(), "fable");
-    if (!fs.existsSync(fableTempDir)){
-        fs.mkdirSync(fableTempDir);
-    }
-    var hash = crypto.createHash('md5').update(fileName).digest('hex');
-    return path.join(fableTempDir, hash);
-}
-
-function tryLoadCache(opts, fileName) {
-    if (!opts.extra || !opts.extra.useCache || path.extname(fileName) !== ".fs") {
-        return Promise.resolve(null);
-    }
-
-    return new Promise(resolve => {
-        try {
-            var cachePath = getCachePath(fileName);
-            if (fs.existsSync(cachePath)) {
-                var sourcemtime = fs.statSync(fileName).mtime;
-                var cachemtime = fs.statSync(cachePath).mtime;
-                if (sourcemtime < cachemtime) {
-                    resolve(JSON.parse(fs.readFileSync(cachePath, "utf8").toString()));
-                    // var readStream = fs.createReadStream(cachePath);
-                    // var decodeStream = msgpack.createDecodeStream();
-                    // readStream.pipe(decodeStream).on("data", data => { resolve(data) });
-                    return;
-                }
-            }
-        }
-        catch (err) {
-            console.log("fable: Error when loading cache", err);
-            // Do nothing, just fall through
-        }
-        resolve(null);
-    });
-}
-
-// This may need some kind of lock when building projects in parallel which share files
-// and both try to cache the same file at the same time
-function trySaveCache(opts, fileName, data) {
-    if (opts.extra && opts.extra.useCache && opts.extra.useCache !== "readonly") {
-        fs.writeFileSync(getCachePath(fileName), JSON.stringify(data), {encoding: "utf8"});
-        // var writeStream = fs.createWriteStream(getCachePath(fileName));
-        // var encodeStream = msgpack.createEncodeStream();
-        // encodeStream.pipe(data);
-        // encodeStream.write(babelParsed);
-        // encodeStream.end();
-    }
-}
-
-module.exports = function(buffer) {
+var Loader = function(buffer) {
     this.cacheable();
     var callback = this.async();
     var opts = this.loaders[0].options || {};
@@ -113,23 +58,22 @@ module.exports = function(buffer) {
         extra: opts.extra
     };
 
-
-    tryLoadCache(opts, msg.path).then(cache => {
+    cache.tryLoadCache(opts.extra, msg.path).then(cache => {
         if (cache != null) {
             console.log("fable: Cached " + path.basename(msg.path));
-            callback(null, cache.code, cache.map);
-            return Promise.resolve(null);
+            return cache;
         }
         else {
             return client.send(port, JSON.stringify(msg));
         }
     })
-    .then(data => {
-        if (data == null) {
-            return; // Webpack callback has already been called
+    .then(r => {
+        if (r instanceof cache.CachedFile) {
+            callback(null, r.code, r.map);
+            return;
         }
 
-        data = JSON.parse(data);
+        var data = JSON.parse(r);
         if (data.error) {
             callback(new Error(data.error));
         }
@@ -162,7 +106,7 @@ module.exports = function(buffer) {
                 } : null;
                 var babelParsed = transformBabelAst(data, babelOptions, sourceMapOpts);
                 console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
-                trySaveCache(opts, data.fileName, babelParsed);
+                cache.trySaveCache(opts.extra, data.fileName, babelParsed);
                 callback(null, babelParsed.code, babelParsed.map);
             }
             catch (err) {
@@ -175,4 +119,6 @@ module.exports = function(buffer) {
         callback(new Error(msg))
     })
 };
-module.exports.raw = true;
+
+Loader.raw = true;
+module.exports = Loader;

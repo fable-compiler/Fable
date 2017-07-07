@@ -105,6 +105,8 @@ let printFableDecls decls = seq {
 }
 
 let printAst outDir (proj: FSharpCheckProjectResults) =
+    if Directory.Exists(outDir) |> not then
+        Directory.CreateDirectory(outDir) |> ignore
     for f in proj.AssemblyContents.ImplementationFiles do
         let target =
             let name = System.IO.Path.GetFileNameWithoutExtension(f.FileName)

@@ -158,8 +158,8 @@ let startServerWithProcess workingDir port exec args =
         System.Runtime.Loader.AssemblyLoadContext.Default.add_Unloading(fun _ -> killProcessAndServer p)
         // System.AppDomain.CurrentDomain.ProcessExit.Add (fun _ -> killProcessAndServer p)
         p.WaitForExit()
-        Server.stop port |> Async.RunSynchronously
         disposed <- true
+        Server.stop port |> Async.RunSynchronously
         p.ExitCode
 
 let checkFlags(args: string[]) =
