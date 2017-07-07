@@ -139,7 +139,7 @@ let startServer port timeout onMessage continuation =
         printfn "Cannot start Fable daemon, please check the port %i is free: %s" port ex.Message
         1
 
-let startServerWithProcess port exec args =
+let startServerWithProcess workingDir port exec args =
     let mutable disposed = false
     let killProcessAndServer =
         fun (p: Process) ->
@@ -151,7 +151,6 @@ let startServerWithProcess port exec args =
     let agent = startAgent()
     startServer port -1 agent.Post <| fun listen ->
         Async.Start listen
-        let workingDir = Directory.GetCurrentDirectory()
         let p =
             ProcessOptions(envVars=Map["FABLE_SERVER_PORT", string port])
             |> startProcess workingDir exec args
@@ -225,7 +224,9 @@ Where 'start' and 'build' are the names of scripts in package.json:
             match fableArgs.commandArgs with
             | Some cargs -> "run " + args.[0] + " -- " + cargs
             | None -> "run " + args.[0]
-        startServerWithProcess fableArgs.port npmOrYarn execArgs
+        let workingDir =
+            Directory.GetCurrentDirectory() |> findPackageJsonDir
+        startServerWithProcess workingDir fableArgs.port npmOrYarn execArgs
 
 [<EntryPoint>]
 let main argv =
@@ -252,7 +253,8 @@ let main argv =
             match args.commandArgs with
             | Some scriptArgs -> argv.[1] + " " + scriptArgs
             | None -> argv.[1]
-        startServerWithProcess args.port "node" execArgs
+        let workingDir = Directory.GetCurrentDirectory()
+        startServerWithProcess workingDir args.port "node" execArgs
     | Some ("webpack" | "webpack-dev-server" as webpack) ->
         let args = argv.[1..] |> parseArguments
         let workingDir = Directory.GetCurrentDirectory()
@@ -263,12 +265,13 @@ let main argv =
             match args.commandArgs with
             | Some args -> webpackScript + " " + args
             | None -> webpackScript
-        startServerWithProcess args.port "node" webpackScript
+        startServerWithProcess workingDir args.port "node" webpackScript
     | Some "shell-run" ->
         let cmd = argv.[1]
         let args = argv.[2..] |> parseArguments
         let execArgs = defaultArg args.commandArgs ""
-        startServerWithProcess args.port cmd execArgs
+        let workingDir = Directory.GetCurrentDirectory()
+        startServerWithProcess workingDir args.port cmd execArgs
     | Some "debug" ->
         debug argv.[1] argv.[2..]; 0
     | Some "add" -> printfn "The add command has been deprecated. Use Paket to manage Fable libraries."; 0
