@@ -865,3 +865,17 @@ let ``Array.chunkBySize works`` () =
     |> equal [| [|1..4|]; [|5..8|] |]
     Array.chunkBySize 4 [|1..10|]
     |> equal [| [|1..4|]; [|5..8|]; [|9..10|] |]
+
+
+
+open Fable.Core
+open Fable.Core.JsInterop
+type NameProp = { Name: string }
+type Props =
+    | Names of NameProp array
+[<Test>]
+let ``Array inside keyValueList is preserved`` () =
+    let props = [ Names [| { Name = "name" } |] ]
+    let actual = [ Names [| { Name = "name" } |] ] |> keyValueList CaseRules.LowerFirst
+    let expected = props |> keyValueList CaseRules.LowerFirst
+    actual |> equal expected
