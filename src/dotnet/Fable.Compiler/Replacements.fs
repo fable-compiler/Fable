@@ -30,20 +30,26 @@ module Util =
         | Fable.Wrapped(e,_) -> e
         | e -> e
 
+    let (|FloatToInt|) (x: float) = int x
+
     let (|UnionCons|_|) expr =
+        let hasMultipleFields tag (cases: (string * Fable.Type list) list) =
+            match List.tryItem tag cases with
+            | Some(_,fieldTypes) -> List.isMultiple fieldTypes
+            | None -> false
         match expr with
         | MaybeWrapped(Fable.Apply(_, args, Fable.ApplyCons, Fable.DeclaredType(ent, _), _)) ->
             match ent.Kind with
             | Fable.Union cases ->
                 match args with
-                | [Fable.Value(Fable.NumberConst(tag, _))] ->
-                    Some(int tag, [], cases)
-                | [Fable.Value(Fable.NumberConst(tag, _));
+                | [Fable.Value(Fable.NumberConst(FloatToInt tag, _))] ->
+                    Some(tag, [], cases)
+                | [Fable.Value(Fable.NumberConst(FloatToInt tag, _));
                     Fable.Value(Fable.ArrayConst(Fable.ArrayValues fields, _))]
-                    when List.isMultiple cases ->
-                    Some(int tag, fields, cases)
-                | [Fable.Value(Fable.NumberConst(tag, _)); expr] ->
-                    Some(int tag, [expr], cases)
+                    when hasMultipleFields (tag) cases ->
+                    Some(tag, fields, cases)
+                | [Fable.Value(Fable.NumberConst(FloatToInt tag, _)); expr] ->
+                    Some(tag, [expr], cases)
                 | _ -> None
             | _ -> None
         | _ -> None
