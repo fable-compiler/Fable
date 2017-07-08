@@ -113,7 +113,6 @@ let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
 let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
     let unionType, range = makeType com ctx.typeArgs fsType, makeRange fsExpr.Range
     let genericArg = fsType.GenericArguments |> List.ofSeq |> List.tryHead
-
     match fsType with
     | OptionUnion ->
         match genericArg with
@@ -137,7 +136,7 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
     | StringEnum ->
         if not(List.isEmpty argExprs)
         then
-            "StringEnum types cannot have fields"
+            "StringEnum types cannot have fields: " + unionType.FullName
             |> addErrorAndReturnNull com ctx.fileName (Some range)
         else lowerCaseName unionCase
     | PojoUnion ->
@@ -148,23 +147,40 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
+        let tag = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
         let argExprs =
-            let tag = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
             let argTypes =
                 unionCase.UnionCaseFields
                 |> Seq.map (fun x -> makeType com [] x.FieldType)
                 |> Seq.toList
-            let argExprs = ensureArity com argTypes argExprs
-            match argExprs with
-            | [] -> [tag]
-            | [argExpr] -> [tag; argExpr]
-            | argExprs -> [tag; Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))]
-        buildApplyInfo com ctx (Some range) unionType unionType unionType.FullName
-            ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
-        |> tryBoth (tryPlugin com) (tryReplace com ctx (tryDefinition fsType))
-        |> function
-        | Some repl -> repl
-        | None -> Fable.Apply(makeNonGenTypeRef com unionType, argExprs, Fable.ApplyCons, unionType, Some range)
+            ensureArity com argTypes argExprs
+        let erasedUnion =
+            // We can use the Erase attribute with union cases
+            // to pass custom values to keyValueList
+            if hasAtt Atts.erase unionCase.Attributes then
+                match argExprs with
+                | [Fable.Value(Fable.StringConst key); value] ->
+                    Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) |> Some
+                | _ ->
+                    sprintf "Case %s from %s is decorated with %s, but the fields are not a key-value pair"
+                        unionCase.Name unionType.FullName Atts.erase
+                    |> addWarning com ctx.fileName (makeRange fsExpr.Range |> Some)
+                    None
+            else None
+        match erasedUnion with
+        | Some erasedUnion -> erasedUnion
+        | None ->
+            let argExprs =
+                match argExprs with
+                | [] -> [tag]
+                | [argExpr] -> [tag; argExpr]
+                | argExprs -> [tag; Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))]
+            buildApplyInfo com ctx (Some range) unionType unionType unionType.FullName
+                ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
+            |> tryBoth (tryPlugin com) (tryReplace com ctx (tryDefinition fsType))
+            |> function
+            | Some repl -> repl
+            | None -> Fable.Apply(makeNonGenTypeRef com unionType, argExprs, Fable.ApplyCons, unionType, Some range)
 
 let private transformComposableExpr com ctx fsExpr argExprs =
     // See (|ComposableExpr|_|) active pattern to check which expressions are valid here
@@ -832,12 +848,12 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
 
 let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity) (childDecls: #seq<Fable.Declaration>) =
     if fableEnt.Kind = Fable.Module then Seq.toList childDecls else
-    
+
     let isException = match fableEnt.Kind with Fable.Exception _ -> true | _ -> false
 
-    // If F# union or records implement System.IComparable/System.Equatable generate the methods.            
+    // If F# union or records implement System.IComparable/System.Equatable generate the methods.
     // Note: F# compiler generates these methods too but see `IsIgnoredMethod`
-    // Include F# exceptions as well because they have compiler-generated implementation 
+    // Include F# exceptions as well because they have compiler-generated implementation
     // of Equals method but don't implement System.IEquatable.
     let needsEqImpl =
         (fableEnt.HasInterface "System.IEquatable" || isException)

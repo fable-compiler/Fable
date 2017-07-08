@@ -138,7 +138,9 @@ let ``KeyValueList works with sublists``() =
     opts2?bar2?(1) |> unbox |> equal 3
 
 type NameProp = { Name: string }
-type Props = Names of NameProp array
+type Props =
+    | Names of NameProp array
+    | [<Erase>] Custom of key:string * value:obj
 
 [<Test>]
 let ``Array inside keyValueList is preserved`` () =
@@ -146,6 +148,22 @@ let ``Array inside keyValueList is preserved`` () =
     let actual = [ Names [| { Name = "name" } |] ] |> keyValueList CaseRules.LowerFirst |> toJson
     let expected = props |> keyValueList CaseRules.LowerFirst |> toJson
     actual |> equal expected
+
+[<Test>]
+let ``Erased union cases work with keyValueList`` () =
+    let props: Props list = [ Custom("Foo", 5) ]
+    let actual = [ Custom("Bar", 10) ] |> keyValueList CaseRules.LowerFirst
+    let expected = props |> keyValueList CaseRules.LowerFirst
+    !!actual?Bar |> equal 10
+    !!expected?Foo |> equal 5
+
+[<Test>]
+let ``Dynamic casting works with keyValueList`` () =
+    let props: Props list = [ !!("Foo", 5) ]
+    let actual = [ (!!("Bar", 10): Props) ] |> keyValueList CaseRules.LowerFirst
+    let expected = props |> keyValueList CaseRules.LowerFirst
+    !!actual?Bar |> equal 10
+    !!expected?Foo |> equal 5
 
 let [<Emit("arguments.length")>] argCount: int = jsNative
 
