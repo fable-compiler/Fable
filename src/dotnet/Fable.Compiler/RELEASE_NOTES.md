@@ -1,3 +1,8 @@
+### 1.1.8
+
+* Fix #1053: Union cases with single array field in keyValueList resolved at compile-time
+* Use Erase attribute with union cases for keyValueList
+
 ### 1.1.7
 
 * Update FCS dependency

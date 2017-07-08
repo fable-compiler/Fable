@@ -112,31 +112,31 @@ let tryGetFableCoreJsDir projFile =
     tryGetFableCorePkgDir paketDir projFile
     |> Option.map (fun corePkgDir -> IO.Path.Combine(corePkgDir, "fable-core"))
 
-let checkFableCoreVersion paketDir projFile =
-    if Flags.checkCoreVersion then
-        match tryGetFableCorePkgDir paketDir projFile with
-        | Some corePkgDir ->
-            let nuspec = IO.Path.Combine(corePkgDir, "Fable.Core.nuspec")
-            if File.Exists(nuspec) then
-                let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
-                File.ReadLines(nuspec)
-                |> Seq.tryPick (fun line ->
-                    let m = versionRegex.Match(line)
-                    if m.Success then Some m.Groups.[1].Value else None)
-                |> function
-                    | Some fableCoreVersion ->
-                        sprintf "Fable.Core > actual: %s - expected: %s" fableCoreVersion Constants.CORE_VERSION
-                        |> Log.logVerbose
-                        if fableCoreVersion <> Constants.CORE_VERSION then
-                            String.Format("Expecting Fable.Core {0} but got {1}. " +
-                                "Pin Fable.Core version in paket.dependencies " +
-                                "or update dotnet-fable in .fsproj to latest version " +
-                                "(check https://www.nuget.org/packages/dotnet-fable)",
-                                Constants.CORE_VERSION, fableCoreVersion)
-                            |> failwith
-                    | None -> failwithf "Cannot find version in %s" nuspec
-            else Log.logAlways(sprintf "Fable.Core: Missing %s, cannot verify version" nuspec)
-        | None -> failwith "Cannot find Fable.Core package location"
+// let checkFableCoreVersion paketDir projFile =
+//     if Flags.checkCoreVersion then
+//         match tryGetFableCorePkgDir paketDir projFile with
+//         | Some corePkgDir ->
+//             let nuspec = IO.Path.Combine(corePkgDir, "Fable.Core.nuspec")
+//             if File.Exists(nuspec) then
+//                 let versionRegex = Regex("<Version>(.*?)</Version>", RegexOptions.IgnoreCase)
+//                 File.ReadLines(nuspec)
+//                 |> Seq.tryPick (fun line ->
+//                     let m = versionRegex.Match(line)
+//                     if m.Success then Some m.Groups.[1].Value else None)
+//                 |> function
+//                     | Some fableCoreVersion ->
+//                         sprintf "Fable.Core > actual: %s - expected: %s" fableCoreVersion Constants.CORE_VERSION
+//                         |> Log.logVerbose
+//                         if fableCoreVersion <> Constants.CORE_VERSION then
+//                             String.Format("Expecting Fable.Core {0} but got {1}. " +
+//                                 "Pin Fable.Core version in paket.dependencies " +
+//                                 "or update dotnet-fable in .fsproj to latest version " +
+//                                 "(check https://www.nuget.org/packages/dotnet-fable)",
+//                                 Constants.CORE_VERSION, fableCoreVersion)
+//                             |> failwith
+//                     | None -> failwithf "Cannot find version in %s" nuspec
+//             else Log.logAlways(sprintf "Fable.Core: Missing %s, cannot verify version" nuspec)
+//         | None -> failwith "Cannot find Fable.Core package location"
 
 type CrackedFsproj = {
     projectFile: string
@@ -334,7 +334,7 @@ let getProjectOptionsFromFsproj (projFile: string) =
             { Framework = framework; Version = version }
         | None -> failwithf "Cannot find TargetFramework in %s" projFile
     let paketDir = tryFindPaketDirFromProject projFile
-    checkFableCoreVersion paketDir projFile
+    // checkFableCoreVersion paketDir projFile
     let rec crackProjects (acc: CrackedFsproj list) projFile xmlDoc =
         acc |> List.tryFind (fun x ->
             String.Equals(x.projectFile, projFile, StringComparison.OrdinalIgnoreCase))

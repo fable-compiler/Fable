@@ -1,3 +1,8 @@
+### 1.1.8
+
+* Start npm/yarn subprocess in package.json directory
+* Don't check Fable.Core version (already managed by Paket)
+
 ### 1.1.7
 
 * Add Fable.Core as direct dependency

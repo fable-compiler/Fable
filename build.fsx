@@ -475,7 +475,7 @@ let pushNuget (projFile: string) =
         // If necessary, update version in ToolsUtil.fs and build JS files
         if projFile.Contains("Fable.Core.fsproj") then
             checkDependent versionRegex projFile "src/dotnet/Fable.Compiler/Fable.Compiler.fsproj"
-            updateVersionInToolsUtil "CORE_VERSION" releaseNotes.NugetVersion
+            // updateVersionInToolsUtil "CORE_VERSION" releaseNotes.NugetVersion
             buildCoreJS()
         if projFile.Contains("Fable.Compiler.fsproj") then
             checkDependent versionRegex projFile "src/dotnet/dotnet-fable/dotnet-fable.fsproj"
