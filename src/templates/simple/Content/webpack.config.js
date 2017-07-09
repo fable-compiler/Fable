@@ -15,10 +15,13 @@ console.log("Bundling for " + (isProduction ? "production" : "development") + ".
 
 module.exports = {
   devtool: "source-map",
-  entry: resolve('./FableTemplate.fsproj'),
+  entry: resolve('./src/FableTemplate.fsproj'),
   output: {
     filename: 'bundle.js',
     path: resolve('./public'),
+  },
+  resolve: {
+    modules: [resolve("./node_modules/")]
   },
   devServer: {
     contentBase: resolve('./public'),
