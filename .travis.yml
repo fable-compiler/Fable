@@ -8,8 +8,8 @@ addons:
             - libunwind8
 
 before_script:
-  - nvm install 4.7
-  - nvm use 4.7
+  - nvm install 6.11
+  - nvm use 6.11
 
 script:
   - ./build.sh All
