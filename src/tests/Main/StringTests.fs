@@ -506,6 +506,10 @@ let ``String.Join works``() =
       |> equal "a--b--c"
       String.Join("--", seq { yield "a"; yield "b"; yield "c" })
       |> equal "a--b--c"
+      String.Join("--", [|3I; 5I|])
+      |> equal "3--5"
+      String.Join("--", 3I, 5I)
+      |> equal "3--5"
 
 [<Test>]
 let ``System.String.Concat works``() =
