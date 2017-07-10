@@ -892,7 +892,11 @@ module AstPass =
         // Exceptions
         | "raise" ->
             Fable.Throw (args.Head, typ, r) |> Some
-        | "failWith"  | "reraise" | "invalidOp" | "invalidArg" ->
+        | "reraise" ->
+            "`reraise` is not yet supported, please use `raise` instead"
+            |> addError com info.fileName info.range
+            Fable.Throw (newError None Fable.Any [], typ, r) |> Some
+        | "failWith"  | "invalidOp" | "invalidArg" ->
             let args =
                 match info.methodName with
                 | "invalidArg" -> [makeEmit None Fable.String args "$1 + '\\nParameter name: ' + $0"]
