@@ -281,8 +281,8 @@ export function isNullOrWhiteSpace(str: string | any) {
 
 export function join(delimiter: string, xs: ArrayLike<string>) {
   let xs2 = xs as any;
-  if (typeof xs === "string") {
-    const len = arguments.length;
+  const len = arguments.length;
+  if (len > 2) {
     xs2 = Array(len - 1);
     for (let key = 1; key < len; key++) {
       xs2[key - 1] = arguments[key];
@@ -290,7 +290,7 @@ export function join(delimiter: string, xs: ArrayLike<string>) {
   } else if (!Array.isArray(xs)) {
     xs2 = Array.from(xs);
   }
-  return xs2.join(delimiter);
+  return xs2.map((x: string) => toString(x)).join(delimiter);
 }
 
 export function newGuid() {
