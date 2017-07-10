@@ -336,27 +336,26 @@ let getProjectOptionsFromFsproj (projFile: string) =
     let paketDir = tryFindPaketDirFromProject projFile
     // checkFableCoreVersion paketDir projFile
     let rec crackProjects (acc: CrackedFsproj list) projFile xmlDoc =
-        acc |> List.tryFind (fun x ->
-            String.Equals(x.projectFile, projFile, StringComparison.OrdinalIgnoreCase))
-        |> function
-        | Some crackedFsproj ->
-            // Add a reference to the front to preserve compilation order
-            // Duplicated items will be removed later
-            crackedFsproj::acc
-        | None ->
-            let crackedFsproj = crackFsproj projFile xmlDoc
-            let paketProjRefs, paketDllRefs =
-                getPaketRefs paketDir targetFramework projFile
-                |> partitionMap (function
-                    | PaketRef.Project r -> Choice1Of2 r
-                    | PaketRef.Dll r -> Choice2Of2 r)
-            let crackedFsproj =
+        let crackedFsproj =
+            acc |> List.tryFind (fun x ->
+                String.Equals(x.projectFile, projFile, StringComparison.OrdinalIgnoreCase))
+            |> function
+            | Some crackedFsproj -> crackedFsproj
+            | None ->
+                let crackedFsproj = crackFsproj projFile xmlDoc
+                let paketProjRefs, paketDllRefs =
+                    getPaketRefs paketDir targetFramework projFile
+                    |> partitionMap (function
+                        | PaketRef.Project r -> Choice1Of2 r
+                        | PaketRef.Dll r -> Choice2Of2 r)
                 { crackedFsproj with
                     projectReferences = crackedFsproj.projectReferences @ paketProjRefs
                     dllReferences = crackedFsproj.dllReferences @ paketDllRefs }
-            (crackedFsproj.projectReferences, crackedFsproj::acc)
-            ||> Seq.foldBack (fun projFile acc ->
-                crackProjects acc projFile None)
+        // Add always a reference to the front to preserve compilation order
+        // Duplicated items will be removed later
+        (crackedFsproj.projectReferences, crackedFsproj::acc)
+        ||> Seq.foldBack (fun projFile acc ->
+            crackProjects acc projFile None)
     let crackedFsprojs =
         crackProjects [] projFile (Some xmlDoc)
         |> List.distinctBy (fun x -> x.projectFile.ToLower())
