@@ -1,3 +1,7 @@
+### 1.1.7
+
+* Support String.Join with objects (#1058)
+
 ### 1.1.6
 
 * Fix #1046: Parse time-only strings

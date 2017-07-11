@@ -1,3 +1,7 @@
+### 1.1.9
+
+* Fix #1055: Project reference order in multi-project solution
+
 ### 1.1.8
 
 * Start npm/yarn subprocess in package.json directory

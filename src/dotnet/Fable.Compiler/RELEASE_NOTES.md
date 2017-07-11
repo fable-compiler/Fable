@@ -1,3 +1,7 @@
+### 1.1.9
+
+* Temporary fix for #1057: Disallow `reraise`
+
 ### 1.1.8
 
 * Fix #1053: Union cases with single array field in keyValueList resolved at compile-time
