@@ -7,6 +7,7 @@
     "max-line-length": [false],
     "no-bitwise": false,
     "no-empty": false,
+    "no-shadowed-variable": false,
     "object-literal-sort-keys": false,
     "variable-name": false
   },
@@ -14,6 +15,7 @@
     "interface-name": [false],
     "max-classes-per-file": [false],
     "no-bitwise": false,
+    "no-shadowed-variable": false,
     "object-literal-sort-keys": false,
     "variable-name": false
   },
