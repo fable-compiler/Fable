@@ -11,6 +11,8 @@ environment:
 install:
   # Get the latest stable version of Node.js
   - ps: Install-Product node $env:nodejs_version
+  # Update npm
+  - npm install -g npm
 
 os: Visual Studio 2015
 # before_build:
