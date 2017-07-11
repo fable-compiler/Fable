@@ -1,23 +1,23 @@
 NUGET
   remote: https://www.nuget.org/api/v2
-    dotnet-fable (1.1.8) - clitool: true
-      Fable.Compiler (>= 1.1.8) - restriction: >= netcore1.0
-      Fable.Core (>= 1.1.6) - restriction: >= netcore1.0
+    dotnet-fable (1.1.9) - clitool: true
+      Fable.Compiler (>= 1.1.9) - restriction: >= netcore1.0
+      Fable.Core (>= 1.1.7) - restriction: >= netcore1.0
       FSharp.Core (>= 4.2.1) - restriction: >= netcore1.0
       Microsoft.NETCore.App (>= 1.0.4) - restriction: >= netcore1.0
       System.Collections.Immutable (>= 1.3.1) - restriction: >= netcore1.0
       System.Reflection.Metadata (>= 1.4.2) - restriction: >= netcore1.0
       System.Xml.XDocument (>= 4.3) - restriction: >= netcore1.0
-    Fable.Compiler (1.1.8) - restriction: >= netcore1.0
-      Fable.Core (>= 1.1.6) - restriction: >= netstandard1.6
+    Fable.Compiler (1.1.9) - restriction: >= netcore1.0
+      Fable.Core (>= 1.1.7) - restriction: >= netstandard1.6
       FSharp.Compiler.Service (>= 13.0) - restriction: >= netstandard1.6
       FSharp.Core (>= 4.2.1) - restriction: >= netstandard1.6
       Newtonsoft.Json (>= 10.0.3) - restriction: >= netstandard1.6
       System.Reflection.TypeExtensions (>= 4.3) - restriction: >= netstandard1.6
       System.Runtime.Loader (>= 4.3) - restriction: >= netstandard1.6
       System.ValueTuple (>= 4.3.1) - restriction: >= netstandard1.6
-    Fable.Core (1.1.6)
-      FSharp.Core (>= 4.1.17) - restriction: >= netstandard1.6
+    Fable.Core (1.1.7)
+      FSharp.Core (>= 4.2.1) - restriction: >= netstandard1.6
       NETStandard.Library (>= 1.6.1) - restriction: >= netstandard1.6
     Fable.Import.Browser (0.1)
       Fable.Core (>= 1.0.8) - restriction: >= netstandard1.6
