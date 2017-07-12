@@ -1,3 +1,7 @@
+### 1.1.10
+
+* Update Fable.Compiler
+
 ### 1.1.9
 
 * Fix #1055: Project reference order in multi-project solution

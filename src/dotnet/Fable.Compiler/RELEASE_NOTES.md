@@ -1,3 +1,7 @@
+### 1.1.10
+
+* Fix #1062: Refactor to improve performance
+
 ### 1.1.9
 
 * Temporary fix for #1057: Disallow `reraise`
