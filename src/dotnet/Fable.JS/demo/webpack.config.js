@@ -29,7 +29,7 @@ var fableOptions = {
 };
 
 module.exports = {
-  entry: resolve('../Fable.Client.Browser.fsproj'),
+  entry: resolve('../Fable.JS.fsproj'),
   output: {
     filename: 'bundle.min.js',
     path: resolve('./repl'),
@@ -41,7 +41,7 @@ module.exports = {
       {
         test: /\.fs(x|proj)?$/,
         use: {
-          loader: resolve("../../../typescript/fable-loader"),
+          loader: resolve("../../../js/fable-loader"),
           options: fableOptions
         }
       },

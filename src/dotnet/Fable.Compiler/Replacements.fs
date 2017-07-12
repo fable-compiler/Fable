@@ -894,7 +894,7 @@ module AstPass =
             Fable.Throw (args.Head, typ, r) |> Some
         | "reraise" ->
             "`reraise` is not yet supported, please use `raise` instead"
-            |> addError com info.fileName info.range
+            |> addWarning com info.fileName info.range
             Fable.Throw (newError None Fable.Any [], typ, r) |> Some
         | "failWith"  | "invalidOp" | "invalidArg" ->
             let args =

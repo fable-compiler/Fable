@@ -1,10 +1,10 @@
 open System.Collections.Generic
 
-let fastFib (n: int) : int =
+let fastFib n =
   let sqrt5 = sqrt 5.0
   let a = (1.0 + sqrt5) / 2.0
   let b = (1.0 - sqrt5) / 2.0
-  let power = float n
+  let power = float (n+1)
   let result = ((a ** power) - (b ** power)) / sqrt5
   int (round result)
 

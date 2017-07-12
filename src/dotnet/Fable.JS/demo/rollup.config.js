@@ -29,7 +29,7 @@ var fableOptions = {
 };
 
 export default {
-  entry: resolve('../Fable.Client.Browser.fsproj'),
+  entry: resolve('../Fable.JS.fsproj'),
   dest: resolve('./repl/bundle.js'),
   format: 'iife', // 'amd', 'cjs', 'es', 'iife', 'umd'
   moduleName: 'Fable',

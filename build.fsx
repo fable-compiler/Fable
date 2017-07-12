@@ -620,7 +620,7 @@ Target "All" (fun () ->
 // - In `FSharp.Compiler.Service_fable` run `build CodeGen.NetCore -d:FABLE_COMPILER`
 // > Attention: the generation of libraries metadata is not included in this target
 Target "REPL" (fun () ->
-    let replDir = "src/dotnet/Fable.Client.Browser/demo"
+    let replDir = "src/dotnet/Fable.JS/demo"
     Npm.install replDir []
 
     // Compile fable-core

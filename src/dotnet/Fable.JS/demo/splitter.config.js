@@ -27,7 +27,7 @@ const fableOptions = {
 };
 
 const options = {
-  entry: "../Fable.Client.Browser.fsproj",
+  entry: "../Fable.JS.fsproj",
   outDir: "./out",
   // port: 61225,
   babel: babelOptions,
