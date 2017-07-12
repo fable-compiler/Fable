@@ -16,7 +16,7 @@
     <PaketBootStrapperCommand Condition=" '$(OS)' != 'Windows_NT' ">$(MonoPath) --runtime=v4.0.30319 "$(PaketBootStrapperExePath)"</PaketBootStrapperCommand>
   </PropertyGroup>
 
-  <Target Name="PaketRestore" BeforeTargets="_GenerateProjectRestoreGraphPerFramework;_GenerateRestoreGraphWalkPerFramework;CollectPackageReferences" >
+  <Target Name="PaketRestore" BeforeTargets="_GenerateDotnetCliToolReferenceSpecs;_GenerateProjectRestoreGraphPerFramework;_GenerateRestoreGraphWalkPerFramework;CollectPackageReferences" >
 
     <Exec Command='$(PaketBootStrapperCommand) ' Condition="Exists('$(PaketBootStrapperExePath)') AND !(Exists('$(PaketExePath)'))" ContinueOnError="false" />
     <Exec Command='$(PaketCommand) restore --project "$(MSBuildProjectFullPath)" --target-framework $(TargetFramework)' ContinueOnError="false" />
@@ -37,6 +37,24 @@
       <PackageReference Include="%(PaketReferencesFileLinesInfo.PackageName)">
         <Version>%(PaketReferencesFileLinesInfo.PackageVersion)</Version>
       </PackageReference>
+    </ItemGroup>
+
+    <PropertyGroup>
+      <PaketCliToolFilePath>$(MSBuildProjectDirectory)/obj/$(MSBuildProjectFile).paket.clitools</PaketCliToolFilePath>
+    </PropertyGroup>
+
+    <ReadLinesFromFile File="$(PaketCliToolFilePath)" >
+      <Output TaskParameter="Lines" ItemName="PaketCliToolFileLines"/>
+    </ReadLinesFromFile>
+
+    <ItemGroup Condition=" '@(PaketCliToolFileLines)' != '' " >
+      <PaketCliToolFileLinesInfo Include="@(PaketCliToolFileLines)" >
+        <PackageName>$([System.String]::Copy('%(PaketCliToolFileLines.Identity)').Split(',')[0])</PackageName>
+        <PackageVersion>$([System.String]::Copy('%(PaketCliToolFileLines.Identity)').Split(',')[1])</PackageVersion>
+      </PaketCliToolFileLinesInfo>
+      <DotNetCliToolReference Include="%(PaketCliToolFileLinesInfo.PackageName)">
+        <Version>%(PaketCliToolFileLinesInfo.PackageVersion)</Version>
+      </DotNetCliToolReference>
     </ItemGroup>
 
     <PropertyGroup>
