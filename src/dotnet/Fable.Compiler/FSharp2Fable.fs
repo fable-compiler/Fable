@@ -994,35 +994,14 @@ type private DeclInfo(com, fileName) =
                 Fable.EntityDeclaration(ent, isPublic, privateName, processMemberDecls com ctx ent decls, range))
         |> Seq.toList
 
-let private tryGetImport com (ctx: Context) r methName
-                (atts: #seq<FSharpAttribute>) (body: FSharpExpr option) =
-    let (|ImportExpr|_|) e =
-        let rec matchExpr = function
-            | BasicPatterns.Call(None, meth, _, _, args)
-                when meth.FullName.StartsWith("Fable.Core.JsInterop.import") -> Some(meth,args)
-            // Apparently the F# compiler creates bindings for function arguments, see #721 (5th comment)
-            | BasicPatterns.Let((var, _), body)
-                when var.IsCompilerGenerated -> matchExpr body
-            | _ -> None
-        matchExpr e
-    let getStringConst = function
-        | BasicPatterns.Const(:? string as str, _) -> str
-        | _ -> "Import expressions can only be used with string literals"
-               |> addError com ctx.fileName (Some r); ""
+let private tryGetImport com (ctx: Context) r (atts: #seq<FSharpAttribute>) =
     try
-        match tryFindAtt ((=) Atts.import) atts, body with
-        | Some att, _ ->
-            match att.ConstructorArguments.[0], att.ConstructorArguments.[1] with
-            | (_, (:? string as selector)), (_, (:? string as path)) -> Some(selector, path)
-            | _ -> None
-        | _, Some(ImportExpr(meth, args)) ->
-            let importMeth = meth.FullName.Substring(meth.FullName.LastIndexOf(".") + 1)
-            match importMeth with
-            | "import" -> Some(getStringConst args.Head, getStringConst args.Tail.Head)
-            | "importMember" ->  Some(methName, getStringConst args.Head)
-            | "importDefault" -> Some("default", getStringConst args.Head)
-            | _ -> Some("*", getStringConst args.Head) // importAll
-        | _ -> None
+        tryFindAtt ((=) Atts.import) atts |> Option.bind (fun att ->
+            if att.ConstructorArguments.Count = 2 then
+                match att.ConstructorArguments.[0], att.ConstructorArguments.[1] with
+                | (_, (:? string as selector)), (_, (:? string as path)) -> Some(selector, path)
+                | _ -> None
+            else None)
     with _ -> None
 
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
@@ -1046,28 +1025,34 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 let info =
                     { isInstance = meth.IsInstanceMember
                     ; passGenerics = hasPassGenericsAtt com ctx meth }
-                bindMemberArgs com ctx info args
-                |> fun (ctx, _, args, extraArgs) ->
+                let ctx, args, extraArgs =
+                    let ctx, _, args, extraArgs = bindMemberArgs com ctx info args
                     if memberLoc <> Fable.StaticLoc
                     then { ctx with thisAvailability = ThisAvailable }, args, extraArgs
                     else ctx, args, extraArgs
-                |> fun (ctx, args, extraArgs) ->
+                let ctx, args, extraArgs =
                     match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
                     | true, Some(EntityKind(Fable.Class(Some(fullName, _), _)) as derivedClass) ->
                         let derivedCons = DerivedConstructorInfo(fullName, derivedClass)
                         { ctx with derivedConstructor=Some derivedCons }, args, extraArgs
                     | _ -> ctx, args, extraArgs
-                |> fun (ctx, args, extraArgs) ->
-                    match getMemberKind meth, args, body.Type with
-                    // When a module field (no args) returns a function, it means
-                    // point-free style, which doesn't work well with the uncurrying optimization,
-                    // so we create a dynamic curried lambda (See #1041)
-                    | Fable.Field, [], t when t.IsFunctionType && (countFuncArgs t) > 1 ->
-                        let body = transformExpr com ctx body
-                        let body = makeCurriedLambda body.Range body.Type body
-                        Fable.Field, [], extraArgs, body
-                    | kind, args, _ ->
-                        kind, args, extraArgs, transformExpr com ctx body
+                match getMemberKind meth, args, body.Type, transformExpr com ctx body with
+                // When a module field (no args) returns a function, it means
+                // point-free style, which doesn't work well with the uncurrying optimization,
+                // so we create a dynamic curried lambda (See #1041)
+                | Fable.Field, [], t, body when t.IsFunctionType && (countFuncArgs t) > 1 ->
+                    Fable.Field, [], extraArgs, makeCurriedLambda body.Range body.Type body
+                // Accept import expressions used instead of attributes, for example:
+                // let foo x y = import "foo" "myLib"
+                | (Fable.Method | Fable.Field | Fable.Getter), args, _,
+                    (Fable.Value(Fable.ImportRef(selector, path, importKind)) as body) ->
+                    let body =
+                        if selector = Naming.placeholder
+                        then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
+                        else body
+                    Fable.Field, [], [], body
+                | kind, args, _, body ->
+                    kind, args, extraArgs, body
         let entMember =
             let argTypes = List.map Fable.Ident.getType args
             let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
@@ -1079,7 +1064,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         declInfo.AddMethod(meth, entMember)
         declInfo, ctx
     let range = getMethLocation meth |> makeRange
-    let import = tryGetImport com ctx range meth.DisplayName meth.Attributes (Some body)
+    let import = tryGetImport com ctx range meth.Attributes
     if Option.isSome import
     then
         addMethod range import meth args body
@@ -1107,7 +1092,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
 let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                                     (ent: FSharpEntity) subDecls =
     let range = getEntityLocation ent |> makeRange
-    let import = tryGetImport com ctx range ent.DisplayName ent.Attributes None
+    let import = tryGetImport com ctx range ent.Attributes
     if Option.isSome import
     then
         let selector, path = import.Value

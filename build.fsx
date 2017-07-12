@@ -576,6 +576,12 @@ Target "FableCoreJS" buildCoreJS
 Target "FableSplitter" buildSplitter
 Target "RunTestsJS" runTestsJS
 
+Target "RunTestsJSFast" (fun () ->
+    buildCLI "src/dotnet" true ()
+    Util.run __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose -- --config src/tests/webpack.config.js"
+    Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
+)
+
 Target "PublishPackages" (fun () ->
     // installDotnetSdk ()
     // clean ()
