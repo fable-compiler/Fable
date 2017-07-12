@@ -9,7 +9,7 @@ You can find more templates by searching `Fable.Template` packages in [Nuget](ht
 * [node.js](https://nodejs.org) 4.8.2 or higher
 * A JS package manager: [yarn](https://yarnpkg.com) or [npm](http://npmjs.com/)
 
-> npm comes bundled with node.js, but we recommend to use at least npm 5. If you have npm installed you can upgrade it by running `npm install -g npm`.
+> npm comes bundled with node.js, but we recommend to use at least npm 5. If you have npm installed, you can upgrade it by running `npm install -g npm`.
 
 Although is not a Fable requirement, on macOS and Linux you'll need [Mono](http://www.mono-project.com/) for other F# tooling like Paket or editor support.
 
@@ -19,7 +19,7 @@ The project can be used by editors compatible with the new .fsproj format, like 
 
 ## Installing the template
 
-In a terminal, run `dotnet new -i Fable.Template::*` to install or update the template to latest version.
+In a terminal, run `dotnet new -i Fable.Template::*` to install or update the template to the latest version.
 
 > In some shells you many need quotations: `dotnet new -i "Fable.Template::*"`. If you use dotnet SDK 2, you should only need to type `dotnet new -i Fable.Template`.
 
@@ -39,7 +39,7 @@ In a terminal, run `dotnet new fable` to create a project in the current directo
 * Start Fable daemon and [Webpack](https://webpack.js.org/) dev server: `dotnet fable yarn-start`
 * In your browser, open: http://localhost:8080/
 
-> `dotnet fable yarn-start` (or `npm-start`) is used to start the Fable daemon and run a script in package.json concurrently. It's a shortcut of `yarn-run [SCRIP_NAME]`, e.g. `dotnet fable yarn-run start`.
+> `dotnet fable yarn-start` (or `npm-start`) is used to start the Fable daemon and run a script in package.json concurrently. It's a shortcut of `yarn-run [SCRIPT_NAME]`, e.g. `dotnet fable yarn-run start`.
 
 If you are using VS Code + [Ionide](http://ionide.io/), you can also use the key combination: Ctrl+Shift+B (Cmd+Shift+B on macOS) instead of typing the `dotnet fable yarn-start` command. This also has the advantage that Fable-specific errors will be highlighted in the editor along with other F# errors.
 
@@ -53,7 +53,7 @@ Any modification you do to the F# code will be reflected in the web page after s
 
 - **paket.dependencies**: contains all the dependencies in the repository.
 - **paket.references**: there should be one such a file next to each `.fsproj` file.
-- **paket.lock**: automatically generated, but should committed to source control, [see why](https://fsprojects.github.io/Paket/faq.html#Why-should-I-commit-the-lock-file).
+- **paket.lock**: automatically generated, but should be committed to source control, [see why](https://fsprojects.github.io/Paket/faq.html#Why-should-I-commit-the-lock-file).
 - **Nuget.Config**: prevents conflicts with Paket in machines with some Nuget configuration.
 
 > Paket dependencies will be installed in the `packages` directory. See [Paket website](https://fsprojects.github.io/Paket/) for more info.
