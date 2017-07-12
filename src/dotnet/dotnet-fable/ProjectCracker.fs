@@ -219,9 +219,9 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "--targetprofile:netcore"
         yield "-r:" + sysCoreLib // "CoreLib"
         yield "-r:" + sysUriLib //required for System.Uri types
+        yield "-r:" + resolve "System.Console"
 #endif
         yield "-r:" + resolve "mscorlib"
-        yield "-r:" + resolve "System.Console"
         yield "-r:" + resolve "System.Collections"
         yield "-r:" + resolve "System.Diagnostics.Debug"
         yield "-r:" + resolve "System.IO"

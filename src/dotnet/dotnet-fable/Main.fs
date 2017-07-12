@@ -38,6 +38,9 @@ let startProcess workingDir fileName args (opts: ProcessOptions) =
     p.StartInfo.Arguments <- args
     p.StartInfo.WorkingDirectory <- workingDir
     p.StartInfo.RedirectStandardOutput <- opts.RedirectOuput
+    #if NETFX
+    p.StartInfo.UseShellExecute <- false
+    #endif
     opts.EnvVars |> Map.iter (fun k v ->
         p.StartInfo.Environment.[k] <- v)
     p.Start() |> ignore
@@ -155,8 +158,11 @@ let startServerWithProcess workingDir port exec args =
             ProcessOptions(envVars=Map["FABLE_SERVER_PORT", string port])
             |> startProcess workingDir exec args
         Console.CancelKeyPress.Add (fun _ -> killProcessAndServer p)
+        #if NETFX
+        System.AppDomain.CurrentDomain.ProcessExit.Add (fun _ -> killProcessAndServer p)
+        #else
         System.Runtime.Loader.AssemblyLoadContext.Default.add_Unloading(fun _ -> killProcessAndServer p)
-        // System.AppDomain.CurrentDomain.ProcessExit.Add (fun _ -> killProcessAndServer p)
+        #endif
         p.WaitForExit()
         disposed <- true
         Server.stop port |> Async.RunSynchronously
