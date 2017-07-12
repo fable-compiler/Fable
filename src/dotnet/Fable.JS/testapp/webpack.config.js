@@ -40,7 +40,7 @@ module.exports = {
       {
         test: /\.fs(x|proj)?$/,
         use: {
-          loader: resolve("../../../typescript/fable-loader"),
+          loader: resolve("../../../js/fable-loader"),
           options: fableOptions
         }
       },
