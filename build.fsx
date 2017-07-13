@@ -408,8 +408,7 @@ let runFableServer args f =
 
 let runTestsJS () =
     Npm.install __SOURCE_DIRECTORY__ []
-    runFableServer ["--verbose"] <| fun () ->
-        Npm.script __SOURCE_DIRECTORY__ "webpack" ["--config src/tests/webpack.config.js"]
+    Util.run __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose -- --config src/tests/webpack.config.js"
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
 
 let quickTest() =
@@ -572,15 +571,10 @@ Target "NugetRestore" (nugetRestore "src/dotnet")
 Target "FableCLI" (fun _ ->
     nugetRestore "src/dotnet" ()
     buildCLI "src/dotnet" true ())
+Target "FableCLIFast" (buildCLI "src/dotnet" true)
 Target "FableCoreJS" buildCoreJS
 Target "FableSplitter" buildSplitter
 Target "RunTestsJS" runTestsJS
-
-Target "RunTestsJSFast" (fun () ->
-    buildCLI "src/dotnet" true ()
-    Util.run __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose -- --config src/tests/webpack.config.js"
-    Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
-)
 
 Target "PublishPackages" (fun () ->
     // installDotnetSdk ()

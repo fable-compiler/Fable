@@ -30,13 +30,20 @@ let makeCoreRef modname prop =
 let makeImport (selector: string) (path: string) =
     Value(ImportRef(selector.Trim(), path.Trim(), CustomImport))
 
-let makeBinOp, makeUnOp, makeLogOp, makeEqOp =
-    let makeOp range typ args op =
-        Apply (Value op, args, ApplyMeth, typ, range)
-    (fun range typ args op -> makeOp range typ args (BinaryOp op)),
-    (fun range typ args op -> makeOp range typ args (UnaryOp op)),
-    (fun range args op -> makeOp range Boolean args (LogicalOp op)),
-    (fun range args op -> makeOp range Boolean args (BinaryOp op))
+let private makeOp range typ args op =
+    Apply (Value op, args, ApplyMeth, typ, range)
+
+let makeBinOp range typ args op =
+    makeOp range typ args (BinaryOp op)
+
+let makeUnOp range typ args op =
+    makeOp range typ args (UnaryOp op)
+
+let makeLogOp range args op =
+    makeOp range Boolean args (LogicalOp op)
+
+let makeEqOp range args op =
+    makeOp range Boolean args (BinaryOp op)
 
 let rec makeSequential range statements =
     match statements with

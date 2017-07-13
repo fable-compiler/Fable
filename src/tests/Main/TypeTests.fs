@@ -42,6 +42,19 @@ let ``Children inherits parent interfaces``() =
     let t4 = TestType4() |> box
     t4 :? ITest |> equal true
 
+type TestType8(?greeting) =
+    member __.Value = defaultArg greeting "Hi"
+
+type TestType9() =
+    inherit TestType8()
+    let foo = TestType8("Hello")
+    member __.Greet(name) = foo.Value + " " + name
+
+[<Test>]
+let ``Types can instantiate their parent in the constructor``() =
+    let t = TestType9()
+    t.Greet("Maxime") |> equal "Hello Maxime"
+
 [<Test>]
 let ``Type Namespace``() =
     let x = typeof<TestType>.Namespace
@@ -334,7 +347,7 @@ let ``Null values can be JSON serialized forth and back``() =
     #if FABLE_COMPILER
     let json = Fable.Core.JsInterop.toJson x
     let x2 = Fable.Core.JsInterop.ofJsonAsType json (typedefof<Serializable>)
-    equal x2 null    
+    equal x2 null
     let json = Fable.Core.JsInterop.toJson x
     let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
     equal x2 null
