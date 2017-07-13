@@ -1,3 +1,7 @@
+### 1.1.11
+
+* Fix package transitive dependencies
+
 ### 1.1.10
 
 * Update Fable.Compiler
