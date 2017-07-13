@@ -35,7 +35,7 @@ let private (|SpecialValue|_|) com ctx = function
         | _ -> None
     | _ -> None
 
-let private (|BaseConsCall|_|) com ctx (fsExpr: FSharpExpr) =
+let private compileDerivedConstructor com ctx ent baseFullName (fsExpr: FSharpExpr) =
     let equalsEntName meth entName =
         match tryEnclosingEntity meth with
         | Some ent -> (sanitizeEntityFullName ent) = entName
@@ -43,22 +43,44 @@ let private (|BaseConsCall|_|) com ctx (fsExpr: FSharpExpr) =
     let validateGenArgs' typArgs =
         tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
             validateGenArgs com ctx (makeRangeFrom fsExpr) tdef.GenericParameters typArgs)
-    match ctx.derivedConstructor with
-    | Some derivedCons ->
-        match fsExpr with
+    let rec tryBaseCons com ctx baseFullName tail = function
+        // When using a self reference in constructor (e.g. `type MyType() as self =`)
+        // the F# compiler introduces artificial statements that we must ignore
+        | BasicPatterns.Sequential(first, second) when Option.isNone tail ->
+            match tryBaseCons com ctx baseFullName (Some second) first with
+            | Some result -> Some result
+            | None -> tryBaseCons com ctx baseFullName None second
+        | BasicPatterns.Let(_, body) ->
+            tryBaseCons com ctx baseFullName tail body
         | BasicPatterns.NewObject(meth, typArgs, args)
-            when equalsEntName meth derivedCons.BaseClassFullName ->
+            when equalsEntName meth baseFullName ->
                 validateGenArgs' typArgs
-                Some (meth, args, derivedCons)
+                Some (meth, args, tail)
         | BasicPatterns.Call(None, meth, typArgs, _, args)
-            when meth.CompiledName = ".ctor" && equalsEntName meth derivedCons.BaseClassFullName ->
+            when meth.CompiledName = ".ctor" && equalsEntName meth baseFullName ->
                 if not meth.IsImplicitConstructor then
-                    "Inheritance is only possible with base class primary constructor: " + derivedCons.BaseClassFullName
+                    "Inheritance is only possible with base class primary constructor: " + baseFullName
                     |> addError com ctx.fileName (makeRange fsExpr.Range |> Some)
                 validateGenArgs' typArgs
-                Some (meth, args, derivedCons)
+                Some (meth, args, tail)
         | _ -> None
-    | None -> None
+    match tryBaseCons com ctx baseFullName None fsExpr with
+    | Some(meth, args, tail) ->
+        let tail =
+            match tail with
+            | Some(Transform com ctx tail) -> [tail]
+            | None -> []
+        let args = List.map (transformExpr com ctx) args
+        let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
+        let superCall = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
+        if baseFullName = "System.Exception"
+        then superCall::(setProto com ent)::tail // See comment in setProto
+        else superCall::tail
+        |> makeSequential (makeRangeFrom fsExpr)
+    | None ->
+        "Cannot find super call in derived constructor"
+        |> addError com ctx.fileName (makeRange fsExpr.Range |> Some)
+        Fable.Value Fable.Null
 
 let private transformLambda com ctx args tupleDestructs body isDelegate =
     let hasNestedLambda (lambda: Fable.Expr) =
@@ -453,14 +475,6 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> transformComposableExpr com ctx expr2
         makeLambdaExpr [lambdaArg] expr2
 
-    | BaseConsCall com ctx (meth, args, derivedCons) ->
-        let args = List.map (transformExpr com ctx) args
-        let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
-        let superCall = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, range)
-        if derivedCons.BaseClassFullName = "System.Exception"
-        then Fable.Sequential([superCall; setProto com derivedCons.DerivedClass], range)
-        else superCall
-
     | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) methArgs
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
@@ -660,6 +674,13 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         transformLambda com ctx args tupleDestructs body false
 
     (** ## Getters and Setters *)
+
+    // When using a self reference in constructor (e.g. `type MyType() as self =`)
+    // the F# compiler wraps self references with code we don't need
+    | BasicPatterns.FSharpFieldGet(Some ThisVar, RefType _, _)
+    | BasicPatterns.FSharpFieldGet(Some(BasicPatterns.FSharpFieldGet(Some ThisVar, _, _)), RefType _, _) ->
+        makeThisRef com ctx (makeRangeFrom fsExpr) None
+
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
         let callee =
             match callee with
@@ -696,11 +717,19 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.ILFieldSet (callee, typ, fieldName, value) ->
         failwithf "Unsupported ILField reference %O: %A" (makeRange fsExpr.Range) fsExpr
 
-    | BasicPatterns.FSharpFieldSet (callee, FableType com ctx calleeType, FieldName fieldName, Transform com ctx value) ->
+    // When using a self reference in constructor (e.g. `type MyType() as self =`)
+    // the F# compiler introduces artificial statements that we must ignore
+    | BasicPatterns.FSharpFieldSet(Some(ThisVar _), RefType _, _, _)
+    | BasicPatterns.FSharpFieldSet(Some(BasicPatterns.FSharpFieldGet(Some(ThisVar _), _, _)), RefType _, _, _) ->
+        Fable.Value Fable.Null
+
+    | BasicPatterns.FSharpFieldSet (callee, calleeType, FieldName fieldName, Transform com ctx value) ->
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> makeNonGenTypeRef com calleeType
+            | None ->
+                let calleeType = makeType com ctx.typeArgs calleeType
+                makeNonGenTypeRef com calleeType
         Fable.Set (callee, Some (makeStrConst fieldName), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
@@ -1025,34 +1054,39 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 let info =
                     { isInstance = meth.IsInstanceMember
                     ; passGenerics = hasPassGenericsAtt com ctx meth }
-                let ctx, args, extraArgs =
-                    let ctx, _, args, extraArgs = bindMemberArgs com ctx info args
+                let ctx, _, args, extraArgs =
+                    bindMemberArgs com ctx info args
+                let ctx =
                     if memberLoc <> Fable.StaticLoc
-                    then { ctx with thisAvailability = ThisAvailable }, args, extraArgs
-                    else ctx, args, extraArgs
-                let ctx, args, extraArgs =
-                    match meth.IsImplicitConstructor, declInfo.TryGetOwner meth with
-                    | true, Some(EntityKind(Fable.Class(Some(fullName, _), _)) as derivedClass) ->
-                        let derivedCons = DerivedConstructorInfo(fullName, derivedClass)
-                        { ctx with derivedConstructor=Some derivedCons }, args, extraArgs
-                    | _ -> ctx, args, extraArgs
-                match getMemberKind meth, args, body.Type, transformExpr com ctx body with
-                // When a module field (no args) returns a function, it means
-                // point-free style, which doesn't work well with the uncurrying optimization,
-                // so we create a dynamic curried lambda (See #1041)
-                | Fable.Field, [], t, body when t.IsFunctionType && (countFuncArgs t) > 1 ->
-                    Fable.Field, [], extraArgs, makeCurriedLambda body.Range body.Type body
-                // Accept import expressions used instead of attributes, for example:
-                // let foo x y = import "foo" "myLib"
-                | (Fable.Method | Fable.Field | Fable.Getter), args, _,
-                    (Fable.Value(Fable.ImportRef(selector, path, importKind)) as body) ->
+                    then { ctx with thisAvailability = ThisAvailable }
+                    else ctx
+                if meth.IsImplicitConstructor then
                     let body =
-                        if selector = Naming.placeholder
-                        then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
-                        else body
-                    Fable.Field, [], [], body
-                | kind, args, _, body ->
-                    kind, args, extraArgs, body
+                        match declInfo.TryGetOwner meth with
+                        // Constructors of derived classes have a special treatment
+                        // as sometimes can be tricky to find the call to the base constructor
+                        | Some(EntityKind(Fable.Class(Some(baseFullName, _), _)) as ent) ->
+                            compileDerivedConstructor com ctx ent baseFullName body
+                        | _ -> transformExpr com ctx body
+                    Fable.Constructor, args, extraArgs, body
+                else
+                    match getMemberKind meth, args, body.Type, transformExpr com ctx body with
+                    // When a module field (no args) returns a function, it means
+                    // point-free style, which doesn't work well with the uncurrying optimization,
+                    // so we create a dynamic curried lambda (See #1041)
+                    | Fable.Field, [], t, body when t.IsFunctionType && (countFuncArgs t) > 1 ->
+                        Fable.Field, [], extraArgs, makeCurriedLambda body.Range body.Type body
+                    // Accept import expressions used instead of attributes, for example:
+                    // let foo x y = import "foo" "myLib"
+                    | (Fable.Method | Fable.Field | Fable.Getter), args, _,
+                        (Fable.Value(Fable.ImportRef(selector, path, importKind)) as body) ->
+                        let body =
+                            if selector = Naming.placeholder
+                            then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
+                            else body
+                        Fable.Field, [], [], body
+                    | kind, args, _, body ->
+                        kind, args, extraArgs, body
         let entMember =
             let argTypes = List.map Fable.Ident.getType args
             let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type

@@ -352,19 +352,6 @@ module Util =
             List.collect flattenSequential statements
         | e -> [e]
 
-    // Sometimes F# compilers access `this` before calling `super` (this happens when using class self identifiers)
-    // We need to bring the `super` call to the top of the constructor
-    let checkBaseCall consBody =
-        let statements = flattenSequential consBody
-        ((None, []), statements) ||> List.fold (fun (baseCall, statements) statement ->
-            match baseCall, statement with
-            | Some baseCall, statement -> Some baseCall, statement::statements
-            | None, Fable.Apply(Fable.Value Fable.Super,_,_,_,_) -> Some statement, statements
-            | _ -> None, statement::statements)
-        |> function
-        | Some baseCall, statements -> Fable.Sequential(baseCall::(List.rev statements), consBody.Range)
-        | None, statements -> consBody
-
     let getMemberArgsAndBody (com: IBabelCompiler) ctx tc args (body: Fable.Expr) typeParams hasRestParams =
         let args', body' = com.TransformFunction ctx tc args body
         let args, returnType, typeParams =
@@ -884,12 +871,7 @@ module Util =
             | Fable.MemberDeclaration(m, _, _, args, body, range) ->
                 let kind, name, loc, computed, body =
                     match m.Kind with
-                    | Fable.Constructor ->
-                        let body =
-                            match ent with
-                            | Some(EntKind(Fable.Class(Some _, _))) -> checkBaseCall body
-                            | _ -> body
-                        ClassConstructor, "constructor", Fable.InstanceLoc, None, body
+                    | Fable.Constructor -> ClassConstructor, "constructor", Fable.InstanceLoc, None, body
                     | Fable.Method -> ClassFunction, m.OverloadName, m.Location, m.Computed, body
                     | Fable.Getter | Fable.Field -> ClassGetter, m.Name, m.Location, m.Computed, body
                     | Fable.Setter -> ClassSetter, m.Name, m.Location, m.Computed, body

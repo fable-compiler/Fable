@@ -39,10 +39,6 @@ type EnclosingModule(entity, isPublic) =
     member val Entity: Fable.Entity = entity
     member val IsPublic: bool = isPublic
 
-type DerivedConstructorInfo(baseClassFullName, derivedClass) =
-    member val BaseClassFullName: string = baseClassFullName
-    member val DerivedClass: Fable.Entity = derivedClass
-
 type Context =
     { fileName: string
     ; enclosingModule: EnclosingModule
@@ -53,7 +49,6 @@ type Context =
     ; varNames: HashSet<string>
     ; typeArgs: (string * FSharpType) list
     ; decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
-    ; derivedConstructor: DerivedConstructorInfo option
     ; thisAvailability: ThisAvailability
     ; genericAvailability: bool
     ; isLambdaBody: bool }
@@ -65,7 +60,6 @@ type Context =
         ; varNames = HashSet()
         ; typeArgs = []
         ; decisionTargets = None
-        ; derivedConstructor = None
         ; thisAvailability = ThisUnavailable
         ; genericAvailability = false
         ; isLambdaBody = false }
@@ -348,6 +342,13 @@ module Patterns =
     let (|ListType|_|) = function
         | NonAbbreviatedType(TypeDefinition tdef) as t
             when tdef.TryFullName = Some "Microsoft.FSharp.Collections.FSharpList`1" -> Some t
+        | _ -> None
+
+    let (|ThisVar|_|) = function
+        | BasicPatterns.ThisValue _ -> Some ThisVar
+        | BasicPatterns.Value var when
+            var.IsMemberThisValue || var.IsConstructorThisValue ->
+            Some ThisVar
         | _ -> None
 
     let (|ForOf|_|) = function

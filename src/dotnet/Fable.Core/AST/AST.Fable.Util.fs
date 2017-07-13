@@ -318,8 +318,8 @@ let makeUnionCons cases =
     let body = Sequential([setter1; setter2], None)
     MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), true, None, args, body, None)
 
-// This is necessary when extending built-in JS types and compiling to ES5
-// See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work
+/// This is necessary when extending built-in JS types and compiling to ES5
+/// See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work
 let setProto com (ent: Entity) =
     let meth = makeUntypedGet (makeIdentExpr "Object") "setPrototypeOf"
     Apply(meth, [This |> Value; makeUntypedGet (DeclaredType(ent, []) |> makeNonGenTypeRef com) "prototype"], ApplyMeth, Any, None)
