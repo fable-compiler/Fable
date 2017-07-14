@@ -36,6 +36,7 @@ yarn install
 Install Fable and dotnet dependencies using Paket:
 
 ```shell
+cd src
 dotnet restore
 ```
 
