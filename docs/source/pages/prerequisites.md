@@ -1,4 +1,4 @@
-- tagline: 
+- tagline:
 
 # Prerequisites
 
@@ -7,6 +7,7 @@ To get started with Fable, you will need a couple of things installed on your ma
 - Node
 - Yarn
 - Dotnet SDK
+    - Recommended version: 1.0.4
 - IDE
 
 ## Node
@@ -18,6 +19,8 @@ Node is a JavaScript runtime. That means Node to JavaScript is what .NET is to F
 Although npm (Node Package Manager) is the default dependency manager for JavaScript, we recommend (and use) [yarn](https://yarnpkg.com/lang/en/docs/install/) instead. The difference between yarn and npm is that yarn uses lock files when installing dependencies. When someone else is installing dependencies with that same lock file present, yarn makes sure the exact same versions of the libraries and their (transitive) dependencies are installed, leading to reproducible builds on different machines.
 
 ## Dotnet SDK
+
+**Recommended version: 1.0.4**
 
 Fable integrates with the latest dotnet project format provided by the [dotnet sdk](https://www.microsoft.com/net/core). You will use the dotnet CLI for Fable project management (referencing projects, adding projects to a solution etc.) and for Fable library management as facilitated by Paket to manage your dependencies and to build and publish Fable libraries yourself.
 
