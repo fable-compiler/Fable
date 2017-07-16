@@ -550,8 +550,9 @@ module CurriedApplicativeTests =
         r |> equal (Some 5)
 
     [<Test>]
-    let ``Option.apply (<*>) manual curried`` () =
+    let ``Option.apply (<*>) manually curried workaround`` () =
         let f x =
-            fun y -> x + y
+            let f' = fun y -> x + y
+            f'
         let r = Some f <*> Some 2 <*> Some 3
         r |> equal (Some 5)
