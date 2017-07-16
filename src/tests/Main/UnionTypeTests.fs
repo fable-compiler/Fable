@@ -367,6 +367,10 @@ let ``Option.toList works``() =
     None |> Option.toList |> equal []
     Some (Leaf 7) |> Option.toList |> equal [Leaf 7]
 
+[<Test>]
+let ``Option.flatten works``() =
+    Some (Some 1) |> Option.flatten |> equal (Some 1)
+
 type OptTest = OptTest of int option
 
 [<Test>]
