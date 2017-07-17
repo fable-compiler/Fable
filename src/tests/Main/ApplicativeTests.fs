@@ -522,3 +522,37 @@ let ``Point-free style with multiple arguments works``() = // See #1041
     let initialValue = { Types.Email = Types.StringField.Empty }
     let m = State.update "m" initialValue
     m.Email.Value |> equal "m"
+
+
+module CurriedApplicativeTests =
+
+    module Option =
+        let apply x f =
+            match (x, f) with
+            | Some x, Some f -> Some (f x)
+            | _ -> None
+
+        module Operators =
+            let inline (<*>) m x = apply x m
+
+    open Option.Operators
+
+    [<Test>]
+    let ``Option.apply (<*>) non-curried`` () =
+        let f x = x + 1
+        let r = Some f <*> Some 2
+        r |> equal (Some 3)
+
+    [<Test>]
+    let ``Option.apply (<*>) auto curried`` () =
+        let f x y = x + y
+        let r = Some f <*> Some 2 <*> Some 3
+        r |> equal (Some 5)
+
+    [<Test>]
+    let ``Option.apply (<*>) manually curried workaround`` () =
+        let f x =
+            let f' = fun y -> x + y
+            f'
+        let r = Some f <*> Some 2 <*> Some 3
+        r |> equal (Some 5)
