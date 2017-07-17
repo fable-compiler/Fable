@@ -1,3 +1,9 @@
+### 1.1.12
+
+* Fix #1076: Add Option.flatten replacement
+* Fix #1072: Curried application with option type
+* Fix instances of base class compiled as super calls
+
 ### 1.1.11
 
 * Fix package transitive dependencies
