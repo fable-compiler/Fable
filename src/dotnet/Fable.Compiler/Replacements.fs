@@ -1274,7 +1274,7 @@ module AstPass =
         let getCallee() = match i.callee with Some c -> c | None -> i.args.Head
         match i.methodName with
         | "none" -> Fable.Null |> Fable.Value |> Some
-        | "value" | "getValue" | "toObj" | "ofObj" | "toNullable" | "ofNullable" ->
+        | "value" | "getValue" | "toObj" | "ofObj" | "toNullable" | "ofNullable" | "flatten" ->
            wrap i.returnType (getCallee()) |> Some
         | "isSome" | "isNone" ->
             let op = if i.methodName = "isSome" then BinaryUnequal else BinaryEqual
