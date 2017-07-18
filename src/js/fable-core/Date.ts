@@ -266,12 +266,12 @@ export function op_Subtraction(x: Date, y: number | Date) {
   return subtract(x, y);
 }
 
-export function isDaylightSavingTime(x : Date) {
-  var jan = new Date(x.getFullYear(), 0, 1);
-  var jun = new Date(x.getFullYear(), 6, 1);
+export function isDaylightSavingTime(x: Date) {
+  const jan = new Date(x.getFullYear(), 0, 1);
+  const jun = new Date(x.getFullYear(), 6, 1);
   return isDST(jan.getTimezoneOffset(), jun.getTimezoneOffset(), x.getTimezoneOffset());
 }
 
-function isDST(janOffset : number, junOffset : number, tOffset : number) {
+function isDST(janOffset: number, junOffset: number, tOffset: number) {
   return Math.min(janOffset, junOffset) == tOffset;
 }
