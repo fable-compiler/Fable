@@ -1274,7 +1274,8 @@ module AstPass =
         let getCallee() = match i.callee with Some c -> c | None -> i.args.Head
         match i.methodName with
         | "none" -> Fable.Null |> Fable.Value |> Some
-        | "value" | "getValue" | "toObj" | "ofObj" | "toNullable" | "ofNullable" | "flatten" ->
+        | "value" | "getValue" | "toObj" | "ofObj"
+        | "toNullable" | "ofNullable" | "flatten" ->
            wrap i.returnType (getCallee()) |> Some
         | "isSome" | "isNone" ->
             let op = if i.methodName = "isSome" then BinaryUnequal else BinaryEqual
@@ -1300,18 +1301,21 @@ module AstPass =
             let opt = toArray None i.args.Tail.Head
             let args = i.args.Head::opt::i.args.Tail.Tail
             ccall i "Seq" "foldBack" args |> Some
-        | "defaultValue" ->
-            let defValue = i.args.Head
-            let arg = i.args.Tail.Head
-            CoreLibCall("Util", Some  "defaultArg", false, [arg ;defValue])
-            |> makeCall i.range Fable.Any
-            |> Some
-        | meth ->
+        | "defaultValue" | "orElse" ->
+            CoreLibCall("Util", Some  "defaultArg", false, [i.args.Tail.Head; i.args.Head])
+            |> makeCall i.range i.returnType |> Some
+        | "defaultWith" | "orElseWith" ->
+            CoreLibCall("Util", Some  "defaultArgWith", false, [i.args.Tail.Head; i.args.Head])
+            |> makeCall i.range i.returnType |> Some
+        | "count" | "contains" | "exists"
+        | "fold" | "forall" | "iterate" | "toList" ->
             let args =
                 let args = List.rev i.args
                 let opt = toArray None args.Head
                 List.rev (opt::args.Tail)
-            ccall i "Seq" meth args |> Some
+            ccall i "Seq" i.methodName args |> Some
+        // | "map2" | "map3" -> failwith "TODO"
+        | _ -> None
 
     let timeSpans com (i: Fable.ApplyInfo) =
         // let callee = match i.callee with Some c -> c | None -> i.args.Head

@@ -2,6 +2,8 @@ import * as Long from "./Long";
 import { create as timeSpanCreate } from "./TimeSpan";
 import { compare as utilCompare } from "./Util";
 
+// Don't change, this corresponds to DateTime.Kind
+// enum values in .NET
 export const enum DateKind {
   Unspecified = 0,
   UTC = 1,

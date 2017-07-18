@@ -206,11 +206,11 @@ let ``Unions can be JSON serialized forth and back``() =
     let tree2 = Fable.Core.JsInterop.ofJson<Tree> json
     let sum2 = tree2.Sum()
     equal true (box tree2 :? Tree) // Type is kept
-    equal true (sum1 = sum2) // Prototype methods can be accessed    
+    equal true (sum1 = sum2) // Prototype methods can be accessed
     let tree2 = Fable.Core.JsInterop.ofJsonAsType json (tree.GetType()) :?> Tree
     let sum2 = tree2.Sum()
     equal true (box tree2 :? Tree) // Type is kept
-    equal true (sum1 = sum2) // Prototype methods can be accessed    
+    equal true (sum1 = sum2) // Prototype methods can be accessed
     let json = Fable.Core.JsInterop.toJsonWithTypeInfo tree
     let tree2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Tree> json
     #else
@@ -267,6 +267,26 @@ let ``Unions serialized with Json.NET can be deserialized``() =
     let x2 = JsonConvert.DeserializeObject<Tree>(json, settings)
     #endif
     x2.Sum() |> equal 5
+
+[<Test>]
+let ``Option.defaultValue works``() =
+    Some 5 |> Option.defaultValue 4 |> equal 5
+    None |> Option.defaultValue "foo" |> equal "foo"
+
+[<Test>]
+let ``Option.orElse works``() =
+    Some 5 |> Option.orElse (Some 4) |> equal (Some 5)
+    None |> Option.orElse (Some "foo") |> equal (Some "foo")
+
+[<Test>]
+let ``Option.defaultWith works``() =
+    Some 5 |> Option.defaultWith (fun () -> 4) |> equal 5
+    None |> Option.defaultWith (fun () -> "foo") |> equal "foo"
+
+[<Test>]
+let ``Option.orElseWith works``() =
+    Some 5 |> Option.orElseWith (fun () -> Some 4) |> equal (Some 5)
+    None |> Option.orElseWith (fun () -> Some "foo") |> equal (Some "foo")
 
 [<Test>]
 let ``Option.isSome/isNone works``() =

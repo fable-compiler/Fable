@@ -450,6 +450,10 @@ export function defaultArg<T, U>(arg: T, defaultValue: T, f?: (x: T) => U) {
   return arg == null ? defaultValue : (f != null ? f(arg) : arg);
 }
 
+export function defaultArgWith<T, U>(arg: T, defThunk: () => T) {
+  return arg == null ? defThunk() : arg;
+}
+
 export function applyOperator(x: any, y: any, operator: string): any {
   function getMethod(obj: any): (...args: any[]) => any {
     if (typeof obj === "object") {
