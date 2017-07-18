@@ -131,8 +131,8 @@ let ``DateTime.IsLeapYear works``() =
 
 [<Test>]
 let ``DateTime.IsDaylightSavingTime works``() =
-    let d1 = DateTime(2017, 7, 18, 2, 0, 0, DateTimeKind.Utc)
-    let d2 = DateTime(2017, 12, 18, 2, 0, 0, DateTimeKind.Utc)
+    let d1 = DateTime(2017, 7, 18, 2, 0, 0)
+    let d2 = DateTime(2017, 12, 18, 2, 0, 0)
     d1.IsDaylightSavingTime() |> equal true
     d2.IsDaylightSavingTime() |> equal false
     
