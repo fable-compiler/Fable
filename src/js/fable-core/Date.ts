@@ -268,10 +268,10 @@ export function op_Subtraction(x: Date, y: number | Date) {
 
 export function isDaylightSavingTime(x: Date) {
   const jan = new Date(x.getFullYear(), 0, 1);
-  const jun = new Date(x.getFullYear(), 6, 1);
-  return isDST(jan.getTimezoneOffset(), jun.getTimezoneOffset(), x.getTimezoneOffset());
+  const jul = new Date(x.getFullYear(), 6, 1);
+  return isDST(jan.getTimezoneOffset(), jul.getTimezoneOffset(), x.getTimezoneOffset());
 }
 
-function isDST(janOffset: number, junOffset: number, tOffset: number) {
-  return Math.min(janOffset, junOffset) === tOffset;
+function isDST(janOffset: number, julOffset: number, tOffset: number) {
+  return Math.min(janOffset, julOffset) === tOffset;
 }
