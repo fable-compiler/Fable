@@ -130,6 +130,14 @@ let ``DateTime.IsLeapYear works``() =
     DateTime.IsLeapYear(2016) |> equal true
 
 [<Test>]
+let ``DateTime.IsDaylightSavingTime works``() =
+    let d1 = DateTime(2017, 7, 18, 2, 0, 0, DateTimeKind.Utc)
+    let d2 = DateTime(2017, 12, 18, 2, 0, 0, DateTimeKind.Utc)
+    d1.IsDaylightSavingTime() |> equal true
+    d2.IsDaylightSavingTime() |> equal false
+    
+
+[<Test>]
 let ``DateTime.DaysInMonth works``() =
     DateTime.DaysInMonth(2014, 1) |> equal 31
     DateTime.DaysInMonth(2014, 2) |> equal 28
