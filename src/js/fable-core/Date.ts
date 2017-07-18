@@ -273,5 +273,5 @@ export function isDaylightSavingTime(x: Date) {
 }
 
 function isDST(janOffset: number, junOffset: number, tOffset: number) {
-  return Math.min(janOffset, junOffset) == tOffset;
+  return Math.min(janOffset, junOffset) === tOffset;
 }
