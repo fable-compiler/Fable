@@ -1,3 +1,8 @@
+### 1.1.8
+
+* Small refactoring
+* Add `DateTime.IsDaylightSavingTime` replacement (#1082, #1083)
+
 ### 1.1.7
 
 * Support String.Join with objects (#1058)

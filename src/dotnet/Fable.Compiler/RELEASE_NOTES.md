@@ -1,3 +1,7 @@
+### 1.1.14
+
+* Add `Option.defaultWith` and `Option.orElse[With]`
+
 ### 1.1.12
 
 * Fix #1076: Add Option.flatten replacement

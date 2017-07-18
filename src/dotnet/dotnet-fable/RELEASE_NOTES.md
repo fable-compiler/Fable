@@ -1,3 +1,7 @@
+### 1.1.14
+
+* Update Fable.Compiler
+
 ### 1.1.12
 
 * Update Fable.Compiler
