@@ -30,34 +30,30 @@ type Microsoft.FSharp.Control.Async with
         }
 
 let rec private loop timeout (server: TcpListener) (buffer: byte[]) (onMessage: (string*(string->unit)->unit)) = async {
-    try
-        // printfn "Waiting for connection..."
-        let! client = Async.AwaitTask(server.AcceptTcpClientAsync(), timeout)
-        match client with
-        | Some client ->
-            let stream = client.GetStream()
-            let i = stream.Read(buffer, 0, buffer.Length)
-            let data = Encoding.UTF8.GetString(buffer, 0, i)
-            if data = SIGTERM
-            then
-                Log.logAlways("Closing Fable daemon...")
-                return ()
-            else
-                onMessage(data, fun (reply: string) ->
-                    let msg = Encoding.UTF8.GetBytes(reply)
-                    stream.Write(msg, 0, msg.Length)
-                    #if NETFX
-                    client.Close()
-                    #else
-                    client.Dispose()
-                    #endif
-                )
-                return! loop timeout server buffer onMessage
-        | None ->
-            Log.logAlways(sprintf "Timeout (%ims) reached. Closing Fable daemon..." timeout)
+    // printfn "Waiting for connection..."
+    let! client = Async.AwaitTask(server.AcceptTcpClientAsync(), timeout)
+    match client with
+    | Some client ->
+        let stream = client.GetStream()
+        let i = stream.Read(buffer, 0, buffer.Length)
+        let data = Encoding.UTF8.GetString(buffer, 0, i)
+        if data = SIGTERM
+        then
+            Log.logAlways("Closing Fable daemon...")
             return ()
-    with ex ->
-        Log.logAlways("TCP ERROR: " + ex.Message)
+        else
+            onMessage(data, fun (reply: string) ->
+                let msg = Encoding.UTF8.GetBytes(reply)
+                stream.Write(msg, 0, msg.Length)
+                #if NETFX
+                client.Close()
+                #else
+                client.Dispose()
+                #endif
+            )
+            return! loop timeout server buffer onMessage
+    | None ->
+        Log.logAlways(sprintf "Timeout (%ims) reached. Closing Fable daemon..." timeout)
         return ()
 }
 

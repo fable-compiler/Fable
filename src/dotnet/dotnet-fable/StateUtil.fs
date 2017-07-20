@@ -208,19 +208,25 @@ type Command = string * (string -> unit)
 let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
     let rec loop (checker: FSharpChecker) (com: Compiler) (state: State) = async {
         let! msg, replyChannel = agent.Receive()
-        try
-            let msg = Parser.parse msg
-            let com = Compiler(msg.options, loadPlugins msg.plugins (com :> ICompiler).Plugins)
-            let state, activeProject = updateState checker com state msg
+        let newState =
+            try
+                let msg = Parser.parse msg
+                let com = Compiler(msg.options, loadPlugins msg.plugins (com :> ICompiler).Plugins)
+                let state, activeProject = updateState checker com state msg
+                Some(state, activeProject, msg.path)
+            with ex ->
+                sendError replyChannel ex
+                None
+        match newState with
+        | Some(state, activeProject, filePath) ->
             async {
                 try
-                    compile com activeProject msg.path |> replyChannel
+                    compile com activeProject filePath |> replyChannel
                 with ex ->
                     sendError replyChannel ex
             } |> Async.Start
             return! loop checker com state
-        with ex ->
-            sendError replyChannel ex
+        | None ->
             return! loop checker com state
     }
     let compiler = Compiler()
