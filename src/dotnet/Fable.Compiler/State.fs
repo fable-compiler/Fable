@@ -23,33 +23,23 @@ type Dictionary<'TKey, 'TValue> with
 type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 #endif
 
-type FileInfo =
-    { mutable IsCompiled: bool }
-
-type ProjectInfo(fableCoreDir: string option, ?projOptions: FSharpProjectOptions) =
-    member __.ProjectOptions = projOptions
-    member __.FableCoreJsDir = fableCoreDir
-
-type Project
-    (projectOptions: FSharpProjectOptions,
-     checkedProject: FSharpCheckProjectResults,
-     ?isWatchcompilation: bool, ?fableCoreJsDir: string) =
+type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
+    let timestamp = DateTime.UtcNow
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
-    let fileInfos =
-        let isCompiled = defaultArg isWatchcompilation false
+    let normalizedFiles =
         projectOptions.ProjectFileNames
-        |> Seq.map (fun filepath -> Path.normalizeFullPath filepath, { IsCompiled = isCompiled })
-        |> Map
+        |> Seq.map Path.normalizeFullPath
+        |> Seq.toList
     let rootModules =
         checkedProject.AssemblyContents.ImplementationFiles
         |> Seq.map (fun file -> file.FileName, FSharp2Fable.Compiler.getRootModuleFullName file)
         |> Map
+    member __.TimeStamp = timestamp
     member __.CheckedProject = checkedProject
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectOptions.ProjectFileName
-    member __.FileInfos = fileInfos
-    member __.FableCoreJsDir = fableCoreJsDir
+    member __.NormalizedFiles = normalizedFiles
     interface ICompilerState with
         member this.ProjectFile = projectOptions.ProjectFileName
         member this.GetRootModule(fileName) =
@@ -71,17 +61,12 @@ let getDefaultOptions() =
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
-type Compiler(?options, ?plugins, ?logs) =
+type Compiler(?options, ?plugins) =
     let mutable id = 0
     let options = defaultArg options <| getDefaultOptions()
     let plugins: PluginInfo list = defaultArg plugins []
-    let logs =
-        let dic = Dictionary<string, string list>()
-        logs |> Option.iter (fun logs ->
-            for KeyValue(key,value) in logs do
-                dic.Add(key, value))
-        dic
-    member __.Logs: Map<string, string list> =
+    let logs = Dictionary<string, string list>()
+    member __.ReadAllLogs() =
         logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value) |> Map
     member __.Options = options
     member __.Plugins = plugins
@@ -107,4 +92,3 @@ type Compiler(?options, ?plugins, ?logs) =
             else logs.Add(severity, [formattedMsg])
         member __.GetUniqueVar() =
             id <- id + 1; "$var" + (string id)
-    

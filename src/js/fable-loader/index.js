@@ -79,9 +79,6 @@ var Loader = function(buffer) {
         }
         else {
             try {
-                ensureArray(data.dependencies).forEach(path => {
-                    this.addDependency(path)
-                });
                 if (typeof data.logs === "object") {
                     Object.keys(data.logs).forEach(key => {
                         // TODO: Fail if there's one or more error logs?
@@ -98,7 +95,7 @@ var Loader = function(buffer) {
                                     console.log(msg)
                             }
                         });
-                    })
+                    });
                 }
                 var sourceMapOpts = this.sourceMap ? {
                     path: data.fileName,

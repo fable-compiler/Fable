@@ -1131,17 +1131,6 @@ module Util =
 
 #if !FABLE_COMPILER
     let getEmitter =
-        // Prevent ReflectionTypeLoadException
-        // From http://stackoverflow.com/a/7889272
-        let getTypes (asm: System.Reflection.Assembly) =
-            let mutable types: Option<Type[]> = None
-            try
-                types <- Some(asm.GetTypes())
-            with
-            | :? ReflectionTypeLoadException as e -> types <- Some e.Types
-            match types with
-            | Some types -> types |> Seq.filter ((<>) null)
-            | None -> Seq.empty
         let cache = Dictionary<string, obj>()
         fun (tdef: FSharpEntity) ->
             cache.GetOrAdd(tdef.QualifiedName, fun _ ->
@@ -1150,7 +1139,7 @@ module Util =
                 // by the parsed code, so use `LoadFrom` which takes the copy in memory
                 // Unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
                 let assembly = System.Reflection.Assembly.LoadFrom(filePath)
-                let typ = getTypes assembly |> Seq.find (fun x ->
+                let typ = Reflection.getTypes assembly |> Seq.find (fun x ->
                     x.AssemblyQualifiedName = tdef.QualifiedName)
                 System.Activator.CreateInstance(typ))
 #endif

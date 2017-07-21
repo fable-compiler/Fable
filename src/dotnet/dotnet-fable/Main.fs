@@ -123,10 +123,9 @@ let parseArguments args =
 
 let debug (projFile: string) (define: string[]) =
     try
-        let com = Fable.State.Compiler()
         let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
-        let msg = { path=(Path.GetFullPath projFile); define=define; plugins=[||]; options=com.Options; extra = dict [] }
-        let state, project = updateState checker com Map.empty msg
+        let msg = { path=(Path.GetFullPath projFile); define=define; plugins=[||]; options=Fable.State.getDefaultOptions(); extra = dict [] }
+        let state, project = updateState checker Map.empty msg
         for file in project.ProjectOptions.ProjectFileNames |> Seq.rev do
             let com = Fable.State.Compiler()
             compile com project file |> printfn "%A"

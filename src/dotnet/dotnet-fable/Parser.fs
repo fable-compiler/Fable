@@ -78,11 +78,6 @@ let private parseDic (key: string) (o: JObject): IDictionary<string,string> =
     | :? JObject as v -> v.ToObject<IDictionary<string,string>>()
     | _ -> dict []
 
-let makePathRelative path =
-    let path = Path.normalizeFullPath path
-    let cwd = System.IO.Directory.GetCurrentDirectory()
-    Path.getRelativeFileOrDirPath true cwd true path
-
 let parse (msg: string) =
     let json = JsonConvert.DeserializeObject<JObject>(msg)
     let path = parseStringRequired "path" json |> Path.normalizeFullPath
@@ -92,7 +87,7 @@ let parse (msg: string) =
         { fableCore =
             match parseString "fable-core" "fableCore" json with
             | "fable-core" -> "fable-core"
-            | path -> (makePathRelative path).TrimEnd('/')
+            | path -> Path.normalizeFullPath path
         ; declaration = parseBoolean false "declaration" json
         ; typedArrays = parseBoolean true "typedArrays" json
         ; clampByteArrays = parseBoolean false "clampByteArrays" json }

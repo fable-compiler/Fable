@@ -12,6 +12,13 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open ProjectCracker
 
+module private Cache =
+    let fableCore = Dictionary<string,string>()
+    let plugins = Dictionary<string,PluginInfo list>()
+    let add (cache: Dictionary<'K,'V>) key value =
+        cache.Add(key, value)
+        value
+
 let loadAssembly path =
 #if NETFX
     Assembly.LoadFrom(path)
@@ -20,46 +27,28 @@ let loadAssembly path =
     globalLoadContext.LoadFromAssemblyPath(path)
 #endif
 
-let loadPlugins pluginPaths (loadedPlugins: PluginInfo list) =
-    let loadedPlugins =
-        loadedPlugins |> Seq.groupBy (fun p -> p.path) |> Map
+let loadPlugins pluginPaths =
     pluginPaths
     |> Seq.collect (fun path ->
         let path = Path.normalizeFullPath path
-        match Map.tryFind path loadedPlugins with
-        | Some pluginInfos -> pluginInfos
-        | None ->
+        match Cache.plugins.TryGetValue(path) with
+        | true, pluginInfos -> pluginInfos
+        | false, _ ->
             try
-                let assembly = loadAssembly path
-                assembly.GetTypes()
+                loadAssembly path
+                |> Reflection.getTypes
                 |> Seq.filter typeof<IPlugin>.IsAssignableFrom
                 |> Seq.map (fun x ->
                     { path = path
                     ; plugin = Activator.CreateInstance x :?> IPlugin })
+                |> Seq.toList
+                |> Cache.add Cache.plugins path
             with
             | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
     |> Seq.toList
 
 let getRelativePath path =
     Path.getRelativePath (IO.Directory.GetCurrentDirectory()) path
-
-let parseFSharpProject (checker: FSharpChecker) (projOptions: FSharpProjectOptions) (com: ICompiler) =
-    sprintf "Parsing %s..." (getRelativePath projOptions.ProjectFileName)
-    |> Log.logAlways
-    let checkProjectResults =
-        projOptions
-        |> checker.ParseAndCheckProject
-        |> Async.RunSynchronously
-    for er in checkProjectResults.Errors do
-        let severity =
-            match er.Severity with
-            | FSharpErrorSeverity.Warning -> Severity.Warning
-            | FSharpErrorSeverity.Error -> Severity.Error
-        let range =
-            { start={ line=er.StartLineAlternate; column=er.StartColumn}
-            ; ``end``={ line=er.EndLineAlternate; column=er.EndColumn} }
-        com.AddLog(er.Message, severity, range, er.FileName, "FSHARP")
-    checkProjectResults
 
 let hasFlag flagName (opts: IDictionary<string, string>) =
     match opts.TryGetValue(flagName) with
@@ -74,10 +63,9 @@ let tryGetOption name (opts: IDictionary<string, string>) =
     | true, value -> Some value
     | _ -> None
 
-let createProject checker (projInfo: ProjectInfo option)
-                  (com: ICompiler) (msg: Parser.Message) projFile =
+let createProject checker (prevOptions: FSharpProjectOptions option) (msg: Parser.Message) projFile =
     let projectOptions =
-        projInfo |> Option.bind (fun i -> i.ProjectOptions) |> function
+        match prevOptions with
         | Some projectOptions -> projectOptions
         | None ->
             let projectOptions = getFullProjectOpts checker msg.define projFile
@@ -88,15 +76,14 @@ let createProject checker (projInfo: ProjectInfo option)
                 for file in projectOptions.ProjectFileNames do
                     Log.logVerbose("   " + file)
             projectOptions
-    let checkedProject = parseFSharpProject checker projectOptions com
+    Log.logAlways(sprintf "Parsing %s..." (getRelativePath projectOptions.ProjectFileName))
+    let checkedProject =
+        projectOptions
+        |> checker.ParseAndCheckProject
+        |> Async.RunSynchronously
     tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
         Printers.printAst dir checkedProject)
-    let isWatch, fableCoreJsDir =
-        match projInfo with
-        // If we have info from previous project, assume it's a watch compilation
-        | Some info -> true, info.FableCoreJsDir
-        | None -> false, ProjectCracker.tryGetFableCoreJsDir projectOptions.ProjectFileName
-    Project(projectOptions, checkedProject, isWatch, ?fableCoreJsDir=fableCoreJsDir)
+    Project(projectOptions, checkedProject)
 
 let toJson =
     let jsonSettings =
@@ -114,122 +101,117 @@ let sendError replyChannel (ex: Exception) =
     Log.logAlways(sprintf "ERROR: %s\n%s" ex.Message stack)
     ["error", ex.Message] |> dict |> toJson |> replyChannel
 
-let addLogs (com: Compiler) (file: Babel.Program) =
-    let loc = defaultArg file.loc SourceLocation.Empty
-    Babel.Program(file.fileName, loc, file.body, file.directives, com.Logs, file.dependencies)
-
-let getExtension (fileName: string) =
-    let i = fileName.LastIndexOf(".")
-    fileName.Substring(i).ToLower()
-
-let updateState (checker: FSharpChecker) (com: Compiler) (state: State) (msg: Parser.Message): State * Project =
-    let tryFindAndUpdateProject ext sourceFile =
-        state |> Map.tryPick (fun _ project ->
-            match Map.tryFind sourceFile project.FileInfos with
-            | Some fileInfo ->
-                // sprintf "File %s (compiled %b) belongs to project %s"
-                //     (getRelativePath sourceFile) fileInfo.IsCompiled (getRelativePath project.ProjectFile)
-                // |> Log.logVerbose
-                let project =
-                    // When a script is modified, restart the project with new options
-                    // (to check for new references, loaded projects, etc.)
-                    if ext = ".fsx" then
-                        let projInfo = ProjectInfo(project.FableCoreJsDir) |> Some
-                        createProject checker projInfo com msg project.ProjectFile
-                    // Watch compilation of an .fs file, restart project with old options
-                    elif fileInfo.IsCompiled then
-                        let projInfo = ProjectInfo(project.FableCoreJsDir, project.ProjectOptions) |> Some
-                        createProject checker projInfo com msg project.ProjectFile
-                    else project
-                // Set file as already compiled
-                project.FileInfos.[sourceFile].IsCompiled <- true
-                Some project
-            | None -> None)
+let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message): State * Project =
     let addOrUpdateProject state (project: Project) =
         let state = Map.add project.ProjectFile project state
         state, project
-    let fileName = msg.path
-    match getExtension fileName with
+    let tryFindAndUpdateProject state ext sourceFile =
+        state |> Map.tryPick (fun _ (project: Project) ->
+            if List.contains sourceFile project.NormalizedFiles then
+                // (getRelativePath sourceFile, getRelativePath project.ProjectFile)
+                // ||> sprintf "File %s belongs to project %s" |> Log.logVerbose
+                // When a script is modified, restart the project with new options
+                // (to check for new references, loaded projects, etc.)
+                if ext = ".fsx" then
+                    createProject checker None msg project.ProjectFile
+                    |> addOrUpdateProject state |> Some
+                // Watch compilation of an .fs file, restart project with old options
+                elif IO.File.GetLastWriteTimeUtc(sourceFile) > project.TimeStamp then
+                    let prevOptions = Some project.ProjectOptions
+                    createProject checker prevOptions msg project.ProjectFile
+                    |> addOrUpdateProject state |> Some
+                else Some(state, project)
+            else None)
+    match IO.Path.GetExtension(msg.path).ToLower() with
     | ".fsproj" ->
-        createProject checker None com msg fileName
+        createProject checker None msg msg.path
         |> addOrUpdateProject state
     | ".fsx" as ext ->
-        match Map.tryFind fileName state with
+        match Map.tryFind msg.path state with
         | Some project ->
-            let projInfo = ProjectInfo(project.FableCoreJsDir) |> Some
-            createProject checker projInfo com msg fileName
+            createProject checker None msg msg.path
             |> addOrUpdateProject state
         | None ->
-            match tryFindAndUpdateProject ext fileName with
-            | Some project -> addOrUpdateProject state project
+            match tryFindAndUpdateProject state ext msg.path with
+            | Some stateAndProject -> stateAndProject
             | None ->
-                createProject checker None com msg fileName
+                createProject checker None msg msg.path
                 |> addOrUpdateProject state
     | ".fs" as ext ->
-        match tryFindAndUpdateProject ext fileName with
-        | Some project -> addOrUpdateProject state project
+        match tryFindAndUpdateProject state ext msg.path with
+        | Some stateAndProject -> stateAndProject
         | None ->
             state |> Map.map (fun _ p -> p.ProjectFile) |> Seq.toList
-            |> failwithf "%s doesn't belong to any of loaded projects %A" fileName
-    | ".fsi" -> failwithf "Signature files cannot be compiled to JS: %s" fileName
-    | _ -> failwithf "Not an F# source file: %s" fileName
+            |> failwithf "%s doesn't belong to any of loaded projects %A" msg.path
+    | ".fsi" -> failwithf "Signature files cannot be compiled to JS: %s" msg.path
+    | _ -> failwithf "Not an F# source file: %s" msg.path
 
-let resolveFableCoreLocation (com: Compiler) (project: Project) =
-    // Resolve the fable-core location if not defined by user
-    if com.Options.fableCore = "fable-core" then
-        match project.FableCoreJsDir with
-        | Some fableCoreJsDir ->
-            let newOpts = { com.Options with fableCore = Parser.makePathRelative fableCoreJsDir }
-            Compiler(newOpts, com.Plugins, com.Logs)
-        | None ->
-            failwith "Cannot find fable-core directory"
-    else com
+let resolveFableCoreDir fableCoreDir projectFile currentFile =
+    let trim (s: string) = s.TrimEnd('/')
+    match fableCoreDir with
+    | "fable-core" ->
+        // Resolve the fable-core location if not defined by user
+        match Cache.fableCore.TryGetValue(projectFile) with
+        | true, fableCoreDir -> fableCoreDir
+        | false, _ ->
+            match ProjectCracker.tryGetFableCoreJsDir projectFile with
+            | Some fableCoreDir -> Cache.add Cache.fableCore projectFile fableCoreDir
+            | None -> failwith "Cannot find fable-core directory"
+    | fableCoreDir -> fableCoreDir
+    |> Path.getRelativePath currentFile |> trim
 
-let compile (com: Compiler) (project: Project) (fileName: string) =
-    if fileName.EndsWith(".fsproj") then
-        // If there are errors at this stage they must come from the F# compiler
-        if com.Logs.ContainsKey("error") then
-            // Don't keep compiling because the project file would remain
-            // errored forever, but add all project files as dependencies.
-            let deps = Array.toList project.ProjectOptions.ProjectFileNames
-            Babel.Program(fileName, SourceLocation.Empty, [], dependencies=deps)
-        else
+let compile (com: Compiler) (project: Project) (filePath: string) =
+    let babel =
+        if filePath.EndsWith(".fsproj") then
             let lastFile = Array.last project.ProjectOptions.ProjectFileNames
-            Fable2Babel.Compiler.createFacade fileName lastFile
-        |> addLogs com |> toJson
-    else
-        let com = resolveFableCoreLocation com project
-        FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
-        |> Fable2Babel.Compiler.transformFile com project
-        |> addLogs com |> toJson
+            Fable2Babel.Compiler.createFacade filePath lastFile
+        else
+            FSharp2Fable.Compiler.transformFile com project project.CheckedProject filePath
+            |> Fable2Babel.Compiler.transformFile com project
+    // Add logs and convert to JSON
+    for er in project.CheckedProject.Errors do
+        if (Path.normalizeFullPath er.FileName) = filePath then
+            let severity =
+                match er.Severity with
+                | FSharpErrorSeverity.Warning -> Severity.Warning
+                | FSharpErrorSeverity.Error -> Severity.Error
+            let range =
+                { start={ line=er.StartLineAlternate; column=er.StartColumn}
+                ; ``end``={ line=er.EndLineAlternate; column=er.EndColumn} }
+            (com :> ICompiler).AddLog(er.Message, severity, range, er.FileName, "FSHARP")
+    let loc = defaultArg babel.loc SourceLocation.Empty
+    Babel.Program(babel.fileName, loc, babel.body, babel.directives, com.ReadAllLogs())
+    |> toJson
 
 type Command = string * (string -> unit)
 
 let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
-    let rec loop (checker: FSharpChecker) (com: Compiler) (state: State) = async {
+    let rec loop (checker: FSharpChecker) (state: State) = async {
         let! msg, replyChannel = agent.Receive()
         let newState =
             try
                 let msg = Parser.parse msg
-                let com = Compiler(msg.options, loadPlugins msg.plugins (com :> ICompiler).Plugins)
-                let state, activeProject = updateState checker com state msg
-                Some(state, activeProject, msg.path)
+                // sprintf "Received message %A" msg |> Log.logVerbose
+                let state, activeProject = updateState checker state msg
+                // Resolve fableCore location and create new compiler
+                let fableCoreDir = resolveFableCoreDir msg.options.fableCore activeProject.ProjectFile msg.path
+                let com = Compiler({msg.options with fableCore=fableCoreDir}, loadPlugins msg.plugins)
+                Some(com, state, activeProject, msg.path)
             with ex ->
                 sendError replyChannel ex
                 None
         match newState with
-        | Some(state, activeProject, filePath) ->
+        | Some(com, state, activeProject, filePath) ->
             async {
                 try
                     compile com activeProject filePath |> replyChannel
                 with ex ->
                     sendError replyChannel ex
             } |> Async.Start
-            return! loop checker com state
+            return! loop checker state
         | None ->
-            return! loop checker com state
+            return! loop checker state
     }
-    let compiler = Compiler()
     let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
-    loop checker compiler Map.empty
+    loop checker Map.empty
   )

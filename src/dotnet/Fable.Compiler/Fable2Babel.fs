@@ -1120,12 +1120,7 @@ module Util =
                         path =
                             match kind with
                             | Fable.CustomImport | Fable.Internal _ -> path
-                            | Fable.CoreLib ->
-                                let path = com.Options.fableCore + "/" + path + Naming.targetFileExtension
-                                if not(path.StartsWith ".") then path else
-                                Path.GetFullPath path
-                                |> Path.getRelativePath ctx.file.SourcePath
-                                |> fun path -> path.TrimEnd('/')
+                            | Fable.CoreLib -> com.Options.fableCore + "/" + path + Naming.targetFileExtension
                     }
                     imports.Add(path + "::" + selector, i)
                     match localId with
