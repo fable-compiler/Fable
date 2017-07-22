@@ -65,7 +65,7 @@ let start port timeout onMessage =
     // See https://github.com/fable-compiler/Fable/issues/809#issuecomment-294073328
     server.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true)
     server.Start()
-    Log.logAlways(sprintf "Fable daemon started on port %i%s" port
+    Log.logAlways(sprintf "Fable (%s) daemon started on port %i%s" Constants.VERSION port
         (if timeout >= 0 then sprintf " (timeout %ims)" timeout else ""))
     loop timeout server buffer onMessage
 
