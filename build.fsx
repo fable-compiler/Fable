@@ -483,13 +483,10 @@ let pushNuget (projFile: string) =
         // Restore dependencies here so they're updated to latest project versions
         Util.run projDir dotnetExePath "restore"
         Util.run projDir dotnetExePath (sprintf "pack -c Release /p:Version=%s" releaseNotes.NugetVersion)
-        Directory.GetFiles(projDir </> "bin" </> "Release", "*.nupkg")
-        |> Array.find (fun nupkg -> nupkg.Contains(releaseNotes.NugetVersion))
-        |> (fun nupkg ->
-            (Path.GetFullPath nupkg, nugetKey)
-            ||> sprintf "nuget push %s -s nuget.org -k %s"
-            |> Util.run projDir dotnetExePath)
-        // After successful publishing, update the project file
+        Paket.Push (fun p ->
+            { p with
+                ApiKey = nugetKey
+                WorkingDir = projDir </> "bin" </> "Release" })        // After successful publishing, update the project file
         (versionRegex, projFile) ||> Util.replaceLines (fun line _ ->
             versionRegex.Replace(line, "<Version>"+releaseNotes.NugetVersion+"</Version>") |> Some)
 

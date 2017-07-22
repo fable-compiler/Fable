@@ -1,3 +1,7 @@
+### 1.1.15
+
+* Clean up
+
 ### 1.1.14
 
 * Add `Option.defaultWith` and `Option.orElse[With]`

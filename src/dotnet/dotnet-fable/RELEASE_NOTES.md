@@ -1,3 +1,7 @@
+### 1.1.15
+
+* Clean up & fix issues with errors across files in watch compilations
+
 ### 1.1.14
 
 * Update Fable.Compiler
