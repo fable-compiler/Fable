@@ -574,8 +574,8 @@ Target "FableSplitter" buildSplitter
 Target "RunTestsJS" runTestsJS
 
 Target "PublishPackages" (fun () ->
-    // installDotnetSdk ()
-    // clean ()
+    installDotnetSdk ()
+    clean ()
 
     // Publish Nuget packages
     pushNuget "src/dotnet/Fable.Core/Fable.Core.fsproj"

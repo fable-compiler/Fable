@@ -1,4 +1,4 @@
-### 1.1.15
+### 1.1.16
 
 * Clean up & fix issues with errors across files in watch compilations
 

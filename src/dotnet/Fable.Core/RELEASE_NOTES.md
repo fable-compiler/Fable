@@ -1,3 +1,7 @@
+### 1.1.9
+
+* Add constructors to JsFunc
+
 ### 1.1.8
 
 * Small refactoring
