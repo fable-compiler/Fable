@@ -111,7 +111,7 @@ let nameofLambda(f: 'a->'b): string = jsNative
 /// Compiles to JS `this` keyword.
 ///
 /// ## Sample
-///     let fn = JsFunc2(fun x y -> jsThis?add(x, y))
+///     jqueryMethod(fun x y -> jsThis?add(x, y))
 let [<Emit("this")>] jsThis<'T> : 'T = jsNative
 
 /// Use it when importing a constructor from a JS library.
@@ -161,6 +161,13 @@ type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out
 /// ## Sample
 ///     let f: JsFunc = import "myFunction" "./myLib"
 ///     f.Invoke(5, "bar")
-type [<AllowNullLiteral>] JsFunc =
+type [<AllowNullLiteral>] JsFunc private () =
     [<Emit("$0($1...)")>]
-    abstract Invoke: [<ParamArray>]args:obj[]->obj
+    member __.Invoke([<ParamArray>]args:obj[]): obj = jsNative
+    [<Emit("$0")>] static member From0(f:unit->'b): JsFunc = jsNative
+    [<Emit("$0")>] static member From1(f:'a->'b): JsFunc = jsNative
+    [<Emit("$0")>] static member From2(f:'a->'b->'c): JsFunc = jsNative
+    [<Emit("$0")>] static member From3(f:'a->'b->'c->'d): JsFunc = jsNative
+    [<Emit("$0")>] static member From4(f:'a->'b->'c->'d->'e): JsFunc = jsNative
+    [<Emit("$0")>] static member From5(f:'a->'b->'c->'d->'e->'f): JsFunc = jsNative
+    [<Emit("$0")>] static member From6(f:'a->'b->'c->'d->'e->'f->'g): JsFunc = jsNative
