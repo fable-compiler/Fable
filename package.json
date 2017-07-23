@@ -7,8 +7,8 @@
     "webpack": "webpack"
   },
   "devDependencies": {
-    "@types/babel-core": "^6.7.14",
-    "@types/node": "^8.0.10",
+    "@types/babel-core": "^6.7.15",
+    "@types/node": "^8.0.15",
     "babel-core": "^6.25.0",
     "babel-loader": "^7.1.1",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.24.1",
@@ -20,13 +20,14 @@
     "fable-splitter": "file:./src/js/fable-splitter",
     "fable-utils": "file:./src/js/fable-utils",
     "mocha": "^3.4.2",
-    "rollup": "^0.45.1",
+    "rollup": "^0.45.2",
     "rollup-plugin-babel": "^2.7.1",
     "rollup-plugin-commonjs": "^8.0.2",
     "rollup-plugin-fable": "file:./src/js/rollup-plugin-fable",
     "rollup-pluginutils": "^2.0.1",
+    "rollup-watch": "^4.3.1",
     "tslint": "^5.5.0",
-    "typescript": "^2.4.1",
-    "webpack": "^3.1.0"
+    "typescript": "^2.4.2",
+    "webpack": "^3.3.0"
   }
 }

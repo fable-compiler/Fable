@@ -83,16 +83,17 @@ module.exports = (
           if (error) throw new Error(error);
 
           Object.keys(logs).forEach(key => {
-            let print = x => console.log(x);
-            if (key === "warning") {
-              print = x => this.warn(x);
-            }
-            else if (key === "error") {
-              // `this.error` stops compilation (also watching), so we force
-              // the user explictly pass the `extra.failOnError option
-              print = extra && extra.failOnError ? x => this.error(x) : x => this.warn(x);
-            }
-            ensureArray(logs[key]).forEach(print);
+            ensureArray(logs[key]).forEach(x => {
+              if (key === "warning") {
+                this.warn(x);
+              }
+              else if (key === "error") {
+                this.error(x);
+              }
+              else {
+                console.log(x);
+              }
+            });
           });
 
           let fsCode = null;

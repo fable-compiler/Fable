@@ -1,3 +1,7 @@
+### 1.1.0
+
+* Use `this.error(msg)` for F#/Fable errors instead of `this.warn(msg)`
+
 ### 1.0.7
 
 * Add cache
