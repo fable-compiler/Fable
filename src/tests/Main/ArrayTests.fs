@@ -231,6 +231,16 @@ let ``Array distinctBy with tuples works`` () =
     xs.[0] |> snd |> equal "a"
     xs.[1] |> snd |> equal "b"
 
+
+[<Test>]
+let ``Array distinctBy works on large array`` () =
+    let xs = [| 0 .. 50000 |]
+    let ys =
+        Array.append xs xs
+        |> Array.distinctBy(fun x -> x.ToString())
+        
+    ys |> equal xs
+    
 [<Test>]
 let ``Array.sub works``() =
     let xs = [|0..99|]
