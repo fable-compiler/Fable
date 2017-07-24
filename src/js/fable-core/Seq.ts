@@ -131,17 +131,17 @@ export function collect<T, U>(f: (x: T) => Iterable<U>, xs: Iterable<T>) {
 }
 
 export function choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
-  const trySkipToNext = (iter: Iterator<T>): [U, Iterator<T>] => {
-    const cur = iter.next();
-    if (!cur.done) {
+  return delay(() => unfold((iter) => {
+    let cur = iter.next();
+    while (!cur.done) {
       const y = f(cur.value);
-      return y != null ? [y, iter] : trySkipToNext(iter);
+      if (y != null) {
+        return [y, iter];
+      }
+      cur = iter.next();
     }
-    return void 0;
-  };
-  return delay(() =>
-    unfold((iter) =>
-      trySkipToNext(iter), xs[Symbol.iterator]()));
+    return null;
+  }, xs[Symbol.iterator]()));
 }
 
 export function compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: Iterable<T>) {
@@ -224,32 +224,38 @@ export function except<T>(itemsToExclude: Iterable<T>, source: Iterable<T>) {
 }
 
 export function exists<T>(f: (x: T) => boolean, xs: Iterable<T>) {
-  function aux(iter: Iterator<T>): boolean {
-    const cur = iter.next();
-    return !cur.done && (f(cur.value) || aux(iter));
+  let cur: IteratorResult<T>;
+  for (const iter = xs[Symbol.iterator](); ; ) {
+    cur = iter.next();
+    if (cur.done) { break; }
+    if (f(cur.value)) { return true; }
   }
-  return aux(xs[Symbol.iterator]());
+  return false;
 }
 
 export function exists2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
-  function aux(iter1: Iterator<T1>, iter2: Iterator<T2>): boolean {
-    const cur1 = iter1.next();
-    const cur2 = iter2.next();
-    return !cur1.done && !cur2.done && (f(cur1.value, cur2.value) || aux(iter1, iter2));
+  let cur1: IteratorResult<T1>;
+  let cur2: IteratorResult<T2>;
+  for (const iter1 = xs[Symbol.iterator](), iter2 = ys[Symbol.iterator](); ; ) {
+    cur1 = iter1.next();
+    cur2 = iter2.next();
+    if (cur1.done || cur2.done) { break; }
+    if (f(cur1.value, cur2.value)) { return true; }
   }
-  return aux(xs[Symbol.iterator](), ys[Symbol.iterator]());
+  return false;
 }
 
 export function filter<T>(f: (x: T) => boolean, xs: Iterable<T>) {
-  function trySkipToNext(iter: Iterator<T>): [T, Iterator<T>] {
+  return delay(() => unfold((iter) => {
     let cur = iter.next();
     while (!cur.done) {
-      if (f(cur.value)) { return [cur.value, iter]; }
+      if (f(cur.value)) {
+        return [cur.value, iter];
+      }
       cur = iter.next();
     }
-    return void 0;
-  }
-  return delay(() => unfold(trySkipToNext, xs[Symbol.iterator]()));
+    return null;
+  }, xs[Symbol.iterator]()));
 }
 
 export function where<T>(f: (x: T) => boolean, xs: Iterable<T>) {
