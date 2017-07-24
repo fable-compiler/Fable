@@ -6,14 +6,14 @@
 
 There are several ways to interact with the JavaScript world:
 
-- [Dynamic programming](#Dynamic-programming)
+- [Dynamic typing](#Dynamic-typing)
 - [Foreign interfaces](#Foreign-interfaces)
 - [Special attributes](#Special-attributes)
 - [Calling F# code from JavaScript](#Calling-F-code-from-JavaScript)
 - [JSON serialization](#JSON-serialization)
 - [Publishing a Fable package](#Publishing-a-Fable-package)
 
-## Dynamic programming
+## Dynamic typing
 
 [Fable.Core.JsInterop](https://github.com/fable-compiler/Fable/blob/master/src/fable/Fable.Core/Fable.Core.fs)
 implements the F# dynamic operators so you can easily access an object property by name (without static check)
@@ -387,7 +387,7 @@ System.Func<_,_,_>(fun x y -> x + y)
 - Fable will **automatically convert F# functions to delegates** in some situations:
     - When passing an F# lambda to a method accepting a delegate.
     - When passing functions as arguments to `EmitAttribute`.
-    - When using dynamic programming, with `?`, `$`, `createObj` or `createNew`.
+    - When using dynamic typing, with `?`, `$`, `createObj` or `createNew`.
 
 > Note: If you experience problems make the conversion explicit.
 
