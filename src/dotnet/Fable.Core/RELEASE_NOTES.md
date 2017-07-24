@@ -1,3 +1,7 @@
+### 1.1.10
+
+* Fix recursive functions in Seq module
+
 ### 1.1.9
 
 * Add constructors to JsFunc

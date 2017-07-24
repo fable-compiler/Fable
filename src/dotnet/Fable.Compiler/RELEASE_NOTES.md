@@ -1,3 +1,7 @@
+### 1.1.17
+
+* Update Fable.Core
+
 ### 1.1.16
 
 * Clean up
