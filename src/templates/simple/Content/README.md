@@ -75,3 +75,7 @@ Any modification you do to the F# code will be reflected in the web page after s
 ### F# source files
 
 The template only contains two F# source files: the project (.fsproj) and a source file (.fs) in `src` folder.
+
+## Where to go from here
+
+Check more [Fable samples](https://github.com/fable-compiler/samples-browser), use another template like `Fable.Template.Elmish.React` or clone the [fable-suave-scaffold](https://github.com/fable-compiler/fable-suave-scaffold).
