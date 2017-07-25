@@ -1518,7 +1518,7 @@ module AstPass =
     let implementedSeqBuildFunctions =
         set [ "append"; "choose"; "collect"; "concat"; "countBy"; "distinct"; "distinctBy";
               "except"; "filter"; "where"; "groupBy"; "initialize";
-              "map"; "mapIndexed"; "map2"; "mapIndexed2"; "map3";
+              "map"; "mapIndexed"; "indexed"; "map2"; "mapIndexed2"; "map3";
               "ofArray"; "pairwise"; "permute"; "replicate"; "reverse";
               "scan"; "scanBack"; "singleton"; "skip"; "skipWhile";
               "take"; "takeWhile"; "sortWith"; "unfold"; "zip"; "zip3" ]
@@ -1530,7 +1530,7 @@ module AstPass =
 
     let implementedListFunctions =
         set [ "append"; "choose"; "collect"; "concat"; "filter"; "groupBy"; "where";
-              "initialize"; "map"; "mapIndexed"; "ofArray"; "partition";
+              "initialize"; "map"; "mapIndexed"; "indexed"; "ofArray"; "partition";
               "replicate"; "reverse"; "singleton"; "unzip"; "unzip3" ]
 
     let implementedArrayFunctions =
@@ -1769,7 +1769,7 @@ module AstPass =
             |> Some
         | _ -> None
 
-    let collectionsFirstPass com (i: Fable.ApplyInfo) kind =
+    let collectionsFirstPass (com: ICompiler) (i: Fable.ApplyInfo) kind =
         let icall meth (callee, args) =
             InstanceCall (callee, meth, args)
             |> makeCall i.range i.returnType
@@ -1808,24 +1808,22 @@ module AstPass =
                 // Array.truncate count array
                 emit i "$1.slice(0, $0)" i.args |> Some
             // TODO: JS native Array.map, which accepts a 3-argument function,
-            // conflicts with dynamic CurriedLambda. Uncommenting this makes
-            // ArrayTests.``Mapping from values to functions works`` fail.
-            // | "map" ->
-            //     match i.methodTypeArgs with
-            //     // Native JS map is risky with typed arrays as they coerce
-            //     // the final result (see #120, #171)
-            //     | Fable.Any::_ | Fable.GenericParam _::_ -> None
-            //     | (Number _ as tin)::[tout] when tin = tout ->
-            //         icall "map" (i.args.[1], [i.args.[0]])
-            //     | (ExtNumber _|NoNumber)::[ExtNumber _|NoNumber] ->
-            //         icall "map" (i.args.[1], [i.args.[0]])
-            //     | _ -> None
+            // conflicts with dynamic CurriedLambda.
+            | "map" | "mapIndexed" | "indexed" ->
+                let arrayCons =
+                    match i.returnType with
+                    | Fable.Array(Fable.Number numberKind) when com.Options.typedArrays ->
+                        getTypedArrayName com numberKind
+                    | _ -> "Array"
+                let targetArray =
+                    let len = getProp None (Fable.Number Int32) (List.last i.args) "length"
+                    GlobalCall (arrayCons, None, true, [len])
+                    |> makeCall i.range i.returnType
+                ccall i "Array" i.methodName (i.args @ [targetArray]) |> Some
             | "append" ->
                 match i.methodTypeArgs with
                 | [Fable.Any] | [Number _] -> None
                 | _ -> icall "concat" (i.args.Head, i.args.Tail)
-            | "indexed" ->
-                emit i "$0.map((x, y) => [y, x])" i.args |> Some
             | Patterns.SetContains implementedArrayFunctions meth ->
                 CoreLibCall ("Array", Some meth, false, i.args)
                 |> makeCall i.range i.returnType |> Some

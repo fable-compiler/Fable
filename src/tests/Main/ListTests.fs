@@ -331,6 +331,13 @@ let ``List.mapi works``() =
       equal 0 ys.Head
 
 [<Test>]
+let ``List.indexed works`` () =
+    let xs = ["a"; "b"; "c"] |> List.indexed
+    xs.Length |> equal 3
+    fst xs.[2] |> equal 2
+    snd xs.[2] |> equal "c"
+
+[<Test>]
 let ``List.map2 works``() =
       let xs = [1;2]
       let ys = [2;3]

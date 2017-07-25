@@ -419,6 +419,10 @@ export function mapIndexed<T, U>(f: (i: number, x: T) => U, xs: Iterable<T>) {
   });
 }
 
+export function indexed<T>(xs: Iterable<T>) {
+  return mapIndexed((i, x) => [i, x] as [number, T], xs);
+}
+
 export function map2<T1, T2, U>(f: (x: T1, y: T2) => U, xs: Iterable<T1>, ys: Iterable<T2>) {
   return delay(() => {
     const iter1 = xs[Symbol.iterator]();

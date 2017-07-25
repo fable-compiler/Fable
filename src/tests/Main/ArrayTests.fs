@@ -238,9 +238,9 @@ let ``Array distinctBy works on large array`` () =
     let ys =
         Array.append xs xs
         |> Array.distinctBy(fun x -> x.ToString())
-        
+
     ys |> equal xs
-    
+
 [<Test>]
 let ``Array.sub works``() =
     let xs = [|0..99|]
@@ -864,7 +864,6 @@ let ``Array iterators from range do rewind`` () =
 [<Test>]
 let ``Array indexed works`` () =
     let xs = [|"a"; "b"; "c"|] |> Array.indexed
-
     xs.Length |> equal 3
     fst xs.[2] |> equal 2
     snd xs.[2] |> equal "c"

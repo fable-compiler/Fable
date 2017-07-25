@@ -56,6 +56,10 @@ export function mapIndexed<T, U>(f: (i: number, x: T) => U, xs: List<T>) {
   return reverse(seqFold((acc, x, i) => new List<U>(f(i, x), acc), new List<U>(), xs));
 }
 
+export function indexed<T>(xs: List<T>) {
+  return mapIndexed((i, x) => [i, x] as [number, T], xs);
+}
+
 export function partition<T>(f: (x: T) => boolean, xs: List<T>) {
   return seqFold((acc, x) => {
     const lacc = acc[0];

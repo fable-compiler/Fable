@@ -73,7 +73,7 @@ let ``Seq.concat works``() =
 
 
 [<Test>]
-let ``Seq.chunkBySize works``() = 
+let ``Seq.chunkBySize works``() =
     let xs = [1;2;3]
     Seq.chunkBySize 1 xs // [[1]; [2]; [3]]
     |> Seq.length
@@ -81,7 +81,7 @@ let ``Seq.chunkBySize works``() =
 
     Seq.chunkBySize 2 xs // [[1;2]; [3]]
     |> Seq.head
-    |> Seq.sum 
+    |> Seq.sum
     |> equal 3
 
     Seq.chunkBySize 10 xs // [[1;2;3]]
@@ -102,7 +102,7 @@ let ``Seq.collect works``() =
     |> equal 15.
 
 [<Test>]
-let ``Seq.collect works with Options``() = 
+let ``Seq.collect works with Options``() =
     let xss = [[Some 1; Some 2]; [None; Some 3]]
     Seq.collect id xss
     |> Seq.sumBy (function
@@ -115,7 +115,7 @@ let ``Seq.collect works with Options``() =
         for xs in xss do
             for x in xs do
                 yield x
-    } 
+    }
     |> Seq.length
     |> equal 4
 
@@ -284,6 +284,13 @@ let ``Seq.mapi works``() =
     let ys = xs |> Seq.mapi (fun i x -> float i + x)
     ys |> Seq.head
     |> equal 1.
+
+[<Test>]
+let ``Seq.indexed works`` () =
+    let xs = seq { yield "a"; yield "b"; yield "c" } |> Seq.indexed
+    let x = xs |> Seq.tail |> Seq.head
+    fst x |> equal 1
+    snd x |> equal "b"
 
 [<Test>]
 let ``Seq.mapFold works`` () =

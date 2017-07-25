@@ -1,3 +1,21 @@
+export function map<T, U>(f: (x: T) => U, source: T[], target: U[]) {
+  for (let i = 0; i < source.length; i++) {
+    target[i] = f(source[i]);
+  }
+  return target;
+}
+
+export function mapIndexed<T, U>(f: (i: number, x: T) => U, source: T[], target: U[]) {
+  for (let i = 0; i < source.length; i++) {
+    target[i] = f(i, source[i]);
+  }
+  return target;
+}
+
+export function indexed<T>(source: T[], target: Array<[number, T]>) {
+  return mapIndexed((i, x) => [i, x] as [number, T], source, target);
+}
+
 export function addRangeInPlace<T>(range: Iterable<T>, xs: T[]) {
   const iter = range[Symbol.iterator]();
   let cur = iter.next();
