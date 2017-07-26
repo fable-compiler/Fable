@@ -33,7 +33,7 @@ type ThisAvailability =
 
 type MemberInfo =
     { isInstance: bool
-    ; passGenerics: bool }
+      passGenerics: bool }
 
 type EnclosingModule(entity, isPublic) =
     member val Entity: Fable.Entity = entity
@@ -41,28 +41,30 @@ type EnclosingModule(entity, isPublic) =
 
 type Context =
     { fileName: string
-    ; enclosingModule: EnclosingModule
-    ; scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
-    ; scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
+      enclosingModule: EnclosingModule
+      scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
+      scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
     /// Some expressions that create scope in F# don't do it in JS (like let bindings)
     /// so we need a mutable registry to prevent duplicated var names.
-    ; varNames: HashSet<string>
-    ; typeArgs: (string * FSharpType) list
-    ; decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
-    ; thisAvailability: ThisAvailability
-    ; genericAvailability: bool
-    ; isLambdaBody: bool }
+      varNames: HashSet<string>
+      typeArgs: (string * FSharpType) list
+      decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
+      thisAvailability: ThisAvailability
+      genericAvailability: bool
+      isLambdaBody: bool
+      caughtException: Fable.Ident option }
     static member Create(fileName, enclosingModule) =
         { fileName = fileName
-        ; enclosingModule = EnclosingModule(enclosingModule, true)
-        ; scope = []
-        ; scopedInlines = []
-        ; varNames = HashSet()
-        ; typeArgs = []
-        ; decisionTargets = None
-        ; thisAvailability = ThisUnavailable
-        ; genericAvailability = false
-        ; isLambdaBody = false }
+          enclosingModule = EnclosingModule(enclosingModule, true)
+          scope = []
+          scopedInlines = []
+          varNames = HashSet()
+          typeArgs = []
+          decisionTargets = None
+          thisAvailability = ThisUnavailable
+          genericAvailability = false
+          isLambdaBody = false
+          caughtException = None }
 
 type IFableCompiler =
     inherit ICompiler
@@ -1037,6 +1039,8 @@ module Util =
         let catchClause =
             match catchClause with
             | Some (BindIdent com ctx (catchContext, catchVar), catchBody) ->
+                // Add caughtException to context so it can be retrieved if `reraise` is used
+                let catchContext = { catchContext with caughtException = Some catchVar }
                 Some (catchVar, com.Transform catchContext catchBody)
             | None -> None
         let finalizer =
@@ -1073,6 +1077,7 @@ module Util =
             methodTypeArgs = methTypArgs |> List.map (makeType com ctx.typeArgs)
             methodArgTypes = methArgTypes
             genericAvailability = ctx.genericAvailability
+            caughtException = ctx.caughtException
         }
 
     let buildApplyInfoFrom com (ctx: Context) r typ

@@ -561,3 +561,15 @@ let ``Custom exceptions work``() =
     | ex -> "unknown", 0.
     |> equal ("Code: 5", 5.5)
 
+[<Test>]
+let ``reraise works``() =
+    try
+        try
+            Exception("Will I be reraised?") |> raise
+        with _ ->
+            try
+                reraise()
+            with _ -> reraise()
+        "foo"
+    with ex -> ex.Message
+    |> equal "Will I be reraised?"

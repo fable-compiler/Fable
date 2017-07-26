@@ -1,4 +1,4 @@
-namespace Fable.AST.Fable
+namespace rec Fable.AST.Fable
 open Fable
 open Fable.AST
 
@@ -43,7 +43,7 @@ type Type =
         | DeclaredType(_, genArgs) -> genArgs
         | _ -> []
 
-and NonDeclaredType =
+type NonDeclaredType =
     | NonDeclAny
     | NonDeclUnit
     | NonDeclOption of genericArg: Expr
@@ -54,7 +54,7 @@ and NonDeclaredType =
     | NonDeclInterface of name: string
 
 (** ##Entities *)
-and EntityKind =
+type EntityKind =
     | Module
     | Union of cases: (string*Type list) list
     | Record of fields: (string*Type) list
@@ -62,7 +62,7 @@ and EntityKind =
     | Class of baseClass: (string*Expr) option * properties: (string*Type) list
     | Interface
 
-and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
+type Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
            ?genParams, ?interfaces, ?decorators) =
     let genParams = defaultArg genParams []
     let decorators = defaultArg decorators []
@@ -109,7 +109,7 @@ and Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
 
     override x.ToString() = sprintf "%s %A" x.Name x.Kind
 
-and Declaration =
+type Declaration =
     | ActionDeclaration of Expr * SourceLocation option
     /// Module members are also declared as variables, so they need
     /// a private name that doesn't conflict with enclosing scope (see #130)
@@ -121,19 +121,19 @@ and Declaration =
         | EntityDeclaration (_,_,_,_,r) -> r
         | MemberDeclaration (_,_,_,_,_,r) -> r
 
-and MemberKind =
+type MemberKind =
     | Constructor
     | Method
     | Getter
     | Setter
     | Field
 
-and MemberLoc =
+type MemberLoc =
     | InstanceLoc
     | StaticLoc
     | InterfaceLoc of string
 
-and Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?decorators,
+type Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?decorators,
            ?isMutable, ?computed, ?hasRestParams, ?overloadIndex) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
@@ -155,14 +155,14 @@ and Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?de
         x.Decorators |> List.tryFind (fun x -> x.Name = decorator)
     override x.ToString() = sprintf "%A %s" kind name
 
-and ExternalEntity =
+type ExternalEntity =
     | ImportModule of fullName: string * moduleName: string * isNs: bool
     | GlobalModule of fullName: string
     member x.FullName =
         match x with ImportModule (fullName, _, _)
                    | GlobalModule fullName -> fullName
 
-and File(sourcePath, root, decls, ?usedVarNames) =
+type File(sourcePath, root, decls, ?usedVarNames) =
     member x.SourcePath: string = sourcePath
     member x.Root: Entity = root
     member x.Declarations: Declaration list = decls
@@ -174,19 +174,19 @@ and File(sourcePath, root, decls, ?usedVarNames) =
             decls |> Seq.choose (fun d -> d.Range) |> Seq.tryLast
             |> function Some r -> SourceLocation.Empty + r | None -> SourceLocation.Empty
 
-and FileInfo = {
+type FileInfo = {
     targetFile: string
     rootModule: string
 }
 
-and FableMap = {
+type FableMap = {
     coreVersion: string
     compilerVersion: string
     files: Map<string, FileInfo>
 }
 
 (** ##Expressions *)
-and ApplyInfo = {
+type ApplyInfo = {
     ownerType: Type
     /// Sometimes Fable.Type may differ from original F# name (e.g. System.Object -> Fable.Any).
     /// This field keeps the original name.
@@ -206,31 +206,32 @@ and ApplyInfo = {
     /// Types of arguments as appearing in method signature (not to be confused with `methodTypeArgs`)
     methodArgTypes: Type list
     genericAvailability: bool
+    caughtException: Ident option
 }
 
-and ApplyKind =
+type ApplyKind =
     | ApplyMeth | ApplyGet | ApplyCons
 
-and ArrayConsKind =
+type ArrayConsKind =
     | ArrayValues of Expr list
     | ArrayAlloc of Expr
 
-and Ident(name: string, ?typ: Type) =
+type Ident(name: string, ?typ: Type) =
     member x.Name = name
     member x.Type = defaultArg typ Any
     static member getType (i: Ident) = i.Type
     override __.ToString() = name
 
-and LambdaInfo(captureThis: bool, ?isDelegate: bool) =
+type LambdaInfo(captureThis: bool, ?isDelegate: bool) =
     member __.CaptureThis = captureThis
     member __.IsDelegate = defaultArg isDelegate false
 
-and ImportKind =
+type ImportKind =
     | CoreLib
     | Internal of file: string
     | CustomImport
 
-and ValueKind =
+type ValueKind =
     | Null
     | This
     | Super
@@ -285,14 +286,14 @@ and ValueKind =
         | Lambda (_, body, _) -> body.Range
         | _ -> None
 
-and LoopKind =
+type LoopKind =
     | While of guard: Expr * body: Expr
     | For of ident: Ident * start: Expr * limit: Expr * body: Expr * isUp: bool
     | ForOf of ident: Ident * enumerable: Expr * body: Expr
 
-and ObjExprMember = Member * Ident list * Expr
+type ObjExprMember = Member * Ident list * Expr
 
-and Expr =
+type Expr =
     // Pure Expressions
     | Value of value: ValueKind
     | ObjExpr of decls: ObjExprMember list * interfaces: string list * baseClass: Expr option * range: SourceLocation option
