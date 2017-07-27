@@ -1,3 +1,7 @@
+### 1.1.11
+
+* Fix #1094: Implement "indexed" in collection modules
+
 ### 1.1.10
 
 * Fix recursive functions in Seq module

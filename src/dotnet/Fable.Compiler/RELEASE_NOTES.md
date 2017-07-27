@@ -1,3 +1,7 @@
+### 1.1.18
+
+* Fix #1057: Add caught exception to context for reraise
+
 ### 1.1.17
 
 * Update Fable.Core
