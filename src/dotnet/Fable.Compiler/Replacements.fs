@@ -1342,14 +1342,14 @@ module AstPass =
     let dates com (i: Fable.ApplyInfo) =
         match i.methodName with
         | ".ctor" ->
-            let args =
-                let last = List.last i.args
-                match i.args.Length, last.Type with
-                | 7, Fable.Enum "System.DateTimeKind" ->
-                    (List.take 6 i.args)@[makeIntConst 0; last]
-                | _ -> i.args
-            CoreLibCall("Date", Some "create", false, args)
-            |> makeCall i.range i.returnType |> Some
+            let last = List.last i.args
+            match i.args.Length, last.Type with
+            | 1, Fable.ExtendedNumber (Int64 | UInt64) ->
+                ccall i "Date" "ofTicks" i.args |> Some
+            | 7, Fable.Enum "System.DateTimeKind" ->
+                (List.take 6 i.args)@[makeIntConst 0; last]
+                |> ccall i "Date" "create" |> Some
+            | _ -> ccall i "Date" "create" i.args |> Some
         | "toString" ->
             match i.args with
             | [Type Fable.String as format] ->

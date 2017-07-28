@@ -153,6 +153,10 @@ export function ticks(d: Date) {
     .mul(10000);
 }
 
+export function ofTicks(ticks: Long.Long) {
+  return parse(ticks.div(10000).sub(62135596800000).toNumber(), DateKind.UTC);
+}
+
 export function toBinary(d: Date) {
   return ticks(d);
 }

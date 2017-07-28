@@ -125,6 +125,13 @@ let ``DateTime constructors work``() =
     |> equal 1069
 
 [<Test>]
+let ``DateTime constructor from Ticks works``() =
+    let d = DateTime(624059424000000000L)
+    equal 1978 d.Year
+    equal 7 d.Month
+    equal 27 d.Day
+
+[<Test>]
 let ``DateTime.IsLeapYear works``() =
     DateTime.IsLeapYear(2014) |> equal false
     DateTime.IsLeapYear(2016) |> equal true
