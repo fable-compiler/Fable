@@ -15,9 +15,9 @@ module Flags =
 module Log =
   open System
 
-  let logVerbose(msg: string) =
+  let logVerbose(msg: Lazy<string>) =
     if Flags.logVerbose then
-      Console.WriteLine(msg)
+      Console.WriteLine(msg.Value)
 
   let logAlways(msg: string) =
     Console.WriteLine(msg)

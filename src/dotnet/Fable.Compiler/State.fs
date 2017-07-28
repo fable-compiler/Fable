@@ -23,23 +23,24 @@ type Dictionary<'TKey, 'TValue> with
 type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 #endif
 
-type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults) =
+type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, isWatchCompile: bool) =
     let timestamp = DateTime.UtcNow
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let normalizedFiles =
         projectOptions.ProjectFileNames
         |> Seq.map Path.normalizeFullPath
-        |> Seq.toList
+        |> Set
     let rootModules =
         checkedProject.AssemblyContents.ImplementationFiles
         |> Seq.map (fun file -> file.FileName, FSharp2Fable.Compiler.getRootModuleFullName file)
         |> Map
     member __.TimeStamp = timestamp
+    member __.IsWatchCompile = isWatchCompile
     member __.CheckedProject = checkedProject
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectOptions.ProjectFileName
-    member __.NormalizedFiles = normalizedFiles
+    member __.NormalizedFilesSet = normalizedFiles
     interface ICompilerState with
         member this.ProjectFile = projectOptions.ProjectFileName
         member this.GetRootModule(fileName) =

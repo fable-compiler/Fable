@@ -23,7 +23,7 @@ type PaketRef =
 let rec findPaketDependenciesDir dir searchedDirs =
     let path = Path.Combine(dir, "paket.dependencies")
     if File.Exists(path) then
-        Log.logVerbose(sprintf "Found paket.dependencies inside %s" dir)
+        Log.logVerbose(lazy sprintf "Found paket.dependencies inside %s" dir)
         dir
     else
         match Directory.GetParent(dir) with

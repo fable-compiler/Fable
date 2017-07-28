@@ -39,7 +39,6 @@ function transformBabelAst(babelAst, babelOptions, sourceMapOptions) {
 }
 
 var Loader = function(buffer) {
-    this.cacheable();
     var callback = this.async();
     var opts = this.loaders[0].options || {};
     var port = or(opts.port, DEFAULT_PORT);
@@ -79,13 +78,18 @@ var Loader = function(buffer) {
         }
         else {
             try {
+                ensureArray(data.dependencies).forEach(path => {
+                    this.addDependency(path)
+                });
                 if (typeof data.logs === "object") {
+                    var isErrored = false;
                     Object.keys(data.logs).forEach(key => {
                         // TODO: Fail if there's one or more error logs?
                         // That would prevent compilation of other files
                         ensureArray(data.logs[key]).forEach(msg => {
                             switch (key)  {
                                 case "error":
+                                    isErrored = true;
                                     this.emitError(new Error(msg));
                                     break;
                                 case "warning":
@@ -95,7 +99,8 @@ var Loader = function(buffer) {
                                     console.log(msg)
                             }
                         });
-                    });
+                      });
+                      this.cacheable(!isErrored);
                 }
                 var sourceMapOpts = this.sourceMap ? {
                     path: data.fileName,

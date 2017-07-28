@@ -63,19 +63,19 @@ let tryGetOption name (opts: IDictionary<string, string>) =
     | true, value -> Some value
     | _ -> None
 
-let createProject checker (prevOptions: FSharpProjectOptions option) (msg: Parser.Message) projFile =
-    let projectOptions =
-        match prevOptions with
-        | Some projectOptions -> projectOptions
+let createProject checker (prevProject: Project option) (msg: Parser.Message) projFile =
+    let isWatchCompile, projectOptions =
+        match prevProject with
+        | Some prevProject -> true, prevProject.ProjectOptions
         | None ->
             let projectOptions = getFullProjectOpts checker msg.define projFile
             if projFile.EndsWith(".fsproj") then
-                Log.logVerbose("F# PROJECT: " + projectOptions.ProjectFileName)
+                Log.logVerbose(lazy ("F# PROJECT: " + projectOptions.ProjectFileName))
                 for option in projectOptions.OtherOptions do
-                     Log.logVerbose("   " + option)
+                     Log.logVerbose(lazy ("   " + option))
                 for file in projectOptions.ProjectFileNames do
-                    Log.logVerbose("   " + file)
-            projectOptions
+                    Log.logVerbose(lazy ("   " + file))
+            false, projectOptions
     Log.logAlways(sprintf "Parsing %s..." (getRelativePath projectOptions.ProjectFileName))
     let checkedProject =
         projectOptions
@@ -83,7 +83,7 @@ let createProject checker (prevOptions: FSharpProjectOptions option) (msg: Parse
         |> Async.RunSynchronously
     tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
         Printers.printAst dir checkedProject)
-    Project(projectOptions, checkedProject)
+    Project(projectOptions, checkedProject, isWatchCompile)
 
 let toJson =
     let jsonSettings =
@@ -101,26 +101,38 @@ let sendError replyChannel (ex: Exception) =
     Log.logAlways(sprintf "ERROR: %s\n%s" ex.Message stack)
     ["error", ex.Message] |> dict |> toJson |> replyChannel
 
-let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message): State * Project =
+let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
+    let isWatchCompilation (project: Project) sourceFile =
+        let compiled =
+            if not project.IsWatchCompile then
+                IO.File.GetLastWriteTimeUtc(sourceFile) > project.TimeStamp
+            else
+                // If the project has been compiled previously we need to check
+                // the timestamps of all files, as the bundler may send new requests
+                // for files not modified if they were errored in the previous compilation
+                project.ProjectOptions.ProjectFileNames
+                |> Seq.exists (fun file -> IO.File.GetLastWriteTimeUtc(file) > project.TimeStamp)
+        if compiled then
+            Log.logVerbose(lazy ("Watch compile triggered by: " + getRelativePath sourceFile))
+        compiled
     let addOrUpdateProject state (project: Project) =
         let state = Map.add project.ProjectFile project state
-        state, project
+        true, state, project
     let tryFindAndUpdateProject state ext sourceFile =
         state |> Map.tryPick (fun _ (project: Project) ->
-            if List.contains sourceFile project.NormalizedFiles then
-                // (getRelativePath sourceFile, getRelativePath project.ProjectFile)
-                // ||> sprintf "File %s belongs to project %s" |> Log.logVerbose
+            if Set.contains sourceFile project.NormalizedFilesSet then
+                Log.logVerbose(lazy sprintf "Ownership: %s > %s"
+                    (getRelativePath project.ProjectFile) (getRelativePath sourceFile))
                 // When a script is modified, restart the project with new options
                 // (to check for new references, loaded projects, etc.)
                 if ext = ".fsx" then
                     createProject checker None msg project.ProjectFile
                     |> addOrUpdateProject state |> Some
                 // Watch compilation of an .fs file, restart project with old options
-                elif IO.File.GetLastWriteTimeUtc(sourceFile) > project.TimeStamp then
-                    let prevOptions = Some project.ProjectOptions
-                    createProject checker prevOptions msg project.ProjectFile
+                elif isWatchCompilation project sourceFile then
+                    createProject checker (Some project) msg project.ProjectFile
                     |> addOrUpdateProject state |> Some
-                else Some(state, project)
+                else Some(false, state, project)
             else None)
     match IO.Path.GetExtension(msg.path).ToLower() with
     | ".fsproj" ->
@@ -160,6 +172,20 @@ let resolveFableCoreDir fableCoreDir projectFile currentFile =
     | fableCoreDir -> fableCoreDir
     |> Path.getRelativePath currentFile |> trim
 
+let addFSharpErrorLogs (com: ICompiler) (project: FSharpCheckProjectResults) (fileFilter: string option) =
+    for er in project.Errors do
+        match fileFilter with
+        | Some file when (Path.normalizeFullPath er.FileName) = file -> ()
+        | _ ->
+            let severity =
+                match er.Severity with
+                | FSharpErrorSeverity.Warning -> Severity.Warning
+                | FSharpErrorSeverity.Error -> Severity.Error
+            let range =
+                { start={ line=er.StartLineAlternate; column=er.StartColumn}
+                  ``end``={ line=er.EndLineAlternate; column=er.EndColumn} }
+            com.AddLog(er.Message, severity, range, er.FileName, "FSHARP")
+
 let compile (com: Compiler) (project: Project) (filePath: string) =
     let babel =
         if filePath.EndsWith(".fsproj") then
@@ -169,16 +195,9 @@ let compile (com: Compiler) (project: Project) (filePath: string) =
             FSharp2Fable.Compiler.transformFile com project project.CheckedProject filePath
             |> Fable2Babel.Compiler.transformFile com project
     // Add logs and convert to JSON
-    for er in project.CheckedProject.Errors do
-        if (Path.normalizeFullPath er.FileName) = filePath then
-            let severity =
-                match er.Severity with
-                | FSharpErrorSeverity.Warning -> Severity.Warning
-                | FSharpErrorSeverity.Error -> Severity.Error
-            let range =
-                { start={ line=er.StartLineAlternate; column=er.StartColumn}
-                ; ``end``={ line=er.EndLineAlternate; column=er.EndColumn} }
-            (com :> ICompiler).AddLog(er.Message, severity, range, er.FileName, "FSHARP")
+    // If this is the first compilation, add here the F# errors and warnings for the file
+    if not project.IsWatchCompile then
+        addFSharpErrorLogs com project.CheckedProject (Some filePath)
     let loc = defaultArg babel.loc SourceLocation.Empty
     Babel.Program(babel.fileName, loc, babel.body, babel.directives, com.ReadAllLogs())
     |> toJson
@@ -191,11 +210,15 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
         let newState =
             try
                 let msg = Parser.parse msg
-                // sprintf "Received message %A" msg |> Log.logVerbose
-                let state, activeProject = updateState checker state msg
+                // lazy sprintf "Received message %A" msg |> Log.logVerbose
+                let isUpdated, state, activeProject = updateState checker state msg
                 // Resolve fableCore location and create new compiler
                 let fableCoreDir = resolveFableCoreDir msg.options.fableCore activeProject.ProjectFile msg.path
                 let com = Compiler({msg.options with fableCore=fableCoreDir}, loadPlugins msg.plugins)
+                // If the project has been updated and this is a watch compilation, add
+                // F# errors/warnings here so they're not skipped if they affect another file
+                if isUpdated && activeProject.IsWatchCompile then
+                    addFSharpErrorLogs com activeProject.CheckedProject None
                 Some(com, state, activeProject, msg.path)
             with ex ->
                 sendError replyChannel ex
