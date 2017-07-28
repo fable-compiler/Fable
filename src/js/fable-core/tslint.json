@@ -9,7 +9,8 @@
     "no-empty": false,
     "no-shadowed-variable": false,
     "object-literal-sort-keys": false,
-    "variable-name": false
+    "variable-name": false,
+    "prefer-for-of": false
   },
   "rules": {
     "interface-name": [false],
@@ -17,7 +18,8 @@
     "no-bitwise": false,
     "no-shadowed-variable": false,
     "object-literal-sort-keys": false,
-    "variable-name": false
+    "variable-name": false,
+    "prefer-for-of": false
   },
   "rulesDirectory": []
 }

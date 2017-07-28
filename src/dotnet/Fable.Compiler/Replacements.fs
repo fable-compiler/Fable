@@ -1101,7 +1101,12 @@ module AstPass =
             -> toFloat com i i.methodArgTypes.Head i.args |> Some
         | "toChar" -> toChar com i i.methodArgTypes.Head i.args |> Some
         | "toString" -> toString com i i.methodArgTypes.Head i.args |> Some
-         | _ -> None
+        | "toBase64String" | "fromBase64String" ->
+            if List.isSingle i.args then
+                sprintf "Convert.%s only accepts one single argument" i.methodName
+                |> addWarning com i.fileName i.range
+            ccall i "String" i.methodName i.args |> Some
+        | _ -> None
 
     let console com (i: Fable.ApplyInfo) =
         match i.methodName with
@@ -1992,12 +1997,18 @@ module AstPass =
             | _ -> None
 
     let guids com (info: Fable.ApplyInfo) =
+        let emitWarning com (info: Fable.ApplyInfo) =
+            "System.Guid is translated as string, parsing doesn't validate"
+            |> addWarning com info.fileName info.range
         match info.methodName with
         | "newGuid" ->
             CoreLibCall("String", Some "newGuid", false, [])
             |> makeCall info.range info.returnType |> Some
-        | "parse" -> info.args.Head |> Some
+        | "parse" ->
+            emitWarning com info
+            info.args.Head |> Some
         | "tryParse" ->
+            emitWarning com info
             Fable.TupleConst [makeBoolConst true; info.args.Head]
             |> Fable.Value |> Some
         | _ -> None

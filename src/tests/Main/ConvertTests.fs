@@ -969,3 +969,14 @@ let ``BigInt ToDecimal works``() =
 let ``BigInt ToString works``() =
     let value = 1234567890
     string (bigint value) |> equal "1234567890"
+
+[<Test>]
+let ``Convert.ToBase64String works``() =
+    let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+    Convert.ToBase64String(bytes)
+    |> equal "AgQGCAoMDhASFA=="
+
+[<Test>]
+let ``Convert.FromBase64String works``() =
+    Convert.FromBase64String("AgQGCAoMDhASFA==")
+    |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]

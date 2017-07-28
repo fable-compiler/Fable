@@ -305,6 +305,25 @@ export function newGuid() {
   return uuid;
 }
 
+export function toBase64String(inArray: number[]) {
+  let str = "";
+  for (let i = 0; i < inArray.length; i++) {
+    str += String.fromCharCode(inArray[i]);
+  }
+  return typeof btoa === "function"
+    ? btoa(str) : new Buffer(str).toString("base64");
+}
+
+export function fromBase64String(b64Encoded: string) {
+  const binary = typeof atob === "function"
+    ? atob(b64Encoded) : new Buffer(b64Encoded, "base64").toString();
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 export function padLeft(str: any, len: number, ch?: string, isRight?: boolean) {
   ch = ch || " ";
   str = String(str);
