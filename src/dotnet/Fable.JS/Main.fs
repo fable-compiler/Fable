@@ -37,7 +37,7 @@ let makeProjOptions (com: ICompiler) projFile =
     projOptions
 
 let compileAst (com: Compiler) checkedProject fileName =
-    let errors = com.Logs |> Map.tryFind "error"
+    let errors = com.ReadAllLogs() |> Map.tryFind "error"
     if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let projectOptions = makeProjOptions com fileName
     let project = Project(projectOptions, checkedProject)
@@ -45,7 +45,7 @@ let compileAst (com: Compiler) checkedProject fileName =
         FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
         |> Fable2Babel.Compiler.transformFile com project
     let loc = defaultArg file.loc SourceLocation.Empty
-    Babel.Program(file.fileName, loc, file.body, file.directives, com.Logs)
+    Babel.Program(file.fileName, loc, file.body, file.directives, com.ReadAllLogs())
 
 let createChecker readAllBytes references =
     InteractiveChecker.Create(List.ofArray references, readAllBytes)

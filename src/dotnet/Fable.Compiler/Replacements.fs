@@ -1318,7 +1318,7 @@ module AstPass =
             CoreLibCall("Util", Some  "defaultArgWith", false, [i.args.Tail.Head; i.args.Head])
             |> makeCall i.range i.returnType |> Some
         | "count" | "contains" | "exists"
-        | "fold" | "forall" | "iterate" | "toList" ->
+        | "fold" | "forAll" | "iterate" | "toList" ->
             let args =
                 let args = List.rev i.args
                 let opt = toArray None args.Head
