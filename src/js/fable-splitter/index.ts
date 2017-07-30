@@ -15,7 +15,7 @@ const FSHARP_EXT = /\.(fs|fsx|fsproj)$/;
 const FSPROJ_EXT = /\.fsproj$/;
 const JAVASCRIPT_EXT = /\.js$/;
 
-type CompilationInfo = {
+export type CompilationInfo = {
     entry: string,
     compiledPaths: Set<string>, // already compiled paths
     dedupOutPaths: Set<string>, // lookup of output paths
@@ -53,7 +53,6 @@ function output(msg: string, severity: string) {
         console.log(msg);
     }
 }
-
 
 function addLogs(logs: { [key:string]: string[] }, info: CompilationInfo) {
     if (typeof logs === "object") {
@@ -96,7 +95,7 @@ function getOutPath(path: string, info: CompilationInfo): string {
         let i = 0;
         outPath = newPath;
         while (info.dedupOutPaths.has(outPath)) {
-            outPath = `${newPath}${++i}`;
+            outPath = `${newPath}.${++i}`;
         }
         info.dedupOutPaths.add(outPath);
         info.mapInOutPaths.set(path, outPath);
@@ -206,13 +205,14 @@ function transformAndSaveAst(fullPath: string, ast: any, options: FableCompilerO
     console.log(`fable: Compiled ${Path.relative(process.cwd(), fullPath)}`);
 }
 
-async function transformAsync(path: string, options: FableCompilerOptions, info: CompilationInfo) {
-    // if already compiled, do nothing
+async function transformAsync(path: string, options: FableCompilerOptions, info: CompilationInfo, force?: boolean) {
     const fullPath = getFullPath(path);
-    if (info.compiledPaths.has(fullPath)) {
+    if (!info.compiledPaths.has(fullPath)) {
+        info.compiledPaths.add(fullPath);
+    }
+    else if (!force) {
         return;
     }
-    info.compiledPaths.add(fullPath);
 
     // get file AST (no transformation)
     const ast = await getFileAstAsync(fullPath, options, info);
@@ -235,42 +235,60 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
     }
 }
 
-export default function fableSplitter(options: FableCompilerOptions) {
-    // set defaults
-    options = options || {};
-    options.outDir = options.outDir || ".";
+function setDefaultOptions(options: FableCompilerOptions) {
+    options = Object.assign({}, options);
+    options.outDir = options.outDir || Path.resolve(".");
     options.port = options.port || DEFAULT_PORT;
 
     options.fable = options.fable || {};
     options.babel = options.babel || {};
     options.babel.plugins = customPlugins.concat(options.babel.plugins || []);
     // options.prepack = options.prepack;
+    return options;
+}
 
-    const info = {
-        entry: options.entry,
-        compiledPaths: new Set<string>(),
-        dedupOutPaths: new Set<string>(),
-        mapInOutPaths: new Map<string, string>(),
-        logs: {} as { [key: string]: string[] },
+function createCompilationInfo(options: FableCompilerOptions, previousInfo?: CompilationInfo) {
+    if (previousInfo == null) {
+        return {
+            entry: options.entry,
+            compiledPaths: new Set<string>(),
+            dedupOutPaths: new Set<string>(),
+            mapInOutPaths: new Map<string, string>(),
+            logs: {} as { [key: string]: string[] },
+        };
     }
+    else {
+        return {
+            entry: options.entry,
+            compiledPaths: new Set<string>(previousInfo.compiledPaths),
+            dedupOutPaths: new Set<string>(previousInfo.dedupOutPaths),
+            mapInOutPaths: new Map<string, string>(previousInfo.mapInOutPaths),
+            logs: {} as { [key: string]: string[] },
+        };
+    }
+}
+
+export default function fableSplitter(options: FableCompilerOptions, previousInfo?: CompilationInfo) {
+    options = setDefaultOptions(options);
+    const info = createCompilationInfo(options, previousInfo)
 
     // main loop
     console.log("fable: Compiling...");
-    return transformAsync(options.entry, options, info)
+    return transformAsync(options.entry, options, info, true)
         .then(() => {
             Object.keys(info.logs).forEach(severity =>
                 ensureArray(info.logs[severity]).forEach(log =>
                     output(log, severity))
             );
             const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
-            console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"}`);
-            return hasError ? 0 : 1;
+            console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"} at ${new Date().toLocaleTimeString()}`);
+            return info;
         })
         .catch((err) => {
             console.error(`ERROR: ${err.message}`);
             if (err.message.indexOf("ECONN") !== -1) {
                 console.log(`Make sure Fable server is running on port ${options.port}`);
             }
-            return 1;
+            return info;
         });
 }

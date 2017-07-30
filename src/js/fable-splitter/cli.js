@@ -3,6 +3,7 @@
 /// @ts-check
 
 var path = require("path");
+var chokidar = require("chokidar");
 var fableSplitter = require("./index").default;
 
 function getVersion() {
@@ -33,7 +34,7 @@ function findFlag(arr, arg) {
             return true;
         }
     }
-    return null;
+    return false;
 }
 
 function findArgValue(arr, arg, f) {
@@ -44,6 +45,13 @@ function findArgValue(arr, arg, f) {
         }
     }
     return null;
+}
+
+function tooClose(filename, prev /* [string, Date] */) {
+    var d = new Date();
+    return prev != null &&
+        filename == prev[0] &&
+        new Date().getTime() - prev[1].getTime() < 2000;
 }
 
 // Like Object.assign but it checks first
@@ -85,12 +93,48 @@ else {
             }
             objectAssign(opts, {
                 entry: entry,
-                outDir: findArgValue(restArgs, ["-o", "--outDir"], path.resolve),
-                watch: findFlag(restArgs, ["-w", "--watch"])
+                outDir: findArgValue(restArgs, ["-o", "--outDir"], path.resolve)
             });
             /// @ts-ignore
-            fableSplitter(opts)
-                .then(code => process.exit(code));
+            fableSplitter(opts).then(info => {
+                if (findFlag(restArgs, ["-w", "--watch"])) {
+                    var cachedInfo = info;
+                    var ready = false, next = null, prev = null;
+                    var watcher = chokidar
+                        .watch(Array.from(info.compiledPaths), {
+                            ignored: /node_modules/,
+                            persistent: true
+                        })
+                        .on("ready", function() {
+                            console.log("fable: Watching...");
+                            ready = true;
+                        })
+                        .on("all", function(ev, filePath) {
+                            if (ready && ev === "change") {
+                                prev = next;
+                                next = [filePath, new Date()];
+                                if (!tooClose(filePath, prev)) {
+                                    // console.log(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
+                                    var newOpts = Object.assign({}, opts, { entry: filePath });
+                                    /// @ts-ignore
+                                    fableSplitter(newOpts, cachedInfo).then(info => {
+                                        if (info.compiledPaths.size > cachedInfo.compiledPaths.size) {
+                                            var newFiles = Array.from(info.compiledPaths)
+                                                .filter(x => !cachedInfo.compiledPaths.has(x));
+                                            // console.log("fable: Add " + newFiles.join())
+                                            watcher.add(newFiles);
+                                        }
+                                        cachedInfo = info;
+                                    })
+                                }
+                            }
+                        });
+                    }
+                    else {
+                        var hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
+                        process.exit(hasError ? 1 : 0);
+                    }
+            });
             break;
     }
 }
