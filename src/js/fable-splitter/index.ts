@@ -16,6 +16,7 @@ const FSPROJ_EXT = /\.fsproj$/;
 const JAVASCRIPT_EXT = /\.js$/;
 
 type CompilationInfo = {
+    entry: string,
     compiledPaths: Set<string>, // already compiled paths
     dedupOutPaths: Set<string>, // lookup of output paths
     mapInOutPaths: Map<string, string>, // map of input to output paths
@@ -81,16 +82,16 @@ export function ensureDirExists(dir: string, cont?: ()=>void) {
 }
 
 // TODO: implement better folder structure
-function getOutPath(fullPath: string, info: CompilationInfo) {
-    const srcPath = fullPath.replace(/\\/g, "/");
-    let outPath = info.mapInOutPaths.get(srcPath);
+function getOutPath(path: string, info: CompilationInfo): string {
+    let outPath = info.mapInOutPaths.get(path);
     if (!outPath) {
         // get file name without extensions
-        const fileName = Path.basename(srcPath)
-            .replace(FSHARP_EXT, "").replace(JAVASCRIPT_EXT, "");
+        const fileName = Path.basename(path).replace(FSHARP_EXT, "").replace(JAVASCRIPT_EXT, "");
         // flat folder structure (one level deep)
-        const fileDir = Path.basename(Path.dirname(srcPath));
-        const newPath = Path.join(fileDir, fileName).replace(/\\/g, "/");
+        let pathDir = Path.dirname(path);
+        // If pathDir is same as entry dir don't create nested folder
+        let newPath = pathDir === Path.dirname(info.entry)
+            ? fileName : Path.basename(pathDir) + "/" + fileName;
         // dedup output path
         let i = 0;
         outPath = newPath;
@@ -98,7 +99,7 @@ function getOutPath(fullPath: string, info: CompilationInfo) {
             outPath = `${newPath}${++i}`;
         }
         info.dedupOutPaths.add(outPath);
-        info.mapInOutPaths.set(srcPath, outPath);
+        info.mapInOutPaths.set(path, outPath);
     }
     return outPath;
 }
@@ -112,26 +113,38 @@ function getFullPath(relPath: string) {
     }
 }
 
-function fixPath(dir: string, path: string, info: CompilationInfo) {
+function join(path1: string, path2: string) {
+    return Path.join(path1, path2).replace(/\\/g, "/")
+}
+
+function fixPath(fromDir: string, path: string, info: CompilationInfo) {
     if (!path.startsWith(".")) { return path; } // no need to fix, i.e. node package
-    const relPath = Path.join(dir, path);
-    const fullPath = getFullPath(relPath);
-    const newPath = Path.join("..", getOutPath(fullPath, info)); // assumes flat folder structure
-    return newPath.replace(/\\/g, "/");
+    const outPath = getOutPath(getFullPath(join(fromDir, path)), info);
+    const isNested = outPath.indexOf("/") >= 0;
+    const fromEntryDir = fromDir === Path.dirname(info.entry);
+    // Assumes flat folder structure
+    if (isNested && fromEntryDir) {
+        return "./" + outPath;
+    }
+    else if (isNested) {
+        return Path.basename(fromDir) === Path.dirname(outPath)
+            ? "./" + Path.basename(outPath)
+            : "../" + outPath;
+    }
+    else {
+        return (fromEntryDir ? "./" : "../") + outPath;
+    }
 }
 
-function getImportPaths(ast: any): string[] {
+function getImportPaths(ast: any) {
     const decls = ast && ast.program ? ensureArray(ast.program.body) : [];
-    return decls
-        .filter((d) => d.source != null)
-        .map((d) => d.source.value);
+    return decls.filter(d => d.source != null);
 }
 
-function fixImportPaths(dir: string, ast: any, info: CompilationInfo) {
-    const decls = ast && ast.program ? ensureArray(ast.program.body) : [];
-    decls
-        .filter((d) => d.source != null)
-        .forEach((d) => { d.source.value = fixPath(dir, d.source.value, info); });
+function fixImportPaths(fromDir: string, ast: any, info: CompilationInfo) {
+    getImportPaths(ast).forEach(d => {
+        d.source.value = fixPath(fromDir, d.source.value, info);
+    });
 }
 
 async function getFileAstAsync(path: string, options: FableCompilerOptions, info: CompilationInfo) {
@@ -168,7 +181,7 @@ async function getFileAstAsync(path: string, options: FableCompilerOptions, info
 function transformAndSaveAst(fullPath: string, ast: any, options: FableCompilerOptions, info: CompilationInfo) {
     // resolve output paths
     const outPath = getOutPath(fullPath, info) + ".js";
-    const jsPath = Path.join(options.outDir, outPath);
+    const jsPath = join(options.outDir, outPath);
     const jsDir = Path.dirname(jsPath);
     ensureDirExists(jsDir);
     // set sourcemap paths
@@ -185,8 +198,11 @@ function transformAndSaveAst(fullPath: string, ast: any, options: FableCompilerO
         const prepack = require("prepack");
         result = prepack.prepackFromAst(result.ast, result.code, options.prepack);
     }
-    if (result && result.code) { fs.writeFileSync(jsPath, result.code); }
-    if (result && result.map) { fs.writeFileSync(jsPath + ".map", JSON.stringify(result.map)); }
+    fs.writeFileSync(jsPath, result.code);
+    if (result.map) {
+        fs.appendFileSync(jsPath, "\n//# sourceMappingURL=" + Path.basename(jsPath) + ".map");
+        fs.writeFileSync(jsPath + ".map", JSON.stringify(result.map));
+    }
     console.log(`fable: Compiled ${Path.relative(process.cwd(), fullPath)}`);
 }
 
@@ -202,7 +218,7 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
     const ast = await getFileAstAsync(fullPath, options, info);
     if (ast) {
         // get/fix import paths
-        const importPaths = getImportPaths(ast.ast);
+        const notFixedImportPaths = getImportPaths(ast.ast).map(d => d.source.value);
         fixImportPaths(Path.dirname(fullPath), ast.ast, info);
 
         // if not a .fsproj, transform and save
@@ -212,8 +228,8 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
 
         // compile all dependencies (imports)
         const dir = Path.dirname(fullPath);
-        for (const importPath of importPaths) {
-            const relPath = Path.join(dir, importPath);
+        for (const importPath of notFixedImportPaths) {
+            const relPath = join(dir, importPath);
             await transformAsync(relPath, options, info);
         }
     }
@@ -230,7 +246,8 @@ export default function fableSplitter(options: FableCompilerOptions) {
     options.babel.plugins = customPlugins.concat(options.babel.plugins || []);
     // options.prepack = options.prepack;
 
-    const res = {
+    const info = {
+        entry: options.entry,
         compiledPaths: new Set<string>(),
         dedupOutPaths: new Set<string>(),
         mapInOutPaths: new Map<string, string>(),
@@ -239,13 +256,13 @@ export default function fableSplitter(options: FableCompilerOptions) {
 
     // main loop
     console.log("fable: Compiling...");
-    return transformAsync(options.entry, options, res)
+    return transformAsync(options.entry, options, info)
         .then(() => {
-            Object.keys(res.logs).forEach(severity =>
-                ensureArray(res.logs[severity]).forEach(log =>
+            Object.keys(info.logs).forEach(severity =>
+                ensureArray(info.logs[severity]).forEach(log =>
                     output(log, severity))
             );
-            const hasError = Array.isArray(res.logs.error) && res.logs.error.length > 0;
+            const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
             console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"}`);
             return hasError ? 0 : 1;
         })
