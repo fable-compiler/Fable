@@ -25,6 +25,7 @@ type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 
 type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, isWatchCompile: bool) =
     let timestamp = DateTime.UtcNow
+    let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let normalizedFiles =
@@ -39,7 +40,7 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
     member __.IsWatchCompile = isWatchCompile
     member __.CheckedProject = checkedProject
     member __.ProjectOptions = projectOptions
-    member __.ProjectFile = projectOptions.ProjectFileName
+    member __.ProjectFile = projectFile
     member __.NormalizedFilesSet = normalizedFiles
     interface ICompilerState with
         member this.ProjectFile = projectOptions.ProjectFileName
