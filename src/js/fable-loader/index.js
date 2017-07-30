@@ -51,7 +51,6 @@ var Loader = function(buffer) {
         define: ensureArray(or(opts.define, [])),
         plugins: ensureArray(or(opts.plugins, [])),
         fableCore: or(opts.fableCore, null),
-        declaration: or(opts.declaration, false),
         typedArrays: or(opts.typedArrays, true),
         clampByteArrays: or(opts.clampByteArrays, false),
         extra: opts.extra
