@@ -366,7 +366,7 @@ let buildCoreJS () =
 let buildSplitter () =
     let buildDir = __SOURCE_DIRECTORY__ </> "src/js/fable-splitter"
     Npm.install __SOURCE_DIRECTORY__ []
-    Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" buildDir]
+    // Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" buildDir]
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" buildDir]
 
 let buildCore isRelease () =
