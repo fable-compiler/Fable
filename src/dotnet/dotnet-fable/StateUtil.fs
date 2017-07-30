@@ -63,19 +63,18 @@ let tryGetOption name (opts: IDictionary<string, string>) =
     | true, value -> Some value
     | _ -> None
 
-let createProject checker (prevProject: Project option) (msg: Parser.Message) projFile =
-    let isWatchCompile, projectOptions =
+let createProject checker isWatchCompile (prevProject: Project option) (msg: Parser.Message) projFile =
+    let projectOptions =
         match prevProject with
-        | Some prevProject -> true, prevProject.ProjectOptions
+        | Some prevProject -> prevProject.ProjectOptions
         | None ->
             let projectOptions = getFullProjectOpts checker msg.define projFile
-            if projFile.EndsWith(".fsproj") then
-                Log.logVerbose(lazy ("F# PROJECT: " + projectOptions.ProjectFileName))
-                for option in projectOptions.OtherOptions do
-                     Log.logVerbose(lazy ("   " + option))
-                for file in projectOptions.ProjectFileNames do
-                    Log.logVerbose(lazy ("   " + file))
-            false, projectOptions
+            Log.logVerbose(lazy
+                let proj = getRelativePath projectOptions.ProjectFileName
+                let opts = projectOptions.OtherOptions |> String.concat "\n   "
+                let files = projectOptions.ProjectFileNames |> String.concat "\n   "
+                sprintf "F# PROJECT: %s\n   %s\n   %s" proj opts files)
+            projectOptions
     Log.logAlways(sprintf "Parsing %s..." (getRelativePath projectOptions.ProjectFileName))
     let checkedProject =
         projectOptions
@@ -123,31 +122,28 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
             if Set.contains sourceFile project.NormalizedFilesSet then
                 Log.logVerbose(lazy sprintf "Ownership: %s > %s"
                     (getRelativePath project.ProjectFile) (getRelativePath sourceFile))
-                // When a script is modified, restart the project with new options
-                // (to check for new references, loaded projects, etc.)
-                if ext = ".fsx" then
-                    createProject checker None msg project.ProjectFile
-                    |> addOrUpdateProject state |> Some
                 // Watch compilation of an .fs file, restart project with old options
-                elif isWatchCompilation project sourceFile then
-                    createProject checker (Some project) msg project.ProjectFile
+                if isWatchCompilation project sourceFile then
+                    createProject checker true (Some project) msg project.ProjectFile
                     |> addOrUpdateProject state |> Some
                 else Some(false, state, project)
             else None)
     match IO.Path.GetExtension(msg.path).ToLower() with
     | ".fsproj" ->
-        createProject checker None msg msg.path
+        let isWatchCompile = Map.containsKey msg.path state
+        createProject checker isWatchCompile None msg msg.path
         |> addOrUpdateProject state
     | ".fsx" as ext ->
-        match Map.tryFind msg.path state with
-        | Some project ->
-            createProject checker None msg msg.path
+        if Map.containsKey msg.path state then
+            // When a script is modified, restart the project with new options
+            // (to check for new references, loaded projects, etc.)
+            createProject checker true None msg msg.path
             |> addOrUpdateProject state
-        | None ->
+        else
             match tryFindAndUpdateProject state ext msg.path with
             | Some stateAndProject -> stateAndProject
             | None ->
-                createProject checker None msg msg.path
+                createProject checker false None msg msg.path
                 |> addOrUpdateProject state
     | ".fs" as ext ->
         match tryFindAndUpdateProject state ext msg.path with
@@ -175,7 +171,7 @@ let resolveFableCoreDir fableCoreDir projectFile currentFile =
 let addFSharpErrorLogs (com: ICompiler) (project: FSharpCheckProjectResults) (fileFilter: string option) =
     for er in project.Errors do
         match fileFilter with
-        | Some file when (Path.normalizeFullPath er.FileName) = file -> ()
+        | Some file when (Path.normalizePath er.FileName) <> file -> ()
         | _ ->
             let severity =
                 match er.Severity with
