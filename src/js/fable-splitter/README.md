@@ -49,7 +49,6 @@ These are the options that can be passed to `fable-splitter` through the JS API:
 - **entry**: F# project entry file (`.fsproj` or `.fsx`).
 - **outDir**: Output directory where JS files must be saved. Current directory will be used if not specified.
 - **port**: Fable daemon port (61225 by default).
-- **omitExtension**: Omit `.js` extension in import statements.
 - **fable**: Options to be passed to Fable:
   - **define**: Array of compiler directives passed to the F# compiler (like `DEBUG`). Note _Fable will ignore the `DefineConstants` property in .fsproj_.
   - **plugins**: Array of paths to Fable plugins (.dll files). See [Fable docs](http://fable.io/docs/plugins.html) for more info.

@@ -115,7 +115,7 @@ else {
                                 next = [filePath, new Date()];
                                 if (!tooClose(filePath, prev)) {
                                     // console.log(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
-                                    var newOpts = Object.assign({}, opts, { entry: filePath });
+                                    var newOpts = Object.assign({}, opts, { path: filePath });
                                     /// @ts-ignore
                                     fableSplitter(newOpts, cachedInfo).then(info => {
                                         if (info.compiledPaths.size > cachedInfo.compiledPaths.size) {

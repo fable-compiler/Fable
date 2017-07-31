@@ -1,3 +1,8 @@
+### 0.1.6
+
+* Remove `omitExtension` option
+* Fix error in watch compilations
+
 ### 0.1.5
 
 * Don't omit JS extension in import statements by default
