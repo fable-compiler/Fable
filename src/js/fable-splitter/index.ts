@@ -14,6 +14,7 @@ const DEFAULT_PORT = parseInt(Process.env.FABLE_SERVER_PORT || "61225", 10);
 const FSHARP_EXT = /\.(fs|fsx|fsproj)$/;
 const FSPROJ_EXT = /\.fsproj$/;
 const JAVASCRIPT_EXT = /\.js$/;
+const MACRO = /^\${(\w+)}[\\/]?(.*)$/;
 
 export type CompilationInfo = {
     entry: string,
@@ -37,10 +38,36 @@ export type FableCompilerOptions = {
     entry: string;
     outDir: string;
     port?: number;
+    omitExtension?: boolean,
     babel?: Babel.TransformOptions;
     fable?: FableOptions;
     prepack?: any;
 };
+
+function getResolvePathPlugin(targetDir: string, opts: FableCompilerOptions) {
+    return {
+        visitor: {
+            StringLiteral: function (path: any) {
+                var node = path.node;
+                if (MACRO.test(node.value)) {
+                    const match = MACRO.exec(node.value) || [];
+                    let replacement: string = opts.outDir;
+                    if (match[1] === "entryDir") {
+                        replacement = Path.dirname(opts.entry);
+                    }
+                    else if (match[1] !== "outDir") {
+                        throw new Error("Unknown macro: " + node.value);
+                    }
+                    const fullPath = Path.join(replacement, match[2]);
+                    const newRelPath = Path.relative(targetDir, fullPath).replace(/\\/g, "/");
+                    // console.log("FULL PATH: " + fullPath);
+                    // console.log("REL. PATH: " + newRelPath);
+                    node.value = newRelPath;
+                }
+            }
+        }
+    }
+}
 
 function output(msg: string, severity: string) {
     if (severity === "warning") {
@@ -81,11 +108,14 @@ export function ensureDirExists(dir: string, cont?: ()=>void) {
 }
 
 // TODO: implement better folder structure
-function getOutPath(path: string, info: CompilationInfo): string {
+function getOutPath(path: string, opts: FableCompilerOptions, info: CompilationInfo): string {
     let outPath = info.mapInOutPaths.get(path);
     if (!outPath) {
         // get file name without extensions
-        const fileName = Path.basename(path).replace(FSHARP_EXT, "").replace(JAVASCRIPT_EXT, "");
+        let fileName = Path.basename(path).replace(FSHARP_EXT, "").replace(JAVASCRIPT_EXT, "");
+        if (!opts.omitExtension) {
+            fileName = fileName + ".js";
+        }
         // flat folder structure (one level deep)
         let pathDir = Path.dirname(path);
         // If pathDir is same as entry dir don't create nested folder
@@ -103,9 +133,9 @@ function getOutPath(path: string, info: CompilationInfo): string {
     return outPath;
 }
 
-function getFullPath(relPath: string) {
+function getFullPath(relPath: string, isDir?: boolean) {
     const fullPath = Path.resolve(relPath).replace(/\\/g, "/");
-    if (FSHARP_EXT.test(fullPath) || JAVASCRIPT_EXT.test(fullPath)) {
+    if (isDir || FSHARP_EXT.test(fullPath) || JAVASCRIPT_EXT.test(fullPath)) {
         return fullPath;
     } else {
         return fullPath + ".js";
@@ -116,8 +146,8 @@ function join(path1: string, path2: string) {
     return Path.join(path1, path2).replace(/\\/g, "/")
 }
 
-function fixPath(fromDir: string, path: string, info: CompilationInfo) {
-    const outPath = getOutPath(getFullPath(join(fromDir, path)), info);
+function fixPath(fromDir: string, path: string, opts: FableCompilerOptions, info: CompilationInfo) {
+    const outPath = getOutPath(getFullPath(join(fromDir, path)), opts, info);
     const isNested = outPath.indexOf("/") >= 0;
     const fromEntryDir = fromDir === Path.dirname(info.entry);
     // Assumes flat folder structure
@@ -139,9 +169,9 @@ function getRelativeImportPaths(ast: any) {
     return decls.filter(d => d.source != null && d.source.value.startsWith("."));
 }
 
-function fixImportPaths(fromDir: string, ast: any, info: CompilationInfo) {
+function fixImportPaths(fromDir: string, ast: any, opts: FableCompilerOptions, info: CompilationInfo) {
     getRelativeImportPaths(ast).forEach(d => {
-        d.source.value = fixPath(fromDir, d.source.value, info);
+        d.source.value = fixPath(fromDir, d.source.value, opts, info);
     });
 }
 
@@ -178,20 +208,26 @@ async function getFileAstAsync(path: string, options: FableCompilerOptions, info
 
 function transformAndSaveAst(fullPath: string, ast: any, options: FableCompilerOptions, info: CompilationInfo) {
     // resolve output paths
-    const outPath = getOutPath(fullPath, info) + ".js";
+    let outPath = getOutPath(fullPath, options, info);
+    if (options.omitExtension) {
+        outPath = outPath + ".js";
+    }
     const jsPath = join(options.outDir, outPath);
     const jsDir = Path.dirname(jsPath);
     ensureDirExists(jsDir);
     // set sourcemap paths
     const code: string | undefined = undefined;
-    if (options.babel && options.babel.sourceMaps) {
+    let babelOptions = Object.assign({}, options.babel) as Babel.TransformOptions;
+    if (babelOptions.sourceMaps) {
         // code = fs.readFileSync(fullPath, "utf8");
         const relPath = Path.relative(jsDir, fullPath);
-        options.babel.sourceFileName = relPath.replace(/\\/g, "/");
-        options.babel.sourceMapTarget = Path.basename(outPath);
+        babelOptions.sourceFileName = relPath.replace(/\\/g, "/");
+        babelOptions.sourceMapTarget = Path.basename(outPath);
     }
+    babelOptions.plugins = (babelOptions.plugins || [])
+        .concat(getResolvePathPlugin(jsDir, options));
     // transform and save
-    let result = Babel.transformFromAst(ast, code, options.babel);
+    let result = Babel.transformFromAst(ast, code, babelOptions);
     if (options.prepack) {
         const prepack = require("prepack");
         result = prepack.prepackFromAst(result.ast, result.code, options.prepack);
@@ -218,7 +254,7 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
     if (ast) {
         // get/fix import paths
         const notFixedImportPaths = getRelativeImportPaths(ast.ast).map(d => d.source.value);
-        fixImportPaths(Path.dirname(fullPath), ast.ast, info);
+        fixImportPaths(Path.dirname(fullPath), ast.ast, options, info);
 
         // if not a .fsproj, transform and save
         if (!FSPROJ_EXT.test(fullPath)) {
@@ -237,7 +273,7 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
 function setDefaultOptions(options: FableCompilerOptions) {
     options = Object.assign({}, options);
     options.entry = getFullPath(options.entry); // Normalize path
-    options.outDir = options.outDir || Path.resolve(".");
+    options.outDir = getFullPath(options.outDir || ".", true);
     options.port = options.port || DEFAULT_PORT;
 
     options.fable = options.fable || {};

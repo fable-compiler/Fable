@@ -1,3 +1,8 @@
+### 0.1.5
+
+* Don't omit JS extension in import statements by default
+* Add macros for path resolution
+
 ### 0.1.4
 
 * Fix some errors
