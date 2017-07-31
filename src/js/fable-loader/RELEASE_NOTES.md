@@ -1,3 +1,7 @@
+### 1.0.7
+
+* Don't cache errored files
+
 ### 1.0.6
 
 * Update README

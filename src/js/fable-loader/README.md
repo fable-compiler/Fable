@@ -70,5 +70,3 @@ These are the options that can be passed to `fable-loader`:
 - **typedArrays**: Translate numeric arrays as JS [Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray). True by default.
 - **clampByteArrays**: If true, Fable will translate byte arrays as [Uint8ClampedArray](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8ClampedArray).
 - **fableCore**: Specify a directory containing Fable.Core JS files, normally used for testing.
-- **extra**: An optional JS object containing extra options:
-  - **useCache**: Set it to true to save compiled file into a cache to speed up compilation of files that don't change often (like files from libraries). Cached files are only invalidated when the source file is modified. If you want to force cache removal, run `./node_modules/.bin/fable clear-cache`.
