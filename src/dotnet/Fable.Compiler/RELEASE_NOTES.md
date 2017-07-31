@@ -1,3 +1,7 @@
+### 1.1.19
+
+* Fix watch compilation with errors affecting not modified files
+
 ### 1.1.18
 
 * Fix #1057: Add caught exception to context for reraise

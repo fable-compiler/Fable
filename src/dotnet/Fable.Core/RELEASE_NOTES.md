@@ -1,3 +1,8 @@
+### 1.1.12
+
+* Add DateTime ticks constructor
+* Convert to and from Base64String
+
 ### 1.1.11
 
 * Fix #1094: Implement "indexed" in collection modules

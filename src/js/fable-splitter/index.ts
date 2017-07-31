@@ -117,7 +117,6 @@ function join(path1: string, path2: string) {
 }
 
 function fixPath(fromDir: string, path: string, info: CompilationInfo) {
-    if (!path.startsWith(".")) { return path; } // no need to fix, i.e. node package
     const outPath = getOutPath(getFullPath(join(fromDir, path)), info);
     const isNested = outPath.indexOf("/") >= 0;
     const fromEntryDir = fromDir === Path.dirname(info.entry);
@@ -135,13 +134,13 @@ function fixPath(fromDir: string, path: string, info: CompilationInfo) {
     }
 }
 
-function getImportPaths(ast: any) {
+function getRelativeImportPaths(ast: any) {
     const decls = ast && ast.program ? ensureArray(ast.program.body) : [];
-    return decls.filter(d => d.source != null);
+    return decls.filter(d => d.source != null && d.source.value.startsWith("."));
 }
 
 function fixImportPaths(fromDir: string, ast: any, info: CompilationInfo) {
-    getImportPaths(ast).forEach(d => {
+    getRelativeImportPaths(ast).forEach(d => {
         d.source.value = fixPath(fromDir, d.source.value, info);
     });
 }
@@ -218,7 +217,7 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
     const ast = await getFileAstAsync(fullPath, options, info);
     if (ast) {
         // get/fix import paths
-        const notFixedImportPaths = getImportPaths(ast.ast).map(d => d.source.value);
+        const notFixedImportPaths = getRelativeImportPaths(ast.ast).map(d => d.source.value);
         fixImportPaths(Path.dirname(fullPath), ast.ast, info);
 
         // if not a .fsproj, transform and save
@@ -237,6 +236,7 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
 
 function setDefaultOptions(options: FableCompilerOptions) {
     options = Object.assign({}, options);
+    options.entry = getFullPath(options.entry); // Normalize path
     options.outDir = options.outDir || Path.resolve(".");
     options.port = options.port || DEFAULT_PORT;
 

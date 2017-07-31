@@ -63,7 +63,7 @@ type EntityKind =
     | Interface
 
 type Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
-           ?genParams, ?interfaces, ?decorators) =
+            ?genParams, ?interfaces, ?decorators) =
     let genParams = defaultArg genParams []
     let decorators = defaultArg decorators []
     let interfaces = defaultArg interfaces []
@@ -134,7 +134,7 @@ type MemberLoc =
     | InterfaceLoc of string
 
 type Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?decorators,
-           ?isMutable, ?computed, ?hasRestParams, ?overloadIndex) =
+            ?isMutable, ?computed, ?hasRestParams, ?overloadIndex) =
     member x.Name: string = name
     member x.Kind: MemberKind = kind
     member x.Location: MemberLoc = loc

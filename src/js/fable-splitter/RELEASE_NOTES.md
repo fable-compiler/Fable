@@ -1,3 +1,7 @@
+### 0.1.4
+
+* Fix some errors
+
 ### 0.1.3
 
 * Add CLI
