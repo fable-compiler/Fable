@@ -619,6 +619,5 @@ let inline pathF image = myFunction (@"${entryDir}/../images/" + image)
 
 [<Test>]
 let ``inlining string functions work``() =
-      let path = pathF "myImage.png"
-      path
-      |> equal "../../images/myImage.png"
+      pathF "myImage.png"
+      |> equal "${entryDir}/../images/myImage.png"
