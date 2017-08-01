@@ -40,7 +40,7 @@ let compileAst (com: Compiler) checkedProject fileName =
     let errors = com.ReadAllLogs() |> Map.tryFind "error"
     if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let projectOptions = makeProjOptions com fileName
-    let project = Project(projectOptions, checkedProject)
+    let project = Project(projectOptions, checkedProject, isWatchCompile=false)
     let file: Babel.Program =
         FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
         |> Fable2Babel.Compiler.transformFile com project
