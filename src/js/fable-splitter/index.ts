@@ -14,7 +14,7 @@ const DEFAULT_PORT = parseInt(Process.env.FABLE_SERVER_PORT || "61225", 10);
 const FSHARP_EXT = /\.(fs|fsx|fsproj)$/;
 const FSPROJ_EXT = /\.fsproj$/;
 const JAVASCRIPT_EXT = /\.js$/;
-const MACRO = /^\${(\w+)}[\\/]?(.*)$/;
+const MACRO = /^\${(\w+)}[\\/]?(.*?)([\\/]?)$/;
 
 export type CompilationInfo = {
     entry: string,
@@ -58,7 +58,7 @@ function getResolvePathPlugin(targetDir: string, opts: FableCompilerOptions) {
                         throw new Error("Unknown macro: " + node.value);
                     }
                     const fullPath = Path.join(replacement, match[2]);
-                    const newRelPath = Path.relative(targetDir, fullPath).replace(/\\/g, "/");
+                    const newRelPath = (Path.relative(targetDir, fullPath) + match[3]).replace(/\\/g, "/");
                     // console.log("FULL PATH: " + fullPath);
                     // console.log("REL. PATH: " + newRelPath);
                     node.value = newRelPath;
