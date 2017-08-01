@@ -43,13 +43,15 @@ let rec private loop timeout (server: TcpListener) (buffer: byte[]) (onMessage: 
             return ()
         else
             onMessage(data, fun (reply: string) ->
-                let msg = Encoding.UTF8.GetBytes(reply)
-                stream.Write(msg, 0, msg.Length)
-                #if NETFX
-                client.Close()
-                #else
-                client.Dispose()
-                #endif
+                try
+                    let msg = Encoding.UTF8.GetBytes(reply)
+                    stream.Write(msg, 0, msg.Length)
+                    #if NETFX
+                    client.Close()
+                    #else
+                    client.Dispose()
+                    #endif
+                with ex -> Log.logAlways("Error when responding to client: " + ex.Message)
             )
             return! loop timeout server buffer onMessage
     | None ->
