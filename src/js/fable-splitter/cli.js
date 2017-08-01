@@ -81,11 +81,11 @@ else {
         default:
             var entry = null, restArgs = null;
             if (command.startsWith('-')) {
-                restArgs = process.argv.splice(2);
+                restArgs = process.argv.slice(2);
             }
             else {
                 entry = path.resolve(command);
-                restArgs = process.argv.splice(3);
+                restArgs = process.argv.slice(3);
             }
             var opts = {}, cfgFile = findArgValue(restArgs, ["-c", "--config"])
             if (cfgFile) {

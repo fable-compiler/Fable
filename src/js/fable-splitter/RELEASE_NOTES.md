@@ -1,3 +1,7 @@
+### 0.1.7
+
+* Don't modify `process.argv`
+
 ### 0.1.6
 
 * Remove `omitExtension` option
