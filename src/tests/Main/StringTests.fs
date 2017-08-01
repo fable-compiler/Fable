@@ -611,3 +611,13 @@ let ``String.IsNullOrWhiteSpace works on string with blanks``() =
 let ``String.IsNullOrWhiteSpace works on blank only string``() =
       String.IsNullOrWhiteSpace "      "
       |> equal true
+
+let inline myFunction x = id x
+
+let inline pathF image = myFunction (@"${entryDir}/../images/" + image)
+
+
+[<Test>]
+let ``inlining string functions work``() =
+      pathF "myImage.png"
+      |> equal "${entryDir}/../images/myImage.png"
