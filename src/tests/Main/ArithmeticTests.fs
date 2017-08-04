@@ -9,6 +9,14 @@ let inline equal (actual, expected) = Fable.Tests.Util.equal expected actual
 let ``Infix add can be generated``() =
     equal (4 + 2, 6)
 
+let [<Literal>] aLiteral = 5
+let notALiteral = 5
+
+[<Test>]
+let ``Int32 literal addition is optimized``() =
+    equal (aLiteral + 7, 12)
+    equal (notALiteral + 7, 12)
+
 [<Test>]
 let ``Infix subtract can be generated``() =
     equal (4 - 2, 2)

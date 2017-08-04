@@ -7,6 +7,14 @@ open System
 open Util.Testing
 open Fable.Tests.Util
 
+let [<Literal>] aLiteral = "foo"
+let notALiteral = "foo"
+
+[<Test>]
+let ``String literal addition is optimized``() =
+      "bar" + aLiteral |> equal "barfoo"
+      "bar" + notALiteral |> equal "barfoo"
+
 // Format
 
 [<Test>]
@@ -36,7 +44,7 @@ let ``input of print format can be retrieved``() =
       let pathScan (pf:PrintfFormat<_,_,_,_,'t>) =
           let formatStr = pf.Value
           formatStr
-          
+
       equal "/hello/%s" (pathScan "/hello/%s")
 
 [<Test>]
@@ -464,7 +472,7 @@ let ``String.Empty works``() =
       s |> equal ""
 
 [<Test>]
-let ``String.Chars works``() = 
+let ``String.Chars works``() =
       let input = "hello"
       input.Chars(2)
       |> equal 'l'
@@ -600,12 +608,12 @@ let ``String.mapi works``() =
 let ``String.replicate works``() =
       String.replicate 3 "hi there"
       |> equal "hi therehi therehi there"
-      
+
 [<Test>]
 let ``String.IsNullOrWhiteSpace works on string with blanks``() =
       String.IsNullOrWhiteSpace "Fri Jun 30 2017 12:30:00 GMT+0200 (Mitteleuropäische Sommerzeit)"
       |> equal false
-      
+
 
 [<Test>]
 let ``String.IsNullOrWhiteSpace works on blank only string``() =

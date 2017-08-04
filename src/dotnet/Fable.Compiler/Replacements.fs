@@ -32,6 +32,14 @@ module Util =
 
     let (|FloatToInt|) (x: float) = int x
 
+    let (|StringLiteral|_|) = function
+        | MaybeWrapped(Fable.Value(Fable.StringConst str)) -> Some str
+        | _ -> None
+
+    let (|Int32Literal|_|) = function
+        | MaybeWrapped(Fable.Value(Fable.NumberConst(FloatToInt i, Int32))) -> Some i
+        | _ -> None
+
     let (|UnionCons|_|) expr =
         let hasMultipleFields tag (cases: (string * Fable.Type list) list) =
             match List.tryItem tag cases with
@@ -438,6 +446,16 @@ module Util =
         | _ ->
             ccall_ range returnType "Util" "applyOperator" (args@[makeStrConst meth])
 
+    let tryOptimizeLiteralAddition r t (args: Fable.Expr list) =
+        match args with
+        | [StringLiteral str1; StringLiteral str2] ->
+            let e = Fable.Value(Fable.StringConst (str1 + str2))
+            match t with Fable.String -> e | t -> Fable.Wrapped(e, t)
+        | [Int32Literal i1; Int32Literal i2] ->
+            let e = Fable.Value(Fable.NumberConst(float (i1 + i2), Int32))
+            match t with Fable.String -> e | t -> Fable.Wrapped(e, t)
+        | _ -> applyOp r t args "op_Addition"
+
     let equals equal com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
         let op equal =
             if equal then BinaryEqualStrict else BinaryUnequalStrict
@@ -808,10 +826,12 @@ module AstPass =
             let comparison = compare com info.range args (Some op)
             Fable.IfThenElse(comparison, args.Head, args.Tail.Head, info.range) |> Some
         // Operators
-         | "op_Addition" | "op_Subtraction" | "op_Multiply" | "op_Division"
-         | "op_Modulus" | "op_LeftShift" | "op_RightShift"
-         | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
-         | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
+        | "op_Addition" ->
+            tryOptimizeLiteralAddition info.range info.returnType args |> Some
+        | "op_Subtraction" | "op_Multiply" | "op_Division"
+        | "op_Modulus" | "op_LeftShift" | "op_RightShift"
+        | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
+        | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
             applyOp info.range info.returnType args info.methodName |> Some
         | "log" -> // log with base value i.e. log(8.0, 2.0) -> 3.0
             match info.args with
