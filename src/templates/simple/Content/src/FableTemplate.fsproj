@@ -5,8 +5,5 @@
   <ItemGroup>
     <Compile Include="App.fs" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
-  </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>

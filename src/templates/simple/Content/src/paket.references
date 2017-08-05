@@ -2,3 +2,4 @@ FSharp.Core
 Fable.Core
 Fable.Import.Browser
 dotnet-fable
+FSharp.NET.Sdk

@@ -5,3 +5,4 @@ clitool dotnet-fable
 nuget FSharp.Core
 nuget Fable.Core
 nuget Fable.Import.Browser
+nuget FSharp.NET.Sdk
