@@ -7,6 +7,6 @@
     "webpack": "node ../../../../node_modules/webpack/bin/webpack -p",
     "rollup": "node ../../../../node_modules/rollup/bin/rollup -c",
     "splitter": "node splitter.config.js",
-    "start": "node out/testapp/app"
+    "start": "node out/app"
   }
 }
