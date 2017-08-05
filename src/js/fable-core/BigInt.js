@@ -133,6 +133,9 @@ export default class BigInteger {
   GetHashCode() {
     return hash(this);
   }
+
+  toJSON = this.ToString;
+  static ofJSON = parse;
 }
 setType("System.Numerics.BigInteger", BigInteger);
 

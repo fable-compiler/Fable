@@ -247,6 +247,9 @@ function inflate(val: any, typ: any, path: string): any {
     if (typ === Date) {
       return dateParse(val);
     }
+    if (typeof typ.ofJSON === "function") {
+      return typ.ofJSON(val);
+    }
     const info = typeof typ.prototype[FableSymbol.reflection] === "function" ?
       typ.prototype[FableSymbol.reflection]() : {};
     // Union types
@@ -277,6 +280,7 @@ export function ofJson(json: any, genArgs: any): any {
   return inflate(JSON.parse(json), genArgs ? genArgs.T : null, "");
 }
 
+// TODO: Dates and types with `toJSON` are not adding the $type field
 export function toJsonWithTypeInfo(val: any): string {
   return JSON.stringify(val, (k, v) => {
     if (ArrayBuffer.isView(v)) {
@@ -342,6 +346,9 @@ export function ofJsonWithTypeInfo(json: any, genArgs: any): any {
       } else {
         const typ = getType(type);
         if (typ) {
+          if (typeof (typ as any).ofJSON === "function") {
+            return (typ as any).ofJSON(v);
+          }
           const info = typeof (typ.prototype as any)[FableSymbol.reflection] === "function" ?
             (typ.prototype as any)[FableSymbol.reflection]() : {};
           if (info.cases) {

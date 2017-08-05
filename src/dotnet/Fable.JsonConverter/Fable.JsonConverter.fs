@@ -37,6 +37,8 @@ type Kind =
     | StringEnum = 5
     | DateTime = 6
     | MapOrDictWithNonStringKey = 7
+    | Long = 8
+    | BigInt = 9
 
 /// Helper for serializing map/dict with non-primitive, non-string keys such as unions and records.
 /// Performs additional serialization/deserialization of the key object and uses the resulting JSON
@@ -122,6 +124,10 @@ type JsonConverter() =
                 then Kind.DateTime
                 elif t.Name = "FSharpOption`1"
                 then Kind.Option
+                elif t.FullName = "System.Int64" || t.FullName = "System.UInt64"
+                then Kind.Long
+                elif t.FullName = "System.Numerics.BigInteger"
+                then Kind.BigInt
                 elif FSharpType.IsTuple t
                 then Kind.Tuple
                 elif (FSharpType.IsUnion t && t.Name <> "FSharpList`1")
@@ -142,6 +148,12 @@ type JsonConverter() =
             match jsonConverterTypes.TryGetValue(t) with
             | false, _ ->
                 serializer.Serialize(writer, value)
+            | true, Kind.Long ->
+                if t.FullName = "System.UInt64"
+                then serializer.Serialize(writer, string value)
+                else serializer.Serialize(writer, sprintf "%+i" (value :?> int64))
+            | true, Kind.BigInt ->
+                serializer.Serialize(writer, string value)
             | true, Kind.DateTime ->
                 let dt = value :?> DateTime
                 // Override .ToUniversalTime() behavior and assume DateTime.Kind = Unspecified as UTC values on serialization to avoid breaking roundtrips.
@@ -195,6 +207,14 @@ type JsonConverter() =
         match jsonConverterTypes.TryGetValue(t) with
         | false, _ ->
             serializer.Deserialize(reader, t)
+        | true, Kind.Long when reader.TokenType = JsonToken.String ->
+            let json = serializer.Deserialize(reader, typeof<string>) :?> string
+            if t.FullName = "System.UInt64"
+            then upcast UInt64.Parse(json)
+            else upcast Int64.Parse(json)
+        | true, Kind.BigInt when reader.TokenType = JsonToken.String ->
+            let json = serializer.Deserialize(reader, typeof<string>) :?> string
+            upcast bigint.Parse(json)
         | true, Kind.DateTime ->
             match reader.Value with
             | :? DateTime -> reader.Value // Avoid culture-sensitive string roundtrip for already parsed dates (see #613).
@@ -290,10 +310,10 @@ type SerializationBinder() =
 #endif
 
 #if INTERACTIVE
-#r "../../../build/fable-core/Fable.Core.dll"
+#r "../../../build/fable/Fable.Core.dll"
 open Fable.Core
 
-type [<Pojo>] U = MyCase of ja:int * jo:string
+type [<Pojo>] U = MyCase of ja:uint64 * jo:string
 type [<StringEnum>] U2 = Foo | [<CompiledName("B-A-R")>] Bar
 type UnionKey = K1 | K2 of string
 type RecordKey = { Key: string }
@@ -305,7 +325,7 @@ module Test =
         let o2 = JsonConvert.DeserializeObject<'T>(json, JsonConverter())
         printfn "%A" o2
 
-    test <| MyCase(5,"4")
+    test <| MyCase(9348937298839933899UL,"4")
     test Foo
     test Bar
     test <| DateTime(2016, 12, 13, 8, 00, 0)

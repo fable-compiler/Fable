@@ -821,9 +821,17 @@ export class Long {
     CompareTo = this.compare;
     ToString = this.toString;
 
+    toJSON() {
+        return (!this.unsigned && !this.lessThan(0) ? "+" : "") + this.toString();
+    }
+
+    static ofJSON(str: string) {
+        return fromString(str, !/^[+-]/.test(str));
+    }
+
     [_Symbol.reflection]() {
         return {
-            type: "System.Int64",
+            type: this.unsigned ? "System.UInt64" : "System.Int64",
             interfaces: ["FSharpRecord", "System.IComparable"],
             properties: {
                 low: "number",
