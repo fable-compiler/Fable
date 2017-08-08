@@ -1,3 +1,7 @@
+### 1.1.14
+
+* Fix #1104: JSON serialization of Long and BigInt
+
 ### 1.1.12
 
 * Add DateTime ticks constructor

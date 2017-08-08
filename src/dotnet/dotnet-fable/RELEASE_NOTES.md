@@ -1,3 +1,8 @@
+### 1.1.20
+
+* Update FSharp.Core
+* Recover from errors when responding to JS client
+
 ### 1.1.19
 
 * Fix watch compilation with errors affecting not modified files

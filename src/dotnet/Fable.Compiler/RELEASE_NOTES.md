@@ -1,3 +1,8 @@
+### 1.1.20
+
+* Update FSharp.Core
+* Optimize string and int literal addition
+
 ### 1.1.19
 
 * Fix watch compilation with errors affecting not modified files
