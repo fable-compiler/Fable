@@ -1,3 +1,7 @@
+### 1.0.2
+
+* Fix #1104: JSON serialization of Long and BigInt
+
 ### 1.0.1
 
 * Lower dependency expectations

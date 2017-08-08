@@ -426,7 +426,11 @@ Target "QuickFableCoreTest" (fun () ->
 let needsPublishing silent (versionRegex: Regex) (releaseNotes: ReleaseNotes) projFile =
     let print msg =
         if not silent then
-            let projName = Path.GetFileNameWithoutExtension(projFile)
+            let projName =
+                let projName = Path.GetFileNameWithoutExtension(projFile)
+                if projName = "package" // package.json
+                then Path.GetFileName(Path.GetDirectoryName(projFile))
+                else projName
             printfn "%s > %s" projName msg
     if releaseNotes.NugetVersion.ToUpper().EndsWith("NEXT")
     then
@@ -496,18 +500,15 @@ let pushNpm build (projDir: string) =
     let releaseNotes = ReleaseNotesHelper.LoadReleaseNotes(projDir </> "RELEASE_NOTES.md")
     let pkgJson = projDir </> "package.json"
     if needsPublishing false versionRegex releaseNotes pkgJson then
-        let buildDir =
-            match build with
-            | None -> projDir
-            | Some build -> build()
-        Npm.command buildDir "version" [releaseNotes.NugetVersion]
+        build |> Option.iter (fun build -> build())
+        Npm.command projDir "version" [releaseNotes.NugetVersion]
         let publishArgs =
             if releaseNotes.NugetVersion.IndexOf("-") > 0
             then ["--tag next"]
             else []
-        Npm.command buildDir "publish" publishArgs
+        Npm.command projDir "publish" publishArgs
         // After successful publishing, update the project file in source dir
-        if buildDir <> projDir then
+        if projDir <> projDir then
             Npm.command projDir "version" [releaseNotes.NugetVersion]
 
 // Target "BrowseDocs" (fun _ ->
@@ -588,8 +589,7 @@ Target "PublishPackages" (fun () ->
     pushNpm None "src/js/fable-utils"
     pushNpm None "src/js/fable-loader"
     pushNpm None "src/js/rollup-plugin-fable"
-    buildSplitter ()
-    pushNpm None "src/js/fable-splitter"
+    pushNpm (Some buildSplitter) "src/js/fable-splitter"
 )
 
 Target "All" (fun () ->
