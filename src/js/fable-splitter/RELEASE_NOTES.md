@@ -1,3 +1,7 @@
+### 0.1.9
+
+* Fixed line endings
+
 ### 0.1.8
 
 * Fix #1101: Keep final slash in string literals with macros
