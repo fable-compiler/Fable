@@ -330,7 +330,9 @@ let getProjectOptionsFromFsproj (projFile: string) =
             let framework, version =
                 if framework.StartsWith("netcoreapp1") then "netstandard", "1.6"
                 elif framework.StartsWith("netcoreapp2") then "netstandard", "2.0"
-                else framework, ""
+                else
+                    let m = Regex.Match(framework, "(.*?)(\\d.*)")
+                    m.Groups.[1].Value, m.Groups.[2].Value
             { Framework = framework; Version = version }
         | None -> failwithf "Cannot find TargetFramework in %s" projFile
     let paketDir = tryFindPaketDirFromProject projFile
