@@ -12,16 +12,6 @@ type ICompilerState =
     abstract GetOrAddEntity: string * (unit->Fable.Entity) -> Fable.Entity
     abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
 
-#if !NETFX && !FABLE_COMPILER
-[<AutoOpen>]
-module ReflectionAdapters =
-    open System.Reflection
-
-    type System.Type with
-        member this.GetCustomAttributes(inherits : bool) : obj[] =
-            downcast box(CustomAttributeExtensions.GetCustomAttributes(this.GetTypeInfo(), inherits) |> Seq.toArray)
-#endif
-
 [<AutoOpen>]
 module Extensions =
     type System.Collections.Generic.Dictionary<'TKey,'TValue> with
@@ -46,6 +36,17 @@ module Extensions =
 module Reflection =
     open System
     open System.Reflection
+
+    let loadAssembly path =
+#if NETFX
+        // The assembly is already loaded because it's being referenced
+        // by the parsed code, so use `LoadFrom` which takes the copy in memory
+        // Unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
+        Assembly.LoadFrom(path)
+#else
+        let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
+        globalLoadContext.LoadFromAssemblyPath(path)
+#endif
 
     /// Prevent ReflectionTypeLoadException
     /// From http://stackoverflow.com/a/7889272

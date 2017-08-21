@@ -13,15 +13,6 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
 
-#if !NETFX && !FABLE_COMPILER
-[<AutoOpen>]
-module ReflectionAdapters =
-    type System.Reflection.Assembly with
-        static member LoadFrom(filePath: string) =
-            let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
-            globalLoadContext.LoadFromAssemblyPath(filePath)
-#endif
-
 type ThisAvailability =
     | ThisUnavailable
     | ThisAvailable
@@ -1140,10 +1131,7 @@ module Util =
         fun (tdef: FSharpEntity) ->
             cache.GetOrAdd(tdef.QualifiedName, fun _ ->
                 let filePath = tdef.Assembly.FileName.Value
-                // The assembly is already loaded because it's being referenced
-                // by the parsed code, so use `LoadFrom` which takes the copy in memory
-                // Unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
-                let assembly = System.Reflection.Assembly.LoadFrom(filePath)
+                let assembly = Reflection.loadAssembly filePath
                 let typ = Reflection.getTypes assembly |> Seq.find (fun x ->
                     x.AssemblyQualifiedName = tdef.QualifiedName)
                 System.Activator.CreateInstance(typ))

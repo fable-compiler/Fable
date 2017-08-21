@@ -1,9 +1,10 @@
-<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Version>1.1.22</Version>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp1.0</TargetFramework>
-    <RuntimeFrameworkVersion>1.0.4</RuntimeFrameworkVersion>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <RuntimeFrameworkVersion>2.0.0</RuntimeFrameworkVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
@@ -19,15 +20,10 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Required in the package root to run the cli tool alway with bundled runtime -->
+    <!-- Required in the package root to run the cli tool always with bundled runtime -->
     <Content Include="prefercliruntime">
       <PackagePath>prefercliruntime</PackagePath>
       <Pack>true</Pack>
     </Content>
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
-    <DotNetCliToolReference Include="Microsoft.DotNet.Watcher.Tools" Version="1.0.*" />
-  </ItemGroup>
-  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

@@ -1,6 +1,3 @@
-FSharp.Core
 FSharp.Compiler.Service
 Newtonsoft.Json
-System.Reflection.TypeExtensions
 System.Runtime.Loader
-System.ValueTuple

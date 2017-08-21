@@ -330,6 +330,7 @@ let parse (parser:Parser<'a->'a,'a>) url args =
     |> parser
     |> parseHelp
 
+#if FABLE_COMPILER
 open Fable.Import
 
 let internal toKeyValuePair (segment:string) =
@@ -397,3 +398,4 @@ let ``Parses string segment followed by string param`` () =
     let parser = map f (s "samples" </> str <?> stringParam "param1")
     parseHash parser "#samples/test1?param1=test2"
     |> equal (Some ("test1", Some "test2"))
+#endif

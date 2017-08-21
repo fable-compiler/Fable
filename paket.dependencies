@@ -1,18 +1,10 @@
 source https://www.nuget.org/api/v2
 
 nuget FAKE
-nuget FSharp.NET.Sdk
 nuget FSharp.Core
 nuget FSharp.Compiler.Service
 nuget Newtonsoft.Json
-nuget System.ValueTuple
-nuget System.Xml.XDocument
 nuget System.Runtime.Loader
-nuget System.Reflection.TypeExtensions
-# These two explicit dependencies are needed for dotnet-fable
-# to prevent downgrade warnings when restoring
-nuget System.Collections.Immutable >= 1.3.1
-nuget System.Reflection.Metadata >= 1.4.2
 nuget xunit
 nuget xunit.runner.visualstudio
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
@@ -21,7 +13,5 @@ github fsharp/FAKE modules/Octokit/Octokit.fsx
 group Docs
   source https://www.nuget.org/api/v2
 
-  nuget FAKE
-  nuget Suave
   nuget DotLiquid
   nuget FSharp.Formatting 2.14.2
