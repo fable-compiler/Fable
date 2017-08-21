@@ -1122,8 +1122,8 @@ module AstPass =
         | "toChar" -> toChar com i i.methodArgTypes.Head i.args |> Some
         | "toString" -> toString com i i.methodArgTypes.Head i.args |> Some
         | "toBase64String" | "fromBase64String" ->
-            if List.isSingle i.args then
-                sprintf "Convert.%s only accepts one single argument" i.methodName
+            if not(List.isSingle i.args) then
+                sprintf "Convert.%s only accepts one single argument" (Naming.upperFirst i.methodName)
                 |> addWarning com i.fileName i.range
             ccall i "String" i.methodName i.args |> Some
         | _ -> None
