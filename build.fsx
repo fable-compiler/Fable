@@ -253,7 +253,7 @@ let authors = ["Alfonso García-Caro"]
 let gitOwner = "fable-compiler"
 let gitHome = "https://github.com/" + gitOwner
 
-let dotnetcliVersion = "1.0.4"
+let dotnetcliVersion = "2.0.0"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 let dotnetSDKPath = FullName "./dotnetsdk"
 let localDotnetExePath = dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
@@ -332,17 +332,13 @@ let installDotnetSdk () =
 
 let clean () =
     !! "src/dotnet/**/bin" ++ "src/dotnet/**/obj/"
-        -- "src/dotnet/Fable.Client.Browser/demo/**"
-        -- "src/dotnet/Fable.Client.Browser/testapp/**"
-        ++ "build/fable-core" ++ "build/json-converter"
-        ++ "build/nunit" ++ "build/tests_dll"
+        -- "src/dotnet/Fable.Client.JS/demo/**"
+        -- "src/dotnet/Fable.Client.JS/testapp/**"
+        ++ "src/plugins/nunit/bin" ++ "src/plugins/nunit/obj/"
+        ++ "src/tests*/**/bin" ++ "src/tests**/**/obj/"
+        ++ "build/fable" ++ "build/fable-core" ++ "build/tests"
+        ++ "build/json-converter" ++ "build/nunit"
     |> CleanDirs
-
-    // Don't delete node_modules for faster builds
-    !! "build/fable/**/*.*" -- "build/fable/node_modules/**/*.*"
-    |> Seq.iter FileUtils.rm
-    !! "build/tests/**/*.*" -- "build/tests/node_modules/**/*.*"
-    |> Seq.iter FileUtils.rm
 
 let nugetRestore baseDir () =
     Util.run (baseDir </> "Fable.Core") dotnetExePath "restore"
@@ -390,7 +386,7 @@ let buildJsonConverter () =
     "restore src/dotnet/Fable.JsonConverter"
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
-    "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter /p:TargetFramework=netstandard1.6"
+    "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter /p:TargetFramework=netstandard2.0"
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
 let runTestsDotnet () =

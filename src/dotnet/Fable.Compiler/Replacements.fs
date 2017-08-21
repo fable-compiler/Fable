@@ -1021,10 +1021,15 @@ module AstPass =
             |> makeCall i.range i.returnType |> Some
         | "split" ->
             match i.args with
-            | [Fable.Value(Fable.StringConst _) as separator]
-            | [Fable.Value(Fable.ArrayConst(Fable.ArrayValues [separator],_))] ->
-                InstanceCall(i.callee.Value, "split", [separator]) // Optimization
+            | [] -> InstanceCall(i.callee.Value, "split", [Fable.Value(Fable.StringConst " ")]) // Optimization
+            // | [MaybeWrapped(Fable.Value(Fable.StringConst _) as separator)]
+            // | [Fable.Value(Fable.ArrayConst(Fable.ArrayValues [separator],_))] ->
+            //     InstanceCall(i.callee.Value, "split", [separator]) // Optimization
             | [arg1; Type(Fable.Enum _) as arg2] ->
+                let arg1 =
+                    match arg1.Type with
+                    | Fable.Array _ -> arg1
+                    | _ -> Fable.Value(Fable.ArrayConst(Fable.ArrayValues [arg1], Fable.String))
                 let args = [arg1; Fable.Value Fable.Null; arg2]
                 CoreLibCall("String", Some "split", false, i.callee.Value::args)
             | args -> CoreLibCall("String", Some "split", false, i.callee.Value::args)

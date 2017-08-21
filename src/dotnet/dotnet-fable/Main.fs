@@ -175,7 +175,7 @@ let checkFlags(args: string[]) =
     Flags.logVerbose <- hasFlag "--verbose"
     Flags.checkCoreVersion <- not(hasFlag "--no-version-check")
 
-let (|StartsWith|_|) pattern (str: string) =
+let (|StartsWith|_|) (pattern: string) (str: string) =
     if str.StartsWith(pattern)
     then str.Substring(pattern.Length) |> Some
     else None

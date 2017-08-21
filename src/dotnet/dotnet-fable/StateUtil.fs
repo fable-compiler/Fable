@@ -19,14 +19,6 @@ module private Cache =
         cache.Add(key, value)
         value
 
-let loadAssembly path =
-#if NETFX
-    Assembly.LoadFrom(path)
-#else
-    let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
-    globalLoadContext.LoadFromAssemblyPath(path)
-#endif
-
 let loadPlugins pluginPaths =
     pluginPaths
     |> Seq.collect (fun path ->
@@ -35,7 +27,7 @@ let loadPlugins pluginPaths =
         | true, pluginInfos -> pluginInfos
         | false, _ ->
             try
-                loadAssembly path
+                Reflection.loadAssembly path
                 |> Reflection.getTypes
                 |> Seq.filter typeof<IPlugin>.IsAssignableFrom
                 |> Seq.map (fun x ->
