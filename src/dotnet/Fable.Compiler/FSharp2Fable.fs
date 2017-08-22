@@ -875,7 +875,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     | _ -> failwithf "Cannot compile expression in %O: %A"
                      (makeRange fsExpr.Range) fsExpr
 
-let private processMemberDecls (com: IFableCompiler) ctx (fableEnt: Fable.Entity) (childDecls: #seq<Fable.Declaration>) =
+let private processMemberDecls (com: IFableCompiler) (fableEnt: Fable.Entity) (childDecls: #seq<Fable.Declaration>) =
     if fableEnt.Kind = Fable.Module then Seq.toList childDecls else
 
     let isException = match fableEnt.Kind with Fable.Exception _ -> true | _ -> false
@@ -929,11 +929,14 @@ type private TmpDecl =
 type private DeclInfo(com, fileName) =
     let publicNames = ResizeArray<string>()
     // Check there're no conflicting entity or function names (see #166)
-    let checkPublicNameConflicts name =
-        if publicNames.Contains name then
+    let publicNameConflicts name =
+        let conflicts = publicNames.Contains name
+        if conflicts then
             "Public types, modules or functions with same name at same level are not supported: " + name
             |> addError com fileName None
-        publicNames.Add name
+        else
+            publicNames.Add name
+        conflicts
     let isErasedEntity (ent: FSharpEntity) =
         let fail (ent: FSharpEntity) msg =
             addError com fileName (getEntityLocation ent |> makeRange |> Some) msg; false
@@ -981,26 +984,32 @@ type private DeclInfo(com, fileName) =
     member self.AddMethod (meth: FSharpMemberOrFunctionOrValue, methDecl: Fable.Declaration) =
         match tryFindChild meth with
         | None ->
-            if meth.IsModuleValueOrMember
+            let conflicts =
+                meth.IsModuleValueOrMember
                 && isPublicMethod meth
                 && not meth.IsCompilerGenerated
-                && not meth.IsExtensionMember then
-                checkPublicNameConflicts meth.CompiledName
-            decls.Add(Decl methDecl)
+                && not meth.IsExtensionMember
+                && publicNameConflicts meth.CompiledName
+            if not conflicts then
+                decls.Add(Decl methDecl)
         | Some (Ent (_,_,_,entDecls,_)) -> entDecls.Add methDecl
         | Some _ -> () // TODO: log warning
     member self.AddDeclaration (decl: Fable.Declaration, ?publicName: string) =
-        publicName |> Option.iter checkPublicNameConflicts
-        decls.Add(Decl decl)
+        let conflicts =
+            match publicName with
+            | Some publicName -> publicNameConflicts publicName
+            | None -> false
+        if not conflicts then
+            decls.Add(Decl decl)
     member self.AddChild (com: IFableCompiler, ctx, newChild: FSharpEntity, privateName, newChildDecls: _ list) =
         let isPublic = isPublicEntity ctx newChild
-        if isPublic then
-            sanitizeEntityName newChild |> checkPublicNameConflicts
-        let ent = Ent (com.GetEntity newChild, isPublic,
-                    privateName, ResizeArray<_> newChildDecls,
-                    getEntityLocation newChild |> makeRange |> Some)
-        children.Add(newChild.FullName, ent)
-        decls.Add(ent)
+        let conflicts = isPublic && publicNameConflicts (sanitizeEntityName newChild)
+        if not conflicts then
+            let ent = Ent (com.GetEntity newChild, isPublic,
+                        privateName, ResizeArray<_> newChildDecls,
+                        getEntityLocation newChild |> makeRange |> Some)
+            children.Add(newChild.FullName, ent)
+            decls.Add(ent)
     member self.AddIgnoredChild (ent: FSharpEntity) =
         // Entities with no FullName will be abbreviations, so we don't need to
         // check if there're members in the enclosing module belonging to them
@@ -1011,7 +1020,7 @@ type private DeclInfo(com, fileName) =
         match tryFindChild meth with
         | Some (Ent (ent,_,_,_,_)) -> Some ent
         | _ -> None
-    member self.GetDeclarations (com, ctx): Fable.Declaration list =
+    member self.GetDeclarations (com: IFableCompiler): Fable.Declaration list =
         decls |> Seq.map (function
             | IgnoredEnt -> failwith "Unexpected ignored entity"
             | Decl decl -> decl
@@ -1020,7 +1029,7 @@ type private DeclInfo(com, fileName) =
                     match decls.Count, range with
                     | 0, _ | _, None -> range
                     | _, Some r1 -> (Seq.last decls).Range |> function Some r2 -> Some(r1+r2) | None -> range
-                Fable.EntityDeclaration(ent, isPublic, privateName, processMemberDecls com ctx ent decls, range))
+                Fable.EntityDeclaration(ent, isPublic, privateName, processMemberDecls com ent decls, range))
         |> Seq.toList
 
 let private tryGetImport com (ctx: Context) r (atts: #seq<FSharpAttribute>) =
@@ -1096,7 +1105,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             | _ -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
         let entMember = Fable.MemberDeclaration(entMember, isPublicMethod meth, privateName, args@extraArgs, body, Some range)
         declInfo.AddMethod(meth, entMember)
-        declInfo, ctx
+        ctx
     let range = getMethLocation meth |> makeRange
     let import = tryGetImport com ctx range meth.Attributes
     if Option.isSome import
@@ -1104,7 +1113,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         addMethod range import meth args body
     elif declInfo.IsIgnoredMethod meth
     then
-        declInfo, ctx
+        ctx
     elif isInline meth
     then
         // Inlining custom type operators is problematic, see #230
@@ -1120,7 +1129,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 | _ -> args
                 |> Seq.collect id |> countRefs body
             com.AddInlineExpr(meth.FullName, (upcast vars, body))
-            declInfo, ctx
+            ctx
     else addMethod range None meth args body
 
 let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
@@ -1139,38 +1148,38 @@ let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInf
         let publicName = if isPublic then Some entName else None
         declInfo.AddIgnoredChild ent
         declInfo.AddDeclaration(decl, ?publicName=publicName)
-        declInfo, ctx
+        ctx
     elif declInfo.IsIgnoredEntity ent
     then
         declInfo.AddIgnoredChild ent
-        declInfo, ctx
+        ctx
     else
-    let childDecls =
-        let ctx = { ctx with enclosingModule = EnclosingModule(com.GetEntity ent, isPublicEntity ctx ent) }
-        transformDeclarations com ctx subDecls
-    if List.isEmpty childDecls && ent.IsFSharpModule
-    then
-        declInfo, ctx
-    else
-        // Bind entity name to context to prevent name clashes (it will become a variable in JS)
-        let ctx, ident = sanitizeEntityName ent |> bindIdentWithExactName com ctx Fable.Any None
-        declInfo.AddChild(com, ctx, ent, ident.Name, childDecls)
-        declInfo, ctx
+        let childDecls =
+            let ctx = { ctx with enclosingModule = EnclosingModule(com.GetEntity ent, isPublicEntity ctx ent) }
+            transformDeclarations com ctx subDecls
+        if List.isEmpty childDecls && ent.IsFSharpModule
+        then
+            ctx
+        else
+            // Bind entity name to context to prevent name clashes (it will become a variable in JS)
+            let ctx, ident = sanitizeEntityName ent |> bindIdentWithExactName com ctx Fable.Any None
+            declInfo.AddChild(com, ctx, ent, ident.Name, childDecls)
+            ctx
 
 and private transformDeclarations (com: IFableCompiler) ctx decls =
-    let declInfo, _ =
-        decls |> List.fold (fun (declInfo: DeclInfo, ctx) decl ->
-            match decl with
-            | FSharpImplementationFileDeclaration.Entity (e, sub) ->
-                transformEntityDecl com ctx declInfo e sub
-            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
-                transformMemberDecl com ctx declInfo meth args body
-            | FSharpImplementationFileDeclaration.InitAction fe ->
-                let e = com.Transform ctx fe
-                declInfo.AddDeclaration(Fable.ActionDeclaration (e, makeRangeFrom fe))
-                declInfo, ctx
-        ) (DeclInfo(com, ctx.fileName), ctx)
-    declInfo.GetDeclarations(com, ctx)
+    let declInfo = DeclInfo(com, ctx.fileName)
+    (ctx, decls) ||> List.fold (fun ctx decl ->
+        match decl with
+        | FSharpImplementationFileDeclaration.Entity (e, sub) ->
+            transformEntityDecl com ctx declInfo e sub
+        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
+            transformMemberDecl com ctx declInfo meth args body
+        | FSharpImplementationFileDeclaration.InitAction fe ->
+            let e = com.Transform ctx fe
+            declInfo.AddDeclaration(Fable.ActionDeclaration (e, makeRangeFrom fe))
+            ctx)
+    |> ignore
+    declInfo.GetDeclarations(com)
 
 let private getRootModuleAndDecls decls =
     let rec getRootModuleAndDecls outerEnt decls =
