@@ -164,7 +164,7 @@ function tree_add(comparer: IComparer<any>, k: any, t: SetTree): SetTree {
 }
 
 function tree_balance(comparer: IComparer<any>, t1: SetTree, k: any, t2: SetTree): SetTree {
-  const matchValue: any[] = t1.tag === 2 ? t2.tag === 0 ? [1, t1] : t2.tag === 2 ? [2, t1.data[0], t2] : [2, t1.data[0], t2] : t1.tag === 1 ? t2.tag === 2 ? [3, t2.data[0], t1] : t2.tag === 1 ? [4, t1.data[3], t2.data[3], t1.data[0], t2.data[0], t1.data[1], t1.data[2], t2.data[1], t2.data[2]] : [1, t1] : [0, t2];
+  const matchValue: any[] = t1.tag === 1 ? t2.tag === 0 ? [1, t1] : t2.tag === 1 ? [2, t1.data[0], t2] : [2, t1.data[0], t2] : t1.tag === 2 ? t2.tag === 1 ? [3, t2.data[0], t1] : t2.tag === 2 ? [4, t1.data[3], t2.data[3], t1.data[0], t2.data[0], t1.data[1], t1.data[2], t2.data[1], t2.data[2]] : [1, t1] : [0, t2];
 
   switch (matchValue[0]) {
     case 0:

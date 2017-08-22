@@ -77,6 +77,11 @@ let ``Set.union works``() =
     |> equal true
 
 [<Test>]
+let ``Set.union works II``() =
+    Set.union (set [1; 2]) (set [3; 4; 5])
+    |> equal (set [1; 2; 3; 4; 5])
+
+[<Test>]
 let ``Set (+) works``() =
     let xs = Set.singleton 1
     let ys = Set.singleton 2
@@ -306,7 +311,7 @@ let ``Sets can be JSON serialized forth and back``() =
     (0, x2) ||> Set.fold (fun acc v -> acc + v.i) |> equal 3
     let x2 = Fable.Core.JsInterop.ofJsonAsType json (x.GetType()) :?> Set<R>
     x2.IsSubsetOf x |> equal true
-    (0, x2) ||> Set.fold (fun acc v -> acc + v.i) |> equal 3    
+    (0, x2) ||> Set.fold (fun acc v -> acc + v.i) |> equal 3
     let json = Fable.Core.JsInterop.toJsonWithTypeInfo x
     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Set<R>> json
     #else
