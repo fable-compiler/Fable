@@ -1,3 +1,8 @@
+### 1.1.21
+
+* Fix public names conflict error and some cleanup
+* Fix warning for Convert.ToBase64String
+
 ### 1.1.20
 
 * Update FSharp.Core

@@ -1,3 +1,7 @@
+### 1.1.21
+
+* Fix Project TargetFramework parsing
+
 ### 1.1.20
 
 * Update FSharp.Core

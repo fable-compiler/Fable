@@ -1,3 +1,7 @@
+### 1.1.15
+
+* Fix #1113: Set.union
+
 ### 1.1.14
 
 * Fix #1104: JSON serialization of Long and BigInt
