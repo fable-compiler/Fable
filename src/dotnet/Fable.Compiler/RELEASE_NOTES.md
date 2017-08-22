@@ -1,4 +1,4 @@
-### 1.1.21
+### 1.1.22
 
 * Fix public names conflict error and some cleanup
 * Fix warning for Convert.ToBase64String

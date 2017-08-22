@@ -486,11 +486,20 @@ let pushNuget (projFile: string) =
             updateVersionInToolsUtil "VERSION" releaseNotes.NugetVersion
         // Restore dependencies here so they're updated to latest project versions
         Util.run projDir dotnetExePath "restore"
-        Util.run projDir dotnetExePath (sprintf "pack -c Release /p:Version=%s" releaseNotes.NugetVersion)
-        Paket.Push (fun p ->
-            { p with
-                ApiKey = nugetKey
-                WorkingDir = projDir </> "bin" </> "Release" })        // After successful publishing, update the project file
+        // Update the project file
+        (versionRegex, projFile) ||> Util.replaceLines (fun line _ ->
+            versionRegex.Replace(line, "<Version>"+releaseNotes.NugetVersion+"</Version>") |> Some)
+        try
+            Util.run projDir dotnetExePath "pack -c Release"
+            Paket.Push (fun p ->
+                { p with
+                    ApiKey = nugetKey
+                    WorkingDir = projDir </> "bin" </> "Release" })
+        with _ ->
+            Path.GetFileNameWithoutExtension(projFile)
+            |> printfn "There's been an error when pushing project: %s"
+            printfn "Please revert the version change in .fsproj"
+            reraise()
         (versionRegex, projFile) ||> Util.replaceLines (fun line _ ->
             versionRegex.Replace(line, "<Version>"+releaseNotes.NugetVersion+"</Version>") |> Some)
 

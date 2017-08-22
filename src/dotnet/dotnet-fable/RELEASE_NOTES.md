@@ -1,4 +1,4 @@
-### 1.1.21
+### 1.1.22
 
 * Fix Project TargetFramework parsing
 
