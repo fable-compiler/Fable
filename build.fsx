@@ -496,8 +496,6 @@ let pushNuget (projFile: string) =
             |> printfn "There's been an error when pushing project: %s"
             printfn "Please revert the version change in .fsproj"
             reraise()
-        (versionRegex, projFile) ||> Util.replaceLines (fun line _ ->
-            versionRegex.Replace(line, "<Version>"+releaseNotes.NugetVersion+"</Version>") |> Some)
 
 let pushNpm build (projDir: string) =
     let versionRegex = Regex(@"""version"":\s*""(.*?)""")

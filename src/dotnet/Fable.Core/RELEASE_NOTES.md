@@ -1,3 +1,7 @@
+### 1.2.0-beta-001
+
+* Upgrade to netstandard2.0
+
 ### 1.1.15
 
 * Fix #1113: Set.union

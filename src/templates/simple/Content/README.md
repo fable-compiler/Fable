@@ -5,8 +5,8 @@ You can find more templates by searching `Fable.Template` packages in [Nuget](ht
 
 ## Requirements
 
-* [dotnet SDK](https://www.microsoft.com/net/download/core) 1.0.4 or higher
-* [node.js](https://nodejs.org) 4.8.2 or higher
+* [dotnet SDK](https://www.microsoft.com/net/download/core) 2.0 or higher
+* [node.js](https://nodejs.org) 6.11 or higher
 * A JS package manager: [yarn](https://yarnpkg.com) or [npm](http://npmjs.com/)
 
 > npm comes bundled with node.js, but we recommend to use at least npm 5. If you have npm installed, you can upgrade it by running `npm install -g npm`.
@@ -19,9 +19,7 @@ The project can be used by editors compatible with the new .fsproj format, like 
 
 ## Installing the template
 
-In a terminal, run `dotnet new -i Fable.Template::*` to install or update the template to the latest version.
-
-> In some shells you many need quotations: `dotnet new -i "Fable.Template::*"`. If you use dotnet SDK 2, you should only need to type `dotnet new -i Fable.Template`.
+In a terminal, run `dotnet new -i Fable.Template` to install or update the template to the latest version.
 
 ## Creating a new project with the template
 

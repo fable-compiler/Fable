@@ -66,13 +66,13 @@
 
   </Target>
 
-  <Target Name="PaketDisableDirectPack" AfterTargets="_IntermediatePack" BeforeTargets="GenerateNuspec" >
+  <Target Name="PaketDisableDirectPack" AfterTargets="_IntermediatePack" BeforeTargets="GenerateNuspec" Condition="('$(IsPackable)' == '' Or '$(IsPackable)' == 'true') And Exists('$(MSBuildProjectDirectory)/obj/$(MSBuildProjectFile).references')" >
     <PropertyGroup>
       <ContinuePackingAfterGeneratingNuspec>false</ContinuePackingAfterGeneratingNuspec>
     </PropertyGroup>
   </Target>
 
-  <Target Name="PaketOverrideNuspec" AfterTargets="GenerateNuspec" >
+  <Target Name="PaketOverrideNuspec" AfterTargets="GenerateNuspec" Condition="('$(IsPackable)' == '' Or '$(IsPackable)' == 'true') And Exists('$(MSBuildProjectDirectory)/obj/$(MSBuildProjectFile).references')" >
     <PropertyGroup>
       <PaketReferencesFilePath>$(MSBuildProjectDirectory)/obj/$(MSBuildProjectFile).references</PaketReferencesFilePath>
       <ContinuePackingAfterGeneratingNuspec>true</ContinuePackingAfterGeneratingNuspec>
