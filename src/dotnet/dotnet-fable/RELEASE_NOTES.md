@@ -1,3 +1,7 @@
+### 1.2.0-beta-002
+
+* Upgrade to netcoreapp2.0
+
 ### 1.1.22
 
 * Fix Project TargetFramework parsing

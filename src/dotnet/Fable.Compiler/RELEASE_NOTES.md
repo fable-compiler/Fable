@@ -1,3 +1,7 @@
+### 1.2.0-beta-001
+
+* Upgrade to netstandard2.0
+
 ### 1.1.22
 
 * Fix public names conflict error and some cleanup
