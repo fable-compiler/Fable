@@ -14,6 +14,25 @@ type TargetFramework =
     { Framework: string; Version: string }
     member this.Full = this.Framework + this.Version
 
+let private getTargetFramework (xmlDoc: XDocument option) (projFile: string) =
+    let xmlDoc =
+        match xmlDoc with
+        | Some xmlDoc -> xmlDoc
+        | None -> XDocument.Load(projFile)
+    xmlDoc.Root.Elements()
+    |> Seq.tryPick (fun el ->
+        if el.Name.LocalName = "PropertyGroup" then
+            el.Elements() |> Seq.tryPick (fun el ->
+                if el.Name.LocalName = "TargetFramework"
+                then Some el.Value
+                else None)
+        else None)
+    |> function
+        | Some framework ->
+            let m = Regex.Match(framework, "(.*?)(\\d.*)")
+            { Framework = m.Groups.[1].Value; Version = m.Groups.[2].Value }
+        | None -> failwithf "Cannot find TargetFramework in %s" projFile
+
 // PAKET -----------------------------------------------------
 [<RequireQualifiedAccess>]
 type PaketRef =
@@ -55,6 +74,19 @@ let private tryGetPaketRefNameAndDir paketDir (filter: string->bool) (refLine: s
         | None -> Some(refName, IO.Path.Combine(paketDir, "packages", refName))
     else None
 
+let rec tryFindPackageDllDir (targetFramework: TargetFramework) (dllDirs: string[]) =
+    dllDirs |> Array.tryFind (fun dllDir ->
+        dllDir.StartsWith(targetFramework.Framework) && dllDir <= targetFramework.Full)
+    |> function
+        | Some dllDir -> Some dllDir
+        | None when targetFramework.Framework = "netcoreapp" ->
+            if targetFramework.Version.StartsWith("1") then
+                tryFindPackageDllDir { Framework = "netstandard"; Version = "1.6" } dllDirs
+            elif targetFramework.Version.StartsWith("2") then
+                tryFindPackageDllDir { Framework = "netstandard"; Version = "2.0" } dllDirs
+            else None
+        | None -> None
+
 let tryGetPaketRef paketDir (targetFramework: TargetFramework) (refLine: string): PaketRef option =
     tryGetPaketRefNameAndDir paketDir (fun l -> l.StartsWith("Fable.") && not(l.StartsWith("Fable.Core"))) refLine
     |> Option.map (fun (refName, pkgDir) ->
@@ -65,26 +97,33 @@ let tryGetPaketRef paketDir (targetFramework: TargetFramework) (refLine: string)
             Directory.GetDirectories(IO.Path.Combine(pkgDir, "lib"))
             |> Seq.map Path.GetFileName
             |> Seq.sortDescending
-            |> Seq.tryFind (fun framework ->
-                framework.StartsWith(targetFramework.Framework) && framework <= targetFramework.Full)
+            |> Seq.toArray
+            |> tryFindPackageDllDir targetFramework
             |> function
                 | Some framework -> IO.Path.Combine(pkgDir, "lib", framework, refName + ".dll") |> PaketRef.Dll
                 | None -> failwithf "Cannot match target %s for library %s" targetFramework.Full refName)
 
-let private readPaketProjectRefLines projFile =
+let private readPaketProjectRefLines (targetFramework: TargetFramework) projFile =
     let projDir = Path.GetDirectoryName(projFile)
     let projFileName = Path.GetFileName(projFile)
-    let paketRefs = IO.Path.Combine(projDir, "obj", projFileName + ".references")
-    if File.Exists(paketRefs)
-    then File.ReadLines(paketRefs)
-    else upcast [||] // TODO: Fail if .fsproj.references file not found?
+    let paketRefs1 = IO.Path.Combine(projDir, "obj", projFileName + "." + targetFramework.Full + ".references")
+    if File.Exists(paketRefs1) then
+        File.ReadLines(paketRefs1)
+    else
+        let paketRefs2 = IO.Path.Combine(projDir, "obj", projFileName + ".references")
+        if File.Exists(paketRefs2) then
+            File.ReadLines(paketRefs2)
+        else
+            (Path.GetFileName(paketRefs1), Path.GetFileName(paketRefs2))
+            ||> sprintf "Could find neither %s nor %s" |> Log.logAlways
+            upcast [||] // TODO: Fail if .fsproj.references file not found?
 
 let getPaketRefs paketDir targetFramework projFile: PaketRef list =
     match paketDir with
     | None -> []
     | Some paketDir ->
         let paketRefs =
-            readPaketProjectRefLines projFile
+            readPaketProjectRefLines targetFramework projFile
             |> Seq.choose (tryGetPaketRef paketDir targetFramework)
             |> Seq.toList
         // paketRefs
@@ -94,10 +133,10 @@ let getPaketRefs paketDir targetFramework projFile: PaketRef list =
         // |> Log.logVerbose
         paketRefs
 
-let private tryGetFableCorePkgDir paketDir projFile =
+let private tryGetFableCorePkgDir paketDir targetFramework projFile =
     match paketDir with
     | Some paketDir ->
-        readPaketProjectRefLines projFile
+        readPaketProjectRefLines targetFramework projFile
         |> Seq.choose (tryGetPaketRefNameAndDir paketDir (fun l -> l.StartsWith("Fable.Core")))
         |> Seq.tryHead
         |> Option.map snd
@@ -109,7 +148,8 @@ let private tryGetFableCorePkgDir paketDir projFile =
 
 let tryGetFableCoreJsDir projFile =
     let paketDir = tryFindPaketDirFromProject projFile
-    tryGetFableCorePkgDir paketDir projFile
+    let targetFramework = getTargetFramework None projFile
+    tryGetFableCorePkgDir paketDir targetFramework projFile
     |> Option.map (fun corePkgDir -> IO.Path.Combine(corePkgDir, "fable-core"))
 
 // let checkFableCoreVersion paketDir projFile =
@@ -237,16 +277,6 @@ let getBasicCompilerArgs (define: string[]) optimize =
         yield "-r:" + fableCoreLib // "FSharp.Core"
     |]
 
-let tryGetTargetFramework (xmlDoc: XDocument) =
-    xmlDoc.Root.Elements()
-    |> Seq.tryPick (fun el ->
-        if el.Name.LocalName = "PropertyGroup" then
-            el.Elements() |> Seq.tryPick (fun el ->
-                if el.Name.LocalName = "TargetFramework"
-                then Some el.Value
-                else None)
-        else None)
-
 /// Ultra-simplistic resolution of .fsproj files
 let crackFsproj (projFile: string) (xmlDoc: XDocument option) =
     let withName s (xs: XElement seq) =
@@ -326,17 +356,7 @@ let partitionMap (f: 'T->Choice<'T1,'T2>) (xs: 'T list): 'T1 list * 'T2 list =
 
 let getProjectOptionsFromFsproj (projFile: string) =
     let xmlDoc = XDocument.Load(projFile)
-    let targetFramework =
-        match tryGetTargetFramework xmlDoc with
-        | Some framework ->
-            let framework, version =
-                if framework.StartsWith("netcoreapp1") then "netstandard", "1.6"
-                elif framework.StartsWith("netcoreapp2") then "netstandard", "2.0"
-                else
-                    let m = Regex.Match(framework, "(.*?)(\\d.*)")
-                    m.Groups.[1].Value, m.Groups.[2].Value
-            { Framework = framework; Version = version }
-        | None -> failwithf "Cannot find TargetFramework in %s" projFile
+    let targetFramework = getTargetFramework (Some xmlDoc) projFile
     let paketDir = tryFindPaketDirFromProject projFile
     // checkFableCoreVersion paketDir projFile
     let rec crackProjects (acc: CrackedFsproj list) projFile xmlDoc =
