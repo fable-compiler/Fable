@@ -1,3 +1,7 @@
+### 0.1.10
+
+* Add `postbuild` option
+
 ### 0.1.9
 
 * Fixed line endings

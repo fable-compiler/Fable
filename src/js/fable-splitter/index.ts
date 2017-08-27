@@ -41,6 +41,7 @@ export type FableCompilerOptions = {
     babel?: Babel.TransformOptions,
     fable?: FableOptions,
     prepack?: any,
+    postbuild?: ()=>void,
 };
 
 function getResolvePathPlugin(targetDir: string, opts: FableCompilerOptions) {
@@ -312,6 +313,9 @@ export default function fableSplitter(options: FableCompilerOptions, previousInf
             );
             const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
             console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"} at ${new Date().toLocaleTimeString()}`);
+            if (!hasError && typeof options.postbuild === "function") {
+                options.postbuild();
+            }
             return info;
         })
         .catch((err) => {
