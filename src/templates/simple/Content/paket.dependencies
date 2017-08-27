@@ -1,7 +1,0 @@
-framework: netcoreapp2.0
-
-source https://nuget.org/api/v2
-
-clitool dotnet-fable 1.2.0-beta-002
-nuget Fable.Core 1.2.0-beta-001
-nuget Fable.Import.Browser 1.2.0-beta-001
