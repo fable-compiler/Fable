@@ -20,4 +20,5 @@
   <ItemGroup>
     <Content Include="..\..\..\build\fable-core\" PackagePath="fable-core\" />
   </ItemGroup>
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>
