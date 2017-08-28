@@ -14,11 +14,7 @@ type TargetFramework =
     { Framework: string; Version: string }
     member this.Full = this.Framework + this.Version
 
-let private getTargetFramework (xmlDoc: XDocument option) (projFile: string) =
-    let xmlDoc =
-        match xmlDoc with
-        | Some xmlDoc -> xmlDoc
-        | None -> XDocument.Load(projFile)
+let private getTargetFramework (xmlDoc: XDocument) (projFile: string) =
     xmlDoc.Root.Elements()
     |> Seq.tryPick (fun el ->
         if el.Name.LocalName = "PropertyGroup" then
@@ -133,24 +129,14 @@ let getPaketRefs paketDir targetFramework projFile: PaketRef list =
         // |> Log.logVerbose
         paketRefs
 
-let private tryGetFableCorePkgDir paketDir targetFramework projFile =
+let private tryGetFableCoreJsDir paketDir targetFramework projFile =
     match paketDir with
     | Some paketDir ->
         readPaketProjectRefLines targetFramework projFile
         |> Seq.choose (tryGetPaketRefNameAndDir paketDir (fun l -> l.StartsWith("Fable.Core")))
         |> Seq.tryHead
-        |> Option.map snd
-    | None -> // fallback to Fable.Core NuGet package folder
-        let fableCoreDir =
-            typeof<Fable.Core.EraseAttribute>.GetTypeInfo().Assembly.Location
-            |> IO.Path.GetDirectoryName
-        IO.Path.Combine(fableCoreDir, "../..") |> Some
-
-let tryGetFableCoreJsDir projFile =
-    let paketDir = tryFindPaketDirFromProject projFile
-    let targetFramework = getTargetFramework None projFile
-    tryGetFableCorePkgDir paketDir targetFramework projFile
-    |> Option.map (fun corePkgDir -> IO.Path.Combine(corePkgDir, "fable-core"))
+        |> Option.map (fun (_, corePkgDir) -> IO.Path.Combine(corePkgDir, "fable-core"))
+    | None -> None
 
 // let checkFableCoreVersion paketDir projFile =
 //     if Flags.checkCoreVersion then
@@ -356,8 +342,9 @@ let partitionMap (f: 'T->Choice<'T1,'T2>) (xs: 'T list): 'T1 list * 'T2 list =
 
 let getProjectOptionsFromFsproj (projFile: string) =
     let xmlDoc = XDocument.Load(projFile)
-    let targetFramework = getTargetFramework (Some xmlDoc) projFile
+    let targetFramework = getTargetFramework xmlDoc projFile
     let paketDir = tryFindPaketDirFromProject projFile
+    let fableCoreJsDir = tryGetFableCoreJsDir paketDir targetFramework projFile
     // checkFableCoreVersion paketDir projFile
     let rec crackProjects (acc: CrackedFsproj list) projFile xmlDoc =
         let crackedFsproj =
@@ -388,12 +375,12 @@ let getProjectOptionsFromFsproj (projFile: string) =
     let otherOptions =
         crackedFsprojs |> Seq.collect (fun x -> x.dllReferences)
         |> Seq.distinct |> Seq.map ((+) "-r:") |> Seq.toArray
-    makeProjectOptions projFile sourceFiles otherOptions
+    makeProjectOptions projFile sourceFiles otherOptions, fableCoreJsDir
 
 let getProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
     | ".fsx" ->
-        getProjectOptionsFromScript checker define projFile
+        getProjectOptionsFromScript checker define projFile, None
     | ".fsproj" ->
         getProjectOptionsFromFsproj projFile
     | s -> failwithf "Unsupported project type: %s" s
@@ -418,11 +405,12 @@ let retryGetProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: s
     retry()
 
 let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
-    let define = Array.append define [|"FABLE_COMPILER"|]
     let projFile = Path.GetFullPath(projFile)
     if not(File.Exists(projFile)) then
         failwith ("File does not exist: " + projFile)
-    let projOpts = retryGetProjectOpts checker define projFile
-    Array.append (getBasicCompilerArgs define false) projOpts.OtherOptions
-    |> makeProjectOptions projOpts.ProjectFileName projOpts.ProjectFileNames
+    let projOpts, fableCoreJsDir = retryGetProjectOpts checker define projFile
+    let projOpts =
+        Array.append (getBasicCompilerArgs define false) projOpts.OtherOptions
+        |> makeProjectOptions projOpts.ProjectFileName projOpts.ProjectFileNames
+    projOpts, fableCoreJsDir
 

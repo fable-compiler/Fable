@@ -13,7 +13,6 @@ open Newtonsoft.Json
 open ProjectCracker
 
 module private Cache =
-    let fableCore = Dictionary<string,string>()
     let plugins = Dictionary<string,PluginInfo list>()
     let add (cache: Dictionary<'K,'V>) key value =
         cache.Add(key, value)
@@ -56,17 +55,19 @@ let tryGetOption name (opts: IDictionary<string, string>) =
     | _ -> None
 
 let createProject checker isWatchCompile (prevProject: Project option) (msg: Parser.Message) projFile =
-    let projectOptions =
+    let projectOptions, fableCore =
         match prevProject with
-        | Some prevProject -> prevProject.ProjectOptions
+        | Some prevProject ->
+            prevProject.ProjectOptions, prevProject.FableCore
         | None ->
-            let projectOptions = getFullProjectOpts checker msg.define projFile
+            let projectOptions, fableCore =
+                getFullProjectOpts checker msg.define projFile
             Log.logVerbose(lazy
                 let proj = getRelativePath projectOptions.ProjectFileName
                 let opts = projectOptions.OtherOptions |> String.concat "\n   "
                 let files = projectOptions.ProjectFileNames |> String.concat "\n   "
                 sprintf "F# PROJECT: %s\n   %s\n   %s" proj opts files)
-            projectOptions
+            projectOptions, fableCore
     Log.logAlways(sprintf "Parsing %s..." (getRelativePath projectOptions.ProjectFileName))
     let checkedProject =
         projectOptions
@@ -74,7 +75,7 @@ let createProject checker isWatchCompile (prevProject: Project option) (msg: Par
         |> Async.RunSynchronously
     tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
         Printers.printAst dir checkedProject)
-    Project(projectOptions, checkedProject, isWatchCompile)
+    Project(projectOptions, checkedProject, fableCore, isWatchCompile)
 
 let toJson =
     let jsonSettings =
@@ -112,8 +113,8 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
     let tryFindAndUpdateProject state ext sourceFile =
         state |> Map.tryPick (fun _ (project: Project) ->
             if Set.contains sourceFile project.NormalizedFilesSet then
-                Log.logVerbose(lazy sprintf "Ownership: %s > %s"
-                    (getRelativePath project.ProjectFile) (getRelativePath sourceFile))
+                // Log.logVerbose(lazy sprintf "Ownership: %s > %s"
+                //     (getRelativePath project.ProjectFile) (getRelativePath sourceFile))
                 // Watch compilation of an .fs file, restart project with old options
                 if isWatchCompilation project sourceFile then
                     createProject checker true (Some project) msg project.ProjectFile
@@ -145,20 +146,6 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
             |> failwithf "%s doesn't belong to any of loaded projects %A" msg.path
     | ".fsi" -> failwithf "Signature files cannot be compiled to JS: %s" msg.path
     | _ -> failwithf "Not an F# source file: %s" msg.path
-
-let resolveFableCoreDir fableCoreDir projectFile currentFile =
-    let trim (s: string) = s.TrimEnd('/')
-    match fableCoreDir with
-    | "fable-core" ->
-        // Resolve the fable-core location if not defined by user
-        match Cache.fableCore.TryGetValue(projectFile) with
-        | true, fableCoreDir -> fableCoreDir
-        | false, _ ->
-            match ProjectCracker.tryGetFableCoreJsDir projectFile with
-            | Some fableCoreDir -> Cache.add Cache.fableCore projectFile fableCoreDir
-            | None -> failwith "Cannot find fable-core directory"
-    | fableCoreDir -> fableCoreDir
-    |> Path.getRelativePath currentFile |> trim
 
 let addFSharpErrorLogs (com: ICompiler) (project: FSharpCheckProjectResults) (fileFilter: string option) =
     for er in project.Errors do
@@ -200,9 +187,16 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                 let msg = Parser.parse msg
                 // lazy sprintf "Received message %A" msg |> Log.logVerbose
                 let isUpdated, state, activeProject = updateState checker state msg
-                // Resolve fableCore location and create new compiler
-                let fableCoreDir = resolveFableCoreDir msg.options.fableCore activeProject.ProjectFile msg.path
-                let com = Compiler({msg.options with fableCore=fableCoreDir}, loadPlugins msg.plugins)
+                let comOptions =
+                    { fableCore =
+                        match msg.fableCore, activeProject.FableCore with
+                        | Some fableCore, _ -> fableCore.TrimEnd('/')
+                        | None, Some fableCore -> (Path.getRelativePath msg.path fableCore).TrimEnd('/')
+                        | None, None -> State.getDefaultFableCore()
+                      declaration = msg.declaration
+                      typedArrays = msg.typedArrays
+                      clampByteArrays = msg.clampByteArrays }
+                let com = Compiler(comOptions, loadPlugins msg.plugins)
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file
                 if isUpdated && activeProject.IsWatchCompile then

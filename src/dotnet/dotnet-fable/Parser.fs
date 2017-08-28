@@ -8,10 +8,13 @@ open Fable
 
 type Message =
     { path: string
-    ; define: string[]
-    ; plugins: string[]
-    ; options: CompilerOptions
-    ; extra: IDictionary<string,string> }
+      define: string[]
+      plugins: string[]
+      fableCore: string option
+      declaration: bool
+      typedArrays: bool
+      clampByteArrays: bool
+      extra: IDictionary<string,string> }
 
 let foldi f init (xs: 'T seq) =
     let mutable i = -1
@@ -66,6 +69,12 @@ let private parseString (def: string) (key: string) (o: JObject)  =
     | :? JValue as v when v.Type = JTokenType.String -> v.ToObject<string>()
     | _ -> def
 
+let private tryParseString (key: string) (o: JObject)  =
+    match o.[key] with
+    | null -> None
+    | :? JValue as v when v.Type = JTokenType.String -> v.ToObject<string>() |> Some
+    | _ -> None
+
 let private parseStringRequired (key: string) (o: JObject)  =
     match o.[key] with
     | null -> failwithf "Missing argument %s" key
@@ -81,16 +90,19 @@ let private parseDic (key: string) (o: JObject): IDictionary<string,string> =
 let parse (msg: string) =
     let json = JsonConvert.DeserializeObject<JObject>(msg)
     let path = parseStringRequired "path" json |> Path.normalizeFullPath
-    let define = parseStringArray [||] "define" json
-    let plugins = parseStringArray [||] "plugins" json
-    let opts =
-        { fableCore =
-            match parseString "fable-core" "fableCore" json with
-            | "fable-core" -> "fable-core"
-            | path -> Path.normalizeFullPath path
-        ; declaration = parseBoolean false "declaration" json
-        ; typedArrays = parseBoolean true "typedArrays" json
-        ; clampByteArrays = parseBoolean false "clampByteArrays" json }
-    let options = { path=path; define=define; plugins=plugins; options=opts; extra=parseDic "extra" json }
-    // Log.logVerbose(sprintf "Parsed options: %A" options)
-    options
+    { path = path
+      define =
+        parseStringArray [||] "define" json
+        |> Array.append [|"FABLE_COMPILER"|]
+        |> Array.distinct
+      plugins = parseStringArray [||] "plugins" json
+      fableCore =
+        tryParseString "fableCore" json
+        |> Option.map (fun fableCore ->
+            if fableCore.StartsWith(".") || IO.Path.IsPathRooted(fableCore)
+            then Path.normalizeFullPath fableCore |> Path.getRelativePath path
+            else fableCore)
+      declaration = parseBoolean false "declaration" json
+      typedArrays = parseBoolean true "typedArrays" json
+      clampByteArrays = parseBoolean false "clampByteArrays" json
+      extra = parseDic "extra" json }

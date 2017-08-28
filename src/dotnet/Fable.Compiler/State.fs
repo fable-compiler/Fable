@@ -23,7 +23,7 @@ type Dictionary<'TKey, 'TValue> with
 type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 #endif
 
-type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, isWatchCompile: bool) =
+type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, fableCore: string option, isWatchCompile: bool) =
     let timestamp = DateTime.UtcNow
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let entities = ConcurrentDictionary<string, Fable.Entity>()
@@ -37,6 +37,7 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
         |> Seq.map (fun file -> file.FileName, FSharp2Fable.Compiler.getRootModuleFullName file)
         |> Map
     member __.TimeStamp = timestamp
+    member __.FableCore = fableCore
     member __.IsWatchCompile = isWatchCompile
     member __.CheckedProject = checkedProject
     member __.ProjectOptions = projectOptions
@@ -55,8 +56,10 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
 
 type State = Map<string, Project>
 
+let getDefaultFableCore() = "fable-core"
+
 let getDefaultOptions() =
-    { fableCore = "fable-core"
+    { fableCore = getDefaultFableCore()
     ; declaration = false
     ; typedArrays = true
     ; clampByteArrays = false }

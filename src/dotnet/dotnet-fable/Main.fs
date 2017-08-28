@@ -121,17 +121,6 @@ let parseArguments args =
             | None -> None
     { port = port; timeout = timeout; commandArgs = commandArgs}
 
-let debug (projFile: string) (define: string[]) =
-    try
-        let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
-        let msg = { path=(Path.GetFullPath projFile); define=define; plugins=[||]; options=Fable.State.getDefaultOptions(); extra = dict [] }
-        let _, state, project = updateState checker Map.empty msg
-        for file in project.ProjectOptions.ProjectFileNames |> Seq.rev do
-            let com = Fable.State.Compiler()
-            compile com project file |> printfn "%A"
-    with
-    | ex -> printfn "ERROR: %s\n%s" ex.Message ex.StackTrace
-
 let startServer port timeout onMessage continuation =
     try
         let work = Server.start port timeout onMessage
@@ -277,8 +266,6 @@ let main argv =
         let execArgs = defaultArg args.commandArgs ""
         let workingDir = Directory.GetCurrentDirectory()
         startServerWithProcess workingDir args.port cmd execArgs
-    | Some "debug" ->
-        debug argv.[1] argv.[2..]; 0
     | Some "add" -> printfn "The add command has been deprecated. Use Paket to manage Fable libraries."; 0
     | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options." cmd; 0
     | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; 0
