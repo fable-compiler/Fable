@@ -1103,29 +1103,34 @@ module Util =
                     |> Option.map (Naming.sanitizeIdent (fun s ->
                         ctx.file.UsedVarNames.Contains s
                             || (imports.Values |> Seq.exists (fun i -> i.localIdent = Some s))))
-                match imports.TryGetValue(path + "::" + selector) with
-                | true, i ->
-                    match i.localIdent with
-                    | Some localIdent -> upcast Identifier(localIdent)
-                    | None -> upcast NullLiteral ()
-                | false, _ ->
-                    let localId = getLocalIdent ctx selector
-                    let i = {
-                        selector = sanitizeSelector selector
-                        localIdent = localId
-                        internalFile =
-                            match kind with
-                            | Fable.Internal file -> Some file
-                            | _ -> None
-                        path =
-                            match kind with
-                            | Fable.CustomImport | Fable.Internal _ -> path
-                            | Fable.CoreLib -> com.Options.fableCore + "/" + path + Naming.targetFileExtension
-                    }
-                    imports.Add(path + "::" + selector, i)
-                    match localId with
-                    | Some localId -> upcast Identifier(localId)
-                    | None -> upcast NullLiteral ()
+                match kind with
+                | Fable.CoreLib when com.Options.fableCore.StartsWith("var ") ->
+                    let ident: Expression = upcast Identifier(com.Options.fableCore.[4..])
+                    get (get ident path) selector
+                | _ ->
+                    match imports.TryGetValue(path + "::" + selector) with
+                    | true, i ->
+                        match i.localIdent with
+                        | Some localIdent -> upcast Identifier(localIdent)
+                        | None -> upcast NullLiteral ()
+                    | false, _ ->
+                        let localId = getLocalIdent ctx selector
+                        let i = {
+                            selector = sanitizeSelector selector
+                            localIdent = localId
+                            internalFile =
+                                match kind with
+                                | Fable.Internal file -> Some file
+                                | _ -> None
+                            path =
+                                match kind with
+                                | Fable.CustomImport | Fable.Internal _ -> path
+                                | Fable.CoreLib -> com.Options.fableCore + "/" + path + Naming.targetFileExtension
+                        }
+                        imports.Add(path + "::" + selector, i)
+                        match localId with
+                        | Some localId -> upcast Identifier(localId)
+                        | None -> upcast NullLiteral ()
             member bcom.GetAllImports () = upcast imports.Values
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
