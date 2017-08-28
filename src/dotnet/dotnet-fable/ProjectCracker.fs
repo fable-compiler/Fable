@@ -114,7 +114,7 @@ let tryGetPaketRef paketDir (targetFramework: TargetFramework) (refLine: string)
 let private readPaketProjectRefLines (targetFramework: TargetFramework) projFile =
     let projDir = Path.GetDirectoryName(projFile)
     let projFileName = Path.GetFileName(projFile)
-    let paketRefs1 = IO.Path.Combine(projDir, "obj", projFileName + "." + targetFramework.Full + ".paket.references")
+    let paketRefs1 = IO.Path.Combine(projDir, "obj", projFileName + "." + targetFramework.Full + ".paket.resolved")
     if File.Exists(paketRefs1)
     then File.ReadLines(paketRefs1)
     else
