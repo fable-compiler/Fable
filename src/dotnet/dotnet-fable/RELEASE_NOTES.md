@@ -1,3 +1,10 @@
+### 1.2.0-beta-003
+
+* Add `extra.projectFile` option to messages from JS clients
+* Fix Paket `obj/xxx.references` file search
+* Calculate fable-core JS dir with project options
+* Discard system packages when checking Paket refs
+
 ### 1.2.0-beta-002
 
 * Upgrade to netcoreapp2.0

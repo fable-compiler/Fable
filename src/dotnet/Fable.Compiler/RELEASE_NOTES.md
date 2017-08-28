@@ -1,3 +1,7 @@
+### 1.2.0-beta-0012
+
+* Allow fableCore as global var
+
 ### 1.2.0-beta-001
 
 * Upgrade to netstandard2.0
