@@ -122,13 +122,10 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
         match msg.extra.TryGetValue("projectFile") with
         | true, projFile ->
             let projFile = Path.normalizeFullPath projFile
-            state |> Map.tryPick (fun _ (project: Project) ->
-                if project.ProjectFile = projFile
-                then checkWatchCompilation project sourceFile
-                else None)
-            |> Option.orElseWith (fun () ->
-                createProject checker false None msg projFile
-                |> addOrUpdateProject state |> Some)
+            match Map.tryFind projFile state with
+            | Some project -> checkWatchCompilation project sourceFile
+            | None -> createProject checker false None msg projFile
+                      |> addOrUpdateProject state |> Some
         | false, _ ->
             state |> Map.tryPick (fun _ (project: Project) ->
                 if Set.contains sourceFile project.NormalizedFilesSet

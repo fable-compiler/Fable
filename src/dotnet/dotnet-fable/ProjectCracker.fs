@@ -103,16 +103,13 @@ let private readPaketProjectRefLines (targetFramework: TargetFramework) projFile
     let projDir = Path.GetDirectoryName(projFile)
     let projFileName = Path.GetFileName(projFile)
     let paketRefs1 = IO.Path.Combine(projDir, "obj", projFileName + "." + targetFramework.Full + ".paket.references")
-    if File.Exists(paketRefs1) then
-        File.ReadLines(paketRefs1)
+    if File.Exists(paketRefs1)
+    then File.ReadLines(paketRefs1)
     else
         let paketRefs2 = IO.Path.Combine(projDir, "obj", projFileName + ".references")
-        if File.Exists(paketRefs2) then
-            File.ReadLines(paketRefs2)
-        else
-            (Path.GetFileName(paketRefs1), Path.GetFileName(paketRefs2))
-            ||> sprintf "Could find neither %s nor %s" |> Log.logAlways
-            upcast [||] // TODO: Fail if .fsproj.references file not found?
+        if File.Exists(paketRefs2)
+        then File.ReadLines(paketRefs2)
+        else upcast [||]
 
 let getPaketRefs paketDir targetFramework projFile: PaketRef list =
     match paketDir with
