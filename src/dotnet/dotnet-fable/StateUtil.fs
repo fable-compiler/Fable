@@ -111,16 +111,29 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
         let state = Map.add project.ProjectFile project state
         true, state, project
     let tryFindAndUpdateProject state ext sourceFile =
-        state |> Map.tryPick (fun _ (project: Project) ->
-            if Set.contains sourceFile project.NormalizedFilesSet then
-                // Log.logVerbose(lazy sprintf "Ownership: %s > %s"
-                //     (getRelativePath project.ProjectFile) (getRelativePath sourceFile))
-                // Watch compilation of an .fs file, restart project with old options
-                if isWatchCompilation project sourceFile then
-                    createProject checker true (Some project) msg project.ProjectFile
-                    |> addOrUpdateProject state |> Some
-                else Some(false, state, project)
-            else None)
+        let checkWatchCompilation project sourceFile =
+            // Log.logVerbose(lazy sprintf "Ownership: %s > %s"
+            //     (getRelativePath project.ProjectFile) (getRelativePath sourceFile))
+            // Watch compilation of an .fs file, restart project with old options
+            if isWatchCompilation project sourceFile then
+                createProject checker true (Some project) msg project.ProjectFile
+                |> addOrUpdateProject state |> Some
+            else Some(false, state, project)
+        match msg.extra.TryGetValue("projectFile") with
+        | true, projFile ->
+            let projFile = Path.normalizeFullPath projFile
+            state |> Map.tryPick (fun _ (project: Project) ->
+                if project.ProjectFile = projFile
+                then checkWatchCompilation project sourceFile
+                else None)
+            |> Option.orElseWith (fun () ->
+                createProject checker false None msg projFile
+                |> addOrUpdateProject state |> Some)
+        | false, _ ->
+            state |> Map.tryPick (fun _ (project: Project) ->
+                if Set.contains sourceFile project.NormalizedFilesSet
+                then checkWatchCompilation project sourceFile
+                else None)
     match IO.Path.GetExtension(msg.path).ToLower() with
     | ".fsproj" ->
         let isWatchCompile = Map.containsKey msg.path state
