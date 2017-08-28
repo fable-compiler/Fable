@@ -56,9 +56,9 @@ let tryFindPaketDirFromProject projFile =
     then findPaketDependenciesDir projDir [] |> Some
     else None
 
-let private tryGetPaketRefNameAndDir paketDir (filter: string->bool) (refLine: string) =
-    if filter refLine then
-        let parts = refLine.Split(',')
+let private tryGetPaketRefNameAndDir paketDir (filterPackage: string->bool) (refLine: string) =
+    let parts = refLine.Split(',')
+    if filterPackage parts.[0] then
         let refName, refGroup =
             if parts.Length = 4 then
                 match parts.[3].ToLower() with
@@ -83,8 +83,15 @@ let rec tryFindPackageDllDir (targetFramework: TargetFramework) (dllDirs: string
             else None
         | None -> None
 
+let isSystemPackage (pkgName: string) =
+    pkgName.StartsWith("Microsoft.")
+        || pkgName.StartsWith("runtime.")
+        || pkgName.StartsWith("System.")
+        || pkgName = "FSharp.Core"
+        || pkgName = "Fable.Core"
+
 let tryGetPaketRef paketDir (targetFramework: TargetFramework) (refLine: string): PaketRef option =
-    tryGetPaketRefNameAndDir paketDir (fun l -> l.StartsWith("Fable.") && not(l.StartsWith("Fable.Core"))) refLine
+    tryGetPaketRefNameAndDir paketDir (isSystemPackage >> not) refLine
     |> Option.map (fun (refName, pkgDir) ->
         let fableProj = IO.Path.Combine(pkgDir, "fable", refName + ".fsproj")
         if File.Exists(fableProj) then
@@ -130,7 +137,7 @@ let private tryGetFableCoreJsDir paketDir targetFramework projFile =
     match paketDir with
     | Some paketDir ->
         readPaketProjectRefLines targetFramework projFile
-        |> Seq.choose (tryGetPaketRefNameAndDir paketDir (fun l -> l.StartsWith("Fable.Core")))
+        |> Seq.choose (tryGetPaketRefNameAndDir paketDir ((=) "Fable.Core"))
         |> Seq.tryHead
         |> Option.map (fun (_, corePkgDir) -> IO.Path.Combine(corePkgDir, "fable-core"))
     | None -> None
