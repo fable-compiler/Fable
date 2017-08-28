@@ -97,14 +97,19 @@ let tryGetPaketRef paketDir (targetFramework: TargetFramework) (refLine: string)
         if File.Exists(fableProj) then
             PaketRef.Project fableProj
         else
-            Directory.GetDirectories(IO.Path.Combine(pkgDir, "lib"))
-            |> Seq.map Path.GetFileName
-            |> Seq.sortDescending
-            |> Seq.toArray
-            |> tryFindPackageDllDir targetFramework
-            |> function
-                | Some framework -> IO.Path.Combine(pkgDir, "lib", framework, refName + ".dll") |> PaketRef.Dll
-                | None -> failwithf "Cannot match target %s for library %s" targetFramework.Full refName)
+            let libDir = IO.Path.Combine(pkgDir, "lib")
+            if Directory.Exists(libDir) then
+                Directory.GetDirectories(libDir)
+                |> Seq.map Path.GetFileName
+                |> Seq.sortDescending
+                |> Seq.toArray
+                |> tryFindPackageDllDir targetFramework
+                |> function
+                    | Some framework -> IO.Path.Combine(pkgDir, "lib", framework, refName + ".dll") |> PaketRef.Dll
+                    | None -> failwithf "Cannot match target %s for library %s" targetFramework.Full refName
+            else
+                failwithf "Cannot find lib folder in %s" pkgDir
+    )
 
 let private readPaketProjectRefLines (targetFramework: TargetFramework) projFile =
     let projDir = Path.GetDirectoryName(projFile)
