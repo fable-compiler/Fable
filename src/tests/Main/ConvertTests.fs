@@ -89,6 +89,7 @@ let ``System.Int32.TryParse works``() =
     tryParse Int32.TryParse 0 "X9" |> equal (false, 0)
     tryParse Int32.TryParse 0 "X9TRE34" |> equal (false, 0)
     tryParse Int32.TryParse 0 "9SayWhat12Huh" |> equal (false, 0)
+    tryParse Int32.TryParse 0 "-1" |> equal (true, -1)
 
 //-------------------------------------
 // System.Convert
