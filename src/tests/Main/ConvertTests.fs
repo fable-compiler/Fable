@@ -40,6 +40,7 @@ let ``System.Double.TryParse works``() =
     tryParse Double.TryParse 0.0 "X9" |> equal (false, 0.0)
     tryParse Double.TryParse 0.0 "X9TRE34" |> equal (false, 0.0)
     tryParse Double.TryParse 0.0 "9SayWhat12Huh" |> equal (false, 0.0)
+    tryParse Double.TryParse 0.0 "-1.5" |> equal (true, -1.5)
 
 [<Test>]
 let ``System.Single.Parse works``() =
@@ -56,6 +57,7 @@ let ``System.Single.TryParse works``() =
     tryParse Single.TryParse 0.0f "X9" |> equal (false, 0.0f)
     tryParse Single.TryParse 0.0f "X9TRE34" |> equal (false, 0.0f)
     tryParse Single.TryParse 0.0f "9SayWhat12Huh" |> equal (false, 0.0f)
+    tryParse Single.TryParse 0.0f "-1.5" |> equal (true, -1.5f)
 
 [<Test>]
 let ``System.Int32.Parse works``() =
