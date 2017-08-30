@@ -997,7 +997,7 @@ let ``int64 can be JSON serialized forth and back``() =
     let json = Newtonsoft.Json.JsonConvert.SerializeObject val1
     let val2 = Newtonsoft.Json.JsonConvert.DeserializeObject<int64> json
     #endif
-    printfn "JSON: %s" json
+    // printfn "JSON: %s" json
     equal val1 val2
     equal val2 5348937298839933899L
 
@@ -1017,7 +1017,7 @@ let ``uint64 can be JSON serialized forth and back``() =
     let json = Newtonsoft.Json.JsonConvert.SerializeObject val1
     let val2 = Newtonsoft.Json.JsonConvert.DeserializeObject<uint64> json
     #endif
-    printfn "JSON: %s" json
+    // printfn "JSON: %s" json
     equal val1 val2
     equal val2 9348937298839933899UL
 

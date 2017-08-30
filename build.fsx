@@ -331,14 +331,18 @@ let installDotnetSdk () =
     // System.Environment.SetEnvironmentVariable("PATH", sprintf "%s%s%s" dotnetSDKPath (System.IO.Path.PathSeparator.ToString()) oldPath)
 
 let clean () =
-    !! "src/dotnet/**/bin" ++ "src/dotnet/**/obj/"
+    !! "src/dotnet/**/bin"
         -- "src/dotnet/Fable.Client.JS/demo/**"
         -- "src/dotnet/Fable.Client.JS/testapp/**"
-        ++ "src/plugins/nunit/bin" ++ "src/plugins/nunit/obj/"
-        ++ "src/tests*/**/bin" ++ "src/tests**/**/obj/"
-        ++ "build/fable" ++ "build/fable-core" ++ "build/tests"
-        ++ "build/json-converter" ++ "build/nunit"
+        ++ "src/plugins/nunit/bin"
+        ++ "src/tests*/**/bin"
+        ++ "build"
     |> CleanDirs
+
+    !! "src/dotnet/**/obj/*.nuspec"
+        ++"src/plugins/nunit/obj/*.nuspec"
+        ++"src/tests**/**/obj/*.nuspec"
+    |> DeleteFiles
 
 let nugetRestore baseDir () =
     Util.run (baseDir </> "Fable.Core") dotnetExePath "restore"
@@ -350,9 +354,9 @@ let buildCLI baseDir isRelease () =
         cliBuildDir (if isRelease then "Release" else "Debug")
     |> Util.run (baseDir </> "dotnet-fable") dotnetExePath
 
-    // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
-    FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.optdata" cliBuildDir
-    FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.sigdata" cliBuildDir
+    // // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
+    // FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.optdata" cliBuildDir
+    // FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.sigdata" cliBuildDir
 
 let buildCoreJS () =
     Npm.install __SOURCE_DIRECTORY__ []
@@ -386,15 +390,15 @@ let buildJsonConverter () =
     "restore src/dotnet/Fable.JsonConverter"
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
-    "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter /p:TargetFramework=netstandard2.0"
+    "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter /p:TargetFramework=netstandard1.6"
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
 let runTestsDotnet () =
-    Util.run "src/tests_external" dotnetExePath "restore"
-    Util.run "src/tests/DllRef" dotnetExePath "restore"
-    Util.run "src/tests/Project With Spaces" dotnetExePath "restore"
+    // Util.run "src/tests_external" dotnetExePath "restore"
+    // Util.run "src/tests/DllRef" dotnetExePath "restore"
+    // Util.run "src/tests/Project With Spaces" dotnetExePath "restore"
     Util.run "src/tests/Main" dotnetExePath "restore"
-    Util.run "src/tests/Main" dotnetExePath "test"
+    Util.run "src/tests/Main" dotnetExePath "test /p:TestRunner=xunit"
 
 let runFableServer args f =
     let args = String.concat " " args
@@ -404,6 +408,7 @@ let runFableServer args f =
 
 let runTestsJS () =
     Npm.install __SOURCE_DIRECTORY__ []
+    Util.run __SOURCE_DIRECTORY__ dotnetExePath "restore src/tests/Main"
     Util.run __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose -- --config src/tests/webpack.config.js"
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
 
@@ -605,8 +610,7 @@ Target "All" (fun () ->
     buildNUnitPlugin ()
     buildJsonConverter ()
     runTestsJS ()
-    // .NET tests are failing most of the times in Travis
-    // for obscure reasons
+    // .NET tests fail most of the times in Travis for obscure reasons
     if Option.isNone (environVarOrNone "TRAVIS") then
         runTestsDotnet ()
 )

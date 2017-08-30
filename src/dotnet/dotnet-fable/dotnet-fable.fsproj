@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
     <Version>1.2.0-beta-003</Version>
     <OutputType>Exe</OutputType>
@@ -24,6 +24,9 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.5" PrivateAssets="All" />
+    <PackageReference Include="FSharp.Core" Version="4.2.3" />
     <PackageReference Include="Dotnet.ProjInfo" Version="0.7.4" />
+    <PackageReference Include="NETStandard.Library" Version="2.0.0" />
   </ItemGroup>
 </Project>

@@ -12,6 +12,16 @@ type ICompilerState =
     abstract GetOrAddEntity: string * (unit->Fable.Entity) -> Fable.Entity
     abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
 
+#if !NETFX && !FABLE_COMPILER
+[<AutoOpen>]
+module ReflectionAdapters =
+    open System.Reflection
+
+    type System.Type with
+        member this.GetCustomAttributes(inherits : bool) : obj[] =
+            downcast box(CustomAttributeExtensions.GetCustomAttributes(this.GetTypeInfo(), inherits) |> Seq.toArray)
+#endif
+
 [<AutoOpen>]
 module Extensions =
     type System.Collections.Generic.Dictionary<'TKey,'TValue> with

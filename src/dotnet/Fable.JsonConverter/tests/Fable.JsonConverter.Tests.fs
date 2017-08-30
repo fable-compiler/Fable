@@ -1,6 +1,6 @@
 ﻿namespace Fable.JsonConverter.Tests
 
-open XUnit
+open Xunit
 open Newtonsoft.Json
 open System
 
@@ -15,7 +15,6 @@ type Maybe<'t> =
     | Nothing
 
 
-[<TestFixture>]
 module JsonConverterTests =
 
     let converter = new Fable.JsonConverter()
@@ -27,11 +26,11 @@ module JsonConverterTests =
         let date = new DateTime(2017, 03, 23, 18, 30, 0)
         let serialized = serialize date
         let deserialized = deserialize<DateTime> serialized
-        Assert.AreEqual(30, deserialized.Minute)
-        Assert.AreEqual(18, deserialized.Hour)
-        Assert.AreEqual(23, deserialized.Day)
-        Assert.AreEqual(3, deserialized.Month)
-        Assert.AreEqual(2017, deserialized.Year)
+        Assert.Equal(30, deserialized.Minute)
+        Assert.Equal(18, deserialized.Hour)
+        Assert.Equal(23, deserialized.Day)
+        Assert.Equal(3, deserialized.Month)
+        Assert.Equal(2017, deserialized.Year)
 
 
     [<Fact>]
@@ -40,8 +39,8 @@ module JsonConverterTests =
         let serialized = serialize opt
         let deserialized = deserialize<Option<string>> serialized
         match deserialized with
-        | Some input -> Assert.AreEqual("value", input)
-        | None -> Assert.Fail("Should not happen")
+        | Some input -> Assert.Equal("value", input)
+        | None -> Assert.True(false, "Should not happen")
 
     [<Fact>]
     let ``Option<int> conversion works``() =
@@ -49,39 +48,39 @@ module JsonConverterTests =
         let serialized = serialize opt
         let deserialized = deserialize<Option<int>> serialized
         match deserialized with
-        | Some input -> Assert.AreEqual(5, input)
-        | None -> Assert.Fail("Should not happen")
+        | Some input -> Assert.Equal(5, input)
+        | None -> Assert.True(false, "Should not happen")
 
     [<Fact>]
     let ``Option<int> deserialization from raw json works``() =
         // what Fable outputs
         match deserialize<Option<int>> "5" with
-        | Some input -> Assert.AreEqual(5, input)
-        | None -> Assert.Fail("Should not happen")
+        | Some input -> Assert.Equal(5, input)
+        | None -> Assert.True(false, "Should not happen")
 
         match deserialize<Option<int>> "null" with
-        | Some _ -> Assert.Fail("Should not happed")
-        | None -> Assert.Pass()
+        | Some _ -> Assert.True(false, "Should not happed")
+        | None -> ()
 
     [<Fact>]
     let ``Nested options conversion works``() =
         let nested = Some(Some (Some 5))
         let serialized = serialize nested
-        Assert.AreEqual("5", serialized)
+        Assert.Equal("5", serialized)
         let deserialized = deserialize<Option<Option<Option<int>>>> serialized
         match deserialized with
-        | Some (Some (Some n)) -> Assert.AreEqual(5, n)
-        | _ -> Assert.Fail("Should not happed")
+        | Some (Some (Some n)) -> Assert.Equal(5, n)
+        | _ -> Assert.True(false, "Should not happed")
 
     [<Fact>]
     let ``Record conversion works``() =
         let input : Record = { Prop1 = "value"; Prop2 = 5; Prop3 = None }
         let deserialized = deserialize<Record> (serialize input)
-        Assert.AreEqual("value", deserialized.Prop1)
-        Assert.AreEqual(5, deserialized.Prop2)
+        Assert.Equal("value", deserialized.Prop1)
+        Assert.Equal(5, deserialized.Prop2)
         match deserialized.Prop3 with
-        | None -> Assert.Pass()
-        | _ -> Assert.Fail("Should not happed")
+        | None -> ()
+        | _ -> Assert.True(false, "Should not happed")
 
 
     [<Fact>]
@@ -91,11 +90,11 @@ module JsonConverterTests =
         // "{\"Prop1\":\"value\",\"Prop2\":5,\"Prop3\":null}"
         let serialized = "{\"Prop1\":\"value\",\"Prop2\":5,\"Prop3\":null}"
         let deserialized = deserialize<Record> serialized
-        Assert.AreEqual("value", deserialized.Prop1)
-        Assert.AreEqual(5, deserialized.Prop2)
+        Assert.Equal("value", deserialized.Prop1)
+        Assert.Equal(5, deserialized.Prop2)
         match deserialized.Prop3 with
-        | None -> Assert.Pass()
-        | _ -> Assert.Fail("Should not happed")
+        | None -> ()
+        | _ -> Assert.True(false, "Should not happed")
 
     [<Fact>]
     let ``Generic union types conversion works``() =
@@ -103,8 +102,8 @@ module JsonConverterTests =
         let serialized = serialize input
         let deserialized = deserialize<Maybe<string>> serialized
         match deserialized with
-        | Just x -> Assert.AreEqual("value", x)
-        | Nothing -> Assert.Fail("Should not happed")
+        | Just x -> Assert.Equal("value", x)
+        | Nothing -> Assert.True(false, "Should not happed")
 
     [<Fact>]
     let ``Generic union types deserialization from raw json works``() =
@@ -112,17 +111,17 @@ module JsonConverterTests =
         // toJson Nothing = "\"Nothing\""
         // above is Fable output
         match deserialize<Maybe<int>> "{\"Just\":5}" with
-        | Just n -> Assert.AreEqual(5, n)
-        | Nothing -> Assert.Fail("Should not happed")
+        | Just n -> Assert.Equal(5, n)
+        | Nothing -> Assert.True(false, "Should not happed")
 
         match deserialize<Maybe<int>> "\"Nothing\"" with
-        | Just _ -> Assert.Fail("Should not happed")
-        | Nothing -> Assert.Pass()
+        | Just _ -> Assert.True(false, "Should not happed")
+        | Nothing -> ()
 
         // Serialized "Nothing" is generic
         match deserialize<Maybe<string>> "\"Nothing\"" with
-        | Just _ -> Assert.Fail("Should not happed")
-        | Nothing -> Assert.Pass()
+        | Just _ -> Assert.True(false, "Should not happed")
+        | Nothing -> ()
 
     [<Fact>]
     let ``Deserialization with provided type at runtime works``() =
@@ -130,12 +129,12 @@ module JsonConverterTests =
         let json = "5"
         let parameterTypes = [| typeof<string>; typeof<System.Type> ; typeof<JsonConverter array> |]
         let deserialize = typeof<JsonConvert>.GetMethod("DeserializeObject", parameterTypes)
-        Assert.IsNotNull(deserialize)
+        Assert.NotNull(deserialize)
 
         let result = deserialize.Invoke(null, [| json; inputType; [| converter |] |])
         match result with
         | :? Option<int> as opt ->
               match opt with
-              | Some n -> Assert.AreEqual(5, n)
-              | None -> Assert.Fail("Should not happen")
-        | _ -> Assert.Fail("Should not happen")
+              | Some n -> Assert.Equal(5, n)
+              | None -> Assert.True(false, "Should not happen")
+        | _ -> Assert.True(false, "Should not happen")

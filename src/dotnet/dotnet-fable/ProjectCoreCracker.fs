@@ -147,13 +147,8 @@ let rec private projInfo additionalMSBuildProps file =
               OriginalLoadReferences = []
               ExtraProjectInfo = None
           }
-      let targetFr = Map.find "TargetFramework" props
       let projRefs = p2ps |> List.map (fun p2p -> p2p.ProjectReferenceFullPath)
-      targetFr, projOptions, projRefs
+      projOptions, projRefs, props
 
-let GetProjectOptionsFromProjectFile (targetFramework: string option) (file : string) =
-  let additionalMSBuildProps =
-    match targetFramework with
-    | Some targetFramework -> ["TargetFramework", targetFramework]
-    | None -> []
-  projInfo additionalMSBuildProps file
+let GetProjectOptionsFromProjectFile (file : string) =
+  projInfo [] file

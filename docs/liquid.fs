@@ -14,7 +14,7 @@ let private localFileSystem roots =
   { new DotLiquid.FileSystems.IFileSystem with
       member this.ReadTemplateFile(context, templateName) =
         let templatePath = context.[templateName] :?> string
-        let fullPath = 
+        let fullPath =
           roots |> Seq.pick (fun root ->
             let fn = Path.Combine(root, templatePath)
             if File.Exists fn then Some fn else None)
@@ -79,7 +79,7 @@ let private loadTemplate (ty, fileName) = async {
 /// Load template & memoize & automatically reload when the file changes
 let private loadTemplateCached =
   loadTemplate |> asyncMemoize (fun (_, templatePath) (lastWrite, _) ->
-    File.GetLastWriteTime(templatePath) <= lastWrite ) 
+    File.GetLastWriteTime(templatePath) <= lastWrite )
 
 // -------------------------------------------------------------------------------------------------
 // Public API
@@ -87,12 +87,12 @@ let private loadTemplateCached =
 
 let mutable private templatesDirs : string list option = None
 
-/// Set the root directory where DotLiquid is looking for templates. For example, you can 
+/// Set the root directory where DotLiquid is looking for templates. For example, you can
 /// write something like this:
 ///
 ///     DotLiquid.setTemplatesDirs (__SOURCE_DIRECTORY__ + "/templates")
 ///
-/// The current directory is a global variable and so it should not change between 
+/// The current directory is a global variable and so it should not change between
 /// multiple HTTP requests. This is a DotLiquid limitation.
 let setTemplatesDirs dirs =
   if templatesDirs <> Some dirs then
@@ -104,26 +104,26 @@ let setTemplatesDirs dirs =
 /// any F# record type, seq<_> and list<_> without having to explicitly register the fields.
 ///
 ///     type Page = { Total : int }
-///     let app = page "index.html" { Total = 42 } 
+///     let app = page "index.html" { Total = 42 }
 ///
-let page<'T> path (model : 'T) = 
-  let path = 
+let page<'T> path (model : 'T) =
+  let path =
     if Path.IsPathRooted path then path else
       match templatesDirs with
       | None -> failwith "Templates directory not set!"
-      | Some roots -> 
+      | Some roots ->
           roots |> Seq.pick (fun root ->
             let fn = Path.Combine(root, path)
             if File.Exists fn then Some fn else None)
-  let writeTime, renderer = 
-    loadTemplateCached (typeof<'T>, path) 
+  let writeTime, renderer =
+    loadTemplateCached (typeof<'T>, path)
     |> Async.RunSynchronously
-  renderer "model" (box model) 
+  renderer "model" (box model)
 
 /// Register functions from a module as filters available in DotLiquid templates.
 /// For example, the following snippet lets you write `{{ model.Total | nuce_num }}`:
 ///
-///     module MyFilters = 
+///     module MyFilters =
 ///       let niceNum i = if i > 10 then "lot" else "not much"
 ///
 ///     do registerFiltersByName "MyFilters"

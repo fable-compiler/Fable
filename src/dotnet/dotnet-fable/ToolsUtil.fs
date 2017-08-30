@@ -17,7 +17,9 @@ module Log =
 
   let logVerbose(msg: Lazy<string>) =
     if Flags.logVerbose then
-      Console.WriteLine(msg.Value)
+      try // Some long verbose message may conflict with other processes
+        Console.WriteLine(msg.Value)
+      with _ -> ()
 
   let logAlways(msg: string) =
     Console.WriteLine(msg)

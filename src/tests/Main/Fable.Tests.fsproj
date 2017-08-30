@@ -1,16 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework Condition="'$(TestRunner)' == 'xunit'">netcoreapp2.0</TargetFramework>
     <DefineConstants>DOTNETCORE</DefineConstants>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="Fable.Core">
-      <HintPath>../../../build/fable/Fable.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="Fable.JsonConverter">
-      <HintPath>../../../build/json-converter/Fable.JsonConverter.dll</HintPath>
-    </Reference>
-  </ItemGroup>
   <ItemGroup>
     <Compile Include="Util/b.fs" />
     <Compile Include="Util/Aether.fs" />
@@ -54,10 +47,18 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="Fable.Core">
+      <HintPath>../../../build/fable/Fable.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(TestRunner)' == 'xunit'">
+    <Reference Include="Fable.JsonConverter">
+      <HintPath>../../../build/json-converter/Fable.JsonConverter.dll</HintPath>
+    </Reference>
     <PackageReference Include="Newtonsoft.Json" Version="10.0.*" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.0.0-*" />
-    <PackageReference Include="xunit" Version="2.2.0-*" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.2.0-*" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.3.0-preview-*" />
+    <PackageReference Include="xunit" Version="2.2.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.2.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DllRef\Fable.Tests.DllRef.fsproj" />

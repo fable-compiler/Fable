@@ -25,8 +25,11 @@ let readPaketResolved (targetFramework: string) (projFile: string) =
         let paketRefs2 = IO.Path.Combine(projDir, "obj", projFileName + ".references")
         if File.Exists(paketRefs2)
         then File.ReadAllLines(paketRefs2)
-        else failwithf "Cannot find Paket restored info for project %s" projFile
-
+        else
+            sprintf "\nWARNING: Cannot find PAKET info for project %s\n%s\n"
+                projFile "It won't be possible to resolve Fable libraries."
+            |> Log.logAlways
+            [||]
 
 type ProjectReference =
     { ProjectFile: string
@@ -40,8 +43,7 @@ type CrackedFsproj =
     { ProjectFile: string
       SourceFiles: string list
       ProjectReferences: ProjectReference list
-      DllReferences: string list
-      TargetFramework: string }
+      DllReferences: string list }
 
 let makeProjectOptions project sources otherOptions =
     { ProjectFileName = project
@@ -93,7 +95,7 @@ let getBasicCompilerArgs (define: string[]) =
     |]
 
 /// Simplistic resolution of .fsproj to get source files
-let getFsprojSourceFiles (targetFramework: string) (projFile: string) =
+let getFsprojSourceFiles (projFile: string) =
     let withName s (xs: XElement seq) =
         xs |> Seq.filter (fun x -> x.Name.LocalName = s)
     let (|SourceFile|Another|) (el: XElement) =
@@ -132,8 +134,7 @@ let getFsprojSourceFiles (targetFramework: string) (projFile: string) =
         sourceFiles
         |> List.map (fun fileName -> Path.Combine(projDir, fileName) |> Path.normalizeFullPath)
       ProjectReferences = []
-      DllReferences = []
-      TargetFramework = targetFramework }
+      DllReferences = [] }
 
 let partitionMap (f: 'T->Choice<'T1,'T2>) (xs: 'T list): 'T1 list * 'T2 list =
     (xs, ([], []))
@@ -142,13 +143,14 @@ let partitionMap (f: 'T->Choice<'T1,'T2>) (xs: 'T list): 'T1 list * 'T2 list =
         | Choice1Of2 item -> item::list1, list2
         | Choice2Of2 item -> list1, item::list2)
 
-let fullyCrackFsproj (targetFramework: string option) (projFile: string): CrackedFsproj =
+let fullyCrackFsproj (projFile: string): CrackedFsproj =
     let dllRefs = Dictionary()
-    let targetFramework, projOpts, directProjRefs =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile targetFramework projFile
-    let directProjRefs =
-        List.map (Path.normalizeFullPath >> ProjectReference.MakeDirect) directProjRefs
-    // TODO: Remove dllRefs corresponding to project references
+    let projOpts, directProjRefs, msbuildProps =
+        ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
+    let targetFramework =
+        match Map.tryFind "TargetFramework" msbuildProps with
+        | Some targetFramework -> targetFramework
+        | None -> failwithf "Cannot find TargetFramework for project %s" projFile
     let sourceFiles =
         (projOpts.OtherOptions, []) ||> Array.foldBack (fun line src ->
             if line.StartsWith("-r:") then
@@ -161,6 +163,13 @@ let fullyCrackFsproj (targetFramework: string option) (projFile: string): Cracke
                 src
             else
                 (Path.normalizeFullPath line)::src)
+    let directProjRefs =
+        directProjRefs |> List.map (fun projRef ->
+            // Remove dllRefs corresponding to project references
+            let i = projRef.LastIndexOf('/')
+            let projName = projRef.[(i + 1) .. (projRef.Length - 8)]
+            dllRefs.Remove(projName) |> ignore
+            Path.normalizeFullPath projRef |> ProjectReference.MakeDirect)
     let fableProjRefs =
         readPaketResolved targetFramework projFile
         |> Seq.choose (fun line ->
@@ -181,38 +190,37 @@ let fullyCrackFsproj (targetFramework: string option) (projFile: string): Cracke
     { ProjectFile = projFile
       SourceFiles = sourceFiles
       ProjectReferences = fableProjRefs @ directProjRefs
-      DllReferences = dllRefs.Values |> Seq.toList
-      TargetFramework = targetFramework }
+      DllReferences = dllRefs.Values |> Seq.toList }
 
-let crackFsproj (targetFramework: string) (isFullCrack: bool) (projFile: string): CrackedFsproj =
+let crackFsproj (isFullCrack: bool) (projFile: string): CrackedFsproj =
     if isFullCrack
-    then fullyCrackFsproj (Some targetFramework) projFile
-    else getFsprojSourceFiles targetFramework projFile
+    then fullyCrackFsproj projFile
+    else getFsprojSourceFiles projFile
 
 let getProjectOptionsFromFsproj (projFile: string) =
-    let mainProj = fullyCrackFsproj None projFile
+    let mainProj = fullyCrackFsproj projFile
     let fableCoreJsDir: string =
         match mainProj.DllReferences |> List.tryFind (fun x -> x.EndsWith("Fable.Core.dll")) with
         | Some dllRef ->
             let dllDir = Path.GetDirectoryName(dllRef)
             IO.Path.Combine(dllDir, "..", "..", "fable-core") |> Path.normalizeFullPath
         | None -> failwithf "Cannot find Fable.Core reference in project %s" projFile
-    let rec crackProjects targetFramework (acc: CrackedFsproj list) (projFile: U2<ProjectReference, CrackedFsproj>) =
+    let rec crackProjects (acc: CrackedFsproj list) (projFile: U2<ProjectReference, CrackedFsproj>) =
         let crackedFsproj =
             match projFile with
             | U2.Case1 projRef ->
                 let projFile = projRef.ProjectFile
                 match acc |> List.tryFind (fun x -> x.ProjectFile = projFile) with
-                | None -> crackFsproj targetFramework projRef.IsDirectReference projFile
+                | None -> crackFsproj projRef.IsDirectReference projFile
                 | Some crackedFsproj -> crackedFsproj
             | U2.Case2 crackedFsproj -> crackedFsproj
         // Add always a reference to the front to preserve compilation order
         // Duplicated items will be removed later
         (crackedFsproj.ProjectReferences, crackedFsproj::acc)
         ||> Seq.foldBack (fun projRef acc ->
-            crackProjects targetFramework acc (U2.Case1 projRef))
+            crackProjects acc (U2.Case1 projRef))
     let crackedFsprojs =
-        crackProjects mainProj.TargetFramework [] (U2.Case2 mainProj)
+        crackProjects [] (U2.Case2 mainProj)
         |> List.distinctBy (fun x -> x.ProjectFile)
     let sourceFiles =
         crackedFsprojs |> Seq.collect (fun x -> x.SourceFiles) |> Seq.toArray

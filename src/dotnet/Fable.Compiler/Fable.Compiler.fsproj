@@ -1,7 +1,7 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
     <Version>1.2.0-beta-0012</Version>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard1.6</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
@@ -15,6 +15,8 @@
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.5" PrivateAssets="All" />
+    <PackageReference Include="FSharp.Core" Version="4.2.1" />
     <PackageReference Include="FSharp.Compiler.Service" Version="13.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
     <PackageReference Include="System.Runtime.Loader" Version="4.3.0" />

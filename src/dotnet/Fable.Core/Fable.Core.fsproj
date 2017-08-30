@@ -1,7 +1,7 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
     <Version>1.2.0-beta-001</Version>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard1.6</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
@@ -19,5 +19,9 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\..\build\fable-core\" PackagePath="fable-core\" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.5" PrivateAssets="All" />
+    <PackageReference Include="FSharp.Core" Version="4.2.1" />
   </ItemGroup>
 </Project>
