@@ -308,7 +308,7 @@ let runFableServer args f =
 let runTestsJS () =
     Npm.install __SOURCE_DIRECTORY__ []
     Util.run __SOURCE_DIRECTORY__ dotnetExePath "restore src/tests/Main"
-    Util.run __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose -- --config src/tests/webpack.config.js"
+    Util.run __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose --port free -- --config src/tests/webpack.config.js"
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
 
 let quickTest() =
