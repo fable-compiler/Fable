@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// This file will become an executable in UNIX systems,
+// be sure not to use Windows line endings here
+
 function getVersion() {
     return require("./package.json").version;
 }

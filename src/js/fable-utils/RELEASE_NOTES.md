@@ -1,3 +1,7 @@
+### 1.0.2
+
+* Add `resolveBabelOptions` helper
+
 ### 1.0.1
 
 * Add cache helpers and CLI
