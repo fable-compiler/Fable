@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Version>1.2.0-beta-003</Version>
     <OutputType>Exe</OutputType>
@@ -18,13 +17,12 @@
     <Compile Include="Server.fs" />
     <Compile Include="StateUtil.fs" />
     <Compile Include="Main.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <!-- Required in the package root to run the cli tool always with bundled runtime -->
     <Content Include="prefercliruntime">
       <PackagePath>prefercliruntime</PackagePath>
       <Pack>true</Pack>
     </Content>
   </ItemGroup>
-  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
+  <ItemGroup>
+    <PackageReference Include="Dotnet.ProjInfo" Version="0.7.4" />
+  </ItemGroup>
 </Project>
