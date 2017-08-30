@@ -200,10 +200,9 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                 let isUpdated, state, activeProject = updateState checker state msg
                 let comOptions =
                     { fableCore =
-                        match msg.fableCore, activeProject.FableCore with
-                        | Some fableCore, _ -> fableCore.TrimEnd('/')
-                        | None, Some fableCore -> (Path.getRelativePath msg.path fableCore).TrimEnd('/')
-                        | None, None -> State.getDefaultFableCore()
+                        match msg.fableCore with
+                        | Some fableCore -> fableCore.TrimEnd('/')
+                        | None -> (Path.getRelativePath msg.path activeProject.FableCore).TrimEnd('/')
                       declaration = msg.declaration
                       typedArrays = msg.typedArrays
                       clampByteArrays = msg.clampByteArrays }
