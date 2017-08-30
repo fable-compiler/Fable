@@ -23,8 +23,8 @@ type Dictionary<'TKey, 'TValue> with
 type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 #endif
 
-type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, fableCore: string option, isWatchCompile: bool) =
-    let timestamp = DateTime.UtcNow
+type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, fableCore: string, isWatchCompile: bool) =
+    let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()

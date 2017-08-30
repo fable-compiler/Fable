@@ -58,7 +58,8 @@ let createProject checker isWatchCompile (prevProject: Project option) (msg: Par
     let projectOptions, fableCore =
         match prevProject with
         | Some prevProject ->
-            prevProject.ProjectOptions, prevProject.FableCore
+            // There seems to be a performance penalty if LoadTime is not updated
+            { prevProject.ProjectOptions with LoadTime = DateTime.Now }, prevProject.FableCore
         | None ->
             let projectOptions, fableCore =
                 getFullProjectOpts checker msg.define projFile
@@ -97,13 +98,13 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
     let isWatchCompilation (project: Project) sourceFile =
         let compiled =
             if not project.IsWatchCompile then
-                IO.File.GetLastWriteTimeUtc(sourceFile) > project.TimeStamp
+                IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp
             else
                 // If the project has been compiled previously we need to check
                 // the timestamps of all files, as the bundler may send new requests
                 // for files not modified if they were errored in the previous compilation
                 project.ProjectOptions.ProjectFileNames
-                |> Seq.exists (fun file -> IO.File.GetLastWriteTimeUtc(file) > project.TimeStamp)
+                |> Seq.exists (fun file -> IO.File.GetLastWriteTime(file) > project.TimeStamp)
         if compiled then
             Log.logVerbose(lazy ("Watch compile triggered by: " + getRelativePath sourceFile))
         compiled
