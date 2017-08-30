@@ -140,40 +140,6 @@ module Util =
         (Attribute.Version version)::extra
         |> CreateFSharpAssemblyInfo asmInfoPath
 
-    type ComparisonResult = Smaller | Same | Bigger
-
-    let foldi f init (xs: 'T seq) =
-        let mutable i = -1
-        (init, xs) ||> Seq.fold (fun state x ->
-            i <- i + 1
-            f i state x)
-
-    let compareVersions (expected: string) (actual: string) =
-        if actual = "*" // Wildcard for custom fable-core builds
-        then Same
-        else
-            let expected = expected.Split('.', '-')
-            let actual = actual.Split('.', '-')
-            (Same, expected) ||> foldi (fun i comp expectedPart ->
-                match comp with
-                | Bigger -> Bigger
-                | Same when actual.Length <= i -> Smaller
-                | Same ->
-                    let actualPart = actual.[i]
-                    match Int32.TryParse(expectedPart), Int32.TryParse(actualPart) with
-                    // TODO: Don't allow bigger for major version?
-                    | (true, expectedPart), (true, actualPart) ->
-                        if actualPart > expectedPart
-                        then Bigger
-                        elif actualPart = expectedPart
-                        then Same
-                        else Smaller
-                    | _ ->
-                        if actualPart = expectedPart
-                        then Same
-                        else Smaller
-                | Smaller -> Smaller)
-
 module Npm =
     let script workingDir script args =
         sprintf "run %s -- %s" script (String.concat " " args)
@@ -265,70 +231,7 @@ let coreJsSrcDir = "src/js/fable-core"
 
 // Targets
 let installDotnetSdk () =
-    let correctVersionInstalled dotnetExePath =
-        try
-            let processResult =
-                ExecProcessAndReturnMessages (fun info ->
-                info.FileName <- dotnetExePath
-                info.WorkingDirectory <- Environment.CurrentDirectory
-                info.Arguments <- "--version") (TimeSpan.FromMinutes 30.)
-
-            let installedVersion = processResult.Messages |> separated ""
-            match Util.compareVersions dotnetcliVersion installedVersion with
-            | Util.Same | Util.Bigger -> true
-            | Util.Smaller -> false
-        with
-        | _ -> false
-
-    let correctVersionInstalled =
-        if correctVersionInstalled dotnetExePath
-        then true
-        elif correctVersionInstalled localDotnetExePath
-        then
-            dotnetExePath <- localDotnetExePath
-            true
-        else false
-
-    if correctVersionInstalled then
-        tracefn "dotnetcli %s already installed" dotnetcliVersion
-    else
-        CleanDir dotnetSDKPath
-        let archiveFileName =
-            if isWindows then
-                sprintf "dotnet-dev-win-x64.%s.zip" dotnetcliVersion
-            elif isLinux then
-                sprintf "dotnet-dev-ubuntu-x64.%s.tar.gz" dotnetcliVersion
-            else
-                sprintf "dotnet-dev-osx-x64.%s.tar.gz" dotnetcliVersion
-        let downloadPath =
-                sprintf "https://dotnetcli.azureedge.net/dotnet/Sdk/%s/%s" dotnetcliVersion archiveFileName
-        let localPath = Path.Combine(dotnetSDKPath, archiveFileName)
-
-        tracefn "Installing '%s' to '%s'" downloadPath localPath
-
-        use webclient = new Net.WebClient()
-        webclient.DownloadFile(downloadPath, localPath)
-
-        if not isWindows then
-            let assertExitCodeZero x =
-                if x = 0 then () else
-                failwithf "Command failed with exit code %i" x
-
-            Shell.Exec("tar", sprintf """-xvf "%s" -C "%s" """ localPath dotnetSDKPath)
-            |> assertExitCodeZero
-        else
-            System.IO.Compression.ZipFile.ExtractToDirectory(localPath, dotnetSDKPath)
-
-        tracefn "dotnet cli path - %s" dotnetSDKPath
-        System.IO.Directory.EnumerateFiles dotnetSDKPath
-        |> Seq.iter (fun path -> tracefn " - %s" path)
-        System.IO.Directory.EnumerateDirectories dotnetSDKPath
-        |> Seq.iter (fun path -> tracefn " - %s%c" path System.IO.Path.DirectorySeparatorChar)
-
-        dotnetExePath <- localDotnetExePath
-
-    // let oldPath = System.Environment.GetEnvironmentVariable("PATH")
-    // System.Environment.SetEnvironmentVariable("PATH", sprintf "%s%s%s" dotnetSDKPath (System.IO.Path.PathSeparator.ToString()) oldPath)
+    dotnetExePath <- DotNetCli.InstallDotNetSDK dotnetcliVersion
 
 let clean () =
     !! "src/dotnet/**/bin"
@@ -353,10 +256,6 @@ let buildCLI baseDir isRelease () =
     sprintf "publish -o ../../../%s -c %s -v n"
         cliBuildDir (if isRelease then "Release" else "Debug")
     |> Util.run (baseDir </> "dotnet-fable") dotnetExePath
-
-    // // Put FSharp.Core.optdata/sigdata next to FSharp.Core.dll
-    // FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.optdata" cliBuildDir
-    // FileUtils.cp "packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.sigdata" cliBuildDir
 
 let buildCoreJS () =
     Npm.install __SOURCE_DIRECTORY__ []
