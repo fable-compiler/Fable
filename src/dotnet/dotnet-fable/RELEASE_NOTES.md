@@ -1,3 +1,8 @@
+### 1.2.0-beta-004
+
+* Use Dotnet.ProjInfo to crack fsproj
+* Try setting ProjectOptions.LoadTime to Now for every watch compilation
+
 ### 1.2.0-beta-003
 
 * Add `extra.projectFile` option to messages from JS clients

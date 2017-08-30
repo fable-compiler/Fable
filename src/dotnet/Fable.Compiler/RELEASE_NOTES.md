@@ -1,3 +1,7 @@
+### 1.2.0-beta-0014
+
+* Target netstandard1.6 again
+
 ### 1.2.0-beta-0012
 
 * Allow fableCore as global var

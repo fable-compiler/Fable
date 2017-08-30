@@ -1,3 +1,7 @@
+### 1.2.0-beta-002
+
+* Target netstandard1.6 again
+
 ### 1.2.0-beta-001
 
 * Upgrade to netstandard2.0
