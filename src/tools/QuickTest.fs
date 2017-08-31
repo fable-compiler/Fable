@@ -8,7 +8,6 @@ module QuickTest
 
 // Please don't add this file to your commits
 
-#r "../../build/fable/Fable.Core.dll"
 open System
 open Fable.Core
 open Fable.Core.JsInterop

@@ -5,7 +5,7 @@ function resolve(filePath) {
 }
 
 module.exports = {
-  entry: resolve("QuickTest.fsx"),
+  entry: resolve("QuickTest.fsproj"),
   outDir: resolve("temp"),
   babel: {
     plugins: ["transform-es2015-modules-commonjs"],

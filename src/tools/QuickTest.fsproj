@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="../../build/fable/Fable.Core.dll" />
+    <Compile Include="QuickTest.fs" />
+  </ItemGroup>
+</Project>

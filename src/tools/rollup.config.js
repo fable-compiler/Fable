@@ -21,7 +21,7 @@ var fableOptions = {
 };
 
 export default {
-  entry: resolve('./QuickTest.fsx'),
+  entry: resolve('./QuickTest.fsproj'),
   dest: resolve('./temp/QuickTest.js'),
   format: 'cjs', // 'amd', 'cjs', 'es', 'iife', 'umd'
   //sourceMap: 'inline',
