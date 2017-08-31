@@ -766,15 +766,18 @@ module Types =
             // Clear typeArgs to prevent infinite recursion
             | Some (_,typ) -> makeType com [] typ
             | None -> Fable.GenericParam genParam.Name
-        let rec getFnGenArgs (acc: FSharpType list) (fn: FSharpType) =
-            if fn.IsFunctionType
-            then getFnGenArgs (fn.GenericArguments.[0]::acc) fn.GenericArguments.[1]
-            elif fn.IsGenericParameter
+        let rec getFnGenArgs (acc: FSharpType list) isFunctionType (typ: FSharpType): FSharpType list =
+            if isFunctionType
             then
-                match typeArgs |> List.tryFind (fun (name,_) -> name = fn.GenericParameter.Name) with
-                | Some (_,fn2) when fn2.IsFunctionType -> getFnGenArgs (fn2.GenericArguments.[0]::acc) fn2.GenericArguments.[1]
-                | _ -> fn::acc
-            else fn::acc
+                let genArg0 = nonAbbreviatedType typ.GenericArguments.[0]
+                let genArg1 = nonAbbreviatedType typ.GenericArguments.[1]
+                getFnGenArgs (genArg0::acc) genArg1.IsFunctionType genArg1
+            elif typ.IsGenericParameter
+            then
+                match typeArgs |> List.tryFind (fun (name,_) -> name = typ.GenericParameter.Name) with
+                | Some (_, typ2) when typ2.IsFunctionType -> getFnGenArgs [] true typ2
+                | _ -> typ::acc
+            else typ::acc
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
         then resolveGenParam t.GenericParameter
@@ -784,7 +787,7 @@ module Types =
         // Funtion
         elif t.IsFunctionType
         then
-            let gs = getFnGenArgs [t.GenericArguments.[0]] t.GenericArguments.[1]
+            let gs = getFnGenArgs [] true t
             let argTypes = List.rev gs.Tail |> List.map (makeType com typeArgs)
             let returnType = makeType com typeArgs gs.Head
             Fable.Function(argTypes, returnType, true)

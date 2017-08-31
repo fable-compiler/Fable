@@ -11,6 +11,8 @@ Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "dotnet-fable", "dotnet-fabl
 EndProject
 Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "QuickTest", "..\tools\QuickTest.fsproj", "{B72C714B-C57B-4A0C-95F5-076A6BE6D67F}"
 EndProject
+Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "Fable.Tests", "..\tests\Main\Fable.Tests.fsproj", "{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -72,5 +74,17 @@ Global
 		{B72C714B-C57B-4A0C-95F5-076A6BE6D67F}.Release|x64.Build.0 = Release|Any CPU
 		{B72C714B-C57B-4A0C-95F5-076A6BE6D67F}.Release|x86.ActiveCfg = Release|Any CPU
 		{B72C714B-C57B-4A0C-95F5-076A6BE6D67F}.Release|x86.Build.0 = Release|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Debug|x64.Build.0 = Debug|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Debug|x86.Build.0 = Debug|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Release|x64.ActiveCfg = Release|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Release|x64.Build.0 = Release|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Release|x86.ActiveCfg = Release|Any CPU
+		{D325CDD8-BB31-4B7C-8DC0-2EF3AD71C700}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

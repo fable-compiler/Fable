@@ -556,3 +556,27 @@ module CurriedApplicativeTests =
             f'
         let r = Some f <*> Some 2 <*> Some 3
         r |> equal (Some 5)
+
+type StringEnvironment<'a> = string -> 'a
+
+[<Test>]
+let ``Function generic type alias works`` () : unit = // See #1121
+    let five = fun _ -> 5
+
+    let bind (x : StringEnvironment<'a>) (f : 'a -> StringEnvironment<'b>) : StringEnvironment<'b> =
+        fun environment ->
+            f (x environment) environment
+
+    bind five (fun i -> five) "environment"
+    |> equal 5
+
+[<Test>]
+let ``Function generic type alias works II`` () : unit =
+    let three = fun _ -> 3
+
+    let bind (x : string -> 'a) (f : 'a -> string -> 'b) : string -> 'b =
+        fun environment ->
+            f (x environment) environment
+
+    bind three (fun i -> three) "environment"
+    |> equal 3
