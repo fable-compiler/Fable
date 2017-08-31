@@ -1,3 +1,7 @@
+### 1.2.0-beta-003
+
+* Don't calculate relative path for paths in different drive letters on Windows
+
 ### 1.2.0-beta-002
 
 * Target netstandard1.6 again

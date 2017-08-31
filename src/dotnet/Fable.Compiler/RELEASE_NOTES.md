@@ -1,3 +1,9 @@
+### 1.2.0-beta-0015
+
+* Updated FSharp.Compiler.Service to 14.0.2
+* Fix #1120: IDictionary.Clear calls wrong method
+* Fix #1121: Function generic type alias conflicts with uncurrying optimization
+
 ### 1.2.0-beta-0014
 
 * Target netstandard1.6 again

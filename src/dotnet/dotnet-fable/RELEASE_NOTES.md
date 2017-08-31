@@ -1,3 +1,7 @@
+### 1.2.0-beta-005
+
+* Fix .fsproj resolution
+
 ### 1.2.0-beta-004
 
 * Use Dotnet.ProjInfo to crack fsproj
