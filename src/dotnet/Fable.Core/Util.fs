@@ -207,11 +207,9 @@ module Path =
         normalizePath (GetFullPath path)
 
     /// Creates a relative path from one file or folder to another.
-    let getRelativeFileOrDirPath fromIsDir fromPath toIsDir toPath =
+    let getRelativeFileOrDirPath fromIsDir fromFullPath toIsDir toFullPath =
         // Algorithm adapted from http://stackoverflow.com/a/6244188
         let pathDifference (path1: string) (path2: string) =
-            let path1 = normalizePath path1
-            let path2 = normalizePath path2
             let mutable c = 0  //index up to which the paths are the same
             let mutable d = -1 //index of trailing slash for the portion where the paths are the s
             while c < path1.Length && c < path2.Length && path1.[c] = path2.[c] do
@@ -234,18 +232,26 @@ module Path =
             if isDir
             then Combine (path, Naming.dummyFile)
             else path
-        let fromPath = addDummyFile fromIsDir fromPath
-        let toPath = addDummyFile toIsDir toPath
-        match (pathDifference fromPath toPath).Replace(Naming.dummyFile, "") with
-        | path when path.StartsWith "." -> path
-        | path -> "./" + path
+        // Normalizing shouldn't be necessary at this stage but just in case
+        let fromFullPath = normalizePath fromFullPath
+        let toFullPath = normalizePath toFullPath
+        if fromFullPath.[0] <> toFullPath.[0] then
+            // If paths start differently, it means we're on Windows
+            // and drive letters are different, so just return the toFullPath
+            toFullPath
+        else
+            let fromPath = addDummyFile fromIsDir fromFullPath
+            let toPath = addDummyFile toIsDir toFullPath
+            match (pathDifference fromPath toPath).Replace(Naming.dummyFile, "") with
+            | path when path.StartsWith "." -> path
+            | path -> "./" + path
 
-    let getRelativePath fromPath toPath =
+    let getRelativePath fromFullPath toFullPath =
         // This is not 100% reliable, but IO.Directory.Exists doesn't
         // work either if the directory doesn't exist (e.g. `outDir`)
         let isDir = GetExtension >> String.IsNullOrWhiteSpace
         // let isDir = IO.Directory.Exists
-        getRelativeFileOrDirPath (isDir fromPath) fromPath (isDir toPath) toPath
+        getRelativeFileOrDirPath (isDir fromFullPath) fromFullPath (isDir toFullPath) toFullPath
 
     let getCommonPrefix (xs: string[] list)=
         let rec getCommonPrefix (prefix: string[]) = function
