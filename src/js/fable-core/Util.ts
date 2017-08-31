@@ -551,3 +551,13 @@ export function escapeDataString(s: string): string {
 export function escapeUriString(s: string): string {
   return encodeURI(s);
 }
+
+// ICollection.Clear method can be called on IDictionary
+// too so we need to make a runtime check (see #1120)
+export function clear<T>(col: Iterable<T>) {
+  if (Array.isArray(col)) {
+    col.splice(0);
+  } else {
+    (col as any).clear();
+  }
+}

@@ -1705,7 +1705,9 @@ module AstPass =
         | "addRange" ->
             ccall "Array" "addRangeInPlace" [args.Head; c.Value] |> Some
         | "clear" ->
-            icall "splice" (c.Value, [makeIntConst 0]) |> Some
+            // ICollection.Clear method can be called on IDictionary
+            // too so we need to make a runtime check (see #1120)
+            ccall "Util" "clear" [c.Value] |> Some
         | "contains" ->
             match c, args with
             | Some c, args ->

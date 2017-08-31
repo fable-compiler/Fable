@@ -160,6 +160,14 @@ let ``Dictionary.Clear works``() =
     dic.Count |> equal 0
 
 [<Test>]
+let ``IDictionary.Clear works``() = // see #1120
+    let dic: IDictionary<_,_> = upcast Dictionary()
+    dic.Add("A", 1)
+    dic.Add("B", 2)
+    dic.Clear()
+    dic.Count |> equal 0
+
+[<Test>]
 let ``Dictionary.Add works``() =
     let dic = Dictionary<_,_>()
     dic.Add("A", "Hello")
