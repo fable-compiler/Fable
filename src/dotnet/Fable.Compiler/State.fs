@@ -29,7 +29,7 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let normalizedFiles =
-        projectOptions.ProjectFileNames
+        projectOptions.SourceFiles
         |> Seq.map Path.normalizeFullPath
         |> Set
     let rootModules =

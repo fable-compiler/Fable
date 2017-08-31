@@ -8,8 +8,6 @@ open Fable
 open Fable.AST
 
 let attribsOfSymbol (s:FSharpSymbol) =
-    let tryOr f def =
-        try f() with _ -> def
     [ match s with
         | :? FSharpField as v ->
             yield "field"
@@ -46,7 +44,7 @@ let attribsOfSymbol (s:FSharpSymbol) =
             if v.IsValueType then yield "valuetype"
 
         | :? FSharpMemberOrFunctionOrValue as v ->
-            yield "owner: " + (tryOr (fun () -> v.EnclosingEntity.CompiledName) "<unknown>")
+            yield "owner: " + match v.EnclosingEntity with | Some e -> e.CompiledName | _ -> "<unknown>"
             if v.IsActivePattern then yield "active_pattern"
             if v.IsDispatchSlot then yield "dispatch_slot"
             if v.IsModuleValueOrMember && not v.IsMember then yield "val"

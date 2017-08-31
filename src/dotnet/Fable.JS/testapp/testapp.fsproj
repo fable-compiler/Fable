@@ -1,9 +1,9 @@
-﻿<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.0-alpha</Version>
+    <Version>1.0.0</Version>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp1.1</TargetFramework>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
     <DefineConstants>DOTNET40</DefineConstants>
   </PropertyGroup>
 
@@ -16,8 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
-    <PackageReference Include="FSharp.Core" Version="4.2.*" />
+    <!-- <PackageReference Include="FSharp.Core" Version="4.2.*" /> -->
     <!--<PackageReference Include="Fable.Core" Version="1.1.*" />-->
     <!--<DotNetCliToolReference Include="dotnet-fable" Version="1.1.*" />-->
   </ItemGroup>

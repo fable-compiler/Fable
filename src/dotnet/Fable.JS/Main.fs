@@ -25,7 +25,7 @@ let parseFSharpProject (checker: InteractiveChecker) (com: ICompiler) fileName s
 let makeProjOptions (com: ICompiler) projFile =
     let projOptions: FSharpProjectOptions =
       { ProjectFileName = projFile
-        ProjectFileNames = [| |]
+        SourceFiles = [| |]
         OtherOptions = [| |]
         ReferencedProjects = [| |]
         IsIncompleteTypeCheckEnvironment = false
@@ -33,14 +33,16 @@ let makeProjOptions (com: ICompiler) projFile =
         LoadTime = DateTime.Now
         UnresolvedReferences = None
         OriginalLoadReferences = []
-        ExtraProjectInfo = None }
+        ExtraProjectInfo = None
+        Stamp = None }
     projOptions
 
 let compileAst (com: Compiler) checkedProject fileName =
     let errors = com.ReadAllLogs() |> Map.tryFind "error"
     if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let projectOptions = makeProjOptions com fileName
-    let project = Project(projectOptions, checkedProject, isWatchCompile=false)
+    let fableCoreJsDir = "./fable-core"
+    let project = Project(projectOptions, checkedProject, fableCoreJsDir, isWatchCompile=false)
     let file: Babel.Program =
         FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
         |> Fable2Babel.Compiler.transformFile com project
