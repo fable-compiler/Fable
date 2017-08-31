@@ -1,3 +1,6 @@
+/// This module gets the F# compiler arguments from .fsproj as well as some
+/// Fable-specific tasks like tracking the sources of Fable Nuget packages
+/// using Paket .paket.resolved file
 module Fable.CLI.ProjectCracker
 
 open System
@@ -15,6 +18,9 @@ let isSystemPackage (pkgName: string) =
         || pkgName = "FSharp.Core"
         || pkgName = "Fable.Core"
 
+/// Reads references from .paket.resolved file. Paket sorts the references in proper
+/// dependency order which is necessary to later merge sources from Fable libraries
+/// into a single project
 let readPaketResolved (targetFramework: string) (projFile: string) =
     let projDir = Path.GetDirectoryName(projFile)
     let projFileName = Path.GetFileName(projFile)
@@ -33,8 +39,10 @@ let readPaketResolved (targetFramework: string) (projFile: string) =
 
 type ProjectReference =
     { ProjectFile: string
-      /// Project references from Nuget packages
-      /// won't be considered direct references
+      /// Project references from Nuget packages won't be considered direct references.
+      /// The main difference is for non-direct packages we'll only do a simple XML
+      /// parsing to get source files, as we cannot run `dotnet restore` on .fsproj files
+      /// embedded in Nuget packages.
       IsDirectReference: bool }
     static member MakeDirect projFile =
         { ProjectFile = projFile; IsDirectReference = true }
@@ -94,7 +102,8 @@ let getBasicCompilerArgs (define: string[]) =
 #endif
     |]
 
-/// Simplistic resolution of .fsproj to get source files
+/// Simplistic XML-parsing of .fsproj to get source files, as we cannot
+/// run `dotnet restore` on .fsproj files embedded in Nuget packages.
 let getFsprojSourceFiles (projFile: string) =
     let withName s (xs: XElement seq) =
         xs |> Seq.filter (fun x -> x.Name.LocalName = s)
@@ -136,14 +145,21 @@ let getFsprojSourceFiles (projFile: string) =
       ProjectReferences = []
       DllReferences = [] }
 
-let partitionMap (f: 'T->Choice<'T1,'T2>) (xs: 'T list): 'T1 list * 'T2 list =
-    (xs, ([], []))
-    ||> List.foldBack (fun item (list1, list2) ->
-        match f item with
-        | Choice1Of2 item -> item::list1, list2
-        | Choice2Of2 item -> list1, item::list2)
+let private getDllName (dllFullPath: string) =
+    let i = dllFullPath.LastIndexOf('/')
+    dllFullPath.[(i + 1) .. (dllFullPath.Length - 5)] // -5 removes the .dll extension
 
+let private getFsprojName (fsprojFullPath: string) =
+    let i = fsprojFullPath.LastIndexOf('/')
+    fsprojFullPath.[(i + 1) .. (fsprojFullPath.Length - 8)]
+
+/// Use Dotnet.ProjInfo (through ProjectCoreCracker) to invoke MSBuild
+/// and get F# compiler args from an .fsproj file. As we'll merge this
+/// later with other projects we'll only take the sources and the references,
+/// checking if some .dlls correspond to Fable libraries (in which case,
+/// we replace them with a non-direct project reference)
 let fullyCrackFsproj (projFile: string): CrackedFsproj =
+    // printfn "Cracking project %s" projFile
     let dllRefs = Dictionary()
     let projOpts, directProjRefs, msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
@@ -155,8 +171,7 @@ let fullyCrackFsproj (projFile: string): CrackedFsproj =
         (projOpts.OtherOptions, []) ||> Array.foldBack (fun line src ->
             if line.StartsWith("-r:") then
                 let line = Path.normalizePath (line.[3..])
-                let i = line.LastIndexOf('/')
-                let dllName = line.[(i + 1) .. (line.Length - 5)] // -5 removes the .dll extension
+                let dllName = getDllName line
                 dllRefs.Add(dllName, line)
                 src
             elif line.StartsWith("-") then
@@ -166,27 +181,31 @@ let fullyCrackFsproj (projFile: string): CrackedFsproj =
     let directProjRefs =
         directProjRefs |> List.map (fun projRef ->
             // Remove dllRefs corresponding to project references
-            let i = projRef.LastIndexOf('/')
-            let projName = projRef.[(i + 1) .. (projRef.Length - 8)]
+            let projName = getFsprojName projRef
             dllRefs.Remove(projName) |> ignore
             Path.normalizeFullPath projRef |> ProjectReference.MakeDirect)
     let fableProjRefs =
+        // Use references from .paket.resolved as they come in proper dependency order
         readPaketResolved targetFramework projFile
         |> Seq.choose (fun line ->
             let pkgName = line.Split(',').[0]
             if not(isSystemPackage pkgName) then
                 match dllRefs.TryGetValue(pkgName) with
                 | true, dllRef ->
+                    // We confirm if the dll reference corresponds to a Fable library by
+                    // checking if there exists a fable folder with an .fsproj in the package
                     let dllDir = Path.GetDirectoryName(dllRef)
                     let fableProj = IO.Path.Combine(dllDir, "..", "..", "fable", pkgName + ".fsproj")
                     if File.Exists(fableProj)
                     then
-                        dllRefs.Remove(pkgName) |> ignore
-                        { ProjectFile = Path.normalizeFullPath(fableProj); IsDirectReference = false } |> Some
+                        { ProjectFile = Path.normalizeFullPath(fableProj)
+                          IsDirectReference = false } |> Some
                     else None
                 | false, _ -> None
             else None)
         |> Seq.toList
+    // directProjRefs |> List.map (fun x -> x.ProjectFile) |> printfn "Direct references %A"
+    // fableProjRefs |> List.map (fun x -> x.ProjectFile) |> printfn "Fable references %A"
     { ProjectFile = projFile
       SourceFiles = sourceFiles
       ProjectReferences = fableProjRefs @ directProjRefs
@@ -225,7 +244,13 @@ let getProjectOptionsFromFsproj (projFile: string) =
     let sourceFiles =
         crackedFsprojs |> Seq.collect (fun x -> x.SourceFiles) |> Seq.toArray
     let otherOptions =
-        crackedFsprojs |> Seq.collect (fun x -> x.DllReferences) |> Seq.distinct |> Seq.map ((+) "-r:") |> Seq.toArray
+        let projRefsSet = crackedFsprojs |> Seq.map (fun x -> getFsprojName x.ProjectFile) |> Set
+        // We only keep dllRefs for the main project
+        //crackedFsprojs |> Seq.collect (fun x -> x.DllReferences) |> Seq.distinct
+        mainProj.DllReferences
+        // Remove dllRefs that have turned into projRefs
+        |> Seq.filter (fun dllRef -> Set.contains (getDllName dllRef) projRefsSet |> not)
+        |> Seq.map ((+) "-r:") |> Seq.toArray
     makeProjectOptions projFile sourceFiles otherOptions, fableCoreJsDir
 
 let getProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
