@@ -16,15 +16,15 @@ var fableOptions = {
   fableCore: resolve("../../../../build/fable-core"),
   //plugins: [],
   define: [
-    "COMPILER_SERVICE",
+    "COMPILER_PUBLIC_API",
     "FX_NO_CORHOST_SIGNER",
     "FX_NO_LINKEDRESOURCES",
     "FX_NO_PDB_READER",
     "FX_NO_PDB_WRITER",
     "FX_NO_WEAKTABLE",
+    "FX_REDUCED_EXCEPTIONS",
     "NO_COMPILER_BACKEND",
-    "NO_INLINE_IL_PARSER",
-    "TRACE"
+    "NO_INLINE_IL_PARSER"
   ]
 };
 

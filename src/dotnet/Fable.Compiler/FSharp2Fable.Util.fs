@@ -127,12 +127,13 @@ module Helpers =
     // Sometimes accessing `EnclosingEntity` throws an error (e.g. compiler generated
     // methods as in #237) so this prevents uncaught exceptions
     let tryEnclosingEntity (meth: FSharpMemberOrFunctionOrValue) =
-        try Some meth.EnclosingEntity
+        try meth.EnclosingEntity
         with _ -> None
 
     let isModuleMember (meth: FSharpMemberOrFunctionOrValue) =
-        try meth.EnclosingEntity.IsFSharpModule
-        with _ -> false
+        match tryEnclosingEntity meth with
+        | Some ent -> ent.IsFSharpModule
+        | None -> false
 
     let isInline (meth: FSharpMemberOrFunctionOrValue) =
         match meth.InlineAnnotation with
@@ -140,6 +141,7 @@ module Helpers =
         | FSharpInlineAnnotation.OptionalInline -> false
         | FSharpInlineAnnotation.PseudoValue
         | FSharpInlineAnnotation.AlwaysInline -> true
+        | FSharpInlineAnnotation.AggressiveInline -> failwith "Not Implemented"
 
     /// .IsPrivate for members of a private module always evaluate to true (see #696)
     /// so we just make all members of a private module public until a proper solution comes in FCS

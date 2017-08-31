@@ -21,6 +21,6 @@
     <Content Include="..\..\..\build\fable-core\" PackagePath="fable-core\" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="4.2.1" />
+    <PackageReference Include="FSharp.Core" Version="4.2.3" />
   </ItemGroup>
 </Project>

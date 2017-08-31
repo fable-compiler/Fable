@@ -137,7 +137,7 @@ let rec private projInfo additionalMSBuildProps file =
       let projOptions =
           {
               ProjectFileName = file
-              ProjectFileNames = [||]
+              SourceFiles = [||]
               OtherOptions = rsp |> List.map compileFilesToAbsolutePath |> Array.ofList
               ReferencedProjects = [||] //p2pProjects |> Array.ofList
               IsIncompleteTypeCheckEnvironment = false
@@ -146,6 +146,7 @@ let rec private projInfo additionalMSBuildProps file =
               UnresolvedReferences = None;
               OriginalLoadReferences = []
               ExtraProjectInfo = None
+              Stamp = None
           }
       let projRefs = p2ps |> List.map (fun p2p -> p2p.ProjectReferenceFullPath)
       projOptions, projRefs, props

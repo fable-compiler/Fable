@@ -66,7 +66,7 @@ let createProject checker isWatchCompile (prevProject: Project option) (msg: Par
             Log.logVerbose(lazy
                 let proj = getRelativePath projectOptions.ProjectFileName
                 let opts = projectOptions.OtherOptions |> String.concat "\n   "
-                let files = projectOptions.ProjectFileNames |> String.concat "\n   "
+                let files = projectOptions.SourceFiles |> String.concat "\n   "
                 sprintf "F# PROJECT: %s\n   %s\n   %s" proj opts files)
             projectOptions, fableCore
     Log.logAlways(sprintf "Parsing %s..." (getRelativePath projectOptions.ProjectFileName))
@@ -103,7 +103,7 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
                 // If the project has been compiled previously we need to check
                 // the timestamps of all files, as the bundler may send new requests
                 // for files not modified if they were errored in the previous compilation
-                project.ProjectOptions.ProjectFileNames
+                project.ProjectOptions.SourceFiles
                 |> Seq.exists (fun file -> IO.File.GetLastWriteTime(file) > project.TimeStamp)
         if compiled then
             Log.logVerbose(lazy ("Watch compile triggered by: " + getRelativePath sourceFile))
@@ -175,7 +175,7 @@ let addFSharpErrorLogs (com: ICompiler) (project: FSharpCheckProjectResults) (fi
 let compile (com: Compiler) (project: Project) (filePath: string) =
     let babel =
         if filePath.EndsWith(".fsproj") then
-            let lastFile = Array.last project.ProjectOptions.ProjectFileNames
+            let lastFile = Array.last project.ProjectOptions.SourceFiles
             Fable2Babel.Compiler.createFacade filePath lastFile
         else
             FSharp2Fable.Compiler.transformFile com project project.CheckedProject filePath
@@ -227,6 +227,6 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
         | None ->
             return! loop checker state
     }
-    let checker = FSharpChecker.Create(keepAssemblyContents=true, msbuildEnabled=false)
+    let checker = FSharpChecker.Create(keepAssemblyContents=true)
     loop checker Map.empty
   )

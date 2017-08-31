@@ -55,7 +55,7 @@ type CrackedFsproj =
 
 let makeProjectOptions project sources otherOptions =
     { ProjectFileName = project
-      ProjectFileNames = sources
+      SourceFiles = sources
       OtherOptions = otherOptions
       ReferencedProjects = [| |]
       IsIncompleteTypeCheckEnvironment = false
@@ -63,7 +63,8 @@ let makeProjectOptions project sources otherOptions =
       LoadTime = DateTime.Now
       UnresolvedReferences = None
       OriginalLoadReferences = []
-      ExtraProjectInfo = None }
+      ExtraProjectInfo = None
+      Stamp = None }
 
 let getProjectOptionsFromScript (checker: FSharpChecker) (define: string[]) scriptFile =
     let otherFlags = [|
@@ -79,7 +80,7 @@ let getProjectOptionsFromScript (checker: FSharpChecker) (define: string[]) scri
     |> fun (opts, errors) ->
         // TODO: Check errors
         opts.OtherOptions
-        |> makeProjectOptions scriptFile opts.ProjectFileNames
+        |> makeProjectOptions scriptFile opts.SourceFiles
 
 let getBasicCompilerArgs (define: string[]) =
     [|
@@ -288,6 +289,6 @@ let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: st
     let projOpts, fableCoreJsDir = retryGetProjectOpts checker define projFile
     let projOpts =
         Array.append (getBasicCompilerArgs define) projOpts.OtherOptions
-        |> makeProjectOptions projOpts.ProjectFileName projOpts.ProjectFileNames
+        |> makeProjectOptions projOpts.ProjectFileName projOpts.SourceFiles
     projOpts, fableCoreJsDir
 
