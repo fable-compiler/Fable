@@ -7,7 +7,6 @@ open System.Reflection
 #endif
 open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
@@ -597,53 +596,6 @@ module Patterns =
         | Naming.StartsWith "Microsoft.FSharp.Core.decimal" _ -> Some Decimal
         | _ -> None
 
-    let (|Switch|_|) fsExpr =
-        let isStringOrNumber (NonAbbreviatedType typ) =
-            if not typ.HasTypeDefinition then false else
-            match typ.TypeDefinition.TryFullName with
-            | Some("System.String") -> true
-            | Some(NumberKind kind) -> true
-            | _ when typ.TypeDefinition.IsEnum -> true
-            | _ -> false
-        let rec makeSwitch map matchValue e =
-            // let addCase map (idx: int) (case: obj) =
-            //     match Map.tryFind idx map with
-            //     | Some cases -> Map.add idx (case::cases) map
-            //     | None -> Map.add idx [case] map
-            match e with
-            | IfThenElse(Call(None,op_Equality,[],_,[Value var; Const(case,_)]),
-                         DecisionTreeSuccess(idx, []), elseExpr)
-                when op_Equality.CompiledName.Equals("op_Equality") ->
-                let matchValue =
-                    match matchValue with
-                    | None -> if isStringOrNumber var.FullType then Some var else None
-                    | Some matchValue when matchValue.Equals(var) -> Some matchValue
-                    | _ -> None
-                match matchValue with
-                | Some matchValue ->
-                    let map =
-                        match Map.tryFind idx map with
-                        | Some cases -> Map.add idx (cases@[case]) map
-                        | None -> Map.add idx [case] map
-                    match elseExpr with
-                    | DecisionTreeSuccess(idx, []) ->
-                        Some(matchValue, map, idx)
-                    | elseExpr -> makeSwitch map (Some matchValue) elseExpr
-                | None -> None
-            | _ -> None
-        match fsExpr with
-        | DecisionTree(decisionExpr, decisionTargets) ->
-            // TODO: Optimize also simple pattern matching with union types
-            match makeSwitch Map.empty None decisionExpr with
-            | Some(matchValue, cases, defaultCase) ->
-                Some(matchValue, cases, defaultCase, decisionTargets)
-            | None -> None
-        | _ -> None
-
-    let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
-        atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
-            att.ConstructorArguments |> Seq.map snd |> Seq.toList)
-
     let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|PojoUnion|OtherType|) (NonAbbreviatedType typ: FSharpType) =
         match tryDefinition typ with
         | None -> OtherType
@@ -660,6 +612,67 @@ module Patterns =
                     elif name = Atts.pojo then Some PojoUnion
                     else None)
                 |> defaultArg <| OtherType
+
+    let (|Switch|_|) fsExpr =
+        let isStringOrNumber (NonAbbreviatedType typ) =
+            if not typ.HasTypeDefinition then false else
+            match typ.TypeDefinition.TryFullName with
+            | Some("System.String") -> true
+            | Some(NumberKind kind) -> true
+            | _ when typ.TypeDefinition.IsEnum -> true
+            | _ -> false
+        let rec makeSwitch isUnionType size map matchValue e =
+            match e with
+            | IfThenElse(Call(None,op_Equality,[],_,[Value var; Const(case,_)]), DecisionTreeSuccess(idx, bindings), elseExpr)
+                    when op_Equality.CompiledName.Equals("op_Equality") ->
+                let case =
+                    match case with
+                    | :? int as i -> Choice1Of2 i |> Some
+                    | :? string as s -> Choice2Of2 s |> Some
+                    | _ -> None
+                match case, matchValue with
+                | Some case, Some matchValue when matchValue.Equals(var) ->
+                    Some(matchValue,false,idx,bindings,case,elseExpr)
+                | Some case, None when isStringOrNumber var.FullType && not var.IsMemberThisValue && not(isInline var) ->
+                    Some(var,false,idx,bindings,case,elseExpr)
+                | _ -> None
+            | IfThenElse(UnionCaseTest(Value var,typ,case), DecisionTreeSuccess(idx, bindings), elseExpr) ->
+                let case = getUnionCaseIndex typ case.Name |> Choice1Of2
+                match matchValue with
+                | Some matchValue when matchValue.Equals(var) ->
+                    Some(matchValue,true,idx,bindings,case,elseExpr)
+                | None when not var.IsMemberThisValue && not(isInline var) ->
+                    match typ with
+                    | OptionUnion | ListUnion | ErasedUnion | StringEnum | PojoUnion -> None
+                    | OtherType -> Some(var,true,idx,bindings,case,elseExpr)
+                | _ -> None
+            | _ -> None
+            |> function
+                | Some(matchValue,isUnionType,idx,bindings,case,elseExpr) ->
+                    let map =
+                        match Map.tryFind idx map with
+                        | None -> Map.add idx (bindings, [case]) map |> Some
+                        | Some([],cases) when List.isEmpty bindings -> Map.add idx (bindings, cases@[case]) map |> Some
+                        | Some _ -> None // Multiple case with multiple var bindings, cannot optimize
+                    match map, elseExpr with
+                    | Some map, DecisionTreeSuccess(idx, bindings) ->
+                        Some(matchValue, isUnionType, size + 1, map, (idx, bindings))
+                    | Some map, elseExpr -> makeSwitch isUnionType (size + 1) map (Some matchValue) elseExpr
+                    | None, _ -> None
+                | None -> None
+        match fsExpr with
+        | DecisionTree(decisionExpr, decisionTargets) ->
+            match makeSwitch false 0 Map.empty None decisionExpr with
+            // For small sizes it's better not to convert to switch so
+            // the match is still a expression and not a statement
+            | Some(matchValue, isUnionType, size, cases, defaultCase) when size > 3 ->
+                Some(matchValue, isUnionType, cases, defaultCase, decisionTargets)
+            | _ -> None
+        | _ -> None
+
+    let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
+        atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
+            att.ConstructorArguments |> Seq.map snd |> Seq.toList)
 
 module Types =
     open Helpers

@@ -397,6 +397,10 @@ let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: 
     let targetRefsCount = getTargetRefsCount (Map.empty<int,int>) decisionExpr
     if targetRefsCount |> Map.exists (fun _ v -> v > 1)
     then
+        // If any of the decision targets is referred to more than once,
+        // resolve the condition first and compile decision targets as a
+        // switch to prevent code repetition (same target in different if branches)
+        // or having to create inner functions
         let ctx = { ctx with decisionTargets = None }
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         let tempVar = com.GetUniqueVar() |> makeIdent
@@ -424,24 +428,19 @@ let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: 
         let ctx = { ctx with decisionTargets = Some targets }
         transformExpr com ctx decisionExpr
 
-let private transformDecisionTreeSuccess (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) decIndex decBindings =
-        match ctx.decisionTargets with
-        | Some decisionTargets ->
-            match Map.tryFind decIndex decisionTargets with
-            | None -> failwithf "Missing decision target %O" (makeRange fsExpr.Range)
-            | Some ([], Transform com ctx decBody) -> decBody
-            // If we have values, bind them to context
-            | Some (decVars, decBody) ->
-                let ctx =
-                    (ctx, decVars, decBindings)
-                    |||> List.fold2 (fun ctx var (Transform com ctx binding) ->
-                        bindExpr ctx var binding)
-                transformExpr com ctx decBody
-        | None ->
-            decBindings
-            |> List.map (transformExpr com ctx)
-            |> List.append [makeIntConst decIndex]
-            |> makeArray Fable.Any
+let private transformDecisionTreeSuccess (com: IFableCompiler) (ctx: Context) (range: SourceLocation) decisionTargets decIndex decBindings =
+    match Map.tryFind decIndex decisionTargets with
+    | None -> failwithf "Missing decision target %O" range
+    | Some ([], Transform com ctx decBody) -> decBody
+    // If we have values, bind them to context
+    | Some (decVars, decBody) ->
+        if not(List.sameLength decVars decBindings) then
+            failwithf "Variables and bindings have different length %O" range
+        let ctx =
+            (ctx, decVars, decBindings)
+            |||> List.fold2 (fun ctx var (Transform com ctx binding) ->
+                bindExpr ctx var binding)
+        transformExpr com ctx decBody
 
 let private transformExpr (com: IFableCompiler) ctx fsExpr =
     match fsExpr with
@@ -844,26 +843,38 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> checkCase "tag"
 
     (** Pattern Matching *)
-    | Switch(matchValue, cases, defaultCase, decisionTargets) ->
-        let matchValueType = makeType com ctx.typeArgs matchValue.FullType
-        let matchValue = makeValueFrom com ctx None matchValueType false matchValue
+    | Switch(matchValue, isUnionType, cases, (defaultCase, defaultBindings), decisionTargets) ->
+        let decisionTargets = decisionTargets |> Seq.mapi (fun i d -> (i, d)) |> Map
+        let r, typ = makeRange fsExpr.Range, makeType com ctx.typeArgs fsExpr.Type
         let cases =
             cases
-            |> Seq.map (fun kv ->
-                let labels = List.map (makeTypeConst matchValueType) kv.Value
-                let body = snd decisionTargets.[kv.Key] |> transformExpr com ctx
+            |> Seq.map (fun (KeyValue(idx, (bindings, cases))) ->
+                let labels = cases |> List.map (function Choice1Of2 i -> makeIntConst i | Choice2Of2 s -> makeStrConst s)
+                let body = transformDecisionTreeSuccess com ctx r decisionTargets idx bindings
                 labels, body)
             |> Seq.toList
         let defaultCase =
-            snd decisionTargets.[defaultCase] |> transformExpr com ctx
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        Fable.Switch(matchValue, cases, Some defaultCase, typ, r)
+            transformDecisionTreeSuccess com ctx r decisionTargets defaultCase defaultBindings
+        let matchValue =
+            let matchValueType = makeType com ctx.typeArgs matchValue.FullType
+            let matchValue = makeValueFrom com ctx None matchValueType false matchValue
+            if isUnionType
+            then makeGet None Fable.String matchValue (makeStrConst "tag")
+            else matchValue
+        Fable.Switch(matchValue, cases, Some defaultCase, typ, Some r)
 
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
         transformDecisionTree com ctx fsExpr decisionExpr decisionTargets
 
     | BasicPatterns.DecisionTreeSuccess (decIndex, decBindings) ->
-        transformDecisionTreeSuccess com ctx fsExpr decIndex decBindings
+        match ctx.decisionTargets with
+        | Some decisionTargets ->
+            transformDecisionTreeSuccess com ctx (makeRange fsExpr.Range) decisionTargets decIndex decBindings
+        | None ->
+            decBindings
+            |> List.map (transformExpr com ctx)
+            |> List.append [makeIntConst decIndex]
+            |> makeArray Fable.Any
 
     | BasicPatterns.Quote(Transform com ctx expr) ->
         Fable.Quote(expr)
