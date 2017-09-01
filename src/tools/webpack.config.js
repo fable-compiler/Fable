@@ -1,17 +1,17 @@
 var path = require('path');
+var fableUtils = require("fable-utils");
 
 function resolve(relativePath) {
     return path.join(__dirname, relativePath);
 }
 
-var babelOptions = {
-  "presets": [
-    ["es2015", {"modules": false}]
-  ]
-}
+var babelOptions = fableUtils.resolveBabelOptions({
+    presets: [["es2015", { modules: "false" }]],
+    sourceMaps: true,
+})
 
 module.exports = {
-  entry: resolve('./QuickTest.fsx'),
+  entry: resolve('./QuickTest.fsproj'),
   output: {
     filename: 'QuickTest.js',
     path: resolve('temp'),
@@ -27,9 +27,7 @@ module.exports = {
             define: ["DEBUG"],
             fableCore: resolve("../../build/fable-core"),
             // babel: babelOptions,
-            extra: {
-              saveAst: resolve("temp")
-            }
+            // extra: { saveAst: resolve("temp") }
           }
         }
       },

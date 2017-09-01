@@ -1,23 +1,22 @@
 var fable = require('rollup-plugin-fable')
+var fableUtils = require("fable-utils")
 var path = require('path')
 
 function resolve(filePath) {
   return path.resolve(__dirname, filePath)
 }
 
-// var babelOptions = {
-//   "presets": [
-//     [resolve("../../../../node_modules/babel-preset-es2015"), {"modules": false}],
-//     //[resolve("../../../../node_modules/babel-preset-babili"), {}]
-//   ]
-// };
+var babelOptions = fableUtils.resolveBabelOptions({
+    presets: [["es2015", { modules: "false" }]],
+    sourceMaps: true,
+})
 
 var fableOptions = {
   //babel: babelOptions,
   fableCore: resolve("../../build/fable-core"),
   //plugins: [],
   define: ["DEBUG"],
-  extra: { saveAst: resolve("temp") }
+  // extra: { saveAst: resolve("temp") }
 };
 
 export default {
