@@ -1,4 +1,4 @@
-- tagline: 
+- tagline:
 
 # Getting started
 
@@ -9,10 +9,10 @@ Start by installing the Simple Fable template:
 **.NET Core less than v2** (you can find this by typing ```dotnet --version``` in your terminal)
 
 ```shell
-dotnet new -i "Fable.Template::*"
+dotnet new -i "Fable.Template::1.1.*"
 ```
 
-**.NET Core v2+** 
+**.NET Core v2+**
 
 ```shell
 dotnet new -i Fable.Template
