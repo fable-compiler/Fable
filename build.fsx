@@ -514,10 +514,11 @@ Target "All" (fun () ->
         runTestsDotnet ()
 )
 
+// Note: build target "All" before this
 // For this target to work, you need the following:
 // - Clone github.com/ncave/FSharp.Compiler.Service/ `fable` branch and put it
 //   in a folder next to Fable repo named `FSharp.Compiler.Service_fable`
-// - In `FSharp.Compiler.Service_fable` run `build CodeGen.NetCore -d:FABLE_COMPILER`
+// - In `FSharp.Compiler.Service_fable` run `fcs\build CodeGen.Fable`
 // > Attention: the generation of libraries metadata is not included in this target
 Target "REPL" (fun () ->
     let replDir = "src/dotnet/Fable.JS/demo"
@@ -529,6 +530,12 @@ Target "REPL" (fun () ->
 
     // Compile FCS/Fable with Fable
     Npm.script replDir "build" []
+)
+
+// Note: build target "All" before this
+Target "REPL.test" (fun () ->
+    let replTestDir = "src/dotnet/Fable.JS/testapp"
+    Npm.script replTestDir "build" []
 )
 
 // Start build

@@ -17,8 +17,8 @@
 
   <ItemGroup>
     <!-- <PackageReference Include="FSharp.Core" Version="4.2.*" /> -->
-    <!--<PackageReference Include="Fable.Core" Version="1.1.*" />-->
-    <!--<DotNetCliToolReference Include="dotnet-fable" Version="1.1.*" />-->
+    <PackageReference Include="Fable.Core" Version="1.2.0-*" />
+    <!--<DotNetCliToolReference Include="dotnet-fable" Version="1.2.*" />-->
   </ItemGroup>
 
 </Project>

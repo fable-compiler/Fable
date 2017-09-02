@@ -46,6 +46,21 @@
             // "program": "${workspaceRoot}/node_modules/.bin/webpack",
             "cwd": "${workspaceRoot}/src/tools",
             "stopOnEntry": true
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch REPL",
+            "url": "http://localhost:8080/repl.html",
+            "webRoot": "${workspaceRoot}/src/dotnet/Fable.JS/demo"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch REPL test",
+            "program": "${workspaceRoot}/src/dotnet/Fable.JS/testapp/out/app.js",
+            "args": [],
+            "cwd": "${workspaceRoot}/src/dotnet/Fable.JS/testapp"
         }
     ]
 }

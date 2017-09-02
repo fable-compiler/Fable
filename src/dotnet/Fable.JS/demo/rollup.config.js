@@ -30,7 +30,7 @@ var fableOptions = {
 
 export default {
   entry: resolve('../Fable.JS.fsproj'),
-  dest: resolve('./repl/bundle.js'),
+  dest: resolve('./repl/bundle.min.js'),
   format: 'iife', // 'amd', 'cjs', 'es', 'iife', 'umd'
   moduleName: 'Fable',
   //sourceMap: 'inline',
