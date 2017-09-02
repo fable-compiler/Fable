@@ -49,6 +49,20 @@ let ``DateTime can be JSON serialized forth and back``() =
     utc.Kind = DateTimeKind.Utc |> equal true
     utc.ToString("HH:mm") |> equal "17:30"
 
+[<Test>]
+let ``DateTime from Year 1 to 99 works``() =
+    let date = DateTime(1, 1, 1)
+    date.Year |> equal 1
+    let date = DateTime(99, 1, 1)
+    date.Year |> equal 99
+
+[<Test>]
+let ``DateTime UTC from Year 1 to 99 works``() =
+    let date = DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+    date.Year |> equal 1
+    let date = DateTime(99, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+    date.Year |> equal 99
+
 // TODO: These two tests give different values for .NET and JS because DateTime
 // becomes as a plain JS Date object, so I'm just checking the fields get translated
 [<Test>]
