@@ -13,9 +13,8 @@ export class Enumerator<T> {
     this.current = cur.value;
     return !cur.done;
   }
-  get Current() {
-    return this.current;
-  }
+  get Current() { return this.current; }
+  get get_Current() { return this.current; }
   public Reset() {
     throw new Error("JS iterators cannot be reset");
   }

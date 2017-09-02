@@ -3,7 +3,7 @@
   "scripts": {
     "preinstall": "dotnet restore .. --no-cache",
     "prebuild": "node ../../../../node_modules/webpack/bin/webpack --entry=./babel-standalone.js --output-path=./repl --output-filename=babel-standalone.js --output-library=Babel -p",
-    "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run webpack",
+    "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run rollup",
     "webpack": "node ../../../../node_modules/webpack/bin/webpack -p",
     "rollup": "node ../../../../node_modules/rollup/bin/rollup -c",
     "splitter": "node splitter.config.js",

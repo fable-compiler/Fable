@@ -62,10 +62,10 @@ module Naming =
     open System.Text.RegularExpressions
     open Patterns
 
-    let (|StartsWith|_|) pattern (txt: string) =
+    let (|StartsWith|_|) (pattern: string) (txt: string) =
         if txt.StartsWith pattern then Some pattern else None
 
-    let (|EndsWith|_|) pattern (txt: string) =
+    let (|EndsWith|_|) (pattern: string) (txt: string) =
         if txt.EndsWith pattern then Some pattern else None
 
     /// This is null to keep compatibility with Require.js
