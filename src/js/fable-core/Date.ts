@@ -60,6 +60,11 @@ export function create(
   } else {
     date = new Date(Date.UTC(year, month - 1, day, h, m, s, ms));
   }
+
+  if (year <= 99) {
+    date.setFullYear(year);
+  }
+
   if (isNaN(date.getTime())) {
     throw new Error("The parameters describe an unrepresentable Date.");
   }
