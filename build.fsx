@@ -238,13 +238,13 @@ let clean () =
         -- "src/dotnet/Fable.Client.JS/demo/**"
         -- "src/dotnet/Fable.Client.JS/testapp/**"
         ++ "src/plugins/nunit/bin"
-        ++ "src/tests*/**/bin"
+        ++ "tests*/**/bin"
         ++ "build"
     |> CleanDirs
 
     !! "src/dotnet/**/obj/*.nuspec"
         ++"src/plugins/nunit/obj/*.nuspec"
-        ++"src/tests**/**/obj/*.nuspec"
+        ++"tests**/**/obj/*.nuspec"
     |> DeleteFiles
 
 let nugetRestore baseDir () =
@@ -293,11 +293,11 @@ let buildJsonConverter () =
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
 let runTestsDotnet () =
-    // Util.run "src/tests_external" dotnetExePath "restore"
-    // Util.run "src/tests/DllRef" dotnetExePath "restore"
-    // Util.run "src/tests/Project With Spaces" dotnetExePath "restore"
-    Util.run "src/tests/Main" dotnetExePath "restore"
-    Util.run "src/tests/Main" dotnetExePath "test /p:TestRunner=xunit"
+    // Util.run "tests_external" dotnetExePath "restore"
+    // Util.run "tests/DllRef" dotnetExePath "restore"
+    // Util.run "tests/Project With Spaces" dotnetExePath "restore"
+    Util.run "tests/Main" dotnetExePath "restore"
+    Util.run "tests/Main" dotnetExePath "test /p:TestRunner=xunit"
 
 let runFableServer args f =
     let args = String.concat " " args
@@ -307,8 +307,8 @@ let runFableServer args f =
 
 let runTestsJS () =
     Npm.install __SOURCE_DIRECTORY__ []
-    Util.run __SOURCE_DIRECTORY__ dotnetExePath "restore src/tests/Main"
-    Util.run __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose --port free -- --config src/tests/webpack.config.js"
+    Util.run __SOURCE_DIRECTORY__ dotnetExePath "restore tests/Main"
+    Util.run __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose --port free -- --config tests/webpack.config.js"
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
 
 let quickTest() =
