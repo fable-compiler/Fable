@@ -62,7 +62,7 @@ let createProject checker isWatchCompile (prevProject: Project option) (msg: Par
             { prevProject.ProjectOptions with LoadTime = DateTime.Now }, prevProject.FableCore
         | None ->
             let projectOptions, fableCore =
-                getFullProjectOpts checker msg.define projFile
+                getFullProjectOpts checker msg projFile
             Log.logVerbose(lazy
                 let proj = getRelativePath projectOptions.ProjectFileName
                 let opts = projectOptions.OtherOptions |> String.concat "\n   "
@@ -200,9 +200,9 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                 let isUpdated, state, activeProject = updateState checker state msg
                 let comOptions =
                     { fableCore =
-                        match msg.fableCore with
-                        | Some fableCore -> fableCore.TrimEnd('/')
-                        | None -> (Path.getRelativePath msg.path activeProject.FableCore).TrimEnd('/')
+                        match activeProject.FableCore with
+                        | FilePath p -> (Path.getRelativePath msg.path p).TrimEnd('/')
+                        | NonFilePath p -> p.TrimEnd('/')
                       declaration = msg.declaration
                       typedArrays = msg.typedArrays
                       clampByteArrays = msg.clampByteArrays }

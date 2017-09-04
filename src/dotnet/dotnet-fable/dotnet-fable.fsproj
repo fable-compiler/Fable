@@ -11,10 +11,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ToolsUtil.fs" />
+    <Compile Include="Parser.fs" />
     <Compile Include="ProjectCoreCracker.fs" />
     <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
-    <Compile Include="Parser.fs" />
     <Compile Include="Server.fs" />
     <Compile Include="StateUtil.fs" />
     <Compile Include="Main.fs" />

@@ -9,7 +9,7 @@ open System.Xml.Linq
 open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
-open Fable.Core
+open Fable.State
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("Microsoft.")
@@ -17,6 +17,9 @@ let isSystemPackage (pkgName: string) =
         || pkgName.StartsWith("System.")
         || pkgName = "FSharp.Core"
         || pkgName = "Fable.Core"
+        
+let logWarningAndReturn (v:'T) str =
+    Log.logAlways("[WARNING] " + str); v
 
 /// Reads references from .paket.resolved file. Paket sorts the references in proper
 /// dependency order which is necessary to later merge sources from Fable libraries
@@ -32,10 +35,9 @@ let readPaketResolved (targetFramework: string) (projFile: string) =
         if File.Exists(paketRefs2)
         then File.ReadAllLines(paketRefs2)
         else
-            sprintf "\nWARNING: Cannot find PAKET info for project %s\n%s\n"
-                projFile "It won't be possible to resolve Fable libraries."
-            |> Log.logAlways
-            [||]
+            Path.GetFileName(projFile)
+            |> sprintf "Cannot find PAKET info for project %s, it won't be possible to resolve Fable libraries."
+            |> logWarningAndReturn [||]
 
 type ProjectReference =
     { ProjectFile: string
@@ -217,30 +219,42 @@ let crackFsproj (isFullCrack: bool) (projFile: string): CrackedFsproj =
     then fullyCrackFsproj projFile
     else getFsprojSourceFiles projFile
 
-let getProjectOptionsFromFsproj (projFile: string) =
+let getProjectOptionsFromFsproj (msg: Parser.Message) (projFile: string) =
     let mainProj = fullyCrackFsproj projFile
-    let fableCoreJsDir: string =
-        match mainProj.DllReferences |> List.tryFind (fun x -> x.EndsWith("Fable.Core.dll")) with
-        | Some dllRef ->
-            let dllDir = Path.GetDirectoryName(dllRef)
-            IO.Path.Combine(dllDir, "..", "..", "fable-core") |> Path.normalizeFullPath
-        | None -> failwithf "Cannot find Fable.Core reference in project %s" projFile
-    let rec crackProjects (acc: CrackedFsproj list) (projFile: U2<ProjectReference, CrackedFsproj>) =
+    let fableCoreJsDir: PathRef =
+        match msg.fableCore with
+        | Some path when path.StartsWith('.') -> Path.normalizeFullPath path |> FilePath
+        | Some path when Path.IsPathRooted(path) -> Path.normalizePath path |> FilePath
+        | Some path -> NonFilePath path
+        | None ->
+            mainProj.DllReferences
+            |> List.tryFind (fun x -> x.EndsWith("Fable.Core.dll"))
+            |> Option.bind (fun dllRef ->
+                let dllDir = Path.GetDirectoryName(dllRef)
+                let path = IO.Path.Combine(dllDir, "..", "..", "fable-core")
+                if Directory.Exists(path)
+                then Path.normalizeFullPath path |> FilePath |> Some
+                else None)
+            |> Option.defaultWith (fun () ->
+                sprintf "Cannot find Fable.Core JS files location for project %s, using `fable-core`. %s"
+                    (Path.GetFileName(projFile)) "Add a reference to Fable.Core package or set the fableCore option in the JS cient."
+                |> logWarningAndReturn (NonFilePath "fable-core"))
+    let rec crackProjects (acc: CrackedFsproj list) (projFile: Choice<ProjectReference, CrackedFsproj>) =
         let crackedFsproj =
             match projFile with
-            | U2.Case1 projRef ->
+            | Choice1Of2 projRef ->
                 let projFile = projRef.ProjectFile
                 match acc |> List.tryFind (fun x -> x.ProjectFile = projFile) with
                 | None -> crackFsproj projRef.IsDirectReference projFile
                 | Some crackedFsproj -> crackedFsproj
-            | U2.Case2 crackedFsproj -> crackedFsproj
+            | Choice2Of2 crackedFsproj -> crackedFsproj
         // Add always a reference to the front to preserve compilation order
         // Duplicated items will be removed later
         (crackedFsproj.ProjectReferences, crackedFsproj::acc)
         ||> Seq.foldBack (fun projRef acc ->
-            crackProjects acc (U2.Case1 projRef))
+            crackProjects acc (Choice1Of2 projRef))
     let crackedFsprojs =
-        crackProjects [] (U2.Case2 mainProj)
+        crackProjects [] (Choice2Of2 mainProj)
         |> List.distinctBy (fun x -> x.ProjectFile)
     let sourceFiles =
         crackedFsprojs |> Seq.collect (fun x -> x.SourceFiles) |> Seq.toArray
@@ -254,24 +268,24 @@ let getProjectOptionsFromFsproj (projFile: string) =
         |> Seq.map ((+) "-r:") |> Seq.toArray
     makeProjectOptions projFile sourceFiles otherOptions, fableCoreJsDir
 
-let getProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
+let getProjectOpts (checker: FSharpChecker) (msg: Parser.Message) (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
     | ".fsx" ->
         // getProjectOptionsFromScript checker define projFile
         failwith "Parsing .fsx scripts is not currently possible, please use a .fsproj project"
     | ".fsproj" ->
-        getProjectOptionsFromFsproj projFile
+        getProjectOptionsFromFsproj msg projFile
     | s -> failwithf "Unsupported project type: %s" s
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
 // file for changes. In some cases that editor will lock the file which can cause fable to
 // get a read error. If that happens the lock is usually brief so we can reasonably wait
 // for it to be released.
-let retryGetProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
+let retryGetProjectOpts (checker: FSharpChecker) (msg: Parser.Message) (projFile: string) =
     let retryUntil = (DateTime.Now + TimeSpan.FromSeconds 2.)
     let rec retry () =
         try
-            getProjectOpts checker define projFile
+            getProjectOpts checker msg projFile
         with
         | :? IOException as ioex ->
             if retryUntil > DateTime.Now then
@@ -282,13 +296,13 @@ let retryGetProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: s
         | _ -> reraise()
     retry()
 
-let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (projFile: string) =
+let getFullProjectOpts (checker: FSharpChecker) (msg: Parser.Message) (projFile: string) =
     let projFile = Path.GetFullPath(projFile)
     if not(File.Exists(projFile)) then
         failwith ("File does not exist: " + projFile)
-    let projOpts, fableCoreJsDir = retryGetProjectOpts checker define projFile
+    let projOpts, fableCoreJsDir = retryGetProjectOpts checker msg projFile
     let projOpts =
-        Array.append (getBasicCompilerArgs define) projOpts.OtherOptions
+        Array.append (getBasicCompilerArgs msg.define) projOpts.OtherOptions
         |> makeProjectOptions projOpts.ProjectFileName projOpts.SourceFiles
     projOpts, fableCoreJsDir
 

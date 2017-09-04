@@ -96,12 +96,7 @@ let parse (msg: string) =
         |> Array.append [|"FABLE_COMPILER"|]
         |> Array.distinct
       plugins = parseStringArray [||] "plugins" json
-      fableCore =
-        tryParseString "fableCore" json
-        |> Option.map (fun fableCore ->
-            if fableCore.StartsWith(".") || IO.Path.IsPathRooted(fableCore)
-            then Path.normalizeFullPath fableCore |> Path.getRelativePath path
-            else fableCore)
+      fableCore = tryParseString "fableCore" json
       declaration = parseBoolean false "declaration" json
       typedArrays = parseBoolean true "typedArrays" json
       clampByteArrays = parseBoolean false "clampByteArrays" json
