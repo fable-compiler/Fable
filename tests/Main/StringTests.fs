@@ -634,3 +634,8 @@ let ``String.filter works when predicate doesn't match``() =
 let ``String.filter works when predicate matches everything``() =
       String.filter (fun x -> x = '.') "..."
       |> equal ""
+
+[<Test>]
+let ``String.filter works with empty string``() =
+      String.filter (fun x -> x = '.') ""
+      |> equal ""
