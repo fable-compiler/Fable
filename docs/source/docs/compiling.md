@@ -32,7 +32,7 @@ Besides the default argument (`--projFile`), the following options are available
 Option                  | Short     | Description
 ------------------------|-----------|----------------------------------------------------------------------
 `--outDir`              | `-o`      | Where to put compiled JS files. Defaults to project directory.
-`--module`              | `-m`      | Specify module code generation: `commonjs` (default), `amd`, `umd` or `es2015`.
+`--module`              | `-m`      | Specify module code generation: `commonjs`, `amd`, `umd` (default) or `es2015`.
 `--sourceMaps`          | `-s`      | Generate source maps: `false` (default), `true` or `inline`.
 `--watch`               | `-w`      | Recompile project much faster on file modifications.
 `--ecma`                |           | Specify ECMAScript target version: `es5` (default) or `es2015`.
