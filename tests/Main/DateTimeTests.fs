@@ -30,6 +30,11 @@ let ``DateTime.ToString with format works``() =
     DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm")
     |> equal "16:37"
 
+[<Test>]
+let ``DateTime.ToString without separator works``() = // See #1131
+    DateTime(2017, 9, 5).ToString("yyyyMM")
+    |> equal "201709"
+
 // TODO
 // [<Test>]
 // let ``TimeSpan.ToString with format works``() =

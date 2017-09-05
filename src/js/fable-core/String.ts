@@ -207,7 +207,7 @@ export function format(str: string, ...args: any[]) {
               }
           }
         } else {
-          rep = pattern.replace(/\w+/g,
+          rep = pattern.replace(/(\w)\1*/g,
             (match2: any) => {
               let rep2 = match2;
               switch (match2.substring(0, 1)) {
