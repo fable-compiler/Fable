@@ -1,18 +1,11 @@
 RESTRICTION: >= net45
 NUGET
   remote: https://www.nuget.org/api/v2
-    DotLiquid (2.0.174)
     FAKE (4.63)
-    FSharp.Compiler.Service (2.0.0.6)
-    FSharp.Formatting (2.14.2)
-      FSharp.Compiler.Service (2.0.0.6)
-      FSharpVSPowerTools.Core (>= 2.3 < 2.4)
-    FSharpVSPowerTools.Core (2.3)
-      FSharp.Compiler.Service (>= 2.0.0.3)
     Octokit (0.24)
 GITHUB
   remote: fsprojects/FSharp.TypeProviders.StarterPack
     src/ProvidedTypes.fs (1341256f7cc11f09feb74edde028aa0513c53afd)
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (b4c76ae4e02fca9b838bf3e017e0829af17b45a6)
+    modules/Octokit/Octokit.fsx (0bde6564e7a9218200cee8c74b71d67fbe66fe51)
       Octokit (>= 0.20)
