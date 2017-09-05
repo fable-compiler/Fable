@@ -1,22 +1,62 @@
-- tagline: Fable features for easy interoperability
-
-**Attention**: This document corresponds to Fable 0.6.x and needs to be updated to the latest version. Please check the [migration guide](../blog/Introducing-0-7.html).
-
 # Interacting with JavaScript
 
-There are several ways to interact with the JavaScript world:
+This page is structured as a reference document. For a more practical approach to Fable and JavaScript interop, please check [this great guide by Zaid Ajaj](https://medium.com/@zaid.naom/f-interop-with-javascript-in-fable-the-complete-guide-ccc5b896a59f).
 
-- [Dynamic typing](#Dynamic-typing)
-- [Foreign interfaces](#Foreign-interfaces)
-- [Special attributes](#Special-attributes)
-- [Calling F# code from JavaScript](#Calling-F-code-from-JavaScript)
-- [JSON serialization](#JSON-serialization)
-- [Publishing a Fable package](#Publishing-a-Fable-package)
+## Importing JavaScript code
+
+To use code from JS libraries first you need to import it into F#. For this Fables uses [ES2015 imports](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import), which can be later transformed to other JS module systems like `commonjs` or `amd` by Babel.
+
+There are two ways to declare ES2015 imports in the Fable: by using either the **Import attribute** or the **import expressions**. The `ImportAttribute` can decorate members, types or modules and works as follows:
+
+```fsharp
+// Namespace imports
+[<Import("*", from="my-module")>]
+// import * from "my-module"
+
+// Member imports
+[<Import("myFunction", from="my-module")>]
+// import { myFunction } from "my-module"
+
+// Default imports
+[<Import("default", from="express")>]
+// import Express from "express"
+```
+
+> If the value is globally accessible in JS, you can use the `Global` attribute with an optional name parameter instead.
+
+Unless you are decorating an abstract member, you can use `jsNative` as a placeholder for the body:
+
+```fsharp
+open Fable.Core.JsInterop
+
+[<Import("default", from="express")>]
+let Express: obj = jsNative
+```
+
+By opening `Fable.Core.JsInterop`, you will also have access to **import expressions**. These expressions are generic so be sure to make the type of the imported value explicit.
+
+```fsharp
+open Fable.Core.JsInterop
+
+let buttons: obj = importAll "my-lib/buttons"
+// import * as buttons from "my-lib/buttons"
+
+// It works for function declarations too
+let getTheme(x: int): IInterface = importDefault "my-lib"
+// import getTheme from "my-lib"
+
+let myString: string = importMember "my-lib"
+// import { myString } from "my-lib"
+
+// Use just `import` to make the member name explicit
+// as with the ImportAttribute
+let aDifferentName: string = import "myString" "my-lib"
+// import { myString } from "my-lib"
+```
 
 ## Dynamic typing
 
-[Fable.Core.JsInterop](https://github.com/fable-compiler/Fable/blob/master/src/fable/Fable.Core/Fable.Core.fs)
-implements the F# dynamic operators so you can easily access an object property by name (without static check)
+[Fable.Core.JsInterop](https://github.com/fable-compiler/Fable/blob/master/src/fable/Fable.Core/Fable.Core.fs) implements the F# dynamic operators so you can easily access an object property by name (without static check)
 as follows:
 
 ```fsharp
@@ -31,13 +71,9 @@ printfn "Value: %O" jsObject?(pname) // Access with a string reference
 jsObject?myProperty <- 5 // Assignment is also possible
 ```
 
-When you combine the dynamic operator with application, Fable will destructure
-tuple arguments as with normal method calls. These operations can also be chained
-to replicate JS fluent APIs.
+When you combine the dynamic operator with application, Fable will destructure tuple arguments as with normal method calls. These operations can also be chained to replicate JS fluent APIs.
 
 ```fsharp
-open Fable.Core.JsInterop
-
 let result = jsObject?myMethod(1, 2)
 // var result = jsObject.myMethod(1, 2)
 
@@ -46,81 +82,96 @@ chart
     ?height(480.)
     ?group(speedSumGroup)
     ?on("renderlet", fun chart ->
-        chart?selectAll("rect")?on("click", fun d ->
-            Browser.console.log("click!", d))
+        chart?selectAll("rect")?on("click", fun sender args ->
+            Browser.console.log("click!", args))
 // chart
 //     .width(768)
 //     .height(480)
 //     .group(speedSumGroup)
 //     .on("renderlet", function (chart) {
-//         return chart.selectAll("rect").on("click", function (d) {
-//             return console.log("click!", d);
+//         return chart.selectAll("rect").on("click", function (sender, args) {
+//             return console.log("click!", args);
 //         });
 //      });
 ```
 
-> CAUTION: When you don't use the dynamic operator and apply a tuple
-to a function value, it won't be destructured (tuples are translated
-to JS arrays). See _Calling F# code from JavaScript_ below for more info.
-However, you can still use the `$` operator to destructure and apply a
-tuple to an arbitrary value.
+> Note that in order to make this possible, the output of the `?` is an applicable value. If you don't want this behaviour, `unbox` or the `!!` dynamic cast operator: `let myValue: int = !!myObj?otherMethod("foo", "bar")`
 
-If you want to call the function with the `new` keyword, use `Fable.Core.createNew` instead.
+When you have to call a function with the `new` keyword in JS, use `createNew`.
 
 ```fsharp
 open Fable.Core.JsInterop
 
-let instance = createNew jsObject?method (1, 2)
+let instance = createNew jsObject?myMethod(1, 2)
+// var instance = new jsObject.myMethod(1, 2)
 ```
 
-And when you need to create JS object literals, use `createObj`:
+If you prefer the OOP style rather than the operators for dynamic typing, you can easily define your own extensions for the `obj` type.
 
 ```fsharp
+open System
+open Fable.Core
 open Fable.Core.JsInterop
+
+type Object with
+  [<Emit("$0[$1]")>]
+  member __.Item(idx: string): obj = jsNative
+  [<Emit("$0($1...)")>]
+  member __.Invoke([<ParamArray>] args: obj[]): obj = jsNative
+
+let foo = obj()
+let bar1 = foo.["b"]
+let bar2 = foo.Invoke(4, "a")
+```
+
+## Plain Old JavaScript Objects
+
+To create a plain JS object (aka POJO), use `createObj`:
+
+```fsharp
+open FSharp.Core.JsInterop
 
 let data =
     createObj [
         "todos" ==> Storage.fetch()
-        "newTodo" ==> ""
         "editedTodo" ==> None
         "visibility" ==> "all"
     ]
 ```
 
-## Foreign interfaces
+You can also create a JS object from an interface by using `createEmpty` and then assigning manually:
 
-Defining a foreign interface is trivial: just create a F# interface and the
-compiler will call its properties or methods by name. The tricky part is to
-tell the compiler where the objects should be retrieved from. Normally, they
-will be exposed as values of an imported module, so you just need to indicate
-the compiler where this module is coming from using the `Import` attribute (see below).
-For example, if you want to use `string_decoder` from node, just write:
+```fsharp
+type IMyInterface =
+    abstract foo: string with get, set
+    abstract bar: float with get, set
+
+let x = createEmpty<IMyInterface> // var x = {}
+x.foo <- "abc"                    // x.foo = "abc"
+x.bar <- 8.5                      // val.bar = 8.5
+```
+
+It is also possible to instantiate a plain JS object in a type-safe manner by declaring an F# record with the `Pojo` attribute:
 
 ```fsharp
 open Fable.Core
 
-[<Import("*","string_decoder")>]
-module string_decoder =
-    type NodeStringDecoder =
-        abstract write: buffer: Buffer -> strings
-        abstract detectIncompleteChar: buffer: Buffer -> float
+type [<Pojo>] MyRecord =
+    { aNumber: int; aString: string }
 
-    let StringDecoder: NodeStringDecoder = jsNative
+let foo = { aNumber = 5; aString = "bar" }
+// var foo = { aNumber: 5, aString: "bar" }
 ```
 
-> If a method accepts a lambda make sure to use `System.Func` in the signature to force
-the compiler _uncurry_ any lambda passed as parameter (see below).
+This is mainly useful to interact with JS libraries that expect a plain object (e.g., for configuration) instead of a class instance. But do not abuse this solution because records with `Pojo` attribute will miss features like members or reflection.
 
-A good starting point for foreign interfaces are [Typescript definition files](http://definitelytyped.org)
-and there's a script to make the bulk work of translating the file into F#. You can install it from npm.
-See the [README](https://www.npmjs.com/package/ts2fable) for more information.
+## Foreign interfaces
 
-```shell
-npm install -g ts2fable
-```
+Defining a foreign interface is trivial: just create an F# interface and the compiler will call its properties or methods by name. However doing this may be a bit tedious for JS libraries with large APIs, so we better take advantage of [Typescript definition files](http://definitelytyped.org) using [ts2fable](https://www.npmjs.com/package/ts2fable), a tool to translate `.d.ts` files into F# sources with Fable metadata. Check the [README file](https://www.npmjs.com/package/ts2fable) for installation and usage instructions.
 
-You can find common definitions already parsed [here](https://github.com/fable-compiler/Fable/blob/master/import).
-Some of them are available in npm, just search for `fable-import` packages.
+> Please note ts2fable is currently being updated and you may need to do some manual fixes after the automatic translation.
+
+You can find common definitions already parsed [here](https://github.com/fable-compiler/fable-import). These are already published in Nuget, where you can find more packages maintained by other contributors, usually [prefixed by Fable.Import](https://www.nuget.org/packages?q=Fable.Import). You can also find some other bindings and helpers in the [fable-awesome list](https://github.com/kunjee17/awesome-fable#libraries).
 
 ## Special attributes
 
@@ -128,10 +179,7 @@ There are some attributes available in the `Fable.Core` namespace to ease the in
 
 ### Emit attribute
 
-You can use the `Emit` attribute to decorate a function. Every call to the
-function will then be replaced **inline** by the content of the attribute
-with the placeholders `$0`, `$1`, `$2`... replaced by the arguments. For example,
-the following code will generate JavaScript as seen below.
+You can use the `Emit` attribute to decorate a function. Every call to the function will then be replaced **inline** by the content of the attribute with the placeholders `$0`, `$1`, `$2`... replaced by the arguments. For example, the following code will generate JavaScript as seen below.
 
 ```fsharp
 open Fable.Core
@@ -166,71 +214,11 @@ type Test() =
     member __.ParseRegex(pattern: string, ?ignoreCase: bool): Regex = jsNative
 ```
 
-The content of `Emit` will actually be parsed by Babel so it will still be
-validated somehow. However, it's not advised to abuse this method, as the
-code in the template will remain obscure to Fable and may prevent some
-optimizations.
-
-### Import attribute
-
-The `Import` attribute can be applied to modules, types and even functions.
-It will translate to [ES2015 import statements](https://developer.mozilla.org/en/docs/web/javascript/reference/statements/import),
-which can be later transformed to `commonjs`, `amd` or `umd` imports by Babel.
-
-```fsharp
-// Namespace imports
-[<Import("*", from="my-module")>]
-// import * from "my-module"
-
-// Member imports
-[<Import("myFunction", from="my-module")>]
-// import { myFunction } from "my-module"
-
-// Default imports
-[<Import("default", from="express")>]
-// import express from "express"
-```
-
-> If the module or value is globally accessible in JavaScript,
-you can use the `Global` attribute without parameters instead.
-
-> When importing a relative path (starting with `.` as in `./js/myLib.js`),
-the path will be resolved so it can be reached from `outDir` in the compiled JS code.
-
-`Fable.Core.JsInterop` also contains import expressions. These are mostly
-useful when you need to import JS libraries without a foreign interface.
-
-```fsharp
-open Fable.Core.JsInterop
-
-let buttons = importAll<obj> "material-ui/buttons"
-// import * as buttons from "material-ui/buttons"
-
-let deepOrange500 = importMember<string> "material-ui/styles/colors"
-// import { deepOrange500 } from "material-ui/styles/colors"
-
-let getMuiTheme = importDefault<obj->obj> "material-ui/styles/getMuiTheme"
-// import getMuiTheme from "material-ui/styles/getMuiTheme"
-```
-
-> Note that Fable automatically uses the name of the let-bound variable
-in the second example, this means you must always immediately assign the
-result of `importMember` to a named value.
-
-> A difference between import attributes and expressions is the former are
-not resolved in the file where they're declared (as this can be erased
-bindings) but in the file where thery're used. While import expressions are
-always resolved where they're declared. But if you don't understand this,
-don't worry too much, this is usually transparent to the user :)
+The content of `Emit` will actually be parsed by Babel so it will still be validated somehow. However, it's not advised to abuse this method, as the code in the template will remain obscure to Fable and may prevent some optimizations.
 
 ### Erase attribute
 
-In TypeScript there's a concept of [Union Types](https://www.typescriptlang.org/docs/handbook/advanced-types.html#union-types)
-which differs from union types in F#. The former are just used to statically check a function argument
-accepting different types. In Fable, they're translated as **Erased Union Types**
-whose cases must have one and only one single data field. After compilation, the wrapping
-will be erased and only the data field will remain. To define an erased union type, just attach
-the `Erase` attribute to the type. Example:
+In TypeScript there's a concept of [Union Types](https://www.typescriptlang.org/docs/handbook/advanced-types.html#union-types) which differs from union types in F#. The former are just used to statically check a function argument accepting different types. In Fable, they're translated as **Erased Union Types** whose cases must have one and only one single data field. After compilation, the wrapping will be erased and only the data field will remain. To define an erased union type, just attach the `Erase` attribute to the type. Example:
 
 ```fsharp
 open Fable.Core
@@ -264,15 +252,9 @@ let myMethod (arg: U3<string, int, Test>) =
 
 ### StringEnum attribute
 
-Similarly, in TypeScript it's possible to define [String Literal Types](https://www.typescriptlang.org/docs/handbook/advanced-types.html#string-literal-types)
-which are similar to enumerations with an underlying string value.
-Fable allows the same feature by using union types and the `StringEnum` attribute.
-These union types must not have any data fields as they will be compiled
-to a string matching the name of the union case.
+Similarly, in TypeScript it's possible to define [String Literal Types](https://www.typescriptlang.org/docs/handbook/advanced-types.html#string-literal-types) which are similar to enumerations with an underlying string value. Fable allows the same feature by using union types and the `StringEnum` attribute. These union types must not have any data fields as they will be compiled to a string matching the name of the union case.
 
-By default, the compiled string will have the first letter lowered.
-If you want to prevent this or use a different text than the union
-case name, use the `CompiledName` attribute:
+By default, the compiled string will have the first letter lowered. If you want to prevent this or use a different text than the union case name, use the `CompiledName` attribute:
 
 ```fsharp
 open Fable.Core
@@ -289,255 +271,43 @@ myLib.myMethod(Vertical, Horizontal)
 myLib.myMethod("vertical", "Horizontal")
 ```
 
-### KeyValueList attribute
-
-Many JS libraries accept a plain object to specify different options.
-With Fable, you can use union types to define these options in a more
-static-safe and F#-idiomatic manner. The union cases of a type with the
-`KeyValueList` attribute act as a key value pair, so they should have a
-single data field (if there's no data field the value is assumed to be `true`).
-When Fable encounters a **list** of such an union type, it will compile it as
-a plain JS object.
-
-As with `StringEnum` the first letter of the key (the union case name)
-will be lowered. Again, you can modify this behaviour with the `CompiledName`
-attribute.
-
-You can also allow custom key value pairs by adding an extra
-union case with the `Erase` attribute.
-
-```fsharp
-open Fable.Core
-
-[<KeyValueList>]
-type MyOptions =
-    | Flag1
-    | Name of string
-    | [<CompiledName("QTY")>] QTY of int
-    | [<Erase>] Extra of string * obj
-
-myLib.myMethod [
-    Name "Fable"
-    QTY 5
-    Flag1
-    Extra ("newOption", 10.5)
-]
-```
-
-```js
-myLib.myMethod({
-    name: "Fable",
-    QTY: 5,
-    flag1: true,
-    newOption: 10.5
-})
-```
-
-> Note: Using tuples directly will have the same effect as the `Erase` attribute:
-
-```fsharp
-myLib.myMethod [Name "Fable"; unbox("level", 4)]
-// myLib.myMethod({ name: "Fable", level: 4 })
-```
-
-As these lists will be compiled as JS objects, please note you
-cannot apply the usual list operations to them (e.g. appending).
-If you want to manipulate the "fake" lists you must implement the
-methods yourself. For example:
-
-```fsharp
-[<KeyValueList>]
-type CSSProp =
-    | Border of string
-    | Display of string
-
-[<Emit("Object.assign({}, $0, $1)")>]
-let ( ++ ) (a:'a list) (b:'a list) : 'a list = jsNative
-
-let niceBorder = [ Border "1px solid blue" ]
-let style = [ Display "inline-block" ] ++ niceBorder
-```
-
-## Calling F# code from JavaScript
-
-When interacting with JavaScript libraries, it's usual to send callbacks
-that will be called from JS code. For this to work properly with F# functions
-you must take a few things into consideration:
-
-- In F# **commas are always used for tuples**:
-
-```fsharp
-fun (x, y) -> x + y
-// JS: function (tupledArg) { return tupledArg[0] + tupledArg[1]; }
-```
-
-- In F# **function arguments are always curried**, so lambdas with multiple
-  arguments translate to single-argument functions returning another function.
-  To make it a multi-argument function in JS, you must **convert it to a delegate**
-  (like `System.Func<_,_,_>`):
-
-```fsharp
-fun x y -> x + y
-// JS: function (x) { return function (y) { return x + y; } }
-
-System.Func<_,_,_>(fun x y -> x + y)
-// JS: function (x, y) { return x + y; }
-```
-
-- Fable will **automatically convert F# functions to delegates** in some situations:
-    - When passing an F# lambda to a method accepting a delegate.
-    - When passing functions as arguments to `EmitAttribute`.
-    - When using dynamic typing, with `?`, `$`, `createObj` or `createNew`.
-
-> Note: If you experience problems make the conversion explicit.
-
-
-
-```fsharp
-type ITest =
-    abstract setCallback: Func<int,int,int> -> unit
-
-let test(o: ITest) =
-    o.setCallback(fun x y -> x + y)
-
-// function test(o) {
-//   o.setCallback(function (x, y) {
-//     return x + y;
-//   });
-// }
-```
-
-```fsharp
-let myMeth x y = x + y
-
-let test(o: obj) =
-    o?foo(fun x y -> x + y) |> ignore
-    o?bar <- fun x y -> x + y
-
-    // Direct application with ($) operator
-    o $ (fun x y -> x * y) |> ignore
-
-    createObj [
-        "bar" ==> fun x y z -> x * y * z
-        "bar2" ==> myMeth
-    ]
-
-// function test(o) {
-//   o.foo(function (x, y) {
-//     return x + y;
-//   });
-
-//   o.bar = function (x, y) {
-//     return x + y;
-//   };
-
-//   o(function (x, y) {
-//     return x * y;
-//   });
-
-//   return {
-//     bar: function bar(x, y, z) {
-//       return x * y * z;
-//     },
-//     bar2: function bar2(x, y) {
-//       return myMeth(x, y);
-//     }
-//   };
-// }
-```
-
 ## JSON serialization
 
-It's possible to use `JSON.stringify` and `JSON.parse` to serialize objects back
-and forth, particularly with record and union types. Records will serialize as plain
-JS objects and unions will be serialized the same way as with [Json.NET](http://www.newtonsoft.com/json),
-making it easier to interact with a .NET server.
-
-The only problem is `JSON.parse` will produce a plain JS object which won't work if
-you need to type test it or access the prototype members. When this is necessary, you
-can use `toJson` and `ofJson` functions in `Fable.Core.JsInterop` module. This will
-save the type full name in a `$type` field so Fable will know which type to construct
-when deserializing:
+To make it easier to share types when you are also using F# on the server side, the functions `toJson` and `ofJson` are available in `Fable.Core.JsInterop` module. Unlike native JSON parsing in JavaScript, `ofJson` will _inflate_ a proper instance of the target type if the string is well formed, that is, if it is the result of serializing the same type with `toJson` or `Fable.JsonConverter` (see below).
 
 ```fsharp
 open Fable.Core.JsInterop
 
 type Tree =
     | Leaf of int
-    | Branch of Tree[]
+    | Branch of Tree list
     member this.Sum() =
         match this with
         | Leaf i -> i
         | Branch trees ->
             trees |> Seq.map (fun x -> x.Sum()) |> Seq.sum
 
-let tree =
-    Branch [|Leaf 1; Leaf 2; Branch [|Leaf 3; Leaf 4|]|]
+let tree = Branch [Leaf 1; Leaf 2; Branch [Leaf 3; Leaf 4]]
 
 let json = toJson tree
 let tree2 = ofJson<Tree> json
 
-let typeTest = box tree2 :? Tree    // Type is kept
+let typeTest = (box tree2) :? Tree      // Type is kept
 let sum = tree2.Sum()   // Prototype members can be accessed
 ```
 
-> This will work when exchanging objects with a server, if the
-server includes the type full name in a `$type` field and the
-client code knows the type definiton. With Json.NET you can do
-this by simply using the `TypeNameHandling.All` setting.
-
-```fsharp
-type R = { i: int; s: string }
-
-let x = { i=1; s="1" }
-let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-
-// {"$type":"Fable.Tests.Lists+R, Fable.Tests","i":1,"s":"1"}
-```
-
-Caveats:
-
-- Works with records, unions and classes with an argumentless primary constructor.
-- For classes, only properties (getters) will be serialized. Properties must also
-  have a public setter for correct deserialization (`[<CLIMutable>]` doesn't work).
-- Arrays will always be deserialized as dynamic JS arrays, not typed arrays.
-- Not compatible with atttibutes like `[<JsonIgnore>]`.
-- Fable doesn't include the same type information as Json.NET (generic arguments and assembly
-  name are missing), so you need to specify the target type for proper deserialization on
-  the server side.
-- `DateTime` will always be serialized in UTC format and any string matching the [DateTime ISO Format](https://www.w3.org/TR/NOTE-datetime)
-  will be deserialized as a string.
-- Be aware when using type attrbitues like `[<PoJo>]` that they are applied at both sides serialising and deserialising. Otherwise you will see unexpected runtime behaviour.
-- Json.NET doesn't serialize type info for F# unions even when using the `TypeNameHandling.All` setting,
-  but `Fable.JsonConverter` overcomes this limitation.
-
-Fable.JsonConverter:
-
-You can install directly via [nuget](https://www.nuget.org/packages/Fable.JsonConvert/) by simply adding it as a dependency to you `paket.dependencies` file:
-
-```
-nuget Fable.JsonConverter
-```
-
-Now you can use the converter directly in your code by passing it to the `JsonConvert.SerializeObject` method.
+On the server side, you can use [Newtonsoft.Json](https://www.newtonsoft.com/json) + [Fable.JsonConverter](https://www.nuget.org/packages/Fable.JsonConverter/), as follows:
 
 ```fsharp
 open Newtonsoft.Json
 
+// Always use the same instance of the converter
+// as it will create a cache to improve performance
 let jsonConverter = Fable.JsonConverter() :> JsonConverter
 
-let toJson value =
-    JsonConvert.SerializeObject(value, [|jsonConverter|])
+// Serialization
+JsonConvert.SerializeObject(value, [|jsonConverter|])
 
-type U = A of int | B of string * float
-
-let a = A 4
-toJson a
-
-let b = B("hi",5.6)
-toJson b
+// Deserialization
+JsonConvert.DeserializeObject<MyType>(json, [|jsonConverter|])
 ```
-
-## Publishing a Fable package
-
-See [fable-helpers-sample](https://www.npmjs.com/package/fable-helpers-sample) to know how to publish a Fable package.
