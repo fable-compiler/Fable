@@ -7,6 +7,9 @@ build:
 environment:
   nodejs_version: "6.11.0"
 
+cache:
+ - "%LOCALAPPDATA%\\Yarn"
+
 # Install scripts. (runs after repo cloning)
 install:
   # Get the latest stable version of Node.js
@@ -28,4 +31,3 @@ test: off
 #     name: fable
 #   - path: samples
 #     name: samples
-

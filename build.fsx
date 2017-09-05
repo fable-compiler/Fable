@@ -185,6 +185,16 @@ module Npm =
                 else line)
         File.WriteAllLines(pkgJson, lines)
 
+module Yarn =
+    open Fake.YarnHelper
+
+    let install workingDir =
+        Yarn (fun p ->
+            { p with
+                Command = Install Standard
+                WorkingDirectory = workingDir
+            })
+
 module Node =
     let run workingDir script args =
         let args = sprintf "%s %s" script (String.concat " " args)
@@ -258,13 +268,13 @@ let buildCLI baseDir isRelease () =
     |> Util.run (baseDir </> "dotnet-fable") dotnetExePath
 
 let buildCoreJS () =
-    Npm.install __SOURCE_DIRECTORY__ []
+    Yarn.install __SOURCE_DIRECTORY__
     Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" coreJsSrcDir]
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" coreJsSrcDir]
 
 let buildSplitter () =
     let buildDir = __SOURCE_DIRECTORY__ </> "src/js/fable-splitter"
-    Npm.install __SOURCE_DIRECTORY__ []
+    Yarn.install __SOURCE_DIRECTORY__
     // Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" buildDir]
     Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" buildDir]
 
@@ -306,7 +316,7 @@ let runFableServer args f =
     finally fableServer.Kill()
 
 let runTestsJS () =
-    Npm.install __SOURCE_DIRECTORY__ []
+    Yarn.install __SOURCE_DIRECTORY__
     Util.run __SOURCE_DIRECTORY__ dotnetExePath "restore tests/Main"
     Util.run __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose --port free -- --config tests/webpack.config.js"
     Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
@@ -522,7 +532,7 @@ Target "All" (fun () ->
 // > Attention: the generation of libraries metadata is not included in this target
 Target "REPL" (fun () ->
     let replDir = "src/dotnet/Fable.JS/demo"
-    Npm.install replDir []
+    Yarn.install replDir
 
     // Compile fable-core
     CreateDir (replDir + "/fable-core")
