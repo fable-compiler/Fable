@@ -622,20 +622,20 @@ let ``String.IsNullOrWhiteSpace works on blank only string``() =
 
 [<Test>]
 let ``String.filter works``() =
-      String.filter (fun x -> x = '.') "a.b.c"
-      |> equal "abc"
-
-[<Test>]
-let ``String.filter works when predicate doesn't match``() =
-      String.filter (fun x -> x = '.') "abc"
+      String.filter (fun x -> x <> '.') "a.b.c"
       |> equal "abc"
 
 [<Test>]
 let ``String.filter works when predicate matches everything``() =
-      String.filter (fun x -> x = '.') "..."
+      String.filter (fun x -> x <> '.') "abc"
+      |> equal "abc"
+
+[<Test>]
+let ``String.filter works when predicate doesn't match``() =
+      String.filter (fun x -> x <> '.') "..."
       |> equal ""
 
 [<Test>]
 let ``String.filter works with empty string``() =
-      String.filter (fun x -> x = '.') ""
+      String.filter (fun x -> x <> '.') ""
       |> equal ""
