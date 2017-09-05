@@ -2,7 +2,5 @@ source https://www.nuget.org/api/v2
 framework >= net45
 
 nuget FAKE
-nuget DotLiquid
-nuget FSharp.Formatting 2.14.2
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
 github fsharp/FAKE modules/Octokit/Octokit.fsx

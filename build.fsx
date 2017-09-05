@@ -200,28 +200,6 @@ module Node =
         let args = sprintf "%s %s" script (String.concat " " args)
         Util.run workingDir "node" args
 
-module Fake =
-    let fakePath = "packages" </> "docs" </> "FAKE" </> "tools" </> "FAKE.exe"
-    let fakeStartInfo script workingDirectory args fsiargs environmentVars =
-        (fun (info: System.Diagnostics.ProcessStartInfo) ->
-            info.FileName <- System.IO.Path.GetFullPath fakePath
-            info.Arguments <- sprintf "%s --fsiargs -d:FAKE %s \"%s\"" args fsiargs script
-            info.WorkingDirectory <- workingDirectory
-            let setVar k v = info.EnvironmentVariables.[k] <- v
-            for (k, v) in environmentVars do setVar k v
-            setVar "MSBuild" msBuildExe
-            setVar "GIT" Git.CommandHelper.gitPath
-            setVar "FSI" fsiPath)
-
-    /// Run the given buildscript with FAKE.exe
-    let executeFAKEWithOutput workingDirectory script fsiargs envArgs =
-        let exitCode =
-            ExecProcessWithLambdas
-                (fakeStartInfo script workingDirectory "" fsiargs envArgs)
-                TimeSpan.MaxValue false ignore ignore
-        System.Threading.Thread.Sleep 1000
-        exitCode
-
 // Project info
 let project = "Fable"
 let authors = ["Alfonso García-Caro"]
@@ -427,26 +405,6 @@ let pushNpm build (projDir: string) =
         // After successful publishing, update the project file in source dir
         if projDir <> projDir then
             Npm.command projDir "version" [releaseNotes.NugetVersion]
-
-// Target "BrowseDocs" (fun _ ->
-//     let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "BrowseDocs"]
-//     if exit <> 0 then failwith "Browsing documentation failed"
-// )
-
-Target "GenerateDocs" (fun _ ->
-    let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "GenerateDocs"]
-    if exit <> 0 then failwith "Generating documentation failed"
-)
-
-Target "PublishDocs" (fun _ ->
-    let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "PublishDocs"]
-    if exit <> 0 then failwith "Publishing documentation failed"
-)
-
-Target "PublishStaticPages" (fun _ ->
-    let exit = Fake.executeFAKEWithOutput "docs" "docs.fsx" "" ["target", "PublishStaticPages"]
-    if exit <> 0 then failwith "Publishing documentation failed"
-)
 
 Target "GitHubRelease" (fun _ ->
     let release =
