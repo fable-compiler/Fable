@@ -48,12 +48,12 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Fable.Core">
-      <HintPath>../../../build/fable/Fable.Core.dll</HintPath>
+      <HintPath>../../build/fable/Fable.Core.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup Condition="'$(TestRunner)' == 'xunit'">
     <Reference Include="Fable.JsonConverter">
-      <HintPath>../../../build/json-converter/Fable.JsonConverter.dll</HintPath>
+      <HintPath>../../build/json-converter/Fable.JsonConverter.dll</HintPath>
     </Reference>
     <PackageReference Include="Newtonsoft.Json" Version="10.0.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.3.0-preview-*" />

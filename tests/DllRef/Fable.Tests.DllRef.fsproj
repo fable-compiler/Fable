@@ -3,7 +3,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="../../../build/fable/Fable.Core.dll" />
+    <Reference Include="../../build/fable/Fable.Core.dll" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util/Util.fs" />

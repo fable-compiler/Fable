@@ -13,12 +13,12 @@ var babelOptions = {
 const config = {
   entry: resolve('./Main/Fable.Tests.fsproj'),
   output: {
-    path: resolve('../../build/tests'),
+    path: resolve('../build/tests'),
     filename: 'bundle.js'
   },
   resolve: {
     modules: [
-      "node_modules", resolve("../../node_modules/")
+      "node_modules", resolve("../node_modules/")
     ]
   },
   module: {
@@ -28,9 +28,9 @@ const config = {
         use: {
             loader: "fable-loader",
             options: {
-                fableCore: resolve("../../build/fable-core"),
+                fableCore: resolve("../build/fable-core"),
                 define: "DOTNETCORE",
-                plugins: resolve("../../build/nunit/Fable.Plugins.NUnit.dll"),
+                plugins: resolve("../build/nunit/Fable.Plugins.NUnit.dll"),
                 babel: babelOptions
             }
         }
