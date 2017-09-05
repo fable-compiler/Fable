@@ -414,3 +414,7 @@ export function trim(str: string, side: "start" | "end" | "both", ...chars: stri
   }
   return str;
 }
+
+export function filter(pred:(i: string) => string, x: string) {
+  return x.split('').filter(pred).join('');
+}

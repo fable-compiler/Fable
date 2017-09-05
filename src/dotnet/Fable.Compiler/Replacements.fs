@@ -1035,6 +1035,7 @@ module AstPass =
             | args -> CoreLibCall("String", Some "split", false, i.callee.Value::args)
             |> makeCall i.range Fable.String
             |> Some
+        | "filter" -> ccall i "String" "filter" i.args        
         | _ -> None
 
     let log com (i: Fable.ApplyInfo) =
