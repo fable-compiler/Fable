@@ -1,3 +1,8 @@
+### 1.2.0-beta-004
+
+* Fix format over local dates #1129
+* Fix 2 digits years datetime #1127
+
 ### 1.2.0-beta-003
 
 * Don't calculate relative path for paths in different drive letters on Windows
