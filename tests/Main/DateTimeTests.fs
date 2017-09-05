@@ -37,16 +37,6 @@ let ``DateTime.ToString with format works``() =
 //     |> equal "03:54:00"
 
 [<Test>]
-let ``DateTime.ToString with Round-trip format works for Utc`` =
-    DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
-    |> equal "2014-09-11T16:37:02.000Z"
-
-[<Test>]
-let ``DateTime.ToString with Round-trip format works for local`` =
-    DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
-    |> equal "2014-09-11T16:37:02.000+02:00"
-
-[<Test>]
 let ``DateTime can be JSON serialized forth and back``() =
     let utc = DateTime(2016, 8, 4, 17, 30, 0, DateTimeKind.Utc)
     #if FABLE_COMPILER
