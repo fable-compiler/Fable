@@ -151,29 +151,29 @@ export function fsFormat(str: string, ...args: any[]): ((...args: any[]) => any)
 
 export function format(str: string, ...args: any[]) {
   return str.replace(formatRegExp,
-    (match: any, idx: any, pad: any, format: any) => {
+    (match: any, idx: any, pad: any, pattern: any) => {
       let rep = args[idx];
       let padSymbol = " ";
       if (typeof rep === "number") {
-        switch ((format || "").substring(0, 1)) {
+        switch ((pattern || "").substring(0, 1)) {
           case "f": case "F":
-            rep = format.length > 1 ? rep.toFixed(format.substring(1)) : rep.toFixed(2);
+            rep = pattern.length > 1 ? rep.toFixed(pattern.substring(1)) : rep.toFixed(2);
             break;
           case "g": case "G":
-            rep = format.length > 1 ? rep.toPrecision(format.substring(1)) : rep.toPrecision();
+            rep = pattern.length > 1 ? rep.toPrecision(pattern.substring(1)) : rep.toPrecision();
             break;
           case "e": case "E":
-            rep = format.length > 1 ? rep.toExponential(format.substring(1)) : rep.toExponential();
+            rep = pattern.length > 1 ? rep.toExponential(pattern.substring(1)) : rep.toExponential();
             break;
           case "p": case "P":
-            rep = (format.length > 1 ? (rep * 100).toFixed(format.substring(1)) : (rep * 100).toFixed(2)) + " %";
+            rep = (pattern.length > 1 ? (rep * 100).toFixed(pattern.substring(1)) : (rep * 100).toFixed(2)) + " %";
             break;
           case "x":
             rep = toHex(Number(rep)); break;
           case "X":
             rep = toHex(Number(rep)).toUpperCase(); break;
           default:
-            const m = /^(0+)(\.0+)?$/.exec(format);
+            const m = /^(0+)(\.0+)?$/.exec(pattern);
             if (m != null) {
               let decs = 0;
               if (m[2] != null) {
@@ -181,13 +181,13 @@ export function format(str: string, ...args: any[]) {
               }
               pad = "," + (m[1].length + (decs ? decs + 1 : 0)).toString();
               padSymbol = "0";
-            } else if (format) {
-              rep = format;
+            } else if (pattern) {
+              rep = pattern;
             }
         }
       } else if (rep instanceof Date) {
-        if (format.length === 1) {
-          switch (format) {
+        if (pattern.length === 1) {
+          switch (pattern) {
             case "D":
               rep = rep.toDateString(); break;
             case "T":
@@ -207,7 +207,7 @@ export function format(str: string, ...args: any[]) {
               }
           }
         } else {
-          rep = format.replace(/\w+/g,
+          rep = pattern.replace(/\w+/g,
             (match2: any) => {
               let rep2 = match2;
               switch (match2.substring(0, 1)) {
