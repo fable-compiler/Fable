@@ -17,15 +17,15 @@ First of all, you need a couple of things installed on your computer for F# & Fa
 
 ## TL;DR
 
-After installing the requirements, the easiest way to get up and running is to use a Fable template. Below we will see how to install and run the [Fable.Template](https://www.nuget.org/packages/Fable.Template/) to create a simple web app.
+After installing the requirements, the easiest way to get up and running is to use a Fable template. Below we will see how to install and run the basic [Fable.Template](https://www.nuget.org/packages/Fable.Template/) to create a simple web app.
 
-Install the template:
+Install the template (the same command can be used to update the template to latest version):
 
 ```shell
 dotnet new -i Fable.Template
 ```
 
-Scaffold a Fable app from the template:
+After that, if you type `dotnet new -h` you should see "fable" among the list of available templates. Let's call it to scaffold a Fable app:
 
 ```shell
 dotnet new fable -n FableApp

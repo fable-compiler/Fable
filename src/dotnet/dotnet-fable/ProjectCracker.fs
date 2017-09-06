@@ -17,7 +17,7 @@ let isSystemPackage (pkgName: string) =
         || pkgName.StartsWith("System.")
         || pkgName = "FSharp.Core"
         || pkgName = "Fable.Core"
-        
+
 let logWarningAndReturn (v:'T) str =
     Log.logAlways("[WARNING] " + str); v
 
@@ -223,7 +223,7 @@ let getProjectOptionsFromFsproj (msg: Parser.Message) (projFile: string) =
     let mainProj = fullyCrackFsproj projFile
     let fableCoreJsDir: PathRef =
         match msg.fableCore with
-        | Some path when path.StartsWith('.') -> Path.normalizeFullPath path |> FilePath
+        | Some path when path.StartsWith(".") -> Path.normalizeFullPath path |> FilePath
         | Some path when Path.IsPathRooted(path) -> Path.normalizePath path |> FilePath
         | Some path -> NonFilePath path
         | None ->
