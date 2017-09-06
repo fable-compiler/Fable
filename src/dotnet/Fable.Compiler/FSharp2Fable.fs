@@ -442,6 +442,89 @@ let private transformDecisionTreeSuccess (com: IFableCompiler) (ctx: Context) (r
                 bindExpr ctx var binding)
         transformExpr com ctx decBody
 
+let private transformDelegate com ctx delegateType fsExpr =
+    let wrapInZeroArgsLambda r typ (args: FSharpExpr list) fref =
+        let args = List.map (transformExpr com ctx) args
+        let captureThis = ctx.thisAvailability <> ThisUnavailable
+        let body =
+            Fable.Apply(fref, args, Fable.ApplyMeth, typ, r)
+        Fable.Lambda([], body, Fable.LambdaInfo(captureThis)) |> Fable.Value
+    let isSpecialCase t =
+        tryDefinition t
+        |> Option.bind (fun tdef -> tdef.TryFullName)
+        |> Option.toBool (fun name -> name = "System.Func`1" || name = "System.Action")
+    match fsExpr with
+    // There are special cases (`Func` with one gen param and `Action` with no params)
+    // the F# compiler translates as an application
+    | BasicPatterns.Call(None,v,[],[],args)
+    | BasicPatterns.Application(BasicPatterns.Value v,_,args)
+    | BasicPatterns.Application(BasicPatterns.Application(BasicPatterns.Value v,_,args),_,_)
+            when isSpecialCase delegateType ->
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        makeValueFrom com ctx r typ false v |> wrapInZeroArgsLambda r typ args
+    | FlattenedLambda(args, tupleDestructs, body) ->
+        transformLambda com ctx args tupleDestructs body true
+    | fsExpr -> transformExpr com ctx fsExpr
+
+let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) fsExpr unionExpr (NonAbbreviatedType fsType) (unionCase: FSharpUnionCase) =
+    let unionExpr = transformExpr com ctx unionExpr
+    let checkCase propName right =
+        let left = makeGet None Fable.String unionExpr (makeStrConst propName)
+        makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
+    match fsType with
+    | ErasedUnion ->
+        let unionName = defaultArg fsType.TypeDefinition.TryFullName "unknown"
+        if unionCase.UnionCaseFields.Count <> 1 then
+            "Erased Union Cases must have one single field: " + unionName
+            |> addErrorAndReturnNull com ctx.fileName (makeRange fsExpr.Range |> Some)
+        else
+            let fi = unionCase.UnionCaseFields.[0]
+            if fi.FieldType.IsGenericParameter
+            then
+                let name = fi.FieldType.GenericParameter.Name
+                let index =
+                    fsType.TypeDefinition.GenericParameters
+                    |> Seq.findIndex (fun arg -> arg.Name = name)
+                fsType.GenericArguments |> Seq.item index
+            else fi.FieldType
+            |> makeType com ctx.typeArgs
+            |> makeTypeTest com (makeRangeFrom fsExpr) <| unionExpr
+    | OptionUnion ->
+        let opKind = if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
+        makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; Fable.Value Fable.Null] opKind
+    | ListUnion ->
+        let opKind = if unionCase.CompiledName = "Empty" then BinaryEqual else BinaryUnequal
+        let expr = makeGet None Fable.Any unionExpr (makeStrConst "tail")
+        makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [expr; Fable.Value Fable.Null] opKind
+    | StringEnum ->
+        makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerCaseName unionCase] BinaryEqualStrict
+    | PojoUnion ->
+        makeStrConst unionCase.Name |> checkCase "type"
+    | OtherType ->
+        getUnionCaseIndex fsType unionCase.Name
+        |> makeIntConst
+        |> checkCase "tag"
+
+let private transformSwitch com ctx (fsExpr: FSharpExpr) (matchValue: FSharpMemberOrFunctionOrValue) isUnionType cases (defaultCase, defaultBindings) decisionTargets =
+    let decisionTargets = decisionTargets |> Seq.mapi (fun i d -> (i, d)) |> Map
+    let r, typ = makeRange fsExpr.Range, makeType com ctx.typeArgs fsExpr.Type
+    let cases =
+        cases
+        |> Seq.map (fun (KeyValue(idx, (bindings, cases))) ->
+            let labels = cases |> List.map (function Choice1Of2 i -> makeIntConst i | Choice2Of2 s -> makeStrConst s)
+            let body = transformDecisionTreeSuccess com ctx r decisionTargets idx bindings
+            labels, body)
+        |> Seq.toList
+    let defaultCase =
+        transformDecisionTreeSuccess com ctx r decisionTargets defaultCase defaultBindings
+    let matchValue =
+        let matchValueType = makeType com ctx.typeArgs matchValue.FullType
+        let matchValue = makeValueFrom com ctx None matchValueType false matchValue
+        if isUnionType
+        then makeGet None Fable.String matchValue (makeStrConst "tag")
+        else matchValue
+    Fable.Switch(matchValue, cases, Some defaultCase, typ, Some r)
+
 let private transformExpr (com: IFableCompiler) ctx fsExpr =
     match fsExpr with
     (** ## Custom patterns *)
@@ -646,28 +729,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     (** ## Lambdas *)
     | BasicPatterns.NewDelegate(delegateType, fsExpr) ->
-        let wrapInZeroArgsLambda r typ (args: FSharpExpr list) fref =
-            let args = List.map (transformExpr com ctx) args
-            let captureThis = ctx.thisAvailability <> ThisUnavailable
-            let body =
-                Fable.Apply(fref, args, Fable.ApplyMeth, typ, r)
-            Fable.Lambda([], body, Fable.LambdaInfo(captureThis)) |> Fable.Value
-        let isSpecialCase t =
-            tryDefinition t
-            |> Option.bind (fun tdef -> tdef.TryFullName)
-            |> Option.toBool (fun name -> name = "System.Func`1" || name = "System.Action")
-        match fsExpr with
-        // There are special cases (`Func` with one gen param and `Action` with no params)
-        // the F# compiler translates as an application
-        | BasicPatterns.Call(None,v,[],[],args)
-        | BasicPatterns.Application(BasicPatterns.Value v,_,args)
-        | BasicPatterns.Application(BasicPatterns.Application(BasicPatterns.Value v,_,args),_,_)
-                when isSpecialCase delegateType ->
-            let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-            makeValueFrom com ctx r typ false v |> wrapInZeroArgsLambda r typ args
-        | FlattenedLambda(args, tupleDestructs, body) ->
-            transformLambda com ctx args tupleDestructs body true
-        | fsExpr -> transformExpr com ctx fsExpr
+        transformDelegate com ctx delegateType fsExpr
 
     | FlattenedLambda(args, tupleDestructs, body) ->
         transformLambda com ctx args tupleDestructs body false
@@ -804,64 +866,12 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.TypeTest (FableType com ctx typ, Transform com ctx expr) ->
         makeTypeTest com (makeRangeFrom fsExpr) typ expr
 
-    | BasicPatterns.UnionCaseTest(Transform com ctx unionExpr, NonAbbreviatedType fsType, unionCase) ->
-        let checkCase propName right =
-            let left = makeGet None Fable.String unionExpr (makeStrConst propName)
-            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
-        match fsType with
-        | ErasedUnion ->
-            let unionName = defaultArg fsType.TypeDefinition.TryFullName "unknown"
-            if unionCase.UnionCaseFields.Count <> 1 then
-                "Erased Union Cases must have one single field: " + unionName
-                |> addErrorAndReturnNull com ctx.fileName (makeRange fsExpr.Range |> Some)
-            else
-                let fi = unionCase.UnionCaseFields.[0]
-                if fi.FieldType.IsGenericParameter
-                then
-                    let name = fi.FieldType.GenericParameter.Name
-                    let index =
-                        fsType.TypeDefinition.GenericParameters
-                        |> Seq.findIndex (fun arg -> arg.Name = name)
-                    fsType.GenericArguments |> Seq.item index
-                else fi.FieldType
-                |> makeType com ctx.typeArgs
-                |> makeTypeTest com (makeRangeFrom fsExpr) <| unionExpr
-        | OptionUnion ->
-            let opKind = if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
-            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; Fable.Value Fable.Null] opKind
-        | ListUnion ->
-            let opKind = if unionCase.CompiledName = "Empty" then BinaryEqual else BinaryUnequal
-            let expr = makeGet None Fable.Any unionExpr (makeStrConst "tail")
-            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [expr; Fable.Value Fable.Null] opKind
-        | StringEnum ->
-            makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerCaseName unionCase] BinaryEqualStrict
-        | PojoUnion ->
-            makeStrConst unionCase.Name |> checkCase "type"
-        | OtherType ->
-            getUnionCaseIndex fsType unionCase.Name
-            |> makeIntConst
-            |> checkCase "tag"
+    | BasicPatterns.UnionCaseTest(unionExpr, fsType, unionCase) ->
+        transformUnionCaseTest com ctx fsExpr unionExpr fsType unionCase
 
     (** Pattern Matching *)
-    | Switch(matchValue, isUnionType, cases, (defaultCase, defaultBindings), decisionTargets) ->
-        let decisionTargets = decisionTargets |> Seq.mapi (fun i d -> (i, d)) |> Map
-        let r, typ = makeRange fsExpr.Range, makeType com ctx.typeArgs fsExpr.Type
-        let cases =
-            cases
-            |> Seq.map (fun (KeyValue(idx, (bindings, cases))) ->
-                let labels = cases |> List.map (function Choice1Of2 i -> makeIntConst i | Choice2Of2 s -> makeStrConst s)
-                let body = transformDecisionTreeSuccess com ctx r decisionTargets idx bindings
-                labels, body)
-            |> Seq.toList
-        let defaultCase =
-            transformDecisionTreeSuccess com ctx r decisionTargets defaultCase defaultBindings
-        let matchValue =
-            let matchValueType = makeType com ctx.typeArgs matchValue.FullType
-            let matchValue = makeValueFrom com ctx None matchValueType false matchValue
-            if isUnionType
-            then makeGet None Fable.String matchValue (makeStrConst "tag")
-            else matchValue
-        Fable.Switch(matchValue, cases, Some defaultCase, typ, Some r)
+    | Switch(matchValue, isUnionType, cases, defaultCase, decisionTargets) ->
+        transformSwitch com ctx fsExpr matchValue isUnionType cases defaultCase decisionTargets
 
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
         transformDecisionTree com ctx fsExpr decisionExpr decisionTargets

@@ -42,7 +42,7 @@ let compileAst (com: Compiler) checkedProject fileName =
     if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let projectOptions = makeProjOptions com fileName
     let fableCoreJsDir = "./fable-core"
-    let project = Project(projectOptions, checkedProject, fableCoreJsDir, isWatchCompile=false)
+    let project = Project(projectOptions, checkedProject, FilePath fableCoreJsDir, isWatchCompile=false)
     let file: Babel.Program =
         FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
         |> Fable2Babel.Compiler.transformFile com project

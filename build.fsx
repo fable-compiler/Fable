@@ -444,7 +444,6 @@ Target "NugetRestore" (nugetRestore "src/dotnet")
 Target "FableCLI" (fun _ ->
     nugetRestore "src/dotnet" ()
     buildCLI "src/dotnet" true ())
-Target "FableCLIFast" (buildCLI "src/dotnet" true)
 Target "FableCoreJS" buildCoreJS
 Target "FableSplitter" buildSplitter
 Target "RunTestsJS" runTestsJS

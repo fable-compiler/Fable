@@ -4,15 +4,7 @@ function resolve(filePath) {
   return path.join(__dirname, filePath)
 }
 
-var babelOptions = {
-  "presets": [
-    [resolve("../../../../node_modules/babel-preset-es2015"), {"modules": false}],
-    //[resolve("../../../../node_modules/babel-preset-babili"), {}]
-  ]
-};
-
 var fableOptions = {
-  babel: babelOptions,
   fableCore: resolve("../../../../build/fable-core"),
   plugins: [],
   define: [
@@ -44,14 +36,6 @@ module.exports = {
           loader: resolve("../../../js/fable-loader"),
           options: fableOptions
         }
-      },
-      {
-        test: /\.js$/,
-        exclude: /node_modules\/(?!fable)/,
-        use: {
-          loader: '../../../../node_modules/babel-loader',
-          options: babelOptions
-        },
       }
     ]
   },
