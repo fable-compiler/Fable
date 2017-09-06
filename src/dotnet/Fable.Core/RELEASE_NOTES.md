@@ -1,3 +1,8 @@
+### 1.2.0
+
+* Add support for String.filter #1133
+* Fix #1131: DateTime.ToString not working without separator
+
 ### 1.2.0-beta-004
 
 * Fix format over local dates #1129

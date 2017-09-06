@@ -1,3 +1,7 @@
+### 1.2.0
+
+* Fix #1123: Optimize pattern matching with DUs into switch
+
 ### 1.2.0-beta-0015
 
 * Updated FSharp.Compiler.Service to 14.0.2

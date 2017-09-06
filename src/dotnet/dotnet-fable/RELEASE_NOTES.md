@@ -1,3 +1,7 @@
+### 1.2.0
+
+* Don't fail if there's no Fable.Core.dll ref
+
 ### 1.2.0-beta-005
 
 * Fix .fsproj resolution

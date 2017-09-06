@@ -2,7 +2,7 @@ namespace Fable.CLI
 
 module Constants =
 
-  let [<Literal>] VERSION = "1.2.0-beta-005"
+  let [<Literal>] VERSION = "1.2.0"
   let [<Literal>] DEFAULT_PORT = 61225
 
 /// These values must be only set by the Main method
