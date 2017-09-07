@@ -30,6 +30,9 @@ module.exports = {
     filename: 'bundle.js',
     path: resolve('build/'),
   },
+  resolve: {
+    modules: [resolve("node_modules/")]
+  },
   module: {
     rules: [
       {
@@ -55,7 +58,7 @@ module.exports = {
 };
 ```
 
-> Note we're resolving paths as well as Babel options to prevent conflicts in case Fable pulls files from outside the project local directory (for example, from Nuget cache).
+> Note we're resolving paths as well as Babel options and node modules to prevent conflicts in case Fable pulls files from outside the project local directory (for example, from Nuget cache).
 
 Add this to your [package.json](https://docs.npmjs.com/files/package.json).
 
