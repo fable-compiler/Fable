@@ -1,3 +1,7 @@
+### 1.1.1
+
+* Update README
+
 ### 1.1.0
 
 * Validate options
