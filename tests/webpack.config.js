@@ -1,14 +1,15 @@
 const path = require('path');
+const fableUtils = require('fable-utils');
 
 function resolve(relativePath) {
   return path.join(__dirname, relativePath);
 }
 
-var babelOptions = {
+var babelOptions = fableUtils.resolveBabelOptions({
   "presets": [
     ["es2015", {"modules": false}]
   ]
-}
+});
 
 const config = {
   entry: resolve('./Main/Fable.Tests.fsproj'),
