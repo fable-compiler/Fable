@@ -1,3 +1,7 @@
+### 1.0.4
+
+* Add `validateFableOptions` helper
+
 ### 1.0.2
 
 * Add `resolveBabelOptions` helper

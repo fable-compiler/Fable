@@ -2,9 +2,7 @@
 
 var path = require("path");
 var babel = require("babel-core");
-var cache = require("fable-utils/cache");
-var client = require("fable-utils/client");
-var babelPlugins = require("fable-utils/babel-plugins");
+var fableUtils = require ("fable-utils");
 
 var DEFAULT_PORT =
     process.env.FABLE_SERVER_PORT != null
@@ -24,8 +22,8 @@ function ensureArray(obj) {
 }
 
 var customPlugins = [
-    babelPlugins.getRemoveUnneededNulls(),
-    babelPlugins.getTransformMacroExpressions(babel.template)
+    fableUtils.babelPlugins.getRemoveUnneededNulls(),
+    fableUtils.babelPlugins.getTransformMacroExpressions(babel.template)
 ];
 
 function transformBabelAst(babelAst, babelOptions, sourceMapOptions) {
@@ -41,8 +39,15 @@ function transformBabelAst(babelAst, babelOptions, sourceMapOptions) {
 var Loader = function(buffer) {
     var callback = this.async();
     var opts = this.loaders[0].options || {};
-    var port = or(opts.port, DEFAULT_PORT);
+    try {
+        fableUtils.validateFableOptions(opts);
+    }
+    catch (err) {
+        callback(err);
+        return;
+    }
 
+    var port = or(opts.port, DEFAULT_PORT);
     var babelOptions = opts.babel || {};
     babelOptions.plugins = customPlugins.concat(babelOptions.plugins || []);
 
@@ -56,21 +61,7 @@ var Loader = function(buffer) {
         extra: opts.extra
     };
 
-    cache.tryLoadCache(opts.extra, msg.path).then(cache => {
-        if (cache != null) {
-            console.log("fable: Cached " + path.basename(msg.path));
-            return cache;
-        }
-        else {
-            return client.send(port, JSON.stringify(msg));
-        }
-    })
-    .then(r => {
-        if (r instanceof cache.CachedFile) {
-            callback(null, r.code, r.map);
-            return;
-        }
-
+    fableUtils.client.send(port, JSON.stringify(msg)).then(r => {
         var data = JSON.parse(r);
         if (data.error) {
             callback(new Error(data.error));
@@ -107,7 +98,6 @@ var Loader = function(buffer) {
                 } : null;
                 var babelParsed = transformBabelAst(data, babelOptions, sourceMapOpts);
                 console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
-                cache.trySaveCache(opts.extra, data.fileName, babelParsed);
                 callback(null, babelParsed.code, babelParsed.map);
             }
             catch (err) {

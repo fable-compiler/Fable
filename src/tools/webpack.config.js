@@ -6,7 +6,7 @@ function resolve(relativePath) {
 }
 
 var babelOptions = fableUtils.resolveBabelOptions({
-    presets: [["es2015", { modules: "false" }]],
+    presets: [["es2015", { modules: false }]],
     sourceMaps: true,
 })
 

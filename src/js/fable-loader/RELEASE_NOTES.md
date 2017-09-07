@@ -1,3 +1,8 @@
+### 1.1.0
+
+* Validate options
+* Remove cache
+
 ### 1.0.7
 
 * Don't cache errored files
