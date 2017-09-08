@@ -29,9 +29,11 @@ var fableOptions = {
 };
 
 export default {
-  entry: resolve('./testapp.fsproj'),
-  dest: resolve('./out/bundle.js'),
-  format: 'cjs', // 'amd', 'cjs', 'es', 'iife', 'umd'
+  input: resolve('./testapp.fsproj'),
+  output: {
+    file: resolve('./out/bundle.js'),
+    format: 'cjs', // 'amd', 'cjs', 'es', 'iife', 'umd'
+  },
   //sourceMap: 'inline',
   plugins: [
     fable(fableOptions),
