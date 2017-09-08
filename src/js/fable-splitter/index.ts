@@ -22,7 +22,7 @@ export type CompilationInfo = {
     dedupOutPaths: Set<string>, // lookup of output paths
     mapInOutPaths: Map<string, string>, // map of input to output paths
     logs: { [severity: string]: string[] },
-}
+};
 
 export type FableOptions = {
     define?: string[],
@@ -41,21 +41,20 @@ export type FableCompilerOptions = {
     babel?: Babel.TransformOptions,
     fable?: FableOptions,
     prepack?: any,
-    postbuild?: ()=>void,
+    postbuild?: () => void,
 };
 
 function getResolvePathPlugin(targetDir: string, opts: FableCompilerOptions) {
     return {
         visitor: {
-            StringLiteral: function (path: any) {
-                var node = path.node;
+            StringLiteral(path: any) {
+                const node = path.node;
                 if (MACRO.test(node.value)) {
                     const match = MACRO.exec(node.value) || [];
                     let replacement: string = opts.outDir;
                     if (match[1] === "entryDir") {
                         replacement = Path.dirname(opts.entry);
-                    }
-                    else if (match[1] !== "outDir") {
+                    } else if (match[1] !== "outDir") {
                         throw new Error("Unknown macro: " + node.value);
                     }
                     const fullPath = Path.join(replacement, match[2]);
@@ -64,26 +63,24 @@ function getResolvePathPlugin(targetDir: string, opts: FableCompilerOptions) {
                     // console.log("REL. PATH: " + newRelPath);
                     node.value = newRelPath;
                 }
-            }
-        }
-    }
+            },
+        },
+    };
 }
 
 function output(msg: string, severity: string) {
     if (severity === "warning") {
         console.warn(msg);
-    }
-    else if (severity === "error") {
+    } else if (severity === "error") {
         console.error(msg);
-    }
-    else {
+    } else {
         console.log(msg);
     }
 }
 
-function addLogs(logs: { [key:string]: string[] }, info: CompilationInfo) {
+function addLogs(logs: { [key: string]: string[] }, info: CompilationInfo) {
     if (typeof logs === "object") {
-        Object.keys(logs).forEach(key => {
+        Object.keys(logs).forEach((key) => {
             info.logs[key] = key in info.logs
                 ? info.logs[key].concat(logs[key])
                 : ensureArray(logs[key]);
@@ -95,15 +92,14 @@ function ensureArray(obj: any) {
     return (Array.isArray(obj) ? obj : obj != null ? [obj] : []);
 }
 
-export function ensureDirExists(dir: string, cont?: ()=>void) {
+export function ensureDirExists(dir: string, cont?: () => void) {
     if (fs.existsSync(dir)) {
         if (typeof cont === "function") { cont(); }
-    }
-    else {
-        ensureDirExists(Path.dirname(dir), function() {
+    } else {
+        ensureDirExists(Path.dirname(dir), () => {
             if (!fs.existsSync(dir)) { fs.mkdirSync(dir); }
             if (typeof cont === "function") { cont(); }
-        })
+        });
     }
 }
 
@@ -140,7 +136,7 @@ function getFullPath(relPath: string, isDir?: boolean) {
 }
 
 function join(path1: string, path2: string) {
-    return Path.join(path1, path2).replace(/\\/g, "/")
+    return Path.join(path1, path2).replace(/\\/g, "/");
 }
 
 function fixPath(fromDir: string, path: string, info: CompilationInfo) {
@@ -150,24 +146,22 @@ function fixPath(fromDir: string, path: string, info: CompilationInfo) {
     // Assumes flat folder structure
     if (isNested && fromEntryDir) {
         return "./" + outPath;
-    }
-    else if (isNested) {
+    } else if (isNested) {
         return Path.basename(fromDir) === Path.dirname(outPath)
             ? "./" + Path.basename(outPath)
             : "../" + outPath;
-    }
-    else {
+    } else {
         return (fromEntryDir ? "./" : "../") + outPath;
     }
 }
 
 function getRelativeImportPaths(ast: any) {
     const decls = ast && ast.program ? ensureArray(ast.program.body) : [];
-    return decls.filter(d => d.source != null && d.source.value.startsWith("."));
+    return decls.filter((d) => d.source != null && d.source.value.startsWith("."));
 }
 
 function fixImportPaths(fromDir: string, ast: any, info: CompilationInfo) {
-    getRelativeImportPaths(ast).forEach(d => {
+    getRelativeImportPaths(ast).forEach((d) => {
         d.source.value = fixPath(fromDir, d.source.value, info);
     });
 }
@@ -190,13 +184,11 @@ async function getFileAstAsync(path: string, options: FableCompilerOptions, info
         if (fs.existsSync(path)) {
             try {
                 ast = Babel.transformFileSync(path, { code: false });
-            }
-            catch (err) {
+            } catch (err) {
                 const log = `${path}(1,1): error BABEL: ${err.message}`;
                 addLogs({ error: [log] }, info);
             }
-        }
-        else {
+        } else {
             console.log(`fable: Skipping missing JS file: ${path}`);
         }
     }
@@ -211,7 +203,7 @@ function transformAndSaveAst(fullPath: string, ast: any, options: FableCompilerO
     ensureDirExists(jsDir);
     // set sourcemap paths
     const code: string | undefined = undefined;
-    let babelOptions = Object.assign({}, options.babel) as Babel.TransformOptions;
+    const babelOptions = Object.assign({}, options.babel) as Babel.TransformOptions;
     if (babelOptions.sourceMaps) {
         // code = fs.readFileSync(fullPath, "utf8");
         const relPath = Path.relative(jsDir, fullPath);
@@ -238,8 +230,7 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
     const fullPath = getFullPath(path);
     if (!info.compiledPaths.has(fullPath)) {
         info.compiledPaths.add(fullPath);
-    }
-    else if (!force) {
+    } else if (!force) {
         return;
     }
 
@@ -247,7 +238,7 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
     const ast = await getFileAstAsync(fullPath, options, info);
     if (ast) {
         // get/fix import paths
-        const notFixedImportPaths = getRelativeImportPaths(ast.ast).map(d => d.source.value);
+        const notFixedImportPaths = getRelativeImportPaths(ast.ast).map((d) => d.source.value);
         fixImportPaths(Path.dirname(fullPath), ast.ast, info);
 
         // if not a .fsproj, transform and save
@@ -286,8 +277,7 @@ function createCompilationInfo(options: FableCompilerOptions, previousInfo?: Com
             mapInOutPaths: new Map<string, string>(),
             logs: {} as { [key: string]: string[] },
         };
-    }
-    else {
+    } else {
         return {
             entry: options.entry,
             compiledPaths: new Set<string>(previousInfo.compiledPaths),
@@ -300,19 +290,19 @@ function createCompilationInfo(options: FableCompilerOptions, previousInfo?: Com
 
 export default function fableSplitter(options: FableCompilerOptions, previousInfo?: CompilationInfo) {
     options = setDefaultOptions(options);
-    const info = createCompilationInfo(options, previousInfo)
+    const info = createCompilationInfo(options, previousInfo);
 
     // main loop
     console.log("fable: Compiling...");
     // options.path will only be filled in watch compilations
     return transformAsync(options.path || options.entry, options, info, true)
         .then(() => {
-            Object.keys(info.logs).forEach(severity =>
-                ensureArray(info.logs[severity]).forEach(log =>
-                    output(log, severity))
-            );
+            Object.keys(info.logs).forEach((severity) =>
+                ensureArray(info.logs[severity]).forEach((log) =>
+                    output(log, severity)));
             const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
-            console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"} at ${new Date().toLocaleTimeString()}`);
+            const date = new Date().toLocaleTimeString();
+            console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"} at ${date}`);
             if (!hasError && typeof options.postbuild === "function") {
                 options.postbuild();
             }
