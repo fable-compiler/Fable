@@ -155,13 +155,20 @@ function fixPath(fromDir: string, path: string, info: CompilationInfo) {
     }
 }
 
-function getRelativeImportPaths(ast: any) {
+/// Ignores paths to external modules like "react/react-dom-server"
+function getRelativeOrAbsoluteImportPaths(ast: any) {
     const decls = ast && ast.program ? ensureArray(ast.program.body) : [];
-    return decls.filter((d) => d.source != null && d.source.value.startsWith("."));
+    return decls.filter((d) => {
+        if (d.source != null && typeof d.source.value === "string") {
+            const path = d.source.value;
+            return path.startsWith(".") || Path.isAbsolute(path);
+        }
+        return false;
+    });
 }
 
 function fixImportPaths(fromDir: string, ast: any, info: CompilationInfo) {
-    getRelativeImportPaths(ast).forEach((d) => {
+    getRelativeOrAbsoluteImportPaths(ast).forEach((d) => {
         d.source.value = fixPath(fromDir, d.source.value, info);
     });
 }
@@ -238,7 +245,7 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
     const ast = await getFileAstAsync(fullPath, options, info);
     if (ast) {
         // get/fix import paths
-        const notFixedImportPaths = getRelativeImportPaths(ast.ast).map((d) => d.source.value);
+        const notFixedImportPaths = getRelativeOrAbsoluteImportPaths(ast.ast).map((d) => d.source.value);
         fixImportPaths(Path.dirname(fullPath), ast.ast, info);
 
         // if not a .fsproj, transform and save
