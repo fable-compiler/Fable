@@ -135,11 +135,14 @@ function getFullPath(relPath: string, isDir?: boolean) {
     }
 }
 
+/** Joins two paths if second is not absolute and normalizes slashes */
 function join(path1: string, path2: string) {
-    return Path.join(path1, path2).replace(/\\/g, "/");
+    const path = Path.isAbsolute(path2) ? path2 : Path.join(path1, path2);
+    return path.replace(/\\/g, "/");
 }
 
-function fixPath(fromDir: string, path: string, info: CompilationInfo) {
+/** Fix the import declaration to match the output file structure */
+function fixImportPath(fromDir: string, path: string, info: CompilationInfo) {
     const outPath = getOutPath(getFullPath(join(fromDir, path)), info);
     const isNested = outPath.indexOf("/") >= 0;
     const fromEntryDir = fromDir === Path.dirname(info.entry);
@@ -155,8 +158,8 @@ function fixPath(fromDir: string, path: string, info: CompilationInfo) {
     }
 }
 
-/// Ignores paths to external modules like "react/react-dom-server"
-function getRelativeOrAbsoluteImportPaths(ast: any) {
+/** Ignores paths to external modules like "react/react-dom-server" */
+function getRelativeOrAbsoluteImportDeclarations(ast: any) {
     const decls = ast && ast.program ? ensureArray(ast.program.body) : [];
     return decls.filter((d) => {
         if (d.source != null && typeof d.source.value === "string") {
@@ -164,12 +167,6 @@ function getRelativeOrAbsoluteImportPaths(ast: any) {
             return path.startsWith(".") || Path.isAbsolute(path);
         }
         return false;
-    });
-}
-
-function fixImportPaths(fromDir: string, ast: any, info: CompilationInfo) {
-    getRelativeOrAbsoluteImportPaths(ast).forEach((d) => {
-        d.source.value = fixPath(fromDir, d.source.value, info);
     });
 }
 
@@ -244,9 +241,13 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
     // get file AST (no transformation)
     const ast = await getFileAstAsync(fullPath, options, info);
     if (ast) {
-        // get/fix import paths
-        const notFixedImportPaths = getRelativeOrAbsoluteImportPaths(ast.ast).map((d) => d.source.value);
-        fixImportPaths(Path.dirname(fullPath), ast.ast, info);
+        const importPaths = [];
+        const fromDir = Path.dirname(fullPath);
+        for (const decl of getRelativeOrAbsoluteImportDeclarations(ast.ast)) {
+            const importPath = decl.source.value;
+            importPaths.push(importPath);
+            decl.source.value = fixImportPath(fromDir, importPath, info);
+        }
 
         // if not a .fsproj, transform and save
         if (!FSPROJ_EXT.test(fullPath)) {
@@ -255,7 +256,7 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
 
         // compile all dependencies (imports)
         const dir = Path.dirname(fullPath);
-        for (const importPath of notFixedImportPaths) {
+        for (const importPath of importPaths) {
             const relPath = join(dir, importPath);
             await transformAsync(relPath, options, info);
         }
