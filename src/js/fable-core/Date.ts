@@ -62,7 +62,7 @@ export function create(
   }
 
   if (year <= 99) {
-    date.setFullYear(year);
+    date.setFullYear(year, month - 1, day);
   }
 
   if (isNaN(date.getTime())) {
