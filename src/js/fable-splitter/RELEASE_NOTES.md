@@ -1,4 +1,4 @@
-### 0.1.11
+### 0.1.14
 
 * Compile also imports with absolute paths
 * Fix TSLint errors

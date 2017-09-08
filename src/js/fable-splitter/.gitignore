@@ -1,7 +1,0 @@
-# build artifacts
-**/*.js
-**/*.js.map
-**/*.d.ts
-
-# npm packages
-node_modules/
