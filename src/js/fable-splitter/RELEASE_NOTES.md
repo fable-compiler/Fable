@@ -1,3 +1,9 @@
+### 0.1.11
+
+* Compile also imports with absolute paths
+* Fix TSLint errors
+* Update README
+
 ### 0.1.10
 
 * Add `postbuild` option
