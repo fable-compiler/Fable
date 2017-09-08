@@ -20,9 +20,11 @@ var fableOptions = {
 };
 
 export default {
-  entry: resolve('./QuickTest.fsproj'),
-  dest: resolve('./temp/QuickTest.js'),
-  format: 'cjs', // 'amd', 'cjs', 'es', 'iife', 'umd'
+  input: resolve('./QuickTest.fsproj'),
+  output: {
+    file: resolve('./temp/QuickTest.js'),
+    format: 'cjs', // 'amd', 'cjs', 'es', 'iife', 'umd'
+  },
   //sourceMap: 'inline',
   plugins: [
     fable(fableOptions),

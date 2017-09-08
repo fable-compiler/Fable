@@ -7,11 +7,11 @@
     "webpack": "node ../../../../node_modules/webpack/bin/webpack -p",
     "rollup": "node ../../../../node_modules/rollup/bin/rollup -c",
     "splitter": "node splitter.config.js",
-    "start": "node server"
+    "server": "node server"
   },
   "dependencies": {
-    "babel-plugin-transform-es2015-block-scoping": "^6.24.1",
-    "babel-standalone": "^6.25.0",
-    "babel-template": "^6.25.0"
+    "babel-plugin-transform-es2015-block-scoping": "^6.26.0",
+    "babel-standalone": "^6.26.0",
+    "babel-template": "^6.26.0"
   }
 }

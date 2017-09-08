@@ -5,14 +5,15 @@ function resolve(filePath) {
   return path.resolve(__dirname, filePath)
 }
 
-// var babelOptions = {
-//   "presets": [
-//     ["es2015", {"modules": false}]
-//   ]
-// };
+var babelOptions = {
+  "presets": [
+    // ["es2015", { "modules": false }],
+    // ["minify", { "mangle": false }],
+  ]
+};
 
 var fableOptions = {
-  //babel: babelOptions,
+  babel: babelOptions,
   fableCore: resolve("../../../../build/fable-core"),
   //plugins: [],
   define: [
@@ -29,12 +30,13 @@ var fableOptions = {
 };
 
 export default {
-  entry: resolve('../Fable.JS.fsproj'),
-  dest: resolve('./repl/bundle.min.js'),
-  format: 'iife', // 'amd', 'cjs', 'es', 'iife', 'umd'
-  moduleName: 'Fable',
+  input: resolve('../Fable.JS.fsproj'),
+  output: {
+    file: resolve('./repl/bundle.min.js'),
+    format: 'iife', // 'amd', 'cjs', 'es', 'iife', 'umd'
+  },
+  name: 'Fable',
   //sourceMap: 'inline',
-
   plugins: [
     fable(fableOptions),
   ],

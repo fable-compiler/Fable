@@ -20,9 +20,11 @@ var fableOptions = {
 };
 
 export default {
-  entry: resolve('./Main/Fable.Tests.fsproj'),
-  dest: resolve('../../build/tests/bundle.js'),
-  format: 'cjs', // 'amd', 'cjs', 'es', 'iife', 'umd'
+  input: resolve('./Main/Fable.Tests.fsproj'),
+  output: {
+    file: resolve('../../build/tests/bundle.js'),
+    format: 'cjs', // 'amd', 'cjs', 'es', 'iife', 'umd'
+  },
   //sourceMap: 'inline',
   plugins: [
     commonjs({
