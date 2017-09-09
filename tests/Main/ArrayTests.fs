@@ -466,6 +466,13 @@ let ``Array.map works``() =
     ys.[0] |> equal 2.
 
 [<Test>]
+let ``Array.map doesn't execute side effects twice``() = // See #1140
+    let mutable c = 0
+    let i () = c <- c + 1; c
+    [| i (); i (); i () |] |> Array.map string |> ignore
+    equal 3 c
+
+[<Test>]
 let ``Array.map2 works``() =
     let xs = [|1.|]
     let ys = [|2.|]

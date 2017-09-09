@@ -1035,7 +1035,7 @@ module AstPass =
             | args -> CoreLibCall("String", Some "split", false, i.callee.Value::args)
             |> makeCall i.range Fable.String
             |> Some
-        | "filter" -> 
+        | "filter" ->
             ccall i "String" "filter" i.args
             |> Some
         | _ -> None
@@ -1847,19 +1847,18 @@ module AstPass =
             | "truncate" ->
                 // Array.truncate count array
                 emit i "$1.slice(0, $0)" i.args |> Some
-            // TODO: JS native Array.map, which accepts a 3-argument function,
-            // conflicts with dynamic CurriedLambda.
-            | "map" | "mapIndexed" | "indexed" ->
+            // JS native Array.map, which accepts a 3-argument function,
+            // conflicts with dynamic CurriedLambda. Also, allocating the array
+            // in advance seems to be more performant
+            | "map" | "mapIndexed"  ->
                 let arrayCons =
                     match i.returnType with
                     | Fable.Array(Fable.Number numberKind) when com.Options.typedArrays ->
                         getTypedArrayName com numberKind
                     | _ -> "Array"
-                let targetArray =
-                    let len = getProp None (Fable.Number Int32) (List.last i.args) "length"
-                    GlobalCall (arrayCons, None, true, [len])
-                    |> makeCall i.range i.returnType
-                ccall i "Array" i.methodName (i.args @ [targetArray]) |> Some
+                ccall i "Array" i.methodName (i.args @ [makeIdentExpr arrayCons]) |> Some
+            | "indexed" ->
+                ccall i "Array" i.methodName i.args |> Some
             | "append" ->
                 match i.methodTypeArgs with
                 | [Fable.Any] | [Number _] -> None
