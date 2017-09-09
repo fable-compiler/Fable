@@ -2027,20 +2027,24 @@ module AstPass =
             | _ -> None
 
     let guids com (info: Fable.ApplyInfo) =
-        let emitWarning com (info: Fable.ApplyInfo) =
-            "System.Guid is translated as string, parsing doesn't validate"
-            |> addWarning com info.fileName info.range
         match info.methodName with
         | "newGuid" ->
             CoreLibCall("String", Some "newGuid", false, [])
             |> makeCall info.range info.returnType |> Some
         | "parse" ->
-            emitWarning com info
-            info.args.Head |> Some
+            ccall info "String" "validateGuid" info.args |> Some
         | "tryParse" ->
-            emitWarning com info
-            Fable.TupleConst [makeBoolConst true; info.args.Head]
-            |> Fable.Value |> Some
+            ccall info "String" "validateGuid" [info.args.Head; makeBoolConst true] |> Some
+        | "toByteArray" ->
+            ccall info "String" "guidToArray" [info.callee.Value] |> Some
+        | ".ctor" ->
+            match info.args with
+            | [] -> Fable.Wrapped(makeStrConst "00000000-0000-0000-0000-000000000000", info.returnType) |> Some
+            | [Type (Fable.Array _)] ->
+                ccall info "String" "arrayToGuid" info.args |> Some
+            | [Type Fable.String as arg] ->
+                ccall info "String" "validateGuid" info.args |> Some
+            | _ -> None
         | _ -> None
 
     let uris com (info: Fable.ApplyInfo) =

@@ -984,6 +984,41 @@ let ``Convert.FromBase64String works``() =
     Convert.FromBase64String("AgQGCAoMDhASFA==")
     |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
 
+open System
+
+[<Test>]
+let ``Guid.Parse works``() =
+    let g1 = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    let g2 = Guid("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+    g1.ToString().Trim('{','}').ToLower() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+    g2.ToString().Trim('{','}').ToLower() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+
+[<Test>]
+let ``Guid.Parse fails if string is not well formed``() =
+    let success =
+        try
+            let g1 = Guid.Parse("foo")
+            true
+        with _ -> false
+    equal false success
+
+[<Test>]
+let ``Guid.TryParse works``() =
+    let success1, _ = Guid.TryParse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    let success2, _ = Guid.TryParse("96258006-c4ba-4a7f-80c4")
+    equal true success1
+    equal false success2
+
+[<Test>]
+let ``Convert Guid to byte[] works``() =
+    let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    g.ToByteArray() |> equal [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
+
+[<Test>]
+let ``Convert byte[] to Guid works``() =
+    let g = Guid [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
+    g.ToString() |> equal("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+
 [<Test>]
 let ``int64 can be JSON serialized forth and back``() =
     let val1 = 5348937298839933899L
