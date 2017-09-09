@@ -96,12 +96,14 @@ module.exports = (
             });
           });
 
-          babelOpts.sourceMaps = true;
-          babelOpts.sourceFileName = path.relative(
-            process.cwd(),
-            data.fileName.replace(/\\/g, '/')
-          );
-          const transformed = babel.transformFromAst(data, code, babelOpts);
+          const babelOptsLocal = Object.assign({}, babelOpts, {
+            sourceMaps: true,
+            sourceFileName: path.relative(
+              process.cwd(),
+              data.fileName.replace(/\\/g, '/')
+            )
+          });
+          const transformed = babel.transformFromAst(data, code, babelOptsLocal);
 
           console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
           cache.trySaveCache(extra, data.fileName, transformed);
