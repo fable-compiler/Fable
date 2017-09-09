@@ -96,16 +96,12 @@ module.exports = (
             });
           });
 
-          let fsCode = null;
-          if (this.sourceMap) {
-            fsCode = code;
-            babelOpts.sourceMaps = true;
-            babelOpts.sourceFileName = path.relative(
-              process.cwd(),
-              data.fileName.replace(/\\/g, '/')
-            );
-          }
-          const transformed = babel.transformFromAst(data, fsCode, babelOpts);
+          babelOpts.sourceMaps = true;
+          babelOpts.sourceFileName = path.relative(
+            process.cwd(),
+            data.fileName.replace(/\\/g, '/')
+          );
+          const transformed = babel.transformFromAst(data, code, babelOpts);
 
           console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
           cache.trySaveCache(extra, data.fileName, transformed);
