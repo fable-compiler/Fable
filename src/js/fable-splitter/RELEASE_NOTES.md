@@ -1,3 +1,7 @@
+### 0.1.15
+
+* Validate options
+
 ### 0.1.14
 
 * Compile also imports with absolute paths

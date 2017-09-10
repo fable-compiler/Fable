@@ -1,13 +1,12 @@
 import * as Babel from "babel-core";
+import * as fableUtils from "fable-utils";
 import * as fs from "fs";
 import * as Path from "path";
 import * as Process from "process";
-const client = require("fable-utils/client");
-const babelPlugins = require("fable-utils/babel-plugins");
 
 const customPlugins = [
-    babelPlugins.getRemoveUnneededNulls(),
-    babelPlugins.getTransformMacroExpressions(Babel.template),
+    fableUtils.babelPlugins.getRemoveUnneededNulls(),
+    fableUtils.babelPlugins.getTransformMacroExpressions(Babel.template),
 ];
 
 const DEFAULT_PORT = parseInt(Process.env.FABLE_SERVER_PORT || "61225", 10);
@@ -175,7 +174,7 @@ async function getFileAstAsync(path: string, options: FableCompilerOptions, info
     if (FSHARP_EXT.test(path)) {
         // return Babel AST from F# file
         const fableMsg = JSON.stringify(Object.assign({}, options.fable, { path }));
-        const response = await client.send(options.port, fableMsg);
+        const response = await fableUtils.client.send(options.port as number, fableMsg);
         const babelAst = JSON.parse(response);
         if (babelAst.error) {
             throw new Error(babelAst.error);
@@ -297,6 +296,7 @@ function createCompilationInfo(options: FableCompilerOptions, previousInfo?: Com
 }
 
 export default function fableSplitter(options: FableCompilerOptions, previousInfo?: CompilationInfo) {
+    fableUtils.validateFableOptions(options);
     options = setDefaultOptions(options);
     const info = createCompilationInfo(options, previousInfo);
 
