@@ -1,3 +1,7 @@
+### 1.2.1
+
+* Update Fable.Compiler
+
 ### 1.2.0
 
 * Don't fail if there's no Fable.Core.dll ref

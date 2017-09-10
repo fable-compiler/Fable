@@ -1,3 +1,8 @@
+### 1.2.1
+
+* Guid validation and byte[] conversion
+* Fix #1140: Side effects executed twice on Array.map
+
 ### 1.2.0
 
 * Fix #1123: Optimize pattern matching with DUs into switch
