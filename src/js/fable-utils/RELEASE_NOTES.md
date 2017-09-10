@@ -1,3 +1,7 @@
+### 1.0.6
+
+* Add TypeScript declaration file
+
 ### 1.0.4
 
 * Add `validateFableOptions` helper
