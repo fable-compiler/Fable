@@ -1,3 +1,10 @@
+### 1.1.1
+
+* Always generate source maps for Rollup #1142
+* Update README
+* Validate options
+* Remove cache
+
 ### 1.1.0
 
 * Use `this.error(msg)` for F#/Fable errors instead of `this.warn(msg)`

@@ -2,9 +2,7 @@
 
 const path = require('path');
 const babel = require('babel-core');
-var cache = require("fable-utils/cache");
-const client = require('fable-utils/client');
-const babelPlugins = require('fable-utils/babel-plugins');
+const fableUtils = require ("fable-utils");
 const { createFilter } = require('rollup-pluginutils');
 
 const DEFAULT_PORT =
@@ -13,15 +11,16 @@ const DEFAULT_PORT =
     : 61225;
 
 const customPlugins = [
-  babelPlugins.getRemoveUnneededNulls(),
-  babelPlugins.getTransformMacroExpressions(babel.template)
+  fableUtils.babelPlugins.getRemoveUnneededNulls(),
+  fableUtils.babelPlugins.getTransformMacroExpressions(babel.template)
 ];
 
 const ensureArray = obj =>
   (Array.isArray(obj) ? obj : obj != null ? [obj] : []);
 
-module.exports = (
-  {
+module.exports = (opts) => {
+  fableUtils.validateFableOptions(opts);
+  let {
     include = [],
     exclude = [],
     babel: babelOpts = {
@@ -35,8 +34,8 @@ module.exports = (
     clampByteArrays = false,
     port = DEFAULT_PORT,
     extra = {}
-  } = {}
-) => {
+  } = opts;
+
   const filter = createFilter(include, exclude);
 
   return {
@@ -61,21 +60,8 @@ module.exports = (
 
       // console.log(`Fable Plugin sent: ${msg.path}`);
 
-      return cache.tryLoadCache(extra, msg.path)
-        .then(cache => {
-            if (cache != null) {
-                console.log("fable: Cached " + path.basename(msg.path));
-                return cache;
-            }
-            else {
-                return client.send(port, JSON.stringify(msg));
-            }
-        })
+      return fableUtils.client.send(port, JSON.stringify(msg))
         .then(r => {
-          if (r instanceof cache.CachedFile) {
-            return { code: r.code, map: r.map };
-          }
-
           const data = JSON.parse(r);
 
           const { error = null, logs = {} } = data;
@@ -106,8 +92,6 @@ module.exports = (
           const transformed = babel.transformFromAst(data, code, babelOptsLocal);
 
           console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
-          cache.trySaveCache(extra, data.fileName, transformed);
-
           return { code: transformed.code, map: transformed.map };
         })
         .catch(err => {
