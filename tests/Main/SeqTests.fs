@@ -583,16 +583,17 @@ let ``Seq.zip3 works``() =
     |> equal 3.
 
 let ``Seq.cache works``() =
-    let count = ref 0
-    let xs =
-       1 |> Seq.unfold(fun i ->
-          count := !count + 1
-          if i <= 10 then Some(i, i+1)
-          else None)
-    xs |> Seq.length |> ignore
-    xs |> Seq.length |> ignore
-    !count
-    |> equal 22
+     let count = ref 0
+     let xs =
+        1 |> Seq.unfold(fun i ->
+           count := !count + 1
+           if i <= 10 then Some(i, i+1)
+           else None)
+           |> Seq.cache
+     xs |> Seq.length |> ignore
+     xs |> Seq.length |> ignore
+     !count
+     |> equal 11
 
 [<Test>]
 let ``Seq.cast works``() =

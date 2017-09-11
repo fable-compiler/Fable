@@ -1595,6 +1595,7 @@ module AstPass =
         match meth with
         // Deal with special cases first
         | "cast" -> Some i.args.Head // Seq only, erase
+        | "cache" -> toArray com i args.Head |> Some // Seq only
         | "isEmpty" ->
             match kind with
             | Seq -> ccall "Seq" meth args
