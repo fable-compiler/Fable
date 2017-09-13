@@ -1,6 +1,7 @@
 const fableSplitter = require("fable-splitter").default;
+const fableUtils = require("fable-utils");
 
-const babelOptions = {
+const babelOptions = fableUtils.resolveBabelOptions({
   plugins: [
     ["transform-es2015-modules-commonjs"],
   ],
@@ -8,7 +9,7 @@ const babelOptions = {
   //   ["es2015", { modules: "umd" }],
   // ],
   // sourceMaps: true,
-};
+});
 
 const fableOptions = {
   fableCore: "../../../../build/fable-core",

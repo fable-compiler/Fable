@@ -5,15 +5,15 @@ function resolve(filePath) {
   return path.resolve(__dirname, filePath)
 }
 
-var babelOptions = {
-  "presets": [
-    // ["es2015", { "modules": false }],
-    // ["minify", { "mangle": false }],
-  ]
-};
+// var babelOptions = {
+//   "presets": [
+//     // ["es2015", { "modules": false }],
+//     // ["minify", { "mangle": false }],
+//   ]
+// };
 
 var fableOptions = {
-  babel: babelOptions,
+  // babel: babelOptions,
   fableCore: resolve("../../../../build/fable-core"),
   //plugins: [],
   define: [
