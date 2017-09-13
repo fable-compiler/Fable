@@ -1,17 +1,19 @@
 import fable from 'rollup-plugin-fable';
-var path = require('path');
+const fableUtils = require("fable-utils");
+const path = require('path');
 
 function resolve(filePath) {
   return path.resolve(__dirname, filePath)
 }
 
-// var babelOptions = {
+// const babelOptions = fableUtils.resolveBabelOptions({
 //   "presets": [
-//     ["es2015", {"modules": false}]
+//     // ["es2015", { "modules": false }],
+//     // ["minify", { "mangle": false }],
 //   ]
-// };
+// });
 
-var fableOptions = {
+const fableOptions = {
   //babel: babelOptions,
   fableCore: resolve("../../../../build/fable-core"),
   //plugins: [],
