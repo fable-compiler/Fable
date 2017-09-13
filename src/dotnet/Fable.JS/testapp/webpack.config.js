@@ -1,14 +1,15 @@
+var fableUtils = require("fable-utils");
 var path = require('path');
 
 function resolve(filePath) {
   return path.resolve(__dirname, filePath)
 }
 
-var babelOptions = {
+var babelOptions = fableUtils.resolveBabelOptions({
   "presets": [
     ["es2015", {"modules": false}]
   ]
-};
+});
 
 var fableOptions = {
   babel: babelOptions,
