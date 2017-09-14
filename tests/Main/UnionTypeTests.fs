@@ -391,6 +391,15 @@ let ``Option.toList works``() =
 let ``Option.flatten works``() =
     Some (Some 1) |> Option.flatten |> equal (Some 1)
 
+// https://github.com/fable-compiler/Fable/issues/1136
+[<Test>]
+let ``Calling Some with side-effects works``() =
+    let mutable state = 0
+    let f x = state <- x
+    let fo = f 3 |> Some
+    
+    state |> equal 3
+
 type OptTest = OptTest of int option
 
 [<Test>]
