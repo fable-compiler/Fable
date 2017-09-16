@@ -1885,19 +1885,11 @@ module AstPass =
 
     let cancels com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | ".ctor" ->
-            match i.args with
-            | [Type (Fable.Number _) as arg] ->
-                "(function(){var token={};setTimeout(function(){token.isCancelled=true},$0); return token;}())"
-                |> emit i <| [arg]
-            | [Type (Fable.Boolean _) as arg] ->
-                emit i "{ isCancelled = $0 }" [arg]
-            | _ -> Fable.ObjExpr ([], [], None, i.range)
-            |> Some
+        | ".ctor" -> ccall i "Async" "createCancellationToken" i.args |> Some
         | "token" -> i.callee
-        | "cancel" -> emit i "$0.isCancelled = true" [i.callee.Value] |> Some
-        | "cancelAfter" -> emit i "setTimeout(function () { $0.isCancelled = true }, $1)" [i.callee.Value; i.args.Head] |> Some
-        | "isCancellationRequested" -> emit i "$0.isCancelled" [i.callee.Value] |> Some
+        | "cancel" | "cancelAfter" | "isCancellationRequested" ->
+            match i.callee with Some c -> c::i.args | None -> i.args
+            |> ccall i "Async" i.methodName |> Some
         // TODO: Add check so CancellationTokenSource cannot be cancelled after disposed?
         | "dispose" -> Fable.Null |> Fable.Value |> Some
         | _ -> None

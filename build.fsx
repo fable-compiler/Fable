@@ -446,6 +446,7 @@ Target "FableCLI" (fun _ ->
     buildCLI "src/dotnet" true ())
 Target "FableCoreJS" buildCoreJS
 Target "FableSplitter" buildSplitter
+Target "NUnitPlugin" buildNUnitPlugin
 Target "RunTestsJS" runTestsJS
 
 Target "PublishPackages" (fun () ->

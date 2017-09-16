@@ -19,6 +19,28 @@ function emptyContinuation<T>(x: T) {
   // NOP
 }
 
+export function createCancellationToken(arg?: boolean|number): CancellationToken {
+  const token = { isCancelled: false };
+  if (typeof arg === "number") {
+    setTimeout(() => { token.isCancelled = true; }, arg);
+  } else if (typeof arg === "boolean") {
+    token.isCancelled = arg;
+  }
+  return token;
+}
+
+export function cancel(token: CancellationToken) {
+  token.isCancelled = true;
+}
+
+export function cancelAfter(token: CancellationToken, ms: number) {
+  setTimeout(() => { token.isCancelled = true; }, ms);
+}
+
+export function isCancellationRequested(token: CancellationToken) {
+  return token != null && token.isCancelled;
+}
+
 export function awaitPromise<T>(p: Promise<T>) {
   return fromContinuations((conts: Array<Continuation<T>>) =>
     p.then(conts[0]).catch((err) =>
