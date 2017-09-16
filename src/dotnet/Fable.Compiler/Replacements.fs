@@ -63,7 +63,7 @@ module Util =
         | _ -> None
 
     let (|Null|_|) = function
-        | MaybeWrapped(Fable.Value Fable.Null) -> Some null
+        | MaybeWrapped(Fable.Value Fable.Null) -> Some ()
         | _ -> None
 
     let (|Type|) (expr: Fable.Expr) = expr.Type
