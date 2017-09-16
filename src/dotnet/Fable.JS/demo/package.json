@@ -3,15 +3,15 @@
   "scripts": {
     "preinstall": "dotnet restore .. --no-cache",
     "prebuild": "node ../../../../node_modules/webpack/bin/webpack --entry=./babel-standalone.js --output-path=./repl --output-filename=babel-standalone.js --output-library=Babel -p",
-    "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run splitter",
-    "postbuild": "node ../../../../node_modules//rollup/bin/rollup -c",
+    "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run splitter --verbose",
+    "postbuild": "node ../../../../node_modules/rollup/bin/rollup -c",
     "webpack": "node ../../../../node_modules/webpack/bin/webpack -p",
     "rollup": "node ../../../../node_modules/rollup/bin/rollup -c",
     "splitter": "node splitter.config.js",
+    "minify": "node ../../../../node_modules/uglify-es/bin/uglifyjs repl/bundle.js -o repl/bundle.min.js",
     "server": "node server"
   },
   "dependencies": {
-    "babel-plugin-transform-es2015-block-scoping": "^6.26.0",
     "babel-standalone": "^6.26.0",
     "babel-template": "^6.26.0"
   }

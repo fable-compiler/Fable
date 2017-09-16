@@ -491,12 +491,6 @@ Target "All" (fun () ->
 Target "REPL" (fun () ->
     let replDir = "src/dotnet/Fable.JS/demo"
     Yarn.install replDir
-
-    // Compile fable-core
-    CreateDir (replDir + "/fable-core")
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s -m amd --outDir %s/fable-core" coreJsSrcDir replDir]
-
-    // Compile FCS/Fable with Fable
     Npm.script replDir "build" []
 )
 

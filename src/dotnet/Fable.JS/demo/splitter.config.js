@@ -3,10 +3,12 @@ const fableUtils = require("fable-utils");
 
 const babelOptions = fableUtils.resolveBabelOptions({
   // plugins: [
-  //   ["transform-es2015-modules-umd"],
+  //   "transform-es2015-block-scoping"
+  //   "transform-es2015-modules-umd",
   // ],
   // presets: [
-  //   ["es2015", { modules: "umd" }],
+    // "minify",
+    // ["es2015", { modules: false }],
   // ],
   // sourceMaps: true,
 });

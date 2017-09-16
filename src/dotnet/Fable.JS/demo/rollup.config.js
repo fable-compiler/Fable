@@ -35,7 +35,7 @@ export default {
   // input: resolve('../Fable.JS.fsproj'),
   input: resolve('./out/Main.js'),
   output: {
-    file: resolve('./repl/bundle.min.js'),
+    file: resolve('./repl/bundle.js'),
     format: 'iife', // 'amd', 'cjs', 'es', 'iife', 'umd'
   },
   name: 'Fable',
