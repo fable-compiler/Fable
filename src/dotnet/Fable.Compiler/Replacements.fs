@@ -297,6 +297,10 @@ module Util =
             | Number Float64 -> "toDouble"
             | ExtNumber Decimal -> "toDecimal"
             | NoNumber -> failwith "Unexpected non-number type"
+        let sourceType =
+            match sourceType with
+            | Fable.Enum _ -> Fable.Number Int32
+            | t -> t
         match sourceType with
         | Fable.Char ->
             InstanceCall(args.Head, "charCodeAt", [makeIntConst 0])
