@@ -482,16 +482,40 @@ Target "All" (fun () ->
         runTestsDotnet ()
 )
 
-// Note: build target "All" before this
 // For this target to work, you need the following:
+//
 // - Clone github.com/ncave/FSharp.Compiler.Service/ `fable` branch and put it
 //   in a folder next to Fable repo named `FSharp.Compiler.Service_fable`
 // - In `FSharp.Compiler.Service_fable` run `fcs\build CodeGen.Fable`
-// > Attention: the generation of libraries metadata is not included in this target
+// - If `fable-compiler.github.io` repo is also cloned next to this, the generated
+//   JS files will be copied to its `public/repl/build` folder
+//
+// > ATTENTION: the generation of libraries metadata is not included in this target
 Target "REPL" (fun () ->
-    let replDir = "src/dotnet/Fable.JS/demo"
+    let replDir = __SOURCE_DIRECTORY__ </> "src/dotnet/Fable.JS/demo"
+
+    // Build tools
+    buildCLI "src/dotnet" true ()
+    buildCoreJS ()
+    buildSplitter ()
+
+    // Build and minify REPL
     Yarn.install replDir
     Npm.script replDir "build" []
+    Npm.script replDir "minify" []
+
+    // Copy generated files to `../fable-compiler.github.io/public/repl/build`
+    let targetDir =  __SOURCE_DIRECTORY__ </> "../fable-compiler.github.io/public/repl"
+    if Directory.Exists(targetDir) then
+        let targetDir = targetDir </> "build"
+        // fable-core
+        [sprintf "--project %s -m amd --outDir %s" coreJsSrcDir (targetDir </> "fable-core")]
+        |> Npm.script __SOURCE_DIRECTORY__ "tsc"
+        // REPL bundle
+        printfn "Copy REPL JS files to %s" targetDir
+        for file in Directory.GetFiles(replDir </> "repl", "*.js") do
+            FileUtils.cp file targetDir
+            printfn "> Copied: %s" file
 )
 
 // Note: build target "All" before this
