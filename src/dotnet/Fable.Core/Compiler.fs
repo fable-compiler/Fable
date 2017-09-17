@@ -2,9 +2,11 @@ namespace Fable
 
 type CompilerOptions =
     { fableCore: string
-    ; declaration: bool
-    ; typedArrays: bool
-    ; clampByteArrays: bool }
+      emitReplacements: Map<string, string>
+      typedArrays: bool
+      clampByteArrays: bool
+      /// ATTENTION: This is not working at the moment
+      declaration: bool }
 
 [<RequireQualifiedAccess>]
 type Severity =

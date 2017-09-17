@@ -515,7 +515,7 @@ module Patterns =
                 then None
                 else Some(List.rev args, List.rev tupleDestructs, body)
         flattenLambda [] [] fsExpr
-        
+
     // TODO: Careful with this. If the treatment of these expressions change
     // this needs to change as well
     let (|MaybeErased|) = function
@@ -1105,8 +1105,19 @@ module Util =
         com.ReplacePlugins
         |> Plugins.tryPlugin info.range (fun p -> p.TryReplace com info)
 
-    let (|Plugin|_|) (com: IFableCompiler) (info: Fable.ApplyInfo) _ =
+    let (|Plugin|_|) (com: IFableCompiler) (info: Fable.ApplyInfo) (_: FSharpMemberOrFunctionOrValue) =
         tryPlugin com info
+
+    let (|EmitReplacement|_|) (com: IFableCompiler) (info: Fable.ApplyInfo) (_: FSharpMemberOrFunctionOrValue) =
+        let fullName = info.ownerFullName + "." + info.methodName
+        match Map.tryFind fullName com.Options.emitReplacements with
+        | Some replacement ->
+            let args =
+                match info.callee with
+                | Some c -> c::info.args
+                | None -> info.args
+            makeEmit info.range info.returnType args replacement |> Some
+        | None -> None
 
     let tryReplace (com: IFableCompiler) ctx (ent: FSharpEntity option) (info: Fable.ApplyInfo) =
         let isInterface = function
@@ -1360,6 +1371,7 @@ module Util =
         let i = buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs, methArgTypes) (callee, args) owner meth
         match meth with
         (** -Check for replacements, emits... *)
+        | EmitReplacement com i replaced -> replaced
         | Plugin com i replaced -> replaced
         | Imported com ctx r typ i (typArgs, methTypArgs) args imported -> imported
         | Emitted com ctx r typ i (typArgs, methTypArgs) (callee, args) emitted -> emitted

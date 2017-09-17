@@ -62,17 +62,22 @@ type State = Map<string, Project>
 
 let getDefaultFableCore() = "fable-core"
 
-let getDefaultOptions() =
+let getDefaultOptions(replacements) =
+    let replacements =
+        match replacements with
+        | Some repls -> Map repls
+        | None -> Map.empty
     { fableCore = getDefaultFableCore()
-    ; declaration = false
-    ; typedArrays = true
-    ; clampByteArrays = false }
+      emitReplacements = replacements
+      typedArrays = true
+      clampByteArrays = false
+      declaration = false }
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
-type Compiler(?options, ?plugins) =
+type Compiler(?options, ?replacements, ?plugins) =
     let mutable id = 0
-    let options = defaultArg options <| getDefaultOptions()
+    let options = defaultArg options (getDefaultOptions replacements)
     let plugins: PluginInfo list = defaultArg plugins []
     let logs = Dictionary<string, string list>()
     member __.ReadAllLogs() =

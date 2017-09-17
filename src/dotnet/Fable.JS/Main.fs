@@ -52,10 +52,11 @@ let compileAst (com: Compiler) checkedProject fileName =
 let createChecker readAllBytes references =
     InteractiveChecker.Create(List.ofArray references, readAllBytes)
 
-let makeCompiler () = Compiler()
+let makeCompiler replacements =
+    Compiler(replacements = replacements)
 
 let compileSource checker source =
-    let com = makeCompiler ()
+    let com = Compiler()
     let fileName = "stdin.fsx"
     let checkedProject = parseFSharpProject checker com fileName source
     let file = compileAst com checkedProject fileName

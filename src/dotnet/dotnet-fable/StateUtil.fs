@@ -203,10 +203,11 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                         match activeProject.FableCore with
                         | FilePath p -> (Path.getRelativePath msg.path p).TrimEnd('/')
                         | NonFilePath p -> p.TrimEnd('/')
-                      declaration = msg.declaration
+                      emitReplacements = Map.empty // TODO: Parse from message
                       typedArrays = msg.typedArrays
-                      clampByteArrays = msg.clampByteArrays }
-                let com = Compiler(comOptions, loadPlugins msg.plugins)
+                      clampByteArrays = msg.clampByteArrays
+                      declaration = msg.declaration }
+                let com = Compiler(options=comOptions, plugins=loadPlugins msg.plugins)
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file
                 if isUpdated && activeProject.IsWatchCompile then
