@@ -437,7 +437,7 @@ let argIdentToExpr (id: Ident) =
     | Unit -> Value Null
     | _ -> IdentValue id |> Value
 
-let makeCurriedLambda range typ lambda =
+let makeDynamicCurriedLambda range typ lambda =
     let args =
         match lambda with
         | Value(Lambda(_,_,info)) when info.CaptureThis -> [lambda; Value This]
@@ -502,7 +502,7 @@ let rec ensureArity com argTypes args =
         // so generate a dynamic curried lambda just in case.
         | GenericParam _, (Type(Function(args,_,isCurried)) as lambda)
                 when isCurried && List.isMultiple args ->
-            makeCurriedLambda lambda.Range lambda.Type lambda
+            makeDynamicCurriedLambda lambda.Range lambda.Type lambda
         | NeedsWrapping (expected, actual, returnType) ->
             wrap com returnType arg expected actual
         | _ -> arg)

@@ -82,30 +82,30 @@ let private compileDerivedConstructor com ctx ent baseFullName (fsExpr: FSharpEx
         |> addError com ctx.fileName (makeRange fsExpr.Range |> Some)
         Fable.Value Fable.Null
 
-let private transformLambda com ctx args tupleDestructs body isDelegate =
-    let hasNestedLambda (lambda: Fable.Expr) =
-        let rec getTotalArgTypes acc = function
-            | Fable.Function(args, returnType, isCurried) when isCurried ->
-                getTotalArgTypes (acc @ args) returnType
-            | returnType -> acc, returnType
-        match lambda.Type with
-        | Fable.Function(outerArgs, Fable.Function(innerArgs, returnType, isCurriedInner), isCurriedOuter)
-                when isCurriedInner && isCurriedOuter ->
-            getTotalArgTypes (outerArgs @ innerArgs) returnType |> Some
-        | _ -> None
+let private transformLambda com ctx (fsExpr: FSharpExpr) args tupleDestructs body isDelegate =
+    let lambdaType = makeType com ctx.typeArgs fsExpr.Type
     let ctx, args = makeLambdaArgs com ctx args
     let ctx =
         (ctx, tupleDestructs)
         ||> List.fold (fun ctx (var, value) ->
             transformExpr com ctx value |> bindExpr ctx var)
-    let captureThis = ctx.thisAvailability <> ThisUnavailable
-    let body = transformExpr com { ctx with isLambdaBody = true } body
-    let lambda = Fable.Lambda(args, body, Fable.LambdaInfo(captureThis, isDelegate)) |> Fable.Value
-    match ctx.isLambdaBody, lazy hasNestedLambda lambda with
-    | true, _ -> lambda
-    | false, LazyValue None -> lambda
-    | false, LazyValue(Some(totalArgs, returnType)) ->
-        makeCurriedLambda body.Range (Fable.Function(totalArgs, returnType, true)) lambda
+    let isDynamicCurried =
+        if not isDelegate && not ctx.isDynamicCurriedLambda then
+            match lambdaType with
+            | Fable.Function(signatureArgs,_,_) -> signatureArgs.Length > args.Length
+            | _ -> false
+        else false    
+    let body =
+        let ctx = { ctx with isDynamicCurriedLambda =
+                                isDynamicCurried || ctx.isDynamicCurriedLambda }
+        transformExpr com ctx body
+    let lambda =
+        let captureThis = ctx.thisAvailability <> ThisUnavailable
+        Fable.Lambda(args, body, Fable.LambdaInfo(captureThis, isDelegate))
+        |> Fable.Value
+    if isDynamicCurried
+    then makeDynamicCurriedLambda (makeRangeFrom fsExpr) lambdaType lambda
+    else lambda
 
 let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
     let rec flattenList (r: SourceLocation) accArgs = function
@@ -463,7 +463,7 @@ let private transformDelegate com ctx delegateType fsExpr =
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeValueFrom com ctx r typ false v |> wrapInZeroArgsLambda r typ args
     | FlattenedLambda(args, tupleDestructs, body) ->
-        transformLambda com ctx args tupleDestructs body true
+        transformLambda com ctx fsExpr args tupleDestructs body true
     | fsExpr -> transformExpr com ctx fsExpr
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) fsExpr unionExpr (NonAbbreviatedType fsType) (unionCase: FSharpUnionCase) =
@@ -732,7 +732,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         transformDelegate com ctx delegateType fsExpr
 
     | FlattenedLambda(args, tupleDestructs, body) ->
-        transformLambda com ctx args tupleDestructs body false
+        transformLambda com ctx fsExpr args tupleDestructs body false
 
     (** ## Getters and Setters *)
 
@@ -1105,7 +1105,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                     // point-free style, which doesn't work well with the uncurrying optimization,
                     // so we create a dynamic curried lambda (See #1041)
                     | Fable.Field, [], t, body when t.IsFunctionType && (countFuncArgs t) > 1 ->
-                        Fable.Field, [], extraArgs, makeCurriedLambda body.Range body.Type body
+                        Fable.Field, [], extraArgs, makeDynamicCurriedLambda body.Range body.Type body
                     // Accept import expressions used instead of attributes, for example:
                     // let foo x y = import "foo" "myLib"
                     | (Fable.Method | Fable.Field | Fable.Getter), args, _,

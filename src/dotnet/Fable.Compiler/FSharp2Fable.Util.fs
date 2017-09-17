@@ -41,7 +41,7 @@ type Context =
       decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
       thisAvailability: ThisAvailability
       genericAvailability: bool
-      isLambdaBody: bool
+      isDynamicCurriedLambda: bool
       caughtException: Fable.Ident option }
     static member Create(fileName, enclosingModule) =
         { fileName = fileName
@@ -53,7 +53,7 @@ type Context =
           decisionTargets = None
           thisAvailability = ThisUnavailable
           genericAvailability = false
-          isLambdaBody = false
+          isDynamicCurriedLambda = false
           caughtException = None }
 
 type IFableCompiler =
@@ -515,7 +515,7 @@ module Patterns =
                 then None
                 else Some(List.rev args, List.rev tupleDestructs, body)
         flattenLambda [] [] fsExpr
-
+        
     // TODO: Careful with this. If the treatment of these expressions change
     // this needs to change as well
     let (|MaybeErased|) = function
