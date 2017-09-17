@@ -99,11 +99,31 @@ function toHex(value: number) {
     : value.toString(16);
 }
 
-export function printf(input: string, ...args: any[]) {
+export type IPrintfFormatContinuation =
+(f: (x: string) => any) => ((x: string) => any);
+
+export interface IPrintfFormat {
+  input: string;
+  cont: IPrintfFormatContinuation;
+}
+
+export function printf(input: string, ...args: any[]): IPrintfFormat {
   return {
     input,
-    cont: fsFormat(input, ...args),
+    cont: fsFormat(input, ...args) as IPrintfFormatContinuation,
   };
+}
+
+export function toConsole(arg: IPrintfFormat) {
+  return arg.cont((x) => { console.log(x); });
+}
+
+export function toText(arg: IPrintfFormat) {
+  return arg.cont((x) => x);
+}
+
+export function toFail(arg: IPrintfFormat) {
+  return arg.cont((x) => { throw new Error(x); });
 }
 
 export function fsFormat(str: string, ...args: any[]): ((...args: any[]) => any) | string {

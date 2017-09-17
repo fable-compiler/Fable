@@ -747,29 +747,23 @@ module AstPass =
         | _ -> None
 
     let fsFormat com (i: Fable.ApplyInfo) =
-        let emit macro =
-            let emit = Fable.Emit macro |> Fable.Value
-            let cont = makeGet None i.returnType i.args.Head (makeStrConst "cont")
-            Fable.Apply(cont, [emit], Fable.ApplyMeth, i.returnType, i.range)
-            |> Some
         match i.methodName with
         | "value" ->
             makeGet None i.returnType i.callee.Value (makeStrConst "input")
             |> Some
-        | "printFormatToString" -> emit "x=>x"
+        | "printFormatToString"
         | "printFormatToStringThen" ->
-            emit "x=>x"
+            ccall i "String" "toText" i.args |> Some
+        | "printFormatLine" -> ccall i "String" "toConsole" i.args |> Some
         | "printFormat" ->
-            addWarning com i.fileName i.range "printf will behave as printfn"
-            emit "x=>{console.log(x)}"
-        | "printFormatLine" ->
-            emit "x=>{console.log(x)}"
+            // addWarning com i.fileName i.range "printf will behave as printfn"
+            ccall i "String" "toConsole" i.args |> Some
         | "printFormatThen" ->
             let cont = makeGet None i.returnType i.args.Tail.Head (makeStrConst "cont")
             Fable.Apply(cont, [i.args.Head], Fable.ApplyMeth, i.returnType, i.range)
             |> Some
         | "printFormatToStringThenFail" ->
-            emit "x=>{throw new Error(x)}"
+            ccall i "String" "toFail" i.args |> Some
         | ".ctor" ->
             ccall i "String" "printf" i.args |> Some
         | _ -> None
