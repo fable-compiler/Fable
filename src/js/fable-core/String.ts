@@ -99,6 +99,13 @@ function toHex(value: number) {
     : value.toString(16);
 }
 
+export function printf(input: string, ...args: any[]) {
+  return {
+    input,
+    cont: fsFormat(input, ...args),
+  };
+}
+
 export function fsFormat(str: string, ...args: any[]): ((...args: any[]) => any) | string {
   function formatOnce(str2: any, rep: any) {
     return str2.replace(fsFormatRegExp,
