@@ -94,7 +94,7 @@ let private transformLambda com ctx (fsExpr: FSharpExpr) args tupleDestructs bod
             match lambdaType with
             | Fable.Function(signatureArgs,_,_) -> signatureArgs.Length > args.Length
             | _ -> false
-        else false    
+        else false
     let body =
         let ctx = { ctx with isDynamicCurriedLambda =
                                 isDynamicCurried || ctx.isDynamicCurriedLambda }
@@ -143,9 +143,10 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             |> addWarning com ctx.fileName (Some range)
         | _ -> ()
         match argExprs: Fable.Expr list with
-        // Represent `Some ()` with an empty object, see #478
+        // TODO HACK: Represent `Some ()` with an empty object, see #478
+        // Use JS comma separated expression to prevent erasure of side effects, see #1148
         | expr::_ when expr.Type = Fable.Unit ->
-            Fable.Wrapped(Fable.ObjExpr([], [], None, Some range), unionType)
+            makeEmit (Some range) unionType [expr] "$0, {}"
         | expr::_ -> Fable.Wrapped(expr, unionType)
         | _ -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
     | ErasedUnion ->
