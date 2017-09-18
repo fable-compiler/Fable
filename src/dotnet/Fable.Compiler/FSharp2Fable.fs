@@ -132,7 +132,7 @@ let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
             CoreLibCall("List", Some "ofArray", false, args)
     |> makeCall (Some range) unionType
 
-let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase argExprs =
+let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase (argExprs: Fable.Expr list) =
     let unionType, range = makeType com ctx.typeArgs fsType, makeRange fsExpr.Range
     let genericArg = fsType.GenericArguments |> List.ofSeq |> List.tryHead
     match fsType with
@@ -142,12 +142,10 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             "Nested option in option won't work at runtime"
             |> addWarning com ctx.fileName (Some range)
         | _ -> ()
-        match argExprs: Fable.Expr list with
-        // TODO HACK: Represent `Some ()` with an empty object, see #478
-        // Use JS comma separated expression to prevent erasure of side effects, see #1148
-        | expr::_ when expr.Type = Fable.Unit ->
-            makeEmit (Some range) unionType [expr] "$0, {}"
-        | expr::_ -> Fable.Wrapped(expr, unionType)
+        match argExprs with
+        | expr::_ ->
+            CoreLibCall("Util", Some "some", false, [expr])
+            |> makeCall (Some range) unionType
         | _ -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
     | ErasedUnion ->
         match argExprs with

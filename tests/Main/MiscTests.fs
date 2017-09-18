@@ -831,12 +831,14 @@ let ``System.Uri.UnescapeDataString works``() =
     System.Uri.UnescapeDataString("http%3A%2F%2Fkvz.io%2F") |> equal "http://kvz.io/"
     System.Uri.UnescapeDataString("http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a")
     |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
+
 [<Test>]
 let ``System.Uri.EscapeDataString works``() =
     System.Uri.EscapeDataString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld%21"
     System.Uri.EscapeDataString("http://kvz.io/") |> equal "http%3A%2F%2Fkvz.io%2F"
     System.Uri.EscapeDataString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
     |> equal "http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a"
+
 [<Test>]
 let ``System.Uri.EscapeUriString works``() =
     System.Uri.EscapeUriString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld!"
@@ -844,3 +846,21 @@ let ``System.Uri.EscapeUriString works``() =
     System.Uri.EscapeUriString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
     |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
 
+module Trampoline =
+    type Result<'a, 'b> =
+        | Continue of 'a
+        | Break of 'b
+    let run func arg =
+        let mutable state = arg
+        let mutable result = None
+        while result.IsNone do
+            match func state with
+            | Continue r -> state <- r
+            | Break r -> result <- Some r
+        result.Value
+
+[<Test>]
+let ``While with isNone doesn't hang with Some ()``() =
+    Trampoline.run (fun _ -> Trampoline.Break "hello") () |> ignore
+    Trampoline.run (fun _ -> Trampoline.Break 42) () |> ignore
+    Trampoline.run (fun _ -> Trampoline.Break ()) () |> ignore

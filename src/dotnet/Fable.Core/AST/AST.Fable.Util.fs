@@ -455,7 +455,7 @@ let (|CurriedLambda|_|) = function
 // JS: ["1","2"].map($var1 => $var2 => ((x, y) => x + y)($var1, $var2))
 let rec ensureArity com argTypes args =
     let rec needsWrapping = function
-        | Option(Function(expected,_,_)), Function(actual,returnType,_)
+        | Option(Function(expected,_,_)), Option(Function(actual,returnType,_))
         | Function(expected,_,_), Function(actual,returnType,_) ->
             let expectedLength = List.length expected
             let actualLength = List.length actual
@@ -466,8 +466,7 @@ let rec ensureArity com argTypes args =
             else None
         | _ -> None
     let (|NeedsWrapping|_|) (expectedType, arg: Expr) =
-        let argType = match arg with Wrapped(e,_) -> e.Type | e -> e.Type
-        needsWrapping (expectedType, argType)
+        needsWrapping (expectedType, arg.Type)
     let wrap (com: ICompiler) typ (f: Expr) expectedArgs actualArgs =
         let outerArgs =
             expectedArgs |> List.map (fun t -> makeTypedIdent (com.GetUniqueVar()) t)

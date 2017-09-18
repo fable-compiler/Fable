@@ -58,6 +58,11 @@ export function Option(t: Type) {
   return new NonDeclaredType("Option", null, [t]) as NonDeclaredType;
 }
 
+// HACK: For unit values use a truthy empty object (see #478, #1135, #1136)
+export function some(value: any): any {
+  return value == null ? {} : value;
+}
+
 function FableArray(t: Type, isTypedArray = false) {
   let def: Type = null;
   let genArg: Type = null;
