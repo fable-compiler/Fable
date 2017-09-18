@@ -65,7 +65,7 @@ let runProcessAndReadOutput workingDir fileName args =
     output
 
 let rec findPackageJsonDir dir =
-    if File.Exists(Path.Combine(dir, "package.json"))
+    if File.Exists(IO.Path.Combine(dir, "package.json"))
     then dir
     else
         let parent = Directory.GetParent(dir)
@@ -250,11 +250,22 @@ let main argv =
         let workingDir = Directory.GetCurrentDirectory()
         startServerWithProcess workingDir args.port "node" execArgs
     | Some ("webpack" | "webpack-dev-server" as webpack) ->
+        let containsWebpackConfig dir =
+            File.Exists(IO.Path.Combine(dir, "webpack.config.js"))
         let args = argv.[1..] |> parseArguments
         let workingDir = Directory.GetCurrentDirectory()
+        let pkgJsonDir = findPackageJsonDir workingDir
+        let workingDir =
+            // Many times, webpack.config.js is next to package.json while Fable
+            // is invoked from the `src` directory. So default to package.json dir
+            // if the Webpack config file is found there
+            match containsWebpackConfig workingDir, containsWebpackConfig pkgJsonDir with
+            | true, _ -> workingDir
+            | false, true -> pkgJsonDir
+            | false, false -> workingDir
         let webpackScript =
             let webpackScript =
-                Path.Combine(findPackageJsonDir workingDir, "node_modules", webpack, "bin", webpack + ".js")
+                IO.Path.Combine(findPackageJsonDir workingDir, "node_modules", webpack, "bin", webpack + ".js")
                 |> sprintf "\"%s\""
             match args.commandArgs with
             | Some args -> webpackScript + " " + args
