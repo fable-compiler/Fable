@@ -1,3 +1,7 @@
+### 1.2.2
+
+* See Fable.Compiler 1.2.2
+
 ### 1.2.1
 
 * Guid validation and byte[] conversion

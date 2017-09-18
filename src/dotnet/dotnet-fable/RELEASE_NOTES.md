@@ -1,3 +1,8 @@
+### 1.2.2
+
+* Update Fable.Compiler to 1.2.2
+* Look also for Webpack config in package.json dir when using `webpack` command
+
 ### 1.2.1
 
 * Update Fable.Compiler
