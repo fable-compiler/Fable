@@ -1,3 +1,7 @@
+### 1.2.3
+
+* Fix #1135, #1136: `unit option` hack doesn't work with generic functions
+
 ### 1.2.2
 
 * See Fable.Compiler 1.2.2
