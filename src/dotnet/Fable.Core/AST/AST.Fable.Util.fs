@@ -534,12 +534,21 @@ and makeApply com range typ callee (args: Expr list) =
             |> makeApply com range typ <| outerArgs
         elif argTypesLength > argsLength && argsLength >= 1 // TODO: Remove >= 1?
         then
-            List.skip argsLength argTypes
-            |> List.map (fun t -> Ident(com.GetUniqueVar(), t))
-            |> fun argTypes2 ->
-                let args2 = argTypes2 |> List.map argIdentToExpr
-                Apply(callee, ensureArity com argTypes (args@args2), ApplyMeth, typ, range)
-                |> makeLambdaExpr argTypes2
+            // We must freeze args to prevent duplication of sie effects (see #1156)
+            let frozenArgIdents =
+                args |> List.map (fun a -> Ident(com.GetUniqueVar(), a.Type))
+            let varDeclarations =
+                (frozenArgIdents, args) ||> List.map2 (fun ident expr ->
+                    VarDeclaration(ident, expr, false))
+            let generatedArgIdents =
+                List.skip argsLength argTypes
+                |> List.map (fun t -> Ident(com.GetUniqueVar(), t))
+            let generatedArgs = generatedArgIdents |> List.map argIdentToExpr
+            let frozenArgs = frozenArgIdents |> List.map argIdentToExpr
+            let lambdaExpr =
+                Apply(callee, ensureArity com argTypes (frozenArgs@generatedArgs), ApplyMeth, typ, range)
+                |> makeLambdaExpr generatedArgIdents
+            Sequential(varDeclarations@[lambdaExpr], range)
         else
             Apply(callee, ensureArity com argTypes args, ApplyMeth, typ, range)
     | _ ->

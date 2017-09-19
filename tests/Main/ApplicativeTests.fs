@@ -628,3 +628,31 @@ let ``Applying to a function returned by a local function works``() =
     let baz = bar 2 (fun _ -> 3) ()
     equal (1,5) baz
 
+let mutable counter = 0
+let next () =
+  let result = counter
+  counter <- counter + 1
+  result
+
+let adder () =
+  let add a b = a + b
+  add (next())
+
+let add = adder ()
+
+[<Test>]
+let ``Partially applied functions don't duplicate side effects``() = // See #1156
+    add 1 + add 2 + add 3 |> equal 6
+
+// [<Test>]
+// let ``Partially applied functions don't duplicate side effects locally``() =
+//     let mutable counter = 0
+//     let next () =
+//       let result = counter
+//       counter <- counter + 1
+//       result
+//     let adder () =
+//       let add a b = a + b
+//       add (next())
+//     let add = adder ()
+//     add 1 + add 2 + add 3 |> equal 6
