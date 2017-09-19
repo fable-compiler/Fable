@@ -26,10 +26,6 @@ module Util =
             when meth' = meth && coreMod' = coreMod -> Some args
         | _ -> None
 
-    let (|MaybeWrapped|) = function
-        | Fable.Wrapped(e,_) -> e
-        | e -> e
-
     let (|FloatToInt|) (x: float) = int x
 
     let (|StringLiteral|_|) = function

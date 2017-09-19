@@ -2,6 +2,10 @@ module Fable.AST.Fable.Util
 open Fable
 open Fable.AST
 
+let (|MaybeWrapped|) = function
+    | Fable.Wrapped(e,_) -> e
+    | e -> e
+
 let attachRange (range: SourceLocation option) msg =
     match range with
     | Some range -> msg + " " + (string range)
@@ -510,25 +514,25 @@ and makeApply com range typ callee (args: Expr list) =
     let callee =
         match callee with
         // If we're applying against a F# let binding, wrap it with a lambda
-        | Sequential _ ->
+        | MaybeWrapped(Sequential _) ->
             Apply(Value(Lambda([],callee,LambdaInfo(true))), [], ApplyMeth, callee.Type, callee.Range)
         | _ -> callee
     match callee with
     // Dynamic CurriedLambda shouldn't be wrapped, see #996
-    | CurriedLambda _ -> Apply(callee, args, ApplyMeth, typ, range)
+    | MaybeWrapped(CurriedLambda _) -> Apply(callee, args, ApplyMeth, typ, range)
     // Make necessary transformations if we're applying more or less
     // arguments than the specified function arity
     | Type(Function(argTypes, _, _)) ->
         let argsLength = List.length args
         let argTypesLength = List.length argTypes
-        if argTypesLength < argsLength && argTypesLength >= 1 // TODO: Remove >= 1
+        if argTypesLength < argsLength && argTypesLength >= 1 // TODO: Remove >= 1?
         then
             let innerArgs = List.take argTypesLength args
             let outerArgs = List.skip argTypesLength args
             Apply(callee, ensureArity com argTypes innerArgs, ApplyMeth,
                     Function(List.map Expr.getType outerArgs, typ, true), range)
             |> makeApply com range typ <| outerArgs
-        elif argTypesLength > argsLength && argsLength >= 1 // TODO: Remove >= 1
+        elif argTypesLength > argsLength && argsLength >= 1 // TODO: Remove >= 1?
         then
             List.skip argsLength argTypes
             |> List.map (fun t -> Ident(com.GetUniqueVar(), t))

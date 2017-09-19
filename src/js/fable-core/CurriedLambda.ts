@@ -9,8 +9,9 @@ export default function CurriedLambda(f: ICurriedLambda, _this?: any, expectedAr
   }
   const curriedFn: ICurriedLambda = (...args: any[]) => {
     // _this = _this || this;
-    expectedArgsLength = expectedArgsLength || f.length;
-    if (args.length >= expectedArgsLength) {
+    const actualArgsLength = Math.max(args.length, 1);
+    expectedArgsLength = Math.max(expectedArgsLength || f.length, 1);
+    if (actualArgsLength >= expectedArgsLength) {
       const restArgs = args.splice(expectedArgsLength);
       const res = f.apply(_this, args);
       if (typeof res === "function") {
@@ -22,7 +23,7 @@ export default function CurriedLambda(f: ICurriedLambda, _this?: any, expectedAr
     } else {
       return CurriedLambda((...args2: any[]) => {
         return f.apply(_this, args.concat(args2));
-      }, _this, expectedArgsLength - args.length);
+      }, _this, expectedArgsLength - actualArgsLength);
     }
   };
   curriedFn.curried = true;

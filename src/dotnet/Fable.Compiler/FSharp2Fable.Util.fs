@@ -193,11 +193,6 @@ module Helpers =
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
 
-    let rec countFuncArgs (fn: FSharpType) =
-        if fn.IsFunctionType
-        then countFuncArgs (Seq.last fn.GenericArguments) + 1
-        else 0
-
     let getEntityLocation (ent: FSharpEntity) =
         match ent.ImplementationLocation with
         | Some loc -> loc
@@ -489,12 +484,15 @@ module Patterns =
         | _ -> None
 
     let (|FlattenedApplication|_|) fsExpr =
-        // Application args can be empty sometimes so a flag is needed
-        let rec flattenApplication flag typeArgs args = function
-            | Application(callee, typeArgs2, args2) ->
-                flattenApplication true (typeArgs2@typeArgs) (args2@args) callee
-            | callee -> if flag then Some(callee, typeArgs, args) else None
-        flattenApplication false [] [] fsExpr
+        let rec flattenApplication typeArgs args = function
+            | Application(expr, typeArgs2, args2) ->
+                flattenApplication (typeArgs2@typeArgs) (args2@args) expr
+            | expr ->
+                Some(expr, typeArgs, args)
+        match fsExpr with
+        | Application(expr, typeArgs, args) ->
+            flattenApplication typeArgs args expr
+        | _ -> None
 
     let (|FlattenedLambda|_|) fsExpr =
         // F# compiler puts tuple destructs in between curried arguments
@@ -701,6 +699,20 @@ module Types =
         with _ ->
             None
 
+    let rec getFunctionGenericArgs (acc: FSharpType list) (typeArgs: (string*FSharpType) list)
+                                    isFunctionType (typ: FSharpType): FSharpType list =
+        if isFunctionType then
+            let genArg0 = nonAbbreviatedType typ.GenericArguments.[0]
+            let genArg1 = nonAbbreviatedType typ.GenericArguments.[1]
+            getFunctionGenericArgs (genArg0::acc) typeArgs genArg1.IsFunctionType genArg1
+        elif typ.IsGenericParameter then
+            typeArgs |> List.tryFind (fun (name,_) -> name = typ.GenericParameter.Name)
+            |> function
+                | Some (_, typ2) when typ2.IsFunctionType ->
+                    getFunctionGenericArgs [] typeArgs true typ2
+                | _ -> typ::acc
+        else typ::acc
+
     let rec makeTypeFromDef (com: IFableCompiler) typeArgs (tdef: FSharpEntity)
                         (genArgs: seq<FSharpType>) =
         let tdef = nonAbbreviatedEntity tdef
@@ -779,18 +791,6 @@ module Types =
             // Clear typeArgs to prevent infinite recursion
             | Some (_,typ) -> makeType com [] typ
             | None -> Fable.GenericParam genParam.Name
-        let rec getFnGenArgs (acc: FSharpType list) isFunctionType (typ: FSharpType): FSharpType list =
-            if isFunctionType
-            then
-                let genArg0 = nonAbbreviatedType typ.GenericArguments.[0]
-                let genArg1 = nonAbbreviatedType typ.GenericArguments.[1]
-                getFnGenArgs (genArg0::acc) genArg1.IsFunctionType genArg1
-            elif typ.IsGenericParameter
-            then
-                match typeArgs |> List.tryFind (fun (name,_) -> name = typ.GenericParameter.Name) with
-                | Some (_, typ2) when typ2.IsFunctionType -> getFnGenArgs [] true typ2
-                | _ -> typ::acc
-            else typ::acc
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
         then resolveGenParam t.GenericParameter
@@ -800,7 +800,7 @@ module Types =
         // Funtion
         elif t.IsFunctionType
         then
-            let gs = getFnGenArgs [] true t
+            let gs = getFunctionGenericArgs [] typeArgs true t
             let argTypes = List.rev gs.Tail |> List.map (makeType com typeArgs)
             let returnType = makeType com typeArgs gs.Head
             Fable.Function(argTypes, returnType, true)

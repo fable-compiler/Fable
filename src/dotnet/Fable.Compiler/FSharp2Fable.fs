@@ -703,7 +703,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> addErrorAndReturnNull com ctx.fileName (Some range)
 
     | FlattenedApplication(Transform com ctx callee, typeArgs, args) ->
-        // TODO: Ask why application without aguments happen. So I've seen it for
+        // TODO: Ask why application without arguments happen. So far I've seen it for
         // accessing None or struct values (like the Result type)
         if args.Length = 0 then callee else
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
@@ -1106,23 +1106,28 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                         | _ -> transformExpr com ctx body
                     Fable.Constructor, args, extraArgs, body
                 else
-                    match getMemberKind meth, args, body.Type, transformExpr com ctx body with
-                    // When a module field (no args) returns a function, it means
-                    // point-free style, which doesn't work well with the uncurrying optimization,
-                    // so we create a dynamic curried lambda (See #1041)
-                    | Fable.Field, [], t, body when t.IsFunctionType && (countFuncArgs t) > 1 ->
-                        Fable.Field, [], extraArgs, makeDynamicCurriedLambda body.Range body.Type body
-                    // Accept import expressions used instead of attributes, for example:
-                    // let foo x y = import "foo" "myLib"
-                    | (Fable.Method | Fable.Field | Fable.Getter), args, _,
-                        (Fable.Value(Fable.ImportRef(selector, path, importKind)) as body) ->
-                        let body =
-                            if selector = Naming.placeholder
-                            then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
-                            else body
-                        Fable.Field, [], [], body
-                    | kind, args, _, body ->
-                        kind, args, extraArgs, body
+                    let isBodyMultiArgFunction =
+                        if body.Type.IsFunctionType
+                        then getFunctionGenericArgs [] ctx.typeArgs true body.Type |> List.isMultiple
+                        else false
+                    // When a member returns a function, there are issues with the uncurrying
+                    // optimization when calling & applying at once (See #1041, #1154)
+                    if isBodyMultiArgFunction then
+                        let body = transformExpr com ctx body
+                        let body = makeDynamicCurriedLambda body.Range body.Type body
+                        getMemberKind meth, args, extraArgs, body
+                    else
+                        match transformExpr com ctx body with
+                        // Accept import expressions used instead of attributes, for example:
+                        // let foo x y = import "foo" "myLib"
+                        | Fable.Value(Fable.ImportRef(selector, path, importKind)) as body ->
+                            let body =
+                                if selector = Naming.placeholder
+                                then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
+                                else body
+                            Fable.Field, [], [], body
+                        | body ->
+                            getMemberKind meth, args, extraArgs, body
         let entMember =
             let argTypes = List.map Fable.Ident.getType args
             let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
