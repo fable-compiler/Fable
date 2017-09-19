@@ -278,19 +278,35 @@ function createCompilationInfo(options, previousInfo) {
         };
     }
 }
+
+function msToTime(s) {
+    var ms = s % 1000;
+    s = (s - ms) / 1000;
+    var secs = s % 60;
+    s = (s - secs) / 60;
+    var mins = s % 60;
+    var hrs = (s - mins) / 60;
+  
+    return hrs + ':' + mins + ':' + secs + '.' + ms;
+  }
+
 function fableSplitter(options, previousInfo) {
     fableUtils.validateFableOptions(options);
     options = setDefaultOptions(options);
     const info = createCompilationInfo(options, previousInfo);
     // main loop
-    console.log("fable: Compiling...");
+    const startDate = new Date();
+    const startDateStr = startDate.toLocaleTimeString();
+    console.log(`fable: Compilation started at ${startDateStr}`);
     // options.path will only be filled in watch compilations
     return transformAsync(options.path || options.entry, options, info, true)
         .then(() => {
         Object.keys(info.logs).forEach((severity) => ensureArray(info.logs[severity]).forEach((log) => output(log, severity)));
         const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
-        const date = new Date().toLocaleTimeString();
-        console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"} at ${date}`);
+        const date = new Date();
+        const dateStr = date.toLocaleTimeString();
+        const duration = msToTime(date - startDate);
+        console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"} at ${dateStr} (${duration})`);
         if (!hasError && typeof options.postbuild === "function") {
             options.postbuild();
         }
