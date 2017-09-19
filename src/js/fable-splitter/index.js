@@ -298,6 +298,7 @@ function fableSplitter(options, previousInfo) {
     const startDate = new Date();
     const startDateStr = startDate.toLocaleTimeString();
     console.log(`fable: Compilation started at ${startDateStr}`);
+    var processTime = process.hrtime();
     // options.path will only be filled in watch compilations
     return transformAsync(options.path || options.entry, options, info, true)
         .then(() => {
@@ -305,8 +306,8 @@ function fableSplitter(options, previousInfo) {
         const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
         const date = new Date();
         const dateStr = date.toLocaleTimeString();
-        const duration = msToTime(date - startDate);
-        console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"} at ${dateStr} (${duration})`);
+        const duration = (process.hrtime(processTime))[0];
+        console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"} at ${dateStr} (${duration}s)`);
         if (!hasError && typeof options.postbuild === "function") {
             options.postbuild();
         }
