@@ -256,3 +256,8 @@ let ``Regex.Replace with evaluator, limit and offset works``() =
         |> equal expected
     test 0 "ab3ab2ab3abcabcabCCCcabcabc"
     test 10 "abcCcabCCab3ab1ab1abCCCcabcabc"
+
+[<Test>]
+let ``Replacing with $0 works``() = // See #1155
+    let s = Regex.Replace("1234567890", ".{2}", "$0-")
+    equal "12-34-56-78-90-" s
