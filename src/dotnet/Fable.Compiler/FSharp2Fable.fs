@@ -134,18 +134,25 @@ let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
 
 let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase (argExprs: Fable.Expr list) =
     let unionType, range = makeType com ctx.typeArgs fsType, makeRange fsExpr.Range
-    let genericArg = fsType.GenericArguments |> List.ofSeq |> List.tryHead
     match fsType with
     | OptionUnion ->
-        match genericArg with
-        | Some OptionUnion ->
-            "Nested option in option won't work at runtime"
-            |> addWarning com ctx.fileName (Some range)
-        | _ -> ()
         match argExprs with
         | expr::_ ->
-            CoreLibCall("Util", Some "some", false, [expr])
-            |> makeCall (Some range) unionType
+            match expr.Type with
+            // For null or unknown types, call the `some` helper from fable-core
+            | Fable.Unit | Fable.Any | Fable.GenericParam _ ->
+                CoreLibCall("Util", Some "some", false, [expr])
+                |> makeCall (Some range) unionType
+            | Fable.Option _ ->
+                // TODO: Deal with nested options
+                "Nested option in option won't work at runtime"
+                |> addWarning com ctx.fileName (Some range)
+                CoreLibCall("Util", Some "some", false, [expr])
+                |> makeCall (Some range) unionType
+            // TODO: Check declared types that accept null?
+            // | Fable.DeclaredType _ -> failwith "TODO"
+            // For non-null known types, just wrap the expression
+            | _ -> Fable.Wrapped(expr, unionType)
         | _ -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
     | ErasedUnion ->
         match argExprs with
