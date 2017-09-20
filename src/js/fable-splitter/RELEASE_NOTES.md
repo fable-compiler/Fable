@@ -1,3 +1,7 @@
+### 0.1.17
+
+* Show compile times #1153
+
 ### 0.1.15
 
 * Validate options

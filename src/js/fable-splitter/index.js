@@ -278,18 +278,6 @@ function createCompilationInfo(options, previousInfo) {
         };
     }
 }
-
-function msToTime(s) {
-    var ms = s % 1000;
-    s = (s - ms) / 1000;
-    var secs = s % 60;
-    s = (s - secs) / 60;
-    var mins = s % 60;
-    var hrs = (s - mins) / 60;
-  
-    return hrs + ':' + mins + ':' + secs + '.' + ms;
-  }
-
 function fableSplitter(options, previousInfo) {
     fableUtils.validateFableOptions(options);
     options = setDefaultOptions(options);
@@ -298,7 +286,7 @@ function fableSplitter(options, previousInfo) {
     const startDate = new Date();
     const startDateStr = startDate.toLocaleTimeString();
     console.log(`fable: Compilation started at ${startDateStr}`);
-    var processTime = process.hrtime();
+    const processTime = process.hrtime();
     // options.path will only be filled in watch compilations
     return transformAsync(options.path || options.entry, options, info, true)
         .then(() => {
