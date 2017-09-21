@@ -27,14 +27,14 @@
     "build": "node ../../../node_modules/typescript/bin/tsc"
   },
   "peerDependencies": {
-    "babel-core": "^6.25.0"
+    "babel-core": "^6.26.0"
   },
   "optionalDependencies": {
     "prepack": "^0.2.5"
   },
   "devDependencies": {
     "@types/node": "^8.0.22",
-    "@types/babel-core": "^6.25.0"
+    "@types/babel-core": "^6.26.0"
   },
   "dependencies": {
     "fable-utils": "^1.0.6",
