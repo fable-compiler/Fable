@@ -40,14 +40,13 @@ After scaffolding the project, install JS and F# dependencies. This is only need
 
 ```shell
 yarn install
-dotnet restore
 ```
 
 Install Fable and dotnet dependencies using Paket:
 
 ```shell
-cd src
 dotnet restore
+cd src
 ```
 
 Start Fable and [Webpack](https://webpack.js.org/) dev server:
@@ -74,7 +73,7 @@ On the other side, there is a JS client that takes care of watching the files, c
 * [rollup-plugin-fable](https://www.npmjs.com/package/rollup-plugin-fable) for [Rollup](https://rollupjs.org/), another bundler focused on tree shaking.
 * [fable-splitter](https://www.npmjs.com/package/fable-splitter) is a standalone tool which, unlike the previous ones, outputs separated files instead of a single bundle.
 
-All the clients need a configuration file, click the links above for more details. Also note that, unlike most JS projects, Fable will reference files outside the local folder (like the [Nuget cache](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-nuget-locals)). To prevent conflicts, be sure to resolve all paths in the configuration [as well as Babel options](https://github.com/fable-compiler/fable-templates/blob/213bf4027e512751c44d6a0a6114701ae7f3343f/simple/Content/webpack.config.js#L9-L12).
+All the clients need a configuration file, click the links above for more details. Also note that, unlike most JS projects, Fable will reference files outside the local folder (like the [NuGet cache](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-nuget-locals)). To prevent conflicts, be sure to resolve all paths in the configuration [as well as Babel options](https://github.com/fable-compiler/fable-templates/blob/213bf4027e512751c44d6a0a6114701ae7f3343f/simple/Content/webpack.config.js#L9-L12).
 
 The usual way to run a JS tool is a [package.json script](https://docs.npmjs.com/misc/scripts), so when you type `yarn run build` this will invoke a command named "build" within the "scripts" property of the package.json file.
 
