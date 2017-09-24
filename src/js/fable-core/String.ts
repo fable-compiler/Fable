@@ -415,18 +415,24 @@ export function arrayToGuid(buf: ArrayLike<number>) {
 }
 /* tslint:enable */
 
+function notSupported(name: string) {
+  throw new Error("The environment doesn't support '" + name + "', please use a polyfill.");
+}
+
 export function toBase64String(inArray: number[]) {
   let str = "";
   for (let i = 0; i < inArray.length; i++) {
     str += String.fromCharCode(inArray[i]);
   }
-  return typeof btoa === "function"
-  ? btoa(str) : new Buffer(str).toString("base64");
+  return typeof btoa === "function" ? btoa(str) : notSupported("btoa");
+  // Webpack injects code in the bundle if it detects Buffer usage
+  // return new Buffer(str).toString("base64");
 }
 
 export function fromBase64String(b64Encoded: string) {
-  const binary = typeof atob === "function"
-    ? atob(b64Encoded) : new Buffer(b64Encoded, "base64").toString();
+  // Webpack injects code in the bundle if it detects Buffer usage
+  // const binary = new Buffer(b64Encoded, "base64").toString();
+  const binary = atob(b64Encoded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
