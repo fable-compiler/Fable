@@ -1,10 +1,4 @@
-import { DateKind } from "./Date";
-import { second } from "./Date";
-import { minute } from "./Date";
-import { hour } from "./Date";
-import { day } from "./Date";
-import { month } from "./Date";
-import { year } from "./Date";
+import { DateKind,  day, hour, minute, month, second,  year } from "./Date";
 import { escape } from "./RegExp";
 import { hasInterface, toString } from "./Util";
 
@@ -415,7 +409,7 @@ export function arrayToGuid(buf: ArrayLike<number>) {
 }
 /* tslint:enable */
 
-function notSupported(name: string) {
+function notSupported(name: string): never {
   throw new Error("The environment doesn't support '" + name + "', please use a polyfill.");
 }
 
@@ -425,14 +419,10 @@ export function toBase64String(inArray: number[]) {
     str += String.fromCharCode(inArray[i]);
   }
   return typeof btoa === "function" ? btoa(str) : notSupported("btoa");
-  // Webpack injects code in the bundle if it detects Buffer usage
-  // return new Buffer(str).toString("base64");
 }
 
 export function fromBase64String(b64Encoded: string) {
-  // Webpack injects code in the bundle if it detects Buffer usage
-  // const binary = new Buffer(b64Encoded, "base64").toString();
-  const binary = atob(b64Encoded);
+  const binary = typeof atob === "function" ? atob(b64Encoded) : notSupported("atob");
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
