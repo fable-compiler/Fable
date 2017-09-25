@@ -1634,6 +1634,11 @@ module AstPass =
             | None, Seq -> ccall "Seq" "sortWith" (compareFn::args) |> Some
             | None, List -> ccall "Seq" "sortWith" (compareFn::args) |> toList com i |> Some
             | None, Array -> ccall "Seq" "sortWith" (compareFn::args) |> toArray com i |> Some
+        | "splitAt" ->
+            match kind with
+            | Seq -> None
+            | List -> ccall "List" meth args |> Some
+            | Array -> ccall "Array" meth args |> Some
         // Constructors ('cons' only applies to List)
         | "empty" | "cons" ->
             match kind with

@@ -149,3 +149,13 @@ export function getSubArray<T>(xs: T[], startIndex: number, count: number) {
 export function fill<T>(target: T[], targetIndex: number, count: number, value: T) {
   target.fill(value, targetIndex, targetIndex + count);
 }
+
+export function splitAt<T>(index: number, xs: T[]): [T[], T[]] {
+  if (index < 0) {
+    throw new Error("The input must be non-negative.");
+  }
+  if (index > xs.length) {
+    throw new Error("The input sequence has an insufficient number of elements.");
+  }
+  return [xs.slice(0, index), xs.slice(index)];
+}

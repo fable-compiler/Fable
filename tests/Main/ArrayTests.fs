@@ -881,3 +881,10 @@ let ``Array.chunkBySize works`` () =
     |> equal [| [|1..4|]; [|5..8|] |]
     Array.chunkBySize 4 [|1..10|]
     |> equal [| [|1..4|]; [|5..8|]; [|9..10|] |]
+
+[<Test>]
+let ``Array.splitAt works``() =
+    let ar = [|1;2;3;4|]
+    Array.splitAt 0 ar |> equal ([||], [|1;2;3;4|])
+    Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
+    Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])

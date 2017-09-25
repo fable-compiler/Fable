@@ -669,6 +669,13 @@ let ``List.unfold works``() =
       | _ -> 0.0
     sum |> equal 6.0
 
+[<Test>]
+let ``List.splitAt works``() =
+    let li = [1;2;3;4]
+    List.splitAt 0 li |> equal ([], [1;2;3;4])
+    List.splitAt 3 li |> equal ([1;2;3], [4])
+    List.splitAt 4 li |> equal ([1;2;3;4], [])
+
 type R = { i: int; s: string }
 
 [<Test>]
