@@ -50,6 +50,12 @@ type PojoAttribute() =
 type StringEnumAttribute() =
     inherit Attribute()
 
+/// Used to spread a list as last argument. Mainly intended
+/// for `React.createElement` binding, not for general use.
+[<AttributeUsage(AttributeTargets.Parameter)>]
+type ParamListAttribute() =
+    inherit Attribute()
+
 /// Erased union type to represent one of two possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U2<'a, 'b> =

@@ -77,6 +77,7 @@ module Atts =
     let pojo = typeof<Fable.Core.PojoAttribute>.FullName
     let stringEnum = typeof<Fable.Core.StringEnumAttribute>.FullName
     let passGenerics = typeof<Fable.Core.PassGenericsAttribute>.FullName
+    let paramList = typeof<Fable.Core.ParamListAttribute>.FullName
 
 module Helpers =
     let tryBoth (f1: 'a->'b option) (f2: 'a->'b option) (x: 'a) =
@@ -276,6 +277,12 @@ module Helpers =
         if meth.CurriedParameterGroups.Count <> 1 then false else
         let args = meth.CurriedParameterGroups.[0]
         args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
+
+    let hasListParam (meth: FSharpMemberOrFunctionOrValue) =
+        Seq.tryLast meth.CurriedParameterGroups
+        |> Option.bind Seq.tryLast
+        |> Option.map (fun lastParam -> hasAtt Atts.paramList lastParam.Attributes)
+        |> Option.defaultValue false
 
     let hasPassGenericsAtt com (ctx: Context) (meth: FSharpMemberOrFunctionOrValue) =
         match hasAtt Atts.passGenerics meth.Attributes with
@@ -1362,6 +1369,14 @@ module Util =
                     (List.rev args.Tail)@items
                 | _ ->
                     (Fable.Spread args.Head |> Fable.Value)::args.Tail |> List.rev
+            elif hasListParam meth then
+                match List.splitAt (List.length args - 1) args with
+                | rest, [last] ->
+                    match last with
+                    | CoreCons "List" "default" [] -> rest
+                    | CoreMeth "List" "ofArray" [Fable.Value(Fable.ArrayConst(Fable.ArrayValues spreadValues, _))] -> rest @ spreadValues
+                    | last -> rest @ [Fable.Value(Fable.Spread last)]
+                | _ -> args
             else
                 let args = removeOmittedOptionalArguments meth args // See #231, #640
                 if hasAtt Atts.passGenerics meth.Attributes

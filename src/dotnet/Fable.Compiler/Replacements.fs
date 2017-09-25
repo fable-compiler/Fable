@@ -13,19 +13,6 @@ module Util =
 
     let inline (=>) first second = first, second
 
-    let (|CoreMeth|_|) coreMod meth expr =
-        match expr with
-        | Fable.Apply(Fable.Value(Fable.ImportRef(meth', coreMod', Fable.CoreLib)),args,Fable.ApplyMeth,_,_)
-            when meth' = meth && coreMod' = coreMod ->
-            Some args
-        | _ -> None
-
-    let (|CoreCons|_|) coreMod meth expr =
-        match expr with
-        | Fable.Apply(Fable.Value(Fable.ImportRef(meth', coreMod', Fable.CoreLib)),args,Fable.ApplyCons,_,_)
-            when meth' = meth && coreMod' = coreMod -> Some args
-        | _ -> None
-
     let (|FloatToInt|) (x: float) = int x
 
     let (|StringLiteral|_|) = function
@@ -709,6 +696,7 @@ module AstPass =
             |> Fable.StringConst |> Fable.Value |> List.singleton
             |> newError i.range i.returnType
             |> fun err -> Fable.Throw(err, i.returnType, i.range) |> Some
+        // TODO: Delete this after deprecating applySpread
         | "applySpread" ->
             let callee, args =
                 match i.args with

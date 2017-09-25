@@ -3,8 +3,21 @@ open Fable
 open Fable.AST
 
 let (|MaybeWrapped|) = function
-    | Fable.Wrapped(e,_) -> e
+    | Wrapped(e,_) -> e
     | e -> e
+
+let (|CoreMeth|_|) coreMod meth expr =
+    match expr with
+    | Apply(Value(ImportRef(meth', coreMod', CoreLib)),args,ApplyMeth,_,_)
+        when meth' = meth && coreMod' = coreMod ->
+        Some args
+    | _ -> None
+
+let (|CoreCons|_|) coreMod meth expr =
+    match expr with
+    | Apply(Value(ImportRef(meth', coreMod', CoreLib)),args,ApplyCons,_,_)
+        when meth' = meth && coreMod' = coreMod -> Some args
+    | _ -> None
 
 let attachRange (range: SourceLocation option) msg =
     match range with
