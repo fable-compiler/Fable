@@ -347,11 +347,6 @@ module Util =
     let macroExpression range (txt: string) args =
         MacroExpression(txt, args, ?loc=range) :> Expression
 
-    let rec flattenSequential = function
-        | Fable.Sequential(statements,_) ->
-            List.collect flattenSequential statements
-        | e -> [e]
-
     let getMemberArgsAndBody (com: IBabelCompiler) ctx tc args (body: Fable.Expr) typeParams hasRestParams =
         let args', body' = com.TransformFunction ctx tc args body
         let args, returnType, typeParams =

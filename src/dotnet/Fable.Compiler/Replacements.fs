@@ -559,6 +559,20 @@ module Util =
             | _ ->
                 GlobalCall(modName, None, true, args) |> makeCall r t
 
+    let makeJsLiteralFromLambda r arg =
+        match arg with
+        | Fable.Value(Fable.Lambda(args, lambdaBody, _)) ->
+            (Some [], flattenSequential lambdaBody)
+            ||> List.fold (fun acc statement ->
+                match acc, statement with
+                // Set of callee: Expr * property: Expr option * value: Expr * range: SourceLocation option
+                | Some acc, Fable.Set(_,Some(Fable.Value(Fable.StringConst prop)),value,_) ->
+                    (prop, value)::acc |> Some
+                | _ -> None)
+        | _ -> None
+        |> Option.map (makeJsObject r)
+        |> Option.defaultWith (fun () -> ccall_ r Fable.Any "Util" "jsOptions" [arg])
+
     let makeJsLiteral r caseRule keyValueList =
         let rec (|Fields|_|) caseRule = function
             | Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, _)) ->
@@ -652,6 +666,10 @@ module AstPass =
                 makeJsLiteral i.range caseRule keyValueList |> Some
             | [caseRule; keyValueList] ->
                 ccall_ i.range Fable.Any "Util" "createObj" [keyValueList; caseRule] |> Some
+            | _ -> None
+        | "jsOptions" ->
+            match i.args with
+            | [arg] -> makeJsLiteralFromLambda i.range arg |> Some
             | _ -> None
         | "createEmpty" ->
             Fable.ObjExpr ([], [], None, i.range)

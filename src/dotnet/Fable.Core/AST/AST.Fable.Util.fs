@@ -19,6 +19,11 @@ let (|CoreCons|_|) coreMod meth expr =
         when meth' = meth && coreMod' = coreMod -> Some args
     | _ -> None
 
+let rec flattenSequential = function
+    | Fable.Sequential(statements,_) ->
+        List.collect flattenSequential statements
+    | e -> [e]
+
 let attachRange (range: SourceLocation option) msg =
     match range with
     | Some range -> msg + " " + (string range)

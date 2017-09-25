@@ -42,6 +42,11 @@ let createObj (fields: #seq<string*obj>): obj = jsNative
 /// E.g. `keyValueList  [ MyUnion 4 ]` in JS becomes `{ myUnion: 4 }`
 let keyValueList (caseRule: CaseRules) (li: 'T list): obj = jsNative
 
+/// Create a literal JS object from a mutator lambda. Normally used when
+/// the options interface has too many fields to be represented with a Pojo record.
+/// E.g. `jsOptions<MyOpt> (fun o -> o.foo <- 5)` in JS becomes `{ foo: 5 }`
+let jsOptions<'T> (f: 'T->unit): 'T = jsNative
+
 /// Create an empty JS object: {}
 let createEmpty<'T> : 'T = jsNative
 
