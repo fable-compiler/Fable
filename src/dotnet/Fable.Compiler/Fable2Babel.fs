@@ -1146,11 +1146,12 @@ module Compiler =
     open Util
     open System.IO
 
-    let createFacade (facadeFile: string) (importFile: string) =
+    let createFacade (dependencies: string[]) (facadeFile: string) =
         let decls =
+            let importFile = Array.last dependencies
             StringLiteral(Path.getRelativeFileOrDirPath false facadeFile false importFile)
             |> ExportAllDeclaration :> ModuleDeclaration |> U2.Case2 |> List.singleton
-        Program(facadeFile, SourceLocation.Empty, decls)
+        Program(facadeFile, SourceLocation.Empty, decls, dependencies=dependencies)
 
     let transformFile (com: ICompiler) (state: ICompilerState) (file: Fable.File) =
         try

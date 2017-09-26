@@ -17,6 +17,7 @@ const MACRO = /^\${(\w+)}[\\/]?(.*?)([\\/]?)$/;
 
 export type CompilationInfo = {
     entry: string,
+    projectFiles: string[],
     compiledPaths: Set<string>, // already compiled paths
     dedupOutPaths: Set<string>, // lookup of output paths
     mapInOutPaths: Map<string, string>, // map of input to output paths
@@ -40,6 +41,7 @@ export type FableCompilerOptions = {
     babel?: Babel.TransformOptions,
     fable?: FableOptions,
     prepack?: any,
+    extra?: {[k: string]: any},
     postbuild?: () => void,
 };
 
@@ -178,6 +180,8 @@ async function getFileAstAsync(path: string, options: FableCompilerOptions, info
         const babelAst = JSON.parse(response);
         if (babelAst.error) {
             throw new Error(babelAst.error);
+        } else if (path.endsWith(".fsproj")) {
+            info.projectFiles = babelAst.dependencies;
         }
         addLogs(babelAst.logs, info);
         ast = Babel.transformFromAst(babelAst, undefined, { code: false });
@@ -268,6 +272,7 @@ function setDefaultOptions(options: FableCompilerOptions) {
     options.outDir = getFullPath(options.outDir || ".", true);
     options.port = options.port || DEFAULT_PORT;
 
+    options.extra = options.extra || {};
     options.fable = options.fable || {};
     options.babel = options.babel || {};
     options.babel.plugins = customPlugins.concat(options.babel.plugins || []);
@@ -275,10 +280,11 @@ function setDefaultOptions(options: FableCompilerOptions) {
     return options;
 }
 
-function createCompilationInfo(options: FableCompilerOptions, previousInfo?: CompilationInfo) {
+function createCompilationInfo(options: FableCompilerOptions, previousInfo?: CompilationInfo): CompilationInfo {
     if (previousInfo == null) {
         return {
             entry: options.entry,
+            projectFiles: [],
             compiledPaths: new Set<string>(),
             dedupOutPaths: new Set<string>(),
             mapInOutPaths: new Map<string, string>(),
@@ -287,6 +293,7 @@ function createCompilationInfo(options: FableCompilerOptions, previousInfo?: Com
     } else {
         return {
             entry: options.entry,
+            projectFiles: previousInfo.projectFiles,
             compiledPaths: new Set<string>(previousInfo.compiledPaths),
             dedupOutPaths: new Set<string>(previousInfo.dedupOutPaths),
             mapInOutPaths: new Map<string, string>(previousInfo.mapInOutPaths),
@@ -307,6 +314,17 @@ export default function fableSplitter(options: FableCompilerOptions, previousInf
     const startTime = process.hrtime();
     // options.path will only be filled in watch compilations
     return transformAsync(options.path || options.entry, options, info, true)
+        .then(() => {
+            if (options.extra && options.extra.allFiles) {
+                const promises = [];
+                for (const file of ensureArray(info.projectFiles)) {
+                    promises.push(transformAsync(file, options, info));
+                }
+                return Promise.all(promises) as Promise<any>;
+            } else {
+                return Promise.resolve();
+            }
+        })
         .then(() => {
             Object.keys(info.logs).forEach((severity) =>
                 ensureArray(info.logs[severity]).forEach((log) =>

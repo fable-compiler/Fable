@@ -175,8 +175,7 @@ let addFSharpErrorLogs (com: ICompiler) (project: FSharpCheckProjectResults) (fi
 let compile (com: Compiler) (project: Project) (filePath: string) =
     let babel =
         if filePath.EndsWith(".fsproj") then
-            let lastFile = Array.last project.ProjectOptions.SourceFiles
-            Fable2Babel.Compiler.createFacade filePath lastFile
+            Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles filePath
         else
             FSharp2Fable.Compiler.transformFile com project project.CheckedProject filePath
             |> Fable2Babel.Compiler.transformFile com project
@@ -185,7 +184,7 @@ let compile (com: Compiler) (project: Project) (filePath: string) =
     if not project.IsWatchCompile then
         addFSharpErrorLogs com project.CheckedProject (Some filePath)
     let loc = defaultArg babel.loc SourceLocation.Empty
-    Babel.Program(babel.fileName, loc, babel.body, babel.directives, com.ReadAllLogs())
+    Babel.Program(babel.fileName, loc, babel.body, babel.directives, com.ReadAllLogs(), babel.dependencies)
     |> toJson
 
 type Command = string * (string -> unit)
