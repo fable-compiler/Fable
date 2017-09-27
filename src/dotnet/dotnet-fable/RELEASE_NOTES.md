@@ -1,3 +1,13 @@
+### 1.2.4
+
+* Add `jsOptions` helper
+* Add `List/Array.splitAt`
+* Add `ParamListAttribute`
+* Don't reference `Buffer` from fable-core
+* Fix #1156: Partially applied functions don't duplicate side effects
+* Fix #1155: Regex replacing with `$0` doesn't work
+* Fix #1154: Applying to a function returned by a member works
+
 ### 1.2.3
 
 * Fix #1135, #1136: `unit option` hack doesn't work with generic functions
