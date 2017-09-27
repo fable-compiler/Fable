@@ -101,10 +101,10 @@ export interface IPrintfFormat {
   cont: IPrintfFormatContinuation;
 }
 
-export function printf(input: string, ...args: any[]): IPrintfFormat {
+export function printf(input: string, argsLength: number): IPrintfFormat {
   return {
     input,
-    cont: fsFormat(input, ...args) as IPrintfFormatContinuation,
+    cont: fsFormat(input, argsLength) as IPrintfFormatContinuation,
   };
 }
 
@@ -120,7 +120,7 @@ export function toFail(arg: IPrintfFormat) {
   return arg.cont((x) => { throw new Error(x); });
 }
 
-export function fsFormat(str: string, ...args: any[]): ((...args: any[]) => any) | string {
+export function fsFormat(str: string, argsLength: number): ((...args: any[]) => any) | string {
   function formatOnce(str2: any, rep: any) {
     return str2.replace(fsFormatRegExp,
       (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) => {
@@ -150,26 +150,22 @@ export function fsFormat(str: string, ...args: any[]): ((...args: any[]) => any)
         return once.replace(/%/g, "%%");
       });
   }
-  if (args.length === 0) {
-    return (cont: (...args: any[]) => any) => {
-      if (fsFormatRegExp.test(str)) {
-        return (...args2: any[]) => {
-          let strCopy = str;
-          for (const arg of args2) {
-            strCopy = formatOnce(strCopy, arg);
-          }
-          return cont(strCopy.replace(/%%/g, "%"));
-        };
-      } else {
-        return cont(str);
-      }
-    };
-  } else {
-    for (const arg of args) {
-      str = formatOnce(str, arg);
+  return (cont: (...args: any[]) => any) => {
+    if (argsLength > 0) {
+      const printer = (...args2: any[]) => {
+        let strCopy = str;
+        for (const arg of args2) {
+          strCopy = formatOnce(strCopy, arg);
+        }
+        return cont(strCopy.replace(/%%/g, "%"));
+      };
+      // Attach the arguments length for partial applications
+      (printer as any).argsLength = argsLength;
+      return printer;
+    } else {
+      return cont(str);
     }
-    return str.replace(/%%/g, "%");
-  }
+  };
 }
 
 export function format(str: string, ...args: any[]) {

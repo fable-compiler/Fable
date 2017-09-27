@@ -59,7 +59,7 @@ let createProject checker isWatchCompile (prevProject: Project option) (msg: Par
         match prevProject with
         | Some prevProject ->
             // There seems to be a performance penalty if LoadTime is not updated
-            { prevProject.ProjectOptions with LoadTime = DateTime.Now }, prevProject.FableCore
+            prevProject.ProjectOptions, prevProject.FableCore
         | None ->
             let projectOptions, fableCore =
                 getFullProjectOpts checker msg projFile

@@ -644,15 +644,39 @@ let add = adder ()
 let ``Partially applied functions don't duplicate side effects``() = // See #1156
     add 1 + add 2 + add 3 |> equal 6
 
-// [<Test>]
-// let ``Partially applied functions don't duplicate side effects locally``() =
-//     let mutable counter = 0
-//     let next () =
-//       let result = counter
-//       counter <- counter + 1
-//       result
-//     let adder () =
-//       let add a b = a + b
-//       add (next())
-//     let add = adder ()
-//     add 1 + add 2 + add 3 |> equal 6
+[<Test>]
+let ``Partially applied functions don't duplicate side effects locally``() =
+    let mutable counter = 0
+    let next () =
+      let result = counter
+      counter <- counter + 1
+      result
+    let adder () =
+      let add a b = a + b
+      add (next())
+    let add = adder ()
+    add 1 + add 2 + add 3 |> equal 6
+
+type Foo3() =
+    let mutable z = 5
+    member __.GetLambda() =
+        fun x y -> x + y + z
+    member __.GetCurriedLambda() =
+        fun x ->
+            z <- z + 3
+            fun y -> x + y + z
+
+[<Test>]
+let ``Partially applied lambdas capture this``() =
+    let foo = Foo3()
+    let f = foo.GetLambda()
+    let f2 = f 2
+    f2 3 |> equal 10
+
+[<Test>]
+let ``Partially applied curried lambdas capture this``() =
+    let foo = Foo3()
+    let f = foo.GetCurriedLambda()
+    let f2 = f 2
+    f2 4 |> equal 14
+

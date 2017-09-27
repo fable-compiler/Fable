@@ -19,10 +19,10 @@ let ``String literal addition is optimized``() =
 
 [<Test>]
 let ``kprintf works``() =
-      let f s = s
-      Printf.kprintf f "hello" |> equal "hello"
-      Printf.kprintf f "%X" 255 |> equal "FF"
-      Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5"
+      let f (s:string) = s + "XX"
+      Printf.kprintf f "hello" |> equal "helloXX"
+      Printf.kprintf f "%X" 255 |> equal "FFXX"
+      Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5XX"
 
 [<Test>]
 let ``sprintf works``() =
@@ -34,6 +34,12 @@ let ``sprintf works``() =
       let printer = printer "Alfonso"
       printer "morning" |> equal "Hi Alfonso, good morning!"
       printer "evening" |> equal "Hi Alfonso, good evening!"
+
+[<Test>]
+let ``sprintf works II``() =
+      let printer2 = sprintf "Hi %s, good %s%s" "Maxime"
+      let printer2 = printer2 "afternoon"
+      printer2 "?" |> equal "Hi Maxime, good afternoon?"
 
 [<Test>]
 let ``sprintf without arguments works``() =

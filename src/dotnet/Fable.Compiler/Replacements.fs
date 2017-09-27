@@ -767,7 +767,11 @@ module AstPass =
         | "printFormatToStringThenFail" ->
             ccall i "String" "toFail" i.args |> Some
         | ".ctor" ->
-            ccall i "String" "printf" i.args |> Some
+            let argsLength =
+                match i.calleeTypeArgs with
+                | Fable.Function(args,_,_)::_ -> List.length args
+                | _ -> 0
+            ccall i "String" "printf" [i.args.Head; makeIntConst argsLength] |> Some
         | _ -> None
 
     let operators (com: ICompiler) (info: Fable.ApplyInfo) =

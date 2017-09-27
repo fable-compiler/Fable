@@ -460,11 +460,7 @@ let argIdentToExpr (id: Ident) =
     | _ -> IdentValue id |> Value
 
 let makeDynamicCurriedLambda range typ lambda =
-    let args =
-        match lambda with
-        | Value(Lambda(_,_,info)) when info.CaptureThis -> [lambda; Value This]
-        | _ -> [lambda]
-    CoreLibCall("CurriedLambda", None, false, args)
+    CoreLibCall("CurriedLambda", None, false, [lambda])
     |> makeCall range typ
 
 let (|CurriedLambda|_|) = function
@@ -543,30 +539,16 @@ and makeApply com range typ callee (args: Expr list) =
     | Type(Function(argTypes, _, _)) ->
         let argsLength = List.length args
         let argTypesLength = List.length argTypes
-        if argTypesLength < argsLength && argTypesLength >= 1 // TODO: Remove >= 1?
-        then
+        if argTypesLength < argsLength && argTypesLength >= 1 then
             let innerArgs = List.take argTypesLength args
             let outerArgs = List.skip argTypesLength args
             Apply(callee, ensureArity com argTypes innerArgs, ApplyMeth,
                     Function(List.map Expr.getType outerArgs, typ, true), range)
             |> makeApply com range typ <| outerArgs
-        elif argTypesLength > argsLength && argsLength >= 1 // TODO: Remove >= 1?
-        then
-            // We must freeze args to prevent duplication of sie effects (see #1156)
-            let frozenArgIdents =
-                args |> List.map (fun a -> Ident(com.GetUniqueVar(), a.Type))
-            let varDeclarations =
-                (frozenArgIdents, args) ||> List.map2 (fun ident expr ->
-                    VarDeclaration(ident, expr, false))
-            let generatedArgIdents =
-                List.skip argsLength argTypes
-                |> List.map (fun t -> Ident(com.GetUniqueVar(), t))
-            let generatedArgs = generatedArgIdents |> List.map argIdentToExpr
-            let frozenArgs = frozenArgIdents |> List.map argIdentToExpr
-            let lambdaExpr =
-                Apply(callee, ensureArity com argTypes (frozenArgs@generatedArgs), ApplyMeth, typ, range)
-                |> makeLambdaExpr generatedArgIdents
-            Sequential(varDeclarations@[lambdaExpr], range)
+        elif argTypesLength > argsLength && argsLength >= 1 then
+            let argArray = makeArray Fable.Any args
+            CoreLibCall("CurriedLambda", Some "partialApply", false, [callee; argArray])
+            |> makeCall range typ
         else
             Apply(callee, ensureArity com argTypes args, ApplyMeth, typ, range)
     | _ ->

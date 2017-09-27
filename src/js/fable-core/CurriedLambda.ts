@@ -3,7 +3,7 @@ export interface ICurriedLambda {
   (...args: any[]): any;
 }
 
-export default function CurriedLambda(f: ICurriedLambda, _this?: any, expectedArgsLength?: number): any {
+export default function CurriedLambda(f: ICurriedLambda, expectedArgsLength?: number): any {
   if (f.curried === true) {
     return f;
   }
@@ -13,19 +13,27 @@ export default function CurriedLambda(f: ICurriedLambda, _this?: any, expectedAr
     expectedArgsLength = Math.max(expectedArgsLength || f.length, 1);
     if (actualArgsLength >= expectedArgsLength) {
       const restArgs = args.splice(expectedArgsLength);
-      const res = f.apply(_this, args);
+      const res = f(...args);
       if (typeof res === "function") {
-        const newLambda = CurriedLambda(res, _this);
-        return restArgs.length === 0 ? newLambda : newLambda.apply(_this, restArgs);
+        const newLambda = CurriedLambda(res);
+        return restArgs.length === 0 ? newLambda : newLambda(...restArgs);
       } else {
         return res;
       }
     } else {
       return CurriedLambda((...args2: any[]) => {
-        return f.apply(_this, args.concat(args2));
-      }, _this, expectedArgsLength - actualArgsLength);
+        return f(...args.concat(args2));
+      }, expectedArgsLength - actualArgsLength);
     }
   };
   curriedFn.curried = true;
   return curriedFn;
+}
+
+export function partialApply(f: ICurriedLambda, args: any[]): ICurriedLambda {
+  const lambda = f.curried === true ? f
+    // printf lambdas attach the arguments length in the `argsLength`
+    // field as `f.length` evaluates to 0
+    : CurriedLambda(f, (f as any).argsLength || f.length);
+  return lambda(...args);
 }
