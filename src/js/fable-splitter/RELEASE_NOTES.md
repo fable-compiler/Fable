@@ -1,3 +1,7 @@
+### 0.1.19
+
+* Add `extra.allFiles` option (See Fable #1165)
+
 ### 0.1.18
 
 * Show compile times #1153

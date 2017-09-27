@@ -163,6 +163,9 @@ function getFileAstAsync(path, options, info) {
             if (babelAst.error) {
                 throw new Error(babelAst.error);
             }
+            else if (path.endsWith(".fsproj")) {
+                info.projectFiles = babelAst.dependencies;
+            }
             addLogs(babelAst.logs, info);
             ast = Babel.transformFromAst(babelAst, undefined, { code: false });
         }
@@ -252,6 +255,7 @@ function setDefaultOptions(options) {
     options.entry = getFullPath(options.entry); // Normalize path
     options.outDir = getFullPath(options.outDir || ".", true);
     options.port = options.port || DEFAULT_PORT;
+    options.extra = options.extra || {};
     options.fable = options.fable || {};
     options.babel = options.babel || {};
     options.babel.plugins = customPlugins.concat(options.babel.plugins || []);
@@ -262,6 +266,7 @@ function createCompilationInfo(options, previousInfo) {
     if (previousInfo == null) {
         return {
             entry: options.entry,
+            projectFiles: [],
             compiledPaths: new Set(),
             dedupOutPaths: new Set(),
             mapInOutPaths: new Map(),
@@ -271,6 +276,7 @@ function createCompilationInfo(options, previousInfo) {
     else {
         return {
             entry: options.entry,
+            projectFiles: previousInfo.projectFiles,
             compiledPaths: new Set(previousInfo.compiledPaths),
             dedupOutPaths: new Set(previousInfo.dedupOutPaths),
             mapInOutPaths: new Map(previousInfo.mapInOutPaths),
@@ -289,6 +295,18 @@ function fableSplitter(options, previousInfo) {
     const startTime = process.hrtime();
     // options.path will only be filled in watch compilations
     return transformAsync(options.path || options.entry, options, info, true)
+        .then(() => {
+        if (options.extra && options.extra.allFiles) {
+            const promises = [];
+            for (const file of ensureArray(info.projectFiles)) {
+                promises.push(transformAsync(file, options, info));
+            }
+            return Promise.all(promises);
+        }
+        else {
+            return Promise.resolve();
+        }
+    })
         .then(() => {
         Object.keys(info.logs).forEach((severity) => ensureArray(info.logs[severity]).forEach((log) => output(log, severity)));
         const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;

@@ -1,6 +1,7 @@
 import * as Babel from "babel-core";
 export declare type CompilationInfo = {
     entry: string;
+    projectFiles: string[];
     compiledPaths: Set<string>;
     dedupOutPaths: Set<string>;
     mapInOutPaths: Map<string, string>;
@@ -23,15 +24,10 @@ export declare type FableCompilerOptions = {
     babel?: Babel.TransformOptions;
     fable?: FableOptions;
     prepack?: any;
+    extra?: {
+        [k: string]: any;
+    };
     postbuild?: () => void;
 };
 export declare function ensureDirExists(dir: string, cont?: () => void): void;
-export default function fableSplitter(options: FableCompilerOptions, previousInfo?: CompilationInfo): Promise<{
-    entry: string;
-    compiledPaths: Set<string>;
-    dedupOutPaths: Set<string>;
-    mapInOutPaths: Map<string, string>;
-    logs: {
-        [key: string]: string[];
-    };
-}>;
+export default function fableSplitter(options: FableCompilerOptions, previousInfo?: CompilationInfo): Promise<CompilationInfo>;
