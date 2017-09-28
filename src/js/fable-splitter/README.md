@@ -64,10 +64,8 @@ These are the options that can be passed to `fable-splitter` through the JS API:
   - **typedArrays**: Translate numeric arrays as JS [Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray). True by default.
   - **clampByteArrays**: If true, Fable will translate byte arrays as [Uint8ClampedArray](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8ClampedArray).
   - **fableCore**: Specify a directory containing Fable.Core JS files, normally used for testing new Fable versions.
-  - **extra**: Extra options, usually features in beta stage, like `allFiles` to force compilation of all project files even if some are not being referenced.
 - **babel**: Babel options, check [Babel website](https://babeljs.io/docs/usage/api/#options) to find more.
-- **extra**: Additional options:
-  - **allFiles**: Compiles all files inside entry `fsproj` file.
+- **allFiles**: Compiles all project files even if some are not referenced (default `false`).
 
 ## Path resolution
 

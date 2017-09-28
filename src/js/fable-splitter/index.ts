@@ -33,19 +33,19 @@ export type FableOptions = {
     // extra?: any,
 };
 
-export type FableCompilerOptions = {
+export type FableSplitterOptions = {
     entry: string,
     outDir: string,
     path?: string,
     port?: number,
     babel?: Babel.TransformOptions,
     fable?: FableOptions,
+    allFiles?: boolean,
     prepack?: any,
-    extra?: {[k: string]: any},
     postbuild?: () => void,
 };
 
-function getResolvePathPlugin(targetDir: string, opts: FableCompilerOptions) {
+function getResolvePathPlugin(targetDir: string, opts: FableSplitterOptions) {
     return {
         visitor: {
             StringLiteral(path: any) {
@@ -171,7 +171,7 @@ function getRelativeOrAbsoluteImportDeclarations(ast: any) {
     });
 }
 
-async function getFileAstAsync(path: string, options: FableCompilerOptions, info: CompilationInfo) {
+async function getFileAstAsync(path: string, options: FableSplitterOptions, info: CompilationInfo) {
     let ast: Babel.BabelFileResult | undefined;
     if (FSHARP_EXT.test(path)) {
         // return Babel AST from F# file
@@ -202,7 +202,7 @@ async function getFileAstAsync(path: string, options: FableCompilerOptions, info
     return ast;
 }
 
-function transformAndSaveAst(fullPath: string, ast: any, options: FableCompilerOptions, info: CompilationInfo) {
+function transformAndSaveAst(fullPath: string, ast: any, options: FableSplitterOptions, info: CompilationInfo) {
     // resolve output paths
     const outPath = getOutPath(fullPath, info) + ".js";
     const jsPath = join(options.outDir, outPath);
@@ -233,7 +233,7 @@ function transformAndSaveAst(fullPath: string, ast: any, options: FableCompilerO
     console.log(`fable: Compiled ${Path.relative(process.cwd(), fullPath)}`);
 }
 
-async function transformAsync(path: string, options: FableCompilerOptions, info: CompilationInfo, force?: boolean) {
+async function transformAsync(path: string, options: FableSplitterOptions, info: CompilationInfo, force?: boolean) {
     const fullPath = getFullPath(path);
     if (!info.compiledPaths.has(fullPath)) {
         info.compiledPaths.add(fullPath);
@@ -266,13 +266,12 @@ async function transformAsync(path: string, options: FableCompilerOptions, info:
     }
 }
 
-function setDefaultOptions(options: FableCompilerOptions) {
+function setDefaultOptions(options: FableSplitterOptions) {
     options = Object.assign({}, options);
     options.entry = getFullPath(options.entry); // Normalize path
     options.outDir = getFullPath(options.outDir || ".", true);
     options.port = options.port || DEFAULT_PORT;
 
-    options.extra = options.extra || {};
     options.fable = options.fable || {};
     options.babel = options.babel || {};
     options.babel.plugins = customPlugins.concat(options.babel.plugins || []);
@@ -280,7 +279,7 @@ function setDefaultOptions(options: FableCompilerOptions) {
     return options;
 }
 
-function createCompilationInfo(options: FableCompilerOptions, previousInfo?: CompilationInfo): CompilationInfo {
+function createCompilationInfo(options: FableSplitterOptions, previousInfo?: CompilationInfo): CompilationInfo {
     if (previousInfo == null) {
         return {
             entry: options.entry,
@@ -302,7 +301,7 @@ function createCompilationInfo(options: FableCompilerOptions, previousInfo?: Com
     }
 }
 
-export default function fableSplitter(options: FableCompilerOptions, previousInfo?: CompilationInfo) {
+export default function fableSplitter(options: FableSplitterOptions, previousInfo?: CompilationInfo) {
     fableUtils.validateFableOptions(options);
     options = setDefaultOptions(options);
     const info = createCompilationInfo(options, previousInfo);
@@ -315,7 +314,7 @@ export default function fableSplitter(options: FableCompilerOptions, previousInf
     // options.path will only be filled in watch compilations
     return transformAsync(options.path || options.entry, options, info, true)
         .then(() => {
-            if (options.extra && options.extra.allFiles) {
+            if (options.allFiles) {
                 const promises = [];
                 for (const file of ensureArray(info.projectFiles)) {
                     promises.push(transformAsync(file, options, info));

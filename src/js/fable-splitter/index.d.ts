@@ -16,18 +16,16 @@ export declare type FableOptions = {
     typedArrays?: boolean;
     clampByteArrays?: boolean;
 };
-export declare type FableCompilerOptions = {
+export declare type FableSplitterOptions = {
     entry: string;
     outDir: string;
     path?: string;
     port?: number;
     babel?: Babel.TransformOptions;
     fable?: FableOptions;
+    allFiles?: boolean;
     prepack?: any;
-    extra?: {
-        [k: string]: any;
-    };
     postbuild?: () => void;
 };
 export declare function ensureDirExists(dir: string, cont?: () => void): void;
-export default function fableSplitter(options: FableCompilerOptions, previousInfo?: CompilationInfo): Promise<CompilationInfo>;
+export default function fableSplitter(options: FableSplitterOptions, previousInfo?: CompilationInfo): Promise<CompilationInfo>;

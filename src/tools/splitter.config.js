@@ -18,5 +18,6 @@ module.exports = {
   fable: {
     fableCore: resolve("../../build/fable-core"),
     define: ["DEBUG"]
-  }
+  },
+  // allFiles: true
 };

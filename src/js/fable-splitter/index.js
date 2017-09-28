@@ -255,7 +255,6 @@ function setDefaultOptions(options) {
     options.entry = getFullPath(options.entry); // Normalize path
     options.outDir = getFullPath(options.outDir || ".", true);
     options.port = options.port || DEFAULT_PORT;
-    options.extra = options.extra || {};
     options.fable = options.fable || {};
     options.babel = options.babel || {};
     options.babel.plugins = customPlugins.concat(options.babel.plugins || []);
@@ -296,7 +295,7 @@ function fableSplitter(options, previousInfo) {
     // options.path will only be filled in watch compilations
     return transformAsync(options.path || options.entry, options, info, true)
         .then(() => {
-        if (options.extra && options.extra.allFiles) {
+        if (options.allFiles) {
             const promises = [];
             for (const file of ensureArray(info.projectFiles)) {
                 promises.push(transformAsync(file, options, info));

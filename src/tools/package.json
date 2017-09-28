@@ -3,6 +3,6 @@
   "scripts": {
     "webpack": "node ../../node_modules/webpack/bin/webpack",
     "rollup": "node ../../node_modules/rollup/bin/rollup -c",
-    "splitter": "node ../../node_modules/fable-splitter/cli -c splitter.config.js"
+    "splitter": "node ../js/fable-splitter/cli -c splitter.config.js"
   }
 }

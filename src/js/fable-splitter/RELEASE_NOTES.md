@@ -1,3 +1,7 @@
+### 0.1.20
+
+* Move `allFiles` to options root
+
 ### 0.1.19
 
 * Add `extra.allFiles` option (See Fable #1165)
