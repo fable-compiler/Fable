@@ -23,6 +23,9 @@ You can then compile your app by running: `dotnet fable npm-build`. Check [Fable
 There are more options available using the JS API. For this, you can create a config file like the following:
 
 ```js
+const path = require("path");
+const fableUtils = require("fable-utils");
+
 function resolve(relativePath) {
     return path.join(__dirname, relativePath);
 }
@@ -62,6 +65,8 @@ These are the options that can be passed to `fable-splitter` through the JS API:
   - **clampByteArrays**: If true, Fable will translate byte arrays as [Uint8ClampedArray](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8ClampedArray).
   - **fableCore**: Specify a directory containing Fable.Core JS files, normally used for testing new Fable versions.
 - **babel**: Babel options, check [Babel website](https://babeljs.io/docs/usage/api/#options) to find more.
+- **extra**: Additional options:
+  - **allFiles**: Compiles all files inside entry `fsproj` file.
 
 ## Path resolution
 
