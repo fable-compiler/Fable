@@ -23,6 +23,9 @@ You can then compile your app by running: `dotnet fable npm-build`. Check [Fable
 There are more options available using the JS API. For this, you can create a config file like the following:
 
 ```js
+const path = require("path");
+const fableUtils = require("fable-utils");
+
 function resolve(relativePath) {
     return path.join(__dirname, relativePath);
 }
@@ -63,6 +66,8 @@ These are the options that can be passed to `fable-splitter` through the JS API:
   - **fableCore**: Specify a directory containing Fable.Core JS files, normally used for testing new Fable versions.
   - **extra**: Extra options, usually features in beta stage, like `allFiles` to force compilation of all project files even if some are not being referenced.
 - **babel**: Babel options, check [Babel website](https://babeljs.io/docs/usage/api/#options) to find more.
+- **extra**: Additional options:
+  - **allFiles**: Compiles all files inside entry `fsproj` file.
 
 ## Path resolution
 
