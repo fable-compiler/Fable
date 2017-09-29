@@ -1,3 +1,7 @@
+### 1.1.3
+
+* Don't add dependencies to Webpack by default
+
 ### 1.1.2
 
 * Update README
