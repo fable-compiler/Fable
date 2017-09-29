@@ -27,7 +27,8 @@ type PathRef =
     | FilePath of string
     | NonFilePath of string
 
-type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckProjectResults, fableCore: PathRef, isWatchCompile: bool) =
+type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharpImplementationFileContents>,
+             errors: FSharpErrorInfo array,  fableCore: PathRef, isWatchCompile: bool) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let entities = ConcurrentDictionary<string, Fable.Entity>()
@@ -37,13 +38,12 @@ type Project(projectOptions: FSharpProjectOptions, checkedProject: FSharpCheckPr
         |> Seq.map Path.normalizeFullPath
         |> Set
     let rootModules =
-        checkedProject.AssemblyContents.ImplementationFiles
-        |> Seq.map (fun file -> file.FileName, FSharp2Fable.Compiler.getRootModuleFullName file)
-        |> Map
+        implFiles |> Map.map (fun _ file -> FSharp2Fable.Compiler.getRootModuleFullName file)
     member __.TimeStamp = timestamp
     member __.FableCore = fableCore
     member __.IsWatchCompile = isWatchCompile
-    member __.CheckedProject = checkedProject
+    member __.ImplementationFiles = implFiles
+    member __.Errors = errors
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectFile
     member __.NormalizedFilesSet = normalizedFiles

@@ -14,9 +14,10 @@
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="State.fs" />
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup>    
+    <Reference Include="..\..\..\..\FSharp.Compiler.Service\fcs\FSharp.Compiler.Service.netstandard\bin\Release\netstandard1.6\FSharp.Compiler.Service.dll" />
+    <!-- <PackageReference Include="FSharp.Compiler.Service" Version="14.0.2" /> -->
     <PackageReference Include="FSharp.Core" Version="4.2.3" />
-    <PackageReference Include="FSharp.Compiler.Service" Version="14.0.2" />
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
     <PackageReference Include="System.Runtime.Loader" Version="4.3.0" />
     <PackageReference Include="System.Collections.Immutable" Version="1.4.0" />

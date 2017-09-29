@@ -1242,7 +1242,7 @@ module Util =
                 when emitFsType.HasTypeDefinition ->
                 try
                     let emitInstance = getEmitter emitFsType.TypeDefinition
-                    let emitMeth = emitInstance.GetType().GetMethod(emitMethName)
+                    let emitMeth = emitInstance.GetType().GetTypeInfo().GetMethod(emitMethName)
                     let args: obj[] =
                         match extraArg with
                         | [extraArg] -> [|com; i; extraArg|]

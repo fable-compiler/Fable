@@ -104,12 +104,12 @@ module Json =
         inherit JsonConverter()
         let typeCache = ConcurrentDictionary<Type,bool>()
         override x.CanConvert t =
-            typeCache.GetOrAdd(t, typeof<AST.Babel.Node>.IsAssignableFrom)
+            typeCache.GetOrAdd(t, fun t -> typeof<AST.Babel.Node>.GetTypeInfo().IsAssignableFrom(t))
         override x.ReadJson(reader, t, v, serializer) =
             failwith "Not implemented"
         override x.WriteJson(writer, v, serializer) =
             writer.WriteStartObject()
-            v.GetType().GetProperties()
+            v.GetType().GetTypeInfo().GetProperties()
             |> Seq.filter (fun p -> p.Name <> "loc")
             |> Seq.iter (fun p ->
                 writer.WritePropertyName(p.Name)

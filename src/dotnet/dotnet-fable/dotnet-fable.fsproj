@@ -24,6 +24,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="..\..\..\..\FSharp.Compiler.Service\fcs\FSharp.Compiler.Service.netstandard\bin\Release\netstandard1.6\FSharp.Compiler.Service.dll" />  
     <PackageReference Include="FSharp.Core" Version="4.2.3" />
     <PackageReference Include="Dotnet.ProjInfo" Version="0.7.4" />
   </ItemGroup>

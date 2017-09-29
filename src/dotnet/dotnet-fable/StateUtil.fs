@@ -69,14 +69,35 @@ let createProject checker isWatchCompile (prevProject: Project option) (msg: Par
                 let files = projectOptions.SourceFiles |> String.concat "\n   "
                 sprintf "F# PROJECT: %s\n   %s\n   %s" proj opts files)
             projectOptions, fableCore
-    Log.logAlways(sprintf "Parsing %s..." (getRelativePath projectOptions.ProjectFileName))
-    let checkedProject =
-        projectOptions
-        |> checker.ParseAndCheckProject
-        |> Async.RunSynchronously
-    tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
-        Printers.printAst dir checkedProject)
-    Project(projectOptions, checkedProject, fableCore, isWatchCompile)
+    let implFiles, errors =
+        match prevProject with
+        | Some prevProject when msg.path.EndsWith(".fs") ->
+            Log.logAlways(sprintf "Parsing %s..." (getRelativePath msg.path))
+            let source = IO.File.ReadAllText(msg.path)
+            let results, answer =
+                checker.ParseAndCheckFileInProject(msg.path, 0, source, projectOptions)
+                |> Async.RunSynchronously
+            match answer with
+            | FSharpCheckFileAnswer.Aborted -> failwith "Aborted"
+            | FSharpCheckFileAnswer.Succeeded res ->
+                match res.ImplementationFiles with
+                | None -> failwith "No Implementation files"
+                | Some implFiles ->
+                    (prevProject.ImplementationFiles, implFiles) ||> List.fold (fun implFiles file ->
+                        Map.add (Path.normalizePath file.FileName) file implFiles), res.Errors
+        | _ ->
+            Log.logAlways(sprintf "Parsing %s..." (getRelativePath projectOptions.ProjectFileName))
+            let checkedProject =
+                projectOptions
+                |> checker.ParseAndCheckProject
+                |> Async.RunSynchronously
+            tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
+                Printers.printAst dir checkedProject)
+            let implFiles =
+                checkedProject.AssemblyContents.ImplementationFiles
+                |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
+            implFiles, checkedProject.Errors
+    Project(projectOptions, implFiles, errors, fableCore, isWatchCompile)
 
 let toJson =
     let jsonSettings =
@@ -158,8 +179,8 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
     | ".fsi" -> failwithf "Signature files cannot be compiled to JS: %s" msg.path
     | _ -> failwithf "Not an F# source file: %s" msg.path
 
-let addFSharpErrorLogs (com: ICompiler) (project: FSharpCheckProjectResults) (fileFilter: string option) =
-    for er in project.Errors do
+let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFilter: string option) =
+    for er in errors do
         match fileFilter with
         | Some file when (Path.normalizePath er.FileName) <> file -> ()
         | _ ->
@@ -177,12 +198,12 @@ let compile (com: Compiler) (project: Project) (filePath: string) =
         if filePath.EndsWith(".fsproj") then
             Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles filePath
         else
-            FSharp2Fable.Compiler.transformFile com project project.CheckedProject filePath
+            FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles filePath
             |> Fable2Babel.Compiler.transformFile com project
     // Add logs and convert to JSON
     // If this is the first compilation, add here the F# errors and warnings for the file
     if not project.IsWatchCompile then
-        addFSharpErrorLogs com project.CheckedProject (Some filePath)
+        addFSharpErrorLogs com project.Errors (Some filePath)
     let loc = defaultArg babel.loc SourceLocation.Empty
     Babel.Program(babel.fileName, loc, babel.body, babel.directives, com.ReadAllLogs(), babel.dependencies)
     |> toJson
@@ -210,7 +231,7 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file
                 if isUpdated && activeProject.IsWatchCompile then
-                    addFSharpErrorLogs com activeProject.CheckedProject None
+                    addFSharpErrorLogs com activeProject.Errors None
                 Some(com, state, activeProject, msg.path)
             with ex ->
                 sendError replyChannel ex
