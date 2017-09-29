@@ -52,7 +52,15 @@ let hasFlag flagName (opts: IDictionary<string, string>) =
 let tryGetOption name (opts: IDictionary<string, string>) =
     match opts.TryGetValue(name) with
     | true, value -> Some value
-    | _ -> None
+    | false, _ -> None
+
+let isOptimizeWatch (extraOpts: IDictionary<string, string>) =
+    match tryGetOption "optimizeWatch" extraOpts with
+    | Some value ->
+        match bool.TryParse(value) with
+        | true, value -> value
+        | false, _ -> false
+    | None -> false
 
 let createProject checker isWatchCompile (prevProject: Project option) (msg: Parser.Message) projFile =
     let projectOptions, fableCore =
@@ -71,11 +79,13 @@ let createProject checker isWatchCompile (prevProject: Project option) (msg: Par
             projectOptions, fableCore
     let implFiles, errors =
         match prevProject with
-        | Some prevProject when msg.path.EndsWith(".fs") ->
+        | Some prevProject when msg.path.EndsWith(".fs") && isOptimizeWatch msg.extra ->
             Log.logAlways(sprintf "Parsing %s..." (getRelativePath msg.path))
             let source = IO.File.ReadAllText(msg.path)
+            // About this parameter, see https://github.com/fsharp/FSharp.Compiler.Service/issues/796#issuecomment-333094956
+            let version = IO.File.GetLastWriteTime(msg.path).Ticks |> int
             let results, answer =
-                checker.ParseAndCheckFileInProject(msg.path, 0, source, projectOptions)
+                checker.ParseAndCheckFileInProject(msg.path, version, source, projectOptions)
                 |> Async.RunSynchronously
             match answer with
             | FSharpCheckFileAnswer.Aborted -> failwith "Aborted"
@@ -120,6 +130,8 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
         let compiled =
             if not project.IsWatchCompile then
                 IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp
+            elif isOptimizeWatch msg.extra then
+                true
             else
                 // If the project has been compiled previously we need to check
                 // the timestamps of all files, as the bundler may send new requests
