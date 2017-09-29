@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>1.2.4</Version>
+    <Version>1.3.0-beta-001</Version>
     <TargetFramework>netstandard1.6</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
@@ -14,9 +14,12 @@
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="State.fs" />
   </ItemGroup>
-  <ItemGroup>    
-    <Reference Include="..\..\..\..\FSharp.Compiler.Service\fcs\FSharp.Compiler.Service.netstandard\bin\Release\netstandard1.6\FSharp.Compiler.Service.dll" />
+  <ItemGroup>
     <!-- <PackageReference Include="FSharp.Compiler.Service" Version="14.0.2" /> -->
+    <!-- Reference FCS custom build and add it to package -->
+    <Reference Include="..\..\..\..\FSharp.Compiler.Service\fcs\FSharp.Compiler.Service.netstandard\bin\Release\netstandard1.6\FSharp.Compiler.Service.dll" />
+    <Content Include="..\..\..\..\FSharp.Compiler.Service\fcs\FSharp.Compiler.Service.netstandard\bin\Release\netstandard1.6\FSharp.Compiler.Service.dll"
+             PackagePath="lib\netstandard1.6\" />
     <PackageReference Include="FSharp.Core" Version="4.2.3" />
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
     <PackageReference Include="System.Runtime.Loader" Version="4.3.0" />
