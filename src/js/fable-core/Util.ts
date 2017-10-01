@@ -199,7 +199,7 @@ export function hash(x: any): number {
   if (x != null && typeof x.GetHashCode === "function") {
     return x.GetHashCode();
   } else {
-    const s = JSON.stringify(x);
+    const s = toString(x);
     let h = 5381;
     let i = 0;
     const len = s.length;
