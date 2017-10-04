@@ -73,6 +73,13 @@ let ``System.Int32.Parse with hex works``() =
     (fun () -> Int32.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
 
 [<Test>]
+let ``Parsing integers with different radices works``() =
+    equal 11 (int "11")
+    equal 17 (int "0x11")
+    equal 9  (int "0o11")
+    equal 3  (int "0b11")
+
+[<Test>]
 let ``System.Int32.ToString "x" works``() =
     (5592405).ToString("x") |> equal "555555"
 
