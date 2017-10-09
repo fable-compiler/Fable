@@ -6,19 +6,25 @@ const invalidRadix10 = /[^0-9]/;
 export function isValid(s: string, radix?: number): [string[], number] {
   const res = parseRadix.exec(s);
   if (res != null) {
-    if (radix != null) {
-      return [res, radix];
-    } else {
+    if (radix == null) {
       switch (res[2]) {
-        case "0b":
-          return invalidRadix2.test(res[3]) ? null : [res, 2];
-        case "0o":
-          return invalidRadix8.test(res[3]) ? null : [res, 8];
-        case "0x":
-          return [res, 16];
-        default:
-          return invalidRadix10.test(res[3]) ? null : [res, 10];
+        case "0b": radix = 2; break;
+        case "0o": radix = 8; break;
+        case "0x": radix = 16; break;
+        default:   radix = 10; break;
       }
+    }
+    switch (radix) {
+      case 2:
+        return invalidRadix2.test(res[3]) ? null : [res, 2];
+      case 8:
+        return invalidRadix8.test(res[3]) ? null : [res, 8];
+      case 10:
+        return invalidRadix10.test(res[3]) ? null : [res, 10];
+      case 16:
+        return [res, 16];
+      default:
+        throw new Error("Invalid Base.");
     }
   }
   return null;
