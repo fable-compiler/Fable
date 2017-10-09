@@ -618,9 +618,12 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     (** Values *)
     | BasicPatterns.Const(value, FableType com ctx typ) ->
         let e = makeTypeConst typ value
-        if e.Type = typ then e
-        // Enumerations are compiled as const but they have a different type
-        else Fable.Wrapped (e, typ)
+        if e.Type = typ then
+            e
+        else
+            // Enumerations are compiled as const but they have a different type
+            Replacements.checkLiteral com ctx.fileName (makeRangeFrom fsExpr) value typ
+            Fable.Wrapped (e, typ)
 
     | BasicPatterns.BaseValue typ ->
         Fable.Super |> Fable.Value

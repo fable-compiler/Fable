@@ -2390,3 +2390,13 @@ let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fabl
     | Naming.StartsWith "Microsoft.FSharp." _ ->
         makeNonDeclaredTypeRef Fable.NonDeclAny |> Some
     | _ -> None
+
+let checkLiteral com fileName range (value: obj) (typ: Fable.Type) =
+    match typ with
+    | Fable.Enum("System.Text.RegularExpressions.RegexOptions") ->
+        match value with
+        | :? int as i when i = int RegexOptions.IgnoreCase
+                        || i = int RegexOptions.Multiline
+                        || i = int RegexOptions.ECMAScript -> ()
+        | _ -> addWarning com fileName range "Multiline and IgnoreCase are the only RegexOptions available"
+    | _ -> ()
