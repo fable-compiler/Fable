@@ -299,15 +299,15 @@ export function isNullOrWhiteSpace(str: string | any) {
 }
 
 export function join(delimiter: string, xs: ArrayLike<string>) {
-  let xs2 = xs as any;
+  let xs2 = typeof xs === "string" ? [xs] : xs as any;
   const len = arguments.length;
   if (len > 2) {
     xs2 = Array(len - 1);
     for (let key = 1; key < len; key++) {
       xs2[key - 1] = arguments[key];
     }
-  } else if (!Array.isArray(xs)) {
-    xs2 = Array.from(xs);
+  } else if (!Array.isArray(xs2)) {
+    xs2 = Array.from(xs2);
   }
   return xs2.map((x: string) => toString(x)).join(delimiter);
 }

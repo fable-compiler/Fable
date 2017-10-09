@@ -526,6 +526,12 @@ let ``String.Join works``() =
       |> equal "3--5"
 
 [<Test>]
+let ``String.Join with single argument works``() = // See #1182
+      String.Join(",", "abc") |> equal "abc"
+      String.Join(",", [|"abc"|]) |> equal "abc"
+      String.Join(",", ["abc"]) |> equal "abc"
+
+[<Test>]
 let ``System.String.Concat works``() =
       String.Concat("a", "b", "c")
       |> equal "abc"
