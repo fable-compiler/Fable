@@ -237,7 +237,7 @@ let getProjectOptionsFromFsproj (msg: Parser.Message) (projFile: string) =
                 else None)
             |> Option.defaultWith (fun () ->
                 sprintf "Cannot find Fable.Core JS files location for project %s, using `fable-core`. %s"
-                    (Path.GetFileName(projFile)) "Add a reference to Fable.Core package or set the fableCore option in the JS cient."
+                    (Path.GetFileName(projFile)) "Add a reference to Fable.Core package or set the fableCore option in the JS client."
                 |> logWarningAndReturn (NonFilePath "fable-core"))
     let rec crackProjects (acc: CrackedFsproj list) (projFile: Choice<ProjectReference, CrackedFsproj>) =
         let crackedFsproj =
