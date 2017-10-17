@@ -1182,6 +1182,12 @@ module Compiler =
                             member __.DeclareMember(a,b,c,d,e,f,g) =
                                 declareRootModMember a b c d e f g }
                     transformModDecls com ctx helper None file.Declarations
+            let dependencies =
+                com.GetAllImports()
+                |> Seq.choose (fun i -> i.internalFile)
+                |> Seq.distinct
+                |> Seq.append (file.Dependencies)
+                |> Seq.toArray
             // Add imports
             com.GetAllImports()
             |> Seq.mapi (fun ident import ->
@@ -1217,6 +1223,6 @@ module Compiler =
                         :> ModuleDeclaration |> U2.Case2 |> Some))
             // Return the Babel file
             |> fun importDecls ->
-                 Program(file.SourcePath, file.Range, (Seq.toList importDecls)@rootDecls)
+                 Program(file.SourcePath, file.Range, (Seq.toList importDecls)@rootDecls, dependencies=dependencies)
         with
         | ex -> exn (sprintf "%s (%s)" ex.Message file.SourcePath, ex) |> raise

@@ -1227,21 +1227,21 @@ let private getRootModuleAndDecls decls =
 
 let private tryGetMethodArgsAndBody (implFiles: Map<string, FSharpImplementationFileContents>)
                                     (meth: FSharpMemberOrFunctionOrValue) =
-    let rec tryGetMethodArgsAndBody' (methFullName: string) = function
+    let rec tryGetMethodArgsAndBody' fileName (methFullName: string) = function
         | FSharpImplementationFileDeclaration.Entity (e, decls) ->
             let entFullName = getEntityFullName e
             if methFullName.StartsWith(entFullName)
-            then List.tryPick (tryGetMethodArgsAndBody' methFullName) decls
+            then List.tryPick (tryGetMethodArgsAndBody' fileName methFullName) decls
             else None
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth2, args, body) ->
             if methFullName = meth2.FullName
-            then Some(args, body)
+            then Some(fileName, args, body)
             else None
         | FSharpImplementationFileDeclaration.InitAction fe -> None
     let fileName = (getMethLocation meth).FileName |> Path.normalizePath
     Map.tryFind fileName implFiles
     |> Option.bind (fun f ->
-        f.Declarations |> List.tryPick (tryGetMethodArgsAndBody' meth.FullName))
+        f.Declarations |> List.tryPick (tryGetMethodArgsAndBody' fileName meth.FullName))
 
 let private tryGetEntityImplementation (implFiles: Map<string, FSharpImplementationFileContents>) (ent: FSharpEntity) =
     let rec tryGetEntityImplementation' (entFullName: string) = function
@@ -1264,13 +1264,15 @@ let private tryGetEntityImplementation (implFiles: Map<string, FSharpImplementat
             f.Declarations |> List.tryPick (tryGetEntityImplementation' entFullName))
     | _ -> Some ent
 
-type FableCompiler(com: ICompiler, state: ICompilerState, implFiles: Map<string, FSharpImplementationFileContents>) =
+type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, implFiles: Map<string, FSharpImplementationFileContents>) =
     let replacePlugins =
         com.Plugins |> List.choose (function
             | { path=path; plugin=(:? IReplacePlugin as plugin)} -> Some (path, plugin)
             | _ -> None)
     let usedVarNames = HashSet<string>()
+    let dependencies = HashSet<string>()
     member fcom.UsedVarNames = set usedVarNames
+    member fcom.Dependencies = set dependencies
     interface IFableCompiler with
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
@@ -1286,6 +1288,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, implFiles: Map<string,
             then None
             else Some (getEntityLocation tdef).FileName
         member fcom.GetEntity tdef =
+            // TODO: Add dependency too for entities?
             state.GetOrAddEntity(getEntityFullName tdef, fun () ->
                 match tryGetEntityImplementation implFiles tdef with
                 | Some tdef -> makeEntity fcom tdef
@@ -1293,7 +1296,9 @@ type FableCompiler(com: ICompiler, state: ICompilerState, implFiles: Map<string,
         member fcom.GetInlineExpr meth =
             state.GetOrAddInlineExpr(meth.FullName, fun () ->
                 match tryGetMethodArgsAndBody implFiles meth with
-                | Some(args, body) ->
+                | Some(fileName, args, body) ->
+                    if fileName <> currentFile then
+                        dependencies.Add(fileName) |> ignore
                     let vars =
                         match args with
                         | [thisArg]::args when meth.IsInstanceMember -> args
@@ -1331,7 +1336,7 @@ let transformFile (com: ICompiler) (state: ICompilerState)
             match Map.tryFind fileName implFiles with
             | Some file -> file
             | None -> failwithf "File %s doesn't belong to parsed project %s" fileName state.ProjectFile
-        let fcom = FableCompiler(com, state, implFiles)
+        let fcom = FableCompiler(com, state, fileName, implFiles)
         let rootEnt, rootDecls =
             let fcom = fcom :> IFableCompiler
             let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
@@ -1344,6 +1349,7 @@ let transformFile (com: ICompiler) (state: ICompilerState)
                 let emptyRootEnt = Fable.Entity.CreateRootModule fileName
                 let ctx = Context.Create(fileName, emptyRootEnt)
                 emptyRootEnt, transformDeclarations fcom ctx rootDecls
-        Fable.File(fileName, rootEnt, rootDecls, usedVarNames=fcom.UsedVarNames)
+        Fable.File(fileName, rootEnt, rootDecls,
+            usedVarNames=fcom.UsedVarNames, dependencies=fcom.Dependencies)
     with
     | ex -> exn (sprintf "%s (%s)" ex.Message fileName, ex) |> raise
