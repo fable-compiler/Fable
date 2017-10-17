@@ -54,19 +54,11 @@ let tryGetOption name (opts: IDictionary<string, string>) =
     | true, value -> Some value
     | false, _ -> None
 
-let isOptimizeWatch (extraOpts: IDictionary<string, string>) =
-    match tryGetOption "optimizeWatch" extraOpts with
-    | Some value ->
-        match bool.TryParse(value) with
-        | true, value -> value
-        | false, _ -> false
-    | None -> false
-
-let createProject checker isWatchCompile (prevProject: Project option) (msg: Parser.Message) projFile =
+let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.Message) projFile =
+    let isWatchCompile = Array.length dirtyFiles > 0
     let projectOptions, fableCore =
         match prevProject with
         | Some prevProject ->
-            // There seems to be a performance penalty if LoadTime is not updated
             prevProject.ProjectOptions, prevProject.FableCore
         | None ->
             let projectOptions, fableCore =
@@ -79,26 +71,34 @@ let createProject checker isWatchCompile (prevProject: Project option) (msg: Par
             projectOptions, fableCore
     let implFiles, errors =
         match prevProject with
-        | Some prevProject when msg.path.EndsWith(".fs") && isOptimizeWatch msg.extra ->
-            Log.logAlways(sprintf "Parsing %s..." (getRelativePath msg.path))
-            let source = IO.File.ReadAllText(msg.path)
-            // About this parameter, see https://github.com/fsharp/FSharp.Compiler.Service/issues/796#issuecomment-333094956
-            let version = IO.File.GetLastWriteTime(msg.path).Ticks |> int
-            let results, answer =
-                checker.ParseAndCheckFileInProject(msg.path, version, source, projectOptions)
-                |> Async.RunSynchronously
-            match answer with
-            | FSharpCheckFileAnswer.Aborted -> failwith "Aborted"
-            | FSharpCheckFileAnswer.Succeeded res ->
-                match res.ImplementationFiles with
-                | None -> failwith "No Implementation files"
-                | Some implFiles ->
-                    (prevProject.ImplementationFiles, implFiles) ||> List.fold (fun implFiles file ->
-                        Map.add (Path.normalizePath file.FileName) file implFiles), res.Errors
+        | Some prevProject when isWatchCompile ->
+            ((prevProject.ImplementationFiles, [||]), dirtyFiles) ||> Array.fold (fun (implFiles, errors) dirtyFile ->
+                let relativePath = getRelativePath dirtyFile
+                Log.logAlways(sprintf "Parsing %s..." relativePath)
+                let source = IO.File.ReadAllText(dirtyFile)
+                // About this parameter, see https://github.com/fsharp/FSharp.Compiler.Service/issues/796#issuecomment-333094956
+                let version = IO.File.GetLastWriteTime(dirtyFile).Ticks |> int
+                // TODO: results.Errors are different from res.Errors below?
+                let results, answer =
+                    checker.ParseAndCheckFileInProject(dirtyFile, version, source, projectOptions)
+                    |> Async.RunSynchronously
+                match answer with
+                | FSharpCheckFileAnswer.Aborted ->
+                    Log.logAlways(sprintf "Compilation of file %s aborted!" relativePath)
+                    implFiles, errors
+                | FSharpCheckFileAnswer.Succeeded res ->
+                    match res.ImplementationFiles with
+                    | None -> implFiles, errors // TODO: Log a message?
+                    | Some newImplFiles ->
+                        let errors = Array.append errors res.Errors
+                        (implFiles, newImplFiles) ||> List.fold (fun implFiles file ->
+                            Map.add (Path.normalizePath file.FileName) file implFiles), errors)
         | _ ->
             Log.logAlways(sprintf "Parsing %s..." (getRelativePath projectOptions.ProjectFileName))
             let checkedProject =
-                projectOptions
+                // There's a performance penalty if LoadTime is not updated
+                // when parsing the full project (ParseAndCheckProject)
+                { projectOptions with LoadTime = DateTime.Now }
                 |> checker.ParseAndCheckProject
                 |> Async.RunSynchronously
             tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
@@ -126,31 +126,20 @@ let sendError replyChannel (ex: Exception) =
     ["error", ex.Message] |> dict |> toJson |> replyChannel
 
 let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
-    let isWatchCompilation (project: Project) sourceFile =
-        let compiled =
-            if not project.IsWatchCompile then
-                IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp
-            elif isOptimizeWatch msg.extra then
-                true
-            else
-                // If the project has been compiled previously we need to check
-                // the timestamps of all files, as the bundler may send new requests
-                // for files not modified if they were errored in the previous compilation
-                project.ProjectOptions.SourceFiles
-                |> Seq.exists (fun file -> IO.File.GetLastWriteTime(file) > project.TimeStamp)
-        if compiled then
-            Log.logVerbose(lazy ("Watch compile triggered by: " + getRelativePath sourceFile))
-        compiled
+    let getDirtyFiles (project: Project) sourceFile =
+        if IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp then
+            project.ProjectOptions.SourceFiles
+            |> Array.filter (fun file -> IO.File.GetLastWriteTime(file) > project.TimeStamp)
+        else [||]
     let addOrUpdateProject state (project: Project) =
         let state = Map.add project.ProjectFile project state
         true, state, project
     let tryFindAndUpdateProject state ext sourceFile =
         let checkWatchCompilation project sourceFile =
-            // Log.logVerbose(lazy sprintf "Ownership: %s > %s"
-            //     (getRelativePath project.ProjectFile) (getRelativePath sourceFile))
-            // Watch compilation of an .fs file, restart project with old options
-            if isWatchCompilation project sourceFile then
-                createProject checker true (Some project) msg project.ProjectFile
+            // Check if there are dirty files
+            let dirtyFiles = getDirtyFiles project sourceFile
+            if Array.length dirtyFiles > 0 then
+                createProject checker dirtyFiles (Some project) msg project.ProjectFile
                 |> addOrUpdateProject state |> Some
             else Some(false, state, project)
         match msg.extra.TryGetValue("projectFile") with
@@ -158,7 +147,7 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
             let projFile = Path.normalizeFullPath projFile
             match Map.tryFind projFile state with
             | Some project -> checkWatchCompilation project sourceFile
-            | None -> createProject checker false None msg projFile
+            | None -> createProject checker [||] None msg projFile
                       |> addOrUpdateProject state |> Some
         | false, _ ->
             state |> Map.tryPick (fun _ (project: Project) ->
@@ -167,20 +156,19 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
                 else None)
     match IO.Path.GetExtension(msg.path).ToLower() with
     | ".fsproj" ->
-        let isWatchCompile = Map.containsKey msg.path state
-        createProject checker isWatchCompile None msg msg.path
+        createProject checker [||] None msg msg.path
         |> addOrUpdateProject state
     | ".fsx" as ext ->
         if Map.containsKey msg.path state then
             // When a script is modified, restart the project with new options
             // (to check for new references, loaded projects, etc.)
-            createProject checker true None msg msg.path
+            createProject checker [||] None msg msg.path
             |> addOrUpdateProject state
         else
             match tryFindAndUpdateProject state ext msg.path with
             | Some stateAndProject -> stateAndProject
             | None ->
-                createProject checker false None msg msg.path
+                createProject checker [||] None msg msg.path
                 |> addOrUpdateProject state
     | ".fs" as ext ->
         match tryFindAndUpdateProject state ext msg.path with
