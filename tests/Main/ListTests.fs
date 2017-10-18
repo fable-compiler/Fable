@@ -48,6 +48,7 @@ let ``List slice works``() =
       xs.[2..] |> List.sum |> equal 7
       xs.[1..2] |> List.sum |> equal 5
 
+[<Test>]
 let ``List.truncate works``() =
       [1..3] = (List.truncate 3 [1..5]) |> equal true
       [1..5] = (List.truncate 10 [1..5]) |> equal true

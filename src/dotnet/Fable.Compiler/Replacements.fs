@@ -1827,7 +1827,11 @@ module AstPass =
             | "getSlice" ->
                 listMeth "slice" (i.args@[i.callee.Value])
             | "truncate" ->
-                listMeth "slice" ([makeIntConst 0]@i.args)
+                match i.args with
+                | [arg1; arg2] ->
+                    let arg1 = makeBinOp None (Fable.Number Int32) [arg1; makeIntConst 1] BinaryMinus
+                    listMeth "slice" [makeIntConst 0; arg1; arg2]
+                | _ -> None
             | Patterns.SetContains implementedListFunctions meth ->
                 listMeth meth i.args
             | _ -> None
