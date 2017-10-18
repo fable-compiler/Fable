@@ -17,6 +17,12 @@ let ``Int32 literal addition is optimized``() =
     equal (aLiteral + 7, 12)
     equal (notALiteral + 7, 12)
 
+let [<Literal>] literalNegativeValue = -345
+
+[<Test>]
+let ``Unary negation with negative literal values works``() =
+    equal(345, -literalNegativeValue)
+
 [<Test>]
 let ``Infix subtract can be generated``() =
     equal (4 - 2, 2)

@@ -404,7 +404,11 @@ module Util =
         | Fable.Super -> upcast Super ()
         | Fable.Null -> upcast NullLiteral ()
         | Fable.IdentValue i -> upcast Identifier i.Name
-        | Fable.NumberConst (x,_) -> upcast NumericLiteral x
+        | Fable.NumberConst (x,_) ->
+            if x < 0.
+            // Negative numeric literals can give issues in Babel AST, see #1186
+            then upcast UnaryExpression(UnaryMinus, NumericLiteral(x * -1.))
+            else upcast NumericLiteral x
         | Fable.StringConst x -> upcast StringLiteral (x)
         | Fable.BoolConst x -> upcast BooleanLiteral (x)
         | Fable.RegexConst (source, flags) -> upcast RegExpLiteral (source, flags)
