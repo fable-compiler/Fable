@@ -139,15 +139,9 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         match argExprs with
         | expr::_ ->
             match expr.Type with
-            // For null or unknown types, call the `some` helper from fable-core
-            | Fable.Unit | Fable.Any | Fable.GenericParam _ ->
-                CoreLibCall("Util", Some "some", false, [expr])
-                |> makeCall (Some range) unionType
-            | Fable.Option _ ->
-                // TODO: Deal with nested options
-                "Nested option in option won't work at runtime"
-                |> addWarning com ctx.fileName (Some range)
-                CoreLibCall("Util", Some "some", false, [expr])
+            // For null or unknown types, create a runtime Option
+            | Fable.Unit | Fable.Any | Fable.GenericParam _ | Fable.Option _ ->
+                CoreLibCall("Util", Some "Some", true, [expr])
                 |> makeCall (Some range) unionType
             // TODO: Check declared types that accept null?
             // | Fable.DeclaredType _ -> failwith "TODO"
@@ -494,7 +488,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) fsExpr u
                 fsType.GenericArguments |> Seq.item index
             else fi.FieldType
             |> makeType com ctx.typeArgs
-            |> makeTypeTest com (makeRangeFrom fsExpr) <| unionExpr
+            |> makeTypeTest com ctx.fileName (makeRangeFrom fsExpr) unionExpr
     | OptionUnion ->
         let opKind = if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
         makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; Fable.Value Fable.Null] opKind
@@ -767,8 +761,11 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, fsType, unionCase, FieldName fieldName) ->
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
         match fsType with
-        | ErasedUnion | OptionUnion ->
+        | ErasedUnion ->
             Fable.Wrapped(unionExpr, typ)
+        | OptionUnion ->
+            CoreLibCall("Util", Some "getValue", false, [unionExpr])
+            |> makeCall range typ
         | ListUnion ->
             makeGet range typ unionExpr (Naming.lowerFirst fieldName |> makeStrConst)
         | PojoUnion ->
@@ -873,7 +870,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FableType com ctx typ, Transform com ctx expr) ->
-        makeTypeTest com (makeRangeFrom fsExpr) typ expr
+        makeTypeTest com ctx.fileName (makeRangeFrom fsExpr) expr typ
 
     | BasicPatterns.UnionCaseTest(unionExpr, fsType, unionCase) ->
         transformUnionCaseTest com ctx fsExpr unionExpr fsType unionCase

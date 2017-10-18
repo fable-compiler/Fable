@@ -19,6 +19,16 @@ let (|CoreCons|_|) coreMod meth expr =
         when meth' = meth && coreMod' = coreMod -> Some args
     | _ -> None
 
+let addWarning (com: ICompiler) (fileName: string) (range: SourceLocation option) (warning: string) =
+    com.AddLog(warning, Severity.Warning, ?range=range, fileName=fileName)
+
+let addError (com: ICompiler) (fileName: string) (range: SourceLocation option) (warning: string) =
+    com.AddLog(warning, Severity.Error, ?range=range, fileName=fileName)
+
+let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLocation option) (error: string) =
+    com.AddLog(error, Severity.Error, ?range=range, fileName=fileName)
+    Value Null
+
 let rec flattenSequential = function
     | Fable.Sequential(statements,_) ->
         List.collect flattenSequential statements
@@ -297,7 +307,8 @@ let makeTypeRefFrom com ent =
 let makeEmit r t args macro =
     Apply(Value(Emit macro), args, ApplyMeth, t, r)
 
-let rec makeTypeTest com range (typ: Type) expr =
+// TODO: Type testing is a bit flaky, make a runtime function or raise a warning?
+let rec makeTypeTest com fileName range expr (typ: Type) =
     let jsTypeof (primitiveType: string) expr =
         let typof = makeUnOp None String [expr] UnaryTypeof
         makeBinOp range Boolean [typof; makeStrConst primitiveType] BinaryEqualStrict
@@ -320,7 +331,6 @@ let rec makeTypeTest com range (typ: Type) expr =
         CoreLibCall ("Util", Some "isArray", false, [expr])
         |> makeCall range Boolean
     | Any -> makeBoolConst true
-    | Option typ -> makeTypeTest com range typ expr
     | DeclaredType(typEnt, _) ->
         match typEnt.Kind with
         | Interface ->
@@ -328,9 +338,9 @@ let rec makeTypeTest com range (typ: Type) expr =
             |> makeCall range Boolean
         | _ ->
             makeBinOp range Boolean [expr; makeNonGenTypeRef com typ] BinaryInstanceOf
-    | GenericParam name ->
-        "Cannot type test generic parameter " + name
-        |> attachRange range |> failwith
+    | Option _ | GenericParam _ ->
+        "Cannot type test options or generic parameters"
+        |> addErrorAndReturnNull com fileName range
 
 let makeUnionCons cases =
     let args = [Ident("tag", String); Ident("data", Any)]
@@ -577,13 +587,3 @@ let compareDeclaredAndAppliedArgs declaredArgs appliedArgs =
             true
         | x, y -> x = y
     listsEqual argEqual declaredArgs appliedArgs
-
-let addWarning (com: ICompiler) (fileName: string) (range: SourceLocation option) (warning: string) =
-    com.AddLog(warning, Severity.Warning, ?range=range, fileName=fileName)
-
-let addError (com: ICompiler) (fileName: string) (range: SourceLocation option) (warning: string) =
-    com.AddLog(warning, Severity.Error, ?range=range, fileName=fileName)
-
-let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLocation option) (error: string) =
-    com.AddLog(error, Severity.Error, ?range=range, fileName=fileName)
-    Value Null
