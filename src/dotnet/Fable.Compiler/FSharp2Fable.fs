@@ -1226,22 +1226,21 @@ let private getRootModuleAndDecls decls =
     getRootModuleAndDecls None decls
 
 let private tryGetMethodArgsAndBody (implFiles: Map<string, FSharpImplementationFileContents>)
-                                    (meth: FSharpMemberOrFunctionOrValue) =
-    let rec tryGetMethodArgsAndBody' fileName (methFullName: string) = function
+                                    fileName (meth: FSharpMemberOrFunctionOrValue) =
+    let rec tryGetMethodArgsAndBody' (methFullName: string) = function
         | FSharpImplementationFileDeclaration.Entity (e, decls) ->
             let entFullName = getEntityFullName e
             if methFullName.StartsWith(entFullName)
-            then List.tryPick (tryGetMethodArgsAndBody' fileName methFullName) decls
+            then List.tryPick (tryGetMethodArgsAndBody' methFullName) decls
             else None
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth2, args, body) ->
             if methFullName = meth2.FullName
-            then Some(fileName, args, body)
+            then Some(args, body)
             else None
         | FSharpImplementationFileDeclaration.InitAction fe -> None
-    let fileName = (getMethLocation meth).FileName |> Path.normalizePath
     Map.tryFind fileName implFiles
     |> Option.bind (fun f ->
-        f.Declarations |> List.tryPick (tryGetMethodArgsAndBody' fileName meth.FullName))
+        f.Declarations |> List.tryPick (tryGetMethodArgsAndBody' meth.FullName))
 
 let private tryGetEntityImplementation (implFiles: Map<string, FSharpImplementationFileContents>) (ent: FSharpEntity) =
     let rec tryGetEntityImplementation' (entFullName: string) = function
@@ -1294,11 +1293,12 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
                 | Some tdef -> makeEntity fcom tdef
                 | None -> failwith ("Cannot find implementation of " + (getEntityFullName tdef)))
         member fcom.GetInlineExpr meth =
+            let fileName = (getMethLocation meth).FileName |> Path.normalizePath
+            if fileName <> currentFile then
+                dependencies.Add(fileName) |> ignore
             state.GetOrAddInlineExpr(meth.FullName, fun () ->
-                match tryGetMethodArgsAndBody implFiles meth with
-                | Some(fileName, args, body) ->
-                    if fileName <> currentFile then
-                        dependencies.Add(fileName) |> ignore
+                match tryGetMethodArgsAndBody implFiles fileName meth with
+                | Some(args, body) ->
                     let vars =
                         match args with
                         | [thisArg]::args when meth.IsInstanceMember -> args
