@@ -1,3 +1,7 @@
+### 1.3.0-beta-001
+
+* Optimize watch compilations with `extra.optimizeWatch` option (see FSharp.Compiler.Service/issues/796)
+
 ### 1.2.4
 
 * Add `jsOptions` helper

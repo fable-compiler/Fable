@@ -1,3 +1,7 @@
+### 1.1.4
+
+* Add dependencies for files other than .fsproj
+
 ### 1.1.3
 
 * Don't add dependencies to Webpack by default

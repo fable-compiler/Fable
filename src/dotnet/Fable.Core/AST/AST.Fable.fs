@@ -162,11 +162,12 @@ type ExternalEntity =
         match x with ImportModule (fullName, _, _)
                    | GlobalModule fullName -> fullName
 
-type File(sourcePath, root, decls, ?usedVarNames) =
+type File(sourcePath, root, decls, ?usedVarNames, ?dependencies) =
     member x.SourcePath: string = sourcePath
     member x.Root: Entity = root
     member x.Declarations: Declaration list = decls
     member x.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
+    member x.Dependencies: Set<string> = defaultArg dependencies Set.empty
     member x.Range =
         match decls with
         | [] -> SourceLocation.Empty
