@@ -22,8 +22,8 @@ export interface IDisposable {
 }
 
 export type NonDeclaredTypeKind =
-  | "Any" | "Unit" | "Option" | "Array" | "Tuple" | "Function"
-  | "GenericParam" | "GenericType" | "Interface";
+| "Any" | "Unit" | "Option" | "Array" | "Tuple" | "Function"
+| "GenericParam" | "GenericType" | "Interface";
 
 export type Type = string | NonDeclaredType | FunctionConstructor;
 export interface Dic<T> { [key: string]: T; }
@@ -58,9 +58,45 @@ export function Option(t: Type) {
   return new NonDeclaredType("Option", null, [t]) as NonDeclaredType;
 }
 
-// HACK: For unit values use a truthy empty object (see #478, #1135, #1136)
-export function some(value: any): any {
-  return value == null ? {} : value;
+export class Some<T> {
+  constructor(public value: T) {
+    this.value = value;
+  }
+
+  // We don't prefix it with "Some" for consistency with erased options
+  public ToString() {
+    return toString(this.value);
+  }
+
+  public Equals(other: any) {
+    if (other instanceof Some) {
+      return equals(this.value, other.value);
+    } else if (other == null) {
+      return false;
+    } else {
+      return equals(this.value, other);
+    }
+  }
+
+  public CompareTo(other: any) {
+    if (other instanceof Some) {
+      return compare(this.value, other.value);
+    } else if (other == null) {
+      return 1;
+    } else {
+      return compare(this.value, other);
+    }
+  }
+}
+
+export function getValue(x: any): any {
+  if (x instanceof Some) {
+    return x.value;
+  } else if (x == null) {
+    throw new Error("Option has no value");
+  } else {
+    return x;
+  }
 }
 
 function FableArray(t: Type, isTypedArray = false) {
@@ -216,11 +252,13 @@ export function equals(x: any, y: any): boolean {
     return y == null;
   } else if (y == null) {
     return false;
-  } else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y)) {
-    return false;
     // Equals override or IEquatable implementation
   } else if (typeof x.Equals === "function") {
     return x.Equals(y);
+  } else if (typeof y.Equals === "function") {
+    return y.Equals(x);
+  } else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y)) {
+    return false;
   } else if (Array.isArray(x)) {
     if (x.length !== y.length) { return false; }
     for (let i = 0; i < x.length; i++) {
@@ -254,12 +292,14 @@ export function compare(x: any, y: any): number {
     return y == null ? 0 : -1;
   } else if (y == null) {
     return 1; // everything is bigger than null
-  } else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y)) {
-    return -1;
     // Some types (see Long.ts) may just implement the function and not the interface
     // else if (hasInterface(x, "System.IComparable"))
   } else if (typeof x.CompareTo === "function") {
     return x.CompareTo(y);
+  } else if (typeof y.CompareTo === "function") {
+    return y.CompareTo(x) * -1;
+  } else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y)) {
+    return -1;
   } else if (Array.isArray(x)) {
     if (x.length !== y.length) { return x.length < y.length ? -1 : 1; }
     for (let i = 0, j = 0; i < x.length; i++) {

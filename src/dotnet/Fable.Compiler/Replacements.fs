@@ -1279,7 +1279,7 @@ module AstPass =
             CoreLibCall("Array", Some "setSlice", false, args)
             |> makeCall i.range i.returnType |> Some
         | "typeTestGeneric", (None, [expr]) ->
-            makeTypeTest com i.range i.methodTypeArgs.Head expr |> Some
+            makeTypeTest com i.fileName i.range expr i.methodTypeArgs.Head |> Some
         | "createInstance", (None, _) ->
             let typRef, args = resolveTypeRef com i false i.methodTypeArgs.Head, []
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some

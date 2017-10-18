@@ -525,6 +525,9 @@ let ``Point-free style with multiple arguments works``() = // See #1041
 
 
 module CurriedApplicativeTests =
+    type Option2<'T> =
+        | Some2 of 'T
+        | None2
 
     module Option =
         let apply x f =
@@ -532,8 +535,14 @@ module CurriedApplicativeTests =
             | Some x, Some f -> Some (f x)
             | _ -> None
 
+        let apply2 x f =
+            match (x, f) with
+            | Some2 x, Some2 f -> Some2 (f x)
+            | _ -> None2
+
         module Operators =
             let inline (<*>) m x = apply x m
+            let inline (<**>) m x = apply2 x m
 
     open Option.Operators
 
@@ -548,6 +557,12 @@ module CurriedApplicativeTests =
         let f x y = x + y
         let r = Some f <*> Some 2 <*> Some 3
         r |> equal (Some 5)
+
+    [<Test>]
+    let ``Option.apply (<**>) auto curried`` () =
+        let f x y = x + y
+        let r = Some2 f <**> Some2 2 <**> Some2 3
+        r |> equal (Some2 5)
 
     [<Test>]
     let ``Option.apply (<*>) manually curried workaround`` () =
