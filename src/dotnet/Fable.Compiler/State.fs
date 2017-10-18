@@ -34,11 +34,14 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let normalizedFiles =
-        projectOptions.SourceFiles
-        |> Seq.map Path.normalizeFullPath
-        |> Set
+        let dic = Dictionary()
+        for f in projectOptions.SourceFiles do
+            dic.Add(Path.normalizeFullPath f, false)
+        dic
     let rootModules =
-        implFiles |> Map.map (fun _ file -> FSharp2Fable.Compiler.getRootModuleFullName file)
+        implFiles
+        |> Map.filter (fun file _ -> not <| file.EndsWith("fsi"))
+        |> Map.map (fun _ file -> FSharp2Fable.Compiler.getRootModuleFullName file)
     member __.TimeStamp = timestamp
     member __.FableCore = fableCore
     member __.IsWatchCompile = isWatchCompile
@@ -46,7 +49,12 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
     member __.Errors = errors
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectFile
-    member __.NormalizedFilesSet = normalizedFiles
+    member __.ContainsFile(sourceFile) =
+        normalizedFiles.ContainsKey(sourceFile)
+    member __.IsCompiled(sourceFile) =
+        normalizedFiles.[sourceFile]
+    member __.MarkCompiled(sourceFile) =
+        normalizedFiles.[sourceFile] <- true
     interface ICompilerState with
         member this.ProjectFile = projectOptions.ProjectFileName
         member this.GetRootModule(fileName) =

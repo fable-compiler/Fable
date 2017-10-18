@@ -127,9 +127,14 @@ let sendError replyChannel (ex: Exception) =
 
 let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
     let getDirtyFiles (project: Project) sourceFile =
-        if IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp then
+        let isDirty = IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp
+        let isWatchCompile = project.IsWatchCompile || project.IsCompiled(sourceFile)
+        // In watch compilations, always recompile the requested file in case it has non-solved errors
+        if isDirty || isWatchCompile then
             project.ProjectOptions.SourceFiles
-            |> Array.filter (fun file -> IO.File.GetLastWriteTime(file) > project.TimeStamp)
+            |> Array.filter (fun file ->
+                let file = Path.normalizePath file
+                file = sourceFile || IO.File.GetLastWriteTime(file) > project.TimeStamp)
         else [||]
     let addOrUpdateProject state (project: Project) =
         let state = Map.add project.ProjectFile project state
@@ -141,7 +146,9 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
             if Array.length dirtyFiles > 0 then
                 createProject checker dirtyFiles (Some project) msg project.ProjectFile
                 |> addOrUpdateProject state |> Some
-            else Some(false, state, project)
+            else
+                project.MarkCompiled(sourceFile)
+                Some(false, state, project)
         match msg.extra.TryGetValue("projectFile") with
         | true, projFile ->
             let projFile = Path.normalizeFullPath projFile
@@ -151,7 +158,7 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
                       |> addOrUpdateProject state |> Some
         | false, _ ->
             state |> Map.tryPick (fun _ (project: Project) ->
-                if Set.contains sourceFile project.NormalizedFilesSet
+                if project.ContainsFile(sourceFile)
                 then checkWatchCompilation project sourceFile
                 else None)
     match IO.Path.GetExtension(msg.path).ToLower() with
