@@ -139,13 +139,14 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         match argExprs with
         | expr::_ ->
             match expr.Type with
-            // For null or unknown types, create a runtime Option
-            | Fable.Unit | Fable.Any | Fable.GenericParam _ | Fable.Option _ ->
-                CoreLibCall("Util", Some "Some", true, [expr])
+            // For unit, unresolved generics or nested options, create a runtime wrapper
+            // See fable-core/Option.ts for more info
+            | Fable.Unit | Fable.GenericParam _ | Fable.Option _ ->
+                CoreLibCall("Option", Some "Some", true, [expr])
                 |> makeCall (Some range) unionType
-            // TODO: Check declared types that accept null?
+            // TODO: Check declared types that accept null? And Fable.Any?
             // | Fable.DeclaredType _ -> failwith "TODO"
-            // For non-null known types, just wrap the expression
+            // For other types, just wrap the expression
             | _ -> Fable.Wrapped(expr, unionType)
         | _ -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
     | ErasedUnion ->
@@ -764,7 +765,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         | ErasedUnion ->
             Fable.Wrapped(unionExpr, typ)
         | OptionUnion ->
-            CoreLibCall("Util", Some "getValue", false, [unionExpr])
+            CoreLibCall("Option", Some "getValue", false, [unionExpr])
             |> makeCall range typ
         | ListUnion ->
             makeGet range typ unionExpr (Naming.lowerFirst fieldName |> makeStrConst)

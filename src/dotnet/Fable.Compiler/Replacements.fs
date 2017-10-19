@@ -794,7 +794,7 @@ module AstPass =
             | [Fable.Value(Fable.IdentValue _) as arg1; arg2] ->
                 let cond = makeEqOp r [arg1; Fable.Value Fable.Null] BinaryUnequal
                 Fable.IfThenElse(cond, arg1, arg2, r) |> Some
-            | args -> ccall info "Util" "defaultArg" args |> Some
+            | args -> ccall info "Option" "defaultArg" args |> Some
         | "defaultAsyncBuilder" -> makeCoreRef "AsyncBuilder" (Some "singleton") |> Some
         // Negation
         | "not" -> makeUnOp r info.returnType args UnaryNot |> Some
@@ -1298,56 +1298,65 @@ module AstPass =
             Fable.Apply(callee, i.args, Fable.ApplyMeth, i.returnType, i.range) |> Some
         | _ -> None
 
+    // See fable-core/Option.ts for more info on how
+    // options behave in Fable runtime
     let options (com: ICompiler) (i: Fable.ApplyInfo) =
-        // Prevent functions being run twice, see #198
-        let runIfSome r expr defValue f =
-            CoreLibCall("Util", Some  "defaultArg", false, [expr; defValue; f])
-            |> makeCall r Fable.Any
-        let toArray r arg =
+        let toArray r t arg =
             let ident = makeIdent (com.GetUniqueVar())
-            makeLambdaExpr [ident] (makeArray Fable.Any [Fable.IdentValue ident |> Fable.Value])
-            |> runIfSome r arg (makeArray Fable.Any [])
-        let getCallee() = match i.callee with Some c -> c | None -> i.args.Head
+            let f =
+                [Fable.Value (Fable.IdentValue ident)]
+                |> makeArray Fable.Any
+                |> makeLambdaExpr [ident]
+            // Prevent functions being run twice, see #198
+            ccall_ r t "Option" "defaultArg" [arg; makeArray Fable.Any []; f]
+        let getCallee(i: Fable.ApplyInfo) =
+            match i.callee with Some c -> c | None -> i.args.Head
         match i.methodName with
-        | "none" -> Fable.Null |> Fable.Value |> Some
-        | "value" | "getValue" | "toObj" | "ofObj"
-        | "toNullable" | "ofNullable" | "flatten" ->
-           wrap i.returnType (getCallee()) |> Some
+        | "none" ->
+            Fable.Null |> Fable.Value |> Some
+        | "value" | "getValue" | "toObj" | "toNullable" ->
+            ccall i "Option" "getValue" [getCallee i] |> Some
+        | "ofObj" | "ofNullable" ->
+            wrap i.returnType (getCallee i) |> Some
+        | "flatten" ->
+            [getCallee i; makeBoolConst true]
+            |> ccall i "Option" "getValue" |> Some
         | "isSome" | "isNone" ->
-            let op = if i.methodName = "isSome" then BinaryUnequal else BinaryEqual
-            let comp = makeEqOp i.range [getCallee(); Fable.Value Fable.Null] op
+            let op =
+                if i.methodName = "isSome"
+                then BinaryUnequal
+                else BinaryEqual
+            let comp =
+                ([getCallee i; Fable.Value Fable.Null], op)
+                ||> makeEqOp i.range
             match i.returnType with
             | Fable.Boolean _ -> Some comp
             // Hack to fix instance member calls (e.g., myOpt.IsSome)
-            // For some reason, F# compiler expects it to be applicable
+            // For some reason, F# compiler expects them to be applicable
             | _ -> makeLambdaExpr [] comp |> Some
         | "map" | "bind" ->
-            // emit i "$1 != null ? $0($1) : $1" i.args |> Some
             let f, arg = i.args.Head, i.args.Tail.Head
-            runIfSome i.range arg (Fable.Value Fable.Null) f |> Some
+            [arg; Fable.Value Fable.Null; f]
+            |> ccall i "Option" "defaultArg" |> Some
         | "filter" ->
-            let filter, arg = i.args.Head, i.args.Tail.Head
-            "x => $0(x) ? x : null"
-            |> makeEmit None Fable.Any [filter]
-            |> runIfSome i.range arg (Fable.Value Fable.Null)
-            |> Some
+            ccall i "Option" "filter" i.args |> Some
         | "toArray" ->
-            toArray i.range i.args.Head |> Some
+            toArray i.range i.returnType i.args.Head |> Some
         | "foldBack" ->
-            let opt = toArray None i.args.Tail.Head
+            let opt = toArray None Fable.Any i.args.Tail.Head
             let args = i.args.Head::opt::i.args.Tail.Tail
             ccall i "Seq" "foldBack" args |> Some
         | "defaultValue" | "orElse" ->
-            CoreLibCall("Util", Some  "defaultArg", false, [i.args.Tail.Head; i.args.Head])
-            |> makeCall i.range i.returnType |> Some
+            List.rev i.args
+            |> ccall i "Option" "defaultArg" |> Some
         | "defaultWith" | "orElseWith" ->
-            CoreLibCall("Util", Some  "defaultArgWith", false, [i.args.Tail.Head; i.args.Head])
-            |> makeCall i.range i.returnType |> Some
+            List.rev i.args
+            |> ccall i "Option" "defaultArgWith" |> Some
         | "count" | "contains" | "exists"
         | "fold" | "forAll" | "iterate" | "toList" ->
             let args =
                 let args = List.rev i.args
-                let opt = toArray None args.Head
+                let opt = toArray None Fable.Any args.Head
                 List.rev (opt::args.Tail)
             ccall i "Seq" i.methodName args |> Some
         // | "map2" | "map3" -> failwith "TODO"

@@ -58,47 +58,6 @@ export function Option(t: Type) {
   return new NonDeclaredType("Option", null, [t]) as NonDeclaredType;
 }
 
-export class Some<T> {
-  constructor(public value: T) {
-    this.value = value;
-  }
-
-  // We don't prefix it with "Some" for consistency with erased options
-  public ToString() {
-    return toString(this.value);
-  }
-
-  public Equals(other: any) {
-    if (other instanceof Some) {
-      return equals(this.value, other.value);
-    } else if (other == null) {
-      return false;
-    } else {
-      return equals(this.value, other);
-    }
-  }
-
-  public CompareTo(other: any) {
-    if (other instanceof Some) {
-      return compare(this.value, other.value);
-    } else if (other == null) {
-      return 1;
-    } else {
-      return compare(this.value, other);
-    }
-  }
-}
-
-export function getValue(x: any): any {
-  if (x instanceof Some) {
-    return x.value;
-  } else if (x == null) {
-    throw new Error("Option has no value");
-  } else {
-    return x;
-  }
-}
-
 function FableArray(t: Type, isTypedArray = false) {
   let def: Type = null;
   let genArg: Type = null;
@@ -495,14 +454,6 @@ export function round(value: number, digits: number = 0) {
 
 export function randomNext(min: number, max: number) {
   return Math.floor(Math.random() * (max - min)) + min;
-}
-
-export function defaultArg<T, U>(arg: T, defaultValue: T, f?: (x: T) => U) {
-  return arg == null ? defaultValue : (f != null ? f(arg) : arg);
-}
-
-export function defaultArgWith<T, U>(arg: T, defThunk: () => T) {
-  return arg == null ? defThunk() : arg;
 }
 
 export function applyOperator(x: any, y: any, operator: string): any {
