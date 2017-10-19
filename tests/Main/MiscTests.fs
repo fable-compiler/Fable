@@ -864,3 +864,19 @@ let ``While with isNone doesn't hang with Some ()``() =
     Trampoline.run (fun _ -> Trampoline.Break "hello") () |> ignore
     Trampoline.run (fun _ -> Trampoline.Break 42) () |> ignore
     Trampoline.run (fun _ -> Trampoline.Break ()) () |> ignore
+
+
+let inline (|HasLength|) x = 
+  fun () -> (^a: (member Length: int) x)
+
+let inline length (HasLength f) = f()
+
+let foo (xs:'a list) = length xs
+let bar = length [|1; 2; 3|]
+
+
+[<Test>]
+let ``SRTP with ActivePattern works``() =
+    (foo []) |> equal 0
+    (foo [1;2;3;4]) |> equal 4
+    bar |> equal 3
