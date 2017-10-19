@@ -37,14 +37,19 @@ let makeProjOptions (com: ICompiler) projFile =
         Stamp = None }
     projOptions
 
-let compileAst (com: Compiler) checkedProject fileName =
+let compileAst (com: Compiler) (checkedProject: FSharpCheckProjectResults) fileName =
     let errors = com.ReadAllLogs() |> Map.tryFind "error"
     if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let projectOptions = makeProjOptions com fileName
     let fableCoreJsDir = "./fable-core"
-    let project = Project(projectOptions, checkedProject, FilePath fableCoreJsDir, isWatchCompile=false)
+    let fableCore = FilePath fableCoreJsDir
+    let implFiles = checkedProject.AssemblyContents.ImplementationFiles
+                    |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
+    let errors = checkedProject.Errors
+    let project = Project(projectOptions, implFiles, errors, fableCore, isWatchCompile=false)
+
     let file: Babel.Program =
-        FSharp2Fable.Compiler.transformFile com project project.CheckedProject fileName
+        FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles fileName
         |> Fable2Babel.Compiler.transformFile com project
     let loc = defaultArg file.loc SourceLocation.Empty
     Babel.Program(file.fileName, loc, file.body, file.directives, com.ReadAllLogs())
