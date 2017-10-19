@@ -1,3 +1,10 @@
+### 1.3.0-beta-002
+
+* #1188: Add dependencies to ensure all necessary files are recompiled in a watch compilation
+* #1189: Enable nested options
+* Fix #1187: List.truncate returning one-too-many elements
+* Fix #1186: Negated negative values
+
 ### 1.3.0-beta-001
 
 * Optimize watch compilations with `extra.optimizeWatch` option (see FSharp.Compiler.Service/issues/796)
