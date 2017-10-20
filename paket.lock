@@ -1,5 +1,9 @@
 NUGET
   remote: https://www.nuget.org/api/v2
+    Dotnet.ProjInfo (0.7.4)
+      FSharp.Core (>= 4.0.0.1) - restriction: >= net45
+      FSharp.Core (>= 4.1.17) - restriction: && (< net45) (>= netstandard1.6)
+      NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6)
     Fable.FCS (16.0.3)
       FSharp.Core (>= 4.1.18) - restriction: && (< net45) (>= netstandard1.6)
       NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6)
