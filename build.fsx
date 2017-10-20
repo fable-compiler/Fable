@@ -281,10 +281,7 @@ let buildJsonConverter () =
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
 let runTestsDotnet () =
-    // Util.run "tests_external" dotnetExePath "restore"
-    // Util.run "tests/DllRef" dotnetExePath "restore"
-    // Util.run "tests/Project With Spaces" dotnetExePath "restore"
-    Util.run "tests/Main" dotnetExePath "restore"
+    Util.run "tests/Main" dotnetExePath "build /p:TestRunner=xunit"
     Util.run "tests/Main" dotnetExePath "test /p:TestRunner=xunit"
 
 let runFableServer args f =
