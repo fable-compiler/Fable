@@ -1,5 +1,11 @@
 source https://www.nuget.org/api/v2
-framework >= net45
+
+nuget Fable.FCS
+nuget FSharp.Core
+nuget Newtonsoft.Json
+nuget System.Runtime.Loader
+nuget System.Collections.Immutable
+nuget System.Reflection.Metadata
 
 nuget FAKE
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
