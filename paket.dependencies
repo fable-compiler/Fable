@@ -1,8 +1,8 @@
 source https://www.nuget.org/api/v2
-
+source nupkgs
 storage:none
 
-nuget Fable.FCS
+nuget FSharp.Compiler.Service 16.0.3
 nuget FSharp.Core
 nuget Newtonsoft.Json
 nuget System.Runtime.Loader

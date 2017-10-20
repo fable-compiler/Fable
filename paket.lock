@@ -5,20 +5,6 @@ NUGET
       FSharp.Core (>= 4.0.0.1) - restriction: >= net45
       FSharp.Core (>= 4.1.17) - restriction: && (< net45) (>= netstandard1.6)
       NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6)
-    Fable.FCS (16.0.3)
-      FSharp.Core (>= 4.1.18) - restriction: && (< net45) (>= netstandard1.6)
-      NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6)
-      System.Collections.Immutable (>= 1.3) - restriction: && (< net45) (>= netstandard1.6)
-      System.Collections.Immutable (>= 1.3.1) - restriction: >= net45
-      System.Diagnostics.Process (>= 4.1) - restriction: && (< net45) (>= netstandard1.6)
-      System.Diagnostics.TraceSource (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
-      System.Reflection.Emit (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
-      System.Reflection.Metadata (>= 1.4.1) - restriction: && (< net45) (>= netstandard1.6)
-      System.Reflection.Metadata (>= 1.4.2) - restriction: >= net45
-      System.Reflection.TypeExtensions (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
-      System.Runtime.Loader (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
-      System.Security.Cryptography.Algorithms (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
-      System.ValueTuple (>= 4.4) - restriction: && (< net45) (>= netstandard1.6)
     FSharp.Core (4.2.3)
       System.Collections (>= 4.0.11) - restriction: && (< net45) (>= netstandard1.6)
       System.Console (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
@@ -716,6 +702,21 @@ NUGET
       System.Text.Encoding (>= 4.3) - restriction: && (< monotouch) (< net46) (>= netstandard1.3) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)
       System.Threading (>= 4.3) - restriction: && (< monotouch) (< net46) (>= netstandard1.3) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)
       System.Xml.ReaderWriter (>= 4.3) - restriction: && (< monotouch) (< net46) (>= netstandard1.3) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)
+  remote: nupkgs
+    FSharp.Compiler.Service (16.0.3)
+      FSharp.Core (>= 4.1.18) - restriction: && (< net45) (>= netstandard1.6)
+      NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6)
+      System.Collections.Immutable (>= 1.3) - restriction: && (< net45) (>= netstandard1.6)
+      System.Collections.Immutable (>= 1.3.1) - restriction: >= net45
+      System.Diagnostics.Process (>= 4.1) - restriction: && (< net45) (>= netstandard1.6)
+      System.Diagnostics.TraceSource (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
+      System.Reflection.Emit (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
+      System.Reflection.Metadata (>= 1.4.1) - restriction: && (< net45) (>= netstandard1.6)
+      System.Reflection.Metadata (>= 1.4.2) - restriction: >= net45
+      System.Reflection.TypeExtensions (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
+      System.Runtime.Loader (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
+      System.Security.Cryptography.Algorithms (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
+      System.ValueTuple (>= 4.4) - restriction: && (< net45) (>= netstandard1.6)
 GITHUB
   remote: fsprojects/FSharp.TypeProviders.StarterPack
     src/ProvidedTypes.fs (3683d813e77c73b1bc69ca5483843b2bb2306a5a)
