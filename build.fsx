@@ -281,6 +281,8 @@ let buildJsonConverter () =
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
 let runTestsDotnet () =
+    CleanDir "tests/Main/obj"
+    Util.run "tests/Main" dotnetExePath "restore /p:TestRunner=xunit"
     Util.run "tests/Main" dotnetExePath "build /p:TestRunner=xunit"
     Util.run "tests/Main" dotnetExePath "test /p:TestRunner=xunit"
 
