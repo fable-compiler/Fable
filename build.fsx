@@ -1,6 +1,6 @@
 #r "packages/build/FAKE/tools/FakeLib.dll"
 #r "System.IO.Compression.FileSystem"
-#load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
+#load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 
 open System
 open System.IO

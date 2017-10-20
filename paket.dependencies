@@ -11,7 +11,7 @@ nuget System.Reflection.Metadata
 nuget Dotnet.ProjInfo
 
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
-github fsharp/FAKE modules/Octokit/Octokit.fsx
+
 
 
 group Test
@@ -24,4 +24,5 @@ group Test
 group Build
   framework >= net45
   source https://www.nuget.org/api/v2
-  nuget FAKE  
+  nuget FAKE
+  github fsharp/FAKE modules/Octokit/Octokit.fsx  
