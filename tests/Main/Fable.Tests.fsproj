@@ -56,12 +56,12 @@
   <ItemGroup Condition="'$(TestRunner)' == 'xunit'">
     <Reference Include="Fable.JsonConverter">
       <HintPath>../../build/json-converter/Fable.JsonConverter.dll</HintPath>
-    </Reference>
+    </Reference>    
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DllRef\Fable.Tests.DllRef.fsproj" />
     <ProjectReference Include="..\..\tests_external\Fable.Tests.External.fsproj" />
     <ProjectReference Include="..\Project With Spaces\Fable.Tests.Spaces.fsproj" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
+  <Import Condition="'$(TestRunner)' == 'xunit'" Project="..\..\.paket\Paket.Restore.targets" />      
 </Project>
