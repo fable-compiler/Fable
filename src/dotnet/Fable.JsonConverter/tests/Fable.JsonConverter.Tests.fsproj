@@ -9,11 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Fable.JsonConverter.fsproj" />
-    <PackageReference Include="FSharp.Core" Version="4.2.1" />
-    <PackageReference Include="Newtonsoft.Json" Version="10.0.1" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.3.0-preview-*" />
-    <PackageReference Include="xunit" Version="2.2.0" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.2.0" />
   </ItemGroup>
   <Import Project="..\..\..\..\.paket\Paket.Restore.targets" />
 </Project>
