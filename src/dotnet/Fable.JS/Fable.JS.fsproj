@@ -33,8 +33,4 @@
     <Compile Include="Main.fs"/>
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="4.2.*" /> -->
-  </ItemGroup>
-
 </Project>
