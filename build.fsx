@@ -1,6 +1,6 @@
 #r "packages/build/FAKE/tools/FakeLib.dll"
 #r "System.IO.Compression.FileSystem"
-#load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
+#load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 
 open System
 open System.IO
@@ -207,7 +207,7 @@ let authors = ["Alfonso García-Caro"]
 let gitOwner = "fable-compiler"
 let gitHome = "https://github.com/" + gitOwner
 
-let dotnetcliVersion = "2.0.0"
+let dotnetcliVersion = "2.0.2"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 let dotnetSDKPath = FullName "./dotnetsdk"
 let localDotnetExePath = dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
@@ -281,10 +281,9 @@ let buildJsonConverter () =
     |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
 
 let runTestsDotnet () =
-    // Util.run "tests_external" dotnetExePath "restore"
-    // Util.run "tests/DllRef" dotnetExePath "restore"
-    // Util.run "tests/Project With Spaces" dotnetExePath "restore"
-    Util.run "tests/Main" dotnetExePath "restore"
+    CleanDir "tests/Main/obj"
+    Util.run "tests/Main" dotnetExePath "restore /p:TestRunner=xunit"
+    Util.run "tests/Main" dotnetExePath "build /p:TestRunner=xunit"
     Util.run "tests/Main" dotnetExePath "test /p:TestRunner=xunit"
 
 let runFableServer args f =

@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -57,11 +56,14 @@
     <Reference Include="Fable.JsonConverter">
       <HintPath>../../build/json-converter/Fable.JsonConverter.dll</HintPath>
     </Reference>
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.*" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.3.0-preview-*" />
+    <PackageReference Include="xunit" Version="2.2.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.2.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DllRef\Fable.Tests.DllRef.fsproj" />
     <ProjectReference Include="..\..\tests_external\Fable.Tests.External.fsproj" />
     <ProjectReference Include="..\Project With Spaces\Fable.Tests.Spaces.fsproj" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
