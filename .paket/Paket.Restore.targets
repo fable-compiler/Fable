@@ -30,7 +30,7 @@
     <DisableImplicitSystemValueTupleReference>true</DisableImplicitSystemValueTupleReference>
   </PropertyGroup>
 
-  <Target Name="PaketRestore" Condition=" '$(ResolveNuGetPackages)' != 'False' " BeforeTargets="_GenerateDotnetCliToolReferenceSpecs;_GenerateProjectRestoreGraphPerFramework;_GenerateRestoreGraphWalkPerFramework;CollectPackageReferences" >
+  <Target Name="PaketRestore" BeforeTargets="_GenerateDotnetCliToolReferenceSpecs;_GenerateProjectRestoreGraphPerFramework;_GenerateRestoreGraphWalkPerFramework;CollectPackageReferences" >
 
     <!-- Step 1 Check if lockfile is properly restored -->
     <PropertyGroup>
@@ -88,7 +88,7 @@
     <Exec Command='$(PaketCommand) restore --project "$(MSBuildProjectFullPath)"' Condition=" '$(PaketRestoreRequired)' == 'true' " ContinueOnError="false" />
 
     <!-- This shouldn't actually happen, but just to be sure. -->
-    <Error Condition=" !Exists('$(PaketResolvedFilePath)') AND '$(TargetFramework)' != '' " Text="Paket file '$(PaketResolvedFilePath)' is missing while restoring $(MSBuildProjectFile). Please delete 'paket-files/paket.restore.cached' and call 'paket restore'." />
+    <Error Condition=" !Exists('$(PaketResolvedFilePath)') AND '$(TargetFramework)' != '' AND '$(ResolveNuGetPackages)' != 'False' " Text="Paket file '$(PaketResolvedFilePath)' is missing while restoring $(MSBuildProjectFile). Please delete 'paket-files/paket.restore.cached' and call 'paket restore'." />
 
     <!-- Step 4 forward all msbuild properties (PackageReference, DotNetCliToolReference) to msbuild -->
     <ReadLinesFromFile Condition="Exists('$(PaketResolvedFilePath)')" File="$(PaketResolvedFilePath)" >

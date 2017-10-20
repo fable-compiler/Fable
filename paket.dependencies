@@ -1,5 +1,7 @@
 source https://www.nuget.org/api/v2
 
+storage:none
+
 nuget Fable.FCS
 nuget FSharp.Core
 nuget Newtonsoft.Json
@@ -14,6 +16,7 @@ github fsharp/FAKE modules/Octokit/Octokit.fsx
 
 group Test
   source https://www.nuget.org/api/v2
+  storage:none
   nuget Microsoft.NET.Test.Sdk
   nuget xunit 2.2.0
   nuget xunit.runner.visualstudio 2.2.0
