@@ -207,7 +207,7 @@ let authors = ["Alfonso García-Caro"]
 let gitOwner = "fable-compiler"
 let gitHome = "https://github.com/" + gitOwner
 
-let dotnetcliVersion = "2.0.0"
+let dotnetcliVersion = "2.0.2"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 let dotnetSDKPath = FullName "./dotnetsdk"
 let localDotnetExePath = dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
