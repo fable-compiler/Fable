@@ -8,7 +8,6 @@ nuget System.Collections.Immutable
 nuget System.Reflection.Metadata
 nuget Dotnet.ProjInfo
 
-nuget FAKE
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
 github fsharp/FAKE modules/Octokit/Octokit.fsx
 
@@ -18,3 +17,8 @@ group Test
   nuget Microsoft.NET.Test.Sdk
   nuget xunit 2.2.0
   nuget xunit.runner.visualstudio 2.2.0
+  
+group Build
+  framework >= net45
+  source https://www.nuget.org/api/v2
+  nuget FAKE  
