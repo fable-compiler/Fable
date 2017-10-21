@@ -1,5 +1,7 @@
 source https://www.nuget.org/api/v2
-source nupkgs
+
+git https://github.com/forki/visualfsharp.git optimizeinfcs build: "./fcs/build.cmd nuget", Packages: /Release/fcs/net45, OS: windows
+git https://github.com/forki/visualfsharp.git optimizeinfcs build: "./fcs/build.sh nuget", Packages: /Release/fcs/net45, OS: mono
 storage:none
 
 nuget FSharp.Compiler.Service 16.0.3
