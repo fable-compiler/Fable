@@ -817,18 +817,17 @@ module Types =
 
     let getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
         match tdef.BaseType with
-        | Some(TypeDefinition tdef) when tdef.FullName <> "System.Object" ->
+        | Some(TypeDefinition tdef) when tdef.TryFullName <> Some "System.Object" ->
             let typeRef = makeTypeFromDef com [] tdef [] |> makeNonGenTypeRef com
             Some (sanitizeEntityFullName tdef, typeRef)
         | _ -> None
 
     let rec getOwnAndInheritedFsharpMembers (tdef: FSharpEntity) = seq {
-        if tdef.TryFullName <> Some "System.Object" then
-            yield! tdef.TryGetMembersFunctionsAndValues
-            match tdef.BaseType with
-            | Some(TypeDefinition baseDef) ->
-                yield! getOwnAndInheritedFsharpMembers baseDef
-            | _ -> ()
+        yield! tdef.TryGetMembersFunctionsAndValues
+        match tdef.BaseType with
+        | Some(TypeDefinition baseDef) when tdef.TryFullName <> Some "System.Object" ->
+            yield! getOwnAndInheritedFsharpMembers baseDef
+        | _ -> ()
     }
 
     let makeMethodFrom com name kind loc argTypes returnType originalTyp overloadIndex
@@ -869,10 +868,10 @@ module Types =
             tdef.AllInterfaces
             |> Seq.exists (fun ifc ->
                 if not ifc.HasTypeDefinition then false else
-                ifc.TypeDefinition.MembersFunctionsAndValues
+                ifc.TypeDefinition.TryGetMembersFunctionsAndValues
                 |> Seq.exists (fun m -> m.DisplayName = name))
         let members =
-            tdef.MembersFunctionsAndValues
+            tdef.TryGetMembersFunctionsAndValues
             |> Seq.filter (fun x ->
                 // Discard overrides in abstract classes (that is, default implementations)
                 // to prevent confusing them with overloads (see #505)
@@ -913,7 +912,7 @@ module Types =
             |> Seq.map (fun x -> x.Name, makeType com [] x.FieldType)
             |> Seq.toList
         let makeProperties (tdef: FSharpEntity) =
-            tdef.MembersFunctionsAndValues
+            tdef.TryGetMembersFunctionsAndValues
             |> Seq.choose (fun x ->
                 if not x.IsPropertyGetterMethod then None else
                 match makeType com [] x.FullType with

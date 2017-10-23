@@ -352,7 +352,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FShar
                     match typ with
                     | None -> false
                     | Some typ ->
-                        typ.MembersFunctionsAndValues
+                        typ.TryGetMembersFunctionsAndValues
                         |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
                         |> function Some m -> hasRestParams m | None -> false
                 let body = transformExpr com ctx over.Body
@@ -974,7 +974,7 @@ type private DeclInfo(com, fileName) =
             elif (List.contains "union" expected && not ent.IsFSharpUnion)
                 && (List.contains "record" expected && not ent.IsFSharpRecord)
             then fail ent (sprintf "%s can only decorate %s types" att (String.concat "/" expected))
-            elif ent.MembersFunctionsAndValues
+            elif ent.TryGetMembersFunctionsAndValues
                 |> Seq.exists (fun m -> not m.IsCompilerGenerated)
             then fail ent "Erased types cannot contain members"
             else true
