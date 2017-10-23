@@ -253,7 +253,7 @@ let private transformTraitCall com ctx r typ sourceTypes traitName flags (argTyp
     sourceTypes
     |> List.tryPick (function
         | ResolveGeneric ctx.typeArgs (TypeDefinition tdef as typ) ->
-            tdef.MembersFunctionsAndValues |> Seq.filter (fun m ->
+            getOwnAndInheritedFsharpMembers tdef |> Seq.filter (fun m ->
                 // Property members that are no getter nor setter don't actually get implemented
                 not(m.IsProperty && not(m.IsPropertyGetterMethod || m.IsPropertySetterMethod))
                 && m.IsInstanceMember = flags.IsInstance

@@ -822,6 +822,15 @@ module Types =
             Some (sanitizeEntityFullName tdef, typeRef)
         | _ -> None
 
+    let rec getOwnAndInheritedFsharpMembers (tdef: FSharpEntity) = seq {
+        if tdef.TryFullName <> Some "System.Object" then
+            yield! tdef.TryGetMembersFunctionsAndValues
+            match tdef.BaseType with
+            | Some(TypeDefinition baseDef) ->
+                yield! getOwnAndInheritedFsharpMembers baseDef
+            | _ -> ()
+    }
+
     let makeMethodFrom com name kind loc argTypes returnType originalTyp overloadIndex
                        (meth: FSharpMemberOrFunctionOrValue) =
         Fable.Member(name, kind, loc, argTypes, returnType,
