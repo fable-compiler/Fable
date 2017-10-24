@@ -41,11 +41,11 @@ export class Some<T> {
     }
 }
 
-export function getValue(x: any, doNotFail?: boolean): any {
+export function getValue(x: any, force?: boolean): any {
     if (x instanceof Some) {
         return x.value;
     } else if (x == null) {
-        if (doNotFail) { return x; }
+        if (force) { return x; }
         throw new Error("Option has no value");
     } else {
         return x;

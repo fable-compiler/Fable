@@ -64,6 +64,15 @@ let ``Seq.choose works``() =
     sumFirstTwo zs
     |> equal 7.
 
+let testSeqChoose xss =
+    let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
+    xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
+
+[<Test>]
+let ``Seq.choose works with generic arguments``() =
+    let res = testSeqChoose  [ Some [  5  ] ]
+    equal [ 5 ] res
+
 [<Test>]
 let ``Seq.concat works``() =
     let xs = [[1.]; [2.]; [3.]; [4.]]

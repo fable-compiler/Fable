@@ -1,9 +1,8 @@
 import { permute as arrayPermute } from "./Array";
 import { chunkBySize as arrayChunkBySize } from "./Array";
 import List from "./ListClass";
-import { IDisposable } from "./Util";
-import { equals } from "./Util";
-import { compare, hasInterface } from "./Util";
+import { getValue } from "./Option";
+import { compare, equals, hasInterface, IDisposable } from "./Util";
 
 export class Enumerator<T> {
   private current: T;
@@ -36,11 +35,11 @@ export function toIterator<T>(en: Enumerator<T>): Iterator<T> {
   };
 }
 
-function __failIfNone<T>(res: T) {
+function __failIfNone<T>(res: T, extractValue?: boolean) {
   if (res == null) {
     throw new Error("Seq did not contain any matching element");
   }
-  return res;
+  return extractValue ? getValue(res) : res;
 }
 
 export function toList<T>(xs: Iterable<T>) {
@@ -135,7 +134,7 @@ export function choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
     while (!cur.done) {
       const y = f(cur.value);
       if (y != null) {
-        return [y, iter];
+        return [getValue(y), iter];
       }
       cur = iter.next();
     }
@@ -767,7 +766,7 @@ export function tryPick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
 }
 
 export function pick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
-  return __failIfNone(tryPick(f, xs));
+  return __failIfNone(tryPick(f, xs), true);
 }
 
 export function unfold<T, ST>(f: (st: ST) => [T, ST], acc?: ST) {

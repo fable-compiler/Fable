@@ -1,11 +1,8 @@
 import Choice from "./Choice";
-import { IObserver } from "./Observable";
-import { IObservable } from "./Observable";
-import { Observer } from "./Observable";
-import { protect } from "./Observable";
+import { IObservable, IObserver, Observer, protect } from "./Observable";
+import { getValue } from "./Option";
 import { iterate as seqIterate } from "./Seq";
-import { IDisposable } from "./Util";
-import { createDisposable } from "./Util";
+import { createDisposable, IDisposable } from "./Util";
 
 export type Delegate<T> = (x: T) => void;
 export type DotNetDelegate<T> = (sender: any, x: T) => void;
@@ -110,7 +107,7 @@ export function choose<T, U>(chooser: (x: T) => U, sourceEvent: IEvent<T>) {
     source.Subscribe(new Observer<T>((t) =>
       protect(
         () => chooser(t),
-        (u) => { if (u != null) { observer.OnNext(u); } },
+        (u) => { if (u != null) { observer.OnNext(getValue(u)); } },
         observer.OnError),
       observer.OnError, observer.OnCompleted)),
     source.delegates) as IEvent<U>;

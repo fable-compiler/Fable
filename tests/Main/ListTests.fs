@@ -99,6 +99,15 @@ let ``List.choose works``() =
       result.Head + result.Tail.Head
       |> equal 7
 
+let testListChoose xss =
+    let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
+    xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
+
+[<Test>]
+let ``List.choose works with generic arguments``() =
+    let res = testListChoose [ Some [ "a" ] ]
+    equal ["a"] res
+
 [<Test>]
 let ``List.collect works``() =
       let xs = [[1]; [2]; [3]; [4]]

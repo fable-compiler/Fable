@@ -1,6 +1,7 @@
 import Comparer from "./Comparer";
 import List from "./ListClass";
 import { ofArray as listOfArray } from "./ListClass";
+import { getValue } from "./Option";
 import { map as seqMap } from "./Seq";
 import { fold as seqFold } from "./Seq";
 import { reduce as seqReduce } from "./Seq";
@@ -666,7 +667,7 @@ export function tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | Fa
 export function pick<K, T, U>(f: (k: K, v: T) => U, map: FableMap<K, T>) {
   const res = tryPick(f, map) as U;
   if (res != null) {
-    return res;
+    return getValue(res);
   }
   throw new Error("key not found");
 }
