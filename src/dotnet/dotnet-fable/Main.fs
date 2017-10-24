@@ -216,7 +216,10 @@ Where 'start' and 'build' are the names of scripts in package.json:
         let fableArgs = args.[1..] |> parseArguments
         let execArgs =
             match fableArgs.commandArgs with
-            | Some cargs -> "run " + args.[0] + " -- " + cargs
+            | Some cargs ->
+                // Yarn 1.0 doesn't require "--" to forward options to scripts
+                let separator = if npmOrYarn = "yarn" then " " else " -- "
+                "run " + args.[0] + separator + cargs
             | None -> "run " + args.[0]
         let workingDir =
             Directory.GetCurrentDirectory() |> findPackageJsonDir

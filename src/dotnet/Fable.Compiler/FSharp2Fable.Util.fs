@@ -424,7 +424,7 @@ module Patterns =
         | _ -> visit [] fsExpr
 
     let (|PrintFormat|_|) = function
-        | Let((_,(Call(None,_,_,_,[arg]) as e)),_) ->
+        | Let((v,(Call(None,_,_,_,[arg]) as e)),_) when v.IsCompilerGenerated ->
             if arg.Type.HasTypeDefinition
                 && arg.Type.TypeDefinition.AccessPath = "Microsoft.FSharp.Core.PrintfModule"
             then Some e

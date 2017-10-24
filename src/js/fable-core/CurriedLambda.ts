@@ -31,9 +31,6 @@ export default function CurriedLambda(f: ICurriedLambda, expectedArgsLength?: nu
 }
 
 export function partialApply(f: ICurriedLambda, args: any[]): ICurriedLambda {
-  const lambda = f.curried === true ? f
-    // printf lambdas attach the arguments length in the `argsLength`
-    // field as `f.length` evaluates to 0
-    : CurriedLambda(f, (f as any).argsLength || f.length);
+  const lambda = f.curried === true ? f : CurriedLambda(f);
   return lambda(...args);
 }

@@ -1158,7 +1158,7 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
         else
             let vars =
                 match args with
-                | [thisArg]::args when meth.IsInstanceMember -> args
+                | [_thisArg]::args when meth.IsInstanceMember -> args
                 | _ -> args
                 |> Seq.collect id |> countRefs body
             com.AddInlineExpr(meth.FullName, (upcast vars, body))

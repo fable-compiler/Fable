@@ -101,10 +101,10 @@ export interface IPrintfFormat {
   cont: IPrintfFormatContinuation;
 }
 
-export function printf(input: string, argsLength: number): IPrintfFormat {
+export function printf(input: string): IPrintfFormat {
   return {
     input,
-    cont: fsFormat(input, argsLength) as IPrintfFormatContinuation,
+    cont: fsFormat(input) as IPrintfFormatContinuation,
   };
 }
 
@@ -120,51 +120,58 @@ export function toFail(arg: IPrintfFormat) {
   return arg.cont((x) => { throw new Error(x); });
 }
 
-export function fsFormat(str: string, argsLength: number): ((...args: any[]) => any) | string {
-  function formatOnce(str2: any, rep: any) {
-    return str2.replace(fsFormatRegExp,
-      (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) => {
-        switch (format) {
-          case "f": case "F":
-            rep = rep.toFixed(precision || 6); break;
-          case "g": case "G":
-            rep = rep.toPrecision(precision); break;
-          case "e": case "E":
-            rep = rep.toExponential(precision); break;
-          case "O":
-            rep = toString(rep); break;
-          case "A":
-            rep = toString(rep, true); break;
-          case "x":
-            rep = toHex(Number(rep)); break;
-          case "X":
-            rep = toHex(Number(rep)).toUpperCase(); break;
-        }
-        const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep, 10) >= 0;
-        pad = parseInt(pad, 10);
-        if (!isNaN(pad)) {
-          const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
-          rep = padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
-        }
-        const once = prefix + (plusPrefix ? "+" + rep : rep);
-        return once.replace(/%/g, "%%");
-      });
-  }
-  return (cont: (...args: any[]) => any) => {
-    if (argsLength > 0) {
-      const printer = (...args2: any[]) => {
-        let strCopy = str;
-        for (const arg of args2) {
-          strCopy = formatOnce(strCopy, arg);
-        }
-        return cont(strCopy.replace(/%%/g, "%"));
-      };
-      // Attach the arguments length for partial applications
-      (printer as any).argsLength = argsLength;
-      return printer;
-    } else {
-      return cont(str);
+function formatOnce(str2: any, rep: any) {
+  return str2.replace(fsFormatRegExp,
+    (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) => {
+      switch (format) {
+        case "f": case "F":
+          rep = rep.toFixed(precision || 6); break;
+        case "g": case "G":
+          rep = rep.toPrecision(precision); break;
+        case "e": case "E":
+          rep = rep.toExponential(precision); break;
+        case "O":
+          rep = toString(rep); break;
+        case "A":
+          rep = toString(rep, true); break;
+        case "x":
+          rep = toHex(Number(rep)); break;
+        case "X":
+          rep = toHex(Number(rep)).toUpperCase(); break;
+      }
+      const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep, 10) >= 0;
+      pad = parseInt(pad, 10);
+      if (!isNaN(pad)) {
+        const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
+        rep = padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
+      }
+      const once = prefix + (plusPrefix ? "+" + rep : rep);
+      return once.replace(/%/g, "%%");
+    });
+}
+
+function createPrinter(str: string, cont: (...args: any[]) => any) {
+  const printer = (...args: any[]) => {
+    // Make a copy as the function may be used several times
+    let strCopy = str;
+    for (const arg of args) {
+      strCopy = formatOnce(strCopy, arg);
     }
+    return fsFormatRegExp.test(strCopy)
+      ? createPrinter(strCopy, cont)
+      : cont(strCopy.replace(/%%/g, "%"));
+  };
+  // Mark it as curried so it doesn't
+  // get wrapped by CurriedLambda
+  (printer as any).curried = true;
+  return printer;
+}
+
+export function fsFormat(str: string) {
+  return (cont: (...args: any[]) => any) => {
+    return fsFormatRegExp.test(str)
+      ? createPrinter(str, cont)
+      : cont(str);
   };
 }
 

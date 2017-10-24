@@ -476,7 +476,7 @@ module Util =
         // take that into account in matching patterns
         | Fable.Value (Fable.LogicalOp op), (TransformExpr com ctx left)::(TransformExpr com ctx right)::_ ->
             upcast LogicalExpression (op, left, right, ?loc=range)
-        | Fable.Value (Fable.UnaryOp op), (TransformExpr com ctx operand as expr)::_ ->
+        | Fable.Value (Fable.UnaryOp op), (TransformExpr com ctx operand)::_ ->
             upcast UnaryExpression (op, operand, ?loc=range)
         | Fable.Value (Fable.BinaryOp op), (TransformExpr com ctx left)::(TransformExpr com ctx right)::_ ->
             upcast BinaryExpression (op, left, right, ?loc=range)

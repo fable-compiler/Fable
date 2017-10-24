@@ -8,7 +8,7 @@ import { getTypeFullName, resolveGeneric } from "./Reflection";
 import { fold } from "./Seq";
 import FableSet from "./Set";
 import { create as setCreate } from "./Set";
-import { fsFormat } from "./String";
+import { printf, toText } from "./String";
 import { getType } from "./Symbol";
 import FableSymbol from "./Symbol";
 import { getDefinition, NonDeclaredType, Type } from "./Util";
@@ -72,7 +72,8 @@ function isNullable(typ: any): boolean {
 }
 
 function invalidate(val: any, typ: any, path: string) {
-  throw new Error(`${fsFormat("%A", val)} ${path ? "(" + path + ")" : ""} is not of type ${getTypeFullName(typ)}`);
+  const str = toText(printf("%A"))(val);
+  throw new Error(`${str} ${path ? "(" + path + ")" : ""} is not of type ${getTypeFullName(typ)}`);
 }
 
 function needsInflate(enclosing: List<any>): boolean {

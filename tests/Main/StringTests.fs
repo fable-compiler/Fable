@@ -134,6 +134,28 @@ let ``sprintf "%X" works``() =
       String.Format("{0:x}", 255) |> equal "ff"
       String.Format("{0:X}", -255) |> equal "FFFFFF01"
 
+let spr fmt =
+    let fmt = Printf.StringFormat<_>(fmt)
+    sprintf fmt
+
+[<Test>]
+let ``Printf works with generic argument``() =
+    spr "bar %s" "a" |> equal "bar a"
+    spr "foo %i %i" 3 5 |> equal "foo 3 5"
+    let f1 = spr "foo %i %i"
+    let f2 = f1 2
+    f2 2 |> equal "foo 2 2"
+    let f1 = spr "foo %i %i %i"
+    let f2 = f1 2
+    let f3 = f2 2
+    f3 2 |> equal "foo 2 2 2"
+
+[<Test>]
+let ``Printf in sequence is not erased``() =
+    let x = sprintf "Foo"
+    let y = sprintf "B%sr" "a"
+    x + y |> equal "FooBar"
+
 [<Test>]
 let ``String slicing works``() =
       let s = "cat and dog"

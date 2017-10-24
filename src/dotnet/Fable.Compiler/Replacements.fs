@@ -767,11 +767,7 @@ module AstPass =
         | "printFormatToStringThenFail" ->
             ccall i "String" "toFail" i.args |> Some
         | ".ctor" ->
-            let argsLength =
-                match i.calleeTypeArgs with
-                | Fable.Function(args,_,_)::_ -> List.length args
-                | _ -> 0
-            ccall i "String" "printf" [i.args.Head; makeIntConst argsLength] |> Some
+            ccall i "String" "printf" [i.args.Head] |> Some
         | _ -> None
 
     let operators (com: ICompiler) (info: Fable.ApplyInfo) =
@@ -833,8 +829,8 @@ module AstPass =
             applyOp info.range info.returnType args info.methodName |> Some
         | "log" -> // log with base value i.e. log(8.0, 2.0) -> 3.0
             match info.args with
-            | [x] -> math r typ args info.methodName
-            | [x; baseValue] ->  emit info "Math.log($0) / Math.log($1)" info.args |> Some
+            | [_] -> math r typ args info.methodName
+            | [_; _] ->  emit info "Math.log($0) / Math.log($1)" info.args |> Some
             | _ -> None
         // Math functions
         // TODO: optimize square pow: x * x
