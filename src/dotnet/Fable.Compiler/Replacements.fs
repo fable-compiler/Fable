@@ -932,6 +932,14 @@ module AstPass =
           |> makeCall r typ |> Some
         | _ -> None
 
+    let chars com (i: Fable.ApplyInfo) =
+        match i.methodName with
+        | "toUpper" -> icall i "toLocaleUpperCase" |> Some
+        | "toUpperInvariant" -> icall i "toUpperCase" |> Some
+        | "toLower" -> icall i "toLocaleLowerCase" |> Some
+        | "toLowerInvariant" -> icall i "toLowerCase" |> Some
+        | _ -> None
+
     let strings com (i: Fable.ApplyInfo) =
         let icall2 meth (callee, args) =
             InstanceCall (callee, meth, args)
@@ -2188,6 +2196,7 @@ module AstPass =
         | Naming.EndsWith "Exception" _ -> exceptions com info
         | "System.Object" -> objects com info
         | "System.Timers.ElapsedEventArgs" -> info.callee // only signalTime is available here
+        | "System.Char" -> chars com info
         | "System.String"
         | "Microsoft.FSharp.Core.StringModule" -> strings com info
         | "Microsoft.FSharp.Core.PrintfModule"

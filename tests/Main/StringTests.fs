@@ -517,9 +517,20 @@ let ``String.Substring works with length``() =
       |> equal "cd"
 
 [<Test>]
-let ``String.ToUpper and String.ToLower work``() =
-      "AbC".ToUpper() + "aBc".ToLower()
-      |> equal "ABCabc"
+let ``String.ToUpper works``() =
+      "AbC".ToUpper() |> equal "ABC"
+
+[<Test>]
+let ``String.ToLower works``() =
+      "aBc".ToLower() |> equal "abc"
+
+[<Test>]
+let ``String.ToUpperInvariant works``() =
+      "AbC".ToUpperInvariant() |> equal "ABC"
+
+[<Test>]
+let ``String.ToLowerInvariant works``() =
+      "aBc".ToLowerInvariant() |> equal "abc"
 
 [<Test>]
 let ``String.Length works``() =
@@ -673,3 +684,21 @@ let ``String.filter works when predicate doesn't match``() =
 let ``String.filter works with empty string``() =
       String.filter (fun x -> x <> '.') ""
       |> equal ""
+
+// System.Char
+
+[<Test>]
+let ``Char.ToUpper works``() =
+      Char.ToUpper('b') |> equal 'B'
+
+[<Test>]
+let ``Char.ToLower works``() =
+      Char.ToLower('B') |> equal 'b'
+
+[<Test>]
+let ``Char.ToUpperInvariant works``() =
+      Char.ToUpperInvariant('b') |> equal 'B'
+
+[<Test>]
+let ``Char.ToLowerInvariant works``() =
+      Char.ToLowerInvariant('B') |> equal 'b'
