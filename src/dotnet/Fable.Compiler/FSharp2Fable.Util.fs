@@ -1151,22 +1151,24 @@ module Util =
     let (|Replaced|_|) (com: IFableCompiler) ctx owner i (_: FSharpMemberOrFunctionOrValue) =
         tryReplace com ctx owner i
 
+    let (|ResolveGeneric|) genArgs (t: FSharpType) =
+        if not t.IsGenericParameter then t else
+        let genParam = t.GenericParameter
+        genArgs |> List.tryPick (fun (name,t) ->
+            if genParam.Name = name then Some t else None)
+        // TODO: Throw error if generic cannot be resolved?
+        |> Option.defaultValue t
+
     let matchGenericParams com ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) =
-        let (|ResolveGeneric|) ctx (t: FSharpType) =
-            if not t.IsGenericParameter then t else
-            let genParam = t.GenericParameter
-            ctx.typeArgs |> List.tryFind (fun (name,_) -> name = genParam.Name)
-            |> function Some (_,t) -> t | None -> t
-        // Seems that, contrary to what I believed, `meth.GenericParameters`
-        // contains both the type and meth generic arguments, so this first
-        // folding is not necessary
+        // Seems that, contrary to what I believed, `meth.GenericParameters` contains both
+        // the type and meth generic arguments, so this first folding is not necessary
         // let genArgs =
         //     if meth.IsModuleValueOrMember then
         //         ([], meth.EnclosingEntity.GenericParameters, typArgs)
         //         |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> acc@[genPar.Name, t])
         //     else []
         ([], meth.GenericParameters, typArgs@methTypArgs)
-        |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> (genPar.Name, t)::acc)
+        |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx.typeArgs t) -> (genPar.Name, t)::acc)
         |> List.rev
 
 #if !FABLE_COMPILER

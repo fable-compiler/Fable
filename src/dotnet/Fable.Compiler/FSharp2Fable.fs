@@ -224,11 +224,6 @@ let private transformTraitCall com ctx r typ sourceTypes traitName flags (argTyp
     let giveUp() =
         "Cannot resolve trait call " + traitName
         |> addErrorAndReturnNull com ctx.fileName r
-    let (|ResolveGeneric|_|) genArgs (t: FSharpType) =
-        if not t.IsGenericParameter then Some t else
-        let genParam = t.GenericParameter
-        genArgs |> Seq.tryPick (fun (name,t) ->
-            if name = genParam.Name then Some t else None)
     let tryFields (tdef: FSharpEntity): Fable.Expr option =
         // TODO: Check setters as well?
         if flags.MemberKind = MemberKind.PropertyGet && tdef.IsFSharpRecord then
@@ -251,8 +246,9 @@ let private transformTraitCall com ctx r typ sourceTypes traitName flags (argTyp
             else None, List.map (transformExpr com ctx) argExprs
         makeCallFrom com ctx r typ meth ([],[]) callee args
     sourceTypes
-    |> List.tryPick (function
-        | ResolveGeneric ctx.typeArgs (TypeDefinition tdef as typ) ->
+    |> List.tryPick (fun (ResolveGeneric ctx.typeArgs (NonAbbreviatedType typ)) ->
+        if typ.HasTypeDefinition then
+            let tdef = typ.TypeDefinition
             getOwnAndInheritedFsharpMembers tdef |> Seq.filter (fun m ->
                 // Property members that are no getter nor setter don't actually get implemented
                 not(m.IsProperty && not(m.IsPropertyGetterMethod || m.IsPropertySetterMethod))
@@ -261,14 +257,15 @@ let private transformTraitCall com ctx r typ sourceTypes traitName flags (argTyp
             |> Seq.toList |> function
                 | [] -> tryFields tdef |> Option.map Choice1Of2
                 | ms -> Some(Choice2Of2(typ, tdef, ms))
-        | _ -> None)
+        else None)
     |> function
     | Some(Choice1Of2 expr) -> expr
     | Some(Choice2Of2(_, _, [meth])) -> makeCall meth
     | Some(Choice2Of2(typ, tdef, candidates)) ->
         let genArgs =
-            if tdef.GenericParameters.Count = typ.GenericArguments.Count
-            then Seq.zip (tdef.GenericParameters |> Seq.map (fun p -> p.Name)) typ.GenericArguments |> Seq.toArray |> Some
+            if tdef.GenericParameters.Count = typ.GenericArguments.Count then
+                (tdef.GenericParameters |> Seq.map (fun p -> p.Name), typ.GenericArguments)
+                ||> Seq.zip |> Seq.toList |> Some
             else None
         let argTypes =
             if not flags.IsInstance then argTypes else argTypes.Tail
@@ -277,9 +274,12 @@ let private transformTraitCall com ctx r typ sourceTypes traitName flags (argTyp
             let methTypes =
                 // FSharpParameters don't contain the `this` arg
                 // The F# compiler "untuples" the args in methods
-                let methTypes = Seq.concat meth.CurriedParameterGroups |> Seq.map (fun x -> x.Type)
+                let methTypes =
+                    Seq.concat meth.CurriedParameterGroups
+                    |> Seq.map (fun x -> x.Type)
                 match genArgs with
-                | Some genArgs -> methTypes |> Seq.map (function ResolveGeneric genArgs x -> x | x -> x)
+                | Some genArgs ->
+                    methTypes |> Seq.map (function ResolveGeneric genArgs x -> x)
                 | None -> methTypes
                 |> Seq.map (makeType com [])
                 |> Seq.toList
@@ -548,7 +548,6 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | Composition (expr1, args1, expr2, args2) ->
         let lambdaArg = com.GetUniqueVar() |> makeIdent
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         let expr1 =
             (List.map (transformExpr com ctx) args1)
                 @ [Fable.Value (Fable.IdentValue lambdaArg)]
@@ -700,7 +699,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             "Cannot resolve locally inlined value: " + var.DisplayName
             |> addErrorAndReturnNull com ctx.fileName (Some range)
 
-    | FlattenedApplication(Transform com ctx callee, typeArgs, args) ->
+    | FlattenedApplication(Transform com ctx callee, _typeArgs, args) ->
         // TODO: Ask why application without arguments happen. So far I've seen it for
         // accessing None or struct values (like the Result type)
         if args.Length = 0 then callee else
@@ -1299,7 +1298,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
                 | Some(args, body) ->
                     let vars =
                         match args with
-                        | [thisArg]::args when meth.IsInstanceMember -> args
+                        | [_thisArg]::args when meth.IsInstanceMember -> args
                         | _ -> args
                         |> Seq.collect id |> countRefs body
                     (upcast vars, body)
