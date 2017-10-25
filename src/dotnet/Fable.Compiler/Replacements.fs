@@ -643,7 +643,12 @@ module AstPass =
         // The (!^) is only for erased types so we don't need to wrap the result
         | "op_BangHat" -> i.args.Head |> Some
         | "op_Dynamic" ->
-            makeGet i.range i.returnType i.args.Head i.args.Tail.Head |> Some
+            let expr = makeGet i.range i.returnType i.args.Head i.args.Tail.Head
+            let appType =
+                let ent = Fable.Entity(lazy Fable.Interface, None, "Fable.Core.Applicable", lazy [])
+                Fable.DeclaredType(ent, [Fable.Any; Fable.Any])
+            // Wrapping is necessary so tuple arguments are destructured
+            Fable.Wrapped(expr, appType) |> Some
         | "op_DynamicAssignment" ->
             match i.callee, i.args with
             | ThreeArgs (callee, prop, value) ->

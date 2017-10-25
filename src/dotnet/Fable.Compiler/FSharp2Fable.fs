@@ -573,14 +573,6 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         let lengthExpr = Fable.Apply(arr, [makeStrConst "length"], Fable.ApplyGet, Fable.Number Int32, r)
         makeEqOp r [lengthExpr; makeTypeConst typ length] BinaryEqualStrict
 
-    | PrintFormat (Transform com ctx expr) -> expr
-
-    | Applicable (Transform com ctx expr) ->
-        let appType =
-            let ent = Fable.Entity(lazy Fable.Interface, None, "Fable.Core.Applicable", lazy [])
-            Fable.DeclaredType(ent, [Fable.Any; Fable.Any])
-        Fable.Wrapped(expr, appType)
-
     | JsThis ->
         if ctx.thisAvailability <> ThisUnavailable then
             "JS `this` is already captured in this context, try to use it in a module function"
@@ -588,6 +580,8 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.Value Fable.This
 
     (** ## Erased *)
+    | ErasableClosure(Transform com ctx expr) -> expr
+
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
@@ -713,7 +707,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
                 | args -> args
             Fable.Apply(callee, args, Fable.ApplyMeth, typ, range)
         | _ ->
-            makeApply com range typ callee args
+        makeApply com range typ callee args
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr, makeRangeFrom fsExpr)

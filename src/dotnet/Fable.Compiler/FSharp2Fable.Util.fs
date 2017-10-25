@@ -475,6 +475,25 @@ module Patterns =
         | Pipe(Closure(arity, e, args), exprs) when arity = exprs.Length -> Some (e, args@exprs)
         | _ -> None
 
+    let (|MaybeCoerced|) = function
+        | Coerce(_,expr) -> expr
+        | expr -> expr
+
+    let (|ErasableClosure|_|) fsExpr =
+        let rec erasableClosure e clo0 arg0 = function
+            | Application(Value clo0',_,[MaybeCoerced(Value arg0')])
+                when clo0 = clo0' && arg0 = arg0' ->
+                Some e
+            | Let((clo1, Application(Value clo0',_,[Value arg0'])), Lambda(arg1, nested))
+                when clo1.IsCompilerGenerated && clo0 = clo0' && arg0 = arg0' ->
+                erasableClosure e clo1 arg1 nested
+            | _ -> None
+        match fsExpr with
+        | Let((clo0, e), Lambda(arg0, nested))
+            when clo0.IsCompilerGenerated ->
+            erasableClosure e clo0 arg0 nested
+        | _ -> None
+
     // F# compiler always wraps the result of Fable.Core.(?) operator in a closure
     let (|Applicable|_|) = function
         | Let((_, applicable),Lambda(_,Application(apArg,_,_)))->
