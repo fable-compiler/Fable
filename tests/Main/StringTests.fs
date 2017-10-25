@@ -25,6 +25,13 @@ let ``kprintf works``() =
       Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5XX"
 
 [<Test>]
+let ``kprintf works indirectly`` () = // See #1204
+    let lines = ResizeArray<string>()
+    let linef fmt = Printf.ksprintf lines.Add fmt // broken
+    linef "open %s" "Foo"
+    lines |> Seq.toList |> equal ["open Foo"]
+
+[<Test>]
 let ``sprintf works``() =
       // Immediately applied
       sprintf "%.2f %g" 0.5468989 5.

@@ -753,8 +753,13 @@ module AstPass =
         | "value" ->
             makeGet None i.returnType i.callee.Value (makeStrConst "input")
             |> Some
-        | "printFormatToString"
         | "printFormatToStringThen" ->
+            match i.args with
+            | [cont; fmt] ->
+                InstanceCall(fmt, "cont", [cont])
+                |> makeCall i.range i.returnType |> Some
+            | _ -> None
+        | "printFormatToString" ->
             ccall i "String" "toText" i.args |> Some
         | "printFormatLine" -> ccall i "String" "toConsole" i.args |> Some
         | "printFormat" ->

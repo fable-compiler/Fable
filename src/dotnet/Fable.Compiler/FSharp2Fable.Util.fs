@@ -423,12 +423,16 @@ module Patterns =
                 Some(3, e, [])
         | _ -> visit [] fsExpr
 
-    let (|PrintFormat|_|) = function
-        | Let((v,(Call(None,_,_,_,[arg]) as e)),_) when v.IsCompilerGenerated ->
-            if arg.Type.HasTypeDefinition
-                && arg.Type.TypeDefinition.AccessPath = "Microsoft.FSharp.Core.PrintfModule"
-            then Some e
-            else None
+    let (|PrintFormat|_|) fsExpr =
+        match fsExpr with
+        | Let((v,(Call(None,_,_,_,args) as e)),_) when v.IsCompilerGenerated ->
+            match List.tryLast args with
+            | Some arg ->
+                if arg.Type.HasTypeDefinition
+                    && arg.Type.TypeDefinition.AccessPath = "Microsoft.FSharp.Core.PrintfModule"
+                then Some e
+                else None
+            | None -> None
         | _ -> None
 
     let (|Pipe|_|) = function
