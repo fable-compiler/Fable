@@ -31,6 +31,8 @@ export default function CurriedLambda(f: ICurriedLambda, expectedArgsLength?: nu
 }
 
 export function partialApply(f: ICurriedLambda, args: any[]): ICurriedLambda {
+  const args2 = args.map((x: any) =>
+    typeof x === "function" && !x.curried ? CurriedLambda(x) : x);
   const lambda = f.curried === true ? f : CurriedLambda(f);
-  return lambda(...args);
+  return lambda(...args2);
 }

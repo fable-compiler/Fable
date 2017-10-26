@@ -695,3 +695,23 @@ let ``Partially applied curried lambdas capture this``() =
     let f2 = f 2
     f2 4 |> equal 14
 
+let apply3 f x =
+    match f, x with
+    | Some f, Some x -> Some (f x)
+    | _ -> None
+
+let add3 a b c = a + b + c
+
+module Pointfree =
+    let (<!>) = Option.map
+    let (<*>) = apply3
+    let x = add3 <!> Some 40 <*> Some 1 <*> Some 1
+
+module Pointful =
+    let (<!>) f x = Option.map f x
+    let (<*>) f x = apply3 f x
+    let x = add3 <!> Some 40 <*> Some 1 <*> Some 1
+
+[<Test>]
+let ``Point-free and partial application work``() = // See #1199
+    equal Pointfree.x Pointful.x
