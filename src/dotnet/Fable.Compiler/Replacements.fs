@@ -948,6 +948,10 @@ module AstPass =
         | "toUpperInvariant" -> icall i "toUpperCase" |> Some
         | "toLower" -> icall i "toLocaleLowerCase" |> Some
         | "toLowerInvariant" -> icall i "toLowerCase" |> Some
+        | "isLetter" ->
+            CoreLibCall("Char", Some "isLetter", false, i.args)
+            |> makeCall i.range i.returnType
+            |> Some
         | _ -> None
 
     let strings com (i: Fable.ApplyInfo) =
