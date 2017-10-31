@@ -691,21 +691,3 @@ let ``String.filter works when predicate doesn't match``() =
 let ``String.filter works with empty string``() =
       String.filter (fun x -> x <> '.') ""
       |> equal ""
-
-// System.Char
-
-[<Test>]
-let ``Char.ToUpper works``() =
-      Char.ToUpper('b') |> equal 'B'
-
-[<Test>]
-let ``Char.ToLower works``() =
-      Char.ToLower('B') |> equal 'b'
-
-[<Test>]
-let ``Char.ToUpperInvariant works``() =
-      Char.ToUpperInvariant('b') |> equal 'B'
-
-[<Test>]
-let ``Char.ToLowerInvariant works``() =
-      Char.ToLowerInvariant('B') |> equal 'b'
