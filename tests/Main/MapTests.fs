@@ -120,6 +120,28 @@ let ``Map.find works``() =
     xs |> Map.find 2
     |> equal 4.
 
+
+[<Test>]
+let ``Map.find option works``() =
+    let xs = Map [1,Some 1.; 2,None]
+    xs |> Map.find 2
+    |> Option.isNone
+    |> equal true
+    xs |> Map.find 1 |> (fun x -> x.Value)
+    |> equal 1.
+
+[<Test>]
+let ``Map.tryFind option works``() =
+    let xs = Map [1,Some 1.; 2,None]
+    // nested option cannot work in js
+    // xs |> Map.tryFind 2 |> (fun x -> x.Value)
+    // |> Option.isNone
+    // |> equal true
+    xs |> Map.tryFind 1 |> (fun x -> x.Value.Value)
+    |> equal 1.
+    xs |> Map.tryFind 3
+    |> equal None
+
 [<Test>]
 let ``Map.tryFind works``() =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]

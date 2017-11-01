@@ -171,10 +171,10 @@ function tree_add(comparer: IComparer<any>, k: any, v: any, m: MapTree): MapTree
 
 function tree_find(comparer: IComparer<any>, k: any, m: MapTree): any {
   const res = tree_tryFind(comparer, k, m);
-  if (res != null) {
-    return res;
+  if (res === void 0) {
+    throw new Error("key not found: " + k);
   }
-  throw new Error("key not found");
+  return res;
 }
 
 function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
@@ -185,7 +185,7 @@ function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
       if (c === 0) {
         return m.data[1];
       } else {
-        return null;
+        return void 0;
       }
     } else if (m.tag === 2) {
       const c_1 = comparer.Compare(k, m.data[0]) | 0;
@@ -204,7 +204,7 @@ function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
         continue tryFind;
       }
     } else {
-      return null;
+      return void 0;
     }
   }
 }
@@ -620,7 +620,11 @@ export function find<K, V>(k: K, map: FableMap<K, V>) {
 }
 
 export function tryFind<K, V>(k: K, map: FableMap<K, V>) {
-  return tree_tryFind(map.comparer, k, map.tree) as V;
+  const ret = tree_tryFind(map.comparer, k, map.tree) as V;
+  if (ret === void 0) {
+    return null;
+  }
+  return ret;
 }
 
 export function filter<K, V>(f: (k: K, v: V) => boolean, map: FableMap<K, V>) {
