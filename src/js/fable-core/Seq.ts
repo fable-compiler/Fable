@@ -35,8 +35,8 @@ export function toIterator<T>(en: Enumerator<T>): Iterator<T> {
   };
 }
 
-function __failIfNone<T>(res: T, extractValue?: boolean) {
-  if (res == null) {
+function __failIfUndefined<T>(res: T, extractValue?: boolean) {
+  if (res === void 0) {
     throw new Error("Seq did not contain any matching element");
   }
   return extractValue ? getValue(res) : res;
@@ -320,11 +320,11 @@ export function forAll2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, 
 export function tryHead<T>(xs: Iterable<T>) {
   const iter = xs[Symbol.iterator]();
   const cur = iter.next();
-  return cur.done ? null : cur.value;
+  return cur.done ? void 0 : cur.value;
 }
 
 export function head<T>(xs: Iterable<T>) {
-  return __failIfNone(tryHead(xs));
+  return __failIfUndefined(tryHead(xs));
 }
 
 export function initialize<T>(n: number, f: (i: number) => T) {
@@ -339,24 +339,25 @@ export function initializeInfinite<T>(f: (i: number) => T) {
 
 export function tryItem<T>(i: number, xs: Iterable<T>) {
   if (i < 0) {
-    return null;
+    return void 0;
   }
   if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
-    return i < (xs as T[]).length ? (xs as T[])[i] : null;
+    return i < (xs as T[]).length ? (xs as T[])[i] : void 0;
   }
   for (let j = 0, iter = xs[Symbol.iterator](); ; j++) {
     const cur = iter.next();
     if (cur.done) {
-      return null;
+      break;
     }
     if (j === i) {
       return cur.value;
     }
   }
+  return void 0;
 }
 
 export function item<T>(i: number, xs: Iterable<T>) {
-  return __failIfNone(tryItem(i, xs));
+  return __failIfUndefined(tryItem(i, xs));
 }
 
 export function iterate<T>(f: (x: T) => void, xs: Iterable<T>) {
@@ -384,12 +385,12 @@ export function tryLast<T>(xs: Iterable<T>) {
   try {
     return reduce((_, x) => x, xs);
   } catch (err) {
-    return null;
+    return void 0;
   }
 }
 
 export function last<T>(xs: Iterable<T>) {
-  return __failIfNone(tryLast(xs));
+  return __failIfUndefined(tryLast(xs));
 }
 
 // A export function 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
@@ -689,24 +690,25 @@ export function tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, de
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
     if (cur.done) {
-      return defaultValue === void 0 ? null : defaultValue;
+      break;
     }
     if (f(cur.value, i)) {
       return cur.value;
     }
   }
+  return defaultValue;
 }
 
 export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-  return __failIfNone(tryFind(f, xs));
+  return __failIfUndefined(tryFind(f, xs));
 }
 
 export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T) {
-  let match = null as T;
+  let match = void 0 as T;
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
     if (cur.done) {
-      return match === null ? (defaultValue === void 0 ? null : defaultValue) : match;
+      return match === void 0 ? defaultValue : match;
     }
     if (f(cur.value, i)) {
       match = cur.value;
@@ -715,14 +717,14 @@ export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>
 }
 
 export function findBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-  return __failIfNone(tryFindBack(f, xs));
+  return __failIfUndefined(tryFindBack(f, xs));
 }
 
 export function tryFindIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
     if (cur.done) {
-      return null;
+      return void 0;
     }
     if (f(cur.value, i)) {
       return i;
@@ -731,7 +733,7 @@ export function tryFindIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T
 }
 
 export function findIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-  return __failIfNone(tryFindIndex(f, xs));
+  return __failIfUndefined(tryFindIndex(f, xs));
 }
 
 export function tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
@@ -739,7 +741,7 @@ export function tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterab
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
     if (cur.done) {
-      return match === -1 ? null : match;
+      return match === -1 ? void 0 : match;
     }
     if (f(cur.value, i)) {
       match = i;
@@ -748,7 +750,7 @@ export function tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterab
 }
 
 export function findIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-  return __failIfNone(tryFindIndexBack(f, xs));
+  return __failIfUndefined(tryFindIndexBack(f, xs));
 }
 
 export function tryPick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
@@ -766,7 +768,7 @@ export function tryPick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
 }
 
 export function pick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
-  return __failIfNone(tryPick(f, xs), true);
+  return __failIfUndefined(tryPick(f, xs), true);
 }
 
 export function unfold<T, ST>(f: (st: ST) => [T, ST], acc?: ST) {
