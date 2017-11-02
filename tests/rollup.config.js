@@ -8,7 +8,7 @@ function resolve(filePath) {
 
 // var babelOptions = {
 //   "presets": [
-//     ["es2015", {"modules": false}]
+//     ["env", {"modules": false}]
 //   ]
 // }
 

@@ -8,7 +8,7 @@ const babelOptions = fableUtils.resolveBabelOptions({
   // ],
   // presets: [
     // "minify",
-    // ["es2015", { modules: false }],
+    // ["env", { modules: false }],
   // ],
   // sourceMaps: true,
 });

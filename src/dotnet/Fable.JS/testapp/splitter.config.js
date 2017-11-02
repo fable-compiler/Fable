@@ -6,7 +6,7 @@ const babelOptions = fableUtils.resolveBabelOptions({
     ["transform-es2015-modules-commonjs"],
   ],
   // presets: [
-  //   ["es2015", { modules: "umd" }],
+  //   ["env", { modules: "umd" }],
   // ],
   // sourceMaps: true,
 });
