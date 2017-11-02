@@ -995,6 +995,7 @@ type private DeclInfo(com, fileName) =
     /// (remember F# compiler puts class methods in enclosing modules)
     member self.IsIgnoredMethod (meth: FSharpMemberOrFunctionOrValue) =
         if (meth.IsCompilerGenerated && Naming.ignoredCompilerGenerated.Contains meth.CompiledName)
+            || Option.isSome meth.LiteralValue
             || Option.isSome(meth.Attributes |> tryFindAtt (fun name ->
                 name = Atts.import || name = Atts.global_ || name = Atts.emit || name = Atts.erase))
             || Naming.ignoredInterfaceMethods.Contains meth.CompiledName
