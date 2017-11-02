@@ -7,7 +7,7 @@ function resolve(filePath) {
 
 var babelOptions = fableUtils.resolveBabelOptions({
   plugins: ["transform-es2015-modules-commonjs"],
-  //   presets: [["es2015", { modules: "commonjs" }]],
+  //   presets: [["env", { modules: "commonjs" }]],
   //   sourceMaps: true,
 })
 

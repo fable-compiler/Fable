@@ -8,7 +8,7 @@ function resolve(filePath) {
 
 // const babelOptions = fableUtils.resolveBabelOptions({
 //   "presets": [
-//     // ["es2015", { "modules": false }],
+//     // ["env", { "modules": false }],
 //     // ["minify", { "mangle": false }],
 //   ]
 // });

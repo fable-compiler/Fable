@@ -7,7 +7,7 @@ function resolve(filePath) {
 }
 
 var babelOptions = fableUtils.resolveBabelOptions({
-    presets: [["es2015", { modules: "false" }]],
+    presets: [["env", { modules: "false" }]],
     sourceMaps: true,
 })
 

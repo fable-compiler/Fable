@@ -34,7 +34,7 @@ module.exports = {
   entry: resolve("src/MyProject.fsproj"),
   outDir: resolve("out"),
   babel: fableUtils.resolveBabelOptions({
-    presets: [["es2015", { modules: "commonjs" }]],
+    presets: [["env", { modules: "commonjs" }]],
     sourceMaps: true,
   }),
   fable: {
