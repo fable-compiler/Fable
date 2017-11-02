@@ -116,6 +116,44 @@ type [<Erase>] U6<'a, 'b, 'c, 'd, 'e, 'f> =
     static member op_ErasedCast(x:'e) = Case5 x
     static member op_ErasedCast(x:'f) = Case6 x
 
+/// Erased union type to represent one of seven possible values.
+/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+type [<Erase>] U7<'a, 'b, 'c, 'd, 'e, 'f, 'g> =
+    | Case1 of 'a
+    | Case2 of 'b
+    | Case3 of 'c
+    | Case4 of 'd
+    | Case5 of 'e
+    | Case6 of 'f
+    | Case7 of 'g
+    static member op_ErasedCast(x:'a) = Case1 x
+    static member op_ErasedCast(x:'b) = Case2 x
+    static member op_ErasedCast(x:'c) = Case3 x
+    static member op_ErasedCast(x:'d) = Case4 x
+    static member op_ErasedCast(x:'e) = Case5 x
+    static member op_ErasedCast(x:'f) = Case6 x
+    static member op_ErasedCast(x:'g) = Case7 x
+
+/// Erased union type to represent one of eight possible values.
+/// More info: http://fable.io/docs/interacting.html#Erase-attribute
+type [<Erase>] U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
+    | Case1 of 'a
+    | Case2 of 'b
+    | Case3 of 'c
+    | Case4 of 'd
+    | Case5 of 'e
+    | Case6 of 'f
+    | Case7 of 'g
+    | Case8 of 'h
+    static member op_ErasedCast(x:'a) = Case1 x
+    static member op_ErasedCast(x:'b) = Case2 x
+    static member op_ErasedCast(x:'c) = Case3 x
+    static member op_ErasedCast(x:'d) = Case4 x
+    static member op_ErasedCast(x:'e) = Case5 x
+    static member op_ErasedCast(x:'f) = Case6 x
+    static member op_ErasedCast(x:'g) = Case7 x
+    static member op_ErasedCast(x:'h) = Case8 x
+
 /// DO NOT USE: Internal type for Fable dynamic operations
 type Applicable = obj->obj
 
