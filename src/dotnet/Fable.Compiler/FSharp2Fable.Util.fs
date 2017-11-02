@@ -1439,6 +1439,7 @@ module Util =
                 match callee, owner with
                 | Some callee, _ -> callee
                 | None, Some ent ->
+                    // TODO: This info is already in i.ownerType, we may use that
                     makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
                 // Cases when tryEnclosingEntity returns None are rare (see #237)
                 // Let's assume the method belongs to the current enclosing module

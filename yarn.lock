@@ -1423,6 +1423,7 @@ fable-utils@^1.0.4:
 
 fable-utils@^1.0.6:
   version "1.0.6"
+  resolved "https://registry.yarnpkg.com/fable-utils/-/fable-utils-1.0.6.tgz#df4af260a2948b7562e3cbcfa044a3482b5c0573"
 
 "fable-utils@file:./src/js/fable-utils":
   version "1.0.6"

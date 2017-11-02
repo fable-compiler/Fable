@@ -727,8 +727,10 @@ NUGET
     Octokit (0.27)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (ddf45441759a2a7bc528b3b4c6f9a1edc7bd9f55)
+    modules/Octokit/Octokit.fsx (0341a2e614eb2a7f34607cec914eb0ed83ce9add)
       Octokit (>= 0.20)
+  remote: fable-compiler/fake-helpers
+    Fable.FakeHelpers.fs (9ae91acc18029e2e90a196555a8ea416c20b04cd)
 GROUP Test
 STORAGE: NONE
 NUGET

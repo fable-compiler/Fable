@@ -18,9 +18,10 @@ group Test
   nuget Microsoft.NET.Test.Sdk
   nuget xunit
   nuget xunit.runner.visualstudio
-  
+
 group Build
   framework >= net45
   source https://www.nuget.org/api/v2
   nuget FAKE
-  github fsharp/FAKE modules/Octokit/Octokit.fsx  
+  github fsharp/FAKE modules/Octokit/Octokit.fsx
+  github fable-compiler/fake-helpers Fable.FakeHelpers.fs
