@@ -1,3 +1,7 @@
+### 1.3.0-beta-005
+
+* Add `PackageType` to dotnet-fable.fsproj
+
 ### 1.3.0-beta-003
 
 * Fix #1203: choose and pick with generic options
