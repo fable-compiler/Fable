@@ -1,7 +1,7 @@
 import { permute as arrayPermute } from "./Array";
 import { chunkBySize as arrayChunkBySize } from "./Array";
 import List from "./ListClass";
-import { getValue } from "./Option";
+import { getValue, Some } from "./Option";
 import { compare, equals, hasInterface, IDisposable } from "./Util";
 
 export class Enumerator<T> {
@@ -144,7 +144,7 @@ export function choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
 
 export function compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: Iterable<T>) {
   const nonZero = tryFind((i: number) => i !== 0, map2((x: T, y: T) => f(x, y), xs, ys));
-  return nonZero != null ? nonZero : count(xs) - count(ys);
+  return nonZero != null ? getValue(nonZero, true) : count(xs) - count(ys);
 }
 
 export function delay<T>(f: () => Iterable<T>) {
@@ -320,11 +320,11 @@ export function forAll2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, 
 export function tryHead<T>(xs: Iterable<T>) {
   const iter = xs[Symbol.iterator]();
   const cur = iter.next();
-  return cur.done ? void 0 : cur.value;
+  return cur.done ? void 0 : new Some(cur.value);
 }
 
 export function head<T>(xs: Iterable<T>) {
-  return __failIfUndefined(tryHead(xs));
+  return __failIfUndefined(getValue(tryHead(xs), true));
 }
 
 export function initialize<T>(n: number, f: (i: number) => T) {
@@ -693,14 +693,14 @@ export function tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, de
       break;
     }
     if (f(cur.value, i)) {
-      return cur.value;
+      return new Some(cur.value);
     }
   }
   return defaultValue;
 }
 
 export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-  return __failIfUndefined(tryFind(f, xs));
+  return __failIfUndefined(getValue(tryFind(f, xs), true));
 }
 
 export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T) {
@@ -708,7 +708,7 @@ export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
     if (cur.done) {
-      return match === void 0 ? defaultValue : match;
+      return match === void 0 ? defaultValue : new Some(match);
     }
     if (f(cur.value, i)) {
       match = cur.value;
@@ -717,7 +717,7 @@ export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>
 }
 
 export function findBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-  return __failIfUndefined(tryFindBack(f, xs));
+  return __failIfUndefined(getValue(tryFindBack(f, xs), true));
 }
 
 export function tryFindIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {

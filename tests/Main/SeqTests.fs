@@ -169,6 +169,13 @@ let ``Seq.findBack works``() =
     xs |> Seq.findBack ((>) 4.) |> equal 3.
 
 [<Test>]
+let ``Seq.findBack with option works``() =
+    let xs = [Some 1.; None]
+    xs |> Seq.find Option.isSome |> equal (Some(1.))
+    xs |> Seq.find Option.isSome |> (fun v -> v.Value) |> equal 1.
+    xs |> Seq.findBack Option.isNone |> equal None
+
+[<Test>]
 let ``Seq.findIndexBack works``() =
     let xs = [1.; 2.; 3.; 4.]
     xs |> Seq.findIndex ((>) 4.) |> equal 0
@@ -180,6 +187,16 @@ let ``Seq.tryFindBack works``() =
     xs |> Seq.tryFind ((>) 4.) |> equal (Some 1.)
     xs |> Seq.tryFindBack ((>) 4.) |> equal (Some 3.)
     xs |> Seq.tryFindBack ((=) 5.) |> equal None
+
+
+[<Test>]
+let ``Seq.tryFindBack with option works``() =
+    let xs = [Some 1.; None]
+    xs |> Seq.tryFind Option.isSome |> equal (Some(Some 1.))
+    xs |> Seq.tryFind Option.isSome |> (fun v -> v.Value.Value) |> equal 1.
+    xs |> Seq.tryFindBack Option.isNone |> equal (Some None)
+    xs |> Seq.tryFindBack Option.isNone |> (fun v -> v.Value) |>  equal None
+    xs |> Seq.tryFindBack (fun v -> match v with Some v -> v = 2. | _ -> false) |> equal None
 
 [<Test>]
 let ``Seq.tryFindIndexBack works``() =
@@ -223,10 +240,27 @@ let ``Seq.head works``() =
     |> equal 1.
 
 [<Test>]
+let ``Seq.head with option works``() =
+    let xs = [Some 1.; None]
+    Seq.head xs |> equal (Some 1.)
+    Seq.head xs |> (fun v -> v.Value) |> equal 1.
+    let xs = [None; Some 1.]
+    Seq.head xs |> equal None
+
+[<Test>]
 let ``Seq.tryHead works``() =
     let xs = [1.; 2.; 3.; 4.]
     Seq.tryHead xs |> equal (Some 1.)
     Seq.tryHead [] |> equal None
+
+[<Test>]
+let ``Seq.tryHead with option works``() =
+    let xs = [Some 1.; None]
+    Seq.tryHead xs |> equal (Some(Some 1.))
+    Seq.tryHead xs |> (fun v -> v.Value.Value) |> equal 1.
+    let xs = [None; Some 1.]
+    Seq.tryHead xs |> equal (Some(None))
+    Seq.tryHead xs |> (fun v -> v.Value) |> equal None
 
 [<Test>]
 let ``Seq.tail works``() =
