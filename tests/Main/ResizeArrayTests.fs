@@ -70,6 +70,16 @@ let ``ResizeArray.Find works``() =
     System.Predicate<_> (fun x -> x = 1.)  |> li.Find |> equal 1.
     System.Predicate<_> (fun x -> x = -1.) |> li.Find |> equal 0.
 
+
+[<Test>]
+let ``ResizeArray.Find with option works``() =
+    let li = ResizeArray<_>()
+    li.Add(Some 1); li.Add(None);
+    System.Predicate<_> (fun _ -> true)  |> li.Find |> equal (Some 1)
+    System.Predicate<_> (fun _ -> false)  |> li.Find |> equal None
+    System.Predicate<_> Option.isNone  |> li.Find |> equal None
+    System.Predicate<_> Option.isSome  |> li.Find |> equal (Some 1)
+
 [<Test>]
 let ``ResizeArray.FindAll works``() =
     let xs = ResizeArray<_> [1.; 2.; 3.; 4.]
@@ -81,6 +91,15 @@ let ``ResizeArray.FindLast works``() =
     let li = ResizeArray<_>()
     li.Add(1.,0.); li.Add(2.,0.); li.Add(3.,0.); li.Add(4.,0.); li.Add(5.,0.); li.Add(1.,1.)
     System.Predicate<_> (fun (x, _) -> x = 1.)  |> li.FindLast |> snd |> equal 1.
+
+[<Test>]
+let ``ResizeArray.FindLast with option works``() =
+    let li = ResizeArray<_>()
+    li.Add(Some 1); li.Add(None);
+    System.Predicate<_> (fun _ -> true)  |> li.FindLast |> equal None
+    System.Predicate<_> (fun _ -> false)  |> li.FindLast |> equal None
+    System.Predicate<_> Option.isSome  |> li.FindLast |> equal (Some 1)
+
 
 [<Test>]
 let ``ResizeArray indexer getter works``() =

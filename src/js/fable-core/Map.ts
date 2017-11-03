@@ -1,7 +1,7 @@
 import Comparer from "./Comparer";
 import List from "./ListClass";
 import { ofArray as listOfArray } from "./ListClass";
-import { getValue } from "./Option";
+import { getValue, Some } from "./Option";
 import { map as seqMap } from "./Seq";
 import { fold as seqFold } from "./Seq";
 import { reduce as seqReduce } from "./Seq";
@@ -29,7 +29,7 @@ export function groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
   let cur = iter.next();
   while (!cur.done) {
     const k = f(cur.value);
-    const vs = tryFind(k, acc);
+    const vs = getValue(tryFind(k, acc), true);
     if (vs == null) {
       keys.push(k);
       acc = add<K, T[]>(k, [cur.value], acc);
@@ -171,10 +171,10 @@ function tree_add(comparer: IComparer<any>, k: any, v: any, m: MapTree): MapTree
 
 function tree_find(comparer: IComparer<any>, k: any, m: MapTree): any {
   const res = tree_tryFind(comparer, k, m);
-  if (res === void 0) {
+  if (res === null) {
     throw new Error("key not found: " + k);
   }
-  return res;
+  return getValue(res, true);
 }
 
 function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
@@ -183,9 +183,9 @@ function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
       const c = comparer.Compare(k, m.data[0]) | 0;
 
       if (c === 0) {
-        return m.data[1];
+        return new Some(m.data[1]);
       } else {
-        return void 0;
+        return null;
       }
     } else if (m.tag === 2) {
       const c_1 = comparer.Compare(k, m.data[0]) | 0;
@@ -196,7 +196,7 @@ function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
         m = m.data[2];
         continue tryFind;
       } else if (c_1 === 0) {
-        return m.data[1];
+        return new Some(m.data[1]);
       } else {
         comparer = comparer;
         k = k;
@@ -204,7 +204,7 @@ function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
         continue tryFind;
       }
     } else {
-      return void 0;
+      return null;
     }
   }
 }
@@ -620,11 +620,7 @@ export function find<K, V>(k: K, map: FableMap<K, V>) {
 }
 
 export function tryFind<K, V>(k: K, map: FableMap<K, V>) {
-  const ret = tree_tryFind(map.comparer, k, map.tree) as V;
-  if (ret === void 0) {
-    return null;
-  }
-  return ret;
+  return tree_tryFind(map.comparer, k, map.tree) as V;
 }
 
 export function filter<K, V>(f: (k: K, v: V) => boolean, map: FableMap<K, V>) {
