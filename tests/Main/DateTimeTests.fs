@@ -110,6 +110,23 @@ let ``DateTime.ToLocalTime works``() =
     |> equal true
 
 [<Test>]
+let ``Creating DateTimeOffset from DateTime and back works``() =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    let dto = DateTimeOffset(d)
+    let d' = dto.DateTime
+
+    d' |> equal d
+
+
+[<Test>]
+let ``Formatting DateTimeOffset works``() =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    let dto = DateTimeOffset(d)
+
+    dto.ToString() |> equal "09.10.2014 13:23:30 +00:00"
+    dto.ToString("HH:mm:ss") |> equal "13:23:30"
+
+[<Test>]
 let ``DateTime.Hour works``() =
     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
     d.Hour |> equal 13
