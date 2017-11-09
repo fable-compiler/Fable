@@ -41,15 +41,18 @@ export class Some<T> {
     }
 }
 
-export function getValue(x: any, force?: boolean): any {
+export function getValue(x: any): any {
     if (x instanceof Some) {
         return x.value;
     } else if (x == null) {
-        if (force) { return x; }
         throw new Error("Option has no value");
     } else {
         return x;
     }
+}
+
+export function flatten(x: any): any {
+    return x instanceof Some ? x.value : x;
 }
 
 export function defaultArg<T, U>(arg: T, defaultValue: T, f?: (x: T) => U) {

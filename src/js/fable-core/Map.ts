@@ -29,12 +29,12 @@ export function groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
   let cur = iter.next();
   while (!cur.done) {
     const k = f(cur.value);
-    const vs = getValue(tryFind(k, acc), true);
+    const vs = tryFind(k, acc);
     if (vs == null) {
       keys.push(k);
       acc = add<K, T[]>(k, [cur.value], acc);
     } else {
-      vs.push(cur.value);
+      getValue(vs).push(cur.value);
     }
     cur = iter.next();
   }
@@ -171,10 +171,10 @@ function tree_add(comparer: IComparer<any>, k: any, v: any, m: MapTree): MapTree
 
 function tree_find(comparer: IComparer<any>, k: any, m: MapTree): any {
   const res = tree_tryFind(comparer, k, m);
-  if (res === null) {
+  if (res == null) {
     throw new Error("key not found: " + k);
   }
-  return getValue(res, true);
+  return getValue(res);
 }
 
 function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
@@ -657,21 +657,21 @@ export function partition<K, V>(f: (k: K, v: V) => boolean, map: FableMap<K, V>)
 }
 
 export function findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FableMap<K, V>) {
-  return seqPick((kv) => f(kv[0], kv[1]) ? kv[0] : null, map);
+  return seqPick((kv) => f(kv[0], kv[1]) ? new Some(kv[0]) : null, map);
 }
 
 export function tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FableMap<K, V>) {
-  return seqTryPick((kv) => f(kv[0], kv[1]) ? kv[0] : null, map);
+  return seqTryPick((kv) => f(kv[0], kv[1]) ? new Some(kv[0]) : null, map);
 }
 
-export function pick<K, T, U>(f: (k: K, v: T) => U, map: FableMap<K, T>) {
-  const res = tryPick(f, map) as U;
+export function pick<K, T, U>(f: (k: K, v: T) => Some<U>, map: FableMap<K, T>) {
+  const res = tryPick(f, map);
   if (res != null) {
     return getValue(res);
   }
   throw new Error("key not found");
 }
 
-export function tryPick<K, T, U>(f: (k: K, v: T) => U, map: FableMap<K, T>) {
-  return tree_tryPick(f, map.tree) as U;
+export function tryPick<K, T, U>(f: (k: K, v: T) => Some<U>, map: FableMap<K, T>): Some<U> {
+  return tree_tryPick(f, map.tree);
 }

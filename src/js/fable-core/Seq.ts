@@ -35,11 +35,11 @@ export function toIterator<T>(en: Enumerator<T>): Iterator<T> {
   };
 }
 
-function __failIfUndefined<T>(res: T, extractValue?: boolean) {
-  if (res === void 0) {
+function __failIfNone<T>(res: T) {
+  if (res == null) {
     throw new Error("Seq did not contain any matching element");
   }
-  return extractValue ? getValue(res) : res;
+  return getValue(res);
 }
 
 export function toList<T>(xs: Iterable<T>) {
@@ -144,7 +144,7 @@ export function choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
 
 export function compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: Iterable<T>) {
   const nonZero = tryFind((i: number) => i !== 0, map2((x: T, y: T) => f(x, y), xs, ys));
-  return nonZero != null ? getValue(nonZero, true) : count(xs) - count(ys);
+  return nonZero != null ? getValue(nonZero) : count(xs) - count(ys);
 }
 
 export function delay<T>(f: () => Iterable<T>) {
@@ -317,14 +317,14 @@ export function forAll2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, 
   return fold2((acc, x, y) => acc && f(x, y), true, xs, ys);
 }
 
-export function tryHead<T>(xs: Iterable<T>) {
+export function tryHead<T>(xs: Iterable<T>): Some<T> {
   const iter = xs[Symbol.iterator]();
   const cur = iter.next();
-  return cur.done ? void 0 : new Some(cur.value);
+  return cur.done ? null : new Some(cur.value);
 }
 
-export function head<T>(xs: Iterable<T>) {
-  return __failIfUndefined(getValue(tryHead(xs), true));
+export function head<T>(xs: Iterable<T>): T {
+  return __failIfNone(tryHead(xs));
 }
 
 export function initialize<T>(n: number, f: (i: number) => T) {
@@ -337,12 +337,12 @@ export function initializeInfinite<T>(f: (i: number) => T) {
     unfold((i) => [f(i), i + 1], 0));
 }
 
-export function tryItem<T>(i: number, xs: Iterable<T>) {
+export function tryItem<T>(i: number, xs: Iterable<T>): Some<T> {
   if (i < 0) {
-    return void 0;
+    return null;
   }
   if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
-    return i < (xs as T[]).length ? (xs as T[])[i] : void 0;
+    return i < (xs as T[]).length ? new Some((xs as T[])[i]) : null;
   }
   for (let j = 0, iter = xs[Symbol.iterator](); ; j++) {
     const cur = iter.next();
@@ -350,14 +350,14 @@ export function tryItem<T>(i: number, xs: Iterable<T>) {
       break;
     }
     if (j === i) {
-      return cur.value;
+      return new Some(cur.value);
     }
   }
-  return void 0;
+  return null;
 }
 
-export function item<T>(i: number, xs: Iterable<T>) {
-  return __failIfUndefined(tryItem(i, xs));
+export function item<T>(i: number, xs: Iterable<T>): T {
+  return __failIfNone(tryItem(i, xs));
 }
 
 export function iterate<T>(f: (x: T) => void, xs: Iterable<T>) {
@@ -381,16 +381,16 @@ export function isEmpty<T>(xs: Iterable<T>) {
   return i.next().done;
 }
 
-export function tryLast<T>(xs: Iterable<T>) {
+export function tryLast<T>(xs: Iterable<T>): Some<T> {
   try {
-    return reduce((_, x) => x, xs);
+    return new Some(reduce((_, x) => x, xs));
   } catch (err) {
-    return void 0;
+    return null;
   }
 }
 
-export function last<T>(xs: Iterable<T>) {
-  return __failIfUndefined(tryLast(xs));
+export function last<T>(xs: Iterable<T>): T {
+  return __failIfNone(tryLast(xs));
 }
 
 // A export function 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
@@ -686,7 +686,7 @@ export function takeWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
   });
 }
 
-export function tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T) {
+export function tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T): Some<T> {
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
     if (cur.done) {
@@ -696,64 +696,54 @@ export function tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, de
       return new Some(cur.value);
     }
   }
-  return defaultValue;
+  return defaultValue === void 0 ? null : new Some(defaultValue);
 }
 
-export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-  return __failIfUndefined(getValue(tryFind(f, xs), true));
+export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): T {
+  return __failIfNone(tryFind(f, xs));
 }
 
-export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T) {
-  let match = void 0 as T;
-  for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
-    const cur = iter.next();
-    if (cur.done) {
-      return match === void 0 ? defaultValue : new Some(match);
-    }
-    if (f(cur.value, i)) {
-      match = cur.value;
-    }
-  }
+export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T): Some<T> {
+  const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
+  return tryFind(f, arr.reverse(), defaultValue);
 }
 
-export function findBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-  return __failIfUndefined(getValue(tryFindBack(f, xs), true));
+export function findBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): T {
+  return __failIfNone(tryFindBack(f, xs));
 }
 
 export function tryFindIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
     if (cur.done) {
-      return void 0;
+      break;
     }
     if (f(cur.value, i)) {
       return i;
     }
   }
+  return null;
 }
 
-export function findIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-  return __failIfUndefined(tryFindIndex(f, xs));
+export function findIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): number {
+  return __failIfNone(tryFindIndex(f, xs));
 }
 
 export function tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-  let match = -1;
-  for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
-    const cur = iter.next();
-    if (cur.done) {
-      return match === -1 ? void 0 : match;
-    }
-    if (f(cur.value, i)) {
-      match = i;
+  const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
+  for (let i = arr.length - 1; i >= 0 ; i--) {
+    if (f(arr[i], i)) {
+      return i;
     }
   }
+  return null;
 }
 
-export function findIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
-  return __failIfUndefined(tryFindIndexBack(f, xs));
+export function findIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): number {
+  return __failIfNone(tryFindIndexBack(f, xs));
 }
 
-export function tryPick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
+export function tryPick<T, U>(f: (x: T, i?: number) => Some<U>, xs: Iterable<T>): Some<U> {
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
     if (cur.done) {
@@ -764,11 +754,11 @@ export function tryPick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
       return y;
     }
   }
-  return void 0;
+  return null;
 }
 
-export function pick<T, U>(f: (x: T, i?: number) => U, xs: Iterable<T>) {
-  return __failIfUndefined(tryPick(f, xs), true);
+export function pick<T, U>(f: (x: T, i?: number) => Some<U>, xs: Iterable<T>): U {
+  return __failIfNone(tryPick(f, xs));
 }
 
 export function unfold<T, ST>(f: (st: ST) => [T, ST], acc?: ST) {

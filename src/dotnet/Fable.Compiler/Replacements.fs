@@ -1339,8 +1339,7 @@ module AstPass =
         | "ofObj" | "ofNullable" ->
             wrap i.returnType (getCallee i) |> Some
         | "flatten" ->
-            [getCallee i; makeBoolConst true]
-            |> ccall i "Option" "getValue" |> Some
+            ccall i "Option" "getValue" [getCallee i] |> Some
         | "isSome" | "isNone" ->
             let op =
                 if i.methodName = "isSome"
