@@ -760,6 +760,8 @@ module AstPass =
             |> Some
         | "printFormatToStringThen" ->
             match i.args with
+            | [_] ->
+                ccall i "String" "toText" i.args |> Some
             | [cont; fmt] ->
                 InstanceCall(fmt, "cont", [cont])
                 |> makeCall i.range i.returnType |> Some

@@ -49,6 +49,11 @@ let ``sprintf works II``() =
       printer2 "?" |> equal "Hi Maxime, good afternoon?"
 
 [<Test>]
+let ``Print.sprintf works``() = // See #1216
+    let res = Printf.sprintf "%s" "abc"
+    equal "res: abc" ("res: " + res)
+
+[<Test>]
 let ``sprintf without arguments works``() =
       sprintf "hello" |> equal "hello"
 
