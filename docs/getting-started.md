@@ -77,7 +77,7 @@ All the clients need a configuration file, click the links above for more detail
 
 The usual way to run a JS tool is a [package.json script](https://docs.npmjs.com/misc/scripts), so when you type `yarn run build` this will invoke a command named "build" within the "scripts" property of the package.json file.
 
-It is actually possible to fun the Fable daemon and the JS clients separately:
+It is actually possible to run the Fable daemon and the JS clients separately:
 
 ```shell
 dotnet fable start
