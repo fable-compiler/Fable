@@ -1,3 +1,9 @@
+### 1.3.0-beta-007
+
+* Fix #1227: Names in paket.references are not case sensitive
+* Fix #1216: Print.sprintf (note the qualified module)
+* More fixes for nested options (see PR #1219)
+
 ### 1.3.0-beta-005
 
 * Add `PackageType` to dotnet-fable.fsproj
