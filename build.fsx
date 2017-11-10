@@ -1,205 +1,36 @@
 #r "packages/build/FAKE/tools/FakeLib.dll"
-#r "System.IO.Compression.FileSystem"
 #load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 #load "paket-files/build/fable-compiler/fake-helpers/Fable.FakeHelpers.fs"
 
 open System
 open System.IO
 open System.Text.RegularExpressions
-open System.Collections.Generic
 open Fake
-open Fake.AssemblyInfoFile
 open Fake.Git
-open Fake.ReleaseNotesHelper
 open Octokit
+open Fable.FakeHelpers
 
 #if MONO
 // prevent incorrect output encoding (e.g. https://github.com/fsharp/FAKE/issues/1196)
 System.Console.OutputEncoding <- System.Text.Encoding.UTF8
 #endif
 
-module Util =
-    open System.Net
-
-    let retryIfFails maxRetries f =
-        let rec loop retriesRemaining =
-            try
-                f ()
-            with _ when retriesRemaining > 0 ->
-                loop (retriesRemaining - 1)
-        loop maxRetries
-
-    let (|RegexReplace|_|) =
-        let cache = new Dictionary<string, Regex>()
-        fun pattern (replacement: string) input ->
-            let regex =
-                match cache.TryGetValue(pattern) with
-                | true, regex -> regex
-                | false, _ ->
-                    let regex = Regex pattern
-                    cache.Add(pattern, regex)
-                    regex
-            let m = regex.Match(input)
-            if m.Success
-            then regex.Replace(input, replacement) |> Some
-            else None
-
-    let join pathParts =
-        Path.Combine(Array.ofSeq pathParts)
-
-    let run workingDir fileName args =
-        printfn "CWD: %s" workingDir
-        let fileName, args =
-            if EnvironmentHelper.isUnix
-            then fileName, args else "cmd", ("/C " + fileName + " " + args)
-        let ok =
-            execProcess (fun info ->
-                info.FileName <- fileName
-                info.WorkingDirectory <- workingDir
-                info.Arguments <- args) TimeSpan.MaxValue
-        if not ok then failwith (sprintf "'%s> %s %s' task failed" workingDir fileName args)
-
-    let start workingDir fileName args =
-        let p = new System.Diagnostics.Process()
-        p.StartInfo.FileName <- fileName
-        p.StartInfo.WorkingDirectory <- workingDir
-        p.StartInfo.Arguments <- args
-        p.Start() |> ignore
-        p
-
-    let runAndReturn workingDir fileName args =
-        printfn "CWD: %s" workingDir
-        let fileName, args =
-            if EnvironmentHelper.isUnix
-            then fileName, args else "cmd", ("/C " + args)
-        ExecProcessAndReturnMessages (fun info ->
-            info.FileName <- fileName
-            info.WorkingDirectory <- workingDir
-            info.Arguments <- args) TimeSpan.MaxValue
-        |> fun p -> p.Messages |> String.concat "\n"
-
-    let downloadArtifact path (url: string) =
-        async {
-            let tempFile = Path.ChangeExtension(Path.GetTempFileName(), ".zip")
-            use client = new WebClient()
-            do! client.AsyncDownloadFile(Uri url, tempFile)
-            FileUtils.mkdir path
-            CleanDir path
-            run path "unzip" (sprintf "-q %s" tempFile)
-            File.Delete tempFile
-        } |> Async.RunSynchronously
-
-    let rmdir dir =
-        if EnvironmentHelper.isUnix
-        then FileUtils.rm_rf dir
-        // Use this in Windows to prevent conflicts with paths too long
-        else run "." "cmd" ("/C rmdir /s /q " + Path.GetFullPath dir)
-
-    let visitFile (visitor: string->string) (fileName : string) =
-        File.ReadAllLines(fileName)
-        |> Array.map (visitor)
-        |> fun lines -> File.WriteAllLines(fileName, lines)
-
-        // This code is supposed to prevent OutOfMemory exceptions but it outputs wrong BOM
-        // use reader = new StreamReader(fileName, encoding)
-        // let tempFileName = Path.GetTempFileName()
-        // use writer = new StreamWriter(tempFileName, false, encoding)
-        // while not reader.EndOfStream do
-        //     reader.ReadLine() |> visitor |> writer.WriteLine
-        // reader.Close()
-        // writer.Close()
-        // File.Delete(fileName)
-        // File.Move(tempFileName, fileName)
-
-    let replaceLines (replacer: string->Match->string option) (reg: Regex) (fileName: string) =
-        fileName |> visitFile (fun line ->
-            let m = reg.Match(line)
-            if not m.Success
-            then line
-            else
-                match replacer line m with
-                | None -> line
-                | Some newLine -> newLine)
-
-    let compileScript symbols outDir fsxPath =
-        let dllFile = Path.ChangeExtension(Path.GetFileName fsxPath, ".dll")
-        let opts = [
-            yield FscHelper.Out (Path.Combine(outDir, dllFile))
-            yield FscHelper.Target FscHelper.TargetType.Library
-            yield! symbols |> List.map FscHelper.Define
-        ]
-        FscHelper.compile opts [fsxPath]
-        |> function 0 -> () | _ -> failwithf "Cannot compile %s" fsxPath
-
-    let normalizeVersion (version: string) =
-        let i = version.IndexOf("-")
-        if i > 0 then version.Substring(0, i) else version
-
-    let assemblyInfo projectDir version extra =
-        let version = normalizeVersion version
-        let asmInfoPath = projectDir </> "AssemblyInfo.fs"
-        (Attribute.Version version)::extra
-        |> CreateFSharpAssemblyInfo asmInfoPath
-
-module Npm =
-    let script workingDir script args =
-        sprintf "run %s -- %s" script (String.concat " " args)
-        |> Util.run workingDir "npm"
-
-    let install workingDir modules =
-        let npmInstall () =
-            sprintf "install %s" (String.concat " " modules)
-            |> Util.run workingDir "npm"
-
-        // On windows, retry npm install to avoid bug related to https://github.com/npm/npm/issues/9696
-        Util.retryIfFails (if isWindows then 3 else 0) npmInstall
-
-    let command workingDir command args =
-        sprintf "%s %s" command (String.concat " " args)
-        |> Util.run workingDir "npm"
-
-    let commandAndReturn workingDir command args =
-        sprintf "%s %s" command (String.concat " " args)
-        |> Util.runAndReturn workingDir "npm"
-
-    let getLatestVersion package tag =
-        let package =
-            match tag with
-            | Some tag -> package + "@" + tag
-            | None -> package
-        commandAndReturn "." "show" [package; "version"]
-
-    let updatePackageKeyValue f pkgDir keys =
-        let pkgJson = Path.Combine(pkgDir, "package.json")
-        let reg =
-            String.concat "|" keys
-            |> sprintf "\"(%s)\"\\s*:\\s*\"(.*?)\""
-            |> Regex
-        let lines =
-            File.ReadAllLines pkgJson
-            |> Array.map (fun line ->
-                let m = reg.Match(line)
-                if m.Success then
-                    match f(m.Groups.[1].Value, m.Groups.[2].Value) with
-                    | Some(k,v) -> reg.Replace(line, sprintf "\"%s\": \"%s\"" k v)
-                    | None -> line
-                else line)
-        File.WriteAllLines(pkgJson, lines)
-
 module Yarn =
-    open Fake.YarnHelper
+    open YarnHelper
 
     let install workingDir =
         Yarn (fun p ->
             { p with
-                Command = Install Standard
+                Command = YarnCommand.Install InstallArgs.Standard
                 WorkingDirectory = workingDir
             })
 
-module Node =
     let run workingDir script args =
-        let args = sprintf "%s %s" script (String.concat " " args)
-        Util.run workingDir "node" args
+        Yarn (fun p ->
+            { p with
+                Command = YarnCommand.Custom ("run " + script + " " + args)
+                WorkingDirectory = workingDir
+            })
 
 // Project info
 let project = "Fable"
@@ -210,9 +41,8 @@ let gitHome = "https://github.com/" + gitOwner
 
 let dotnetcliVersion = "2.0.2"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
-let dotnetSDKPath = FullName "./dotnetsdk"
-let localDotnetExePath = dotnetSDKPath </> (if isWindows then "dotnet.exe" else "dotnet")
 
+let CWD = __SOURCE_DIRECTORY__
 let cliBuildDir = "build/fable"
 let coreBuildDir = "build/fable-core"
 let coreSrcDir = "src/dotnet/Fable.Core"
@@ -237,30 +67,30 @@ let clean () =
     |> DeleteFiles
 
 let nugetRestore baseDir () =
-    Util.run (baseDir </> "Fable.Core") dotnetExePath "restore"
-    Util.run (baseDir </> "Fable.Compiler") dotnetExePath "restore"
-    Util.run (baseDir </> "dotnet-fable") dotnetExePath "restore"
+    run (baseDir </> "Fable.Core") dotnetExePath "restore"
+    run (baseDir </> "Fable.Compiler") dotnetExePath "restore"
+    run (baseDir </> "dotnet-fable") dotnetExePath "restore"
 
 let buildCLI baseDir isRelease () =
     sprintf "publish -o ../../../%s -c %s -v n"
         cliBuildDir (if isRelease then "Release" else "Debug")
-    |> Util.run (baseDir </> "dotnet-fable") dotnetExePath
+    |> run (baseDir </> "dotnet-fable") dotnetExePath
 
 let buildCoreJS () =
-    Yarn.install __SOURCE_DIRECTORY__
-    Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" coreJsSrcDir]
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" coreJsSrcDir]
+    Yarn.install CWD
+    Yarn.run CWD "tslint" (sprintf "--project %s" coreJsSrcDir)
+    Yarn.run CWD "tsc" (sprintf "--project %s" coreJsSrcDir)
 
 let buildSplitter () =
-    let buildDir = __SOURCE_DIRECTORY__ </> "src/js/fable-splitter"
-    Yarn.install __SOURCE_DIRECTORY__
-    // Npm.script __SOURCE_DIRECTORY__ "tslint" [sprintf "--project %s" buildDir]
-    Npm.script __SOURCE_DIRECTORY__ "tsc" [sprintf "--project %s" buildDir]
+    let buildDir = CWD </> "src/js/fable-splitter"
+    Yarn.install CWD
+    // Yarn.run CWD "tslint" [sprintf "--project %s" buildDir]
+    Yarn.run CWD "tsc" (sprintf "--project %s" buildDir)
 
 let buildCore isRelease () =
     let config = if isRelease then "Release" else "Debug"
     sprintf "build -c %s" config
-    |> Util.run coreSrcDir dotnetExePath
+    |> run coreSrcDir dotnetExePath
 
     CreateDir coreBuildDir
     FileUtils.cp (sprintf "%s/bin/%s/netstandard1.6/Fable.Core.dll" coreSrcDir config) coreBuildDir
@@ -270,38 +100,32 @@ let buildCore isRelease () =
 let buildNUnitPlugin () =
     let nunitDir = "src/plugins/nunit"
     CreateDir "build/nunit"  // if it does not exist
-    Util.run nunitDir dotnetExePath "restore"
+    run nunitDir dotnetExePath "restore"
     // pass output path to build command
-    Util.run nunitDir dotnetExePath ("build -c Release -o ../../../build/nunit")
+    run nunitDir dotnetExePath ("build -c Release -o ../../../build/nunit")
 
 let buildJsonConverter () =
     "restore src/dotnet/Fable.JsonConverter"
-    |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
+    |> run CWD dotnetExePath
 
     "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter /p:TargetFramework=netstandard1.6"
-    |> Util.run __SOURCE_DIRECTORY__ dotnetExePath
+    |> run CWD dotnetExePath
 
 let runTestsDotnet () =
     CleanDir "tests/Main/obj"
-    Util.run "tests/Main" dotnetExePath "restore /p:TestRunner=xunit"
-    Util.run "tests/Main" dotnetExePath "build /p:TestRunner=xunit"
-    Util.run "tests/Main" dotnetExePath "test /p:TestRunner=xunit"
-
-let runFableServer args f =
-    let args = String.concat " " args
-    let fableServer = Util.start __SOURCE_DIRECTORY__ dotnetExePath ("build/fable/dotnet-fable.dll start " + args)
-    try f()
-    finally fableServer.Kill()
+    run "tests/Main" dotnetExePath "restore /p:TestRunner=xunit"
+    run "tests/Main" dotnetExePath "build /p:TestRunner=xunit"
+    run "tests/Main" dotnetExePath "test /p:TestRunner=xunit"
 
 let runTestsJS () =
-    Yarn.install __SOURCE_DIRECTORY__
-    Util.run __SOURCE_DIRECTORY__ dotnetExePath "restore tests/Main"
-    Util.run __SOURCE_DIRECTORY__ dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose --port free -- --config tests/webpack.config.js"
-    Npm.script __SOURCE_DIRECTORY__ "mocha" ["./build/tests/bundle.js"]
+    Yarn.install CWD
+    run CWD dotnetExePath "restore tests/Main"
+    run CWD dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose --port free -- --config tests/webpack.config.js"
+    Yarn.run CWD "mocha" "./build/tests/bundle.js"
 
 let quickTest() =
-    Util.run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll npm-run rollup"
-    Node.run "." "src/tools/temp/QuickTest.js" []
+    run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll npm-run rollup"
+    run CWD "node" "src/tools/temp/QuickTest.js"
 
 Target "QuickTest" quickTest
 Target "QuickFableCompilerTest" (fun () ->
@@ -314,16 +138,16 @@ Target "QuickFableCoreTest" (fun () ->
 let updateVersionInToolsUtil () =
     let reg = Regex(@"\bVERSION\s*=\s*""(.*?)""")
     let release =
-        __SOURCE_DIRECTORY__ </> "src/dotnet/dotnet-fable/RELEASE_NOTES.md"
+        CWD </> "src/dotnet/dotnet-fable/RELEASE_NOTES.md"
         |> ReleaseNotesHelper.LoadReleaseNotes
-    let mainFile = __SOURCE_DIRECTORY__ </> "src/dotnet/dotnet-fable/ToolsUtil.fs"
-    (reg, mainFile) ||> Util.replaceLines (fun line m ->
+    let mainFile = CWD </> "src/dotnet/dotnet-fable/ToolsUtil.fs"
+    (reg, mainFile) ||> replaceLines (fun line m ->
         let replacement = sprintf "VERSION = \"%s\"" release.NugetVersion
         reg.Replace(line, replacement) |> Some)
 
 Target "GitHubRelease" (fun _ ->
     let release =
-        __SOURCE_DIRECTORY__ </> "src/dotnet/dotnet-fable/RELEASE_NOTES.md"
+        CWD </> "src/dotnet/dotnet-fable/RELEASE_NOTES.md"
         |> ReleaseNotesHelper.LoadReleaseNotes
     let user =
         match getBuildParam "github-user" with
@@ -339,9 +163,9 @@ Target "GitHubRelease" (fun _ ->
         |> Seq.tryFind (fun (s: string) -> s.Contains(gitOwner + "/" + project))
         |> function None -> gitHome + "/" + project | Some (s: string) -> s.Split().[0]
 
-    StageAll ""
-    Git.Commit.Commit "" (sprintf "Bump version to %s" release.NugetVersion)
-    Branches.pushBranch "" remote (Information.getBranchName "")
+    // StageAll ""
+    // Git.Commit.Commit "" (sprintf "Bump version to %s" release.NugetVersion)
+    // Branches.pushBranch "" remote (Information.getBranchName "")
 
     Branches.tag "" release.NugetVersion
     Branches.pushTag "" remote release.NugetVersion
@@ -365,7 +189,7 @@ Target "NUnitPlugin" buildNUnitPlugin
 Target "RunTestsJS" runTestsJS
 
 Target "PublishPackages" (fun () ->
-    let baseDir = __SOURCE_DIRECTORY__ </> "src"
+    let baseDir = CWD </> "src"
     let packages = [
         // Nuget packages
         Some buildCoreJS, "dotnet/Fable.Core/Fable.Core.fsproj"
@@ -381,7 +205,7 @@ Target "PublishPackages" (fun () ->
     ]
     installDotnetSdk ()
     clean ()
-    Fable.FakeHelpers.publishPackages2 baseDir dotnetExePath packages
+    publishPackages2 baseDir dotnetExePath packages
 )
 
 Target "All" (fun () ->
@@ -409,7 +233,7 @@ Target "All" (fun () ->
 //
 // > ATTENTION: the generation of libraries metadata is not included in this target
 Target "REPL" (fun () ->
-    let replDir = __SOURCE_DIRECTORY__ </> "src/dotnet/Fable.JS/demo"
+    let replDir = CWD </> "src/dotnet/Fable.JS/demo"
 
     // Build tools
     buildCLI "src/dotnet" true ()
@@ -418,16 +242,16 @@ Target "REPL" (fun () ->
 
     // Build and minify REPL
     Yarn.install replDir
-    Npm.script replDir "build" []
-    Npm.script replDir "minify" []
+    Yarn.run replDir "build" ""
+    Yarn.run replDir "minify" ""
 
     // Copy generated files to `../fable-compiler.github.io/public/repl/build`
-    let targetDir =  __SOURCE_DIRECTORY__ </> "../fable-compiler.github.io/public/repl"
+    let targetDir =  CWD </> "../fable-compiler.github.io/public/repl"
     if Directory.Exists(targetDir) then
         let targetDir = targetDir </> "build"
         // fable-core
-        [sprintf "--project %s -m amd --outDir %s" coreJsSrcDir (targetDir </> "fable-core")]
-        |> Npm.script __SOURCE_DIRECTORY__ "tsc"
+        sprintf "--project %s -m amd --outDir %s" coreJsSrcDir (targetDir </> "fable-core")
+        |> Yarn.run CWD "tsc"
         // REPL bundle
         printfn "Copy REPL JS files to %s" targetDir
         for file in Directory.GetFiles(replDir </> "repl", "*.js") do
@@ -438,8 +262,11 @@ Target "REPL" (fun () ->
 // Note: build target "All" before this
 Target "REPL.test" (fun () ->
     let replTestDir = "src/dotnet/Fable.JS/testapp"
-    Npm.script replTestDir "build" []
+    Yarn.run replTestDir "build" ""
 )
+
+"PublishPackages"
+==> "GitHubRelease"
 
 // Start build
 RunTargetOrDefault "All"
