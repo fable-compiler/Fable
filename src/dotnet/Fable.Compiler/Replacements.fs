@@ -855,6 +855,9 @@ module AstPass =
         | "round" ->
             CoreLibCall("Util", Some "round", false, args)
             |> makeCall r typ |> Some
+        // Numbers
+        | "infinity" | "infinitySingle" -> emit info "Number.POSITIVE_INFINITY" [] |> Some
+        | "naN" | "naNSingle" -> emit info "Number.NaN" [] |> Some
         // Function composition
         | "op_ComposeRight" | "op_ComposeLeft" ->
             match args, info.methodName with
