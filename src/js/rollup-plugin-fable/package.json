@@ -6,7 +6,7 @@
   "scripts": {
     "eslint": "eslint ./"
   },
-  "repository": "https://github.com/fable-compiler/Fable/tree/master/src/typescript/rollup-plugin-fable",
+  "repository": "https://github.com/fable-compiler/Fable/tree/master/src/js/rollup-plugin-fable",
   "publishConfig": {
     "registry": " https://registry.npmjs.org"
   },
