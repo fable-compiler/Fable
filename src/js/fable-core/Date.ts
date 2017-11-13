@@ -65,6 +65,29 @@ function toISOStringWithOffset(dateWithOffset: Date, offset: number) {
   return str.substring(0, str.length - 1) + offsetToString(offset);
 }
 
+function toStringWithCustomFormat(date: Date, format: string, utc: boolean) {
+  return format.replace(/(\w)\1*/g, (match: any) => {
+    let rep = match;
+    switch (match.substring(0, 1)) {
+      case "y":
+        const y = utc ? date.getUTCFullYear() : date.getFullYear();
+        rep = match.length < 4 ? y % 100 : y; break;
+      case "M": rep = (utc ? date.getUTCMonth() : date.getMonth()) + 1; break;
+      case "d": rep = utc ? date.getUTCDate() : date.getDate(); break;
+      case "H": rep = utc ? date.getUTCHours() : date.getHours(); break;
+      case "h":
+        const h = utc ? date.getUTCHours() : date.getHours();
+        rep = h > 12 ? h % 12 : h; break;
+      case "m": rep = utc ? date.getUTCMinutes() : date.getMinutes(); break;
+      case "s": rep = utc ? date.getUTCSeconds() : date.getSeconds(); break;
+    }
+    if (rep !== match && rep < 10 && match.length > 1) {
+      rep = "0" + rep;
+    }
+    return rep;
+  });
+}
+
 export function toStringWithOffset(date: IDateTimeOffset, format?: string) {
   const d = new Date(date.getTime() + date.offset);
   if (!format) {
@@ -77,24 +100,7 @@ export function toStringWithOffset(date: IDateTimeOffset, format?: string) {
       default: throw new Error("Unrecognized Date print format");
     }
   } else {
-    return format.replace(/(\w)\1*/g, (match: any) => {
-        let rep = match;
-        switch (match.substring(0, 1)) {
-          case "y": rep = match.length < 4 ? d.getUTCFullYear() % 100 : d.getUTCFullYear(); break;
-          case "M": rep = d.getUTCMonth() + 1; break;
-          case "d": rep = d.getUTCDate(); break;
-          case "H": rep = d.getUTCHours(); break;
-          case "h":
-            const h = d.getUTCHours();
-            rep = h > 12 ? h % 12 : h; break;
-          case "m": rep = d.getUTCMinutes(); break;
-          case "s": rep = d.getUTCSeconds(); break;
-        }
-        if (rep !== match && rep < 10 && match.length > 1) {
-          rep = "0" + rep;
-        }
-        return rep;
-      });
+    return toStringWithCustomFormat(d, format, true);
   }
 }
 
@@ -114,24 +120,7 @@ export function toStringWithKind(date: IDateTime, format?: string) {
         throw new Error("Unrecognized Date print format");
     }
   } else {
-    return format.replace(/(\w)\1*/g, (match: any) => {
-        let rep = match;
-        switch (match.substring(0, 1)) {
-          case "y": rep = match.length < 4 ? year(date) % 100 : year(date); break;
-          case "M": rep = month(date); break;
-          case "d": rep = day(date); break;
-          case "H": rep = hour(date); break;
-          case "h":
-            const h = hour(date);
-            rep = h > 12 ? h % 12 : h; break;
-        case "m": rep = minute(date); break;
-          case "s": rep = second(date); break;
-        }
-        if (rep !== match && rep < 10 && match.length > 1) {
-          rep = "0" + rep;
-        }
-        return rep;
-      });
+    return toStringWithCustomFormat(date, format, utc);
   }
 }
 
