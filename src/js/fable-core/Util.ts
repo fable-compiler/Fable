@@ -243,6 +243,12 @@ export function comparePrimitives(x: any, y: any): number {
   return x === y ? 0 : (x < y ? -1 : 1);
 }
 
+export function compareDates(x: Date, y: Date): number {
+  const xtime = x.getTime();
+  const ytime = y.getTime();
+  return xtime === ytime ? 0 : (xtime < ytime ? -1 : 1);
+}
+
 export function compare(x: any, y: any): number {
   // Optimization if they are referencially equal
   if (x === y) {
@@ -277,9 +283,7 @@ export function compare(x: any, y: any): number {
     }
     return 0;
   } else if (x instanceof Date) {
-    const xtime = x.getTime();
-    const ytime = y.getTime();
-    return xtime === ytime ? 0 : (xtime < ytime ? -1 : 1);
+    return compareDates(x, y);
   } else if (typeof x === "object") {
     const xhash = hash(x);
     const yhash = hash(y);

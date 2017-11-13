@@ -1,5 +1,6 @@
 // tslint:disable:ban-types
-import { parse as dateParse } from "./Date";
+import { parse as dateParse, toString as dateToString } from "./Date";
+import { parse as dateOffsetParse } from "./DateOffset";
 import List from "./List";
 import { ofArray as listOfArray } from "./List";
 import { create as mapCreate } from "./Map";
@@ -13,26 +14,35 @@ import { getType } from "./Symbol";
 import FableSymbol from "./Symbol";
 import { getDefinition, NonDeclaredType, Type } from "./Util";
 
-export function deflate(v: any) {
-  if (ArrayBuffer.isView(v)) {
-    return Array.from(v as any);
+function deflateValue(v: any) {
+  if (v instanceof Date) {
+    return dateToString(v, "O");
+  }
+  return v;
+}
+
+export function deflate(v: any): any {
+  if (Array.isArray(v)) {
+    return v.map(deflateValue);
+  } else if (ArrayBuffer.isView(v)) {
+    return Array.from(v as any).map(deflateValue);
   } else if (v != null && typeof v === "object") {
     if (v instanceof List || v instanceof FableSet || v instanceof Set) {
-      return Array.from(v);
+      return Array.from(v).map(deflateValue);
     } else if (v instanceof FableMap || v instanceof Map) {
       let stringKeys: boolean = null;
       return fold((o: any, kv: [any, any]) => {
         if (stringKeys === null) {
           stringKeys = typeof kv[0] === "string";
         }
-        o[stringKeys ? kv[0] : toJson(kv[0])] = kv[1];
+        o[stringKeys ? kv[0] : toJson(kv[0])] = deflateValue(kv[1]);
         return o;
       }, {}, v);
     }
     const reflectionInfo = typeof v[FableSymbol.reflection] === "function" ? v[FableSymbol.reflection]() : {};
     if (reflectionInfo.properties) {
       return fold((o: any, prop: string) => {
-        return o[prop] = v[prop], o;
+        return o[prop] = deflateValue(v[prop]), o;
       }, {}, Object.getOwnPropertyNames(reflectionInfo.properties));
     } else if (reflectionInfo.cases) {
       const caseInfo = reflectionInfo.cases[v.tag];
@@ -42,15 +52,19 @@ export function deflate(v: any) {
         return caseName;
       } else {
         // Prevent undefined assignment from removing case property; see #611:
-        return { [caseName]: (v.data !== void 0 ? v.data : null) };
+        return { [caseName]: (v.data !== void 0 ? deflate(v.data) : null) };
       }
+    } else {
+      return fold((o: any, prop: string) => {
+        return o[prop] = deflateValue(v[prop]), o;
+      }, {}, Object.getOwnPropertyNames(v));
     }
   }
   return v;
 }
 
 export function toJson(o: any): string {
-  return JSON.stringify(o, (k, v) => deflate(v));
+  return JSON.stringify(deflateValue(o), (k, v) => deflate(v));
 }
 
 function combine(path1: string, path2: number | string): string {
@@ -241,12 +255,15 @@ function inflate(val: any, typ: any, path: string): any {
           return new Map(inflateMap(val, resolveGeneric(0, enclosing), resolveGeneric(1, enclosing), path));
         }
         return inflate(val, new List(typ.definition, enclosing), path);
+      case "Interface":
+        return typ.definition === "System.DateTimeOffset"
+          ? dateOffsetParse(val) : val;
       default:  // case "Interface": // case "Any":
         return val;
     }
   } else if (typeof typ === "function") {
     if (typ === Date) {
-      return dateParse(val);
+      return dateParse(val, true);
     }
     if (typeof typ.ofJSON === "function") {
       return typ.ofJSON(val);
@@ -359,7 +376,7 @@ export function ofJsonWithTypeInfo(json: any, genArgs: any): any {
         }
       }
     } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)$/.test(v)) {
-      return dateParse(v);
+      return dateParse(v, true);
     } else {
       return v;
     }

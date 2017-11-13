@@ -4,14 +4,6 @@ open System
 open Util.Testing
 open Fable.Tests.Util
 
-#if DOTNETCORE
-    type System.DateTime with
-        member x.ToShortDateString() = x.ToString("d")
-        member x.ToShortTimeString() = x.ToString("t")
-        member x.ToLongDateString() = x.ToString("D")
-        member x.ToLongTimeString() = x.ToString("T")
-#endif
-
 let toSigFigs nSigFigs x =
     let absX = abs x
     let digitsToStartOfNumber = floor(log10 absX) + 1. // x > 0 => +ve | x < 0 => -ve
@@ -42,15 +34,16 @@ let ``DateTime.ToString without separator works``() = // See #1131
 //     |> equal "03:54:00"
 
 [<Test>]
-let ``DateTime.ToString with Round-trip format works for Utc`` =
-    DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
+let ``DateTime.ToString with Round-trip format works for Utc``() =
+    let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
+    System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
     |> equal "2014-09-11T16:37:02.000Z"
 
 // TODO
-// Next test is disable because it's depends on the time zone of the machine
+// Next test is disabled because it's depends on the time zone of the machine
 //A fix could be to use a regex or detect the time zone
 // [<Test>]
-// let ``DateTime.ToString with Round-trip format works for local`` =
+// let ``DateTime.ToString with Round-trip format works for local``() =
 //     DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
 //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europte/Paris (GMT+2)
 
@@ -258,9 +251,12 @@ let ``DateTime.Millisecond works``() =
 
 [<Test>]
 let ``DateTime.Ticks works``() =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, 999, DateTimeKind.Utc)
+    d.Ticks |> equal 635484578109990000L
+    let d = DateTime(2014, 10, 9, 13, 23, 30, 999, DateTimeKind.Local)
+    d.Ticks |> equal 635484578109990000L
     let d = DateTime(2014, 10, 9, 13, 23, 30, 999)
-    d.Ticks
-    |> equal 635484578109990000L
+    d.Ticks |> equal 635484578109990000L
 
 [<Test>]
 let ``DateTime.Minute works``() =

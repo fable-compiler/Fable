@@ -127,6 +127,10 @@ module Util =
         | Some callee -> callee::args
         | None -> args
 
+    let chainCall meth args t (e: Fable.Expr) =
+        InstanceCall (e, meth, args)
+        |> makeCall e.Range t
+
     let icall (i: Fable.ApplyInfo) meth =
         let c, args = instanceArgs i.callee i.args
         InstanceCall(c, meth, args)
@@ -343,11 +347,9 @@ module Util =
         | Fable.DeclaredType(ent, _) as t ->
             match ent.FullName with
             | "System.TimeSpan" -> makeIntConst 0
-            | "System.DateTime" ->
-                GlobalCall ("Date", None, true, [makeIntConst 0])
-                |> makeCall None t
-            | "Microsoft.FSharp.Collections.FSharpSet" ->
-                ccall_ None t "Set" "create" []
+            | "System.DateTime" -> ccall_ None t "Date" "minValue" []
+            | "System.DateTimeOffset" -> ccall_ None t "DateOffset" "minValue" []
+            | "Microsoft.FSharp.Collections.FSharpSet" -> ccall_ None t "Set" "create" []
             | _ ->
                 let callee = Fable.TypeRef(ent,[]) |> Fable.Value
                 makeGet None t callee (makeStrConst "Zero")
@@ -361,11 +363,13 @@ module Util =
         | Fable.Char | Fable.String -> makeStrConst ""
         | _ -> makeIntConst 0
 
+    let applyOpReplacedEntities =
+        set ["System.TimeSpan"; "System.DateTime"; "System.DateTimeOffset";
+             "Microsoft.FSharp.Collections.FSharpSet"]
+
     let applyOp range returnType (args: Fable.Expr list) meth =
-        let replacedEntities =
-            set [ "System.TimeSpan"; "System.DateTime"; "Microsoft.FSharp.Collections.FSharpSet" ]
         let (|CustomOp|_|) meth argTypes (ent: Fable.Entity) =
-            if replacedEntities.Contains ent.FullName then None else
+            if applyOpReplacedEntities.Contains ent.FullName then None else
             ent.TryGetMember(meth, Fable.Method, Fable.StaticLoc, argTypes)
             |> function None -> None | Some m -> Some(ent, m)
         let apply op args =
@@ -424,6 +428,7 @@ module Util =
             |> List.singleton |> apply (Fable.UnaryOp UnaryNotBitwise)
             |> List.singleton |> apply (Fable.UnaryOp UnaryNotBitwise)
         | EntFullName (KeyValue "System.DateTime" "Date" modName)::_
+        | EntFullName (KeyValue "System.DateTimeOffset" "DateOffset" modName)::_
         | EntFullName (KeyValue "Microsoft.FSharp.Collections.FSharpSet" "Set" modName)::_ ->
             CoreLibCall (modName, Some meth, false, args)
             |> makeCall range returnType
@@ -454,9 +459,8 @@ module Util =
             InstanceCall(args.Head, "Equals", args.Tail)
             |> makeCall i.range i.returnType |> is equal |> Some
         match args.Head.Type with
-        | EntFullName "System.DateTime" ->
-            CoreLibCall ("Date", Some "equals", false, args)
-            |> makeCall i.range i.returnType |> is equal |> Some
+        | EntFullName ("System.DateTime" | "System.DateTimeOffset") ->
+            ccall i "Date" "equals" args |> is equal |> Some
         | Fable.DeclaredType(ent, _)
             when (ent.HasInterface "System.IEquatable"
                     && ent.FullName <> "System.Guid"
@@ -478,6 +482,9 @@ module Util =
             CoreLibCall("Util", Some "equals", false, args)
             |> makeCall i.range i.returnType |> is equal |> Some
 
+    let compareReplacedEntities =
+        set ["System.Guid"; "System.TimeSpan"; "System.DateTime"; "System.DateTimeOffset"]
+
     /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
     /// If passed an optional binary operator, it will wrap the comparison like `comparison < 0`
     let compare com r (args: Fable.Expr list) op =
@@ -491,10 +498,10 @@ module Util =
         match args.Head.Type with
         | Fable.DeclaredType(ent, _)
             when ent.HasInterface "System.IComparable"
-                && ent.FullName <> "System.Guid"
-                && ent.FullName <> "System.TimeSpan"
-                && ent.FullName <> "System.DateTime" ->
+                && not(compareReplacedEntities.Contains ent.FullName) ->
             icall args op
+        | EntFullName ("System.DateTime" | "System.DateTimeOffset") ->
+            ccall_ r (Fable.Number Int32) "Date" "compare" args |> wrapWith op
         | EntFullName "System.Guid"
         | EntFullName "System.TimeSpan"
         | Fable.ExtendedNumber Decimal
@@ -515,8 +522,8 @@ module Util =
             | Some(EntFullName "System.Guid")
             | Some(EntFullName "System.TimeSpan")
             | Some(Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _) ->
-                makeCoreRef "Util" (Some "comparePrimitives")
-            | Some(EntFullName "System.DateTime") ->
+                makeCoreRef "Util" "comparePrimitives"
+            | Some(EntFullName ("System.DateTime" | "System.DateTimeOffset")) ->
                 emitNoInfo "(x,y) => x = x.getTime(), y = y.getTime(), x === y ? 0 : (x < y ? -1 : 1)" []
             | Some(Fable.ExtendedNumber (Int64|UInt64|BigInt)) ->
                 emitNoInfo "(x,y) => x.CompareTo(y)" []
@@ -524,7 +531,7 @@ module Util =
                 when ent.HasInterface "System.IComparable" ->
                 emitNoInfo "(x,y) => x.CompareTo(y)" []
             | Some _ | None ->
-                makeCoreRef "Util" (Some "compare")
+                makeCoreRef "Util" "compare"
         CoreLibCall("Comparer", None, true, [f])
         |> makeCall None Fable.Any
 
@@ -803,7 +810,7 @@ module AstPass =
                 let cond = makeEqOp r [arg1; Fable.Value Fable.Null] BinaryUnequal
                 Fable.IfThenElse(cond, arg1, arg2, r) |> Some
             | args -> ccall info "Option" "defaultArg" args |> Some
-        | "defaultAsyncBuilder" -> makeCoreRef "AsyncBuilder" (Some "singleton") |> Some
+        | "defaultAsyncBuilder" -> makeCoreRef "AsyncBuilder" "singleton" |> Some
         // Negation
         | "not" -> makeUnOp r info.returnType args UnaryNot |> Some
         // Equality
@@ -1402,23 +1409,77 @@ module AstPass =
         | _ -> None
 
     let dates com (i: Fable.ApplyInfo) =
+        let getTime (e: Fable.Expr) =
+            InstanceCall(e, "getTime", [])
+            |> makeCall e.Range (Fable.Number Float64)
+        let moduleName =
+            if i.ownerFullName = "System.DateTime"
+            then "Date" else "DateOffset"
         match i.methodName with
         | ".ctor" ->
-            let last = List.last i.args
-            match i.args.Length, last.Type with
-            | 1, Fable.ExtendedNumber (Int64 | UInt64) ->
-                ccall i "Date" "ofTicks" i.args |> Some
-            | 7, Fable.Enum "System.DateTimeKind" ->
-                (List.take 6 i.args)@[makeIntConst 0; last]
-                |> ccall i "Date" "create" |> Some
-            | _ -> ccall i "Date" "create" i.args |> Some
+            match i.methodArgTypes with
+            | [] -> ccall i moduleName "minValue" [] |> Some
+            | (Fable.ExtendedNumber Int64)::_ ->
+                match i.args with
+                | ticks::rest ->
+                    let ms = ccall_ ticks.Range (Fable.Number Float64)
+                                "Long" "ticksToUnixEpochMilliseconds" [ticks]
+                    ccall i moduleName "default" (ms::rest) |> Some
+                | _ -> None
+            | (Fable.DeclaredType(e,[]))::_ when e.FullName = "System.DateTime" ->
+                ccall i "DateOffset" "fromDate" i.args |> Some
+            | _ ->
+                let last = List.last i.args
+                match i.args.Length, last.Type with
+                | 7, Fable.Enum "System.DateTimeKind" ->
+                    (List.take 6 i.args)@[makeIntConst 0; last]
+                    |> ccall i "Date" "create" |> Some
+                | _ -> ccall i moduleName "create" i.args |> Some
         | "toString" ->
-            match i.args with
-            | [Type Fable.String as format] ->
-                let format = emitNoInfo "'{0:' + $0 + '}'" [format]
-                CoreLibCall ("String", Some "format", false, [format;i.callee.Value])
-                |> makeCall i.range i.returnType |> Some
-            | _ -> ccall i "Util" "toString" [i.callee.Value] |> Some
+            ccall i "Date" "toString" (i.callee.Value::i.args) |> Some
+        | "kind" | "offset" ->
+            makeGet i.range i.returnType i.callee.Value (makeStrConst i.methodName) |> Some
+        // DateTimeOffset
+        | "dateTime" | "localDateTime" | "utcDateTime" as m ->
+            let ms = getTime i.callee.Value
+            let kind =
+                if m = "localDateTime" then System.DateTimeKind.Local
+                elif m = "utcDateTime" then System.DateTimeKind.Utc
+                else System.DateTimeKind.Unspecified
+                |> int |> makeIntConst
+            ccall i "Date" "default" [ms; kind] |> Some
+        | "fromUnixTimeSeconds"
+        | "fromUnixTimeMilliseconds" ->
+            let value =
+                List.head i.args |> chainCall "toNumber" [] (Fable.Number Float64)
+            let value =
+                if i.methodName = "fromUnixTimeSeconds"
+                then makeBinOp i.range i.returnType [value; makeIntConst 1000] BinaryMultiply
+                else value
+            ccall i "DateOffset" "default" [value; makeIntConst 0] |> Some
+        | "toUnixTimeSeconds"
+        | "toUnixTimeMilliseconds" ->
+            let ms = getTime i.callee.Value
+            if i.methodName = "toUnixTimeSeconds"
+            then [makeBinOp i.range i.returnType [ms; makeIntConst 1000] BinaryDivide]
+            else [ms]
+            |> ccall i "Long" "fromNumber" |> Some
+        // Ticks methods are moved to Long.ts so we don't have to import it to Date.ts
+        | "ticks" | "utcTicks" | "toBinary" ->
+            let ms = getTime i.callee.Value
+            let offset =
+                if i.methodName = "utcTicks"
+                then makeIntConst 0
+                else ccall_ None (Fable.Number Float64) "Date" "offset" [i.callee.Value]
+            ccall i "Long" "unixEpochMillisecondsToTicks" [ms; offset] |> Some
+        | "addTicks" ->
+            match i.callee, i.args with
+            | Some c, [ticks] ->
+                let ms =
+                    chainCall "div" [makeIntConst 10000] (Fable.ExtendedNumber Int64) ticks
+                    |> chainCall "toNumber" [] (Fable.Number Float64)
+                ccall i moduleName "addMilliseconds" [c; ms] |> Some
+            | _ -> None
         | _ -> None
 
     let keyValuePairs com (i: Fable.ApplyInfo) =
@@ -1836,7 +1897,7 @@ module AstPass =
             let args =
                 // mapFold & mapFoldBack must be transformed, but only the first member of the tuple result, see #842
                 match meth, kind with
-                | ("mapFold"|"mapFoldBack"), List -> args@[makeCoreRef "List" (Some "ofArray")]
+                | ("mapFold"|"mapFoldBack"), List -> args@[makeCoreRef "List" "ofArray"]
                 | _ -> args
             ccall "Seq" meth args |> Some
         | Patterns.SetContains implementedSeqBuildFunctions meth ->
@@ -2151,10 +2212,10 @@ module AstPass =
                 |> makeCall i.range i.returnType
             |> Some
         | None, ("zero"|"one"|"two") ->
-            makeCoreRef "BigInt" (Some i.methodName) |> Some
+            makeCoreRef "BigInt" i.methodName |> Some
         | None, ("fromZero"|"fromOne") ->
             let fi = if i.methodName = "fromZero" then "zero" else "one"
-            makeCoreRef "BigInt" (Some fi) |> Some
+            makeCoreRef "BigInt" fi |> Some
         | None, "fromString" ->
             ccall i "BigInt" "parse" i.args |> Some
         | None, meth -> ccall i "BigInt" meth i.args |> Some
@@ -2235,7 +2296,8 @@ module AstPass =
         | "System.Decimal" -> decimals com info
         | "System.Diagnostics.Debug"
         | "System.Diagnostics.Debugger" -> debug com info
-        | "System.DateTime" -> dates com info
+        | "System.DateTime"
+        | "System.DateTimeOffset" -> dates com info
         | "System.TimeSpan" -> timeSpans com info
         | "System.Environment" -> systemEnv com info
         | "System.Action" | "System.Func"
@@ -2331,6 +2393,7 @@ module CoreLibPass =
     let mappings =
         dict [
             system + "DateTime" => ("Date", Static)
+            system + "DateTimeOffset" => ("DateOffset", Static)
             system + "TimeSpan" => ("TimeSpan", Static)
             system + "Timers.Timer" => ("Timer", Both)
             fsharp + "Control.FSharpAsync" => ("Async", Static)
@@ -2402,7 +2465,8 @@ let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fabl
     | "System.Guid" -> Fable.StringConst "string" |> Fable.Value |> Some
     | "System.TimeSpan" -> Fable.StringConst "number" |> Fable.Value |> Some
     | "System.DateTime" -> makeIdentExpr "Date" |> Some
-    | "System.Timers.Timer" -> makeCoreRef "Timer" None |> Some
+    | "System.DateTimeOffset" as t -> makeNonDeclaredTypeRef (Fable.NonDeclInterface t) |> Some
+    | "System.Timers.Timer" -> makeDefaultCoreRef "Timer" |> Some
     | "System.Text.RegularExpressions.Regex" -> makeIdentExpr "RegExp" |> Some
     | "System.Collections.Generic.Dictionary" ->
         makeIdentExpr "Map" |> makeGeneric genArgs |> Some
@@ -2421,7 +2485,7 @@ let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fabl
     | KeyValue "Microsoft.FSharp.Collections.FSharpSet" "Set" name
     | KeyValue "Microsoft.FSharp.Collections.FSharpMap" "Map" name
     | KeyValue "Microsoft.FSharp.Collections.FSharpList" "List" name ->
-        makeCoreRef name None |> makeGeneric genArgs |> Some
+        makeDefaultCoreRef name |> makeGeneric genArgs |> Some
     | Naming.EndsWith "Exception" _ ->
         makeIdentExpr "Error" |> Some
     | "Fable.Core.JsInterop.JsConstructor"

@@ -28,9 +28,9 @@ let private (|SpecialValue|_|) com ctx = function
         | Some "System.Guid", "Empty" -> Some (makeStrConst "00000000-0000-0000-0000-000000000000")
         | Some "System.TimeSpan", "Zero" ->
             Fable.Wrapped(makeIntConst 0, makeType com ctx.typeArgs fsExpr.Type) |> Some
-        | Some "System.DateTime", "MaxValue"
-        | Some "System.DateTime", "MinValue" ->
-            CoreLibCall("Date", Some (Naming.lowerFirst fieldName), false, [])
+        | Some ("System.DateTime" | "System.DateTimeOffset" as n), ("MaxValue" | "MinValue") ->
+            let m = if n = "System.DateTime" then "Date" else "DateOffset"
+            CoreLibCall(m, Some (Naming.lowerFirst fieldName), false, [])
             |> makeCall (makeRangeFrom fsExpr) (makeType com ctx.typeArgs fsExpr.Type) |> Some
         | _ -> None
     | _ -> None

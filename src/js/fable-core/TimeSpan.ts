@@ -1,5 +1,7 @@
-import * as Long from "./Long";
+import Long, { fromNumber } from "./Long";
 import { compare as utilCompare } from "./Util";
+
+// TimeSpan in runtime just becomes a number representing milliseconds
 
 export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0) {
   switch (arguments.length) {
@@ -17,7 +19,7 @@ export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 
   return d * 86400000 + h * 3600000 + m * 60000 + s * 1000 + ms;
 }
 
-export function fromTicks(ticks: Long.Long) {
+export function fromTicks(ticks: Long) {
   return ticks.div(10000).toNumber();
 }
 
@@ -58,7 +60,7 @@ export function milliseconds(ts: number) {
 }
 
 export function ticks(ts: number) {
-  return Long.fromNumber(ts).mul(10000);
+  return fromNumber(ts).mul(10000);
 }
 
 export function totalDays(ts: number) {

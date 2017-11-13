@@ -1,4 +1,4 @@
-import * as Long from "./Long";
+import Long, { fromBits } from "./Long";
 
 const littleEndian = true;
 
@@ -25,7 +25,7 @@ export function getBytesInt32(value: number) {
   new DataView(bytes.buffer).setInt32(0, value, littleEndian);
   return bytes;
 }
-export function getBytesInt64(value: Long.Long) {
+export function getBytesInt64(value: Long) {
   const bytes = new Uint8Array(8);
   new DataView(bytes.buffer).setInt32(littleEndian ? 0 : 4, value.getLowBits(), littleEndian);
   new DataView(bytes.buffer).setInt32(littleEndian ? 4 : 0, value.getHighBits(), littleEndian);
@@ -41,7 +41,7 @@ export function getBytesUInt32(value: number) {
   new DataView(bytes.buffer).setUint32(0, value, littleEndian);
   return bytes;
 }
-export function getBytesUInt64(value: Long.Long) {
+export function getBytesUInt64(value: Long) {
   const bytes = new Uint8Array(8);
   new DataView(bytes.buffer).setUint32(littleEndian ? 0 : 4, value.getLowBitsUnsigned(), littleEndian);
   new DataView(bytes.buffer).setUint32(littleEndian ? 4 : 0, value.getHighBitsUnsigned(), littleEndian);
@@ -57,7 +57,7 @@ export function getBytesDouble(value: number) {
   new DataView(bytes.buffer).setFloat64(0, value, littleEndian);
   return bytes;
 }
-export function int64BitsToDouble(value: Long.Long) {
+export function int64BitsToDouble(value: Long) {
   const buffer = new ArrayBuffer(8);
   new DataView(buffer).setInt32(littleEndian ? 0 : 4, value.getLowBits(), littleEndian);
   new DataView(buffer).setInt32(littleEndian ? 4 : 0, value.getHighBits(), littleEndian);
@@ -68,7 +68,7 @@ export function doubleToInt64Bits(value: number) {
   new DataView(buffer).setFloat64(0, value, littleEndian);
   const lowBits = new DataView(buffer).getInt32(littleEndian ? 0 : 4, littleEndian);
   const highBits = new DataView(buffer).getInt32(littleEndian ? 4 : 0, littleEndian);
-  return Long.fromBits(lowBits, highBits, false);
+  return fromBits(lowBits, highBits, false);
 }
 export function toBoolean(bytes: Uint8Array, offset: number): boolean {
   return new DataView(bytes.buffer).getUint8(offset) === 1 ? true : false;
@@ -86,7 +86,7 @@ export function toInt32(bytes: Uint8Array, offset: number) {
 export function toInt64(bytes: Uint8Array, offset: number) {
   const lowBits = new DataView(bytes.buffer).getInt32(offset + (littleEndian ? 0 : 4), littleEndian);
   const highBits = new DataView(bytes.buffer).getInt32(offset + (littleEndian ? 4 : 0), littleEndian);
-  return Long.fromBits(lowBits, highBits, false);
+  return fromBits(lowBits, highBits, false);
 }
 export function toUInt16(bytes: Uint8Array, offset: number) {
   return new DataView(bytes.buffer).getUint16(offset, littleEndian);
@@ -97,7 +97,7 @@ export function toUInt32(bytes: Uint8Array, offset: number) {
 export function toUInt64(bytes: Uint8Array, offset: number) {
   const lowBits = new DataView(bytes.buffer).getUint32(offset + (littleEndian ? 0 : 4), littleEndian);
   const highBits = new DataView(bytes.buffer).getUint32(offset + (littleEndian ? 4 : 0), littleEndian);
-  return Long.fromBits(lowBits, highBits, true);
+  return fromBits(lowBits, highBits, true);
 }
 export function toSingle(bytes: Uint8Array, offset: number) {
   return new DataView(bytes.buffer).getFloat32(offset, littleEndian);
