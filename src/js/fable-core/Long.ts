@@ -26,7 +26,7 @@ import _Symbol from "./Symbol";
 /**
  * @class A Long class for representing a 64 bit two's-complement integer value.
  */
-export class Long {
+export default class Long {
     /**
      * The low 32 bits as a signed value.
      * @type {number}
@@ -1062,3 +1062,11 @@ export const MAX_UNSIGNED_VALUE = fromBits(0xFFFFFFFF | 0, 0xFFFFFFFF | 0, true)
  * @type {!Long}
  */
 export const MIN_VALUE = fromBits(0, 0x80000000 | 0, false);
+
+export function unixEpochMillisecondsToTicks(ms: number, offset: number) {
+    return fromNumber(ms).add(62135596800000).add(offset).mul(10000);
+}
+
+export function ticksToUnixEpochMilliseconds(ticks: Long) {
+    return ticks.div(10000).sub(62135596800000).toNumber();
+}

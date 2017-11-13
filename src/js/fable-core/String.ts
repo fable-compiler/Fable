@@ -1,4 +1,4 @@
-import { DateKind,  day, hour, minute, month, second,  year } from "./Date";
+import { toString as dateToString } from "./Date";
 import { escape } from "./RegExp";
 import { hasInterface, toString } from "./Util";
 
@@ -211,60 +211,10 @@ export function format(str: string, ...args: any[]) {
               rep = pattern;
             }
         }
+      } else if (typeof rep.ToString === "function") {
+        rep = rep.ToString(pattern);
       } else if (rep instanceof Date) {
-        if (pattern.length === 1) {
-          switch (pattern) {
-            case "D":
-              rep = rep.toDateString(); break;
-            case "T":
-              rep = rep.toLocaleTimeString(); break;
-            case "d":
-              rep = rep.toLocaleDateString(); break;
-            case "t":
-              rep = rep.toLocaleTimeString().replace(/:\d\d(?!:)/, ""); break;
-            case "o": case "O":
-              if ((rep as any).kind === DateKind.Local) {
-                const offset = rep.getTimezoneOffset() * -1;
-                rep = format("{0:yyyy-MM-dd}T{0:HH:mm}:{1:00.000}{2}{3:00}:{4:00}",
-                  rep, second(rep), offset >= 0 ? "+" : "-",
-                  ~~(offset / 60), offset % 60);
-              } else {
-                rep = rep.toISOString();
-              }
-          }
-        } else {
-          rep = pattern.replace(/(\w)\1*/g,
-            (match2: any) => {
-              let rep2 = match2;
-              switch (match2.substring(0, 1)) {
-                case "y":
-                  rep2 = match2.length < 4 ? year(rep) % 100 : year(rep);
-                  break;
-                case "h":
-                  rep2 = rep.getHours() > 12 ? hour(rep) % 12 : hour(rep);
-                  break;
-                case "M":
-                  rep2 = month(rep);
-                  break;
-                case "d":
-                  rep2 = day(rep);
-                  break;
-                case "H":
-                  rep2 = hour(rep);
-                  break;
-                case "m":
-                  rep2 = minute(rep);
-                  break;
-                case "s":
-                  rep2 = second(rep);
-                  break;
-              }
-              if (rep2 !== match2 && rep2 < 10 && match2.length > 1) {
-                rep2 = "0" + rep2;
-              }
-              return rep2;
-            });
-        }
+        rep = dateToString(rep, pattern);
       }
       pad = parseInt((pad || "").substring(1), 10);
       if (!isNaN(pad)) {

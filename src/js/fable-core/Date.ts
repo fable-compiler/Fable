@@ -1,6 +1,4 @@
-import * as Long from "./Long";
-import { create as timeSpanCreate } from "./TimeSpan";
-import { compare as utilCompare } from "./Util";
+import { compareDates } from "./Util";
 
 // Don't change, this corresponds to DateTime.Kind
 // enum values in .NET
@@ -10,38 +8,182 @@ export const enum DateKind {
   Local = 2,
 }
 
+export interface IDateTime extends Date {
+  kind?: DateKind;
+}
+
+export interface IDateTimeOffset extends Date {
+  offset?: number;
+}
+
+export const offsetRegex = /(?:Z|[+-](\d{2}):?(\d{2})?)$/;
+
+export function padWithZeros(i: number, length: number) {
+  let str = i.toString(10);
+  while (str.length < length) {
+    str = "0" + str;
+  }
+  return str;
+}
+
+export function offsetToString(offset: number) {
+  const isMinus = offset < 0;
+  offset = Math.abs(offset);
+  const hours = ~~(offset / 3600000);
+  const minutes = (offset % 3600000) / 60000;
+  return (isMinus ? "-" : "+") +
+          padWithZeros(hours, 2) + ":" +
+          padWithZeros(minutes, 2);
+}
+
+export function toHalfUTCString(date: IDateTime, half: "first" | "second") {
+  const str = date.toISOString();
+  return half === "first"
+    ? str.substring(0, str.indexOf("T"))
+    : str.substring(str.indexOf("T") + 1, str.length - 1);
+}
+
+function toISOString(d: IDateTime, utc: boolean) {
+  if (utc) {
+    return d.toISOString();
+  } else {
+    // JS Date is always local
+    const printOffset = d.kind == null ? true : d.kind === DateKind.Local;
+    return  padWithZeros(d.getFullYear(), 4) + "-" +
+            padWithZeros(d.getMonth() + 1, 2)    + "-" +
+            padWithZeros(d.getDate(), 2)     + "T" +
+            padWithZeros(d.getHours(), 2)    + ":" +
+            padWithZeros(d.getMinutes(), 2)  + ":" +
+            padWithZeros(d.getSeconds(), 2)  + "." +
+            padWithZeros(d.getMilliseconds(), 3) +
+            (printOffset ? offsetToString(d.getTimezoneOffset() * -60000) : "");
+  }
+}
+
+function toISOStringWithOffset(dateWithOffset: Date, offset: number) {
+  const str = dateWithOffset.toISOString();
+  return str.substring(0, str.length - 1) + offsetToString(offset);
+}
+
+export function toStringWithOffset(date: IDateTimeOffset, format?: string) {
+  const d = new Date(date.getTime() + date.offset);
+  if (!format) {
+    return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + offsetToString(date.offset);
+  } else if (format.length === 1) {
+    switch (format) {
+      case "D": case "d": return toHalfUTCString(d, "first");
+      case "T": case "t": return toHalfUTCString(d, "second");
+      case "O": case "o": return toISOStringWithOffset(d, date.offset);
+      default: throw new Error("Unrecognized Date print format");
+    }
+  } else {
+    return format.replace(/(\w)\1*/g, (match: any) => {
+        let rep = match;
+        switch (match.substring(0, 1)) {
+          case "y": rep = match.length < 4 ? d.getUTCFullYear() % 100 : d.getUTCFullYear(); break;
+          case "M": rep = d.getUTCMonth() + 1; break;
+          case "d": rep = d.getUTCDate(); break;
+          case "H": rep = d.getUTCHours(); break;
+          case "h":
+            const h = d.getUTCHours();
+            rep = h > 12 ? h % 12 : h; break;
+          case "m": rep = d.getUTCMinutes(); break;
+          case "s": rep = d.getUTCSeconds(); break;
+        }
+        if (rep !== match && rep < 10 && match.length > 1) {
+          rep = "0" + rep;
+        }
+        return rep;
+      });
+  }
+}
+
+export function toStringWithKind(date: IDateTime, format?: string) {
+  const utc = date.kind === DateKind.UTC;
+  if (!format) {
+    return utc ? date.toUTCString() : date.toLocaleString();
+  } else if (format.length === 1) {
+    switch (format) {
+      case "D": case "d":
+        return utc ? toHalfUTCString(date, "first") : date.toLocaleDateString();
+      case "T": case "t":
+        return utc ? toHalfUTCString(date, "second") : date.toLocaleTimeString();
+      case "O": case "o":
+        return toISOString(date, utc);
+      default:
+        throw new Error("Unrecognized Date print format");
+    }
+  } else {
+    return format.replace(/(\w)\1*/g, (match: any) => {
+        let rep = match;
+        switch (match.substring(0, 1)) {
+          case "y": rep = match.length < 4 ? year(date) % 100 : year(date); break;
+          case "M": rep = month(date); break;
+          case "d": rep = day(date); break;
+          case "H": rep = hour(date); break;
+          case "h":
+            const h = hour(date);
+            rep = h > 12 ? h % 12 : h; break;
+        case "m": rep = minute(date); break;
+          case "s": rep = second(date); break;
+        }
+        if (rep !== match && rep < 10 && match.length > 1) {
+          rep = "0" + rep;
+        }
+        return rep;
+      });
+  }
+}
+
+export function toString(date: IDateTime | IDateTimeOffset, format?: string) {
+  return (date as IDateTimeOffset).offset != null
+    ? toStringWithOffset(date, format)
+    : toStringWithKind(date, format);
+}
+
+export default function DateTime(value: number, kind?: DateKind) {
+  kind = kind == null ? DateKind.Unspecified : kind;
+  const d = new Date(value) as IDateTime;
+  d.kind = kind | 0;
+  return d;
+}
+
 export function minValue() {
-  return parse(-8640000000000000, 1);
+  // This is "0001-01-01T00:00:00.000Z", actual JS min value is -8640000000000000
+  return DateTime(-62135596800000, DateKind.Unspecified);
 }
 
 export function maxValue() {
-  return parse(8640000000000000, 1);
+  // This is "9999-12-31T23:59:59.999Z", actual JS max value is 8640000000000000
+  return DateTime(253402300799999, DateKind.Unspecified);
 }
 
-/* tslint:disable */
-export function parse(v?: any, kind?: DateKind): any {
-  if (kind == null) {
-    kind = typeof v === "string" && v.slice(-1) === "Z" ? DateKind.UTC : DateKind.Local;
-  }
-  let date = (v == null) ? new Date() : new Date(v);
+export function parseRaw(str: string) {
+  let date = new Date(str);
   if (isNaN(date.getTime())) {
     // Check if this is a time-only string, which JS Date parsing cannot handle (see #1045)
-    if (typeof v === "string" && /^(?:[01]?\d|2[0-3]):(?:[0-5]?\d)(?::[0-5]?\d(?:\.\d+)?)?(?:\s*[AaPp][Mm])?$/.test(v)) {
+    if (/^(?:[01]?\d|2[0-3]):(?:[0-5]?\d)(?::[0-5]?\d(?:\.\d+)?)?(?:\s*[AaPp][Mm])?$/.test(str)) {
       const d = new Date();
-      date = new Date(d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + v);
-    }
-    else {
+      date = new Date(d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + str);
+    } else {
       throw new Error("The string is not a valid Date.");
     }
   }
-  if (kind === 2 /* Local */) {
-    (date as any).kind = kind;
-  }
   return date;
 }
-/* tslint:enable */
 
-export function tryParse(v: any): [boolean, Date] {
+export function parse(str: string, detectUTC = false): IDateTime {
+  const date = parseRaw(str);
+  const offset = offsetRegex.exec(str);
+  // .NET always parses DateTime as Local if there's offset info (even "Z")
+  // Newtonsoft.Json uses UTC if the offset is "Z"
+  const kind = offset != null
+    ? (detectUTC && offset[0] === "Z" ? DateKind.UTC : DateKind.Local)
+    : DateKind.Unspecified;
+  return DateTime(date.getTime(), kind);
+}
+
+export function tryParse(v: any): [boolean, IDateTime] {
   try {
     return [true, parse(v)];
   } catch (_err) {
@@ -49,34 +191,37 @@ export function tryParse(v: any): [boolean, Date] {
   }
 }
 
-export function create(
-  year: number, month: number, day: number,
-  h: number = 0, m: number = 0, s: number = 0,
-  ms: number = 0, kind: DateKind = DateKind.Local) {
-  let date: Date;
-  if (kind === DateKind.Local) {
-    date = new Date(year, month - 1, day, h, m, s, ms);
-    (date as any).kind = kind;
-  } else {
-    date = new Date(Date.UTC(year, month - 1, day, h, m, s, ms));
-  }
+export function offset(date: IDateTime | IDateTimeOffset): number {
+  const date1 = date as IDateTimeOffset;
+  return typeof date1.offset === "number"
+    ? date1.offset
+    : ((date as IDateTime).kind === DateKind.UTC
+        ? 0 : date.getTimezoneOffset() * -60000);
+}
 
+export function create(
+    year: number, month: number, day: number,
+    h: number = 0, m: number = 0, s: number = 0,
+    ms: number = 0, kind?: DateKind) {
+  const dateValue = kind === DateKind.UTC
+    ? Date.UTC(year, month - 1, day, h, m, s, ms)
+    : new Date(year, month - 1, day, h, m, s, ms).getTime();
+  if (isNaN(dateValue)) {
+    throw new Error("The parameters describe an unrepresentable Date.");
+  }
+  const date = DateTime(dateValue, kind);
   if (year <= 99) {
     date.setFullYear(year, month - 1, day);
-  }
-
-  if (isNaN(date.getTime())) {
-    throw new Error("The parameters describe an unrepresentable Date.");
   }
   return date;
 }
 
 export function now() {
-  return parse();
+  return DateTime(Date.now(), DateKind.Local);
 }
 
 export function utcNow() {
-  return parse(null, 1);
+  return DateTime(Date.now(), DateKind.UTC);
 }
 
 export function today() {
@@ -89,84 +234,62 @@ export function isLeapYear(year: number) {
 
 export function daysInMonth(year: number, month: number) {
   return month === 2
-    ? isLeapYear(year) ? 29 : 28
-    : month >= 8 ? month % 2 === 0 ? 31 : 30 : month % 2 === 0 ? 30 : 31;
+    ? (isLeapYear(year) ? 29 : 28)
+    : (month >= 8 ? (month % 2 === 0 ? 31 : 30) : (month % 2 === 0 ? 30 : 31));
 }
 
-export function toUniversalTime(d: Date) {
-  return (d as any).kind === DateKind.Local ? new Date(d.getTime()) : d;
+export function toUniversalTime(date: IDateTime) {
+  return date.kind === DateKind.UTC ? date : DateTime(date.getTime(), DateKind.UTC);
 }
 
-export function toLocalTime(d: Date) {
-  if ((d as any).kind === DateKind.Local) {
-    return d;
-  } else {
-    const d2 = new Date(d.getTime());
-    (d2 as any).kind = DateKind.Local;
-    return d2;
-  }
+export function toLocalTime(date: IDateTime) {
+  return date.kind === DateKind.Local ? date : DateTime(date.getTime(), DateKind.Local);
 }
 
-export function timeOfDay(d: Date) {
-  return timeSpanCreate(0, hour(d), minute(d), second(d), millisecond(d));
+export function timeOfDay(d: IDateTime) {
+  return hour(d) * 3600000
+    + minute(d) * 60000
+    + second(d) * 1000
+    + millisecond(d);
 }
 
-export function date(d: Date) {
-  return create(year(d), month(d), day(d), 0, 0, 0, 0, (d as any).kind || DateKind.UTC);
+export function date(d: IDateTime) {
+  return create(year(d), month(d), day(d), 0, 0, 0, 0, d.kind);
 }
 
-export function kind(d: Date) {
-  return (d as any).kind || DateKind.UTC;
+export function day(d: IDateTime) {
+  return d.kind === DateKind.UTC ? d.getUTCDate() : d.getDate();
 }
 
-export function day(d: Date) {
-  return (d as any).kind === DateKind.Local ? d.getDate() : d.getUTCDate();
+export function hour(d: IDateTime) {
+  return d.kind === DateKind.UTC ? d.getUTCHours() : d.getHours();
 }
 
-export function hour(d: Date) {
-  return (d as any).kind === DateKind.Local ? d.getHours() : d.getUTCHours();
+export function millisecond(d: IDateTime) {
+  return d.kind === DateKind.UTC ? d.getUTCMilliseconds() : d.getMilliseconds();
 }
 
-export function millisecond(d: Date) {
-  return (d as any).kind === DateKind.Local ? d.getMilliseconds() : d.getUTCMilliseconds();
+export function minute(d: IDateTime) {
+  return d.kind === DateKind.UTC ? d.getUTCMinutes() : d.getMinutes();
 }
 
-export function minute(d: Date) {
-  return (d as any).kind === DateKind.Local ? d.getMinutes() : d.getUTCMinutes();
+export function month(d: IDateTime) {
+  return (d.kind === DateKind.UTC ? d.getUTCMonth() : d.getMonth()) + 1;
 }
 
-export function month(d: Date) {
-  return ((d as any).kind === DateKind.Local ? d.getMonth() : d.getUTCMonth()) + 1;
+export function second(d: IDateTime) {
+  return d.kind === DateKind.UTC ? d.getUTCSeconds() : d.getSeconds();
 }
 
-export function second(d: Date) {
-  return (d as any).kind === DateKind.Local ? d.getSeconds() : d.getUTCSeconds();
+export function year(d: IDateTime) {
+  return d.kind === DateKind.UTC ? d.getUTCFullYear() : d.getFullYear();
 }
 
-export function year(d: Date) {
-  return (d as any).kind === DateKind.Local ? d.getFullYear() : d.getUTCFullYear();
+export function dayOfWeek(d: IDateTime) {
+  return d.kind === DateKind.UTC ? d.getUTCDay() : d.getDay();
 }
 
-export function dayOfWeek(d: Date) {
-  return (d as any).kind === DateKind.Local ? d.getDay() : d.getUTCDay();
-}
-
-export function ticks(d: Date) {
-  return Long.fromNumber(d.getTime())
-    .add(62135596800000) // UnixEpochMilliseconds
-    .sub((d as any).kind === DateKind.Local ? d.getTimezoneOffset() * 60 * 1000 : 0)
-    .mul(10000);
-}
-
-export function ofTicks(ticks: Long.Long) {
-  return parse(ticks.div(10000).sub(62135596800000).toNumber(), DateKind.UTC);
-}
-
-export function toBinary(d: Date) {
-  return ticks(d);
-}
-
-export function dayOfYear(d: Date) {
+export function dayOfYear(d: IDateTime) {
   const _year = year(d);
   const _month = month(d);
   let _day = day(d);
@@ -176,44 +299,40 @@ export function dayOfYear(d: Date) {
   return _day;
 }
 
-export function add(d: Date, ts: number) {
-  return parse(d.getTime() + ts as number, (d as any).kind || DateKind.UTC);
+export function add(d: IDateTime, ts: number) {
+  return DateTime(d.getTime() + ts, d.kind);
 }
 
-export function addDays(d: Date, v: number) {
-  return parse(d.getTime() + v * 86400000, (d as any).kind || DateKind.UTC);
+export function addDays(d: IDateTime, v: number) {
+  return DateTime(d.getTime() + v * 86400000, d.kind);
 }
 
-export function addHours(d: Date, v: number) {
-  return parse(d.getTime() + v * 3600000, (d as any).kind || DateKind.UTC);
+export function addHours(d: IDateTime, v: number) {
+  return DateTime(d.getTime() + v * 3600000, d.kind);
 }
 
-export function addMinutes(d: Date, v: number) {
-  return parse(d.getTime() + v * 60000, (d as any).kind || DateKind.UTC);
+export function addMinutes(d: IDateTime, v: number) {
+  return DateTime(d.getTime() + v * 60000, d.kind);
 }
 
-export function addSeconds(d: Date, v: number) {
-  return parse(d.getTime() + v * 1000, (d as any).kind || DateKind.UTC);
+export function addSeconds(d: IDateTime, v: number) {
+  return DateTime(d.getTime() + v * 1000, d.kind);
 }
 
-export function addMilliseconds(d: Date, v: number) {
-  return parse(d.getTime() + v, (d as any).kind || DateKind.UTC);
+export function addMilliseconds(d: IDateTime, v: number) {
+  return DateTime(d.getTime() + v, d.kind);
 }
 
-export function addTicks(d: Date, t: Long.Long) {
-  return parse(Long.fromNumber(d.getTime()).add(t.div(10000)).toNumber(), (d as any).kind || DateKind.UTC);
-}
-
-export function addYears(d: Date, v: number) {
+export function addYears(d: IDateTime, v: number) {
   const newMonth = month(d);
   const newYear = year(d) + v;
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, day(d));
   return create(newYear, newMonth, newDay, hour(d), minute(d), second(d),
-    millisecond(d), (d as any).kind || DateKind.UTC);
+    millisecond(d), d.kind);
 }
 
-export function addMonths(d: Date, v: number) {
+export function addMonths(d: IDateTime, v: number) {
   let newMonth = month(d) + v;
   let newMonth_ = 0;
   let yearOffset = 0;
@@ -230,52 +349,50 @@ export function addMonths(d: Date, v: number) {
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, day(d));
   return create(newYear, newMonth, newDay, hour(d), minute(d), second(d),
-    millisecond(d), (d as any).kind || DateKind.UTC);
+    millisecond(d), d.kind);
 }
 
-export function subtract(d: Date, that: Date | number) {
+export function subtract(d: IDateTime, that: IDateTime | number) {
   return typeof that === "number"
-    ? parse(d.getTime() - that as number, (d as any).kind || DateKind.UTC)
-    : d.getTime() - (that as Date).getTime();
+    ? DateTime(d.getTime() - that, d.kind)
+    : d.getTime() - that.getTime();
 }
 
-export function toLongDateString(d: Date) {
+export function toLongDateString(d: IDateTime) {
   return d.toDateString();
 }
 
-export function toShortDateString(d: Date) {
+export function toShortDateString(d: IDateTime) {
   return d.toLocaleDateString();
 }
 
-export function toLongTimeString(d: Date) {
+export function toLongTimeString(d: IDateTime) {
   return d.toLocaleTimeString();
 }
 
-export function toShortTimeString(d: Date) {
+export function toShortTimeString(d: IDateTime) {
   return d.toLocaleTimeString().replace(/:\d\d(?!:)/, "");
 }
 
-export function equals(d1: Date, d2: Date) {
+export function equals(d1: IDateTime, d2: IDateTime) {
   return d1.getTime() === d2.getTime();
 }
 
-export function compare(x: Date, y: Date) {
-  return utilCompare(x, y);
+export function compare(x: IDateTime, y: IDateTime) {
+  return compareDates(x, y);
 }
 
-export function compareTo(x: Date, y: Date) {
-  return utilCompare(x, y);
-}
+export const compareTo = compare;
 
-export function op_Addition(x: Date, y: number) {
+export function op_Addition(x: IDateTime, y: number) {
   return add(x, y);
 }
 
-export function op_Subtraction(x: Date, y: number | Date) {
+export function op_Subtraction(x: IDateTime, y: number | Date) {
   return subtract(x, y);
 }
 
-export function isDaylightSavingTime(x: Date) {
+export function isDaylightSavingTime(x: IDateTime) {
   const jan = new Date(x.getFullYear(), 0, 1);
   const jul = new Date(x.getFullYear(), 6, 1);
   return isDST(jan.getTimezoneOffset(), jul.getTimezoneOffset(), x.getTimezoneOffset());

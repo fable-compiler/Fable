@@ -57,7 +57,10 @@ let makeIdentExpr name = makeIdent name |> IdentValue |> Value
 let makeLambdaExpr args body = Value(Lambda(args, body, LambdaInfo(true)))
 
 let makeCoreRef modname prop =
-    Value(ImportRef(defaultArg prop "default", modname, CoreLib))
+    Value(ImportRef(prop, modname, CoreLib))
+
+let makeDefaultCoreRef modname =
+    Value(ImportRef("default", modname, CoreLib))
 
 let makeImport (selector: string) (path: string) =
     Value(ImportRef(selector.Trim(), path.Trim(), CustomImport))
@@ -95,7 +98,7 @@ let makeLongInt (x: uint64) unsigned =
     let highBits = NumberConst (float (x >>> 32), Float64)
     let unsigned = BoolConst (unsigned)
     let args = [Value lowBits; Value highBits; Value unsigned]
-    Apply (makeCoreRef "Long" (Some "fromBits"), args, ApplyMeth, Any, None)
+    Apply (makeCoreRef "Long" "fromBits", args, ApplyMeth, Any, None)
 
 let makeFloat32 (x: float32) =
     let args = [Value (NumberConst (float x, Float32))]
@@ -194,9 +197,9 @@ let getTypedArrayName (com: ICompiler) numberKind =
 
 let makeNonDeclaredTypeRef (nonDeclType: NonDeclaredType) =
     let get t =
-        Wrapped(makeCoreRef "Util" (Some t), MetaType)
+        Wrapped(makeCoreRef "Util" t, MetaType)
     let call t args =
-        Apply(makeCoreRef "Util" (Some t), args, ApplyMeth, MetaType, None)
+        Apply(makeCoreRef "Util" t, args, ApplyMeth, MetaType, None)
     match nonDeclType with
     | NonDeclAny -> get "Any"
     | NonDeclUnit -> get "Unit"
@@ -227,9 +230,9 @@ let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
     | Number _ | Enum _ -> str "number"
     | ExtendedNumber kind ->
         match kind with
-        | Int64|UInt64 -> makeCoreRef "Long" (Some "Long")
+        | Int64|UInt64 -> makeDefaultCoreRef "Long"
         | Decimal -> str "number"
-        | BigInt -> makeCoreRef "BigInt" None
+        | BigInt -> makeDefaultCoreRef "BigInt"
     | Function(argTypes, returnType, _) ->
         argTypes@[returnType]
         |> List.map (makeTypeRef com genInfo)
@@ -239,7 +242,7 @@ let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
     | Unit -> makeNonDeclaredTypeRef NonDeclUnit
     | Array (Number kind) when com.Options.typedArrays ->
         let def = Ident(getTypedArrayName com kind, MetaType) |> IdentValue |> Value
-        Apply(makeCoreRef "Util" (Some "Array"), [def; makeBoolConst true], ApplyMeth, MetaType, None)
+        Apply(makeCoreRef "Util" "Array", [def; makeBoolConst true], ApplyMeth, MetaType, None)
     | Array genArg ->
         makeTypeRef com genInfo genArg
         |> NonDeclArray
@@ -290,7 +293,9 @@ let makeCall (range: SourceLocation option) typ kind =
         |> getCallee meth args typ
         |> apply (getKind isCons) args
     | CoreLibCall (modName, meth, isCons, args) ->
-        makeCoreRef modName meth
+        match meth with
+        | Some meth -> makeCoreRef modName meth
+        | None -> makeDefaultCoreRef modName
         |> apply (getKind isCons) args
     | GlobalCall (modName, meth, isCons, args) ->
         makeIdentExpr modName
@@ -312,18 +317,16 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
     let jsTypeof (primitiveType: string) expr =
         let typof = makeUnOp None String [expr] UnaryTypeof
         makeBinOp range Boolean [typof; makeStrConst primitiveType] BinaryEqualStrict
-    let jsInstanceOf (typeRef: Expr) expr =
-        makeBinOp None Boolean [expr; typeRef] BinaryInstanceOf
     match typ with
     | MetaType -> Value(BoolConst false) // This shouldn't happen
     | Char
     | String _ -> jsTypeof "string" expr
     | Number _ | Enum _ -> jsTypeof "number" expr
     | ExtendedNumber (Int64|UInt64) ->
-        makeBinOp range Boolean [expr; makeCoreRef "Long" (Some "Long")] BinaryInstanceOf
+        makeBinOp range Boolean [expr; makeDefaultCoreRef "Long"] BinaryInstanceOf
     | ExtendedNumber Decimal -> jsTypeof "number" expr
     | ExtendedNumber BigInt ->
-        makeBinOp range Boolean [expr; makeCoreRef "BigInt" None] BinaryInstanceOf
+        makeBinOp range Boolean [expr; makeDefaultCoreRef "BigInt"] BinaryInstanceOf
     | Boolean -> jsTypeof "boolean" expr
     | Unit -> makeBinOp range Boolean [expr; Value Null] BinaryEqual
     | Function _ -> jsTypeof "function" expr
@@ -447,7 +450,7 @@ let makeReflectionMethodArgsAndBody com (ent: Entity option) extend nullable int
             CoreLibCall("Util", Some "extendInfo", false,
                 [makeTypeRefFrom com ent; makeJsObject None members]) |> makeCall None Any
         | _ -> makeJsObject None members
-    let comp = makeUntypedGet (makeCoreRef "Symbol" None) "reflection"
+    let comp = makeUntypedGet (makeDefaultCoreRef "Symbol") "reflection"
     Member("FSymbol.reflection", Method, InstanceLoc, [], Any, computed=comp), [], info
 
 let makeReflectionMethod com (ent: Fable.Entity) extend nullable cases properties =

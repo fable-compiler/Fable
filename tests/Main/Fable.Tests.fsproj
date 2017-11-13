@@ -18,6 +18,7 @@
     <Compile Include="ComparisonTests.fs" />
     <Compile Include="ConvertTests.fs" />
     <Compile Include="DateTimeTests.fs" />
+    <Compile Include="DateTimeOffsetTests.fs" />
     <Compile Include="DictionaryTests.fs" />
     <Compile Include="EnumerableTests.fs" />
     <Compile Include="EnumTests.fs" />
