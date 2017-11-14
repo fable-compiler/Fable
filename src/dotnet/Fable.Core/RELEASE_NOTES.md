@@ -1,6 +1,6 @@
-### 1.3.0-beta-007
+### 1.3.0-beta-008
 
-* See dotnet-fable 1.3.0-beta-007 release notes
+* See dotnet-fable 1.3.0-beta-008 release notes
 
 ### 1.2.4
 

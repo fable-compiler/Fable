@@ -1,3 +1,10 @@
+### 1.3.0-beta-008
+
+* Add DateTimeOffset
+* Added inf, nan operators
+* Fix #1223: Async.StartChild
+* Fix #1230: Seq.singleton returns empty after first use
+
 ### 1.3.0-beta-007
 
 * Fix #1227: Names in paket.references are not case sensitive

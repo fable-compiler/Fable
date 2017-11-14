@@ -52,7 +52,7 @@ let coreJsSrcDir = "src/js/fable-core"
 let installDotnetSdk () =
     dotnetExePath <- DotNetCli.InstallDotNetSDK dotnetcliVersion
 
-let clean () =
+let clean_ (full: bool) =
     !! "src/dotnet/**/bin"
         -- "src/dotnet/Fable.Client.JS/demo/**"
         -- "src/dotnet/Fable.Client.JS/testapp/**"
@@ -61,10 +61,19 @@ let clean () =
         ++ "build"
     |> CleanDirs
 
-    !! "src/dotnet/**/obj/*.nuspec"
-        ++"src/plugins/nunit/obj/*.nuspec"
-        ++"tests**/**/obj/*.nuspec"
-    |> DeleteFiles
+    if full then
+        !! "src/dotnet/**/obj"
+            ++"src/plugins/nunit/obj"
+            ++"tests**/**/obj"
+        |> CleanDirs
+    else
+        !! "src/dotnet/**/obj/*.nuspec"
+            ++"src/plugins/nunit/obj/*.nuspec"
+            ++"tests**/**/obj/*.nuspec"
+        |> DeleteFiles
+
+let clean () = clean_ false
+let fullClean () = clean_ true
 
 let nugetRestore baseDir () =
     run (baseDir </> "Fable.Core") dotnetExePath "restore"
@@ -179,6 +188,7 @@ Target "GitHubRelease" (fun _ ->
 )
 
 Target "Clean" clean
+Target "FullClean" fullClean
 Target "NugetRestore" (nugetRestore "src/dotnet")
 Target "FableCLI" (fun _ ->
     nugetRestore "src/dotnet" ()
@@ -204,7 +214,7 @@ Target "PublishPackages" (fun () ->
         Some buildSplitter, "js/fable-splitter"
     ]
     installDotnetSdk ()
-    clean ()
+    fullClean ()
     publishPackages2 baseDir dotnetExePath packages
 )
 
