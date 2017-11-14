@@ -1,5 +1,5 @@
-import { Trampoline } from "./AsyncBuilder";
-import { Continuation } from "./AsyncBuilder";
+import { OperationCanceledError, Trampoline } from "./AsyncBuilder";
+import { Continuation, Continuations } from "./AsyncBuilder";
 import { CancellationToken } from "./AsyncBuilder";
 import { IAsync } from "./AsyncBuilder";
 import { IAsyncContext } from "./AsyncBuilder";
@@ -41,10 +41,19 @@ export function isCancellationRequested(token: CancellationToken) {
   return token != null && token.isCancelled;
 }
 
+export function startChild<T>(computation: IAsync<T>): IAsync<IAsync<T>> {
+  const promise = startAsPromise(computation);
+  // JS Promises are hot, computation has already started
+  // but we delay returning the result
+  return protectedCont((ctx) =>
+    protectedReturn(awaitPromise(promise))(ctx));
+}
+
 export function awaitPromise<T>(p: Promise<T>) {
-  return fromContinuations((conts: Array<Continuation<T>>) =>
+  return fromContinuations((conts: Continuations<T>) =>
     p.then(conts[0]).catch((err) =>
-      (err === "cancelled" ? conts[2] : conts[1])(err)));
+      (err instanceof OperationCanceledError
+      ? conts[2] : conts[1])(err)));
 }
 
 export function cancellationToken() {
@@ -65,8 +74,9 @@ export function catchAsync<T>(work: IAsync<T>) {
   });
 }
 
-export function fromContinuations<T>(f: (conts: Array<Continuation<T>>) => void) {
-  return protectedCont((ctx: IAsyncContext<T>) => f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
+export function fromContinuations<T>(f: (conts: Continuations<T>) => void) {
+  return protectedCont((ctx: IAsyncContext<T>) =>
+    f([ctx.onSuccess, ctx.onError, ctx.onCancel]));
 }
 
 export function ignore<T>(computation: IAsync<T>) {
@@ -79,8 +89,9 @@ export function parallel<T>(computations: Iterable<IAsync<T>>) {
 
 export function sleep(millisecondsDueTime: number) {
   return protectedCont((ctx: IAsyncContext<void>) => {
-    setTimeout(() => ctx.cancelToken.isCancelled ?
-      ctx.onCancel("cancelled") : ctx.onSuccess(void 0), millisecondsDueTime);
+    setTimeout(() => ctx.cancelToken.isCancelled
+      ? ctx.onCancel(new OperationCanceledError())
+      : ctx.onSuccess(void 0), millisecondsDueTime);
   });
 }
 

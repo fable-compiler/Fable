@@ -2,8 +2,21 @@ import { IDisposable } from "./Util";
 
 export type Continuation<T> = (x: T) => void;
 
+export type Continuations<T> = [
+  Continuation<T>,
+  Continuation<Error>,
+  Continuation<OperationCanceledError>
+];
+
 export interface CancellationToken {
   isCancelled: boolean;
+}
+
+export class OperationCanceledError extends Error {
+  constructor() {
+    super("The operation was canceled");
+    Object.setPrototypeOf(this, OperationCanceledError.prototype);
+  }
 }
 
 export class Trampoline {
@@ -25,8 +38,8 @@ export class Trampoline {
 
 export interface IAsyncContext<T> {
   onSuccess: Continuation<T>;
-  onError: Continuation<any>;
-  onCancel: Continuation<any>;
+  onError: Continuation<Error>;
+  onCancel: Continuation<OperationCanceledError>;
 
   cancelToken: CancellationToken;
   trampoline: Trampoline;
@@ -37,7 +50,7 @@ export type IAsync<T> = (x: IAsyncContext<T>) => void;
 export function protectedCont<T>(f: IAsync<T>) {
   return (ctx: IAsyncContext<T>) => {
     if (ctx.cancelToken.isCancelled) {
-      ctx.onCancel("cancelled");
+      ctx.onCancel(new OperationCanceledError());
     } else if (ctx.trampoline.incrementAndCheck()) {
       ctx.trampoline.hijack(() => {
         try {

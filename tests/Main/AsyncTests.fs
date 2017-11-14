@@ -415,3 +415,26 @@ let ``Async.Bind propagates exceptions``() = // See #724
         equal ("Ok", "Invalid access credentials") res1
         equal ("Ok", "Invalid access credentials") res2
     } |> Async.RunSynchronously
+
+[<Test>]
+let ``Async.StartChild works``() =
+  async {
+    let mutable x = ""
+    let taskA = async {
+        do! Async.Sleep 500
+        x <- x + "D"
+        return "E"
+    }
+    let taskB = async {
+        do! Async.Sleep 100
+        x <- x + "C"
+        return "F"
+    }
+    let! result1Async = taskA |> Async.StartChild // start first request but do not wait
+    let! result2Async = taskB |> Async.StartChild  // start second request in parallel
+    x <- x + "AB"
+    let! result1 = result1Async
+    let! result2 = result2Async
+    x <- x + result1 + result2
+    equal x "ABCDEF"
+  } |> Async.RunSynchronously

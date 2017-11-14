@@ -3,7 +3,7 @@ import { fromContinuations } from "./Async";
 import { startImmediate } from "./Async";
 import { IAsync } from "./AsyncBuilder";
 import { IAsyncContext } from "./AsyncBuilder";
-import { Continuation } from "./AsyncBuilder";
+import { Continuation, Continuations } from "./AsyncBuilder";
 import { CancellationToken } from "./AsyncBuilder";
 
 class QueueCell<Msg> {
@@ -77,7 +77,7 @@ export default class MailboxProcessor<Msg> {
   }
 
   public receive() {
-    return fromContinuations((conts: Array<Continuation<Msg>>) => {
+    return fromContinuations((conts: Continuations<Msg>) => {
       if (this.continuation) {
         throw new Error("Receive can only be called once!");
       }
@@ -107,7 +107,7 @@ export default class MailboxProcessor<Msg> {
     };
     this.messages.add(buildMessage(reply));
     this.__processEvents();
-    return fromContinuations((conts: Array<Continuation<Reply>>) => {
+    return fromContinuations((conts: Continuations<Reply>) => {
       continuation = conts[0];
       checkCompletion();
     });
