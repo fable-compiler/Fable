@@ -986,8 +986,7 @@ type private DeclInfo(com, fileName) =
             if children.ContainsKey ent.FullName
             then Some children.[ent.FullName] else None)
     member self.IsIgnoredEntity (ent: FSharpEntity) =
-        ent.IsEnum
-        || ent.IsInterface
+        ent.IsInterface
         || ent.IsFSharpAbbreviation
         || isAttributeEntity ent
         || isErasedEntity ent
@@ -1064,91 +1063,88 @@ let private tryGetImport com (ctx: Context) r (atts: #seq<FSharpAttribute>) =
             else None)
     with _ -> None
 
+let private addMethodToDeclInfo com ctx (declInfo: DeclInfo) range import meth args (body: FSharpExpr) =
+    let memberName = sanitizeMethodName meth
+    let memberLoc = getMemberLoc meth
+    let ctx, privateName =
+        // Bind module member names to context to prevent
+        // name clashes (they will become variables in JS)
+        if isModuleMember meth then
+            let typ = makeType com ctx.typeArgs meth.FullType
+            let ctx, privateName = bindIdent com ctx typ (Some meth) memberName
+            ctx, Some (privateName.Name)
+        else ctx, None
+    let memberKind, args, extraArgs, body =
+        match import with
+        | Some(selector, path) ->
+            Fable.Field, [], [], makeImport selector path
+        | None ->
+            let info =
+                { isInstance = meth.IsInstanceMember
+                ; passGenerics = hasPassGenericsAtt com ctx meth }
+            let ctx, _, args, extraArgs =
+                bindMemberArgs com ctx info args
+            let ctx =
+                if memberLoc <> Fable.StaticLoc
+                then { ctx with thisAvailability = ThisAvailable }
+                else ctx
+            if meth.IsImplicitConstructor then
+                let body =
+                    match declInfo.TryGetOwner meth with
+                    // Constructors of derived classes have a special treatment
+                    // as sometimes can be tricky to find the call to the base constructor
+                    | Some(EntityKind(Fable.Class(Some(baseFullName, _), _)) as ent) ->
+                        compileDerivedConstructor com ctx ent baseFullName body
+                    | _ -> transformExpr com ctx body
+                Fable.Constructor, args, extraArgs, body
+            else
+                let isBodyMultiArgFunction =
+                    if body.Type.IsFunctionType
+                    then getFunctionGenericArgs [] ctx.typeArgs true body.Type |> List.isMultiple
+                    else false
+                // When a member returns a function, there are issues with the uncurrying
+                // optimization when calling & applying at once (See #1041, #1154)
+                if isBodyMultiArgFunction then
+                    let body = transformExpr com ctx body
+                    let body = makeDynamicCurriedLambda body.Range body.Type body
+                    getMemberKind meth, args, extraArgs, body
+                else
+                    match transformExpr com ctx body with
+                    // Accept import expressions used instead of attributes, for example:
+                    // let foo x y = import "foo" "myLib"
+                    | Fable.Value(Fable.ImportRef(selector, path, importKind)) as body ->
+                        let body =
+                            if selector = Naming.placeholder
+                            then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
+                            else body
+                        Fable.Field, [], [], body
+                    | body ->
+                        getMemberKind meth, args, extraArgs, body
+    let entMember =
+        let argTypes = List.map Fable.Ident.getType args
+        let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
+        let tryGetMember (e: Fable.Entity) = e.TryGetMember(memberName, memberKind, memberLoc, argTypes)
+        match tryEnclosingEntity meth with
+        | Some (FableEntity com (Try tryGetMember m)) -> m
+        | _ -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
+    let entMember = Fable.MemberDeclaration(entMember, isPublicMethod meth, privateName, args@extraArgs, body, Some range)
+    declInfo.AddMethod(meth, entMember)
+    ctx
+
 let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
     (meth: FSharpMemberOrFunctionOrValue) (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    let addMethod range import meth args (body: FSharpExpr) =
-        let memberName = sanitizeMethodName meth
-        let memberLoc = getMemberLoc meth
-        let ctx, privateName =
-            // Bind module member names to context to prevent
-            // name clashes (they will become variables in JS)
-            if isModuleMember meth then
-                let typ = makeType com ctx.typeArgs meth.FullType
-                let ctx, privateName = bindIdent com ctx typ (Some meth) memberName
-                ctx, Some (privateName.Name)
-            else ctx, None
-        let memberKind, args, extraArgs, body =
-            match import with
-            | Some(selector, path) ->
-                Fable.Field, [], [], makeImport selector path
-            | None ->
-                let info =
-                    { isInstance = meth.IsInstanceMember
-                    ; passGenerics = hasPassGenericsAtt com ctx meth }
-                let ctx, _, args, extraArgs =
-                    bindMemberArgs com ctx info args
-                let ctx =
-                    if memberLoc <> Fable.StaticLoc
-                    then { ctx with thisAvailability = ThisAvailable }
-                    else ctx
-                if meth.IsImplicitConstructor then
-                    let body =
-                        match declInfo.TryGetOwner meth with
-                        // Constructors of derived classes have a special treatment
-                        // as sometimes can be tricky to find the call to the base constructor
-                        | Some(EntityKind(Fable.Class(Some(baseFullName, _), _)) as ent) ->
-                            compileDerivedConstructor com ctx ent baseFullName body
-                        | _ -> transformExpr com ctx body
-                    Fable.Constructor, args, extraArgs, body
-                else
-                    let isBodyMultiArgFunction =
-                        if body.Type.IsFunctionType
-                        then getFunctionGenericArgs [] ctx.typeArgs true body.Type |> List.isMultiple
-                        else false
-                    // When a member returns a function, there are issues with the uncurrying
-                    // optimization when calling & applying at once (See #1041, #1154)
-                    if isBodyMultiArgFunction then
-                        let body = transformExpr com ctx body
-                        let body = makeDynamicCurriedLambda body.Range body.Type body
-                        getMemberKind meth, args, extraArgs, body
-                    else
-                        match transformExpr com ctx body with
-                        // Accept import expressions used instead of attributes, for example:
-                        // let foo x y = import "foo" "myLib"
-                        | Fable.Value(Fable.ImportRef(selector, path, importKind)) as body ->
-                            let body =
-                                if selector = Naming.placeholder
-                                then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
-                                else body
-                            Fable.Field, [], [], body
-                        | body ->
-                            getMemberKind meth, args, extraArgs, body
-        let entMember =
-            let argTypes = List.map Fable.Ident.getType args
-            let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
-            let tryGetMember (e: Fable.Entity) = e.TryGetMember(memberName, memberKind, memberLoc, argTypes)
-            match tryEnclosingEntity meth with
-            | Some (FableEntity com (Try tryGetMember m)) -> m
-            | _ -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
-        let entMember = Fable.MemberDeclaration(entMember, isPublicMethod meth, privateName, args@extraArgs, body, Some range)
-        declInfo.AddMethod(meth, entMember)
-        ctx
     let range = getMethLocation meth |> makeRange
     let import = tryGetImport com ctx range meth.Attributes
-    if Option.isSome import
-    then
-        addMethod range import meth args body
-    elif declInfo.IsIgnoredMethod meth
-    then
+    if Option.isSome import then
+        addMethodToDeclInfo com ctx declInfo range import meth args body
+    elif declInfo.IsIgnoredMethod meth then
         ctx
-    elif isInline meth
-    then
+    elif isInline meth then
         // Inlining custom type operators is problematic, see #230
-        if not (isModuleMember meth) && meth.CompiledName.StartsWith "op_"
-        then
+        if not (isModuleMember meth) && meth.CompiledName.StartsWith "op_" then
             sprintf "Custom type operators cannot be inlined: %s" meth.FullName
             |> addWarning com ctx.fileName (Some range)
-            addMethod range None meth args body
+            addMethodToDeclInfo com ctx declInfo range None meth args body
         else
             let vars =
                 match args with
@@ -1157,14 +1153,13 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                 |> Seq.collect id |> countRefs body
             com.AddInlineExpr(meth.FullName, (upcast vars, body))
             ctx
-    else addMethod range None meth args body
+    else addMethodToDeclInfo com ctx declInfo range None meth args body
 
 let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
                                     (ent: FSharpEntity) subDecls =
     let range = getEntityLocation ent |> makeRange
     let import = tryGetImport com ctx range ent.Attributes
-    if Option.isSome import
-    then
+    if Option.isSome import then
         let selector, path = import.Value
         let isPublic = isPublicEntity ctx ent
         let entName, body = sanitizeEntityName ent, makeImport selector path
@@ -1176,10 +1171,11 @@ let rec private transformEntityDecl (com: IFableCompiler) ctx (declInfo: DeclInf
         declInfo.AddIgnoredChild ent
         declInfo.AddDeclaration(decl, ?publicName=publicName)
         ctx
-    elif declInfo.IsIgnoredEntity ent
-    then
+    elif declInfo.IsIgnoredEntity ent then
         declInfo.AddIgnoredChild ent
         ctx
+    elif ent.IsEnum then
+        ctx // TODO: Enumerations
     else
         let childDecls =
             let ctx = { ctx with enclosingModule = EnclosingModule(com.GetEntity ent, isPublicEntity ctx ent) }
