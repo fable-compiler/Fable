@@ -1,7 +1,6 @@
-import DateTime, { create as createDate, DateKind, daysInMonth,
-  IDateTime, IDateTimeOffset, offsetRegex, offsetToString,
-  padWithZeros, parseRaw } from "./Date";
-import { compareDates } from "./Util";
+import DateTime, { compare as compareDates, create as createDate,
+  DateKind, daysInMonth, IDateTime, IDateTimeOffset,
+  offsetRegex, offsetToString, padWithZeros, parseRaw } from "./Date";
 
 export default function DateTimeOffset(value: number, offset?: number) {
   const d = new Date(value) as IDateTimeOffset;

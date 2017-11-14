@@ -1,3 +1,4 @@
+import { compare as compareDates, toString as dateToString } from "./Date";
 import FSymbol from "./Symbol";
 
 export interface IComparer<T> {
@@ -163,6 +164,9 @@ export function toString(obj: any, quoteStrings = false): string {
   if (typeof obj === "string") {
     return quoteStrings ? JSON.stringify(obj) : obj;
   }
+  if (obj instanceof Date) {
+    return dateToString(obj);
+  }
   if (typeof obj.ToString === "function") {
     return obj.ToString();
   }
@@ -241,12 +245,6 @@ export function equals(x: any, y: any): boolean {
 
 export function comparePrimitives(x: any, y: any): number {
   return x === y ? 0 : (x < y ? -1 : 1);
-}
-
-export function compareDates(x: Date, y: Date): number {
-  const xtime = x.getTime();
-  const ytime = y.getTime();
-  return xtime === ytime ? 0 : (xtime < ytime ? -1 : 1);
 }
 
 export function compare(x: any, y: any): number {

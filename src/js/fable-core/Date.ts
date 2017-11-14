@@ -1,5 +1,3 @@
-import { compareDates } from "./Util";
-
 // Don't change, this corresponds to DateTime.Kind
 // enum values in .NET
 export const enum DateKind {
@@ -367,8 +365,10 @@ export function equals(d1: IDateTime, d2: IDateTime) {
   return d1.getTime() === d2.getTime();
 }
 
-export function compare(x: IDateTime, y: IDateTime) {
-  return compareDates(x, y);
+export function compare(x: Date, y: Date) {
+  const xtime = x.getTime();
+  const ytime = y.getTime();
+  return xtime === ytime ? 0 : (xtime < ytime ? -1 : 1);
 }
 
 export const compareTo = compare;
