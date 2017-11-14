@@ -437,6 +437,13 @@ let ``DateTimeOffset Equality works``() =
     test 0. true
 
 [<Test>]
+let ``DateTimeOffset.EqualsExact works``() =
+    let d1 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 234, TimeSpan.Zero)
+    let d2 = DateTimeOffset(2014, 10, 9, 14, 23, 30, 234, TimeSpan.FromHours(1.))
+    d1.Equals(d2) |> equal true
+    d1.EqualsExact(d2) |> equal false
+
+[<Test>]
 let ``DateTimeOffset Inequality works``() =
     let test ms expected =
         let dt1 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 234, TimeSpan.Zero)
