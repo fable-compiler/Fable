@@ -761,9 +761,12 @@ export function pick<T, U>(f: (x: T, i?: number) => Some<U>, xs: Iterable<T>): U
   return __failIfNone(tryPick(f, xs));
 }
 
-export function unfold<T, ST>(f: (st: ST) => [T, ST], acc?: ST) {
+export function unfold<T, ST>(f: (st: ST) => [T, ST], fst?: ST) {
   return {
     [Symbol.iterator]: () => {
+      // Capture a copy of the first value in the closure
+      // so the sequence is restarted every time, see #1230
+      let acc = fst;
       return {
         next: () => {
           const res = f(acc);

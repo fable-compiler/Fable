@@ -736,9 +736,9 @@ let ``Seq.readonly works``() =
 
 [<Test>]
 let ``Seq.singleton works``() =
-    Seq.singleton 1.
-    |> Seq.head
-    |> equal 1.
+    let xs = Seq.singleton 1.
+    Seq.head xs |> equal 1.
+    Seq.head xs |> equal 1.
 
 [<Test>]
 let ``Seq.skipWhile works``() =
