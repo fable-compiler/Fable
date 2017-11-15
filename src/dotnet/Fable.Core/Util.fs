@@ -147,6 +147,8 @@ module Naming =
             "arguments"
             // See https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
             "fetch"
+            // See https://twitter.com/FableCompiler/status/930725972629913600
+            "eval"
         ]
 
     let preventConflicts conflicts name =
