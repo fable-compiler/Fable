@@ -1,3 +1,9 @@
+### 1.3.0-beta-009
+
+* Fix #1218: Multiple namespaces in same file
+* Add "eval" to JS keywords
+* Fix DateTime[Offset].ToString() (without format)
+
 ### 1.3.0-beta-008
 
 * Add DateTimeOffset
