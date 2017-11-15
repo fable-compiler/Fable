@@ -953,7 +953,7 @@ type private DeclInfo(com, fileName) =
     let publicNameConflicts name =
         let conflicts = publicNames.Contains name
         if conflicts then
-            "Public types, modules or functions with same name at same level are not supported: " + name
+            "Public namespaces, modules, types or functions with same name at same level are not supported: " + name
             |> addError com fileName None
         else
             publicNames.Add name
@@ -1205,10 +1205,25 @@ and private transformDeclarations (com: IFableCompiler) ctx decls =
     declInfo.GetDeclarations(com)
 
 let private getRootModuleAndDecls decls =
+    let (|CommonNamespace|_|) = function
+        | (FSharpImplementationFileDeclaration.Entity(ent, subDecls))::restDecls
+            when ent.IsNamespace ->
+            let commonName = ent.CompiledName
+            (Some subDecls, restDecls) ||> List.fold (fun acc decl ->
+                match acc, decl with
+                | (Some subDecls), (FSharpImplementationFileDeclaration.Entity(ent, subDecls2)) ->
+                    if ent.CompiledName = commonName
+                    then Some(subDecls@subDecls2)
+                    else None
+                | _ -> None)
+            |> Option.map (fun subDecls -> ent, subDecls)
+        | _ -> None
     let rec getRootModuleAndDecls outerEnt decls =
         match decls with
         | [FSharpImplementationFileDeclaration.Entity (ent, decls)]
                 when ent.IsFSharpModule || ent.IsNamespace ->
+            getRootModuleAndDecls (Some ent) decls
+        | CommonNamespace(ent, decls) ->
             getRootModuleAndDecls (Some ent) decls
         | decls -> outerEnt, decls
     getRootModuleAndDecls None decls

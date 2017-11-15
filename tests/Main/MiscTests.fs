@@ -137,6 +137,10 @@ let ``Type abbreviation in namespace compiles``() = // See #140
     let h = Util2.H(5)
     equal "5" h.Value
 
+[<Test>]
+let ``Multiple namespaces in same file work``() = // See #1218
+    A.C.Helper.Add5(9) |> equal 14
+
 let inline f x y = x + y
 
 [<Test>]
@@ -866,7 +870,7 @@ let ``While with isNone doesn't hang with Some ()``() =
     Trampoline.run (fun _ -> Trampoline.Break ()) () |> ignore
 
 
-let inline (|HasLength|) x = 
+let inline (|HasLength|) x =
   fun () -> (^a: (member Length: int) x)
 
 let inline length (HasLength f) = f()

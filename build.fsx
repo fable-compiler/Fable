@@ -196,6 +196,7 @@ Target "FableCLI" (fun _ ->
 Target "FableCoreJS" buildCoreJS
 Target "FableSplitter" buildSplitter
 Target "NUnitPlugin" buildNUnitPlugin
+Target "JsonConverter" buildJsonConverter
 Target "RunTestsJS" runTestsJS
 
 Target "PublishPackages" (fun () ->
