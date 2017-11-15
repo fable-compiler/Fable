@@ -24,7 +24,7 @@ module.exports = {
   entry: resolve('../Fable.JS.fsproj'),
   output: {
     filename: 'bundle.min.js',
-    path: resolve('./repl'),
+    path: resolve('./repl/build'),
     library: "Fable"
   },
   //devtool: "source-map",

@@ -256,6 +256,10 @@ Target "REPL" (fun () ->
     Yarn.run replDir "build" ""
     Yarn.run replDir "minify" ""
 
+    // build fable-core for amd
+    sprintf "--project %s -m amd --outDir %s" coreJsSrcDir (replDir </> "repl/build/fable-core")
+    |> Yarn.run CWD "tsc"
+
     // Copy generated files to `../fable-compiler.github.io/public/repl/build`
     let targetDir =  CWD </> "../fable-compiler.github.io/public/repl"
     if Directory.Exists(targetDir) then
@@ -265,7 +269,7 @@ Target "REPL" (fun () ->
         |> Yarn.run CWD "tsc"
         // REPL bundle
         printfn "Copy REPL JS files to %s" targetDir
-        for file in Directory.GetFiles(replDir </> "repl", "*.js") do
+        for file in Directory.GetFiles(replDir </> "repl/build", "*.js") do
             FileUtils.cp file targetDir
             printfn "> Copied: %s" file
 )

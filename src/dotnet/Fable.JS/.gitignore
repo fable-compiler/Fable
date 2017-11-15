@@ -1,7 +1,7 @@
 # Output
 demo/out
-demo/repl/
-demo/fable-core/
+demo/repl/build
+demo/repl/metadata
 testapp/out
 
 # Node
