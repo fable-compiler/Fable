@@ -2,14 +2,14 @@
   "private": true,
   "scripts": {
     "preinstall": "dotnet restore .. --no-cache",
-    "prebuild": "node ../../../../node_modules/webpack/bin/webpack --entry=./babel-standalone.js --output-path=./repl --output-filename=babel-standalone.js --output-library=Babel -p",
+    "prebuild": "node ../../../../node_modules/webpack/bin/webpack --entry=./babel-standalone.js --output-path=./repl/build --output-filename=babel-standalone.js --output-library=Babel -p",
     "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run splitter --verbose",
     "postbuild": "node ../../../../node_modules/rollup/bin/rollup -c",
     "webpack": "node ../../../../node_modules/webpack/bin/webpack -p",
     "rollup": "node ../../../../node_modules/rollup/bin/rollup -c",
     "splitter": "node splitter.config.js",
-    "minify": "node ../../../../node_modules/uglify-es/bin/uglifyjs repl/bundle.js -o repl/bundle.min.js",
-    "server": "node server"
+    "minify": "node ../../../../node_modules/uglify-es/bin/uglifyjs repl/build/bundle.js -o repl/build/bundle.min.js",
+    "server": "node repl/server"
   },
   "dependencies": {
     "babel-standalone": "^6.26.0",
