@@ -167,7 +167,7 @@ let ``DateTime constructors work``() =
 
 [<Test>]
 let ``DateTime constructor from Ticks works``() =
-    let d = DateTime(624059424000000000L)
+    let d = DateTime(624059424000000000L, DateTimeKind.Utc)
     equal 1978 d.Year
     equal 7 d.Month
     equal 27 d.Day
