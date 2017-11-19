@@ -684,11 +684,14 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         let range = makeRange fsExpr.Range
         match ctx.scopedInlines |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
         | Some (_,fsExpr) ->
-            let typ = makeType com ctx.typeArgs fsExpr.Type
-            let args = List.map (transformExpr com ctx) args
             let resolvedCtx = { ctx with typeArgs = matchGenericParams com ctx var ([], typeArgs) }
             let callee = com.Transform resolvedCtx fsExpr
-            makeApply com (Some range) typ callee args
+            match args with
+            | [] -> callee
+            | args ->
+                let typ = makeType com ctx.typeArgs fsExpr.Type
+                let args = List.map (transformExpr com ctx) args
+                makeApply com (Some range) typ callee args
         | None ->
             "Cannot resolve locally inlined value: " + var.DisplayName
             |> addErrorAndReturnNull com ctx.fileName (Some range)

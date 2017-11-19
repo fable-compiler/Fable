@@ -128,6 +128,22 @@ let ``Local inline values work``() =
     res.[2] |> fst |> equal "c"
     res.[2] |> snd |> equal (None, Some 5.)
 
+[<Test>]
+let ``Local inline lambdas work standalone``() = // See #1234
+    let mutable setInternalState = Some(fun (_:obj) -> ())
+    let withReact () =
+      let mutable lastModel = Some 2
+      let setState () =
+        let inline notEqual a = not <| obj.ReferenceEquals (1, a)
+        match setInternalState with
+        | Some _ ->
+            let hasUpdate = Option.map notEqual lastModel |> Option.defaultValue true
+            hasUpdate
+        | None ->
+            false
+      setState()
+    withReact() |> equal true
+
 open Aether
 open Aether.Operators
 
