@@ -132,7 +132,26 @@ let ``Option.toList works``() =
 
 [<Test>]
 let ``Option.flatten works``() =
-    Some (Some 1) |> Option.flatten |> equal (Some 1)
+    let o1: int option option = Some (Some 1)
+    let o2: int option option = Some None
+    let o3: int option option = None
+    Option.flatten o1 |> equal (Some 1)
+    Option.flatten o2 |> equal None
+    Option.flatten o3 |> equal None
+
+[<Test>]
+let ``Option.toObj works``() =
+    let o1: string option = Some "foo"
+    let o2: string option = None
+    Option.toObj o1 |> equal "foo"
+    Option.toObj o2 |> equal null
+
+[<Test>]
+let ``Option.ofObj works``() =
+    let o1: string = "foo"
+    let o2: string = null
+    Option.ofObj o1 |> equal (Some "foo")
+    Option.ofObj o2 |> equal None
 
 // https://github.com/fable-compiler/Fable/issues/1136
 [<Test>]

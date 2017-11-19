@@ -20,39 +20,34 @@ export class Some<T> {
         return toString(this.value);
     }
 
-    public Equals(other: any) {
-        if (other instanceof Some) {
-            return equals(this.value, other.value);
-        } else if (other == null) {
+    public Equals(other: T | Some<T>) {
+        if (other == null) {
             return false;
         } else {
-            return equals(this.value, other);
+            return equals(this.value, other instanceof Some
+                ? other.value : other);
         }
     }
 
-    public CompareTo(other: any) {
-        if (other instanceof Some) {
-            return compare(this.value, other.value);
-        } else if (other == null) {
+    public CompareTo(other: T | Some<T>) {
+        if (other == null) {
             return 1;
         } else {
-            return compare(this.value, other);
+            return compare(this.value, other instanceof Some
+                ? other.value : other);
         }
     }
 }
 
-export function getValue(x: any): any {
-    if (x instanceof Some) {
-        return x.value;
-    } else if (x == null) {
-        throw new Error("Option has no value");
+export function getValue<T>(x: T | Some<T>, acceptNull?: boolean): T {
+    if (x == null) {
+        if (!acceptNull) {
+            throw new Error("Option has no value");
+        }
+        return null;
     } else {
-        return x;
+        return x instanceof Some ? x.value : x;
     }
-}
-
-export function flatten(x: any): any {
-    return x instanceof Some ? x.value : x;
 }
 
 export function defaultArg<T, U>(arg: T, defaultValue: T, f?: (x: T) => U) {

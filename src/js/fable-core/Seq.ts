@@ -35,7 +35,7 @@ export function toIterator<T>(en: Enumerator<T>): Iterator<T> {
   };
 }
 
-function __failIfNone<T>(res: T) {
+function __failIfNone<T>(res: T | Some<T>) {
   if (res == null) {
     throw new Error("Seq did not contain any matching element");
   }

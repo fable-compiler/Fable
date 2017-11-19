@@ -1344,12 +1344,12 @@ module AstPass =
         match i.methodName with
         | "none" ->
             Fable.Null |> Fable.Value |> Some
-        | "value" | "getValue" | "toObj" | "toNullable" ->
+        | "value" | "getValue" ->
             ccall i "Option" "getValue" [getCallee i] |> Some
+        | "toObj" | "toNullable" | "flatten" ->
+            ccall i "Option" "getValue" [getCallee i; makeBoolConst true] |> Some
         | "ofObj" | "ofNullable" ->
             wrap i.returnType (getCallee i) |> Some
-        | "flatten" ->
-            ccall i "Option" "getValue" [getCallee i] |> Some
         | "isSome" | "isNone" ->
             let op =
                 if i.methodName = "isSome"
