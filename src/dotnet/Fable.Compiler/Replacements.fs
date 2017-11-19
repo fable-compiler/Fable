@@ -960,10 +960,18 @@ module AstPass =
         | "toUpperInvariant" -> icall i "toUpperCase" |> Some
         | "toLower" -> icall i "toLocaleLowerCase" |> Some
         | "toLowerInvariant" -> icall i "toLowerCase" |> Some
-        | "isLetter" ->
-            CoreLibCall("Char", Some "isLetter", false, i.args)
-            |> makeCall i.range i.returnType
-            |> Some
+        | "isLetter" | "isNumber" | "isDigit" | "isLetterOrDigit"
+        | "isUpper" | "isLower" ->
+            let methName =
+                match i.methodName with
+                | "isNumber" ->
+                    addWarning com i.fileName i.range "Char.IsNumber is compiled as Char.IsDigit"
+                    "isDigit"
+                | methName -> methName
+            match i.args with
+            | [str; idx] -> [makeGet None Fable.Char str idx]
+            | args -> args
+            |> ccall i "Char" methName |> Some
         | _ -> None
 
     let strings com (i: Fable.ApplyInfo) =

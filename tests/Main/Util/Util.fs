@@ -28,7 +28,7 @@ let foo2 = "foo"
 let apply (f:Func<int,int,int>) (x:int) (y:int) = f.Invoke(x, y)
 #endif
 
-let equal (expected: 'T) (actual: 'T) =
+let equal (expected: 'T) (actual: 'T): unit =
     #if FABLE_COMPILER
     Assert.AreEqual(expected, actual)
     #else
