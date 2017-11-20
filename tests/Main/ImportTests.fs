@@ -138,6 +138,17 @@ let ``Only omitted optional arguments are removed``() = // See #231, #640
     x.Foo1(5,"3") |> equal 2
     x.Foo2(5,Some "3") |> equal 2
     x.Foo3(5, "3") |> equal 2
+
+let square : int -> int = JsInterop.importMember "./js/foo.js"
+[<Test>]
+let ``Importing curried functions via `importMember` without naming arguments works`` () = // See #1185
+    square 2 |> equal 4
+
+let add : int -> int -> int = JsInterop.importMember "./js/foo.js"
+[<Test>]
+let ``Importing curried functions with multiple arguments via `importMember` without naming arguments works`` () =
+    add 40 2 |> equal 42
+
 #endif
 
 [<Test>]

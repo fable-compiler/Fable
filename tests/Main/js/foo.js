@@ -8,6 +8,14 @@ module.exports = {
         return f(x, y);
     },
 
+    square: function(x) {
+        return x * x;
+    },
+
+    add: function(x, y) {
+        return x + y;
+    },
+
     MyClass: class {
         constructor(v) {
             this.__value = typeof v === "string" ? v : "haha";
