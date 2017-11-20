@@ -1108,7 +1108,11 @@ let private addMethodToDeclInfo com ctx (declInfo: DeclInfo) range import meth a
                 // When a member returns a function, there are issues with the uncurrying
                 // optimization when calling & applying at once (See #1041, #1154)
                 if isBodyMultiArgFunction then
-                    let body = transformExpr com ctx body
+                    let body =
+                        match transformExpr com ctx body with
+                        | Fable.Value (Fable.ImportRef (Naming.placeholder, path, importKind)) ->
+                            Fable.Value (Fable.ImportRef (meth.DisplayName, path, importKind))
+                        | body -> body
                     let body = makeDynamicCurriedLambda body.Range body.Type body
                     getMemberKind meth, args, extraArgs, body
                 else
