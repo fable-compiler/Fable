@@ -1,3 +1,11 @@
+### 1.3.1
+
+* Add warning for point-free style function declarations
+* Fix #1238: Inline overloaded methods and "this" double eval
+* Fix #1236 #1237: Char.IsUpper, Char.IsDigit and friends
+* Fix #1234: Local inline lambdas work standalone
+* Fix #1185: Transform importMember expressions for functions
+
 ### 1.3.0
 
 * Optimize watch compilations
