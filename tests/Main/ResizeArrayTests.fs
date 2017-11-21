@@ -165,7 +165,7 @@ let ``ResizeArray.RemoveRange works``() =
     xs.RemoveRange(1, 2) // [1;2;3;4;5] -> [1;4;5]
     equal 1 xs.[0]
     equal 4 xs.[1]
-    equal 5 xs.[1]
+    equal 5 xs.[2]
 
 [<Test>]
 let ``ResizeArray.RemoveAt works``() =
