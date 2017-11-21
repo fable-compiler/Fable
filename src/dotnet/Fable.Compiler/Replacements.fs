@@ -1839,6 +1839,8 @@ module AstPass =
             icall "splice" (c.Value, [args.Head; makeIntConst 0; args.Tail.Head]) |> Some
         | "remove" ->
             ccall "Array" "removeInPlace" [args.Head; c.Value] |> Some
+        | "removeRange" ->
+            icall "splice" (c.Value, args) |> Some
         | "removeAt" ->
             icall "splice" (c.Value, [args.Head; makeIntConst 1]) |> Some
         | "reverse" when kind = Array ->
