@@ -159,6 +159,15 @@ let ``ResizeArray.Remove works``() =
     li.Remove("cd") |> equal false
 
 [<Test>]
+let ``ResizeArray.RemoveRange works``() = 
+    let xs = ResizeArray<int>()
+    for x in [1 .. 5] do xs.Add(x)
+    xs.RemoveRange(1, 2) // [1;2;3;4;5] -> [1;4;5]
+    equal 1 xs.[0]
+    equal 4 xs.[1]
+    equal 5 xs.[1]
+
+[<Test>]
 let ``ResizeArray.RemoveAt works``() =
     let li = ResizeArray<_>()
     li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
