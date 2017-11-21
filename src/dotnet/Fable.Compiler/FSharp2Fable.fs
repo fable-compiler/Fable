@@ -1153,12 +1153,8 @@ let private transformMemberDecl (com: IFableCompiler) ctx (declInfo: DeclInfo)
             |> addWarning com ctx.fileName (Some range)
             addMethodToDeclInfo com ctx declInfo range None meth args body
         else
-            let vars =
-                match args with
-                | [_thisArg]::args when meth.IsInstanceMember -> args
-                | _ -> args
-                |> Seq.collect id |> countRefs body
-            com.AddInlineExpr(meth.FullName, (upcast vars, body))
+            let args = Seq.collect id args |> countRefs body
+            com.AddInlineExpr(fullNameAndArgCount meth, (upcast args, body))
             ctx
     else addMethodToDeclInfo com ctx declInfo range None meth args body
 
@@ -1306,15 +1302,11 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
             let fileName = (getMethLocation meth).FileName |> Path.normalizePath
             if fileName <> currentFile then
                 dependencies.Add(fileName) |> ignore
-            state.GetOrAddInlineExpr(meth.FullName, fun () ->
+            state.GetOrAddInlineExpr(fullNameAndArgCount meth, fun () ->
                 match tryGetMethodArgsAndBody implFiles fileName meth with
                 | Some(args, body) ->
-                    let vars =
-                        match args with
-                        | [_thisArg]::args when meth.IsInstanceMember -> args
-                        | _ -> args
-                        |> Seq.collect id |> countRefs body
-                    (upcast vars, body)
+                    let args = Seq.collect id args |> countRefs body
+                    (upcast args, body)
                 | None ->
                     failwith ("Cannot find inline method " + meth.FullName))
         member fcom.AddInlineExpr(fullName, inlineExpr) =

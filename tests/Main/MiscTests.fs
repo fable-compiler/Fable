@@ -171,6 +171,40 @@ let ``Inline extension methods with this argument work``() = // See #638
     x.Bar2 |> equal "BarBar"
     x.FoofyPlus 3 |> equal "BarBarBarBarBarBar"
 
+let counter =
+    let mutable i = 0
+    fun () ->
+        i <- i + 1
+        i
+
+type Type = {
+    a : int
+    b : int
+    c : int
+    d : int
+    e : int
+}
+  with
+    static member New(n) = {
+        a = n
+        b = n * 2
+        c = n * 3
+        d = n * 4
+        e = counter()  // <== should only be called twice
+      }
+
+    member        this.Method  (v:bool) = { this with a = this.a * if v then 2 else 3 }
+    member inline this.MethodI (v:bool) = { this with a = this.a * if v then 2 else 3 }
+    member        this.Method  ()       = { this with a = this.a * 10 }
+    member inline this.MethodI ()       = { this with a = this.a * 10 }
+
+[<Test>]
+let ``Inline overloaded methods work``() =
+  let res1 = Type.New(5).Method(false).Method(true).Method()
+  let res2 = Type.New(5).MethodI(false).MethodI(true).MethodI()
+  equal res1.a res2.a
+  counter() |> equal 3
+
 [<Test>]
 let ``Calls to core lib from a subfolder work``() =
     Util2.Helper.Format("{0} + {0} = {1}", 2, 4)

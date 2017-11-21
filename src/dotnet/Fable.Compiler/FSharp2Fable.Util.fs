@@ -243,13 +243,14 @@ module Helpers =
              |> Option.map (sanitizeEntityFullName >> Fable.InterfaceLoc)
              |> defaultArg <| Fable.InstanceLoc
 
+    let getArgCount (meth: FSharpMemberOrFunctionOrValue) =
+        let args = meth.CurriedParameterGroups
+        if args.Count = 0 then 0
+        elif args.Count = 1 && args.[0].Count = 1 then
+            if isUnit args.[0].[0].Type then 0 else 1
+        else args |> Seq.sumBy (fun li -> li.Count)
+
     let getMemberKind (meth: FSharpMemberOrFunctionOrValue) =
-        let getArgCount (meth: FSharpMemberOrFunctionOrValue) =
-            let args = meth.CurriedParameterGroups
-            if args.Count = 0 then 0
-            elif args.Count = 1 && args.[0].Count = 1 then
-                if isUnit args.[0].[0].Type then 0 else 1
-            else args |> Seq.sumBy (fun li -> li.Count)
         let ent = tryEnclosingEntity meth
         // `.EnclosingEntity` only fails for compiler generated module members
         if ent.IsNone || (ent.Value.IsFSharpModule) then
@@ -262,6 +263,9 @@ module Helpers =
         elif meth.IsPropertyGetterMethod && (getArgCount meth) = 0 then Fable.Getter
         elif meth.IsPropertySetterMethod && (getArgCount meth) = 1 then Fable.Setter
         else Fable.Method
+
+    let fullNameAndArgCount (meth: FSharpMemberOrFunctionOrValue) =
+        meth.FullName + "(" + (getArgCount meth |> string) + ")"
 
     let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
         let isInterface =
@@ -1319,28 +1323,36 @@ module Util =
             // the generation of too many closures
             | Fable.Apply(_,_,Fable.ApplyGet,_,_) -> false
             | _ -> true
+        let addCallee ctx callee replacement =
+            match callee with
+            | Some callee ->
+                let callee = defaultArg replacement callee
+                {ctx with thisAvailability=ThisCaptured(None, [None, callee])}
+            | None -> ctx
         if not(isInline meth)
         then None
         else
-            let vars, fsExpr = com.GetInlineExpr meth
-            let ctx, assignments =
-                ((ctx, []), vars, args)
-                |||> Seq.fold2 (fun (ctx, assignments) var arg ->
+            let argIdents, fsExpr = com.GetInlineExpr meth
+            let args = match callee with Some c -> c::args | None -> args
+            let ctx, assignments, _ =
+                ((ctx, [], 0), argIdents, args)
+                |||> Seq.fold2 (fun (ctx, assignments, idx) (KeyValue(argIdent, refCount)) arg ->
                     // If an expression is referenced more than once, assign it
                     // to a temp var to prevent multiple evaluations
-                    if var.Value > 1 && hasDoubleEvalRisk arg then
+                    if refCount > 1 && hasDoubleEvalRisk arg then
                         let tmpVar = com.GetUniqueVar() |> makeIdent
+                        let tmpVarExp = Fable.Value(Fable.IdentValue tmpVar)
                         let assign = Fable.VarDeclaration(tmpVar, arg, false)
-                        let scope = (Some var.Key, Fable.Value(Fable.IdentValue tmpVar))::ctx.scope
-                        { ctx with scope = scope }, (assign::assignments)
+                        let ctx = { ctx with scope = (Some argIdent, tmpVarExp)::ctx.scope }
+                        let ctx = if idx = 0 then addCallee ctx callee (Some tmpVarExp) else ctx
+                        ctx, (assign::assignments), (idx + 1)
                     else
-                        { ctx with scope = (Some var.Key, arg)::ctx.scope }, assignments
+                        let ctx = { ctx with scope = (Some argIdent, arg)::ctx.scope }
+                        let ctx = if idx = 0 then addCallee ctx callee None else ctx
+                        ctx, assignments, (idx + 1)
                 )
             let typeArgs = matchGenericParams com ctx meth (typArgs, methTypArgs)
-            let ctx =
-                match callee with
-                | Some callee -> {ctx with thisAvailability=ThisCaptured(None, [None, callee]); typeArgs=typeArgs}
-                | None -> {ctx with typeArgs=typeArgs}
+            let ctx = {ctx with typeArgs=typeArgs}
             let expr = com.Transform ctx fsExpr
             if List.isEmpty assignments
             then Some expr
