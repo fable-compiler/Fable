@@ -1,3 +1,7 @@
+### 1.1.5
+
+* Make dependencies an opt-out with `extra.ignoreDependencies`
+
 ### 1.1.4
 
 * Add dependencies for files other than .fsproj

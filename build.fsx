@@ -133,7 +133,7 @@ let runTestsJS () =
     Yarn.run CWD "mocha" "./build/tests/bundle.js"
 
 let quickTest() =
-    run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll npm-run rollup"
+    run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll yarn-run rollup"
     run CWD "node" "src/tools/temp/QuickTest.js"
 
 Target "QuickTest" quickTest

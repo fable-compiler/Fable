@@ -58,7 +58,7 @@ var Loader = function(buffer) {
         fableCore: or(opts.fableCore, null),
         typedArrays: or(opts.typedArrays, true),
         clampByteArrays: or(opts.clampByteArrays, false),
-        extra: opts.extra
+        extra: opts.extra || {}
     };
 
     fableUtils.client.send(port, JSON.stringify(msg)).then(r => {
@@ -70,7 +70,7 @@ var Loader = function(buffer) {
             try {
                 // Fable now returns all file projects as `.dependencies` for .fsproj
                 // If we add them to Webpack, .fsproj will be recompiled every time
-                if (!msg.path.endsWith(".fsproj")) {
+                if (!msg.path.endsWith(".fsproj") && !msg.extra.ignoreDependencies) {
                     ensureArray(data.dependencies).forEach(path => {
                         this.addDependency(path)
                     });
