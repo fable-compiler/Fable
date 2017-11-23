@@ -1,3 +1,11 @@
+### 1.3.2
+
+* Don't pass dependencies to JS clients (see #1241)
+* Recompile edited and dependent files in watch compilations and send errors (if any) to client
+* Remove point-free warning for now as it was too noisy (see #1244)
+* Added List.RemoveRange (PR #1243 by Zaid-Ajaj)
+* Built with dotnet SDK 2.0.3 on Windows
+
 ### 1.3.1
 
 * Add warning for point-free style function declarations
