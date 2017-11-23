@@ -27,17 +27,24 @@ type PathRef =
     | FilePath of string
     | NonFilePath of string
 
+type FileInfo =
+    { mutable SentToClient: bool
+      mutable Dependencies: string[] }
+
 type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharpImplementationFileContents>,
-             errors: FSharpErrorInfo array,  fableCore: PathRef, isWatchCompile: bool) =
+             errors: FSharpErrorInfo array, dependencies: Map<string, string[]>, fableCore: PathRef, isWatchCompile: bool) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let normalizedFiles =
-        let dic = Dictionary()
-        for f in projectOptions.SourceFiles do
-            dic.Add(Path.normalizeFullPath f, false)
-        dic
+        projectOptions.SourceFiles
+        |> Seq.map (fun f ->
+            let path = Path.normalizeFullPath f
+            match Map.tryFind path dependencies with
+            | Some deps -> path, { SentToClient=false; Dependencies=deps }
+            | None -> path, { SentToClient=false; Dependencies=[||] })
+        |> Map
     let rootModules =
         implFiles
         |> Map.filter (fun file _ -> not <| file.EndsWith("fsi"))
@@ -51,10 +58,29 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
     member __.ProjectFile = projectFile
     member __.ContainsFile(sourceFile) =
         normalizedFiles.ContainsKey(sourceFile)
-    member __.IsCompiled(sourceFile) =
-        normalizedFiles.[sourceFile]
-    member __.MarkCompiled(sourceFile) =
-        normalizedFiles.[sourceFile] <- true
+    member __.HasSent(sourceFile) =
+        normalizedFiles.[sourceFile].SentToClient
+    member __.MarkSent(sourceFile) =
+        match Map.tryFind sourceFile normalizedFiles with
+        | Some f -> f.SentToClient <- true
+        | None -> ()
+    member __.GetDependencies() =
+        normalizedFiles |> Map.map (fun _ info -> info.Dependencies)
+    member __.AddDependencies(sourceFile, dependencies) =
+        match Map.tryFind sourceFile normalizedFiles with
+        | Some f -> f.Dependencies <- Array.map Path.normalizePath dependencies
+        | None -> ()
+    member __.GetFilesAndDependent(files: seq<string>) =
+        let files = set files
+        let dependentFiles =
+            normalizedFiles |> Seq.filter (fun kv ->
+                kv.Value.Dependencies |> Seq.exists files.Contains)
+            |> Seq.map (fun kv -> kv.Key) |> set
+        let filesAndDependent = Set.union files dependentFiles
+        normalizedFiles |> Seq.choose (fun kv ->
+            if filesAndDependent.Contains(kv.Key)
+            then Some kv.Key else None)
+        |> Seq.toArray
     interface ICompilerState with
         member this.ProjectFile = projectOptions.ProjectFileName
         member this.GetRootModule(fileName) =

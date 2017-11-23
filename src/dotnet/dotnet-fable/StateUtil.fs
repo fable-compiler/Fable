@@ -56,10 +56,10 @@ let tryGetOption name (opts: IDictionary<string, string>) =
 
 let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.Message) projFile =
     let isWatchCompile = Array.length dirtyFiles > 0
-    let projectOptions, fableCore =
+    let projectOptions, fableCore, deps =
         match prevProject with
         | Some prevProject ->
-            prevProject.ProjectOptions, prevProject.FableCore
+            prevProject.ProjectOptions, prevProject.FableCore, prevProject.GetDependencies()
         | None ->
             let projectOptions, fableCore =
                 getFullProjectOpts checker msg projFile
@@ -68,7 +68,7 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
                 let opts = projectOptions.OtherOptions |> String.concat "\n   "
                 let files = projectOptions.SourceFiles |> String.concat "\n   "
                 sprintf "F# PROJECT: %s\n   %s\n   %s" proj opts files)
-            projectOptions, fableCore
+            projectOptions, fableCore, Map.empty
     let implFiles, errors =
         match prevProject with
         | Some prevProject when isWatchCompile ->
@@ -107,7 +107,7 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
                 checkedProject.AssemblyContents.ImplementationFiles
                 |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
             implFiles, checkedProject.Errors
-    Project(projectOptions, implFiles, errors, fableCore, isWatchCompile)
+    Project(projectOptions, implFiles, errors, deps, fableCore, isWatchCompile)
 
 let toJson =
     let jsonSettings =
@@ -128,13 +128,13 @@ let sendError replyChannel (ex: Exception) =
 let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
     let getDirtyFiles (project: Project) sourceFile =
         let isDirty = IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp
-        let isWatchCompile = project.IsWatchCompile || project.IsCompiled(sourceFile)
         // In watch compilations, always recompile the requested file in case it has non-solved errors
-        if isDirty || isWatchCompile then
+        if isDirty || project.HasSent(sourceFile) then
             project.ProjectOptions.SourceFiles
             |> Array.filter (fun file ->
                 let file = Path.normalizePath file
                 file = sourceFile || IO.File.GetLastWriteTime(file) > project.TimeStamp)
+            |> project.GetFilesAndDependent
         else [||]
     let addOrUpdateProject state (project: Project) =
         let state = Map.add project.ProjectFile project state
@@ -147,7 +147,6 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
                 createProject checker dirtyFiles (Some project) msg project.ProjectFile
                 |> addOrUpdateProject state |> Some
             else
-                project.MarkCompiled(sourceFile)
                 Some(false, state, project)
         match msg.extra.TryGetValue("projectFile") with
         | true, projFile ->
@@ -187,18 +186,22 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
     | _ -> failwithf "Not an F# source file: %s" msg.path
 
 let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFilter: string option) =
-    for er in errors do
+    let errors =
         match fileFilter with
-        | Some file when (Path.normalizePath er.FileName) <> file -> ()
-        | _ ->
-            let severity =
-                match er.Severity with
-                | FSharpErrorSeverity.Warning -> Severity.Warning
-                | FSharpErrorSeverity.Error -> Severity.Error
-            let range =
-                { start={ line=er.StartLineAlternate; column=er.StartColumn}
-                  ``end``={ line=er.EndLineAlternate; column=er.EndColumn} }
-            com.AddLog(er.Message, severity, range, er.FileName, "FSHARP")
+        | Some file -> errors |> Array.filter (fun er -> (Path.normalizePath er.FileName) = file)
+        | None -> errors
+    errors |> Seq.map (fun er ->
+        let severity =
+            match er.Severity with
+            | FSharpErrorSeverity.Warning -> Severity.Warning
+            | FSharpErrorSeverity.Error -> Severity.Error
+        let range =
+            { start={ line=er.StartLineAlternate; column=er.StartColumn}
+              ``end``={ line=er.EndLineAlternate; column=er.EndColumn} }
+        er.FileName, range, severity, er.Message)
+    |> Seq.distinct // Sometimes errors are duplicated
+    |> Seq.iter (fun (fileName, range, severity, msg) ->
+        com.AddLog(msg, severity, range, fileName, "FSHARP"))
 
 let compile (com: Compiler) (project: Project) (filePath: string) =
     let babel =
@@ -207,12 +210,14 @@ let compile (com: Compiler) (project: Project) (filePath: string) =
         else
             FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles filePath
             |> Fable2Babel.Compiler.transformFile com project
-    // Add logs and convert to JSON
-    // If this is the first compilation, add here the F# errors and warnings for the file
+    // If this is the first compilation, add errors to each respective file
     if not project.IsWatchCompile then
         addFSharpErrorLogs com project.Errors (Some filePath)
     let loc = defaultArg babel.loc SourceLocation.Empty
-    Babel.Program(babel.fileName, loc, babel.body, babel.directives, com.ReadAllLogs(), babel.dependencies)
+    project.MarkSent(filePath)
+    // Don't send dependencies to JS client (see #1241)
+    project.AddDependencies(filePath, babel.dependencies)
+    Babel.Program(babel.fileName, loc, babel.body, babel.directives, com.ReadAllLogs())
     |> toJson
 
 type Command = string * (string -> unit)
