@@ -110,18 +110,6 @@ let getBasicCompilerArgs (define: string[]) =
 let getFsprojSourceFiles (projFile: string) =
     let withName s (xs: XElement seq) =
         xs |> Seq.filter (fun x -> x.Name.LocalName = s)
-    let (|SourceFile|Another|) (el: XElement) =
-        match el.Name.LocalName with
-        | "Compile" ->
-            el.Elements() |> withName "Link"
-            |> Seq.tryHead |> function
-            | Some link when link.Value.StartsWith(".") ->
-                SourceFile link.Value
-            | _ ->
-                match el.Attribute(XName.Get "Include") with
-                | null -> Another
-                | att -> SourceFile att.Value
-        | _ -> Another
     let xmlDoc = XDocument.Load(projFile)
     let projDir = Path.GetDirectoryName(projFile) |> Path.normalizePath
     let sourceFiles =

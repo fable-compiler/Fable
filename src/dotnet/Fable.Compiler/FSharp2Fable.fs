@@ -1108,9 +1108,9 @@ let private addMethodToDeclInfo com ctx (declInfo: DeclInfo) range import meth a
                 // When a member returns a function, there are issues with the uncurrying
                 // optimization when calling & applying at once (See #1041, #1154)
                 if isBodyMultiArgFunction then
-                    "Looks like " + meth.FullName + " uses point-free style, this may create "
-                    + "problems in runtime, please declare all arguments explicitly."
-                    |> addWarning com ctx.fileName (Some range)
+                    // "Looks like " + meth.FullName + " uses point-free style, this may create "
+                    // + "problems in runtime, please declare all arguments explicitly."
+                    // |> addWarning com ctx.fileName (Some range)
                     let body =
                         match transformExpr com ctx body with
                         | Fable.Value (Fable.ImportRef (Naming.placeholder, path, importKind)) ->

@@ -39,7 +39,7 @@ let authors = ["Alfonso García-Caro"]
 let gitOwner = "fable-compiler"
 let gitHome = "https://github.com/" + gitOwner
 
-let dotnetcliVersion = "2.0.2"
+let dotnetcliVersion = "2.0.3"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let CWD = __SOURCE_DIRECTORY__

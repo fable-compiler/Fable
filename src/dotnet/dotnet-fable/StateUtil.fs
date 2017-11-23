@@ -139,7 +139,7 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
     let addOrUpdateProject state (project: Project) =
         let state = Map.add project.ProjectFile project state
         true, state, project
-    let tryFindAndUpdateProject state ext sourceFile =
+    let tryFindAndUpdateProject state sourceFile =
         let checkWatchCompilation project sourceFile =
             // Check if there are dirty files
             let dirtyFiles = getDirtyFiles project sourceFile
@@ -165,20 +165,20 @@ let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
     | ".fsproj" ->
         createProject checker [||] None msg msg.path
         |> addOrUpdateProject state
-    | ".fsx" as ext ->
+    | ".fsx" ->
         if Map.containsKey msg.path state then
             // When a script is modified, restart the project with new options
             // (to check for new references, loaded projects, etc.)
             createProject checker [||] None msg msg.path
             |> addOrUpdateProject state
         else
-            match tryFindAndUpdateProject state ext msg.path with
+            match tryFindAndUpdateProject state msg.path with
             | Some stateAndProject -> stateAndProject
             | None ->
                 createProject checker [||] None msg msg.path
                 |> addOrUpdateProject state
-    | ".fs" as ext ->
-        match tryFindAndUpdateProject state ext msg.path with
+    | ".fs" ->
+        match tryFindAndUpdateProject state msg.path with
         | Some stateAndProject -> stateAndProject
         | None ->
             state |> Map.map (fun _ p -> p.ProjectFile) |> Seq.toList
