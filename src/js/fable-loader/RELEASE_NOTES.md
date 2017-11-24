@@ -1,3 +1,7 @@
+### 1.1.6
+
+* Ignore dependencies
+
 ### 1.1.5
 
 * Make dependencies an opt-out with `extra.ignoreDependencies`
