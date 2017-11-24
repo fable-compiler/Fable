@@ -261,3 +261,12 @@ let ``Regex.Replace with evaluator, limit and offset works``() =
 let ``Replacing with $0 works``() = // See #1155
     let s = Regex.Replace("1234567890", ".{2}", "$0-")
     equal "12-34-56-78-90-" s
+
+// See #838
+[<Test>]
+let ``Group values are correct and empty when not being matched``() = 
+    Regex.Matches("\n\n\n", @"(?:([^\n\r]+)|\r\n|\n\r|\n|\r)") 
+    |> Seq.cast<Match> 
+    |> Seq.map (fun m -> m.Groups.[1].Value)
+    |> Seq.forall (fun value -> value = "")
+    |> equal true 

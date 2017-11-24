@@ -1260,7 +1260,11 @@ module AstPass =
                  |> addErrorAndReturnNull com i.fileName i.range |> Some
         | "value" ->
             if isGroup
-            then i.callee.Value |> wrap i.returnType |> Some
+            then 
+                i.callee.Value 
+                |> wrap i.returnType
+                |> fun value -> emit i "($0 || \"\")" [value] 
+                |> Some
             else propInt 0 i.callee.Value |> Some
         | "length" ->
             if isGroup
