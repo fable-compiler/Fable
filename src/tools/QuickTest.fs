@@ -28,3 +28,29 @@ let equal expected actual =
 
 // You'll have to run your test manually, sorry!
 // ``My Test``()
+
+let add a b = a + b
+let add3 a b c = a + b + c
+
+let apply f x =
+    match f, x with
+    | Some f, Some x -> Some (f x)
+    | _ -> None
+
+// let (<!>) mapping option = Option.map mapping option
+let (<!>) = Option.map
+
+// let (<*>) f x = apply f x
+let (<*>) = apply
+
+try
+    let (Some x) = add <!> Some 1 <*> Some 2
+    printfn "add: OK (%i)" x
+with
+| _ -> printfn "add: Error"
+
+try
+    let (Some x) = add3 <!> Some 1 <*> Some 2 <*> Some 3
+    printfn "add3: OK (%i)" x
+with
+| _ -> printfn "add3: Error"

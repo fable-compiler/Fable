@@ -1066,6 +1066,25 @@ let private tryGetImport com (ctx: Context) r (atts: #seq<FSharpAttribute>) =
             else None)
     with _ -> None
 
+// When a member returns a function, there are issues with the uncurrying
+// optimization when calling & applying at once (See #1041, #1154)
+let private (|MultiArgFunction|_|) com (ctx: Context) r (meth: FSharpMemberOrFunctionOrValue) (body: FSharpExpr) (fableBody: Fable.Expr) =
+    let funcBodyArgs =
+        if body.Type.IsFunctionType
+        then getFunctionGenericArgs [] ctx.typeArgs true body.Type |> List.length
+        else 0
+    if funcBodyArgs > 0 then
+        match fableBody with
+        | Fable.Value(Fable.Lambda _) when meth.CurriedParameterGroups.Count < funcBodyArgs ->
+            "Looks like " + meth.FullName + " uses point-free style, this may create "
+            + "problems in runtime, please declare all arguments explicitly."
+            |> addWarning com ctx.fileName (Some r)
+        | _ -> ()
+        if funcBodyArgs > 1
+        then makeDynamicCurriedLambda fableBody.Range fableBody.Type fableBody |> Some
+        else None
+    else None
+
 let private addMethodToDeclInfo com ctx (declInfo: DeclInfo) range import meth args (body: FSharpExpr) =
     let memberName = sanitizeMethodName meth
     let memberLoc = getMemberLoc meth
@@ -1082,11 +1101,9 @@ let private addMethodToDeclInfo com ctx (declInfo: DeclInfo) range import meth a
         | Some(selector, path) ->
             Fable.Field, [], [], makeImport selector path
         | None ->
-            let info =
-                { isInstance = meth.IsInstanceMember
-                ; passGenerics = hasPassGenericsAtt com ctx meth }
-            let ctx, _, args, extraArgs =
-                bindMemberArgs com ctx info args
+            let info = { isInstance = meth.IsInstanceMember
+                         passGenerics = hasPassGenericsAtt com ctx meth }
+            let ctx, _, args, extraArgs = bindMemberArgs com ctx info args
             let ctx =
                 if memberLoc <> Fable.StaticLoc
                 then { ctx with thisAvailability = ThisAvailable }
@@ -1101,36 +1118,20 @@ let private addMethodToDeclInfo com ctx (declInfo: DeclInfo) range import meth a
                     | _ -> transformExpr com ctx body
                 Fable.Constructor, args, extraArgs, body
             else
-                let isBodyMultiArgFunction =
-                    if body.Type.IsFunctionType
-                    then getFunctionGenericArgs [] ctx.typeArgs true body.Type |> List.isMultiple
-                    else false
-                // When a member returns a function, there are issues with the uncurrying
-                // optimization when calling & applying at once (See #1041, #1154)
-                if isBodyMultiArgFunction then
-                    // TODO: This warning is too noisy, has to be restricted to cases affected by #1199
-                    // "Looks like " + meth.FullName + " uses point-free style, this may create "
-                    // + "problems in runtime, please declare all arguments explicitly."
-                    // |> addWarning com ctx.fileName (Some range)
-                    let body =
-                        match transformExpr com ctx body with
-                        | Fable.Value (Fable.ImportRef (Naming.placeholder, path, importKind)) ->
-                            Fable.Value (Fable.ImportRef (meth.DisplayName, path, importKind))
-                        | body -> body
-                    let body = makeDynamicCurriedLambda body.Range body.Type body
-                    getMemberKind meth, args, extraArgs, body
-                else
-                    match transformExpr com ctx body with
-                    // Accept import expressions used instead of attributes, for example:
-                    // let foo x y = import "foo" "myLib"
-                    | Fable.Value(Fable.ImportRef(selector, path, importKind)) as body ->
-                        let body =
-                            if selector = Naming.placeholder
-                            then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
-                            else body
-                        Fable.Field, [], [], body
-                    | body ->
-                        getMemberKind meth, args, extraArgs, body
+                let fableBody = transformExpr com ctx body
+                match fableBody with
+                // Accept import expressions used instead of attributes, for example:
+                // let foo x y = import "foo" "myLib"
+                | Fable.Value(Fable.ImportRef(selector, path, importKind)) ->
+                    let fableBody =
+                        if selector = Naming.placeholder
+                        then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
+                        else fableBody
+                    Fable.Field, [], [], fableBody
+                | MultiArgFunction com ctx range meth body fableBody ->
+                    getMemberKind meth, args, extraArgs, fableBody
+                | fableBody ->
+                    getMemberKind meth, args, extraArgs, fableBody
     let entMember =
         let argTypes = List.map Fable.Ident.getType args
         let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
