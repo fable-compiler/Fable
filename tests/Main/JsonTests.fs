@@ -266,6 +266,23 @@ let ``Tuple`` () =
     let result : TupleJson = ofJson json
     result.a = (1, 2) |> equal true
 
+
+type OptionalTuple =
+    { tuple: (string * string) option }
+
+[<Test>]
+let ``Optional Tuple in records`` () =
+
+    let json1 = """ { "tuple": ["a", "b"] } """
+    let result1 : OptionalTuple = ofJson json1
+    let json2 = """ { "tuple": null } """
+    let result2 : OptionalTuple = ofJson json2
+    match result1.tuple, result2.tuple with
+    | Some v, None -> v
+    | _ -> ("", "")
+    |> equal ("a", "b")
+
+
 type TupleComplexJson =
     { a: int * Child }
 
