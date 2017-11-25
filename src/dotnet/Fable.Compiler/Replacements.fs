@@ -964,8 +964,8 @@ module AstPass =
         | "toUpperInvariant" -> icall i "toUpperCase" |> Some
         | "toLower" -> icall i "toLocaleLowerCase" |> Some
         | "toLowerInvariant" -> icall i "toLowerCase" |> Some
-        | "isLetter" | "isNumber" | "isDigit" 
-        | "isLetterOrDigit" | "isWhiteSpace" 
+        | "isLetter" | "isNumber" | "isDigit"
+        | "isLetterOrDigit" | "isWhiteSpace"
         | "isUpper" | "isLower" ->
             let methName =
                 match i.methodName with
@@ -1268,11 +1268,10 @@ module AstPass =
                  |> addErrorAndReturnNull com i.fileName i.range |> Some
         | "value" ->
             if isGroup
-            then 
-                i.callee.Value 
-                |> wrap i.returnType
-                |> fun value -> emit i "($0 || \"\")" [value] 
-                |> Some
+            then
+                let value = wrap i.returnType i.callee.Value
+                // In JS Regex group values can be undefined, ensure they're empty strings #838
+                makeLogOp i.range [value; makeStrConst ""] LogicalOr |> Some
             else propInt 0 i.callee.Value |> Some
         | "length" ->
             if isGroup
