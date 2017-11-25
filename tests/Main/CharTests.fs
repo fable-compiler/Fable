@@ -84,3 +84,15 @@ let ``Char.IsLower with two args works``() =
     let str = "Ab2"
     equal false (Char.IsLower(str,0))
     equal true  (Char.IsLower(str,1))
+
+[<Test>]
+let ``Char.IsWhitespace works``() = 
+    equal true (Char.IsWhiteSpace(' '))
+    equal true (Char.IsWhiteSpace('\n'))
+    equal true (Char.IsWhiteSpace('\t'))
+
+[<Test>]
+let ``Char.IsWhitespace works with two args``() = 
+    let input = " \r"
+    equal true (Char.IsWhiteSpace(input, 0))
+    equal true (Char.IsWhiteSpace(input, 1))

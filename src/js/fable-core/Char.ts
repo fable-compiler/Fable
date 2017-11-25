@@ -23,6 +23,6 @@ export function isLetterOrDigit(input: string) {
         (input.toLowerCase() !== input.toUpperCase() || /\d/.test(input));
 }
 
-export function isWhitespace(input: string) {
+export function isWhiteSpace(input: string) {
     return isChar(input) && /\s/.test(input);
 }
