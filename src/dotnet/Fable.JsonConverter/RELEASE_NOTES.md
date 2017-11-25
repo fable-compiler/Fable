@@ -1,3 +1,7 @@
+### 1.0.3
+
+* Fix optional tuple in record raise errors for jsonConverter #1252
+
 ### 1.0.2
 
 * Fix #1104: JSON serialization of Long and BigInt
