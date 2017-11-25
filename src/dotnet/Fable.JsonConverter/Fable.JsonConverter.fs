@@ -237,6 +237,7 @@ type JsonConverter() =
             | JsonToken.StartArray ->
                 let values = readElements(reader, FSharpType.GetTupleElements(t), serializer)
                 FSharpValue.MakeTuple(values |> List.toArray, t)
+            | JsonToken.Null -> null // {"tuple": null}
             | _ -> failwith "invalid token"
         | true, Kind.PojoDU ->
             let dic = serializer.Deserialize(reader, typeof<Dictionary<string,obj>>) :?> Dictionary<string,obj>
