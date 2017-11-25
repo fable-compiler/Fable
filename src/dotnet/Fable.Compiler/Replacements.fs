@@ -776,6 +776,10 @@ module AstPass =
         | "printFormatToString" ->
             ccall i "String" "toText" i.args |> Some
         | "printFormatLine" -> ccall i "String" "toConsole" i.args |> Some
+        | "printFormatToTextWriter"
+        | "printFormatLineToTextWriter" ->
+            // addWarning com i.fileName i.range "fprintfn will behave as printfn"
+            ccall i "String" "toConsole" i.args.Tail |> Some
         | "printFormat" ->
             // addWarning com i.fileName i.range "printf will behave as printfn"
             ccall i "String" "toConsole" i.args |> Some
@@ -1175,6 +1179,10 @@ module AstPass =
 
     let console com (i: Fable.ApplyInfo) =
         match i.methodName with
+        | "out" ->
+            match i.methodKind with
+            | Fable.Getter _ -> Fable.Null |> Fable.Value |> Some
+            | _ -> None
         | "write" ->
             addWarning com i.fileName i.range "Write will behave as WriteLine"
             log com i |> Some
@@ -1326,6 +1334,9 @@ module AstPass =
         | "createInstance", (None, _) ->
             let typRef, args = resolveTypeRef com i false i.methodTypeArgs.Head, []
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
+        | "rangeInt32", (None, args) ->
+            CoreLibCall("Seq", Some "rangeStep", false, args)
+            |> makeCall i.range i.returnType |> Some
         | _ -> None
 
     let activator com (i: Fable.ApplyInfo) =

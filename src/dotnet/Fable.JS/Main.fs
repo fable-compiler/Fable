@@ -46,7 +46,8 @@ let compileAst (com: Compiler) (checkedProject: FSharpCheckProjectResults) fileN
     let implFiles = checkedProject.AssemblyContents.ImplementationFiles
                     |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
     let errors = checkedProject.Errors
-    let project = Project(projectOptions, implFiles, errors, fableCore, isWatchCompile=false)
+    let deps = Map.empty
+    let project = Project(projectOptions, implFiles, errors, deps, fableCore, isWatchCompile=false)
 
     let file: Babel.Program =
         FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles fileName
