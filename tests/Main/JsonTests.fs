@@ -251,8 +251,8 @@ let ``Option Wrapped Some`` () =
     let a = createSome 1
     let json1 = toJson <| { a=a }
     equal (json1.Replace(" ", "")) """{"a":1}"""
-    let result1 : int option = ofJson json1
-    match result1 with
+    let result1 : OptionJson = ofJson json1
+    match result1.a with
     | Some v -> v
     | _ -> -1
     |> equal 1

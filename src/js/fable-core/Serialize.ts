@@ -5,6 +5,7 @@ import List from "./List";
 import { ofArray as listOfArray } from "./List";
 import { create as mapCreate } from "./Map";
 import FableMap from "./Map";
+import { getValue, Some } from "./Option";
 import { getTypeFullName, resolveGeneric } from "./Reflection";
 import { fold } from "./Seq";
 import FableSet from "./Set";
@@ -38,6 +39,8 @@ export function deflate(v: any): any {
         o[stringKeys ? kv[0] : toJson(kv[0])] = deflateValue(kv[1]);
         return o;
       }, {}, v);
+    } else if (v instanceof Some) {
+      return deflateValue(getValue(v, true));
     }
     const reflectionInfo = typeof v[FableSymbol.reflection] === "function" ? v[FableSymbol.reflection]() : {};
     if (reflectionInfo.properties) {
