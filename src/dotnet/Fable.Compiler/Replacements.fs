@@ -2229,7 +2229,7 @@ module AstPass =
         match appInfo.callee, appInfo.methodName, appInfo.args with
         | Some callee, "hasFlag", [arg] -> 
             // x.HasFlags(y) => (int x) ||| (int y) <> 0 
-            makeBinOp appInfo.range Fable.Boolean [callee; arg] BinaryOrBitwise
+            makeBinOp appInfo.range (Fable.Number Int32) [callee; arg] BinaryOrBitwise
             |> fun bitwise -> makeEqOp appInfo.range [bitwise; makeIntConst 0] BinaryUnequal
             |> Some
         | _ -> None
