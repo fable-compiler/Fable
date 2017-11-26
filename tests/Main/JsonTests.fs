@@ -245,6 +245,18 @@ let ``Option Some`` () =
     | _ -> -1
     |> equal 1
 
+[<Test>]
+let ``Option Wrapped Some`` () =
+    let createSome (a: 'T) = Some a
+    let a = createSome 1
+    let json1 = toJson <| { a=a }
+    equal (json1.Replace(" ", "")) """{"a":1}"""
+    let result1 : int option = ofJson json1
+    match result1 with
+    | Some v -> v
+    | _ -> -1
+    |> equal 1
+
 type ComplexOptionJson =
     { a: Child option }
 
