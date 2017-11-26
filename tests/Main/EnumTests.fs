@@ -11,6 +11,12 @@ type Fruits =
 | Banana = 2
 | Coconut = 3
 
+
+[<Test>]
+let ``Enum.HasFlag works``() = 
+    let value = Fruits.Apple
+    equal true (value.HasFlag Fruits.Apple)
+
 [<Test>]
 let ``Enum operator = works``() =
     let a = Fruits.Apple

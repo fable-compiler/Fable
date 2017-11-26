@@ -2225,6 +2225,15 @@ module AstPass =
             asyncMeth "catchAsync" info.args
         | _ -> None
 
+    let enums (com: ICompiler) (appInfo: Fable.ApplyInfo) = 
+        match appInfo.callee, appInfo.methodName, appInfo.args with
+        | Some callee, "hasFlag", [arg] -> 
+            // x.HasFlags(y) => (int x) ||| (int y) <> 0 
+            makeBinOp appInfo.range Fable.Boolean [callee; arg] BinaryOrBitwise
+            |> fun bitwise -> makeEqOp appInfo.range [bitwise; makeIntConst 0] BinaryUnequal
+            |> Some
+        | _ -> None
+    
     let bigint (com: ICompiler) (i: Fable.ApplyInfo) =
         match i.callee, i.methodName with
         | Some callee, meth -> icall i meth |> Some
@@ -2308,6 +2317,7 @@ module AstPass =
         | "System.Object" -> objects com info
         | "System.Timers.ElapsedEventArgs" -> info.callee // only signalTime is available here
         | "System.Char" -> chars com info
+        | "System.Enum" -> enums com info 
         | "System.String"
         | "Microsoft.FSharp.Core.StringModule" -> strings com info
         | "Microsoft.FSharp.Core.PrintfModule"
