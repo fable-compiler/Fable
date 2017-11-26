@@ -1069,13 +1069,18 @@ let private tryGetImport com (ctx: Context) r (atts: #seq<FSharpAttribute>) =
 // When a member returns a function, there are issues with the uncurrying
 // optimization when calling & applying at once (See #1041, #1154)
 let private (|MultiArgFunction|_|) com (ctx: Context) r (meth: FSharpMemberOrFunctionOrValue) (body: FSharpExpr) (fableBody: Fable.Expr) =
+    let hasNoTupledArgs (meth: FSharpMemberOrFunctionOrValue) =
+        (false, meth.CurriedParameterGroups) ||> Seq.fold (fun hasTuple g ->
+            hasTuple || g.Count > 1) |> not
     let funcBodyArgs =
         if body.Type.IsFunctionType
         then getFunctionGenericArgs [] ctx.typeArgs true body.Type |> List.length
         else 0
     if funcBodyArgs > 0 then
         match fableBody with
-        | Fable.Value(Fable.Lambda _) when meth.CurriedParameterGroups.Count < funcBodyArgs ->
+        | Fable.Value(Fable.Lambda _)
+                when meth.CurriedParameterGroups.Count < funcBodyArgs
+                && hasNoTupledArgs meth ->
             "Looks like " + meth.FullName + " uses point-free style, this may create "
             + "problems in runtime, please declare all arguments explicitly."
             |> addWarning com ctx.fileName (Some r)
