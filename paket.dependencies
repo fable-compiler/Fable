@@ -2,7 +2,7 @@ source https://www.nuget.org/api/v2
 
 storage:none
 
-nuget Fable.FCS
+nuget FSharp.Compiler.Service
 nuget FSharp.Core
 nuget Newtonsoft.Json
 nuget System.Runtime.Loader

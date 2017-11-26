@@ -1,4 +1,4 @@
-Fable.FCS
+FSharp.Compiler.Service
 FSharp.Core
 Newtonsoft.Json
 System.Runtime.Loader
