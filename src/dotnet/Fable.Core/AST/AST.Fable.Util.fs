@@ -527,12 +527,17 @@ let rec ensureArity com argTypes args =
         let expectedArgsLength = List.length expectedArgs
         let actualArgsLength = List.length actualArgs
         if expectedArgsLength < actualArgsLength then
-            List.skip expectedArgsLength actualArgs
-            |> List.map (fun t -> makeTypedIdent (com.GetUniqueVar()) t)
-            |> fun innerArgs ->
+            match List.skip expectedArgsLength actualArgs with
+            | [] -> failwith "Unexpected empty innerArgs list"
+            | [innerArgType] ->
+                let innerArgs = [makeTypedIdent (com.GetUniqueVar()) innerArgType]
                 let args = outerArgs@innerArgs |> List.map argIdentToExpr
-                makeApply com f.Range typ f args
+                Apply(f, args, ApplyMeth, typ, f.Range)
                 |> makeLambdaExpr innerArgs
+            | _ ->
+                let argArray = makeArray Fable.Any (List.map argIdentToExpr outerArgs)
+                CoreLibCall("CurriedLambda", Some "partialApply", false, [f; argArray])
+                |> makeCall f.Range typ
         elif expectedArgsLength > actualArgsLength then
             // if Option.isSome f.Range then
             //     com.AddLog("A function with less arguments than expected has been wrapped. " +
@@ -575,14 +580,13 @@ and makeApply com range typ callee (args: Expr list) =
     | Type(Function(argTypes, _, _)) ->
         let argsLength = List.length args
         let argTypesLength = List.length argTypes
-        if argTypesLength < argsLength && argTypesLength >= 1 then
-            let innerArgs = List.take argTypesLength args
-            let outerArgs = List.skip argTypesLength args
-            Apply(callee, ensureArity com argTypes innerArgs, ApplyMeth,
-                    Function(List.map Expr.getType outerArgs, typ, true), range)
-            |> makeApply com range typ <| outerArgs
-        elif argTypesLength > argsLength && argsLength >= 1 then
-            let argArray = makeArray Fable.Any args
+        if (argTypesLength <> argsLength) then
+            let innerArgs, outerArgs =
+                if argTypesLength < argsLength
+                then List.take argTypesLength args, List.skip argTypesLength args
+                else args, []
+            let innerArgs = ensureArity com argTypes innerArgs
+            let argArray = makeArray Fable.Any (innerArgs@outerArgs)
             CoreLibCall("CurriedLambda", Some "partialApply", false, [callee; argArray])
             |> makeCall range typ
         else

@@ -87,14 +87,14 @@ let ``Infix applicative can be generated``() =
              | _ -> failwith "expected Ok"
     equal "1" r'
 
-let inline apply (a:'a) (b:'b) =
+let inline applyInline (a:'a) (b:'b) =
     a <*> b
 
 [<Test>]
 let ``Infix applicative with inline functions can be generated``() =
     let r = Ok 1
     let a = Ok string
-    let r' = match apply a r with
+    let r' = match applyInline a r with
              | Ok x -> x
              | _ -> failwith "expected Ok"
     equal "1" r'
@@ -711,41 +711,50 @@ let ``Partially applied curried lambdas capture this``() =
     let f2 = f 2
     f2 4 |> equal 14
 
-let apply3 f x =
+let apply f x =
     match f, x with
     | Some f, Some x -> Some (f x)
     | _ -> None
 
 let add3 a b c = a + b + c
+let add4 a b c d = a+b+c+d
 
 module Pointfree =
     let (<!>) = Option.map
-    let (<*>) = apply3
+    let (<*>) = apply
     let x = add3 <!> Some 40 <*> Some 1 <*> Some 1
 
 module Pointful =
     let (<!>) f x = Option.map f x
-    let (<*>) f x = apply3 f x
+    let (<*>) f x = apply f x
     let x = add3 <!> Some 40 <*> Some 1 <*> Some 1
+
+    [<Test>]
+    // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
+    let ``Applying function options works``() =
+      let add1 = add4 <!> Some 1
+      let thenAdd2 = add1 <*> Some 2
+      let thenAdd3 = thenAdd2 <*> Some 3
+      let sum = thenAdd3 <*> Some 4
+      equal (Some 10) sum
 
 [<Test>]
 let ``Point-free and partial application work``() = // See #1199
     equal Pointfree.x Pointful.x
 
-let applyOptions f x =
-  match f, x with
-  | Some f, Some x -> Some (f x)
-  | _ -> None
+module Results =
+    open FSharp.Core
 
-let (<!>) f x = Option.map f x
-let (<*>) f x = applyOptions f x
-let add4 a b c d = a+b+c+d
+    let applyResults (f : Result<_, unit>) (x : Result<_, unit>) =
+        match f, x with
+        | Ok f, Ok x -> Ok (f x)
+        | _ -> Result.Error ()
 
-[<Test>]
-// See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
-let ``Applying function options works``() =
-  let add1 = add4 <!> Some 1
-  let thenAdd2 = add1 <*> Some 2
-  let thenAdd3 = thenAdd2 <*> Some 3
-  let sum = thenAdd3 <*> Some 4
-  equal (Some 10) sum
+    let (<!>) f x = Result.map f x
+    let (<*>) f x = applyResults f x
+
+    [<Test>]
+    // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
+    let ``Applicative operators work with three-argument functions``() =
+        let sum = add3 <!> Ok 1 <*> Ok 2 <*> Ok 3
+        equal (Ok 6) sum
