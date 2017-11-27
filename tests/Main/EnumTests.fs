@@ -9,13 +9,15 @@ open Fable.Tests.Util
 type Fruits =
 | Apple = 1
 | Banana = 2
-| Coconut = 3
+| Coconut = 4
 
 
 [<Test>]
-let ``Enum.HasFlag works``() = 
-    let value = Fruits.Apple
+let ``Enum.HasFlag works``() =
+    let value = Fruits.Apple ||| Fruits.Banana
     equal true (value.HasFlag Fruits.Apple)
+    equal true (value.HasFlag Fruits.Banana)
+    equal false (value.HasFlag Fruits.Coconut)
 
 [<Test>]
 let ``Enum operator = works``() =
@@ -111,13 +113,13 @@ let ``Enum operator >= works``() =
 let ``EnumOfValue works``() =
     EnumOfValue 1 |> equal Fruits.Apple
     EnumOfValue 2 |> equal Fruits.Banana
-    EnumOfValue 3 |> equal Fruits.Coconut
+    EnumOfValue 4 |> equal Fruits.Coconut
 
 [<Test>]
 let ``Enum operator enum works``() =
     enum 1 |> equal Fruits.Apple
     enum 2 |> equal Fruits.Banana
-    enum 3 |> equal Fruits.Coconut
+    enum 4 |> equal Fruits.Coconut
 
 open LanguagePrimitives
 
