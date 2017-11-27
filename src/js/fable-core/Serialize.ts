@@ -298,20 +298,27 @@ function inflatePublic(val: any, genArgs: any): any {
 export { inflatePublic as inflate };
 
 export function ofJson(json: any, genArgs: any): any {
+  function raise(msg: string, err: Error, json: any, targetType: any) {
+    let fullMsg = "Cannot deserialize";
+    if (targetType != null) {
+      fullMsg += " into " + getTypeFullName(targetType);
+    }
+    fullMsg += " - Error (" + msg + "): " + err.message + " - Data: '" + json + "'";
+    throw new Error(fullMsg);
+  }
   let value = null;
+  const targetType = genArgs ? genArgs.T : null;
   try {
     value = JSON.parse(json);
   } catch (e) {
-    let data = json;
-    if (data == null) {
-      data = "<null>";
-    }
-    if (data === "") {
-      data = "<empty>";
-    }
-    throw new Error("Unexpected error when deserializing JSON. Message: " + e + ". Data was: " + data);
+    raise("JSON.parse", e, json, targetType);
   }
-  return inflate(value, genArgs ? genArgs.T : null, "");
+  try {
+    value = inflate(value, targetType, "");
+  } catch (e) {
+    raise("inflate", e, json, targetType);
+  }
+  return value;
 }
 
 // TODO: Dates and types with `toJSON` are not adding the $type field
