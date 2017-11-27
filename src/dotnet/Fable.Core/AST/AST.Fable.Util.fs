@@ -345,13 +345,20 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
         "Cannot type test options or generic parameters"
         |> addErrorAndReturnNull com fileName range
 
-let makeUnionCons cases =
-    let args = [Ident("tag", String); Ident("data", Any)]
+let makeUnionCons() =
+    let tagArg = Ident("tag", Number Int32)
+    let dataArg = Ident("data", Any)
+    let args = [tagArg; dataArg]
     let argTypes = List.map Ident.getType args
-    let setter1 = Set(Value This, Some(makeStrConst "tag"), Value(IdentValue args.[0]), None)
-    let setter2 = Set(Value This, Some(makeStrConst "data"), Value(IdentValue args.[1]), None)
+    let setter1 = Set(Value This, Some(makeStrConst "tag"), Value(IdentValue tagArg), None)
+    let setter2 = Set(Value This, Some(makeStrConst "data"), Value(IdentValue dataArg), None)
     let body = Sequential([setter1; setter2], None)
     MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, argTypes, Any), true, None, args, body, None)
+
+let makeUnionConsNoData() =
+    let tagArg = Ident("tag", Number Int32)
+    let setter1 = Set(Value This, Some(makeStrConst "tag"), Value(IdentValue tagArg), None)
+    MemberDeclaration(Member(".ctor", Constructor, InstanceLoc, [tagArg.Type], Any), true, None, [tagArg], setter1, None)
 
 /// This is necessary when extending built-in JS types and compiling to ES5
 /// See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work
@@ -400,8 +407,24 @@ let makeUnionEqualMethod argType =
     let body = Apply(Value (LogicalOp LogicalOr), [makeEqOp None [this; argValue] BinaryEqualStrict; andOp], ApplyMeth, Boolean, None)
     MemberDeclaration(Member("Equals", Method, InstanceLoc, [arg.Type], Boolean), true, None, [arg], body, None)
 
-let makeRecordEqualMethod argType = makeMeth argType Boolean "Equals" "equalsRecords"
 let makeUnionCompareMethod argType = makeMeth argType (Number Int32) "CompareTo" "compareUnions"
+
+let makeUnionEqualMethodNoData argType =
+    let arg = Ident("other", argType)
+    let equalsArgs = [makeUntypedGet (Value This) "tag"
+                      makeUntypedGet (Value(IdentValue arg)) "tag"]
+    let equalsOp = makeEqOp None equalsArgs BinaryEqualStrict
+    MemberDeclaration(Member("Equals", Method, InstanceLoc, [arg.Type], Boolean), true, None, [arg], equalsOp, None)
+
+let makeUnionCompareMethodNoData argType =
+    let arg = Ident("other", argType)
+    let compareArgs = [makeUntypedGet (Value This) "tag"
+                       makeUntypedGet (Value(IdentValue arg)) "tag"]
+    let compareCall = CoreLibCall("Util", Some "comparePrimitives", false, compareArgs)
+                      |> makeCall None Boolean
+    MemberDeclaration(Member("CompareTo", Method, InstanceLoc, [arg.Type], Boolean), true, None, [arg], compareCall, None)
+
+let makeRecordEqualMethod argType = makeMeth argType Boolean "Equals" "equalsRecords"
 let makeRecordCompareMethod argType = makeMeth argType (Number Int32) "CompareTo" "compareRecords"
 
 let makeIteratorMethodArgsAndBody() =

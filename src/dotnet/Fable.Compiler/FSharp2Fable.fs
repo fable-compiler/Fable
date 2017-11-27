@@ -921,10 +921,18 @@ let private processMemberDecls (com: IFableCompiler) (fableEnt: Fable.Entity) (c
     // Unions, records and F# exceptions don't have a constructor
     match fableEnt.Kind with
     | Fable.Union cases ->
-      [ yield makeUnionCons cases
-        yield makeReflectionMethod com fableEnt false nullable (Some cases) None
-        if needsEqImpl then yield makeUnionEqualMethod fableType
-        if needsCompImpl then yield makeUnionCompareMethod fableType ]
+      let hasFields = (false, cases) ||> List.fold (fun hasField (_,typs) ->
+        hasField || not (List.isEmpty typs))
+      if hasFields then
+        [ yield makeUnionCons()
+          yield makeReflectionMethod com fableEnt false nullable (Some cases) None
+          if needsEqImpl then yield makeUnionEqualMethod fableType
+          if needsCompImpl then yield makeUnionCompareMethod fableType ]
+      else
+        [ yield makeUnionConsNoData()
+          yield makeReflectionMethod com fableEnt false nullable (Some cases) None
+          if needsEqImpl then yield makeUnionEqualMethodNoData fableType
+          if needsCompImpl then yield makeUnionCompareMethodNoData fableType ]
     | Fable.Record fields
     | Fable.Exception fields ->
       // Structs are considered equivalent to records but
