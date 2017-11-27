@@ -1,7 +1,7 @@
 import Comparer from "./Comparer";
 import List from "./ListClass";
 import { ofArray as listOfArray } from "./ListClass";
-import { getValue, Some } from "./Option";
+import { getValue, makeSome, Option } from "./Option";
 import { map as seqMap } from "./Seq";
 import { fold as seqFold } from "./Seq";
 import { reduce as seqReduce } from "./Seq";
@@ -183,7 +183,7 @@ function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
       const c = comparer.Compare(k, m.data[0]) | 0;
 
       if (c === 0) {
-        return new Some(m.data[1]);
+        return makeSome(m.data[1]);
       } else {
         return null;
       }
@@ -196,7 +196,7 @@ function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
         m = m.data[2];
         continue tryFind;
       } else if (c_1 === 0) {
-        return new Some(m.data[1]);
+        return makeSome(m.data[1]);
       } else {
         comparer = comparer;
         k = k;
@@ -657,14 +657,14 @@ export function partition<K, V>(f: (k: K, v: V) => boolean, map: FableMap<K, V>)
 }
 
 export function findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FableMap<K, V>) {
-  return seqPick((kv) => f(kv[0], kv[1]) ? new Some(kv[0]) : null, map);
+  return seqPick((kv) => f(kv[0], kv[1]) ? makeSome(kv[0]) : null, map);
 }
 
 export function tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FableMap<K, V>) {
-  return seqTryPick((kv) => f(kv[0], kv[1]) ? new Some(kv[0]) : null, map);
+  return seqTryPick((kv) => f(kv[0], kv[1]) ? makeSome(kv[0]) : null, map);
 }
 
-export function pick<K, T, U>(f: (k: K, v: T) => Some<U>, map: FableMap<K, T>) {
+export function pick<K, T, U>(f: (k: K, v: T) => Option<U>, map: FableMap<K, T>) {
   const res = tryPick(f, map);
   if (res != null) {
     return getValue(res);
@@ -672,6 +672,6 @@ export function pick<K, T, U>(f: (k: K, v: T) => Some<U>, map: FableMap<K, T>) {
   throw new Error("key not found");
 }
 
-export function tryPick<K, T, U>(f: (k: K, v: T) => Some<U>, map: FableMap<K, T>): Some<U> {
+export function tryPick<K, T, U>(f: (k: K, v: T) => Option<U>, map: FableMap<K, T>): Option<U> {
   return tree_tryPick(f, map.tree);
 }

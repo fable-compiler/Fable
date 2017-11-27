@@ -1,7 +1,7 @@
 import { permute as arrayPermute } from "./Array";
 import { chunkBySize as arrayChunkBySize } from "./Array";
 import List from "./ListClass";
-import { getValue, Some } from "./Option";
+import { getValue, makeSome, Option } from "./Option";
 import { compare, equals, hasInterface, IDisposable } from "./Util";
 
 export class Enumerator<T> {
@@ -35,7 +35,7 @@ export function toIterator<T>(en: Enumerator<T>): Iterator<T> {
   };
 }
 
-function __failIfNone<T>(res: T | Some<T>) {
+function __failIfNone<T>(res: Option<T>) {
   if (res == null) {
     throw new Error("Seq did not contain any matching element");
   }
@@ -317,10 +317,10 @@ export function forAll2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, 
   return fold2((acc, x, y) => acc && f(x, y), true, xs, ys);
 }
 
-export function tryHead<T>(xs: Iterable<T>): Some<T> {
+export function tryHead<T>(xs: Iterable<T>): Option<T> {
   const iter = xs[Symbol.iterator]();
   const cur = iter.next();
-  return cur.done ? null : new Some(cur.value);
+  return cur.done ? null : makeSome(cur.value);
 }
 
 export function head<T>(xs: Iterable<T>): T {
@@ -337,12 +337,12 @@ export function initializeInfinite<T>(f: (i: number) => T) {
     unfold((i) => [f(i), i + 1], 0));
 }
 
-export function tryItem<T>(i: number, xs: Iterable<T>): Some<T> {
+export function tryItem<T>(i: number, xs: Iterable<T>): Option<T> {
   if (i < 0) {
     return null;
   }
   if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
-    return i < (xs as T[]).length ? new Some((xs as T[])[i]) : null;
+    return i < (xs as T[]).length ? makeSome((xs as T[])[i]) : null;
   }
   for (let j = 0, iter = xs[Symbol.iterator](); ; j++) {
     const cur = iter.next();
@@ -350,7 +350,7 @@ export function tryItem<T>(i: number, xs: Iterable<T>): Some<T> {
       break;
     }
     if (j === i) {
-      return new Some(cur.value);
+      return makeSome(cur.value);
     }
   }
   return null;
@@ -381,9 +381,9 @@ export function isEmpty<T>(xs: Iterable<T>) {
   return i.next().done;
 }
 
-export function tryLast<T>(xs: Iterable<T>): Some<T> {
+export function tryLast<T>(xs: Iterable<T>): Option<T> {
   try {
-    return new Some(reduce((_, x) => x, xs));
+    return makeSome(reduce((_, x) => x, xs));
   } catch (err) {
     return null;
   }
@@ -686,24 +686,24 @@ export function takeWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
   });
 }
 
-export function tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T): Some<T> {
+export function tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T): Option<T> {
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
     if (cur.done) {
       break;
     }
     if (f(cur.value, i)) {
-      return new Some(cur.value);
+      return makeSome(cur.value);
     }
   }
-  return defaultValue === void 0 ? null : new Some(defaultValue);
+  return defaultValue === void 0 ? null : makeSome(defaultValue);
 }
 
 export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): T {
   return __failIfNone(tryFind(f, xs));
 }
 
-export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T): Some<T> {
+export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T): Option<T> {
   const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
   return tryFind(f, arr.reverse(), defaultValue);
 }
@@ -743,7 +743,7 @@ export function findIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<
   return __failIfNone(tryFindIndexBack(f, xs));
 }
 
-export function tryPick<T, U>(f: (x: T, i?: number) => Some<U>, xs: Iterable<T>): Some<U> {
+export function tryPick<T, U>(f: (x: T, i?: number) => Option<U>, xs: Iterable<T>): Option<U> {
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
     if (cur.done) {
@@ -757,7 +757,7 @@ export function tryPick<T, U>(f: (x: T, i?: number) => Some<U>, xs: Iterable<T>)
   return null;
 }
 
-export function pick<T, U>(f: (x: T, i?: number) => Some<U>, xs: Iterable<T>): U {
+export function pick<T, U>(f: (x: T, i?: number) => Option<U>, xs: Iterable<T>): U {
   return __failIfNone(tryPick(f, xs));
 }
 

@@ -1,18 +1,18 @@
 import { compare, equals, toString } from "./Util";
 
-// Options are erased in runtime by Fable, but some cases
-// (unit, not resolved generics, nested options) are wrapped
-// by the following JS type (for Some cases)
+// Options are erased in runtime by Fable, but we have
+// the `Some` type below to wrap values that would evaluate
+// to null in runtime. These two rules must be followed:
 
-// So options in Fable follow these two rules:
-// 1- None is always null in runtime, so a non-strict null check
+// 1- None is always null in runtime, a non-strict null check
 //    (`x == null`) is enough to check the case of an option.
 // 2- To get the value of an option the `getValue` helper
 //    below must **always** be used.
 
+export type Option<T> = T | Some<T>;
+
 export class Some<T> {
     constructor(public value: T) {
-        this.value = value;
     }
 
     // We don't prefix it with "Some" for consistency with erased options
@@ -20,7 +20,7 @@ export class Some<T> {
         return toString(this.value);
     }
 
-    public Equals(other: T | Some<T>) {
+    public Equals(other: Option<T>) {
         if (other == null) {
             return false;
         } else {
@@ -29,7 +29,7 @@ export class Some<T> {
         }
     }
 
-    public CompareTo(other: T | Some<T>) {
+    public CompareTo(other: Option<T>) {
         if (other == null) {
             return 1;
         } else {
@@ -39,7 +39,11 @@ export class Some<T> {
     }
 }
 
-export function getValue<T>(x: T | Some<T>, acceptNull?: boolean): T {
+export function makeSome<T>(x: T): Option<T> {
+    return x == null || x instanceof Some ? new Some(x) : x;
+}
+
+export function getValue<T>(x: Option<T>, acceptNull?: boolean): T {
     if (x == null) {
         if (!acceptNull) {
             throw new Error("Option has no value");

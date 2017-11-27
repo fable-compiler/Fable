@@ -731,3 +731,21 @@ module Pointful =
 [<Test>]
 let ``Point-free and partial application work``() = // See #1199
     equal Pointfree.x Pointful.x
+
+let applyOptions f x =
+  match f, x with
+  | Some f, Some x -> Some (f x)
+  | _ -> None
+
+let (<!>) f x = Option.map f x
+let (<*>) f x = applyOptions f x
+let add4 a b c d = a+b+c+d
+
+[<Test>]
+// See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
+let ``Applying function options works``() =
+  let add1 = add4 <!> Some 1
+  let thenAdd2 = add1 <*> Some 2
+  let thenAdd3 = thenAdd2 <*> Some 3
+  let sum = thenAdd3 <*> Some 4
+  equal (Some 10) sum

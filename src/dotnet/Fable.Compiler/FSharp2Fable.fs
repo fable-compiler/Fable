@@ -142,7 +142,7 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             // For unit, unresolved generics or nested options, create a runtime wrapper
             // See fable-core/Option.ts for more info
             | Fable.Unit | Fable.GenericParam _ | Fable.Option _ ->
-                CoreLibCall("Option", Some "Some", true, [expr])
+                CoreLibCall("Option", Some "makeSome", false, [expr])
                 |> makeCall (Some range) unionType
             // TODO: Check declared types that accept null? And Fable.Any?
             // | Fable.DeclaredType _ -> failwith "TODO"
