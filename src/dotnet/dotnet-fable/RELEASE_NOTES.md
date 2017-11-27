@@ -1,3 +1,14 @@
+### 1.3.3
+
+* Add Char.IsWhiteSpace
+* Bring back warning for point-free style
+* Better error message when `ofJson` fails
+* Fix application of function options
+* Fix #1256: Optimize unions without fields
+* Fix #1255: Add Enum.HasFlag
+* Fix #838: Return empty group values when group is not matched instead of undefined
+* Fix option wrapper in serialization
+
 ### 1.3.2
 
 * Don't pass dependencies to JS clients (see #1241)
