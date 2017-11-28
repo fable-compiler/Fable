@@ -59,8 +59,6 @@ module Patterns =
         if Set.contains item set then Some item else None
 
 module Naming =
-    open System.Text.RegularExpressions
-    open Patterns
 
     let (|StartsWith|_|) (pattern: string) (txt: string) =
         if txt.StartsWith pattern then Some pattern else None
@@ -105,21 +103,96 @@ module Naming =
     let umdModules =
         set ["commonjs"; "amd"; "umd"]
 
-    let identForbiddenCharsRegex =
-        Regex @"^[^a-zA-Z_]|[^0-9a-zA-Z_]"
+#if !FABLE_COMPILER_NO_REGEX
+    open System.Text.RegularExpressions
+
+    let identForbiddenCharsRegex = Regex @"^[^a-zA-Z_]|[^0-9a-zA-Z_]"
 
     /// Matches placeholders for generics in an Emit macro
     /// like `React.createElement($'T, $0, $1)`
-    let genericPlaceholderRegex =
-        Regex @"\$'(\w+)"
+    let genericPlaceholderRegex = Regex @"\$'(\w+)"
+
+    let genericArgsCountRegex = Regex @"`\d+"
+
+    let hasIdentForbiddenChars (ident: string) =
+        identForbiddenCharsRegex.IsMatch(ident)
 
     let replaceIdentForbiddenChars (ident: string) =
-        identForbiddenCharsRegex.Replace(ident, fun (m: Match) ->
-        sprintf "$%X$" (int m.Value.[0]) )
+        identForbiddenCharsRegex.Replace(ident, fun (m: Match) -> sprintf "$%X$" (int m.Value.[0]) )
 
-    let removeGetSetPrefix =
-        let reg2 = Regex(@"^[gs]et_")
-        (fun s -> reg2.Replace(s, ""))
+    let sanitizeIdentForbiddenChars (ident: string) =
+        identForbiddenCharsRegex.Replace(ident, "_" )
+
+    let hasGenericPlaceholder (ident: string) =
+        genericPlaceholderRegex.IsMatch(ident)
+
+    let replaceGenericPlaceholder (ident: string, onMatch: string -> string) =
+        genericPlaceholderRegex.Replace(ident, fun (m: Match) -> onMatch m.Groups.[1].Value)
+
+    let replaceGenericArgsCount (ident: string, replacement: string) =
+        genericArgsCountRegex.Replace(ident, replacement)
+
+    let removeGetSetPrefix (s: string) =
+        Regex.Replace(s, @"^[gs]et_", "")
+
+    let extensionMethodName (s: string) =
+        Regex.Match(s, "\.(\w+)\.").Groups.[1].Value
+
+#else //FABLE_COMPILER_NO_REGEX
+
+    let isIdentChar c = System.Char.IsLetterOrDigit (c) || c = '_'
+
+    let hasIdentForbiddenChars (ident: string) =
+        let mutable i = 0
+        while i < ident.Length && (isIdentChar ident.[i]) do i <- i + 1
+        i < ident.Length
+
+    let replaceIdentForbiddenChars (ident: string) =
+        System.String.Concat(seq {
+            for c in ident ->
+                if isIdentChar c then string c
+                else sprintf "$%X$" (int c)
+            })
+
+    let sanitizeIdentForbiddenChars (ident: string) =
+        System.String(
+           [| for c in ident -> if isIdentChar c then c else '_' |] )
+
+    let hasGenericPlaceholder (ident: string) =
+        let i = ident.IndexOf(@"\$'")
+        i >= 0 && i + 2 < ident.Length && (isIdentChar ident.[i + 2])
+
+    let replacePattern (prefix: string) (cond: char->bool) (repl: string->string) (str: string) =
+        let rec replace (acc: string) (s: string) =
+            let i = s.IndexOf(prefix)
+            let mutable i2 = i + prefix.Length;
+            while i >= 0 && i2 < s.Length && (cond s.[i2]) do i2 <- i2 + 1
+            if i2 = i + prefix.Length then // no match
+                if acc.Length > 0 then acc + s else s
+            else // match found
+                let pattern = s.Substring(i, i2 - i)
+                replace (acc + s.Substring(0, i) + (repl pattern)) (s.Substring(i2))
+        replace "" str
+
+    let replaceGenericPlaceholder (ident: string, onMatch: string -> string) =
+        replacePattern @"\$'" isIdentChar onMatch ident
+
+    let replaceGenericArgsCount (ident: string, replacement: string) =
+        replacePattern @"`" System.Char.IsDigit (fun _ -> replacement) ident
+
+    let removeGetSetPrefix (s: string) =
+        if s.StartsWith("get_") || s.StartsWith("set_") then
+            s.Substring(4)
+        else s
+
+    let extensionMethodName (s: string) =
+        let i1 = s.IndexOf(".")
+        if i1 < 0 then s
+        else
+            let i2 = s.IndexOf(".", i1 + 1)
+            if i2 < 0 then s
+            else s.Substring(i1 + 1, i2 - i1 - 1)
+#endif
 
     let lowerFirst (s: string) =
         s.Substring(0,1).ToLowerInvariant() + s.Substring(1)
@@ -159,8 +232,7 @@ module Naming =
 
     let sanitizeIdent conflicts name =
         // Replace Forbidden Chars
-        let sanitizedName =
-            identForbiddenCharsRegex.Replace(name, "_")
+        let sanitizedName = sanitizeIdentForbiddenChars name
         // Check if it's a keyword or clashes with module ident pattern
         jsKeywords.Contains sanitizedName
         |> function true -> "_" + sanitizedName | false -> sanitizedName
@@ -169,8 +241,6 @@ module Naming =
 
 module Path =
     open System
-    open System.Text.RegularExpressions
-    open Patterns
 
     let Combine (path1: string, path2: string) =
         (path1.TrimEnd [|'\\';'/'|]) + "/" + (path2.TrimStart [|'\\';'/'|])
@@ -179,21 +249,34 @@ module Path =
         (path1.TrimEnd [|'\\';'/'|]) + "/" + (path2.Trim [|'\\';'/'|]) + "/" + (path3.TrimStart [|'\\';'/'|])
 
     let ChangeExtension (path: string, ext: string) =
-        Regex.Replace(path, "\.\w+$", ext)
+        // Regex.Replace(path, "\.\w+$", ext)
+        let i = path.LastIndexOf(".")
+        if i < 0 then path
+        else path.Substring(0, i) + ext
 
     let GetExtension (path: string) =
-        Regex.Match(path, "\.\w+$").Value
+        // Regex.Match(path, "\.\w+$").Value
+        let i = path.LastIndexOf(".")
+        if i < 0 then ""
+        else path.Substring(i)
 
-    let GetFileNameWithoutExtension (path: string) =
+    let GetFileName (path: string) =
         let normPath = path.Replace("\\", "/").TrimEnd('/')
         let i = normPath.LastIndexOf("/")
-        let filename = path.Substring(i + 1)
-        Regex.Replace(filename, "\.\w+$", "")
+        path.Substring(i + 1)
+
+    let GetFileNameWithoutExtension (path: string) =
+        let filename = GetFileName path
+        // Regex.Replace(filename, "\.\w+$", "")
+        let i = filename.LastIndexOf(".")
+        if i < 0 then filename
+        else filename.Substring(0, i)
 
     let GetDirectoryName (path: string) =
         let normPath = path.Replace("\\", "/")
         let i = normPath.LastIndexOf("/")
-        path.Substring(0, i)
+        if i < 0 then ""
+        else path.Substring(0, i)
 
     let GetFullPath (path: string) =
 #if FABLE_COMPILER

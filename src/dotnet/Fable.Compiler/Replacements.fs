@@ -3,7 +3,6 @@ open Fable
 open Fable.Core
 open Fable.AST
 open Fable.AST.Fable.Util
-open System.Text.RegularExpressions
 
 module Util =
     let [<Literal>] system = "System."
@@ -2397,7 +2396,7 @@ module AstPass =
             // In netcore F# Reflection methods become extensions
             // with names like `FSharpType.GetExceptionFields.Static`
             let isFSharpType = info.methodName.StartsWith("fSharpType")
-            let methName = Regex.Match(info.methodName, "\.(\w+)\.").Groups.[1].Value |> Naming.lowerFirst
+            let methName = info.methodName |> Naming.extensionMethodName |> Naming.lowerFirst
             if isFSharpType
             then fsharpType com info methName
             else fsharpValue com info methName
@@ -2537,8 +2536,9 @@ let checkLiteral com fileName range (value: obj) (typ: Fable.Type) =
     match typ with
     | Fable.Enum("System.Text.RegularExpressions.RegexOptions") ->
         match value with
-        | :? int as i when i = int RegexOptions.IgnoreCase
-                        || i = int RegexOptions.Multiline
-                        || i = int RegexOptions.ECMAScript -> ()
+        | :? int as i when i = 0x0001 // "i" - RegexOptions.IgnoreCase
+                        || i = 0x0002 // "m" - RegexOptions.Multiline
+                        || i = 0x0100 // "e" - RegexOptions.ECMAScript
+                        -> ()
         | _ -> addWarning com fileName range "Multiline and IgnoreCase are the only RegexOptions available"
     | _ -> ()

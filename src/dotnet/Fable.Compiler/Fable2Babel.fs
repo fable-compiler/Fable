@@ -6,7 +6,6 @@ open Fable.AST.Babel
 open Fable.AST.Fable.Util
 open System
 open System.Collections.Generic
-open System.Text.RegularExpressions
 
 type ReturnStrategy =
     | Return
@@ -138,13 +137,13 @@ module Util =
         Identifier name
 
     let sanitizeName propName: Expression * bool =
-        if Naming.identForbiddenCharsRegex.IsMatch propName
+        if Naming.hasIdentForbiddenChars propName
         then upcast StringLiteral propName, true
         else upcast Identifier propName, false
 
     let sanitizeProp com ctx = function
         | Fable.Value (Fable.StringConst name)
-            when not(Naming.identForbiddenCharsRegex.IsMatch name) ->
+            when not (Naming.hasIdentForbiddenChars name) ->
             Identifier (name) :> Expression, false
         | TransformExpr com ctx property -> property, true
 
@@ -237,7 +236,7 @@ module Util =
                 | Some(_, Some privateName) -> accessExpr [privateName] None
                 // TODO: Fail if member couldn't be found?
                 | _ -> accessExpr [membName] None
-            | rootMemb::parts when Naming.identForbiddenCharsRegex.IsMatch rootMemb ->
+            | rootMemb::parts when Naming.hasIdentForbiddenChars rootMemb ->
                 // Check if the root entity is represented internally with a private name
                 if ctx.rootEntitiesPrivateNames.ContainsKey(rootMemb)
                 then ctx.rootEntitiesPrivateNames.[rootMemb]
