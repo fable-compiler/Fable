@@ -5,7 +5,6 @@ open System.Collections.Generic
 #if !FABLE_COMPILER
 open System.Reflection
 #endif
-open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
@@ -102,13 +101,11 @@ module Helpers =
         then match ent.Namespace with Some ns -> ns + "." + ent.CompiledName | None -> ent.CompiledName
         else defaultArg ent.TryFullName ent.CompiledName
 
-    let private genArgsCountRegex = Regex("`\d+")
-
     let sanitizeEntityName (ent: FSharpEntity) =
-        genArgsCountRegex.Replace(ent.CompiledName, "")
+        Naming.replaceGenericArgsCount (ent.CompiledName, "")
 
     let sanitizeEntityFullName (ent: FSharpEntity) =
-        genArgsCountRegex.Replace(getEntityFullName ent, "")
+        Naming.replaceGenericArgsCount (getEntityFullName ent, "")
 
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
@@ -1218,19 +1215,19 @@ module Util =
             extraArgs <- arg::extraArgs
             "$" + string pos
         // Trick to replace reference to generic arguments: $'T
-        if Naming.genericPlaceholderRegex.IsMatch(macro)
+        if Naming.hasGenericPlaceholder macro
         then
             let genArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) |> Map
             let genInfo = { makeGeneric=false; genericAvailability=ctx.genericAvailability }
-            Naming.genericPlaceholderRegex.Replace(macro, fun m ->
-                match genArgs.TryFind m.Groups.[1].Value with
+            Naming.replaceGenericPlaceholder (macro, fun m ->
+                match genArgs.TryFind m with
                 | Some t ->
                     makeType com ctx.typeArgs t |> makeTypeRef com genInfo |> addExtraArg
                 | None ->
                     sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
-                        m.Groups.[1].Value macro
+                        m macro
                     |> addWarning com ctx.fileName r
-                    m.Value)
+                    m)
         else macro
         |> fun macro -> macro, args@(List.rev extraArgs)
 

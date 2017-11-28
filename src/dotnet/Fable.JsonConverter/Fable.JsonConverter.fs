@@ -26,7 +26,6 @@ open Newtonsoft.Json.Converters
 open System.Reflection
 open System.Collections.Generic
 open System.Collections.Concurrent
-open System.Text.RegularExpressions
 
 type Kind =
     | Other = 0

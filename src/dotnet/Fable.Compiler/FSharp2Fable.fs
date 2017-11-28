@@ -4,7 +4,6 @@ module rec Fable.FSharp2Fable.Compiler
 open System.IO
 #endif
 open System.Collections.Generic
-open System.Text.RegularExpressions
 
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
