@@ -106,12 +106,21 @@ let ``Infix applicative with inline composed functions can be generated``() =
     | _ -> failwith "expected Ok(1)"
 
 [<Test>]
-let ``Infix applicative with inline even more functions can be generated``() =
+let ``Infix applicative with even more inline functions can be generated``() =
     let r = Ok (fun x -> x + 1)
     let a = Ok (fun f x -> f x)
     match applyInline a r with
-    | Ok f -> equal 2 (f 1)
-    | _ -> failwith "expected Ok(f(1)) = 2"
+    | Ok addOne -> equal 2 (addOne 1)
+    | _ -> failwith "expected Ok(addOne) where addOne(1) = 2"
+
+
+[<Test>]
+let ``Infix applicative with inline functions as operators can be generated``() =
+    let r = Ok (fun x -> x + 1)
+    let a = Ok (|>)
+    match applyInline a r with
+    | Ok addOne -> equal 2 (addOne 1)
+    | _ -> failwith "expected Ok(addOne) where addOne(1) = 2"
 
 type Foo1(i) =
     member x.Foo() = i
