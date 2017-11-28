@@ -598,10 +598,19 @@ and makeApply com range typ callee (args: Expr list) =
 /// (concrete) with the declared argument types for that method (may be generic)
 /// (e.g. when resolving a TraitCall)
 let compareDeclaredAndAppliedArgs declaredArgs appliedArgs =
-    let listsEqual f li1 li2 =
+    // Curried functions returning a generic can match a function
+    // with higher arity (see #1262)
+    let rec funcTypesEqual eq types1 types2 =
+        match types1, types2 with
+        | [], [] -> true
+        | GenericParam _::[], _ -> true
+        | head1::rest1, head2::rest2 ->
+            eq head1 head2 && funcTypesEqual eq rest1 rest2
+        | _ -> false
+    let listsEqual eq li1 li2 =
         if not(List.sameLength li1 li2)
         then false
-        else List.fold2 (fun b x y -> if b then f x y else false) true li1 li2
+        else List.fold2 (fun b x y -> if b then eq x y else false) true li1 li2
     let rec argEqual x y =
         match x, y with
         | Option genArg1, Option genArg2
@@ -609,8 +618,23 @@ let compareDeclaredAndAppliedArgs declaredArgs appliedArgs =
             argEqual genArg1 genArg2
         | Tuple genArgs1, Tuple genArgs2 ->
             listsEqual argEqual genArgs1 genArgs2
-        | Function (genArgs1, typ1, isCurried1), Function (genArgs2, typ2, isCurried2) ->
-            isCurried1 = isCurried2 && argEqual typ1 typ2 && listsEqual argEqual genArgs1 genArgs2
+        | Function (genArgs1, returnType1, isCurried1), Function (genArgs2, returnType2, isCurried2) ->
+            if isCurried1 then
+                if isCurried2 then
+                    match genArgs1, genArgs2 with
+                    | [], [] -> argEqual returnType1 returnType2
+                    | head1::rest1, head2::rest2 ->
+                        if argEqual head1 head2 then
+                            let types1 = rest1@[returnType1]
+                            let types2 = rest2@[returnType2]
+                            funcTypesEqual argEqual types1 types2
+                        else false
+                    | _ -> false
+                else false
+            else
+                not isCurried2
+                && argEqual returnType1 returnType2
+                && listsEqual argEqual genArgs1 genArgs2
         | DeclaredType(ent1, genArgs1), DeclaredType(ent2, genArgs2) ->
             ent1 = ent2 && listsEqual argEqual genArgs1 genArgs2
         | GenericParam _, _ ->
