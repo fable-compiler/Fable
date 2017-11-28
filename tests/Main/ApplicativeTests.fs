@@ -82,10 +82,9 @@ type Result<'s, 'f> =
 let ``Infix applicative can be generated``() =
     let r = Ok 1
     let a = Ok string
-    let r' = match a <*> r with
-             | Ok x -> x
-             | _ -> failwith "expected Ok"
-    equal "1" r'
+    match a <*> r with
+    | Ok x -> equal "1" x
+    | _ -> failwith "expected Ok('1')"
 
 let inline applyInline (a:'a) (b:'b) =
     a <*> b
@@ -94,10 +93,25 @@ let inline applyInline (a:'a) (b:'b) =
 let ``Infix applicative with inline functions can be generated``() =
     let r = Ok 1
     let a = Ok string
-    let r' = match applyInline a r with
-             | Ok x -> x
-             | _ -> failwith "expected Ok"
-    equal "1" r'
+    match applyInline a r with
+    | Ok x -> equal "1" x
+    | _ -> failwith "expected Ok('1')"
+
+[<Test>]
+let ``Infix applicative with inline composed functions can be generated``() =
+    let r = Ok 1
+    let a = Ok (string >> int)
+    match applyInline a r with
+    | Ok x -> equal 1 x
+    | _ -> failwith "expected Ok(1)"
+
+[<Test>]
+let ``Infix applicative with inline even more functions can be generated``() =
+    let r = Ok (fun x -> x + 1)
+    let a = Ok (fun f x -> f x)
+    match applyInline a r with
+    | Ok f -> equal 2 (f 1)
+    | _ -> failwith "expected Ok(f(1)) = 2"
 
 type Foo1(i) =
     member x.Foo() = i
