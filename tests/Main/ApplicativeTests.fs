@@ -113,15 +113,6 @@ let ``Infix applicative with even more inline functions can be generated``() =
     | Ok addOne -> equal 2 (addOne 1)
     | _ -> failwith "expected Ok(addOne) where addOne(1) = 2"
 
-
-[<Test>]
-let ``Infix applicative with inline functions as operators can be generated``() =
-    let r = Ok (fun x -> x + 1)
-    let a = Ok (|>)
-    match applyInline a r with
-    | Ok addOne -> equal 2 (addOne 1)
-    | _ -> failwith "expected Ok(addOne) where addOne(1) = 2"
-
 type Foo1(i) =
     member x.Foo() = i
     member x.Foo(j) = i + j
