@@ -103,43 +103,6 @@ module Naming =
     let umdModules =
         set ["commonjs"; "amd"; "umd"]
 
-#if !FABLE_COMPILER_NO_REGEX
-    open System.Text.RegularExpressions
-
-    let identForbiddenCharsRegex = Regex @"^[^a-zA-Z_]|[^0-9a-zA-Z_]"
-
-    /// Matches placeholders for generics in an Emit macro
-    /// like `React.createElement($'T, $0, $1)`
-    let genericPlaceholderRegex = Regex @"\$'(\w+)"
-
-    let genericArgsCountRegex = Regex @"`\d+"
-
-    let hasIdentForbiddenChars (ident: string) =
-        identForbiddenCharsRegex.IsMatch(ident)
-
-    let replaceIdentForbiddenChars (ident: string) =
-        identForbiddenCharsRegex.Replace(ident, fun (m: Match) -> sprintf "$%X$" (int m.Value.[0]) )
-
-    let sanitizeIdentForbiddenChars (ident: string) =
-        identForbiddenCharsRegex.Replace(ident, "_" )
-
-    let hasGenericPlaceholder (ident: string) =
-        genericPlaceholderRegex.IsMatch(ident)
-
-    let replaceGenericPlaceholder (ident: string, onMatch: string -> string) =
-        genericPlaceholderRegex.Replace(ident, fun (m: Match) -> onMatch m.Groups.[1].Value)
-
-    let replaceGenericArgsCount (ident: string, replacement: string) =
-        genericArgsCountRegex.Replace(ident, replacement)
-
-    let removeGetSetPrefix (s: string) =
-        Regex.Replace(s, @"^[gs]et_", "")
-
-    let extensionMethodName (s: string) =
-        Regex.Match(s, "\.(\w+)\.").Groups.[1].Value
-
-#else //FABLE_COMPILER_NO_REGEX
-
     let isIdentChar c = System.Char.IsLetterOrDigit (c) || c = '_'
 
     let hasIdentForbiddenChars (ident: string) =
@@ -192,7 +155,6 @@ module Naming =
             let i2 = s.IndexOf(".", i1 + 1)
             if i2 < 0 then s
             else s.Substring(i1 + 1, i2 - i1 - 1)
-#endif
 
     let lowerFirst (s: string) =
         s.Substring(0,1).ToLowerInvariant() + s.Substring(1)
@@ -249,13 +211,11 @@ module Path =
         (path1.TrimEnd [|'\\';'/'|]) + "/" + (path2.Trim [|'\\';'/'|]) + "/" + (path3.TrimStart [|'\\';'/'|])
 
     let ChangeExtension (path: string, ext: string) =
-        // Regex.Replace(path, "\.\w+$", ext)
         let i = path.LastIndexOf(".")
         if i < 0 then path
         else path.Substring(0, i) + ext
 
     let GetExtension (path: string) =
-        // Regex.Match(path, "\.\w+$").Value
         let i = path.LastIndexOf(".")
         if i < 0 then ""
         else path.Substring(i)
@@ -267,7 +227,6 @@ module Path =
 
     let GetFileNameWithoutExtension (path: string) =
         let filename = GetFileName path
-        // Regex.Replace(filename, "\.\w+$", "")
         let i = filename.LastIndexOf(".")
         if i < 0 then filename
         else filename.Substring(0, i)
