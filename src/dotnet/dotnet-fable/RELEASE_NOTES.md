@@ -1,3 +1,9 @@
+### 1.3.4
+
+* Optimize assignment blocks as expressions (#1265)
+* Improve method resolution with function parameters
+* Fix applicative operators with 3-arg functions
+
 ### 1.3.3
 
 * Add Char.IsWhiteSpace
