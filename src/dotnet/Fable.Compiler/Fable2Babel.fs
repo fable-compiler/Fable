@@ -11,12 +11,11 @@ type ReturnStrategy =
     | Return
     | Assign of Expression
 
-type Import = {
-    path: string
+type Import =
+  { path: string
     selector: string
     localIdent: string option
-    internalFile: string option
-}
+    internalFile: string option }
 
 type ITailCallOpportunity =
     abstract Label: string
@@ -38,10 +37,10 @@ let private getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
 type ClassTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
     let replaceArgs, argIds = getTailCallArgIds com args
     interface ITailCallOpportunity with
-        member x.Label = name
-        member x.Args = argIds
-        member x.ReplaceArgs = replaceArgs
-        member x.IsRecursiveRef(e) =
+        member __.Label = name
+        member __.Args = argIds
+        member __.ReplaceArgs = replaceArgs
+        member __.IsRecursiveRef(e) =
             match e with
             | Fable.Apply(Fable.Value Fable.This, [Fable.Value(Fable.StringConst name2)], Fable.ApplyGet, _, _) ->
                 name = name2
@@ -50,21 +49,22 @@ type ClassTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
 type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
     let replaceArgs, argIds = getTailCallArgIds com args
     interface ITailCallOpportunity with
-        member x.Label = name
-        member x.Args = argIds
-        member x.ReplaceArgs = replaceArgs
-        member x.IsRecursiveRef(e) =
+        member __.Label = name
+        member __.Args = argIds
+        member __.ReplaceArgs = replaceArgs
+        member __.IsRecursiveRef(e) =
             match e with
             | Fable.Value(Fable.IdentValue id) -> name = id.Name
             | _ -> false
 
-type Context = {
-    file: Fable.File
+type Context =
+  { file: Fable.File
     moduleFullName: string
     rootEntitiesPrivateNames: Map<string, string>
+    isFunctionBody: bool
+    mutable declaredVars: Fable.Ident list
     tailCallOpportunity: ITailCallOpportunity option
-    mutable isTailCallOptimized: bool
-}
+    mutable isTailCallOptimized: bool }
 
 type IBabelCompiler =
     inherit ICompiler
@@ -102,18 +102,25 @@ module Util =
     let inline (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
 
     /// Matches a sequence of assignments and a return value: a.b = 1, a.c = 2, a
-    let (|Assignments|_|) e =
+    let (|Assignments|_|) (ctx: Context) e =
         match e with
-        | Fable.Sequential(exprs, r) ->
+        | Fable.Sequential(exprs, r) when ctx.isFunctionBody ->
             let length = exprs.Length
-            ((true, 1), exprs)
-            ||> List.fold (fun (areAssignments, i) e ->
+            ((true, [], [], 1), exprs)
+            ||> List.fold (fun (areAssignments, declVars, exprs, i) e ->
                 match areAssignments, e with
-                | false, _ -> false, 0
-                | _, Fable.Set _ when i < length -> true, i + 1
-                | _, Fable.Value _ -> true, i + 1
-                | _ -> false, 0)
-            |> function true, _ -> Some(exprs, r) | _ -> None
+                | false, _ -> false, [], [], 0
+                | _, Fable.Set _ when i < length ->
+                    true, declVars, e::exprs, i + 1
+                | _, Fable.VarDeclaration(ident, value, _, r) when i < length ->
+                    let setExpr = Fable.Set(Fable.Value(Fable.IdentValue ident), None, value, r)
+                    true, ident::declVars, setExpr::exprs, i + 1
+                | _, e when not e.IsJsStatement -> //Check `i = lenght`?
+                    true, declVars, e::exprs, i + 1
+                | _ -> false, [], [], 0)
+            |> function
+                | true, declVars, exprs, _ -> Some(declVars, List.rev exprs, r)
+                | false, _, _, _ -> None
         | _ -> None
 
     let rec deepExists f (expr: Fable.Expr) =
@@ -573,7 +580,7 @@ module Util =
         IfStatement(guardExpr, thenStmnt, ?alternate=elseStmnt, ?loc=r)
 
     // TODO: Experimental support for Quotations
-    let transformQuote com (ctx: Context) r expr: Expression =
+    let transformQuote com (ctx: Context) r _expr: Expression =
         "Quotations are not supported"
         |> addError com ctx.file.SourcePath r
         upcast NullLiteral ()
@@ -627,25 +634,25 @@ module Util =
                     UpdateExpression (op2, false, ident var), ?loc=range) :> Statement
             |> List.singleton
 
-        | Fable.Set (callee, property, value, range) ->
+        | Fable.Set (callee, property, value, _) ->
             let ret =
                 match property with
                 | None -> Assign(com.TransformExpr ctx callee)
                 | Some property -> Assign(getExpr com ctx callee property)
             com.TransformExprAndResolve ctx ret value
 
-        | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path, kind)), isMutable) ->
+        | Fable.VarDeclaration (var, Fable.Value(Fable.ImportRef(Naming.placeholder, path, kind)), isMutable, r) ->
             let value = com.GetImportExpr ctx var.Name path kind
-            [varDeclaration expr.Range (ident var) isMutable value :> Statement]
+            [varDeclaration r (ident var) isMutable value :> Statement]
 
-        | Fable.VarDeclaration (var, Fable.Value(Fable.Lambda(args, body, info)), false) ->
+        | Fable.VarDeclaration (var, Fable.Value(Fable.Lambda(args, body, info)), false, r) ->
             let value =
                 let tc = NamedTailCallOpportunity(com, var.Name, args) :> ITailCallOpportunity |> Some
                 com.TransformFunction ctx tc args body
                 ||> transformLambda body.Range info
-            [varDeclaration expr.Range (ident var) false value :> Statement]
+            [varDeclaration r (ident var) false value :> Statement]
 
-        | Fable.VarDeclaration (var, value, isMutable) ->
+        | Fable.VarDeclaration (var, value, isMutable, r) ->
             if value.IsJsStatement
             then
                 let var = ident var
@@ -654,7 +661,7 @@ module Util =
                 decl::body
             else
                 let value = com.TransformExpr ctx value |> wrapIntExpression value.Type
-                [varDeclaration expr.Range (ident var) isMutable value :> Statement]
+                [varDeclaration r (ident var) isMutable value :> Statement]
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
             transformTryCatch com ctx range None (body, catch, finalizer)
@@ -673,7 +680,7 @@ module Util =
         | Fable.Switch(matchValue, cases, defaultCase, _, range) ->
             [transformSwitch com ctx range None (matchValue, cases, defaultCase) :> Statement]
 
-        | Fable.Sequential(statements, range) ->
+        | Fable.Sequential(statements, _) ->
             statements |> List.collect (com.TransformStatement ctx)
 
         | Fable.Wrapped (expr, _) ->
@@ -709,9 +716,10 @@ module Util =
             |> assign range <| value
 
         // Optimization: Compile sequential as expression if possible
-        | Assignments(exprs, r) ->
-            List.map (com.TransformExpr ctx) exprs
-            |> fun exprs -> upcast SequenceExpression(exprs, ?loc=r)
+        | Assignments ctx (declVars, exprs, r) ->
+            ctx.declaredVars <- ctx.declaredVars @ declVars
+            let exprs = List.map (com.TransformExpr ctx) exprs
+            upcast SequenceExpression(exprs, ?loc=r)
 
         // These cannot appear in expression position in JS
         // They must be wrapped in a lambda
@@ -753,7 +761,7 @@ module Util =
                 let tempVars =
                     let rec checkCrossRefs acc = function
                         | [] | [_] -> acc
-                        | (argId, arg)::rest ->
+                        | (argId, _arg)::rest ->
                             rest |> List.exists (snd >> deepExists
                                 (function Fable.Value(Fable.IdentValue i) -> argId = i.Name | _ -> false))
                             |> function true -> Map.add argId (com.GetUniqueVar()) acc | false -> acc
@@ -778,7 +786,7 @@ module Util =
         | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt, range) ->
             [transformIfStatement com ctx range (Some ret) guardExpr thenStmnt elseStmnt :> Statement ]
 
-        | Fable.Sequential (statements, range) ->
+        | Fable.Sequential (statements, _) ->
             let lasti = (List.length statements) - 1
             statements |> List.mapi (fun i statement ->
                 if i < lasti
@@ -802,13 +810,15 @@ module Util =
             transformQuote com ctx expr.Range quote |> resolve ret |> List.singleton
 
     let transformFunction com ctx tailcallChance (args: Fable.Ident list) (body: Fable.Expr) =
-        let ctx, args =
+        let tailcallChance, args =
             match args with
-            | [unitArg] when unitArg.Type = Fable.Unit ->
-                { ctx with isTailCallOptimized = false; tailCallOpportunity = None }, []
-            | args ->
-                let args = List.map ident args
-                { ctx with isTailCallOptimized = false; tailCallOpportunity = tailcallChance }, args
+            | [unitArg] when unitArg.Type = Fable.Unit -> None, []
+            | args -> tailcallChance, List.map ident args
+        let ctx =
+            { ctx with isFunctionBody = true
+                       declaredVars = []
+                       isTailCallOptimized = false
+                       tailCallOpportunity = tailcallChance }
         let body: U2<BlockStatement, Expression> =
             match body with
             | ExprType Fable.Unit
@@ -837,6 +847,22 @@ module Util =
                     WhileStatement(BooleanLiteral true, body, ?loc=body.loc), ?loc=body.loc)
                 :> Statement |> List.singleton |> block body.loc |> U2.Case1
             | _ -> args, body
+        let body =
+            match ctx.declaredVars with
+            | [] -> body
+            | declVars ->
+                let varDeclStatements =
+                    declVars
+                    |> List.distinctBy (fun var -> var.Name)
+                    |> List.map (fun var -> VariableDeclaration(ident var, kind=Var) :> Statement)
+                let loc, bodyStatements =
+                    match body with
+                    | U2.Case1 bodyBlock ->
+                        bodyBlock.loc, bodyBlock.body
+                    | U2.Case2 bodyExpr ->
+                        let returnStatement = ReturnStatement(bodyExpr, ?loc=bodyExpr.loc)
+                        bodyExpr.loc, [returnStatement :> Statement]
+                block loc (varDeclStatements@bodyStatements) |> U2.Case1
         args |> List.map (fun x -> x :> Pattern), body
 
     let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
@@ -863,7 +889,6 @@ module Util =
                 ?returnType=returnType, ?typeParams=typeParams, ?loc=range)
             |> U2<_,ClassProperty>.Case1
         let baseClass = baseClass |> Option.map (transformExpr com ctx)
-        let interfaces = match ent with | Some e -> e.Interfaces | None -> []
         decls
         |> List.map (function
             | Fable.MemberDeclaration(m, _, _, args, body, range) ->
@@ -907,7 +932,7 @@ module Util =
             ; typeRef com ctx ent [] None |> U2.Case1])
         |> ExpressionStatement :> Statement
 
-    let declareEntryPoint com ctx (funcExpr: Expression) =
+    let declareEntryPoint _com _ctx (funcExpr: Expression) =
         let argv = macroExpression None "process.argv.slice(2)" []
         let main = CallExpression (funcExpr, [U2.Case1 argv], ?loc=funcExpr.loc) :> Expression
         // Don't exit the process after leaving main, as there may be a server running
@@ -1078,9 +1103,9 @@ module Util =
                 | { path=path; plugin=(:? IDeclarePlugin as plugin)} -> Some (path, plugin)
                 | _ -> None)
         { new IBabelCompiler with
-            member bcom.DeclarePlugins =
+            member __.DeclarePlugins =
                 declarePlugins
-            member bcom.GetRootModule(file) =
+            member __.GetRootModule(file) =
                 state.GetRootModule(file)
             member bcom.GetImportExpr ctx selector path kind =
                 let sanitizeSelector selector =
@@ -1129,7 +1154,7 @@ module Util =
                         match localId with
                         | Some localId -> upcast Identifier(localId)
                         | None -> upcast NullLiteral ()
-            member bcom.GetAllImports () = upcast imports.Values
+            member __.GetAllImports () = upcast imports.Values
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
             member bcom.TransformExprAndResolve ctx ret e = transformExprAndResolve bcom ctx ret e
@@ -1147,7 +1172,6 @@ module Util =
 
 module Compiler =
     open Util
-    open System.IO
 
     let createFacade (dependencies: string[]) (facadeFile: string) =
         let decls =
@@ -1160,10 +1184,8 @@ module Compiler =
         try
             // let t = PerfTimer("Fable > Babel")
             let com = makeCompiler com state
-            let ctx = {
-                file = file
-                tailCallOpportunity = None
-                isTailCallOptimized = false
+            let ctx =
+              { file = file
                 moduleFullName = state.GetRootModule(file.SourcePath)
                 rootEntitiesPrivateNames =
                     file.Declarations
@@ -1172,7 +1194,10 @@ module Compiler =
                             Some(ent.Name, privName)
                         | _ -> None)
                     |> Map
-            }
+                isFunctionBody = false
+                declaredVars = []
+                tailCallOpportunity = None
+                isTailCallOptimized = false }
             let rootDecls =
                 com.DeclarePlugins
                 |> Plugins.tryPlugin (Some file.Range) (fun p ->
@@ -1193,7 +1218,7 @@ module Compiler =
                 |> Seq.toArray
             // Add imports
             com.GetAllImports()
-            |> Seq.mapi (fun ident import ->
+            |> Seq.mapi (fun _ident import ->
                 let specifier =
                     import.localIdent
                     |> Option.map (fun localId ->

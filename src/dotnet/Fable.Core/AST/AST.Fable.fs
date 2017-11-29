@@ -306,7 +306,7 @@ type Expr =
     | Throw of Expr * typ: Type * range: SourceLocation option
     | DebugBreak of range: SourceLocation option
     | Loop of LoopKind * range: SourceLocation option
-    | VarDeclaration of var: Ident * value: Expr * isMutable: bool
+    | VarDeclaration of var: Ident * value: Expr * isMutable: bool * range: SourceLocation option
     | Set of callee: Expr * property: Expr option * value: Expr * range: SourceLocation option
     | Sequential of Expr list * range: SourceLocation option
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
@@ -330,7 +330,7 @@ type Expr =
         | Value kind -> kind.Type
         | ObjExpr _ -> Any
         | Wrapped (_,typ) | Apply (_,_,_,typ,_) | Throw (_,typ,_) -> typ
-        | IfThenElse (_,thenExpr,elseExpr,_) -> thenExpr.Type
+        | IfThenElse (_,thenExpr,_,_) -> thenExpr.Type
         | DebugBreak _ | Loop _ | Set _ | VarDeclaration _ -> Unit
         | Sequential (exprs,_) ->
             match exprs with
@@ -350,7 +350,8 @@ type Expr =
             | [r] -> Some r
             | r1::rest -> r1 + (List.last rest) |> Some
         | Value v -> v.Range
-        | VarDeclaration (_,e,_) | Wrapped (e,_) | Quote e -> e.Range
+        | Wrapped (e,_) | Quote e -> e.Range
+        | VarDeclaration (_,_,_,range)
         | Apply (_,_,_,_,range)
         | IfThenElse (_,_,_,range)
         | Throw (_,_,range)
@@ -366,7 +367,7 @@ type Expr =
         | Value v -> v.ImmediateSubExpressions
         | ObjExpr (decls,_,baseClass,_) ->
             (decls |> List.map (fun (_,_,e) -> e))@(Option.toList baseClass)
-        | VarDeclaration (_,e,_) -> [e]
+        | VarDeclaration (_,e,_,_) -> [e]
         | Wrapped (e,_) -> [e]
         | Quote e -> [e]
         | Throw (e,_,_) -> [e]
@@ -421,7 +422,7 @@ type Expr =
         | Set(callee, prop, value, _) ->
             let prop = match prop with Some p -> "." + string p | None -> ""
             sprintf "%O%s = %O" callee prop value
-        | VarDeclaration(ident, value, _) ->
+        | VarDeclaration(ident, value, _, _) ->
             sprintf "LET %s = %O" ident.Name value
         | Sequential (exprs,_) ->
             exprs |> List.map string |> String.concat ", " |> sprintf "[%s]"
