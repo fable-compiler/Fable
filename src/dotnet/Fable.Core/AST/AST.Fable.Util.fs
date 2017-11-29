@@ -566,12 +566,6 @@ let rec ensureArity com argTypes args =
         | _ -> arg)
 
 and makeApply com range typ callee (args: Expr list) =
-    let callee =
-        match callee with
-        // If we're applying against a F# let binding, wrap it with a lambda
-        | MaybeWrapped(Sequential _) ->
-            Apply(Value(Lambda([],callee,LambdaInfo(true))), [], ApplyMeth, callee.Type, callee.Range)
-        | _ -> callee
     match callee with
     // Dynamic CurriedLambda shouldn't be wrapped, see #996
     | MaybeWrapped(CurriedLambda _) -> Apply(callee, args, ApplyMeth, typ, range)

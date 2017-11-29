@@ -376,7 +376,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FShar
     let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
     match capturedThis with
     | Some((_,Fable.Value(Fable.IdentValue capturedThis))::_) ->
-        let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false)
+        let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false, range)
         Fable.Sequential([varDecl; objExpr], range)
     | _ -> objExpr
 
@@ -420,8 +420,8 @@ let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: 
                         |> bindExpr ctx var)
                 [makeIntConst kv.Key], transformExpr com ctx body)
             |> Seq.toList
-        [ Fable.VarDeclaration(tempVar, transformExpr com ctx decisionExpr, false)
-        ; Fable.Switch(tempVarFirstItem, cases, None, typ, r) ]
+        [ Fable.VarDeclaration(tempVar, transformExpr com ctx decisionExpr, false, None)
+          Fable.Switch(tempVarFirstItem, cases, None, typ, r) ]
         |> makeSequential r
     else
         let targets = targetRefsCount |> Map.map (fun k _ -> decisionTargets.[k])
@@ -649,13 +649,15 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             let ctx = { ctx with scopedInlines = (var, value)::ctx.scopedInlines }
             transformExpr com ctx body
         else
+            let r = makeRangeFrom fsExpr
             let value = transformExpr com ctx value
             let ctx, ident = bindIdent com ctx value.Type (Some var) var.CompiledName
             let body = transformExpr com ctx body
-            let assignment = Fable.VarDeclaration (ident, value, var.IsMutable)
-            makeSequential (makeRangeFrom fsExpr) [assignment; body]
+            let assignment = Fable.VarDeclaration(ident, value, var.IsMutable, r)
+            makeSequential r [assignment; body]
 
     | BasicPatterns.LetRec(recBindings, body) ->
+        let range = makeRangeFrom fsExpr
         let ctx, idents =
             (recBindings, (ctx, [])) ||> List.foldBack (fun (var,_) (ctx, idents) ->
                 let (BindIdent com ctx (newContext, ident)) = var
@@ -663,9 +665,9 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         let assignments =
             recBindings
             |> List.map2 (fun ident (var, Transform com ctx binding) ->
-                Fable.VarDeclaration (ident, binding, var.IsMutable)) idents
+                Fable.VarDeclaration(ident, binding, var.IsMutable, range)) idents
         assignments @ [transformExpr com ctx body]
-        |> makeSequential (makeRangeFrom fsExpr)
+        |> makeSequential range
 
     (** ## Applications *)
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->

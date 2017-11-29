@@ -60,6 +60,10 @@ let rec sumFirstList (zs: float list) (n: int): float =
    | _ -> zs.Head + sumFirstList zs.Tail (n-1)
 
 let f2 a b = a + b
+
+// Assignment block as expression outside a function is NOT optimized
+f2(let mutable x = 5 in let mutable y = 6 in x + y) |> ignore
+
 let mutable a = 10
 
 module B =

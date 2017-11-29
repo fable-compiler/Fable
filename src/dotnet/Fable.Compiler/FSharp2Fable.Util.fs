@@ -1339,7 +1339,7 @@ module Util =
                     if refCount > 1 && hasDoubleEvalRisk arg then
                         let tmpVar = com.GetUniqueVar() |> makeIdent
                         let tmpVarExp = Fable.Value(Fable.IdentValue tmpVar)
-                        let assign = Fable.VarDeclaration(tmpVar, arg, false)
+                        let assign = Fable.VarDeclaration(tmpVar, arg, false, None)
                         let ctx = { ctx with scope = (Some argIdent, tmpVarExp)::ctx.scope }
                         let ctx = if idx = 0 then addCallee ctx callee (Some tmpVarExp) else ctx
                         ctx, (assign::assignments), (idx + 1)

@@ -6,6 +6,11 @@ open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
+let ``Assignment block as expression is optimized``() =
+    A.C.Helper.Add5(let mutable x = 2 in let mutable y = 3 in x + y)
+    |> equal 10
+
+[<Test>]
 let ``for .. downto works``() = // See #411
     let mutable x = ""
     for i = 1 to 5 do
