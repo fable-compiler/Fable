@@ -26,3 +26,11 @@ export function isLetterOrDigit(input: string) {
 export function isWhiteSpace(input: string) {
     return isChar(input) && /\s/.test(input);
 }
+
+export function parse(input: string) {
+    if (isChar(input)) {
+        return input[0];
+    } else {
+        throw Error ("String must be exactly one character long.");
+    }
+}
