@@ -28,47 +28,41 @@ export default class List<T> implements IEquatable<List<T>>, IComparable<List<T>
     return "[" + Array.from(this).map((x) => toString(x)).join("; ") + "]";
   }
 
-  public Equals(x: List<T>) {
+  public Equals(other: List<T>) {
     // Optimization if they are referencially equal
-    if (this === x) {
+    if (this === other) {
       return true;
     } else {
-      const iter1 = this[Symbol.iterator]();
-      const iter2 = x[Symbol.iterator]();
-      while (true) {
-        const cur1 = iter1.next();
-        const cur2 = iter2.next();
-        if (cur1.done) {
-          return cur2.done ? true : false;
-        } else if (cur2.done) {
-          return false;
-        } else if (!equals(cur1.value, cur2.value)) {
-          return false;
+      let cur1: List<T> = this;
+      let cur2 = other;
+      while (equals(cur1.head, cur2.head)) {
+        cur1 = cur1.tail;
+        cur2 = cur2.tail;
+        if (cur1 == null) {
+          return cur2 == null;
         }
       }
+      return false;
     }
   }
 
-  public CompareTo(x: List<T>) {
+  public CompareTo(other: List<T>) {
     // Optimization if they are referencially equal
-    if (this === x) {
+    if (this === other) {
       return 0;
     } else {
-      let acc = 0;
-      const iter1 = this[Symbol.iterator]();
-      const iter2 = x[Symbol.iterator]();
-      while (true) {
-        const cur1 = iter1.next();
-        const cur2 = iter2.next();
-        if (cur1.done) {
-          return cur2.done ? acc : -1;
-        } else if (cur2.done) {
-          return 1;
-        } else {
-          acc = compare(cur1.value, cur2.value);
-          if (acc !== 0) { return acc; }
+      let cur1: List<T> = this;
+      let cur2 = other;
+      let res = compare(cur1.head, cur2.head);
+      while (res === 0) {
+        cur1 = cur1.tail;
+        cur2 = cur2.tail;
+        if (cur1 == null) {
+          return cur2 == null ? 0 : -1;
         }
+        res = compare(cur1.head, cur2.head);
       }
+      return res;
     }
   }
 
