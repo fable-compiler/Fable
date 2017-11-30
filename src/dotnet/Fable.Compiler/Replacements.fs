@@ -965,7 +965,8 @@ module AstPass =
         | "toLowerInvariant" -> icall i "toLowerCase" |> Some
         | "isLetter" | "isNumber" | "isDigit"
         | "isLetterOrDigit" | "isWhiteSpace"
-        | "isUpper" | "isLower" ->
+        | "isUpper" | "isLower"
+        | "parse" ->
             let methName =
                 match i.methodName with
                 | "isNumber" ->
