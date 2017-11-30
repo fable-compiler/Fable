@@ -1959,11 +1959,12 @@ module AstPass =
             | Patterns.SetContains implementedListFunctions meth ->
                 listMeth meth i.args
             | _ -> 
-                // match instance mathods
+                // match instance methods
                 match i.callee with
                 | Some instance -> 
                     match i.methodName with
                     | "equals" -> icall "Equals" (instance, i.args)
+                    | "getHashCode" -> (* TODO *) None
                     | _ -> None
                 | _ -> None
             
