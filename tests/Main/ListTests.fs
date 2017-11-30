@@ -27,6 +27,12 @@ let ``List.IsEmpty works``() =
       equal false xs.IsEmpty
 
 [<Test>]
+let ``List.Equals works``() = 
+      let xs = [1;2;3]
+      xs.Equals(xs) |> equal true
+
+
+[<Test>]
 let ``List.Head works``() =
       let xs = [1; 2; 3; 4]
       equal 1 xs.Head
