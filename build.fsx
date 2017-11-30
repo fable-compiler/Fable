@@ -37,6 +37,11 @@ let runBashOrCmd cwd scriptFileName args =
     then run cwd (scriptFileName + ".cmd") args
     else run cwd "sh" (scriptFileName + ".sh " + args)
 
+let addToPath newPath =
+    let path = environVarOrDefault "PATH" ""
+    let separator = if isWindows then ";" else ":"
+    setEnvironVar "PATH" (path + separator + newPath)
+
 // Project info
 let project = "Fable"
 
@@ -53,6 +58,8 @@ let coreJsSrcDir = "src/js/fable-core"
 // Targets
 let installDotnetSdk () =
     dotnetExePath <- DotNetCli.InstallDotNetSDK dotnetcliVersion
+    Path.GetDirectoryName(dotnetExePath) |> addToPath
+    run CWD "dotnet" "--version"
 
 let clean_ (full: bool) =
     !! "src/dotnet/**/bin"
