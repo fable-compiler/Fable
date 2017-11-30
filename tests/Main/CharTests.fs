@@ -86,13 +86,33 @@ let ``Char.IsLower with two args works``() =
     equal true  (Char.IsLower(str,1))
 
 [<Test>]
-let ``Char.IsWhitespace works``() = 
+let ``Char.IsWhitespace works``() =
     equal true (Char.IsWhiteSpace(' '))
     equal true (Char.IsWhiteSpace('\n'))
     equal true (Char.IsWhiteSpace('\t'))
 
 [<Test>]
-let ``Char.IsWhitespace works with two args``() = 
+let ``Char.IsWhitespace works with two args``() =
     let input = " \r"
     equal true (Char.IsWhiteSpace(input, 0))
     equal true (Char.IsWhiteSpace(input, 1))
+
+[<Test>]
+let ``Char.Parse works``() =
+    equal 'A' (Char.Parse "A")
+
+[<Test>]
+let ``Char.Parse fails if an empty string is given``() =
+    try
+        Char.Parse ""
+        |> failwithf "Unexpected result '%c'"
+    with
+    | e -> ()
+
+[<Test>]
+let ``Char.Parse fails if a string with length > 1 is given``() =
+    try
+        Char.Parse "Fable"
+        |> failwithf "Unexpected result '%c'"
+    with
+    | e -> ()
