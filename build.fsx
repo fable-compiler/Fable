@@ -251,7 +251,8 @@ Target "All" (fun () ->
     // .NET tests fail most of the times in Travis for obscure reasons
     if Option.isSome (environVarOrNone "APPVEYOR") then
         runTestsDotnet ()
-        buildRepl ()
+
+    buildRepl ()
 )
 
 // Note: build target "All" before this
