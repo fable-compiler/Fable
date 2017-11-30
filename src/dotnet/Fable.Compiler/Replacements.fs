@@ -1947,7 +1947,7 @@ module AstPass =
             let listMeth meth args =
                 CoreLibCall ("List", Some meth, false, args)
                 |> makeCall i.range i.returnType |> Some
-            match i.methodName with
+            match i.methodName with 
             | "getSlice" ->
                 listMeth "slice" (i.args@[i.callee.Value])
             | "truncate" ->
@@ -1958,7 +1958,15 @@ module AstPass =
                 | _ -> None
             | Patterns.SetContains implementedListFunctions meth ->
                 listMeth meth i.args
-            | _ -> None
+            | _ -> 
+                // match instance mathods
+                match i.callee with
+                | Some instance -> 
+                    match i.methodName with
+                    | "equals" -> icall "Equals" (instance, i.args)
+                    | _ -> None
+                | _ -> None
+            
         | Array ->
             match i.methodName with
             | "get" ->
