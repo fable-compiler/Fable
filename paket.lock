@@ -733,6 +733,11 @@ GITHUB
       Octokit (>= 0.20)
   remote: fable-compiler/fake-helpers
     Fable.FakeHelpers.fs (96548e07d95346901dfadff63bc57a620e588dfc)
+GROUP Repl
+
+GITHUB
+  remote: ncave/FSharp.Compiler.Service
+    FULLPROJECT (3f474a00e62b1ff679f161b6ef9b5f988e0ea4ce)
 GROUP Test
 STORAGE: NONE
 NUGET

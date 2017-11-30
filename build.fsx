@@ -32,9 +32,13 @@ module Yarn =
                 WorkingDirectory = workingDir
             })
 
+let runBashOrCmd cwd scriptFileName args =
+    if isWindows
+    then run cwd (scriptFileName + ".cmd") args
+    else run cwd "sh" (scriptFileName + ".sh " + args)
+
 // Project info
 let project = "Fable"
-let authors = ["Alfonso García-Caro"]
 
 let gitOwner = "fable-compiler"
 let gitHome = "https://github.com/" + gitOwner
@@ -44,8 +48,6 @@ let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let CWD = __SOURCE_DIRECTORY__
 let cliBuildDir = "build/fable"
-let coreBuildDir = "build/fable-core"
-let coreSrcDir = "src/dotnet/Fable.Core"
 let coreJsSrcDir = "src/js/fable-core"
 
 // Targets
@@ -95,16 +97,6 @@ let buildSplitter () =
     Yarn.install CWD
     // Yarn.run CWD "tslint" [sprintf "--project %s" buildDir]
     Yarn.run CWD "tsc" (sprintf "--project %s" buildDir)
-
-let buildCore isRelease () =
-    let config = if isRelease then "Release" else "Debug"
-    sprintf "build -c %s" config
-    |> run coreSrcDir dotnetExePath
-
-    CreateDir coreBuildDir
-    FileUtils.cp (sprintf "%s/bin/%s/netstandard1.6/Fable.Core.dll" coreSrcDir config) coreBuildDir
-    // TODO: Doc generation doesn't work with netcorecli-fsc atm
-    // FileUtils.cp (sprintf "%s/bin/%s/netstandard1.6/Fable.Core.xml" coreSrcDir config) coreBuildDir
 
 let buildNUnitPlugin () =
     let nunitDir = "src/plugins/nunit"
@@ -219,37 +211,9 @@ Target "PublishPackages" (fun () ->
     publishPackages2 baseDir dotnetExePath packages
 )
 
-Target "All" (fun () ->
-    installDotnetSdk ()
-    clean ()
-    nugetRestore "src/dotnet" ()
-    buildCLI "src/dotnet" true ()
-    buildCoreJS ()
-    buildSplitter ()
-    buildNUnitPlugin ()
-    buildJsonConverter ()
-    runTestsJS ()
-    // .NET tests fail most of the times in Travis for obscure reasons
-    if Option.isNone (environVarOrNone "TRAVIS") then
-        runTestsDotnet ()
-)
-
-// For this target to work, you need the following:
-//
-// - Clone github.com/ncave/FSharp.Compiler.Service/ `fable` branch and put it
-//   in a folder next to Fable repo named `FSharp.Compiler.Service_fable`
-// - In `FSharp.Compiler.Service_fable` run `fcs\build CodeGen.Fable`
-// - If `fable-compiler.github.io` repo is also cloned next to this, the generated
-//   JS files will be copied to its `public/repl/build` folder
-//
-// > ATTENTION: the generation of libraries metadata is not included in this target
-Target "REPL" (fun () ->
+let buildRepl () =
     let replDir = CWD </> "src/dotnet/Fable.JS/demo"
-
-    // Build tools
-    buildCLI "src/dotnet" true ()
-    buildCoreJS ()
-    buildSplitter ()
+    runBashOrCmd (CWD </> "paket-files/repl/ncave/FSharp.Compiler.Service") "./fcs/build" "CodeGen.Fable"
 
     // Build and minify REPL
     Yarn.install replDir
@@ -261,17 +225,33 @@ Target "REPL" (fun () ->
     |> Yarn.run CWD "tsc"
 
     // Copy generated files to `../fable-compiler.github.io/public/repl/build`
-    let targetDir =  CWD </> "../fable-compiler.github.io/public/repl"
-    if Directory.Exists(targetDir) then
-        let targetDir = targetDir </> "build"
-        // fable-core
-        sprintf "--project %s -m amd --outDir %s" coreJsSrcDir (targetDir </> "fable-core")
-        |> Yarn.run CWD "tsc"
-        // REPL bundle
-        printfn "Copy REPL JS files to %s" targetDir
-        for file in Directory.GetFiles(replDir </> "repl/build", "*.js") do
-            FileUtils.cp file targetDir
-            printfn "> Copied: %s" file
+    // let targetDir =  CWD </> "../fable-compiler.github.io/public/repl"
+    // if Directory.Exists(targetDir) then
+    //     let targetDir = targetDir </> "build"
+    //     // fable-core
+    //     sprintf "--project %s -m amd --outDir %s" coreJsSrcDir (targetDir </> "fable-core")
+    //     |> Yarn.run CWD "tsc"
+    //     // REPL bundle
+    //     printfn "Copy REPL JS files to %s" targetDir
+    //     for file in Directory.GetFiles(replDir </> "repl/build", "*.js") do
+    //         FileUtils.cp file targetDir
+    //         printfn "> Copied: %s" file
+
+
+Target "All" (fun () ->
+    installDotnetSdk ()
+    clean ()
+    nugetRestore "src/dotnet" ()
+    buildCLI "src/dotnet" true ()
+    buildCoreJS ()
+    buildSplitter ()
+    buildNUnitPlugin ()
+    buildJsonConverter ()
+    runTestsJS ()
+    // .NET tests fail most of the times in Travis for obscure reasons
+    if Option.isSome (environVarOrNone "APPVEYOR") then
+        runTestsDotnet ()
+        buildRepl ()
 )
 
 // Note: build target "All" before this
