@@ -107,7 +107,7 @@ let ``Char.Parse fails if an empty string is given``() =
         Char.Parse ""
         |> failwithf "Unexpected result '%c'"
     with
-    | e -> ()
+    | _ -> ()
 
 [<Test>]
 let ``Char.Parse fails if a string with length > 1 is given``() =
@@ -115,4 +115,4 @@ let ``Char.Parse fails if a string with length > 1 is given``() =
         Char.Parse "Fable"
         |> failwithf "Unexpected result '%c'"
     with
-    | e -> ()
+    | _ -> ()
