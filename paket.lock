@@ -738,11 +738,6 @@ GROUP Repl
 GIT
   remote: https://github.com/ncave/FSharp.Compiler.Service
      (3f474a00e62b1ff679f161b6ef9b5f988e0ea4ce)
-      build: fcs/build.cmd CodeGen.Fable
-      os: windows
-     (3f474a00e62b1ff679f161b6ef9b5f988e0ea4ce)
-      build: fcs/build.sh CodeGen.Fable
-      os: mono
 GROUP Test
 STORAGE: NONE
 NUGET
