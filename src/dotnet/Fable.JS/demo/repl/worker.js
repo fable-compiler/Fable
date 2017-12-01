@@ -61,7 +61,7 @@ references.map(function(fileName){
     getFileBlob(fileName, 'metadata/' + fileName);
 });
 
-function compile(source, replacements) {
+function compile(source, replacements, optimized) {
     try {
         if (checker === null) {
             if (Object.getOwnPropertyNames(metadata).length < references.length) {
@@ -82,7 +82,7 @@ function compile(source, replacements) {
 
         // Fable AST
         var startTime2 = performance.now();
-        var babelAst = Fable.compileAst(com, fsharpAst, fileName);
+        var babelAst = Fable.compileAst(com, fileName, optimized, fsharpAst);
         var jsonAst = Fable.convertToJson(babelAst);
         var elapsed2 = performance.now() - startTime2;
 
@@ -94,5 +94,5 @@ function compile(source, replacements) {
 }
 
 onmessage = function (e) {
-    compile(e.data.source, e.data.replacements);
+    compile(e.data.source, e.data.replacements, e.data.optimized);
 }

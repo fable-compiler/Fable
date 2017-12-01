@@ -207,8 +207,9 @@ let main argv =
         let ms0, checker = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
         let com = Fable.State.Compiler ()
+        let optimized = false // todo: from compiler option
         let parseFSharp () = parseFSharpProject checker com fileName source
-        let parseFable ast = compileAst com ast fileName
+        let parseFable ast = ast |> compileAst com fileName optimized
         let bench i =
             let ms1, fsAST = measureTime parseFSharp ()
             let ms2, babelAST = measureTime parseFable fsAST

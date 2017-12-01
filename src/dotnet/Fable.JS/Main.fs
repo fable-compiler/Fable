@@ -37,14 +37,16 @@ let makeProjOptions (com: ICompiler) projFile =
         Stamp = None }
     projOptions
 
-let compileAst (com: Compiler) (checkedProject: FSharpCheckProjectResults) fileName =
+let compileAst (com: Compiler) fileName optimized (checkedProject: FSharpCheckProjectResults) =
     let errors = com.ReadAllLogs() |> Map.tryFind "error"
     if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let projectOptions = makeProjOptions com fileName
     let fableCoreJsDir = "./fable-core"
     let fableCore = FilePath fableCoreJsDir
-    let implFiles = checkedProject.AssemblyContents.ImplementationFiles
-                    |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
+    let implFiles =
+        if optimized then checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
+        else checkedProject.AssemblyContents.ImplementationFiles
+        |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
     let errors = checkedProject.Errors
     let deps = Map.empty
     let project = Project(projectOptions, implFiles, errors, deps, fableCore, isWatchCompile=false)
@@ -56,16 +58,16 @@ let compileAst (com: Compiler) (checkedProject: FSharpCheckProjectResults) fileN
     Babel.Program(file.fileName, loc, file.body, file.directives, com.ReadAllLogs())
 
 let createChecker readAllBytes references =
-    InteractiveChecker.Create(List.ofArray references, readAllBytes)
+    InteractiveChecker.Create(references, readAllBytes)
 
 let makeCompiler replacements =
     Compiler(replacements = replacements)
 
-let compileSource checker source =
+let compileSource checker source optimized =
     let com = Compiler()
     let fileName = "stdin.fsx"
     let checkedProject = parseFSharpProject checker com fileName source
-    let file = compileAst com checkedProject fileName
+    let file = checkedProject |> compileAst com fileName optimized
     file
 
 let convertToJson babelAst =
