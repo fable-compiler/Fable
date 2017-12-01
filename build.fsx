@@ -32,9 +32,9 @@ module Yarn =
                 WorkingDirectory = workingDir
             })
 
-let runBashOrCmd cwd scriptFileName args =
+let runBashOrCmd cwd (scriptFileName: string) args =
     if isWindows
-    then run cwd (scriptFileName + ".cmd") args
+    then run cwd (scriptFileName.Replace("/", "\\") + ".cmd") args
     else run cwd "sh" (scriptFileName + ".sh " + args)
 
 let addToPath newPath =
@@ -220,11 +220,26 @@ Target "PublishPackages" (fun () ->
 
 let buildRepl () =
     let replDir = CWD </> "src/dotnet/Fable.JS/demo"
-    let fcsFableDir = CWD </> "paket-files/repl/github.com/ncave/FSharp.Compiler.Service"
+    let fcsFork = "https://github.com/ncave/FSharp.Compiler.Service"
+    let fcsFableDir =
+        // TODO: Another option for local Windows Systems (not AppVeyor)
+        match environVarOrNone "APPVEYOR" with
+        | Some _ -> "/projects/fcs"
+        | None -> CWD </> "paket-files/ncave/FCS"
 
-    runBashOrCmd fcsFableDir "./fcs/build" "CodeGen.Fable"
+    let fableJsProj = CWD </> "src/dotnet/Fable.JS/Fable.JS.fsproj"
+    let fcsFableProj = fcsFableDir </> "fcs/fcs-fable/fcs-fable.fsproj"
+
+    CleanDir fcsFableDir
+    Repository.cloneSingleBranch CWD fcsFork "fable" fcsFableDir
+
+    runBashOrCmd fcsFableDir "fcs/build" "CodeGen.Fable"
     Directory.GetFiles(fcsFableDir </> "fcs/fcs-fable/codegen")
     |> Seq.iter (printfn "%s")
+
+    let reg = Regex(@"ProjectReference Include="".*?""")
+    (reg, fableJsProj) ||> replaceLines (fun line _ ->
+        reg.Replace(line, sprintf @"ProjectReference Include=""%s""" fcsFableProj) |> Some)
 
     // Build and minify REPL
     Yarn.install replDir
@@ -259,14 +274,18 @@ Target "All" (fun () ->
     buildNUnitPlugin ()
     buildJsonConverter ()
     runTestsJS ()
-    // .NET tests fail most of the times in Travis for obscure reasons
-    if Option.isSome (environVarOrNone "APPVEYOR") then
-        runTestsDotnet ()
 
-    buildRepl ()
+    match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
+    | Some _, _ -> runTestsDotnet (); buildRepl ()
+    // .NET tests fail most of the times in Travis for obscure reasons
+    | _, Some _ -> buildRepl ()
+    // Don't build repl locally
+    | None, None -> runTestsDotnet ()
 )
 
-// Note: build target "All" before this
+Target "REPL" buildRepl
+
+// Note: build target "All" and "REPL" before this
 Target "REPL.test" (fun () ->
     let replTestDir = "src/dotnet/Fable.JS/testapp"
     Yarn.run replTestDir "build" ""

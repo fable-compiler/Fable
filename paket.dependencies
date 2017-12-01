@@ -25,6 +25,3 @@ group Build
   nuget FAKE
   github fsharp/FAKE modules/Octokit/Octokit.fsx
   github fable-compiler/fake-helpers Fable.FakeHelpers.fs
-
-group Repl
-  git https://github.com/ncave/FSharp.Compiler.Service fable
