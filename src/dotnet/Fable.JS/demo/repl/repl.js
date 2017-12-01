@@ -284,6 +284,9 @@
         var elapsed = performance.now() - startTime;
 
         var code = transformed.code;
+        while (code.indexOf("toConsole(") >= 0) {
+          code = code.replace("toConsole(", "replLog(");
+        }
         this.setOutput(code);
         this.runOutput();
 
@@ -307,14 +310,19 @@
       var transformed;
       this.clearOutput();
 
+      var optimized = document.getElementById('option-optimized').checked;
+
       var source = this.getSource();
       var msg = options && typeof options.msg === "string" ? options.msg : "Compiling...";
       this.setOutput(msg);
       fableWorker.postMessage({
         source: source,
         replacements: [
-          ["Microsoft.FSharp.Core.ExtraTopLevelOperators.PrintFormatLine", "replLog($0)"]
-        ]
+          ["Microsoft.FSharp.Core.ExtraTopLevelOperators.PrintFormatLine", "replLog($0)"],
+          ["Microsoft.FSharp.Core.ExtraTopLevelOperators.PrintFormatToTextWriter", "replLog($0)"],
+          ["Microsoft.FSharp.Core.ExtraTopLevelOperators.PrintFormatLineToTextWriter", "replLog($0)"]
+        ],
+        optimized: optimized
       });
     };
 

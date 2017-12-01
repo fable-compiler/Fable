@@ -103,7 +103,10 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
                 |> Async.RunSynchronously
             tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
                 Printers.printAst dir checkedProject)
+            // let optimized = false // todo: from compiler option
             let implFiles =
+                // if optimized then checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
+                // else
                 checkedProject.AssemblyContents.ImplementationFiles
                 |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
             implFiles, checkedProject.Errors
