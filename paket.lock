@@ -735,9 +735,14 @@ GITHUB
     Fable.FakeHelpers.fs (96548e07d95346901dfadff63bc57a620e588dfc)
 GROUP Repl
 
-GITHUB
-  remote: ncave/FSharp.Compiler.Service
-    FULLPROJECT (3f474a00e62b1ff679f161b6ef9b5f988e0ea4ce)
+GIT
+  remote: https://github.com/ncave/FSharp.Compiler.Service
+     (3f474a00e62b1ff679f161b6ef9b5f988e0ea4ce)
+      build: fcs/build.cmd CodeGen.Fable
+      os: windows
+     (3f474a00e62b1ff679f161b6ef9b5f988e0ea4ce)
+      build: fcs/build.sh CodeGen.Fable
+      os: mono
 GROUP Test
 STORAGE: NONE
 NUGET

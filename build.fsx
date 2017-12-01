@@ -220,7 +220,7 @@ Target "PublishPackages" (fun () ->
 
 let buildRepl () =
     let replDir = CWD </> "src/dotnet/Fable.JS/demo"
-    runBashOrCmd (CWD </> "paket-files/repl/ncave/FSharp.Compiler.Service") "./fcs/build" "CodeGen.Fable"
+    // runBashOrCmd (CWD </> "paket-files/repl/ncave/FSharp.Compiler.Service") "./fcs/build" "CodeGen.Fable"
 
     // Build and minify REPL
     Yarn.install replDir

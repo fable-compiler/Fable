@@ -27,4 +27,5 @@ group Build
   github fable-compiler/fake-helpers Fable.FakeHelpers.fs
 
 group Repl
-  github ncave/FSharp.Compiler.Service:fable
+  git https://github.com/ncave/FSharp.Compiler.Service fable build: "fcs/build.cmd CodeGen.Fable", OS: windows
+  git https://github.com/ncave/FSharp.Compiler.Service fable build: "fcs/build.sh CodeGen.Fable", OS: mono
