@@ -893,8 +893,11 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.Quote(Transform com ctx expr) ->
         Fable.Quote(expr)
 
+    | BasicPatterns.ILAsm asm ->
+        match asm with
+        | _ -> failwithf "Cannot compile ILAsm expression in %O: %A"
+                     (makeRange fsExpr.Range) fsExpr
     (** Not implemented *)
-    | BasicPatterns.ILAsm _
     | BasicPatterns.ILFieldGet _
     | BasicPatterns.AddressSet _ // (lvalueExpr, rvalueExpr)
     | _ -> failwithf "Cannot compile expression in %O: %A"

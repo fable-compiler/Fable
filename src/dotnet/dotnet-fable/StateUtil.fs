@@ -104,7 +104,7 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
             tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
                 Printers.printAst dir checkedProject)
             let implFiles =
-                checkedProject.AssemblyContents.ImplementationFiles
+                checkedProject.OptimizedAssemblyContents.ImplementationFiles
                 |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
             implFiles, checkedProject.Errors
     Project(projectOptions, implFiles, errors, deps, fableCore, isWatchCompile)

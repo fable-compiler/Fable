@@ -1,7 +1,7 @@
 @echo off
 cls
 
-.paket\paket.exe restore
+.paket\paket.exe update
 if errorlevel 1 (
   exit /b %errorlevel%
 )
