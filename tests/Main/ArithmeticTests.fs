@@ -43,6 +43,11 @@ let ``Integer division doesn't produce floats``() =
     equal (float 5 / 2., 2.5)
 
 [<Test>]
+let ``Decimal literals can be generated``() =
+    equal (System.Decimal.Zero, 0.M)
+    equal (System.Decimal.One, 1.M)
+
+[<Test>]
 let ``Infix modulo can be generated``() =
     equal (4 % 3, 1)
 
