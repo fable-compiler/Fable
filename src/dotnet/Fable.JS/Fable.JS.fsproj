@@ -30,6 +30,8 @@
     <Compile Include="../Fable.Compiler/Fable2Babel.fs"/>
     <Compile Include="../Fable.Compiler/State.fs"/>
 
+    <Compile Include="Interfaces.fs"/>
+    <Compile Include="Lexer.fs"/>
     <Compile Include="Main.fs"/>
   </ItemGroup>
 

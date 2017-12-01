@@ -1,28 +1,109 @@
-module Fable.JS
+module Fable.JS.Main
 
 open System
-open System.Collections.Generic
-open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open FsAutoComplete
+open Interfaces
 open Fable
 open Fable.AST
 open Fable.Core
 open Fable.State
 
-let parseFSharpProject (checker: InteractiveChecker) (com: ICompiler) fileName source =
-    let _,_,checkProjectResults = checker.ParseAndCheckScript (fileName, source)
-    for er in checkProjectResults.Errors do
-        let severity =
-            match er.Severity with
-            | FSharpErrorSeverity.Warning -> Severity.Warning
-            | FSharpErrorSeverity.Error -> Severity.Error
-        let range =
-            { start={ line=er.StartLineAlternate; column=er.StartColumn}
-            ; ``end``={ line=er.EndLineAlternate; column=er.EndColumn} }
-        com.AddLog(er.Message, severity, range, er.FileName, "FSHARP")
-    checkProjectResults
+type private CheckerImpl(c: InteractiveChecker) =
+    member __.Checker = c
+    interface IChecker
 
-let makeProjOptions (com: ICompiler) projFile =
+type private CompilerImpl(c: Compiler) =
+    member __.Compiler = c
+    interface IFableCompiler
+
+type ParseResults =
+    { ParseFile: FSharpParseFileResults
+      CheckFile: FSharpCheckFileResults
+      CheckProject: FSharpCheckProjectResults }
+    interface IParseResults with
+        member this.Errors = this.CheckProject.Errors |> Array.map (fun er ->
+            { StartLineAlternate = er.StartLineAlternate
+              StartColumn = er.StartColumn
+              EndLineAlternate = er.EndLineAlternate
+              EndColumn = er.EndColumn
+              Message = er.Message
+              IsWarning =
+                match er.Severity with
+                | FSharpErrorSeverity.Error -> false
+                | FSharpErrorSeverity.Warning -> true
+            })
+
+let findLongIdentsAndResidue (col: int, lineStr:string) =
+  let lineStr = lineStr.Substring(0, col)
+  match Lexer.getSymbol 0 col lineStr Lexer.SymbolLookupKind.ByLongIdent [||] with
+  | Some sym ->
+      match sym.Text with
+      | "" -> [], ""
+      | text ->
+          let res = text.Split '.' |> List.ofArray |> List.rev
+          if lineStr.[col - 1] = '.' then res |> List.rev, ""
+          else
+              match res with
+              | head :: tail -> tail |> List.rev, head
+              | [] -> [], ""
+  | _ -> [], ""
+
+let convertGlyph glyph =
+    match glyph with
+    | FSharpGlyph.Class | FSharpGlyph.Struct | FSharpGlyph.Union
+    | FSharpGlyph.Type | FSharpGlyph.Typedef ->
+        Glyph.Class
+    | FSharpGlyph.Enum | FSharpGlyph.EnumMember ->
+        Glyph.Enum
+    | FSharpGlyph.Constant ->
+        Glyph.Value
+    | FSharpGlyph.Variable ->
+        Glyph.Variable
+    | FSharpGlyph.Interface ->
+        Glyph.Interface
+    | FSharpGlyph.Module | FSharpGlyph.NameSpace ->
+        Glyph.Module
+    | FSharpGlyph.Method | FSharpGlyph.OverridenMethod | FSharpGlyph.ExtensionMethod ->
+        Glyph.Method
+    | FSharpGlyph.Property ->
+        Glyph.Property
+    | FSharpGlyph.Field ->
+        Glyph.Field
+    | FSharpGlyph.Delegate ->
+        Glyph.Function
+    | FSharpGlyph.Error | FSharpGlyph.Exception ->
+        Glyph.Error
+    | FSharpGlyph.Event ->
+        Glyph.Event
+
+let createChecker references readAllBytes =
+    InteractiveChecker.Create(List.ofArray references, readAllBytes)
+
+let createCompiler _replacements =
+    Compiler()
+
+let parseFSharpProject (checker: InteractiveChecker) fileName source =
+    let parseResults, typeCheckResults, projectResults = checker.ParseAndCheckScript (fileName, source)
+    { ParseFile = parseResults
+      CheckFile = typeCheckResults
+      CheckProject = projectResults }
+
+/// Get tool tip at the specified location
+let getToolTipAtLocation (typeCheckResults: FSharpCheckFileResults) line col lineText =
+    typeCheckResults.GetToolTipText(line, col, lineText, [], FSharpTokenTag.IDENT)
+
+let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int) lineText = async {
+    let ln, residue = findLongIdentsAndResidue(col - 1, lineText)
+    let longName = Microsoft.FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineText, col - 1)
+    let longName = { longName with QualifyingIdents = ln; PartialIdent = residue }
+
+    let! decls = parseResults.CheckFile.GetDeclarationListInfo(Some parseResults.ParseFile, line, lineText, longName, fun () -> [])
+    return decls.Items |> Array.map (fun decl ->
+        { Name = decl.Name; Glyph = convertGlyph decl.Glyph })
+}
+
+let makeProjOptions (_com: ICompiler) projFile =
     let projOptions: FSharpProjectOptions =
       { ProjectFileName = projFile
         SourceFiles = [| |]
@@ -37,37 +118,40 @@ let makeProjOptions (com: ICompiler) projFile =
         Stamp = None }
     projOptions
 
-let compileAst (com: Compiler) (checkedProject: FSharpCheckProjectResults) fileName =
-    let errors = com.ReadAllLogs() |> Map.tryFind "error"
-    if errors.IsSome then failwith (errors.Value |> String.concat "\n")
+let compileAst (com: Compiler) (parseResults: ParseResults) (fableCoreDir: string) fileName =
+    let fableCoreDir =
+        if fableCoreDir.StartsWith(".")
+        then FilePath fableCoreDir
+        else NonFilePath fableCoreDir
+    // let errors = com.ReadAllLogs() |> Map.tryFind "error"
+    // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let projectOptions = makeProjOptions com fileName
-    let fableCoreJsDir = "./fable-core"
-    let fableCore = FilePath fableCoreJsDir
-    let implFiles = checkedProject.AssemblyContents.ImplementationFiles
-                    |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
-    let errors = checkedProject.Errors
-    let deps = Map.empty
-    let project = Project(projectOptions, implFiles, errors, deps, fableCore, isWatchCompile=false)
-
+    let implFiles =
+        parseResults.CheckProject.AssemblyContents.ImplementationFiles
+        |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
+    let project = Project(projectOptions, implFiles, parseResults.CheckProject.Errors, Map.empty, fableCoreDir, isWatchCompile=false)
     let file: Babel.Program =
         FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles fileName
         |> Fable2Babel.Compiler.transformFile com project
     let loc = defaultArg file.loc SourceLocation.Empty
     Babel.Program(file.fileName, loc, file.body, file.directives, com.ReadAllLogs())
 
-let createChecker readAllBytes references =
-    InteractiveChecker.Create(List.ofArray references, readAllBytes)
-
-let makeCompiler replacements =
-    Compiler(replacements = replacements)
-
-let compileSource checker source =
-    let com = Compiler()
-    let fileName = "stdin.fsx"
-    let checkedProject = parseFSharpProject checker com fileName source
-    let file = compileAst com checkedProject fileName
-    file
-
-let convertToJson babelAst =
-    babelAst
-    |> Fable.Core.JsInterop.toJson
+[<ExportDefault>]
+let exports =
+  { new IFableManager with
+        member __.CreateChecker(references, readAllBytes) =
+            createChecker references readAllBytes |> CheckerImpl :> IChecker
+        member __.CreateCompiler(replacements) =
+            let replacements = defaultArg replacements (upcast [||])
+            createCompiler replacements |> CompilerImpl :> IFableCompiler
+        member __.ParseFSharpProject(checker, fileName, source) =
+            let c = checker :?> CheckerImpl
+            parseFSharpProject c.Checker fileName source :> IParseResults
+        member __.GetCompletionsAtLocation(parseResults:IParseResults, line:int, col:int, lineText:string) =
+            let res = parseResults :?> ParseResults
+            getCompletionsAtLocation res line col lineText
+        member __.CompileToBabelJsonAst(com: IFableCompiler, parseResults:IParseResults, fableCoreDir:string, fileName:string) =
+            let com = com :?> CompilerImpl
+            let res = parseResults :?> ParseResults
+            compileAst com.Compiler res fableCoreDir fileName |> JsInterop.toJson
+  }
