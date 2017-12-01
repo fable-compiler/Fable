@@ -30,6 +30,10 @@ let ``System.Double.Parse works``() =
     parse Double.Parse "1.5" |> equal 1.5
 
 [<Test>]
+let ``System.Decimal.Parse works``() =
+    parse Decimal.Parse "1.5" |> equal 1.5M
+
+[<Test>]
 let ``System.Double.TryParse works``() =
     tryParse Double.TryParse 0.0 "1" |> equal (true, 1.0)
     tryParse Double.TryParse 0.0 "    1     " |> equal (true, 1.0)
