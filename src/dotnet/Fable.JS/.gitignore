@@ -1,7 +1,6 @@
 # Output
 demo/out
 demo/repl/build
-demo/repl/metadata
 testapp/out
 
 # Node
