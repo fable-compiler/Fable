@@ -77,9 +77,6 @@ let convertGlyph glyph =
     | FSharpGlyph.Event ->
         Glyph.Event
 
-let createChecker references readAllBytes =
-    InteractiveChecker.Create(List.ofArray references, readAllBytes)
-
 let parseFSharpProject (checker: InteractiveChecker) fileName source =
     let parseResults, typeCheckResults, projectResults = checker.ParseAndCheckScript (fileName, source)
     { ParseFile = parseResults
@@ -115,15 +112,19 @@ let makeProjOptions (_com: ICompiler) projFile =
         Stamp = None }
     projOptions
 
-let compileAst (com: Compiler) (parseResults: ParseResults) fileName =
+let compileAst (com: Compiler) fileName optimized (parseResults: ParseResults) =
     // let errors = com.ReadAllLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
+    let checkedProject = parseResults.CheckProject
     let projectOptions = makeProjOptions com fileName
     let implFiles =
-        parseResults.CheckProject.AssemblyContents.ImplementationFiles
+        (if optimized
+         then checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
+         else checkedProject.AssemblyContents.ImplementationFiles)
         |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
     // Dealing with fableCoreDir is a bit messy atm, for the REPL, only the value in the Compiler options matters
     let project = Project(projectOptions, implFiles, parseResults.CheckProject.Errors, Map.empty, NonFilePath "", isWatchCompile=false)
+
     let file: Babel.Program =
         FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles fileName
         |> Fable2Babel.Compiler.transformFile com project
@@ -134,7 +135,8 @@ let compileAst (com: Compiler) (parseResults: ParseResults) fileName =
 let exports =
   { new IFableManager with
         member __.CreateChecker(references, readAllBytes) =
-            createChecker references readAllBytes |> CheckerImpl :> IChecker
+            InteractiveChecker.Create(references, readAllBytes)
+            |> CheckerImpl :> IChecker
         member __.CreateCompiler(fableCoreDir, replacements) =
             let options =
                 { fableCore = fableCoreDir
@@ -149,8 +151,9 @@ let exports =
         member __.GetCompletionsAtLocation(parseResults:IParseResults, line:int, col:int, lineText:string) =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText
-        member __.CompileToBabelJsonAst(com: IFableCompiler, parseResults:IParseResults, fileName:string) =
+        member __.CompileToBabelJsonAst(com: IFableCompiler, parseResults:IParseResults, fileName:string, ?optimized: bool) =
             let com = com :?> CompilerImpl
             let res = parseResults :?> ParseResults
-            compileAst com.Compiler res fileName |> JsInterop.toJson
+            let optimized = defaultArg optimized false
+            compileAst com.Compiler fileName optimized res |> JsInterop.toJson
   }

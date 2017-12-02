@@ -254,10 +254,10 @@ let buildRepl () =
     |> Yarn.run CWD "tsc"
 
     // Build testapp
-    // Yarn.install testappDir
-    // Yarn.run testappDir "build" ""
-    // Yarn.run testappDir "start" ""
-    // Yarn.run testappDir "test" ""
+    Yarn.install testappDir
+    Yarn.run testappDir "build" ""
+    Yarn.run testappDir "start" ""
+    Yarn.run testappDir "test" ""
 
     // Copy generated files to `../fable-compiler.github.io/public/repl/build`
     // let targetDir =  CWD </> "../fable-compiler.github.io/public/repl"
