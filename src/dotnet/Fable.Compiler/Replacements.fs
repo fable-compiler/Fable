@@ -1289,6 +1289,15 @@ module AstPass =
             propStr "length" i.callee.Value |> Some
         | _ -> None
 
+    // Compile static strings to their constant values
+    // reference: https://msdn.microsoft.com/en-us/visualfsharpdocs/conceptual/languageprimitives.errorstrings-module-%5bfsharp%5d
+    let errorStrings com (i: Fable.ApplyInfo) = 
+        match i.methodName with
+        | "inputArrayEmptyString" -> makeStrConst "The input array was empty" |> Some
+        | "inputSequenceEmptyString" -> makeStrConst "The input sequence was empty" |> Some
+        | "inputMustBeNonNegativeString" -> makeStrConst "The input must be non-negative" |> Some
+        | _ -> None
+    
     let languagePrimitives com (i: Fable.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
         | "enumOfValue", OneArg (arg) -> arg |> Some
@@ -2359,6 +2368,7 @@ module AstPass =
         | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com info
         | "Microsoft.FSharp.Core.FSharpRef" -> references com info
         | "System.Activator" -> activator com info
+        | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings com info
         | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com info
         | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
         | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info
