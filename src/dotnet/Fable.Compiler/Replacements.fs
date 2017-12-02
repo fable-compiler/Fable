@@ -1141,7 +1141,19 @@ module AstPass =
                 CoreLibCall (numberModule, Some "parse", false,
                     [str; (if isFloat then makeNumConst 16.0 else makeIntConst 16)])
                 |> makeCall i.range i.returnType |> Some
-
+            // System.Double.Parse(string, NumberStyle) 
+            | "parse", [inputString; Fable.Wrapped(numberStyleValue, Fable.Enum _)] -> 
+                (* Todo *)
+                None 
+            // System.Double.Parse(string, IFormatProvider)
+            // just ignore the second args (IFormatProvider) and compile 
+            // to System.Double.Parse(string)
+            | "parse", [str; _ ] ->
+                "The value of IFormatProvider passed to the Parse function will be ignored"
+                |> addWarning com i.fileName i.range
+                CoreLibCall (numberModule, Some "parse", false,
+                    [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10)])
+                |> makeCall i.range i.returnType |> Some
             | "tryParse", [str; defValue] ->
                 CoreLibCall (numberModule, Some "tryParse", false,
                     [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10); defValue])
@@ -2253,6 +2265,17 @@ module AstPass =
             |> Some
         | _ -> None
 
+    // Initial support, making at least InvariantCulture compile-able
+    // to be used System.Double.Parse and System.Single.Parse
+    // see https://github.com/fable-compiler/Fable/pull/1197#issuecomment-348034660
+    let globalization com (i: Fable.ApplyInfo) = 
+        match i.methodName with 
+        | "invariantCulture" -> 
+            "System.Globalization namespace is not supported by Fable. The value InvariantCulture will be compiled to {} (empty object literal)"
+            |> addWarning com i.fileName i.range 
+            makeJsObject i.range [] |> Some
+        | _ -> None
+
     let bigint (com: ICompiler) (i: Fable.ApplyInfo) =
         match i.callee, i.methodName with
         | Some callee, meth -> icall i meth |> Some
@@ -2354,6 +2377,7 @@ module AstPass =
         | "System.DateTimeOffset" -> dates com info
         | "System.TimeSpan" -> timeSpans com info
         | "System.Environment" -> systemEnv com info
+        | "System.Globalization.CultureInfo" -> globalization com info
         | "System.Action" | "System.Func"
         | "Microsoft.FSharp.Core.FSharpFunc"
         | "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" -> funcs com info
