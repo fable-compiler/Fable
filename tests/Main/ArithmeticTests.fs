@@ -229,6 +229,21 @@ let ``sqrt matches .net core implementation``() =
 
 
 [<Test>]
+let ``Double.Parse works with IFormatProvider``() = 
+    // culture compiles to { } for now and it is ignore on the call-site
+    let culture = Globalization.CultureInfo.InvariantCulture
+    let result = System.Double.Parse("10.5", culture)
+    equal(10.5, result)
+
+[<Test>]
+let ``Single.Parse works with IFormatProvider``() = 
+    // culture compiles to { } for now and it is ignore on the call-site
+    let culture = Globalization.CultureInfo.InvariantCulture
+    let result = System.Single.Parse("10.5", culture)
+    equal(10.5, float result)
+
+
+[<Test>]
 let ``acos works``() =
     acos 0.25 |> checkTo3dp 1318.
 
