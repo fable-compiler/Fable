@@ -4,6 +4,15 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Fable.JS.Interfaces
 
+type IPath =
+    abstract join: string * string -> string
+    abstract basename: string -> string
+    abstract dirname: string -> string
+    abstract relative: string * string -> string
+    abstract resolve: string -> string
+    [<Emit("$0.join(__dirname, $1)")>]
+    abstract resolveWithFile: string -> string
+
 type IFileSystem =
     abstract readFileSync: string -> byte[]
     [<Emit("$0.readFileSync($1,'utf8')")>]
@@ -15,12 +24,19 @@ type IProcess =
     abstract hrtime: (float*float)->float*float
 
 let fs: IFileSystem = importAll "fs"
-let path: Metadata.IPath = importAll "path"
+let path: IPath = importAll "path"
 let [<Global("process")>] proc: IProcess = jsNative
 let babelAstToJs(jsonAst: string): string = importMember "./util.js"
 
+let use_net45_meta = true
+let references = Metadata.references use_net45_meta
+let metadataPath =
+    if use_net45_meta
+    then path.resolveWithFile("${entryDir}/../demo/repl/metadata")  // dotnet 4.5 binaries
+    else path.resolveWithFile("${entryDir}/../demo/repl/metadata2") // dotnet core 2.0 binaries
+
 let readAllBytes (fileName:string) =
-    fs.readFileSync(path.join(Metadata.metadataPath, fileName))
+    fs.readFileSync(path.join(metadataPath, fileName))
 
 let readAllText (filePath:string) =
     fs.readTextSync(filePath)
@@ -36,7 +52,7 @@ let toJson (value: obj) = value |> Fable.Core.JsInterop.toJson
 let Fable: IFableManager = importDefault "${entryDir}/../demo/repl/build/bundle.js"
 
 let createChecker() =
-    Fable.CreateChecker(Metadata.references, readAllBytes)
+    Fable.CreateChecker(references, readAllBytes)
 
 let fcsCompile(checker, sourceFileName, source) =
     Fable.ParseFSharpProject(checker, sourceFileName, source)
@@ -61,9 +77,9 @@ let main argv =
     printfn "SOURCE FILE: %s" sourceFileName
     printfn "TARGET FILE: %s" targetFileName
     printfn "FABLE CORE DIR: %s" fableCoreDir
-    printfn "METADATA NET45: %b" Metadata.use_net45_meta
-    printfn "METADATA PATH: %s" Metadata.metadataPath
-    printfn "METADATA REFERENCES: %A" Metadata.references
+    printfn "METADATA NET45: %b" use_net45_meta
+    printfn "METADATA PATH: %s" metadataPath
+    printfn "METADATA REFERENCES: %A" references
 
     let source = readAllText sourceFileName
     let ms0, checker = measureTime createChecker ()
@@ -73,7 +89,7 @@ let main argv =
     fs.writeFileSync(targetFileName, jsCode)
 
     printfn "InteractiveChecker created in %d ms" ms0
-    printfn "F# AST parsed in %d ms" ms1
-    printfn "F# AST parsed in %d ms" ms2
-    printfn "F# AST parsed in %d ms" ms3
+    printfn "F.C.S compile time: %d ms" ms1
+    printfn "Fable compile time: %d ms" ms2
+    printfn "Babel compile time: %d ms" ms3
     0

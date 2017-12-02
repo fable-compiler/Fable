@@ -41,8 +41,9 @@ type IParseResults =
     abstract Errors: Error[]
 
 type IFableManager =
-    abstract CreateChecker: references:string[] * readAllBytes:(string->byte[])->IChecker
+    abstract CreateChecker: references:string[] * readAllBytes:(string->byte[]) -> IChecker
     abstract CreateCompiler: fableCorDir:string * ?replacements: seq<string * string> -> IFableCompiler
     abstract ParseFSharpProject: checker:IChecker * fileName:string * source:string->IParseResults
-    abstract GetCompletionsAtLocation: parseResults:IParseResults * line:int * col:int * lineText:string->Async<Completion[]>
-    abstract CompileToBabelJsonAst: com: IFableCompiler * parseResults:IParseResults * fileName:string * ?optimized:bool->string
+    abstract GetCompletionsAtLocation: parseResults:IParseResults * line:int * col:int * lineText:string -> Async<Completion[]>
+    abstract CompileToBabelAst: com: IFableCompiler * parseResults:IParseResults * fileName:string * optimized:bool -> Fable.AST.Babel.Program
+    abstract CompileToBabelJsonAst: com: IFableCompiler * parseResults:IParseResults * fileName:string * ?optimized:bool -> string

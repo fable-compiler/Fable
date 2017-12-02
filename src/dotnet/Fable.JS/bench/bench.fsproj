@@ -1,9 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Version>1.0.0</Version>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
+    <DefineConstants>$(DefineConstants);DOTNET</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Fable.JS.fsproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <Compile Include="../Interfaces.fs"/>
@@ -12,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="../../../../build/fable/Fable.Core.dll" />
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.*" />
   </ItemGroup>
 
 </Project>

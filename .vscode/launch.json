@@ -61,6 +61,14 @@
             "program": "${workspaceRoot}/src/dotnet/Fable.JS/testapp/out/app.js",
             "args": [],
             "cwd": "${workspaceRoot}/src/dotnet/Fable.JS/testapp"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch REPL bench",
+            "program": "${workspaceRoot}/src/dotnet/Fable.JS/bench/out/app.js",
+            "args": [],
+            "cwd": "${workspaceRoot}/src/dotnet/Fable.JS/bench"
         }
     ]
 }
