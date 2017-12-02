@@ -5,8 +5,8 @@
     "prebuild": "node ../../../../node_modules/webpack/bin/webpack",
     "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run splitter",
     "splitter": "node splitter.config.js",
-    "start": "node out/App test_script.fsx out/test.js",
-    "test": "node out/test.js"
+    "start": "node out/app test_script.fs out/test_script.js",
+    "test": "node out/test_script.js"
   },
   "dependencies": {
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.0",

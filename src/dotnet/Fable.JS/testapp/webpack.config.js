@@ -5,8 +5,8 @@ module.exports = {
   output: {
     filename: 'babel-standalone.js',
     path: path.join(__dirname, 'out'),
+    libraryTarget: "commonjs"
   },
-  target: "node",
   module: {
     rules: [
       {
