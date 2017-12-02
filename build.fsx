@@ -40,7 +40,7 @@ let runBashOrCmd cwd (scriptFileName: string) args =
 let addToPath newPath =
     let path = environVarOrDefault "PATH" ""
     let separator = if isWindows then ";" else ":"
-    setEnvironVar "PATH" (path + separator + newPath)
+    setEnvironVar "PATH" (newPath + separator + path)
 
 // Project info
 let project = "Fable"
@@ -52,13 +52,14 @@ let dotnetcliVersion = "2.0.3"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let CWD = __SOURCE_DIRECTORY__
-let cliBuildDir = "build/fable"
-let coreJsSrcDir = "src/js/fable-core"
+let cliBuildDir = CWD </> "build/fable"
+let coreJsSrcDir = CWD </> "src/js/fable-core"
 
 // Targets
 let installDotnetSdk () =
     dotnetExePath <- DotNetCli.InstallDotNetSDK dotnetcliVersion
-    Path.GetDirectoryName(dotnetExePath) |> addToPath
+    if Path.IsPathRooted(dotnetExePath) then
+        Path.GetDirectoryName(dotnetExePath) |> addToPath
     run CWD "dotnet" "--version"
 
 let clean_ (full: bool) =
@@ -90,8 +91,8 @@ let nugetRestore baseDir () =
     run (baseDir </> "dotnet-fable") dotnetExePath "restore"
 
 let buildCLI baseDir isRelease () =
-    sprintf "publish -o ../../../%s -c %s -v n"
-        cliBuildDir (if isRelease then "Release" else "Debug")
+    sprintf "publish -o %s -c %s -v n" cliBuildDir
+        (if isRelease then "Release" else "Debug")
     |> run (baseDir </> "dotnet-fable") dotnetExePath
 
 let buildCoreJS () =
@@ -220,6 +221,7 @@ Target "PublishPackages" (fun () ->
 
 let buildRepl () =
     let replDir = CWD </> "src/dotnet/Fable.JS/demo"
+    let testappDir = CWD </> "src/dotnet/Fable.JS/testapp"
     let fcsFork = "https://github.com/ncave/FSharp.Compiler.Service"
     let fcsFableDir =
         // TODO: Another option for local Windows Systems (not AppVeyor)
@@ -246,9 +248,15 @@ let buildRepl () =
     Yarn.run replDir "build" ""
     Yarn.run replDir "minify" ""
 
-    // build fable-core for amd
-    sprintf "--project %s -m amd --outDir %s" coreJsSrcDir (replDir </> "repl/build/fable-core")
+    // build fable-core for commonjs
+    sprintf "--project %s -m commonjs --outDir %s" coreJsSrcDir (replDir </> "repl/build/fable-core")
     |> Yarn.run CWD "tsc"
+
+    // Build testapp
+    Yarn.install testappDir
+    Yarn.run testappDir "build" ""
+    Yarn.run testappDir "start" ""
+    Yarn.run testappDir "test" ""
 
     // Copy generated files to `../fable-compiler.github.io/public/repl/build`
     // let targetDir =  CWD </> "../fable-compiler.github.io/public/repl"
@@ -279,7 +287,7 @@ Target "All" (fun () ->
     | Some _, _ -> runTestsDotnet (); buildRepl ()
     // .NET tests fail most of the times in Travis for obscure reasons
     | _, Some _ -> buildRepl ()
-    // Don't build repl locally
+    // Don't build repl locally (takes too long)
     | None, None -> runTestsDotnet ()
 )
 

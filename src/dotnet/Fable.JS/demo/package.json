@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "preinstall": "dotnet restore .. --no-cache",
+    "postinstall": "dotnet restore .. --no-cache",
     "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run splitter --verbose",
     "postbuild": "node ../../../../node_modules/rollup/bin/rollup -c",
     "splitter": "node splitter.config.js",

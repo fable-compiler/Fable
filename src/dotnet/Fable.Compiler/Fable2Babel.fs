@@ -721,10 +721,10 @@ module Util =
             |> assign range <| value
 
         // Optimization: Compile sequential as expression if possible
-        | Assignments ctx (declVars, exprs, r) ->
-            ctx.declaredVars <- ctx.declaredVars @ declVars
-            let exprs = List.map (com.TransformExpr ctx) exprs
-            upcast SequenceExpression(exprs, ?loc=r)
+        // | Assignments ctx (declVars, exprs, r) ->
+        //     ctx.declaredVars <- ctx.declaredVars @ declVars
+        //     let exprs = List.map (com.TransformExpr ctx) exprs
+        //     upcast SequenceExpression(exprs, ?loc=r)
 
         // These cannot appear in expression position in JS
         // They must be wrapped in a lambda
