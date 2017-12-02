@@ -41,8 +41,11 @@ let createChecker() =
 let fcsCompile(checker, sourceFileName, source) =
     Fable.ParseFSharpProject(checker, sourceFileName, source)
 
+let normalize(path: string) =
+    path.Replace("\\", "/")
+
 let fableCompile(fableCoreDir, sourceFileName, targetFileName, fcsAst) =
-    let fableCoreDir = path.relative(path.dirname(targetFileName), fableCoreDir)
+    let fableCoreDir = path.relative(path.dirname(targetFileName), fableCoreDir).TrimEnd('/') |> normalize
     let com = Fable.CreateCompiler(fableCoreDir)
     Fable.CompileToBabelJsonAst(com, fcsAst, sourceFileName)
 
@@ -51,9 +54,9 @@ let babelCompile(babelAst) =
 
 [<EntryPoint>]
 let main argv =
-    let sourceFileName = path.resolve argv.[0]
-    let targetFileName = path.resolve argv.[1]
-    let fableCoreDir = (path.resolveWithFile "${entryDir}/../demo/repl/build/fable-core").TrimEnd('/')
+    let sourceFileName = path.resolve argv.[0] |> normalize
+    let targetFileName = path.resolve argv.[1] |> normalize
+    let fableCoreDir = path.resolveWithFile "${entryDir}/../demo/repl/build/fable-core"
 
     printfn "SOURCE FILE: %s" sourceFileName
     printfn "TARGET FILE: %s" targetFileName
