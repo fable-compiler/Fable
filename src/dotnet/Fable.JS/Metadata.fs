@@ -1,26 +1,6 @@
 module Metadata
 
-open Fable.Core
-open Fable.Core.JsInterop
-
-type IPath =
-    abstract join: string * string -> string
-    abstract basename: string -> string
-    abstract dirname: string -> string
-    abstract relative: string * string -> string
-    abstract resolve: string -> string
-    [<Emit("$0.join(__dirname, $1)")>]
-    abstract resolveWithFile: string -> string
-
-let use_net45_meta = true
-let path: IPath = importAll "path"
-
-let metadataPath =
-    if use_net45_meta
-    then path.resolveWithFile("${entryDir}/../demo/repl/metadata")  // dotnet 4.5 binaries
-    else path.resolveWithFile("${entryDir}/../demo/repl/metadata2") // dotnet core 2.0 binaries
-
-let references =
+let references use_net45_meta =
     if use_net45_meta then
       [|"Fable.Core";"FSharp.Core";"mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics"|]
     else

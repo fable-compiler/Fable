@@ -131,8 +131,7 @@ let compileAst (com: Compiler) fileName optimized (parseResults: ParseResults) =
     let loc = defaultArg file.loc SourceLocation.Empty
     Babel.Program(file.fileName, loc, file.body, file.directives, com.ReadAllLogs())
 
-[<ExportDefault>]
-let exports =
+let defaultManager = 
   { new IFableManager with
         member __.CreateChecker(references, readAllBytes) =
             InteractiveChecker.Create(references, readAllBytes)
@@ -151,9 +150,15 @@ let exports =
         member __.GetCompletionsAtLocation(parseResults:IParseResults, line:int, col:int, lineText:string) =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText
-        member __.CompileToBabelJsonAst(com: IFableCompiler, parseResults:IParseResults, fileName:string, ?optimized: bool) =
+        member __.CompileToBabelAst(com: IFableCompiler, parseResults:IParseResults, fileName:string, optimized: bool) =
             let com = com :?> CompilerImpl
             let res = parseResults :?> ParseResults
+            res |> compileAst com.Compiler fileName optimized
+        member x.CompileToBabelJsonAst(com: IFableCompiler, parseResults:IParseResults, fileName:string, ?optimized: bool) =
             let optimized = defaultArg optimized false
-            compileAst com.Compiler fileName optimized res |> JsInterop.toJson
+            x.CompileToBabelAst(com, parseResults, fileName, optimized)
+            |> JsInterop.toJson
   }
+
+[<ExportDefault>]
+let exports = defaultManager
