@@ -5,6 +5,9 @@ open Fable.Core.JsInterop
 
 type IPath =
     abstract join: string * string -> string
+    abstract basename: string -> string
+    abstract dirname: string -> string
+    abstract relative: string * string -> string
     abstract resolve: string -> string
     [<Emit("$0.join(__dirname, $1)")>]
     abstract resolveWithFile: string -> string

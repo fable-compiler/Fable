@@ -80,9 +80,6 @@ let convertGlyph glyph =
 let createChecker references readAllBytes =
     InteractiveChecker.Create(List.ofArray references, readAllBytes)
 
-let createCompiler _replacements =
-    Compiler()
-
 let parseFSharpProject (checker: InteractiveChecker) fileName source =
     let parseResults, typeCheckResults, projectResults = checker.ParseAndCheckScript (fileName, source)
     { ParseFile = parseResults
@@ -118,18 +115,15 @@ let makeProjOptions (_com: ICompiler) projFile =
         Stamp = None }
     projOptions
 
-let compileAst (com: Compiler) (parseResults: ParseResults) (fableCoreDir: string) fileName =
-    let fableCoreDir =
-        if fableCoreDir.StartsWith(".")
-        then FilePath fableCoreDir
-        else NonFilePath fableCoreDir
+let compileAst (com: Compiler) (parseResults: ParseResults) fileName =
     // let errors = com.ReadAllLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let projectOptions = makeProjOptions com fileName
     let implFiles =
         parseResults.CheckProject.AssemblyContents.ImplementationFiles
         |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
-    let project = Project(projectOptions, implFiles, parseResults.CheckProject.Errors, Map.empty, fableCoreDir, isWatchCompile=false)
+    // Dealing with fableCoreDir is a bit messy atm, for the REPL, only the value in the Compiler options matters
+    let project = Project(projectOptions, implFiles, parseResults.CheckProject.Errors, Map.empty, NonFilePath "", isWatchCompile=false)
     let file: Babel.Program =
         FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles fileName
         |> Fable2Babel.Compiler.transformFile com project
@@ -141,17 +135,22 @@ let exports =
   { new IFableManager with
         member __.CreateChecker(references, readAllBytes) =
             createChecker references readAllBytes |> CheckerImpl :> IChecker
-        member __.CreateCompiler(replacements) =
-            let replacements = defaultArg replacements (upcast [||])
-            createCompiler replacements |> CompilerImpl :> IFableCompiler
+        member __.CreateCompiler(fableCoreDir, replacements) =
+            let options =
+                { fableCore = fableCoreDir
+                  emitReplacements = defaultArg replacements (upcast [||]) |> Map
+                  typedArrays = true
+                  clampByteArrays = false
+                  declaration = false }
+            Compiler(options) |> CompilerImpl :> IFableCompiler
         member __.ParseFSharpProject(checker, fileName, source) =
             let c = checker :?> CheckerImpl
             parseFSharpProject c.Checker fileName source :> IParseResults
         member __.GetCompletionsAtLocation(parseResults:IParseResults, line:int, col:int, lineText:string) =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText
-        member __.CompileToBabelJsonAst(com: IFableCompiler, parseResults:IParseResults, fableCoreDir:string, fileName:string) =
+        member __.CompileToBabelJsonAst(com: IFableCompiler, parseResults:IParseResults, fileName:string) =
             let com = com :?> CompilerImpl
             let res = parseResults :?> ParseResults
-            compileAst com.Compiler res fableCoreDir fileName |> JsInterop.toJson
+            compileAst com.Compiler res fileName |> JsInterop.toJson
   }

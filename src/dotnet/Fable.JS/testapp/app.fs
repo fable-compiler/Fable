@@ -38,27 +38,37 @@ let Fable: IFableManager = importDefault "${entryDir}/../demo/repl/build/bundle.
 let createChecker() =
     Fable.CreateChecker(Metadata.references, readAllBytes)
 
-let fcsCompile(checker, fileName, source) =
-    Fable.ParseFSharpProject(checker, fileName, source)
+let fcsCompile(checker, sourceFileName, source) =
+    Fable.ParseFSharpProject(checker, sourceFileName, source)
 
-let fableCompile(com, fileName, fcsAst) =
-    let fableCore = path.resolveWithFile("${entryDir}/../demo/repl/build/fable-core")
-    Fable.CompileToBabelJsonAst(com, fcsAst, fableCore, fileName)
+let fableCompile(fableCoreDir, sourceFileName, targetFileName, fcsAst) =
+    let fableCoreDir = path.relative(path.dirname(targetFileName), fableCoreDir)
+    let com = Fable.CreateCompiler(fableCoreDir)
+    Fable.CompileToBabelJsonAst(com, fcsAst, sourceFileName)
 
 let babelCompile(babelAst) =
     babelAstToJs babelAst
 
 [<EntryPoint>]
 let main argv =
-    let fileName = path.resolve argv.[0]
+    let sourceFileName = path.resolve argv.[0]
     let targetFileName = path.resolve argv.[1]
-    let source = readAllText fileName
+    let fableCoreDir = (path.resolveWithFile "${entryDir}/../demo/repl/build/fable-core").TrimEnd('/')
+
+    printfn "SOURCE FILE: %s" sourceFileName
+    printfn "TARGET FILE: %s" targetFileName
+    printfn "FABLE CORE DIR: %s" fableCoreDir
+    printfn "METADATA NET45: %b" Metadata.use_net45_meta
+    printfn "METADATA PATH: %s" Metadata.metadataPath
+    printfn "METADATA REFERENCES: %A" Metadata.references
+
+    let source = readAllText sourceFileName
     let ms0, checker = measureTime createChecker ()
-    let com = Fable.CreateCompiler()
-    let ms1, fsAST = measureTime fcsCompile (checker, fileName, source)
-    let ms2, babelAST = measureTime fableCompile (com, fileName, fsAST)
+    let ms1, fsAST = measureTime fcsCompile (checker, sourceFileName, source)
+    let ms2, babelAST = measureTime fableCompile (fableCoreDir, sourceFileName, targetFileName, fsAST)
     let ms3, jsCode = measureTime babelCompile babelAST
     fs.writeFileSync(targetFileName, jsCode)
+
     printfn "InteractiveChecker created in %d ms" ms0
     printfn "F# AST parsed in %d ms" ms1
     printfn "F# AST parsed in %d ms" ms2
