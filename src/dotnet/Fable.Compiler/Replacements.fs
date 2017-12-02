@@ -1964,6 +1964,7 @@ module AstPass =
                 | Some instance -> 
                     match i.methodName with
                     | "equals" -> icall "Equals" (instance, i.args)
+                    | "compareTo" -> icall "CompareTo" (instance, i.args)
                     | "getHashCode" -> (* TODO *) None
                     | _ -> None
                 | _ -> None
