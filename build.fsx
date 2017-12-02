@@ -224,6 +224,7 @@ let buildRepl () =
     let testappDir = CWD </> "src/dotnet/Fable.JS/testapp"
     let fcsFork = "https://github.com/ncave/FSharp.Compiler.Service"
     let fcsFableDir =
+        // Appveyor has problems with too long paths so download the fork closer to root
         // TODO: Another option for local Windows Systems (not AppVeyor)
         match environVarOrNone "APPVEYOR" with
         | Some _ -> "/projects/fcs"
@@ -253,10 +254,10 @@ let buildRepl () =
     |> Yarn.run CWD "tsc"
 
     // Build testapp
-    Yarn.install testappDir
-    Yarn.run testappDir "build" ""
-    Yarn.run testappDir "start" ""
-    Yarn.run testappDir "test" ""
+    // Yarn.install testappDir
+    // Yarn.run testappDir "build" ""
+    // Yarn.run testappDir "start" ""
+    // Yarn.run testappDir "test" ""
 
     // Copy generated files to `../fable-compiler.github.io/public/repl/build`
     // let targetDir =  CWD </> "../fable-compiler.github.io/public/repl"
