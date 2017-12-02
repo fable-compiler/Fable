@@ -82,14 +82,18 @@ type Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
         | -1 -> ""
         | 0 -> failwithf "Unexpected entity full name: %s" fullName
         | i -> fullName.Substring(0, i)
-    member x.HasInterface (fullName: string) =
+    member __.HasInterface (fullName: string) =
         List.contains fullName interfaces
+    /// Checks if it has a decorator with specified name
+    member __.HasDecorator(name) =
+        decorators |> List.exists (fun x -> x.Name = name)
+
     /// Finds decorator by name
-    member x.TryGetDecorator decorator =
-        decorators |> List.tryFind (fun x -> x.Name = decorator)
+    member __.TryGetDecorator(name) =
+        decorators |> List.tryFind (fun x -> x.Name = name)
     /// Finds decorator by full name
-    member x.TryGetFullDecorator decorator =
-        decorators |> List.tryFind (fun x -> x.FullName = decorator)
+    member __.TryGetFullDecorator(fullname) =
+        decorators |> List.tryFind (fun x -> x.FullName = fullname)
     // TODO: Parent classes should be checked if the method is not found
     member x.TryGetMember(name, kind, loc, argTypes, ?argsEqual) =
         let argsEqual = defaultArg argsEqual (=)
@@ -151,8 +155,15 @@ type Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?d
         match overloadIndex with
         | Some i -> name + "_" + (string i)
         | None -> name
-    member x.TryGetDecorator decorator =
-        x.Decorators |> List.tryFind (fun x -> x.Name = decorator)
+    /// Checks if it has a decorator with specified name
+    member this.HasDecorator(name) =
+        this.Decorators |> List.exists (fun x -> x.Name = name)
+    /// Finds decorator by name
+    member this.TryGetDecorator(name) =
+        this.Decorators |> List.tryFind (fun x -> x.Name = name)
+    /// Finds decorator by full name
+    member this.TryGetFullDecorator(fullname) =
+        this.Decorators |> List.tryFind (fun x -> x.FullName = fullname)
     override x.ToString() = sprintf "%A %s" kind name
 
 type ExternalEntity =

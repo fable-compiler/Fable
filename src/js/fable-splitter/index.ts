@@ -62,7 +62,7 @@ function getResolvePathPlugin(targetDir: string, opts: FableSplitterOptions) {
                     const newRelPath = (Path.relative(targetDir, fullPath) + match[3]).replace(/\\/g, "/");
                     // console.log("FULL PATH: " + fullPath);
                     // console.log("REL. PATH: " + newRelPath);
-                    node.value = newRelPath;
+                    node.value = newRelPath.startsWith(".") ? newRelPath : "./" + newRelPath;
                 }
             },
         },

@@ -123,6 +123,11 @@ module Util =
                 | false, _, _, _ -> None
         | _ -> None
 
+    let inline getPublicName< ^T when ^T: (member HasDecorator : string -> bool)> publicName (ent:'T) =
+        if (^T : (member HasDecorator: string -> bool) (ent, "ExportDefault"))
+        then "default"
+        else publicName
+
     let rec deepExists f (expr: Fable.Expr) =
         if f expr
         then true
@@ -960,12 +965,22 @@ module Util =
                 upcast FunctionDeclaration(privateIdent, e.``params``, e.body,
                     ?returnType=e.returnType, ?typeParams=e.typeParameters, ?loc=e.loc)
             | _ -> upcast varDeclaration range privateIdent isMutable expr
-        match isPublic with
-        | false -> U2.Case1 (decl :> Statement) |> List.singleton
-        | true when publicName = privateName ->
+        if not isPublic then
+            U2.Case1 (decl :> Statement) |> List.singleton
+        elif publicName = "default" then
+            let exported =
+                match decl with
+                | :? VariableDeclaration as varDecl when List.isSingle varDecl.declarations ->
+                    match varDecl.declarations.[0].init with
+                    | Some expr -> U2.Case2 expr
+                    | None -> U2.Case1 decl
+                | _ -> U2.Case1 decl
+            ExportDefaultDeclaration(exported, ?loc=range)
+            :> ModuleDeclaration |> U2.Case2 |> List.singleton
+        elif publicName = privateName then
             ExportNamedDeclaration(decl, ?loc=range)
             :> ModuleDeclaration |> U2.Case2 |> List.singleton
-        | true ->
+        else
             // Replace ident forbidden chars of root members, see #207
             let publicName = Naming.replaceIdentForbiddenChars publicName
             let expSpec = ExportSpecifier(privateIdent, Identifier publicName)
@@ -997,9 +1012,11 @@ module Util =
                 failwithf "Unexpected member in module %O: %A" modIdent m.Kind
         let memberRange =
             match range, expr.loc with Some r1, Some r2 -> Some(r1 + r2) | _ -> None
-        if m.TryGetDecorator("EntryPoint").IsSome
+        if m.HasDecorator("EntryPoint")
         then declareEntryPoint com ctx expr |> U2.Case1 |> List.singleton
-        else helper.DeclareMember(memberRange, m.OverloadName, privName, isPublic, m.IsMutable, modIdent, expr)
+        else
+            let publicName = getPublicName m.OverloadName m
+            helper.DeclareMember(memberRange, publicName, privName, isPublic, m.IsMutable, modIdent, expr)
 
     let declareInterfaceEntity (com: IBabelCompiler) (ent: Fable.Entity) =
         // TODO: Add `extends` (inherited interfaces)
@@ -1016,7 +1033,8 @@ module Util =
         let classDecl =
             // Don't create a new context for class declarations
             let classExpr = transformClass com ctx entRange (Some ent) baseClass entDecls
-            helper.DeclareMember(entRange, ent.Name, Some privateName, isPublic, false, modIdent, classExpr)
+            let publicName = getPublicName ent.Name ent
+            helper.DeclareMember(entRange, publicName, Some privateName, isPublic, false, modIdent, classExpr)
         let classDecl =
             (declareType com ctx ent |> U2.Case1)::classDecl
         // Check if there's a static constructor
@@ -1085,7 +1103,8 @@ module Util =
                     declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, None)
                 | Fable.Module ->
                     let m = transformNestedModule com ctx ent entDecls entRange
-                    helper.DeclareMember(entRange, ent.Name, Some privName, isPublic, false, modIdent, m)
+                    let publicName = getPublicName ent.Name ent
+                    helper.DeclareMember(entRange, publicName, Some privName, isPublic, false, modIdent, m)
                 |> List.append <| acc) []
         |> fun decls ->
             match modIdent with

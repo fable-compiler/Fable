@@ -1,12 +1,16 @@
 {
   "private": true,
   "scripts": {
-    "prebuild": "dotnet restore --no-cache",
-    "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",
+    "postinstall": "dotnet restore --no-cache",
+    "prebuild": "node ../../../../node_modules/webpack/bin/webpack",
     "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run splitter",
-    "webpack": "node ../../../../node_modules/webpack/bin/webpack -p",
-    "rollup": "node ../../../../node_modules/rollup/bin/rollup -c",
     "splitter": "node splitter.config.js",
-    "start": "node out/app"
+    "start": "node out/app test_script.fs out/test_script.js",
+    "test": "node out/test_script.js"
+  },
+  "dependencies": {
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.26.0",
+    "babel-standalone": "^6.26.0",
+    "babel-template": "^6.26.0"
   }
 }

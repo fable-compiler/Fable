@@ -24,6 +24,10 @@ type GlobalAttribute() =
 type ImportAttribute(selector: string, from: string) =
     inherit Attribute()
 
+/// ATTENTION: Use only in the last file of a project to export a member as default for JS consumption.
+type ExportDefaultAttribute() =
+    inherit Attribute()
+
 /// Function calls will be replaced by inlined JS code.
 /// More info: http://fable.io/docs/interacting.html#Import-attribute
 type EmitAttribute private () =

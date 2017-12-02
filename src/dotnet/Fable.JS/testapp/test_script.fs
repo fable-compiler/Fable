@@ -1,4 +1,5 @@
-open System
+module Test
+
 open System.Collections.Generic
 
 type Box = int
@@ -55,23 +56,44 @@ let rec substitute row col (x:Sudoku) =
         [1..Array.length x]
             |> Seq.map (replaceAtPos x a b)
             |> Seq.filter solvable
-            |> Seq.map (substitute a (b+1))
-            |> Seq.concat
+            |> Seq.collect (substitute a (b+1))
      else substitute a (b+1) x
 
 let getFirstSolution = substitute 0 0 >> Seq.head
 
-[[0; 0; 8;  3; 0; 0;  6; 0; 0]
- [0; 0; 4;  0; 0; 0;  0; 1; 0]
- [6; 7; 0;  0; 8; 0;  0; 0; 0]
+let test() =
+    let expectedSolution =
+        [[1; 2; 8;  3; 4; 5;  6; 9; 7]
+         [5; 3; 4;  6; 7; 9;  2; 1; 8]
+         [6; 7; 9;  1; 8; 2;  5; 4; 3]
 
- [0; 1; 6;  4; 3; 0;  0; 0; 0]
- [0; 0; 0;  7; 9; 0;  0; 2; 0]
- [0; 9; 0;  0; 0; 0;  4; 0; 1]
+         [2; 1; 6;  4; 3; 8;  7; 5; 9]
+         [4; 8; 5;  7; 9; 1;  3; 2; 6]
+         [3; 9; 7;  5; 2; 6;  4; 8; 1]
 
- [0; 0; 0;  9; 1; 0;  0; 0; 5]
- [0; 0; 3;  0; 5; 0;  0; 0; 2]
- [0; 5; 0;  0; 0; 0;  0; 7; 4]]
-|> toSudoku
-|> getFirstSolution
-|> printfn "%A"
+         [7; 6; 2;  9; 1; 4;  8; 3; 5]
+         [9; 4; 3;  8; 5; 7;  1; 6; 2]
+         [8; 5; 1;  2; 6; 3;  9; 7; 4]]
+         |> toSudoku
+
+    let solution =
+        [[0; 0; 8;  3; 0; 0;  6; 0; 0]
+         [0; 0; 4;  0; 0; 0;  0; 1; 0]
+         [6; 7; 0;  0; 8; 0;  0; 0; 0]
+
+         [0; 1; 6;  4; 3; 0;  0; 0; 0]
+         [0; 0; 0;  7; 9; 0;  0; 2; 0]
+         [0; 9; 0;  0; 0; 0;  4; 0; 1]
+
+         [0; 0; 0;  9; 1; 0;  0; 0; 5]
+         [0; 0; 3;  0; 5; 0;  0; 0; 2]
+         [0; 5; 0;  0; 0; 0;  0; 7; 4]]
+        |> toSudoku
+        |> getFirstSolution
+
+    let matches = solution = expectedSolution
+    printfn "Sudoku solution matches expected one: %b" matches
+    if not matches then
+        failwith "Unexpected solution"
+
+test()
