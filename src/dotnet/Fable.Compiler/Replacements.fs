@@ -1355,6 +1355,25 @@ module AstPass =
         | "rangeInt32", (None, args) ->
             CoreLibCall("Seq", Some "rangeStep", false, args)
             |> makeCall i.range i.returnType |> Some
+        // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
+        // Type: PowDouble : float -> int -> float
+        // Usage: PowDouble x n
+        | "powDouble", (None, _) -> 
+            GlobalCall ("Math", Some "pow", false, i.args)
+            |> makeCall i.range i.returnType 
+            |> Some
+        // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangechar-function-%5bfsharp%5d
+        // Type: RangeChar : char -> char -> seq<char>
+        // Usage: RangeChar start stop
+        | "rangeChar", (None, _) -> 
+            CoreLibCall("Seq", Some "rangeChar", false, i.args)
+            |> makeCall i.range i.returnType |> Some
+        // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
+        // Type: RangeDouble: float -> float -> float -> seq<float>
+        // Usage: RangeDouble start step stop
+        | "rangeDouble", (None, _) -> 
+            CoreLibCall("Seq", Some "rangeStep", false, i.args)
+            |> makeCall i.range i.returnType |> Some
         | _ -> None
 
     let activator com (i: Fable.ApplyInfo) =
