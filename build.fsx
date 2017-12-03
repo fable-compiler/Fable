@@ -249,8 +249,8 @@ let buildRepl () =
     Yarn.run replDir "build" ""
     Yarn.run replDir "minify" ""
 
-    // build fable-core for commonjs
-    sprintf "--project %s -m commonjs --outDir %s" coreJsSrcDir (replDir </> "repl/build/fable-core")
+    // build fable-core for umd
+    sprintf "--project %s -m umd --outDir %s" coreJsSrcDir (replDir </> "repl/build/fable-core")
     |> Yarn.run CWD "tsc"
 
     // Build testapp
