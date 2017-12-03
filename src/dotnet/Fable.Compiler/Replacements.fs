@@ -1149,8 +1149,6 @@ module AstPass =
             // just ignore the second args (IFormatProvider) and compile 
             // to System.Double.Parse(string)
             | "parse", [str; _ ] ->
-                "The value of IFormatProvider passed to the Parse function will be ignored"
-                |> addWarning com i.fileName i.range
                 CoreLibCall (numberModule, Some "parse", false,
                     [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10)])
                 |> makeCall i.range i.returnType |> Some
@@ -2271,8 +2269,7 @@ module AstPass =
     let globalization com (i: Fable.ApplyInfo) = 
         match i.methodName with 
         | "invariantCulture" -> 
-            "System.Globalization namespace is not supported by Fable. The value InvariantCulture will be compiled to {} (empty object literal)"
-            |> addWarning com i.fileName i.range 
+            // System.Globalization namespace is not supported by Fable. The value InvariantCulture will be compiled to an empty object literal
             makeJsObject i.range [] |> Some
         | _ -> None
 
