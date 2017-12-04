@@ -7,8 +7,22 @@ open Fable.Tests.Util
 
 [<Test>]
 let ``Assignment block as expression is optimized``() =
-    A.C.Helper.Add5(let mutable x = 2 in let mutable y = 3 in x + y)
-    |> equal 10
+    let foo x y = x - y
+    let mutable x = 15
+    let res = A.C.Helper.Add5(let mutable x = 2 in let mutable y = 3 in x + y)
+    let test () =
+        A.C.Helper.Add5(let mutable x = 4 in let mutable y = 3 in x + y)
+        |> equal 12
+    test()
+    equal 10 res
+    foo x 5 |> equal 10
+
+[<Test>]
+let ``Optimized assignment blocks inside try ... with work``() =
+    let res =
+        try A.C.Helper.Add5(let mutable x = 2 in let mutable y = 3 in x + y)
+        with _ -> 1
+    equal 10 res
 
 [<Test>]
 let ``for .. downto works``() = // See #411
