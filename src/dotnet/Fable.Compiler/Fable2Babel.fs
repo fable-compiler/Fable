@@ -62,9 +62,9 @@ type Context =
     moduleFullName: string
     rootEntitiesPrivateNames: Map<string, string>
     isFunctionBody: bool
-    mutable declaredVars: Fable.Ident list
+    addDeclaredVar: Fable.Ident -> unit
     tailCallOpportunity: ITailCallOpportunity option
-    mutable isTailCallOptimized: bool }
+    optimizeTailCall: unit -> unit }
 
 type IBabelCompiler =
     inherit ICompiler
@@ -119,7 +119,7 @@ module Util =
                     true, declVars, e::exprs, i + 1
                 | _ -> false, [], [], 0)
             |> function
-                | true, declVars, exprs, _ -> Some(declVars, List.rev exprs, r)
+                | true, declVars, exprs, _ -> Some(List. rev declVars, List.rev exprs, r)
                 | false, _, _, _ -> None
         | _ -> None
 
@@ -722,7 +722,8 @@ module Util =
 
         // Optimization: Compile sequential as expression if possible
         | Assignments ctx (declVars, exprs, r) ->
-            ctx.declaredVars <- ctx.declaredVars @ declVars
+            for var in declVars do
+                ctx.addDeclaredVar(var)
             let exprs = List.map (com.TransformExpr ctx) exprs
             upcast SequenceExpression(exprs, ?loc=r)
 
@@ -761,7 +762,7 @@ module Util =
             match ctx.tailCallOpportunity, kind, ret with
             | Some tc, Fable.ApplyMeth, Return
                 when tc.Args.Length = args.Length && tc.IsRecursiveRef callee ->
-                ctx.isTailCallOptimized <- true
+                ctx.optimizeTailCall()
                 let zippedArgs = List.zip tc.Args args
                 let tempVars =
                     let rec checkCrossRefs acc = function
@@ -819,11 +820,13 @@ module Util =
             match args with
             | [unitArg] when unitArg.Type = Fable.Unit -> None, []
             | args -> tailcallChance, List.map ident args
+        let declaredVars = ResizeArray()
+        let mutable isTailCallOptimized = false
         let ctx =
             { ctx with isFunctionBody = true
-                       declaredVars = []
-                       isTailCallOptimized = false
-                       tailCallOpportunity = tailcallChance }
+                       addDeclaredVar = declaredVars.Add
+                       tailCallOpportunity = tailcallChance
+                       optimizeTailCall = fun () -> isTailCallOptimized <- true }
         let body: U2<BlockStatement, Expression> =
             match body with
             | ExprType Fable.Unit
@@ -838,7 +841,7 @@ module Util =
                 then transformBlock com ctx (Some Return) body |> U2.Case1
                 else transformExpr com ctx body |> U2.Case2
         let args, body =
-            match ctx.isTailCallOptimized, tailcallChance, body with
+            match isTailCallOptimized, tailcallChance, body with
             | true, Some tc, U2.Case1 body ->
                 let args, body =
                     if tc.ReplaceArgs
@@ -853,11 +856,11 @@ module Util =
                 :> Statement |> List.singleton |> block body.loc |> U2.Case1
             | _ -> args, body
         let body =
-            match ctx.declaredVars with
-            | [] -> body
-            | declVars ->
+            if declaredVars.Count = 0
+            then body
+            else
                 let varDeclStatements =
-                    declVars
+                    List.ofSeq declaredVars
                     |> List.distinctBy (fun var -> var.Name)
                     |> List.map (fun var -> VariableDeclaration(ident var, kind=Var) :> Statement)
                 let loc, bodyStatements =
@@ -1214,9 +1217,9 @@ module Compiler =
                         | _ -> None)
                     |> Map
                 isFunctionBody = false
-                declaredVars = []
+                addDeclaredVar = fun _ -> ()
                 tailCallOpportunity = None
-                isTailCallOptimized = false }
+                optimizeTailCall = fun () -> () }
             let rootDecls =
                 com.DeclarePlugins
                 |> Plugins.tryPlugin (Some file.Range) (fun p ->
