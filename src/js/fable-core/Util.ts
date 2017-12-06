@@ -220,7 +220,9 @@ export function equals(x: any, y: any): boolean {
     return x.Equals(y);
   } else if (typeof y.Equals === "function") {
     return y.Equals(x);
-  } else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y)) {
+  } else if ((x instanceof Object) &&
+             (y instanceof Object) &&
+             (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))) {
     return false;
   } else if (Array.isArray(x)) {
     if (x.length !== y.length) { return false; }
@@ -261,7 +263,9 @@ export function compare(x: any, y: any): number {
     return x.CompareTo(y);
   } else if (typeof y.CompareTo === "function") {
     return y.CompareTo(x) * -1;
-  } else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y)) {
+  } else if ((x instanceof Object) &&
+             (y instanceof Object) &&
+             (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))) {
     return -1;
   } else if (Array.isArray(x)) {
     if (x.length !== y.length) { return x.length < y.length ? -1 : 1; }
