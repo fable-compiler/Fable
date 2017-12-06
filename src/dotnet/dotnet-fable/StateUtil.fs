@@ -212,6 +212,7 @@ let compile (com: Compiler) (project: Project) (filePath: string) =
             Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles filePath
         else
             FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles filePath
+            |> FableOptimize.optimizeFile
             |> Fable2Babel.Compiler.transformFile com project
     // If this is the first compilation, add errors to each respective file
     if not project.IsWatchCompile then

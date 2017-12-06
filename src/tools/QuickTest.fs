@@ -29,3 +29,10 @@ let equal expected actual =
 // You'll have to run your test manually, sorry!
 // ``My Test``()
 
+let test() =
+    [1;2;3;4]
+    |> List.map (fun x -> x + 4)
+    |> List.filter (fun x -> x < 10)
+    |> List.choose (fun x -> Some([x; x]))
+    |> List.concat
+    |> List.fold (fun acc x -> acc + x) 6

@@ -872,6 +872,12 @@ module AstPass =
         | "infinity" | "infinitySingle" -> emit info "Number.POSITIVE_INFINITY" [] |> Some
         | "naN" | "naNSingle" -> emit info "Number.NaN" [] |> Some
         // Function composition
+        | "op_PipeRight" | "op_PipeLeft" as meth ->
+            match meth, info.args with
+            | "op_PipeRight", [x; f]
+            | "op_PipeLeft", [f; x] ->
+                makeApply com info.range info.returnType f [x] |> Some
+            | _ -> None
         | "op_ComposeRight" | "op_ComposeLeft" ->
             match args, info.methodName with
             | [arg1; arg2], "op_ComposeRight" -> Some(arg1, arg2)

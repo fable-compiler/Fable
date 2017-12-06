@@ -19,6 +19,7 @@
     <Compile Include="Replacements.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="FSharp2Fable.fs" />
+    <Compile Include="FableOptimize.fs" />
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="State.fs" />
   </ItemGroup>
