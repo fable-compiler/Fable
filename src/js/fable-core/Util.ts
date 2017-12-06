@@ -215,14 +215,14 @@ export function equals(x: any, y: any): boolean {
     return y == null;
   } else if (y == null) {
     return false;
+  } else if (typeof x !== "object" || typeof y !== "object") {
+    return x === y;
     // Equals override or IEquatable implementation
   } else if (typeof x.Equals === "function") {
     return x.Equals(y);
   } else if (typeof y.Equals === "function") {
     return y.Equals(x);
-  } else if ((x instanceof Object) &&
-             (y instanceof Object) &&
-             (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))) {
+  } else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y)) {
     return false;
   } else if (Array.isArray(x)) {
     if (x.length !== y.length) { return false; }
@@ -257,15 +257,15 @@ export function compare(x: any, y: any): number {
     return y == null ? 0 : -1;
   } else if (y == null) {
     return 1; // everything is bigger than null
+  } else if (typeof x !== "object" || typeof y !== "object") {
+    return x === y ? 0 : (x < y ? -1 : 1);
     // Some types (see Long.ts) may just implement the function and not the interface
     // else if (hasInterface(x, "System.IComparable"))
   } else if (typeof x.CompareTo === "function") {
     return x.CompareTo(y);
   } else if (typeof y.CompareTo === "function") {
     return y.CompareTo(x) * -1;
-  } else if ((x instanceof Object) &&
-             (y instanceof Object) &&
-             (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y))) {
+  } else if (Object.getPrototypeOf(x) !== Object.getPrototypeOf(y)) {
     return -1;
   } else if (Array.isArray(x)) {
     if (x.length !== y.length) { return x.length < y.length ? -1 : 1; }
