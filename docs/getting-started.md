@@ -13,8 +13,6 @@ First of all, you need a couple of things installed on your computer for F# & Fa
 
 > Although is not a Fable requirement, on macOS and Linux you will need [Mono](http://www.mono-project.com/) for other F# tooling like Paket or editor support.
 
-> At the time of writing Visual Studio for Windows is not compatible yet with Fable projects.
-
 ## TL;DR
 
 After installing the requirements, the easiest way to get up and running is to use a Fable template. Below we will see how to install and run the basic [Fable.Template](https://www.nuget.org/packages/Fable.Template/) to create a simple web app.
