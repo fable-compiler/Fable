@@ -59,7 +59,7 @@
             "request": "launch",
             "name": "Launch REPL test",
             "program": "${workspaceRoot}/src/dotnet/Fable.JS/testapp/out/app.js",
-            "args": [],
+            "args": ["test_script.fs", "out/test_script.js"],
             "cwd": "${workspaceRoot}/src/dotnet/Fable.JS/testapp"
         },
         {
