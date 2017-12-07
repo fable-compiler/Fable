@@ -83,9 +83,9 @@ let main argv =
 
     let source = readAllText sourceFileName
     let ms0, checker = measureTime createChecker ()
-    let ms1, fsAST = measureTime fcsCompile (checker, sourceFileName, source)
-    let ms2, babelAST = measureTime fableCompile (fableCoreDir, sourceFileName, targetFileName, fsAST)
-    let ms3, jsCode = measureTime babelCompile babelAST
+    let ms1, fcsAst = measureTime fcsCompile (checker, sourceFileName, source)
+    let ms2, babelAst = measureTime fableCompile (fableCoreDir, sourceFileName, targetFileName, fcsAst)
+    let ms3, jsCode = measureTime babelCompile babelAst
     fs.writeFileSync(targetFileName, jsCode)
 
     printfn "InteractiveChecker created in %d ms" ms0

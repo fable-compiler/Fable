@@ -2,9 +2,10 @@ module Metadata
 
 let references use_net45_meta =
     if use_net45_meta then
-      [|"Fable.Core";"FSharp.Core";"mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics"|]
+      [|"Fable.Core";"Fable.Import.Browser";"FSharp.Core";"mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics"|]
     else
       [|"Fable.Core"
+        "Fable.Import.Browser"
         "FSharp.Core"
         "Microsoft.CSharp"
         "Microsoft.VisualBasic"

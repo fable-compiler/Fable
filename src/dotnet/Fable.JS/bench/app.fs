@@ -58,10 +58,10 @@ let main argv =
         let parseFSharp () = fable.ParseFSharpProject(checker, fileName, source)
         let parseFable ast = fable.CompileToBabelAst(com, ast, fileName, optimized)
         let bench i =
-            let ms1, fcsAST = measureTime parseFSharp ()
-            let ms2, babelAST = measureTime parseFable fcsAST
+            let ms1, fcsAst = measureTime parseFSharp ()
+            let ms2, babelAst = measureTime parseFable fcsAst
             printfn "iteration %d, FCS time: %d ms, Fable time: %d ms" i ms1 ms2
-            //printfn "Babel AST: %s" (toJson babelAST)
+            //printfn "Babel AST: %s" (toJson babelAst)
         [1..10] |> List.iter bench
     with ex ->
         printfn "Error: %A" ex.Message
