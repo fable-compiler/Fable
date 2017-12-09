@@ -888,3 +888,22 @@ let ``Array.splitAt works``() =
     Array.splitAt 0 ar |> equal ([||], [|1;2;3;4|])
     Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
     Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
+
+[<Test>]
+let ``Arrays are independent from type of the elements``() =
+  let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
+  [|"a";"b"|] |> fromArrayToListAndBack |> equal [|"a";"b"|]
+  [|1;2|] |> fromArrayToListAndBack |> equal [|1;2|]
+
+[<Test>]
+let ``Arrays are independent from being binded to a name``() =
+  let intList = [1;2;3]
+  intList  |> List.toArray  |> equal [|1;2;3|] 
+  [1;2;3]  |> List.toArray  |> equal [|1;2;3|] 
+
+[<Test>]
+let ``Functions on arrays should behave the same whether binded to a name or not``() =
+  let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
+  [|1;2|] |> Array.toList |> List.toArray  |> equal ([|1;2|] |> fromArrayToListAndBack)
+ 
+ 
