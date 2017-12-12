@@ -407,6 +407,19 @@ let ``Object expression from class works``() =
     | _ -> "Unknown"
     |> equal "Hello World"
 
+type INum = abstract member Num: int
+let inline makeNum f = { new INum with member __.Num = f() }
+
+type TestClass(n) =
+    let addOne x = x + 4
+    let inner = makeNum (fun () -> addOne n)
+    member __.GetNum() = inner.Num
+
+[<Test>]
+let ``Inlined object expression doesn't change argument this context``() = // See #1291
+    let t = TestClass(42)
+    t.GetNum() |> equal 46
+
 type RecursiveType(subscribe) as this =
     let getNumber() = 3
     do subscribe (getNumber >> this.Add2)

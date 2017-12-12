@@ -29,6 +29,11 @@ let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLoca
     com.AddLog(error, Severity.Error, ?range=range, fileName=fileName)
     Value Null
 
+let rec deepExists f (expr: Expr) =
+    if f expr
+    then true
+    else List.exists (deepExists f) expr.ImmediateSubExpressions
+
 let rec flattenSequential = function
     | Fable.Sequential(statements,_) ->
         List.collect flattenSequential statements

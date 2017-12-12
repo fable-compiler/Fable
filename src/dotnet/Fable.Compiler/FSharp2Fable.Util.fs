@@ -308,10 +308,6 @@ module Helpers =
         else
             List.zip args (Seq.toList meth.CurriedParameterGroups.[0])
             |> List.rev |> removeArgs |> List.rev |> List.map fst
-    let rec deepExists f (expr: FSharpExpr) =
-        if f expr
-        then true
-        else List.exists (deepExists f) expr.ImmediateSubExpressions
 
 module Patterns =
     open BasicPatterns
@@ -1315,11 +1311,14 @@ module Util =
     let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r (typArgs, methTypArgs)
                       (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
         let hasDoubleEvalRisk = function
-            | Fable.Value _
-            // Getters may have double eval risk, but let's discard it to prevent
-            // the generation of too many closures
-            | Fable.Apply(_,_,Fable.ApplyGet,_,_) -> false
+            | Fable.Value kind -> kind.HasDoubleEvalRisk
             | _ -> true
+        // If the argument has a `this` reference, assign it to a variable
+        // as the inlined expression can change the this context (see #1291)
+        let hasThisReference e =
+            e |> deepExists (function
+                | Fable.Value Fable.This -> true
+                | _ -> false)
         let addCallee ctx callee replacement =
             match callee with
             | Some callee ->
@@ -1336,7 +1335,7 @@ module Util =
                 |||> Seq.fold2 (fun (ctx, assignments, idx) (KeyValue(argIdent, refCount)) arg ->
                     // If an expression is referenced more than once, assign it
                     // to a temp var to prevent multiple evaluations
-                    if refCount > 1 && hasDoubleEvalRisk arg then
+                    if (refCount > 1 && hasDoubleEvalRisk arg) || (hasThisReference arg) then
                         let tmpVar = com.GetUniqueVar() |> makeIdent
                         let tmpVarExp = Fable.Value(Fable.IdentValue tmpVar)
                         let assign = Fable.VarDeclaration(tmpVar, arg, false, None)

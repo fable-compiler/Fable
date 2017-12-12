@@ -128,11 +128,6 @@ module Util =
         then "default"
         else publicName
 
-    let rec deepExists f (expr: Fable.Expr) =
-        if f expr
-        then true
-        else List.exists (deepExists f) expr.ImmediateSubExpressions
-
     let consBack tail head = head::tail
 
     let prepareArgs (com: IBabelCompiler) ctx =
