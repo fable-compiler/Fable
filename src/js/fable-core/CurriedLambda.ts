@@ -8,12 +8,12 @@ export default function CurriedLambda(f: ICurriedLambda, expectedArgsLength?: nu
     return f;
   }
   const curriedFn: ICurriedLambda = (...args: any[]) => {
-    // _this = _this || this;
-    const actualArgsLength = Math.max(args.length, 1);
+    const args2 = args.map((x) => typeof x === "function" ? CurriedLambda(x) : x);
+    const actualArgsLength = Math.max(args2.length, 1);
     expectedArgsLength = Math.max(expectedArgsLength || f.length, 1);
     if (actualArgsLength >= expectedArgsLength) {
-      const restArgs = args.splice(expectedArgsLength);
-      const res = f(...args);
+      const restArgs = args2.splice(expectedArgsLength);
+      const res = f(...args2);
       if (typeof res === "function") {
         const newLambda = CurriedLambda(res);
         return restArgs.length === 0 ? newLambda : newLambda(...restArgs);
@@ -21,18 +21,11 @@ export default function CurriedLambda(f: ICurriedLambda, expectedArgsLength?: nu
         return res;
       }
     } else {
-      return CurriedLambda((...args2: any[]) => {
-        return f(...args.concat(args2));
+      return CurriedLambda((...args3: any[]) => {
+        return f(...args2.concat(args3));
       }, expectedArgsLength - actualArgsLength);
     }
   };
   curriedFn.curried = true;
   return curriedFn;
-}
-
-export function partialApply(f: ICurriedLambda, args: any[]): ICurriedLambda {
-  const args2 = args.map((x: any) =>
-    typeof x === "function" && !x.curried ? CurriedLambda(x) : x);
-  const lambda = f.curried === true ? f : CurriedLambda(f);
-  return lambda(...args2);
 }

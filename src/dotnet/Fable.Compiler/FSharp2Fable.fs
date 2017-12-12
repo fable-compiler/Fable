@@ -1086,14 +1086,15 @@ let private (|MultiArgFunction|_|) com (ctx: Context) r (meth: FSharpMemberOrFun
         then getFunctionGenericArgs [] ctx.typeArgs true body.Type |> List.length
         else 0
     if funcBodyArgs > 0 then
-        match fableBody with
-        | Fable.Value(Fable.Lambda _)
-                when meth.CurriedParameterGroups.Count < funcBodyArgs
-                && hasNoTupledArgs meth ->
-            "Looks like " + meth.FullName + " uses point-free style, this may create "
-            + "problems in runtime, please declare all arguments explicitly."
-            |> addWarning com ctx.fileName (Some r)
-        | _ -> ()
+        // TODO: Add an extra option to generate this warning
+        // match fableBody with
+        // | Fable.Value(Fable.Lambda _)
+        //         when meth.CurriedParameterGroups.Count < funcBodyArgs
+        //         && hasNoTupledArgs meth ->
+        //     "Looks like " + meth.FullName + " uses point-free style, this may create "
+        //     + "problems in runtime, please declare all arguments explicitly."
+        //     |> addWarning com ctx.fileName (Some r)
+        // | _ -> ()
         if funcBodyArgs > 1
         then makeDynamicCurriedLambda fableBody.Range fableBody.Type fableBody |> Some
         else None

@@ -730,12 +730,15 @@ let apply f x =
     | Some f, Some x -> Some (f x)
     | _ -> None
 
+let add2 a b = a + b
 let add3 a b c = a + b + c
 let add4 a b c d = a+b+c+d
 
 module Pointfree =
     let (<!>) = Option.map
     let (<*>) = apply
+    let y = add2 <!> Some 1 <*> Some 2
+
     let x = add3 <!> Some 40 <*> Some 1 <*> Some 1
 
 module Pointful =
@@ -755,6 +758,11 @@ module Pointful =
 [<Test>]
 let ``Point-free and partial application work``() = // See #1199
     equal Pointfree.x Pointful.x
+
+[<Test>]
+// See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-345958891
+let ``Point-free works when passing a 2-arg function``() =
+    Pointfree.y |> equal (Some 3)
 
 module Results =
     open FSharp.Core

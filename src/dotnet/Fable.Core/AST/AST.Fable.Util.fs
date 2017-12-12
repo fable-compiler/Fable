@@ -504,6 +504,10 @@ let makeDynamicCurriedLambda range typ lambda =
     CoreLibCall("CurriedLambda", None, false, [lambda])
     |> makeCall range typ
 
+let makeDynamicCurriedLambdaAndApply range typ (lambda: Expr) args =
+    let lambda = makeDynamicCurriedLambda lambda.Range (Function([Any], Any, true)) lambda
+    Apply(lambda, args, ApplyMeth, typ, range)
+
 let (|CurriedLambda|_|) = function
     | Apply(Value(ImportRef("default", "CurriedLambda", CoreLib)),_,_,_,_) ->
         Some CurriedLambda
@@ -540,9 +544,7 @@ let rec ensureArity com argTypes args =
                 Apply(f, args, ApplyMeth, typ, f.Range)
                 |> makeLambdaExpr innerArgs
             | _ ->
-                let argArray = makeArray Fable.Any (List.map argIdentToExpr outerArgs)
-                CoreLibCall("CurriedLambda", Some "partialApply", false, [f; argArray])
-                |> makeCall f.Range typ
+                makeDynamicCurriedLambdaAndApply f.Range typ f (List.map argIdentToExpr outerArgs)
         elif expectedArgsLength > actualArgsLength then
             // if Option.isSome f.Range then
             //     com.AddLog("A function with less arguments than expected has been wrapped. " +
@@ -585,9 +587,7 @@ and makeApply com range typ callee (args: Expr list) =
                 then List.take argTypesLength args, List.skip argTypesLength args
                 else args, []
             let innerArgs = ensureArity com argTypes innerArgs
-            let argArray = makeArray Fable.Any (innerArgs@outerArgs)
-            CoreLibCall("CurriedLambda", Some "partialApply", false, [callee; argArray])
-            |> makeCall range typ
+            makeDynamicCurriedLambdaAndApply range typ callee (innerArgs@outerArgs)
         else
             Apply(callee, ensureArity com argTypes args, ApplyMeth, typ, range)
     | _ ->
