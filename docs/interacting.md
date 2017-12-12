@@ -129,7 +129,7 @@ let bar2 = foo.Invoke(4, "a")
 To create a plain JS object (aka POJO), use `createObj`:
 
 ```fsharp
-open FSharp.Core.JsInterop
+open Fable.Core.JsInterop
 
 let data =
     createObj [
