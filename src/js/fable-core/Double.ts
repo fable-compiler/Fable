@@ -10,7 +10,7 @@ export function tryParse(s: string | null, radix: number, initial: number): [boo
     }
   }
 
-  return [false, initial];
+  return [false, initial != null ? initial : 0];
 }
 
 export function parse(s: string | null, radix: number = 10): number {

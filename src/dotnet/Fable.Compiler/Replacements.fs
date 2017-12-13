@@ -1115,15 +1115,13 @@ module AstPass =
     let parse (com: ICompiler) (i: Fable.ApplyInfo) isFloat =
         // TODO what about Single ?
         let numberModule =
-            if isFloat then
-                "Double"
-            else
-                "Int32"
-
+            if isFloat
+            then "Double"
+            else "Int32"
         match i.methodName with
         | "isNaN" when isFloat ->
             match i.args with
-            | [someNumber] ->
+            | [_someNumber] ->
                 GlobalCall("Number", Some "isNaN", false, i.args)
                 |> makeCall i.range (Fable.Number Float64)
                 |> Some
@@ -1136,17 +1134,16 @@ module AstPass =
                 CoreLibCall (numberModule, Some "parse", false,
                     [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10)])
                 |> makeCall i.range i.returnType |> Some
-
             | "parse", [str; Fable.Wrapped(Fable.Value(Fable.NumberConst(hexConst,_)), Fable.Enum _)] ->
                 CoreLibCall (numberModule, Some "parse", false,
                     [str; (if isFloat then makeNumConst 16.0 else makeIntConst 16)])
                 |> makeCall i.range i.returnType |> Some
-            // System.Double.Parse(string, NumberStyle) 
-            | "parse", [inputString; Fable.Wrapped(numberStyleValue, Fable.Enum _)] -> 
+            // System.Double.Parse(string, NumberStyle)
+            | "parse", [_inputString; Fable.Wrapped(_numberStyleValue, Fable.Enum _)] ->
                 (* Todo *)
-                None 
+                None
             // System.Double.Parse(string, IFormatProvider)
-            // just ignore the second args (IFormatProvider) and compile 
+            // just ignore the second args (IFormatProvider) and compile
             // to System.Double.Parse(string)
             | "parse", [str; _ ] ->
                 CoreLibCall (numberModule, Some "parse", false,
@@ -1156,7 +1153,6 @@ module AstPass =
                 CoreLibCall (numberModule, Some "tryParse", false,
                     [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10); defValue])
                 |> makeCall i.range i.returnType |> Some
-
             | _ ->
                 sprintf "%s.%s only accepts a single argument" i.ownerFullName i.methodName
                 |> addErrorAndReturnNull com i.fileName i.range |> Some
@@ -1237,6 +1233,8 @@ module AstPass =
         | ".ctor", [Fable.Value (Fable.IdentValue _)] ->
             addWarning com i.fileName i.range "Decimals are implemented with floats."
             wrap i.returnType i.args.Head |> Some
+        | ("parse" | "tryParse"), _ ->
+            parse com i true
         | _,_ -> None
 
     let debug com (i: Fable.ApplyInfo) =
@@ -1301,13 +1299,13 @@ module AstPass =
 
     // Compile static strings to their constant values
     // reference: https://msdn.microsoft.com/en-us/visualfsharpdocs/conceptual/languageprimitives.errorstrings-module-%5bfsharp%5d
-    let errorStrings com (i: Fable.ApplyInfo) = 
+    let errorStrings com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "inputArrayEmptyString" -> makeStrConst "The input array was empty" |> Some
         | "inputSequenceEmptyString" -> makeStrConst "The input sequence was empty" |> Some
         | "inputMustBeNonNegativeString" -> makeStrConst "The input must be non-negative" |> Some
         | _ -> None
-    
+
     let languagePrimitives com (i: Fable.ApplyInfo) =
         match i.methodName, (i.callee, i.args) with
         | "enumOfValue", OneArg (arg) -> arg |> Some
@@ -1358,20 +1356,20 @@ module AstPass =
         // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
         // Type: PowDouble : float -> int -> float
         // Usage: PowDouble x n
-        | "powDouble", (None, _) -> 
+        | "powDouble", (None, _) ->
             GlobalCall ("Math", Some "pow", false, i.args)
-            |> makeCall i.range i.returnType 
+            |> makeCall i.range i.returnType
             |> Some
         // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangechar-function-%5bfsharp%5d
         // Type: RangeChar : char -> char -> seq<char>
         // Usage: RangeChar start stop
-        | "rangeChar", (None, _) -> 
+        | "rangeChar", (None, _) ->
             CoreLibCall("Seq", Some "rangeChar", false, i.args)
             |> makeCall i.range i.returnType |> Some
         // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
         // Type: RangeDouble: float -> float -> float -> seq<float>
         // Usage: RangeDouble start step stop
-        | "rangeDouble", (None, _) -> 
+        | "rangeDouble", (None, _) ->
             CoreLibCall("Seq", Some "rangeStep", false, i.args)
             |> makeCall i.range i.returnType |> Some
         | _ -> None
@@ -1985,7 +1983,7 @@ module AstPass =
             let listMeth meth args =
                 CoreLibCall ("List", Some meth, false, args)
                 |> makeCall i.range i.returnType |> Some
-            match i.methodName with 
+            match i.methodName with
             | "getSlice" ->
                 listMeth "slice" (i.args@[i.callee.Value])
             | "truncate" ->
@@ -1996,17 +1994,17 @@ module AstPass =
                 | _ -> None
             | Patterns.SetContains implementedListFunctions meth ->
                 listMeth meth i.args
-            | _ -> 
+            | _ ->
                 // match instance methods
                 match i.callee with
-                | Some instance -> 
+                | Some instance ->
                     match i.methodName with
                     | "equals" -> icall "Equals" (instance, i.args)
                     | "compareTo" -> icall "CompareTo" (instance, i.args)
                     | "getHashCode" -> (* TODO *) None
                     | _ -> None
                 | _ -> None
-            
+
         | Array ->
             match i.methodName with
             | "get" ->
@@ -2285,9 +2283,9 @@ module AstPass =
     // Initial support, making at least InvariantCulture compile-able
     // to be used System.Double.Parse and System.Single.Parse
     // see https://github.com/fable-compiler/Fable/pull/1197#issuecomment-348034660
-    let globalization com (i: Fable.ApplyInfo) = 
-        match i.methodName with 
-        | "invariantCulture" -> 
+    let globalization com (i: Fable.ApplyInfo) =
+        match i.methodName with
+        | "invariantCulture" ->
             // System.Globalization namespace is not supported by Fable. The value InvariantCulture will be compiled to an empty object literal
             makeJsObject i.range [] |> Some
         | _ -> None

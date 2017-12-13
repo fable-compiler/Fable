@@ -48,7 +48,7 @@ let ``System.Decimal.Parse works``() =
 
 [<Test>]
 let ``System.Decimal.TryParse works``() =
-    tryParse Decimal.TryParse 0.0M "1" |> equal (true, 1.0;)
+    tryParse Decimal.TryParse 0.0M "1" |> equal (true, 1.0M)
     tryParse Decimal.TryParse 0.0M "    1     " |> equal (true, 1.0M)
     tryParse Decimal.TryParse 0.0M "1.5" |> equal (true, 1.5M)
     tryParse Decimal.TryParse 0.0M "    1.5     " |> equal (true, 1.5M)
@@ -58,7 +58,7 @@ let ``System.Decimal.TryParse works``() =
     tryParse Decimal.TryParse 0.0M "X9TRE34" |> equal (false, 0.0M)
     tryParse Decimal.TryParse 0.0M "9SayWhat12Huh" |> equal (false, 0.0M)
     tryParse Decimal.TryParse 0.0M "-1.5" |> equal (true, -1.5M)
-    
+
 [<Test>]
 let ``System.Single.Parse works``() =
     parse Single.Parse "1.5" |> equal 1.5f

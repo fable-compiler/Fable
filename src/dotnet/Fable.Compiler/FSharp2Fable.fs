@@ -31,6 +31,8 @@ let private (|SpecialValue|_|) com ctx = function
             let m = if n = "System.DateTime" then "Date" else "DateOffset"
             CoreLibCall(m, Some (Naming.lowerFirst fieldName), false, [])
             |> makeCall (makeRangeFrom fsExpr) (makeType com ctx.typeArgs fsExpr.Type) |> Some
+        | Some "System.Decimal", "Zero" -> makeDecConst 0M |> Some
+        | Some "System.Decimal", "One" -> makeDecConst 1M |> Some
         | _ -> None
     | _ -> None
 
