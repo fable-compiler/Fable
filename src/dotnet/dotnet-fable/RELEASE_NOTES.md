@@ -1,3 +1,18 @@
+### 1.3.5
+
+* Change license to MIT
+* Remove point-free warning
+* Fix #1272 #1274: Decimal literals and parsing
+* Fix #1199: Application of point-free functions
+* Fix #1291: Inlined object expression shouldn't change `this` context of argument
+* Fix Compare and Equal for IE11 (@SCullman)
+* Fix assignment block optimization inside try...with
+* Add PowDouble, RangeChar and RangeDouble (@Zaid-Ajaj)
+* Make `Double.Parse` and `Single.Parse` compilable with IFormatProvider (@Zaid-Ajaj)
+* Add ErrorStrings (@Zaid-Ajaj)
+* Add `List.Equals` & `List.CompareTo` (@Zaid-Ajaj)
+* Add `Char.parse` (@inosik)
+
 ### 1.3.4
 
 * Optimize assignment blocks as expressions (#1265)
