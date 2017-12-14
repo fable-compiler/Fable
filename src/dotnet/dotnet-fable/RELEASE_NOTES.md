@@ -1,3 +1,7 @@
+### 1.3.6
+
+* Fix #1294: Deserializing F# Result doesn't restore type information (@inosik)
+
 ### 1.3.5
 
 * Change license to MIT
