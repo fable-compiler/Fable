@@ -1,5 +1,5 @@
 import FSymbol from "./Symbol";
-import { Any, IComparable, IEquatable } from "./Util";
+import { GenericParam, IComparable, IEquatable } from "./Util";
 import { compareUnions, equalsUnions } from "./Util";
 
 export default class Result<T1, T2> implements IEquatable<Result<T1, T2>>, IComparable<Result<T1, T2>> {
@@ -23,7 +23,7 @@ export default class Result<T1, T2> implements IEquatable<Result<T1, T2>>, IComp
     return {
       type: "Microsoft.FSharp.Core.FSharpResult",
       interfaces: ["FSharpUnion", "System.IEquatable", "System.IComparable"],
-      cases: [["Ok", Any], ["Error", Any]],
+      cases: [["Ok", GenericParam("T")], ["Error", GenericParam("TError")]],
     };
   }
 }
