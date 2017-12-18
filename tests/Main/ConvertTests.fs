@@ -36,6 +36,8 @@ let ``System.Double.TryParse works``() =
     tryParse Double.TryParse 0.0 "1.5" |> equal (true, 1.5)
     tryParse Double.TryParse 0.0 "    1.5     " |> equal (true, 1.5)
     tryParse Double.TryParse 0.0 "foo" |> equal (false, 0.0)
+    tryParse Double.TryParse 0.0 "" |> equal (false, 0.0)
+    tryParse Double.TryParse 0.0 "      " |> equal (false, 0.0)
     tryParse Double.TryParse 0.0 "9X" |> equal (false, 0.0)
     tryParse Double.TryParse 0.0 "X9" |> equal (false, 0.0)
     tryParse Double.TryParse 0.0 "X9TRE34" |> equal (false, 0.0)

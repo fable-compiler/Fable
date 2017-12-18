@@ -1,6 +1,6 @@
 // TODO does this perfectly match the .NET behavior ?
 export function tryParse(s: string | null, radix: number, initial: number): [boolean, number] {
-  if (s != null) {
+  if (s != null && /\S/.test(s)) {
     if (radix === 10) {
       const v = +s;
 
