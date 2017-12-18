@@ -15,6 +15,11 @@ let ``String literal addition is optimized``() =
       "bar" + aLiteral |> equal "barfoo"
       "bar" + notALiteral |> equal "barfoo"
 
+[<Test>]
+let ``String chunkBySize works``() = // See #1296
+    "fffff" |> Seq.chunkBySize 3 |> Seq.map String |> Seq.toList
+    |> equal ["fff"; "ff"]
+
 // Format
 
 [<Test>]

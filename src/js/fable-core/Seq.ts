@@ -464,7 +464,7 @@ export function map3<T1, T2, T3, U>(
 
 export function chunkBySize<T>(size: number, xs: Iterable<T>): Iterable<Iterable<T>> {
   const result = arrayChunkBySize(size, Array.from(xs));
-  return ofArray(result.map(ofArray));
+  return ofArray(result);
 }
 
 export function mapFold<T, ST, R>(
