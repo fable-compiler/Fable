@@ -899,8 +899,8 @@ module Util =
                     match m.Kind with
                     | Fable.Constructor -> ClassConstructor, "constructor", Fable.InstanceLoc, None, body
                     | Fable.Method -> ClassFunction, m.OverloadName, m.Location, m.Computed, body
-                    | Fable.Getter | Fable.Field -> ClassGetter, m.Name, m.Location, m.Computed, body
-                    | Fable.Setter -> ClassSetter, m.Name, m.Location, m.Computed, body
+                    | Fable.Getter | Fable.Field -> ClassGetter, m.OverloadName, m.Location, m.Computed, body
+                    | Fable.Setter -> ClassSetter, m.OverloadName, m.Location, m.Computed, body
                 let isStatic = loc = Fable.StaticLoc
                 declareMethod range kind name args body m.GenericParameters m.HasRestParams isStatic computed
             | Fable.ActionDeclaration _

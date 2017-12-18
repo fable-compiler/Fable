@@ -934,11 +934,14 @@ module Types =
         let makeProperties (tdef: FSharpEntity) =
             tdef.TryGetMembersFunctionsAndValues
             |> Seq.choose (fun x ->
-                if not x.IsPropertyGetterMethod then None else
-                match makeType com [] x.FullType with
-                | Fable.Function(_, returnType, _) ->
-                    Some(x.DisplayName, returnType)
-                | _ -> None)
+                if not x.IsPropertyGetterMethod
+                    || x.IsExplicitInterfaceImplementation
+                then None
+                else
+                    match makeType com [] x.FullType with
+                    | Fable.Function(_, returnType, _) ->
+                        Some(x.DisplayName, returnType)
+                    | _ -> None)
             |> Seq.toList
         let makeCases (tdef: FSharpEntity) =
             tdef.UnionCases |> Seq.map (fun uci ->
@@ -1396,6 +1399,14 @@ module Util =
             Fable.Apply (bind, args, Fable.ApplyMeth, typ, r) |> Some
         | _ -> None
 
+    let getOverloadedName (com: IFableCompiler) owner meth kind methArgTypes methName =
+        match owner with
+        | Some ent ->
+            let ent = com.GetEntity ent
+            ent.TryGetMember(methName, kind, getMemberLoc meth, methArgTypes)
+            |> function Some m -> m.OverloadName | None -> methName
+        | None -> methName
+
     let makeCallFrom (com: IFableCompiler) ctx r typ
                      (meth: FSharpMemberOrFunctionOrValue)
                      (typArgs, methTypArgs) callee args =
@@ -1455,9 +1466,11 @@ module Util =
             let methName = sanitizeMethodName meth
     (**     *Check if this a getter or setter  *)
             match getMemberKind meth with
-            | Fable.Getter | Fable.Field ->
+            | Fable.Getter | Fable.Field as kind ->
+                let methName = getOverloadedName com owner meth kind methArgTypes methName
                 makeGetFrom r typ callee (makeStrConst methName)
-            | Fable.Setter ->
+            | Fable.Setter as kind ->
+                let methName = getOverloadedName com owner meth kind methArgTypes methName
                 Fable.Set (callee, Some (makeStrConst methName), args.Head, r)
     (**     *Check if this is an implicit constructor *)
             | Fable.Constructor ->
@@ -1468,19 +1481,13 @@ module Util =
                     // let calleeType = Fable.Function(Some methArgTypes, typ)
                     let m = makeGet r Fable.Any callee (makeStrConst methName)
                     Fable.Apply(m, args, Fable.ApplyMeth, typ, r)
-                if belongsToInterfaceOrImportedEntity meth
-                then
+                if belongsToInterfaceOrImportedEntity meth then
                     if methName = ".ctor"
                     then Fable.Apply(callee, args, Fable.ApplyCons, typ, r)
                     else applyMeth methName
                 else
-                    match owner with
-                    | Some ent ->
-                        let ent = com.GetEntity ent
-                        ent.TryGetMember(methName, kind, getMemberLoc meth, methArgTypes)
-                        |> function Some m -> m.OverloadName | None -> methName
-                        |> applyMeth
-                    | None -> applyMeth methName
+                    let methName = getOverloadedName com owner meth kind methArgTypes methName
+                    applyMeth methName
 
     let makeThisRef (com: ICompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue option) =
         match ctx.thisAvailability with

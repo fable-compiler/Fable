@@ -91,8 +91,8 @@ let nugetRestore baseDir () =
     run (baseDir </> "dotnet-fable") dotnetExePath "restore"
 
 let buildCLI baseDir isRelease () =
-    sprintf "publish -o %s -c %s -v n" cliBuildDir
-        (if isRelease then "Release" else "Debug")
+    sprintf "publish -o %s -c %s" cliBuildDir
+        (if isRelease then "Release -v n" else "Debug")
     |> run (baseDir </> "dotnet-fable") dotnetExePath
 
 let buildCoreJS () =
@@ -138,7 +138,7 @@ let quickTest() =
 
 Target "QuickTest" quickTest
 Target "QuickFableCompilerTest" (fun () ->
-    buildCLI "src/dotnet" true ()
+    buildCLI "src/dotnet" false ()
     quickTest ())
 Target "QuickFableCoreTest" (fun () ->
     buildCoreJS ()

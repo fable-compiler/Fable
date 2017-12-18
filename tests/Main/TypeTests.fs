@@ -452,20 +452,31 @@ let ``Interface setters don't conflict``() = // See #505
 
 type IFoo =
     abstract Foo: unit -> string
+    abstract Bar: string
+    abstract MySetter: int with get, set
 
 let mangleFoo(x: IFoo) = x.Foo()
 
 type FooImplementor() =
+    let mutable mut1 = 0
+    let mutable mut2 = 5
+
     member x.Foo() = "foo"
+    member x.Bar = "he"
+    member x.MySetter with get() = mut1 and set(v) = mut1 <- v + 2
+
     interface IFoo with
         member x.Foo() = x.Foo() + "bar"
+        member x.Bar = x.Bar + "ho"
+        member x.MySetter with get() = mut1 + mut2 and set(v) = mut2 <- v + 3
 
 [<AbstractClass>]
 type AbstractFoo() =
     abstract member Foo: unit -> string
     interface IFoo with
-        member this.Foo() =
-            this.Foo() + "FOO"
+        member this.Foo() = this.Foo() + "FOO"
+        member x.Bar = ""
+        member x.MySetter with get() = 0 and set(v) = ()
 
 type ChildFoo() =
     inherit AbstractFoo()
@@ -477,6 +488,20 @@ let ``A type can overload an interface method``() =
     foo.Foo() |> equal "foo"
     (foo :> IFoo).Foo() |> equal "foobar"
     mangleFoo foo |> equal "foobar"
+
+[<Test>]
+let ``A type can overload an interface getter``() =
+    let foo = FooImplementor()
+    foo.Bar |> equal "he"
+    (foo :> IFoo).Bar |> equal "heho"
+
+[<Test>]
+let ``A type can overload an interface setter``() =
+    let foo = FooImplementor()
+    foo.MySetter <- 7
+    foo.MySetter |> equal 9
+    (foo :> IFoo).MySetter <- 7
+    (foo :> IFoo).MySetter |> equal 19
 
 [<Test>]
 let ``A type overloading an interface method can be inherited``() =
