@@ -194,7 +194,25 @@ export function toString(obj: any, quoteStrings = false): string {
   }
 }
 
+export abstract class ObjectRef {
+  public static id(o: any) {
+    if (!ObjectRef.idMap.has(o)) {
+      ObjectRef.idMap.set(o, ++ObjectRef.count);
+    }
+    return ObjectRef.idMap.get(o);
+  }
+  private static idMap = new WeakMap();
+  private static count = 0;
+}
+
+export function getHashCode(x: any): number {
+  return ObjectRef.id(x) * 2654435761 | 0;
+}
+
 export function hash(x: any): number {
+  if (typeof x === typeof 1) {
+    return x * 2654435761 | 0;
+  }
   if (x != null && typeof x.GetHashCode === "function") {
     return x.GetHashCode();
   } else {

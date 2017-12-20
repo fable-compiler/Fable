@@ -1,11 +1,11 @@
 module App
 
-let use_net45_meta = true
+let use_net45_meta = false
 let references = Metadata.references use_net45_meta
 let metadataPath =
     if use_net45_meta
-    then "../demo/repl/metadata/"  // dotnet 4.5 binaries
-    else "../demo/repl/metadata2/" // dotnet core 2.0 binaries
+    then "/temp/repl/metadata/"  // dotnet 4.5 binaries
+    else "/temp/repl/metadata2/" // dotnet core 2.0 binaries
 
 #if !DOTNET
 

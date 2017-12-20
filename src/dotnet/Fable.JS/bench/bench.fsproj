@@ -12,8 +12,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../Interfaces.fs"/>
-    <Compile Include="../Metadata.fs"/>
     <Compile Include="app.fs"/>
   </ItemGroup>
 
