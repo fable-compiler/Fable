@@ -1320,6 +1320,9 @@ module AstPass =
             |> makeCall i.range i.returnType |> Some
         | "physicalEquality", _ ->
             makeEqOp i.range i.args BinaryEqualStrict |> Some
+        | "physicalHash", _ ->
+            CoreLibCall("Util", Some "getHashCode", false, i.args)
+            |> makeCall i.range i.returnType |> Some
         | _ -> None
 
     let intrinsicFunctions com (i: Fable.ApplyInfo) =
@@ -2073,7 +2076,7 @@ module AstPass =
 
     let objects com (i: Fable.ApplyInfo) =
         match i.methodName with
-        | "getHashCode" -> ccall i "Util" "hash" [i.callee.Value] |> Some
+        | "getHashCode" -> ccall i "Util" "getHashCode" [i.callee.Value] |> Some
         | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
         | "referenceEquals" -> makeEqOp i.range i.args BinaryEqualStrict |> Some
         | "toString" -> ccall i "Util" "toString" [i.callee.Value] |> Some
