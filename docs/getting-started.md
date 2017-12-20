@@ -26,7 +26,7 @@ dotnet new -i Fable.Template
 After that, if you type `dotnet new -h` you should see "fable" among the list of available templates. Let's call it to scaffold a Fable app:
 
 ```shell
-dotnet new fable -n FableApp
+dotnet new fable -n FableApp -lang F#
 cd FableApp
 ```
 
