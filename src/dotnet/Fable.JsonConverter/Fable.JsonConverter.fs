@@ -281,9 +281,12 @@ type JsonConverter() =
             then
               let values = readElements(reader, itemTypes, serializer)
               FSharpValue.MakeUnion(case, List.toArray values)
-            else
+            elif itemTypes.Length = 1
+            then 
               let value = serializer.Deserialize(reader, itemTypes.[0])
               FSharpValue.MakeUnion(case, [|value|])
+            else 
+              FSharpValue.MakeUnion(case, [|  |]) 
         | true, Kind.Union ->
             match reader.TokenType with
             | JsonToken.String ->
