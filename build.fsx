@@ -198,6 +198,7 @@ Target "FableSplitter" buildSplitter
 Target "NUnitPlugin" buildNUnitPlugin
 Target "JsonConverter" buildJsonConverter
 Target "RunTestsJS" runTestsJS
+Target "RunTestsDotnet" runTestsDotnet
 
 Target "PublishPackages" (fun () ->
     let baseDir = CWD </> "src"
