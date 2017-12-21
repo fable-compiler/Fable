@@ -1,3 +1,11 @@
+### 1.3.7
+
+* Fix PassGenerics attribute with optional arguments
+* Fix interface getter and setter overloads
+* Add PhysicalHash (@ncave)
+* Check empty/whitespace strings when parsing floats
+* Fix #1296 String chunkBySize fails
+
 ### 1.3.6
 
 * Fix #1294: Deserializing F# Result doesn't restore type information (@inosik)

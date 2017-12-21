@@ -10,7 +10,7 @@
     <Authors>Alfonso García-Caro Núñez</Authors>
     <TargetFramework>netstandard1.6</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Version>1.3.6</Version>
+    <Version>1.3.7</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />
