@@ -3,6 +3,8 @@
 open Xunit
 open Newtonsoft.Json
 open System
+open Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.Interfaces
+open Newtonsoft.Json.Linq
 
 type Record = {
     Prop1 : string
@@ -13,6 +15,9 @@ type Record = {
 type Maybe<'t> =
     | Just of 't
     | Nothing
+
+
+
 
 
 module JsonConverterTests =
@@ -32,6 +37,27 @@ module JsonConverterTests =
         Assert.Equal(3, deserialized.Month)
         Assert.Equal(2017, deserialized.Year)
 
+    type CustomerId = CustomerId of int
+
+    type Customer = { Id : CustomerId }
+
+    [<Fact>]
+    let ``Single case union is unwrapped when serialized``() = 
+        let customer = { Id = CustomerId(5) }
+        let serialized = serialize customer
+        // assert that the resulting json has shape { Id: 5 }
+        let json = JObject.Parse(serialized)
+        let prop = json.Property("Id").Value
+        match prop.Value<int>()  with
+        | 5 -> Assert.True(true)
+        | otherwise -> Assert.True(false, "Should not happen")
+    
+    [<Fact>]
+    let ``Single case union is deserialized correctly``() = 
+          // assert that deserialization works
+          match deserialize<Customer> (serialize { Id = CustomerId(5) }) with
+          | { Id = CustomerId(5) } -> Assert.True(true)
+          | otherwise -> Assert.True(false, "Should not happen")
 
     [<Fact>]
     let ``Option<string> convertion works``() =
