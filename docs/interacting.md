@@ -311,3 +311,5 @@ JsonConvert.SerializeObject(value, [|jsonConverter|])
 // Deserialization
 JsonConvert.DeserializeObject<MyType>(json, [|jsonConverter|])
 ```
+
+If you need more fine-grained control over the JSON serialization, please use the [Thot library](https://mangelmaxime.github.io/Thot/json/decode.html).
