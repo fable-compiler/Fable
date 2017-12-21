@@ -1430,10 +1430,9 @@ module Util =
                     | last -> rest @ [Fable.Value(Fable.Spread last)]
                 | _ -> args
             else
-                let args = removeOmittedOptionalArguments meth args // See #231, #640
                 if hasAtt Atts.passGenerics meth.Attributes
                 then args@[passGenerics com ctx r (typArgs, methTypArgs) meth]
-                else args
+                else removeOmittedOptionalArguments meth args // See #231, #640
         let owner = tryEnclosingEntity meth
         let i = buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs, methArgTypes) (callee, args) owner meth
         match meth with

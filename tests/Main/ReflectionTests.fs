@@ -147,6 +147,10 @@ type MessageBus () =
   member this.create (value:'t) = "topic1: " + (typeof<'t>.Name)
   [<PassGenerics>]
   member this.create (topic, value:'t) = topic + ": " + (typeof<'t>.Name)
+  [<PassGenerics>]
+  member this.optionalArgs (value:'t, ?flag1: bool) =
+    let flag1 = defaultArg flag1 false
+    (sprintf "%b: %s" flag1 (typeof<'t>.Name)).ToLower()
 
 [<Test>]
 let ``Overloads with PassGenericsAttribute work``() =
@@ -154,6 +158,13 @@ let ``Overloads with PassGenericsAttribute work``() =
     let bus = MessageBus()
     bus.create x |> equal "topic1: Firm"
     bus.create ("global", x) |> equal "global: Firm"
+
+[<Test>]
+let ``Optional arguments with PassGenericsAttribute work``() =
+    let x = { name = "" }
+    let bus = MessageBus()
+    bus.optionalArgs(x) |> equal "false: firm"
+    bus.optionalArgs(x, true) |> equal "true: firm"
 
 // FSharpType and FSharpValue reflection tests
 
