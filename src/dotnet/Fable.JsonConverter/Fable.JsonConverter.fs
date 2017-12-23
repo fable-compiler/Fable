@@ -206,14 +206,30 @@ type JsonConverter() =
         match jsonConverterTypes.TryGetValue(t) with
         | false, _ ->
             serializer.Deserialize(reader, t)
-        | true, Kind.Long when reader.TokenType = JsonToken.String ->
-            let json = serializer.Deserialize(reader, typeof<string>) :?> string
-            if t.FullName = "System.UInt64"
-            then upcast UInt64.Parse(json)
-            else upcast Int64.Parse(json)
-        | true, Kind.BigInt when reader.TokenType = JsonToken.String ->
-            let json = serializer.Deserialize(reader, typeof<string>) :?> string
-            upcast bigint.Parse(json)
+        | true, Kind.Long ->
+            match reader.TokenType with
+            | JsonToken.String ->
+                let json = serializer.Deserialize(reader, typeof<string>) :?> string
+                if t.FullName = "System.UInt64"
+                then upcast UInt64.Parse(json)
+                else upcast Int64.Parse(json)
+            | JsonToken.Integer ->
+                let i = serializer.Deserialize(reader, typeof<int>) :?> int
+                if t.FullName = "System.UInt64"
+                then upcast System.Convert.ToUInt64(i)
+                else upcast System.Convert.ToUInt64(i)
+            | token ->
+                failwithf "Expecting int64 but got %s" <| Enum.GetName(typeof<JsonToken>, token)
+        | true, Kind.BigInt ->
+            match reader.TokenType with
+            | JsonToken.String ->
+                let json = serializer.Deserialize(reader, typeof<string>) :?> string
+                upcast bigint.Parse(json)
+            | JsonToken.Integer ->
+                let i = serializer.Deserialize(reader, typeof<int>) :?> int
+                upcast bigint i
+            | token ->
+                failwithf "Expecting bigint but got %s" <| Enum.GetName(typeof<JsonToken>, token)
         | true, Kind.DateTime ->
             match reader.Value with
             | :? DateTime -> reader.Value // Avoid culture-sensitive string roundtrip for already parsed dates (see #613).
