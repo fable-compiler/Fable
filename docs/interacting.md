@@ -106,21 +106,14 @@ let instance = createNew jsObject?myMethod(1, 2)
 // var instance = new jsObject.myMethod(1, 2)
 ```
 
-If you prefer the OOP style rather than the operators for dynamic typing, you can easily define your own extensions for the `obj` type.
+If you prefer member extensions rather than operators for dynamic typing, you can open `Fable.Core.DynamicExtensions` (Fable.Core 1.3.8 or higher) to have the methods `.Item` and `.Invoke` available on any object.
 
 ```fsharp
-open System
-open Fable.Core
-open Fable.Core.JsInterop
-
-type Object with
-  [<Emit("$0[$1]")>]
-  member __.Item(idx: string): obj = jsNative
-  [<Emit("$0($1...)")>]
-  member __.Invoke([<ParamArray>] args: obj[]): obj = jsNative
+open Fable.Core.DynamicExtensions
 
 let foo = obj()
-let bar1 = foo.["b"]
+let bar1 = foo.["b"]  // Same as foo.Item("b")
+foo.["c"] <- 14
 let bar2 = foo.Invoke(4, "a")
 ```
 
