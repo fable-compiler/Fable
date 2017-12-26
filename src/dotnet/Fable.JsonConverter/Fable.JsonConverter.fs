@@ -38,6 +38,7 @@ type Kind =
     | MapOrDictWithNonStringKey = 7
     | Long = 8
     | BigInt = 9
+    | SingleCaseUnion = 10
 
 /// Helper for serializing map/dict with non-primitive, non-string keys such as unions and records.
 /// Performs additional serialization/deserialization of the key object and uses the resulting JSON
@@ -80,6 +81,7 @@ module private Cache =
     let serializationBinderTypes = ConcurrentDictionary<string,Type>()
 
 open Cache
+open System.Runtime.InteropServices
 
 /// Converts F# options, tuples and unions to a format understandable
 /// by Fable. Code adapted from Lev Gorodinski's original.
@@ -110,7 +112,13 @@ type JsonConverter() =
             | "Fable.Core.PojoAttribute" -> Some Kind.PojoDU
             | "Fable.Core.StringEnumAttribute" -> Some Kind.StringEnum
             | _ -> None)
-        |> defaultArg <| Kind.Union
+        |> function 
+            | Some specialKind -> specialKind
+            | None -> 
+                let cases = FSharpType.GetUnionCases t 
+                if Array.length cases = 1 
+                then Kind.SingleCaseUnion
+                else Kind.Union
 
     let getUci t name =
         FSharpType.GetUnionCases(t)
@@ -183,6 +191,14 @@ type JsonConverter() =
                 | [|:? CompiledNameAttribute as att|] -> att.CompiledName
                 | _ -> uci.Name.Substring(0,1).ToLowerInvariant() + uci.Name.Substring(1)
                 |> writer.WriteValue
+            | true, Kind.SingleCaseUnion ->
+                let uci, fields = FSharpValue.GetUnionFields(value, t)
+                if fields.Length = 0
+                then serializer.Serialize(writer, uci.Name)
+                else 
+                  if fields.Length = 1
+                  then serializer.Serialize(writer, fields.[0])
+                  else serializer.Serialize(writer, fields)
             | true, Kind.Union ->
                 let uci, fields = FSharpValue.GetUnionFields(value, t)
                 if fields.Length = 0
@@ -274,6 +290,19 @@ type JsonConverter() =
                 | Some uci -> FSharpValue.MakeUnion(uci, [||])
                 | None -> failwithf "Cannot find case corresponding to '%s' for `StringEnum` type %s"
                                 name t.FullName
+        | true, Kind.SingleCaseUnion ->
+            let case = FSharpType.GetUnionCases(t).[0]
+            let itemTypes = case.GetFields() |> Array.map (fun pi -> pi.PropertyType)
+            if itemTypes.Length > 1
+            then
+              let values = readElements(reader, itemTypes, serializer)
+              FSharpValue.MakeUnion(case, List.toArray values)
+            elif itemTypes.Length = 1
+            then 
+              let value = serializer.Deserialize(reader, itemTypes.[0])
+              FSharpValue.MakeUnion(case, [|value|])
+            else 
+              FSharpValue.MakeUnion(case, [|  |]) 
         | true, Kind.Union ->
             match reader.TokenType with
             | JsonToken.String ->
