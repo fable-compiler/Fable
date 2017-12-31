@@ -245,7 +245,7 @@ type JsonConverter() =
                 upcast DateTime.Parse(json)
         | true, Kind.TimeSpan ->
             match reader.Value with
-            | :? TimeSpan -> reader.Value // Avoid culture-sensitive string roundtrip for already parsed dates (see #613).
+            | :? TimeSpan -> reader.Value
             | _ ->
                 let json = serializer.Deserialize(reader, typeof<int>) :?> int
                 let ts = TimeSpan.FromMilliseconds (float json)
