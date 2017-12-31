@@ -38,6 +38,7 @@ type Kind =
     | MapOrDictWithNonStringKey = 7
     | Long = 8
     | BigInt = 9
+    | TimeSpan = 10
 
 /// Helper for serializing map/dict with non-primitive, non-string keys such as unions and records.
 /// Performs additional serialization/deserialization of the key object and uses the resulting JSON
@@ -121,6 +122,8 @@ type JsonConverter() =
             jsonConverterTypes.GetOrAdd(t, fun t ->
                 if t.FullName = "System.DateTime"
                 then Kind.DateTime
+                elif t.FullName = "System.TimeSpan"
+                then Kind.TimeSpan
                 elif t.Name = "FSharpOption`1"
                 then Kind.Option
                 elif t.FullName = "System.Int64" || t.FullName = "System.UInt64"
@@ -160,6 +163,10 @@ type JsonConverter() =
                 let universalTime = if dt.Kind = DateTimeKind.Local then dt.ToUniversalTime() else dt
                 // Make sure the DateTime is saved in UTC and ISO format (see #604)
                 serializer.Serialize(writer, universalTime.ToString("O"))
+            | true, Kind.TimeSpan ->
+                let ts = value :?> TimeSpan
+                let milliseconds = ts.TotalMilliseconds
+                serializer.Serialize(writer, milliseconds)
             | true, Kind.Option ->
                 let _,fields = FSharpValue.GetUnionFields(value, t)
                 serializer.Serialize(writer, fields.[0])
@@ -236,6 +243,13 @@ type JsonConverter() =
             | _ ->
                 let json = serializer.Deserialize(reader, typeof<string>) :?> string
                 upcast DateTime.Parse(json)
+        | true, Kind.TimeSpan ->
+            match reader.Value with
+            | :? TimeSpan -> reader.Value // Avoid culture-sensitive string roundtrip for already parsed dates (see #613).
+            | _ ->
+                let json = serializer.Deserialize(reader, typeof<int>) :?> int
+                let ts = TimeSpan.FromMilliseconds (float json)
+                upcast ts
         | true, Kind.Option ->
             let innerType = t.GetGenericArguments().[0]
             let innerType =
