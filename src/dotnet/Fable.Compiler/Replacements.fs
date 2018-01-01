@@ -173,14 +173,14 @@ module Util =
     let newError r t args =
         Fable.Apply(makeIdentExpr "Error", args, Fable.ApplyCons, t, r)
 
-    let toChar com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
+    let toChar (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
         match sourceType with
         | Fable.Char
         | Fable.String -> args.Head
         | _ -> GlobalCall ("String", Some "fromCharCode", false, [args.Head])
                |> makeCall i.range i.returnType
 
-    let toString com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
+    let toString (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
         match sourceType with
         | Fable.Char
         | Fable.String -> args.Head
@@ -202,26 +202,26 @@ module Util =
             CoreLibCall ("Util", Some "toString", false, [args.Head])
             |> makeCall i.range i.returnType
 
-    let toFloat com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
+    let toFloat range (sourceType: Fable.Type) targetType (args: Fable.Expr list) =
         match sourceType with
         | Fable.String ->
             CoreLibCall ("Double", Some "parse", false, args)
-            |> makeCall i.range i.returnType
+            |> makeCall range targetType
         | Fable.ExtendedNumber (Int64 | UInt64) ->
             InstanceCall (args.Head, "toNumber", args.Tail)
-            |> makeCall i.range (Fable.Number Float64)
+            |> makeCall range (Fable.Number Float64)
         | Fable.ExtendedNumber BigInt ->
-            let meth = match i.returnType with
+            let meth = match targetType with
                         | Number Float32 -> "toSingle"
                         | Number Float64 -> "toDouble"
                         | ExtNumber Decimal -> "toDecimal"
                         | _ -> failwith "Unexpected conversion"
             CoreLibCall("BigInt", Some meth, false, args)
-            |> makeCall i.range i.returnType
+            |> makeCall range targetType
         | _ ->
-            wrap i.returnType args.Head
+            wrap targetType args.Head
 
-    let toInt com (i: Fable.ApplyInfo) (sourceType: Fable.Type) (args: Fable.Expr list) =
+    let toInt (round: bool) range (sourceType: Fable.Type) targetType (args: Fable.Expr list) =
         let kindIndex t =             //         0   1   2   3   4   5   6   7   8   9  10  11
             match t with              //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
             | Number Int8 -> 0        //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
@@ -246,27 +246,27 @@ module Util =
             | ExtNumber (Int64|UInt64) ->
                 CoreLibCall("Long", Some "fromValue", false, args)
             | _ -> CoreLibCall("Long", Some "fromNumber", false, args@[makeBoolConst unsigned])
-            |> makeCall i.range i.returnType
+            |> makeCall range targetType
         let emitBigInt (args: Fable.Expr list) =
             match sourceType with
             | ExtNumber (Int64|UInt64) ->
                 CoreLibCall("BigInt", Some "fromInt64", false, args)
             | _ -> CoreLibCall("BigInt", Some "fromInt32", false, args)
-            |> makeCall i.range i.returnType
+            |> makeCall range targetType
         let emitCast typeTo args =
             match typeTo with
             | ExtNumber BigInt -> emitBigInt args
             | ExtNumber UInt64 -> emitLong true args
             | ExtNumber Int64 -> emitLong false args
-            | Number Int8 -> emit i "($0 + 0x80 & 0xFF) - 0x80" args
-            | Number Int16 -> emit i "($0 + 0x8000 & 0xFFFF) - 0x8000" args
-            | Number Int32 -> emit i "~~$0" args
-            | Number UInt8 -> emit i "$0 & 0xFF" args
-            | Number UInt16 -> emit i "$0 & 0xFFFF" args
-            | Number UInt32 -> emit i "$0 >>> 0" args
-            | Number Float32 -> emit i "$0" args
-            | Number Float64 -> emit i "$0" args
-            | ExtNumber Decimal -> emit i "$0" args
+            | Number Int8 -> makeEmit range targetType args "($0 + 0x80 & 0xFF) - 0x80"
+            | Number Int16 -> makeEmit range targetType args "($0 + 0x8000 & 0xFFFF) - 0x8000"
+            | Number Int32 -> makeEmit range targetType args "~~$0"
+            | Number UInt8 -> makeEmit range targetType args "$0 & 0xFF"
+            | Number UInt16 -> makeEmit range targetType args "$0 & 0xFFFF"
+            | Number UInt32 -> makeEmit range targetType args "$0 >>> 0"
+            | Number Float32 -> makeEmit range targetType args "$0"
+            | Number Float64 -> makeEmit range targetType args "$0"
+            | ExtNumber Decimal -> makeEmit range targetType args "$0"
             | NoNumber -> failwith "Unexpected non-number type"
         let castBigIntMethod typeTo =
             match typeTo with
@@ -290,39 +290,39 @@ module Util =
         match sourceType with
         | Fable.Char ->
             InstanceCall(args.Head, "charCodeAt", [makeIntConst 0])
-            |> makeCall i.range i.returnType
+            |> makeCall range targetType
         | Fable.String ->
-            match i.returnType with
+            match targetType with
             | Fable.ExtendedNumber (Int64|UInt64 as kind) ->
                 let unsigned = kind = UInt64
                 let args = [args.Head]@[makeBoolConst unsigned]@args.Tail
                 CoreLibCall ("Long", Some "fromString", false, args)
-                |> makeCall i.range i.returnType
+                |> makeCall range targetType
             | _ ->
                 CoreLibCall ("Int32", Some "parse", false, args)
-                |> makeCall i.range i.returnType
+                |> makeCall range targetType
         | ExtNumber BigInt ->
-            let meth = castBigIntMethod i.returnType
+            let meth = castBigIntMethod targetType
             CoreLibCall("BigInt", Some meth, false, args)
-            |> makeCall i.range i.returnType
+            |> makeCall range targetType
         | Number _ | ExtNumber _ as typeFrom ->
-            match i.returnType with
+            match targetType with
             | Number _ | ExtNumber _ as typeTo when needToCast typeFrom typeTo ->
                 match typeFrom, typeTo with
                 | ExtNumber (UInt64|Int64), (ExtNumber Decimal | Number _) ->
                     InstanceCall (args.Head, "toNumber", args.Tail)
-                    |> makeCall i.range (Fable.Number Float64)
-                | (ExtNumber Decimal | Number Float), (Number Integer | ExtNumber(Int64|UInt64)) when i.ownerFullName = "System.Convert" ->
+                    |> makeCall range (Fable.Number Float64)
+                | (ExtNumber Decimal | Number Float), (Number Integer | ExtNumber(Int64|UInt64)) when round ->
                     CoreLibCall("Util", Some "round", false, args)
-                    |> makeCall i.range i.returnType
+                    |> makeCall range targetType
                 | _, _ -> args.Head
                 |> List.singleton
                 |> emitCast typeTo
             | ExtNumber (UInt64|Int64 as kind) ->
                 emitLong (kind = UInt64) [args.Head]
-            | Number _ -> emit i "$0" [args.Head]
-            | _ -> wrap i.returnType args.Head
-        | _ -> wrap i.returnType args.Head
+            | Number _ -> makeEmit range targetType [args.Head] "$0"
+            | _ -> wrap targetType args.Head
+        | _ -> wrap targetType args.Head
 
     let toList com (i: Fable.ApplyInfo) expr =
         CoreLibCall ("Seq", Some "toList", false, [expr])
@@ -828,9 +828,7 @@ module AstPass =
             | [_; Fable.Value Fable.Null] -> makeEqOp r args BinaryEqual |> Some
             | _ -> equals true com info args
         | "isNull" -> makeEqOp r [args.Head; Fable.Value Fable.Null] BinaryEqual |> Some
-        | "hash" ->
-            CoreLibCall("Util", Some "hash", false, args)
-            |> makeCall r typ |> Some
+        | "hash" -> ccall info "Util" "hash" args |> Some
         // Comparison
         | "compare" -> compare com info.range args None |> Some
         | "op_LessThan" | "lt" -> compare com info.range args (Some BinaryLess) |> Some
@@ -862,9 +860,14 @@ module AstPass =
         | "cos"  | "exp" | "floor" | "log" | "log10"
         | "sin" | "sqrt" | "tan" ->
             math r typ args info.methodName
-        | "round" ->
-            CoreLibCall("Util", Some "round", false, args)
-            |> makeCall r typ |> Some
+        | "round" -> ccall info "Util" "round" args |> Some
+        | "sign" ->
+            let args =
+                match args with
+                | ((Type (Fable.ExtendedNumber _ as t)) as arg)::_ ->
+                    toFloat arg.Range t (Fable.Number Float64) [arg] |> List.singleton
+                | _ -> args
+            ccall info "Util" "sign" args |> Some
         // Numbers
         | "infinity" | "infinitySingle" -> emit info "Number.POSITIVE_INFINITY" [] |> Some
         | "naN" | "naNSingle" -> emit info "Number.NaN" [] |> Some
@@ -897,10 +900,11 @@ module AstPass =
         | "toInt" | "toUInt"
         | "toInt32" | "toUInt32"
         | "toInt64" | "toUInt64"
-            -> toInt com info info.methodTypeArgs.Head args |> Some
-        | "toSingle" | "toDouble" | "toDecimal" -> toFloat com info info.methodTypeArgs.Head args |> Some
-        | "toChar" -> toChar com info info.methodTypeArgs.Head args |> Some
-        | "toString" -> toString com info info.methodTypeArgs.Head args |> Some
+            -> toInt false info.range info.methodTypeArgs.Head info.returnType args |> Some
+        | "toSingle" | "toDouble" | "toDecimal" ->
+            toFloat info.range info.methodTypeArgs.Head info.returnType args |> Some
+        | "toChar" -> toChar info info.methodTypeArgs.Head args |> Some
+        | "toString" -> toString info info.methodTypeArgs.Head args |> Some
         | "toEnum" -> args.Head |> Some
         | "createDictionary" ->
             makeDictionaryOrHashSet r typ "Map" false info.methodTypeArgs.Head args |> Some
@@ -914,8 +918,7 @@ module AstPass =
                 match info.methodTypeArgs.Head with
                 | Fable.Char -> "rangeChar"
                 | _ -> if info.methodName = "op_Range" then "range" else "rangeStep"
-            CoreLibCall("Seq", Some meth, false, args)
-            |> makeCall r typ |> Some
+            ccall info "Seq" meth args |> Some
         // Tuples
         | "fst" | "snd" ->
             if info.methodName = "fst" then 0 else 1
@@ -952,9 +955,7 @@ module AstPass =
             |> resolveTypeRef com info (info.methodName = "typeOf")
             |> Some
         // Concatenates two lists
-        | "op_Append" ->
-          CoreLibCall("List", Some "append", false, args)
-          |> makeCall r typ |> Some
+        | "op_Append" -> ccall info "List" "append" args |> Some
         | _ -> None
 
     let chars com (i: Fable.ApplyInfo) =
@@ -1171,11 +1172,11 @@ module AstPass =
         | "toInt16" | "toUInt16"
         | "toInt32" | "toUInt32"
         | "toInt64" | "toUInt64"
-            -> toInt com i i.methodArgTypes.Head i.args |> Some
+            -> toInt true i.range i.methodArgTypes.Head i.returnType i.args |> Some
         | "toSingle" | "toDouble" | "toDecimal"
-            -> toFloat com i i.methodArgTypes.Head i.args |> Some
-        | "toChar" -> toChar com i i.methodArgTypes.Head i.args |> Some
-        | "toString" -> toString com i i.methodArgTypes.Head i.args |> Some
+            -> toFloat i.range i.methodArgTypes.Head i.returnType i.args |> Some
+        | "toChar" -> toChar i i.methodArgTypes.Head i.args |> Some
+        | "toString" -> toString i i.methodArgTypes.Head i.args |> Some
         | "toBase64String" | "fromBase64String" ->
             if not(List.isSingle i.args) then
                 sprintf "Convert.%s only accepts one single argument" (Naming.upperFirst i.methodName)

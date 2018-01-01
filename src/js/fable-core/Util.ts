@@ -476,6 +476,10 @@ export function round(value: number, digits: number = 0) {
   return digits ? r / m : r;
 }
 
+export function sign(x: number): number {
+  return x > 0 ? 1 : x < 0 ? -1 : 0;
+}
+
 export function randomNext(min: number, max: number) {
   return Math.floor(Math.random() * (max - min)) + min;
 }
@@ -532,34 +536,6 @@ export function applyOperator(x: any, y: any, operator: string): any {
       return x || y;
     default:
       return null;
-  }
-}
-
-export function parseNumber(v: string): number {
-  return +v;
-}
-
-export function tryParse<A>(v: string | null, initial: A, parser: RegExp, fn: (s: string) => A): [boolean, A] {
-  if (v != null) {
-    const a = parser.exec(v);
-
-    if (a !== null) {
-      return [true, fn(a[1])];
-    }
-  }
-
-  return [false, initial];
-}
-
-export function parse<A>(v: string | null, initial: A, parser: RegExp, fn: (s: string) => A): A {
-  const a = tryParse(v, initial, parser, fn);
-
-  if (a[0]) {
-    return a[1];
-
-  } else {
-    // TODO FormatException ?
-    throw new Error("Input string was not in a correct format.");
   }
 }
 
