@@ -33,6 +33,12 @@ module JsonConverterTests =
         Assert.Equal(3, deserialized.Month)
         Assert.Equal(2017, deserialized.Year)
 
+    [<Fact>]
+    let ``TimeSpan conversion works``() =
+        let ts = TimeSpan.FromMinutes(45.)
+        let serialized = serialize ts
+        let deserialized = deserialize<TimeSpan> serialized
+        Assert.Equal(45., deserialized.TotalMinutes)
 
     [<Fact>]
     let ``Option<string> convertion works``() =
