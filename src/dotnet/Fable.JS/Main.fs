@@ -34,6 +34,24 @@ type ParseResults =
                 | FSharpErrorSeverity.Warning -> true
             })
 
+let inline private tryGetLexerSymbolIslands (sym: Lexer.LexerSymbol) =
+  match sym.Text with
+  | "" -> None
+  | _ -> Some (sym.RightColumn, sym.Text.Split '.' |> Array.toList)
+
+// Parsing - find the identifier around the current location
+// (we look for full identifier in the backward direction, but only
+// for a short identifier forward - this means that when you hover
+// 'B' in 'A.B.C', you will get intellisense for 'A.B' module)
+let findIdents col lineStr lookupType =
+  if lineStr = "" then None
+  else
+      Lexer.getSymbol 0 col lineStr lookupType [||]
+      |> Option.bind tryGetLexerSymbolIslands
+
+let findLongIdents (col, lineStr) =
+    findIdents col lineStr Lexer.SymbolLookupKind.Fuzzy
+
 let findLongIdentsAndResidue (col: int, lineStr:string) =
   let lineStr = lineStr.Substring(0, col)
   match Lexer.getSymbol 0 col lineStr Lexer.SymbolLookupKind.ByLongIdent [||] with
@@ -88,7 +106,6 @@ let tooltipToString (el: FSharpToolTipElement<string>): string[] =
         [| match data.ParamName with
            | Some x -> yield x + ": " + data.MainDescription
            | None -> yield data.MainDescription
-           yield data.MainDescription
            match data.XmlDoc with
            | FSharpXmlDoc.Text doc -> yield doc
            | _ -> ()
@@ -105,8 +122,11 @@ let tooltipToString (el: FSharpToolTipElement<string>): string[] =
 
 /// Get tool tip at the specified location
 let getToolTipAtLocation (parseResults: ParseResults) line col lineText = async {
-    let! (FSharpToolTipText els) = parseResults.CheckFile.GetToolTipText(line, col, lineText, [], FSharpTokenTag.IDENT)
-    return Seq.map tooltipToString els |> Array.concat
+    match findLongIdents(col - 1, lineText) with
+    | None -> return [|"Cannot find ident for tooltip"|]
+    | Some(col,identIsland) ->
+        let! (FSharpToolTipText els) = parseResults.CheckFile.GetToolTipText(line, col, lineText, identIsland, FSharpTokenTag.Identifier)
+        return Seq.map tooltipToString els |> Array.concat
 }
 
 let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int) lineText = async {
