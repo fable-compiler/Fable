@@ -63,6 +63,7 @@ module JS =
         abstract call: thisArg: obj * [<ParamArray>] argArray: obj[] -> obj
         abstract bind: thisArg: obj * [<ParamArray>] argArray: obj[] -> obj
         [<Emit("$0[Symbol.hasInstance]($1...)")>] abstract ``[Symbol.hasInstance]``: value: obj -> bool
+        [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: obj[] -> obj
 
     and [<AllowNullLiteral>] FunctionConstructor =
         abstract prototype: Function with get, set
