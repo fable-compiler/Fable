@@ -757,13 +757,25 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeThisRef com ctx (makeRangeFrom fsExpr) None
 
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
-        let callee =
+        let callee, asArray =
             match callee with
-            | Some (Transform com ctx callee) -> callee
-            | None -> makeType com ctx.typeArgs calleeType
-                        |> makeNonGenTypeRef com
+            | Some callee ->
+                let asArray =
+                    match tryDefinition callee.Type with
+                    | Some tdef when hasAtt Atts.asArray tdef.Attributes -> Some tdef
+                    | _ -> None
+                transformExpr com ctx callee, asArray
+            | None ->
+                let calleeType = makeType com ctx.typeArgs calleeType
+                makeNonGenTypeRef com calleeType, None
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeGetFrom r typ callee (makeStrConst fieldName)
+        match asArray with
+        | Some tdef ->
+            tdef.FSharpFields
+            |> Seq.findIndex (fun fi' -> fi'.Name = fieldName)
+            |> makeIntConst
+            |> makeGetFrom r typ callee
+        | None -> makeStrConst fieldName |> makeGetFrom r typ callee
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
@@ -804,14 +816,28 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.FSharpFieldSet(Some(BasicPatterns.FSharpFieldGet(Some(ThisVar _), _, _)), RefType _, _, _) ->
         Fable.Value Fable.Null
 
-    | BasicPatterns.FSharpFieldSet (callee, calleeType, FieldName fieldName, Transform com ctx value) ->
-        let callee =
+    | BasicPatterns.FSharpFieldSet (callee, calleeType, fi, Transform com ctx value) ->
+        let value = ensureArity com [makeType com [] fi.FieldType] [value] |> List.head
+        let callee, asArray =
             match callee with
-            | Some (Transform com ctx callee) -> callee
+            | Some callee ->
+                let asArray =
+                    match tryDefinition callee.Type with
+                    | Some tdef when hasAtt Atts.asArray tdef.Attributes -> Some tdef
+                    | _ -> None
+                transformExpr com ctx callee, asArray
             | None ->
                 let calleeType = makeType com ctx.typeArgs calleeType
-                makeNonGenTypeRef com calleeType
-        Fable.Set (callee, Some (makeStrConst fieldName), value, makeRangeFrom fsExpr)
+                makeNonGenTypeRef com calleeType, None
+        let prop =
+            let fieldName = fi.Name
+            match asArray with
+            | Some tdef ->
+                tdef.FSharpFields
+                |> Seq.findIndex (fun fi' -> fi'.Name = fieldName)
+                |> makeIntConst
+            | None -> makeStrConst fieldName
+        Fable.Set (callee, Some prop, value, makeRangeFrom fsExpr)
 
     // TODO: I haven't seen this in the wild, only BasicPatterns.UnionCaseTest
     // Should we check of other union types (PojoUnion, ArrayUnion)?
@@ -856,19 +882,26 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let range = makeRangeFrom fsExpr
         let argExprs = argExprs |> List.map (transformExpr com ctx)
-        match tryDefinition fsType with
-        | Some tdef when tdef.Attributes |> hasAtt Atts.pojo ->
+        let tdef = tryDefinition fsType
+        let argExprs =
+            match tdef with
+            | Some tdef ->
+                tdef.FSharpFields
+                |> Seq.map (fun x -> makeType com [] x.FieldType)
+                |> fun argTypes -> ensureArity com (Seq.toList argTypes) argExprs
+            | None -> argExprs
+        tdef |> Option.bind (fun tdef ->
+            tdef.Attributes |> tryFindAtt (fun name ->
+                name = Atts.pojo || name = Atts.asArray)
+            |> function Some(_, att) -> Some(tdef, att) | None -> None)
+        |> function
+        | Some(tdef, att) when att = Atts.pojo -> // Pojo records
             List.zip (Seq.toList tdef.FSharpFields) argExprs
             |> List.map (fun (fi, e) -> fi.Name, e)
             |> makeJsObject range
-        | tdef ->
-            let argExprs =
-                match tdef with
-                | Some tdef ->
-                    tdef.FSharpFields
-                    |> Seq.map (fun x -> makeType com [] x.FieldType)
-                    |> fun argTypes -> ensureArity com (Seq.toList argTypes) argExprs
-                | None -> argExprs
+        | Some(_, att) when att = Atts.asArray -> // Array records
+            makeArray Fable.Any argExprs
+        | _ ->
             let recordType = makeType com ctx.typeArgs fsType
             buildApplyInfo com ctx range recordType recordType recordType.FullName
                 ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
@@ -1086,7 +1119,7 @@ type private DeclInfo(com, fileName) =
 
 let private tryGetImport com (ctx: Context) r (atts: #seq<FSharpAttribute>) =
     try
-        tryFindAtt ((=) Atts.import) atts |> Option.bind (fun att ->
+        tryFindAtt ((=) Atts.import) atts |> Option.bind (fun (att,_) ->
             if att.ConstructorArguments.Count = 2 then
                 match att.ConstructorArguments.[0], att.ConstructorArguments.[1] with
                 | (_, (:? string as selector)), (_, (:? string as path)) -> Some(selector, path)

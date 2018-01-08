@@ -87,3 +87,57 @@ let ``Union cases called Tag still work (bug due to Tag field)``() =
     | Tag x -> x
     | _ -> failwith "unexpected"
     |> equal "abc"
+
+[<CompileAsArray>]
+type RecursiveRecord =
+    { things : RecursiveRecord list }
+
+[<CompileAsArray>]
+type Person =
+    { name: string; mutable luckyNumber: int }
+
+[<Test>]
+let ``Recursive record does not cause issues``() =
+    let r = { things = [ { things = [] } ] }
+    equal r.things.Length 1
+
+[<Test>]
+let ``Record property access can be generated``() =
+    let x = { name = "Alfonso"; luckyNumber = 7 }
+    equal "Alfonso" x.name
+    equal 7 x.luckyNumber
+    x.luckyNumber <- 14
+    equal 14 x.luckyNumber
+    // Order of members in constructor shouldn't alter result
+    let x = { luckyNumber = 9; name = "Maxime" }
+    equal "Maxime" x.name
+    equal 9 x.luckyNumber
+    x.luckyNumber <- 12
+    equal 12 x.luckyNumber
+
+
+[<Test>]
+let ``Record expression constructors can be generated``() =
+    let x = { name = "Alfonso"; luckyNumber = 7 }
+    let y = { x with luckyNumber = 14 }
+    equal "Alfonso" y.name
+    equal 14 y.luckyNumber
+
+[<CompileAsArray>]
+type JSKiller =
+   { ``for`` : float; ``class`` : float }
+
+[<CompileAsArray>]
+type JSKiller2 =
+   { ``s p a c e`` : float; ``s*y*m*b*o*l`` : float }
+
+[<Test>]
+let ``Records with key/reserved words are mapped correctly``() =
+    let x = { ``for`` = 1.0; ``class`` = 2.0 }
+    equal 2. x.``class``
+
+[<Test>]
+let ``Records with special characters are mapped correctly``() =
+    let x = { ``s p a c e`` = 1.0; ``s*y*m*b*o*l`` = 2.0 }
+    equal 1. x.``s p a c e``
+    equal 2. x.``s*y*m*b*o*l``

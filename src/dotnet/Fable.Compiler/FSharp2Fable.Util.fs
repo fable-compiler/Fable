@@ -112,7 +112,7 @@ module Helpers =
         atts |> Seq.tryPick (fun att ->
             match (nonAbbreviatedEntity att.AttributeType).TryFullName with
             | Some fullName ->
-                if f fullName then Some att else None
+                if f fullName then Some(att, fullName) else None
             | None -> None)
 
     let hasAtt name atts =
@@ -215,7 +215,7 @@ module Helpers =
         unionCase.Attributes
         |> tryFindAtt ((=) Atts.compiledName)
         |> function
-            | Some name -> name.ConstructorArguments.[0] |> snd |> string
+            | Some(name,_) -> name.ConstructorArguments.[0] |> snd |> string
             | None -> Naming.lowerFirst unionCase.DisplayName
         |> makeStrConst
 
@@ -703,7 +703,7 @@ module Patterns =
         | _ -> None
 
     let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
-        atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
+        atts |> tryFindAtt ((=) name) |> Option.map (fun (att,_) ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList)
 
 module Types =
@@ -956,7 +956,7 @@ module Types =
                     uci.Attributes
                     |> tryFindAtt ((=) Atts.compiledName)
                     |> function
-                        | Some name -> name.ConstructorArguments.[0] |> snd |> string
+                        | Some(name,_) -> name.ConstructorArguments.[0] |> snd |> string
                         | None -> uci.Name
                 name, [for fi in uci.UnionCaseFields do yield makeType com [] fi.FieldType])
             |> Seq.toList
