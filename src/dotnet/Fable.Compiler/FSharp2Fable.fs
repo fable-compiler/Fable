@@ -133,8 +133,15 @@ let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
             CoreLibCall("List", Some "ofArray", false, args)
     |> makeCall (Some range) unionType
 
-let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase (argExprs: Fable.Expr list) =
+let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType
+                        (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     let unionType, range = makeType com ctx.typeArgs fsType, makeRange fsExpr.Range
+    let argExprs =
+        let argTypes =
+            unionCase.UnionCaseFields
+            |> Seq.map (fun x -> makeType com [] x.FieldType)
+            |> Seq.toList
+        ensureArity com argTypes argExprs
     match fsType with
     | OptionUnion ->
         match argExprs with
@@ -168,16 +175,15 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         |> List.map (fun (fi, e) -> fi.Name, e)
         |> List.append ["type", makeStrConst unionCase.Name]
         |> makeJsObject (Some range)
+    | ArrayUnion hasData ->
+        let tag = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
+        if hasData
+        then makeArray Fable.Any (tag::argExprs)
+        else tag
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
         let tag = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
-        let argExprs =
-            let argTypes =
-                unionCase.UnionCaseFields
-                |> Seq.map (fun x -> makeType com [] x.FieldType)
-                |> Seq.toList
-            ensureArity com argTypes argExprs
         let erasedUnion =
             // We can use the Erase attribute with union cases
             // to pass custom values to keyValueList
@@ -470,8 +476,7 @@ let private transformDelegate com ctx delegateType fsExpr =
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) fsExpr unionExpr (NonAbbreviatedType fsType) (unionCase: FSharpUnionCase) =
     let unionExpr = transformExpr com ctx unionExpr
-    let checkCase propName right =
-        let left = makeGet None Fable.String unionExpr (makeStrConst propName)
+    let equals left right =
         makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
     match fsType with
     | ErasedUnion ->
@@ -501,11 +506,17 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) fsExpr u
     | StringEnum ->
         makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerCaseName unionCase] BinaryEqualStrict
     | PojoUnion ->
-        makeStrConst unionCase.Name |> checkCase "type"
+        let tag = makeStrConst "type" |> makeGet None Fable.String unionExpr
+        makeStrConst unionCase.Name |> equals tag
+    | ArrayUnion hasData ->
+        let idx = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
+        if hasData then
+            let tag = makeIntConst 0 |> makeGet None (Fable.Number Int32) unionExpr
+            equals tag idx
+        else equals unionExpr idx
     | OtherType ->
-        getUnionCaseIndex fsType unionCase.Name
-        |> makeIntConst
-        |> checkCase "tag"
+        let tag = makeStrConst "tag" |> makeGet None Fable.String unionExpr
+        getUnionCaseIndex fsType unionCase.Name |> makeIntConst |> equals tag
 
 let private transformSwitch com ctx (fsExpr: FSharpExpr) (matchValue: FSharpMemberOrFunctionOrValue) isUnionType cases (defaultCase, defaultBindings) decisionTargets =
     let decisionTargets = decisionTargets |> Seq.mapi (fun i d -> (i, d)) |> Map
@@ -770,6 +781,9 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             makeGet range typ unionExpr (Naming.lowerFirst fieldName |> makeStrConst)
         | PojoUnion ->
             makeStrConst fieldName |> makeGet range typ unionExpr
+        | ArrayUnion _ ->
+            let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
+            makeGet range typ unionExpr (makeIntConst (i+1)) // Index 0 holds the union tag
         | StringEnum ->
             "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com ctx.fileName range
@@ -799,6 +813,8 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
                 makeNonGenTypeRef com calleeType
         Fable.Set (callee, Some (makeStrConst fieldName), value, makeRangeFrom fsExpr)
 
+    // TODO: I haven't seen this in the wild, only BasicPatterns.UnionCaseTest
+    // Should we check of other union types (PojoUnion, ArrayUnion)?
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeGetFrom r typ unionExpr (makeStrConst "tag")
@@ -990,7 +1006,8 @@ type private DeclInfo(com, fileName) =
             || name = Atts.global_
             || name = Atts.erase
             || check ent name Atts.stringEnum ["union"]
-            || check ent name Atts.pojo ["union"; "record"])
+            || check ent name Atts.pojo ["union"; "record"]
+            || check ent name Atts.asArray ["union"; "record"])
         |> Option.isSome
     let decls = ResizeArray<_>()
     let children = Dictionary<string, TmpDecl>()

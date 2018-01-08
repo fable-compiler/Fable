@@ -48,6 +48,7 @@
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
     <Compile Include="ElmishParserTests.fs" />
+    <Compile Include="CompileAsArrayTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
