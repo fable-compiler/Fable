@@ -55,7 +55,7 @@ dotnet fable yarn-start
 
 > This command is used to start the Fable daemon and run a script in package.json concurrently. It's a shortcut of `dotnet fable yarn-run [SCRIPT_NAME]`.
 
-Navigate to `http://localhost:8080/` URL in your browser to see the (dead simple) web app in action. Any modification you do to the F# code will be reflected in the web page after saving. When you want to output the JS code to disk, run `dotnet fable yarn-build` and you'll get an optimized JS bundle in the `public` folder.
+Navigate to [http://localhost:8080/](http://localhost:8080/) URL in your browser to see the (dead simple) web app in action. Any modification you do to the F# code will be reflected in the web page after saving. When you want to output the JS code to disk, run `dotnet fable yarn-build` and you'll get an optimized JS bundle in the `public` folder.
 
 > You can learn more about the structure of the project generated in the README file.
 
