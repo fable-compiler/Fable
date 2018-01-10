@@ -1,3 +1,7 @@
+### 1.0.6
+
+* Fix int64 deserialization #1319 (@eugene-g)
+
 ### 1.0.5
 
 * Fix #1310: TimeSpan (@FrankBro)
