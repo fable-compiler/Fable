@@ -224,7 +224,7 @@ type JsonConverter() =
                 let i = serializer.Deserialize(reader, typeof<int>) :?> int
                 if t.FullName = "System.UInt64"
                 then upcast System.Convert.ToUInt64(i)
-                else upcast System.Convert.ToUInt64(i)
+                else upcast System.Convert.ToInt64(i)
             | token ->
                 failwithf "Expecting int64 but got %s" <| Enum.GetName(typeof<JsonToken>, token)
         | true, Kind.BigInt ->
