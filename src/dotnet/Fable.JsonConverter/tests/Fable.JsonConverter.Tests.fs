@@ -18,13 +18,13 @@ type Maybe<'t> =
 
 module JsonConverterTests =
 
-    let converter = new Fable.JsonConverter()
+    let converter = Fable.JsonConverter()
     let deserialize<'a> (json : string) = JsonConvert.DeserializeObject(json, typeof<'a>, converter) :?> 'a
     let serialize (value: 'a) = JsonConvert.SerializeObject(value, converter)
 
     [<Fact>]
     let ``DateTime conversion works``() =
-        let date = new DateTime(2017, 03, 23, 18, 30, 0)
+        let date = DateTime(2017, 03, 23, 18, 30, 0)
         let serialized = serialize date
         let deserialized = deserialize<DateTime> serialized
         Assert.Equal(30, deserialized.Minute)
@@ -66,7 +66,7 @@ module JsonConverterTests =
         | None -> Assert.True(false, "Should not happen")
 
         match deserialize<Option<int>> "null" with
-        | Some _ -> Assert.True(false, "Should not happed")
+        | Some _ -> Assert.True(false, "Should not happen")
         | None -> ()
 
     [<Fact>]
@@ -77,7 +77,7 @@ module JsonConverterTests =
         let deserialized = deserialize<Option<Option<Option<int>>>> serialized
         match deserialized with
         | Some (Some (Some n)) -> Assert.Equal(5, n)
-        | _ -> Assert.True(false, "Should not happed")
+        | _ -> Assert.True(false, "Should not happen")
 
     [<Fact>]
     let ``Record conversion works``() =
@@ -87,8 +87,8 @@ module JsonConverterTests =
         Assert.Equal(5, deserialized.Prop2)
         match deserialized.Prop3 with
         | None -> ()
-        | _ -> Assert.True(false, "Should not happed")
-
+        | _ -> Assert.True(false, "Should not happen")
+        Assert.Equal(42L, deserialized.Prop4)
 
     [<Fact>]
     let ``Record deserialization from raw json works``() =
@@ -101,7 +101,7 @@ module JsonConverterTests =
         Assert.Equal(5, deserialized.Prop2)
         match deserialized.Prop3 with
         | None -> ()
-        | _ -> Assert.True(false, "Should not happed")
+        | _ -> Assert.True(false, "Should not happen")
         Assert.Equal(42L, deserialized.Prop4)
 
     [<Fact>]
@@ -111,7 +111,7 @@ module JsonConverterTests =
         let deserialized = deserialize<Maybe<string>> serialized
         match deserialized with
         | Just x -> Assert.Equal("value", x)
-        | Nothing -> Assert.True(false, "Should not happed")
+        | Nothing -> Assert.True(false, "Should not happen")
 
     [<Fact>]
     let ``Generic union types deserialization from raw json works``() =
@@ -120,15 +120,15 @@ module JsonConverterTests =
         // above is Fable output
         match deserialize<Maybe<int>> "{\"Just\":5}" with
         | Just n -> Assert.Equal(5, n)
-        | Nothing -> Assert.True(false, "Should not happed")
+        | Nothing -> Assert.True(false, "Should not happen")
 
         match deserialize<Maybe<int>> "\"Nothing\"" with
-        | Just _ -> Assert.True(false, "Should not happed")
+        | Just _ -> Assert.True(false, "Should not happen")
         | Nothing -> ()
 
         // Serialized "Nothing" is generic
         match deserialize<Maybe<string>> "\"Nothing\"" with
-        | Just _ -> Assert.True(false, "Should not happed")
+        | Just _ -> Assert.True(false, "Should not happen")
         | Nothing -> ()
 
     [<Fact>]
