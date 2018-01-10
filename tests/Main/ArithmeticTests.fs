@@ -234,14 +234,14 @@ let ``sqrt matches .net core implementation``() =
 
 
 [<Test>]
-let ``Double.Parse works with IFormatProvider``() = 
+let ``Double.Parse works with IFormatProvider``() =
     // culture compiles to { } for now and it is ignore on the call-site
     let culture = Globalization.CultureInfo.InvariantCulture
     let result = System.Double.Parse("10.5", culture)
     equal(10.5, result)
 
 [<Test>]
-let ``Single.Parse works with IFormatProvider``() = 
+let ``Single.Parse works with IFormatProvider``() =
     // culture compiles to { } for now and it is ignore on the call-site
     let culture = Globalization.CultureInfo.InvariantCulture
     let result = System.Single.Parse("10.5", culture)
@@ -455,3 +455,22 @@ let decimalTwo = 2M
 let ``Member values of decimal type can be compared``() = // See #747
     equal(true, decimalOne < decimalTwo)
     equal(false, decimalOne > decimalTwo)
+
+[<Test>]
+let ``Sign operator works``() = // See #1311
+    equal(1, sign 1)
+    equal(1, sign 34)
+    equal(1, sign 1L)
+    equal(1, sign 36L)
+    equal(1, sign 1.)
+    equal(1, sign 89)
+    equal(1, sign 1)
+    equal(0, sign 0)
+    equal(0, sign 0L)
+    equal(0, sign 0.)
+    equal(-1, sign -1)
+    equal(-1, sign -56)
+    equal(-1, sign -1L)
+    equal(-1, sign -72L)
+    equal(-1, sign -1.)
+    equal(-1, sign -89.)

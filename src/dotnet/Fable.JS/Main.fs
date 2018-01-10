@@ -1,13 +1,13 @@
 module Fable.JS.Main
 
 open System
-open Microsoft.FSharp.Compiler.SourceCodeServices
-open FsAutoComplete
 open Interfaces
 open Fable
 open Fable.AST
 open Fable.Core
 open Fable.State
+open FsAutoComplete
+open Microsoft.FSharp.Compiler.SourceCodeServices
 
 type private CheckerImpl(c: InteractiveChecker) =
     member __.Checker = c
@@ -33,6 +33,24 @@ type ParseResults =
                 | FSharpErrorSeverity.Error -> false
                 | FSharpErrorSeverity.Warning -> true
             })
+
+let inline private tryGetLexerSymbolIslands (sym: Lexer.LexerSymbol) =
+  match sym.Text with
+  | "" -> None
+  | _ -> Some (sym.RightColumn, sym.Text.Split '.' |> Array.toList)
+
+// Parsing - find the identifier around the current location
+// (we look for full identifier in the backward direction, but only
+// for a short identifier forward - this means that when you hover
+// 'B' in 'A.B.C', you will get intellisense for 'A.B' module)
+let findIdents col lineStr lookupType =
+  if lineStr = "" then None
+  else
+      Lexer.getSymbol 0 col lineStr lookupType [||]
+      |> Option.bind tryGetLexerSymbolIslands
+
+let findLongIdents (col, lineStr) =
+    findIdents col lineStr Lexer.SymbolLookupKind.Fuzzy
 
 let findLongIdentsAndResidue (col: int, lineStr:string) =
   let lineStr = lineStr.Substring(0, col)
@@ -83,9 +101,33 @@ let parseFSharpProject (checker: InteractiveChecker) fileName source =
       CheckFile = typeCheckResults
       CheckProject = projectResults }
 
+let tooltipToString (el: FSharpToolTipElement<string>): string[] =
+    let dataToString (data: FSharpToolTipElementData<string>) =
+        [| match data.ParamName with
+           | Some x -> yield x + ": " + data.MainDescription
+           | None -> yield data.MainDescription
+           match data.XmlDoc with
+           | FSharpXmlDoc.Text doc -> yield doc
+           | _ -> ()
+           yield! data.TypeMapping
+           match data.Remarks with
+           | Some x -> yield x
+           | None -> ()
+        |]
+    match el with
+    | FSharpToolTipElement.None -> [||]
+    | FSharpToolTipElement.Group(els) ->
+        Seq.map dataToString els |> Array.concat
+    | FSharpToolTipElement.CompositionError err -> [|err|]
+
 /// Get tool tip at the specified location
-let getToolTipAtLocation (typeCheckResults: FSharpCheckFileResults) line col lineText =
-    typeCheckResults.GetToolTipText(line, col, lineText, [], FSharpTokenTag.IDENT)
+let getToolTipAtLocation (parseResults: ParseResults) line col lineText = async {
+    match findLongIdents(col - 1, lineText) with
+    | None -> return [|"Cannot find ident for tooltip"|]
+    | Some(col,identIsland) ->
+        let! (FSharpToolTipText els) = parseResults.CheckFile.GetToolTipText(line, col, lineText, identIsland, FSharpTokenTag.Identifier)
+        return Seq.map tooltipToString els |> Array.concat
+}
 
 let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int) lineText = async {
     let ln, residue = findLongIdentsAndResidue(col - 1, lineText)
@@ -131,7 +173,7 @@ let compileAst (com: Compiler) fileName optimized (parseResults: ParseResults) =
     let loc = defaultArg file.loc SourceLocation.Empty
     Babel.Program(file.fileName, loc, file.body, file.directives, com.ReadAllLogs())
 
-let defaultManager = 
+let defaultManager =
   { new IFableManager with
         member __.CreateChecker(references, readAllBytes) =
             InteractiveChecker.Create(references, readAllBytes)
@@ -147,6 +189,9 @@ let defaultManager =
         member __.ParseFSharpProject(checker, fileName, source) =
             let c = checker :?> CheckerImpl
             parseFSharpProject c.Checker fileName source :> IParseResults
+        member __.GetToolTipText(parseResults:IParseResults, line:int, col:int, lineText:string) =
+            let res = parseResults :?> ParseResults
+            getToolTipAtLocation res line col lineText
         member __.GetCompletionsAtLocation(parseResults:IParseResults, line:int, col:int, lineText:string) =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText

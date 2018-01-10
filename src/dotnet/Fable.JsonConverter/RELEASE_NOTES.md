@@ -1,3 +1,11 @@
+### 1.0.5
+
+* Fix #1310: TimeSpan (@FrankBro)
+
+### 1.0.4
+
+* Fix #1306: Stackoverflow trying to deserialize int64
+
 ### 1.0.3
 
 * Fix optional tuple in record raise errors for jsonConverter #1252

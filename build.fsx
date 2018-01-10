@@ -108,23 +108,23 @@ let buildSplitter () =
 
 let buildNUnitPlugin () =
     let nunitDir = "src/plugins/nunit"
-    CreateDir "build/nunit"  // if it does not exist
-    run nunitDir dotnetExePath "restore"
+    // CreateDir "build/nunit"  // if it does not exist
+    // run nunitDir dotnetExePath "restore"
     // pass output path to build command
     run nunitDir dotnetExePath ("build -c Release -o ../../../build/nunit")
 
 let buildJsonConverter () =
-    "restore src/dotnet/Fable.JsonConverter"
-    |> run CWD dotnetExePath
-
+    // "restore src/dotnet/Fable.JsonConverter"
+    // |> run CWD dotnetExePath
     "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter /p:TargetFramework=netstandard1.6"
     |> run CWD dotnetExePath
 
 let runTestsDotnet () =
     CleanDir "tests/Main/obj"
-    run "tests/Main" dotnetExePath "restore /p:TestRunner=xunit"
-    run "tests/Main" dotnetExePath "build /p:TestRunner=xunit"
-    run "tests/Main" dotnetExePath "test /p:TestRunner=xunit"
+    // run (CWD </> "tests/Main") dotnetExePath "restore /p:TestRunner=xunit"
+    // run (CWD </> "tests/Main") dotnetExePath "build /p:TestRunner=xunit"
+    run (CWD </> "tests/Main") dotnetExePath "test /p:TestRunner=xunit"
+    run (CWD </> "src/dotnet/Fable.JsonConverter/tests") dotnetExePath "test"
 
 let runTestsJS () =
     Yarn.install CWD
@@ -190,9 +190,7 @@ Target "GitHubRelease" (fun _ ->
 Target "Clean" clean
 Target "FullClean" fullClean
 Target "NugetRestore" (nugetRestore "src/dotnet")
-Target "FableCLI" (fun _ ->
-    nugetRestore "src/dotnet" ()
-    buildCLI "src/dotnet" true ())
+Target "FableCLI" (buildCLI "src/dotnet" true)
 Target "FableCoreJS" buildCoreJS
 Target "FableSplitter" buildSplitter
 Target "NUnitPlugin" buildNUnitPlugin
@@ -277,7 +275,7 @@ let buildRepl () =
 Target "All" (fun () ->
     installDotnetSdk ()
     clean ()
-    nugetRestore "src/dotnet" ()
+    // nugetRestore "src/dotnet" ()
     buildCLI "src/dotnet" true ()
     buildCoreJS ()
     buildSplitter ()

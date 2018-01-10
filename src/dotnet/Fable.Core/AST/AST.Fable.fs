@@ -28,7 +28,7 @@ type Type =
     | DeclaredType of Entity * genericArgs: Type list
     member x.FullName =
         match x with
-        | Number numberKind -> sprintf "%A" x
+        | Number _numberKind -> sprintf "%A" x
         | Enum fullName -> fullName
         | Array typ -> typ.FullName + "[]"
         | Function (argTypes, returnType, _) ->

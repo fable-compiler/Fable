@@ -8,6 +8,7 @@ type Record = {
     Prop1 : string
     Prop2 : int
     Prop3 : int option
+    Prop4 : int64
 }
 
 type Maybe<'t> =
@@ -32,6 +33,12 @@ module JsonConverterTests =
         Assert.Equal(3, deserialized.Month)
         Assert.Equal(2017, deserialized.Year)
 
+    [<Fact>]
+    let ``TimeSpan conversion works``() =
+        let ts = TimeSpan.FromMinutes(45.)
+        let serialized = serialize ts
+        let deserialized = deserialize<TimeSpan> serialized
+        Assert.Equal(45., deserialized.TotalMinutes)
 
     [<Fact>]
     let ``Option<string> convertion works``() =
@@ -74,7 +81,7 @@ module JsonConverterTests =
 
     [<Fact>]
     let ``Record conversion works``() =
-        let input : Record = { Prop1 = "value"; Prop2 = 5; Prop3 = None }
+        let input : Record = { Prop1 = "value"; Prop2 = 5; Prop3 = None; Prop4 = 42L }
         let deserialized = deserialize<Record> (serialize input)
         Assert.Equal("value", deserialized.Prop1)
         Assert.Equal(5, deserialized.Prop2)
@@ -88,13 +95,14 @@ module JsonConverterTests =
         // let input : Record = { Prop1 = "value"; Prop2 = 5; Prop3 = None }
         // Fable serializes above record to:
         // "{\"Prop1\":\"value\",\"Prop2\":5,\"Prop3\":null}"
-        let serialized = "{\"Prop1\":\"value\",\"Prop2\":5,\"Prop3\":null}"
+        let serialized = """{ "Prop1": "value","Prop2":5,"Prop3":null,"Prop4":42}"""
         let deserialized = deserialize<Record> serialized
         Assert.Equal("value", deserialized.Prop1)
         Assert.Equal(5, deserialized.Prop2)
         match deserialized.Prop3 with
         | None -> ()
         | _ -> Assert.True(false, "Should not happed")
+        Assert.Equal(42L, deserialized.Prop4)
 
     [<Fact>]
     let ``Generic union types conversion works``() =
