@@ -878,6 +878,18 @@ module AstPass =
             | "op_PipeLeft", [f; x] ->
                 makeApply com info.range info.returnType f [x] |> Some
             | _ -> None
+        | "op_PipeRight2" | "op_PipeLeft2" as meth ->
+            match meth, info.args with
+            | "op_PipeRight2", [x; y; f]
+            | "op_PipeLeft2", [f; x; y] ->
+                makeApply com info.range info.returnType f [x; y] |> Some
+            | _ -> None
+        | "op_PipeRight3" | "op_PipeLeft3" as meth ->
+            match meth, info.args with
+            | "op_PipeRight3", [x; y; z; f]
+            | "op_PipeLeft3", [f; x; y; z] ->
+                makeApply com info.range info.returnType f [x; y; z] |> Some
+            | _ -> None
         | "op_ComposeRight" | "op_ComposeLeft" ->
             match args, info.methodName with
             | [arg1; arg2], "op_ComposeRight" -> Some(arg1, arg2)
