@@ -5,7 +5,56 @@ open Fable.AST.Fable
 open Fable.AST.Fable.Util
 open System.Collections.Generic
 
-let hasDoubleEvalRisk (vars: Ident seq) bodyExpr =
+let rec transformExprTree f e =
+    match e with
+    | Value kind ->
+        match kind with
+        | Spread e -> Value(Spread(f e))
+        | TypeRef(e, gen) -> Value(TypeRef(e, List.map (fun (n,e) -> n, f e) gen))
+        | TupleConst exprs -> Value(TupleConst(List.map f exprs))
+        | ArrayConst(kind, t) ->
+            match kind with
+            | ArrayValues exprs -> ArrayConst(ArrayValues(List.map f exprs), t) |> Value
+            | ArrayAlloc e -> ArrayConst(ArrayAlloc(f e), t) |> Value
+        | Lambda(args, body, info) -> Value(Lambda(args, f body, info))
+        | Null | This | Super | IdentValue _ | ImportRef _
+        | NumberConst _ | StringConst _ | BoolConst _ | RegexConst _
+        | UnaryOp _ | BinaryOp _ | LogicalOp _ | Emit _ -> e
+    | Apply(callee, args, kind, typ, range) ->
+        Apply(f callee, List.map f args, kind, typ, range)
+    | Wrapped(expr, t) ->
+        Wrapped(f expr, t)
+    | VarDeclaration (var, expr, isMut, range) ->
+        VarDeclaration(var, f expr, isMut, range)
+    | Sequential (exprs, range) ->
+        Sequential(List.map f exprs, range)
+    | IfThenElse(cond, thenExpr, elseExpr, r) ->
+        IfThenElse(f cond, f thenExpr, f elseExpr, r)
+    | Set(callee, prop, value, r) ->
+        Set(f callee, Option.map f prop, f value, r)
+    | ObjExpr(decls, ifcs, baseClass, r) ->
+        let decls = decls |> List.map (fun (m, idents, e) ->
+                m, idents, f e)
+        ObjExpr(decls, ifcs, Option.map f baseClass, r)
+    | Loop (kind, r) ->
+        match kind with
+        | While(e1, e2) -> Loop(While(f e1, f e2), r)
+        | For(i, e1, e2, e3, up) -> Loop(For(i, f e1, f e2, f e3, up), r)
+        | ForOf(i, e1, e2) -> Loop(ForOf(i, f e1, f e2), r)
+    | TryCatch(body, catch, finalizer, r) ->
+        TryCatch(f body,
+                 Option.map (fun (i, e) -> i, f e) catch,
+                 Option.map f finalizer, r)
+    | Switch(matchValue, cases, defaultCase, t, r) ->
+        Switch(f matchValue,
+               List.map (fun (cases, body) -> List.map f cases, f body) cases,
+               Option.map f defaultCase, t, r)
+    | Quote e -> Quote(f e)
+    | Throw(e, t, r) -> Throw(f e, t, r)
+    | DebugBreak _ -> e
+    |> f
+
+let hasDoubleEvalRisk bodyExpr (vars: Ident seq) =
     let varsDic = Dictionary()
     let mutable doubleEvalRisk = false
     for var in vars do varsDic.Add(var.Name, 0)
@@ -27,40 +76,13 @@ let replaceVars (vars: Ident seq) (exprs: Expr seq) bodyExpr =
     let varsDic = Dictionary()
     for var, expr in Seq.zip vars exprs do
         varsDic.Add(var.Name, expr)
-    let rec replaceVars' e =
-        match e with
-        | Value kind ->
-            match kind with
-            | IdentValue v ->
-                match varsDic.TryGetValue(v.Name) with
-                | true, replacement -> replacement
-                | false, _ -> e
-            | Lambda(args, body, info) -> Value(Lambda(args, replaceVars' body, info))
-            | _ -> e
-        | Apply(callee, args, kind, typ, range) ->
-            Apply(replaceVars' callee, List.map replaceVars' args, kind, typ, range)
-        | Wrapped(expr, t) ->
-            Wrapped(replaceVars' expr, t)
-        | VarDeclaration (var, expr, isMut, range) ->
-            VarDeclaration(var, replaceVars' expr, isMut, range)
-        | Sequential (exprs, range) ->
-            Sequential(List.map replaceVars' exprs, range)
-        // TODO
-        | IfThenElse _ -> e
-        | Set _ -> e
-        | ObjExpr _ -> e
-        | Loop (kind,_) ->
-            match kind with
-            | While(_e1,_e2) -> e
-            | For(_,_e1,_e2,_e3,_) -> e
-            | ForOf(_,_e1,_e2) -> e
-        | TryCatch _ -> e
-        | Switch _ -> e
-        // Don't need optimization
-        | Quote _ -> e
-        | Throw _ -> e
-        | DebugBreak _ -> e
-    replaceVars' bodyExpr
+    let replaceVars' = function
+        | Value(IdentValue v) as e ->
+            match varsDic.TryGetValue(v.Name) with
+            | true, replacement -> replacement
+            | false, _ -> e
+        | e -> e
+    transformExprTree replaceVars' bodyExpr
 
 let (|RestAndTail|_|) (xs: _ list) =
     match List.rev xs with
@@ -74,57 +96,44 @@ let (|LambdaExpr|_|) (expr: Expr) =
     | Sequential(RestAndTail(exprs, Value(Lambda(args, body, _))),_) -> Some(exprs, args, body)
     | _ -> None
 
-let rec optimizeExpr (expr: Expr) =
-    match expr with
-    // TODO: Optimize also binary operations with numerical or string literals
-    | Apply(LambdaExpr(prevExprs, args, body), argExprs, ApplyMeth, _typ, range) when List.sameLength args argExprs ->
-        let argExprs = List.map optimizeExpr argExprs
-        // TODO: Check which of argExprs have doubleEvalRisk, i.e. they're not IdentValue
-        let lambdaBody =
-            if hasDoubleEvalRisk args body
-            then replaceVars args argExprs body // TODO: Use temp vars
-            else replaceVars args argExprs body
-        match prevExprs with
-        | [] -> lambdaBody
-        | prevExprs ->
-            let prevExprs = List.map optimizeExpr prevExprs
-            Sequential(prevExprs@[lambdaBody], range)
-    | Apply(callee, args, kind, typ, range) ->
-        Apply(optimizeExpr callee, List.map optimizeExpr args, kind, typ, range)
-    | Wrapped(expr, t) ->
-        Wrapped(optimizeExpr expr, t)
-    | VarDeclaration (var, expr, isMut, range) ->
-        VarDeclaration(var, optimizeExpr expr, isMut, range)
-    | Sequential (exprs, range) ->
-        Sequential(List.map optimizeExpr exprs, range)
-    | Value kind ->
-        match kind with
-        | Lambda(args, body, info) -> Value(Lambda(args, optimizeExpr body, info))
-        | _ -> expr
-    // TODO
-    | IfThenElse _ -> expr
-    | Set _ -> expr
-    | ObjExpr _ -> expr
-    | Loop (kind,_) ->
-        match kind with
-        | While(_e1,_e2) -> expr
-        | For(_,_e1,_e2,_e3,_) -> expr
-        | ForOf(_,_e1,_e2) -> expr
-    | TryCatch _ -> expr
-    | Switch _ -> expr
-    // Don't need optimization
-    | Quote _ -> expr
-    | Throw _ -> expr
-    | DebugBreak _ -> expr
+let optimizeExpr (com: ICompiler) (expr: Expr) =
+    let optimizeExpr' = function
+        // TODO: Optimize also binary operations with numerical or string literals
+        | Apply(LambdaExpr(prevExprs, args, body), argExprs, ApplyMeth, _typ, range)
+                                                when List.sameLength args argExprs ->
+            let doubleEvalRisk =
+                List.zip args argExprs
+                // Check which argExprs have doubleEvalRisk, i.e. they're not IdentValue
+                |> List.choose (fun (arg, argExpr) ->
+                    match argExpr with
+                    | MaybeWrapped(Value(IdentValue _)) -> None
+                    | _ -> Some arg)
+                |> hasDoubleEvalRisk body
+            let lambdaBody =
+                if doubleEvalRisk then
+                    let tempVars =
+                        argExprs |> List.map (fun argExpr ->
+                            let tmpVar = com.GetUniqueVar() |> makeIdent
+                            let tmpVarExp = Value(IdentValue tmpVar)
+                            tmpVarExp, VarDeclaration(tmpVar, argExpr, false, None))
+                    let body = replaceVars args (List.map fst tempVars) body
+                    makeSequential body.Range ((List.map snd tempVars) @ [body])
+                else
+                    replaceVars args argExprs body
+            match prevExprs with
+            | [] -> lambdaBody
+            | prevExprs -> Sequential(prevExprs@[lambdaBody], range)
+        | e -> e
+    transformExprTree optimizeExpr' expr
 
-let optimizeFile (file: File) =
-    let newDecls =
-        file.Declarations
-        |> List.map (fun d ->
-            match d with
-            | EntityDeclaration _ -> d // TODO
-            | ActionDeclaration(expr, range) ->
-                ActionDeclaration(optimizeExpr expr, range)
-            | MemberDeclaration(memb, isPublic, privName, args, body, range) ->
-                MemberDeclaration(memb, isPublic, privName, args, optimizeExpr body, range))
+let rec optimizeDeclaration (com: ICompiler) = function
+    | EntityDeclaration(e, isPublic, privName, decls, r) ->
+        EntityDeclaration(e, isPublic, privName, List.map (optimizeDeclaration com) decls, r)
+    | ActionDeclaration(expr, range) ->
+        ActionDeclaration(optimizeExpr com expr, range)
+    | MemberDeclaration(memb, isPublic, privName, args, body, range) ->
+        MemberDeclaration(memb, isPublic, privName, args, optimizeExpr com body, range)
+
+let optimizeFile (com: ICompiler) (file: File) =
+    let newDecls = List.map (optimizeDeclaration com) file.Declarations
     File(file.SourcePath, file.Root, newDecls, usedVarNames=file.UsedVarNames, dependencies=file.Dependencies)
