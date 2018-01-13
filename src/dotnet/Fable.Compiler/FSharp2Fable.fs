@@ -206,21 +206,6 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             | Some repl -> repl
             | None -> Fable.Apply(makeNonGenTypeRef com unionType, argExprs, Fable.ApplyCons, unionType, Some range)
 
-// let private transformComposableExpr com ctx fsExpr argExprs =
-//     // See (|ComposableExpr|_|) active pattern to check which expressions are valid here
-//     match fsExpr with
-//     | BasicPatterns.Call(None, meth, typArgs, methTypArgs, _) ->
-//         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-//         makeCallFrom com ctx r typ meth (typArgs, methTypArgs) None argExprs
-//     | BasicPatterns.NewObject(meth, typArgs, _) ->
-//         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-//         tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
-//             validateGenArgs com ctx r tdef.GenericParameters typArgs)
-//         makeCallFrom com ctx r typ meth (typArgs, []) None argExprs
-//     | BasicPatterns.NewUnionCase(fsType, unionCase, _) ->
-//         transformNonListNewUnionCase com ctx fsExpr fsType unionCase argExprs
-//     | _ -> failwithf "Expected ComposableExpr %O" (makeRange fsExpr.Range)
-
 let private transformTraitCall com ctx r typ sourceTypes traitName flags (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
     let giveUp() =
         "Cannot resolve trait call " + traitName
@@ -538,26 +523,6 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.ForOf (ident, value, transformExpr com newContext body)
         |> makeLoop (makeRangeFrom fsExpr)
 
-    // | ErasableLambda (expr, argExprs) ->
-    //     List.map (transformExpr com ctx) argExprs
-    //     |> transformComposableExpr com ctx expr
-
-    // Pipe must come after ErasableLambda
-    // | Pipe (Transform com ctx callee, args) ->
-    //     let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
-    //     makeApply com range typ callee (List.map (transformExpr com ctx) args)
-
-    // | Composition (expr1, args1, expr2, args2) ->
-    //     let lambdaArg = com.GetUniqueVar() |> makeIdent
-    //     let expr1 =
-    //         (List.map (transformExpr com ctx) args1)
-    //             @ [Fable.Value (Fable.IdentValue lambdaArg)]
-    //         |> transformComposableExpr com ctx expr1
-    //     let expr2 =
-    //         (List.map (transformExpr com ctx) args2)@[expr1]
-    //         |> transformComposableExpr com ctx expr2
-    //     makeLambdaExpr [lambdaArg] expr2
-
     | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
         let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) methArgs
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
@@ -581,8 +546,6 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         Fable.Value Fable.This
 
     (** ## Erased *)
-    // | ErasableClosure(Transform com ctx expr) -> expr
-
     | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
 
     // TypeLambda is a local generic lambda
