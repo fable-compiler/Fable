@@ -39,8 +39,7 @@ export function toJson(o: any): string {
           return v.Case;
         }
         else if (v.Fields.length === 1) {
-          const fieldValue = v.Fields[0];
-          return { [v.Case]: typeof fieldValue === 'undefined' ? null : fieldValue };
+          return { [v.Case]: v.Fields[0] };
         }
         else {
           return { [v.Case]: v.Fields };
