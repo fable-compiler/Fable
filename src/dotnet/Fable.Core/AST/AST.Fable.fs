@@ -111,8 +111,6 @@ type Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     static member CreateRootModule fileName =
         Entity (lazy Module, Some fileName, "", lazy [])
 
-    override x.ToString() = sprintf "%s %A" x.Name x.Kind
-
 type Declaration =
     | ActionDeclaration of Expr * SourceLocation option
     /// Module members are also declared as variables, so they need
@@ -164,7 +162,6 @@ type Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?d
     /// Finds decorator by full name
     member this.TryGetFullDecorator(fullname) =
         this.Decorators |> List.tryFind (fun x -> x.FullName = fullname)
-    override x.ToString() = sprintf "%A %s" kind name
 
 type ExternalEntity =
     | ImportModule of fullName: string * moduleName: string * isNs: bool
@@ -413,31 +410,3 @@ type Expr =
         // Check also cases when null is wrapped to represent a specific type
         | Value Null | Wrapped(Value Null, _) -> true
         | _ -> false
-
-    // TODO: Improve Expr printing
-    override x.ToString() =
-        match x with
-        | Value _ -> "Value"
-        | ObjExpr _ -> "{}"
-        | Wrapped (e, _) -> sprintf "Wrapped (%O)" e
-        | Apply (callee, args, kind,_,_) ->
-            let args = args |> List.map string |> String.concat ", "
-            match kind with
-            | ApplyMeth -> sprintf "%O(%s)" callee args
-            | ApplyGet -> sprintf "%O.%s" callee args
-            | ApplyCons -> sprintf "new %O(%s)" callee args
-        | Throw _ -> "Throw"
-        | IfThenElse (cond,thenExpr,elseExpr,_) ->
-            sprintf "IF %O THEN %O ELSE %O" cond thenExpr elseExpr
-        | DebugBreak _ -> "Debugger"
-        | Set(callee, prop, value, _) ->
-            let prop = match prop with Some p -> "." + string p | None -> ""
-            sprintf "%O%s = %O" callee prop value
-        | VarDeclaration(ident, value, _, _) ->
-            sprintf "LET %s = %O" ident.Name value
-        | Sequential (exprs,_) ->
-            exprs |> List.map string |> String.concat ", " |> sprintf "[%s]"
-        | Loop _ -> "LOOP (TODO)"
-        | TryCatch _ -> "TRY-CATCH (TODO)"
-        | Switch _ ->  "SWITCH (TODO)"
-        | Quote _ -> "QUOTE (TODO)"
