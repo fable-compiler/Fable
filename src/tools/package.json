@@ -1,8 +1,12 @@
 {
   "private": true,
   "scripts": {
+    "start": "chokidar '../dotnet/**/*.fs' -c 'sh quicktest.sh'",
     "webpack": "node ../../node_modules/webpack/bin/webpack",
     "rollup": "node ../../node_modules/rollup/bin/rollup -c",
     "splitter": "node ../js/fable-splitter/cli -c splitter.config.js"
+  },
+  "devDependencies": {
+    "chokidar-cli": "^1.2.0"
   }
 }

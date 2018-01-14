@@ -4,6 +4,12 @@
 
 #if FABLE_COMPILER
 open Fable.Core.JsInterop
+
+// Temporarily disabled for Fable 2.0 development
+// ----------------------------------------------
+// importSideEffects "./JsInteropTests.fs"
+// importSideEffects "./JsonTests.fs"
+
 importSideEffects "./js/polyfill"
 importSideEffects "./ApplicativeTests.fs"
 importSideEffects "./ArithmeticTests.fs"
@@ -20,8 +26,6 @@ importSideEffects "./EnumTests.fs"
 importSideEffects "./EventTests.fs"
 importSideEffects "./HashSetTests.fs"
 importSideEffects "./ImportTests.fs"
-importSideEffects "./JsInteropTests.fs"
-importSideEffects "./JsonTests.fs"
 importSideEffects "./ListTests.fs"
 importSideEffects "./MapTests.fs"
 importSideEffects "./MiscTests.fs"
