@@ -297,12 +297,6 @@ type ValueKind =
         match x with
         | Lambda (_, body, _) -> body.Range
         | _ -> None
-    /// When referenced multiple times, is there a risk of double evaluation?
-    member this.HasDoubleEvalRisk =
-        match this with
-        | Null | This | Super | IdentValue _
-        | NumberConst _ | StringConst _ | BoolConst _ -> false
-        | _ -> true
 
 type LoopKind =
     | While of guard: Expr * body: Expr

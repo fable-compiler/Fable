@@ -29,6 +29,12 @@ let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLoca
     com.AddLog(error, Severity.Error, ?range=range, fileName=fileName)
     Value Null
 
+/// When referenced multiple times, is there a risk of double evaluation?
+let hasDoubleEvalRisk = function
+    | MaybeWrapped(Value(Null | This | Super | IdentValue _
+        | NumberConst _ | StringConst _ | BoolConst _)) -> false
+    | _ -> true
+
 let rec deepExists f (expr: Expr) =
     if f expr
     then true

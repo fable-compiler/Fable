@@ -54,7 +54,7 @@ let rec transformExprTree f e =
     | DebugBreak _ -> e
     |> f
 
-let hasDoubleEvalRisk bodyExpr (vars: Ident seq) =
+let checkArgsForDoubleEvalRisk bodyExpr (vars: Ident seq) =
     let varsDic = Dictionary()
     let mutable doubleEvalRisk = false
     for var in vars do varsDic.Add(var.Name, 0)
@@ -105,10 +105,8 @@ let optimizeExpr (com: ICompiler) (expr: Expr) =
                 List.zip args argExprs
                 // Check which argExprs have doubleEvalRisk, i.e. they're not IdentValue
                 |> List.choose (fun (arg, argExpr) ->
-                    match argExpr with
-                    | MaybeWrapped(Value(IdentValue _)) -> None
-                    | _ -> Some arg)
-                |> hasDoubleEvalRisk body
+                    if hasDoubleEvalRisk argExpr then Some arg else None)
+                |> checkArgsForDoubleEvalRisk body
             let lambdaBody =
                 if doubleEvalRisk then
                     let tempVars =

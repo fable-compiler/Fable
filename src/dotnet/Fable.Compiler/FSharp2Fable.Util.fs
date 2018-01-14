@@ -1180,9 +1180,6 @@ module Util =
 
     let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r (typArgs, methTypArgs)
                       (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
-        let hasDoubleEvalRisk = function
-            | Fable.Value kind -> kind.HasDoubleEvalRisk
-            | _ -> true
         // If the argument has a `this` reference, assign it to a variable
         // as the inlined expression can change the this context (see #1291)
         let hasThisReference e =
