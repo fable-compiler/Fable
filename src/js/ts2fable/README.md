@@ -1,0 +1,1 @@
+Moved to https://github.com/fable-compiler/ts2fable

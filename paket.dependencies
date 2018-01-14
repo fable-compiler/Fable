@@ -1,21 +1,27 @@
 source https://www.nuget.org/api/v2
 
-nuget FAKE
-nuget FSharp.Compiler.Service 8.0.0
+storage:none
+
+nuget FSharp.Compiler.Service
 nuget FSharp.Core
 nuget Newtonsoft.Json
-nuget NUnit
-nuget NUnit.Runners
-nuget Suave
-github fable-compiler/Forge
+nuget System.Runtime.Loader
+nuget System.Collections.Immutable
+nuget System.Reflection.Metadata
+nuget Dotnet.ProjInfo
+
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
-github fsharp/FSharp.Compiler.Service src/fsharp/ReferenceResolver.fs
-github fsharp/FSharp.Compiler.Service src/fsharp/SimulatedMSBuildReferenceResolver.fs
 
-group Docs
+group Test
   source https://www.nuget.org/api/v2
+  storage:none
+  nuget Microsoft.NET.Test.Sdk
+  nuget xunit
+  nuget xunit.runner.visualstudio
 
+group Build
+  framework >= net45
+  source https://www.nuget.org/api/v2
   nuget FAKE
-  nuget Suave
-  nuget DotLiquid
-  nuget FSharp.Formatting 2.14.2
+  github fsharp/FAKE modules/Octokit/Octokit.fsx
+  github fable-compiler/fake-helpers Fable.FakeHelpers.fs

@@ -1,0 +1,72 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework Condition="'$(TestRunner)' == 'xunit'">netcoreapp2.0</TargetFramework>
+    <DefineConstants>DOTNETCORE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Util/b.fs" />
+    <Compile Include="Util/Aether.fs" />
+    <Compile Include="Util/Util.fs" />
+    <Compile Include="Util/Util2.fs" />
+    <Compile Include="Util/Util3.fs" />
+    <Compile Include="../../tests_external/Util3.fs" />
+    <Compile Include="ApplicativeTests.fs" />
+    <Compile Include="ArithmeticTests.fs" />
+    <Compile Include="ArrayTests.fs" />
+    <Compile Include="AsyncTests.fs" />
+    <Compile Include="CharTests.fs" />
+    <Compile Include="ComparisonTests.fs" />
+    <Compile Include="ConvertTests.fs" />
+    <Compile Include="DateTimeTests.fs" />
+    <Compile Include="DateTimeOffsetTests.fs" />
+    <Compile Include="DictionaryTests.fs" />
+    <Compile Include="EnumerableTests.fs" />
+    <Compile Include="EnumTests.fs" />
+    <Compile Include="EventTests.fs" />
+    <Compile Include="HashSetTests.fs" />
+    <Compile Include="ImportTests.fs" />
+    <Compile Include="JsInteropTests.fs" />
+    <Compile Include="JsonTests.fs" />
+    <Compile Include="ListTests.fs" />
+    <Compile Include="MapTests.fs" />
+    <Compile Include="MiscTests.fs" />
+    <Compile Include="ObservableTests.fs" />
+    <Compile Include="OptionTests.fs" />
+    <Compile Include="RecordTypeTests.fs" />
+    <Compile Include="ReflectionTests.fs" />
+    <Compile Include="RegexTests.fs" />
+    <Compile Include="ResizeArrayTests.fs" />
+    <Compile Include="ResultTests.fs" />
+    <Compile Include="SeqExpressionTests.fs" />
+    <Compile Include="SeqTests.fs" />
+    <Compile Include="SetTests.fs" />
+    <Compile Include="StringTests.fs" />
+    <Compile Include="SudokuTest.fs" />
+    <Compile Include="TailCallTests.fs" />
+    <Compile Include="TupleTypeTests.fs" />
+    <Compile Include="TypeTests.fs" />
+    <Compile Include="UnionTypeTests.fs" />
+    <Compile Include="ElmishParserTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Fable.Core">
+      <HintPath>../../build/fable/Fable.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(TestRunner)' == 'xunit'">
+    <Reference Include="Fable.JsonConverter">
+      <HintPath>../../build/json-converter/Fable.JsonConverter.dll</HintPath>
+    </Reference>
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.*" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.3.0-preview-*" />
+    <PackageReference Include="xunit" Version="2.2.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.2.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DllRef\Fable.Tests.DllRef.fsproj" />
+    <ProjectReference Include="..\..\tests_external\Fable.Tests.External.fsproj" />
+    <ProjectReference Include="..\Project With Spaces\Fable.Tests.Spaces.fsproj" />
+  </ItemGroup>
+</Project>

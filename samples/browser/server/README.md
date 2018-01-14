@@ -1,1 +1,0 @@
-This is just a static server to host the other samples.

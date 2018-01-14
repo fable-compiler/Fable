@@ -3,26 +3,35 @@ init:
 
 build:
   verbosity: detailed
-  
+
 environment:
-  nodejs_version: "4.4"
+  nodejs_version: "6.11.0"
+
+cache:
+ - "%LOCALAPPDATA%\\Yarn"
 
 # Install scripts. (runs after repo cloning)
 install:
-  # Get the latest stable version of Node.js or io.js
+  # Get the latest stable version of Node.js
   - ps: Install-Product node $env:nodejs_version
+  # Update npm
+  # There seems to be issues with npm 5.4 in Windows
+  # See https://github.com/npm/npm/issues/18380
+  - npm install -g npm@5.3.0
 
 os: Visual Studio 2015
-before_build:
-  - cmd: set PATH=C:\Program Files (x86)\MSBuild\14.0\Bin;%PATH%
+# before_build:
+#   - cmd: set PATH=C:\Program Files (x86)\MSBuild\14.0\Bin;%PATH%
 build_script:
   - cmd: build.cmd
 test: off
-version: 0.0.1.{build}
+# version: 0.0.1.{build}
 artifacts:
-  - path: build\fable
-    name: fable
-  - path: samples
-    name: samples
-  
- 
+# https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/dotnet/Fable.JS/demo/fable-repl.zip
+  - path: src\dotnet\Fable.JS\demo\out
+    name: fable-repl
+    type: zip
+# https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/dotnet/Fable.JS/demo/repl/bundle.zip
+  - path: src\dotnet\Fable.JS\demo\repl\build
+    name: bundle
+    type: zip

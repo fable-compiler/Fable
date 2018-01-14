@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "scripts": {
+    "fable": "dotnet ../../build/fable/dotnet-fable.dll start",
+    "build": "dotnet ../../build/fable/dotnet-fable.dll npm-run rollup",
+    "webpack": "node ../../node_modules/webpack/bin/webpack -p",
+    "rollup": "node ../../node_modules/rollup/bin/rollup -c",
+    "test": "node ../../node_modules/mocha/bin/mocha ../../build/tests/bundle",
+    "check": "node ../../node_modules/typescript/bin/tsc > check_results.log"
+  }
+}

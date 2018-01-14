@@ -2,6 +2,9 @@ open FSharp.Reflection
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 
+/// This is intended to be used with Newtonsoft.Json and Fable `ofJsonWithTypeInfo`.
+/// If you want to use `ofJson` instead, use the `Fable.JsonConverter` (available in Nuget).
+/// More info in http://fable.io/blog/Introducing-0-7.html#JSON-Serialization
 type UnionTypeInfoConverter() =
     inherit JsonConverter()
     override x.CanConvert t = FSharpType.IsUnion t

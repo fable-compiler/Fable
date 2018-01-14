@@ -2,28 +2,16 @@
 
 Please provide a succinct description of your issue.
 
-### Repro steps
+### Repro code
 
-Please provide the steps required to reproduce the problem
+Please provide the F# code to reproduce the problem.
+Ideally, it should be possible to easily turn this code into a unit test.
 
-1. Step A
+### Expected and actual results
 
-2. Step B
+Please provide the expected and actual results.
 
-### Expected behavior
+### Related information
 
-Please provide a description of the behavior you expect.
-
-### Actual behavior
-
-Please provide a description of the actual behavior you observe. 
-
-### Known workarounds
-
-Please provide a description of any known workarounds.
-
-### Related information 
-
-* Fable Version
-* .NET Runtime, CoreCLR or Mono Version
-* Operating system
+* Fable version (`dotnet fable --version`):
+* Operating system:

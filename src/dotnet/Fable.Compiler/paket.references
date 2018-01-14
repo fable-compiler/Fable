@@ -1,0 +1,6 @@
+FSharp.Compiler.Service
+FSharp.Core
+Newtonsoft.Json
+System.Runtime.Loader
+System.Collections.Immutable
+System.Reflection.Metadata
