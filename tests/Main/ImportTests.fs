@@ -164,3 +164,21 @@ let ``Nested module mutable values work``() = // See #986
     Util.Nested.nestedMutableValue |> equal "C"
     Util.Nested.getValueTimes2() |> equal "CC"
     Util.getNestedValueTimes3() |> equal "CCC"
+
+#if FABLE_COMPILER
+module ExternalFuncs = 
+  let toSpecialUniversalTime (time: obj) = Fable.Core.JsInterop.import "toUniversalTime" "../../build/fable-core/Date"
+
+[<AutoOpen>]
+module Extensions = 
+  type System.DateTime with
+    [<Fable.Core.Import("toUniversalTime", "../../build/fable-core/Date")>]
+    member self.ToVerySpecialUniversalTime() : DateTime = jsNative
+
+[<Test>]
+let ``Import as extension method works``() =
+    let value = DateTime(2015, 1, 1)
+    let importedAsExtensionMethod = value.ToVerySpecialUniversalTime()
+    let importedOridinaryFunction = value |> ExternalFuncs.toSpecialUniversalTime
+    equal importedOridinaryFunction importedAsExtensionMethod
+#endif
