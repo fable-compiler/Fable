@@ -7,7 +7,7 @@ First of all, you need a couple of things installed on your computer for F# & Fa
 * [dotnet SDK](https://www.microsoft.com/net/download/core) 2.0 or higher
 * [node.js](https://nodejs.org) 6.11 or higher
 * A JS package manager: [yarn](https://yarnpkg.com) or [npm](http://npmjs.com/)
-* An F# editor like like VS Code or Atom with [Ionide](http://ionide.io/), [Visual Studio](https://www.visualstudio.com/) for Windows or macOS, Emacs with [fsharp-mode](https://github.com/fsharp/emacs-fsharp-mode) or [Rider](https://www.jetbrains.com/rider/)
+* An F# editor like VS Code or Atom with [Ionide](http://ionide.io/), [Visual Studio](https://www.visualstudio.com/) for Windows or macOS, Emacs with [fsharp-mode](https://github.com/fsharp/emacs-fsharp-mode) or [Rider](https://www.jetbrains.com/rider/)
 
 > npm comes bundled with node.js, but we recommend at least version 5. If necessary, upgrade it by running `npm install -g npm`. For F# dependencies, [Paket](https://fsprojects.github.io/Paket/) will be automatically installed by a bootstraper in Fable templates.
 
