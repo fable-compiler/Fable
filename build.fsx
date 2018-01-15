@@ -85,10 +85,8 @@ let clean_ (full: bool) =
 let clean () = clean_ false
 let fullClean () = clean_ true
 
-let nugetRestore baseDir () =
-    run (baseDir </> "Fable.Core") dotnetExePath "restore"
-    run (baseDir </> "Fable.Compiler") dotnetExePath "restore"
-    run (baseDir </> "dotnet-fable") dotnetExePath "restore"
+let nugetRestore dir =
+    run dir dotnetExePath "restore"
 
 let buildCLI baseDir isRelease () =
     sprintf "publish -o %s -c %s" cliBuildDir
@@ -99,6 +97,11 @@ let buildCoreJS () =
     Yarn.install CWD
     Yarn.run CWD "tslint" (sprintf "--project %s" coreJsSrcDir)
     Yarn.run CWD "tsc" (sprintf "--project %s" coreJsSrcDir)
+
+    // Compile F# files
+    nugetRestore coreJsSrcDir
+    "../../../build/fable/dotnet-fable.dll node-run ../fable-splitter/cli -- -c splitter.config.js"
+    |> run coreJsSrcDir dotnetExePath
 
 let buildSplitter () =
     let buildDir = CWD </> "src/js/fable-splitter"
@@ -189,9 +192,12 @@ Target "GitHubRelease" (fun _ ->
 
 Target "Clean" clean
 Target "FullClean" fullClean
-Target "NugetRestore" (nugetRestore "src/dotnet")
 Target "FableCLI" (buildCLI "src/dotnet" true)
-Target "FableCoreJS" buildCoreJS
+Target "FableCoreJS" (fun _ ->
+    buildCLI "src/dotnet" true ()
+    buildSplitter ()
+    buildCoreJS ())
+Target "FableCoreJSFast" buildCoreJS
 Target "FableSplitter" buildSplitter
 Target "NUnitPlugin" buildNUnitPlugin
 Target "JsonConverter" buildJsonConverter
@@ -277,8 +283,8 @@ Target "All" (fun () ->
     clean ()
     // nugetRestore "src/dotnet" ()
     buildCLI "src/dotnet" true ()
-    buildCoreJS ()
     buildSplitter ()
+    buildCoreJS ()
     buildNUnitPlugin ()
 
     // Fable 2.0 development
