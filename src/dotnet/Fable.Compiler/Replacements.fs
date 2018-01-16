@@ -1342,6 +1342,8 @@ module AstPass =
         | "physicalHash", _ ->
             CoreLibCall("Util", Some "getHashCode", false, i.args)
             |> makeCall i.range i.returnType |> Some
+        | "genericZero", _ -> makeEmit i.range i.returnType [] "0" |> Some
+        | "genericOne", _ -> makeEmit i.range i.returnType [] "1" |> Some
         | _ -> None
 
     let intrinsicFunctions com (i: Fable.ApplyInfo) =
