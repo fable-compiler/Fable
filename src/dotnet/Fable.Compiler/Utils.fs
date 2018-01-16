@@ -78,10 +78,7 @@ module Json =
     open System
 
     let isErasedUnion (t: System.Type) =
-        t.Name = "FSharpOption`1" ||
-        FSharpType.IsUnion t &&
-            t.GetCustomAttributes true
-            |> Seq.exists (fun a -> (a.GetType ()).Name = "EraseAttribute")
+        t.Name = "FSharpOption`1" || t.FullName.StartsWith("Microsoft.FSharp.Core.FSharpChoice")
 
     let getErasedUnionValue (v: obj) =
         match FSharpValue.GetUnionFields (v, v.GetType()) with
@@ -91,11 +88,11 @@ module Json =
     type ErasedUnionConverter() =
         inherit JsonConverter()
         let typeCache = ConcurrentDictionary<Type,bool>()
-        override x.CanConvert t =
+        override __.CanConvert t =
             typeCache.GetOrAdd(t, isErasedUnion)
-        override x.ReadJson(reader, t, v, serializer) =
+        override __.ReadJson(_reader, _t, _v, _serializer) =
             failwith "Not implemented"
-        override x.WriteJson(writer, v, serializer) =
+        override __.WriteJson(writer, v, serializer) =
             match getErasedUnionValue v with
             | Some v -> serializer.Serialize(writer, v)
             | None -> writer.WriteNull()
@@ -103,11 +100,11 @@ module Json =
     type LocationEraser() =
         inherit JsonConverter()
         let typeCache = ConcurrentDictionary<Type,bool>()
-        override x.CanConvert t =
+        override __.CanConvert t =
             typeCache.GetOrAdd(t, fun t -> typeof<AST.Babel.Node>.GetTypeInfo().IsAssignableFrom(t))
-        override x.ReadJson(reader, t, v, serializer) =
+        override __.ReadJson(_reader, _t, _v, _serializer) =
             failwith "Not implemented"
-        override x.WriteJson(writer, v, serializer) =
+        override __.WriteJson(writer, v, serializer) =
             writer.WriteStartObject()
             v.GetType().GetTypeInfo().GetProperties()
             |> Seq.filter (fun p -> p.Name <> "loc")

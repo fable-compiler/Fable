@@ -77,7 +77,7 @@ type IBabelCompiler =
     abstract TransformStatement: Context -> Fable.Expr -> Statement list
     abstract TransformExprAndResolve: Context -> ReturnStrategy -> Fable.Expr -> Statement list
     abstract TransformFunction: Context -> ITailCallOpportunity option -> Fable.Ident list -> Fable.Expr ->
-        (Pattern list) * U2<BlockStatement, Expression>
+        (Pattern list) * Choice<BlockStatement, Expression>
     abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
         Fable.Declaration list -> ClassExpression
     abstract TransformObjectExpr: Context -> Fable.ObjExprMember list ->
@@ -90,10 +90,10 @@ and IDeclarePlugin =
         -> (Statement list) option
     abstract member TryDeclareRoot:
         com: IBabelCompiler -> ctx: Context -> file: Fable.File
-        -> (U2<Statement, ModuleDeclaration> list) option
+        -> (Choice<Statement, ModuleDeclaration> list) option
 
 type IDeclareMember =
-    abstract member DeclareMember: SourceLocation option * string * string option * bool * bool * Identifier option * Expression -> U2<Statement, ModuleDeclaration> list
+    abstract member DeclareMember: SourceLocation option * string * string option * bool * bool * Identifier option * Expression -> Choice<Statement, ModuleDeclaration> list
 
 module Util =
     let inline (|EntKind|) (ent: Fable.Entity) = ent.Kind
@@ -133,8 +133,8 @@ module Util =
     let prepareArgs (com: IBabelCompiler) ctx =
         List.map (function
             | Fable.Value (Fable.Spread expr) ->
-                SpreadElement(com.TransformExpr ctx expr) |> U2.Case2
-            | expr -> com.TransformExpr ctx expr |> U2.Case1)
+                SpreadElement(com.TransformExpr ctx expr) |> Choice2Of2
+            | expr -> com.TransformExpr ctx expr |> Choice1Of2)
 
     let ident (id: Fable.Ident) =
         Identifier id.Name
@@ -209,7 +209,7 @@ module Util =
                 |> fun genArgs ->
                     upcast CallExpression(
                         getCoreLibImport com ctx "Util" "makeGeneric",
-                        [expr; genArgs] |> List.map U2.Case1)
+                        [expr; genArgs] |> List.map Choice1Of2)
             | _ -> expr
         let getParts ns fullName memb =
             let split (s: string) =
@@ -319,22 +319,22 @@ module Util =
             let args =
                 match consKind with
                 | Fable.ArrayValues args ->
-                    List.map (com.TransformExpr ctx >> U2.Case1 >> Some) args
-                    |> ArrayExpression :> Expression |> U2.Case1 |> List.singleton
+                    List.map (com.TransformExpr ctx >> Choice1Of2 >> Some) args
+                    |> ArrayExpression :> Expression |> Choice1Of2 |> List.singleton
                 | Fable.ArrayAlloc arg ->
-                    [U2.Case1 (com.TransformExpr ctx arg)]
+                    [Choice1Of2 (com.TransformExpr ctx arg)]
             NewExpression(cons, args) :> Expression
         | _ ->
             match consKind with
             | Fable.ArrayValues args ->
-                List.map (com.TransformExpr ctx >> U2.Case1 >> Some) args
+                List.map (com.TransformExpr ctx >> Choice1Of2 >> Some) args
                 |> ArrayExpression :> Expression
             | Fable.ArrayAlloc (TransformExpr com ctx arg) ->
-                upcast NewExpression(Identifier "Array", [U2.Case1 arg])
+                upcast NewExpression(Identifier "Array", [Choice1Of2 arg])
 
     let buildStringArray strings =
         strings
-        |> List.map (fun x -> StringLiteral x :> Expression |> U2.Case1 |> Some)
+        |> List.map (fun x -> StringLiteral x :> Expression |> Choice1Of2 |> Some)
         |> ArrayExpression :> Expression
 
     let assign range left right =
@@ -374,8 +374,8 @@ module Util =
             (RestElement(args.Head) :> Pattern) :: args.Tail |> List.rev
         let body =
             match body' with
-            | U2.Case1 e -> e
-            | U2.Case2 e -> BlockStatement([ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
+            | Choice1Of2 e -> e
+            | Choice2Of2 e -> BlockStatement([ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
         args, body, returnType, typeParams
 
     /// Wrap int expressions with `| 0` to help optimization of JS VMs
@@ -395,8 +395,8 @@ module Util =
         then upcast ArrowFunctionExpression (args, body, ?loc=r)
         else
             match body with
-            | U2.Case1 body -> body
-            | U2.Case2 e -> BlockStatement([ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
+            | Choice1Of2 body -> body
+            | Choice2Of2 e -> BlockStatement([ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
             |> fun body -> upcast FunctionExpression (args, body, ?loc=r)
 
     let transformValue (com: IBabelCompiler) (ctx: Context) r = function
@@ -456,7 +456,7 @@ module Util =
                         getMemberArgsAndBody com ctx tc args body m.GenericParameters m.HasRestParams
                     ObjectMethod(kind, key, args, body', ?returnType=returnType,
                         ?typeParams=typeParams, computed=computed, ?loc=body.Range)
-                    |> U3.Case2
+                    |> Choice2Of3
                 match m.Kind with
                 | Fable.Constructor ->
                     "Unexpected constructor in Object Expression"
@@ -467,7 +467,7 @@ module Util =
                 | Fable.Field ->
                     ObjectProperty(key, com.TransformExpr ctx body,
                             computed=computed, ?loc=body.Range)
-                    |> U3.Case1)
+                    |> Choice1Of3)
             |> fun props ->
                 upcast ObjectExpression(props, ?loc=range)
 
@@ -595,19 +595,19 @@ module Util =
         //                 let key = StringLiteral key
         //                 let value = p.GetValue(expr) |> toJson
         //                 Some(ObjectProperty(key, value)))
-        //         |> Seq.map U3.Case1
+        //         |> Seq.map Choice1Of3
         //         |> Seq.toList
         //         |> fun props -> upcast ObjectExpression(props)
         //     | :? bool as expr -> upcast BooleanLiteral(expr)
-        //     | :? int as expr -> upcast NumericLiteral(U2.Case1 expr)
-        //     | :? float as expr -> upcast NumericLiteral(U2.Case2 expr)
+        //     | :? int as expr -> upcast NumericLiteral(Choice1Of2 expr)
+        //     | :? float as expr -> upcast NumericLiteral(Choice2Of2 expr)
         //     | :? string as expr -> upcast StringLiteral(expr)
         //     | expr when Json.isErasedUnion(expr.GetType()) ->
         //         match Json.getErasedUnionValue expr with
         //         | Some v -> toJson v
         //         | None -> upcast NullLiteral()
         //     | :? System.Collections.IEnumerable as expr ->
-        //         let xs = [for x in expr -> U2.Case1(toJson x) |> Some]
+        //         let xs = [for x in expr -> Choice1Of2(toJson x) |> Some]
         //         upcast ArrayExpression(xs)
         //     | _ -> failwithf "Unexpected expression inside quote %O" fExpr.Range
         // toJson expr
@@ -621,7 +621,7 @@ module Util =
             | Fable.ForOf (var, TransformExpr com ctx enumerable, body) ->
                 // enumerable doesn't go in VariableDeclator.init but in ForOfStatement.right
                 let var = VariableDeclaration(ident var, kind=Let)
-                ForOfStatement(U2.Case1 var, enumerable, transformBlock com ctx None body, ?loc=range) :> Statement
+                ForOfStatement(Choice1Of2 var, enumerable, transformBlock com ctx None body, ?loc=range) :> Statement
             | Fable.For (var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp) ->
                 let op1, op2 =
                     if isUp
@@ -629,7 +629,7 @@ module Util =
                     else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
                 ForStatement(
                     transformBlock com ctx None body,
-                    start |> varDeclaration None (ident var) true |> U2.Case1,
+                    start |> varDeclaration None (ident var) true |> Choice1Of2,
                     BinaryExpression (op1, ident var, limit),
                     UpdateExpression (op2, false, ident var), ?loc=range) :> Statement
             |> List.singleton
@@ -822,22 +822,22 @@ module Util =
                        addDeclaredVar = declaredVars.Add
                        tailCallOpportunity = tailcallChance
                        optimizeTailCall = fun () -> isTailCallOptimized <- true }
-        let body: U2<BlockStatement, Expression> =
+        let body: Choice<BlockStatement, Expression> =
             match body with
             | ExprType Fable.Unit
             | Fable.Throw _ | Fable.DebugBreak _ | Fable.Loop _ | Fable.Set _ ->
-                transformBlock com ctx None body |> U2.Case1
+                transformBlock com ctx None body |> Choice1Of2
             | Fable.Sequential _ | Fable.TryCatch _ | Fable.Switch _ ->
-                transformBlock com ctx (Some Return) body |> U2.Case1
+                transformBlock com ctx (Some Return) body |> Choice1Of2
             | Fable.IfThenElse _ when body.IsJsStatement ->
-                transformBlock com ctx (Some Return) body |> U2.Case1
+                transformBlock com ctx (Some Return) body |> Choice1Of2
             | _ ->
                 if Option.isSome tailcallChance
-                then transformBlock com ctx (Some Return) body |> U2.Case1
-                else transformExpr com ctx body |> U2.Case2
+                then transformBlock com ctx (Some Return) body |> Choice1Of2
+                else transformExpr com ctx body |> Choice2Of2
         let args, body =
             match isTailCallOptimized, tailcallChance, body with
-            | true, Some tc, U2.Case1 body ->
+            | true, Some tc, Choice1Of2 body ->
                 let args, body =
                     if tc.ReplaceArgs
                     then
@@ -848,7 +848,7 @@ module Util =
                     else args, body
                 args, LabeledStatement(Identifier tc.Label,
                     WhileStatement(BooleanLiteral true, body, ?loc=body.loc), ?loc=body.loc)
-                :> Statement |> List.singleton |> block body.loc |> U2.Case1
+                :> Statement |> List.singleton |> block body.loc |> Choice1Of2
             | _ -> args, body
         let body =
             if declaredVars.Count = 0
@@ -860,12 +860,12 @@ module Util =
                     |> List.map (fun var -> VariableDeclaration(ident var, kind=Var) :> Statement)
                 let loc, bodyStatements =
                     match body with
-                    | U2.Case1 bodyBlock ->
+                    | Choice1Of2 bodyBlock ->
                         bodyBlock.loc, bodyBlock.body
-                    | U2.Case2 bodyExpr ->
+                    | Choice2Of2 bodyExpr ->
                         let returnStatement = ReturnStatement(bodyExpr, ?loc=bodyExpr.loc)
                         bodyExpr.loc, [returnStatement :> Statement]
-                block loc (varDeclStatements@bodyStatements) |> U2.Case1
+                block loc (varDeclStatements@bodyStatements) |> Choice1Of2
         args |> List.map (fun x -> x :> Pattern), body
 
     let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
@@ -875,7 +875,7 @@ module Util =
                 then TypeAnnotation(typeAnnotation com ctx typ) |> Some
                 else None
             ClassProperty(Identifier(name), ?typeAnnotation=typ)
-            |> U2<ClassMethod,_>.Case2
+            |> Choice<ClassMethod,_>.Choice2Of2
         let declareMethod range kind name args (body: Fable.Expr)
                           typeParams hasRestParams isStatic computed =
             let name, computed =
@@ -890,7 +890,7 @@ module Util =
                 getMemberArgsAndBody com ctx tc args body typeParams hasRestParams
             ClassMethod(kind, name, args, body, computed, isStatic,
                 ?returnType=returnType, ?typeParams=typeParams, ?loc=range)
-            |> U2<_,ClassProperty>.Case1
+            |> Choice<_,ClassProperty>.Choice1Of2
         let baseClass = baseClass |> Option.map (transformExpr com ctx)
         decls
         |> List.map (function
@@ -931,13 +931,13 @@ module Util =
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) =
         CallExpression(
             getCoreLibImport com ctx "Symbol" "setType",
-            [StringLiteral ent.FullName :> Expression |> U2.Case1
-            ; typeRef com ctx ent [] None |> U2.Case1])
+            [StringLiteral ent.FullName :> Expression |> Choice1Of2
+            ; typeRef com ctx ent [] None |> Choice1Of2])
         |> ExpressionStatement :> Statement
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
         let argv = macroExpression None "process.argv.slice(2)" []
-        let main = CallExpression (funcExpr, [U2.Case1 argv], ?loc=funcExpr.loc) :> Expression
+        let main = CallExpression (funcExpr, [Choice1Of2 argv], ?loc=funcExpr.loc) :> Expression
         // Don't exit the process after leaving main, as there may be a server running
         // ExpressionStatement(macroExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         ExpressionStatement(main, ?loc=funcExpr.loc) :> Statement
@@ -948,7 +948,7 @@ module Util =
         | true, Some modIdent -> assign range (get modIdent publicName) expr
         | _ -> expr
         |> varDeclaration range (identFromName privateName) isMutable :> Statement
-        |> U2.Case1 |> List.singleton
+        |> Choice1Of2 |> List.singleton
 
     let declareRootModMember range publicName privateName isPublic isMutable _
                              (expr: Expression) =
@@ -964,26 +964,26 @@ module Util =
                     ?returnType=e.returnType, ?typeParams=e.typeParameters, ?loc=e.loc)
             | _ -> upcast varDeclaration range privateIdent isMutable expr
         if not isPublic then
-            U2.Case1 (decl :> Statement) |> List.singleton
+            Choice1Of2 (decl :> Statement) |> List.singleton
         elif publicName = "default" then
             let exported =
                 match decl with
                 | :? VariableDeclaration as varDecl when List.isSingle varDecl.declarations ->
                     match varDecl.declarations.[0].init with
-                    | Some expr -> U2.Case2 expr
-                    | None -> U2.Case1 decl
-                | _ -> U2.Case1 decl
+                    | Some expr -> Choice2Of2 expr
+                    | None -> Choice1Of2 decl
+                | _ -> Choice1Of2 decl
             ExportDefaultDeclaration(exported, ?loc=range)
-            :> ModuleDeclaration |> U2.Case2 |> List.singleton
+            :> ModuleDeclaration |> Choice2Of2 |> List.singleton
         elif publicName = privateName then
             ExportNamedDeclaration(decl, ?loc=range)
-            :> ModuleDeclaration |> U2.Case2 |> List.singleton
+            :> ModuleDeclaration |> Choice2Of2 |> List.singleton
         else
             // Replace ident forbidden chars of root members, see #207
             let publicName = Naming.replaceIdentForbiddenChars publicName
             let expSpec = ExportSpecifier(privateIdent, Identifier publicName)
             let expDecl = ExportNamedDeclaration(specifiers=[expSpec])
-            [expDecl :> ModuleDeclaration |> U2.Case2; decl :> Statement |> U2.Case1]
+            [expDecl :> ModuleDeclaration |> Choice2Of2; decl :> Statement |> Choice1Of2]
 
     let transformModMember (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent
                            (m: Fable.Member, isPublic, privName, args, body, range) =
@@ -996,7 +996,7 @@ module Util =
                 // imported from ES2015 modules cannot be modified (see #986)
                 let expr = transformExpr com ctx body
                 let import = getCoreLibImport com ctx "Util" "createAtom"
-                upcast CallExpression(import, [U2.Case1 expr])
+                upcast CallExpression(import, [Choice1Of2 expr])
             | Fable.Method ->
                 let bodyRange = body.Range
                 let id = defaultArg privName m.OverloadName
@@ -1011,7 +1011,7 @@ module Util =
         let memberRange =
             match range, expr.loc with Some r1, Some r2 -> Some(r1 + r2) | _ -> None
         if m.HasDecorator("EntryPoint")
-        then declareEntryPoint com ctx expr |> U2.Case1 |> List.singleton
+        then declareEntryPoint com ctx expr |> Choice1Of2 |> List.singleton
         else
             let publicName = getPublicName m.OverloadName m
             helper.DeclareMember(memberRange, publicName, privName, isPublic, m.IsMutable, modIdent, expr)
@@ -1024,7 +1024,7 @@ module Util =
         let id = Identifier ent.Name
         let body = ObjectTypeAnnotation []
         InterfaceDeclaration(body, id, []) :> Statement
-        |> U2.Case1 |> List.singleton
+        |> Choice1Of2 |> List.singleton
 
     let declareClass com ctx (helper: IDeclareMember) modIdent
                      (ent: Fable.Entity, isPublic, privateName, entDecls, entRange, baseClass) =
@@ -1034,7 +1034,7 @@ module Util =
             let publicName = getPublicName ent.Name ent
             helper.DeclareMember(entRange, publicName, Some privateName, isPublic, false, modIdent, classExpr)
         let classDecl =
-            (declareType com ctx ent |> U2.Case1)::classDecl
+            (declareType com ctx ent |> Choice1Of2)::classDecl
         // Check if there's a static constructor
         entDecls |> Seq.exists (function
             | Fable.MemberDeclaration(m,_,_,_,_,_) ->
@@ -1048,7 +1048,7 @@ module Util =
             let cctor = MemberExpression(
                             typeRef com ctx ent [] None, StringLiteral ".cctor", true)
             ExpressionStatement(CallExpression(cctor, [])) :> Statement
-            |> U2.Case1 |> consBack classDecl
+            |> Choice1Of2 |> consBack classDecl
 
     let rec transformNestedModule com ctx (ent: Fable.Entity) entDecls entRange =
         let modIdent = Identifier Naming.exportsIdent
@@ -1060,12 +1060,12 @@ module Util =
                         declareNestedModMember a b c d e f g }
             transformModDecls com ctx helper (Some modIdent) entDecls
             |> List.map (function
-                | U2.Case1 statement -> statement
-                | U2.Case2 _ -> failwith "Unexpected export in nested module")
+                | Choice1Of2 statement -> statement
+                | Choice2Of2 _ -> failwith "Unexpected export in nested module")
         CallExpression(
             FunctionExpression([modIdent],
                 block entRange modDecls, ?loc=entRange),
-            [U2.Case1 (upcast ObjectExpression [])],
+            [Choice1Of2 (upcast ObjectExpression [])],
             ?loc=entRange)
 
     and transformModDecls (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent decls =
@@ -1075,10 +1075,10 @@ module Util =
         decls |> List.fold (fun acc decl ->
             match decl with
             | Patterns.Try pluginDeclare statements ->
-                (statements |> List.map U2.Case1) @ acc
+                (statements |> List.map Choice1Of2) @ acc
             | Fable.ActionDeclaration (e,_) ->
                 transformStatement com ctx e
-                |> List.map U2.Case1
+                |> List.map Choice1Of2
                 // The accumulated statements will be reverted,
                 // so we have to revert these too
                 |> List.rev
@@ -1109,7 +1109,7 @@ module Util =
             | None -> decls
             | Some modIdent ->
                 ReturnStatement modIdent
-                :> Statement |> U2.Case1
+                :> Statement |> Choice1Of2
                 |> consBack decls
             |> List.rev
 
@@ -1194,7 +1194,7 @@ module Compiler =
         let decls =
             let importFile = Array.last dependencies
             StringLiteral(Path.getRelativeFileOrDirPath false facadeFile false importFile)
-            |> ExportAllDeclaration :> ModuleDeclaration |> U2.Case2 |> List.singleton
+            |> ExportAllDeclaration :> ModuleDeclaration |> Choice2Of2 |> List.singleton
         Program(facadeFile, SourceLocation.Empty, decls, dependencies=dependencies)
 
     let transformFile (com: ICompiler) (state: ICompilerState) (file: Fable.File) =
@@ -1241,16 +1241,21 @@ module Compiler =
                     |> Option.map (fun localId ->
                         let localId = Identifier(localId)
                         match import.selector with
-                        | "*" -> ImportNamespaceSpecifier(localId) |> U3.Case3
-                        | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
-                        | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1)
+                        | "*" -> ImportNamespaceSpecifier(localId) |> Choice3Of3
+                        | "default" | "" -> ImportDefaultSpecifier(localId) |> Choice2Of3
+                        | memb -> ImportSpecifier(localId, Identifier memb) |> Choice1Of3)
                 import.path, specifier)
             |> Seq.groupBy (fun (path, _) -> path)
             |> Seq.collect (fun (path, specifiers) ->
                 let mems, defs, alls =
                     (([], [], []), Seq.choose snd specifiers)
                     ||> Seq.fold (fun (mems, defs, alls) x ->
-                        match x.``type`` with
+                        let t =
+                            match x with
+                            | Choice1Of3 x -> x.``type``
+                            | Choice2Of3 x -> x.``type``
+                            | Choice3Of3 x -> x.``type``
+                        match t with
                         | "ImportNamespaceSpecifier" -> mems, defs, x::alls
                         | "ImportDefaultSpecifier" -> mems, x::defs, alls
                         | _ -> x::mems, defs, alls)
@@ -1259,13 +1264,13 @@ module Compiler =
                 match [mems; defs; alls] with
                 | [[];[];[]] ->
                     // No specifiers, so this is just a import for side effects
-                    [ImportDeclaration([], StringLiteral path) :> ModuleDeclaration |> U2.Case2]
+                    [ImportDeclaration([], StringLiteral path) :> ModuleDeclaration |> Choice2Of2]
                 | specifiers ->
                     specifiers |> List.choose (function
                     | [] -> None
                     | specifiers ->
                         ImportDeclaration(specifiers, StringLiteral path)
-                        :> ModuleDeclaration |> U2.Case2 |> Some))
+                        :> ModuleDeclaration |> Choice2Of2 |> Some))
             // Return the Babel file
             |> fun importDecls ->
                  Program(file.SourcePath, file.Range, (Seq.toList importDecls)@rootDecls, dependencies=dependencies)
