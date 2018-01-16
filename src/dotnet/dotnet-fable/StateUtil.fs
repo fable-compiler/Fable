@@ -241,8 +241,7 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                         | NonFilePath p -> p.TrimEnd('/')
                       emitReplacements = Map.empty // TODO: Parse from message
                       typedArrays = msg.typedArrays
-                      clampByteArrays = msg.clampByteArrays
-                      declaration = msg.declaration }
+                      clampByteArrays = msg.clampByteArrays }
                 let com = Compiler(options=comOptions, plugins=loadPlugins msg.plugins)
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file

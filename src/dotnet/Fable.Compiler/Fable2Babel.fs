@@ -40,6 +40,7 @@ type ClassTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
         member __.Label = name
         member __.Args = argIds
         member __.ReplaceArgs = replaceArgs
+        // TODO: This probably won't work when class methods become module members
         member __.IsRecursiveRef(e) =
             match e with
             | Fable.Apply(Fable.Value Fable.This, [Fable.Value(Fable.StringConst name2)], Fable.ApplyGet, _, _) ->
@@ -252,64 +253,6 @@ module Util =
             | parts -> accessExpr parts None
             |> makeGeneric
 
-    let rec typeAnnotation com ctx typ: TypeAnnotationInfo =
-        let (|FullName|) (ent: Fable.Entity) = ent.FullName
-        match typ with
-        | Fable.Unit -> upcast VoidTypeAnnotation()
-        | Fable.Boolean -> upcast BooleanTypeAnnotation()
-        | Fable.String -> upcast StringTypeAnnotation()
-        | Fable.Number _ -> upcast NumberTypeAnnotation()
-        // TODO: Typed arrays?
-        | Fable.Array genArg ->
-            upcast GenericTypeAnnotation(
-                Identifier("Array"),
-                TypeParameterInstantiation([typeAnnotation com ctx genArg]))
-        | Fable.Tuple genArgs ->
-            List.map (typeAnnotation com ctx) genArgs
-            |> TupleTypeAnnotation
-            :> TypeAnnotationInfo
-        | Fable.Function(argTypes, returnType, _) ->
-            argTypes
-            |> List.mapi (fun i argType ->
-                FunctionTypeParam(
-                    Identifier("arg" + (string i)),
-                    typeAnnotation com ctx argType))
-            |> fun argTypes ->
-                FunctionTypeAnnotation(
-                    argTypes, typeAnnotation com ctx returnType)
-                :> TypeAnnotationInfo
-        | Fable.GenericParam name ->
-            upcast GenericTypeAnnotation(Identifier(name))
-        // TODO: Make union type annotation?
-        | Fable.Enum _ ->
-            upcast NumberTypeAnnotation()
-        | Fable.Option genArg ->
-            upcast NullableTypeAnnotation(typeAnnotation com ctx genArg)
-        | Fable.DeclaredType(FullName "System.Collections.Generic.IEnumerable", [genArg]) ->
-            upcast GenericTypeAnnotation(
-                Identifier("Iterable"),
-                TypeParameterInstantiation([typeAnnotation com ctx genArg]))
-        | Fable.DeclaredType(ent, genArgs) ->
-            try
-                match typeRef com ctx ent [] None with
-                | :? StringLiteral as str ->
-                    match str.value with
-                    | "number" -> upcast NumberTypeAnnotation()
-                    | "boolean" -> upcast BooleanTypeAnnotation()
-                    | "string" -> upcast StringTypeAnnotation()
-                    | _ -> upcast AnyTypeAnnotation()
-                | :? Identifier as id ->
-                    let typeParams =
-                        match List.map (typeAnnotation com ctx) genArgs  with
-                        | [] -> None
-                        | xs -> TypeParameterInstantiation(xs) |> Some
-                    upcast GenericTypeAnnotation(id, ?typeParams=typeParams)
-                // TODO: Resolve references to types in nested modules
-                | _ -> upcast AnyTypeAnnotation()
-            with
-            | _ -> upcast AnyTypeAnnotation()
-        | _ -> upcast AnyTypeAnnotation()
-
     let buildArray (com: IBabelCompiler) ctx consKind typ =
         match typ with
         | Fable.Number kind when com.Options.typedArrays ->
@@ -353,30 +296,19 @@ module Util =
     let macroExpression range (txt: string) args =
         MacroExpression(txt, args, ?loc=range) :> Expression
 
-    let getMemberArgsAndBody (com: IBabelCompiler) ctx tc args (body: Fable.Expr) typeParams hasRestParams =
-        let args', body' = com.TransformFunction ctx tc args body
-        let args, returnType, typeParams =
-            if com.Options.declaration then
-                args' |> List.mapi (fun i arg ->
-                    match arg with
-                    | :? Identifier as id ->
-                        Identifier(id.name,
-                            TypeAnnotation(typeAnnotation com ctx args.[i].Type))
-                        :> Pattern
-                    | arg -> arg),
-                TypeAnnotation(typeAnnotation com ctx body.Type) |> Some,
-                typeParams |> List.map TypeParameter |> TypeParameterDeclaration |> Some
-            else
-                args', None, None
+    let getMemberArgsAndBody (com: IBabelCompiler) ctx tc args (body: Fable.Expr) hasRestParams =
+        let args, body = com.TransformFunction ctx tc args body
         let args =
-            if not hasRestParams then args else
-            let args = List.rev args
-            (RestElement(args.Head) :> Pattern) :: args.Tail |> List.rev
+            if not hasRestParams
+            then args
+            else
+                let args = List.rev args
+                (RestElement(args.Head) :> Pattern) :: args.Tail |> List.rev
         let body =
-            match body' with
+            match body with
             | Choice1Of2 e -> e
             | Choice2Of2 e -> BlockStatement([ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
-        args, body, returnType, typeParams
+        args, body
 
     /// Wrap int expressions with `| 0` to help optimization of JS VMs
     let wrapIntExpression typ (e: Expression) =
@@ -446,16 +378,15 @@ module Util =
                     | Some e -> com.TransformExpr ctx e, true
                     | None -> sanitizeName m.Name
                 let makeMethod kind =
-                    let args, body', returnType, typeParams =
+                    let args, body' =
                         let tc =
                             match key with
                             | :? Identifier as id ->
                                 ClassTailCallOpportunity(com, id.name, args)
                                 :> ITailCallOpportunity |> Some
                             | _ -> None
-                        getMemberArgsAndBody com ctx tc args body m.GenericParameters m.HasRestParams
-                    ObjectMethod(kind, key, args, body', ?returnType=returnType,
-                        ?typeParams=typeParams, computed=computed, ?loc=body.Range)
+                        getMemberArgsAndBody com ctx tc args body m.HasRestParams
+                    ObjectMethod(kind, key, args, body', computed=computed, ?loc=body.Range)
                     |> Choice2Of3
                 match m.Kind with
                 | Fable.Constructor ->
@@ -517,10 +448,8 @@ module Util =
     // in a lambda to isolate its variable context
     let transformBlock (com: IBabelCompiler) ctx ret expr: BlockStatement =
         match ret with
-        | None ->
-            com.TransformStatement ctx expr |> block expr.Range
-        | Some ret ->
-            com.TransformExprAndResolve ctx ret expr |> block expr.Range
+        | None -> com.TransformStatement ctx expr |> block expr.Range
+        | Some ret -> com.TransformExprAndResolve ctx ret expr |> block expr.Range
 
     let transformSwitch (com: IBabelCompiler) ctx range returnStrategy (matchValue, cases, defaultCase) =
         let transformCase test branch =
@@ -579,38 +508,10 @@ module Util =
             | e -> transformBlock com ctx ret e :> Statement |> Some
         IfStatement(guardExpr, thenStmnt, ?alternate=elseStmnt, ?loc=r)
 
-    // TODO: Experimental support for Quotations
     let transformQuote com (ctx: Context) r _expr: Expression =
         "Quotations are not supported"
         |> addError com ctx.file.SourcePath r
         upcast NullLiteral ()
-        // let rec toJson (expr: obj): Expression =
-        //     match expr with
-        //     | :? Node ->
-        //         expr.GetType().GetProperties()
-        //         |> Seq.choose (fun p ->
-        //             match p.Name with
-        //             | "loc" -> None // Remove location to make the object lighter
-        //             | key ->
-        //                 let key = StringLiteral key
-        //                 let value = p.GetValue(expr) |> toJson
-        //                 Some(ObjectProperty(key, value)))
-        //         |> Seq.map Choice1Of3
-        //         |> Seq.toList
-        //         |> fun props -> upcast ObjectExpression(props)
-        //     | :? bool as expr -> upcast BooleanLiteral(expr)
-        //     | :? int as expr -> upcast NumericLiteral(Choice1Of2 expr)
-        //     | :? float as expr -> upcast NumericLiteral(Choice2Of2 expr)
-        //     | :? string as expr -> upcast StringLiteral(expr)
-        //     | expr when Json.isErasedUnion(expr.GetType()) ->
-        //         match Json.getErasedUnionValue expr with
-        //         | Some v -> toJson v
-        //         | None -> upcast NullLiteral()
-        //     | :? System.Collections.IEnumerable as expr ->
-        //         let xs = [for x in expr -> Choice1Of2(toJson x) |> Some]
-        //         upcast ArrayExpression(xs)
-        //     | _ -> failwithf "Unexpected expression inside quote %O" fExpr.Range
-        // toJson expr
 
     let transformStatement com ctx (expr: Fable.Expr): Statement list =
         match expr with
@@ -869,27 +770,23 @@ module Util =
         args |> List.map (fun x -> x :> Pattern), body
 
     let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
-        let declareProperty (com: IBabelCompiler) ctx name typ =
-            let typ =
-                if com.Options.declaration
-                then TypeAnnotation(typeAnnotation com ctx typ) |> Some
-                else None
-            ClassProperty(Identifier(name), ?typeAnnotation=typ)
+        let declareProperty (_com: IBabelCompiler) _ctx name =
+            ClassProperty(Identifier(name))
             |> Choice<ClassMethod,_>.Choice2Of2
-        let declareMethod range kind name args (body: Fable.Expr)
-                          typeParams hasRestParams isStatic computed =
+        let declareMethod range kind name args (body: Fable.Expr) hasRestParams isStatic computed =
             let name, computed =
                 match computed with
                 | Some e -> transformExpr com ctx e, true
                 | None -> sanitizeName name
-            let args, body, returnType, typeParams =
+            let args, body =
                 let tc =
                     match name with
-                    | :? Identifier as id -> ClassTailCallOpportunity(com, id.name, args) :> ITailCallOpportunity |> Some
+                    | :? Identifier as id ->
+                        ClassTailCallOpportunity(com, id.name, args)
+                        :> ITailCallOpportunity |> Some
                     | _ -> None
-                getMemberArgsAndBody com ctx tc args body typeParams hasRestParams
-            ClassMethod(kind, name, args, body, computed, isStatic,
-                ?returnType=returnType, ?typeParams=typeParams, ?loc=range)
+                getMemberArgsAndBody com ctx tc args body hasRestParams
+            ClassMethod(kind, name, args, body, computed, isStatic, ?loc=range)
             |> Choice<_,ClassProperty>.Choice1Of2
         let baseClass = baseClass |> Option.map (transformExpr com ctx)
         decls
@@ -902,31 +799,14 @@ module Util =
                     | Fable.Getter | Fable.Field -> ClassGetter, m.OverloadName, m.Location, m.Computed, body
                     | Fable.Setter -> ClassSetter, m.OverloadName, m.Location, m.Computed, body
                 let isStatic = loc = Fable.StaticLoc
-                declareMethod range kind name args body m.GenericParameters m.HasRestParams isStatic computed
+                declareMethod range kind name args body m.HasRestParams isStatic computed
             | Fable.ActionDeclaration _
             | Fable.EntityDeclaration _ as decl ->
                 failwithf "Unexpected declaration in class: %A" decl)
         |> fun members ->
             let id = ent |> Option.map (fun x -> identFromName x.Name)
-            let typeParams, members =
-                match com.Options.declaration, ent with
-                | true, Some ent ->
-                    let typeParams =
-                        ent.GenericParameters
-                        |> List.map TypeParameter
-                        |> TypeParameterDeclaration |> Some
-                    let props =
-                        match ent.Kind with
-                        | Fable.Union _ ->
-                            ["tag", (Fable.Number NumberKind.Int32)] // TODO: Add data?
-                            |> List.map (fun (name, typ) -> declareProperty com ctx name typ)
-                        | Fable.Record fields | Fable.Exception fields ->
-                            fields |> List.map (fun (name, typ) -> declareProperty com ctx name typ)
-                        | _ -> []
-                    typeParams, props@members
-                | _ -> None, members
             ClassExpression(ClassBody(members, ?loc=range),
-                    ?id=id, ?typeParams=typeParams, ?super=baseClass, ?loc=range)
+                            ?id=id, ?super=baseClass, ?loc=range)
 
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) =
         CallExpression(
@@ -950,8 +830,7 @@ module Util =
         |> varDeclaration range (identFromName privateName) isMutable :> Statement
         |> Choice1Of2 |> List.singleton
 
-    let declareRootModMember range publicName privateName isPublic isMutable _
-                             (expr: Expression) =
+    let declareRootModMember range publicName privateName isPublic isMutable _ (expr: Expression) =
         let privateName = defaultArg privateName publicName
         let privateIdent = identFromName privateName
         let decl: Declaration =
@@ -960,8 +839,7 @@ module Util =
                 upcast ClassDeclaration(e.body, privateIdent,
                     ?super=e.superClass, ?typeParams=e.typeParameters, ?loc=e.loc)
             | :? FunctionExpression as e ->
-                upcast FunctionDeclaration(privateIdent, e.``params``, e.body,
-                    ?returnType=e.returnType, ?typeParams=e.typeParameters, ?loc=e.loc)
+                upcast FunctionDeclaration(privateIdent, e.``params``, e.body, ?loc=e.loc)
             | _ -> upcast varDeclaration range privateIdent isMutable expr
         if not isPublic then
             Choice1Of2 (decl :> Statement) |> List.singleton
@@ -1000,12 +878,12 @@ module Util =
             | Fable.Method ->
                 let bodyRange = body.Range
                 let id = defaultArg privName m.OverloadName
-                let args, body, returnType, typeParams =
+                let args, body =
                     let tc = NamedTailCallOpportunity(com, id, args) :> ITailCallOpportunity
-                    getMemberArgsAndBody com ctx (Some tc) args body m.GenericParameters false
+                    getMemberArgsAndBody com ctx (Some tc) args body false
                 // Don't lexically bind `this` (with arrow function) or
                 // it will fail with extension members
-                upcast FunctionExpression(args, body, ?returnType=returnType, ?typeParams=typeParams, ?loc=bodyRange)
+                upcast FunctionExpression(args, body, ?loc=bodyRange)
             | Fable.Constructor | Fable.Setter ->
                 failwithf "Unexpected member in module %O: %A" modIdent m.Kind
         let memberRange =
@@ -1015,16 +893,6 @@ module Util =
         else
             let publicName = getPublicName m.OverloadName m
             helper.DeclareMember(memberRange, publicName, privName, isPublic, m.IsMutable, modIdent, expr)
-
-    let declareInterfaceEntity (com: IBabelCompiler) (ent: Fable.Entity) =
-        // TODO: Add `extends` (inherited interfaces)
-        // TODO: Add generic parameters
-        // TODO: Add abstract methods
-        if not com.Options.declaration then [] else
-        let id = Identifier ent.Name
-        let body = ObjectTypeAnnotation []
-        InterfaceDeclaration(body, id, []) :> Statement
-        |> Choice1Of2 |> List.singleton
 
     let declareClass com ctx (helper: IDeclareMember) modIdent
                      (ent: Fable.Entity, isPublic, privateName, entDecls, entRange, baseClass) =
@@ -1090,7 +958,7 @@ module Util =
             | Fable.EntityDeclaration (ent, isPublic, privName, entDecls, entRange) ->
                 match ent.Kind with
                 | Fable.Interface ->
-                    declareInterfaceEntity com ent
+                    []
                 | Fable.Class(baseClass, _) ->
                     let baseClass = baseClass |> Option.map snd
                     declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, baseClass)

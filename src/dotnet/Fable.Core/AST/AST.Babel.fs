@@ -1,7 +1,6 @@
 namespace Fable.AST.Babel
 open Fable
 open Fable.AST
-open System.Collections.Generic
 
 /// The type field is a string representing the AST variant type.
 /// Each subtype of Node is documented below with the specific string of its type field.
@@ -276,16 +275,13 @@ type ForOfStatement(left, right, body, ?loc) =
     member __.right: Expression = right
 
 /// A function declaration. Note that id cannot be null.
-type FunctionDeclaration(id, ``params``, body, ?generator, ?async,
-                         ?returnType, ?typeParams, ?loc) =
+type FunctionDeclaration(id, ``params``, body, ?generator, ?async, ?loc) =
     inherit Declaration("FunctionDeclaration", ?loc = loc)
     member __.id: Identifier = id
     member __.``params``: Pattern list = ``params``
     member __.body: BlockStatement = body
     member __.generator = defaultArg generator false
     member __.async = defaultArg async false
-    member __.typeParameters: TypeParameterDeclaration option = typeParams
-    member __.returnType: TypeAnnotation option = returnType
 
 (** ##Expressions *)
 
@@ -305,16 +301,13 @@ type ArrowFunctionExpression(``params``, body, ?async, ?loc) =
     member __.body: Choice<BlockStatement, Expression> = body
     member __.async: bool = defaultArg async false
 
-type FunctionExpression(``params``, body, ?generator, ?async,
-                        ?id, ?returnType, ?typeParams, ?loc) =
+type FunctionExpression(``params``, body, ?generator, ?async, ?id, ?loc) =
     inherit Expression("FunctionExpression", ?loc = loc)
     member __.id: Identifier option = id
     member __.``params``: Pattern list = ``params``
     member __.body: BlockStatement = body
     member __.generator: bool = defaultArg generator false
     member __.async: bool = defaultArg async false
-    member __.typeParameters: TypeParameterDeclaration option = typeParams
-    member __.returnType: TypeAnnotation option = returnType
 
 /// e.g., x = do { var t = f(); t * t + 1 };
 /// http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
@@ -364,8 +357,7 @@ type ObjectProperty(key, value, ?shorthand, ?computed, ?loc) =
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
-type ObjectMethod(kind, key, ``params``, body, ?computed, ?generator,
-                  ?async, ?returnType, ?typeParams, ?loc) =
+type ObjectMethod(kind, key, ``params``, body, ?computed, ?generator, ?async, ?loc) =
     inherit ObjectMember("ObjectMethod", key, ?computed=computed, ?loc=loc)
     member __.kind =
         match kind with
@@ -376,8 +368,6 @@ type ObjectMethod(kind, key, ``params``, body, ?computed, ?generator,
     member __.body: BlockStatement = body
     member __.generator: bool = defaultArg generator false
     member __.async: bool = defaultArg async false
-    member __.returnType: TypeAnnotation option = returnType
-    member __.typeParameters: TypeParameterDeclaration option = typeParams
 
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
@@ -528,8 +518,7 @@ type RestElement(argument, ?loc) =
 type ClassMethodKind =
     | ClassConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(kind, key, ``params``, body, computed, ``static``,
-                 ?returnType, ?typeParams, ?loc) =
+type ClassMethod(kind, key, ``params``, body, computed, ``static``, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     member __.kind =
         match kind with
@@ -542,8 +531,6 @@ type ClassMethod(kind, key, ``params``, body, computed, ``static``,
     member __.body: BlockStatement = body
     member __.computed: bool = computed
     member __.``static``: bool = ``static``
-    member __.returnType: TypeAnnotation option = returnType
-    member __.typeParameters: TypeParameterDeclaration option = typeParams
     // member __.decorators: Decorator list = defaultArg decorators []
     // This appears in astexplorer.net but it's not documented
     // member __.expression: bool = false
@@ -640,71 +627,3 @@ type ExportDefaultDeclaration(declaration, ?loc) =
 type ExportAllDeclaration(source, ?loc) =
     inherit ModuleDeclaration("ExportAllDeclaration", ?loc = loc)
     member __.source: Literal = source
-
-(** ##Type Annotations *)
-
-type StringTypeAnnotation() =
-    inherit TypeAnnotationInfo("StringTypeAnnotation")
-
-type NumberTypeAnnotation() =
-    inherit TypeAnnotationInfo("NumberTypeAnnotation")
-
-type BooleanTypeAnnotation() =
-    inherit TypeAnnotationInfo("BooleanTypeAnnotation")
-
-type AnyTypeAnnotation() =
-    inherit TypeAnnotationInfo("AnyTypeAnnotation")
-
-type VoidTypeAnnotation() =
-    inherit TypeAnnotationInfo("VoidTypeAnnotation")
-
-type TupleTypeAnnotation(types) =
-    inherit TypeAnnotationInfo("TupleTypeAnnotation")
-    member __.types: TypeAnnotationInfo list = types
-
-type FunctionTypeParam(name, typeInfo, ?optional) =
-    member __.``type`` = "FunctionTypeParam"
-    member __.name: Identifier = name
-    member __.typeAnnotation: TypeAnnotationInfo = typeInfo
-    member __.optional = defaultArg optional false
-
-type FunctionTypeAnnotation(``params``, returnType, ?rest) =
-    inherit TypeAnnotationInfo("FunctionTypeAnnotation")
-    member __.``params``: FunctionTypeParam list = ``params``
-    member __.rest: FunctionTypeParam option = rest
-    member __.returnType: TypeAnnotationInfo = returnType
-
-type NullableTypeAnnotation(typ) =
-    inherit TypeAnnotationInfo("NullableTypeAnnotation")
-    member __.typeAnnotation: TypeAnnotationInfo = typ
-
-type GenericTypeAnnotation(id, ?typeParams) =
-    inherit TypeAnnotationInfo("GenericTypeAnnotation")
-    member __.id: Identifier = id
-    member __.typeParameters: TypeParameterInstantiation option = typeParams
-
-type ObjectTypeProperty(key, value, ?isStatic, ?isOptional) =
-    inherit Node("ObjectTypeProperty")
-    member __.key: Identifier = key
-    member __.value: TypeAnnotationInfo = value
-    member __.``static``: bool = defaultArg isStatic false
-    member __.optional: bool = defaultArg isOptional false
-
-type ObjectTypeAnnotation(properties) =
-    inherit TypeAnnotationInfo("ObjectTypeAnnotation")
-    member __.properties: obj list = []
-    member __.callProperties: obj list = []
-    member __.indexers: obj list = []
-
-type InterfaceExtends(id, ?typeParams) =
-    member __.``type`` = "InterfaceExtends"
-    member __.id: Identifier = id
-    member __.typeParameters: TypeParameterInstantiation option = typeParams
-
-type InterfaceDeclaration(body, id, extends, ?typeParams, ?loc) =
-    inherit Declaration("InterfaceDeclaration", ?loc = loc)
-    member __.body: ObjectTypeAnnotation = body
-    member __.id: Identifier = id
-    member __.extends: InterfaceExtends list = extends
-    member __.typeParameters: TypeParameterDeclaration option = typeParams
-    // member __.mixins

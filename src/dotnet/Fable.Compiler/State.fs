@@ -3,10 +3,8 @@ module Fable.State
 open Fable
 open Fable.AST
 open System
-open System.Reflection
 open System.Collections.Concurrent
 open System.Collections.Generic
-open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 #if FABLE_COMPILER
@@ -104,8 +102,7 @@ let getDefaultOptions(replacements) =
     { fableCore = getDefaultFableCore()
       emitReplacements = replacements
       typedArrays = true
-      clampByteArrays = false
-      declaration = false }
+      clampByteArrays = false }
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file

@@ -4,9 +4,7 @@ type CompilerOptions =
     { fableCore: string
       emitReplacements: Map<string, string>
       typedArrays: bool
-      clampByteArrays: bool
-      /// ATTENTION: This is not working at the moment
-      declaration: bool }
+      clampByteArrays: bool }
 
 [<RequireQualifiedAccess>]
 type Severity =

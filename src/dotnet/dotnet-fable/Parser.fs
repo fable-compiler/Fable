@@ -11,7 +11,6 @@ type Message =
       define: string[]
       plugins: string[]
       fableCore: string option
-      declaration: bool
       typedArrays: bool
       clampByteArrays: bool
       extra: IDictionary<string,string> }
@@ -97,7 +96,6 @@ let parse (msg: string) =
         |> Array.distinct
       plugins = parseStringArray [||] "plugins" json
       fableCore = tryParseString "fableCore" json
-      declaration = parseBoolean false "declaration" json
       typedArrays = parseBoolean true "typedArrays" json
       clampByteArrays = parseBoolean false "clampByteArrays" json
       extra = parseDic "extra" json }
