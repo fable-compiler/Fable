@@ -337,6 +337,15 @@ module Patterns =
             when tdef.TryFullName = Some "Microsoft.FSharp.Collections.FSharpList`1" -> Some t
         | _ -> None
 
+    let (|MaybeWrapped|_|) = function
+        // TODO: Ask why application without arguments happen. So far I've seen it
+        // to access None or struct values (like the Result type)
+        | Application(expr,_,[]) -> Some expr
+        // TODO: Ask about this. I've seen it when accessing Result types
+        // (applicable to all structs?)
+        | AddressOf(expr) -> Some expr
+        | _ -> None
+
     let (|ThisVar|_|) = function
         | BasicPatterns.ThisValue _ -> Some ThisVar
         | BasicPatterns.Value var when
@@ -407,22 +416,15 @@ module Patterns =
                 else Some(List.rev args, List.rev tupleDestructs, body)
         flattenLambda [] [] fsExpr
 
-    // TODO: Careful with this. If the treatment of these expressions change
-    // this needs to change as well
-    let (|MaybeErased|) = function
-        | Application(expr,_,[]) -> expr
-        | AddressOf(expr) -> expr
-        | expr -> expr
-
     let (|ImmutableBinding|_|) = function
         | Let((var, boundExpr), body) when not var.IsMutable ->
             match boundExpr with
             // This is a bit dangerous if the lambda is referenced multiple times, but when the binding is generated
             // by the compiler (which happens often in pipe chains) this is not usually the case
             | Lambda _ when var.IsCompilerGenerated -> Some((var, boundExpr), body)
-            | MaybeErased(Value v as value) when not v.IsMutable && not v.IsMemberThisValue -> Some((var, value), body)
-            | Const _ -> Some((var, boundExpr), body)
-            | UnionCaseGet(MaybeErased(Value v),_,_,_) when not v.IsMutable -> Some((var, boundExpr), body)
+            // | Value v as value when not v.IsMutable && not v.IsMemberThisValue -> Some((var, value), body)
+            // | Const _ -> Some((var, boundExpr), body)
+            | UnionCaseGet(Value v,_,_,_) when not v.IsMutable -> Some((var, boundExpr), body)
             | TupleGet(_,_,Value v) when not v.IsMutable -> Some((var, boundExpr), body)
             | FSharpFieldGet(Some(Value v),_,fi) when not v.IsMutable && not fi.IsMutable -> Some((var, boundExpr), body)
             | _ -> None
@@ -441,9 +443,9 @@ module Patterns =
     /// This matches the boilerplate generated to wrap .NET events from F#
     let (|CreateEvent|_|) = function
         | Call(Some(Call(None, createEvent,_,_,
-                        [Lambda(eventDelegate, Call(Some callee, addEvent,[],[],[Value eventDelegate']));
-                         Lambda(eventDelegate2, Call(Some callee2, removeEvent,[],[],[Value eventDelegate2']));
-                         Lambda(callback, NewDelegate(_, Lambda(delegateArg0, Lambda(delegateArg1, Application(Value callback',[],[Value delegateArg0'; Value delegateArg1'])))))])),
+                        [Lambda(_eventDelegate, Call(Some callee, addEvent,[],[],[Value _eventDelegate']));
+                         Lambda(_eventDelegate2, Call(Some _callee2, _removeEvent,[],[],[Value _eventDelegate2']));
+                         Lambda(_callback, NewDelegate(_, Lambda(_delegateArg0, Lambda(_delegateArg1, Application(Value _callback',[],[Value _delegateArg0'; Value _delegateArg1'])))))])),
                 meth, typArgs, methTypArgs, args)
                 when createEvent.FullName = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent" ->
             let eventName = addEvent.CompiledName.Replace("add_","")
@@ -510,10 +512,10 @@ module Patterns =
             if not typ.HasTypeDefinition then false else
             match typ.TypeDefinition.TryFullName with
             | Some("System.String") -> true
-            | Some(NumberKind kind) -> true
+            | Some(NumberKind _) -> true
             | _ when typ.TypeDefinition.IsEnum -> true
             | _ -> false
-        let rec makeSwitch isUnionType size map matchValue e =
+        let rec makeSwitch size map matchValue e =
             match e with
             | IfThenElse(Call(None,op_Equality,[],_,[Value var; Const(case,_)]), DecisionTreeSuccess(idx, bindings), elseExpr)
                     when op_Equality.CompiledName.Equals("op_Equality") ->
@@ -549,12 +551,12 @@ module Patterns =
                     match map, elseExpr with
                     | Some map, DecisionTreeSuccess(idx, bindings) ->
                         Some(matchValue, isUnionType, size + 1, map, (idx, bindings))
-                    | Some map, elseExpr -> makeSwitch isUnionType (size + 1) map (Some matchValue) elseExpr
+                    | Some map, elseExpr -> makeSwitch (size + 1) map (Some matchValue) elseExpr
                     | None, _ -> None
                 | None -> None
         match fsExpr with
         | DecisionTree(decisionExpr, decisionTargets) ->
-            match makeSwitch false 0 Map.empty None decisionExpr with
+            match makeSwitch 0 Map.empty None decisionExpr with
             // For small sizes it's better not to convert to switch so
             // the match is still a expression and not a statement
             | Some(matchValue, isUnionType, size, cases, defaultCase) when size > 3 ->
@@ -570,7 +572,6 @@ module Types =
     open Helpers
     open Patterns
 
-    // TODO: Exclude attributes meant to be compiled to JS
     let rec isAttributeEntity (ent: FSharpEntity) =
         match ent.BaseType with
         | Some (NonAbbreviatedType t) when t.HasTypeDefinition ->
@@ -581,7 +582,7 @@ module Types =
 
     // Some attributes (like ComDefaultInterface) will throw an exception
     // when trying to access ConstructorArguments
-    let makeDecorator (com: IFableCompiler) (att: FSharpAttribute) =
+    let makeDecorator (att: FSharpAttribute) =
         try
             let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
             let fullName =
@@ -722,7 +723,7 @@ module Types =
         Fable.Member(name, kind, loc, argTypes, returnType,
             originalType = originalTyp,
             genParams = (meth.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList),
-            decorators = (meth.Attributes |> Seq.choose (makeDecorator com) |> Seq.toList),
+            decorators = (meth.Attributes |> Seq.choose makeDecorator |> Seq.toList),
             isMutable = meth.IsMutable,
             ?overloadIndex = overloadIndex,
             hasRestParams = hasRestParams meth)
@@ -837,7 +838,7 @@ module Types =
             |> Seq.toList
         let decs =
             tdef.Attributes
-            |> Seq.choose (makeDecorator com)
+            |> Seq.choose makeDecorator
             |> Seq.toList
         Fable.Entity (lazy getKind(), com.TryGetInternalFile tdef,
             sanitizeEntityFullName tdef, lazy getMembers com tdef, genParams, infcs, decs)
@@ -846,7 +847,6 @@ module Types =
     let inline (|FableType|) com (ctx: Context) t = makeType com ctx.typeArgs t
 
 module Identifiers =
-    open Helpers
     open Types
 
     let bindExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) expr =
@@ -986,7 +986,7 @@ module Util =
             callee = callee
             args = args
             returnType = typ
-            decorators = atts |> Seq.choose (makeDecorator com) |> Seq.toList
+            decorators = atts |> Seq.choose makeDecorator |> Seq.toList
             calleeTypeArgs = typArgs |> List.map (makeType com ctx.typeArgs)
             methodTypeArgs = methTypArgs |> List.map (makeType com ctx.typeArgs)
             methodArgTypes = methArgTypes
@@ -1161,7 +1161,7 @@ module Util =
     let (|Imported|_|) com ctx r typ i (typArgs, methTypArgs) (args: Fable.Expr list)
                         (meth: FSharpMemberOrFunctionOrValue) =
         meth.Attributes
-        |> Seq.choose (makeDecorator com)
+        |> Seq.choose makeDecorator
         |> tryImported (lazy sanitizeMethodName meth)
         |> function
             | Some expr ->

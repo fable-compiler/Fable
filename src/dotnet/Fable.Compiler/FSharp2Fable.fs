@@ -514,6 +514,20 @@ let private transformSwitch com ctx (fsExpr: FSharpExpr) (matchValue: FSharpMemb
 
 let private transformExpr (com: IFableCompiler) ctx fsExpr =
     match fsExpr with
+    (** ## Erased *)
+    | MaybeWrapped(Transform com ctx expr) -> expr
+
+    // TODO: Some cases of coertion shouldn't be erased
+    // string :> seq #1279
+    // list :> seq in Fable 2.0
+    // concrete type :> interface in Fable 2.0
+    | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
+
+    // TypeLambda is a local generic lambda
+    // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
+    // Sometimes these must be inlined, but that's resolved in BasicPatterns.Let (see below)
+    | BasicPatterns.TypeLambda (_genArgs, Transform com ctx lambda) -> lambda
+
     (** ## Custom patterns *)
     | SpecialValue com ctx replacement ->
         replacement
@@ -545,17 +559,6 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> addWarning com ctx.fileName (makeRange fsExpr.Range |> Some)
         Fable.Value Fable.This
 
-    (** ## Erased *)
-    | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
-
-    // TypeLambda is a local generic lambda
-    // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
-    // Sometimes these must be inlined, but that's resolved in BasicPatterns.Let (see below)
-    | BasicPatterns.TypeLambda (_genArgs, Transform com ctx lambda) -> lambda
-
-    // TODO: Ask about this. I've seen it when accessing Result types (applicable to all structs?)
-    | BasicPatterns.AddressOf(Transform com ctx lvalueExpr) -> lvalueExpr
-
     (** ## Flow control *)
     | BasicPatterns.FastIntegerForLoop(Transform com ctx start, Transform com ctx limit, body, isUp) ->
         match body with
@@ -578,7 +581,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             Replacements.checkLiteral com ctx.fileName (makeRangeFrom fsExpr) value typ
             Fable.Wrapped (e, typ)
 
-    | BasicPatterns.BaseValue typ ->
+    | BasicPatterns.BaseValue _typ ->
         Fable.Super |> Fable.Value
 
     | BasicPatterns.ThisValue _typ ->
@@ -664,9 +667,6 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> addErrorAndReturnNull com ctx.fileName (Some range)
 
     | FlattenedApplication(Transform com ctx callee, _typeArgs, args) ->
-        // TODO: Ask why application without arguments happen. So far I've seen it for
-        // accessing None or struct values (like the Result type)
-        if args.Length = 0 then callee else
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
         let args = List.map (transformExpr com ctx) args
         match callee.Type with
@@ -744,9 +744,6 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
                 makeGet range typ data (makeIntConst i)
             else
                 makeGet range typ unionExpr (makeStrConst "data")
-
-    | BasicPatterns.ILFieldSet (callee, typ, fieldName, value) ->
-        failwithf "Unsupported ILField reference %O: %A" (makeRange fsExpr.Range) fsExpr
 
     // When using a self reference in constructor (e.g. `type MyType() as self =`)
     // the F# compiler introduces artificial statements that we must ignore
@@ -862,6 +859,7 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     (** Not implemented *)
     | BasicPatterns.ILAsm _
     | BasicPatterns.ILFieldGet _
+    | BasicPatterns.ILFieldSet _
     | BasicPatterns.AddressSet _ // (lvalueExpr, rvalueExpr)
     | _ -> failwithf "Cannot compile expression in %O: %A"
                      (makeRange fsExpr.Range) fsExpr
