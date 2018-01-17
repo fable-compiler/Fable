@@ -315,7 +315,7 @@ module Patterns =
     let inline (|Rev|) x = List.rev x
     let inline (|AsArray|) x = Array.ofSeq x
     let inline (|LazyValue|) (x: Lazy<'T>) = x.Value
-    let inline (|Transform|) (com: IFableCompiler) x = com.Transform x
+    let inline (|Transform|) (com: IFableCompiler) ctx = com.Transform ctx
     let inline (|FieldName|) (fi: FSharpField) = fi.Name
     let inline (|ExprType|) (expr: Fable.Expr) = expr.Type
     let inline (|EntityKind|) (ent: Fable.Entity) = ent.Kind
@@ -352,7 +352,7 @@ module Patterns =
             Some ThisVar
         | _ -> None
 
-    let (|ForOf|_|) = function
+    let (|ForOfLoop|_|) = function
         | Let((_, value),
               Let((_, Call(None, meth, _, [], [])),
                 TryFinally(
@@ -875,7 +875,7 @@ module Identifiers =
     let (|BindIdent|) = bindIdentFrom
 
     /// Get corresponding identifier to F# value in current scope
-    let tryGetBoundExpr (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
+    let tryGetBoundExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) =
         ctx.scope
         |> List.tryFind (fst >> function Some fsRef' -> obj.Equals(fsRef, fsRef') | None -> false)
         |> function
@@ -1286,7 +1286,7 @@ module Util =
         | Replaced com ctx owner i replaced -> replaced
         | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         | ExtensionMember com ctx r typ (callee, args, methArgTypes) owner expr -> expr
-        | Try (tryGetBoundExpr ctx r) e ->
+        | Try (tryGetBoundExpr ctx) e ->
             match getMemberKind meth with
             | Fable.Getter | Fable.Field -> e
             | Fable.Setter -> Fable.Set (e, None, args.Head, r)
@@ -1353,7 +1353,7 @@ module Util =
 
     let makeValueFrom com ctx r typ eraseUnit (v: FSharpMemberOrFunctionOrValue) =
         let resolveValue com ctx r typ owner v =
-            match tryGetBoundExpr ctx r v with
+            match tryGetBoundExpr ctx v with
             | Some e -> e
             | None ->
                 let typ, typeRef =
