@@ -2048,8 +2048,8 @@ module AstPass =
                 // Array.truncate count array
                 emit i "$1.slice(0, $0)" i.args |> Some
             // JS native Array.map, which accepts a 3-argument function,
-            // conflicts with dynamic CurriedLambda. Also, allocating the array
-            // in advance seems to be more performant
+            // conflicts with dynamically curried lambdas. Also, allocating
+            // the array in advance seems to be more performant.
             | "map" | "mapIndexed"  ->
                 let arrayCons =
                     match i.returnType with

@@ -563,3 +563,35 @@ export function clear<T>(col: Iterable<T>) {
     (col as any).clear();
   }
 }
+
+export interface ICurried {
+  curried?: boolean;
+  (...args: any[]): any;
+}
+
+export function curry(f: ICurried, expectedArgsLength?: number): any {
+  if (f.curried === true) {
+    return f;
+  }
+  const curriedFn: ICurried = (...args: any[]) => {
+    const args2 = args.map((x) => typeof x === "function" ? curry(x) : x);
+    const actualArgsLength = Math.max(args2.length, 1);
+    expectedArgsLength = Math.max(expectedArgsLength || f.length, 1);
+    if (actualArgsLength >= expectedArgsLength) {
+      const restArgs = args2.splice(expectedArgsLength);
+      const res = f(...args2);
+      if (typeof res === "function") {
+        const newLambda = curry(res);
+        return restArgs.length === 0 ? newLambda : newLambda(...restArgs);
+      } else {
+        return res;
+      }
+    } else {
+      return curry((...args3: any[]) => {
+        return f(...args2.concat(args3));
+      }, expectedArgsLength - actualArgsLength);
+    }
+  };
+  curriedFn.curried = true;
+  return curriedFn;
+}

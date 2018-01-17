@@ -507,16 +507,16 @@ let argIdentToExpr (id: Ident) =
     | _ -> IdentValue id |> Value
 
 let makeDynamicCurriedLambda range typ lambda =
-    CoreLibCall("CurriedLambda", None, false, [lambda])
+    CoreLibCall("Util", Some "curry", false, [lambda])
     |> makeCall range typ
 
 let makeDynamicCurriedLambdaAndApply range typ (lambda: Expr) args =
     let lambda = makeDynamicCurriedLambda lambda.Range (Function([Any], Any, true)) lambda
     Apply(lambda, args, ApplyMeth, typ, range)
 
-let (|CurriedLambda|_|) = function
-    | Apply(Value(ImportRef("default", "CurriedLambda", CoreLib)),_,_,_,_) ->
-        Some CurriedLambda
+let (|Curried|_|) = function
+    | Apply(Value(ImportRef("curry", "Util", CoreLib)),_,_,_,_) ->
+        Some Curried
     | _ -> None
 
 // Deal with function arguments with higher arity than expected
@@ -567,8 +567,8 @@ let rec ensureArity com argTypes args =
     List.zip argTypes args
     |> List.map (fun (argType, arg: Expr) ->
         match argType, arg with
-        // Dynamic CurriedLambda shouldn't be wrapped, see #996
-        | _, (CurriedLambda as curriedLambda) -> curriedLambda
+        // Dynamically curried lambdas shouldn't be wrapped, see #996
+        | _, (Curried as curriedLambda) -> curriedLambda
         // If the expected type is a generic parameter, we cannot infer the arity
         // so generate a dynamic curried lambda just in case.
         | GenericParam _, (Type(Function(args,_,isCurried)) as lambda)
@@ -580,8 +580,8 @@ let rec ensureArity com argTypes args =
 
 and makeApply com range typ callee (args: Expr list) =
     match callee with
-    // Dynamic CurriedLambda shouldn't be wrapped, see #996
-    | MaybeWrapped(CurriedLambda _) -> Apply(callee, args, ApplyMeth, typ, range)
+    // Dynamically curried lambdas shouldn't be wrapped, see #996
+    | MaybeWrapped(Curried _) -> Apply(callee, args, ApplyMeth, typ, range)
     // Make necessary transformations if we're applying more or less
     // arguments than the specified function arity
     | Type(Function(argTypes, _, _)) ->
