@@ -82,7 +82,7 @@ type IBabelCompiler =
     abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
         Fable.Declaration list -> ClassExpression
     abstract TransformObjectExpr: Context -> Fable.ObjExprMember list ->
-        Fable.Expr option -> SourceLocation option -> Expression
+        SourceLocation option -> Expression
 
 and IDeclarePlugin =
     inherit IPlugin
@@ -206,7 +206,7 @@ module Util =
                 genArgs |> List.map (fun (name, expr) ->
                     let m = Fable.Member(name, Fable.Field, Fable.InstanceLoc, [], Fable.Any)
                     m, [], expr)
-                |> fun ms -> com.TransformObjectExpr ctx ms None None
+                |> fun ms -> com.TransformObjectExpr ctx ms None
                 |> fun genArgs ->
                     upcast CallExpression(
                         getCoreLibImport com ctx "Util" "makeGeneric",
@@ -362,45 +362,36 @@ module Util =
         | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ ->
             "Unexpected stand-alone operator detected" |> Fable.Util.attachRange r |> failwith
 
-    let transformObjectExpr (com: IBabelCompiler) ctx
-                            (members, baseClass, range): Expression =
-        match baseClass with
-        | Some _ as baseClass ->
-            members
-            |> List.map (fun (m, args, body: Fable.Expr) ->
-                Fable.MemberDeclaration(m, true, None, args, body, body.Range))
-            |> com.TransformClass ctx range baseClass
-            |> fun c -> upcast NewExpression(c, [], ?loc=range)
-        | None ->
-            members |> List.map (fun (m: Fable.Member, args, body: Fable.Expr) ->
-                let key, computed =
-                    match m.Computed with
-                    | Some e -> com.TransformExpr ctx e, true
-                    | None -> sanitizeName m.Name
-                let makeMethod kind =
-                    let args, body' =
-                        let tc =
-                            match key with
-                            | :? Identifier as id ->
-                                ClassTailCallOpportunity(com, id.name, args)
-                                :> ITailCallOpportunity |> Some
-                            | _ -> None
-                        getMemberArgsAndBody com ctx tc args body m.HasRestParams
-                    ObjectMethod(kind, key, args, body', computed=computed, ?loc=body.Range)
-                    |> Choice2Of3
-                match m.Kind with
-                | Fable.Constructor ->
-                    "Unexpected constructor in Object Expression"
-                    |> Fable.Util.attachRange range |> failwith
-                | Fable.Method -> makeMethod ObjectMeth
-                | Fable.Setter -> makeMethod ObjectSetter
-                | Fable.Getter -> makeMethod ObjectGetter
-                | Fable.Field ->
-                    ObjectProperty(key, com.TransformExpr ctx body,
-                            computed=computed, ?loc=body.Range)
-                    |> Choice1Of3)
-            |> fun props ->
-                upcast ObjectExpression(props, ?loc=range)
+    let transformObjectExpr (com: IBabelCompiler) ctx members range: Expression =
+        members |> List.map (fun (m: Fable.Member, args, body: Fable.Expr) ->
+            let key, computed =
+                match m.Computed with
+                | Some e -> com.TransformExpr ctx e, true
+                | None -> sanitizeName m.Name
+            let makeMethod kind =
+                let args, body' =
+                    let tc =
+                        match key with
+                        | :? Identifier as id ->
+                            ClassTailCallOpportunity(com, id.name, args)
+                            :> ITailCallOpportunity |> Some
+                        | _ -> None
+                    getMemberArgsAndBody com ctx tc args body m.HasRestParams
+                ObjectMethod(kind, key, args, body', computed=computed, ?loc=body.Range)
+                |> Choice2Of3
+            match m.Kind with
+            | Fable.Constructor ->
+                "Unexpected constructor in Object Expression"
+                |> Fable.Util.attachRange range |> failwith
+            | Fable.Method -> makeMethod ObjectMeth
+            | Fable.Setter -> makeMethod ObjectSetter
+            | Fable.Getter -> makeMethod ObjectGetter
+            | Fable.Field ->
+                ObjectProperty(key, com.TransformExpr ctx body,
+                        computed=computed, ?loc=body.Range)
+                |> Choice1Of3)
+        |> fun props ->
+            upcast ObjectExpression(props, ?loc=range)
 
     let transformApply com ctx (callee, args, kind, range): Expression =
         let args =
@@ -595,8 +586,8 @@ module Util =
         match expr with
         | Fable.Value kind -> transformValue com ctx expr.Range kind
 
-        | Fable.ObjExpr (members, _, baseClass, _) ->
-            transformObjectExpr com ctx (members, baseClass, expr.Range)
+        | Fable.ObjExpr (members, r) ->
+            transformObjectExpr com ctx members r
 
         | Fable.Wrapped (TransformExpr com ctx expr, _) -> expr
 
@@ -647,8 +638,8 @@ module Util =
             transformValue com ctx expr.Range kind
             |> wrapIntExpression expr.Type |> resolve ret |> List.singleton
 
-        | Fable.ObjExpr (members, _, baseClass, _) ->
-            transformObjectExpr com ctx (members, baseClass, expr.Range)
+        | Fable.ObjExpr (members, r) ->
+            transformObjectExpr com ctx members r
             |> resolve ret |> List.singleton
 
         | Fable.Wrapped (TransformExpr com ctx expr, _) ->
@@ -1046,8 +1037,8 @@ module Util =
             member bcom.TransformFunction ctx tc args body = transformFunction bcom ctx tc args body
             member bcom.TransformClass ctx r baseClass members =
                 transformClass bcom ctx r None baseClass members
-            member bcom.TransformObjectExpr ctx membs baseClass r =
-                transformObjectExpr bcom ctx (membs, baseClass, r)
+            member bcom.TransformObjectExpr ctx members r =
+                transformObjectExpr bcom ctx members r
         interface ICompiler with
             member __.Options = com.Options
             member __.Plugins = com.Plugins

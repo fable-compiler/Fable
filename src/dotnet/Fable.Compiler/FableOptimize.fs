@@ -6,6 +6,7 @@ open Fable.AST.Fable.Util
 open System.Collections.Generic
 
 // TODO: Use trampoline here?
+// TODO: Just use ImmediateSubexpressions?
 let rec visit f e =
     match e with
     | Value kind ->
@@ -33,10 +34,9 @@ let rec visit f e =
         IfThenElse(visit f cond, visit f thenExpr, visit f elseExpr, r)
     | Set(callee, prop, value, r) ->
         Set(visit f callee, Option.map f prop, visit f value, r)
-    | ObjExpr(decls, ifcs, baseClass, r) ->
-        let decls = decls |> List.map (fun (m, idents, e) ->
-                m, idents, visit f e)
-        ObjExpr(decls, ifcs, Option.map (visit f) baseClass, r)
+    | ObjExpr(decls, r) ->
+        let decls = decls |> List.map (fun (m, idents, e) -> m, idents, visit f e)
+        ObjExpr(decls, r)
     | Loop (kind, r) ->
         match kind with
         | While(e1, e2) -> Loop(While(visit f e1, visit f e2), r)

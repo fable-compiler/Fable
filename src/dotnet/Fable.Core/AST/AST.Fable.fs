@@ -305,7 +305,7 @@ type ObjExprMember = Member * Ident list * Expr
 type Expr =
     // Pure Expressions
     | Value of value: ValueKind
-    | ObjExpr of decls: ObjExprMember list * interfaces: string list * baseClass: Expr option * range: SourceLocation option
+    | ObjExpr of decls: ObjExprMember list * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
     | Apply of callee: Expr * args: Expr list * kind: ApplyKind * typ: Type * range: SourceLocation option
     | Quote of Expr
@@ -351,12 +351,7 @@ type Expr =
 
     member x.Range: SourceLocation option =
         match x with
-        | ObjExpr (_,_,_,(Some _ as r)) -> r
-        | ObjExpr (decls,_,_,None) ->
-            match decls |> List.choose (fun (_,_,body) -> body.Range) with
-            | [] -> None
-            | [r] -> Some r
-            | r1::rest -> r1 + (List.last rest) |> Some
+        | ObjExpr (_,r) -> r
         | Value v -> v.Range
         | Wrapped (e,_) | Quote e -> e.Range
         | VarDeclaration (_,_,_,range)
@@ -373,8 +368,8 @@ type Expr =
     member x.ImmediateSubExpressions: Expr list =
         match x with
         | Value v -> v.ImmediateSubExpressions
-        | ObjExpr (decls,_,baseClass,_) ->
-            (decls |> List.map (fun (_,_,e) -> e))@(Option.toList baseClass)
+        | ObjExpr (decls,_) ->
+            (decls |> List.map (fun (_,_,e) -> e))
         | VarDeclaration (_,e,_,_) -> [e]
         | Wrapped (e,_) -> [e]
         | Quote e -> [e]

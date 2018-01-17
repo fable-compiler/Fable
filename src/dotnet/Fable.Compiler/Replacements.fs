@@ -683,7 +683,7 @@ module AstPass =
             | [arg] -> makeJsLiteralFromLambda i.range arg |> Some
             | _ -> None
         | "createEmpty" ->
-            Fable.ObjExpr ([], [], None, i.range)
+            Fable.ObjExpr ([], i.range)
             |> wrap i.returnType |> Some
         | "nameof" ->
             match i.args with
@@ -2096,7 +2096,7 @@ module AstPass =
     let objects com (i: Fable.ApplyInfo) =
         match i.methodName with
         | "getHashCode" -> ccall i "Util" "getHashCode" [i.callee.Value] |> Some
-        | ".ctor" -> Fable.ObjExpr ([], [], None, i.range) |> Some
+        | ".ctor" -> Fable.ObjExpr ([], i.range) |> Some
         | "referenceEquals" -> makeEqOp i.range i.args BinaryEqualStrict |> Some
         | "toString" -> ccall i "Util" "toString" [i.callee.Value] |> Some
         | "equals" -> staticArgs i.callee i.args |> equals true com i
@@ -2179,7 +2179,7 @@ module AstPass =
     let random com (info: Fable.ApplyInfo) =
         match info.methodName with
         | ".ctor" ->
-            let o = Fable.ObjExpr ([], [], None, info.range)
+            let o = Fable.ObjExpr ([], info.range)
             Fable.Wrapped (o, info.returnType) |> Some
         | "next" ->
             let min, max =

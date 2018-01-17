@@ -264,7 +264,8 @@ let private transformTraitCall com ctx r typ sourceTypes traitName flags (argTyp
         |> function Some m -> makeCall m | None -> giveUp()
     | None -> giveUp()
 
-let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) (objType: FSharpType) baseCallExpr (overrides: FSharpObjectExprOverride list) otherOverrides =
+let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) (objType: FSharpType)
+                    (_baseCallExpr: FSharpExpr) (overrides: FSharpObjectExprOverride list) otherOverrides =
     // If `this` is available, capture it to avoid conflicts (see #158)
     let capturedThis =
         match ctx.thisAvailability with
@@ -272,22 +273,6 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FShar
         | ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdentExpr]
         | ThisCaptured(prevThis, prevVars) ->
             (prevThis, com.GetUniqueVar() |> makeIdentExpr)::prevVars |> Some
-    let baseClass, baseCons =
-        match baseCallExpr with
-        | BasicPatterns.Call(None, meth, _, _, args) ->
-            let args = List.map (com.Transform ctx) args
-            let typ, range = makeType com ctx.typeArgs baseCallExpr.Type, makeRange baseCallExpr.Range
-            let baseClass =
-                tryEnclosingEntity meth
-                |> Option.map (fun ent ->
-                    makeTypeFromDef com ctx.typeArgs ent []
-                    |> makeNonGenTypeRef com)
-            let baseCons =
-                let c = Fable.Apply(Fable.Value Fable.Super, args, Fable.ApplyMeth, typ, Some range)
-                let m = Fable.Member(".ctor", Fable.Constructor, Fable.InstanceLoc, [], Fable.Any)
-                Some(m, [], c)
-            baseClass, baseCons
-        | _ -> None, None
     let members =
         (objType, overrides)::otherOverrides
         |> List.collect (fun (typ, overrides) ->
@@ -337,20 +322,8 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FShar
                             genParams = (over.GenericParameters |> List.map (fun x -> x.Name)),
                             hasRestParams = hasRestParams)
                 m, args', body))
-    let interfaces =
-        objType::(otherOverrides |> List.map fst)
-        |> List.map (fun x -> sanitizeEntityFullName x.TypeDefinition)
-        |> List.filter (Naming.ignoredInterfaces.Contains >> not)
-        |> List.distinct
-    let members =
-        [ match baseCons with Some c -> yield c | None -> ()
-          yield! members
-          if List.contains "System.Collections.Generic.IEnumerable" interfaces
-          then yield makeIteratorMethodArgsAndBody()
-          yield makeReflectionMethodArgsAndBody com None false false interfaces None None
-        ]
     let range = makeRangeFrom fsExpr
-    let objExpr = Fable.ObjExpr (members, interfaces, baseClass, range)
+    let objExpr = Fable.ObjExpr (members, range)
     match capturedThis with
     | Some((_,Fable.Value(Fable.IdentValue capturedThis))::_) ->
         let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false, range)

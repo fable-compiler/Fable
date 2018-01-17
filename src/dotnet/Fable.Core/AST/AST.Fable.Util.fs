@@ -101,7 +101,7 @@ let rec makeSequential range statements =
         | Sequential (statements, _), _ -> makeSequential range (statements@rest)
         | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
         // Calls to System.Object..ctor in class constructors
-        | ObjExpr ([],[],_,_), _ -> makeSequential range rest
+        | ObjExpr ([],_), _ -> makeSequential range rest
         | _ -> Sequential (statements, range)
 
 let makeLongInt (x: uint64) unsigned =
@@ -193,7 +193,7 @@ let makeJsObject range (props: (string * Expr) list) =
     let membs = props |> List.map (fun (name, body) ->
         let m = Member(name, Field, InstanceLoc, [], body.Type)
         m, [], body)
-    ObjExpr(membs, [], None, range)
+    ObjExpr(membs, range)
 
 let getTypedArrayName (com: ICompiler) numberKind =
     match numberKind with
@@ -465,7 +465,7 @@ let makeReflectionMethodArgsAndBody com (ent: Entity option) extend nullable int
             properties |> List.map (fun (name, typ) ->
                 let body = makeTypeRef com genInfo typ
                 Member(name, Field, InstanceLoc, [], Any), [], body)
-            |> fun decls -> ["properties", ObjExpr(decls, [], None, None)]
+            |> fun decls -> ["properties", ObjExpr(decls, None)]
         | None -> []
         yield! cases |> function
         | Some cases ->
