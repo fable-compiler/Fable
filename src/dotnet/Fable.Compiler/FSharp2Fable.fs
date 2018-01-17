@@ -41,9 +41,6 @@ let private compileDerivedConstructor com ctx ent baseFullName (fsExpr: FSharpEx
         match tryEnclosingEntity meth with
         | Some ent -> (sanitizeEntityFullName ent) = entName
         | None -> false
-    let validateGenArgs' typArgs =
-        tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
-            validateGenArgs com ctx (makeRangeFrom fsExpr) tdef.GenericParameters typArgs)
     let rec tryBaseCons com ctx baseFullName tail = function
         // When using a self reference in constructor (e.g. `type MyType() as self =`)
         // the F# compiler introduces artificial statements that we must ignore
@@ -53,16 +50,14 @@ let private compileDerivedConstructor com ctx ent baseFullName (fsExpr: FSharpEx
             | None -> tryBaseCons com ctx baseFullName None second
         | BasicPatterns.Let(_, body) ->
             tryBaseCons com ctx baseFullName tail body
-        | BasicPatterns.NewObject(meth, typArgs, args)
+        | BasicPatterns.NewObject(meth, _typArgs, args)
             when equalsEntName meth baseFullName ->
-                validateGenArgs' typArgs
                 Some (meth, args, tail)
-        | BasicPatterns.Call(None, meth, typArgs, _, args)
+        | BasicPatterns.Call(None, meth, _typArgs, _, args)
             when meth.CompiledName = ".ctor" && equalsEntName meth baseFullName ->
                 if not meth.IsImplicitConstructor then
                     "Inheritance is only possible with base class primary constructor: " + baseFullName
                     |> addError com ctx.fileName (makeRange fsExpr.Range |> Some)
-                validateGenArgs' typArgs
                 Some (meth, args, tail)
         | _ -> None
     match tryBaseCons com ctx baseFullName None fsExpr with
@@ -163,11 +158,6 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             "StringEnum types cannot have fields: " + unionType.FullName
             |> addErrorAndReturnNull com ctx.fileName (Some range)
         else lowerCaseName unionCase
-    | PojoUnion ->
-        List.zip (Seq.toList unionCase.UnionCaseFields) argExprs
-        |> List.map (fun (fi, e) -> fi.Name, e)
-        |> List.append ["type", makeStrConst unionCase.Name]
-        |> makeJsObject (Some range)
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
@@ -485,8 +475,6 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) fsExpr u
         makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [expr; Fable.Value Fable.Null] opKind
     | StringEnum ->
         makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerCaseName unionCase] BinaryEqualStrict
-    | PojoUnion ->
-        makeStrConst unionCase.Name |> checkCase "type"
     | OtherType ->
         getUnionCaseIndex fsType unionCase.Name
         |> makeIntConst
@@ -732,8 +720,6 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             |> makeCall range typ
         | ListUnion ->
             makeGet range typ unionExpr (Naming.lowerFirst fieldName |> makeStrConst)
-        | PojoUnion ->
-            makeStrConst fieldName |> makeGet range typ unionExpr
         | StringEnum ->
             "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com ctx.fileName range
@@ -793,35 +779,32 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
 
     | BasicPatterns.NewObject(meth, typArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        tryDefinition fsExpr.Type |> Option.iter (fun tdef ->
-            validateGenArgs com ctx r tdef.GenericParameters typArgs)
         List.map (com.Transform ctx) args
         |> makeCallFrom com ctx r typ meth (typArgs, []) None
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let range = makeRangeFrom fsExpr
-        let argExprs = argExprs |> List.map (transformExpr com ctx)
-        match tryDefinition fsType with
-        | Some tdef when tdef.Attributes |> hasAtt Atts.pojo ->
-            List.zip (Seq.toList tdef.FSharpFields) argExprs
-            |> List.map (fun (fi, e) -> fi.Name, e)
-            |> makeJsObject range
-        | tdef ->
-            let argExprs =
-                match tdef with
-                | Some tdef ->
-                    tdef.FSharpFields
-                    |> Seq.map (fun x -> makeType com [] x.FieldType)
-                    |> fun argTypes -> ensureArity com (Seq.toList argTypes) argExprs
-                | None -> argExprs
-            let recordType = makeType com ctx.typeArgs fsType
-            buildApplyInfo com ctx range recordType recordType recordType.FullName
-                ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
-            |> tryBoth (tryPlugin com) (tryReplace com ctx tdef)
-            |> function
-            | Some repl -> repl
-            | None -> Fable.Apply(makeNonGenTypeRef com recordType, argExprs, Fable.ApplyCons,
-                            makeType com ctx.typeArgs fsExpr.Type, range)
+        let tdef = tryDefinition fsType
+        let argExprs =
+            let argExprs = List.map (transformExpr com ctx) argExprs
+            match tdef with
+            | Some tdef ->
+                tdef.FSharpFields
+                |> Seq.map (fun x -> makeType com [] x.FieldType)
+                |> fun argTypes -> ensureArity com (Seq.toList argTypes) argExprs
+            | None -> argExprs
+        // TODO: Build Pojo
+        // List.zip (Seq.toList tdef.FSharpFields) argExprs
+        // |> List.map (fun (fi, e) -> fi.Name, e)
+        // |> makeJsObject range
+        let recordType = makeType com ctx.typeArgs fsType
+        buildApplyInfo com ctx range recordType recordType recordType.FullName
+            ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
+        |> tryBoth (tryPlugin com) (tryReplace com ctx tdef)
+        |> function
+        | Some repl -> repl
+        | None -> Fable.Apply(makeNonGenTypeRef com recordType, argExprs, Fable.ApplyCons,
+                        makeType com ctx.typeArgs fsExpr.Type, range)
 
     | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
         match fsType with
@@ -951,8 +934,7 @@ type private DeclInfo(com, fileName) =
             name = Atts.import
             || name = Atts.global_
             || name = Atts.erase
-            || check ent name Atts.stringEnum ["union"]
-            || check ent name Atts.pojo ["union"; "record"])
+            || check ent name Atts.stringEnum ["union"])
         |> Option.isSome
     let decls = ResizeArray<_>()
     let children = Dictionary<string, TmpDecl>()

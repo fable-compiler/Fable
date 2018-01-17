@@ -73,7 +73,6 @@ module Atts =
     let import = typeof<Fable.Core.ImportAttribute>.FullName
     let global_ = typeof<Fable.Core.GlobalAttribute>.FullName
     let erase = typeof<Fable.Core.EraseAttribute>.FullName
-    let pojo = typeof<Fable.Core.PojoAttribute>.FullName
     let stringEnum = typeof<Fable.Core.StringEnumAttribute>.FullName
     let passGenerics = typeof<Fable.Core.PassGenericsAttribute>.FullName
     let paramList = typeof<Fable.Core.ParamListAttribute>.FullName
@@ -490,7 +489,7 @@ module Patterns =
         | Naming.StartsWith "Microsoft.FSharp.Core.decimal" _ -> Some Decimal
         | _ -> None
 
-    let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|PojoUnion|OtherType|) (NonAbbreviatedType typ: FSharpType) =
+    let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|OtherType|) (NonAbbreviatedType typ: FSharpType) =
         match tryDefinition typ with
         | None -> OtherType
         | Some tdef ->
@@ -503,7 +502,6 @@ module Patterns =
                 |> Seq.tryPick (fun name ->
                     if name = Atts.erase then Some ErasedUnion
                     elif name = Atts.stringEnum then Some StringEnum
-                    elif name = Atts.pojo then Some PojoUnion
                     else None)
                 |> defaultArg <| OtherType
 
@@ -537,7 +535,7 @@ module Patterns =
                     Some(matchValue,true,idx,bindings,case,elseExpr)
                 | None when not var.IsMemberThisValue && not(isInline var) ->
                     match typ with
-                    | OptionUnion | ListUnion | ErasedUnion | StringEnum | PojoUnion -> None
+                    | OptionUnion | ListUnion | ErasedUnion | StringEnum -> None
                     | OtherType -> Some(var,true,idx,bindings,case,elseExpr)
                 | _ -> None
             | _ -> None
@@ -669,13 +667,12 @@ module Types =
             |> Seq.tryPick (fun name ->
                 if name = Atts.stringEnum
                 then Some Fable.String
-                elif name = Atts.erase || name = Atts.pojo
+                elif name = Atts.erase
                 then Some Fable.Any
                 else None)
-            |> defaultArg <|
-                // Declared Type
+            |> Option.defaultWith (fun () -> // Declared Type
                 Fable.DeclaredType(com.GetEntity tdef,
-                    genArgs |> Seq.map (makeType com typeArgs) |> Seq.toList)
+                    genArgs |> Seq.map (makeType com typeArgs) |> Seq.toList))
 
     and makeType (com: IFableCompiler) typeArgs (NonAbbreviatedType t) =
         // printfn "makeType %O" t
@@ -890,25 +887,6 @@ module Util =
     open Patterns
     open Types
     open Identifiers
-
-    let validateGenArgs com (ctx: Context) r (genParams: FSharpGenericParameter seq) (typArgs: FSharpType seq) =
-        let fail typName genName =
-            let typName = defaultArg typName ""
-            sprintf "Type %s passed as generic param '%s must be decorated with %s or be `obj`/interface" typName genName Atts.pojo
-            |> addError com ctx.fileName r
-        if Seq.length genParams = Seq.length typArgs then
-            Seq.zip genParams typArgs
-            |> Seq.iter (fun (par, arg) ->
-                if hasAtt Atts.pojo par.Attributes then
-                    match tryDefinition arg with
-                    | Some argDef when argDef.IsInterface -> ()
-                    | Some argDef when argDef.TryFullName = Some "System.Object" -> ()
-                    | Some argDef when hasAtt Atts.pojo argDef.Attributes -> ()
-                    | None when arg.IsGenericParameter
-                        && hasAtt Atts.pojo arg.GenericParameter.Attributes -> ()
-                    | Some argDef -> fail (Some argDef.DisplayName) par.Name
-                    | None -> fail None par.Name
-                )
 
     let countRefs fsExpr (vars: #seq<FSharpMemberOrFunctionOrValue>) =
         let varsDic = Dictionary()
@@ -1274,7 +1252,6 @@ module Util =
     let makeCallFrom (com: IFableCompiler) ctx r typ
                      (meth: FSharpMemberOrFunctionOrValue)
                      (typArgs, methTypArgs) callee args =
-        validateGenArgs com ctx r meth.GenericParameters methTypArgs
         let methArgTypes = getArgTypes com meth.CurriedParameterGroups
         let args =
             let args = ensureArity com methArgTypes args

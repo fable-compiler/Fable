@@ -43,8 +43,7 @@ type EmitAttribute private () =
 type PassGenericsAttribute() =
     inherit Attribute()
 
-/// Compile a record as a JS object literals.
-/// More info: http://fable.io/docs/interacting.html
+[<Obsolete("Records are compiled as pojos now by default, please remove the attribute.")>]
 type PojoAttribute() =
     inherit Attribute()
 
