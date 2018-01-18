@@ -257,12 +257,20 @@ module Helpers =
     let fullNameAndArgCount (meth: FSharpMemberOrFunctionOrValue) =
         meth.FullName + "(" + (getArgCount meth |> string) + ")"
 
+    // TODO: Check when EnclosingEntity fails. What about interfaces/overrides?
     let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
-        if meth.IsOverrideOrExplicitInterfaceImplementation
-            || (meth.IsInstanceMember && (tryEnclosingEntity meth
-                                          |> Option.toBool (fun ent -> ent.IsInterface)))
-        then meth.DisplayName
-        else meth.CompiledName
+        match tryEnclosingEntity meth with
+        | Some ent ->
+            if ent.IsFSharpModule then
+                meth.CompiledName
+            elif meth.IsOverrideOrExplicitInterfaceImplementation
+                || meth.IsInstanceMember && ent.IsInterface then
+                meth.DisplayName
+            else
+                let separator = if meth.IsInstanceMember then "$" else "$$"
+                ent.CompiledName + separator + meth.CompiledName
+        | None ->
+            meth.CompiledName
 
     let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
         if meth.CurriedParameterGroups.Count <> 1 then false else
@@ -973,7 +981,7 @@ module Util =
             | Some ent -> makeTypeFromDef com ctx.typeArgs ent [], getEntityFullName ent
             | None -> Fable.Any, "System.Object"
         buildApplyInfo com ctx r typ ownerType ownerFullName
-            (sanitizeMethodName meth |> Naming.removeGetSetPrefix) (getMemberKind meth)
+            (Naming.removeGetSetPrefix meth.CompiledName) (getMemberKind meth)
             (meth.Attributes, typArgs, methTypArgs, methArgTypes) (callee, args)
 
     let tryPlugin (com: IFableCompiler) (info: Fable.ApplyInfo) =

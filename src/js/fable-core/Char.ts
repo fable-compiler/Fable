@@ -1,34 +1,33 @@
-function isChar(input: string) {
-    return typeof input === "string" && input.length === 1;
-}
+const digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 export function isLetter(input: string) {
-    return isChar(input) && input.toLowerCase() !== input.toUpperCase();
+    return input.toLowerCase() !== input.toUpperCase();
 }
 
 export function isUpper(input: string) {
-    return isLetter(input) && input.toUpperCase() === input;
+    const upper = input.toUpperCase();
+    return upper === input && upper !== input.toLowerCase();
 }
 
 export function isLower(input: string) {
-    return isLetter(input) && input.toLowerCase() === input;
+    const lower = input.toLowerCase();
+    return lower === input && lower !== input.toUpperCase();
 }
 
 export function isDigit(input: string) {
-    return isChar(input) && /\d/.test(input);
+    return digits.indexOf(input) >= 0;
 }
 
 export function isLetterOrDigit(input: string) {
-    return isChar(input) &&
-        (input.toLowerCase() !== input.toUpperCase() || /\d/.test(input));
+    return isLetter(input) || isDigit(input);
 }
 
 export function isWhiteSpace(input: string) {
-    return isChar(input) && /\s/.test(input);
+    return /\s/.test(input);
 }
 
 export function parse(input: string) {
-    if (isChar(input)) {
+    if (input.length === 1) {
         return input[0];
     } else {
         throw Error ("String must be exactly one character long.");

@@ -29,6 +29,10 @@ let equal expected actual =
 // You'll have to run your test manually, sorry!
 // ``My Test``()
 
+type Foo() =
+    member __.Add(x, y) = x + y
+    static member Add(x, y) = x - y
+
 let test() =
     [1;2;3;4]
     |> List.map (fun x -> x + 4)

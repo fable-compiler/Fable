@@ -815,10 +815,15 @@ let private transformMethod com ctx range import meth args (body: FSharpExpr) =
     let entMember =
         let argTypes = List.map Fable.Ident.getType args
         let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
-        let tryGetMember (e: Fable.Entity) = e.TryGetMember(memberName, memberKind, memberLoc, argTypes)
-        match tryEnclosingEntity meth with
-        | Some (FableEntity com (Try tryGetMember m)) -> m
-        | _ -> makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
+
+        // TODO: Do we really need to get the method from the entity definition
+        // let tryGetMember (e: Fable.Entity) =
+        //     e.TryGetMember(memberName, memberKind, memberLoc, argTypes)
+        // match tryEnclosingEntity meth with
+        // | Some (FableEntity com (Try tryGetMember m)) -> m
+        // | _ ->
+
+        makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
     let entMember = Fable.MemberDeclaration(entMember, isPublicMethod meth, privateName, args@extraArgs, body, Some range)
     ctx, Some entMember
 
