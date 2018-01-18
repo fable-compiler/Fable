@@ -781,7 +781,7 @@ module AstPass =
             ccall i "String" "toConsole" i.args.Tail |> Some
         | "printFormatToError"
         | "printFormatLineToError" ->
-            ccall i "String" "toStdErr" i.args |> Some
+            ccall i "String" "toConsoleError" i.args |> Some
         | "printFormat" ->
             // addWarning com i.fileName i.range "printf will behave as printfn"
             ccall i "String" "toConsole" i.args |> Some
@@ -936,7 +936,7 @@ module AstPass =
             fsFormat com info
         | "printFormatToError"              // eprintf
         | "printFormatLineToError" ->       // eprintfn
-            ccall info "String" "toStdErr" info.args |> Some
+            ccall info "String" "toConsoleError" info.args |> Some
         // Exceptions
         | "raise" ->
             Fable.Throw (args.Head, typ, r) |> Some
