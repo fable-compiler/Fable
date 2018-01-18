@@ -112,7 +112,7 @@ export function toConsole(arg: IPrintfFormat) {
   return arg.cont(console.log);
 }
 
-export function toStdErr(arg: IPrintfFormat) {
+export function toConsoleError(arg: IPrintfFormat) {
   return arg.cont(console.error);
 }
 
