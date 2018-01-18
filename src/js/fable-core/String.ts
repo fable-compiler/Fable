@@ -109,11 +109,11 @@ export function printf(input: string): IPrintfFormat {
 }
 
 export function toConsole(arg: IPrintfFormat) {
-  return arg.cont((x) => { console.log(x); });
+  return arg.cont(console.log);
 }
 
 export function toStdErr(arg: IPrintfFormat) {
-  return arg.cont((x) => { console.error(x); });
+  return arg.cont(console.error);
 }
 
 export function toText(arg: IPrintfFormat) {
