@@ -258,6 +258,7 @@ module Helpers =
         meth.FullName + "(" + (getArgCount meth |> string) + ")"
 
     // TODO: Check when EnclosingEntity fails. What about interfaces/overrides?
+    // TODO: Overloads
     let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
         match tryEnclosingEntity meth with
         | Some ent ->
@@ -907,24 +908,19 @@ module Util =
                 newContext, arg::accArgs)
         ctx, List.rev args
 
-    let bindMemberArgs com ctx (info: MemberInfo) (args: FSharpMemberOrFunctionOrValue list list) =
+    let bindMemberArgs com ctx passGenerics (args: FSharpMemberOrFunctionOrValue list list) =
         // To prevent name clashes in JS create a scope for members
         // where variables must always have a unique name
         let ctx = { ctx with varNames = HashSet(ctx.varNames) }
-        let thisArg, args =
-            match args with
-            | [thisArg]::args when info.isInstance ->
-                Some thisArg, args
-            | _ -> None, args
-        List.foldBack (fun tupledArg (ctx, thisArg, accArgs) ->
-            // The F# compiler "untuples" the args in methods
-            let ctx, untupledArg = makeLambdaArgs com ctx tupledArg
-            ctx, thisArg, untupledArg@accArgs
-        ) args (ctx, thisArg, [])
-        |> fun (ctx, thisArg, args) ->
-            if info.passGenerics
-            then { ctx with genericAvailability=true }, thisArg, args, [makeIdent Naming.genArgsIdent]
-            else ctx, thisArg, args, []
+        let ctx, args =
+            (args, (ctx, [])) ||> List.foldBack (fun tupledArg (ctx, accArgs) ->
+                // The F# compiler "untuples" the args in methods
+                let ctx, untupledArg = makeLambdaArgs com ctx tupledArg
+                ctx, untupledArg@accArgs)
+        /// TODO: Remove unit arg if single or with this arg
+        if passGenerics
+        then { ctx with genericAvailability=true }, args @ [makeIdent Naming.genArgsIdent]
+        else ctx, args
 
     let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
         let catchClause =

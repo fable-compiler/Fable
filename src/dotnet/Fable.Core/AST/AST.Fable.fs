@@ -116,12 +116,14 @@ type Declaration =
     /// Module members are also declared as variables, so they need
     /// a private name that doesn't conflict with enclosing scope (see #130)
     | EntityDeclaration of Entity * isPublic: bool * privateName: string * Declaration list * SourceLocation option
-    | MemberDeclaration of Member * isPublic: bool * privateName: string option * args: Ident list * body: Expr * SourceLocation option
+    | FunctionDeclaration of publicName: string option * privateName: string * args: Ident list * body: Expr * SourceLocation option
+    // TODO: Add Value declaration
+
     member x.Range =
         match x with
         | ActionDeclaration (_,r) -> r
         | EntityDeclaration (_,_,_,_,r) -> r
-        | MemberDeclaration (_,_,_,_,_,r) -> r
+        | FunctionDeclaration (_,_,_,_,r) -> r
 
 type MemberKind =
     | Constructor

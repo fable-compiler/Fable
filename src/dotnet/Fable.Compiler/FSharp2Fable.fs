@@ -174,16 +174,8 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FShar
                     |> Naming.ignoredInterfaceMethods.Contains
                     |> not)
             overrides |> List.map (fun over ->
-                let info = { isInstance = true; passGenerics = false }
-                let args, range = over.CurriedParameterGroups, makeRange fsExpr.Range
-                let ctx, thisArg, args', extraArgs' = bindMemberArgs com ctx info args
-                let args' = args'@extraArgs'
-                let ctx =
-                    match capturedThis, thisArg with
-                    | None, _ -> { ctx with thisAvailability = ThisAvailable }
-                    | Some(capturedThis), Some thisArg ->
-                        { ctx with thisAvailability=ThisCaptured(Some thisArg, capturedThis) }
-                    | Some _, None -> failwithf "Unexpected Object Expression method withouth `this` argument %O" range
+                // TODO: Check if we should pass generics?
+                let ctx, args' = bindMemberArgs com ctx false over.CurriedParameterGroups
                 // Don't use the typ argument as the override may come
                 // from another type, like ToString()
                 let typ =
@@ -770,33 +762,28 @@ let private (|MultiArgFunction|_|) (ctx: Context) (body: FSharpExpr) (fableBody:
         else None
     else None
 
-let private transformMethod com ctx range import meth args (body: FSharpExpr) =
-    let memberName = sanitizeMethodName meth
-    let memberLoc = getMemberLoc meth
+let private transformMethod com ctx range import (meth: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let ctx, privateName =
-        // Bind module member names to context to prevent
-        // name clashes (they will become variables in JS)
-        if isModuleMember meth then
-            let typ = makeType com ctx.typeArgs meth.FullType
-            let ctx, privateName = bindIdent com ctx typ (Some meth) memberName
-            ctx, Some (privateName.Name)
-        else ctx, None
-    let memberKind, args, extraArgs, body =
+        // Bind meth.CompiledName (TODO: DisplayName for interface meths?) to context
+        // to prevent name clashes (they will become variables in JS)
+        let typ = makeType com ctx.typeArgs meth.FullType
+        let ctx, privateName = bindIdent com ctx typ (Some meth) meth.CompiledName
+        ctx, privateName.Name
+    let memberKind, args, body =
         match import with
         | Some(selector, path) ->
-            Fable.Field, [], [], makeImport selector path
+            Fable.Field, [], makeImport selector path
         | None ->
-            let info = { isInstance = meth.IsInstanceMember
-                         passGenerics = hasPassGenericsAtt com ctx meth }
-            let ctx, _, args, extraArgs = bindMemberArgs com ctx info args
+            let passGenerics = hasPassGenericsAtt com ctx meth
+            let ctx, args = bindMemberArgs com ctx passGenerics args
             let ctx =
-                if memberLoc <> Fable.StaticLoc
+                if meth.IsInstanceMember
                 then { ctx with thisAvailability = ThisAvailable }
                 else ctx
             if meth.IsImplicitConstructor then
                 // TODO: compileDerivedConstructor?
                 let body = transformExpr com ctx body
-                Fable.Constructor, args, extraArgs, body
+                Fable.Constructor, args, body
             else
                 let fableBody = transformExpr com ctx body
                 match fableBody with
@@ -807,24 +794,16 @@ let private transformMethod com ctx range import meth args (body: FSharpExpr) =
                         if selector = Naming.placeholder
                         then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
                         else fableBody
-                    Fable.Field, [], [], fableBody
+                    Fable.Field, [], fableBody
                 | MultiArgFunction ctx body fableBody ->
-                    getMemberKind meth, args, extraArgs, fableBody
+                    getMemberKind meth, args, fableBody
                 | fableBody ->
-                    getMemberKind meth, args, extraArgs, fableBody
-    let entMember =
-        let argTypes = List.map Fable.Ident.getType args
-        let fullTyp = makeOriginalCurriedType com meth.CurriedParameterGroups body.Type
-
-        // TODO: Do we really need to get the method from the entity definition
-        // let tryGetMember (e: Fable.Entity) =
-        //     e.TryGetMember(memberName, memberKind, memberLoc, argTypes)
-        // match tryEnclosingEntity meth with
-        // | Some (FableEntity com (Try tryGetMember m)) -> m
-        // | _ ->
-
-        makeMethodFrom com memberName memberKind memberLoc argTypes body.Type fullTyp None meth
-    let entMember = Fable.MemberDeclaration(entMember, isPublicMethod meth, privateName, args@extraArgs, body, Some range)
+                    getMemberKind meth, args, fableBody
+    let publicName =
+        if isPublicMethod meth
+        then sanitizeMethodName meth |> Some
+        else None
+    let entMember = Fable.FunctionDeclaration(publicName, privateName, args, body, Some range)
     ctx, Some entMember
 
 let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (meth: FSharpMemberOrFunctionOrValue)
@@ -845,14 +824,15 @@ let rec private transformEntityDecl (com: IFableCompiler) (ctx: Context) (ent: F
     let range = getEntityLocation ent |> makeRange
     let import = tryGetImport ent.Attributes
     if Option.isSome import then
-        let selector, path = import.Value
-        let isPublic = isPublicEntity ctx ent
-        let entName, body = ent.CompiledName, makeImport selector path
-        // Bind entity name to context to prevent name clashes
-        let ctx, ident = bindIdentWithExactName com ctx Fable.Any None entName
-        let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type)
-        let decl = Fable.MemberDeclaration(m, isPublic, Some ident.Name, [], body, Some range)
-        ctx, Some decl
+        failwith "TODO: Imported entity"
+        // let selector, path = import.Value
+        // let isPublic = isPublicEntity ctx ent
+        // let entName, body = ent.CompiledName, makeImport selector path
+        // // Bind entity name to context to prevent name clashes
+        // let ctx, ident = bindIdentWithExactName com ctx Fable.Any None entName
+        // let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type)
+        // let decl = Fable.MemberDeclaration(m, isPublic, Some ident.Name, [], body, Some range)
+        // ctx, Some decl
     elif isIgnoredEntity com ctx ent then
         ctx, None
     else

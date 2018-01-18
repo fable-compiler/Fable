@@ -79,8 +79,8 @@ type IBabelCompiler =
     abstract TransformExprAndResolve: Context -> ReturnStrategy -> Fable.Expr -> Statement list
     abstract TransformFunction: Context -> ITailCallOpportunity option -> Fable.Ident list -> Fable.Expr ->
         (Pattern list) * Choice<BlockStatement, Expression>
-    abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
-        Fable.Declaration list -> ClassExpression
+    // abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
+    //     Fable.Declaration list -> ClassExpression
     abstract TransformObjectExpr: Context -> Fable.ObjExprMember list ->
         SourceLocation option -> Expression
 
@@ -123,11 +123,6 @@ module Util =
                 | true, declVars, exprs, _ -> Some(List. rev declVars, List.rev exprs, r)
                 | false, _, _, _ -> None
         | _ -> None
-
-    let inline getPublicName< ^T when ^T: (member HasDecorator : string -> bool)> publicName (ent:'T) =
-        if (^T : (member HasDecorator: string -> bool) (ent, "ExportDefault"))
-        then "default"
-        else publicName
 
     let consBack tail head = head::tail
 
@@ -176,13 +171,13 @@ module Util =
             | _ -> property
         | _ -> MemberExpression (expr, property, computed) :> Expression
 
-    let rec tryFindMember (ownerName: string) membName entName decls =
-        decls |> List.tryPick (function
-            | Fable.EntityDeclaration(ent,_,_,subDecls,_) when ownerName.StartsWith(ent.FullName) ->
-                tryFindMember ownerName membName ent.FullName subDecls
-            | Fable.MemberDeclaration(m,_,privateName,_,_,_) when ownerName = entName && m.Name = membName ->
-                Some(m, privateName)
-            | _ -> None)
+    // let rec tryFindMember (ownerName: string) membName entName decls =
+    //     decls |> List.tryPick (function
+    //         | Fable.EntityDeclaration(ent,_,_,subDecls,_) when ownerName.StartsWith(ent.FullName) ->
+    //             tryFindMember ownerName membName ent.FullName subDecls
+    //         | Fable.MemberDeclaration(m,_,privateName,_,_,_) when ownerName = entName && m.Name = membName ->
+    //             Some(m, privateName)
+    //         | _ -> None)
 
     let rec accessExpr (members: string list) (baseExpr: Expression option) =
         match baseExpr with
@@ -239,11 +234,12 @@ module Util =
         | _ ->
             match getParts ctx.moduleFullName ent.FullName memb with
             | [membName] when Option.isSome memb ->
-                // Check if the member has a private name
-                match tryFindMember ent.FullName membName ctx.file.Root.FullName ctx.file.Declarations with
-                | Some(_, Some privateName) -> accessExpr [privateName] None
-                // TODO: Fail if member couldn't be found?
-                | _ -> accessExpr [membName] None
+                // TODO Check if the member has a private name
+                // match tryFindMember ent.FullName membName ctx.file.Root.FullName ctx.file.Declarations with
+                // | Some(_, Some privateName) -> accessExpr [privateName] None
+                // // TODO: Fail if member couldn't be found?
+                // | _ ->
+                    accessExpr [membName] None
             | rootMemb::parts when Naming.hasIdentForbiddenChars rootMemb ->
                 // Check if the root entity is represented internally with a private name
                 if ctx.rootEntitiesPrivateNames.ContainsKey(rootMemb)
@@ -759,44 +755,44 @@ module Util =
                 block loc (varDeclStatements@bodyStatements) |> Choice1Of2
         args |> List.map (fun x -> x :> Pattern), body
 
-    let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
-        let declareProperty (_com: IBabelCompiler) _ctx name =
-            ClassProperty(Identifier(name))
-            |> Choice<ClassMethod,_>.Choice2Of2
-        let declareMethod range kind name args (body: Fable.Expr) hasRestParams isStatic computed =
-            let name, computed =
-                match computed with
-                | Some e -> transformExpr com ctx e, true
-                | None -> getterByName name
-            let args, body =
-                let tc =
-                    match name with
-                    | :? Identifier as id ->
-                        ClassTailCallOpportunity(com, id.name, args)
-                        :> ITailCallOpportunity |> Some
-                    | _ -> None
-                getMemberArgsAndBody com ctx tc args body hasRestParams
-            ClassMethod(kind, name, args, body, computed, isStatic, ?loc=range)
-            |> Choice<_,ClassProperty>.Choice1Of2
-        let baseClass = baseClass |> Option.map (transformExpr com ctx)
-        decls
-        |> List.map (function
-            | Fable.MemberDeclaration(m, _, _, args, body, range) ->
-                let kind, name, loc, computed, body =
-                    match m.Kind with
-                    | Fable.Constructor -> ClassConstructor, "constructor", Fable.InstanceLoc, None, body
-                    | Fable.Method -> ClassFunction, m.OverloadName, m.Location, m.Computed, body
-                    | Fable.Getter | Fable.Field -> ClassGetter, m.OverloadName, m.Location, m.Computed, body
-                    | Fable.Setter -> ClassSetter, m.OverloadName, m.Location, m.Computed, body
-                let isStatic = loc = Fable.StaticLoc
-                declareMethod range kind name args body m.HasRestParams isStatic computed
-            | Fable.ActionDeclaration _
-            | Fable.EntityDeclaration _ as decl ->
-                failwithf "Unexpected declaration in class: %A" decl)
-        |> fun members ->
-            let id = ent |> Option.map (fun x -> identFromName x.Name)
-            ClassExpression(ClassBody(members, ?loc=range),
-                            ?id=id, ?super=baseClass, ?loc=range)
+    // let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
+    //     let declareProperty (_com: IBabelCompiler) _ctx name =
+    //         ClassProperty(Identifier(name))
+    //         |> Choice<ClassMethod,_>.Choice2Of2
+    //     let declareMethod range kind name args (body: Fable.Expr) hasRestParams isStatic computed =
+    //         let name, computed =
+    //             match computed with
+    //             | Some e -> transformExpr com ctx e, true
+    //             | None -> getterByName name
+    //         let args, body =
+    //             let tc =
+    //                 match name with
+    //                 | :? Identifier as id ->
+    //                     ClassTailCallOpportunity(com, id.name, args)
+    //                     :> ITailCallOpportunity |> Some
+    //                 | _ -> None
+    //             getMemberArgsAndBody com ctx tc args body hasRestParams
+    //         ClassMethod(kind, name, args, body, computed, isStatic, ?loc=range)
+    //         |> Choice<_,ClassProperty>.Choice1Of2
+    //     let baseClass = baseClass |> Option.map (transformExpr com ctx)
+    //     decls
+    //     |> List.map (function
+    //         | Fable.FunctionDeclaration(_, _, args, body, range) ->
+    //             let kind, name, loc, computed, body =
+    //                 match m.Kind with
+    //                 | Fable.Constructor -> ClassConstructor, "constructor", Fable.InstanceLoc, None, body
+    //                 | Fable.Method -> ClassFunction, m.OverloadName, m.Location, m.Computed, body
+    //                 | Fable.Getter | Fable.Field -> ClassGetter, m.OverloadName, m.Location, m.Computed, body
+    //                 | Fable.Setter -> ClassSetter, m.OverloadName, m.Location, m.Computed, body
+    //             let isStatic = loc = Fable.StaticLoc
+    //             declareMethod range kind name args body m.HasRestParams isStatic computed
+    //         | Fable.ActionDeclaration _
+    //         | Fable.EntityDeclaration _ as decl ->
+    //             failwithf "Unexpected declaration in class: %A" decl)
+    //     |> fun members ->
+    //         let id = ent |> Option.map (fun x -> identFromName x.Name)
+    //         ClassExpression(ClassBody(members, ?loc=range),
+    //                         ?id=id, ?super=baseClass, ?loc=range)
 
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) =
         CallExpression(
@@ -833,16 +829,6 @@ module Util =
             | _ -> upcast varDeclaration range privateIdent isMutable expr
         if not isPublic then
             Choice1Of2 (decl :> Statement) |> List.singleton
-        elif publicName = "default" then
-            let exported =
-                match decl with
-                | :? VariableDeclaration as varDecl when List.isSingle varDecl.declarations ->
-                    match varDecl.declarations.[0].init with
-                    | Some expr -> Choice2Of2 expr
-                    | None -> Choice1Of2 decl
-                | _ -> Choice1Of2 decl
-            ExportDefaultDeclaration(exported, ?loc=range)
-            :> ModuleDeclaration |> Choice2Of2 |> List.singleton
         elif publicName = privateName then
             ExportNamedDeclaration(decl, ?loc=range)
             :> ModuleDeclaration |> Choice2Of2 |> List.singleton
@@ -854,59 +840,61 @@ module Util =
             [expDecl :> ModuleDeclaration |> Choice2Of2; decl :> Statement |> Choice1Of2]
 
     let transformModMember (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent
-                           (m: Fable.Member, isPublic, privName, args, body, range) =
-        let expr =
-            match m.Kind with
-            | Fable.Getter | Fable.Field ->
-                transformExpr com ctx body
-            | Fable.Method when m.IsMutable ->
-                // Mutable module values are compiled as functions, because values
-                // imported from ES2015 modules cannot be modified (see #986)
-                let expr = transformExpr com ctx body
-                let import = getCoreLibImport com ctx "Util" "createAtom"
-                upcast CallExpression(import, [Choice1Of2 expr])
-            | Fable.Method ->
+                           (publicName, privName, args, body: Fable.Expr, range) =
+        let expr: Expression =
+            // TODO: Values (including mutable)
+            // match m.Kind with
+            // | Fable.Getter | Fable.Field ->
+            //     transformExpr com ctx body
+            // | Fable.Method when m.IsMutable ->
+            //     // Mutable module values are compiled as functions, because values
+            //     // imported from ES2015 modules cannot be modified (see #986)
+            //     let expr = transformExpr com ctx body
+            //     let import = getCoreLibImport com ctx "Util" "createAtom"
+            //     upcast CallExpression(import, [Choice1Of2 expr])
+            // | Fable.Method ->
                 let bodyRange = body.Range
-                let id = defaultArg privName m.OverloadName
                 let args, body =
-                    let tc = NamedTailCallOpportunity(com, id, args) :> ITailCallOpportunity
+                    let tc = NamedTailCallOpportunity(com, privName, args) :> ITailCallOpportunity
                     getMemberArgsAndBody com ctx (Some tc) args body false
                 // Don't lexically bind `this` (with arrow function) or
                 // it will fail with extension members
                 upcast FunctionExpression(args, body, ?loc=bodyRange)
-            | Fable.Constructor | Fable.Setter ->
-                failwithf "Unexpected member in module %O: %A" modIdent m.Kind
+            // | Fable.Constructor | Fable.Setter ->
+            //     failwithf "Unexpected member in module %O: %A" modIdent m.Kind
         let memberRange =
             match range, expr.loc with Some r1, Some r2 -> Some(r1 + r2) | _ -> None
-        if m.HasDecorator("EntryPoint")
-        then declareEntryPoint com ctx expr |> Choice1Of2 |> List.singleton
-        else
-            let publicName = getPublicName m.OverloadName m
-            helper.DeclareMember(memberRange, publicName, privName, isPublic, m.IsMutable, modIdent, expr)
+        // TODO: EntryPoint
+        // if m.HasDecorator("EntryPoint")
+        // then declareEntryPoint com ctx expr |> Choice1Of2 |> List.singleton
+        // else
+        let name, isPublic =
+            match publicName with
+            | Some name -> name, true
+            | None -> privName, false
+        helper.DeclareMember(memberRange, name, Some privName, isPublic, false, modIdent, expr)
 
-    let declareClass com ctx (helper: IDeclareMember) modIdent
-                     (ent: Fable.Entity, isPublic, privateName, entDecls, entRange, baseClass) =
-        let classDecl =
-            // Don't create a new context for class declarations
-            let classExpr = transformClass com ctx entRange (Some ent) baseClass entDecls
-            let publicName = getPublicName ent.Name ent
-            helper.DeclareMember(entRange, publicName, Some privateName, isPublic, false, modIdent, classExpr)
-        let classDecl =
-            (declareType com ctx ent |> Choice1Of2)::classDecl
-        // Check if there's a static constructor
-        entDecls |> Seq.exists (function
-            | Fable.MemberDeclaration(m,_,_,_,_,_) ->
-                match m.Name, m.Kind, m.Location with
-                | ".cctor", Fable.Method, Fable.StaticLoc -> true
-                | _ -> false
-            | _ -> false)
-        |> function
-        | false -> classDecl
-        | true ->
-            let cctor = MemberExpression(
-                            typeRef com ctx ent [] None, StringLiteral ".cctor", true)
-            ExpressionStatement(CallExpression(cctor, [])) :> Statement
-            |> Choice1Of2 |> consBack classDecl
+    // let declareClass com ctx (helper: IDeclareMember) modIdent
+    //                  (ent: Fable.Entity, isPublic, privateName, entDecls, entRange, baseClass) =
+    //     let classDecl =
+    //         // Don't create a new context for class declarations
+    //         let classExpr = transformClass com ctx entRange (Some ent) baseClass entDecls
+    //         helper.DeclareMember(entRange, ent.Name, Some privateName, isPublic, false, modIdent, classExpr)
+    //     (declareType com ctx ent |> Choice1Of2)::classDecl
+    //     // TODO: Check if there's a static constructor
+    //     // entDecls |> Seq.exists (function
+    //     //     | Fable.MemberDeclaration(m,_,_,_,_,_) ->
+    //     //         match m.Name, m.Kind, m.Location with
+    //     //         | ".cctor", Fable.Method, Fable.StaticLoc -> true
+    //     //         | _ -> false
+    //     //     | _ -> false)
+    //     // |> function
+    //     // | false -> classDecl
+    //     // | true ->
+    //     //     let cctor = MemberExpression(
+    //     //                     typeRef com ctx ent [] None, StringLiteral ".cctor", true)
+    //     //     ExpressionStatement(CallExpression(cctor, [])) :> Statement
+    //     //     |> Choice1Of2 |> consBack classDecl
 
     let rec transformNestedModule com ctx (ent: Fable.Entity) entDecls entRange =
         let modIdent = Identifier Naming.exportsIdent
@@ -941,26 +929,26 @@ module Util =
                 // so we have to revert these too
                 |> List.rev
                 |> List.append <| acc
-            | Fable.MemberDeclaration(m, isPublic, privName, args, body, r) ->
-                match m.Kind with
-                | Fable.Constructor | Fable.Setter _ -> acc // Only happens for VS tests
-                | _ -> transformModMember com ctx helper modIdent (m,isPublic,privName,args,body,r) @ acc
+            | Fable.FunctionDeclaration(isPublic, privName, args, body, r) ->
+                transformModMember com ctx helper modIdent (isPublic,privName,args,body,r) @ acc
             | Fable.EntityDeclaration (ent, isPublic, privName, entDecls, entRange) ->
                 match ent.Kind with
                 | Fable.Interface ->
                     []
                 | Fable.Class(baseClass, _) ->
-                    let baseClass = baseClass |> Option.map snd
-                    declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, baseClass)
+                    [] // TODO
+                    // let baseClass = baseClass |> Option.map snd
+                    // declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, baseClass)
                 | Fable.Exception _ ->
-                    let baseClass = Some(Fable.Value(Fable.IdentValue(Fable.Ident("Error"))))
-                    declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, baseClass)
+                    [] // TODO
+                    // let baseClass = Some(Fable.Value(Fable.IdentValue(Fable.Ident("Error"))))
+                    // declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, baseClass)
                 | Fable.Union _ | Fable.Record _ ->
-                    declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, None)
+                    [] // TODO
+                    // declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, None)
                 | Fable.Module ->
                     let m = transformNestedModule com ctx ent entDecls entRange
-                    let publicName = getPublicName ent.Name ent
-                    helper.DeclareMember(entRange, publicName, Some privName, isPublic, false, modIdent, m)
+                    helper.DeclareMember(entRange, ent.Name, Some privName, isPublic, false, modIdent, m)
                 |> List.append <| acc) []
         |> fun decls ->
             match modIdent with
@@ -1034,8 +1022,8 @@ module Util =
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
             member bcom.TransformExprAndResolve ctx ret e = transformExprAndResolve bcom ctx ret e
             member bcom.TransformFunction ctx tc args body = transformFunction bcom ctx tc args body
-            member bcom.TransformClass ctx r baseClass members =
-                transformClass bcom ctx r None baseClass members
+            // member bcom.TransformClass ctx r baseClass members =
+            //     transformClass bcom ctx r None baseClass members
             member bcom.TransformObjectExpr ctx members r =
                 transformObjectExpr bcom ctx members r
         interface ICompiler with

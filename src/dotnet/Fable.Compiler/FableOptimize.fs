@@ -130,8 +130,8 @@ let rec optimizeDeclaration (com: ICompiler) = function
         EntityDeclaration(e, isPublic, privName, List.map (optimizeDeclaration com) decls, r)
     | ActionDeclaration(expr, range) ->
         ActionDeclaration(optimizeExpr com expr, range)
-    | MemberDeclaration(memb, isPublic, privName, args, body, range) ->
-        MemberDeclaration(memb, isPublic, privName, args, optimizeExpr com body, range)
+    | FunctionDeclaration(isPublic, privName, args, body, range) ->
+        FunctionDeclaration(isPublic, privName, args, optimizeExpr com body, range)
 
 let optimizeFile (com: ICompiler) (file: File) =
     let newDecls = List.map (optimizeDeclaration com) file.Declarations

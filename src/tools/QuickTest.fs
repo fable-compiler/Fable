@@ -30,10 +30,17 @@ let equal expected actual =
 // ``My Test``()
 
 type Foo() =
-    member __.Add(x, y) = x + y
+    member __.Z() = 5
+    member this.Add(x, y) = x + y + this.Z()
     static member Add(x, y) = x - y
 
 let test() =
+    let f: Foo = !!obj() //Foo()
+    let x = f.Add(4, 5)
+    let y = Foo.Add(6, 7)
+    ()
+
+let test2() =
     [1;2;3;4]
     |> List.map (fun x -> x + 4)
     |> List.filter (fun x -> x < 10)
