@@ -243,7 +243,6 @@ type ImportKind =
 type ValueKind =
     | Null
     | This
-    | Super
     | Spread of Expr
     | TypeRef of Entity * genArgs: (string * Expr) list
     | IdentValue of Ident
@@ -261,7 +260,7 @@ type ValueKind =
     | Emit of string
     member x.ImmediateSubExpressions: Expr list =
         match x with
-        | Null | This | Super | IdentValue _ | ImportRef _
+        | Null | This | IdentValue _ | ImportRef _
         | NumberConst _ | StringConst _ | BoolConst _ | RegexConst _
         | UnaryOp _ | BinaryOp _ | LogicalOp _ | Emit _ -> []
         | Spread x -> [x]
@@ -277,7 +276,7 @@ type ValueKind =
         | Null -> Any
         | Spread x -> x.Type
         | IdentValue i -> i.Type
-        | This | Super | ImportRef _ | Emit _ -> Any
+        | This | ImportRef _ | Emit _ -> Any
         | NumberConst (_,kind) -> Number kind
         | StringConst _ -> String
         | TypeRef _ -> MetaType

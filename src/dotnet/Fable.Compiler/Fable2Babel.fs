@@ -339,7 +339,6 @@ module Util =
             com.GetImportExpr ctx memb path kind
             |> Some |> accessExpr parts
         | Fable.This -> upcast ThisExpression ()
-        | Fable.Super -> upcast Super ()
         | Fable.Null -> upcast NullLiteral ()
         | Fable.IdentValue i -> upcast Identifier i.Name
         | Fable.NumberConst (x,_) ->

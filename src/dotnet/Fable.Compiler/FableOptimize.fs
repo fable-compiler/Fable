@@ -19,7 +19,7 @@ let rec visit f e =
             | ArrayValues exprs -> ArrayConst(ArrayValues(List.map (visit f) exprs), t) |> Value
             | ArrayAlloc e -> ArrayConst(ArrayAlloc(visit f e), t) |> Value
         | Lambda(args, body, info) -> Value(Lambda(args, visit f body, info))
-        | Null | This | Super | IdentValue _ | ImportRef _
+        | Null | This | IdentValue _ | ImportRef _
         | NumberConst _ | StringConst _ | BoolConst _ | RegexConst _
         | UnaryOp _ | BinaryOp _ | LogicalOp _ | Emit _ -> e
     | Apply(callee, args, kind, typ, range) ->

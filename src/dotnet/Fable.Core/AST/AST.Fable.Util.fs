@@ -31,7 +31,7 @@ let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLoca
 
 /// When referenced multiple times, is there a risk of double evaluation?
 let hasDoubleEvalRisk = function
-    | MaybeWrapped(Value(Null | This | Super | IdentValue _
+    | MaybeWrapped(Value(Null | This | IdentValue _
         | NumberConst _ | StringConst _ | BoolConst _)) -> false
     | _ -> true
 

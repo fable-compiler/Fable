@@ -434,7 +434,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             Fable.Wrapped (e, typ)
 
     | BasicPatterns.BaseValue _typ ->
-        Fable.Super |> Fable.Value
+        Fable.This |> Fable.Value
 
     | BasicPatterns.ThisValue _typ ->
         makeThisRef com ctx (makeRangeFrom fsExpr) None
