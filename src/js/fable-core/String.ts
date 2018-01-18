@@ -112,6 +112,10 @@ export function toConsole(arg: IPrintfFormat) {
   return arg.cont((x) => { console.log(x); });
 }
 
+export function toStdErr(arg: IPrintfFormat) {
+  return arg.cont((x) => { console.error(x); });
+}
+
 export function toText(arg: IPrintfFormat) {
   return arg.cont((x) => x);
 }
