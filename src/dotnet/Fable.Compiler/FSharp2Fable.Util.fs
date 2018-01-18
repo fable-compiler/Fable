@@ -100,12 +100,6 @@ module Helpers =
         then match ent.Namespace with Some ns -> ns + "." + ent.CompiledName | None -> ent.CompiledName
         else defaultArg ent.TryFullName ent.CompiledName
 
-    let sanitizeEntityName (ent: FSharpEntity) =
-        Naming.replaceGenericArgsCount (ent.CompiledName, "")
-
-    let sanitizeEntityFullName (ent: FSharpEntity) =
-        Naming.replaceGenericArgsCount (getEntityFullName ent, "")
-
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
@@ -236,7 +230,7 @@ module Helpers =
         if not meth.IsInstanceMember && not meth.IsImplicitConstructor
         then Fable.StaticLoc
         else tryGetInterfaceFromMethod meth
-             |> Option.map (sanitizeEntityFullName >> Fable.InterfaceLoc)
+             |> Option.map (getEntityFullName >> Fable.InterfaceLoc)
              |> defaultArg <| Fable.InstanceLoc
 
     let getArgCount (meth: FSharpMemberOrFunctionOrValue) =
@@ -264,14 +258,11 @@ module Helpers =
         meth.FullName + "(" + (getArgCount meth |> string) + ")"
 
     let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
-        let isInterface =
-            meth.IsExplicitInterfaceImplementation
-            || (meth.IsInstanceMember
-                && (tryEnclosingEntity meth |> Option.toBool (fun ent -> ent.IsInterface)))
-        if isInterface then meth.DisplayName else
-        match getMemberKind meth with
-        | Fable.Getter | Fable.Setter -> meth.DisplayName
-        | _ -> meth.CompiledName
+        if meth.IsOverrideOrExplicitInterfaceImplementation
+            || (meth.IsInstanceMember && (tryEnclosingEntity meth
+                                          |> Option.toBool (fun ent -> ent.IsInterface)))
+        then meth.DisplayName
+        else meth.CompiledName
 
     let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
         if meth.CurriedParameterGroups.Count <> 1 then false else
@@ -584,7 +575,7 @@ module Types =
         try
             let args = att.ConstructorArguments |> Seq.map snd |> Seq.toList
             let fullName =
-                let fullName = sanitizeEntityFullName att.AttributeType
+                let fullName = getEntityFullName att.AttributeType
                 if fullName.EndsWith ("Attribute")
                 then fullName.Substring (0, fullName.Length - 9)
                 else fullName
@@ -704,7 +695,7 @@ module Types =
         match tdef.BaseType with
         | Some(TypeDefinition tdef) when tdef.TryFullName <> Some "System.Object" ->
             let typeRef = makeTypeFromDef com [] tdef [] |> makeNonGenTypeRef com
-            Some (sanitizeEntityFullName tdef, typeRef)
+            Some (getEntityFullName tdef, typeRef)
         | _ -> None
 
     let rec getOwnAndInheritedFsharpMembers (tdef: FSharpEntity) = seq {
@@ -829,7 +820,7 @@ module Types =
             tdef.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList
         let infcs =
             tdef.DeclaredInterfaces
-            |> Seq.map (fun x -> sanitizeEntityFullName x.TypeDefinition)
+            |> Seq.map (fun x -> getEntityFullName x.TypeDefinition)
             |> Seq.filter (Naming.ignoredInterfaces.Contains >> not)
             |> Seq.distinct
             |> Seq.toList
@@ -838,7 +829,7 @@ module Types =
             |> Seq.choose makeDecorator
             |> Seq.toList
         Fable.Entity (lazy getKind(), com.TryGetInternalFile tdef,
-            sanitizeEntityFullName tdef, lazy getMembers com tdef, genParams, infcs, decs)
+            getEntityFullName tdef, lazy getMembers com tdef, genParams, infcs, decs)
 
     let inline (|FableEntity|) (com: IFableCompiler) e = com.GetEntity e
     let inline (|FableType|) com (ctx: Context) t = makeType com ctx.typeArgs t
@@ -956,7 +947,7 @@ module Util =
             (atts, typArgs, methTypArgs, methArgTypes) (callee, args): Fable.ApplyInfo =
         {
             ownerType = ownerType
-            ownerFullName = ownerFullName
+            ownerFullName = Naming.replaceGenericArgsCount(ownerFullName, "")
             methodName = methName
             methodKind = methKind
             range = r
@@ -979,9 +970,10 @@ module Util =
             : Fable.ApplyInfo =
         let ownerType, ownerFullName =
             match owner with
-            | Some ent -> makeTypeFromDef com ctx.typeArgs ent [], sanitizeEntityFullName ent
+            | Some ent -> makeTypeFromDef com ctx.typeArgs ent [], getEntityFullName ent
             | None -> Fable.Any, "System.Object"
-        buildApplyInfo com ctx r typ ownerType ownerFullName (sanitizeMethodName meth) (getMemberKind meth)
+        buildApplyInfo com ctx r typ ownerType ownerFullName
+            (sanitizeMethodName meth |> Naming.removeGetSetPrefix) (getMemberKind meth)
             (meth.Attributes, typArgs, methTypArgs, methArgTypes) (callee, args)
 
     let tryPlugin (com: IFableCompiler) (info: Fable.ApplyInfo) =
@@ -1027,14 +1019,7 @@ module Util =
         // TODO: Throw error if generic cannot be resolved?
         |> Option.defaultValue t
 
-    let matchGenericParams com ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) =
-        // Seems that, contrary to what I believed, `meth.GenericParameters` contains both
-        // the type and meth generic arguments, so this first folding is not necessary
-        // let genArgs =
-        //     if meth.IsModuleValueOrMember then
-        //         ([], meth.EnclosingEntity.GenericParameters, typArgs)
-        //         |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> acc@[genPar.Name, t])
-        //     else []
+    let matchGenericParams ctx (meth: FSharpMemberOrFunctionOrValue) (typArgs, methTypArgs) =
         ([], meth.GenericParameters, typArgs@methTypArgs)
         |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx.typeArgs t) -> (genPar.Name, t)::acc)
         |> List.rev
@@ -1061,7 +1046,7 @@ module Util =
         // Trick to replace reference to generic arguments: $'T
         if Naming.hasGenericPlaceholder macro
         then
-            let genArgs = matchGenericParams com ctx meth (typArgs, methTypArgs) |> Map
+            let genArgs = matchGenericParams ctx meth (typArgs, methTypArgs) |> Map
             let genInfo = { makeGeneric=false; genericAvailability=ctx.genericAvailability }
             Naming.replaceGenericPlaceholder (macro, fun m ->
                 match genArgs.TryFind m with
@@ -1080,7 +1065,7 @@ module Util =
         match owner with
         | Some owner ->
             match owner.Attributes with
-            | ContainsAtt Atts.erase attArgs ->
+            | ContainsAtt Atts.erase _attArgs ->
                 match callee with
                 | Some callee ->
                     let methName = meth.DisplayName
@@ -1192,7 +1177,7 @@ module Util =
                         let ctx = if idx = 0 then addCallee ctx callee None else ctx
                         ctx, assignments, (idx + 1)
                 )
-            let typeArgs = matchGenericParams com ctx meth (typArgs, methTypArgs)
+            let typeArgs = matchGenericParams ctx meth (typArgs, methTypArgs)
             let ctx = {ctx with typeArgs=typeArgs}
             let expr = com.Transform ctx fsExpr
             if List.isEmpty assignments
@@ -1209,7 +1194,7 @@ module Util =
             | Fable.DeclaredType (_, genericArgs) -> genericArgs |> Seq.tryPick hasUnresolvedGenerics
             | _ -> None
         let genInfo = { makeGeneric=true; genericAvailability=ctx.genericAvailability }
-        matchGenericParams com ctx meth (typArgs, methTypArgs)
+        matchGenericParams ctx meth (typArgs, methTypArgs)
         |> List.map (fun (genName, FableType com ctx typ) ->
             if not ctx.genericAvailability then
                 match hasUnresolvedGenerics typ with

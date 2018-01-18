@@ -144,12 +144,12 @@ module Util =
         let name = Naming.sanitizeIdent (fun _ -> false) name
         Identifier name
 
-    let sanitizeName propName: Expression * bool =
+    let getterByName propName: Expression * bool =
         if Naming.hasIdentForbiddenChars propName
         then upcast StringLiteral propName, true
         else upcast Identifier propName, false
 
-    let sanitizeProp com ctx = function
+    let getterByProp com ctx = function
         | Fable.Value (Fable.StringConst name)
             when not (Naming.hasIdentForbiddenChars name) ->
             Identifier (name) :> Expression, false
@@ -163,11 +163,11 @@ module Util =
         |> MemberExpression :> Expression
 
     let get left propName =
-        let expr, computed = sanitizeName propName
+        let expr, computed = getterByName propName
         MemberExpression(left, expr, computed) :> Expression
 
     let getExpr com ctx (TransformExpr com ctx expr) (property: Fable.Expr) =
-        let property, computed = sanitizeProp com ctx property
+        let property, computed = getterByProp com ctx property
         match expr with
         | :? EmptyExpression ->
             match property with
@@ -367,7 +367,7 @@ module Util =
             let key, computed =
                 match m.Computed with
                 | Some e -> com.TransformExpr ctx e, true
-                | None -> sanitizeName m.Name
+                | None -> getterByName m.Name
             let makeMethod kind =
                 let args, body' =
                     let tc =
@@ -768,7 +768,7 @@ module Util =
             let name, computed =
                 match computed with
                 | Some e -> transformExpr com ctx e, true
-                | None -> sanitizeName name
+                | None -> getterByName name
             let args, body =
                 let tc =
                     match name with

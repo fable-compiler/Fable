@@ -506,7 +506,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let range = makeRange fsExpr.Range
         match ctx.scopedInlines |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
         | Some (_,fsExpr) ->
-            let resolvedCtx = { ctx with typeArgs = matchGenericParams com ctx var ([], typeArgs) }
+            let resolvedCtx = { ctx with typeArgs = matchGenericParams ctx var ([], typeArgs) }
             let callee = com.Transform resolvedCtx fsExpr
             match args with
             | [] -> callee
@@ -842,7 +842,7 @@ let rec private transformEntityDecl (com: IFableCompiler) (ctx: Context) (ent: F
     if Option.isSome import then
         let selector, path = import.Value
         let isPublic = isPublicEntity ctx ent
-        let entName, body = sanitizeEntityName ent, makeImport selector path
+        let entName, body = ent.CompiledName, makeImport selector path
         // Bind entity name to context to prevent name clashes
         let ctx, ident = bindIdentWithExactName com ctx Fable.Any None entName
         let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type)
@@ -859,8 +859,8 @@ let rec private transformEntityDecl (com: IFableCompiler) (ctx: Context) (ent: F
             ctx, None
         else
             // Bind entity name to context to prevent name clashes (it will become a variable in JS)
-            let ctx, _ident = sanitizeEntityName ent |> bindIdentWithExactName com ctx Fable.Any None
-            // declInfo.AddChild(com, ctx, ent, ident.Name, childDecls)
+            let ctx, _ident = bindIdentWithExactName com ctx Fable.Any None ent.CompiledName
+            // TODO: declInfo.AddChild(com, ctx, ent, ident.Name, childDecls)
             ctx, None
 
 and private transformDeclarations (com: IFableCompiler) (ctx: Context) fsDecls =
@@ -917,7 +917,7 @@ let private tryGetMethodArgsAndBody (implFiles: Map<string, FSharpImplementation
             if methFullName = meth2.FullName
             then Some(args, body)
             else None
-        | FSharpImplementationFileDeclaration.InitAction fe -> None
+        | FSharpImplementationFileDeclaration.InitAction _ -> None
     Map.tryFind fileName implFiles
     |> Option.bind (fun f ->
         f.Declarations |> List.tryPick (tryGetMethodArgsAndBody' meth.FullName))
@@ -999,7 +999,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
 let getRootModuleFullName (file: FSharpImplementationFileContents) =
     let rootEnt, _ = getRootModuleAndDecls file.Declarations
     match rootEnt with
-    | Some rootEnt -> sanitizeEntityFullName rootEnt
+    | Some rootEnt -> getEntityFullName rootEnt
     | None -> ""
 
 let transformFile (com: ICompiler) (state: ICompilerState)
