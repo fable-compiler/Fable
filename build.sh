@@ -7,6 +7,9 @@ else
   MONO="mono"
 fi
 
+# Allows NETFramework like net45 to be built using dotnet core tooling with mono
+export FrameworkPathOverride=$(dirname $(which mono))/../lib/mono/4.5/
+
 if [ -e "paket.lock" ]; then
 $MONO .paket/paket.exe restore
 else
