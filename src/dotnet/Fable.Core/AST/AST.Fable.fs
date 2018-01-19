@@ -233,10 +233,6 @@ type Ident(name: string, ?typ: Type) =
     static member getType (i: Ident) = i.Type
     override __.ToString() = name
 
-type LambdaInfo(captureThis: bool, ?isDelegate: bool) =
-    member __.CaptureThis = captureThis
-    member __.IsDelegate = defaultArg isDelegate false
-
 type ImportKind =
     | CoreLib
     | Internal of file: string
@@ -258,7 +254,7 @@ type ValueKind =
     | UnaryOp of UnaryOperator
     | BinaryOp of BinaryOperator
     | LogicalOp of LogicalOperator
-    | Lambda of args: Ident list * body: Expr * info: LambdaInfo
+    | Lambda of args: Ident list * body: Expr * isDelegate: bool
     | Emit of string
     member x.ImmediateSubExpressions: Expr list =
         match x with
@@ -290,7 +286,7 @@ type ValueKind =
         | TupleConst exprs -> List.map Expr.getType exprs |> Tuple
         | UnaryOp _ -> Function([Any], Any, true)
         | BinaryOp _ | LogicalOp _ -> Function([Any; Any], Any, true)
-        | Lambda (args, body, info) -> Function(List.map Ident.getType args, body.Type, not info.IsDelegate)
+        | Lambda (args, body, isDelegate) -> Function(List.map Ident.getType args, body.Type, not isDelegate)
     member x.Range: SourceLocation option =
         match x with
         | Lambda (_, body, _) -> body.Range

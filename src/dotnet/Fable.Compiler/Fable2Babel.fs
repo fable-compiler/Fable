@@ -317,15 +317,11 @@ module Util =
             :> Expression
         | _ -> e
 
-    let transformLambda r (info: Fable.LambdaInfo) args body: Expression =
-        if info.CaptureThis
-        // Arrow functions capture the enclosing `this` in JS
-        then upcast ArrowFunctionExpression (args, body, ?loc=r)
-        else
-            match body with
-            | Choice1Of2 body -> body
-            | Choice2Of2 e -> BlockStatement([ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
-            |> fun body -> upcast FunctionExpression (args, body, ?loc=r)
+    let transformLambda r args body: Expression =
+        match body with
+        | Choice1Of2 body -> body
+        | Choice2Of2 e -> BlockStatement([ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
+        |> fun body -> upcast FunctionExpression (args, body, ?loc=r)
 
     let transformValue (com: IBabelCompiler) (ctx: Context) r = function
         | Fable.ImportRef (memb, path, kind) ->
@@ -345,9 +341,8 @@ module Util =
         | Fable.StringConst x -> upcast StringLiteral (x)
         | Fable.BoolConst x -> upcast BooleanLiteral (x)
         | Fable.RegexConst (source, flags) -> upcast RegExpLiteral (source, flags)
-        | Fable.Lambda (args, body, info) ->
-            com.TransformFunction ctx None args body
-            ||> transformLambda r info
+        | Fable.Lambda (args, body, _) ->
+            com.TransformFunction ctx None args body ||> transformLambda r
         | Fable.ArrayConst (cons, typ) -> buildArray com ctx cons typ
         | Fable.TupleConst vals -> buildArray com ctx (Fable.ArrayValues vals) Fable.Any
         | Fable.Emit emit -> macroExpression None emit []
@@ -532,11 +527,10 @@ module Util =
             let value = com.GetImportExpr ctx var.Name path kind
             [varDeclaration r (ident var) isMutable value :> Statement]
 
-        | Fable.VarDeclaration (var, Fable.Value(Fable.Lambda(args, body, info)), false, r) ->
+        | Fable.VarDeclaration (var, Fable.Value(Fable.Lambda(args, body, _)), false, r) ->
             let value =
                 let tc = NamedTailCallOpportunity(com, var.Name, args) :> ITailCallOpportunity |> Some
-                com.TransformFunction ctx tc args body
-                ||> transformLambda body.Range info
+                com.TransformFunction ctx tc args body ||> transformLambda body.Range
             [varDeclaration r (ident var) false value :> Statement]
 
         | Fable.VarDeclaration (var, value, isMutable, r) ->

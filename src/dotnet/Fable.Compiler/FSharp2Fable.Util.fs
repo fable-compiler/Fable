@@ -11,19 +11,6 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
 
-type ThisAvailability =
-    | ThisUnavailable
-    | ThisAvailable
-    /// Object expressions must capture the `this` reference and
-    /// they can also be nested (see makeThisRef and the ObjectExpr pattern)
-    | ThisCaptured
-        of currentThis: FSharpMemberOrFunctionOrValue option
-        * capturedThis: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
-
-type MemberInfo =
-    { isInstance: bool
-      passGenerics: bool }
-
 type EnclosingModule(entity, isPublic) =
     member val Entity: Fable.Entity = entity
     member val IsPublic: bool = isPublic
@@ -38,7 +25,6 @@ type Context =
       varNames: HashSet<string>
       typeArgs: (string * FSharpType) list
       decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
-      thisAvailability: ThisAvailability
       genericAvailability: bool
       isDynamicCurriedLambda: bool
       caughtException: Fable.Ident option }
@@ -50,7 +36,6 @@ type Context =
           varNames = HashSet()
           typeArgs = []
           decisionTargets = None
-          thisAvailability = ThisUnavailable
           genericAvailability = false
           isDynamicCurriedLambda = false
           caughtException = None }
@@ -1147,18 +1132,6 @@ module Util =
 
     let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r (typArgs, methTypArgs)
                       (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
-        // If the argument has a `this` reference, assign it to a variable
-        // as the inlined expression can change the this context (see #1291)
-        let hasThisReference e =
-            e |> deepExists (function
-                | Fable.Value Fable.This -> true
-                | _ -> false)
-        let addCallee ctx callee replacement =
-            match callee with
-            | Some callee ->
-                let callee = defaultArg replacement callee
-                {ctx with thisAvailability=ThisCaptured(None, [None, callee])}
-            | None -> ctx
         if not(isInline meth)
         then None
         else
@@ -1169,16 +1142,14 @@ module Util =
                 |||> Seq.fold2 (fun (ctx, assignments, idx) (KeyValue(argIdent, refCount)) arg ->
                     // If an expression is referenced more than once, assign it
                     // to a temp var to prevent multiple evaluations
-                    if (refCount > 1 && hasDoubleEvalRisk arg) || (hasThisReference arg) then
+                    if refCount > 1 && hasDoubleEvalRisk arg then
                         let tmpVar = com.GetUniqueVar() |> makeIdent
                         let tmpVarExp = Fable.Value(Fable.IdentValue tmpVar)
                         let assign = Fable.VarDeclaration(tmpVar, arg, false, None)
                         let ctx = { ctx with scope = (Some argIdent, tmpVarExp)::ctx.scope }
-                        let ctx = if idx = 0 then addCallee ctx callee (Some tmpVarExp) else ctx
                         ctx, (assign::assignments), (idx + 1)
                     else
                         let ctx = { ctx with scope = (Some argIdent, arg)::ctx.scope }
-                        let ctx = if idx = 0 then addCallee ctx callee None else ctx
                         ctx, assignments, (idx + 1)
                 )
             let typeArgs = matchGenericParams ctx meth (typArgs, methTypArgs)
@@ -1266,7 +1237,7 @@ module Util =
         let owner = tryEnclosingEntity meth
         let i = buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs, methArgTypes) (callee, args) owner meth
         match meth with
-        (** -Check for replacements, emits... *)
+        // Check for replacements, emits...
         | EmitReplacement com i replaced -> replaced
         | Plugin com i replaced -> replaced
         | Imported com ctx r typ i (typArgs, methTypArgs) args imported -> imported
@@ -1276,69 +1247,15 @@ module Util =
         | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         | ExtensionMember com ctx r typ (callee, args, methArgTypes) owner expr -> expr
         | Try (tryGetBoundExpr ctx) e ->
-            match getMemberKind meth with
-            | Fable.Getter | Fable.Field -> e
-            | Fable.Setter -> Fable.Set (e, None, args.Head, r)
-            // Constructors cannot be bound expressions
-            | _ -> Fable.Apply(e, args, Fable.ApplyMeth, typ, r)
-        (** -If the call is not resolved, then: *)
+            let args =
+                match callee with
+                | Some callee -> callee::args
+                | None -> args
+            Fable.Apply(e, args, Fable.ApplyMeth, typ, r)
         | _ ->
-            let callee =
-                match callee, owner with
-                | Some callee, _ -> callee
-                | None, Some ent ->
-                    // TODO: This info is already in i.ownerType, we may use that
-                    makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
-                // Cases when tryEnclosingEntity returns None are rare (see #237)
-                // Let's assume the method belongs to the current enclosing module
-                | _ -> Fable.DeclaredType(ctx.enclosingModule.Entity, []) |> makeNonGenTypeRef com
-            let methName = sanitizeMethodName meth
-    (**     *Check if this a getter or setter  *)
-            match getMemberKind meth with
-            | Fable.Getter | Fable.Field as kind ->
-                let methName = getOverloadedName com owner meth kind methArgTypes methName
-                makeGetFrom r typ callee (makeStrConst methName)
-            | Fable.Setter as kind ->
-                let methName = getOverloadedName com owner meth kind methArgTypes methName
-                Fable.Set (callee, Some (makeStrConst methName), args.Head, r)
-    (**     *Check if this is an implicit constructor *)
-            | Fable.Constructor ->
-                Fable.Apply (callee, args, Fable.ApplyCons, typ, r)
-    (**     *If nothing of the above applies, call the method normally *)
-            | Fable.Method as kind ->
-                let applyMeth methName =
-                    // let calleeType = Fable.Function(Some methArgTypes, typ)
-                    let m = makeGet r Fable.Any callee (makeStrConst methName)
-                    Fable.Apply(m, args, Fable.ApplyMeth, typ, r)
-                if belongsToInterfaceOrImportedEntity meth then
-                    if methName = ".ctor"
-                    then Fable.Apply(callee, args, Fable.ApplyCons, typ, r)
-                    else applyMeth methName
-                else
-                    let methName = getOverloadedName com owner meth kind methArgTypes methName
-                    applyMeth methName
-
-    let makeThisRef (com: ICompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue option) =
-        match ctx.thisAvailability with
-        | ThisAvailable -> Fable.Value Fable.This
-        | ThisCaptured(currentThis, capturedThis) ->
-            match v, currentThis with
-            | Some v, Some currentThis when currentThis = v ->
-                Fable.Value Fable.This
-            | Some v, _ ->
-                capturedThis |> List.pick (function
-                    | Some fsRef, ident when v = fsRef -> Some ident
-                    | Some _, _ -> None
-                    // The last fsRef of capturedThis must be None
-                    // (the unknown `this` ref outside nested object expressions),
-                    // so this means we've reached the end of the list.
-                    | None, ident -> Some ident)
-            | None, _ ->
-                capturedThis |> List.last |> snd
-        | ThisUnavailable ->
-            "`this` seems to be used in a context where it's not available, please check."
-            |> addWarning com ctx.fileName r
-            Fable.Value Fable.This
+            // TODO: Check if this is an interface or overriden method
+            // TODO: Check overloaded name
+            failwith "TODO: Calls to method not bound in context"
 
     let makeValueFrom com ctx r typ eraseUnit (v: FSharpMemberOrFunctionOrValue) =
         let resolveValue com ctx r typ owner v =

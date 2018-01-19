@@ -53,10 +53,7 @@ let private transformLambda com ctx (fsExpr: FSharpExpr) args tupleDestructs bod
         let ctx = { ctx with isDynamicCurriedLambda =
                                 isDynamicCurried || ctx.isDynamicCurriedLambda }
         transformExpr com ctx body
-    let lambda =
-        let captureThis = ctx.thisAvailability <> ThisUnavailable
-        Fable.Lambda(args, body, Fable.LambdaInfo(captureThis, isDelegate))
-        |> Fable.Value
+    let lambda = Fable.Lambda(args, body, isDelegate) |> Fable.Value
     if isDynamicCurried
     then makeDynamicCurriedLambda (makeRangeFrom fsExpr) lambdaType lambda
     else lambda
@@ -156,13 +153,6 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
 
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) (objType: FSharpType)
                     (_baseCallExpr: FSharpExpr) (overrides: FSharpObjectExprOverride list) otherOverrides =
-    // If `this` is available, capture it to avoid conflicts (see #158)
-    let capturedThis =
-        match ctx.thisAvailability with
-        | ThisUnavailable -> None
-        | ThisAvailable -> Some [None, com.GetUniqueVar() |> makeIdentExpr]
-        | ThisCaptured(prevThis, prevVars) ->
-            (prevThis, com.GetUniqueVar() |> makeIdentExpr)::prevVars |> Some
     let members =
         (objType, overrides)::otherOverrides
         |> List.collect (fun (typ, overrides) ->
@@ -204,13 +194,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FShar
                             genParams = (over.GenericParameters |> List.map (fun x -> x.Name)),
                             hasRestParams = hasRestParams)
                 m, args', body))
-    let range = makeRangeFrom fsExpr
-    let objExpr = Fable.ObjExpr (members, range)
-    match capturedThis with
-    | Some((_,Fable.Value(Fable.IdentValue capturedThis))::_) ->
-        let varDecl = Fable.VarDeclaration(capturedThis, Fable.Value Fable.This, false, range)
-        Fable.Sequential([varDecl; objExpr], range)
-    | _ -> objExpr
+    Fable.ObjExpr (members, makeRangeFrom fsExpr)
 
 let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) decisionExpr (decisionTargets: (FSharpMemberOrFunctionOrValue list * FSharpExpr) list) =
     let rec getTargetRefsCount map = function
@@ -277,10 +261,8 @@ let private transformDecisionTreeSuccess (com: IFableCompiler) (ctx: Context) (r
 let private transformDelegate com ctx delegateType fsExpr =
     let wrapInZeroArgsLambda r typ (args: FSharpExpr list) fref =
         let args = List.map (transformExpr com ctx) args
-        let captureThis = ctx.thisAvailability <> ThisUnavailable
-        let body =
-            Fable.Apply(fref, args, Fable.ApplyMeth, typ, r)
-        Fable.Lambda([], body, Fable.LambdaInfo(captureThis)) |> Fable.Value
+        let body = Fable.Apply(fref, args, Fable.ApplyMeth, typ, r)
+        Fable.Lambda([], body, false) |> Fable.Value
     let isSpecialCase t =
         tryDefinition t
         |> Option.bind (fun tdef -> tdef.TryFullName)
@@ -398,9 +380,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         makeEqOp r [lengthExpr; makeTypeConst typ length] BinaryEqualStrict
 
     | JsThis ->
-        if ctx.thisAvailability <> ThisUnavailable then
-            "JS `this` is already captured in this context, try to use it in a module function"
-            |> addWarning com ctx.fileName (makeRange fsExpr.Range |> Some)
         Fable.Value Fable.This
 
     (** ## Flow control *)
@@ -425,17 +404,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             Replacements.checkLiteral com ctx.fileName (makeRangeFrom fsExpr) value typ
             Fable.Wrapped (e, typ)
 
-    | BasicPatterns.BaseValue _typ ->
-        Fable.This |> Fable.Value
-
+    | BasicPatterns.BaseValue _typ
     | BasicPatterns.ThisValue _typ ->
-        makeThisRef com ctx (makeRangeFrom fsExpr) None
+        Fable.Value Fable.This
 
     | BasicPatterns.Value var ->
-        if var.IsMemberThisValue
-        then Some var |> makeThisRef com ctx (makeRangeFrom fsExpr)
-        elif isInline var
-        then
+        if isInline var then
             match ctx.scopedInlines |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
             | Some (_,fsExpr) -> com.Transform ctx fsExpr
             | None ->
@@ -551,7 +525,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // the F# compiler wraps self references with code we don't need
     | BasicPatterns.FSharpFieldGet(Some ThisVar, RefType _, _)
     | BasicPatterns.FSharpFieldGet(Some(BasicPatterns.FSharpFieldGet(Some ThisVar, _, _)), RefType _, _) ->
-        makeThisRef com ctx (makeRangeFrom fsExpr) None
+        Fable.Value Fable.This
 
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
         let callee =
@@ -769,42 +743,39 @@ let private transformMethod com ctx range import (meth: FSharpMemberOrFunctionOr
         let typ = makeType com ctx.typeArgs meth.FullType
         let ctx, privateName = bindIdent com ctx typ (Some meth) meth.CompiledName
         ctx, privateName.Name
-    let memberKind, args, body =
+    let argsAndBody =
         match import with
         | Some(selector, path) ->
-            Fable.Field, [], makeImport selector path
+            failwith "TODO: compile imports as ValueDeclarations (check if they're mutable, see Zaid's issue)"
+            // [], makeImport selector path
         | None ->
             let passGenerics = hasPassGenericsAtt com ctx meth
             let ctx, args = bindMemberArgs com ctx passGenerics args
-            let ctx =
-                if meth.IsInstanceMember
-                then { ctx with thisAvailability = ThisAvailable }
-                else ctx
             if meth.IsImplicitConstructor then
-                // TODO: compileDerivedConstructor?
-                let body = transformExpr com ctx body
-                Fable.Constructor, args, body
+                None // TODO: [implicit] [derived] constructors
             else
                 let fableBody = transformExpr com ctx body
                 match fableBody with
                 // Accept import expressions used instead of attributes, for example:
                 // let foo x y = import "foo" "myLib"
                 | Fable.Value(Fable.ImportRef(selector, path, importKind)) ->
-                    let fableBody =
-                        if selector = Naming.placeholder
-                        then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
-                        else fableBody
-                    Fable.Field, [], fableBody
-                | MultiArgFunction ctx body fableBody ->
-                    getMemberKind meth, args, fableBody
-                | fableBody ->
-                    getMemberKind meth, args, fableBody
-    let publicName =
-        if isPublicMethod meth
-        then sanitizeMethodName meth |> Some
-        else None
-    let entMember = Fable.FunctionDeclaration(publicName, privateName, args, body, Some range)
-    ctx, Some entMember
+                    failwith "TODO: compile import expressions as ValueDeclarations (check if they're mutable, see Zaid's issue)"
+                    // let fableBody =
+                    //     if selector = Naming.placeholder
+                    //     then Fable.Value(Fable.ImportRef(meth.DisplayName, path, importKind))
+                    //     else fableBody
+                    // [], fableBody
+                | MultiArgFunction ctx body fableBody -> Some(args, fableBody)
+                | fableBody -> Some(args, fableBody)
+    match argsAndBody with
+    | Some(args, body) ->
+        let publicName =
+            if isPublicMethod meth
+            then sanitizeMethodName meth |> Some
+            else None
+        let entMember = Fable.FunctionDeclaration(publicName, privateName, args, body, Some range)
+        ctx, Some entMember
+    | None -> ctx, None
 
 let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (meth: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =

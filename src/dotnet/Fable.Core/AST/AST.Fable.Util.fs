@@ -65,7 +65,7 @@ let makeLoop range loopKind = Loop (loopKind, range)
 let makeIdent name = Ident(name)
 let makeTypedIdent name typ = Ident(name, typ)
 let makeIdentExpr name = makeIdent name |> IdentValue |> Value
-let makeLambdaExpr args body = Value(Lambda(args, body, LambdaInfo(true)))
+let makeLambdaExpr args body = Value(Lambda(args, body, true))
 
 let makeCoreRef modname prop =
     Value(ImportRef(prop, modname, CoreLib))
