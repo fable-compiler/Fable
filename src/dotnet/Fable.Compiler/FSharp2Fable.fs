@@ -83,8 +83,14 @@ let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
             CoreLibCall("List", Some "ofArray", false, args)
     |> makeCall (Some range) unionType
 
-let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase (argExprs: Fable.Expr list) =
+let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType
+                    (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     let unionType, range = makeType com ctx.typeArgs fsType, makeRange fsExpr.Range
+    let argExprs =
+        let argTypes =
+            [ for x in unionCase.UnionCaseFields ->
+                makeType com [] x.FieldType ]
+        ensureArity com argTypes argExprs
     match fsType with
     | OptionUnion ->
         match argExprs with
@@ -102,54 +108,23 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         | _ -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
     | ErasedUnion ->
         match argExprs with
-        | [] -> Fable.Wrapped(Fable.Value Fable.Null, unionType)
         | [expr] -> Fable.Wrapped(expr, unionType)
         | _ ->
             "Erased Union Cases must have one single field: " + unionType.FullName
             |> addErrorAndReturnNull com ctx.fileName (Some range)
     | StringEnum ->
-        if not(List.isEmpty argExprs)
-        then
+        if not(List.isEmpty argExprs) then
             "StringEnum types cannot have fields: " + unionType.FullName
             |> addErrorAndReturnNull com ctx.fileName (Some range)
         else lowerCaseName unionCase
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
-    | OtherType ->
+    | OtherType hasCaseWithDataFields ->
+        // TODO: In development use the case name
         let tag = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
-        let argExprs =
-            let argTypes =
-                unionCase.UnionCaseFields
-                |> Seq.map (fun x -> makeType com [] x.FieldType)
-                |> Seq.toList
-            ensureArity com argTypes argExprs
-        let erasedUnion =
-            // We can use the Erase attribute with union cases
-            // to pass custom values to keyValueList
-            if hasAtt Atts.erase unionCase.Attributes then
-                match argExprs with
-                | [Fable.Value(Fable.StringConst key); value] ->
-                    Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) |> Some
-                | _ ->
-                    sprintf "Case %s from %s is decorated with %s, but the fields are not a key-value pair"
-                        unionCase.Name unionType.FullName Atts.erase
-                    |> addWarning com ctx.fileName (makeRange fsExpr.Range |> Some)
-                    None
-            else None
-        match erasedUnion with
-        | Some erasedUnion -> erasedUnion
-        | None ->
-            let argExprs =
-                match argExprs with
-                | [] -> [tag]
-                | [argExpr] -> [tag; argExpr]
-                | argExprs -> [tag; Fable.Value(Fable.ArrayConst(Fable.ArrayValues argExprs, Fable.Any))]
-            buildApplyInfo com ctx (Some range) unionType unionType unionType.FullName
-                ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
-            |> tryBoth (tryPlugin com) (tryReplace com ctx (tryDefinition fsType))
-            |> function
-            | Some repl -> repl
-            | None -> Fable.Apply(makeNonGenTypeRef com unionType, argExprs, Fable.ApplyCons, unionType, Some range)
+        if hasCaseWithDataFields
+        then makeArray Fable.Any (tag::argExprs)
+        else tag
 
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) (objType: FSharpType)
                     (_baseCallExpr: FSharpExpr) (overrides: FSharpObjectExprOverride list) otherOverrides =
@@ -211,8 +186,7 @@ let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: 
         | e ->
             failwithf "Unexpected DecisionTree branch %O: %A" (makeRange e.Range) e
     let targetRefsCount = getTargetRefsCount (Map.empty<int,int>) decisionExpr
-    if targetRefsCount |> Map.exists (fun _ v -> v > 1)
-    then
+    if targetRefsCount |> Map.exists (fun _ v -> v > 1) then
         // If any of the decision targets is referred to more than once,
         // resolve the condition first and compile decision targets as a
         // switch to prevent code repetition (same target in different if branches)
@@ -280,15 +254,13 @@ let private transformDelegate com ctx delegateType fsExpr =
         transformLambda com ctx fsExpr args tupleDestructs body true
     | fsExpr -> transformExpr com ctx fsExpr
 
-let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) fsExpr unionExpr (NonAbbreviatedType fsType) (unionCase: FSharpUnionCase) =
+let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr)
+                            unionExpr (NonAbbreviatedType fsType) (unionCase: FSharpUnionCase) =
     let unionExpr = transformExpr com ctx unionExpr
-    let checkCase propName right =
-        let left = makeGet None Fable.String unionExpr (makeStrConst propName)
-        makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
     match fsType with
     | ErasedUnion ->
-        let unionName = defaultArg fsType.TypeDefinition.TryFullName "unknown"
         if unionCase.UnionCaseFields.Count <> 1 then
+            let unionName = defaultArg fsType.TypeDefinition.TryFullName "unknown"
             "Erased Union Cases must have one single field: " + unionName
             |> addErrorAndReturnNull com ctx.fileName (makeRange fsExpr.Range |> Some)
         else
@@ -312,10 +284,14 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) fsExpr u
         makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [expr; Fable.Value Fable.Null] opKind
     | StringEnum ->
         makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerCaseName unionCase] BinaryEqualStrict
-    | OtherType ->
-        getUnionCaseIndex fsType unionCase.Name
-        |> makeIntConst
-        |> checkCase "tag"
+    | OtherType hasCaseWithDataFields ->
+        // TODO: In development use case name
+        let idx = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
+        let tag =
+            if hasCaseWithDataFields
+            then makeGet None (Fable.Number Int32) unionExpr (makeIntConst 0)
+            else unionExpr
+        makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [tag; idx] BinaryEqualStrict
 
 let private transformSwitch com ctx (fsExpr: FSharpExpr) (matchValue: FSharpMemberOrFunctionOrValue)
                                 isUnionType cases (defaultCase, defaultBindings) decisionTargets =
@@ -429,7 +405,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     (** ## Assignments *)
     | ImmutableBinding((var, value), body) ->
-        transformExpr com ctx value |> bindExpr ctx var |> transformExpr com <| body
+        let boundExpr =
+            transformExpr com ctx value
+            |> bindExpr ctx var
+        transformExpr com boundExpr body
 
     | BasicPatterns.Let((var, value), body) ->
         if isInline var then
@@ -553,13 +532,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | StringEnum ->
             "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com ctx.fileName range
-        | OtherType ->
-            if unionCase.UnionCaseFields.Count > 1 then
-                let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
-                let data = makeGet range typ unionExpr (makeStrConst "data")
-                makeGet range typ data (makeIntConst i)
-            else
-                makeGet range typ unionExpr (makeStrConst "data")
+        | OtherType _ ->
+            let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
+            makeGet range typ unionExpr (makeIntConst (i+1)) // Index 0 holds the union tag
 
     // When using a self reference in constructor (e.g. `type MyType() as self =`)
     // the F# compiler introduces artificial statements that we must ignore
@@ -567,18 +542,19 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.FSharpFieldSet(Some(BasicPatterns.FSharpFieldGet(Some(ThisVar _), _, _)), RefType _, _, _) ->
         Fable.Value Fable.Null
 
-    | BasicPatterns.FSharpFieldSet (callee, calleeType, FieldName fieldName, Transform com ctx value) ->
+    | BasicPatterns.FSharpFieldSet (callee, calleeType, fi, Transform com ctx value) ->
+        let value = ensureArity com [makeType com [] fi.FieldType] [value] |> List.head
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None ->
                 let calleeType = makeType com ctx.typeArgs calleeType
                 makeNonGenTypeRef com calleeType
-        Fable.Set (callee, Some (makeStrConst fieldName), value, makeRangeFrom fsExpr)
+        Fable.Set (callee, Some (makeStrConst fi.Name), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeGetFrom r typ unionExpr (makeStrConst "tag")
+        makeGet r typ unionExpr (makeIntConst 0)
 
     | BasicPatterns.UnionCaseSet (Transform com ctx unionExpr, _type, _case, _caseField, _valueExpr) ->
         makeRange fsExpr.Range |> failwithf "Unexpected UnionCaseSet %O"
@@ -614,33 +590,23 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let range = makeRangeFrom fsExpr
-        let tdef = tryDefinition fsType
-        let argExprs =
-            let argExprs = List.map (transformExpr com ctx) argExprs
-            match tdef with
-            | Some tdef ->
-                tdef.FSharpFields
-                |> Seq.map (fun x -> makeType com [] x.FieldType)
-                |> fun argTypes -> ensureArity com (Seq.toList argTypes) argExprs
-            | None -> argExprs
-        // TODO: Build Pojo
-        // List.zip (Seq.toList tdef.FSharpFields) argExprs
-        // |> List.map (fun (fi, e) -> fi.Name, e)
-        // |> makeJsObject range
-        let recordType = makeType com ctx.typeArgs fsType
-        buildApplyInfo com ctx range recordType recordType recordType.FullName
-            ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
-        |> tryBoth (tryPlugin com) (tryReplace com ctx tdef)
-        |> function
-        | Some repl -> repl
-        | None -> Fable.Apply(makeNonGenTypeRef com recordType, argExprs, Fable.ApplyCons,
-                        makeType com ctx.typeArgs fsExpr.Type, range)
+        match tryDefinition fsType with
+        | Some tdef ->
+            let fields = Seq.toList tdef.FSharpFields
+            let argExprs =
+                let argExprs = List.map (transformExpr com ctx) argExprs
+                let argTypes = fields |> List.map (fun x -> makeType com [] x.FieldType)
+                ensureArity com argTypes argExprs
+            List.zip fields argExprs
+            |> List.map (fun (fi, e) -> fi.Name, e)
+            |> makeJsObject range
+        | None -> failwithf "Unexpected NewRecord without definition %O: %A" range fsExpr
 
     | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
         match fsType with
         | ListType _ -> transformNewList com ctx fsExpr fsType argExprs
         | _ -> List.map (com.Transform ctx) argExprs
-                |> transformNonListNewUnionCase com ctx fsExpr fsType unionCase
+               |> transformNonListNewUnionCase com ctx fsExpr fsType unionCase
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FableType com ctx typ, Transform com ctx expr) ->
@@ -810,8 +776,7 @@ let rec private transformEntityDecl (com: IFableCompiler) (ctx: Context) (ent: F
         let childDecls =
             let ctx = { ctx with enclosingModule = EnclosingModule(com.GetEntity ent, isPublicEntity ctx ent) }
             transformDeclarations com ctx subDecls
-        if List.isEmpty childDecls && ent.IsFSharpModule
-        then
+        if List.isEmpty childDecls && ent.IsFSharpModule then
             ctx, None
         else
             // Bind entity name to context to prevent name clashes (it will become a variable in JS)

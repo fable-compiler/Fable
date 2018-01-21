@@ -87,7 +87,7 @@ module Helpers =
 
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
-            match att.AttributeType.TryFullName with
+            match (nonAbbreviatedEntity att.AttributeType).TryFullName with
             | Some fullName ->
                 if f fullName then Some att else None
             | None -> None)
@@ -216,7 +216,7 @@ module Helpers =
         then Fable.StaticLoc
         else tryGetInterfaceFromMethod meth
              |> Option.map (getEntityFullName >> Fable.InterfaceLoc)
-             |> defaultArg <| Fable.InstanceLoc
+             |> Option.defaultValue Fable.InstanceLoc
 
     let getArgCount (meth: FSharpMemberOrFunctionOrValue) =
         let args = meth.CurriedParameterGroups
@@ -476,19 +476,23 @@ module Patterns =
 
     let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|OtherType|) (NonAbbreviatedType typ: FSharpType) =
         match tryDefinition typ with
-        | None -> OtherType
+        | None -> OtherType true // default to unions as arrays
         | Some tdef ->
             match defaultArg tdef.TryFullName tdef.CompiledName with
             | "Microsoft.FSharp.Core.FSharpOption`1" -> OptionUnion
             | "Microsoft.FSharp.Collections.FSharpList`1" -> ListUnion
             | _ ->
                 tdef.Attributes
-                |> Seq.choose (fun att -> att.AttributeType.TryFullName)
+                |> Seq.choose (fun att -> (nonAbbreviatedEntity att.AttributeType).TryFullName)
                 |> Seq.tryPick (fun name ->
                     if name = Atts.erase then Some ErasedUnion
                     elif name = Atts.stringEnum then Some StringEnum
                     else None)
-                |> defaultArg <| OtherType
+                |> Option.defaultWith (fun () ->
+                    let hasCasewithDataFields =
+                        tdef.UnionCases
+                        |> Seq.exists (fun uci -> uci.UnionCaseFields.Count > 0)
+                    OtherType hasCasewithDataFields)
 
     let (|Switch|_|) fsExpr =
         let isStringOrNumber (NonAbbreviatedType typ) =
@@ -521,7 +525,7 @@ module Patterns =
                 | None when not var.IsMemberThisValue && not(isInline var) ->
                     match typ with
                     | OptionUnion | ListUnion | ErasedUnion | StringEnum -> None
-                    | OtherType -> Some(var,true,idx,bindings,case,elseExpr)
+                    | OtherType _ -> Some(var,true,idx,bindings,case,elseExpr)
                 | _ -> None
             | _ -> None
             |> function
@@ -648,7 +652,7 @@ module Types =
         | _ ->
             // Check erased types
             tdef.Attributes
-            |> Seq.choose (fun att -> att.AttributeType.TryFullName)
+            |> Seq.choose (fun att -> (nonAbbreviatedEntity att.AttributeType).TryFullName)
             |> Seq.tryPick (fun name ->
                 if name = Atts.stringEnum
                 then Some Fable.String
