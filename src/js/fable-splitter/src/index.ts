@@ -180,7 +180,7 @@ async function getFileAstAsync(path: string, options: FableSplitterOptions, info
         if (babelAst.error) {
             throw new Error(babelAst.error);
         } else if (path.endsWith(".fsproj")) {
-            info.projectFiles = babelAst.dependencies;
+            info.projectFiles = babelAst.sourceFiles;
         }
         addLogs(babelAst.logs, info);
         ast = Babel.transformFromAst(babelAst, undefined, { code: false });

@@ -130,7 +130,7 @@ type Directive(value, ?loc) =
 /// A complete program source tree.
 /// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module.
 /// Otherwise, sourceType must be "script".
-type Program(fileName, body, ?directives, ?logs, ?dependencies) =
+type Program(fileName, body, ?directives, ?logs, ?dependencies, ?sourceFiles) =
     inherit Node("Program")
     member __.sourceType = "module" // Don't use "script"
     member __.body: U2<Statement, ModuleDeclaration> list = body
@@ -139,6 +139,7 @@ type Program(fileName, body, ?directives, ?logs, ?dependencies) =
     member __.fileName: string = fileName
     member __.logs: Map<string, string list> = defaultArg logs Map.empty
     member __.dependencies: string[] = defaultArg dependencies [||]
+    member __.sourceFiles: string[] = defaultArg sourceFiles [||]
 
 (** ##Statements *)
 /// An expression statement, i.e., a statement consisting of a single expression.

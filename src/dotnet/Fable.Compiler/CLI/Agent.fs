@@ -178,22 +178,23 @@ let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFil
         com.AddLog(msg, severity, range, fileName, "FSHARP"))
 
 let compile (com: Compiler) (project: Project) =
-    let babel =
-        if com.CurrentFile.EndsWith(".fsproj") then
-            // If we compile the last file here, Webpack watcher will ignore changes in it
-            Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles com.CurrentFile
-        else
+    if com.CurrentFile.EndsWith(".fsproj") then
+        // If we compile the last file here, Webpack watcher will ignore changes in it
+        Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles com.CurrentFile
+        |> toJson
+    else
+        let babel =
             FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
             |> FableTransforms.optimizeFile com
             |> Fable2Babel.Compiler.transformFile com
-    // If this is the first compilation, add errors to each respective file
-    if not project.IsWatchCompile then
-        addFSharpErrorLogs com project.Errors (Some com.CurrentFile)
-    project.MarkSent(com.CurrentFile)
-    // Don't send dependencies to JS client (see #1241)
-    project.AddDependencies(com.CurrentFile, babel.dependencies)
-    Babel.Program(babel.fileName, babel.body, babel.directives, com.ReadAllLogs())
-    |> toJson
+        // If this is the first compilation, add errors to each respective file
+        if not project.IsWatchCompile then
+            addFSharpErrorLogs com project.Errors (Some com.CurrentFile)
+        project.MarkSent(com.CurrentFile)
+        // Don't send dependencies to JS client (see #1241)
+        project.AddDependencies(com.CurrentFile, babel.dependencies)
+        Babel.Program(babel.fileName, babel.body, babel.directives, com.ReadAllLogs())
+        |> toJson
 
 type Command = string * (string -> unit)
 
