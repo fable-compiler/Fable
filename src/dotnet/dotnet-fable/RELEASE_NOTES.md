@@ -1,3 +1,12 @@
+### 1.3.8
+
+* Remove empty intermediate functions (@vbfox)
+* Implement replacements for eprintf and friends (@inosik)
+* Fix #1311: sign operator
+* Fix #1165 bis: Return sourceFiles for .fsproj files
+* Add Invoke method to Fable.Import.JS.Function
+* Add Fable.Core.DynamicExtensions
+
 ### 1.3.7
 
 * Fix PassGenerics attribute with optional arguments

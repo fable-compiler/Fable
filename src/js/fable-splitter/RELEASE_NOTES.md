@@ -1,3 +1,7 @@
+### 0.1.21
+
+* Fix #1165 bis: Return sourceFiles for .fsproj files
+
 ### 0.1.20
 
 * Move `allFiles` to options root
