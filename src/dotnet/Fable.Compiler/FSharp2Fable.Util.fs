@@ -46,7 +46,7 @@ type IFableCompiler =
     abstract IsReplaceCandidate: FSharpEntity -> bool
     abstract TryGetInternalFile: FSharpEntity -> string option
     abstract GetEntity: FSharpEntity -> Fable.Entity
-    abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> (IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr)
+    abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> (IDictionary<string,int> * Fable.Expr)
     abstract AddInlineExpr: string * (IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) -> unit
     abstract AddUsedVarName: string -> unit
     abstract ReplacePlugins: (string*IReplacePlugin) list
@@ -659,8 +659,9 @@ module Types =
                 elif name = Atts.erase
                 then Some Fable.Any
                 else None)
-            |> Option.defaultWith (fun () -> // Declared Type
-                Fable.DeclaredType(com.GetEntity tdef,
+            |> Option.defaultWith (fun () ->
+                // TODO: Retrieve Fable.Entity to make sure it gets into the compiler cache
+                Fable.DeclaredType(getEntityFullName tdef, // com.GetEntity tdef,
                     genArgs |> Seq.map (makeType com typeArgs) |> Seq.toList))
 
     and makeType (com: IFableCompiler) typeArgs (NonAbbreviatedType t) =
@@ -692,7 +693,7 @@ module Types =
     let getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
         match tdef.BaseType with
         | Some(TypeDefinition tdef) when tdef.TryFullName <> Some "System.Object" ->
-            let typeRef = makeTypeFromDef com [] tdef [] |> makeNonGenTypeRef com
+            let typeRef = makeTypeFromDef com [] tdef [] |> makeEntityRef com
             Some (getEntityFullName tdef, typeRef)
         | _ -> None
 
@@ -988,14 +989,11 @@ module Util =
         | None -> None
 
     let tryReplace (com: IFableCompiler) ctx (ent: FSharpEntity option) (info: Fable.ApplyInfo) =
-        let isInterface = function
-            | Fable.DeclaredType(ent, _) when ent.Kind = Fable.Interface -> true
-            | _ -> false
         match ent with
         | Some ent when com.IsReplaceCandidate ent ->
             match Replacements.tryReplace com info with
             | Some _ as repl -> repl
-            | None when isInterface info.ownerType -> None
+            | None when ent.IsInterface -> None
             | None ->
                 sprintf "Cannot find replacement for %s::%s" info.ownerFullName info.methodName
                 |> addErrorAndReturnNull com ctx.fileName info.range |> Some
@@ -1036,22 +1034,7 @@ module Util =
             let pos = args.Length + extraArgs.Length
             extraArgs <- arg::extraArgs
             "$" + string pos
-        // Trick to replace reference to generic arguments: $'T
-        if Naming.hasGenericPlaceholder macro
-        then
-            let genArgs = matchGenericParams ctx meth (typArgs, methTypArgs) |> Map
-            let genInfo = { makeGeneric=false; genericAvailability=ctx.genericAvailability }
-            Naming.replaceGenericPlaceholder (macro, fun m ->
-                match genArgs.TryFind m with
-                | Some t ->
-                    makeType com ctx.typeArgs t |> makeTypeRef com genInfo |> addExtraArg
-                | None ->
-                    sprintf "Couldn't find generic argument %s requested by Emit expression: %s"
-                        m macro
-                    |> addWarning com ctx.fileName r
-                    m)
-        else macro
-        |> fun macro -> macro, args@(List.rev extraArgs)
+        macro, args@(List.rev extraArgs)
 
     let (|Erased|_|) com (ctx: Context) r typ (owner: FSharpEntity option)
                     (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
@@ -1136,32 +1119,33 @@ module Util =
 
     let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r (typArgs, methTypArgs)
                       (callee, args) (meth: FSharpMemberOrFunctionOrValue) =
-        if not(isInline meth)
-        then None
-        else
-            let argIdents, fsExpr = com.GetInlineExpr meth
-            let args = match callee with Some c -> c::args | None -> args
-            let ctx, assignments, _ =
-                ((ctx, [], 0), argIdents, args)
-                |||> Seq.fold2 (fun (ctx, assignments, idx) (KeyValue(argIdent, refCount)) arg ->
-                    // If an expression is referenced more than once, assign it
-                    // to a temp var to prevent multiple evaluations
-                    if refCount > 1 && hasDoubleEvalRisk arg then
-                        let tmpVar = com.GetUniqueVar() |> makeIdent
-                        let tmpVarExp = Fable.Value(Fable.IdentValue tmpVar)
-                        let assign = Fable.VarDeclaration(tmpVar, arg, false, None)
-                        let ctx = { ctx with scope = (Some argIdent, tmpVarExp)::ctx.scope }
-                        ctx, (assign::assignments), (idx + 1)
-                    else
-                        let ctx = { ctx with scope = (Some argIdent, arg)::ctx.scope }
-                        ctx, assignments, (idx + 1)
-                )
-            let typeArgs = matchGenericParams ctx meth (typArgs, methTypArgs)
-            let ctx = {ctx with typeArgs=typeArgs}
-            let expr = com.Transform ctx fsExpr
-            if List.isEmpty assignments
-            then Some expr
-            else makeSequential r (assignments@[expr]) |> Some
+        None // TODO
+        // if not(isInline meth)
+        // then None
+        // else
+        //     let argIdents, fsExpr = com.GetInlineExpr meth
+        //     let args = match callee with Some c -> c::args | None -> args
+        //     let ctx, assignments, _ =
+        //         ((ctx, [], 0), argIdents, args)
+        //         |||> Seq.fold2 (fun (ctx, assignments, idx) (KeyValue(argIdent, refCount)) arg ->
+        //             // If an expression is referenced more than once, assign it
+        //             // to a temp var to prevent multiple evaluations
+        //             if refCount > 1 && hasDoubleEvalRisk arg then
+        //                 let tmpVar = com.GetUniqueVar() |> makeIdent
+        //                 let tmpVarExp = Fable.Value(Fable.IdentValue tmpVar)
+        //                 let assign = Fable.VarDeclaration(tmpVar, arg, false, None)
+        //                 let ctx = { ctx with scope = (Some argIdent, tmpVarExp)::ctx.scope }
+        //                 ctx, (assign::assignments), (idx + 1)
+        //             else
+        //                 let ctx = { ctx with scope = (Some argIdent, arg)::ctx.scope }
+        //                 ctx, assignments, (idx + 1)
+        //         )
+        //     let typeArgs = matchGenericParams ctx meth (typArgs, methTypArgs)
+        //     let ctx = {ctx with typeArgs=typeArgs}
+        //     let expr = com.Transform ctx fsExpr
+        //     if List.isEmpty assignments
+        //     then Some expr
+        //     else makeSequential r (assignments@[expr]) |> Some
 
     let passGenerics com ctx r (typArgs, methTypArgs) meth =
         let rec hasUnresolvedGenerics = function
@@ -1172,7 +1156,6 @@ module Util =
             | Fable.Function (argTypes, returnType, _) -> returnType::argTypes |> Seq.tryPick hasUnresolvedGenerics
             | Fable.DeclaredType (_, genericArgs) -> genericArgs |> Seq.tryPick hasUnresolvedGenerics
             | _ -> None
-        let genInfo = { makeGeneric=true; genericAvailability=ctx.genericAvailability }
         matchGenericParams ctx meth (typArgs, methTypArgs)
         |> List.map (fun (genName, FableType com ctx typ) ->
             if not ctx.genericAvailability then
@@ -1184,13 +1167,13 @@ module Util =
                      "or using concrete types.")
                     |> addWarning com ctx.fileName r
                 | None -> ()
-            genName, makeTypeRef com genInfo typ)
+            genName, makeEntityRef com typ)
         |> makeJsObject None
 
     let (|ExtensionMember|_|) com (ctx: Context) r typ (callee, args, argTypes) owner (meth: FSharpMemberOrFunctionOrValue) =
         match meth.IsExtensionMember, callee, owner with
         | true, Some callee, Some ent ->
-            let typRef = makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
+            let typRef = makeTypeFromDef com ctx.typeArgs ent [] |> makeEntityRef com
             let methName =
                 let methName = sanitizeMethodName meth
                 let ent = com.GetEntity ent
@@ -1268,13 +1251,13 @@ module Util =
             | None ->
                 let typ, typeRef =
                     match owner with
-                    | Some ent -> typ, makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
+                    | Some ent -> typ, makeTypeFromDef com ctx.typeArgs ent [] |> makeEntityRef com
                     // Cases when tryEnclosingEntity returns None are rare, let's assume
                     // the value belongs to the current enclosing module and use
                     // type Any to avoid issues with `AST.Fable.Util.ensureArity`
                     // See MiscTests.``Recursive values work`` (#237)
                     | None ->
-                        Fable.Any, Fable.DeclaredType(ctx.enclosingModule.Entity, []) |> makeNonGenTypeRef com
+                        Fable.Any, Fable.DeclaredType(ctx.enclosingModule.Entity.FullName, []) |> makeEntityRef com
                 Fable.Apply (typeRef, [makeStrConst v.CompiledName], Fable.ApplyGet, typ, r)
         if eraseUnit && typ = Fable.Unit
         then Fable.Wrapped(Fable.Value Fable.Null, Fable.Unit)

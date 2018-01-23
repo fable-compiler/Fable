@@ -346,7 +346,7 @@ module Util =
         | Fable.ArrayConst (cons, typ) -> buildArray com ctx cons typ
         | Fable.TupleConst vals -> buildArray com ctx (Fable.ArrayValues vals) Fable.Any
         | Fable.Emit emit -> macroExpression None emit []
-        | Fable.TypeRef(typEnt, genArgs) -> typeRef com ctx typEnt genArgs None
+        | Fable.EntityRef(typEnt, genArgs) -> typeRef com ctx typEnt genArgs None
         | Fable.Spread _ ->
             "Unexpected array spread" |> Fable.Util.attachRange r |> failwith
         | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ ->
@@ -406,7 +406,7 @@ module Util =
                 | expr -> com.TransformExpr ctx expr :> Node)
             |> macroExpression range emit
         // Module or class static members
-        | Fable.Value(Fable.TypeRef(typEnt, _)), [Fable.Value(Fable.StringConst memb)]
+        | Fable.Value(Fable.EntityRef(typEnt, _)), [Fable.Value(Fable.StringConst memb)]
             when kind = Fable.ApplyGet ->
             typeRef com ctx typEnt [] (Some memb)
         | _ ->
@@ -953,7 +953,7 @@ module Util =
                 |> consBack decls
             |> List.rev
 
-    let makeCompiler (com: ICompiler) (state: ICompilerState) =
+    let makeCompiler (com: ICompiler) =
         let imports = Dictionary<string,Import>()
         let declarePlugins =
             com.Plugins |> List.choose (function
@@ -963,7 +963,7 @@ module Util =
             member __.DeclarePlugins =
                 declarePlugins
             member __.GetRootModule(file) =
-                state.GetRootModule(file)
+                com.GetRootModule(file)
             member bcom.GetImportExpr ctx selector path kind =
                 let sanitizeSelector selector =
                     if selector = "*"
@@ -1023,6 +1023,13 @@ module Util =
         interface ICompiler with
             member __.Options = com.Options
             member __.Plugins = com.Plugins
+            member __.ProjectFile = com.ProjectFile
+            member __.GetRootModule(fileName) =
+                com.GetRootModule(fileName)
+            member __.GetOrAddEntity(fullName, generate) =
+                com.GetOrAddEntity(fullName, generate)
+            member __.GetOrAddInlineExpr(fullName, generate) =
+                com.GetOrAddInlineExpr(fullName, generate)
             member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
             member __.GetUniqueVar() = com.GetUniqueVar() }
@@ -1037,13 +1044,13 @@ module Compiler =
             |> ExportAllDeclaration :> ModuleDeclaration |> Choice2Of2 |> List.singleton
         Program(facadeFile, SourceLocation.Empty, decls, dependencies=dependencies)
 
-    let transformFile (com: ICompiler) (state: ICompilerState) (file: Fable.File) =
+    let transformFile (com: ICompiler) (file: Fable.File) =
         try
             // let t = PerfTimer("Fable > Babel")
-            let com = makeCompiler com state
+            let com = makeCompiler com
             let ctx =
               { file = file
-                moduleFullName = state.GetRootModule(file.SourcePath)
+                moduleFullName = com.GetRootModule(file.SourcePath)
                 rootEntitiesPrivateNames =
                     file.Declarations
                     |> Seq.choose (function

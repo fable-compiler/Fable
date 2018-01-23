@@ -51,6 +51,7 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
     member __.FableCore = fableCore
     member __.IsWatchCompile = isWatchCompile
     member __.ImplementationFiles = implFiles
+    member __.RootModules = rootModules
     member __.Errors = errors
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectFile
@@ -79,18 +80,10 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
             if filesAndDependent.Contains(kv.Key)
             then Some kv.Key else None)
         |> Seq.toArray
-    interface ICompilerState with
-        member this.ProjectFile = projectOptions.ProjectFileName
-        member this.GetRootModule(fileName) =
-            match Map.tryFind fileName rootModules with
-            | Some rootModule -> rootModule
-            | None -> failwithf "Cannot find root module for %s" fileName
-        member this.GetOrAddEntity(fullName, generate) =
-            entities.GetOrAdd(fullName, fun _ -> generate())
-        member this.GetOrAddInlineExpr(fullName, generate) =
-            inlineExprs.GetOrAdd(fullName, fun _ -> generate())
-
-type State = Map<string, Project>
+    member __.GetOrAddEntity(fullName, generate) =
+        entities.GetOrAdd(fullName, fun _ -> generate())
+    member __.GetOrAddInlineExpr(fullName, generate) =
+        inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
 let getDefaultFableCore() = "fable-core"
 
@@ -106,7 +99,7 @@ let getDefaultOptions(replacements) =
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
-type Compiler(?options, ?replacements, ?plugins) =
+type Compiler(project: Project, ?options, ?plugins, ?replacements) =
     let mutable id = 0
     let options = defaultArg options (getDefaultOptions replacements)
     let plugins: PluginInfo list = defaultArg plugins []
@@ -118,6 +111,15 @@ type Compiler(?options, ?replacements, ?plugins) =
     interface ICompiler with
         member __.Options = options
         member __.Plugins = plugins
+        member __.ProjectFile = project.ProjectFile
+        member __.GetRootModule(fileName) =
+            match Map.tryFind fileName project.RootModules with
+            | Some rootModule -> rootModule
+            | None -> failwithf "Cannot find root module for %s" fileName
+        member __.GetOrAddEntity(fullName, generate) =
+            project.GetOrAddEntity(fullName, generate)
+        member __.GetOrAddInlineExpr(fullName, generate) =
+            project.GetOrAddInlineExpr(fullName, generate)
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             let tag = defaultArg tag "FABLE"
             let severity =

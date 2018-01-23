@@ -12,7 +12,7 @@ let rec visit f e =
     | Value kind ->
         match kind with
         | Spread e -> Value(Spread(visit f e))
-        | TypeRef(e, gen) -> Value(TypeRef(e, List.map (fun (n,e) -> n, visit f e) gen))
+        | EntityRef(e, gen) -> Value(EntityRef(e, List.map (fun (n,e) -> n, visit f e) gen))
         | TupleConst exprs -> Value(TupleConst(List.map (visit f) exprs))
         | ArrayConst(kind, t) ->
             match kind with

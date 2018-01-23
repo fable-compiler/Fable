@@ -467,7 +467,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
         let args = List.map (transformExpr com ctx) args
         match callee.Type with
-        | Fable.DeclaredType(ent,_) when ent.FullName = "Fable.Core.Applicable" ->
+        | Fable.DeclaredType(entFullName,_) when entFullName = "Fable.Core.Applicable" ->
             let args =
                 match args with
                 | [Fable.Value(Fable.TupleConst args)] -> args
@@ -511,7 +511,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> makeType com ctx.typeArgs calleeType
-                        |> makeNonGenTypeRef com
+                        |> makeEntityRef com
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeGetFrom r typ callee (makeStrConst fieldName)
 
@@ -549,7 +549,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             | Some (Transform com ctx callee) -> callee
             | None ->
                 let calleeType = makeType com ctx.typeArgs calleeType
-                makeNonGenTypeRef com calleeType
+                makeEntityRef com calleeType
         Fable.Set (callee, Some (makeStrConst fi.Name), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
@@ -566,7 +566,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             // Mutable module values are compiled as functions, because values
             // imported from ES2015 modules cannot be modified (see #986)
             // TODO: We should check for plugin, emit attribute...
-            let callee = makeTypeFromDef com ctx.typeArgs ent [] |> makeNonGenTypeRef com
+            let callee = makeTypeFromDef com ctx.typeArgs ent [] |> makeEntityRef com
             let m = makeGet r Fable.Any callee (sanitizeMethodName valToSet |> makeStrConst)
             Fable.Apply(m, [valueExpr], Fable.ApplyMeth, typ, r)
         | _ ->
@@ -864,7 +864,7 @@ let private tryGetEntityImplementation (implFiles: Map<string, FSharpImplementat
             f.Declarations |> List.tryPick (tryGetEntityImplementation' entFullName))
     | _ -> Some ent
 
-type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, implFiles: Map<string, FSharpImplementationFileContents>) =
+type FableCompiler(com: ICompiler, currentFile: string, implFiles: Map<string, FSharpImplementationFileContents>) =
     let replacePlugins =
         com.Plugins |> List.choose (function
             | { path=path; plugin=(:? IReplacePlugin as plugin)} -> Some (path, plugin)
@@ -876,7 +876,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
     interface IFableCompiler with
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
-        member __.IsReplaceCandidate ent =
+        member __.IsReplaceCandidate ent = // TODO: Review this
             match ent.TryFullName, ent.Assembly.FileName with
             // TODO: Temporary HACK to fix #577
             | Some fullName, _ when fullName.StartsWith("Fable.Import") -> false
@@ -889,7 +889,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
             else Some (getEntityLocation tdef).FileName
         member fcom.GetEntity tdef =
             // TODO: Add dependency too for entities?
-            state.GetOrAddEntity(getEntityFullName tdef, fun () ->
+            com.GetOrAddEntity(getEntityFullName tdef, fun () ->
                 match tryGetEntityImplementation implFiles tdef with
                 | Some tdef -> makeEntity fcom tdef
                 | None -> failwith ("Cannot find implementation of " + (getEntityFullName tdef)))
@@ -897,15 +897,20 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
             let fileName = (getMethLocation meth).FileName |> Path.normalizePath
             if fileName <> currentFile then
                 dependencies.Add(fileName) |> ignore
-            state.GetOrAddInlineExpr(fullNameAndArgCount meth, fun () ->
-                match tryGetMethodArgsAndBody implFiles fileName meth with
-                | Some(args, body) ->
-                    let args = Seq.collect id args |> countRefs body
-                    (upcast args, body)
-                | None ->
-                    failwith ("Cannot find inline method " + meth.FullName))
+            // TODO: fullNameAndArgCount is not safe, we need types of args
+            com.GetOrAddInlineExpr(fullNameAndArgCount meth, fun () ->
+                failwith "TODO: compile inline expressions"
+                // match tryGetMethodArgsAndBody implFiles fileName meth with
+                // | Some(args, body) ->
+                //     let args = Seq.collect id args |> countRefs body
+                //     (upcast args, body)
+                // | None -> failwith ("Cannot find inline method " + meth.FullName)
+            )
         member __.AddInlineExpr(fullName, inlineExpr) =
-            state.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
+            com.GetOrAddInlineExpr(fullName, fun () ->
+                failwith "TODO: compile inline expressions"
+                // inlineExpr
+            ) |> ignore
         member __.AddUsedVarName varName =
             usedVarNames.Add varName |> ignore
         member __.ReplacePlugins =
@@ -913,9 +918,16 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
     interface ICompiler with
         member __.Options = com.Options
         member __.Plugins = com.Plugins
+        member __.ProjectFile = com.ProjectFile
+        member __.GetUniqueVar() = com.GetUniqueVar()
+        member __.GetRootModule(fileName) =
+            com.GetRootModule(fileName)
+        member __.GetOrAddEntity(fullName, generate) = // TODO
+            com.GetOrAddEntity(fullName, generate)
+        member __.GetOrAddInlineExpr(fullName, generate) = // TODO
+            com.GetOrAddInlineExpr(fullName, generate)
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
-        member __.GetUniqueVar() = com.GetUniqueVar()
 
 let getRootModuleFullName (file: FSharpImplementationFileContents) =
     let rootEnt, _ = getRootModuleAndDecls file.Declarations
@@ -923,17 +935,15 @@ let getRootModuleFullName (file: FSharpImplementationFileContents) =
     | Some rootEnt -> getEntityFullName rootEnt
     | None -> ""
 
-let transformFile (com: ICompiler) (state: ICompilerState)
-                  (implFiles: Map<string, FSharpImplementationFileContents>)
-                  (fileName: string) =
+let transformFile (com: ICompiler) (implFiles: Map<string, FSharpImplementationFileContents>) (fileName: string) =
     try
         let file =
             // TODO: This shouldn't be necessary, but just in case
             let fileName = Path.normalizeFullPath fileName
             match Map.tryFind fileName implFiles with
             | Some file -> file
-            | None -> failwithf "File %s doesn't belong to parsed project %s" fileName state.ProjectFile
-        let fcom = FableCompiler(com, state, fileName, implFiles)
+            | None -> failwithf "File %s doesn't belong to parsed project %s" fileName com.ProjectFile
+        let fcom = FableCompiler(com, fileName, implFiles)
         let rootEnt, rootDecls =
             let fcom = fcom :> IFableCompiler
             let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations

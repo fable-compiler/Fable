@@ -5,13 +5,12 @@ open Fable.AST
 (** ##Decorators *)
 type Decorator =
     | Decorator of fullName: string * args: obj list
-    member x.FullName = match x with Decorator (prop,_) -> prop
-    member x.Arguments = match x with Decorator (_,prop) -> prop
-    member x.Name = x.FullName.Substring (x.FullName.LastIndexOf '.' + 1)
+    member this.FullName = match this with Decorator (prop,_) -> prop
+    member this.Arguments = match this with Decorator (_,prop) -> prop
+    member this.Name = this.FullName.Substring (this.FullName.LastIndexOf '.' + 1)
 
 (** ##Types *)
 type Type =
-    | MetaType
     | Any
     | Unit
     | Boolean
@@ -25,33 +24,23 @@ type Type =
     | Function of argTypes: Type list * returnType: Type * isCurried: bool
     | GenericParam of name: string
     | Enum of fullName: string
-    | DeclaredType of Entity * genericArgs: Type list
-    member x.FullName =
-        match x with
-        | Number _numberKind -> sprintf "%A" x
+    | DeclaredType of fullName:string * genericArgs: Type list
+    member this.FullName =
+        match this with
         | Enum fullName -> fullName
         | Array typ -> typ.FullName + "[]"
         | Function (argTypes, returnType, _) ->
             "(" + (argTypes |> Seq.map (fun x -> x.FullName) |> String.concat ", ") + ")=>" + returnType.FullName
-        | DeclaredType(ent,_) -> ent.FullName
-        | _ -> sprintf "%A" x
-    member x.GenericArgs =
-        match x with
+        | DeclaredType(fullName,_) -> fullName
+        // | Number _numberKind
+        | _ -> this.ToString()
+    member this.GenericArgs =
+        match this with
         | Array genArg -> [genArg]
         | Tuple genArgs -> genArgs
         | Function(argTypes, returnType, _) -> argTypes@[returnType]
         | DeclaredType(_, genArgs) -> genArgs
         | _ -> []
-
-type NonDeclaredType =
-    | NonDeclAny
-    | NonDeclUnit
-    | NonDeclOption of genericArg: Expr
-    | NonDeclArray of genericArg: Expr
-    | NonDeclTuple of genericArgs: Expr list
-    | NonDeclFunction of genericArgs: Expr list
-    | NonDeclGenericParam of name: string
-    | NonDeclInterface of name: string
 
 (** ##Entities *)
 type EntityKind =
@@ -67,17 +56,17 @@ type Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     let genParams = defaultArg genParams []
     let decorators = defaultArg decorators []
     let interfaces = defaultArg interfaces []
-    member x.Kind: EntityKind = kind.Value
-    member x.File: string option = file
-    member x.FullName: string = fullName
-    member x.Members: Member list = members.Value
-    member x.GenericParameters: string list = genParams
-    member x.Interfaces: string list = interfaces
-    member x.Decorators: Decorator list = decorators
-    member x.Name =
-        x.FullName.Substring(x.FullName.LastIndexOf('.') + 1)
-    member x.Namespace =
-        let fullName = x.FullName
+    member __.Kind: EntityKind = kind.Value
+    member __.File: string option = file
+    member __.FullName: string = fullName
+    member __.Members: Member list = members.Value
+    member __.GenericParameters: string list = genParams
+    member __.Interfaces: string list = interfaces
+    member __.Decorators: Decorator list = decorators
+    member this.Name =
+        this.FullName.Substring(this.FullName.LastIndexOf('.') + 1)
+    member this.Namespace =
+        let fullName = this.FullName
         match fullName.LastIndexOf "." with
         | -1 -> ""
         | 0 -> failwithf "Unexpected entity full name: %s" fullName
@@ -95,7 +84,7 @@ type Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     member __.TryGetFullDecorator(fullname) =
         decorators |> List.tryFind (fun x -> x.FullName = fullname)
     // TODO: Parent classes should be checked if the method is not found
-    member x.TryGetMember(name, kind, loc, argTypes, ?argsEqual) =
+    member __.TryGetMember(name, kind, loc, argTypes, ?argsEqual) =
         let argsEqual = defaultArg argsEqual (=)
         members.Value |> List.tryFind (fun m ->
             if m.Location <> loc
@@ -119,8 +108,8 @@ type Declaration =
     | FunctionDeclaration of publicName: string option * privateName: string * args: Ident list * body: Expr * SourceLocation option
     // TODO: Add Value declaration
 
-    member x.Range =
-        match x with
+    member this.Range =
+        match this with
         | ActionDeclaration (_,r) -> r
         | EntityDeclaration (_,_,_,_,r) -> r
         | FunctionDeclaration (_,_,_,_,r) -> r
@@ -139,19 +128,19 @@ type MemberLoc =
 
 type Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?decorators,
             ?isMutable, ?computed, ?hasRestParams, ?overloadIndex) =
-    member x.Name: string = name
-    member x.Kind: MemberKind = kind
-    member x.Location: MemberLoc = loc
-    member x.ArgumentTypes: Type list = argTypes
-    member x.ReturnType: Type = returnType
-    member x.OriginalCurriedType: Type option = originalType
-    member x.GenericParameters: string list = defaultArg genParams []
-    member x.Decorators: Decorator list = defaultArg decorators []
-    member x.IsMutable: bool = defaultArg isMutable false
-    member x.Computed: Expr option = computed
-    member x.HasRestParams: bool = defaultArg hasRestParams false
-    member x.OverloadIndex: int option = overloadIndex
-    member x.OverloadName: string =
+    member __.Name: string = name
+    member __.Kind: MemberKind = kind
+    member __.Location: MemberLoc = loc
+    member __.ArgumentTypes: Type list = argTypes
+    member __.ReturnType: Type = returnType
+    member __.OriginalCurriedType: Type option = originalType
+    member __.GenericParameters: string list = defaultArg genParams []
+    member __.Decorators: Decorator list = defaultArg decorators []
+    member __.IsMutable: bool = defaultArg isMutable false
+    member __.Computed: Expr option = computed
+    member __.HasRestParams: bool = defaultArg hasRestParams false
+    member __.OverloadIndex: int option = overloadIndex
+    member __.OverloadName: string =
         match overloadIndex with
         | Some i -> name + "_" + (string i)
         | None -> name
@@ -168,17 +157,18 @@ type Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?d
 type ExternalEntity =
     | ImportModule of fullName: string * moduleName: string * isNs: bool
     | GlobalModule of fullName: string
-    member x.FullName =
-        match x with ImportModule (fullName, _, _)
-                   | GlobalModule fullName -> fullName
+    member this.FullName =
+        match this with
+        | ImportModule (fullName, _, _)
+        | GlobalModule fullName -> fullName
 
 type File(sourcePath, root, decls, ?usedVarNames, ?dependencies) =
-    member x.SourcePath: string = sourcePath
-    member x.Root: Entity = root
-    member x.Declarations: Declaration list = decls
-    member x.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
-    member x.Dependencies: Set<string> = defaultArg dependencies Set.empty
-    member x.Range =
+    member __.SourcePath: string = sourcePath
+    member __.Root: Entity = root
+    member __.Declarations: Declaration list = decls
+    member __.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
+    member __.Dependencies: Set<string> = defaultArg dependencies Set.empty
+    member __.Range =
         match decls with
         | [] -> SourceLocation.Empty
         | decls ->
@@ -228,10 +218,10 @@ type ArrayConsKind =
     | ArrayAlloc of Expr
 
 type Ident(name: string, ?typ: Type) =
-    member x.Name = name
-    member x.Type = defaultArg typ Any
-    static member getType (i: Ident) = i.Type
+    member __.Name = name
+    member __.Type = defaultArg typ Any
     override __.ToString() = name
+    static member getType (i: Ident) = i.Type
 
 type ImportKind =
     | CoreLib
@@ -242,7 +232,7 @@ type ValueKind =
     | Null
     | This
     | Spread of Expr
-    | TypeRef of Entity * genArgs: (string * Expr) list
+    | EntityRef of Entity * genArgs: (string * Expr) list
     | IdentValue of Ident
     | ImportRef of memb: string * path: string * ImportKind
     | NumberConst of float * NumberKind
@@ -256,39 +246,37 @@ type ValueKind =
     | LogicalOp of LogicalOperator
     | Lambda of args: Ident list * body: Expr * isDelegate: bool
     | Emit of string
-    member x.ImmediateSubExpressions: Expr list =
-        match x with
+    member this.ImmediateSubExpressions: Expr list =
+        match this with
         | Null | This | IdentValue _ | ImportRef _
         | NumberConst _ | StringConst _ | BoolConst _ | RegexConst _
         | UnaryOp _ | BinaryOp _ | LogicalOp _ | Emit _ -> []
         | Spread x -> [x]
-        | TypeRef(_,genArgs) -> genArgs |> List.map snd
+        | EntityRef(_,genArgs) -> genArgs |> List.map snd
         | ArrayConst(kind,_) ->
             match kind with
             | ArrayValues exprs -> exprs
             | ArrayAlloc e -> [e]
         | TupleConst exprs -> exprs
         | Lambda(_,body,_) -> [body]
-    member x.Type =
-        match x with
+    member this.Type =
+        match this with
         | Null -> Any
         | Spread x -> x.Type
         | IdentValue i -> i.Type
         | This | ImportRef _ | Emit _ -> Any
         | NumberConst (_,kind) -> Number kind
         | StringConst _ -> String
-        | TypeRef _ -> MetaType
-        | RegexConst _ ->
-            let fullName = "System.Text.RegularExpressions.Regex"
-            DeclaredType(Entity(lazy Class(None, []), None, fullName, lazy []), [])
+        | EntityRef _ -> Any // TODO
+        | RegexConst _ -> DeclaredType("System.Text.RegularExpressions.Regex", [])
         | BoolConst _ -> Boolean
         | ArrayConst (_, typ) -> Array typ
         | TupleConst exprs -> List.map Expr.getType exprs |> Tuple
         | UnaryOp _ -> Function([Any], Any, true)
         | BinaryOp _ | LogicalOp _ -> Function([Any; Any], Any, true)
         | Lambda (args, body, isDelegate) -> Function(List.map Ident.getType args, body.Type, not isDelegate)
-    member x.Range: SourceLocation option =
-        match x with
+    member this.Range: SourceLocation option =
+        match this with
         | Lambda (_, body, _) -> body.Range
         | _ -> None
 
@@ -322,16 +310,16 @@ type Expr =
     | Wrapped of Expr * Type
     static member getType (expr: Expr) = expr.Type
 
-    member x.IsJsStatement =
-        match x with
+    member this.IsJsStatement =
+        match this with
         | Value _ | ObjExpr _ | Apply _ | Quote _ -> false
         | Wrapped (e,_) -> e.IsJsStatement
         | IfThenElse (_,thenExpr,elseExpr,_) -> thenExpr.IsJsStatement || elseExpr.IsJsStatement
         | Throw _ | DebugBreak _ | Loop _ | Set _ | VarDeclaration _
         | Sequential _ | TryCatch _ | Switch _ -> true
 
-    member x.Type =
-        match x with
+    member this.Type =
+        match this with
         | Value kind -> kind.Type
         | ObjExpr _ -> Any
         | Wrapped (_,typ) | Apply (_,_,_,typ,_) | Throw (_,typ,_) -> typ
@@ -346,8 +334,8 @@ type Expr =
         // TODO: Quotations must have their own type
         | Quote _ -> Any
 
-    member x.Range: SourceLocation option =
-        match x with
+    member this.Range: SourceLocation option =
+        match this with
         | ObjExpr (_,r) -> r
         | Value v -> v.Range
         | Wrapped (e,_) | Quote e -> e.Range
@@ -362,8 +350,8 @@ type Expr =
         | TryCatch (_,_,_,range)
         | Switch (_,_,_,_,range) -> range
 
-    member x.ImmediateSubExpressions: Expr list =
-        match x with
+    member this.ImmediateSubExpressions: Expr list =
+        match this with
         | Value v -> v.ImmediateSubExpressions
         | ObjExpr (decls,_) ->
             (decls |> List.map (fun (_,_,e) -> e))
@@ -397,8 +385,8 @@ type Expr =
               yield! Option.toList defCase]
         | DebugBreak _ -> []
 
-    member x.IsNull =
-        match x with
+    member this.IsNull =
+        match this with
         // Check also cases when null is wrapped to represent a specific type
         | Value Null | Wrapped(Value Null, _) -> true
         | _ -> false

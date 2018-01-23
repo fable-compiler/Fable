@@ -29,13 +29,14 @@ let equal expected actual =
 // You'll have to run your test manually, sorry!
 // ``My Test``()
 
-type Foo() =
+type Foo =
+    { x: int }
     member __.Z() = 5
     member this.Add(x, y) = x + y + this.Z()
     static member Add(x, y) = x - y
 
 let test() =
-    let f: Foo = !!obj() //Foo()
+    let f = { x = 5 }
     let x = f.Add(4, 5)
     let y = Foo.Add(6, 7)
     ()

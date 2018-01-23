@@ -22,27 +22,28 @@ module Util =
         | MaybeWrapped(Fable.Value(Fable.NumberConst(FloatToInt i, Int32))) -> Some i
         | _ -> None
 
-    let (|UnionCons|_|) expr =
-        let hasMultipleFields tag (cases: (string * Fable.Type list) list) =
-            match List.tryItem tag cases with
-            | Some(_,fieldTypes) -> List.isMultiple fieldTypes
-            | None -> false
-        match expr with
-        | MaybeWrapped(Fable.Apply(_, args, Fable.ApplyCons, Fable.DeclaredType(ent, _), _)) ->
-            match ent.Kind with
-            | Fable.Union cases ->
-                match args with
-                | [Fable.Value(Fable.NumberConst(FloatToInt tag, _))] ->
-                    Some(tag, [], cases)
-                | [Fable.Value(Fable.NumberConst(FloatToInt tag, _));
-                    Fable.Value(Fable.ArrayConst(Fable.ArrayValues fields, _))]
-                    when hasMultipleFields (tag) cases ->
-                    Some(tag, fields, cases)
-                | [Fable.Value(Fable.NumberConst(FloatToInt tag, _)); expr] ->
-                    Some(tag, [expr], cases)
-                | _ -> None
-            | _ -> None
-        | _ -> None
+    // TODO
+    // let (|UnionCons|_|) expr =
+    //     let hasMultipleFields tag (cases: (string * Fable.Type list) list) =
+    //         match List.tryItem tag cases with
+    //         | Some(_,fieldTypes) -> List.isMultiple fieldTypes
+    //         | None -> false
+    //     match expr with
+    //     | MaybeWrapped(Fable.Apply(_, args, Fable.ApplyCons, Fable.DeclaredType(ent, _), _)) ->
+    //         match ent.Kind with
+    //         | Fable.Union cases ->
+    //             match args with
+    //             | [Fable.Value(Fable.NumberConst(FloatToInt tag, _))] ->
+    //                 Some(tag, [], cases)
+    //             | [Fable.Value(Fable.NumberConst(FloatToInt tag, _));
+    //                 Fable.Value(Fable.ArrayConst(Fable.ArrayValues fields, _))]
+    //                 when hasMultipleFields (tag) cases ->
+    //                 Some(tag, fields, cases)
+    //             | [Fable.Value(Fable.NumberConst(FloatToInt tag, _)); expr] ->
+    //                 Some(tag, [expr], cases)
+    //             | _ -> None
+    //         | _ -> None
+    //     | _ -> None
 
     let (|Null|_|) = function
         | MaybeWrapped(Fable.Value Fable.Null) -> Some ()
@@ -61,7 +62,7 @@ module Util =
 
     let (|EntFullName|_|) (typ: Fable.Type) =
         match typ with
-        | Fable.DeclaredType(ent, _) -> Some ent.FullName
+        | Fable.DeclaredType(entFullName, _) -> Some entFullName
         | _ -> None
 
     let (|IDictionary|_|) = function
@@ -74,11 +75,6 @@ module Util =
 
     let (|IEqualityComparer|_|) = function
         | EntFullName "System.Collections.Generic.IEqualityComparer" -> Some IEqualityComparer
-        | _ -> None
-
-    let (|DeclaredKind|_|) (typ: Fable.Type) =
-        match typ with
-        | Fable.DeclaredType(ent, _) -> Some ent.Kind
         | _ -> None
 
     let (|KeyValue|_|) (key: string) (value: string) (s: string) =
@@ -100,21 +96,22 @@ module Util =
     let (|Nameof|_|) = function
         | Fable.Value(Fable.IdentValue ident) -> Some ident.Name
         | Fable.Apply(_, [Fable.Value(Fable.StringConst prop)], Fable.ApplyGet, _, _) -> Some prop
-        | Fable.Value(Fable.TypeRef(ent,_)) -> Some ent.Name
+        | Fable.Value(Fable.EntityRef(ent,_)) -> Some ent.Name
         | _ -> None
 
-    let resolveTypeRef com (info: Fable.ApplyInfo) generic t =
-        let genInfo =
-            { makeGeneric = generic
-            ; genericAvailability = info.genericAvailability }
-        match t with
-        | Fable.GenericParam _ when not info.genericAvailability ->
-            "`typeof` is being called on a generic parameter, "
-            + "consider inlining the method (for `internal` members) "
-            + "or using `PassGenericsAttribute`."
-            |> addWarning com info.fileName info.range
-            makeTypeRef com genInfo t
-        | t -> makeTypeRef com genInfo t
+    // TODO
+    // let resolveTypeRef com (info: Fable.ApplyInfo) generic t =
+    //     let genInfo =
+    //         { makeGeneric = generic
+    //         ; genericAvailability = info.genericAvailability }
+    //     match t with
+    //     | Fable.GenericParam _ when not info.genericAvailability ->
+    //         "`typeof` is being called on a generic parameter, "
+    //         + "consider inlining the method (for `internal` members) "
+    //         + "or using `PassGenericsAttribute`."
+    //         |> addWarning com info.fileName info.range
+    //         makeEntityRef com genInfo t
+    //     | t -> makeEntityRef com genInfo t
 
     let instanceArgs (callee: Fable.Expr option) (args: Fable.Expr list) =
         match callee with
@@ -197,7 +194,7 @@ module Util =
                 | _ -> args.Head
             InstanceCall (arg, "toString", args.Tail)
             |> makeCall i.range i.returnType
-        | Fable.MetaType | Fable.Any | Fable.GenericParam _
+        | Fable.Any | Fable.GenericParam _
         | Fable.ExtendedNumber BigInt | Fable.DeclaredType _ | Fable.Option _ ->
             CoreLibCall ("Util", Some "toString", false, [args.Head])
             |> makeCall i.range i.returnType
@@ -343,15 +340,16 @@ module Util =
         | _ -> arrayFrom "Array" expr
 
     let getZero = function
-        | Fable.DeclaredType(ent, _) as t ->
-            match ent.FullName with
+        | Fable.DeclaredType(entFullName, _) as t ->
+            match entFullName with
             | "System.TimeSpan" -> makeIntConst 0
             | "System.DateTime" -> ccall_ None t "Date" "minValue" []
             | "System.DateTimeOffset" -> ccall_ None t "DateOffset" "minValue" []
             | "Microsoft.FSharp.Collections.FSharpSet" -> ccall_ None t "Set" "create" []
             | _ ->
-                let callee = Fable.TypeRef(ent,[]) |> Fable.Value
-                makeGet None t callee (makeStrConst "Zero")
+                failwith "TODO: Calls to custom Zero implementation (e.g. BigInt)"
+                // let callee = Fable.EntityRef(ent,[]) |> Fable.Value
+                // makeGet None t callee (makeStrConst "Zero")
         | Fable.ExtendedNumber kind as t ->
             match kind with
             | Int64 | UInt64 ->
@@ -394,11 +392,12 @@ module Util =
             | _ -> failwithf "Unknown operator: %s" meth
         let argTypes = List.map Fable.Expr.getType args
         match argTypes with
-        | Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)::_
-        | _::[Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)] ->
-            let typRef = Fable.Value(Fable.TypeRef(ent,[]))
-            InstanceCall(typRef, m.OverloadName, args)
-            |> makeCall range returnType
+        // TODO
+        // | Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)::_
+        // | _::[Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)] ->
+        //     let typRef = Fable.Value(Fable.EntityRef(ent,[]))
+        //     InstanceCall(typRef, m.OverloadName, args)
+        //     |> makeCall range returnType
         | Fable.ExtendedNumber BigInt::_ ->
             CoreLibCall ("BigInt", Some meth, false, args)
             |> makeCall range returnType
@@ -460,13 +459,13 @@ module Util =
         match args.Head.Type with
         | EntFullName ("System.DateTime" | "System.DateTimeOffset") ->
             ccall i "Date" "equals" args |> is equal |> Some
-        | Fable.DeclaredType(ent, _)
-            when (ent.HasInterface "System.IEquatable"
-                    && ent.FullName <> "System.Guid"
-                    && ent.FullName <> "System.TimeSpan")
-                || ent.FullName = "Microsoft.FSharp.Collections.FSharpList"
-                || ent.FullName = "Microsoft.FSharp.Collections.FSharpMap"
-                || ent.FullName = "Microsoft.FSharp.Collections.FSharpSet" ->
+        | Fable.DeclaredType( entFullName, _)
+            when (// TODO: ent.HasInterface "System.IEquatable"
+                    entFullName <> "System.Guid"
+                    && entFullName <> "System.TimeSpan")
+                || entFullName = "Microsoft.FSharp.Collections.FSharpList"
+                || entFullName = "Microsoft.FSharp.Collections.FSharpMap"
+                || entFullName = "Microsoft.FSharp.Collections.FSharpSet" ->
             icall args equal
         | EntFullName "System.Guid"
         | EntFullName "System.TimeSpan"
@@ -476,7 +475,7 @@ module Util =
         | Fable.ExtendedNumber (Int64|UInt64|BigInt) ->
             icall args equal
         | Fable.Array _ | Fable.Tuple _
-        | Fable.Unit | Fable.Any | Fable.MetaType | Fable.DeclaredType _
+        | Fable.Unit | Fable.Any | Fable.DeclaredType _
         | Fable.GenericParam _ | Fable.Option _ | Fable.Function _ ->
             CoreLibCall("Util", Some "equals", false, args)
             |> makeCall i.range i.returnType |> is equal |> Some
@@ -495,9 +494,9 @@ module Util =
             InstanceCall(args.Head, "CompareTo", args.Tail)
             |> makeCall r (Fable.Number Int32) |> wrapWith op
         match args.Head.Type with
-        | Fable.DeclaredType(ent, _)
-            when ent.HasInterface "System.IComparable"
-                && not(compareReplacedEntities.Contains ent.FullName) ->
+        | Fable.DeclaredType(entFullName, _)
+            when // TODO: ent.HasInterface "System.IComparable"
+                not(compareReplacedEntities.Contains entFullName) ->
             icall args op
         | EntFullName ("System.DateTime" | "System.DateTimeOffset") ->
             ccall_ r (Fable.Number Int32) "Date" "compare" args |> wrapWith op
@@ -511,7 +510,7 @@ module Util =
         | Fable.ExtendedNumber (Int64|UInt64|BigInt) ->
             icall args op
         | Fable.Array _ | Fable.Tuple _
-        | Fable.Unit | Fable.Any | Fable.MetaType | Fable.DeclaredType _
+        | Fable.Unit | Fable.Any | Fable.DeclaredType _
         | Fable.GenericParam _ | Fable.Option _ | Fable.Function _ ->
             ccall_ r (Fable.Number Int32) "Util" "compare" args |> wrapWith op
 
@@ -527,7 +526,8 @@ module Util =
             | Some(Fable.ExtendedNumber (Int64|UInt64|BigInt)) ->
                 emitNoInfo "(x,y) => x.CompareTo(y)" []
             | Some(Fable.DeclaredType(ent, _))
-                when ent.HasInterface "System.IComparable" ->
+                // TODO: when ent.HasInterface "System.IComparable"
+                ->
                 emitNoInfo "(x,y) => x.CompareTo(y)" []
             | Some _ | None ->
                 makeCoreRef "Util" "compare"
@@ -558,9 +558,10 @@ module Util =
             | Fable.ExtendedNumber (Int64|UInt64|BigInt)
             | Fable.Array _ | Fable.Tuple _ ->
                 makeFSharp typArg args
-            | Fable.DeclaredType(ent, _) when ent.HasInterface "System.IComparable"
-                    && ent.FullName <> "System.TimeSpan"
-                    && ent.FullName <> "System.Guid" ->
+            | Fable.DeclaredType(entFullName, _)
+                when // TODO: ent.HasInterface "System.IComparable"
+                    entFullName <> "System.TimeSpan"
+                    && entFullName <> "System.Guid" ->
                 makeFSharp typArg args
             | _ ->
                 GlobalCall(modName, None, true, args) |> makeCall r t
@@ -580,38 +581,40 @@ module Util =
         |> Option.defaultWith (fun () -> ccall_ r Fable.Any "Util" "jsOptions" [arg])
 
     let makeJsLiteral r caseRule keyValueList =
-        let rec (|Fields|_|) caseRule = function
-            | Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, _)) ->
-                (Some [], exprs) ||> List.fold (fun acc e ->
-                    acc |> Option.bind (fun acc ->
-                        match e with
-                        | Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) ->
-                            (key, value)::acc |> Some
-                        | UnionCons(tag, fields, cases) ->
-                            let key =
-                                let key = cases |> List.item tag |> fst
-                                match caseRule with
-                                | CaseRules.LowerFirst -> Naming.lowerFirst key
-                                | _ -> key
-                            let value =
-                                match fields with
-                                | [] -> Fable.Value(Fable.BoolConst true) |> Some
-                                | [CoreCons "List" "default" []] -> makeJsObject r [] |> Some
-                                | [CoreMeth "List" "ofArray" [Fields caseRule fields]] -> makeJsObject r fields |> Some
-                                | [expr] ->
-                                    match expr.Type with
-                                    // Lists references must be converted to objects at runtime
-                                    | Fable.DeclaredType(ent,_) when ent.FullName = "Microsoft.FSharp.Collections.FSharpList" -> None
-                                    | _ -> Some expr
-                                | exprs -> Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, Fable.Any)) |> Some
-                            value |> Option.map (fun value -> (key, value)::acc)
-                        | _ -> None))
-                |> Option.map List.rev
-            | _ -> None
-        match keyValueList with
-        | CoreCons "List" "default" [] -> makeJsObject r []
-        | CoreMeth "List" "ofArray" [Fields caseRule fields] -> makeJsObject r fields
-        | _ -> ccall_ r Fable.Any "Util" "createObj" [keyValueList; caseRule |> int |> makeIntConst]
+        // TODO
+        // let rec (|Fields|_|) caseRule = function
+        //     | Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, _)) ->
+        //         (Some [], exprs) ||> List.fold (fun acc e ->
+        //             acc |> Option.bind (fun acc ->
+        //                 match e with
+        //                 | Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) ->
+        //                     (key, value)::acc |> Some
+        //                 | UnionCons(tag, fields, cases) ->
+        //                     let key =
+        //                         let key = cases |> List.item tag |> fst
+        //                         match caseRule with
+        //                         | CaseRules.LowerFirst -> Naming.lowerFirst key
+        //                         | _ -> key
+        //                     let value =
+        //                         match fields with
+        //                         | [] -> Fable.Value(Fable.BoolConst true) |> Some
+        //                         | [CoreCons "List" "default" []] -> makeJsObject r [] |> Some
+        //                         | [CoreMeth "List" "ofArray" [Fields caseRule fields]] -> makeJsObject r fields |> Some
+        //                         | [expr] ->
+        //                             match expr.Type with
+        //                             // Lists references must be converted to objects at runtime
+        //                             | Fable.DeclaredType(fullName,_) when fullName = "Microsoft.FSharp.Collections.FSharpList" -> None
+        //                             | _ -> Some expr
+        //                         | exprs -> Fable.Value(Fable.ArrayConst(Fable.ArrayValues exprs, Fable.Any)) |> Some
+        //                     value |> Option.map (fun value -> (key, value)::acc)
+        //                 | _ -> None))
+        //         |> Option.map List.rev
+        //     | _ -> None
+        // match keyValueList with
+        // | CoreCons "List" "default" [] -> makeJsObject r []
+        // | CoreMeth "List" "ofArray" [Fields caseRule fields] -> makeJsObject r fields
+        // | _ ->
+            ccall_ r Fable.Any "Util" "createObj" [keyValueList; caseRule |> int |> makeIntConst]
 
 module AstPass =
     open Util
@@ -650,9 +653,7 @@ module AstPass =
         | "op_BangHat" -> i.args.Head |> Some
         | "op_Dynamic" ->
             let expr = makeGet i.range i.returnType i.args.Head i.args.Tail.Head
-            let appType =
-                let ent = Fable.Entity(lazy Fable.Interface, None, "Fable.Core.Applicable", lazy [])
-                Fable.DeclaredType(ent, [Fable.Any; Fable.Any])
+            let appType = Fable.DeclaredType("Fable.Core.Applicable", [Fable.Any; Fable.Any])
             // Wrapping is necessary so tuple arguments are destructured
             Fable.Wrapped(expr, appType) |> Some
         | "op_DynamicAssignment" ->
@@ -969,9 +970,10 @@ module AstPass =
             Fable.Throw (newError None Fable.Any args, typ, r) |> Some
         // Type ref
         | "typeOf" | "typeDefOf" ->
-            info.methodTypeArgs.Head
-            |> resolveTypeRef com info (info.methodName = "typeOf")
-            |> Some
+            None // TODO
+            // info.methodTypeArgs.Head
+            // |> resolveTypeRef com info (info.methodName = "typeOf")
+            // |> Some
         // Concatenates two lists
         | "op_Append" -> ccall info "List" "append" args |> Some
         | _ -> None
@@ -1370,8 +1372,9 @@ module AstPass =
         | "typeTestGeneric", (None, [expr]) ->
             makeTypeTest com i.fileName i.range expr i.methodTypeArgs.Head |> Some
         | "createInstance", (None, _) ->
-            let typRef, args = resolveTypeRef com i false i.methodTypeArgs.Head, []
-            Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
+            None // TODO
+            // let typRef, args = resolveTypeRef com i false i.methodTypeArgs.Head, []
+            // Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | "rangeInt32", (None, args) ->
             CoreLibCall("Seq", Some "rangeStep", false, args)
             |> makeCall i.range i.returnType |> Some
@@ -1507,7 +1510,7 @@ module AstPass =
                                 "Long" "ticksToUnixEpochMilliseconds" [ticks]
                     ccall i moduleName "default" (ms::rest) |> Some
                 | _ -> None
-            | (Fable.DeclaredType(e,[]))::_ when e.FullName = "System.DateTime" ->
+            | (Fable.DeclaredType(fullName,[]))::_ when fullName = "System.DateTime" ->
                 ccall i "DateOffset" "fromDate" i.args |> Some
             | _ ->
                 let last = List.last i.args
@@ -2101,65 +2104,67 @@ module AstPass =
         | "toString" -> ccall i "Util" "toString" [i.callee.Value] |> Some
         | "equals" -> staticArgs i.callee i.args |> equals true com i
         | "getType" ->
-            match i.callee.Value.Type with
-            | Fable.Any | Fable.GenericParam _ ->
-                sprintf "%s %s"
-                    "Cannot resolve .GetType() at compile time."
-                    "The type created at runtime won't contain generic information."
-                |> addWarning com i.fileName i.range
-                CoreLibCall("Reflection", Some "getType", false, [i.callee.Value])
-                |> makeCall i.range i.returnType |> Some
-            | t ->
-                let genInfo = {makeGeneric=true; genericAvailability=false}
-                makeTypeRef com genInfo t |> Some
+            None // TODO
+            // match i.callee.Value.Type with
+            // | Fable.Any | Fable.GenericParam _ ->
+            //     sprintf "%s %s"
+            //         "Cannot resolve .GetType() at compile time."
+            //         "The type created at runtime won't contain generic information."
+            //     |> addWarning com i.fileName i.range
+            //     CoreLibCall("Reflection", Some "getType", false, [i.callee.Value])
+            //     |> makeCall i.range i.returnType |> Some
+            // | t ->
+            //     let genInfo = {makeGeneric=true; genericAvailability=false}
+            //     makeEntityRef com genInfo t |> Some
         | _ -> None
 
     let types com (info: Fable.ApplyInfo) =
-        let str x = Fable.Value(Fable.StringConst x)
-        let common com (info: Fable.ApplyInfo) =
-            match info.methodName with
-            | "getTypeInfo" -> info.callee
-            | "genericTypeArguments" -> ccall info "Reflection" "getGenericArguments" [info.callee.Value] |> Some
-            | _ -> None
-        match info.callee with
-        | Some(Fable.Value(Fable.TypeRef(ent,_))) ->
-            match info.methodName with
-            | "namespace" -> str ent.Namespace |> Some
-            | "fullName" -> str ent.FullName |> Some
-            | "name" -> str ent.Name |> Some
-            | "isGenericType" -> ent.GenericParameters.Length > 0 |> makeBoolConst |> Some
-            | "getGenericTypeDefinition" -> makeTypeRefFrom com ent |> Some
-            | "makeGenericType" ->
-                if not <| List.sameLength ent.GenericParameters info.args
-                then
-                    "Arguments have different length than generic parameters"
-                    |> addErrorAndReturnNull com info.fileName info.range |> Some
-                else
-                    let genArgs2 =
-                        List.zip ent.GenericParameters info.args
-                        |> makeJsObject None
-                    CoreLibCall("Util", Some "makeGeneric", false, [info.callee.Value; genArgs2])
-                    |> makeCall None Fable.MetaType |> Some
-            | _ -> common com info
-        | _ ->
-            let getTypeFullName args =
-                args |> Option.map (fun args ->
-                CoreLibCall("Reflection", Some "getTypeFullName", false, args)
-                |> makeCall info.range info.returnType)
-            match info.methodName with
-            | "fullName" -> Some [info.callee.Value] |> getTypeFullName
-            | "name" -> Some [info.callee.Value; str "name"] |> getTypeFullName
-            | "namespace" -> Some [info.callee.Value; str "namespace"] |> getTypeFullName
-            | "isGenericType" ->
-                CoreLibCall("Util", Some "isGeneric", false, [info.callee.Value])
-                |> makeCall info.range info.returnType |> Some
-            | "getGenericTypeDefinition" ->
-                CoreLibCall("Util", Some "getDefinition", false, [info.callee.Value])
-                |> makeCall info.range info.returnType |> Some
-            | "makeGenericType" ->
-                "MakeGenericType won't work if type is not known at compile-time"
-                |> addErrorAndReturnNull com info.fileName info.range |> Some
-            | _ -> common com info
+        None // TODO
+        // let str x = Fable.Value(Fable.StringConst x)
+        // let common com (info: Fable.ApplyInfo) =
+        //     match info.methodName with
+        //     | "getTypeInfo" -> info.callee
+        //     | "genericTypeArguments" -> ccall info "Reflection" "getGenericArguments" [info.callee.Value] |> Some
+        //     | _ -> None
+        // match info.callee with
+        // | Some(Fable.Value(Fable.EntityRef(ent,_))) ->
+        //     match info.methodName with
+        //     | "namespace" -> str ent.Namespace |> Some
+        //     | "fullName" -> str ent.FullName |> Some
+        //     | "name" -> str ent.Name |> Some
+        //     | "isGenericType" -> ent.GenericParameters.Length > 0 |> makeBoolConst |> Some
+        //     | "getGenericTypeDefinition" -> makeTypeRefFrom com ent |> Some
+        //     | "makeGenericType" ->
+        //         if not <| List.sameLength ent.GenericParameters info.args
+        //         then
+        //             "Arguments have different length than generic parameters"
+        //             |> addErrorAndReturnNull com info.fileName info.range |> Some
+        //         else
+        //             let genArgs2 =
+        //                 List.zip ent.GenericParameters info.args
+        //                 |> makeJsObject None
+        //             CoreLibCall("Util", Some "makeGeneric", false, [info.callee.Value; genArgs2])
+        //             |> makeCall None Fable.Any |> Some
+        //     | _ -> common com info
+        // | _ ->
+        //     let getTypeFullName args =
+        //         args |> Option.map (fun args ->
+        //         CoreLibCall("Reflection", Some "getTypeFullName", false, args)
+        //         |> makeCall info.range info.returnType)
+        //     match info.methodName with
+        //     | "fullName" -> Some [info.callee.Value] |> getTypeFullName
+        //     | "name" -> Some [info.callee.Value; str "name"] |> getTypeFullName
+        //     | "namespace" -> Some [info.callee.Value; str "namespace"] |> getTypeFullName
+        //     | "isGenericType" ->
+        //         CoreLibCall("Util", Some "isGeneric", false, [info.callee.Value])
+        //         |> makeCall info.range info.returnType |> Some
+        //     | "getGenericTypeDefinition" ->
+        //         CoreLibCall("Util", Some "getDefinition", false, [info.callee.Value])
+        //         |> makeCall info.range info.returnType |> Some
+        //     | "makeGenericType" ->
+        //         "MakeGenericType won't work if type is not known at compile-time"
+        //         |> addErrorAndReturnNull com info.fileName info.range |> Some
+        //     | _ -> common com info
 
     let unchecked com (info: Fable.ApplyInfo) =
         match info.methodName with
@@ -2380,7 +2385,7 @@ module AstPass =
         | "makeRecord" ->
             match i.args with
             | [typ; vals] ->
-                let typ = ccall_ typ.Range Fable.MetaType "Util" "getDefinition" [typ]
+                let typ = ccall_ typ.Range Fable.Any "Util" "getDefinition" [typ]
                 let spread = Fable.Spread vals |> Fable.Value
                 Fable.Apply(typ, [spread], Fable.ApplyCons, i.returnType, i.range) |> Some
             | _ -> None
@@ -2580,20 +2585,12 @@ let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fabl
     | "System.Guid" -> Fable.StringConst "string" |> Fable.Value |> Some
     | "System.TimeSpan" -> Fable.StringConst "number" |> Fable.Value |> Some
     | "System.DateTime" -> makeIdentExpr "Date" |> Some
-    | "System.DateTimeOffset" as t -> makeNonDeclaredTypeRef (Fable.NonDeclInterface t) |> Some
     | "System.Timers.Timer" -> makeDefaultCoreRef "Timer" |> Some
     | "System.Text.RegularExpressions.Regex" -> makeIdentExpr "RegExp" |> Some
     | "System.Collections.Generic.Dictionary" ->
         makeIdentExpr "Map" |> makeGeneric genArgs |> Some
     | "System.Collections.Generic.HashSet" ->
         makeIdentExpr "Set" |> makeGeneric genArgs |> Some
-    | "System.Collections.Generic.KeyValuePair" ->
-        match genArgs with
-        | [] -> makeIdentExpr "Array" |> Some
-        | genArgs ->
-            genArgs |> List.map snd
-            |> Fable.NonDeclTuple
-            |> makeNonDeclaredTypeRef |> Some
     | KeyValue "Microsoft.FSharp.Core.FSharpChoice" "Choice" name
     | KeyValue "Microsoft.FSharp.Core.FSharpResult" "Result" name
     | KeyValue "Microsoft.FSharp.Control.FSharpAsync" "Async" name
@@ -2609,8 +2606,18 @@ let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fabl
     // Catch-all for unknown references to System and FSharp.Core classes
     | Naming.StartsWith "System." _
     | Naming.StartsWith "Fable.Core." _
+    | "System.DateTimeOffset"
+        // makeNonDeclaredTypeRef () |> Some
+    | "System.Collections.Generic.KeyValuePair"
+        // match genArgs with
+        // | [] -> makeIdentExpr "Array" |> Some
+        // | genArgs ->
+        //     genArgs |> List.map snd
+        //     |> Fable.NonDeclTuple
+            // makeNonDeclaredTypeRef () |> Some
     | Naming.StartsWith "Microsoft.FSharp." _ ->
-        makeNonDeclaredTypeRef Fable.NonDeclAny |> Some
+        Fable.Value Fable.Null |> Some // TODO
+        // makeNonDeclaredTypeRef Fable.NonDeclAny |> Some
     | _ -> None
 
 let checkLiteral com fileName range (value: obj) (typ: Fable.Type) =

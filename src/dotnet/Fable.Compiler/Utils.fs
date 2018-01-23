@@ -4,14 +4,6 @@ open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable.AST
 
-type InlineExpr = IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr
-
-type ICompilerState =
-    abstract ProjectFile: string
-    abstract GetRootModule: string -> string
-    abstract GetOrAddEntity: string * (unit->Fable.Entity) -> Fable.Entity
-    abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
-
 #if !NETFX && !FABLE_COMPILER
 [<AutoOpen>]
 module ReflectionAdapters =

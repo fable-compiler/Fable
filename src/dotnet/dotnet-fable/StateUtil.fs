@@ -128,7 +128,7 @@ let sendError replyChannel (ex: Exception) =
     Log.logAlways(sprintf "ERROR: %s\n%s" ex.Message stack)
     ["error", ex.Message] |> dict |> toJson |> replyChannel
 
-let updateState (checker: FSharpChecker) (state: State) (msg: Parser.Message) =
+let updateState (checker: FSharpChecker) (state: Map<string,Project>) (msg: Parser.Message) =
     let getDirtyFiles (project: Project) sourceFile =
         let isDirty = IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp
         // In watch compilations, always recompile the requested file in case it has non-solved errors
@@ -211,9 +211,9 @@ let compile (com: Compiler) (project: Project) (filePath: string) =
         if filePath.EndsWith(".fsproj") then
             Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles filePath
         else
-            FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles filePath
+            FSharp2Fable.Compiler.transformFile com project.ImplementationFiles filePath
             |> FableOptimize.optimizeFile com
-            |> Fable2Babel.Compiler.transformFile com project
+            |> Fable2Babel.Compiler.transformFile com
     // If this is the first compilation, add errors to each respective file
     if not project.IsWatchCompile then
         addFSharpErrorLogs com project.Errors (Some filePath)
@@ -227,7 +227,7 @@ let compile (com: Compiler) (project: Project) (filePath: string) =
 type Command = string * (string -> unit)
 
 let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
-    let rec loop (checker: FSharpChecker) (state: State) = async {
+    let rec loop (checker: FSharpChecker) (state: Map<string,Project>) = async {
         let! msg, replyChannel = agent.Receive()
         let newState =
             try
@@ -242,7 +242,7 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                       emitReplacements = Map.empty // TODO: Parse from message
                       typedArrays = msg.typedArrays
                       clampByteArrays = msg.clampByteArrays }
-                let com = Compiler(options=comOptions, plugins=loadPlugins msg.plugins)
+                let com = Compiler(activeProject, comOptions, loadPlugins msg.plugins)
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file
                 if isUpdated && activeProject.IsWatchCompile then

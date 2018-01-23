@@ -206,34 +206,8 @@ let getTypedArrayName (com: ICompiler) numberKind =
     | Float32 -> "Float32Array"
     | Float64 -> "Float64Array"
 
-let makeNonDeclaredTypeRef (nonDeclType: NonDeclaredType) =
-    let get t =
-        Wrapped(makeCoreRef "Util" t, MetaType)
-    let call t args =
-        Apply(makeCoreRef "Util" t, args, ApplyMeth, MetaType, None)
-    match nonDeclType with
-    | NonDeclAny -> get "Any"
-    | NonDeclUnit -> get "Unit"
-    | NonDeclOption genArg -> call "Option" [genArg]
-    | NonDeclArray genArg -> call "Array" [genArg]
-    | NonDeclTuple genArgs ->
-        ArrayConst(ArrayValues genArgs, Any) |> Value
-        |> List.singleton |> call "Tuple"
-    | NonDeclFunction genArgs ->
-        ArrayConst(ArrayValues genArgs, Any) |> Value
-        |> List.singleton |> call "Function"
-    | NonDeclGenericParam name ->
-        call "GenericParam" [Value(StringConst name)]
-    | NonDeclInterface name ->
-        call "Interface" [Value(StringConst name)]
-
-type GenericInfo = {
-    makeGeneric: bool
-    genericAvailability: bool
-}
-
-let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
-    let str s = Wrapped(Value(StringConst s), MetaType)
+let rec makeEntityRef (com: ICompiler) typ =
+    let str s = Wrapped(Value(StringConst s), Any)
     match typ with
     | Boolean -> str "boolean"
     | Char
@@ -244,44 +218,47 @@ let rec makeTypeRef (com: ICompiler) (genInfo: GenericInfo) typ =
         | Int64|UInt64 -> makeDefaultCoreRef "Long"
         | Decimal -> str "number"
         | BigInt -> makeDefaultCoreRef "BigInt"
-    | Function(argTypes, returnType, _) ->
-        argTypes@[returnType]
-        |> List.map (makeTypeRef com genInfo)
-        |> NonDeclFunction
-        |> makeNonDeclaredTypeRef
-    | MetaType | Any -> makeNonDeclaredTypeRef NonDeclAny
-    | Unit -> makeNonDeclaredTypeRef NonDeclUnit
-    | Array (Number kind) when com.Options.typedArrays ->
-        let def = Ident(getTypedArrayName com kind, MetaType) |> IdentValue |> Value
-        Apply(makeCoreRef "Util" "Array", [def; makeBoolConst true], ApplyMeth, MetaType, None)
-    | Array genArg ->
-        makeTypeRef com genInfo genArg
-        |> NonDeclArray
-        |> makeNonDeclaredTypeRef
-    | Option genArg ->
-        makeTypeRef com genInfo genArg
-        |> NonDeclOption
-        |> makeNonDeclaredTypeRef
-    | Tuple genArgs ->
-        List.map (makeTypeRef com genInfo) genArgs
-        |> NonDeclTuple
-        |> makeNonDeclaredTypeRef
-    | GenericParam name ->
-        if genInfo.genericAvailability
-        then (makeIdentExpr Naming.genArgsIdent, Value(StringConst name))
-             ||> makeGet None MetaType
-        else makeNonDeclaredTypeRef (NonDeclGenericParam name)
-    | DeclaredType(ent, _) when ent.Kind = Interface ->
-        makeNonDeclaredTypeRef (NonDeclInterface ent.FullName)
-    | DeclaredType(ent, genArgs) ->
-        // Imported types come from JS so they don't need to be made generic
-        match tryImported (lazy ent.Name) ent.Decorators with
-        | Some expr -> expr
-        | None when not genInfo.makeGeneric || genArgs.IsEmpty -> Value(TypeRef(ent,[]))
-        | None ->
-            List.map (makeTypeRef com genInfo) genArgs
-            |> List.zip ent.GenericParameters
-            |> fun genArgs -> Value(TypeRef(ent, genArgs))
+    | DeclaredType _ ->
+        failwith "TODO: Entity Ref with DeclaredType"
+    // | DeclaredType(ent, _) when ent.Kind = Interface ->
+    //     makeNonDeclaredTypeRef (NonDeclInterface ent.FullName)
+    // | DeclaredType(ent, genArgs) ->
+    //     // Imported types come from JS so they don't need to be made generic
+    //     match tryImported (lazy ent.Name) ent.Decorators with
+    //     | Some expr -> expr
+    //     | None when not genInfo.makeGeneric || genArgs.IsEmpty -> Value(EntityRef(ent,[]))
+    //     | None ->
+    //         List.map (makeEntityRef com genInfo) genArgs
+    //         |> List.zip ent.GenericParameters
+    //         |> fun genArgs -> Value(EntityRef(ent, genArgs))
+    | _ -> Value Null // TODO
+    // | Function(argTypes, returnType, _) ->
+    //     argTypes@[returnType]
+    //     |> List.map (makeEntityRef com genInfo)
+    //     |> NonDeclFunction
+    //     |> makeNonDeclaredTypeRef
+    // | Any -> makeNonDeclaredTypeRef NonDeclAny
+    // | Unit -> makeNonDeclaredTypeRef NonDeclUnit
+    // | Array (Number kind) when com.Options.typedArrays ->
+    //     let def = Ident(getTypedArrayName com kind, Any) |> IdentValue |> Value
+    //     Apply(makeCoreRef "Util" "Array", [def; makeBoolConst true], ApplyMeth, Any, None)
+    // | Array genArg ->
+    //     makeEntityRef com genInfo genArg
+    //     |> NonDeclArray
+    //     |> makeNonDeclaredTypeRef
+    // | Option genArg ->
+    //     makeEntityRef com genInfo genArg
+    //     |> NonDeclOption
+    //     |> makeNonDeclaredTypeRef
+    // | Tuple genArgs ->
+    //     List.map (makeEntityRef com genInfo) genArgs
+    //     |> NonDeclTuple
+    //     |> makeNonDeclaredTypeRef
+    // | GenericParam name ->
+    //     if genInfo.genericAvailability
+    //     then (makeIdentExpr Naming.genArgsIdent, Value(StringConst name))
+    //          ||> makeGet None Any
+    //     else makeNonDeclaredTypeRef (NonDeclGenericParam name)
 
 let makeCall (range: SourceLocation option) typ kind =
     let getCallee meth args returnType owner =
@@ -313,13 +290,6 @@ let makeCall (range: SourceLocation option) typ kind =
         |> getCallee meth args typ
         |> apply (getKind isCons) args
 
-let makeNonGenTypeRef com typ =
-    makeTypeRef com { makeGeneric=false; genericAvailability=false } typ
-
-let makeTypeRefFrom com ent =
-    let genInfo = { makeGeneric=false; genericAvailability=false }
-    DeclaredType(ent, []) |> makeTypeRef com genInfo
-
 let makeEmit r t args macro =
     Apply(Value(Emit macro), args, ApplyMeth, t, r)
 
@@ -329,7 +299,6 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
         let typof = makeUnOp None String [expr] UnaryTypeof
         makeBinOp range Boolean [typof; makeStrConst primitiveType] BinaryEqualStrict
     match typ with
-    | MetaType -> Value(BoolConst false) // This shouldn't happen
     | Char
     | String _ -> jsTypeof "string" expr
     | Number _ | Enum _ -> jsTypeof "number" expr
@@ -345,13 +314,14 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
         CoreLibCall ("Util", Some "isArray", false, [expr])
         |> makeCall range Boolean
     | Any -> makeBoolConst true
-    | DeclaredType(typEnt, _) ->
-        match typEnt.Kind with
-        | Interface ->
-            CoreLibCall ("Util", Some "hasInterface", false, [expr; makeStrConst typEnt.FullName])
-            |> makeCall range Boolean
-        | _ ->
-            makeBinOp range Boolean [expr; makeNonGenTypeRef com typ] BinaryInstanceOf
+    | DeclaredType _ ->
+        failwith "TODO: TypeTest with DeclaredType"
+        // match typEnt.Kind with
+        // | Interface ->
+        //     CoreLibCall ("Util", Some "hasInterface", false, [expr; makeStrConst typEnt.FullName])
+        //     |> makeCall range Boolean
+        // | _ ->
+        //     makeBinOp range Boolean [expr; makeEntityRef com typ] BinaryInstanceOf
     | Option _ | GenericParam _ ->
         "Cannot type test options or generic parameters"
         |> addErrorAndReturnNull com fileName range
@@ -360,7 +330,7 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
 /// See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work
 let setProto com (ent: Entity) =
     let meth = makeUntypedGet (makeIdentExpr "Object") "setPrototypeOf"
-    Apply(meth, [This |> Value; makeUntypedGet (DeclaredType(ent, []) |> makeNonGenTypeRef com) "prototype"], ApplyMeth, Any, None)
+    Apply(meth, [This |> Value; makeUntypedGet (DeclaredType(ent.FullName, []) |> makeEntityRef com) "prototype"], ApplyMeth, Any, None)
 
 let (|Type|) (expr: Expr) = expr.Type
 

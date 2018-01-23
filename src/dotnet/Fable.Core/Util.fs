@@ -125,10 +125,6 @@ module Naming =
         then System.String([| for c in ident -> if isIdentChar c then c else '_' |])
         else ident
 
-    let hasGenericPlaceholder (ident: string) =
-        let i = ident.IndexOf(@"\$'")
-        i >= 0 && i + 2 < ident.Length && (isIdentChar ident.[i + 2])
-
     let replacePattern (prefix: string) (cond: char->bool) (repl: string->string) (str: string) =
         let rec replace (acc: string) (s: string) =
             let i = s.IndexOf(prefix)
