@@ -80,6 +80,9 @@ module Helpers =
         then (nonAbbreviatedType ent.AbbreviatedType).TypeDefinition
         else ent
 
+    let getEntityName (ent: FSharpEntity) =
+        ent.CompiledName.Replace('`', '_')
+
     // TODO: Report bug in FCS repo, when ent.IsNamespace, FullName doesn't work.
     let getEntityFullName (ent: FSharpEntity) =
         if ent.IsNamespace
@@ -100,14 +103,6 @@ module Helpers =
         let typ = nonAbbreviatedType typ
         if typ.HasTypeDefinition then Some typ.TypeDefinition else None
 
-    // Sometimes accessing `EnclosingEntity` throws an error (e.g. compiler generated
-    // methods as in #237) so this prevents uncaught exceptions
-    let tryEnclosingEntity (meth: FSharpMemberOrFunctionOrValue) =
-        try meth.EnclosingEntity
-        with _ ->
-            printfn "FSharpMemberOrFunctionOrValue.EnclosingEntity has failed"
-            None
-
     let isInline (meth: FSharpMemberOrFunctionOrValue) =
         match meth.InlineAnnotation with
         | FSharpInlineAnnotation.NeverInline
@@ -122,7 +117,7 @@ module Helpers =
         if meth.IsCompilerGenerated
         then false
         else
-            match tryEnclosingEntity meth with
+            match meth.EnclosingEntity with
             | Some ent when ent.Accessibility.IsPrivate -> true
             | _ -> not meth.Accessibility.IsPrivate
 
@@ -142,7 +137,7 @@ module Helpers =
     let belongsToInterfaceOrImportedEntity (meth: FSharpMemberOrFunctionOrValue) =
         // TODO: Temporary HACK to fix #577
         if meth.FullName.StartsWith("Fable.Import.Node") then true else
-        match tryEnclosingEntity meth with
+        match meth.EnclosingEntity with
         | Some ent ->
             meth.IsExplicitInterfaceImplementation
             || ent.IsInterface
@@ -205,7 +200,7 @@ module Helpers =
             else None
         // Method calls
         else
-        match tryEnclosingEntity meth with
+        match meth.EnclosingEntity with
         | Some ent when ent.IsInterface -> Some ent
         | _ -> None
 
@@ -224,7 +219,7 @@ module Helpers =
         else args |> Seq.sumBy (fun li -> li.Count)
 
     let getMemberKind (meth: FSharpMemberOrFunctionOrValue) =
-        let ent = tryEnclosingEntity meth
+        let ent = meth.EnclosingEntity
         // `.EnclosingEntity` only fails for compiler generated module members
         if ent.IsNone || (ent.Value.IsFSharpModule) then
             if meth.CurriedParameterGroups.Count = 0
@@ -243,7 +238,7 @@ module Helpers =
     // TODO: Check when EnclosingEntity fails. What about interfaces/overrides?
     // TODO: Overloads
     let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
-        match tryEnclosingEntity meth with
+        match meth.EnclosingEntity with
         | Some ent ->
             if ent.IsFSharpModule then
                 meth.CompiledName
@@ -1219,7 +1214,7 @@ module Util =
                 if hasAtt Atts.passGenerics meth.Attributes
                 then args@[passGenerics com ctx r (typArgs, methTypArgs) meth]
                 else removeOmittedOptionalArguments meth args // See #231, #640
-        let owner = tryEnclosingEntity meth
+        let owner = meth.EnclosingEntity
         let i = buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs, methArgTypes) (callee, args) owner meth
         match meth with
         // Check for replacements, emits...
@@ -1230,6 +1225,7 @@ module Util =
         | Erased com ctx r typ owner (callee, args) erased -> erased
         | Replaced com ctx owner i replaced -> replaced
         | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
+        // TODO: Do we need to check extension members separately now?
         | ExtensionMember com ctx r typ (callee, args, methArgTypes) owner expr -> expr
         | Try (tryGetBoundExpr ctx) e ->
             let args = match callee with Some callee -> callee::args | None -> args
@@ -1237,6 +1233,8 @@ module Util =
         | _ ->
             // TODO: Check if this is an interface or overriden method
             // TODO: Check overloaded name
+            // TODO: If we're within a constructor and call to another constructor,
+            // pass `$this` as last argument
             let methName = sanitizeMethodName meth
             let args = match callee with Some callee -> callee::args | None -> args
             let owner =
@@ -1248,7 +1246,7 @@ module Util =
                         then com.GetEntity(logicalOwner)
                         else com.GetEntityEnclosingModule(logicalOwner)
                     Fable.EntityRef(ent.FullName) |> Fable.Value
-                // Cases when tryEnclosingEntity returns None are rare (see #237)
+                // Cases when .EnclosingEntity returns None are rare (see #237)
                 // Let's assume the method belongs to the current enclosing module
                 | None ->
                     Fable.EntityRef(ctx.enclosingModule.Entity.FullName) |> Fable.Value
@@ -1264,7 +1262,7 @@ module Util =
                 let typ, typeRef =
                     match owner with
                     | Some ent -> typ, makeTypeFromDef com ctx.typeArgs ent [] |> makeEntityRef com
-                    // Cases when tryEnclosingEntity returns None are rare, let's assume
+                    // Cases when .EnclosingEntity returns None are rare, let's assume
                     // the value belongs to the current enclosing module and use
                     // type Any to avoid issues with `AST.Fable.Util.ensureArity`
                     // See MiscTests.``Recursive values work`` (#237)
@@ -1275,7 +1273,7 @@ module Util =
         then Fable.Wrapped(Fable.Value Fable.Null, Fable.Unit)
         elif v.IsModuleValueOrMember
         then
-            let owner = tryEnclosingEntity v
+            let owner = v.EnclosingEntity
             let i = buildApplyInfoFrom com ctx r typ ([], [], []) (None, []) owner v
             match v with
             | Plugin com i replaced -> replaced

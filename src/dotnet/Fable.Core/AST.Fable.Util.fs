@@ -100,8 +100,6 @@ let rec makeSequential range statements =
         | first, _ when first.IsNull -> makeSequential range rest
         | Sequential (statements, _), _ -> makeSequential range (statements@rest)
         | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
-        // Calls to System.Object..ctor in class constructors
-        | ObjExpr ([],_), _ -> makeSequential range rest
         | _ -> Sequential (statements, range)
 
 let makeLongInt (x: uint64) unsigned =
