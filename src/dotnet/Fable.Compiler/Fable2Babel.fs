@@ -153,6 +153,10 @@ module Util =
     let getCoreLibImport (com: IBabelCompiler) (ctx: Context) coreModule memb =
         com.GetImportExpr ctx memb coreModule Fable.CoreLib
 
+    let getEntity (com: IBabelCompiler) fullName =
+        // TODO: return dummy entity and add compiler error instead?
+        com.GetOrAddEntity(fullName, fun () -> failwithf "Cannot find entity %s" fullName)
+
     let getSymbol com ctx name =
         (getCoreLibImport com ctx "Symbol" "default", Identifier name)
         |> MemberExpression :> Expression
@@ -192,21 +196,7 @@ module Util =
             | m::ms -> identFromName m :> Expression |> Some |> accessExpr ms
 
     let typeRef (com: IBabelCompiler) ctx (ent: Fable.Entity)
-                (genArgs: (string*Fable.Expr) list)
                 (memb: string option): Expression =
-        let makeGeneric expr =
-            match genArgs, memb with
-            | [], _ -> expr
-            | genArgs, None ->
-                genArgs |> List.map (fun (name, expr) ->
-                    let m = Fable.Member(name, Fable.Field, Fable.InstanceLoc, [], Fable.Any)
-                    m, [], expr)
-                |> fun ms -> com.TransformObjectExpr ctx ms None
-                |> fun genArgs ->
-                    upcast CallExpression(
-                        getCoreLibImport com ctx "Util" "makeGeneric",
-                        [expr; genArgs] |> List.map Choice1Of2)
-            | _ -> expr
         let getParts ns fullName memb =
             let split (s: string) =
                 s.Split('.') |> Array.toList
@@ -218,7 +208,7 @@ module Util =
                 (match memb with Some memb -> [memb] | None ->  [])
         match ent.File with
         | None ->
-            match Replacements.tryReplaceEntity com ent genArgs with
+            match Replacements.tryReplaceEntity com ent with
             | Some expr -> com.TransformExpr ctx expr
             | None -> failwithf "Cannot access type: %s" ent.FullName
         | Some file when ctx.file.SourcePath <> file ->
@@ -230,7 +220,6 @@ module Util =
             | memb::parts ->
                 com.GetImportExpr ctx memb importPath (Fable.Internal file)
                 |> Some |> accessExpr parts
-            |> makeGeneric
         | _ ->
             match getParts ctx.moduleFullName ent.FullName memb with
             | [membName] when Option.isSome memb ->
@@ -247,7 +236,6 @@ module Util =
                 else rootMemb
                 |> fun rootMemb -> accessExpr (rootMemb::parts) None
             | parts -> accessExpr parts None
-            |> makeGeneric
 
     let buildArray (com: IBabelCompiler) ctx consKind typ =
         match typ with
@@ -346,7 +334,9 @@ module Util =
         | Fable.ArrayConst (cons, typ) -> buildArray com ctx cons typ
         | Fable.TupleConst vals -> buildArray com ctx (Fable.ArrayValues vals) Fable.Any
         | Fable.Emit emit -> macroExpression None emit []
-        | Fable.EntityRef(typEnt, genArgs) -> typeRef com ctx typEnt genArgs None
+        | Fable.EntityRef fullName ->
+            let typEnt = getEntity com fullName
+            typeRef com ctx typEnt None
         | Fable.Spread _ ->
             "Unexpected array spread" |> Fable.Util.attachRange r |> failwith
         | Fable.LogicalOp _ | Fable.BinaryOp _ | Fable.UnaryOp _ ->
@@ -406,9 +396,10 @@ module Util =
                 | expr -> com.TransformExpr ctx expr :> Node)
             |> macroExpression range emit
         // Module or class static members
-        | Fable.Value(Fable.EntityRef(typEnt, _)), [Fable.Value(Fable.StringConst memb)]
+        | Fable.Value(Fable.EntityRef fullName), [Fable.Value(Fable.StringConst memb)]
             when kind = Fable.ApplyGet ->
-            typeRef com ctx typEnt [] (Some memb)
+            let typEnt = getEntity com fullName
+            typeRef com ctx typEnt (Some memb)
         | _ ->
             match kind with
             | Fable.ApplyMeth ->
@@ -787,13 +778,6 @@ module Util =
     //         let id = ent |> Option.map (fun x -> identFromName x.Name)
     //         ClassExpression(ClassBody(members, ?loc=range),
     //                         ?id=id, ?super=baseClass, ?loc=range)
-
-    let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) =
-        CallExpression(
-            getCoreLibImport com ctx "Symbol" "setType",
-            [StringLiteral ent.FullName :> Expression |> Choice1Of2
-            ; typeRef com ctx ent [] None |> Choice1Of2])
-        |> ExpressionStatement :> Statement
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
         let argv = macroExpression None "process.argv.slice(2)" []

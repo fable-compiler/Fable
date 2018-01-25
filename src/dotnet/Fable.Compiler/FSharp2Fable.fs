@@ -758,7 +758,9 @@ let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (meth: FSha
     else transformMethod com ctx range None meth args body
 
 let rec private transformEntityDecl (com: IFableCompiler) (ctx: Context) (ent: FSharpEntity) subDecls =
-    let range = getEntityLocation ent |> makeRange
+    // Add entity to compiler cache
+    com.GetEntity(ent) |> ignore
+    // let range = getEntityLocation ent |> makeRange
     let import = tryGetImport ent.Attributes
     if Option.isSome import then
         failwith "TODO: Imported entity"
@@ -843,6 +845,25 @@ let private tryGetMethodArgsAndBody (implFiles: Map<string, FSharpImplementation
     |> Option.bind (fun f ->
         f.Declarations |> List.tryPick (tryGetMethodArgsAndBody' meth.FullName))
 
+let private tryGetEntityEnclosingModule (implFiles: Map<string, FSharpImplementationFileContents>) (ent: FSharpEntity) =
+    let rec tryGetEntityEnclosingModule' (entFullName: string) parent = function
+        | FSharpImplementationFileDeclaration.Entity (e, decls) ->
+            let entFullName2 = getEntityFullName e
+            if entFullName = entFullName2
+            then parent
+            elif entFullName.StartsWith(entFullName2)
+            then List.tryPick (tryGetEntityEnclosingModule' entFullName (Some e)) decls
+            else None
+        | _ -> None
+    // For entities in checked project (no assembly), try to find the implementation entity
+    // when the declaration location doesn't correspond to the implementation location (see #754)
+    ent.ImplementationLocation |> Option.bind (fun loc ->
+        let fileName = Path.normalizePath loc.FileName
+        Map.tryFind fileName implFiles
+        |> Option.bind (fun f ->
+            let entFullName = getEntityFullName ent
+            f.Declarations |> List.tryPick (tryGetEntityEnclosingModule' entFullName None)))
+
 let private tryGetEntityImplementation (implFiles: Map<string, FSharpImplementationFileContents>) (ent: FSharpEntity) =
     let rec tryGetEntityImplementation' (entFullName: string) = function
         | FSharpImplementationFileDeclaration.Entity (e, decls) ->
@@ -893,6 +914,10 @@ type FableCompiler(com: ICompiler, currentFile: string, implFiles: Map<string, F
                 match tryGetEntityImplementation implFiles tdef with
                 | Some tdef -> makeEntity fcom tdef
                 | None -> failwith ("Cannot find implementation of " + (getEntityFullName tdef)))
+        member fcom.GetEntityEnclosingModule tdef =
+            match tryGetEntityEnclosingModule implFiles tdef with
+            | Some tdef -> com.GetOrAddEntity(getEntityFullName tdef, fun () -> makeEntity fcom tdef)
+            | None -> failwith ("Cannot find enclosing module for " + (getEntityFullName tdef))
         member __.GetInlineExpr meth =
             let fileName = (getMethLocation meth).FileName |> Path.normalizePath
             if fileName <> currentFile then

@@ -232,7 +232,7 @@ type ValueKind =
     | Null
     | This
     | Spread of Expr
-    | EntityRef of Entity * genArgs: (string * Expr) list
+    | EntityRef of string
     | IdentValue of Ident
     | ImportRef of memb: string * path: string * ImportKind
     | NumberConst of float * NumberKind
@@ -250,9 +250,8 @@ type ValueKind =
         match this with
         | Null | This | IdentValue _ | ImportRef _
         | NumberConst _ | StringConst _ | BoolConst _ | RegexConst _
-        | UnaryOp _ | BinaryOp _ | LogicalOp _ | Emit _ -> []
+        | UnaryOp _ | BinaryOp _ | LogicalOp _ | Emit _ | EntityRef _ -> []
         | Spread x -> [x]
-        | EntityRef(_,genArgs) -> genArgs |> List.map snd
         | ArrayConst(kind,_) ->
             match kind with
             | ArrayValues exprs -> exprs

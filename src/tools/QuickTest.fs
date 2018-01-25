@@ -29,17 +29,25 @@ let equal expected actual =
 // You'll have to run your test manually, sorry!
 // ``My Test``()
 
-type Foo =
+type Foo2 =
     { x: int }
     member __.Z() = 5
     member this.Add(x, y) = x + y + this.Z()
     static member Add(x, y) = x - y
 
+
+let delay (f:unit -> unit) = f
+
+let rec a = delay (fun () -> b())
+and b = delay a
+
 let test() =
-    let f = { x = 5 }
+    let f: Lib.Foo = !!obj // { x = 5 }
     let x = f.Add(4, 5)
-    let y = Foo.Add(6, 7)
-    ()
+    let y = Lib.Foo.Add(6, 7)
+    printfn "RESULT: %i" (x + y)
+
+test()
 
 let test2() =
     [1;2;3;4]

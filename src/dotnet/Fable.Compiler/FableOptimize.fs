@@ -12,14 +12,13 @@ let rec visit f e =
     | Value kind ->
         match kind with
         | Spread e -> Value(Spread(visit f e))
-        | EntityRef(e, gen) -> Value(EntityRef(e, List.map (fun (n,e) -> n, visit f e) gen))
         | TupleConst exprs -> Value(TupleConst(List.map (visit f) exprs))
         | ArrayConst(kind, t) ->
             match kind with
             | ArrayValues exprs -> ArrayConst(ArrayValues(List.map (visit f) exprs), t) |> Value
             | ArrayAlloc e -> ArrayConst(ArrayAlloc(visit f e), t) |> Value
         | Lambda(args, body, info) -> Value(Lambda(args, visit f body, info))
-        | Null | This | IdentValue _ | ImportRef _
+        | Null | This | IdentValue _ | ImportRef _ | EntityRef _
         | NumberConst _ | StringConst _ | BoolConst _ | RegexConst _
         | UnaryOp _ | BinaryOp _ | LogicalOp _ | Emit _ -> e
     | Apply(callee, args, kind, typ, range) ->

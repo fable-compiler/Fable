@@ -96,7 +96,6 @@ module Util =
     let (|Nameof|_|) = function
         | Fable.Value(Fable.IdentValue ident) -> Some ident.Name
         | Fable.Apply(_, [Fable.Value(Fable.StringConst prop)], Fable.ApplyGet, _, _) -> Some prop
-        | Fable.Value(Fable.EntityRef(ent,_)) -> Some ent.Name
         | _ -> None
 
     // TODO
@@ -2573,14 +2572,7 @@ let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
 
 // TODO: We'll probably have to merge this with CoreLibPass.mappings
 // Especially if we start making more types from the BCL compatible
-let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fable.Expr) list) =
-    let makeGeneric genArgs expr =
-        match genArgs with
-        | [] -> expr
-        | genArgs ->
-            let genArgs = makeJsObject None genArgs
-            CoreLibCall("Util", Some "makeGeneric", false, [expr; genArgs])
-            |> makeCall None Fable.Any
+let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) =
     match ent.FullName with
     | "System.Guid" -> Fable.StringConst "string" |> Fable.Value |> Some
     | "System.TimeSpan" -> Fable.StringConst "number" |> Fable.Value |> Some
@@ -2588,16 +2580,16 @@ let tryReplaceEntity (com: ICompiler) (ent: Fable.Entity) (genArgs: (string*Fabl
     | "System.Timers.Timer" -> makeDefaultCoreRef "Timer" |> Some
     | "System.Text.RegularExpressions.Regex" -> makeIdentExpr "RegExp" |> Some
     | "System.Collections.Generic.Dictionary" ->
-        makeIdentExpr "Map" |> makeGeneric genArgs |> Some
+        makeIdentExpr "Map" |> Some
     | "System.Collections.Generic.HashSet" ->
-        makeIdentExpr "Set" |> makeGeneric genArgs |> Some
+        makeIdentExpr "Set" |> Some
     | KeyValue "Microsoft.FSharp.Core.FSharpChoice" "Choice" name
     | KeyValue "Microsoft.FSharp.Core.FSharpResult" "Result" name
     | KeyValue "Microsoft.FSharp.Control.FSharpAsync" "Async" name
     | KeyValue "Microsoft.FSharp.Collections.FSharpSet" "Set" name
     | KeyValue "Microsoft.FSharp.Collections.FSharpMap" "Map" name
     | KeyValue "Microsoft.FSharp.Collections.FSharpList" "List" name ->
-        makeDefaultCoreRef name |> makeGeneric genArgs |> Some
+        makeDefaultCoreRef name |> Some
     | Naming.EndsWith "Exception" _ ->
         makeIdentExpr "Error" |> Some
     | "Fable.Core.JsInterop.JsConstructor"

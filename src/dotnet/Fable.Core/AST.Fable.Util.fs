@@ -218,8 +218,8 @@ let rec makeEntityRef (com: ICompiler) typ =
         | Int64|UInt64 -> makeDefaultCoreRef "Long"
         | Decimal -> str "number"
         | BigInt -> makeDefaultCoreRef "BigInt"
-    | DeclaredType _ ->
-        failwith "TODO: Entity Ref with DeclaredType"
+    | DeclaredType(fullName,_) ->
+        Fable.EntityRef(fullName) |> Fable.Value
     // | DeclaredType(ent, _) when ent.Kind = Interface ->
     //     makeNonDeclaredTypeRef (NonDeclInterface ent.FullName)
     // | DeclaredType(ent, genArgs) ->
