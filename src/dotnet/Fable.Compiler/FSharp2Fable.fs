@@ -568,7 +568,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             // imported from ES2015 modules cannot be modified (see #986)
             // TODO: We should check for plugin, emit attribute...
             let callee = makeTypeFromDef com ctx.typeArgs ent [] |> makeEntityRef com
-            let m = makeGet r Fable.Any callee (sanitizeMethodName valToSet |> makeStrConst)
+            let m = makeGet r Fable.Any callee (getMethodName valToSet |> makeStrConst)
             Fable.Apply(m, [valueExpr], Fable.ApplyMeth, typ, r)
         | _ ->
             let valToSet = makeValueFrom com ctx r typ false valToSet
@@ -598,6 +598,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 let argExprs = List.map (transformExpr com ctx) argExprs
                 let argTypes = fields |> List.map (fun x -> makeType com [] x.FieldType)
                 ensureArity com argTypes argExprs
+            // TODO: Remove fields were argExpr is None
             List.zip fields argExprs
             |> List.map (fun (fi, e) -> fi.Name, e)
             |> makeJsObject range
@@ -736,21 +737,19 @@ let private transformConstructor com ctx (meth: FSharpMemberOrFunctionOrValue)
         failwith "TODO: Secondary constructors"
 
 let private transformMethod com ctx import (meth: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+    let methName = getMethodName meth
     let ctx, privateName =
         // Bind meth.CompiledName (TODO: DisplayName for interface meths?) to context
         // to prevent name clashes (they will become variables in JS)
         let typ = makeType com ctx.typeArgs meth.FullType
-        let ctx, privateName = bindIdent com ctx typ (Some meth) meth.CompiledName
+        let ctx, privateName = bindIdent com ctx typ (Some meth) methName
         ctx, privateName.Name
     match import with
     | Some(selector, path) ->
         failwith "TODO: compile imports as ValueDeclarations (check if they're mutable, see Zaid's issue)"
         // [], makeImport selector path
     | None ->
-        let publicName =
-            if isPublicMethod meth
-            then sanitizeMethodName meth |> Some
-            else None
+        let publicName = if isPublicMethod meth then Some methName else None
         // TODO: PassGenerics shouldn't be allowed for constructors
         // (we also attach `$this` at the end of arguments)
         let passGenerics = hasPassGenericsAtt com ctx meth
@@ -784,7 +783,7 @@ let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (meth: FSha
         ctx, []
     elif isInline meth then
         let args = Seq.collect id args |> countRefs body
-        com.AddInlineExpr(fullNameAndArgCount meth, (upcast args, body))
+        com.AddInlineExpr(meth, (upcast args, body))
         ctx, []
     else transformMethod com ctx None meth args body
 
@@ -952,7 +951,8 @@ type FableCompiler(com: ICompiler, currentFile: string, implFiles: Map<string, F
             if fileName <> currentFile then
                 dependencies.Add(fileName) |> ignore
             // TODO: fullNameAndArgCount is not safe, we need types of args
-            com.GetOrAddInlineExpr(fullNameAndArgCount meth, fun () ->
+            let fullNameAndArgCount = meth.FullName + "(" + (getArgCount meth |> string) + ")"
+            com.GetOrAddInlineExpr(fullNameAndArgCount, fun () ->
                 failwith "TODO: compile inline expressions"
                 // match tryGetMethodArgsAndBody implFiles fileName meth with
                 // | Some(args, body) ->
@@ -960,8 +960,10 @@ type FableCompiler(com: ICompiler, currentFile: string, implFiles: Map<string, F
                 //     (upcast args, body)
                 // | None -> failwith ("Cannot find inline method " + meth.FullName)
             )
-        member __.AddInlineExpr(fullName, inlineExpr) =
-            com.GetOrAddInlineExpr(fullName, fun () ->
+        member __.AddInlineExpr(meth, inlineExpr) =
+            // TODO: fullNameAndArgCount is not safe, we need types of args
+            let fullNameAndArgCount = meth.FullName + "(" + (getArgCount meth |> string) + ")"
+            com.GetOrAddInlineExpr(fullNameAndArgCount, fun () ->
                 failwith "TODO: compile inline expressions"
                 // inlineExpr
             ) |> ignore

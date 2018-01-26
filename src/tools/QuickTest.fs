@@ -29,16 +29,20 @@ let equal expected actual =
 // You'll have to run your test manually, sorry!
 // ``My Test``()
 
+
+type IFoo =
+    abstract Foo: unit -> int
+
 type Foo2(x: int, y: int) =
     member __.Z() = x + y
     member this.Add(x, y) = x + y + this.Z()
     static member Add(x, y) = x - y
+    interface IFoo with
+        member my.Foo() = y
 
-
-let delay (f:unit -> unit) = f
-
-let rec a = delay (fun () -> b())
-and b = delay a
+// let delay (f:unit -> unit) = f
+// let rec a = delay (fun () -> b())
+// and b = delay a
 
 let test() =
     let f = Foo2(14, 67)
@@ -48,7 +52,10 @@ let test() =
 
 test()
 
-let test2() =
+let test2(f: IFoo) =
+    f.Foo()
+
+let test_infinity() =
     [1;2;3;4]
     |> List.map (fun x -> x + 4)
     |> List.filter (fun x -> x < 10)

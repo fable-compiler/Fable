@@ -48,7 +48,7 @@ type IFableCompiler =
     abstract GetEntity: FSharpEntity -> Fable.Entity
     abstract GetEntityEnclosingModule: FSharpEntity -> Fable.Entity
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> (IDictionary<string,int> * Fable.Expr)
-    abstract AddInlineExpr: string * (IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) -> unit
+    abstract AddInlineExpr: FSharpMemberOrFunctionOrValue * (IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) -> unit
     abstract AddUsedVarName: string -> unit
     abstract ReplacePlugins: (string*IReplacePlugin) list
 
@@ -88,6 +88,29 @@ module Helpers =
         if ent.IsNamespace
         then match ent.Namespace with Some ns -> ns + "." + ent.CompiledName | None -> ent.CompiledName
         else defaultArg ent.TryFullName ent.CompiledName
+
+    // TODO: Interfaces/overrides?
+    // TODO: Overloads
+    let getMethodName (meth: FSharpMemberOrFunctionOrValue) =
+        let name =
+            match meth.EnclosingEntity with
+            | Some ent ->
+                if ent.IsFSharpModule
+                    || meth.IsExplicitInterfaceImplementation
+                then
+                    meth.CompiledName
+                // There's no .IsOverride property, but we have already discarded
+                // .IsExplicitInterfaceImplementation in the branch above
+                elif meth.IsOverrideOrExplicitInterfaceImplementation
+                    || meth.IsInstanceMember && ent.IsInterface
+                then
+                    meth.DisplayName
+                else
+                    let separator = if meth.IsInstanceMember then "$" else "$$"
+                    ent.CompiledName + separator + meth.CompiledName
+            | None ->
+                meth.CompiledName
+        Naming.sanitizeIdentForbiddenChars name
 
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
@@ -231,25 +254,6 @@ module Helpers =
         elif meth.IsPropertyGetterMethod && (getArgCount meth) = 0 then Fable.Getter
         elif meth.IsPropertySetterMethod && (getArgCount meth) = 1 then Fable.Setter
         else Fable.Method
-
-    let fullNameAndArgCount (meth: FSharpMemberOrFunctionOrValue) =
-        meth.FullName + "(" + (getArgCount meth |> string) + ")"
-
-    // TODO: Check when EnclosingEntity fails. What about interfaces/overrides?
-    // TODO: Overloads
-    let sanitizeMethodName (meth: FSharpMemberOrFunctionOrValue) =
-        match meth.EnclosingEntity with
-        | Some ent ->
-            if ent.IsFSharpModule then
-                meth.CompiledName
-            elif meth.IsOverrideOrExplicitInterfaceImplementation
-                || meth.IsInstanceMember && ent.IsInterface then
-                meth.DisplayName
-            else
-                let separator = if meth.IsInstanceMember then "$" else "$$"
-                ent.CompiledName + separator + meth.CompiledName
-        | None ->
-            meth.CompiledName
 
     let hasRestParams (meth: FSharpMemberOrFunctionOrValue) =
         if meth.CurriedParameterGroups.Count <> 1 then false else
@@ -747,7 +751,7 @@ module Types =
                 // Property members that are no getter nor setter don't actually get implemented
                 && not(x.IsProperty && not(x.IsPropertyGetterMethod || x.IsPropertySetterMethod))
                 && not(isFakeAbstractMethod x))
-            |> Seq.map (fun meth -> sanitizeMethodName meth, getMemberKind meth, getMemberLoc meth, meth)
+            |> Seq.map (fun meth -> getMethodName meth, getMemberKind meth, getMemberLoc meth, meth)
             |> Seq.toArray
         let getMembers' loc (tdef: FSharpEntity) =
             members
@@ -1094,7 +1098,7 @@ module Util =
                         (meth: FSharpMemberOrFunctionOrValue) =
         meth.Attributes
         |> Seq.choose makeDecorator
-        |> tryImported (lazy sanitizeMethodName meth)
+        |> tryImported (lazy getMethodName meth)
         |> function
             | Some expr ->
                 match meth with
@@ -1168,7 +1172,7 @@ module Util =
         | true, Some callee, Some ent ->
             let typRef = makeTypeFromDef com ctx.typeArgs ent [] |> makeEntityRef com
             let methName =
-                let methName = sanitizeMethodName meth
+                let methName = getMethodName meth
                 let ent = com.GetEntity ent
                 let loc = if meth.IsInstanceMember then Fable.InstanceLoc else Fable.StaticLoc
                 match ent.TryGetMember(methName, getMemberKind meth, loc, argTypes) with
@@ -1231,27 +1235,35 @@ module Util =
             let args = match callee with Some callee -> callee::args | None -> args
             Fable.Apply(e, args, Fable.ApplyMeth, typ, r)
         | _ ->
+            let apply r typ owner methName args =
+                let m = makeGet None Fable.Any owner (makeStrConst methName)
+                Fable.Apply(m, args, Fable.ApplyMeth, typ, r)
             // TODO: Check if this is an interface or overriden method
             // TODO: Check overloaded name
             // TODO: If we're within a constructor and call to another constructor,
             // pass `$this` as last argument
-            let methName = sanitizeMethodName meth
-            let args = match callee with Some callee -> callee::args | None -> args
-            let owner =
-                match owner with
-                | Some logicalOwner ->
-                    // TODO: Add makeEntityRef method to check for Import attr, etc
-                    let ent =
-                        if logicalOwner.IsFSharpModule
-                        then com.GetEntity(logicalOwner)
-                        else com.GetEntityEnclosingModule(logicalOwner)
-                    Fable.EntityRef(ent.FullName) |> Fable.Value
-                // Cases when .EnclosingEntity returns None are rare (see #237)
-                // Let's assume the method belongs to the current enclosing module
-                | None ->
-                    Fable.EntityRef(ctx.enclosingModule.Entity.FullName) |> Fable.Value
-            let m = makeGet r Fable.Any owner (makeStrConst methName)
-            Fable.Apply(m, args, Fable.ApplyMeth, typ, r)
+            let methName = getMethodName meth
+            match owner, callee with
+            | Some logicalOwner, Some callee when logicalOwner.IsInterface ->
+                // TODO: Check if it's getter/setter
+                apply r typ callee methName args
+            | Some logicalOwner, _ ->
+                let args =
+                    match callee with
+                    | Some callee -> callee::args
+                    | None -> args
+                // TODO: Add makeEntityRef method to check for Import attr, etc
+                let ent =
+                    if logicalOwner.IsFSharpModule
+                    then com.GetEntity(logicalOwner)
+                    else com.GetEntityEnclosingModule(logicalOwner)
+                let owner = Fable.EntityRef(ent.FullName) |> Fable.Value
+                apply r typ owner methName args
+            // Cases when .EnclosingEntity returns None are rare (see #237)
+            // Let's assume the method belongs to the current enclosing module
+            | None, _ ->
+                let owner = Fable.EntityRef(ctx.enclosingModule.Entity.FullName) |> Fable.Value
+                apply r typ owner methName args
 
     // TODO: When the full test suite works, check if we can erase units by default
     let makeValueFrom com ctx r typ eraseUnit (v: FSharpMemberOrFunctionOrValue) =
