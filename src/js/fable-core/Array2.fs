@@ -1,8 +1,7 @@
 module Array
 
-// This value is for use by compiled F# code and should not be used directly.
-// We can use LanguagePrimitives.ErrorStrings.
-// TODO: Approve please if we really need to use ErrorStrings here
+// Warning: "This value is for use by compiled F# code and should not be used directly."
+// We skip this for LanguagePrimitives.ErrorStrings.
 #nowarn "1204"
 
 open Fable.Core
@@ -14,65 +13,80 @@ type ArrayCons =
     [<Emit("$0.from($1)")>]
     abstract From: 'T seq -> 'T array
 
-[<Emit("$0.push($1)")>]
-let private push (array: 'T[]) (item: 'T): int = jsNative
+[<AutoOpen>]
+module private JS =
+    let inline private jsCast x = x |> box :?> _
 
-[<Emit("$0.slice($1, $2)")>]
-let private slice (array: 'T[]) (``begin``: int) (``end``: int): 'T[] = jsNative
+    let inline private jsArray (array: 'T[]): JS.Array<'T> = jsCast array
 
-[<Emit("$0.slice($1)")>]
-let private sliceFrom (array: 'T[]) (``begin``: int): 'T[] = jsNative
+    // Let's consider "Emit" as a last resort here and consider re-using Fable.Import.JS definitions
 
-[<Emit("$0.splice($1, $2)")>]
-let private splice (array: 'T[]) (start: int) (deleteCount: int): 'T[] = jsNative
+    [<Emit("$0 + $1")>]
+    let inline nativeAddition (_x: 'T) (_y: 'U): 'V = jsNative
 
-// TODO: Should we reuse declarations from Import.JS instead of raw emits?
-let inline private spliceN<'T> (array: 'T[]) (start: int) (deleteCount: int) =
-    (box array :?> JS.Array<_>).splice(float(start), float(deleteCount)) |> box :?> 'T[]
+    [<Emit("$0 / $1")>]
+    let inline nativeDivision (_x: 'T) (_y: 'U): 'V = jsNative
 
-[<Emit("$0.indexOf($1)")>]
-let private indexOf (array: 'T[]) (item: 'T): int = jsNative
+    [<Emit("0")>]
+    let inline nativeZero<'T> (): 'T = jsNative
 
-let inline private isTypedArray arr = JS.ArrayBuffer.isView arr :?> bool
+    let inline isTypedArrayImpl arr = JS.ArrayBuffer.isView arr :?> bool
 
-[<Emit("[].concat.apply([], $0)")>]
-let private dynamicArrayConcatImpl (arrays: 'T[][]): 'T[] = jsNative
+    [<Emit("[].concat.apply([], $0)")>]
+    let dynamicArrayConcatImpl (_arrays: 'T[][]): 'T[] = jsNative
 
-[<Emit("$0.set($1, $2)")>]
-let private typedArraySetImpl (target: obj) (source: obj) (offset: float) = jsNative
+    [<Emit("$0.set($1, $2)")>]
+    let typedArraySetImpl (_target: obj) (_source: obj) (_offset: float) = jsNative
 
-[<Emit("$1.find($0)")>]
-let inline private findImpl predicate (array: 'T[]): 'T option = jsNative
+    let inline lengthImpl (array: 'T[]): int =
+        (jsArray array).length |> jsCast
 
-[<Emit("$1.findIndex($0)")>]
-let inline private findIndexImpl predicate (array: 'T[]): int = jsNative
+    let inline pushImpl (array: 'T[]) (item: 'T): int =
+        (jsArray array).push(item) |> jsCast
 
-// TODO: Should we tend to use native js counterparts as much as possible
-// (and how do Replacements nativeArrayFunctions relate?), i.e. chase performance,
-// or should we do the opposite and implement all the function in F# (with small exceptions when typed arrays chime in),
-// go for correcntess for starters.
-[<Emit("$0.concat($1)")>]
-let append (array1: 'T[]) (array2: 'T[]): 'T[] = jsNative
+    let inline sliceImpl (array: 'T[]) (``begin``: int) (``end``: int): 'T[] =
+        (jsArray array).slice(jsCast ``begin``, jsCast ``end``) |> jsCast
 
-[<Emit("$1.filter($0)")>]
-let filter predicate (array: _[]) = jsNative
+    let inline sliceFromImpl (array: 'T[]) (``begin``: int): 'T[] =
+        (jsArray array).slice(jsCast ``begin``) |> jsCast
 
-[<Emit("$1.sort(function($a,$b) { return $0($a)($b); })")>]
-let sortInPlaceWith (comparer: 'T -> 'T -> int) (array:'T[]): unit = jsNative
+    let inline spliceImpl (array: 'T[]) (start: int) (deleteCount: int): 'T[] =
+        (jsArray array).splice(jsCast start, jsCast deleteCount) |> jsCast
 
-[<Emit("$0.length")>]
-let length (array: 'T[]) = array.Length
+    let inline concatImpl (array1: 'T[]) (array2: 'T[]): 'T[] =
+        (jsArray array1).concat(jsCast array2 |> U2.Case2) |> jsCast
 
-[<Emit("$0.slice($1, $1 + $2)")>]
-let getSubArray (array: 'T[]) (offset: int) (length: int): 'T[] = jsNative
+    let inline indexOfImpl (array: 'T[]) (item: 'T): int =
+        (jsArray array).indexOf(item) |> jsCast
 
-let indexNotFound() = failwith "An index satisfying the predicate was not found in the collection."
+    let inline findImpl (predicate: 'T -> bool) (array: 'T[]): 'T option =
+        (jsArray array).find(jsCast predicate) |> jsCast
 
-let inline last (array : 'T[]) =
+    let inline findIndexImpl (predicate: 'T -> bool) (array: 'T[]): int =
+        (jsArray array).findIndex(jsCast predicate) |> jsCast
+
+    let inline filterImpl (predicate: 'T -> bool) (array: 'T[]): 'T[] =
+        (jsArray array).filter(jsCast predicate) |> jsCast
+
+    [<Emit("$1.sort(function($a,$b) { return $0($a)($b); })")>]
+    let inline sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (_array:'T[]): unit = jsNative
+
+
+let private indexNotFound() = failwith "An index satisfying the predicate was not found in the collection."
+
+let append (array1: 'T[]) (array2: 'T[]): 'T[] = concatImpl array1 array2
+ 
+let filter (predicate: 'T -> bool) (array: 'T[]) = filterImpl predicate array
+
+let length array = lengthImpl array
+
+let getSubArray (array: 'T[]) (offset: int) (length: int): 'T[] =
+    sliceImpl array offset (offset + length)
+
+let last (array : 'T[]) =
     if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     array.[array.Length-1]
 
-[<CompiledName("TryLast")>]
 let tryLast (array : 'T[]) =
     if array.Length = 0 then None
     else Some array.[array.Length-1]
@@ -119,7 +133,6 @@ let map3 f (source1: 'T[]) (source2: 'U[]) (source3: 'U[]) (cons: ArrayCons) =
       result.[i] <- f source1.[i] source2.[i] source3.[i]
    result
 
-// TODO: Move function to the list of "Functions returning an array"
 let mapFold<'T,'State,'Result> (mapping : 'State -> 'T -> 'Result * 'State) state (array: 'T[]) (cons: ArrayCons) =
     match array.Length with
     | 0 -> [| |], state
@@ -132,7 +145,6 @@ let mapFold<'T,'State,'Result> (mapping : 'State -> 'T -> 'Result * 'State) stat
             acc <- s'
         res, acc
 
-// TODO: Move function to the list of "Functions returning an array"
 let mapFoldBack<'T,'State,'Result> (mapping : 'T -> 'State -> 'Result * 'State) state (array: 'T[]) (cons: ArrayCons) =
     match array.Length with
     | 0 -> [| |], state
@@ -162,7 +174,7 @@ let private typedArrayConcatImpl (cons: ArrayCons) (arrays: 'T[][]): 'T[] =
 
 let private concatImpl (cons: ArrayCons) (arrays: 'T[][]): 'T[] =
     if arrays.Length > 0 then
-        if isTypedArray arrays.[0] then
+        if isTypedArrayImpl arrays.[0] then
             typedArrayConcatImpl cons arrays
         else
             dynamicArrayConcatImpl arrays
@@ -203,18 +215,18 @@ let distinctBy projection (array:'T[]) (cons: ArrayCons) =
             temp.[i] <- v
             i <- i + 1
 
-    getSubArray temp 0 i
+    sliceImpl temp 0 i
 
 let distinct (array: 'T[]) (cons: ArrayCons) = distinctBy id array cons
 
-let where predicate (array: _[]) = filter predicate array
+let where predicate (array: _[]) = filterImpl predicate array
 
 let except (itemsToExclude: seq<_>) (array:_[]) =
     if array.Length = 0 then
         array
     else
         let cached = System.Collections.Generic.HashSet(itemsToExclude)
-        array |> filter cached.Add
+        array |> filterImpl cached.Add
 
 let groupBy (projection: 'T->'Key) (array: 'T[]) (cons: ArrayCons) =
     let dict = System.Collections.Generic.Dictionary<'Key, 'T[]>()
@@ -225,7 +237,7 @@ let groupBy (projection: 'T->'Key) (array: 'T[]) (cons: ArrayCons) =
         let key = projection v
         let mutable prev = Unchecked.defaultof<_>
         if dict.TryGetValue(key, &prev) then
-            push prev v |> ignore
+            pushImpl prev v |> ignore
         else
             let prev = cons.From [|v|]
             dict.[key] <- prev
@@ -241,22 +253,20 @@ let groupBy (projection: 'T->'Key) (array: 'T[]) (cons: ArrayCons) =
 
 let ofArray (arr: 'T[]) = arr
 
-let empty<'T> : 'T[] = [||] // TODO: Shoud it be a ctor function with cons.Create 0?
+let empty<'T> : 'T[] = [||]
 
-let inline singleton value (cons: ArrayCons) = cons.From [|value|]
+let singleton value (cons: ArrayCons) = cons.From [|value|]
 
-// TODO: CompiledName: Initialize
-let init count initializer (cons: ArrayCons) =
+let initialize count initializer (cons: ArrayCons) =
     if count < 0 then invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
     let result = cons.Create count
     for i = 0 to count - 1 do
         result.[i] <- initializer i
     result
 
-[<CompiledName("Pairwise")>]
 let pairwise (array: 'T[]) (cons: ArrayCons) =
     if array.Length < 2 then empty else
-    init (array.Length-1) (fun i -> array.[i],array.[i+1]) cons
+    initialize (array.Length-1) (fun i -> array.[i],array.[i+1]) cons
 
 let replicate count initial (cons: ArrayCons) =
     // Shorthand version: = initialize count (fun _ -> initial)
@@ -266,8 +276,7 @@ let replicate count initial (cons: ArrayCons) =
         result.[i] <- initial
     result
 
-// TODO: CompiledName: Reverse
-let rev (array: _[]) (cons: ArrayCons) =
+let reverse (array: _[]) (cons: ArrayCons) =
     let res = cons.Create array.Length
     let mutable j = array.Length-1
     for i = 0 to array.Length-1 do
@@ -296,7 +305,7 @@ let skip count (array:'T[]) =
         empty
     else
         let count = max count 0
-        sliceFrom array count
+        sliceFromImpl array count
 
 let skipWhile predicate (array: 'T[]) =
     let mutable count = 0
@@ -306,7 +315,7 @@ let skipWhile predicate (array: 'T[]) =
     if count = array.Length then
         empty
     else
-        sliceFrom array count
+        sliceFromImpl array count
 
 let take count (array:'T[]) =
     if count < 0 then invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
@@ -314,7 +323,7 @@ let take count (array:'T[]) =
     if count = 0 then
         empty
     else
-        slice array 0 count
+        sliceImpl array 0 count
 
 let takeWhile predicate (array: 'T[]) =
     let mutable count = 0
@@ -324,13 +333,13 @@ let takeWhile predicate (array: 'T[]) =
     if count = 0 then
         empty
     else
-        slice array 0 count
+        sliceImpl array 0 count
 
 let addRangeInPlace (range: JS.Iterable<'T>) (array: 'T[]) =
     let iter = range.``[Symbol.iterator]``()
     let mutable cur = iter.next()
     while not (cur.``done``) do
-       push array (cur.value :> obj :?> 'T) |> ignore
+       pushImpl array (cur.value :> obj :?> 'T) |> ignore
        cur <- iter.next()
 
 let copyTo (source: JS.ArrayLike<'T>) sourceIndex (target: JS.ArrayLike<'T>) targetIndex count =
@@ -430,34 +439,30 @@ let choose f (source: 'T[]) (cons: ArrayCons) =
 
 let foldIndexed folder state array =
     let mutable acc = state
-    for i = 0 to length array - 1 do
+    for i = 0 to lengthImpl array - 1 do
         acc <- folder i acc array.[i]
     acc
 
 let fold<'T,'State> folder (state: 'State) (array: 'T[]) = 
     let mutable acc = state
-    for i = 0 to length array - 1 do
+    for i = 0 to lengthImpl array - 1 do
         acc <- folder acc array.[i]
     acc
 
-// TODO: CompiledName: iterate
-let iter action array =
-    for i = 0 to length array - 1 do
+let iterate action array =
+    for i = 0 to lengthImpl array - 1 do
         action array.[i]
 
-// TODO: CompiledName: iterate2
-let iter2 action (array1: 'T[]) (array2: 'T[]) =
+let iterate2 action (array1: 'T[]) (array2: 'T[]) =
     if array1.Length <> array2.Length then failwith "Arrays had different lengths"
     for i = 0 to array1.Length - 1 do
         action array1.[i] array2.[i]
 
-// TODO: CompiledName: iterateIndexed
-let iteri action array =
-    for i = 0 to length array - 1 do
+let iterateIndexed action array =
+    for i = 0 to lengthImpl array - 1 do
         action i array.[i]
 
-// TODO: CompiledName: iterateIndexed2
-let iteri2 action (array1: 'T[]) (array2: 'T[]) =
+let iterateIndexed2 action (array1: 'T[]) (array2: 'T[]) =
     if array1.Length <> array2.Length then failwith "Arrays had different lengths"
     for i = 0 to array1.Length - 1 do
         action i array1.[i] array2.[i]
@@ -475,10 +480,10 @@ let forAll predicate (array: 'T[]) =
     result
 
 let permute f array (cons: ArrayCons) = 
-    let size = length array
+    let size = lengthImpl array
     let res  = cons.Create size
     let checkFlags = cons.Create size
-    iteri (fun i x ->
+    iterateIndexed (fun i x ->
         let j = f i 
         if j < 0 || j >= size then 
             invalidOp "Not a valid permutation"
@@ -490,33 +495,33 @@ let permute f array (cons: ArrayCons) =
     res
 
 let removeInPlace (item: 'T) (array: 'T[]) =
-    let i = indexOf array item;
+    let i = indexOfImpl array item;
     if i > -1 then
-        splice array i 1 |> ignore
+        spliceImpl array i 1 |> ignore
         true
     else
         false
 
 let setSlice (target: JS.ArrayLike<'T>) (lower: int) (upper: int) (source: JS.ArrayLike<'T>) =
     let length = (if upper > 0 then upper else int(target.length) - 1) - lower
-    if isTypedArray target && source.length <= float(length) then
+    if isTypedArrayImpl target && source.length <= float(length) then
         typedArraySetImpl target source (float(lower))
     else
         for i = 0 to length - 1 do
             target.[i + lower] <- source.[i]
 
 let sortInPlaceBy f array =
-    sortInPlaceWith (fun (x:'T) (y:'T) -> 
+    sortInPlaceWithImpl (fun (x:'T) (y:'T) -> 
         let x = f x
         let y = f y
         compare x y) array
 
 let sortInPlace array =
-    sortInPlaceWith compare array
+    sortInPlaceWithImpl compare array
 
 let sortWith (comparer: 'T -> 'T -> int) (array : 'T[]) (cons: ArrayCons) =
     let result = cons.From array
-    sortInPlaceWith comparer result
+    sortInPlaceWithImpl comparer result
     result
 
 let unfold<'T,'State> (generator:'State -> ('T*'State) option) (state:'State) (cons: ArrayCons) =
@@ -525,27 +530,27 @@ let unfold<'T,'State> (generator:'State -> ('T*'State) option) (state:'State) (c
         match generator state with
         | None -> ()
         | Some (x,s') ->
-            push res x |> ignore
+            pushImpl res x |> ignore
             loop s'
     loop state
     res
 
 let unzip array (cons: ArrayCons) =
-    let len = length array
+    let len = lengthImpl array
     let res1 = cons.Create len
     let res2 = cons.Create len
-    iteri (fun i (item1, item2) ->
+    iterateIndexed (fun i (item1, item2) ->
         res1.[i] <- item1
         res2.[i] <- item2
     ) array
     res1, res2
 
 let unzip3 array (cons: ArrayCons) =
-    let len = length array
+    let len = lengthImpl array
     let res1 = cons.Create len
     let res2 = cons.Create len
     let res3 = cons.Create len
-    iteri (fun i (item1, item2, item3) ->
+    iterateIndexed (fun i (item1, item2, item3) ->
         res1.[i] <- item1
         res2.[i] <- item2
         res3.[i] <- item3
@@ -578,8 +583,8 @@ let chunkBySize (chunkSize: int) (array: 'T[]): 'T[][] =
         for x = 0 to System.Math.Floor(float(array.Length) / float(chunkSize)) |> int do
             let start = x * chunkSize;
             let end' = start + chunkSize;
-            let slice = slice array start end'
-            push result slice |> ignore
+            let slice = sliceImpl array start end'
+            pushImpl result slice |> ignore
 
         result
 
@@ -591,9 +596,9 @@ let splitAt (index: int) (array: 'T[]): 'T[] * 'T[] =
     if index < 0 then invalidArg "index" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
     if index > array.Length then invalidArg "index" "The input sequence has an insufficient number of elements."
 
-    slice array 0 index, sliceFrom array index
+    sliceImpl array 0 index, sliceFromImpl array index
 
-let inline compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
+let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
     let length1 = array1.Length
     let length2 = array2.Length
 
@@ -629,7 +634,7 @@ let tryHead (array : 'T[]) =
 
 let tail (array : 'T[]) =
     if array.Length = 0 then invalidArg "array" "Not enough elements"
-    slice array 1
+    sliceFromImpl array 1
 
 let item index (array: _[]) =
     array.[index]
@@ -641,13 +646,9 @@ let tryItem index (array:'T[]) =
 let toList array = 
     List.ofArray array
 
-
-// TODO: Consider optimizing functions below via manual inlining
-// -or- re-implementing via native js arrays functions (i.e. reduce(...))
-
 let foldBackIndexed<'T,'State> folder (array: 'T[]) (state:'State) =
    let mutable acc = state
-   let size = length array
+   let size = lengthImpl array
    for i = 1 to size do
       acc <- folder (i-1) array.[size - i] acc
    acc
@@ -657,8 +658,8 @@ let foldBack<'T,'State> folder (array: 'T[]) (state:'State) =
 
 let foldIndexed2 folder state array1 array2 =
    let mutable acc = state
-   if length array1 <> length array2 then failwith "Arrays have different lengths"
-   for i = 0 to length array1 - 1 do
+   if lengthImpl array1 <> lengthImpl array2 then failwith "Arrays have different lengths"
+   for i = 0 to lengthImpl array1 - 1 do
       acc <- folder i acc array1.[i] array2.[i]
    acc
 
@@ -667,8 +668,8 @@ let fold2<'T1, 'T2, 'State> folder (state: 'State) (array1: 'T1[]) (array2: 'T2[
 
 let foldBackIndexed2<'T1, 'T2, 'State> folder (array1: 'T1[]) (array2: 'T2[]) (state:'State) =
    let mutable acc = state
-   if length array1 <> length array2 then failwith "Arrays had different lengths"
-   let size = length array1
+   if lengthImpl array1 <> lengthImpl array2 then failwith "Arrays had different lengths"
+   let size = lengthImpl array1
    for i = 1 to size do
       acc <- folder (i-1) array1.[size - i] array2.[size - i] acc
    acc
@@ -677,56 +678,62 @@ let foldBack2<'T1, 'T2, 'State> f (array1: 'T1[]) (array2: 'T2[]) (state: 'State
    foldBackIndexed2 (fun _ x y acc -> f x y acc) array1 array2 state 
 
 let reduce reduction array =
-   if length array = 0 then invalidOp "Array was empty"
+   if lengthImpl array = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
    else foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> array
 
 let reduceBack reduction array =
-   if length array = 0 then invalidOp "Array was empty"
+   if lengthImpl array = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
    else foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) array Unchecked.defaultof<_>
 
 let forAll2 predicate array1 array2 =
    fold2 (fun acc x y -> acc && predicate x y) true array1 array2
 
 let rec existsOffset predicate array index =
-   if index = length array then false
+   if index = lengthImpl array then false
    else predicate array.[index] || existsOffset predicate array (index+1)
 
 let exists predicate array = 
    existsOffset predicate array 0
 
 let rec existsOffset2 predicate array1 (array2:_ []) index =
-   if index = length array1 then false
+   if index = lengthImpl array1 then false
    else predicate array1.[index] array2.[index] || existsOffset2 predicate array1 array2 (index+1)
 
 let rec exists2 predicate array1 array2 =
-   if length array1 <> length array2 then failwith "Arrays had different lengths"
+   if lengthImpl array1 <> lengthImpl array2 then failwith "Arrays had different lengths"
    existsOffset2 predicate array1 array2 0
 
-let inline sum (array: 'T []) : 'T =
-   fold (+) LanguagePrimitives.GenericZero array
+let sum (array: 'T[]) : 'T =
+    let mutable acc = nativeZero<'T>()
+    for i = 0 to array.Length - 1 do
+        acc <- nativeAddition acc array.[i]
+    acc
 
-let inline sumBy (projection: 'T -> 'U) (array: 'T []) : 'U =
-   fold (fun acc x -> acc + projection x) LanguagePrimitives.GenericZero array
+let sumBy (projection: 'T -> 'U) (array: 'T []) : 'U =
+    let mutable acc = nativeZero<'U>()
+    for i = 0 to array.Length - 1 do
+        acc <- array.[i] |> projection |> nativeAddition acc 
+    acc
 
-let inline maxBy projection array =
-   reduce (fun x y -> if projection y > projection x then y else x) array
+let maxBy projection array =
+    reduce (fun x y -> if projection y > projection x then y else x) array
 
-let inline max array =
-   reduce max array
+let max array =
+    reduce max array
 
-let inline minBy projection array =
-   reduce (fun x y -> if projection y > projection x then x else y) array
+let minBy projection array =
+    reduce (fun x y -> if projection y > projection x then x else y) array
 
-let inline min array =
-   reduce min array
+let min array =
+    reduce min array
 
-let inline average (array: 'T []) : 'T =
-   let total = sum array
-   let count = sumBy (fun _ -> LanguagePrimitives.GenericOne< 'T >) array
-   total / count
+let average (array: 'T []) : 'T =
+    if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    let total = sum array
+    nativeDivision total array.Length
 
-let inline averageBy (projection: 'T -> 'U ) (array: 'T []) : 'U =
-   let total = sumBy projection array
-   let count = sumBy (fun _ -> LanguagePrimitives.GenericOne< 'T >) array
-   total / count
+let averageBy (projection: 'T -> 'U) (array: 'T []) : 'U =
+    if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    let total = sumBy projection array
+    nativeDivision total array.Length
 
