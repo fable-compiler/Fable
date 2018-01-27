@@ -9,12 +9,21 @@
     <PackageTags>fsharp;fable;javascript;f#;js</PackageTags>
     <Authors>Alfonso García-Caro Núñez</Authors>
     <Version>1.3.7</Version>
-    <TargetFramework>netstandard1.6</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <PackageType>DotnetCliTool</PackageType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <RuntimeFrameworkVersion>2.0.0</RuntimeFrameworkVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Prelude.fs" />
+    <Compile Include="AST/AST.Common.fs" />
+    <Compile Include="AST/AST.Fable.fs" />
+    <Compile Include="AST/AST.Babel.fs" />
+    <Compile Include="Compiler.fs" />
+    <Compile Include="AST.Fable.Util.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />
@@ -22,6 +31,20 @@
     <Compile Include="FableOptimize.fs" />
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="State.fs" />
+    <Compile Include="CLI/ToolsUtil.fs" />
+    <Compile Include="CLI/Parser.fs" />
+    <Compile Include="CLI/ProjectCoreCracker.fs" />
+    <Compile Include="CLI/ProjectCracker.fs" />
+    <Compile Include="CLI/Printers.fs" />
+    <Compile Include="CLI/Server.fs" />
+    <Compile Include="CLI/StateUtil.fs" />
+    <Compile Include="CLI/Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="prefercliruntime">
+      <PackagePath>prefercliruntime</PackagePath>
+      <Pack>true</Pack>
+    </Content>
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

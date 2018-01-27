@@ -13,13 +13,7 @@
     <Version>1.3.7</Version>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Util.fs" />
     <Compile Include="Fable.Core.fs" />
-    <Compile Include="AST/AST.Common.fs" />
-    <Compile Include="AST/AST.Fable.fs" />
-    <Compile Include="AST/AST.Babel.fs" />
-    <Compile Include="Compiler.fs" />
-    <Compile Include="AST.Fable.Util.fs" />
     <Compile Include="Fable.Import.JS.fs" />
     <Compile Include="Fable.Core.JsInterop.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />

@@ -3,12 +3,7 @@ module Fable.CLI.Main
 open System
 open System.IO
 open System.Diagnostics
-open System.Reflection
-open System.Runtime.InteropServices
 open System.Net
-open Microsoft.FSharp.Compiler.SourceCodeServices
-open Newtonsoft.Json
-open Parser
 open StateUtil
 
 type ProcessOptions(?envVars, ?redirectOutput) =
@@ -26,7 +21,8 @@ let startProcess workingDir fileName args (opts: ProcessOptions) =
             #if NETFX
             true
             #else
-            RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
+                (System.Runtime.InteropServices.OSPlatform.Windows)
             #endif
         if isWindows
         then "cmd", ("/C " + fileName + " " + args)

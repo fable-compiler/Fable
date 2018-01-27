@@ -1,5 +1,5 @@
-pushd ../dotnet/dotnet-fable
-dotnet build --no-restore
+pushd ../dotnet/Fable.Compiler
+dotnet build --no-restore --no-dependencies
 popd
-dotnet ../dotnet/dotnet-fable/bin/Debug/netcoreapp2.0/dotnet-fable.dll yarn-rollup
+dotnet ../dotnet/Fable.Compiler/bin/Debug/netcoreapp2.0/Fable.Compiler.dll yarn-rollup
 node temp/QuickTest.js

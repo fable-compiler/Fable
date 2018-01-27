@@ -152,7 +152,7 @@ let private getFsprojName (fsprojFullPath: string) =
 let fullyCrackFsproj (projFile: string): CrackedFsproj =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
-    let dllRefs = Dictionary(StringComparer.InvariantCultureIgnoreCase)
+    let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
     let projOpts, directProjRefs, msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
     let targetFramework =
