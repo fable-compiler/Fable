@@ -1342,6 +1342,7 @@ module AstPass =
         | "physicalHash", _ ->
             CoreLibCall("Util", Some "getHashCode", false, i.args)
             |> makeCall i.range i.returnType |> Some
+        // TODO: Emit Fable AST and check for types with custom zero/one (strings?)
         | "genericZero", _ -> makeEmit i.range i.returnType [] "0" |> Some
         | "genericOne", _ -> makeEmit i.range i.returnType [] "1" |> Some
         | _ -> None

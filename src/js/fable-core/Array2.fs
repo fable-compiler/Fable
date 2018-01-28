@@ -41,17 +41,19 @@ module private JS =
     let inline lengthImpl (array: 'T[]): int =
         (jsArray array).length |> jsCast
 
+    // Typed arrays not supported, only dynamic ones do
     let inline pushImpl (array: 'T[]) (item: 'T): int =
         (jsArray array).push(item) |> jsCast
+
+    // Typed arrays not supported, only dynamic ones do
+    let inline spliceImpl (array: 'T[]) (start: int) (deleteCount: int): 'T[] =
+        (jsArray array).splice(jsCast start, jsCast deleteCount) |> jsCast
 
     let inline sliceImpl (array: 'T[]) (``begin``: int) (``end``: int): 'T[] =
         (jsArray array).slice(jsCast ``begin``, jsCast ``end``) |> jsCast
 
     let inline sliceFromImpl (array: 'T[]) (``begin``: int): 'T[] =
         (jsArray array).slice(jsCast ``begin``) |> jsCast
-
-    let inline spliceImpl (array: 'T[]) (start: int) (deleteCount: int): 'T[] =
-        (jsArray array).splice(jsCast start, jsCast deleteCount) |> jsCast
 
     let inline concatImpl (array1: 'T[]) (array2: 'T[]): 'T[] =
         (jsArray array1).concat(jsCast array2 |> U2.Case2) |> jsCast
@@ -74,8 +76,11 @@ module private JS =
 
 let private indexNotFound() = failwith "An index satisfying the predicate was not found in the collection."
 
+// Pay attention when benchmarking to append and filter functions below
+// if implementing via native JS array .concat() and .filter() do not fall behind due to js-native transitions.
+
 let append (array1: 'T[]) (array2: 'T[]): 'T[] = concatImpl array1 array2
- 
+
 let filter (predicate: 'T -> bool) (array: 'T[]) = filterImpl predicate array
 
 let length array = lengthImpl array
@@ -239,21 +244,25 @@ let groupBy (projection: 'T->'Key) (array: 'T[]) (cons: ArrayCons) =
         if dict.TryGetValue(key, &prev) then
             pushImpl prev v |> ignore
         else
-            let prev = cons.From [|v|]
+            // Use dynamic array so we can build it up via .push()
+            // Consider benchmarking if another collection type performs better here
+            let prev = [|v|]
             dict.[key] <- prev
 
     // Return the array-of-arrays.
     let result = cons.Create dict.Count
     let mutable i = 0
     for group in dict do
-        result.[i] <- group.Key, group.Value
+        result.[i] <- group.Key, cons.From group.Value
         i <- i + 1
 
     result
 
 let ofArray (arr: 'T[]) = arr
 
-let empty<'T> : 'T[] = [||]
+let inline private emptyImpl (cons: ArrayCons) = cons.Create(0)
+
+let empty = emptyImpl
 
 let singleton value (cons: ArrayCons) = cons.From [|value|]
 
@@ -265,7 +274,7 @@ let initialize count initializer (cons: ArrayCons) =
     result
 
 let pairwise (array: 'T[]) (cons: ArrayCons) =
-    if array.Length < 2 then empty else
+    if array.Length < 2 then emptyImpl cons else
     initialize (array.Length-1) (fun i -> array.[i],array.[i+1]) cons
 
 let replicate count initial (cons: ArrayCons) =
@@ -299,48 +308,58 @@ let scanBack<'T, 'State> folder (state: 'State) (array: 'T []) (cons: ArrayCons)
         res.[size - i] <- folder array.[size - i] res.[size - i + 1]
     res
 
-let skip count (array:'T[]) =
+let skip count (array:'T[]) (cons: ArrayCons) =
     if count > array.Length then invalidArg "count" "count is greater than array length"
     if count = array.Length then
-        empty
+        emptyImpl cons
     else
         let count = max count 0
         sliceFromImpl array count
 
-let skipWhile predicate (array: 'T[]) =
+let skipWhile predicate (array: 'T[]) (cons: ArrayCons) =
     let mutable count = 0
     while count < array.Length && predicate array.[count] do
         count <- count + 1
 
     if count = array.Length then
-        empty
+        emptyImpl cons
     else
         sliceFromImpl array count
 
-let take count (array:'T[]) =
+let take count (array:'T[]) (cons: ArrayCons) =
     if count < 0 then invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
     if count > array.Length then invalidArg "count" "count is greater than array length"
     if count = 0 then
-        empty
+        emptyImpl cons
     else
         sliceImpl array 0 count
 
-let takeWhile predicate (array: 'T[]) =
+let takeWhile predicate (array: 'T[]) (cons: ArrayCons) =
     let mutable count = 0
     while count < array.Length && predicate array.[count] do
         count <- count + 1
 
     if count = 0 then
-        empty
+        emptyImpl cons
     else
         sliceImpl array 0 count
 
 let addRangeInPlace (range: JS.Iterable<'T>) (array: 'T[]) =
+    if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
     let iter = range.``[Symbol.iterator]``()
     let mutable cur = iter.next()
     while not (cur.``done``) do
        pushImpl array (cur.value :> obj :?> 'T) |> ignore
        cur <- iter.next()
+
+let removeInPlace (item: 'T) (array: 'T[]) =
+    if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
+    let i = indexOfImpl array item
+    if i > -1 then
+        spliceImpl array i 1 |> ignore
+        true
+    else
+        false
 
 let copyTo (source: JS.ArrayLike<'T>) sourceIndex (target: JS.ArrayLike<'T>) targetIndex count =
     let diff = targetIndex - sourceIndex
@@ -494,14 +513,6 @@ let permute f array (cons: ArrayCons) =
         invalidOp "Not a valid permutation"
     res
 
-let removeInPlace (item: 'T) (array: 'T[]) =
-    let i = indexOfImpl array item;
-    if i > -1 then
-        spliceImpl array i 1 |> ignore
-        true
-    else
-        false
-
 let setSlice (target: JS.ArrayLike<'T>) (lower: int) (upper: int) (source: JS.ArrayLike<'T>) =
     let length = (if upper > 0 then upper else int(target.length) - 1) - lower
     if isTypedArrayImpl target && source.length <= float(length) then
@@ -525,7 +536,7 @@ let sortWith (comparer: 'T -> 'T -> int) (array : 'T[]) (cons: ArrayCons) =
     result
 
 let unfold<'T,'State> (generator:'State -> ('T*'State) option) (state:'State) (cons: ArrayCons) =
-    let res = cons.Create 0
+    let res = [||]
     let rec loop state =
         match generator state with
         | None -> ()
@@ -533,7 +544,7 @@ let unfold<'T,'State> (generator:'State -> ('T*'State) option) (state:'State) (c
             pushImpl res x |> ignore
             loop s'
     loop state
-    res
+    cons.From res
 
 let unzip array (cons: ArrayCons) =
     let len = lengthImpl array
