@@ -598,3 +598,16 @@ let ``reraise works``() =
         "foo"
     with ex -> ex.Message
     |> equal "Will I be reraised?"
+
+type TestTypeWithDefaultValue() =
+    [<DefaultValue>] val mutable IntValue: int
+    [<DefaultValue>] val mutable StringValue: string
+    [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
+
+[<Test>]
+let ``default value works``() =
+    let withDefaultValue = TestTypeWithDefaultValue()
+
+    withDefaultValue.IntValue |> equal Unchecked.defaultof<int>
+    withDefaultValue.StringValue |> equal Unchecked.defaultof<string>
+    withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
