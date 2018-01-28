@@ -609,5 +609,10 @@ let ``default value works``() =
     let withDefaultValue = TestTypeWithDefaultValue()
 
     withDefaultValue.IntValue |> equal Unchecked.defaultof<int>
+    withDefaultValue.IntValue |> equal 0
+
     withDefaultValue.StringValue |> equal Unchecked.defaultof<string>
+    withDefaultValue.StringValue |> equal null
+
     withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
+    withDefaultValue.ObjValue |> equal null
