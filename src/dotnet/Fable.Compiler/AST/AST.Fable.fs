@@ -48,18 +48,18 @@ type EntityKind =
     | Union of cases: (string*Type list) list
     | Record of fields: (string*Type) list
     | Exception of fields: (string*Type) list
-    | Class of baseClass: (string*Expr) option * properties: (string*Type) list
+    | Class of baseClass: string option * properties: (string*Type) list
     | Interface
 
-type Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
+type Entity(kind: EntityKind, file, fullName, members: Member list,
             ?genParams, ?interfaces, ?decorators) =
     let genParams = defaultArg genParams []
     let decorators = defaultArg decorators []
     let interfaces = defaultArg interfaces []
-    member __.Kind: EntityKind = kind.Value
+    member __.Kind: EntityKind = kind
     member __.File: string option = file
     member __.FullName: string = fullName
-    member __.Members: Member list = members.Value
+    member __.Members: Member list = members
     member __.GenericParameters: string list = genParams
     member __.Interfaces: string list = interfaces
     member __.Decorators: Decorator list = decorators
@@ -83,22 +83,18 @@ type Entity(kind: Lazy<_>, file, fullName, members: Lazy<Member list>,
     /// Finds decorator by full name
     member __.TryGetFullDecorator(fullname) =
         decorators |> List.tryFind (fun x -> x.FullName = fullname)
-    // TODO: Parent classes should be checked if the method is not found
-    member __.TryGetMember(name, kind, loc, argTypes, ?argsEqual) =
-        let argsEqual = defaultArg argsEqual (=)
-        members.Value |> List.tryFind (fun m ->
-            if m.Location <> loc
-                || m.Name <> name
-                || m.Kind <> kind
+    member __.TryGetMember(name, isStatic, argTypes: Type list) =
+        members |> List.tryFind (fun m ->
+            if m.Name <> name || m.IsStatic <> isStatic
             then false
-            elif m.OverloadIndex.IsNone
+            elif Option.isNone m.OverloadIndex
             then true
             else
                 match argTypes with
-                | [Unit] -> List.isEmpty m.ArgumentTypes
-                | argTypes -> argsEqual m.ArgumentTypes argTypes)
+                | [] | [Unit] -> List.isEmpty m.ArgumentTypes
+                | argTypes -> m.ArgumentTypes = argTypes)
     static member CreateRootModule fileName =
-        Entity (lazy Module, Some fileName, "", lazy [])
+        Entity (Module, Some fileName, "", [])
 
 type Declaration =
     | ActionDeclaration of Expr * SourceLocation option
@@ -121,29 +117,33 @@ type MemberKind =
     | Setter
     | Field
 
-type MemberLoc =
-    | InstanceLoc
-    | StaticLoc
-    | InterfaceLoc of string
-
-type Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?decorators,
-            ?isMutable, ?computed, ?hasRestParams, ?overloadIndex) =
-    member __.Name: string = name
-    member __.Kind: MemberKind = kind
-    member __.Location: MemberLoc = loc
-    member __.ArgumentTypes: Type list = argTypes
-    member __.ReturnType: Type = returnType
-    member __.OriginalCurriedType: Type option = originalType
-    member __.GenericParameters: string list = defaultArg genParams []
-    member __.Decorators: Decorator list = defaultArg decorators []
-    member __.IsMutable: bool = defaultArg isMutable false
-    member __.Computed: Expr option = computed
-    member __.HasRestParams: bool = defaultArg hasRestParams false
-    member __.OverloadIndex: int option = overloadIndex
-    member __.OverloadName: string =
-        match overloadIndex with
-        | Some i -> name + "_" + (string i)
-        | None -> name
+type Member =
+    { Name: string
+      Kind: MemberKind
+      ArgumentTypes: Type list
+      ReturnType: Type
+      GenericParameters: string list
+      Decorators: Decorator list
+      IsStatic: bool
+      IsMutable: bool
+      HasRestParams: bool
+      OverloadIndex: int option }
+    static member Create(name, kind, argTypes, returnType, ?genParams, ?decorators,
+                         ?isStatic, ?isMutable, ?hasRestParams, ?overloadIndex) =
+        { Name = name
+          Kind = kind
+          ArgumentTypes = argTypes
+          ReturnType = returnType
+          GenericParameters = defaultArg genParams []
+          Decorators = defaultArg decorators []
+          IsStatic = defaultArg isStatic false
+          IsMutable = defaultArg isMutable false
+          HasRestParams = defaultArg hasRestParams false
+          OverloadIndex = overloadIndex }
+    member this.OverloadName: string =
+        match this.OverloadIndex with
+        | Some i -> this.Name + "_" + (string i)
+        | None -> this.Name
     /// Checks if it has a decorator with specified name
     member this.HasDecorator(name) =
         this.Decorators |> List.exists (fun x -> x.Name = name)
@@ -153,14 +153,6 @@ type Member(name, kind, loc, argTypes, returnType, ?originalType, ?genParams, ?d
     /// Finds decorator by full name
     member this.TryGetFullDecorator(fullname) =
         this.Decorators |> List.tryFind (fun x -> x.FullName = fullname)
-
-type ExternalEntity =
-    | ImportModule of fullName: string * moduleName: string * isNs: bool
-    | GlobalModule of fullName: string
-    member this.FullName =
-        match this with
-        | ImportModule (fullName, _, _)
-        | GlobalModule fullName -> fullName
 
 type File(sourcePath, root, decls, ?usedVarNames, ?dependencies) =
     member __.SourcePath: string = sourcePath
@@ -199,7 +191,6 @@ type ApplyInfo = {
     returnType: Type
     range: SourceLocation option
     fileName: string
-    decorators: Decorator list
     /// Generic arguments applied to the callee (for instance methods)
     calleeTypeArgs: Type list
     /// Generic arguments applied to the method (not to be confused with `methodArgTypes`)
@@ -233,12 +224,14 @@ type ValueKind =
     | This
     | Spread of Expr
     | EntityRef of string
+    // TODO: IdentValue should have own range for declarations
     | IdentValue of Ident
     | ImportRef of memb: string * path: string * ImportKind
     | NumberConst of float * NumberKind
     | StringConst of string
     | BoolConst of bool
     | RegexConst of source: string * flags: RegexFlag list
+    // TODO: Add ListConst
     | ArrayConst of ArrayConsKind * Type
     | TupleConst of Expr list
     | UnaryOp of UnaryOperator
@@ -288,6 +281,7 @@ type ObjExprMember = Member * Ident list * Expr
 
 type Expr =
     // Pure Expressions
+    // TODO: Add range to values
     | Value of value: ValueKind
     | ObjExpr of decls: ObjExprMember list * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option

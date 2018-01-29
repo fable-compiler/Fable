@@ -1,6 +1,8 @@
 namespace Fable.Core
 open System
 
+#nowarn "1204"
+
 [<AutoOpen>]
 module Exceptions =
     /// Used to indicate that a member is only implemented in native Javascript
@@ -30,11 +32,8 @@ type ExportDefaultAttribute() =
 
 /// Function calls will be replaced by inlined JS code.
 /// More info: http://fable.io/docs/interacting.html#Import-attribute
-type EmitAttribute private () =
+type EmitAttribute(macro: string) =
     inherit Attribute()
-    new (macro: string) = EmitAttribute()
-    new (emitterType: Type, methodName: string) = EmitAttribute()
-    new (emitterType: Type, methodName: string, extraArg: string) = EmitAttribute()
 
 /// When this is attached to a method, Fable will add the generic info
 /// as an extra argument to every call, making it possible to access

@@ -1,9 +1,5 @@
 namespace Fable
 
-open System.Collections.Generic
-open Microsoft.FSharp.Compiler.SourceCodeServices
-open Fable.AST
-
 #if !NETFX && !FABLE_COMPILER
 [<AutoOpen>]
 module ReflectionAdapters =
@@ -105,11 +101,3 @@ module Json =
                 serializer.Serialize(writer, p.GetValue(v)))
             writer.WriteEndObject()
 #endif //!FABLE_COMPILER
-
-module Plugins =
-    let tryPlugin<'T,'V when 'T:>IPlugin> (r: SourceLocation option) (f: 'T->'V option) =
-        Seq.tryPick (fun (path: string, plugin: 'T) ->
-            try f plugin
-            with
-            | ex when Option.isSome r -> System.Exception(sprintf "Error in plugin %s: %s %O" path ex.Message r.Value, ex) |> raise
-            | ex -> System.Exception(sprintf "Error in plugin %s: %s" path ex.Message, ex) |> raise)

@@ -3,7 +3,6 @@ module Fable.State
 open Fable
 open Fable.AST
 open System
-open System.Collections.Concurrent
 open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
@@ -19,6 +18,8 @@ type Dictionary<'TKey, 'TValue> with
         else let v = valueFactory(key) in x.Add(key, v); v
 
 type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
+#else
+open System.Collections.Concurrent
 #endif
 
 type PathRef =
@@ -85,24 +86,16 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
     member __.GetOrAddInlineExpr(fullName, generate) =
         inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
-let getDefaultFableCore() = "fable-core"
-
-let getDefaultOptions(replacements) =
-    let replacements =
-        match replacements with
-        | Some repls -> Map repls
-        | None -> Map.empty
-    { fableCore = getDefaultFableCore()
-      emitReplacements = replacements
+let getDefaultOptions() =
+    { fableCore = "fable-core"
       typedArrays = true
       clampByteArrays = false }
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
-type Compiler(project: Project, ?options, ?plugins, ?replacements) =
+type Compiler(project: Project, ?options, ?plugins) =
     let mutable id = 0
-    let options = defaultArg options (getDefaultOptions replacements)
-    let plugins: PluginInfo list = defaultArg plugins []
+    let options = defaultArg options (getDefaultOptions())
     let logs = Dictionary<string, string list>()
     member __.ReadAllLogs() =
         logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value) |> Map
@@ -110,7 +103,6 @@ type Compiler(project: Project, ?options, ?plugins, ?replacements) =
     member __.Plugins = plugins
     interface ICompiler with
         member __.Options = options
-        member __.Plugins = plugins
         member __.ProjectFile = project.ProjectFile
         member __.GetRootModule(fileName) =
             match Map.tryFind fileName project.RootModules with

@@ -175,13 +175,13 @@ let makeArray elementType arrExprs =
     ArrayConst(ArrayValues arrExprs, elementType) |> Value
 
 /// Ignores relative imports (e.g. `[<Import("foo","./lib.js")>]`)
-let tryImported (name: Lazy<string>) (decs: #seq<Decorator>) =
+let tryImported (name: string) (decs: #seq<Decorator>) =
     decs |> Seq.tryPick (fun x ->
         match x.Name, x.Arguments with
         | "Global", [:? string as name] ->
             makeIdent name |> IdentValue |> Value |> Some
         | "Global", _ ->
-            makeIdent name.Value |> IdentValue |> Value |> Some
+            makeIdent name |> IdentValue |> Value |> Some
         | "Import", [(:? string as memb); (:? string as path)]
             when not(path.StartsWith ".") ->
             Some(Value(ImportRef(memb.Trim(), path.Trim(), CustomImport)))
@@ -189,7 +189,7 @@ let tryImported (name: Lazy<string>) (decs: #seq<Decorator>) =
 
 let makeJsObject range (props: (string * Expr) list) =
     let membs = props |> List.map (fun (name, body) ->
-        let m = Member(name, Field, InstanceLoc, [], body.Type)
+        let m = Member.Create(name, Field, [], body.Type)
         m, [], body)
     ObjExpr(membs, range)
 

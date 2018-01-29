@@ -129,48 +129,48 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType
 
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) (objType: FSharpType)
                     (_baseCallExpr: FSharpExpr) (overrides: FSharpObjectExprOverride list) otherOverrides =
-    let members =
-        (objType, overrides)::otherOverrides
-        |> List.collect (fun (typ, overrides) ->
-            let overrides =
-                if not typ.HasTypeDefinition then overrides else
-                let typName = typ.TypeDefinition.FullName.Replace(".","-")
-                overrides |> List.where (fun x ->
-                    typName + "-" + x.Signature.Name
-                    |> Naming.ignoredInterfaceMethods.Contains
-                    |> not)
-            overrides |> List.map (fun over ->
-                // TODO: Check if we should pass generics?
-                let ctx, args' = bindMemberArgs com ctx false over.CurriedParameterGroups
-                // Don't use the typ argument as the override may come
-                // from another type, like ToString()
-                let typ =
-                    if over.Signature.DeclaringType.HasTypeDefinition
-                    then Some over.Signature.DeclaringType.TypeDefinition
-                    else None
-                // TODO: Check for indexed getter and setter also in object expressions?
-                let name = over.Signature.Name |> Naming.removeGetSetPrefix
-                let kind =
-                    match over.Signature.Name with
-                    | Naming.StartsWith "get_" _ -> Fable.Getter
-                    | Naming.StartsWith "set_" _ -> Fable.Setter
-                    | _ -> Fable.Method
-                // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
-                // information about ParamArray, we need to check the source method.
-                let hasRestParams =
-                    match typ with
-                    | None -> false
-                    | Some typ ->
-                        typ.TryGetMembersFunctionsAndValues
-                        |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
-                        |> function Some m -> hasRestParams m | None -> false
-                let body = transformExpr com ctx over.Body
-                let args = List.map Fable.Ident.getType args'
-                let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type,
-                            genParams = (over.GenericParameters |> List.map (fun x -> x.Name)),
-                            hasRestParams = hasRestParams)
-                m, args', body))
-    Fable.ObjExpr (members, makeRangeFrom fsExpr)
+    // let members =
+    //     (objType, overrides)::otherOverrides
+    //     |> List.collect (fun (typ, overrides) ->
+    //         let overrides =
+    //             if not typ.HasTypeDefinition then overrides else
+    //             let typName = typ.TypeDefinition.FullName.Replace(".","-")
+    //             overrides |> List.where (fun x ->
+    //                 typName + "-" + x.Signature.Name
+    //                 |> Naming.ignoredInterfaceMethods.Contains
+    //                 |> not)
+    //         overrides |> List.map (fun over ->
+    //             // TODO: Check if we should pass generics?
+    //             let ctx, args' = bindMemberArgs com ctx false over.CurriedParameterGroups
+    //             // Don't use the typ argument as the override may come
+    //             // from another type, like ToString()
+    //             let typ =
+    //                 if over.Signature.DeclaringType.HasTypeDefinition
+    //                 then Some over.Signature.DeclaringType.TypeDefinition
+    //                 else None
+    //             // TODO: Check for indexed getter and setter also in object expressions?
+    //             let name = over.Signature.Name |> Naming.removeGetSetPrefix
+    //             let kind =
+    //                 match over.Signature.Name with
+    //                 | Naming.StartsWith "get_" _ -> Fable.Getter
+    //                 | Naming.StartsWith "set_" _ -> Fable.Setter
+    //                 | _ -> Fable.Method
+    //             // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
+    //             // information about ParamArray, we need to check the source method.
+    //             let hasRestParams =
+    //                 match typ with
+    //                 | None -> false
+    //                 | Some typ ->
+    //                     typ.TryGetMembersFunctionsAndValues
+    //                     |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
+    //                     |> function Some m -> hasRestParams m | None -> false
+    //             let body = transformExpr com ctx over.Body
+    //             let args = List.map Fable.Ident.getType args'
+    //             let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type,
+    //                         genParams = (over.GenericParameters |> List.map (fun x -> x.Name)),
+    //                         hasRestParams = hasRestParams)
+    //            m, args', body))
+    Fable.ObjExpr ([], makeRangeFrom fsExpr)
 
 let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) decisionExpr (decisionTargets: (FSharpMemberOrFunctionOrValue list * FSharpExpr) list) =
     let rec getTargetRefsCount map = function
@@ -566,9 +566,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | Some ent when ent.IsFSharpModule ->
             // Mutable module values are compiled as functions, because values
             // imported from ES2015 modules cannot be modified (see #986)
-            // TODO: We should check for plugin, emit attribute...
             let callee = makeTypeFromDef com ctx.typeArgs ent [] |> makeEntityRef com
-            let m = makeGet r Fable.Any callee (getMethodName valToSet |> makeStrConst)
+            let m = makeGet r Fable.Any callee (makeStrConst valToSet.CompiledName)
             Fable.Apply(m, [valueExpr], Fable.ApplyMeth, typ, r)
         | _ ->
             let valToSet = makeValueFrom com ctx r typ false valToSet
@@ -737,7 +736,7 @@ let private transformConstructor com ctx (meth: FSharpMemberOrFunctionOrValue)
         failwith "TODO: Secondary constructors"
 
 let private transformMethod com ctx import (meth: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
-    let methName = getMethodName meth
+    let methName = getMethodDeclarationName com (getArgTypes com meth) meth
     let ctx, privateName =
         // Bind meth.CompiledName (TODO: DisplayName for interface meths?) to context
         // to prevent name clashes (they will become variables in JS)
@@ -914,10 +913,6 @@ let private tryGetEntityImplementation (implFiles: Map<string, FSharpImplementat
     | _ -> Some ent
 
 type FableCompiler(com: ICompiler, currentFile: string, implFiles: Map<string, FSharpImplementationFileContents>) =
-    let replacePlugins =
-        com.Plugins |> List.choose (function
-            | { path=path; plugin=(:? IReplacePlugin as plugin)} -> Some (path, plugin)
-            | _ -> None)
     let usedVarNames = HashSet<string>()
     let dependencies = HashSet<string>()
     member __.UsedVarNames = set usedVarNames
@@ -925,17 +920,10 @@ type FableCompiler(com: ICompiler, currentFile: string, implFiles: Map<string, F
     interface IFableCompiler with
         member fcom.Transform ctx fsExpr =
             transformExpr fcom ctx fsExpr
-        member __.IsReplaceCandidate ent = // TODO: Review this
-            match ent.TryFullName, ent.Assembly.FileName with
-            // TODO: Temporary HACK to fix #577
-            | Some fullName, _ when fullName.StartsWith("Fable.Import") -> false
-            | Some fullName, _ when fullName.StartsWith("Fable.Core.JsInterop") -> true // needed for REPL
-            | _, Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> true
-            | _ -> false
-        member fcom.TryGetInternalFile tdef =
-            if (fcom :> IFableCompiler).IsReplaceCandidate tdef
-            then None
-            else Some (getEntityLocation tdef).FileName
+        member __.TryGetInternalFile tdef =
+            match tdef.Assembly.FileName with
+            | Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> None
+            | _ -> Some (getEntityLocation tdef).FileName
         member fcom.GetEntity tdef =
             // TODO: Add dependency too for entities?
             com.GetOrAddEntity(getEntityFullName tdef, fun () ->
@@ -969,11 +957,8 @@ type FableCompiler(com: ICompiler, currentFile: string, implFiles: Map<string, F
             ) |> ignore
         member __.AddUsedVarName varName =
             usedVarNames.Add varName |> ignore
-        member __.ReplacePlugins =
-            replacePlugins
     interface ICompiler with
         member __.Options = com.Options
-        member __.Plugins = com.Plugins
         member __.ProjectFile = com.ProjectFile
         member __.GetUniqueVar() = com.GetUniqueVar()
         member __.GetRootModule(fileName) =

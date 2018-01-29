@@ -4,7 +4,7 @@ open System
 open System.IO
 open System.Diagnostics
 open System.Net
-open StateUtil
+open Agent
 
 type ProcessOptions(?envVars, ?redirectOutput) =
     member val EnvVars = defaultArg envVars Map.empty<string,string>

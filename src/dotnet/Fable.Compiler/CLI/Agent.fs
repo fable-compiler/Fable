@@ -1,42 +1,13 @@
-module Fable.CLI.StateUtil
+module Fable.CLI.Agent
 
 open Fable
 open Fable.AST
 open Fable.State
 open System
-open System.Reflection
-open System.Collections.Concurrent
 open System.Collections.Generic
-open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open ProjectCracker
-
-module private Cache =
-    let plugins = Dictionary<string,PluginInfo list>()
-    let add (cache: Dictionary<'K,'V>) key value =
-        cache.Add(key, value)
-        value
-
-let loadPlugins pluginPaths =
-    pluginPaths
-    |> Seq.collect (fun path ->
-        let path = Path.normalizeFullPath path
-        match Cache.plugins.TryGetValue(path) with
-        | true, pluginInfos -> pluginInfos
-        | false, _ ->
-            try
-                Reflection.loadAssembly path
-                |> Reflection.getTypes
-                |> Seq.filter typeof<IPlugin>.IsAssignableFrom
-                |> Seq.map (fun x ->
-                    { path = path
-                    ; plugin = Activator.CreateInstance x :?> IPlugin })
-                |> Seq.toList
-                |> Cache.add Cache.plugins path
-            with
-            | ex -> failwithf "Cannot load plugin %s: %s" path ex.Message)
-    |> Seq.toList
 
 let getRelativePath path =
     Path.getRelativePath (IO.Directory.GetCurrentDirectory()) path
@@ -239,10 +210,9 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                         match activeProject.FableCore with
                         | FilePath p -> (Path.getRelativePath msg.path p).TrimEnd('/')
                         | NonFilePath p -> p.TrimEnd('/')
-                      emitReplacements = Map.empty // TODO: Parse from message
                       typedArrays = msg.typedArrays
                       clampByteArrays = msg.clampByteArrays }
-                let com = Compiler(activeProject, comOptions, loadPlugins msg.plugins)
+                let com = Compiler(activeProject, comOptions)
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file
                 if isUpdated && activeProject.IsWatchCompile then

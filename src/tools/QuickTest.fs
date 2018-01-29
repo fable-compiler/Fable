@@ -33,9 +33,13 @@ let equal expected actual =
 type IFoo =
     abstract Foo: unit -> int
 
+type Lib.Foo with
+    member this.XY() = this.Z() + 12
+
 type Foo2(x: int, y: int) =
     member __.Z() = x + y
     member this.Add(x, y) = x + y + this.Z()
+    member __.Add(x) = x * x * x
     static member Add(x, y) = x - y
     interface IFoo with
         member my.Foo() = y
@@ -48,7 +52,10 @@ let test() =
     let f = Foo2(14, 67)
     let x = f.Add(4, 5)
     let y = Lib.Foo.Add(6, 7)
+    let z = { Lib.x = 5 }
     printfn "RESULT: %i" (x + y)
+    printfn "RESULT2: %i" (f.Add(10))
+    printfn "Extension: %i" (z.XY())
 
 test()
 

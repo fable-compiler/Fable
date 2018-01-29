@@ -24,20 +24,20 @@
     <Compile Include="AST/AST.Babel.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="AST.Fable.Util.fs" />
-    <Compile Include="Utils.fs" />
+    <Compile Include="Util.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="FableOptimize.fs" />
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="State.fs" />
-    <Compile Include="CLI/ToolsUtil.fs" />
+    <Compile Include="CLI/CLIUtil.fs" />
     <Compile Include="CLI/Parser.fs" />
     <Compile Include="CLI/ProjectCoreCracker.fs" />
     <Compile Include="CLI/ProjectCracker.fs" />
     <Compile Include="CLI/Printers.fs" />
     <Compile Include="CLI/Server.fs" />
-    <Compile Include="CLI/StateUtil.fs" />
+    <Compile Include="CLI/Agent.fs" />
     <Compile Include="CLI/Main.fs" />
   </ItemGroup>
   <ItemGroup>

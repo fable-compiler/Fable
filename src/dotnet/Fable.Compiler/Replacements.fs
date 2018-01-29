@@ -363,10 +363,10 @@ module Util =
         set ["System.TimeSpan"; "System.DateTime"; "System.DateTimeOffset";
              "Microsoft.FSharp.Collections.FSharpSet"]
 
-    let applyOp range returnType (args: Fable.Expr list) meth =
+    let applyOp range argTypes returnType (args: Fable.Expr list) meth =
         let (|CustomOp|_|) meth argTypes (ent: Fable.Entity) =
             if applyOpReplacedEntities.Contains ent.FullName then None else
-            ent.TryGetMember(meth, Fable.Method, Fable.StaticLoc, argTypes)
+            ent.TryGetMember(meth, true, argTypes)
             |> function None -> None | Some m -> Some(ent, m)
         let apply op args =
             Fable.Apply(Fable.Value op, args, Fable.ApplyMeth, returnType, range)
@@ -389,9 +389,8 @@ module Util =
             | "op_BooleanAnd" -> Fable.LogicalOp LogicalAnd
             | "op_BooleanOr" -> Fable.LogicalOp LogicalOr
             | _ -> failwithf "Unknown operator: %s" meth
-        let argTypes = List.map Fable.Expr.getType args
         match argTypes with
-        // TODO
+        // TODO: Custom operators
         // | Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)::_
         // | _::[Fable.DeclaredType(CustomOp meth argTypes (ent, m), _)] ->
         //     let typRef = Fable.Value(Fable.EntityRef(ent,[]))
@@ -435,15 +434,15 @@ module Util =
         | _ ->
             ccall_ range returnType "Util" "applyOperator" (args@[makeStrConst meth])
 
-    let tryOptimizeLiteralAddition r t (args: Fable.Expr list) =
+    let tryOptimizeLiteralAddition r argTypes returnType (args: Fable.Expr list) =
         match args with
         | [StringLiteral str1; StringLiteral str2] ->
             let e = Fable.Value(Fable.StringConst (str1 + str2))
-            match t with Fable.String -> e | t -> Fable.Wrapped(e, t)
+            match returnType with Fable.String -> e | t -> Fable.Wrapped(e, t)
         | [Int32Literal i1; Int32Literal i2] ->
             let e = Fable.Value(Fable.NumberConst(float (i1 + i2), Int32))
-            match t with Fable.String -> e | t -> Fable.Wrapped(e, t)
-        | _ -> applyOp r t args "op_Addition"
+            match returnType with Fable.String -> e | t -> Fable.Wrapped(e, t)
+        | _ -> applyOp r argTypes returnType args "op_Addition"
 
     let equals equal com (i: Fable.ApplyInfo) (args: Fable.Expr list) =
         let op equal =
@@ -841,12 +840,12 @@ module AstPass =
             Fable.IfThenElse(comparison, args.Head, args.Tail.Head, info.range) |> Some
         // Operators
         | "op_Addition" ->
-            tryOptimizeLiteralAddition info.range info.returnType args |> Some
+            tryOptimizeLiteralAddition info.range info.methodTypeArgs info.returnType args |> Some
         | "op_Subtraction" | "op_Multiply" | "op_Division"
         | "op_Modulus" | "op_LeftShift" | "op_RightShift"
         | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
         | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
-            applyOp info.range info.returnType args info.methodName |> Some
+            applyOp info.range info.methodTypeArgs info.returnType args info.methodName |> Some
         | "log" -> // log with base value i.e. log(8.0, 2.0) -> 3.0
             match info.args with
             | [_] -> math r typ args info.methodName
@@ -1957,7 +1956,7 @@ module AstPass =
                 let zero = getZero t
                 let fargs = [makeTypedIdent (com.GetUniqueVar()) t; makeTypedIdent (com.GetUniqueVar()) t]
                 let addFn = wrapInLambda fargs (fun args ->
-                    applyOp None Fable.Any args "op_Addition")
+                    applyOp None [i.returnType; i.returnType] i.returnType args "op_Addition")
                 if meth = "sum"
                 then addFn, args.Head
                 else emitNoInfo "((f,add)=>(x,y)=>add(x,f(y)))($0,$1)" [args.Head;addFn], args.Tail.Head
@@ -2622,3 +2621,8 @@ let checkLiteral com fileName range (value: obj) (typ: Fable.Type) =
                         -> ()
         | _ -> addWarning com fileName range "Multiline and IgnoreCase are the only RegexOptions available"
     | _ -> ()
+
+let isReplaceCandidate (fullName: string) =
+    fullName.StartsWith(system)
+        || fullName.StartsWith(fsharp)
+        || fullName.StartsWith(fableCore)

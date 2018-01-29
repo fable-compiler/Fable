@@ -69,7 +69,6 @@ type Context =
 
 type IBabelCompiler =
     inherit ICompiler
-    abstract DeclarePlugins: (string*IDeclarePlugin) list
     abstract GetRootModule: string -> string
     abstract GetImportExpr: Context -> selector: string -> path: string ->
         Fable.ImportKind -> Expression
@@ -83,15 +82,6 @@ type IBabelCompiler =
     //     Fable.Declaration list -> ClassExpression
     abstract TransformObjectExpr: Context -> Fable.ObjExprMember list ->
         SourceLocation option -> Expression
-
-and IDeclarePlugin =
-    inherit IPlugin
-    abstract member TryDeclare:
-        com: IBabelCompiler -> ctx: Context -> decl: Fable.Declaration
-        -> (Statement list) option
-    abstract member TryDeclareRoot:
-        com: IBabelCompiler -> ctx: Context -> file: Fable.File
-        -> (Choice<Statement, ModuleDeclaration> list) option
 
 type IDeclareMember =
     abstract member DeclareMember: SourceLocation option * string * string option * bool * bool * Identifier option * Expression -> Choice<Statement, ModuleDeclaration> list
@@ -344,10 +334,7 @@ module Util =
 
     let transformObjectExpr (com: IBabelCompiler) ctx members range: Expression =
         members |> List.map (fun (m: Fable.Member, args, body: Fable.Expr) ->
-            let key, computed =
-                match m.Computed with
-                | Some e -> com.TransformExpr ctx e, true
-                | None -> getterByName m.Name
+            let key, computed = getterByName m.Name
             let makeMethod kind =
                 let args, body' =
                     let tc =
@@ -893,13 +880,8 @@ module Util =
             ?loc=entRange)
 
     and transformModDecls (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent decls =
-        let pluginDeclare (decl: Fable.Declaration) =
-            com.DeclarePlugins
-            |> Plugins.tryPlugin decl.Range (fun p -> p.TryDeclare com ctx decl)
         decls |> List.fold (fun acc decl ->
             match decl with
-            | Patterns.Try pluginDeclare statements ->
-                (statements |> List.map Choice1Of2) @ acc
             | Fable.ActionDeclaration (e,_) ->
                 transformStatement com ctx e
                 |> List.map Choice1Of2
@@ -939,13 +921,7 @@ module Util =
 
     let makeCompiler (com: ICompiler) =
         let imports = Dictionary<string,Import>()
-        let declarePlugins =
-            com.Plugins |> List.choose (function
-                | { path=path; plugin=(:? IDeclarePlugin as plugin)} -> Some (path, plugin)
-                | _ -> None)
         { new IBabelCompiler with
-            member __.DeclarePlugins =
-                declarePlugins
             member __.GetRootModule(file) =
                 com.GetRootModule(file)
             member bcom.GetImportExpr ctx selector path kind =
@@ -1006,7 +982,6 @@ module Util =
                 transformObjectExpr bcom ctx members r
         interface ICompiler with
             member __.Options = com.Options
-            member __.Plugins = com.Plugins
             member __.ProjectFile = com.ProjectFile
             member __.GetRootModule(fileName) =
                 com.GetRootModule(fileName)
@@ -1047,17 +1022,11 @@ module Compiler =
                 tailCallOpportunity = None
                 optimizeTailCall = fun () -> () }
             let rootDecls =
-                com.DeclarePlugins
-                |> Plugins.tryPlugin (Some file.Range) (fun p ->
-                    p.TryDeclareRoot com ctx file)
-                |> function
-                | Some rootDecls -> rootDecls
-                | None ->
-                    let helper =
-                        { new IDeclareMember with
-                            member __.DeclareMember(a,b,c,d,e,f,g) =
-                                declareRootModMember a b c d e f g }
-                    transformModDecls com ctx helper None file.Declarations
+                let helper =
+                    { new IDeclareMember with
+                        member __.DeclareMember(a,b,c,d,e,f,g) =
+                            declareRootModMember a b c d e f g }
+                transformModDecls com ctx helper None file.Declarations
             let dependencies =
                 com.GetAllImports()
                 |> Seq.choose (fun i -> i.internalFile)
