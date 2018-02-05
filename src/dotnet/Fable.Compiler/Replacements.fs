@@ -1314,20 +1314,44 @@ module AstPass =
         | _ -> None
 
     let languagePrimitives com (i: Fable.ApplyInfo) =
-        match i.methodName, (i.callee, i.args) with
-        | "enumOfValue", OneArg (arg) -> arg |> Some
-        | "genericHash", _ ->
+        match i.methodName with
+        | "enumOfValue" ->
+            match (i.callee, i.args) with
+            | OneArg (arg) -> arg |> Some
+            | _ -> None
+        | "genericHash"
+        | "genericHashIntrinsic" ->
             CoreLibCall("Util", Some "hash", false, i.args)
             |> makeCall i.range i.returnType |> Some
-        | "genericComparison", _ ->
+        | "genericComparison"
+        | "genericComparisonIntrinsic" ->
             CoreLibCall("Util", Some "compare", false, i.args)
             |> makeCall i.range i.returnType |> Some
-        | "genericEquality", _ ->
+        | "genericLessThan"
+        | "genericLessThanIntrinsic" ->
+            CoreLibCall("Util", Some "lessThan", false, i.args)
+            |> makeCall i.range i.returnType |> Some
+        | "genericLessOrEqual"
+        | "genericLessOrEqualIntrinsic" ->
+            CoreLibCall("Util", Some "lessOrEqual", false, i.args)
+            |> makeCall i.range i.returnType |> Some
+        | "genericGreaterThan"
+        | "genericGreaterThanIntrinsic" ->
+            CoreLibCall("Util", Some "greaterThan", false, i.args)
+            |> makeCall i.range i.returnType |> Some
+        | "genericGreaterOrEqual"
+        | "genericGreaterOrEqualIntrinsic" ->
+            CoreLibCall("Util", Some "greaterOrEqual", false, i.args)
+            |> makeCall i.range i.returnType |> Some
+        | "genericEquality"
+        | "genericEqualityIntrinsic" ->
             CoreLibCall("Util", Some "equals", false, i.args)
             |> makeCall i.range i.returnType |> Some
-        | "physicalEquality", _ ->
+        | "physicalEquality"
+        | "physicalEqualityIntrinsic" ->
             makeEqOp i.range i.args BinaryEqualStrict |> Some
-        | "physicalHash", _ ->
+        | "physicalHash"
+        | "physicalHashIntrinsic" ->
             CoreLibCall("Util", Some "getHashCode", false, i.args)
             |> makeCall i.range i.returnType |> Some
         | _ -> None
@@ -2417,6 +2441,7 @@ module AstPass =
         | "Microsoft.FSharp.Core.FSharpRef" -> references com info
         | "System.Activator" -> activator com info
         | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings com info
+        | "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare"
         | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com info
         | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
         | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info

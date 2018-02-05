@@ -456,6 +456,54 @@ let ``LanguagePrimitives.GenericComparison works``() =
     LanguagePrimitives.GenericComparison [3] [2] |> equal 1
 
 [<Test>]
+let ``LanguagePrimitives.GenericLessThan works``() =
+    LanguagePrimitives.GenericLessThan 111 111 |> equal false
+    LanguagePrimitives.GenericLessThan 222 333 |> equal true
+    LanguagePrimitives.GenericLessThan 333 222 |> equal false
+    LanguagePrimitives.GenericLessThan "1" "1" |> equal false
+    LanguagePrimitives.GenericLessThan "2" "3" |> equal true
+    LanguagePrimitives.GenericLessThan "3" "2" |> equal false
+    LanguagePrimitives.GenericLessThan [1] [1] |> equal false
+    LanguagePrimitives.GenericLessThan [2] [3] |> equal true
+    LanguagePrimitives.GenericLessThan [3] [2] |> equal false
+
+[<Test>]
+let ``LanguagePrimitives.GenericLessOrEqual works``() =
+    LanguagePrimitives.GenericLessOrEqual 111 111 |> equal true
+    LanguagePrimitives.GenericLessOrEqual 222 333 |> equal true
+    LanguagePrimitives.GenericLessOrEqual 333 222 |> equal false
+    LanguagePrimitives.GenericLessOrEqual "1" "1" |> equal true
+    LanguagePrimitives.GenericLessOrEqual "2" "3" |> equal true
+    LanguagePrimitives.GenericLessOrEqual "3" "2" |> equal false
+    LanguagePrimitives.GenericLessOrEqual [1] [1] |> equal true
+    LanguagePrimitives.GenericLessOrEqual [2] [3] |> equal true
+    LanguagePrimitives.GenericLessOrEqual [3] [2] |> equal false
+
+[<Test>]
+let ``LanguagePrimitives.GenericGreaterThan works``() =
+    LanguagePrimitives.GenericGreaterThan 111 111 |> equal false
+    LanguagePrimitives.GenericGreaterThan 222 333 |> equal false
+    LanguagePrimitives.GenericGreaterThan 333 222 |> equal true
+    LanguagePrimitives.GenericGreaterThan "1" "1" |> equal false
+    LanguagePrimitives.GenericGreaterThan "2" "3" |> equal false
+    LanguagePrimitives.GenericGreaterThan "3" "2" |> equal true
+    LanguagePrimitives.GenericGreaterThan [1] [1] |> equal false
+    LanguagePrimitives.GenericGreaterThan [2] [3] |> equal false
+    LanguagePrimitives.GenericGreaterThan [3] [2] |> equal true
+
+[<Test>]
+let ``LanguagePrimitives.GenericGreaterOrEqual works``() =
+    LanguagePrimitives.GenericGreaterOrEqual 111 111 |> equal true
+    LanguagePrimitives.GenericGreaterOrEqual 222 333 |> equal false
+    LanguagePrimitives.GenericGreaterOrEqual 333 222 |> equal true
+    LanguagePrimitives.GenericGreaterOrEqual "1" "1" |> equal true
+    LanguagePrimitives.GenericGreaterOrEqual "2" "3" |> equal false
+    LanguagePrimitives.GenericGreaterOrEqual "3" "2" |> equal true
+    LanguagePrimitives.GenericGreaterOrEqual [1] [1] |> equal true
+    LanguagePrimitives.GenericGreaterOrEqual [2] [3] |> equal false
+    LanguagePrimitives.GenericGreaterOrEqual [3] [2] |> equal true
+
+[<Test>]
 let ``LanguagePrimitives.GenericEquality works``() =
     LanguagePrimitives.GenericEquality 111 111 |> equal true
     LanguagePrimitives.GenericEquality 222 333 |> equal false
@@ -470,7 +518,7 @@ let ``LanguagePrimitives.PhysicalEquality works``() =
     LanguagePrimitives.PhysicalEquality "2" "3" |> equal false
     LanguagePrimitives.PhysicalEquality [1] [1] |> equal false
     LanguagePrimitives.PhysicalEquality [2] [3] |> equal false
-    
+
 type Status =
 | CreateScenePicture
 | ReadingOldDevice
