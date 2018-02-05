@@ -317,6 +317,22 @@ export function compare(x: any, y: any): number {
   }
 }
 
+export function lessThan(x: any, y: any): boolean {
+  return compare(x, y) < 0;
+}
+
+export function lessOrEqual(x: any, y: any): boolean {
+  return compare(x, y) <= 0;
+}
+
+export function greaterThan(x: any, y: any): boolean {
+  return compare(x, y) > 0;
+}
+
+export function greaterOrEqual(x: any, y: any): boolean {
+  return compare(x, y) >= 0;
+}
+
 export function equalsRecords(x: any, y: any): boolean {
   // Optimization if they are referencially equal
   if (x === y) {
