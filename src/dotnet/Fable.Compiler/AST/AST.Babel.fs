@@ -1,5 +1,7 @@
 namespace Fable.AST.Babel
+
 open Fable
+open Fable.Core
 open Fable.AST
 
 /// The type field is a string representing the AST variant type.
@@ -58,7 +60,7 @@ type EmptyExpression() =
 type MacroExpression(value, args, ?loc) =
     inherit Literal("StringLiteral", ?loc = loc)
     member __.value: string = value
-    member __.args: Node list = args
+    member __.args: Expression list = args
     member __.macro = true
 
 (** ##Template Literals *)
@@ -135,7 +137,7 @@ type Directive(value, ?loc) =
 type Program(fileName, loc, body, ?directives, ?logs, ?dependencies) =
     inherit Node("Program", loc)
     member __.sourceType = "module" // Don't use "script"
-    member __.body: Choice<Statement, ModuleDeclaration> list = body
+    member __.body: U2<Statement, ModuleDeclaration> list = body
     member __.directives: Directive list = defaultArg directives []
     // Properties below don't belong to babel specs
     member __.fileName: string = fileName
@@ -188,7 +190,7 @@ type ReturnStatement(argument, ?loc) =
 // type BreakStatement
 // type ContinueStatement
 
-(** ##Choice *)
+(** ##U2 *)
 type IfStatement(test, consequent, ?alternate, ?loc) =
     inherit Statement("IfStatement", ?loc = loc)
     member __.test: Expression = test
@@ -254,7 +256,7 @@ type DoWhileStatement(body, test, ?loc) =
 type ForStatement(body, ?init, ?test, ?update, ?loc) =
     inherit Statement("ForStatement", ?loc = loc)
     member __.body: BlockStatement = body
-    member __.init: Choice<VariableDeclaration, Expression> option = init
+    member __.init: U2<VariableDeclaration, Expression> option = init
     member __.test: Expression option = test
     member __.update: Expression option = update
 
@@ -263,7 +265,7 @@ type ForStatement(body, ?init, ?test, ?update, ?loc) =
 type ForInStatement(left, right, body, ?loc) =
     inherit Statement("ForInStatement", ?loc = loc)
     member __.body: BlockStatement = body
-    member __.left: Choice<VariableDeclaration, Expression> = left
+    member __.left: U2<VariableDeclaration, Expression> = left
     member __.right: Expression = right
 
 /// When passing a VariableDeclaration, the bound value must go through
@@ -271,7 +273,7 @@ type ForInStatement(left, right, body, ?loc) =
 type ForOfStatement(left, right, body, ?loc) =
     inherit Statement("ForOfStatement", ?loc = loc)
     member __.body: BlockStatement = body
-    member __.left: Choice<VariableDeclaration, Expression> = left
+    member __.left: U2<VariableDeclaration, Expression> = left
     member __.right: Expression = right
 
 /// A function declaration. Note that id cannot be null.
@@ -296,9 +298,9 @@ type ThisExpression(?loc) =
 type ArrowFunctionExpression(``params``, body, ?async, ?loc) =
     inherit Expression("ArrowFunctionExpression", ?loc = loc)
     member __.expression =
-        match body with Choice1Of2 _ -> false | Choice2Of2 _ -> true
+        match body with U2.Case1 _ -> false | U2.Case2 _ -> true
     member __.``params``: Pattern list = ``params``
-    member __.body: Choice<BlockStatement, Expression> = body
+    member __.body: U2<BlockStatement, Expression> = body
     member __.async: bool = defaultArg async false
 
 type FunctionExpression(``params``, body, ?generator, ?async, ?id, ?loc) =
@@ -335,13 +337,15 @@ type SpreadProperty(argument, ?loc) =
     inherit Node("SpreadProperty", ?loc = loc)
     member __.argument: Expression = argument
 
+/// Should derive from Node, but make it an expression for simplicity
 type SpreadElement(argument, ?loc) =
-    inherit Node("SpreadElement", ?loc = loc)
+    inherit Expression("SpreadElement", ?loc = loc)
     member __.argument: Expression = argument
 
 type ArrayExpression(elements, ?loc) =
     inherit Expression("ArrayExpression", ?loc = loc)
-    member __.elements: Choice<Expression, SpreadElement> option list = elements
+    // member __.elements: U2<Expression, SpreadElement> option list = elements
+    member __.elements: Expression list = elements
 
 [<AbstractClass>]
 type ObjectMember(typ, key, ?value, ?computed, ?loc) =
@@ -380,7 +384,7 @@ type MemberExpression(``object``, property, ?computed, ?loc) =
 
 type ObjectExpression(properties, ?loc) =
     inherit Expression("ObjectExpression", ?loc = loc)
-    member __.properties: Choice<ObjectProperty, ObjectMethod, SpreadProperty> list = properties
+    member __.properties: U3<ObjectProperty, ObjectMethod, SpreadProperty> list = properties
 
 /// A conditional expression, i.e., a ternary ?/: expression.
 type ConditionalExpression(test, consequent, alternate, ?loc) =
@@ -393,12 +397,14 @@ type ConditionalExpression(test, consequent, alternate, ?loc) =
 type CallExpression(callee, arguments, ?loc) =
     inherit Expression("CallExpression", ?loc = loc)
     member __.callee: Expression = callee
-    member __.arguments: Choice<Expression, SpreadElement> list = arguments
+    // member __.arguments: U2<Expression, SpreadElement> list = arguments
+    member __.arguments: Expression list = arguments
 
 type NewExpression(callee, arguments, ?loc) =
     inherit Expression("NewExpression", ?loc = loc)
     member __.callee: Expression = callee
-    member __.arguments: Choice<Expression, SpreadElement> list = arguments
+    // member __.arguments: U2<Expression, SpreadElement> list = arguments
+    member __.arguments: Expression list = arguments
 
 /// A comma-separated sequence of expressions.
 type SequenceExpression(expressions, ?loc) =
@@ -495,7 +501,7 @@ type LogicalExpression(operator, left, right, ?loc) =
 
 // type ObjectPattern(properties, ?loc) =
 //     inherit Node("ObjectPattern", ?loc = loc)
-//     member __.properties: Choice<AssignmentProperty, RestProperty> list = properties
+//     member __.properties: U2<AssignmentProperty, RestProperty> list = properties
 //     interface Pattern
 
 type ArrayPattern(elements, ?loc) =
@@ -546,7 +552,7 @@ type ClassProperty(key, ?value, ?typeAnnotation, ?loc) =
 
 type ClassBody(body, ?loc) =
     inherit Node("ClassBody", ?loc = loc)
-    member __.body: Choice<ClassMethod, ClassProperty> list = body
+    member __.body: U2<ClassMethod, ClassProperty> list = body
 
 type ClassDeclaration(body, id, ?super, ?typeParams, ?loc) =
     inherit Declaration("ClassDeclaration", ?loc = loc)
@@ -597,7 +603,7 @@ type ImportNamespaceSpecifier(local, ?loc) =
 /// e.g., import foo from "mod";.
 type ImportDeclaration(specifiers, source, ?loc) =
     inherit ModuleDeclaration("ImportDeclaration", ?loc = loc)
-    member __.specifiers: Choice<ImportSpecifier, ImportDefaultSpecifier, ImportNamespaceSpecifier> list = specifiers
+    member __.specifiers: U3<ImportSpecifier, ImportDefaultSpecifier, ImportNamespaceSpecifier> list = specifiers
     member __.source: Literal = source
 
 /// An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}.
@@ -621,7 +627,7 @@ type ExportNamedDeclaration(?declaration, ?specifiers, ?source, ?loc) =
 /// An export default declaration, e.g., export default function () {}; or export default 1;.
 type ExportDefaultDeclaration(declaration, ?loc) =
     inherit ModuleDeclaration("ExportDefaultDeclaration", ?loc = loc)
-    member __.declaration: Choice<Declaration, Expression> = declaration
+    member __.declaration: U2<Declaration, Expression> = declaration
 
 /// An export batch declaration, e.g., export * from "mod";.
 type ExportAllDeclaration(source, ?loc) =

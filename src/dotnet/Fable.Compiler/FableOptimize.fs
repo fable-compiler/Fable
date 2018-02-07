@@ -6,25 +6,29 @@ open Fable.AST.Fable.Util
 open System.Collections.Generic
 
 // TODO: Use trampoline here?
-// TODO: Just use ImmediateSubexpressions?
 let rec visit f e =
     match e with
-    | Value kind ->
+    | This | Null _ | IdentExpr _ | ImportRef _ | EntityRef _ | Debugger _ -> e
+    | Const kind ->
         match kind with
-        | Spread e -> Value(Spread(visit f e))
-        | TupleConst exprs -> Value(TupleConst(List.map (visit f) exprs))
-        | ArrayConst(kind, t) ->
-            match kind with
-            | ArrayValues exprs -> ArrayConst(ArrayValues(List.map (visit f) exprs), t) |> Value
-            | ArrayAlloc e -> ArrayConst(ArrayAlloc(visit f e), t) |> Value
-        | Lambda(args, body, info) -> Value(Lambda(args, visit f body, info))
-        | Null | This | IdentValue _ | ImportRef _ | EntityRef _
-        | NumberConst _ | StringConst _ | BoolConst _ | RegexConst _
-        | UnaryOp _ | BinaryOp _ | LogicalOp _ | Emit _ -> e
-    | Apply(callee, args, kind, typ, range) ->
-        Apply(visit f callee, List.map (visit f) args, kind, typ, range)
-    | Wrapped(expr, t) ->
-        Wrapped(visit f expr, t)
+        | TupleConst exprs -> TupleConst(List.map (visit f) exprs) |> Const
+        | ArrayConst(exprs, t) -> ArrayConst(List.map (visit f) exprs, t) |> Const
+        | ListConst(head, tail, t) -> ListConst(visit f head, visit f tail, t) |> Const
+        | SomeConst(expr, t) -> SomeConst(visit f expr, t) |> Const
+        | ArrayAlloc _ | NoneConst _ | ListEmpty _ | NumberConst _ | StringConst _ | BoolConst _ | RegexConst _ -> e
+    | Uncurry(e, a) -> Uncurry(visit f e, a)
+    | Spread e -> Spread(visit f e)
+    | Lambda(args, body, range) -> Lambda(args, visit f body, range)
+    | Get (expr, field, typ, range) ->
+        Get (visit f expr, visit f field, typ, range)
+    | Apply(callee, args, range) ->
+        Apply(callee, List.map (visit f) args, range)
+    | Call(callee, field, args, isCons, typ, range) ->
+        let callee =
+            match callee with
+            | UnaryOp _ | BinaryOp _ | LogicalOp _ | Emit _ -> callee
+            | Callee callee -> Callee(visit f callee)
+        Call(callee, Option.map (visit f) field, List.map (visit f) args, isCons, typ, range)
     | VarDeclaration (var, expr, isMut, range) ->
         VarDeclaration(var, visit f expr, isMut, range)
     | Sequential (exprs, range) ->
@@ -32,10 +36,10 @@ let rec visit f e =
     | IfThenElse(cond, thenExpr, elseExpr, r) ->
         IfThenElse(visit f cond, visit f thenExpr, visit f elseExpr, r)
     | Set(callee, prop, value, r) ->
-        Set(visit f callee, Option.map f prop, visit f value, r)
-    | ObjExpr(decls, r) ->
+        Set(visit f callee, Option.map (visit f) prop, visit f value, r)
+    | ObjectExpr(decls, r) ->
         let decls = decls |> List.map (fun (m, idents, e) -> m, idents, visit f e)
-        ObjExpr(decls, r)
+        ObjectExpr(decls, r)
     | Loop (kind, r) ->
         match kind with
         | While(e1, e2) -> Loop(While(visit f e1, visit f e2), r)
@@ -49,9 +53,7 @@ let rec visit f e =
         Switch(visit f matchValue,
                List.map (fun (cases, body) -> List.map (visit f) cases, visit f body) cases,
                Option.map (visit f) defaultCase, t, r)
-    | Quote e -> Quote(visit f e)
     | Throw(e, t, r) -> Throw(visit f e, t, r)
-    | DebugBreak _ -> e
     |> f
 
 let checkArgsForDoubleEvalRisk bodyExpr (vars: Ident seq) =
@@ -59,7 +61,7 @@ let checkArgsForDoubleEvalRisk bodyExpr (vars: Ident seq) =
     let mutable doubleEvalRisk = false
     for var in vars do varsDic.Add(var.Name, 0)
     let rec countRefs = function
-        | Value(IdentValue v) ->
+        | IdentExpr(v, _) ->
             match varsDic.TryGetValue(v.Name) with
             | true, count ->
                 varsDic.[v.Name] <- count + 1
@@ -77,7 +79,7 @@ let replaceVars (vars: Ident seq) (exprs: Expr seq) bodyExpr =
     for var, expr in Seq.zip vars exprs do
         varsDic.Add(var.Name, expr)
     let replaceVars' = function
-        | Value(IdentValue v) as e ->
+        | IdentExpr(v, _) as e ->
             match varsDic.TryGetValue(v.Name) with
             | true, replacement -> replacement
             | false, _ -> e
@@ -92,15 +94,15 @@ let (|RestAndTail|_|) (xs: _ list) =
 
 let (|LambdaExpr|_|) (expr: Expr) =
     match expr with
-    | Value(Lambda(args, body, _)) -> Some([], args, body)
-    | Sequential(RestAndTail(exprs, Value(Lambda(args, body, _))),_) -> Some(exprs, args, body)
+    | Lambda(args, body, _) -> Some([], args, body)
+    | Sequential(RestAndTail(exprs, Lambda(args, body, _)),_) -> Some(exprs, args, body)
     | _ -> None
 
 let optimizeExpr (com: ICompiler) (expr: Expr) =
     let optimizeExpr' = function
         // TODO: Optimize also binary operations with numerical or string literals
-        | Apply(LambdaExpr(prevExprs, args, body), argExprs, ApplyMeth, _typ, range)
-                                                when List.sameLength args argExprs ->
+        // TODO: Don't inline if one of the arguments is `this`?
+        | Apply(LambdaExpr(prevExprs, args, body), argExprs, range) when List.sameLength args argExprs ->
             let doubleEvalRisk =
                 List.zip args argExprs
                 // Check which argExprs have doubleEvalRisk, i.e. they're not IdentValue
@@ -112,7 +114,7 @@ let optimizeExpr (com: ICompiler) (expr: Expr) =
                     let tempVars =
                         argExprs |> List.map (fun argExpr ->
                             let tmpVar = com.GetUniqueVar() |> makeIdent
-                            let tmpVarExp = Value(IdentValue tmpVar)
+                            let tmpVarExp = IdentExpr(tmpVar, None)
                             tmpVarExp, VarDeclaration(tmpVar, argExpr, false, None))
                     let body = replaceVars args (List.map fst tempVars) body
                     makeSequential body.Range ((List.map snd tempVars) @ [body])

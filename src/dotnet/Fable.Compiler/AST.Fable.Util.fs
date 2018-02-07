@@ -2,21 +2,11 @@ module Fable.AST.Fable.Util
 open Fable
 open Fable.AST
 
-let (|MaybeWrapped|) = function
-    | Wrapped(e,_) -> e
-    | e -> e
-
 let (|CoreMeth|_|) coreMod meth expr =
     match expr with
-    | Apply(Value(ImportRef(meth', coreMod', CoreLib)),args,ApplyMeth,_,_)
+    | Call(Callee(ImportRef(meth',coreMod',CoreLib,_)),None,args,_,_,_)
         when meth' = meth && coreMod' = coreMod ->
         Some args
-    | _ -> None
-
-let (|CoreCons|_|) coreMod meth expr =
-    match expr with
-    | Apply(Value(ImportRef(meth', coreMod', CoreLib)),args,ApplyCons,_,_)
-        when meth' = meth && coreMod' = coreMod -> Some args
     | _ -> None
 
 let addWarning (com: ICompiler) (fileName: string) (range: SourceLocation option) (warning: string) =
@@ -27,12 +17,12 @@ let addError (com: ICompiler) (fileName: string) (range: SourceLocation option) 
 
 let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLocation option) (error: string) =
     com.AddLog(error, Severity.Error, ?range=range, fileName=fileName)
-    Value Null
+    Null Any |> Const
 
 /// When referenced multiple times, is there a risk of double evaluation?
 let hasDoubleEvalRisk = function
-    | MaybeWrapped(Value(Null | This | IdentValue _
-        | NumberConst _ | StringConst _ | BoolConst _)) -> false
+    | This | Null _ | IdentExpr _
+    | Const(NumberConst _ | StringConst _ | BoolConst _) -> false
     | _ -> true
 
 let rec deepExists f (expr: Expr) =
@@ -62,63 +52,70 @@ type CallKind =
     | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
 
 let makeLoop range loopKind = Loop (loopKind, range)
-let makeIdent name = Ident(name)
-let makeTypedIdent name typ = Ident(name, typ)
-let makeIdentExpr name = makeIdent name |> IdentValue |> Value
-let makeLambdaExpr args body = Value(Lambda(args, body, true))
+let makeIdent name = { Name = name; Type = Any; IsUncurried = false }
+let makeTypedIdent name typ = { Name = name; Type = typ; IsUncurried = false }
+let makeIdentExpr name = IdentExpr({ Name = name; Type = Any; IsUncurried = false }, None)
+let makeLambda r args body = Lambda(args, body, r)
 
-let makeCoreRef modname prop =
-    Value(ImportRef(prop, modname, CoreLib))
+let makeCoreRef t modname prop =
+    ImportRef(prop, modname, CoreLib, t)
 
-let makeDefaultCoreRef modname =
-    Value(ImportRef("default", modname, CoreLib))
-
-let makeImport (selector: string) (path: string) =
-    Value(ImportRef(selector.Trim(), path.Trim(), CustomImport))
-
-let private makeOp range typ args op =
-    Apply (Value op, args, ApplyMeth, typ, range)
+let makeImport t (selector: string) (path: string) =
+    ImportRef(selector.Trim(), path.Trim(), CustomImport, t)
 
 let makeBinOp range typ args op =
-    makeOp range typ args (BinaryOp op)
+    Call(BinaryOp op, None, args, false, typ, range)
 
 let makeUnOp range typ args op =
-    makeOp range typ args (UnaryOp op)
+    Call(UnaryOp op, None, args, false, typ, range)
 
 let makeLogOp range args op =
-    makeOp range Boolean args (LogicalOp op)
+    Call(LogicalOp op, None, args, false, Boolean, range)
 
 let makeEqOp range args op =
-    makeOp range Boolean args (BinaryOp op)
+    Call(BinaryOp op, None, args, false, Boolean, range)
 
 let rec makeSequential range statements =
     match statements with
-    | [] -> Value Null
+    | [] -> Null Any
     | [expr] -> expr
     | first::rest ->
         match first, rest with
-        | first, _ when first.IsNull -> makeSequential range rest
+        | Null _, _ -> makeSequential range rest
         | Sequential (statements, _), _ -> makeSequential range (statements@rest)
         | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
         | _ -> Sequential (statements, range)
 
+let makeApply range callee args =
+    Apply(callee, args, range)
+
+let makeGet range typ callee propExpr =
+    Get(callee, propExpr, typ, range)
+
+let makeUntypedGet callee prop =
+    Get(callee, Const (StringConst prop), Any, None)
+
+let makeArray elementType arrExprs =
+    ArrayConst(arrExprs, elementType) |> Const
+
 let makeLongInt (x: uint64) unsigned =
+    let t = ExtendedNumber(if unsigned then UInt64 else Int64)
     let lowBits = NumberConst (float (uint32 x), Float64)
     let highBits = NumberConst (float (x >>> 32), Float64)
     let unsigned = BoolConst (unsigned)
-    let args = [Value lowBits; Value highBits; Value unsigned]
-    Apply (makeCoreRef "Long" "fromBits", args, ApplyMeth, Any, None)
+    let args = [Const lowBits; Const highBits; Const unsigned]
+    Call(Callee(makeCoreRef Any "Long" "fromBits"), None, args, false, t, None)
+
+let makeBoolConst (x: bool) = BoolConst x |> Const
+let makeStrConst (x: string) = StringConst x |> Const
+let makeIntConst (x: int) = NumberConst (float x, Int32) |> Const
+let makeNumConst (x: float) = NumberConst (float x, Float64) |> Const
+let makeDecConst (x: decimal) = NumberConst (float x, Float64) |> Const
 
 let makeFloat32 (x: float32) =
-    let args = [Value (NumberConst (float x, Float32))]
-    let callee = Apply (makeIdentExpr "Math", [Value (StringConst "fround")], ApplyGet, Any, None)
-    Apply (callee, args, ApplyMeth, Any, None)
-
-let makeBoolConst (x: bool) = BoolConst x |> Value
-let makeStrConst (x: string) = StringConst x |> Value
-let makeIntConst (x: int) = NumberConst (float x, Int32) |> Value
-let makeNumConst (x: float) = NumberConst (float x, Float64) |> Value
-let makeDecConst (x: decimal) = NumberConst (float x, Float64) |> Value
+    let args = [NumberConst (float x, Float32) |> Const]
+    let callee = makeUntypedGet (makeIdentExpr "Math") "fround"
+    Call(Callee callee, None, args, false, Any, None)
 
 let makeTypeConst (typ: Type) (value: obj) =
     match typ, value with
@@ -134,64 +131,54 @@ let makeTypeConst (typ: Type) (value: obj) =
     | Number Float32, (:? float32 as x) -> makeFloat32 x
     | _ ->
         match typ, value with
-        | Boolean, (:? bool as x) -> BoolConst x
-        | String, (:? string as x) -> StringConst x
-        | Char, (:? char as x) -> StringConst (string x)
+        | Boolean, (:? bool as x) -> BoolConst x |> Const
+        | String, (:? string as x) -> StringConst x |> Const
+        | Char, (:? char as x) -> StringConst (string x) |> Const
         // Integer types
-        | Number UInt8, (:? byte as x) -> NumberConst (float x, UInt8)
-        | Number Int8, (:? sbyte as x) -> NumberConst (float x, Int8)
-        | Number Int16, (:? int16 as x) -> NumberConst (float x, Int16)
-        | Number UInt16, (:? uint16 as x) -> NumberConst (float x, UInt16)
-        | Number Int32, (:? int as x) -> NumberConst (float x, Int32)
-        | Number UInt32, (:? uint32 as x) -> NumberConst (float x, UInt32)
+        | Number UInt8, (:? byte as x) -> NumberConst (float x, UInt8) |> Const
+        | Number Int8, (:? sbyte as x) -> NumberConst (float x, Int8) |> Const
+        | Number Int16, (:? int16 as x) -> NumberConst (float x, Int16) |> Const
+        | Number UInt16, (:? uint16 as x) -> NumberConst (float x, UInt16) |> Const
+        | Number Int32, (:? int as x) -> NumberConst (float x, Int32) |> Const
+        | Number UInt32, (:? uint32 as x) -> NumberConst (float x, UInt32) |> Const
         // Float types
-        | Number Float64, (:? float as x) -> NumberConst (float x, Float64)
+        | Number Float64, (:? float as x) -> NumberConst (float x, Float64) |> Const
         // Enums (TODO: proper JS support, as Enum has no type)
-        | Enum _, (:? byte as x) -> NumberConst (float x, UInt8)
-        | Enum _, (:? sbyte as x) -> NumberConst (float x, Int8)
-        | Enum _, (:? int16 as x) -> NumberConst (float x, Int16)
-        | Enum _, (:? uint16 as x) -> NumberConst (float x, UInt16)
-        | Enum _, (:? int as x) -> NumberConst (float x, Int32)
-        | Enum _, (:? uint32 as x) -> NumberConst (float x, UInt32)
+        | Enum _, (:? byte as x) -> NumberConst (float x, UInt8) |> Const
+        | Enum _, (:? sbyte as x) -> NumberConst (float x, Int8) |> Const
+        | Enum _, (:? int16 as x) -> NumberConst (float x, Int16) |> Const
+        | Enum _, (:? uint16 as x) -> NumberConst (float x, UInt16) |> Const
+        | Enum _, (:? int as x) -> NumberConst (float x, Int32) |> Const
+        | Enum _, (:? uint32 as x) -> NumberConst (float x, UInt32) |> Const
         // TODO: Regex
-        | Unit, (:? unit) | _ when isNull value -> Null
+        | Unit, (:? unit) | _ when isNull value -> Null Unit
         // Arrays with small data type (ushort, byte) come as Const
         | Array (Number kind), (:? (byte[]) as arr) ->
-            let values = arr |> Array.map (fun x -> NumberConst (float x, kind) |> Value) |> Seq.toList
-            ArrayConst (ArrayValues values, Number kind)
+            let values = arr |> Array.map (fun x -> NumberConst (float x, kind) |> Const) |> Seq.toList
+            ArrayConst (values, Number kind) |> Const
         | Array (Number kind), (:? (uint16[]) as arr) ->
-            let values = arr |> Array.map (fun x -> NumberConst (float x, kind) |> Value) |> Seq.toList
-            ArrayConst (ArrayValues values, Number kind)
+            let values = arr |> Array.map (fun x -> NumberConst (float x, kind) |> Const) |> Seq.toList
+            ArrayConst (values, Number kind) |> Const
         | _ -> failwithf "Unexpected type %A, literal %O" typ value
-        |> Value
-
-let makeGet range typ callee propExpr =
-    Apply (callee, [propExpr], ApplyGet, typ, range)
-
-let makeUntypedGet callee prop =
-    Apply (callee, [Value(StringConst prop)], ApplyGet, Any, None)
-
-let makeArray elementType arrExprs =
-    ArrayConst(ArrayValues arrExprs, elementType) |> Value
 
 /// Ignores relative imports (e.g. `[<Import("foo","./lib.js")>]`)
-let tryImported (name: string) (decs: #seq<Decorator>) =
+let tryImported typ (name: string) (decs: #seq<Decorator>) =
     decs |> Seq.tryPick (fun x ->
         match x.Name, x.Arguments with
         | "Global", [:? string as name] ->
-            makeIdent name |> IdentValue |> Value |> Some
+            IdentExpr({ Name = name; Type = typ; IsUncurried = false }, None)|> Some
         | "Global", _ ->
-            makeIdent name |> IdentValue |> Value |> Some
+            IdentExpr({ Name = name; Type = typ; IsUncurried = false }, None)|> Some
         | "Import", [(:? string as memb); (:? string as path)]
             when not(path.StartsWith ".") ->
-            Some(Value(ImportRef(memb.Trim(), path.Trim(), CustomImport)))
+            ImportRef(memb.Trim(), path.Trim(), CustomImport, typ) |> Some
         | _ -> None)
 
 let makeJsObject range (props: (string * Expr) list) =
     let membs = props |> List.map (fun (name, body) ->
         let m = Member.Create(name, Field, [], body.Type)
         m, [], body)
-    ObjExpr(membs, range)
+    ObjectExpr(membs, range)
 
 let getTypedArrayName (com: ICompiler) numberKind =
     match numberKind with
@@ -204,233 +191,161 @@ let getTypedArrayName (com: ICompiler) numberKind =
     | Float32 -> "Float32Array"
     | Float64 -> "Float64Array"
 
-let rec makeEntityRef (com: ICompiler) typ =
-    let str s = Wrapped(Value(StringConst s), Any)
-    match typ with
-    | Boolean -> str "boolean"
-    | Char
-    | String -> str "string"
-    | Number _ | Enum _ -> str "number"
-    | ExtendedNumber kind ->
-        match kind with
-        | Int64|UInt64 -> makeDefaultCoreRef "Long"
-        | Decimal -> str "number"
-        | BigInt -> makeDefaultCoreRef "BigInt"
-    | DeclaredType(fullName,_) ->
-        Fable.EntityRef(fullName) |> Fable.Value
-    // | DeclaredType(ent, _) when ent.Kind = Interface ->
-    //     makeNonDeclaredTypeRef (NonDeclInterface ent.FullName)
-    // | DeclaredType(ent, genArgs) ->
-    //     // Imported types come from JS so they don't need to be made generic
-    //     match tryImported (lazy ent.Name) ent.Decorators with
-    //     | Some expr -> expr
-    //     | None when not genInfo.makeGeneric || genArgs.IsEmpty -> Value(EntityRef(ent,[]))
-    //     | None ->
-    //         List.map (makeEntityRef com genInfo) genArgs
-    //         |> List.zip ent.GenericParameters
-    //         |> fun genArgs -> Value(EntityRef(ent, genArgs))
-    | _ -> Value Null // TODO
-    // | Function(argTypes, returnType, _) ->
-    //     argTypes@[returnType]
-    //     |> List.map (makeEntityRef com genInfo)
-    //     |> NonDeclFunction
-    //     |> makeNonDeclaredTypeRef
-    // | Any -> makeNonDeclaredTypeRef NonDeclAny
-    // | Unit -> makeNonDeclaredTypeRef NonDeclUnit
-    // | Array (Number kind) when com.Options.typedArrays ->
-    //     let def = Ident(getTypedArrayName com kind, Any) |> IdentValue |> Value
-    //     Apply(makeCoreRef "Util" "Array", [def; makeBoolConst true], ApplyMeth, Any, None)
-    // | Array genArg ->
-    //     makeEntityRef com genInfo genArg
-    //     |> NonDeclArray
-    //     |> makeNonDeclaredTypeRef
-    // | Option genArg ->
-    //     makeEntityRef com genInfo genArg
-    //     |> NonDeclOption
-    //     |> makeNonDeclaredTypeRef
-    // | Tuple genArgs ->
-    //     List.map (makeEntityRef com genInfo) genArgs
-    //     |> NonDeclTuple
-    //     |> makeNonDeclaredTypeRef
-    // | GenericParam name ->
-    //     if genInfo.genericAvailability
-    //     then (makeIdentExpr Naming.genArgsIdent, Value(StringConst name))
-    //          ||> makeGet None Any
-    //     else makeNonDeclaredTypeRef (NonDeclGenericParam name)
-
 let makeCall (range: SourceLocation option) typ kind =
-    let getCallee meth args returnType owner =
-        match meth with
-        | None -> owner
-        | Some meth ->
-            // let fnTyp = Function(List.map Expr.getType args |> Some, returnType)
-            Apply (owner, [makeStrConst meth], ApplyGet, Any, None)
-    let apply kind args callee =
-        Apply(callee, args, kind, typ, range)
-    let getKind isCons =
-        if isCons then ApplyCons else ApplyMeth
+    let call meth isCons args callee =
+        Call(Callee callee, Option.map makeStrConst meth, args, isCons, typ, range)
     match kind with
     | InstanceCall (callee, meth, args) ->
-        // let fnTyp = Function(List.map Expr.getType args |> Some, typ)
-        Apply (callee, [makeStrConst meth], ApplyGet, Any, None)
-        |> apply ApplyMeth args
+        call (Some meth) false args callee
     | ImportCall (importPath, modName, meth, isCons, args) ->
-        Value (ImportRef (modName, importPath, CustomImport))
-        |> getCallee meth args typ
-        |> apply (getKind isCons) args
+        ImportRef (modName, importPath, CustomImport, Any) |> call meth isCons args
     | CoreLibCall (modName, meth, isCons, args) ->
-        match meth with
-        | Some meth -> makeCoreRef modName meth
-        | None -> makeDefaultCoreRef modName
-        |> apply (getKind isCons) args
+        makeCoreRef Any modName (defaultArg meth "default") |> call None isCons args
     | GlobalCall (modName, meth, isCons, args) ->
-        makeIdentExpr modName
-        |> getCallee meth args typ
-        |> apply (getKind isCons) args
+        call meth isCons args (makeIdentExpr modName)
 
-let makeEmit r t args macro =
-    Apply(Value(Emit macro), args, ApplyMeth, t, r)
+let isUncurried = function
+    // Arguments coming from the outside should be already uncurried
+    | IdentExpr (ident, _) -> ident.IsUncurried
+    // Assume functions in (usually record) fields are already uncurried
+    | Get _ -> true // TODO: Check it's actually a record? (We'd have to edit the AST)
+    | _ -> false
 
-// TODO: Type testing is a bit flaky, make a runtime function or raise a warning?
+let getArity typ =
+    let rec getArityInner acc = function
+        | LambdaType(_, retType) -> getArityInner (acc + 1) retType
+        | _ -> acc
+    getArityInner 0 typ
+
+/// Actually uncurries an expression that had been marked for that purpose
+/// ATTENTION: This must be called only right before transforming the expression to JS
+let uncurry arity expr =
+    let rec (|UncurriedLambda|_|) arity expr =
+        let rec uncurryLambda r accArgs remainingArity expr =
+            if remainingArity = Some 0
+            then Lambda(List.rev accArgs, expr, r) |> Some
+            else
+                match expr, remainingArity with
+                | Lambda(args, body, r2), _ ->
+                    let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
+                    uncurryLambda (Option.orElse r2 r) (args@accArgs) remainingArity body
+                // If there's no arity expectation we can return the flattened part
+                | _, None when List.isEmpty accArgs |> not ->
+                    Lambda(List.rev accArgs, expr, r) |> Some
+                // We cannot flatten lambda to the expected arity
+                | _, _ -> None
+        uncurryLambda None [] arity expr
+    if isUncurried expr then
+        expr // TODO: Check edge cases (expr has more than expected arity)
+    else
+        match expr, arity with
+        | UncurriedLambda arity lambda, _ -> lambda
+        | _, Some arity ->
+            CoreLibCall("Util", Some "uncurry", false, [makeIntConst arity; expr])
+            |> makeCall None expr.Type
+        | _, None -> expr
+
+/// Checks if the applied expression is uncurried
+/// Returns transformed (or not) applied, arg expressions and
+/// ATTENTION: This must be called only right before transforming the expression to JS
+let applyCurried applied args =
+    let rec flattenApplication accArgs = function
+        | Apply(applied, args, _) ->
+             flattenApplication (args::accArgs) applied
+        | applied -> applied, List.rev accArgs
+    let innerApplied, flattenedArgs = flattenApplication [args] applied
+    if isUncurried innerApplied then
+        match getArity innerApplied.Type, List.length flattenedArgs with
+        | arity, argsLength when argsLength < arity ->
+
+            failwith "TODO"
+            // let args = [makeIntConst (arity - argsLength); innerApplied; makeArray Any (List.concat flattenedArgs)]
+            // CoreLibCall("Util", Some "partial", false, args) |> makeCall r Any
+        | _ ->
+            innerApplied, (List.concat flattenedArgs), None // TODO: Remove single unit argument
+    else
+        applied, args, None // TODO: Remove single unit argument
+
+let private markUncurriedArgs argTypes (argExprs: Expr list) =
+    let rec markUncurry accArgs = function
+        | argType::restTypes, argExpr::restExprs ->
+            let argExpr =
+                match getArity argType with
+                | 0 | 1 -> argExpr
+                | arity -> Uncurry(argExpr, Some arity)
+            markUncurry (argExpr::accArgs) (restTypes, restExprs)
+        | [], argExprs ->
+            (List.rev accArgs) @ argExprs
+        | _, [] ->
+            List.rev accArgs
+    match argTypes with
+    | Some argTypes -> markUncurry [] (argTypes, argExprs)
+    | None -> argExprs |> List.map (fun e ->
+        match e.Type with
+        | LambdaType _ -> Uncurry(e, None)
+        | _ -> e)
+
+// TODO: Remove single unit argument
+let private removeOptionalArguments (optionalArgs: int) (args: Expr list) =
+    let rec removeArgs optionalArgs (revArgs: Expr list) =
+        match revArgs with
+        | Const(NoneConst _)::rest when optionalArgs > 0 ->
+            removeArgs (optionalArgs - 1) rest
+        | _ -> args
+    List.rev args |> removeArgs optionalArgs |> List.rev
+
+type CallHelper =
+    /// Uncurry functions passed as arguments and other operations
+    static member PrepareArgs(argExprs: Expr list,
+                              ?argTypes: Type list,
+                              ?hasRestParams: bool,
+                              ?optionalArgs: int,
+                              ?untupleArgs: bool) =
+        let argExprs =
+            match hasRestParams, untupleArgs, optionalArgs, argExprs with
+            | Some true, _, _, (_::_) ->
+                let argExprs = List.rev argExprs
+                match argExprs.Head with
+                | Const(ArrayConst(items, _)) -> (List.rev argExprs.Tail)@items
+                | _ -> (Spread argExprs.Head)::argExprs.Tail |> List.rev
+            // TODO: hasSeqParam
+            // TODO: If we're within a constructor and call to another constructor, pass `$this` as last argument
+            | _, Some true, _, [Const(TupleConst argExprs)] ->
+                argExprs
+            | _, _, Some optionalArgs, _ when optionalArgs > 0 ->
+                removeOptionalArguments optionalArgs argExprs // See #231, #640
+            | _ ->
+                argExprs
+        // TODO: We shouldn't uncurry args for setters
+        markUncurriedArgs argTypes argExprs
+
 let rec makeTypeTest com fileName range expr (typ: Type) =
     let jsTypeof (primitiveType: string) expr =
         let typof = makeUnOp None String [expr] UnaryTypeof
         makeBinOp range Boolean [typof; makeStrConst primitiveType] BinaryEqualStrict
+    let jsInstanceof (cons: Expr) expr =
+        makeBinOp range Boolean [expr; cons] BinaryInstanceOf
     match typ with
-    | Char
-    | String _ -> jsTypeof "string" expr
+    | Any -> makeBoolConst true
+    | Unit -> makeBinOp range Boolean [expr; Null Any] BinaryEqual
+    | Boolean -> jsTypeof "boolean" expr
+    | Char | String _ -> jsTypeof "string" expr
+    | Regex -> makeBinOp range Boolean [expr; makeIdentExpr "RegExp"] BinaryInstanceOf
     | Number _ | Enum _ -> jsTypeof "number" expr
     | ExtendedNumber (Int64|UInt64) ->
-        makeBinOp range Boolean [expr; makeDefaultCoreRef "Long"] BinaryInstanceOf
+        makeBinOp range Boolean [expr; makeCoreRef Any "Long" "default"] BinaryInstanceOf
     | ExtendedNumber Decimal -> jsTypeof "number" expr
     | ExtendedNumber BigInt ->
-        makeBinOp range Boolean [expr; makeDefaultCoreRef "BigInt"] BinaryInstanceOf
-    | Boolean -> jsTypeof "boolean" expr
-    | Unit -> makeBinOp range Boolean [expr; Value Null] BinaryEqual
-    | Function _ -> jsTypeof "function" expr
-    | Array _ | Tuple _ ->
+        jsInstanceof (makeCoreRef Any "BigInt" "default") expr
+    | LambdaType _ -> jsTypeof "function" expr
+    | Array _ | Tuple _ | List _ ->
         CoreLibCall ("Util", Some "isArray", false, [expr])
         |> makeCall range Boolean
-    | Any -> makeBoolConst true
-    | DeclaredType _ ->
-        failwith "TODO: TypeTest with DeclaredType"
-        // match typEnt.Kind with
-        // | Interface ->
-        //     CoreLibCall ("Util", Some "hasInterface", false, [expr; makeStrConst typEnt.FullName])
-        //     |> makeCall range Boolean
-        // | _ ->
-        //     makeBinOp range Boolean [expr; makeEntityRef com typ] BinaryInstanceOf
+    | DeclaredType (fullName, _) ->
+        jsInstanceof (EntityRef fullName) expr
     | Option _ | GenericParam _ ->
         "Cannot type test options or generic parameters"
         |> addErrorAndReturnNull com fileName range
-
-/// This is necessary when extending built-in JS types and compiling to ES5
-/// See https://github.com/Microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins-like-error-array-and-map-may-no-longer-work
-let setProto com (ent: Entity) =
-    let meth = makeUntypedGet (makeIdentExpr "Object") "setPrototypeOf"
-    Apply(meth, [This |> Value; makeUntypedGet (DeclaredType(ent.FullName, []) |> makeEntityRef com) "prototype"], ApplyMeth, Any, None)
-
-let (|Type|) (expr: Expr) = expr.Type
-
-// Unit args can be removed from final code,
-// so we must prevent references to missing args
-let argIdentToExpr (id: Ident) =
-    match id.Type with
-    | Unit -> Value Null
-    | _ -> IdentValue id |> Value
-
-let makeDynamicCurriedLambda range typ lambda =
-    CoreLibCall("Util", Some "curry", false, [lambda])
-    |> makeCall range typ
-
-let makeDynamicCurriedLambdaAndApply range typ (lambda: Expr) args =
-    let lambda = makeDynamicCurriedLambda lambda.Range (Function([Any], Any, true)) lambda
-    Apply(lambda, args, ApplyMeth, typ, range)
-
-let (|Curried|_|) = function
-    | Apply(Value(ImportRef("curry", "Util", CoreLib)),_,_,_,_) ->
-        Some Curried
-    | _ -> None
-
-// Deal with function arguments with higher arity than expected
-// E.g.: [|"1";"2"|] |> Array.map (fun x y -> x + y)
-// JS: ["1","2"].map($var1 => $var2 => ((x, y) => x + y)($var1, $var2))
-let rec ensureArity com argTypes args =
-    let rec needsWrapping = function
-        | Option(Function(expected,_,_)), Option(Function(actual,returnType,_))
-        | Function(expected,_,_), Function(actual,returnType,_) ->
-            let expectedLength = List.length expected
-            let actualLength = List.length actual
-            if (expectedLength < actualLength)
-                || (expectedLength > actualLength)
-                || List.zip expected actual |> List.exists (needsWrapping >> Option.isSome)
-            then Some(expected, actual, returnType)
-            else None
-        | _ -> None
-    let (|NeedsWrapping|_|) (expectedType, arg: Expr) =
-        needsWrapping (expectedType, arg.Type)
-    let wrap (com: ICompiler) typ (f: Expr) expectedArgs actualArgs =
-        let outerArgs =
-            expectedArgs |> List.map (fun t -> makeTypedIdent (com.GetUniqueVar()) t)
-        let expectedArgsLength = List.length expectedArgs
-        let actualArgsLength = List.length actualArgs
-        if expectedArgsLength < actualArgsLength then
-            match List.skip expectedArgsLength actualArgs with
-            | [] -> failwith "Unexpected empty innerArgs list"
-            | [innerArgType] ->
-                let innerArgs = [makeTypedIdent (com.GetUniqueVar()) innerArgType]
-                let args = outerArgs@innerArgs |> List.map argIdentToExpr
-                Apply(f, args, ApplyMeth, typ, f.Range)
-                |> makeLambdaExpr innerArgs
-            | _ ->
-                makeDynamicCurriedLambdaAndApply f.Range typ f (List.map argIdentToExpr outerArgs)
-        elif expectedArgsLength > actualArgsLength then
-            // if Option.isSome f.Range then
-            //     com.AddLog("A function with less arguments than expected has been wrapped. " +
-            //                 "Side effects may be delayed.", Warning, f.Range.Value) // filename
-            let innerArgs = List.take actualArgsLength outerArgs |> List.map argIdentToExpr
-            let outerArgs = List.skip actualArgsLength outerArgs |> List.map argIdentToExpr
-            let innerApply = makeApply com f.Range (Function(List.map Expr.getType outerArgs,typ,true)) f innerArgs
-            makeApply com f.Range typ innerApply outerArgs
-        else
-            outerArgs |> List.map argIdentToExpr
-            |> makeApply com f.Range typ f
-        |> makeLambdaExpr outerArgs
-    if not(List.sameLength argTypes args) then args else // TODO: Raise warning?
-    List.zip argTypes args
-    |> List.map (fun (argType, arg: Expr) ->
-        match argType, arg with
-        // Dynamically curried lambdas shouldn't be wrapped, see #996
-        | _, (Curried as curriedLambda) -> curriedLambda
-        // If the expected type is a generic parameter, we cannot infer the arity
-        // so generate a dynamic curried lambda just in case.
-        | GenericParam _, (Type(Function(args,_,isCurried)) as lambda)
-                when isCurried && List.isMultiple args ->
-            makeDynamicCurriedLambda lambda.Range lambda.Type lambda
-        | NeedsWrapping (expected, actual, returnType) ->
-            wrap com returnType arg expected actual
-        | _ -> arg)
-
-and makeApply com range typ callee (args: Expr list) =
-    match callee with
-    // Dynamically curried lambdas shouldn't be wrapped, see #996
-    | MaybeWrapped(Curried _) -> Apply(callee, args, ApplyMeth, typ, range)
-    // Make necessary transformations if we're applying more or less
-    // arguments than the specified function arity
-    | Type(Function(argTypes, _, _)) ->
-        let argsLength = List.length args
-        let argTypesLength = List.length argTypes
-        if (argTypesLength <> argsLength) then
-            let innerArgs, outerArgs =
-                if argTypesLength < argsLength
-                then List.take argTypesLength args, List.skip argTypesLength args
-                else args, []
-            let innerArgs = ensureArity com argTypes innerArgs
-            makeDynamicCurriedLambdaAndApply range typ callee (innerArgs@outerArgs)
-        else
-            Apply(callee, ensureArity com argTypes args, ApplyMeth, typ, range)
-    | _ ->
-        Apply(callee, args, ApplyMeth, typ, range)
 
 /// Helper when we need to compare the types of the arguments applied to a method
 /// (concrete) with the declared argument types for that method (may be generic)
@@ -441,7 +356,7 @@ let compareDeclaredAndAppliedArgs declaredArgs appliedArgs =
     let rec funcTypesEqual eq types1 types2 =
         match types1, types2 with
         | [], [] -> true
-        | GenericParam _::[], _ -> true
+        | [GenericParam _], _ -> true
         | head1::rest1, head2::rest2 ->
             eq head1 head2 && funcTypesEqual eq rest1 rest2
         | _ -> false
@@ -456,23 +371,16 @@ let compareDeclaredAndAppliedArgs declaredArgs appliedArgs =
             argEqual genArg1 genArg2
         | Tuple genArgs1, Tuple genArgs2 ->
             listsEqual argEqual genArgs1 genArgs2
-        | Function (genArgs1, returnType1, isCurried1), Function (genArgs2, returnType2, isCurried2) ->
-            if isCurried1 then
-                if isCurried2 then
-                    match genArgs1, genArgs2 with
-                    | [], [] -> argEqual returnType1 returnType2
-                    | head1::rest1, head2::rest2 ->
-                        if argEqual head1 head2 then
-                            let types1 = rest1@[returnType1]
-                            let types2 = rest2@[returnType2]
-                            funcTypesEqual argEqual types1 types2
-                        else false
-                    | _ -> false
+        | LambdaType (genArgs1, returnType1), LambdaType (genArgs2, returnType2) ->
+            match genArgs1, genArgs2 with
+            | [], [] -> argEqual returnType1 returnType2
+            | head1::rest1, head2::rest2 ->
+                if argEqual head1 head2 then
+                    let types1 = rest1@[returnType1]
+                    let types2 = rest2@[returnType2]
+                    funcTypesEqual argEqual types1 types2
                 else false
-            else
-                not isCurried2
-                && argEqual returnType1 returnType2
-                && listsEqual argEqual genArgs1 genArgs2
+            | _ -> false
         | DeclaredType(ent1, genArgs1), DeclaredType(ent2, genArgs2) ->
             ent1 = ent2 && listsEqual argEqual genArgs1 genArgs2
         | GenericParam _, _ ->

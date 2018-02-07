@@ -30,14 +30,12 @@ type ImportAttribute(selector: string, from: string) =
 type ExportDefaultAttribute() =
     inherit Attribute()
 
-/// Function calls will be replaced by inlined JS code.
+/// LambdaType calls will be replaced by inlined JS code.
 /// More info: http://fable.io/docs/interacting.html#Import-attribute
 type EmitAttribute(macro: string) =
     inherit Attribute()
 
-/// When this is attached to a method, Fable will add the generic info
-/// as an extra argument to every call, making it possible to access
-/// a type 'T with `typeof<'T>` within the method body
+[<Obsolete("PassGenerics doesn't have any effect in Fable 2, please remove the attribute.")>]
 [<AttributeUsage(AttributeTargets.Method)>]
 type PassGenericsAttribute() =
     inherit Attribute()
@@ -55,7 +53,7 @@ type StringEnumAttribute() =
 /// Used to spread a list as last argument. Mainly intended
 /// for `React.createElement` binding, not for general use.
 [<AttributeUsage(AttributeTargets.Parameter)>]
-type ParamListAttribute() =
+type ParamSeqAttribute() =
     inherit Attribute()
 
 /// Erased union type to represent one of two possible values.

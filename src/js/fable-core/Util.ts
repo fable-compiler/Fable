@@ -569,29 +569,49 @@ export interface ICurried {
   (...args: any[]): any;
 }
 
-export function curry(f: ICurried, expectedArgsLength?: number): any {
-  if (f.curried === true) {
-    return f;
-  }
-  const curriedFn: ICurried = (...args: any[]) => {
-    const args2 = args.map((x) => typeof x === "function" ? curry(x) : x);
-    const actualArgsLength = Math.max(args2.length, 1);
-    expectedArgsLength = Math.max(expectedArgsLength || f.length, 1);
-    if (actualArgsLength >= expectedArgsLength) {
-      const restArgs = args2.splice(expectedArgsLength);
-      const res = f(...args2);
-      if (typeof res === "function") {
-        const newLambda = curry(res);
-        return restArgs.length === 0 ? newLambda : newLambda(...restArgs);
-      } else {
-        return res;
-      }
-    } else {
-      return curry((...args3: any[]) => {
-        return f(...args2.concat(args3));
-      }, expectedArgsLength - actualArgsLength);
+/* tslint:disable */
+export function uncurry(arity: number, f: Function) {
+/* tslint:enable */
+  const wrap: ICurried = (...args: any[]) => {
+    // In some cases there may be more arguments applied than necessary
+    // (e.g. index when mapping an array), discard them
+    let res: any = f;
+    for (let i = 0; i < arity && i < args.length; i++) {
+      res = res(args[i]);
     }
+    return res;
   };
-  curriedFn.curried = true;
-  return curriedFn;
+  wrap.curried = true;
+  return wrap;
+}
+
+export function partial(arity: number, f: ICurried, args: any[]): any {
+  if (f.curried) {
+    return f.apply(null, args);
+  } else {
+    switch (arity) {
+      case 1:
+        return (a1: any) => f.apply(null, [a1].concat(args));
+      case 2:
+        return (a1: any) => (a2: any) => f.apply(null, [a1, a2].concat(args));
+      case 3:
+        return (a1: any) => (a2: any) => (a3: any) => f.apply(null, [a1, a2, a3].concat(args));
+      case 4:
+        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f.apply(null, [a1, a2, a3, a4].concat(args));
+      case 5:
+        return (a1: any) => (a2: any) => (a3: any) =>
+          (a4: any) => (a5: any) => f.apply(null, [a1, a2, a3, a4, a5].concat(args));
+      case 6:
+        return (a1: any) => (a2: any) => (a3: any) => (a4: any) =>
+          (a5: any) => (a6: any) => f.apply(null, [a1, a2, a3, a4, a5, a6].concat(args));
+      case 7:
+        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) =>
+          (a6: any) => (a7: any) => f.apply(null, [a1, a2, a3, a4, a5, a6, a7].concat(args));
+      case 8:
+        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) => (a6: any) =>
+          (a7: any) => (a8: any) => f.apply(null, [a1, a2, a3, a4, a5, a6, a7, a8].concat(args));
+      default:
+        throw new Error("Partially applying to get a function with more than 8-arity is not supported");
+    }
+  }
 }

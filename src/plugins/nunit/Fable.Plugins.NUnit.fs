@@ -82,7 +82,7 @@ module Util =
                 ?loc=testRange)) :> Babel.Statement
 
     let asserts com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | "AreEqual" ->
             match i.args with
             | [expected; actual] -> Some [actual; expected]
@@ -134,7 +134,7 @@ type NUnitPlugin() =
 
     interface IReplacePlugin with
         member x.TryReplace com info =
-            match info.ownerFullName, info.methodName with
+            match info.ownerFullName, info.memberName with
             | "NUnit.Framework.Assert", _ -> asserts com info
             | "Microsoft.FSharp.Control.FSharpAsync", "RunSynchronously" ->
                 match info.returnType with

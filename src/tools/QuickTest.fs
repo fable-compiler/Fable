@@ -62,6 +62,20 @@ test()
 let test2(f: IFoo) =
     f.Foo()
 
+let print (i: int) = System.Console.WriteLine(i)
+
+let call2 f g = f 5 (fun x -> g)
+
+// call2(f, g) => f(5, x => g)
+
+call2 (fun i f -> f (i + 1)) 3 |> print
+
+// call2((i, f) => f(i +1))(3)
+
+
+call2 (fun i f -> f i 1) (fun x -> x) |> print
+
+
 let test_infinity() =
     [1;2;3;4]
     |> List.map (fun x -> x + 4)

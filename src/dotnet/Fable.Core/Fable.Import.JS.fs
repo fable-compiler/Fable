@@ -15,7 +15,7 @@ module JS =
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: s: string -> PropertyDescriptor with get, set
 
     and [<AllowNullLiteral>] Object =
-        abstract ``constructor``: Function with get, set
+        abstract ``constructor``: LambdaType with get, set
         abstract toString: unit -> string
         abstract toLocaleString: unit -> string
         abstract valueOf: unit -> obj
@@ -53,11 +53,11 @@ module JS =
         abstract getOwnPropertyDescriptor: o: obj * propertyKey: PropertyKey -> PropertyDescriptor
         abstract defineProperty: o: obj * propertyKey: PropertyKey * attributes: PropertyDescriptor -> obj
 
-    and [<AllowNullLiteral>] Function =
+    and [<AllowNullLiteral>] LambdaType =
         abstract prototype: obj with get, set
         abstract length: float with get, set
         abstract arguments: obj with get, set
-        abstract caller: Function with get, set
+        abstract caller: LambdaType with get, set
         abstract name: string with get, set
         abstract apply: thisArg: obj * ?argArray: obj -> obj
         abstract call: thisArg: obj * [<ParamArray>] argArray: obj[] -> obj
@@ -66,14 +66,14 @@ module JS =
         [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: obj[] -> obj
 
     and [<AllowNullLiteral>] FunctionConstructor =
-        abstract prototype: Function with get, set
-        [<Emit("new $0($1...)")>] abstract Create: [<ParamArray>] args: string[] -> Function
-        [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: string[] -> Function
+        abstract prototype: LambdaType with get, set
+        [<Emit("new $0($1...)")>] abstract Create: [<ParamArray>] args: string[] -> LambdaType
+        [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: string[] -> LambdaType
 
     and [<AllowNullLiteral>] IArguments =
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> obj with get, set
         abstract length: float with get, set
-        abstract callee: Function with get, set
+        abstract callee: LambdaType with get, set
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<obj>
 
     and [<AllowNullLiteral>] String =
@@ -1018,7 +1018,7 @@ module JS =
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<'T>
 
     and [<AllowNullLiteral>] GeneratorFunction =
-        inherit Function
+        inherit LambdaType
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
 
     and [<AllowNullLiteral>] GeneratorFunctionConstructor =
@@ -1121,7 +1121,7 @@ module JS =
 
     and [<AllowNullLiteral>] PromiseConstructor =
         abstract prototype: Promise<obj> with get, set
-        [<Emit("$0[Symbol.species]{{=$1}}")>] abstract ``[Symbol.species]``: Function with get, set
+        [<Emit("$0[Symbol.species]{{=$1}}")>] abstract ``[Symbol.species]``: LambdaType with get, set
         [<Emit("new $0($1...)")>] abstract Create: executor: Func<Func<U2<'T, PromiseLike<'T>>, unit>, Func<obj, unit>, unit> -> Promise<'T>
         abstract all: values: U2<'T1, PromiseLike<'T1>> * U2<'T2, PromiseLike<'T2>> * U2<'T3, PromiseLike<'T3>> * U2<'T4, PromiseLike<'T4>> * U2<'T5, PromiseLike<'T5>> * U2<'T6, PromiseLike<'T6>> * U2<'T7, PromiseLike<'T7>> * U2<'T8, PromiseLike<'T8>> * U2<'T9, PromiseLike<'T9>> * U2<'T10, PromiseLike<'T10>> -> Promise<'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'T6 * 'T7 * 'T8 * 'T9 * 'T10>
         abstract all: values: U2<'T1, PromiseLike<'T1>> * U2<'T2, PromiseLike<'T2>> * U2<'T3, PromiseLike<'T3>> * U2<'T4, PromiseLike<'T4>> * U2<'T5, PromiseLike<'T5>> * U2<'T6, PromiseLike<'T6>> * U2<'T7, PromiseLike<'T7>> * U2<'T8, PromiseLike<'T8>> * U2<'T9, PromiseLike<'T9>> -> Promise<'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'T6 * 'T7 * 'T8 * 'T9>
@@ -1140,8 +1140,8 @@ module JS =
         abstract resolve: unit -> Promise<unit>
 
     type [<AllowNullLiteral>] [<Global>] Reflect =
-        static member apply(target: Function, thisArgument: obj, argumentsList: ArrayLike<obj>): obj = jsNative
-        static member construct(target: Function, argumentsList: ArrayLike<obj>, ?newTarget: obj): obj = jsNative
+        static member apply(target: LambdaType, thisArgument: obj, argumentsList: ArrayLike<obj>): obj = jsNative
+        static member construct(target: LambdaType, argumentsList: ArrayLike<obj>, ?newTarget: obj): obj = jsNative
         static member defineProperty(target: obj, propertyKey: PropertyKey, attributes: PropertyDescriptor): bool = jsNative
         static member deleteProperty(target: obj, propertyKey: PropertyKey): bool = jsNative
         static member enumerate(target: obj): IterableIterator<obj> = jsNative
@@ -1180,7 +1180,7 @@ module JS =
     let [<Global>] NaN: float = jsNative
     let [<Global>] Infinity: float = jsNative
     let [<Global>] Object: ObjectConstructor = jsNative
-    let [<Global>] Function: FunctionConstructor = jsNative
+    let [<Global>] LambdaType: FunctionConstructor = jsNative
     let [<Global>] String: StringConstructor = jsNative
     let [<Global>] Boolean: BooleanConstructor = jsNative
     let [<Global>] Number: NumberConstructor = jsNative

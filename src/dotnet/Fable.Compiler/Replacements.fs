@@ -15,11 +15,11 @@ module Util =
     let (|FloatToInt|) (x: float) = int x
 
     let (|StringLiteral|_|) = function
-        | MaybeWrapped(Fable.Value(Fable.StringConst str)) -> Some str
+        | Fable.Const(Fable.StringConst str, _) -> Some str
         | _ -> None
 
     let (|Int32Literal|_|) = function
-        | MaybeWrapped(Fable.Value(Fable.NumberConst(FloatToInt i, Int32))) -> Some i
+        | Fable.Const(Fable.NumberConst(FloatToInt i, Int32), _) -> Some i
         | _ -> None
 
     // TODO
@@ -44,10 +44,6 @@ module Util =
     //             | _ -> None
     //         | _ -> None
     //     | _ -> None
-
-    let (|Null|_|) = function
-        | MaybeWrapped(Fable.Value Fable.Null) -> Some ()
-        | _ -> None
 
     let (|Type|) (expr: Fable.Expr) = expr.Type
 
@@ -150,7 +146,7 @@ module Util =
 
     let wrapInLambda args f =
         List.map (Fable.IdentValue >> Fable.Value) args
-        |> f |> makeLambdaExpr args
+        |> f |> makeLambda args
 
     let genArg (t: Fable.Type) =
         match t.GenericArgs with
@@ -181,7 +177,7 @@ module Util =
         | Fable.Char
         | Fable.String -> args.Head
         | Fable.Unit | Fable.Boolean
-        | Fable.Array _ | Fable.Tuple _ | Fable.Function _ | Fable.Enum _ ->
+        | Fable.Array _ | Fable.Tuple _ | Fable.LambdaType _ | Fable.Enum _ ->
             GlobalCall ("String", None, false, [args.Head])
             |> makeCall i.range i.returnType
         | Fable.Number _ | Fable.ExtendedNumber (Int64 | UInt64 | Decimal) ->
@@ -474,7 +470,7 @@ module Util =
             icall args equal
         | Fable.Array _ | Fable.Tuple _
         | Fable.Unit | Fable.Any | Fable.DeclaredType _
-        | Fable.GenericParam _ | Fable.Option _ | Fable.Function _ ->
+        | Fable.GenericParam _ | Fable.Option _ | Fable.LambdaType _ ->
             CoreLibCall("Util", Some "equals", false, args)
             |> makeCall i.range i.returnType |> is equal |> Some
 
@@ -509,7 +505,7 @@ module Util =
             icall args op
         | Fable.Array _ | Fable.Tuple _
         | Fable.Unit | Fable.Any | Fable.DeclaredType _
-        | Fable.GenericParam _ | Fable.Option _ | Fable.Function _ ->
+        | Fable.GenericParam _ | Fable.Option _ | Fable.LambdaType _ ->
             ccall_ r (Fable.Number Int32) "Util" "compare" args |> wrapWith op
 
     let makeComparer (typArg: Fable.Type option) =
@@ -534,7 +530,7 @@ module Util =
 
     let makeMapOrSetCons com (i: Fable.ApplyInfo) modName args =
         let typArg =
-            match i.calleeTypeArgs, i.methodTypeArgs with
+            match i.ownerGenArgs, i.memberGenArgs with
             | x::_, _ | [], x::_ -> Some x
             | [], [] -> None
         let args =
@@ -622,16 +618,16 @@ module AstPass =
             | Fable.Value(Fable.TupleConst exprs) -> exprs
             | expr when expr.Type = Fable.Unit -> []
             | expr -> [expr]
-        match i.methodName with
+        match i.memberName with
         | "importDynamic" ->
             GlobalCall ("import", None, false, i.args)
             |> makeCall i.range i.returnType |> Some
         | Naming.StartsWith "import" _ ->
             let fail() =
-                sprintf "%s.%s only accepts literal strings" i.ownerFullName i.methodName
+                sprintf "%s.%s only accepts literal strings" i.ownerFullName i.memberName
                 |> addError com i.fileName i.range
             let selector, args =
-                match i.methodName with
+                match i.memberName with
                 | "import" ->
                     match i.args with
                     | Fable.Value(Fable.StringConst selector)::args -> selector, args
@@ -646,7 +642,7 @@ module AstPass =
                 | _ -> fail(); "unknown"
             Fable.ImportRef(selector, path, Fable.CustomImport) |> Fable.Value |> Some
         | "op_BangBang" ->
-            Fable.Wrapped (i.args.Head, i.methodTypeArgs.Head) |> Some
+            Fable.Wrapped (i.args.Head, i.memberGenArgs.Head) |> Some
         // The (!^) is only for erased types so we don't need to wrap the result
         | "op_BangHat" -> i.args.Head |> Some
         | "op_Dynamic" ->
@@ -662,7 +658,7 @@ module AstPass =
         | "op_Dollar" | "createNew" ->
             let args = destruct i.args.Tail.Head
             let applyMeth =
-                if i.methodName = "createNew"
+                if i.memberName = "createNew"
                 then Fable.ApplyCons else Fable.ApplyMeth
             Fable.Apply(i.args.Head, args, applyMeth, i.returnType, i.range) |> Some
         | "op_EqualsEqualsGreater" ->
@@ -681,8 +677,9 @@ module AstPass =
             match i.args with
             | [arg] -> makeJsLiteralFromLambda i.range arg |> Some
             | _ -> None
+        | "jsThis" -> Fable.Value Fable.This |> Some
         | "createEmpty" ->
-            Fable.ObjExpr ([], i.range)
+            Fable.ObjectExpr ([], i.range)
             |> wrap i.returnType |> Some
         | "nameof" ->
             match i.args with
@@ -704,18 +701,18 @@ module AstPass =
                 |> makeCall i.range i.returnType)
         | "async.AwaitPromise.Static" | "async.StartAsPromise.Static" ->
             let meth =
-                if i.methodName = "async.AwaitPromise.Static"
+                if i.memberName = "async.AwaitPromise.Static"
                 then "awaitPromise" else "startAsPromise"
             CoreLibCall("Async", Some meth, false, i.args)
             |> makeCall i.range i.returnType |> Some
         | "ofJsonAsType" ->
             match i.args with
-            | [arg; typ] -> fableCoreLib com { i with methodName = "ofJson"; args = [arg; makeJsObject None ["T", typ]] }
-            | _ -> failwithf "Unexpected number of arguments for %s" i.methodName
+            | [arg; typ] -> fableCoreLib com { i with memberName = "ofJson"; args = [arg; makeJsObject None ["T", typ]] }
+            | _ -> failwithf "Unexpected number of arguments for %s" i.memberName
         | "toJson" | "ofJson" | "deflate" | "inflate" | "toPlainJsObj"
         | "toJsonWithTypeInfo" | "ofJsonWithTypeInfo" ->
-            let modName = if i.methodName = "toPlainJsObj" then "Util" else "Serialize"
-            CoreLibCall(modName, Some i.methodName, false, i.args)
+            let modName = if i.memberName = "toPlainJsObj" then "Util" else "Serialize"
+            CoreLibCall(modName, Some i.memberName, false, i.args)
             |> makeCall i.range i.returnType |> Some
         | "jsNative" ->
             // TODO: Fail at compile time?
@@ -745,12 +742,12 @@ module AstPass =
         | _ -> None
 
     let references com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | ".ctor" ->
             makeJsObject i.range [("contents", i.args.Head)] |> Some
         | "contents" | "value" ->
             let prop = makeStrConst "contents"
-            match i.methodKind with
+            match i.memberKind with
             | Fable.Getter _ ->
                 makeGet i.range i.returnType i.callee.Value prop |> Some
             | Fable.Setter _ ->
@@ -759,7 +756,7 @@ module AstPass =
         | _ -> None
 
     let fsFormat com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | "value" ->
             makeGet None i.returnType i.callee.Value (makeStrConst "input")
             |> Some
@@ -803,7 +800,7 @@ module AstPass =
                 GlobalCall ("Math", Some methName, false, args)
                 |> makeCall range typ |> Some
         let r, typ, args = info.range, info.returnType, info.args
-        match info.methodName with
+        match info.memberName with
         | "keyValuePattern" ->
             info.args.Head |> Some
         | "defaultArg" ->
@@ -835,20 +832,20 @@ module AstPass =
         | "op_GreaterThan" | "gt" -> compare com info.range args (Some BinaryGreater) |> Some
         | "op_GreaterThanOrEqual" | "gte" -> compare com info.range args (Some BinaryGreaterOrEqual) |> Some
         | "min" | "max" ->
-            let op = if info.methodName = "min" then BinaryLess else BinaryGreater
+            let op = if info.memberName = "min" then BinaryLess else BinaryGreater
             let comparison = compare com info.range args (Some op)
             Fable.IfThenElse(comparison, args.Head, args.Tail.Head, info.range) |> Some
         // Operators
         | "op_Addition" ->
-            tryOptimizeLiteralAddition info.range info.methodTypeArgs info.returnType args |> Some
+            tryOptimizeLiteralAddition info.range info.memberGenArgs info.returnType args |> Some
         | "op_Subtraction" | "op_Multiply" | "op_Division"
         | "op_Modulus" | "op_LeftShift" | "op_RightShift"
         | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
         | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
-            applyOp info.range info.methodTypeArgs info.returnType args info.methodName |> Some
+            applyOp info.range info.memberGenArgs info.returnType args info.memberName |> Some
         | "log" -> // log with base value i.e. log(8.0, 2.0) -> 3.0
             match info.args with
-            | [_] -> math r typ args info.methodName
+            | [_] -> math r typ args info.memberName
             | [_; _] ->  emit info "Math.log($0) / Math.log($1)" info.args |> Some
             | _ -> None
         // Math functions
@@ -858,7 +855,7 @@ module AstPass =
         | "abs" | "acos" | "asin" | "atan" | "atan2"
         | "cos"  | "exp" | "floor" | "log" | "log10"
         | "sin" | "sqrt" | "tan" ->
-            math r typ args info.methodName
+            math r typ args info.memberName
         | "round" -> ccall info "Util" "round" args |> Some
         | "sign" ->
             let args =
@@ -870,43 +867,43 @@ module AstPass =
         // Numbers
         | "infinity" | "infinitySingle" -> emit info "Number.POSITIVE_INFINITY" [] |> Some
         | "naN" | "naNSingle" -> emit info "Number.NaN" [] |> Some
-        // Function composition
+        // LambdaType composition
         | "op_PipeRight" | "op_PipeLeft" as meth ->
             match meth, info.args with
             | "op_PipeRight", [x; f]
             | "op_PipeLeft", [f; x] ->
-                makeApply com info.range info.returnType f [x] |> Some
+                makeCall com info.range info.returnType f [x] |> Some
             | _ -> None
         | "op_PipeRight2" | "op_PipeLeft2" as meth ->
             match meth, info.args with
             | "op_PipeRight2", [x; y; f]
             | "op_PipeLeft2", [f; x; y] ->
-                makeApply com info.range info.returnType f [x; y] |> Some
+                makeCall com info.range info.returnType f [x; y] |> Some
             | _ -> None
         | "op_PipeRight3" | "op_PipeLeft3" as meth ->
             match meth, info.args with
             | "op_PipeRight3", [x; y; z; f]
             | "op_PipeLeft3", [f; x; y; z] ->
-                makeApply com info.range info.returnType f [x; y; z] |> Some
+                makeCall com info.range info.returnType f [x; y; z] |> Some
             | _ -> None
         | "op_ComposeRight" | "op_ComposeLeft" ->
-            match args, info.methodName with
+            match args, info.memberName with
             | [arg1; arg2], "op_ComposeRight" -> Some(arg1, arg2)
             | [arg1; arg2], "op_ComposeLeft" -> Some(arg2, arg1)
             | _ -> None
             |> Option.map (fun (f1, f2) ->
                 let tempVar = com.GetUniqueVar() |> makeIdent
                 [Fable.IdentValue tempVar |> Fable.Value]
-                |> makeApply com info.range Fable.Any f1
+                |> makeCall com info.range Fable.Any f1
                 |> List.singleton
-                |> makeApply com info.range Fable.Any f2
-                |> makeLambdaExpr [tempVar])
+                |> makeCall com info.range Fable.Any f2
+                |> makeLambda [tempVar])
         // Reference
         | "op_Dereference" -> makeGet r info.returnType args.Head (makeStrConst "contents") |> Some
         | "op_ColonEquals" -> Fable.Set(args.Head, Some(makeStrConst "contents"), args.Tail.Head, r) |> Some
         | "ref" -> makeJsObject r [("contents", args.Head)] |> Some
         | "increment" | "decrement" ->
-            if info.methodName = "increment" then "++" else "--"
+            if info.memberName = "increment" then "++" else "--"
             |> sprintf "void($0.contents%s)"
             |> emit info <| args |> Some
         // Conversions
@@ -917,14 +914,14 @@ module AstPass =
         | "toInt" | "toUInt"
         | "toInt32" | "toUInt32"
         | "toInt64" | "toUInt64"
-            -> toInt false info.range info.methodTypeArgs.Head info.returnType args |> Some
+            -> toInt false info.range info.memberGenArgs.Head info.returnType args |> Some
         | "toSingle" | "toDouble" | "toDecimal" ->
-            toFloat info.range info.methodTypeArgs.Head info.returnType args |> Some
-        | "toChar" -> toChar info info.methodTypeArgs.Head args |> Some
-        | "toString" -> toString info info.methodTypeArgs.Head args |> Some
+            toFloat info.range info.memberGenArgs.Head info.returnType args |> Some
+        | "toChar" -> toChar info info.memberGenArgs.Head args |> Some
+        | "toString" -> toString info info.memberGenArgs.Head args |> Some
         | "toEnum" -> args.Head |> Some
         | "createDictionary" ->
-            makeDictionaryOrHashSet r typ "Map" false info.methodTypeArgs.Head args |> Some
+            makeDictionaryOrHashSet r typ "Map" false info.memberGenArgs.Head args |> Some
         | "createSet" ->
             makeMapOrSetCons com info "Set" args |> Some
         // Ignore: wrap to keep Unit type (see Fable2Babel.transformFunction)
@@ -932,13 +929,13 @@ module AstPass =
         // Ranges
         | "op_Range" | "op_RangeStep" ->
             let meth =
-                match info.methodTypeArgs.Head with
+                match info.memberGenArgs.Head with
                 | Fable.Char -> "rangeChar"
-                | _ -> if info.methodName = "op_Range" then "range" else "rangeStep"
+                | _ -> if info.memberName = "op_Range" then "range" else "rangeStep"
             ccall info "Seq" meth args |> Some
         // Tuples
         | "fst" | "snd" ->
-            if info.methodName = "fst" then 0 else 1
+            if info.memberName = "fst" then 0 else 1
             |> makeIntConst
             |> makeGet r typ args.Head |> Some
         // Strings
@@ -962,22 +959,22 @@ module AstPass =
                 Fable.Throw (newError None Fable.Any [], typ, r) |> Some
         | "failWith"  | "invalidOp" | "invalidArg" ->
             let args =
-                match info.methodName with
+                match info.memberName with
                 | "invalidArg" -> [makeEmit None Fable.String args "$1 + '\\nParameter name: ' + $0"]
                 | _ -> args
             Fable.Throw (newError None Fable.Any args, typ, r) |> Some
         // Type ref
         | "typeOf" | "typeDefOf" ->
             None // TODO
-            // info.methodTypeArgs.Head
-            // |> resolveTypeRef com info (info.methodName = "typeOf")
+            // info.memberGenArgs.Head
+            // |> resolveTypeRef com info (info.memberName = "typeOf")
             // |> Some
         // Concatenates two lists
         | "op_Append" -> ccall info "List" "append" args |> Some
         | _ -> None
 
     let chars com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | "toUpper" -> icall i "toLocaleUpperCase" |> Some
         | "toUpperInvariant" -> icall i "toUpperCase" |> Some
         | "toLower" -> icall i "toLocaleLowerCase" |> Some
@@ -987,7 +984,7 @@ module AstPass =
         | "isUpper" | "isLower"
         | "parse" ->
             let methName =
-                match i.methodName with
+                match i.memberName with
                 | "isNumber" ->
                     addWarning com i.fileName i.range "Char.IsNumber is compiled as Char.IsDigit"
                     "isDigit"
@@ -1002,7 +999,7 @@ module AstPass =
         let icall2 meth (callee, args) =
             InstanceCall (callee, meth, args)
             |> makeCall i.range i.returnType
-        match i.methodName with
+        match i.memberName with
         | ".ctor" ->
             match i.args.Head.Type with
             | Fable.String ->
@@ -1050,12 +1047,12 @@ module AstPass =
             | [Type Fable.Char]
             | [Type Fable.String]
             | [Type Fable.Char; Type(Fable.Number Int32)]
-            | [Type Fable.String; Type(Fable.Number Int32)] -> icall i i.methodName |> Some
+            | [Type Fable.String; Type(Fable.Number Int32)] -> icall i i.memberName |> Some
             | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
                    |> addErrorAndReturnNull com i.fileName i.range |> Some
         | "trim" | "trimStart" | "trimEnd" ->
             let side =
-                match i.methodName with
+                match i.memberName with
                 | "trimStart" -> "start"
                 | "trimEnd" -> "end"
                 | _ -> "both"
@@ -1065,10 +1062,10 @@ module AstPass =
             InstanceCall(i.callee.Value, "split", [makeStrConst ""])
             |> makeCall i.range i.returnType |> Some
         | "iterate" | "iterateIndexed" | "forAll" | "exists" ->
-            CoreLibCall("Seq", Some i.methodName, false, i.args)
+            CoreLibCall("Seq", Some i.memberName, false, i.args)
             |> makeCall i.range i.returnType |> Some
         | "map" | "mapIndexed" | "collect"  ->
-            CoreLibCall("Seq", Some i.methodName, false, i.args)
+            CoreLibCall("Seq", Some i.memberName, false, i.args)
             |> makeCall i.range Fable.Any
             |> List.singleton
             |> emit i "Array.from($0).join('')"
@@ -1113,8 +1110,8 @@ module AstPass =
         |> makeCall i.range i.returnType
 
     let bitConvert com (i: Fable.ApplyInfo) =
-        let methodName =
-            if i.methodName = "getBytes" then
+        let memberName =
+            if i.memberName = "getBytes" then
                 match i.args.Head.Type with
                 | Fable.Boolean -> "getBytesBoolean"
                 | Fable.Char -> "getBytesChar"
@@ -1127,8 +1124,8 @@ module AstPass =
                 | Fable.Number Float32 -> "getBytesSingle"
                 | Fable.Number Float64 -> "getBytesDouble"
                 | x -> failwithf "Unsupported type in BitConverter.GetBytes(): %A" x
-            else i.methodName
-        CoreLibCall("BitConverter", Some methodName, false, i.args)
+            else i.memberName
+        CoreLibCall("BitConverter", Some memberName, false, i.args)
         |> makeCall i.range i.returnType |> Some
 
     let parse (com: ICompiler) (i: Fable.ApplyInfo) isFloat =
@@ -1137,7 +1134,7 @@ module AstPass =
             if isFloat
             then "Double"
             else "Int32"
-        match i.methodName with
+        match i.memberName with
         | "isNaN" when isFloat ->
             match i.args with
             | [_someNumber] ->
@@ -1148,7 +1145,7 @@ module AstPass =
         // TODO verify that the number is within the Int32/Double/Single range
         | "parse" | "tryParse" ->
             let hexConst = float System.Globalization.NumberStyles.HexNumber
-            match i.methodName, i.args with
+            match i.memberName, i.args with
             | "parse", [str] ->
                 CoreLibCall (numberModule, Some "parse", false,
                     [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10)])
@@ -1173,7 +1170,7 @@ module AstPass =
                     [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10); defValue])
                 |> makeCall i.range i.returnType |> Some
             | _ ->
-                sprintf "%s.%s only accepts a single argument" i.ownerFullName i.methodName
+                sprintf "%s.%s only accepts a single argument" i.ownerFullName i.memberName
                 |> addErrorAndReturnNull com i.fileName i.range |> Some
         | "toString" ->
             match i.args with
@@ -1185,27 +1182,27 @@ module AstPass =
         | _ -> None
 
     let convert com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | "toSByte" | "toByte"
         | "toInt16" | "toUInt16"
         | "toInt32" | "toUInt32"
         | "toInt64" | "toUInt64"
-            -> toInt true i.range i.methodArgTypes.Head i.returnType i.args |> Some
+            -> toInt true i.range i.argTypes.Head i.returnType i.args |> Some
         | "toSingle" | "toDouble" | "toDecimal"
-            -> toFloat i.range i.methodArgTypes.Head i.returnType i.args |> Some
-        | "toChar" -> toChar i i.methodArgTypes.Head i.args |> Some
-        | "toString" -> toString i i.methodArgTypes.Head i.args |> Some
+            -> toFloat i.range i.argTypes.Head i.returnType i.args |> Some
+        | "toChar" -> toChar i i.argTypes.Head i.args |> Some
+        | "toString" -> toString i i.argTypes.Head i.args |> Some
         | "toBase64String" | "fromBase64String" ->
             if not(List.isSingle i.args) then
-                sprintf "Convert.%s only accepts one single argument" (Naming.upperFirst i.methodName)
+                sprintf "Convert.%s only accepts one single argument" (Naming.upperFirst i.memberName)
                 |> addWarning com i.fileName i.range
-            ccall i "String" i.methodName i.args |> Some
+            ccall i "String" i.memberName i.args |> Some
         | _ -> None
 
     let console com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | "out" ->
-            match i.methodKind with
+            match i.memberKind with
             | Fable.Getter _ -> Fable.Null |> Fable.Value |> Some
             | _ -> None
         | "write" ->
@@ -1215,7 +1212,7 @@ module AstPass =
         | _ -> None
 
     let decimals com (i: Fable.ApplyInfo) =
-        match i.methodName, i.args with
+        match i.memberName, i.args with
         | ".ctor", [Fable.Value (Fable.NumberConst (x, _))] ->
 #if FABLE_COMPILER
             makeNumConst (float x) |> Some
@@ -1257,18 +1254,18 @@ module AstPass =
         | _,_ -> None
 
     let debug com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | "write" ->
             addWarning com i.fileName i.range "Write will behave as WriteLine"
             log com i |> Some
         | "writeLine" -> log com i |> Some
-        | "break" -> Fable.DebugBreak i.range |> Some
+        | "break" -> Fable.Debugger i.range |> Some
         | "assert" ->
             // emit i "if (!$0) { debugger; }" i.args |> Some
             let cond =
                 Fable.Apply(Fable.Value(Fable.UnaryOp UnaryNot),
                     i.args, Fable.ApplyMeth, Fable.Boolean, i.range)
-            Fable.IfThenElse(cond, Fable.DebugBreak i.range, Fable.Value Fable.Null, i.range)
+            Fable.IfThenElse(cond, Fable.Debugger i.range, Fable.Value Fable.Null, i.range)
             |> Some
         | _ -> None
 
@@ -1279,7 +1276,7 @@ module AstPass =
             match i.callee with
             | Some (Type (EntFullName "System.Text.RegularExpressions.Group")) -> true
             | _ -> false
-        match i.methodName with
+        match i.memberName with
         | ".ctor" ->
             // TODO: Use RegexConst if no options have been passed?
             CoreLibCall("RegExp", Some "create", false, i.args)
@@ -1319,14 +1316,14 @@ module AstPass =
     // Compile static strings to their constant values
     // reference: https://msdn.microsoft.com/en-us/visualfsharpdocs/conceptual/languageprimitives.errorstrings-module-%5bfsharp%5d
     let errorStrings com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | "inputArrayEmptyString" -> makeStrConst "The input array was empty" |> Some
         | "inputSequenceEmptyString" -> makeStrConst "The input sequence was empty" |> Some
         | "inputMustBeNonNegativeString" -> makeStrConst "The input must be non-negative" |> Some
         | _ -> None
 
     let languagePrimitives com (i: Fable.ApplyInfo) =
-        match i.methodName, (i.callee, i.args) with
+        match i.memberName, (i.callee, i.args) with
         | "enumOfValue", OneArg (arg) -> arg |> Some
         | "genericHash", _ ->
             CoreLibCall("Util", Some "hash", false, i.args)
@@ -1345,7 +1342,7 @@ module AstPass =
         | _ -> None
 
     let intrinsicFunctions com (i: Fable.ApplyInfo) =
-        match i.methodName, (i.callee, i.args) with
+        match i.memberName, (i.callee, i.args) with
         | "checkThis", (None, [arg]) -> Some arg
         | "unboxFast", OneArg (arg) -> wrap i.returnType arg |> Some
         | "unboxGeneric", OneArg (arg) -> wrap i.returnType arg |> Some
@@ -1368,10 +1365,10 @@ module AstPass =
             CoreLibCall("Array", Some "setSlice", false, args)
             |> makeCall i.range i.returnType |> Some
         | "typeTestGeneric", (None, [expr]) ->
-            makeTypeTest com i.fileName i.range expr i.methodTypeArgs.Head |> Some
+            makeTypeTest com i.fileName i.range expr i.memberGenArgs.Head |> Some
         | "createInstance", (None, _) ->
             None // TODO
-            // let typRef, args = resolveTypeRef com i false i.methodTypeArgs.Head, []
+            // let typRef, args = resolveTypeRef com i false i.memberGenArgs.Head, []
             // Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | "rangeInt32", (None, args) ->
             CoreLibCall("Seq", Some "rangeStep", false, args)
@@ -1398,13 +1395,13 @@ module AstPass =
         | _ -> None
 
     let activator com (i: Fable.ApplyInfo) =
-        match i.methodName, i.callee, i.args with
+        match i.memberName, i.callee, i.args with
         | "createInstance", None, typRef::args ->
             Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
         | _ -> None
 
     let funcs com (i: Fable.ApplyInfo) =
-        match i.methodName, i.callee with
+        match i.memberName, i.callee with
         | "adapt", _ -> wrap i.returnType i.args.Head |> Some
         | "invoke", Some callee ->
             Fable.Apply(callee, i.args, Fable.ApplyMeth, i.returnType, i.range) |> Some
@@ -1418,12 +1415,12 @@ module AstPass =
             let f =
                 [Fable.Value (Fable.IdentValue ident)]
                 |> makeArray Fable.Any
-                |> makeLambdaExpr [ident]
+                |> makeLambda [ident]
             // Prevent functions being run twice, see #198
             ccall_ r t "Option" "defaultArg" [arg; makeArray Fable.Any []; f]
         let getCallee(i: Fable.ApplyInfo) =
             match i.callee with Some c -> c | None -> i.args.Head
-        match i.methodName with
+        match i.memberName with
         | "none" ->
             Fable.Null |> Fable.Value |> Some
         | "value" | "getValue" ->
@@ -1434,7 +1431,7 @@ module AstPass =
             wrap i.returnType (getCallee i) |> Some
         | "isSome" | "isNone" ->
             let op =
-                if i.methodName = "isSome"
+                if i.memberName = "isSome"
                 then BinaryUnequal
                 else BinaryEqual
             let comp =
@@ -1444,7 +1441,7 @@ module AstPass =
             | Fable.Boolean _ -> Some comp
             // Hack to fix instance member calls (e.g., myOpt.IsSome)
             // For some reason, F# compiler expects them to be applicable
-            | _ -> makeLambdaExpr [] comp |> Some
+            | _ -> makeLambda [] comp |> Some
         | "map" | "bind" ->
             let f, arg = i.args.Head, i.args.Tail.Head
             [arg; Fable.Value Fable.Null; f]
@@ -1469,13 +1466,13 @@ module AstPass =
                 let args = List.rev i.args
                 let opt = toArray None Fable.Any args.Head
                 List.rev (opt::args.Tail)
-            ccall i "Seq" i.methodName args |> Some
+            ccall i "Seq" i.memberName args |> Some
         // | "map2" | "map3" -> failwith "TODO"
         | _ -> None
 
     let timeSpans com (i: Fable.ApplyInfo) =
         // let callee = match i.callee with Some c -> c | None -> i.args.Head
-        match i.methodName with
+        match i.memberName with
         | ".ctor" ->
             CoreLibCall("TimeSpan", Some "create", false, i.args)
             |> makeCall i.range i.returnType |> Some
@@ -1486,7 +1483,7 @@ module AstPass =
         | _ -> None
 
     let systemEnv com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | "newLine" -> Some (Fable.Value (Fable.StringConst "\n"))
         | _ -> None
 
@@ -1497,9 +1494,9 @@ module AstPass =
         let moduleName =
             if i.ownerFullName = "System.DateTime"
             then "Date" else "DateOffset"
-        match i.methodName with
+        match i.memberName with
         | ".ctor" ->
-            match i.methodArgTypes with
+            match i.argTypes with
             | [] -> ccall i moduleName "minValue" [] |> Some
             | (Fable.ExtendedNumber Int64)::_ ->
                 match i.args with
@@ -1520,7 +1517,7 @@ module AstPass =
         | "toString" ->
             ccall i "Date" "toString" (i.callee.Value::i.args) |> Some
         | "kind" | "offset" ->
-            makeGet i.range i.returnType i.callee.Value (makeStrConst i.methodName) |> Some
+            makeGet i.range i.returnType i.callee.Value (makeStrConst i.memberName) |> Some
         // DateTimeOffset
         | "dateTime" | "localDateTime" | "utcDateTime" as m ->
             let ms = getTime i.callee.Value
@@ -1535,14 +1532,14 @@ module AstPass =
             let value =
                 List.head i.args |> chainCall "toNumber" [] (Fable.Number Float64)
             let value =
-                if i.methodName = "fromUnixTimeSeconds"
+                if i.memberName = "fromUnixTimeSeconds"
                 then makeBinOp i.range i.returnType [value; makeIntConst 1000] BinaryMultiply
                 else value
             ccall i "DateOffset" "default" [value; makeIntConst 0] |> Some
         | "toUnixTimeSeconds"
         | "toUnixTimeMilliseconds" ->
             let ms = getTime i.callee.Value
-            if i.methodName = "toUnixTimeSeconds"
+            if i.memberName = "toUnixTimeSeconds"
             then [makeBinOp i.range i.returnType [ms; makeIntConst 1000] BinaryDivide]
             else [ms]
             |> ccall i "Long" "fromNumber" |> Some
@@ -1550,7 +1547,7 @@ module AstPass =
         | "ticks" | "utcTicks" | "toBinary" ->
             let ms = getTime i.callee.Value
             let offset =
-                if i.methodName = "utcTicks"
+                if i.memberName = "utcTicks"
                 then makeIntConst 0
                 else ccall_ None (Fable.Number Float64) "Date" "offset" [i.callee.Value]
             ccall i "Long" "unixEpochMillisecondsToTicks" [ms; offset] |> Some
@@ -1567,7 +1564,7 @@ module AstPass =
     let keyValuePairs com (i: Fable.ApplyInfo) =
         let get (k: int) =
             makeGet i.range i.returnType i.callee.Value (makeIntConst k) |> Some
-        match i.methodName with
+        match i.memberName with
         | ".ctor" -> Fable.Value(Fable.TupleConst i.args) |> Some
         | "key" -> get 0
         | "value" -> get 1
@@ -1577,10 +1574,10 @@ module AstPass =
         let makeComparer (e: Fable.Expr) =
             ccall_ e.Range e.Type "Comparer" "fromEqualityComparer" [e]
         let makeDic forceFSharpMap args =
-            makeDictionaryOrHashSet i.range i.returnType "Map" forceFSharpMap i.calleeTypeArgs.Head args
-        match i.methodName with
+            makeDictionaryOrHashSet i.range i.returnType "Map" forceFSharpMap i.ownerGenArgs.Head args
+        match i.memberName with
         | ".ctor" ->
-            match i.methodArgTypes with
+            match i.argTypes with
             | [] | [IDictionary] ->
                 makeDic false i.args |> Some
             | [IDictionary; IEqualityComparer] ->
@@ -1617,12 +1614,12 @@ module AstPass =
 
     let hashSets (com: ICompiler) (i: Fable.ApplyInfo) =
         let makeHashSet forceFSharp args =
-            makeDictionaryOrHashSet i.range i.returnType "Set" forceFSharp i.calleeTypeArgs.Head args
-        match i.methodName with
+            makeDictionaryOrHashSet i.range i.returnType "Set" forceFSharp i.ownerGenArgs.Head args
+        match i.memberName with
         | ".ctor" ->
             let makeComparer (e: Fable.Expr) =
                 ccall_ e.Range e.Type "Comparer" "fromEqualityComparer" [e]
-            match i.methodArgTypes with
+            match i.argTypes with
             | [] | [IEnumerable] ->
                 makeHashSet false i.args |> Some
             | [IEnumerable; IEqualityComparer] ->
@@ -1646,7 +1643,7 @@ module AstPass =
         | "unionWith" | "intersectWith" | "exceptWith"
         | "isSubsetOf" | "isSupersetOf" | "copyTo" ->
             let meth =
-                let m = match i.methodName with "exceptWith" -> "differenceWith" | m -> m
+                let m = match i.memberName with "exceptWith" -> "differenceWith" | m -> m
                 m.Replace("With", "InPlace")
             CoreLibCall ("Set", Some meth, false, i.callee.Value::i.args)
             |> makeCall i.range i.returnType |> Some
@@ -1671,7 +1668,7 @@ module AstPass =
         let modName =
             if i.ownerFullName.Contains("Map")
             then "Map" else "Set"
-        match i.methodName with
+        match i.memberName with
         // Instance and static shared methods
         | "count" -> prop "size" |> Some
         | "contains" | "containsKey" -> icall "has" |> Some
@@ -1680,11 +1677,11 @@ module AstPass =
         | "maximumElement" | "minimumElement"
         | "maxElement" | "minElement" -> // Set-only
             let args =
-                match i.methodName with
+                match i.memberName with
                 | "isEmpty" | "maximumElement" | "minimumElement"
                 | "maxElement" | "minElement" -> staticArgs i.callee i.args
                 | _ -> i.args @ (Option.toList i.callee)
-            CoreLibCall(modName, Some i.methodName, false, args)
+            CoreLibCall(modName, Some i.memberName, false, args)
             |> makeCall i.range i.returnType |> Some
         // Map indexer
         | "item" -> icall "get" |> Some
@@ -1701,7 +1698,7 @@ module AstPass =
         | "exists" | "fold" | "foldBack" | "forAll" | "iterate"
         | "filter" | "map" | "partition"
         | "findKey" | "tryFindKey" | "pick" | "tryPick" -> // Map-only
-            CoreLibCall(modName, Some i.methodName, false, i.args)
+            CoreLibCall(modName, Some i.memberName, false, i.args)
             |> makeCall i.range i.returnType |> Some
         // Set only static methods
         | "singleton" ->
@@ -1763,7 +1760,7 @@ module AstPass =
             CoreLibCall (modName, Some meth, false, args)
             |> makeCall i.range i.returnType
         let meth, c, args =
-            i.methodName, i.callee, i.args
+            i.memberName, i.callee, i.args
         match meth with
         // Deal with special cases first
         | "cast" -> Some i.args.Head // Seq only, erase
@@ -1819,13 +1816,13 @@ module AstPass =
                     if meth = "sortDescending" || meth = "sortByDescending"
                     then makeUnOp None (Fable.Number Int32) [comparison] UnaryMinus
                     else comparison
-                makeLambdaExpr fnArgs comparison
+                makeLambda fnArgs comparison
             match c, kind with
             // This is for calls to instance `Sort` member on ResizeArrays
             | Some c, _ ->
                 match args with
                 | [] -> icall "sort" (c, [compareFn]) |> Some
-                | [Type (Fable.Function _)] -> icall "sort" (c, args) |> Some
+                | [Type (Fable.LambdaType _)] -> icall "sort" (c, args) |> Some
                 | _ -> None
             | None, Seq -> ccall "Seq" "sortWith" (compareFn::args) |> Some
             | None, List -> ccall "Seq" "sortWith" (compareFn::args) |> toList com i |> Some
@@ -1874,7 +1871,7 @@ module AstPass =
                 | Fable.Value(Fable.ArrayConst(Fable.ArrayValues arVals, _)) -> makeJsArray arVals
                 | _ -> emit i "Array.from($0)" i.args |> Some
         | "find" when Option.isSome c ->
-            let defaultValue = defaultof i.calleeTypeArgs.Head
+            let defaultValue = defaultof i.ownerGenArgs.Head
             ccall "Option" "getValue" [
                 ccall "Seq" "tryFind" [args.Head;c.Value;defaultValue]
                 Fable.Expr.Value (Fable.ValueKind.BoolConst true) ]
@@ -1882,7 +1879,7 @@ module AstPass =
         | "findAll" when Option.isSome c ->
             ccall "Seq" "filter" [args.Head;c.Value] |> toArray com i |> Some
         | "findLast" when Option.isSome c ->
-            let defaultValue = defaultof i.calleeTypeArgs.Head
+            let defaultValue = defaultof i.ownerGenArgs.Head
             ccall "Option" "getValue" [
                 ccall "Seq" "tryFindBack"
                     [args.Head;c.Value;defaultValue];
@@ -1964,7 +1961,7 @@ module AstPass =
         | "min" | "minBy" | "max" | "maxBy" ->
             let reduce macro macroArgs xs =
                 ccall "Seq" "reduce" [emitNoInfo macro macroArgs; xs] |> Some
-            match meth, i.methodTypeArgs with
+            match meth, i.memberGenArgs with
             // Optimization for numeric types
             | "min", [Fable.Number _] ->
                 // Note: if we use just Math.min it fails with typed arrays
@@ -2006,7 +2003,7 @@ module AstPass =
             let listMeth meth args =
                 CoreLibCall ("List", Some meth, false, args)
                 |> makeCall i.range i.returnType |> Some
-            match i.methodName with
+            match i.memberName with
             | "getSlice" ->
                 listMeth "slice" (i.args@[i.callee.Value])
             | "truncate" ->
@@ -2021,7 +2018,7 @@ module AstPass =
                 // match instance methods
                 match i.callee with
                 | Some instance ->
-                    match i.methodName with
+                    match i.memberName with
                     | "equals" -> icall "Equals" (instance, i.args)
                     | "compareTo" -> icall "CompareTo" (instance, i.args)
                     | "getHashCode" -> (* TODO *) None
@@ -2029,7 +2026,7 @@ module AstPass =
                 | _ -> None
 
         | Array ->
-            match i.methodName with
+            match i.memberName with
             | "get" ->
                 match i.callee, i.args with
                 | TwoArgs (ar, idx) ->
@@ -2044,7 +2041,7 @@ module AstPass =
             | "skip" -> icall "slice" (i.args.Tail.Head, [i.args.Head])
             | "copy" -> icall "slice" (i.args.Head, [])
             | "getSubArray" | "fill" ->
-                ccall i "Array" i.methodName i.args |> Some
+                ccall i "Array" i.memberName i.args |> Some
             | "truncate" ->
                 // Array.truncate count array
                 emit i "$1.slice(0, $0)" i.args |> Some
@@ -2057,11 +2054,11 @@ module AstPass =
                     | Fable.Array(Fable.Number numberKind) when com.Options.typedArrays ->
                         getTypedArrayName com numberKind
                     | _ -> "Array"
-                ccall i "Array" i.methodName (i.args @ [makeIdentExpr arrayCons]) |> Some
+                ccall i "Array" i.memberName (i.args @ [makeIdentExpr arrayCons]) |> Some
             | "indexed" ->
-                ccall i "Array" i.methodName i.args |> Some
+                ccall i "Array" i.memberName i.args |> Some
             | "append" ->
-                match i.methodTypeArgs with
+                match i.memberGenArgs with
                 | [Fable.Any] | [Number _] -> None
                 | _ -> icall "concat" (i.args.Head, i.args.Tail)
             | Patterns.SetContains implementedArrayFunctions meth ->
@@ -2075,7 +2072,7 @@ module AstPass =
         |> function None -> collectionsSecondPass com i kind | someExpr -> someExpr
 
     let exceptions com (i: Fable.ApplyInfo) =
-        match i.methodName, i.callee with
+        match i.memberName, i.callee with
         // TODO: Check argument number and types?
         | ".ctor", _ ->
             Fable.Apply(makeIdentExpr "Error", i.args, Fable.ApplyCons, i.returnType, i.range) |> Some
@@ -2084,20 +2081,20 @@ module AstPass =
         | _ -> None
 
     let cancels com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | ".ctor" -> ccall i "Async" "createCancellationToken" i.args |> Some
         | "token" -> i.callee
         | "cancel" | "cancelAfter" | "isCancellationRequested" ->
             match i.callee with Some c -> c::i.args | None -> i.args
-            |> ccall i "Async" i.methodName |> Some
+            |> ccall i "Async" i.memberName |> Some
         // TODO: Add check so CancellationTokenSource cannot be cancelled after disposed?
         | "dispose" -> Fable.Null |> Fable.Value |> Some
         | _ -> None
 
     let objects com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | "getHashCode" -> ccall i "Util" "getHashCode" [i.callee.Value] |> Some
-        | ".ctor" -> Fable.ObjExpr ([], i.range) |> Some
+        | ".ctor" -> Fable.ObjectExpr ([], i.range) |> Some
         | "referenceEquals" -> makeEqOp i.range i.args BinaryEqualStrict |> Some
         | "toString" -> ccall i "Util" "toString" [i.callee.Value] |> Some
         | "equals" -> staticArgs i.callee i.args |> equals true com i
@@ -2120,13 +2117,13 @@ module AstPass =
         None // TODO
         // let str x = Fable.Value(Fable.StringConst x)
         // let common com (info: Fable.ApplyInfo) =
-        //     match info.methodName with
+        //     match info.memberName with
         //     | "getTypeInfo" -> info.callee
         //     | "genericTypeArguments" -> ccall info "Reflection" "getGenericArguments" [info.callee.Value] |> Some
         //     | _ -> None
         // match info.callee with
         // | Some(Fable.Value(Fable.EntityRef(ent,_))) ->
-        //     match info.methodName with
+        //     match info.memberName with
         //     | "namespace" -> str ent.Namespace |> Some
         //     | "fullName" -> str ent.FullName |> Some
         //     | "name" -> str ent.Name |> Some
@@ -2149,7 +2146,7 @@ module AstPass =
         //         args |> Option.map (fun args ->
         //         CoreLibCall("Reflection", Some "getTypeFullName", false, args)
         //         |> makeCall info.range info.returnType)
-        //     match info.methodName with
+        //     match info.memberName with
         //     | "fullName" -> Some [info.callee.Value] |> getTypeFullName
         //     | "name" -> Some [info.callee.Value; str "name"] |> getTypeFullName
         //     | "namespace" -> Some [info.callee.Value; str "namespace"] |> getTypeFullName
@@ -2165,9 +2162,9 @@ module AstPass =
         //     | _ -> common com info
 
     let unchecked com (info: Fable.ApplyInfo) =
-        match info.methodName with
+        match info.memberName with
         | "defaultOf" ->
-            defaultof info.methodTypeArgs.Head |> Some
+            defaultof info.memberGenArgs.Head |> Some
         | "hash" ->
             CoreLibCall("Util", Some "hash", false, info.args)
             |> makeCall info.range info.returnType |> Some
@@ -2180,9 +2177,9 @@ module AstPass =
         | _ -> None
 
     let random com (info: Fable.ApplyInfo) =
-        match info.methodName with
+        match info.memberName with
         | ".ctor" ->
-            let o = Fable.ObjExpr ([], info.range)
+            let o = Fable.ObjectExpr ([], info.range)
             Fable.Wrapped (o, info.returnType) |> Some
         | "next" ->
             let min, max =
@@ -2199,7 +2196,7 @@ module AstPass =
         | _ -> None
 
     let enumerable com (info: Fable.ApplyInfo) =
-        match info.callee, info.methodName with
+        match info.callee, info.memberName with
         | Some callee, "getEnumerator" ->
             ccall info "Seq" "getEnumerator" [callee] |> Some
         | _ -> None
@@ -2207,21 +2204,21 @@ module AstPass =
     let mailbox com (info: Fable.ApplyInfo) =
         match info.callee with
         | None ->
-            match info.methodName with
+            match info.memberName with
             | ".ctor" -> CoreLibCall("MailboxProcessor", None, true, info.args) |> Some
             | "start" -> CoreLibCall("MailboxProcessor", Some "start", false, info.args) |> Some
             | _ -> None
             |> Option.map (makeCall info.range info.returnType)
         | Some callee ->
-            match info.methodName with
+            match info.memberName with
             // `reply` belongs to AsyncReplyChannel
             | "start" | "receive" | "postAndAsyncReply" | "post" | "reply" ->
-                InstanceCall(callee, info.methodName, info.args)
+                InstanceCall(callee, info.memberName, info.args)
                 |> makeCall info.range info.returnType |> Some
             | _ -> None
 
     let guids com (info: Fable.ApplyInfo) =
-        match info.methodName with
+        match info.memberName with
         | "newGuid" ->
             CoreLibCall("String", Some "newGuid", false, [])
             |> makeCall info.range info.returnType |> Some
@@ -2242,7 +2239,7 @@ module AstPass =
         | _ -> None
 
     let uris com (info: Fable.ApplyInfo) =
-        match info.methodName with
+        match info.memberName with
         | "unescapeDataString" ->
             CoreLibCall("Util", Some "unescapeDataString", false, info.args)
             |> makeCall info.range info.returnType |> Some
@@ -2258,18 +2255,18 @@ module AstPass =
         let coreCall meth isCons args =
             CoreLibCall("Lazy", meth, isCons, args)
             |> makeCall info.range info.returnType
-        match info.methodName with
+        match info.memberName with
         | ".ctor" | "create" -> coreCall None true info.args |> Some
-        | "createFromValue" -> coreCall (Some info.methodName) false info.args |> Some
+        | "createFromValue" -> coreCall (Some info.memberName) false info.args |> Some
         | "force" | "value" | "isValueCreated" ->
             let callee, _ = instanceArgs info.callee info.args
-            match info.methodName with
+            match info.memberName with
             | "force" -> "value" | another -> another
             |> getProp info.range info.returnType callee |> Some
         | _ -> None
 
     let controlExtensions com (info: Fable.ApplyInfo) =
-        match info.methodName with
+        match info.memberName with
         | "addToObservable" -> Some "add"
         | "subscribeToObservable" -> Some "subscribe"
         | _ -> None
@@ -2282,7 +2279,7 @@ module AstPass =
         let asyncMeth meth args =
             CoreLibCall("Async", Some meth, false, args)
             |> makeCall info.range info.returnType |> Some
-        match info.methodName with
+        match info.memberName with
         | "start" ->
             // Just add warning, the replacement will actually happen in coreLibPass
             "Async.Start will behave as StartImmediate"
@@ -2297,7 +2294,7 @@ module AstPass =
         | _ -> None
 
     let enums (com: ICompiler) (appInfo: Fable.ApplyInfo) =
-        match appInfo.callee, appInfo.methodName, appInfo.args with
+        match appInfo.callee, appInfo.memberName, appInfo.args with
         | Some callee, "hasFlag", [arg] ->
             // x.HasFlags(y) => (int x) &&& (int y) <> 0
             makeBinOp appInfo.range (Fable.Number Int32) [callee; arg] BinaryAndBitwise
@@ -2309,14 +2306,14 @@ module AstPass =
     // to be used System.Double.Parse and System.Single.Parse
     // see https://github.com/fable-compiler/Fable/pull/1197#issuecomment-348034660
     let globalization com (i: Fable.ApplyInfo) =
-        match i.methodName with
+        match i.memberName with
         | "invariantCulture" ->
             // System.Globalization namespace is not supported by Fable. The value InvariantCulture will be compiled to an empty object literal
             makeJsObject i.range [] |> Some
         | _ -> None
 
     let bigint (com: ICompiler) (i: Fable.ApplyInfo) =
-        match i.callee, i.methodName with
+        match i.callee, i.memberName with
         | Some callee, meth -> icall i meth |> Some
         | None, ".ctor" ->
             match i.args with
@@ -2327,9 +2324,9 @@ module AstPass =
                 |> makeCall i.range i.returnType
             |> Some
         | None, ("zero"|"one"|"two") ->
-            makeCoreRef "BigInt" i.methodName |> Some
+            makeCoreRef "BigInt" i.memberName |> Some
         | None, ("fromZero"|"fromOne") ->
-            let fi = if i.methodName = "fromZero" then "zero" else "one"
+            let fi = if i.memberName = "fromZero" then "zero" else "one"
             makeCoreRef "BigInt" fi |> Some
         | None, "fromString" ->
             ccall i "BigInt" "parse" i.args |> Some
@@ -2474,25 +2471,25 @@ module AstPass =
         | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com info
         | "System.Numerics.BigInteger"
         | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com info
-        | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com info info.methodName
-        | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue com info info.methodName
+        | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com info info.memberName
+        | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue com info info.memberName
         | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
             // In netcore F# Reflection methods become extensions
             // with names like `FSharpType.GetExceptionFields.Static`
-            let isFSharpType = info.methodName.StartsWith("fSharpType")
-            let methName = info.methodName |> Naming.extensionMethodName |> Naming.lowerFirst
+            let isFSharpType = info.memberName.StartsWith("fSharpType")
+            let methName = info.memberName |> Naming.extensionMethodName |> Naming.lowerFirst
             if isFSharpType
             then fsharpType com info methName
             else fsharpValue com info methName
         | "Microsoft.FSharp.Reflection.UnionCaseInfo"
         | "System.Reflection.PropertyInfo"
         | "System.Reflection.MemberInfo" ->
-            match info.callee, info.methodName with
+            match info.callee, info.memberName with
             | _, "getFields" -> icall info "getUnionFields" |> Some
             | Some c, "name" -> ccall info "Reflection" "getName" [c] |> Some
             | Some c, ("tag" | "propertyType") ->
                 let prop =
-                    if info.methodName = "tag" then "index" else info.methodName
+                    if info.memberName = "tag" then "index" else info.memberName
                     |> Fable.StringConst |> Fable.Value
                 makeGet info.range info.returnType c prop |> Some
             | _ -> None
@@ -2538,33 +2535,33 @@ let private coreLibPass com (info: Fable.ApplyInfo) =
     | Patterns.DicContains CoreLibPass.mappings (modName, kind) ->
         match kind with
         | CoreLibPass.Both ->
-            match info.methodName, info.methodKind, info.callee with
+            match info.memberName, info.memberKind, info.callee with
             | ".ctor", _, None | _, Fable.Constructor, None ->
                 CoreLibCall(modName, None, true, info.args)
                 |> makeCall info.range info.returnType |> Some
             | _, Fable.Getter _, Some callee ->
-                let prop = Naming.upperFirst info.methodName |> makeStrConst
+                let prop = Naming.upperFirst info.memberName |> makeStrConst
                 Fable.Apply(callee, [prop], Fable.ApplyGet, info.returnType, info.range) |> Some
             | _, Fable.Setter _, Some callee ->
-                let prop = Naming.upperFirst info.methodName |> makeStrConst
+                let prop = Naming.upperFirst info.memberName |> makeStrConst
                 Fable.Set(callee, Some prop, info.args.Head, info.range) |> Some
             | _, _, Some callee ->
-                InstanceCall (callee, Naming.upperFirst info.methodName, info.args)
+                InstanceCall (callee, Naming.upperFirst info.memberName, info.args)
                 |> makeCall info.range info.returnType |> Some
             | _, _, None ->
-                CoreLibCall(modName, Some info.methodName, false, staticArgs info.callee info.args)
+                CoreLibCall(modName, Some info.memberName, false, staticArgs info.callee info.args)
                 |> makeCall info.range info.returnType |> Some
         | CoreLibPass.Static ->
             let meth =
-                if info.methodName = ".ctor" then "create" else info.methodName
+                if info.memberName = ".ctor" then "create" else info.memberName
             CoreLibCall(modName, Some meth, false, staticArgs info.callee info.args)
             |> makeCall info.range info.returnType |> Some
     | _ -> None
 
 let tryReplace (com: ICompiler) (info: Fable.ApplyInfo) =
     let info =
-        info.methodName |> Naming.removeGetSetPrefix |> Naming.lowerFirst
-        |> fun methName -> { info with methodName = methName }
+        info.memberName |> Naming.removeGetSetPrefix |> Naming.lowerFirst
+        |> fun methName -> { info with memberName = methName }
     match AstPass.tryReplace com info with
     | Some _ as res -> res
     | None -> coreLibPass com info
