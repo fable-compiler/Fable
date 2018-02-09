@@ -10,7 +10,7 @@ type FunctionTypeKind = LambdaType of Type | DelegateType of Type list
 type Type =
     | Any
     | Unit
-    | Bool
+    | Boolean
     | Char
     | String
     | Regex
@@ -42,7 +42,6 @@ type File(sourcePath, root, decls, ?usedVarNames, ?dependencies) =
     member __.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
     member __.Dependencies: Set<string> = defaultArg dependencies Set.empty
 
-// TODO: Add IsCompilerGenerated to make optimizations easier later?
 type Ident =
     { Name: string
       Type: Type
@@ -53,6 +52,12 @@ type ImportKind =
     | CoreLib
     | Internal of file: string
     | CustomImport
+
+type MemberKind =
+    | Getter
+    | Setter
+    | Constructor
+    | Method
 
 type EnumConstKind = NumberEnumConst of int | StringEnumConst of string
 
@@ -72,6 +77,7 @@ type ConstKind =
     | ArrayAlloc of int * Type
     | ListConst of headAndTail: (Expr * Expr) option * Type
     | ErasedUnionConst of Expr * genericArgs: Type list
+    | UnionTag of Choice<Expr, FSharpUnionCase> * FSharpEntity
     | UnionConst of FSharpUnionCase * Expr list * FSharpEntity * genArgs: Type list
     | RecordConst of Expr list * FSharpEntity * genArgs: Type list
     // member this.ImmediateSubExpressions: Expr list =
@@ -108,43 +114,44 @@ type FunctionKind =
     | Delegate of args: Ident list
 
 type CallInfo =
-  { ownerFullName: string
-    memberName: string
-    callee: Expr option
-    args: Expr list
+  { owner: FSharpEntity
     argTypes: Type list
     genericArgs: Type list
-    spreadLastArg: bool }
+    isConstructor: bool
+    isSpread: bool }
 
 type OperationKind =
-    | UnresolvedCall of CallInfo
-    | Call of callee: Expr * memb: string option * args: Expr list * isConstructor: bool
     | Apply of applied: Expr * args: Expr list
-    | DynamicApply of applied: bool * args: bool list * spreadLastArg: bool
+    | UnresolvedCall of callee: Expr option * args: Expr list * info: CallInfo
+    | Call of callee: Expr * memb: string option * args: Expr list * info: CallInfo
+    | Emit of macro: string * argsAndCallInfo: (Expr list * CallInfo) option
     | UnaryOperation of UnaryOperator * Expr
     | BinaryOperation of BinaryOperator * left:Expr * right:Expr
     | LogicalOperation of LogicalOperator * left:Expr * right:Expr
-    | Emit of macro: string * args: Expr list
 
 type Expr =
     | Debugger
     | Const of ConstKind
     | IdentExpr of Ident
     | Cast of Expr * targetType: Type
+
     | EntityRef of FSharpEntity
     | ImportRef of memb: string * path: string * ImportKind * Type
+
     | Function of FunctionKind * body: Expr
     | ObjectExpr of decls: Declaration list * Type
 
-    | Let of bindings: (Ident * Expr) list * body: Expr
-    | Get of Expr * field: Expr * typ: Type * range: SourceLocation option
-    | Set of callee: Expr * field: Expr option * value: Expr * range: SourceLocation option
     | Throw of Expr * typ: Type * range: SourceLocation option
+    | Operation of OperationKind * typ: Type * range: SourceLocation option
+
     | Sequential of Expr list
-    | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
+    | Let of bindings: (Ident * Expr) list * body: Expr
+    | Get of Expr * memb: Expr * typ: Type * range: SourceLocation option
+    | Set of callee: Expr * memb: Expr option * value: Expr * range: SourceLocation option
     | Loop of LoopKind * range: SourceLocation option
-    | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
-    | Switch of matchValue: Expr * cases: (Expr list * Expr) list * defaultCase: Expr option * typ: Type * range: SourceLocation option
+    | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
+    | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option
+    | Switch of matchValue: Expr * cases: (Expr list * Expr) list * defaultCase: Expr option * typ: Type
 
     // member this.IsJsStatement =
     //     match this with
@@ -154,7 +161,8 @@ type Expr =
     //     | Throw _ | Debugger _ | Loop _ | Set _ | VarDeclaration _
     //     | Sequential _ | TryCatch _ | Switch _ -> true
 
-    // member this.Type =
+    member this.Type =
+        Any // TODO TODO TODO
     //     match this with
     //     | This | ObjectExpr _ | EntityRef _ -> Any
     //     | Spread e | Uncurry (e,_) -> e.Type

@@ -146,7 +146,7 @@ let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: 
                 [makeIntConst kv.Key], transformExpr com ctx body)
             |> Seq.toList
         let bindings = [tempVar, transformExpr com ctx decisionExpr]
-        Fable.Let(bindings, Fable.Switch(tempVarFirstItem, cases, None, typ, r))
+        Fable.Let(bindings, Fable.Switch(tempVarFirstItem, cases, None, typ))
     else
         let targets = targetRefsCount |> Map.map (fun k _ -> decisionTargets.[k])
         let ctx = { ctx with decisionTargets = Some targets }
@@ -167,10 +167,10 @@ let private transformDecisionTreeSuccess (com: IFableCompiler) (ctx: Context) (r
         transformExpr com ctx decBody
 
 let private transformDelegate com ctx delegateType fsExpr =
-    let wrapInZeroArgsLambda r typ (args: FSharpExpr list) fref =
+    let wrapInZeroArgsFunction r typ (args: FSharpExpr list) fref =
         let args = List.map (transformExpr com ctx) args
-        let body = Fable.Apply(fref, args, r)
-        Fable.Lambda([], body, r)
+        let body = Fable.Operation(Fable.Apply(fref, args), typ, r)
+        Fable.Function(Fable.Delegate [], body)
     let isSpecialCase t =
         tryDefinition t
         |> Option.bind (fun tdef -> tdef.TryFullName)
@@ -183,9 +183,9 @@ let private transformDelegate com ctx delegateType fsExpr =
     | BasicPatterns.Application(BasicPatterns.Application(BasicPatterns.Value v,_,args),_,_)
             when isSpecialCase delegateType ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeValueFrom com ctx r typ false v |> wrapInZeroArgsLambda r typ args
+        makeValueFrom com ctx r v |> wrapInZeroArgsFunction r typ args
     | BasicPatterns.Lambda(arg, body) ->
-        transformLambda com ctx [arg] body
+        transformLambda com ctx arg body
     | fsExpr -> transformExpr com ctx fsExpr
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr)
@@ -209,38 +209,35 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
             |> makeType com ctx.typeArgs
             |> makeTypeTest com ctx.fileName (makeRangeFrom fsExpr) unionExpr
     | OptionUnion t ->
-        let t = makeType com ctx.typeArgs t
-        let opKind = if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
-        makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; Fable.NoneConst t |> Fable.Const] opKind
+        let noneCase = Fable.OptionConst(None, makeType com ctx.typeArgs t) |> Fable.Const
+        if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
+        |> makeEqOp (makeRangeFrom fsExpr) unionExpr noneCase
     | ListUnion t ->
-        let t = makeType com ctx.typeArgs t
-        let opKind = if unionCase.CompiledName = "Empty" then BinaryEqual else BinaryUnequal
-        makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; Fable.ListEmpty t |> Fable.Const] opKind
+        let emptyList = Fable.ListConst(None, makeType com ctx.typeArgs t) |> Fable.Const
+        if unionCase.Name = "Empty" then BinaryEqual else BinaryUnequal
+        |> makeEqOp (makeRangeFrom fsExpr) unionExpr emptyList
     | StringEnum ->
-        makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerCaseName unionCase] BinaryEqualStrict
-    | DiscriminatedUnion hasCaseWithDataFields ->
-        let tag2 = getUnionTagFrom fsType unionCase
-        let tag1 =
-            if hasCaseWithDataFields
-            then makeGet None Fable.String unionExpr (makeIntConst 0)
-            else unionExpr
-        makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [tag1; tag2] BinaryEqualStrict
+        makeEqOp (makeRangeFrom fsExpr) unionExpr (lowerCaseName unionCase) BinaryEqualStrict
+    | DiscriminatedUnion tdef ->
+        let tag1 = Fable.UnionTag(Choice1Of2 unionExpr, tdef) |> Fable.Const
+        let tag2 = Fable.UnionTag(Choice2Of2 unionCase, tdef) |> Fable.Const
+        makeEqOp (makeRangeFrom fsExpr) tag1 tag2 BinaryEqualStrict
 
-let private transformSwitch com ctx (fsExpr: FSharpExpr) (matchValue: FSharpMemberOrFunctionOrValue)
-                                isUnionType cases (defaultCase, defaultBindings) decisionTargets =
-    let decisionTargets = decisionTargets |> Seq.mapi (fun i d -> (i, d)) |> Map
-    let r, typ = makeRange fsExpr.Range, makeType com ctx.typeArgs fsExpr.Type
-    let cases =
-        cases |> Seq.map (fun (KeyValue(idx, (bindings, labels))) ->
-            labels, transformDecisionTreeSuccess com ctx r decisionTargets idx bindings)
-        |> Seq.toList
-    let defaultCase =
-        transformDecisionTreeSuccess com ctx r decisionTargets defaultCase defaultBindings
-    let matchValue =
-        let matchValueType = makeType com ctx.typeArgs matchValue.FullType
-        let matchValue = makeValueFrom com ctx None matchValueType false matchValue
-        if isUnionType then getUnionTag matchValue else matchValue
-    Fable.Switch(matchValue, cases, Some defaultCase, typ, Some r)
+// let private transformSwitch com ctx (fsExpr: FSharpExpr) (matchValue: FSharpMemberOrFunctionOrValue)
+//                                 isUnionType cases (defaultCase, defaultBindings) decisionTargets =
+//     let decisionTargets = decisionTargets |> Seq.mapi (fun i d -> (i, d)) |> Map
+//     let r, typ = makeRange fsExpr.Range, makeType com ctx.typeArgs fsExpr.Type
+//     let cases =
+//         cases |> Seq.map (fun (KeyValue(idx, (bindings, labels))) ->
+//             labels, transformDecisionTreeSuccess com ctx r decisionTargets idx bindings)
+//         |> Seq.toList
+//     let defaultCase =
+//         transformDecisionTreeSuccess com ctx r decisionTargets defaultCase defaultBindings
+//     let matchValue =
+//         let matchValueType = makeType com ctx.typeArgs matchValue.FullType
+//         let matchValue = makeValueFrom com ctx None matchValueType false matchValue
+//         if isUnionType then getUnionTag matchValue else matchValue
+//     Fable.Switch(matchValue, cases, Some defaultCase, typ, Some r)
 
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     match fsExpr with
@@ -260,21 +257,21 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         Fable.ForOf (ident, value, transformExpr com newContext body)
         |> makeLoop (makeRangeFrom fsExpr)
 
-    | TryGetValue (callee, meth, typArgs, methTypArgs, methArgs) ->
-        let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) methArgs
+    | TryGetValue (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
+        let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) membArgs
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
+        makeCallFrom com ctx r typ ownerGenArgs membGenArgs callee args memb
 
-    | CreateEvent (callee, eventName, meth, typArgs, methTypArgs, methArgs) ->
-        let callee, args = com.Transform ctx callee, List.map (com.Transform ctx) methArgs
+    | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
+        let callee, args = com.Transform ctx callee, List.map (com.Transform ctx) membArgs
         let callee = Fable.Get(callee, makeStrConst eventName, Fable.Any, None)
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeCallFrom com ctx r typ meth (typArgs, methTypArgs) (Some callee) args
+        makeCallFrom com ctx r typ ownerGenArgs membGenArgs (Some callee) args memb
 
     | CheckArrayLength (Transform com ctx arr, length, FableType com ctx typ) ->
         let r = makeRangeFrom fsExpr
         let lengthExpr = Fable.Get(arr, makeStrConst "length", Fable.Number Int32, r)
-        makeEqOp r [lengthExpr; makeTypeConst typ length] BinaryEqualStrict
+        makeEqOp r lengthExpr (makeTypeConst typ length) BinaryEqualStrict
 
     (** ## Flow control *)
     | BasicPatterns.FastIntegerForLoop(Transform com ctx start, Transform com ctx limit, body, isUp) ->
@@ -291,13 +288,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     (** Values *)
     | BasicPatterns.Const(value, FableType com ctx typ) ->
         let expr = makeTypeConst typ value
-        if expr.Type <> typ then // Enumerations are compiled as const but they have a different type
-            Replacements.checkLiteral com ctx.fileName (makeRangeFrom fsExpr) value typ
+        // TODO TODO TODO: Check literals and compile as EnumConst
+        // if expr.Type <> typ then // Enumerations are compiled as const but they have a different type
+        //     Replacements.checkLiteral com ctx.fileName (makeRangeFrom fsExpr) value typ
         expr
 
-    | BasicPatterns.BaseValue _typ
-    | BasicPatterns.ThisValue _typ ->
-        Fable.This
+    | BasicPatterns.BaseValue typ
+    | BasicPatterns.ThisValue typ ->
+        makeType com ctx.typeArgs typ |> Fable.This |> Fable.Const
 
     | BasicPatterns.Value var ->
         if isInline var then
@@ -314,7 +312,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         match typ with
         | Fable.Boolean -> Fable.BoolConst false |> Fable.Const
         | Fable.Number kind -> Fable.NumberConst (0., kind) |> Fable.Const
-        | typ -> Fable.Null typ
+        | typ -> Fable.Null typ |> Fable.Const
 
     (** ## Assignments *)
     | BasicPatterns.Let((var, value), body) ->
@@ -352,11 +350,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         addErrorAndReturnNull com ctx.fileName r "TODO: TraitCalls"
 
-    | BasicPatterns.Call(callee, meth, typArgs, methTypArgs, args) ->
+    | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
         let callee = Option.map (com.Transform ctx) callee
         let args = List.map (transformExpr com ctx) args
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeCallFrom com ctx r typ meth (typArgs, methTypArgs) callee args
+        makeCallFrom com ctx r typ ownerGenArgs membGenArgs callee args memb
 
     // Application of locally inlined lambdas
     | BasicPatterns.Application(BasicPatterns.Value var, typeArgs, args) when isInline var ->
@@ -406,7 +404,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         transformDelegate com ctx delegateType fsExpr
 
     | BasicPatterns.Lambda(arg, body) ->
-        transformLambda com (makeRangeFrom fsExpr) ctx [arg] body
+        transformLambda com ctx arg body
 
     (** ## Getters and Setters *)
 
@@ -481,7 +479,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let memb = makeStrConst valToSet.CompiledName |> Some
             Fable.Call(Fable.Callee entRef, memb, [valueExpr], false, typ, r)
         | _ ->
-            let valToSet = makeValueFrom com ctx r typ false valToSet
+            let valToSet = makeValueFrom com ctx r valToSet
             Fable.Set(valToSet, None, valueExpr, r)
 
     (** Instantiation *)
@@ -494,10 +492,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.ObjectExpr(objType, baseCallExpr, overrides, otherOverrides) ->
         transformObjExpr com ctx fsExpr objType baseCallExpr overrides otherOverrides
 
-    | BasicPatterns.NewObject(meth, typArgs, args) ->
+    | BasicPatterns.NewObject(memb, ownerGenArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        List.map (com.Transform ctx) args
-        |> makeCallFrom com ctx r typ meth (typArgs, []) None
+        let args = List.map (com.Transform ctx) args
+        makeCallFrom com ctx r typ ownerGenArgs [] None args memb
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let range = makeRangeFrom fsExpr
@@ -530,8 +528,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         transformUnionCaseTest com ctx fsExpr unionExpr fsType unionCase
 
     (** Pattern Matching *)
-    | Switch(matchValue, isUnionType, cases, defaultCase, decisionTargets) ->
-        transformSwitch com ctx fsExpr matchValue isUnionType cases defaultCase decisionTargets
+    // TODO TODO TODO
+    // | Switch(matchValue, isUnionType, cases, defaultCase, decisionTargets) ->
+    //     transformSwitch com ctx fsExpr matchValue isUnionType cases defaultCase decisionTargets
 
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
         transformDecisionTree com ctx fsExpr decisionExpr decisionTargets
@@ -722,7 +721,7 @@ let rec private transformEntityDecl (com: IFableCompiler) (ctx: Context) (ent: F
         ctx, []
     else
         let childDecls =
-            let ctx = { ctx with enclosingModule = EnclosingModule(com.GetEntity(ent), isPublicEntity ctx ent) }
+            let ctx = { ctx with enclosingModule = EnclosingModule(ent, isPublicEntity ctx ent) }
             transformDeclarations com ctx subDecls
         if List.isEmpty childDecls && ent.IsFSharpModule then
             ctx, []

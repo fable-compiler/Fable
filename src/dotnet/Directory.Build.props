@@ -1,0 +1,10 @@
+<Project>
+    <PropertyGroup>
+        <PackageProjectUrl>http://fable.io</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/fable-compiler/Fable.git</RepositoryUrl>
+        <PackageLicenseUrl>https://raw.githubusercontent.com/fable-compiler/Fable/master/LICENSE</PackageLicenseUrl>
+        <PackageIconUrl>https://raw.githubusercontent.com/fable-compiler/Fable/master/docs/img/fable_logo.png</PackageIconUrl>
+        <PackageTags>fsharp;fable;javascript;f#;js</PackageTags>
+        <Authors>Alfonso García-Caro Núñez</Authors>
+    </PropertyGroup>
+</Project>

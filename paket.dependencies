@@ -1,23 +1,12 @@
 source https://www.nuget.org/api/v2
 
 storage:none
+framework:netstandard2.0,netcoreapp2.0
 
 nuget FSharp.Compiler.Service
 nuget FSharp.Core
 nuget Newtonsoft.Json
-nuget System.Runtime.Loader
-nuget System.Collections.Immutable
-nuget System.Reflection.Metadata
 nuget Dotnet.ProjInfo
-
-github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
-
-group Test
-  source https://www.nuget.org/api/v2
-  storage:none
-  nuget Microsoft.NET.Test.Sdk
-  nuget xunit
-  nuget xunit.runner.visualstudio
 
 group Build
   framework >= net45
