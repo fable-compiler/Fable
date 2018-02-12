@@ -8,13 +8,9 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
 
-type EnclosingModule(entity, isPublic) =
-    member val Entity: FSharpEntity = entity
-    member val IsPublic: bool = isPublic
-
 type Context =
     { fileName: string
-      enclosingModule: EnclosingModule
+      enclosingModule: FSharpEntity option
       scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
       scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
       /// Some expressions that create scope in F# don't do it in JS (like let bindings)
@@ -25,7 +21,7 @@ type Context =
     }
     static member Create(fileName, enclosingModule) =
         { fileName = fileName
-          enclosingModule = EnclosingModule(enclosingModule, true)
+          enclosingModule = enclosingModule
           scope = []
           scopedInlines = []
           varNames = HashSet()
@@ -36,8 +32,8 @@ type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
     abstract TryGetInternalFile: FSharpEntity -> string option
-    abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> (IDictionary<string,int> * Fable.Expr)
-    abstract AddInlineExpr: FSharpMemberOrFunctionOrValue * (IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr) -> unit
+    abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
+    abstract AddInlineExpr: FSharpMemberOrFunctionOrValue * InlineExpr -> unit
     abstract AddUsedVarName: string -> unit
 
 [<RequireQualifiedAccess>]
@@ -104,16 +100,13 @@ module Helpers =
         let name =
             match memb.EnclosingEntity with
             | Some ent ->
-                if ent.IsFSharpModule
-                    || memb.IsExplicitInterfaceImplementation
-                then
-                    memb.CompiledName
-                // There's no .IsOverride property, but we have already discarded
-                // .IsExplicitInterfaceImplementation in the branch above
-                elif memb.IsOverrideOrExplicitInterfaceImplementation || ent.IsInterface
-                then
-                    memb.DisplayName
-                else
+                // if ent.IsFSharpModule || memb.IsExplicitInterfaceImplementation
+                // then memb.CompiledName
+                // // There's no .IsOverride property, but we have already discarded
+                // // .IsExplicitInterfaceImplementation in the branch above
+                // elif memb.IsOverrideOrExplicitInterfaceImplementation || ent.IsInterface
+                // then memb.DisplayName
+                // else
                     let isStatic = not memb.IsInstanceMember
                     let separator = if isStatic then "$$" else "$"
                     // TODO: Overloads
@@ -155,22 +148,10 @@ module Helpers =
         | FSharpInlineAnnotation.AlwaysInline -> true
         | FSharpInlineAnnotation.AggressiveInline -> failwith "Not Implemented"
 
-    /// .IsPrivate for members of a private module always evaluate to true (see #696)
-    /// so we just make all members of a private module public until a proper solution comes in FCS
     let isPublicMember (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsCompilerGenerated
         then false
-        else
-            match memb.EnclosingEntity with
-            | Some ent when ent.Accessibility.IsPrivate -> true
-            | _ -> not memb.Accessibility.IsPrivate
-
-    /// .IsPrivate for types of a private module always evaluate to true (see #841)
-    /// so we just make all members of a private module public until a proper solution comes in FCS
-    let isPublicEntity (ctx: Context) (ent: FSharpEntity) =
-        if not ctx.enclosingModule.IsPublic
-        then true
-        else not ent.RepresentationAccessibility.IsPrivate
+        else not memb.Accessibility.IsPrivate
 
     let isUnit (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
@@ -245,7 +226,7 @@ module Helpers =
         | _ -> Fable.Method
 
 
-    let isSpread (memb: FSharpMemberOrFunctionOrValue) =
+    let hasSpread (memb: FSharpMemberOrFunctionOrValue) =
         let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
             if memb.CurriedParameterGroups.Count <> 1 then false else
             let args = memb.CurriedParameterGroups.[0]
@@ -899,71 +880,57 @@ module Util =
         argTypes = getArgTypes com ownerGenArgs memb
         genericArgs = ownerGenArgs @ membGenArgs |> List.map (makeType com ctx.typeArgs)
         isConstructor = false
-        isSpread = isSpread memb }
+        hasSpread = hasSpread memb
+        hasThisArg = false }
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ ownerGenArgs membGenArgs callee args
                                                                 (memb: FSharpMemberOrFunctionOrValue) =
         let call info callee memb args =
             Fable.Operation(Fable.Call(callee, memb, args, info), typ, r)
         // TODO: Remove optional arguments
-        match memb.EnclosingEntity with
-        | None ->
-            // Cases when .EnclosingEntity returns None are rare (see #237)
-            // Let's assume the method belongs to the current enclosing module
-            let owner = ctx.enclosingModule.Entity
-            let callInfo = makeCallInfo com ctx ownerGenArgs membGenArgs owner memb
-            call callInfo (Fable.EntityRef owner) (Some memb.CompiledName) args
-        | Some owner ->
-            let info = makeCallInfo com ctx ownerGenArgs membGenArgs owner memb
-            let argsAndCallInfo =
+        let info = makeCallInfo com ctx ownerGenArgs membGenArgs memb.EnclosingEntity memb
+        let argsAndCallInfo =
+            match callee with
+            | Some c -> Some(c::args, { info with hasThisArg = true })
+            | None -> Some(args, info)
+        match memb, info.owner with
+        | Imported r typ argsAndCallInfo imported, _ -> imported
+        | Emitted r typ argsAndCallInfo emitted, _ -> emitted
+        | Replaced com ctx r typ info callee args replaced, _ -> replaced
+        // TODO | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
+        | Try (tryGetBoundExpr ctx r) expr, _ ->
+            match callee with
+            | Some c -> call { info with hasThisArg = true } expr None (c::args)
+            | None -> call info expr None args
+        // Check if this is an interface or abstract/overriden method
+        | _, Some owner when owner.IsInterface
+                        || memb.IsOverrideOrExplicitInterfaceImplementation
+                        || isAbstract owner ->
+            match callee with
+            | Some callee ->
+                match getMemberKind memb with
+                | Fable.Getter ->   Fable.Get(callee, makeStrConst memb.DisplayName, typ, r)
+                | Fable.Setter ->   Fable.Set(callee, makeStrConst memb.DisplayName |> Some, args.Head, r)
+                // Constructor is unexpected (abstract class cons calls are resolved in transformConstructor)
+                | Fable.Constructor
+                | Fable.Method ->   call info callee (Some memb.DisplayName) args
+            | None -> "Unexpected static interface/override call" |> attachRange r |> failwith
+        | _ ->
+            let memberName = getMemberDeclarationName com info.argTypes memb
+            let info, args =
                 match callee with
-                | Some c -> Some(c::args, info)
-                | None -> Some(args, info)
-            match memb with
-            | Imported r typ argsAndCallInfo imported -> imported
-            | Emitted r typ argsAndCallInfo emitted -> emitted
-            | Replaced com ctx r typ info callee args replaced -> replaced
-            // TODO | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
-            | Try (tryGetBoundExpr ctx r) expr ->
-                match callee with
-                | Some c -> call info expr None (c::args)
-                | None -> call info expr None args
-            | _ ->
-                let memberName = getMemberDeclarationName com info.argTypes memb
-                // Check if this is an interface or abstract/overriden method
-                if owner.IsInterface || memb.IsOverrideOrExplicitInterfaceImplementation || isAbstract owner then
-                    match callee with
-                    | Some callee ->
-                        match getMemberKind memb with
-                        | Fable.Getter ->   Fable.Get(callee, makeStrConst memberName, typ, r)
-                        | Fable.Setter ->   Fable.Set(callee, makeStrConst memberName |> Some, args.Head, r)
-                        // Constructor is unexpected (abstract class cons calls are resolved in transformConstructor)
-                        | Fable.Constructor
-                        | Fable.Method ->   call info callee (Some memberName) args
-                    | None -> "Unexpected static interface/override call" |> attachRange r |> failwith
-                else
-                    match callee with
-                    | Some callee -> callee::args
-                    | None -> args
-                    |> call info (Fable.EntityRef owner) (Some memberName)
+                | Some callee -> { info with hasThisArg = true }, callee::args
+                | None -> info, args
+            call info (Fable.FileRef ctx.fileName) (Some memberName) args
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.typeArgs v.FullType
-        match v, v.EnclosingEntity with
-        | _ when typ = Fable.Unit ->
-            Fable.Const Fable.UnitConst
-        | Try (tryGetBoundExpr ctx r) expr, _ ->
-            expr
-        // Cases when .EnclosingEntity returns None are rare (see #237)
-        // Let's assume the method belongs to the current enclosing module
-        // Use Any to prevent arity issues (MiscTests.``Recursive values work``)
-        | _, None ->
-            let entRef = Fable.EntityRef ctx.enclosingModule.Entity
-            Fable.Get(entRef, makeStrConst v.CompiledName, Fable.Any, r)
-        | _, Some owner ->
-            match v with
-            | Imported r typ None imported -> imported
-            | Emitted r typ None emitted -> emitted
-            // TODO: | Replaced com ctx r typ info None [] replaced -> replaced
-            | v ->
-                Fable.Get(Fable.EntityRef owner, makeStrConst v.CompiledName, typ, r)
+        match v with
+        | _ when typ = Fable.Unit -> Fable.Const Fable.UnitConst
+        | Imported r typ None imported -> imported
+        | Emitted r typ None emitted -> emitted
+        // TODO: | Replaced com ctx r typ info None [] replaced -> replaced
+        | Try (tryGetBoundExpr ctx r) expr -> expr
+        | _ ->
+            let memberName = getMemberDeclarationName com [] v
+            Fable.Get(Fable.FileRef ctx.fileName, makeStrConst memberName, typ, r)

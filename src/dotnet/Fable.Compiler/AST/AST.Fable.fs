@@ -28,9 +28,6 @@ type Type =
 
 type Declaration =
     | ActionDeclaration of Expr
-    /// Module members are also declared as variables, so they need
-    /// a private name that doesn't conflict with enclosing scope (see #130)
-    | ModuleDeclaration of publicName: string option * privateName: string * Declaration list
     // TODO: Getter or setter?
     | FunctionDeclaration of publicName: string option * privateName: string * args: Ident list * body: Expr
     | ValueDeclaration of name: string * value: Expr * isMutable: bool
@@ -72,14 +69,16 @@ type ConstKind =
     | NumberConst of float * NumberKind
     | EnumConst of EnumConstKind * enumFullName: string
     | OptionConst of value: Expr option * Type
+    | OptionGet of Expr * Type
     | TupleConst of Expr list
     | ArrayConst of Expr list * Type
     | ArrayAlloc of int * Type
     | ListConst of headAndTail: (Expr * Expr) option * Type
+    | ListGet of isHead: bool * Expr * Type
     | ErasedUnionConst of Expr * genericArgs: Type list
     | UnionTag of Choice<Expr, FSharpUnionCase> * FSharpEntity
     | UnionConst of FSharpUnionCase * Expr list * FSharpEntity * genArgs: Type list
-    | RecordConst of Expr list * FSharpEntity * genArgs: Type list
+    | RecordConst of Expr list * argTypes: Type list * FSharpEntity * genArgs: Type list
     // member this.ImmediateSubExpressions: Expr list =
     //     match this with
     //     | BoolConst _ | NumberConst _
@@ -114,11 +113,12 @@ type FunctionKind =
     | Delegate of args: Ident list
 
 type CallInfo =
-  { owner: FSharpEntity
+  { owner: FSharpEntity option
     argTypes: Type list
     genericArgs: Type list
     isConstructor: bool
-    isSpread: bool }
+    hasSpread: bool
+    hasThisArg: bool }
 
 type OperationKind =
     | Apply of applied: Expr * args: Expr list
@@ -135,7 +135,8 @@ type Expr =
     | IdentExpr of Ident
     | Cast of Expr * targetType: Type
 
-    | EntityRef of FSharpEntity
+    | FileRef of string
+    | TypeRef of FSharpEntity
     | ImportRef of memb: string * path: string * ImportKind * Type
 
     | Function of FunctionKind * body: Expr

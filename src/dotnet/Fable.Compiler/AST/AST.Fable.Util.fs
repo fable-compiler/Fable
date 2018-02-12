@@ -180,8 +180,8 @@ let getTypedArrayName (com: ICompiler) numberKind =
 
 // let makeCall (range: SourceLocation option) typ kind =
 //     let call meth isCons args callee =
-//         // TODO: Parameterize isSpread
-//         Operation(Call(callee, meth, args, isCons, isSpread=false), typ, range)
+//         // TODO: Parameterize hasSpread
+//         Operation(Call(callee, meth, args, isCons, hasSpread=false), typ, range)
 //     match kind with
 //     | InstanceCall (callee, meth, args) ->
 //         call (Some meth) false args callee
@@ -328,7 +328,7 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
         Operation(Apply(makeCoreRef Any "Util" "fromBits", [expr]), Boolean, None)
     | DeclaredType (ent, _) ->
         if ent.IsClass
-        then jsInstanceof (EntityRef ent) expr
+        then jsInstanceof (TypeRef ent) expr
         else "Cannot type test interfaces, records or unions"
              |> addErrorAndReturnNull com fileName range
     | Option _ | GenericParam _ | ErasedUnion _ ->
