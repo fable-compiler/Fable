@@ -134,8 +134,8 @@ type Directive(value, ?loc) =
 /// A complete program source tree.
 /// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module.
 /// Otherwise, sourceType must be "script".
-type Program(fileName, loc, body, ?directives, ?logs, ?dependencies) =
-    inherit Node("Program", loc)
+type Program(fileName, body, ?directives, ?logs, ?dependencies) =
+    inherit Node("Program")
     member __.sourceType = "module" // Don't use "script"
     member __.body: U2<Statement, ModuleDeclaration> list = body
     member __.directives: Directive list = defaultArg directives []

@@ -5,6 +5,7 @@ open Fable.AST.Fable
 open Fable.AST.Fable.Util
 open System.Collections.Generic
 
+(*
 // TODO: Use trampoline here?
 let rec visit f e =
     match e with
@@ -133,7 +134,9 @@ let rec optimizeDeclaration (com: ICompiler) = function
         ActionDeclaration(optimizeExpr com expr, range)
     | FunctionDeclaration(isPublic, privName, args, body, range) ->
         FunctionDeclaration(isPublic, privName, args, optimizeExpr com body, range)
+*)
 
 let optimizeFile (com: ICompiler) (file: File) =
-    let newDecls = List.map (optimizeDeclaration com) file.Declarations
-    File(file.SourcePath, file.Root, newDecls, usedVarNames=file.UsedVarNames, dependencies=file.Dependencies)
+    // let newDecls = List.map (optimizeDeclaration com) file.Declarations
+    // File(file.SourcePath, file.Root, newDecls, usedVarNames=file.UsedVarNames, dependencies=file.Dependencies)
+    file

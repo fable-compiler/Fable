@@ -157,7 +157,8 @@ type Expr =
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option
     | Switch of matchValue: Expr * cases: (Expr list * Expr) list * defaultCase: Expr option * typ: Type
 
-    // member this.IsJsStatement =
+    member this.IsJsStatement =
+        false // TODO TODO TODO
     //     match this with
     //     | Import _ | EntityRef _
     //     | IdentExpr _ | Lambda _ | Value _ | ObjectExpr _ | Apply _ | Call _ | Get _ -> false
@@ -184,7 +185,8 @@ type Expr =
     //     | TryCatch (body,_,_,_) -> body.Type
     //     | Switch (_,_,_,t,_) -> t
 
-    // member this.Range: SourceLocation option =
+    member this.Range: SourceLocation option =
+        None // TODO TODO TODO
     //     match this with
     //     | This | Null _ | Value _ | Import _ | EntityRef _ -> None
     //     | Spread e | Uncurry (e,_) -> e.Range

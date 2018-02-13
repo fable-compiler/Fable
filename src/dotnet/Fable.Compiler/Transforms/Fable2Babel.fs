@@ -24,32 +24,31 @@ type ITailCallOpportunity =
     abstract ReplaceArgs: bool
     abstract IsRecursiveRef: Fable.Expr -> bool
 
-let private getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
-    // If some arguments are functions we need to capture the current values to
-    // prevent delayed references from getting corrupted, for that we use block-scoped
-    // ES2015 variable declarations. See #681
-    let replaceArgs =
-        args |> List.exists (fun arg ->
-            match arg.Type with
-            | Fable.LambdaType _ -> true
-            | _ -> false)
-    replaceArgs, args |> List.map (fun arg -> if replaceArgs then com.GetUniqueVar() else arg.Name)
+// let private getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
+//     // If some arguments are functions we need to capture the current values to
+//     // prevent delayed references from getting corrupted, for that we use block-scoped
+//     // ES2015 variable declarations. See #681
+//     let replaceArgs =
+//         args |> List.exists (fun arg ->
+//             match arg.Type with
+//             | Fable.LambdaType _ -> true
+//             | _ -> false)
+//     replaceArgs, args |> List.map (fun arg -> if replaceArgs then com.GetUniqueVar() else arg.Name)
 
-type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
-    let replaceArgs, argIds = getTailCallArgIds com args
-    interface ITailCallOpportunity with
-        member __.Label = name
-        member __.Args = argIds
-        member __.ReplaceArgs = replaceArgs
-        member __.IsRecursiveRef(e) =
-            match e with
-            | Fable.IdentExpr(id, _) -> name = id.Name
-            | _ -> false
+// type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
+//     let replaceArgs, argIds = getTailCallArgIds com args
+//     interface ITailCallOpportunity with
+//         member __.Label = name
+//         member __.Args = argIds
+//         member __.ReplaceArgs = replaceArgs
+//         member __.IsRecursiveRef(e) =
+//             match e with
+//             | Fable.IdentExpr(id, _) -> name = id.Name
+//             | _ -> false
 
 type Context =
   { file: Fable.File
     moduleFullName: string
-    rootEntitiesPrivateNames: Map<string, string>
     isFunctionBody: bool
     addDeclaredVar: Fable.Ident -> unit
     tailCallOpportunity: ITailCallOpportunity option
@@ -68,39 +67,39 @@ type IBabelCompiler =
         (Pattern list) * U2<BlockStatement, Expression>
     // abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
     //     Fable.Declaration list -> ClassExpression
-    abstract TransformObjectExpr: Context -> Fable.ObjExprMember list ->
+    abstract TransformObjectExpr: Context -> Fable.Declaration list ->
         SourceLocation option -> Expression
 
 type IDeclareMember =
     abstract member DeclareMember: SourceLocation option * string * string option * bool * bool * Identifier option * Expression -> U2<Statement, ModuleDeclaration> list
 
 module Util =
-    let inline (|EntKind|) (ent: Fable.Entity) = ent.Kind
     let inline (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
     let inline (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
     let inline (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
 
     /// Matches a sequence of assignments and a return value: a.b = 1, a.c = 2, a
     let (|Assignments|_|) (ctx: Context) e =
-        match e with
-        | Fable.Sequential(exprs, r) when ctx.isFunctionBody ->
-            let length = exprs.Length
-            ((true, [], [], 1), exprs)
-            ||> List.fold (fun (areAssignments, declVars, exprs, i) e ->
-                match areAssignments, e with
-                | false, _ -> false, [], [], 0
-                | _, Fable.Set _ when i < length ->
-                    true, declVars, e::exprs, i + 1
-                | _, Fable.VarDeclaration(ident, value, _, r) when i < length ->
-                    let setExpr = Fable.Set(Fable.IdentExpr(ident, None), None, value, r)
-                    true, ident::declVars, setExpr::exprs, i + 1
-                | _, e when not e.IsJsStatement -> //Check `i = lenght`?
-                    true, declVars, e::exprs, i + 1
-                | _ -> false, [], [], 0)
-            |> function
-                | true, declVars, exprs, _ -> Some(List. rev declVars, List.rev exprs, r)
-                | false, _, _, _ -> None
-        | _ -> None
+        None
+        // match e with
+        // | Fable.Sequential(exprs, r) when ctx.isFunctionBody ->
+        //     let length = exprs.Length
+        //     ((true, [], [], 1), exprs)
+        //     ||> List.fold (fun (areAssignments, declVars, exprs, i) e ->
+        //         match areAssignments, e with
+        //         | false, _ -> false, [], [], 0
+        //         | _, Fable.Set _ when i < length ->
+        //             true, declVars, e::exprs, i + 1
+        //         | _, Fable.VarDeclaration(ident, value, _, r) when i < length ->
+        //             let setExpr = Fable.Set(Fable.IdentExpr(ident, None), None, value, r)
+        //             true, ident::declVars, setExpr::exprs, i + 1
+        //         | _, e when not e.IsJsStatement -> //Check `i = lenght`?
+        //             true, declVars, e::exprs, i + 1
+        //         | _ -> false, [], [], 0)
+        //     |> function
+        //         | true, declVars, exprs, _ -> Some(List. rev declVars, List.rev exprs, r)
+        //         | false, _, _, _ -> None
+        // | _ -> None
 
     let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLocation option) (error: string) =
         com.AddLog(error, Severity.Error, ?range=range, fileName=fileName)
@@ -128,10 +127,6 @@ module Util =
 
     let getCoreLibImport (com: IBabelCompiler) (ctx: Context) coreModule memb =
         com.GetImportExpr ctx memb coreModule Fable.CoreLib
-
-    let getEntity (com: IBabelCompiler) fullName =
-        // TODO: return dummy entity and add compiler error instead?
-        com.GetOrAddEntity(fullName, fun () -> failwithf "Cannot find entity %s" fullName)
 
     let get left propName =
         let expr, computed = getterByName propName
@@ -166,50 +161,6 @@ module Util =
             // Temporary placeholder to be deleted by getExpr
             | [] -> upcast EmptyExpression()
             | m::ms -> identFromName m :> Expression |> Some |> accessExpr ms
-
-    let typeRef (com: IBabelCompiler) ctx (ent: Fable.Entity)
-                (memb: string option): Expression =
-        let getParts ns fullName memb =
-            let split (s: string) =
-                s.Split('.') |> Array.toList
-            let rec removeCommon (xs1: string list) (xs2: string list) =
-                match xs1, xs2 with
-                | x1::xs1, x2::xs2 when x1 = x2 -> removeCommon xs1 xs2
-                | _ -> xs2
-            (@) (removeCommon (split ns) (split fullName))
-                (match memb with Some memb -> [memb] | None ->  [])
-        match ent.File with
-        | None ->
-            match Replacements.tryReplaceEntity com ent with
-            | Some expr -> com.TransformExpr ctx expr
-            | None ->
-                "Cannot access type " + ent.FullName
-                |> addErrorAndReturnNull com ctx.file.SourcePath None
-        | Some file when ctx.file.SourcePath <> file ->
-            let rootModule = com.GetRootModule(file)
-            let importPath = Path.getRelativeFileOrDirPath false ctx.file.SourcePath false file
-            getParts rootModule ent.FullName memb
-            |> function
-            | [] -> com.GetImportExpr ctx "*" importPath (Fable.Internal file)
-            | memb::parts ->
-                com.GetImportExpr ctx memb importPath (Fable.Internal file)
-                |> Some |> accessExpr parts
-        | _ ->
-            match getParts ctx.moduleFullName ent.FullName memb with
-            | [membName] when Option.isSome memb ->
-                // TODO Check if the member has a private name
-                // match tryFindMember ent.FullName membName ctx.file.Root.FullName ctx.file.Declarations with
-                // | Some(_, Some privateName) -> accessExpr [privateName] None
-                // // TODO: Fail if member couldn't be found?
-                // | _ ->
-                    accessExpr [membName] None
-            | rootMemb::parts when Naming.hasIdentForbiddenChars rootMemb ->
-                // Check if the root entity is represented internally with a private name
-                if ctx.rootEntitiesPrivateNames.ContainsKey(rootMemb)
-                then ctx.rootEntitiesPrivateNames.[rootMemb]
-                else rootMemb
-                |> fun rootMemb -> accessExpr (rootMemb::parts) None
-            | parts -> accessExpr parts None
 
     let buildArray (com: IBabelCompiler) ctx typ (args: Choice<Fable.Expr list, int>) =
         match typ with
@@ -248,7 +199,7 @@ module Util =
         CallExpression(ArrowFunctionExpression ([], body, ?loc=expr.Range), [], ?loc=expr.Range)
 
     let varDeclaration range (var: Pattern) (isMutable: bool) value =
-        let kind = if isMutable then Let else Value
+        let kind = if isMutable then Let else Const
         VariableDeclaration(var, value, kind, ?loc=range)
 
     let macroExpression range (txt: string) args =
@@ -312,24 +263,25 @@ module Util =
             | _ -> e // For other types, erase the option
 
     let transformObjectExpr (com: IBabelCompiler) ctx members range: Expression =
-        members |> List.choose (fun (m: Fable.Member, args, body: Fable.Expr) ->
-            let key, computed = getterByName m.Name
-            let makeMethod kind =
-                let args, body' = getMemberArgsAndBody com ctx None args body m.HasRestParams
-                ObjectMethod(kind, key, args, body', computed=computed, ?loc=body.Range) |> U3.Case2
-            match m.Kind with
-            | Fable.Constructor ->
-                "Unexpected constructor in Object Expression"
-                |> addError com ctx.file.SourcePath range
-                None
-            | Fable.Method -> makeMethod ObjectMeth |> Some
-            | Fable.Setter -> makeMethod ObjectSetter |> Some
-            | Fable.Getter -> makeMethod ObjectGetter |> Some
-            | Fable.Field ->
-                ObjectProperty(key, com.TransformExpr ctx body, computed=computed, ?loc=body.Range)
-                |> U3.Case1 |> Some)
-        |> fun props ->
-            upcast ObjectExpression(props, ?loc=range)
+        failwith "TODO: transformObjectExpr"
+        // members |> List.choose (fun (m: Fable.Member, args, body: Fable.Expr) ->
+        //     let key, computed = getterByName m.Name
+        //     let makeMethod kind =
+        //         let args, body' = getMemberArgsAndBody com ctx None args body m.HasRestParams
+        //         ObjectMethod(kind, key, args, body', computed=computed, ?loc=body.Range) |> U3.Case2
+        //     match m.Kind with
+        //     | Fable.Constructor ->
+        //         "Unexpected constructor in Object Expression"
+        //         |> addError com ctx.file.SourcePath range
+        //         None
+        //     | Fable.Method -> makeMethod ObjectMeth |> Some
+        //     | Fable.Setter -> makeMethod ObjectSetter |> Some
+        //     | Fable.Getter -> makeMethod ObjectGetter |> Some
+        //     | Fable.Field ->
+        //         ObjectProperty(key, com.TransformExpr ctx body, computed=computed, ?loc=body.Range)
+        //         |> U3.Case1 |> Some)
+        // |> fun props ->
+        //     upcast ObjectExpression(props, ?loc=range)
 
     let transformApply (com: IBabelCompiler) ctx callee args range: Expression =
         match applyCurried callee args with
@@ -438,14 +390,14 @@ module Util =
 
     // Even if IfStatement doesn't enforce it, compile both branches as blocks
     // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
-    let rec transformIfStatement (com: IBabelCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
+    let rec transformIfStatement (com: IBabelCompiler) ctx ret guardExpr thenStmnt elseStmnt =
         let guardExpr = com.TransformExpr ctx guardExpr
         let thenStmnt = transformBlock com ctx ret thenStmnt
         let elseStmnt =
             match elseStmnt: Fable.Expr with
-            | Fable.Null _ when Option.isNone ret -> None
-            | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt, r) ->
-                transformIfStatement com ctx r ret guardExpr thenStmnt elseStmnt
+            | Fable.Value(Fable.Null _) when Option.isNone ret -> None
+            | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt) ->
+                transformIfStatement com ctx ret guardExpr thenStmnt elseStmnt
                 :> Statement |> Some
             | e -> transformBlock com ctx ret e :> Statement |> Some
         IfStatement(guardExpr, thenStmnt, ?alternate=elseStmnt, ?loc=r)
@@ -511,8 +463,8 @@ module Util =
 
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
-        | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt, range) ->
-            [transformIfStatement com ctx range None guardExpr thenStmnt elseStmnt :> Statement ]
+        | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt) ->
+            [transformIfStatement com ctx None guardExpr thenStmnt elseStmnt :> Statement ]
 
         | Fable.Switch(matchValue, cases, defaultCase, _, range) ->
             [transformSwitch com ctx range None (matchValue, cases, defaultCase) :> Statement]
@@ -529,12 +481,6 @@ module Util =
 
     let transformExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
-        | Fable.Spread (TransformExpr com ctx expr) ->
-            upcast SpreadElement(expr)
-
-        | Fable.Uncurry (e, arity) ->
-            uncurry arity e |> com.TransformExpr ctx
-
         | Fable.Null _ -> upcast NullLiteral ()
 
         | Fable.This -> upcast ThisExpression ()
@@ -550,10 +496,6 @@ module Util =
 
         | Fable.Lambda (args, body, r) ->
             com.TransformFunction ctx None args body ||> transformLambda r
-
-        | Fable.EntityRef fullName ->
-            let typEnt = getEntity com fullName
-            typeRef com ctx typEnt None
 
         | Fable.Value kind -> transformConst com ctx kind
 
@@ -593,29 +535,28 @@ module Util =
             "Unexpected variable declaration"
             |> Fable.Util.attachRange expr.Range |> failwith
 
-    let optimizeTailCall (com: IBabelCompiler) (ctx: Context) (tc: ITailCallOpportunity) args =
-        ctx.optimizeTailCall()
-        let zippedArgs = List.zip tc.Args args
-        let tempVars =
-            let rec checkCrossRefs acc = function
-                | [] | [_] -> acc
-                | (argId, _arg)::rest ->
-                    rest |> List.exists (snd >> deepExists
-                        (function Fable.IdentExpr(i,_) -> argId = i.Name | _ -> false))
-                    |> function true -> Map.add argId (com.GetUniqueVar()) acc | false -> acc
-                    |> checkCrossRefs <| rest
-            checkCrossRefs Map.empty zippedArgs
-        [ for (argId, arg) in zippedArgs do
-            let arg = transformExpr com ctx arg
-            match Map.tryFind argId tempVars with
-            | Some tempVar ->
-                yield varDeclaration None (Identifier tempVar) false arg :> Statement
-            | None ->
-                yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
-          for KeyValue(argId,tempVar) in tempVars do
-            yield assign None (Identifier argId) (Identifier tempVar) |> ExpressionStatement :> Statement
-          yield upcast ContinueStatement(Identifier tc.Label) ]
-
+    // let optimizeTailCall (com: IBabelCompiler) (ctx: Context) (tc: ITailCallOpportunity) args =
+    //     ctx.optimizeTailCall()
+    //     let zippedArgs = List.zip tc.Args args
+    //     let tempVars =
+    //         let rec checkCrossRefs acc = function
+    //             | [] | [_] -> acc
+    //             | (argId, _arg)::rest ->
+    //                 rest |> List.exists (snd >> deepExists
+    //                     (function Fable.IdentExpr(i,_) -> argId = i.Name | _ -> false))
+    //                 |> function true -> Map.add argId (com.GetUniqueVar()) acc | false -> acc
+    //                 |> checkCrossRefs <| rest
+    //         checkCrossRefs Map.empty zippedArgs
+    //     [ for (argId, arg) in zippedArgs do
+    //         let arg = transformExpr com ctx arg
+    //         match Map.tryFind argId tempVars with
+    //         | Some tempVar ->
+    //             yield varDeclaration None (Identifier tempVar) false arg :> Statement
+    //         | None ->
+    //             yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
+    //       for KeyValue(argId,tempVar) in tempVars do
+    //         yield assign None (Identifier argId) (Identifier tempVar) |> ExpressionStatement :> Statement
+    //       yield upcast ContinueStatement(Identifier tc.Label) ]
 
     let transformExprAndResolve (com: IBabelCompiler) ctx ret
                                  (expr: Fable.Expr): Statement list =
@@ -639,11 +580,12 @@ module Util =
             |> wrapIntExpression expr.Type |> resolve ret |> List.singleton
 
         | Fable.Call (callee, memb, args, isCons, _, range) ->
-            match ctx.tailCallOpportunity, callee, memb, isCons, ret with
-            | Some tc, Fable.Callee callee, None, false, Return
-                    when List.sameLength tc.Args args && tc.IsRecursiveRef callee ->
-                optimizeTailCall com ctx tc args
-            | _ ->
+            // TODO TODO TODO
+            // match ctx.tailCallOpportunity, callee, memb, isCons, ret with
+            // | Some tc, Fable.Callee callee, None, false, Return
+            //         when List.sameLength tc.Args args && tc.IsRecursiveRef callee ->
+            //     optimizeTailCall com ctx tc args
+            // | _ ->
                 transformCall com ctx (callee, memb, args, isCons, range)
                 |> wrapIntExpression expr.Type |> resolve ret |> List.singleton
 
@@ -777,14 +719,6 @@ module Util =
         // ExpressionStatement(macroExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         ExpressionStatement(main, ?loc=funcExpr.loc) :> Statement
 
-    let declareNestedModMember range publicName privateName isPublic isMutable modIdent expr =
-        let privateName = defaultArg privateName publicName
-        match isPublic, modIdent with
-        | true, Some modIdent -> assign range (get modIdent publicName) expr
-        | _ -> expr
-        |> varDeclaration range (identFromName privateName) isMutable :> Statement
-        |> U2.Case1 |> List.singleton
-
     let declareRootModMember range publicName privateName isPublic isMutable _ (expr: Expression) =
         let privateName = defaultArg privateName publicName
         let privateIdent = identFromName privateName
@@ -824,8 +758,9 @@ module Util =
             // | Fable.Method ->
                 let bodyRange = body.Range
                 let args, body =
-                    let tc = NamedTailCallOpportunity(com, privName, args) :> ITailCallOpportunity
-                    getMemberArgsAndBody com ctx (Some tc) args body false
+                    // let tc = NamedTailCallOpportunity(com, privName, args) :> ITailCallOpportunity |> Some
+                    let tc = None
+                    getMemberArgsAndBody com ctx tc args body false
                 // Don't lexically bind `this` (with arrow function) or
                 // it will fail with extension members
                 upcast FunctionExpression(args, body, ?loc=bodyRange)
@@ -865,21 +800,6 @@ module Util =
     //     //     ExpressionStatement(CallExpression(cctor, [])) :> Statement
     //     //     |> U2.Case1 |> consBack classDecl
 
-    let rec transformNestedModule com ctx (ent: Fable.Entity) entDecls entRange =
-        let modIdent = Identifier Naming.exportsIdent
-        let modDecls =
-            let ctx = { ctx with moduleFullName = ent.FullName }
-            let helper =
-                { new IDeclareMember with
-                    member __.DeclareMember(a,b,c,d,e,f,g) =
-                        declareNestedModMember a b c d e f g }
-            transformModDecls com ctx helper (Some modIdent) entDecls
-            |> List.map (function
-                | U2.Case1 statement -> statement
-                | U2.Case2 _ -> failwith "Unexpected export in nested module")
-        CallExpression(FunctionExpression([modIdent], block entRange modDecls, ?loc=entRange),
-                       [ObjectExpression []], ?loc=entRange)
-
     and transformModDecls (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent decls =
         decls |> List.fold (fun acc decl ->
             match decl with
@@ -907,9 +827,6 @@ module Util =
                 | Fable.Union _ | Fable.Record _ ->
                     [] // TODO
                     // declareClass com ctx helper modIdent (ent,isPublic, privName, entDecls, entRange, None)
-                | Fable.Module ->
-                    let m = transformNestedModule com ctx ent entDecls entRange
-                    helper.DeclareMember(entRange, ent.Name, Some privName, isPublic, false, modIdent, m)
                 |> List.append <| acc) []
         |> fun decls ->
             match modIdent with
@@ -984,12 +901,6 @@ module Util =
         interface ICompiler with
             member __.Options = com.Options
             member __.ProjectFile = com.ProjectFile
-            member __.GetRootModule(fileName) =
-                com.GetRootModule(fileName)
-            member __.GetOrAddEntity(fullName, generate) =
-                com.GetOrAddEntity(fullName, generate)
-            member __.GetOrAddInlineExpr(fullName, generate) =
-                com.GetOrAddInlineExpr(fullName, generate)
             member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
             member __.GetUniqueVar() = com.GetUniqueVar() }
@@ -1002,7 +913,7 @@ module Compiler =
             let importFile = Array.last dependencies
             StringLiteral(Path.getRelativeFileOrDirPath false facadeFile false importFile)
             |> ExportAllDeclaration :> ModuleDeclaration |> U2.Case2 |> List.singleton
-        Program(facadeFile, SourceLocation.Empty, decls, dependencies=dependencies)
+        Program(facadeFile, decls, dependencies=dependencies)
 
     let transformFile (com: ICompiler) (file: Fable.File) =
         try
@@ -1011,13 +922,6 @@ module Compiler =
             let ctx =
               { file = file
                 moduleFullName = com.GetRootModule(file.SourcePath)
-                rootEntitiesPrivateNames =
-                    file.Declarations
-                    |> Seq.choose (function
-                        | Fable.EntityDeclaration(ent,_,privName,_,_) when ent.Name <> privName ->
-                            Some(ent.Name, privName)
-                        | _ -> None)
-                    |> Map
                 isFunctionBody = false
                 addDeclaredVar = fun _ -> ()
                 tailCallOpportunity = None
@@ -1074,6 +978,6 @@ module Compiler =
                         :> ModuleDeclaration |> U2.Case2 |> Some))
             // Return the Babel file
             |> fun importDecls ->
-                 Program(file.SourcePath, file.Range, (Seq.toList importDecls)@rootDecls, dependencies=dependencies)
+                 Program(file.SourcePath, (Seq.toList importDecls)@rootDecls, dependencies=dependencies)
         with
         | ex -> exn (sprintf "%s (%s)" ex.Message file.SourcePath, ex) |> raise
