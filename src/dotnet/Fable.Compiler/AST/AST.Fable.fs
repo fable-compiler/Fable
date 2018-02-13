@@ -47,7 +47,7 @@ type Ident =
 
 type ImportKind =
     | CoreLib
-    | Internal of file: string
+    | Internal
     | CustomImport
 
 type MemberKind =
@@ -56,50 +56,53 @@ type MemberKind =
     | Constructor
     | Method
 
-type EnumConstKind = NumberEnumConst of int | StringEnumConst of string
+type EnumConsKind = NumberEnumConst of int | StringEnumConst of string
+type UnionGetKind = TagOfExpr of Expr | TagOfCase of FSharpUnionCase | CaseField of Expr * FSharpUnionCase
 
-type ConstKind =
+type ValueKind =
     | This of Type
     | Null of Type
-    | UnitConst
-    | BoolConst of bool
-    | CharConst of char
-    | StringConst of string
-    | RegexConst of source: string * flags: RegexFlag list
-    | NumberConst of float * NumberKind
-    | EnumConst of EnumConstKind * enumFullName: string
-    | OptionConst of value: Expr option * Type
+    | UnitCons
+    | BoolCons of bool
+    | CharCons of char
+    | StringCons of string
+    | RegexCons of source: string * flags: RegexFlag list
+    | NumberCons of float * NumberKind
+    | EnumCons of EnumConsKind * enumFullName: string
+    | OptionCons of value: Expr option * Type
     | OptionGet of Expr * Type
-    | TupleConst of Expr list
-    | ArrayConst of Expr list * Type
+    | TupleCons of Expr list
+    | ArrayCons of Expr list * Type
     | ArrayAlloc of int * Type
-    | ListConst of headAndTail: (Expr * Expr) option * Type
-    | ListGet of isHead: bool * Expr * Type
-    | ErasedUnionConst of Expr * genericArgs: Type list
-    | UnionTag of Choice<Expr, FSharpUnionCase> * FSharpEntity
-    | UnionConst of FSharpUnionCase * Expr list * FSharpEntity * genArgs: Type list
-    | RecordConst of Expr list * argTypes: Type list * FSharpEntity * genArgs: Type list
+    | ListCons of headAndTail: (Expr * Expr) option * Type
+    | ListGet of Expr * isHead: bool * Type
+    | ErasedUnionCons of Expr * genericArgs: Type list
+    | UnionCons of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
+    | UnionGet of UnionGetKind * FSharpEntity * Type
+    | RecordCons of Expr list * FSharpEntity * genArgs: Type list
+    | RecordGet of Expr * field: string * FSharpEntity * Type
+    | RecordSet of Expr * field: string * value: Expr * FSharpEntity
     // member this.ImmediateSubExpressions: Expr list =
     //     match this with
-    //     | BoolConst _ | NumberConst _
-    //     | StringConst _ | RegexConst _
+    //     | BoolCons _ | NumberCons _
+    //     | StringCons _ | RegexCons _
     //     | ListEmpty _ | ArrayAlloc _ | NoneConst _
-    //     | UnitConst | Null _ | This _ -> []
-    //     | ListConst(head, tail, _) -> [head; tail]
-    //     | ArrayConst(exprs, _) -> exprs
-    //     | TupleConst exprs -> exprs
+    //     | UnitCons | Null _ | This _ -> []
+    //     | ListCons(head, tail, _) -> [head; tail]
+    //     | ArrayCons(exprs, _) -> exprs
+    //     | TupleCons exprs -> exprs
     //     | SomeConst(expr,_) -> [expr]
 
     // member this.Type =
     //     match this with
-    //     | UnitConst -> Unit
-    //     | NumberConst (_,kind) -> Number kind
-    //     | StringConst _ -> String
-    //     | RegexConst _ -> Regex
-    //     | BoolConst _ -> Boolean
-    //     | ListConst (_,_,typ) | ListEmpty typ -> List typ
-    //     | ArrayConst (_,typ) | ArrayAlloc (_,typ) -> Array typ
-    //     | TupleConst exprs -> exprs |> List.map (fun x -> x.Type) |> Tuple
+    //     | UnitCons -> Unit
+    //     | NumberCons (_,kind) -> Number kind
+    //     | StringCons _ -> String
+    //     | RegexCons _ -> Regex
+    //     | BoolCons _ -> Boolean
+    //     | ListCons (_,_,typ) | ListEmpty typ -> List typ
+    //     | ArrayCons (_,typ) | ArrayAlloc (_,typ) -> Array typ
+    //     | TupleCons exprs -> exprs |> List.map (fun x -> x.Type) |> Tuple
     //     | SomeConst (_, typ) | NoneConst typ -> Option typ
     //     | Null typ | This typ -> typ
 
@@ -121,7 +124,8 @@ type CallInfo =
     hasThisArg: bool }
 
 type OperationKind =
-    | Apply of applied: Expr * args: Expr list
+    | Apply of applied: Expr * args: Expr list * argTypes: Type list
+    | DynamicApply of apply: Expr * args: Expr list
     | UnresolvedCall of callee: Expr option * args: Expr list * info: CallInfo
     | Call of callee: Expr * memb: string option * args: Expr list * info: CallInfo
     | Emit of macro: string * argsAndCallInfo: (Expr list * CallInfo) option
@@ -131,13 +135,12 @@ type OperationKind =
 
 type Expr =
     | Debugger
-    | Const of ConstKind
+    | Value of ValueKind
     | IdentExpr of Ident
     | Cast of Expr * targetType: Type
 
-    | FileRef of string
     | TypeRef of FSharpEntity
-    | ImportRef of memb: string * path: string * ImportKind * Type
+    | Import of memb: string * path: string * ImportKind * Type
 
     | Function of FunctionKind * body: Expr
     | ObjectExpr of decls: Declaration list * Type
@@ -156,8 +159,8 @@ type Expr =
 
     // member this.IsJsStatement =
     //     match this with
-    //     | ImportRef _ | EntityRef _
-    //     | IdentExpr _ | Lambda _ | Const _ | ObjectExpr _ | Apply _ | Call _ | Get _ -> false
+    //     | Import _ | EntityRef _
+    //     | IdentExpr _ | Lambda _ | Value _ | ObjectExpr _ | Apply _ | Call _ | Get _ -> false
     //     | IfThenElse (_,thenExpr,elseExpr,_) -> thenExpr.IsJsStatement || elseExpr.IsJsStatement
     //     | Throw _ | Debugger _ | Loop _ | Set _ | VarDeclaration _
     //     | Sequential _ | TryCatch _ | Switch _ -> true
@@ -168,9 +171,9 @@ type Expr =
     //     | This | ObjectExpr _ | EntityRef _ -> Any
     //     | Spread e | Uncurry (e,_) -> e.Type
     //     | IdentExpr (i,_) -> i.Type
-    //     | Const kind -> kind.Type
+    //     | Value kind -> kind.Type
     //     | Lambda (args, body, _) -> LambdaType(List.map Ident.getType args, body.Type)
-    //     | Null typ | ImportRef (_,_,_,typ) | Throw (_,typ,_)
+    //     | Null typ | Import (_,_,_,typ) | Throw (_,typ,_)
     //     | Call (_,_,_,_,typ,_) | Get (_,_,typ,_) -> typ
     //     | IfThenElse (_,thenExpr,_,_) -> thenExpr.Type
     //     | Debugger _ | Loop _ | Set _ | VarDeclaration _ -> Unit
@@ -183,7 +186,7 @@ type Expr =
 
     // member this.Range: SourceLocation option =
     //     match this with
-    //     | This | Null _ | Const _ | ImportRef _ | EntityRef _ -> None
+    //     | This | Null _ | Value _ | Import _ | EntityRef _ -> None
     //     | Spread e | Uncurry (e,_) -> e.Range
     //     | IdentExpr (_,range)
     //     | ObjectExpr (_,range)
@@ -203,8 +206,8 @@ type Expr =
 
     // member this.ImmediateSubExpressions: Expr list =
     //     match this with
-    //     | This | Null _ | IdentExpr _ | ImportRef _ | EntityRef _ | Debugger _ -> []
-    //     | Const v -> v.ImmediateSubExpressions
+    //     | This | Null _ | IdentExpr _ | Import _ | EntityRef _ | Debugger _ -> []
+    //     | Value v -> v.ImmediateSubExpressions
     //     | ObjectExpr (decls,_) -> decls |> List.map (fun (_,_,e) -> e)
     //     | VarDeclaration (_,e,_,_) | Throw (e,_,_) | Lambda (_,e,_) | Spread e | Uncurry (e,_) -> [e]
     //     | IfThenElse (cond,thenExpr,elseExpr,_) -> [cond;thenExpr;elseExpr]

@@ -10,7 +10,6 @@ open Fable.AST.Fable.Util
 
 type Context =
     { fileName: string
-      enclosingModule: FSharpEntity option
       scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
       scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
       /// Some expressions that create scope in F# don't do it in JS (like let bindings)
@@ -19,9 +18,8 @@ type Context =
       typeArgs: (string * FSharpType) list
       decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
     }
-    static member Create(fileName, enclosingModule) =
+    static member Create(fileName) =
         { fileName = fileName
-          enclosingModule = enclosingModule
           scope = []
           scopedInlines = []
           varNames = HashSet()
@@ -49,7 +47,7 @@ module Atts =
 
 [<RequireQualifiedAccess>]
 module Types =
-    let [<Literal>] applicable = "Fable.Core.Applicable"
+    let [<Literal>] dynamicApplicable = "Fable.Core.DynamicApplicable"
     let [<Literal>] attribute = "System.Attribute"
     let [<Literal>] object = "System.Object"
     let [<Literal>] bool = "System.Boolean"
@@ -551,7 +549,7 @@ module TypeHelpers =
         | _ -> ()
     }
 
-    let getArgTypes com ownerGenArgs (memb: FSharpMemberOrFunctionOrValue) =
+    let getArgTypes com (memb: FSharpMemberOrFunctionOrValue) =
         // FSharpParameters don't contain the `this` arg
         Seq.concat memb.CurriedParameterGroups
         // The F# compiler "untuples" the args in methods
@@ -821,7 +819,7 @@ module Util =
                 match Seq.toList att.ConstructorArguments with
                 | [(_, (:? string as memb)); (_, (:? string as path))]
                         when not(isNull memb || isNull path || path.StartsWith ".") ->
-                    Fable.ImportRef(memb.Trim(), path.Trim(), Fable.CustomImport, typ) |> Some
+                    Fable.Import(memb.Trim(), path.Trim(), Fable.CustomImport, typ) |> Some
                 | _ -> None
             | _ -> None)
 
@@ -875,20 +873,29 @@ module Util =
         //     then Some expr
         //     else makeSequential r (assignments@[expr]) |> Some
 
-    let makeCallInfo com (ctx: Context) ownerGenArgs membGenArgs owner memb : Fable.CallInfo =
+    let makeCallInfo com (ctx: Context) genArgs owner memb : Fable.CallInfo =
       { owner = owner
-        argTypes = getArgTypes com ownerGenArgs memb
-        genericArgs = ownerGenArgs @ membGenArgs |> List.map (makeType com ctx.typeArgs)
+        argTypes = getArgTypes com memb
+        genericArgs = List.map (makeType com ctx.typeArgs) genArgs
         isConstructor = false
         hasSpread = hasSpread memb
         hasThisArg = false }
 
-    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ ownerGenArgs membGenArgs callee args
-                                                                (memb: FSharpMemberOrFunctionOrValue) =
+    let fileRef com (ctx: Context) typ argTypes (memb: FSharpMemberOrFunctionOrValue) =
+        let file =
+            match memb.EnclosingEntity with
+            | Some ent -> (getEntityLocation ent).FileName
+            // Cases when .EnclosingEntity returns None are rare (see #237)
+            // We assume the member belongs to the current file
+            | None -> ctx.fileName
+        let memberName = getMemberDeclarationName com argTypes memb
+        Fable.Import(file, memberName, Fable.Internal, typ)
+
+    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
         let call info callee memb args =
             Fable.Operation(Fable.Call(callee, memb, args, info), typ, r)
         // TODO: Remove optional arguments
-        let info = makeCallInfo com ctx ownerGenArgs membGenArgs memb.EnclosingEntity memb
+        let info = makeCallInfo com ctx genArgs memb.EnclosingEntity memb
         let argsAndCallInfo =
             match callee with
             | Some c -> Some(c::args, { info with hasThisArg = true })
@@ -916,21 +923,18 @@ module Util =
                 | Fable.Method ->   call info callee (Some memb.DisplayName) args
             | None -> "Unexpected static interface/override call" |> attachRange r |> failwith
         | _ ->
-            let memberName = getMemberDeclarationName com info.argTypes memb
             let info, args =
                 match callee with
                 | Some callee -> { info with hasThisArg = true }, callee::args
                 | None -> info, args
-            call info (Fable.FileRef ctx.fileName) (Some memberName) args
+            call info (fileRef com ctx Fable.Any info.argTypes memb) None args
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.typeArgs v.FullType
         match v with
-        | _ when typ = Fable.Unit -> Fable.Const Fable.UnitConst
+        | _ when typ = Fable.Unit -> Fable.Value Fable.UnitCons
         | Imported r typ None imported -> imported
         | Emitted r typ None emitted -> emitted
         // TODO: | Replaced com ctx r typ info None [] replaced -> replaced
         | Try (tryGetBoundExpr ctx r) expr -> expr
-        | _ ->
-            let memberName = getMemberDeclarationName com [] v
-            Fable.Get(Fable.FileRef ctx.fileName, makeStrConst memberName, typ, r)
+        | _ -> fileRef com ctx typ [] v

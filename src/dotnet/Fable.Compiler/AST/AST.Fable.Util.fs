@@ -4,7 +4,7 @@ open Fable.AST
 
 // let (|CoreMeth|_|) coreMod meth expr =
 //     match expr with
-//     | Call(Callee(ImportRef(meth',coreMod',CoreLib,_)),None,args,_,_,_)
+//     | Call(Callee(Import(meth',coreMod',CoreLib,_)),None,args,_,_,_)
 //         when meth' = meth && coreMod' = coreMod ->
 //         Some args
 //     | _ -> None
@@ -17,12 +17,12 @@ let addError (com: ICompiler) (fileName: string) (range: SourceLocation option) 
 
 let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLocation option) (error: string) =
     com.AddLog(error, Severity.Error, ?range=range, fileName=fileName)
-    Null Any |> Const
+    Null Any |> Value
 
 // /// When referenced multiple times, is there a risk of double evaluation?
 // let hasDoubleEvalRisk = function
 //     | This | Null _ | IdentExpr _
-//     | Const(NumberConst _ | StringConst _ | BoolConst _) -> false
+//     | Value(NumberCons _ | StringCons _ | BoolCons _) -> false
 //     | _ -> true
 
 // let rec deepExists f (expr: Expr) =
@@ -58,10 +58,10 @@ let makeTypedIdent r typ name = { Name = name; Type = typ; IsMutable = false; Ra
 let makeLoop range loopKind = Loop (loopKind, range)
 
 let makeCoreRef t modname prop =
-    ImportRef(prop, modname, CoreLib, t)
+    Import(prop, modname, CoreLib, t)
 
 let makeImport t (selector: string) (path: string) =
-    ImportRef(selector.Trim(), path.Trim(), CustomImport, t)
+    Import(selector.Trim(), path.Trim(), CustomImport, t)
 
 let makeBinOp range typ left right op =
     Operation(BinaryOperation(op, left, right), typ, range)
@@ -77,11 +77,11 @@ let makeEqOp range left right op =
 
 // let rec makeSequential range statements =
 //     match statements with
-//     | [] -> Null Any |> Const
+//     | [] -> Null Any |> Value
 //     | [expr] -> expr
 //     | first::rest ->
 //         match first, rest with
-//         | Const(Null _), _ -> makeSequential range rest
+//         | Value(Null _), _ -> makeSequential range rest
 //         | Sequential (statements, _), _ -> makeSequential range (statements@rest)
 //         | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
 //         | _ -> Sequential (statements, range)
@@ -93,27 +93,27 @@ let makeGet range typ callee propExpr =
     Get(callee, propExpr, typ, range)
 
 let makeUntypedGet callee prop =
-    Get(callee, Const (StringConst prop), Any, None)
+    Get(callee, Value (StringCons prop), Any, None)
 
 let makeArray elementType arrExprs =
-    ArrayConst(arrExprs, elementType) |> Const
+    ArrayCons(arrExprs, elementType) |> Value
 
 let makeLongInt (x: uint64) unsigned =
     let t = ExtendedNumber(if unsigned then UInt64 else Int64)
-    let lowBits = NumberConst (float (uint32 x), Float64)
-    let highBits = NumberConst (float (x >>> 32), Float64)
-    let unsigned = BoolConst (unsigned)
-    let args = [Const lowBits; Const highBits; Const unsigned]
+    let lowBits = NumberCons (float (uint32 x), Float64)
+    let highBits = NumberCons (float (x >>> 32), Float64)
+    let unsigned = BoolCons (unsigned)
+    let args = [Value lowBits; Value highBits; Value unsigned]
     Operation(Apply(makeCoreRef Any "Long" "fromBits", args), t, None)
 
-let makeBoolConst (x: bool) = BoolConst x |> Const
-let makeStrConst (x: string) = StringConst x |> Const
-let makeIntConst (x: int) = NumberConst (float x, Int32) |> Const
-let makeNumConst (x: float) = NumberConst (float x, Float64) |> Const
-let makeDecConst (x: decimal) = NumberConst (float x, Float64) |> Const
+let makeBoolConst (x: bool) = BoolCons x |> Value
+let makeStrConst (x: string) = StringCons x |> Value
+let makeIntConst (x: int) = NumberCons (float x, Int32) |> Value
+let makeNumConst (x: float) = NumberCons (float x, Float64) |> Value
+let makeDecConst (x: decimal) = NumberCons (float x, Float64) |> Value
 
 let makeFloat32 (x: float32) =
-    let args = [NumberConst (float x, Float32) |> Const]
+    let args = [NumberCons (float x, Float32) |> Value]
     let callee = makeUntypedGet (IdentExpr(makeIdent "Math")) "fround"
     Operation(Apply(callee, args), Number Float32, None)
 
@@ -131,34 +131,34 @@ let makeTypeConst (typ: Type) (value: obj) =
     | Number Float32, (:? float32 as x) -> makeFloat32 x
     | _ ->
         match typ, value with
-        | Boolean, (:? bool as x) -> BoolConst x |> Const
-        | String, (:? string as x) -> StringConst x |> Const
-        | Char, (:? char as x) -> StringConst (string x) |> Const
+        | Boolean, (:? bool as x) -> BoolCons x |> Value
+        | String, (:? string as x) -> StringCons x |> Value
+        | Char, (:? char as x) -> StringCons (string x) |> Value
         // Integer types
-        | Number UInt8, (:? byte as x) -> NumberConst (float x, UInt8) |> Const
-        | Number Int8, (:? sbyte as x) -> NumberConst (float x, Int8) |> Const
-        | Number Int16, (:? int16 as x) -> NumberConst (float x, Int16) |> Const
-        | Number UInt16, (:? uint16 as x) -> NumberConst (float x, UInt16) |> Const
-        | Number Int32, (:? int as x) -> NumberConst (float x, Int32) |> Const
-        | Number UInt32, (:? uint32 as x) -> NumberConst (float x, UInt32) |> Const
+        | Number UInt8, (:? byte as x) -> NumberCons (float x, UInt8) |> Value
+        | Number Int8, (:? sbyte as x) -> NumberCons (float x, Int8) |> Value
+        | Number Int16, (:? int16 as x) -> NumberCons (float x, Int16) |> Value
+        | Number UInt16, (:? uint16 as x) -> NumberCons (float x, UInt16) |> Value
+        | Number Int32, (:? int as x) -> NumberCons (float x, Int32) |> Value
+        | Number UInt32, (:? uint32 as x) -> NumberCons (float x, UInt32) |> Value
         // Float types
-        | Number Float64, (:? float as x) -> NumberConst (float x, Float64) |> Const
+        | Number Float64, (:? float as x) -> NumberCons (float x, Float64) |> Value
         // Enums (TODO: proper JS support, as Enum has no type)
-        | Enum _, (:? byte as x) -> NumberConst (float x, UInt8) |> Const
-        | Enum _, (:? sbyte as x) -> NumberConst (float x, Int8) |> Const
-        | Enum _, (:? int16 as x) -> NumberConst (float x, Int16) |> Const
-        | Enum _, (:? uint16 as x) -> NumberConst (float x, UInt16) |> Const
-        | Enum _, (:? int as x) -> NumberConst (float x, Int32) |> Const
-        | Enum _, (:? uint32 as x) -> NumberConst (float x, UInt32) |> Const
+        | Enum _, (:? byte as x) -> NumberCons (float x, UInt8) |> Value
+        | Enum _, (:? sbyte as x) -> NumberCons (float x, Int8) |> Value
+        | Enum _, (:? int16 as x) -> NumberCons (float x, Int16) |> Value
+        | Enum _, (:? uint16 as x) -> NumberCons (float x, UInt16) |> Value
+        | Enum _, (:? int as x) -> NumberCons (float x, Int32) |> Value
+        | Enum _, (:? uint32 as x) -> NumberCons (float x, UInt32) |> Value
         // TODO: Regex
-        | Unit, (:? unit) | _ when isNull value -> UnitConst |> Const
-        // Arrays with small data type (ushort, byte) come as Const
+        | Unit, (:? unit) | _ when isNull value -> UnitCons |> Value
+        // Arrays with small data type (ushort, byte) come as Value
         | Array (Number kind), (:? (byte[]) as arr) ->
-            let values = arr |> Array.map (fun x -> NumberConst (float x, kind) |> Const) |> Seq.toList
-            ArrayConst (values, Number kind) |> Const
+            let values = arr |> Array.map (fun x -> NumberCons (float x, kind) |> Value) |> Seq.toList
+            ArrayCons (values, Number kind) |> Value
         | Array (Number kind), (:? (uint16[]) as arr) ->
-            let values = arr |> Array.map (fun x -> NumberConst (float x, kind) |> Const) |> Seq.toList
-            ArrayConst (values, Number kind) |> Const
+            let values = arr |> Array.map (fun x -> NumberCons (float x, kind) |> Value) |> Seq.toList
+            ArrayCons (values, Number kind) |> Value
         | _ -> failwithf "Unexpected type %A, literal %O" typ value
 
 // let makeJsObject range (props: (string * Expr) list) =
@@ -186,7 +186,7 @@ let getTypedArrayName (com: ICompiler) numberKind =
 //     | InstanceCall (callee, meth, args) ->
 //         call (Some meth) false args callee
 //     | ImportCall (importPath, modName, meth, isCons, args) ->
-//         ImportRef (modName, importPath, CustomImport, Any) |> call meth isCons args
+//         Import (modName, importPath, CustomImport, Any) |> call meth isCons args
 //     | CoreLibCall (modName, meth, isCons, args) ->
 //         makeCoreRef Any modName (defaultArg meth "default") |> call None isCons args
 //     | GlobalCall (modName, meth, isCons, args) ->
@@ -277,7 +277,7 @@ let getTypedArrayName (com: ICompiler) numberKind =
 // let private removeOptionalArguments (optionalArgs: int) (args: Expr list) =
 //     let rec removeArgs optionalArgs (revArgs: Expr list) =
 //         match revArgs with
-//         | Const(NoneConst _)::rest when optionalArgs > 0 ->
+//         | Value(NoneConst _)::rest when optionalArgs > 0 ->
 //             removeArgs (optionalArgs - 1) rest
 //         | _ -> args
 //     List.rev args |> removeArgs optionalArgs |> List.rev
@@ -294,11 +294,11 @@ let getTypedArrayName (com: ICompiler) numberKind =
 //             | Some true, _, _, (_::_) ->
 //                 let argExprs = List.rev argExprs
 //                 match argExprs.Head with
-//                 | Const(ArrayConst(items, _)) -> (List.rev argExprs.Tail)@items
+//                 | Value(ArrayCons(items, _)) -> (List.rev argExprs.Tail)@items
 //                 | _ -> (Spread argExprs.Head)::argExprs.Tail |> List.rev
 //             // TODO: hasSeqParam
 //             // TODO: If we're within a constructor and call to another constructor, pass `$this` as last argument
-//             | _, Some true, _, [Const(TupleConst argExprs)] ->
+//             | _, Some true, _, [Value(TupleCons argExprs)] ->
 //                 argExprs
 //             | _, _, Some optionalArgs, _ when optionalArgs > 0 ->
 //                 removeOptionalArguments optionalArgs argExprs // See #231, #640
@@ -315,7 +315,7 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
         makeBinOp range Boolean expr cons BinaryInstanceOf
     match typ with
     | Any -> makeBoolConst true
-    | Unit -> makeEqOp range expr (Const <| Null Any) BinaryEqual
+    | Unit -> makeEqOp range expr (Value <| Null Any) BinaryEqual
     | Boolean -> jsTypeof "boolean" expr
     | Char | String _ -> jsTypeof "string" expr
     | Regex -> jsInstanceof (IdentExpr(makeIdent "RegExp")) expr

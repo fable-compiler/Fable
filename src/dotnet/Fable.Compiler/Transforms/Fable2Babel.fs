@@ -121,7 +121,7 @@ module Util =
         else upcast Identifier propName, false
 
     let getterByProp com ctx = function
-        | Fable.Const(Fable.StringConst name)
+        | Fable.Value(Fable.StringCons name)
             when not (Naming.hasIdentForbiddenChars name) ->
             Identifier (name) :> Expression, false
         | TransformExpr com ctx property -> property, true
@@ -248,7 +248,7 @@ module Util =
         CallExpression(ArrowFunctionExpression ([], body, ?loc=expr.Range), [], ?loc=expr.Range)
 
     let varDeclaration range (var: Pattern) (isMutable: bool) value =
-        let kind = if isMutable then Let else Const
+        let kind = if isMutable then Let else Value
         VariableDeclaration(var, value, kind, ?loc=range)
 
     let macroExpression range (txt: string) args =
@@ -287,18 +287,18 @@ module Util =
 
     let transformConst (com: IBabelCompiler) (ctx: Context) cons: Expression =
         match cons with
-        | Fable.NumberConst (x,_) ->
+        | Fable.NumberCons (x,_) ->
             if x < 0.
             // Negative numeric literals can give issues in Babel AST, see #1186
             then upcast UnaryExpression(UnaryMinus, NumericLiteral(x * -1.))
             else upcast NumericLiteral x
-        | Fable.StringConst x -> upcast StringLiteral (x)
-        | Fable.BoolConst x -> upcast BooleanLiteral (x)
-        | Fable.RegexConst (source, flags) -> upcast RegExpLiteral (source, flags)
-        | Fable.ArrayConst (args, typ) -> buildArray com ctx typ (Choice1Of2 args)
+        | Fable.StringCons x -> upcast StringLiteral (x)
+        | Fable.BoolCons x -> upcast BooleanLiteral (x)
+        | Fable.RegexCons (source, flags) -> upcast RegExpLiteral (source, flags)
+        | Fable.ArrayCons (args, typ) -> buildArray com ctx typ (Choice1Of2 args)
         | Fable.ArrayAlloc (size, typ) -> buildArray com ctx typ (Choice2Of2 size)
-        | Fable.TupleConst vals -> buildArray com ctx Fable.Any (Choice1Of2 vals)
-        | Fable.ListConst (head, tail, _) -> buildArray com ctx Fable.Any (Choice1Of2 [head; tail])
+        | Fable.TupleCons vals -> buildArray com ctx Fable.Any (Choice1Of2 vals)
+        | Fable.ListCons (head, tail, _) -> buildArray com ctx Fable.Any (Choice1Of2 [head; tail])
         | Fable.ListEmpty _ -> buildArray com ctx Fable.Any (Choice1Of2 [])
         | Fable.NoneConst _ -> upcast NullLiteral ()
         | Fable.SomeConst (e, t) ->
@@ -374,7 +374,7 @@ module Util =
         | Fable.Callee callee ->
             let callee =
                 match callee, memb with
-                | Fable.EntityRef fullName, Some(Fable.Const(Fable.StringConst memb)) ->
+                | Fable.EntityRef fullName, Some(Fable.Value(Fable.StringCons memb)) ->
                     let typEnt = getEntity com fullName
                     typeRef com ctx typEnt (Some memb)
                 | callee, Some prop -> getExpr com ctx callee prop
@@ -479,7 +479,7 @@ module Util =
                 | Some property -> Assign(getExpr com ctx callee property)
             com.TransformExprAndResolve ctx ret value
 
-        | Fable.VarDeclaration (var, Fable.ImportRef(Naming.placeholder, path, kind, _), isMutable, r) ->
+        | Fable.VarDeclaration (var, Fable.Import(Naming.placeholder, path, kind, _), isMutable, r) ->
             let value = com.GetImportExpr ctx var.Name path kind
             [varDeclaration r (ident var) isMutable value :> Statement]
 
@@ -521,9 +521,9 @@ module Util =
             statements |> List.collect (com.TransformStatement ctx)
 
         // Expressions become ExpressionStatements
-        | Fable.Null _ | Fable.This | Fable.IdentExpr _ | Fable.Const _
+        | Fable.Null _ | Fable.This | Fable.IdentExpr _ | Fable.Value _
         | Fable.Spread _ | Fable.Uncurry _ | Fable.Lambda _
-        | Fable.ImportRef _ | Fable.EntityRef _ | Fable.ObjectExpr _
+        | Fable.Import _ | Fable.EntityRef _ | Fable.ObjectExpr _
         | Fable.Apply _ | Fable.Call _ | Fable.Get _  ->
             [ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range) :> Statement]
 
@@ -541,7 +541,7 @@ module Util =
 
         | Fable.IdentExpr (i, _) -> upcast Identifier i.Name
 
-        | Fable.ImportRef (memb, path, kind, _) ->
+        | Fable.Import (memb, path, kind, _) ->
             let memb, parts =
                 let parts = Array.toList(memb.Split('.'))
                 parts.Head, parts.Tail
@@ -555,7 +555,7 @@ module Util =
             let typEnt = getEntity com fullName
             typeRef com ctx typEnt None
 
-        | Fable.Const kind -> transformConst com ctx kind
+        | Fable.Value kind -> transformConst com ctx kind
 
         | Fable.ObjectExpr (members, r) ->
             transformObjectExpr com ctx members r
@@ -624,7 +624,7 @@ module Util =
             | Return -> upcast ReturnStatement(expr, ?loc=expr.loc)
             | Assign left -> upcast ExpressionStatement(assign expr.loc left expr, ?loc=expr.loc)
         match expr with
-        | Fable.Const kind ->
+        | Fable.Value kind ->
             transformConst com ctx kind
             |> wrapIntExpression expr.Type
             |> resolve ret |> List.singleton

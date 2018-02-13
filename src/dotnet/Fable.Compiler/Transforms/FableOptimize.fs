@@ -8,14 +8,14 @@ open System.Collections.Generic
 // TODO: Use trampoline here?
 let rec visit f e =
     match e with
-    | This | Null _ | IdentExpr _ | ImportRef _ | EntityRef _ | Debugger _ -> e
-    | Const kind ->
+    | This | Null _ | IdentExpr _ | Import _ | EntityRef _ | Debugger _ -> e
+    | Value kind ->
         match kind with
-        | TupleConst exprs -> TupleConst(List.map (visit f) exprs) |> Const
-        | ArrayConst(exprs, t) -> ArrayConst(List.map (visit f) exprs, t) |> Const
-        | ListConst(head, tail, t) -> ListConst(visit f head, visit f tail, t) |> Const
-        | SomeConst(expr, t) -> SomeConst(visit f expr, t) |> Const
-        | ArrayAlloc _ | NoneConst _ | ListEmpty _ | NumberConst _ | StringConst _ | BoolConst _ | RegexConst _ -> e
+        | TupleCons exprs -> TupleCons(List.map (visit f) exprs) |> Value
+        | ArrayCons(exprs, t) -> ArrayCons(List.map (visit f) exprs, t) |> Value
+        | ListCons(head, tail, t) -> ListCons(visit f head, visit f tail, t) |> Value
+        | SomeConst(expr, t) -> SomeConst(visit f expr, t) |> Value
+        | ArrayAlloc _ | NoneConst _ | ListEmpty _ | NumberCons _ | StringCons _ | BoolCons _ | RegexCons _ -> e
     | Uncurry(e, a) -> Uncurry(visit f e, a)
     | Spread e -> Spread(visit f e)
     | Lambda(args, body, range) -> Lambda(args, visit f body, range)
