@@ -36,10 +36,10 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
             Fable.NewErasedUnion(expr, genArgs) |> Fable.Value
         | _ -> "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
-    | StringEnumType ->
+    | StringEnum ->
         match argExprs with
         | [] -> lowerCaseName unionCase
-        | _ -> "StringEnumType types cannot have fields: " + (getFsTypeFullName fsType)
+        | _ -> "StringEnum types cannot have fields: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
     | OptionUnion typ ->
         let typ = makeType com ctx.typeArgs typ
@@ -217,7 +217,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
         let emptyList = Fable.NewList(None, makeType com ctx.typeArgs t) |> Fable.Value
         if unionCase.Name = "Empty" then BinaryEqual else BinaryUnequal
         |> makeEqOp (makeRangeFrom fsExpr) unionExpr emptyList
-    | StringEnumType ->
+    | StringEnum ->
         makeEqOp (makeRangeFrom fsExpr) unionExpr (lowerCaseName unionCase) BinaryEqualStrict
     | DiscriminatedUnion tdef ->
         let tag1 = Fable.Get(unionExpr, Fable.UnionTag tdef, Fable.Any, None)
@@ -421,8 +421,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let range = makeRangeFrom fsExpr
         match fsType with
         | ErasedUnion -> unionExpr
-        | StringEnumType ->
-            "StringEnumType types cannot have fields"
+        | StringEnum ->
+            "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
         | OptionUnion t ->
             Fable.Get(unionExpr, Fable.OptionValue, makeType com ctx.typeArgs t, range)

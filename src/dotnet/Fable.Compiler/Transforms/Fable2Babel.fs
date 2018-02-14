@@ -162,26 +162,26 @@ module Util =
             | [] -> upcast EmptyExpression()
             | m::ms -> identFromName m :> Expression |> Some |> accessExpr ms
 
-    let buildArray (com: IBabelCompiler) ctx typ (args: Choice<Fable.Expr list, int>) =
+    let buildArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
         match typ with
         | Fable.Number kind when com.Options.typedArrays ->
             let cons =
                 Fable.Util.getTypedArrayName com kind
                 |> Identifier
             let args =
-                match args with
-                | Choice1Of2 args ->
+                match arrayKind with
+                | Fable.ArrayValues args ->
                     [ List.map (com.TransformExpr ctx) args
                       |> ArrayExpression :> Expression ]
-                | Choice2Of2 size ->
+                | Fable.ArrayAlloc size ->
                     [ NumericLiteral(float size) ]
             NewExpression(cons, args) :> Expression
         | _ ->
-            match args with
-            | Choice1Of2 args ->
+            match arrayKind with
+            | Fable.ArrayValues args ->
                 List.map (com.TransformExpr ctx) args
                 |> ArrayExpression :> Expression
-            | Choice2Of2 size ->
+            | Fable.ArrayAlloc size ->
                 upcast NewExpression(Identifier "Array", [ NumericLiteral(float size) ])
 
     let buildStringArray strings =
@@ -236,31 +236,42 @@ module Util =
         | U2.Case2 e -> BlockStatement([ReturnStatement(e, ?loc=e.loc)], ?loc=e.loc)
         |> fun body -> upcast FunctionExpression (args, body, ?loc=r)
 
-    let transformConst (com: IBabelCompiler) (ctx: Context) cons: Expression =
-        match cons with
+    let transformValue (com: IBabelCompiler) (ctx: Context) value: Expression =
+        match value with
+        | Fable.This _ -> upcast ThisExpression ()
+        | Fable.Null _ -> upcast NullLiteral ()
+        | Fable.UnitConstant -> upcast NullLiteral () // TODO: Use `void 0`?
+        | Fable.BoolConstant x -> upcast BooleanLiteral (x)
+        | Fable.CharConstant x -> upcast StringLiteral (string x)
+        | Fable.StringConstant x -> upcast StringLiteral (x)
         | Fable.NumberConstant (x,_) ->
             if x < 0.
             // Negative numeric literals can give issues in Babel AST, see #1186
             then upcast UnaryExpression(UnaryMinus, NumericLiteral(x * -1.))
             else upcast NumericLiteral x
-        | Fable.StringConstant x -> upcast StringLiteral (x)
-        | Fable.BoolConstant x -> upcast BooleanLiteral (x)
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral (source, flags)
-        | Fable.NewArray (args, typ) -> buildArray com ctx typ (Choice1Of2 args)
-        | Fable.ArrayAlloc (size, typ) -> buildArray com ctx typ (Choice2Of2 size)
-        | Fable.NewTuple vals -> buildArray com ctx Fable.Any (Choice1Of2 vals)
-        | Fable.NewList (head, tail, _) -> buildArray com ctx Fable.Any (Choice1Of2 [head; tail])
-        | Fable.ListEmpty _ -> buildArray com ctx Fable.Any (Choice1Of2 [])
-        | Fable.NoneConst _ -> upcast NullLiteral ()
-        | Fable.SomeConst (e, t) ->
-            let e = com.TransformExpr ctx e
-            // For unit, unresolved generics or nested options, create a runtime wrapper
-            // See fable-core/Option.ts for more info
-            match t with
-            | Fable.Unit | Fable.GenericParam _ | Fable.Option _ ->
-                let wrapper = getCoreLibImport com ctx "Option" "makeSome"
-                upcast CallExpression(wrapper, [e])
-            | _ -> e // For other types, erase the option
+        | Fable.NewArray (arrayKind, typ) -> buildArray com ctx typ arrayKind
+        | Fable.NewTuple vals -> buildArray com ctx Fable.Any (Fable.ArrayValues vals)
+        | Fable.NewList (headAndTail, _) ->
+            let vals = match headAndTail with Some(head, tail) -> [head; tail] | None -> []
+            buildArray com ctx Fable.Any (Fable.ArrayValues vals)
+        | Fable.NewOption (value, t) ->
+            // TODO TODO TODO: Wrap unit, generic and nested options
+            match value with
+            | Some (TransformExpr com ctx e) ->
+                match t with
+                // For unit, unresolved generics or nested options, create a runtime wrapper
+                // See fable-core/Option.ts for more info
+                | Fable.Unit | Fable.GenericParam _ | Fable.Option _ ->
+                    let wrapper = getCoreLibImport com ctx "Option" "makeSome"
+                    upcast CallExpression(wrapper, [e])
+                | _ -> e // For other types, erase the option
+            | None -> upcast NullLiteral ()
+        | Fable.Enum _ -> failwith "TODO: Enum"
+        | Fable.NewRecord _ -> failwith "TODO: NewRecord"
+        | Fable.NewUnion _ -> failwith "TODO: NewUnion"
+        | Fable.NewErasedUnion _ -> failwith "TODO: NewErasedUnion"
+        | Fable.UnionCaseTag _ -> failwith "TODO: UnionCaseTag"
 
     let transformObjectExpr (com: IBabelCompiler) ctx members range: Expression =
         failwith "TODO: transformObjectExpr"
@@ -481,10 +492,6 @@ module Util =
 
     let transformExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
-        | Fable.Null _ -> upcast NullLiteral ()
-
-        | Fable.This -> upcast ThisExpression ()
-
         | Fable.IdentExpr (i, _) -> upcast Identifier i.Name
 
         | Fable.Import (memb, path, kind, _) ->
@@ -566,7 +573,7 @@ module Util =
             | Assign left -> upcast ExpressionStatement(assign expr.loc left expr, ?loc=expr.loc)
         match expr with
         | Fable.Value kind ->
-            transformConst com ctx kind
+            transformValue com ctx kind
             |> wrapIntExpression expr.Type
             |> resolve ret |> List.singleton
 

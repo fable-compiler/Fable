@@ -345,7 +345,7 @@ module Patterns =
         | Naming.StartsWith "Microsoft.FSharp.Core.decimal" _ -> Some Decimal
         | _ -> None
 
-    let (|OptionUnion|ListUnion|ErasedUnion|StringEnumType|DiscriminatedUnion|) (NonAbbreviatedType typ: FSharpType) =
+    let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|DiscriminatedUnion|) (NonAbbreviatedType typ: FSharpType) =
         match tryDefinition typ with
         | None -> failwith "Union without definition"
         | Some tdef ->
@@ -356,7 +356,7 @@ module Patterns =
                 tdef.Attributes |> Seq.tryPick (fun att ->
                     match (nonAbbreviatedEntity att.AttributeType).TryFullName with
                     | Some Atts.erase -> Some ErasedUnion
-                    | Some Atts.stringEnum -> Some StringEnumType
+                    | Some Atts.stringEnum -> Some StringEnum
                     | _ -> None)
                 |> Option.defaultValue (DiscriminatedUnion tdef)
 
@@ -391,7 +391,7 @@ module Patterns =
                 | None when not var.IsMemberThisValue && not(isInline var) ->
                     match typ with
                     | DiscriminatedUnion _ -> Some(var,true,idx,bindings,case,elseExpr)
-                    | OptionUnion _ | ListUnion _ | ErasedUnion | StringEnumType -> None
+                    | OptionUnion _ | ListUnion _ | ErasedUnion | StringEnum -> None
                 | _ -> None
             | _ -> None
             |> function
