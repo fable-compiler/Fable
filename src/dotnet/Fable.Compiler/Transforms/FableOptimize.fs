@@ -12,11 +12,11 @@ let rec visit f e =
     | This | Null _ | IdentExpr _ | Import _ | EntityRef _ | Debugger _ -> e
     | Value kind ->
         match kind with
-        | TupleCons exprs -> TupleCons(List.map (visit f) exprs) |> Value
-        | ArrayCons(exprs, t) -> ArrayCons(List.map (visit f) exprs, t) |> Value
-        | ListCons(head, tail, t) -> ListCons(visit f head, visit f tail, t) |> Value
+        | NewTuple exprs -> NewTuple(List.map (visit f) exprs) |> Value
+        | NewArray(exprs, t) -> NewArray(List.map (visit f) exprs, t) |> Value
+        | NewList(head, tail, t) -> NewList(visit f head, visit f tail, t) |> Value
         | SomeConst(expr, t) -> SomeConst(visit f expr, t) |> Value
-        | ArrayAlloc _ | NoneConst _ | ListEmpty _ | NumberCons _ | StringCons _ | BoolCons _ | RegexCons _ -> e
+        | ArrayAlloc _ | NoneConst _ | ListEmpty _ | NumberConstant _ | StringConstant _ | BoolConstant _ | RegexConstant _ -> e
     | Uncurry(e, a) -> Uncurry(visit f e, a)
     | Spread e -> Spread(visit f e)
     | Lambda(args, body, range) -> Lambda(args, visit f body, range)

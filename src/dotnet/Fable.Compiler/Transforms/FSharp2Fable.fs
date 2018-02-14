@@ -33,13 +33,13 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
         match argExprs with
         | [expr] ->
             let genArgs = makeGenArgs com ctx.typeArgs fsType.GenericArguments
-            Fable.ErasedUnionCons(expr, genArgs) |> Fable.Value
+            Fable.NewErasedUnion(expr, genArgs) |> Fable.Value
         | _ -> "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
-    | StringEnum ->
+    | StringEnumType ->
         match argExprs with
         | [] -> lowerCaseName unionCase
-        | _ -> "StringEnum types cannot have fields: " + (getFsTypeFullName fsType)
+        | _ -> "StringEnumType types cannot have fields: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
     | OptionUnion typ ->
         let typ = makeType com ctx.typeArgs typ
@@ -48,7 +48,7 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
             | [] -> None
             | [expr] -> Some expr
             | _ -> failwith "Unexpected args for Option constructor"
-        Fable.OptionCons(expr, typ) |> Fable.Value
+        Fable.NewOption(expr, typ) |> Fable.Value
     | ListUnion typ ->
         let typ = makeType com ctx.typeArgs typ
         let headAndTail =
@@ -56,10 +56,10 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
             | [] -> None
             | [head; tail] -> Some(head, tail)
             | _ -> failwith "Unexpected args for List constructor"
-        Fable.ListCons(headAndTail, typ) |> Fable.Value
+        Fable.NewList(headAndTail, typ) |> Fable.Value
     | DiscriminatedUnion tdef ->
         let genArgs = makeGenArgs com ctx.typeArgs fsType.GenericArguments
-        Fable.UnionCons(argExprs, unionCase, tdef, genArgs) |> Fable.Value
+        Fable.NewUnion(argExprs, unionCase, tdef, genArgs) |> Fable.Value
 
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) (objType: FSharpType)
                     (_baseCallExpr: FSharpExpr) (overrides: FSharpObjectExprOverride list) otherOverrides =
@@ -127,11 +127,9 @@ let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: 
         // switch to prevent code repetition (same target in different if branches)
         // or having to create inner functions
         let ctx = { ctx with decisionTargets = None }
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         let tempVar = com.GetUniqueVar() |> makeIdent
-        let tempVarFirstItem =
-            (Fable.IdentExpr tempVar, makeIntConst 0)
-            ||> makeGet None (Fable.Number Int32)
+        let tempVarExpr = Fable.IdentExpr tempVar
+        let tempVarFirstItem = makeIndexGet None (Fable.Number Int32) tempVarExpr 0
         let cases =
             targetRefsCount
             |> Seq.map (fun kv ->
@@ -140,11 +138,12 @@ let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: 
                     let mutable i = 0
                     (ctx, vars) ||> List.fold (fun ctx var ->
                         i <- i + 1
-                        (Fable.IdentExpr tempVar, makeIntConst i)
-                        ||> makeGet None (makeType com ctx.typeArgs var.FullType)
+                        let t = makeType com ctx.typeArgs var.FullType
+                        makeIndexGet None t tempVarExpr i
                         |> bindExpr ctx var)
                 [makeIntConst kv.Key], transformExpr com ctx body)
             |> Seq.toList
+        let typ = makeType com ctx.typeArgs fsExpr.Type
         let bindings = [tempVar, transformExpr com ctx decisionExpr]
         Fable.Let(bindings, Fable.Switch(tempVarFirstItem, cases, None, typ))
     else
@@ -211,18 +210,18 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
             |> makeType com ctx.typeArgs
             |> makeTypeTest com ctx.fileName (makeRangeFrom fsExpr) unionExpr
     | OptionUnion t ->
-        let noneCase = Fable.OptionCons(None, makeType com ctx.typeArgs t) |> Fable.Value
+        let noneCase = Fable.NewOption(None, makeType com ctx.typeArgs t) |> Fable.Value
         if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
         |> makeEqOp (makeRangeFrom fsExpr) unionExpr noneCase
     | ListUnion t ->
-        let emptyList = Fable.ListCons(None, makeType com ctx.typeArgs t) |> Fable.Value
+        let emptyList = Fable.NewList(None, makeType com ctx.typeArgs t) |> Fable.Value
         if unionCase.Name = "Empty" then BinaryEqual else BinaryUnequal
         |> makeEqOp (makeRangeFrom fsExpr) unionExpr emptyList
-    | StringEnum ->
+    | StringEnumType ->
         makeEqOp (makeRangeFrom fsExpr) unionExpr (lowerCaseName unionCase) BinaryEqualStrict
     | DiscriminatedUnion tdef ->
-        let tag1 = Fable.UnionGet(Fable.TagOfExpr unionExpr, tdef, Fable.Any) |> Fable.Value
-        let tag2 = Fable.UnionGet(Fable.TagOfCase unionCase, tdef, Fable.Any) |> Fable.Value
+        let tag1 = Fable.Get(unionExpr, Fable.UnionTag tdef, Fable.Any, None)
+        let tag2 = Fable.UnionCaseTag(unionCase, tdef) |> Fable.Value
         makeEqOp (makeRangeFrom fsExpr) tag1 tag2 BinaryEqualStrict
 
 // let private transformSwitch com ctx (fsExpr: FSharpExpr) (matchValue: FSharpMemberOrFunctionOrValue)
@@ -266,13 +265,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let callee, args = com.Transform ctx callee, List.map (com.Transform ctx) membArgs
-        let callee = Fable.Get(callee, makeStrConst eventName, Fable.Any, None)
+        let callee = Fable.Get(callee, Fable.FieldGet eventName, Fable.Any, None)
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeCallFrom com ctx r typ (ownerGenArgs@membGenArgs) (Some callee) args memb
 
     | CheckArrayLength (Transform com ctx arr, length, FableType com ctx typ) ->
         let r = makeRangeFrom fsExpr
-        let lengthExpr = Fable.Get(arr, makeStrConst "length", Fable.Number Int32, r)
+        let lengthExpr = Fable.Get(arr, Fable.FieldGet "length", Fable.Number Int32, r)
         makeEqOp r lengthExpr (makeTypeConst typ length) BinaryEqualStrict
 
     (** ## Flow control *)
@@ -290,7 +289,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     (** Values *)
     | BasicPatterns.Const(value, FableType com ctx typ) ->
         let expr = makeTypeConst typ value
-        // TODO TODO TODO: Check literals and compile as EnumCons
+        // TODO TODO TODO: Check literals and compile as Enum
         // if expr.Type <> typ then // Enumerations are compiled as const but they have a different type
         //     Replacements.checkLiteral com ctx.fileName (makeRangeFrom fsExpr) value typ
         expr
@@ -311,8 +310,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
         match typ with
-        | Fable.Boolean -> Fable.BoolCons false |> Fable.Value
-        | Fable.Number kind -> Fable.NumberCons (0., kind) |> Fable.Value
+        | Fable.Boolean -> Fable.BoolConstant false |> Fable.Value
+        | Fable.Number kind -> Fable.NumberConstant (0., kind) |> Fable.Value
         | typ -> Fable.Null typ |> Fable.Value
 
     (** ## Assignments *)
@@ -403,35 +402,36 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.FSharpFieldGet(Some(BasicPatterns.FSharpFieldGet(Some ThisVar, _, _)), RefType _, _) ->
         makeType com ctx.typeArgs fsExpr.Type |> Fable.This |> Fable.Value
 
-    | BasicPatterns.FSharpFieldGet (callee, NonAbbreviatedType calleeType, FieldName fieldName) ->
-        let typ = makeType com ctx.typeArgs fsExpr.Type
+    | BasicPatterns.FSharpFieldGet (callee, NonAbbreviatedType calleeType, field) ->
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> "Unexpected static FSharpFieldGet"
                       |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
         if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
-        then Fable.RecordGet(callee, fieldName, calleeType.TypeDefinition, typ) |> Fable.Value
-        else makeGet (makeRangeFrom fsExpr) typ callee (makeStrConst fieldName)
+        then Fable.Get(callee, Fable.RecordGet(field, calleeType.TypeDefinition), typ, r)
+        else makeFieldGet (makeRangeFrom fsExpr) typ callee field.Name
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeGet r typ tupleExpr (makeIntConst tupleElemIndex)
+        makeIndexGet r typ tupleExpr tupleElemIndex
 
     | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, fsType, unionCase, field) ->
+        let range = makeRangeFrom fsExpr
         match fsType with
         | ErasedUnion -> unionExpr
-        | StringEnum ->
-            "StringEnum types cannot have fields"
+        | StringEnumType ->
+            "StringEnumType types cannot have fields"
             |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
         | OptionUnion t ->
-            Fable.OptionGet(unionExpr, makeType com ctx.typeArgs t) |> Fable.Value
+            Fable.Get(unionExpr, Fable.OptionValue, makeType com ctx.typeArgs t, range)
         | ListUnion t ->
-            let isHead = field.Name = "Head"
-            Fable.ListGet(unionExpr, isHead, makeType com ctx.typeArgs t) |> Fable.Value
+            let kind = if field.Name = "Head" then Fable.ListHead else Fable.ListTail
+            Fable.Get(unionExpr, kind, makeType com ctx.typeArgs t, range)
         | DiscriminatedUnion tdef ->
             let t = makeType com ctx.typeArgs field.FieldType
-            Fable.UnionGet(Fable.CaseField(unionExpr, unionCase), tdef, t) |> Fable.Value
+            Fable.Get(unionExpr, Fable.UnionField(unionCase, tdef), t, range)
 
     // When using a self reference in constructor (e.g. `type MyType() as self =`)
     // the F# compiler introduces artificial statements that we must ignore
@@ -439,21 +439,20 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.FSharpFieldSet(Some(BasicPatterns.FSharpFieldGet(Some(ThisVar _), _, _)), RefType _, _, _) ->
         Fable.Null Fable.Any |> Fable.Value
 
-    | BasicPatterns.FSharpFieldSet(callee, NonAbbreviatedType calleeType, FieldName fieldName, Transform com ctx value) ->
+    | BasicPatterns.FSharpFieldSet(callee, NonAbbreviatedType calleeType, field, Transform com ctx value) ->
+        let range = makeRangeFrom fsExpr
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> "Unexpected static FSharpFieldSet"
-                      |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
+                      |> addErrorAndReturnNull com ctx.fileName range
         if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
-        then Fable.RecordSet(callee, fieldName, value, calleeType.TypeDefinition) |> Fable.Value
-        else Fable.Set (callee, Some (makeStrConst fieldName), value, makeRangeFrom fsExpr)
+        then Fable.Set(callee, Fable.RecordSet(field, calleeType.TypeDefinition), value, range)
+        else Fable.Set(callee, Fable.FieldSet field.Name, value, range)
 
-        // Fable.Set (callee, Some (makeStrConst fi.Name), value, range)
-
-    | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeGet r typ unionExpr (makeIntConst 0)
+    | BasicPatterns.UnionCaseTag(Transform com ctx unionExpr, NonAbbreviatedType unionType) ->
+        let range = makeRangeFrom fsExpr
+        Fable.Get(unionExpr, Fable.UnionTag unionType.TypeDefinition, Fable.Any, range)
 
     | BasicPatterns.UnionCaseSet (_unionExpr, _type, _case, _caseField, _valueExpr) ->
         "Unexpected UnionCaseSet" |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
@@ -470,14 +469,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             // Fable.Operation(op, Fable.Unit, r)
         | _ ->
             let valToSet = makeValueFrom com ctx r valToSet
-            Fable.Set(valToSet, None, valueExpr, r)
+            Fable.Set(valToSet, Fable.VarSet, valueExpr, r)
 
     (** Instantiation *)
     | BasicPatterns.NewArray(FableType com ctx elTyp, arrExprs) ->
         makeArray elTyp (arrExprs |> List.map (transformExpr com ctx))
 
     | BasicPatterns.NewTuple(_, argExprs) ->
-        argExprs |> List.map (transformExpr com ctx) |> Fable.TupleCons |> Fable.Value
+        argExprs |> List.map (transformExpr com ctx) |> Fable.NewTuple |> Fable.Value
 
     | BasicPatterns.ObjectExpr(objType, baseCallExpr, overrides, otherOverrides) ->
         transformObjExpr com ctx fsExpr objType baseCallExpr overrides otherOverrides
@@ -490,7 +489,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.NewRecord(NonAbbreviatedType fsType, argExprs) ->
         let argExprs = List.map (transformExpr com ctx) argExprs
         let genArgs = makeGenArgs com ctx.typeArgs fsType.GenericArguments
-        Fable.RecordCons(argExprs, fsType.TypeDefinition, genArgs) |> Fable.Value
+        Fable.NewRecord(argExprs, fsType.TypeDefinition, genArgs) |> Fable.Value
 
     | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
         List.map (com.Transform ctx) argExprs

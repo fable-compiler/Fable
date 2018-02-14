@@ -120,7 +120,7 @@ module Util =
         else upcast Identifier propName, false
 
     let getterByProp com ctx = function
-        | Fable.Value(Fable.StringCons name)
+        | Fable.Value(Fable.StringConstant name)
             when not (Naming.hasIdentForbiddenChars name) ->
             Identifier (name) :> Expression, false
         | TransformExpr com ctx property -> property, true
@@ -225,7 +225,7 @@ module Util =
         | :? NumericLiteral, _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
         | _, Fable.Number(Int8 | Int16 | Int32)
-        | _, Fable.Enum _ ->
+        | _, Fable.EnumType _ ->
             BinaryExpression(BinaryOrBitwise, e, NumericLiteral(0.), ?loc=e.loc)
             :> Expression
         | _ -> e
@@ -238,18 +238,18 @@ module Util =
 
     let transformConst (com: IBabelCompiler) (ctx: Context) cons: Expression =
         match cons with
-        | Fable.NumberCons (x,_) ->
+        | Fable.NumberConstant (x,_) ->
             if x < 0.
             // Negative numeric literals can give issues in Babel AST, see #1186
             then upcast UnaryExpression(UnaryMinus, NumericLiteral(x * -1.))
             else upcast NumericLiteral x
-        | Fable.StringCons x -> upcast StringLiteral (x)
-        | Fable.BoolCons x -> upcast BooleanLiteral (x)
-        | Fable.RegexCons (source, flags) -> upcast RegExpLiteral (source, flags)
-        | Fable.ArrayCons (args, typ) -> buildArray com ctx typ (Choice1Of2 args)
+        | Fable.StringConstant x -> upcast StringLiteral (x)
+        | Fable.BoolConstant x -> upcast BooleanLiteral (x)
+        | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral (source, flags)
+        | Fable.NewArray (args, typ) -> buildArray com ctx typ (Choice1Of2 args)
         | Fable.ArrayAlloc (size, typ) -> buildArray com ctx typ (Choice2Of2 size)
-        | Fable.TupleCons vals -> buildArray com ctx Fable.Any (Choice1Of2 vals)
-        | Fable.ListCons (head, tail, _) -> buildArray com ctx Fable.Any (Choice1Of2 [head; tail])
+        | Fable.NewTuple vals -> buildArray com ctx Fable.Any (Choice1Of2 vals)
+        | Fable.NewList (head, tail, _) -> buildArray com ctx Fable.Any (Choice1Of2 [head; tail])
         | Fable.ListEmpty _ -> buildArray com ctx Fable.Any (Choice1Of2 [])
         | Fable.NoneConst _ -> upcast NullLiteral ()
         | Fable.SomeConst (e, t) ->
@@ -326,7 +326,7 @@ module Util =
         | Fable.Callee callee ->
             let callee =
                 match callee, memb with
-                | Fable.EntityRef fullName, Some(Fable.Value(Fable.StringCons memb)) ->
+                | Fable.EntityRef fullName, Some(Fable.Value(Fable.StringConstant memb)) ->
                     let typEnt = getEntity com fullName
                     typeRef com ctx typEnt (Some memb)
                 | callee, Some prop -> getExpr com ctx callee prop

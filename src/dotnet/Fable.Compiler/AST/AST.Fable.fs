@@ -4,7 +4,7 @@ open Fable
 open Fable.AST
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-type EnumTypeKind = NumberEnum | StringEnum
+type EnumTypeKind = NumberEnumType | StringEnumType
 type FunctionTypeKind = LambdaType of Type | DelegateType of Type list
 
 type Type =
@@ -16,7 +16,7 @@ type Type =
     | Regex
     | Number of NumberKind
     | ExtendedNumber of ExtendedNumberKind
-    | Enum of kind: EnumTypeKind * fullName: string
+    | EnumType of kind: EnumTypeKind * fullName: string
     | Option of genericArg: Type
     | Tuple of genericArgs: Type list
     | Array of genericArg: Type
@@ -56,53 +56,48 @@ type MemberKind =
     | Constructor
     | Method
 
-type EnumConsKind = NumberEnumConst of int | StringEnumConst of string
-type UnionGetKind = TagOfExpr of Expr | TagOfCase of FSharpUnionCase | CaseField of Expr * FSharpUnionCase
+type EnumKind = NumberEnum of int | StringEnum of string
+type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of int
 
 type ValueKind =
     | This of Type
     | Null of Type
-    | UnitCons
-    | BoolCons of bool
-    | CharCons of char
-    | StringCons of string
-    | RegexCons of source: string * flags: RegexFlag list
-    | NumberCons of float * NumberKind
-    | EnumCons of EnumConsKind * enumFullName: string
-    | OptionCons of value: Expr option * Type
-    | OptionGet of Expr * Type
-    | TupleCons of Expr list
-    | ArrayCons of Expr list * Type
-    | ArrayAlloc of int * Type
-    | ListCons of headAndTail: (Expr * Expr) option * Type
-    | ListGet of Expr * isHead: bool * Type
-    | ErasedUnionCons of Expr * genericArgs: Type list
-    | UnionCons of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
-    | UnionGet of UnionGetKind * FSharpEntity * Type
-    | RecordCons of Expr list * FSharpEntity * genArgs: Type list
-    | RecordGet of Expr * field: string * FSharpEntity * Type
-    | RecordSet of Expr * field: string * value: Expr * FSharpEntity
+    | UnitConstant
+    | BoolConstant of bool
+    | CharConstant of char
+    | StringConstant of string
+    | NumberConstant of float * NumberKind
+    | RegexConstant of source: string * flags: RegexFlag list
+    | Enum of EnumKind * enumFullName: string
+    | NewOption of value: Expr option * Type
+    | NewTuple of Expr list
+    | NewArray of NewArrayKind * Type
+    | NewList of headAndTail: (Expr * Expr) option * Type
+    | NewRecord of Expr list * FSharpEntity * genArgs: Type list
+    | NewErasedUnion of Expr * genericArgs: Type list
+    | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
+    | UnionCaseTag of FSharpUnionCase * FSharpEntity
     // member this.ImmediateSubExpressions: Expr list =
     //     match this with
-    //     | BoolCons _ | NumberCons _
-    //     | StringCons _ | RegexCons _
+    //     | BoolConstant _ | NumberConstant _
+    //     | StringConstant _ | RegexConstant _
     //     | ListEmpty _ | ArrayAlloc _ | NoneConst _
-    //     | UnitCons | Null _ | This _ -> []
-    //     | ListCons(head, tail, _) -> [head; tail]
-    //     | ArrayCons(exprs, _) -> exprs
-    //     | TupleCons exprs -> exprs
+    //     | UnitConstant | Null _ | This _ -> []
+    //     | NewList(head, tail, _) -> [head; tail]
+    //     | NewArray(exprs, _) -> exprs
+    //     | NewTuple exprs -> exprs
     //     | SomeConst(expr,_) -> [expr]
 
     // member this.Type =
     //     match this with
-    //     | UnitCons -> Unit
-    //     | NumberCons (_,kind) -> Number kind
-    //     | StringCons _ -> String
-    //     | RegexCons _ -> Regex
-    //     | BoolCons _ -> Boolean
-    //     | ListCons (_,_,typ) | ListEmpty typ -> List typ
-    //     | ArrayCons (_,typ) | ArrayAlloc (_,typ) -> Array typ
-    //     | TupleCons exprs -> exprs |> List.map (fun x -> x.Type) |> Tuple
+    //     | UnitConstant -> Unit
+    //     | NumberConstant (_,kind) -> Number kind
+    //     | StringConstant _ -> String
+    //     | RegexConstant _ -> Regex
+    //     | BoolConstant _ -> Boolean
+    //     | NewList (_,_,typ) | ListEmpty typ -> List typ
+    //     | NewArray (_,typ) | ArrayAlloc (_,typ) -> Array typ
+    //     | NewTuple exprs -> exprs |> List.map (fun x -> x.Type) |> Tuple
     //     | SomeConst (_, typ) | NoneConst typ -> Option typ
     //     | Null typ | This typ -> typ
 
@@ -133,6 +128,24 @@ type OperationKind =
     | BinaryOperation of BinaryOperator * left:Expr * right:Expr
     | LogicalOperation of LogicalOperator * left:Expr * right:Expr
 
+type GetKind =
+    | FieldGet of string
+    | IndexGet of int
+    | DynamicGet of Expr
+    | ListHead
+    | ListTail
+    | OptionValue
+    | UnionTag of FSharpEntity
+    | UnionField of FSharpUnionCase * FSharpEntity
+    | RecordGet of FSharpField * FSharpEntity
+
+type SetKind =
+    | VarSet
+    | FieldSet of string
+    | IndexSet of int
+    | DynamicSet of Expr
+    | RecordSet of FSharpField * FSharpEntity
+
 type Expr =
     | Debugger
     | Value of ValueKind
@@ -150,8 +163,8 @@ type Expr =
 
     | Sequential of Expr list
     | Let of bindings: (Ident * Expr) list * body: Expr
-    | Get of Expr * memb: Expr * typ: Type * range: SourceLocation option
-    | Set of callee: Expr * memb: Expr option * value: Expr * range: SourceLocation option
+    | Get of Expr * GetKind * typ: Type * range: SourceLocation option
+    | Set of Expr * SetKind * value: Expr * range: SourceLocation option
     | Loop of LoopKind * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option

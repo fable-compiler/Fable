@@ -184,13 +184,6 @@ module Helpers =
             |> Seq.findIndex (fun uc -> uc.Name = unionCaseName)
             |> makeIntConst
 
-    // TODO: Add compiler switch to use index instead?
-    let getUnionTagFrom _fsType (unionCase: FSharpUnionCase) =
-        unionCase.Name |> makeStrConst
-
-    let getUnionTag unionExpr =
-        makeGet None Fable.String unionExpr (makeIntConst 0)
-
     /// Lower first letter if there's no explicit compiled name
     let lowerCaseName (unionCase: FSharpUnionCase) =
         unionCase.Attributes
@@ -352,7 +345,7 @@ module Patterns =
         | Naming.StartsWith "Microsoft.FSharp.Core.decimal" _ -> Some Decimal
         | _ -> None
 
-    let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|DiscriminatedUnion|) (NonAbbreviatedType typ: FSharpType) =
+    let (|OptionUnion|ListUnion|ErasedUnion|StringEnumType|DiscriminatedUnion|) (NonAbbreviatedType typ: FSharpType) =
         match tryDefinition typ with
         | None -> failwith "Union without definition"
         | Some tdef ->
@@ -363,7 +356,7 @@ module Patterns =
                 tdef.Attributes |> Seq.tryPick (fun att ->
                     match (nonAbbreviatedEntity att.AttributeType).TryFullName with
                     | Some Atts.erase -> Some ErasedUnion
-                    | Some Atts.stringEnum -> Some StringEnum
+                    | Some Atts.stringEnum -> Some StringEnumType
                     | _ -> None)
                 |> Option.defaultValue (DiscriminatedUnion tdef)
 
@@ -391,14 +384,14 @@ module Patterns =
                     Some(var,false,idx,bindings,case,elseExpr)
                 | _ -> None
             | IfThenElse(UnionCaseTest(Value var,typ,case), DecisionTreeSuccess(idx, bindings), elseExpr) ->
-                let case = getUnionTagFrom typ case
+                let case = Fable.UnionCaseTag(case, typ.TypeDefinition) |> Fable.Value
                 match matchValue with
                 | Some matchValue when matchValue.Equals(var) ->
                     Some(matchValue,true,idx,bindings,case,elseExpr)
                 | None when not var.IsMemberThisValue && not(isInline var) ->
                     match typ with
                     | DiscriminatedUnion _ -> Some(var,true,idx,bindings,case,elseExpr)
-                    | OptionUnion _ | ListUnion _ | ErasedUnion | StringEnum -> None
+                    | OptionUnion _ | ListUnion _ | ErasedUnion | StringEnumType -> None
                 | _ -> None
             | _ -> None
             |> function
@@ -453,7 +446,7 @@ module TypeHelpers =
         if tdef.IsArrayType
         then getSingleGenericArg genArgs |> Fable.Array
         elif tdef.IsEnum
-        then Fable.Enum(Fable.NumberEnum, fullName)
+        then Fable.EnumType(Fable.NumberEnumType, fullName)
         elif tdef.IsDelegate
         then
             if fullName.StartsWith("System.Action")
@@ -505,7 +498,7 @@ module TypeHelpers =
             tdef.Attributes |> Seq.tryPick (fun att ->
                 match (nonAbbreviatedEntity att.AttributeType).TryFullName with
                 | Some Atts.stringEnum ->
-                    Fable.Enum(Fable.NumberEnum, fullName) |> Some
+                    Fable.EnumType(Fable.NumberEnumType, fullName) |> Some
                 | Some Atts.erase ->
                     makeGenArgs com ctxTypeArgs genArgs
                     |> Fable.ErasedUnion |> Some
@@ -835,7 +828,7 @@ module Util =
                 | _ ->
                     match getMemberKind memb with
                     | Fable.Getter -> Some expr
-                    | Fable.Setter -> Fable.Set(expr, None, args.Head, r) |> Some
+                    | Fable.Setter -> Fable.Set(expr, Fable.VarSet, args.Head, r) |> Some
                     | Fable.Method -> Fable.Operation(Fable.Call(expr, None, args, info), typ, r) |> Some
                     | Fable.Constructor ->
                         let info = { info with isConstructor = true }
@@ -916,8 +909,8 @@ module Util =
             match callee with
             | Some callee ->
                 match getMemberKind memb with
-                | Fable.Getter ->   Fable.Get(callee, makeStrConst memb.DisplayName, typ, r)
-                | Fable.Setter ->   Fable.Set(callee, makeStrConst memb.DisplayName |> Some, args.Head, r)
+                | Fable.Getter ->   Fable.Get(callee, Fable.FieldGet memb.DisplayName, typ, r)
+                | Fable.Setter ->   Fable.Set(callee, Fable.FieldSet memb.DisplayName, args.Head, r)
                 // Constructor is unexpected (abstract class cons calls are resolved in transformConstructor)
                 | Fable.Constructor
                 | Fable.Method ->   call info callee (Some memb.DisplayName) args
@@ -932,7 +925,7 @@ module Util =
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.typeArgs v.FullType
         match v with
-        | _ when typ = Fable.Unit -> Fable.Value Fable.UnitCons
+        | _ when typ = Fable.Unit -> Fable.Value Fable.UnitConstant
         | Imported r typ None imported -> imported
         | Emitted r typ None emitted -> emitted
         // TODO: | Replaced com ctx r typ info None [] replaced -> replaced

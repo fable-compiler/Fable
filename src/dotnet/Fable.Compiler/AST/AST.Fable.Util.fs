@@ -22,7 +22,7 @@ let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLoca
 // /// When referenced multiple times, is there a risk of double evaluation?
 // let hasDoubleEvalRisk = function
 //     | This | Null _ | IdentExpr _
-//     | Value(NumberCons _ | StringCons _ | BoolCons _) -> false
+//     | Value(NumberConstant _ | StringConstant _ | BoolConstant _) -> false
 //     | _ -> true
 
 // let rec deepExists f (expr: Expr) =
@@ -86,36 +86,39 @@ let makeEqOp range left right op =
 //         | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
 //         | _ -> Sequential (statements, range)
 
-let makeApply range typ callee args =
-    Operation(Apply(callee, args), range, typ)
+// let makeApply range typ callee args =
+//     Operation(Apply(callee, args), range, typ)
 
-let makeGet range typ callee propExpr =
-    Get(callee, propExpr, typ, range)
+let makeIndexGet range typ callee idx =
+    Get(callee, IndexGet idx, typ, range)
 
-let makeUntypedGet callee prop =
-    Get(callee, Value (StringCons prop), Any, None)
+let makeFieldGet range typ callee field =
+    Get(callee, FieldGet field, typ, range)
+
+let makeUntypedFieldGet callee field =
+    Get(callee, FieldGet field, Any, None)
 
 let makeArray elementType arrExprs =
-    ArrayCons(arrExprs, elementType) |> Value
+    NewArray(ArrayValues arrExprs, elementType) |> Value
 
 let makeLongInt (x: uint64) unsigned =
     let t = ExtendedNumber(if unsigned then UInt64 else Int64)
-    let lowBits = NumberCons (float (uint32 x), Float64)
-    let highBits = NumberCons (float (x >>> 32), Float64)
-    let unsigned = BoolCons (unsigned)
+    let lowBits = NumberConstant (float (uint32 x), Float64)
+    let highBits = NumberConstant (float (x >>> 32), Float64)
+    let unsigned = BoolConstant (unsigned)
     let args = [Value lowBits; Value highBits; Value unsigned]
-    Operation(Apply(makeCoreRef Any "Long" "fromBits", args), t, None)
+    Operation(DynamicApply(makeCoreRef Any "Long" "fromBits", args), t, None)
 
-let makeBoolConst (x: bool) = BoolCons x |> Value
-let makeStrConst (x: string) = StringCons x |> Value
-let makeIntConst (x: int) = NumberCons (float x, Int32) |> Value
-let makeNumConst (x: float) = NumberCons (float x, Float64) |> Value
-let makeDecConst (x: decimal) = NumberCons (float x, Float64) |> Value
+let makeBoolConst (x: bool) = BoolConstant x |> Value
+let makeStrConst (x: string) = StringConstant x |> Value
+let makeIntConst (x: int) = NumberConstant (float x, Int32) |> Value
+let makeNumConst (x: float) = NumberConstant (float x, Float64) |> Value
+let makeDecConst (x: decimal) = NumberConstant (float x, Float64) |> Value
 
 let makeFloat32 (x: float32) =
-    let args = [NumberCons (float x, Float32) |> Value]
-    let callee = makeUntypedGet (IdentExpr(makeIdent "Math")) "fround"
-    Operation(Apply(callee, args), Number Float32, None)
+    let args = [NumberConstant (float x, Float32) |> Value]
+    let callee = makeUntypedFieldGet (IdentExpr(makeIdent "Math")) "fround"
+    Operation(DynamicApply(callee, args), Number Float32, None)
 
 let makeTypeConst (typ: Type) (value: obj) =
     match typ, value with
@@ -124,42 +127,40 @@ let makeTypeConst (typ: Type) (value: obj) =
     | ExtendedNumber UInt64, (:? uint64 as x) -> makeLongInt x true
     // Decimal type
     | ExtendedNumber Decimal, (:? decimal as x) -> makeDecConst x
-    // Enum 64-bit types (TODO: proper JS support, as Enum has no type)
-    | Enum _, (:? int64 as x) -> makeLongInt (uint64 x) false
-    | Enum _, (:? uint64 as x) -> makeLongInt x true
     // Short Float type
     | Number Float32, (:? float32 as x) -> makeFloat32 x
-    | _ ->
-        match typ, value with
-        | Boolean, (:? bool as x) -> BoolCons x |> Value
-        | String, (:? string as x) -> StringCons x |> Value
-        | Char, (:? char as x) -> StringCons (string x) |> Value
-        // Integer types
-        | Number UInt8, (:? byte as x) -> NumberCons (float x, UInt8) |> Value
-        | Number Int8, (:? sbyte as x) -> NumberCons (float x, Int8) |> Value
-        | Number Int16, (:? int16 as x) -> NumberCons (float x, Int16) |> Value
-        | Number UInt16, (:? uint16 as x) -> NumberCons (float x, UInt16) |> Value
-        | Number Int32, (:? int as x) -> NumberCons (float x, Int32) |> Value
-        | Number UInt32, (:? uint32 as x) -> NumberCons (float x, UInt32) |> Value
-        // Float types
-        | Number Float64, (:? float as x) -> NumberCons (float x, Float64) |> Value
-        // Enums (TODO: proper JS support, as Enum has no type)
-        | Enum _, (:? byte as x) -> NumberCons (float x, UInt8) |> Value
-        | Enum _, (:? sbyte as x) -> NumberCons (float x, Int8) |> Value
-        | Enum _, (:? int16 as x) -> NumberCons (float x, Int16) |> Value
-        | Enum _, (:? uint16 as x) -> NumberCons (float x, UInt16) |> Value
-        | Enum _, (:? int as x) -> NumberCons (float x, Int32) |> Value
-        | Enum _, (:? uint32 as x) -> NumberCons (float x, UInt32) |> Value
-        // TODO: Regex
-        | Unit, (:? unit) | _ when isNull value -> UnitCons |> Value
-        // Arrays with small data type (ushort, byte) come as Value
-        | Array (Number kind), (:? (byte[]) as arr) ->
-            let values = arr |> Array.map (fun x -> NumberCons (float x, kind) |> Value) |> Seq.toList
-            ArrayCons (values, Number kind) |> Value
-        | Array (Number kind), (:? (uint16[]) as arr) ->
-            let values = arr |> Array.map (fun x -> NumberCons (float x, kind) |> Value) |> Seq.toList
-            ArrayCons (values, Number kind) |> Value
-        | _ -> failwithf "Unexpected type %A, literal %O" typ value
+    | Boolean, (:? bool as x) -> BoolConstant x |> Value
+    | String, (:? string as x) -> StringConstant x |> Value
+    | Char, (:? char as x) -> StringConstant (string x) |> Value
+    // Integer types
+    | Number UInt8, (:? byte as x) -> NumberConstant (float x, UInt8) |> Value
+    | Number Int8, (:? sbyte as x) -> NumberConstant (float x, Int8) |> Value
+    | Number Int16, (:? int16 as x) -> NumberConstant (float x, Int16) |> Value
+    | Number UInt16, (:? uint16 as x) -> NumberConstant (float x, UInt16) |> Value
+    | Number Int32, (:? int as x) -> NumberConstant (float x, Int32) |> Value
+    | Number UInt32, (:? uint32 as x) -> NumberConstant (float x, UInt32) |> Value
+    // Float types
+    | Number Float64, (:? float as x) -> NumberConstant (float x, Float64) |> Value
+    // Enums
+    | EnumType _, (:? int64)
+    | EnumType _, (:? uint64) -> failwith "int64 enums are not supported"
+    | EnumType(_, name), (:? byte as x) -> Enum(NumberEnum(int x), name) |> Value
+    | EnumType(_, name), (:? sbyte as x) -> Enum(NumberEnum(int x), name) |> Value
+    | EnumType(_, name), (:? int16 as x) -> Enum(NumberEnum(int x), name) |> Value
+    | EnumType(_, name), (:? uint16 as x) -> Enum(NumberEnum(int x), name) |> Value
+    | EnumType(_, name), (:? int as x) -> Enum(NumberEnum(int x), name) |> Value
+    | EnumType(_, name), (:? uint32 as x) -> Enum(NumberEnum(int x), name) |> Value
+    // TODO: Regex
+    | Unit, _ -> UnitConstant |> Value
+    // Arrays with small data type (ushort, byte) are represented
+    // in F# AST as BasicPatterns.Const
+    | Array (Number kind), (:? (byte[]) as arr) ->
+        let values = arr |> Array.map (fun x -> NumberConstant (float x, kind) |> Value) |> Seq.toList
+        NewArray (ArrayValues values, Number kind) |> Value
+    | Array (Number kind), (:? (uint16[]) as arr) ->
+        let values = arr |> Array.map (fun x -> NumberConstant (float x, kind) |> Value) |> Seq.toList
+        NewArray (ArrayValues values, Number kind) |> Value
+    | _ -> failwithf "Unexpected type %A, literal %O" typ value
 
 // let makeJsObject range (props: (string * Expr) list) =
 //     let membs = props |> List.map (fun (name, body) ->
@@ -294,11 +295,11 @@ let getTypedArrayName (com: ICompiler) numberKind =
 //             | Some true, _, _, (_::_) ->
 //                 let argExprs = List.rev argExprs
 //                 match argExprs.Head with
-//                 | Value(ArrayCons(items, _)) -> (List.rev argExprs.Tail)@items
+//                 | Value(NewArray(items, _)) -> (List.rev argExprs.Tail)@items
 //                 | _ -> (Spread argExprs.Head)::argExprs.Tail |> List.rev
 //             // TODO: hasSeqParam
 //             // TODO: If we're within a constructor and call to another constructor, pass `$this` as last argument
-//             | _, Some true, _, [Value(TupleCons argExprs)] ->
+//             | _, Some true, _, [Value(NewTuple argExprs)] ->
 //                 argExprs
 //             | _, _, Some optionalArgs, _ when optionalArgs > 0 ->
 //                 removeOptionalArguments optionalArgs argExprs // See #231, #640
@@ -319,13 +320,13 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
     | Boolean -> jsTypeof "boolean" expr
     | Char | String _ -> jsTypeof "string" expr
     | Regex -> jsInstanceof (IdentExpr(makeIdent "RegExp")) expr
-    | Number _ | Enum _ -> jsTypeof "number" expr
+    | Number _ | EnumType _ -> jsTypeof "number" expr
     | ExtendedNumber (Int64|UInt64) -> jsInstanceof(makeCoreRef Any "Long" "default") expr
     | ExtendedNumber Decimal -> jsTypeof "number" expr
     | ExtendedNumber BigInt -> jsInstanceof (makeCoreRef Any "BigInt" "default") expr
     | FunctionType _ -> jsTypeof "function" expr
     | Array _ | Tuple _ | List _ ->
-        Operation(Apply(makeCoreRef Any "Util" "fromBits", [expr]), Boolean, None)
+        Operation(DynamicApply(makeCoreRef Any "Util" "fromBits", [expr]), Boolean, None)
     | DeclaredType (ent, _) ->
         if ent.IsClass
         then jsInstanceof (TypeRef ent) expr
