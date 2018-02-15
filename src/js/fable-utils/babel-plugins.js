@@ -69,6 +69,18 @@ exports.getTransformMacroExpressions = function(babelTemplate) {
                         var i = parseInt(g2, 10);
                         return typeof args[i] === "object" && args[i].type !== "NullLiteral" ? g1 : "";
                     });
+
+                // Babel 7 throws error if there're unused arguments, remove them
+                var actualArgs = macro.match(/\$\d+/g);
+                if (Array.isArray(actualArgs)) {
+                    for (var j = 0; j < args.length; j++) {
+                        if (actualArgs.indexOf("$" + j) < 0)
+                            delete buildArgs["$" + j];
+                    }
+                } else {
+                    buildArgs = {};
+                }
+
                 // console.log("MACRO 2: " + macro);
                 // console.log("MACRO ARGS: " + JSON.stringify(buildArgs));
                 // console.log("BUILT MACRO: " + JSON.stringify(babelTemplate(macro)(buildArgs)));
