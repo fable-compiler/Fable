@@ -147,23 +147,22 @@ type SetKind =
     | RecordSet of FSharpField * FSharpEntity
 
 type Expr =
-    | Debugger
     | Value of ValueKind
     | IdentExpr of Ident
     | Cast of Expr * targetType: Type
-
-    | TypeRef of FSharpEntity
     | Import of memb: string * path: string * ImportKind * Type
 
     | Function of FunctionKind * body: Expr
     | ObjectExpr of decls: Declaration list * Type
 
-    | Throw of Expr * typ: Type * range: SourceLocation option
     | Operation of OperationKind * typ: Type * range: SourceLocation option
+    | Get of Expr * GetKind * typ: Type * range: SourceLocation option
+
+    | Debugger
+    | Throw of Expr * typ: Type * range: SourceLocation option
 
     | Sequential of Expr list
     | Let of bindings: (Ident * Expr) list * body: Expr
-    | Get of Expr * GetKind * typ: Type * range: SourceLocation option
     | Set of Expr * SetKind * value: Expr * range: SourceLocation option
     | Loop of LoopKind * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr

@@ -361,7 +361,7 @@ module Util =
         | None -> com.TransformStatement ctx expr |> block expr.Range
         | Some ret -> com.TransformExprAndResolve ctx ret expr |> block expr.Range
 
-    let transformSwitch (com: IBabelCompiler) ctx range returnStrategy (matchValue, cases, defaultCase) =
+    let transformSwitch (com: IBabelCompiler) ctx returnStrategy (matchValue, cases, defaultCase) =
         let transformCase test branch =
             let statements, test =
                 let statements =
@@ -390,9 +390,9 @@ module Util =
             match defaultCase with
             | Some defaultCase -> cases@[transformCase None defaultCase]
             | None -> cases
-        SwitchStatement(com.TransformExpr ctx matchValue, cases, ?loc=range)
+        SwitchStatement(com.TransformExpr ctx matchValue, cases)
 
-    let transformTryCatch com ctx range returnStrategy (body, catch, finalizer) =
+    let transformTryCatch com ctx returnStrategy (body, catch, finalizer) =
         // try .. catch statements cannot be tail call optimized
         let ctx = { ctx with tailCallOpportunity = None }
         let handler =
@@ -402,7 +402,7 @@ module Util =
         let finalizer =
             finalizer |> Option.map (transformBlock com ctx None)
         [TryStatement(transformBlock com ctx returnStrategy body,
-            ?handler=handler, ?finalizer=finalizer, ?loc=range) :> Statement]
+            ?handler=handler, ?finalizer=finalizer) :> Statement]
 
     // Even if IfStatement doesn't enforce it, compile both branches as blocks
     // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
@@ -418,7 +418,34 @@ module Util =
             | e -> transformBlock com ctx ret e :> Statement |> Some
         IfStatement(guardExpr, thenStmnt, ?alternate=elseStmnt, ?loc=r)
 
-    let transformStatement com ctx (expr: Fable.Expr): Statement list =
+    let transformGet com ctx range var (getKind: Fable.GetKind) =
+        failwith "TODO"
+
+    // TODO: Check tail opportunity for inner function declarations
+        // let value =
+        //     let tc = NamedTailCallOpportunity(com, var.Name, args) :> ITailCallOpportunity |> Some
+        //     com.TransformFunction ctx tc args body ||> transformLambda body.Range
+        // [varDeclaration r (ident var) false value :> Statement]
+    let transformBinding com ctx ident value =
+        failwith "TODO"
+        // if value.IsJsStatement
+        // then
+        //     let var = ident var
+        //     let decl = VariableDeclaration var :> Statement
+        //     let body = com.TransformExprAndResolve ctx (Assign var) value
+        //     decl::body
+        // else
+        //     // TODO: Check imports with name placeholder
+        //     // | Fable.Let (var, Fable.Import(Naming.placeholder, path, kind, _), isMutable, r) ->
+        //     //     let value = com.GetImportExpr ctx var.Name path kind
+        //     let value = com.TransformExpr ctx value |> wrapIntExpression value.Type
+        //     [varDeclaration r (ident var) isMutable value :> Statement]
+
+
+    let getSetReturnStrategy com ctx range var (setKind: Fable.SetKind) =
+        failwith "TODO"
+
+    let rec transformStatement com ctx (expr: Fable.Expr): Statement list =
         match expr with
         | Fable.Loop (loopKind, range) ->
             match loopKind with
@@ -440,59 +467,36 @@ module Util =
                     UpdateExpression (op2, false, ident var), ?loc=range) :> Statement
             |> List.singleton
 
-        | Fable.Set (callee, property, value, _) ->
-            let ret =
-                match property with
-                | None -> Assign(com.TransformExpr ctx callee)
-                | Some property -> Assign(getExpr com ctx callee property)
+        | Fable.Set(var, setKind, value, range) ->
+            let ret = getSetReturnStrategy com ctx range var setKind
             com.TransformExprAndResolve ctx ret value
 
-        | Fable.VarDeclaration (var, Fable.Import(Naming.placeholder, path, kind, _), isMutable, r) ->
-            let value = com.GetImportExpr ctx var.Name path kind
-            [varDeclaration r (ident var) isMutable value :> Statement]
+        | Fable.Let (bindings, body) ->
+            let bindings = bindings |> List.map (fun (i, v) -> transformBinding com ctx i v)
+            bindings @ (transformStatement com ctx body)
 
-        | Fable.VarDeclaration (var, Fable.Lambda(args, body, _), false, r) ->
-            let value =
-                let tc = NamedTailCallOpportunity(com, var.Name, args) :> ITailCallOpportunity |> Some
-                com.TransformFunction ctx tc args body ||> transformLambda body.Range
-            [varDeclaration r (ident var) false value :> Statement]
-
-        | Fable.VarDeclaration (var, value, isMutable, r) ->
-            if value.IsJsStatement
-            then
-                let var = ident var
-                let decl = VariableDeclaration var :> Statement
-                let body = com.TransformExprAndResolve ctx (Assign var) value
-                decl::body
-            else
-                let value = com.TransformExpr ctx value |> wrapIntExpression value.Type
-                [varDeclaration r (ident var) isMutable value :> Statement]
-
-        | Fable.TryCatch (body, catch, finalizer, range) ->
-            transformTryCatch com ctx range None (body, catch, finalizer)
+        | Fable.TryCatch (body, catch, finalizer) ->
+            transformTryCatch com ctx None (body, catch, finalizer)
 
         | Fable.Throw (TransformExpr com ctx ex, _, range) ->
             [ThrowStatement(ex, ?loc=range) :> Statement]
 
-        | Fable.Debugger range ->
-            [DebuggerStatement(?loc=range) :> Statement]
+        | Fable.Debugger -> [DebuggerStatement() :> Statement]
 
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
         | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt) ->
             [transformIfStatement com ctx None guardExpr thenStmnt elseStmnt :> Statement ]
 
-        | Fable.Switch(matchValue, cases, defaultCase, _, range) ->
-            [transformSwitch com ctx range None (matchValue, cases, defaultCase) :> Statement]
+        | Fable.Switch(matchValue, cases, defaultCase, _) ->
+            [transformSwitch com ctx None (matchValue, cases, defaultCase) :> Statement]
 
-        | Fable.Sequential(statements, _) ->
-            statements |> List.collect (com.TransformStatement ctx)
+        | Fable.Sequential statements ->
+            List.collect (transformStatement com ctx) statements
 
         // Expressions become ExpressionStatements
-        | Fable.Null _ | Fable.This | Fable.IdentExpr _ | Fable.Value _
-        | Fable.Uncurry _ | Fable.Lambda _
-        | Fable.Import _ | Fable.EntityRef _ | Fable.ObjectExpr _
-        | Fable.Apply _ | Fable.Call _ | Fable.Get _  ->
+        | Fable.Value _ | Fable.IdentExpr _ | Fable.Cast _ | Fable.Import _
+        | Fable.Function _ | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _  ->
             [ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range) :> Statement]
 
     let transformExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
