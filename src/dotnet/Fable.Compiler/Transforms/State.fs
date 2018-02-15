@@ -34,7 +34,6 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
              errors: FSharpErrorInfo array, dependencies: Map<string, string[]>, fableCore: PathRef, isWatchCompile: bool) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
-    let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let normalizedFiles =
         projectOptions.SourceFiles
@@ -81,15 +80,22 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
             if filesAndDependent.Contains(kv.Key)
             then Some kv.Key else None)
         |> Seq.toArray
-    member __.GetOrAddEntity(fullName, generate) =
-        entities.GetOrAdd(fullName, fun _ -> generate())
     member __.GetOrAddInlineExpr(fullName, generate) =
         inlineExprs.GetOrAdd(fullName, fun _ -> generate())
+    interface ICompilerState with
+        member __.ProjectFile = projectOptions.ProjectFileName
+        member __.GetRootModule(fileName) =
+            match Map.tryFind fileName rootModules with
+            | Some rootModule -> rootModule
+            | None -> failwithf "Cannot find root module for %s" fileName
+        member __.GetOrAddInlineExpr(fullName, generate) =
+            inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
 let getDefaultOptions() =
     { fableCore = "fable-core"
       typedArrays = true
-      clampByteArrays = false }
+      clampByteArrays = false
+      addReflectionInfo = true }
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
@@ -104,14 +110,6 @@ type Compiler(project: Project, ?options, ?plugins) =
     interface ICompiler with
         member __.Options = options
         member __.ProjectFile = project.ProjectFile
-        member __.GetRootModule(fileName) =
-            match Map.tryFind fileName project.RootModules with
-            | Some rootModule -> rootModule
-            | None -> failwithf "Cannot find root module for %s" fileName
-        member __.GetOrAddEntity(fullName, generate) =
-            project.GetOrAddEntity(fullName, generate)
-        member __.GetOrAddInlineExpr(fullName, generate) =
-            project.GetOrAddInlineExpr(fullName, generate)
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             let tag = defaultArg tag "FABLE"
             let severity =

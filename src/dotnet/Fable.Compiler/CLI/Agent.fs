@@ -182,17 +182,16 @@ let compile (com: Compiler) (project: Project) (filePath: string) =
         if filePath.EndsWith(".fsproj") then
             Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles filePath
         else
-            FSharp2Fable.Compiler.transformFile com project.ImplementationFiles filePath
+            FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles filePath
             |> FableOptimize.optimizeFile com
-            |> Fable2Babel.Compiler.transformFile com
+            |> Fable2Babel.Compiler.transformFile com project
     // If this is the first compilation, add errors to each respective file
     if not project.IsWatchCompile then
         addFSharpErrorLogs com project.Errors (Some filePath)
-    let loc = defaultArg babel.loc SourceLocation.Empty
     project.MarkSent(filePath)
     // Don't send dependencies to JS client (see #1241)
     project.AddDependencies(filePath, babel.dependencies)
-    Babel.Program(babel.fileName, loc, babel.body, babel.directives, com.ReadAllLogs())
+    Babel.Program(babel.fileName, babel.body, babel.directives, com.ReadAllLogs())
     |> toJson
 
 type Command = string * (string -> unit)
@@ -211,7 +210,9 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                         | FilePath p -> (Path.getRelativePath msg.path p).TrimEnd('/')
                         | NonFilePath p -> p.TrimEnd('/')
                       typedArrays = msg.typedArrays
-                      clampByteArrays = msg.clampByteArrays }
+                      clampByteArrays = msg.clampByteArrays
+                      addReflectionInfo = msg.addReflectionInfo
+                    }
                 let com = Compiler(activeProject, comOptions)
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file

@@ -13,6 +13,7 @@ type Message =
       fableCore: string option
       typedArrays: bool
       clampByteArrays: bool
+      addReflectionInfo: bool
       extra: IDictionary<string,string> }
 
 let foldi f init (xs: 'T seq) =
@@ -98,4 +99,5 @@ let parse (msg: string) =
       fableCore = tryParseString "fableCore" json
       typedArrays = parseBoolean true "typedArrays" json
       clampByteArrays = parseBoolean false "clampByteArrays" json
+      addReflectionInfo = parseBoolean true "addReflectionInfo" json
       extra = parseDic "extra" json }

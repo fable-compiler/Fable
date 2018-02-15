@@ -328,10 +328,11 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
     | Array _ | Tuple _ | List _ ->
         Operation(DynamicApply(makeCoreRef Any "Util" "fromBits", [expr]), Boolean, None)
     | DeclaredType (ent, _) ->
-        if ent.IsClass
-        then jsInstanceof (TypeRef ent) expr
-        else "Cannot type test interfaces, records or unions"
-             |> addErrorAndReturnNull com fileName range
+        failwith "TODO: DeclaredType type test"
+        // if ent.IsClass
+        // then jsInstanceof (TypeRef ent) expr
+        // else "Cannot type test interfaces, records or unions"
+        //      |> addErrorAndReturnNull com fileName range
     | Option _ | GenericParam _ | ErasedUnion _ ->
         "Cannot type test options, generic parameters or erased unions"
         |> addErrorAndReturnNull com fileName range

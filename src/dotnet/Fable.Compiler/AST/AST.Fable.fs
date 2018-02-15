@@ -28,9 +28,8 @@ type Type =
 
 type Declaration =
     | ActionDeclaration of Expr
-    // TODO: Getter or setter?
     | FunctionDeclaration of publicName: string option * privateName: string * args: Ident list * body: Expr
-    | ValueDeclaration of name: string * value: Expr * isMutable: bool
+    | ValueDeclaration of publicName: string option * privateName: string * value: Expr * isMutable: bool
 
 type File(sourcePath, root, decls, ?usedVarNames, ?dependencies) =
     member __.SourcePath: string = sourcePath
