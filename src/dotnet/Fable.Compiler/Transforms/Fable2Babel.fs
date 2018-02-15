@@ -294,57 +294,62 @@ module Util =
         // |> fun props ->
         //     upcast ObjectExpression(props, ?loc=range)
 
-    let transformApply (com: IBabelCompiler) ctx callee args range: Expression =
-        match applyCurried callee args with
-        | callee, args, Some remainingArity ->
-            failwith "TODO"
-        | callee, args, None ->
+    // let transformApply (com: IBabelCompiler) ctx callee args range: Expression =
+    //     match applyCurried callee args with
+    //     | callee, args, Some remainingArity ->
+    //         failwith "TODO"
+    //     | callee, args, None ->
 
-        upcast CallExpression(com.TransformExpr ctx callee, args, ?loc=range)
+    //     upcast CallExpression(com.TransformExpr ctx callee, args, ?loc=range)
 
-    let transformCall com ctx (callee, memb, args, isCons, range): Expression =
-        let args =
-            match args with
-            | [Fable.Null _ as unitArg] when unitArg.Type = Fable.Unit -> []
-            | args -> args
-        let UNEXPECTED callee prop args =
-            sprintf "Unexpected %s: prop %A - args %A" callee prop args
-            |> addErrorAndReturnNull com ctx.file.SourcePath range
-        match callee with
-        // Logical, Binary and Unary Operations
-        // If the operation has been wrapped in a lambda, there may be arguments in excess,
-        | Fable.LogicalOp op ->
-            match memb, args with
-            | None, (TransformExpr com ctx left)::(TransformExpr com ctx right)::_ ->
-                upcast LogicalExpression (op, left, right, ?loc=range)
-            | p, a -> UNEXPECTED "logic op" p a
-        | Fable.UnaryOp op ->
-            match memb, args with
-            | None, (TransformExpr com ctx operand)::_ ->
-                upcast UnaryExpression (op, operand, ?loc=range)
-            | p, a -> UNEXPECTED "unary op" p a
-        | Fable.BinaryOp op ->
-            match memb, args with
-            | None, (TransformExpr com ctx left)::(TransformExpr com ctx right)::_ ->
-                upcast BinaryExpression (op, left, right, ?loc=range)
-            | p, a -> UNEXPECTED "binary op" p a
-        | Fable.Emit emit ->
-            match memb, args with
-            | None, args ->
-                List.map (com.TransformExpr ctx) args
+    let transformArgs (com: IBabelCompiler) ctx hasSpread = function
+        | [] | [Fable.Value Fable.UnitConstant] -> []
+        | args when hasSpread ->
+            match List.rev args with
+            | [] -> []
+            | Fable.Value(Fable.NewArray(Fable.ArrayValues spreadArgs,_))::rest ->
+                let rest = List.rev rest |> List.map (com.TransformExpr ctx)
+                rest @ (List.map (com.TransformExpr ctx) spreadArgs)
+            | last::rest ->
+                let rest = List.rev rest |> List.map (com.TransformExpr ctx)
+                rest @ [SpreadElement(com.TransformExpr ctx last)]
+        | args -> List.map (com.TransformExpr ctx) args
+
+    let transformOperation com ctx range opKind: Expression =
+        match opKind with
+        | Fable.UnaryOperation(op, TransformExpr com ctx expr) ->
+            upcast UnaryExpression (op, expr, ?loc=range)
+        | Fable.BinaryOperation(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
+            upcast BinaryExpression (op, left, right, ?loc=range)
+        | Fable.LogicalOperation(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
+            upcast LogicalExpression (op, left, right, ?loc=range)
+        | Fable.Emit(emit, argsAndCallInfo) ->
+            match argsAndCallInfo with
+            | Some(args, callInfo) ->
+                transformArgs com ctx callInfo.hasSpread args
                 |> macroExpression range emit
-            | p, a -> UNEXPECTED "emit" p a
-        | Fable.Callee callee ->
+            | None -> macroExpression range emit []
+        | Fable.Call(callee, memb, args, callInfo) ->
+            let args = transformArgs com ctx callInfo.hasSpread args
             let callee =
-                match callee, memb with
-                | Fable.EntityRef fullName, Some(Fable.Value(Fable.StringConstant memb)) ->
-                    let typEnt = getEntity com fullName
-                    typeRef com ctx typEnt (Some memb)
-                | callee, Some prop -> getExpr com ctx callee prop
-                | callee, None -> com.TransformExpr ctx callee
-            if isCons
-            then upcast NewExpression(callee, List.map (com.TransformExpr ctx) args, ?loc=range)
-            else upcast CallExpression(callee, List.map (com.TransformExpr ctx) args, ?loc=range)
+                match memb with
+                | Some memb -> get (com.TransformExpr ctx callee) memb
+                | None -> com.TransformExpr ctx callee
+            if callInfo.isConstructor
+            then upcast NewExpression(callee, args, ?loc=range)
+            else upcast CallExpression(callee, args, ?loc=range)
+        | Fable.Apply(applied, args, _) ->
+            let args = List.map (com.TransformExpr ctx) args
+            upcast CallExpression(com.TransformExpr ctx applied, args, ?loc=range)
+        | Fable.DynamicApply(applied, args) ->
+            let args =
+                match args with
+                | [Fable.Value(Fable.NewTuple args)] -> List.map (com.TransformExpr ctx) args
+                | args -> List.map (com.TransformExpr ctx) args
+            upcast CallExpression(com.TransformExpr ctx applied, args, ?loc=range)
+        | Fable.UnresolvedCall _ ->
+            "Unresolved call detected in Babel pass"
+            |> addErrorAndReturnNull com ctx.file.SourcePath range
 
     let block r statements =
         BlockStatement(statements, ?loc=r)
@@ -485,7 +490,7 @@ module Util =
 
         // Expressions become ExpressionStatements
         | Fable.Null _ | Fable.This | Fable.IdentExpr _ | Fable.Value _
-        | Fable.Spread _ | Fable.Uncurry _ | Fable.Lambda _
+        | Fable.Uncurry _ | Fable.Lambda _
         | Fable.Import _ | Fable.EntityRef _ | Fable.ObjectExpr _
         | Fable.Apply _ | Fable.Call _ | Fable.Get _  ->
             [ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range) :> Statement]
@@ -510,7 +515,7 @@ module Util =
             transformObjectExpr com ctx members r
 
         | Fable.Call (callee, prop, args, isCons, _, range) ->
-            transformCall com ctx (callee, prop, args, isCons, range)
+            transformOperation com ctx (callee, prop, args, isCons, range)
 
         | Fable.IfThenElse (TransformExpr com ctx guardExpr,
                             TransformExpr com ctx thenExpr,
@@ -593,7 +598,7 @@ module Util =
             //         when List.sameLength tc.Args args && tc.IsRecursiveRef callee ->
             //     optimizeTailCall com ctx tc args
             // | _ ->
-                transformCall com ctx (callee, memb, args, isCons, range)
+                transformOperation com ctx (callee, memb, args, isCons, range)
                 |> wrapIntExpression expr.Type |> resolve ret |> List.singleton
 
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
@@ -807,7 +812,7 @@ module Util =
     //     //     ExpressionStatement(CallExpression(cctor, [])) :> Statement
     //     //     |> U2.Case1 |> consBack classDecl
 
-    and transformModDecls (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent decls =
+    let transformModDecls (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent decls =
         decls |> List.fold (fun acc decl ->
             match decl with
             | Fable.ActionDeclaration (e,_) ->

@@ -35,7 +35,6 @@ type ExportDefaultAttribute() =
 type EmitAttribute(macro: string) =
     inherit Attribute()
 
-[<Obsolete("PassGenerics doesn't have any effect in Fable 2, please remove the attribute.")>]
 [<AttributeUsage(AttributeTargets.Method)>]
 type PassGenericsAttribute() =
     inherit Attribute()

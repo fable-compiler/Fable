@@ -33,7 +33,7 @@ module Option =
 
 module List =
     let isSingle = function
-        | [x] -> true
+        | [_] -> true
         | _ -> false
 
     /// Same as List.length xs > 1

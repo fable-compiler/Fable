@@ -14,7 +14,7 @@ let inline (!^) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_ErasedCast : ^
 /// Dynamically access a property of an arbitrary object.
 /// `myObj?propA` in JS becomes `myObj.propA`
 /// `myObj?(propA)` in JS becomes `myObj[propA]`
-let (?) (o: obj) (prop: obj): Applicable = jsNative
+let (?) (o: obj) (prop: obj): DynamicApplicable = jsNative
 
 /// Dynamically assign a value to a property of an arbitrary object.
 /// `myObj?propA <- 5` in JS becomes `myObj.propA = 5`

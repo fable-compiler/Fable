@@ -39,7 +39,7 @@ exports.getTransformMacroExpressions = function(babelTemplate) {
                 // Check if there are more placeholders than args, this may happen
                 // if null optional arguments have been removed.
                 var placeholders = [], m = null;
-                var reg = /\$\d+/g, args = node.args;
+                var reg = /\$\d+/g, args = node.args || [];
                 while (m = reg.exec(macro)) {
                     placeholders.push(parseInt(m[0].substr(1), 10))
                 }

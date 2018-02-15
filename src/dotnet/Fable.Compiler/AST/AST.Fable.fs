@@ -120,7 +120,7 @@ type CallInfo =
 
 type OperationKind =
     | Apply of applied: Expr * args: Expr list * argTypes: Type list
-    | DynamicApply of apply: Expr * args: Expr list
+    | DynamicApply of applied: Expr * args: Expr list
     | UnresolvedCall of callee: Expr option * args: Expr list * info: CallInfo
     | Call of callee: Expr * memb: string option * args: Expr list * info: CallInfo
     | Emit of macro: string * argsAndCallInfo: (Expr list * CallInfo) option
