@@ -588,109 +588,93 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
             name = Atts.import || name = Atts.global_ || name = Atts.emit || name = Atts.erase))
         || Naming.ignoredInterfaceMethods.Contains meth.CompiledName
 
-let private tryGetImport (atts: #seq<FSharpAttribute>) =
-    try
-        tryFindAtt ((=) Atts.import) atts |> Option.bind (fun att ->
-            if att.ConstructorArguments.Count = 2 then
-                match att.ConstructorArguments.[0], att.ConstructorArguments.[1] with
-                | (_, (:? string as selector)), (_, (:? string as path)) -> Some(selector, path)
-                | _ -> None
-            else None)
-    with _ -> None
+let private transformConstructor com ctx (meth: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+    failwith "TODO: Constructors"
+    // match meth.EnclosingEntity with
+    // | Some ent when meth.IsImplicitConstructor ->
+    //     // LambdaType constructor (same name as entity)
+    //     let body =
+    //         match body with
+    //         | BasicPatterns.Sequential(baseCons, expr) ->
+    //             // TODO: Check base const
+    //             // - Remove if it's obj()
+    //             // - Normal call with `this` at the end if it's an F# type
+    //             // - BaseCons.call(this, ...args) if it's a JS type
+    //             expr
+    //         | expr -> expr
+    //     // Bind entity name to context to prevent name clashes (it will become a variable in JS)
+    //     let ctx, ident = getEntityName ent |> bindIdentWithExactName com ctx Fable.Any
+    //     // TODO: FunctionConstructor needs to be public too for type references
+    //     let classCons = Fable.FunctionDeclaration(None, ident.Name, args, transformExpr com ctx body)
+    //     // Constructor call
+    //     let consCallBody =
+    //         let args = args |> List.map (fun x -> x.Name) |> String.concat ", "
+    //         let macro = String.Format("$this === void 0 ? new {0}({1}) : {0}.call($this, {1})", ident.Name, args)
+    //         Fable.Operation(Fable.Emit(macro, None), Fable.Any, None) // TODO: Use proper type
+    //     let consCall = Fable.FunctionDeclaration(publicName, privateName, args @ [makeIdent "$this"], consCallBody)
+    //     // TODO: Object.setPrototypeOf for exceptions?
+    //     ctx, [classCons; consCall]
+    // | _ ->
+    //     // TODO: Normal method (overloaded name should have been resolved earlier)
+    //     // Just add `$this` as last argument and pass it at the end when calling another constructor
+    //     failwith "TODO: Secondary constructors"
 
-let private transformConstructor com ctx (meth: FSharpMemberOrFunctionOrValue)
-                                    publicName privateName args (body: FSharpExpr) =
-    match meth.EnclosingEntity with
-    | Some ent when meth.IsImplicitConstructor ->
-        // LambdaType constructor (same name as entity)
-        let body =
-            match body with
-            | BasicPatterns.Sequential(baseCons, expr) ->
-                // TODO: Check base const
-                // - Remove if it's obj()
-                // - Normal call with `this` at the end if it's an F# type
-                // - BaseCons.call(this, ...args) if it's a JS type
-                expr
-            | expr -> expr
-        // Bind entity name to context to prevent name clashes (it will become a variable in JS)
-        let ctx, ident = getEntityName ent |> bindIdentWithExactName com ctx Fable.Any
-        // TODO: FunctionConstructor needs to be public too for type references
-        let classCons = Fable.FunctionDeclaration(None, ident.Name, args, transformExpr com ctx body)
-        // Constructor call
-        let consCallBody =
-            let args = args |> List.map (fun x -> x.Name) |> String.concat ", "
-            let macro = String.Format("$this === void 0 ? new {0}({1}) : {0}.call($this, {1})", ident.Name, args)
-            Fable.Operation(Fable.Emit(macro, None), Fable.Any, None) // TODO: Use proper type
-        let consCall = Fable.FunctionDeclaration(publicName, privateName, args @ [makeIdent "$this"], consCallBody)
-        // TODO: Object.setPrototypeOf for exceptions?
-        ctx, [classCons; consCall]
-    | _ ->
-        // TODO: Normal method (overloaded name should have been resolved earlier)
-        // Just add `$this` as last argument and pass it at the end when calling another constructor
-        failwith "TODO: Secondary constructors"
+// TODO: compile imports as ValueDeclarations (check if they're mutable, see Zaid's issue)
+// TODO: Import expressions must be exported if public too
+let private transformImport com ctx publicName selector path =
+//     if selector = Naming.placeholder
+//     then Fable.Value(Fable.Import(meth.DisplayName, path, importKind))
+//     else fableBody
+    ctx, []
 
-let private transformMember com ctx import (meth: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
-    let methName = getMemberDeclarationName com (getArgTypes com meth) meth
-    let ctx, privateName =
-        // Bind meth.CompiledName (TODO: DisplayName for interface meths?) to context
-        // to prevent name clashes (they will become variables in JS)
-        let typ = makeType com ctx.typeArgs meth.FullType
-        let ctx, privateName = bindIdentWithTentativeName com ctx meth methName
-        ctx, privateName.Name
-    match import with
-    | Some(selector, path) ->
-        failwith "TODO: compile imports as ValueDeclarations (check if they're mutable, see Zaid's issue)"
-        // [], makeImport selector path
-    | None ->
-        let publicName = if isPublicMember meth then Some methName else None
-        let ctx, args = bindMemberArgs com ctx args
-        if meth.IsImplicitConstructor || meth.IsConstructor then
-            transformConstructor com ctx meth publicName privateName args body
-        else
-            let fableBody = transformExpr com ctx body
-            match fableBody with
-            // Accept import expressions used instead of attributes, for example:
-            // let foo x y = import "foo" "myLib"
-            | Fable.Import(selector, path, importKind, _) ->
-                failwith "TODO: compile import expressions as ValueDeclarations (check if they're mutable, see Zaid's issue)"
-                // let fableBody =
-                //     if selector = Naming.placeholder
-                //     then Fable.Value(Fable.Import(meth.DisplayName, path, importKind))
-                //     else fableBody
-                // [], fableBody
-            | fableBody ->
-                ctx, [Fable.FunctionDeclaration(publicName, privateName, args, fableBody)]
+let private getPublicAndPrivateNames com ctx memb =
+    let methName = getMemberDeclarationName (getArgTypes com memb) memb
+    let publicName = if isPublicMember memb then Some methName else None
+    // Bind memb.CompiledName to context to prevent name clashes (become vars in JS)
+    let ctx, privateIdent = bindIdentWithTentativeName com ctx memb methName
+    ctx, publicName, privateIdent.Name
 
-let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (meth: FSharpMemberOrFunctionOrValue)
+let private transformMemberValue com ctx (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
+    let fableValue = transformExpr com ctx value
+    let ctx, publicName, privateName = getPublicAndPrivateNames com ctx memb
+    match fableValue with
+    // Accept import expressions, e.g. let foo = import "foo" "myLib"
+    | Fable.Import(selector, path, _, _) ->
+        transformImport com ctx publicName selector path
+    | fableValue ->
+        ctx, [Fable.ValueDeclaration(publicName, privateName, fableValue, memb.IsMutable)]
+
+let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+    let bodyCtx, args = bindMemberArgs com ctx args
+    let fableBody = transformExpr com bodyCtx body
+    let ctx, publicName, privateName = getPublicAndPrivateNames com ctx memb
+    match fableBody with
+    // Accept import expressions , e.g. let foo x y = import "foo" "myLib"
+    | Fable.Import(selector, path, _, _) ->
+        transformImport com ctx (Some publicName) selector path
+    | fableBody ->
+        ctx, [Fable.FunctionDeclaration(publicName, privateName, args, fableBody)]
+
+let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    let import = tryGetImport meth.Attributes
-    if Option.isSome import then
-        transformMember com ctx import meth args body
-    elif isIgnoredMember meth then
+    if isIgnoredMember memb then
         ctx, []
-    elif isInline meth then
+    elif isInline memb then
+        // TODO: Compiler flag to output inline expressions (e.g. for REPL libs)
         let args = Seq.collect id args |> countRefs body
-        com.AddInlineExpr(meth, (upcast args, body))
+        com.AddInlineExpr(memb, (upcast args, body))
         ctx, []
-    else transformMember com ctx None meth args body
+    elif memb.IsImplicitConstructor || memb.IsConstructor then
+        transformConstructor com ctx memb args body
+    elif isModuleValue memb then
+        transformMemberValue com ctx memb body
+    else
+        transformMemberFunction com ctx memb args body
 
 let rec private transformEntityDecl (com: IFableCompiler) (ctx: Context) (ent: FSharpEntity) subDecls =
-    // let range = getEntityLocation ent |> makeRange
-    let import = tryGetImport ent.Attributes
-    if Option.isSome import then
-        failwith "TODO: Imported entity"
-        // let selector, path = import.Value
-        // let isPublic = isPublicEntity ctx ent
-        // let entName, body = ent.CompiledName, makeImport selector path
-        // // Bind entity name to context to prevent name clashes
-        // let ctx, ident = bindIdentWithExactName com ctx Fable.Any None entName
-        // let m = Fable.Member(entName, Fable.Field, Fable.StaticLoc, [], body.Type)
-        // let decl = Fable.MemberDeclaration(m, isPublic, Some ident.Name, [], body, Some range)
-        // ctx, Some decl
-    elif isIgnoredEntity com ctx ent then
-        ctx, []
-    else
-        ctx, transformDeclarations com ctx subDecls
+    if isIgnoredEntity com ctx ent
+    then ctx, []
+    else ctx, transformDeclarations com ctx subDecls
 
 and private transformDeclarations (com: IFableCompiler) (ctx: Context) fsDecls =
     let _ctx, fableDecls =
@@ -702,7 +686,8 @@ and private transformDeclarations (com: IFableCompiler) (ctx: Context) fsDecls =
                 | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
                     transformMemberDecl com ctx meth args body
                 | FSharpImplementationFileDeclaration.InitAction fe ->
-                    let e = com.Transform ctx fe
+                    // TODO: Check if variables defined in several init actions can conflict
+                    let e = transformExpr com ctx fe
                     let decl = Fable.ActionDeclaration e
                     ctx, [decl]
             ctx, (List.rev fableDecls)@accDecls)
@@ -749,25 +734,6 @@ let private tryGetMemberArgsAndBody (implFiles: Map<string, FSharpImplementation
     |> Option.bind (fun f ->
         f.Declarations |> List.tryPick (tryGetMemberArgsAndBody' meth.FullName))
 
-let private tryGetEntityEnclosingModule (implFiles: Map<string, FSharpImplementationFileContents>) (ent: FSharpEntity) =
-    let rec tryGetEntityEnclosingModule' (entFullName: string) parent = function
-        | FSharpImplementationFileDeclaration.Entity (e, decls) ->
-            let entFullName2 = getEntityFullName e
-            if entFullName = entFullName2
-            then parent
-            elif entFullName.StartsWith(entFullName2)
-            then List.tryPick (tryGetEntityEnclosingModule' entFullName (Some e)) decls
-            else None
-        | _ -> None
-    // For entities in checked project (no assembly), try to find the implementation entity
-    // when the declaration location doesn't correspond to the implementation location (see #754)
-    ent.ImplementationLocation |> Option.bind (fun loc ->
-        let fileName = Path.normalizePath loc.FileName
-        Map.tryFind fileName implFiles
-        |> Option.bind (fun f ->
-            let entFullName = getEntityFullName ent
-            f.Declarations |> List.tryPick (tryGetEntityEnclosingModule' entFullName None)))
-
 type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, implFiles: Map<string, FSharpImplementationFileContents>) =
     let usedVarNames = HashSet<string>()
     let dependencies = HashSet<string>()
@@ -796,10 +762,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
         member __.AddInlineExpr(meth, inlineExpr) =
             // TODO: fullNameAndArgCount is not safe, we need types of args
             let fullNameAndArgCount = meth.FullName + "(" + (getArgCount meth |> string) + ")"
-            state.GetOrAddInlineExpr(fullNameAndArgCount, fun () ->
-                failwith "TODO: compile inline expressions"
-                // inlineExpr
-            ) |> ignore
+            state.GetOrAddInlineExpr(fullNameAndArgCount, fun () -> inlineExpr) |> ignore
         member __.AddUsedVarName varName =
             usedVarNames.Add varName |> ignore
     interface ICompiler with
@@ -827,7 +790,6 @@ let transformFile (com: ICompiler) (state: ICompilerState) (implFiles: Map<strin
         let _, rootDecls = getRootModuleAndDecls file.Declarations
         let ctx = Context.Create(fileName)
         let rootDecls = transformDeclarations fcom ctx rootDecls
-// type File(sourcePath, root, decls, ?usedVarNames, ?dependencies) =
-        Fable.File(fileName, "TODO", rootDecls, fcom.UsedVarNames, fcom.Dependencies)
+        Fable.File(fileName, rootDecls, fcom.UsedVarNames, fcom.Dependencies)
     with
     | ex -> exn (sprintf "%s (%s)" ex.Message fileName, ex) |> raise

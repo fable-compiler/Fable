@@ -3,8 +3,8 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="../../build/fable/Fable.Core.dll" />
-    <Compile Include="Lib.fs" />
+    <!-- <Reference Include="../../build/fable/Fable.Core.dll" /> -->
+    <!-- <Compile Include="Lib.fs" /> -->
     <Compile Include="QuickTest.fs" />
   </ItemGroup>
 </Project>

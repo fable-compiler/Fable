@@ -11,7 +11,7 @@ type ProcessOptions(?envVars, ?redirectOutput) =
     member val RedirectOuput = defaultArg redirectOutput false
 
 type Arguments =
-    { timeout: int; port: int; commandArgs: string option }
+    { port: int; cwd: string; commandArgs: string option }
 
 let konst k _ = k
 
@@ -103,10 +103,10 @@ let parseArguments args =
                 printfn "Value for --port is not a valid integer, using default port"
                 Constants.DEFAULT_PORT
         | None -> Constants.DEFAULT_PORT
-    let timeout =
-        match tryFindArgValue "--timeout" args with
-        | Some timeout -> int timeout
-        | None -> -1
+    let workingDir =
+        match tryFindArgValue "--cwd" args with
+        | Some cwd -> Path.GetFullPath(cwd)
+        | None -> Directory.GetCurrentDirectory()
     let commandArgs =
         // Check first --args for compatibility with the old way
         match tryFindArgValue "--args" args with
@@ -115,11 +115,11 @@ let parseArguments args =
             match args |> Array.tryFindIndex ((=) "--") with
             | Some i -> args.[(i+1)..] |> String.concat " " |> Some
             | None -> None
-    { port = port; timeout = timeout; commandArgs = commandArgs}
+    { port = port; cwd = workingDir; commandArgs = commandArgs}
 
-let startServer port timeout onMessage continuation =
+let startServer port onMessage continuation =
     try
-        let work = Server.start port timeout onMessage
+        let work = Server.start port onMessage
         continuation work
     with
     | ex ->
@@ -136,7 +136,7 @@ let startServerWithProcess workingDir port exec args =
                 p.Kill()
                 Server.stop port |> Async.RunSynchronously
     let agent = startAgent()
-    startServer port -1 agent.Post <| fun listen ->
+    startServer port agent.Post <| fun listen ->
         Async.Start listen
         let p =
             ProcessOptions(envVars=Map["FABLE_SERVER_PORT", string port])
@@ -217,9 +217,10 @@ Where 'start' and 'build' are the names of scripts in package.json:
                 let separator = if npmOrYarn = "yarn" then " " else " -- "
                 "run " + args.[0] + separator + cargs
             | None -> "run " + args.[0]
-        let workingDir =
-            Directory.GetCurrentDirectory() |> findPackageJsonDir
+        let workingDir = fableArgs.cwd |> findPackageJsonDir
         startServerWithProcess workingDir fableArgs.port npmOrYarn execArgs
+
+let quote s = "\"" + s + "\""
 
 [<EntryPoint>]
 let main argv =
@@ -231,7 +232,7 @@ let main argv =
     | Some "start" ->
         let args = argv.[1..] |> parseArguments
         let agent = startAgent()
-        startServer args.port args.timeout agent.Post (Async.RunSynchronously >> konst 0)
+        startServer args.port agent.Post (Async.RunSynchronously >> konst 0)
     | Some "npm-run" ->
         runNpmOrYarn "npm" argv.[1..]
     | Some (StartsWith "npm-" command) ->
@@ -246,26 +247,29 @@ let main argv =
             match args.commandArgs with
             | Some scriptArgs -> argv.[1] + " " + scriptArgs
             | None -> argv.[1]
-        let workingDir = Directory.GetCurrentDirectory()
-        startServerWithProcess workingDir args.port "node" execArgs
+        startServerWithProcess args.cwd args.port "node" execArgs
     | Some ("webpack" | "webpack-dev-server" as webpack) ->
         let containsWebpackConfig dir =
             File.Exists(IO.Path.Combine(dir, "webpack.config.js"))
         let args = argv.[1..] |> parseArguments
-        let workingDir = Directory.GetCurrentDirectory()
-        let pkgJsonDir = findPackageJsonDir workingDir
+        let pkgJsonDir = findPackageJsonDir args.cwd
         let workingDir =
             // Many times, webpack.config.js is next to package.json while Fable
             // is invoked from the `src` directory. So default to package.json dir
             // if the Webpack config file is found there
-            match containsWebpackConfig workingDir, containsWebpackConfig pkgJsonDir with
-            | true, _ -> workingDir
+            match containsWebpackConfig args.cwd, containsWebpackConfig pkgJsonDir with
+            | true, _ -> args.cwd
             | false, true -> pkgJsonDir
-            | false, false -> workingDir
+            | false, false -> args.cwd
         let webpackScript =
             let webpackScript =
-                IO.Path.Combine(findPackageJsonDir workingDir, "node_modules", webpack, "bin", webpack + ".js")
-                |> sprintf "\"%s\""
+                // TODO: In Webpack 4, the script is not found here
+                IO.Path.Combine(findPackageJsonDir workingDir,
+                                "node_modules",
+                                webpack,
+                                "bin",
+                                webpack + ".js")
+                |> quote
             match args.commandArgs with
             | Some args -> webpackScript + " " + args
             | None -> webpackScript
@@ -274,8 +278,7 @@ let main argv =
         let cmd = argv.[1]
         let args = argv.[2..] |> parseArguments
         let execArgs = defaultArg args.commandArgs ""
-        let workingDir = Directory.GetCurrentDirectory()
-        startServerWithProcess workingDir args.port cmd execArgs
+        startServerWithProcess args.cwd args.port cmd execArgs
     | Some "add" -> printfn "The add command has been deprecated. Use Paket to manage Fable libraries."; 0
     | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options." cmd; 0
     | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; 0

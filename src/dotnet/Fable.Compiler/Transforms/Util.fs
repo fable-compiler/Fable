@@ -66,7 +66,10 @@ module Json =
     open System
 
     let isErasedUnion (t: System.Type) =
-        t.Name = "FSharpOption`1" || t.FullName.StartsWith("Microsoft.FSharp.Core.FSharpChoice")
+        t.Name = "FSharpOption`1" ||
+        FSharpType.IsUnion t &&
+            t.GetCustomAttributes true
+            |> Seq.exists (fun a -> (a.GetType ()).Name = "EraseAttribute")
 
     let getErasedUnionValue (v: obj) =
         match FSharpValue.GetUnionFields (v, v.GetType()) with

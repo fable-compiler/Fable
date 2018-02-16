@@ -1,6 +1,7 @@
 {
   "private": true,
   "scripts": {
+    "watch-output": "chokidar 'temp/QuickTest.js' -c 'node temp/QuickTest.js'",
     "start": "chokidar '../dotnet/**/*.fs' -c 'sh quicktest.sh'",
     "webpack": "node ../../node_modules/webpack/bin/webpack",
     "rollup": "node ../../node_modules/rollup/bin/rollup -c",

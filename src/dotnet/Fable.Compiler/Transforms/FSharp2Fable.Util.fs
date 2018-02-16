@@ -93,8 +93,8 @@ module Helpers =
         then match ent.Namespace with Some ns -> ns + "." + ent.CompiledName | None -> ent.CompiledName
         else defaultArg ent.TryFullName ent.CompiledName
 
-    // TODO: Use lazy for argTypes?
-    let getMemberDeclarationName (com: IFableCompiler) argTypes (memb: FSharpMemberOrFunctionOrValue) =
+    // TODO: Remove root module part
+    let getMemberDeclarationName argTypes (memb: FSharpMemberOrFunctionOrValue) =
         let name =
             match memb.EnclosingEntity with
             | Some ent ->
@@ -200,22 +200,17 @@ module Helpers =
             if isUnit args.[0].[0].Type then 0 else 1
         else args |> Seq.sumBy (fun li -> li.Count)
 
-    let getMemberKind (memb: FSharpMemberOrFunctionOrValue) =
-        let getModuleMemberKind (memb: FSharpMemberOrFunctionOrValue) =
-            if memb.CurriedParameterGroups.Count = 0
-                && memb.GenericParameters.Count = 0
-                && not memb.IsMutable // Mutable module values are compiled as functions (see #986)
-            then Fable.Getter
-            else Fable.Method
+    let isModuleValue (memb: FSharpMemberOrFunctionOrValue) =
         match memb.EnclosingEntity with
-        // .EnclosingEntity only fails for compiler generated module members
-        | None -> getModuleMemberKind memb
-        | Some owner when owner.IsFSharpModule -> getModuleMemberKind memb
-        | _ when memb.IsImplicitConstructor || memb.IsConstructor -> Fable.Constructor
-        | _ when memb.IsPropertyGetterMethod && (getArgCount memb) = 0 -> Fable.Getter
-        | _ when memb.IsPropertySetterMethod && (getArgCount memb) = 1 -> Fable.Setter
-        | _ -> Fable.Method
+        | Some owner when owner.IsFSharpModule ->
+            memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
+        | _ -> false
 
+    let getObjectMemberKind (memb: FSharpMemberOrFunctionOrValue) =
+        if memb.IsImplicitConstructor || memb.IsConstructor then Fable.Constructor
+        elif memb.IsPropertyGetterMethod && (getArgCount memb) = 0 then Fable.Getter
+        elif memb.IsPropertySetterMethod && (getArgCount memb) = 1 then Fable.Setter
+        else Fable.Method
 
     let hasSpread (memb: FSharpMemberOrFunctionOrValue) =
         let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
@@ -595,7 +590,7 @@ module TypeHelpers =
     //                overloadIndex, insMembs, staMembs
     //        let argTypes = getArgTypes com m
     //        let returnType = makeType com [] m.ReturnParameter.Type
-    //        let m = makeMemberFrom name (getMemberKind m) argTypes returnType overloadIndex m
+    //        let m = makeMemberFrom name (getObjectMemberKind m) argTypes returnType overloadIndex m
     //        m::acc, insMembs, staMembs)
     //    |> fun (members, _, _) -> List.rev members
 
@@ -826,7 +821,8 @@ module Util =
                 match memb with
                 | Emitted r typ (Some(expr::args, emittedCallInfo)) emitted -> Some emitted
                 | _ ->
-                    match getMemberKind memb with
+                    // TODO: Check if owner is an object first
+                    match getObjectMemberKind memb with
                     | Fable.Getter -> Some expr
                     | Fable.Setter -> Fable.Set(expr, Fable.VarSet, args.Head, r) |> Some
                     | Fable.Method -> Fable.Operation(Fable.Call(expr, None, args, info), typ, r) |> Some
@@ -881,7 +877,7 @@ module Util =
             // Cases when .EnclosingEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
             | None -> ctx.fileName
-        let memberName = getMemberDeclarationName com argTypes memb
+        let memberName = getMemberDeclarationName argTypes memb
         Fable.Import(file, memberName, Fable.Internal, typ)
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
@@ -908,7 +904,7 @@ module Util =
                         || isAbstract owner ->
             match callee with
             | Some callee ->
-                match getMemberKind memb with
+                match getObjectMemberKind memb with
                 | Fable.Getter ->   Fable.Get(callee, Fable.FieldGet memb.DisplayName, typ, r)
                 | Fable.Setter ->   Fable.Set(callee, Fable.FieldSet memb.DisplayName, args.Head, r)
                 // Constructor is unexpected (abstract class cons calls are resolved in transformConstructor)

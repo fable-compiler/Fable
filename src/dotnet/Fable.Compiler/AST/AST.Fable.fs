@@ -31,9 +31,8 @@ type Declaration =
     | FunctionDeclaration of publicName: string option * privateName: string * args: Ident list * body: Expr
     | ValueDeclaration of publicName: string option * privateName: string * value: Expr * isMutable: bool
 
-type File(sourcePath, root, decls, ?usedVarNames, ?dependencies) =
+type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
     member __.SourcePath: string = sourcePath
-    member __.Root: string = root
     member __.Declarations: Declaration list = decls
     member __.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
     member __.Dependencies: Set<string> = defaultArg dependencies Set.empty

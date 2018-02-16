@@ -71,9 +71,6 @@ type IBabelCompiler =
     abstract TransformObjectExpr: Context -> Fable.Declaration list ->
         SourceLocation option -> Expression
 
-type IDeclareMember =
-    abstract member DeclareMember: string * string option * bool * bool * Identifier option * Expression -> U2<Statement, ModuleDeclaration> list
-
 module Util =
     let inline (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
     let inline (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
@@ -765,8 +762,7 @@ module Util =
         // ExpressionStatement(macroExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         ExpressionStatement(main) :> Statement
 
-    let declareRootModMember publicName privateName isPublic isMutable _ (expr: Expression) =
-        let privateName = defaultArg privateName publicName
+    let declareModuleMember publicName privateName isMutable (expr: Expression) =
         let privateIdent = identFromName privateName
         let decl: Declaration =
             match expr with
@@ -776,20 +772,21 @@ module Util =
             | :? FunctionExpression as e ->
                 upcast FunctionDeclaration(privateIdent, e.``params``, e.body)
             | _ -> upcast varDeclaration None privateIdent isMutable expr
-        if not isPublic then
+        match publicName with
+        | None ->
             U2.Case1 (decl :> Statement) |> List.singleton
-        elif publicName = privateName then
+        | Some publicName when publicName = privateName ->
             ExportNamedDeclaration(decl)
             :> ModuleDeclaration |> U2.Case2 |> List.singleton
-        else
+        | Some publicName ->
             // Replace ident forbidden chars of root members, see #207
             let publicName = Naming.replaceIdentForbiddenChars publicName
             let expSpec = ExportSpecifier(privateIdent, Identifier publicName)
             let expDecl = ExportNamedDeclaration(specifiers=[expSpec])
             [expDecl :> ModuleDeclaration |> U2.Case2; decl :> Statement |> U2.Case1]
 
-    let transformModMember (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent
-                           (publicName, privName, args, body: Fable.Expr) =
+    let transformModuleFunction (com: IBabelCompiler) ctx
+                    (publicName, privName, args, body: Fable.Expr) =
         let expr: Expression =
             // TODO: Values (including mutable)
             // match m.Kind with
@@ -815,11 +812,7 @@ module Util =
         // if m.HasDecorator("EntryPoint")
         // then declareEntryPoint com ctx expr |> U2.Case1 |> List.singleton
         // else
-        let name, isPublic =
-            match publicName with
-            | Some name -> name, true
-            | None -> privName, false
-        helper.DeclareMember(name, Some privName, isPublic, false, modIdent, expr)
+        declareModuleMember publicName privName false expr
 
     // let declareClass com ctx (helper: IDeclareMember) modIdent
     //                  (ent: Fable.Entity, isPublic, privateName, entDecls, entRange, baseClass) =
@@ -843,29 +836,20 @@ module Util =
     //     //     ExpressionStatement(CallExpression(cctor, [])) :> Statement
     //     //     |> U2.Case1 |> consBack classDecl
 
-    let transformModDecls (com: IBabelCompiler) ctx (helper: IDeclareMember) modIdent decls =
-        decls |> List.fold (fun acc decl ->
+    let transformDeclarations (com: IBabelCompiler) ctx decls =
+        ([], decls) ||> List.fold (fun acc decl ->
             match decl with
             | Fable.ActionDeclaration e ->
                 transformStatement com ctx e
                 |> List.map U2.Case1
-                // The accumulated statements will be reverted,
-                // so we have to revert these too
-                |> List.rev
-                |> List.append <| acc
+                |> List.append acc
             | Fable.ValueDeclaration(publicName, privName, value, isMutable) ->
-                failwith "TODO: ValueDeclaration"
+                let value = transformExpr com ctx value
+                declareModuleMember publicName privName isMutable value
+                |> List.append acc
             | Fable.FunctionDeclaration(publicName, privName, args, body) ->
-                transformModMember com ctx helper modIdent (publicName,privName,args,body) @ acc
-                |> List.append <| acc) []
-        |> fun decls ->
-            match modIdent with
-            | None -> decls
-            | Some modIdent ->
-                ReturnStatement modIdent
-                :> Statement |> U2.Case1
-                |> consBack decls
-            |> List.rev
+                transformModuleFunction com ctx (publicName,privName,args,body) @ acc
+                |> List.append acc)
 
     let makeCompiler (com: ICompiler) (state: ICompilerState) =
         let imports = Dictionary<string,Import>()
@@ -957,11 +941,7 @@ module Compiler =
                 tailCallOpportunity = None
                 optimizeTailCall = fun () -> () }
             let rootDecls =
-                let helper =
-                    { new IDeclareMember with
-                        member __.DeclareMember(b,c,d,e,f,g) =
-                            declareRootModMember b c d e f g }
-                transformModDecls com ctx helper None file.Declarations
+                transformDeclarations com ctx file.Declarations
             let dependencies =
                 com.GetAllImports()
                 |> Seq.choose (fun i -> i.internalFile)
