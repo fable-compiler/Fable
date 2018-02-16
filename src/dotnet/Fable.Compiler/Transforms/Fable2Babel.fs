@@ -7,7 +7,6 @@ open Fable.AST.Babel
 open Fable.AST.Fable.Util
 open System
 open System.Collections.Generic
-open System.ComponentModel
 
 type ReturnStrategy =
     | Return
@@ -844,9 +843,13 @@ module Util =
                 |> List.map U2.Case1
                 |> List.append acc
             | Fable.ValueDeclaration(publicName, privName, value, isMutable) ->
-                let value = transformExpr com ctx value
-                declareModuleMember publicName privName isMutable value
-                |> List.append acc
+                match publicName, isMutable with
+                // Mutable public values must be compiled as functions (see #986)
+                | Some publicName, true -> failwith "TODO: Mutable public values"
+                | _ ->
+                    let value = transformExpr com ctx value
+                    declareModuleMember publicName privName isMutable value
+                    |> List.append acc
             | Fable.FunctionDeclaration(publicName, privName, args, body) ->
                 transformModuleFunction com ctx (publicName,privName,args,body) @ acc
                 |> List.append acc)

@@ -628,7 +628,7 @@ let private transformImport com ctx publicName selector path =
     ctx, []
 
 let private getPublicAndPrivateNames com ctx memb =
-    let methName = getMemberDeclarationName (getArgTypes com memb) memb
+    let methName = getMemberDeclarationName com (getArgTypes com memb) memb
     let publicName = if isPublicMember memb then Some methName else None
     // Bind memb.CompiledName to context to prevent name clashes (become vars in JS)
     let ctx, privateIdent = bindIdentWithTentativeName com ctx memb methName
@@ -666,7 +666,7 @@ let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (memb: FSha
         ctx, []
     elif memb.IsImplicitConstructor || memb.IsConstructor then
         transformConstructor com ctx memb args body
-    elif isModuleValue memb then
+    elif isModuleValueForDeclaration memb then
         transformMemberValue com ctx memb body
     else
         transformMemberFunction com ctx memb args body
@@ -746,6 +746,8 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
             match tdef.Assembly.FileName with
             | Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> None
             | _ -> Some (getEntityLocation tdef).FileName
+        member __.GetRootModule filePath =
+            state.GetRootModule filePath
         member __.GetInlineExpr meth =
             let fileName = (getMemberLocation meth).FileName |> Path.normalizePath
             if fileName <> currentFile then

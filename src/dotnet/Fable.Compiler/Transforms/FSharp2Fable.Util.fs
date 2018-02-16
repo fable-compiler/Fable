@@ -30,6 +30,7 @@ type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
     abstract TryGetInternalFile: FSharpEntity -> string option
+    abstract GetRootModule: string -> string
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract AddInlineExpr: FSharpMemberOrFunctionOrValue * InlineExpr -> unit
     abstract AddUsedVarName: string -> unit
@@ -93,31 +94,41 @@ module Helpers =
         then match ent.Namespace with Some ns -> ns + "." + ent.CompiledName | None -> ent.CompiledName
         else defaultArg ent.TryFullName ent.CompiledName
 
+    let getEntityLocation (ent: FSharpEntity) =
+        match ent.ImplementationLocation with
+        | Some loc -> loc
+        | None -> ent.DeclarationLocation
+
+    let getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
+        match memb.ImplementationLocation with
+        | Some loc -> loc
+        | None -> memb.DeclarationLocation
+
     // TODO: Remove root module part
-    let getMemberDeclarationName argTypes (memb: FSharpMemberOrFunctionOrValue) =
-        let name =
-            match memb.EnclosingEntity with
-            | Some ent ->
-                // if ent.IsFSharpModule || memb.IsExplicitInterfaceImplementation
-                // then memb.CompiledName
-                // // There's no .IsOverride property, but we have already discarded
-                // // .IsExplicitInterfaceImplementation in the branch above
-                // elif memb.IsOverrideOrExplicitInterfaceImplementation || ent.IsInterface
-                // then memb.DisplayName
-                // else
-                    let isStatic = not memb.IsInstanceMember
-                    let separator = if isStatic then "$$" else "$"
-                    // TODO: Overloads
-                    //let fableEnt = com.GetEntity(ent)
-                    //let overloadName =
-                    //    match fableEnt.TryGetMember(memb.CompiledName, isStatic, argTypes) with
-                    //    | Some m -> m.OverloadName
-                    //    | None -> memb.CompiledName
-                    //ent.CompiledName + separator + overloadName
-                    ent.CompiledName + separator + memb.CompiledName
-            | None ->
-                memb.CompiledName
-        Naming.sanitizeIdentForbiddenChars name
+    let getMemberDeclarationName (com: IFableCompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
+        let removeRootModule (ent: FSharpEntity) (fullName: string) =
+            let rootMod =
+                (getEntityLocation ent).FileName
+                |> Path.normalizePath
+                |> com.GetRootModule
+            // TODO: Do we need to trim '+' too?
+            fullName.Replace(rootMod, ".").TrimStart('.')
+        match memb.EnclosingEntity with
+        | Some ent when ent.IsFSharpModule ->
+            removeRootModule ent memb.FullName
+        | Some ent ->
+            let isStatic = not memb.IsInstanceMember
+            let separator = if isStatic then "$$" else "$"
+            // TODO: Overloads
+            //let fableEnt = com.GetEntity(ent)
+            //let overloadName =
+            //    match fableEnt.TryGetMember(memb.CompiledName, isStatic, argTypes) with
+            //    | Some m -> m.OverloadName
+            //    | None -> memb.CompiledName
+            //ent.CompiledName + separator + overloadName
+            (removeRootModule ent ent.FullName) + separator + memb.CompiledName
+        | None -> memb.FullName
+        |> Naming.sanitizeIdentForbiddenChars
 
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
@@ -165,16 +176,6 @@ module Helpers =
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
 
-    let getEntityLocation (ent: FSharpEntity) =
-        match ent.ImplementationLocation with
-        | Some loc -> loc
-        | None -> ent.DeclarationLocation
-
-    let getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.ImplementationLocation with
-        | Some loc -> loc
-        | None -> memb.DeclarationLocation
-
     let getUnionIndex fsType (unionCase: FSharpUnionCase) =
         let unionCaseName = unionCase.Name
         match tryDefinition fsType with
@@ -200,11 +201,24 @@ module Helpers =
             if isUnit args.[0].[0].Type then 0 else 1
         else args |> Seq.sumBy (fun li -> li.Count)
 
-    let isModuleValue (memb: FSharpMemberOrFunctionOrValue) =
+    let private isModuleValueUnsafe checkPublicMutable (memb: FSharpMemberOrFunctionOrValue) =
         match memb.EnclosingEntity with
         | Some owner when owner.IsFSharpModule ->
-            memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
+            let preCondition =
+                if checkPublicMutable
+                then not memb.IsMutable || not (isPublicMember memb)
+                else true
+            preCondition
+            && memb.CurriedParameterGroups.Count = 0
+            && memb.GenericParameters.Count = 0
         | _ -> false
+
+    // Mutable public values must be compiled as functions (see #986)
+    let isModuleValueForCalls (memb: FSharpMemberOrFunctionOrValue) =
+        isModuleValueUnsafe true memb
+
+    let isModuleValueForDeclaration (memb: FSharpMemberOrFunctionOrValue) =
+        isModuleValueUnsafe false memb
 
     let getObjectMemberKind (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsImplicitConstructor || memb.IsConstructor then Fable.Constructor
@@ -877,7 +891,7 @@ module Util =
             // Cases when .EnclosingEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
             | None -> ctx.fileName
-        let memberName = getMemberDeclarationName argTypes memb
+        let memberName = getMemberDeclarationName com argTypes memb
         Fable.Import(file, memberName, Fable.Internal, typ)
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
@@ -897,7 +911,10 @@ module Util =
         | Try (tryGetBoundExpr ctx r) expr, _ ->
             match callee with
             | Some c -> call { info with hasThisArg = true } expr None (c::args)
-            | None -> call info expr None args
+            | None ->
+                if isModuleValueForCalls memb
+                then expr
+                else call info expr None args
         // Check if this is an interface or abstract/overriden method
         | _, Some owner when owner.IsInterface
                         || memb.IsOverrideOrExplicitInterfaceImplementation
@@ -905,18 +922,21 @@ module Util =
             match callee with
             | Some callee ->
                 match getObjectMemberKind memb with
-                | Fable.Getter ->   Fable.Get(callee, Fable.FieldGet memb.DisplayName, typ, r)
-                | Fable.Setter ->   Fable.Set(callee, Fable.FieldSet memb.DisplayName, args.Head, r)
+                | Fable.Getter -> Fable.Get(callee, Fable.FieldGet memb.DisplayName, typ, r)
+                | Fable.Setter -> Fable.Set(callee, Fable.FieldSet memb.DisplayName, args.Head, r)
                 // Constructor is unexpected (abstract class cons calls are resolved in transformConstructor)
                 | Fable.Constructor
-                | Fable.Method ->   call info callee (Some memb.DisplayName) args
+                | Fable.Method -> call info callee (Some memb.DisplayName) args
             | None -> "Unexpected static interface/override call" |> attachRange r |> failwith
         | _ ->
-            let info, args =
-                match callee with
-                | Some callee -> { info with hasThisArg = true }, callee::args
-                | None -> info, args
-            call info (fileRef com ctx Fable.Any info.argTypes memb) None args
+            match callee with
+            | Some callee ->
+                let info = { info with hasThisArg = true }
+                call info (fileRef com ctx Fable.Any info.argTypes memb) None (callee::args)
+            | None ->
+                if isModuleValueForCalls memb
+                then fileRef com ctx typ [] memb
+                else call info (fileRef com ctx Fable.Any info.argTypes memb) None args
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.typeArgs v.FullType
