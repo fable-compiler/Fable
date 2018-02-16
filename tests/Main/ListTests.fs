@@ -27,7 +27,7 @@ let ``List.IsEmpty works``() =
       equal false xs.IsEmpty
 
 [<Test>]
-let ``List.Equals works``() = 
+let ``List.Equals works``() =
       let xs = [1;2;3]
       xs.Equals(xs) |> equal true
 
