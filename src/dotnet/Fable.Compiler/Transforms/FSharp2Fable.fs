@@ -677,21 +677,19 @@ let rec private transformEntityDecl (com: IFableCompiler) (ctx: Context) (ent: F
     else ctx, transformDeclarations com ctx subDecls
 
 and private transformDeclarations (com: IFableCompiler) (ctx: Context) fsDecls =
-    let _ctx, fableDecls =
-        ((ctx, []), fsDecls) ||> List.fold (fun (ctx, accDecls) fsDecl ->
-            let ctx, fableDecls =
-                match fsDecl with
-                | FSharpImplementationFileDeclaration.Entity (e, sub) ->
-                    transformEntityDecl com ctx e sub
-                | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
-                    transformMemberDecl com ctx meth args body
-                | FSharpImplementationFileDeclaration.InitAction fe ->
-                    // TODO: Check if variables defined in several init actions can conflict
-                    let e = transformExpr com ctx fe
-                    let decl = Fable.ActionDeclaration e
-                    ctx, [decl]
-            ctx, (List.rev fableDecls)@accDecls)
-    List.rev fableDecls
+    ((ctx, []), fsDecls) ||> List.fold (fun (ctx, accDecls) fsDecl ->
+        let ctx, fableDecls =
+            match fsDecl with
+            | FSharpImplementationFileDeclaration.Entity (e, sub) ->
+                transformEntityDecl com ctx e sub
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
+                transformMemberDecl com ctx meth args body
+            | FSharpImplementationFileDeclaration.InitAction fe ->
+                // TODO: Check if variables defined in several init actions can conflict
+                let e = transformExpr com ctx fe
+                let decl = Fable.ActionDeclaration e
+                ctx, [decl]
+        ctx, accDecls @ fableDecls) |> snd
 
 let private getRootModuleAndDecls decls =
     let (|CommonNamespace|_|) = function
@@ -748,23 +746,21 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
             | _ -> Some (getEntityLocation tdef).FileName
         member __.GetRootModule filePath =
             state.GetRootModule filePath
-        member __.GetInlineExpr meth =
-            let fileName = (getMemberLocation meth).FileName |> Path.normalizePath
+        member fcom.GetInlineExpr memb =
+            let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
             if fileName <> currentFile then
                 dependencies.Add(fileName) |> ignore
-            // TODO: fullNameAndArgCount is not safe, we need types of args
-            let fullNameAndArgCount = meth.FullName + "(" + (getArgCount meth |> string) + ")"
-            state.GetOrAddInlineExpr(fullNameAndArgCount, fun () ->
-                match tryGetMemberArgsAndBody implFiles fileName meth with
+            let fullName = getMemberDeclarationFullname fcom (getArgTypes fcom memb) memb
+            state.GetOrAddInlineExpr(fullName, fun () ->
+                match tryGetMemberArgsAndBody implFiles fileName memb with
                 | Some(args, body) ->
                     let args = Seq.collect id args |> countRefs body
                     (upcast args, body)
-                | None -> failwith ("Cannot find inline method " + meth.FullName)
+                | None -> failwith ("Cannot find inline member " + memb.FullName)
             )
-        member __.AddInlineExpr(meth, inlineExpr) =
-            // TODO: fullNameAndArgCount is not safe, we need types of args
-            let fullNameAndArgCount = meth.FullName + "(" + (getArgCount meth |> string) + ")"
-            state.GetOrAddInlineExpr(fullNameAndArgCount, fun () -> inlineExpr) |> ignore
+        member fcom.AddInlineExpr(memb, inlineExpr) =
+            let fullName = getMemberDeclarationFullname fcom (getArgTypes fcom memb) memb
+            state.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
         member __.AddUsedVarName varName =
             usedVarNames.Add varName |> ignore
     interface ICompiler with

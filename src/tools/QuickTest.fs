@@ -1,4 +1,4 @@
-module rec QuickTest
+module QuickTest
 
 // Use this template to make quick tests when adding new features to Fable.
 // You must run a full build at least once (from repo root directory,
@@ -84,7 +84,10 @@ module rec QuickTest
 //     |> List.concat
 //     |> List.fold (fun acc x -> acc + x) 6
 
-let x() = Foo.jar
 
 module Foo =
-    let jar = 10
+    let jar = 20
+
+let f x = x
+
+let f2 x = f Foo.jar

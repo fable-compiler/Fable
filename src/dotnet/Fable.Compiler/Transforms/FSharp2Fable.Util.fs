@@ -104,18 +104,20 @@ module Helpers =
         | Some loc -> loc
         | None -> memb.DeclarationLocation
 
-    // TODO: Remove root module part
-    let getMemberDeclarationName (com: IFableCompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
-        let removeRootModule (ent: FSharpEntity) (fullName: string) =
-            let rootMod =
-                (getEntityLocation ent).FileName
-                |> Path.normalizePath
-                |> com.GetRootModule
-            // TODO: Do we need to trim '+' too?
-            fullName.Replace(rootMod, ".").TrimStart('.')
+    let private getMemberDeclarationNamePrivate removeRootModule (com: IFableCompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
+        let removeRootModule' (ent: FSharpEntity) (fullName: string) =
+            if not removeRootModule then
+                fullName
+            else
+                let rootMod =
+                    (getEntityLocation ent).FileName
+                    |> Path.normalizePath
+                    |> com.GetRootModule
+                // TODO: Do we need to trim '+' too?
+                fullName.Replace(rootMod, ".").TrimStart('.')
         match memb.EnclosingEntity with
         | Some ent when ent.IsFSharpModule ->
-            removeRootModule ent memb.FullName
+            removeRootModule' ent memb.FullName
         | Some ent ->
             let isStatic = not memb.IsInstanceMember
             let separator = if isStatic then "$$" else "$"
@@ -126,9 +128,16 @@ module Helpers =
             //    | Some m -> m.OverloadName
             //    | None -> memb.CompiledName
             //ent.CompiledName + separator + overloadName
-            (removeRootModule ent ent.FullName) + separator + memb.CompiledName
+            (removeRootModule' ent ent.FullName) + separator + memb.CompiledName
         | None -> memb.FullName
         |> Naming.sanitizeIdentForbiddenChars
+
+    let getMemberDeclarationName (com: IFableCompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
+        getMemberDeclarationNamePrivate true com argTypes memb
+
+    let getMemberDeclarationFullname (com: IFableCompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
+
+        getMemberDeclarationNamePrivate false com argTypes memb
 
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
@@ -201,7 +210,7 @@ module Helpers =
             if isUnit args.[0].[0].Type then 0 else 1
         else args |> Seq.sumBy (fun li -> li.Count)
 
-    let private isModuleValueUnsafe checkPublicMutable (memb: FSharpMemberOrFunctionOrValue) =
+    let private isModuleValuePrivate checkPublicMutable (memb: FSharpMemberOrFunctionOrValue) =
         match memb.EnclosingEntity with
         | Some owner when owner.IsFSharpModule ->
             let preCondition =
@@ -215,10 +224,10 @@ module Helpers =
 
     // Mutable public values must be compiled as functions (see #986)
     let isModuleValueForCalls (memb: FSharpMemberOrFunctionOrValue) =
-        isModuleValueUnsafe true memb
+        isModuleValuePrivate true memb
 
     let isModuleValueForDeclaration (memb: FSharpMemberOrFunctionOrValue) =
-        isModuleValueUnsafe false memb
+        isModuleValuePrivate false memb
 
     let getObjectMemberKind (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsImplicitConstructor || memb.IsConstructor then Fable.Constructor
@@ -271,13 +280,9 @@ module Patterns =
     let (|ForOfLoop|_|) = function
         | Let((_, value),
               Let((_, Call(None, memb, _, [], [])),
-                TryFinally(
-                  WhileLoop(_,
-                    Let((ident, _), body)), _)))
+                TryFinally(WhileLoop(_,Let((ident, _), body)), _)))
         | Let((_, Call(Some value, memb, _, [], [])),
-                TryFinally(
-                    WhileLoop(_,
-                        Let((ident, _), body)), _))
+                TryFinally(WhileLoop(_,Let((ident, _), body)), _))
             when memb.CompiledName = "GetEnumerator" ->
             Some(ident, value, body)
         | _ -> None

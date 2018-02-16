@@ -851,7 +851,7 @@ module Util =
                     declareModuleMember publicName privName isMutable value
                     |> List.append acc
             | Fable.FunctionDeclaration(publicName, privName, args, body) ->
-                transformModuleFunction com ctx (publicName,privName,args,body) @ acc
+                transformModuleFunction com ctx (publicName,privName,args,body)
                 |> List.append acc)
 
     let makeCompiler (com: ICompiler) (state: ICompilerState) =
@@ -945,6 +945,14 @@ module Compiler =
                 optimizeTailCall = fun () -> () }
             let rootDecls =
                 transformDeclarations com ctx file.Declarations
+            for r in rootDecls do
+                match r with
+                | U2.Case2(:? ExportNamedDeclaration as d) ->
+                    match d.declaration with
+                    | Some(:? FunctionDeclaration as d) ->
+                        printfn "export function %s" d.id.name
+                    | _ -> ()
+                | _ -> ()
             let dependencies =
                 com.GetAllImports()
                 |> Seq.choose (fun i -> i.internalFile)
