@@ -889,15 +889,17 @@ module Util =
         hasSpread = hasSpread memb
         hasThisArg = false }
 
-    let fileRef com (ctx: Context) typ argTypes (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRef com (ctx: Context) typ argTypes (memb: FSharpMemberOrFunctionOrValue) =
+        let memberName = getMemberDeclarationName com argTypes memb
         let file =
             match memb.EnclosingEntity with
-            | Some ent -> (getEntityLocation ent).FileName
+            | Some ent -> (getEntityLocation ent).FileName |> Path.normalizePath
             // Cases when .EnclosingEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
             | None -> ctx.fileName
-        let memberName = getMemberDeclarationName com argTypes memb
-        Fable.Import(file, memberName, Fable.Internal, typ)
+        if file = ctx.fileName
+        then makeTypedIdent None typ memberName |> Fable.IdentExpr
+        else Fable.Import(memberName, file, Fable.Internal, typ)
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
         let call info callee memb args =
@@ -937,11 +939,11 @@ module Util =
             match callee with
             | Some callee ->
                 let info = { info with hasThisArg = true }
-                call info (fileRef com ctx Fable.Any info.argTypes memb) None (callee::args)
+                call info (memberRef com ctx Fable.Any info.argTypes memb) None (callee::args)
             | None ->
                 if isModuleValueForCalls memb
-                then fileRef com ctx typ [] memb
-                else call info (fileRef com ctx Fable.Any info.argTypes memb) None args
+                then memberRef com ctx typ [] memb
+                else call info (memberRef com ctx Fable.Any info.argTypes memb) None args
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.typeArgs v.FullType
@@ -951,4 +953,4 @@ module Util =
         | Emitted r typ None emitted -> emitted
         // TODO: | Replaced com ctx r typ info None [] replaced -> replaced
         | Try (tryGetBoundExpr ctx r) expr -> expr
-        | _ -> fileRef com ctx typ [] v
+        | _ -> memberRef com ctx typ [] v

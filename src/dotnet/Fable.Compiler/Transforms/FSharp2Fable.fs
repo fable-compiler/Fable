@@ -674,7 +674,7 @@ let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (memb: FSha
 let rec private transformEntityDecl (com: IFableCompiler) (ctx: Context) (ent: FSharpEntity) subDecls =
     if isIgnoredEntity com ctx ent
     then ctx, []
-    else ctx, transformDeclarations com ctx subDecls
+    else transformDeclarations com ctx subDecls
 
 and private transformDeclarations (com: IFableCompiler) (ctx: Context) fsDecls =
     ((ctx, []), fsDecls) ||> List.fold (fun (ctx, accDecls) fsDecl ->
@@ -689,7 +689,7 @@ and private transformDeclarations (com: IFableCompiler) (ctx: Context) fsDecls =
                 let e = transformExpr com ctx fe
                 let decl = Fable.ActionDeclaration e
                 ctx, [decl]
-        ctx, accDecls @ fableDecls) |> snd
+        ctx, accDecls @ fableDecls)
 
 let private getRootModuleAndDecls decls =
     let (|CommonNamespace|_|) = function
@@ -787,7 +787,7 @@ let transformFile (com: ICompiler) (state: ICompilerState) (implFiles: Map<strin
         let fcom = FableCompiler(com, state, fileName, implFiles)
         let _, rootDecls = getRootModuleAndDecls file.Declarations
         let ctx = Context.Create(fileName)
-        let rootDecls = transformDeclarations fcom ctx rootDecls
+        let _, rootDecls = transformDeclarations fcom ctx rootDecls
         Fable.File(fileName, rootDecls, fcom.UsedVarNames, fcom.Dependencies)
     with
     | ex -> exn (sprintf "%s (%s)" ex.Message fileName, ex) |> raise

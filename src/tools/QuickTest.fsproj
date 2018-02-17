@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- <Reference Include="../../build/fable/Fable.Core.dll" /> -->
-    <!-- <Compile Include="Lib.fs" /> -->
+    <Compile Include="Lib.fs" />
     <Compile Include="QuickTest.fs" />
   </ItemGroup>
 </Project>

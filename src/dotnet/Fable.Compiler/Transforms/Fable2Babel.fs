@@ -945,14 +945,6 @@ module Compiler =
                 optimizeTailCall = fun () -> () }
             let rootDecls =
                 transformDeclarations com ctx file.Declarations
-            for r in rootDecls do
-                match r with
-                | U2.Case2(:? ExportNamedDeclaration as d) ->
-                    match d.declaration with
-                    | Some(:? FunctionDeclaration as d) ->
-                        printfn "export function %s" d.id.name
-                    | _ -> ()
-                | _ -> ()
             let dependencies =
                 com.GetAllImports()
                 |> Seq.choose (fun i -> i.internalFile)
