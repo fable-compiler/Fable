@@ -1,4 +1,4 @@
-namespace Fable.FSharp2Fable
+namespace Fable.Transforms.FSharp2Fable
 
 open System
 open System.Collections.Generic
@@ -7,6 +7,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
+open Fable.Transforms
 
 type Context =
     { fileName: string
@@ -34,39 +35,6 @@ type IFableCompiler =
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract AddInlineExpr: FSharpMemberOrFunctionOrValue * InlineExpr -> unit
     abstract AddUsedVarName: string -> unit
-
-[<RequireQualifiedAccess>]
-module Atts =
-    let [<Literal>] abstractClass = "Microsoft.FSharp.Core.AbstractClassAttribute" // typeof<AbstractClassAttribute>.FullName
-    let [<Literal>] compiledName = "Microsoft.FSharp.Core.CompiledNameAttribute" // typeof<CompiledNameAttribute>.FullName
-    let [<Literal>] emit = "Fable.Core.EmitAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
-    let [<Literal>] import = "Fable.Core.ImportAttribute" // typeof<Fable.Core.ImportAttribute>.FullName
-    let [<Literal>] global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
-    let [<Literal>] erase = "Fable.Core.EraseAttribute" // typeof<Fable.Core.EraseAttribute>.FullName
-    let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
-    let [<Literal>] paramSeq = "Fable.Core.ParamSeqAttribute" // typeof<Fable.Core.ParamSeqAttribute>.FullName
-
-[<RequireQualifiedAccess>]
-module Types =
-    let [<Literal>] dynamicApplicable = "Fable.Core.DynamicApplicable"
-    let [<Literal>] attribute = "System.Attribute"
-    let [<Literal>] object = "System.Object"
-    let [<Literal>] bool = "System.Boolean"
-    let [<Literal>] char = "System.Char"
-    let [<Literal>] string = "System.String"
-    let [<Literal>] guid = "System.Guid"
-    let [<Literal>] timespan = "System.TimeSpan"
-    let [<Literal>] datetime = "System.DateTime"
-    let [<Literal>] datetimeOffset = "System.DateTimeOffset"
-    let [<Literal>] decimal = "System.Decimal"
-    let [<Literal>] regex = "System.Text.RegularExpressions.Regex"
-    let [<Literal>] unit = "Microsoft.FSharp.Core.Unit"
-    let [<Literal>] option = "Microsoft.FSharp.Core.FSharpOption`1"
-    let [<Literal>] list = "Microsoft.FSharp.Collections.FSharpList`1"
-    let [<Literal>] resizeArray = "System.Collections.Generic.List`1"
-    let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
-    let [<Literal>] printf = "Microsoft.FSharp.Core.PrintfModule"
-    let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
 
 module Helpers =
     let tryBoth (f1: 'a->'b option) (f2: 'a->'b option) (x: 'a) =

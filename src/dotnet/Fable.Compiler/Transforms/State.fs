@@ -1,4 +1,4 @@
-module Fable.State
+module Fable.Transforms.State
 
 open Fable
 open Fable.AST

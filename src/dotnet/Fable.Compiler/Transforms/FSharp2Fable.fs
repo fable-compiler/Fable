@@ -1,4 +1,4 @@
-module rec Fable.FSharp2Fable.Compiler
+module rec Fable.Transforms.FSharp2Fable.Compiler
 
 #if !FABLE_COMPILER
 open System.IO
@@ -13,6 +13,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open Fable.AST.Fable.Util
+open Fable.Transforms
 
 open Patterns
 open TypeHelpers
@@ -242,11 +243,8 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
 
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     match fsExpr with
-    // TODO: Some cases of coertion shouldn't be erased
-    // string :> seq #1279
-    // list (and others) :> seq in Fable 2.0
-    // concrete type :> interface in Fable 2.0
-    | BasicPatterns.Coerce(_targetType, Transform com ctx inpExpr) -> inpExpr
+    | BasicPatterns.Coerce(targetType, Transform com ctx inpExpr) ->
+        Fable.Cast(inpExpr, makeType com ctx.typeArgs targetType)
 
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
@@ -621,7 +619,7 @@ let private transformConstructor com ctx (meth: FSharpMemberOrFunctionOrValue) a
 
 // TODO: compile imports as ValueDeclarations (check if they're mutable, see Zaid's issue)
 // TODO: Import expressions must be exported if public too
-let private transformImport com ctx publicName selector path =
+let private transformImport com ctx typ publicName selector path =
 //     if selector = Naming.placeholder
 //     then Fable.Value(Fable.Import(meth.DisplayName, path, importKind))
 //     else fableBody
@@ -639,8 +637,8 @@ let private transformMemberValue com ctx (memb: FSharpMemberOrFunctionOrValue) (
     let ctx, publicName, privateName = getPublicAndPrivateNames com ctx memb
     match fableValue with
     // Accept import expressions, e.g. let foo = import "foo" "myLib"
-    | Fable.Import(selector, path, _, _) ->
-        transformImport com ctx publicName selector path
+    | Fable.Import(selector, path, Fable.CustomImport, typ) ->
+        transformImport com ctx typ publicName selector path
     | fableValue ->
         ctx, [Fable.ValueDeclaration(publicName, privateName, fableValue, memb.IsMutable)]
 
@@ -650,8 +648,8 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
     let ctx, publicName, privateName = getPublicAndPrivateNames com ctx memb
     match fableBody with
     // Accept import expressions , e.g. let foo x y = import "foo" "myLib"
-    | Fable.Import(selector, path, _, _) ->
-        transformImport com ctx (Some publicName) selector path
+    | Fable.Import(selector, path, Fable.CustomImport, typ) ->
+        transformImport com ctx typ (Some publicName) selector path
     | fableBody ->
         ctx, [Fable.FunctionDeclaration(publicName, privateName, args, fableBody)]
 

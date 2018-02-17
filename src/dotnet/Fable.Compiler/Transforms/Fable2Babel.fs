@@ -1,4 +1,4 @@
-module Fable.Fable2Babel
+module Fable.Transforms.Fable2Babel
 
 open Fable
 open Fable.Core

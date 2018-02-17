@@ -1,6 +1,10 @@
 module Lib
 
-let bar = "hoho"
+module Bar =
+    let bar = "hoho"
+
+module Bar2 =
+    let bar = "hihi"
 
 // type Foo =
 //     { x: int }

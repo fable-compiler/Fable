@@ -9,7 +9,7 @@ open System.Xml.Linq
 open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
-open Fable.State
+open Fable.Transforms.State
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("Microsoft.")

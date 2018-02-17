@@ -2,7 +2,8 @@ module Fable.CLI.Agent
 
 open Fable
 open Fable.AST
-open Fable.State
+open Fable.Transforms
+open Fable.Transforms.State
 open System
 open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices

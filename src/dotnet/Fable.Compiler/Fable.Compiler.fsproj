@@ -18,14 +18,14 @@
     <Compile Include="AST/AST.Fable.fs" />
     <Compile Include="AST/AST.Babel.fs" />
     <Compile Include="AST/AST.Fable.Util.fs" />
-    <Compile Include="Transforms/Util.fs" />
+    <Compile Include="Transforms/Transforms.Util.fs" />
     <Compile Include="Transforms/Replacements.fs" />
     <Compile Include="Transforms/FSharp2Fable.Util.fs" />
     <Compile Include="Transforms/FSharp2Fable.fs" />
     <Compile Include="Transforms/FableOptimize.fs" />
     <Compile Include="Transforms/Fable2Babel.fs" />
     <Compile Include="Transforms/State.fs" />
-    <Compile Include="CLI/CLIUtil.fs" />
+    <Compile Include="CLI/CLI.Util.fs" />
     <Compile Include="CLI/Parser.fs" />
     <Compile Include="CLI/ProjectCoreCracker.fs" />
     <Compile Include="CLI/ProjectCracker.fs" />

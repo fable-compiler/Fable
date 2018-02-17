@@ -1,4 +1,5 @@
 module Fable.AST.Fable.Util
+
 open Fable
 open Fable.AST
 

@@ -1,4 +1,4 @@
-namespace Fable
+namespace Fable.Transforms
 
 #if !NETFX && !FABLE_COMPILER
 [<AutoOpen>]
@@ -92,7 +92,7 @@ module Json =
         inherit JsonConverter()
         let typeCache = ConcurrentDictionary<Type,bool>()
         override __.CanConvert t =
-            typeCache.GetOrAdd(t, fun t -> typeof<AST.Babel.Node>.GetTypeInfo().IsAssignableFrom(t))
+            typeCache.GetOrAdd(t, fun t -> typeof<Fable.AST.Babel.Node>.GetTypeInfo().IsAssignableFrom(t))
         override __.ReadJson(_reader, _t, _v, _serializer) =
             failwith "Not implemented"
         override __.WriteJson(writer, v, serializer) =
@@ -104,3 +104,37 @@ module Json =
                 serializer.Serialize(writer, p.GetValue(v)))
             writer.WriteEndObject()
 #endif //!FABLE_COMPILER
+
+[<RequireQualifiedAccess>]
+module Atts =
+    let [<Literal>] abstractClass = "Microsoft.FSharp.Core.AbstractClassAttribute" // typeof<AbstractClassAttribute>.FullName
+    let [<Literal>] compiledName = "Microsoft.FSharp.Core.CompiledNameAttribute" // typeof<CompiledNameAttribute>.FullName
+    let [<Literal>] emit = "Fable.Core.EmitAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
+    let [<Literal>] import = "Fable.Core.ImportAttribute" // typeof<Fable.Core.ImportAttribute>.FullName
+    let [<Literal>] global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
+    let [<Literal>] erase = "Fable.Core.EraseAttribute" // typeof<Fable.Core.EraseAttribute>.FullName
+    let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
+    let [<Literal>] paramSeq = "Fable.Core.ParamSeqAttribute" // typeof<Fable.Core.ParamSeqAttribute>.FullName
+
+[<RequireQualifiedAccess>]
+module Types =
+    let [<Literal>] dynamicApplicable = "Fable.Core.DynamicApplicable"
+    let [<Literal>] attribute = "System.Attribute"
+    let [<Literal>] object = "System.Object"
+    let [<Literal>] bool = "System.Boolean"
+    let [<Literal>] char = "System.Char"
+    let [<Literal>] string = "System.String"
+    let [<Literal>] guid = "System.Guid"
+    let [<Literal>] timespan = "System.TimeSpan"
+    let [<Literal>] datetime = "System.DateTime"
+    let [<Literal>] datetimeOffset = "System.DateTimeOffset"
+    let [<Literal>] decimal = "System.Decimal"
+    let [<Literal>] regex = "System.Text.RegularExpressions.Regex"
+    let [<Literal>] unit = "Microsoft.FSharp.Core.Unit"
+    let [<Literal>] option = "Microsoft.FSharp.Core.FSharpOption`1"
+    let [<Literal>] list = "Microsoft.FSharp.Collections.FSharpList`1"
+    let [<Literal>] resizeArray = "System.Collections.Generic.List`1"
+    let [<Literal>] enumerable = "System.Collections.Generic.IEnumerable`1"
+    let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
+    let [<Literal>] printf = "Microsoft.FSharp.Core.PrintfModule"
+    let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"

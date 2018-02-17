@@ -1,4 +1,4 @@
-module Fable.Replacements
+module Fable.Transforms.Replacements
 
 open Fable
 open Fable.Core

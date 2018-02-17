@@ -61,7 +61,7 @@ let start port onMessage =
     // See https://github.com/fable-compiler/Fable/issues/809#issuecomment-294073328
     server.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true)
     server.Start()
-    Log.logAlways(sprintf "Fable (%s) daemon started on port %i" Constants.VERSION port)
+    Log.logAlways(sprintf "Fable (%s) daemon started on port %i" Literals.VERSION port)
     loop server buffer onMessage
 
 let stop port = async {

@@ -101,8 +101,8 @@ let parseArguments args =
             | true, port -> port
             | false, _ ->
                 printfn "Value for --port is not a valid integer, using default port"
-                Constants.DEFAULT_PORT
-        | None -> Constants.DEFAULT_PORT
+                Literals.DEFAULT_PORT
+        | None -> Literals.DEFAULT_PORT
     let workingDir =
         match tryFindArgValue "--cwd" args with
         | Some cwd -> Path.GetFullPath(cwd)
@@ -166,7 +166,7 @@ let (|StartsWith|_|) (pattern: string) (str: string) =
     else None
 
 let printHelp() =
-    (Constants.VERSION, Constants.DEFAULT_PORT) ||> printfn """Fable F# to JS compiler (%s)
+    (Literals.VERSION, Literals.DEFAULT_PORT) ||> printfn """Fable F# to JS compiler (%s)
 Usage: dotnet fable [command] [script] [fable arguments] [-- [script arguments]]
 
 Commands:
@@ -228,7 +228,7 @@ let main argv =
     match Array.tryHead argv with
     | Some ("--help"|"-h") ->
         printHelp(); 0
-    | Some "--version" -> printfn "%s" Constants.VERSION; 0
+    | Some "--version" -> printfn "%s" Literals.VERSION; 0
     | Some "start" ->
         let args = argv.[1..] |> parseArguments
         let agent = startAgent()
