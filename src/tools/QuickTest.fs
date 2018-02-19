@@ -85,15 +85,17 @@ module QuickTest
 //     |> List.fold (fun acc x -> acc + x) 6
 
 
-let f (x: _ list) = x
+let f (y: _ seq) = y // (y2: _ seq) = y
 
-// module Bar2 =
-//     let bar = 5
+let f2 () =
+    let y = ["1";"2"]
+    f y
+    //  |> f [] // ("1"::"2"::li)
 
-module Foo =
-    let jar = Lib.Bar2.bar
+[<Fable.Core.Emit("$0 + $1")>]
+let add x y = x
 
-let li = ["3"]
-
-let f2 x = f ["1";"2"] // ("1"::"2"::li)
-
+let test() =
+    let a = 5
+    let b = 7
+    add a b

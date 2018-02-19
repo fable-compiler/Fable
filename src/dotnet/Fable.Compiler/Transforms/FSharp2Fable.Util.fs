@@ -784,8 +784,8 @@ module Util =
             match attType.TryFullName with
             | Some "Global" ->
                 match Seq.tryHead att.ConstructorArguments with
-                | Some(_, (:? string as customName)) -> makeTypedIdent r typ customName |> Fable.IdentExpr |> Some
-                | _ -> makeTypedIdent r typ name |> Fable.IdentExpr |> Some
+                | Some(_, (:? string as customName)) -> makeTypedIdent typ customName |> Fable.IdentExpr |> Some
+                | _ -> makeTypedIdent typ name |> Fable.IdentExpr |> Some
             | Some "Import" ->
                 match Seq.toList att.ConstructorArguments with
                 | [(_, (:? string as memb)); (_, (:? string as path))]
@@ -862,7 +862,7 @@ module Util =
             // We assume the member belongs to the current file
             | None -> ctx.fileName
         if file = ctx.fileName
-        then makeTypedIdent None typ memberName |> Fable.IdentExpr
+        then makeTypedIdent typ memberName |> Fable.IdentExpr
         else Fable.Import(memberName, file, Fable.Internal, typ)
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =

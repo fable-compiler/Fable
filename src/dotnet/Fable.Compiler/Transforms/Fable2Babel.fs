@@ -201,9 +201,9 @@ module Util =
         let _, body = com.TransformFunction ctx None [] expr
         CallExpression(ArrowFunctionExpression ([], body), [])
 
-    let varDeclaration range (var: Pattern) (isMutable: bool) value =
+    let varDeclaration (var: Pattern) (isMutable: bool) value =
         let kind = if isMutable then Let else Const
-        VariableDeclaration(var, value, kind, ?loc=range)
+        VariableDeclaration(var, value, kind)
 
     let macroExpression range (txt: string) args =
         MacroExpression(txt, args, ?loc=range) :> Expression
@@ -431,21 +431,28 @@ module Util =
         //     let tc = NamedTailCallOpportunity(com, var.Name, args) :> ITailCallOpportunity |> Some
         //     com.TransformFunction ctx tc args body ||> makeAnonymousFunction body.Range
         // [varDeclaration r (ident var) false value :> Statement]
-    let transformBinding com ctx ident value =
-        failwith "TODO"
-        // if value.IsJsStatement
-        // then
-        //     let var = ident var
-        //     let decl = VariableDeclaration var :> Statement
-        //     let body = com.TransformExprAndResolve ctx (Assign var) value
-        //     decl::body
-        // else
-        //     // TODO: Check imports with name placeholder
-        //     // | Fable.Let (var, Fable.Import(Naming.placeholder, path, kind, _), isMutable, r) ->
-        //     //     let value = com.GetImportExpr ctx var.Name path kind
-        //     let value = com.TransformExpr ctx value |> wrapIntExpression value.Type
-        //     [varDeclaration r (ident var) isMutable value :> Statement]
 
+    let transformImport (com: IBabelCompiler) ctx (selector: string) (path: string) kind =
+        let memb, parts =
+            let parts = Array.toList(selector.Split('.'))
+            parts.Head, parts.Tail
+        com.GetImportExpr ctx memb path kind
+        |> Some |> accessExpr parts
+
+    let transformBinding (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+        if value.IsJsStatement then
+            let var = ident var
+            let decl = VariableDeclaration var :> Statement
+            let body = com.TransformExprAndResolve ctx (Assign var) value
+            decl::body
+        else
+            let value =
+                match value with
+                // Check imports with name placeholder
+                | Fable.Import(Naming.placeholder, path, kind, _) ->
+                    transformImport com ctx var.Name path kind
+                | _ -> com.TransformExpr ctx value |> wrapIntExpression value.Type
+            [varDeclaration (ident var) var.IsMutable value :> Statement]
     let rec transformStatement com ctx (expr: Fable.Expr): Statement list =
         match expr with
         | Fable.Loop (loopKind, range) ->
@@ -463,7 +470,7 @@ module Util =
                     else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
                 ForStatement(
                     transformBlock com ctx None body,
-                    start |> varDeclaration None (ident var) true |> U2.Case1,
+                    start |> varDeclaration (ident var) true |> U2.Case1,
                     BinaryExpression (op1, ident var, limit),
                     UpdateExpression (op2, false, ident var), ?loc=range) :> Statement
             |> List.singleton
@@ -473,7 +480,7 @@ module Util =
             com.TransformExprAndResolve ctx ret value
 
         | Fable.Let (bindings, body) ->
-            let bindings = bindings |> List.map (fun (i, v) -> transformBinding com ctx i v)
+            let bindings = bindings |> List.collect (fun (i, v) -> transformBinding com ctx i v)
             bindings @ (transformStatement com ctx body)
 
         | Fable.TryCatch (body, catch, finalizer) ->
@@ -509,12 +516,8 @@ module Util =
 
         | Fable.IdentExpr ident -> upcast Identifier ident.Name
 
-        | Fable.Import(memb, path, kind, _) ->
-            let memb, parts =
-                let parts = Array.toList(memb.Split('.'))
-                parts.Head, parts.Tail
-            com.GetImportExpr ctx memb path kind
-            |> Some |> accessExpr parts
+        | Fable.Import(selector, path, kind, _) ->
+            transformImport com ctx selector path kind
 
         | Fable.Function(kind, body) ->
             let args =
@@ -567,7 +570,7 @@ module Util =
     //         let arg = transformExpr com ctx arg
     //         match Map.tryFind argId tempVars with
     //         | Some tempVar ->
-    //             yield varDeclaration None (Identifier tempVar) false arg :> Statement
+    //             yield varDeclaration (Identifier tempVar) false arg :> Statement
     //         | None ->
     //             yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
     //       for KeyValue(argId,tempVar) in tempVars do
@@ -578,8 +581,7 @@ module Util =
                                     (expr: Fable.Expr): Statement list =
         let resolve strategy babelExpr: Statement =
             match strategy with
-            // TODO: Where to put these int wrappings?
-            // Add them also for function arguments?
+            // TODO: Where to put these int wrappings? Add them also for function arguments?
             | Return -> upcast ReturnStatement(wrapIntExpression expr.Type babelExpr)
             | Assign left -> upcast ExpressionStatement(assign None left babelExpr)
 
@@ -596,18 +598,21 @@ module Util =
             Identifier ident.Name :> Expression
             |> resolve ret |> List.singleton
 
-        | Fable.Import(memb, path, kind, _) ->
-            failwith "TODO"
+        | Fable.Import(selector, path, kind, _) ->
+            transformImport com ctx selector path kind
+            |> resolve ret |> List.singleton
 
-        | Fable.Function(kind, body) ->
-            failwith "TODO"
-
-        | Fable.Let _ ->
-            failwith "TODO"
+        | Fable.Let (bindings, body) ->
+            let bindings = bindings |> List.collect (fun (i, v) -> transformBinding com ctx i v)
+            bindings @ (transformExprAndResolve com ctx ret body)
 
         | Fable.ObjectExpr (members, r) ->
             transformObjectExpr com ctx members r
             |> resolve ret |> List.singleton
+
+        | Fable.Function(kind, body) ->
+            printfn "TODO: transformExprAndResolve Functions"
+            [ExpressionStatement(NullLiteral())]
 
         | Fable.Call(callKind, _, range) ->
             // TODO TODO TODO
@@ -666,7 +671,7 @@ module Util =
             | ExprType Fable.Unit
             | Fable.Throw _ | Fable.Debugger _ | Fable.Loop _ | Fable.Set _ ->
                 transformBlock com ctx None body |> U2.Case1
-            | Fable.Sequential _ | Fable.TryCatch _ | Fable.Switch _ ->
+            | Fable.Sequential _ | Fable.Let _ | Fable.TryCatch _ | Fable.Switch _ ->
                 transformBlock com ctx (Some Return) body |> U2.Case1
             | Fable.IfThenElse _ when body.IsJsStatement ->
                 transformBlock com ctx (Some Return) body |> U2.Case1
@@ -682,7 +687,7 @@ module Util =
                     then
                         let statements =
                             (List.zip args tc.Args, []) ||> List.foldBack (fun (arg, tempVar) acc ->
-                                (varDeclaration None arg false (Identifier tempVar) :> Statement)::acc)
+                                (varDeclaration arg false (Identifier tempVar) :> Statement)::acc)
                         tc.Args |> List.map Identifier, BlockStatement (statements@body.body)
                     else args, body
                 args, LabeledStatement(Identifier tc.Label, WhileStatement(BooleanLiteral true, body))
@@ -761,7 +766,7 @@ module Util =
                     ?super=e.superClass, ?typeParams=e.typeParameters)
             | :? FunctionExpression as e ->
                 upcast FunctionDeclaration(privateIdent, e.``params``, e.body)
-            | _ -> upcast varDeclaration None privateIdent isMutable expr
+            | _ -> upcast varDeclaration privateIdent isMutable expr
         match publicName with
         | None ->
             U2.Case1 (decl :> Statement) |> List.singleton
@@ -834,15 +839,15 @@ module Util =
                 |> List.map U2.Case1
                 |> List.append acc
             | Fable.ValueDeclaration(publicName, privName, value, isMutable) ->
-                match publicName, isMutable with
+                match publicName, value, isMutable with
                 // Mutable public values must be compiled as functions (see #986)
-                | Some publicName, true -> failwith "TODO: Mutable public values"
+                | Some publicName, _, true ->
+                    failwith "TODO: Mutable public values"
+                | _, Fable.Function(Fable.Delegate args, body), false ->
+                    transformModuleFunction com ctx (publicName,privName,args,body)
                 | _ ->
                     let value = transformExpr com ctx value
                     declareModuleMember publicName privName isMutable value
-                    |> List.append acc
-            | Fable.FunctionDeclaration(publicName, privName, args, body) ->
-                transformModuleFunction com ctx (publicName,privName,args,body)
                 |> List.append acc)
 
     let makeCompiler (com: ICompiler) (state: ICompilerState) =

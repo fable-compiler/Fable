@@ -28,7 +28,6 @@ type Type =
 
 type Declaration =
     | ActionDeclaration of Expr
-    | FunctionDeclaration of publicName: string option * privateName: string * args: Ident list * body: Expr
     | ValueDeclaration of publicName: string option * privateName: string * value: Expr * isMutable: bool
 
 type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
@@ -146,10 +145,10 @@ type Expr =
     | Value of ValueKind
     | IdentExpr of Ident
     | Cast of Expr * targetType: Type
-    | Import of memb: string * path: string * ImportKind * Type
+    | Import of selector: string * path: string * ImportKind * Type
 
     | Function of FunctionKind * body: Expr
-    | ObjectExpr of decls: Declaration list * Type
+    | ObjectExpr of fields: (string * Expr) list * Type // TODO: getter/setter
 
     | Call of CallKind * typ: Type * range: SourceLocation option
     | Get of Expr * GetKind * typ: Type * range: SourceLocation option

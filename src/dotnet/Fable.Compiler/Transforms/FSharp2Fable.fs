@@ -320,7 +320,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         else
             let value = transformExpr com ctx value
             let ctx, ident = bindIdentFrom com ctx var
-            Fable.Let([ident, value], transformExpr com ctx body)
+            match transformExpr com ctx body with
+            | Fable.Let(bindings, body) -> Fable.Let((ident, value)::bindings, body)
+            | body -> Fable.Let([ident, value], body)
 
     | BasicPatterns.LetRec(recBindings, body) ->
         // First get a context containing all idents and use it compile the values
@@ -328,10 +330,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             (recBindings, (ctx, []))
             ||> List.foldBack (fun (BindIdent com ctx (newContext, ident), _) (ctx, idents) ->
                 (newContext, ident::idents))
-        let values =
+        let bindings =
             recBindings
             |> List.map (fun (_, Transform com ctx value) -> value)
-        Fable.Let(List.zip idents values, transformExpr com ctx body)
+            |> List.zip idents
+        match transformExpr com ctx body with
+        | Fable.Let(bindings2, body) -> Fable.Let(bindings@bindings2, body)
+        | body -> Fable.Let(bindings, body)
 
     (** ## Applications *)
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
@@ -659,7 +664,8 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
     | Fable.Import(selector, path, Fable.CustomImport, typ) ->
         transformImport com ctx typ (Some publicName) selector path
     | fableBody ->
-        ctx, [Fable.FunctionDeclaration(publicName, privateName, args, fableBody)]
+        let fn = Fable.Function(Fable.Delegate args, fableBody)
+        ctx, [Fable.ValueDeclaration(publicName, privateName, fn, false)]
 
 let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =

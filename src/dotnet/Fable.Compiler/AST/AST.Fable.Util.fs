@@ -20,11 +20,13 @@ let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLoca
     com.AddLog(error, Severity.Error, ?range=range, fileName=fileName)
     Null Any |> Value
 
-// /// When referenced multiple times, is there a risk of double evaluation?
-// let hasDoubleEvalRisk = function
-//     | This | Null _ | IdentExpr _
-//     | Value(NumberConstant _ | StringConstant _ | BoolConstant _) -> false
-//     | _ -> true
+/// When referenced multiple times, is there a risk of double evaluation?
+let hasDoubleEvalRisk = function
+    | IdentExpr _
+    // TODO: Add Union and List Getters here?
+    | Value(This _ | Null _ | UnitConstant | NumberConstant _
+                | StringConstant _ | BoolConstant _ | Enum _) -> false
+    | _ -> true
 
 // let rec deepExists f (expr: Expr) =
 //     if f expr
@@ -52,9 +54,14 @@ type CallKind =
     | CoreLibCall of modName: string * meth: string option * isCons: bool * args: Expr list
     | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
 
-let makeIdent name = { Name = name; Type = Any; IsMutable = false; Range = None }
+let makeIdent name =
+    { Name = name
+      Type = Any
+      IsMutable = false
+      Range = None }
 
-let makeTypedIdent r typ name = { Name = name; Type = typ; IsMutable = false; Range = None }
+let makeTypedIdent typ name =
+    { makeIdent name with Type = typ }
 
 let makeLoop range loopKind = Loop (loopKind, range)
 

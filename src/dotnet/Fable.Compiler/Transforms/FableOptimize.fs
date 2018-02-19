@@ -3,12 +3,10 @@ module Fable.Transforms.FableOptimize
 open Fable
 open Fable.AST.Fable
 open Fable.AST.Fable.Util
-open System.Collections.Generic
-open Newtonsoft.Json.Bson
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 // TODO: Use trampoline here?
-let rec visit f e =
+let rec private visit f e =
     match e with
     | IdentExpr _ | Import _ | Debugger _ -> e
     | Value kind ->
@@ -43,9 +41,11 @@ let rec visit f e =
         match kind with
         | Apply(callee, memb, args, info) ->
             Call(Apply(visit f callee, memb, List.map (visit f) args, info), t, r)
+        | Emit(macro, info) ->
+            let info = info |> Option.map (fun (args, info) -> List.map (visit f) args, info)
+            Call(Emit(macro, info), t, r)
         | _ -> e // TODO
         // | UnresolvedCall of callee: Expr option * args: Expr list * info: CallInfo
-        // | Emit of macro: string * argsAndCallInfo: (Expr list * CallInfo) option
         // | UnaryOperation of UnaryOperator * Expr
         // | BinaryOperation of BinaryOperator * left:Expr * right:Expr
         // | LogicalOperation of LogicalOperator * left:Expr * right:Expr
@@ -73,117 +73,111 @@ let rec visit f e =
                Option.map (visit f) defaultCase, t)
     |> f
 
-(*
-let checkArgsForDoubleEvalRisk bodyExpr (vars: Ident seq) =
-    let varsDic = Dictionary()
-    let mutable doubleEvalRisk = false
-    for var in vars do varsDic.Add(var.Name, 0)
-    let rec countRefs = function
-        | IdentExpr(v, _) ->
-            match varsDic.TryGetValue(v.Name) with
-            | true, count ->
-                varsDic.[v.Name] <- count + 1
-                if count > 0 then
-                    doubleEvalRisk <- true
-            | false, _ -> ()
-        | expr ->
-            if not doubleEvalRisk then
-                expr.ImmediateSubExpressions |> Seq.iter countRefs
-    countRefs bodyExpr
-    doubleEvalRisk
+module private Transforms =
+    let (|EntFullName|_|) fullName (ent: FSharpEntity) =
+        match ent.TryFullName with
+        | Some fullName2 when fullName = fullName2 -> Some EntFullName
+        | _ -> None
 
-let replaceVars (vars: Ident seq) (exprs: Expr seq) bodyExpr =
-    let varsDic = Dictionary()
-    for var, expr in Seq.zip vars exprs do
-        varsDic.Add(var.Name, expr)
-    let replaceVars' = function
-        | IdentExpr(v, _) as e ->
-            match varsDic.TryGetValue(v.Name) with
-            | true, replacement -> replacement
-            | false, _ -> e
+    let (|ListLiteral|_|) e =
+        let rec untail t acc = function
+            | Value(NewList(None, _)) -> Some(List.rev acc, t)
+            | Value(NewList(Some(head, tail), _)) -> untail t (head::acc) tail
+            | _ -> None
+        match e with
+        | Value(NewList(None, t)) -> Some([], t)
+        | Value(NewList(Some(head, tail), t)) -> untail t [head] tail
+        | _ -> None
+
+    let (|LambdaOrDelegate|_|) = function
+        | Function(Lambda arg, body) -> Some([arg], body)
+        | Function(Delegate args, body) -> Some(args, body)
+        | _ -> None
+
+    // TODO: Some cases of coertion shouldn't be erased
+    // string :> seq #1279
+    // list (and others) :> seq in Fable 2.0
+    // concrete type :> interface in Fable 2.0
+    let cast (_: ICompiler) = function
+        | Cast(e, t) ->
+            match t with
+            | DeclaredType(EntFullName Types.enumerable, _) ->
+                match e with
+                | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
+                | _ -> e
+            | _ -> e
         | e -> e
-    visit replaceVars' bodyExpr
 
-let (|RestAndTail|_|) (xs: _ list) =
-    match List.rev xs with
-    | [] -> None
-    | [x] -> Some([], x)
-    | tail::rest -> Some(List.rev rest, tail)
+    let replaceValues replacements expr =
+        if Map.isEmpty replacements
+        then expr
+        else expr |> visit (function
+            | IdentExpr id as e ->
+                match Map.tryFind id.Name replacements with
+                | Some e -> e
+                | None -> e
+            | e -> e)
 
-let (|LambdaExpr|_|) (expr: Expr) =
-    match expr with
-    | Lambda(args, body, _) -> Some([], args, body)
-    | Sequential(RestAndTail(exprs, Lambda(args, body, _)),_) -> Some(exprs, args, body)
-    | _ -> None
-
-let optimizeExpr (com: ICompiler) (expr: Expr) =
-    let optimizeExpr' = function
+    let lambdaBetaReduction (_: ICompiler) = function
         // TODO: Optimize also binary operations with numerical or string literals
         // TODO: Don't inline if one of the arguments is `this`?
-        | Apply(LambdaExpr(prevExprs, args, body), argExprs, range) when List.sameLength args argExprs ->
-            let doubleEvalRisk =
-                List.zip args argExprs
-                // Check which argExprs have doubleEvalRisk, i.e. they're not IdentValue
-                |> List.choose (fun (arg, argExpr) ->
-                    if hasDoubleEvalRisk argExpr then Some arg else None)
-                |> checkArgsForDoubleEvalRisk body
-            let lambdaBody =
-                if doubleEvalRisk then
-                    let tempVars =
-                        argExprs |> List.map (fun argExpr ->
-                            let tmpVar = com.GetUniqueVar() |> makeIdent
-                            let tmpVarExp = IdentExpr(tmpVar, None)
-                            tmpVarExp, VarDeclaration(tmpVar, argExpr, false, None))
-                    let body = replaceVars args (List.map fst tempVars) body
-                    makeSequential body.Range ((List.map snd tempVars) @ [body])
-                else
-                    replaceVars args argExprs body
-            match prevExprs with
-            | [] -> lambdaBody
-            | prevExprs -> Sequential(prevExprs@[lambdaBody], range)
+        | Call(Apply(LambdaOrDelegate(args, body), None, argExprs, _), _, _)
+                            when List.sameLength args argExprs ->
+            let bindings, replacements =
+                (([], Map.empty), args, argExprs)
+                |||> List.fold2 (fun (bindings, replacements) ident expr ->
+                    if hasDoubleEvalRisk expr
+                    then (ident, expr)::bindings, replacements
+                    else bindings, Map.add ident.Name expr replacements
+                )
+            match bindings with
+            | [] -> replaceValues replacements body
+            | bindings -> Let(List.rev bindings, replaceValues replacements body)
         | e -> e
-    visit optimizeExpr' expr
-*)
 
-let (|EntFullName|_|) fullName (ent: FSharpEntity) =
-    match ent.TryFullName with
-    | Some fullName2 when fullName = fullName2 -> Some EntFullName
-    | _ -> None
+    let bindingBetaReduction (_: ICompiler) e =
+        let isReferencedMoreThanOnce identName e =
+            let mutable count = 0
+            // TODO: Can we optimize this to shortcircuit when count > 1?
+            e |> visit (function
+                | _ when count > 1 -> e
+                | IdentExpr id2 as e when id2.Name = identName ->
+                    count <- count + 1; e
+                | e -> e) |> ignore
+            count > 1
+        match e with
+        | Let(bindings, body) ->
+            let values = bindings |> List.map snd
+            let remaining, replacements =
+                (([], Map.empty), bindings)
+                ||> List.fold (fun (remaining, replacements) (ident, value) ->
+                    let identName = ident.Name
+                    if hasDoubleEvalRisk value |> not then
+                        remaining, Map.add identName value replacements
+                    else
+                        let isReferencedMoreThanOnce =
+                            (false, values) ||> List.fold (fun positive value ->
+                                positive || isReferencedMoreThanOnce identName value)
+                            |> function true -> true
+                                      | false -> isReferencedMoreThanOnce identName body
+                        if isReferencedMoreThanOnce
+                        then (ident, value)::remaining, replacements
+                        else remaining, Map.add ident.Name value replacements)
+            match remaining with
+            | [] -> replaceValues replacements body
+            | bindings -> Let(List.rev bindings, replaceValues replacements body)
+        | e -> e
 
-let (|ListLiteral|_|) e =
-    let rec untail t acc = function
-        | Value(NewList(None, _)) -> Some(List.rev acc, t)
-        | Value(NewList(Some(head, tail), _)) -> untail t (head::acc) tail
-        | _ -> None
-    match e with
-    | Value(NewList(None, t)) -> Some([], t)
-    | Value(NewList(Some(head, tail), t)) -> untail t [head] tail
-    | _ -> None
-
-// TODO: Some cases of coertion shouldn't be erased
-// string :> seq #1279
-// list (and others) :> seq in Fable 2.0
-// concrete type :> interface in Fable 2.0
-let cast (com: ICompiler) = function
-    | Cast(e, t) ->
-        match t with
-        | DeclaredType(EntFullName Types.enumerable, _) ->
-            match e with
-            | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
-            | _ -> e
-        | _ -> e
-    | e -> e
+open Transforms
 
 let rec optimizeExpr (com: ICompiler) e =
-    let optimizeExpr' com e =
-        (e, [cast]) ||> List.fold (fun e f -> f com e)
-    visit (optimizeExpr' com) e
+    // ATTENTION: Order of transforms matters for optimizations
+    (e, [lambdaBetaReduction; bindingBetaReduction; cast])
+    ||> List.fold (fun e f -> visit (f com) e)
 
 let rec optimizeDeclaration (com: ICompiler) = function
     | ActionDeclaration expr ->
         ActionDeclaration(optimizeExpr com expr)
-    | FunctionDeclaration(publicName, privName, args, body) ->
-        FunctionDeclaration(publicName, privName, args, optimizeExpr com body)
     | ValueDeclaration(publicName, privName, value, isMutable) ->
         ValueDeclaration(publicName, privName, optimizeExpr com value, isMutable)
 
