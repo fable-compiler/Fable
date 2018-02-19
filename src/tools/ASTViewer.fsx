@@ -43,7 +43,7 @@ let rec printDecls prefix decls =
                         tdef.FullName + separator + meth.CompiledName
                     | _ -> meth.FullName
                 printfn "%s%i) METHOD: %s" prefix i name
-                // printfn "%A" body
+                printfn "%A" body
         | FSharpImplementationFileDeclaration.InitAction (expr) ->
             printfn "%s%i) ACTION" prefix i
             // printfn "%A" expr

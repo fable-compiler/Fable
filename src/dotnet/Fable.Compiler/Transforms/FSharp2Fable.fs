@@ -366,17 +366,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     // // TODO: Ask why application without arguments happen. So far I've seen it
     // // to access None or struct values (like the Result type)
-    // | Application(expr,_,[]) -> Some expr
-    | BasicPatterns.Application(Transform com ctx applied, _genArgs, args) ->
+    | BasicPatterns.Application(Transform com ctx expr, _, []) -> expr
+    | BasicPatterns.Application(Transform com ctx applied, _, args) ->
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
         match List.map (transformExpr com ctx) args, applied.Type with
         | args, Fable.DeclaredType(ent,_)
                 when ent.TryFullName = Some Types.dynamicApplicable ->
             match args with
-            | [Fable.Value(Fable.NewTuple args)] -> args
-            | args -> args
-        | args, _ -> args
-        |> makeApply range typ applied
+            | [Fable.Value(Fable.NewTuple args)] -> makeCall range typ applied args
+            | args -> makeCall range typ applied args
+        | args, _ ->
+            Fable.Operation(Fable.CurriedApply(applied, args), typ, range)
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr)
@@ -787,8 +787,6 @@ let getRootModuleFullName (file: FSharpImplementationFileContents) =
 let transformFile (com: ICompiler) (state: ICompilerState) (implFiles: Map<string, FSharpImplementationFileContents>) (fileName: string) =
     try
         let file =
-            // TODO: This shouldn't be necessary, but just in case
-            let fileName = Path.normalizeFullPath fileName
             match Map.tryFind fileName implFiles with
             | Some file -> file
             | None -> failwithf "File %s doesn't belong to parsed project %s" fileName com.ProjectFile

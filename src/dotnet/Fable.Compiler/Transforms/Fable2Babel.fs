@@ -75,6 +75,10 @@ module Util =
     let inline (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
     let inline (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
 
+    let (|FunctionArgs|) = function
+        | Fable.Lambda arg -> [arg]
+        | Fable.Delegate args -> args
+
     // // TODO: Optimization: Compile sequential as expression if possible
     // | Assignments ctx (declVars, exprs, r) ->
     //     for var in declVars do
@@ -323,7 +327,7 @@ module Util =
                 transformArgs com ctx callInfo.hasSpread args
                 |> macroExpression range emit
             | None -> macroExpression range emit []
-        | Fable.Apply(callee, memb, args, callInfo) ->
+        | Fable.Call(callee, memb, args, callInfo) ->
             let args = transformArgs com ctx callInfo.hasSpread args
             let callee =
                 match memb with
@@ -332,6 +336,13 @@ module Util =
             if callInfo.isConstructor
             then upcast NewExpression(callee, args, ?loc=range)
             else upcast CallExpression(callee, args, ?loc=range)
+        | Fable.CurriedApply(TransformExpr com ctx applied, args) ->
+            match transformArgs com ctx false args with
+            | [] -> upcast CallExpression(applied, [], ?loc=range)
+            | head::rest ->
+                let baseExpr = CallExpression(applied, [head], ?loc=range) :> Expression
+                (baseExpr, rest) ||> List.fold (fun e arg ->
+                    CallExpression(e, [arg], ?loc=range) :> Expression)
         | Fable.UnresolvedCall _ ->
             "Unresolved call detected in Babel pass"
             |> addErrorAndReturnNull com ctx.file.SourcePath range
@@ -496,7 +507,7 @@ module Util =
 
         // Expressions become ExpressionStatements
         | Fable.Value _ | Fable.IdentExpr _ | Fable.Cast _ | Fable.Import _
-        | Fable.Function _ | Fable.ObjectExpr _ | Fable.Call _ | Fable.Get _  ->
+        | Fable.Function _ | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _  ->
             [ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range) :> Statement]
 
     let rec transformExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
@@ -511,17 +522,13 @@ module Util =
         | Fable.Import(selector, path, kind, _) ->
             transformImport com ctx selector path kind
 
-        | Fable.Function(kind, body) ->
-            let args =
-                match kind with
-                | Fable.Lambda arg -> [arg]
-                | Fable.Delegate args -> args
+        | Fable.Function(FunctionArgs args, body) ->
             com.TransformFunction ctx None args body ||> makeAnonymousFunction
 
         | Fable.ObjectExpr (members, r) ->
             transformObjectExpr com ctx members r
 
-        | Fable.Call(opKind, _, range) ->
+        | Fable.Operation(opKind, _, range) ->
             transformCall com ctx range opKind
 
         | Fable.Get(expr, getKind, _, range) ->
@@ -602,11 +609,11 @@ module Util =
             transformObjectExpr com ctx members r
             |> resolve ret |> List.singleton
 
-        | Fable.Function(kind, body) ->
-            printfn "TODO: transformExprAndResolve Functions"
-            [ExpressionStatement(NullLiteral())]
+        | Fable.Function(FunctionArgs args, body) ->
+            com.TransformFunction ctx None args body ||> makeAnonymousFunction
+            |> resolve ret |> List.singleton
 
-        | Fable.Call(callKind, _, range) ->
+        | Fable.Operation(callKind, _, range) ->
             // TODO TODO TODO
             // match ctx.tailCallOpportunity, callee, memb, isCons, ret with
             // | Some tc, Fable.Callee callee, None, false, Return
@@ -912,13 +919,6 @@ module Util =
 
 module Compiler =
     open Util
-
-    let createFacade (dependencies: string[]) (facadeFile: string) =
-        let decls =
-            let importFile = Array.last dependencies
-            StringLiteral(Path.getRelativeFileOrDirPath false facadeFile false importFile)
-            |> ExportAllDeclaration :> ModuleDeclaration |> U2.Case2 |> List.singleton
-        Program(facadeFile, decls, dependencies=dependencies)
 
     let transformFile (com: ICompiler) (state: ICompilerState) (file: Fable.File) =
         try

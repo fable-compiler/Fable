@@ -88,14 +88,18 @@ module QuickTest
 let f (y: _ seq) = y // (y2: _ seq) = y
 
 let f2 () =
-    let y = ["1";"2"]
-    f y
+    ["1";""] |> f
     //  |> f [] // ("1"::"2"::li)
 
 [<Fable.Core.Emit("$0 + $1")>]
 let add x y = x
 
-let test() =
-    let a = 5
-    let b = 7
-    add a b
+[<Fable.Core.Emit("console.log($0)")>]
+let log x = ()
+
+let foo f = f 4 5
+
+let bar() = foo <| fun x ->
+    log "hola"
+    fun y ->
+        add x y

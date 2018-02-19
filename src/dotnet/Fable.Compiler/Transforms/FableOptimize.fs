@@ -34,21 +34,23 @@ let rec private visit f e =
     | ObjectExpr(values, t) ->
         let values = values |> List.map (fun (k,v) -> k, visit f v)
         ObjectExpr(values, t)
-    | Call(kind, t, r) ->
+    | Operation(kind, t, r) ->
         match kind with
-        | Apply(callee, memb, args, info) ->
-            Call(Apply(visit f callee, memb, List.map (visit f) args, info), t, r)
+        | Call(callee, memb, args, info) ->
+            Operation(Call(visit f callee, memb, List.map (visit f) args, info), t, r)
+        | CurriedApply(callee, args) ->
+            Operation(CurriedApply(visit f callee, List.map (visit f) args), t, r)
         | Emit(macro, info) ->
             let info = info |> Option.map (fun (args, info) -> List.map (visit f) args, info)
-            Call(Emit(macro, info), t, r)
+            Operation(Emit(macro, info), t, r)
         | UnresolvedCall(callee, args, info, info2) ->
-            Call(UnresolvedCall(Option.map (visit f) callee, List.map (visit f) args, info, info2), t, r)
+            Operation(UnresolvedCall(Option.map (visit f) callee, List.map (visit f) args, info, info2), t, r)
         | UnaryOperation(operator, operand) ->
-            Call(UnaryOperation(operator, visit f operand), t, r)
+            Operation(UnaryOperation(operator, visit f operand), t, r)
         | BinaryOperation(op, left, right) ->
-            Call(BinaryOperation(op, visit f left, visit f right), t, r)
+            Operation(BinaryOperation(op, visit f left, visit f right), t, r)
         | LogicalOperation(op, left, right) ->
-            Call(LogicalOperation(op, visit f left, visit f right), t, r)
+            Operation(LogicalOperation(op, visit f left, visit f right), t, r)
     | Get(e, kind, t, r) ->
         match kind with
         | FieldGet _ | IndexGet _ | ListHead | ListTail
@@ -103,6 +105,12 @@ module private Transforms =
         | Function(Delegate args, body) -> Some(args, body)
         | _ -> None
 
+    let (|Apply|_|) = function
+        | Operation(Call(expr, None, args, _), t, r)
+        | Operation(CurriedApply(expr, args), t, r) ->
+            Some(expr, args, t, r)
+        | _ -> None
+
     // TODO: Some cases of coertion shouldn't be erased
     // string :> seq #1279
     // list (and others) :> seq in Fable 2.0
@@ -130,7 +138,7 @@ module private Transforms =
     let lambdaBetaReduction (_: ICompiler) = function
         // TODO: Optimize also binary operations with numerical or string literals
         // TODO: Don't inline if one of the arguments is `this`?
-        | Call(Apply(LambdaOrDelegate(args, body), None, argExprs, _), _, _)
+        | Apply(LambdaOrDelegate(args, body), argExprs, _, _)
                             when List.sameLength args argExprs ->
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)

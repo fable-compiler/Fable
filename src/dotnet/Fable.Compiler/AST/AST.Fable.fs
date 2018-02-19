@@ -117,9 +117,10 @@ type ExtraCallInfo =
   { fullName: string
     genericArgs: Type list }
 
-type CallKind =
-    | Apply of callee: Expr * memb: string option * args: Expr list * info: CallInfo
+type OperationKind =
+    | Call of callee: Expr * memb: string option * args: Expr list * info: CallInfo
     | UnresolvedCall of callee: Expr option * args: Expr list * info: CallInfo * extraInfo: ExtraCallInfo
+    | CurriedApply of applied: Expr * args: Expr list
     | Emit of macro: string * argsAndCallInfo: (Expr list * CallInfo) option
     | UnaryOperation of UnaryOperator * Expr
     | BinaryOperation of BinaryOperator * left:Expr * right:Expr
@@ -153,7 +154,7 @@ type Expr =
     | Function of FunctionKind * body: Expr
     | ObjectExpr of fields: (string * Expr) list * Type // TODO: getter/setter
 
-    | Call of CallKind * typ: Type * range: SourceLocation option
+    | Operation of OperationKind * typ: Type * range: SourceLocation option
     | Get of Expr * GetKind * typ: Type * range: SourceLocation option
 
     | Debugger
@@ -171,7 +172,7 @@ type Expr =
     member this.IsJsStatement =
         match this with
         | Value _ | Import _ | Cast _ | IdentExpr _ | Function _
-        | ObjectExpr _ | Call _ | Get _ -> false
+        | ObjectExpr _ | Operation _ | Get _ -> false
 
         | TryCatch _ | Switch _ | Debugger
         | Sequential _ | Let _ | Set _
@@ -185,7 +186,7 @@ type Expr =
         | Value kind -> kind.Type
         | IdentExpr id -> id.Type
         | Import(_,_,_,t) | Cast(_,t) | ObjectExpr(_,t)
-        | Call(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | Switch(_,_,_,t) -> t
+        | Operation(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | Switch(_,_,_,t) -> t
         | Debugger | Set _ | Loop _ -> Unit
         | Sequential exprs -> (List.last exprs).Type
         | Let(_,expr) | TryCatch(expr,_,_) | IfThenElse(_,expr,_) -> expr.Type
@@ -201,4 +202,4 @@ type Expr =
         | IfThenElse _ | TryCatch _ | Switch _ -> None
 
         | IdentExpr id -> id.Range
-        | Call(_,_,r) | Get(_,_,_,r) | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r
+        | Operation(_,_,r) | Get(_,_,_,r) | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r

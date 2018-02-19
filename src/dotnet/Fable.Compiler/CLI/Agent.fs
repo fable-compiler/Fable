@@ -179,13 +179,15 @@ let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFil
         com.AddLog(msg, severity, range, fileName, "FSHARP"))
 
 let compile (com: Compiler) (project: Project) (filePath: string) =
+    let filePath =
+        if filePath.EndsWith(".fsproj")
+        then project.ProjectOptions.SourceFiles
+             |> Array.last |> Path.normalizeFullPath
+        else filePath
     let babel =
-        if filePath.EndsWith(".fsproj") then
-            Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles filePath
-        else
-            FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles filePath
-            |> FableOptimize.optimizeFile com
-            |> Fable2Babel.Compiler.transformFile com project
+        FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles filePath
+        |> FableOptimize.optimizeFile com
+        |> Fable2Babel.Compiler.transformFile com project
     // If this is the first compilation, add errors to each respective file
     if not project.IsWatchCompile then
         addFSharpErrorLogs com project.Errors (Some filePath)

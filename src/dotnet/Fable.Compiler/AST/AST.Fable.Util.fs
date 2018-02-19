@@ -44,7 +44,7 @@ let attachRangeAndFile (range: SourceLocation option) (fileName: string) msg =
     | Some range -> msg + " " + (string range) + " (" + fileName + ")"
     | None -> msg + " (" + fileName + ")"
 
-type CallKind =
+type OperationKind =
     | InstanceCall of callee: Expr * meth: string * args: Expr list
     | ImportCall of importPath: string * modName: string * meth: string option * isCons: bool * args: Expr list
     | CoreLibCall of modName: string * meth: string option * isCons: bool * args: Expr list
@@ -68,30 +68,16 @@ let makeImport t (selector: string) (path: string) =
     Import(selector.Trim(), path.Trim(), CustomImport, t)
 
 let makeBinOp range typ left right op =
-    Call(BinaryOperation(op, left, right), typ, range)
+    Operation(BinaryOperation(op, left, right), typ, range)
 
 let makeUnOp range typ arg op =
-    Call(UnaryOperation(op, arg), typ, range)
+    Operation(UnaryOperation(op, arg), typ, range)
 
 let makeLogOp range left right op =
-    Call(LogicalOperation(op, left, right), Boolean, range)
+    Operation(LogicalOperation(op, left, right), Boolean, range)
 
 let makeEqOp range left right op =
-    Call(BinaryOperation(op, left, right), Boolean, range)
-
-// let rec makeSequential range statements =
-//     match statements with
-//     | [] -> Null Any |> Value
-//     | [expr] -> expr
-//     | first::rest ->
-//         match first, rest with
-//         | Value(Null _), _ -> makeSequential range rest
-//         | Sequential (statements, _), _ -> makeSequential range (statements@rest)
-//         | _, [Sequential (statements, _)] -> makeSequential range (first::statements)
-//         | _ -> Sequential (statements, range)
-
-// let makeApply range typ callee args =
-//     Operation(Apply(callee, args), range, typ)
+    Operation(BinaryOperation(op, left, right), Boolean, range)
 
 let makeIndexGet range typ callee idx =
     Get(callee, IndexGet idx, typ, range)
@@ -105,7 +91,7 @@ let makeUntypedFieldGet callee field =
 let makeArray elementType arrExprs =
     NewArray(ArrayValues arrExprs, elementType) |> Value
 
-let makeApply r t (applied: Expr) args =
+let makeCall r t (applied: Expr) args =
     let callInfo =
         { argTypes =
             match applied.Type with
@@ -115,7 +101,7 @@ let makeApply r t (applied: Expr) args =
           isConstructor = false
           hasSpread = false
           hasThisArg = false }
-    Call(Apply(applied, None, args, callInfo), t, r)
+    Operation(Call(applied, None, args, callInfo), t, r)
 
 let makeLongInt (x: uint64) unsigned =
     let t = ExtendedNumber(if unsigned then UInt64 else Int64)
@@ -123,7 +109,7 @@ let makeLongInt (x: uint64) unsigned =
     let highBits = NumberConstant (float (x >>> 32), Float64)
     let unsigned = BoolConstant (unsigned)
     let args = [Value lowBits; Value highBits; Value unsigned]
-    makeApply None t (makeCoreRef Any "Long" "fromBits") args
+    makeCall None t (makeCoreRef Any "Long" "fromBits") args
 
 let makeBoolConst (x: bool) = BoolConstant x |> Value
 let makeStrConst (x: string) = StringConstant x |> Value
@@ -134,7 +120,7 @@ let makeDecConst (x: decimal) = NumberConstant (float x, Float64) |> Value
 let makeFloat32 (x: float32) =
     let args = [NumberConstant (float x, Float32) |> Value]
     let callee = makeUntypedFieldGet (IdentExpr(makeIdent "Math")) "fround"
-    makeApply None (Number Float32) callee args
+    makeCall None (Number Float32) callee args
 
 let makeTypeConst (typ: Type) (value: obj) =
     match typ, value with
@@ -342,7 +328,7 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
     | ExtendedNumber BigInt -> jsInstanceof (makeCoreRef Any "BigInt" "default") expr
     | FunctionType _ -> jsTypeof "function" expr
     | Array _ | Tuple _ | List _ ->
-        makeApply None Boolean (makeCoreRef Any "Util" "isArray") [expr]
+        makeCall None Boolean (makeCoreRef Any "Util" "isArray") [expr]
     | DeclaredType (ent, _) ->
         failwith "TODO: DeclaredType type test"
         // if ent.IsClass

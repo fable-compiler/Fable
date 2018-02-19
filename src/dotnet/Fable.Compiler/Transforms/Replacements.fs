@@ -26,18 +26,18 @@ let tryFirstPass r t (args: Expr list) (fullName: string) =
         None // TODO
         // let tempVar = com.GetUniqueVar() |> makeIdent
         // [Fable.IdentExpr tempVar]
-        // |> makeApply com info.range Fable.Any f1
+        // |> makeCall com info.range Fable.Any f1
         // |> List.singleton
-        // |> makeApply com info.range Fable.Any f2
+        // |> makeCall com info.range Fable.Any f2
         // |> makeLambda [tempVar]
     if fullName.StartsWith(operators) then
         match fullName.Substring(fullName.LastIndexOf(".") + 1), args with
         | "( |> )", [x; f]
-        | "( <| )", [f; x] -> makeApply r t f [x] |> Some
+        | "( <| )", [f; x] -> makeCall r t f [x] |> Some
         | "( ||> )", [x; y; f]
-        | "( <|| )", [f; x; y] -> makeApply r t f [x; y] |> Some
+        | "( <|| )", [f; x; y] -> makeCall r t f [x; y] |> Some
         | "( |||> )", [x; y; z; f]
-        | "( <||| )", [f; x; y; z] -> makeApply r t f [x; y; z] |> Some
+        | "( <||| )", [f; x; y; z] -> makeCall r t f [x; y; z] |> Some
         | "( >> )", [f1; f2] -> compose f1 f2
         | "( << )", [f2; f1] -> compose f1 f2
         | _ -> None
