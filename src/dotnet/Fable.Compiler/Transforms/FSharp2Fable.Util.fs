@@ -747,12 +747,14 @@ module Util =
 
     // let (|Emitted|_|) r typ info callee args (memb: FSharpMemberOrFunctionOrValue) =
 
-    let (|Replaced|_|) (com: IFableCompiler) ctx r typ (info: Fable.CallInfo) callee args (memb: FSharpMemberOrFunctionOrValue) =
-        let fullName = memb.FullName
-        if Replacements.isReplaceCandidate fullName then
-            match Replacements.tryFirstPass r typ args fullName with
+    let (|Replaced|_|) r typ (info: Fable.CallInfo) (extraInfo: Fable.ExtraCallInfo)
+                        callee args (_: FSharpMemberOrFunctionOrValue) =
+        if Replacements.isReplaceCandidate extraInfo.fullName then
+            match Replacements.tryFirstPass r typ args extraInfo.fullName with
             | Some replaced -> Some replaced
-            | None -> Fable.Call(Fable.UnresolvedCall(callee, args, info), typ, r) |> Some
+            | None ->
+                let unresolved = Fable.UnresolvedCall(callee, args, info, extraInfo)
+                Fable.Call(unresolved, typ, r) |> Some
         else None
 
     let (|ResolveGeneric|) genArgs (t: FSharpType) =
@@ -845,14 +847,6 @@ module Util =
         //     then Some expr
         //     else makeSequential r (assignments@[expr]) |> Some
 
-    let makeFullCallInfo com (ctx: Context) genArgs owner memb : Fable.CallInfo =
-      { owner = owner
-        argTypes = getArgTypes com memb
-        // genericArgs = List.map (makeType com ctx.typeArgs) genArgs
-        isConstructor = false
-        hasSpread = hasSpread memb
-        hasThisArg = false }
-
     let memberRef com (ctx: Context) typ argTypes (memb: FSharpMemberOrFunctionOrValue) =
         let memberName = getMemberDeclarationName com argTypes memb
         let file =
@@ -869,15 +863,22 @@ module Util =
         let apply info callee memb args =
             Fable.Call(Fable.Apply(callee, memb, args, info), typ, r)
         // TODO: Remove optional arguments
-        let info = makeFullCallInfo com ctx genArgs memb.EnclosingEntity memb
+        let info: Fable.CallInfo =
+          { argTypes = getArgTypes com memb
+            isConstructor = false
+            hasSpread = hasSpread memb
+            hasThisArg = false }
+        let extraInfo: Fable.ExtraCallInfo =
+          { fullName = memb.FullName
+            genericArgs = List.map (makeType com ctx.typeArgs) genArgs }
         let argsAndCallInfo =
             match callee with
             | Some c -> Some(c::args, { info with hasThisArg = true })
             | None -> Some(args, info)
-        match memb, info.owner with
+        match memb, memb.EnclosingEntity with
         | Imported r typ argsAndCallInfo imported, _ -> imported
         | Emitted r typ argsAndCallInfo emitted, _ -> emitted
-        | Replaced com ctx r typ info callee args replaced, _ -> replaced
+        | Replaced r typ info extraInfo callee args replaced, _ -> replaced
         // TODO | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         | Try (tryGetBoundExpr ctx r) expr, _ ->
             match callee with
@@ -915,6 +916,6 @@ module Util =
         | _ when typ = Fable.Unit -> Fable.Value Fable.UnitConstant
         | Imported r typ None imported -> imported
         | Emitted r typ None emitted -> emitted
-        // TODO: | Replaced com ctx r typ info None [] replaced -> replaced
+        // TODO: Replaced? Check if there're failing tests
         | Try (tryGetBoundExpr ctx r) expr -> expr
         | _ -> memberRef com ctx typ [] v

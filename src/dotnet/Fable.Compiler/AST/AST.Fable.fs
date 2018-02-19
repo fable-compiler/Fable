@@ -74,29 +74,29 @@ type ValueKind =
     | NewErasedUnion of Expr * genericArgs: Type list
     | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
     | UnionCaseTag of FSharpUnionCase * FSharpEntity
-    // member this.ImmediateSubExpressions: Expr list =
-    //     match this with
-    //     | BoolConstant _ | NumberConstant _
-    //     | StringConstant _ | RegexConstant _
-    //     | ListEmpty _ | ArrayAlloc _ | NoneConst _
-    //     | UnitConstant | Null _ | This _ -> []
-    //     | NewList(head, tail, _) -> [head; tail]
-    //     | NewArray(exprs, _) -> exprs
-    //     | NewTuple exprs -> exprs
-    //     | SomeConst(expr,_) -> [expr]
-
-    // member this.Type =
-    //     match this with
-    //     | UnitConstant -> Unit
-    //     | NumberConstant (_,kind) -> Number kind
-    //     | StringConstant _ -> String
-    //     | RegexConstant _ -> Regex
-    //     | BoolConstant _ -> Boolean
-    //     | NewList (_,_,typ) | ListEmpty typ -> List typ
-    //     | NewArray (_,typ) | ArrayAlloc (_,typ) -> Array typ
-    //     | NewTuple exprs -> exprs |> List.map (fun x -> x.Type) |> Tuple
-    //     | SomeConst (_, typ) | NoneConst typ -> Option typ
-    //     | Null typ | This typ -> typ
+    member this.Type =
+        match this with
+        | This t | Null t -> t
+        | UnitConstant -> Unit
+        | BoolConstant _ -> Boolean
+        | CharConstant _ -> Char
+        | StringConstant _ -> String
+        | NumberConstant(_,kind) -> Number kind
+        | RegexConstant _ -> Regex
+        | Enum(kind, fullName) ->
+            let kind =
+                match kind with
+                | NumberEnum _ -> NumberEnumType
+                | StringEnum _ -> StringEnumType
+            EnumType(kind, fullName)
+        | NewOption(_, t) -> Option t
+        | NewTuple exprs -> exprs |> List.map (fun e -> e.Type) |> Tuple
+        | NewArray(_, t) -> Array t
+        | NewList(_, t) -> List t
+        | NewRecord(_, ent, genArgs) -> DeclaredType(ent, genArgs)
+        | NewErasedUnion(_, genArgs) -> ErasedUnion genArgs
+        | NewUnion(_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
+        | UnionCaseTag _ -> Any // There may be different ways to represent tags
 
 type LoopKind =
     | While of guard: Expr * body: Expr
@@ -108,16 +108,18 @@ type FunctionKind =
     | Delegate of args: Ident list
 
 type CallInfo =
-  { owner: FSharpEntity option
-    argTypes: Type list
-    // genericArgs: Type list
+  { argTypes: Type list
     isConstructor: bool
     hasSpread: bool
     hasThisArg: bool }
 
+type ExtraCallInfo =
+  { fullName: string
+    genericArgs: Type list }
+
 type CallKind =
     | Apply of callee: Expr * memb: string option * args: Expr list * info: CallInfo
-    | UnresolvedCall of callee: Expr option * args: Expr list * info: CallInfo
+    | UnresolvedCall of callee: Expr option * args: Expr list * info: CallInfo * extraInfo: ExtraCallInfo
     | Emit of macro: string * argsAndCallInfo: (Expr list * CallInfo) option
     | UnaryOperation of UnaryOperator * Expr
     | BinaryOperation of BinaryOperator * left:Expr * right:Expr
@@ -130,6 +132,7 @@ type GetKind =
     | ListHead
     | ListTail
     | OptionValue
+    | TupleGet of int
     | UnionTag of FSharpEntity
     | UnionField of FSharpUnionCase * FSharpEntity
     | RecordGet of FSharpField * FSharpEntity
@@ -159,93 +162,43 @@ type Expr =
     | Sequential of Expr list
     | Let of bindings: (Ident * Expr) list * body: Expr
     | Set of Expr * SetKind * value: Expr * range: SourceLocation option
+    // TODO: Check if we actually need range for loops
     | Loop of LoopKind * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option
     | Switch of matchValue: Expr * cases: (Expr list * Expr) list * defaultCase: Expr option * typ: Type
 
     member this.IsJsStatement =
-        false // TODO TODO TODO
-    //     match this with
-    //     | Import _ | EntityRef _
-    //     | IdentExpr _ | Lambda _ | Value _ | ObjectExpr _ | Apply _ | Call _ | Get _ -> false
-    //     | IfThenElse (_,thenExpr,elseExpr,_) -> thenExpr.IsJsStatement || elseExpr.IsJsStatement
-    //     | Throw _ | Debugger _ | Loop _ | Set _ | VarDeclaration _
-    //     | Sequential _ | TryCatch _ | Switch _ -> true
+        match this with
+        | Value _ | Import _ | Cast _ | IdentExpr _ | Function _
+        | ObjectExpr _ | Call _ | Get _ -> false
+
+        | TryCatch _ | Switch _ | Debugger
+        | Sequential _ | Let _ | Set _
+        | Loop _ | Throw _ -> true
+
+        | IfThenElse (_,thenExpr,elseExpr) ->
+            thenExpr.IsJsStatement || elseExpr.IsJsStatement
 
     member this.Type =
-        Any // TODO TODO TODO
-    //     match this with
-    //     | This | ObjectExpr _ | EntityRef _ -> Any
-    //     | Spread e | Uncurry (e,_) -> e.Type
-    //     | IdentExpr (i,_) -> i.Type
-    //     | Value kind -> kind.Type
-    //     | Lambda (args, body, _) -> LambdaType(List.map Ident.getType args, body.Type)
-    //     | Null typ | Import (_,_,_,typ) | Throw (_,typ,_)
-    //     | Call (_,_,_,_,typ,_) | Get (_,_,typ,_) -> typ
-    //     | IfThenElse (_,thenExpr,_,_) -> thenExpr.Type
-    //     | Debugger _ | Loop _ | Set _ | VarDeclaration _ -> Unit
-    //     | Sequential ([],_) -> Unit
-    //     | Apply (applied,_,_) ->
-    //         match applied.Type with LambdaType(_,typ) -> typ | _ -> Any
-    //     | Sequential (exprs,_) -> List.last exprs |> Expr.getType
-    //     | TryCatch (body,_,_,_) -> body.Type
-    //     | Switch (_,_,_,t,_) -> t
+        match this with
+        | Value kind -> kind.Type
+        | IdentExpr id -> id.Type
+        | Import(_,_,_,t) | Cast(_,t) | ObjectExpr(_,t)
+        | Call(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | Switch(_,_,_,t) -> t
+        | Debugger | Set _ | Loop _ -> Unit
+        | Sequential exprs -> (List.last exprs).Type
+        | Let(_,expr) | TryCatch(expr,_,_) | IfThenElse(_,expr,_) -> expr.Type
+        | Function(kind,body) ->
+            match kind with
+            | Lambda arg -> FunctionType(LambdaType arg.Type, body.Type)
+            | Delegate args -> FunctionType(DelegateType(args |> List.map (fun a -> a.Type)), body.Type)
 
     member this.Range: SourceLocation option =
-        None // TODO TODO TODO
-    //     match this with
-    //     | This | Null _ | Value _ | Import _ | EntityRef _ -> None
-    //     | Spread e | Uncurry (e,_) -> e.Range
-    //     | IdentExpr (_,range)
-    //     | ObjectExpr (_,range)
-    //     | VarDeclaration (_,_,_,range)
-    //     | Apply (_,_,range)
-    //     | Call (_,_,_,_,_,range)
-    //     | Get (_,_,_,range)
-    //     | Lambda (_,_,range)
-    //     | IfThenElse (_,_,_,range)
-    //     | Throw (_,_,range)
-    //     | Debugger range
-    //     | Loop (_,range)
-    //     | Set (_,_,_,range)
-    //     | Sequential (_,range)
-    //     | TryCatch (_,_,_,range)
-    //     | Switch (_,_,_,_,range) -> range
+        match this with
+        | Value _ | Import _ | Cast _ | Function _ | ObjectExpr _
+        | Debugger | Sequential _ | Let _
+        | IfThenElse _ | TryCatch _ | Switch _ -> None
 
-    // member this.ImmediateSubExpressions: Expr list =
-    //     match this with
-    //     | This | Null _ | IdentExpr _ | Import _ | EntityRef _ | Debugger _ -> []
-    //     | Value v -> v.ImmediateSubExpressions
-    //     | ObjectExpr (decls,_) -> decls |> List.map (fun (_,_,e) -> e)
-    //     | VarDeclaration (_,e,_,_) | Throw (e,_,_) | Lambda (_,e,_) | Spread e | Uncurry (e,_) -> [e]
-    //     | IfThenElse (cond,thenExpr,elseExpr,_) -> [cond;thenExpr;elseExpr]
-    //     | Get (expr,field,_,_) -> [expr; field]
-    //     | Apply (callee,args,_) -> callee::args
-    //     | Call (callee,field,args,_,_,_) ->
-    //         let exprs = match field with Some x -> x::args | None -> args
-    //         match callee with
-    //         | UnaryOp _ | BinaryOp _ | LogicalOp _ | Emit _ -> exprs
-    //         | Callee callee -> callee::exprs
-    //     | Loop (kind,_) ->
-    //         match kind with
-    //         | While(e1,e2) -> [e1;e2]
-    //         | For(_,e1,e2,e3,_) -> [e1;e2;e3]
-    //         | ForOf(_,e1,e2) -> [e1;e2]
-    //     | Set (callee,field,value,_) ->
-    //         match field with
-    //         | Some field -> [callee;field;value]
-    //         | None -> [callee;value]
-    //     | Sequential (exprs,_) -> exprs
-    //     | TryCatch (body,catch,finalizer,_) ->
-    //         [ yield body
-    //           match catch with
-    //           | Some (_,catch) -> yield catch
-    //           | None -> ()
-    //           yield! Option.toList finalizer ]
-    //     | Switch (test,cases,defCase,_,_) ->
-    //         [ yield test
-    //           for (labels, body) in cases do
-    //             yield! labels
-    //             yield body
-    //           yield! Option.toList defCase]
+        | IdentExpr id -> id.Range
+        | Call(_,_,r) | Get(_,_,_,r) | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r

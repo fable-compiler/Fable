@@ -367,21 +367,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // // TODO: Ask why application without arguments happen. So far I've seen it
     // // to access None or struct values (like the Result type)
     // | Application(expr,_,[]) -> Some expr
-    | BasicPatterns.Application(Transform com ctx applied, argTypes, args) ->
+    | BasicPatterns.Application(Transform com ctx applied, _genArgs, args) ->
         let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
-        let args = List.map (transformExpr com ctx) args
-        match applied.Type with
-        | Fable.DeclaredType(ent,_) when ent.TryFullName = Some Types.dynamicApplicable ->
-            let args =
-                match args with
-                | [Fable.Value(Fable.NewTuple args)] -> args
-                | args -> args
-            makeApply range typ applied args
-        | _ ->
-            // We're interested in the original arity, so we don't pass ctx.typeArgs in case
-            // resolving the generics modifies the arity (e.g. 'a->'b becomes int->int->int)
-            let info = List.map (makeType com []) argTypes |> makeCallInfo
-            Fable.Call(Fable.Apply(applied, None, args, info), typ, range)
+        match List.map (transformExpr com ctx) args, applied.Type with
+        | args, Fable.DeclaredType(ent,_)
+                when ent.TryFullName = Some Types.dynamicApplicable ->
+            match args with
+            | [Fable.Value(Fable.NewTuple args)] -> args
+            | args -> args
+        | args, _ -> args
+        |> makeApply range typ applied
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr)
@@ -426,7 +421,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeIndexGet r typ tupleExpr tupleElemIndex
+        // makeIndexGet r typ tupleExpr tupleElemIndex
+        Fable.Get(tupleExpr, Fable.TupleGet tupleElemIndex, typ, r)
 
     | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, fsType, unionCase, field) ->
         let range = makeRangeFrom fsExpr

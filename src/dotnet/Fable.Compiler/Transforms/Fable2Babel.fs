@@ -145,14 +145,6 @@ module Util =
             | _ -> expr
         | _ -> MemberExpression (object, expr, computed) :> Expression
 
-    // let rec tryFindMember (ownerName: string) membName entName decls =
-    //     decls |> List.tryPick (function
-    //         | Fable.EntityDeclaration(ent,_,_,subDecls,_) when ownerName.StartsWith(ent.FullName) ->
-    //             tryFindMember ownerName membName ent.FullName subDecls
-    //         | Fable.MemberDeclaration(m,_,privateName,_,_,_) when ownerName = entName && m.Name = membName ->
-    //             Some(m, privateName)
-    //         | _ -> None)
-
     let rec accessExpr (members: string list) (baseExpr: Expression option) =
         match baseExpr with
         | Some baseExpr ->

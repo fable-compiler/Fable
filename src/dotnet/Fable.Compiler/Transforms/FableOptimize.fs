@@ -12,13 +12,8 @@ let rec private visit f e =
     | Value kind ->
         match kind with
         | This _ | Null _ | UnitConstant
-        | BoolConstant _
-        | CharConstant _
-        | StringConstant _
-        | NumberConstant _
-        | RegexConstant _
-        | Enum _
-        | UnionCaseTag _ -> e
+        | BoolConstant _ | CharConstant _ | StringConstant _
+        | NumberConstant _ | RegexConstant _ | Enum _ | UnionCaseTag _ -> e
         | NewOption(e, t) -> NewOption(Option.map (visit f) e, t) |> Value
         | NewTuple exprs -> NewTuple(List.map (visit f) exprs) |> Value
         | NewArray(kind, t) ->
@@ -36,7 +31,9 @@ let rec private visit f e =
             NewUnion(List.map (visit f) exprs, uci, ent, genArgs) |> Value
     | Cast(e, t) -> Cast(visit f e, t)
     | Function(kind, body) -> Function(kind, visit f body)
-    | ObjectExpr _ -> e // TODO
+    | ObjectExpr(values, t) ->
+        let values = values |> List.map (fun (k,v) -> k, visit f v)
+        ObjectExpr(values, t)
     | Call(kind, t, r) ->
         match kind with
         | Apply(callee, memb, args, info) ->
@@ -44,12 +41,20 @@ let rec private visit f e =
         | Emit(macro, info) ->
             let info = info |> Option.map (fun (args, info) -> List.map (visit f) args, info)
             Call(Emit(macro, info), t, r)
-        | _ -> e // TODO
-        // | UnresolvedCall of callee: Expr option * args: Expr list * info: CallInfo
-        // | UnaryOperation of UnaryOperator * Expr
-        // | BinaryOperation of BinaryOperator * left:Expr * right:Expr
-        // | LogicalOperation of LogicalOperator * left:Expr * right:Expr
-    | Get _ -> e // TODO
+        | UnresolvedCall(callee, args, info, info2) ->
+            Call(UnresolvedCall(Option.map (visit f) callee, List.map (visit f) args, info, info2), t, r)
+        | UnaryOperation(operator, operand) ->
+            Call(UnaryOperation(operator, visit f operand), t, r)
+        | BinaryOperation(op, left, right) ->
+            Call(BinaryOperation(op, visit f left, visit f right), t, r)
+        | LogicalOperation(op, left, right) ->
+            Call(LogicalOperation(op, visit f left, visit f right), t, r)
+    | Get(e, kind, t, r) ->
+        match kind with
+        | FieldGet _ | IndexGet _ | ListHead | ListTail
+        | OptionValue | TupleGet _ | UnionTag _
+        | UnionField _ | RecordGet _ -> Get(visit f e, kind, t, r)
+        | DynamicGet e2 -> Get(visit f e, DynamicGet (visit f e2), t, r)
     | Throw(e, typ, r) -> Throw(visit f e, typ, r)
     | Sequential exprs -> Sequential(List.map (visit f) exprs)
     | Let(bs, body) ->
@@ -57,7 +62,11 @@ let rec private visit f e =
         Let(bs, visit f body)
     | IfThenElse(cond, thenExpr, elseExpr) ->
         IfThenElse(visit f cond, visit f thenExpr, visit f elseExpr)
-    | Set _ -> e // TODO
+    | Set(e, kind, v, r) ->
+        match kind with
+        | VarSet | FieldSet _ | IndexSet _ | RecordSet _ ->
+            Set(visit f e, kind, visit f v, r)
+        | DynamicSet e2 -> Set(visit f e, DynamicSet (visit f e2), visit f v, r)
     | Loop (kind, r) ->
         match kind with
         | While(e1, e2) -> Loop(While(visit f e1, visit f e2), r)
@@ -136,15 +145,20 @@ module private Transforms =
         | e -> e
 
     let bindingBetaReduction (_: ICompiler) e =
-        let isReferencedMoreThanOnce identName e =
-            let mutable count = 0
-            // TODO: Can we optimize this to shortcircuit when count > 1?
-            e |> visit (function
-                | _ when count > 1 -> e
-                | IdentExpr id2 as e when id2.Name = identName ->
-                    count <- count + 1; e
-                | e -> e) |> ignore
-            count > 1
+        let isReferencedMoreThan limit identName e =
+            match e with
+            // Don't try to erase bindings to these expressions
+            | Import _ | Throw _ | Sequential _ | IfThenElse _
+            | Switch _ | TryCatch _ -> true
+            | _ ->
+                let mutable count = 0
+                // TODO: Can we optimize this to shortcircuit when count > 1?
+                e |> visit (function
+                    | _ when count > limit -> e
+                    | IdentExpr id2 as e when id2.Name = identName ->
+                        count <- count + 1; e
+                    | e -> e) |> ignore
+                count > limit
         match e with
         | Let(bindings, body) ->
             let values = bindings |> List.map snd
@@ -157,9 +171,9 @@ module private Transforms =
                     else
                         let isReferencedMoreThanOnce =
                             (false, values) ||> List.fold (fun positive value ->
-                                positive || isReferencedMoreThanOnce identName value)
+                                positive || isReferencedMoreThan 0 identName value)
                             |> function true -> true
-                                      | false -> isReferencedMoreThanOnce identName body
+                                      | false -> isReferencedMoreThan 1 identName body
                         if isReferencedMoreThanOnce
                         then (ident, value)::remaining, replacements
                         else remaining, Map.add ident.Name value replacements)

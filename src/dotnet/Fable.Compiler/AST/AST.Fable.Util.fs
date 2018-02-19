@@ -26,17 +26,13 @@ let hasDoubleEvalRisk = function
     // TODO: Add Union and List Getters here?
     | Value(This _ | Null _ | UnitConstant | NumberConstant _
                 | StringConstant _ | BoolConstant _ | Enum _) -> false
+    | Get(_,kind,_,_) ->
+        match kind with
+        // OptionValue has a runtime check
+        | ListHead | ListTail | TupleGet _
+        | UnionTag _ | UnionField _ -> false
+        | _ -> true
     | _ -> true
-
-// let rec deepExists f (expr: Expr) =
-//     if f expr
-//     then true
-//     else List.exists (deepExists f) expr.ImmediateSubExpressions
-
-// let rec flattenSequential = function
-//     | Fable.Sequential(statements,_) ->
-//         List.collect flattenSequential statements
-//     | e -> [e]
 
 let attachRange (range: SourceLocation option) msg =
     match range with
@@ -109,16 +105,17 @@ let makeUntypedFieldGet callee field =
 let makeArray elementType arrExprs =
     NewArray(ArrayValues arrExprs, elementType) |> Value
 
-let makeCallInfo argTypes =
-    { owner = None
-      argTypes = argTypes
-      isConstructor = false
-      hasSpread = false
-      hasThisArg = false }
-
-let makeApply r t applied args =
-    let info = makeCallInfo [] // TODO: Try to get argTypes from applied?
-    Call(Apply(applied, None, args, info), t, r)
+let makeApply r t (applied: Expr) args =
+    let callInfo =
+        { argTypes =
+            match applied.Type with
+            | Fable.FunctionType(Fable.LambdaType arg, _) -> [arg]
+            | Fable.FunctionType(Fable.DelegateType args, _) -> args
+            | _ -> [Any]
+          isConstructor = false
+          hasSpread = false
+          hasThisArg = false }
+    Call(Apply(applied, None, args, callInfo), t, r)
 
 let makeLongInt (x: uint64) unsigned =
     let t = ExtendedNumber(if unsigned then UInt64 else Int64)
