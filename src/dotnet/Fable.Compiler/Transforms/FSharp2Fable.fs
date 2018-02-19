@@ -323,11 +323,15 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             Fable.Let([ident, value], transformExpr com ctx body)
 
     | BasicPatterns.LetRec(recBindings, body) ->
-        let ctx, recBindings =
+        // First get a context containing all idents and use it compile the values
+        let ctx, idents =
             (recBindings, (ctx, []))
-            ||> List.foldBack (fun (BindIdent com ctx (newContext, ident), value) (ctx, acc) ->
-                (newContext, (ident, transformExpr com ctx value)::acc))
-        Fable.Let(recBindings, transformExpr com ctx body)
+            ||> List.foldBack (fun (BindIdent com ctx (newContext, ident), _) (ctx, idents) ->
+                (newContext, ident::idents))
+        let values =
+            recBindings
+            |> List.map (fun (_, Transform com ctx value) -> value)
+        Fable.Let(List.zip idents values, transformExpr com ctx body)
 
     (** ## Applications *)
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
@@ -363,12 +367,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let args = List.map (transformExpr com ctx) args
         match applied.Type with
         | Fable.DeclaredType(ent,_) when ent.TryFullName = Some Types.dynamicApplicable ->
-            Fable.Operation(Fable.DynamicApply(applied, args), typ, range)
+            let args =
+                match args with
+                | [Fable.Value(Fable.NewTuple args)] -> args
+                | args -> args
+            makeApply range typ applied args
         | _ ->
             // We're interested in the original arity, so we don't pass ctx.typeArgs in case
             // resolving the generics modifies the arity (e.g. 'a->'b becomes int->int->int)
-            let argTypes = List.map (makeType com []) argTypes
-            Fable.Operation(Fable.Apply(applied, args, argTypes), typ, range)
+            let info = List.map (makeType com []) argTypes |> makeCallInfo
+            Fable.Call(Fable.Apply(applied, None, args, info), typ, range)
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr)

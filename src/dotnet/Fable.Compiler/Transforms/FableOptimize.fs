@@ -39,13 +39,11 @@ let rec visit f e =
     | Cast(e, t) -> Cast(visit f e, t)
     | Function(kind, body) -> Function(kind, visit f body)
     | ObjectExpr _ -> e // TODO
-    | Operation(kind, t, r) ->
+    | Call(kind, t, r) ->
         match kind with
-        | Call(callee, memb, args, info) ->
-            Operation(Call(visit f callee, memb, List.map (visit f) args, info), t, r)
+        | Apply(callee, memb, args, info) ->
+            Call(Apply(visit f callee, memb, List.map (visit f) args, info), t, r)
         | _ -> e // TODO
-        // | Apply of applied: Expr * args: Expr list * argTypes: Type list
-        // | DynamicApply of applied: Expr * args: Expr list
         // | UnresolvedCall of callee: Expr option * args: Expr list * info: CallInfo
         // | Emit of macro: string * argsAndCallInfo: (Expr list * CallInfo) option
         // | UnaryOperation of UnaryOperator * Expr

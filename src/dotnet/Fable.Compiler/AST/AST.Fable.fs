@@ -111,16 +111,14 @@ type FunctionKind =
 type CallInfo =
   { owner: FSharpEntity option
     argTypes: Type list
-    genericArgs: Type list
+    // genericArgs: Type list
     isConstructor: bool
     hasSpread: bool
     hasThisArg: bool }
 
-type OperationKind =
-    | Apply of applied: Expr * args: Expr list * argTypes: Type list
-    | DynamicApply of applied: Expr * args: Expr list
+type CallKind =
+    | Apply of callee: Expr * memb: string option * args: Expr list * info: CallInfo
     | UnresolvedCall of callee: Expr option * args: Expr list * info: CallInfo
-    | Call of callee: Expr * memb: string option * args: Expr list * info: CallInfo
     | Emit of macro: string * argsAndCallInfo: (Expr list * CallInfo) option
     | UnaryOperation of UnaryOperator * Expr
     | BinaryOperation of BinaryOperator * left:Expr * right:Expr
@@ -153,7 +151,7 @@ type Expr =
     | Function of FunctionKind * body: Expr
     | ObjectExpr of decls: Declaration list * Type
 
-    | Operation of OperationKind * typ: Type * range: SourceLocation option
+    | Call of CallKind * typ: Type * range: SourceLocation option
     | Get of Expr * GetKind * typ: Type * range: SourceLocation option
 
     | Debugger

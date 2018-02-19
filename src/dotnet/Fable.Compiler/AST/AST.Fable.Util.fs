@@ -65,16 +65,16 @@ let makeImport t (selector: string) (path: string) =
     Import(selector.Trim(), path.Trim(), CustomImport, t)
 
 let makeBinOp range typ left right op =
-    Operation(BinaryOperation(op, left, right), typ, range)
+    Call(BinaryOperation(op, left, right), typ, range)
 
 let makeUnOp range typ arg op =
-    Operation(UnaryOperation(op, arg), typ, range)
+    Call(UnaryOperation(op, arg), typ, range)
 
 let makeLogOp range left right op =
-    Operation(LogicalOperation(op, left, right), Boolean, range)
+    Call(LogicalOperation(op, left, right), Boolean, range)
 
 let makeEqOp range left right op =
-    Operation(BinaryOperation(op, left, right), Boolean, range)
+    Call(BinaryOperation(op, left, right), Boolean, range)
 
 // let rec makeSequential range statements =
 //     match statements with
@@ -102,13 +102,24 @@ let makeUntypedFieldGet callee field =
 let makeArray elementType arrExprs =
     NewArray(ArrayValues arrExprs, elementType) |> Value
 
+let makeCallInfo argTypes =
+    { owner = None
+      argTypes = argTypes
+      isConstructor = false
+      hasSpread = false
+      hasThisArg = false }
+
+let makeApply r t applied args =
+    let info = makeCallInfo [] // TODO: Try to get argTypes from applied?
+    Call(Apply(applied, None, args, info), t, r)
+
 let makeLongInt (x: uint64) unsigned =
     let t = ExtendedNumber(if unsigned then UInt64 else Int64)
     let lowBits = NumberConstant (float (uint32 x), Float64)
     let highBits = NumberConstant (float (x >>> 32), Float64)
     let unsigned = BoolConstant (unsigned)
     let args = [Value lowBits; Value highBits; Value unsigned]
-    Operation(DynamicApply(makeCoreRef Any "Long" "fromBits", args), t, None)
+    makeApply None t (makeCoreRef Any "Long" "fromBits") args
 
 let makeBoolConst (x: bool) = BoolConstant x |> Value
 let makeStrConst (x: string) = StringConstant x |> Value
@@ -119,7 +130,7 @@ let makeDecConst (x: decimal) = NumberConstant (float x, Float64) |> Value
 let makeFloat32 (x: float32) =
     let args = [NumberConstant (float x, Float32) |> Value]
     let callee = makeUntypedFieldGet (IdentExpr(makeIdent "Math")) "fround"
-    Operation(DynamicApply(callee, args), Number Float32, None)
+    makeApply None (Number Float32) callee args
 
 let makeTypeConst (typ: Type) (value: obj) =
     match typ, value with
@@ -327,7 +338,7 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
     | ExtendedNumber BigInt -> jsInstanceof (makeCoreRef Any "BigInt" "default") expr
     | FunctionType _ -> jsTypeof "function" expr
     | Array _ | Tuple _ | List _ ->
-        Operation(DynamicApply(makeCoreRef Any "Util" "fromBits", [expr]), Boolean, None)
+        makeApply None Boolean (makeCoreRef Any "Util" "isArray") [expr]
     | DeclaredType (ent, _) ->
         failwith "TODO: DeclaredType type test"
         // if ent.IsClass

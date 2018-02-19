@@ -747,16 +747,12 @@ module Util =
 
     // let (|Emitted|_|) r typ info callee args (memb: FSharpMemberOrFunctionOrValue) =
 
-
-    let (|Replaced|_|) (com: IFableCompiler) ctx r typ (info: Fable.CallInfo) calle args (memb: FSharpMemberOrFunctionOrValue) =
-        if Replacements.isReplaceCandidate memb.FullName then
-            None // TODO TODO TODO: Unresolved call
-            //let info = buildApplyInfoFrom com ctx r typ (typArgs, methTypArgs, methArgTypes) (callee, args) owner memb
-            //match Replacements.tryReplace com info with
-            //| Some repl -> Some repl
-            //| None ->
-                //sprintf "Cannot find replacement for %s::%s" info.ownerFullName info.memberName
-                //|> addErrorAndReturnNull com ctx.fileName info.range |> Some
+    let (|Replaced|_|) (com: IFableCompiler) ctx r typ (info: Fable.CallInfo) callee args (memb: FSharpMemberOrFunctionOrValue) =
+        let fullName = memb.FullName
+        if Replacements.isReplaceCandidate fullName then
+            match Replacements.tryFirstPass r typ args fullName with
+            | Some replaced -> Some replaced
+            | None -> Fable.Call(Fable.UnresolvedCall(callee, args, info), typ, r) |> Some
         else None
 
     let (|ResolveGeneric|) genArgs (t: FSharpType) =
@@ -777,7 +773,7 @@ module Util =
         | ContainsAtt Atts.emit attArgs ->
             match attArgs with
             | [:? string as macro] ->
-                Fable.Operation(Fable.Emit(macro, argsAndCallInfo), typ, r) |> Some
+                Fable.Call(Fable.Emit(macro, argsAndCallInfo), typ, r) |> Some
             | _ -> "EmitAttribute must receive a string argument" |> attachRange r |> failwith
         | _ -> None
 
@@ -812,10 +808,10 @@ module Util =
                     match getObjectMemberKind memb with
                     | Fable.Getter -> Some expr
                     | Fable.Setter -> Fable.Set(expr, Fable.VarSet, args.Head, r) |> Some
-                    | Fable.Method -> Fable.Operation(Fable.Call(expr, None, args, info), typ, r) |> Some
+                    | Fable.Method -> Fable.Call(Fable.Apply(expr, None, args, info), typ, r) |> Some
                     | Fable.Constructor ->
                         let info = { info with isConstructor = true }
-                        Fable.Operation(Fable.Call(expr, None, args, info), typ, r) |> Some
+                        Fable.Call(Fable.Apply(expr, None, args, info), typ, r) |> Some
             | None ->
                 Some expr
         | None -> None
@@ -849,10 +845,10 @@ module Util =
         //     then Some expr
         //     else makeSequential r (assignments@[expr]) |> Some
 
-    let makeCallInfo com (ctx: Context) genArgs owner memb : Fable.CallInfo =
+    let makeFullCallInfo com (ctx: Context) genArgs owner memb : Fable.CallInfo =
       { owner = owner
         argTypes = getArgTypes com memb
-        genericArgs = List.map (makeType com ctx.typeArgs) genArgs
+        // genericArgs = List.map (makeType com ctx.typeArgs) genArgs
         isConstructor = false
         hasSpread = hasSpread memb
         hasThisArg = false }
@@ -870,10 +866,10 @@ module Util =
         else Fable.Import(memberName, file, Fable.Internal, typ)
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
-        let call info callee memb args =
-            Fable.Operation(Fable.Call(callee, memb, args, info), typ, r)
+        let apply info callee memb args =
+            Fable.Call(Fable.Apply(callee, memb, args, info), typ, r)
         // TODO: Remove optional arguments
-        let info = makeCallInfo com ctx genArgs memb.EnclosingEntity memb
+        let info = makeFullCallInfo com ctx genArgs memb.EnclosingEntity memb
         let argsAndCallInfo =
             match callee with
             | Some c -> Some(c::args, { info with hasThisArg = true })
@@ -885,11 +881,11 @@ module Util =
         // TODO | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         | Try (tryGetBoundExpr ctx r) expr, _ ->
             match callee with
-            | Some c -> call { info with hasThisArg = true } expr None (c::args)
+            | Some c -> apply { info with hasThisArg = true } expr None (c::args)
             | None ->
                 if isModuleValueForCalls memb
                 then expr
-                else call info expr None args
+                else apply info expr None args
         // Check if this is an interface or abstract/overriden method
         | _, Some owner when owner.IsInterface
                         || memb.IsOverrideOrExplicitInterfaceImplementation
@@ -901,17 +897,17 @@ module Util =
                 | Fable.Setter -> Fable.Set(callee, Fable.FieldSet memb.DisplayName, args.Head, r)
                 // Constructor is unexpected (abstract class cons calls are resolved in transformConstructor)
                 | Fable.Constructor
-                | Fable.Method -> call info callee (Some memb.DisplayName) args
+                | Fable.Method -> apply info callee (Some memb.DisplayName) args
             | None -> "Unexpected static interface/override call" |> attachRange r |> failwith
         | _ ->
             match callee with
             | Some callee ->
                 let info = { info with hasThisArg = true }
-                call info (memberRef com ctx Fable.Any info.argTypes memb) None (callee::args)
+                apply info (memberRef com ctx Fable.Any info.argTypes memb) None (callee::args)
             | None ->
                 if isModuleValueForCalls memb
                 then memberRef com ctx typ [] memb
-                else call info (memberRef com ctx Fable.Any info.argTypes memb) None args
+                else apply info (memberRef com ctx Fable.Any info.argTypes memb) None args
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.typeArgs v.FullType
