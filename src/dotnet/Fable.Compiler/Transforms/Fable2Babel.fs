@@ -324,16 +324,16 @@ module Util =
         | Fable.Emit(emit, argsAndCallInfo) ->
             match argsAndCallInfo with
             | Some(args, callInfo) ->
-                transformArgs com ctx callInfo.hasSpread args
+                transformArgs com ctx callInfo.HasSpread args
                 |> macroExpression range emit
             | None -> macroExpression range emit []
         | Fable.Call(callee, memb, args, callInfo) ->
-            let args = transformArgs com ctx callInfo.hasSpread args
+            let args = transformArgs com ctx callInfo.HasSpread args
             let callee =
                 match memb with
                 | Some memb -> get (com.TransformExpr ctx callee) memb
                 | None -> com.TransformExpr ctx callee
-            if callInfo.isConstructor
+            if callInfo.IsConstructor
             then upcast NewExpression(callee, args, ?loc=range)
             else upcast CallExpression(callee, args, ?loc=range)
         | Fable.CurriedApply(TransformExpr com ctx applied, args) ->

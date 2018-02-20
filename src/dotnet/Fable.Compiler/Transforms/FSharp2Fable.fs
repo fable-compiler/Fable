@@ -368,14 +368,15 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // // to access None or struct values (like the Result type)
     | BasicPatterns.Application(Transform com ctx expr, _, []) -> expr
     | BasicPatterns.Application(Transform com ctx applied, _, args) ->
-        let typ, range = makeType com ctx.typeArgs fsExpr.Type, makeRangeFrom fsExpr
+        let range = makeRangeFrom fsExpr
         match List.map (transformExpr com ctx) args, applied.Type with
         | args, Fable.DeclaredType(ent,_)
                 when ent.TryFullName = Some Types.dynamicApplicable ->
             match args with
-            | [Fable.Value(Fable.NewTuple args)] -> makeCall range typ applied args
-            | args -> makeCall range typ applied args
+            | [Fable.Value(Fable.NewTuple args)] -> makeDynamicCall range applied args
+            | args -> makeDynamicCall range applied args
         | args, _ ->
+            let typ = makeType com ctx.typeArgs fsExpr.Type
             Fable.Operation(Fable.CurriedApply(applied, args), typ, range)
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->

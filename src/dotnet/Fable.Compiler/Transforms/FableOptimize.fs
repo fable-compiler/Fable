@@ -138,7 +138,7 @@ module private Transforms =
 
     let lambdaBetaReduction (_: ICompiler) e =
         let notConsNorSpread = function
-            | Some(info: CallInfo) -> not info.hasSpread && not info.isConstructor
+            | Some(info: CallInfo) -> not info.HasSpread && not info.IsConstructor
             | None -> true
         match e with
         // TODO: Optimize also binary operations with numerical or string literals
@@ -200,13 +200,11 @@ module private Transforms =
             uncurryLambdaType (argType::acc) returnType
         | returnType -> List.rev acc, returnType
 
-    let isUncurried = function
-        | IdentExpr id ->
-            match id.Type with
-            | FunctionType(DelegateType _, _) -> true
-            | _ -> false
+    let getUncurriedArity (e: Expr) =
+        match e.Type with
+        | FunctionType(DelegateType argTypes, _) -> List.length argTypes |> Some
         // TODO: Consider record fields as uncurried
-        | _ -> false
+        | _ -> None
 
     let uncurryExpr arity expr =
         let rec (|UncurriedLambda|_|) arity expr =
@@ -224,17 +222,18 @@ module private Transforms =
                     // We cannot flatten lambda to the expected arity
                     | _, _ -> None
             uncurryLambda [] arity expr
-        if isUncurried expr then
-            expr // TODO: Check edge cases (expr has more than expected arity)
-        else
+        match getUncurriedArity expr with
+        | Some arity2 ->
+            match arity with
+            | None -> expr
+            | Some arity when arity = arity2 -> expr
+            | Some _arity -> failwith "TODO: Uncurry to different arity"
+        | None ->
             match expr, arity with
             | UncurriedLambda arity lambda, _ -> lambda
-            | _, Some arity ->
-                failwith "TODO: Runtime uncurry"
-                // CoreLibCall("Util", Some "uncurry", false, [makeIntConst arity; expr])
-                // |> makeCall None expr.Type
+            | _, Some _arity -> failwith "TODO: Runtime uncurry"
+            // CoreLibCall("Util", Some "uncurry", false, [makeIntConst arity; expr]) |> makeCall None expr.Type
             | _, None -> expr
-
 
     let uncurryAnonymousFunctions (_: ICompiler) e =
         e // TODO
@@ -273,21 +272,27 @@ module private Transforms =
         match e with
         // TODO: Uncurry also NewRecord arguments
         | Apply(callee, memb, args, info, t, r) ->
+            let rebuildApplyWith args =
+                match info with
+                | Some info -> Operation(Call(callee, memb, args, info), t, r)
+                | None -> Operation(CurriedApply(callee, args), t, r)
             let argTypes =
                 match info, callee.Type with
-                | Some info, _ -> info.argTypes
-                | None, FunctionType(DelegateType argTypes, _) -> argTypes
-                | None, t -> uncurryLambdaType [] t |> fst
-            let args =
+                | Some info, _ -> if info.IsDynamic then None else Some info.ArgTypes
+                | None, FunctionType(DelegateType argTypes, _) -> Some argTypes
+                | None, t -> uncurryLambdaType [] t |> fst |> Some
+            match argTypes with
+            | Some [] -> e // Do nothing
+            | Some argTypes ->
                 (argTypes, args) ||> mapArgs (fun argType arg ->
                     match uncurryLambdaType [] argType with
                     | argTypes, _ when List.isMultiple argTypes ->
                         let arity = List.length argTypes |> Some
                         uncurryExpr arity arg
-                    | _ -> arg)
-            match info with
-            | Some info -> Operation(Call(callee, memb, args, info), t, r)
-            | None -> Operation(CurriedApply(callee, args), t, r)
+                    | _ -> arg) |> rebuildApplyWith
+            | None ->
+                List.map (uncurryExpr None) args
+                |> rebuildApplyWith
         | e -> e
 
     let uncurryApplications (_: ICompiler) = function

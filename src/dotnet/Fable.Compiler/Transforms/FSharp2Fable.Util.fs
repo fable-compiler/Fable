@@ -749,8 +749,8 @@ module Util =
 
     let (|Replaced|_|) r typ (info: Fable.CallInfo) (extraInfo: Fable.ExtraCallInfo)
                         callee args (_: FSharpMemberOrFunctionOrValue) =
-        if Replacements.isReplaceCandidate extraInfo.fullName then
-            match Replacements.tryFirstPass r typ args extraInfo.fullName with
+        if Replacements.isReplaceCandidate extraInfo.FullName then
+            match Replacements.tryFirstPass r typ args extraInfo.FullName with
             | Some replaced -> Some replaced
             | None ->
                 let unresolved = Fable.UnresolvedCall(callee, args, info, extraInfo)
@@ -802,7 +802,7 @@ module Util =
             match argsAndCallInfo with
             | Some(args: Fable.Expr list, info: Fable.CallInfo) ->
                 // Allow combination of Import and Emit attributes
-                let emittedCallInfo = { info with argTypes = expr.Type::info.argTypes }
+                let emittedCallInfo = { info with ArgTypes = expr.Type::info.ArgTypes }
                 match memb with
                 | Emitted r typ (Some(expr::args, emittedCallInfo)) emitted -> Some emitted
                 | _ ->
@@ -812,7 +812,7 @@ module Util =
                     | Fable.Setter -> Fable.Set(expr, Fable.VarSet, args.Head, r) |> Some
                     | Fable.Method -> Fable.Operation(Fable.Call(expr, None, args, info), typ, r) |> Some
                     | Fable.Constructor ->
-                        let info = { info with isConstructor = true }
+                        let info = { info with IsConstructor = true }
                         Fable.Operation(Fable.Call(expr, None, args, info), typ, r) |> Some
             | None ->
                 Some expr
@@ -864,16 +864,17 @@ module Util =
             Fable.Operation(Fable.Call(callee, memb, args, info), typ, r)
         // TODO: Remove optional arguments
         let info: Fable.CallInfo =
-          { argTypes = getArgTypes com memb
-            isConstructor = false
-            hasSpread = hasSpread memb
-            hasThisArg = false }
+          { ArgTypes = getArgTypes com memb
+            IsConstructor = false
+            IsDynamic = false
+            HasSpread = hasSpread memb
+            HasThisArg = false }
         let extraInfo: Fable.ExtraCallInfo =
-          { fullName = memb.FullName
-            genericArgs = List.map (makeType com ctx.typeArgs) genArgs }
+          { FullName = memb.FullName
+            GenericArgs = List.map (makeType com ctx.typeArgs) genArgs }
         let argsAndCallInfo =
             match callee with
-            | Some c -> Some(c::args, { info with hasThisArg = true })
+            | Some c -> Some(c::args, { info with HasThisArg = true })
             | None -> Some(args, info)
         match memb, memb.EnclosingEntity with
         | Imported r typ argsAndCallInfo imported, _ -> imported
@@ -882,7 +883,7 @@ module Util =
         // TODO | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         | Try (tryGetBoundExpr ctx r) expr, _ ->
             match callee with
-            | Some c -> call { info with hasThisArg = true } expr None (c::args)
+            | Some c -> call { info with HasThisArg = true } expr None (c::args)
             | None ->
                 if isModuleValueForCalls memb
                 then expr
@@ -903,12 +904,12 @@ module Util =
         | _ ->
             match callee with
             | Some callee ->
-                let info = { info with hasThisArg = true }
-                call info (memberRef com ctx Fable.Any info.argTypes memb) None (callee::args)
+                let info = { info with HasThisArg = true }
+                call info (memberRef com ctx Fable.Any info.ArgTypes memb) None (callee::args)
             | None ->
                 if isModuleValueForCalls memb
                 then memberRef com ctx typ [] memb
-                else call info (memberRef com ctx Fable.Any info.argTypes memb) None args
+                else call info (memberRef com ctx Fable.Any info.ArgTypes memb) None args
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.typeArgs v.FullType

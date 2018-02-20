@@ -93,15 +93,27 @@ let makeArray elementType arrExprs =
 
 let makeCall r t (applied: Expr) args =
     let callInfo =
-        { argTypes =
+        { ArgTypes =
             match applied.Type with
             | Fable.FunctionType(Fable.LambdaType arg, _) -> [arg]
             | Fable.FunctionType(Fable.DelegateType args, _) -> args
             | _ -> [Any]
-          isConstructor = false
-          hasSpread = false
-          hasThisArg = false }
+          IsConstructor = false
+          IsDynamic = false
+          HasSpread = false
+          HasThisArg = false }
     Operation(Call(applied, None, args, callInfo), t, r)
+
+/// Dynamic calls will uncurry its function arguments with unknown arity
+let makeDynamicCall r (applied: Expr) args =
+    let callInfo =
+        { ArgTypes = []
+          IsConstructor = false
+          IsDynamic = true
+          HasSpread = false
+          HasThisArg = false }
+    Operation(Call(applied, None, args, callInfo), Fable.Any, r)
+
 
 let makeLongInt (x: uint64) unsigned =
     let t = ExtendedNumber(if unsigned then UInt64 else Int64)

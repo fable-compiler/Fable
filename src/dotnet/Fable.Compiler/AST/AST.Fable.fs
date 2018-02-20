@@ -108,14 +108,15 @@ type FunctionKind =
     | Delegate of args: Ident list
 
 type CallInfo =
-  { argTypes: Type list
-    isConstructor: bool
-    hasSpread: bool
-    hasThisArg: bool }
+  { ArgTypes: Type list
+    IsConstructor: bool
+    IsDynamic: bool
+    HasSpread: bool
+    HasThisArg: bool }
 
 type ExtraCallInfo =
-  { fullName: string
-    genericArgs: Type list }
+  { FullName: string
+    GenericArgs: Type list }
 
 type OperationKind =
     | Call of callee: Expr * memb: string option * args: Expr list * info: CallInfo
