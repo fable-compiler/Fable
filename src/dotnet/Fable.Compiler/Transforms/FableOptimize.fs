@@ -116,7 +116,7 @@ module private Transforms =
     // string :> seq #1279
     // list (and others) :> seq in Fable 2.0
     // concrete type :> interface in Fable 2.0
-    let cast (_: ICompiler) = function
+    let resolveCasts (_: ICompiler) = function
         | Cast(e, t) ->
             match t with
             | DeclaredType(EntFullName Types.enumerable, _) ->
@@ -124,6 +124,15 @@ module private Transforms =
                 | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
                 | _ -> e
             | _ -> e
+        | e -> e
+
+    let resolveCalls (com: ICompiler) = function
+        | Operation(UnresolvedCall(callee, args, info, extraInfo), t, r) ->
+            match Replacements.trySecondPass com r t callee args info extraInfo with
+            | Some e -> e
+            | None ->
+                "Cannot resolve " + extraInfo.FullName
+                |> addErrorAndReturnNull com r
         | e -> e
 
     let replaceValues replacements expr =
@@ -312,9 +321,14 @@ open Transforms
 
 let optimizeExpr (com: ICompiler) e =
     // ATTENTION: Order of transforms matters for optimizations
-    [ lambdaBetaReduction
+    [ // First apply beta reduction
+      lambdaBetaReduction
       bindingBetaReduction
-      cast
+      // Then resolve casts
+      resolveCasts
+      // Then resolve calls
+      resolveCalls
+      // Then apply uncurry optimizations
       uncurryPassedArgs
       uncurryPassingArgs
       uncurryApplications ]

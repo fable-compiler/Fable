@@ -10,14 +10,14 @@ open Fable.AST
 //         Some args
 //     | _ -> None
 
-let addWarning (com: ICompiler) (fileName: string) (range: SourceLocation option) (warning: string) =
-    com.AddLog(warning, Severity.Warning, ?range=range, fileName=fileName)
+let addWarning (com: ICompiler) (range: SourceLocation option) (warning: string) =
+    com.AddLog(warning, Severity.Warning, ?range=range, fileName=com.CurrentFile)
 
-let addError (com: ICompiler) (fileName: string) (range: SourceLocation option) (warning: string) =
-    com.AddLog(warning, Severity.Error, ?range=range, fileName=fileName)
+let addError (com: ICompiler) (range: SourceLocation option) (warning: string) =
+    com.AddLog(warning, Severity.Error, ?range=range, fileName=com.CurrentFile)
 
-let addErrorAndReturnNull (com: ICompiler) (fileName: string) (range: SourceLocation option) (error: string) =
-    com.AddLog(error, Severity.Error, ?range=range, fileName=fileName)
+let addErrorAndReturnNull (com: ICompiler) (range: SourceLocation option) (error: string) =
+    com.AddLog(error, Severity.Error, ?range=range, fileName=com.CurrentFile)
     Null Any |> Value
 
 /// When referenced multiple times, is there a risk of double evaluation?
@@ -269,7 +269,7 @@ let getTypedArrayName (com: ICompiler) numberKind =
 //         | _ -> args
 //     List.rev args |> removeArgs optionalArgs |> List.rev
 
-let rec makeTypeTest com fileName range expr (typ: Type) =
+let rec makeTypeTest com range expr (typ: Type) =
     let jsTypeof (primitiveType: string) expr =
         let typof = makeUnOp None String expr UnaryTypeof
         makeEqOp range typof (makeStrConst primitiveType) BinaryEqualStrict
@@ -296,7 +296,7 @@ let rec makeTypeTest com fileName range expr (typ: Type) =
         //      |> addErrorAndReturnNull com fileName range
     | Option _ | GenericParam _ | ErasedUnion _ ->
         "Cannot type test options, generic parameters or erased unions"
-        |> addErrorAndReturnNull com fileName range
+        |> addErrorAndReturnNull com range
 
 // /// Helper when we need to compare the types of the arguments applied to a method
 // /// (concrete) with the declared argument types for that method (may be generic)

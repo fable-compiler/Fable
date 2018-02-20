@@ -36,12 +36,12 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
             let genArgs = makeGenArgs com ctx.typeArgs fsType.GenericArguments
             Fable.NewErasedUnion(expr, genArgs) |> Fable.Value
         | _ -> "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
-               |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
+               |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
     | StringEnum ->
         match argExprs with
         | [] -> lowerCaseName unionCase
         | _ -> "StringEnum types cannot have fields: " + (getFsTypeFullName fsType)
-               |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
+               |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
     | OptionUnion typ ->
         let typ = makeType com ctx.typeArgs typ
         let expr =
@@ -197,7 +197,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
     | ErasedUnion ->
         if unionCase.UnionCaseFields.Count <> 1 then
             "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
-            |> addErrorAndReturnNull com ctx.fileName (makeRange fsExpr.Range |> Some)
+            |> addErrorAndReturnNull com (makeRange fsExpr.Range |> Some)
         else
             let fi = unionCase.UnionCaseFields.[0]
             if fi.FieldType.IsGenericParameter
@@ -209,7 +209,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
                 fsType.GenericArguments |> Seq.item index
             else fi.FieldType
             |> makeType com ctx.typeArgs
-            |> makeTypeTest com ctx.fileName (makeRangeFrom fsExpr) unionExpr
+            |> makeTypeTest com (makeRangeFrom fsExpr) unionExpr
     | OptionUnion t ->
         let noneCase = Fable.NewOption(None, makeType com ctx.typeArgs t) |> Fable.Value
         if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
@@ -289,7 +289,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let expr = makeTypeConst typ value
         // TODO TODO TODO: Check literals and compile as Enum
         // if expr.Type <> typ then // Enumerations are compiled as const but they have a different type
-        //     Replacements.checkLiteral com ctx.fileName (makeRangeFrom fsExpr) value typ
+        //     Replacements.checkLiteral com (makeRangeFrom fsExpr) value typ
         expr
 
     | BasicPatterns.BaseValue typ
@@ -302,7 +302,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             | Some (_,fsExpr) -> com.Transform ctx fsExpr
             | None ->
                 "Cannot resolve locally inlined value: " + var.DisplayName
-                |> addErrorAndReturnNull com ctx.fileName (makeRange fsExpr.Range |> Some)
+                |> addErrorAndReturnNull com (makeRange fsExpr.Range |> Some)
         else
             makeValueFrom com ctx (makeRangeFrom fsExpr) var
 
@@ -341,7 +341,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     (** ## Applications *)
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        addErrorAndReturnNull com ctx.fileName r "TODO: TraitCalls"
+        addErrorAndReturnNull com r "TODO: TraitCalls"
 
     | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
         let callee = Option.map (com.Transform ctx) callee
@@ -362,7 +362,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         //     | args -> Fable.Apply(callee, List.map (transformExpr com ctx) args, range)
         // | None ->
         //     "Cannot resolve locally inlined value: " + var.DisplayName
-        //     |> addErrorAndReturnNull com ctx.fileName range
+        //     |> addErrorAndReturnNull com range
 
     // // TODO: Ask why application without arguments happen. So far I've seen it
     // // to access None or struct values (like the Result type)
@@ -415,7 +415,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> "Unexpected static FSharpFieldGet"
-                      |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
+                      |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
         if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
         then Fable.Get(callee, Fable.RecordGet(field, calleeType.TypeDefinition), typ, r)
         else makeFieldGet (makeRangeFrom fsExpr) typ callee field.Name
@@ -431,7 +431,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | ErasedUnion -> unionExpr
         | StringEnum ->
             "StringEnum types cannot have fields"
-            |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
+            |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
         | OptionUnion t ->
             Fable.Get(unionExpr, Fable.OptionValue, makeType com ctx.typeArgs t, range)
         | ListUnion t ->
@@ -453,7 +453,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> "Unexpected static FSharpFieldSet"
-                      |> addErrorAndReturnNull com ctx.fileName range
+                      |> addErrorAndReturnNull com range
         if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
         then Fable.Set(callee, Fable.RecordSet(field, calleeType.TypeDefinition), value, range)
         else Fable.Set(callee, Fable.FieldSet field.Name, value, range)
@@ -463,7 +463,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         Fable.Get(unionExpr, Fable.UnionTag unionType.TypeDefinition, Fable.Any, range)
 
     | BasicPatterns.UnionCaseSet (_unionExpr, _type, _case, _caseField, _valueExpr) ->
-        "Unexpected UnionCaseSet" |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
+        "Unexpected UnionCaseSet" |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
 
     | BasicPatterns.ValueSet (valToSet, Transform com ctx valueExpr) ->
         let r = makeRangeFrom fsExpr
@@ -505,7 +505,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FableType com ctx typ, Transform com ctx expr) ->
-        makeTypeTest com ctx.fileName (makeRangeFrom fsExpr) expr typ
+        makeTypeTest com (makeRangeFrom fsExpr) expr typ
 
     | BasicPatterns.UnionCaseTest(unionExpr, fsType, unionCase) ->
         transformUnionCaseTest com ctx fsExpr unionExpr fsType unionCase
@@ -547,11 +547,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | None, Some Types.decimal, "One" -> makeDecConst 1M
         | _ ->
             sprintf "Cannot compile ILFieldGet(%A, %s)" ownerName fieldName
-            |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
+            |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
 
     | BasicPatterns.Quote _ ->
         "Quotes are not currently supported by Fable"
-        |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
+        |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
 
     // TODO: Ask. I see this when accessing Result types (all structs?)
     | BasicPatterns.AddressOf(Transform com ctx expr) -> expr
@@ -561,11 +561,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // | BasicPatterns.ILAsm _
     | expr ->
         sprintf "Cannot compile expression %A" expr
-        |> addErrorAndReturnNull com ctx.fileName (makeRangeFrom fsExpr)
+        |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
 
 let private isErasedEntity com (ctx: Context) (ent: FSharpEntity) =
     let fail (ent: FSharpEntity) msg =
-        addError com ctx.fileName (getEntityLocation ent |> makeRange |> Some) msg; false
+        addError com (getEntityLocation ent |> makeRange |> Some) msg; false
     let check (ent: FSharpEntity) name att expected =
         if name <> att
         then false
@@ -741,7 +741,7 @@ let private tryGetMemberArgsAndBody (implFiles: Map<string, FSharpImplementation
     |> Option.bind (fun f ->
         f.Declarations |> List.tryPick (tryGetMemberArgsAndBody' meth.FullName))
 
-type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, implFiles: Map<string, FSharpImplementationFileContents>) =
+type FableCompiler(com: ICompiler, state: ICompilerState, implFiles: Map<string, FSharpImplementationFileContents>) =
     let usedVarNames = HashSet<string>()
     let dependencies = HashSet<string>()
     member __.UsedVarNames = set usedVarNames
@@ -757,7 +757,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
             state.GetRootModule filePath
         member fcom.GetInlineExpr memb =
             let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
-            if fileName <> currentFile then
+            if fileName <> com.CurrentFile then
                 dependencies.Add(fileName) |> ignore
             let fullName = getMemberDeclarationFullname fcom (getArgTypes fcom memb) memb
             state.GetOrAddInlineExpr(fullName, fun () ->
@@ -774,7 +774,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, currentFile: string, i
             usedVarNames.Add varName |> ignore
     interface ICompiler with
         member __.Options = com.Options
-        member __.ProjectFile = com.ProjectFile
+        member __.CurrentFile = com.CurrentFile
         member __.GetUniqueVar() = com.GetUniqueVar()
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
@@ -785,16 +785,16 @@ let getRootModuleFullName (file: FSharpImplementationFileContents) =
     | Some rootEnt -> getEntityFullName rootEnt
     | None -> ""
 
-let transformFile (com: ICompiler) (state: ICompilerState) (implFiles: Map<string, FSharpImplementationFileContents>) (fileName: string) =
+let transformFile (com: ICompiler) (state: ICompilerState) (implFiles: Map<string, FSharpImplementationFileContents>) =
     try
         let file =
-            match Map.tryFind fileName implFiles with
+            match Map.tryFind com.CurrentFile implFiles with
             | Some file -> file
-            | None -> failwithf "File %s doesn't belong to parsed project %s" fileName com.ProjectFile
-        let fcom = FableCompiler(com, state, fileName, implFiles)
+            | None -> failwithf "File %s doesn't belong to parsed project" com.CurrentFile
+        let fcom = FableCompiler(com, state, implFiles)
         let _, rootDecls = getRootModuleAndDecls file.Declarations
-        let ctx = Context.Create(fileName)
+        let ctx = Context.Create()
         let _, rootDecls = transformDeclarations fcom ctx rootDecls
-        Fable.File(fileName, rootDecls, fcom.UsedVarNames, fcom.Dependencies)
+        Fable.File(com.CurrentFile, rootDecls, fcom.UsedVarNames, fcom.Dependencies)
     with
-    | ex -> exn (sprintf "%s (%s)" ex.Message fileName, ex) |> raise
+    | ex -> exn (sprintf "%s (%s)" ex.Message com.CurrentFile, ex) |> raise

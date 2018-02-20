@@ -860,7 +860,7 @@ module Util =
                     then selector
                     elif selector = Naming.placeholder
                     then "`importMember` must be assigned to a variable"
-                         |> addError bcom ctx.file.SourcePath None; selector
+                         |> addError bcom None; selector
                     // Replace ident forbidden chars of root members, see #207
                     else Naming.replaceIdentForbiddenChars selector
                 let getLocalIdent (ctx: Context) (selector: string) =
@@ -912,7 +912,7 @@ module Util =
                 transformObjectExpr bcom ctx members r
         interface ICompiler with
             member __.Options = com.Options
-            member __.ProjectFile = com.ProjectFile
+            member __.CurrentFile = com.CurrentFile
             member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
             member __.GetUniqueVar() = com.GetUniqueVar() }

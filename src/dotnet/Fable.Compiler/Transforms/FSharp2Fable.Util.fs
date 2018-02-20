@@ -10,8 +10,7 @@ open Fable.AST.Fable.Util
 open Fable.Transforms
 
 type Context =
-    { fileName: string
-      scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
+    { scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
       scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
       /// Some expressions that create scope in F# don't do it in JS (like let bindings)
       /// so we need a mutable registry to prevent duplicated var names.
@@ -19,9 +18,8 @@ type Context =
       typeArgs: (string * FSharpType) list
       decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
     }
-    static member Create(fileName) =
-        { fileName = fileName
-          scope = []
+    static member Create() =
+        { scope = []
           scopedInlines = []
           varNames = HashSet()
           typeArgs = []
@@ -847,15 +845,15 @@ module Util =
         //     then Some expr
         //     else makeSequential r (assignments@[expr]) |> Some
 
-    let memberRef com (ctx: Context) typ argTypes (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRef (com: IFableCompiler) typ argTypes (memb: FSharpMemberOrFunctionOrValue) =
         let memberName = getMemberDeclarationName com argTypes memb
         let file =
             match memb.EnclosingEntity with
             | Some ent -> (getEntityLocation ent).FileName |> Path.normalizePath
             // Cases when .EnclosingEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
-            | None -> ctx.fileName
-        if file = ctx.fileName
+            | None -> com.CurrentFile
+        if file = com.CurrentFile
         then makeTypedIdent typ memberName |> Fable.IdentExpr
         else Fable.Import(memberName, file, Fable.Internal, typ)
 
@@ -871,6 +869,7 @@ module Util =
             HasThisArg = false }
         let extraInfo: Fable.ExtraCallInfo =
           { FullName = memb.FullName
+            CompiledName = memb.CompiledName
             GenericArgs = List.map (makeType com ctx.typeArgs) genArgs }
         let argsAndCallInfo =
             match callee with
@@ -905,11 +904,11 @@ module Util =
             match callee with
             | Some callee ->
                 let info = { info with HasThisArg = true }
-                call info (memberRef com ctx Fable.Any info.ArgTypes memb) None (callee::args)
+                call info (memberRef com Fable.Any info.ArgTypes memb) None (callee::args)
             | None ->
                 if isModuleValueForCalls memb
-                then memberRef com ctx typ [] memb
-                else call info (memberRef com ctx Fable.Any info.ArgTypes memb) None args
+                then memberRef com typ [] memb
+                else call info (memberRef com Fable.Any info.ArgTypes memb) None args
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.typeArgs v.FullType
@@ -919,4 +918,4 @@ module Util =
         | Emitted r typ None emitted -> emitted
         // TODO: Replaced? Check if there're failing tests
         | Try (tryGetBoundExpr ctx r) expr -> expr
-        | _ -> memberRef com ctx typ [] v
+        | _ -> memberRef com typ [] v

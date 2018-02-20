@@ -116,6 +116,7 @@ type CallInfo =
 
 type ExtraCallInfo =
   { FullName: string
+    CompiledName: string
     GenericArgs: Type list }
 
 type OperationKind =

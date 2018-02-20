@@ -178,20 +178,20 @@ let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFil
     |> Seq.iter (fun (fileName, range, severity, msg) ->
         com.AddLog(msg, severity, range, fileName, "FSHARP"))
 
-let compile (com: Compiler) (project: Project) (filePath: string) =
+let compile (com: Compiler) (project: Project) =
     let babel =
-        if filePath.EndsWith(".fsproj") then
-            Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles filePath
+        if com.CurrentFile.EndsWith(".fsproj") then
+            Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles com.CurrentFile
         else
-            FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles filePath
+            FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles
             |> FableOptimize.optimizeFile com
             |> Fable2Babel.Compiler.transformFile com project
     // If this is the first compilation, add errors to each respective file
     if not project.IsWatchCompile then
-        addFSharpErrorLogs com project.Errors (Some filePath)
-    project.MarkSent(filePath)
+        addFSharpErrorLogs com project.Errors (Some com.CurrentFile)
+    project.MarkSent(com.CurrentFile)
     // Don't send dependencies to JS client (see #1241)
-    project.AddDependencies(filePath, babel.dependencies)
+    project.AddDependencies(com.CurrentFile, babel.dependencies)
     Babel.Program(babel.fileName, babel.body, babel.directives, com.ReadAllLogs())
     |> toJson
 
@@ -214,20 +214,20 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                       clampByteArrays = msg.clampByteArrays
                       addReflectionInfo = msg.addReflectionInfo
                     }
-                let com = Compiler(activeProject, comOptions)
+                let com = Compiler(msg.path, comOptions)
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file
                 if isUpdated && activeProject.IsWatchCompile then
                     addFSharpErrorLogs com activeProject.Errors None
-                Some(com, state, activeProject, msg.path)
+                Some(com, state, activeProject)
             with ex ->
                 sendError replyChannel ex
                 None
         match newState with
-        | Some(com, state, activeProject, filePath) ->
+        | Some(com, state, activeProject) ->
             async {
                 try
-                    compile com activeProject filePath |> replyChannel
+                    compile com activeProject |> replyChannel
                 with ex ->
                     sendError replyChannel ex
             } |> Async.Start

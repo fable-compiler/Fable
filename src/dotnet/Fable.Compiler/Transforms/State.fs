@@ -83,7 +83,6 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
     member __.GetOrAddInlineExpr(fullName, generate) =
         inlineExprs.GetOrAdd(fullName, fun _ -> generate())
     interface ICompilerState with
-        member __.ProjectFile = projectOptions.ProjectFileName
         member __.GetRootModule(fileName) =
             match Map.tryFind fileName rootModules with
             | Some rootModule -> rootModule
@@ -99,7 +98,7 @@ let getDefaultOptions() =
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
-type Compiler(project: Project, ?options, ?plugins) =
+type Compiler(currentFile, ?options, ?plugins) =
     let mutable id = 0
     let options = defaultArg options (getDefaultOptions())
     let logs = Dictionary<string, string list>()
@@ -107,9 +106,10 @@ type Compiler(project: Project, ?options, ?plugins) =
         logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value) |> Map
     member __.Options = options
     member __.Plugins = plugins
+    member __.CurrentFile = currentFile
     interface ICompiler with
         member __.Options = options
-        member __.ProjectFile = project.ProjectFile
+        member __.CurrentFile = currentFile
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             let tag = defaultArg tag "FABLE"
             let severity =

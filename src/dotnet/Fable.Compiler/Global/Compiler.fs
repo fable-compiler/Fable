@@ -14,7 +14,7 @@ type Severity =
     | Info
 
 type ICompiler =
-    abstract ProjectFile: string
+    abstract CurrentFile: string
     abstract Options: CompilerOptions
     abstract GetUniqueVar: unit->string
     abstract AddLog: msg:string * severity: Severity * ?range:SourceLocation
@@ -26,6 +26,5 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 type InlineExpr = IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr
 
 type ICompilerState =
-    abstract ProjectFile: string
     abstract GetRootModule: string -> string
     abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr

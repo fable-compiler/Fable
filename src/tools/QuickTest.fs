@@ -91,12 +91,12 @@ let f2 () =
     ["1";""] |> f
     //  |> f [] // ("1"::"2"::li)
 
-[<Fable.Core.Emit("$0 + $1")>]
-let add x y = x
+// [<Fable.Core.Emit("$0 + $1")>]
+let add x y = x * y
 
 [<Fable.Core.Emit("console.log($0)")>]
 let log x = ()
 
 let foo f = f 4 5
 
-let bar() = foo <| fun x y z -> add x y
+let bar() = foo add
