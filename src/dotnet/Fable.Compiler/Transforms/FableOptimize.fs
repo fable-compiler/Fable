@@ -101,14 +101,15 @@ module private Transforms =
         | _ -> None
 
     let (|LambdaOrDelegate|_|) = function
-        | Function(Lambda arg, body) -> Some([arg], body)
-        | Function(Delegate args, body) -> Some(args, body)
+        | Function(Lambda arg, body) -> Some([arg], body, true)
+        | Function(Delegate args, body) -> Some(args, body, false)
         | _ -> None
 
     let (|Apply|_|) = function
-        | Operation(Call(expr, None, args, _), t, r)
+        | Operation(Call(expr, memb, args, info), t, r) ->
+            Some(expr, memb, args, Some info, t, r)
         | Operation(CurriedApply(expr, args), t, r) ->
-            Some(expr, args, t, r)
+            Some(expr, None, args, None, t, r)
         | _ -> None
 
     // TODO: Some cases of coertion shouldn't be erased
@@ -135,11 +136,15 @@ module private Transforms =
                 | None -> e
             | e -> e)
 
-    let lambdaBetaReduction (_: ICompiler) = function
+    let lambdaBetaReduction (_: ICompiler) e =
+        let notConsNorSpread = function
+            | Some(info: CallInfo) -> not info.hasSpread && not info.isConstructor
+            | None -> true
+        match e with
         // TODO: Optimize also binary operations with numerical or string literals
         // TODO: Don't inline if one of the arguments is `this`?
-        | Apply(LambdaOrDelegate(args, body), argExprs, _, _)
-                            when List.sameLength args argExprs ->
+        | Apply(LambdaOrDelegate(args, body, _), None, argExprs, info, _, _)
+                    when List.sameLength args argExprs && notConsNorSpread info ->
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
                 |||> List.fold2 (fun (bindings, replacements) ident expr ->
@@ -190,12 +195,125 @@ module private Transforms =
             | bindings -> Let(List.rev bindings, replaceValues replacements body)
         | e -> e
 
+    let rec uncurryLambdaType acc = function
+        | FunctionType(LambdaType argType, returnType) ->
+            uncurryLambdaType (argType::acc) returnType
+        | returnType -> List.rev acc, returnType
+
+    let isUncurried = function
+        | IdentExpr id ->
+            match id.Type with
+            | FunctionType(DelegateType _, _) -> true
+            | _ -> false
+        // TODO: Consider record fields as uncurried
+        | _ -> false
+
+    let uncurryExpr arity expr =
+        let rec (|UncurriedLambda|_|) arity expr =
+            let rec uncurryLambda accArgs remainingArity expr =
+                if remainingArity = Some 0
+                then Function(Delegate(List.rev accArgs), expr) |> Some
+                else
+                    match expr, remainingArity with
+                    | Function(Lambda arg, body), _ ->
+                        let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
+                        uncurryLambda (arg::accArgs) remainingArity body
+                    // If there's no arity expectation we can return the flattened part
+                    | _, None when List.isEmpty accArgs |> not ->
+                        Function(Delegate(List.rev accArgs), expr) |> Some
+                    // We cannot flatten lambda to the expected arity
+                    | _, _ -> None
+            uncurryLambda [] arity expr
+        if isUncurried expr then
+            expr // TODO: Check edge cases (expr has more than expected arity)
+        else
+            match expr, arity with
+            | UncurriedLambda arity lambda, _ -> lambda
+            | _, Some arity ->
+                failwith "TODO: Runtime uncurry"
+                // CoreLibCall("Util", Some "uncurry", false, [makeIntConst arity; expr])
+                // |> makeCall None expr.Type
+            | _, None -> expr
+
+
+    let uncurryAnonymousFunctions (_: ICompiler) e =
+        e // TODO
+
+    let uncurryPassedArgs (_: ICompiler) = function
+        | LambdaOrDelegate(args, body, isLambda) as e ->
+            let uncurried =
+                (Map.empty, args) ||> List.fold (fun uncurried arg ->
+                    match uncurryLambdaType [] arg.Type with
+                    | argTypes, returnType when List.isMultiple argTypes ->
+                        Map.add arg.Name (FunctionType(DelegateType argTypes, returnType)) uncurried
+                    | _ -> uncurried)
+            if Map.isEmpty uncurried
+            then e
+            else body |> visit (function
+                | IdentExpr id as e ->
+                    match Map.tryFind id.Name uncurried with
+                    | Some typ -> IdentExpr { id with Type = typ }
+                    | None -> e
+                | e -> e) |> fun body ->
+                    match args, isLambda with
+                    | [arg], true -> Function(Lambda arg, body)
+                    | args, _ -> Function(Delegate args, body)
+        | e -> e
+
+    let uncurryPassingArgs (_: ICompiler) e =
+        let mapArgs f argTypes args =
+            let rec mapArgsInner f acc argTypes args =
+                match argTypes, args with
+                | head1::tail1, head2::tail2 ->
+                    let x = f head1 head2
+                    mapArgsInner f (x::acc) tail1 tail2
+                | [], args2 -> (List.rev acc)@args2
+                | _, [] -> List.rev acc
+            mapArgsInner f [] argTypes args
+        match e with
+        // TODO: Uncurry also NewRecord arguments
+        | Apply(callee, memb, args, info, t, r) ->
+            let argTypes =
+                match info, callee.Type with
+                | Some info, _ -> info.argTypes
+                | None, FunctionType(DelegateType argTypes, _) -> argTypes
+                | None, t -> uncurryLambdaType [] t |> fst
+            let args =
+                (argTypes, args) ||> mapArgs (fun argType arg ->
+                    match uncurryLambdaType [] argType with
+                    | argTypes, _ when List.isMultiple argTypes ->
+                        let arity = List.length argTypes |> Some
+                        uncurryExpr arity arg
+                    | _ -> arg)
+            match info with
+            | Some info -> Operation(Call(callee, memb, args, info), t, r)
+            | None -> Operation(CurriedApply(callee, args), t, r)
+        | e -> e
+
+    let uncurryApplications (_: ICompiler) = function
+        | Operation(CurriedApply(applied, args), t, r) as e when List.isMultiple args ->
+            match applied.Type with
+            | FunctionType(DelegateType argTypes, _) ->
+                if List.sameLength argTypes args
+                then makeCall r t applied args
+                else failwith "TODO: Partial application"
+                // let args = [makeIntConst (arity - argsLength); innerApplied; makeArray Any (List.concat flattenedArgs)]
+                // CoreLibCall("Util", Some "partial", false, args) |> makeCall r Any
+            | _ -> e
+        | e -> e
+
 open Transforms
 
-let rec optimizeExpr (com: ICompiler) e =
+
+let optimizeExpr (com: ICompiler) e =
     // ATTENTION: Order of transforms matters for optimizations
-    (e, [lambdaBetaReduction; bindingBetaReduction; cast])
-    ||> List.fold (fun e f -> visit (f com) e)
+    [ lambdaBetaReduction
+      bindingBetaReduction
+      cast
+      uncurryPassedArgs
+      uncurryPassingArgs
+      uncurryApplications ]
+    |> List.fold (fun e f -> visit (f com) e) e
 
 let rec optimizeDeclaration (com: ICompiler) = function
     | ActionDeclaration expr ->

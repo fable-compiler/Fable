@@ -920,6 +920,14 @@ module Util =
 module Compiler =
     open Util
 
+    // The façade is necessary so watchers take last file into account
+    let createFacade (dependencies: string[]) (facadeFile: string) =
+        let decls =
+            let importFile = Array.last dependencies
+            StringLiteral(Path.getRelativeFileOrDirPath false facadeFile false importFile)
+            |> ExportAllDeclaration :> ModuleDeclaration |> U2.Case2 |> List.singleton
+        Program(facadeFile, decls, dependencies=dependencies)
+
     let transformFile (com: ICompiler) (state: ICompilerState) (file: Fable.File) =
         try
             // let t = PerfTimer("Fable > Babel")

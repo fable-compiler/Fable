@@ -99,7 +99,4 @@ let log x = ()
 
 let foo f = f 4 5
 
-let bar() = foo <| fun x ->
-    log "hola"
-    fun y ->
-        add x y
+let bar() = foo <| fun x y z -> add x y

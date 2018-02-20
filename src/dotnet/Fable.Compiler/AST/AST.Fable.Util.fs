@@ -164,12 +164,6 @@ let makeTypeConst (typ: Type) (value: obj) =
         NewArray (ArrayValues values, Number kind) |> Value
     | _ -> failwithf "Unexpected type %A, literal %O" typ value
 
-// let makeJsObject range (props: (string * Expr) list) =
-//     let membs = props |> List.map (fun (name, body) ->
-//         let m = Member.Create(name, Field, [], body.Type)
-//         m, [], body)
-//     ObjectExpr(membs, range)
-
 let getTypedArrayName (com: ICompiler) numberKind =
     match numberKind with
     | Int8 -> "Int8Array"
@@ -180,27 +174,6 @@ let getTypedArrayName (com: ICompiler) numberKind =
     | UInt32 -> "Uint32Array"
     | Float32 -> "Float32Array"
     | Float64 -> "Float64Array"
-
-// let makeCall (range: SourceLocation option) typ kind =
-//     let call meth isCons args callee =
-//         // TODO: Parameterize hasSpread
-//         Operation(Call(callee, meth, args, isCons, hasSpread=false), typ, range)
-//     match kind with
-//     | InstanceCall (callee, meth, args) ->
-//         call (Some meth) false args callee
-//     | ImportCall (importPath, modName, meth, isCons, args) ->
-//         Import (modName, importPath, CustomImport, Any) |> call meth isCons args
-//     | CoreLibCall (modName, meth, isCons, args) ->
-//         makeCoreRef Any modName (defaultArg meth "default") |> call None isCons args
-//     | GlobalCall (modName, meth, isCons, args) ->
-//         call meth isCons args (makeIdentExpr modName)
-
-// let isUncurried = function
-//     // Arguments coming from the outside should be already uncurried
-//     | IdentExpr (ident, _) -> ident.IsUncurried
-//     // Assume functions in (usually record) fields are already uncurried
-//     | Get _ -> true // TODO: Check it's actually a record? (We'd have to edit the AST)
-//     | _ -> false
 
 // let getArity typ =
 //     let rec getArityInner acc = function
@@ -276,7 +249,6 @@ let getTypedArrayName (com: ICompiler) numberKind =
 //         | LambdaType _ -> Uncurry(e, None)
 //         | _ -> e)
 
-// // TODO: Remove single unit argument
 // let private removeOptionalArguments (optionalArgs: int) (args: Expr list) =
 //     let rec removeArgs optionalArgs (revArgs: Expr list) =
 //         match revArgs with
@@ -284,31 +256,6 @@ let getTypedArrayName (com: ICompiler) numberKind =
 //             removeArgs (optionalArgs - 1) rest
 //         | _ -> args
 //     List.rev args |> removeArgs optionalArgs |> List.rev
-
-// type CallHelper =
-//     /// Uncurry functions passed as arguments and other operations
-//     static member PrepareArgs(argExprs: Expr list,
-//                               ?argTypes: Type list,
-//                               ?hasRestParams: bool,
-//                               ?optionalArgs: int,
-//                               ?untupleArgs: bool) =
-//         let argExprs =
-//             match hasRestParams, untupleArgs, optionalArgs, argExprs with
-//             | Some true, _, _, (_::_) ->
-//                 let argExprs = List.rev argExprs
-//                 match argExprs.Head with
-//                 | Value(NewArray(items, _)) -> (List.rev argExprs.Tail)@items
-//                 | _ -> (Spread argExprs.Head)::argExprs.Tail |> List.rev
-//             // TODO: hasSeqParam
-//             // TODO: If we're within a constructor and call to another constructor, pass `$this` as last argument
-//             | _, Some true, _, [Value(NewTuple argExprs)] ->
-//                 argExprs
-//             | _, _, Some optionalArgs, _ when optionalArgs > 0 ->
-//                 removeOptionalArguments optionalArgs argExprs // See #231, #640
-//             | _ ->
-//                 argExprs
-//         // TODO: We shouldn't uncurry args for setters
-//         markUncurriedArgs argTypes argExprs
 
 let rec makeTypeTest com fileName range expr (typ: Type) =
     let jsTypeof (primitiveType: string) expr =
