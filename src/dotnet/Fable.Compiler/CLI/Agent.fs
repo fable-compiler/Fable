@@ -116,7 +116,6 @@ let updateState (checker: FSharpChecker) (state: Map<string,Project>) (msg: Pars
         true, state, project
     let tryFindAndUpdateProject state sourceFile =
         let checkWatchCompilation project sourceFile =
-            // Check if there are dirty files
             let dirtyFiles = getDirtyFiles project sourceFile
             if Array.length dirtyFiles > 0 then
                 createProject checker dirtyFiles (Some project) msg project.ProjectFile
@@ -181,6 +180,7 @@ let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFil
 let compile (com: Compiler) (project: Project) =
     let babel =
         if com.CurrentFile.EndsWith(".fsproj") then
+            // If we compile the last file here, Webpack watcher will ignore changes in it
             Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles com.CurrentFile
         else
             FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles
@@ -205,16 +205,12 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                 let msg = Parser.parse msg
                 // lazy sprintf "Received message %A" msg |> Log.logVerbose
                 let isUpdated, state, activeProject = updateState checker state msg
-                let comOptions =
-                    { fableCore =
-                        match activeProject.FableCore with
-                        | FilePath p -> (Path.getRelativePath msg.path p).TrimEnd('/')
-                        | NonFilePath p -> p.TrimEnd('/')
-                      typedArrays = msg.typedArrays
-                      clampByteArrays = msg.clampByteArrays
-                      addReflectionInfo = msg.addReflectionInfo
-                    }
-                let com = Compiler(msg.path, comOptions)
+                let fableCore: string = failwith "TODO: fableCore"
+                // { fableCore =
+                //     match activeProject.FableCore with
+                //     | FilePath p -> (Path.getRelativePath msg.path p).TrimEnd('/')
+                //     | NonFilePath p -> p.TrimEnd('/')
+                let com = Compiler(msg.path, fableCore, Parser.toCompilerOptions msg)
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file
                 if isUpdated && activeProject.IsWatchCompile then

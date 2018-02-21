@@ -1,8 +1,7 @@
 namespace Fable
 
 type CompilerOptions =
-    { fableCore: string
-      typedArrays: bool
+    { typedArrays: bool
       clampByteArrays: bool
       addReflectionInfo: bool
     }
@@ -14,6 +13,7 @@ type Severity =
     | Info
 
 type ICompiler =
+    abstract FableCore: string
     abstract CurrentFile: string
     abstract Options: CompilerOptions
     abstract GetUniqueVar: unit->string

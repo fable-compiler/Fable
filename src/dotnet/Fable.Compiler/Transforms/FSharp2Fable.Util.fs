@@ -745,12 +745,17 @@ module Util =
 
     // let (|Emitted|_|) r typ info callee args (memb: FSharpMemberOrFunctionOrValue) =
 
-    let (|Replaced|_|) r typ (info: Fable.CallInfo) (extraInfo: Fable.ExtraCallInfo)
-                        callee args (_: FSharpMemberOrFunctionOrValue) =
-        if Replacements.isReplaceCandidate extraInfo.FullName then
-            match Replacements.tryFirstPass r typ args extraInfo.FullName with
+    let (|Replaced|_|) com ctx r typ genArgs (info: Fable.CallInfo) callee args
+                                        (memb: FSharpMemberOrFunctionOrValue) =
+        let fullName = memb.FullName
+        if Replacements.isReplaceCandidate fullName then
+            match Replacements.tryFirstPass r typ args fullName with
             | Some replaced -> Some replaced
             | None ->
+                let extraInfo: Fable.ExtraCallInfo =
+                  { FullName = fullName
+                    CompiledName = memb.CompiledName
+                    GenericArgs = List.map (makeType com ctx.typeArgs) genArgs }
                 let unresolved = Fable.UnresolvedCall(callee, args, info, extraInfo)
                 Fable.Operation(unresolved, typ, r) |> Some
         else None
@@ -778,7 +783,7 @@ module Util =
         | _ -> None
 
     /// Ignores relative imports (e.g. `[<Import("foo","./lib.js")>]`)
-    let tryImported r typ (name: string) (atts: #seq<FSharpAttribute>) =
+    let tryImported typ (name: string) (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
             let attType = nonAbbreviatedEntity att.AttributeType
             match attType.TryFullName with
@@ -795,7 +800,7 @@ module Util =
             | _ -> None)
 
     let (|Imported|_|) r typ argsAndCallInfo (memb: FSharpMemberOrFunctionOrValue) =
-        match tryImported r typ memb.CompiledName memb.Attributes with
+        match tryImported typ memb.CompiledName memb.Attributes with
         | Some expr ->
             match argsAndCallInfo with
             | Some(args: Fable.Expr list, info: Fable.CallInfo) ->
@@ -867,10 +872,6 @@ module Util =
             IsDynamic = false
             HasSpread = hasSpread memb
             HasThisArg = false }
-        let extraInfo: Fable.ExtraCallInfo =
-          { FullName = memb.FullName
-            CompiledName = memb.CompiledName
-            GenericArgs = List.map (makeType com ctx.typeArgs) genArgs }
         let argsAndCallInfo =
             match callee with
             | Some c -> Some(c::args, { info with HasThisArg = true })
@@ -878,7 +879,7 @@ module Util =
         match memb, memb.EnclosingEntity with
         | Imported r typ argsAndCallInfo imported, _ -> imported
         | Emitted r typ argsAndCallInfo emitted, _ -> emitted
-        | Replaced r typ info extraInfo callee args replaced, _ -> replaced
+        | Replaced com ctx r typ genArgs info callee args replaced, _ -> replaced
         // TODO | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         | Try (tryGetBoundExpr ctx r) expr, _ ->
             match callee with

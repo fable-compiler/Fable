@@ -774,6 +774,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, implFiles: Map<string,
             usedVarNames.Add varName |> ignore
     interface ICompiler with
         member __.Options = com.Options
+        member __.FableCore = com.FableCore
         member __.CurrentFile = com.CurrentFile
         member __.GetUniqueVar() = com.GetUniqueVar()
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =

@@ -8,9 +8,9 @@ open Fable
 
 type Message =
     { path: string
+      rootDir: string
       define: string[]
       plugins: string[]
-      fableCore: string option
       typedArrays: bool
       clampByteArrays: bool
       addReflectionInfo: bool
@@ -87,16 +87,24 @@ let private parseDic (key: string) (o: JObject): IDictionary<string,string> =
     | :? JObject as v -> v.ToObject<IDictionary<string,string>>()
     | _ -> dict []
 
+let toCompilerOptions (msg: Message) =
+    { typedArrays = msg.typedArrays
+      clampByteArrays = msg.clampByteArrays
+      addReflectionInfo = msg.addReflectionInfo }
+
 let parse (msg: string) =
     let json = JsonConvert.DeserializeObject<JObject>(msg)
-    let path = parseStringRequired "path" json |> Path.normalizeFullPath
-    { path = path
+    { path =
+        parseStringRequired "path" json
+        |> Path.normalizeFullPath
+      rootDir =
+        parseStringRequired "rootDir" json
+        |> Path.normalizeFullPath
       define =
         parseStringArray [||] "define" json
         |> Array.append [|"FABLE_COMPILER"|]
         |> Array.distinct
       plugins = parseStringArray [||] "plugins" json
-      fableCore = tryParseString "fableCore" json
       typedArrays = parseBoolean true "typedArrays" json
       clampByteArrays = parseBoolean false "clampByteArrays" json
       addReflectionInfo = parseBoolean true "addReflectionInfo" json

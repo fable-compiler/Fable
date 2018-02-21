@@ -1,7 +1,6 @@
 module Fable.Transforms.State
 
 open Fable
-open Fable.AST
 open System
 open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -22,16 +21,12 @@ type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 open System.Collections.Concurrent
 #endif
 
-type PathRef =
-    | FilePath of string
-    | NonFilePath of string
-
 type FileInfo =
     { mutable SentToClient: bool
       mutable Dependencies: string[] }
 
 type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharpImplementationFileContents>,
-             errors: FSharpErrorInfo array, dependencies: Map<string, string[]>, fableCore: PathRef, isWatchCompile: bool) =
+             errors: FSharpErrorInfo array, dependencies: Map<string, string[]>, fableCore: string, isWatchCompile: bool) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
@@ -90,25 +85,19 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
         member __.GetOrAddInlineExpr(fullName, generate) =
             inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
-let getDefaultOptions() =
-    { fableCore = "fable-core"
-      typedArrays = true
-      clampByteArrays = false
-      addReflectionInfo = true }
-
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
-type Compiler(currentFile, ?options, ?plugins) =
+type Compiler(currentFile, fableCore, options) =
     let mutable id = 0
-    let options = defaultArg options (getDefaultOptions())
     let logs = Dictionary<string, string list>()
+    let fableCore = (Path.getRelativePath currentFile fableCore).TrimEnd('/')
     member __.ReadAllLogs() =
         logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value) |> Map
     member __.Options = options
-    member __.Plugins = plugins
     member __.CurrentFile = currentFile
     interface ICompiler with
         member __.Options = options
+        member __.FableCore = fableCore
         member __.CurrentFile = currentFile
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             let tag = defaultArg tag "FABLE"

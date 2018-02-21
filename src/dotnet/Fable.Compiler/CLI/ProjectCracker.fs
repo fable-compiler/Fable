@@ -9,51 +9,30 @@ open System.Xml.Linq
 open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
-open Fable.Transforms.State
 
 let isSystemPackage (pkgName: string) =
-    pkgName.StartsWith("Microsoft.")
-        || pkgName.StartsWith("runtime.")
-        || pkgName.StartsWith("System.")
+    pkgName.StartsWith("System.")
+        // || pkgName.StartsWith("Microsoft.")
+        // || pkgName.StartsWith("runtime.")
+        || pkgName = "NETStandard.Library"
         || pkgName = "FSharp.Core"
         || pkgName = "Fable.Core"
 
 let logWarningAndReturn (v:'T) str =
     Log.logAlways("[WARNING] " + str); v
 
-/// Reads references from .paket.resolved file. Paket sorts the references in proper
-/// dependency order which is necessary to later merge sources from Fable libraries
-/// into a single project
-let readPaketResolved (targetFramework: string) (projFile: string) =
-    let projDir = Path.GetDirectoryName(projFile)
-    let projFileName = Path.GetFileName(projFile)
-    let paketRefs1 = IO.Path.Combine(projDir, "obj", projFileName + "." + targetFramework + ".paket.resolved")
-    if File.Exists(paketRefs1)
-    then File.ReadAllLines(paketRefs1)
-    else
-        let paketRefs2 = IO.Path.Combine(projDir, "obj", projFileName + ".references")
-        if File.Exists(paketRefs2)
-        then File.ReadAllLines(paketRefs2)
-        else
-            Path.GetFileName(projFile)
-            |> sprintf "Cannot find PAKET info for project %s, it won't be possible to resolve Fable libraries."
-            |> logWarningAndReturn [||]
-
-type ProjectReference =
-    { ProjectFile: string
-      /// Project references from Nuget packages won't be considered direct references.
-      /// The main difference is for non-direct packages we'll only do a simple XML
-      /// parsing to get source files, as we cannot run `dotnet restore` on .fsproj files
-      /// embedded in Nuget packages.
-      IsDirectReference: bool }
-    static member MakeDirect projFile =
-        { ProjectFile = projFile; IsDirectReference = true }
+type FablePackage =
+    { Id: string
+      Version: string
+      FsprojPath: string
+      Dependencies: Set<string> }
 
 type CrackedFsproj =
     { ProjectFile: string
       SourceFiles: string list
-      ProjectReferences: ProjectReference list
-      DllReferences: string list }
+      ProjectReferences: string list
+      DllReferences: string list
+      PackageReferences: FablePackage list }
 
 let makeProjectOptions project sources otherOptions =
     { ProjectFileName = project
@@ -105,36 +84,90 @@ let getBasicCompilerArgs (define: string[]) =
 #endif
     |]
 
+let sortFablePackages (pkgs: FablePackage list) =
+    let final = ResizeArray(List.length pkgs)
+    match pkgs with
+    | head::tail ->
+        final.Add(head)
+        for p in tail do
+            final |> Seq.tryFindIndex (fun p2 ->
+                p2.Dependencies.Contains(p.Id))
+            |> function
+                | Some i -> final.Insert(i, p)
+                | None -> final.Add(p)
+        Seq.toList final
+    | [] -> []
+
+let tryGetFablePackage (dllPath: string) =
+    let tryFileWithPattern dir pattern =
+        try
+            let files = Directory.GetFiles(dir, pattern)
+            match files.Length with
+            | 0 -> None
+            | 1 -> Some files.[0]
+            | _ -> Log.logAlways("More than one file found in " + dir + " with pattern " + pattern)
+                   None
+        with _ -> None
+    let firstWithName localName (els: XElement seq) =
+        els |> Seq.find (fun x -> x.Name.LocalName = localName)
+    let elements (el: XElement) =
+        el.Elements()
+    let attr name (el: XElement) =
+        el.Attribute(XName.Get name).Value
+    let child localName (el: XElement) =
+        let child = el.Elements() |> firstWithName localName
+        child.Value
+    if Path.GetFileNameWithoutExtension(dllPath) |> isSystemPackage
+    then None
+    else
+        let rootDir = IO.Path.Combine(IO.Path.GetDirectoryName(dllPath), "..", "..")
+        let fableDir = IO.Path.Combine(rootDir, "fable")
+        match tryFileWithPattern rootDir "*.nuspec",
+              tryFileWithPattern fableDir "*.fsproj" with
+        | Some nuspecPath, Some fsprojPath ->
+            let xmlDoc = XDocument.Load(nuspecPath)
+            let metadata =
+                xmlDoc.Root.Elements()
+                |> firstWithName "metadata"
+            { Id = metadata |> child "id"
+              Version = metadata |> child "version"
+              FsprojPath = fsprojPath
+              Dependencies =
+                metadata.Elements()
+                |> firstWithName "dependencies" |> elements
+                // We don't consider different frameworks
+                |> firstWithName "group" |> elements
+                |> Seq.map (attr "id")
+                |> Seq.filter (isSystemPackage >> not)
+                |> Set
+            } |> Some
+        | _ -> None
+
 /// Simplistic XML-parsing of .fsproj to get source files, as we cannot
 /// run `dotnet restore` on .fsproj files embedded in Nuget packages.
-let getFsprojSourceFiles (projFile: string) =
+let getSourcesFromFsproj (projFile: string) =
     let withName s (xs: XElement seq) =
         xs |> Seq.filter (fun x -> x.Name.LocalName = s)
     let xmlDoc = XDocument.Load(projFile)
-    let projDir = Path.GetDirectoryName(projFile) |> Path.normalizePath
-    let sourceFiles =
-        xmlDoc.Root.Elements()
-        |> withName "ItemGroup"
-        |> Seq.map (fun item ->
-            (item.Elements(), [])
-            ||> Seq.foldBack (fun el src ->
-                if el.Name.LocalName = "Compile" then
-                    el.Elements() |> withName "Link"
-                    |> Seq.tryHead |> function
-                    | Some link when link.Value.StartsWith(".") ->
-                        link.Value::src
-                    | _ ->
-                        match el.Attribute(XName.Get "Include") with
-                        | null -> src
-                        | att -> att.Value::src
-                else src))
-        |> List.concat
-    { ProjectFile = projFile
-      SourceFiles =
-        sourceFiles
-        |> List.map (fun fileName -> Path.Combine(projDir, fileName) |> Path.normalizeFullPath)
-      ProjectReferences = []
-      DllReferences = [] }
+    let projDir = Path.GetDirectoryName(projFile)
+    xmlDoc.Root.Elements()
+    |> withName "ItemGroup"
+    |> Seq.map (fun item ->
+        (item.Elements(), [])
+        ||> Seq.foldBack (fun el src ->
+            if el.Name.LocalName = "Compile" then
+                el.Elements() |> withName "Link"
+                |> Seq.tryHead |> function
+                | Some link when link.Value.StartsWith(".") ->
+                    link.Value::src
+                | _ ->
+                    match el.Attribute(XName.Get "Include") with
+                    | null -> src
+                    | att -> att.Value::src
+            else src))
+    |> List.concat
+    |> List.map (fun fileName ->
+        Path.Combine(projDir, fileName) |> Path.normalizeFullPath)
 
 let private getDllName (dllFullPath: string) =
     let i = dllFullPath.LastIndexOf('/')
@@ -149,16 +182,16 @@ let private getFsprojName (fsprojFullPath: string) =
 /// later with other projects we'll only take the sources and the references,
 /// checking if some .dlls correspond to Fable libraries (in which case,
 /// we replace them with a non-direct project reference)
-let fullyCrackFsproj (projFile: string): CrackedFsproj =
+let fullCrack (projFile: string): CrackedFsproj =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
-    let projOpts, directProjRefs, msbuildProps =
+    let projOpts, directProjRefs, _msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
-    let targetFramework =
-        match Map.tryFind "TargetFramework" msbuildProps with
-        | Some targetFramework -> targetFramework
-        | None -> failwithf "Cannot find TargetFramework for project %s" projFile
+    // let targetFramework =
+    //     match Map.tryFind "TargetFramework" msbuildProps with
+    //     | Some targetFramework -> targetFramework
+    //     | None -> failwithf "Cannot find TargetFramework for project %s" projFile
     let sourceFiles =
         (projOpts.OtherOptions, []) ||> Array.foldBack (fun line src ->
             if line.StartsWith("-r:") then
@@ -170,111 +203,61 @@ let fullyCrackFsproj (projFile: string): CrackedFsproj =
                 src
             else
                 (Path.normalizeFullPath line)::src)
-    let directProjRefs =
+    let projRefs =
         directProjRefs |> List.map (fun projRef ->
             // Remove dllRefs corresponding to project references
             let projName = getFsprojName projRef
             dllRefs.Remove(projName) |> ignore
-            Path.normalizeFullPath projRef |> ProjectReference.MakeDirect)
-    let fableProjRefs =
-        // Use references from .paket.resolved as they come in proper dependency order
-        readPaketResolved targetFramework projFile
-        |> Seq.choose (fun line ->
-            let pkgName = line.Split(',').[0]
-            if not(isSystemPackage pkgName) then
-                match dllRefs.TryGetValue(pkgName) with
-                | true, dllRef ->
-                    // We confirm if the dll reference corresponds to a Fable library by
-                    // checking if there exists a fable folder with an .fsproj in the package
-                    let dllDir = Path.GetDirectoryName(dllRef)
-                    let fableProj = IO.Path.Combine(dllDir, "..", "..", "fable", pkgName + ".fsproj")
-                    if File.Exists(fableProj)
-                    then
-                        { ProjectFile = Path.normalizeFullPath(fableProj)
-                          IsDirectReference = false } |> Some
-                    else None
-                | false, _ -> None
-            else None)
+            Path.normalizeFullPath projRef)
+    let fablePkgs =
+        let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
+        dllRefs' |> Seq.choose (fun (dllName, dllPath) ->
+            match tryGetFablePackage dllPath with
+            | Some pkg ->
+                dllRefs.Remove(dllName) |> ignore
+                Some pkg
+            | None -> None)
         |> Seq.toList
-    // directProjRefs |> List.map (fun x -> x.ProjectFile) |> printfn "Direct references %A"
-    // fableProjRefs |> List.map (fun x -> x.ProjectFile) |> printfn "Fable references %A"
+        |> sortFablePackages
     { ProjectFile = projFile
       SourceFiles = sourceFiles
-      ProjectReferences = fableProjRefs @ directProjRefs
-      DllReferences = dllRefs.Values |> Seq.toList }
+      ProjectReferences = projRefs
+      DllReferences = dllRefs.Values |> Seq.toList
+      PackageReferences = fablePkgs }
 
-let crackFsproj (isFullCrack: bool) (projFile: string): CrackedFsproj =
-    if isFullCrack
-    then fullyCrackFsproj projFile
-    else getFsprojSourceFiles projFile
-
-let getProjectOptionsFromFsproj (msg: Parser.Message) (projFile: string) =
-    let mainProj = fullyCrackFsproj projFile
-    let fableCoreJsDir: PathRef =
-        match msg.fableCore with
-        | Some path when path.StartsWith(".") -> Path.normalizeFullPath path |> FilePath
-        | Some path when Path.IsPathRooted(path) -> Path.normalizePath path |> FilePath
-        | Some path -> NonFilePath path
-        | None ->
-            mainProj.DllReferences
-            |> List.tryFind (fun x -> x.EndsWith("Fable.Core.dll"))
-            |> Option.bind (fun dllRef ->
-                let dllDir = Path.GetDirectoryName(dllRef)
-                let path = IO.Path.Combine(dllDir, "..", "..", "fable-core")
-                if Directory.Exists(path)
-                then Path.normalizeFullPath path |> FilePath |> Some
-                else None)
-            |> Option.defaultWith (fun () ->
-                sprintf "Cannot find Fable.Core JS files location for project %s, using `fable-core`. %s"
-                    (Path.GetFileName(projFile)) "Add a reference to Fable.Core package or set the fableCore option in the JS client."
-                |> logWarningAndReturn (NonFilePath "fable-core"))
-    let rec crackProjects (acc: CrackedFsproj list) (projFile: Choice<ProjectReference, CrackedFsproj>) =
+let getCrackedProjectsFromMainFsproj (projFile: string) =
+    let rec crackProjects (acc: CrackedFsproj list) (projFile: string) =
         let crackedFsproj =
-            match projFile with
-            | Choice1Of2 projRef ->
-                let projFile = projRef.ProjectFile
-                match acc |> List.tryFind (fun x -> x.ProjectFile = projFile) with
-                | None -> crackFsproj projRef.IsDirectReference projFile
-                | Some crackedFsproj -> crackedFsproj
-            | Choice2Of2 crackedFsproj -> crackedFsproj
+            match acc |> List.tryFind (fun x -> x.ProjectFile = projFile) with
+            | None -> fullCrack projFile
+            | Some crackedFsproj -> crackedFsproj
         // Add always a reference to the front to preserve compilation order
         // Duplicated items will be removed later
-        (crackedFsproj.ProjectReferences, crackedFsproj::acc)
-        ||> Seq.foldBack (fun projRef acc ->
-            crackProjects acc (Choice1Of2 projRef))
-    let crackedFsprojs =
-        crackProjects [] (Choice2Of2 mainProj)
+        List.fold crackProjects (crackedFsproj::acc) crackedFsproj.ProjectReferences
+    let mainProj = fullCrack projFile
+    let refProjs =
+        List.fold crackProjects [] mainProj.ProjectReferences
         |> List.distinctBy (fun x -> x.ProjectFile)
-    let sourceFiles =
-        crackedFsprojs |> Seq.collect (fun x -> x.SourceFiles) |> Seq.toArray
-    let otherOptions =
-        let projRefsSet = crackedFsprojs |> Seq.map (fun x -> getFsprojName x.ProjectFile) |> Set
-        // We only keep dllRefs for the main project
-        //crackedFsprojs |> Seq.collect (fun x -> x.DllReferences) |> Seq.distinct
-        mainProj.DllReferences
-        // Remove dllRefs that have turned into projRefs
-        |> Seq.filter (fun dllRef -> Set.contains (getDllName dllRef) projRefsSet |> not)
-        |> Seq.map ((+) "-r:") |> Seq.toArray
-    makeProjectOptions projFile sourceFiles otherOptions, fableCoreJsDir
+    refProjs, mainProj
 
-let getProjectOpts (checker: FSharpChecker) (msg: Parser.Message) (projFile: string) =
+let getCrackedProjects (checker: FSharpChecker) (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
     | ".fsx" ->
         // getProjectOptionsFromScript checker define projFile
         failwith "Parsing .fsx scripts is not currently possible, please use a .fsproj project"
     | ".fsproj" ->
-        getProjectOptionsFromFsproj msg projFile
+        getCrackedProjectsFromMainFsproj projFile
     | s -> failwithf "Unsupported project type: %s" s
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
 // file for changes. In some cases that editor will lock the file which can cause fable to
 // get a read error. If that happens the lock is usually brief so we can reasonably wait
 // for it to be released.
-let retryGetProjectOpts (checker: FSharpChecker) (msg: Parser.Message) (projFile: string) =
+let retryGetCrackedProjects (checker: FSharpChecker) (projFile: string) =
     let retryUntil = (DateTime.Now + TimeSpan.FromSeconds 2.)
     let rec retry () =
         try
-            getProjectOpts checker msg projFile
+            getCrackedProjects checker projFile
         with
         | :? IOException as ioex ->
             if retryUntil > DateTime.Now then
@@ -285,13 +268,22 @@ let retryGetProjectOpts (checker: FSharpChecker) (msg: Parser.Message) (projFile
         | _ -> reraise()
     retry()
 
-let getFullProjectOpts (checker: FSharpChecker) (msg: Parser.Message) (projFile: string) =
+let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: string) (projFile: string) =
     let projFile = Path.GetFullPath(projFile)
     if not(File.Exists(projFile)) then
         failwith ("File does not exist: " + projFile)
-    let projOpts, fableCoreJsDir = retryGetProjectOpts checker msg projFile
+    let projRefs, mainProj = retryGetCrackedProjects checker projFile
+    let fableCore: string = failwith "TODO: Copy fable-core to rootDir/.fable"
+    let pkgRefs = mainProj.PackageReferences // TODO: Copy sources and transform paths
     let projOpts =
-        Array.append (getBasicCompilerArgs msg.define) projOpts.OtherOptions
-        |> makeProjectOptions projOpts.ProjectFileName projOpts.SourceFiles
-    projOpts, fableCoreJsDir
+        let sourceFiles =
+            let pkgSources = pkgRefs |> List.collect (fun x -> getSourcesFromFsproj x.FsprojPath)
+            let refSources = projRefs |> List.collect (fun x -> x.SourceFiles)
+            pkgSources @ refSources @ mainProj.SourceFiles |> List.toArray
+        let otherOptions =
+            // We only keep dllRefs for the main project
+            let dllRefs = [| for r in mainProj.DllReferences -> "-r:" + r |]
+            Array.append (getBasicCompilerArgs define) dllRefs
+        makeProjectOptions projFile sourceFiles otherOptions
+    projOpts, fableCore
 

@@ -15,8 +15,7 @@ type ReturnStrategy =
 type Import =
   { path: string
     selector: string
-    localIdent: string option
-    internalFile: string option }
+    localIdent: string option }
 
 type ITailCallOpportunity =
     abstract Label: string
@@ -60,6 +59,7 @@ type IBabelCompiler =
     abstract GetImportExpr: Context -> selector: string -> path: string ->
         Fable.ImportKind -> Expression
     abstract GetAllImports: unit -> seq<Import>
+    abstract GetAllDependencies: unit -> seq<string>
     abstract TransformExpr: Context -> Fable.Expr -> Expression
     abstract TransformStatement: Context -> Fable.Expr -> Statement list
     abstract TransformExprAndResolve: Context -> ReturnStrategy -> Fable.Expr -> Statement list
@@ -849,59 +849,94 @@ module Util =
                     declareModuleMember publicName privName isMutable value
                 |> List.append acc)
 
+    let transformImports (imports: Import seq): U2<Statement, ModuleDeclaration> list =
+        imports |> Seq.map (fun import ->
+            let specifier =
+                import.localIdent
+                |> Option.map (fun localId ->
+                    let localId = Identifier(localId)
+                    match import.selector with
+                    | "*" -> ImportNamespaceSpecifier(localId) |> U3.Case3
+                    | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
+                    | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1)
+            import.path, specifier)
+        |> Seq.groupBy (fun (path, _) -> path)
+        |> Seq.collect (fun (path, specifiers) ->
+            let mems, defs, alls =
+                (([], [], []), Seq.choose snd specifiers)
+                ||> Seq.fold (fun (mems, defs, alls) x ->
+                    let t =
+                        match x with
+                        | U3.Case1 x -> x.``type``
+                        | U3.Case2 x -> x.``type``
+                        | U3.Case3 x -> x.``type``
+                    match t with
+                    | "ImportNamespaceSpecifier" -> mems, defs, x::alls
+                    | "ImportDefaultSpecifier" -> mems, x::defs, alls
+                    | _ -> x::mems, defs, alls)
+            // There seem to be errors if we mix member, default and namespace imports
+            // so we must issue an import statement for each kind
+            match [mems; defs; alls] with
+            | [[];[];[]] ->
+                // No specifiers, so this is just a import for side effects
+                [ImportDeclaration([], StringLiteral path) :> ModuleDeclaration |> U2.Case2]
+            | specifiers ->
+                specifiers |> List.choose (function
+                | [] -> None
+                | specifiers ->
+                    ImportDeclaration(specifiers, StringLiteral path)
+                    :> ModuleDeclaration |> U2.Case2 |> Some))
+        |> Seq.toList
+
     let makeCompiler (com: ICompiler) (state: ICompilerState) =
+        let sanitizeSelector com selector =
+            if selector = "*"
+            then selector
+            elif selector = Naming.placeholder
+            then "`importMember` must be assigned to a variable"
+                 |> addError com None; selector
+            // Replace ident forbidden chars of root members, see #207
+            else Naming.replaceIdentForbiddenChars selector
+
+        let getLocalIdent (ctx: Context) (imports: Dictionary<string,Import>) (path: string) (selector: string) =
+            match selector with
+            | "" -> None
+            | "*" | "default" ->
+                let x = path.TrimEnd('/')
+                x.Substring(x.LastIndexOf '/' + 1) |> Some
+            | selector -> Some selector
+            |> Option.map (Naming.sanitizeIdent (fun s ->
+                ctx.file.UsedVarNames.Contains s
+                    || (imports.Values |> Seq.exists (fun i -> i.localIdent = Some s))))
+
+        let dependencies = HashSet<string>()
         let imports = Dictionary<string,Import>()
+
         { new IBabelCompiler with
             member __.GetRootModule(file) =
                 state.GetRootModule(file)
             member bcom.GetImportExpr ctx selector path kind =
-                let sanitizeSelector selector =
-                    if selector = "*"
-                    then selector
-                    elif selector = Naming.placeholder
-                    then "`importMember` must be assigned to a variable"
-                         |> addError bcom None; selector
-                    // Replace ident forbidden chars of root members, see #207
-                    else Naming.replaceIdentForbiddenChars selector
-                let getLocalIdent (ctx: Context) (selector: string) =
-                    match selector with
-                    | "" -> None
-                    | "*" | "default" ->
-                        let x = path.TrimEnd('/')
-                        x.Substring(x.LastIndexOf '/' + 1) |> Some
-                    | selector -> Some selector
-                    |> Option.map (Naming.sanitizeIdent (fun s ->
-                        ctx.file.UsedVarNames.Contains s
-                            || (imports.Values |> Seq.exists (fun i -> i.localIdent = Some s))))
-                match kind with
-                | Fable.CoreLib when com.Options.fableCore.StartsWith("var ") ->
-                    let ident: Expression = upcast Identifier(com.Options.fableCore.[4..])
-                    get (get ident path) selector
-                | _ ->
-                    match imports.TryGetValue(path + "::" + selector) with
-                    | true, i ->
-                        match i.localIdent with
-                        | Some localIdent -> upcast Identifier(localIdent)
-                        | None -> upcast NullLiteral ()
-                    | false, _ ->
-                        let localId = getLocalIdent ctx selector
-                        let i = {
-                            selector = sanitizeSelector selector
-                            localIdent = localId
-                            internalFile =
-                                if kind = Fable.Internal
-                                then Some path
-                                else None
-                            path =
-                                match kind with
-                                | Fable.CustomImport | Fable.Internal _ -> path
-                                | Fable.CoreLib -> com.Options.fableCore + "/" + path + Naming.targetFileExtension
-                        }
-                        imports.Add(path + "::" + selector, i)
-                        match localId with
-                        | Some localId -> upcast Identifier(localId)
-                        | None -> upcast NullLiteral ()
-            member __.GetAllImports () = upcast imports.Values
+                match imports.TryGetValue(path + "::" + selector) with
+                | true, i ->
+                    match i.localIdent with
+                    | Some localIdent -> upcast Identifier(localIdent)
+                    | None -> upcast NullLiteral ()
+                | false, _ ->
+                    let localId = getLocalIdent ctx imports path selector
+                    let sanitizedPath =
+                        match kind with
+                        | Fable.CustomImport | Fable.Internal _ -> path
+                        | Fable.CoreLib -> com.FableCore + "/" + path + Naming.targetFileExtension
+                    let i =
+                      { selector = sanitizeSelector bcom selector
+                        localIdent = localId
+                        path = sanitizedPath }
+                    imports.Add(path + "::" + selector, i)
+                    match localId with
+                    | Some localId -> upcast Identifier(localId)
+                    | None -> upcast NullLiteral ()
+            member __.GetAllImports() = upcast imports.Values
+            member __.GetAllDependencies() = upcast dependencies
             member bcom.TransformExpr ctx e = transformExpr bcom ctx e
             member bcom.TransformStatement ctx e = transformStatement bcom ctx e
             member bcom.TransformExprAndResolve ctx ret e = transformExprAndResolve bcom ctx ret e
@@ -912,6 +947,7 @@ module Util =
                 transformObjectExpr bcom ctx members r
         interface ICompiler with
             member __.Options = com.Options
+            member __.FableCore = com.FableCore
             member __.CurrentFile = com.CurrentFile
             member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
@@ -920,7 +956,6 @@ module Util =
 module Compiler =
     open Util
 
-    // The façade is necessary so watchers take last file into account
     let createFacade (dependencies: string[]) (facadeFile: string) =
         let decls =
             let importFile = Array.last dependencies
@@ -939,54 +974,12 @@ module Compiler =
                 addDeclaredVar = fun _ -> ()
                 tailCallOpportunity = None
                 optimizeTailCall = fun () -> () }
-            let rootDecls =
-                transformDeclarations com ctx file.Declarations
+            let rootDecls = transformDeclarations com ctx file.Declarations
+            let importDecls = transformImports <| com.GetAllImports()
             let dependencies =
-                com.GetAllImports()
-                |> Seq.choose (fun i -> i.internalFile)
-                |> Seq.distinct
-                |> Seq.append (file.Dependencies)
+                com.GetAllDependencies()
+                |> Seq.append file.Dependencies
                 |> Seq.toArray
-            // Add imports
-            com.GetAllImports()
-            |> Seq.mapi (fun _ident import ->
-                let specifier =
-                    import.localIdent
-                    |> Option.map (fun localId ->
-                        let localId = Identifier(localId)
-                        match import.selector with
-                        | "*" -> ImportNamespaceSpecifier(localId) |> U3.Case3
-                        | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
-                        | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1)
-                import.path, specifier)
-            |> Seq.groupBy (fun (path, _) -> path)
-            |> Seq.collect (fun (path, specifiers) ->
-                let mems, defs, alls =
-                    (([], [], []), Seq.choose snd specifiers)
-                    ||> Seq.fold (fun (mems, defs, alls) x ->
-                        let t =
-                            match x with
-                            | U3.Case1 x -> x.``type``
-                            | U3.Case2 x -> x.``type``
-                            | U3.Case3 x -> x.``type``
-                        match t with
-                        | "ImportNamespaceSpecifier" -> mems, defs, x::alls
-                        | "ImportDefaultSpecifier" -> mems, x::defs, alls
-                        | _ -> x::mems, defs, alls)
-                // There seem to be errors if we mix member, default and namespace imports
-                // so we must issue an import statement for each kind
-                match [mems; defs; alls] with
-                | [[];[];[]] ->
-                    // No specifiers, so this is just a import for side effects
-                    [ImportDeclaration([], StringLiteral path) :> ModuleDeclaration |> U2.Case2]
-                | specifiers ->
-                    specifiers |> List.choose (function
-                    | [] -> None
-                    | specifiers ->
-                        ImportDeclaration(specifiers, StringLiteral path)
-                        :> ModuleDeclaration |> U2.Case2 |> Some))
-            // Return the Babel file
-            |> fun importDecls ->
-                 Program(file.SourcePath, (Seq.toList importDecls)@rootDecls, dependencies=dependencies)
+            Program(file.SourcePath, importDecls@rootDecls, dependencies=dependencies)
         with
         | ex -> exn (sprintf "%s (%s)" ex.Message file.SourcePath, ex) |> raise
