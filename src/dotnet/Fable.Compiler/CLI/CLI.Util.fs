@@ -7,16 +7,26 @@ module Literals =
 
 /// These values must be only set by the Main method
 [<RequireQualifiedAccess>]
-module Flags =
+module GlobalParams =
+  open System.IO
+  open System.Reflection
+
+  type private TypeInThisAssembly = class end
+
   let mutable logVerbose = false
-  let mutable checkCoreVersion = true
+
+  let mutable fableCoreDir =
+    let execDir =
+      typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location
+      |> Path.GetDirectoryName
+    Path.Combine(execDir, "..", "..", "fable-core")
 
 [<RequireQualifiedAccess>]
 module Log =
   open System
 
   let logVerbose(msg: Lazy<string>) =
-    if Flags.logVerbose then
+    if GlobalParams.logVerbose then
       try // Some long verbose message may conflict with other processes
         Console.WriteLine(msg.Value)
       with _ -> ()

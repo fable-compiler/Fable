@@ -34,7 +34,7 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
             prevProject.ProjectOptions, prevProject.FableCore, prevProject.GetDependencies()
         | None ->
             let projectOptions, fableCore =
-                getFullProjectOpts checker msg projFile
+                getFullProjectOpts checker msg.define msg.rootDir projFile
             Log.logVerbose(lazy
                 let proj = getRelativePath projectOptions.ProjectFileName
                 let opts = projectOptions.OtherOptions |> String.concat "\n   "
@@ -51,7 +51,7 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
                 // About this parameter, see https://github.com/fsharp/FSharp.Compiler.Service/issues/796#issuecomment-333094956
                 let version = IO.File.GetLastWriteTime(dirtyFile).Ticks |> int
                 // TODO: results.Errors are different from res.Errors below?
-                let results, answer =
+                let _results, answer =
                     checker.ParseAndCheckFileInProject(dirtyFile, version, source, projectOptions)
                     |> Async.RunSynchronously
                 match answer with
@@ -75,7 +75,7 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
                 |> Async.RunSynchronously
             tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
                 Printers.printAst dir checkedProject)
-            // let optimized = false // todo: from compiler option
+            // let optimized = false // TODO: from compiler option
             let implFiles =
                 // if optimized then checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
                 // else
@@ -205,12 +205,7 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                 let msg = Parser.parse msg
                 // lazy sprintf "Received message %A" msg |> Log.logVerbose
                 let isUpdated, state, activeProject = updateState checker state msg
-                let fableCore: string = failwith "TODO: fableCore"
-                // { fableCore =
-                //     match activeProject.FableCore with
-                //     | FilePath p -> (Path.getRelativePath msg.path p).TrimEnd('/')
-                //     | NonFilePath p -> p.TrimEnd('/')
-                let com = Compiler(msg.path, fableCore, Parser.toCompilerOptions msg)
+                let com = Compiler(msg.path, activeProject.FableCore, Parser.toCompilerOptions msg)
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file
                 if isUpdated && activeProject.IsWatchCompile then

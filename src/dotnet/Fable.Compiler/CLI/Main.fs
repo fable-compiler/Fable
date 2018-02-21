@@ -152,13 +152,13 @@ let startServerWithProcess workingDir port exec args =
         Server.stop port |> Async.RunSynchronously
         p.ExitCode
 
-let checkFlags(args: string[]) =
-    let hasFlag flag =
-        match tryFindArgValue flag args with
-        | Some _ -> true
-        | None -> false
-    Flags.logVerbose <- hasFlag "--verbose"
-    Flags.checkCoreVersion <- not(hasFlag "--no-version-check")
+let setGlobalParams(args: string[]) =
+    match tryFindArgValue "--verbose" args with
+    | Some _ -> GlobalParams.logVerbose <- true
+    | None -> ()
+    match tryFindArgValue "--fable-core" args with
+    | Some dir -> GlobalParams.fableCoreDir <- Fable.Path.normalizeFullPath dir
+    | None -> ()
 
 let (|StartsWith|_|) (pattern: string) (str: string) =
     if str.StartsWith(pattern)
@@ -224,7 +224,7 @@ let quote s = "\"" + s + "\""
 
 [<EntryPoint>]
 let main argv =
-    checkFlags(argv)
+    setGlobalParams(argv)
     match Array.tryHead argv with
     | Some ("--help"|"-h") ->
         printHelp(); 0
