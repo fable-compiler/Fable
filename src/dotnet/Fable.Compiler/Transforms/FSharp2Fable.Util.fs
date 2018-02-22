@@ -823,6 +823,22 @@ module Util =
             | Fable.Let(bindings2, expr) -> Fable.Let((List.rev bindings) @ bindings2, expr) |> Some
             | expr -> Fable.Let(List.rev bindings, expr) |> Some
 
+    let removeOmittedOptionalArguments (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Expr list) =
+        let argsLen = List.length args
+        if memb.CurriedParameterGroups.Count <> 1
+            || memb.CurriedParameterGroups.[0].Count <> argsLen
+        then args
+        else
+            let validArgsLen, _ =
+                (args, (argsLen, false)) ||> List.foldBack (fun arg (len, finish) ->
+                    if finish then len, true else
+                        match memb.CurriedParameterGroups.[0].[len - 1].IsOptionalArg, arg with
+                        | true, Fable.Value(Fable.NewOption(None,_)) -> len - 1, false
+                        | _ -> len, true)
+            if validArgsLen < argsLen
+            then List.take validArgsLen args
+            else args
+
     let memberRef (com: IFableCompiler) typ argTypes (memb: FSharpMemberOrFunctionOrValue) =
         let memberName = getMemberDeclarationName com argTypes memb
         let file =
@@ -838,7 +854,7 @@ module Util =
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
         let call info callee memb args =
             Fable.Operation(Fable.Call(callee, memb, args, info), typ, r)
-        // TODO: Remove optional arguments
+        let args = removeOmittedOptionalArguments memb args
         let info: Fable.CallInfo =
           { ArgTypes = getArgTypes com memb
             IsConstructor = false
