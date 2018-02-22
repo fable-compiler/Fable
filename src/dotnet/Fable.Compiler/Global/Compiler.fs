@@ -3,7 +3,6 @@ namespace Fable
 type CompilerOptions =
     { typedArrays: bool
       clampByteArrays: bool
-      addReflectionInfo: bool
     }
 
 [<RequireQualifiedAccess>]
@@ -20,10 +19,9 @@ type ICompiler =
     abstract AddLog: msg:string * severity: Severity * ?range:SourceLocation
                         * ?fileName:string * ?tag: string -> unit
 
-open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-type InlineExpr = IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr
+type InlineExpr = FSharpMemberOrFunctionOrValue list * FSharpExpr
 
 type ICompilerState =
     abstract GetRootModule: string -> string

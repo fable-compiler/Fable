@@ -1,9 +1,14 @@
 {
   "private": true,
   "scripts": {
+    "start": "concurrently --names TEST,COMPILER -k \"chokidar '../build/tests' -c 'yarn test'\" \"cd ../src/dotnet/Fable.Compiler && dotnet watch run yarn-splitter --cwd ../../../tests --fable-core ../../../build/fable-core\" ",
+    "splitter": "node ../src/js/fable-splitter/dist/cli -c splitter.config.js",
     "webpack": "node ../node_modules/webpack/bin/webpack -p",
     "rollup": "node ../node_modules/rollup/bin/rollup -c",
-    "splitter": "node ../src/js/fable-splitter/dist/cli -c splitter.config.js",
     "test": "node ../node_modules/mocha/bin/mocha ../build/tests"
+  },
+  "devDependencies": {
+    "chokidar-cli": "^1.2.0",
+    "concurrently": "^3.5.1"
   }
 }

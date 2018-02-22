@@ -670,8 +670,7 @@ let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (memb: FSha
         ctx, []
     elif isInline memb then
         // TODO: Compiler flag to output inline expressions (e.g. for REPL libs)
-        let args = Seq.collect id args |> countRefs body
-        com.AddInlineExpr(memb, (upcast args, body))
+        com.AddInlineExpr(memb, (List.concat args, body))
         ctx, []
     elif memb.IsImplicitConstructor || memb.IsConstructor then
         transformConstructor com ctx memb args body
@@ -762,9 +761,7 @@ type FableCompiler(com: ICompiler, state: ICompilerState, implFiles: Map<string,
             let fullName = getMemberDeclarationFullname fcom (getArgTypes fcom memb) memb
             state.GetOrAddInlineExpr(fullName, fun () ->
                 match tryGetMemberArgsAndBody implFiles fileName memb with
-                | Some(args, body) ->
-                    let args = Seq.collect id args |> countRefs body
-                    (upcast args, body)
+                | Some(args, body) -> List.concat args, body
                 | None -> failwith ("Cannot find inline member " + memb.FullName)
             )
         member fcom.AddInlineExpr(memb, inlineExpr) =

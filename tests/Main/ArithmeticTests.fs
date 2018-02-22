@@ -4,10 +4,10 @@ open System
 open Fable.Core
 // open Util.Testing
 
-[<Emit("it($0,$1)")>]
+[<Global("it")>]
 let testCase (msg: string) (f: unit->unit): unit = jsNative
 
-let equal (actual, expected): unit = Fable.Core.Testing.Assert.AreEqual(actual, expected)
+let inline equal (actual, expected): unit = Fable.Core.Testing.Assert.AreEqual(actual, expected)
 
 testCase "Infix add can be generated" <| fun () ->
     equal (4 + 2, 6)

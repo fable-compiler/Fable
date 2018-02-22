@@ -15,14 +15,14 @@ type Context =
       /// Some expressions that create scope in F# don't do it in JS (like let bindings)
       /// so we need a mutable registry to prevent duplicated var names.
       varNames: HashSet<string>
-      typeArgs: (string * FSharpType) list
+      typeArgs: Map<string, FSharpType>
       decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
     }
     static member Create() =
         { scope = []
           scopedInlines = []
           varNames = HashSet()
-          typeArgs = []
+          typeArgs = Map.empty
           decisionTargets = None }
 
 type IFableCompiler =
@@ -129,8 +129,8 @@ module Helpers =
         | FSharpInlineAnnotation.NeverInline
         | FSharpInlineAnnotation.OptionalInline -> false
         | FSharpInlineAnnotation.PseudoValue
-        | FSharpInlineAnnotation.AlwaysInline -> true
-        | FSharpInlineAnnotation.AggressiveInline -> failwith "Not Implemented"
+        | FSharpInlineAnnotation.AlwaysInline
+        | FSharpInlineAnnotation.AggressiveInline -> true
 
     let isPublicMember (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsCompilerGenerated
@@ -485,9 +485,9 @@ module TypeHelpers =
 
     and makeType (com: IFableCompiler) ctxTypeArgs (NonAbbreviatedType t) =
         let resolveGenParam (genParam: FSharpGenericParameter) =
-            match ctxTypeArgs |> List.tryFind (fun (name,_) -> name = genParam.Name) with
+            match Map.tryFind genParam.Name ctxTypeArgs with
             // Clear typeArgs to prevent infinite recursion
-            | Some (_,typ) -> makeType com [] typ
+            | Some typ -> makeType com Map.empty typ
             | None -> Fable.GenericParam genParam.Name
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
@@ -523,7 +523,7 @@ module TypeHelpers =
         // FSharpParameters don't contain the `this` arg
         Seq.concat memb.CurriedParameterGroups
         // The F# compiler "untuples" the args in methods
-        |> Seq.map (fun x -> makeType com [] x.Type)
+        |> Seq.map (fun x -> makeType com Map.empty x.Type)
         |> Seq.toList
 
     let isAbstract (ent: FSharpEntity) =
@@ -683,18 +683,6 @@ module Util =
     open TypeHelpers
     open Identifiers
 
-    let countRefs fsExpr (vars: #seq<FSharpMemberOrFunctionOrValue>) =
-        let varsDic = Dictionary()
-        for var in vars do varsDic.Add(var, 0)
-        let rec countRefs = function
-            | BasicPatterns.Value v when not v.IsModuleValueOrMember ->
-                match varsDic.TryGetValue(v) with
-                | true, count -> varsDic.[v] <- count + 1
-                | false, _ -> ()
-            | expr -> expr.ImmediateSubExpressions |> Seq.iter countRefs
-        countRefs fsExpr
-        varsDic
-
     let makeFunctionArgs com ctx (args: FSharpMemberOrFunctionOrValue list) =
         let ctx, args =
             ((ctx, []), args)
@@ -757,18 +745,17 @@ module Util =
                 Fable.Operation(unresolved, typ, r) |> Some
         else None
 
-    let (|ResolveGeneric|) genArgs (t: FSharpType) =
-        if not t.IsGenericParameter then t else
-        let genParam = t.GenericParameter
-        genArgs |> List.tryPick (fun (name,t) ->
-            if genParam.Name = name then Some t else None)
-        // TODO: Throw error if generic cannot be resolved?
-        |> Option.defaultValue t
+    // let (|ResolveGeneric|) genArgs (t: FSharpType) =
+    //     if not t.IsGenericParameter then t else
+    //     let genParam = t.GenericParameter
+    //     genArgs |> List.tryPick (fun (name,t) ->
+    //         if genParam.Name = name then Some t else None)
+    //     // TODO: Throw error if generic cannot be resolved?
+    //     |> Option.defaultValue t
 
-    let matchGenericParams ctx (memb: FSharpMemberOrFunctionOrValue) ownerTypeArgs funcTypeArgs =
-        ([], memb.GenericParameters, ownerTypeArgs@funcTypeArgs)
-        |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx.typeArgs t) -> (genPar.Name, t)::acc)
-        |> List.rev
+    let matchGenericParams (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) genArgs =
+        (ctx.typeArgs, memb.GenericParameters, genArgs)
+        |||> Seq.fold2 (fun acc genPar t -> Map.add genPar.Name t acc)
 
     let (|Emitted|_|) r typ argsAndCallInfo (memb: FSharpMemberOrFunctionOrValue) =
         match memb.Attributes with
@@ -784,11 +771,11 @@ module Util =
         atts |> Seq.tryPick (fun att ->
             let attType = nonAbbreviatedEntity att.AttributeType
             match attType.TryFullName with
-            | Some "Global" ->
+            | Some Atts.global_ ->
                 match Seq.tryHead att.ConstructorArguments with
                 | Some(_, (:? string as customName)) -> makeTypedIdent typ customName |> Fable.IdentExpr |> Some
                 | _ -> makeTypedIdent typ name |> Fable.IdentExpr |> Some
-            | Some "Import" ->
+            | Some Atts.import ->
                 match Seq.toList att.ConstructorArguments with
                 | [(_, (:? string as memb)); (_, (:? string as path))]
                         when not(isNull memb || isNull path || path.StartsWith ".") ->
@@ -818,34 +805,20 @@ module Util =
                 Some expr
         | None -> None
 
-    let (|Inlined|_|) r typ callInfo (memb: FSharpMemberOrFunctionOrValue) =
-        None // TODO
-        // if not(isInline memb)
-        // then None
-        // else
-        //     let argIdents, fsExpr = com.GetInlineExpr memb
-        //     let args = match callee with Some c -> c::args | None -> args
-        //     let ctx, assignments, _ =
-        //         ((ctx, [], 0), argIdents, args)
-        //         |||> Seq.fold2 (fun (ctx, assignments, idx) (KeyValue(argIdent, refCount)) arg ->
-        //             // If an expression is referenced more than once, assign it
-        //             // to a temp var to prevent multiple evaluations
-        //             if refCount > 1 && hasDoubleEvalRisk arg then
-        //                 let tmpVar = com.GetUniqueVar() |> makeIdent
-        //                 let tmpVarExp = Fable.Value(Fable.IdentValue tmpVar)
-        //                 let assign = Fable.VarDeclaration(tmpVar, arg, false, None)
-        //                 let ctx = { ctx with scope = (Some argIdent, tmpVarExp)::ctx.scope }
-        //                 ctx, (assign::assignments), (idx + 1)
-        //             else
-        //                 let ctx = { ctx with scope = (Some argIdent, arg)::ctx.scope }
-        //                 ctx, assignments, (idx + 1)
-        //         )
-        //     let typeArgs = matchGenericParams ctx memb (typArgs, methTypArgs)
-        //     let ctx = {ctx with typeArgs=typeArgs}
-        //     let expr = com.Transform ctx fsExpr
-        //     if List.isEmpty assignments
-        //     then Some expr
-        //     else makeSequential r (assignments@[expr]) |> Some
+    let (|Inlined|_|) (com: IFableCompiler) ctx genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
+        if not(isInline memb)
+        then None
+        else
+            let argIdents, fsExpr = com.GetInlineExpr memb
+            let args = match callee with Some c -> c::args | None -> args
+            let ctx, bindings =
+                ((ctx, []), argIdents, args) |||> List.fold2 (fun (ctx, bindings) argId arg ->
+                    let ctx, ident = bindIdentFrom com ctx argId
+                    ctx, (ident, arg)::bindings)
+            let ctx = { ctx with typeArgs = matchGenericParams ctx memb genArgs }
+            match com.Transform ctx fsExpr with
+            | Fable.Let(bindings2, expr) -> Fable.Let((List.rev bindings) @ bindings2, expr) |> Some
+            | expr -> Fable.Let(List.rev bindings, expr) |> Some
 
     let memberRef (com: IFableCompiler) typ argTypes (memb: FSharpMemberOrFunctionOrValue) =
         let memberName = getMemberDeclarationName com argTypes memb
@@ -877,7 +850,7 @@ module Util =
         | Imported r Fable.Any argsAndCallInfo imported, _ -> imported
         | Emitted r Fable.Any argsAndCallInfo emitted, _ -> emitted
         | Replaced com ctx r typ genArgs info callee args replaced, _ -> replaced
-        // TODO | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
+        | Inlined com ctx genArgs callee args expr, _ -> expr
         | Try (tryGetBoundExpr ctx r) expr, _ ->
             match callee with
             | Some c -> call { info with HasThisArg = true } expr None (c::args)

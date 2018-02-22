@@ -13,7 +13,6 @@ type Message =
       plugins: string[]
       typedArrays: bool
       clampByteArrays: bool
-      addReflectionInfo: bool
       extra: IDictionary<string,string> }
 
 let foldi f init (xs: 'T seq) =
@@ -90,7 +89,7 @@ let private parseDic (key: string) (o: JObject): IDictionary<string,string> =
 let toCompilerOptions (msg: Message) =
     { typedArrays = msg.typedArrays
       clampByteArrays = msg.clampByteArrays
-      addReflectionInfo = msg.addReflectionInfo }
+    }
 
 let parse (msg: string) =
     let json = JsonConvert.DeserializeObject<JObject>(msg)
@@ -107,5 +106,4 @@ let parse (msg: string) =
       plugins = parseStringArray [||] "plugins" json
       typedArrays = parseBoolean true "typedArrays" json
       clampByteArrays = parseBoolean false "clampByteArrays" json
-      addReflectionInfo = parseBoolean true "addReflectionInfo" json
       extra = parseDic "extra" json }
