@@ -1,4 +1,7 @@
 {
+  "include": [
+    "src/**/*"
+  ],
   "compilerOptions": {
     /* Basic Options */
     "target": "es2015",                       /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017', or 'ESNEXT'. */
@@ -9,8 +12,8 @@
     // "jsx": "preserve",                     /* Specify JSX code generation: 'preserve', 'react-native', or 'react'. */
     "declaration": true,                      /* Generates corresponding '.d.ts' file. */
     "sourceMap": false,                        /* Generates corresponding '.map' file. */
+    "outDir": "./dist",                        /* Redirect output structure to the directory. */
     // "outFile": "./",                       /* Concatenate and emit output to single file. */
-    // "outDir": "./",                        /* Redirect output structure to the directory. */
     // "rootDir": "./",                       /* Specify the root directory of input files. Use to control the output directory structure with --outDir. */
     // "removeComments": true,                /* Do not emit comments to output. */
     // "noEmit": true,                        /* Do not emit outputs. */

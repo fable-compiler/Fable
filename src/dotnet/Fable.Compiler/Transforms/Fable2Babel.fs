@@ -834,7 +834,18 @@ module Util =
         ([], decls) ||> List.fold (fun acc decl ->
             match decl with
             | Fable.ActionDeclaration e ->
-                transformStatement com ctx e
+                let statements = transformStatement com ctx e
+                let hasVarDeclarations =
+                    statements |> List.exists (function
+                        | :? VariableDeclaration -> true
+                        | _ -> false)
+                let statements =
+                    if hasVarDeclarations then
+                        CallExpression(FunctionExpression([], BlockStatement(statements)), [])
+                        |> ExpressionStatement :> Statement
+                        |> List.singleton
+                    else statements
+                statements
                 |> List.map U2.Case1
                 |> List.append acc
             | Fable.ValueDeclaration(publicName, privName, value, isMutable) ->

@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Diagnostics
 open System.Net
+open Fable
 open Agent
 
 type ProcessOptions(?envVars, ?redirectOutput) =
@@ -160,11 +161,6 @@ let setGlobalParams(args: string[]) =
     | Some dir -> GlobalParams.fableCoreDir <- Fable.Path.normalizeFullPath dir
     | None -> ()
 
-let (|StartsWith|_|) (pattern: string) (str: string) =
-    if str.StartsWith(pattern)
-    then str.Substring(pattern.Length) |> Some
-    else None
-
 let printHelp() =
     (Literals.VERSION, Literals.DEFAULT_PORT) ||> printfn """Fable F# to JS compiler (%s)
 Usage: dotnet fable [command] [script] [fable arguments] [-- [script arguments]]
@@ -235,11 +231,11 @@ let main argv =
         startServer args.port agent.Post (Async.RunSynchronously >> konst 0)
     | Some "npm-run" ->
         runNpmOrYarn "npm" argv.[1..]
-    | Some (StartsWith "npm-" command) ->
+    | Some (Naming.StartsWith "npm-" command) ->
         Array.append [|command|] argv.[1..] |> runNpmOrYarn "npm"
     | Some "yarn-run" ->
         runNpmOrYarn "yarn" argv.[1..]
-    | Some (StartsWith "yarn-" command) ->
+    | Some (Naming.StartsWith "yarn-" command) ->
         Array.append [|command|] argv.[1..] |> runNpmOrYarn "yarn"
     | Some "node-run" ->
         let args = argv.[2..] |> parseArguments

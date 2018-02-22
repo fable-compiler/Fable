@@ -29,6 +29,7 @@ type Type =
 type Declaration =
     | ActionDeclaration of Expr
     | ValueDeclaration of publicName: string option * privateName: string * value: Expr * isMutable: bool
+    // TODO: Special functions: implicit constructors, overrides, interface implementations
 
 type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
     member __.SourcePath: string = sourcePath

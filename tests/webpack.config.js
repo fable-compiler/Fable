@@ -1,39 +1,16 @@
-const path = require('path');
-const fableUtils = require('fable-utils');
-
-function resolve(relativePath) {
-  return path.join(__dirname, relativePath);
-}
-
-var babelOptions = fableUtils.resolveBabelOptions({
-  "presets": [
-    ["env", {"modules": false}]
-  ]
-});
-
-const config = {
-  entry: resolve('./Main/Fable.Tests.fsproj'),
+module.exports = {
+  entry: './Main/Fable.Tests.fsproj',
   output: {
-    path: resolve('../build/tests'),
+    path: '../build/tests',
     filename: 'bundle.js'
-  },
-  resolve: {
-    modules: [
-      "node_modules", resolve("../node_modules/")
-    ]
   },
   module: {
     rules: [
       {
-        test: /\.fs(x|proj)?$/,
+        test: /\.fs(proj)?$/,
         use: {
             loader: "fable-loader",
-            options: {
-                fableCore: resolve("../build/fable-core"),
-                define: "DOTNETCORE",
-                plugins: resolve("../build/nunit/Fable.Plugins.NUnit.dll"),
-                babel: babelOptions
-            }
+            options: { define: "DOTNETCORE" }
         }
       },
       {
@@ -41,11 +18,13 @@ const config = {
         exclude: /node_modules/,
         use: {
           loader: 'babel-loader',
-          options: babelOptions
+          options: {
+            "presets": [
+              ["env", {"modules": false}]
+            ]
+          }
         },
       }
     ]
   }
 };
-
-module.exports = config;

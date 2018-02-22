@@ -282,15 +282,21 @@ let retryGetCrackedProjects (checker: FSharpChecker) (projFile: string) =
         | _ -> reraise()
     retry()
 
+// FAKE and other tools clean dirs but don't remove them, so check if it's empty
+let isDirectoryEmpty dir =
+    if Directory.Exists(dir)
+    then Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
+    else true
+
 let createFableDir rootDir =
     let fableDir = IO.Path.Combine(rootDir, ".fable")
-    if Directory.Exists(fableDir) |> not then
+    if isDirectoryEmpty fableDir then
         Directory.CreateDirectory(fableDir) |> ignore
         File.WriteAllText(IO.Path.Combine(fableDir, ".gitignore"), "*.*")
     fableDir
 
 let copyDirIfDoesNotExist (source: string) (target: string) =
-    if Directory.Exists(target) |> not then
+    if isDirectoryEmpty target then
         let source = source.TrimEnd('/', '\\')
         let target = target.TrimEnd('/', '\\')
         for dirPath in Directory.GetDirectories(source, "*", SearchOption.AllDirectories) do

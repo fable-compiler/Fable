@@ -48,11 +48,12 @@ let project = "Fable"
 let gitOwner = "fable-compiler"
 let gitHome = "https://github.com/" + gitOwner
 
-let dotnetcliVersion = "2.1.3"
+let dotnetcliVersion = "2.1.4"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let CWD = __SOURCE_DIRECTORY__
 let cliBuildDir = CWD </> "build/fable"
+let cliSrcDir = CWD </> "src/dotnet/Fable.Compiler"
 let coreJsSrcDir = CWD </> "src/js/fable-core"
 
 // Targets
@@ -60,27 +61,21 @@ let installDotnetSdk () =
     dotnetExePath <- DotNetCli.InstallDotNetSDK dotnetcliVersion
     if Path.IsPathRooted(dotnetExePath) then
         Path.GetDirectoryName(dotnetExePath) |> addToPath
-    run CWD "dotnet" "--version"
+    run CWD dotnetExePath "--version"
 
 let clean_ (full: bool) =
     !! "src/dotnet/**/bin"
         -- "src/dotnet/Fable.Client.JS/demo/**"
         -- "src/dotnet/Fable.Client.JS/testapp/**"
-        ++ "src/plugins/nunit/bin"
         ++ "tests*/**/bin"
         ++ "build"
+        ++ "**/.fable"
     |> CleanDirs
 
     if full then
         !! "src/dotnet/**/obj"
-            ++"src/plugins/nunit/obj"
             ++"tests**/**/obj"
         |> CleanDirs
-    else
-        !! "src/dotnet/**/obj/*.nuspec"
-            ++"src/plugins/nunit/obj/*.nuspec"
-            ++"tests**/**/obj/*.nuspec"
-        |> DeleteFiles
 
 let clean () = clean_ false
 let fullClean () = clean_ true
@@ -88,10 +83,12 @@ let fullClean () = clean_ true
 let nugetRestore dir =
     run dir dotnetExePath "restore"
 
-let buildCLI baseDir isRelease () =
+type BuildConfig = Release | Debug
+
+let buildCLI cfg () =
     sprintf "publish -o %s -c %s" cliBuildDir
-        (if isRelease then "Release -v n" else "Debug")
-    |> run (baseDir </> "dotnet-fable") dotnetExePath
+        (match cfg with Release -> "Release -v n" | Debug -> "Debug")
+    |> run cliSrcDir dotnetExePath
 
 let buildCoreJS () =
     Yarn.install CWD
@@ -99,22 +96,18 @@ let buildCoreJS () =
     Yarn.run CWD "tsc" (sprintf "--project %s" coreJsSrcDir)
 
     // Compile F# files
-    nugetRestore coreJsSrcDir
-    "../../../build/fable/dotnet-fable.dll node-run ../fable-splitter/cli -- -c splitter.config.js"
-    |> run coreJsSrcDir dotnetExePath
+    // nugetRestore coreJsSrcDir
+    // "../../../build/fable/Fable.Compiler.dll node-run ../fable-splitter/cli -- -c splitter.config.js"
+    // |> run coreJsSrcDir dotnetExePath
 
 let buildSplitter () =
     let buildDir = CWD </> "src/js/fable-splitter"
     Yarn.install CWD
     // Yarn.run CWD "tslint" [sprintf "--project %s" buildDir]
     Yarn.run CWD "tsc" (sprintf "--project %s" buildDir)
-
-let buildNUnitPlugin () =
-    let nunitDir = "src/plugins/nunit"
-    // CreateDir "build/nunit"  // if it does not exist
-    // run nunitDir dotnetExePath "restore"
-    // pass output path to build command
-    run nunitDir dotnetExePath ("build -c Release -o ../../../build/nunit")
+    // Copy JS files
+    !! (buildDir + "/src/*.js") |> Seq.iter (fun jsFile ->
+        FileUtils.cp jsFile (buildDir + "/dist") )
 
 let buildJsonConverter () =
     // "restore src/dotnet/Fable.JsonConverter"
@@ -132,16 +125,16 @@ let runTestsDotnet () =
 let runTestsJS () =
     Yarn.install CWD
     run CWD dotnetExePath "restore tests/Main"
-    run CWD dotnetExePath "build/fable/dotnet-fable.dll webpack --verbose --port free -- --config tests/webpack.config.js"
-    Yarn.run CWD "mocha" "./build/tests/bundle.js"
+    run CWD dotnetExePath "build/fable/Fable.Compiler.dll yarn-splitter --cwd tests --fable-core build/fable-core --verbose --port free"
+    Yarn.run (CWD </> "tests") "test" ""
 
 let quickTest() =
-    run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll yarn-run rollup"
+    run "src/tools" dotnetExePath "../../build/fable/Fable.Compiler.dll yarn-run rollup"
     run CWD "node" "src/tools/temp/QuickTest.js"
 
 Target "QuickTest" quickTest
 Target "QuickFableCompilerTest" (fun () ->
-    buildCLI "src/dotnet" false ()
+    buildCLI Debug ()
     quickTest ())
 Target "QuickFableCoreTest" (fun () ->
     buildCoreJS ()
@@ -150,16 +143,16 @@ Target "QuickFableCoreTest" (fun () ->
 let updateVersionInToolsUtil () =
     let reg = Regex(@"\bVERSION\s*=\s*""(.*?)""")
     let release =
-        CWD </> "src/dotnet/dotnet-fable/RELEASE_NOTES.md"
+        CWD </> "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
         |> ReleaseNotesHelper.LoadReleaseNotes
-    let mainFile = CWD </> "src/dotnet/dotnet-fable/ToolsUtil.fs"
+    let mainFile = CWD </> "src/dotnet/Fable.Compiler/ToolsUtil.fs"
     (reg, mainFile) ||> replaceLines (fun line m ->
         let replacement = sprintf "VERSION = \"%s\"" release.NugetVersion
         reg.Replace(line, replacement) |> Some)
 
 Target "GitHubRelease" (fun _ ->
     let release =
-        CWD </> "src/dotnet/dotnet-fable/RELEASE_NOTES.md"
+        CWD </> "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
         |> ReleaseNotesHelper.LoadReleaseNotes
     let user =
         match getBuildParam "github-user" with
@@ -192,14 +185,13 @@ Target "GitHubRelease" (fun _ ->
 
 Target "Clean" clean
 Target "FullClean" fullClean
-Target "FableCLI" (buildCLI "src/dotnet" true)
+Target "FableCLI" (buildCLI Release)
 Target "FableCoreJS" (fun _ ->
-    buildCLI "src/dotnet" true ()
+    buildCLI Release ()
     buildSplitter ()
     buildCoreJS ())
 Target "FableCoreJSFast" buildCoreJS
 Target "FableSplitter" buildSplitter
-Target "NUnitPlugin" buildNUnitPlugin
 Target "JsonConverter" buildJsonConverter
 Target "RunTestsJS" runTestsJS
 Target "RunTestsDotnet" runTestsDotnet
@@ -210,7 +202,7 @@ Target "PublishPackages" (fun () ->
         // Nuget packages
         Some buildCoreJS, "dotnet/Fable.Core/Fable.Core.fsproj"
         None, "dotnet/Fable.Compiler/Fable.Compiler.fsproj"
-        Some updateVersionInToolsUtil, "dotnet/dotnet-fable/dotnet-fable.fsproj"
+        Some updateVersionInToolsUtil, "dotnet/Fable.Compiler/Fable.Compiler.fsproj"
         None, "dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"
         None, "plugins/nunit/Fable.Plugins.NUnit.fsproj"
         // NPM packages
@@ -282,10 +274,9 @@ Target "All" (fun () ->
     installDotnetSdk ()
     clean ()
     // nugetRestore "src/dotnet" ()
-    buildCLI "src/dotnet" true ()
+    buildCLI Release ()
     buildSplitter ()
     buildCoreJS ()
-    buildNUnitPlugin ()
 
     // Fable 2.0 development
     runTestsJS ()

@@ -26,30 +26,3 @@ exports.resolveBabelOptions = function(opts) {
     }
     return newOpts;
 }
-
-/**
- * Validates Fable options, at the moment it just checks
- * if Babel options have been resolved
- */
-exports.validateFableOptions = function(opts) {
-    var path = require("path");
-    function validateArray(babelOpts, category) {
-        if (Array.isArray(babelOpts[category])) {
-            babelOpts[category].forEach(function(el) {
-                var elPath = Array.isArray(el) ? el[0] : el;
-                if (typeof elPath === "string" && !path.isAbsolute(elPath)) {
-                    throw new Error(
-                        `"${elPath}" in babel.${category} is not resolved to an absolute path. ` +
-                        `Please use \`require("fable-utils").resolveBabelOptions(babelOptions)\` ` +
-                        `(also when passing the options to other plugins like babel-loader). ` +
-                        `Check https://goo.gl/dsBqWA for an example.`
-                    );
-                }
-            });
-        }
-    }
-    if (typeof opts.babel === "object") {
-        validateArray(opts.babel, "presets");
-        validateArray(opts.babel, "plugins");
-    }
-}

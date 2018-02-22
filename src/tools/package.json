@@ -2,11 +2,8 @@
   "private": true,
   "scripts": {
     "watch-output": "chokidar 'temp/QuickTest.js' -c 'node temp/QuickTest.js'",
-    "start": "chokidar '../dotnet/**/*.fs' -c 'sh quicktest.sh'",
-    "webpack": "node ../../node_modules/webpack/bin/webpack",
     "rollup": "node ../../node_modules/rollup/bin/rollup -c",
-    "rollup-watch": "node ../../node_modules/rollup/bin/rollup -c -w",
-    "splitter": "node ../js/fable-splitter/cli -c splitter.config.js"
+    "splitter": "node ../js/fable-splitter/dist/cli -c splitter.config.js"
   },
   "devDependencies": {
     "chokidar-cli": "^1.2.0"

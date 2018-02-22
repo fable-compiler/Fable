@@ -44,12 +44,6 @@ let attachRangeAndFile (range: SourceLocation option) (fileName: string) msg =
     | Some range -> msg + " " + (string range) + " (" + fileName + ")"
     | None -> msg + " (" + fileName + ")"
 
-type OperationKind =
-    | InstanceCall of callee: Expr * meth: string * args: Expr list
-    | ImportCall of importPath: string * modName: string * meth: string option * isCons: bool * args: Expr list
-    | CoreLibCall of modName: string * meth: string option * isCons: bool * args: Expr list
-    | GlobalCall of modName: string * meth: string option * isCons: bool * args: Expr list
-
 let makeIdent name =
     { Name = name
       Type = Any

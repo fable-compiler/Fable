@@ -100,18 +100,6 @@ module private Transforms =
         | Value(NewList(Some(head, tail), t)) -> untail t [head] tail
         | _ -> None
 
-    let (|LambdaOrDelegate|_|) = function
-        | Function(Lambda arg, body) -> Some([arg], body, true)
-        | Function(Delegate args, body) -> Some(args, body, false)
-        | _ -> None
-
-    let (|Apply|_|) = function
-        | Operation(Call(expr, memb, args, info), t, r) ->
-            Some(expr, memb, args, Some info, t, r)
-        | Operation(CurriedApply(expr, args), t, r) ->
-            Some(expr, None, args, None, t, r)
-        | _ -> None
-
     // TODO: Some cases of coertion shouldn't be erased
     // string :> seq #1279
     // list (and others) :> seq in Fable 2.0
@@ -145,42 +133,43 @@ module private Transforms =
                 | None -> e
             | e -> e)
 
-    let lambdaBetaReduction (_: ICompiler) e =
-        let notConsNorSpread = function
-            | Some(info: CallInfo) -> not info.HasSpread && not info.IsConstructor
-            | None -> true
+    let isReferencedMoreThan limit identName e =
         match e with
-        // TODO: Optimize also binary operations with numerical or string literals
-        // TODO: Don't inline if one of the arguments is `this`?
-        | Apply(LambdaOrDelegate(args, body, _), None, argExprs, info, _, _)
-                    when List.sameLength args argExprs && notConsNorSpread info ->
+        // Don't try to erase bindings to these expressions
+        | Import _ | Throw _ | Sequential _ | IfThenElse _
+        | Switch _ | TryCatch _ -> true
+        | _ ->
+            let mutable count = 0
+            // TODO: Can we optimize this to shortcircuit when count > limit?
+            e |> visit (function
+                | _ when count > limit -> e
+                | IdentExpr id2 as e when id2.Name = identName ->
+                    count <- count + 1; e
+                | e -> e) |> ignore
+            count > limit
+
+    let lambdaBetaReduction (_: ICompiler) e =
+        // let notConsNorSpread = function
+        //     | Some(info: CallInfo) -> not info.HasSpread && not info.IsConstructor
+        //     | None -> true
+        let applyArgs (args: Ident list) argExprs body =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
                 |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                    if hasDoubleEvalRisk expr
+                    if hasDoubleEvalRisk expr && isReferencedMoreThan 1 ident.Name body
                     then (ident, expr)::bindings, replacements
-                    else bindings, Map.add ident.Name expr replacements
-                )
+                    else bindings, Map.add ident.Name expr replacements)
             match bindings with
             | [] -> replaceValues replacements body
             | bindings -> Let(List.rev bindings, replaceValues replacements body)
+        match e with
+        // TODO: Nested lambdas (`Invoke` calls for delegates?)
+        // TODO: Don't inline if one of the arguments is `this`?
+        | Operation(CurriedApply(Function(Lambda arg, body), [argExpr]), _, _) ->
+            applyArgs [arg] [argExpr] body
         | e -> e
 
     let bindingBetaReduction (_: ICompiler) e =
-        let isReferencedMoreThan limit identName e =
-            match e with
-            // Don't try to erase bindings to these expressions
-            | Import _ | Throw _ | Sequential _ | IfThenElse _
-            | Switch _ | TryCatch _ -> true
-            | _ ->
-                let mutable count = 0
-                // TODO: Can we optimize this to shortcircuit when count > 1?
-                e |> visit (function
-                    | _ when count > limit -> e
-                    | IdentExpr id2 as e when id2.Name = identName ->
-                        count <- count + 1; e
-                    | e -> e) |> ignore
-                count > limit
         match e with
         | Let(bindings, body) ->
             let values = bindings |> List.map snd
@@ -247,8 +236,12 @@ module private Transforms =
     let uncurryAnonymousFunctions (_: ICompiler) e =
         e // TODO
 
-    let uncurryPassedArgs (_: ICompiler) = function
-        | LambdaOrDelegate(args, body, isLambda) as e ->
+    let uncurryPassedArgs (_: ICompiler) e =
+        let replaceIdentType replacements (id: Ident) =
+            match Map.tryFind id.Name replacements with
+            | Some typ -> { id with Type = typ }
+            | None -> id
+        let uncurryFunctionBody args body =
             let uncurried =
                 (Map.empty, args) ||> List.fold (fun uncurried arg ->
                     match uncurryLambdaType [] arg.Type with
@@ -256,19 +249,23 @@ module private Transforms =
                         Map.add arg.Name (FunctionType(DelegateType argTypes, returnType)) uncurried
                     | _ -> uncurried)
             if Map.isEmpty uncurried
-            then e
-            else body |> visit (function
-                | IdentExpr id as e ->
-                    match Map.tryFind id.Name uncurried with
-                    | Some typ -> IdentExpr { id with Type = typ }
-                    | None -> e
-                | e -> e) |> fun body ->
-                    match args, isLambda with
-                    | [arg], true -> Function(Lambda arg, body)
-                    | args, _ -> Function(Delegate args, body)
+            then args, body
+            else
+                let args = args |> List.map (replaceIdentType uncurried)
+                let body = visit (function
+                    | IdentExpr id -> replaceIdentType uncurried id |> IdentExpr
+                    | e -> e) body
+                args, body
+        match e with
+        | Function(Lambda arg, body) ->
+            let args, body = uncurryFunctionBody [arg] body
+            Function(Lambda (List.head args), body)
+        | Function(Delegate args, body) ->
+            let args, body = uncurryFunctionBody args body
+            Function(Delegate args, body)
         | e -> e
 
-    let uncurryPassingArgs (_: ICompiler) e =
+    let uncurryPassingArgs (_: ICompiler) (e: Expr) =
         let mapArgs f argTypes args =
             let rec mapArgsInner f acc argTypes args =
                 match argTypes, args with
@@ -278,30 +275,24 @@ module private Transforms =
                 | [], args2 -> (List.rev acc)@args2
                 | _, [] -> List.rev acc
             mapArgsInner f [] argTypes args
-        match e with
-        // TODO: Uncurry also NewRecord arguments
-        | Apply(callee, memb, args, info, t, r) ->
-            let rebuildApplyWith args =
-                match info with
-                | Some info -> Operation(Call(callee, memb, args, info), t, r)
-                | None -> Operation(CurriedApply(callee, args), t, r)
-            let argTypes =
-                match info, callee.Type with
-                | Some info, _ -> if info.IsDynamic then None else Some info.ArgTypes
-                | None, FunctionType(DelegateType argTypes, _) -> Some argTypes
-                | None, t -> uncurryLambdaType [] t |> fst |> Some
+        let uncurryArgs argTypes args =
             match argTypes with
-            | Some [] -> e // Do nothing
+            | Some [] -> args // Do nothing
             | Some argTypes ->
                 (argTypes, args) ||> mapArgs (fun argType arg ->
                     match uncurryLambdaType [] argType with
                     | argTypes, _ when List.isMultiple argTypes ->
                         let arity = List.length argTypes |> Some
                         uncurryExpr arity arg
-                    | _ -> arg) |> rebuildApplyWith
-            | None ->
-                List.map (uncurryExpr None) args
-                |> rebuildApplyWith
+                    | _ -> arg)
+            | None -> List.map (uncurryExpr None) args
+        match e with
+        // TODO: Uncurry also NewRecord, CurriedApply and Emit arguments
+        | Operation(Call(callee, memb, args, info), t, r) ->
+            // For CurriedApply: let argTypes = uncurryLambdaType [] t |> fst |> Some
+            let argTypes = if info.IsDynamic then None else Some info.ArgTypes
+            let args = uncurryArgs argTypes args
+            Operation(Call(callee, memb, args, info), t, r)
         | e -> e
 
     let uncurryApplications (_: ICompiler) = function
@@ -318,12 +309,12 @@ module private Transforms =
 
 open Transforms
 
-
 let optimizeExpr (com: ICompiler) e =
     // ATTENTION: Order of transforms matters for optimizations
+    // TODO: Optimize also binary operations with numerical or string literals?
     [ // First apply beta reduction
-      lambdaBetaReduction
       bindingBetaReduction
+      lambdaBetaReduction
       // Then resolve casts
       resolveCasts
       // Then resolve calls

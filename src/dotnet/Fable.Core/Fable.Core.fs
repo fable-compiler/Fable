@@ -161,24 +161,6 @@ type CaseRules =
     | LowerFirst = 1
 
 module Testing =
-    type TestAttribute() =
-        inherit Attribute()
-
-    type TestFixtureAttribute() =
-        inherit Attribute()
-
-    type TestFixtureSetUpAttribute() =
-        inherit Attribute()
-
-    type TestFixtureTearDownAttribute() =
-        inherit Attribute()
-
-    type SetUpAttribute() =
-        inherit Attribute()
-
-    type TearDownAttribute() =
-        inherit Attribute()
-
     type Assert =
         static member AreEqual(expected: 'T, actual: 'T, ?msg: string): unit = jsNative
 

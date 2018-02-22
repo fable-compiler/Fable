@@ -48,7 +48,6 @@ function findArgValue(arr, arg, f) {
 }
 
 function tooClose(filename, prev /* [string, Date] */) {
-    var d = new Date();
     return prev != null &&
         filename == prev[0] &&
         new Date().getTime() - prev[1].getTime() < 2000;

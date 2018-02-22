@@ -1,219 +1,178 @@
-[<Util.Testing.TestFixture>]
 module Fable.Tests.Arithmetic
+
 open System
-open Util.Testing
+open Fable.Core
+// open Util.Testing
 
-let inline equal (actual, expected) = Fable.Tests.Util.equal expected actual
+[<Emit("it($0,$1)")>]
+let testCase (msg: string) (f: unit->unit): unit = jsNative
 
-[<Test>]
-let ``Infix add can be generated``() =
+let equal (actual, expected): unit = Fable.Core.Testing.Assert.AreEqual(actual, expected)
+
+testCase "Infix add can be generated" <| fun () ->
     equal (4 + 2, 6)
 
+(*
 let [<Literal>] aLiteral = 5
 let notALiteral = 5
 
-[<Test>]
-let ``Int32 literal addition is optimized``() =
+testCase "Int32 literal addition is optimized" <| fun () ->
     equal (aLiteral + 7, 12)
     equal (notALiteral + 7, 12)
 
 let [<Literal>] literalNegativeValue = -345
 
-[<Test>]
-let ``Unary negation with negative literal values works``() =
+testCase "Unary negation with negative literal values works" <| fun () ->
     equal(345, -literalNegativeValue)
 
-[<Test>]
-let ``Infix subtract can be generated``() =
+testCase "Infix subtract can be generated" <| fun () ->
     equal (4 - 2, 2)
 
-[<Test>]
-let ``Infix multiply can be generated``() =
+testCase "Infix multiply can be generated" <| fun () ->
     equal (4 * 2, 8)
 
-[<Test>]
-let ``Infix divide can be generated``() =
+testCase "Infix divide can be generated" <| fun () ->
     equal (4 / 2, 2)
 
-[<Test>]
-let ``Integer division doesn't produce floats``() =
+testCase "Integer division doesn't produce floats" <| fun () ->
     equal (5. / 2., 2.5)
     equal (5 / 2, 2)
     equal (5 / 3, 1)
     equal (float 5 / 2., 2.5)
 
-[<Test>]
-let ``Decimal literals can be generated``() =
+testCase "Decimal literals can be generated" <| fun () ->
     equal (System.Decimal.Zero, 0.M)
     equal (System.Decimal.One, 1.M)
 
-[<Test>]
-let ``Infix modulo can be generated``() =
+testCase "Infix modulo can be generated" <| fun () ->
     equal (4 % 3, 1)
 
-[<Test>]
-let ``Evaluation order is preserved by generated code``() =
+testCase "Evaluation order is preserved by generated code" <| fun () ->
     equal ((4 - 2) * 2 + 1, 5)
 
-[<Test>]
-let ``Bitwise and can be generated``() =
+testCase "Bitwise and can be generated" <| fun () ->
     equal (6 &&& 2, 2)
 
-[<Test>]
-let ``Bitwise or can be generated``() =
+testCase "Bitwise or can be generated" <| fun () ->
     equal (4 ||| 2, 6)
 
-[<Test>]
-let ``Bitwise shift left can be generated``() =
+testCase "Bitwise shift left can be generated" <| fun () ->
     equal (4 <<< 2, 16)
 
-[<Test>]
-let ``Bitwise shift right can be generated``() =
+testCase "Bitwise shift right can be generated" <| fun () ->
     equal (4 >>> 2, 1)
 
-[<Test>]
-let ``Zero fill shift right (>>>) for uint32``() = // See #646
+testCase "Zero fill shift right (>>>) for uint32" <| fun () -> // See #646
     equal (0x80000000 >>> 1, -1073741824)
     equal (0x80000000u >>> 1, 1073741824u)
 
-[<Test>]
-let ``Int64 Infix add can be generated``() =
+testCase "Int64 Infix add can be generated" <| fun () ->
     equal (4L + 2L, 6L)
 
-[<Test>]
-let ``Int64 Infix subtract can be generated``() =
+testCase "Int64 Infix subtract can be generated" <| fun () ->
     equal (4L - 2L, 2L)
 
-[<Test>]
-let ``Int64 Infix multiply can be generated``() =
+testCase "Int64 Infix multiply can be generated" <| fun () ->
     equal (4L * 2L, 8L)
 
-[<Test>]
-let ``Int64 Infix divide can be generated``() =
+testCase "Int64 Infix divide can be generated" <| fun () ->
     equal (4L / 2L, 2L)
 
-[<Test>]
-let ``Int64 Integer division doesn't produce floats``() =
+testCase "Int64 Integer division doesn't produce floats" <| fun () ->
     equal (5. / 2., 2.5)
     equal (5L / 2L, 2L)
     equal (5L / 3L, 1L)
     equal (float 5L / 2., 2.5)
 
-[<Test>]
-let ``Int64 Infix modulo can be generated``() =
+testCase "Int64 Infix modulo can be generated" <| fun () ->
     equal (4L % 3L, 1L)
 
-[<Test>]
-let ``Int64 Evaluation order is preserved by generated code``() =
+testCase "Int64 Evaluation order is preserved by generated code" <| fun () ->
     equal ((4L - 2L) * 2L + 1L, 5L)
 
-[<Test>]
-let ``Int64 Bitwise and can be generated``() =
+testCase "Int64 Bitwise and can be generated" <| fun () ->
     equal (6L &&& 2L, 2L)
 
-[<Test>]
-let ``Int64 Bitwise or can be generated``() =
+testCase "Int64 Bitwise or can be generated" <| fun () ->
     equal (4L ||| 2L, 6L)
 
-[<Test>]
-let ``Int64 Bitwise shift left can be generated``() =
+testCase "Int64 Bitwise shift left can be generated" <| fun () ->
     equal (4L <<< 2, 16L)
 
-[<Test>]
-let ``Int64 Bitwise shift right can be generated``() =
+testCase "Int64 Bitwise shift right can be generated" <| fun () ->
     equal (4L >>> 2, 1L)
 
-[<Test>]
-let ``Int64 abs works``() =
+testCase "Int64 abs works" <| fun () ->
     equal (abs -4L, 4L)
 
-[<Test>]
-let ``Big integers addition works``() =
+testCase "Big integers addition works" <| fun () ->
     let x = 59823749821707124891298739821798327321028091380980I
     let y = bigint 1L
     let z = 1I
     equal(59823749821707124891298739821798327321028091380982I, (x + y + z))
 
-[<Test>]
-let ``BigInt Infix add can be generated``() =
+testCase "BigInt Infix add can be generated" <| fun () ->
     equal (4I + 2I, 6I)
 
-[<Test>]
-let ``BigInt Infix subtract can be generated``() =
+testCase "BigInt Infix subtract can be generated" <| fun () ->
     equal (4I - 2I, 2I)
 
-[<Test>]
-let ``BigInt Infix multiply can be generated``() =
+testCase "BigInt Infix multiply can be generated" <| fun () ->
     equal (4I * 2I, 8I)
 
-[<Test>]
-let ``BigInt Infix divide can be generated``() =
+testCase "BigInt Infix divide can be generated" <| fun () ->
     equal (4I / 2I, 2I)
 
-[<Test>]
-let ``BigInt Integer division doesn't produce floats``() =
+testCase "BigInt Integer division doesn't produce floats" <| fun () ->
     equal (5. / 2., 2.5)
     equal (5I / 2I, 2I)
     equal (5I / 3I, 1I)
     // equal (float 5I / 2., 2.5)
 
-[<Test>]
-let ``BigInt Infix modulo can be generated``() =
+testCase "BigInt Infix modulo can be generated" <| fun () ->
     equal (4I % 3I, 1I)
 
-[<Test>]
-let ``BigInt Evaluation order is preserved by generated code``() =
+testCase "BigInt Evaluation order is preserved by generated code" <| fun () ->
     equal ((4I - 2I) * 2I + 1I, 5I)
 
-[<Test>]
-let ``BigInt Bitwise and can be generated``() =
+testCase "BigInt Bitwise and can be generated" <| fun () ->
     equal (6I &&& 2I, 2I)
 
-[<Test>]
-let ``BigInt Bitwise or can be generated``() =
+testCase "BigInt Bitwise or can be generated" <| fun () ->
     equal (4I ||| 2I, 6I)
 
-[<Test>]
-let ``BigInt Bitwise shift left can be generated``() =
+testCase "BigInt Bitwise shift left can be generated" <| fun () ->
     equal (4I <<< 2, 16I)
 
-[<Test>]
-let ``BigInt Bitwise shift right can be generated``() =
+testCase "BigInt Bitwise shift right can be generated" <| fun () ->
     equal (4I >>> 2, 1I)
 
-[<Test>]
-let ``BigInt abs works``() =
+testCase "BigInt abs works" <| fun () ->
     equal (abs -4I, 4I)
 
-[<Test>]
-let ``abs works``() =
+testCase "abs works" <| fun () ->
     equal (abs -4, 4)
 
-[<Test>]
-let ``round works``() =
+testCase "round works" <| fun () ->
     equal (round -12.5, -12.)
     equal (round 1.5, 2.)
     equal (round 1.535, 2.)
     equal (round 1.525, 2.)
     equal (System.Math.Round(1.55, 1), 1.6)
 
-[<Test>]
-let ``ceil works``() =
+testCase "ceil works" <| fun () ->
     equal (ceil 11.25, 12.)
 
-[<Test>]
-let ``floor works``() =
+testCase "floor works" <| fun () ->
     equal (floor 11.75, 11.)
 
 let checkTo3dp (expected: float) actual =
     equal (floor(actual * 1000.), expected)
 
-[<Test>]
-let ``pown works``() =
+testCase "pown works" <| fun () ->
     pown 2.2 3 |> checkTo3dp 10648.
 
-[<Test>]
-let ``sqrt works``() =
+testCase "sqrt works" <| fun () ->
     sqrt 4.5 |> checkTo3dp 2121.
 
 let positiveInfinity = System.Double.PositiveInfinity
@@ -223,8 +182,7 @@ let isNaN = fun x -> System.Double.IsNaN(x)
 
 // As per
 // https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L217
-[<Test>]
-let ``sqrt matches .net core implementation``() =
+testCase "sqrt matches .net core implementation" <| fun () ->
     checkTo3dp 1732. (sqrt 3.0)
     equal (sqrt 0.0 , 0.0)
     equal (isNaN (sqrt -3.0), true)
@@ -233,56 +191,45 @@ let ``sqrt matches .net core implementation``() =
     equal (sqrt positiveInfinity, positiveInfinity)
 
 
-[<Test>]
-let ``Double.Parse works with IFormatProvider``() =
+testCase "Double.Parse works with IFormatProvider" <| fun () ->
     // culture compiles to { } for now and it is ignore on the call-site
     let culture = Globalization.CultureInfo.InvariantCulture
     let result = System.Double.Parse("10.5", culture)
     equal(10.5, result)
 
-[<Test>]
-let ``Single.Parse works with IFormatProvider``() =
+testCase "Single.Parse works with IFormatProvider" <| fun () ->
     // culture compiles to { } for now and it is ignore on the call-site
     let culture = Globalization.CultureInfo.InvariantCulture
     let result = System.Single.Parse("10.5", culture)
     equal(10.5, float result)
 
 
-[<Test>]
-let ``acos works``() =
+testCase "acos works" <| fun () ->
     acos 0.25 |> checkTo3dp 1318.
 
-[<Test>]
-let ``asin works``() =
+testCase "asin works" <| fun () ->
     asin 0.25 |> checkTo3dp 252.
 
-[<Test>]
-let ``atan works``() =
+testCase "atan works" <| fun () ->
     atan 0.25 |> checkTo3dp 244.
 
-[<Test>]
-let ``atan2 works``() =
+testCase "atan2 works" <| fun () ->
     atan2 90. 15. |> checkTo3dp 1405.
 
-[<Test>]
-let ``cos works``() =
+testCase "cos works" <| fun () ->
     cos 0.25 |> checkTo3dp 968.
 
-[<Test>]
-let ``sin works``() =
+testCase "sin works" <| fun () ->
     sin 0.25 |> checkTo3dp 247.
 
-[<Test>]
-let ``tan works``() =
+testCase "tan works" <| fun () ->
     tan 0.25 |> checkTo3dp 255.
 
-[<Test>]
-let ``exp works``() =
+testCase "exp works" <| fun () ->
     exp 8.0 |> checkTo3dp 2980957.
 
 // https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L228
-[<Test>]
-let ``log works``() =
+testCase "log works" <| fun () ->
     log 232.12 |> checkTo3dp 5447.
     checkTo3dp 1098. (log 3.0)
     equal (log 0.0, negativeInfinity)
@@ -292,7 +239,7 @@ let ``log works``() =
     equal (log positiveInfinity, positiveInfinity)
 
 // https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L239
-let ``Math.Log(double, double) works``() =
+testCase "Math.Log(double, double) works" <| fun () ->
     equal (3.0, Math.Log(8.0, 2.0))
     equal (1.0, Math.Log(3.0, 3.0))
     Math.Log(14., 3.0) |> checkTo3dp 2402.
@@ -303,96 +250,74 @@ let ``Math.Log(double, double) works``() =
     equal (true, isNaN (Math.Log(negativeInfinity, 3.0)))
 
 
-[<Test>]
-let ``log10 works``() =
+testCase "log10 works" <| fun () ->
     log10 232.12 |> checkTo3dp 2365.
 
-[<Test>]
-let ``PI works``() =
+testCase "PI works" <| fun () ->
     checkTo3dp 3141. Math.PI
 
-[<Test>]
-let ``E works``() =
+testCase "E works" <| fun () ->
     checkTo3dp 2718. Math.E
 
-[<Test>]
-let ``Math.abs works``() =
+testCase "Math.abs works" <| fun () ->
     equal(Math.Abs -4, 4)
 
-[<Test>]
-let ``Math.pown works``() =
+testCase "Math.pown works" <| fun () ->
     Math.Pow(2.2, 3.0) |> checkTo3dp 10648.
 
-[<Test>]
-let ``Math.sqrt works``() =
+testCase "Math.sqrt works" <| fun () ->
     Math.Sqrt 4.5 |> checkTo3dp 2121.
 
-[<Test>]
-let ``Math.round works``() =
+testCase "Math.round works" <| fun () ->
     equal(Math.Round -12.5, -12.)
 
-[<Test>]
-let ``Math.ceil works``() =
+testCase "Math.ceil works" <| fun () ->
     equal(Math.Ceiling 11.25, 12.)
 
-[<Test>]
-let ``Math.floor works``() =
+testCase "Math.floor works" <| fun () ->
     equal(Math.Floor 11.75, 11.)
 
-[<Test>]
-let ``Math.acos works``() =
+testCase "Math.acos works" <| fun () ->
     Math.Acos 0.25 |> checkTo3dp 1318.
 
-[<Test>]
-let ``Math.asin works``() =
+testCase "Math.asin works" <| fun () ->
     Math.Asin 0.25 |> checkTo3dp 252.
 
-[<Test>]
-let ``Math.atan works``() =
+testCase "Math.atan works" <| fun () ->
     Math.Atan 0.25 |> checkTo3dp 244.
 
-[<Test>]
-let ``Math.atan2 works``() =
+testCase "Math.atan2 works" <| fun () ->
     Math.Atan2(90., 15.) |> checkTo3dp 1405.
 
-[<Test>]
-let ``Math.cos works``() =
+testCase "Math.cos works" <| fun () ->
     Math.Cos(0.1 * Math.PI) |> checkTo3dp 951.
 
-[<Test>]
-let ``Math.sin works``() =
+testCase "Math.sin works" <| fun () ->
     Math.Sin(0.25 * Math.PI) |> checkTo3dp 707.
 
-[<Test>]
-let ``Math.tan works``() =
+testCase "Math.tan works" <| fun () ->
     Math.Tan(0.5) |> checkTo3dp 546.
 
-[<Test>]
-let ``Math.exp works``() =
+testCase "Math.exp works" <| fun () ->
     Math.Exp 8.0 |> checkTo3dp 2980957.
 
-[<Test>]
-let ``Math.log works``() =
+testCase "Math.log works" <| fun () ->
     Math.Log 232.12 |> checkTo3dp 5447.
 
-[<Test>]
-let ``Math.log10 works``() =
+testCase "Math.log10 works" <| fun () ->
     Math.Log10 232.12 |> checkTo3dp 2365.
 
-[<Test>]
-let ``incr works``() =
+testCase "incr works" <| fun () ->
     let i = ref 5
     incr i
     equal(!i, 6)
 
-[<Test>]
-let ``decr works``() =
+testCase "decr works" <| fun () ->
     let i = ref 5
     decr i
     equal(!i, 4)
 
-[<Test>]
-let ``System.Random works``() =
+testCase "System.Random works" <| fun () ->
     let rnd = System.Random()
     let x = rnd.Next(5)
     equal(true, x >= 0 && x < 5)
@@ -403,8 +328,7 @@ let ``System.Random works``() =
 let equals (x:'a) (y:'a) = x = y
 let compareTo (x:'a) (y:'a) = compare x y
 
-[<Test>]
-let ``Long integers equality works``() =
+testCase "Long integers equality works" <| fun () ->
     let x = 5L
     let y = 5L
     let z = 6L
@@ -413,8 +337,7 @@ let ``Long integers equality works``() =
     equal(true, equals y x)
     equal(false, equals z x)
 
-[<Test>]
-let ``Long integers comparison works``() =
+testCase "Long integers comparison works" <| fun () ->
     let x = 5L
     let y = 5L
     let z = 6L
@@ -423,13 +346,12 @@ let ``Long integers comparison works``() =
     equal(0, compareTo y x)
     equal(1, compareTo z x)
 
-[<Test>]
-let ``bigint equality works``() =
+testCase "bigint equality works" <| fun () ->
     let a = 9007199254740992I
     let b = 9007199254740993I
     equal(false, (a = b))
 
-let ``Big integers equality works``() =
+testCase "Big integers equality works" <| fun () ->
     let x = 59823749821707124891298739821798327321028091380980I
     let y = 59823749821707124891298739821798327321028091380980I
     let z = 59823749821707124891298739821798327321028091380981I
@@ -438,8 +360,7 @@ let ``Big integers equality works``() =
     equal(true, equals y x)
     equal(false, equals z x)
 
-[<Test>]
-let ``Big integers comparison works``() =
+testCase "Big integers comparison works" <| fun () ->
     let x = 5I
     let y = 5I
     let z = 6I
@@ -451,13 +372,11 @@ let ``Big integers comparison works``() =
 let decimalOne = 1M
 let decimalTwo = 2M
 
-[<Test>]
-let ``Member values of decimal type can be compared``() = // See #747
+testCase "Member values of decimal type can be compared" <| fun () -> // See #747
     equal(true, decimalOne < decimalTwo)
     equal(false, decimalOne > decimalTwo)
 
-[<Test>]
-let ``Sign operator works``() = // See #1311
+testCase "Sign operator works" <| fun () -> // See #1311
     equal(1, sign 1)
     equal(1, sign 34)
     equal(1, sign 1L)
@@ -474,3 +393,4 @@ let ``Sign operator works``() = // See #1311
     equal(-1, sign -72L)
     equal(-1, sign -1.)
     equal(-1, sign -89.)
+*)

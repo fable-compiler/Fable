@@ -1,8 +1,13 @@
 module Fable.Transforms.Replacements
 
+open Fable
 open Fable.AST
 open Fable.AST.Fable
 open Fable.AST.Fable.Util
+
+let ccall r t info coreModule coreMember args =
+    let callee = Import(coreMember, coreModule, CoreLib, Any)
+    Operation(Call(callee, None, args, info), t, r)
 
 // TODO: Check special cases: custom operators, bigint, dates, etc
 let applyOp com r t opName args =
@@ -41,6 +46,12 @@ let operators com r t callee args info (extraInfo: ExtraCallInfo) =
         applyOp com r t extraInfo.CompiledName args |> Some
     | _ -> None
 
+
+let fableCoreLib com r t callee args info (extraInfo: ExtraCallInfo) =
+    match extraInfo.CompiledName with
+    | "AreEqual" -> ccall r t info "Assert" "equal" args |> Some
+    | _ -> None
+
 let isReplaceCandidate (fullName: string) =
     fullName.StartsWith("System.")
         || fullName.StartsWith("Microsoft.FSharp.")
@@ -48,6 +59,8 @@ let isReplaceCandidate (fullName: string) =
 
 /// Resolve pipes and composition in a first pass
 let tryFirstPass r t (args: Expr list) (fullName: string) =
+    let rec curriedApply r t applied args =
+        Operation(CurriedApply(applied, args), t, r)
     let compose f1 f2 =
         None // TODO
         // let tempVar = com.GetUniqueVar() |> makeIdent
@@ -59,11 +72,12 @@ let tryFirstPass r t (args: Expr list) (fullName: string) =
     if fullName.StartsWith("Microsoft.FSharp.Core.Operators") then
         match fullName.Substring(fullName.LastIndexOf(".") + 1), args with
         | "( |> )", [x; f]
-        | "( <| )", [f; x] -> makeCall r t f [x] |> Some
-        | "( ||> )", [x; y; f]
-        | "( <|| )", [f; x; y] -> makeCall r t f [x; y] |> Some
-        | "( |||> )", [x; y; z; f]
-        | "( <||| )", [f; x; y; z] -> makeCall r t f [x; y; z] |> Some
+        | "( <| )", [f; x] -> curriedApply r t f [x] |> Some
+        // TODO: Try to untuple double and triple pipe arguments
+        // | "( ||> )", [x; y; f]
+        // | "( <|| )", [f; x; y] -> curriedApply r t f [x; y] |> Some
+        // | "( |||> )", [x; y; z; f]
+        // | "( <||| )", [f; x; y; z] -> curriedApply r t f [x; y; z] |> Some
         | "( >> )", [f1; f2] -> compose f1 f2
         | "( << )", [f2; f1] -> compose f1 f2
         | _ -> None
@@ -77,8 +91,8 @@ let trySecondPass com r t (callee: Expr option) (args: Expr list)
     | "Microsoft.FSharp.Core.Operators"
     | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators"
     | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com r t callee args info extraInfo
+    | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com r t callee args info extraInfo
     | _ -> None
-//         | Naming.StartsWith fableCore _ -> fableCoreLib com info
 //         | Naming.EndsWith "Exception" _ -> exceptions com info
 //         | "System.Object" -> objects com info
 //         | "System.Timers.ElapsedEventArgs" -> info.callee // only signalTime is available here

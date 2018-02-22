@@ -39,13 +39,6 @@ function transformBabelAst(babelAst, babelOptions, sourceMapOptions) {
 var Loader = function(buffer) {
     var callback = this.async();
     var opts = this.loaders[0].options || {};
-    try {
-        fableUtils.validateFableOptions(opts);
-    }
-    catch (err) {
-        callback(err);
-        return;
-    }
 
     var port = or(opts.port, DEFAULT_PORT);
     var babelOptions = opts.babel || {};
@@ -53,9 +46,9 @@ var Loader = function(buffer) {
 
     var msg = {
         path: this.resourcePath,
+        rootDir: process.cwd(),
         define: ensureArray(or(opts.define, [])),
         plugins: ensureArray(or(opts.plugins, [])),
-        fableCore: or(opts.fableCore, null),
         typedArrays: or(opts.typedArrays, true),
         clampByteArrays: or(opts.clampByteArrays, false),
         extra: opts.extra || {}

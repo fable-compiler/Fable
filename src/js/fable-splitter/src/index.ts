@@ -27,7 +27,6 @@ export type CompilationInfo = {
 export type FableOptions = {
     define?: string[],
     plugins?: string[],
-    fableCore?: string,
     typedArrays?: boolean,
     clampByteArrays?: boolean,
     // extra?: any,
@@ -175,7 +174,7 @@ async function getFileAstAsync(path: string, options: FableSplitterOptions, info
     let ast: Babel.BabelFileResult | undefined;
     if (FSHARP_EXT.test(path)) {
         // return Babel AST from F# file
-        const fableMsg = JSON.stringify(Object.assign({}, options.fable, { path }));
+        const fableMsg = JSON.stringify(Object.assign({}, options.fable, { path, rootDir: process.cwd() }));
         const response = await fableUtils.client.send(options.port as number, fableMsg);
         const babelAst = JSON.parse(response);
         if (babelAst.error) {
@@ -302,7 +301,6 @@ function createCompilationInfo(options: FableSplitterOptions, previousInfo?: Com
 }
 
 export default function fableSplitter(options: FableSplitterOptions, previousInfo?: CompilationInfo) {
-    fableUtils.validateFableOptions(options);
     options = setDefaultOptions(options);
     const info = createCompilationInfo(options, previousInfo);
 

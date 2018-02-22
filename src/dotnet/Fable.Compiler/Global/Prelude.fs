@@ -61,10 +61,14 @@ module Patterns =
 module Naming =
 
     let (|StartsWith|_|) (pattern: string) (txt: string) =
-        if txt.StartsWith pattern then Some pattern else None
+        if txt.StartsWith(pattern)
+        then txt.Substring(pattern.Length) |> Some
+        else None
 
     let (|EndsWith|_|) (pattern: string) (txt: string) =
-        if txt.EndsWith pattern then Some pattern else None
+        if txt.EndsWith(pattern)
+        then txt.Substring(0, txt.Length - pattern.Length) |> Some
+        else None
 
     /// This is null to keep compatibility with Require.js
     /// (which expects paths not to have extensions), in the

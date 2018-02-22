@@ -460,9 +460,6 @@ module TypeHelpers =
         then Fable.Any
         else
         match fullName with
-        // Special cases
-        | Types.guid -> Fable.String
-        | Types.timespan -> Fable.Number Int32
         // Fable "primitives"
         | Types.unit -> Fable.Unit
         | Types.bool -> Fable.Boolean
@@ -478,7 +475,7 @@ module TypeHelpers =
             tdef.Attributes |> Seq.tryPick (fun att ->
                 match (nonAbbreviatedEntity att.AttributeType).TryFullName with
                 | Some Atts.stringEnum ->
-                    Fable.EnumType(Fable.NumberEnumType, fullName) |> Some
+                    Fable.EnumType(Fable.StringEnumType, fullName) |> Some
                 | Some Atts.erase ->
                     makeGenArgs com ctxTypeArgs genArgs
                     |> Fable.ErasedUnion |> Some
@@ -877,8 +874,8 @@ module Util =
             | Some c -> Some(c::args, { info with HasThisArg = true })
             | None -> Some(args, info)
         match memb, memb.EnclosingEntity with
-        | Imported r typ argsAndCallInfo imported, _ -> imported
-        | Emitted r typ argsAndCallInfo emitted, _ -> emitted
+        | Imported r Fable.Any argsAndCallInfo imported, _ -> imported
+        | Emitted r Fable.Any argsAndCallInfo emitted, _ -> emitted
         | Replaced com ctx r typ genArgs info callee args replaced, _ -> replaced
         // TODO | Inlined com ctx r (typArgs, methTypArgs) (callee, args) expr -> expr
         | Try (tryGetBoundExpr ctx r) expr, _ ->

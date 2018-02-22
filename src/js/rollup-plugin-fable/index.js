@@ -19,7 +19,6 @@ const ensureArray = obj =>
   (Array.isArray(obj) ? obj : obj != null ? [obj] : []);
 
 module.exports = (opts) => {
-  fableUtils.validateFableOptions(opts);
   let {
     include = [],
     exclude = [],
@@ -28,8 +27,6 @@ module.exports = (opts) => {
     },
     define = [],
     plugins = [],
-    fableCore = null,
-    declaration = false,
     typedArrays = true,
     clampByteArrays = false,
     port = DEFAULT_PORT,
@@ -49,10 +46,9 @@ module.exports = (opts) => {
 
       const msg = {
         path: id,
+        rootDir: process.cwd(),
         define,
         plugins,
-        fableCore,
-        declaration,
         typedArrays,
         clampByteArrays,
         extra
