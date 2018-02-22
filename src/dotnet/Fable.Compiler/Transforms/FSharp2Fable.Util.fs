@@ -46,11 +46,6 @@ module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
         if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
 
-    let rec nonAbbreviatedEntity (ent: FSharpEntity) =
-        if ent.IsFSharpAbbreviation
-        then (nonAbbreviatedType ent.AbbreviatedType).TypeDefinition
-        else ent
-
     let getEntityName (ent: FSharpEntity) =
         ent.CompiledName.Replace('`', '_')
 
@@ -70,6 +65,29 @@ module Helpers =
         | Some loc -> loc
         | None -> memb.DeclarationLocation
 
+    let findOverloadIndex (enclosingEntity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
+        let argsEqual (args1: IList<IList<FSharpParameter>>) (args2: IList<IList<FSharpParameter>>) =
+            if args1.Count = args2.Count then
+                (args1, args2) ||> Seq.forall2 (fun g1 g2 ->
+                    g1.Count = g2.Count && Seq.forall2 (=) g1 g2)
+            else false
+        if m.IsImplicitConstructor || m.IsOverrideOrExplicitInterfaceImplementation
+        then 0
+        else
+            // m.Overloads(false) doesn't work
+            let name = m.CompiledName
+            let isInstance = m.IsInstanceMember
+            ((0, false), enclosingEntity.MembersFunctionsAndValues)
+            ||> Seq.fold (fun (i, found) m2 ->
+                if not found && m2.IsInstanceMember = isInstance && m2.CompiledName = name then
+                    // .Equals() doesn't work. TODO: Compare arg types for trait calls
+                    // .IsEffectivelySameAs() doesn't work for constructors
+                    if argsEqual m.CurriedParameterGroups m2.CurriedParameterGroups
+                    then i, true
+                    else i + 1, false
+                else i, found)
+            |> fst
+
     let private getMemberDeclarationNamePrivate removeRootModule (com: IFableCompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
         let removeRootModule' (ent: FSharpEntity) (fullName: string) =
             if not removeRootModule then
@@ -79,7 +97,6 @@ module Helpers =
                     (getEntityLocation ent).FileName
                     |> Path.normalizePath
                     |> com.GetRootModule
-                // TODO: Do we need to trim '+' too?
                 fullName.Replace(rootMod, ".").TrimStart('.')
         match memb.EnclosingEntity with
         | Some ent when ent.IsFSharpModule ->
@@ -87,14 +104,11 @@ module Helpers =
         | Some ent ->
             let isStatic = not memb.IsInstanceMember
             let separator = if isStatic then "$$" else "$"
-            // TODO: Overloads
-            //let fableEnt = com.GetEntity(ent)
-            //let overloadName =
-            //    match fableEnt.TryGetMember(memb.CompiledName, isStatic, argTypes) with
-            //    | Some m -> m.OverloadName
-            //    | None -> memb.CompiledName
-            //ent.CompiledName + separator + overloadName
-            (removeRootModule' ent ent.FullName) + separator + memb.CompiledName
+            let overloadIndex =
+                match findOverloadIndex ent memb with
+                | 0 -> ""
+                | i -> "_" + string i
+            (removeRootModule' ent ent.FullName) + separator + memb.CompiledName + overloadIndex
         | None -> memb.FullName
         |> Naming.sanitizeIdentForbiddenChars
 
@@ -107,7 +121,7 @@ module Helpers =
 
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
-            match (nonAbbreviatedEntity att.AttributeType).TryFullName with
+            match att.AttributeType.TryFullName with
             | Some fullName ->
                 if f fullName then Some att else None
             | None -> None)
@@ -232,8 +246,7 @@ module Patterns =
         if t.HasTypeDefinition then Some t.TypeDefinition else None
 
     let (|RefType|_|) = function
-        | NonAbbreviatedType(TypeDefinition tdef) as t
-            when tdef.TryFullName = Some "Microsoft.FSharp.Core.FSharpRef`1" -> Some t
+        | TypeDefinition tdef as t when tdef.TryFullName = Some Types.reference -> Some t
         | _ -> None
 
     let (|ThisVar|_|) = function
@@ -259,7 +272,7 @@ module Patterns =
             match List.tryLast args with
             | Some arg ->
                 if arg.Type.HasTypeDefinition
-                    && arg.Type.TypeDefinition.AccessPath = "Microsoft.FSharp.Core.PrintfModule"
+                    && arg.Type.TypeDefinition.AccessPath = Types.printf
                 then Some e
                 else None
             | None -> None
@@ -282,7 +295,7 @@ module Patterns =
                          Lambda(_eventDelegate2, Call(Some _callee2, _removeEvent,[],[],[Value _eventDelegate2']));
                          Lambda(_callback, NewDelegate(_, Lambda(_delegateArg0, Lambda(_delegateArg1, Application(Value _callback',[],[Value _delegateArg0'; Value _delegateArg1'])))))])),
                 memb, typArgs, methTypArgs, args)
-                when createEvent.FullName = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent" ->
+                when createEvent.FullName = Types.createEvent ->
             let eventName = addEvent.CompiledName.Replace("add_","")
             Some (callee, eventName, memb, typArgs, methTypArgs, args)
         | _ -> None
@@ -330,21 +343,21 @@ module Patterns =
         | None -> failwith "Union without definition"
         | Some tdef ->
             match defaultArg tdef.TryFullName tdef.CompiledName with
-            | "Microsoft.FSharp.Core.FSharpOption`1" -> OptionUnion typ.GenericArguments.[0]
-            | "Microsoft.FSharp.Collections.FSharpList`1" -> ListUnion typ.GenericArguments.[0]
+            | Types.option -> OptionUnion typ.GenericArguments.[0]
+            | Types.list -> ListUnion typ.GenericArguments.[0]
             | _ ->
                 tdef.Attributes |> Seq.tryPick (fun att ->
-                    match (nonAbbreviatedEntity att.AttributeType).TryFullName with
-                    | Some Atts.erase -> Some ErasedUnion
-                    | Some Atts.stringEnum -> Some StringEnum
+                    match att.AttributeType.TryFullName with
+                    | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments))
+                    | Some Atts.stringEnum -> Some (StringEnum tdef)
                     | _ -> None)
-                |> Option.defaultValue (DiscriminatedUnion tdef)
+                |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
 
     let (|Switch|_|) fsExpr =
         let isStringOrNumber (NonAbbreviatedType typ) =
             if not typ.HasTypeDefinition then false else
             match typ.TypeDefinition.TryFullName with
-            | Some("System.String") -> true
+            | Some Types.string -> true
             | Some(NumberKind _) -> true
             | _ when typ.TypeDefinition.IsEnum -> true
             | _ -> false
@@ -371,7 +384,7 @@ module Patterns =
                 | None when not var.IsMemberThisValue && not(isInline var) ->
                     match typ with
                     | DiscriminatedUnion _ -> Some(var,true,idx,bindings,case,elseExpr)
-                    | OptionUnion _ | ListUnion _ | ErasedUnion | StringEnum -> None
+                    | OptionUnion _ | ListUnion _ | ErasedUnion _ | StringEnum _ -> None
                 | _ -> None
             | _ -> None
             |> function
@@ -405,14 +418,6 @@ module TypeHelpers =
     open Helpers
     open Patterns
 
-    let rec isAttributeEntity (ent: FSharpEntity) =
-        match ent.BaseType with
-        | Some (NonAbbreviatedType t) when t.HasTypeDefinition ->
-            match t.TypeDefinition.TryFullName with
-            | Some "System.Attribute" -> true
-            | _ -> isAttributeEntity t.TypeDefinition
-        | _ -> false
-
     let rec makeGenArgs com ctxTypeArgs genArgs =
         Seq.map (makeType com ctxTypeArgs) genArgs |> Seq.toList
 
@@ -421,7 +426,6 @@ module TypeHelpers =
             Seq.tryHead genArgs
             |> Option.map (makeType com ctxTypeArgs)
             |> Option.defaultValue Fable.Any // Raise error if not found?
-        let tdef = nonAbbreviatedEntity tdef
         let fullName = getEntityFullName tdef
         if tdef.IsArrayType
         then getSingleGenericArg genArgs |> Fable.Array
@@ -473,7 +477,7 @@ module TypeHelpers =
         | ExtendedNumberKind kind -> Fable.ExtendedNumber kind
         | _ ->
             tdef.Attributes |> Seq.tryPick (fun att ->
-                match (nonAbbreviatedEntity att.AttributeType).TryFullName with
+                match att.AttributeType.TryFullName with
                 | Some Atts.stringEnum ->
                     Fable.EnumType(Fable.StringEnumType, fullName) |> Some
                 | Some Atts.erase ->
@@ -769,8 +773,7 @@ module Util =
     /// Ignores relative imports (e.g. `[<Import("foo","./lib.js")>]`)
     let tryImported typ (name: string) (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
-            let attType = nonAbbreviatedEntity att.AttributeType
-            match attType.TryFullName with
+            match att.AttributeType.TryFullName with
             | Some Atts.global_ ->
                 match Seq.tryHead att.ConstructorArguments with
                 | Some(_, (:? string as customName)) -> makeTypedIdent typ customName |> Fable.IdentExpr |> Some

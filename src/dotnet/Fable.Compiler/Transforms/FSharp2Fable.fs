@@ -30,14 +30,14 @@ let private transformLambda com ctx arg body =
 let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
                 (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match fsType with
-    | ErasedUnion ->
+    | ErasedUnion(_, genArgs) ->
         match argExprs with
         | [expr] ->
-            let genArgs = makeGenArgs com ctx.typeArgs fsType.GenericArguments
+            let genArgs = makeGenArgs com ctx.typeArgs genArgs
             Fable.NewErasedUnion(expr, genArgs) |> Fable.Value
         | _ -> "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
-    | StringEnum ->
+    | StringEnum _ ->
         match argExprs with
         | [] -> lowerCaseName unionCase
         | _ -> "StringEnum types cannot have fields: " + (getFsTypeFullName fsType)
@@ -58,8 +58,8 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
             | [head; tail] -> Some(head, tail)
             | _ -> failwith "Unexpected args for List constructor"
         Fable.NewList(headAndTail, typ) |> Fable.Value
-    | DiscriminatedUnion tdef ->
-        let genArgs = makeGenArgs com ctx.typeArgs fsType.GenericArguments
+    | DiscriminatedUnion(tdef, genArgs) ->
+        let genArgs = makeGenArgs com ctx.typeArgs genArgs
         Fable.NewUnion(argExprs, unionCase, tdef, genArgs) |> Fable.Value
 
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) (objType: FSharpType)
@@ -191,10 +191,10 @@ let private transformDelegate com ctx delegateType fsExpr =
     | fsExpr -> transformExpr com ctx fsExpr
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr)
-                            unionExpr (NonAbbreviatedType fsType) (unionCase: FSharpUnionCase) =
+                            unionExpr fsType (unionCase: FSharpUnionCase) =
     let unionExpr = transformExpr com ctx unionExpr
     match fsType with
-    | ErasedUnion ->
+    | ErasedUnion(tdef, genArgs) ->
         if unionCase.UnionCaseFields.Count <> 1 then
             "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com (makeRange fsExpr.Range |> Some)
@@ -204,9 +204,9 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
             then
                 let name = fi.FieldType.GenericParameter.Name
                 let index =
-                    fsType.TypeDefinition.GenericParameters
+                    tdef.GenericParameters
                     |> Seq.findIndex (fun arg -> arg.Name = name)
-                fsType.GenericArguments |> Seq.item index
+                genArgs.[index]
             else fi.FieldType
             |> makeType com ctx.typeArgs
             |> makeTypeTest com (makeRangeFrom fsExpr) unionExpr
@@ -218,9 +218,9 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
         let emptyList = Fable.NewList(None, makeType com ctx.typeArgs t) |> Fable.Value
         if unionCase.Name = "Empty" then BinaryEqual else BinaryUnequal
         |> makeEqOp (makeRangeFrom fsExpr) unionExpr emptyList
-    | StringEnum ->
+    | StringEnum _ ->
         makeEqOp (makeRangeFrom fsExpr) unionExpr (lowerCaseName unionCase) BinaryEqualStrict
-    | DiscriminatedUnion tdef ->
+    | DiscriminatedUnion(tdef,_) ->
         let tag1 = Fable.Get(unionExpr, Fable.UnionTag tdef, Fable.Any, None)
         let tag2 = Fable.UnionCaseTag(unionCase, tdef) |> Fable.Value
         makeEqOp (makeRangeFrom fsExpr) tag1 tag2 BinaryEqualStrict
@@ -409,7 +409,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.FSharpFieldGet(Some(BasicPatterns.FSharpFieldGet(Some ThisVar, _, _)), RefType _, _) ->
         makeType com ctx.typeArgs fsExpr.Type |> Fable.This |> Fable.Value
 
-    | BasicPatterns.FSharpFieldGet (callee, NonAbbreviatedType calleeType, field) ->
+    | BasicPatterns.FSharpFieldGet (callee, calleeType, field) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         let callee =
             match callee with
@@ -428,8 +428,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, fsType, unionCase, field) ->
         let range = makeRangeFrom fsExpr
         match fsType with
-        | ErasedUnion -> unionExpr
-        | StringEnum ->
+        | ErasedUnion _ -> unionExpr
+        | StringEnum _ ->
             "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
         | OptionUnion t ->
@@ -437,7 +437,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | ListUnion t ->
             let kind = if field.Name = "Head" then Fable.ListHead else Fable.ListTail
             Fable.Get(unionExpr, kind, makeType com ctx.typeArgs t, range)
-        | DiscriminatedUnion tdef ->
+        | DiscriminatedUnion(tdef,_) ->
             let t = makeType com ctx.typeArgs field.FieldType
             Fable.Get(unionExpr, Fable.UnionField(unionCase, tdef), t, range)
 
@@ -447,7 +447,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.FSharpFieldSet(Some(BasicPatterns.FSharpFieldGet(Some(ThisVar _), _, _)), RefType _, _, _) ->
         Fable.Null Fable.Any |> Fable.Value
 
-    | BasicPatterns.FSharpFieldSet(callee, NonAbbreviatedType calleeType, field, Transform com ctx value) ->
+    | BasicPatterns.FSharpFieldSet(callee, calleeType, field, Transform com ctx value) ->
         let range = makeRangeFrom fsExpr
         let callee =
             match callee with
@@ -458,7 +458,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         then Fable.Set(callee, Fable.RecordSet(field, calleeType.TypeDefinition), value, range)
         else Fable.Set(callee, Fable.FieldSet field.Name, value, range)
 
-    | BasicPatterns.UnionCaseTag(Transform com ctx unionExpr, NonAbbreviatedType unionType) ->
+    | BasicPatterns.UnionCaseTag(Transform com ctx unionExpr, unionType) ->
         let range = makeRangeFrom fsExpr
         Fable.Get(unionExpr, Fable.UnionTag unionType.TypeDefinition, Fable.Any, range)
 
@@ -494,7 +494,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let args = List.map (com.Transform ctx) args
         makeCallFrom com ctx r typ genArgs None args memb
 
-    | BasicPatterns.NewRecord(NonAbbreviatedType fsType, argExprs) ->
+    | BasicPatterns.NewRecord(fsType, argExprs) ->
         let argExprs = List.map (transformExpr com ctx) argExprs
         let genArgs = makeGenArgs com ctx.typeArgs fsType.GenericArguments
         Fable.NewRecord(argExprs, fsType.TypeDefinition, genArgs) |> Fable.Value
@@ -580,13 +580,6 @@ let private isErasedEntity com (ctx: Context) (ent: FSharpEntity) =
         || check ent name Atts.stringEnum ["union"])
     |> Option.isSome
 
-let private isIgnoredEntity com ctx (ent: FSharpEntity) =
-    ent.IsInterface
-    || ent.IsEnum
-    || ent.IsFSharpAbbreviation
-    || isAttributeEntity ent
-    || isErasedEntity com ctx ent
-
 /// Is compiler generated (CompareTo...) or belongs to ignored entity?
 /// (remember F# compiler puts class methods in enclosing modules)
 let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
@@ -597,7 +590,7 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
         || Naming.ignoredInterfaceMethods.Contains meth.CompiledName
 
 let private transformConstructor com ctx (meth: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
-    failwith "TODO: Constructors"
+    ctx, [] // TODO: Constructors
     // match meth.EnclosingEntity with
     // | Some ent when meth.IsImplicitConstructor ->
     //     // LambdaType constructor (same name as entity)
@@ -679,17 +672,12 @@ let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (memb: FSha
     else
         transformMemberFunction com ctx memb args body
 
-let rec private transformEntityDecl (com: IFableCompiler) (ctx: Context) (ent: FSharpEntity) subDecls =
-    if isIgnoredEntity com ctx ent
-    then ctx, []
-    else transformDeclarations com ctx subDecls
-
-and private transformDeclarations (com: IFableCompiler) (ctx: Context) fsDecls =
+let private transformDeclarations (com: IFableCompiler) (ctx: Context) fsDecls =
     ((ctx, []), fsDecls) ||> List.fold (fun (ctx, accDecls) fsDecl ->
         let ctx, fableDecls =
             match fsDecl with
             | FSharpImplementationFileDeclaration.Entity (e, sub) ->
-                transformEntityDecl com ctx e sub
+                transformDeclarations com ctx sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
                 transformMemberDecl com ctx meth args body
             | FSharpImplementationFileDeclaration.InitAction fe ->
