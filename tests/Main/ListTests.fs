@@ -38,9 +38,27 @@ let ``List.Head works``() =
       equal 1 xs.Head
 
 [<Test>]
+let ``List.Head fails on empty lists``() =
+      let xs : int list = List.empty
+      try
+            xs.Head |> ignore
+            failwith "`List.Head` should fail."
+      with e ->
+            equal "The input list was empty." e.Message
+
+[<Test>]
 let ``List.Tail works``() =
       let xs = [1; 2; 3; 4]
       equal 2 xs.Tail.Head
+
+[<Test>]
+let ``List.Tail fails on empty lists``() =
+      let xs : int list = List.empty
+      try
+            xs.Tail |> ignore
+            failwith "`List.Tail` should fail."
+      with e ->
+            equal "The input list was empty." e.Message
 
 [<Test>]
 let ``List.Item works``() =
