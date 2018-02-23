@@ -31,6 +31,7 @@ let hasDoubleEvalRisk = function
         // OptionValue has a runtime check
         | ListHead | ListTail | TupleGet _
         | UnionTag _ | UnionField _ -> false
+        | RecordGet(fi,_) -> fi.IsMutable
         | _ -> true
     | _ -> true
 
