@@ -15,7 +15,6 @@ type Type =
     | String
     | Regex
     | Number of NumberKind
-    | ExtendedNumber of ExtendedNumberKind
     | EnumType of kind: EnumTypeKind * fullName: string
     | Option of genericArg: Type
     | Tuple of genericArgs: Type list

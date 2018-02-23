@@ -1,15 +1,5 @@
 namespace Fable.Transforms
 
-#if !NETFX && !FABLE_COMPILER
-[<AutoOpen>]
-module ReflectionAdapters =
-    open System.Reflection
-
-    type System.Type with
-        member this.GetCustomAttributes(inherits : bool) : obj[] =
-            downcast box(CustomAttributeExtensions.GetCustomAttributes(this.GetTypeInfo(), inherits) |> Seq.toArray)
-#endif
-
 [<AutoOpen>]
 module Extensions =
     type System.Collections.Generic.Dictionary<'TKey,'TValue> with
@@ -30,80 +20,120 @@ module Extensions =
             dic.Add(key, v)
             v
 
-#if !FABLE_COMPILER
-module Reflection =
-    open System
-    open System.Reflection
+[<AutoOpen>]
+module Log =
+    open Fable
 
-    let loadAssembly path =
-#if NETFX
-        // The assembly is already loaded because it's being referenced
-        // by the parsed code, so use `LoadFrom` which takes the copy in memory
-        // Unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
-        Assembly.LoadFrom(path)
-#else
-        let globalLoadContext = System.Runtime.Loader.AssemblyLoadContext.Default
-        globalLoadContext.LoadFromAssemblyPath(path)
-#endif
+    let addWarning (com: ICompiler) (range: SourceLocation option) (warning: string) =
+        com.AddLog(warning, Severity.Warning, ?range=range, fileName=com.CurrentFile)
 
-    /// Prevent ReflectionTypeLoadException
-    /// From http://stackoverflow.com/a/7889272
-    let getTypes (asm: System.Reflection.Assembly) =
-        let mutable types: Option<Type[]> = None
-        try
-            types <- Some(asm.GetTypes())
-        with
-        | :? ReflectionTypeLoadException as e -> types <- Some e.Types
-        match types with
-        | Some types -> types |> Seq.filter ((<>) null)
-        | None -> Seq.empty
+    let addError (com: ICompiler) (range: SourceLocation option) (warning: string) =
+        com.AddLog(warning, Severity.Error, ?range=range, fileName=com.CurrentFile)
 
-module Json =
-    open System.Reflection
-    open FSharp.Reflection
-    open Newtonsoft.Json
-    open System.Collections.Concurrent
-    open System
+    let addErrorAndReturnNull (com: ICompiler) (range: SourceLocation option) (error: string) =
+        com.AddLog(error, Severity.Error, ?range=range, fileName=com.CurrentFile)
+        AST.Fable.Null AST.Fable.Any |> AST.Fable.Value
 
-    let isErasedUnion (t: System.Type) =
-        t.Name = "FSharpOption`1" ||
-        FSharpType.IsUnion t &&
-            t.GetCustomAttributes true
-            |> Seq.exists (fun a -> (a.GetType ()).Name = "EraseAttribute")
+    let attachRange (range: SourceLocation option) msg =
+        match range with
+        | Some range -> msg + " " + (string range)
+        | None -> msg
 
-    let getErasedUnionValue (v: obj) =
-        match FSharpValue.GetUnionFields (v, v.GetType()) with
-        | _, [|v|] -> Some v
-        | _ -> None
+    let attachRangeAndFile (range: SourceLocation option) (fileName: string) msg =
+        match range with
+        | Some range -> msg + " " + (string range) + " (" + fileName + ")"
+        | None -> msg + " (" + fileName + ")"
 
-    type ErasedUnionConverter() =
-        inherit JsonConverter()
-        let typeCache = ConcurrentDictionary<Type,bool>()
-        override __.CanConvert t =
-            typeCache.GetOrAdd(t, isErasedUnion)
-        override __.ReadJson(_reader, _t, _v, _serializer) =
-            failwith "Not implemented"
-        override __.WriteJson(writer, v, serializer) =
-            match getErasedUnionValue v with
-            | Some v -> serializer.Serialize(writer, v)
-            | None -> writer.WriteNull()
 
-    type LocationEraser() =
-        inherit JsonConverter()
-        let typeCache = ConcurrentDictionary<Type,bool>()
-        override __.CanConvert t =
-            typeCache.GetOrAdd(t, fun t -> typeof<Fable.AST.Babel.Node>.GetTypeInfo().IsAssignableFrom(t))
-        override __.ReadJson(_reader, _t, _v, _serializer) =
-            failwith "Not implemented"
-        override __.WriteJson(writer, v, serializer) =
-            writer.WriteStartObject()
-            v.GetType().GetTypeInfo().GetProperties()
-            |> Seq.filter (fun p -> p.Name <> "loc")
-            |> Seq.iter (fun p ->
-                writer.WritePropertyName(p.Name)
-                serializer.Serialize(writer, p.GetValue(v)))
-            writer.WriteEndObject()
-#endif //!FABLE_COMPILER
+[<AutoOpen>]
+module AST =
+    open Fable
+    open Fable.AST
+    open Fable.AST.Fable
+
+    /// When referenced multiple times, is there a risk of double evaluation?
+    let hasDoubleEvalRisk = function
+        | IdentExpr _
+        // TODO: Add Union and List Getters here?
+        | Value(This _ | Null _ | UnitConstant | NumberConstant _
+                    | StringConstant _ | BoolConstant _ | Enum _) -> false
+        | Get(_,kind,_,_) ->
+            match kind with
+            // OptionValue has a runtime check
+            | ListHead | ListTail | TupleGet _
+            | UnionTag _ | UnionField _ -> false
+            | RecordGet(fi,_) -> fi.IsMutable
+            | _ -> true
+        | _ -> true
+
+    let makeIdent name =
+        { Name = name
+          Type = Any
+          IsMutable = false
+          Range = None }
+
+    let makeTypedIdent typ name =
+        { makeIdent name with Type = typ }
+
+    let makeIdentExpr name =
+        makeIdent name |> IdentExpr
+
+    let makeLoop range loopKind = Loop (loopKind, range)
+
+    let makeCoreRef t modname prop =
+        Import(prop, modname, CoreLib, t)
+
+    let makeImport t (selector: string) (path: string) =
+        Import(selector.Trim(), path.Trim(), CustomImport, t)
+
+    let makeBinOp range typ left right op =
+        Operation(BinaryOperation(op, left, right), typ, range)
+
+    let makeUnOp range typ arg op =
+        Operation(UnaryOperation(op, arg), typ, range)
+
+    let makeLogOp range left right op =
+        Operation(LogicalOperation(op, left, right), Boolean, range)
+
+    let makeEqOp range left right op =
+        Operation(BinaryOperation(op, left, right), Boolean, range)
+
+    let makeIndexGet range typ callee idx =
+        Get(callee, IndexGet idx, typ, range)
+
+    let makeFieldGet range typ callee field =
+        Get(callee, FieldGet field, typ, range)
+
+    let makeUntypedFieldGet callee field =
+        Get(callee, FieldGet field, Any, None)
+
+    let makeArray elementType arrExprs =
+        NewArray(ArrayValues arrExprs, elementType) |> Value
+
+    let makeCallNoInfo r t (applied: Expr) args =
+        let callInfo =
+            { ArgTypes = []
+              IsConstructor = false
+              IsDynamic = false
+              HasSpread = false
+              HasThisArg = false }
+        Operation(Call(applied, None, args, callInfo), t, r)
+
+    /// Dynamic calls will uncurry its function arguments with unknown arity
+    let makeCallDynamic r (applied: Expr) args =
+        let callInfo =
+            { ArgTypes = []
+              IsConstructor = false
+              IsDynamic = true
+              HasSpread = false
+              HasThisArg = false }
+        Operation(Call(applied, None, args, callInfo), Fable.Any, r)
+
+    let makeBoolConst (x: bool) = BoolConstant x |> Value
+    let makeStrConst (x: string) = StringConstant x |> Value
+    let makeIntConst (x: int) = NumberConstant (float x, Int32) |> Value
+    let makeNumConst (x: float) = NumberConstant (float x, Float64) |> Value
+    let makeDecConst (x: decimal) = NumberConstant (float x, Float64) |> Value
 
 [<RequireQualifiedAccess>]
 module Atts =

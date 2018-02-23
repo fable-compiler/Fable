@@ -4,8 +4,6 @@ open Fable
 open Fable.Core
 open Fable.AST
 open Fable.AST.Babel
-open Fable.AST.Fable.Util
-open System
 open System.Collections.Generic
 
 type ReturnStrategy =
@@ -165,7 +163,7 @@ module Util =
         match typ with
         | Fable.Number kind when com.Options.typedArrays ->
             let cons =
-                Fable.Util.getTypedArrayName com kind
+                Replacements.getTypedArrayName com kind
                 |> Identifier
             let args =
                 match arrayKind with

@@ -3,11 +3,143 @@ module Fable.Transforms.Replacements
 open Fable
 open Fable.AST
 open Fable.AST.Fable
-open Fable.AST.Fable.Util
+
+type BuiltinType =
+    | BclGuid
+    | BclTimeSpan
+    | BclDateTime
+    | BclDateTimeOffset
+    | BclInt64
+    | BclUInt64
+    | BclBigInt
+
+let (|Builtin|_|) = function
+    | DeclaredType(ent,_) ->
+        match ent.TryFullName with
+        | Some Types.guid -> Some BclGuid
+        | Some Types.timespan -> Some BclTimeSpan
+        | Some Types.datetime -> Some BclDateTime
+        | Some Types.datetimeOffset -> Some BclDateTimeOffset
+        | Some "System.Int64" -> Some BclInt64
+        | Some "System.UInt64" -> Some BclUInt64
+        | Some (Naming.StartsWith "Microsoft.FSharp.Core.int64" _) -> Some BclInt64
+        | Some "System.Numerics.BigInteger" -> Some BclBigInt
+        | _ -> None
+        | _ -> None
+    | _ -> None
+
+let coreModFor = function
+    | BclGuid -> "String"
+    | BclTimeSpan -> "Long"
+    | BclDateTime -> "Date"
+    | BclDateTimeOffset -> "DateOffset"
+    | BclInt64 -> "Long"
+    | BclUInt64 -> "Long"
+    | BclBigInt -> "BigInt"
 
 let ccall r t info coreModule coreMember args =
     let callee = Import(coreMember, coreModule, CoreLib, Any)
     Operation(Call(callee, None, args, info), t, r)
+
+let ccall_ t coreModule coreMember args =
+    let callee = Import(coreMember, coreModule, CoreLib, Any)
+    makeCallNoInfo None t callee args
+
+let makeLongInt t signed (x: uint64) =
+    let lowBits = NumberConstant (float (uint32 x), Float64)
+    let highBits = NumberConstant (float (x >>> 32), Float64)
+    let unsigned = BoolConstant (not signed)
+    let args = [Value lowBits; Value highBits; Value unsigned]
+    ccall_ t "Long" "fromBits" args
+
+let makeFloat32 (x: float32) =
+    let args = [NumberConstant (float x, Float32) |> Value]
+    let callee = makeUntypedFieldGet (makeIdentExpr "Math") "fround"
+    makeCallNoInfo None (Number Float32) callee args
+
+let makeTypeConst (typ: Type) (value: obj) =
+    match typ, value with
+    // Long Integer types
+    | Builtin BclInt64, (:? int64 as x) -> makeLongInt typ true (uint64 x)
+    | Builtin BclUInt64, (:? uint64 as x) -> makeLongInt typ false x
+    // Decimal type
+    | Number Decimal, (:? decimal as x) -> makeDecConst x
+    // Short Float type
+    | Number Float32, (:? float32 as x) -> makeFloat32 x
+    | Boolean, (:? bool as x) -> BoolConstant x |> Value
+    | String, (:? string as x) -> StringConstant x |> Value
+    | Char, (:? char as x) -> StringConstant (string x) |> Value
+    // Integer types
+    | Number UInt8, (:? byte as x) -> NumberConstant (float x, UInt8) |> Value
+    | Number Int8, (:? sbyte as x) -> NumberConstant (float x, Int8) |> Value
+    | Number Int16, (:? int16 as x) -> NumberConstant (float x, Int16) |> Value
+    | Number UInt16, (:? uint16 as x) -> NumberConstant (float x, UInt16) |> Value
+    | Number Int32, (:? int as x) -> NumberConstant (float x, Int32) |> Value
+    | Number UInt32, (:? uint32 as x) -> NumberConstant (float x, UInt32) |> Value
+    // Float types
+    | Number Float64, (:? float as x) -> NumberConstant (float x, Float64) |> Value
+    // Enums
+    | EnumType _, (:? int64)
+    | EnumType _, (:? uint64) -> failwith "int64 enums are not supported"
+    | EnumType(_, name), (:? byte as x) -> Enum(NumberEnum(int x), name) |> Value
+    | EnumType(_, name), (:? sbyte as x) -> Enum(NumberEnum(int x), name) |> Value
+    | EnumType(_, name), (:? int16 as x) -> Enum(NumberEnum(int x), name) |> Value
+    | EnumType(_, name), (:? uint16 as x) -> Enum(NumberEnum(int x), name) |> Value
+    | EnumType(_, name), (:? int as x) -> Enum(NumberEnum(int x), name) |> Value
+    | EnumType(_, name), (:? uint32 as x) -> Enum(NumberEnum(int x), name) |> Value
+    // TODO: Regex
+    | Unit, _ -> UnitConstant |> Value
+    // Arrays with small data type (ushort, byte) are represented
+    // in F# AST as BasicPatterns.Const
+    | Array (Number kind), (:? (byte[]) as arr) ->
+        let values = arr |> Array.map (fun x -> NumberConstant (float x, kind) |> Value) |> Seq.toList
+        NewArray (ArrayValues values, Number kind) |> Value
+    | Array (Number kind), (:? (uint16[]) as arr) ->
+        let values = arr |> Array.map (fun x -> NumberConstant (float x, kind) |> Value) |> Seq.toList
+        NewArray (ArrayValues values, Number kind) |> Value
+    | _ -> failwithf "Unexpected type %A, literal %O" typ value
+
+let getTypedArrayName (com: ICompiler) numberKind =
+    match numberKind with
+    | Int8 -> "Int8Array"
+    | UInt8 -> if com.Options.clampByteArrays then "Uint8ClampedArray" else "Uint8Array"
+    | Int16 -> "Int16Array"
+    | UInt16 -> "Uint16Array"
+    | Int32 -> "Int32Array"
+    | UInt32 -> "Uint32Array"
+    | Float32 -> "Float32Array"
+    | Float64 | Decimal -> "Float64Array"
+
+let rec makeTypeTest com range expr (typ: Type) =
+    let jsTypeof (primitiveType: string) expr =
+        let typof = makeUnOp None String expr UnaryTypeof
+        makeEqOp range typof (makeStrConst primitiveType) BinaryEqualStrict
+    let jsInstanceof (cons: Expr) expr =
+        makeBinOp range Boolean expr cons BinaryInstanceOf
+    match typ with
+    | Any -> makeBoolConst true
+    | Unit -> makeEqOp range expr (Value <| Null Any) BinaryEqual
+    | Boolean -> jsTypeof "boolean" expr
+    | Char | String _ -> jsTypeof "string" expr
+    | FunctionType _ -> jsTypeof "function" expr
+    | Number _ | EnumType _ -> jsTypeof "number" expr
+    | Regex ->
+        jsInstanceof (makeIdentExpr "RegExp") expr
+    | Builtin (BclInt64 | BclUInt64) ->
+        jsInstanceof (makeCoreRef Any "Long" "default") expr
+    | Builtin BclBigInt ->
+        jsInstanceof (makeCoreRef Any "BigInt" "default") expr
+    | Array _ | Tuple _ | List _ ->
+        ccall_ Boolean "Util" "isArray" [expr]
+    | DeclaredType (ent, _) ->
+        failwith "TODO: DeclaredType type test"
+        // if ent.IsClass
+        // then jsInstanceof (TypeRef ent) expr
+        // else "Cannot type test interfaces, records or unions"
+        //      |> addErrorAndReturnNull com fileName range
+    | Option _ | GenericParam _ | ErasedUnion _ ->
+        "Cannot type test options, generic parameters or erased unions"
+        |> addErrorAndReturnNull com range
 
 // TODO: Check special cases: custom operators, bigint, dates, etc
 let applyOp com r t opName args =
@@ -52,38 +184,20 @@ let fableCoreLib com r t callee args info (extraInfo: ExtraCallInfo) =
     | "AreEqual" -> ccall r t info "Assert" "equal" args |> Some
     | _ -> None
 
-let isReplaceCandidate (fullName: string) =
-    fullName.StartsWith("System.")
-        || fullName.StartsWith("Microsoft.FSharp.")
-        || fullName.StartsWith("Fable.Core.")
+let tryField returnTyp ownerTyp fieldName =
+    match ownerTyp, fieldName with
+    | Number Decimal, "Zero" -> makeDecConst 0M |> Some
+    | Number Decimal, "One" -> makeDecConst 1M |> Some
+    | String, "Emtpy" -> makeStrConst "" |> Some
+    | Builtin BclGuid, "Empty" -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
+    | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some
+    | Builtin BclDateTime, ("MaxValue" | "MinValue") ->
+        ccall_ returnTyp (coreModFor BclDateTime) (Naming.lowerFirst fieldName) [] |> Some
+    | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue") ->
+        ccall_ returnTyp (coreModFor BclDateTimeOffset) (Naming.lowerFirst fieldName) [] |> Some
+    | _ -> None
 
-/// Resolve pipes and composition in a first pass
-let tryFirstPass r t (args: Expr list) (fullName: string) =
-    let rec curriedApply r t applied args =
-        Operation(CurriedApply(applied, args), t, r)
-    let compose f1 f2 =
-        None // TODO
-        // let tempVar = com.GetUniqueVar() |> makeIdent
-        // [Fable.IdentExpr tempVar]
-        // |> makeCall com info.range Fable.Any f1
-        // |> List.singleton
-        // |> makeCall com info.range Fable.Any f2
-        // |> makeLambda [tempVar]
-    if fullName.StartsWith("Microsoft.FSharp.Core.Operators") then
-        match fullName.Substring(fullName.LastIndexOf(".") + 1), args with
-        | "( |> )", [x; f]
-        | "( <| )", [f; x] -> curriedApply r t f [x] |> Some
-        // TODO: Try to untuple double and triple pipe arguments
-        // | "( ||> )", [x; y; f]
-        // | "( <|| )", [f; x; y] -> curriedApply r t f [x; y] |> Some
-        // | "( |||> )", [x; y; z; f]
-        // | "( <||| )", [f; x; y; z] -> curriedApply r t f [x; y; z] |> Some
-        | "( >> )", [f1; f2] -> compose f1 f2
-        | "( << )", [f2; f1] -> compose f1 f2
-        | _ -> None
-    else None
-
-let trySecondPass com r t (callee: Expr option) (args: Expr list)
+let tryCall com r t (callee: Expr option) (args: Expr list)
                     (info: CallInfo) (extraInfo: ExtraCallInfo) =
     let ownerName = extraInfo.FullName.Substring(0, extraInfo.FullName.LastIndexOf('.'))
     match ownerName with

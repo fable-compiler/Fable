@@ -2,7 +2,6 @@ module Fable.Transforms.FableOptimize
 
 open Fable
 open Fable.AST.Fable
-open Fable.AST.Fable.Util
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 // TODO: Use trampoline here?
@@ -116,7 +115,7 @@ module private Transforms =
 
     let resolveCalls (com: ICompiler) = function
         | Operation(UnresolvedCall(callee, args, info, extraInfo), t, r) ->
-            match Replacements.trySecondPass com r t callee args info extraInfo with
+            match Replacements.tryCall com r t callee args info extraInfo with
             | Some e -> e
             | None ->
                 "Cannot resolve " + extraInfo.FullName
@@ -300,7 +299,7 @@ module private Transforms =
             match applied.Type with
             | FunctionType(DelegateType argTypes, _) ->
                 if List.sameLength argTypes args
-                then makeCall r t applied args
+                then makeCallNoInfo r t applied args
                 else failwith "TODO: Partial application"
                 // let args = [makeIntConst (arity - argsLength); innerApplied; makeArray Any (List.concat flattenedArgs)]
                 // CoreLibCall("Util", Some "partial", false, args) |> makeCall r Any

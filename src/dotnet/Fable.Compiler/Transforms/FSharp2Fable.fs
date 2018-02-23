@@ -1,18 +1,10 @@
 module rec Fable.Transforms.FSharp2Fable.Compiler
 
-#if !FABLE_COMPILER
-open System.IO
-#endif
-open System
 open System.Collections.Generic
-
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 open Fable
 open Fable.AST
-open Fable.AST.Fable.Util
 open Fable.Transforms
 
 open Patterns
@@ -209,7 +201,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
                 genArgs.[index]
             else fi.FieldType
             |> makeType com ctx.typeArgs
-            |> makeTypeTest com (makeRangeFrom fsExpr) unionExpr
+            |> Replacements.makeTypeTest com (makeRangeFrom fsExpr) unionExpr
     | OptionUnion t ->
         let noneCase = Fable.NewOption(None, makeType com ctx.typeArgs t) |> Fable.Value
         if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
@@ -271,7 +263,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | CheckArrayLength (Transform com ctx arr, length, FableType com ctx typ) ->
         let r = makeRangeFrom fsExpr
         let lengthExpr = Fable.Get(arr, Fable.FieldGet "length", Fable.Number Int32, r)
-        makeEqOp r lengthExpr (makeTypeConst typ length) BinaryEqualStrict
+        makeEqOp r lengthExpr (Replacements.makeTypeConst typ length) BinaryEqualStrict
 
     (** ## Flow control *)
     | BasicPatterns.FastIntegerForLoop(Transform com ctx start, Transform com ctx limit, body, isUp) ->
@@ -287,7 +279,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     (** Values *)
     | BasicPatterns.Const(value, FableType com ctx typ) ->
-        let expr = makeTypeConst typ value
+        let expr = Replacements.makeTypeConst typ value
         // TODO TODO TODO: Check literals and compile as Enum
         // if expr.Type <> typ then // Enumerations are compiled as const but they have a different type
         //     Replacements.checkLiteral com (makeRangeFrom fsExpr) value typ
@@ -374,8 +366,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | args, Fable.DeclaredType(ent,_)
                 when ent.TryFullName = Some Types.dynamicApplicable ->
             match args with
-            | [Fable.Value(Fable.NewTuple args)] -> makeDynamicCall range applied args
-            | args -> makeDynamicCall range applied args
+            | [Fable.Value(Fable.NewTuple args)] -> makeCallDynamic range applied args
+            | args -> makeCallDynamic range applied args
         | args, _ ->
             let typ = makeType com ctx.typeArgs fsExpr.Type
             Fable.Operation(Fable.CurriedApply(applied, args), typ, range)
@@ -506,7 +498,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FableType com ctx typ, Transform com ctx expr) ->
-        makeTypeTest com (makeRangeFrom fsExpr) expr typ
+        Replacements.makeTypeTest com (makeRangeFrom fsExpr) expr typ
 
     | BasicPatterns.UnionCaseTest(unionExpr, fsType, unionCase) ->
         transformUnionCaseTest com ctx fsExpr unionExpr fsType unionCase
@@ -528,25 +520,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             |> List.append [makeIntConst decIndex]
             |> makeArray Fable.Any
 
-    | BasicPatterns.ILFieldGet (callee, typ, fieldName) ->
-        let ownerName = tryDefinition typ |> Option.bind (fun x -> x.TryFullName)
-        // TODO: Move this to Replacements
-        match callee, ownerName, fieldName with
-        | None, Some Types.string, "Empty" ->
-            makeStrConst ""
-        | None, Some Types.guid, "Empty" ->
-            makeStrConst "00000000-0000-0000-0000-000000000000"
-        | None, Some Types.timespan, "Zero" ->
-            makeIntConst 0
-        | None, Some (Types.datetime | Types.datetimeOffset as n), ("MaxValue" | "MinValue") ->
-            let m = if n = Types.datetime then "Date" else "DateOffset"
-            // CoreLibCall(m, Some (Naming.lowerFirst fieldName), false, [])
-            // |> makeCall (makeRangeFrom fsExpr) (makeType com ctx.typeArgs fsExpr.Type)
-            failwith "TODO: Date.MaxValue"
-        | None, Some Types.decimal, "Zero" -> makeDecConst 0M
-        | None, Some Types.decimal, "One" -> makeDecConst 1M
-        | _ ->
-            sprintf "Cannot compile ILFieldGet(%A, %s)" ownerName fieldName
+    | BasicPatterns.ILFieldGet(None, ownerTyp, fieldName) ->
+        let returnTyp = makeType com ctx.typeArgs fsExpr.Type
+        let ownerTyp = makeType com ctx.typeArgs ownerTyp
+        match Replacements.tryField returnTyp ownerTyp fieldName with
+        | Some expr -> expr
+        | None ->
+            sprintf "Cannot compile ILFieldGet(%A, %s)" ownerTyp fieldName
             |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
 
     | BasicPatterns.Quote _ ->
@@ -562,23 +542,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | expr ->
         sprintf "Cannot compile expression %A" expr
         |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
-
-let private isErasedEntity com (ctx: Context) (ent: FSharpEntity) =
-    let fail (ent: FSharpEntity) msg =
-        addError com (getEntityLocation ent |> makeRange |> Some) msg; false
-    let check (ent: FSharpEntity) name att expected =
-        if name <> att
-        then false
-        elif (List.contains "union" expected && not ent.IsFSharpUnion)
-            && (List.contains "record" expected && not ent.IsFSharpRecord)
-        then fail ent (sprintf "%s can only decorate %s types" att (String.concat "/" expected))
-        else true
-    ent.Attributes |> tryFindAtt (fun name ->
-        name = Atts.import
-        || name = Atts.global_
-        || name = Atts.erase
-        || check ent name Atts.stringEnum ["union"])
-    |> Option.isSome
 
 /// Is compiler generated (CompareTo...) or belongs to ignored entity?
 /// (remember F# compiler puts class methods in enclosing modules)

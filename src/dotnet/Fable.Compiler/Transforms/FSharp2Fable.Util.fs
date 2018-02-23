@@ -6,7 +6,6 @@ open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
-open Fable.AST.Fable.Util
 open Fable.Transforms
 
 type Context =
@@ -311,21 +310,13 @@ module Patterns =
         | "System.UInt32" -> Some UInt32
         | "System.Single" -> Some Float32
         | "System.Double" -> Some Float64
+        | "System.Decimal" -> Some Decimal
         // Units of measure
         | Naming.StartsWith "Microsoft.FSharp.Core.sbyte" _ -> Some Int8
         | Naming.StartsWith "Microsoft.FSharp.Core.int16" _ -> Some Int16
         | Naming.StartsWith "Microsoft.FSharp.Core.int" _ -> Some Int32
         | Naming.StartsWith "Microsoft.FSharp.Core.float32" _ -> Some Float32
         | Naming.StartsWith "Microsoft.FSharp.Core.float" _ -> Some Float64
-        | _ -> None
-
-    let (|ExtendedNumberKind|_|) = function
-        | "System.Int64" -> Some Int64
-        | "System.UInt64" -> Some UInt64
-        | "System.Decimal" -> Some Decimal
-        | "System.Numerics.BigInteger" -> Some BigInt
-        // Units of measure
-        | Naming.StartsWith "Microsoft.FSharp.Core.int64" _ -> Some Int64
         | Naming.StartsWith "Microsoft.FSharp.Core.decimal" _ -> Some Decimal
         | _ -> None
 
@@ -466,7 +457,6 @@ module TypeHelpers =
         | Types.resizeArray -> getSingleGenericArg genArgs |> Fable.Array
         | Types.list -> getSingleGenericArg genArgs |> Fable.List
         | NumberKind kind -> Fable.Number kind
-        | ExtendedNumberKind kind -> Fable.ExtendedNumber kind
         | _ ->
             tdef.Attributes |> Seq.tryPick (fun att ->
                 match att.AttributeType.TryFullName with
@@ -614,9 +604,39 @@ module Util =
 
     let (|Replaced|_|) com ctx r typ genArgs (info: Fable.CallInfo) callee args
                                         (memb: FSharpMemberOrFunctionOrValue) =
+        let isCandidate (fullName: string) =
+            fullName.StartsWith("System.")
+                || fullName.StartsWith("Microsoft.FSharp.")
+                || fullName.StartsWith("Fable.Core.")
+
+        let tryPipesAndComposition r t (args: Fable.Expr list) (fullName: string) =
+            let rec curriedApply r t applied args =
+                Fable.Operation(Fable.CurriedApply(applied, args), t, r)
+            let compose f1 f2 =
+                None // TODO
+                // let tempVar = com.GetUniqueVar() |> makeIdent
+                // [Fable.IdentExpr tempVar]
+                // |> makeCall com info.range Fable.Any f1
+                // |> List.singleton
+                // |> makeCall com info.range Fable.Any f2
+                // |> makeLambda [tempVar]
+            if fullName.StartsWith("Microsoft.FSharp.Core.Operators") then
+                match fullName.Substring(fullName.LastIndexOf(".") + 1), args with
+                | "( |> )", [x; f]
+                | "( <| )", [f; x] -> curriedApply r t f [x] |> Some
+                // TODO: Try to untuple double and triple pipe arguments
+                // | "( ||> )", [x; y; f]
+                // | "( <|| )", [f; x; y] -> curriedApply r t f [x; y] |> Some
+                // | "( |||> )", [x; y; z; f]
+                // | "( <||| )", [f; x; y; z] -> curriedApply r t f [x; y; z] |> Some
+                | "( >> )", [f1; f2] -> compose f1 f2
+                | "( << )", [f2; f1] -> compose f1 f2
+                | _ -> None
+            else None
+
         let fullName = memb.FullName
-        if Replacements.isReplaceCandidate fullName then
-            match Replacements.tryFirstPass r typ args fullName with
+        if isCandidate fullName then
+            match tryPipesAndComposition r typ args fullName with
             | Some replaced -> Some replaced
             | None ->
                 let extraInfo: Fable.ExtraCallInfo =
