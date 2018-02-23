@@ -1795,7 +1795,21 @@ module AstPass =
                 // A static 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
                 let seqMeth = if meth = "length" then "count" else meth
                 ccall "Seq" seqMeth (staticArgs c args)
-            | List -> let c, _ = instanceArgs c args in prop meth c
+            | List ->
+                match meth with
+                | "head" | "tail" ->
+                    match c, args with
+                    | Some list, _ ->
+                        // xs.Head or xs.Tail
+                        ccall "List" meth [list]
+                    | _, [_] ->
+                        // List.head or List.tail
+                        ccall "List" meth args
+                    | _ ->
+                        addErrorAndReturnNull com i.fileName i.range "WTF?"
+                | _ ->
+                    let c, _ = instanceArgs c args
+                    prop meth c
             | Array ->
                 let c, _ = instanceArgs c args
                 if meth = "head" then makeGet i.range i.returnType c (makeIntConst 0)
