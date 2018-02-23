@@ -1,4 +1,4 @@
-import Long, { fromBits } from "./Long";
+import Long, { fromBits, getHighBits, getHighBitsUnsigned, getLowBits, getLowBitsUnsigned } from "./Long";
 
 const littleEndian = true;
 
@@ -25,10 +25,10 @@ export function getBytesInt32(value: number) {
   new DataView(bytes.buffer).setInt32(0, value, littleEndian);
   return bytes;
 }
-export function getBytesInt64(value: Long) {
+export function getBytesInt64(value: number /* Long */) {
   const bytes = new Uint8Array(8);
-  new DataView(bytes.buffer).setInt32(littleEndian ? 0 : 4, value.getLowBits(), littleEndian);
-  new DataView(bytes.buffer).setInt32(littleEndian ? 4 : 0, value.getHighBits(), littleEndian);
+  new DataView(bytes.buffer).setInt32(littleEndian ? 0 : 4, getLowBits(value), littleEndian);
+  new DataView(bytes.buffer).setInt32(littleEndian ? 4 : 0, getHighBits(value), littleEndian);
   return bytes;
 }
 export function getBytesUInt16(value: number) {
@@ -41,10 +41,10 @@ export function getBytesUInt32(value: number) {
   new DataView(bytes.buffer).setUint32(0, value, littleEndian);
   return bytes;
 }
-export function getBytesUInt64(value: Long) {
+export function getBytesUInt64(value: number /* Long */) {
   const bytes = new Uint8Array(8);
-  new DataView(bytes.buffer).setUint32(littleEndian ? 0 : 4, value.getLowBitsUnsigned(), littleEndian);
-  new DataView(bytes.buffer).setUint32(littleEndian ? 4 : 0, value.getHighBitsUnsigned(), littleEndian);
+  new DataView(bytes.buffer).setUint32(littleEndian ? 0 : 4, getLowBitsUnsigned(value), littleEndian);
+  new DataView(bytes.buffer).setUint32(littleEndian ? 4 : 0, getHighBitsUnsigned(value), littleEndian);
   return bytes;
 }
 export function getBytesSingle(value: number) {
@@ -57,10 +57,10 @@ export function getBytesDouble(value: number) {
   new DataView(bytes.buffer).setFloat64(0, value, littleEndian);
   return bytes;
 }
-export function int64BitsToDouble(value: Long) {
+export function int64BitsToDouble(value: number /* Long */) {
   const buffer = new ArrayBuffer(8);
-  new DataView(buffer).setInt32(littleEndian ? 0 : 4, value.getLowBits(), littleEndian);
-  new DataView(buffer).setInt32(littleEndian ? 4 : 0, value.getHighBits(), littleEndian);
+  new DataView(buffer).setInt32(littleEndian ? 0 : 4, getLowBits(value), littleEndian);
+  new DataView(buffer).setInt32(littleEndian ? 4 : 0, getHighBits(value), littleEndian);
   return new DataView(buffer).getFloat64(0, littleEndian);
 }
 export function doubleToInt64Bits(value: number) {

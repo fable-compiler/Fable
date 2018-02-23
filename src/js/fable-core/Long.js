@@ -1,6 +1,7 @@
 // Adapted from: https://github.com/dcodeIO/long.js/blob/f572e3a17d313730cf11eb838f6d2a5e31626f8a/src/long.js
 // Apache License 2.0: https://github.com/dcodeIO/long.js/blob/master/LICENSE
 
+/* tslint:disable */
 import { isValid } from "./Int32";
 
 /**
@@ -26,7 +27,7 @@ try {
  * @param {boolean=} unsigned Whether unsigned or not, defaults to signed
  * @constructor
  */
-function Long(low, high, unsigned) {
+export default function Long(low, high, unsigned) {
 
     /**
      * The low 32 bits as a signed value.
