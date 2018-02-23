@@ -29,6 +29,10 @@ let (|Builtin|_|) = function
         | _ -> None
     | _ -> None
 
+let (|Integer|Float|) = function
+    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
+    | Float32 | Float64 | Decimal -> Float
+
 let coreModFor = function
     | BclGuid -> "String"
     | BclTimeSpan -> "Long"
@@ -157,17 +161,23 @@ let applyOp (com: ICompiler) r t opName genArgs args =
         Operation(BinaryOperation(op, left, right), t, r)
     let logicOp op left right =
         Operation(LogicalOperation(op, left, right), Boolean, r)
-    let nativeOp opName args =
+    let nativeOp opName genArgs args =
         match opName, args with
         | Operators.addition, [left; right] -> binOp BinaryPlus left right
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
-        | Operators.division, [left; right] -> binOp BinaryDivide left right
+        | Operators.division, [left; right] ->
+            let div = binOp BinaryDivide left right
+            match genArgs with
+            // Floor result of integer divisions (see #172)
+            // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
+            | Number Integer::_ -> unOp UnaryNotBitwise div |> unOp UnaryNotBitwise
+            | _ -> div
         | Operators.modulus, [left; right] -> binOp BinaryModulus left right
         | Operators.leftShift, [left; right] -> binOp BinaryShiftLeft left right
         | Operators.rightShift, [left; right] ->
-            match left.Type with
-            | Number UInt32 -> binOp BinaryShiftRightZeroFill left right // See #646
+            match genArgs with
+            | Number UInt32::_ -> binOp BinaryShiftRightZeroFill left right // See #646
             | _ -> binOp BinaryShiftRightSignPropagating left right
         | Operators.bitwiseAnd, [left; right] -> binOp BinaryAndBitwise left right
         | Operators.bitwiseOr, [left; right] -> binOp BinaryOrBitwise left right
@@ -183,7 +193,7 @@ let applyOp (com: ICompiler) r t opName genArgs args =
     | _::DeclaredType(CustomOp com opName genArgs m, _)::_ ->
         let callee = FSharp2Fable.Util.memberRef com genArgs m
         makeCallNoInfo r t callee args
-    | _ -> nativeOp opName args
+    | _ -> nativeOp opName genArgs args
 
 let operators (com: ICompiler) r t callee args (info: CallInfo) (extraInfo: ExtraCallInfo) =
     if Set.contains extraInfo.CompiledName Operators.standard

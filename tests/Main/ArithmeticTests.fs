@@ -7,12 +7,11 @@ open Fable.Core
 [<Global("it")>]
 let testCase (msg: string) (f: unit->unit): unit = jsNative
 
-let inline equal (actual, expected): unit = Fable.Core.Testing.Assert.AreEqual(actual, expected)
+let inline equal (actual, expected): unit = Fable.Core.Testing.Assert.AreEqual(expected, actual)
 
 testCase "Infix add can be generated" <| fun () ->
     equal (4 + 2, 6)
 
-(*
 let [<Literal>] aLiteral = 5
 let notALiteral = 5
 
@@ -38,11 +37,7 @@ testCase "Integer division doesn't produce floats" <| fun () ->
     equal (5. / 2., 2.5)
     equal (5 / 2, 2)
     equal (5 / 3, 1)
-    equal (float 5 / 2., 2.5)
-
-testCase "Decimal literals can be generated" <| fun () ->
-    equal (System.Decimal.Zero, 0.M)
-    equal (System.Decimal.One, 1.M)
+    // equal (float 5 / 2., 2.5) // TODO: Number conversion
 
 testCase "Infix modulo can be generated" <| fun () ->
     equal (4 % 3, 1)
@@ -65,6 +60,11 @@ testCase "Bitwise shift right can be generated" <| fun () ->
 testCase "Zero fill shift right (>>>) for uint32" <| fun () -> // See #646
     equal (0x80000000 >>> 1, -1073741824)
     equal (0x80000000u >>> 1, 1073741824u)
+
+(*
+testCase "Decimal literals can be generated" <| fun () ->
+    equal (System.Decimal.Zero, 0.M)
+    equal (System.Decimal.One, 1.M)
 
 testCase "Int64 Infix add can be generated" <| fun () ->
     equal (4L + 2L, 6L)
