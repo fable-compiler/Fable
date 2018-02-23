@@ -144,7 +144,12 @@ module Helpers =
         | FSharpInlineAnnotation.OptionalInline -> false
         | FSharpInlineAnnotation.PseudoValue
         | FSharpInlineAnnotation.AlwaysInline
-        | FSharpInlineAnnotation.AggressiveInline -> true
+        | FSharpInlineAnnotation.AggressiveInline ->
+            match memb.EnclosingEntity with
+            | Some ent when not ent.IsFSharpModule ->
+                // Cannot inline custom type operators #230
+                Set.contains memb.CompiledName Operators.standard |> not
+            | _ -> true
 
     let isPublicMember (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsCompilerGenerated
@@ -665,8 +670,8 @@ module Util =
                 Fable.Operation(unresolved, typ, r) |> Some
         else None
 
-    let matchGenericParams (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) genArgs =
-        (ctx.typeArgs, memb.GenericParameters, genArgs)
+    let matchGenericParams (memb: FSharpMemberOrFunctionOrValue) genArgs =
+        (Map.empty, memb.GenericParameters, genArgs)
         |||> Seq.fold2 (fun acc genPar t -> Map.add genPar.Name t acc)
 
     let (|Emitted|_|) r typ argsAndCallInfo (memb: FSharpMemberOrFunctionOrValue) =
@@ -726,7 +731,7 @@ module Util =
                 ((ctx, []), argIdents, args) |||> List.fold2 (fun (ctx, bindings) argId arg ->
                     let ctx, ident = bindIdentFrom com ctx argId
                     ctx, (ident, arg)::bindings)
-            let ctx = { ctx with typeArgs = matchGenericParams ctx memb genArgs }
+            let ctx = { ctx with typeArgs = matchGenericParams memb genArgs }
             match com.Transform ctx fsExpr with
             | Fable.Let(bindings2, expr) -> Fable.Let((List.rev bindings) @ bindings2, expr) |> Some
             | expr -> Fable.Let(List.rev bindings, expr) |> Some

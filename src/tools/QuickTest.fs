@@ -86,9 +86,10 @@ module QuickTest
 
 type Foo() =
     member __.Z = 5
-    static member (+) (x: Foo, y: string) = "cambalache" + y
-    static member (+) (x: int, y: Foo) = x + 5
+    // static member (+) (x: Foo, y: string) = "cambalache" + y
+    // static member inline (+) (x: int, y: Foo) = x + 5
 
+let inline (+) (x: int) (y: Foo) = x + 5
 
 let test () =
     let f = Foo()

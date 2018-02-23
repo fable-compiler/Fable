@@ -200,3 +200,36 @@ module Types =
     let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
     let [<Literal>] printf = "Microsoft.FSharp.Core.PrintfModule"
     let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
+
+[<RequireQualifiedAccess>]
+module Operators =
+    let [<Literal>] addition = "op_Addition"
+    let [<Literal>] subtraction = "op_Subtraction"
+    let [<Literal>] multiply = "op_Multiply"
+    let [<Literal>] division = "op_Division"
+    let [<Literal>] modulus = "op_Modulus"
+    let [<Literal>] leftShift = "op_LeftShift"
+    let [<Literal>] rightShift = "op_RightShift"
+    let [<Literal>] bitwiseAnd = "op_BitwiseAnd"
+    let [<Literal>] bitwiseOr = "op_BitwiseOr"
+    let [<Literal>] exclusiveOr = "op_ExclusiveOr"
+    let [<Literal>] booleanAnd = "op_BooleanAnd"
+    let [<Literal>] booleanOr = "op_BooleanOr"
+    let [<Literal>] logicalNot = "op_LogicalNot"
+    let [<Literal>] unaryNegation = "op_UnaryNegation"
+
+    let standard =
+        set [ addition
+              subtraction
+              multiply
+              division
+              modulus
+              leftShift
+              rightShift
+              bitwiseAnd
+              bitwiseOr
+              exclusiveOr
+              booleanAnd
+              booleanOr
+              logicalNot
+              unaryNegation ]

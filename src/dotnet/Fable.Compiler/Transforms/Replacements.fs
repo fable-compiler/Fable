@@ -159,23 +159,23 @@ let applyOp (com: ICompiler) r t opName genArgs args =
         Operation(LogicalOperation(op, left, right), Boolean, r)
     let nativeOp opName args =
         match opName, args with
-        | "op_Addition", [left; right] -> binOp BinaryPlus left right
-        | "op_Subtraction", [left; right] -> binOp BinaryMinus left right
-        | "op_Multiply", [left; right] -> binOp BinaryMultiply left right
-        | "op_Division", [left; right] -> binOp BinaryDivide left right
-        | "op_Modulus", [left; right] -> binOp BinaryModulus left right
-        | "op_LeftShift", [left; right] -> binOp BinaryShiftLeft left right
-        | "op_RightShift", [left; right] ->
+        | Operators.addition, [left; right] -> binOp BinaryPlus left right
+        | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
+        | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
+        | Operators.division, [left; right] -> binOp BinaryDivide left right
+        | Operators.modulus, [left; right] -> binOp BinaryModulus left right
+        | Operators.leftShift, [left; right] -> binOp BinaryShiftLeft left right
+        | Operators.rightShift, [left; right] ->
             match left.Type with
             | Number UInt32 -> binOp BinaryShiftRightZeroFill left right // See #646
             | _ -> binOp BinaryShiftRightSignPropagating left right
-        | "op_BitwiseAnd", [left; right] -> binOp BinaryAndBitwise left right
-        | "op_BitwiseOr", [left; right] -> binOp BinaryOrBitwise left right
-        | "op_ExclusiveOr", [left; right] -> binOp BinaryXorBitwise left right
-        | "op_BooleanAnd", [left; right] -> logicOp LogicalAnd left right
-        | "op_BooleanOr", [left; right] -> logicOp LogicalOr left right
-        | "op_LogicalNot", [operand] -> unOp UnaryNotBitwise operand
-        | "op_UnaryNegation", [operand] -> unOp UnaryMinus operand
+        | Operators.bitwiseAnd, [left; right] -> binOp BinaryAndBitwise left right
+        | Operators.bitwiseOr, [left; right] -> binOp BinaryOrBitwise left right
+        | Operators.exclusiveOr, [left; right] -> binOp BinaryXorBitwise left right
+        | Operators.booleanAnd, [left; right] -> logicOp LogicalAnd left right
+        | Operators.booleanOr, [left; right] -> logicOp LogicalOr left right
+        | Operators.logicalNot, [operand] -> unOp UnaryNotBitwise operand
+        | Operators.unaryNegation, [operand] -> unOp UnaryMinus operand
         | _ -> "Unknown operator: " + opName |> addErrorAndReturnNull com r
     match genArgs with
     // TODO: Builtin types
@@ -186,14 +186,9 @@ let applyOp (com: ICompiler) r t opName genArgs args =
     | _ -> nativeOp opName args
 
 let operators (com: ICompiler) r t callee args (info: CallInfo) (extraInfo: ExtraCallInfo) =
-    match extraInfo.CompiledName with
-    | "op_Addition" | "op_Subtraction" | "op_Multiply" | "op_Division"
-    | "op_Modulus" | "op_LeftShift" | "op_RightShift"
-    | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
-    | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
-        applyOp com r t extraInfo.CompiledName extraInfo.GenericArgs args |> Some
-    | _ -> None
-
+    if Set.contains extraInfo.CompiledName Operators.standard
+    then applyOp com r t extraInfo.CompiledName extraInfo.GenericArgs args |> Some
+    else None
 
 let fableCoreLib com r t callee args info (extraInfo: ExtraCallInfo) =
     match extraInfo.CompiledName with
