@@ -135,6 +135,38 @@ module AST =
     let makeNumConst (x: float) = NumberConstant (float x, Float64) |> Value
     let makeDecConst (x: decimal) = NumberConstant (float x, Float64) |> Value
 
+    let rec listEquals f li1 li2 =
+        match li1, li2 with
+        | [], [] -> true
+        | h1::t1, h2::t2 -> f h1 h2 && listEquals f t1 t2
+        | _ -> false
+
+    let rec typeEquals typ1 typ2 =
+        match typ1, typ2 with
+        | Any, Any
+        | Unit, Unit
+        | Boolean, Boolean
+        | Char, Char
+        | String, String
+        | Regex, Regex -> true
+        | Number kind1, Number kind2 -> kind1 = kind2
+        | EnumType(kind1, name1), EnumType(kind2, name2) -> kind1 = kind2 && name1 = name2
+        | Option t1, Option t2
+        | Array t1, Array t2
+        | List t1, List t2 -> typeEquals t1 t2
+        | ErasedUnion ts1, ErasedUnion ts2
+        | Tuple ts1, Tuple ts2 -> listEquals typeEquals ts1 ts2
+        | GenericParam n1, GenericParam n2 -> n1 = n2
+        | FunctionType(LambdaType a1, t1), FunctionType(LambdaType a2, t2) ->
+            typeEquals a1 a2 && typeEquals t1 t2
+        | FunctionType(DelegateType as1, t1), FunctionType(DelegateType as2, t2) ->
+            listEquals typeEquals as1 as2 && typeEquals t1 t2
+        | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) ->
+            match ent1.TryFullName, ent2.TryFullName with
+            | Some n1, Some n2 when n1 = n2 -> listEquals typeEquals gen1 gen2
+            | _ -> false
+        | _ -> false
+
 [<RequireQualifiedAccess>]
 module Atts =
     let [<Literal>] abstractClass = "Microsoft.FSharp.Core.AbstractClassAttribute" // typeof<AbstractClassAttribute>.FullName

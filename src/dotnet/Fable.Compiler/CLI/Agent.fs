@@ -183,9 +183,9 @@ let compile (com: Compiler) (project: Project) =
             // If we compile the last file here, Webpack watcher will ignore changes in it
             Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles com.CurrentFile
         else
-            FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles
+            FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
             |> FableOptimize.optimizeFile com
-            |> Fable2Babel.Compiler.transformFile com project
+            |> Fable2Babel.Compiler.transformFile com
     // If this is the first compilation, add errors to each respective file
     if not project.IsWatchCompile then
         addFSharpErrorLogs com project.Errors (Some com.CurrentFile)
@@ -205,17 +205,17 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                 let msg = Parser.parse msg
                 // lazy sprintf "Received message %A" msg |> Log.logVerbose
                 let isUpdated, state, activeProject = updateState checker state msg
-                let com = Compiler(msg.path, activeProject.FableCore, Parser.toCompilerOptions msg)
+                let com = Compiler(msg.path, activeProject, Parser.toCompilerOptions msg)
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file
                 if isUpdated && activeProject.IsWatchCompile then
                     addFSharpErrorLogs com activeProject.Errors None
-                Some(com, state, activeProject)
+                Some(state, activeProject, com)
             with ex ->
                 sendError replyChannel ex
                 None
         match newState with
-        | Some(com, state, activeProject) ->
+        | Some(state, activeProject, com) ->
             async {
                 try
                     compile com activeProject |> replyChannel

@@ -53,7 +53,6 @@ type Context =
 
 type IBabelCompiler =
     inherit ICompiler
-    abstract GetRootModule: string -> string
     abstract GetImportExpr: Context -> selector: string -> path: string ->
         Fable.ImportKind -> Expression
     abstract GetAllImports: unit -> seq<Import>
@@ -917,7 +916,7 @@ module Util =
                     :> ModuleDeclaration |> U2.Case2 |> Some))
         |> Seq.toList
 
-    let makeCompiler (com: ICompiler) (state: ICompilerState) =
+    let makeCompiler (com: ICompiler) =
         let sanitizeSelector com selector =
             if selector = "*"
             then selector
@@ -942,8 +941,6 @@ module Util =
         let imports = Dictionary<string,Import>()
 
         { new IBabelCompiler with
-            member __.GetRootModule(file) =
-                state.GetRootModule(file)
             member bcom.GetImportExpr ctx selector path kind =
                 match imports.TryGetValue(path + "::" + selector) with
                 | true, i ->
@@ -978,9 +975,14 @@ module Util =
             member __.Options = com.Options
             member __.FableCore = com.FableCore
             member __.CurrentFile = com.CurrentFile
+            member __.GetUniqueVar() = com.GetUniqueVar()
+            member __.GetRootModule(fileName) =
+                com.GetRootModule(fileName)
+            member __.GetOrAddInlineExpr(fullName, generate) =
+                com.GetOrAddInlineExpr(fullName, generate)
             member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
-            member __.GetUniqueVar() = com.GetUniqueVar() }
+        }
 
 module Compiler =
     open Util
@@ -992,13 +994,13 @@ module Compiler =
             |> ExportAllDeclaration :> ModuleDeclaration |> U2.Case2 |> List.singleton
         Program(facadeFile, decls, dependencies=dependencies)
 
-    let transformFile (com: ICompiler) (state: ICompilerState) (file: Fable.File) =
+    let transformFile (com: ICompiler) (file: Fable.File) =
         try
             // let t = PerfTimer("Fable > Babel")
-            let com = makeCompiler com state
+            let com = makeCompiler com
             let ctx =
               { file = file
-                moduleFullName = state.GetRootModule(file.SourcePath)
+                moduleFullName = com.GetRootModule(file.SourcePath)
                 isFunctionBody = false
                 addDeclaredVar = fun _ -> ()
                 tailCallOpportunity = None

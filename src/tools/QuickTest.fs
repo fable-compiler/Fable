@@ -84,6 +84,15 @@ module QuickTest
 //     |> List.concat
 //     |> List.fold (fun acc x -> acc + x) 6
 
+type Foo() =
+    member __.Z = 5
+    static member (+) (x: Foo, y: string) = "cambalache" + y
+    static member (+) (x: int, y: Foo) = x + 5
+
+
+let test () =
+    let f = Foo()
+    4 + f
 
 let f (y: _ seq) = y // (y2: _ seq) = y
 
@@ -92,12 +101,12 @@ let f2 () =
     //  |> f [] // ("1"::"2"::li)
 
 
-type Foo = C1 | C2 | C3 of int | C4 | C5 | C6
+// type Foo = C1 | C2 | C3 of int | C4 | C5 | C6
 
-let test c =
-    match c with
-    | C1 -> 1
-    | C2 -> 2
-    | C3 s -> s
-    | C4 -> 5
-    | _ -> 10
+// let test c =
+//     match c with
+//     | C1 -> 1
+//     | C2 -> 2
+//     | C3 s -> s
+//     | C4 -> 5
+//     | _ -> 10

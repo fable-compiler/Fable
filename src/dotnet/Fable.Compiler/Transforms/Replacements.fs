@@ -3,6 +3,7 @@ module Fable.Transforms.Replacements
 open Fable
 open Fable.AST
 open Fable.AST.Fable
+open Microsoft.FSharp.Compiler.SourceCodeServices
 
 type BuiltinType =
     | BclGuid
@@ -142,40 +143,55 @@ let rec makeTypeTest com range expr (typ: Type) =
         |> addErrorAndReturnNull com range
 
 // TODO: Check special cases: custom operators, bigint, dates, etc
-let applyOp com r t opName args =
+let applyOp (com: ICompiler) r t opName genArgs args =
+    let (|CustomOp|_|) com opName genArgs (ent: FSharpEntity) =
+        // The last generic argument is the return type, remove it
+        match genArgs with
+        | left::right::_ -> Some [left; right]
+        | operand::_ -> Some [operand]
+        | _ -> None
+        |> Option.bind (FSharp2Fable.TypeHelpers.tryFindMember com ent opName false)
     let unOp operator operand =
         Operation(UnaryOperation(operator, operand), t, r)
     let binOp op left right =
         Operation(BinaryOperation(op, left, right), t, r)
     let logicOp op left right =
         Operation(LogicalOperation(op, left, right), Boolean, r)
-    match opName, args with
-    | "op_Addition", [left; right] -> binOp BinaryPlus left right
-    | "op_Subtraction", [left; right] -> binOp BinaryMinus left right
-    | "op_Multiply", [left; right] -> binOp BinaryMultiply left right
-    | "op_Division", [left; right] -> binOp BinaryDivide left right
-    | "op_Modulus", [left; right] -> binOp BinaryModulus left right
-    | "op_LeftShift", [left; right] -> binOp BinaryShiftLeft left right
-    | "op_RightShift", [left; right] ->
-        match left.Type with
-        | Number UInt32 -> binOp BinaryShiftRightZeroFill left right // See #646
-        | _ -> binOp BinaryShiftRightSignPropagating left right
-    | "op_BitwiseAnd", [left; right] -> binOp BinaryAndBitwise left right
-    | "op_BitwiseOr", [left; right] -> binOp BinaryOrBitwise left right
-    | "op_ExclusiveOr", [left; right] -> binOp BinaryXorBitwise left right
-    | "op_BooleanAnd", [left; right] -> logicOp LogicalAnd left right
-    | "op_BooleanOr", [left; right] -> logicOp LogicalOr left right
-    | "op_LogicalNot", [operand] -> unOp UnaryNotBitwise operand
-    | "op_UnaryNegation", [operand] -> unOp UnaryMinus operand
-    | _ -> "Unknown operator: " + opName |> addErrorAndReturnNull com r
+    let nativeOp opName args =
+        match opName, args with
+        | "op_Addition", [left; right] -> binOp BinaryPlus left right
+        | "op_Subtraction", [left; right] -> binOp BinaryMinus left right
+        | "op_Multiply", [left; right] -> binOp BinaryMultiply left right
+        | "op_Division", [left; right] -> binOp BinaryDivide left right
+        | "op_Modulus", [left; right] -> binOp BinaryModulus left right
+        | "op_LeftShift", [left; right] -> binOp BinaryShiftLeft left right
+        | "op_RightShift", [left; right] ->
+            match left.Type with
+            | Number UInt32 -> binOp BinaryShiftRightZeroFill left right // See #646
+            | _ -> binOp BinaryShiftRightSignPropagating left right
+        | "op_BitwiseAnd", [left; right] -> binOp BinaryAndBitwise left right
+        | "op_BitwiseOr", [left; right] -> binOp BinaryOrBitwise left right
+        | "op_ExclusiveOr", [left; right] -> binOp BinaryXorBitwise left right
+        | "op_BooleanAnd", [left; right] -> logicOp LogicalAnd left right
+        | "op_BooleanOr", [left; right] -> logicOp LogicalOr left right
+        | "op_LogicalNot", [operand] -> unOp UnaryNotBitwise operand
+        | "op_UnaryNegation", [operand] -> unOp UnaryMinus operand
+        | _ -> "Unknown operator: " + opName |> addErrorAndReturnNull com r
+    match genArgs with
+    // TODO: Builtin types
+    | DeclaredType(CustomOp com opName genArgs m, _)::_
+    | _::DeclaredType(CustomOp com opName genArgs m, _)::_ ->
+        let callee = FSharp2Fable.Util.memberRef com genArgs m
+        makeCallNoInfo r t callee args
+    | _ -> nativeOp opName args
 
-let operators com r t callee args info (extraInfo: ExtraCallInfo) =
+let operators (com: ICompiler) r t callee args (info: CallInfo) (extraInfo: ExtraCallInfo) =
     match extraInfo.CompiledName with
     | "op_Addition" | "op_Subtraction" | "op_Multiply" | "op_Division"
     | "op_Modulus" | "op_LeftShift" | "op_RightShift"
     | "op_BitwiseAnd" | "op_BitwiseOr" | "op_ExclusiveOr"
     | "op_LogicalNot" | "op_UnaryNegation" | "op_BooleanAnd" | "op_BooleanOr" ->
-        applyOp com r t extraInfo.CompiledName args |> Some
+        applyOp com r t extraInfo.CompiledName extraInfo.GenericArgs args |> Some
     | _ -> None
 
 
@@ -197,8 +213,8 @@ let tryField returnTyp ownerTyp fieldName =
         ccall_ returnTyp (coreModFor BclDateTimeOffset) (Naming.lowerFirst fieldName) [] |> Some
     | _ -> None
 
-let tryCall com r t (callee: Expr option) (args: Expr list)
-                    (info: CallInfo) (extraInfo: ExtraCallInfo) =
+let tryCall (com: ICompiler) r t (callee: Expr option) (args: Expr list)
+                            (info: CallInfo) (extraInfo: ExtraCallInfo) =
     let ownerName = extraInfo.FullName.Substring(0, extraInfo.FullName.LastIndexOf('.'))
     match ownerName with
     | "System.Math"

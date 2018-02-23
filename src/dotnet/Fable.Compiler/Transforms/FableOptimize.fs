@@ -232,10 +232,10 @@ module private Transforms =
             // CoreLibCall("Util", Some "uncurry", false, [makeIntConst arity; expr]) |> makeCall None expr.Type
             | _, None -> expr
 
-    let uncurryAnonymousFunctions (_: ICompiler) e =
+    let uncurryInnerFunctions (_: ICompiler) e =
         e // TODO
 
-    let uncurryPassedArgs (_: ICompiler) e =
+    let uncurryReceivedArgs (_: ICompiler) e =
         let replaceIdentType replacements (id: Ident) =
             match Map.tryFind id.Name replacements with
             | Some typ -> { id with Type = typ }
@@ -264,7 +264,7 @@ module private Transforms =
             Function(Delegate args, body)
         | e -> e
 
-    let uncurryPassingArgs (_: ICompiler) (e: Expr) =
+    let uncurrySendingArgs (_: ICompiler) (e: Expr) =
         let mapArgs f argTypes args =
             let rec mapArgsInner f acc argTypes args =
                 match argTypes, args with
@@ -290,7 +290,10 @@ module private Transforms =
         | Operation(Call(callee, memb, args, info), t, r) ->
             // For CurriedApply: let argTypes = uncurryLambdaType [] t |> fst |> Some
             let argTypes = if info.IsDynamic then None else Some info.ArgTypes
-            let args = uncurryArgs argTypes args
+            let args =
+                match info.HasThisArg, args with
+                | true, _this::args -> uncurryArgs argTypes args
+                | _ -> uncurryArgs argTypes args
             Operation(Call(callee, memb, args, info), t, r)
         | e -> e
 
@@ -319,8 +322,8 @@ let optimizeExpr (com: ICompiler) e =
       // Then resolve calls
       resolveCalls
       // Then apply uncurry optimizations
-      uncurryPassedArgs
-      uncurryPassingArgs
+      uncurryReceivedArgs
+      uncurrySendingArgs
       uncurryApplications ]
     |> List.fold (fun e f -> visit (f com) e) e
 

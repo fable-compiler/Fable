@@ -28,7 +28,6 @@ type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context -> FSharpExpr -> Fable.Expr
     abstract TryGetInternalFile: FSharpEntity -> string option
-    abstract GetRootModule: string -> string
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract AddInlineExpr: FSharpMemberOrFunctionOrValue * InlineExpr -> unit
     abstract AddUsedVarName: string -> unit
@@ -68,6 +67,8 @@ module Helpers =
         let argsEqual (args1: IList<IList<FSharpParameter>>) (args2: IList<IList<FSharpParameter>>) =
             if args1.Count = args2.Count then
                 (args1, args2) ||> Seq.forall2 (fun g1 g2 ->
+                // Checking equality of FSharpParameter seems to be fast
+                // See https://github.com/fsharp/FSharp.Compiler.Service/blob/0d87c8878c14ab2b283fbd696096e4e4714fab6b/src/fsharp/symbols/Symbols.fs#L2145
                     g1.Count = g2.Count && Seq.forall2 (=) g1 g2)
             else false
         if m.IsImplicitConstructor || m.IsOverrideOrExplicitInterfaceImplementation
@@ -87,7 +88,7 @@ module Helpers =
                 else i, found)
             |> fst
 
-    let private getMemberDeclarationNamePrivate removeRootModule (com: IFableCompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
+    let private getMemberDeclarationNamePrivate removeRootModule (com: ICompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
         let removeRootModule' (ent: FSharpEntity) (fullName: string) =
             if not removeRootModule then
                 fullName
@@ -111,10 +112,10 @@ module Helpers =
         | None -> memb.FullName
         |> Naming.sanitizeIdentForbiddenChars
 
-    let getMemberDeclarationName (com: IFableCompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
+    let getMemberDeclarationName (com: ICompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
         getMemberDeclarationNamePrivate true com argTypes memb
 
-    let getMemberDeclarationFullname (com: IFableCompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
+    let getMemberDeclarationFullname (com: ICompiler) (argTypes: Fable.Type list) (memb: FSharpMemberOrFunctionOrValue) =
 
         getMemberDeclarationNamePrivate false com argTypes memb
 
@@ -401,10 +402,10 @@ module TypeHelpers =
     open Helpers
     open Patterns
 
-    let rec makeGenArgs com ctxTypeArgs genArgs =
+    let rec makeGenArgs (com: ICompiler) ctxTypeArgs genArgs =
         Seq.map (makeType com ctxTypeArgs) genArgs |> Seq.toList
 
-    and makeTypeFromDef (com: IFableCompiler) ctxTypeArgs (genArgs: seq<FSharpType>) (tdef: FSharpEntity) =
+    and makeTypeFromDef (com: ICompiler) ctxTypeArgs (genArgs: seq<FSharpType>) (tdef: FSharpEntity) =
         let getSingleGenericArg genArgs =
             Seq.tryHead genArgs
             |> Option.map (makeType com ctxTypeArgs)
@@ -469,7 +470,7 @@ module TypeHelpers =
             |> Option.defaultWith (fun () ->
                 Fable.DeclaredType(tdef, makeGenArgs com ctxTypeArgs genArgs))
 
-    and makeType (com: IFableCompiler) ctxTypeArgs (NonAbbreviatedType t) =
+    and makeType (com: ICompiler) ctxTypeArgs (NonAbbreviatedType t) =
         let resolveGenParam (genParam: FSharpGenericParameter) =
             match Map.tryFind genParam.Name ctxTypeArgs with
             // Clear typeArgs to prevent infinite recursion
@@ -514,6 +515,23 @@ module TypeHelpers =
 
     let isAbstract (ent: FSharpEntity) =
        hasAtt Atts.abstractClass ent.Attributes
+
+    let tryFindMember com (enclosingEntity: FSharpEntity) membCompiledName isInstance (argTypes: Fable.Type list) =
+        let argsEqual (args1: Fable.Type list) =
+            let args1Len = List.length argTypes
+            fun (args2: IList<IList<FSharpParameter>>) ->
+                let args2Len = args2 |> Seq.sumBy (fun g -> g.Count)
+                if args1Len = args2Len then
+                    let args2 = args2 |> Seq.collect (fun g ->
+                        g |> Seq.map (fun p -> makeType com Map.empty p.Type) |> Seq.toList)
+                    listEquals typeEquals args1 (Seq.toList args2)
+                else false
+        // TODO: Check record fields
+        enclosingEntity.MembersFunctionsAndValues |> Seq.tryFind (fun m2 ->
+            let argsEqual = argsEqual argTypes
+            if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName then
+                argsEqual m2.CurriedParameterGroups
+            else false)
 
     let inline (|FableType|) com (ctx: Context) t = makeType com ctx.typeArgs t
 
@@ -729,7 +747,7 @@ module Util =
             then List.take validArgsLen args
             else args
 
-    let memberRef (com: IFableCompiler) typ argTypes (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRefTyped (com: ICompiler) typ argTypes (memb: FSharpMemberOrFunctionOrValue) =
         let memberName = getMemberDeclarationName com argTypes memb
         let file =
             match memb.EnclosingEntity with
@@ -740,6 +758,9 @@ module Util =
         if file = com.CurrentFile
         then makeTypedIdent typ memberName |> Fable.IdentExpr
         else Fable.Import(memberName, file, Fable.Internal, typ)
+
+    let memberRef (com: ICompiler) argTypes (memb: FSharpMemberOrFunctionOrValue) =
+        memberRefTyped com Fable.Any argTypes memb
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
         let call info callee memb args =
@@ -784,11 +805,11 @@ module Util =
             match callee with
             | Some callee ->
                 let info = { info with HasThisArg = true }
-                call info (memberRef com Fable.Any info.ArgTypes memb) None (callee::args)
+                call info (memberRef com info.ArgTypes memb) None (callee::args)
             | None ->
                 if isModuleValueForCalls memb
-                then memberRef com typ [] memb
-                else call info (memberRef com Fable.Any info.ArgTypes memb) None args
+                then memberRefTyped com typ [] memb
+                else call info (memberRef com info.ArgTypes memb) None args
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.typeArgs v.FullType
@@ -798,4 +819,4 @@ module Util =
         | Emitted r typ None emitted -> emitted
         // TODO: Replaced? Check if there're failing tests
         | Try (tryGetBoundExpr ctx r) expr -> expr
-        | _ -> memberRef com typ [] v
+        | _ -> memberRefTyped com typ [] v

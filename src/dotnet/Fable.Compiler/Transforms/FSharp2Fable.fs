@@ -691,7 +691,7 @@ let private tryGetMemberArgsAndBody (implFiles: Map<string, FSharpImplementation
     |> Option.bind (fun f ->
         f.Declarations |> List.tryPick (tryGetMemberArgsAndBody' meth.FullName))
 
-type FableCompiler(com: ICompiler, state: ICompilerState, implFiles: Map<string, FSharpImplementationFileContents>) =
+type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFileContents>) =
     let usedVarNames = HashSet<string>()
     let dependencies = HashSet<string>()
     member __.UsedVarNames = set usedVarNames
@@ -703,28 +703,31 @@ type FableCompiler(com: ICompiler, state: ICompilerState, implFiles: Map<string,
             match tdef.Assembly.FileName with
             | Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> None
             | _ -> Some (getEntityLocation tdef).FileName
-        member __.GetRootModule filePath =
-            state.GetRootModule filePath
         member fcom.GetInlineExpr memb =
             let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
             if fileName <> com.CurrentFile then
                 dependencies.Add(fileName) |> ignore
             let fullName = getMemberDeclarationFullname fcom (getArgTypes fcom memb) memb
-            state.GetOrAddInlineExpr(fullName, fun () ->
+            com.GetOrAddInlineExpr(fullName, fun () ->
                 match tryGetMemberArgsAndBody implFiles fileName memb with
                 | Some(args, body) -> List.concat args, body
                 | None -> failwith ("Cannot find inline member " + memb.FullName)
             )
         member fcom.AddInlineExpr(memb, inlineExpr) =
             let fullName = getMemberDeclarationFullname fcom (getArgTypes fcom memb) memb
-            state.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
+            com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
         member __.AddUsedVarName varName =
             usedVarNames.Add varName |> ignore
     interface ICompiler with
         member __.Options = com.Options
         member __.FableCore = com.FableCore
         member __.CurrentFile = com.CurrentFile
-        member __.GetUniqueVar() = com.GetUniqueVar()
+        member __.GetUniqueVar() =
+            com.GetUniqueVar()
+        member __.GetRootModule(fileName) =
+            com.GetRootModule(fileName)
+        member __.GetOrAddInlineExpr(fullName, generate) =
+            com.GetOrAddInlineExpr(fullName, generate)
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
@@ -734,13 +737,13 @@ let getRootModuleFullName (file: FSharpImplementationFileContents) =
     | Some rootEnt -> getEntityFullName rootEnt
     | None -> ""
 
-let transformFile (com: ICompiler) (state: ICompilerState) (implFiles: Map<string, FSharpImplementationFileContents>) =
+let transformFile (com: ICompiler) (implFiles: Map<string, FSharpImplementationFileContents>) =
     try
         let file =
             match Map.tryFind com.CurrentFile implFiles with
             | Some file -> file
             | None -> failwithf "File %s doesn't belong to parsed project" com.CurrentFile
-        let fcom = FableCompiler(com, state, implFiles)
+        let fcom = FableCompiler(com, implFiles)
         let _, rootDecls = getRootModuleAndDecls file.Declarations
         let ctx = Context.Create()
         let _, rootDecls = transformDeclarations fcom ctx rootDecls

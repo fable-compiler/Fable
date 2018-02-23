@@ -47,6 +47,7 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
     member __.IsWatchCompile = isWatchCompile
     member __.ImplementationFiles = implFiles
     member __.RootModules = rootModules
+    member __.InlineExprs = inlineExprs
     member __.Errors = errors
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectFile
@@ -77,20 +78,13 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
         |> Seq.toArray
     member __.GetOrAddInlineExpr(fullName, generate) =
         inlineExprs.GetOrAdd(fullName, fun _ -> generate())
-    interface ICompilerState with
-        member __.GetRootModule(fileName) =
-            match Map.tryFind fileName rootModules with
-            | Some rootModule -> rootModule
-            | None -> failwithf "Cannot find root module for %s" fileName
-        member __.GetOrAddInlineExpr(fullName, generate) =
-            inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
-type Compiler(currentFile, fableCore, options) =
+type Compiler(currentFile, project: Project, options) =
     let mutable id = 0
     let logs = Dictionary<string, string list>()
-    let fableCore = (Path.getRelativePath currentFile fableCore).TrimEnd('/')
+    let fableCore = (Path.getRelativePath currentFile project.FableCore).TrimEnd('/')
     member __.ReadAllLogs() =
         logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value) |> Map
     member __.Options = options
@@ -99,6 +93,12 @@ type Compiler(currentFile, fableCore, options) =
         member __.Options = options
         member __.FableCore = fableCore
         member __.CurrentFile = currentFile
+        member __.GetRootModule(fileName) =
+            match Map.tryFind fileName project.RootModules with
+            | Some rootModule -> rootModule
+            | None -> failwithf "Cannot find root module for %s" fileName
+        member __.GetOrAddInlineExpr(fullName, generate) =
+            project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             let tag = defaultArg tag "FABLE"
             let severity =
