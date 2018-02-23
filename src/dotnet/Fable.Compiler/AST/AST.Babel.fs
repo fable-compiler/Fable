@@ -52,10 +52,6 @@ type TypeParameterInstantiation(typeParams) =
 
 type Pattern = interface end
 
-/// Placeholder, doesn't belong to Babel specs
-type EmptyExpression() =
-    inherit Expression("EmptyExpression")
-
 /// Not in Babel specs, disguised as StringLiteral
 type MacroExpression(value, args, ?loc) =
     inherit Literal("StringLiteral", ?loc = loc)

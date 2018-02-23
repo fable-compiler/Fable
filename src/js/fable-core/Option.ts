@@ -39,11 +39,11 @@ export class Some<T> {
     }
 }
 
-export function makeSome<T>(x: T): Option<T> {
+export function some<T>(x: T): Option<T> {
     return x == null || x instanceof Some ? new Some(x) : x;
 }
 
-export function getValue<T>(x: Option<T>, acceptNull?: boolean): T {
+export function value<T>(x: Option<T>, acceptNull?: boolean): T {
     if (x == null) {
         if (!acceptNull) {
             throw new Error("Option has no value");
@@ -55,13 +55,13 @@ export function getValue<T>(x: Option<T>, acceptNull?: boolean): T {
 }
 
 export function defaultArg<T, U>(arg: T, defaultValue: T, f?: (x: T) => U) {
-    return arg == null ? defaultValue : (f != null ? f(getValue(arg)) : getValue(arg));
+    return arg == null ? defaultValue : (f != null ? f(value(arg)) : value(arg));
 }
 
 export function defaultArgWith<T, U>(arg: T, defThunk: () => T) {
-    return arg == null ? defThunk() : getValue(arg);
+    return arg == null ? defThunk() : value(arg);
 }
 
 export function filter<T>(predicate: (x: T) => boolean, arg: T) {
-    return arg != null ? (!predicate(getValue(arg)) ? null : arg) : arg;
+    return arg != null ? (!predicate(value(arg)) ? null : arg) : arg;
 }

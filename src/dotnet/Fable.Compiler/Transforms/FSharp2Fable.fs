@@ -250,12 +250,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         |> makeLoop (makeRangeFrom fsExpr)
 
     | TryGetValue (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
-        let callee, args = Option.map (com.Transform ctx) callee, List.map (com.Transform ctx) membArgs
+        let callee, args = Option.map (transformExpr com ctx) callee, List.map (transformExpr com ctx) membArgs
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeCallFrom com ctx r typ (ownerGenArgs@membGenArgs) callee args memb
 
     | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
-        let callee, args = com.Transform ctx callee, List.map (com.Transform ctx) membArgs
+        let callee, args = transformExpr com ctx callee, List.map (transformExpr com ctx) membArgs
         let callee = Fable.Get(callee, Fable.FieldGet eventName, Fable.Any, None)
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeCallFrom com ctx r typ (ownerGenArgs@membGenArgs) (Some callee) args memb
@@ -269,7 +269,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.FastIntegerForLoop(Transform com ctx start, Transform com ctx limit, body, isUp) ->
         match body with
         | BasicPatterns.Lambda (BindIdent com ctx (newContext, ident), body) ->
-            Fable.For (ident, start, limit, com.Transform newContext body, isUp)
+            Fable.For (ident, start, limit, transformExpr com newContext body, isUp)
             |> makeLoop (makeRangeFrom fsExpr)
         | _ -> failwithf "Unexpected loop %O: %A" (makeRange fsExpr.Range) fsExpr
 
@@ -292,7 +292,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.Value var ->
         if isInline var then
             match ctx.scopedInlines |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
-            | Some (_,fsExpr) -> com.Transform ctx fsExpr
+            | Some (_,fsExpr) -> transformExpr com ctx fsExpr
             | None ->
                 "Cannot resolve locally inlined value: " + var.DisplayName
                 |> addErrorAndReturnNull com (makeRange fsExpr.Range |> Some)
@@ -337,7 +337,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         addErrorAndReturnNull com r "TODO: TraitCalls"
 
     | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
-        let callee = Option.map (com.Transform ctx) callee
+        let callee = Option.map (transformExpr com ctx) callee
         let args = List.map (transformExpr com ctx) args
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeCallFrom com ctx r typ (ownerGenArgs@membGenArgs) callee args memb
@@ -349,7 +349,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // match ctx.scopedInlines |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
         // | Some (_,fsExpr) ->
         //     let resolvedCtx = { ctx with typeArgs = matchGenericParams ctx var [] typeArgs }
-        //     let callee = com.Transform resolvedCtx fsExpr
+        //     let callee = transformExpr com resolvedCtx fsExpr
         //     match args with
         //     | [] -> callee
         //     | args -> Fable.Apply(callee, List.map (transformExpr com ctx) args, range)
@@ -376,13 +376,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr)
 
     | BasicPatterns.TryFinally (BasicPatterns.TryWith(body, _, _, catchVar, catchBody),finalBody) ->
-        makeTryCatch com ctx fsExpr body (Some (catchVar, catchBody)) (Some finalBody)
+        makeTryCatch com ctx body (Some (catchVar, catchBody)) (Some finalBody)
 
     | BasicPatterns.TryFinally (body, finalBody) ->
-        makeTryCatch com ctx fsExpr body None (Some finalBody)
+        makeTryCatch com ctx body None (Some finalBody)
 
     | BasicPatterns.TryWith (body, _, _, catchVar, catchBody) ->
-        makeTryCatch com ctx fsExpr body (Some (catchVar, catchBody)) None
+        makeTryCatch com ctx body (Some (catchVar, catchBody)) None
 
     | BasicPatterns.Sequential (Transform com ctx first, Transform com ctx second) ->
         Fable.Sequential [first; second]
@@ -484,7 +484,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.NewObject(memb, genArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        let args = List.map (com.Transform ctx) args
+        let args = List.map (transformExpr com ctx) args
         makeCallFrom com ctx r typ genArgs None args memb
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->
@@ -493,7 +493,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         Fable.NewRecord(argExprs, fsType.TypeDefinition, genArgs) |> Fable.Value
 
     | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
-        List.map (com.Transform ctx) argExprs
+        List.map (transformExpr com ctx) argExprs
         |> transformNewUnion com ctx fsExpr fsType unionCase
 
     (** ## Type test *)
@@ -548,8 +548,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
     (meth.IsCompilerGenerated && Naming.ignoredCompilerGenerated.Contains meth.CompiledName)
         || Option.isSome meth.LiteralValue
-        || Option.isSome(meth.Attributes |> tryFindAtt (fun name ->
-            name = Atts.import || name = Atts.global_ || name = Atts.emit || name = Atts.erase))
+        || meth.Attributes |> Seq.exists (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some(Atts.import | Atts.global_ | Atts.emit | Atts.erase) -> true
+            | _ -> false)
         || Naming.ignoredInterfaceMethods.Contains meth.CompiledName
 
 let private transformConstructor com ctx (meth: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -622,18 +624,17 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
 
 let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    if isIgnoredMember memb then
-        ctx, []
+    if isIgnoredMember memb
+    then ctx, []
     elif isInline memb then
         // TODO: Compiler flag to output inline expressions (e.g. for REPL libs)
         com.AddInlineExpr(memb, (List.concat args, body))
         ctx, []
-    elif memb.IsImplicitConstructor || memb.IsConstructor then
-        transformConstructor com ctx memb args body
-    elif isModuleValueForDeclaration memb then
-        transformMemberValue com ctx memb body
-    else
-        transformMemberFunction com ctx memb args body
+    elif memb.IsImplicitConstructor || memb.IsConstructor
+    then transformConstructor com ctx memb args body
+    elif isModuleValueForDeclaration memb
+    then transformMemberValue com ctx memb body
+    else transformMemberFunction com ctx memb args body
 
 let private transformDeclarations (com: IFableCompiler) (ctx: Context) fsDecls =
     ((ctx, []), fsDecls) ||> List.fold (fun (ctx, accDecls) fsDecl ->
@@ -697,7 +698,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
     member __.UsedVarNames = set usedVarNames
     member __.Dependencies = set dependencies
     interface IFableCompiler with
-        member fcom.Transform ctx fsExpr =
+        member fcom.Transform(ctx, fsExpr) =
             transformExpr fcom ctx fsExpr
         member __.TryGetInternalFile tdef =
             match tdef.Assembly.FileName with
@@ -711,8 +712,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             com.GetOrAddInlineExpr(fullName, fun () ->
                 match tryGetMemberArgsAndBody implFiles fileName memb with
                 | Some(args, body) -> List.concat args, body
-                | None -> failwith ("Cannot find inline member " + memb.FullName)
-            )
+                | None -> failwith ("Cannot find inline member " + memb.FullName))
         member fcom.AddInlineExpr(memb, inlineExpr) =
             let fullName = getMemberDeclarationFullname fcom (getArgTypes fcom memb) memb
             com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore

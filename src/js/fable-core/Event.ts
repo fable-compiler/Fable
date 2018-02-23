@@ -1,6 +1,6 @@
 import Choice from "./Choice";
 import { IObservable, IObserver, Observer, protect } from "./Observable";
-import { getValue } from "./Option";
+import { value } from "./Option";
 import { iterate as seqIterate } from "./Seq";
 import { createDisposable, IDisposable } from "./Util";
 
@@ -107,7 +107,7 @@ export function choose<T, U>(chooser: (x: T) => U, sourceEvent: IEvent<T>) {
     source.Subscribe(new Observer<T>((t) =>
       protect(
         () => chooser(t),
-        (u) => { if (u != null) { observer.OnNext(getValue(u)); } },
+        (u) => { if (u != null) { observer.OnNext(value(u)); } },
         observer.OnError),
       observer.OnError, observer.OnCompleted)),
     source.delegates) as IEvent<U>;

@@ -97,7 +97,7 @@ module Naming =
 
     let ignoredInterfaceMethods =
         set [ "System-Collections-IEnumerable-GetEnumerator"
-            ; "System-Collections-IEnumerator-get_Current" ]
+              "System-Collections-IEnumerator-get_Current" ]
 
     /// Methods automatically assigned by the F# compiler
     /// for unions and records. Ignored by Fable.

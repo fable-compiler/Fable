@@ -1,5 +1,5 @@
 import Choice from "./Choice";
-import { getValue } from "./Option";
+import { value } from "./Option";
 import FSymbol from "./Symbol";
 import { IDisposable } from "./Util";
 import { createDisposable } from "./Util";
@@ -59,7 +59,7 @@ export function choose<T, U>(chooser: (x: T) => U, source: IObservable<T>) {
     source.Subscribe(new Observer<T>((t) =>
       protect(
         () => chooser(t),
-        (u) => { if (u != null) { observer.OnNext(getValue(u)); } },
+        (u) => { if (u != null) { observer.OnNext(value(u)); } },
         observer.OnError),
       observer.OnError, observer.OnCompleted))) as IObservable<U>;
 }

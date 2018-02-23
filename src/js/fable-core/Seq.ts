@@ -1,7 +1,7 @@
 import { permute as arrayPermute } from "./Array";
 import { chunkBySize as arrayChunkBySize } from "./Array";
 import List from "./ListClass";
-import { getValue, makeSome, Option } from "./Option";
+import { Option, some, value } from "./Option";
 import { compare, equals, hasInterface, IDisposable } from "./Util";
 
 export class Enumerator<T> {
@@ -39,7 +39,7 @@ function __failIfNone<T>(res: Option<T>) {
   if (res == null) {
     throw new Error("Seq did not contain any matching element");
   }
-  return getValue(res);
+  return value(res);
 }
 
 export function toList<T>(xs: Iterable<T>) {
@@ -134,7 +134,7 @@ export function choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
     while (!cur.done) {
       const y = f(cur.value);
       if (y != null) {
-        return [getValue(y), iter];
+        return [value(y), iter];
       }
       cur = iter.next();
     }
@@ -144,7 +144,7 @@ export function choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
 
 export function compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: Iterable<T>) {
   const nonZero = tryFind((i: number) => i !== 0, map2((x: T, y: T) => f(x, y), xs, ys));
-  return nonZero != null ? getValue(nonZero) : count(xs) - count(ys);
+  return nonZero != null ? value(nonZero) : count(xs) - count(ys);
 }
 
 export function delay<T>(f: () => Iterable<T>) {
@@ -320,7 +320,7 @@ export function forAll2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, 
 export function tryHead<T>(xs: Iterable<T>): Option<T> {
   const iter = xs[Symbol.iterator]();
   const cur = iter.next();
-  return cur.done ? null : makeSome(cur.value);
+  return cur.done ? null : some(cur.value);
 }
 
 export function head<T>(xs: Iterable<T>): T {
@@ -342,7 +342,7 @@ export function tryItem<T>(i: number, xs: Iterable<T>): Option<T> {
     return null;
   }
   if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
-    return i < (xs as T[]).length ? makeSome((xs as T[])[i]) : null;
+    return i < (xs as T[]).length ? some((xs as T[])[i]) : null;
   }
   for (let j = 0, iter = xs[Symbol.iterator](); ; j++) {
     const cur = iter.next();
@@ -350,7 +350,7 @@ export function tryItem<T>(i: number, xs: Iterable<T>): Option<T> {
       break;
     }
     if (j === i) {
-      return makeSome(cur.value);
+      return some(cur.value);
     }
   }
   return null;
@@ -383,7 +383,7 @@ export function isEmpty<T>(xs: Iterable<T>) {
 
 export function tryLast<T>(xs: Iterable<T>): Option<T> {
   try {
-    return makeSome(reduce((_, x) => x, xs));
+    return some(reduce((_, x) => x, xs));
   } catch (err) {
     return null;
   }
@@ -693,10 +693,10 @@ export function tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, de
       break;
     }
     if (f(cur.value, i)) {
-      return makeSome(cur.value);
+      return some(cur.value);
     }
   }
-  return defaultValue === void 0 ? null : makeSome(defaultValue);
+  return defaultValue === void 0 ? null : some(defaultValue);
 }
 
 export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): T {

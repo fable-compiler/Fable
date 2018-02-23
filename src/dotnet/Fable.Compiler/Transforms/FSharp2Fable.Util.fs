@@ -26,7 +26,7 @@ type Context =
 
 type IFableCompiler =
     inherit ICompiler
-    abstract Transform: Context -> FSharpExpr -> Fable.Expr
+    abstract Transform: Context * FSharpExpr -> Fable.Expr
     abstract TryGetInternalFile: FSharpEntity -> string option
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract AddInlineExpr: FSharpMemberOrFunctionOrValue * InlineExpr -> unit
@@ -119,15 +119,12 @@ module Helpers =
 
         getMemberDeclarationNamePrivate false com argTypes memb
 
-    let tryFindAtt f (atts: #seq<FSharpAttribute>) =
+    let tryFindAtt fullName (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
-            | Some fullName ->
-                if f fullName then Some att else None
+            | Some fullName' ->
+                if fullName = fullName' then Some att else None
             | None -> None)
-
-    let hasAtt name atts =
-        atts |> tryFindAtt ((=) name) |> Option.isSome
 
     let tryDefinition (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
@@ -141,6 +138,7 @@ module Helpers =
     let isInline (memb: FSharpMemberOrFunctionOrValue) =
         match memb.InlineAnnotation with
         | FSharpInlineAnnotation.NeverInline
+        // TODO: Add compiler option to inline also `OptionalInline`
         | FSharpInlineAnnotation.OptionalInline -> false
         | FSharpInlineAnnotation.PseudoValue
         | FSharpInlineAnnotation.AlwaysInline
@@ -162,10 +160,9 @@ module Helpers =
         then typ.TypeDefinition.TryFullName = Some "Microsoft.FSharp.Core.Unit"
         else false
 
-    let makeRange (r: Range.range) = {
-        start = { line = r.StartLine; column = r.StartColumn }
-        ``end``= { line = r.EndLine; column = r.EndColumn }
-    }
+    let makeRange (r: Range.range) =
+        { start = { line = r.StartLine; column = r.StartColumn }
+          ``end``= { line = r.EndLine; column = r.EndColumn } }
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
@@ -173,7 +170,7 @@ module Helpers =
     /// Lower first letter if there's no explicit compiled name
     let lowerCaseName (unionCase: FSharpUnionCase) =
         unionCase.Attributes
-        |> tryFindAtt ((=) Atts.compiledName)
+        |> tryFindAtt Atts.compiledName
         |> function
             | Some name -> name.ConstructorArguments.[0] |> snd |> string
             | None -> Naming.lowerFirst unionCase.DisplayName
@@ -220,8 +217,8 @@ module Helpers =
         let hasParamSeq (memb: FSharpMemberOrFunctionOrValue) =
             Seq.tryLast memb.CurriedParameterGroups
             |> Option.bind Seq.tryLast
-            |> Option.map (fun lastParam -> hasAtt Atts.paramSeq lastParam.Attributes)
-            |> Option.defaultValue false
+            |> Option.bind (fun lastParam -> tryFindAtt Atts.paramSeq lastParam.Attributes)
+            |> Option.isSome
 
         hasParamArray memb || hasParamSeq memb
 
@@ -232,7 +229,7 @@ module Patterns =
     let inline (|Rev|) x = List.rev x
     let inline (|AsArray|) x = Array.ofSeq x
     let inline (|LazyValue|) (x: Lazy<'T>) = x.Value
-    let inline (|Transform|) (com: IFableCompiler) ctx = com.Transform ctx
+    let inline (|Transform|) (com: IFableCompiler) ctx e = com.Transform(ctx, e)
     let inline (|FieldName|) (fi: FSharpField) = fi.Name
 
     let inline (|NonAbbreviatedType|) (t: FSharpType) =
@@ -399,9 +396,8 @@ module Patterns =
             | _ -> None
         | _ -> None
 
-    let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
-        atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
-            att.ConstructorArguments |> Seq.map snd |> Seq.toList)
+    let (|ContainsAtt|_|) (fullName: string) (ent: FSharpEntity) =
+        tryFindAtt fullName ent.Attributes
 
 module TypeHelpers =
     open Helpers
@@ -410,35 +406,22 @@ module TypeHelpers =
     let rec makeGenArgs (com: ICompiler) ctxTypeArgs genArgs =
         Seq.map (makeType com ctxTypeArgs) genArgs |> Seq.toList
 
-    and makeTypeFromDef (com: ICompiler) ctxTypeArgs (genArgs: seq<FSharpType>) (tdef: FSharpEntity) =
-        let getSingleGenericArg genArgs =
-            Seq.tryHead genArgs
-            |> Option.map (makeType com ctxTypeArgs)
-            |> Option.defaultValue Fable.Any // Raise error if not found?
-        let fullName = getEntityFullName tdef
-        if tdef.IsArrayType
-        then getSingleGenericArg genArgs |> Fable.Array
-        elif tdef.IsEnum
-        then Fable.EnumType(Fable.NumberEnumType, fullName)
-        elif tdef.IsDelegate
-        then
-            if fullName.StartsWith("System.Action")
-            then
-                let argTypes =
-                    if Seq.length genArgs = 1
-                    then [Seq.head genArgs |> makeType com ctxTypeArgs]
-                    else [Fable.Unit]
-                Fable.FunctionType(Fable.DelegateType argTypes, Fable.Unit)
-            elif fullName.StartsWith("System.Func")
-            then
-                let argTypes, returnType =
-                    match Seq.length genArgs with
-                    | 0 -> [Fable.Unit], Fable.Unit
-                    | 1 -> [Fable.Unit], Seq.head genArgs |> makeType com ctxTypeArgs
-                    | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctxTypeArgs) |> Seq.toList,
-                            Seq.last genArgs |> makeType com ctxTypeArgs
-                Fable.FunctionType(Fable.DelegateType argTypes, returnType)
-            else
+    and makeTypeFromDelegate com ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) (fullName: string) =
+        if fullName.StartsWith("System.Action") then
+            let argTypes =
+                match Seq.tryHead genArgs with
+                | Some genArg -> [makeType com ctxTypeArgs genArg]
+                | None -> []
+            Fable.FunctionType(Fable.DelegateType argTypes, Fable.Unit)
+        elif fullName.StartsWith("System.Func") then
+            let argTypes, returnType =
+                match genArgs.Count with
+                | 0 -> [], Fable.Unit
+                | 1 -> [], makeType com ctxTypeArgs genArgs.[0]
+                | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctxTypeArgs) |> Seq.toList,
+                        makeType com ctxTypeArgs genArgs.[c-1]
+            Fable.FunctionType(Fable.DelegateType argTypes, returnType)
+        else
             try
                 let argTypes =
                     tdef.FSharpDelegateSignature.DelegateArguments
@@ -446,34 +429,34 @@ module TypeHelpers =
                 let returnType =
                     makeType com ctxTypeArgs tdef.FSharpDelegateSignature.DelegateReturnType
                 Fable.FunctionType(Fable.DelegateType argTypes, returnType)
-            with _ ->
-                // TODO: Log error here?
+            with _ -> // TODO: Log error here?
                 Fable.FunctionType(Fable.DelegateType [Fable.Any], Fable.Any)
-        elif fullName = Types.object
-        then Fable.Any
-        else
-        match fullName with
+
+    and makeTypeFromDef (com: ICompiler) ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
+        let getSingleGenericArg genArgs =
+            Seq.tryHead genArgs
+            |> Option.map (makeType com ctxTypeArgs)
+            |> Option.defaultValue Fable.Any // Raise error if not found?
+        match getEntityFullName tdef, tdef with
+        | _ when tdef.IsArrayType -> getSingleGenericArg genArgs |> Fable.Array
+        | fullName, _ when tdef.IsEnum -> Fable.EnumType(Fable.NumberEnumType, fullName)
+        | fullName, _ when tdef.IsDelegate -> makeTypeFromDelegate com ctxTypeArgs genArgs tdef fullName
         // Fable "primitives"
-        | Types.unit -> Fable.Unit
-        | Types.bool -> Fable.Boolean
-        | Types.char -> Fable.Char
-        | Types.string -> Fable.String
-        | Types.regex -> Fable.Regex
-        | Types.option -> getSingleGenericArg genArgs |> Fable.Option
-        | Types.resizeArray -> getSingleGenericArg genArgs |> Fable.Array
-        | Types.list -> getSingleGenericArg genArgs |> Fable.List
-        | NumberKind kind -> Fable.Number kind
-        | _ ->
-            tdef.Attributes |> Seq.tryPick (fun att ->
-                match att.AttributeType.TryFullName with
-                | Some Atts.stringEnum ->
-                    Fable.EnumType(Fable.StringEnumType, fullName) |> Some
-                | Some Atts.erase ->
-                    makeGenArgs com ctxTypeArgs genArgs
-                    |> Fable.ErasedUnion |> Some
-                | _ -> None)
-            |> Option.defaultWith (fun () ->
-                Fable.DeclaredType(tdef, makeGenArgs com ctxTypeArgs genArgs))
+        | Types.object, _ -> Fable.Any
+        | Types.unit, _ -> Fable.Unit
+        | Types.bool, _ -> Fable.Boolean
+        | Types.char, _ -> Fable.Char
+        | Types.string, _ -> Fable.String
+        | Types.regex, _ -> Fable.Regex
+        | Types.option, _ -> getSingleGenericArg genArgs |> Fable.Option
+        | Types.resizeArray, _ -> getSingleGenericArg genArgs |> Fable.Array
+        | Types.list, _ -> getSingleGenericArg genArgs |> Fable.List
+        | NumberKind kind, _ -> Fable.Number kind
+        // Special attributes
+        | fullName, ContainsAtt Atts.stringEnum _ -> Fable.EnumType(Fable.StringEnumType, fullName)
+        | _, ContainsAtt Atts.erase _ -> makeGenArgs com ctxTypeArgs genArgs |> Fable.ErasedUnion
+        // Rest of declared types
+        | _ -> Fable.DeclaredType(tdef, makeGenArgs com ctxTypeArgs genArgs)
 
     and makeType (com: ICompiler) ctxTypeArgs (NonAbbreviatedType t) =
         let resolveGenParam (genParam: FSharpGenericParameter) =
@@ -497,10 +480,10 @@ module TypeHelpers =
         then makeTypeFromDef com ctxTypeArgs t.GenericArguments t.TypeDefinition
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
 
-    let getBaseClass (com: IFableCompiler) (tdef: FSharpEntity) =
+    let getBaseClass (tdef: FSharpEntity) =
         match tdef.BaseType with
         | Some(TypeDefinition tdef) when tdef.TryFullName <> Some Types.object ->
-            Some (getEntityFullName tdef)
+            Some tdef
         | _ -> None
 
     let rec getOwnAndInheritedFsharpMembers (tdef: FSharpEntity) = seq {
@@ -519,9 +502,9 @@ module TypeHelpers =
         |> Seq.toList
 
     let isAbstract (ent: FSharpEntity) =
-       hasAtt Atts.abstractClass ent.Attributes
+       tryFindAtt Atts.abstractClass ent.Attributes |> Option.isSome
 
-    let tryFindMember com (enclosingEntity: FSharpEntity) membCompiledName isInstance (argTypes: Fable.Type list) =
+    let tryFindMember com (entity: FSharpEntity) membCompiledName isInstance (argTypes: Fable.Type list) =
         let argsEqual (args1: Fable.Type list) =
             let args1Len = List.length argTypes
             fun (args2: IList<IList<FSharpParameter>>) ->
@@ -532,7 +515,7 @@ module TypeHelpers =
                     listEquals typeEquals args1 (Seq.toList args2)
                 else false
         // TODO: Check record fields
-        enclosingEntity.MembersFunctionsAndValues |> Seq.tryFind (fun m2 ->
+        getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
             let argsEqual = argsEqual argTypes
             if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName then
                 argsEqual m2.CurriedParameterGroups
@@ -613,11 +596,11 @@ module Util =
             let ctx, untupledArg = makeFunctionArgs com ctx tupledArg
             ctx, untupledArg@accArgs)
 
-    let makeTryCatch com ctx (fsExpr: FSharpExpr) (Transform com ctx body) catchClause finalBody =
+    let makeTryCatch com ctx (Transform com ctx body) catchClause finalBody =
         let catchClause =
             match catchClause with
             | Some (BindIdent com ctx (catchContext, catchVar), catchBody) ->
-                Some (catchVar, com.Transform catchContext catchBody)
+                Some (catchVar, com.Transform(catchContext, catchBody))
             | None -> None
         let finalizer =
             match finalBody with
@@ -676,9 +659,9 @@ module Util =
 
     let (|Emitted|_|) r typ argsAndCallInfo (memb: FSharpMemberOrFunctionOrValue) =
         match memb.Attributes with
-        | ContainsAtt Atts.emit attArgs ->
-            match attArgs with
-            | [:? string as macro] ->
+        | Try (tryFindAtt Atts.emit) att ->
+            match Seq.tryHead att.ConstructorArguments with
+            | Some(_, (:? string as macro)) ->
                 Fable.Operation(Fable.Emit(macro, argsAndCallInfo), typ, r) |> Some
             | _ -> "EmitAttribute must receive a string argument" |> attachRange r |> failwith
         | _ -> None
@@ -732,7 +715,7 @@ module Util =
                     let ctx, ident = bindIdentFrom com ctx argId
                     ctx, (ident, arg)::bindings)
             let ctx = { ctx with typeArgs = matchGenericParams memb genArgs }
-            match com.Transform ctx fsExpr with
+            match com.Transform(ctx, fsExpr) with
             | Fable.Let(bindings2, expr) -> Fable.Let((List.rev bindings) @ bindings2, expr) |> Some
             | expr -> Fable.Let(List.rev bindings, expr) |> Some
 

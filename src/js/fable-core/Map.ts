@@ -1,7 +1,7 @@
 import Comparer from "./Comparer";
 import List from "./ListClass";
 import { ofArray as listOfArray } from "./ListClass";
-import { getValue, makeSome, Option } from "./Option";
+import { Option, some, value } from "./Option";
 import { map as seqMap } from "./Seq";
 import { fold as seqFold } from "./Seq";
 import { reduce as seqReduce } from "./Seq";
@@ -34,7 +34,7 @@ export function groupBy<T, K>(f: (x: T) => K, xs: Iterable<T>) {
       keys.push(k);
       acc = add<K, T[]>(k, [cur.value], acc);
     } else {
-      getValue(vs).push(cur.value);
+      value(vs).push(cur.value);
     }
     cur = iter.next();
   }
@@ -174,7 +174,7 @@ function tree_find(comparer: IComparer<any>, k: any, m: MapTree): any {
   if (res == null) {
     throw new Error("key not found: " + k);
   }
-  return getValue(res);
+  return value(res);
 }
 
 function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
@@ -183,7 +183,7 @@ function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
       const c = comparer.Compare(k, m.data[0]) | 0;
 
       if (c === 0) {
-        return makeSome(m.data[1]);
+        return some(m.data[1]);
       } else {
         return null;
       }
@@ -196,7 +196,7 @@ function tree_tryFind(comparer: IComparer<any>, k: any, m: MapTree): any {
         m = m.data[2];
         continue tryFind;
       } else if (c_1 === 0) {
-        return makeSome(m.data[1]);
+        return some(m.data[1]);
       } else {
         comparer = comparer;
         k = k;
@@ -657,17 +657,17 @@ export function partition<K, V>(f: (k: K, v: V) => boolean, map: FableMap<K, V>)
 }
 
 export function findKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FableMap<K, V>) {
-  return seqPick((kv) => f(kv[0], kv[1]) ? makeSome(kv[0]) : null, map);
+  return seqPick((kv) => f(kv[0], kv[1]) ? some(kv[0]) : null, map);
 }
 
 export function tryFindKey<K, V>(f: (k: K, v: V) => boolean, map: Map<K, V> | FableMap<K, V>) {
-  return seqTryPick((kv) => f(kv[0], kv[1]) ? makeSome(kv[0]) : null, map);
+  return seqTryPick((kv) => f(kv[0], kv[1]) ? some(kv[0]) : null, map);
 }
 
 export function pick<K, T, U>(f: (k: K, v: T) => Option<U>, map: FableMap<K, T>) {
   const res = tryPick(f, map);
   if (res != null) {
-    return getValue(res);
+    return value(res);
   }
   throw new Error("key not found");
 }

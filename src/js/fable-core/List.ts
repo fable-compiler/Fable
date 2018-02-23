@@ -1,7 +1,7 @@
 import List from "./ListClass";
 import { ofArray } from "./ListClass";
 import { groupBy as mapGroupBy } from "./Map";
-import { getValue } from "./Option";
+import { value } from "./Option";
 import { map as seqMap } from "./Seq";
 import { fold as seqFold } from "./Seq";
 import { foldBack as seqFoldBack } from "./Seq";
@@ -17,7 +17,7 @@ export function append<T>(xs: List<T>, ys: List<T>) {
 export function choose<T, U>(f: (x: T) => U, xs: List<T>) {
   const r = seqFold((acc, x) => {
     const y = f(x);
-    return y != null ? new List<U>(getValue(y), acc) : acc;
+    return y != null ? new List<U>(value(y), acc) : acc;
   }, new List<U>(), xs);
   return reverse(r);
 }

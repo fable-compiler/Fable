@@ -53,24 +53,20 @@ type Context =
 
 type IBabelCompiler =
     inherit ICompiler
-    abstract GetImportExpr: Context -> selector: string -> path: string ->
-        Fable.ImportKind -> Expression
     abstract GetAllImports: unit -> seq<Import>
     abstract GetAllDependencies: unit -> seq<string>
-    abstract TransformExpr: Context -> Fable.Expr -> Expression
-    abstract TransformStatement: Context -> Fable.Expr -> Statement list
-    abstract TransformExprAndResolve: Context -> ReturnStrategy -> Fable.Expr -> Statement list
-    abstract TransformFunction: Context -> ITailCallOpportunity option -> Fable.Ident list -> Fable.Expr ->
-        (Pattern list) * U2<BlockStatement, Expression>
-    // abstract TransformClass: Context -> SourceLocation option -> Fable.Expr option ->
-    //     Fable.Declaration list -> ClassExpression
-    abstract TransformObjectExpr: Context -> Fable.Declaration list ->
-        SourceLocation option -> Expression
+    abstract GetImportExpr: Context * selector: string * path: string * Fable.ImportKind -> Expression
+    abstract TransformExpr: Context * Fable.Expr -> Expression
+    abstract TransformStatement: Context * Fable.Expr -> Statement list
+    abstract TransformExprAndResolve: Context * ReturnStrategy * Fable.Expr -> Statement list
+    abstract TransformObjectExpr: Context * Fable.Declaration list * SourceLocation option -> Expression
+    abstract TransformFunction: Context * ITailCallOpportunity option * Fable.Ident list * Fable.Expr
+        -> (Pattern list) * U2<BlockStatement, Expression>
 
 module Util =
     let inline (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
-    let inline (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr ctx e
-    let inline (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement ctx e
+    let inline (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr(ctx, e)
+    let inline (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement(ctx, e)
 
     let (|FunctionArgs|) = function
         | Fable.Lambda arg -> [arg]
@@ -80,7 +76,7 @@ module Util =
     // | Assignments ctx (declVars, exprs, r) ->
     //     for var in declVars do
     //         ctx.addDeclaredVar(var)
-    //     let exprs = List.map (com.TransformExpr ctx) exprs
+    //     let exprs = List.map (fun e -> com.TransformExpr(ctx, e)) exprs
     //     upcast SequenceExpression(exprs, ?loc=r)
 
     /// Matches a sequence of assignments and a return value: a.b = 1, a.c = 2, a
@@ -109,8 +105,6 @@ module Util =
         com.AddLog(error, Severity.Error, ?range=range, fileName=fileName)
         NullLiteral () :> Expression
 
-    let consBack tail head = head::tail
-
     let ident (id: Fable.Ident) =
         Identifier id.Name
 
@@ -118,45 +112,28 @@ module Util =
         let name = Naming.sanitizeIdent (fun _ -> false) name
         Identifier name
 
-    let getterByName propName: Expression * bool =
+    let ofInt i =
+        NumericLiteral(float i) :> Expression
+
+    let propFromName propName: Expression * bool =
         if Naming.hasIdentForbiddenChars propName
         then upcast StringLiteral propName, true
         else upcast Identifier propName, false
 
-    let getterByExpr com ctx = function
-        | Fable.Value(Fable.StringConstant name)
-            when not (Naming.hasIdentForbiddenChars name) ->
-            Identifier (name) :> Expression, false
-        | TransformExpr com ctx e -> e, true
+    let coreLibCall (com: IBabelCompiler) (ctx: Context) coreModule memb args =
+        let callee = com.GetImportExpr(ctx, memb, coreModule, Fable.CoreLib)
+        CallExpression(callee, args) :> Expression
 
-    let getCoreLibImport (com: IBabelCompiler) (ctx: Context) coreModule memb =
-        com.GetImportExpr ctx memb coreModule Fable.CoreLib
+    let get r left propName =
+        let expr, computed = propFromName propName
+        MemberExpression(left, expr, computed, ?loc=r) :> Expression
 
-    let get left propName =
-        let expr, computed = getterByName propName
-        MemberExpression(left, expr, computed) :> Expression
-
-    let getExpr com ctx (object: Expression) (expr: Fable.Expr) =
-        let expr, computed = getterByExpr com ctx expr
-        match object with
-        | :? EmptyExpression ->
+    let getExpr r (object: Expression) (expr: Expression) =
+        let expr, computed =
             match expr with
-            | :? StringLiteral as lit ->
-                identFromName lit.value :> Expression
-            | _ -> expr
-        | _ -> MemberExpression (object, expr, computed) :> Expression
-
-    let rec accessExpr (members: string list) (baseExpr: Expression option) =
-        match baseExpr with
-        | Some baseExpr ->
-            match members with
-            | [] -> baseExpr
-            | m::ms -> get baseExpr m |> Some |> accessExpr ms
-        | None ->
-            match members with
-            // Temporary placeholder to be deleted by getExpr
-            | [] -> upcast EmptyExpression()
-            | m::ms -> identFromName m :> Expression |> Some |> accessExpr ms
+            | :? StringLiteral as e -> propFromName e.value
+            | e -> e, true
+        MemberExpression (object, expr, computed, ?loc=r) :> Expression
 
     let buildArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
         match typ with
@@ -167,7 +144,7 @@ module Util =
             let args =
                 match arrayKind with
                 | Fable.ArrayValues args ->
-                    [ List.map (com.TransformExpr ctx) args
+                    [ List.map (fun e -> com.TransformExpr(ctx, e)) args
                       |> ArrayExpression :> Expression ]
                 | Fable.ArrayAlloc size ->
                     [ NumericLiteral(float size) ]
@@ -175,7 +152,7 @@ module Util =
         | _ ->
             match arrayKind with
             | Fable.ArrayValues args ->
-                List.map (com.TransformExpr ctx) args
+                List.map (fun e -> com.TransformExpr(ctx, e)) args
                 |> ArrayExpression :> Expression
             | Fable.ArrayAlloc size ->
                 upcast NewExpression(Identifier "Array", [ NumericLiteral(float size) ])
@@ -191,8 +168,8 @@ module Util =
 
     /// Immediately Invoked LambdaType Expression
     let iife (com: IBabelCompiler) ctx (expr: Fable.Expr) =
-        let _, body = com.TransformFunction ctx None [] expr
-        CallExpression(ArrowFunctionExpression ([], body), [])
+        let _, body = com.TransformFunction(ctx, None, [], expr)
+        CallExpression(ArrowFunctionExpression([], body), [])
 
     let varDeclaration (var: Pattern) (isMutable: bool) value =
         let kind = if isMutable then Let else Const
@@ -202,7 +179,7 @@ module Util =
         MacroExpression(txt, args, ?loc=range) :> Expression
 
     let getMemberArgsAndBody (com: IBabelCompiler) ctx tc args (body: Fable.Expr) hasRestParams =
-        let args, body = com.TransformFunction ctx tc args body
+        let args, body = com.TransformFunction(ctx, tc, args, body)
         let args =
             if not hasRestParams
             then args
@@ -257,8 +234,7 @@ module Util =
                 // For unit, unresolved generics or nested options, create a runtime wrapper
                 // See fable-core/Option.ts for more info
                 | Fable.Unit | Fable.GenericParam _ | Fable.Option _ ->
-                    let wrapper = getCoreLibImport com ctx "Option" "makeSome"
-                    upcast CallExpression(wrapper, [e])
+                    coreLibCall com ctx "Option" "some" [e]
                 | _ -> e // For other types, erase the option
             | None -> upcast NullLiteral ()
         | Fable.Enum _ -> failwith "TODO: Enum"
@@ -306,12 +282,12 @@ module Util =
             match List.rev args with
             | [] -> []
             | Fable.Value(Fable.NewArray(Fable.ArrayValues spreadArgs,_))::rest ->
-                let rest = List.rev rest |> List.map (com.TransformExpr ctx)
-                rest @ (List.map (com.TransformExpr ctx) spreadArgs)
+                let rest = List.rev rest |> List.map (fun e -> com.TransformExpr(ctx, e))
+                rest @ (List.map (fun e -> com.TransformExpr(ctx, e)) spreadArgs)
             | last::rest ->
-                let rest = List.rev rest |> List.map (com.TransformExpr ctx)
-                rest @ [SpreadElement(com.TransformExpr ctx last)]
-        | args -> List.map (com.TransformExpr ctx) args
+                let rest = List.rev rest |> List.map (fun e -> com.TransformExpr(ctx, e))
+                rest @ [SpreadElement(com.TransformExpr(ctx, last))]
+        | args -> List.map (fun e -> com.TransformExpr(ctx, e)) args
 
     let transformCall com ctx range opKind: Expression =
         match opKind with
@@ -331,8 +307,8 @@ module Util =
             let args = transformArgs com ctx callInfo.HasSpread args
             let callee =
                 match memb with
-                | Some memb -> get (com.TransformExpr ctx callee) memb
-                | None -> com.TransformExpr ctx callee
+                | Some memb -> get None (com.TransformExpr(ctx, callee)) memb
+                | None -> com.TransformExpr(ctx, callee)
             if callInfo.IsConstructor
             then upcast NewExpression(callee, args, ?loc=range)
             else upcast CallExpression(callee, args, ?loc=range)
@@ -351,16 +327,16 @@ module Util =
     // in a lambda to isolate its variable context
     let transformBlock (com: IBabelCompiler) ctx ret expr: BlockStatement =
         match ret with
-        | None -> com.TransformStatement ctx expr |> BlockStatement
-        | Some ret -> com.TransformExprAndResolve ctx ret expr |> BlockStatement
+        | None -> com.TransformStatement(ctx, expr) |> BlockStatement
+        | Some ret -> com.TransformExprAndResolve(ctx, ret, expr) |> BlockStatement
 
     let transformSwitch (com: IBabelCompiler) ctx returnStrategy (matchValue, cases, defaultCase) =
         let transformCase test branch =
             let statements, test =
                 let statements =
                     match returnStrategy with
-                    | Some ret -> com.TransformExprAndResolve ctx ret branch
-                    | None -> com.TransformStatement ctx branch
+                    | Some ret -> com.TransformExprAndResolve(ctx, ret, branch)
+                    | None -> com.TransformStatement(ctx, branch)
                 match test with
                 | Some(TransformExpr com ctx test) ->
                     match returnStrategy with
@@ -375,7 +351,7 @@ module Util =
                     | l when l > 1 ->
                         List.take (l - 1) tests
                         |> List.map (fun test ->
-                            SwitchCase([], com.TransformExpr ctx test))
+                            SwitchCase([], com.TransformExpr(ctx, test)))
                     | _ -> []
                 let case = transformCase (List.last tests |> Some) branch
                 prev@[case])
@@ -383,7 +359,7 @@ module Util =
             match defaultCase with
             | Some defaultCase -> cases@[transformCase None defaultCase]
             | None -> cases
-        SwitchStatement(com.TransformExpr ctx matchValue, cases)
+        SwitchStatement(com.TransformExpr(ctx, matchValue), cases)
 
     let transformTryCatch com ctx returnStrategy (body, catch, finalizer) =
         // try .. catch statements cannot be tail call optimized
@@ -400,7 +376,7 @@ module Util =
     // Even if IfStatement doesn't enforce it, compile both branches as blocks
     // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
     let rec transformIfStatement (com: IBabelCompiler) ctx ret guardExpr thenStmnt elseStmnt =
-        let guardExpr = com.TransformExpr ctx guardExpr
+        let guardExpr = com.TransformExpr(ctx, guardExpr)
         let thenStmnt = transformBlock com ctx ret thenStmnt
         let elseStmnt =
             match elseStmnt: Fable.Expr with
@@ -412,35 +388,34 @@ module Util =
         IfStatement(guardExpr, thenStmnt, ?alternate=elseStmnt)
 
     let transformGet (com: IBabelCompiler) ctx range expr (getKind: Fable.GetKind) =
-        let expr = com.TransformExpr ctx expr
+        let expr = com.TransformExpr(ctx, expr)
         match getKind with
-        | Fable.FieldGet _
-        | Fable.IndexGet _
-        | Fable.DynamicGet _
-        | Fable.ListHead
-        | Fable.ListTail
-        | Fable.OptionValue
-        | Fable.RecordGet _ -> failwith "TODO: transformGet"
-        | Fable.TupleGet index -> getExpr com ctx expr (makeIntConst index)
-        | Fable.UnionTag _ -> getExpr com ctx expr (makeIntConst 0)
+        | Fable.FieldGet name -> get range expr name
+        | Fable.IndexGet index -> getExpr range expr (ofInt index)
+        | Fable.DynamicGet(TransformExpr com ctx prop) -> getExpr range expr prop
+        | Fable.ListHead -> getExpr range expr (ofInt 0)
+        | Fable.ListTail -> getExpr range expr (ofInt 1)
+        | Fable.RecordGet(fi,_) -> get range expr fi.Name
+        | Fable.TupleGet index -> getExpr range expr (ofInt index)
+        | Fable.OptionValue -> coreLibCall com ctx "Option" "value" [expr]
+        | Fable.UnionTag _ -> getExpr range expr (ofInt 0)
         | Fable.UnionField(field, uci, _) ->
             let fieldName = field.Name
             let index =
                 uci.UnionCaseFields
                 |> Seq.findIndex (fun fi -> fi.Name = fieldName)
-                |> (+) 1 |> makeIntConst
-            getExpr com ctx expr index
+            getExpr range expr (index + 1 |> ofInt)
 
     let transformSet (com: IBabelCompiler) ctx range var (value: Fable.Expr) (setKind: Fable.SetKind) =
-        let var = com.TransformExpr ctx var
-        let value = com.TransformExpr ctx value |> wrapIntExpression value.Type
+        let var = com.TransformExpr(ctx, var)
+        let value = com.TransformExpr(ctx, value) |> wrapIntExpression value.Type
         let var =
             match setKind with
             | Fable.VarSet -> var
-            | Fable.FieldSet name -> get var name
-            | Fable.RecordSet(field, _) -> get var field.Name
-            | Fable.IndexSet i -> getExpr com ctx var (makeIntConst i)
-            | Fable.DynamicSet expr -> getExpr com ctx var expr
+            | Fable.FieldSet name -> get None var name
+            | Fable.RecordSet(field, _) -> get None var field.Name
+            | Fable.IndexSet i -> getExpr None var (ofInt i)
+            | Fable.DynamicSet(TransformExpr com ctx e) -> getExpr None var e
         assign range var value
 
     let getSetReturnStrategy com ctx range var (setKind: Fable.SetKind) =
@@ -453,17 +428,13 @@ module Util =
         // [varDeclaration r (ident var) false value :> Statement]
 
     let transformImport (com: IBabelCompiler) ctx (selector: string) (path: string) kind =
-        let memb, parts =
-            let parts = Array.toList(selector.Split('.'))
-            parts.Head, parts.Tail
-        com.GetImportExpr ctx memb path kind
-        |> Some |> accessExpr parts
+        com.GetImportExpr(ctx, selector, path, kind)
 
     let transformBinding (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         if value.IsJsStatement then
             let var = ident var
             let decl = VariableDeclaration var :> Statement
-            let body = com.TransformExprAndResolve ctx (Assign var) value
+            let body = com.TransformExprAndResolve(ctx, Assign var, value)
             decl::body
         else
             let value =
@@ -471,7 +442,7 @@ module Util =
                 // Check imports with name placeholder
                 | Fable.Import(Naming.placeholder, path, kind, _) ->
                     transformImport com ctx var.Name path kind
-                | _ -> com.TransformExpr ctx value |> wrapIntExpression value.Type
+                | _ -> com.TransformExpr(ctx, value) |> wrapIntExpression value.Type
             [varDeclaration (ident var) var.IsMutable value :> Statement]
     let rec transformStatement com ctx (expr: Fable.Expr): Statement list =
         match expr with
@@ -497,7 +468,7 @@ module Util =
 
         | Fable.Set(var, setKind, value, range) ->
             let ret = getSetReturnStrategy com ctx range var setKind
-            com.TransformExprAndResolve ctx ret value
+            com.TransformExprAndResolve(ctx, ret, value)
 
         | Fable.Let (bindings, body) ->
             let bindings = bindings |> List.collect (fun (i, v) -> transformBinding com ctx i v)
@@ -525,7 +496,7 @@ module Util =
         // Expressions become ExpressionStatements
         | Fable.Value _ | Fable.IdentExpr _ | Fable.Cast _ | Fable.Import _
         | Fable.Function _ | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _  ->
-            [ExpressionStatement (com.TransformExpr ctx expr, ?loc=expr.Range) :> Statement]
+            [ExpressionStatement(com.TransformExpr(ctx, expr), ?loc=expr.Range) :> Statement]
 
     let rec transformExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
@@ -540,7 +511,7 @@ module Util =
             transformImport com ctx selector path kind
 
         | Fable.Function(FunctionArgs args, body) ->
-            com.TransformFunction ctx None args body ||> makeAnonymousFunction
+            com.TransformFunction(ctx, None, args, body) ||> makeAnonymousFunction
 
         | Fable.ObjectExpr (members, r) ->
             transformObjectExpr com ctx members r
@@ -627,7 +598,7 @@ module Util =
             |> resolve ret |> List.singleton
 
         | Fable.Function(FunctionArgs args, body) ->
-            com.TransformFunction ctx None args body ||> makeAnonymousFunction
+            com.TransformFunction(ctx, None, args, body) ||> makeAnonymousFunction
             |> resolve ret |> List.singleton
 
         | Fable.Operation(callKind, _, range) ->
@@ -652,8 +623,8 @@ module Util =
             let lasti = (List.length statements) - 1
             statements |> List.mapi (fun i statement ->
                 if i < lasti
-                then com.TransformStatement ctx statement
-                else com.TransformExprAndResolve ctx ret statement)
+                then com.TransformStatement(ctx, statement)
+                else com.TransformExprAndResolve(ctx, ret, statement))
             |> List.concat
 
         | Fable.TryCatch (body, catch, finalizer) ->
@@ -667,7 +638,7 @@ module Util =
         | Fable.Debugger _ | Fable.Throw _
         | Fable.Sequential _ | Fable.Loop _ | Fable.Set _
         | Fable.TryCatch _ | Fable.Switch _ ->
-            com.TransformStatement ctx expr
+            com.TransformStatement(ctx, expr)
 
     let transformFunction com ctx tailcallChance (args: Fable.Ident list) (body: Fable.Expr) =
         let tailcallChance, args =
@@ -727,45 +698,6 @@ module Util =
                 BlockStatement (varDeclStatements@bodyStatements) |> U2.Case1
         args |> List.map (fun x -> x :> Pattern), body
 
-    // let transformClass com ctx range (ent: Fable.Entity option) baseClass decls =
-    //     let declareProperty (_com: IBabelCompiler) _ctx name =
-    //         ClassProperty(Identifier(name))
-    //         |> Choice<ClassMethod,_>.U2.Case2
-    //     let declareMethod range kind name args (body: Fable.Expr) hasRestParams isStatic computed =
-    //         let name, computed =
-    //             match computed with
-    //             | Some e -> transformExpr com ctx e, true
-    //             | None -> getterByName name
-    //         let args, body =
-    //             let tc =
-    //                 match name with
-    //                 | :? Identifier as id ->
-    //                     ClassTailCallOpportunity(com, id.name, args)
-    //                     :> ITailCallOpportunity |> Some
-    //                 | _ -> None
-    //             getMemberArgsAndBody com ctx tc args body hasRestParams
-    //         ClassMethod(kind, name, args, body, computed, isStatic, ?loc=range)
-    //         |> Choice<_,ClassProperty>.U2.Case1
-    //     let baseClass = baseClass |> Option.map (transformExpr com ctx)
-    //     decls
-    //     |> List.map (function
-    //         | Fable.FunctionDeclaration(_, _, args, body, range) ->
-    //             let kind, name, loc, computed, body =
-    //                 match m.Kind with
-    //                 | Fable.Constructor -> ClassConstructor, "constructor", Fable.InstanceLoc, None, body
-    //                 | Fable.Method -> ClassFunction, m.OverloadName, m.Location, m.Computed, body
-    //                 | Fable.Getter | Fable.Field -> ClassGetter, m.OverloadName, m.Location, m.Computed, body
-    //                 | Fable.Setter -> ClassSetter, m.OverloadName, m.Location, m.Computed, body
-    //             let isStatic = loc = Fable.StaticLoc
-    //             declareMethod range kind name args body m.HasRestParams isStatic computed
-    //         | Fable.ActionDeclaration _
-    //         | Fable.EntityDeclaration _ as decl ->
-    //             failwithf "Unexpected declaration in class: %A" decl)
-    //     |> fun members ->
-    //         let id = ent |> Option.map (fun x -> identFromName x.Name)
-    //         ClassExpression(ClassBody(members, ?loc=range),
-    //                         ?id=id, ?super=baseClass, ?loc=range)
-
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
         let argv = macroExpression None "process.argv.slice(2)" []
         let main = CallExpression (funcExpr, [argv]) :> Expression
@@ -824,28 +756,6 @@ module Util =
         // then declareEntryPoint com ctx expr |> U2.Case1 |> List.singleton
         // else
         declareModuleMember publicName privName false expr
-
-    // let declareClass com ctx (helper: IDeclareMember) modIdent
-    //                  (ent: Fable.Entity, isPublic, privateName, entDecls, entRange, baseClass) =
-    //     let classDecl =
-    //         // Don't create a new context for class declarations
-    //         let classExpr = transformClass com ctx entRange (Some ent) baseClass entDecls
-    //         helper.DeclareMember(entRange, ent.Name, Some privateName, isPublic, false, modIdent, classExpr)
-    //     (declareType com ctx ent |> U2.Case1)::classDecl
-    //     // TODO: Check if there's a static constructor
-    //     // entDecls |> Seq.exists (function
-    //     //     | Fable.MemberDeclaration(m,_,_,_,_,_) ->
-    //     //         match m.Name, m.Kind, m.Location with
-    //     //         | ".cctor", Fable.Method, Fable.StaticLoc -> true
-    //     //         | _ -> false
-    //     //     | _ -> false)
-    //     // |> function
-    //     // | false -> classDecl
-    //     // | true ->
-    //     //     let cctor = MemberExpression(
-    //     //                     typeRef com ctx ent [] None, StringLiteral ".cctor", true)
-    //     //     ExpressionStatement(CallExpression(cctor, [])) :> Statement
-    //     //     |> U2.Case1 |> consBack classDecl
 
     let transformDeclarations (com: IBabelCompiler) ctx decls =
         ([], decls) ||> List.fold (fun acc decl ->
@@ -941,7 +851,7 @@ module Util =
         let imports = Dictionary<string,Import>()
 
         { new IBabelCompiler with
-            member bcom.GetImportExpr ctx selector path kind =
+            member bcom.GetImportExpr(ctx, selector, path, kind) =
                 match imports.TryGetValue(path + "::" + selector) with
                 | true, i ->
                     match i.localIdent with
@@ -963,23 +873,18 @@ module Util =
                     | None -> upcast NullLiteral ()
             member __.GetAllImports() = upcast imports.Values
             member __.GetAllDependencies() = upcast dependencies
-            member bcom.TransformExpr ctx e = transformExpr bcom ctx e
-            member bcom.TransformStatement ctx e = transformStatement bcom ctx e
-            member bcom.TransformExprAndResolve ctx ret e = transformExprAndResolve bcom ctx ret e
-            member bcom.TransformFunction ctx tc args body = transformFunction bcom ctx tc args body
-            // member bcom.TransformClass ctx r baseClass members =
-            //     transformClass bcom ctx r None baseClass members
-            member bcom.TransformObjectExpr ctx members r =
-                transformObjectExpr bcom ctx members r
+            member bcom.TransformExpr(ctx, e) = transformExpr bcom ctx e
+            member bcom.TransformStatement(ctx, e) = transformStatement bcom ctx e
+            member bcom.TransformExprAndResolve(ctx, ret, e) = transformExprAndResolve bcom ctx ret e
+            member bcom.TransformFunction(ctx, tc, args, body) = transformFunction bcom ctx tc args body
+            member bcom.TransformObjectExpr(ctx, members, r) = transformObjectExpr bcom ctx members r
         interface ICompiler with
             member __.Options = com.Options
             member __.FableCore = com.FableCore
             member __.CurrentFile = com.CurrentFile
             member __.GetUniqueVar() = com.GetUniqueVar()
-            member __.GetRootModule(fileName) =
-                com.GetRootModule(fileName)
-            member __.GetOrAddInlineExpr(fullName, generate) =
-                com.GetOrAddInlineExpr(fullName, generate)
+            member __.GetRootModule(fileName) = com.GetRootModule(fileName)
+            member __.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
             member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
         }
