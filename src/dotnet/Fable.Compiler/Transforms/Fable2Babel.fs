@@ -420,8 +420,8 @@ module Util =
         | Fable.ListHead
         | Fable.ListTail
         | Fable.OptionValue
-        | Fable.TupleGet _
         | Fable.RecordGet _ -> failwith "TODO: transformGet"
+        | Fable.TupleGet index -> getExpr com ctx expr (makeIntConst index)
         | Fable.UnionTag _ -> getExpr com ctx expr (makeIntConst 0)
         | Fable.UnionField(field, uci, _) ->
             let fieldName = field.Name

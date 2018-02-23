@@ -1,7 +1,4 @@
 [<Util.Testing.TestFixture>]
-#if !DOTNETCORE && !FABLE_COMPILER
-[<NUnit.Framework.SetCulture("en-US")>]
-#endif
 module Fable.Tests.Strings
 open System
 open Util.Testing

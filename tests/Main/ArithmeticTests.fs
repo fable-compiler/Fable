@@ -1,66 +1,64 @@
 module Fable.Tests.Arithmetic
 
 open System
-open Fable.Core
-// open Util.Testing
+open Util.Testing
 
-[<Global("it")>]
-let testCase (msg: string) (f: unit->unit): unit = jsNative
-
-let inline equal (actual, expected): unit = Fable.Core.Testing.Assert.AreEqual(expected, actual)
-
-testCase "Infix add can be generated" <| fun () ->
-    equal (4 + 2, 6)
+// For historical reasons, this file uses `equal` with tuple arguments
+let inline equal (actual, expected) = equal expected actual
 
 let [<Literal>] aLiteral = 5
 let notALiteral = 5
-
-testCase "Int32 literal addition is optimized" <| fun () ->
-    equal (aLiteral + 7, 12)
-    equal (notALiteral + 7, 12)
-
 let [<Literal>] literalNegativeValue = -345
 
-testCase "Unary negation with negative literal values works" <| fun () ->
-    equal(345, -literalNegativeValue)
+let tests =
+  testList "Arithmetic" [
+    testCase "Infix add can be generated" <| fun () ->
+        equal (4 + 2, 6)
 
-testCase "Infix subtract can be generated" <| fun () ->
-    equal (4 - 2, 2)
+    testCase "Int32 literal addition is optimized" <| fun () ->
+        equal (aLiteral + 7, 12)
+        equal (notALiteral + 7, 12)
 
-testCase "Infix multiply can be generated" <| fun () ->
-    equal (4 * 2, 8)
+    testCase "Unary negation with negative literal values works" <| fun () ->
+        equal(345, -literalNegativeValue)
 
-testCase "Infix divide can be generated" <| fun () ->
-    equal (4 / 2, 2)
+    testCase "Infix subtract can be generated" <| fun () ->
+        equal (4 - 2, 2)
 
-testCase "Integer division doesn't produce floats" <| fun () ->
-    equal (5. / 2., 2.5)
-    equal (5 / 2, 2)
-    equal (5 / 3, 1)
-    // equal (float 5 / 2., 2.5) // TODO: Number conversion
+    testCase "Infix multiply can be generated" <| fun () ->
+        equal (4 * 2, 8)
 
-testCase "Infix modulo can be generated" <| fun () ->
-    equal (4 % 3, 1)
+    testCase "Infix divide can be generated" <| fun () ->
+        equal (4 / 2, 2)
 
-testCase "Evaluation order is preserved by generated code" <| fun () ->
-    equal ((4 - 2) * 2 + 1, 5)
+    testCase "Integer division doesn't produce floats" <| fun () ->
+        equal (5. / 2., 2.5)
+        equal (5 / 2, 2)
+        equal (5 / 3, 1)
+        // equal (float 5 / 2., 2.5) // TODO: Number conversion
 
-testCase "Bitwise and can be generated" <| fun () ->
-    equal (6 &&& 2, 2)
+    testCase "Infix modulo can be generated" <| fun () ->
+        equal (4 % 3, 1)
 
-testCase "Bitwise or can be generated" <| fun () ->
-    equal (4 ||| 2, 6)
+    testCase "Evaluation order is preserved by generated code" <| fun () ->
+        equal ((4 - 2) * 2 + 1, 5)
 
-testCase "Bitwise shift left can be generated" <| fun () ->
-    equal (4 <<< 2, 16)
+    testCase "Bitwise and can be generated" <| fun () ->
+        equal (6 &&& 2, 2)
 
-testCase "Bitwise shift right can be generated" <| fun () ->
-    equal (4 >>> 2, 1)
+    testCase "Bitwise or can be generated" <| fun () ->
+        equal (4 ||| 2, 6)
 
-testCase "Zero fill shift right (>>>) for uint32" <| fun () -> // See #646
-    equal (0x80000000 >>> 1, -1073741824)
-    equal (0x80000000u >>> 1, 1073741824u)
+    testCase "Bitwise shift left can be generated" <| fun () ->
+        equal (4 <<< 2, 16)
 
+    testCase "Bitwise shift right can be generated" <| fun () ->
+        equal (4 >>> 2, 1)
+
+    testCase "Zero fill shift right (>>>) for uint32" <| fun () -> // See #646
+        equal (0x80000000 >>> 1, -1073741824)
+        equal (0x80000000u >>> 1, 1073741824u)
+]
 (*
 testCase "Decimal literals can be generated" <| fun () ->
     equal (System.Decimal.Zero, 0.M)

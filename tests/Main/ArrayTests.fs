@@ -101,7 +101,7 @@ let ``Byte arrays are not clamped by default``() =
     ar.[0] <- ar.[0] + 255uy
     equal 4uy ar.[0]
 
-#if FABLE_COMPILER && !DOTNETCORE
+#if FABLE_COMPILER
 [<Test>]
 let ``Clamped byte arrays work``() =
     let ar = DllRef.Lib.createClampedArray()

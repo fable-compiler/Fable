@@ -655,11 +655,6 @@ let ``TimeSpan Inequality works``() =
     test 2000. 1000. true
     test -2000. -2000. false
 
-// Disable System.Timers.Timer tests for .NET Core until it's implemented.
-#if !DOTNETCORE
-
-// TODO: Disable this test temporarily for NUnit as it's failing in AppVeyor
-#if FABLE_COMPILER
 [<Test>]
 let ``Timer with AutoReset = true works``() =
     async {
@@ -672,7 +667,6 @@ let ``Timer with AutoReset = true works``() =
         do! Async.Sleep 50
         equal 10 !res
     } |> Async.RunSynchronously
-#endif
 
 [<Test>]
 let ``Timer with AutoReset = false works``() =
@@ -700,5 +694,3 @@ let ``Timer.Elapsed.Subscribe works``() =
         equal 10 !res
         t.Stop()
     } |> Async.RunSynchronously
-
-#endif

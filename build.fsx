@@ -116,11 +116,9 @@ let buildJsonConverter () =
     |> run CWD dotnetExePath
 
 let runTestsDotnet () =
-    CleanDir "tests/Main/obj"
-    // run (CWD </> "tests/Main") dotnetExePath "restore /p:TestRunner=xunit"
-    // run (CWD </> "tests/Main") dotnetExePath "build /p:TestRunner=xunit"
-    run (CWD </> "tests/Main") dotnetExePath "test /p:TestRunner=xunit"
-    run (CWD </> "src/dotnet/Fable.JsonConverter/tests") dotnetExePath "test"
+    // CleanDir "tests/Main/obj"
+    run (CWD </> "tests/Main") dotnetExePath "run"
+    // run (CWD </> "src/dotnet/Fable.JsonConverter/tests") dotnetExePath "test"
 
 let runTestsJS () =
     Yarn.install CWD
@@ -280,6 +278,7 @@ Target "All" (fun () ->
 
     // Fable 2.0 development
     runTestsJS ()
+    runTestsDotnet ()
 
     // Temporarily disabled for Fable 2.0 development
     // ----------------------------------------------

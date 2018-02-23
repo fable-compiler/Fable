@@ -12,8 +12,8 @@ open Fable
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("System.")
-        // || pkgName.StartsWith("Microsoft.")
-        // || pkgName.StartsWith("runtime.")
+        || pkgName.StartsWith("Microsoft.")
+        || pkgName.StartsWith("runtime.")
         || pkgName = "NETStandard.Library"
         || pkgName = "FSharp.Core"
         || pkgName = "Fable.Core"

@@ -4,16 +4,24 @@ open System
 
 module Testing =
     #if FABLE_COMPILER
-    type Assert = Fable.Core.Testing.Assert
-    type TestAttribute = Fable.Core.Testing.TestAttribute
+    open Fable.Core.Testing
+
+    let testList name (tests: _ seq) = name, tests
+    let testCase msg test = msg, test
+
+    let equal expected actual: unit =
+        Assert.AreEqual(expected, actual)
     #else
-    type Assert = Xunit.Assert
-    type TestAttribute = Xunit.FactAttribute
+    open Expecto
+
+    let testList name tests = testList name tests
+    let testCase msg test = testCase msg test
+
+    let equal expected actual: unit =
+        Expect.equal expected actual ""
     #endif
-    type TestFixtureAttribute = Fable.Core.Testing.TestFixtureAttribute
 
-
-open Testing
+(*
 
 #if FABLE_COMPILER
 let foo: string = Fable.Core.JsInterop.importMember "../js/foo.js"
@@ -28,12 +36,7 @@ let foo2 = "foo"
 let apply (f:Func<int,int,int>) (x:int) (y:int) = f.Invoke(x, y)
 #endif
 
-let equal (expected: 'T) (actual: 'T): unit =
-    #if FABLE_COMPILER
-    Assert.AreEqual(expected, actual)
-    #else
-    Assert.Equal<'T>(expected, actual)
-    #endif
+open Testing
 
 let throwsError (expected: string) (f: unit -> 'a): unit =
     let success =
@@ -119,3 +122,5 @@ module Nested =
     let getOuterValueTimes4() = mutableValue * 4
 
 let getNestedValueTimes3() = Nested.nestedMutableValue + Nested.nestedMutableValue + Nested.nestedMutableValue
+
+*)
