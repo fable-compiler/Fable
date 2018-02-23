@@ -138,7 +138,7 @@ type GetKind =
     | OptionValue
     | TupleGet of int
     | UnionTag of FSharpEntity
-    | UnionField of FSharpUnionCase * FSharpEntity
+    | UnionField of FSharpField * FSharpUnionCase * FSharpEntity
     | RecordGet of FSharpField * FSharpEntity
 
 type SetKind =

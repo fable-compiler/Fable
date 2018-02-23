@@ -225,21 +225,22 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
         let tag2 = Fable.UnionCaseTag(unionCase, tdef) |> Fable.Value
         makeEqOp (makeRangeFrom fsExpr) tag1 tag2 BinaryEqualStrict
 
-// let private transformSwitch com ctx (fsExpr: FSharpExpr) (matchValue: FSharpMemberOrFunctionOrValue)
-//                                 isUnionType cases (defaultCase, defaultBindings) decisionTargets =
-//     let decisionTargets = decisionTargets |> Seq.mapi (fun i d -> (i, d)) |> Map
-//     let r, typ = makeRange fsExpr.Range, makeType com ctx.typeArgs fsExpr.Type
-//     let cases =
-//         cases |> Seq.map (fun (KeyValue(idx, (bindings, labels))) ->
-//             labels, transformDecisionTreeSuccess com ctx r decisionTargets idx bindings)
-//         |> Seq.toList
-//     let defaultCase =
-//         transformDecisionTreeSuccess com ctx r decisionTargets defaultCase defaultBindings
-//     let matchValue =
-//         let matchValueType = makeType com ctx.typeArgs matchValue.FullType
-//         let matchValue = makeValueFrom com ctx None matchValueType false matchValue
-//         if isUnionType then getUnionTag matchValue else matchValue
-//     Fable.Switch(matchValue, cases, Some defaultCase, typ, Some r)
+let private transformSwitch com ctx (fsExpr: FSharpExpr) (matchValue: FSharpMemberOrFunctionOrValue)
+                                unionType cases (defaultCase, defaultBindings) decisionTargets =
+    let decisionTargets = decisionTargets |> Seq.mapi (fun i d -> (i, d)) |> Map
+    let r, typ = makeRange fsExpr.Range, makeType com ctx.typeArgs fsExpr.Type
+    let cases =
+        cases |> Seq.map (fun (KeyValue(idx, (bindings, labels))) ->
+            labels, transformDecisionTreeSuccess com ctx r decisionTargets idx bindings)
+        |> Seq.toList
+    let defaultCase =
+        transformDecisionTreeSuccess com ctx r decisionTargets defaultCase defaultBindings
+    let matchValue =
+        let matchValue = makeValueFrom com ctx None matchValue
+        match unionType with
+        | Some tdef -> Fable.Get(matchValue, Fable.UnionTag tdef, Fable.Any, None)
+        | None -> matchValue
+    Fable.Switch(matchValue, cases, Some defaultCase, typ)
 
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     match fsExpr with
@@ -439,7 +440,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             Fable.Get(unionExpr, kind, makeType com ctx.typeArgs t, range)
         | DiscriminatedUnion(tdef,_) ->
             let t = makeType com ctx.typeArgs field.FieldType
-            Fable.Get(unionExpr, Fable.UnionField(unionCase, tdef), t, range)
+            Fable.Get(unionExpr, Fable.UnionField(field, unionCase, tdef), t, range)
 
     // When using a self reference in constructor (e.g. `type MyType() as self =`)
     // the F# compiler introduces artificial statements that we must ignore
@@ -511,9 +512,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         transformUnionCaseTest com ctx fsExpr unionExpr fsType unionCase
 
     (** Pattern Matching *)
-    // TODO TODO TODO
-    // | Switch(matchValue, isUnionType, cases, defaultCase, decisionTargets) ->
-    //     transformSwitch com ctx fsExpr matchValue isUnionType cases defaultCase decisionTargets
+    | Switch(matchValue, unionType, cases, defaultCase, decisionTargets) ->
+        transformSwitch com ctx fsExpr matchValue unionType cases defaultCase decisionTargets
 
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
         transformDecisionTree com ctx fsExpr decisionExpr decisionTargets

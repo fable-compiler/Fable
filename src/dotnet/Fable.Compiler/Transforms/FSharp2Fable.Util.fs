@@ -165,15 +165,6 @@ module Helpers =
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
 
-    let getUnionIndex fsType (unionCase: FSharpUnionCase) =
-        let unionCaseName = unionCase.Name
-        match tryDefinition fsType with
-        | None -> failwithf "Cannot find Type definition for union case %s" unionCaseName
-        | Some tdef ->
-            tdef.UnionCases
-            |> Seq.findIndex (fun uc -> uc.Name = unionCaseName)
-            |> makeIntConst
-
     /// Lower first letter if there's no explicit compiled name
     let lowerCaseName (unionCase: FSharpUnionCase) =
         unionCase.Attributes
@@ -372,18 +363,19 @@ module Patterns =
                     | _ -> None
                 match case, matchValue with
                 | Some case, Some matchValue when matchValue.Equals(var) ->
-                    Some(matchValue,false,idx,bindings,case,elseExpr)
+                    Some(matchValue,None,idx,bindings,case,elseExpr)
                 | Some case, None when isStringOrNumber var.FullType && not var.IsMemberThisValue && not(isInline var) ->
-                    Some(var,false,idx,bindings,case,elseExpr)
+                    Some(var,None,idx,bindings,case,elseExpr)
                 | _ -> None
             | IfThenElse(UnionCaseTest(Value var,typ,case), DecisionTreeSuccess(idx, bindings), elseExpr) ->
-                let case = Fable.UnionCaseTag(case, typ.TypeDefinition) |> Fable.Value
+                let unionType = typ.TypeDefinition
+                let case = Fable.UnionCaseTag(case, unionType) |> Fable.Value
                 match matchValue with
                 | Some matchValue when matchValue.Equals(var) ->
-                    Some(matchValue,true,idx,bindings,case,elseExpr)
+                    Some(matchValue,Some unionType,idx,bindings,case,elseExpr)
                 | None when not var.IsMemberThisValue && not(isInline var) ->
                     match typ with
-                    | DiscriminatedUnion _ -> Some(var,true,idx,bindings,case,elseExpr)
+                    | DiscriminatedUnion _ -> Some(var,Some unionType,idx,bindings,case,elseExpr)
                     | OptionUnion _ | ListUnion _ | ErasedUnion _ | StringEnum _ -> None
                 | _ -> None
             | _ -> None
@@ -533,103 +525,6 @@ module TypeHelpers =
     let isAbstract (ent: FSharpEntity) =
        hasAtt Atts.abstractClass ent.Attributes
 
-    //let getMembers com (tdef: FSharpEntity) =
-    //    let addOverloadCount methName (cache: Map<string,int*int>) =
-    //        match Map.tryFind methName cache with
-    //        | None -> Map.add methName (1, 0) cache
-    //        | Some(total, _) -> Map.add methName (total + 1, 0) cache
-    //    let getOverloadIndex methName (cache: Map<string,int*int>) =
-    //        match Map.tryFind methName cache with
-    //        | None | Some(1, _) -> None, cache
-    //        | Some(total, idx) -> Some idx, Map.add methName (total, idx + 1) cache
-    //    let isDefaultImplementation isOwnerAbstract (x: FSharpMemberOrFunctionOrValue) =
-    //        isOwnerAbstract && x.IsOverrideOrExplicitInterfaceImplementation && not x.IsExplicitInterfaceImplementation
-    //    let isFakeAbstractMember isOwnerAbstract (x: FSharpMemberOrFunctionOrValue) =
-    //        not isOwnerAbstract && not tdef.IsInterface && x.IsDispatchSlot
-    //    let members =
-    //        let isOwnerAbstract = isAbstract tdef
-    //        [ for m in tdef.TryGetMembersFunctionsAndValues do
-    //            // Ignore overrides and interface implementations, they won't have overload index
-    //            if not m.IsOverrideOrExplicitInterfaceImplementation
-    //                // Discard overrides in abstract classes (that is, default implementations)
-    //                // to prevent confusing them with overloads (see #505)
-    //                && not(isDefaultImplementation isOwnerAbstract m)
-    //                // Property members that are no getter nor setter don't actually get implemented
-    //                && not(m.IsProperty && not(m.IsPropertyGetterMethod || m.IsPropertySetterMethod))
-    //                // F# allows abstract method syntax in non-abstract classes
-    //                // if there's a default implementation (see #701)
-    //                && not(isFakeAbstractMember isOwnerAbstract m)
-    //            then yield m ]
-    //    let insMembs, staMembs =
-    //        ((Map.empty, Map.empty), members) ||> List.fold (fun (insMembs, staMembs) m ->
-    //            if m.IsInstanceMember
-    //            then addOverloadCount m.CompiledName insMembs, staMembs
-    //            else insMembs, addOverloadCount m.CompiledName staMembs)
-    //    (([], insMembs, staMembs), members) ||> List.fold (fun (acc, insMembs, staMembs) m ->
-    //        let name = m.CompiledName
-    //        let overloadIndex, insMembs, staMembs =
-    //            if m.IsInstanceMember then
-    //                let overloadIndex, insMembs = getOverloadIndex name insMembs
-    //                overloadIndex, insMembs, staMembs
-    //            else
-    //                let overloadIndex, staMembs = getOverloadIndex name staMembs
-    //                overloadIndex, insMembs, staMembs
-    //        let argTypes = getArgTypes com m
-    //        let returnType = makeType com [] m.ReturnParameter.Type
-    //        let m = makeMemberFrom name (getObjectMemberKind m) argTypes returnType overloadIndex m
-    //        m::acc, insMembs, staMembs)
-    //    |> fun (members, _, _) -> List.rev members
-
-    ///// Don't use this method directly, use IFableCompiler.GetEntity instead
-    //let makeEntity (com: IFableCompiler) (tdef: FSharpEntity): Fable.Entity =
-        //let makeFields (tdef: FSharpEntity) =
-        //    tdef.FSharpFields
-        //    |> Seq.map (fun x -> x.Name, makeType com [] x.FieldType)
-        //    |> Seq.toList
-        //let makeProperties (tdef: FSharpEntity) =
-        //    tdef.TryGetMembersFunctionsAndValues
-        //    |> Seq.choose (fun x ->
-        //        if not x.IsPropertyGetterMethod
-        //            || x.IsExplicitInterfaceImplementation
-        //        then None
-        //        else
-        //            match makeType com [] x.FullType with
-        //            | Fable.LambdaType(_, returnType) ->
-        //                Some(x.DisplayName, returnType)
-        //            | _ -> None)
-        //    |> Seq.toList
-        //let makeCases (tdef: FSharpEntity) =
-        //    tdef.UnionCases |> Seq.map (fun uci ->
-        //        let name =
-        //            uci.Attributes
-        //            |> tryFindAtt ((=) Atts.compiledName)
-        //            |> function
-        //                | Some name -> name.ConstructorArguments.[0] |> snd |> string
-        //                | None -> uci.Name
-        //        name, [for fi in uci.UnionCaseFields do yield makeType com [] fi.FieldType])
-        //    |> Seq.toList
-        //let getKind () =
-        //    if tdef.IsInterface then Fable.Interface
-        //    elif tdef.IsFSharpUnion then makeCases tdef |> Fable.Union
-        //    elif tdef.IsFSharpRecord || tdef.IsValueType then makeFields tdef |> Fable.Record
-        //    elif tdef.IsFSharpExceptionDeclaration then makeFields tdef |> Fable.Exception
-        //    elif tdef.IsFSharpModule || tdef.IsNamespace then Fable.Module
-        //    else Fable.Class(getBaseClass com tdef, makeProperties tdef)
-        //let genParams =
-        //    tdef.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toList
-        //let infcs =
-        //    tdef.DeclaredInterfaces
-        //    |> Seq.map (fun x -> getEntityFullName x.TypeDefinition)
-        //    |> Seq.filter (Naming.ignoredInterfaces.Contains >> not)
-        //    |> Seq.distinct
-        //    |> Seq.toList
-        //let decs =
-        //    tdef.Attributes
-        //    |> Seq.choose makeDecorator
-        //    |> Seq.toList
-        //Fable.Entity (getKind(), com.TryGetInternalFile tdef,
-            //getEntityFullName tdef, getMembers com tdef, genParams, infcs, decs)
-
     let inline (|FableType|) com (ctx: Context) t = makeType com ctx.typeArgs t
 
 module Identifiers =
@@ -717,23 +612,6 @@ module Util =
             | None -> None
         Fable.TryCatch (body, catchClause, finalizer)
 
-    // This method doesn't work, the arguments don't keep the attributes
-//    let hasRestParams (args: FSharpMemberOrFunctionOrValue list list) =
-//        match args with
-//        | [args] when args.Length > 0 ->
-//            tryFindAtt ((=) "ParamArray") (Seq.last args).Attributes
-//            |> Option.isSome
-//        | _ -> false
-
-    //let tryReplace (com: IFableCompiler) ctx r typ info =
-        //match Replacements.tryReplace com info with
-        //| Some _ as repl -> repl
-        //| None ->
-            //sprintf "Cannot find replacement for %s::%s" info.ownerFullName info.memberName
-            //|> addErrorAndReturnNull com ctx.fileName info.range |> Some
-
-    // let (|Emitted|_|) r typ info callee args (memb: FSharpMemberOrFunctionOrValue) =
-
     let (|Replaced|_|) com ctx r typ genArgs (info: Fable.CallInfo) callee args
                                         (memb: FSharpMemberOrFunctionOrValue) =
         let fullName = memb.FullName
@@ -748,14 +626,6 @@ module Util =
                 let unresolved = Fable.UnresolvedCall(callee, args, info, extraInfo)
                 Fable.Operation(unresolved, typ, r) |> Some
         else None
-
-    // let (|ResolveGeneric|) genArgs (t: FSharpType) =
-    //     if not t.IsGenericParameter then t else
-    //     let genParam = t.GenericParameter
-    //     genArgs |> List.tryPick (fun (name,t) ->
-    //         if genParam.Name = name then Some t else None)
-    //     // TODO: Throw error if generic cannot be resolved?
-    //     |> Option.defaultValue t
 
     let matchGenericParams (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) genArgs =
         (ctx.typeArgs, memb.GenericParameters, genArgs)

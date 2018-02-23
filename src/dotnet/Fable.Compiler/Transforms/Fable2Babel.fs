@@ -254,7 +254,6 @@ module Util =
             let vals = match headAndTail with Some(head, tail) -> [head; tail] | None -> []
             buildArray com ctx Fable.Any (Fable.ArrayValues vals)
         | Fable.NewOption (value, t) ->
-            // TODO TODO TODO: Wrap unit, generic and nested options
             match value with
             | Some (TransformExpr com ctx e) ->
                 match t with
@@ -269,7 +268,11 @@ module Util =
         | Fable.NewRecord _ -> failwith "TODO: NewRecord"
         | Fable.NewUnion _ -> failwith "TODO: NewUnion"
         | Fable.NewErasedUnion _ -> failwith "TODO: NewErasedUnion"
-        | Fable.UnionCaseTag _ -> failwith "TODO: UnionCaseTag"
+        | Fable.UnionCaseTag(uci, def) ->
+            let unionCaseName = uci.Name
+            def.UnionCases
+            |> Seq.findIndex (fun uc -> uc.Name = unionCaseName)
+            |> float |> NumericLiteral :> Expression
 
     let transformObjectExpr (com: IBabelCompiler) ctx members range: Expression =
         failwith "TODO: transformObjectExpr"
@@ -411,8 +414,25 @@ module Util =
             | e -> transformBlock com ctx ret e :> Statement |> Some
         IfStatement(guardExpr, thenStmnt, ?alternate=elseStmnt)
 
-    let transformGet com ctx range var (getKind: Fable.GetKind) =
-        failwith "TODO"
+    let transformGet (com: IBabelCompiler) ctx range expr (getKind: Fable.GetKind) =
+        let expr = com.TransformExpr ctx expr
+        match getKind with
+        | Fable.FieldGet _
+        | Fable.IndexGet _
+        | Fable.DynamicGet _
+        | Fable.ListHead
+        | Fable.ListTail
+        | Fable.OptionValue
+        | Fable.TupleGet _
+        | Fable.RecordGet _ -> failwith "TODO: transformGet"
+        | Fable.UnionTag _ -> getExpr com ctx expr (makeIntConst 0)
+        | Fable.UnionField(field, uci, _) ->
+            let fieldName = field.Name
+            let index =
+                uci.UnionCaseFields
+                |> Seq.findIndex (fun fi -> fi.Name = fieldName)
+                |> (+) 1 |> makeIntConst
+            getExpr com ctx expr index
 
     let transformSet (com: IBabelCompiler) ctx range var (value: Fable.Expr) (setKind: Fable.SetKind) =
         let var = com.TransformExpr ctx var
