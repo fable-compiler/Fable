@@ -25,9 +25,15 @@ type Type =
     | ErasedUnion of genericArgs: Type list
     | DeclaredType of FSharpEntity * genericArgs: Type list
 
+type DeclarationInfo =
+    { PrivateName: string
+      PublicName: string option
+      IsMutable: bool
+      HasSpread: bool }
+
 type Declaration =
     | ActionDeclaration of Expr
-    | ValueDeclaration of publicName: string option * privateName: string * value: Expr * isMutable: bool
+    | ValueDeclaration of Expr * DeclarationInfo
     // TODO: Special functions: implicit constructors, overrides, interface implementations
 
 type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
@@ -147,6 +153,13 @@ type SetKind =
     | DynamicSet of Expr
     | RecordSet of FSharpField * FSharpEntity
 
+type ObjectMemberKind =
+    | ObjectValue of hasSpread: bool
+    | ObjectGetter
+    | ObjectSetter
+
+type ObjectMember = string * Expr * ObjectMemberKind
+
 type Expr =
     | Value of ValueKind
     | IdentExpr of Ident
@@ -154,7 +167,7 @@ type Expr =
     | Import of selector: string * path: string * ImportKind * Type
 
     | Function of FunctionKind * body: Expr
-    | ObjectExpr of fields: (string * Expr) list * Type // TODO: getter/setter
+    | ObjectExpr of ObjectMember list * Type
 
     | Operation of OperationKind * typ: Type * range: SourceLocation option
     | Get of Expr * GetKind * typ: Type * range: SourceLocation option

@@ -179,7 +179,7 @@ let private transformDelegate com ctx delegateType fsExpr =
     //     let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
     //     makeValueFrom com ctx r v |> wrapInZeroArgsFunction r typ args argTypes
     | BasicPatterns.Lambda(arg, body) ->
-        transformLambda com ctx arg body
+        failwith "TODO: Lamba to Delegate"
     | fsExpr -> transformExpr com ctx fsExpr
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr)
@@ -608,7 +608,12 @@ let private transformMemberValue com ctx (memb: FSharpMemberOrFunctionOrValue) (
     | Fable.Import(selector, path, Fable.CustomImport, typ) ->
         transformImport com ctx typ publicName selector path
     | fableValue ->
-        ctx, [Fable.ValueDeclaration(publicName, privateName, fableValue, memb.IsMutable)]
+        let info: Fable.DeclarationInfo =
+            { PrivateName = privateName
+              PublicName = publicName
+              IsMutable = memb.IsMutable
+              HasSpread = false }
+        ctx, [Fable.ValueDeclaration(fableValue, info)]
 
 let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
@@ -619,8 +624,13 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
     | Fable.Import(selector, path, Fable.CustomImport, typ) ->
         transformImport com ctx typ (Some publicName) selector path
     | fableBody ->
+        let info: Fable.DeclarationInfo =
+            { PrivateName = privateName
+              PublicName = publicName
+              IsMutable = false
+              HasSpread = hasSpread memb }
         let fn = Fable.Function(Fable.Delegate args, fableBody)
-        ctx, [Fable.ValueDeclaration(publicName, privateName, fn, false)]
+        ctx, [Fable.ValueDeclaration(fn, info)]
 
 let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =

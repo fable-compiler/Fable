@@ -31,7 +31,7 @@ let rec private visit f e =
     | Cast(e, t) -> Cast(visit f e, t)
     | Function(kind, body) -> Function(kind, visit f body)
     | ObjectExpr(values, t) ->
-        let values = values |> List.map (fun (k,v) -> k, visit f v)
+        let values = values |> List.map (fun (n,v,k) -> n, visit f v, k)
         ObjectExpr(values, t)
     | Operation(kind, t, r) ->
         match kind with
@@ -330,8 +330,8 @@ let optimizeExpr (com: ICompiler) e =
 let rec optimizeDeclaration (com: ICompiler) = function
     | ActionDeclaration expr ->
         ActionDeclaration(optimizeExpr com expr)
-    | ValueDeclaration(publicName, privName, value, isMutable) ->
-        ValueDeclaration(publicName, privName, optimizeExpr com value, isMutable)
+    | ValueDeclaration(value, info) ->
+        ValueDeclaration(optimizeExpr com value, info)
 
 let optimizeFile (com: ICompiler) (file: File) =
     let newDecls = List.map (optimizeDeclaration com) file.Declarations
