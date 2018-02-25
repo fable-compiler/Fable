@@ -301,6 +301,13 @@ let bigint (com: ICompiler) r (t: Type) (i: CallInfo) (i2: ExtraCallInfo) (calle
         // icall i meth |> Some
         "TODO: BigInt instance methods" |> addErrorAndReturnNull com r |> Some
 
+let languagePrimitives (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
+    match i2.CompiledName with
+    // TODO: Check for types with custom zero/one (strings?)
+    | "GenericZero" -> NumberConstant(0., Int32) |> Value |> Some
+    | "GenericOne" -> NumberConstant(1., Int32) |> Value |> Some
+    | _ -> None
+
 let intrinsicFunctions (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
     match i2.CompiledName, callee, args with
     | "CheckThis", None, [arg]
@@ -383,6 +390,7 @@ let tryCall (com: ICompiler) r t (info: CallInfo) (extraInfo: ExtraCallInfo)
     | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com r t info extraInfo callee args
     | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
     | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com r t info extraInfo callee args
+    | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com r t info extraInfo callee args
     | "System.Decimal" -> decimals com r t info extraInfo callee args
     | "System.Numerics.BigInteger"
     | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com r t info extraInfo callee args
@@ -421,7 +429,6 @@ let tryCall (com: ICompiler) r t (info: CallInfo) (extraInfo: ExtraCallInfo)
 //         | "Microsoft.FSharp.Core.FSharpRef" -> references com info
 //         | "System.Activator" -> activator com info
 //         | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings com info
-//         | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com info
 //         | "System.Text.RegularExpressions.Capture"
 //         | "System.Text.RegularExpressions.Match"
 //         | "System.Text.RegularExpressions.Group"
