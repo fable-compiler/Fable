@@ -121,7 +121,7 @@ type CallInfo =
     HasThisArg: bool }
 
 type ExtraCallInfo =
-  { FullName: string
+  { EnclosingEntityFullName: string
     CompiledName: string
     GenericArgs: Map<string, Type> }
 

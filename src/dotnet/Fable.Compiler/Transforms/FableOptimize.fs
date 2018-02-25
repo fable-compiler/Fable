@@ -118,7 +118,7 @@ module private Transforms =
             match Replacements.tryCall com r t info extraInfo callee args with
             | Some e -> e
             | None ->
-                "Cannot resolve " + extraInfo.FullName
+                "Cannot resolve " + extraInfo.EnclosingEntityFullName
                 |> addErrorAndReturnNull com r
         | e -> e
 

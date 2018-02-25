@@ -613,13 +613,13 @@ module Util =
         |||> Seq.fold2 (fun acc genPar t -> Map.add genPar.Name t acc)
 
     let (|Replaced|_|) com ctx r typ genArgs (info: Fable.CallInfo) callee args
-                                        (memb: FSharpMemberOrFunctionOrValue) =
-        let isCandidate (fullName: string) =
-            fullName.StartsWith("System.")
-                || fullName.StartsWith("Microsoft.FSharp.")
-                || fullName.StartsWith("Fable.Core.")
+            (memb: FSharpMemberOrFunctionOrValue, enclosingEntity: FSharpEntity option) =
+        let isCandidate (entityFullName: string) =
+            entityFullName.StartsWith("System.")
+                || entityFullName.StartsWith("Microsoft.FSharp.")
+                || entityFullName.StartsWith("Fable.Core.")
 
-        let tryPipesAndComposition r t (args: Fable.Expr list) (fullName: string) =
+        let tryPipesAndComposition r t args entityFullName compiledName  =
             let rec curriedApply r t applied args =
                 Fable.Operation(Fable.CurriedApply(applied, args), t, r)
             let compose f1 f2 =
@@ -630,34 +630,35 @@ module Util =
                 // |> List.singleton
                 // |> makeCall com info.range Fable.Any f2
                 // |> makeLambda [tempVar]
-            if fullName.StartsWith("Microsoft.FSharp.Core.Operators") then
-                match fullName.Substring(fullName.LastIndexOf(".") + 1), args with
-                | "( |> )", [x; f]
-                | "( <| )", [f; x] -> curriedApply r t f [x] |> Some
+            if entityFullName = "Microsoft.FSharp.Core.Operators" then
+                match compiledName, args with
+                | "op_PipeRight", [x; f]
+                | "op_PipeLeft", [f; x] -> curriedApply r t f [x] |> Some
                 // TODO: Try to untuple double and triple pipe arguments
-                // | "( ||> )", [x; y; f]
-                // | "( <|| )", [f; x; y] -> curriedApply r t f [x; y] |> Some
-                // | "( |||> )", [x; y; z; f]
-                // | "( <||| )", [f; x; y; z] -> curriedApply r t f [x; y; z] |> Some
-                | "( >> )", [f1; f2] -> compose f1 f2
-                | "( << )", [f2; f1] -> compose f1 f2
+                // | "op_PipeRight2", [x; y; f]
+                // | "op_PipeLeft2", [f; x; y] -> curriedApply r t f [x; y] |> Some
+                // | "op_PipeRight3", [x; y; z; f]
+                // | "op_PipeLeft3", [f; x; y; z] -> curriedApply r t f [x; y; z] |> Some
+                | "op_ComposeRight", [f1; f2] -> compose f1 f2
+                | "op_ComposeLeft", [f2; f1] -> compose f1 f2
                 | _ -> None
             else None
 
-        let fullName = memb.FullName
-        if isCandidate fullName then
-            match tryPipesAndComposition r typ args fullName with
+        match enclosingEntity |> Option.bind (fun e -> e.TryFullName) with
+        | Some enclosingEntityFullName when isCandidate enclosingEntityFullName ->
+            let compiledName = memb.CompiledName
+            match tryPipesAndComposition r typ args enclosingEntityFullName compiledName with
             | Some replaced -> Some replaced
             | None ->
                 let extraInfo: Fable.ExtraCallInfo =
-                  { FullName = fullName
+                  { EnclosingEntityFullName = enclosingEntityFullName
                     CompiledName = memb.CompiledName
                     GenericArgs = List.map (makeType com ctx.typeArgs) genArgs
                                   |> matchGenericParams memb
                   }
                 let unresolved = Fable.UnresolvedCall(callee, args, info, extraInfo)
                 Fable.Operation(unresolved, typ, r) |> Some
-        else None
+        | _ -> None
 
     let (|Emitted|_|) r typ argsAndCallInfo (memb: FSharpMemberOrFunctionOrValue) =
         match memb.Attributes with
@@ -710,7 +711,7 @@ module Util =
         if not(isInline memb)
         then None
         else
-            let argIdents, fsExpr = com.GetInlineExpr memb
+            let argIdents, fsExpr = com.GetInlineExpr(memb)
             let args = match callee with Some c -> c::args | None -> args
             let ctx, bindings =
                 ((ctx, []), argIdents, args) |||> List.fold2 (fun (ctx, bindings) argId arg ->
@@ -769,7 +770,7 @@ module Util =
         match memb, memb.EnclosingEntity with
         | Imported r Fable.Any argsAndCallInfo imported, _ -> imported
         | Emitted r Fable.Any argsAndCallInfo emitted, _ -> emitted
-        | Replaced com ctx r typ genArgs info callee args replaced, _ -> replaced
+        | Replaced com ctx r typ genArgs info callee args replaced -> replaced
         | Inlined com ctx genArgs callee args expr, _ -> expr
         | Try (tryGetBoundExpr ctx r) expr, _ ->
             match callee with

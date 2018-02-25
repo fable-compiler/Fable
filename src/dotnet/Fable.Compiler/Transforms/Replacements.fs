@@ -238,7 +238,7 @@ let operators (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Ex
         applyOp com r t i i2 args |> Some
     | _ -> None
 
-let decimals (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
+let decimals (com: ICompiler) r (_: Type) (_: CallInfo) (i2: ExtraCallInfo) (_callee: Expr option) (args: Expr list) =
     match i2.CompiledName, args with
     | ".ctor", [Value(NumberConstant(x, _))] ->
 #if FABLE_COMPILER
@@ -279,6 +279,27 @@ let decimals (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Exp
     | ("Parse" | "TryParse"), _ ->
         None // TODO: parse com i true
     | _,_ -> None
+
+let bigint (com: ICompiler) r (t: Type) (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
+    let coreMod = coreModFor BclBigInt
+    match callee, i2.CompiledName with
+    | None, ".ctor" ->
+        match i.ArgTypes with
+        | [Builtin(BclInt64|BclUInt64)] -> coreCall r t i coreMod "fromInt64" args
+        | [_] -> coreCall r t i coreMod "fromInt32" args
+        | _ -> coreCall r t i coreMod "default" args
+        |> Some
+    | None, ("Zero"|"One"|"Two" as memb) ->
+        makeCoreRef t coreMod (Naming.lowerFirst memb) |> Some
+    | None, ("FromZero"|"FromOne" as memb) ->
+        let memb = memb.Replace("From", "") |> Naming.lowerFirst
+        makeCoreRef t coreMod memb |> Some
+    | None, "FromString" ->
+        coreCall r t i coreMod "parse" args |> Some
+    | None, meth -> coreCall r t i coreMod meth args |> Some
+    | Some _callee, _ ->
+        // icall i meth |> Some
+        "TODO: BigInt instance methods" |> addErrorAndReturnNull com r |> Some
 
 let intrinsicFunctions (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
     match i2.CompiledName, callee, args with
@@ -355,14 +376,16 @@ let tryField returnTyp ownerTyp fieldName =
 
 let tryCall (com: ICompiler) r t (info: CallInfo) (extraInfo: ExtraCallInfo)
                                     (callee: Expr option) (args: Expr list) =
-    let ownerName = extraInfo.FullName.Substring(0, extraInfo.FullName.LastIndexOf('.'))
-    match ownerName with
+    match extraInfo.EnclosingEntityFullName with
     | "System.Math"
     | "Microsoft.FSharp.Core.Operators"
     | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators"
     | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com r t info extraInfo callee args
     | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
     | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com r t info extraInfo callee args
+    | "System.Decimal" -> decimals com r t info extraInfo callee args
+    | "System.Numerics.BigInteger"
+    | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com r t info extraInfo callee args
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com r t info extraInfo callee args
     | _ -> None
 //         | Naming.EndsWith "Exception" _ -> exceptions com info
@@ -380,7 +403,6 @@ let tryCall (com: ICompiler) r t (info: CallInfo) (extraInfo: ExtraCallInfo)
 //         | "System.Double" -> parse com info true
 //         | "System.Convert" -> convert com info
 //         | "System.Console" -> console com info
-//         | "System.Decimal" -> decimals com info
 //         | "System.Diagnostics.Debug"
 //         | "System.Diagnostics.Debugger" -> debug com info
 //         | "System.DateTime"
@@ -437,8 +459,6 @@ let tryCall (com: ICompiler) r t (info: CallInfo) (extraInfo: ExtraCallInfo)
 //         | "System.Lazy" | "Microsoft.FSharp.Control.Lazy"
 //         | "Microsoft.FSharp.Control.LazyExtensions" -> laziness com info
 //         | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com info
-//         | "System.Numerics.BigInteger"
-//         | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com info
 //         | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com info info.memberName
 //         | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue com info info.memberName
 //         | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
