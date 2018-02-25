@@ -110,14 +110,17 @@ module AST =
     let makeArray elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType) |> Value
 
-    let makeCallNoInfo r t (applied: Expr) args =
+    let makeCall r t i (callee: Expr) args =
+        Operation(Call(callee, None, args, i), t, r)
+
+    let makeCallNoInfo r t (callee: Expr) args =
         let callInfo =
             { ArgTypes = []
               IsConstructor = false
               IsDynamic = false
               HasSpread = false
               HasThisArg = false }
-        Operation(Call(applied, None, args, callInfo), t, r)
+        Operation(Call(callee, None, args, callInfo), t, r)
 
     /// Dynamic calls will uncurry its function arguments with unknown arity
     let makeCallDynamic r (applied: Expr) args =

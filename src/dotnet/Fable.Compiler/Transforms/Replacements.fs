@@ -4,6 +4,7 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open Patterns
 
 type BuiltinType =
     | BclGuid
@@ -42,20 +43,29 @@ let coreModFor = function
     | BclUInt64 -> "Long"
     | BclBigInt -> "BigInt"
 
-let ccall r t info coreModule coreMember args =
+let resolveArgTypes argTypes genArgs =
+    argTypes |> List.map (function
+        | GenericParam name as t ->
+            Map.tryFind name genArgs |> Option.defaultValue t
+        | t -> t)
+
+let coreCall r t info coreModule coreMember args =
     let callee = Import(coreMember, coreModule, CoreLib, Any)
     Operation(Call(callee, None, args, info), t, r)
 
-let ccall_ t coreModule coreMember args =
+let coreCall_ t coreModule coreMember args =
     let callee = Import(coreMember, coreModule, CoreLib, Any)
     makeCallNoInfo None t callee args
+
+let globalCall r t info ident memb args =
+    Operation(Call(makeIdentExpr ident, memb, args, info), t, r)
 
 let makeLongInt t signed (x: uint64) =
     let lowBits = NumberConstant (float (uint32 x), Float64)
     let highBits = NumberConstant (float (x >>> 32), Float64)
     let unsigned = BoolConstant (not signed)
     let args = [Value lowBits; Value highBits; Value unsigned]
-    ccall_ t "Long" "fromBits" args
+    coreCall_ t "Long" "fromBits" args
 
 let makeFloat32 (x: float32) =
     let args = [NumberConstant (float x, Float32) |> Value]
@@ -135,7 +145,7 @@ let rec makeTypeTest com range expr (typ: Type) =
     | Builtin BclBigInt ->
         jsInstanceof (makeCoreRef Any "BigInt" "default") expr
     | Array _ | Tuple _ | List _ ->
-        ccall_ Boolean "Util" "isArray" [expr]
+        coreCall_ Boolean "Util" "isArray" [expr]
     | DeclaredType (ent, _) ->
         failwith "TODO: DeclaredType type test"
         // if ent.IsClass
@@ -146,29 +156,32 @@ let rec makeTypeTest com range expr (typ: Type) =
         "Cannot type test options, generic parameters or erased unions"
         |> addErrorAndReturnNull com range
 
-// TODO: Check special cases: custom operators, bigint, dates, etc
-let applyOp (com: ICompiler) r t opName genArgs args =
-    let (|CustomOp|_|) com opName genArgs (ent: FSharpEntity) =
-        // The last generic argument is the return type, remove it
-        match genArgs with
-        | left::right::_ -> Some [left; right]
-        | operand::_ -> Some [operand]
+let applyOp (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) args =
+    let (|CustomOp|_|) com opName argTypes =
+        let tryFindMember com (ent: FSharpEntity) opName argTypes =
+            FSharp2Fable.TypeHelpers.tryFindMember com ent opName false argTypes
+        match argTypes with
+        | [DeclaredType(ent,_) as t] -> tryFindMember com ent opName [t]
+        | [DeclaredType(ent,_) as t1; t2] ->
+            match tryFindMember com ent opName [t1; t2], t2 with
+            | Some m, _ -> Some m
+            | None, DeclaredType(ent,_) -> tryFindMember com ent opName [t1; t2]
+            | None, _ -> None
         | _ -> None
-        |> Option.bind (FSharp2Fable.TypeHelpers.tryFindMember com ent opName false)
     let unOp operator operand =
         Operation(UnaryOperation(operator, operand), t, r)
     let binOp op left right =
         Operation(BinaryOperation(op, left, right), t, r)
     let logicOp op left right =
         Operation(LogicalOperation(op, left, right), Boolean, r)
-    let nativeOp opName genArgs args =
+    let nativeOp opName argTypes args =
         match opName, args with
         | Operators.addition, [left; right] -> binOp BinaryPlus left right
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
         | Operators.division, [left; right] ->
             let div = binOp BinaryDivide left right
-            match genArgs with
+            match argTypes with
             // Floor result of integer divisions (see #172)
             // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
             | Number Integer::_ -> unOp UnaryNotBitwise div |> unOp UnaryNotBitwise
@@ -176,7 +189,7 @@ let applyOp (com: ICompiler) r t opName genArgs args =
         | Operators.modulus, [left; right] -> binOp BinaryModulus left right
         | Operators.leftShift, [left; right] -> binOp BinaryShiftLeft left right
         | Operators.rightShift, [left; right] ->
-            match genArgs with
+            match argTypes with
             | Number UInt32::_ -> binOp BinaryShiftRightZeroFill left right // See #646
             | _ -> binOp BinaryShiftRightSignPropagating left right
         | Operators.bitwiseAnd, [left; right] -> binOp BinaryAndBitwise left right
@@ -187,22 +200,144 @@ let applyOp (com: ICompiler) r t opName genArgs args =
         | Operators.logicalNot, [operand] -> unOp UnaryNotBitwise operand
         | Operators.unaryNegation, [operand] -> unOp UnaryMinus operand
         | _ -> "Unknown operator: " + opName |> addErrorAndReturnNull com r
-    match genArgs with
+    let argTypes = resolveArgTypes i.ArgTypes i2.GenericArgs
+    match argTypes with
     // TODO: Builtin types
-    | DeclaredType(CustomOp com opName genArgs m, _)::_
-    | _::DeclaredType(CustomOp com opName genArgs m, _)::_ ->
-        let callee = FSharp2Fable.Util.memberRef com genArgs m
-        makeCallNoInfo r t callee args
-    | _ -> nativeOp opName genArgs args
+    | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
+        coreCall r t i (coreModFor bt) i2.CompiledName args
+    | CustomOp com i2.CompiledName m ->
+        let callee = FSharp2Fable.Util.memberRef com argTypes m
+        makeCall r t i callee args
+    | _ -> nativeOp i2.CompiledName argTypes args
 
-let operators (com: ICompiler) r t callee args (info: CallInfo) (extraInfo: ExtraCallInfo) =
-    if Set.contains extraInfo.CompiledName Operators.standard
-    then applyOp com r t extraInfo.CompiledName extraInfo.GenericArgs args |> Some
-    else None
+let operators (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
+    let math r t (i: CallInfo) (i2: ExtraCallInfo) (args: Fable.Expr list) methName =
+        let argTypes = resolveArgTypes i.ArgTypes i2.GenericArgs
+        match Naming.lowerFirst methName, List.head argTypes with
+        | "abs", Builtin(BclInt64 | BclBigInt as bt)  ->
+            coreCall r t i (coreModFor bt) "abs" args |> Some
+         | methName, _ -> globalCall r t i "Math" (Some methName) args |> Some
+    match i2.CompiledName with
+    // Math functions
+    // TODO: optimize square pow: x * x
+    | "Pow" | "PowInteger" | "op_Exponentiation" -> math r t i i2 args "pow"
+    | "Ceil" | "Ceiling" -> math r t i i2 args "ceil"
+    | "Abs" | "Acos" | "Asin" | "Atan" | "Atan2"
+    | "Cos" | "Exp" | "Floor" | "Log" | "Log10"
+    | "Sin" | "Sqrt" | "Tan" -> math r t i i2 args i2.CompiledName
+    | "Round" -> coreCall r t i "Util" "round" args |> Some
+    // | "sign" ->
+    //     let args =
+    //         match args with
+    //         | ((Type (Fable.ExtendedNumber _ as t)) as arg)::_ ->
+    //             toFloat arg.Range t (Fable.Number Float64) [arg] |> List.singleton
+    //         | _ -> args
+    //     coreCall r t i "Util" "sign" args |> Some
+    | SetContains Operators.standard ->
+        // (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) args opName
+        applyOp com r t i i2 args |> Some
+    | _ -> None
 
-let fableCoreLib com r t callee args info (extraInfo: ExtraCallInfo) =
-    match extraInfo.CompiledName with
-    | "AreEqual" -> ccall r t info "Assert" "equal" args |> Some
+let decimals (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
+    match i2.CompiledName, args with
+    | ".ctor", [Value(NumberConstant(x, _))] ->
+#if FABLE_COMPILER
+        makeNumConst (float x) |> Some
+#else
+        makeDecConst (decimal(x)) |> Some
+#endif
+    | ".ctor", [Value(NewArray(ArrayValues arVals, _))] ->
+        match arVals with
+        | [ Value(NumberConstant(low, Int32))
+            Value(NumberConstant(mid, Int32))
+            Value(NumberConstant(high, Int32))
+            Value(NumberConstant(scale, Int32)) ] ->
+#if FABLE_COMPILER
+                let x = (float ((uint64 (uint32 mid)) <<< 32 ||| (uint64 (uint32 low))))
+                        / System.Math.Pow(10.0, float ((int scale) >>> 16 &&& 0xFF))
+                makeNumConst (if scale < 0.0 then -x else x) |> Some
+#else
+                makeDecConst (new decimal([| int low; int mid; int high; int scale |])) |> Some
+#endif
+        | _ -> None
+    | (".ctor" | "MakeDecimal"),
+          [ Value(NumberConstant(low, Int32))
+            Value(NumberConstant(mid, Int32))
+            Value(NumberConstant(high, Int32))
+            Value(BoolConstant isNegative)
+            Value(NumberConstant(scale, UInt8)) ] ->
+#if FABLE_COMPILER
+                let x = (float ((uint64 (uint32 mid)) <<< 32 ||| (uint64 (uint32 low))))
+                        / System.Math.Pow(10.0, float scale)
+                makeNumConst (if isNegative then -x else x) |> Some
+#else
+                makeDecConst (new decimal(int low, int mid, int high, isNegative, byte scale)) |> Some
+#endif
+    | ".ctor", [IdentExpr _ as arg] ->
+        addWarning com r "Decimals are implemented with floats."
+        Some arg
+    | ("Parse" | "TryParse"), _ ->
+        None // TODO: parse com i true
+    | _,_ -> None
+
+let intrinsicFunctions (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
+    match i2.CompiledName, callee, args with
+    | "CheckThis", None, [arg]
+    | "UnboxFast", None, [arg]
+    | "UnboxGeneric", None, [arg] -> Some arg
+    | "MakeDecimal", _, _ -> decimals com r t i i2 callee args
+    | _ -> None
+//         match i.memberName, (i.callee, i.args) with
+//         | "getString", TwoArgs (ar, idx)
+//         | "getArray", TwoArgs (ar, idx) ->
+//             makeGet i.range i.returnType ar idx |> Some
+//         | "setArray", ThreeArgs (ar, idx, value) ->
+//             Fable.Set (ar, Some idx, value, i.range) |> Some
+//         | ("getArraySlice" | "getStringSlice"), ThreeArgs (ar, lower, upper) ->
+//             let upper =
+//                 let t = Fable.Number Int32
+//                 match upper with
+//                 | Null _ -> makeGet None t ar (makeStrConst "length")
+//                 | _ -> Fable.Apply(Fable.Value(Fable.BinaryOp BinaryPlus),
+//                                 [upper; makeIntConst 1], Fable.ApplyMeth, t, None)
+//             InstanceCall (ar, "slice", [lower; upper])
+//             |> makeCall i.range i.returnType |> Some
+//         | "setArraySlice", (None, args) ->
+//             CoreLibCall("Array", Some "setSlice", false, args)
+//             |> makeCall i.range i.returnType |> Some
+//         | "typeTestGeneric", (None, [expr]) ->
+//             makeTypeTest com i.fileName i.range expr i.memberGenArgs.Head |> Some
+//         | "createInstance", (None, _) ->
+//             None // TODO
+//             // let typRef, args = resolveTypeRef com i false i.memberGenArgs.Head, []
+//             // Fable.Apply (typRef, args, Fable.ApplyCons, i.returnType, i.range) |> Some
+//         | "rangeInt32", (None, args) ->
+//             CoreLibCall("Seq", Some "rangeStep", false, args)
+//             |> makeCall i.range i.returnType |> Some
+//         // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
+//         // Type: PowDouble : float -> int -> float
+//         // Usage: PowDouble x n
+//         | "powDouble", (None, _) ->
+//             GlobalCall ("Math", Some "pow", false, i.args)
+//             |> makeCall i.range i.returnType
+//             |> Some
+//         // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangechar-function-%5bfsharp%5d
+//         // Type: RangeChar : char -> char -> seq<char>
+//         // Usage: RangeChar start stop
+//         | "rangeChar", (None, _) ->
+//             CoreLibCall("Seq", Some "rangeChar", false, i.args)
+//             |> makeCall i.range i.returnType |> Some
+//         // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
+//         // Type: RangeDouble: float -> float -> float -> seq<float>
+//         // Usage: RangeDouble start step stop
+//         | "rangeDouble", (None, _) ->
+//             CoreLibCall("Seq", Some "rangeStep", false, i.args)
+//             |> makeCall i.range i.returnType |> Some
+//         | _ -> None
+
+let fableCoreLib (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
+    match i2.CompiledName with
+    | "AreEqual" -> coreCall r t i "Assert" "equal" args |> Some
     | _ -> None
 
 let tryField returnTyp ownerTyp fieldName =
@@ -213,20 +348,22 @@ let tryField returnTyp ownerTyp fieldName =
     | Builtin BclGuid, "Empty" -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
     | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some
     | Builtin BclDateTime, ("MaxValue" | "MinValue") ->
-        ccall_ returnTyp (coreModFor BclDateTime) (Naming.lowerFirst fieldName) [] |> Some
+        coreCall_ returnTyp (coreModFor BclDateTime) (Naming.lowerFirst fieldName) [] |> Some
     | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue") ->
-        ccall_ returnTyp (coreModFor BclDateTimeOffset) (Naming.lowerFirst fieldName) [] |> Some
+        coreCall_ returnTyp (coreModFor BclDateTimeOffset) (Naming.lowerFirst fieldName) [] |> Some
     | _ -> None
 
-let tryCall (com: ICompiler) r t (callee: Expr option) (args: Expr list)
-                            (info: CallInfo) (extraInfo: ExtraCallInfo) =
+let tryCall (com: ICompiler) r t (info: CallInfo) (extraInfo: ExtraCallInfo)
+                                    (callee: Expr option) (args: Expr list) =
     let ownerName = extraInfo.FullName.Substring(0, extraInfo.FullName.LastIndexOf('.'))
     match ownerName with
     | "System.Math"
     | "Microsoft.FSharp.Core.Operators"
     | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators"
-    | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com r t callee args info extraInfo
-    | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com r t callee args info extraInfo
+    | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com r t info extraInfo callee args
+    | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
+    | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com r t info extraInfo callee args
+    | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com r t info extraInfo callee args
     | _ -> None
 //         | Naming.EndsWith "Exception" _ -> exceptions com info
 //         | "System.Object" -> objects com info
@@ -263,8 +400,6 @@ let tryCall (com: ICompiler) r t (callee: Expr option) (args: Expr list)
 //         | "System.Activator" -> activator com info
 //         | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings com info
 //         | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com info
-//         | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
-//         | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info
 //         | "System.Text.RegularExpressions.Capture"
 //         | "System.Text.RegularExpressions.Match"
 //         | "System.Text.RegularExpressions.Group"

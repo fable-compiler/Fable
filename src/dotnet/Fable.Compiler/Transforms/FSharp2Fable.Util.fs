@@ -608,6 +608,10 @@ module Util =
             | None -> None
         Fable.TryCatch (body, catchClause, finalizer)
 
+    let matchGenericParams (memb: FSharpMemberOrFunctionOrValue) genArgs =
+        (Map.empty, memb.GenericParameters, genArgs)
+        |||> Seq.fold2 (fun acc genPar t -> Map.add genPar.Name t acc)
+
     let (|Replaced|_|) com ctx r typ genArgs (info: Fable.CallInfo) callee args
                                         (memb: FSharpMemberOrFunctionOrValue) =
         let isCandidate (fullName: string) =
@@ -648,14 +652,12 @@ module Util =
                 let extraInfo: Fable.ExtraCallInfo =
                   { FullName = fullName
                     CompiledName = memb.CompiledName
-                    GenericArgs = List.map (makeType com ctx.typeArgs) genArgs }
+                    GenericArgs = List.map (makeType com ctx.typeArgs) genArgs
+                                  |> matchGenericParams memb
+                  }
                 let unresolved = Fable.UnresolvedCall(callee, args, info, extraInfo)
                 Fable.Operation(unresolved, typ, r) |> Some
         else None
-
-    let matchGenericParams (memb: FSharpMemberOrFunctionOrValue) genArgs =
-        (Map.empty, memb.GenericParameters, genArgs)
-        |||> Seq.fold2 (fun acc genPar t -> Map.add genPar.Name t acc)
 
     let (|Emitted|_|) r typ argsAndCallInfo (memb: FSharpMemberOrFunctionOrValue) =
         match memb.Attributes with

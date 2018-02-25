@@ -56,7 +56,7 @@ module Patterns =
         if success then Some value else None
 
     let (|SetContains|_|) set item =
-        if Set.contains item set then Some item else None
+        if Set.contains item set then Some SetContains else None
 
 module Naming =
 

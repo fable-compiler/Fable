@@ -58,51 +58,51 @@ let tests =
     testCase "Zero fill shift right (>>>) for uint32" <| fun () -> // See #646
         equal (0x80000000 >>> 1, -1073741824)
         equal (0x80000000u >>> 1, 1073741824u)
-]
+
+    testCase "Decimal literals can be generated" <| fun () ->
+        equal (System.Decimal.Zero, 0.M)
+        equal (System.Decimal.One, 1.M)
+
+    testCase "Int64 Infix add can be generated" <| fun () ->
+        equal (4L + 2L, 6L)
+
+    testCase "Int64 Infix subtract can be generated" <| fun () ->
+        equal (4L - 2L, 2L)
+
+    testCase "Int64 Infix multiply can be generated" <| fun () ->
+        equal (4L * 2L, 8L)
+
+    testCase "Int64 Infix divide can be generated" <| fun () ->
+        equal (4L / 2L, 2L)
+
+    testCase "Int64 Integer division doesn't produce floats" <| fun () ->
+        equal (5. / 2., 2.5)
+        equal (5L / 2L, 2L)
+        equal (5L / 3L, 1L)
+        // equal (float 5L / 2., 2.5) // TODO: Number conversion
+
+    testCase "Int64 Infix modulo can be generated" <| fun () ->
+        equal (4L % 3L, 1L)
+
+    testCase "Int64 Evaluation order is preserved by generated code" <| fun () ->
+        equal ((4L - 2L) * 2L + 1L, 5L)
+
+    testCase "Int64 Bitwise and can be generated" <| fun () ->
+        equal (6L &&& 2L, 2L)
+
+    testCase "Int64 Bitwise or can be generated" <| fun () ->
+        equal (4L ||| 2L, 6L)
+
+    testCase "Int64 Bitwise shift left can be generated" <| fun () ->
+        equal (4L <<< 2, 16L)
+
+    testCase "Int64 Bitwise shift right can be generated" <| fun () ->
+        equal (4L >>> 2, 1L)
+
+    testCase "Int64 abs works" <| fun () ->
+        equal (abs -4L, 4L)
+
 (*
-testCase "Decimal literals can be generated" <| fun () ->
-    equal (System.Decimal.Zero, 0.M)
-    equal (System.Decimal.One, 1.M)
-
-testCase "Int64 Infix add can be generated" <| fun () ->
-    equal (4L + 2L, 6L)
-
-testCase "Int64 Infix subtract can be generated" <| fun () ->
-    equal (4L - 2L, 2L)
-
-testCase "Int64 Infix multiply can be generated" <| fun () ->
-    equal (4L * 2L, 8L)
-
-testCase "Int64 Infix divide can be generated" <| fun () ->
-    equal (4L / 2L, 2L)
-
-testCase "Int64 Integer division doesn't produce floats" <| fun () ->
-    equal (5. / 2., 2.5)
-    equal (5L / 2L, 2L)
-    equal (5L / 3L, 1L)
-    equal (float 5L / 2., 2.5)
-
-testCase "Int64 Infix modulo can be generated" <| fun () ->
-    equal (4L % 3L, 1L)
-
-testCase "Int64 Evaluation order is preserved by generated code" <| fun () ->
-    equal ((4L - 2L) * 2L + 1L, 5L)
-
-testCase "Int64 Bitwise and can be generated" <| fun () ->
-    equal (6L &&& 2L, 2L)
-
-testCase "Int64 Bitwise or can be generated" <| fun () ->
-    equal (4L ||| 2L, 6L)
-
-testCase "Int64 Bitwise shift left can be generated" <| fun () ->
-    equal (4L <<< 2, 16L)
-
-testCase "Int64 Bitwise shift right can be generated" <| fun () ->
-    equal (4L >>> 2, 1L)
-
-testCase "Int64 abs works" <| fun () ->
-    equal (abs -4L, 4L)
-
 testCase "Big integers addition works" <| fun () ->
     let x = 59823749821707124891298739821798327321028091380980I
     let y = bigint 1L
@@ -392,3 +392,5 @@ testCase "Sign operator works" <| fun () -> // See #1311
     equal(-1, sign -1.)
     equal(-1, sign -89.)
 *)
+
+]

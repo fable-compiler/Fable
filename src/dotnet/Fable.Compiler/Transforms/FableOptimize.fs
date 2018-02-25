@@ -115,7 +115,7 @@ module private Transforms =
 
     let resolveCalls (com: ICompiler) = function
         | Operation(UnresolvedCall(callee, args, info, extraInfo), t, r) ->
-            match Replacements.tryCall com r t callee args info extraInfo with
+            match Replacements.tryCall com r t info extraInfo callee args with
             | Some e -> e
             | None ->
                 "Cannot resolve " + extraInfo.FullName

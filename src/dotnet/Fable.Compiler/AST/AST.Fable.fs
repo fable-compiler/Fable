@@ -123,7 +123,7 @@ type CallInfo =
 type ExtraCallInfo =
   { FullName: string
     CompiledName: string
-    GenericArgs: Type list }
+    GenericArgs: Map<string, Type> }
 
 type OperationKind =
     | Call of callee: Expr * memb: string option * args: Expr list * info: CallInfo

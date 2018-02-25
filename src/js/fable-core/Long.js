@@ -48,6 +48,18 @@ export default function Long(low, high, unsigned) {
     this.unsigned = !!unsigned;
 }
 
+Long.prototype.Equals = function (other) {
+    return equals(this, other);
+}
+
+Long.prototype.CompareTo = function (other) {
+    return compare(this, other);
+}
+
+Long.prototype.ToString = function () {
+    return toString(this);
+}
+
 // The internal representation of a long is the two given signed, 32-bit values.
 // We use 32-bit pieces because these are the size of integers on which
 // Javascript performs bit-operations.  For operations like addition and
@@ -571,6 +583,16 @@ export function compare($this, other) {
     // Both are positive if at least one is unsigned
     return (other.high >>> 0) > ($this.high >>> 0) || (other.high === $this.high && (other.low >>> 0) > ($this.low >>> 0)) ? -1 : 1;
 };
+
+/**
+ * Absolute value of the given number.
+ */
+export function abs($this) {
+    if (!$this.unsigned && isNegative($this))
+        return op_UnaryNegation($this);
+    else
+        return $this;
+}
 
 /**
  * Negates this Long's value.
