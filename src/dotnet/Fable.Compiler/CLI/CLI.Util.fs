@@ -4,6 +4,7 @@ module Literals =
 
   let [<Literal>] VERSION = "1.3.7"
   let [<Literal>] DEFAULT_PORT = 61225
+  let [<Literal>] DO_NOT_COPY = "do-not-copy:"
 
 /// These values must be only set by the Main method
 [<RequireQualifiedAccess>]
@@ -13,9 +14,9 @@ module GlobalParams =
 
   type private TypeInThisAssembly = class end
 
-  let mutable logVerbose = false
+  let mutable Verbose = false
 
-  let mutable fableCoreDir =
+  let mutable FableCorePath =
     let execDir =
       typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location
       |> Path.GetDirectoryName
@@ -26,7 +27,7 @@ module Log =
   open System
 
   let logVerbose(msg: Lazy<string>) =
-    if GlobalParams.logVerbose then
+    if GlobalParams.Verbose then
       try // Some long verbose message may conflict with other processes
         Console.WriteLine(msg.Value)
       with _ -> ()

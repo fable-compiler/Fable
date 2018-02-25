@@ -306,22 +306,27 @@ let copyDirIfDoesNotExist (source: string) (target: string) =
 
 let copyFableCoreAndPackageSources rootDir (pkgs: FablePackage list) =
     let fableDir = createFableDir rootDir
-    let fableCoreDir = IO.Path.Combine(fableDir, "fable-core" + "." + Literals.VERSION)
-    copyDirIfDoesNotExist GlobalParams.fableCoreDir fableCoreDir
+    let fableCorePath =
+        if GlobalParams.FableCorePath.StartsWith(Literals.DO_NOT_COPY)
+        then GlobalParams.FableCorePath.Replace(Literals.DO_NOT_COPY, "")
+        else
+            let fableCoreDir = IO.Path.Combine(fableDir, "fable-core" + "." + Literals.VERSION)
+            copyDirIfDoesNotExist GlobalParams.FableCorePath fableCoreDir
+            fableCoreDir
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir = IO.Path.Combine(fableDir, pkg.Id + "." + pkg.Version)
             copyDirIfDoesNotExist sourceDir targetDir
             IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)))
-    fableCoreDir, pkgRefs
+    fableCorePath, pkgRefs
 
 let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: string) (projFile: string) =
     let projFile = Path.GetFullPath(projFile)
     if not(File.Exists(projFile)) then
         failwith ("File does not exist: " + projFile)
     let projRefs, mainProj = retryGetCrackedProjects checker projFile
-    let fableCoreDir, pkgRefs =
+    let fableCorePath, pkgRefs =
         copyFableCoreAndPackageSources rootDir mainProj.PackageReferences
     let projOpts =
         let sourceFiles =
@@ -333,5 +338,4 @@ let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: str
             let dllRefs = [| for r in mainProj.DllReferences -> "-r:" + r |]
             Array.append (getBasicCompilerArgs define) dllRefs
         makeProjectOptions projFile sourceFiles otherOptions
-    projOpts, fableCoreDir
-
+    projOpts, fableCorePath

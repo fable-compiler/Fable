@@ -512,7 +512,7 @@ module JS =
     and [<AllowNullLiteral>] ArrayBufferConstructor =
         abstract prototype: ArrayBuffer with get, set
         [<Emit("new $0($1...)")>] abstract Create: byteLength: float -> ArrayBuffer
-        abstract isView: arg: obj -> obj
+        abstract isView: arg: obj -> bool
 
     and [<AllowNullLiteral>] ArrayBufferView =
         abstract buffer: ArrayBuffer with get, set

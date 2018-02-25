@@ -155,10 +155,14 @@ let startServerWithProcess workingDir port exec args =
 
 let setGlobalParams(args: string[]) =
     match tryFindArgValue "--verbose" args with
-    | Some _ -> GlobalParams.logVerbose <- true
+    | Some _ -> GlobalParams.Verbose <- true
     | None -> ()
     match tryFindArgValue "--fable-core" args with
-    | Some dir -> GlobalParams.fableCoreDir <- Fable.Path.normalizeFullPath dir
+    | Some path ->
+        GlobalParams.FableCorePath <-
+            if path.StartsWith(Literals.DO_NOT_COPY)
+            then path
+            else Fable.Path.normalizeFullPath path
     | None -> ()
 
 let printHelp() =

@@ -96,9 +96,12 @@ let buildCoreJS () =
     Yarn.run CWD "tsc" (sprintf "--project %s" coreJsSrcDir)
 
     // Compile F# files
-    // nugetRestore coreJsSrcDir
-    // "../../../build/fable/Fable.Compiler.dll node-run ../fable-splitter/cli -- -c splitter.config.js"
-    // |> run coreJsSrcDir dotnetExePath
+    nugetRestore coreJsSrcDir
+    sprintf "%s/Fable.Compiler.dll node-run %s --fable-core %s -- -c splitter.config.js"
+        cliBuildDir
+        "../fable-splitter/dist/cli"
+        "do-not-copy:${outDir}" // fable-splitter will adjust the path
+    |> run coreJsSrcDir dotnetExePath
 
 let buildSplitter () =
     let buildDir = CWD </> "src/js/fable-splitter"

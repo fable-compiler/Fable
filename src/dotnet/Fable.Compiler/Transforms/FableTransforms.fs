@@ -1,4 +1,4 @@
-module Fable.Transforms.FableOptimize
+module Fable.Transforms.FableTransforms
 
 open Fable
 open Fable.AST.Fable
@@ -118,7 +118,9 @@ module private Transforms =
             match Replacements.tryCall com r t info extraInfo callee args with
             | Some e -> e
             | None ->
-                "Cannot resolve " + extraInfo.EnclosingEntityFullName
+                sprintf "Cannot resolve %s.%s"
+                    extraInfo.EnclosingEntityFullName
+                    extraInfo.CompiledName
                 |> addErrorAndReturnNull com r
         | e -> e
 

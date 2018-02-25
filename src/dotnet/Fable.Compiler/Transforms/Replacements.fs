@@ -49,6 +49,18 @@ let resolveArgTypes argTypes genArgs =
             Map.tryFind name genArgs |> Option.defaultValue t
         | t -> t)
 
+let instanceCall r t info callee memberName args =
+    Operation(Call(callee, Some memberName, args, info), t, r)
+
+let fieldGet r t callee fieldName =
+    Get(callee, FieldGet fieldName, t, r)
+
+let dynamicGet r t callee expr =
+    Get(callee, DynamicGet expr, t, r)
+
+let dynamicSet r callee expr value =
+    Set(callee, DynamicSet expr, value, r)
+
 let coreCall r t info coreModule coreMember args =
     let callee = Import(coreMember, coreModule, CoreLib, Any)
     Operation(Call(callee, None, args, info), t, r)
@@ -234,8 +246,12 @@ let operators (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Ex
     //         | _ -> args
     //     coreCall r t i "Util" "sign" args |> Some
     | SetContains Operators.standard ->
-        // (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) args opName
         applyOp com r t i i2 args |> Some
+    | _ -> None
+
+let arrays (_: ICompiler) r (t: Type) (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
+    match i2.CompiledName, callee with
+    | "get_Length", Some c -> fieldGet r t c "length" |> Some
     | _ -> None
 
 let decimals (com: ICompiler) r (_: Type) (_: CallInfo) (i2: ExtraCallInfo) (_callee: Expr option) (args: Expr list) =
@@ -309,18 +325,16 @@ let languagePrimitives (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (c
     | _ -> None
 
 let intrinsicFunctions (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
-    match i2.CompiledName, callee, args with
-    | "CheckThis", None, [arg]
-    | "UnboxFast", None, [arg]
-    | "UnboxGeneric", None, [arg] -> Some arg
-    | "MakeDecimal", _, _ -> decimals com r t i i2 callee args
+    match i2.CompiledName, args with
+    | "CheckThis", [arg]
+    | "UnboxFast", [arg]
+    | "UnboxGeneric", [arg] -> Some arg
+    | "MakeDecimal", _ -> decimals com r t i i2 callee args
+    | "GetString", [ar; idx]
+    | "GetArray", [ar; idx] -> dynamicGet r t ar idx |> Some
+    | "SetArray", [ar; idx; value] -> dynamicSet r ar idx value |> Some
     | _ -> None
 //         match i.memberName, (i.callee, i.args) with
-//         | "getString", TwoArgs (ar, idx)
-//         | "getArray", TwoArgs (ar, idx) ->
-//             makeGet i.range i.returnType ar idx |> Some
-//         | "setArray", ThreeArgs (ar, idx, value) ->
-//             Fable.Set (ar, Some idx, value, i.range) |> Some
 //         | ("getArraySlice" | "getStringSlice"), ThreeArgs (ar, lower, upper) ->
 //             let upper =
 //                 let t = Fable.Number Int32
@@ -391,6 +405,8 @@ let tryCall (com: ICompiler) r t (info: CallInfo) (extraInfo: ExtraCallInfo)
     | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
     | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com r t info extraInfo callee args
     | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com r t info extraInfo callee args
+    | "System.Array"
+    | "Microsoft.FSharp.Collections.ArrayModule" -> arrays com r t info extraInfo callee args
     | "System.Decimal" -> decimals com r t info extraInfo callee args
     | "System.Numerics.BigInteger"
     | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com r t info extraInfo callee args
