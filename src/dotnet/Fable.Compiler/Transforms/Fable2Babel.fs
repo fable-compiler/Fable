@@ -135,6 +135,11 @@ module Util =
             | e -> e, true
         MemberExpression (object, expr, computed, ?loc=r) :> Expression
 
+    let rec accessExpr (members: string list) (baseExpr: Expression) =
+        match members with
+        | [] -> baseExpr
+        | m::ms -> get None baseExpr m |> accessExpr ms
+
     let buildArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
         match typ with
         | Fable.Number kind when com.Options.typedArrays ->
@@ -430,7 +435,11 @@ module Util =
         // [varDeclaration r (ident var) false value :> Statement]
 
     let transformImport (com: IBabelCompiler) ctx (selector: string) (path: string) kind =
+        let selector, parts =
+            let parts = Array.toList(selector.Split('.'))
+            parts.Head, parts.Tail
         com.GetImportExpr(ctx, selector, path, kind)
+        |> accessExpr parts
 
     let transformBinding (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         if value.IsJsStatement then
