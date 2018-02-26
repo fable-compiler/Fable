@@ -183,9 +183,8 @@ module Helpers =
             if isUnit args.[0].[0].Type then 0 else 1
         else args |> Seq.sumBy (fun li -> li.Count)
 
-    let private isModuleValuePrivate checkPublicMutable (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.EnclosingEntity with
-        | Some owner when owner.IsFSharpModule ->
+    let private isModuleValuePrivate checkPublicMutable (enclosingEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
+        if enclosingEntity.IsFSharpModule then
             let preCondition =
                 if checkPublicMutable
                 then not memb.IsMutable || not (isPublicMember memb)
@@ -193,14 +192,18 @@ module Helpers =
             preCondition
             && memb.CurriedParameterGroups.Count = 0
             && memb.GenericParameters.Count = 0
-        | _ -> false
+        else false
 
     // Mutable public values must be compiled as functions (see #986)
-    let isModuleValueForCalls (memb: FSharpMemberOrFunctionOrValue) =
-        isModuleValuePrivate true memb
+    let isModuleValueForCalls (enclosingEntity: FSharpEntity option) (memb: FSharpMemberOrFunctionOrValue) =
+        match enclosingEntity with
+        | Some enclosingEntity -> isModuleValuePrivate true enclosingEntity memb
+        | None -> false
 
     let isModuleValueForDeclaration (memb: FSharpMemberOrFunctionOrValue) =
-        isModuleValuePrivate false memb
+        match memb.EnclosingEntity with
+        | Some enclosingEntity -> isModuleValuePrivate false enclosingEntity memb
+        | None -> false
 
     let getObjectMemberKind (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsImplicitConstructor || memb.IsConstructor then Fable.Constructor
@@ -257,6 +260,11 @@ module Patterns =
                 TryFinally(WhileLoop(_,Let((ident, _), body)), _))
             when memb.CompiledName = "GetEnumerator" ->
             Some(ident, value, body)
+        | _ -> None
+
+    let (|FableCoreDynamicOp|_|) = function
+        | BasicPatterns.Let((_, BasicPatterns.Call(None,m,_,_,[e1; e2])),_)
+                when m.FullName = "Fable.Core.JsInterop.( ? )" -> Some(e1, e2)
         | _ -> None
 
     let (|PrintFormat|_|) fsExpr =
@@ -641,6 +649,16 @@ module Util =
                 // | "op_PipeLeft3", [f; x; y; z] -> curriedApply r t f [x; y; z] |> Some
                 | "op_ComposeRight", [f1; f2] -> compose f1 f2
                 | "op_ComposeLeft", [f2; f1] -> compose f1 f2
+                // Deal with reraise here too as we need the caught exception
+                | "Reraise", _ -> failwith "TODO: Reraise"
+                    // match info.caughtException with
+                    // | Some ex ->
+                    //     let ex = Fable.IdentValue ex |> Fable.Value
+                    //     Fable.Throw (ex, typ, r) |> Some
+                    // | None ->
+                    //     "`reraise` used in context where caught exception is not available, please report"
+                    //     |> addError com info.fileName info.range
+                    //     Fable.Throw (newError None Fable.Any [], typ, r) |> Some
                 | _ -> None
             else None
 
@@ -692,10 +710,9 @@ module Util =
             | Some(args: Fable.Expr list, info: Fable.CallInfo) ->
                 // Allow combination of Import and Emit attributes
                 let emittedCallInfo = { info with ArgTypes = expr.Type::info.ArgTypes }
-                match memb with
-                | Emitted r typ (Some(expr::args, emittedCallInfo)) emitted -> Some emitted
-                | _ ->
-                    // TODO: Check if owner is an object first
+                match memb, memb.EnclosingEntity with
+                | Emitted r typ (Some(expr::args, emittedCallInfo)) emitted, _ -> Some emitted
+                | _, Some enclosingEntity when not enclosingEntity.IsFSharpModule ->
                     match getObjectMemberKind memb with
                     | Fable.Getter -> Some expr
                     | Fable.Setter -> Fable.Set(expr, Fable.VarSet, args.Head, r) |> Some
@@ -703,6 +720,10 @@ module Util =
                     | Fable.Constructor ->
                         let info = { info with IsConstructor = true }
                         Fable.Operation(Fable.Call(expr, None, args, info), typ, r) |> Some
+                | _, enclosingEntity ->
+                    if isModuleValueForCalls enclosingEntity memb
+                    then Some expr
+                    else Fable.Operation(Fable.Call(expr, None, args, info), typ, r) |> Some
             | None ->
                 Some expr
         | None -> None
@@ -760,9 +781,11 @@ module Util =
         let info: Fable.CallInfo =
           { ArgTypes = getArgTypes com memb
             IsConstructor = false
-            IsDynamic = false
-            HasSpread = hasSpread memb
-            HasThisArg = false }
+            HasThisArg = false
+            HasSeqSpread = hasSpread memb
+            HasTupleSpread = false
+            UncurryLambdaArgs = false
+          }
         let argsAndCallInfo =
             match callee with
             | Some c -> Some(c::args, { info with HasThisArg = true })
@@ -772,17 +795,18 @@ module Util =
         | Emitted r Fable.Any argsAndCallInfo emitted, _ -> emitted
         | Replaced com ctx r typ genArgs info callee args replaced -> replaced
         | Inlined com ctx genArgs callee args expr, _ -> expr
-        | Try (tryGetBoundExpr ctx r) expr, _ ->
+        | Try (tryGetBoundExpr ctx r) expr, enclosingEntity ->
             match callee with
             | Some c -> call { info with HasThisArg = true } expr None (c::args)
             | None ->
-                if isModuleValueForCalls memb
+                if isModuleValueForCalls enclosingEntity memb
                 then expr
                 else call info expr None args
         // Check if this is an interface or abstract/overriden method
-        | _, Some owner when owner.IsInterface
-                        || memb.IsOverrideOrExplicitInterfaceImplementation
-                        || isAbstract owner ->
+        | _, Some enclosingEntity
+                when enclosingEntity.IsInterface
+                || memb.IsOverrideOrExplicitInterfaceImplementation
+                || isAbstract enclosingEntity ->
             match callee with
             | Some callee ->
                 match getObjectMemberKind memb with
@@ -792,13 +816,13 @@ module Util =
                 | Fable.Constructor
                 | Fable.Method -> call info callee (Some memb.DisplayName) args
             | None -> "Unexpected static interface/override call" |> attachRange r |> failwith
-        | _ ->
+        | _, enclosingEntity ->
             match callee with
             | Some callee ->
                 let info = { info with HasThisArg = true }
                 call info (memberRef com info.ArgTypes memb) None (callee::args)
             | None ->
-                if isModuleValueForCalls memb
+                if isModuleValueForCalls enclosingEntity memb
                 then memberRefTyped com typ [] memb
                 else call info (memberRef com info.ArgTypes memb) None args
 

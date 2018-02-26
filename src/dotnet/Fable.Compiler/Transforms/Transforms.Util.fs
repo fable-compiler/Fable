@@ -53,7 +53,7 @@ module AST =
 
     /// When referenced multiple times, is there a risk of double evaluation?
     let hasDoubleEvalRisk = function
-        | IdentExpr _
+        | IdentExpr id -> id.IsMutable
         // TODO: Add Union and List Getters here?
         | Value(This _ | Null _ | UnitConstant | NumberConstant _
                     | StringConstant _ | BoolConstant _ | Enum _) -> false
@@ -113,24 +113,17 @@ module AST =
     let makeCall r t i (callee: Expr) args =
         Operation(Call(callee, None, args, i), t, r)
 
-    let makeCallNoInfo r t (callee: Expr) args =
-        let callInfo =
-            { ArgTypes = []
-              IsConstructor = false
-              IsDynamic = false
-              HasSpread = false
-              HasThisArg = false }
-        Operation(Call(callee, None, args, callInfo), t, r)
+    let emptyCallInfo =
+        { ArgTypes = []
+          IsConstructor = false
+          HasThisArg = false
+          HasSeqSpread = false
+          HasTupleSpread = false
+          UncurryLambdaArgs = false
+        }
 
-    /// Dynamic calls will uncurry its function arguments with unknown arity
-    let makeCallDynamic r (applied: Expr) args =
-        let callInfo =
-            { ArgTypes = []
-              IsConstructor = false
-              IsDynamic = true
-              HasSpread = false
-              HasThisArg = false }
-        Operation(Call(applied, None, args, callInfo), Fable.Any, r)
+    let makeCallNoInfo r t (callee: Expr) args =
+        Operation(Call(callee, None, args, emptyCallInfo), t, r)
 
     let makeBoolConst (x: bool) = BoolConstant x |> Value
     let makeStrConst (x: string) = StringConstant x |> Value
@@ -183,7 +176,6 @@ module Atts =
 
 [<RequireQualifiedAccess>]
 module Types =
-    let [<Literal>] dynamicApplicable = "Fable.Core.DynamicApplicable"
     let [<Literal>] attribute = "System.Attribute"
     let [<Literal>] object = "System.Object"
     let [<Literal>] bool = "System.Boolean"

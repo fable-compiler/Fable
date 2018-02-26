@@ -9,6 +9,7 @@ let [<Global>] it (msg: string) (f: unit->unit) = jsNative
 
 let run () =
     let tests = [ Arithmetic.tests
+                  Arrays.tests
                 ] :> _ seq
     for (name, tests) in tests do
         describe name (fun () ->
@@ -23,6 +24,7 @@ open Expecto
 [<EntryPoint>]
 let main args =
   testList "All" [ Arithmetic.tests
+                   Arrays.tests
                  ]
   |> runTestsWithArgs defaultConfig args
 

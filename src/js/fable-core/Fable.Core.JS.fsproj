@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard1.6</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="../../../build/fable/Fable.Core.dll" />
-    <Compile Include="Array2.fs" />
+    <Compile Include="Array.fs" />
   </ItemGroup>
 
 </Project>

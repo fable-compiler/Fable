@@ -177,21 +177,28 @@ module private Transforms =
             let remaining, replacements =
                 (([], Map.empty), bindings)
                 ||> List.fold (fun (remaining, replacements) (ident, value) ->
-                    let identName = ident.Name
-                    if hasDoubleEvalRisk value |> not then
-                        remaining, Map.add identName value replacements
+                    if ident.IsMutable then
+                        (ident, value)::remaining, replacements
                     else
-                        let isReferencedMoreThanOnce =
-                            (false, values) ||> List.fold (fun positive value ->
-                                positive || isReferencedMoreThan 0 identName value)
-                            |> function true -> true
-                                      | false -> isReferencedMoreThan 1 identName body
-                        if isReferencedMoreThanOnce
-                        then (ident, value)::remaining, replacements
-                        else remaining, Map.add ident.Name value replacements)
+                        let identName = ident.Name
+                        if hasDoubleEvalRisk value |> not then
+                            remaining, Map.add identName value replacements
+                        else
+                            let isReferencedMoreThanOnce =
+                                (false, values) ||> List.fold (fun positive value ->
+                                    positive || isReferencedMoreThan 0 identName value)
+                                |> function true -> true
+                                          | false -> isReferencedMoreThan 1 identName body
+                            if isReferencedMoreThanOnce
+                            then (ident, value)::remaining, replacements
+                            else remaining, Map.add ident.Name value replacements)
             match remaining with
             | [] -> replaceValues replacements body
-            | bindings -> Let(List.rev bindings, replaceValues replacements body)
+            | bindings ->
+                let bindings =
+                    bindings |> List.map (fun (ident, value) ->
+                        ident, replaceValues replacements value) |> List.rev
+                Let(bindings, replaceValues replacements body)
         | e -> e
 
     let rec uncurryLambdaType acc = function
@@ -205,8 +212,8 @@ module private Transforms =
         // TODO: Consider record fields as uncurried
         | _ -> None
 
-    let uncurryExpr arity expr =
-        let rec (|UncurriedLambda|_|) arity expr =
+    let uncurryExpr com arity expr =
+        let rec (|UncurriedLambda|_|) (arity, expr) =
             let rec uncurryLambda accArgs remainingArity expr =
                 if remainingArity = Some 0
                 then Function(Delegate(List.rev accArgs), expr) |> Some
@@ -226,13 +233,16 @@ module private Transforms =
             match arity with
             | None -> expr
             | Some arity when arity = arity2 -> expr
-            | Some _arity -> failwith "TODO: Uncurry to different arity"
+            | Some _arity -> "TODO: Uncurry to different arity"
+                             |> addErrorAndReturnNull com expr.Range
         | None ->
-            match expr, arity with
-            | UncurriedLambda arity lambda, _ -> lambda
-            | _, Some _arity -> failwith "TODO: Runtime uncurry"
+            match arity, expr with
+            // | Some 1, expr -> expr // This shouldn't happen
+            | UncurriedLambda lambda -> lambda
+            | Some arity, _ -> sprintf "TODO: Runtime uncurry to arity %i" arity
+                               |> addErrorAndReturnNull com expr.Range
             // CoreLibCall("Util", Some "uncurry", false, [makeIntConst arity; expr]) |> makeCall None expr.Type
-            | _, None -> expr
+            | None, _ -> expr
 
     let uncurryInnerFunctions (_: ICompiler) e =
         e // TODO
@@ -266,7 +276,7 @@ module private Transforms =
             Function(Delegate args, body)
         | e -> e
 
-    let uncurrySendingArgs (_: ICompiler) (e: Expr) =
+    let uncurrySendingArgs (com: ICompiler) (e: Expr) =
         let mapArgs f argTypes args =
             let rec mapArgsInner f acc argTypes args =
                 match argTypes, args with
@@ -284,14 +294,14 @@ module private Transforms =
                     match uncurryLambdaType [] argType with
                     | argTypes, _ when List.isMultiple argTypes ->
                         let arity = List.length argTypes |> Some
-                        uncurryExpr arity arg
+                        uncurryExpr com arity arg
                     | _ -> arg)
-            | None -> List.map (uncurryExpr None) args
+            | None -> List.map (uncurryExpr com None) args
         match e with
         // TODO: Uncurry also NewRecord, CurriedApply and Emit arguments
         | Operation(Call(callee, memb, args, info), t, r) ->
             // For CurriedApply: let argTypes = uncurryLambdaType [] t |> fst |> Some
-            let argTypes = if info.IsDynamic then None else Some info.ArgTypes
+            let argTypes = if info.UncurryLambdaArgs then None else Some info.ArgTypes
             let args =
                 match info.HasThisArg, args with
                 | true, _this::args -> uncurryArgs argTypes args

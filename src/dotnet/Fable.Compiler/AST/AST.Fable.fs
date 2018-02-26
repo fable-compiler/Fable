@@ -116,9 +116,11 @@ type FunctionKind =
 type CallInfo =
   { ArgTypes: Type list
     IsConstructor: bool
-    IsDynamic: bool
-    HasSpread: bool
-    HasThisArg: bool }
+    HasThisArg: bool
+    HasSeqSpread: bool
+    HasTupleSpread: bool
+    UncurryLambdaArgs: bool
+  }
 
 type ExtraCallInfo =
   { EnclosingEntityFullName: string

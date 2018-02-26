@@ -10,7 +10,7 @@ module Testing =
     let testCase msg test = msg, test
 
     let equal expected actual: unit =
-        Assert.AreEqual(expected, actual)
+        Assert.AreEqual(actual, expected)
     #else
     open Expecto
 

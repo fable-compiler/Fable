@@ -270,9 +270,13 @@ module Util =
                 ObjectProperty(prop, value, computed=computed) |> U3.Case1
         ) |> ObjectExpression :> Expression
 
-    let transformArgs (com: IBabelCompiler) ctx hasSpread = function
-        | [] | [Fable.Value Fable.UnitConstant] -> []
-        | args when hasSpread ->
+    let transformArgs (com: IBabelCompiler) ctx (info: Fable.CallInfo) = function
+        | []
+        | [Fable.Value Fable.UnitConstant] -> []
+        | [_; Fable.Value Fable.UnitConstant] when info.HasThisArg -> []
+        | [Fable.Value(Fable.NewTuple args)] when info.HasTupleSpread ->
+            List.map (fun e -> com.TransformExpr(ctx, e)) args
+        | args when info.HasSeqSpread ->
             match List.rev args with
             | [] -> []
             | Fable.Value(Fable.NewArray(Fable.ArrayValues spreadArgs,_))::rest ->
@@ -283,7 +287,7 @@ module Util =
                 rest @ [SpreadElement(com.TransformExpr(ctx, last))]
         | args -> List.map (fun e -> com.TransformExpr(ctx, e)) args
 
-    let transformCall com ctx range opKind: Expression =
+    let transformOperation com ctx range opKind: Expression =
         match opKind with
         | Fable.UnaryOperation(op, TransformExpr com ctx expr) ->
             upcast UnaryExpression (op, expr, ?loc=range)
@@ -294,11 +298,11 @@ module Util =
         | Fable.Emit(emit, argsAndCallInfo) ->
             match argsAndCallInfo with
             | Some(args, callInfo) ->
-                transformArgs com ctx callInfo.HasSpread args
+                transformArgs com ctx callInfo args
                 |> macroExpression range emit
             | None -> macroExpression range emit []
         | Fable.Call(callee, memb, args, callInfo) ->
-            let args = transformArgs com ctx callInfo.HasSpread args
+            let args = transformArgs com ctx callInfo args
             let callee =
                 match memb with
                 | Some memb -> get None (com.TransformExpr(ctx, callee)) memb
@@ -307,7 +311,7 @@ module Util =
             then upcast NewExpression(callee, args, ?loc=range)
             else upcast CallExpression(callee, args, ?loc=range)
         | Fable.CurriedApply(TransformExpr com ctx applied, args) ->
-            match transformArgs com ctx false args with
+            match transformArgs com ctx emptyCallInfo args with
             | [] -> upcast CallExpression(applied, [], ?loc=range)
             | head::rest ->
                 let baseExpr = CallExpression(applied, [head], ?loc=range) :> Expression
@@ -516,7 +520,7 @@ module Util =
             transformObjectExpr com ctx members
 
         | Fable.Operation(opKind, _, range) ->
-            transformCall com ctx range opKind
+            transformOperation com ctx range opKind
 
         | Fable.Get(expr, getKind, _, range) ->
             transformGet com ctx range expr getKind
@@ -606,7 +610,7 @@ module Util =
             // | Some tc, Fable.Callee callee, None, false, Return
             //         when List.sameLength tc.Args args && tc.IsRecursiveRef callee ->
             //     optimizeTailCall com ctx tc args
-            transformCall com ctx range callKind
+            transformOperation com ctx range callKind
             |> resolve ret |> List.singleton
 
         | Fable.Get(expr, getKind, _, range) ->

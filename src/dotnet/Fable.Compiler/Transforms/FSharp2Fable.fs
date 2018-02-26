@@ -357,20 +357,20 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         //     "Cannot resolve locally inlined value: " + var.DisplayName
         //     |> addErrorAndReturnNull com range
 
-    // // TODO: Ask why application without arguments happen. So far I've seen it
-    // // to access None or struct values (like the Result type)
+    // TODO: Ask why application without arguments happen. So far I've seen it
+    // to access None or struct values (like the Result type)
     | BasicPatterns.Application(Transform com ctx expr, _, []) -> expr
+
+    | BasicPatterns.Application(FableCoreDynamicOp(Transform com ctx e1, Transform com ctx e2), _, args) ->
+        let args = List.map (transformExpr com ctx) args
+        let callee = Fable.Get(e1, Fable.DynamicGet e2, Fable.Any, None)
+        let callInfo = { emptyCallInfo with HasTupleSpread = true; UncurryLambdaArgs = true }
+        Fable.Operation(Fable.Call(callee, None, args, callInfo), Fable.Any, makeRangeFrom fsExpr)
+
     | BasicPatterns.Application(Transform com ctx applied, _, args) ->
-        let range = makeRangeFrom fsExpr
-        match List.map (transformExpr com ctx) args, applied.Type with
-        | args, Fable.DeclaredType(ent,_)
-                when ent.TryFullName = Some Types.dynamicApplicable ->
-            match args with
-            | [Fable.Value(Fable.NewTuple args)] -> makeCallDynamic range applied args
-            | args -> makeCallDynamic range applied args
-        | args, _ ->
-            let typ = makeType com ctx.typeArgs fsExpr.Type
-            Fable.Operation(Fable.CurriedApply(applied, args), typ, range)
+        let args = List.map (transformExpr com ctx) args
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        Fable.Operation(Fable.CurriedApply(applied, args), typ, r)
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr)

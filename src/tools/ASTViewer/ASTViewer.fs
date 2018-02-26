@@ -79,21 +79,10 @@ let rec printDecls prefix decls =
                         tdef.FullName + separator + meth.CompiledName
                     | _ -> meth.FullName
                 printfn "%s%i) METHOD: %s" prefix i name
-                findOverloadIndex meth |> Option.iter (fun i ->
-                    printfn "%s>> overload index: %i" prefix i)
-                // printfn "%A" body
+                printfn "%A" body
         | FSharpImplementationFileDeclaration.InitAction (expr) ->
             printfn "%s%i) ACTION" prefix i
-            match expr with
-            | BasicPatterns.Call(_,m,_,_,_)
-            | BasicPatterns.NewObject(m,_,_) ->
-                printfn "%s>> call to %s (implicit cons %b)" prefix m.FullName m.IsImplicitConstructor
-                // m.Overloads(false) |> Option.iter (fun overloads ->
-                //     Seq.length overloads |> printfn "%s>> overloads: %i" prefix)
-                findOverloadIndex m |> Option.iter (fun i ->
-                    printfn "%s>> overload index: %i" prefix i)
-            | _ -> ()
-            // printfn "%A" expr
+            printfn "%A" expr
         )
 
 and lookup f (expr: FSharpExpr) =
