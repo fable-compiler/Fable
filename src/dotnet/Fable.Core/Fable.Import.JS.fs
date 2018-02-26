@@ -1148,6 +1148,12 @@ module JS =
         abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
         abstract table: ?data: obj -> unit
 
+    and [<Erase>] SetTimeoutToken =
+        | SetTimeoutToken of obj
+
+    and [<Erase>] SetIntervalToken =
+        | SetIntervalToken of obj
+
     let [<Global>] NaN: float = jsNative
     let [<Global>] Infinity: float = jsNative
     let [<Global>] Object: ObjectConstructor = jsNative
@@ -1196,5 +1202,18 @@ module JS =
     let [<Global>] encodeURI: string -> string = jsNative
     let [<Global>] encodeURIComponent: string -> string = jsNative
     let [<Global>] console : Console = jsNative
+    let [<Global>] setTimeout: (unit -> unit) -> int -> SetTimeoutToken = jsNative
+    let [<Emit("setTimeout($0, $1, $2)")>] setTimeout1<'A> :('A -> unit) -> int -> 'A -> SetTimeoutToken = jsNative
+    let [<Emit("setTimeout($0, $1, $2, $3)")>] setTimeout2<'A, 'B> :('A -> 'B -> unit) -> int -> 'A -> 'B -> SetTimeoutToken = jsNative
+    let [<Emit("setTimeout($0, $1, $2, $3, $4)")>] setTimeout3<'A, 'B, 'C> :('A -> 'B -> 'C -> unit) -> int -> 'A -> 'B -> 'C -> SetTimeoutToken = jsNative
+    let [<Emit("setTimeout($0, $1, $2, $3, $4, $5)")>] setTimeout4<'A, 'B, 'C, 'D> :('A -> 'B -> 'C -> 'D -> unit) -> int -> 'A -> 'B -> 'C -> 'D -> SetTimeoutToken = jsNative
+    let [<Emit("setTimeout($0, $1, $2, $3, $4, $5, $6)")>] setTimeout5<'A, 'B, 'C, 'D, 'E> :('A -> 'B -> 'C -> 'D -> 'E -> unit) -> int -> 'A -> 'B -> 'C -> 'D -> 'E -> SetTimeoutToken = jsNative
+    let [<Global>] setInterval: (unit -> unit) -> int -> SetIntervalToken = jsNative
+    let [<Emit("setInterval($0, $1, $2)")>] setInterval1<'A> :('A -> unit) -> int -> 'A -> SetIntervalToken = jsNative
+    let [<Emit("setInterval($0, $1, $2, $3)")>] setInterval2<'A, 'B> :('A -> 'B -> unit) -> int -> 'A -> 'B -> SetIntervalToken = jsNative
+    let [<Emit("setInterval($0, $1, $2, $3, $4)")>] setInterval3<'A, 'B, 'C> :('A -> 'B -> 'C -> unit) -> int -> 'A -> 'B -> 'C -> SetIntervalToken = jsNative
+    let [<Emit("setInterval($0, $1, $2, $3, $4, $5)")>] setInterval4<'A, 'B, 'C, 'D> :('A -> 'B -> 'C -> 'D -> unit) -> int -> 'A -> 'B -> 'C -> 'D -> SetIntervalToken = jsNative
+    let [<Emit("setInterval($0, $1, $2, $3, $4, $5, $6)")>] setInterval5<'A, 'B, 'C, 'D, 'E> :('A -> 'B -> 'C -> 'D -> 'E -> unit) -> int -> 'A -> 'B -> 'C -> 'D -> 'E -> SetIntervalToken = jsNative
+    let [<Global>] clearInterval: SetTimeoutToken -> unit = jsNative
 
     let [<Emit("debugger;")>] debugger () : unit = jsNative
