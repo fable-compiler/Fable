@@ -1214,6 +1214,6 @@ module JS =
     let [<Emit("setInterval($0, $1, $2, $3, $4)")>] setInterval3<'A, 'B, 'C> :('A -> 'B -> 'C -> unit) -> int -> 'A -> 'B -> 'C -> SetIntervalToken = jsNative
     let [<Emit("setInterval($0, $1, $2, $3, $4, $5)")>] setInterval4<'A, 'B, 'C, 'D> :('A -> 'B -> 'C -> 'D -> unit) -> int -> 'A -> 'B -> 'C -> 'D -> SetIntervalToken = jsNative
     let [<Emit("setInterval($0, $1, $2, $3, $4, $5, $6)")>] setInterval5<'A, 'B, 'C, 'D, 'E> :('A -> 'B -> 'C -> 'D -> 'E -> unit) -> int -> 'A -> 'B -> 'C -> 'D -> 'E -> SetIntervalToken = jsNative
-    let [<Global>] clearInterval: SetTimeoutToken -> unit = jsNative
+    let [<Global>] clearInterval: SetIntervalToken -> unit = jsNative
 
     let [<Emit("debugger;")>] debugger () : unit = jsNative
