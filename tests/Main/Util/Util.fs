@@ -18,7 +18,7 @@ module Testing =
     let testCase msg test = testCase msg test
 
     let equal expected actual: unit =
-        Expect.equal expected actual ""
+        Expect.equal actual expected ""
     #endif
 
 (*
