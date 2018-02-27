@@ -56,12 +56,6 @@ let rec sumFirstSeq (zs: seq<float>) (n: int): float =
    | 1 -> Seq.head zs
    | _ -> (Seq.head zs) + sumFirstSeq (Seq.skip 1 zs) (n-1)
 
-let rec sumFirstList (zs: float list) (n: int): float =
-   match n with
-   | 0 -> 0.
-   | 1 -> zs.Head
-   | _ -> zs.Head + sumFirstList zs.Tail (n-1)
-
 let f2 a b = a + b
 
 // Assignment block as expression outside a function is NOT optimized

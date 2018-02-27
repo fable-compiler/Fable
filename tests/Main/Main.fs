@@ -1,5 +1,11 @@
 module Fable.Tests.Main
 
+let allTests =
+  [| Arithmetic.tests
+     Arrays.tests
+     Lists.tests
+  |]
+
 #if FABLE_COMPILER
 
 open Fable.Core
@@ -8,10 +14,7 @@ let [<Global>] describe (name: string) (f: unit->unit) = jsNative
 let [<Global>] it (msg: string) (f: unit->unit) = jsNative
 
 let run () =
-    let tests = [ Arithmetic.tests
-                  Arrays.tests
-                ] :> _ seq
-    for (name, tests) in tests do
+    for (name, tests) in allTests do
         describe name (fun () ->
             for (msg, test) in tests do
                 it msg test)
@@ -23,9 +26,8 @@ open Expecto
 
 [<EntryPoint>]
 let main args =
-  testList "All" [ Arithmetic.tests
-                   Arrays.tests
-                 ]
+  Array.toList allTests
+  |> testList "All"
   |> runTestsWithArgs defaultConfig args
 
 #endif

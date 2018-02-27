@@ -627,28 +627,31 @@ module Util =
                 || entityFullName.StartsWith("Microsoft.FSharp.")
                 || entityFullName.StartsWith("Fable.Core.")
 
-        let tryPipesAndComposition r t args entityFullName compiledName  =
+        let tryPipesAndComposition (com: ICompiler) r t args entityFullName compiledName  =
             let rec curriedApply r t applied args =
                 Fable.Operation(Fable.CurriedApply(applied, args), t, r)
-            let compose f1 f2 =
-                None // TODO
-                // let tempVar = com.GetUniqueVar() |> makeIdent
-                // [Fable.IdentExpr tempVar]
-                // |> makeCall com info.range Fable.Any f1
-                // |> List.singleton
-                // |> makeCall com info.range Fable.Any f2
-                // |> makeLambda [tempVar]
+            let compose r t f1 f2 =
+                let argType, retType =
+                    match t with
+                    | Fable.FunctionType(Fable.LambdaType argType, retType) -> argType, retType
+                    | _ -> Fable.Any, Fable.Any
+                let tempVar = com.GetUniqueVar() |> makeTypedIdent argType
+                let body =
+                    [Fable.IdentExpr tempVar]
+                    |> curriedApply None Fable.Any f1
+                    |> List.singleton
+                    |> curriedApply r retType f2
+                Fable.Function(Fable.Lambda tempVar, body)
             if entityFullName = "Microsoft.FSharp.Core.Operators" then
                 match compiledName, args with
                 | "op_PipeRight", [x; f]
                 | "op_PipeLeft", [f; x] -> curriedApply r t f [x] |> Some
-                // TODO: Try to untuple double and triple pipe arguments
-                // | "op_PipeRight2", [x; y; f]
-                // | "op_PipeLeft2", [f; x; y] -> curriedApply r t f [x; y] |> Some
-                // | "op_PipeRight3", [x; y; z; f]
-                // | "op_PipeLeft3", [f; x; y; z] -> curriedApply r t f [x; y; z] |> Some
-                | "op_ComposeRight", [f1; f2] -> compose f1 f2
-                | "op_ComposeLeft", [f2; f1] -> compose f1 f2
+                | "op_PipeRight2", [x; y; f]
+                | "op_PipeLeft2", [f; x; y] -> curriedApply r t f [x; y] |> Some
+                | "op_PipeRight3", [x; y; z; f]
+                | "op_PipeLeft3", [f; x; y; z] -> curriedApply r t f [x; y; z] |> Some
+                | "op_ComposeRight", [f1; f2] -> compose r t f1 f2 |> Some
+                | "op_ComposeLeft", [f2; f1] -> compose r t f1 f2 |> Some
                 // Deal with reraise here too as we need the caught exception
                 | "Reraise", _ -> failwith "TODO: Reraise"
                     // match info.caughtException with
@@ -665,7 +668,7 @@ module Util =
         match enclosingEntity |> Option.bind (fun e -> e.TryFullName) with
         | Some enclosingEntityFullName when isCandidate enclosingEntityFullName ->
             let compiledName = memb.CompiledName
-            match tryPipesAndComposition r typ args enclosingEntityFullName compiledName with
+            match tryPipesAndComposition com r typ args enclosingEntityFullName compiledName with
             | Some replaced -> Some replaced
             | None ->
                 let extraInfo: Fable.ExtraCallInfo =

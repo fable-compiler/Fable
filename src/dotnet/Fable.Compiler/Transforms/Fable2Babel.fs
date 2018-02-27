@@ -171,7 +171,7 @@ module Util =
         AssignmentExpression(AssignEqual, left, right, ?loc=range)
         :> Expression
 
-    /// Immediately Invoked LambdaType Expression
+    /// Immediately Invoked Function Expression
     let iife (com: IBabelCompiler) ctx (expr: Fable.Expr) =
         let _, body = com.TransformFunction(ctx, None, [], expr)
         CallExpression(ArrowFunctionExpression([], body), [])
@@ -227,8 +227,10 @@ module Util =
         | Fable.NewArray (arrayKind, typ) -> buildArray com ctx typ arrayKind
         | Fable.NewTuple vals -> buildArray com ctx Fable.Any (Fable.ArrayValues vals)
         | Fable.NewList (headAndTail, _) ->
-            let vals = match headAndTail with Some(head, tail) -> [head; tail] | None -> []
-            buildArray com ctx Fable.Any (Fable.ArrayValues vals)
+            match headAndTail with
+            | None -> upcast NullLiteral ()
+            | Some(head, tail) -> Fable.ArrayValues [head; tail]
+                                  |> buildArray com ctx Fable.Any
         | Fable.NewOption (value, t) ->
             match value with
             | Some (TransformExpr com ctx e) ->
@@ -396,6 +398,7 @@ module Util =
         | Fable.FieldGet name -> get range expr name
         | Fable.IndexGet index -> getExpr range expr (ofInt index)
         | Fable.DynamicGet(TransformExpr com ctx prop) -> getExpr range expr prop
+        // TODO: Check if list is empty, see #1341
         | Fable.ListHead -> getExpr range expr (ofInt 0)
         | Fable.ListTail -> getExpr range expr (ofInt 1)
         | Fable.RecordGet(fi,_) -> get range expr fi.Name

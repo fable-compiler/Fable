@@ -160,7 +160,7 @@ let setGlobalParams(args: string[]) =
     match tryFindArgValue "--fable-core" args with
     | Some path ->
         GlobalParams.FableCorePath <-
-            if path.StartsWith(Literals.DO_NOT_COPY)
+            if path.StartsWith(Literals.FORCE)
             then path
             else Fable.Path.normalizeFullPath path
     | None -> ()

@@ -208,7 +208,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
         |> makeEqOp (makeRangeFrom fsExpr) unionExpr noneCase
     | ListUnion t ->
         let emptyList = Fable.NewList(None, makeType com ctx.typeArgs t) |> Fable.Value
-        if unionCase.Name = "Empty" then BinaryEqual else BinaryUnequal
+        if unionCase.CompiledName = "Empty" then BinaryEqual else BinaryUnequal
         |> makeEqOp (makeRangeFrom fsExpr) unionExpr emptyList
     | StringEnum _ ->
         makeEqOp (makeRangeFrom fsExpr) unionExpr (lowerCaseName unionCase) BinaryEqualStrict

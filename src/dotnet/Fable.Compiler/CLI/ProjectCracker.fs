@@ -307,8 +307,8 @@ let copyDirIfDoesNotExist (source: string) (target: string) =
 let copyFableCoreAndPackageSources rootDir (pkgs: FablePackage list) =
     let fableDir = createFableDir rootDir
     let fableCorePath =
-        if GlobalParams.FableCorePath.StartsWith(Literals.DO_NOT_COPY)
-        then GlobalParams.FableCorePath.Replace(Literals.DO_NOT_COPY, "")
+        if GlobalParams.FableCorePath.StartsWith(Literals.FORCE)
+        then GlobalParams.FableCorePath.Replace(Literals.FORCE, "")
         else
             let fableCoreDir = IO.Path.Combine(fableDir, "fable-core" + "." + Literals.VERSION)
             copyDirIfDoesNotExist GlobalParams.FableCorePath fableCoreDir

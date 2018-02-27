@@ -100,7 +100,7 @@ let buildCoreJS () =
     sprintf "%s/Fable.Compiler.dll node-run %s --fable-core %s -- -c splitter.config.js"
         cliBuildDir
         "../fable-splitter/dist/cli"
-        "do-not-copy:${outDir}" // fable-splitter will adjust the path
+        "force:${outDir}" // fable-splitter will adjust the path
     |> run coreJsSrcDir dotnetExePath
 
 let buildSplitter () =

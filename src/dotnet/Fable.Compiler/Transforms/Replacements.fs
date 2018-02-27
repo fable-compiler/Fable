@@ -54,6 +54,19 @@ module private Helpers =
 
     let s txt = Value(StringConstant txt)
 
+    let tryGenArg (com: ICompiler) r (name: string) (genArgs: Map<string,Type>) =
+        match Map.tryFind name genArgs with
+        | Some t -> t
+        | None ->
+            "Couldn't find generic " + name |> addError com r
+            Any
+
+    let trySingleGenArg (com: ICompiler) r (genArgs: Map<string,Type>) =
+        Map.toSeq genArgs |> Seq.tryHead
+        |> Option.map snd
+        |> Option.defaultWith (fun () ->
+            "Couldn't find any generic argument" |> addError com r
+            Any)
 
 open Helpers
 
@@ -267,7 +280,7 @@ let operators (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Ex
     // Erased operators
     | "Box" | "Unbox" | "Identity" | "Ignore" -> List.tryHead args
     // TODO: Number conversions
-    | "ToDouble" -> List.tryHead args
+    | "ToDouble" | "ToInt" -> List.tryHead args
     | "Raise" -> Throw(List.head args, t, r) |> Some
     | "FailWith" | "InvalidOp" | "InvalidArg" as name ->
         let msg =
@@ -320,6 +333,8 @@ let operators (com: ICompiler) r t (i: CallInfo) (i2: ExtraCallInfo) (callee: Ex
         match args with
         | [operand] -> makeUnOp r t operand UnaryNot |> Some
         | _ -> None
+    // Concatenates two lists
+    | "op_Append" -> coreCall r t i "List" "Append" args |> Some
     | SetContains Operators.standard ->
         applyOp com r t i i2 args |> Some
     | _ -> None
@@ -344,6 +359,32 @@ let arrays (com: ICompiler) r (t: Type) (i: CallInfo) (i2: ExtraCallInfo) (calle
             | _ -> makeIdentExpr "Array"
         // TODO: Only append array constructor when needed
         coreCall r t i "Array" (Naming.lowerFirst meth) (args@[arrayCons]) |> Some
+    | _ -> None
+
+let lists (com: ICompiler) r (t: Type) (i: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (args: Expr list) =
+    match callee, i2.CompiledName with
+    | Some c, "get_Head" -> Get(c, ListHead, t, r) |> Some
+    | None, "Head" -> Get(List.head args, ListHead, t, r) |> Some
+    | Some c, "get_Tail" -> Get(c, ListTail, t, r) |> Some
+    | None, "Tail" -> Get(List.head args, ListTail, t, r) |> Some
+    | Some c, "get_Length" -> coreCall r t i "List" "Length" [c] |> Some
+    | Some c, "get_Item" -> coreCall r t i "List" "Item" (args@[c]) |> Some
+    | Some c, "get_IsEmpty" ->
+        // TODO: Revisit if empty list test representation changes
+        let emptyList = Fable.NewList(None, trySingleGenArg com r i2.GenericArgs) |> Fable.Value
+        makeEqOp r c emptyList BinaryEqual |> Some
+    | None, ("get_Empty" | "Empty") ->
+        NewList(None, trySingleGenArg com r i2.GenericArgs) |> Value |> Some
+    | None, "Cons" ->
+        match args with
+        | [h;t] -> NewList(Some(h,t), trySingleGenArg com r i2.GenericArgs) |> Value |> Some
+        | _ -> None
+    | None, meth -> coreCall r t i "List" meth args |> Some
+    | _ -> None
+
+let options (_com: ICompiler) r (t: Type) (_: CallInfo) (i2: ExtraCallInfo) (callee: Expr option) (_args: Expr list) =
+    match callee, i2.CompiledName with
+    | Some c, "get_Value" -> Get(c, OptionValue, t, r) |> Some
     | _ -> None
 
 let decimals (com: ICompiler) r (_: Type) (_: CallInfo) (i2: ExtraCallInfo) (_callee: Expr option) (args: Expr list) =
@@ -515,6 +556,10 @@ let tryCall (com: ICompiler) r t (info: CallInfo) (extraInfo: ExtraCallInfo)
     | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com r t info extraInfo callee args
     | "System.Array"
     | "Microsoft.FSharp.Collections.ArrayModule" -> arrays com r t info extraInfo callee args
+    | "Microsoft.FSharp.Collections.FSharpList`1"
+    | "Microsoft.FSharp.Collections.ListModule" -> lists com r t info extraInfo callee args
+    | "Microsoft.FSharp.Core.FSharpOption`1"
+    | "Microsoft.FSharp.Core.OptionModule" -> options com r t info extraInfo callee args
     | "System.Decimal" -> decimals com r t info extraInfo callee args
     | "System.Numerics.BigInteger"
     | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com r t info extraInfo callee args
@@ -546,8 +591,6 @@ let tryCall (com: ICompiler) r t (info: CallInfo) (extraInfo: ExtraCallInfo)
 //         | "Microsoft.FSharp.Core.FSharpFunc"
 //         | "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" -> funcs com info
 //         | "System.Random" -> random com info
-//         | "Microsoft.FSharp.Core.FSharpOption"
-//         | "Microsoft.FSharp.Core.OptionModule" -> options com info
 //         | "System.Threading.CancellationToken"
 //         | "System.Threading.CancellationTokenSource" -> cancels com info
 //         | "Microsoft.FSharp.Core.FSharpRef" -> references com info
