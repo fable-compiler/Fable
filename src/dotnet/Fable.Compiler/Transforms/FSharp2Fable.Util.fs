@@ -63,7 +63,7 @@ module Helpers =
         | Some loc -> loc
         | None -> memb.DeclarationLocation
 
-    let findOverloadIndex (enclosingEntity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
+    let findOverloadIndex (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
         let argsEqual (args1: IList<IList<FSharpParameter>>) (args2: IList<IList<FSharpParameter>>) =
             if args1.Count = args2.Count then
                 (args1, args2) ||> Seq.forall2 (fun g1 g2 ->
@@ -77,7 +77,7 @@ module Helpers =
             // m.Overloads(false) doesn't work
             let name = m.CompiledName
             let isInstance = m.IsInstanceMember
-            ((0, false), enclosingEntity.MembersFunctionsAndValues)
+            ((0, false), entity.MembersFunctionsAndValues)
             ||> Seq.fold (fun (i, found) m2 ->
                 if not found && m2.IsInstanceMember = isInstance && m2.CompiledName = name then
                     // .Equals() doesn't work. TODO: Compare arg types for trait calls
@@ -98,7 +98,7 @@ module Helpers =
                     |> Path.normalizePath
                     |> com.GetRootModule
                 fullName.Replace(rootMod, ".").TrimStart('.')
-        match memb.EnclosingEntity with
+        match memb.DeclaringEntity with
         | Some ent when ent.IsFSharpModule ->
             removeRootModule' ent memb.FullName
         | Some ent ->
@@ -143,7 +143,7 @@ module Helpers =
         | FSharpInlineAnnotation.PseudoValue
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline ->
-            match memb.EnclosingEntity with
+            match memb.DeclaringEntity with
             | Some ent when not ent.IsFSharpModule ->
                 // Cannot inline custom type operators #230
                 Set.contains memb.CompiledName Operators.standard |> not
@@ -183,8 +183,8 @@ module Helpers =
             if isUnit args.[0].[0].Type then 0 else 1
         else args |> Seq.sumBy (fun li -> li.Count)
 
-    let private isModuleValuePrivate checkPublicMutable (enclosingEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
-        if enclosingEntity.IsFSharpModule then
+    let private isModuleValuePrivate checkPublicMutable (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
+        if entity.IsFSharpModule then
             let preCondition =
                 if checkPublicMutable
                 then not memb.IsMutable || not (isPublicMember memb)
@@ -195,14 +195,14 @@ module Helpers =
         else false
 
     // Mutable public values must be compiled as functions (see #986)
-    let isModuleValueForCalls (enclosingEntity: FSharpEntity option) (memb: FSharpMemberOrFunctionOrValue) =
-        match enclosingEntity with
-        | Some enclosingEntity -> isModuleValuePrivate true enclosingEntity memb
+    let isModuleValueForCalls (entity: FSharpEntity option) (memb: FSharpMemberOrFunctionOrValue) =
+        match entity with
+        | Some entity -> isModuleValuePrivate true entity memb
         | None -> false
 
     let isModuleValueForDeclaration (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.EnclosingEntity with
-        | Some enclosingEntity -> isModuleValuePrivate false enclosingEntity memb
+        match memb.DeclaringEntity with
+        | Some entity -> isModuleValuePrivate false entity memb
         | None -> false
 
     let getObjectMemberKind (memb: FSharpMemberOrFunctionOrValue) =
@@ -621,7 +621,7 @@ module Util =
         |||> Seq.fold2 (fun acc genPar t -> Map.add genPar.Name t acc)
 
     let (|Replaced|_|) com ctx r typ genArgs (info: Fable.CallInfo) callee args
-            (memb: FSharpMemberOrFunctionOrValue, enclosingEntity: FSharpEntity option) =
+            (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         let isCandidate (entityFullName: string) =
             entityFullName.StartsWith("System.")
                 || entityFullName.StartsWith("Microsoft.FSharp.")
@@ -665,14 +665,14 @@ module Util =
                 | _ -> None
             else None
 
-        match enclosingEntity |> Option.bind (fun e -> e.TryFullName) with
-        | Some enclosingEntityFullName when isCandidate enclosingEntityFullName ->
+        match entity |> Option.bind (fun e -> e.TryFullName) with
+        | Some entityFullName when isCandidate entityFullName ->
             let compiledName = memb.CompiledName
-            match tryPipesAndComposition com r typ args enclosingEntityFullName compiledName with
+            match tryPipesAndComposition com r typ args entityFullName compiledName with
             | Some replaced -> Some replaced
             | None ->
                 let extraInfo: Fable.ExtraCallInfo =
-                  { EnclosingEntityFullName = enclosingEntityFullName
+                  { DeclaringEntityFullName = entityFullName
                     CompiledName = memb.CompiledName
                     GenericArgs = List.map (makeType com ctx.typeArgs) genArgs
                                   |> matchGenericParams memb
@@ -713,9 +713,9 @@ module Util =
             | Some(args: Fable.Expr list, info: Fable.CallInfo) ->
                 // Allow combination of Import and Emit attributes
                 let emittedCallInfo = { info with ArgTypes = expr.Type::info.ArgTypes }
-                match memb, memb.EnclosingEntity with
+                match memb, memb.DeclaringEntity with
                 | Emitted r typ (Some(expr::args, emittedCallInfo)) emitted, _ -> Some emitted
-                | _, Some enclosingEntity when not enclosingEntity.IsFSharpModule ->
+                | _, Some entity when not entity.IsFSharpModule ->
                     match getObjectMemberKind memb with
                     | Fable.Getter -> Some expr
                     | Fable.Setter -> Fable.Set(expr, Fable.VarSet, args.Head, r) |> Some
@@ -723,8 +723,8 @@ module Util =
                     | Fable.Constructor ->
                         let info = { info with IsConstructor = true }
                         Fable.Operation(Fable.Call(expr, None, args, info), typ, r) |> Some
-                | _, enclosingEntity ->
-                    if isModuleValueForCalls enclosingEntity memb
+                | _, entity ->
+                    if isModuleValueForCalls entity memb
                     then Some expr
                     else Fable.Operation(Fable.Call(expr, None, args, info), typ, r) |> Some
             | None ->
@@ -765,9 +765,9 @@ module Util =
     let memberRefTyped (com: ICompiler) typ argTypes (memb: FSharpMemberOrFunctionOrValue) =
         let memberName = getMemberDeclarationName com argTypes memb
         let file =
-            match memb.EnclosingEntity with
+            match memb.DeclaringEntity with
             | Some ent -> (getEntityLocation ent).FileName |> Path.normalizePath
-            // Cases when .EnclosingEntity returns None are rare (see #237)
+            // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
             | None -> com.CurrentFile
         if file = com.CurrentFile
@@ -793,23 +793,23 @@ module Util =
             match callee with
             | Some c -> Some(c::args, { info with HasThisArg = true })
             | None -> Some(args, info)
-        match memb, memb.EnclosingEntity with
+        match memb, memb.DeclaringEntity with
         | Imported r Fable.Any argsAndCallInfo imported, _ -> imported
         | Emitted r Fable.Any argsAndCallInfo emitted, _ -> emitted
         | Replaced com ctx r typ genArgs info callee args replaced -> replaced
         | Inlined com ctx genArgs callee args expr, _ -> expr
-        | Try (tryGetBoundExpr ctx r) expr, enclosingEntity ->
+        | Try (tryGetBoundExpr ctx r) expr, entity ->
             match callee with
             | Some c -> call { info with HasThisArg = true } expr None (c::args)
             | None ->
-                if isModuleValueForCalls enclosingEntity memb
+                if isModuleValueForCalls entity memb
                 then expr
                 else call info expr None args
         // Check if this is an interface or abstract/overriden method
-        | _, Some enclosingEntity
-                when enclosingEntity.IsInterface
+        | _, Some entity
+                when entity.IsInterface
                 || memb.IsOverrideOrExplicitInterfaceImplementation
-                || isAbstract enclosingEntity ->
+                || isAbstract entity ->
             match callee with
             | Some callee ->
                 match getObjectMemberKind memb with
@@ -819,13 +819,13 @@ module Util =
                 | Fable.Constructor
                 | Fable.Method -> call info callee (Some memb.DisplayName) args
             | None -> "Unexpected static interface/override call" |> attachRange r |> failwith
-        | _, enclosingEntity ->
+        | _, entity ->
             match callee with
             | Some callee ->
                 let info = { info with HasThisArg = true }
                 call info (memberRef com info.ArgTypes memb) None (callee::args)
             | None ->
-                if isModuleValueForCalls enclosingEntity memb
+                if isModuleValueForCalls entity memb
                 then memberRefTyped com typ [] memb
                 else call info (memberRef com info.ArgTypes memb) None args
 

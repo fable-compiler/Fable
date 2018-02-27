@@ -41,8 +41,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.9.0" />
-    <PackageReference Include="FSharp.Compiler.Service" Version="17.0.1" />
-    <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="20.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.1" />
     <DotNetCliToolReference Include="Microsoft.DotNet.Watcher.Tools" Version="2.0.0" />
   </ItemGroup>
   <!-- <Import Project="..\..\..\.paket\Paket.Restore.targets" /> -->

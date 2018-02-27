@@ -460,7 +460,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.ValueSet (valToSet, Transform com ctx valueExpr) ->
         let r = makeRangeFrom fsExpr
-        match valToSet.EnclosingEntity with
+        match valToSet.DeclaringEntity with
         | Some ent when ent.IsFSharpModule ->
             failwith "TODO: Mutable module values"
             // Mutable module values are compiled as functions, because values

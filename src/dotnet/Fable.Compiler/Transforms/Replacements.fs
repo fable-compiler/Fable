@@ -545,7 +545,7 @@ let tryField returnTyp ownerTyp fieldName =
 
 let tryCall (com: ICompiler) r t (info: CallInfo) (extraInfo: ExtraCallInfo)
                                     (callee: Expr option) (args: Expr list) =
-    match extraInfo.EnclosingEntityFullName with
+    match extraInfo.DeclaringEntityFullName with
     | "System.Math"
     | "Microsoft.FSharp.Core.Operators"
     | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators"

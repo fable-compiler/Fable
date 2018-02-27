@@ -119,7 +119,7 @@ module private Transforms =
             | Some e -> e
             | None ->
                 sprintf "Cannot resolve %s.%s"
-                    extraInfo.EnclosingEntityFullName
+                    extraInfo.DeclaringEntityFullName
                     extraInfo.CompiledName
                 |> addErrorAndReturnNull com r
         | e -> e

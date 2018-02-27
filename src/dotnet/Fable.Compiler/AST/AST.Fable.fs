@@ -123,7 +123,7 @@ type CallInfo =
   }
 
 type ExtraCallInfo =
-  { EnclosingEntityFullName: string
+  { DeclaringEntityFullName: string
     CompiledName: string
     GenericArgs: Map<string, Type> }
 
