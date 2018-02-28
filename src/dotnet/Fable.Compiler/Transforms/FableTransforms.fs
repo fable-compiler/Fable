@@ -35,15 +35,17 @@ let rec private visit f e =
         ObjectExpr(values, t)
     | Operation(kind, t, r) ->
         match kind with
-        | Call(callee, memb, args, info) ->
-            Operation(Call(visit f callee, memb, List.map (visit f) args, info), t, r)
         | CurriedApply(callee, args) ->
             Operation(CurriedApply(visit f callee, List.map (visit f) args), t, r)
+        | Call(kind, info) ->
+            let info = { info with ThisArg = Option.map (visit f) info.ThisArg
+                                   Args = List.map (visit f) info.Args }
+            Operation(Call(kind, info), t, r)
         | Emit(macro, info) ->
-            let info = info |> Option.map (fun (args, info) -> List.map (visit f) args, info)
+            let info = info |> Option.map (fun info ->
+                { info with ThisArg = Option.map (visit f) info.ThisArg
+                            Args = List.map (visit f) info.Args })
             Operation(Emit(macro, info), t, r)
-        | UnresolvedCall(callee, args, info, info2) ->
-            Operation(UnresolvedCall(Option.map (visit f) callee, List.map (visit f) args, info, info2), t, r)
         | UnaryOperation(operator, operand) ->
             Operation(UnaryOperation(operator, visit f operand), t, r)
         | BinaryOperation(op, left, right) ->
@@ -52,10 +54,9 @@ let rec private visit f e =
             Operation(LogicalOperation(op, visit f left, visit f right), t, r)
     | Get(e, kind, t, r) ->
         match kind with
-        | FieldGet _ | IndexGet _ | ListHead | ListTail
-        | OptionValue | TupleGet _ | UnionTag _
+        | ListHead | ListTail | OptionValue | TupleGet _ | UnionTag _
         | UnionField _ | RecordGet _ -> Get(visit f e, kind, t, r)
-        | DynamicGet e2 -> Get(visit f e, DynamicGet (visit f e2), t, r)
+        | ExprGet e2 -> Get(visit f e, ExprGet (visit f e2), t, r)
     | Throw(e, typ, r) -> Throw(visit f e, typ, r)
     | Sequential exprs -> Sequential(List.map (visit f) exprs)
     | Let(bs, body) ->
@@ -65,9 +66,9 @@ let rec private visit f e =
         IfThenElse(visit f cond, visit f thenExpr, visit f elseExpr)
     | Set(e, kind, v, r) ->
         match kind with
-        | VarSet | FieldSet _ | IndexSet _ | RecordSet _ ->
+        | VarSet | RecordSet _ ->
             Set(visit f e, kind, visit f v, r)
-        | DynamicSet e2 -> Set(visit f e, DynamicSet (visit f e2), visit f v, r)
+        | ExprSet e2 -> Set(visit f e, ExprSet (visit f e2), visit f v, r)
     | Loop (kind, r) ->
         match kind with
         | While(e1, e2) -> Loop(While(visit f e1, visit f e2), r)
@@ -113,17 +114,6 @@ module private Transforms =
             | _ -> e
         | e -> e
 
-    let resolveCalls (com: ICompiler) = function
-        | Operation(UnresolvedCall(callee, args, info, extraInfo), t, r) ->
-            match Replacements.tryCall com r t info extraInfo callee args with
-            | Some e -> e
-            | None ->
-                sprintf "Cannot resolve %s.%s"
-                    extraInfo.DeclaringEntityFullName
-                    extraInfo.CompiledName
-                |> addErrorAndReturnNull com r
-        | e -> e
-
     let replaceValues replacements expr =
         if Map.isEmpty replacements
         then expr
@@ -150,9 +140,6 @@ module private Transforms =
             count > limit
 
     let lambdaBetaReduction (_: ICompiler) e =
-        // let notConsNorSpread = function
-        //     | Some(info: CallInfo) -> not info.HasSpread && not info.IsConstructor
-        //     | None -> true
         let applyArgs (args: Ident list) argExprs body =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
@@ -172,33 +159,14 @@ module private Transforms =
 
     let bindingBetaReduction (_: ICompiler) e =
         match e with
-        | Let(bindings, body) ->
-            let values = bindings |> List.map snd
-            let remaining, replacements =
-                (([], Map.empty), bindings)
-                ||> List.fold (fun (remaining, replacements) (ident, value) ->
-                    if ident.IsMutable then
-                        (ident, value)::remaining, replacements
-                    else
-                        let identName = ident.Name
-                        if hasDoubleEvalRisk value |> not then
-                            remaining, Map.add identName value replacements
-                        else
-                            let isReferencedMoreThanOnce =
-                                (false, values) ||> List.fold (fun positive value ->
-                                    positive || isReferencedMoreThan 0 identName value)
-                                |> function true -> true
-                                          | false -> isReferencedMoreThan 1 identName body
-                            if isReferencedMoreThanOnce
-                            then (ident, value)::remaining, replacements
-                            else remaining, Map.add ident.Name value replacements)
-            match remaining with
-            | [] -> replaceValues replacements body
-            | bindings ->
-                let bindings =
-                    bindings |> List.map (fun (ident, value) ->
-                        ident, replaceValues replacements value) |> List.rev
-                Let(bindings, replaceValues replacements body)
+        // Don't try to optimize bindings with multiple ident-value pairs
+        // as they can reference each other
+        | Let([ident, value], body) when not ident.IsMutable ->
+            let identName = ident.Name
+            if hasDoubleEvalRisk value |> not
+                || isReferencedMoreThan 1 identName body |> not
+            then replaceValues (Map [identName, value]) body
+            else e
         | e -> e
 
     let rec uncurryLambdaType acc = function
@@ -299,22 +267,19 @@ module private Transforms =
             | None -> List.map (uncurryExpr com None) args
         match e with
         // TODO: Uncurry also NewRecord, CurriedApply and Emit arguments
-        | Operation(Call(callee, memb, args, info), t, r) ->
+        | Operation(Call(kind, info), t, r) ->
             // For CurriedApply: let argTypes = uncurryLambdaType [] t |> fst |> Some
-            let argTypes = if info.UncurryLambdaArgs then None else Some info.ArgTypes
-            let args =
-                match info.HasThisArg, args with
-                | true, _this::args -> uncurryArgs argTypes args
-                | _ -> uncurryArgs argTypes args
-            Operation(Call(callee, memb, args, info), t, r)
+            let info = { info with Args = uncurryArgs info.ArgTypes info.Args }
+            Operation(Call(kind, info), t, r)
         | e -> e
 
-    let uncurryApplications (_: ICompiler) = function
+    let uncurryApplications (_: ICompiler) e =
+        match e with
         | Operation(CurriedApply(applied, args), t, r) as e when List.isMultiple args ->
             match applied.Type with
             | FunctionType(DelegateType argTypes, _) ->
                 if List.sameLength argTypes args
-                then makeCallNoInfo r t applied args
+                then instanceCall_ r t applied None args
                 else failwith "TODO: Partial application"
                 // let args = [makeIntConst (arity - argsLength); innerApplied; makeArray Any (List.concat flattenedArgs)]
                 // CoreLibCall("Util", Some "partial", false, args) |> makeCall r Any
@@ -331,8 +296,6 @@ let optimizeExpr (com: ICompiler) e =
       lambdaBetaReduction
       // Then resolve casts
       resolveCasts
-      // Then resolve calls
-      resolveCalls
       // Then apply uncurry optimizations
       uncurryReceivedArgs
       uncurrySendingArgs

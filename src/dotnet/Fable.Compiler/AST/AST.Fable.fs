@@ -113,33 +113,35 @@ type FunctionKind =
     | Lambda of arg: Ident
     | Delegate of args: Ident list
 
+type SpreadKind = NoSpread | SeqSpread | TupleSpread
+
+type CallKind =
+    | ConstructorCall of Expr
+    | StaticCall of Expr
+    | InstanceCall of memb: Expr option
+
+type ArgInfo =
+  { ThisArg: Expr option
+    Args: Expr list
+    ArgTypes: Type list option
+    Spread: SpreadKind }
+
 type CallInfo =
   { ArgTypes: Type list
-    IsConstructor: bool
-    HasThisArg: bool
-    HasSeqSpread: bool
-    HasTupleSpread: bool
-    UncurryLambdaArgs: bool
-  }
-
-type ExtraCallInfo =
-  { DeclaringEntityFullName: string
+    DeclaringEntityFullName: string
     CompiledName: string
     GenericArgs: Map<string, Type> }
 
 type OperationKind =
-    | Call of callee: Expr * memb: string option * args: Expr list * info: CallInfo
-    | UnresolvedCall of callee: Expr option * args: Expr list * info: CallInfo * extraInfo: ExtraCallInfo
+    | Call of kind: CallKind * info: ArgInfo
     | CurriedApply of applied: Expr * args: Expr list
-    | Emit of macro: string * argsAndCallInfo: (Expr list * CallInfo) option
+    | Emit of macro: string * args: ArgInfo option
     | UnaryOperation of UnaryOperator * Expr
     | BinaryOperation of BinaryOperator * left:Expr * right:Expr
     | LogicalOperation of LogicalOperator * left:Expr * right:Expr
 
 type GetKind =
-    | FieldGet of string
-    | IndexGet of int
-    | DynamicGet of Expr
+    | ExprGet of Expr
     | ListHead
     | ListTail
     | OptionValue
@@ -150,9 +152,7 @@ type GetKind =
 
 type SetKind =
     | VarSet
-    | FieldSet of string
-    | IndexSet of int
-    | DynamicSet of Expr
+    | ExprSet of Expr
     | RecordSet of FSharpField * FSharpEntity
 
 type ObjectMemberKind =

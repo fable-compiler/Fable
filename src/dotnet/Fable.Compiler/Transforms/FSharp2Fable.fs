@@ -122,7 +122,7 @@ let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: 
         let ctx = { ctx with decisionTargets = None }
         let tempVar = com.GetUniqueVar() |> makeIdent
         let tempVarExpr = Fable.IdentExpr tempVar
-        let tempVarFirstItem = makeIndexGet None (Fable.Number Int32) tempVarExpr 0
+        let tempVarFirstItem = makeIntConst 0 |> getExpr None (Fable.Number Int32) tempVarExpr
         let cases =
             targetRefsCount
             |> Seq.map (fun kv ->
@@ -132,7 +132,7 @@ let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: 
                     (ctx, vars) ||> List.fold (fun ctx var ->
                         i <- i + 1
                         let t = makeType com ctx.typeArgs var.FullType
-                        makeIndexGet None t tempVarExpr i
+                        makeIntConst i |> getExpr None t tempVarExpr
                         |> bindExpr ctx var)
                 [makeIntConst kv.Key], transformExpr com ctx body)
             |> Seq.toList
@@ -256,13 +256,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let callee, args = transformExpr com ctx callee, List.map (transformExpr com ctx) membArgs
-        let callee = Fable.Get(callee, Fable.FieldGet eventName, Fable.Any, None)
+        let callee = get None Fable.Any callee eventName
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeCallFrom com ctx r typ (ownerGenArgs@membGenArgs) (Some callee) args memb
 
     | CheckArrayLength (Transform com ctx arr, length, FableType com ctx typ) ->
         let r = makeRangeFrom fsExpr
-        let lengthExpr = Fable.Get(arr, Fable.FieldGet "length", Fable.Number Int32, r)
+        let lengthExpr = get None (Fable.Number Int32) arr "length"
         makeEqOp r lengthExpr (Replacements.makeTypeConst typ length) BinaryEqualStrict
 
     (** ## Flow control *)
@@ -313,9 +313,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         else
             let value = transformExpr com ctx value
             let ctx, ident = bindIdentFrom com ctx var
-            match transformExpr com ctx body with
-            | Fable.Let(bindings, body) -> Fable.Let((ident, value)::bindings, body)
-            | body -> Fable.Let([ident, value], body)
+            Fable.Let([ident, value], transformExpr com ctx body)
 
     | BasicPatterns.LetRec(recBindings, body) ->
         // First get a context containing all idents and use it compile the values
@@ -327,9 +325,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             recBindings
             |> List.map (fun (_, Transform com ctx value) -> value)
             |> List.zip idents
-        match transformExpr com ctx body with
-        | Fable.Let(bindings2, body) -> Fable.Let(bindings@bindings2, body)
-        | body -> Fable.Let(bindings, body)
+        Fable.Let(bindings, transformExpr com ctx body)
 
     (** ## Applications *)
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
@@ -362,14 +358,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.Application(Transform com ctx expr, _, []) -> expr
 
     | BasicPatterns.Application(FableCoreDynamicOp(Transform com ctx e1, Transform com ctx e2), _, args) ->
-        let args = List.map (transformExpr com ctx) args
-        let callee = Fable.Get(e1, Fable.DynamicGet e2, Fable.Any, None)
-        let callInfo = { emptyCallInfo with HasTupleSpread = true; UncurryLambdaArgs = true }
-        Fable.Operation(Fable.Call(callee, None, args, callInfo), Fable.Any, makeRangeFrom fsExpr)
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        let argInfo: Fable.ArgInfo =
+          { ThisArg = Some e1
+            Args = List.map (transformExpr com ctx) args
+            ArgTypes = None
+            Spread = Fable.TupleSpread }
+        Fable.Operation(Fable.Call(Fable.InstanceCall(Some e2), argInfo), typ, r)
 
     | BasicPatterns.Application(Transform com ctx applied, _, args) ->
-        let args = List.map (transformExpr com ctx) args
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        let args = List.map (transformExpr com ctx) args
         Fable.Operation(Fable.CurriedApply(applied, args), typ, r)
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
@@ -411,7 +410,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                       |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
         if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
         then Fable.Get(callee, Fable.RecordGet(field, calleeType.TypeDefinition), typ, r)
-        else makeFieldGet (makeRangeFrom fsExpr) typ callee field.Name
+        else get r typ callee field.Name
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
@@ -449,7 +448,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                       |> addErrorAndReturnNull com range
         if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
         then Fable.Set(callee, Fable.RecordSet(field, calleeType.TypeDefinition), value, range)
-        else Fable.Set(callee, Fable.FieldSet field.Name, value, range)
+        else Fable.Set(callee, makeStrConst field.Name |> Fable.ExprSet, value, range)
 
     | BasicPatterns.UnionCaseTag(Transform com ctx unionExpr, unionType) ->
         let range = makeRangeFrom fsExpr
@@ -594,7 +593,7 @@ let private transformImport com ctx typ publicName selector path =
     ctx, []
 
 let private getPublicAndPrivateNames com ctx memb =
-    let methName = getMemberDeclarationName com (getArgTypes com memb) memb
+    let methName = getMemberDeclarationName com memb
     let publicName = if isPublicMember memb then Some methName else None
     // Bind memb.CompiledName to context to prevent name clashes (become vars in JS)
     let ctx, privateIdent = bindIdentWithTentativeName com ctx memb methName
@@ -628,7 +627,7 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
             { PrivateName = privateName
               PublicName = publicName
               IsMutable = false
-              HasSpread = hasSpread memb }
+              HasSpread = hasSeqSpread memb }
         let fn = Fable.Function(Fable.Delegate args, fableBody)
         ctx, [Fable.ValueDeclaration(fn, info)]
 
@@ -714,17 +713,19 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             match tdef.Assembly.FileName with
             | Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> None
             | _ -> Some (getEntityLocation tdef).FileName
+        member fcom.TryReplace(thisArg, args, info, t, r) =
+            Replacements.tryCall fcom r t info thisArg args
         member fcom.GetInlineExpr memb =
             let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
             if fileName <> com.CurrentFile then
                 dependencies.Add(fileName) |> ignore
-            let fullName = getMemberDeclarationFullname fcom (getArgTypes fcom memb) memb
+            let fullName = getMemberDeclarationFullname fcom memb
             com.GetOrAddInlineExpr(fullName, fun () ->
                 match tryGetMemberArgsAndBody implFiles fileName memb with
                 | Some(args, body) -> List.concat args, body
                 | None -> failwith ("Cannot find inline member " + memb.FullName))
         member fcom.AddInlineExpr(memb, inlineExpr) =
-            let fullName = getMemberDeclarationFullname fcom (getArgTypes fcom memb) memb
+            let fullName = getMemberDeclarationFullname fcom memb
             com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
         member __.AddUsedVarName varName =
             usedVarNames.Add varName |> ignore

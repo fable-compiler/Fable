@@ -98,38 +98,45 @@ module AST =
     let makeEqOp range left right op =
         Operation(BinaryOperation(op, left, right), Boolean, range)
 
-    let makeIndexGet range typ callee idx =
-        Get(callee, IndexGet idx, typ, range)
-
-    let makeFieldGet range typ callee field =
-        Get(callee, FieldGet field, typ, range)
-
-    let makeUntypedFieldGet callee field =
-        Get(callee, FieldGet field, Any, None)
-
     let makeArray elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType) |> Value
-
-    let makeCall r t i (callee: Expr) args =
-        Operation(Call(callee, None, args, i), t, r)
-
-    let emptyCallInfo =
-        { ArgTypes = []
-          IsConstructor = false
-          HasThisArg = false
-          HasSeqSpread = false
-          HasTupleSpread = false
-          UncurryLambdaArgs = false
-        }
-
-    let makeCallNoInfo r t (callee: Expr) args =
-        Operation(Call(callee, None, args, emptyCallInfo), t, r)
 
     let makeBoolConst (x: bool) = BoolConstant x |> Value
     let makeStrConst (x: string) = StringConstant x |> Value
     let makeIntConst (x: int) = NumberConstant (float x, Int32) |> Value
     let makeNumConst (x: float) = NumberConstant (float x, Float64) |> Value
     let makeDecConst (x: decimal) = NumberConstant (float x, Float64) |> Value
+
+    let staticCall r t argInfo functionExpr =
+        Fable.Operation(Fable.Call(Fable.StaticCall functionExpr, argInfo), t, r)
+
+    let constructorCall_ r t consExpr args =
+        let argInfo = { ThisArg = None; Args = args; ArgTypes = None; Spread = NoSpread }
+        Fable.Operation(Fable.Call(Fable.ConstructorCall consExpr, argInfo), t, r)
+
+    let instanceCall r t argInfo memb =
+        Fable.Operation(Fable.Call(Fable.InstanceCall memb, argInfo), t, r)
+
+    let instanceCall_ r t callee memb args =
+        let argInfo = { ThisArg = Some callee; Args = args; ArgTypes = None; Spread = NoSpread }
+        Operation(Call(InstanceCall memb, argInfo), t, r)
+
+    let getExpr r t left memb =
+        Fable.Get(left, ExprGet memb, t, r)
+
+    let get r t left membName =
+        makeStrConst membName |> getExpr r t left
+
+    let getTypedArrayName (com: ICompiler) numberKind =
+        match numberKind with
+        | Int8 -> "Int8Array"
+        | UInt8 -> if com.Options.clampByteArrays then "Uint8ClampedArray" else "Uint8Array"
+        | Int16 -> "Int16Array"
+        | UInt16 -> "Uint16Array"
+        | Int32 -> "Int32Array"
+        | UInt32 -> "Uint32Array"
+        | Float32 -> "Float32Array"
+        | Float64 | Decimal -> "Float64Array"
 
     let rec listEquals f li1 li2 =
         match li1, li2 with
@@ -212,8 +219,14 @@ module Operators =
     let [<Literal>] booleanOr = "op_BooleanOr"
     let [<Literal>] logicalNot = "op_LogicalNot"
     let [<Literal>] unaryNegation = "op_UnaryNegation"
+    let [<Literal>] equality = "op_Equality"
+    let [<Literal>] inequality = "op_Inequality"
+    let [<Literal>] lessThan = "op_LessThan"
+    let [<Literal>] greaterThan = "op_GreaterThan"
+    let [<Literal>] lessThanOrEqual = "op_LessThanOrEqual"
+    let [<Literal>] greaterThanOrEqual = "op_GreaterThanOrEqual"
 
-    let standard =
+    let standardSet =
         set [ addition
               subtraction
               multiply
@@ -228,3 +241,11 @@ module Operators =
               booleanOr
               logicalNot
               unaryNegation ]
+
+    let equalitySet =
+        set [ equality
+              inequality
+              lessThan
+              greaterThan
+              lessThanOrEqual
+              greaterThanOrEqual ]
