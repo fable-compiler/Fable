@@ -15,14 +15,12 @@ type Context =
       /// so we need a mutable registry to prevent duplicated var names.
       varNames: HashSet<string>
       typeArgs: Map<string, FSharpType>
-      decisionTargets: Map<int, FSharpMemberOrFunctionOrValue list * FSharpExpr> option
     }
     static member Create() =
         { scope = []
           scopedInlines = []
           varNames = HashSet()
-          typeArgs = Map.empty
-          decisionTargets = None }
+          typeArgs = Map.empty }
 
 type IFableCompiler =
     inherit ICompiler
@@ -341,64 +339,6 @@ module Patterns =
                     | Some Atts.stringEnum -> Some (StringEnum tdef)
                     | _ -> None)
                 |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
-
-    let (|Switch|_|) fsExpr =
-        let isStringOrNumber (NonAbbreviatedType typ) =
-            if not typ.HasTypeDefinition then false else
-            match typ.TypeDefinition.TryFullName with
-            | Some Types.string -> true
-            | Some(NumberKind _) -> true
-            | _ when typ.TypeDefinition.IsEnum -> true
-            | _ -> false
-        let rec makeSwitch size map matchValue e =
-            match e with
-            | IfThenElse(Call(None,op_Equality,[],_,[Value var; Const(case,_)]), DecisionTreeSuccess(idx, bindings), elseExpr)
-                    when op_Equality.CompiledName.Equals("op_Equality") ->
-                let case =
-                    match case with
-                    | :? int as i -> makeIntConst i |> Some
-                    | :? string as s -> makeStrConst s |> Some
-                    | _ -> None
-                match case, matchValue with
-                | Some case, Some matchValue when matchValue.Equals(var) ->
-                    Some(matchValue,None,idx,bindings,case,elseExpr)
-                | Some case, None when isStringOrNumber var.FullType && not var.IsMemberThisValue && not(isInline var) ->
-                    Some(var,None,idx,bindings,case,elseExpr)
-                | _ -> None
-            | IfThenElse(UnionCaseTest(Value var,typ,case), DecisionTreeSuccess(idx, bindings), elseExpr) ->
-                let unionType = typ.TypeDefinition
-                let case = Fable.UnionCaseTag(case, unionType) |> Fable.Value
-                match matchValue with
-                | Some matchValue when matchValue.Equals(var) ->
-                    Some(matchValue,Some unionType,idx,bindings,case,elseExpr)
-                | None when not var.IsMemberThisValue && not(isInline var) ->
-                    match typ with
-                    | DiscriminatedUnion _ -> Some(var,Some unionType,idx,bindings,case,elseExpr)
-                    | OptionUnion _ | ListUnion _ | ErasedUnion _ | StringEnum _ -> None
-                | _ -> None
-            | _ -> None
-            |> function
-                | Some(matchValue,isUnionType,idx,bindings,case,elseExpr) ->
-                    let map =
-                        match Map.tryFind idx map with
-                        | None -> Map.add idx (bindings, [case]) map |> Some
-                        | Some([],cases) when List.isEmpty bindings -> Map.add idx (bindings, cases@[case]) map |> Some
-                        | Some _ -> None // Multiple case with multiple var bindings, cannot optimize
-                    match map, elseExpr with
-                    | Some map, DecisionTreeSuccess(idx, bindings) ->
-                        Some(matchValue, isUnionType, size + 1, map, (idx, bindings))
-                    | Some map, elseExpr -> makeSwitch (size + 1) map (Some matchValue) elseExpr
-                    | None, _ -> None
-                | None -> None
-        match fsExpr with
-        | DecisionTree(decisionExpr, decisionTargets) ->
-            match makeSwitch 0 Map.empty None decisionExpr with
-            // For small sizes it's better not to convert to switch so
-            // the match is still a expression and not a statement
-            | Some(matchValue, isUnionType, size, cases, defaultCase) when size > 3 ->
-                Some(matchValue, isUnionType, cases, defaultCase, decisionTargets)
-            | _ -> None
-        | _ -> None
 
     let (|ContainsAtt|_|) (fullName: string) (ent: FSharpEntity) =
         tryFindAtt fullName ent.Attributes

@@ -99,65 +99,6 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FShar
     //            m, args', body))
     Fable.ObjectExpr([], makeType com ctx.typeArgs fsExpr.Type)
 
-let private transformDecisionTree (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) decisionExpr (decisionTargets: (FSharpMemberOrFunctionOrValue list * FSharpExpr) list) =
-    let rec getTargetRefsCount map = function
-        | BasicPatterns.IfThenElse (_, thenExpr, elseExpr)
-        | BasicPatterns.Let(_, BasicPatterns.IfThenElse (_, thenExpr, elseExpr)) ->
-            let map = getTargetRefsCount map thenExpr
-            getTargetRefsCount map elseExpr
-        | BasicPatterns.Let(_, e) ->
-            getTargetRefsCount map e
-        | BasicPatterns.DecisionTreeSuccess (idx, _) ->
-            match Map.tryFind idx map with
-            | Some refCount -> Map.add idx (refCount + 1) map
-            | None -> Map.add idx 1 map
-        | e ->
-            failwithf "Unexpected DecisionTree branch %O: %A" (makeRange e.Range) e
-    let targetRefsCount = getTargetRefsCount (Map.empty<int,int>) decisionExpr
-    if Map.exists (fun _ v -> v > 1) targetRefsCount then
-        // If any of the decision targets is referred to more than once,
-        // resolve the condition first and compile decision targets as a
-        // switch to prevent code repetition (same target in different if branches)
-        // or having to create inner functions
-        let ctx = { ctx with decisionTargets = None }
-        let tempVar = com.GetUniqueVar() |> makeIdent
-        let tempVarExpr = Fable.IdentExpr tempVar
-        let tempVarFirstItem = makeIntConst 0 |> getExpr None (Fable.Number Int32) tempVarExpr
-        let cases =
-            targetRefsCount
-            |> Seq.map (fun kv ->
-                let vars, body = decisionTargets.[kv.Key]
-                let ctx =
-                    let mutable i = 0
-                    (ctx, vars) ||> List.fold (fun ctx var ->
-                        i <- i + 1
-                        let t = makeType com ctx.typeArgs var.FullType
-                        makeIntConst i |> getExpr None t tempVarExpr
-                        |> bindExpr ctx var)
-                [makeIntConst kv.Key], transformExpr com ctx body)
-            |> Seq.toList
-        let typ = makeType com ctx.typeArgs fsExpr.Type
-        let bindings = [tempVar, transformExpr com ctx decisionExpr]
-        Fable.Let(bindings, Fable.Switch(tempVarFirstItem, cases, None, typ))
-    else
-        let targets = targetRefsCount |> Map.map (fun k _ -> decisionTargets.[k])
-        let ctx = { ctx with decisionTargets = Some targets }
-        transformExpr com ctx decisionExpr
-
-let private transformDecisionTreeSuccess (com: IFableCompiler) (ctx: Context) (range: SourceLocation) decisionTargets decIndex decBindings =
-    match Map.tryFind decIndex decisionTargets with
-    | None -> failwithf "Missing decision target %O" range
-    | Some ([], Transform com ctx decBody) -> decBody
-    // If we have values, bind them to context
-    | Some (decVars, decBody) ->
-        if not(List.sameLength decVars decBindings) then
-            failwithf "Variables and bindings have different length %O" range
-        let ctx =
-            (ctx, decVars, decBindings)
-            |||> List.fold2 (fun ctx var (Transform com ctx binding) ->
-                bindExpr ctx var binding)
-        transformExpr com ctx decBody
-
 let private transformDelegate com ctx delegateType fsExpr =
     // let wrapInZeroArgsFunction r typ (args: FSharpExpr list) argTypes fref =
     //     let args = List.map (transformExpr com ctx) args
@@ -192,47 +133,27 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
             |> addErrorAndReturnNull com (makeRange fsExpr.Range |> Some)
         else
             let fi = unionCase.UnionCaseFields.[0]
-            if fi.FieldType.IsGenericParameter
-            then
-                let name = fi.FieldType.GenericParameter.Name
-                let index =
-                    tdef.GenericParameters
-                    |> Seq.findIndex (fun arg -> arg.Name = name)
-                genArgs.[index]
-            else fi.FieldType
-            |> makeType com ctx.typeArgs
-            |> Replacements.makeTypeTest com (makeRangeFrom fsExpr) unionExpr
-    | OptionUnion t ->
-        let noneCase = Fable.NewOption(None, makeType com ctx.typeArgs t) |> Fable.Value
-        if unionCase.Name = "None" then BinaryEqual else BinaryUnequal
-        |> makeEqOp (makeRangeFrom fsExpr) unionExpr noneCase
-    | ListUnion t ->
-        let emptyList = Fable.NewList(None, makeType com ctx.typeArgs t) |> Fable.Value
-        if unionCase.CompiledName = "Empty" then BinaryEqual else BinaryUnequal
-        |> makeEqOp (makeRangeFrom fsExpr) unionExpr emptyList
+            let typ =
+                if fi.FieldType.IsGenericParameter then
+                    let name = fi.FieldType.GenericParameter.Name
+                    let index =
+                        tdef.GenericParameters
+                        |> Seq.findIndex (fun arg -> arg.Name = name)
+                    genArgs.[index]
+                else fi.FieldType
+            let kind = makeType com ctx.typeArgs typ |> Fable.TypeTest
+            Fable.Test(unionExpr, kind, makeRangeFrom fsExpr)
+    | OptionUnion _ ->
+        let kind = Fable.OptionTest(unionCase.Name <> "None")
+        Fable.Test(unionExpr, kind, makeRangeFrom fsExpr)
+    | ListUnion _ ->
+        let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")
+        Fable.Test(unionExpr, kind, makeRangeFrom fsExpr)
     | StringEnum _ ->
         makeEqOp (makeRangeFrom fsExpr) unionExpr (lowerCaseName unionCase) BinaryEqualStrict
     | DiscriminatedUnion(tdef,_) ->
-        let tag1 = Fable.Get(unionExpr, Fable.UnionTag tdef, Fable.Any, None)
-        let tag2 = Fable.UnionCaseTag(unionCase, tdef) |> Fable.Value
-        makeEqOp (makeRangeFrom fsExpr) tag1 tag2 BinaryEqualStrict
-
-let private transformSwitch com ctx (fsExpr: FSharpExpr) (matchValue: FSharpMemberOrFunctionOrValue)
-                                unionType cases (defaultCase, defaultBindings) decisionTargets =
-    let decisionTargets = decisionTargets |> Seq.mapi (fun i d -> (i, d)) |> Map
-    let r, typ = makeRange fsExpr.Range, makeType com ctx.typeArgs fsExpr.Type
-    let cases =
-        cases |> Seq.map (fun (KeyValue(idx, (bindings, labels))) ->
-            labels, transformDecisionTreeSuccess com ctx r decisionTargets idx bindings)
-        |> Seq.toList
-    let defaultCase =
-        transformDecisionTreeSuccess com ctx r decisionTargets defaultCase defaultBindings
-    let matchValue =
-        let matchValue = makeValueFrom com ctx None matchValue
-        match unionType with
-        | Some tdef -> Fable.Get(matchValue, Fable.UnionTag tdef, Fable.Any, None)
-        | None -> matchValue
-    Fable.Switch(matchValue, cases, Some defaultCase, typ)
+        let kind = Fable.UnionCaseTest(unionCase, tdef)
+        Fable.Test(unionExpr, kind, makeRangeFrom fsExpr)
 
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     match fsExpr with
@@ -503,21 +424,19 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         transformUnionCaseTest com ctx fsExpr unionExpr fsType unionCase
 
     (** Pattern Matching *)
-    | Switch(matchValue, unionType, cases, defaultCase, decisionTargets) ->
-        transformSwitch com ctx fsExpr matchValue unionType cases defaultCase decisionTargets
+    | BasicPatterns.DecisionTree(Transform com ctx decisionExpr, decisionTargets) ->
+        let decisionTargets =
+            decisionTargets |> List.map (fun (idents, expr) ->
+                let ctx, idents =
+                    (idents, (ctx, [])) ||> List.foldBack (fun ident (ctx, idents) ->
+                        let ctx, ident = bindIdentFrom com ctx ident
+                        ctx, ident::idents)
+                idents, transformExpr com ctx expr)
+        Fable.DecisionTree(decisionExpr, decisionTargets)
 
-    | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
-        transformDecisionTree com ctx fsExpr decisionExpr decisionTargets
-
-    | BasicPatterns.DecisionTreeSuccess (decIndex, decBindings) ->
-        match ctx.decisionTargets with
-        | Some decisionTargets ->
-            transformDecisionTreeSuccess com ctx (makeRange fsExpr.Range) decisionTargets decIndex decBindings
-        | None ->
-            decBindings
-            |> List.map (transformExpr com ctx)
-            |> List.append [makeIntConst decIndex]
-            |> makeArray Fable.Any
+    | BasicPatterns.DecisionTreeSuccess(targetIndex, boundValues) ->
+        let typ = makeType com ctx.typeArgs fsExpr.Type
+        Fable.DecisionTreeSuccess(targetIndex, List.map (transformExpr com ctx) boundValues, typ)
 
     | BasicPatterns.ILFieldGet(None, ownerTyp, fieldName) ->
         let returnTyp = makeType com ctx.typeArgs fsExpr.Type

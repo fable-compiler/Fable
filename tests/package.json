@@ -2,7 +2,8 @@
   "private": true,
   "scripts": {
     "start": "concurrently --names TEST,COMPILER -k \"chokidar '../build/tests' -c 'yarn test'\" \"cd ../src/dotnet/Fable.Compiler && dotnet watch run yarn-splitter --cwd ../../../tests --fable-core ../../../build/fable-core\" ",
-    "build": "cd ../src/dotnet/Fable.Compiler && dotnet run --no-build yarn-splitter --cwd ../../../tests --fable-core ../../../build/fable-core",
+    "build": "cd ../src/dotnet/Fable.Compiler && dotnet run -c Release yarn-splitter --cwd ../../../tests --fable-core ../../../build/fable-core",
+    "build-fast": "cd ../src/dotnet/Fable.Compiler && dotnet run --no-build yarn-splitter --cwd ../../../tests --fable-core ../../../build/fable-core",
     "splitter": "node ../src/js/fable-splitter/dist/cli -c splitter.config.js",
     "webpack": "node ../node_modules/webpack/bin/webpack -p",
     "rollup": "node ../node_modules/rollup/bin/rollup -c",

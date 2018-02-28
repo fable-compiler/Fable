@@ -79,7 +79,6 @@ type ValueKind =
     | NewRecord of Expr list * FSharpEntity * genArgs: Type list
     | NewErasedUnion of Expr * genericArgs: Type list
     | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
-    | UnionCaseTag of FSharpUnionCase * FSharpEntity
     member this.Type =
         match this with
         | This t | Null t -> t
@@ -102,7 +101,6 @@ type ValueKind =
         | NewRecord(_, ent, genArgs) -> DeclaredType(ent, genArgs)
         | NewErasedUnion(_, genArgs) -> ErasedUnion genArgs
         | NewUnion(_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
-        | UnionCaseTag _ -> Any // There may be different ways to represent tags
 
 type LoopKind =
     | While of guard: Expr * body: Expr
@@ -155,6 +153,13 @@ type SetKind =
     | ExprSet of Expr
     | RecordSet of FSharpField * FSharpEntity
 
+type TestKind =
+    | TypeTest of Type
+    | ErasedUnionTest of Type
+    | OptionTest of isSome: bool
+    | ListTest of isCons: bool
+    | UnionCaseTest of FSharpUnionCase * FSharpEntity
+
 type ObjectMemberKind =
     | ObjectValue of hasSpread: bool
     | ObjectGetter
@@ -171,42 +176,51 @@ type Expr =
     | Function of FunctionKind * body: Expr
     | ObjectExpr of ObjectMember list * Type
 
+    | Test of Expr * TestKind * range: SourceLocation option
     | Operation of OperationKind * typ: Type * range: SourceLocation option
     | Get of Expr * GetKind * typ: Type * range: SourceLocation option
 
     | Debugger
     | Throw of Expr * typ: Type * range: SourceLocation option
 
+    | DecisionTree of Expr * targets: (Ident list * Expr) list
+    | DecisionTreeSuccess of targetIndex: int * boundValues: Expr list * Type
+
     | Sequential of Expr list
     | Let of bindings: (Ident * Expr) list * body: Expr
     | Set of Expr * SetKind * value: Expr * range: SourceLocation option
     // TODO: Check if we actually need range for loops
     | Loop of LoopKind * range: SourceLocation option
-    | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option
-    | Switch of matchValue: Expr * cases: (Expr list * Expr) list * defaultCase: Expr option * typ: Type
+    | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
 
     member this.IsJsStatement =
         match this with
-        | Value _ | Import _ | Cast _ | IdentExpr _ | Function _
+        | Value _ | Import _ | Cast _ | Test _ | IdentExpr _ | Function _
         | ObjectExpr _ | Operation _ | Get _ -> false
 
-        | TryCatch _ | Switch _ | Debugger
+        | TryCatch _ | Debugger
         | Sequential _ | Let _ | Set _
         | Loop _ | Throw _ -> true
+
+        // TODO: Another way to decide if decision trees should be compiled
+        // as statements (to get more chances to be converted to switch)
+        | DecisionTree(_,targets) -> List.length targets > 3
+        | DecisionTreeSuccess _ -> false
 
         | IfThenElse (_,thenExpr,elseExpr) ->
             thenExpr.IsJsStatement || elseExpr.IsJsStatement
 
     member this.Type =
         match this with
+        | Test _ -> Boolean
         | Value kind -> kind.Type
         | IdentExpr id -> id.Type
         | Import(_,_,_,t) | Cast(_,t) | ObjectExpr(_,t)
-        | Operation(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | Switch(_,_,_,t) -> t
+        | Operation(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | DecisionTreeSuccess(_,_,t) -> t
         | Debugger | Set _ | Loop _ -> Unit
         | Sequential exprs -> (List.last exprs).Type
-        | Let(_,expr) | TryCatch(expr,_,_) | IfThenElse(_,expr,_) -> expr.Type
+        | Let(_,expr) | TryCatch(expr,_,_) | IfThenElse(_,expr,_) | DecisionTree(expr,_) -> expr.Type
         | Function(kind,body) ->
             match kind with
             | Lambda arg -> FunctionType(LambdaType arg.Type, body.Type)
@@ -214,9 +228,9 @@ type Expr =
 
     member this.Range: SourceLocation option =
         match this with
-        | Value _ | Import _ | Cast _ | Function _ | ObjectExpr _
-        | Debugger | Sequential _ | Let _
-        | IfThenElse _ | TryCatch _ | Switch _ -> None
+        | Value _ | Import _ | Cast _ | Function _
+        | ObjectExpr _ | Debugger | Sequential _ | Let _
+        | IfThenElse _ | TryCatch _ | DecisionTree _ | DecisionTreeSuccess _ -> None
 
         | IdentExpr id -> id.Range
-        | Operation(_,_,r) | Get(_,_,_,r) | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r
+        | Test(_,_,r) | Operation(_,_,r) | Get(_,_,_,r) | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r

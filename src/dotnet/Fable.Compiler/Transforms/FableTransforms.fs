@@ -5,14 +5,14 @@ open Fable.AST.Fable
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 // TODO: Use trampoline here?
-let rec private visit f e =
+let rec visit f e =
     match e with
     | IdentExpr _ | Import _ | Debugger _ -> e
     | Value kind ->
         match kind with
         | This _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
-        | NumberConstant _ | RegexConstant _ | Enum _ | UnionCaseTag _ -> e
+        | NumberConstant _ | RegexConstant _ | Enum _ -> e
         | NewOption(e, t) -> NewOption(Option.map (visit f) e, t) |> Value
         | NewTuple exprs -> NewTuple(List.map (visit f) exprs) |> Value
         | NewArray(kind, t) ->
@@ -28,6 +28,7 @@ let rec private visit f e =
             NewErasedUnion(visit f e, genArgs) |> Value
         | NewUnion(exprs, uci, ent, genArgs) ->
             NewUnion(List.map (visit f) exprs, uci, ent, genArgs) |> Value
+    | Test(e, kind, r) -> Test(visit f e, kind, r)
     | Cast(e, t) -> Cast(visit f e, t)
     | Function(kind, body) -> Function(kind, visit f body)
     | ObjectExpr(values, t) ->
@@ -78,11 +79,37 @@ let rec private visit f e =
         TryCatch(visit f body,
                  Option.map (fun (i, e) -> i, visit f e) catch,
                  Option.map (visit f) finalizer)
-    | Switch(matchValue, cases, defaultCase, t) ->
-        Switch(visit f matchValue,
-               List.map (fun (cases, body) -> List.map (visit f) cases, visit f body) cases,
-               Option.map (visit f) defaultCase, t)
+    | DecisionTree(expr, targets) ->
+        let targets = targets |> List.map (fun (idents, v) -> idents, visit f v)
+        DecisionTree(expr, targets)
+    | DecisionTreeSuccess(idx, boundValues, t) ->
+        DecisionTreeSuccess(idx, List.map (visit f) boundValues, t)
     |> f
+
+let replaceValues replacements expr =
+    if Map.isEmpty replacements
+    then expr
+    else expr |> visit (function
+        | IdentExpr id as e ->
+            match Map.tryFind id.Name replacements with
+            | Some e -> e
+            | None -> e
+        | e -> e)
+
+let isReferencedMoreThan limit identName e =
+    match e with
+    // Don't try to erase bindings to these expressions
+    | Import _ | Throw _ | Sequential _ | IfThenElse _
+    | DecisionTree _ | TryCatch _ -> true
+    | _ ->
+        let mutable count = 0
+        // TODO: Can we optimize this to shortcircuit when count > limit?
+        e |> visit (function
+            | _ when count > limit -> e
+            | IdentExpr id2 as e when id2.Name = identName ->
+                count <- count + 1; e
+            | e -> e) |> ignore
+        count > limit
 
 module private Transforms =
     let (|EntFullName|_|) fullName (ent: FSharpEntity) =
@@ -104,7 +131,7 @@ module private Transforms =
     // string :> seq #1279
     // list (and others) :> seq in Fable 2.0
     // concrete type :> interface in Fable 2.0
-    let resolveCasts (_: ICompiler) = function
+    let resolveCasts_required (_: ICompiler) = function
         | Cast(e, t) ->
             match t with
             | DeclaredType(EntFullName Types.enumerable, _) ->
@@ -113,31 +140,6 @@ module private Transforms =
                 | _ -> e
             | _ -> e
         | e -> e
-
-    let replaceValues replacements expr =
-        if Map.isEmpty replacements
-        then expr
-        else expr |> visit (function
-            | IdentExpr id as e ->
-                match Map.tryFind id.Name replacements with
-                | Some e -> e
-                | None -> e
-            | e -> e)
-
-    let isReferencedMoreThan limit identName e =
-        match e with
-        // Don't try to erase bindings to these expressions
-        | Import _ | Throw _ | Sequential _ | IfThenElse _
-        | Switch _ | TryCatch _ -> true
-        | _ ->
-            let mutable count = 0
-            // TODO: Can we optimize this to shortcircuit when count > limit?
-            e |> visit (function
-                | _ when count > limit -> e
-                | IdentExpr id2 as e when id2.Name = identName ->
-                    count <- count + 1; e
-                | e -> e) |> ignore
-            count > limit
 
     let lambdaBetaReduction (_: ICompiler) e =
         let applyArgs (args: Ident list) argExprs body =
@@ -215,7 +217,7 @@ module private Transforms =
     let uncurryInnerFunctions (_: ICompiler) e =
         e // TODO
 
-    let uncurryReceivedArgs (_: ICompiler) e =
+    let uncurryReceivedArgs_required (_: ICompiler) e =
         let replaceIdentType replacements (id: Ident) =
             match Map.tryFind id.Name replacements with
             | Some typ -> { id with Type = typ }
@@ -244,7 +246,7 @@ module private Transforms =
             Function(Delegate args, body)
         | e -> e
 
-    let uncurrySendingArgs (com: ICompiler) (e: Expr) =
+    let uncurrySendingArgs_required (com: ICompiler) (e: Expr) =
         let mapArgs f argTypes args =
             let rec mapArgsInner f acc argTypes args =
                 match argTypes, args with
@@ -273,7 +275,7 @@ module private Transforms =
             Operation(Call(kind, info), t, r)
         | e -> e
 
-    let uncurryApplications (_: ICompiler) e =
+    let uncurryApplications_required (_: ICompiler) e =
         match e with
         | Operation(CurriedApply(applied, args), t, r) as e when List.isMultiple args ->
             match applied.Type with
@@ -288,18 +290,20 @@ module private Transforms =
 
 open Transforms
 
+// ATTENTION: Order of transforms matters for optimizations
 let optimizeExpr (com: ICompiler) e =
-    // ATTENTION: Order of transforms matters for optimizations
-    // TODO: Optimize also binary operations with numerical or string literals?
+    // TODO: Optimize decision trees
+    // TODO: Optimize binary operations with numerical or string literals
     [ // First apply beta reduction
       bindingBetaReduction
       lambdaBetaReduction
       // Then resolve casts
-      resolveCasts
+      resolveCasts_required
       // Then apply uncurry optimizations
-      uncurryReceivedArgs
-      uncurrySendingArgs
-      uncurryApplications ]
+      // Required as fable-core and bindings expect it
+      uncurryReceivedArgs_required
+      uncurrySendingArgs_required
+      uncurryApplications_required ]
     |> List.fold (fun e f -> visit (f com) e) e
 
 let rec optimizeDeclaration (com: ICompiler) = function

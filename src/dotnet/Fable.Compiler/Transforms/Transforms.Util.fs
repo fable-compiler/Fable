@@ -27,8 +27,8 @@ module Log =
     let addWarning (com: ICompiler) (range: SourceLocation option) (warning: string) =
         com.AddLog(warning, Severity.Warning, ?range=range, fileName=com.CurrentFile)
 
-    let addError (com: ICompiler) (range: SourceLocation option) (warning: string) =
-        com.AddLog(warning, Severity.Error, ?range=range, fileName=com.CurrentFile)
+    let addError (com: ICompiler) (range: SourceLocation option) (error: string) =
+        com.AddLog(error, Severity.Error, ?range=range, fileName=com.CurrentFile)
 
     let addErrorAndReturnNull (com: ICompiler) (range: SourceLocation option) (error: string) =
         com.AddLog(error, Severity.Error, ?range=range, fileName=com.CurrentFile)

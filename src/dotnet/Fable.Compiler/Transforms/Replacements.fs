@@ -340,10 +340,7 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
     | Some x, _, "get_Tail" -> Get(x, ListTail, t, r) |> Some
     | _, _, "get_Length" -> coreCall r t i "List" "Length" thisArg args |> Some
     | Some x, _, "get_Item" -> coreCall r t i "List" "Item" None (args@[x]) |> Some
-    | Some x, _, "get_IsEmpty" ->
-        // TODO: Change to ListTest
-        let emptyList = Fable.NewList(None, trySingleGenArg com r i.GenericArgs) |> Fable.Value
-        makeEqOp r x emptyList BinaryEqual |> Some
+    | Some x, _, "get_IsEmpty" -> Test(x, ListTest false, r) |> Some
     | None, _, ("get_Empty" | "Empty") ->
         NewList(None, trySingleGenArg com r i.GenericArgs) |> Value |> Some
     | None, [h;t], "Cons" -> NewList(Some(h,t), trySingleGenArg com r i.GenericArgs) |> Value |> Some
