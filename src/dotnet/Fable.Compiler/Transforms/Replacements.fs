@@ -6,6 +6,7 @@ open Fable.AST.Fable
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Patterns
 
+type Context = Fable.Transforms.FSharp2Fable.Context
 type ICompiler = Fable.Transforms.FSharp2Fable.IFableCompiler
 
 module private Helpers =
@@ -195,18 +196,13 @@ let rec makeTypeTest com range expr (typ: Type) =
         "Cannot type test options, generic parameters or erased unions"
         |> addErrorAndReturnNull com range
 
-let applyOp (com: ICompiler) r t (i: CallInfo) (args: Expr list) =
+let applyOp (com: ICompiler) ctx r t (i: CallInfo) (args: Expr list) =
     let (|CustomOp|_|) com opName argTypes =
         let tryFindMember com (ent: FSharpEntity) opName argTypes =
             FSharp2Fable.TypeHelpers.tryFindMember com ent opName false argTypes
-        match argTypes with
-        | [DeclaredType(ent,_) as t] -> tryFindMember com ent opName [t]
-        | [DeclaredType(ent,_) as t1; t2] ->
-            match tryFindMember com ent opName [t1; t2], t2 with
-            | Some m, _ -> Some m
-            | None, DeclaredType(ent,_) -> tryFindMember com ent opName [t1; t2]
-            | None, _ -> None
-        | _ -> None
+        argTypes |> List.tryPick (function
+            | DeclaredType(ent,_) -> tryFindMember com ent opName argTypes
+            | _ -> None)
     let unOp operator operand =
         Operation(UnaryOperation(operator, operand), t, r)
     let binOp op left right =
@@ -246,9 +242,13 @@ let applyOp (com: ICompiler) r t (i: CallInfo) (args: Expr list) =
         coreCall r t i (coreModFor bt) i.CompiledName None args
     // TODO: Check if the function is inlined
     | CustomOp com i.CompiledName m ->
-        let argInfo = { ThisArg = None; Args = args; ArgTypes = Some i.ArgTypes; Spread = NoSpread }
-        FSharp2Fable.Util.memberRef com m
-        |> staticCall r t argInfo
+        if FSharp2Fable.Helpers.isInline m then
+            let genArgs = i.GenericArgs |> Seq.map (fun kv -> kv.Value)
+            FSharp2Fable.Util.inlineExpr com ctx genArgs None args m
+        else
+            let argInfo = { ThisArg = None; Args = args; ArgTypes = Some i.ArgTypes; Spread = NoSpread }
+            FSharp2Fable.Util.memberRef com m
+            |> staticCall r t argInfo
     | _ -> nativeOp i.CompiledName argTypes args
 
 let equality r opName left right =
@@ -263,7 +263,7 @@ let equality r opName left right =
         | _ -> failwith ("Unknown equality operator: " + opName)
     makeBinOp r Boolean left right op
 
-let operators (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let math r t (i: CallInfo) (args: Fable.Expr list) methName =
         let argTypes = resolveArgTypes i.ArgTypes i.GenericArgs
         match Naming.lowerFirst methName, List.head argTypes with
@@ -312,10 +312,10 @@ let operators (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: E
     | SetContains Operators.equalitySet as opName, [left; right] ->
         equality r opName left right |> Some
     | SetContains Operators.standardSet, _ ->
-        applyOp com r t i args |> Some
+        applyOp com ctx r t i args |> Some
     | _ -> None
 
-let arrays (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let arrays (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, args, i.CompiledName with
     | Some c, _, "get_Length" -> get r t c "length" |> Some
     | None, [arg], "Length" -> get r t arg "length" |> Some
@@ -332,7 +332,7 @@ let arrays (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (ar
         coreCall r t i "Array" (Naming.lowerFirst meth) thisArg (args@[arrayCons]) |> Some
     | _ -> None
 
-let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let lists (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, args, i.CompiledName with
     | None, [x], "Head"
     | Some x, _, "get_Head" -> Get(x, ListHead, t, r) |> Some
@@ -347,12 +347,12 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
     | None, _, meth -> coreCall r t i "List" meth None args |> Some
     | _ -> None
 
-let options (_com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
+let options (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
     match thisArg, i.CompiledName with
     | Some c, "get_Value" -> Get(c, OptionValue, t, r) |> Some
     | _ -> None
 
-let decimals (com: ICompiler) r (_: Type) (i: CallInfo) (_callee: Expr option) (args: Expr list) =
+let decimals (com: ICompiler) (_: Context) r (_: Type) (i: CallInfo) (_callee: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | ".ctor", [Value(NumberConstant(x, _))] ->
 #if FABLE_COMPILER
@@ -394,7 +394,7 @@ let decimals (com: ICompiler) r (_: Type) (i: CallInfo) (_callee: Expr option) (
         None // TODO: parse com i true
     | _,_ -> None
 
-// let bigint (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+// let bigint (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
 //     let coreMod = coreModFor BclBigInt
 //     match thisArg, i.CompiledName with
 //     | None, ".ctor" ->
@@ -423,20 +423,20 @@ let errorStrings = function
     | "InputMustBeNonNegativeString" -> s "The input must be non-negative" |> Some
     | _ -> None
 
-let languagePrimitives (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     // TODO: Check for types with custom zero/one (strings?)
     | "GenericZero" -> NumberConstant(0., Int32) |> Value |> Some
     | "GenericOne" -> NumberConstant(1., Int32) |> Value |> Some
     | _ -> None
 
-let intrinsicFunctions (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     // Erased operators
     | "CheckThis", [arg]
     | "UnboxFast", [arg]
     | "UnboxGeneric", [arg] -> Some arg
-    | "MakeDecimal", _ -> decimals com r t i thisArg args
+    | "MakeDecimal", _ -> decimals com ctx r t i thisArg args
     | "GetString", [ar; idx]
     | "GetArray", [ar; idx] -> getExpr r t ar idx |> Some
     | "SetArray", [ar; idx; value] -> Fable.Set(ar, ExprSet idx, value, r) |> Some
@@ -505,23 +505,23 @@ let tryField returnTyp ownerTyp fieldName =
         coreCall_ returnTyp (coreModFor BclDateTimeOffset) (Naming.lowerFirst fieldName) [] |> Some
     | _ -> None
 
-let tryCall (com: ICompiler) r t (info: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match info.DeclaringEntityFullName with
     | "System.Math"
     | "Microsoft.FSharp.Core.Operators"
     | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators"
-    | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com r t info thisArg args
+    | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
-    | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com r t info thisArg args
+    | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings info.CompiledName
-    | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com r t info thisArg args
+    | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com ctx r t info thisArg args
     | "System.Array"
-    | "Microsoft.FSharp.Collections.ArrayModule" -> arrays com r t info thisArg args
+    | "Microsoft.FSharp.Collections.ArrayModule" -> arrays com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.FSharpList`1"
-    | "Microsoft.FSharp.Collections.ListModule" -> lists com r t info thisArg args
+    | "Microsoft.FSharp.Collections.ListModule" -> lists com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.FSharpOption`1"
-    | "Microsoft.FSharp.Core.OptionModule" -> options com r t info thisArg args
-    | "System.Decimal" -> decimals com r t info thisArg args
+    | "Microsoft.FSharp.Core.OptionModule" -> options com ctx r t info thisArg args
+    | "System.Decimal" -> decimals com ctx r t info thisArg args
     // | "System.Numerics.BigInteger"
     // | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com r t info thisArg args
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com r t info thisArg args

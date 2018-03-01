@@ -537,8 +537,7 @@ module Util =
             transformSet com ctx range var value setKind
 
         | Fable.Let(bindings, body) ->
-            let idents = List.map fst bindings
-            if ctx.hoistVars(idents) then
+            if ctx.hoistVars(List.map fst bindings) then
                 let values = bindings |> List.map (fun (id, value) ->
                     com.TransformExpr(ctx, value) |> assign None (ident id))
                 upcast SequenceExpression(values @ [com.TransformExpr(ctx, body)])

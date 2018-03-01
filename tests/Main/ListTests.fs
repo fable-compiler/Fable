@@ -34,10 +34,15 @@ let tests =
       testCase "List.Length works" <| fun () ->
             let xs = [1; 2; 3; 4]
             equal 4 xs.Length
+            equal 0 [].Length
 
       testCase "List.IsEmpty works" <| fun () ->
             let xs = [1; 2; 3; 4]
+            let ys = []
             equal false xs.IsEmpty
+            equal false [1; 2; 3; 4].IsEmpty
+            equal true ys.IsEmpty
+            equal true [].IsEmpty
 
 (*
       testCase "List.Equals works" <| fun () ->

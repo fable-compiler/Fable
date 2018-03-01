@@ -632,8 +632,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             match tdef.Assembly.FileName with
             | Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> None
             | _ -> Some (getEntityLocation tdef).FileName
-        member fcom.TryReplace(thisArg, args, info, t, r) =
-            Replacements.tryCall fcom r t info thisArg args
+        member fcom.TryReplace(ctx, r, t, info, thisArg, args) =
+            Replacements.tryCall fcom ctx r t info thisArg args
         member fcom.GetInlineExpr memb =
             let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
             if fileName <> com.CurrentFile then
