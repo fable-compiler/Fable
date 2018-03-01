@@ -84,30 +84,47 @@ module QuickTest
 //     |> List.concat
 //     |> List.fold (fun acc x -> acc + x) 6
 
-type Foo() =
-    member __.Z = 5
-    // static member (+) (x: Foo, y: string) = "cambalache" + y
-    // static member inline (+) (x: int, y: Foo) = x + 5
+// type Foo() =
+//     member __.Z = 5
+//     // static member (+) (x: Foo, y: string) = "cambalache" + y
+//     // static member inline (+) (x: int, y: Foo) = x + 5
 
-let inline (+) (x: int) (y: Foo) = x + 5
+// let inline (+) (x: int) (y: Foo) = x + 5
 
-let test () =
-    let f = Foo()
-    4 + f
+// let test () =
+//     let f = Foo()
+//     4 + f
 
-let f (y: _ seq) = y // (y2: _ seq) = y
+// let f (y: _ seq) = y // (y2: _ seq) = y
 
-let f2 () =
-    ["1";""] |> f
-    //  |> f [] // ("1"::"2"::li)
+// let f2 () =
+//     ["1";""] |> f
+//     //  |> f [] // ("1"::"2"::li)
 
 
-// type Foo = C1 | C2 | C3 of int | C4 | C5 | C6
+type Foo5 = C1 | C2 | C3 of int | C4 | C5 | C6
 
-// let test c =
-//     match c with
-//     | C1 -> 1
-//     | C2 -> 2
-//     | C3 s -> s
-//     | C4 -> 5
-//     | _ -> 10
+let test c =
+    match c with
+    | C1
+    | C2 -> 2
+    | C3 s -> s
+    | C4 -> 5
+    | _ -> 10
+
+type Foo1(i) =
+    member x.Foo() = i
+    member inline x.Foo(j) = i * j
+
+type Foo2(i) =
+    member inline x.Foo(j) = (i + j) * 2
+
+let inline foo< ^t when ^t : (member Foo : int -> int)> x i =
+    (^t : (member Foo : int -> int) (x, i))
+
+let ``Local inline typed lambdas work``() =
+    let inline localFoo (x:^t) = foo x 5
+    let x1 = Foo1(2)
+    let x2 = Foo2(3)
+    localFoo x1 + localFoo x2
+    // foo x1 5 + foo x2 10

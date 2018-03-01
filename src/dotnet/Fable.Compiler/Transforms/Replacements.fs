@@ -240,8 +240,8 @@ let applyOp (com: ICompiler) ctx r t (i: CallInfo) (args: Expr list) =
     // TODO: Builtin types
     | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         coreCall r t i (coreModFor bt) i.CompiledName None args
-    // TODO: Check if the function is inlined
     | CustomOp com i.CompiledName m ->
+        // TODO: Check also Imported/Emitted/Replacement? Use makeCall?
         if FSharp2Fable.Helpers.isInline m then
             let genArgs = i.GenericArgs |> Seq.map (fun kv -> kv.Value)
             FSharp2Fable.Util.inlineExpr com ctx genArgs None args m

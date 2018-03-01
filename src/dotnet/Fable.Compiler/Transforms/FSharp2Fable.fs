@@ -1,6 +1,7 @@
 module rec Fable.Transforms.FSharp2Fable.Compiler
 
 open System.Collections.Generic
+open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 open Fable
@@ -53,6 +54,27 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
     | DiscriminatedUnion(tdef, genArgs) ->
         let genArgs = makeGenArgs com ctx.typeArgs genArgs
         Fable.NewUnion(argExprs, unionCase, tdef, genArgs) |> Fable.Value
+
+let private transformTraitCall com (ctx: Context) r typ sourceTypes traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
+    let isInstance = flags.IsInstance
+    let argTypes = List.map (makeType com Map.empty) argTypes
+    let argExprs = List.map (fun e -> com.Transform(ctx, e)) argExprs
+    let thisArg, args, argTypes =
+        match argExprs, argTypes with
+        | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
+        | args, argTypes -> None, args, argTypes
+    sourceTypes |> List.tryPick (fun typ ->
+        match makeType com ctx.typeArgs typ with
+        | Fable.DeclaredType(ent,_) ->
+            // printfn "LOOK FOR MEMBER %s (isInstance %b) in %s with args: %A"
+            //     traitName isInstance ent.DisplayName argTypes
+            // TODO: Pass flags.MemberKind?
+            tryFindMember com ent traitName isInstance argTypes
+        | _ -> None)
+    |> function
+        | Some memb -> makeCallFrom com ctx r typ [] thisArg args memb
+        | None -> "Cannot resolve trait call " + traitName
+                  |> addErrorAndReturnNull com r
 
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) (objType: FSharpType)
                     (_baseCallExpr: FSharpExpr) (overrides: FSharpObjectExprOverride list) otherOverrides =
@@ -251,7 +273,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     (** ## Applications *)
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        addErrorAndReturnNull com r "TODO: TraitCalls"
+        transformTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
 
     | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
         let callee = Option.map (transformExpr com ctx) callee

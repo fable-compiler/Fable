@@ -458,10 +458,11 @@ module TypeHelpers =
                     listEquals typeEquals args1 (Seq.toList args2)
                 else false
         // TODO: Check record fields
+        // // Property members that are no getter nor setter don't actually get implemented
+        // not(m.IsProperty && not(m.IsPropertyGetterMethod || m.IsPropertySetterMethod))
         getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
-            let argsEqual = argsEqual argTypes
-            if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName then
-                argsEqual m2.CurriedParameterGroups
+            if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName
+            then argsEqual argTypes m2.CurriedParameterGroups
             else false)
 
     let inline (|FableType|) com (ctx: Context) t = makeType com ctx.typeArgs t
