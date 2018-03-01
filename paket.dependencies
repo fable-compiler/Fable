@@ -2,8 +2,8 @@ source https://www.nuget.org/api/v2
 
 storage:none
 
+nuget FSharp.Core 4.2.3
 nuget FSharp.Compiler.Service
-nuget FSharp.Core
 nuget Newtonsoft.Json
 nuget System.Runtime.Loader
 nuget System.Collections.Immutable

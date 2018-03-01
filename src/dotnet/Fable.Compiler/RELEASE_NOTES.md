@@ -1,3 +1,7 @@
+### 1.3.10
+
+* Pin FSharp.Core to 4.2.3
+
 ### 1.3.9
 
 * Update FCS
