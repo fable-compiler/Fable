@@ -1,3 +1,7 @@
+### 1.3.9
+
+* Update FCS
+
 ### 1.3.8
 
 * See dotnet-fable 1.3.8 release notes

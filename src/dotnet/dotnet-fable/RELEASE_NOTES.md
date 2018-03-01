@@ -1,3 +1,7 @@
+### 1.3.9
+
+* Update FCS
+
 ### 1.3.8
 
 * Remove empty intermediate functions (@vbfox)
