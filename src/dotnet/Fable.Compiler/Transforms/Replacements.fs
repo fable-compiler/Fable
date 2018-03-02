@@ -241,14 +241,8 @@ let applyOp (com: ICompiler) ctx r t (i: CallInfo) (args: Expr list) =
     | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         coreCall r t i (coreModFor bt) i.CompiledName None args
     | CustomOp com i.CompiledName m ->
-        // TODO: Check also Imported/Emitted/Replacement? Use makeCall?
-        if FSharp2Fable.Helpers.isInline m then
-            let genArgs = i.GenericArgs |> Seq.map (fun kv -> kv.Value)
-            FSharp2Fable.Util.inlineExpr com ctx genArgs None args m
-        else
-            let argInfo = { ThisArg = None; Args = args; ArgTypes = Some i.ArgTypes; Spread = NoSpread }
-            FSharp2Fable.Util.memberRef com m
-            |> staticCall r t argInfo
+        let genArgs = i.GenericArgs |> Seq.map (fun kv -> kv.Value)
+        FSharp2Fable.Util.makeCallFrom com ctx r t genArgs None args m
     | _ -> nativeOp i.CompiledName argTypes args
 
 let equality r opName left right =
@@ -264,23 +258,61 @@ let equality r opName left right =
     makeBinOp r Boolean left right op
 
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let curriedApply r t applied args =
+        Fable.Operation(Fable.CurriedApply(applied, args), t, r)
+
+    let compose (com: ICompiler) r t f1 f2 =
+        let argType, retType =
+            match t with
+            | Fable.FunctionType(Fable.LambdaType argType, retType) -> argType, retType
+            | _ -> Fable.Any, Fable.Any
+        let tempVar = com.GetUniqueVar() |> makeTypedIdent argType
+        let body =
+            [Fable.IdentExpr tempVar]
+            |> curriedApply None Fable.Any f1
+            |> List.singleton
+            |> curriedApply r retType f2
+        Fable.Function(Fable.Lambda tempVar, body)
+
     let math r t (i: CallInfo) (args: Fable.Expr list) methName =
         let argTypes = resolveArgTypes i.ArgTypes i.GenericArgs
-        match Naming.lowerFirst methName, List.head argTypes with
-        | "abs", Builtin(BclInt64 | BclBigInt as bt)  ->
+        match methName, List.head argTypes with
+        | "Abs", Builtin(BclInt64 | BclBigInt as bt)  ->
             coreCall r t i (coreModFor bt) "abs" thisArg args |> Some
-         | methName, _ -> globalCall r t i "Math" (Some methName) thisArg args |> Some
+         | methName, _ ->
+            let methName = Naming.lowerFirst methName |> Some
+            globalCall r t i "Math" methName thisArg args |> Some
+
     match i.CompiledName, args with
     // Erased operators
     | "Box", _ | "Unbox", _ | "Identity", _ | "Ignore", _ -> List.tryHead args
     // TODO: Number conversions
     | "ToDouble", _ | "ToInt", _ -> List.tryHead args
-    | "Raise", [arg] -> Throw(arg, t, r) |> Some
+    // Pipes and composition
+    | "op_PipeRight", [x; f]
+    | "op_PipeLeft", [f; x] -> curriedApply r t f [x] |> Some
+    | "op_PipeRight2", [x; y; f]
+    | "op_PipeLeft2", [f; x; y] -> curriedApply r t f [x; y] |> Some
+    | "op_PipeRight3", [x; y; z; f]
+    | "op_PipeLeft3", [f; x; y; z] -> curriedApply r t f [x; y; z] |> Some
+    | "op_ComposeRight", [f1; f2] -> compose com r t f1 f2 |> Some
+    | "op_ComposeLeft", [f2; f1] -> compose com r t f1 f2 |> Some
+    // Exceptions
     | "FailWith", [msg] | "InvalidOp", [msg] ->
         Throw(error msg, t, r) |> Some
     | "InvalidArg", [argName; msg] ->
         let msg = add (add msg (s "\\nParameter name: ")) argName
         Throw(error msg, t, r) |> Some
+    | "Raise", [arg] -> Throw(arg, t, r) |> Some
+    | "Reraise", _ -> failwith "TODO: Reraise"
+        // match ctx.caughtException with
+        // | Some ex ->
+        //     let ex = Fable.IdentValue ex |> Fable.Value
+        //     Fable.Throw (ex, typ, r) |> Some
+        // | None ->
+        //     "`reraise` used in context where caught exception is not available, please report"
+        //     |> addError com info.fileName info.range
+        //     Fable.Throw (newError None Fable.Any [], typ, r) |> Some
     // Math functions
     // TODO: optimize square pow: x * x
     | "Pow", _ | "PowInteger", _ | "op_Exponentiation", _ -> math r t i args "pow"

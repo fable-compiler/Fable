@@ -9,18 +9,18 @@ open Fable.AST
 open Fable.Transforms
 
 type Context =
-    { scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
-      scopedInlines: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
+    { Scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
+      ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
       /// Some expressions that create scope in F# don't do it in JS (like let bindings)
       /// so we need a mutable registry to prevent duplicated var names.
-      varNames: HashSet<string>
-      typeArgs: Map<string, Fable.Type>
+      VarNames: HashSet<string>
+      GenericArgs: Map<string, Fable.Type>
     }
     static member Create() =
-        { scope = []
-          scopedInlines = []
-          varNames = HashSet()
-          typeArgs = Map.empty }
+        { Scope = []
+          ScopeInlineValues = []
+          VarNames = HashSet()
+          GenericArgs = Map.empty }
 
 type IFableCompiler =
     inherit ICompiler
@@ -458,27 +458,25 @@ module TypeHelpers =
                     listEquals typeEquals args1 (Seq.toList args2)
                 else false
         // TODO: Check record fields
-        // // Property members that are no getter nor setter don't actually get implemented
-        // not(m.IsProperty && not(m.IsPropertyGetterMethod || m.IsPropertySetterMethod))
         getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
             if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName
             then argsEqual argTypes m2.CurriedParameterGroups
             else false)
 
-    let inline (|FableType|) com (ctx: Context) t = makeType com ctx.typeArgs t
+    let inline (|FableType|) com (ctx: Context) t = makeType com ctx.GenericArgs t
 
 module Identifiers =
     open Helpers
     open TypeHelpers
 
     let bindExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) expr =
-        { ctx with scope = (Some fsRef, expr)::ctx.scope}
+        { ctx with Scope = (Some fsRef, expr)::ctx.Scope}
 
     let private bindIdentPrivate (com: IFableCompiler) (ctx: Context) typ
                   (fsRef: FSharpMemberOrFunctionOrValue option) force name =
         let sanitizedName = name |> Naming.sanitizeIdent (fun x ->
-            not force && ctx.varNames.Contains x)
-        ctx.varNames.Add sanitizedName |> ignore
+            not force && ctx.VarNames.Contains x)
+        ctx.VarNames.Add sanitizedName |> ignore
         // Track all used var names in the file so they're not used for imports
         com.AddUsedVarName sanitizedName
         let isMutable, range =
@@ -491,25 +489,25 @@ module Identifiers =
               IsMutable = isMutable
               Range = range }
         let identValue = Fable.IdentExpr ident
-        { ctx with scope = (fsRef, identValue)::ctx.scope}, ident
+        { ctx with Scope = (fsRef, identValue)::ctx.Scope}, ident
 
     let bindIdentWithExactName com ctx typ name =
         bindIdentPrivate com ctx typ None true name
 
     /// Sanitize F# identifier and create new context
     let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
-        let typ = makeType com ctx.typeArgs fsRef.FullType
+        let typ = makeType com ctx.GenericArgs fsRef.FullType
         bindIdentPrivate com ctx typ (Some fsRef) false fsRef.CompiledName
 
     let bindIdentWithTentativeName com ctx (fsRef: FSharpMemberOrFunctionOrValue) tentativeName: Context*Fable.Ident =
-        let typ = makeType com ctx.typeArgs fsRef.FullType
+        let typ = makeType com ctx.GenericArgs fsRef.FullType
         bindIdentPrivate com ctx typ (Some fsRef) false tentativeName
 
     let (|BindIdent|) com ctx fsRef = bindIdentFrom com ctx fsRef
 
     /// Get corresponding identifier to F# value in current scope
     let tryGetBoundExpr (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
-        ctx.scope
+        ctx.Scope
         |> List.tryFind (fst >> function Some fsRef' -> obj.Equals(fsRef, fsRef') | None -> false)
         |> function
             | Some(_, Fable.IdentExpr ident) -> { ident with Range = r } |> Fable.IdentExpr |> Some
@@ -533,7 +531,7 @@ module Util =
     let bindMemberArgs com ctx (args: FSharpMemberOrFunctionOrValue list list) =
         // To prevent name clashes in JS create a scope for members
         // where variables must always have a unique name
-        let ctx = { ctx with varNames = HashSet(ctx.varNames) }
+        let ctx = { ctx with VarNames = HashSet(ctx.VarNames) }
         /// TODO: Remove unit arg if single or with `this` arg
         (args, (ctx, [])) ||> List.foldBack (fun tupledArg (ctx, accArgs) ->
             // The F# compiler "untuples" the args in methods
@@ -558,66 +556,21 @@ module Util =
 
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes genArgs thisArg args
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
-
         let isCandidate (entityFullName: string) =
             entityFullName.StartsWith("System.")
                 || entityFullName.StartsWith("Microsoft.FSharp.")
                 || entityFullName.StartsWith("Fable.Core.")
-
-        let tryPipesAndComposition (com: ICompiler) r t args entityFullName compiledName  =
-            let rec curriedApply r t applied args =
-                Fable.Operation(Fable.CurriedApply(applied, args), t, r)
-            let compose r t f1 f2 =
-                let argType, retType =
-                    match t with
-                    | Fable.FunctionType(Fable.LambdaType argType, retType) -> argType, retType
-                    | _ -> Fable.Any, Fable.Any
-                let tempVar = com.GetUniqueVar() |> makeTypedIdent argType
-                let body =
-                    [Fable.IdentExpr tempVar]
-                    |> curriedApply None Fable.Any f1
-                    |> List.singleton
-                    |> curriedApply r retType f2
-                Fable.Function(Fable.Lambda tempVar, body)
-            if entityFullName = "Microsoft.FSharp.Core.Operators" then
-                match compiledName, args with
-                | "op_PipeRight", [x; f]
-                | "op_PipeLeft", [f; x] -> curriedApply r t f [x] |> Some
-                | "op_PipeRight2", [x; y; f]
-                | "op_PipeLeft2", [f; x; y] -> curriedApply r t f [x; y] |> Some
-                | "op_PipeRight3", [x; y; z; f]
-                | "op_PipeLeft3", [f; x; y; z] -> curriedApply r t f [x; y; z] |> Some
-                | "op_ComposeRight", [f1; f2] -> compose r t f1 f2 |> Some
-                | "op_ComposeLeft", [f2; f1] -> compose r t f1 f2 |> Some
-                // Deal with reraise here too as we need the caught exception
-                | "Reraise", _ -> failwith "TODO: Reraise"
-                    // match info.caughtException with
-                    // | Some ex ->
-                    //     let ex = Fable.IdentValue ex |> Fable.Value
-                    //     Fable.Throw (ex, typ, r) |> Some
-                    // | None ->
-                    //     "`reraise` used in context where caught exception is not available, please report"
-                    //     |> addError com info.fileName info.range
-                    //     Fable.Throw (newError None Fable.Any [], typ, r) |> Some
-                | _ -> None
-            else None
-
         match entity |> Option.bind (fun e -> e.TryFullName) with
         | Some entityFullName when isCandidate entityFullName ->
-            let compiledName = memb.CompiledName
-            match tryPipesAndComposition com r typ args entityFullName compiledName with
-            | Some replaced -> Some replaced
-            | None ->
-                let info: Fable.CallInfo =
-                  { ArgTypes = argTypes
-                    DeclaringEntityFullName = entityFullName
-                    CompiledName = memb.CompiledName
-                    GenericArgs = List.map (makeType com ctx.typeArgs) genArgs
-                                  |> matchGenericParams memb }
-                match com.TryReplace(ctx, r, typ, info, thisArg, args) with
-                | Some e -> Some e
-                | None -> sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
-                          |> addErrorAndReturnNull com r |> Some
+            let info: Fable.CallInfo =
+              { ArgTypes = argTypes
+                DeclaringEntityFullName = entityFullName
+                CompiledName = memb.CompiledName
+                GenericArgs = matchGenericParams memb genArgs }
+            match com.TryReplace(ctx, r, typ, info, thisArg, args) with
+            | Some e -> Some e
+            | None -> sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
+                      |> addErrorAndReturnNull com r |> Some
         | _ -> None
 
     let (|Emitted|_|) r typ argInfo (memb: FSharpMemberOrFunctionOrValue) =
@@ -671,7 +624,7 @@ module Util =
             ((ctx, []), argIdents, args) |||> List.fold2 (fun (ctx, bindings) argId arg ->
                 let ctx, ident = bindIdentFrom com ctx argId
                 ctx, (ident, arg)::bindings)
-        let ctx = { ctx with typeArgs = matchGenericParams memb genArgs }
+        let ctx = { ctx with GenericArgs = matchGenericParams memb genArgs }
         match com.Transform(ctx, fsExpr) with
         | Fable.Let(bindings2, expr) -> Fable.Let((List.rev bindings) @ bindings2, expr)
         | expr -> Fable.Let(List.rev bindings, expr)
@@ -679,9 +632,7 @@ module Util =
     let (|Inlined|_|) (com: IFableCompiler) ctx genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
         if not(isInline memb)
         then None
-        else
-            let genArgs = List.map (makeType com ctx.typeArgs) genArgs
-            inlineExpr com ctx genArgs callee args memb |> Some
+        else inlineExpr com ctx genArgs callee args memb |> Some
 
     let removeOmittedOptionalArguments (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Expr list) =
         let argsLen = List.length args
@@ -714,7 +665,7 @@ module Util =
     let memberRef (com: IFableCompiler) (memb: FSharpMemberOrFunctionOrValue) =
         memberRefTyped com Fable.Any memb
 
-    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
+    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let call kind args =
             Fable.Operation(Fable.Call(kind, args), typ, r)
         let args = removeOmittedOptionalArguments memb args
@@ -752,7 +703,7 @@ module Util =
             else memberRef com memb |> staticCall r typ argInfo
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
-        let typ = makeType com ctx.typeArgs v.FullType
+        let typ = makeType com ctx.GenericArgs v.FullType
         match v with
         | _ when typ = Fable.Unit -> Fable.Value Fable.UnitConstant
         | Imported r typ None imported -> imported

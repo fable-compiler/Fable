@@ -26,7 +26,7 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
     | ErasedUnion(_, genArgs) ->
         match argExprs with
         | [expr] ->
-            let genArgs = makeGenArgs com ctx.typeArgs genArgs
+            let genArgs = makeGenArgs com ctx.GenericArgs genArgs
             Fable.NewErasedUnion(expr, genArgs) |> Fable.Value
         | _ -> "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
@@ -36,7 +36,7 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
         | _ -> "StringEnum types cannot have fields: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
     | OptionUnion typ ->
-        let typ = makeType com ctx.typeArgs typ
+        let typ = makeType com ctx.GenericArgs typ
         let expr =
             match argExprs with
             | [] -> None
@@ -44,7 +44,7 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
             | _ -> failwith "Unexpected args for Option constructor"
         Fable.NewOption(expr, typ) |> Fable.Value
     | ListUnion typ ->
-        let typ = makeType com ctx.typeArgs typ
+        let typ = makeType com ctx.GenericArgs typ
         let headAndTail =
             match argExprs with
             | [] -> None
@@ -52,7 +52,7 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
             | _ -> failwith "Unexpected args for List constructor"
         Fable.NewList(headAndTail, typ) |> Fable.Value
     | DiscriminatedUnion(tdef, genArgs) ->
-        let genArgs = makeGenArgs com ctx.typeArgs genArgs
+        let genArgs = makeGenArgs com ctx.GenericArgs genArgs
         Fable.NewUnion(argExprs, unionCase, tdef, genArgs) |> Fable.Value
 
 let private transformTraitCall com (ctx: Context) r typ sourceTypes traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
@@ -64,11 +64,10 @@ let private transformTraitCall com (ctx: Context) r typ sourceTypes traitName (f
         | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
         | args, argTypes -> None, args, argTypes
     sourceTypes |> List.tryPick (fun typ ->
-        match makeType com ctx.typeArgs typ with
+        match makeType com ctx.GenericArgs typ with
         | Fable.DeclaredType(ent,_) ->
             // printfn "LOOK FOR MEMBER %s (isInstance %b) in %s with args: %A"
             //     traitName isInstance ent.DisplayName argTypes
-            // TODO: Pass flags.MemberKind?
             tryFindMember com ent traitName isInstance argTypes
         | _ -> None)
     |> function
@@ -119,7 +118,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FShar
     //                         genParams = (over.GenericParameters |> List.map (fun x -> x.Name)),
     //                         hasRestParams = hasRestParams)
     //            m, args', body))
-    Fable.ObjectExpr([], makeType com ctx.typeArgs fsExpr.Type)
+    Fable.ObjectExpr([], makeType com ctx.GenericArgs fsExpr.Type)
 
 let private transformDelegate com ctx delegateType fsExpr =
     // let wrapInZeroArgsFunction r typ (args: FSharpExpr list) argTypes fref =
@@ -163,7 +162,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
                         |> Seq.findIndex (fun arg -> arg.Name = name)
                     genArgs.[index]
                 else fi.FieldType
-            let kind = makeType com ctx.typeArgs typ |> Fable.TypeTest
+            let kind = makeType com ctx.GenericArgs typ |> Fable.TypeTest
             Fable.Test(unionExpr, kind, makeRangeFrom fsExpr)
     | OptionUnion _ ->
         let kind = Fable.OptionTest(unionCase.Name <> "None")
@@ -180,7 +179,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     match fsExpr with
     | BasicPatterns.Coerce(targetType, Transform com ctx inpExpr) ->
-        Fable.Cast(inpExpr, makeType com ctx.typeArgs targetType)
+        Fable.Cast(inpExpr, makeType com ctx.GenericArgs targetType)
 
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
@@ -194,14 +193,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | TryGetValue (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let callee, args = Option.map (transformExpr com ctx) callee, List.map (transformExpr com ctx) membArgs
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeCallFrom com ctx r typ (ownerGenArgs@membGenArgs) callee args memb
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
+        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
+        makeCallFrom com ctx r typ genArgs callee args memb
 
     | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let callee, args = transformExpr com ctx callee, List.map (transformExpr com ctx) membArgs
         let callee = get None Fable.Any callee eventName
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeCallFrom com ctx r typ (ownerGenArgs@membGenArgs) (Some callee) args memb
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
+        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
+        makeCallFrom com ctx r typ genArgs (Some callee) args memb
 
     | CheckArrayLength (Transform com ctx arr, length, FableType com ctx typ) ->
         let r = makeRangeFrom fsExpr
@@ -230,11 +231,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.BaseValue typ
     | BasicPatterns.ThisValue typ ->
-        makeType com ctx.typeArgs typ |> Fable.This |> Fable.Value
+        makeType com ctx.GenericArgs typ |> Fable.This |> Fable.Value
 
     | BasicPatterns.Value var ->
         if isInline var then
-            match ctx.scopedInlines |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
+            match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
             | Some (_,fsExpr) -> transformExpr com ctx fsExpr
             | None ->
                 "Cannot resolve locally inlined value: " + var.DisplayName
@@ -251,7 +252,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     (** ## Assignments *)
     | BasicPatterns.Let((var, value), body) ->
         if isInline var then
-            let ctx = { ctx with scopedInlines = (var, value)::ctx.scopedInlines }
+            let ctx = { ctx with ScopeInlineValues = (var, value)::ctx.ScopeInlineValues }
             transformExpr com ctx body
         else
             let value = transformExpr com ctx value
@@ -272,36 +273,40 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     (** ## Applications *)
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         transformTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
 
     | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
         let callee = Option.map (transformExpr com ctx) callee
         let args = List.map (transformExpr com ctx) args
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeCallFrom com ctx r typ (ownerGenArgs@membGenArgs) callee args memb
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
+        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
+        makeCallFrom com ctx r typ genArgs callee args memb
 
     // Application of locally inlined lambdas
-    | BasicPatterns.Application(BasicPatterns.Value var, typeArgs, args) when isInline var ->
-        failwith "TODO: Locally inlined lambdas"
-        // let range = makeRangeFrom fsExpr
-        // match ctx.scopedInlines |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
-        // | Some (_,fsExpr) ->
-        //     let resolvedCtx = { ctx with typeArgs = matchGenericParams ctx var [] typeArgs }
-        //     let callee = transformExpr com resolvedCtx fsExpr
-        //     match args with
-        //     | [] -> callee
-        //     | args -> Fable.Apply(callee, List.map (transformExpr com ctx) args, range)
-        // | None ->
-        //     "Cannot resolve locally inlined value: " + var.DisplayName
-        //     |> addErrorAndReturnNull com range
+    | BasicPatterns.Application(BasicPatterns.Value var, genArgs, args) when isInline var ->
+        let range = makeRangeFrom fsExpr
+        match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
+        | Some (_,fsExpr) ->
+            let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
+            let resolvedCtx = { ctx with GenericArgs = matchGenericParams var genArgs }
+            let callee = transformExpr com resolvedCtx fsExpr
+            match args with
+            | [] -> callee
+            | args ->
+                let typ = makeType com ctx.GenericArgs fsExpr.Type
+                let args = List.map (transformExpr com ctx) args
+                Fable.Operation(Fable.CurriedApply(callee, args), typ, range)
+        | None ->
+            "Cannot resolve locally inlined value: " + var.DisplayName
+            |> addErrorAndReturnNull com range
 
     // TODO: Ask why application without arguments happen. So far I've seen it
     // to access None or struct values (like the Result type)
     | BasicPatterns.Application(Transform com ctx expr, _, []) -> expr
 
     | BasicPatterns.Application(FableCoreDynamicOp(Transform com ctx e1, Transform com ctx e2), _, args) ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         let argInfo: Fable.ArgInfo =
           { ThisArg = Some e1
             Args = List.map (transformExpr com ctx) args
@@ -310,7 +315,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         Fable.Operation(Fable.Call(Fable.InstanceCall(Some e2), argInfo), typ, r)
 
     | BasicPatterns.Application(Transform com ctx applied, _, args) ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         let args = List.map (transformExpr com ctx) args
         Fable.Operation(Fable.CurriedApply(applied, args), typ, r)
 
@@ -342,10 +347,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // the F# compiler wraps self references with code we don't need
     | BasicPatterns.FSharpFieldGet(Some ThisVar, RefType _, _)
     | BasicPatterns.FSharpFieldGet(Some(BasicPatterns.FSharpFieldGet(Some ThisVar, _, _)), RefType _, _) ->
-        makeType com ctx.typeArgs fsExpr.Type |> Fable.This |> Fable.Value
+        makeType com ctx.GenericArgs fsExpr.Type |> Fable.This |> Fable.Value
 
     | BasicPatterns.FSharpFieldGet (callee, calleeType, field) ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
@@ -356,7 +361,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         else get r typ callee field.Name
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         // makeIndexGet r typ tupleExpr tupleElemIndex
         Fable.Get(tupleExpr, Fable.TupleGet tupleElemIndex, typ, r)
 
@@ -368,12 +373,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
         | OptionUnion t ->
-            Fable.Get(unionExpr, Fable.OptionValue, makeType com ctx.typeArgs t, range)
+            Fable.Get(unionExpr, Fable.OptionValue, makeType com ctx.GenericArgs t, range)
         | ListUnion t ->
             let kind = if field.Name = "Head" then Fable.ListHead else Fable.ListTail
-            Fable.Get(unionExpr, kind, makeType com ctx.typeArgs t, range)
+            Fable.Get(unionExpr, kind, makeType com ctx.GenericArgs t, range)
         | DiscriminatedUnion(tdef,_) ->
-            let t = makeType com ctx.typeArgs field.FieldType
+            let t = makeType com ctx.GenericArgs field.FieldType
             Fable.Get(unionExpr, Fable.UnionField(field, unionCase, tdef), t, range)
 
     // When using a self reference in constructor (e.g. `type MyType() as self =`)
@@ -425,13 +430,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         transformObjExpr com ctx fsExpr objType baseCallExpr overrides otherOverrides
 
     | BasicPatterns.NewObject(memb, genArgs, args) ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         let args = List.map (transformExpr com ctx) args
+        let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
         makeCallFrom com ctx r typ genArgs None args memb
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let argExprs = List.map (transformExpr com ctx) argExprs
-        let genArgs = makeGenArgs com ctx.typeArgs fsType.GenericArguments
+        let genArgs = makeGenArgs com ctx.GenericArgs fsType.GenericArguments
         Fable.NewRecord(argExprs, fsType.TypeDefinition, genArgs) |> Fable.Value
 
     | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
@@ -457,12 +463,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         Fable.DecisionTree(decisionExpr, decisionTargets)
 
     | BasicPatterns.DecisionTreeSuccess(targetIndex, boundValues) ->
-        let typ = makeType com ctx.typeArgs fsExpr.Type
+        let typ = makeType com ctx.GenericArgs fsExpr.Type
         Fable.DecisionTreeSuccess(targetIndex, List.map (transformExpr com ctx) boundValues, typ)
 
     | BasicPatterns.ILFieldGet(None, ownerTyp, fieldName) ->
-        let returnTyp = makeType com ctx.typeArgs fsExpr.Type
-        let ownerTyp = makeType com ctx.typeArgs ownerTyp
+        let returnTyp = makeType com ctx.GenericArgs fsExpr.Type
+        let ownerTyp = makeType com ctx.GenericArgs ownerTyp
         match Replacements.tryField returnTyp ownerTyp fieldName with
         | Some expr -> expr
         | None ->
