@@ -151,10 +151,10 @@ module Util =
     let macroExpression range (txt: string) args =
         MacroExpression(txt, args, ?loc=range) :> Expression
 
-    let getMemberArgsAndBody (com: IBabelCompiler) ctx tc args (body: Fable.Expr) hasRestParams =
+    let getMemberArgsAndBody (com: IBabelCompiler) ctx tc hasSpread args (body: Fable.Expr) =
         let args, body = com.TransformFunction(ctx, tc, args, body)
         let args =
-            if not hasRestParams
+            if not hasSpread
             then args
             else let args = List.rev args
                  (RestElement(args.Head) :> Pattern) :: args.Tail |> List.rev
@@ -216,7 +216,7 @@ module Util =
         | Fable.NewRecord(vals,ent,_) ->
             let members =
                 (ent.FSharpFields, vals)
-                ||> Seq.map2 (fun fi v -> fi.Name, v, Fable.ObjectValue false)
+                ||> Seq.map2 (fun fi v -> fi.Name, v, Fable.ObjectValue)
                 |> Seq.toList
             com.TransformObjectExpr(ctx, members)
         | Fable.NewUnion(vals,uci,_,_) ->
@@ -225,23 +225,35 @@ module Util =
         | Fable.NewErasedUnion(e,_) -> com.TransformExpr(ctx, e)
 
     let transformObjectExpr (com: IBabelCompiler) ctx members: Expression =
-        let makeMethod kind prop computed hasSpread args body =
-            let args, body' = getMemberArgsAndBody com ctx None args body hasSpread
-            ObjectMethod(kind, prop, args, body', computed=computed) |> U3.Case2
-        members |> List.map (fun (name, expr, kind) ->
+        let makeObjMethod kind prop computed hasSpread args body =
+            // TODO: Check tail call opportunity
+            let args, body = getMemberArgsAndBody com ctx None hasSpread args body
+            let args, body =
+                match args with
+                | thisArg::args ->
+                    let thisBinding = varDeclaration thisArg false (Identifier "this") :> Statement
+                    let body = BlockStatement(thisBinding::body.body)
+                    args, body
+                | args -> args, body
+            ObjectMethod(kind, prop, args, body, computed=computed) |> U3.Case2 |> Some
+        members |> List.choose (fun (name, expr, kind) ->
             let prop, computed = memberFromName name
-            match expr with
-            | Fable.Function(Fable.Delegate args, body) ->
-                match kind with
-                | Fable.ObjectValue hasSpread ->
-                    makeMethod ObjectMeth prop computed hasSpread args body
-                | Fable.ObjectGetter ->
-                    makeMethod ObjectGetter prop computed false args body
-                | Fable.ObjectSetter ->
-                    makeMethod ObjectGetter prop computed false args body
-            | _ ->
-                let value = com.TransformExpr(ctx, expr)
-                ObjectProperty(prop, value, computed=computed) |> U3.Case1
+            match kind, expr with
+            | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body) ->
+                // Don't call the `makeObjMethod` helper here because function as values don't bind this
+                let args, body' = getMemberArgsAndBody com ctx None false args body
+                ObjectMethod(ObjectMeth, prop, args, body', computed=computed) |> U3.Case2 |> Some
+            | Fable.ObjectValue, TransformExpr com ctx value ->
+                ObjectProperty(prop, value, computed=computed) |> U3.Case1 |> Some
+            | Fable.ObjectMethod hasSpread, Fable.Function(Fable.Delegate args, body) ->
+                makeObjMethod ObjectMeth prop computed hasSpread args body
+            | Fable.ObjectGetter, Fable.Function(Fable.Delegate args, body) ->
+                makeObjMethod ObjectGetter prop computed false args body
+            | Fable.ObjectSetter, Fable.Function(Fable.Delegate args, body) ->
+                makeObjMethod ObjectSetter prop computed false args body
+            | kind, _ ->
+                sprintf "Object member has kind %A but value is not a function" kind
+                |> addError com None; None
         ) |> ObjectExpression :> Expression
 
     let transformArgs (com: IBabelCompiler) ctx args spread =
@@ -253,6 +265,7 @@ module Util =
         | args, Fable.SeqSpread ->
             match List.rev args with
             | [] -> []
+            // TODO: Check also lists?
             | Fable.Value(Fable.NewArray(Fable.ArrayValues spreadArgs,_))::rest ->
                 let rest = List.rev rest |> List.map (fun e -> com.TransformExpr(ctx, e))
                 rest @ (List.map (fun e -> com.TransformExpr(ctx, e)) spreadArgs)
@@ -657,6 +670,7 @@ module Util =
             match args with
             | [] -> None, []
             | [unitArg] when unitArg.Type = Fable.Unit -> None, []
+            | [thisArg; unitArg] when thisArg.IsThisArg && unitArg.Type = Fable.Unit -> None, [ident thisArg]
             | args -> tailcallChance, List.map ident args
         let declaredVars = ResizeArray()
         let mutable isTailCallOptimized = false
@@ -736,11 +750,11 @@ module Util =
             let expDecl = ExportNamedDeclaration(specifiers=[expSpec])
             [expDecl :> ModuleDeclaration |> U2.Case2; decl :> Statement |> U2.Case1]
 
-    let transformModuleFunction (com: IBabelCompiler) ctx args body (info: Fable.DeclarationInfo) =
+    let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.DeclarationInfo) args body =
         let args, body =
             // let tc = NamedTailCallOpportunity(com, privName, args) :> ITailCallOpportunity |> Some
             let tc = None
-            getMemberArgsAndBody com ctx tc args body info.HasSpread
+            getMemberArgsAndBody com ctx tc info.HasSpread args body
         // Don't lexically bind `this` (with arrow function) or it will fail with extension members
         let expr: Expression = upcast FunctionExpression(args, body)
         declareModuleMember info.PublicName info.PrivateName false expr
@@ -774,7 +788,7 @@ module Util =
             //     let import = getCoreLibImport com ctx "Util" "createAtom"
             //     upcast CallExpression(import, [U2.Case1 expr])
                 | _, Fable.Function(Fable.Delegate args, body) ->
-                    transformModuleFunction com ctx args body info
+                    transformModuleFunction com ctx info args body
                 | _ ->
                     let value = transformExpr com ctx value
                     declareModuleMember info.PublicName info.PrivateName info.IsMutable value

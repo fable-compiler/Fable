@@ -102,29 +102,52 @@ module QuickTest
 //     //  |> f [] // ("1"::"2"::li)
 
 
-type Foo5 = C1 | C2 | C3 of int | C4 | C5 | C6
+// type Foo5 = C1 | C2 | C3 of int | C4 | C5 | C6
 
-let test c =
-    match c with
-    | C1
-    | C2 -> 2
-    | C3 s -> s
-    | C4 -> 5
-    | _ -> 10
+// let test c =
+//     match c with
+//     | C1
+//     | C2 -> 2
+//     | C3 s -> s
+//     | C4 -> 5
+//     | _ -> 10
 
-type Foo1(i) =
-    member x.Foo() = i
-    member inline x.Foo(j) = i * j
+// type Foo1(i) =
+//     member x.Foo() = i
+//     member inline x.Foo(j) = i * j
 
-type Foo2(i) =
-    member inline x.Foo(j) = (i + j) * 2
+// type Foo2(i) =
+//     member inline x.Foo(j) = (i + j) * 2
 
-let inline foo< ^t when ^t : (member Foo : int -> int)> x i =
-    (^t : (member Foo : int -> int) (x, i))
+// let inline foo< ^t when ^t : (member Foo : int -> int)> x i =
+//     (^t : (member Foo : int -> int) (x, i))
 
-let ``Local inline typed lambdas work``() =
-    let inline localFoo (x:^t) = foo x 5
-    let x1 = Foo1(2)
-    let x2 = Foo2(3)
-    localFoo x1 + localFoo x2
-    // foo x1 5 + foo x2 10
+// let ``Local inline typed lambdas work``() =
+//     let inline localFoo (x:^t) = foo x 5
+//     let x1 = Foo1(2)
+//     let x2 = Foo2(3)
+//     localFoo x1 + localFoo x2
+//     // foo x1 5 + foo x2 10
+
+open System
+open Fable.Core.JsInterop
+
+type IFoo =
+   abstract Foo: float
+   abstract Foo2: float
+   abstract FooBar: float with set
+   abstract Bar: s: string * [<ParamArray>] rest: int[] -> string
+
+let ``ParamArray in object expression works``() =
+   let mutable ja = 0.
+   let o =
+    { new IFoo with
+        member __.Foo = ja
+        member this.Foo2 = this.Foo + this.Foo
+        member __.FooBar with set v = ja <- v
+        member __.Bar(s: string, [<ParamArray>] rest: int[]) =
+            s + !!rest.[0] + !!rest.[1]
+    }
+   o.Bar("{0} + {0} = {1}", 2, 4)
+
+Fable.Import.JS.console.log(``ParamArray in object expression works``())

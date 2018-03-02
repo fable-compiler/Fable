@@ -46,6 +46,7 @@ type Ident =
     { Name: string
       Type: Type
       IsMutable: bool
+      IsThisArg: bool
       Range: SourceLocation option }
 
 type ImportKind =
@@ -161,7 +162,8 @@ type TestKind =
     | UnionCaseTest of FSharpUnionCase * FSharpEntity
 
 type ObjectMemberKind =
-    | ObjectValue of hasSpread: bool
+    | ObjectValue
+    | ObjectMethod of hasSpread: bool
     | ObjectGetter
     | ObjectSetter
 

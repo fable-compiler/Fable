@@ -332,7 +332,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Reference
     | "op_Dereference", [arg] -> get r t arg "contents" |> Some
     | "op_ColonEquals", [o; v] -> Fable.Set(o, makeStrConst "contents" |> ExprSet, v, r) |> Some
-    | "Ref", [arg] -> ObjectExpr(["contents", arg, ObjectValue false], t) |> Some
+    | "Ref", [arg] -> ObjectExpr(["contents", arg, ObjectValue], t) |> Some
     | "Not", [operand] -> // TODO: Check custom operator?
         makeUnOp r t operand UnaryNot |> Some
     // Concatenates two lists

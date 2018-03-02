@@ -481,15 +481,14 @@ module Identifiers =
         ctx.VarNames.Add sanitizedName |> ignore
         // Track all used var names in the file so they're not used for imports
         com.AddUsedVarName sanitizedName
-        let isMutable, range =
-            match fsRef with
-            | Some x -> x.IsMutable, Some(makeRange x.DeclarationLocation)
-            | None -> false, None
         let ident: Fable.Ident =
-            { Name = sanitizedName
-              Type = typ
-              IsMutable = isMutable
-              Range = range }
+            match fsRef with
+            | None -> makeTypedIdent typ sanitizedName
+            | Some v ->
+                { makeTypedIdent typ sanitizedName with
+                    IsMutable = v.IsMutable
+                    IsThisArg = v.IsMemberThisValue
+                    Range = makeRange v.DeclarationLocation |> Some }
         let identValue = Fable.IdentExpr ident
         { ctx with Scope = (fsRef, identValue)::ctx.Scope}, ident
 

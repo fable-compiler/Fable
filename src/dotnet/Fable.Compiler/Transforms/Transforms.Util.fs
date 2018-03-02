@@ -70,6 +70,7 @@ module AST =
         { Name = name
           Type = Any
           IsMutable = false
+          IsThisArg = false
           Range = None }
 
     let makeTypedIdent typ name =

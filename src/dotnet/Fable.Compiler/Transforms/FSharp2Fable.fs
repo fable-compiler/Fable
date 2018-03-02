@@ -75,50 +75,47 @@ let private transformTraitCall com (ctx: Context) r typ sourceTypes traitName (f
         | None -> "Cannot resolve trait call " + traitName
                   |> addErrorAndReturnNull com r
 
-let private transformObjExpr (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr) (objType: FSharpType)
-                    (_baseCallExpr: FSharpExpr) (overrides: FSharpObjectExprOverride list) otherOverrides =
-    // let members =
-    //     (objType, overrides)::otherOverrides
-    //     |> List.collect (fun (typ, overrides) ->
-    //         let overrides =
-    //             if not typ.HasTypeDefinition then overrides else
-    //             let typName = typ.TypeDefinition.FullName.Replace(".","-")
-    //             overrides |> List.where (fun x ->
-    //                 typName + "-" + x.Signature.Name
-    //                 |> Naming.ignoredInterfaceMethods.Contains
-    //                 |> not)
-    //         overrides |> List.map (fun over ->
-    //             // TODO: Check if we should pass generics?
-    //             let ctx, args' = bindMemberArgs com ctx false over.CurriedParameterGroups
-    //             // Don't use the typ argument as the override may come
-    //             // from another type, like ToString()
-    //             let typ =
-    //                 if over.Signature.DeclaringType.HasTypeDefinition
-    //                 then Some over.Signature.DeclaringType.TypeDefinition
-    //                 else None
-    //             // TODO: Check for indexed getter and setter also in object expressions?
-    //             let name = over.Signature.Name |> Naming.removeGetSetPrefix
-    //             let kind =
-    //                 match over.Signature.Name with
-    //                 | Naming.StartsWith "get_" _ -> Fable.Getter
-    //                 | Naming.StartsWith "set_" _ -> Fable.Setter
-    //                 | _ -> Fable.Method
-    //             // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
-    //             // information about ParamArray, we need to check the source method.
-    //             let hasRestParams =
-    //                 match typ with
-    //                 | None -> false
-    //                 | Some typ ->
-    //                     typ.TryGetMembersFunctionsAndValues
-    //                     |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
-    //                     |> function Some m -> hasRestParams m | None -> false
-    //             let body = transformExpr com ctx over.Body
-    //             let args = List.map Fable.Ident.getType args'
-    //             let m = Fable.Member(name, kind, Fable.InstanceLoc, args, body.Type,
-    //                         genParams = (over.GenericParameters |> List.map (fun x -> x.Name)),
-    //                         hasRestParams = hasRestParams)
-    //            m, args', body))
-    Fable.ObjectExpr([], makeType com ctx.GenericArgs fsExpr.Type)
+let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSharpType)
+                        (overrides: FSharpObjectExprOverride list) otherOverrides =
+    (objType, overrides)::otherOverrides
+    |> List.collect (fun (typ, overrides) ->
+        let overrides =
+            if not typ.HasTypeDefinition then overrides else
+            let typName = typ.TypeDefinition.FullName.Replace(".","-")
+            overrides |> List.where (fun x ->
+                typName + "-" + x.Signature.Name
+                |> Naming.ignoredInterfaceMethods.Contains
+                |> not)
+        overrides |> List.map (fun over ->
+            // TODO: Check if we should pass generics?
+            let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
+            let value = Fable.Function(Fable.Delegate args, transformExpr com ctx over.Body)
+            // Don't use the typ argument as the override may come
+            // from another type, like ToString()
+            let typ =
+                if over.Signature.DeclaringType.HasTypeDefinition
+                then Some over.Signature.DeclaringType.TypeDefinition
+                else None
+            // TODO: Check for indexed getter and setter also in object expressions?
+            match over.Signature.Name with
+            | Naming.StartsWith "get_" name ->
+                name, value, Fable.ObjectGetter
+            | Naming.StartsWith "set_" name ->
+                name, value, Fable.ObjectSetter
+            | name ->
+                // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
+                // information about ParamArray, we need to check the source method.
+                let hasSpread =
+                    match typ with
+                    | None -> false
+                    | Some typ ->
+                        typ.TryGetMembersFunctionsAndValues
+                        |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
+                        |> function Some m -> hasSeqSpread m | None -> false
+                name, value, Fable.ObjectMethod hasSpread
+    )) |> fun members ->
+        let typ = makeType com ctx.GenericArgs objType
+        Fable.ObjectExpr(members, typ)
 
 let private transformDelegate com ctx delegateType fsExpr =
     // let wrapInZeroArgsFunction r typ (args: FSharpExpr list) argTypes fref =
@@ -426,8 +423,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.NewTuple(_, argExprs) ->
         argExprs |> List.map (transformExpr com ctx) |> Fable.NewTuple |> Fable.Value
 
-    | BasicPatterns.ObjectExpr(objType, baseCallExpr, overrides, otherOverrides) ->
-        transformObjExpr com ctx fsExpr objType baseCallExpr overrides otherOverrides
+    | BasicPatterns.ObjectExpr(objType, _baseCallExpr, overrides, otherOverrides) ->
+        transformObjExpr com ctx objType overrides otherOverrides
 
     | BasicPatterns.NewObject(memb, genArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
