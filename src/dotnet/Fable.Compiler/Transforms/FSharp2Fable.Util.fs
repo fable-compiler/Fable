@@ -15,12 +15,14 @@ type Context =
       /// so we need a mutable registry to prevent duplicated var names.
       VarNames: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
+      CaughtException: Fable.Ident option
     }
     static member Create() =
         { Scope = []
           ScopeInlineValues = []
           VarNames = HashSet()
-          GenericArgs = Map.empty }
+          GenericArgs = Map.empty
+          CaughtException = None }
 
 type IFableCompiler =
     inherit ICompiler
@@ -542,6 +544,8 @@ module Util =
         let catchClause =
             match catchClause with
             | Some (BindIdent com ctx (catchContext, catchVar), catchBody) ->
+                // Add caughtException to context so it can be retrieved by `reraise`
+                let catchContext = { catchContext with CaughtException = Some catchVar }
                 Some (catchVar, com.Transform(catchContext, catchBody))
             | None -> None
         let finalizer =

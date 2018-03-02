@@ -304,15 +304,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let msg = add (add msg (s "\\nParameter name: ")) argName
         Throw(error msg, t, r) |> Some
     | "Raise", [arg] -> Throw(arg, t, r) |> Some
-    | "Reraise", _ -> failwith "TODO: Reraise"
-        // match ctx.caughtException with
-        // | Some ex ->
-        //     let ex = Fable.IdentValue ex |> Fable.Value
-        //     Fable.Throw (ex, typ, r) |> Some
-        // | None ->
-        //     "`reraise` used in context where caught exception is not available, please report"
-        //     |> addError com info.fileName info.range
-        //     Fable.Throw (newError None Fable.Any [], typ, r) |> Some
+    | "Reraise", _ ->
+        match ctx.CaughtException with
+        | Some ex -> Throw(IdentExpr ex, t, r) |> Some
+        | None ->
+            addError com r "`reraise` used in context where caught exception is not available, please report"
+            Throw(error (s ""), t, r) |> Some
     // Math functions
     // TODO: optimize square pow: x * x
     | "Pow", _ | "PowInteger", _ | "op_Exponentiation", _ -> math r t i args "pow"
@@ -524,6 +521,13 @@ let fableCoreLib (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: 
     | "AreEqual", _ -> coreCall r t i "Assert" "equal" thisArg args |> Some
     | _ -> None
 
+let exceptions (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | ".ctor", _ -> constructorCall_ r t (makeIdentExpr "Error") args |> Some
+    | "get_Message", Some e -> get r t e "message" |> Some
+    | "get_StackTrace", Some e -> get r t e "stack" |> Some
+    | _ -> None
+
 let tryField returnTyp ownerTyp fieldName =
     match ownerTyp, fieldName with
     | Number Decimal, "Zero" -> makeDecConst 0M |> Some
@@ -557,8 +561,8 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     // | "System.Numerics.BigInteger"
     // | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com r t info thisArg args
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com r t info thisArg args
+    | Naming.EndsWith "Exception" _ -> exceptions com r t info thisArg args
     | _ -> None
-//         | Naming.EndsWith "Exception" _ -> exceptions com info
 //         | "System.Object" -> objects com info
 //         | "System.Timers.ElapsedEventArgs" -> info.thisArg // only signalTime is available here
 //         | "System.Char" -> chars com info
