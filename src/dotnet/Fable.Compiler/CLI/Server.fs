@@ -1,33 +1,10 @@
 module Fable.CLI.Server
 
-open System
-open System.IO
 open System.Text
 open System.Net
 open System.Net.Sockets
-open System.Threading
-open System.Threading.Tasks
 
 let [<Literal>] SIGTERM = "[SIGTERM]"
-
-// From http://www.fssnip.net/hx/title/AsyncAwaitTask-with-timeouts
-type Microsoft.FSharp.Control.Async with
-    static member AwaitTask (t : Task<'T>, timeout : int) =
-        async {
-            if timeout >= 0
-            then
-                use cts = new CancellationTokenSource()
-                let timer = Task.Delay (timeout, cts.Token)
-                let! completed = Async.AwaitTask <| Task.WhenAny(t, timer)
-                if completed = (t :> Task) then
-                    cts.Cancel ()
-                    let! result = Async.AwaitTask t
-                    return Some result
-                else return None
-            else
-                let! result = Async.AwaitTask t
-                return Some result
-        }
 
 let rec private loop (server: TcpListener) (buffer: byte[]) (onMessage: (string*(string->unit)->unit)) = async {
     // printfn "Waiting for connection..."

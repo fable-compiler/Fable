@@ -58,7 +58,7 @@ type IBabelCompiler =
     abstract TransformExpr: Context * Fable.Expr -> Expression
     abstract TransformStatement: Context * Fable.Expr -> Statement list
     abstract TransformExprAndResolve: Context * ReturnStrategy * Fable.Expr -> Statement list
-    abstract TransformObjectExpr: Context * Fable.ObjectMember list -> Expression
+    abstract TransformObjectExpr: Context * Fable.ObjectMember list * ?boundThis: Identifier -> Expression
     abstract TransformFunction: Context * ITailCallOpportunity option * Fable.Ident list * Fable.Expr
         -> (Pattern list) * U2<BlockStatement, Expression>
 
@@ -224,23 +224,23 @@ module Util =
             Fable.ArrayValues (tag::vals) |> buildArray com ctx Fable.Any
         | Fable.NewErasedUnion(e,_) -> com.TransformExpr(ctx, e)
 
-    let transformObjectExpr (com: IBabelCompiler) ctx members: Expression =
+    let transformObjectExpr (com: IBabelCompiler) ctx members (boundThis: Identifier option): Expression =
         let makeObjMethod kind prop computed hasSpread args body =
             // TODO: Check tail call opportunity
             let args, body = getMemberArgsAndBody com ctx None hasSpread args body
             let args, body =
-                match args with
-                | thisArg::args ->
-                    let thisBinding = varDeclaration thisArg false (Identifier "this") :> Statement
+                match boundThis, args with
+                | Some boundThis, thisArg::args ->
+                    let thisBinding = varDeclaration thisArg false boundThis :> Statement
                     let body = BlockStatement(thisBinding::body.body)
                     args, body
-                | args -> args, body
+                | _, args -> args, body
             ObjectMethod(kind, prop, args, body, computed=computed) |> U3.Case2 |> Some
         members |> List.choose (fun (name, expr, kind) ->
             let prop, computed = memberFromName name
             match kind, expr with
             | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body) ->
-                // Don't call the `makeObjMethod` helper here because function as values don't bind this
+                // Don't call the `makeObjMethod` helper here because function as values don't bind `this` arg
                 let args, body' = getMemberArgsAndBody com ctx None false args body
                 ObjectMethod(ObjectMeth, prop, args, body', computed=computed) |> U3.Case2 |> Some
             | Fable.ObjectValue, TransformExpr com ctx value ->
@@ -526,7 +526,7 @@ module Util =
             com.TransformFunction(ctx, None, args, body) ||> makeAnonymousFunction
 
         | Fable.ObjectExpr (members, _) ->
-            transformObjectExpr com ctx members
+            Some(Identifier "this") |> transformObjectExpr com ctx members
 
         | Fable.Operation(opKind, _, range) ->
             transformOperation com ctx range opKind
@@ -616,7 +616,7 @@ module Util =
             bindings @ (transformExprAndResolve com ctx ret body)
 
         | Fable.ObjectExpr (members, _) ->
-            [transformObjectExpr com ctx members |> resolve ret]
+            [Some(Identifier "this") |> transformObjectExpr com ctx members |> resolve ret]
 
         | Fable.Function(FunctionArgs args, body) ->
             [com.TransformFunction(ctx, None, args, body) ||> makeAnonymousFunction |> resolve ret]
@@ -760,7 +760,7 @@ module Util =
         declareModuleMember info.PublicName info.PrivateName false expr
 
     let transformDeclarations (com: IBabelCompiler) ctx decls =
-        ([], decls) ||> List.fold (fun acc decl ->
+        decls |> List.collect (fun decl ->
             match decl with
             | Fable.ActionDeclaration e ->
                 let statements = transformStatement com ctx e
@@ -776,7 +776,6 @@ module Util =
                     else statements
                 statements
                 |> List.map U2.Case1
-                |> List.append acc
             | Fable.ValueDeclaration(value, info) ->
                 match info.PublicName, value with
                 // Mutable public values must be compiled as functions (see #986)
@@ -792,7 +791,17 @@ module Util =
                 | _ ->
                     let value = transformExpr com ctx value
                     declareModuleMember info.PublicName info.PrivateName info.IsMutable value
-                |> List.append acc)
+            | Fable.InterfaceImplementation(members, info) ->
+                // TODO: Cast to inherited interfaces
+                let boundThis = Identifier "$this"
+                let body =
+                    let castedObj = transformObjectExpr com ctx members (Some boundThis)
+                    BlockStatement [ReturnStatement castedObj]
+
+                let expr = FunctionExpression([boundThis], body) :> Expression
+                let publicName = if info.IsPublic then Some info.FullName else None
+                declareModuleMember publicName info.FullName false expr
+        )
 
     let transformImports (imports: Import seq): U2<Statement, ModuleDeclaration> list =
         imports |> Seq.map (fun import ->
@@ -858,7 +867,7 @@ module Util =
         let imports = Dictionary<string,Import>()
 
         { new IBabelCompiler with
-            member bcom.GetImportExpr(ctx, selector, path, kind) =
+            member __.GetImportExpr(ctx, selector, path, kind) =
                 match imports.TryGetValue(path + "::" + selector) with
                 | true, i ->
                     match i.localIdent with
@@ -871,7 +880,7 @@ module Util =
                         | Fable.CustomImport | Fable.Internal _ -> path
                         | Fable.CoreLib -> com.FableCore + "/" + path + Naming.targetFileExtension
                     let i =
-                      { selector = sanitizeSelector bcom selector
+                      { selector = sanitizeSelector com selector
                         localIdent = localId
                         path = sanitizedPath }
                     imports.Add(path + "::" + selector, i)
@@ -884,7 +893,7 @@ module Util =
             member bcom.TransformStatement(ctx, e) = transformStatement bcom ctx e
             member bcom.TransformExprAndResolve(ctx, ret, e) = transformExprAndResolve bcom ctx ret e
             member bcom.TransformFunction(ctx, tc, args, body) = transformFunction bcom ctx tc args body
-            member bcom.TransformObjectExpr(ctx, members) = transformObjectExpr bcom ctx members
+            member bcom.TransformObjectExpr(ctx, members, boundThis) = transformObjectExpr bcom ctx members boundThis
         interface ICompiler with
             member __.Options = com.Options
             member __.FableCore = com.FableCore

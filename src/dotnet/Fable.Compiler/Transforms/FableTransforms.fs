@@ -31,9 +31,9 @@ let rec visit f e =
     | Test(e, kind, r) -> Test(visit f e, kind, r)
     | Cast(e, t) -> Cast(visit f e, t)
     | Function(kind, body) -> Function(kind, visit f body)
-    | ObjectExpr(values, t) ->
-        let values = values |> List.map (fun (n,v,k) -> n, visit f v, k)
-        ObjectExpr(values, t)
+    | ObjectExpr(members, t) ->
+        let members = members |> List.map (fun (n,v,k) -> n, visit f v, k)
+        ObjectExpr(members, t)
     | Operation(kind, t, r) ->
         match kind with
         | CurriedApply(callee, args) ->
@@ -131,13 +131,15 @@ module private Transforms =
     // string :> seq #1279
     // list (and others) :> seq in Fable 2.0
     // concrete type :> interface in Fable 2.0
-    let resolveCasts_required (_: ICompiler) = function
+    let resolveCasts_required (com: ICompiler) = function
         | Cast(e, t) ->
             match t with
             | DeclaredType(EntFullName Types.enumerable, _) ->
                 match e with
                 | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
                 | _ -> e
+            | DeclaredType(ent, _) when ent.IsInterface ->
+                FSharp2Fable.Util.castToInterface com t ent e
             | _ -> e
         | e -> e
 
@@ -311,6 +313,9 @@ let rec optimizeDeclaration (com: ICompiler) = function
         ActionDeclaration(optimizeExpr com expr)
     | ValueDeclaration(value, info) ->
         ValueDeclaration(optimizeExpr com value, info)
+    | InterfaceImplementation(members, info) ->
+        let members = members |> List.map (fun (n,v,k) -> n, optimizeExpr com v, k)
+        InterfaceImplementation(members, info)
 
 let optimizeFile (com: ICompiler) (file: File) =
     let newDecls = List.map (optimizeDeclaration com) file.Declarations

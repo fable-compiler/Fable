@@ -134,20 +134,28 @@ open Fable.Core.JsInterop
 
 type IFoo =
    abstract Foo: float
-   abstract Foo2: float
-   abstract FooBar: float with set
-   abstract Bar: s: string * [<ParamArray>] rest: int[] -> string
+//    abstract Foo2: float
+//    abstract FooBar: float with set
+//    abstract Bar: s: string * [<ParamArray>] rest: int[] -> string
 
-let ``ParamArray in object expression works``() =
-   let mutable ja = 0.
-   let o =
-    { new IFoo with
-        member __.Foo = ja
-        member this.Foo2 = this.Foo + this.Foo
-        member __.FooBar with set v = ja <- v
-        member __.Bar(s: string, [<ParamArray>] rest: int[]) =
-            s + !!rest.[0] + !!rest.[1]
-    }
-   o.Bar("{0} + {0} = {1}", 2, 4)
+type Point =
+    { x: float; y: float }
+    interface IFoo with
+        member this.Foo = this.x * this.y
 
-Fable.Import.JS.console.log(``ParamArray in object expression works``())
+let test(foo: IFoo) =
+    foo.Foo
+
+Fable.Import.JS.console.log(test { x = 5.; y = 3.})
+
+// let ``ParamArray in object expression works``() =
+//    let mutable ja = 0.
+//    let o =
+//     { new IFoo with
+//         member __.Foo = ja
+//         member this.Foo2 = this.Foo + this.Foo
+//         member __.FooBar with set v = ja <- v
+//         member __.Bar(s: string, [<ParamArray>] rest: int[]) =
+//             s + !!rest.[0] + !!rest.[1]
+//     }
+//    o.Bar("{0} + {0} = {1}", 2, 4)

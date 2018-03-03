@@ -31,10 +31,21 @@ type DeclarationInfo =
       IsMutable: bool
       HasSpread: bool }
 
+type InterfaceImplementationInfo =
+    { FullName: string
+      IsPublic: bool
+      ImplementingType: FSharpEntity
+      InterfaceType: FSharpEntity
+      /// Name of the casting functions for inherited interfaces
+      InheritedInterfaces: string list
+    }
+
 type Declaration =
     | ActionDeclaration of Expr
     | ValueDeclaration of Expr * DeclarationInfo
-    // TODO: Special functions: implicit constructors, overrides, interface implementations
+    | InterfaceImplementation of ObjectMember list * InterfaceImplementationInfo
+    // | ImplicitConstructor of args: Ident list * body: Expr * FSharpEntity
+    // | Override of args: Ident list * body: Expr * name: string * FSharpEntity
 
 type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
     member __.SourcePath: string = sourcePath

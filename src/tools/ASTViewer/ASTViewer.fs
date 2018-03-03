@@ -46,6 +46,14 @@ let findOverloadIndex (m: FSharpMemberOrFunctionOrValue): int option =
                 else i, found)
             |> fst)
 
+let tryGetInterfaceFromMethod (meth: FSharpMemberOrFunctionOrValue) =
+    // Method implementations
+    if meth.IsExplicitInterfaceImplementation
+        && meth.ImplementedAbstractSignatures.Count > 0 then
+            let x = meth.ImplementedAbstractSignatures.[0].DeclaringType
+            if x.HasTypeDefinition then Some x.TypeDefinition else None
+    else None
+
 let parse projFile =
     let options =
         match Path.GetExtension(projFile) with
@@ -73,11 +81,23 @@ let rec printDecls prefix decls =
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
             if meth.IsCompilerGenerated |> not then
                 let name =
-                    match meth.EnclosingEntity with
-                    | Some tdef ->
+                    match tryGetInterfaceFromMethod meth, meth.EnclosingEntity with
+                    | Some ifc, _ ->
+                        printfn "------------------------------------"
+                        printfn "ALL INTERFACES %A" (Seq.toList ifc.AllInterfaces)
+                        printfn "DECLARED INTERFACES %A" (Seq.toList ifc.DeclaredInterfaces)
+                        printfn "SLOTS %A" (meth.ImplementedAbstractSignatures
+                                            |> Seq.map (fun e -> e.Name) |> Seq.toList)
+                        printfn "------------------------------------"
+                        ifc.FullName + "$" + meth.DisplayName
+                    | None, Some tdef ->
+                        printfn "------------------------------------"
+                        printfn "ALL INTERFACES %A" (Seq.toList tdef.AllInterfaces)
+                        printfn "DECLARED INTERFACES %A" (Seq.toList tdef.DeclaredInterfaces)
+                        printfn "------------------------------------"
                         let separator = if meth.IsInstanceMember then "$" else "$$"
                         tdef.FullName + separator + meth.CompiledName
-                    | _ -> meth.FullName
+                    | None, None -> meth.FullName
                 printfn "%s%i) METHOD: %s" prefix i name
                 printfn "%A" body
         | FSharpImplementationFileDeclaration.InitAction (expr) ->

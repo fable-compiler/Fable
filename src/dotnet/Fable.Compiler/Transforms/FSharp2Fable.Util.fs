@@ -27,11 +27,9 @@ type Context =
 type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context * FSharpExpr -> Fable.Expr
-    abstract TryGetInternalFile: FSharpEntity -> string option
     abstract TryReplace: Context * SourceLocation option * Fable.Type * info: Fable.CallInfo
         * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
-    abstract AddInlineExpr: FSharpMemberOrFunctionOrValue * InlineExpr -> unit
     abstract AddUsedVarName: string -> unit
 
 module Helpers =
@@ -59,6 +57,16 @@ module Helpers =
         match ent.ImplementationLocation with
         | Some loc -> loc
         | None -> ent.DeclarationLocation
+
+    let getEntityDeclarationName (com: ICompiler) trimRootModule (ent: FSharpEntity) =
+        match ent.TryFullName with
+        | Some fullName when not trimRootModule -> fullName
+        | Some fullName ->
+            let rootMod =
+                (getEntityLocation ent).FileName
+                |> com.GetRootModule
+            fullName.Replace(rootMod, ".").TrimStart('.')
+        | None -> ent.CompiledName
 
     let getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
         match memb.ImplementationLocation with
@@ -90,19 +98,16 @@ module Helpers =
                 else i, found)
             |> fst
 
-    let private getMemberDeclarationNamePrivate removeRootModule (com: IFableCompiler) (memb: FSharpMemberOrFunctionOrValue) =
-        let removeRootModule' (ent: FSharpEntity) (fullName: string) =
-            if not removeRootModule then
-                fullName
-            else
-                let rootMod =
-                    (getEntityLocation ent).FileName
-                    |> Path.normalizePath
-                    |> com.GetRootModule
-                fullName.Replace(rootMod, ".").TrimStart('.')
+    let getCastDeclarationName com (implementingEntity: FSharpEntity) (interfaceEntity: FSharpEntity) =
+        getEntityDeclarationName com true implementingEntity + "$" + getEntityFullName interfaceEntity
+        |> Naming.sanitizeIdentForbiddenChars
+
+    let getMemberDeclarationName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
         | Some ent when ent.IsFSharpModule ->
-            removeRootModule' ent memb.FullName
+            match getEntityDeclarationName com trimRootModule ent with
+            | "" -> memb.CompiledName
+            | moduleName -> moduleName + "_" + memb.CompiledName
         | Some ent ->
             let isStatic = not memb.IsInstanceMember
             let separator = if isStatic then "$$" else "$"
@@ -110,15 +115,10 @@ module Helpers =
                 match findOverloadIndex ent memb with
                 | 0 -> ""
                 | i -> "_" + string i
-            (removeRootModule' ent ent.FullName) + separator + memb.CompiledName + overloadIndex
+            (getEntityDeclarationName com trimRootModule ent)
+                + separator + memb.CompiledName + overloadIndex
         | None -> memb.FullName
         |> Naming.sanitizeIdentForbiddenChars
-
-    let getMemberDeclarationName (com: IFableCompiler) (memb: FSharpMemberOrFunctionOrValue) =
-        getMemberDeclarationNamePrivate true com memb
-
-    let getMemberDeclarationFullname (com: IFableCompiler) (memb: FSharpMemberOrFunctionOrValue) =
-        getMemberDeclarationNamePrivate false com memb
 
     let tryFindAtt fullName (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
@@ -178,6 +178,12 @@ module Helpers =
         elif args.Count = 1 && args.[0].Count = 1 then
             if isUnit args.[0].[0].Type then 0 else 1
         else args |> Seq.sumBy (fun li -> li.Count)
+
+    let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =
+        match memb.DeclaringEntity with
+        | Some ent -> ent.IsFSharpModule
+        // Actually it's true in this case, but we don't consider compiler-generated members
+        | None -> false
 
     let private isModuleValuePrivate checkPublicMutable (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         if entity.IsFSharpModule then
@@ -449,6 +455,12 @@ module TypeHelpers =
     let isAbstract (ent: FSharpEntity) =
        tryFindAtt Atts.abstractClass ent.Attributes |> Option.isSome
 
+    let tryGetInterfaceFromMethod (meth: FSharpMemberOrFunctionOrValue) =
+        if meth.ImplementedAbstractSignatures.Count > 0 then
+            let t = nonAbbreviatedType meth.ImplementedAbstractSignatures.[0].DeclaringType
+            if t.HasTypeDefinition then Some t.TypeDefinition else None
+        else None
+
     let tryFindMember com (entity: FSharpEntity) membCompiledName isInstance (argTypes: Fable.Type list) =
         let argsEqual (args1: Fable.Type list) =
             let args1Len = List.length argTypes
@@ -563,7 +575,8 @@ module Util =
             entityFullName.StartsWith("System.")
                 || entityFullName.StartsWith("Microsoft.FSharp.")
                 || entityFullName.StartsWith("Fable.Core.")
-        match entity |> Option.bind (fun e -> e.TryFullName) with
+        match entity |> Option.bind (fun e ->
+            e.TryFullName) with
         | Some entityFullName when isCandidate entityFullName ->
             let info: Fable.CallInfo =
               { ArgTypes = argTypes
@@ -653,8 +666,21 @@ module Util =
             then List.take validArgsLen args
             else args
 
+    let castToInterface com typ (interfaceEntity: FSharpEntity) (expr: Fable.Expr) =
+        match expr.Type with
+        | Fable.DeclaredType(ent,_) as exprTyp when not ent.IsInterface ->
+            let funcName = getCastDeclarationName com ent interfaceEntity
+            let file = (getEntityLocation ent).FileName |> Path.normalizePath
+            let info: Fable.ArgInfo =
+                { ThisArg = None; Args = [expr]; ArgTypes = Some [exprTyp]; Spread = Fable.NoSpread }
+            if file = com.CurrentFile
+            then makeIdent funcName |> Fable.IdentExpr
+            else Fable.Import(funcName, file, Fable.Internal, Fable.Any)
+            |> staticCall None typ info
+        | _ -> expr
+
     let memberRefTyped (com: IFableCompiler) typ (memb: FSharpMemberOrFunctionOrValue) =
-        let memberName = getMemberDeclarationName com memb
+        let memberName = getMemberDeclarationName com true memb
         let file =
             match memb.DeclaringEntity with
             | Some ent -> (getEntityLocation ent).FileName |> Path.normalizePath

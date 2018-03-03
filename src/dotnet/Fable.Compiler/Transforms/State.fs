@@ -94,6 +94,7 @@ type Compiler(currentFile, project: Project, options) =
         member __.FableCore = fableCore
         member __.CurrentFile = currentFile
         member __.GetRootModule(fileName) =
+            let fileName = Path.normalizePath fileName
             match Map.tryFind fileName project.RootModules with
             | Some rootModule -> rootModule
             | None -> failwithf "Cannot find root module for %s" fileName

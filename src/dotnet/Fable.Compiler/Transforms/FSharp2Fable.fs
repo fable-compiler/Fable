@@ -87,7 +87,6 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                 |> Naming.ignoredInterfaceMethods.Contains
                 |> not)
         overrides |> List.map (fun over ->
-            // TODO: Check if we should pass generics?
             let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
             let value = Fable.Function(Fable.Delegate args, transformExpr com ctx over.Body)
             // Don't use the typ argument as the override may come
@@ -96,15 +95,12 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                 if over.Signature.DeclaringType.HasTypeDefinition
                 then Some over.Signature.DeclaringType.TypeDefinition
                 else None
-            // TODO: Check for indexed getter and setter also in object expressions?
             match over.Signature.Name with
-            | Naming.StartsWith "get_" name ->
-                name, value, Fable.ObjectGetter
-            | Naming.StartsWith "set_" name ->
-                name, value, Fable.ObjectSetter
+            | Naming.StartsWith "get_" name -> name, value, Fable.ObjectGetter
+            | Naming.StartsWith "set_" name -> name, value, Fable.ObjectSetter
+            // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
+            // information about ParamArray, we need to check the source method.
             | name ->
-                // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
-                // information about ParamArray, we need to check the source method.
                 let hasSpread =
                     match typ with
                     | None -> false
@@ -537,7 +533,7 @@ let private transformImport com ctx typ publicName selector path =
     ctx, []
 
 let private getPublicAndPrivateNames com ctx memb =
-    let methName = getMemberDeclarationName com memb
+    let methName = getMemberDeclarationName com true memb
     let publicName = if isPublicMember memb then Some methName else None
     // Bind memb.CompiledName to context to prevent name clashes (become vars in JS)
     let ctx, privateIdent = bindIdentWithTentativeName com ctx memb methName
@@ -562,11 +558,11 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
     let bodyCtx, args = bindMemberArgs com ctx args
     let fableBody = transformExpr com bodyCtx body
     let ctx, publicName, privateName = getPublicAndPrivateNames com ctx memb
-    match fableBody with
+    match isModuleMember memb, fableBody with
     // Accept import expressions , e.g. let foo x y = import "foo" "myLib"
-    | Fable.Import(selector, path, Fable.CustomImport, typ) ->
+    | true, Fable.Import(selector, path, Fable.CustomImport, typ) ->
         transformImport com ctx typ (Some publicName) selector path
-    | fableBody ->
+    | _, fableBody ->
         let info: Fable.DeclarationInfo =
             { PrivateName = privateName
               PublicName = publicName
@@ -575,7 +571,20 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
         let fn = Fable.Function(Fable.Delegate args, fableBody)
         ctx, [Fable.ValueDeclaration(fn, info)]
 
-let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
+let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+    let bodyCtx, args = bindMemberArgs com ctx args
+    let value = Fable.Function(Fable.Delegate args, transformExpr com bodyCtx body)
+    let kind =
+        if memb.IsPropertyGetterMethod
+        then Fable.ObjectGetter
+        elif memb.IsPropertySetterMethod
+        then Fable.ObjectGetter
+        else hasSeqSpread memb |> Fable.ObjectMethod
+    let objMember = memb.DisplayName, value, kind
+    com.AddInterfaceImplementation(memb, objMember)
+    ctx, []
+
+let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     if isIgnoredMember memb
     then ctx, []
@@ -585,24 +594,32 @@ let private transformMemberDecl (com: IFableCompiler) (ctx: Context) (memb: FSha
         ctx, []
     elif memb.IsImplicitConstructor || memb.IsConstructor
     then transformConstructor com ctx memb args body
+    elif memb.IsExplicitInterfaceImplementation
+    then transformInterfaceImplementation com ctx memb args body
     elif isModuleValueForDeclaration memb
     then transformMemberValue com ctx memb body
     else transformMemberFunction com ctx memb args body
 
-let private transformDeclarations (com: IFableCompiler) (ctx: Context) fsDecls =
-    ((ctx, []), fsDecls) ||> List.fold (fun (ctx, accDecls) fsDecl ->
-        let ctx, fableDecls =
-            match fsDecl with
-            | FSharpImplementationFileDeclaration.Entity (e, sub) ->
-                transformDeclarations com ctx sub
-            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
-                transformMemberDecl com ctx meth args body
-            | FSharpImplementationFileDeclaration.InitAction fe ->
-                // TODO: Check if variables defined in several init actions can conflict
-                let e = transformExpr com ctx fe
-                let decl = Fable.ActionDeclaration e
-                ctx, [decl]
-        ctx, accDecls @ fableDecls)
+let private transformDeclarations (com: FableCompiler) fsDecls =
+    let rec transformDeclarationsInner com (ctx: Context) fsDecls =
+        ((ctx, []), fsDecls) ||> List.fold (fun (ctx, accDecls) fsDecl ->
+            let ctx, fableDecls =
+                match fsDecl with
+                | FSharpImplementationFileDeclaration.Entity(_, sub) ->
+                    transformDeclarationsInner com ctx sub
+                | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
+                    transformMemberDecl com ctx meth args body
+                | FSharpImplementationFileDeclaration.InitAction fe ->
+                    // TODO: Check if variables defined in several init actions can conflict
+                    let e = transformExpr com ctx fe
+                    let decl = Fable.ActionDeclaration e
+                    ctx, [decl]
+            ctx, accDecls @ fableDecls)
+    let _, decls = transformDeclarationsInner com (Context.Create()) fsDecls
+    let interfaceImplementations =
+        com.InterfaceImplementations.Values |> Seq.map (fun (info, objMember) ->
+            Fable.InterfaceImplementation(Seq.toList objMember, info)) |> Seq.toList
+    decls @ interfaceImplementations
 
 let private getRootModuleAndDecls decls =
     let (|CommonNamespace|_|) = function
@@ -618,15 +635,15 @@ let private getRootModuleAndDecls decls =
                 | _ -> None)
             |> Option.map (fun subDecls -> ent, subDecls)
         | _ -> None
-    let rec getRootModuleAndDecls outerEnt decls =
+    let rec getRootModuleAndDeclsInner outerEnt decls =
         match decls with
         | [FSharpImplementationFileDeclaration.Entity (ent, decls)]
                 when ent.IsFSharpModule || ent.IsNamespace ->
-            getRootModuleAndDecls (Some ent) decls
+            getRootModuleAndDeclsInner (Some ent) decls
         | CommonNamespace(ent, decls) ->
-            getRootModuleAndDecls (Some ent) decls
+            getRootModuleAndDeclsInner (Some ent) decls
         | decls -> outerEnt, decls
-    getRootModuleAndDecls None decls
+    getRootModuleAndDeclsInner None decls
 
 let private tryGetMemberArgsAndBody (implFiles: Map<string, FSharpImplementationFileContents>)
                                     fileName (meth: FSharpMemberOrFunctionOrValue) =
@@ -646,33 +663,48 @@ let private tryGetMemberArgsAndBody (implFiles: Map<string, FSharpImplementation
         f.Declarations |> List.tryPick (tryGetMemberArgsAndBody' meth.FullName))
 
 type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFileContents>) =
-    let usedVarNames = HashSet<string>()
-    let dependencies = HashSet<string>()
-    member __.UsedVarNames = set usedVarNames
-    member __.Dependencies = set dependencies
+    member val UsedVarNames = HashSet<string>()
+    member val Dependencies = HashSet<string>()
+    member val InterfaceImplementations: Dictionary<_,_> = Dictionary()
+    member __.AddInlineExpr(memb, inlineExpr) =
+        let fullName = getMemberDeclarationName com false memb
+        com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
+    member this.AddInterfaceImplementation(memb: FSharpMemberOrFunctionOrValue, objMemb: Fable.ObjectMember) =
+        match memb.DeclaringEntity, tryGetInterfaceFromMethod memb with
+        | Some implementingEntity, Some interfaceEntity ->
+            let castFunctionName = getCastDeclarationName com implementingEntity interfaceEntity
+            match this.InterfaceImplementations.TryGetValue(castFunctionName) with
+            | false, _ ->
+                let info: Fable.InterfaceImplementationInfo =
+                    { FullName = castFunctionName
+                      IsPublic = not implementingEntity.Accessibility.IsPrivate
+                      ImplementingType = implementingEntity
+                      InterfaceType = interfaceEntity
+                      InheritedInterfaces = [] // TODO: Add inherited interfaces
+                    }
+                let members = ResizeArray()
+                members.Add(objMemb)
+                this.InterfaceImplementations.Add(castFunctionName, (info, members) )
+            | true, (_, members) -> members.Add(objMemb)
+        | _ ->
+            "Cannot find implementing and/or interface entities for " + memb.FullName
+            |> addError com None
     interface IFableCompiler with
-        member fcom.Transform(ctx, fsExpr) =
-            transformExpr fcom ctx fsExpr
-        member __.TryGetInternalFile tdef =
-            match tdef.Assembly.FileName with
-            | Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> None
-            | _ -> Some (getEntityLocation tdef).FileName
-        member fcom.TryReplace(ctx, r, t, info, thisArg, args) =
-            Replacements.tryCall fcom ctx r t info thisArg args
-        member fcom.GetInlineExpr memb =
+        member this.Transform(ctx, fsExpr) =
+            transformExpr this ctx fsExpr
+        member this.TryReplace(ctx, r, t, info, thisArg, args) =
+            Replacements.tryCall this ctx r t info thisArg args
+        member this.GetInlineExpr(memb) =
             let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
             if fileName <> com.CurrentFile then
-                dependencies.Add(fileName) |> ignore
-            let fullName = getMemberDeclarationFullname fcom memb
+                this.Dependencies.Add(fileName) |> ignore
+            let fullName = getMemberDeclarationName com false memb
             com.GetOrAddInlineExpr(fullName, fun () ->
                 match tryGetMemberArgsAndBody implFiles fileName memb with
                 | Some(args, body) -> List.concat args, body
                 | None -> failwith ("Cannot find inline member " + memb.FullName))
-        member fcom.AddInlineExpr(memb, inlineExpr) =
-            let fullName = getMemberDeclarationFullname fcom memb
-            com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
-        member __.AddUsedVarName varName =
-            usedVarNames.Add varName |> ignore
+        member this.AddUsedVarName(varName) =
+            this.UsedVarNames.Add(varName) |> ignore
     interface ICompiler with
         member __.Options = com.Options
         member __.FableCore = com.FableCore
@@ -700,8 +732,7 @@ let transformFile (com: ICompiler) (implFiles: Map<string, FSharpImplementationF
             | None -> failwithf "File %s doesn't belong to parsed project" com.CurrentFile
         let fcom = FableCompiler(com, implFiles)
         let _, rootDecls = getRootModuleAndDecls file.Declarations
-        let ctx = Context.Create()
-        let _, rootDecls = transformDeclarations fcom ctx rootDecls
-        Fable.File(com.CurrentFile, rootDecls, fcom.UsedVarNames, fcom.Dependencies)
+        let rootDecls = transformDeclarations fcom rootDecls
+        Fable.File(com.CurrentFile, rootDecls, set fcom.UsedVarNames, set fcom.Dependencies)
     with
     | ex -> exn (sprintf "%s (%s)" ex.Message com.CurrentFile, ex) |> raise
