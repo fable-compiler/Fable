@@ -526,30 +526,24 @@ let private transformConstructor com ctx (meth: FSharpMemberOrFunctionOrValue) a
 
 // TODO: compile imports as ValueDeclarations (check if they're mutable, see Zaid's issue)
 // TODO: Import expressions must be exported if public too
-let private transformImport com ctx typ publicName selector path =
+let private transformImport com ctx typ name selector path =
 //     if selector = Naming.placeholder
 //     then Fable.Value(Fable.Import(meth.DisplayName, path, importKind))
 //     else fableBody
     ctx, []
 
-let private getPublicAndPrivateNames com ctx memb =
-    let methName = getMemberDeclarationName com true memb
-    let publicName = if isPublicMember memb then Some methName else None
-    // Bind memb.CompiledName to context to prevent name clashes (become vars in JS)
-    let ctx, privateIdent = bindIdentWithTentativeName com ctx memb methName
-    ctx, publicName, privateIdent.Name
-
 let private transformMemberValue com ctx (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
     let fableValue = transformExpr com ctx value
-    let ctx, publicName, privateName = getPublicAndPrivateNames com ctx memb
+    let name = getMemberDeclarationName com true memb
+    com.AddUsedVarName(name)
     match fableValue with
     // Accept import expressions, e.g. let foo = import "foo" "myLib"
     | Fable.Import(selector, path, Fable.CustomImport, typ) ->
-        transformImport com ctx typ publicName selector path
+        transformImport com ctx typ name selector path
     | fableValue ->
-        let info: Fable.DeclarationInfo =
-            { PrivateName = privateName
-              PublicName = publicName
+        let info: Fable.ValueDeclarationInfo =
+            { Name = name
+              IsPublic = isPublicMember memb
               IsMutable = memb.IsMutable
               HasSpread = false }
         ctx, [Fable.ValueDeclaration(fableValue, info)]
@@ -557,15 +551,16 @@ let private transformMemberValue com ctx (memb: FSharpMemberOrFunctionOrValue) (
 let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
     let fableBody = transformExpr com bodyCtx body
-    let ctx, publicName, privateName = getPublicAndPrivateNames com ctx memb
+    let name = getMemberDeclarationName com true memb
+    com.AddUsedVarName(name)
     match isModuleMember memb, fableBody with
     // Accept import expressions , e.g. let foo x y = import "foo" "myLib"
     | true, Fable.Import(selector, path, Fable.CustomImport, typ) ->
-        transformImport com ctx typ (Some publicName) selector path
+        transformImport com ctx typ name selector path
     | _, fableBody ->
-        let info: Fable.DeclarationInfo =
-            { PrivateName = privateName
-              PublicName = publicName
+        let info: Fable.ValueDeclarationInfo =
+            { Name = name
+              IsPublic = isPublicMember memb
               IsMutable = false
               HasSpread = hasSeqSpread memb }
         let fn = Fable.Function(Fable.Delegate args, fableBody)
@@ -618,7 +613,7 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
     let _, decls = transformDeclarationsInner com (Context.Create()) fsDecls
     let interfaceImplementations =
         com.InterfaceImplementations.Values |> Seq.map (fun (info, objMember) ->
-            Fable.InterfaceImplementation(Seq.toList objMember, info)) |> Seq.toList
+            Fable.InterfaceCastDeclaration(Seq.toList objMember, info)) |> Seq.toList
     decls @ interfaceImplementations
 
 let private getRootModuleAndDecls decls =
@@ -675,8 +670,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             let castFunctionName = getCastDeclarationName com implementingEntity interfaceEntity
             match this.InterfaceImplementations.TryGetValue(castFunctionName) with
             | false, _ ->
-                let info: Fable.InterfaceImplementationInfo =
-                    { FullName = castFunctionName
+                let info: Fable.InterfaceCastDeclarationInfo =
+                    { Name = castFunctionName
                       IsPublic = not implementingEntity.Accessibility.IsPrivate
                       ImplementingType = implementingEntity
                       InterfaceType = interfaceEntity
@@ -684,6 +679,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
                     }
                 let members = ResizeArray()
                 members.Add(objMemb)
+                this.UsedVarNames.Add(castFunctionName) |> ignore
                 this.InterfaceImplementations.Add(castFunctionName, (info, members) )
             | true, (_, members) -> members.Add(objMemb)
         | _ ->

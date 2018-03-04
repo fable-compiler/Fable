@@ -313,9 +313,9 @@ let rec optimizeDeclaration (com: ICompiler) = function
         ActionDeclaration(optimizeExpr com expr)
     | ValueDeclaration(value, info) ->
         ValueDeclaration(optimizeExpr com value, info)
-    | InterfaceImplementation(members, info) ->
+    | InterfaceCastDeclaration(members, info) ->
         let members = members |> List.map (fun (n,v,k) -> n, optimizeExpr com v, k)
-        InterfaceImplementation(members, info)
+        InterfaceCastDeclaration(members, info)
 
 let optimizeFile (com: ICompiler) (file: File) =
     let newDecls = List.map (optimizeDeclaration com) file.Declarations

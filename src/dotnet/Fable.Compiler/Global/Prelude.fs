@@ -114,7 +114,9 @@ module Naming =
         while i < ident.Length && (isIdentChar ident.[i]) do i <- i + 1
         i < ident.Length
 
-    let replaceIdentForbiddenChars (ident: string) =
+    let sanitizeIdentForbiddenChars (ident: string) =
+        // Replace the most common external chars in .NET types
+        let ident = ident.Replace('.', '_').Replace('`', '_')
         if hasIdentForbiddenChars ident then
             System.String.Concat(seq {
                 for c in ident ->
@@ -122,11 +124,6 @@ module Naming =
                     then string c
                     else sprintf "$%X$" (int c)
                 })
-        else ident
-
-    let sanitizeIdentForbiddenChars (ident: string) =
-        if hasIdentForbiddenChars ident
-        then System.String([| for c in ident -> if isIdentChar c then c else '_' |])
         else ident
 
     let replacePattern (prefix: string) (cond: char->bool) (repl: string->string) (str: string) =

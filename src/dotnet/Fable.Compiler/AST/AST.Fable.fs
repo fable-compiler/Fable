@@ -25,25 +25,31 @@ type Type =
     | ErasedUnion of genericArgs: Type list
     | DeclaredType of FSharpEntity * genericArgs: Type list
 
-type DeclarationInfo =
-    { PrivateName: string
-      PublicName: string option
+type ValueDeclarationInfo =
+    { Name: string
+      IsPublic: bool
       IsMutable: bool
       HasSpread: bool }
 
-type InterfaceImplementationInfo =
-    { FullName: string
+type ConstructorDeclarationInfo =
+    { Name: string
+      IsPublic: bool
+      HasSpread: bool
+      Entity: FSharpEntity }
+
+type InterfaceCastDeclarationInfo =
+    { Name: string
       IsPublic: bool
       ImplementingType: FSharpEntity
       InterfaceType: FSharpEntity
       /// Name of the casting functions for inherited interfaces
-      InheritedInterfaces: string list
-    }
+      InheritedInterfaces: string list }
 
 type Declaration =
     | ActionDeclaration of Expr
-    | ValueDeclaration of Expr * DeclarationInfo
-    | InterfaceImplementation of ObjectMember list * InterfaceImplementationInfo
+    | ValueDeclaration of Expr * ValueDeclarationInfo
+    // | ConstructorDeclaration of args: Ident list * body: Expr * ConstructorDeclarationInfo
+    | InterfaceCastDeclaration of ObjectMember list * InterfaceCastDeclarationInfo
     // | ImplicitConstructor of args: Ident list * body: Expr * FSharpEntity
     // | Override of args: Ident list * body: Expr * name: string * FSharpEntity
 

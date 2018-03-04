@@ -11,9 +11,9 @@ type ReturnStrategy =
     | Assign of Expression // TODO: Add SourceLocation?
 
 type Import =
-  { path: string
-    selector: string
-    localIdent: string option }
+  { Selector: string
+    LocalIdent: string option
+    Path: string }
 
 type ITailCallOpportunity =
     abstract Label: string
@@ -77,10 +77,6 @@ module Util =
 
     let ident (id: Fable.Ident) =
         Identifier id.Name
-
-    let identFromName name =
-        let name = Naming.sanitizeIdent (fun _ -> false) name
-        Identifier name
 
     let ofInt i =
         NumericLiteral(float i) :> Expression
@@ -727,8 +723,8 @@ module Util =
         // ExpressionStatement(macroExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         ExpressionStatement(main) :> Statement
 
-    let declareModuleMember publicName privateName isMutable (expr: Expression) =
-        let privateIdent = identFromName privateName
+    let declareModuleMember isPublic name isMutable (expr: Expression) =
+        let privateIdent = Identifier name
         let decl: Declaration =
             match expr with
             | :? ClassExpression as e ->
@@ -737,27 +733,20 @@ module Util =
             | :? FunctionExpression as e ->
                 upcast FunctionDeclaration(privateIdent, e.``params``, e.body)
             | _ -> upcast varDeclaration privateIdent isMutable expr
-        match publicName with
-        | None ->
+        if not isPublic then
             U2.Case1 (decl :> Statement) |> List.singleton
-        | Some publicName when publicName = privateName ->
+        else
             ExportNamedDeclaration(decl)
             :> ModuleDeclaration |> U2.Case2 |> List.singleton
-        | Some publicName ->
-            // Replace ident forbidden chars of root members, see #207
-            let publicName = Naming.replaceIdentForbiddenChars publicName
-            let expSpec = ExportSpecifier(privateIdent, Identifier publicName)
-            let expDecl = ExportNamedDeclaration(specifiers=[expSpec])
-            [expDecl :> ModuleDeclaration |> U2.Case2; decl :> Statement |> U2.Case1]
 
-    let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.DeclarationInfo) args body =
+    let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ValueDeclarationInfo) args body =
         let args, body =
             // let tc = NamedTailCallOpportunity(com, privName, args) :> ITailCallOpportunity |> Some
             let tc = None
             getMemberArgsAndBody com ctx tc info.HasSpread args body
         // Don't lexically bind `this` (with arrow function) or it will fail with extension members
         let expr: Expression = upcast FunctionExpression(args, body)
-        declareModuleMember info.PublicName info.PrivateName false expr
+        declareModuleMember info.IsPublic info.Name false expr
 
     let transformDeclarations (com: IBabelCompiler) ctx decls =
         decls |> List.collect (fun decl ->
@@ -777,43 +766,41 @@ module Util =
                 statements
                 |> List.map U2.Case1
             | Fable.ValueDeclaration(value, info) ->
-                match info.PublicName, value with
+                match value with
                 // Mutable public values must be compiled as functions (see #986)
-                | Some publicName, _ when info.IsMutable ->
+                | value when info.IsMutable && info.IsPublic ->
                     failwith "TODO: Mutable public values"
             //     // Mutable module values are compiled as functions, because values
             //     // imported from ES2015 modules cannot be modified (see #986)
             //     let expr = transformExpr com ctx body
             //     let import = getCoreLibImport com ctx "Util" "createAtom"
             //     upcast CallExpression(import, [U2.Case1 expr])
-                | _, Fable.Function(Fable.Delegate args, body) ->
+                | Fable.Function(Fable.Delegate args, body) ->
                     transformModuleFunction com ctx info args body
                 | _ ->
                     let value = transformExpr com ctx value
-                    declareModuleMember info.PublicName info.PrivateName info.IsMutable value
-            | Fable.InterfaceImplementation(members, info) ->
+                    declareModuleMember info.IsPublic info.Name info.IsMutable value
+            | Fable.InterfaceCastDeclaration(members, info) ->
                 // TODO: Cast to inherited interfaces
                 let boundThis = Identifier "$this"
                 let body =
                     let castedObj = transformObjectExpr com ctx members (Some boundThis)
                     BlockStatement [ReturnStatement castedObj]
-
                 let expr = FunctionExpression([boundThis], body) :> Expression
-                let publicName = if info.IsPublic then Some info.FullName else None
-                declareModuleMember publicName info.FullName false expr
+                declareModuleMember info.IsPublic info.Name false expr
         )
 
     let transformImports (imports: Import seq): U2<Statement, ModuleDeclaration> list =
         imports |> Seq.map (fun import ->
             let specifier =
-                import.localIdent
+                import.LocalIdent
                 |> Option.map (fun localId ->
                     let localId = Identifier(localId)
-                    match import.selector with
+                    match import.Selector with
                     | "*" -> ImportNamespaceSpecifier(localId) |> U3.Case3
                     | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
                     | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1)
-            import.path, specifier)
+            import.Path, specifier)
         |> Seq.groupBy (fun (path, _) -> path)
         |> Seq.collect (fun (path, specifiers) ->
             let mems, defs, alls =
@@ -843,15 +830,6 @@ module Util =
         |> Seq.toList
 
     let makeCompiler (com: ICompiler) =
-        let sanitizeSelector com selector =
-            if selector = "*"
-            then selector
-            elif selector = Naming.placeholder
-            then "`importMember` must be assigned to a variable"
-                 |> addError com None; selector
-            // Replace ident forbidden chars of root members, see #207
-            else Naming.replaceIdentForbiddenChars selector
-
         let getLocalIdent (ctx: Context) (imports: Dictionary<string,Import>) (path: string) (selector: string) =
             match selector with
             | "" -> None
@@ -861,7 +839,7 @@ module Util =
             | selector -> Some selector
             |> Option.map (Naming.sanitizeIdent (fun s ->
                 ctx.file.UsedVarNames.Contains s
-                    || (imports.Values |> Seq.exists (fun i -> i.localIdent = Some s))))
+                    || (imports.Values |> Seq.exists (fun i -> i.LocalIdent = Some s))))
 
         let dependencies = HashSet<string>()
         let imports = Dictionary<string,Import>()
@@ -870,7 +848,7 @@ module Util =
             member __.GetImportExpr(ctx, selector, path, kind) =
                 match imports.TryGetValue(path + "::" + selector) with
                 | true, i ->
-                    match i.localIdent with
+                    match i.LocalIdent with
                     | Some localIdent -> upcast Identifier(localIdent)
                     | None -> upcast NullLiteral ()
                 | false, _ ->
@@ -880,9 +858,13 @@ module Util =
                         | Fable.CustomImport | Fable.Internal _ -> path
                         | Fable.CoreLib -> com.FableCore + "/" + path + Naming.targetFileExtension
                     let i =
-                      { selector = sanitizeSelector com selector
-                        localIdent = localId
-                        path = sanitizedPath }
+                      { Selector =
+                            if selector = Naming.placeholder
+                            then "`importMember` must be assigned to a variable"
+                                 |> addError com None; selector
+                            else selector
+                        LocalIdent = localId
+                        Path = sanitizedPath }
                     imports.Add(path + "::" + selector, i)
                     match localId with
                     | Some localId -> upcast Identifier(localId)
