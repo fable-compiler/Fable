@@ -54,13 +54,39 @@ let aDifferentName: string = import "myString" "my-lib"
 // import { myString } from "my-lib"
 ```
 
-Keep in mind that you need to respect the kind of import.
-For a **default** import (not a **member** import like `import { Select } from 'react-select'`) you just have to write in Fable "default" like this (verbose form, you can just use `importDefault` aswell):
+Keep in mind you need to respect the kind of import, please check the documentation of the JS library for that. It's a common mistake to use a **member** import (in JS it appears between brackets: `import { Component } from 'react'`) instead of a **default** import (without brackets: `import Select from 'react-select'`):
+
 ```fsharp
-// import ReactTable from 'react-table';
-let reactTable = import "default" "react-table"
+// If the JS library samples show a MEMBER import like this:
+// import { Component } from 'react';
+
+// Use the following in Fable:
+let Component: obj = importMember "react"
+
+// Or the following if you need a different name
+let AnyNameYouLike: obj = import "Component" "react"
+
+
+// However if you see a DEFAULT import (no brackets) in the samples:
+// import Select from 'react-select';
+
+// Use the following in Fable (note name doesn't matter):
+let Select: obj = importDefault "react-select"
+
+// Or:
+let Select: obj = import "default" "react-select"
 ```
-Last but not least always read in the docs of your favourite JS library how an element is exported and look over the examples above to find the fitting F# expression.
+
+Sometimes you need to access a member of the imported element. Fable allows you to do that directly in the import selector:
+
+```fsharp
+let Creatable: obj = import "default.Creatable" "react-select"
+
+// Please note this is not possible in JS, the equivalent would be:
+
+// import Select from 'react-select';
+// const Creatable = Select.Creatable;
+```
 
 ## Dynamic typing
 
