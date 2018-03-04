@@ -54,6 +54,14 @@ let aDifferentName: string = import "myString" "my-lib"
 // import { myString } from "my-lib"
 ```
 
+Keep in mind that you need to respect the kind of import.
+For a **default** import (not a **member** import like `import { Select } from 'react-select'`) you just have to write in Fable "default" like this (verbose form, you can just use `importDefault` aswell):
+```fsharp
+// import ReactTable from 'react-table';
+let reactTable = import "default" "react-table"
+```
+Last but not least always read in the docs of your favourite JS library how an element is exported and look over the examples above to find the fitting F# expression.
+
 ## Dynamic typing
 
 [Fable.Core.JsInterop](https://github.com/fable-compiler/Fable/blob/master/src/fable/Fable.Core/Fable.Core.fs) implements the F# dynamic operators so you can easily access an object property by name (without static check)
