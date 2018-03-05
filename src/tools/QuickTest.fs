@@ -141,7 +141,16 @@ type A(s: string) =
 type B(i: int) =
     inherit A(i)
 
-JS.console.log(B(1).Foo)
+[<AbstractClass>]
+type D() =
+    abstract Value: int
+    member this.Add(x) = this.Value + x
+
+type E(j) =
+    inherit D()
+    override this.Value = j
+
+JS.console.log(E(5).Add(6))
 
 // let ``ParamArray in object expression works``() =
 //    let mutable ja = 0.

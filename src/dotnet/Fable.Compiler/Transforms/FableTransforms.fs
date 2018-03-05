@@ -315,6 +315,8 @@ let rec optimizeDeclaration (com: ICompiler) = function
         ValueDeclaration(optimizeExpr com value, info)
     | ImplicitConstructorDeclaration(args, body, info) ->
         ImplicitConstructorDeclaration(args, optimizeExpr com body, info)
+    | OverrideDeclaration(args, body, info) ->
+        OverrideDeclaration(args, optimizeExpr com body, info)
     | InterfaceCastDeclaration(members, info) ->
         let members = members |> List.map (fun (n,v,k) -> n, optimizeExpr com v, k)
         InterfaceCastDeclaration(members, info)

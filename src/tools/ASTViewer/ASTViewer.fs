@@ -34,14 +34,16 @@ let rec printDecls prefix decls =
             printfn "%s%i) ENTITY: %s" prefix i e.DisplayName
             printDecls (prefix + "\t") sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
-            if meth.IsCompilerGenerated |> not then
-                printfn "%s%i) METHOD: %s" prefix i meth.FullName
-                match body with
-                | BasicPatterns.Call(_,m,_,_,_)
-                | BasicPatterns.NewObject(m,_,_) ->
-                    printfn "%s CALL to %s (const %b, implicit %b)"
-                        prefix m.FullName m.IsConstructor m.IsImplicitConstructor
-                | _ -> printfn "%A" body
+            if meth.IsValue
+            then printfn "%s%i) VALUE: %s " prefix i meth.FullName
+            else printfn "%s%i) METHOD: %A " prefix i meth.FullName
+            match body with
+            | BasicPatterns.Call(_,call,_,_,_) ->
+                printfn "%s Call %s (IsDispatchSlot %b)" prefix call.FullName call.IsDispatchSlot
+            | _ -> ()
+            // if meth.IsCompilerGenerated
+            // then printfn "%s(Compiler generated)" prefix
+            // else printfn "%A" body
         | FSharpImplementationFileDeclaration.InitAction (expr) ->
             printfn "%s%i) ACTION" prefix i
             printfn "%A" expr

@@ -193,27 +193,10 @@ module Helpers =
         // Actually it's true in this case, but we don't consider compiler-generated members
         | None -> false
 
-    let private isModuleValuePrivate checkPublicMutable (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
-        if entity.IsFSharpModule then
-            let preCondition =
-                if checkPublicMutable
-                // Mutable public values must be compiled as functions (see #986)
-                then not memb.IsMutable || not (isPublicMember memb)
-                else true
-            preCondition
-            && memb.CurriedParameterGroups.Count = 0
-            && memb.GenericParameters.Count = 0
-        else false
-
-    let isModuleValueForCalls (entity: FSharpEntity option) (memb: FSharpMemberOrFunctionOrValue) =
-        match entity with
-        | Some entity -> isModuleValuePrivate true entity memb
-        | None -> false
-
-    let isModuleValueForDeclaration (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.DeclaringEntity with
-        | Some entity -> isModuleValuePrivate false entity memb
-        | None -> false
+    let isModuleValueForCalls (memb: FSharpMemberOrFunctionOrValue) =
+        memb.IsValue
+        // Mutable public values must be called as functions (see #986)
+        && (not memb.IsMutable || not (isPublicMember memb))
 
     let isSiblingConstructorCall (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) =
         match memb.IsConstructor, ctx.ConstructorEntityFullName with
@@ -223,12 +206,6 @@ module Helpers =
             then returnType.TypeDefinition.TryFullName = Some fullName
             else false
         | _ -> false
-
-    let getObjectMemberKind (memb: FSharpMemberOrFunctionOrValue) =
-        if memb.IsImplicitConstructor || memb.IsConstructor then Fable.Constructor
-        elif memb.IsPropertyGetterMethod && (getArgCount memb) = 0 then Fable.Getter
-        elif memb.IsPropertySetterMethod && (getArgCount memb) = 1 then Fable.Setter
-        else Fable.Method
 
     let hasSeqSpread (memb: FSharpMemberOrFunctionOrValue) =
         let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
@@ -641,7 +618,7 @@ module Util =
                 // Allow combination of Import and Emit attributes
                 | Emitted r typ (Some emittedArgInfo) emitted -> Some emitted
                 | _ ->
-                    if isModuleValueForCalls memb.DeclaringEntity memb
+                    if isModuleValueForCalls memb
                     then Some importExpr
                     else staticCall r typ argInfo importExpr |> Some
             | None ->
@@ -732,25 +709,25 @@ module Util =
         | Emitted r typ (Some argInfo) emitted, _ -> emitted
         | Replaced com ctx r typ argTypes genArgs callee args replaced -> replaced
         | Inlined com ctx genArgs callee args expr, _ -> expr
-        | Try (tryGetBoundExpr ctx r) funcExpr, entity ->
-            if isModuleValueForCalls entity memb
+        | Try (tryGetBoundExpr ctx r) funcExpr, _ ->
+            if isModuleValueForCalls memb
             then funcExpr
             else staticCall r typ argInfo funcExpr
         // Check if this is an interface or abstract/overriden method
-        | _, Some entity
-                when entity.IsInterface
+        | _, Some entity when entity.IsInterface
                 || memb.IsOverrideOrExplicitInterfaceImplementation
-                || isAbstract entity ->
+                || memb.IsDispatchSlot ->
             match callee with
             | Some callee ->
-                match getObjectMemberKind memb, args with
-                | Fable.Getter, _ -> get r typ callee memb.DisplayName
-                | Fable.Setter, [arg] -> Fable.Set(callee, makeStrConst memb.DisplayName |> Fable.ExprSet, arg, r)
-                // Constructor is unexpected (abstract class cons calls are resolved in transformConstructor)
+                match args with
+                | [Fable.Value Fable.UnitConstant] when memb.IsPropertyGetterMethod ->
+                    get r typ callee memb.DisplayName
+                | [arg] when memb.IsPropertySetterMethod ->
+                    Fable.Set(callee, makeStrConst memb.DisplayName |> Fable.ExprSet, arg, r)
                 | _ -> makeStrConst memb.DisplayName |> Some |> instanceCall r typ argInfo
             | None -> "Unexpected static interface/override call" |> attachRange r |> failwith
-        | _, entity ->
-            if isModuleValueForCalls entity memb
+        | _ ->
+            if isModuleValueForCalls memb
             then memberRefTyped com typ memb
             else
                 let argInfo =

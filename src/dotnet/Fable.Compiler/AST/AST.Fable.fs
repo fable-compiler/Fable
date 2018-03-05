@@ -34,13 +34,19 @@ type ValueDeclarationInfo =
 type BaseConstructorInfo =
     { BaseEntityRef: Expr
       BaseConsRef: Expr
-      BaseConsArgs: Expr list }
+      BaseConsArgs: Expr list
+      BaseConsHasSpread: bool }
 
 type ImplicitConstructorDeclarationInfo =
     { Name: string
       IsPublic: bool
       HasSpread: bool
       BaseConstructor: BaseConstructorInfo option
+      EntityName: string }
+
+type OverrideDeclarationInfo =
+    { Name: string
+      Kind: ObjectMemberKind
       EntityName: string }
 
 type InterfaceCastDeclarationInfo =
@@ -54,9 +60,9 @@ type InterfaceCastDeclarationInfo =
 type Declaration =
     | ActionDeclaration of Expr
     | ValueDeclaration of Expr * ValueDeclarationInfo
-    | ImplicitConstructorDeclaration of args: Ident list * body: Expr * ImplicitConstructorDeclarationInfo
     | InterfaceCastDeclaration of ObjectMember list * InterfaceCastDeclarationInfo
-    // | Override of args: Ident list * body: Expr * name: string * FSharpEntity
+    | OverrideDeclaration of args: Ident list * body: Expr * OverrideDeclarationInfo
+    | ImplicitConstructorDeclaration of args: Ident list * body: Expr * ImplicitConstructorDeclarationInfo
 
 type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
     member __.SourcePath: string = sourcePath
@@ -75,12 +81,6 @@ type ImportKind =
     | CoreLib
     | Internal
     | CustomImport
-
-type MemberKind =
-    | Getter
-    | Setter
-    | Constructor
-    | Method
 
 type EnumKind = NumberEnum of int | StringEnum of string
 type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of int

@@ -112,6 +112,9 @@ module Util =
         | [] -> expr
         | m::ms -> get None expr m |> getParts ms
 
+    let jsObject methodName args =
+        CallExpression(get None (Identifier "Object") methodName, args)
+
     let buildArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
         match typ with
         | Fable.Number kind when com.Options.typedArrays ->
@@ -226,6 +229,11 @@ module Util =
             Fable.ArrayValues (tag::vals) |> buildArray com ctx Fable.Any
         | Fable.NewErasedUnion(e,_) -> com.TransformExpr(ctx, e)
 
+    let bindThisInFunctionBody boundThis thisArg args bodyStatements =
+        let thisBinding = varDeclaration thisArg false boundThis :> Statement
+        let body = BlockStatement(thisBinding::bodyStatements)
+        args, body
+
     let transformObjectExpr (com: IBabelCompiler) ctx members (boundThis: Identifier option): Expression =
         let makeObjMethod kind prop computed hasSpread args body =
             // TODO: Check tail call opportunity
@@ -233,9 +241,7 @@ module Util =
             let args, body =
                 match boundThis, args with
                 | Some boundThis, thisArg::args ->
-                    let thisBinding = varDeclaration thisArg false boundThis :> Statement
-                    let body = BlockStatement(thisBinding::body.body)
-                    args, body
+                    bindThisInFunctionBody boundThis thisArg args body.body
                 | _, args -> args, body
             ObjectMethod(kind, prop, args, body, computed=computed) |> U3.Case2 |> Some
         members |> List.choose (fun (name, expr, kind) ->
@@ -758,6 +764,47 @@ module Util =
         let expr: Expression = upcast FunctionExpression(args, body)
         declareModuleMember info.IsPublic info.Name false expr
 
+    let transformAction (com: IBabelCompiler) ctx expr =
+        let statements = transformStatement com ctx expr
+        let hasVarDeclarations =
+            statements |> List.exists (function
+                | :? VariableDeclaration -> true
+                | _ -> false)
+        if hasVarDeclarations then
+            [ CallExpression(FunctionExpression([], BlockStatement(statements)), [])
+              |> ExpressionStatement :> Statement |> U2.Case1 ]
+        else List.map U2.Case1 statements
+
+    let transformOverride (com: IBabelCompiler) ctx (info: Fable.OverrideDeclarationInfo) args body =
+        let defineGetterOrSetter kind funcCons propName funcExpr =
+            jsObject "defineProperty" [
+                get None funcCons "prototype"
+                StringLiteral propName
+                ObjectExpression [
+                    ObjectProperty(StringLiteral kind, funcExpr) |> U3.Case1
+                ]
+            ] :> Expression
+        let funcCons = Identifier info.EntityName :> Expression
+        let funcExpr =
+            let hasSpread =
+                match info.Kind with
+                | Fable.ObjectMethod hasSpread -> hasSpread
+                | _ -> false
+            let args, body = getMemberArgsAndBody com ctx None hasSpread args body
+            let args, body =
+                match args with
+                | thisArg::args -> bindThisInFunctionBody (Identifier "this") thisArg args body.body
+                | args -> args, body
+            FunctionExpression(args, body)
+        match info.Kind with
+        | Fable.ObjectGetter -> defineGetterOrSetter "get" funcCons info.Name funcExpr
+        | Fable.ObjectSetter -> defineGetterOrSetter "set" funcCons info.Name funcExpr
+        | _ ->
+            let protoMember = get None (get None funcCons "prototype") info.Name
+            assign None protoMember funcExpr
+        |> ExpressionStatement :> Statement
+        |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
+
     let transformImplicitConstructor (com: IBabelCompiler) ctx (info: Fable.ImplicitConstructorDeclarationInfo) args body =
         let funcCons = Identifier info.EntityName :> Expression
         let thisIdent = Identifier "this" :> Expression
@@ -766,7 +813,9 @@ module Util =
             match info.BaseConstructor with
             | None -> FunctionExpression(args, body) :> Expression
             | Some({ BaseConsRef = TransformExpr com ctx baseCons } as b) ->
-                let baseArgs = b.BaseConsArgs |> List.map (transformExpr com ctx)
+                let baseArgs =
+                    if b.BaseConsHasSpread then Fable.SeqSpread else Fable.NoSpread
+                    |> transformArgs com ctx b.BaseConsArgs
                 let baseCall =
                     CallExpression(get None baseCons "call", thisIdent::baseArgs)
                     |> ExpressionStatement :> Statement
@@ -792,7 +841,7 @@ module Util =
         [ yield declareModuleMember info.IsPublic info.EntityName false originalCons
           match info.BaseConstructor with
           | Some { BaseEntityRef = TransformExpr com ctx baseExpr } ->
-            let proto = CallExpression(get None (Identifier "Object") "create", [get None baseExpr "prototype"])
+            let proto = jsObject "create" [get None baseExpr "prototype"]
             yield assign None (get None funcCons "prototype") proto |> ExpressionStatement :> Statement |> U2.Case1
           | None -> ()
           yield declareModuleMember info.IsPublic info.Name false exposedCons ]
@@ -800,19 +849,7 @@ module Util =
     let transformDeclarations (com: IBabelCompiler) ctx decls =
         decls |> List.collect (function
             | Fable.ActionDeclaration e ->
-                let statements = transformStatement com ctx e
-                let hasVarDeclarations =
-                    statements |> List.exists (function
-                        | :? VariableDeclaration -> true
-                        | _ -> false)
-                let statements =
-                    if hasVarDeclarations then
-                        CallExpression(FunctionExpression([], BlockStatement(statements)), [])
-                        |> ExpressionStatement :> Statement
-                        |> List.singleton
-                    else statements
-                statements
-                |> List.map U2.Case1
+                transformAction com ctx e
             | Fable.ValueDeclaration(value, info) ->
                 match value with
                 // Mutable public values must be compiled as functions (see #986)
@@ -830,6 +867,8 @@ module Util =
                     [declareModuleMember info.IsPublic info.Name info.IsMutable value]
             | Fable.ImplicitConstructorDeclaration(args, body, info) ->
                 transformImplicitConstructor com ctx info args body
+            | Fable.OverrideDeclaration(args, body, info) ->
+                transformOverride com ctx info args body
             // TODO: Check special case System.IEnumerable<'T>
             | Fable.InterfaceCastDeclaration(members, info) ->
                 // TODO: Cast to inherited interfaces

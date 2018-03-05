@@ -491,34 +491,41 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
             | _ -> false)
         || Naming.ignoredInterfaceMethods.Contains meth.CompiledName
 
-let private transformConstructor com ctx ent (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
-    let bodyCtx, args = bindMemberArgs com ctx args
-    let baseCons, body =
-        match body with
-        | BasicPatterns.Sequential(baseCall, body) ->
-            let baseCons =
-                match baseCall with
-                // For classes without parent this should be BasicPatterns.NewObject
-                // but check the baseCall.DeclaringEntity name just in case
-                | BasicPatterns.Call(None,baseCall,_,_,baseArgs) ->
-                    match baseCall.DeclaringEntity with
-                    | Some baseType when baseType.TryFullName <> Some Types.object ->
-                        { Fable.BaseEntityRef = entityRef com baseType
-                          Fable.BaseConsRef = memberRef com baseCall
-                          Fable.BaseConsArgs = List.map (transformExpr com bodyCtx) baseArgs } |> Some
+let private transformConstructor com ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+    match memb.DeclaringEntity with
+    | None -> "Unexpected constructor without declaring entity: " + memb.FullName
+              |> addError com None; []
+    | Some ent ->
+        let bodyCtx, args = bindMemberArgs com ctx args
+        let baseCons, body =
+            match body with
+            | BasicPatterns.Sequential(baseCall, body) ->
+                let baseCons =
+                    match baseCall with
+                    // For classes without parent this should be BasicPatterns.NewObject
+                    // but check the baseCall.DeclaringEntity name just in case
+                    | BasicPatterns.Call(None,baseCall,_,_,baseArgs) ->
+                        match baseCall.DeclaringEntity with
+                        | Some baseType when baseType.TryFullName <> Some Types.object ->
+                            { Fable.BaseEntityRef = entityRef com baseType
+                              Fable.BaseConsRef = memberRef com baseCall
+                              Fable.BaseConsArgs = List.map (transformExpr com bodyCtx) baseArgs
+                              Fable.BaseConsHasSpread = hasSeqSpread baseCall } |> Some
+                        | _ -> None
                     | _ -> None
-                | _ -> None
-            baseCons, transformExpr com bodyCtx body
-        | body -> None, transformExpr com bodyCtx body
-    let name = getMemberDeclarationName com true memb
-    com.AddUsedVarName(name)
-    let info: Fable.ImplicitConstructorDeclarationInfo =
-        { Name = name
-          IsPublic = isPublicMember memb
-          HasSpread = hasSeqSpread memb
-          BaseConstructor = baseCons
-          EntityName = getEntityDeclarationName com true ent }
-    [Fable.ImplicitConstructorDeclaration(args, body, info)]
+                baseCons, transformExpr com bodyCtx body
+            | body -> None, transformExpr com bodyCtx body
+        let name = getMemberDeclarationName com true memb
+        let entityName = getEntityDeclarationName com true ent
+        com.AddUsedVarName(name)
+        com.AddUsedVarName(entityName)
+        let info: Fable.ImplicitConstructorDeclarationInfo =
+            { Name = name
+              IsPublic = isPublicMember memb
+              HasSpread = hasSeqSpread memb
+              BaseConstructor = baseCons
+              EntityName = entityName }
+        [Fable.ImplicitConstructorDeclaration(args, body, info)]
 
 // TODO: compile imports as ValueDeclarations (check if they're mutable, see Zaid's issue)
 // TODO: Import expressions must be exported if public too
@@ -558,14 +565,35 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
     // Accept import expressions , e.g. let foo x y = import "foo" "myLib"
     | true, Fable.Import(selector, path, Fable.CustomImport, typ) ->
         transformImport com ctx typ name selector path
-    | _, fableBody ->
+    | _, body ->
         let info: Fable.ValueDeclarationInfo =
             { Name = name
               IsPublic = isPublicMember memb
               IsMutable = false
               HasSpread = hasSeqSpread memb }
-        let fn = Fable.Function(Fable.Delegate args, fableBody)
+        let fn = Fable.Function(Fable.Delegate args, body)
         [Fable.ValueDeclaration(fn, info)]
+
+let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+    match memb.DeclaringEntity with
+    | None -> "Unexpected override without declaring entity: " + memb.FullName
+              |> addError com None; []
+    | Some ent ->
+        let bodyCtx, args = bindMemberArgs com ctx args
+        let body = transformExpr com bodyCtx body
+        let kind =
+            match args with
+            | [_thisArg; unitArg] when memb.IsPropertyGetterMethod && unitArg.Type = Fable.Unit ->
+                Fable.ObjectGetter
+            | [_thisArg; _valueArg] when memb.IsPropertySetterMethod ->
+                Fable.ObjectSetter
+            | _ ->
+                Fable.ObjectMethod (hasSeqSpread memb)
+        let info: Fable.OverrideDeclarationInfo =
+            { Name = memb.DisplayName
+              Kind = kind
+              EntityName = getEntityDeclarationName com true ent }
+        [Fable.OverrideDeclaration(args, body, info)]
 
 // TODO: Translate System.IComparable<'T>.CompareTo as if it were an override
 let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -589,11 +617,13 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         // TODO: Compiler flag to output inline expressions? (e.g. for REPL libs)
         com.AddInlineExpr(memb, (List.concat args, body))
         []
-    elif memb.IsImplicitConstructor && Option.isSome memb.DeclaringEntity
-    then transformConstructor com ctx memb.DeclaringEntity.Value memb args body
+    elif memb.IsImplicitConstructor
+    then transformConstructor com ctx memb args body
     elif memb.IsExplicitInterfaceImplementation
     then transformInterfaceImplementation com ctx memb args body
-    elif isModuleValueForDeclaration memb
+    elif memb.IsOverrideOrExplicitInterfaceImplementation
+    then transformOverride com ctx memb args body
+    elif memb.IsValue
     then transformMemberValue com ctx memb body
     else transformMemberFunction com ctx memb args body
 
