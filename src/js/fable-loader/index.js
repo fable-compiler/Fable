@@ -44,10 +44,17 @@ var Loader = function(buffer) {
     var babelOptions = opts.babel || {};
     babelOptions.plugins = customPlugins.concat(babelOptions.plugins || []);
 
+    var define = ensureArray(or(opts.define, []));
+    try {
+        if (this._compiler.options.mode === "development" && define.indexOf("DEBUG") === -1) {
+            define.push("DEBUG");
+        }
+    } catch (er) {}
+
     var msg = {
         path: this.resourcePath,
         rootDir: process.cwd(),
-        define: ensureArray(or(opts.define, [])),
+        define: define,
         plugins: ensureArray(or(opts.plugins, [])),
         typedArrays: or(opts.typedArrays, true),
         clampByteArrays: or(opts.clampByteArrays, false),
