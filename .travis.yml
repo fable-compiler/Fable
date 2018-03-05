@@ -14,8 +14,8 @@ cache:
   yarn: true
 
 before_script:
-  - nvm install 6.11
-  - nvm use 6.11
+  - nvm install 6.11.5
+  - nvm use 6.11.5
   # Update npm
   - npm install -g npm
 

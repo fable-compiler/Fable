@@ -5,7 +5,7 @@ build:
   verbosity: detailed
 
 environment:
-  nodejs_version: "6.11.0"
+  nodejs_version: "6.11.5"
 
 cache:
  - "%LOCALAPPDATA%\\Yarn"
