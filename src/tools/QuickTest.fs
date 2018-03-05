@@ -8,10 +8,11 @@ module QuickTest
 
 // Please don't add this file to your commits
 
-// open System
-// open Fable.Core
-// open Fable.Core.JsInterop
-// open Fable.Core.Testing
+open System
+open Fable.Core
+open Fable.Core.JsInterop
+open Fable.Core.Testing
+open Fable.Import
 
 // let equal expected actual =
 //     let areEqual = expected = actual
@@ -129,24 +130,18 @@ module QuickTest
 //     localFoo x1 + localFoo x2
 //     // foo x1 5 + foo x2 10
 
-open System
-open Fable.Core.JsInterop
+type C() =
+    member __.Bar = "bar"
 
-type IFoo =
-   abstract Foo: float
-//    abstract Foo2: float
-//    abstract FooBar: float with set
-//    abstract Bar: s: string * [<ParamArray>] rest: int[] -> string
+type A(s: string) =
+    member __.Foo = s
+    new () = A("jaja")
+    new (i: int) = if i <= 0 then A(C().Bar) else A(string i)
 
-type Point =
-    { x: float; y: float }
-    interface IFoo with
-        member this.Foo = this.x * this.y
+type B(i: int) =
+    inherit A(i)
 
-let test(foo: IFoo) =
-    foo.Foo
-
-Fable.Import.JS.console.log(test { x = 5.; y = 3.})
+JS.console.log(B(1).Foo)
 
 // let ``ParamArray in object expression works``() =
 //    let mutable ja = 0.

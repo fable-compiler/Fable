@@ -17,30 +17,28 @@ module private Helpers =
             | t -> t)
 
     let coreCall r t (info: CallInfo) coreModule coreMember thisArg args =
-        let argInfo = { ThisArg = thisArg; Args = args; ArgTypes = Some info.ArgTypes; Spread = NoSpread }
+        let info = argInfo thisArg args (Some info.ArgTypes)
         let funcExpr = Import(coreMember, coreModule, CoreLib, Any)
-        Operation(Call(StaticCall funcExpr, argInfo), t, r)
+        Operation(Call(StaticCall funcExpr, info), t, r)
 
     let coreCall_ t coreModule coreMember args =
         let funcExpr = Import(coreMember, coreModule, CoreLib, Any)
-        let argInfo = { ThisArg = None; Args = args; ArgTypes = None; Spread = NoSpread }
-        Operation(Call(StaticCall funcExpr, argInfo), t, None)
+        Operation(Call(StaticCall funcExpr, argInfo None args None), t, None)
 
     let globalCall r t info ident memb thisArg args =
-        let argInfo = { ThisArg = thisArg; Args = args; ArgTypes = Some info.ArgTypes; Spread = NoSpread }
         let funcExpr =
             match memb with
             | Some m -> get None Any (makeIdentExpr ident) m
             | None -> makeIdentExpr ident
-        Operation(Call(StaticCall funcExpr, argInfo), t, r)
+        let info = argInfo thisArg args (Some info.ArgTypes)
+        Operation(Call(StaticCall funcExpr, info), t, r)
 
     let globalCall_ t ident memb args =
-        let argInfo = { ThisArg = None; Args = args; ArgTypes = None; Spread = NoSpread }
         let funcExpr =
             match memb with
             | Some m -> get None Any (makeIdentExpr ident) m
             | None -> makeIdentExpr ident
-        Operation(Call(StaticCall funcExpr, argInfo), t, None)
+        Operation(Call(StaticCall funcExpr, argInfo None args None), t, None)
 
     let add left right =
         Operation(BinaryOperation(BinaryPlus, left, right), left.Type, None)
@@ -286,8 +284,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     match i.CompiledName, args with
     // Erased operators
     | "Box", _ | "Unbox", _ | "Identity", _ | "Ignore", _ -> List.tryHead args
-    // TODO: Number conversions
+    // TODO: Number and String conversions
     | "ToDouble", _ | "ToInt", _ -> List.tryHead args
+    | "ToString", _ -> globalCall r t i "String" None None args |> Some
     // Pipes and composition
     | "op_PipeRight", [x; f]
     | "op_PipeLeft", [f; x] -> curriedApply r t f [x] |> Some

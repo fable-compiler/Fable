@@ -108,19 +108,26 @@ module AST =
     let makeNumConst (x: float) = NumberConstant (float x, Float64) |> Value
     let makeDecConst (x: decimal) = NumberConstant (float x, Float64) |> Value
 
+    let argInfo thisArg args argTypes =
+        { ThisArg = thisArg
+          Args = args
+          ArgTypes = argTypes
+          Spread = NoSpread
+          IsSiblingConstructorCall = false }
+
     let staticCall r t argInfo functionExpr =
         Fable.Operation(Fable.Call(Fable.StaticCall functionExpr, argInfo), t, r)
 
     let constructorCall_ r t consExpr args =
-        let argInfo = { ThisArg = None; Args = args; ArgTypes = None; Spread = NoSpread }
-        Fable.Operation(Fable.Call(Fable.ConstructorCall consExpr, argInfo), t, r)
+        let info = argInfo None args None
+        Fable.Operation(Fable.Call(Fable.ConstructorCall consExpr, info), t, r)
 
     let instanceCall r t argInfo memb =
         Fable.Operation(Fable.Call(Fable.InstanceCall memb, argInfo), t, r)
 
     let instanceCall_ r t callee memb args =
-        let argInfo = { ThisArg = Some callee; Args = args; ArgTypes = None; Spread = NoSpread }
-        Operation(Call(InstanceCall memb, argInfo), t, r)
+        let info = argInfo (Some callee) args None
+        Operation(Call(InstanceCall memb, info), t, r)
 
     let getExpr r t left memb =
         Fable.Get(left, ExprGet memb, t, r)

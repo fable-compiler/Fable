@@ -16,13 +16,16 @@ type Context =
       VarNames: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
       CaughtException: Fable.Ident option
+      /// Returned entity fullName in secondary constructor bodies
+      ConstructorEntityFullName: string option
     }
     static member Create() =
         { Scope = []
           ScopeInlineValues = []
           VarNames = HashSet()
           GenericArgs = Map.empty
-          CaughtException = None }
+          CaughtException = None
+          ConstructorEntityFullName = None }
 
 type IFableCompiler =
     inherit ICompiler
@@ -73,26 +76,37 @@ module Helpers =
         | Some loc -> loc
         | None -> memb.DeclarationLocation
 
+    let isUnit (typ: FSharpType) =
+        let typ = nonAbbreviatedType typ
+        if typ.HasTypeDefinition
+        then typ.TypeDefinition.TryFullName = Some Types.unit
+        else false
+
     let findOverloadIndex (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
-        let argsEqual (args1: IList<IList<FSharpParameter>>) (args2: IList<IList<FSharpParameter>>) =
-            if args1.Count = args2.Count then
-                (args1, args2) ||> Seq.forall2 (fun g1 g2 ->
-                // Checking equality of FSharpParameter seems to be fast
-                // See https://github.com/fsharp/FSharp.Compiler.Service/blob/0d87c8878c14ab2b283fbd696096e4e4714fab6b/src/fsharp/symbols/Symbols.fs#L2145
-                    g1.Count = g2.Count && Seq.forall2 (=) g1 g2)
+        let argsEqual (args1: FSharpParameter[]) (args2: FSharpParameter[]) =
+            if args1.Length = args2.Length
+            // Checking equality of FSharpParameter seems to be fast
+            // See https://github.com/fsharp/FSharp.Compiler.Service/blob/0d87c8878c14ab2b283fbd696096e4e4714fab6b/src/fsharp/symbols/Symbols.fs#L2145
+            then (args1, args2) ||> Array.forall2 (=)
             else false
+        let flattenParams (m: FSharpMemberOrFunctionOrValue) =
+            match m.CurriedParameterGroups |> Seq.concat |> Seq.toArray with
+            // (?) Sometimes .CurriedParameterGroups contains the unit arg and sometimes doesn't
+            | [|arg|] when isUnit arg.Type -> [||]
+            | args -> args
         if m.IsImplicitConstructor || m.IsOverrideOrExplicitInterfaceImplementation
         then 0
         else
             // m.Overloads(false) doesn't work
             let name = m.CompiledName
             let isInstance = m.IsInstanceMember
+            let parameters = flattenParams m
             ((0, false), entity.MembersFunctionsAndValues)
             ||> Seq.fold (fun (i, found) m2 ->
                 if not found && m2.IsInstanceMember = isInstance && m2.CompiledName = name then
-                    // .Equals() doesn't work. TODO: Compare arg types for trait calls
+                    // .Equals() doesn't work.
                     // .IsEffectivelySameAs() doesn't work for constructors
-                    if argsEqual m.CurriedParameterGroups m2.CurriedParameterGroups
+                    if argsEqual parameters (flattenParams m2)
                     then i, true
                     else i + 1, false
                 else i, found)
@@ -150,12 +164,6 @@ module Helpers =
         then false
         else not memb.Accessibility.IsPrivate
 
-    let isUnit (typ: FSharpType) =
-        let typ = nonAbbreviatedType typ
-        if typ.HasTypeDefinition
-        then typ.TypeDefinition.TryFullName = Some "Microsoft.FSharp.Core.Unit"
-        else false
-
     let makeRange (r: Range.range) =
         { start = { line = r.StartLine; column = r.StartColumn }
           ``end``= { line = r.EndLine; column = r.EndColumn } }
@@ -206,6 +214,15 @@ module Helpers =
         match memb.DeclaringEntity with
         | Some entity -> isModuleValuePrivate false entity memb
         | None -> false
+
+    let isSiblingConstructorCall (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) =
+        match memb.IsConstructor, ctx.ConstructorEntityFullName with
+        | true, Some fullName ->
+            let returnType = memb.ReturnParameter.Type
+            if returnType.HasTypeDefinition
+            then returnType.TypeDefinition.TryFullName = Some fullName
+            else false
+        | _ -> false
 
     let getObjectMemberKind (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsImplicitConstructor || memb.IsConstructor then Fable.Constructor
@@ -462,19 +479,18 @@ module TypeHelpers =
         else None
 
     let tryFindMember com (entity: FSharpEntity) membCompiledName isInstance (argTypes: Fable.Type list) =
-        let argsEqual (args1: Fable.Type list) =
-            let args1Len = List.length argTypes
-            fun (args2: IList<IList<FSharpParameter>>) ->
-                let args2Len = args2 |> Seq.sumBy (fun g -> g.Count)
-                if args1Len = args2Len then
+        let argsEqual (args1: Fable.Type list) args1Length (args2: IList<IList<FSharpParameter>>) =
+                let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
+                if args1Length = args2Length then
                     let args2 = args2 |> Seq.collect (fun g ->
                         g |> Seq.map (fun p -> makeType com Map.empty p.Type) |> Seq.toList)
                     listEquals typeEquals args1 (Seq.toList args2)
                 else false
         // TODO: Check record fields
+        let argTypesLength = List.length argTypes
         getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
             if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName
-            then argsEqual argTypes m2.CurriedParameterGroups
+            then argsEqual argTypes argTypesLength m2.CurriedParameterGroups
             else false)
 
     let inline (|FableType|) com (ctx: Context) t = makeType com ctx.GenericArgs t
@@ -671,13 +687,19 @@ module Util =
         | Fable.DeclaredType(ent,_) as exprTyp when not ent.IsInterface ->
             let funcName = getCastDeclarationName com ent interfaceEntity
             let file = (getEntityLocation ent).FileName |> Path.normalizePath
-            let info: Fable.ArgInfo =
-                { ThisArg = None; Args = [expr]; ArgTypes = Some [exprTyp]; Spread = Fable.NoSpread }
+            let info = argInfo None [expr] (Some [exprTyp])
             if file = com.CurrentFile
             then makeIdent funcName |> Fable.IdentExpr
             else Fable.Import(funcName, file, Fable.Internal, Fable.Any)
             |> staticCall None typ info
         | _ -> expr
+
+    let entityRef (com: IFableCompiler) (ent: FSharpEntity) =
+        let entityName = getEntityDeclarationName com true ent
+        let file = (getEntityLocation ent).FileName |> Path.normalizePath
+        if file = com.CurrentFile
+        then makeIdent entityName |> Fable.IdentExpr
+        else Fable.Import(entityName, file, Fable.Internal, Fable.Any)
 
     let memberRefTyped (com: IFableCompiler) typ (memb: FSharpMemberOrFunctionOrValue) =
         let memberName = getMemberDeclarationName com true memb
@@ -703,7 +725,8 @@ module Util =
           { ThisArg = callee
             Args = args
             ArgTypes = Some argTypes
-            Spread = if hasSeqSpread memb then Fable.SeqSpread else Fable.NoSpread }
+            Spread = if hasSeqSpread memb then Fable.SeqSpread else Fable.NoSpread
+            IsSiblingConstructorCall = false }
         match memb, memb.DeclaringEntity with
         | Imported r typ (Some argInfo) imported, _ -> imported
         | Emitted r typ (Some argInfo) emitted, _ -> emitted
@@ -729,7 +752,12 @@ module Util =
         | _, entity ->
             if isModuleValueForCalls entity memb
             then memberRefTyped com typ memb
-            else memberRef com memb |> staticCall r typ argInfo
+            else
+                let argInfo =
+                    if isSiblingConstructorCall ctx memb
+                    then { argInfo with IsSiblingConstructorCall = true }
+                    else argInfo
+                memberRef com memb |> staticCall r typ argInfo
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType

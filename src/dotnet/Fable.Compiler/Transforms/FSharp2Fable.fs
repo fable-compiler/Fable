@@ -301,10 +301,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.Application(FableCoreDynamicOp(Transform com ctx e1, Transform com ctx e2), _, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         let argInfo: Fable.ArgInfo =
-          { ThisArg = Some e1
-            Args = List.map (transformExpr com ctx) args
-            ArgTypes = None
-            Spread = Fable.TupleSpread }
+            let args = List.map (transformExpr com ctx) args
+            { argInfo (Some e1) args None with Spread = Fable.TupleSpread }
         Fable.Operation(Fable.Call(Fable.InstanceCall(Some e2), argInfo), typ, r)
 
     | BasicPatterns.Application(Transform com ctx applied, _, args) ->
@@ -493,36 +491,34 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
             | _ -> false)
         || Naming.ignoredInterfaceMethods.Contains meth.CompiledName
 
-let private transformConstructor com ctx (meth: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
-    ctx, [] // TODO: Constructors
-    // match meth.EnclosingEntity with
-    // | Some ent when meth.IsImplicitConstructor ->
-    //     // LambdaType constructor (same name as entity)
-    //     let body =
-    //         match body with
-    //         | BasicPatterns.Sequential(baseCons, expr) ->
-    //             // TODO: Check base const
-    //             // - Remove if it's obj()
-    //             // - Normal call with `this` at the end if it's an F# type
-    //             // - BaseCons.call(this, ...args) if it's a JS type
-    //             expr
-    //         | expr -> expr
-    //     // Bind entity name to context to prevent name clashes (it will become a variable in JS)
-    //     let ctx, ident = getEntityName ent |> bindIdentWithExactName com ctx Fable.Any
-    //     // TODO: FunctionConstructor needs to be public too for type references
-    //     let classCons = Fable.FunctionDeclaration(None, ident.Name, args, transformExpr com ctx body)
-    //     // Constructor call
-    //     let consCallBody =
-    //         let args = args |> List.map (fun x -> x.Name) |> String.concat ", "
-    //         let macro = String.Format("$this === void 0 ? new {0}({1}) : {0}.call($this, {1})", ident.Name, args)
-    //         Fable.Operation(Fable.Emit(macro, None), Fable.Any, None) // TODO: Use proper type
-    //     let consCall = Fable.FunctionDeclaration(publicName, privateName, args @ [makeIdent "$this"], consCallBody)
-    //     // TODO: Object.setPrototypeOf for exceptions?
-    //     ctx, [classCons; consCall]
-    // | _ ->
-    //     // TODO: Normal method (overloaded name should have been resolved earlier)
-    //     // Just add `$this` as last argument and pass it at the end when calling another constructor
-    //     failwith "TODO: Secondary constructors"
+let private transformConstructor com ctx ent (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+    let bodyCtx, args = bindMemberArgs com ctx args
+    let baseCons, body =
+        match body with
+        | BasicPatterns.Sequential(baseCall, body) ->
+            let baseCons =
+                match baseCall with
+                // For classes without parent this should be BasicPatterns.NewObject
+                // but check the baseCall.DeclaringEntity name just in case
+                | BasicPatterns.Call(None,baseCall,_,_,baseArgs) ->
+                    match baseCall.DeclaringEntity with
+                    | Some baseType when baseType.TryFullName <> Some Types.object ->
+                        { Fable.BaseEntityRef = entityRef com baseType
+                          Fable.BaseConsRef = memberRef com baseCall
+                          Fable.BaseConsArgs = List.map (transformExpr com bodyCtx) baseArgs } |> Some
+                    | _ -> None
+                | _ -> None
+            baseCons, transformExpr com bodyCtx body
+        | body -> None, transformExpr com bodyCtx body
+    let name = getMemberDeclarationName com true memb
+    com.AddUsedVarName(name)
+    let info: Fable.ImplicitConstructorDeclarationInfo =
+        { Name = name
+          IsPublic = isPublicMember memb
+          HasSpread = hasSeqSpread memb
+          BaseConstructor = baseCons
+          EntityName = getEntityDeclarationName com true ent }
+    [Fable.ImplicitConstructorDeclaration(args, body, info)]
 
 // TODO: compile imports as ValueDeclarations (check if they're mutable, see Zaid's issue)
 // TODO: Import expressions must be exported if public too
@@ -530,7 +526,7 @@ let private transformImport com ctx typ name selector path =
 //     if selector = Naming.placeholder
 //     then Fable.Value(Fable.Import(meth.DisplayName, path, importKind))
 //     else fableBody
-    ctx, []
+    []
 
 let private transformMemberValue com ctx (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
     let fableValue = transformExpr com ctx value
@@ -546,14 +542,19 @@ let private transformMemberValue com ctx (memb: FSharpMemberOrFunctionOrValue) (
               IsPublic = isPublicMember memb
               IsMutable = memb.IsMutable
               HasSpread = false }
-        ctx, [Fable.ValueDeclaration(fableValue, info)]
+        [Fable.ValueDeclaration(fableValue, info)]
 
 let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
-    let fableBody = transformExpr com bodyCtx body
+    let body =
+        match memb.IsConstructor, memb.DeclaringEntity with
+        | true, Some ent ->
+            let bodyCtx = { bodyCtx with ConstructorEntityFullName = ent.TryFullName  }
+            transformExpr com bodyCtx body
+        | _ -> transformExpr com bodyCtx body
     let name = getMemberDeclarationName com true memb
     com.AddUsedVarName(name)
-    match isModuleMember memb, fableBody with
+    match isModuleMember memb, body with
     // Accept import expressions , e.g. let foo x y = import "foo" "myLib"
     | true, Fable.Import(selector, path, Fable.CustomImport, typ) ->
         transformImport com ctx typ name selector path
@@ -564,8 +565,9 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
               IsMutable = false
               HasSpread = hasSeqSpread memb }
         let fn = Fable.Function(Fable.Delegate args, fableBody)
-        ctx, [Fable.ValueDeclaration(fn, info)]
+        [Fable.ValueDeclaration(fn, info)]
 
+// TODO: Translate System.IComparable<'T>.CompareTo as if it were an override
 let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
     let value = Fable.Function(Fable.Delegate args, transformExpr com bodyCtx body)
@@ -577,18 +579,18 @@ let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSh
         else hasSeqSpread memb |> Fable.ObjectMethod
     let objMember = memb.DisplayName, value, kind
     com.AddInterfaceImplementation(memb, objMember)
-    ctx, []
+    []
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     if isIgnoredMember memb
-    then ctx, []
+    then []
     elif isInline memb then
-        // TODO: Compiler flag to output inline expressions (e.g. for REPL libs)
+        // TODO: Compiler flag to output inline expressions? (e.g. for REPL libs)
         com.AddInlineExpr(memb, (List.concat args, body))
-        ctx, []
-    elif memb.IsImplicitConstructor || memb.IsConstructor
-    then transformConstructor com ctx memb args body
+        []
+    elif memb.IsImplicitConstructor && Option.isSome memb.DeclaringEntity
+    then transformConstructor com ctx memb.DeclaringEntity.Value memb args body
     elif memb.IsExplicitInterfaceImplementation
     then transformInterfaceImplementation com ctx memb args body
     elif isModuleValueForDeclaration memb
@@ -597,20 +599,18 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
 
 let private transformDeclarations (com: FableCompiler) fsDecls =
     let rec transformDeclarationsInner com (ctx: Context) fsDecls =
-        ((ctx, []), fsDecls) ||> List.fold (fun (ctx, accDecls) fsDecl ->
-            let ctx, fableDecls =
-                match fsDecl with
-                | FSharpImplementationFileDeclaration.Entity(_, sub) ->
-                    transformDeclarationsInner com ctx sub
-                | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
-                    transformMemberDecl com ctx meth args body
-                | FSharpImplementationFileDeclaration.InitAction fe ->
-                    // TODO: Check if variables defined in several init actions can conflict
-                    let e = transformExpr com ctx fe
-                    let decl = Fable.ActionDeclaration e
-                    ctx, [decl]
-            ctx, accDecls @ fableDecls)
-    let _, decls = transformDeclarationsInner com (Context.Create()) fsDecls
+        fsDecls |> List.collect (fun fsDecl ->
+            match fsDecl with
+            | FSharpImplementationFileDeclaration.Entity(_, sub) ->
+                transformDeclarationsInner com ctx sub
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
+                transformMemberDecl com ctx meth args body
+            | FSharpImplementationFileDeclaration.InitAction fe ->
+                // TODO: Check if variables defined in several init actions can conflict
+                let e = transformExpr com ctx fe
+                let decl = Fable.ActionDeclaration e
+                [decl])
+    let decls = transformDeclarationsInner com (Context.Create()) fsDecls
     let interfaceImplementations =
         com.InterfaceImplementations.Values |> Seq.map (fun (info, objMember) ->
             Fable.InterfaceCastDeclaration(Seq.toList objMember, info)) |> Seq.toList

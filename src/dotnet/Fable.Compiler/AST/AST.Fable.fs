@@ -31,11 +31,17 @@ type ValueDeclarationInfo =
       IsMutable: bool
       HasSpread: bool }
 
-type ConstructorDeclarationInfo =
+type BaseConstructorInfo =
+    { BaseEntityRef: Expr
+      BaseConsRef: Expr
+      BaseConsArgs: Expr list }
+
+type ImplicitConstructorDeclarationInfo =
     { Name: string
       IsPublic: bool
       HasSpread: bool
-      Entity: FSharpEntity }
+      BaseConstructor: BaseConstructorInfo option
+      EntityName: string }
 
 type InterfaceCastDeclarationInfo =
     { Name: string
@@ -48,9 +54,8 @@ type InterfaceCastDeclarationInfo =
 type Declaration =
     | ActionDeclaration of Expr
     | ValueDeclaration of Expr * ValueDeclarationInfo
-    // | ConstructorDeclaration of args: Ident list * body: Expr * ConstructorDeclarationInfo
+    | ImplicitConstructorDeclaration of args: Ident list * body: Expr * ImplicitConstructorDeclarationInfo
     | InterfaceCastDeclaration of ObjectMember list * InterfaceCastDeclarationInfo
-    // | ImplicitConstructor of args: Ident list * body: Expr * FSharpEntity
     // | Override of args: Ident list * body: Expr * name: string * FSharpEntity
 
 type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
@@ -140,7 +145,8 @@ type ArgInfo =
   { ThisArg: Expr option
     Args: Expr list
     ArgTypes: Type list option
-    Spread: SpreadKind }
+    Spread: SpreadKind
+    IsSiblingConstructorCall: bool }
 
 type CallInfo =
   { ArgTypes: Type list
