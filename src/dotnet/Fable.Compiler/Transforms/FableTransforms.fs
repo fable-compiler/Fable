@@ -31,9 +31,10 @@ let rec visit f e =
     | Test(e, kind, r) -> Test(visit f e, kind, r)
     | Cast(e, t) -> Cast(visit f e, t)
     | Function(kind, body) -> Function(kind, visit f body)
-    | ObjectExpr(members, t) ->
+    | ObjectExpr(members, t, baseCall) ->
         let members = members |> List.map (fun (n,v,k) -> n, visit f v, k)
-        ObjectExpr(members, t)
+        let baseCall = Option.map (visit f) baseCall
+        ObjectExpr(members, t, baseCall)
     | Operation(kind, t, r) ->
         match kind with
         | CurriedApply(callee, args) ->

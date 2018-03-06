@@ -58,7 +58,7 @@ type IBabelCompiler =
     abstract TransformExpr: Context * Fable.Expr -> Expression
     abstract TransformStatement: Context * Fable.Expr -> Statement list
     abstract TransformExprAndResolve: Context * ReturnStrategy * Fable.Expr -> Statement list
-    abstract TransformObjectExpr: Context * Fable.ObjectMember list * ?boundThis: Identifier -> Expression
+    abstract TransformObjectExpr: Context * Fable.ObjectMember list * ?baseCall: Fable.Expr * ?boundThis: Identifier -> Expression
     abstract TransformFunction: Context * ITailCallOpportunity option * Fable.Ident list * Fable.Expr
         -> (Pattern list) * U2<BlockStatement, Expression>
 
@@ -237,7 +237,7 @@ module Util =
             Fable.ArrayValues (tag::vals) |> buildArray com ctx Fable.Any
         | Fable.NewErasedUnion(e,_) -> com.TransformExpr(ctx, e)
 
-    let transformObjectExpr (com: IBabelCompiler) ctx members (boundThis: Identifier option): Expression =
+    let transformObjectExpr (com: IBabelCompiler) ctx members baseCall (boundThis: Identifier option): Expression =
         let makeObjMethod kind prop computed hasSpread args body =
             let args, body = getMemberArgsAndBody com ctx hasSpread args body
             let args, body =
@@ -246,25 +246,30 @@ module Util =
                     bindThisInFunctionBody boundThis thisArg args body.body
                 | _, args -> args, body
             ObjectMethod(kind, prop, args, body, computed=computed) |> U3.Case2 |> Some
-        members |> List.choose (fun (name, expr, kind) ->
-            let prop, computed = memberFromName name
-            match kind, expr with
-            | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body) ->
-                // Don't call the `makeObjMethod` helper here because function as values don't bind `this` arg
-                let args, body' = getMemberArgsAndBody com ctx false args body
-                ObjectMethod(ObjectMeth, prop, args, body', computed=computed) |> U3.Case2 |> Some
-            | Fable.ObjectValue, TransformExpr com ctx value ->
-                ObjectProperty(prop, value, computed=computed) |> U3.Case1 |> Some
-            | Fable.ObjectMethod hasSpread, Fable.Function(Fable.Delegate args, body) ->
-                makeObjMethod ObjectMeth prop computed hasSpread args body
-            | Fable.ObjectGetter, Fable.Function(Fable.Delegate args, body) ->
-                makeObjMethod ObjectGetter prop computed false args body
-            | Fable.ObjectSetter, Fable.Function(Fable.Delegate args, body) ->
-                makeObjMethod ObjectSetter prop computed false args body
-            | kind, _ ->
-                sprintf "Object member has kind %A but value is not a function" kind
-                |> addError com None; None
-        ) |> ObjectExpression :> Expression
+        let pojo =
+            members |> List.choose (fun (name, expr, kind) ->
+                let prop, computed = memberFromName name
+                match kind, expr with
+                | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body) ->
+                    // Don't call the `makeObjMethod` helper here because function as values don't bind `this` arg
+                    let args, body' = getMemberArgsAndBody com ctx false args body
+                    ObjectMethod(ObjectMeth, prop, args, body', computed=computed) |> U3.Case2 |> Some
+                | Fable.ObjectValue, TransformExpr com ctx value ->
+                    ObjectProperty(prop, value, computed=computed) |> U3.Case1 |> Some
+                | Fable.ObjectMethod hasSpread, Fable.Function(Fable.Delegate args, body) ->
+                    makeObjMethod ObjectMeth prop computed hasSpread args body
+                | Fable.ObjectGetter, Fable.Function(Fable.Delegate args, body) ->
+                    makeObjMethod ObjectGetter prop computed false args body
+                | Fable.ObjectSetter, Fable.Function(Fable.Delegate args, body) ->
+                    makeObjMethod ObjectSetter prop computed false args body
+                | kind, _ ->
+                    sprintf "Object member has kind %A but value is not a function" kind
+                    |> addError com None; None
+            ) |> ObjectExpression
+        match baseCall with
+        | Some(TransformExpr com ctx baseCall) ->
+            jsObject "assign" [baseCall; pojo]
+        | None -> pojo :> Expression
 
     let transformArgs (com: IBabelCompiler) ctx args spread =
         match args, spread with
@@ -539,8 +544,8 @@ module Util =
         | Fable.Function(FunctionArgs args, body) ->
             com.TransformFunction(ctx, None, args, body) ||> makeAnonymousFunction
 
-        | Fable.ObjectExpr (members, _) ->
-            Some(Identifier "this") |> transformObjectExpr com ctx members
+        | Fable.ObjectExpr (members, _, baseCall) ->
+            Some(Identifier "this") |> transformObjectExpr com ctx members baseCall
 
         | Fable.Operation(opKind, _, range) ->
             transformOperation com ctx range opKind
@@ -629,8 +634,8 @@ module Util =
             let bindings = bindings |> List.collect (fun (i, v) -> transformBinding com ctx i v)
             bindings @ (transformExprAndResolve com ctx ret body)
 
-        | Fable.ObjectExpr (members, _) ->
-            [Some(Identifier "this") |> transformObjectExpr com ctx members |> resolve ret]
+        | Fable.ObjectExpr (members, _, baseCall) ->
+            [Some(Identifier "this") |> transformObjectExpr com ctx members baseCall |> resolve ret]
 
         | Fable.Function(FunctionArgs args, body) ->
             [com.TransformFunction(ctx, None, args, body) ||> makeAnonymousFunction |> resolve ret]
@@ -844,9 +849,8 @@ module Util =
 
     // TODO: Check special case System.IEnumerable<'T>
     let transformInterfaceCast (com: IBabelCompiler) ctx (info: Fable.InterfaceCastDeclarationInfo) members =
-        // TODO: Cast to inherited interfaces
         let boundThis = Identifier "$this"
-        let castedObj = transformObjectExpr com ctx members (Some boundThis)
+        let castedObj = transformObjectExpr com ctx members None (Some boundThis)
         let funcExpr =
             let returnedObj =
                 match info.InheritedInterfaces with
@@ -970,7 +974,7 @@ module Util =
             member bcom.TransformStatement(ctx, e) = transformStatement bcom ctx e
             member bcom.TransformExprAndResolve(ctx, ret, e) = transformExprAndResolve bcom ctx ret e
             member bcom.TransformFunction(ctx, tc, args, body) = transformFunction bcom ctx tc args body
-            member bcom.TransformObjectExpr(ctx, members, boundThis) = transformObjectExpr bcom ctx members boundThis
+            member bcom.TransformObjectExpr(ctx, members, baseCall, boundThis) = transformObjectExpr bcom ctx members baseCall boundThis
         interface ICompiler with
             member __.Options = com.Options
             member __.FableCore = com.FableCore

@@ -167,10 +167,17 @@ test2438u9()
 // type B(i: int) =
 //     inherit A(i)
 
-// [<AbstractClass>]
-// type D() =
-//     abstract Value: int
-//     member this.Add(x) = this.Value + x
+[<AbstractClass>]
+type D(i) =
+    abstract Value: int
+    member this.Add(x) = this.Value + x + i
+
+let test234918() =
+    let d = { new D(5) with
+                override __.Value = 60 }
+    d.Add(25) |> log
+
+test234918()
 
 // type E(j) =
 //     inherit D()

@@ -76,7 +76,20 @@ let private transformTraitCall com (ctx: Context) r typ sourceTypes traitName (f
                   |> addErrorAndReturnNull com r
 
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSharpType)
-                        (overrides: FSharpObjectExprOverride list) otherOverrides =
+                    baseCallExpr (overrides: FSharpObjectExprOverride list) otherOverrides =
+    let baseCall =
+        match baseCallExpr with
+        // For interface implementations this should be BasicPatterns.NewObject
+        // but check the baseCall.DeclaringEntity name just in case
+        | BasicPatterns.Call(None,baseCall,genArgs1,genArgs2,baseArgs) ->
+            match baseCall.DeclaringEntity with
+            | Some baseType when baseType.TryFullName <> Some Types.object ->
+                let typ = makeType com ctx.GenericArgs baseCallExpr.Type
+                let baseArgs = List.map (transformExpr com ctx) baseArgs
+                let genArgs = genArgs1 @ genArgs2 |> Seq.map (makeType com ctx.GenericArgs)
+                makeCallFrom com ctx None typ genArgs None baseArgs baseCall |> Some
+            | _ -> None
+        | _ -> None
     (objType, overrides)::otherOverrides
     |> List.collect (fun (typ, overrides) ->
         let overrides =
@@ -111,7 +124,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                 name, value, Fable.ObjectMethod hasSpread
     )) |> fun members ->
         let typ = makeType com ctx.GenericArgs objType
-        Fable.ObjectExpr(members, typ)
+        Fable.ObjectExpr(members, typ, baseCall)
 
 let private transformDelegate com ctx delegateType fsExpr =
     // let wrapInZeroArgsFunction r typ (args: FSharpExpr list) argTypes fref =
@@ -422,8 +435,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.NewTuple(_, argExprs) ->
         argExprs |> List.map (transformExpr com ctx) |> Fable.NewTuple |> Fable.Value
 
-    | BasicPatterns.ObjectExpr(objType, _baseCallExpr, overrides, otherOverrides) ->
-        transformObjExpr com ctx objType overrides otherOverrides
+    | BasicPatterns.ObjectExpr(objType, baseCall, overrides, otherOverrides) ->
+        transformObjExpr com ctx objType baseCall overrides otherOverrides
 
     | BasicPatterns.NewObject(memb, genArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type

@@ -199,7 +199,7 @@ type Expr =
     | Import of selector: string * path: string * ImportKind * Type
 
     | Function of FunctionKind * body: Expr
-    | ObjectExpr of ObjectMember list * Type
+    | ObjectExpr of ObjectMember list * Type * baseCall: Expr option
 
     | Test of Expr * TestKind * range: SourceLocation option
     | Operation of OperationKind * typ: Type * range: SourceLocation option
@@ -241,7 +241,7 @@ type Expr =
         | Test _ -> Boolean
         | Value kind -> kind.Type
         | IdentExpr id -> id.Type
-        | Import(_,_,_,t) | Cast(_,t) | ObjectExpr(_,t)
+        | Import(_,_,_,t) | Cast(_,t) | ObjectExpr(_,t,_)
         | Operation(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | DecisionTreeSuccess(_,_,t) -> t
         | Debugger | Set _ | Loop _ -> Unit
         | Sequential exprs -> (List.last exprs).Type
