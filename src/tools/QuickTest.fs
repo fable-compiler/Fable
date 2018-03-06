@@ -30,9 +30,35 @@ open Fable.Import
 // // You'll have to run your test manually, sorry!
 // // ``My Test``()
 
+let log (o: obj) =
+    #if FABLE_COMPILER
+    JS.console.log(o)
+    #else
+    printfn "%O" o
+    #endif
 
-// type IFoo =
-//     abstract Foo: unit -> int
+type IFoo =
+    abstract Foo: int -> int
+
+type IBar =
+    inherit IFoo
+    abstract Bar: string
+    abstract Jamon: int -> int
+
+type Calostro(s) =
+    member __.Joo = "jooo"
+    interface IBar with
+        member __.Foo(i) = i * 2
+        member __.Jamon(i) = i * 3
+        member this.Bar = string ((this :> IFoo).Foo(5) + (this :> IBar).Jamon(2) ) + this.Joo + s
+        // member this.Bar = this.Joo + s
+
+let test2438u9() =
+    let c = Calostro("hihi") :> IBar
+    log(c.Bar)
+    log(c.Foo(6))
+
+test2438u9()
 
 // type Lib.Foo with
 //     member this.XY() = this.Z() + 12
@@ -130,27 +156,27 @@ open Fable.Import
 //     localFoo x1 + localFoo x2
 //     // foo x1 5 + foo x2 10
 
-type C() =
-    member __.Bar = "bar"
+// type C() =
+//     member __.Bar = "bar"
 
-type A(s: string) =
-    member __.Foo = s
-    new () = A("jaja")
-    new (i: int) = if i <= 0 then A(C().Bar) else A(string i)
+// type A(s: string) =
+//     member __.Foo = s
+//     new () = A("jaja")
+//     new (i: int) = if i <= 0 then A(C().Bar) else A(string i)
 
-type B(i: int) =
-    inherit A(i)
+// type B(i: int) =
+//     inherit A(i)
 
-[<AbstractClass>]
-type D() =
-    abstract Value: int
-    member this.Add(x) = this.Value + x
+// [<AbstractClass>]
+// type D() =
+//     abstract Value: int
+//     member this.Add(x) = this.Value + x
 
-type E(j) =
-    inherit D()
-    override this.Value = j
+// type E(j) =
+//     inherit D()
+//     override this.Value = j
 
-JS.console.log(E(5).Add(6))
+// JS.console.log(E(5).Add(6))
 
 // let ``ParamArray in object expression works``() =
 //    let mutable ja = 0.

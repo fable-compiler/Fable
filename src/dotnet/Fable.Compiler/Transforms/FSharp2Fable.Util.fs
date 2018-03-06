@@ -18,6 +18,8 @@ type Context =
       CaughtException: Fable.Ident option
       /// Returned entity fullName in secondary constructor bodies
       ConstructorEntityFullName: string option
+      /// The name of the interface being implemented in a method body
+      ImplementedInterfaceFullName: string option
     }
     static member Create() =
         { Scope = []
@@ -25,7 +27,8 @@ type Context =
           VarNames = HashSet()
           GenericArgs = Map.empty
           CaughtException = None
-          ConstructorEntityFullName = None }
+          ConstructorEntityFullName = None
+          ImplementedInterfaceFullName = None }
 
 type IFableCompiler =
     inherit ICompiler

@@ -89,8 +89,7 @@ module Naming =
               "System.Collections.Generic.ICollection"; "System.Collections.Generic.IList"
               "System.Collections.Generic.IDictionary"; "System.Collections.Generic.ISet" ]
 
-    /// Interfaces automatically assigned by the F# compiler
-    /// to unions and records. Ignored by Fable.
+    /// Interfaces automatically assigned by the F# compiler to unions and records. Ignored by Fable.
     let ignoredInterfaces =
         set [ "System.Collections.IStructuralEquatable"; "System.Collections.IStructuralComparable"
               "System.Collections.IEnumerable"; "System.Collections.IEnumerator" ]
@@ -99,8 +98,7 @@ module Naming =
         set [ "System-Collections-IEnumerable-GetEnumerator"
               "System-Collections-IEnumerator-get_Current" ]
 
-    /// Methods automatically assigned by the F# compiler
-    /// for unions and records. Ignored by Fable.
+    /// Methods automatically assigned by the F# compiler for unions and records. Ignored by Fable.
     let ignoredCompilerGenerated =
         set [ "CompareTo"; "Equals"; "GetHashCode" ]
 

@@ -113,7 +113,7 @@ module Util =
         | m::ms -> get None expr m |> getParts ms
 
     let jsObject methodName args =
-        CallExpression(get None (Identifier "Object") methodName, args)
+        CallExpression(get None (Identifier "Object") methodName, args) :> Expression
 
     let buildArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
         match typ with
@@ -156,8 +156,16 @@ module Util =
     let macroExpression range (txt: string) args =
         MacroExpression(txt, args, ?loc=range) :> Expression
 
-    let getMemberArgsAndBody (com: IBabelCompiler) ctx tc hasSpread args (body: Fable.Expr) =
-        let args, body = com.TransformFunction(ctx, tc, args, body)
+    // TODO: Integrate this function with the one below and check if thisArg is actually used in the body
+    let bindThisInFunctionBody boundThis thisArg args bodyStatements =
+        let thisBinding = varDeclaration thisArg false boundThis :> Statement
+        let body = BlockStatement(thisBinding::bodyStatements)
+        args, body
+
+    // TODO: Create tail call opportunity here (pass function ident name, watch out for interface/override methods)
+    let getMemberArgsAndBody (com: IBabelCompiler) ctx hasSpread args (body: Fable.Expr) =
+        // let tc = NamedTailCallOpportunity(com, privName, args) :> ITailCallOpportunity |> Some
+        let args, body = com.TransformFunction(ctx, None, args, body)
         let args =
             if not hasSpread
             then args
@@ -229,15 +237,9 @@ module Util =
             Fable.ArrayValues (tag::vals) |> buildArray com ctx Fable.Any
         | Fable.NewErasedUnion(e,_) -> com.TransformExpr(ctx, e)
 
-    let bindThisInFunctionBody boundThis thisArg args bodyStatements =
-        let thisBinding = varDeclaration thisArg false boundThis :> Statement
-        let body = BlockStatement(thisBinding::bodyStatements)
-        args, body
-
     let transformObjectExpr (com: IBabelCompiler) ctx members (boundThis: Identifier option): Expression =
         let makeObjMethod kind prop computed hasSpread args body =
-            // TODO: Check tail call opportunity
-            let args, body = getMemberArgsAndBody com ctx None hasSpread args body
+            let args, body = getMemberArgsAndBody com ctx hasSpread args body
             let args, body =
                 match boundThis, args with
                 | Some boundThis, thisArg::args ->
@@ -249,7 +251,7 @@ module Util =
             match kind, expr with
             | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body) ->
                 // Don't call the `makeObjMethod` helper here because function as values don't bind `this` arg
-                let args, body' = getMemberArgsAndBody com ctx None false args body
+                let args, body' = getMemberArgsAndBody com ctx false args body
                 ObjectMethod(ObjectMeth, prop, args, body', computed=computed) |> U3.Case2 |> Some
             | Fable.ObjectValue, TransformExpr com ctx value ->
                 ObjectProperty(prop, value, computed=computed) |> U3.Case1 |> Some
@@ -756,10 +758,7 @@ module Util =
             :> ModuleDeclaration |> U2.Case2
 
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ValueDeclarationInfo) args body =
-        let args, body =
-            // let tc = NamedTailCallOpportunity(com, privName, args) :> ITailCallOpportunity |> Some
-            let tc = None
-            getMemberArgsAndBody com ctx tc info.HasSpread args body
+        let args, body = getMemberArgsAndBody com ctx info.HasSpread args body
         // Don't lexically bind `this` (with arrow function) or it will fail with extension members
         let expr: Expression = upcast FunctionExpression(args, body)
         declareModuleMember info.IsPublic info.Name false expr
@@ -777,20 +776,17 @@ module Util =
 
     let transformOverride (com: IBabelCompiler) ctx (info: Fable.OverrideDeclarationInfo) args body =
         let defineGetterOrSetter kind funcCons propName funcExpr =
-            jsObject "defineProperty" [
-                get None funcCons "prototype"
-                StringLiteral propName
-                ObjectExpression [
-                    ObjectProperty(StringLiteral kind, funcExpr) |> U3.Case1
-                ]
-            ] :> Expression
+            jsObject "defineProperty"
+                [ get None funcCons "prototype"
+                  StringLiteral propName
+                  ObjectExpression [ObjectProperty(StringLiteral kind, funcExpr) |> U3.Case1] ]
         let funcCons = Identifier info.EntityName :> Expression
         let funcExpr =
             let hasSpread =
                 match info.Kind with
                 | Fable.ObjectMethod hasSpread -> hasSpread
                 | _ -> false
-            let args, body = getMemberArgsAndBody com ctx None hasSpread args body
+            let args, body = getMemberArgsAndBody com ctx hasSpread args body
             let args, body =
                 match args with
                 | thisArg::args -> bindThisInFunctionBody (Identifier "this") thisArg args body.body
@@ -809,7 +805,7 @@ module Util =
         let funcCons = Identifier info.EntityName :> Expression
         let thisIdent = Identifier "this" :> Expression
         let originalCons =
-            let args, body = getMemberArgsAndBody com ctx None info.HasSpread args body
+            let args, body = getMemberArgsAndBody com ctx info.HasSpread args body
             match info.BaseConstructor with
             | None -> FunctionExpression(args, body) :> Expression
             | Some({ BaseConsRef = TransformExpr com ctx baseCons } as b) ->
@@ -846,6 +842,23 @@ module Util =
           | None -> ()
           yield declareModuleMember info.IsPublic info.Name false exposedCons ]
 
+    // TODO: Check special case System.IEnumerable<'T>
+    let transformInterfaceCast (com: IBabelCompiler) ctx (info: Fable.InterfaceCastDeclarationInfo) members =
+        // TODO: Cast to inherited interfaces
+        let boundThis = Identifier "$this"
+        let castedObj = transformObjectExpr com ctx members (Some boundThis)
+        let funcExpr =
+            let returnedObj =
+                match info.InheritedInterfaces with
+                | [] -> castedObj
+                | otherCasts ->
+                    (otherCasts, [castedObj]) ||> List.foldBack (fun cast acc ->
+                        (CallExpression(Identifier cast, [boundThis]) :> Expression)::acc
+                    ) |> jsObject "assign"
+            let body = BlockStatement [ReturnStatement returnedObj]
+            FunctionExpression([boundThis], body) :> Expression
+        [declareModuleMember info.IsPublic info.Name false funcExpr]
+
     let transformDeclarations (com: IBabelCompiler) ctx decls =
         decls |> List.collect (function
             | Fable.ActionDeclaration e ->
@@ -869,16 +882,8 @@ module Util =
                 transformImplicitConstructor com ctx info args body
             | Fable.OverrideDeclaration(args, body, info) ->
                 transformOverride com ctx info args body
-            // TODO: Check special case System.IEnumerable<'T>
             | Fable.InterfaceCastDeclaration(members, info) ->
-                // TODO: Cast to inherited interfaces
-                let boundThis = Identifier "$this"
-                let body =
-                    let castedObj = transformObjectExpr com ctx members (Some boundThis)
-                    BlockStatement [ReturnStatement castedObj]
-                let expr = FunctionExpression([boundThis], body) :> Expression
-                [declareModuleMember info.IsPublic info.Name false expr]
-        )
+                transformInterfaceCast com ctx info members)
 
     let transformImports (imports: Import seq): U2<Statement, ModuleDeclaration> list =
         imports |> Seq.map (fun import ->

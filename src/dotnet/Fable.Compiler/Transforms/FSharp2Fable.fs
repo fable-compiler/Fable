@@ -172,13 +172,18 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     match fsExpr with
     | BasicPatterns.Coerce(targetType, Transform com ctx inpExpr) ->
-        Fable.Cast(inpExpr, makeType com ctx.GenericArgs targetType)
+        let typ = makeType com ctx.GenericArgs targetType
+        match ctx.ImplementedInterfaceFullName, tryDefinition targetType with
+        | Some interfaceFullName, Some interfaceEntity
+            when interfaceEntity.TryFullName = Some interfaceFullName -> Fable.This typ |> Fable.Value
+        | _ -> Fable.Cast(inpExpr, makeType com ctx.GenericArgs targetType)
 
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
     // Sometimes these must be inlined, but that's resolved in BasicPatterns.Let (see below)
     | BasicPatterns.TypeLambda (_genArgs, Transform com ctx lambda) -> lambda
 
+    // TODO: Compile it just as Seq.iter?
     // TODO: Detect if it's ResizeArray and compile as FastIntegerForLoop?
     | ForOfLoop (BindIdent com ctx (newContext, ident), Transform com ctx value, body) ->
         Fable.ForOf (ident, value, transformExpr com newContext body)
@@ -598,7 +603,10 @@ let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunc
 // TODO: Translate System.IComparable<'T>.CompareTo as if it were an override
 let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
-    let value = Fable.Function(Fable.Delegate args, transformExpr com bodyCtx body)
+    let interfaceFullName = tryGetInterfaceFromMethod memb |> Option.bind (fun ent -> ent.TryFullName)
+    let bodyCtx = { bodyCtx with ImplementedInterfaceFullName = interfaceFullName }
+    let body = transformExpr com bodyCtx body
+    let value = Fable.Function(Fable.Delegate args, body)
     let kind =
         if memb.IsPropertyGetterMethod
         then Fable.ObjectGetter
@@ -698,6 +706,15 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
         match memb.DeclaringEntity, tryGetInterfaceFromMethod memb with
         | Some implementingEntity, Some interfaceEntity ->
             let castFunctionName = getCastDeclarationName com implementingEntity interfaceEntity
+            let inheritedInterfaces =
+                if interfaceEntity.AllInterfaces.Count > 1 then
+                    interfaceEntity.AllInterfaces |> Seq.choose (fun t ->
+                        if t.HasTypeDefinition then
+                            let fullName = getCastDeclarationName com implementingEntity t.TypeDefinition
+                            if fullName <> castFunctionName then Some fullName else None
+                        else None)
+                    |> Seq.toList
+                else []
             match this.InterfaceImplementations.TryGetValue(castFunctionName) with
             | false, _ ->
                 let info: Fable.InterfaceCastDeclarationInfo =
@@ -705,7 +722,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
                       IsPublic = not implementingEntity.Accessibility.IsPrivate
                       ImplementingType = implementingEntity
                       InterfaceType = interfaceEntity
-                      InheritedInterfaces = [] // TODO: Add inherited interfaces
+                      InheritedInterfaces = inheritedInterfaces
                     }
                 let members = ResizeArray()
                 members.Add(objMemb)
