@@ -6,6 +6,9 @@
 
   <ItemGroup>
     <Reference Include="../../../build/fable/Fable.Core.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
     <Compile Include="Set.fs" />

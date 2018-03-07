@@ -1,4 +1,5 @@
 import { compare as compareDates, toString as dateToString } from "./Date";
+import Long, { toString as longToString } from "./Long";
 
 export type Choice<T1, T2> = ["Choice1Of2", T1] | ["Choice2Of2", T2];
 
@@ -27,7 +28,28 @@ export function isDisposable(x: any) {
   return x != null && typeof x.Dispose === "function";
 }
 
+export function int16ToString(i: number, radix: number) {
+  i = i < 0 && radix != null && radix !== 10 ? 0xFFFF + i + 1 : i;
+  return i.toString(radix);
+}
+
+export function int32ToString(i: number, radix: number) {
+  i = i < 0 && radix != null && radix !== 10 ? 0xFFFFFFFF + i + 1 : i;
+  return i.toString(radix);
+}
+
 export function toString(obj: any, quoteStrings = false): string {
+  function customToString(obj: any) {
+    if (typeof obj.ToString === "function") {
+      return obj.ToString();
+    } else if (obj instanceof Date) {
+      return dateToString(obj);
+    } else if (obj instanceof Long) {
+      return longToString(obj);
+    } else {
+      return null;
+    }
+  }
   if (obj == null) {
     return String(obj);
   }
@@ -42,19 +64,12 @@ export function toString(obj: any, quoteStrings = false): string {
     case "function":
       return obj.name;
     case "object":
-      if (obj instanceof Date) {
-        return dateToString(obj);
-      }
-      if (typeof obj.ToString === "function") {
-        return obj.ToString();
-      }
       try {
-        return JSON.stringify(obj, (k, v) => {
+        return customToString(obj) || JSON.stringify(obj, (k, v) => {
           if (v != null) {
-            if (v instanceof Date) {
-              return dateToString(v);
-            } else if (typeof v.ToString === "function") {
-              return v.ToString();
+            const custom = customToString(v);
+            if (custom != null) {
+              return custom;
             } else if (v[Symbol.iterator] && !Array.isArray(v)) {
               return Array.from(v);
             }

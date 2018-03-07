@@ -271,11 +271,14 @@ module private Transforms =
                     | _ -> arg)
             | None -> List.map (uncurryExpr com None) args
         match e with
-        // TODO: Uncurry also NewRecord, CurriedApply and Emit arguments
+        // TODO: Uncurry also NewRecord and CurriedApply arguments
         | Operation(Call(kind, info), t, r) ->
             // For CurriedApply: let argTypes = uncurryLambdaType [] t |> fst |> Some
             let info = { info with Args = uncurryArgs info.ArgTypes info.Args }
             Operation(Call(kind, info), t, r)
+        | Operation(Emit(macro, Some info), t, r) ->
+            let info = { info with Args = uncurryArgs info.ArgTypes info.Args }
+            Operation(Emit(macro, Some info), t, r)
         | e -> e
 
     let uncurryApplications_required (_: ICompiler) e =

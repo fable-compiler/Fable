@@ -40,6 +40,10 @@ module private Helpers =
             | None -> makeIdentExpr ident
         Operation(Call(StaticCall funcExpr, argInfo None args None), t, None)
 
+    let instanceCall_ t callee memb args =
+        let kind = makeStrConst memb |> Some |> InstanceCall
+        Operation(Call(kind, argInfo (Some callee) args None), t, None)
+
     let add left right =
         Operation(BinaryOperation(BinaryPlus, left, right), left.Type, None)
 
@@ -196,6 +200,45 @@ let rec makeTypeTest com range expr (typ: Type) =
     | Option _ | GenericParam _ | ErasedUnion _ ->
         "Cannot type test options, generic parameters or erased unions"
         |> addErrorAndReturnNull com range
+
+let toChar (sourceType: Type) (args: Expr list) =
+    match sourceType with
+    | Char
+    | String -> args.Head
+    | _ -> globalCall_ Char "String" (Some "fromCharCode") args
+
+let toString (sourceType: Type) (args: Expr list) =
+    match sourceType with
+    | Char
+    | String -> args.Head
+    | Unit | Boolean
+    | Array _ | Tuple _ | FunctionType _ | EnumType _ ->
+        globalCall_ String "String" None args
+    | Builtin (BclInt64 | BclUInt64) ->
+        coreCall_ String "Long" "toString" args
+    | Number Int16 ->
+        coreCall_ String "Util" "int16ToString" args
+    | Number Int32 ->
+        coreCall_ String "Util" "int32ToString" args
+    | Number _ ->
+        instanceCall_ String args.Head "toString" args.Tail
+    | _ ->
+        coreCall_ String "Util" "toString" args
+
+let toFloat (sourceType: Type) targetType (args: Expr list) =
+    match sourceType with
+    | String ->
+        coreCall_ (Number Float64) "Double" "parse" args
+    | Builtin (BclInt64 | BclUInt64) ->
+        coreCall_ (Number Float64) "Long" "toNumber" args
+    | Builtin BclBigInt ->
+        let meth = match targetType with
+                    | Number Float32 -> "toSingle"
+                    | Number Float64 -> "toDouble"
+                    | Number Decimal -> "toDecimal"
+                    | _ -> failwith "Unexpected BigInt conversion"
+        coreCall_ (Number Float64) "BigInt" meth args
+    | _ -> args.Head
 
 let applyOp (com: ICompiler) ctx r t (i: CallInfo) (args: Expr list) =
     let (|CustomOp|_|) com opName argTypes =
