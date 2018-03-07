@@ -286,7 +286,9 @@ let retryGetCrackedProjects (checker: FSharpChecker) (projFile: string) =
 let isDirectoryEmpty dir =
     if Directory.Exists(dir)
     then Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
-    else true
+    else
+        Directory.CreateDirectory(dir) |> ignore
+        true
 
 let createFableDir rootDir =
     let fableDir = IO.Path.Combine(rootDir, ".fable")

@@ -274,7 +274,6 @@ let buildRepl () =
 Target "All" (fun () ->
     installDotnetSdk ()
     clean ()
-    // nugetRestore "src/dotnet" ()
     buildCLI Release ()
     buildSplitter ()
     buildCoreJS ()
