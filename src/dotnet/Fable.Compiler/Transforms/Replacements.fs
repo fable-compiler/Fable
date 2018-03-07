@@ -185,11 +185,14 @@ let rec makeTypeTest com range expr (typ: Type) =
     | Array _ | Tuple _ | List _ ->
         coreCall_ Boolean "Util" "isArray" [expr]
     | DeclaredType (ent, _) ->
-        failwith "TODO: DeclaredType type test"
-        // if ent.IsClass
-        // then jsInstanceof (TypeRef ent) expr
-        // else "Cannot type test interfaces, records or unions"
-        //      |> addErrorAndReturnNull com fileName range
+        match ent.TryFullName with
+        | Some "System.IDisposable" ->
+            coreCall_ Boolean "Util" "isDisposable" [expr]
+        | _ ->
+            if ent.IsClass
+            then jsInstanceof (FSharp2Fable.Util.entityRef com ent) expr
+            else "Cannot type test interfaces, records or unions"
+                 |> addErrorAndReturnNull com range
     | Option _ | GenericParam _ | ErasedUnion _ ->
         "Cannot type test options, generic parameters or erased unions"
         |> addErrorAndReturnNull com range
@@ -342,6 +345,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | SetContains Operators.standardSet, _ ->
         applyOp com ctx r t i args |> Some
     | _ -> None
+
+let seqs (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | meth -> coreCall r t i "Seq" (Naming.lowerFirst meth) thisArg args |> Some
+    // | _ -> None
 
 let arrays (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, args, i.CompiledName with
@@ -554,6 +562,7 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "Microsoft.FSharp.Collections.ArrayModule" -> arrays com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.FSharpList`1"
     | "Microsoft.FSharp.Collections.ListModule" -> lists com ctx r t info thisArg args
+    | "Microsoft.FSharp.Collections.SeqModule" -> seqs com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.FSharpOption`1"
     | "Microsoft.FSharp.Core.OptionModule" -> options com ctx r t info thisArg args
     | "System.Decimal" -> decimals com ctx r t info thisArg args
@@ -613,7 +622,6 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
 //         | "Microsoft.FSharp.Collections.ArrayModule" -> collectionsFirstPass com info Array
 //         | "Microsoft.FSharp.Collections.FSharpList"
 //         | "Microsoft.FSharp.Collections.ListModule" -> collectionsFirstPass com info List
-//         | "Microsoft.FSharp.Collections.SeqModule" -> collectionsSecondPass com info Seq
 //         | "Microsoft.FSharp.Collections.FSharpMap"
 //         | "Microsoft.FSharp.Collections.MapModule"
 //         | "Microsoft.FSharp.Collections.FSharpSet"

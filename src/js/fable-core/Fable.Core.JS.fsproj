@@ -8,6 +8,7 @@
     <Reference Include="../../../build/fable/Fable.Core.dll" />
     <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
+    <Compile Include="Set.fs" />
   </ItemGroup>
 
 </Project>

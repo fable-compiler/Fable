@@ -2,7 +2,7 @@
 // import { chunkBySize as arrayChunkBySize } from "./Array";
 // import List from "./ListClass";
 import { Option, some, value } from "./Option";
-import { compare, equals, hasInterface, IDisposable } from "./Util";
+import { compare, equals, IDisposable } from "./Util";
 
 export class Enumerator<T> {
   private current: T;

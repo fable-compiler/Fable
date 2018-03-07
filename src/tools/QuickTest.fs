@@ -176,6 +176,8 @@ let test234918() =
     let d = { new D(5) with
                 override __.Value = 60 }
     d.Add(25) |> log
+    let foo = { new IFoo with member __.Foo(i) = 7 - i }
+    foo.Foo(25) |> log
 
 test234918()
 

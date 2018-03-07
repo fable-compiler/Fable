@@ -1,4 +1,3 @@
-import FSymbol from "./Symbol";
 import { compare, IComparer, IEqualityComparer } from "./Util";
 
 export default class Comparer<T> implements IComparer<T> {
@@ -6,10 +5,6 @@ export default class Comparer<T> implements IComparer<T> {
 
   constructor(f?: (x: T, y: T) => number) {
     this.Compare = f || compare;
-  }
-
-  public [FSymbol.reflection]() {
-    return { interfaces: ["System.IComparer"] };
   }
 }
 

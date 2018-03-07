@@ -59,20 +59,24 @@ module Helpers =
         then match ent.Namespace with Some ns -> ns + "." + ent.CompiledName | None -> ent.CompiledName
         else defaultArg ent.TryFullName ent.CompiledName
 
-    let getEntityLocation (ent: FSharpEntity) =
-        match ent.ImplementationLocation with
-        | Some loc -> loc
-        | None -> ent.DeclarationLocation
+    // TODO: Should we check if ent.Assembly.FileName is None?
+    // Or is .ImplementationLocation enough to see if source file is being compiled?
+    let tryGetEntityLocation (ent: FSharpEntity) =
+        ent.ImplementationLocation
 
-    let getEntityDeclarationName (com: ICompiler) trimRootModule (ent: FSharpEntity) =
-        match ent.TryFullName with
-        | Some fullName when not trimRootModule -> fullName
-        | Some fullName ->
-            let rootMod =
-                (getEntityLocation ent).FileName
-                |> com.GetRootModule
-            fullName.Replace(rootMod, ".").TrimStart('.')
-        | None -> ent.CompiledName
+    let private getEntityMangledName (com: ICompiler) trimRootModule (ent: FSharpEntity) =
+        match ent.TryFullName, tryGetEntityLocation ent with
+        | Some fullName, _ when not trimRootModule -> fullName
+        | Some fullName, Some loc ->
+            let rootMod = com.GetRootModule(loc.FileName)
+            if fullName.StartsWith(rootMod)
+            then fullName.Substring(rootMod.Length).TrimStart('.')
+            else fullName
+        | _ -> ent.CompiledName
+
+    let getEntityDeclarationName (com: ICompiler) (ent: FSharpEntity) =
+        getEntityMangledName com true ent
+        |> Naming.sanitizeIdentForbiddenChars
 
     let getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
         match memb.ImplementationLocation with
@@ -116,13 +120,13 @@ module Helpers =
             |> fst
 
     let getCastDeclarationName com (implementingEntity: FSharpEntity) (interfaceEntity: FSharpEntity) =
-        getEntityDeclarationName com true implementingEntity + "$" + getEntityFullName interfaceEntity
+        getEntityMangledName com true implementingEntity + "$" + getEntityFullName interfaceEntity
         |> Naming.sanitizeIdentForbiddenChars
 
-    let getMemberDeclarationName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
+    let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
         | Some ent when ent.IsFSharpModule ->
-            match getEntityDeclarationName com trimRootModule ent with
+            match getEntityMangledName com trimRootModule ent with
             | "" -> memb.CompiledName
             | moduleName -> moduleName + "_" + memb.CompiledName
         | Some ent ->
@@ -132,10 +136,17 @@ module Helpers =
                 match findOverloadIndex ent memb with
                 | 0 -> ""
                 | i -> "_" + string i
-            (getEntityDeclarationName com trimRootModule ent)
+            (getEntityMangledName com trimRootModule ent)
                 + separator + memb.CompiledName + overloadIndex
         | None -> memb.FullName
+
+    let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
+        getMemberMangledName com true memb
         |> Naming.sanitizeIdentForbiddenChars
+
+    /// Used to identify members uniquely in the inline expressions dictionary
+    let getMemberUniqueName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
+        getMemberMangledName com false memb
 
     let tryFindAtt fullName (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
@@ -565,24 +576,35 @@ module Util =
         (Map.empty, memb.GenericParameters, genArgs)
         |||> Seq.fold2 (fun acc genPar t -> Map.add genPar.Name t acc)
 
-    let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes genArgs thisArg args
+    let callInstanceMember r typ callee (argInfo: Fable.ArgInfo) (memb: FSharpMemberOrFunctionOrValue) =
+        match argInfo.Args with
+        | [Fable.Value Fable.UnitConstant] when memb.IsPropertyGetterMethod ->
+            get r typ callee memb.DisplayName
+        | [arg] when memb.IsPropertySetterMethod ->
+            Fable.Set(callee, makeStrConst memb.DisplayName |> Fable.ExprSet, arg, r)
+        | _ -> makeStrConst memb.DisplayName |> Some |> instanceCall r typ argInfo
+
+    let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes genArgs (argInfo: Fable.ArgInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         let isCandidate (entityFullName: string) =
             entityFullName.StartsWith("System.")
                 || entityFullName.StartsWith("Microsoft.FSharp.")
                 || entityFullName.StartsWith("Fable.Core.")
-        match entity |> Option.bind (fun e ->
-            e.TryFullName) with
+        match entity |> Option.bind (fun e -> e.TryFullName) with
         | Some entityFullName when isCandidate entityFullName ->
             let info: Fable.CallInfo =
               { ArgTypes = argTypes
                 DeclaringEntityFullName = entityFullName
                 CompiledName = memb.CompiledName
                 GenericArgs = matchGenericParams memb genArgs }
-            match com.TryReplace(ctx, r, typ, info, thisArg, args) with
+            match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
             | Some e -> Some e
-            | None -> sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
-                      |> addErrorAndReturnNull com r |> Some
+            | None ->
+                match entity, argInfo.ThisArg with
+                | Some entity, Some callee when entity.IsInterface ->
+                    callInstanceMember r typ callee argInfo memb |> Some
+                | _ -> sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
+                       |> addErrorAndReturnNull com r |> Some
         | _ -> None
 
     let (|Emitted|_|) r typ argInfo (memb: FSharpMemberOrFunctionOrValue) =
@@ -665,33 +687,44 @@ module Util =
     let castToInterface com typ (interfaceEntity: FSharpEntity) (expr: Fable.Expr) =
         match expr.Type with
         | Fable.DeclaredType(ent,_) as exprTyp when not ent.IsInterface ->
-            let funcName = getCastDeclarationName com ent interfaceEntity
-            let file = (getEntityLocation ent).FileName |> Path.normalizePath
-            let info = argInfo None [expr] (Some [exprTyp])
-            if file = com.CurrentFile
-            then makeIdent funcName |> Fable.IdentExpr
-            else Fable.Import(funcName, file, Fable.Internal, Fable.Any)
-            |> staticCall None typ info
+            match tryGetEntityLocation ent with
+            | Some entLoc ->
+                let file = Path.normalizePath entLoc.FileName
+                let funcName = getCastDeclarationName com ent interfaceEntity
+                let info = argInfo None [expr] (Some [exprTyp])
+                if file = com.CurrentFile
+                then makeIdent funcName |> Fable.IdentExpr
+                else Fable.Import(funcName, file, Fable.Internal, Fable.Any)
+                |> staticCall None typ info
+            | None -> expr
         | _ -> expr
 
-    let entityRef (com: IFableCompiler) (ent: FSharpEntity) =
-        let entityName = getEntityDeclarationName com true ent
-        let file = (getEntityLocation ent).FileName |> Path.normalizePath
-        if file = com.CurrentFile
-        then makeIdent entityName |> Fable.IdentExpr
-        else Fable.Import(entityName, file, Fable.Internal, Fable.Any)
+    let entityRef (com: ICompiler) (ent: FSharpEntity) =
+        match tryGetEntityLocation ent with
+        | Some entLoc ->
+            let file = Path.normalizePath entLoc.FileName
+            let entityName = getEntityDeclarationName com ent
+            if file = com.CurrentFile
+            then makeIdent entityName |> Fable.IdentExpr
+            else Fable.Import(entityName, file, Fable.Internal, Fable.Any)
+        | None ->
+            "Cannot find implementation location for entity: " + (getEntityFullName ent)
+            |> addErrorAndReturnNull com None
 
     let memberRefTyped (com: IFableCompiler) typ (memb: FSharpMemberOrFunctionOrValue) =
-        let memberName = getMemberDeclarationName com true memb
+        let memberName = getMemberDeclarationName com memb
         let file =
             match memb.DeclaringEntity with
-            | Some ent -> (getEntityLocation ent).FileName |> Path.normalizePath
+            | Some ent -> tryGetEntityLocation ent |> Option.map (fun loc -> Path.normalizePath loc.FileName)
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
-            | None -> com.CurrentFile
-        if file = com.CurrentFile
-        then makeTypedIdent typ memberName |> Fable.IdentExpr
-        else Fable.Import(memberName, file, Fable.Internal, typ)
+            | None -> Some com.CurrentFile
+        match file with
+        | Some file when file = com.CurrentFile ->
+            makeTypedIdent typ memberName |> Fable.IdentExpr
+        | Some file -> Fable.Import(memberName, file, Fable.Internal, typ)
+        | None -> "Cannot find implementation location for member: " + memb.FullName
+                  |> addErrorAndReturnNull com None
 
     let memberRef (com: IFableCompiler) (memb: FSharpMemberOrFunctionOrValue) =
         memberRefTyped com Fable.Any memb
@@ -710,7 +743,7 @@ module Util =
         match memb, memb.DeclaringEntity with
         | Imported r typ (Some argInfo) imported, _ -> imported
         | Emitted r typ (Some argInfo) emitted, _ -> emitted
-        | Replaced com ctx r typ argTypes genArgs callee args replaced -> replaced
+        | Replaced com ctx r typ argTypes genArgs argInfo replaced -> replaced
         | Inlined com ctx genArgs callee args expr, _ -> expr
         | Try (tryGetBoundExpr ctx r) funcExpr, _ ->
             if isModuleValueForCalls memb

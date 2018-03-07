@@ -1,8 +1,5 @@
-import Choice from "./Choice";
 import { value } from "./Option";
-import FSymbol from "./Symbol";
-import { IDisposable } from "./Util";
-import { createDisposable } from "./Util";
+import { Choice, IDisposable } from "./Util";
 
 export interface IObserver<T> {
   OnNext: (x: T) => void;
@@ -20,10 +17,6 @@ export class Observer<T> implements IObserver<T> {
     this.OnError = onError || ((e: any) => { return; });
     this.OnCompleted = onCompleted || (() => { return; });
   }
-
-  public [FSymbol.reflection]() {
-    return { interfaces: ["System.IObserver"] };
-  }
 }
 
 export interface IObservable<T> {
@@ -35,10 +28,6 @@ class Observable<T> implements IObservable<T> {
 
   constructor(subscribe: (o: IObserver<T>) => IDisposable) {
     this.Subscribe = subscribe;
-  }
-
-  public [FSymbol.reflection]() {
-    return { interfaces: ["System.IObservable"] };
   }
 }
 
@@ -117,10 +106,12 @@ export function merge<T>(source1: IObservable<T>, source2: IObservable<T>) {
           }
         }
       }));
-    return createDisposable(() => {
-      h1.Dispose();
-      h2.Dispose();
-    });
+    return {
+      Dispose() {
+        h1.Dispose();
+        h2.Dispose();
+      },
+    } as IDisposable;
   }) as IObservable<T>;
 }
 
@@ -152,7 +143,7 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObse
 }
 
 export function split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, source: IObservable<T>) {
-  return [choose((v) => splitter(v).valueIfChoice1, source), choose((v) => splitter(v).valueIfChoice2, source)];
+  return [choose((v) => splitter(v)[1], source), choose((v) => splitter(v)[1], source)];
 }
 
 export function subscribe<T>(callback: (x: T) => void, source: IObservable<T>) {

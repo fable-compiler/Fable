@@ -1,8 +1,7 @@
-import Choice from "./Choice";
 import { IObservable, IObserver, Observer, protect } from "./Observable";
 import { value } from "./Option";
 import { iterate as seqIterate } from "./Seq";
-import { createDisposable, IDisposable } from "./Util";
+import { Choice, IDisposable } from "./Util";
 
 export type Delegate<T> = (x: T) => void;
 export type DotNetDelegate<T> = (sender: any, x: T) => void;
@@ -81,19 +80,19 @@ export default class Event<T> implements IEvent<T> {
     }
   }
 
-  private _subscribeFromObserver(observer: IObserver<T>) {
+  private _subscribeFromObserver(observer: IObserver<T>): IDisposable {
     if (this._subscriber) {
       return this._subscriber(observer);
     }
 
     const callback = observer.OnNext;
     this._addHandler(callback);
-    return createDisposable(() => this._removeHandler(callback));
+    return { Dispose: () => { this._removeHandler(callback); } };
   }
 
-  private _subscribeFromCallback(callback: Delegate<T>) {
+  private _subscribeFromCallback(callback: Delegate<T>): IDisposable {
     this._addHandler(callback);
-    return createDisposable(() => this._removeHandler(callback));
+    return { Dispose: () => { this._removeHandler(callback); } };
   }
 }
 
@@ -173,10 +172,12 @@ export function merge<T>(event1: IEvent<T>, event2: IEvent<T>) {
         }
       }));
 
-    return createDisposable(() => {
-      h1.Dispose();
-      h2.Dispose();
-    });
+    return {
+      Dispose() {
+        h1.Dispose();
+        h2.Dispose();
+      },
+    } as IDisposable;
   }, source1.delegates.concat(source2.delegates)) as IEvent<T>;
 }
 
@@ -211,7 +212,7 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: 
 
 export function split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, sourceEvent: IEvent<T>) {
   return [
-    choose((v) => splitter(v).valueIfChoice1, sourceEvent),
-    choose((v) => splitter(v).valueIfChoice2, sourceEvent),
+    choose((v) => splitter(v)[1], sourceEvent),
+    choose((v) => splitter(v)[1], sourceEvent),
   ];
 }

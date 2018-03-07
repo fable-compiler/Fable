@@ -533,8 +533,8 @@ let private transformConstructor com ctx (memb: FSharpMemberOrFunctionOrValue) a
                     | _ -> None
                 baseCons, transformExpr com bodyCtx body
             | body -> None, transformExpr com bodyCtx body
-        let name = getMemberDeclarationName com true memb
-        let entityName = getEntityDeclarationName com true ent
+        let name = getMemberDeclarationName com memb
+        let entityName = getEntityDeclarationName com ent
         com.AddUsedVarName(name)
         com.AddUsedVarName(entityName)
         let info: Fable.ImplicitConstructorDeclarationInfo =
@@ -555,7 +555,7 @@ let private transformImport com ctx typ name selector path =
 
 let private transformMemberValue com ctx (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
     let fableValue = transformExpr com ctx value
-    let name = getMemberDeclarationName com true memb
+    let name = getMemberDeclarationName com memb
     com.AddUsedVarName(name)
     match fableValue with
     // Accept import expressions, e.g. let foo = import "foo" "myLib"
@@ -577,7 +577,7 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
             let bodyCtx = { bodyCtx with ConstructorEntityFullName = ent.TryFullName  }
             transformExpr com bodyCtx body
         | _ -> transformExpr com bodyCtx body
-    let name = getMemberDeclarationName com true memb
+    let name = getMemberDeclarationName com memb
     com.AddUsedVarName(name)
     match isModuleMember memb, body with
     // Accept import expressions , e.g. let foo x y = import "foo" "myLib"
@@ -610,7 +610,7 @@ let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunc
         let info: Fable.OverrideDeclarationInfo =
             { Name = memb.DisplayName
               Kind = kind
-              EntityName = getEntityDeclarationName com true ent }
+              EntityName = getEntityDeclarationName com ent }
         [Fable.OverrideDeclaration(args, body, info)]
 
 // TODO: Translate System.IComparable<'T>.CompareTo as if it were an override
@@ -713,7 +713,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
     member val Dependencies = HashSet<string>()
     member val InterfaceImplementations: Dictionary<_,_> = Dictionary()
     member __.AddInlineExpr(memb, inlineExpr) =
-        let fullName = getMemberDeclarationName com false memb
+        let fullName = getMemberUniqueName com memb
         com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
     member this.AddInterfaceImplementation(memb: FSharpMemberOrFunctionOrValue, objMemb: Fable.ObjectMember) =
         match memb.DeclaringEntity, tryGetInterfaceFromMethod memb with
@@ -754,7 +754,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
             if fileName <> com.CurrentFile then
                 this.Dependencies.Add(fileName) |> ignore
-            let fullName = getMemberDeclarationName com false memb
+            let fullName = getMemberUniqueName com memb
             com.GetOrAddInlineExpr(fullName, fun () ->
                 match tryGetMemberArgsAndBody implFiles fileName memb with
                 | Some(args, body) -> List.concat args, body

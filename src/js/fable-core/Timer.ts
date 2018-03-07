@@ -1,5 +1,4 @@
 import Event from "./Event";
-import FSymbol from "./Symbol";
 import { IDisposable } from "./Util";
 
 export default class Timer implements IDisposable {
@@ -75,12 +74,5 @@ export default class Timer implements IDisposable {
 
   public Stop() {
     this.Enabled = false;
-  }
-
-  public [FSymbol.reflection]() {
-    return {
-      type: "System.Timers.Timer",
-      interfaces: ["System.IDisposable"],
-    };
   }
 }

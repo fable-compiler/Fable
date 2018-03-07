@@ -1,6 +1,6 @@
 import { toString as dateToString } from "./Date";
 import { escape } from "./RegExp";
-import { hasInterface, toString } from "./Util";
+import { toString } from "./Util";
 
 const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
