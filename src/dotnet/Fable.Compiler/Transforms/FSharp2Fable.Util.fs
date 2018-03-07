@@ -477,7 +477,7 @@ module TypeHelpers =
                         g |> Seq.map (fun p -> makeType com Map.empty p.Type) |> Seq.toList)
                     listEquals typeEquals args1 (Seq.toList args2)
                 else false
-        // TODO: Check record fields
+        // TODO!!!: Check record fields
         let argTypesLength = List.length argTypes
         getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
             if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName
@@ -552,7 +552,6 @@ module Util =
         // To prevent name clashes in JS create a scope for members
         // where variables must always have a unique name
         let ctx = { ctx with VarNames = HashSet(ctx.VarNames) }
-        /// TODO: Remove unit arg if single or with `this` arg
         (args, (ctx, [])) ||> List.foldBack (fun tupledArg (ctx, accArgs) ->
             // The F# compiler "untuples" the args in methods
             let ctx, untupledArg = makeFunctionArgs com ctx tupledArg

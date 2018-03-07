@@ -128,7 +128,7 @@ module private Transforms =
         | Value(NewList(Some(head, tail), t)) -> untail t [head] tail
         | _ -> None
 
-    // TODO: Some cases of coertion shouldn't be erased
+    // TODO!!!: Some cases of coertion shouldn't be erased
     // string :> seq #1279
     // list (and others) :> seq in Fable 2.0
     // concrete type :> interface in Fable 2.0
@@ -156,7 +156,7 @@ module private Transforms =
             | [] -> replaceValues replacements body
             | bindings -> Let(List.rev bindings, replaceValues replacements body)
         match e with
-        // TODO: Nested lambdas (`Invoke` calls for delegates?)
+        // TODO!!!: Nested lambdas (`Invoke` calls for delegates?)
         // TODO: Don't inline if one of the arguments is `this`?
         | Operation(CurriedApply(Function(Lambda arg, body), [argExpr]), _, _) ->
             applyArgs [arg] [argExpr] body
@@ -182,7 +182,7 @@ module private Transforms =
     let getUncurriedArity (e: Expr) =
         match e.Type with
         | FunctionType(DelegateType argTypes, _) -> List.length argTypes |> Some
-        // TODO: Consider record fields as uncurried
+        // TODO!!!: Consider record fields as uncurried
         | _ -> None
 
     let uncurryExpr com arity expr =
@@ -206,19 +206,19 @@ module private Transforms =
             match arity with
             | None -> expr
             | Some arity when arity = arity2 -> expr
-            | Some _arity -> "TODO: Uncurry to different arity"
+            | Some _arity -> "TODO!!!: Uncurry to different arity"
                              |> addErrorAndReturnNull com expr.Range
         | None ->
             match arity, expr with
             // | Some 1, expr -> expr // This shouldn't happen
             | UncurriedLambda lambda -> lambda
-            | Some arity, _ -> sprintf "TODO: Runtime uncurry to arity %i" arity
+            | Some arity, _ -> sprintf "TODO!!!: Runtime uncurry to arity %i" arity
                                |> addErrorAndReturnNull com expr.Range
             // CoreLibCall("Util", Some "uncurry", false, [makeIntConst arity; expr]) |> makeCall None expr.Type
             | None, _ -> expr
 
     let uncurryInnerFunctions (_: ICompiler) e =
-        e // TODO
+        e // TODO!!!
 
     let uncurryReceivedArgs_required (_: ICompiler) e =
         let replaceIdentType replacements (id: Ident) =
@@ -271,7 +271,7 @@ module private Transforms =
                     | _ -> arg)
             | None -> List.map (uncurryExpr com None) args
         match e with
-        // TODO: Uncurry also NewRecord and CurriedApply arguments
+        // TODO!!!: Uncurry also NewRecord and CurriedApply arguments
         | Operation(Call(kind, info), t, r) ->
             // For CurriedApply: let argTypes = uncurryLambdaType [] t |> fst |> Some
             let info = { info with Args = uncurryArgs info.ArgTypes info.Args }
@@ -288,7 +288,7 @@ module private Transforms =
             | FunctionType(DelegateType argTypes, _) ->
                 if List.sameLength argTypes args
                 then instanceCall_ r t applied None args
-                else failwith "TODO: Partial application"
+                else failwith "TODO!!!: Partial application"
                 // let args = [makeIntConst (arity - argsLength); innerApplied; makeArray Any (List.concat flattenedArgs)]
                 // CoreLibCall("Util", Some "partial", false, args) |> makeCall r Any
             | _ -> e

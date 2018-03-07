@@ -162,7 +162,7 @@ module Util =
         let body = BlockStatement(thisBinding::bodyStatements)
         args, body
 
-    // TODO: Create tail call opportunity here (pass function ident name, watch out for interface/override methods)
+    // TODO!!!: Create tail call opportunity here (pass function ident name, watch out for interface/override methods)
     let getMemberArgsAndBody (com: IBabelCompiler) ctx hasSpread args (body: Fable.Expr) =
         // let tc = NamedTailCallOpportunity(com, privName, args) :> ITailCallOpportunity |> Some
         let args, body = com.TransformFunction(ctx, None, args, body)
@@ -371,7 +371,7 @@ module Util =
         let expr = com.TransformExpr(ctx, expr)
         match getKind with
         | Fable.ExprGet(TransformExpr com ctx prop) -> getExpr range expr prop
-        // TODO: Check if list is empty, see #1341
+        // TODO!!!: Check if list is empty, see #1341
         | Fable.ListHead -> getExpr range expr (ofInt 0)
         | Fable.ListTail -> getExpr range expr (ofInt 1)
         | Fable.RecordGet(fi,_) -> get range expr fi.Name
@@ -509,7 +509,7 @@ module Util =
             [transformIfStatement com ctx None guardExpr thenStmnt elseStmnt :> Statement ]
 
         | Fable.DecisionTree(expr, targets) ->
-            // TODO: Check if decision tree can be compiled as switch
+            // TODO!!!: Check if decision tree can be compiled as switch
             // TODO: If some targets are referenced multiple times, host bound idents,
             // resolve the decision index and compile the targets as a switch
             let ctx = { ctx with decisionTargets = targets }
@@ -528,7 +528,7 @@ module Util =
 
     let rec transformExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
-        // TODO: Warn an unhandlend cast has reached Babel pass
+        // TODO!!!: Warn an unhandlend cast has reached Babel pass
         | Fable.Cast(expr, _) -> transformExpr com ctx expr
 
         | Fable.Value kind -> transformValue com ctx kind
@@ -614,7 +614,7 @@ module Util =
             | Assign left -> upcast ExpressionStatement(assign None left babelExpr)
 
         match expr with
-        // TODO: Warn an unhandlend cast has reached Babel pass
+        // TODO!!!: Warn an unhandlend cast has reached Babel pass
         | Fable.Cast(expr, _) ->
             transformExprAndResolve com ctx ret expr
 
@@ -641,7 +641,7 @@ module Util =
             [com.TransformFunction(ctx, None, args, body) ||> makeAnonymousFunction |> resolve ret]
 
         | Fable.Operation(callKind, _, range) ->
-            // TODO TODO TODO
+            // TODO!!!
             // match ctx.tailCallOpportunity, callee, memb, isCons, ret with
             // | Some tc, Fable.Callee callee, None, false, Return
             //         when List.sameLength tc.Args args && tc.IsRecursiveRef callee ->
@@ -668,7 +668,7 @@ module Util =
             transformTryCatch com ctx (Some ret) (body, catch, finalizer)
 
         | Fable.DecisionTree(expr, targets) ->
-            // TODO: Check if decision tree can be compiled as switch
+            // TODO!!!: Check if decision tree can be compiled as switch
             // TODO: If some targets are referenced multiple times, host bound idents,
             // resolve the decision index and compile the targets as a switch
             let ctx = { ctx with decisionTargets = targets }
@@ -847,7 +847,7 @@ module Util =
           | None -> ()
           yield declareModuleMember info.IsPublic info.Name false exposedCons ]
 
-    // TODO: Check special case System.IEnumerable<'T>
+    // TODO!!!: Check special case System.IEnumerable<'T>
     let transformInterfaceCast (com: IBabelCompiler) ctx (info: Fable.InterfaceCastDeclarationInfo) members =
         let boundThis = Identifier "$this"
         let castedObj = transformObjectExpr com ctx members None (Some boundThis)
@@ -871,7 +871,7 @@ module Util =
                 match value with
                 // Mutable public values must be compiled as functions (see #986)
                 | value when info.IsMutable && info.IsPublic ->
-                    failwith "TODO: Mutable public values"
+                    failwith "TODO!!!: Mutable public values"
             //     // Mutable module values are compiled as functions, because values
             //     // imported from ES2015 modules cannot be modified (see #986)
             //     let expr = transformExpr com ctx body

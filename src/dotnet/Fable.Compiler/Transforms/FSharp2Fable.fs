@@ -147,7 +147,7 @@ let private transformDelegate com ctx delegateType fsExpr =
     //     let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
     //     makeValueFrom com ctx r v |> wrapInZeroArgsFunction r typ args argTypes
     | BasicPatterns.Lambda(arg, body) ->
-        failwith "TODO: Lamba to Delegate"
+        failwith "TODO!!!: Lamba to Delegate"
     | fsExpr -> transformExpr com ctx fsExpr
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr)
@@ -196,7 +196,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // Sometimes these must be inlined, but that's resolved in BasicPatterns.Let (see below)
     | BasicPatterns.TypeLambda (_genArgs, Transform com ctx lambda) -> lambda
 
-    // TODO: Compile it just as Seq.iter?
+    // TODO!!!: Compile it just as Seq.iter?
     // TODO: Detect if it's ResizeArray and compile as FastIntegerForLoop?
     | ForOfLoop (BindIdent com ctx (newContext, ident), Transform com ctx value, body) ->
         Fable.ForOf (ident, value, transformExpr com newContext body)
@@ -235,7 +235,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     (** Values *)
     | BasicPatterns.Const(value, FableType com ctx typ) ->
         let expr = Replacements.makeTypeConst typ value
-        // TODO TODO TODO: Check literals and compile as Enum
+        // TODO!!!: Check literals and compile as Enum
         // if expr.Type <> typ then // Enumerations are compiled as const but they have a different type
         //     Replacements.checkLiteral com (makeRangeFrom fsExpr) value typ
         expr
@@ -418,7 +418,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let r = makeRangeFrom fsExpr
         match valToSet.DeclaringEntity with
         | Some ent when ent.IsFSharpModule ->
-            failwith "TODO: Mutable module values"
+            failwith "TODO!!!: Mutable module values"
             // Mutable module values are compiled as functions, because values
             // imported from ES2015 modules cannot be modified (see #986)
             // Fable.Get(Fable.EntityRef ent, makeStrConst valToSet.CompiledName, None)
@@ -545,7 +545,7 @@ let private transformConstructor com ctx (memb: FSharpMemberOrFunctionOrValue) a
               EntityName = entityName }
         [Fable.ImplicitConstructorDeclaration(args, body, info)]
 
-// TODO: compile imports as ValueDeclarations (check if they're mutable, see Zaid's issue)
+// TODO!!!: compile imports as ValueDeclarations (check if they're mutable, see Zaid's issue)
 // TODO: Import expressions must be exported if public too
 let private transformImport com ctx typ name selector path =
 //     if selector = Naming.placeholder
@@ -613,7 +613,7 @@ let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunc
               EntityName = getEntityDeclarationName com ent }
         [Fable.OverrideDeclaration(args, body, info)]
 
-// TODO: Translate System.IComparable<'T>.CompareTo as if it were an override
+// TODO!!!: Translate System.IComparable<'T>.CompareTo as if it were an override
 let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
     let interfaceFullName = tryGetInterfaceFromMethod memb |> Option.bind (fun ent -> ent.TryFullName)
