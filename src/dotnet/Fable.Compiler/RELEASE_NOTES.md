@@ -1,3 +1,7 @@
+### 1.3.11
+
+* See dotnet-fable 1.3.11 release notes
+
 ### 1.3.10
 
 * Pin FSharp.Core to 4.2.3

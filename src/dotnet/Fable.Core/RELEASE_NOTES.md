@@ -1,3 +1,7 @@
+### 1.3.11
+
+* See dotnet-fable 1.3.11 release notes
+
 ### 1.3.9
 
 * Add setTimeout / setInterval to Fable.Import.Js (@jgrund)
