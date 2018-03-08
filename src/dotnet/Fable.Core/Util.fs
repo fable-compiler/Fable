@@ -184,6 +184,8 @@ module Naming =
             "fetch"
             // See https://twitter.com/FableCompiler/status/930725972629913600
             "eval"
+            // See #1358
+            "window"; "console"
         ]
 
     let preventConflicts conflicts name =
