@@ -685,7 +685,7 @@
 //             | [expected; actual; msg] -> Some [actual; expected; msg]
 //             | _ -> None
 //             |> Option.map (fun args ->
-//                 CoreLibCall ("Assert", Some "equal", false, args)
+//                 CoreLibCall ("Assert", Some "assertEqual", false, args)
 //                 |> makeCall i.range i.returnType)
 //         | "async.AwaitPromise.Static" | "async.StartAsPromise.Static" ->
 //             let meth =
@@ -1560,7 +1560,7 @@
 
 //     let dictionaries (com: ICompiler) (i: Fable.ApplyInfo) =
 //         let makeComparer (e: Fable.Expr) =
-//             ccall_ e.Range e.Type "Comparer" "fromEqualityComparer" [e]
+//             ccall_ e.Range e.Type "Util" "comparerFromEqualityComparer" [e]
 //         let makeDic forceFSharpMap args =
 //             makeDictionaryOrHashSet i.range i.returnType "Map" forceFSharpMap i.ownerGenArgs.Head args
 //         match i.memberName with
@@ -1606,7 +1606,7 @@
 //         match i.memberName with
 //         | ".ctor" ->
 //             let makeComparer (e: Fable.Expr) =
-//                 ccall_ e.Range e.Type "Comparer" "fromEqualityComparer" [e]
+//                 ccall_ e.Range e.Type "Util" "comparerFromEqualityComparer" [e]
 //             match i.argTypes with
 //             | [] | [IEnumerable] ->
 //                 makeHashSet false i.args |> Some
@@ -2241,11 +2241,11 @@
 
 //     let laziness com (info: Fable.ApplyInfo) =
 //         let coreCall meth isCons args =
-//             CoreLibCall("Lazy", meth, isCons, args)
+//             CoreLibCall("Util", Some meth, isCons, args)
 //             |> makeCall info.range info.returnType
 //         match info.memberName with
-//         | ".ctor" | "create" -> coreCall None true info.args |> Some
-//         | "createFromValue" -> coreCall (Some info.memberName) false info.args |> Some
+//         | ".ctor" | "create" -> coreCall "Lazy" true info.args |> Some
+//         | "createFromValue" -> coreCall "lazyFromValue" false info.args |> Some
 //         | "force" | "value" | "isValueCreated" ->
 //             let callee, _ = instanceArgs info.callee info.args
 //             match info.memberName with

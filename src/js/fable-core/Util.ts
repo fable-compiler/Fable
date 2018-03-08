@@ -28,6 +28,71 @@ export function isDisposable(x: any) {
   return x != null && typeof x.Dispose === "function";
 }
 
+export default class Comparer<T> implements IComparer<T> {
+  public Compare: (x: T, y: T) => number;
+
+  constructor(f?: (x: T, y: T) => number) {
+    this.Compare = f || compare;
+  }
+}
+
+export function comparerFromEqualityComparer<T>(comparer: IEqualityComparer<T>) {
+  // Sometimes IEqualityComparer also implements IComparer
+  if (typeof (comparer as any).Compare === "function") {
+    return new Comparer<T>((comparer as any).Compare);
+  } else {
+    return new Comparer<T>((x: T, y: T) => {
+      const xhash = comparer.GetHashCode(x);
+      const yhash = comparer.GetHashCode(y);
+      if (xhash === yhash) {
+        return comparer.Equals(x, y) ? 0 : -1;
+      } else {
+        return xhash < yhash ? -1 : 1;
+      }
+    });
+  }
+}
+
+export class AssertionError<T> extends Error {
+  public actual: T;
+  public expected: T;
+  constructor(msg: string, actual: T, expected: T) {
+    super(msg);
+    this.actual = actual;
+    this.expected = expected;
+  }
+}
+
+export function assertEqual<T>(actual: T, expected: T, msg?: string): void {
+  if (!equals(actual, expected)) {
+    throw new AssertionError(msg || `Expected: ${expected} - Actual: ${actual}`, actual, expected);
+  }
+}
+
+export class Lazy<T> {
+  public factory: () => T;
+  public isValueCreated: boolean;
+
+  private createdValue: T;
+
+  constructor(factory: () => T) {
+    this.factory = factory;
+    this.isValueCreated = false;
+  }
+
+  get value() {
+    if (!this.isValueCreated) {
+      this.createdValue = this.factory();
+      this.isValueCreated = true;
+    }
+    return this.createdValue;
+  }
+}
+
+export function lazyFromValue<T>(v: T) {
+  return new Lazy(() => v);
+}
+
 export function int16ToString(i: number, radix: number) {
   i = i < 0 && radix != null && radix !== 10 ? 0xFFFF + i + 1 : i;
   return i.toString(radix);

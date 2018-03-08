@@ -76,7 +76,7 @@ module Helpers =
 
     let getEntityDeclarationName (com: ICompiler) (ent: FSharpEntity) =
         getEntityMangledName com true ent
-        |> Naming.sanitizeIdentForbiddenChars
+        |> Naming.sanitizeIdent (fun _ -> false)
 
     let getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
         match memb.ImplementationLocation with
@@ -121,7 +121,7 @@ module Helpers =
 
     let getCastDeclarationName com (implementingEntity: FSharpEntity) (interfaceEntity: FSharpEntity) =
         getEntityMangledName com true implementingEntity + "$" + getEntityFullName interfaceEntity
-        |> Naming.sanitizeIdentForbiddenChars
+        |> Naming.sanitizeIdent (fun _ -> false)
 
     let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
@@ -142,7 +142,7 @@ module Helpers =
 
     let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
         getMemberMangledName com true memb
-        |> Naming.sanitizeIdentForbiddenChars
+        |> Naming.sanitizeIdent (fun _ -> false)
 
     /// Used to identify members uniquely in the inline expressions dictionary
     let getMemberUniqueName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =

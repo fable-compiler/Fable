@@ -1,8 +1,17 @@
 // import { permute as arrayPermute } from "./Array";
 // import { chunkBySize as arrayChunkBySize } from "./Array";
-// import List from "./ListClass";
 import { Option, some, value } from "./Option";
 import { compare, equals, IDisposable } from "./Util";
+
+// ATTENTION: These two functions must be adjusted if representation of empty list changes
+export function toList<T>(xs: Iterable<T>) {
+  return foldBack((x, acc) =>
+    [x, acc], xs, null);
+}
+
+export function ofList<T>(xs: T[]) {
+  return delay(() => unfold((x) => x != null ? x as [T, any] : null, xs));
+}
 
 export class Enumerator<T> {
   private current: T;
@@ -41,15 +50,6 @@ function __failIfNone<T>(res: Option<T>) {
   }
   return value(res);
 }
-
-// export function toList<T>(xs: Iterable<T>) {
-//   return foldBack((x, acc) =>
-//     new List(x, acc), xs, new List<T>());
-// }
-
-// export function ofList<T>(xs: List<T>) {
-//   return delay(() => unfold((x) => x.tail != null ? [x.head, x.tail] : null, xs));
-// }
 
 export function ofArray<T>(xs: ArrayLike<T>) {
   return delay(() => unfold((i) => i < xs.length ? [xs[i], i + 1] : null, 0));
