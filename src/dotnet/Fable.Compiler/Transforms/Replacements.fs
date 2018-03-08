@@ -44,6 +44,10 @@ module private Helpers =
         let kind = makeStrConst memb |> Some |> InstanceCall
         Operation(Call(kind, argInfo (Some callee) args None), t, None)
 
+    let emitJs_ t macro args =
+        let info = argInfo None args None
+        Operation(Emit(macro, Some info), t, None)
+
     let add left right =
         Operation(BinaryOperation(BinaryPlus, left, right), left.Type, None)
 
@@ -209,26 +213,18 @@ let toChar (sourceType: Type) (args: Expr list) =
 
 let toString (sourceType: Type) (args: Expr list) =
     match sourceType with
-    | Char
-    | String -> args.Head
-    | Unit | Boolean
-    | Array _ | Tuple _ | FunctionType _ | EnumType _ ->
+    | Char | String -> args.Head
+    | Unit | Boolean | Array _ | Tuple _ | FunctionType _ | EnumType _ ->
         globalCall_ String "String" None args
-    | Builtin (BclInt64 | BclUInt64) ->
-        coreCall_ String "Long" "toString" args
-    | Number Int16 ->
-        coreCall_ String "Util" "int16ToString" args
-    | Number Int32 ->
-        coreCall_ String "Util" "int32ToString" args
-    | Number _ ->
-        instanceCall_ String args.Head "toString" args.Tail
-    | _ ->
-        coreCall_ String "Util" "toString" args
+    | Builtin (BclInt64 | BclUInt64) -> coreCall_ String "Long" "toString" args
+    | Number Int16 -> coreCall_ String "Util" "int16ToString" args
+    | Number Int32 -> coreCall_ String "Util" "int32ToString" args
+    | Number _ -> instanceCall_ String args.Head "toString" args.Tail
+    | _ -> coreCall_ String "Util" "toString" args
 
 let toFloat (sourceType: Type) targetType (args: Expr list) =
     match sourceType with
-    | String ->
-        coreCall_ (Number Float64) "Double" "parse" args
+    | String -> coreCall_ (Number Float64) "Double" "parse" args
     | Builtin (BclInt64 | BclUInt64) ->
         coreCall_ (Number Float64) "Long" "toNumber" args
     | Builtin BclBigInt ->
@@ -238,6 +234,103 @@ let toFloat (sourceType: Type) targetType (args: Expr list) =
                     | Number Decimal -> "toDecimal"
                     | _ -> failwith "Unexpected BigInt conversion"
         coreCall_ (Number Float64) "BigInt" meth args
+    | _ -> args.Head
+
+// Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
+let fastIntFloor expr =
+    let inner = makeUnOp None Any expr UnaryNotBitwise
+    makeUnOp None (Number Int32) inner UnaryNotBitwise
+
+let toInt (round: bool) (sourceType: Type) targetType (args: Expr list) =
+    let kindIndex t =             //         0   1   2   3   4   5   6   7   8   9  10  11
+        match t with              //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
+        | Number Int8 -> 0        //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
+        | Number Int16 -> 1       //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
+        | Number Int32 -> 2       //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
+        | Builtin BclInt64 -> 3   //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
+        | Number UInt8 -> 4       //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
+        | Number UInt16 -> 5      //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
+        | Number UInt32 -> 6      //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
+        | Builtin BclUInt64 -> 7  //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
+        | Number Float32 -> 8     //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
+        | Number Float64 -> 9     //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
+        | Number Decimal -> 10    // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
+        | Builtin BclBigInt -> 11 // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
+        | _ -> failwith "Unexpected non-number type"
+    let needToCast typeFrom typeTo =
+        let v = kindIndex typeFrom // argument type (vertical)
+        let h = kindIndex typeTo   // return type (horizontal)
+        ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
+    let emitLong unsigned (args: Expr list) =
+        match sourceType with
+        | Builtin (BclInt64|BclUInt64) -> coreCall_ targetType "Long" "fromValue" args
+        | _ -> coreCall_ targetType "Long" "fromNumber" (args@[makeBoolConst unsigned])
+    let emitBigInt (args: Expr list) =
+        match sourceType with
+        | Builtin (BclInt64|BclUInt64) -> coreCall_ targetType "BigInt" "fromInt64" args
+        | _ -> coreCall_ targetType "BigInt" "fromInt32" args
+    let emitCast typeTo args =
+        match typeTo with
+        | Builtin BclBigInt -> emitBigInt args
+        | Builtin BclUInt64 -> emitLong true args
+        | Builtin BclInt64 -> emitLong false args
+        | Number Int8 -> emitJs_ targetType "($0 + 0x80 & 0xFF) - 0x80" args
+        | Number Int16 -> emitJs_ targetType "($0 + 0x8000 & 0xFFFF) - 0x8000" args
+        | Number Int32 -> fastIntFloor args.Head
+        | Number UInt8 -> emitJs_ targetType "$0 & 0xFF" args
+        | Number UInt16 -> emitJs_ targetType "$0 & 0xFFFF" args
+        | Number UInt32 -> emitJs_ targetType "$0 >>> 0" args
+        // TODO: Use Cast(args.Head, targetType) for these cases (more below)?
+        | Number Float32 -> args.Head
+        | Number Float64 -> args.Head
+        | Number Decimal -> args.Head
+        | _ -> failwith "Unexpected non-number type"
+    let castBigIntMethod typeTo =
+        match typeTo with
+        | Builtin BclBigInt -> failwith "Unexpected conversion"
+        | Number Int8 -> "toSByte"
+        | Number Int16 -> "toInt16"
+        | Number Int32 -> "toInt32"
+        | Builtin BclInt64 -> "toInt64"
+        | Number UInt8 -> "toByte"
+        | Number UInt16 -> "toUInt16"
+        | Number UInt32 -> "toUInt32"
+        | Builtin BclUInt64 -> "toUInt64"
+        | Number Float32 -> "toSingle"
+        | Number Float64 -> "toDouble"
+        | Number Decimal -> "toDecimal"
+        | _ -> failwith "Unexpected non-number type"
+    let sourceType =
+        match sourceType with
+        | EnumType(NumberEnumType, _) -> Number Int32
+        | t -> t
+    match sourceType with
+    | Char -> instanceCall_ targetType args.Head "charCodeAt" [makeIntConst 0]
+    | String ->
+        match targetType with
+        | Builtin (BclInt64|BclUInt64 as kind) ->
+            let unsigned = kind = BclUInt64
+            let args = [args.Head]@[makeBoolConst unsigned]@args.Tail
+            coreCall_ targetType "Long" "fromString" args
+        | _ -> coreCall_ targetType "Int32" "parse" args
+    | Builtin BclBigInt ->
+        let meth = castBigIntMethod targetType
+        coreCall_ targetType "BigInt" meth args
+    | Number _ | Builtin (BclInt64 | BclUInt64) as typeFrom ->
+        match targetType with
+        | typeTo when needToCast typeFrom typeTo ->
+            match typeFrom, typeTo with
+            | Builtin (BclUInt64|BclInt64), Number _ ->
+                coreCall_ targetType "Long" "toNumber" args
+            | Number (Decimal|Float), (Number Integer | Builtin(BclInt64|BclUInt64)) when round ->
+                coreCall_ targetType "Util" "round" args
+            | _, _ -> args.Head
+            |> List.singleton
+            |> emitCast typeTo
+        | Builtin (BclUInt64|BclInt64 as kind) ->
+            emitLong (kind = BclUInt64) [args.Head]
+        | Number _ -> args.Head
+        | _ -> args.Head
     | _ -> args.Head
 
 let applyOp (com: ICompiler) ctx r t (i: CallInfo) (args: Expr list) =
@@ -259,12 +352,10 @@ let applyOp (com: ICompiler) ctx r t (i: CallInfo) (args: Expr list) =
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
         | Operators.division, [left; right] ->
-            let div = binOp BinaryDivide left right
             match argTypes with
             // Floor result of integer divisions (see #172)
-            // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
-            | Number Integer::_ -> unOp UnaryNotBitwise div |> unOp UnaryNotBitwise
-            | _ -> div
+            | Number Integer::_ -> binOp BinaryDivide left right |> fastIntFloor
+            | _ -> binOp BinaryDivide left right
         | Operators.modulus, [left; right] -> binOp BinaryModulus left right
         | Operators.leftShift, [left; right] -> binOp BinaryShiftLeft left right
         | Operators.rightShift, [left; right] ->
