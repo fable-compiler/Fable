@@ -913,8 +913,8 @@ module AstPass =
             makeDictionaryOrHashSet r typ "Map" false info.methodTypeArgs.Head args |> Some
         | "createSet" ->
             makeMapOrSetCons com info "Set" args |> Some
-        // Ignore: wrap to keep Unit type (see Fable2Babel.transformFunction)
-        | "ignore" -> Fable.Wrapped (args.Head, Fable.Unit) |> Some
+        // Make sure `void 0` is returned in case `ignore` is wrapped in a lambda, see #1360
+        | "ignore" -> makeEmit r Fable.Unit args "$0, void 0" |> Some
         // Ranges
         | "op_Range" | "op_RangeStep" ->
             let meth =
