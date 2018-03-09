@@ -112,6 +112,11 @@ let (|Integer|Float|) = function
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
     | Float32 | Float64 | Decimal -> Float
 
+let (|Nameof|_|) = function
+    | IdentExpr ident -> Some ident.Name
+    | Get(_, ExprGet(Value(StringConstant prop)), _, _) -> Some prop
+    | _ -> None
+
 let inline (|ExprType|) (e: Expr) = e.Type
 
 let coreModFor = function
@@ -410,28 +415,15 @@ let applyOp (com: ICompiler) ctx r t (i: CallInfo) (args: Expr list) =
         FSharp2Fable.Util.makeCallFrom com ctx r t genArgs None args m
     | _ -> nativeOp i.CompiledName argTypes args
 
-let equality r opName left right =
-    let op =
-        match opName with
-        | "op_Equality" -> BinaryEqualStrict
-        | "op_Inequality" -> BinaryUnequalStrict
-        | "op_LessThan" -> BinaryLess
-        | "op_GreaterThan" -> BinaryGreater
-        | "op_LessThanOrEqual" -> BinaryLessOrEqual
-        | "op_GreaterThanOrEqual" -> BinaryGreaterOrEqual
-        | _ -> failwith ("Unknown equality operator: " + opName)
-    makeBinOp r Boolean left right op
-
-//
 let equals r equal (args: Expr list) =
     let op equal =
         if equal then BinaryEqualStrict else BinaryUnequalStrict
+
     let is equal expr =
         if equal
         then expr
         else makeUnOp None Boolean expr UnaryNot
-    let icall (args: Expr list) equal =
-        instanceCall_ Boolean args.Head "Equals" args.Tail |> is equal
+
     match args with
     | [ExprType(Builtin(BclGuid|BclTimeSpan)) as left; right]
     | [ExprType(Boolean | Char | String | Number _ | EnumType _) as left; right] ->
@@ -444,29 +436,25 @@ let equals r equal (args: Expr list) =
         instanceCall_ Boolean callee "Equals" args |> is equal
 
     | ExprType(Builtin(BclInt64|BclUInt64|BclBigInt as bt))::_ ->
-        coreCall_ Boolean (coreModFor bt) "equals" args
+        coreCall_ Boolean (coreModFor bt) "equals" args |> is equal
 
     | ExprType(Array _ | List _ | Tuple _)::_ ->
-        coreCall_ Boolean "Util" "equalArrays" args
+        coreCall_ Boolean "Util" "equalArrays" args |> is equal
     | ExprType(DeclaredType(ent,_))::_ when ent.IsFSharpUnion ->
-        coreCall_ Boolean "Util" "equalArrays" args
+        coreCall_ Boolean "Util" "equalArrays" args |> is equal
 
     | ExprType(DeclaredType(ent,_))::_ when ent.IsFSharpRecord ->
-        coreCall_ Boolean "Util" "equalObjects" args
+        coreCall_ Boolean "Util" "equalObjects" args |> is equal
 
-    | _ -> coreCall_ Boolean "Util" "equals" args
+    | _ -> coreCall_ Boolean "Util" "equals" args |> is equal
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 /// If passed an optional binary operator, it will wrap the comparison like `comparison < 0`
-let compare com r (args: Expr list) op =
+let compare r (args: Expr list) op =
     let wrapWith op comparison =
         match op with
         | None -> comparison
         | Some op -> makeEqOp r comparison (makeIntConst 0) op
-    let icall callee args op =
-        instanceCall_ (Number Int32) callee "CompareTo" args |> wrapWith op
-//     let compareReplacedEntities =
-//         set ["System.Guid"; "System.TimeSpan"; "System.DateTime"; "System.DateTimeOffset"]
 
     match args with
     | [ExprType(Builtin(BclGuid|BclTimeSpan)) as left; right]
@@ -479,37 +467,248 @@ let compare com r (args: Expr list) op =
         coreCall_ (Number Int32) "Date" "compare" args |> wrapWith op
 
     | ExprType(Builtin(BclInt64|BclUInt64|BclBigInt as bt))::_ ->
-        coreCall_ Boolean (coreModFor bt) "compare" args
+        coreCall_ Boolean (coreModFor bt) "compare" args |> wrapWith op
 
     | ExprType(Array _ | List _ | Tuple _)::_ ->
-        coreCall_ Boolean "Util" "compareArrays" args
+        coreCall_ Boolean "Util" "compareArrays" args |> wrapWith op
     | ExprType(DeclaredType(ent,_))::_ when ent.IsFSharpUnion ->
-        coreCall_ Boolean "Util" "compareArrays" args
+        coreCall_ Boolean "Util" "compareArrays" args |> wrapWith op
 
     | ExprType(DeclaredType(ent,_))::_ when ent.IsFSharpRecord ->
-        coreCall_ Boolean "Util" "compareObjects" args
+        coreCall_ Boolean "Util" "compareObjects" args |> wrapWith op
 
-    | _ -> coreCall_ (Number Int32) "Util" "compare" args
+    | _ -> coreCall_ (Number Int32) "Util" "compare" args |> wrapWith op
 
-//     let makeComparer (typArg: Fable.Type option) =
-//         let f =
-//             match typArg with
-//             | Some(EntFullName "System.Guid")
-//             | Some(EntFullName "System.TimeSpan")
-//             | Some(Fable.Boolean | Fable.Char | Fable.String | Fable.Number _ | Fable.Enum _) ->
-//                 makeCoreRef "Util" "comparePrimitives"
-//             | Some(EntFullName ("System.DateTime" | "System.DateTimeOffset")) ->
-//                 emitNoInfo "(x,y) => x = x.getTime(), y = y.getTime(), x === y ? 0 : (x < y ? -1 : 1)" []
-//             | Some(Fable.ExtendedNumber (Int64|UInt64|BigInt)) ->
-//                 emitNoInfo "(x,y) => x.CompareTo(y)" []
-//             | Some(Fable.DeclaredType(ent, _))
-//                 // TODO: when ent.HasInterface "System.IComparable"
-//                 ->
-//                 emitNoInfo "(x,y) => x.CompareTo(y)" []
-//             | Some _ | None ->
-//                 makeCoreRef "Util" "compare"
-//         CoreLibCall("Comparer", None, true, [f])
-//         |> makeCall None Fable.Any
+let makeComparer typArg =
+    let typArg = defaultArg typArg Any
+    let t = FunctionType(DelegateType [typArg; typArg], Number Int32)
+    match typArg with
+    | Builtin(BclGuid|BclTimeSpan)
+    | Boolean | Char | String | Number _ | EnumType _ ->
+        makeCoreRef t "Util" "comparePrimitives"
+    | Builtin(BclDateTime|BclDateTimeOffset) ->
+        makeCoreRef t "Date" "compare"
+    | Builtin(BclInt64|BclUInt64|BclBigInt as bt) ->
+       makeCoreRef t (coreModFor bt) "compare"
+    | Array _ | List _ | Tuple _ ->
+        makeCoreRef t "Util" "compareArrays"
+    | DeclaredType(ent,_) when ent.IsFSharpUnion ->
+        makeCoreRef t "Util" "compareArrays"
+    | DeclaredType(ent,_) when ent.IsFSharpRecord ->
+        makeCoreRef t "Util" "compareObjects"
+    | _ ->
+        makeCoreRef t "Util" "compare"
+    |> List.singleton |> coreCall_ Any "Util" "Comparer"
+
+// TODO!!! This and the following method must be adjusted to new fable-core Map and Set modules
+let makeMapOrSetCons com r t (i: CallInfo) modName args =
+    let typArg = singleGenArg com r i.GenericArgs
+    let comparer = Some typArg |> makeComparer
+    let args =
+        match args with
+        | [] -> [Value (Null typArg); comparer]
+        | args -> args @ [comparer]
+    coreCall r t i modName "create" None args
+
+let makeDictionaryOrHashSet com r t i modName forceFSharp args =
+    let makeFSharp typArg args =
+        match args with
+        | [iterable] -> [iterable; makeComparer (Some typArg)]
+        | args -> args
+        |> coreCall r t i modName "create" None
+    let typArg = singleGenArg com r i.GenericArgs
+    if forceFSharp
+    then makeFSharp typArg args
+    else
+        match typArg with
+        | Builtin(BclInt64|BclUInt64|BclBigInt)
+        | Array _ | List _ | Tuple _ ->
+            makeFSharp typArg args
+        | Builtin(BclGuid|BclTimeSpan) ->
+            globalCall r t i modName None None args
+        | DeclaredType _ ->
+            makeFSharp typArg args
+        | _ ->
+            globalCall r t i modName None None args
+
+// TODO: Try to compile as literal object
+let makeJsLiteralFromLambda arg =
+    // match arg with
+    // | Value(Lambda(args, lambdaBody, _)) ->
+    //     (Some [], flattenSequential lambdaBody)
+    //     ||> List.fold (fun acc statement ->
+    //         match acc, statement with
+    //         // Set of callee: Expr * property: Expr option * value: Expr * range: SourceLocation option
+    //         | Some acc, Set(_,Some(Value(StringConst prop)),value,_) ->
+    //             (prop, value)::acc |> Some
+    //         | _ -> None)
+    // | _ -> None
+    // |> Option.map (makeJsObject r)
+    // |> Option.defaultWith (fun () ->
+        coreCall_ Any "Util" "jsOptions" [arg]
+    // )
+
+// TODO: Try to compile as literal object
+let makeJsLiteral caseRule keyValueList =
+    // let rec (|Fields|_|) caseRule = function
+    //     | Value(ArrayConst(ArrayValues exprs, _)) ->
+    //         (Some [], exprs) ||> List.fold (fun acc e ->
+    //             acc |> Option.bind (fun acc ->
+    //                 match e with
+    //                 | Value(TupleConst [Value(StringConst key); value]) ->
+    //                     (key, value)::acc |> Some
+    //                 | UnionCons(tag, fields, cases) ->
+    //                     let key =
+    //                         let key = cases |> List.item tag |> fst
+    //                         match caseRule with
+    //                         | CaseRules.LowerFirst -> Naming.lowerFirst key
+    //                         | _ -> key
+    //                     let value =
+    //                         match fields with
+    //                         | [] -> Value(BoolConst true) |> Some
+    //                         | [CoreCons "List" "default" []] -> makeJsObject r [] |> Some
+    //                         | [CoreMeth "List" "ofArray" [Fields caseRule fields]] -> makeJsObject r fields |> Some
+    //                         | [expr] ->
+    //                             match expr.Type with
+    //                             // Lists references must be converted to objects at runtime
+    //                             | DeclaredType(fullName,_) when fullName = "Microsoft.FSharp.Collections.FSharpList" -> None
+    //                             | _ -> Some expr
+    //                         | exprs -> Value(ArrayConst(ArrayValues exprs, Any)) |> Some
+    //                     value |> Option.map (fun value -> (key, value)::acc)
+    //                 | _ -> None))
+    //         |> Option.map List.rev
+    //     | _ -> None
+    // match keyValueList with
+    // | CoreCons "List" "default" [] -> makeJsObject r []
+    // | CoreMeth "List" "ofArray" [Fields caseRule fields] -> makeJsObject r fields
+    // | _ ->
+        [keyValueList; caseRule |> int |> makeIntConst]
+        |> coreCall_ Any "Util" "createObj"
+
+let fableCoreLib (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, args with
+    | "importDynamic", _ ->
+        globalCall r t i "import" None thisArg args |> Some
+    | Naming.StartsWith "import" suffix, _ ->
+        let fail() =
+            sprintf "Fable.Core.JsInterop.import%s only accepts literal strings" suffix
+            |> addError com r
+        let selector, args =
+            match suffix with
+            | "Member" -> Naming.placeholder, args
+            | "Default" -> "default", args
+            | "SideEffects" -> "", args
+            | "All" -> "*", args
+            | _ ->
+                match args with
+                | Value(StringConstant selector)::args -> selector, args
+                | _ -> fail(); "*", [makeStrConst "unknown"]
+        let path =
+            match args with
+            | [Value(StringConstant path)] -> path
+            | _ -> fail(); "unknown"
+        Import(selector, path, CustomImport, t) |> Some
+    // Dynamic casting, erase
+    | "op_BangBang", _ | "op_BangHat", _ -> List.tryHead args
+    | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
+    | "op_DynamicAssignment", [callee; prop; value] ->
+        Set(callee, ExprSet prop, value, r) |> Some
+    | ("op_Dollar"|"createNew" as m), callee::args ->
+        let argInfo = { argInfo None args None with Spread = TupleSpread }
+        if m = "createNew"
+        then constructorCall r t argInfo callee |> Some
+        else staticCall r t argInfo callee |> Some
+    | "op_EqualsEqualsGreater", _ ->
+        NewTuple args |> Value |> Some
+    | "createObj", [kvs] ->
+        makeJsLiteral Fable.Core.CaseRules.None kvs |> Some
+     | "keyValueList", _ ->
+        match args with
+        | [Value(Enum(NumberEnum rule, _)); keyValueList] ->
+            let caseRule: Fable.Core.CaseRules = enum (int rule)
+            makeJsLiteral caseRule keyValueList |> Some
+        | [caseRule; keyValueList] ->
+            coreCall r t i "Util" "createObj" None [keyValueList; caseRule] |> Some
+        | _ -> None
+    | "jsOptions", [arg] ->
+        makeJsLiteralFromLambda arg |> Some
+    | "jsThis", _ ->
+        This t |> Value |> Some
+    | "createEmpty", _ ->
+        ObjectExpr([], t, None) |> Some
+    | "nameof", _ ->
+        match args with
+        | [Nameof name] -> name
+        | _ -> "Cannot infer name of expression" |> addError com r; "unknown"
+        |> makeStrConst |> Some
+    | "nameofLambda", _ ->
+        match args with
+        | [Function(_, Nameof name)] -> name
+        | _ -> "Cannot infer name of expression" |> addError com r; "unknown"
+        |> makeStrConst |> Some
+    | "AreEqual", _ ->
+        coreCall r t i "Util" "assertEqual" thisArg args |> Some
+    | ("async.AwaitPromise.Static"|"async.StartAsPromise.Static" as m), _ ->
+        let meth =
+            if m = "async.AwaitPromise.Static"
+            then "awaitPromise" else "startAsPromise"
+        coreCall r t i "Async" meth thisArg args |> Some
+    | "jsNative", _ ->
+        // TODO: Fail at compile time?
+        addWarning com r "jsNative is being compiled without replacement, this will fail at runtime."
+        let runtimeMsg =
+            "A function supposed to be replaced by JS native code has been called, please check."
+            |> StringConstant |> Value
+        Throw(error runtimeMsg, t, r) |> Some
+    | _ -> None
+
+// let references com (i: ApplyInfo) =
+//     match i.memberName with
+//     | ".ctor" ->
+//         makeJsObject i.range [("contents", args.Head)] |> Some
+//     | "contents" | "value" ->
+//         let prop = makeStrConst "contents"
+//         match i.memberKind with
+//         | Getter _ ->
+//             makeGet i.range i.returnType i.callee.Value prop |> Some
+//         | Setter _ ->
+//             Set(i.callee.Value, Some prop, args.Head, i.range) |> Some
+//         | _ -> None
+//     | _ -> None
+
+// let fsFormat com (i: ApplyInfo) =
+//     match i.memberName with
+//     | "value" ->
+//         makeGet None i.returnType i.callee.Value (makeStrConst "input")
+//         |> Some
+//     | "printFormatToStringThen" ->
+//         match args with
+//         | [_] ->
+//             ccall i "String" "toText" args |> Some
+//         | [cont; fmt] ->
+//             InstanceCall(fmt, "cont", [cont])
+//             |> makeCall i.range i.returnType |> Some
+//         | _ -> None
+//     | "printFormatToString" ->
+//         ccall i "String" "toText" args |> Some
+//     | "printFormatLine" -> ccall i "String" "toConsole" args |> Some
+//     | "printFormatToTextWriter"
+//     | "printFormatLineToTextWriter" ->
+//         // addWarning com i.fileName i.range "fprintfn will behave as printfn"
+//         ccall i "String" "toConsole" args.Tail |> Some
+//     | "printFormat" ->
+//         // addWarning com i.fileName i.range "printf will behave as printfn"
+//         ccall i "String" "toConsole" args |> Some
+//     | "printFormatThen" ->
+//         let cont = makeGet None i.returnType args.Tail.Head (makeStrConst "cont")
+//         Apply(cont, [args.Head], ApplyMeth, i.returnType, i.range)
+//         |> Some
+//     | "printFormatToStringThenFail" ->
+//         ccall i "String" "toFail" args |> Some
+//     | ".ctor" ->
+//         ccall i "String" "printf" [args.Head] |> Some
+//     | _ -> None
+
 
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let curriedApply r t applied args =
@@ -604,9 +803,17 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         makeUnOp r t operand UnaryNot |> Some
     // Concatenates two lists
     | "op_Append", _ -> coreCall r t i "List" "Append" thisArg args |> Some
-    // TODO: Structural equality
-    | SetContains Operators.equalitySet as opName, [left; right] ->
-        equality r opName left right |> Some
+    | ("op_Inequality"|"Neq"), _ -> equals r false args |> Some
+    | ("op_Equality"|"Eq"), _ -> equals r true args |> Some
+    | "IsNull", [arg] -> makeEqOp r arg (Null arg.Type |> Value) BinaryEqual |> Some
+    | "Hash", _ -> coreCall r t i "Util" "hash" thisArg args |> Some
+    // Comparison
+    | "Compare", _ -> compare r args None |> Some
+    | ("op_LessThan"|"Lt"), _ -> compare r args (Some BinaryLess) |> Some
+    | ("op_LessThanOrEqual"|"Lte"), _ -> compare r args (Some BinaryLessOrEqual) |> Some
+    | ("op_GreaterThan"|"Gt"), _ -> compare r args (Some BinaryGreater) |> Some
+    | ("op_GreaterThanOrEqual"|"Gte"), _ -> compare r args (Some BinaryGreaterOrEqual) |> Some
+
     | SetContains Operators.standardSet, _ ->
         applyOp com ctx r t i args |> Some
     | _ -> None
@@ -786,14 +993,6 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
 //             |> makeCall i.range i.returnType |> Some
 //         | _ -> None
 
-let fableCoreLib (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, args with
-    // Dynamic casting, erase
-    | "op_BangBang", _ | "op_BangHat", _ -> List.tryHead args
-    | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
-    | "AreEqual", _ -> coreCall r t i "Util" "assertEqual" thisArg args |> Some
-    | _ -> None
-
 let exceptions (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ -> constructorCall_ r t (makeIdentExpr "Error") args |> Some
@@ -921,7 +1120,7 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
 //             | Some c, ("tag" | "propertyType") ->
 //                 let prop =
 //                     if info.memberName = "tag" then "index" else info.memberName
-//                     |> Fable.StringConst |> Fable.Value
+//                     |> Fable.StringConstant |> Fable.Value
 //                 makeGet info.range info.returnType c prop |> Some
 //             | _ -> None
 //         | _ -> None

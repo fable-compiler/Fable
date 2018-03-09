@@ -118,6 +118,9 @@ module AST =
     let staticCall r t argInfo functionExpr =
         Fable.Operation(Fable.Call(Fable.StaticCall functionExpr, argInfo), t, r)
 
+    let constructorCall r t argInfo consExpr =
+        Fable.Operation(Fable.Call(Fable.ConstructorCall consExpr, argInfo), t, r)
+
     let constructorCall_ r t consExpr args =
         let info = argInfo None args None
         Fable.Operation(Fable.Call(Fable.ConstructorCall consExpr, info), t, r)
@@ -227,12 +230,12 @@ module Operators =
     let [<Literal>] booleanOr = "op_BooleanOr"
     let [<Literal>] logicalNot = "op_LogicalNot"
     let [<Literal>] unaryNegation = "op_UnaryNegation"
-    let [<Literal>] equality = "op_Equality"
-    let [<Literal>] inequality = "op_Inequality"
-    let [<Literal>] lessThan = "op_LessThan"
-    let [<Literal>] greaterThan = "op_GreaterThan"
-    let [<Literal>] lessThanOrEqual = "op_LessThanOrEqual"
-    let [<Literal>] greaterThanOrEqual = "op_GreaterThanOrEqual"
+    // let [<Literal>] equality = "op_Equality"
+    // let [<Literal>] inequality = "op_Inequality"
+    // let [<Literal>] lessThan = "op_LessThan"
+    // let [<Literal>] greaterThan = "op_GreaterThan"
+    // let [<Literal>] lessThanOrEqual = "op_LessThanOrEqual"
+    // let [<Literal>] greaterThanOrEqual = "op_GreaterThanOrEqual"
 
     let standardSet =
         set [ addition
@@ -250,10 +253,10 @@ module Operators =
               logicalNot
               unaryNegation ]
 
-    let equalitySet =
-        set [ equality
-              inequality
-              lessThan
-              greaterThan
-              lessThanOrEqual
-              greaterThanOrEqual ]
+    // let equalitySet =
+    //     set [ equality
+    //           inequality
+    //           lessThan
+    //           greaterThan
+    //           lessThanOrEqual
+    //           greaterThanOrEqual ]

@@ -87,7 +87,7 @@ type BuildConfig = Release | Debug
 
 let buildCLI cfg () =
     sprintf "publish -o %s -c %s" cliBuildDir
-        (match cfg with Release -> "Release -v n" | Debug -> "Debug")
+        (match cfg with Release -> "Release" | Debug -> "Debug")
     |> run cliSrcDir dotnetExePath
 
 let buildCoreJS () =

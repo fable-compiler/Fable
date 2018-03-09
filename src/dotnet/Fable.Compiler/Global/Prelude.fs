@@ -177,14 +177,11 @@ module Naming =
             "Attr"; "CharacterData"; "Comment"; "CustomEvent"; "Document"; "DocumentFragment"; "DocumentType"; "DOMError"; "DOMException"; "DOMImplementation";
             "DOMString"; "DOMTimeStamp"; "DOMSettableTokenList"; "DOMStringList"; "DOMTokenList"; "Element"; "Event"; "EventTarget"; "Error"; "HTMLCollection"; "MutationObserver";
             "MutationRecord"; "Node"; "NodeFilter"; "NodeIterator"; "NodeList"; "ProcessingInstruction"; "Range"; "Text"; "TreeWalker"; "URL"; "Window"; "Worker"; "XMLDocument";
-            // See #258
-            "arguments"
+            // Other JS global and special objects/functions
+            // See #258, #1358
             // See https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
-            "fetch"
             // See https://twitter.com/FableCompiler/status/930725972629913600
-            "eval"
-            // See #1358
-            "window"; "console"; "global"
+            "arguments"; "fetch"; "eval"; "window"; "console"; "global"
         ]
 
     let preventConflicts conflicts name =

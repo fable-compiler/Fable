@@ -300,6 +300,8 @@ open Transforms
 let optimizeExpr (com: ICompiler) e =
     // TODO: Optimize decision trees
     // TODO: Optimize binary operations with numerical or string literals
+    // TODO: Optimize gets if the expression is a value instead of ident
+    // Example: `List.item 1 [1; 2]` can become `1`
     [ // First apply beta reduction
       bindingBetaReduction
       lambdaBetaReduction

@@ -28,7 +28,7 @@ export function isDisposable(x: any) {
   return x != null && typeof x.Dispose === "function";
 }
 
-export default class Comparer<T> implements IComparer<T> {
+export class Comparer<T> implements IComparer<T> {
   public Compare: (x: T, y: T) => number;
 
   constructor(f?: (x: T, y: T) => number) {
@@ -188,6 +188,8 @@ export function isPlainObject(x: any) {
 }
 
 export function equalArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): boolean {
+  if (x == null) { return y == null; }
+  if (y == null) { return false; }
   if (x.length !== y.length) { return false; }
   for (let i = 0; i < x.length; i++) {
     if (!equals(x[i], y[i])) { return false; }
@@ -196,6 +198,8 @@ export function equalArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): boolean {
 }
 
 export function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean {
+  if (x == null) { return y == null; }
+  if (y == null) { return false; }
   const xKeys = Object.keys(x);
   const yKeys = Object.keys(y);
   if (xKeys.length !== yKeys.length) {
@@ -236,6 +240,8 @@ export function comparePrimitives(x: any, y: any): number {
 }
 
 export function compareArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): number {
+  if (x == null) { return y == null ? 0 : 1; }
+  if (y == null) { return -1; }
   if (x.length !== y.length) {
     return x.length < y.length ? -1 : 1;
   }
@@ -247,6 +253,8 @@ export function compareArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): number {
 }
 
 export function compareObjects(x: { [k: string]: any }, y: { [k: string]: any }): number {
+  if (x == null) { return y == null ? 0 : 1; }
+  if (y == null) { return -1; }
   const xhash = hash(x);
   const yhash = hash(y);
   if (xhash === yhash) {
@@ -309,7 +317,27 @@ const CaseRules = {
   LowerFirst: 1,
 };
 
-// TODO: createObj
+export function createObj(fields: Iterable<any>, caseRule = CaseRules.None) {
+  const o: { [k: string]: any } = {};
+  for (const kvPair of fields) {
+    if (Array.isArray(kvPair) && kvPair.length > 0) {
+      if (kvPair.length === 1) {
+        o[kvPair[0]] = true;
+      } else if (kvPair.length === 2) {
+        const value = kvPair[1];
+        o[kvPair[0]] = typeof value[Symbol.iterator] === "function"
+          ? createObj(value, caseRule)
+          : value;
+      } else {
+        o[kvPair[0]] = kvPair.slice(1);
+      }
+    } else if (typeof kvPair === "string") {
+      o[kvPair] = true;
+    } else {
+      throw new Error("Cannot infer key and value of " + toString(kvPair));
+    }
+  }
+}
 
 export function jsOptions(mutator: (x: object) => void): object {
   const opts = {};

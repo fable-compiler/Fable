@@ -50,9 +50,6 @@ let jsOptions<'T> (f: 'T->unit): 'T = jsNative
 /// Create an empty JS object: {}
 let createEmpty<'T> : 'T = jsNative
 
-/// Internally used by Fable, not intended for general use
-let [<Obsolete>] applySpread (callee: obj) (args: obj) : 'T = jsNative
-
 /// Works like `ImportAttribute` (same semantics as ES6 imports).
 /// You can use "*" or "default" selectors.
 let import<'T> (selector: string) (path: string):'T = jsNative

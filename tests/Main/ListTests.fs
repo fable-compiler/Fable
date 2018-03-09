@@ -400,6 +400,8 @@ let tests =
             // let xs = [|1; 2|] :> _ seq
             let ys = List.ofSeq <| seq { yield 1; yield 2 }
             ys.Head |> equal 1
+            ys.Length |> equal 2
+
       testCase "List.partition works" <| fun () ->
             let xs = [1; 2; 3; 4; 5; 6]
             let ys, zs = xs |> List.partition (fun x -> x % 2 = 0)
