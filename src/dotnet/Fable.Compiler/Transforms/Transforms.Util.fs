@@ -54,7 +54,6 @@ module AST =
     /// When referenced multiple times, is there a risk of double evaluation?
     let hasDoubleEvalRisk = function
         | IdentExpr id -> id.IsMutable
-        // TODO: Add Union and List Getters here?
         | Value(This _ | Null _ | UnitConstant | NumberConstant _
                     | StringConstant _ | BoolConstant _ | Enum _) -> false
         | Get(_,kind,_,_) ->
@@ -121,16 +120,8 @@ module AST =
     let constructorCall r t argInfo consExpr =
         Fable.Operation(Fable.Call(Fable.ConstructorCall consExpr, argInfo), t, r)
 
-    let constructorCall_ r t consExpr args =
-        let info = argInfo None args None
-        Fable.Operation(Fable.Call(Fable.ConstructorCall consExpr, info), t, r)
-
     let instanceCall r t argInfo memb =
         Fable.Operation(Fable.Call(Fable.InstanceCall memb, argInfo), t, r)
-
-    let instanceCall_ r t callee memb args =
-        let info = argInfo (Some callee) args None
-        Operation(Call(InstanceCall memb, info), t, r)
 
     let getExpr r t left memb =
         Fable.Get(left, ExprGet memb, t, r)

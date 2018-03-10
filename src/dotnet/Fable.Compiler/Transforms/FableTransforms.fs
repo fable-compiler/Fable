@@ -287,7 +287,9 @@ module private Transforms =
             match applied.Type with
             | FunctionType(DelegateType argTypes, _) ->
                 if List.sameLength argTypes args
-                then instanceCall_ r t applied None args
+                then
+                    let info = argInfo None args (Some argTypes)
+                    staticCall r t info applied
                 else failwith "TODO!!!: Partial application"
                 // let args = [makeIntConst (arity - argsLength); innerApplied; makeArray Any (List.concat flattenedArgs)]
                 // CoreLibCall("Util", Some "partial", false, args) |> makeCall r Any
