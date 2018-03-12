@@ -83,7 +83,7 @@ type ImportKind =
     | CustomImport
 
 type EnumKind = NumberEnum of int | StringEnum of string
-type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of int
+type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of Expr
 
 type ValueKind =
     | This of Type
@@ -198,7 +198,7 @@ type Expr =
     | Cast of Expr * targetType: Type
     | Import of selector: string * path: string * ImportKind * Type
 
-    | Function of FunctionKind * body: Expr
+    | Function of FunctionKind * body: Expr * name: string option
     | ObjectExpr of ObjectMember list * Type * baseCall: Expr option
 
     | Test of Expr * TestKind * range: SourceLocation option
@@ -246,7 +246,7 @@ type Expr =
         | Debugger | Set _ | Loop _ -> Unit
         | Sequential exprs -> (List.last exprs).Type
         | Let(_,expr) | TryCatch(expr,_,_) | IfThenElse(_,expr,_) | DecisionTree(expr,_) -> expr.Type
-        | Function(kind,body) ->
+        | Function(kind,body,_) ->
             match kind with
             | Lambda arg -> FunctionType(LambdaType arg.Type, body.Type)
             | Delegate args -> FunctionType(DelegateType(args |> List.map (fun a -> a.Type)), body.Type)

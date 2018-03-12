@@ -126,7 +126,7 @@ let runTestsDotnet () =
 let runTestsJS () =
     Yarn.install CWD
     run CWD dotnetExePath "restore tests/Main"
-    run CWD dotnetExePath "build/fable/Fable.Compiler.dll yarn-splitter --cwd tests --fable-core build/fable-core --verbose --port free"
+    run CWD dotnetExePath "build/fable/Fable.Compiler.dll yarn-splitter --cwd tests --fable-core build/fable-core --port free"
     Yarn.run (CWD </> "tests") "test" ""
 
 let quickTest() =

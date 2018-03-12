@@ -9,8 +9,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
+    <Compile Include="Array.fs" />
     <Compile Include="Set.fs" />
   </ItemGroup>
 

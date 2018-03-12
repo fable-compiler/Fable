@@ -44,11 +44,10 @@ let tests =
             equal true ys.IsEmpty
             equal true [].IsEmpty
 
-(*
       testCase "List.Equals works" <| fun () ->
             let xs = [1;2;3]
             xs.Equals(xs) |> equal true
-*)
+
       testCase "List.Head works" <| fun () ->
             let xs = [1; 2; 3; 4]
             equal 1 xs.Head
@@ -60,21 +59,7 @@ let tests =
       testCase "List.Item works" <| fun () ->
             let xs = [1; 2; 3; 4]
             equal 4 xs.[3]
-(*
-      testCase "List slice works" <| fun () ->
-            let xs = [1; 2; 3; 4]
-            xs.[..2] |> List.sum |> equal 6
-            xs.[2..] |> List.sum |> equal 7
-            xs.[1..2] |> List.sum |> equal 5
 
-      testCase "List.truncate works" <| fun () ->
-            [1..3] = (List.truncate 3 [1..5]) |> equal true
-            [1..5] = (List.truncate 10 [1..5]) |> equal true
-            [] = (List.truncate 0 [1..5]) |> equal true
-            ["str1";"str2"] = (List.truncate 2 ["str1";"str2";"str3"]) |> equal true
-            [] = (List.truncate 0 []) |> equal true
-            [] = (List.truncate 1 []) |> equal true
-*)
       testCase "List cons works" <| fun () ->
             let xs = [1; 2; 3; 4]
             let ys = 3 :: xs
@@ -94,15 +79,6 @@ let tests =
             zs.Head + zs.Tail.Head
             |> equal 1
 
-      // testCase "List.average works" <| fun () ->
-      //       List.average [1.; 2.; 3.; 4.]
-      //       |> equal 2.5
-
-      // testCase "List.averageBy works" <| fun () ->
-      //       [1.; 2.; 3.; 4.]
-      //       |> List.averageBy (fun x -> x * 2.)
-      //       |> equal 5.
-
       testCase "List.choose works" <| fun () ->
             let xs = [1; 2; 3; 4]
             let result = xs |> List.choose (fun x ->
@@ -110,64 +86,6 @@ let tests =
                   else None)
             result.Head + result.Tail.Head
             |> equal 7
-
-(*
-      testCase "List.choose works with generic arguments" <| fun () ->
-          let res = testListChoose [ Some [ "a" ] ]
-          equal ["a"] res
-
-      testCase "List.collect works" <| fun () ->
-            let xs = [[1]; [2]; [3]; [4]]
-            let ys = xs |> List.collect id
-            ys.Head + ys.Tail.Head
-            |> equal 3
-
-            let list1 = [10.; 20.; 30.]
-            let collectList = List.collect (fun x -> [for i in 1.0..3.0 -> x * i]) list1
-            sumFirstSeq collectList 9 |> equal 360.
-
-            let xs = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
-            let ys = xs |> List.collect id
-            sumFirstSeq ys 5
-            |> equal 15.
-      testCase "List.concat works" <| fun () ->
-            let xs = [[1]; [2]; [3]; [4]]
-            let ys = xs |> List.concat
-            ys.Head  + ys.Tail.Head
-            |> equal 3
-
-            let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
-            let ys1 = xs1 |> List.concat
-            sumFirstList ys1 7
-            |> equal 28.
-
-      testCase "List.contains works" <| fun () ->
-            let xs = [1; 2; 3; 4]
-            xs |> List.contains 2 |> equal true
-            xs |> List.contains 0 |> equal false
-
-      testCase "List.contains lambda doesn't clash" <| fun () ->
-            let modifyList current x =
-                let contains = current |> List.contains x
-                match contains with
-                    | true -> current |> (List.filter (fun a -> a <> x))
-                    | false -> x::current
-            let l = [1;2;3;4]
-            (modifyList l 1) |> List.contains 1 |> equal false
-            (modifyList l 5) |> List.contains 5 |> equal true
-
-      testCase "List.distinct works" <| fun () ->
-          let xs = [1; 1; 1; 2; 2; 3; 3]
-          let ys = xs |> List.distinct
-          ys |> List.length
-          |> equal 3
-
-      testCase "List.distinctBy works" <| fun () ->
-          [1; 1; 1; 2; 2; 3; 3]
-          |> List.distinctBy (fun x -> x % 2)
-          |> List.length
-          |> equal 2
-*)
 
       testCase "List.exists works" <| fun () ->
             let xs = [1; 2; 3; 4]
@@ -194,29 +112,7 @@ let tests =
             [1; 2; 3; 4]
             |> List.findIndex ((=) 2)
             |> equal 1
-(*
-      testCase "List.findBack works" <| fun () ->
-          let xs = [1.; 2.; 3.; 4.]
-          xs |> List.find ((>) 4.) |> equal 1.
-          xs |> List.findBack ((>) 4.) |> equal 3.
 
-      testCase "List.findIndexBack works" <| fun () ->
-          let xs = [1.; 2.; 3.; 4.]
-          xs |> List.findIndex ((>) 4.) |> equal 0
-          xs |> List.findIndexBack ((>) 4.) |> equal 2
-
-      testCase "List.tryFindBack works" <| fun () ->
-          let xs = [1.; 2.; 3.; 4.]
-          xs |> List.tryFind ((>) 4.) |> equal (Some 1.)
-          xs |> List.tryFindBack ((>) 4.) |> equal (Some 3.)
-          xs |> List.tryFindBack ((=) 5.) |> equal None
-
-      testCase "List.tryFindIndexBack works" <| fun () ->
-          let xs = [1.; 2.; 3.; 4.]
-          xs |> List.tryFindIndex ((>) 4.) |> equal (Some 0)
-          xs |> List.tryFindIndexBack ((>) 4.) |> equal (Some 2)
-          xs |> List.tryFindIndexBack ((=) 5.) |> equal None
-*)
       testCase "List.fold works" <| fun () ->
             [1; 2; 3; 4]
             |> List.fold (+) 0
@@ -237,11 +133,6 @@ let tests =
             [1; 2; 3; 4]
             |> List.foldBack (fun x acc -> acc >> (+) x) <| id <| 2
             |> equal 12
-
-      // testCase "List.foldBack2 works" <| fun () ->
-      //       ([1; 2; 3; 4], [1; 2; 3; 4], 0)
-      //       |||> List.foldBack2 (fun x y acc -> acc - y * x)
-      //       |> equal -30
 
       testCase "List.forall works" <| fun () ->
             [1; 2; 3; 4]
@@ -323,70 +214,6 @@ let tests =
             let zs = List.map2 (fun x y -> x - y) xs ys
             equal -1 zs.Head
 
-(*
-      testCase "List.indexed works" <| fun () ->
-          let xs = ["a"; "b"; "c"] |> List.indexed
-          xs.Length |> equal 3
-          fst xs.[2] |> equal 2
-          snd xs.[2] |> equal "c"
-
-      testCase "List.map3 works" <| fun () ->
-            let xs = [1;2;3]
-            let ys = [5;4;3]
-            let zs = [7;8;9]
-            let ks = List.map3 (fun x y z -> z - y - x) xs ys zs
-            List.sum ks
-            |> equal 6
-
-      testCase "List.mapi2 works" <| fun () ->
-            let xs = [7;8;9]
-            let ys = [5;4;3]
-            let zs = List.mapi2 (fun i x y -> i * (x - y)) xs ys
-            List.sum zs |> equal 16
-
-      testCase "List.mapFold works" <| fun () ->
-          let xs = [1y; 2y; 3y; 4y]
-          let result = xs |> List.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
-          fst result |> List.sum |> equal 20y
-          snd result |> equal 10y
-
-      testCase "List.mapFoldBack works" <| fun () ->
-          let xs = [1.; 2.; 3.; 4.]
-          let result = List.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
-          fst result |> List.sum |> equal -20.
-          snd result |> equal -10.
-
-      // TODO: Runtime uncurry to arity 2
-      // testCase "List.mapFold works II" <| fun () -> // See #842
-      //     let f x y = x,y
-      //     let xs,_ = List.mapFold f "a" ["b"]
-      //     equal "a" xs.Head
-
-      // testCase "List.mapFoldBack works II" <| fun () ->
-      //     let f x y = x,y
-      //     let xs,_ = List.mapFoldBack f ["a"] "b"
-      //     equal "a" xs.Head
-
-      testCase "List.max works" <| fun () ->
-            let xs = [1; 2]
-            xs |> List.max
-            |> equal 2
-
-      testCase "List.maxBy works" <| fun () ->
-            let xs = [1; 2]
-            xs |> List.maxBy (fun x -> -x)
-            |> equal 1
-
-      testCase "List.min works" <| fun () ->
-            let xs = [1; 2]
-            xs |> List.min
-            |> equal 1
-
-      testCase "List.minBy works" <| fun () ->
-            let xs = [1; 2]
-            xs |> List.minBy (fun x -> -x)
-            |> equal 2
-
       testCase "List.ofArray works" <| fun () ->
             let xs = [|1; 2|]
             let ys = List.ofArray xs
@@ -402,20 +229,6 @@ let tests =
             ys.Head |> equal 1
             ys.Length |> equal 2
 
-      testCase "List.partition works" <| fun () ->
-            let xs = [1; 2; 3; 4; 5; 6]
-            let ys, zs = xs |> List.partition (fun x -> x % 2 = 0)
-            List.sum zs |> equal 9
-            equal 2 ys.[0]
-            equal 5 zs.[2]
-
-      testCase "List.permute works" <| fun () ->
-            let xs = [1; 2; 3; 4; 5; 6]
-            let ys = xs |> List.permute (fun i -> i + 1 - 2 * (i % 2))
-            equal 4 ys.[2]
-            equal 6 ys.[4]
-*)
-
       testCase "List.pick works" <| fun () ->
             let xs = [1; 2]
             xs |> List.pick (fun x ->
@@ -423,15 +236,6 @@ let tests =
                   | 2 -> Some x
                   | _ -> None)
             |> equal 2
-(*
-      testCase "List.range works" <| fun () ->
-          [1..5]
-          |> List.reduce (+)
-          |> equal 15
-          [0..2..9]
-          |> List.reduce (+)
-          |> equal 20
-*)
 
       testCase "List.reduce works" <| fun () ->
             let xs = [1; 2]
@@ -443,9 +247,9 @@ let tests =
             xs |> List.reduceBack (+)
             |> equal 3
 
-      // testCase "List.replicate works" <| fun () ->
-      //       List.replicate 3 3
-      //       |> List.sum |> equal 9
+      testCase "List.replicate works" <| fun () ->
+            List.replicate 3 3
+            |> List.sum |> equal 9
 
       testCase "List.rev works" <| fun () ->
             let xs = [1; 2]
@@ -463,18 +267,12 @@ let tests =
             let ys = List.scanBack (fun x acc -> acc - x) xs 0
             ys.Head + ys.Tail.Head
             |> equal -11
-(*
+
       testCase "List.sort works" <| fun () ->
           let xs = [3; 4; 1; -3; 2; 10]
           xs |> List.sort |> List.take 3 |> List.sum |> equal 0
           let ys = ["a"; "c"; "B"; "d"]
           ys |> List.sort |> List.item 1 |> equal "a"
-
-      testCase "List.sortDescending works" <| fun () ->
-          let xs = [3; 4; 1; -3; 2; 10]
-          xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
-          let ys = ["a"; "c"; "B"; "d"]
-          ys |> List.sortDescending |> List.item 1 |> equal "c"
 
       testCase "List.sortBy works" <| fun () ->
             let xs = [3; 1; 4; 2]
@@ -512,7 +310,7 @@ let tests =
             |> List.toSeq
             |> Seq.tail |> Seq.head
             |> equal 2
-*)
+
       testCase "List.tryPick works" <| fun () ->
             [1; 2]
             |> List.tryPick (function
@@ -555,16 +353,6 @@ let tests =
             equal 2 x
             equal 5 y
 
-      // testCase "List.zip3 works" <| fun () ->
-      //       let xs = [1; 2; 3]
-      //       let ys = [4; 5; 6]
-      //       let zs = [7; 8; 9]
-      //       let ks = List.zip3 xs ys zs
-      //       let x, y, z = List.last ks
-      //       equal 3 x
-      //       equal 6 y
-      //       equal 9 z
-
       testCase "List snail to append works" <| fun () ->
             let xs = [1; 2; 3; 4]
             let ys = [0]
@@ -572,6 +360,207 @@ let tests =
             zs.Head + zs.Tail.Head
             |> equal 1
 (*
+      testCase "List slice works" <| fun () ->
+            let xs = [1; 2; 3; 4]
+            xs.[..2] |> List.sum |> equal 6
+            xs.[2..] |> List.sum |> equal 7
+            xs.[1..2] |> List.sum |> equal 5
+
+      testCase "List.truncate works" <| fun () ->
+            [1..3] = (List.truncate 3 [1..5]) |> equal true
+            [1..5] = (List.truncate 10 [1..5]) |> equal true
+            [] = (List.truncate 0 [1..5]) |> equal true
+            ["str1";"str2"] = (List.truncate 2 ["str1";"str2";"str3"]) |> equal true
+            [] = (List.truncate 0 []) |> equal true
+            [] = (List.truncate 1 []) |> equal true
+
+      testCase "List.choose works with generic arguments" <| fun () ->
+          let res = testListChoose [ Some [ "a" ] ]
+          equal ["a"] res
+
+      testCase "List.collect works" <| fun () ->
+            let xs = [[1]; [2]; [3]; [4]]
+            let ys = xs |> List.collect id
+            ys.Head + ys.Tail.Head
+            |> equal 3
+
+            let list1 = [10.; 20.; 30.]
+            let collectList = List.collect (fun x -> [for i in 1.0..3.0 -> x * i]) list1
+            sumFirstSeq collectList 9 |> equal 360.
+
+            let xs = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
+            let ys = xs |> List.collect id
+            sumFirstSeq ys 5
+            |> equal 15.
+
+      testCase "List.concat works" <| fun () ->
+            let xs = [[1]; [2]; [3]; [4]]
+            let ys = xs |> List.concat
+            ys.Head  + ys.Tail.Head
+            |> equal 3
+
+            let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
+            let ys1 = xs1 |> List.concat
+            sumFirstList ys1 7
+            |> equal 28.
+
+      testCase "List.contains works" <| fun () ->
+            let xs = [1; 2; 3; 4]
+            xs |> List.contains 2 |> equal true
+            xs |> List.contains 0 |> equal false
+
+      testCase "List.contains lambda doesn't clash" <| fun () ->
+            let modifyList current x =
+                let contains = current |> List.contains x
+                match contains with
+                    | true -> current |> (List.filter (fun a -> a <> x))
+                    | false -> x::current
+            let l = [1;2;3;4]
+            (modifyList l 1) |> List.contains 1 |> equal false
+            (modifyList l 5) |> List.contains 5 |> equal true
+
+      testCase "List.average works" <| fun () ->
+            List.average [1.; 2.; 3.; 4.]
+            |> equal 2.5
+
+      testCase "List.averageBy works" <| fun () ->
+            [1.; 2.; 3.; 4.]
+            |> List.averageBy (fun x -> x * 2.)
+            |> equal 5.
+
+      testCase "List.distinct works" <| fun () ->
+          let xs = [1; 1; 1; 2; 2; 3; 3]
+          let ys = xs |> List.distinct
+          ys |> List.length
+          |> equal 3
+
+      testCase "List.distinctBy works" <| fun () ->
+          [1; 1; 1; 2; 2; 3; 3]
+          |> List.distinctBy (fun x -> x % 2)
+          |> List.length
+          |> equal 2
+
+      testCase "List.findBack works" <| fun () ->
+          let xs = [1.; 2.; 3.; 4.]
+          xs |> List.find ((>) 4.) |> equal 1.
+          xs |> List.findBack ((>) 4.) |> equal 3.
+
+      testCase "List.findIndexBack works" <| fun () ->
+          let xs = [1.; 2.; 3.; 4.]
+          xs |> List.findIndex ((>) 4.) |> equal 0
+          xs |> List.findIndexBack ((>) 4.) |> equal 2
+
+      testCase "List.tryFindBack works" <| fun () ->
+          let xs = [1.; 2.; 3.; 4.]
+          xs |> List.tryFind ((>) 4.) |> equal (Some 1.)
+          xs |> List.tryFindBack ((>) 4.) |> equal (Some 3.)
+          xs |> List.tryFindBack ((=) 5.) |> equal None
+
+      testCase "List.tryFindIndexBack works" <| fun () ->
+          let xs = [1.; 2.; 3.; 4.]
+          xs |> List.tryFindIndex ((>) 4.) |> equal (Some 0)
+          xs |> List.tryFindIndexBack ((>) 4.) |> equal (Some 2)
+          xs |> List.tryFindIndexBack ((=) 5.) |> equal None
+
+      testCase "List.foldBack2 works" <| fun () ->
+            ([1; 2; 3; 4], [1; 2; 3; 4], 0)
+            |||> List.foldBack2 (fun x y acc -> acc - y * x)
+            |> equal -30
+
+      testCase "List.indexed works" <| fun () ->
+          let xs = ["a"; "b"; "c"] |> List.indexed
+          xs.Length |> equal 3
+          fst xs.[2] |> equal 2
+          snd xs.[2] |> equal "c"
+
+      testCase "List.map3 works" <| fun () ->
+            let xs = [1;2;3]
+            let ys = [5;4;3]
+            let zs = [7;8;9]
+            let ks = List.map3 (fun x y z -> z - y - x) xs ys zs
+            List.sum ks
+            |> equal 6
+
+      testCase "List.mapi2 works" <| fun () ->
+            let xs = [7;8;9]
+            let ys = [5;4;3]
+            let zs = List.mapi2 (fun i x y -> i * (x - y)) xs ys
+            List.sum zs |> equal 16
+
+      testCase "List.mapFold works" <| fun () ->
+          let xs = [1y; 2y; 3y; 4y]
+          let result = xs |> List.mapFold (fun acc x -> (x * 2y, acc + x)) 0y
+          fst result |> List.sum |> equal 20y
+          snd result |> equal 10y
+
+      testCase "List.mapFoldBack works" <| fun () ->
+          let xs = [1.; 2.; 3.; 4.]
+          let result = List.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
+          fst result |> List.sum |> equal -20.
+          snd result |> equal -10.
+
+      // TODO: Runtime uncurry to arity 2
+      testCase "List.mapFold works II" <| fun () -> // See #842
+          let f x y = x,y
+          let xs,_ = List.mapFold f "a" ["b"]
+          equal "a" xs.Head
+
+      testCase "List.mapFoldBack works II" <| fun () ->
+          let f x y = x,y
+          let xs,_ = List.mapFoldBack f ["a"] "b"
+          equal "a" xs.Head
+
+      testCase "List.max works" <| fun () ->
+            let xs = [1; 2]
+            xs |> List.max
+            |> equal 2
+
+      testCase "List.maxBy works" <| fun () ->
+            let xs = [1; 2]
+            xs |> List.maxBy (fun x -> -x)
+            |> equal 1
+
+      testCase "List.min works" <| fun () ->
+            let xs = [1; 2]
+            xs |> List.min
+            |> equal 1
+
+      testCase "List.minBy works" <| fun () ->
+            let xs = [1; 2]
+            xs |> List.minBy (fun x -> -x)
+            |> equal 2
+
+      testCase "List.partition works" <| fun () ->
+            let xs = [1; 2; 3; 4; 5; 6]
+            let ys, zs = xs |> List.partition (fun x -> x % 2 = 0)
+            List.sum zs |> equal 9
+            equal 2 ys.[0]
+            equal 5 zs.[2]
+
+      testCase "List.permute works" <| fun () ->
+            let xs = [1; 2; 3; 4; 5; 6]
+            let ys = xs |> List.permute (fun i -> i + 1 - 2 * (i % 2))
+            equal 4 ys.[2]
+            equal 6 ys.[4]
+
+      testCase "List.range works" <| fun () ->
+          [1..5]
+          |> List.reduce (+)
+          |> equal 15
+          [0..2..9]
+          |> List.reduce (+)
+          |> equal 20
+
+      testCase "List.zip3 works" <| fun () ->
+            let xs = [1; 2; 3]
+            let ys = [4; 5; 6]
+            let zs = [7; 8; 9]
+            let ks = List.zip3 xs ys zs
+            let x, y, z = List.last ks
+            equal 3 x
+            equal 6 y
+            equal 9 z
+
       testCase "List.tryItem works" <| fun () ->
           let xs = [1.; 2.; 3.; 4.]
           List.tryItem 3 xs |> equal (Some 4.)
@@ -609,82 +598,17 @@ let tests =
             | _ -> 0.0
           sum |> equal 6.0
 
+      testCase "List.sortDescending works" <| fun () ->
+          let xs = [3; 4; 1; -3; 2; 10]
+          xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
+          let ys = ["a"; "c"; "B"; "d"]
+          ys |> List.sortDescending |> List.item 1 |> equal "c"
+
       testCase "List.splitAt works" <| fun () ->
           let li = [1;2;3;4]
           List.splitAt 0 li |> equal ([], [1;2;3;4])
           List.splitAt 3 li |> equal ([1;2;3], [4])
           List.splitAt 4 li |> equal ([1;2;3;4], [])
-
-      // type R = { i: int; s: string }
-
-      // testCase "Lists can be JSON serialized forth and back" <| fun () ->
-      //     let x = [{ i=1; s="1" }; { i=2; s="2" }]
-      //     #if FABLE_COMPILER
-      //     let json = Fable.Core.JsInterop.toJson x
-      //     let x2 = Fable.Core.JsInterop.ofJson<R list> json
-      //     match x2 with _::[{ i=2; s="2" }] -> true | _ -> false
-      //     |> equal true
-      //     let json = Fable.Core.JsInterop.toJsonWithTypeInfo x
-      //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<R list> json
-      //     #else
-      //     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
-      //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<R list> json
-      //     #endif
-      //     match x2 with
-      //     | _::[{ i=2; s="2" }] -> true
-      //     | _ -> false
-      //     |> equal true
-
-      // testCase "Lists serialized with Json.NET can be deserialized" <| fun () ->
-      //     // let x = [{ i=1; s="1" }; { i=2; s="2" }]
-      //     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-      //     let json = """{"$type":"Microsoft.FSharp.Collections.FSharpList`1[[Fable.Tests.Lists+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Lists+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.Lists+R, Fable.Tests","i":2,"s":"2"}]}"""
-      //     #if FABLE_COMPILER
-      //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<R list> json
-      //     #else
-      //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<R list> json
-      //     #endif
-      //     match x2 with
-      //     | _::[{ i=2; s="2" }] -> true
-      //     | _ -> false
-      //     |> equal true
-
-      // type Entry = {
-      //       description : string
-      //       id : int
-      // } with member __.Value = "Foo"
-
-      // type ListContainer = {
-      //       entries : Entry list
-      // }
-
-      // #if FABLE_COMPILER
-      // testCase "Lists serialized with stringify can be inflated" <| fun () ->
-      //     let json = """{
-      //             "entries": {
-      //                   "head": {
-      //                         "description": "abc",
-      //                         "id": 0
-      //                   },
-      //                   "tail": {
-      //                         "head": {
-      //                               "description": "def",
-      //                               "id": 1
-      //                         },
-      //                         "tail": {}
-      //                   }
-      //             }
-      //       }"""
-      //     let x2 : ListContainer =
-      //              Fable.Import.JS.JSON.parse json
-      //              |> Fable.Core.JsInterop.inflate
-      //     match x2 with
-      //     | {entries = [{ id=0; description="abc" }
-      //                   { id=1; description="def" }]} ->
-      //       x2.entries.Head.Value = "Foo"
-      //     | _ -> false
-      //     |> equal true
-      // #endif
 
       testCase "Types with same name as imports work" <| fun () ->
             let li = [List 5]

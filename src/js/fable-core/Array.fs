@@ -502,19 +502,19 @@ let setSlice (target: 'T[]) (lower: int) (upper: int) (source: 'T[]) =
         for i = 0 to length - 1 do
             target.[i + lower] <- source.[i]
 
-// let sortInPlaceBy f array =
-//     sortInPlaceWithImpl (fun (x:'T) (y:'T) ->
-//         let x = f x
-//         let y = f y
-//         compare x y) array
+let sortInPlaceBy f array =
+    sortInPlaceWithImpl (fun (x:'T) (y:'T) ->
+        let x = f x
+        let y = f y
+        compare x y) array
 
-// let sortInPlace array =
-//     sortInPlaceWithImpl compare array
+let sortInPlace array =
+    sortInPlaceWithImpl compare array
 
-// let sortWith (comparer: 'T -> 'T -> int) (array : 'T[]) (cons: ArrayCons) =
-//     let result = cons.From array
-//     sortInPlaceWithImpl comparer result
-//     result
+let sortWith (comparer: 'T -> 'T -> int) (array : 'T[]) (cons: ArrayCons) =
+    let result = cons.From array
+    sortInPlaceWithImpl comparer result
+    result
 
 let unfold<'T,'State> (generator:'State -> ('T*'State) option) (state:'State) (cons: ArrayCons) =
     let res = [||]
@@ -669,13 +669,13 @@ let foldBackIndexed2<'T1, 'T2, 'State> folder (array1: 'T1[]) (array2: 'T2[]) (s
 let foldBack2<'T1, 'T2, 'State> f (array1: 'T1[]) (array2: 'T2[]) (state: 'State) =
    foldBackIndexed2 (fun _ x y acc -> f x y acc) array1 array2 state
 
-// let reduce reduction array =
-//    if array.Length = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
-//    else foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> array
+let reduce reduction (array: 'T[]) =
+   if array.Length = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+   else foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> array
 
-// let reduceBack reduction array =
-//    if array.Length = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
-//    else foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) array Unchecked.defaultof<_>
+let reduceBack reduction (array: 'T[]) =
+   if array.Length = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+   else foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) array Unchecked.defaultof<_>
 
 let forAll2 predicate array1 array2 =
    fold2 (fun acc x y -> acc && predicate x y) true array1 array2
@@ -708,17 +708,17 @@ let sumBy (projection: 'T -> 'U) (array: 'T []) : 'U =
         acc <- acc + projection array.[i]
     acc
 
-// let maxBy projection array =
-//     reduce (fun x y -> if projection y > projection x then y else x) array
+let maxBy projection array =
+    reduce (fun x y -> if projection y > projection x then y else x) array
 
-// let max array =
-//     reduce max array
+let max array =
+    reduce max array
 
-// let minBy projection array =
-//     reduce (fun x y -> if projection y > projection x then x else y) array
+let minBy projection array =
+    reduce (fun x y -> if projection y > projection x then x else y) array
 
-// let min array =
-//     reduce min array
+let min array =
+    reduce min array
 
 // TODO: Pass add and divide function for non-number types
 let average (array: 'T []) : 'T =

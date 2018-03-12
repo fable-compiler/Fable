@@ -124,16 +124,15 @@ module Util =
                 | Fable.ArrayValues args ->
                     [ List.map (fun e -> com.TransformExpr(ctx, e)) args
                       |> ArrayExpression :> Expression ]
-                | Fable.ArrayAlloc size ->
-                    [ NumericLiteral(float size) ]
+                | Fable.ArrayAlloc(TransformExpr com ctx size) -> [size]
             NewExpression(cons, args) :> Expression
         | _ ->
             match arrayKind with
             | Fable.ArrayValues args ->
                 List.map (fun e -> com.TransformExpr(ctx, e)) args
                 |> ArrayExpression :> Expression
-            | Fable.ArrayAlloc size ->
-                upcast NewExpression(Identifier "Array", [ NumericLiteral(float size) ])
+            | Fable.ArrayAlloc(TransformExpr com ctx size) ->
+                upcast NewExpression(Identifier "Array", [size])
 
     let buildStringArray strings =
         strings
@@ -185,11 +184,16 @@ module Util =
             BinaryExpression(BinaryOrBitwise, e, NumericLiteral(0.)) :> Expression
         | _ -> e
 
-    let makeAnonymousFunction args body: Expression =
-        match body with
-        | U2.Case1 body -> body
-        | U2.Case2 e -> BlockStatement [ReturnStatement e]
-        |> fun body -> upcast FunctionExpression (args, body)
+    let makeFunctionExpression name args body: Expression =
+        let id =
+            match name with
+            | Some name -> Some(Identifier name)
+            | None -> None
+        let body =
+            match body with
+            | U2.Case1 body -> body
+            | U2.Case2 e -> BlockStatement [ReturnStatement e]
+        upcast FunctionExpression(args, body, ?id=id)
 
     let transformValue (com: IBabelCompiler) (ctx: Context) value: Expression =
         match value with
@@ -250,17 +254,17 @@ module Util =
             members |> List.choose (fun (name, expr, kind) ->
                 let prop, computed = memberFromName name
                 match kind, expr with
-                | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body) ->
+                | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body, _) ->
                     // Don't call the `makeObjMethod` helper here because function as values don't bind `this` arg
                     let args, body' = getMemberArgsAndBody com ctx false args body
                     ObjectMethod(ObjectMeth, prop, args, body', computed=computed) |> U3.Case2 |> Some
                 | Fable.ObjectValue, TransformExpr com ctx value ->
                     ObjectProperty(prop, value, computed=computed) |> U3.Case1 |> Some
-                | Fable.ObjectMethod hasSpread, Fable.Function(Fable.Delegate args, body) ->
+                | Fable.ObjectMethod hasSpread, Fable.Function(Fable.Delegate args, body, _) ->
                     makeObjMethod ObjectMeth prop computed hasSpread args body
-                | Fable.ObjectGetter, Fable.Function(Fable.Delegate args, body) ->
+                | Fable.ObjectGetter, Fable.Function(Fable.Delegate args, body, _) ->
                     makeObjMethod ObjectGetter prop computed false args body
-                | Fable.ObjectSetter, Fable.Function(Fable.Delegate args, body) ->
+                | Fable.ObjectSetter, Fable.Function(Fable.Delegate args, body, _) ->
                     makeObjMethod ObjectSetter prop computed false args body
                 | kind, _ ->
                     sprintf "Object member has kind %A but value is not a function" kind
@@ -541,8 +545,8 @@ module Util =
         | Fable.Test(expr, kind, range) ->
             transformTest com ctx range kind expr
 
-        | Fable.Function(FunctionArgs args, body) ->
-            com.TransformFunction(ctx, None, args, body) ||> makeAnonymousFunction
+        | Fable.Function(FunctionArgs args, body, name) ->
+            com.TransformFunction(ctx, None, args, body) ||> makeFunctionExpression name
 
         | Fable.ObjectExpr (members, _, baseCall) ->
             Some(Identifier "this") |> transformObjectExpr com ctx members baseCall
@@ -637,8 +641,9 @@ module Util =
         | Fable.ObjectExpr (members, _, baseCall) ->
             [Some(Identifier "this") |> transformObjectExpr com ctx members baseCall |> resolve ret]
 
-        | Fable.Function(FunctionArgs args, body) ->
-            [com.TransformFunction(ctx, None, args, body) ||> makeAnonymousFunction |> resolve ret]
+        | Fable.Function(FunctionArgs args, body, name) ->
+            [com.TransformFunction(ctx, None, args, body)
+             ||> makeFunctionExpression name |> resolve ret]
 
         | Fable.Operation(callKind, _, range) ->
             // TODO!!!
@@ -877,7 +882,7 @@ module Util =
             //     let expr = transformExpr com ctx body
             //     let import = getCoreLibImport com ctx "Util" "createAtom"
             //     upcast CallExpression(import, [U2.Case1 expr])
-                | Fable.Function(Fable.Delegate args, body) ->
+                | Fable.Function(Fable.Delegate args, body, _) ->
                     [transformModuleFunction com ctx info args body]
                 | _ ->
                     let value = transformExpr com ctx value

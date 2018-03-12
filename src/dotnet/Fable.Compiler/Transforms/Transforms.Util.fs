@@ -52,10 +52,12 @@ module AST =
     open Fable.AST.Fable
 
     /// When referenced multiple times, is there a risk of double evaluation?
-    let hasDoubleEvalRisk = function
+    let rec hasDoubleEvalRisk = function
         | IdentExpr id -> id.IsMutable
         | Value(This _ | Null _ | UnitConstant | NumberConstant _
                     | StringConstant _ | BoolConstant _ | Enum _) -> false
+        | Value(NewTuple exprs) ->
+            exprs |> List.exists hasDoubleEvalRisk |> not
         | Get(_,kind,_,_) ->
             match kind with
             // OptionValue has a runtime check

@@ -53,7 +53,7 @@ module private Helpers =
 
     let emitJs r t args macro =
         let info = argInfo None args None
-        Operation(Emit(macro, Some info), t, None)
+        Operation(Emit(macro, Some info), t, r)
 
     let objExpr t kvs =
         let kvs = List.map (fun (k,v) -> k, v, ObjectValue) kvs
@@ -89,6 +89,12 @@ module private Helpers =
         |> Option.defaultWith (fun () ->
             "Couldn't find any generic argument" |> addError com r
             Any)
+
+    let defaultof (t: Type) =
+        match t with
+        | Number _ -> makeIntConst 0
+        | Boolean -> makeBoolConst false
+        | _ -> Null t |> Value
 
 open Helpers
 
@@ -490,8 +496,7 @@ let compare r (args: Expr list) op =
 
     | _ -> coreCall_ (Number Int32) "Util" "compare" args |> wrapWith op
 
-let makeComparer typArg =
-    let typArg = defaultArg typArg Any
+let makeComparerFunction typArg =
     let t = FunctionType(DelegateType [typArg; typArg], Number Int32)
     match typArg with
     | Builtin(BclGuid|BclTimeSpan)
@@ -509,12 +514,13 @@ let makeComparer typArg =
         makeCoreRef t "Util" "compareObjects"
     | _ ->
         makeCoreRef t "Util" "compare"
-    |> List.singleton |> coreCall_ Any "Util" "Comparer"
 
 // TODO!!! This and the following method must be adjusted to new fable-core Map and Set modules
 let makeMapOrSetCons com r t (i: CallInfo) modName args =
     let typArg = singleGenArg com r i.GenericArgs
-    let comparer = Some typArg |> makeComparer
+    let comparer =
+        let fn = makeComparerFunction typArg
+        coreCall_ Any "Util" "Comparer" [fn]
     let args =
         match args with
         | [] -> [Value (Null typArg); comparer]
@@ -525,7 +531,7 @@ let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
     let makeFSharp typArg args =
         let args =
             match args with
-            | [iterable] -> [iterable; makeComparer (Some typArg)]
+            | [iterable] -> [iterable; coreCall_ Any "Util" "Comparer" [makeComparerFunction typArg]]
             | args -> args
         coreCall r t modName "create" None args i.ArgTypes
     let typArg = singleGenArg com r i.GenericArgs
@@ -655,7 +661,7 @@ let fableCoreLib (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
         |> makeStrConst |> Some
     | "nameofLambda", _ ->
         match args with
-        | [Function(_, Nameof name)] -> name
+        | [Function(_, Nameof name, _)] -> name
         | _ -> "Cannot infer name of expression" |> addError com r; "unknown"
         |> makeStrConst |> Some
     | "AreEqual", _ ->
@@ -726,7 +732,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             |> curriedApply None Any f1
             |> List.singleton
             |> curriedApply r retType f2
-        Function(Lambda tempVar, body)
+        Function(Lambda tempVar, body, None)
 
     let math r t (args: Expr list) argTypes methName =
         let methName = Naming.lowerFirst methName |> Some
@@ -844,7 +850,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         if i.CompiledName = "Increment" then "void($0.contents++)" else "void($0.contents--)"
         |> emitJs r t args |> Some
     // Concatenates two lists
-    | "op_Append", _ -> coreCall r t "List" "Append" thisArg args i.ArgTypes |> Some
+    | "op_Append", _ -> coreCall r t "List" "append" thisArg args i.ArgTypes |> Some
     | ("op_Inequality"|"Neq"), _ -> equals r false args |> Some
     | ("op_Equality"|"Eq"), _ -> equals r true args |> Some
     | "IsNull", [arg] -> makeEqOp r arg (Null arg.Type |> Value) BinaryEqual |> Some
@@ -1006,15 +1012,26 @@ let arrays (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (ar
     | None, [arg], "Length" -> get r t arg "length" |> Some
     | None, [ar; idx], "Get" -> getExpr r t ar idx |> Some
     | None, [ar; idx; value], "Set" -> Set(ar, ExprSet idx, value, r) |> Some
+    | _, _, "ZeroCreate" ->
+        match singleGenArg com r i.GenericArgs, args with
+        | Number _ as t, [len] -> NewArray(ArrayAlloc len, t) |> Value |> Some
+        | Boolean, _ -> emitJs r t args "new Array($0).fill(false)" |> Some
+        // If we don't fill the array with null values some operations
+        // may behave unexpectedly, like Array.prototype.reduce
+        | _ -> emitJs r t args "new Array($0).fill(null)" |> Some
     // dynamicSet r ar idx value |> Some
     | None, _, meth ->
-        let arrayCons =
+        let args, meth =
+            if meth = "Sort"
+            then (singleGenArg com r i.GenericArgs |> makeComparerFunction)::args, "SortWith"
+            else args, meth
+        let args =
+            // TODO: Only append array constructor when needed
             match t with
             | Array(Number numberKind) when com.Options.typedArrays ->
-                getTypedArrayName com numberKind |> makeIdentExpr
-            | _ -> makeIdentExpr "Array"
-        // TODO: Only append array constructor when needed
-        coreCall r t "Array" (Naming.lowerFirst meth) thisArg (args@[arrayCons]) i.ArgTypes |> Some
+                args @ [getTypedArrayName com numberKind |> makeIdentExpr]
+            | _ -> args @ [makeIdentExpr "Array"]
+        coreCall r t "Array" (Naming.lowerFirst meth) thisArg args i.ArgTypes |> Some
     | _ -> None
 
 let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1023,14 +1040,17 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
     | Some x, _, "get_Head" -> Get(x, ListHead, t, r) |> Some
     | None, [x], "Tail"
     | Some x, _, "get_Tail" -> Get(x, ListTail, t, r) |> Some
-    | _, _, "get_Length" -> coreCall r t "List" "Length" thisArg args i.ArgTypes |> Some
-    | Some x, _, "get_Item" -> coreCall r t "List" "Item" None (args@[x]) i.ArgTypes |> Some
+    | _, _, "get_Length" -> coreCall r t "List" "length" thisArg args i.ArgTypes |> Some
+    | Some x, _, "get_Item" -> coreCall r t "List" "item" None (args@[x]) i.ArgTypes |> Some
     | Some x, _, "get_IsEmpty" -> Test(x, ListTest false, r) |> Some
     | None, _, ("get_Empty" | "Empty") ->
         NewList(None, singleGenArg com r i.GenericArgs) |> Value |> Some
     | None, [h;t], "Cons" -> NewList(Some(h,t), singleGenArg com r i.GenericArgs) |> Value |> Some
-    | None, _, "Map" -> coreCall r t "List" "_Map" None args i.ArgTypes |> Some // "Map" method is mangled
-    | None, _, meth -> coreCall r t "List" meth None args i.ArgTypes |> Some
+    | None, [x], "ToSeq" -> Cast(x, t) |> Some
+    | None, _, "OfSeq" -> coreCall r t "Seq" "toList" None args i.ArgTypes |> Some
+    | None, _, meth ->
+        let meth = Naming.lowerFirst meth
+        coreCall r t "List" meth None args i.ArgTypes |> Some
     | _ -> None
 
 let options (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
@@ -1177,6 +1197,28 @@ let exceptions (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Ex
     | "get_StackTrace", Some e -> get r t e "stack" |> Some
     | _ -> None
 
+let objects (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | ".ctor", _, _ -> objExpr t [] |> Some
+    | "GetHashCode", Some arg, _ ->
+        coreCall_ t "Util" "getHashCode" [arg] |> Some
+    | "ToString", Some arg, _ ->
+        coreCall_ t "Util" "toString" [arg] |> Some
+    | "ReferenceEquals", _, [left; right] ->
+        makeBinOp r Boolean left right BinaryEqualStrict |> Some
+    | "Equals", Some arg1, [arg2]
+    | "Equals", None, [arg1; arg2] ->
+        coreCall_ t "Util" "equals" [arg1; arg2] |> Some
+    | _ -> None
+
+let unchecked (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "DefaultOf" -> singleGenArg com r i.GenericArgs |> defaultof |> Some
+    | "Hash" -> coreCall r t "Util" "hash" None args i.ArgTypes |> Some
+    | "Equals" -> coreCall r t "Util" "equals" None args i.ArgTypes |> Some
+    | "Compare" -> coreCall r t "Util" "compare" None args i.ArgTypes |> Some
+    | _ -> None
+
 let tryField returnTyp ownerTyp fieldName =
     match ownerTyp, fieldName with
     | Number Decimal, "Zero" -> makeDecConst 0M |> Some
@@ -1216,10 +1258,11 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "Microsoft.FSharp.Core.FSharpRef" -> references com r t info thisArg args
     | "Microsoft.FSharp.Core.PrintfModule"
     | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com r t info thisArg args
+    | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com r t info thisArg args
+    | "System.Object" -> objects com r t info thisArg args
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com r t info thisArg args
     | _ -> None
-//         | "System.Object" -> objects com info
 //         | "System.Timers.ElapsedEventArgs" -> info.thisArg // only signalTime is available here
 //         | "System.Enum" -> enums com info
 //         | "System.BitConverter" -> bitConvert com info
@@ -1269,7 +1312,6 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
 //         | "Microsoft.FSharp.Collections.FSharpSet"
 //         | "Microsoft.FSharp.Collections.SetModule" -> mapAndSets com info
 //         | "System.Type" -> types com info
-//         | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com info
 //         | "Microsoft.FSharp.Control.FSharpMailboxProcessor"
 //         | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel" -> mailbox com info
 //         | "Microsoft.FSharp.Control.FSharpAsync" -> asyncs com info

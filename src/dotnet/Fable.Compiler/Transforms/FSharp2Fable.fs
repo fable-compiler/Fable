@@ -14,12 +14,6 @@ open Identifiers
 open Helpers
 open Util
 
-let private transformLambda com ctx arg body =
-    let ctx, args = makeFunctionArgs com ctx [arg]
-    match args with
-    | [arg] -> Fable.Function(Fable.Lambda arg, transformExpr com ctx body)
-    | _ -> failwith "makeFunctionArgs returns args with different length"
-
 let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
                 (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match fsType with
@@ -101,27 +95,29 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                 |> not)
         overrides |> List.map (fun over ->
             let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
-            let value = Fable.Function(Fable.Delegate args, transformExpr com ctx over.Body)
-            // Don't use the typ argument as the override may come
-            // from another type, like ToString()
-            let typ =
-                if over.Signature.DeclaringType.HasTypeDefinition
-                then Some over.Signature.DeclaringType.TypeDefinition
-                else None
-            match over.Signature.Name with
-            | Naming.StartsWith "get_" name -> name, value, Fable.ObjectGetter
-            | Naming.StartsWith "set_" name -> name, value, Fable.ObjectSetter
-            // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
-            // information about ParamArray, we need to check the source method.
-            | name ->
-                let hasSpread =
-                    match typ with
-                    | None -> false
-                    | Some typ ->
-                        typ.TryGetMembersFunctionsAndValues
-                        |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
-                        |> function Some m -> hasSeqSpread m | None -> false
-                name, value, Fable.ObjectMethod hasSpread
+            let value = Fable.Function(Fable.Delegate args, transformExpr com ctx over.Body, None)
+            let name, kind =
+                match over.Signature.Name with
+                | Naming.StartsWith "get_" name -> name, Fable.ObjectGetter
+                | Naming.StartsWith "set_" name -> name, Fable.ObjectSetter
+                | name ->
+                    // Don't use the typ argument as the override may come
+                    // from another type, like ToString()
+                    let typ =
+                        if over.Signature.DeclaringType.HasTypeDefinition
+                        then Some over.Signature.DeclaringType.TypeDefinition
+                        else None
+                    // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
+                    // information about ParamArray, we need to check the source method.
+                    let hasSpread =
+                        match typ with
+                        | None -> false
+                        | Some typ ->
+                            typ.TryGetMembersFunctionsAndValues
+                            |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
+                            |> function Some m -> hasSeqSpread m | None -> false
+                    name, Fable.ObjectMethod hasSpread
+            name, value, kind
     )) |> fun members ->
         let typ = makeType com ctx.GenericArgs objType
         Fable.ObjectExpr(members, typ, baseCall)
@@ -348,7 +344,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         transformDelegate com ctx delegateType fsExpr
 
     | BasicPatterns.Lambda(arg, body) ->
-        transformLambda com ctx arg body
+        let ctx, args = makeFunctionArgs com ctx [arg]
+        match args with
+        | [arg] -> Fable.Function(Fable.Lambda arg, transformExpr com ctx body, None)
+        | _ -> failwith "makeFunctionArgs returns args with different length"
 
     (** ## Getters and Setters *)
 
@@ -589,7 +588,7 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
               IsPublic = isPublicMember memb
               IsMutable = false
               HasSpread = hasSeqSpread memb }
-        let fn = Fable.Function(Fable.Delegate args, body)
+        let fn = Fable.Function(Fable.Delegate args, body, Some name)
         [Fable.ValueDeclaration(fn, info)]
 
 let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -619,7 +618,7 @@ let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSh
     let interfaceFullName = tryGetInterfaceFromMethod memb |> Option.bind (fun ent -> ent.TryFullName)
     let bodyCtx = { bodyCtx with ImplementedInterfaceFullName = interfaceFullName }
     let body = transformExpr com bodyCtx body
-    let value = Fable.Function(Fable.Delegate args, body)
+    let value = Fable.Function(Fable.Delegate args, body, None)
     let kind =
         if memb.IsPropertyGetterMethod
         then Fable.ObjectGetter

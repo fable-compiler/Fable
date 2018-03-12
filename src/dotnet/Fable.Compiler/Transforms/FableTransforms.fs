@@ -30,7 +30,7 @@ let rec visit f e =
             NewUnion(List.map (visit f) exprs, uci, ent, genArgs) |> Value
     | Test(e, kind, r) -> Test(visit f e, kind, r)
     | Cast(e, t) -> Cast(visit f e, t)
-    | Function(kind, body) -> Function(kind, visit f body)
+    | Function(kind, body, name) -> Function(kind, visit f body, name)
     | ObjectExpr(members, t, baseCall) ->
         let members = members |> List.map (fun (n,v,k) -> n, visit f v, k)
         let baseCall = Option.map (visit f) baseCall
@@ -158,7 +158,7 @@ module private Transforms =
         match e with
         // TODO!!!: Nested lambdas (`Invoke` calls for delegates?)
         // TODO: Don't inline if one of the arguments is `this`?
-        | Operation(CurriedApply(Function(Lambda arg, body), [argExpr]), _, _) ->
+        | Operation(CurriedApply(Function(Lambda arg, body, None), [argExpr]), _, _) ->
             applyArgs [arg] [argExpr] body
         | e -> e
 
@@ -170,7 +170,13 @@ module private Transforms =
             let identName = ident.Name
             if hasDoubleEvalRisk value |> not
                 || isReferencedMoreThan 1 identName body |> not
-            then replaceValues (Map [identName, value]) body
+            then
+                let value =
+                    match value with
+                    // TODO: Check if current name is Some? Shouldn't happen...
+                    | Function(args, body, _) -> Function(args, body, Some identName)
+                    | value -> value
+                replaceValues (Map [identName, value]) body
             else e
         | e -> e
 
@@ -187,20 +193,20 @@ module private Transforms =
 
     let uncurryExpr com arity expr =
         let rec (|UncurriedLambda|_|) (arity, expr) =
-            let rec uncurryLambda accArgs remainingArity expr =
+            let rec uncurryLambda name accArgs remainingArity expr =
                 if remainingArity = Some 0
-                then Function(Delegate(List.rev accArgs), expr) |> Some
+                then Function(Delegate(List.rev accArgs), expr, name) |> Some
                 else
                     match expr, remainingArity with
-                    | Function(Lambda arg, body), _ ->
+                    | Function(Lambda arg, body, name2), _ ->
                         let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
-                        uncurryLambda (arg::accArgs) remainingArity body
+                        uncurryLambda (Option.orElse name2 name) (arg::accArgs) remainingArity body
                     // If there's no arity expectation we can return the flattened part
                     | _, None when List.isEmpty accArgs |> not ->
-                        Function(Delegate(List.rev accArgs), expr) |> Some
+                        Function(Delegate(List.rev accArgs), expr, name) |> Some
                     // We cannot flatten lambda to the expected arity
                     | _, _ -> None
-            uncurryLambda [] arity expr
+            uncurryLambda None [] arity expr
         match getUncurriedArity expr with
         | Some arity2 ->
             match arity with
@@ -241,12 +247,12 @@ module private Transforms =
                     | e -> e) body
                 args, body
         match e with
-        | Function(Lambda arg, body) ->
+        | Function(Lambda arg, body, name) ->
             let args, body = uncurryFunctionBody [arg] body
-            Function(Lambda (List.head args), body)
-        | Function(Delegate args, body) ->
+            Function(Lambda (List.head args), body, name)
+        | Function(Delegate args, body, name) ->
             let args, body = uncurryFunctionBody args body
-            Function(Delegate args, body)
+            Function(Delegate args, body, name)
         | e -> e
 
     let uncurrySendingArgs_required (com: ICompiler) (e: Expr) =
