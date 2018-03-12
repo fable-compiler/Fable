@@ -53,6 +53,28 @@ export function comparerFromEqualityComparer<T>(comparer: IEqualityComparer<T>) 
   }
 }
 
+// TODO: Move these three methods to Map and Set modules
+export function containsValue<K, V>(v: V, map: Map<K, V>) {
+  for (const kv of map) {
+    if (equals(v, kv[1])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: V): [boolean, V] {
+  return map.has(key) ? [true, map.get(key)] : [false, defaultValue];
+}
+
+export function addToSet<T>(v: T, set: Set<T>) {
+  if (set.has(v)) {
+    return false;
+  }
+  set.add(v);
+  return true;
+}
+
 export class AssertionError<T> extends Error {
   public actual: T;
   public expected: T;
@@ -400,8 +422,13 @@ export function uncurry(arity: number, f: Function) {
     // In some cases there may be more arguments applied than necessary
     // (e.g. index when mapping an array), discard them
     let res: any = f;
-    for (let i = 0; i < arity && i < args.length; i++) {
-      res = res(args[i]);
+    for (let i = 0; i < arity; i++) {
+      const accArgs = [args[i]];
+      const partialArity = Math.max(f.length, 1);
+      while (accArgs.length < partialArity) {
+        accArgs.push(args[++i]);
+      }
+      res = res.apply(null, accArgs);
     }
     return res;
   };
@@ -409,7 +436,7 @@ export function uncurry(arity: number, f: Function) {
   return wrap;
 }
 
-export function partial(arity: number, f: ICurried, args: any[]): any {
+export function partialApply(arity: number, f: ICurried, args: any[]): any {
   if (f.curried) {
     return f.apply(null, args);
   } else {
@@ -435,7 +462,7 @@ export function partial(arity: number, f: ICurried, args: any[]): any {
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) => (a6: any) =>
           (a7: any) => (a8: any) => f.apply(null, [a1, a2, a3, a4, a5, a6, a7, a8].concat(args));
       default:
-        throw new Error("Partially applying to get a function with more than 8-arity is not supported");
+        throw new Error("Partially applying to get a function with more than 8-arity is not supported: " + arity);
     }
   }
 }

@@ -296,7 +296,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
         | Some (_,fsExpr) ->
             let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
-            let resolvedCtx = { ctx with GenericArgs = matchGenericParams var genArgs }
+            let resolvedCtx = { ctx with GenericArgs = matchGenericParams var genArgs |> Map }
             let callee = transformExpr com resolvedCtx fsExpr
             match args with
             | [] -> callee

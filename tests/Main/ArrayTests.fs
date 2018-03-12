@@ -591,7 +591,7 @@ let tests =
 
     testCase "Array.sumBy works" <| fun () ->
         let xs = [|1.; 2.|]
-        xs |> Array.sumBy ((*) 2.)
+        xs |> Array.sumBy (fun x -> x * 2.)
         |> equal 6.
 
     testCase "Array.toList works" <| fun () ->
@@ -754,7 +754,7 @@ let tests =
         let xs = [|1..5|] |> Array.toSeq
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
-
+*)
     testCase "Array indexed works" <| fun () ->
         let xs = [|"a"; "b"; "c"|] |> Array.indexed
         xs.Length |> equal 3
@@ -772,5 +772,5 @@ let tests =
         Array.splitAt 0 ar |> equal ([||], [|1;2;3;4|])
         Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
         Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
-*)
+
   ]

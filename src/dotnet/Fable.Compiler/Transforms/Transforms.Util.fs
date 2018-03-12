@@ -57,7 +57,7 @@ module AST =
         | Value(This _ | Null _ | UnitConstant | NumberConstant _
                     | StringConstant _ | BoolConstant _ | Enum _) -> false
         | Value(NewTuple exprs) ->
-            exprs |> List.exists hasDoubleEvalRisk |> not
+            exprs |> List.exists hasDoubleEvalRisk
         | Get(_,kind,_,_) ->
             match kind with
             // OptionValue has a runtime check

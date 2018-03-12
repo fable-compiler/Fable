@@ -577,7 +577,7 @@ module Util =
                 let values = bindings |> List.map (fun (id, value) ->
                     com.TransformExpr(ctx, value) |> assign None (ident id))
                 upcast SequenceExpression(values @ [com.TransformExpr(ctx, body)])
-            else upcast iife com ctx body
+            else upcast iife com ctx expr
 
         // These cannot appear in expression position in JS
         // They must be wrapped in a lambda

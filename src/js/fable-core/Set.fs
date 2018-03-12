@@ -460,8 +460,6 @@ module internal SetTree =
       copyToArray s res 0;
       res
 
-
-
    let rec mkFromEnumerator comparer acc (e : IEnumerator<_>) =
       if e.MoveNext() then
          mkFromEnumerator comparer (add comparer e.Current acc) e
@@ -473,7 +471,7 @@ module internal SetTree =
 
    let ofArray comparer l = Array.fold (fun acc k -> add comparer k acc) SetEmpty l
 
-
+[<CompiledName("FSharpSet")>]
 type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'T>, tree: SetTree<'T>) =
 
 //    [<System.NonSerialized>]

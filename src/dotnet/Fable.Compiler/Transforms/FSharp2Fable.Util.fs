@@ -572,8 +572,12 @@ module Util =
         Fable.TryCatch (body, catchClause, finalizer)
 
     let matchGenericParams (memb: FSharpMemberOrFunctionOrValue) genArgs =
-        (Map.empty, memb.GenericParameters, genArgs)
-        |||> Seq.fold2 (fun acc genPar t -> Map.add genPar.Name t acc)
+        let genParams =
+            match memb.DeclaringEntity with
+            | Some ent -> Seq.append ent.GenericParameters memb.GenericParameters
+            | None -> upcast memb.GenericParameters
+            |> Seq.map (fun x -> x.Name)
+        Seq.zip genParams genArgs
 
     let callInstanceMember r typ callee (argInfo: Fable.ArgInfo) (memb: FSharpMemberOrFunctionOrValue) =
         match argInfo.Args with
@@ -595,7 +599,7 @@ module Util =
               { ArgTypes = argTypes
                 DeclaringEntityFullName = entityFullName
                 CompiledName = memb.CompiledName
-                GenericArgs = matchGenericParams memb genArgs }
+                GenericArgs = matchGenericParams memb genArgs |> Seq.toList }
             match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
             | Some e -> Some e
             | None ->
@@ -657,7 +661,7 @@ module Util =
             ((ctx, []), argIdents, args) |||> List.fold2 (fun (ctx, bindings) argId arg ->
                 let ctx, ident = bindIdentFrom com ctx argId
                 ctx, (ident, arg)::bindings)
-        let ctx = { ctx with GenericArgs = matchGenericParams memb genArgs }
+        let ctx = { ctx with GenericArgs = matchGenericParams memb genArgs |> Map }
         match com.Transform(ctx, fsExpr) with
         | Fable.Let(bindings2, expr) -> Fable.Let((List.rev bindings) @ bindings2, expr)
         | expr -> Fable.Let(List.rev bindings, expr)

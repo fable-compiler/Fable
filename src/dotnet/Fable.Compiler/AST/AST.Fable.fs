@@ -152,7 +152,7 @@ type CallInfo =
   { ArgTypes: Type list
     DeclaringEntityFullName: string
     CompiledName: string
-    GenericArgs: Map<string, Type> }
+    GenericArgs: (string * Type) list }
 
 type OperationKind =
     | Call of kind: CallKind * info: ArgInfo

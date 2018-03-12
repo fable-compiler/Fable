@@ -82,7 +82,7 @@ let rec visit f e =
                  Option.map (visit f) finalizer)
     | DecisionTree(expr, targets) ->
         let targets = targets |> List.map (fun (idents, v) -> idents, visit f v)
-        DecisionTree(expr, targets)
+        DecisionTree(visit f expr, targets)
     | DecisionTreeSuccess(idx, boundValues, t) ->
         DecisionTreeSuccess(idx, List.map (visit f) boundValues, t)
     |> f
@@ -109,6 +109,10 @@ let isReferencedMoreThan limit identName e =
             | _ when count > limit -> e
             | IdentExpr id2 as e when id2.Name = identName ->
                 count <- count + 1; e
+            // TODO: Decision tree target branchs can be duplicated, so for now
+            // don't remove the binding until we optimize decision trees
+            | DecisionTree _ ->
+                count <- limit + 1; e
             | e -> e) |> ignore
         count > limit
 
@@ -162,6 +166,12 @@ module private Transforms =
             applyArgs [arg] [argExpr] body
         | e -> e
 
+    // TODO: Other erasable getters? (List head...)
+    let getterBetaReduction (_: ICompiler) = function
+        | Get(Value(NewTuple exprs), TupleGet index, _, _) -> List.item index exprs
+        | Get(Value(NewOption(Some expr, _)), OptionValue, _, _) -> expr
+        | e -> e
+
     let bindingBetaReduction (_: ICompiler) e =
         match e with
         // Don't try to optimize bindings with multiple ident-value pairs
@@ -191,7 +201,7 @@ module private Transforms =
         // TODO!!!: Consider record fields as uncurried
         | _ -> None
 
-    let uncurryExpr com arity expr =
+    let uncurryExpr arity expr =
         let rec (|UncurriedLambda|_|) (arity, expr) =
             let rec uncurryLambda name accArgs remainingArity expr =
                 if remainingArity = Some 0
@@ -207,21 +217,17 @@ module private Transforms =
                     // We cannot flatten lambda to the expected arity
                     | _, _ -> None
             uncurryLambda None [] arity expr
-        match getUncurriedArity expr with
-        | Some arity2 ->
-            match arity with
-            | None -> expr
-            | Some arity when arity = arity2 -> expr
-            | Some _arity -> "TODO!!!: Uncurry to different arity"
-                             |> addErrorAndReturnNull com expr.Range
-        | None ->
-            match arity, expr with
-            // | Some 1, expr -> expr // This shouldn't happen
-            | UncurriedLambda lambda -> lambda
-            | Some arity, _ -> sprintf "TODO!!!: Runtime uncurry to arity %i" arity
-                               |> addErrorAndReturnNull com expr.Range
-            // CoreLibCall("Util", Some "uncurry", false, [makeIntConst arity; expr]) |> makeCall None expr.Type
-            | None, _ -> expr
+        match arity, expr with
+        // | Some (0|1), expr -> expr // This shouldn't happen
+        | UncurriedLambda lambda -> lambda
+        | Some arity, _ ->
+            match getUncurriedArity expr with
+            | Some arity2 when arity = arity2 -> expr
+            | _ ->
+                let argTypes, returnType = uncurryLambdaType [] expr.Type
+                let t = FunctionType(DelegateType argTypes, returnType)
+                Replacements.uncurryExpr t arity expr
+        | None, _ -> expr
 
     let uncurryInnerFunctions (_: ICompiler) e =
         e // TODO!!!
@@ -255,7 +261,7 @@ module private Transforms =
             Function(Delegate args, body, name)
         | e -> e
 
-    let uncurrySendingArgs_required (com: ICompiler) (e: Expr) =
+    let uncurrySendingArgs_required (_: ICompiler) (e: Expr) =
         let mapArgs f argTypes args =
             let rec mapArgsInner f acc argTypes args =
                 match argTypes, args with
@@ -273,9 +279,9 @@ module private Transforms =
                     match uncurryLambdaType [] argType with
                     | argTypes, _ when List.isMultiple argTypes ->
                         let arity = List.length argTypes |> Some
-                        uncurryExpr com arity arg
+                        uncurryExpr arity arg
                     | _ -> arg)
-            | None -> List.map (uncurryExpr com None) args
+            | None -> List.map (uncurryExpr None) args
         match e with
         // TODO!!!: Uncurry also NewRecord and CurriedApply arguments
         | Operation(Call(kind, info), t, r) ->
@@ -289,16 +295,15 @@ module private Transforms =
 
     let uncurryApplications_required (_: ICompiler) e =
         match e with
+        // TODO: Check for nested applications?
         | Operation(CurriedApply(applied, args), t, r) as e when List.isMultiple args ->
             match applied.Type with
             | FunctionType(DelegateType argTypes, _) ->
-                if List.sameLength argTypes args
-                then
+                if List.sameLength argTypes args then
                     let info = argInfo None args (Some argTypes)
                     staticCall r t info applied
-                else failwith "TODO!!!: Partial application"
-                // let args = [makeIntConst (arity - argsLength); innerApplied; makeArray Any (List.concat flattenedArgs)]
-                // CoreLibCall("Util", Some "partial", false, args) |> makeCall r Any
+                else
+                    Replacements.partialApply t (argTypes.Length - args.Length) applied args
             | _ -> e
         | e -> e
 
@@ -313,6 +318,7 @@ let optimizeExpr (com: ICompiler) e =
     [ // First apply beta reduction
       bindingBetaReduction
       lambdaBetaReduction
+      getterBetaReduction
       // Then resolve casts
       resolveCasts_required
       // Then apply uncurry optimizations

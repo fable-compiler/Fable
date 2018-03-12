@@ -11,6 +11,7 @@ type ICompiler = Fable.Transforms.FSharp2Fable.IFableCompiler
 
 module private Helpers =
     let resolveArgTypes argTypes genArgs =
+        let genArgs = Map genArgs
         argTypes |> List.map (function
             | GenericParam name as t ->
                 Map.tryFind name genArgs |> Option.defaultValue t
@@ -83,8 +84,8 @@ module private Helpers =
             "Couldn't find generic " + name |> addError com r
             Any
 
-    let singleGenArg (com: ICompiler) r (genArgs: Map<string,Type>) =
-        Map.toSeq genArgs |> Seq.tryHead
+    let firstGenArg (com: ICompiler) r (genArgs: (string * Type) list) =
+        List.tryHead genArgs
         |> Option.map snd
         |> Option.defaultWith (fun () ->
             "Couldn't find any generic argument" |> addError com r
@@ -428,7 +429,7 @@ let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
     | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
     | CustomOp com opName m ->
-        let genArgs = genArgs |> Seq.map (fun kv -> kv.Value)
+        let genArgs = genArgs |> Seq.map snd
         FSharp2Fable.Util.makeCallFrom com ctx r t genArgs None args m
     | _ -> nativeOp opName argTypes args
 
@@ -517,7 +518,7 @@ let makeComparerFunction typArg =
 
 // TODO!!! This and the following method must be adjusted to new fable-core Map and Set modules
 let makeMapOrSetCons com r t (i: CallInfo) modName args =
-    let typArg = singleGenArg com r i.GenericArgs
+    let typArg = firstGenArg com r i.GenericArgs
     let comparer =
         let fn = makeComparerFunction typArg
         coreCall_ Any "Util" "Comparer" [fn]
@@ -534,7 +535,7 @@ let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
             | [iterable] -> [iterable; coreCall_ Any "Util" "Comparer" [makeComparerFunction typArg]]
             | args -> args
         coreCall r t modName "create" None args i.ArgTypes
-    let typArg = singleGenArg com r i.GenericArgs
+    let typArg = firstGenArg com r i.GenericArgs
     if forceFSharp
     then makeFSharp typArg args
     else
@@ -754,13 +755,13 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Ignore", [arg]  -> [arg; Value UnitConstant] |> Sequential |> Some
     // TODO: Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"), _ ->
-        let sourceType = singleGenArg com r i.GenericArgs
+        let sourceType = firstGenArg com r i.GenericArgs
         toInt false sourceType t args |> Some
     | ("ToSingle"|"ToDouble"|"ToDecimal"), _ ->
-        let sourceType = singleGenArg com r i.GenericArgs
+        let sourceType = firstGenArg com r i.GenericArgs
         toFloat sourceType t args |> Some
-    | "ToChar", _ -> toChar (singleGenArg com r i.GenericArgs) args |> Some
-    | "ToString", _ -> toString (singleGenArg com r i.GenericArgs) args |> Some
+    | "ToChar", _ -> toChar (firstGenArg com r i.GenericArgs) args |> Some
+    | "ToString", _ -> toString (firstGenArg com r i.GenericArgs) args |> Some
     // The cast will be resolved in a different step
     | "CreateSequence", [xs] -> Cast(xs, t) |> Some
     | "CreateDictionary", _ ->
@@ -770,7 +771,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
         let meth =
-            match singleGenArg com r i.GenericArgs with
+            match firstGenArg com r i.GenericArgs with
             | Fable.Char -> "rangeChar"
             | _ -> if i.CompiledName = "op_Range" then "range" else "rangeStep"
         coreCall r t "Seq" meth None args i.ArgTypes |> Some
@@ -1001,19 +1002,21 @@ let strings (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     //     |> Some
     | _ -> None
 
-let seqs (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let seqs (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
+    | "ToArray" -> List.tryHead args |> Option.map (toArray com t)
     | meth -> coreCall r t "Seq" (Naming.lowerFirst meth) thisArg args i.ArgTypes |> Some
     // | _ -> None
 
 let arrays (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, args, i.CompiledName with
+    | None, [arg], "OfSeq" -> Some arg
     | Some c, _, "get_Length" -> get r t c "length" |> Some
     | None, [arg], "Length" -> get r t arg "length" |> Some
     | None, [ar; idx], "Get" -> getExpr r t ar idx |> Some
     | None, [ar; idx; value], "Set" -> Set(ar, ExprSet idx, value, r) |> Some
     | _, _, "ZeroCreate" ->
-        match singleGenArg com r i.GenericArgs, args with
+        match firstGenArg com r i.GenericArgs, args with
         | Number _ as t, [len] -> NewArray(ArrayAlloc len, t) |> Value |> Some
         | Boolean, _ -> emitJs r t args "new Array($0).fill(false)" |> Some
         // If we don't fill the array with null values some operations
@@ -1023,7 +1026,7 @@ let arrays (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (ar
     | None, _, meth ->
         let args, meth =
             if meth = "Sort"
-            then (singleGenArg com r i.GenericArgs |> makeComparerFunction)::args, "SortWith"
+            then (firstGenArg com r i.GenericArgs |> makeComparerFunction)::args, "SortWith"
             else args, meth
         let args =
             // TODO: Only append array constructor when needed
@@ -1044,8 +1047,8 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
     | Some x, _, "get_Item" -> coreCall r t "List" "item" None (args@[x]) i.ArgTypes |> Some
     | Some x, _, "get_IsEmpty" -> Test(x, ListTest false, r) |> Some
     | None, _, ("get_Empty" | "Empty") ->
-        NewList(None, singleGenArg com r i.GenericArgs) |> Value |> Some
-    | None, [h;t], "Cons" -> NewList(Some(h,t), singleGenArg com r i.GenericArgs) |> Value |> Some
+        NewList(None, firstGenArg com r i.GenericArgs) |> Value |> Some
+    | None, [h;t], "Cons" -> NewList(Some(h,t), firstGenArg com r i.GenericArgs) |> Value |> Some
     | None, [x], "ToSeq" -> Cast(x, t) |> Some
     | None, _, "OfSeq" -> coreCall r t "Seq" "toList" None args i.ArgTypes |> Some
     | None, _, meth ->
@@ -1190,6 +1193,115 @@ let intrinsicFunctions (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option)
 //             |> makeCall r t |> Some
 //         | _ -> None
 
+let keyValuePairs (_: ICompiler) r t (i: CallInfo) thisArg args =
+    match i.CompiledName, thisArg with
+    | ".ctor", _ -> Value(NewTuple args) |> Some
+    | "get_Key", Some c -> Get(c, TupleGet 0, t, r) |> Some
+    | "get_Value", Some c -> Get(c, TupleGet 1, t, r) |> Some
+    | _ -> None
+
+let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let (|IDictionary|IEqualityComparer|Other|) = function
+        | DeclaredType(ent,_) ->
+            match ent.TryFullName with
+            | Some "System.Collections.Generic.IDictionary`2" -> IDictionary
+            | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
+            | _ -> Other
+        | _ -> Other
+    let inline makeComparer e =
+        coreCall_ Any "Util" "comparerFromEqualityComparer" [e]
+    let inline makeDic forceFSharpMap args =
+        makeDictionaryOrHashSet com r t i "Map" forceFSharpMap args
+    let icall meth =
+        let info = argInfo thisArg args (Some i.ArgTypes)
+        instanceCall r t info (makeStrConst meth |> Some)
+    match i.CompiledName with
+    | ".ctor" ->
+        match i.ArgTypes with
+        | [] | [IDictionary] ->
+            makeDic false args |> Some
+        | [IDictionary; IEqualityComparer] ->
+            makeDic true [args.Head; makeComparer args.Tail.Head] |> Some
+        | [IEqualityComparer] ->
+            makeDic true [Value (Null Any); makeComparer args.Head] |> Some
+        | [Number _] ->
+            makeDic false [] |> Some
+        | [Number _; IEqualityComparer] ->
+            makeDic true [Value (Null Any); makeComparer args.Tail.Head] |> Some
+        | _ -> None
+    | "get_IsReadOnly" ->
+        // TODO: Check for immutable maps with IDictionary interface
+        makeBoolConst false |> Some
+    | "get_Count" ->
+        get r t thisArg.Value "size" |> Some
+    // TODO: Check if the key allows for a JS Map (also "TryGetValue" below)
+    | "ContainsValue" ->
+        match thisArg, args with
+        | Some c, [arg] -> coreCall_ t "Util" "containsValue" [arg; c] |> Some
+        | _ -> None
+    | "TryGetValue" ->
+        coreCall r t "Util" "tryGetValue" thisArg args i.ArgTypes |> Some
+    | "get_Item" -> icall "get" |> Some
+    | "set_Item" -> icall "set" |> Some
+    | "get_Keys" -> icall "keys" |> Some
+    | "get_Values" -> icall "values" |> Some
+    | "ContainsKey" -> icall "has" |> Some
+    | "Clear" -> icall "clear" |> Some
+    | "Add" -> icall "set" |> Some
+    | "Remove" -> icall "delete" |> Some
+    | _ -> None
+
+let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let (|IEnumerable|IEqualityComparer|Other|) = function
+        | DeclaredType(ent,_) ->
+            match ent.TryFullName with
+            | Some "System.Collections.Generic.IEnumerable`1" -> IEnumerable
+            | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
+            | _ -> Other
+        | _ -> Other
+    let inline makeComparer e =
+        coreCall_ Any "Util" "comparerFromEqualityComparer" [e]
+    let inline makeHashSet forceFSharpMap args =
+        makeDictionaryOrHashSet com r t i "Set" forceFSharpMap args
+    let icall meth =
+        let info = argInfo thisArg args (Some i.ArgTypes)
+        instanceCall r t info (makeStrConst meth |> Some)
+    match i.CompiledName with
+    | ".ctor" ->
+        match i.ArgTypes with
+        | [] | [IEnumerable] ->
+            makeHashSet false args |> Some
+        | [IEnumerable; IEqualityComparer] ->
+            [args.Head; makeComparer args.Tail.Head]
+            |> makeHashSet true |> Some
+        | [IEqualityComparer] ->
+            [Value (Null Any); makeComparer args.Head]
+            |> makeHashSet true |> Some
+        | _ -> None
+    | "get_Count" -> get r t thisArg.Value "size" |> Some
+    | "get_IsReadOnly" -> BoolConstant false |> Value |> Some
+    | "Clear" -> icall "clear" |> Some
+    | "Contains" -> icall "has" |> Some
+    | "Remove" -> icall "delete" |> Some
+    // TODO: Check if the value allows for a JS Set (also "TryGetValue" below)
+    | "Add" ->
+        match thisArg, args with
+        | Some c, [arg] -> coreCall_ t "Util" "addToSet" [arg; c] |> Some
+        | _ -> None
+    // | "isProperSubsetOf" | "isProperSupersetOf"
+    // | "unionWith" | "intersectWith" | "exceptWith"
+    // | "isSubsetOf" | "isSupersetOf" | "copyTo" ->
+    //     let meth =
+    //         let m = match i.memberName with "exceptWith" -> "differenceWith" | m -> m
+    //         m.Replace("With", "InPlace")
+    //     CoreLibCall ("Set", Some meth, false, i.callee.Value::args)
+    //     |> makeCall i.range i.returnType |> Some
+    // TODO
+    // | "setEquals"
+    // | "overlaps"
+    // | "symmetricExceptWith"
+    | _ -> None
+
 let exceptions (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ -> constructorCall_ t (makeIdentExpr "Error") args |> Some
@@ -1213,11 +1325,18 @@ let objects (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr 
 
 let unchecked (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "DefaultOf" -> singleGenArg com r i.GenericArgs |> defaultof |> Some
+    | "DefaultOf" -> firstGenArg com r i.GenericArgs |> defaultof |> Some
     | "Hash" -> coreCall r t "Util" "hash" None args i.ArgTypes |> Some
     | "Equals" -> coreCall r t "Util" "equals" None args i.ArgTypes |> Some
     | "Compare" -> coreCall r t "Util" "compare" None args i.ArgTypes |> Some
     | _ -> None
+
+let uncurryExpr t arity (expr: Expr) =
+    coreCall_ t "Util" "uncurry" [makeIntConst arity; expr]
+
+let partialApply t arity (fn: Expr) (args: Expr list) =
+    let args = NewArray(ArrayValues args, Any) |> Value
+    coreCall_ t "Util" "partialApply" [makeIntConst arity; fn; args]
 
 let tryField returnTyp ownerTyp fieldName =
     match ownerTyp, fieldName with
@@ -1250,6 +1369,11 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "Microsoft.FSharp.Collections.FSharpList`1"
     | "Microsoft.FSharp.Collections.ListModule" -> lists com r t info thisArg args
     | "Microsoft.FSharp.Collections.SeqModule" -> seqs com r t info thisArg args
+    | "System.Collections.Generic.KeyValuePair`2" -> keyValuePairs com r t info thisArg args
+    | "System.Collections.Generic.Dictionary`2"
+    | "System.Collections.Generic.IDictionary`2" -> dictionaries com r t info thisArg args
+    | "System.Collections.Generic.HashSet`1"
+    | "System.Collections.Generic.ISet`1" -> hashSets com r t info thisArg args
     | "Microsoft.FSharp.Core.FSharpOption`1"
     | "Microsoft.FSharp.Core.OptionModule" -> options com r t info thisArg args
     | "System.Decimal" -> decimals com r t info thisArg args
@@ -1293,11 +1417,6 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
 //         | "System.Text.RegularExpressions.Regex" -> regex com info
 //         | "System.Collections.Generic.IEnumerable"
 //         | "System.Collections.IEnumerable" -> enumerable com info
-//         | "System.Collections.Generic.Dictionary"
-//         | "System.Collections.Generic.IDictionary" -> dictionaries com info
-//         | "System.Collections.Generic.HashSet"
-//         | "System.Collections.Generic.ISet" -> hashSets com info
-//         | "System.Collections.Generic.KeyValuePair" -> keyValuePairs com info
 //         | "System.Collections.Generic.Dictionary.KeyCollection"
 //         | "System.Collections.Generic.Dictionary.ValueCollection"
 //         | "System.Collections.Generic.ICollection" -> collectionsSecondPass com info Seq

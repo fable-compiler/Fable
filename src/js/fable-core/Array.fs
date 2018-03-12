@@ -146,7 +146,6 @@ let mapFoldBack<'T,'State,'Result> (mapping : 'T -> 'State -> 'Result * 'State) 
 let indexed (source: 'T[]) (cons: ArrayCons) =
     source |> mapIndexed (fun i x -> i, x) <| cons;
 
-(*
 let private typedArrayConcatImpl (cons: ArrayCons) (arrays: 'T[][]): 'T[] =
     let mutable totalLength = 0
     for arr in arrays do
@@ -155,7 +154,7 @@ let private typedArrayConcatImpl (cons: ArrayCons) (arrays: 'T[][]): 'T[] =
     let result = cons.Create totalLength
     let mutable offset = 0;
     for arr in arrays do
-        typedArraySetImpl result arr <| float(offset)
+        typedArraySetImpl result arr offset
         offset <- offset + arr.Length
     result
 
@@ -239,7 +238,6 @@ let groupBy (projection: 'T->'Key) (array: 'T[]) (cons: ArrayCons) =
         i <- i + 1
 
     result
-*)
 
 let inline private emptyImpl (cons: ArrayCons) = cons.Create(0)
 
@@ -565,20 +563,20 @@ let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'U[]) (cons: ArrayCons) =
        result.[i] <- array1.[i], array2.[i], array3.[i]
     result
 
-// let chunkBySize (chunkSize: int) (array: 'T[]): 'T[][] =
-//     if chunkSize < 1 then invalidArg "size" "The input must be positive."
+let chunkBySize (chunkSize: int) (array: 'T[]): 'T[][] =
+    if chunkSize < 1 then invalidArg "size" "The input must be positive."
 
-//     if array.Length = 0 then [| [||] |]
-//     else
-//         let result: 'T[][] = [||]
-//         // add each chunk to the result
-//         for x = 0 to System.Math.Floor(float(array.Length) / float(chunkSize)) |> int do
-//             let start = x * chunkSize;
-//             let end' = start + chunkSize;
-//             let slice = sliceImpl array start end'
-//             pushImpl result slice |> ignore
+    if array.Length = 0 then [| [||] |]
+    else
+        let result: 'T[][] = [||]
+        // add each chunk to the result
+        for x = 0 to int(System.Math.Ceiling(float(array.Length) / float(chunkSize))) - 1 do
+            let start = x * chunkSize
+            let end' = start + chunkSize
+            let slice = sliceImpl array start end'
+            pushImpl result slice |> ignore
 
-//         result
+        result
 
 let fill (array: 'T[]) offset count value =
     for i = offset to offset + count - 1 do
