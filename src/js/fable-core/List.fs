@@ -289,4 +289,22 @@ let take i xs =
   | 1, x::_ -> [x]
   | i, xs -> takeInner i [] xs
 
-// TODO: Implement skip
+let skip i xs =
+  let rec skipInner i xs =
+      match i, xs with
+      | 0, _ -> xs
+      | _, [] -> failwith "The input sequence has an insufficient number of elements."
+      | _, _::xs -> skipInner (i - 1) xs
+  match i, xs with
+  | i, _ when i < 0 -> failwith "The input must be non-negative."
+  | 0, _ -> xs
+  | 1, _::xs -> xs
+  | i, xs -> skipInner i xs
+
+let toSeq (xs: _ list) =
+    seq {
+        let mutable xs = xs
+        while not xs.IsEmpty do
+            yield xs.Head
+            xs <- xs.Tail
+    }

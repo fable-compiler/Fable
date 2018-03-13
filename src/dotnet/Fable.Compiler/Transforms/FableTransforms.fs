@@ -142,13 +142,23 @@ module private Transforms =
             | DeclaredType(EntFullName Types.enumerable, _) ->
                 match e with
                 | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
-                | _ -> e
+                | e -> Replacements.toSeq t e
             | DeclaredType(ent, _) when ent.IsInterface ->
                 FSharp2Fable.Util.castToInterface com t ent e
             | _ -> e
         | e -> e
 
     let lambdaBetaReduction (_: ICompiler) e =
+        let rec (|NestedLambda|_|) expr =
+            let rec nestedLambda accArgs body =
+                match body with
+                | Function(Lambda arg, body, None) ->
+                    nestedLambda (arg::accArgs) body
+                | _ ->
+                    match accArgs with
+                    | [] -> None
+                    | accArgs -> Some(NestedLambda(List.rev accArgs, body))
+            nestedLambda [] expr
         let applyArgs (args: Ident list) argExprs body =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
@@ -160,10 +170,11 @@ module private Transforms =
             | [] -> replaceValues replacements body
             | bindings -> Let(List.rev bindings, replaceValues replacements body)
         match e with
-        // TODO!!!: Nested lambdas (`Invoke` calls for delegates?)
+        // TODO: `Invoke` calls for delegates? Partial applications too?
         // TODO: Don't inline if one of the arguments is `this`?
-        | Operation(CurriedApply(Function(Lambda arg, body, None), [argExpr]), _, _) ->
-            applyArgs [arg] [argExpr] body
+        | Operation(CurriedApply(NestedLambda(args, body), argExprs), _, _)
+            when List.sameLength args argExprs ->
+            applyArgs args argExprs body
         | e -> e
 
     // TODO: Other erasable getters? (List head...)

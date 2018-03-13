@@ -1,5 +1,3 @@
-// import { permute as arrayPermute } from "./Array";
-// import { chunkBySize as arrayChunkBySize } from "./Array";
 import { Option, some, value } from "./Option";
 import { compare, equals, IDisposable } from "./Util";
 
@@ -462,11 +460,6 @@ export function map3<T1, T2, T3, U>(
   });
 }
 
-// export function chunkBySize<T>(size: number, xs: Iterable<T>): Iterable<Iterable<T>> {
-//   const result = arrayChunkBySize(size, Array.from(xs));
-//   return ofArray(result);
-// }
-
 export function mapFold<T, ST, R>(
   f: (acc: ST, x: T) => [R, ST], acc: ST, xs: Iterable<T>,
   transform?: (r: Iterable<R>) => Iterable<R>): [Iterable<R>, ST] {
@@ -516,10 +509,6 @@ export function minBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>) {
 export function pairwise<T extends number>(xs: Iterable<T>) {
   return skip(2, scan((last, next) => [last[1], next], [0, 0], xs));
 }
-
-// export function permute<T>(f: (i: number) => number, xs: Iterable<T>) {
-//   return ofArray(arrayPermute(f, Array.from(xs)));
-// }
 
 export function rangeStep(first: number, step: number, last: number) {
   if (step === 0) {

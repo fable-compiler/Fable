@@ -11,10 +11,11 @@ type ICompiler = Fable.Transforms.FSharp2Fable.IFableCompiler
 
 module private Helpers =
     let resolveArgTypes argTypes genArgs =
-        let genArgs = Map genArgs
         argTypes |> List.map (function
             | GenericParam name as t ->
-                Map.tryFind name genArgs |> Option.defaultValue t
+                genArgs |> List.tryPick (fun (name2,t) ->
+                    if name = name2 then Some t else None)
+                |> Option.defaultValue t
             | t -> t)
 
     let coreCall r t coreModule coreMember thisArg args argTypes =
@@ -364,18 +365,23 @@ let toInt (round: bool) (sourceType: Type) targetType (args: Expr list) =
     | _ -> args.Head
 
 // TODO: Should we pass the empty list representation here?
-let toList t expr =
-    coreCall_ t "Seq" "toList" [expr]
+let toList returnType expr =
+    coreCall_ returnType "Seq" "toList" [expr]
 
-let toArray (com: Fable.ICompiler) t expr =
-    match expr, t with
+let toArray (com: ICompiler) returnType expr =
+    match expr, returnType with
     // Typed arrays
-    | _, Fable.Array(Fable.Number numberKind) when com.Options.typedArrays ->
-        globalCall_ t (getTypedArrayName com numberKind) (Some "from") [expr]
-    | _ -> globalCall_ t "Array" (Some "from") [expr]
+    | _, Array(Number numberKind) when com.Options.typedArrays ->
+        globalCall_ returnType (getTypedArrayName com numberKind) (Some "from") [expr]
+    | _ -> globalCall_ returnType "Array" (Some "from") [expr]
+
+let toSeq returnType (expr: Expr) =
+    match expr.Type with
+    | List _ -> coreCall_ returnType "List" "toSeq" [expr]
+    | _ -> expr // TODO
 
 let getZero = function
-    | Fable.Char | Fable.String -> makeStrConst ""
+    | Char | String -> makeStrConst ""
     | Builtin BclTimeSpan -> makeIntConst 0
     | Builtin BclDateTime as t -> coreCall_ t "Date" "minValue" []
     | Builtin BclDateTimeOffset as t -> coreCall_ t "DateOffset" "minValue" []
@@ -693,26 +699,26 @@ let references (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Ex
 
 let fsFormat (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "value", Some callee, _ ->
+    | "get_Value", Some callee, _ ->
         get None t callee "input" |> Some
-    | "printFormatToStringThen", _, _ ->
+    | "PrintFormatToStringThen", _, _ ->
         match args with
         | [_] -> coreCall r t "String" "toText" None args i.ArgTypes |> Some
         | [cont; fmt] -> instanceCall_ t fmt "cont" [cont] |> Some
         | _ -> None
-    | "printFormatToString", _, _ ->
+    | "PrintFormatToString", _, _ ->
         coreCall r t "String" "toText" None args i.ArgTypes |> Some
-    | "printFormatLine", _, _ ->
+    | "PrintFormatLine", _, _ ->
         coreCall r t "String" "toConsole" None args i.ArgTypes |> Some
-    | ("printFormatToTextWriter"|"printFormatLineToTextWriter"), _, _::args ->
+    | ("PrintFormatToTextWriter"|"PrintFormatLineToTextWriter"), _, _::args ->
         // addWarning com r "fprintfn will behave as printfn"
         coreCall r t "String" "toConsole" None args i.ArgTypes |> Some
-    | "printFormat", _, _ ->
-        // addWarning com r "printf will behave as printfn"
+    | "PrintFormat", _, _ ->
+        // addWarning com r "Printf will behave as printfn"
         coreCall r t "String" "toConsole" None args i.ArgTypes |> Some
-    | "printFormatThen", _, arg::callee::_ ->
+    | "PrintFormatThen", _, arg::callee::_ ->
         instanceCall_ t callee "cont" [arg] |> Some
-    | "printFormatToStringThenFail", _, _ ->
+    | "PrintFormatToStringThenFail", _, _ ->
         coreCall r t "String" "toFail" None args i.ArgTypes |> Some
     | ".ctor", _, arg::_ ->
         coreCall r t "String" "printf" None [arg] i.ArgTypes |> Some
@@ -751,8 +757,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Erased operators. TODO: Use Cast?
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), _ -> List.tryHead args
-    // Make sure `void 0` is returned in case `ignore` is wrapped in a lambda, see #1360
-    | "Ignore", [arg]  -> [arg; Value UnitConstant] |> Sequential |> Some
+    // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
+    | "Ignore", [arg]  -> Cast(arg, Unit) |> Some
     // TODO: Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"), _ ->
         let sourceType = firstGenArg com r i.GenericArgs
@@ -785,11 +791,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "op_ComposeRight", [f1; f2] -> compose com r t f1 f2 |> Some
     | "op_ComposeLeft", [f2; f1] -> compose com r t f1 f2 |> Some
     // Strings
-    | ("printFormatToString"             // sprintf
-    |  "printFormatToStringThen"         // Printf.sprintf
-    |  "printFormat" | "printFormatLine" // printf / printfn
-    |  "printFormatThen"                 // Printf.kprintf
-    |  "printFormatToStringThenFail"), _ ->  // Printf.failwithf
+    | ("PrintFormatToString"             // sprintf
+    |  "PrintFormatToStringThen"         // Printf.sprintf
+    |  "PrintFormat" | "PrintFormatLine" // printf / printfn
+    |  "PrintFormatThen"                 // Printf.kprintf
+    |  "PrintFormatToStringThenFail"), _ ->  // Printf.failwithf
         fsFormat com r t i thisArg args
     // Exceptions
     | "FailWith", [msg] | "InvalidOp", [msg] ->
@@ -1002,15 +1008,33 @@ let strings (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     //     |> Some
     | _ -> None
 
+let arrayCons (com: ICompiler) genArg =
+    match genArg with
+    | Number numberKind when com.Options.typedArrays ->
+        getTypedArrayName com numberKind |> makeIdentExpr
+    | _ -> makeIdentExpr "Array"
+
 let seqs (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | "ToArray" -> List.tryHead args |> Option.map (toArray com t)
-    | meth -> coreCall r t "Seq" (Naming.lowerFirst meth) thisArg args i.ArgTypes |> Some
+    match i.CompiledName, args with
+    | "ToArray", [arg] -> toArray com t arg |> Some
+    // A export function 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
+    | "Length", _ ->
+        coreCall r t "Seq" "count" thisArg args i.ArgTypes |> Some
+    | "ChunkBySize" | "Permute" as meth, [arg1; arg2] ->
+        let arg2 = toArray com (Array Any) arg2
+        let args =
+            match meth, t with
+            | "Permute", DeclaredType(_seq, [genArg]) ->
+                [arg1; arg2] @ [arrayCons com genArg]
+            | _ -> [arg1; arg2]
+        let result = coreCall_ Any "Array" (Naming.lowerFirst meth) args
+        coreCall_ t "Seq" "ofArray" [result] |> Some
+    | meth, _ -> coreCall r t "Seq" (Naming.lowerFirst meth) thisArg args i.ArgTypes |> Some
     // | _ -> None
 
 let arrays (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, args, i.CompiledName with
-    | None, [arg], "OfSeq" -> Some arg
+    | None, [arg], "OfSeq" -> toArray com t arg |> Some
     | Some c, _, "get_Length" -> get r t c "length" |> Some
     | None, [arg], "Length" -> get r t arg "length" |> Some
     | None, [ar; idx], "Get" -> getExpr r t ar idx |> Some
@@ -1029,11 +1053,10 @@ let arrays (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (ar
             then (firstGenArg com r i.GenericArgs |> makeComparerFunction)::args, "SortWith"
             else args, meth
         let args =
-            // TODO: Only append array constructor when needed
             match t with
-            | Array(Number numberKind) when com.Options.typedArrays ->
-                args @ [getTypedArrayName com numberKind |> makeIdentExpr]
-            | _ -> args @ [makeIdentExpr "Array"]
+            // TODO: Check if this covers all cases where the constructor is needed
+            | Array genArg | Tuple([Array genArg; _]) -> args @ [arrayCons com genArg]
+            | _ -> args
         coreCall r t "Array" (Naming.lowerFirst meth) thisArg args i.ArgTypes |> Some
     | _ -> None
 
@@ -1368,6 +1391,7 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "Microsoft.FSharp.Collections.ArrayModule" -> arrays com r t info thisArg args
     | "Microsoft.FSharp.Collections.FSharpList`1"
     | "Microsoft.FSharp.Collections.ListModule" -> lists com r t info thisArg args
+    | "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers"
     | "Microsoft.FSharp.Collections.SeqModule" -> seqs com r t info thisArg args
     | "System.Collections.Generic.KeyValuePair`2" -> keyValuePairs com r t info thisArg args
     | "System.Collections.Generic.Dictionary`2"
@@ -1381,7 +1405,7 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     // | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com r t info thisArg args
     | "Microsoft.FSharp.Core.FSharpRef" -> references com r t info thisArg args
     | "Microsoft.FSharp.Core.PrintfModule"
-    | "Microsoft.FSharp.Core.PrintfFormat" -> fsFormat com r t info thisArg args
+    | Naming.StartsWith "Microsoft.FSharp.Core.PrintfFormat" _ -> fsFormat com r t info thisArg args
     | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com r t info thisArg args
     | "System.Object" -> objects com r t info thisArg args
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com r t info thisArg args

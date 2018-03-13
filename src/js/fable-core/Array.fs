@@ -722,10 +722,10 @@ let min array =
 let average (array: 'T []) : 'T =
     if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     let total = sum array
-    total / array.Length
+    total / float array.Length
 
 let averageBy (projection: 'T -> 'U) (array: 'T []) : 'U =
     if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     let total = sumBy projection array
-    total / array.Length
+    total / float array.Length
 

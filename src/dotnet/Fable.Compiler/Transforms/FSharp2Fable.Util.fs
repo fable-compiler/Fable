@@ -662,9 +662,8 @@ module Util =
                 let ctx, ident = bindIdentFrom com ctx argId
                 ctx, (ident, arg)::bindings)
         let ctx = { ctx with GenericArgs = matchGenericParams memb genArgs |> Map }
-        match com.Transform(ctx, fsExpr) with
-        | Fable.Let(bindings2, expr) -> Fable.Let((List.rev bindings) @ bindings2, expr)
-        | expr -> Fable.Let(List.rev bindings, expr)
+        (com.Transform(ctx, fsExpr), bindings)
+        ||> List.fold (fun body binding -> Fable.Let([binding], body))
 
     let (|Inlined|_|) (com: IFableCompiler) ctx genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
         if not(isInline memb)

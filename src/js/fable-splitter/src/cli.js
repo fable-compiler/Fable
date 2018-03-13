@@ -8,7 +8,7 @@ var fableSplitter = require("./index").default;
 
 function getVersion() {
     /// @ts-ignore
-    return require("./package.json").version;
+    return require("../package.json").version;
 }
 
 function getHelp() {
