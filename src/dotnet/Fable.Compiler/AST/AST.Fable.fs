@@ -228,9 +228,7 @@ type Expr =
         | Sequential _ | Let _ | Set _
         | Loop _ | Throw _ -> true
 
-        // TODO: Another way to decide if decision trees should be compiled
-        // as statements (to get more chances to be converted to switch)
-        | DecisionTree(_,targets) -> List.length targets > 3
+        | DecisionTree(_,targets) -> targets |> List.exists (fun (_,e) -> e.IsJsStatement)
         | DecisionTreeSuccess _ -> false
 
         | IfThenElse (_,thenExpr,elseExpr) ->

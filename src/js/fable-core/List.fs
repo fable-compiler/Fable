@@ -3,8 +3,10 @@ module List
 [<AutoOpen>]
 module private JS =
     open Fable.Core.JsInterop
-    let nativeZero<'T> : 'T = !!0
-    let nativeOne<'T> : 'T = !!0
+
+    // TODO!!!: Pass the appropriate zero/one for the type from Fable
+    let inline nativeZero<'T> : 'T = !!0
+    let inline nativeOne<'T> : 'T = !!1
 
 let rec foldIndexedAux f i acc = function
    | [] -> acc

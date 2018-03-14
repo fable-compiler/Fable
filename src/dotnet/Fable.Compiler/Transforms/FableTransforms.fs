@@ -132,6 +132,17 @@ module private Transforms =
         | Value(NewList(Some(head, tail), t)) -> untail t [head] tail
         | _ -> None
 
+    let rec (|NestedLambda|_|) expr =
+        let rec nestedLambda accArgs body =
+            match body with
+            | Function(Lambda arg, body, None) ->
+                nestedLambda (arg::accArgs) body
+            | _ ->
+                match accArgs with
+                | [] -> None
+                | accArgs -> Some(NestedLambda(List.rev accArgs, body))
+        nestedLambda [] expr
+
     // TODO!!!: Some cases of coertion shouldn't be erased
     // string :> seq #1279
     // list (and others) :> seq in Fable 2.0
@@ -149,16 +160,6 @@ module private Transforms =
         | e -> e
 
     let lambdaBetaReduction (_: ICompiler) e =
-        let rec (|NestedLambda|_|) expr =
-            let rec nestedLambda accArgs body =
-                match body with
-                | Function(Lambda arg, body, None) ->
-                    nestedLambda (arg::accArgs) body
-                | _ ->
-                    match accArgs with
-                    | [] -> None
-                    | accArgs -> Some(NestedLambda(List.rev accArgs, body))
-            nestedLambda [] expr
         let applyArgs (args: Ident list) argExprs body =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
@@ -240,35 +241,42 @@ module private Transforms =
                 Replacements.uncurryExpr t arity expr
         | None, _ -> expr
 
-    let uncurryInnerFunctions (_: ICompiler) e =
-        e // TODO!!!
-
-    let uncurryReceivedArgs_required (_: ICompiler) e =
+    let uncurryBodies idents body1 body2 =
         let replaceIdentType replacements (id: Ident) =
             match Map.tryFind id.Name replacements with
             | Some typ -> { id with Type = typ }
             | None -> id
-        let uncurryFunctionBody args body =
-            let uncurried =
-                (Map.empty, args) ||> List.fold (fun uncurried arg ->
-                    match uncurryLambdaType [] arg.Type with
-                    | argTypes, returnType when List.isMultiple argTypes ->
-                        Map.add arg.Name (FunctionType(DelegateType argTypes, returnType)) uncurried
-                    | _ -> uncurried)
-            if Map.isEmpty uncurried
-            then args, body
-            else
-                let args = args |> List.map (replaceIdentType uncurried)
-                let body = visit (function
-                    | IdentExpr id -> replaceIdentType uncurried id |> IdentExpr
-                    | e -> e) body
-                args, body
+        let replaceBody uncurried body =
+            visit (function
+                | IdentExpr id -> replaceIdentType uncurried id |> IdentExpr
+                | e -> e) body
+        let uncurried =
+            (Map.empty, idents) ||> List.fold (fun uncurried id ->
+                match uncurryLambdaType [] id.Type with
+                | argTypes, returnType when List.isMultiple argTypes ->
+                    Map.add id.Name (FunctionType(DelegateType argTypes, returnType)) uncurried
+                | _ -> uncurried)
+        if Map.isEmpty uncurried
+        then idents, body1, body2
+        else
+            let idents = idents |> List.map (replaceIdentType uncurried)
+            let body1 = replaceBody uncurried body1
+            let body2 = Option.map (replaceBody uncurried) body2
+            idents, body1, body2
+
+    let uncurryInnerFunctions (_: ICompiler) = function
+        | Let([ident, NestedLambda(args, fnBody)], letBody) when List.isMultiple args ->
+            let idents, fnBody, letBody = uncurryBodies [ident] fnBody (Some letBody)
+            Let([List.head idents, Function(Delegate args, fnBody, None)], letBody.Value)
+        | e -> e
+
+    let uncurryReceivedArgs_required (_: ICompiler) e =
         match e with
         | Function(Lambda arg, body, name) ->
-            let args, body = uncurryFunctionBody [arg] body
+            let args, body, _ = uncurryBodies [arg] body None
             Function(Lambda (List.head args), body, name)
         | Function(Delegate args, body, name) ->
-            let args, body = uncurryFunctionBody args body
+            let args, body, _ = uncurryBodies args body None
             Function(Delegate args, body, name)
         | e -> e
 
@@ -334,6 +342,7 @@ let optimizeExpr (com: ICompiler) e =
       resolveCasts_required
       // Then apply uncurry optimizations
       // Required as fable-core and bindings expect it
+      uncurryInnerFunctions
       uncurryReceivedArgs_required
       uncurrySendingArgs_required
       uncurryApplications_required ]

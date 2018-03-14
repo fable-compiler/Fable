@@ -659,7 +659,13 @@ module Util =
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
         | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt) ->
-            [transformIfStatement com ctx (Some ret) guardExpr thenStmnt elseStmnt :> Statement ]
+            if expr.IsJsStatement then
+                [transformIfStatement com ctx (Some ret) guardExpr thenStmnt elseStmnt :> Statement ]
+            else
+                let guardExpr = transformExpr com ctx guardExpr
+                let thenExpr = transformExpr com ctx thenStmnt
+                let elseExpr = transformExpr com ctx elseStmnt
+                [ConditionalExpression(guardExpr, thenExpr, elseExpr) |> resolve ret]
 
         | Fable.Sequential statements ->
             let lasti = (List.length statements) - 1
