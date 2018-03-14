@@ -177,13 +177,13 @@ Commands:
   yarn-run            Run Fable while a yarn script is running
   node-run            Run Fable while a node script is running
   shell-run           Run Fable while a shell script is running
-  webpack             Start Fable daemon, invoke Webpack and shut it down
-  webpack-dev-server  Run Fable while Webpack development server is running
+  [webpack-cli]       Other commands will be assumed to be JS scripts
+                      in `node_modules/.bin` folder
 
 Fable arguments:
-  --timeout           Stop the daemon if timeout (ms) is reached
   --port              Port number (default %d) or "free" to choose a free port
   --verbose           Print more info during execution
+  --cwd               Working directory where the subprocess should run
 
 To pass arguments to the script, write them after `--`. Example:
 
@@ -248,37 +248,17 @@ let main argv =
             | Some scriptArgs -> argv.[1] + " " + scriptArgs
             | None -> argv.[1]
         startServerWithProcess args.cwd args.port "node" execArgs
-    | Some ("webpack" | "webpack-dev-server" as webpack) ->
-        let containsWebpackConfig dir =
-            File.Exists(IO.Path.Combine(dir, "webpack.config.js"))
-        let args = argv.[1..] |> parseArguments
-        let pkgJsonDir = findPackageJsonDir args.cwd
-        let workingDir =
-            // Many times, webpack.config.js is next to package.json while Fable
-            // is invoked from the `src` directory. So default to package.json dir
-            // if the Webpack config file is found there
-            match containsWebpackConfig args.cwd, containsWebpackConfig pkgJsonDir with
-            | true, _ -> args.cwd
-            | false, true -> pkgJsonDir
-            | false, false -> args.cwd
-        let webpackScript =
-            let webpackScript =
-                // TODO: In Webpack 4, the script is not found here
-                IO.Path.Combine(findPackageJsonDir workingDir,
-                                "node_modules",
-                                webpack,
-                                "bin",
-                                webpack + ".js")
-                |> quote
-            match args.commandArgs with
-            | Some args -> webpackScript + " " + args
-            | None -> webpackScript
-        startServerWithProcess workingDir args.port "node" webpackScript
     | Some "shell-run" ->
         let cmd = argv.[1]
         let args = argv.[2..] |> parseArguments
         let execArgs = defaultArg args.commandArgs ""
         startServerWithProcess args.cwd args.port cmd execArgs
-    | Some "add" -> printfn "The add command has been deprecated. Use Paket to manage Fable libraries."; 0
-    | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options." cmd; 0
+    | Some npmBin ->
+        let args = argv.[1..] |> parseArguments
+        let execArgs =
+            let scripPath = IO.Path.Combine(findPackageJsonDir args.cwd, "node_modules/.bin/" + npmBin) |> quote
+            match args.commandArgs with
+            | Some scriptArgs -> scripPath + " " + scriptArgs
+            | None -> scripPath
+        startServerWithProcess args.cwd args.port "node" execArgs
     | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; 0
