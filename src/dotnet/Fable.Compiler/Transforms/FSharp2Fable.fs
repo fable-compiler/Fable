@@ -764,8 +764,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
         member __.Options = com.Options
         member __.FableCore = com.FableCore
         member __.CurrentFile = com.CurrentFile
-        member __.GetUniqueVar() =
-            com.GetUniqueVar()
+        member __.GetUniqueVar(name) =
+            com.GetUniqueVar(?name=name)
         member __.GetRootModule(fileName) =
             com.GetRootModule(fileName)
         member __.GetOrAddInlineExpr(fullName, generate) =

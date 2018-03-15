@@ -733,7 +733,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             match t with
             | FunctionType(LambdaType argType, retType) -> argType, retType
             | _ -> Any, Any
-        let tempVar = com.GetUniqueVar() |> makeTypedIdent argType
+        let tempVar = com.GetUniqueVar("arg") |> makeTypedIdent argType
         let body =
             [IdentExpr tempVar]
             |> curriedApply None Any f1

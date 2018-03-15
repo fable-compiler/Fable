@@ -117,5 +117,5 @@ type Compiler(currentFile, project: Project, options) =
             if logs.ContainsKey(severity)
             then logs.[severity] <- formattedMsg::logs.[severity]
             else logs.Add(severity, [formattedMsg])
-        member __.GetUniqueVar() =
-            id <- id + 1; "$var" + (string id)
+        member __.GetUniqueVar(name) =
+            id <- id + 1; "$" + (defaultArg name "var") + (string id)

@@ -128,6 +128,7 @@ type ValueKind =
 type LoopKind =
     | While of guard: Expr * body: Expr
     | For of ident: Ident * start: Expr * limit: Expr * body: Expr * isUp: bool
+    // TODO!!!: Remove ForOf from Fable.AST (use fable-core call)
     | ForOf of ident: Ident * enumerable: Expr * body: Expr
 
 type FunctionKind =

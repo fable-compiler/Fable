@@ -32,14 +32,19 @@ let rec visit f e =
     | Cast(e, t) -> Cast(visit f e, t)
     | Function(kind, body, name) -> Function(kind, visit f body, name)
     | ObjectExpr(members, t, baseCall) ->
-        let members = members |> List.map (fun (n,v,k) -> n, visit f v, k)
         let baseCall = Option.map (visit f) baseCall
+        let members = members |> List.map (fun (n,v,k) -> n, visit f v, k)
         ObjectExpr(members, t, baseCall)
     | Operation(kind, t, r) ->
         match kind with
         | CurriedApply(callee, args) ->
             Operation(CurriedApply(visit f callee, List.map (visit f) args), t, r)
         | Call(kind, info) ->
+            let kind =
+                match kind with
+                | ConstructorCall e -> ConstructorCall(visit f e)
+                | StaticCall e -> StaticCall(visit f e)
+                | InstanceCall memb -> InstanceCall(Option.map (visit f) memb)
             let info = { info with ThisArg = Option.map (visit f) info.ThisArg
                                    Args = List.map (visit f) info.Args }
             Operation(Call(kind, info), t, r)
@@ -87,12 +92,67 @@ let rec visit f e =
         DecisionTreeSuccess(idx, List.map (visit f) boundValues, t)
     |> f
 
-let rec deepExists f expr =
-    let mutable found = false
-    visit (fun e ->
-        found <- found || f e
-        e) expr |> ignore
-    found
+let getSubExpressions = function
+    | IdentExpr _ | Import _ | Debugger _ -> []
+    | Value kind ->
+        match kind with
+        | This _ | Null _ | UnitConstant
+        | BoolConstant _ | CharConstant _ | StringConstant _
+        | NumberConstant _ | RegexConstant _ | Enum _ -> []
+        | NewOption(e, _) -> Option.toList e
+        | NewTuple exprs -> exprs
+        | NewArray(kind, _) ->
+            match kind with ArrayValues exprs -> exprs | ArrayAlloc _ -> []
+        | NewList(ht, _) ->
+            match ht with Some(h,t) -> [h;t] | None -> []
+        | NewRecord(exprs, _, _) -> exprs
+        | NewErasedUnion(e, _) -> [e]
+        | NewUnion(exprs, _, _, _) -> exprs
+    | Test(e, _, _) -> [e]
+    | Cast(e, _) -> [e]
+    | Function(_, body, _) -> [body]
+    | ObjectExpr(members, _, baseCall) ->
+        let members = members |> List.map (fun (_,v,_) -> v)
+        match baseCall with Some b -> b::members | None -> members
+    | Operation(kind, _, _) ->
+        match kind with
+        | CurriedApply(callee, args) -> callee::args
+        | Call(kind, info) ->
+            let e1 =
+                match kind with
+                | ConstructorCall e -> [e]
+                | StaticCall e -> [e]
+                | InstanceCall memb -> Option.toList memb
+            e1 @ (Option.toList info.ThisArg) @ info.Args
+        | Emit(_, info) ->
+            match info with Some info -> (Option.toList info.ThisArg) @ info.Args | None -> []
+        | UnaryOperation(_, operand) -> [operand]
+        | BinaryOperation(_, left, right) -> [left; right]
+        | LogicalOperation(_, left, right) -> [left; right]
+    | Get(e, kind, _, _) ->
+        match kind with
+        | ListHead | ListTail | OptionValue | TupleGet _ | UnionTag _
+        | UnionField _ | RecordGet _ -> [e]
+        | ExprGet e2 -> [e; e2]
+    | Throw(e, _, _) -> [e]
+    | Sequential exprs -> exprs
+    | Let(bs, body) -> (List.map snd bs) @ [body]
+    | IfThenElse(cond, thenExpr, elseExpr) -> [cond; thenExpr; elseExpr]
+    | Set(e, kind, v, _) ->
+        match kind with
+        | VarSet | RecordSet _ -> [e; v]
+        | ExprSet e2 -> [e; e2; v]
+    | Loop (kind, _) ->
+        match kind with
+        | While(e1, e2) -> [e1; e2]
+        | For(_, e1, e2, e3, _) -> [e1; e2; e3]
+        | ForOf(_, e1, e2) -> [e1; e2]
+    | TryCatch(body, catch, finalizer) ->
+        match catch with
+        | Some(_,c) -> body::c::(Option.toList finalizer)
+        | None -> body::(Option.toList finalizer)
+    | DecisionTree(expr, targets) -> expr::(List.map snd targets)
+    | DecisionTreeSuccess(_, boundValues, _) -> boundValues
 
 let replaceValues replacements expr =
     if Map.isEmpty replacements
@@ -116,10 +176,10 @@ let isReferencedMoreThan limit identName e =
             | _ when count > limit -> e
             | IdentExpr id2 as e when id2.Name = identName ->
                 count <- count + 1; e
-            // TODO: Decision tree target branchs can be duplicated, so for now
-            // don't remove the binding until we optimize decision trees
-            | DecisionTree _ ->
-                count <- limit + 1; e
+            // // TODO: Decision tree target branchs can be duplicated, so for now
+            // // don't remove the binding until we optimize decision trees
+            // | DecisionTree _ ->
+            //     count <- limit + 1; e
             | e -> e) |> ignore
         count > limit
 
@@ -140,15 +200,14 @@ module private Transforms =
         | _ -> None
 
     let rec (|NestedLambda|_|) expr =
-        let rec nestedLambda accArgs body =
+        let rec nestedLambda accArgs body name =
             match body with
             | Function(Lambda arg, body, None) ->
-                nestedLambda (arg::accArgs) body
-            | _ ->
-                match accArgs with
-                | [] -> None
-                | accArgs -> Some(NestedLambda(List.rev accArgs, body))
-        nestedLambda [] expr
+                nestedLambda (arg::accArgs) body name
+            | _ -> Some(NestedLambda(List.rev accArgs, body, name))
+        match expr with
+        | Function(Lambda arg, body, name) -> nestedLambda [arg] body name
+        | _ -> None
 
     // TODO!!!: Some cases of coertion shouldn't be erased
     // string :> seq #1279
@@ -180,7 +239,7 @@ module private Transforms =
         match e with
         // TODO: `Invoke` calls for delegates? Partial applications too?
         // TODO: Don't inline if one of the arguments is `this`?
-        | Operation(CurriedApply(NestedLambda(args, body), argExprs), _, _)
+        | Operation(CurriedApply(NestedLambda(args, body, None), argExprs), _, _)
             when List.sameLength args argExprs ->
             applyArgs args argExprs body
         | e -> e
@@ -272,9 +331,13 @@ module private Transforms =
             idents, body1, body2
 
     let uncurryInnerFunctions (_: ICompiler) = function
-        | Let([ident, NestedLambda(args, fnBody)], letBody) when List.isMultiple args ->
-            let idents, fnBody, letBody = uncurryBodies [ident] fnBody (Some letBody)
-            Let([List.head idents, Function(Delegate args, fnBody, None)], letBody.Value)
+        // | Let([ident, NestedLambda(args, fnBody, _)], letBody) when List.isMultiple args ->
+        //     let idents, fnBody, letBody = uncurryBodies [ident] fnBody (Some letBody)
+        //     Let([List.head idents, Function(Delegate args, fnBody, None)], letBody.Value)
+        // | NestedLambda(args, fnBody, Some name) as e when List.isMultiple args ->
+        //     let ident = makeTypedIdent e.Type name
+        //     let idents, fnBody, _ = uncurryBodies [ident] fnBody None
+        //     Function(Delegate args, fnBody, Some (List.head idents).Name)
         | e -> e
 
     let uncurryReceivedArgs_required (_: ICompiler) e =
@@ -349,11 +412,11 @@ let optimizeExpr (com: ICompiler) e =
       resolveCasts_required
       // Then apply uncurry optimizations
       // Required as fable-core and bindings expect it
-      uncurryInnerFunctions
       uncurryReceivedArgs_required
       uncurrySendingArgs_required
-      uncurryApplications_required ]
-    |> List.fold (fun e f -> visit (f com) e) e
+      uncurryApplications_required
+      uncurryInnerFunctions
+    ] |> List.fold (fun e f -> visit (f com) e) e
 
 let rec optimizeDeclaration (com: ICompiler) = function
     | ActionDeclaration expr ->
