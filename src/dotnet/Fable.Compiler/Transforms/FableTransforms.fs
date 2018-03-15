@@ -87,6 +87,13 @@ let rec visit f e =
         DecisionTreeSuccess(idx, List.map (visit f) boundValues, t)
     |> f
 
+let rec deepExists f expr =
+    let mutable found = false
+    visit (fun e ->
+        found <- found || f e
+        e) expr |> ignore
+    found
+
 let replaceValues replacements expr =
     if Map.isEmpty replacements
     then expr

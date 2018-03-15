@@ -21,34 +21,32 @@ type ITailCallOpportunity =
     abstract ReplaceArgs: bool
     abstract IsRecursiveRef: Fable.Expr -> bool
 
-// let private getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
-//     // If some arguments are functions we need to capture the current values to
-//     // prevent delayed references from getting corrupted, for that we use block-scoped
-//     // ES2015 variable declarations. See #681
-//     let replaceArgs =
-//         args |> List.exists (fun arg ->
-//             match arg.Type with
-//             | Fable.LambdaType _ -> true
-//             | _ -> false)
-//     replaceArgs, args |> List.map (fun arg -> if replaceArgs then com.GetUniqueVar() else arg.Name)
+let private getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
+    // If some arguments are functions we need to capture the current values to
+    // prevent delayed references from getting corrupted, for that we use block-scoped
+    // ES2015 variable declarations. See #681
+    let replaceArgs =
+        args |> List.exists (fun arg ->
+            match arg.Type with
+            | Fable.FunctionType _ -> true
+            | _ -> false)
+    replaceArgs, args |> List.map (fun arg -> if replaceArgs then com.GetUniqueVar() else arg.Name)
 
-// type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
-//     let replaceArgs, argIds = getTailCallArgIds com args
-//     interface ITailCallOpportunity with
-//         member __.Label = name
-//         member __.Args = argIds
-//         member __.ReplaceArgs = replaceArgs
-//         member __.IsRecursiveRef(e) =
-//             match e with
-//             | Fable.IdentExpr(id, _) -> name = id.Name
-//             | _ -> false
+type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
+    let replaceArgs, argIds = getTailCallArgIds com args
+    interface ITailCallOpportunity with
+        member __.Label = name
+        member __.Args = argIds
+        member __.ReplaceArgs = replaceArgs
+        member __.IsRecursiveRef(e) =
+            match e with Fable.IdentExpr id  -> name = id.Name | _ -> false
 
 type Context =
-  { file: Fable.File
-    decisionTargets: (Fable.Ident list * Fable.Expr) list
-    hoistVars: Fable.Ident list -> bool
-    tailCallOpportunity: ITailCallOpportunity option
-    optimizeTailCall: unit -> unit }
+  { File: Fable.File
+    DecisionTargets: (Fable.Ident list * Fable.Expr) list
+    HoistVars: Fable.Ident list -> bool
+    TailCallOpportunity: ITailCallOpportunity option
+    OptimizeTailCall: unit -> unit }
 
 type IBabelCompiler =
     inherit ICompiler
@@ -59,7 +57,7 @@ type IBabelCompiler =
     abstract TransformStatement: Context * Fable.Expr -> Statement list
     abstract TransformExprAndResolve: Context * ReturnStrategy * Fable.Expr -> Statement list
     abstract TransformObjectExpr: Context * Fable.ObjectMember list * ?baseCall: Fable.Expr * ?boundThis: Identifier -> Expression
-    abstract TransformFunction: Context * ITailCallOpportunity option * Fable.Ident list * Fable.Expr
+    abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr
         -> (Pattern list) * U2<BlockStatement, Expression>
 
 module Util =
@@ -161,10 +159,8 @@ module Util =
         let body = BlockStatement(thisBinding::bodyStatements)
         args, body
 
-    // TODO!!!: Create tail call opportunity here (pass function ident name, watch out for interface/override methods)
-    let getMemberArgsAndBody (com: IBabelCompiler) ctx hasSpread args (body: Fable.Expr) =
-        // let tc = NamedTailCallOpportunity(com, privName, args) :> ITailCallOpportunity |> Some
-        let args, body = com.TransformFunction(ctx, None, args, body)
+    let getMemberArgsAndBody (com: IBabelCompiler) ctx name hasSpread args (body: Fable.Expr) =
+        let args, body = com.TransformFunction(ctx, name, args, body)
         let args =
             if not hasSpread
             then args
@@ -194,6 +190,29 @@ module Util =
             | U2.Case1 body -> body
             | U2.Case2 e -> BlockStatement [ReturnStatement e]
         upcast FunctionExpression(args, body, ?id=id)
+
+    let optimizeTailCall (com: IBabelCompiler) (ctx: Context) (tc: ITailCallOpportunity) args =
+        ctx.OptimizeTailCall()
+        let zippedArgs = List.zip tc.Args args
+        let tempVars =
+            let rec checkCrossRefs acc = function
+                | [] | [_] -> acc
+                | (argId, _arg)::rest ->
+                    rest |> List.exists (snd >> FableTransforms.deepExists
+                        (function Fable.IdentExpr i -> argId = i.Name | _ -> false))
+                    |> function true -> Map.add argId (com.GetUniqueVar()) acc | false -> acc
+                    |> checkCrossRefs <| rest
+            checkCrossRefs Map.empty zippedArgs
+        [ for (argId, arg) in zippedArgs do
+            let arg = com.TransformExpr(ctx, arg)
+            match Map.tryFind argId tempVars with
+            | Some tempVar ->
+                yield varDeclaration (Identifier tempVar) false arg :> Statement
+            | None ->
+                yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
+          for KeyValue(argId,tempVar) in tempVars do
+            yield assign None (Identifier argId) (Identifier tempVar) |> ExpressionStatement :> Statement
+          yield upcast ContinueStatement(Identifier tc.Label) ]
 
     let transformValue (com: IBabelCompiler) (ctx: Context) value: Expression =
         match value with
@@ -243,7 +262,7 @@ module Util =
 
     let transformObjectExpr (com: IBabelCompiler) ctx members baseCall (boundThis: Identifier option): Expression =
         let makeObjMethod kind prop computed hasSpread args body =
-            let args, body = getMemberArgsAndBody com ctx hasSpread args body
+            let args, body = getMemberArgsAndBody com ctx None hasSpread args body
             let args, body =
                 match boundThis, args with
                 | Some boundThis, thisArg::args ->
@@ -256,7 +275,7 @@ module Util =
                 match kind, expr with
                 | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body, _) ->
                     // Don't call the `makeObjMethod` helper here because function as values don't bind `this` arg
-                    let args, body' = getMemberArgsAndBody com ctx false args body
+                    let args, body' = getMemberArgsAndBody com ctx None false args body
                     ObjectMethod(ObjectMeth, prop, args, body', computed=computed) |> U3.Case2 |> Some
                 | Fable.ObjectValue, TransformExpr com ctx value ->
                     ObjectProperty(prop, value, computed=computed) |> U3.Case1 |> Some
@@ -338,6 +357,26 @@ module Util =
                 (baseExpr, rest) ||> List.fold (fun e arg ->
                     CallExpression(e, [arg], ?loc=range) :> Expression)
 
+    let transformOperationAndResolve com ctx range returnStrategy opKind =
+        let argsLen (i: Fable.ArgInfo) =
+            List.length i.Args + (if Option.isSome i.ThisArg then 1 else 0)
+        let resolve babelExpr: Statement =
+            match returnStrategy with
+            | Return -> upcast ReturnStatement(babelExpr)
+            | Assign left -> upcast ExpressionStatement(assign None left babelExpr)
+        match returnStrategy, ctx.TailCallOpportunity, opKind with
+        | Return, Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
+                                when not argInfo.IsSiblingConstructorCall
+                                && tc.IsRecursiveRef(funcExpr)
+                                && argsLen argInfo = List.length tc.Args ->
+            let args =
+                match argInfo.ThisArg with
+                | Some thisArg -> thisArg::argInfo.Args
+                | None -> argInfo.Args
+            optimizeTailCall com ctx tc args
+        | _ ->
+            [transformOperation com ctx range opKind |> resolve]
+
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
     let transformBlock (com: IBabelCompiler) ctx ret expr: BlockStatement =
@@ -347,7 +386,7 @@ module Util =
 
     let transformTryCatch com ctx returnStrategy (body, catch, finalizer) =
         // try .. catch statements cannot be tail call optimized
-        let ctx = { ctx with tailCallOpportunity = None }
+        let ctx = { ctx with TailCallOpportunity = None }
         let handler =
             catch |> Option.map (fun (param, body) ->
                 CatchClause (ident param,
@@ -420,10 +459,18 @@ module Util =
         else
             let value =
                 match value with
+                | Fable.Function(args, body, _) ->
+                    let args =
+                        match args with
+                        | Fable.Lambda arg -> [arg]
+                        | Fable.Delegate args -> args
+                    com.TransformFunction(ctx, Some var.Name, args, body)
+                    ||> makeFunctionExpression (Some var.Name)
                 // Check imports with name placeholder
                 | Fable.Import(Naming.placeholder, path, kind, _) ->
                     transformImport com ctx var.Name path kind
-                | _ -> com.TransformExpr(ctx, value) |> wrapIntExpression value.Type
+                | _ ->
+                    com.TransformExpr(ctx, value) |> wrapIntExpression value.Type
             [varDeclaration (ident var) var.IsMutable value :> Statement]
 
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
@@ -441,7 +488,7 @@ module Util =
             upcast BinaryExpression(BinaryEqualStrict, tag1, StringLiteral uci.Name, ?loc=range)
 
     let getDecisionTarget (com: IBabelCompiler) (ctx: Context) targetIndex boundValues =
-        match List.tryItem targetIndex ctx.decisionTargets with
+        match List.tryItem targetIndex ctx.DecisionTargets with
         | None -> failwithf "Cannot find DecisionTree target %i" targetIndex
         | Some(idents, _) when not(List.sameLength idents boundValues) ->
             failwithf "Found DecisionTree target %i but length of bindings differ" targetIndex
@@ -495,7 +542,7 @@ module Util =
             let ret = getSetReturnStrategy com ctx expr setKind
             com.TransformExprAndResolve(ctx, ret, value)
 
-        | Fable.Let (bindings, body) ->
+        | Fable.Let(bindings, body) ->
             let bindings = bindings |> List.collect (fun (i, v) -> transformBinding com ctx i v)
             bindings @ (transformStatement com ctx body)
 
@@ -516,7 +563,7 @@ module Util =
             // TODO!!!: Check if decision tree can be compiled as switch
             // TODO: If some targets are referenced multiple times, host bound idents,
             // resolve the decision index and compile the targets as a switch
-            let ctx = { ctx with decisionTargets = targets }
+            let ctx = { ctx with DecisionTargets = targets }
             transformStatement com ctx expr
 
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
@@ -546,7 +593,7 @@ module Util =
             transformTest com ctx range kind expr
 
         | Fable.Function(FunctionArgs args, body, name) ->
-            com.TransformFunction(ctx, None, args, body) ||> makeFunctionExpression name
+            com.TransformFunction(ctx, name, args, body) ||> makeFunctionExpression name
 
         | Fable.ObjectExpr (members, _, baseCall) ->
             Some(Identifier "this") |> transformObjectExpr com ctx members baseCall
@@ -563,7 +610,7 @@ module Util =
             upcast ConditionalExpression(guardExpr, thenExpr, elseExpr)
 
         | Fable.DecisionTree(expr, targets) ->
-            let ctx = { ctx with decisionTargets = targets }
+            let ctx = { ctx with DecisionTargets = targets }
             transformExpr com ctx expr
 
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
@@ -573,7 +620,7 @@ module Util =
             transformSet com ctx range var value setKind
 
         | Fable.Let(bindings, body) ->
-            if ctx.hoistVars(List.map fst bindings) then
+            if ctx.HoistVars(List.map fst bindings) then
                 let values = bindings |> List.map (fun (id, value) ->
                     com.TransformExpr(ctx, value) |> assign None (ident id))
                 upcast SequenceExpression(values @ [com.TransformExpr(ctx, body)])
@@ -585,29 +632,6 @@ module Util =
         | Fable.Sequential _ | Fable.Loop _
         | Fable.TryCatch _ ->
             iife com ctx expr :> Expression
-
-    // let optimizeTailCall (com: IBabelCompiler) (ctx: Context) (tc: ITailCallOpportunity) args =
-    //     ctx.optimizeTailCall()
-    //     let zippedArgs = List.zip tc.Args args
-    //     let tempVars =
-    //         let rec checkCrossRefs acc = function
-    //             | [] | [_] -> acc
-    //             | (argId, _arg)::rest ->
-    //                 rest |> List.exists (snd >> deepExists
-    //                     (function Fable.IdentExpr(i,_) -> argId = i.Name | _ -> false))
-    //                 |> function true -> Map.add argId (com.GetUniqueVar()) acc | false -> acc
-    //                 |> checkCrossRefs <| rest
-    //         checkCrossRefs Map.empty zippedArgs
-    //     [ for (argId, arg) in zippedArgs do
-    //         let arg = transformExpr com ctx arg
-    //         match Map.tryFind argId tempVars with
-    //         | Some tempVar ->
-    //             yield varDeclaration (Identifier tempVar) false arg :> Statement
-    //         | None ->
-    //             yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
-    //       for KeyValue(argId,tempVar) in tempVars do
-    //         yield assign None (Identifier argId) (Identifier tempVar) |> ExpressionStatement :> Statement
-    //       yield upcast ContinueStatement(Identifier tc.Label) ]
 
     let rec transformExprAndResolve (com: IBabelCompiler) ctx ret
                                     (expr: Fable.Expr): Statement list =
@@ -642,16 +666,11 @@ module Util =
             [Some(Identifier "this") |> transformObjectExpr com ctx members baseCall |> resolve ret]
 
         | Fable.Function(FunctionArgs args, body, name) ->
-            [com.TransformFunction(ctx, None, args, body)
+            [com.TransformFunction(ctx, name, args, body)
              ||> makeFunctionExpression name |> resolve ret]
 
         | Fable.Operation(callKind, _, range) ->
-            // TODO!!!
-            // match ctx.tailCallOpportunity, callee, memb, isCons, ret with
-            // | Some tc, Fable.Callee callee, None, false, Return
-            //         when List.sameLength tc.Args args && tc.IsRecursiveRef callee ->
-            //     optimizeTailCall com ctx tc args
-            [transformOperation com ctx range callKind |> resolve ret]
+            transformOperationAndResolve com ctx range ret callKind
 
         | Fable.Get(expr, getKind, _, range) ->
             [transformGet com ctx range expr getKind |> resolve ret]
@@ -659,7 +678,7 @@ module Util =
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
         | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt) ->
-            if expr.IsJsStatement then
+            if Option.isSome ctx.TailCallOpportunity || expr.IsJsStatement then
                 [transformIfStatement com ctx (Some ret) guardExpr thenStmnt elseStmnt :> Statement ]
             else
                 let guardExpr = transformExpr com ctx guardExpr
@@ -682,7 +701,7 @@ module Util =
             // TODO!!!: Check if decision tree can be compiled as switch
             // TODO: If some targets are referenced multiple times, host bound idents,
             // resolve the decision index and compile the targets as a switch
-            let ctx = { ctx with decisionTargets = targets }
+            let ctx = { ctx with DecisionTargets = targets }
             transformExprAndResolve com ctx ret expr
 
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
@@ -695,19 +714,22 @@ module Util =
         | Fable.Set _ | Fable.TryCatch _ ->
             com.TransformStatement(ctx, expr)
 
-    let transformFunction com ctx tailcallChance (args: Fable.Ident list) (body: Fable.Expr) =
-        let tailcallChance, args =
+    let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr) =
+        let tailcallChance =
+            Option.map (fun name ->
+                NamedTailCallOpportunity(com, name, args) :> ITailCallOpportunity) name
+        let args =
             match args with
-            | [] -> None, []
-            | [unitArg] when unitArg.Type = Fable.Unit -> None, []
-            | [thisArg; unitArg] when thisArg.IsThisArg && unitArg.Type = Fable.Unit -> None, [ident thisArg]
-            | args -> tailcallChance, List.map ident args
+            | [] -> []
+            | [unitArg] when unitArg.Type = Fable.Unit -> []
+            | [thisArg; unitArg] when thisArg.IsThisArg && unitArg.Type = Fable.Unit -> [ident thisArg]
+            | args -> List.map ident args
         let declaredVars = ResizeArray()
         let mutable isTailCallOptimized = false
         let ctx =
-            { ctx with hoistVars = fun ids -> declaredVars.AddRange(ids); true
-                       tailCallOpportunity = tailcallChance
-                       optimizeTailCall = fun () -> isTailCallOptimized <- true }
+            { ctx with TailCallOpportunity = tailcallChance
+                       HoistVars = fun ids -> declaredVars.AddRange(ids); true
+                       OptimizeTailCall = fun () -> isTailCallOptimized <- true }
         let body: U2<BlockStatement, Expression> =
             match body with
             | ExprType Fable.Unit
@@ -715,7 +737,7 @@ module Util =
                 transformBlock com ctx None body |> U2.Case1
             | Fable.Sequential _ | Fable.Let _ | Fable.TryCatch _ ->
                 transformBlock com ctx (Some Return) body |> U2.Case1
-            | Fable.IfThenElse _ when body.IsJsStatement ->
+            | Fable.IfThenElse _ when Option.isSome tailcallChance || body.IsJsStatement ->
                 transformBlock com ctx (Some Return) body |> U2.Case1
             | _ ->
                 if Option.isSome tailcallChance
@@ -725,8 +747,7 @@ module Util =
             match isTailCallOptimized, tailcallChance, body with
             | true, Some tc, U2.Case1 body ->
                 let args, body =
-                    if tc.ReplaceArgs
-                    then
+                    if tc.ReplaceArgs then
                         let statements =
                             (List.zip args tc.Args, []) ||> List.foldBack (fun (arg, tempVar) acc ->
                                 (varDeclaration arg false (Identifier tempVar) :> Statement)::acc)
@@ -774,7 +795,7 @@ module Util =
             :> ModuleDeclaration |> U2.Case2
 
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ValueDeclarationInfo) args body =
-        let args, body = getMemberArgsAndBody com ctx info.HasSpread args body
+        let args, body = getMemberArgsAndBody com ctx (Some info.Name) info.HasSpread args body
         // Don't lexically bind `this` (with arrow function) or it will fail with extension members
         let expr: Expression = upcast FunctionExpression(args, body)
         declareModuleMember info.IsPublic info.Name false expr
@@ -802,7 +823,7 @@ module Util =
                 match info.Kind with
                 | Fable.ObjectMethod hasSpread -> hasSpread
                 | _ -> false
-            let args, body = getMemberArgsAndBody com ctx hasSpread args body
+            let args, body = getMemberArgsAndBody com ctx None hasSpread args body
             let args, body =
                 match args with
                 | thisArg::args -> bindThisInFunctionBody (Identifier "this") thisArg args body.body
@@ -821,7 +842,7 @@ module Util =
         let funcCons = Identifier info.EntityName :> Expression
         let thisIdent = Identifier "this" :> Expression
         let originalCons =
-            let args, body = getMemberArgsAndBody com ctx info.HasSpread args body
+            let args, body = getMemberArgsAndBody com ctx None info.HasSpread args body
             match info.BaseConstructor with
             | None -> FunctionExpression(args, body) :> Expression
             | Some({ BaseConsRef = TransformExpr com ctx baseCons } as b) ->
@@ -948,7 +969,7 @@ module Util =
                 x.Substring(x.LastIndexOf '/' + 1) |> Some
             | selector -> Some selector
             |> Option.map (Naming.sanitizeIdent (fun s ->
-                ctx.file.UsedVarNames.Contains s
+                ctx.File.UsedVarNames.Contains s
                     || (imports.Values |> Seq.exists (fun i -> i.LocalIdent = Some s))))
 
         let dependencies = HashSet<string>()
@@ -984,7 +1005,7 @@ module Util =
             member bcom.TransformExpr(ctx, e) = transformExpr bcom ctx e
             member bcom.TransformStatement(ctx, e) = transformStatement bcom ctx e
             member bcom.TransformExprAndResolve(ctx, ret, e) = transformExprAndResolve bcom ctx ret e
-            member bcom.TransformFunction(ctx, tc, args, body) = transformFunction bcom ctx tc args body
+            member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
             member bcom.TransformObjectExpr(ctx, members, baseCall, boundThis) = transformObjectExpr bcom ctx members baseCall boundThis
         interface ICompiler with
             member __.Options = com.Options
@@ -1012,11 +1033,11 @@ module Compiler =
             // let t = PerfTimer("Fable > Babel")
             let com = makeCompiler com
             let ctx =
-              { file = file
-                decisionTargets = []
-                hoistVars = fun _ -> false
-                tailCallOpportunity = None
-                optimizeTailCall = fun () -> () }
+              { File = file
+                DecisionTargets = []
+                HoistVars = fun _ -> false
+                TailCallOpportunity = None
+                OptimizeTailCall = fun () -> () }
             let rootDecls = transformDeclarations com ctx file.Declarations
             let importDecls = transformImports <| com.GetAllImports()
             let dependencies =
