@@ -22,18 +22,17 @@ type ITailCallOpportunity =
     abstract ReplaceArgs: bool
     abstract IsRecursiveRef: Fable.Expr -> bool
 
-let private getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
-    // If some arguments are functions we need to capture the current values to
-    // prevent delayed references from getting corrupted, for that we use block-scoped
-    // ES2015 variable declarations. See #681
-    let replaceArgs =
-        args |> List.exists (fun arg ->
-            match arg.Type with
-            | Fable.FunctionType _ -> true
-            | _ -> false)
-    replaceArgs, args |> List.map (fun arg -> if replaceArgs then com.GetUniqueVar("arg") else arg.Name)
-
 type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
+    let getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
+        // If some arguments are functions we need to capture the current values to
+        // prevent delayed references from getting corrupted, for that we use block-scoped
+        // ES2015 variable declarations. See #681
+        let replaceArgs =
+            args |> List.exists (fun arg ->
+                match arg.Type with
+                | Fable.FunctionType _ -> true
+                | _ -> false)
+        replaceArgs, args |> List.map (fun arg -> if replaceArgs then com.GetUniqueVar("arg") else arg.Name)
     let replaceArgs, argIds = getTailCallArgIds com args
     interface ITailCallOpportunity with
         member __.Label = name
@@ -83,6 +82,25 @@ module Util =
                 targetRefs.[idx] <- count + 1
                 count > 0
             | _ -> false)
+
+    let rec isJsStatement preferStatement (expr: Fable.Expr) =
+        match expr with
+        | Fable.Value _ | Fable.Import _ | Fable.Cast _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
+        | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ -> false
+
+        | Fable.TryCatch _ | Fable.Debugger
+        | Fable.Sequential _ | Fable.Let _ | Fable.Set _
+        | Fable.Loop _ | Fable.Throw _ -> true
+
+        | Fable.DecisionTreeSuccess _ -> preferStatement
+        // TODO: Make it also statement if we have more than, say, 3 targets?
+        // This will increase the chances to convert it into a switch
+        | Fable.DecisionTree(_,targets) ->
+            preferStatement
+            || List.exists (snd >> (isJsStatement false)) targets
+
+        | Fable.IfThenElse (_,thenExpr,elseExpr) ->
+            preferStatement || isJsStatement false thenExpr || isJsStatement false elseExpr
 
     let addErrorAndReturnNull (com: ICompiler) (range: SourceLocation option) (error: string) =
         com.AddLog(error, Severity.Error, ?range=range, fileName=com.CurrentFile)
@@ -261,9 +279,9 @@ module Util =
             match value with
             | Some (TransformExpr com ctx e) ->
                 match t with
-                // For unit, unresolved generics or nested options, create a runtime wrapper
+                // For unit, unresolved generics, lists or nested options, create a runtime wrapper
                 // See fable-core/Option.ts for more info
-                | Fable.Unit | Fable.GenericParam _ | Fable.Option _ ->
+                | Fable.Unit | Fable.GenericParam _ | Fable.Option _ | Fable.List _ ->
                     coreLibCall com ctx "Option" "some" [e]
                 | _ -> e // For other types, erase the option
             | None -> upcast NullLiteral ()
@@ -475,27 +493,34 @@ module Util =
         com.GetImportExpr(ctx, selector, path, kind)
         |> getParts parts
 
-    let transformBinding (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
-        if value.IsJsStatement then
+
+    let transformBindingExprBody (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+        match value with
+        | Fable.Function(args, body, _) ->
+            let args =
+                match args with
+                | Fable.Lambda arg -> [arg]
+                | Fable.Delegate args -> args
+            com.TransformFunction(ctx, Some var.Name, args, body)
+            ||> makeFunctionExpression (Some var.Name)
+        // Check imports with name placeholder
+        | Fable.Import(Naming.placeholder, path, kind, _) ->
+            transformImport com ctx var.Name path kind
+        | _ ->
+            com.TransformExpr(ctx, value) |> wrapIntExpression value.Type
+
+    let transformBindingAsExpr (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+        transformBindingExprBody com ctx var value
+        |> assign None (ident var)
+
+    let transformBindingAsStatements (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+        if isJsStatement false value then
             let var = ident var
             let decl = VariableDeclaration var :> Statement
             let body = com.TransformExprAndResolve(ctx, Assign var, value)
             decl::body
         else
-            let value =
-                match value with
-                | Fable.Function(args, body, _) ->
-                    let args =
-                        match args with
-                        | Fable.Lambda arg -> [arg]
-                        | Fable.Delegate args -> args
-                    com.TransformFunction(ctx, Some var.Name, args, body)
-                    ||> makeFunctionExpression (Some var.Name)
-                // Check imports with name placeholder
-                | Fable.Import(Naming.placeholder, path, kind, _) ->
-                    transformImport com ctx var.Name path kind
-                | _ ->
-                    com.TransformExpr(ctx, value) |> wrapIntExpression value.Type
+            let value = transformBindingExprBody com ctx var value
             [varDeclaration (ident var) var.IsMutable value :> Statement]
 
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
@@ -561,7 +586,7 @@ module Util =
             targetAssignment :: assignments
         | ret ->
             let bindings, target = getDecisionTargetAndBindValues ctx targetIndex boundValues
-            let bindings = bindings |> List.rev |> List.collect (fun (i, v) -> transformBinding com ctx i v)
+            let bindings = bindings |> List.rev |> List.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
             match ret with
             | Some ret -> bindings @ (com.TransformExprAndResolve(ctx, ret, target))
             | None -> bindings @ com.TransformStatement(ctx, target)
@@ -572,34 +597,37 @@ module Util =
         com.TransformExpr(ctx, expr)
 
     let transformDecisionTreeAsStaments (com: IBabelCompiler) (ctx: Context) returnStrategy
-                        (targets: (Fable.Ident list * Fable.Expr) list) expr: Statement list =
-        let transformDecisionTreeAsSwitch com ctx returnStrategy expr =
+                        (targets: (Fable.Ident list * Fable.Expr) list) treeExpr: Statement list =
+        let transformCase t (caseExpr, targetIndex, boundValues) =
+            caseExpr, Fable.DecisionTreeSuccess(targetIndex, boundValues, t)
+
+        let transformDecisionTreeAsSwitch expr =
             let (|Equals|_|) = function
                 | Fable.Operation(Fable.BinaryOperation(BinaryEqualStrict, Fable.IdentExpr ident, right), _, _) ->
                     Some(ident, right)
                 | _ -> None
             let rec checkInner cases (evalIdent: Fable.Ident) = function
                 | Fable.IfThenElse(Equals(evalIdent2, caseExpr),
-                                    (Fable.DecisionTreeSuccess _ as caseBody), treeExpr)
+                                   Fable.DecisionTreeSuccess(targetIndex, boundValues, _), treeExpr)
                                         when evalIdent.Name = evalIdent2.Name ->
                     match treeExpr with
-                    | Fable.DecisionTreeSuccess _ as defaultCase ->
-                        let cases = (caseExpr, caseBody)::cases |> List.rev
-                        Some(evalIdent, cases, defaultCase)
-                    | treeExpr -> checkInner ((caseExpr, caseBody)::cases) evalIdent treeExpr
+                    | Fable.DecisionTreeSuccess(defaultTargetIndex, defaultBoundValues, _) ->
+                        let cases = (caseExpr, targetIndex, boundValues)::cases |> List.rev
+                        Some(evalIdent, cases, (defaultTargetIndex, defaultBoundValues))
+                    | treeExpr -> checkInner ((caseExpr, targetIndex, boundValues)::cases) evalIdent treeExpr
                 | _ -> None
             match expr with
             | Fable.IfThenElse(Equals(evalIdent, caseExpr),
-                                (Fable.DecisionTreeSuccess _ as caseBody), treeExpr) ->
-                match checkInner [caseExpr, caseBody] evalIdent treeExpr with
+                               Fable.DecisionTreeSuccess(targetIndex, boundValues, _), treeExpr) ->
+                match checkInner [caseExpr, targetIndex, boundValues] evalIdent treeExpr with
                 | Some(evalIdent, cases, defaultCase) ->
-                    transformSwitch com ctx returnStrategy (Fable.IdentExpr evalIdent) cases (Some defaultCase) |> Some
+                    Some(Fable.IdentExpr evalIdent, cases, defaultCase)
                 | None -> None
             | _ -> None
 
         // If some targets are referenced multiple times, host bound idents,
         // resolve the decision index and compile the targets as a switch
-        if decisionTargetsReferencedMultipleTimes targets expr then
+        if decisionTargetsReferencedMultipleTimes targets treeExpr then
             // Declare $target and bound idents
             let targetId = com.GetUniqueVar("target")
             let varDeclaration =
@@ -612,25 +640,35 @@ module Util =
                 let cases = targets |> List.mapi (fun i (_,target) -> makeIntConst i, target)
                 transformSwitch com ctx returnStrategy (makeIdent targetId |> Fable.IdentExpr) cases None
             // Transform decision tree
-            let ret = Target(Identifier targetId)
-            let ctx = { ctx with DecisionTargets = targets }
-            match transformDecisionTreeAsSwitch com ctx (Some ret) expr with
-            | Some switch1 ->
-                [varDeclaration; switch1; switch2]
-                // if targets |> List.exists (fun (boundValues,_) -> List.isMultiple boundValues) |> not
-                // then failwith "TODO: If no target contains bound values, mix both switches"
-                // else [varDeclaration; switch1; switch2]
+            let targetAssign = Target(Identifier targetId)
+            match transformDecisionTreeAsSwitch treeExpr with
+            | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+                if targets |> List.forall (fun (boundValues,_) -> List.isEmpty boundValues) then
+                    let cases = cases |> List.map (fun (caseExpr, idx, _) ->
+                        caseExpr, (List.item idx targets |> snd))
+                    let defaultCase = List.item defaultIndex targets |> snd
+                    [transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)]
+                else
+                    let ctx = { ctx with DecisionTargets = targets }
+                    let cases = List.map (transformCase (Fable.Number Int32)) cases
+                    let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number Int32)
+                    let switch1 = transformSwitch com ctx (Some targetAssign) evalExpr cases (Some defaultCase)
+                    [varDeclaration; switch1; switch2]
             | None ->
-                let decisionTree = com.TransformExprAndResolve(ctx, ret, expr)
+                let ctx = { ctx with DecisionTargets = targets }
+                let decisionTree = com.TransformExprAndResolve(ctx, targetAssign, treeExpr)
                 varDeclaration::(decisionTree @ [switch2])
         else
             let ctx = { ctx with DecisionTargets = targets }
-            match transformDecisionTreeAsSwitch com ctx returnStrategy expr with
-            | Some switch -> [switch]
+            match transformDecisionTreeAsSwitch treeExpr with
+            | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+                let cases = List.map (transformCase treeExpr.Type) cases
+                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, treeExpr.Type)
+                [transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)]
             | None ->
                 match returnStrategy with
-                | Some ret -> com.TransformExprAndResolve(ctx, ret, expr)
-                | None -> com.TransformStatement(ctx, expr)
+                | Some ret -> com.TransformExprAndResolve(ctx, ret, treeExpr)
+                | None -> com.TransformStatement(ctx, treeExpr)
 
     let rec transformStatement com ctx (expr: Fable.Expr): Statement list =
         match expr with
@@ -659,7 +697,7 @@ module Util =
             com.TransformExprAndResolve(ctx, ret, value)
 
         | Fable.Let(bindings, body) ->
-            let bindings = bindings |> List.collect (fun (i, v) -> transformBinding com ctx i v)
+            let bindings = bindings |> List.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
             bindings @ (transformStatement com ctx body)
 
         | Fable.TryCatch (body, catch, finalizer) ->
@@ -733,15 +771,16 @@ module Util =
         | Fable.Let(bindings, body) ->
             if ctx.HoistVars(List.map fst bindings) then
                 let values = bindings |> List.map (fun (id, value) ->
-                    com.TransformExpr(ctx, value) |> assign None (ident id))
+                    transformBindingAsExpr com ctx id value)
                 upcast SequenceExpression(values @ [com.TransformExpr(ctx, body)])
             else upcast iife com ctx expr
 
-        // These cannot appear in expression position in JS
-        // They must be wrapped in a lambda
-        | Fable.Debugger _ | Fable.Throw _
-        | Fable.Sequential _ | Fable.Loop _
-        | Fable.TryCatch _ ->
+        | Fable.Sequential exprs ->
+            List.map (fun e -> com.TransformExpr(ctx, e)) exprs
+            |> SequenceExpression :> Expression
+
+        // These cannot appear in expression position in JS, must be wrapped in a lambda
+        | Fable.Debugger _ | Fable.Throw _ | Fable.Loop _ | Fable.TryCatch _ ->
             iife com ctx expr :> Expression
 
     let rec transformExprAndResolve (com: IBabelCompiler) ctx ret
@@ -764,7 +803,7 @@ module Util =
             [transformTest com ctx range kind expr |> resolveExpr Fable.Boolean ret]
 
         | Fable.Let (bindings, body) ->
-            let bindings = bindings |> List.collect (fun (i, v) -> transformBinding com ctx i v)
+            let bindings = bindings |> List.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
             bindings @ (transformExprAndResolve com ctx ret body)
 
         | Fable.ObjectExpr (members, t, baseCall) ->
@@ -783,7 +822,12 @@ module Util =
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
         | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt) ->
-            if Option.isSome ctx.TailCallOpportunity || expr.IsJsStatement then
+            let preferStatement =
+                match ret with
+                | Return -> Option.isSome ctx.TailCallOpportunity
+                | Target _ -> true // Compile as statement so values can be bound              
+                | Assign _ -> false
+            if isJsStatement preferStatement expr then
                 [transformIfStatement com ctx (Some ret) guardExpr thenStmnt elseStmnt :> Statement ]
             else
                 let guardExpr = transformExpr com ctx guardExpr
@@ -808,11 +852,8 @@ module Util =
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
             transformDecisionTreeSuccessAsStatements com ctx (Some ret) idx boundValues
 
-        // These cannot be resolved (don't return anything)
-        // Just compile as a statement
-        | Fable.Debugger _ | Fable.Throw _
-        | Fable.Sequential _ | Fable.Loop _
-        | Fable.Set _ | Fable.TryCatch _ ->
+        // These cannot be resolved (don't return anything), compile as a statement
+        | Fable.Debugger _ | Fable.Throw _ | Fable.Loop _ | Fable.Set _ | Fable.TryCatch _ ->
             com.TransformStatement(ctx, expr)
 
     let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr) =
@@ -832,18 +873,11 @@ module Util =
                        HoistVars = fun ids -> declaredVars.AddRange(ids); true
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true }
         let body: U2<BlockStatement, Expression> =
-            match body with
-            | ExprType Fable.Unit
-            | Fable.Throw _ | Fable.Debugger _ | Fable.Loop _ | Fable.Set _ ->
-                transformBlock com ctx None body |> U2.Case1
-            | Fable.Sequential _ | Fable.Let _ | Fable.TryCatch _ ->
-                transformBlock com ctx (Some Return) body |> U2.Case1
-            | Fable.IfThenElse _ when Option.isSome tailcallChance || body.IsJsStatement ->
-                transformBlock com ctx (Some Return) body |> U2.Case1
-            | _ ->
-                if Option.isSome tailcallChance
-                then transformBlock com ctx (Some Return) body |> U2.Case1
-                else transformExpr com ctx body |> U2.Case2
+            if body.Type = Fable.Unit
+            then transformBlock com ctx None body |> U2.Case1
+            elif isJsStatement (Option.isSome tailcallChance) body
+            then transformBlock com ctx (Some Return) body |> U2.Case1
+            else transformExpr com ctx body |> U2.Case2
         let args, body =
             match isTailCallOptimized, tailcallChance, body with
             | true, Some tc, U2.Case1 body ->

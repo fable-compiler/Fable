@@ -220,20 +220,6 @@ type Expr =
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
 
-    member this.IsJsStatement =
-        match this with
-        | Value _ | Import _ | Cast _ | Test _ | IdentExpr _ | Function _
-        | ObjectExpr _ | Operation _ | Get _ -> false
-
-        | TryCatch _ | Debugger
-        | Sequential _ | Let _ | Set _
-        | Loop _ | Throw _ -> true
-
-        | DecisionTree(_,targets) -> targets |> List.exists (fun (_,e) -> e.IsJsStatement)
-        | DecisionTreeSuccess _ -> false
-
-        | IfThenElse (_,thenExpr,elseExpr) ->
-            thenExpr.IsJsStatement || elseExpr.IsJsStatement
 
     member this.Type =
         match this with

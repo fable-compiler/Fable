@@ -330,14 +330,25 @@ module private Transforms =
             let body2 = Option.map (replaceBody uncurried) body2
             idents, body1, body2
 
+    let rec lambdaMayEscapeScope identName = function
+        | Operation(CurriedApply(IdentExpr ident,_),_,_) when ident.Name = identName -> false
+        | IdentExpr ident when ident.Name = identName -> true
+        | e -> getSubExpressions e |> List.exists (lambdaMayEscapeScope identName)
+
     let uncurryInnerFunctions (_: ICompiler) = function
-        // | Let([ident, NestedLambda(args, fnBody, _)], letBody) when List.isMultiple args ->
-        //     let idents, fnBody, letBody = uncurryBodies [ident] fnBody (Some letBody)
-        //     Let([List.head idents, Function(Delegate args, fnBody, None)], letBody.Value)
-        // | NestedLambda(args, fnBody, Some name) as e when List.isMultiple args ->
-        //     let ident = makeTypedIdent e.Type name
-        //     let idents, fnBody, _ = uncurryBodies [ident] fnBody None
-        //     Function(Delegate args, fnBody, Some (List.head idents).Name)
+        | Let([ident, NestedLambda(args, fnBody, _)], letBody) as e when List.isMultiple args ->
+            // We need to check the function doesn't leave the current context
+            if lambdaMayEscapeScope ident.Name letBody |> not then
+                let idents, fnBody, letBody = uncurryBodies [ident] fnBody (Some letBody)
+                Let([List.head idents, Function(Delegate args, fnBody, None)], letBody.Value)
+            else e
+        | Operation(CurriedApply((NestedLambda(args, fnBody, Some name) as lambda), argExprs), t, r)
+                        when List.isMultiple args && List.sameLength args argExprs ->
+            let ident = makeTypedIdent lambda.Type name
+            let idents, fnBody, _ = uncurryBodies [ident] fnBody None
+            let info = argInfo None argExprs (args |> List.map (fun a -> a.Type) |> Some)
+            Function(Delegate args, fnBody, Some (List.head idents).Name)
+            |> staticCall r t info
         | e -> e
 
     let uncurryReceivedArgs_required (_: ICompiler) e =
@@ -414,8 +425,8 @@ let optimizeExpr (com: ICompiler) e =
       // Required as fable-core and bindings expect it
       uncurryReceivedArgs_required
       uncurrySendingArgs_required
-      uncurryApplications_required
       uncurryInnerFunctions
+      uncurryApplications_required
     ] |> List.fold (fun e f -> visit (f com) e) e
 
 let rec optimizeDeclaration (com: ICompiler) = function

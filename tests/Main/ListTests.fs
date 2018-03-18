@@ -19,6 +19,13 @@ let rec sumFirstList (zs: float list) (n: int): float =
 
 let tests =
   testList "Lists" [
+      // TODO: Empty lists may be represented as null, make sure they don't conflict with None
+      // testCase "Some [] works" <| fun () ->
+      //     let xs: int list option = Some []
+      //     let ys: int list option = None
+      //     Option.isSome xs |> equal true
+      //     Option.isNone ys |> equal true
+
       testCase "Pattern matching with lists works" <| fun () ->
           match [] with [] -> true | _ -> false
           |> equal true

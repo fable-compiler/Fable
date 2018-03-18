@@ -37,12 +37,17 @@ let log (o: obj) =
     printfn "%O" o
     #endif
 
-let factorial n =
-    let rec loop i acc =
-        match i with
-        | 0 | 1 -> acc
-        | _ -> loop (i-1) (acc * i)
-    loop n 1
+let testFactorialInExpressionPosition () =
+    log(
+        let rec loop i acc =
+            match i with
+            | 0 | 1 -> acc
+            | _ -> loop (i-1) (acc * i)
+        printfn "foo"
+        loop 10 1
+    )
+
+testFactorialInExpressionPosition ()
 
 let rec foldIndexedAux f i acc = function
    | [] -> acc
@@ -93,7 +98,9 @@ let parse = function
 
 let test() =
     let x = { Foo = "foo"; Bar = 5 }
-    (x, A) |> parse
+    (x, B 2.) |> parse
+
+test() |> log
 
 // type IFoo =
 //     abstract Foo: int -> int
