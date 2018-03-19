@@ -416,6 +416,10 @@ module Util =
                 | Some thisArg -> thisArg::argInfo.Args
                 | None -> argInfo.Args
             optimizeTailCall com ctx tc args
+        | Some Return, Some tc, Fable.CurriedApply(funcExpr, args)
+                                when tc.IsRecursiveRef(funcExpr)
+                                && List.sameLength args tc.Args ->
+            optimizeTailCall com ctx tc args
         | _ ->
             [transformOperation com ctx range opKind |> resolveExpr t returnStrategy]
 
@@ -770,7 +774,7 @@ module Util =
             let asStatement =
                 match returnStrategy with
                 | None -> true
-                | Some(Target _) -> true // Compile as statement so values can be bound              
+                | Some(Target _) -> true // Compile as statement so values can be bound
                 | Some(Assign _) -> isJsStatement false expr
                 | Some Return -> isJsStatement (Option.isSome ctx.TailCallOpportunity) expr
             if asStatement then
