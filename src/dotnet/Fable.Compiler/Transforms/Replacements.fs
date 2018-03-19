@@ -53,6 +53,10 @@ module private Helpers =
         let kind = makeStrConst memb |> Some |> InstanceCall
         Operation(Call(kind, argInfo (Some callee) args None), t, None)
 
+    let icall r t (i: CallInfo) thisArg args meth =
+        let info = argInfo thisArg args (Some i.ArgTypes)
+        instanceCall r t info (makeStrConst meth |> Some)
+
     let emitJs r t args macro =
         let info = argInfo None args None
         Operation(Emit(macro, Some info), t, r)
@@ -930,82 +934,74 @@ let strings (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             fsFormat com r t i thisArg args
     | "get_Length", Some c, _ -> get r t c "length" |> Some
     | "Length", None, [arg] -> get r t arg "length" |> Some
-    // | "Equals", Some x, [y]
-    // | "Equals", None, [x; y] ->
-    //     makeEqOp r [x; y] BinaryEqualStrict |> Some
-    // | "Equals", Some x, [y; kind]
-    // | "Equals", None, [x; y; kind] ->
-    //     makeEqOp r [ccall i "String" "compare" [x; y; kind]; makeIntConst 0] BinaryEqualStrict |> Some
-    // | "Contains", _ ->
-    //     if (List.length args) > 1 then addWarning com i.fileName r "String.Contains: second argument is ignored"
-    //     makeEqOp r [icall2 "indexOf" (thisArg.Value, [args.Head]); makeIntConst 0] BinaryGreaterOrEqual |> Some
-    // | "StartsWith", _ ->
-    //     match args with
-    //     | [str] -> makeEqOp r [icall2 "indexOf" (thisArg.Value, [args.Head]); makeIntConst 0] BinaryEqualStrict |> Some
-    //     | [str; comp] -> ccall i "String" "startsWith" (thisArg.Value::args) |> Some
-    //     | _ -> None
-    // | "substring" -> icall i "substr" |> Some
-    // | "toUpper" -> icall i "toLocaleUpperCase" |> Some
-    // | "toUpperInvariant" -> icall i "toUpperCase" |> Some
-    // | "toLower" -> icall i "toLocaleLowerCase" |> Some
-    // | "toLowerInvariant" -> icall i "toLowerCase" |> Some
-    // | "chars" ->
-    //     CoreLibCall("String", Some "getCharAtIndex", false, thisArg.Value::args)
-    //     |> makeCall r t
-    //     |> Some
-    // | "indexOf" | "lastIndexOf" ->
-    //     match args with
-    //     | [ExprType Char]
-    //     | [ExprType String]
-    //     | [ExprType Char; ExprType(Number Int32)]
-    //     | [ExprType String; ExprType(Number Int32)] -> icall i i.memberName |> Some
-    //     | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
-    //            |> addErrorAndReturnNull com i.fileName r |> Some
-    // | "trim" | "trimStart" | "trimEnd" ->
-    //     let side =
-    //         match i.memberName with
-    //         | "trimStart" -> "start"
-    //         | "trimEnd" -> "end"
-    //         | _ -> "both"
-    //     CoreLibCall("String", Some "trim", false, thisArg.Value::(makeStrConst side)::args)
-    //     |> makeCall r t |> Some
-    // | "toCharArray" ->
-    //     InstanceCall(thisArg.Value, "split", [makeStrConst ""])
-    //     |> makeCall r t |> Some
-    // | "iterate" | "iterateIndexed" | "forAll" | "exists" ->
-    //     CoreLibCall("Seq", Some i.memberName, false, args)
-    //     |> makeCall r t |> Some
-    // | "map" | "mapIndexed" | "collect"  ->
-    //     CoreLibCall("Seq", Some i.memberName, false, args)
-    //     |> makeCall r Any
-    //     |> List.singleton
-    //     |> emitJs i "Array.from($0).join('')"
-    //     |> Some
-    // | "concat" ->
-    //     let args =
-    //         if i.ownerFullName = "System.String"
-    //         then (makeStrConst "")::args else args
-    //     CoreLibCall("String", Some "join", false, args)
-    //     |> makeCall r t |> Some
-    // | "split" ->
-    //     match args with
-    //     | [] -> InstanceCall(thisArg.Value, "split", [Value(StringConst " ")]) // Optimization
-    //     // | [MaybeWrapped(Value(StringConst _) as separator)]
-    //     // | [Value(ArrayConst(ArrayValues [separator],_))] ->
-    //     //     InstanceCall(thisArg.Value, "split", [separator]) // Optimization
-    //     | [arg1; ExprType(EnumType _) as arg2] ->
-    //         let arg1 =
-    //             match arg1.Type with
-    //             | Array _ -> arg1
-    //             | _ -> Value(ArrayConst(ArrayValues [arg1], String))
-    //         let args = [arg1; Value Null; arg2]
-    //         CoreLibCall("String", Some "split", false, thisArg.Value::args)
-    //     | args -> CoreLibCall("String", Some "split", false, thisArg.Value::args)
-    //     |> makeCall r String
-    //     |> Some
-    // | "filter" ->
-    //     ccall i "String" "filter" args
-    //     |> Some
+    | "Equals", Some x, [y]
+    | "Equals", None, [x; y] ->
+        makeEqOp r x y BinaryEqualStrict |> Some
+    | "Equals", Some x, [y; kind]
+    | "Equals", None, [x; y; kind] ->
+        makeEqOp r (coreCall_ (Number Int32) "String" "compare" [x; y; kind]) (makeIntConst 0) BinaryEqualStrict |> Some
+    | "Contains", Some c, arg::_ ->
+        if (List.length args) > 1 then
+            addWarning com r "String.Contains: second argument is ignored"
+        makeEqOp r (instanceCall_ (Number Int32) c "indexOf" [arg]) (makeIntConst 0) BinaryGreaterOrEqual |> Some
+    | "StartsWith", Some c, [_str] ->
+        makeEqOp r (instanceCall_ (Number Int32) c "indexOf" args) (makeIntConst 0) BinaryEqualStrict |> Some
+    | "StartsWith", c, [_str; _comp] ->
+        coreCall r t "String" "startsWith" c args i.ArgTypes|> Some
+    | "Substring", _, _ -> icall r t i thisArg args "substr" |> Some
+    | "ToUpper", _, _ -> icall r t i thisArg args "toLocaleUpperCase" |> Some
+    | "ToUpperInvariant", _, _ -> icall r t i thisArg args "toUpperCase" |> Some
+    | "ToLower", _, _ -> icall r t i thisArg args "toLocaleLowerCase" |> Some
+    | "ToLowerInvariant", _, _ -> icall r t i thisArg args "toLowerCase" |> Some
+    | "Chars", _, _ -> coreCall r t "String" "getCharAtIndex" thisArg args i.ArgTypes |> Some
+    | ("IndexOf" | "LastIndexOf"), _, _ ->
+        match args with
+        | [ExprType Char]
+        | [ExprType String]
+        | [ExprType Char; ExprType(Number Int32)]
+        | [ExprType String; ExprType(Number Int32)] ->
+            Naming.lowerFirst i.CompiledName
+            |> icall r t i thisArg args |> Some
+        | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
+               |> addErrorAndReturnNull com r |> Some
+    | ("Trim" | "TrimStart" | "TrimEnd"), Some c, _ ->
+        let side =
+            match i.CompiledName with
+            | "TrimStart" -> "start"
+            | "TrimEnd" -> "end"
+            | _ -> "both"
+        coreCall_ t "String" "trim" (c::(makeStrConst side)::args) |> Some
+    | "ToCharArray", Some c, _ ->
+        instanceCall_ t c "split" [makeStrConst ""] |> Some
+    | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _, _ ->
+        // TODO!!! Cast the string to seq<char>
+        coreCall r t "Seq" (Naming.lowerFirst i.CompiledName) thisArg args i.ArgTypes |> Some
+    | ("Map" | "MapIndexed" | "Collect"), _, _ ->
+        // TODO!!! Cast the string to seq<char>
+        let name = Naming.lowerFirst i.CompiledName
+        emitJs r t [coreCall_ Any "Seq" name args] "Array.from($0).join('')" |> Some
+    | "Concat", _, _ ->
+        let args =
+            if i.DeclaringEntityFullName = "System.String"
+            then (makeStrConst "")::args else args
+        coreCall_ t "String" "join" args |> Some
+    | "Split", Some c, _ ->
+        match args with
+        // Optimization
+        | [] -> instanceCall_ t c "split" [Value(StringConstant " ")] |> Some
+        | [Value(StringConstant _) as separator]
+        | [Value(NewArray(ArrayValues [separator],_))] ->
+            instanceCall_ t c "split" [separator] |> Some
+        | [arg1; ExprType(EnumType _) as arg2] ->
+            let arg1 =
+                match arg1.Type with
+                | Array _ -> arg1
+                | _ -> Value(NewArray(ArrayValues [arg1], String))
+            let args = [arg1; Value(Null Any); arg2]
+            coreCall_ t "String" "split" (c::args) |> Some
+        | args ->
+            coreCall r t "String" "split" thisArg args i.ArgTypes |> Some
+    | "Filter", _, _ -> coreCall r t "String" "filter" thisArg args i.ArgTypes |> Some
     | _ -> None
 
 let arrayCons (com: ICompiler) genArg =
@@ -1235,9 +1231,6 @@ let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
         coreCall_ Any "Util" "comparerFromEqualityComparer" [e]
     let inline makeDic forceFSharpMap args =
         makeDictionaryOrHashSet com r t i "Map" forceFSharpMap args
-    let icall meth =
-        let info = argInfo thisArg args (Some i.ArgTypes)
-        instanceCall r t info (makeStrConst meth |> Some)
     match i.CompiledName with
     | ".ctor" ->
         match i.ArgTypes with
@@ -1264,14 +1257,14 @@ let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
         | _ -> None
     | "TryGetValue" ->
         coreCall r t "Util" "tryGetValue" thisArg args i.ArgTypes |> Some
-    | "get_Item" -> icall "get" |> Some
-    | "set_Item" -> icall "set" |> Some
-    | "get_Keys" -> icall "keys" |> Some
-    | "get_Values" -> icall "values" |> Some
-    | "ContainsKey" -> icall "has" |> Some
-    | "Clear" -> icall "clear" |> Some
-    | "Add" -> icall "set" |> Some
-    | "Remove" -> icall "delete" |> Some
+    | "get_Item" -> icall r t i thisArg args "get" |> Some
+    | "set_Item" -> icall r t i thisArg args "set" |> Some
+    | "get_Keys" -> icall r t i thisArg args "keys" |> Some
+    | "get_Values" -> icall r t i thisArg args "values" |> Some
+    | "ContainsKey" -> icall r t i thisArg args "has" |> Some
+    | "Clear" -> icall r t i thisArg args "clear" |> Some
+    | "Add" -> icall r t i thisArg args "set" |> Some
+    | "Remove" -> icall r t i thisArg args "delete" |> Some
     | _ -> None
 
 let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1286,9 +1279,6 @@ let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Ex
         coreCall_ Any "Util" "comparerFromEqualityComparer" [e]
     let inline makeHashSet forceFSharpMap args =
         makeDictionaryOrHashSet com r t i "Set" forceFSharpMap args
-    let icall meth =
-        let info = argInfo thisArg args (Some i.ArgTypes)
-        instanceCall r t info (makeStrConst meth |> Some)
     match i.CompiledName with
     | ".ctor" ->
         match i.ArgTypes with
@@ -1303,9 +1293,9 @@ let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Ex
         | _ -> None
     | "get_Count" -> get r t thisArg.Value "size" |> Some
     | "get_IsReadOnly" -> BoolConstant false |> Value |> Some
-    | "Clear" -> icall "clear" |> Some
-    | "Contains" -> icall "has" |> Some
-    | "Remove" -> icall "delete" |> Some
+    | "Clear" -> icall r t i thisArg args "clear" |> Some
+    | "Contains" -> icall r t i thisArg args "has" |> Some
+    | "Remove" -> icall r t i thisArg args "delete" |> Some
     // TODO: Check if the value allows for a JS Set (also "TryGetValue" below)
     | "Add" ->
         match thisArg, args with
