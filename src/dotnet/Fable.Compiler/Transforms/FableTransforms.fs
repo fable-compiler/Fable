@@ -199,6 +199,11 @@ module private Transforms =
         | Value(NewList(Some(head, tail), t)) -> untail t [head] tail
         | _ -> None
 
+    let (|LambdaOrDelegate|_|) = function
+        | Function(Lambda arg, body, name) -> Some([arg], body, name)
+        | Function(Delegate args, body, name) -> Some(args, body, name)
+        | _ -> None
+
     let rec (|NestedLambda|_|) expr =
         let rec nestedLambda accArgs body name =
             match body with
@@ -244,7 +249,7 @@ module private Transforms =
             applyArgs args argExprs body
         | e -> e
 
-    // TODO: Other erasable getters? (List head...)
+    // TODO: Other erasable getters? (List.head, List.item...)
     let getterBetaReduction (_: ICompiler) = function
         | Get(Value(NewTuple exprs), TupleGet index, _, _) -> List.item index exprs
         | Get(Value(NewOption(Some expr, _)), OptionValue, _, _) -> expr
@@ -407,14 +412,23 @@ module private Transforms =
             | _ -> e
         | e -> e
 
+    let unwrapFunctions (_: ICompiler) e =
+        let sameArgs args1 args2 =
+            List.sameLength args1 args2
+            && List.forall2 (fun (a1: Ident) -> function
+                | IdentExpr a2 -> a1.Name = a2.Name
+                | _ -> false) args1 args2
+        match e with
+        // TODO: When Option.isSome info.ThisArg we could bind it (also for InstanceCall)
+        | LambdaOrDelegate(args, Operation(Call(StaticCall funcExpr, info), _, _), _)
+            when Option.isNone info.ThisArg && sameArgs args info.Args -> funcExpr
+        | e -> e
+
 open Transforms
 
 // ATTENTION: Order of transforms matters for optimizations
-let optimizeExpr (com: ICompiler) e =
-    // TODO: Optimize decision trees
-    // TODO: Optimize binary operations with numerical or string literals
-    // TODO: Optimize gets if the expression is a value instead of ident
-    // Example: `List.item 1 [1; 2]` can become `1`
+// TODO: Optimize binary operations with numerical or string literals
+let optimizations =
     [ // First apply beta reduction
       bindingBetaReduction
       lambdaBetaReduction
@@ -427,7 +441,15 @@ let optimizeExpr (com: ICompiler) e =
       uncurrySendingArgs_required
       uncurryInnerFunctions
       uncurryApplications_required
-    ] |> List.fold (fun e f -> visit (f com) e) e
+    ]
+
+let optimizeExpr (com: ICompiler) e =
+    let optimized = List.fold (fun e f -> visit (f com) e) e optimizations
+    match optimized with
+    // We cannot apply the unwrap optimization to the outmost function,
+    // as we would be losing the ValueDeclarationInfo
+    | Function(kind, body, name) -> Function(kind, visit (unwrapFunctions com) body, name)
+    | e -> visit (unwrapFunctions com) e
 
 let rec optimizeDeclaration (com: ICompiler) = function
     | ActionDeclaration expr ->

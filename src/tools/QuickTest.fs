@@ -37,6 +37,15 @@ let log (o: obj) =
     printfn "%O" o
     #endif
 
+let multiply x y = x * y
+
+let doSomething f x y = f x y
+
+let passSomething x y =
+    doSomething multiply x y
+
+passSomething 5 3 |> log
+
 let testFactorialInExpressionPosition () =
     log(
         let rec loop i acc =
