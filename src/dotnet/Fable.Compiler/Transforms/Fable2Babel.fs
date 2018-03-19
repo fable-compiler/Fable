@@ -53,17 +53,15 @@ type IBabelCompiler =
     abstract GetAllImports: unit -> seq<Import>
     abstract GetAllDependencies: unit -> seq<string>
     abstract GetImportExpr: Context * selector: string * path: string * Fable.ImportKind -> Expression
-    abstract TransformExpr: Context * Fable.Expr -> Expression
-    abstract TransformStatement: Context * Fable.Expr -> Statement list
-    abstract TransformExprAndResolve: Context * ReturnStrategy * Fable.Expr -> Statement list
+    abstract TransformAsExpr: Context * Fable.Expr -> Expression
+    abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement list
     abstract TransformObjectExpr: Context * Fable.ObjectMember list * ?baseCall: Fable.Expr * ?boundThis: Identifier -> Expression
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr
         -> (Pattern list) * U2<BlockStatement, Expression>
 
 module Util =
     let inline (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
-    let inline (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformExpr(ctx, e)
-    let inline (|TransformStatement|) (com: IBabelCompiler) ctx e = com.TransformStatement(ctx, e)
+    let inline (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformAsExpr(ctx, e)
 
     let (|FunctionArgs|) = function
         | Fable.Lambda arg -> [arg]
@@ -153,14 +151,14 @@ module Util =
             let args =
                 match arrayKind with
                 | Fable.ArrayValues args ->
-                    [ List.map (fun e -> com.TransformExpr(ctx, e)) args
+                    [ List.map (fun e -> com.TransformAsExpr(ctx, e)) args
                       |> ArrayExpression :> Expression ]
                 | Fable.ArrayAlloc(TransformExpr com ctx size) -> [size]
             NewExpression(cons, args) :> Expression
         | _ ->
             match arrayKind with
             | Fable.ArrayValues args ->
-                List.map (fun e -> com.TransformExpr(ctx, e)) args
+                List.map (fun e -> com.TransformAsExpr(ctx, e)) args
                 |> ArrayExpression :> Expression
             | Fable.ArrayAlloc(TransformExpr com ctx size) ->
                 upcast NewExpression(Identifier "Array", [size])
@@ -244,7 +242,7 @@ module Util =
                     |> checkCrossRefs <| rest
             checkCrossRefs Map.empty zippedArgs
         [ for (argId, arg) in zippedArgs do
-            let arg = com.TransformExpr(ctx, arg)
+            let arg = com.TransformAsExpr(ctx, arg)
             match Map.tryFind argId tempVars with
             | Some tempVar ->
                 yield varDeclaration (Identifier tempVar) false arg :> Statement
@@ -298,7 +296,7 @@ module Util =
         | Fable.NewUnion(vals,uci,_,_) ->
             let tag = Fable.Value(Fable.StringConstant uci.Name)
             Fable.ArrayValues (tag::vals) |> buildArray com ctx Fable.Any
-        | Fable.NewErasedUnion(e,_) -> com.TransformExpr(ctx, e)
+        | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
     let transformObjectExpr (com: IBabelCompiler) ctx members baseCall (boundThis: Identifier option): Expression =
         let makeObjMethod kind prop computed hasSpread args body =
@@ -339,18 +337,26 @@ module Util =
         | [], _
         | [Fable.Value Fable.UnitConstant], _ -> []
         | [Fable.Value(Fable.NewTuple args)], Fable.TupleSpread ->
-            List.map (fun e -> com.TransformExpr(ctx, e)) args
+            List.map (fun e -> com.TransformAsExpr(ctx, e)) args
         | args, Fable.SeqSpread ->
             match List.rev args with
             | [] -> []
             // TODO: Check also lists?
             | Fable.Value(Fable.NewArray(Fable.ArrayValues spreadArgs,_))::rest ->
-                let rest = List.rev rest |> List.map (fun e -> com.TransformExpr(ctx, e))
-                rest @ (List.map (fun e -> com.TransformExpr(ctx, e)) spreadArgs)
+                let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+                rest @ (List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs)
             | last::rest ->
-                let rest = List.rev rest |> List.map (fun e -> com.TransformExpr(ctx, e))
-                rest @ [SpreadElement(com.TransformExpr(ctx, last))]
-        | args, _ -> List.map (fun e -> com.TransformExpr(ctx, e)) args
+                let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+                rest @ [SpreadElement(com.TransformAsExpr(ctx, last))]
+        | args, _ -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args
+
+    let resolveExpr t strategy babelExpr: Statement =
+        match strategy with
+        | None -> upcast ExpressionStatement babelExpr
+        // TODO: Where to put these int wrappings? Add them also for function arguments?
+        | Some Return -> upcast ReturnStatement(wrapIntExpression t babelExpr)
+        | Some(Assign left) -> upcast ExpressionStatement(assign None left babelExpr)
+        | Some(Target left) -> upcast ExpressionStatement(assign None left babelExpr)
 
     let transformOperation com ctx range opKind: Expression =
         match opKind with
@@ -397,18 +403,11 @@ module Util =
                 (baseExpr, rest) ||> List.fold (fun e arg ->
                     CallExpression(e, [arg], ?loc=range) :> Expression)
 
-    let resolveExpr t strategy babelExpr: Statement =
-        match strategy with
-        // TODO: Where to put these int wrappings? Add them also for function arguments?
-        | Return -> upcast ReturnStatement(wrapIntExpression t babelExpr)
-        | Assign left -> upcast ExpressionStatement(assign None left babelExpr)
-        | Target left -> upcast ExpressionStatement(assign None left babelExpr)
-
-    let transformOperationAndResolve com ctx range t returnStrategy opKind =
+    let transformOperationAsStatements com ctx range t returnStrategy opKind =
         let argsLen (i: Fable.ArgInfo) =
             List.length i.Args + (if Option.isSome i.ThisArg then 1 else 0)
         match returnStrategy, ctx.TailCallOpportunity, opKind with
-        | Return, Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
+        | Some Return, Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
                                 when not argInfo.IsSiblingConstructorCall
                                 && tc.IsRecursiveRef(funcExpr)
                                 && argsLen argInfo = List.length tc.Args ->
@@ -423,9 +422,7 @@ module Util =
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
     let transformBlock (com: IBabelCompiler) ctx ret expr: BlockStatement =
-        match ret with
-        | None -> com.TransformStatement(ctx, expr) |> BlockStatement
-        | Some ret -> com.TransformExprAndResolve(ctx, ret, expr) |> BlockStatement
+        com.TransformAsStatements(ctx, ret, expr) |> BlockStatement
 
     let transformTryCatch com ctx returnStrategy (body, catch, finalizer) =
         // try .. catch statements cannot be tail call optimized
@@ -442,7 +439,7 @@ module Util =
     // Even if IfStatement doesn't enforce it, compile both branches as blocks
     // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
     let rec transformIfStatement (com: IBabelCompiler) ctx ret guardExpr thenStmnt elseStmnt =
-        let guardExpr = com.TransformExpr(ctx, guardExpr)
+        let guardExpr = com.TransformAsExpr(ctx, guardExpr)
         let thenStmnt = transformBlock com ctx ret thenStmnt
         let elseStmnt =
             match elseStmnt: Fable.Expr with
@@ -454,7 +451,7 @@ module Util =
         IfStatement(guardExpr, thenStmnt, ?alternate=elseStmnt)
 
     let transformGet (com: IBabelCompiler) ctx range expr (getKind: Fable.GetKind) =
-        let expr = com.TransformExpr(ctx, expr)
+        let expr = com.TransformAsExpr(ctx, expr)
         match getKind with
         | Fable.ExprGet(TransformExpr com ctx prop) -> getExpr range expr prop
         // TODO!!!: Check if list is empty, see #1341
@@ -472,8 +469,8 @@ module Util =
             getExpr range expr (index + 1 |> ofInt)
 
     let transformSet (com: IBabelCompiler) ctx range var (value: Fable.Expr) (setKind: Fable.SetKind) =
-        let var = com.TransformExpr(ctx, var)
-        let value = com.TransformExpr(ctx, value) |> wrapIntExpression value.Type
+        let var = com.TransformAsExpr(ctx, var)
+        let value = com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
         let var =
             match setKind with
             | Fable.VarSet -> var
@@ -507,7 +504,7 @@ module Util =
         | Fable.Import(Naming.placeholder, path, kind, _) ->
             transformImport com ctx var.Name path kind
         | _ ->
-            com.TransformExpr(ctx, value) |> wrapIntExpression value.Type
+            com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
 
     let transformBindingAsExpr (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         transformBindingExprBody com ctx var value
@@ -517,7 +514,7 @@ module Util =
         if isJsStatement false value then
             let var = ident var
             let decl = VariableDeclaration var :> Statement
-            let body = com.TransformExprAndResolve(ctx, Assign var, value)
+            let body = com.TransformAsStatements(ctx, Some(Assign var), value)
             decl::body
         else
             let value = transformBindingExprBody com ctx var value
@@ -528,28 +525,27 @@ module Util =
         | Fable.TypeTest t
         | Fable.ErasedUnionTest t ->
             let test = Replacements.makeTypeTest com range expr t
-            com.TransformExpr(ctx, test)
+            com.TransformAsExpr(ctx, test)
         | Fable.OptionTest nonEmpty
         | Fable.ListTest nonEmpty ->
             let op = if nonEmpty then BinaryUnequal else BinaryEqual
-            upcast BinaryExpression(op, com.TransformExpr(ctx, expr), NullLiteral(), ?loc=range)
+            upcast BinaryExpression(op, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
         | Fable.UnionCaseTest(uci, _) ->
-            let tag1 = getExpr range (com.TransformExpr(ctx, expr)) (ofInt 0)
+            let tag1 = getExpr range (com.TransformAsExpr(ctx, expr)) (ofInt 0)
             upcast BinaryExpression(BinaryEqualStrict, tag1, StringLiteral uci.Name, ?loc=range)
 
     let transformSwitch (com: IBabelCompiler) ctx returnStrategy evalExpr cases defaultCase: Statement =
-        let transformCaseBody expr =
-            match returnStrategy with
-            | Some ret -> com.TransformExprAndResolve(ctx, ret, expr)
-            | None -> com.TransformStatement(ctx, expr)
         let cases =
             cases |> List.map (fun (guard, expr) ->
-                SwitchCase(transformCaseBody expr, com.TransformExpr(ctx, guard)) )
+                let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
+                SwitchCase(caseBody, com.TransformAsExpr(ctx, guard)))
         let cases =
             match defaultCase with
-            | Some expr -> cases @ [SwitchCase(transformCaseBody expr)]
+            | Some expr ->
+                let defaultCaseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
+                cases @ [SwitchCase defaultCaseBody]
             | None -> cases
-        SwitchStatement(com.TransformExpr(ctx, evalExpr), cases) :> Statement
+        SwitchStatement(com.TransformAsExpr(ctx, evalExpr), cases) :> Statement
 
     let getDecisionTarget (ctx: Context) targetIndex boundValues =
         match List.tryItem targetIndex ctx.DecisionTargets with
@@ -572,8 +568,8 @@ module Util =
     let transformDecisionTreeSuccessAsExpr (com: IBabelCompiler) (ctx: Context) targetIndex boundValues =
         let bindings, target = getDecisionTargetAndBindValues ctx targetIndex boundValues
         match bindings with
-        | [] -> com.TransformExpr(ctx, target)
-        | bindings -> com.TransformExpr(ctx, Fable.Let(bindings, target))
+        | [] -> com.TransformAsExpr(ctx, target)
+        | bindings -> com.TransformAsExpr(ctx, Fable.Let(bindings, target))
 
     let transformDecisionTreeSuccessAsStatements (com: IBabelCompiler) (ctx: Context) returnStrategy targetIndex boundValues: Statement list =
         match returnStrategy with
@@ -587,14 +583,12 @@ module Util =
         | ret ->
             let bindings, target = getDecisionTargetAndBindValues ctx targetIndex boundValues
             let bindings = bindings |> List.rev |> List.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
-            match ret with
-            | Some ret -> bindings @ (com.TransformExprAndResolve(ctx, ret, target))
-            | None -> bindings @ com.TransformStatement(ctx, target)
+            bindings @ (com.TransformAsStatements(ctx, ret, target))
 
     let transformDecisionTreeAsExpr (com: IBabelCompiler) (ctx: Context) targets expr: Expression =
         // TODO: Check if some targets are referenced multiple times
         let ctx = { ctx with DecisionTargets = targets }
-        com.TransformExpr(ctx, expr)
+        com.TransformAsExpr(ctx, expr)
 
     let transformDecisionTreeAsStaments (com: IBabelCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) treeExpr: Statement list =
@@ -656,7 +650,7 @@ module Util =
                     [varDeclaration; switch1; switch2]
             | None ->
                 let ctx = { ctx with DecisionTargets = targets }
-                let decisionTree = com.TransformExprAndResolve(ctx, targetAssign, treeExpr)
+                let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
                 varDeclaration::(decisionTree @ [switch2])
         else
             let ctx = { ctx with DecisionTargets = targets }
@@ -666,71 +660,12 @@ module Util =
                 let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, treeExpr.Type)
                 [transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)]
             | None ->
-                match returnStrategy with
-                | Some ret -> com.TransformExprAndResolve(ctx, ret, treeExpr)
-                | None -> com.TransformStatement(ctx, treeExpr)
+                com.TransformAsStatements(ctx, returnStrategy, treeExpr)
 
-    let rec transformStatement com ctx (expr: Fable.Expr): Statement list =
-        match expr with
-        | Fable.Loop (loopKind, range) ->
-            match loopKind with
-            | Fable.While (TransformExpr com ctx guard, body) ->
-                WhileStatement(guard, transformBlock com ctx None body, ?loc=range) :> Statement
-            | Fable.ForOf (var, TransformExpr com ctx enumerable, body) ->
-                // enumerable doesn't go in VariableDeclator.init but in ForOfStatement.right
-                let var = VariableDeclaration(ident var, kind=Let)
-                ForOfStatement(U2.Case1 var, enumerable, transformBlock com ctx None body, ?loc=range) :> Statement
-            | Fable.For (var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp) ->
-                let op1, op2 =
-                    if isUp
-                    then BinaryOperator.BinaryLessOrEqual, UpdateOperator.UpdatePlus
-                    else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
-                ForStatement(
-                    transformBlock com ctx None body,
-                    start |> varDeclaration (ident var) true |> U2.Case1,
-                    BinaryExpression (op1, ident var, limit),
-                    UpdateExpression (op2, false, ident var), ?loc=range) :> Statement
-            |> List.singleton
-
-        | Fable.Set(expr, setKind, value, _range) ->
-            let ret = getSetReturnStrategy com ctx expr setKind
-            com.TransformExprAndResolve(ctx, ret, value)
-
-        | Fable.Let(bindings, body) ->
-            let bindings = bindings |> List.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
-            bindings @ (transformStatement com ctx body)
-
-        | Fable.TryCatch (body, catch, finalizer) ->
-            transformTryCatch com ctx None (body, catch, finalizer)
-
-        | Fable.Throw (TransformExpr com ctx ex, _, range) ->
-            [ThrowStatement(ex, ?loc=range) :> Statement]
-
-        | Fable.Debugger -> [DebuggerStatement() :> Statement]
-
-        // Even if IfStatement doesn't enforce it, compile both branches as blocks
-        // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
-        | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt) ->
-            [transformIfStatement com ctx None guardExpr thenStmnt elseStmnt :> Statement ]
-
-        | Fable.DecisionTree(expr, targets) ->
-            transformDecisionTreeAsStaments com ctx None targets expr
-
-        | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
-            transformDecisionTreeSuccessAsStatements com ctx None idx boundValues
-
-        | Fable.Sequential statements ->
-            List.collect (transformStatement com ctx) statements
-
-        // Expressions become ExpressionStatements
-        | Fable.Value _ | Fable.IdentExpr _ | Fable.Cast _ | Fable.Import _ | Fable.Test _
-        | Fable.Function _ | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _  ->
-            [ExpressionStatement(com.TransformExpr(ctx, expr), ?loc=expr.Range) :> Statement]
-
-    let rec transformExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
+    let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
         // TODO!!!: Warn an unhandlend cast has reached Babel pass
-        | Fable.Cast(expr, _) -> transformExpr com ctx expr
+        | Fable.Cast(expr, _) -> transformAsExpr com ctx expr
 
         | Fable.Value kind -> transformValue com ctx kind
 
@@ -772,89 +707,115 @@ module Util =
             if ctx.HoistVars(List.map fst bindings) then
                 let values = bindings |> List.map (fun (id, value) ->
                     transformBindingAsExpr com ctx id value)
-                upcast SequenceExpression(values @ [com.TransformExpr(ctx, body)])
+                upcast SequenceExpression(values @ [com.TransformAsExpr(ctx, body)])
             else upcast iife com ctx expr
 
         | Fable.Sequential exprs ->
-            List.map (fun e -> com.TransformExpr(ctx, e)) exprs
+            List.map (fun e -> com.TransformAsExpr(ctx, e)) exprs
             |> SequenceExpression :> Expression
 
         // These cannot appear in expression position in JS, must be wrapped in a lambda
         | Fable.Debugger _ | Fable.Throw _ | Fable.Loop _ | Fable.TryCatch _ ->
             iife com ctx expr :> Expression
 
-    let rec transformExprAndResolve (com: IBabelCompiler) ctx ret
+    let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement list =
         match expr with
         // TODO!!!: Warn an unhandlend cast has reached Babel pass
         | Fable.Cast(expr, _) ->
-            transformExprAndResolve com ctx ret expr
+            transformAsStatements com ctx returnStrategy expr
 
         | Fable.Value kind ->
-            [transformValue com ctx kind |> resolveExpr kind.Type ret]
+            [transformValue com ctx kind |> resolveExpr kind.Type returnStrategy]
 
         | Fable.IdentExpr ident ->
-            [Identifier ident.Name :> Expression |> resolveExpr ident.Type ret]
+            [Identifier ident.Name :> Expression |> resolveExpr ident.Type returnStrategy]
 
         | Fable.Import(selector, path, kind, t) ->
-            [transformImport com ctx selector path kind |> resolveExpr t ret]
+            [transformImport com ctx selector path kind |> resolveExpr t returnStrategy]
 
         | Fable.Test(expr, kind, range) ->
-            [transformTest com ctx range kind expr |> resolveExpr Fable.Boolean ret]
-
-        | Fable.Let (bindings, body) ->
-            let bindings = bindings |> List.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
-            bindings @ (transformExprAndResolve com ctx ret body)
-
-        | Fable.ObjectExpr (members, t, baseCall) ->
-            [Some(Identifier "this") |> transformObjectExpr com ctx members baseCall |> resolveExpr t ret]
+            [transformTest com ctx range kind expr |> resolveExpr Fable.Boolean returnStrategy]
 
         | Fable.Function(FunctionArgs args, body, name) ->
             [com.TransformFunction(ctx, name, args, body)
-             ||> makeFunctionExpression name |> resolveExpr expr.Type ret]
+             ||> makeFunctionExpression name |> resolveExpr expr.Type returnStrategy]
+
+        | Fable.ObjectExpr (members, t, baseCall) ->
+            [Some(Identifier "this") |> transformObjectExpr com ctx members baseCall |> resolveExpr t returnStrategy]
 
         | Fable.Operation(callKind, t, range) ->
-            transformOperationAndResolve com ctx range t ret callKind
+            transformOperationAsStatements com ctx range t returnStrategy callKind
 
         | Fable.Get(expr, getKind, t, range) ->
-            [transformGet com ctx range expr getKind |> resolveExpr t ret]
+            [transformGet com ctx range expr getKind |> resolveExpr t returnStrategy]
+
+        | Fable.Let(bindings, body) ->
+            let bindings = bindings |> List.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
+            bindings @ (transformAsStatements com ctx returnStrategy body)
+
+        | Fable.Set(expr, setKind, value, _range) ->
+            let ret = getSetReturnStrategy com ctx expr setKind
+            com.TransformAsStatements(ctx, Some ret, value)
+
+        | Fable.Throw(TransformExpr com ctx ex, _, range) ->
+            [ThrowStatement(ex, ?loc=range) :> Statement]
+
+        | Fable.Debugger ->
+            [DebuggerStatement() :> Statement]
 
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
-        // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
+        // to prevent conflicts (e.g. `then` doesn't become a block while `else` does)
         | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt) ->
-            let preferStatement =
-                match ret with
-                | Return -> Option.isSome ctx.TailCallOpportunity
-                | Target _ -> true // Compile as statement so values can be bound              
-                | Assign _ -> false
-            if isJsStatement preferStatement expr then
-                [transformIfStatement com ctx (Some ret) guardExpr thenStmnt elseStmnt :> Statement ]
+            let asStatement =
+                match returnStrategy with
+                | None -> true
+                | Some(Target _) -> true // Compile as statement so values can be bound              
+                | Some(Assign _) -> isJsStatement false expr
+                | Some Return -> isJsStatement (Option.isSome ctx.TailCallOpportunity) expr
+            if asStatement then
+                [transformIfStatement com ctx returnStrategy guardExpr thenStmnt elseStmnt :> Statement ]
             else
-                let guardExpr = transformExpr com ctx guardExpr
-                let thenExpr = transformExpr com ctx thenStmnt
-                let elseExpr = transformExpr com ctx elseStmnt
-                [ConditionalExpression(guardExpr, thenExpr, elseExpr) |> resolveExpr thenStmnt.Type ret]
+                let guardExpr = transformAsExpr com ctx guardExpr
+                let thenExpr = transformAsExpr com ctx thenStmnt
+                let elseExpr = transformAsExpr com ctx elseStmnt
+                [ConditionalExpression(guardExpr, thenExpr, elseExpr) |> resolveExpr thenStmnt.Type returnStrategy]
 
         | Fable.Sequential statements ->
             let lasti = (List.length statements) - 1
             statements |> List.mapi (fun i statement ->
-                if i < lasti
-                then com.TransformStatement(ctx, statement)
-                else com.TransformExprAndResolve(ctx, ret, statement))
+                let ret = if i < lasti then None else returnStrategy
+                com.TransformAsStatements(ctx, ret, statement))
             |> List.concat
 
         | Fable.TryCatch (body, catch, finalizer) ->
-            transformTryCatch com ctx (Some ret) (body, catch, finalizer)
+            transformTryCatch com ctx returnStrategy (body, catch, finalizer)
 
         | Fable.DecisionTree(expr, targets) ->
-            transformDecisionTreeAsStaments com ctx (Some ret) targets expr
+            transformDecisionTreeAsStaments com ctx returnStrategy targets expr
 
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
-            transformDecisionTreeSuccessAsStatements com ctx (Some ret) idx boundValues
+            transformDecisionTreeSuccessAsStatements com ctx returnStrategy idx boundValues
 
-        // These cannot be resolved (don't return anything), compile as a statement
-        | Fable.Debugger _ | Fable.Throw _ | Fable.Loop _ | Fable.Set _ | Fable.TryCatch _ ->
-            com.TransformStatement(ctx, expr)
+        | Fable.Loop (loopKind, range) ->
+            match loopKind with
+            | Fable.While (TransformExpr com ctx guard, body) ->
+                WhileStatement(guard, transformBlock com ctx None body, ?loc=range) :> Statement
+            | Fable.ForOf (var, TransformExpr com ctx enumerable, body) ->
+                // enumerable doesn't go in VariableDeclator.init but in ForOfStatement.right
+                let var = VariableDeclaration(ident var, kind=Let)
+                ForOfStatement(U2.Case1 var, enumerable, transformBlock com ctx None body, ?loc=range) :> Statement
+            | Fable.For (var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp) ->
+                let op1, op2 =
+                    if isUp
+                    then BinaryOperator.BinaryLessOrEqual, UpdateOperator.UpdatePlus
+                    else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
+                ForStatement(
+                    transformBlock com ctx None body,
+                    start |> varDeclaration (ident var) true |> U2.Case1,
+                    BinaryExpression (op1, ident var, limit),
+                    UpdateExpression (op2, false, ident var), ?loc=range) :> Statement
+            |> List.singleton
 
     let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr) =
         let tailcallChance =
@@ -877,7 +838,7 @@ module Util =
             then transformBlock com ctx None body |> U2.Case1
             elif isJsStatement (Option.isSome tailcallChance) body
             then transformBlock com ctx (Some Return) body |> U2.Case1
-            else transformExpr com ctx body |> U2.Case2
+            else transformAsExpr com ctx body |> U2.Case2
         let args, body =
             match isTailCallOptimized, tailcallChance, body with
             | true, Some tc, U2.Case1 body ->
@@ -935,7 +896,7 @@ module Util =
         declareModuleMember info.IsPublic info.Name false expr
 
     let transformAction (com: IBabelCompiler) ctx expr =
-        let statements = transformStatement com ctx expr
+        let statements = transformAsStatements com ctx None expr
         let hasVarDeclarations =
             statements |> List.exists (function
                 | :? VariableDeclaration -> true
@@ -1046,7 +1007,7 @@ module Util =
                 | Fable.Function(Fable.Delegate args, body, _) ->
                     [transformModuleFunction com ctx info args body]
                 | _ ->
-                    let value = transformExpr com ctx value
+                    let value = transformAsExpr com ctx value
                     [declareModuleMember info.IsPublic info.Name info.IsMutable value]
             | Fable.ImplicitConstructorDeclaration(args, body, info) ->
                 transformImplicitConstructor com ctx info args body
@@ -1136,9 +1097,8 @@ module Util =
                     | None -> upcast NullLiteral ()
             member __.GetAllImports() = upcast imports.Values
             member __.GetAllDependencies() = upcast dependencies
-            member bcom.TransformExpr(ctx, e) = transformExpr bcom ctx e
-            member bcom.TransformStatement(ctx, e) = transformStatement bcom ctx e
-            member bcom.TransformExprAndResolve(ctx, ret, e) = transformExprAndResolve bcom ctx ret e
+            member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
+            member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
             member bcom.TransformObjectExpr(ctx, members, baseCall, boundThis) = transformObjectExpr bcom ctx members baseCall boundThis
         interface ICompiler with
