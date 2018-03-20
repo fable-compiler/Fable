@@ -14,28 +14,23 @@ open Fable.Core.JsInterop
 open Fable.Core.Testing
 open Fable.Import
 
-// let equal expected actual =
-//     let areEqual = expected = actual
-//     printfn "%A = %A > %b" expected actual areEqual
-//     if not areEqual then
-//         failwithf "Expected %A but got %A" expected actual
-
-// // Write here your unit test, you can later move it
-// // to Fable.Tests project. For example:
-// // [<Test>]
-// // let ``My Test``() =
-// //     Seq.except [2] [1; 3; 2] |> Seq.last |> equal 3
-// //     Seq.except [2] [2; 4; 6] |> Seq.head |> equal 4
-
-// // You'll have to run your test manually, sorry!
-// // ``My Test``()
-
 let log (o: obj) =
-    #if FABLE_COMPILER
-    JS.console.log(o)
-    #else
     printfn "%O" o
-    #endif
+
+let equal expected actual =
+    let areEqual = expected = actual
+    printfn "%A = %A > %b" expected actual areEqual
+    if not areEqual then
+        failwithf "Expected %A but got %A" expected actual
+
+let testCase (msg: string) f: unit =
+    printfn "%s" msg; f (); printfn ""
+
+// Write here your unit test, you can later move it
+// to Fable.Tests project. For example:
+// testCase "Addition works" <| fun () ->
+//     2 + 2 |> equal 4
+
 
 let multiply x y = x * y
 
