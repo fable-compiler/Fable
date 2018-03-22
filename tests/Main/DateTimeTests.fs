@@ -60,6 +60,26 @@ let ``DateTime can be JSON serialized forth and back``() =
     utc.Kind = DateTimeKind.Utc |> equal true
     utc.ToString("HH:mm") |> equal "17:30"
 
+type UnionWithDateTime =
+    | CaseWithDateTime of DateTime
+    | AnotherCase
+
+[<Test>]
+let ``DateTime in a union field can be JSON serialized forth and back``() =
+    let utc = DateTime(2016, 8, 4, 17, 30, 0, DateTimeKind.Utc)
+    let union = UnionWithDateTime.CaseWithDateTime utc
+    #if FABLE_COMPILER
+    let json = Fable.Core.JsInterop.toJson union
+    let union = Fable.Core.JsInterop.ofJson<UnionWithDateTime> json
+    #else
+    let json = Newtonsoft.Json.JsonConvert.SerializeObject union
+    let union = Newtonsoft.Json.JsonConvert.DeserializeObject<UnionWithDateTime> json
+    #endif
+    match union with
+    | CaseWithDateTime utc -> Some (utc.Kind, utc.ToString("HH:mm"))
+    | _ -> None
+    |> equal (Some (DateTimeKind.Utc, "17:30"))
+
 [<Test>]
 let ``DateTime from Year 1 to 99 works``() =
     let date = DateTime(1, 1, 1)

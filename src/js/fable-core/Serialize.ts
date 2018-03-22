@@ -15,9 +15,17 @@ import { getType } from "./Symbol";
 import FableSymbol from "./Symbol";
 import { getDefinition, NonDeclaredType, Type } from "./Util";
 
+function isDate(v: any): v is Date {
+  return v instanceof Date;
+}
+
+function deflateDate(v: Date) {
+  return dateToString(v, "O");
+}
+
 function deflateValue(v: any) {
-  if (v instanceof Date) {
-    return dateToString(v, "O");
+  if (isDate(v)) {
+    return deflateDate(v);
   }
   return v;
 }
@@ -27,6 +35,8 @@ export function deflate(v: any): any {
     return v.map(deflateValue);
   } else if (ArrayBuffer.isView(v)) {
     return Array.from(v as any).map(deflateValue);
+  } else if (isDate(v)) {
+    return deflateDate(v);
   } else if (v != null && typeof v === "object") {
     if (v instanceof List || v instanceof FableSet || v instanceof Set) {
       return Array.from(v).map(deflateValue);
