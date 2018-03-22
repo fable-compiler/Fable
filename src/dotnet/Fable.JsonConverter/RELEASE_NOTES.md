@@ -1,3 +1,7 @@
+### 1.0.7
+
+* Include net45 target again
+
 ### 1.0.6
 
 * Fix int64 deserialization #1319 (@eugene-g)

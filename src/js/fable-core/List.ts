@@ -128,3 +128,19 @@ export function splitAt<T>(index: number, xs: List<T>): [List<T>, List<T>] {
   }
   return [ofArray(first), last];
 }
+
+export function head<T>(xs: List<T>): T {
+  if (xs.head !== undefined) {
+    return xs.head;
+  } else {
+    throw new Error("The input list was empty.");
+  }
+}
+
+export function tail<T>(xs: List<T>): List<T> {
+  if (xs.tail !== undefined) {
+    return xs.tail;
+  } else {
+    throw new Error("The input list was empty.");
+  }
+}

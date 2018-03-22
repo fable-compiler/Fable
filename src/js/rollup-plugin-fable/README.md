@@ -35,7 +35,7 @@ export default {
       // Other node-resolve options here
       // See https://github.com/rollup/rollup-plugin-node-resolve
       customResolveOptions: {
-          moduleDirectory: resolve('./node_modules')
+          paths: [resolve('./node_modules')]
       }
     })
   ],

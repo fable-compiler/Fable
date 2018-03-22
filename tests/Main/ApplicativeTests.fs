@@ -780,3 +780,21 @@ module Results =
     let ``Applicative operators work with three-argument functions``() =
         let sum = add3 <!> Ok 1 <*> Ok 2 <*> Ok 3
         equal (Ok 6) sum
+
+#if FABLE_COMPILER
+module FullApplication =
+    open Fable.Core
+
+    let private SomeProcedure (s: string): unit = failwith "Never called"
+    let private SomeFunction (s: string): string = s
+
+    [<Emit("$0.name")>]
+    let private GetName (f: obj) = failwith "JS only"
+
+    [<Test>]
+    let ``Functions passed as parameters don't generate intermediate anonymous functions`` () =
+        let functionName = GetName SomeFunction
+        equal "SomeFunction" functionName
+        let procedureName = GetName SomeProcedure
+        equal "SomeProcedure" procedureName
+#endif

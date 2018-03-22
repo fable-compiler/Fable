@@ -1,6 +1,18 @@
-### 1.3.7
+### 1.3.11
 
-* See dotnet-fable 1.3.7 release notes
+* See dotnet-fable 1.3.11 release notes
+
+### 1.3.10
+
+* Pin FSharp.Core to 4.2.3
+
+### 1.3.9
+
+* Update FCS
+
+### 1.3.8
+
+* See dotnet-fable 1.3.8 release notes
 
 ### 1.3.0-beta-009
 

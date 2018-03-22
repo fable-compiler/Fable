@@ -121,10 +121,10 @@ module Helpers =
         let typ = nonAbbreviatedType typ
         if typ.HasTypeDefinition then Some typ.TypeDefinition else None
 
-    // Sometimes accessing `EnclosingEntity` throws an error (e.g. compiler generated
+    // Sometimes accessing `DeclaringEntity` throws an error (e.g. compiler generated
     // methods as in #237) so this prevents uncaught exceptions
     let tryEnclosingEntity (meth: FSharpMemberOrFunctionOrValue) =
-        try meth.EnclosingEntity
+        try meth.DeclaringEntity
         with _ -> None
 
     let isModuleMember (meth: FSharpMemberOrFunctionOrValue) =
@@ -249,7 +249,7 @@ module Helpers =
 
     let getMemberKind (meth: FSharpMemberOrFunctionOrValue) =
         let ent = tryEnclosingEntity meth
-        // `.EnclosingEntity` only fails for compiler generated module members
+        // `.DeclaringEntity` only fails for compiler generated module members
         if ent.IsNone || (ent.Value.IsFSharpModule) then
             if meth.CurriedParameterGroups.Count = 0
                 && meth.GenericParameters.Count = 0
@@ -1187,7 +1187,7 @@ module Util =
         // the type and meth generic arguments, so this first folding is not necessary
         // let genArgs =
         //     if meth.IsModuleValueOrMember then
-        //         ([], meth.EnclosingEntity.GenericParameters, typArgs)
+        //         ([], meth.DeclaringEntity.GenericParameters, typArgs)
         //         |||> Seq.fold2 (fun acc genPar (ResolveGeneric ctx t) -> acc@[genPar.Name, t])
         //     else []
         ([], meth.GenericParameters, typArgs@methTypArgs)

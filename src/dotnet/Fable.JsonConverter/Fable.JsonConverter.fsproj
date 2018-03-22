@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>1.0.6</Version>
+    <Version>1.0.7</Version>
     <TargetFrameworks>netstandard1.6;net45</TargetFrameworks>
     <DefineConstants Condition="'$(TargetFramework)' == 'netstandard1.6'">DOTNETCORE</DefineConstants>
   </PropertyGroup>

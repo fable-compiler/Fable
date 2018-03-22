@@ -695,6 +695,16 @@ let ``System.Convert.ToString with base works``() =
     Convert.ToString(Int64.MaxValue,2) |> equal "111111111111111111111111111111111111111111111111111111111111111"
 
 [<Test>]
+let ``System.Convert.ToString with base and signed long works``() =
+    Convert.ToString(Int64.MaxValue,2) |> equal "111111111111111111111111111111111111111111111111111111111111111"
+    Convert.ToString(Int64.MinValue,2) |> equal "1000000000000000000000000000000000000000000000000000000000000000"
+
+[<Test>]
+let ``System.Convert.ToString with unsigned long works``() =
+    Convert.ToString(UInt64.MaxValue) |> equal "18446744073709551615"
+    Convert.ToString(UInt64.MinValue) |> equal "0"
+
+[<Test>]
 let ``System.Convert.ToString SByte works``() =
     let x = "101"
     Convert.ToString(101y) |> equal x
