@@ -1,3 +1,7 @@
+### 1.3.12
+
+* Fix #1374: toJson serializes Date in a DU as an object @valery-vitko
+
 ### 1.3.11
 
 * Fix #1357: Keep the context when calling console
