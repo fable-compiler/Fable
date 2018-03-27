@@ -22,7 +22,6 @@ module ReflectionAdapters =
 open System
 open FSharp.Reflection
 open Newtonsoft.Json
-open Newtonsoft.Json.Converters
 open System.Reflection
 open System.Collections.Generic
 open System.Collections.Concurrent
@@ -251,19 +250,16 @@ type JsonConverter() =
                 let ts = TimeSpan.FromMilliseconds (float json)
                 upcast ts
         | true, Kind.Option ->
-            let innerType = t.GetGenericArguments().[0]
-            let innerType =
-                if innerType.IsValueType
-                then (typedefof<Nullable<_>>).MakeGenericType([|innerType|])
-                else innerType
-
-            let cases = FSharpType.GetUnionCases(t)
-            let value = serializer.Deserialize(reader, typeof<obj>)
-
-            if isNull value then FSharpValue.MakeUnion(cases.[0], [||])
-            else
+            match reader.Value with
+            | null -> upcast None
+            | _ ->
+                let innerType = t.GetGenericArguments().[0]
+                let innerType =
+                    if innerType.IsValueType
+                    then (typedefof<Nullable<_>>).MakeGenericType([|innerType|])
+                    else innerType
                 let value = serializer.Deserialize(reader, innerType)
-
+                let cases = FSharpType.GetUnionCases(t)
                 if isNull value
                 then FSharpValue.MakeUnion(cases.[0], [||])
                 else FSharpValue.MakeUnion(cases.[1], [|value|])
