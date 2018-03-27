@@ -256,11 +256,17 @@ type JsonConverter() =
                 if innerType.IsValueType
                 then (typedefof<Nullable<_>>).MakeGenericType([|innerType|])
                 else innerType
-            let value = serializer.Deserialize(reader, innerType)
+
             let cases = FSharpType.GetUnionCases(t)
-            if isNull value
-            then FSharpValue.MakeUnion(cases.[0], [||])
-            else FSharpValue.MakeUnion(cases.[1], [|value|])
+            let value = serializer.Deserialize(reader, typeof<obj>)
+
+            if isNull value then FSharpValue.MakeUnion(cases.[0], [||])
+            else
+                let value = serializer.Deserialize(reader, innerType)
+
+                if isNull value
+                then FSharpValue.MakeUnion(cases.[0], [||])
+                else FSharpValue.MakeUnion(cases.[1], [|value|])
         | true, Kind.Tuple ->
             match reader.TokenType with
             | JsonToken.StartArray ->
