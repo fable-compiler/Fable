@@ -1177,6 +1177,12 @@ module JS =
         abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
         abstract table: ?data: obj -> unit
 
+    and [<Erase>] SetTimeoutToken =
+        | SetTimeoutToken of obj
+
+    and [<Erase>] SetIntervalToken =
+        | SetIntervalToken of obj
+
     let [<Global>] NaN: float = jsNative
     let [<Global>] Infinity: float = jsNative
     let [<Global>] Object: ObjectConstructor = jsNative
@@ -1225,5 +1231,19 @@ module JS =
     let [<Global>] encodeURI: string -> string = jsNative
     let [<Global>] encodeURIComponent: string -> string = jsNative
     let [<Global>] console : Console = jsNative
+    let [<Global>] setTimeout (callback: unit -> unit) (ms: int): SetTimeoutToken = jsNative
+    let [<Emit("setTimeout($0, $1, $2)")>] setTimeout1<'A> (callback: 'A -> unit) (ms: int) (arg1:'A) : SetTimeoutToken = jsNative
+    let [<Emit("setTimeout($0, $1, $2, $3)")>] setTimeout2<'A, 'B> (callback: 'A -> 'B -> unit) (ms: int) (arg1: 'A) (arg2: 'B) : SetTimeoutToken = jsNative
+    let [<Emit("setTimeout($0, $1, $2, $3, $4)")>] setTimeout3<'A, 'B, 'C> (callback: 'A -> 'B -> 'C -> unit) (ms: int) (arg1: 'A) (arg2: 'B) (arg3: 'C) : SetTimeoutToken = jsNative
+    let [<Emit("setTimeout($0, $1, $2, $3, $4, $5)")>] setTimeout4<'A, 'B, 'C, 'D> (callback: 'A -> 'B -> 'C -> 'D -> unit) (ms:int) (arg1: 'A) (arg2: 'B) (arg3: 'C) (arg4: 'D): SetTimeoutToken = jsNative
+    let [<Emit("setTimeout($0, $1, $2, $3, $4, $5, $6)")>] setTimeout5<'A, 'B, 'C, 'D, 'E> (callback: 'A -> 'B -> 'C -> 'D -> 'E -> unit) (ms: int) (arg1: 'A) (arg2: 'B) (arg3: 'C) (arg4: 'D) (arg5: 'E) : SetTimeoutToken = jsNative
+    let [<Global>] clearTimeout (token: SetTimeoutToken): unit = jsNative
+    let [<Global>] setInterval(callback: unit -> unit) (ms: int) : SetIntervalToken = jsNative
+    let [<Emit("setInterval($0, $1, $2)")>] setInterval1<'A> (callback: 'A -> unit) (ms: int) (arg1: 'A) : SetIntervalToken = jsNative
+    let [<Emit("setInterval($0, $1, $2, $3)")>] setInterval2<'A, 'B> (callback: 'A -> 'B -> unit) (ms: int) (arg1: 'A) (arg2: 'B) : SetIntervalToken = jsNative
+    let [<Emit("setInterval($0, $1, $2, $3, $4)")>] setInterval3<'A, 'B, 'C> (callback: 'A -> 'B -> 'C -> unit) (ms: int) (arg1: 'A) (arg2: 'B) (arg3: 'C) : SetIntervalToken = jsNative
+    let [<Emit("setInterval($0, $1, $2, $3, $4, $5)")>] setInterval4<'A, 'B, 'C, 'D> (callback: 'A -> 'B -> 'C -> 'D -> unit) (ms: int) (arg1: 'A) (arg2: 'B) (arg3: 'C) (arg4: 'D) : SetIntervalToken = jsNative
+    let [<Emit("setInterval($0, $1, $2, $3, $4, $5, $6)")>] setInterval5<'A, 'B, 'C, 'D, 'E> (callback: 'A -> 'B -> 'C -> 'D -> 'E -> unit) (ms: int) (arg1: 'A) (arg2: 'B) (arg3: 'C) (arg4: 'D) (arg5: 'E) : SetIntervalToken = jsNative
+    let [<Global>] clearInterval (token:SetIntervalToken): unit = jsNative
 
     let [<Emit("debugger;")>] debugger () : unit = jsNative

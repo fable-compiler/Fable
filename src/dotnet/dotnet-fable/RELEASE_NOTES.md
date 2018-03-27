@@ -1,3 +1,31 @@
+### 1.3.12
+
+* Fix #1374: toJson serializes Date in a DU as an object @valery-vitko
+
+### 1.3.11
+
+* Fix #1357: Keep the context when calling console
+* Fix #1358: mangle `window` and `console` var names
+* Fix #1359: Long max/min values
+* Fix #1360: `ignore` wrapped in lambda should return undefined
+
+### 1.3.10
+
+* Pin FSharp.Core to 4.2.3
+
+### 1.3.9
+
+* Update FCS
+
+### 1.3.8
+
+* Remove empty intermediate functions (@vbfox)
+* Implement replacements for eprintf and friends (@inosik)
+* Fix #1311: sign operator
+* Fix #1165 bis: Return sourceFiles for .fsproj files
+* Add Invoke method to Fable.Import.JS.Function
+* Add Fable.Core.DynamicExtensions
+
 ### 1.3.7
 
 * Fix PassGenerics attribute with optional arguments

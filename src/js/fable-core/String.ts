@@ -109,7 +109,12 @@ export function printf(input: string): IPrintfFormat {
 }
 
 export function toConsole(arg: IPrintfFormat) {
+  // Don't remove the lambda here, see #1357
   return arg.cont((x) => { console.log(x); });
+}
+
+export function toConsoleError(arg: IPrintfFormat) {
+  return arg.cont((x) => { console.error(x); });
 }
 
 export function toText(arg: IPrintfFormat) {

@@ -54,6 +54,40 @@ let aDifferentName: string = import "myString" "my-lib"
 // import { myString } from "my-lib"
 ```
 
+Keep in mind you need to respect the kind of import, please check the documentation of the JS library for that. It's a common mistake to use a **member** import (in JS it appears between brackets: `import { Component } from 'react'`) instead of a **default** import (without brackets: `import Select from 'react-select'`):
+
+```fsharp
+// If the JS library samples show a MEMBER import like this:
+// import { Component } from 'react';
+
+// Use the following in Fable:
+let Component: obj = importMember "react"
+
+// Or the following if you need a different name
+let AnyNameYouLike: obj = import "Component" "react"
+
+
+// However if you see a DEFAULT import (no brackets) in the samples:
+// import Select from 'react-select';
+
+// Use the following in Fable (note name doesn't matter):
+let Select: obj = importDefault "react-select"
+
+// Or:
+let Select: obj = import "default" "react-select"
+```
+
+Sometimes you need to access a member of the imported element. Fable allows you to do that directly in the import selector:
+
+```fsharp
+let Creatable: obj = import "default.Creatable" "react-select"
+
+// Please note this is not possible in JS, the equivalent would be:
+
+// import Select from 'react-select';
+// const Creatable = Select.Creatable;
+```
+
 ## Dynamic typing
 
 [Fable.Core.JsInterop](https://github.com/fable-compiler/Fable/blob/master/src/fable/Fable.Core/Fable.Core.fs) implements the F# dynamic operators so you can easily access an object property by name (without static check)

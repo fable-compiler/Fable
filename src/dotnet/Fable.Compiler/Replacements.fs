@@ -779,6 +779,9 @@ module AstPass =
         | "printFormatLineToTextWriter" ->
             // addWarning com i.fileName i.range "fprintfn will behave as printfn"
             ccall i "String" "toConsole" i.args.Tail |> Some
+        | "printFormatToError"
+        | "printFormatLineToError" ->
+            ccall i "String" "toConsoleError" i.args |> Some
         | "printFormat" ->
             // addWarning com i.fileName i.range "printf will behave as printfn"
             ccall i "String" "toConsole" i.args |> Some
@@ -910,8 +913,8 @@ module AstPass =
             makeDictionaryOrHashSet r typ "Map" false info.methodTypeArgs.Head args |> Some
         | "createSet" ->
             makeMapOrSetCons com info "Set" args |> Some
-        // Ignore: wrap to keep Unit type (see Fable2Babel.transformFunction)
-        | "ignore" -> Fable.Wrapped (args.Head, Fable.Unit) |> Some
+        // Make sure `void 0` is returned in case `ignore` is wrapped in a lambda, see #1360
+        | "ignore" -> makeEmit r Fable.Unit args "$0, void 0" |> Some
         // Ranges
         | "op_Range" | "op_RangeStep" ->
             let meth =
@@ -931,6 +934,9 @@ module AstPass =
         | "printFormatThen"                 // Printf.kprintf
         | "printFormatToStringThenFail" ->  // Printf.failwithf
             fsFormat com info
+        | "printFormatToError"              // eprintf
+        | "printFormatLineToError" ->       // eprintfn
+            ccall info "String" "toConsoleError" info.args |> Some
         // Exceptions
         | "raise" ->
             Fable.Throw (args.Head, typ, r) |> Some
@@ -1308,20 +1314,44 @@ module AstPass =
         | _ -> None
 
     let languagePrimitives com (i: Fable.ApplyInfo) =
-        match i.methodName, (i.callee, i.args) with
-        | "enumOfValue", OneArg (arg) -> arg |> Some
-        | "genericHash", _ ->
+        match i.methodName with
+        | "enumOfValue" ->
+            match (i.callee, i.args) with
+            | OneArg (arg) -> arg |> Some
+            | _ -> None
+        | "genericHash"
+        | "genericHashIntrinsic" ->
             CoreLibCall("Util", Some "hash", false, i.args)
             |> makeCall i.range i.returnType |> Some
-        | "genericComparison", _ ->
+        | "genericComparison"
+        | "genericComparisonIntrinsic" ->
             CoreLibCall("Util", Some "compare", false, i.args)
             |> makeCall i.range i.returnType |> Some
-        | "genericEquality", _ ->
+        | "genericLessThan"
+        | "genericLessThanIntrinsic" ->
+            CoreLibCall("Util", Some "lessThan", false, i.args)
+            |> makeCall i.range i.returnType |> Some
+        | "genericLessOrEqual"
+        | "genericLessOrEqualIntrinsic" ->
+            CoreLibCall("Util", Some "lessOrEqual", false, i.args)
+            |> makeCall i.range i.returnType |> Some
+        | "genericGreaterThan"
+        | "genericGreaterThanIntrinsic" ->
+            CoreLibCall("Util", Some "greaterThan", false, i.args)
+            |> makeCall i.range i.returnType |> Some
+        | "genericGreaterOrEqual"
+        | "genericGreaterOrEqualIntrinsic" ->
+            CoreLibCall("Util", Some "greaterOrEqual", false, i.args)
+            |> makeCall i.range i.returnType |> Some
+        | "genericEquality"
+        | "genericEqualityIntrinsic" ->
             CoreLibCall("Util", Some "equals", false, i.args)
             |> makeCall i.range i.returnType |> Some
-        | "physicalEquality", _ ->
+        | "physicalEquality"
+        | "physicalEqualityIntrinsic" ->
             makeEqOp i.range i.args BinaryEqualStrict |> Some
-        | "physicalHash", _ ->
+        | "physicalHash"
+        | "physicalHashIntrinsic" ->
             CoreLibCall("Util", Some "getHashCode", false, i.args)
             |> makeCall i.range i.returnType |> Some
         | _ -> None
@@ -1765,7 +1795,21 @@ module AstPass =
                 // A static 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
                 let seqMeth = if meth = "length" then "count" else meth
                 ccall "Seq" seqMeth (staticArgs c args)
-            | List -> let c, _ = instanceArgs c args in prop meth c
+            | List ->
+                match meth with
+                | "head" | "tail" ->
+                    match c, args with
+                    | Some list, _ ->
+                        // xs.Head or xs.Tail
+                        ccall "List" meth [list]
+                    | _, [_] ->
+                        // List.head or List.tail
+                        ccall "List" meth args
+                    | _ ->
+                        addErrorAndReturnNull com i.fileName i.range "WTF?"
+                | _ ->
+                    let c, _ = instanceArgs c args
+                    prop meth c
             | Array ->
                 let c, _ = instanceArgs c args
                 if meth = "head" then makeGet i.range i.returnType c (makeIntConst 0)
@@ -2411,6 +2455,7 @@ module AstPass =
         | "Microsoft.FSharp.Core.FSharpRef" -> references com info
         | "System.Activator" -> activator com info
         | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings com info
+        | "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare"
         | "Microsoft.FSharp.Core.LanguagePrimitives" -> languagePrimitives com info
         | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions"
         | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com info

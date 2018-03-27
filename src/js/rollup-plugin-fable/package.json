@@ -22,7 +22,7 @@
   "bugs": {
     "url": "https://github.com/fable-compiler/Fable/issues"
   },
-  "homepage": "https://github.com/fable-compiler/Fable/tree/master/src/typescript/rollup-plugin-fable#readme",
+  "homepage": "https://github.com/fable-compiler/Fable/tree/master/src/js/rollup-plugin-fable#readme",
   "devDependencies": {
     "eslint": "3.19.0",
     "eslint-config-prettier": "1.7.0",

@@ -207,21 +207,22 @@ let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFil
         com.AddLog(msg, severity, range, fileName, "FSHARP"))
 
 let compile (com: Compiler) (project: Project) (filePath: string) =
-    let babel =
-        if filePath.EndsWith(".fsproj") then
-            Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles filePath
-        else
+    if filePath.EndsWith(".fsproj") then
+        Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles filePath
+        |> toJson
+    else
+        let babel =
             FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles filePath
             |> Fable2Babel.Compiler.transformFile com project
-    // If this is the first compilation, add errors to each respective file
-    if not project.IsWatchCompile then
-        addFSharpErrorLogs com project.Errors (Some filePath)
-    let loc = defaultArg babel.loc SourceLocation.Empty
-    project.MarkSent(filePath)
-    // Don't send dependencies to JS client (see #1241)
-    project.AddDependencies(filePath, babel.dependencies)
-    Babel.Program(babel.fileName, loc, babel.body, babel.directives, com.ReadAllLogs())
-    |> toJson
+        // If this is the first compilation, add errors to each respective file
+        if not project.IsWatchCompile then
+            addFSharpErrorLogs com project.Errors (Some filePath)
+        project.MarkSent(filePath)
+        // Don't send dependencies to JS client (see #1241)
+        project.AddDependencies(filePath, babel.dependencies)
+        let loc = defaultArg babel.loc SourceLocation.Empty
+        Babel.Program(babel.fileName, loc, babel.body, babel.directives, com.ReadAllLogs())
+        |> toJson
 
 type Command = string * (string -> unit)
 

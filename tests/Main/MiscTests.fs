@@ -6,6 +6,11 @@ open Util.Testing
 open Fable.Tests.Util
 
 [<Test>]
+let ``Ignore doesn't return value when wrapped as lambda``() = // See #1360
+    let producer () = 7
+    () |> producer |> ignore |> box |> equal (box ())
+
+[<Test>]
 let ``Assignment block as expression is optimized``() =
     let foo x y = x - y
     let mutable x = 15
