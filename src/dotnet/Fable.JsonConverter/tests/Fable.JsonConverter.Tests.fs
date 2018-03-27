@@ -2,6 +2,8 @@
 
 open Xunit
 open Newtonsoft.Json
+open Newtonsoft.Json.Serialization
+open Newtonsoft.Json.Linq
 open System
 
 type Record = {
@@ -9,6 +11,41 @@ type Record = {
     Prop2 : int
     Prop3 : int option
     Prop4 : int64
+}
+
+module NonValueType =
+    type ValueTypeJsonConverter<'a> (toJson: 'a -> string, fromJson: string -> 'a) =
+        inherit JsonConverter ()
+        override __.CanConvert objType = objType = typeof<'a>
+        override __.ReadJson (reader, _, _, _) =
+            let rawJson = Linq.JToken.Load (reader) |> string
+            (fromJson rawJson) :> obj
+        override __.WriteJson (writer, value, _) =
+            let value = value :?> 'a
+            let json = toJson (value)
+            writer.WriteRawValue (json)
+
+    [<Newtonsoft.Json.JsonConverter(typeof<FoobarJsonConverter>)>]
+    type T = private Foobar of string
+        with
+            static member Create (value) =
+                Foobar value
+
+            static member ToJson (Foobar value) = JsonConvert.SerializeObject (value, Fable.JsonConverter())
+            static member FromJson = T.Create
+            static member Value (Foobar s) = s
+            override x.ToString () =
+                let (Foobar value) = x
+                value
+    and FoobarJsonConverter () =
+        inherit ValueTypeJsonConverter<T> (T.ToJson, T.FromJson)
+
+    let create = T.Create
+
+
+type RecordWithNonValueTypeOption = {
+    Value: NonValueType.T option
+    NoValue: NonValueType.T option
 }
 
 type Maybe<'t> =
@@ -146,3 +183,28 @@ module JsonConverterTests =
               | Some n -> Assert.Equal(5, n)
               | None -> Assert.True(false, "Should not happen")
         | _ -> Assert.True(false, "Should not happen")
+
+    [<Fact>]
+    let ``RecordWithNonValueTypeOption conversion works``() =
+        let value = NonValueType.create "foobar"
+        let input : RecordWithNonValueTypeOption =
+            { Value = Some value
+              NoValue = None }
+        let deserialized = deserialize<RecordWithNonValueTypeOption> (serialize input)
+
+        Assert.Equal (Some value, deserialized.Value)
+        Assert.Equal (None, deserialized.NoValue)
+
+    [<Fact>]
+    let ``RecordWithNonValueTypeOption deserialization from raw json works``() =
+        let value = NonValueType.create "foobar"
+        // let input : RecordWithNonValueTypeOption =
+        //     { Value = Some value
+        //       NoValue = None }
+        // Fable serializes above record to:
+        // """{"Value":"foobar","NoValue":null}"""
+        let serialized = """{"Value":"foobar","NoValue":null}"""
+        let deserialized = deserialize<RecordWithNonValueTypeOption> serialized
+
+        Assert.Equal (Some value, deserialized.Value)
+        Assert.Equal (None, deserialized.NoValue)
