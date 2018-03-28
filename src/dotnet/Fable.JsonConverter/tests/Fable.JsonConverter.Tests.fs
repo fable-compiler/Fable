@@ -56,7 +56,6 @@ type Maybe<'t> =
     | Just of 't
     | Nothing
 
-
 module JsonConverterTests =
 
     let converter = Fable.JsonConverter()
