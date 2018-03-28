@@ -250,8 +250,11 @@ type JsonConverter() =
                 let ts = TimeSpan.FromMilliseconds (float json)
                 upcast ts
         | true, Kind.Option ->
-            match reader.Value with
-            | null -> upcast None
+            let cases = FSharpType.GetUnionCases(t)
+            match reader.TokenType with
+            | JsonToken.Null ->
+                serializer.Deserialize(reader, typeof<obj>) |> ignore
+                FSharpValue.MakeUnion(cases.[0], [||])
             | _ ->
                 let innerType = t.GetGenericArguments().[0]
                 let innerType =
@@ -259,7 +262,6 @@ type JsonConverter() =
                     then (typedefof<Nullable<_>>).MakeGenericType([|innerType|])
                     else innerType
                 let value = serializer.Deserialize(reader, innerType)
-                let cases = FSharpType.GetUnionCases(t)
                 if isNull value
                 then FSharpValue.MakeUnion(cases.[0], [||])
                 else FSharpValue.MakeUnion(cases.[1], [|value|])
