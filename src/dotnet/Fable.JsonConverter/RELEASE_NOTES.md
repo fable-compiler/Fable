@@ -1,3 +1,7 @@
+### 1.0.8
+
+* Fix non-ValueType option deserialization @eugene-g @draganjovanovic1
+
 ### 1.0.7
 
 * Include net45 target again
