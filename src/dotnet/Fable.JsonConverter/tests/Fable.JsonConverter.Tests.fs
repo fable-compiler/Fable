@@ -2,6 +2,8 @@
 
 open Xunit
 open Newtonsoft.Json
+open Newtonsoft.Json.Serialization
+open Newtonsoft.Json.Linq
 open System
 
 type Record = {
@@ -11,10 +13,48 @@ type Record = {
     Prop4 : int64
 }
 
+module NonValueType =
+    type ValueTypeJsonConverter<'a> (toJson: 'a -> string, fromJson: string -> 'a) =
+        inherit JsonConverter ()
+        override __.CanConvert objType = objType = typeof<'a>
+        override __.ReadJson (reader, _, _, _) =
+            let rawJson = Linq.JToken.Load (reader) |> string
+            (fromJson rawJson) :> obj
+        override __.WriteJson (writer, value, _) =
+            let value = value :?> 'a
+            let json = toJson (value)
+            writer.WriteRawValue (json)
+
+    [<Newtonsoft.Json.JsonConverter(typeof<FoobarJsonConverter>)>]
+    type T = private Foobar of string
+        with
+            static member Create (value) =
+                Foobar value
+
+            static member ToJson (Foobar value) = JsonConvert.SerializeObject (value, Fable.JsonConverter())
+            static member FromJson = T.Create
+            static member Value (Foobar s) = s
+            override x.ToString () =
+                let (Foobar value) = x
+                value
+    and FoobarJsonConverter () =
+        inherit ValueTypeJsonConverter<T> (T.ToJson, T.FromJson)
+
+    let create = T.Create
+
+type RecordWithNonValueTypeOption = {
+    Value: NonValueType.T option
+    NoValue: NonValueType.T option
+}
+
+type RecordWithComplexTypeOption = {
+    Value: Record option
+    NoValue: Record option
+}
+
 type Maybe<'t> =
     | Just of 't
     | Nothing
-
 
 module JsonConverterTests =
 
@@ -92,9 +132,9 @@ module JsonConverterTests =
 
     [<Fact>]
     let ``Record deserialization from raw json works``() =
-        // let input : Record = { Prop1 = "value"; Prop2 = 5; Prop3 = None }
+        // let input : Record = { Prop1 = "value"; Prop2 = 5; Prop3 = None; Prop4 = 42 }
         // Fable serializes above record to:
-        // "{\"Prop1\":\"value\",\"Prop2\":5,\"Prop3\":null}"
+        // "{\"Prop1\":\"value\",\"Prop2\":5,\"Prop3\":null,\"Prop4\":42}"
         let serialized = """{ "Prop1": "value","Prop2":5,"Prop3":null,"Prop4":42}"""
         let deserialized = deserialize<Record> serialized
         Assert.Equal("value", deserialized.Prop1)
@@ -146,3 +186,53 @@ module JsonConverterTests =
               | Some n -> Assert.Equal(5, n)
               | None -> Assert.True(false, "Should not happen")
         | _ -> Assert.True(false, "Should not happen")
+
+    [<Fact>]
+    let ``RecordWithNonValueTypeOption conversion works``() =
+        let value = NonValueType.create "foobar"
+        let input : RecordWithNonValueTypeOption =
+            { Value = Some value
+              NoValue = None }
+        let deserialized = deserialize<RecordWithNonValueTypeOption> (serialize input)
+
+        Assert.Equal (Some value, deserialized.Value)
+        Assert.Equal (None, deserialized.NoValue)
+
+    [<Fact>]
+    let ``RecordWithNonValueTypeOption deserialization from raw json works``() =
+        let value = NonValueType.create "foobar"
+        // let input : RecordWithNonValueTypeOption =
+        //     { Value = Some value
+        //       NoValue = None }
+        // Fable serializes above record to:
+        // """{"Value":"foobar","NoValue":null}"""
+        let serialized = """{"Value":"foobar","NoValue":null}"""
+        let deserialized = deserialize<RecordWithNonValueTypeOption> serialized
+
+        Assert.Equal (Some value, deserialized.Value)
+        Assert.Equal (None, deserialized.NoValue)
+
+    [<Fact>]
+    let ``RecordWithComplexTypeOption conversion works``() =
+        let value = { Prop1 = "value"; Prop2 = 5; Prop3 = None; Prop4 = 42L }
+        let input : RecordWithComplexTypeOption =
+            { Value = Some value
+              NoValue = None }
+        let deserialized = deserialize<RecordWithComplexTypeOption> (serialize input)
+
+        Assert.Equal (Some value, deserialized.Value)
+        Assert.Equal (None, deserialized.NoValue)
+
+    [<Fact>]
+    let ``RecordWithComplexTypeOption deserialization from raw json works``() =
+        let value = { Prop1 = "value"; Prop2 = 5; Prop3 = None; Prop4 = 42L }
+        // let input : RecordWithComplexTypeOption =
+        //     { Value = Some { Prop1 = "value"; Prop2 = 5; Prop3 = None; Prop4 = 42L }
+        //       NoValue = None }
+        // Fable serializes above record to:
+        // """{\"Value\":{\"Prop1\":\"value\",\"Prop2\":5,\"Prop3\":null,\"Prop4\":42},"NoValue":null}"""
+        let serialized = """{"Value":{ "Prop1": "value","Prop2":5,"Prop3":null,"Prop4":42},"NoValue":null}"""
+        let deserialized = deserialize<RecordWithComplexTypeOption> serialized
+
+        Assert.Equal (Some value, deserialized.Value)
+        Assert.Equal (None, deserialized.NoValue)
