@@ -284,9 +284,9 @@ Target "All" (fun () ->
     runTestsJS ()
 
     match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
-    | Some _, _ -> runTestsDotnet (); buildRepl ()
+    | Some _, _ -> runTestsDotnet (); //buildRepl ()
     // .NET tests fail most of the times in Travis for obscure reasons
-    | _, Some _ -> buildRepl ()
+    | _, Some _ -> () //buildRepl ()
     // Don't build repl locally (takes too long)
     | None, None -> runTestsDotnet ()
 )

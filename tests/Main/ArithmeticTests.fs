@@ -448,6 +448,10 @@ let ``Big integers comparison works``() =
     equal(0, compareTo y x)
     equal(1, compareTo z x)
 
+[<Test>]
+let ``Big integers multiplication works``() =
+    equal(0I, 0I * 1I)
+
 let decimalOne = 1M
 let decimalTwo = 2M
 

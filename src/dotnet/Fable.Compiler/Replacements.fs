@@ -2350,10 +2350,10 @@ module AstPass =
                 |> makeCall i.range i.returnType
             |> Some
         | None, ("zero"|"one"|"two") ->
-            makeCoreRef "BigInt" i.methodName |> Some
+            makeCoreRef "BigInt" i.methodName |> wrap i.returnType |> Some
         | None, ("fromZero"|"fromOne") ->
             let fi = if i.methodName = "fromZero" then "zero" else "one"
-            makeCoreRef "BigInt" fi |> Some
+            makeCoreRef "BigInt" fi |> wrap i.returnType |> Some
         | None, "fromString" ->
             ccall i "BigInt" "parse" i.args |> Some
         | None, meth -> ccall i "BigInt" meth i.args |> Some
