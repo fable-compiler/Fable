@@ -1,3 +1,7 @@
+### 1.3.14
+
+* Fix #1376: bigint 0 times anything yields NaN
+
 ### 1.3.12
 
 * Fix #1374: toJson serializes Date in a DU as an object @valery-vitko
