@@ -2,9 +2,8 @@
   "private": true,
   "scripts": {
     "postinstall": "dotnet restore .. --no-cache",
-    "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run splitter --verbose",
+    "build": "cd .. && dotnet fable node-run demo/splitter.config.js --verbose",
     "postbuild": "node ../../../../node_modules/rollup/bin/rollup -c",
-    "splitter": "node splitter.config.js",
     "minify": "node ../../../../node_modules/uglify-es/bin/uglifyjs repl/build/bundle.js -o repl/build/bundle.min.js"
   }
 }

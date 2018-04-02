@@ -1,8 +1,12 @@
+const path = require("path");
 const fableSplitter = require("fable-splitter").default;
-const fableUtils = require("fable-utils");
+
+function resolve(filePath) {
+  return path.join(__dirname, filePath)
+}
 
 const fableOptions = {
-  fableCore: "../../../../build/fable-core",
+  fableCore: resolve("../../../../build/fable-core"),
   define: [
     "FX_NO_CORHOST_SIGNER",
     "FX_NO_LINKEDRESOURCES",
@@ -17,9 +21,11 @@ const fableOptions = {
 };
 
 const options = {
-  entry: "../Fable.JS.fsproj",
-  outDir: "./out",
+  entry: resolve("../Fable.JS.fsproj"),
+  outDir: resolve("./out"),
   fable: fableOptions,
 };
+
+console.log("Fable REPL build options", options);
 
 fableSplitter(options);

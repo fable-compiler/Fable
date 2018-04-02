@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <DotNetCliToolReference Include="dotnet-fable" Version="1.3.7" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../../paket-files/ncave/FCS/fcs/fcs-fable/fcs-fable.fsproj" />
   </ItemGroup>
 
