@@ -3,6 +3,7 @@ module Fable.Tests.Main
 let allTests =
   [| Arithmetic.tests
      Arrays.tests
+     Char.tests
      Lists.tests
   |]
 

@@ -1,5 +1,5 @@
-[<Util.Testing.TestFixture>]
 module Fable.Tests.Char
+
 open System
 open Util.Testing
 open Fable.Tests.Util
@@ -8,14 +8,16 @@ open System.Collections.Generic
 
 // System.Char
 
-[<Test>]
-let ``Char.ToUpper works``() =
-      Char.ToUpper('b') |> equal 'B'
+let tests =
+    testList "Char" [
+        testCase "Char.ToUpper works" <| fun () ->
+              Char.ToUpper('b') |> equal 'B'
 
-[<Test>]
-let ``Char.ToLower works``() =
-      Char.ToLower('B') |> equal 'b'
+        testCase "Char.ToLower works" <| fun () ->
+              Char.ToLower('B') |> equal 'b'
+    ]
 
+(*
 [<Test>]
 let ``Char.ToUpperInvariant works``() =
       Char.ToUpperInvariant('b') |> equal 'B'
@@ -116,3 +118,4 @@ let ``Char.Parse fails if a string with length > 1 is given``() =
         |> failwithf "Unexpected result '%c'"
     with
     | _ -> ()
+*)

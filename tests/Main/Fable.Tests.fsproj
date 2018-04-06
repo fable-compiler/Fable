@@ -22,9 +22,9 @@
     <Compile Include="ApplicativeTests.fs" /> -->
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
-    <!-- <Compile Include="AsyncTests.fs" />
+    <!-- <Compile Include="AsyncTests.fs" /> -->
     <Compile Include="CharTests.fs" />
-    <Compile Include="ComparisonTests.fs" />
+    <!-- <Compile Include="ComparisonTests.fs" />
     <Compile Include="ConvertTests.fs" />
     <Compile Include="DateTimeTests.fs" />
     <Compile Include="DateTimeOffsetTests.fs" />
