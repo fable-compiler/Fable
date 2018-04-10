@@ -194,12 +194,12 @@ module Helpers =
             | None -> Naming.lowerFirst unionCase.DisplayName
         |> makeStrConst
 
-    let getArgCount (memb: FSharpMemberOrFunctionOrValue) =
-        let args = memb.CurriedParameterGroups
-        if args.Count = 0 then 0
-        elif args.Count = 1 && args.[0].Count = 1 then
-            if isUnit args.[0].[0].Type then 0 else 1
-        else args |> Seq.sumBy (fun li -> li.Count)
+    // let getArgCount (memb: FSharpMemberOrFunctionOrValue) =
+    //     let args = memb.CurriedParameterGroups
+    //     if args.Count = 0 then 0
+    //     elif args.Count = 1 && args.[0].Count = 1 then
+    //         if isUnit args.[0].[0].Type then 0 else 1
+    //     else args |> Seq.sumBy (fun li -> li.Count)
 
     let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
@@ -207,8 +207,12 @@ module Helpers =
         // Actually it's true in this case, but we don't consider compiler-generated members
         | None -> false
 
+    /// Using memb.IsValue doesn't for function values (e.g. `let ADD = adder()` when adder returns a function)
+    let isModuleValueForDeclarations (memb: FSharpMemberOrFunctionOrValue) =        
+        memb.CurriedParameterGroups.Count = 0
+
     let isModuleValueForCalls (memb: FSharpMemberOrFunctionOrValue) =
-        memb.IsValue
+        isModuleValueForDeclarations memb
         // Mutable public values must be called as functions (see #986)
         && (not memb.IsMutable || not (isPublicMember memb))
 

@@ -417,12 +417,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let r = makeRangeFrom fsExpr
         match valToSet.DeclaringEntity with
         | Some ent when ent.IsFSharpModule ->
-            failwith "TODO!!!: Mutable module values"
             // Mutable module values are compiled as functions, because values
             // imported from ES2015 modules cannot be modified (see #986)
-            // Fable.Get(Fable.EntityRef ent, makeStrConst valToSet.CompiledName, None)
-            // let op = Fable.Apply(Fable.EntityRef ent, [valueExpr])
-            // Fable.Operation(op, Fable.Unit, r)
+            let valToSet = makeValueFrom com ctx r valToSet
+            Fable.Operation(Fable.CurriedApply(valToSet, [valueExpr]), Fable.Unit, r)
         | _ ->
             let valToSet = makeValueFrom com ctx r valToSet
             Fable.Set(valToSet, Fable.VarSet, valueExpr, r)
@@ -544,13 +542,17 @@ let private transformConstructor com ctx (memb: FSharpMemberOrFunctionOrValue) a
               EntityName = entityName }
         [Fable.ImplicitConstructorDeclaration(args, body, info)]
 
-// TODO!!!: compile imports as ValueDeclarations (check if they're mutable, see Zaid's issue)
-// TODO: Import expressions must be exported if public too
-let private transformImport com ctx typ name selector path =
-//     if selector = Naming.placeholder
-//     then Fable.Value(Fable.Import(meth.DisplayName, path, importKind))
-//     else fableBody
-    []
+let private transformImport typ name isPublic selector path =
+    let info: Fable.ValueDeclarationInfo =
+        { Name = name
+          IsPublic = isPublic
+          // TODO!!!: compile imports as ValueDeclarations
+          // (check if they're mutable, see Zaid's issue)
+          IsMutable = false
+          HasSpread = false }
+    let selector = if selector = Naming.placeholder then name else selector
+    let fableValue = Fable.Import(selector, path, Fable.CustomImport, typ)
+    [Fable.ValueDeclaration(fableValue, info)]
 
 let private transformMemberValue com ctx (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
     let fableValue = transformExpr com ctx value
@@ -559,7 +561,7 @@ let private transformMemberValue com ctx (memb: FSharpMemberOrFunctionOrValue) (
     match fableValue with
     // Accept import expressions, e.g. let foo = import "foo" "myLib"
     | Fable.Import(selector, path, Fable.CustomImport, typ) ->
-        transformImport com ctx typ name selector path
+        transformImport typ name (isPublicMember memb) selector path
     | fableValue ->
         let info: Fable.ValueDeclarationInfo =
             { Name = name
@@ -581,7 +583,7 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
     match isModuleMember memb, body with
     // Accept import expressions , e.g. let foo x y = import "foo" "myLib"
     | true, Fable.Import(selector, path, Fable.CustomImport, typ) ->
-        transformImport com ctx typ name selector path
+        transformImport typ name (isPublicMember memb) selector path
     | _, body ->
         let info: Fable.ValueDeclarationInfo =
             { Name = name
@@ -643,7 +645,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     then transformInterfaceImplementation com ctx memb args body
     elif memb.IsOverrideOrExplicitInterfaceImplementation
     then transformOverride com ctx memb args body
-    elif memb.IsValue
+    elif isModuleValueForDeclarations memb
     then transformMemberValue com ctx memb body
     else transformMemberFunction com ctx memb args body
 

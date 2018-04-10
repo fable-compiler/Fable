@@ -46,10 +46,6 @@ module private Helpers =
                 |> Option.defaultValue t
             | t -> t)
 
-    let icall r t (i: CallInfo) thisArg args meth =
-        let info = argInfo thisArg args (Some i.ArgTypes)
-        instanceCall r t info (makeStrConst meth |> Some)
-
     let emitJs r t args macro =
         let info = argInfo None args None
         Operation(Emit(macro, Some info), t, r)
@@ -75,13 +71,6 @@ module private Helpers =
 
     let s txt = Value(StringConstant txt)
 
-    let genArg (com: ICompiler) r (name: string) (genArgs: Map<string,Type>) =
-        match Map.tryFind name genArgs with
-        | Some t -> t
-        | None ->
-            "Couldn't find generic " + name |> addError com r
-            Any
-
     let firstGenArg (com: ICompiler) r (genArgs: (string * Type) list) =
         List.tryHead genArgs
         |> Option.map snd
@@ -96,6 +85,7 @@ module private Helpers =
         | _ -> Null t |> Value
 
 open Helpers
+open System.Runtime.CompilerServices
 
 type BuiltinType =
     | BclGuid
@@ -132,6 +122,10 @@ let (|Nameof|_|) = function
     | IdentExpr ident -> Some ident.Name
     | Get(_, ExprGet(Value(StringConstant prop)), _, _) -> Some prop
     | _ -> None
+
+let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
+    namesAndReplacements |> List.tryPick (fun (name2, replacement) ->
+        if name2 = name then Some replacement else None)
 
 let inline (|ExprType|) (e: Expr) = e.Type
 
@@ -231,6 +225,10 @@ let rec makeTypeTest com range expr (typ: Type) =
     | Option _ | GenericParam _ | ErasedUnion _ ->
         "Cannot type test options, generic parameters or erased unions"
         |> addErrorAndReturnNull com range
+
+let createAtom (value: Expr) =
+    let typ = value.Type
+    Helper.CoreCall("Util", "createAtom", typ, [value], [typ])
 
 let toChar (sourceType: Type) (args: Expr list) =
     match sourceType with
@@ -942,20 +940,21 @@ let strings (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
     | "StartsWith", c, [_str; _comp] ->
         Helper.CoreCall("String", "startsWith", t, args, i.ArgTypes, ?thisArg=c, ?loc=r) |> Some
-    | "Substring", _, _ -> icall r t i thisArg args "substr" |> Some
-    | "ToUpper", _, _ -> icall r t i thisArg args "toLocaleUpperCase" |> Some
-    | "ToUpperInvariant", _, _ -> icall r t i thisArg args "toUpperCase" |> Some
-    | "ToLower", _, _ -> icall r t i thisArg args "toLocaleLowerCase" |> Some
-    | "ToLowerInvariant", _, _ -> icall r t i thisArg args "toLowerCase" |> Some
-    | "Chars", _, _ -> Helper.CoreCall("String", "getCharAtIndex", t, args, i.ArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | ("IndexOf" | "LastIndexOf"), _, _ ->
+    | ReplaceName [ "Substring",        "substr"
+                    "ToUpper",          "toLocaleUpperCase"
+                    "ToUpperInvariant", "toUpperCase"
+                    "ToLower",          "toLocaleLowerCase"
+                    "ToLowerInvariant", "toLowerCase" ] methName, Some c, args ->
+        Helper.InstanceCall(c, methName, t, args, i.ArgTypes, ?loc=r) |> Some
+    | "Chars", _, _ ->
+        Helper.CoreCall("String", "getCharAtIndex", t, args, i.ArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | ("IndexOf" | "LastIndexOf"), Some c, _ ->
         match args with
         | [ExprType Char]
         | [ExprType String]
         | [ExprType Char; ExprType(Number Int32)]
         | [ExprType String; ExprType(Number Int32)] ->
-            Naming.lowerFirst i.CompiledName
-            |> icall r t i thisArg args |> Some
+            Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.ArgTypes, ?loc=r) |> Some
         | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
                |> addErrorAndReturnNull com r |> Some
     | ("Trim" | "TrimStart" | "TrimEnd"), Some c, _ ->
@@ -1069,9 +1068,73 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
         Helper.CoreCall("List", meth, t, args, i.ArgTypes, ?loc=r) |> Some
     | _ -> None
 
-let options (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
-    match thisArg, i.CompiledName with
-    | Some c, "get_Value" -> Get(c, OptionValue, t, r) |> Some
+    // match thisArg, i.CompiledName with
+    // | Some c, "get_Value" -> Get(c, OptionValue, t, r) |> Some
+    // | _ -> None
+
+// See fable-core/Option.ts for more info on how
+// options behave in Fable runtime
+let options (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let toArray r t arg =
+        let ident = makeIdent (com.GetUniqueVar())
+        let f =
+            [IdentExpr ident]
+            |> makeArray Any
+            |> makeDelegate [ident]
+        // Prevent functions being run twice, see #198
+        Helper.CoreCall("Option", "defaultArg", t, [arg; makeArray Any []; f], ?loc=r)
+    match i.CompiledName, thisArg, args with
+    | "None", None, _ ->
+        NewOption(None, t) |> Value |> Some
+    | "Value", None, [c]
+    | "get_Value", Some c, _ ->
+        Get(c, OptionValue, t, r) |> Some
+    // | "toObj" | "toNullable" | "flatten" ->
+    //     ccall i "Option" "getValue" [getCallee i; makeBoolConst true] |> Some
+    // | "ofObj" | "ofNullable" ->
+    //     wrap i.returnType (getCallee i) |> Some
+    // | "isSome" | "isNone" ->
+    //     let op =
+    //         if i.memberName = "isSome"
+    //         then BinaryUnequal
+    //         else BinaryEqual
+    //     let comp =
+    //         ([getCallee i; Fable.Value Fable.Null], op)
+    //         ||> makeEqOp i.range
+    //     match i.returnType with
+    //     | Fable.Boolean _ -> Some comp
+    //     // Hack to fix instance member calls (e.g., myOpt.IsSome)
+    //     // For some reason, F# compiler expects them to be applicable
+    //     | _ -> makeLambda [] comp |> Some
+    | ("Map" | "Bind"), None, [f; arg] ->
+        let fType, argType =
+            match i.ArgTypes with
+            | [fType; argType] -> fType, argType
+            | _ -> f.Type, arg.Type // unexpected
+        let args = [arg; Value(NewOption(None, argType)); f]
+        Helper.CoreCall("Option", "defaultArg", t, args, [argType; Option argType; fType],  ?loc=r) |> Some
+    // | "filter" ->
+    //     ccall i "Option" "filter" i.args |> Some
+    // | "toArray" ->
+    //     toArray i.range i.returnType i.args.Head |> Some
+    // | "foldBack" ->
+    //     let opt = toArray None Fable.Any i.args.Tail.Head
+    //     let args = i.args.Head::opt::i.args.Tail.Tail
+    //     ccall i "Seq" "foldBack" args |> Some
+    // | "defaultValue" | "orElse" ->
+    //     List.rev i.args
+    //     |> ccall i "Option" "defaultArg" |> Some
+    // | "defaultWith" | "orElseWith" ->
+    //     List.rev i.args
+    //     |> ccall i "Option" "defaultArgWith" |> Some
+    // | "count" | "contains" | "exists"
+    // | "fold" | "forAll" | "iterate" | "toList" ->
+    //     let args =
+    //         let args = List.rev i.args
+    //         let opt = toArray None Fable.Any args.Head
+    //         List.rev (opt::args.Tail)
+    //     ccall i "Seq" i.memberName args |> Some
+    // | "map2" | "map3" -> failwith "TODO"
     | _ -> None
 
 let decimals (com: ICompiler) r (_: Type) (i: CallInfo) (_callee: Expr option) (args: Expr list) =
@@ -1145,7 +1208,7 @@ let errorStrings = function
     | "InputMustBeNonNegativeString" -> s "The input must be non-negative" |> Some
     | _ -> None
 
-let languagePrimitives (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let languagePrimitives (_com: ICompiler) _r _t (i: CallInfo) (_thisArg: Expr option) (_args: Expr list) =
     match i.CompiledName with
     // TODO: Check for types with custom zero/one (strings?)
     | "GenericZero" -> NumberConstant(0., Int32) |> Value |> Some
@@ -1153,58 +1216,47 @@ let languagePrimitives (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option)
     | _ -> None
 
 let intrinsicFunctions (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, args with
+    match i.CompiledName, thisArg, args with
     // Erased operators
-    | "CheckThis", [arg]
-    | "UnboxFast", [arg]
-    | "UnboxGeneric", [arg] -> Some arg
-    | "MakeDecimal", _ -> decimals com r t i thisArg args
-    | "GetString", [ar; idx]
-    | "GetArray", [ar; idx] -> getExpr r t ar idx |> Some
-    | "SetArray", [ar; idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
+    | "CheckThis", _, [arg]
+    | "UnboxFast", _, [arg]
+    | "UnboxGeneric", _, [arg] -> Some arg
+    | "MakeDecimal", _, _ -> decimals com r t i thisArg args
+    | "GetString", _, [ar; idx]
+    | "GetArray", _, [ar; idx] -> getExpr r t ar idx |> Some
+    | "SetArray", _, [ar; idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
+    | ("GetArraySlice" | "GetStringSlice"), None, [ar; lower; upper] ->
+        let upper =
+            match upper with
+            | Value(Null _) -> getExpr None (Number Int32) ar (makeStrConst "length")
+            | _ -> add upper (makeIntConst 1)
+        Helper.InstanceCall(ar, "slice", t, [lower; upper], ?loc=r) |> Some
+    | "SetArraySlice", None, args ->
+        Helper.CoreCall("Array", "setSlice", t, args, i.ArgTypes, ?loc=r) |> Some
+    | "TypeTestGeneric", None, [expr] ->
+        makeTypeTest com r expr (firstGenArg com r i.GenericArgs) |> Some
+    | "CreateInstance", None, _ ->
+        None // TODO
+        // let typRef, args = resolveTypeRef com i false i.memberGenArgs.Head, []
+        // Apply (typRef, args, ApplyCons, t, r) |> Some
+    // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
+    // Type: PowDouble : float -> int -> float
+    // Usage: PowDouble x n
+    | "PowDouble", None, _ ->
+        Helper.GlobalCall("Math", t, args, i.ArgTypes, memb="pow", ?loc=r) |> Some
+    // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangechar-function-%5bfsharp%5d
+    // Type: RangeChar : char -> char -> seq<char>
+    // Usage: RangeChar start stop
+    | "RangeChar", None, _ ->
+        Helper.CoreCall("Seq", "rangeChar", t, args, i.ArgTypes, ?loc=r) |> Some
+    // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
+    // Type: RangeDouble: float -> float -> float -> seq<float>
+    // Usage: RangeDouble start step stop
+    | "RangeDouble", None, _ ->
+        Helper.CoreCall("Seq", "rangeStep", t, args, i.ArgTypes, ?loc=r) |> Some
+    | "RangeInt32", None, args ->
+        Helper.CoreCall("Seq", "rangeStep", t, args, i.ArgTypes, ?loc=r) |> Some
     | _ -> None
-//         match i.memberName, (i.thisArg, args) with
-//         | ("getArraySlice" | "getStringSlice"), ThreeArgs (ar, lower, upper) ->
-//             let upper =
-//                 let t = Number Int32
-//                 match upper with
-//                 | Null _ -> makeGet None t ar (makeStrConst "length")
-//                 | _ -> Apply(Value(BinaryOp BinaryPlus),
-//                                 [upper; makeIntConst 1], ApplyMeth, t, None)
-//             InstanceCall (ar, "slice", [lower; upper])
-//             |> makeCall r t |> Some
-//         | "setArraySlice", (None, args) ->
-//             CoreLibCall("Array", Some "setSlice", false, args)
-//             |> makeCall r t |> Some
-//         | "typeTestGeneric", (None, [expr]) ->
-//             makeTypeTest com i.fileName r expr i.memberGenArgs.Head |> Some
-//         | "createInstance", (None, _) ->
-//             None // TODO
-//             // let typRef, args = resolveTypeRef com i false i.memberGenArgs.Head, []
-//             // Apply (typRef, args, ApplyCons, t, r) |> Some
-//         | "rangeInt32", (None, args) ->
-//             CoreLibCall("Seq", Some "rangeStep", false, args)
-//             |> makeCall r t |> Some
-//         // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
-//         // Type: PowDouble : float -> int -> float
-//         // Usage: PowDouble x n
-//         | "powDouble", (None, _) ->
-//             GlobalCall ("Math", Some "pow", false, args)
-//             |> makeCall r t
-//             |> Some
-//         // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangechar-function-%5bfsharp%5d
-//         // Type: RangeChar : char -> char -> seq<char>
-//         // Usage: RangeChar start stop
-//         | "rangeChar", (None, _) ->
-//             CoreLibCall("Seq", Some "rangeChar", false, args)
-//             |> makeCall r t |> Some
-//         // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
-//         // Type: RangeDouble: float -> float -> float -> seq<float>
-//         // Usage: RangeDouble start step stop
-//         | "rangeDouble", (None, _) ->
-//             CoreLibCall("Seq", Some "rangeStep", false, args)
-//             |> makeCall r t |> Some
-//         | _ -> None
 
 let keyValuePairs (_: ICompiler) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
@@ -1225,8 +1277,8 @@ let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
         Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
     let inline makeDic forceFSharpMap args =
         makeDictionaryOrHashSet com r t i "Map" forceFSharpMap args
-    match i.CompiledName with
-    | ".ctor" ->
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
         match i.ArgTypes with
         | [] | [IDictionary] ->
             makeDic false args |> Some
@@ -1239,26 +1291,27 @@ let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
         | [Number _; IEqualityComparer] ->
             makeDic true [Value (Null Any); makeComparer args.Tail.Head] |> Some
         | _ -> None
-    | "get_IsReadOnly" ->
+    | "get_IsReadOnly", _ ->
         // TODO: Check for immutable maps with IDictionary interface
         makeBoolConst false |> Some
-    | "get_Count" ->
+    | "get_Count", _ ->
         get r t thisArg.Value "size" |> Some
     // TODO: Check if the key allows for a JS Map (also "TryGetValue" below)
-    | "ContainsValue" ->
+    | "ContainsValue", _ ->
         match thisArg, args with
         | Some c, [arg] -> Helper.CoreCall("Util", "containsValue", t, [arg; c], ?loc=r) |> Some
         | _ -> None
-    | "TryGetValue" ->
+    | "TryGetValue", _ ->
         Helper.CoreCall("Util", "tryGetValue", t, args, i.ArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "get_Item" -> icall r t i thisArg args "get" |> Some
-    | "set_Item" -> icall r t i thisArg args "set" |> Some
-    | "get_Keys" -> icall r t i thisArg args "keys" |> Some
-    | "get_Values" -> icall r t i thisArg args "values" |> Some
-    | "ContainsKey" -> icall r t i thisArg args "has" |> Some
-    | "Clear" -> icall r t i thisArg args "clear" |> Some
-    | "Add" -> icall r t i thisArg args "set" |> Some
-    | "Remove" -> icall r t i thisArg args "delete" |> Some
+    | ReplaceName ["get_Item",     "get"
+                   "set_Item",     "set"
+                   "get_Keys",     "keys"
+                   "get_Values",   "values"
+                   "ContainsKey",  "has"
+                   "Clear",        "clear"
+                   "Add",          "set"
+                   "Remove",       "delete" ] methName, Some c ->
+        Helper.InstanceCall(c, methName, t, args, i.ArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1273,8 +1326,8 @@ let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Ex
         Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
     let inline makeHashSet forceFSharpMap args =
         makeDictionaryOrHashSet com r t i "Set" forceFSharpMap args
-    match i.CompiledName with
-    | ".ctor" ->
+    match i.CompiledName, thisArg, args with
+    | ".ctor", _, _ ->
         match i.ArgTypes with
         | [] | [IEnumerable] ->
             makeHashSet false args |> Some
@@ -1285,24 +1338,23 @@ let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Ex
             [Value (Null Any); makeComparer args.Head]
             |> makeHashSet true |> Some
         | _ -> None
-    | "get_Count" -> get r t thisArg.Value "size" |> Some
-    | "get_IsReadOnly" -> BoolConstant false |> Value |> Some
-    | "Clear" -> icall r t i thisArg args "clear" |> Some
-    | "Contains" -> icall r t i thisArg args "has" |> Some
-    | "Remove" -> icall r t i thisArg args "delete" |> Some
+    | "get_Count", _, _ -> get r t thisArg.Value "size" |> Some
+    | "get_IsReadOnly", _, _ -> BoolConstant false |> Value |> Some
+    // TODO!!!: Check key type
+    | ReplaceName ["Clear",    "clear"
+                   "Contains", "has"
+                   "Remove",   "delete" ] methName, Some c, args ->
+        Helper.InstanceCall(c, methName, t, args, i.ArgTypes, ?loc=r) |> Some
     // TODO: Check if the value allows for a JS Set (also "TryGetValue" below)
-    | "Add" ->
-        match thisArg, args with
-        | Some c, [arg] -> Helper.CoreCall("Util", "addToSet", t, [arg; c], ?loc=r) |> Some
-        | _ -> None
-    // | "isProperSubsetOf" | "isProperSupersetOf"
-    // | "unionWith" | "intersectWith" | "exceptWith"
-    // | "isSubsetOf" | "isSupersetOf" | "copyTo" ->
-    //     let meth =
-    //         let m = match i.memberName with "exceptWith" -> "differenceWith" | m -> m
-    //         m.Replace("With", "InPlace")
-    //     CoreLibCall ("Set", Some meth, false, i.callee.Value::args)
-    //     |> makeCall i.range i.returnType |> Some
+    | "Add", Some c, [arg] ->
+        Helper.CoreCall("Util", "addToSet", t, [arg; c], ?loc=r) |> Some
+    | ("isProperSubsetOf" | "isProperSupersetOf"
+    |  "unionWith" | "intersectWith" | "exceptWith"
+    |  "isSubsetOf" | "isSupersetOf" | "copyTo" as methName), Some c, args ->
+        let methName =
+            let m = match methName with "exceptWith" -> "differenceWith" | m -> m
+            m.Replace("With", "InPlace")
+        Helper.CoreCall("Set", methName, t, c::args, ?loc=r) |> Some
     // TODO
     // | "setEquals"
     // | "overlaps"

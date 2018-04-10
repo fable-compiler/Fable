@@ -1001,13 +1001,12 @@ module Util =
             | Fable.ValueDeclaration(value, info) ->
                 match value with
                 // Mutable public values must be compiled as functions (see #986)
+                // because values imported from ES2015 modules cannot be modified
                 | value when info.IsMutable && info.IsPublic ->
-                    failwith "TODO!!!: Mutable public values"
-            //     // Mutable module values are compiled as functions, because values
-            //     // imported from ES2015 modules cannot be modified (see #986)
-            //     let expr = transformExpr com ctx body
-            //     let import = getCoreLibImport com ctx "Util" "createAtom"
-            //     upcast CallExpression(import, [U2.Case1 expr])
+                    Replacements.createAtom value
+                    |> transformAsExpr com ctx
+                    |> declareModuleMember true info.Name false
+                    |> List.singleton
                 | Fable.Function(Fable.Delegate args, body, _) ->
                     [transformModuleFunction com ctx info args body]
                 | _ ->

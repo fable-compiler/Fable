@@ -103,6 +103,9 @@ module AST =
     let makeArray elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType) |> Value
 
+    let makeDelegate args body =
+        Function(Delegate args, body, None)
+
     let makeBoolConst (x: bool) = BoolConstant x |> Value
     let makeStrConst (x: string) = StringConstant x |> Value
     let makeIntConst (x: int) = NumberConstant (float x, Int32) |> Value

@@ -5,7 +5,7 @@ open Fable.AST.Fable
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 // TODO: Use trampoline here?
-let rec visit f e =
+let visit f e =
     match e with
     | IdentExpr _ | Import _ | Debugger _ -> e
     | Value kind ->
@@ -13,84 +13,92 @@ let rec visit f e =
         | This _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ | Enum _ -> e
-        | NewOption(e, t) -> NewOption(Option.map (visit f) e, t) |> Value
-        | NewTuple exprs -> NewTuple(List.map (visit f) exprs) |> Value
+        | NewOption(e, t) -> NewOption(Option.map f e, t) |> Value
+        | NewTuple exprs -> NewTuple(List.map f exprs) |> Value
         | NewArray(kind, t) ->
             match kind with
-            | ArrayValues exprs -> NewArray(ArrayValues(List.map (visit f) exprs), t) |> Value
+            | ArrayValues exprs -> NewArray(ArrayValues(List.map f exprs), t) |> Value
             | ArrayAlloc _ -> e
         | NewList(ht, t) ->
-            let ht = ht |> Option.map (fun (h,t) -> visit f h, visit f t)
+            let ht = ht |> Option.map (fun (h,t) -> f h, f t)
             NewList(ht, t) |> Value
         | NewRecord(exprs, ent, genArgs) ->
-            NewRecord(List.map (visit f) exprs, ent, genArgs) |> Value
+            NewRecord(List.map f exprs, ent, genArgs) |> Value
         | NewErasedUnion(e, genArgs) ->
-            NewErasedUnion(visit f e, genArgs) |> Value
+            NewErasedUnion(f e, genArgs) |> Value
         | NewUnion(exprs, uci, ent, genArgs) ->
-            NewUnion(List.map (visit f) exprs, uci, ent, genArgs) |> Value
-    | Test(e, kind, r) -> Test(visit f e, kind, r)
-    | Cast(e, t) -> Cast(visit f e, t)
-    | Function(kind, body, name) -> Function(kind, visit f body, name)
+            NewUnion(List.map f exprs, uci, ent, genArgs) |> Value
+    | Test(e, kind, r) -> Test(f e, kind, r)
+    | Cast(e, t) -> Cast(f e, t)
+    | Function(kind, body, name) -> Function(kind, f body, name)
     | ObjectExpr(members, t, baseCall) ->
-        let baseCall = Option.map (visit f) baseCall
-        let members = members |> List.map (fun (n,v,k) -> n, visit f v, k)
+        let baseCall = Option.map f baseCall
+        let members = members |> List.map (fun (n,v,k) -> n, f v, k)
         ObjectExpr(members, t, baseCall)
     | Operation(kind, t, r) ->
         match kind with
         | CurriedApply(callee, args) ->
-            Operation(CurriedApply(visit f callee, List.map (visit f) args), t, r)
+            Operation(CurriedApply(f callee, List.map f args), t, r)
         | Call(kind, info) ->
             let kind =
                 match kind with
-                | ConstructorCall e -> ConstructorCall(visit f e)
-                | StaticCall e -> StaticCall(visit f e)
-                | InstanceCall memb -> InstanceCall(Option.map (visit f) memb)
-            let info = { info with ThisArg = Option.map (visit f) info.ThisArg
-                                   Args = List.map (visit f) info.Args }
+                | ConstructorCall e -> ConstructorCall(f e)
+                | StaticCall e -> StaticCall(f e)
+                | InstanceCall memb -> InstanceCall(Option.map f memb)
+            let info = { info with ThisArg = Option.map f info.ThisArg
+                                   Args = List.map f info.Args }
             Operation(Call(kind, info), t, r)
         | Emit(macro, info) ->
             let info = info |> Option.map (fun info ->
-                { info with ThisArg = Option.map (visit f) info.ThisArg
-                            Args = List.map (visit f) info.Args })
+                { info with ThisArg = Option.map f info.ThisArg
+                            Args = List.map f info.Args })
             Operation(Emit(macro, info), t, r)
         | UnaryOperation(operator, operand) ->
-            Operation(UnaryOperation(operator, visit f operand), t, r)
+            Operation(UnaryOperation(operator, f operand), t, r)
         | BinaryOperation(op, left, right) ->
-            Operation(BinaryOperation(op, visit f left, visit f right), t, r)
+            Operation(BinaryOperation(op, f left, f right), t, r)
         | LogicalOperation(op, left, right) ->
-            Operation(LogicalOperation(op, visit f left, visit f right), t, r)
+            Operation(LogicalOperation(op, f left, f right), t, r)
     | Get(e, kind, t, r) ->
         match kind with
         | ListHead | ListTail | OptionValue | TupleGet _ | UnionTag _
-        | UnionField _ | RecordGet _ -> Get(visit f e, kind, t, r)
-        | ExprGet e2 -> Get(visit f e, ExprGet (visit f e2), t, r)
-    | Throw(e, typ, r) -> Throw(visit f e, typ, r)
-    | Sequential exprs -> Sequential(List.map (visit f) exprs)
+        | UnionField _ | RecordGet _ -> Get(f e, kind, t, r)
+        | ExprGet e2 -> Get(f e, ExprGet (f e2), t, r)
+    | Throw(e, typ, r) -> Throw(f e, typ, r)
+    | Sequential exprs -> Sequential(List.map f exprs)
     | Let(bs, body) ->
-        let bs = bs |> List.map (fun (i,e) -> i, visit f e)
-        Let(bs, visit f body)
+        let bs = bs |> List.map (fun (i,e) -> i, f e)
+        Let(bs, f body)
     | IfThenElse(cond, thenExpr, elseExpr) ->
-        IfThenElse(visit f cond, visit f thenExpr, visit f elseExpr)
+        IfThenElse(f cond, f thenExpr, f elseExpr)
     | Set(e, kind, v, r) ->
         match kind with
         | VarSet | RecordSet _ ->
-            Set(visit f e, kind, visit f v, r)
-        | ExprSet e2 -> Set(visit f e, ExprSet (visit f e2), visit f v, r)
+            Set(f e, kind, f v, r)
+        | ExprSet e2 -> Set(f e, ExprSet (f e2), f v, r)
     | Loop (kind, r) ->
         match kind with
-        | While(e1, e2) -> Loop(While(visit f e1, visit f e2), r)
-        | For(i, e1, e2, e3, up) -> Loop(For(i, visit f e1, visit f e2, visit f e3, up), r)
-        | ForOf(i, e1, e2) -> Loop(ForOf(i, visit f e1, visit f e2), r)
+        | While(e1, e2) -> Loop(While(f e1, f e2), r)
+        | For(i, e1, e2, e3, up) -> Loop(For(i, f e1, f e2, f e3, up), r)
+        | ForOf(i, e1, e2) -> Loop(ForOf(i, f e1, f e2), r)
     | TryCatch(body, catch, finalizer) ->
-        TryCatch(visit f body,
-                 Option.map (fun (i, e) -> i, visit f e) catch,
-                 Option.map (visit f) finalizer)
+        TryCatch(f body,
+                 Option.map (fun (i, e) -> i, f e) catch,
+                 Option.map f finalizer)
     | DecisionTree(expr, targets) ->
-        let targets = targets |> List.map (fun (idents, v) -> idents, visit f v)
-        DecisionTree(visit f expr, targets)
+        let targets = targets |> List.map (fun (idents, v) -> idents, f v)
+        DecisionTree(f expr, targets)
     | DecisionTreeSuccess(idx, boundValues, t) ->
-        DecisionTreeSuccess(idx, List.map (visit f) boundValues, t)
-    |> f
+        DecisionTreeSuccess(idx, List.map f boundValues, t)
+
+let rec visitFromInsideOut f e =
+    visit (visitFromInsideOut f) e |> f
+
+let rec visitFromOutsideIn (f: Expr->Expr option) e =
+    match f e with
+    | Some e -> e
+    | None ->
+        visit (visitFromOutsideIn f) e
 
 let getSubExpressions = function
     | IdentExpr _ | Import _ | Debugger _ -> []
@@ -157,7 +165,7 @@ let getSubExpressions = function
 let replaceValues replacements expr =
     if Map.isEmpty replacements
     then expr
-    else expr |> visit (function
+    else expr |> visitFromInsideOut (function
         | IdentExpr id as e ->
             match Map.tryFind id.Name replacements with
             | Some e -> e
@@ -172,7 +180,7 @@ let isReferencedMoreThan limit identName e =
     | _ ->
         let mutable count = 0
         // TODO: Can we optimize this to shortcircuit when count > limit?
-        e |> visit (function
+        e |> visitFromInsideOut (function
             | _ when count > limit -> e
             | IdentExpr id2 as e when id2.Name = identName ->
                 count <- count + 1; e
@@ -214,10 +222,22 @@ module private Transforms =
         | Function(Lambda arg, body, name) -> nestedLambda [arg] body name
         | _ -> None
 
+    let rec (|NestedApply|_|) expr =
+        let rec nestedApply r t accArgs applied =
+            match applied with
+            | Operation(CurriedApply(applied, args), _, _) ->
+                nestedApply r t (args@accArgs) applied
+            | _ -> Some(NestedApply(applied, accArgs, t, r))
+        match expr with
+        | Operation(CurriedApply(applied, args), t, r) ->
+            nestedApply r t args applied
+        | _ -> None
+
     // TODO!!!: Some cases of coertion shouldn't be erased
     // string :> seq #1279
     // list (and others) :> seq in Fable 2.0
     // concrete type :> interface in Fable 2.0
+    // TODO!!!: Lambda to delegate
     let resolveCasts_required (com: ICompiler) = function
         | Cast(e, t) ->
             match t with
@@ -318,7 +338,7 @@ module private Transforms =
             | Some typ -> { id with Type = typ }
             | None -> id
         let replaceBody uncurried body =
-            visit (function
+            visitFromInsideOut (function
                 | IdentExpr id -> replaceIdentType uncurried id |> IdentExpr
                 | e -> e) body
         let uncurried =
@@ -347,6 +367,7 @@ module private Transforms =
                 let idents, fnBody, letBody = uncurryBodies [ident] fnBody (Some letBody)
                 Let([List.head idents, Function(Delegate args, fnBody, None)], letBody.Value)
             else e
+        // Anonymous lambda immediately applied
         | Operation(CurriedApply((NestedLambda(args, fnBody, Some name) as lambda), argExprs), t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
             let ident = makeTypedIdent lambda.Type name
@@ -388,41 +409,49 @@ module private Transforms =
                     | _ -> arg)
             | None -> List.map (uncurryExpr None) args
         match e with
-        // TODO!!!: Uncurry also NewRecord and CurriedApply arguments
+        // TODO!!!: Uncurry also NewRecord
         | Operation(Call(kind, info), t, r) ->
-            // For CurriedApply: let argTypes = uncurryLambdaType [] t |> fst |> Some
             let info = { info with Args = uncurryArgs info.ArgTypes info.Args }
             Operation(Call(kind, info), t, r)
+        | Operation(CurriedApply(callee, args), t, r) ->
+            let argTypes = uncurryLambdaType [] callee.Type |> fst |> Some
+            Operation(CurriedApply(callee, uncurryArgs argTypes args), t, r)
         | Operation(Emit(macro, Some info), t, r) ->
             let info = { info with Args = uncurryArgs info.ArgTypes info.Args }
             Operation(Emit(macro, Some info), t, r)
         | e -> e
 
-    let uncurryApplications_required (_: ICompiler) e =
+    let rec uncurryApplications_required e =
         match e with
-        // TODO: Check for nested applications?
-        | Operation(CurriedApply(applied, args), t, r) as e when List.isMultiple args ->
+        | NestedApply(applied, args, t, r) when List.isMultiple args ->
+            let applied = visitFromOutsideIn uncurryApplications_required applied
+            let args = args |> List.map (visitFromOutsideIn uncurryApplications_required)
             match applied.Type with
             | FunctionType(DelegateType argTypes, _) ->
                 if List.sameLength argTypes args then
                     let info = argInfo None args (Some argTypes)
-                    staticCall r t info applied
+                    staticCall r t info applied |> Some
                 else
-                    Replacements.partialApply t (argTypes.Length - args.Length) applied args
-            | _ -> e
-        | e -> e
+                    Replacements.partialApply t (argTypes.Length - args.Length) applied args |> Some
+            | _ -> Operation(CurriedApply(applied, args), t, r) |> Some
+        | _ -> None
 
-    let unwrapFunctions (_: ICompiler) e =
+    let unwrapFunctions_doNotTraverse (_: ICompiler) e =
         let sameArgs args1 args2 =
             List.sameLength args1 args2
             && List.forall2 (fun (a1: Ident) -> function
                 | IdentExpr a2 -> a1.Name = a2.Name
                 | _ -> false) args1 args2
+        let unwrapFunctionsInner = function
+            // TODO: When Option.isSome info.ThisArg we could bind it (also for InstanceCall)
+            | LambdaOrDelegate(args, Operation(Call(StaticCall funcExpr, info), _, _), _)
+                when Option.isNone info.ThisArg && sameArgs args info.Args -> funcExpr
+            | e -> e
         match e with
-        // TODO: When Option.isSome info.ThisArg we could bind it (also for InstanceCall)
-        | LambdaOrDelegate(args, Operation(Call(StaticCall funcExpr, info), _, _), _)
-            when Option.isNone info.ThisArg && sameArgs args info.Args -> funcExpr
-        | e -> e
+        // We cannot apply the unwrap optimization to the outmost function,
+        // as we would be losing the ValueDeclarationInfo
+        | Function(kind, body, name) -> Function(kind, visitFromInsideOut unwrapFunctionsInner body, name)
+        | e -> visitFromInsideOut unwrapFunctionsInner e
 
 open Transforms
 
@@ -430,26 +459,22 @@ open Transforms
 // TODO: Optimize binary operations with numerical or string literals
 let optimizations =
     [ // First apply beta reduction
-      bindingBetaReduction
-      lambdaBetaReduction
-      getterBetaReduction
+      fun com e -> visitFromInsideOut (bindingBetaReduction com) e
+      fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
+      fun com e -> visitFromInsideOut (getterBetaReduction com) e
       // Then resolve casts
-      resolveCasts_required
+      fun com e -> visitFromInsideOut (resolveCasts_required com) e
       // Then apply uncurry optimizations
       // Required as fable-core and bindings expect it
-      uncurryReceivedArgs_required
-      uncurrySendingArgs_required
-      uncurryInnerFunctions
-      uncurryApplications_required
+      fun com e -> visitFromInsideOut (uncurryReceivedArgs_required com) e
+      fun com e -> visitFromInsideOut (uncurrySendingArgs_required com) e
+      fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
+      fun _   e -> visitFromOutsideIn uncurryApplications_required e
+      unwrapFunctions_doNotTraverse
     ]
 
 let optimizeExpr (com: ICompiler) e =
-    let optimized = List.fold (fun e f -> visit (f com) e) e optimizations
-    match optimized with
-    // We cannot apply the unwrap optimization to the outmost function,
-    // as we would be losing the ValueDeclarationInfo
-    | Function(kind, body, name) -> Function(kind, visit (unwrapFunctions com) body, name)
-    | e -> visit (unwrapFunctions com) e
+    List.fold (fun e f -> f com e) e optimizations
 
 let rec optimizeDeclaration (com: ICompiler) = function
     | ActionDeclaration expr ->
