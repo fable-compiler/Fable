@@ -133,6 +133,11 @@ let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
 
 let inline (|ExprType|) (e: Expr) = e.Type
 
+let (|EntFullName|_|) (typ: Fable.Type) =
+    match typ with
+    | Fable.DeclaredType(ent, _) -> Some ent.FullName
+    | _ -> None
+
 let coreModFor = function
     | BclGuid -> "String"
     | BclDateTime -> "Date"
@@ -1401,6 +1406,498 @@ let unchecked (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr li
     | "Compare" -> Helper.CoreCall("Util", "compare", t, args, i.ArgTypes, ?loc=r) |> Some
     | _ -> None
 
+
+let enums (_: ICompiler) r _ (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName, args with
+    | Some this, "HasFlag", [arg] ->
+        // x.HasFlags(y) => (int x) &&& (int y) <> 0
+        makeBinOp r (Fable.Number Int32) this arg BinaryAndBitwise
+        |> fun bitwise -> makeEqOp r bitwise (makeIntConst 0)BinaryUnequal
+        |> Some
+    | _ -> None
+
+let log (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let v =
+        match args with
+        | [] -> []
+        | [v] -> [v]
+        | (Fable.Value (Fable.StringConstant _))::_ ->
+            Helper.CoreCall("String", "format", t, args, i.ArgTypes)
+            |> List.singleton
+        | _ -> [args.Head]
+    Helper.GlobalCall("console", t, args, ?argTypes=None, ?thisArg=None, memb="log", ?loc=r)
+let bitConvert (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let memberName =
+        if i.CompiledName = "GetBytes" then
+            match args.Head.Type with
+            | Fable.Boolean -> "getBytesBoolean"
+            | Fable.Char | Fable.String -> "getBytesChar"
+            | Fable.Number Int16 -> "getBytesInt16"
+            | Fable.Number Int32 -> "getBytesInt32"
+            | Builtin BclInt64 -> "getBytesInt64"
+            | Fable.Number UInt16 -> "getBytesUInt16"
+            | Builtin BclUInt64 -> "getBytesUInt64"
+            | Fable.Number UInt32 -> "getBytesUInt32"
+            | Fable.Number Float32 -> "getBytesSingle"
+            | Fable.Number Float64 -> "getBytesDouble"
+            | x -> failwithf "Unsupported type in BitConverter.GetBytes(): %A" x
+        else Naming.lowerFirst i.CompiledName
+    Helper.CoreCall("BitConverter", memberName, Fable.Boolean, args, i.ArgTypes, ?loc=r) |> Some
+
+let parse isFloat (com: ICompiler) range returnT (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+        // TODO what about Single ?
+        let numberModule =
+            if isFloat
+            then "Double"
+            else "Int32"
+        match i.CompiledName with
+        | "IsNaN" when isFloat ->
+            match args with
+            | [_someNumber] ->
+                Helper.GlobalCall("Number", returnT, args, ?argTypes=None, ?thisArg=None, memb="isNaN", ?loc=range)
+                |> Some
+            | _ -> None
+        // TODO verify that the number is within the Int32/Double/Single range
+        | "Parse" | "TryParse" ->
+            let hexConst = int System.Globalization.NumberStyles.HexNumber
+            match i.CompiledName, args with
+            | "Parse", [str] ->
+                Helper.CoreCall (
+                    numberModule,
+                    "parse",
+                    returnT,
+                    [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10)],
+                    [i.ArgTypes.Head; Fable.Number Float32])
+                |> Some
+            | "Parse", [str; Fable.Value(Fable.Enum(Fable.NumberEnum hexConst', _))] ->
+                if hexConst' = hexConst then
+                    Helper.CoreCall (numberModule, "parse", returnT,
+                        [str; (if isFloat then makeNumConst 16.0 else makeIntConst 16)],
+                        [i.ArgTypes.Head; Fable.Number Float32])
+                    |> Some
+                else None  (* Todo *)
+            // System.Double.Parse(string, IFormatProvider)
+            // just ignore the second args (IFormatProvider) and compile
+            // to System.Double.Parse(string)
+            | "Parse", [str; _ ] ->
+                Helper.CoreCall (numberModule, "parse", returnT,
+                    [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10)],
+                    [i.ArgTypes.Head; Fable.Number Float32])
+                |> Some
+            | "TryParse", [str; defValue] ->
+                Helper.CoreCall (numberModule, "tryParse", returnT,
+                    [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10); defValue],
+                    [i.ArgTypes.Head; Fable.Number Float32; i.ArgTypes.Tail.Head])
+                |> Some
+            | _ ->
+                sprintf "%s.%s only accepts a single argument" i.DeclaringEntityFullName i.CompiledName
+                |> addErrorAndReturnNull com range |> Some
+        | "ToString" ->
+            printfn "parse toString args: %A" args
+            match args with
+            | [Fable.Value (Fable.StringConstant _) as format] ->
+                let format = emitJs range Fable.String [format] "'{0:' + $0 + '}'"
+                Helper.CoreCall ("String", "format", returnT, [format; thisArg.Value], [format.Type; thisArg.Value.Type])
+                |> Some
+            | _ -> Helper.CoreCall("Util", "toString", returnT, [thisArg.Value], [thisArg.Value.Type]) |> Some
+        | _ -> None
+
+let convert (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let sourceType = firstGenArg com r i.GenericArgs
+    match i.CompiledName with
+    | "ToSByte" | "ToByte"
+    | "ToInt16" | "ToUInt16"
+    | "ToInt32" | "ToUInt32"
+    | "ToInt64" | "ToUInt64"
+        -> toInt true sourceType t args |> Some
+    | "ToSingle" | "ToDouble" | "ToDecimal"
+        -> toFloat sourceType t args |> Some
+    | "ToChar" -> toChar sourceType args |> Some
+    | "ToString" -> toString sourceType args |> Some
+    | "ToBase64String" | "FromBase64String" ->
+        if not(List.isSingle args) then
+            sprintf "Convert.%s only accepts one single argument" (Naming.upperFirst i.CompiledName)
+            |> addWarning com r
+        Helper.CoreCall ("String", (Naming.lowerFirst i.CompiledName), t, args, i.ArgTypes) |> Some
+    | _ -> None
+
+
+let console (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Out" -> None
+    | "Write" ->
+        addWarning com r "Write will behave as WriteLine"
+        log com r t i thisArg args |> Some
+    | "WriteLine" -> log com r t i thisArg args |> Some
+    | _ -> None
+
+let debug (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Write" ->
+        addWarning com r "Write will behave as WriteLine"
+        log com r t i thisArg args |> Some
+    | "WriteLine" -> log com r t i thisArg args |> Some
+    | "Break" -> Fable.Debugger |> Some
+    | "Assert" ->
+        // emit i "if (!$0) { debugger; }" i.args |> Some
+        let cond = Fable.Operation(Fable.UnaryOperation (UnaryNot, args.Head), Fable.Boolean, r)
+        Fable.IfThenElse(cond, Fable.Debugger, Fable.Value (Fable.Null Fable.Unit))
+        |> Some
+    | _ -> None
+
+let dates (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let getTime (e: Fable.Expr) =
+        Helper.InstanceCall(e, "getTime", t, [])
+    let moduleName =
+        if i.DeclaringEntityFullName = "System.DateTime"
+        then "Date" else "DateOffset"
+    match i.CompiledName with
+    | ".ctor" ->
+        match i.ArgTypes with
+        | [] -> Helper.CoreCall (moduleName, "minValue", t, [], []) |> Some
+        | (Fable.Number _)::_ ->
+            match args with
+            | ticks::rest ->
+                let ms = Helper.CoreCall("Long","ticksToUnixEpochMilliseconds", t, [ticks], [i.ArgTypes.Head])
+                Helper.CoreCall(moduleName, "default", t, (ms::rest), t::i.ArgTypes.Tail)
+                |> Some
+            | _ -> None
+        | (Fable.DeclaredType(e,[]))::_ when e.FullName = "System.DateTime" ->
+            Helper.CoreCall("DateOffset", "fromDate", t, args, i.ArgTypes)
+            |> Some
+        | _ ->
+            let last = List.last args
+            match args.Length, last.Type with
+            | 7, Fable.EnumType(_, "System.DateTimeKind") ->
+                let args = (List.take 6 args) @ [makeIntConst 0; last]
+                let argTypes = (List.take 6 i.ArgTypes) @ [Fable.Number Int32; last.Type]
+                Helper.CoreCall("Date", "create", t, args, argTypes) |> Some
+            | _ ->
+                Helper.CoreCall(moduleName, "create", t, args, i.ArgTypes) |> Some
+    | "ToString" ->
+        Helper.CoreCall("Date", "toString", t, args, i.ArgTypes, ?thisArg=thisArg) |> Some
+    | "Kind" | "Offset" ->
+        get r t thisArg.Value (Naming.lowerFirst i.CompiledName) |> Some
+    // DateTimeOffset
+    | "DateTime" | "LocalDateTime" | "UtcDateTime" as m ->
+        let ms = getTime thisArg.Value
+        let kind =
+            if m = "LocalDateTime" then System.DateTimeKind.Local
+            elif m = "UtcDateTime" then System.DateTimeKind.Utc
+            else System.DateTimeKind.Unspecified
+            |> int |> makeIntConst
+        Helper.CoreCall("Date", "default", t, [ms; kind], [ms.Type; kind.Type]) |> Some
+    | "FromUnixTimeSeconds"
+    | "FromUnixTimeMilliseconds" ->
+        let value = Helper.CoreCall("Long", "toNumber", Number Float64, args, i.ArgTypes)
+        let value =
+            if i.CompiledName = "FromUnixTimeSeconds"
+            then makeBinOp r t value (makeIntConst 1000) BinaryMultiply
+            else value
+        Helper.CoreCall("DateOffset", "default", t, [value; makeIntConst 0], [value.Type; Fable.Number Int32]) |> Some
+        // ccall i "DateOffset" "default" [value; makeIntConst 0] |> Some
+    | "ToUnixTimeSeconds"
+    | "ToUnixTimeMilliseconds" ->
+        let ms = getTime thisArg.Value
+        let args =
+            if i.CompiledName = "ToUnixTimeSeconds"
+            then [makeBinOp r t ms (makeIntConst 1000) BinaryDivide]
+            else [ms]
+        Helper.CoreCall("Long", "fromNumber", t, args, argTypes args) |> Some
+    // Ticks methods are moved to Long.ts so we don't have to import it to Date.ts
+    | "Ticks" | "UtcTicks" | "ToBinary" ->
+        let ms = getTime thisArg.Value
+        let offset =
+            if i.CompiledName = "UtcTicks"
+            then makeIntConst 0
+            else Helper.CoreCall("Date", "offset", Fable.Number Float64, [thisArg.Value], [thisArg.Value.Type])
+        Helper.CoreCall(
+            "Long", "unixEpochMillisecondsToTicks",
+            Fable.Number Float64,
+            [ms; offset], [ms.Type; offset.Type])
+        |> Some
+    | "AddTicks" ->
+        match thisArg, args with
+        | Some c, [ticks] ->
+            // TODO: this line in old Replacement.fs is div, but in Long.js there only exists op_Division, should we upgrade the fable-core?
+            let ms = Helper.CoreCall("Long", "op_Division", i.ArgTypes.Head, [ticks; makeIntConst 10000], [ticks.Type; Fable.Number Int32])
+            let ms = Helper.CoreCall("Long", "toNumber", Fable.Number Float64, [ms], [ms.Type])
+            Helper.CoreCall(moduleName, "addMilliseconds", Fable.Number Float64, [c; ms], [c.Type; ms.Type]) |> Some
+        | _ -> None
+    | _ -> None
+
+
+let timeSpans (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // let callee = match i.callee with Some c -> c | None -> i.args.Head
+    match i.CompiledName with
+    | ".ctor" ->
+        Helper.CoreCall("TimeSpan", "create", t, args, i.ArgTypes)
+        |> Some
+    | "FromMilliseconds" ->
+        args.Head |> Some
+    | "TotalMilliseconds" ->
+        thisArg.Value |> Some
+    | _ -> None
+
+let systemEnv (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "NewLine" -> Some (makeStrConst "\n")
+    | _ -> None
+
+// Initial support, making at least InvariantCulture compile-able
+// to be used System.Double.Parse and System.Single.Parse
+// see https://github.com/fable-compiler/Fable/pull/1197#issuecomment-348034660
+let globalization (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "InvariantCulture" ->
+        // System.Globalization namespace is not supported by Fable. The value InvariantCulture will be compiled to an empty object literal
+        Fable.ObjectExpr([], t, None) |> Some
+    | _ -> None
+
+
+let random (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | ".ctor" -> Fable.ObjectExpr ([], t, None) |> Some
+    | "Next" ->
+        let min, max =
+            match args with
+            | [] -> makeIntConst 0, makeIntConst System.Int32.MaxValue
+            | [max] -> makeIntConst 0, max
+            | [min; max] -> min, max
+            | _ -> failwith "Unexpected arg count for Random.Next"
+        Helper.CoreCall("Util", "randomNext", t, [min; max], [min.Type; max.Type]) |> Some
+    | "NextDouble" ->
+        Helper.GlobalCall ("Math", t, [], [], memb="random")
+        |> Some
+    | _ -> None
+
+let cancels (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | ".ctor" -> Helper.CoreCall("Async", "createCancellationToken", t, args, i.ArgTypes) |> Some
+    | "Token" -> thisArg
+    | "Cancel" | "CancelAfter" | "IsCancellationRequested" ->
+        let args, argTypes = match thisArg with Some c -> c::args, c.Type::i.ArgTypes | None -> args, i.ArgTypes
+        Helper.CoreCall("Async", Naming.lowerFirst i.CompiledName, t, args, argTypes) |> Some
+    // TODO: Add check so CancellationTokenSource cannot be cancelled after disposed?
+    | "Dispose" -> Fable.Null Fable.Type.Unit |> Fable.Value |> Some
+    | _ -> None
+
+let activator com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | "CreateInstance", None, typRef::args ->
+        let info = argInfo None args (Some i.ArgTypes.Tail)
+        constructorCall r t info typRef |> Some
+    | _ -> None
+
+let regex com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let propInt p callee = getExpr r t callee (makeIntConst p)
+    let propStr p callee = getExpr r t callee (makeStrConst p)
+    let isGroup =
+        match thisArg with
+        | Some (ExprType (EntFullName "System.Text.RegularExpressions.Group")) -> true
+        | _ -> false
+    match i.CompiledName with
+    | ".ctor" ->
+        // TODO: Use RegexConst if no options have been passed?
+        Helper.CoreCall("RegExp", "create", t, args, i.ArgTypes)
+        |> Some
+    | "Options" ->
+        Helper.CoreCall("RegExp", "options", t, [thisArg.Value], [thisArg.Value.Type])
+        |> Some
+    // Capture
+    | "Index" ->
+        if not isGroup
+        then propStr "index" thisArg.Value |> Some
+        else addErrorAndReturnNull com r "Accessing index of Regex groups is not supported"
+             |> Some
+    | "Value" ->
+        if isGroup
+        then
+            // In JS Regex group values can be undefined, ensure they're empty strings #838
+            makeLogOp r thisArg.Value (makeStrConst "") LogicalOr |> Some
+        else propInt 0 thisArg.Value |> Some
+    | "Length" ->
+        if isGroup
+        then propStr "length" thisArg.Value |> Some
+        else propInt 0 thisArg.Value |> propStr "length" |> Some
+    // Group
+    | "Success" ->
+        makeEqOp r thisArg.Value (Fable.Value (Fable.Null thisArg.Value.Type)) BinaryUnequal |> Some
+    // Match
+    | "Groups" -> thisArg.Value |> Some
+    // MatchCollection & GroupCollection
+    | "Item" ->
+        getExpr r t thisArg.Value args.Head |> Some
+    | "Count" ->
+        propStr "length" thisArg.Value |> Some
+    | _ -> None
+
+let enumerable com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName with
+    | Some callee, "GetEnumerator" ->
+        Helper.CoreCall("Seq", "getEnumerator", t, [callee], [callee.Type]) |> Some
+    | _ -> None
+
+
+let mailbox com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg with
+    | None ->
+        match i.CompiledName with
+        | ".ctor" -> Helper.CoreCall("MailboxProcessor", "default", t, args, i.ArgTypes) |> Some
+        | "Start" -> Helper.CoreCall("MailboxProcessor", "start", t, args, i.ArgTypes) |> Some
+        | _ -> None
+    | Some callee ->
+        match i.CompiledName with
+        // `reply` belongs to AsyncReplyChannel
+        | "Start" | "Receive" | "PostAndAsyncReply" | "Post" ->
+            let memb =
+                if i.CompiledName = "Start"
+                then "startInstance"
+                else Naming.lowerFirst i.CompiledName
+            Helper.CoreCall("MailboxProcessor", memb, t, args, i.ArgTypes, thisArg=callee)
+            |> Some
+        | "Reply" ->
+            Helper.InstanceCall(callee, "reply", t, args, i.ArgTypes) |> Some
+        | _ -> None
+
+let asyncs com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let asyncMeth meth args argTypes =
+        Helper.CoreCall("Async", meth, t, args, argTypes)
+        |> Some
+    match i.CompiledName with
+    | "Start" ->
+        // Just add warning, the replacement will actually happen in coreLibPass
+        "Async.Start will behave as StartImmediate"
+        |> addWarning com r
+        None
+    | "CancellationToken" ->
+        // Make sure cancellationToken is called as a function and not a getter
+        asyncMeth "cancellationToken" [] []
+    | "Catch" ->
+        // `catch` cannot be used as a function name in JS
+        asyncMeth "catchAsync" args i.ArgTypes
+    | _ -> None
+
+
+let guids com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "NewGuid" ->
+        Helper.CoreCall("String", "newGuid", t, [])
+        |> Some
+    | "Parse" ->
+        Helper.CoreCall("String", "validateGuid", t, args, i.ArgTypes) |> Some
+    | "TryParse" ->
+        Helper.CoreCall("String", "validateGuid", t, [args.Head; makeBoolConst true], [args.Head.Type; Fable.Boolean]) |> Some
+    | "ToByteArray" ->
+        Helper.CoreCall("String", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
+    | ".ctor" ->
+        match args with
+        | [] -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
+        | [ExprType (Fable.Array _)] ->
+            Helper.CoreCall("String", "arrayToGuid", t, args, i.ArgTypes) |> Some
+        | [ExprType Fable.String as arg] ->
+            Helper.CoreCall("String", "validateGuid", t, args, i.ArgTypes) |> Some
+        | _ -> None
+    | _ -> None
+
+let uris com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "UnescapeDataString" ->
+        Helper.CoreCall("Util", "unescapeDataString", t, args, i.ArgTypes)
+        |> Some
+    | "EscapeDataString" ->
+        Helper.CoreCall("Util", "escapeDataString", t, args, i.ArgTypes)
+        |> Some
+    | "EscapeUriString" ->
+        Helper.CoreCall("Util", "escapeUriString", t, args, i.ArgTypes)
+        |> Some
+    | _ -> None
+
+let laziness com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | ".ctor" | "Create" -> Helper.CoreCall("Util", "Lazy", t, args, i.ArgTypes) |> Some
+    | "CreateFromValue" -> Helper.CoreCall("Util", "lazyFromValue", t, args, i.ArgTypes) |> Some
+        // coreCall "lazyFromValue" false info.args |> Some
+    | "Force" | "Value" | "IsValueCreated" ->
+        let callee = thisArg |> Option.defaultWith(fun _ -> args.Head)
+        match i.CompiledName with
+        | "Force" -> "Value" | another -> another
+        |> get r t callee |> Some
+    | _ -> None
+
+let controlExtensions com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "AddToObservable" -> Some "add"
+    | "SubscribeToObservable" -> Some "subscribe"
+    | _ -> None
+    |> Option.map (fun meth ->
+        let args, argTypes =
+            thisArg
+            |> Option.map (fun thisArg -> thisArg::args, thisArg.Type::i.ArgTypes)
+            |> Option.defaultValue (args, i.ArgTypes)
+            |> fun (args, argTypes) -> List.rev args, List.rev argTypes
+        Helper.CoreCall("Observable", meth, t, args, argTypes))
+
+let fsharpType methName com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let hasInterface ifc (typRef: Fable.Expr) (typRefType) =
+        let proto = Helper.CoreCall("Reflection", "getPrototypeOfType", Fable.Any, [typRef], [typRefType], ?loc=typRef.Range)
+        Helper.CoreCall("Util", "hasInterface", t, [proto; makeStrConst ifc], [Fable.Any; Fable.String])
+    match methName with
+    | "GetRecordFields"
+    | "GetExceptionFields" ->
+        Helper.CoreCall("Reflection", "getProperties", t, args, i.ArgTypes) |> Some
+    | "GetUnionCases"
+    | "GetTupleElements"
+    | "GetFunctionElements" ->
+        Helper.CoreCall("Reflection", Naming.lowerFirst methName, t, args, i.ArgTypes) |> Some
+    | "IsUnion" ->
+        hasInterface "FSharpUnion" args.Head i.ArgTypes.Head |> Some
+    | "IsRecord" ->
+        hasInterface "FSharpRecord" args.Head i.ArgTypes.Head |> Some
+    | "IsExceptionRepresentation" ->
+        hasInterface "FSharpException" args.Head i.ArgTypes.Head |> Some
+    | "IsTuple" ->
+        Helper.CoreCall("Reflection", "isTupleType", t, args, i.ArgTypes) |> Some
+    | "IsFunction" ->
+        Helper.CoreCall("Reflection", "isFunctionType", t, args, i.ArgTypes) |> Some
+    | _ -> None
+
+let fsharpValue methName com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match methName with
+    | "GetUnionFields" ->
+        Helper.CoreCall("Reflection", "getUnionFields", t, args, i.ArgTypes) |> Some
+    | "GetRecordFields"
+    | "GetExceptionFields" ->
+        Helper.CoreCall("Reflection", "getPropertyValues", t, args, i.ArgTypes) |> Some
+    | "GetTupleFields" -> // TODO: Check if it's an array first?
+        Some args.Head
+    | "GetTupleField" ->
+        getExpr r t args.Head args.Tail.Head |> Some
+    | "GetRecordField" ->
+        match args with
+        | [record; propInfo] ->
+            let prop = get propInfo.Range Fable.String propInfo "name"
+            getExpr r t record prop |> Some
+        | _ -> None
+    | "MakeUnion" ->
+        Helper.CoreCall("Reflection", "makeUnion", t, args, i.ArgTypes) |> Some
+    | "MakeRecord" ->
+        match args with
+        | [typ; vals] ->
+            let typ = Helper.CoreCall("Util", "getDefinition", Fable.Any, [typ], [i.ArgTypes.Head], ?loc=typ.Range)
+            let argInfo =
+                { ThisArg = None
+                  Args = [vals]
+                  ArgTypes = Some i.ArgTypes.Tail
+                  Spread = Fable.SeqSpread
+                  IsSiblingConstructorCall = false }
+            Operation(Call(ConstructorCall typ, argInfo), t, r) |> Some
+        | _ -> None
+    | "MakeTuple" ->
+        Some args.Head
+    | _ -> None
+
+
 let uncurryExpr t arity (expr: Expr) =
     Helper.CoreCall("Util", "uncurry", t, [makeIntConst arity; expr])
 
@@ -1457,38 +1954,38 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Object" -> objects com r t info thisArg args
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com r t info thisArg args
+    | "System.Timers.ElapsedEventArgs" -> thisArg // only signalTime is available here
     | Naming.StartsWith "System.Action" _
     | Naming.StartsWith "System.Func" _
     | Naming.StartsWith "Microsoft.FSharp.Core.FSharpFunc" _
     | Naming.StartsWith "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" _ -> funcs com r t info thisArg args
+    | "System.Enum" -> enums com r t info thisArg args
+    | "System.BitConverter" -> bitConvert com r t info thisArg args
+    | "System.Int32" -> parse false com r t info thisArg args
+    | "System.Single"
+    | "System.Double" -> parse true com r t info thisArg args
+    | "System.Convert" -> convert com r t info thisArg args
+    | "System.Console" -> console com r t info thisArg args
+    | "System.Diagnostics.Debug"
+    | "System.Diagnostics.Debugger" -> debug com r t info thisArg args
+    | "System.DateTime"
+    | "System.DateTimeOffset" -> dates com r t info thisArg args
+    | "System.TimeSpan" -> timeSpans com r t info thisArg args
+    | "System.Environment" -> systemEnv com r t info thisArg args
+    | "System.Globalization.CultureInfo" -> globalization com r t info thisArg args
+    | "System.Random" -> random com r t info thisArg args
+    | "System.Threading.CancellationToken"
+    | "System.Threading.CancellationTokenSource" -> cancels com r t info thisArg args
+    | "System.Activator" -> activator com r t info thisArg args
+    | "System.Text.RegularExpressions.Capture"
+    | "System.Text.RegularExpressions.Match"
+    | "System.Text.RegularExpressions.Group"
+    | "System.Text.RegularExpressions.MatchCollection"
+    | "System.Text.RegularExpressions.GroupCollection"
+    | "System.Text.RegularExpressions.Regex" -> regex com r t info thisArg args
+    | "System.Collections.Generic.IEnumerable"
+    | "System.Collections.IEnumerable" -> enumerable com r t info thisArg args
     | _ -> None
-//         | "System.Timers.ElapsedEventArgs" -> info.thisArg // only signalTime is available here
-//         | "System.Enum" -> enums com info
-//         | "System.BitConverter" -> bitConvert com info
-//         | "System.Int32" -> parse com info false
-//         | "System.Single"
-//         | "System.Double" -> parse com info true
-//         | "System.Convert" -> convert com info
-//         | "System.Console" -> console com info
-//         | "System.Diagnostics.Debug"
-//         | "System.Diagnostics.Debugger" -> debug com info
-//         | "System.DateTime"
-//         | "System.DateTimeOffset" -> dates com info
-//         | "System.TimeSpan" -> timeSpans com info
-//         | "System.Environment" -> systemEnv com info
-//         | "System.Globalization.CultureInfo" -> globalization com info
-//         | "System.Random" -> random com info
-//         | "System.Threading.CancellationToken"
-//         | "System.Threading.CancellationTokenSource" -> cancels com info
-//         | "System.Activator" -> activator com info
-//         | "System.Text.RegularExpressions.Capture"
-//         | "System.Text.RegularExpressions.Match"
-//         | "System.Text.RegularExpressions.Group"
-//         | "System.Text.RegularExpressions.MatchCollection"
-//         | "System.Text.RegularExpressions.GroupCollection"
-//         | "System.Text.RegularExpressions.Regex" -> regex com info
-//         | "System.Collections.Generic.IEnumerable"
-//         | "System.Collections.IEnumerable" -> enumerable com info
 //         | "System.Collections.Generic.Dictionary.KeyCollection"
 //         | "System.Collections.Generic.Dictionary.ValueCollection"
 //         | "System.Collections.Generic.ICollection" -> collectionsSecondPass com info Seq
@@ -1502,35 +1999,38 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
 //         | "Microsoft.FSharp.Collections.MapModule"
 //         | "Microsoft.FSharp.Collections.FSharpSet"
 //         | "Microsoft.FSharp.Collections.SetModule" -> mapAndSets com info
-//         | "System.Type" -> types com info
-//         | "Microsoft.FSharp.Control.FSharpMailboxProcessor"
-//         | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel" -> mailbox com info
-//         | "Microsoft.FSharp.Control.FSharpAsync" -> asyncs com info
-//         | "System.Guid" -> guids com info
-//         | "System.Uri" -> uris com info
-//         | "System.Lazy" | "Microsoft.FSharp.Control.Lazy"
-//         | "Microsoft.FSharp.Control.LazyExtensions" -> laziness com info
-//         | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com info
-//         | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com info info.memberName
-//         | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue com info info.memberName
-//         | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
-//             // In netcore F# Reflection methods become extensions
-//             // with names like `FSharpType.GetExceptionFields.Static`
-//             let isFSharpType = info.memberName.StartsWith("fSharpType")
-//             let methName = info.memberName |> Naming.extensionMethodName |> Naming.lowerFirst
-//             if isFSharpType
-//             then fsharpType com info methName
-//             else fsharpValue com info methName
-//         | "Microsoft.FSharp.Reflection.UnionCaseInfo"
-//         | "System.Reflection.PropertyInfo"
-//         | "System.Reflection.MemberInfo" ->
-//             match info.thisArg, info.memberName with
-//             | _, "getFields" -> icall info "getUnionFields" |> Some
-//             | Some c, "name" -> ccall info "Reflection" "getName" [c] |> Some
-//             | Some c, ("tag" | "propertyType") ->
-//                 let prop =
-//                     if info.memberName = "tag" then "index" else info.memberName
-//                     |> StringConstant |> Value
-//                 makeGet info.range info.returnType c prop |> Some
-//             | _ -> None
-//         | _ -> None
+
+
+//         | "System.Type" -> types com info // TODO
+
+    | "Microsoft.FSharp.Control.FSharpMailboxProcessor"
+    | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel" -> mailbox com r t info thisArg args
+    | "Microsoft.FSharp.Control.FSharpAsync" -> asyncs com r t info thisArg args
+    | "System.Guid" -> guids com r t info thisArg args
+    | "System.Uri" -> uris com r t info thisArg args
+    | "System.Lazy" | "Microsoft.FSharp.Control.Lazy"
+    | "Microsoft.FSharp.Control.LazyExtensions" -> laziness com r t info thisArg args
+    | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com r t info thisArg args
+    | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType info.CompiledName com r t info thisArg args
+    | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue info.CompiledName com r t info thisArg args
+    | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
+        // In netcore F# Reflection methods become extensions
+        // with names like `FSharpType.GetExceptionFields.Static`
+        let isFSharpType = info.CompiledName.StartsWith("FSharpType")
+        let methName = info.CompiledName |> Naming.extensionMethodName
+        if isFSharpType
+        then fsharpType methName com r t info thisArg args
+        else fsharpValue methName com r t info thisArg args
+    | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+    | "System.Reflection.PropertyInfo"
+    | "System.Reflection.MemberInfo" ->
+        match thisArg, info.CompiledName with
+        | _, "GetFields" -> Helper.InstanceCall(thisArg.Value, "getUnionFields", t, args) |> Some
+        | Some c, "Name" -> Helper.CoreCall("Reflection", "getName", t, [c]) |> Some
+        | Some c, ("Tag" | "PropertyType") ->
+            let prop =
+                if info.CompiledName = "Tag" then "Index" else info.CompiledName
+                |> makeStrConst
+            getExpr r t c prop |> Some
+        | _ -> None
+    | _ -> None
