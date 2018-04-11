@@ -19,6 +19,10 @@ type Helper =
         let kind = makeStrConst memb |> Some |> InstanceCall
         Operation(Call(kind, argInfo (Some callee) args argTypes), returnType, loc)
 
+    static member Application(callee: Expr, returnType: Type, args: Expr list,
+                               ?argTypes: Type list, ?loc: SourceLocation) =
+        Operation(Call(InstanceCall None, argInfo (Some callee) args argTypes), returnType, loc)
+
     static member CoreCall(coreModule: string, coreMember: string, returnType: Type, args: Expr list,
                            ?argTypes: Type list, ?thisArg: Expr, ?loc: SourceLocation) =
         let info = argInfo thisArg args argTypes
@@ -1258,6 +1262,13 @@ let intrinsicFunctions (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option)
         Helper.CoreCall("Seq", "rangeStep", t, args, i.ArgTypes, ?loc=r) |> Some
     | _ -> None
 
+let funcs (_: ICompiler) r t (i: CallInfo) thisArg args =
+    match i.CompiledName, thisArg with
+    | "Adapt", _ -> List.tryHead args // TODO: What's this used for?
+    | "Invoke", Some callee ->
+        Helper.Application(callee, t, args, i.ArgTypes, ?loc=r) |> Some
+    | _ -> None
+
 let keyValuePairs (_: ICompiler) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
     | ".ctor", _ -> Value(NewTuple args) |> Some
@@ -1446,6 +1457,10 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Object" -> objects com r t info thisArg args
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com r t info thisArg args
+    | Naming.StartsWith "System.Action" _
+    | Naming.StartsWith "System.Func" _
+    | Naming.StartsWith "Microsoft.FSharp.Core.FSharpFunc" _
+    | Naming.StartsWith "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" _ -> funcs com r t info thisArg args
     | _ -> None
 //         | "System.Timers.ElapsedEventArgs" -> info.thisArg // only signalTime is available here
 //         | "System.Enum" -> enums com info
@@ -1462,9 +1477,6 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
 //         | "System.TimeSpan" -> timeSpans com info
 //         | "System.Environment" -> systemEnv com info
 //         | "System.Globalization.CultureInfo" -> globalization com info
-//         | "System.Action" | "System.Func"
-//         | "Microsoft.FSharp.Core.FSharpFunc"
-//         | "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" -> funcs com info
 //         | "System.Random" -> random com info
 //         | "System.Threading.CancellationToken"
 //         | "System.Threading.CancellationTokenSource" -> cancels com info

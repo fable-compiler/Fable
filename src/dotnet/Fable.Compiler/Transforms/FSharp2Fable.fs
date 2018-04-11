@@ -142,9 +142,7 @@ let private transformDelegate com ctx delegateType fsExpr =
     //         when isSpecialCase delegateType ->
     //     let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
     //     makeValueFrom com ctx r v |> wrapInZeroArgsFunction r typ args argTypes
-    | BasicPatterns.Lambda(arg, body) ->
-        failwith "TODO!!!: Lamba to Delegate"
-    | fsExpr -> transformExpr com ctx fsExpr
+    | fsExpr -> Fable.Cast(transformExpr com ctx fsExpr, makeType com ctx.GenericArgs delegateType)
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr)
                             unionExpr fsType (unionCase: FSharpUnionCase) =

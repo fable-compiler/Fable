@@ -164,11 +164,11 @@ module Pointful =
 testCase "Point-free and partial application work" <| fun () -> // See #1199
     equal Pointfree.x Pointful.x
 
-// let maybeApply f a b =
-//     match f with
-//     | Some (f: Func<'a,'b,'b>) -> f.Invoke(a, b)
-//     | None -> b
+let maybeApply f a b =
+    match f with
+    | Some (f: Func<'a,'b,'b>) -> f.Invoke(a, b)
+    | None -> b
 
-// testCase "Curried function options" <| fun () ->
-//     maybeApply (Some(Func<_,_,_>(fun (f: float) i -> int f + i))) 5. 4 |> equal 9
-//     maybeApply None 5. 4 |> equal 4
+testCase "Curried function options" <| fun () ->
+    maybeApply (Some(Func<_,_,_>(fun (f: float) i -> int f + i))) 5. 4 |> equal 9
+    maybeApply None 5. 4 |> equal 4

@@ -233,23 +233,6 @@ module private Transforms =
             nestedApply r t args applied
         | _ -> None
 
-    // TODO!!!: Some cases of coertion shouldn't be erased
-    // string :> seq #1279
-    // list (and others) :> seq in Fable 2.0
-    // concrete type :> interface in Fable 2.0
-    // TODO!!!: Lambda to delegate
-    let resolveCasts_required (com: ICompiler) = function
-        | Cast(e, t) ->
-            match t with
-            | DeclaredType(EntFullName Types.enumerable, _) ->
-                match e with
-                | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
-                | e -> Replacements.toSeq t e
-            | DeclaredType(ent, _) when ent.IsInterface ->
-                FSharp2Fable.Util.castToInterface com t ent e
-            | _ -> e
-        | e -> e
-
     let lambdaBetaReduction (_: ICompiler) e =
         let applyArgs (args: Ident list) argExprs body =
             let bindings, replacements =
@@ -348,6 +331,24 @@ module private Transforms =
             | _ -> let t = FunctionType(DelegateType argTypes, retType)
                    Replacements.uncurryExpr t arity expr
         | None, _ -> expr
+
+    // TODO!!!: Some cases of coertion shouldn't be erased
+    // string :> seq #1279
+    // list (and others) :> seq in Fable 2.0
+    // concrete type :> interface in Fable 2.0
+    let resolveCasts_required (com: ICompiler) = function
+        | Cast(e, t) ->
+            match t with
+            | DeclaredType(EntFullName Types.enumerable, _) ->
+                match e with
+                | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
+                | e -> Replacements.toSeq t e
+            | DeclaredType(ent, _) when ent.IsInterface ->
+                FSharp2Fable.Util.castToInterface com t ent e
+            | FunctionType(DelegateType argTypes, returnType) ->
+                uncurryExpr (Some(argTypes, returnType)) e
+            | _ -> e
+        | e -> e
 
     let uncurryBodies idents body1 body2 =
         let replaceIdentType replacements (id: Ident) =
