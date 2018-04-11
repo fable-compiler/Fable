@@ -283,6 +283,7 @@ module private Transforms =
             let identName = ident.Name
             let replacement =
                 match value with
+                // When replacing an ident with an erased option use the name but keep the unwrapped type
                 | Get(IdentExpr id, OptionValue, t, _)
                         when mustWrapOption t |> not ->
                     makeTypedIdent t id.Name |> IdentExpr |> Some
@@ -298,10 +299,16 @@ module private Transforms =
             | None -> e
         | e -> e
 
-    let rec uncurryLambdaType acc = function
-        | FunctionType(LambdaType argType, returnType) ->
-            uncurryLambdaType (argType::acc) returnType
-        | returnType -> List.rev acc, returnType
+    let uncurryLambdaType e =
+        let rec uncurryLambdaTypeInner acc = function
+            | FunctionType(LambdaType argType, returnType) ->
+                uncurryLambdaTypeInner (argType::acc) returnType
+            | returnType -> List.rev acc, returnType
+        match e with
+        | FunctionType(LambdaType argType, returnType)
+        | Option(FunctionType(LambdaType argType, returnType)) ->
+            uncurryLambdaTypeInner [argType] returnType
+        | returnType -> [], returnType
 
     let getUncurriedArity (e: Expr) =
         match e.Type with
@@ -309,8 +316,8 @@ module private Transforms =
         // TODO!!!: Consider record fields as uncurried
         | _ -> None
 
-    let uncurryExpr arity expr =
-        let rec (|UncurriedLambda|_|) (arity, expr) =
+    let uncurryExpr argsAndRetTypes expr =
+        let rec (|UncurriedLambda|_|) (argsAndRetTypes, expr) =
             let rec uncurryLambda name accArgs remainingArity expr =
                 if remainingArity = Some 0
                 then Function(Delegate(List.rev accArgs), expr, name) |> Some
@@ -324,22 +331,32 @@ module private Transforms =
                         Function(Delegate(List.rev accArgs), expr, name) |> Some
                     // We cannot flatten lambda to the expected arity
                     | _, _ -> None
-            uncurryLambda None [] arity expr
-        match arity, expr with
+            let arity = argsAndRetTypes |> Option.map (fun (args,_) -> List.length args)
+            match expr with
+            // Uncurry also function options
+            | Value(NewOption(Some expr, _)) ->
+                uncurryLambda None [] arity expr
+                |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type)))
+            | _ -> uncurryLambda None [] arity expr
+        match argsAndRetTypes, expr with
         // | Some (0|1), expr -> expr // This shouldn't happen
         | UncurriedLambda lambda -> lambda
-        | Some arity, _ ->
+        | Some(argTypes, retType), _ ->
+            let arity = List.length argTypes
             match getUncurriedArity expr with
             | Some arity2 when arity = arity2 -> expr
-            | _ ->
-                let argTypes, returnType = uncurryLambdaType [] expr.Type
-                let t = FunctionType(DelegateType argTypes, returnType)
-                Replacements.uncurryExpr t arity expr
+            | _ -> let t = FunctionType(DelegateType argTypes, retType)
+                   Replacements.uncurryExpr t arity expr
         | None, _ -> expr
 
     let uncurryBodies idents body1 body2 =
         let replaceIdentType replacements (id: Ident) =
             match Map.tryFind id.Name replacements with
+            | Some(Option nestedType as optionType) ->
+                // Check if the ident to replace is an option too or not
+                match id.Type with
+                | Option _ -> { id with Type = optionType }
+                | _ ->        { id with Type = nestedType }
             | Some typ -> { id with Type = typ }
             | None -> id
         let replaceBody uncurried body =
@@ -348,9 +365,13 @@ module private Transforms =
                 | e -> e) body
         let uncurried =
             (Map.empty, idents) ||> List.fold (fun uncurried id ->
-                match uncurryLambdaType [] id.Type with
+                match uncurryLambdaType id.Type with
                 | argTypes, returnType when List.isMultiple argTypes ->
-                    Map.add id.Name (FunctionType(DelegateType argTypes, returnType)) uncurried
+                    let delType = FunctionType(DelegateType argTypes, returnType)
+                    // uncurryLambdaType ignores options, so check the original type
+                    match id.Type with
+                    | Option _ -> Map.add id.Name (Option delType) uncurried
+                    | _ -> Map.add id.Name delType uncurried
                 | _ -> uncurried)
         if Map.isEmpty uncurried
         then idents, body1, body2
@@ -407,10 +428,9 @@ module private Transforms =
             | Some [] -> args // Do nothing
             | Some argTypes ->
                 (argTypes, args) ||> mapArgs (fun argType arg ->
-                    match uncurryLambdaType [] argType with
-                    | argTypes, _ when List.isMultiple argTypes ->
-                        let arity = List.length argTypes |> Some
-                        uncurryExpr arity arg
+                    match uncurryLambdaType argType with
+                    | argTypes, retType when List.isMultiple argTypes ->
+                        uncurryExpr (Some(argTypes, retType)) arg
                     | _ -> arg)
             | None -> List.map (uncurryExpr None) args
         match e with
@@ -419,7 +439,7 @@ module private Transforms =
             let info = { info with Args = uncurryArgs info.ArgTypes info.Args }
             Operation(Call(kind, info), t, r)
         | Operation(CurriedApply(callee, args), t, r) ->
-            let argTypes = uncurryLambdaType [] callee.Type |> fst |> Some
+            let argTypes = uncurryLambdaType callee.Type |> fst |> Some
             Operation(CurriedApply(callee, uncurryArgs argTypes args), t, r)
         | Operation(Emit(macro, Some info), t, r) ->
             let info = { info with Args = uncurryArgs info.ArgTypes info.Args }

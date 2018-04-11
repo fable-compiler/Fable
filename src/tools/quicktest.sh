@@ -6,6 +6,9 @@
 
 ARGS="$@"
 
+echo "dotnet SDK version"
+dotnet --version
+
 if [ "${ARGS/--no-build/}" = "$ARGS" ]; then
     echo "Building Fable.Compiler..."
     dotnet build ../dotnet/Fable.Compiler

@@ -675,6 +675,11 @@ let apply f x =
     | Some f, Some x -> Some (f x)
     | _ -> None
 
+let maybeApply f a b =
+    match f with
+    | Some f -> f a b
+    | None -> b
+
 let add2 a b = a + b
 let add3 a b c = a + b + c
 let add4 a b c d = a+b+c+d
@@ -763,6 +768,10 @@ let tests =
             let f = foo.GetCurriedLambda()
             let f2 = f 2
             f2 4 |> equal 14
+
+        testCase "Curried function options work" <| fun () ->
+            maybeApply (Some (*)) 5 6 |> equal 30
+            maybeApply None 5 6 |> equal 6
 
         // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
         testCase "Applying function options works"
