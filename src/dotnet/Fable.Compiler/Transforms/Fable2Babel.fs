@@ -276,12 +276,9 @@ module Util =
         | Fable.NewOption (value, t) ->
             match value with
             | Some (TransformExpr com ctx e) ->
-                match t with
-                // For unit, unresolved generics, lists or nested options, create a runtime wrapper
-                // See fable-core/Option.ts for more info
-                | Fable.Unit | Fable.GenericParam _ | Fable.Option _ | Fable.List _ ->
-                    coreLibCall com ctx "Option" "some" [e]
-                | _ -> e // For other types, erase the option
+                if mustWrapOption t
+                then coreLibCall com ctx "Option" "some" [e]
+                else e
             | None -> upcast NullLiteral ()
         | Fable.Enum(kind,_) ->
             match kind with
@@ -454,16 +451,20 @@ module Util =
             | e -> transformBlock com ctx ret e :> Statement |> Some
         IfStatement(guardExpr, thenStmnt, ?alternate=elseStmnt)
 
-    let transformGet (com: IBabelCompiler) ctx range expr (getKind: Fable.GetKind) =
+    let transformGet (com: IBabelCompiler) ctx range typ expr (getKind: Fable.GetKind) =
         let expr = com.TransformAsExpr(ctx, expr)
         match getKind with
         | Fable.ExprGet(TransformExpr com ctx prop) -> getExpr range expr prop
-        // TODO!!!: Check if list is empty, see #1341
+        // TODO: Check if list is empty (#1341)?
+        // If null represents an empty list, it'll throw anyway
         | Fable.ListHead -> getExpr range expr (ofInt 0)
         | Fable.ListTail -> getExpr range expr (ofInt 1)
         | Fable.RecordGet(fi,_) -> get range expr fi.Name
         | Fable.TupleGet index -> getExpr range expr (ofInt index)
-        | Fable.OptionValue -> coreLibCall com ctx "Option" "value" [expr]
+        | Fable.OptionValue ->
+            if mustWrapOption typ
+            then coreLibCall com ctx "Option" "value" [expr]
+            else expr
         | Fable.UnionTag _ -> getExpr range expr (ofInt 0)
         | Fable.UnionField(field, uci, _) ->
             let fieldName = field.Name
@@ -690,8 +691,8 @@ module Util =
         | Fable.Operation(opKind, _, range) ->
             transformOperation com ctx range opKind
 
-        | Fable.Get(expr, getKind, _, range) ->
-            transformGet com ctx range expr getKind
+        | Fable.Get(expr, getKind, typ, range) ->
+            transformGet com ctx range typ expr getKind
 
         | Fable.IfThenElse (TransformExpr com ctx guardExpr,
                             TransformExpr com ctx thenExpr,
@@ -752,7 +753,7 @@ module Util =
             transformOperationAsStatements com ctx range t returnStrategy callKind
 
         | Fable.Get(expr, getKind, t, range) ->
-            [transformGet com ctx range expr getKind |> resolveExpr t returnStrategy]
+            [transformGet com ctx range t expr getKind |> resolveExpr t returnStrategy]
 
         | Fable.Let(bindings, body) ->
             let bindings = bindings |> List.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)

@@ -67,6 +67,12 @@ module AST =
             | _ -> true
         | _ -> true
 
+    /// For unit, unresolved generics, lists or nested options, create a runtime wrapper
+    /// See fable-core/Option.ts for more info
+    let rec mustWrapOption = function
+        | Unit | GenericParam _ | Option _ | List _ -> true
+        | _ -> false
+
     let makeIdent name =
         { Name = name
           Type = Any
@@ -75,7 +81,11 @@ module AST =
           Range = None }
 
     let makeTypedIdent typ name =
-        { makeIdent name with Type = typ }
+        { Name = name
+          Type = typ
+          IsMutable = false
+          IsThisArg = false
+          Range = None }
 
     let makeIdentExpr name =
         makeIdent name |> IdentExpr

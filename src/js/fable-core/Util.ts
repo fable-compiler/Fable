@@ -418,6 +418,12 @@ export interface ICurried {
 /* tslint:disable */
 export function uncurry(arity: number, f: Function) {
 /* tslint:enable */
+
+  // f may be a function option with None value
+  if (f == null) {
+    return null;
+  }
+
   const wrap: ICurried = (...args: any[]) => {
     // In some cases there may be more arguments applied than necessary
     // (e.g. index when mapping an array), discard them

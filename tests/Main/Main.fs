@@ -1,7 +1,8 @@
 module Fable.Tests.Main
 
 let allTests =
-  [| Arithmetic.tests
+  [| Applicative.tests
+     Arithmetic.tests
      Arrays.tests
      Char.tests
      Lists.tests

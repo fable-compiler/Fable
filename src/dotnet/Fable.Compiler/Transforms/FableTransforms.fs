@@ -281,16 +281,21 @@ module private Transforms =
         // as they can reference each other
         | Let([ident, value], body) when not ident.IsMutable ->
             let identName = ident.Name
-            if hasDoubleEvalRisk value |> not
-                || isReferencedMoreThan 1 identName body |> not
-            then
-                let value =
+            let replacement =
+                match value with
+                | Get(IdentExpr id, OptionValue, t, _)
+                        when mustWrapOption t |> not ->
+                    makeTypedIdent t id.Name |> IdentExpr |> Some
+                | value when hasDoubleEvalRisk value |> not
+                            || isReferencedMoreThan 1 identName body |> not ->
                     match value with
                     // TODO: Check if current name is Some? Shouldn't happen...
-                    | Function(args, body, _) -> Function(args, body, Some identName)
-                    | value -> value
-                replaceValues (Map [identName, value]) body
-            else e
+                    | Function(args, body, _) -> Function(args, body, Some identName) |> Some
+                    | value -> Some value
+                | _ -> None
+            match replacement with
+            | Some value -> replaceValues (Map [identName, value]) body
+            | None -> e
         | e -> e
 
     let rec uncurryLambdaType acc = function
