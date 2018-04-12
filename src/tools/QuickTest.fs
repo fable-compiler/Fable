@@ -184,3 +184,32 @@ testCase "Record fiels are uncurried" <| fun () ->
     // f 4 4 2 |> equal 6
     apply3 r.myFunction 5 7 4 |> equal 8
     apply (r.myFunction 1 1 |> Some) (Some 5) |> equal (Some -3)
+
+
+type Fruits =
+| Apple = 1
+| Orange = 2
+| Banana = 4
+
+let testEnum =
+    let orangeOrBanana = Fruits.Orange ||| Fruits.Banana
+    Assert.AreEqual(orangeOrBanana.HasFlag(Fruits.Orange), true)
+    Assert.AreEqual(orangeOrBanana.HasFlag(Fruits.Banana), true)
+    Assert.AreEqual(orangeOrBanana.HasFlag(Fruits.Apple), false)
+    ()
+let testBitConverter =
+    let bytes = System.BitConverter.GetBytes('1')
+    printfn "bitConverter bytes: %A" bytes
+
+let testParse =
+    printfn "testParse"
+    Assert.AreEqual(Double.IsNaN(float 1), false)
+    Assert.AreEqual(Double.IsNaN(Double.NaN), true)
+    Assert.AreEqual(Double.Parse("1.1"), 1.1)
+    Assert.AreEqual(Double.TryParse("1.1"), (true, 1.1))
+    Assert.AreEqual(fst <| Double.TryParse("aa"), false)
+
+    1 .ToString() |> printfn "Int32.ToString:%A"
+    1 .ToString("F") |> printfn "Int32.ToString:%A"
+    1.1 .ToString() |> printfn "Double.ToString:%A"
+    1.1 .ToString("F") |> printfn "Double.ToString:%A"

@@ -45,4 +45,5 @@
     <PackageReference Include="Newtonsoft.Json" Version="11.0.1" />
   </ItemGroup>
   <!-- <Import Project="..\..\..\.paket\Paket.Restore.targets" /> -->
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

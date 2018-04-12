@@ -49,73 +49,76 @@ export interface AsyncReplyChannel<Reply> {
 }
 
 export default class MailboxProcessor<Msg> {
-  private body: MailboxBody<Msg>;
-  private cancellationToken: CancellationToken;
-  private messages: MailboxQueue<Msg>;
+  public body: MailboxBody<Msg>;
+  public cancellationToken: CancellationToken;
+  public messages: MailboxQueue<Msg>;
 
-  private continuation: Continuation<Msg>;
+  public continuation: Continuation<Msg>;
 
   constructor(body: MailboxBody<Msg>, cancellationToken?: CancellationToken) {
     this.body = body;
     this.cancellationToken = cancellationToken || defaultCancellationToken;
     this.messages = new MailboxQueue<Msg>();
   }
+}
 
-  public __processEvents() {
-    if (this.continuation) {
-      const value = this.messages.tryGet();
-      if (value) {
-        const cont = this.continuation;
-        delete this.continuation;
-        cont(value);
-      }
+function __processEvents<Msg>($this: MailboxProcessor<Msg>) {
+  if ($this.continuation) {
+    const value = $this.messages.tryGet();
+    if (value) {
+      const cont = $this.continuation;
+      delete $this.continuation;
+      cont(value);
     }
   }
+}
 
-  public start() {
-    startImmediate(this.body(this), this.cancellationToken);
-  }
+export function startInstance<Msg>($this: MailboxProcessor<Msg>) {
+  startImmediate($this.body($this), $this.cancellationToken);
+}
 
-  public receive() {
-    return fromContinuations((conts: Continuations<Msg>) => {
-      if (this.continuation) {
-        throw new Error("Receive can only be called once!");
-      }
-      this.continuation = conts[0];
-      this.__processEvents();
-    });
-  }
-
-  public post(message: Msg) {
-    this.messages.add(message);
-    this.__processEvents();
-  }
-
-  public postAndAsyncReply<Reply>(buildMessage: (c: AsyncReplyChannel<Reply>) => Msg) {
-    let result: Reply;
-    let continuation: Continuation<Reply>;
-    function checkCompletion() {
-      if (result && continuation) {
-        continuation(result);
-      }
+export function receive<Msg>($this: MailboxProcessor<Msg>) {
+  return fromContinuations((conts: Continuations<Msg>) => {
+    if ($this.continuation) {
+      throw new Error("Receive can only be called once!");
     }
-    const reply = {
-      reply: (res: Reply) => {
-        result = res;
-        checkCompletion();
-      },
-    };
-    this.messages.add(buildMessage(reply));
-    this.__processEvents();
-    return fromContinuations((conts: Continuations<Reply>) => {
-      continuation = conts[0];
+    $this.continuation = conts[0];
+    __processEvents($this);
+  });
+}
+
+export function post<Msg>($this: MailboxProcessor<Msg>, message: Msg) {
+  $this.messages.add(message);
+  __processEvents($this);
+}
+
+export function postAndAsyncReply<Reply, Msg>(
+  $this: MailboxProcessor<Msg>,
+  buildMessage: (c: AsyncReplyChannel<Reply>) => Msg,
+) {
+  let result: Reply;
+  let continuation: Continuation<Reply>;
+  function checkCompletion() {
+    if (result && continuation) {
+      continuation(result);
+    }
+  }
+  const reply = {
+    reply: (res: Reply) => {
+      result = res;
       checkCompletion();
-    });
-  }
+    },
+  };
+  $this.messages.add(buildMessage(reply));
+  __processEvents($this);
+  return fromContinuations((conts: Continuations<Reply>) => {
+    continuation = conts[0];
+    checkCompletion();
+  });
 }
 
 export function start<Msg>(body: MailboxBody<Msg>, cancellationToken?: CancellationToken) {
   const mbox = new MailboxProcessor(body, cancellationToken);
-  mbox.start();
+  startInstance(mbox);
   return mbox;
 }
