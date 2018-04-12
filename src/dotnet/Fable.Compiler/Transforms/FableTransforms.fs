@@ -192,6 +192,8 @@ let isReferencedMoreThan limit identName e =
         count > limit
 
 module private Transforms =
+    let (|ExprType|) (e: Expr) = e.Type
+
     let (|EntFullName|_|) fullName (ent: FSharpEntity) =
         match ent.TryFullName with
         | Some fullName2 when fullName = fullName2 -> Some EntFullName
@@ -282,21 +284,22 @@ module private Transforms =
             | None -> e
         | e -> e
 
-    let uncurryLambdaType e =
+    let uncurryLambdaType t =
         let rec uncurryLambdaTypeInner acc = function
             | FunctionType(LambdaType argType, returnType) ->
                 uncurryLambdaTypeInner (argType::acc) returnType
             | returnType -> List.rev acc, returnType
-        match e with
+        match t with
         | FunctionType(LambdaType argType, returnType)
         | Option(FunctionType(LambdaType argType, returnType)) ->
             uncurryLambdaTypeInner [argType] returnType
         | returnType -> [], returnType
 
     let getUncurriedArity (e: Expr) =
-        match e.Type with
-        | FunctionType(DelegateType argTypes, _) -> List.length argTypes |> Some
-        // TODO!!!: Consider record fields as uncurried
+        match e with
+        | ExprType(FunctionType(DelegateType argTypes, _))
+        | ExprType(Option(FunctionType(DelegateType argTypes, _))) ->
+            List.length argTypes |> Some
         | _ -> None
 
     let uncurryExpr argsAndRetTypes expr =
@@ -387,6 +390,26 @@ module private Transforms =
         | IdentExpr ident when ident.Name = identName -> true
         | e -> getSubExpressions e |> List.exists (lambdaMayEscapeScope identName)
 
+    let uncurryArgs argTypes args =
+        let mapArgs f argTypes args =
+            let rec mapArgsInner f acc argTypes args =
+                match argTypes, args with
+                | head1::tail1, head2::tail2 ->
+                    let x = f head1 head2
+                    mapArgsInner f (x::acc) tail1 tail2
+                | [], args2 -> (List.rev acc)@args2
+                | _, [] -> List.rev acc
+            mapArgsInner f [] argTypes args
+        match argTypes with
+        | Some [] -> args // Do nothing
+        | Some argTypes ->
+            (argTypes, args) ||> mapArgs (fun argType arg ->
+                match uncurryLambdaType argType with
+                | argTypes, retType when List.isMultiple argTypes ->
+                    uncurryExpr (Some(argTypes, retType)) arg
+                | _ -> arg)
+        | None -> List.map (uncurryExpr None) args
+
     let uncurryInnerFunctions (_: ICompiler) = function
         | Let([ident, NestedLambda(args, fnBody, _)], letBody) as e when List.isMultiple args ->
             // We need to check the function doesn't leave the current context
@@ -414,28 +437,28 @@ module private Transforms =
             Function(Delegate args, body, name)
         | e -> e
 
-    let uncurrySendingArgs_required (_: ICompiler) (e: Expr) =
-        let mapArgs f argTypes args =
-            let rec mapArgsInner f acc argTypes args =
-                match argTypes, args with
-                | head1::tail1, head2::tail2 ->
-                    let x = f head1 head2
-                    mapArgsInner f (x::acc) tail1 tail2
-                | [], args2 -> (List.rev acc)@args2
-                | _, [] -> List.rev acc
-            mapArgsInner f [] argTypes args
-        let uncurryArgs argTypes args =
-            match argTypes with
-            | Some [] -> args // Do nothing
-            | Some argTypes ->
-                (argTypes, args) ||> mapArgs (fun argType arg ->
-                    match uncurryLambdaType argType with
-                    | argTypes, retType when List.isMultiple argTypes ->
-                        uncurryExpr (Some(argTypes, retType)) arg
-                    | _ -> arg)
-            | None -> List.map (uncurryExpr None) args
-        match e with
-        // TODO!!!: Uncurry also NewRecord
+    let uncurryRecordFields_required (_: ICompiler) = function
+        | Value(NewRecord(args, ent, genArgs)) ->
+            let args = uncurryArgs None args
+            Value(NewRecord(args, ent, genArgs))
+        | Get(e, RecordGet(fi, ent), t, r) ->
+            let uncurriedType =
+                match t with
+                | FunctionType(LambdaType _, _) ->
+                    let argTypes, retType = uncurryLambdaType t
+                    FunctionType(DelegateType argTypes, retType)
+                | Option(FunctionType(LambdaType _, _) as t) ->
+                    let argTypes, retType = uncurryLambdaType t
+                    Option(FunctionType(DelegateType argTypes, retType))
+                | _ -> t
+            Get(e, RecordGet(fi, ent), uncurriedType, r)
+        // TODO!!!: Assigning the field to a variable (take options into account)
+        // | Let([ident, (Get(_, RecordGet _, FunctionType _, _) as value)], body) ->
+        //     let idents, body, _ = uncurryBodies [ident] body None
+        //     Let([List.head idents, value], body)
+        | e -> e
+
+    let uncurrySendingArgs_required (_: ICompiler) = function
         | Operation(Call(kind, info), t, r) ->
             let info = { info with Args = uncurryArgs info.ArgTypes info.Args }
             Operation(Call(kind, info), t, r)
@@ -493,6 +516,7 @@ let optimizations =
       // Then apply uncurry optimizations
       // Required as fable-core and bindings expect it
       fun com e -> visitFromInsideOut (uncurryReceivedArgs_required com) e
+      fun com e -> visitFromInsideOut (uncurryRecordFields_required com) e
       fun com e -> visitFromInsideOut (uncurrySendingArgs_required com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
       fun _   e -> visitFromOutsideIn uncurryApplications_required e

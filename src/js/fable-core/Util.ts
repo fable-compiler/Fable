@@ -448,25 +448,25 @@ export function partialApply(arity: number, f: ICurried, args: any[]): any {
   } else {
     switch (arity) {
       case 1:
-        return (a1: any) => f.apply(null, [a1].concat(args));
+        return (a1: any) => f.apply(null, args.concat(a1));
       case 2:
-        return (a1: any) => (a2: any) => f.apply(null, [a1, a2].concat(args));
+        return (a1: any) => (a2: any) => f.apply(null, args.concat(a1, a2));
       case 3:
-        return (a1: any) => (a2: any) => (a3: any) => f.apply(null, [a1, a2, a3].concat(args));
+        return (a1: any) => (a2: any) => (a3: any) => f.apply(null, args.concat(a1, a2, a3));
       case 4:
-        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f.apply(null, [a1, a2, a3, a4].concat(args));
+        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f.apply(null, args.concat(a1, a2, a3, a4));
       case 5:
         return (a1: any) => (a2: any) => (a3: any) =>
-          (a4: any) => (a5: any) => f.apply(null, [a1, a2, a3, a4, a5].concat(args));
+          (a4: any) => (a5: any) => f.apply(null, args.concat(a1, a2, a3, a4, a5));
       case 6:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) =>
-          (a5: any) => (a6: any) => f.apply(null, [a1, a2, a3, a4, a5, a6].concat(args));
+          (a5: any) => (a6: any) => f.apply(null, args.concat(a1, a2, a3, a4, a5, a6));
       case 7:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) =>
-          (a6: any) => (a7: any) => f.apply(null, [a1, a2, a3, a4, a5, a6, a7].concat(args));
+          (a6: any) => (a7: any) => f.apply(null, args.concat(a1, a2, a3, a4, a5, a6, a7));
       case 8:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) => (a6: any) =>
-          (a7: any) => (a8: any) => f.apply(null, [a1, a2, a3, a4, a5, a6, a7, a8].concat(args));
+          (a7: any) => (a8: any) => f.apply(null, args.concat(a1, a2, a3, a4, a5, a6, a7, a8));
       default:
         throw new Error("Partially applying to get a function with more than 8-arity is not supported: " + arity);
     }

@@ -172,3 +172,15 @@ let maybeApply f a b =
 testCase "Curried function options" <| fun () ->
     maybeApply (Some(Func<_,_,_>(fun (f: float) i -> int f + i))) 5. 4 |> equal 9
     maybeApply None 5. 4 |> equal 4
+
+type FooRec = { myFunction: int->int->int->int }
+
+let apply3 f x y z = f x y z
+
+testCase "Record fiels are uncurried" <| fun () ->
+    let r = { myFunction = fun x y z -> x + y - z }
+    r.myFunction 4 4 2 |> equal 6
+    // let mutable f = r.myFunction
+    // f 4 4 2 |> equal 6
+    apply3 r.myFunction 5 7 4 |> equal 8
+    apply (r.myFunction 1 1 |> Some) (Some 5) |> equal (Some -3)
