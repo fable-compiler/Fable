@@ -442,6 +442,33 @@ export function uncurry(arity: number, f: Function) {
   return wrap;
 }
 
+/* tslint:disable */
+export function curry(arity: number, f: Function): Function {
+/* tslint:disable */
+  switch (arity) {
+    case 2:
+      return (a1: any) => (a2: any) => f(a1, a2);
+    case 3:
+      return (a1: any) => (a2: any) => (a3: any) => f(a1, a2, a3);
+    case 4:
+      return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f(a1, a2, a3, a4);
+    case 5:
+      return (a1: any) => (a2: any) => (a3: any) =>
+        (a4: any) => (a5: any) => f(a1, a2, a3, a4, a5);
+    case 6:
+      return (a1: any) => (a2: any) => (a3: any) => (a4: any) =>
+        (a5: any) => (a6: any) => f(a1, a2, a3, a4, a5, a6);
+    case 7:
+      return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) =>
+        (a6: any) => (a7: any) => f(a1, a2, a3, a4, a5, a6, a7);
+    case 8:
+      return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) => (a6: any) =>
+        (a7: any) => (a8: any) => f(a1, a2, a3, a4, a5, a6, a7, a8);
+    default:
+      throw new Error("Currying to more than 8-arity is not supported: " + arity);
+  }
+}
+
 export function partialApply(arity: number, f: ICurried, args: any[]): any {
   if (f.curried) {
     return f.apply(null, args);

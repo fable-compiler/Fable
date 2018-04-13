@@ -177,11 +177,13 @@ type FooRec = { myFunction: int->int->int->int }
 
 let apply3 f x y z = f x y z
 
-testCase "Record fiels are uncurried" <| fun () ->
+testCase "Functions in record fields are uncurried" <| fun () ->
     let r = { myFunction = fun x y z -> x + y - z }
     r.myFunction 4 4 2 |> equal 6
-    // let mutable f = r.myFunction
-    // f 4 4 2 |> equal 6
+    // If the function record field is assigned
+    // to a variable, just curry it
+    let mutable f = r.myFunction
+    f 4 4 2 |> equal 6
     apply3 r.myFunction 5 7 4 |> equal 8
     apply (r.myFunction 1 1 |> Some) (Some 5) |> equal (Some -3)
 

@@ -680,6 +680,10 @@ let maybeApply f a b =
     | Some f -> f a b
     | None -> b
 
+type FooRec = { myFunction: int->int->int->int }
+
+let apply3 f x y z = f x y z
+
 let add2 a b = a + b
 let add3 a b c = a + b + c
 let add4 a b c d = a+b+c+d
@@ -783,6 +787,16 @@ let tests =
         // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-345958891
         testCase "Point-free works when passing a 2-arg function" <| fun () ->
             Pointfree.y |> equal (Some 3)
+
+        testCase "Functions in record fields are uncurried" <| fun () ->
+            let r = { myFunction = fun x y z -> x + y - z }
+            r.myFunction 4 4 2 |> equal 6
+            // If the function record field is assigned
+            // to a variable, just curry it
+            let mutable f = r.myFunction
+            f 4 4 2 |> equal 6
+            apply3 r.myFunction 5 7 4 |> equal 8
+            apply (r.myFunction 1 1 |> Some) (Some 5) |> equal (Some -3)
 
         // // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
         // testCase "Applicative operators work with three-argument functions"

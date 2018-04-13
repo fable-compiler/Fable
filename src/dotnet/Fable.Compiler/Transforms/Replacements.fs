@@ -1892,6 +1892,9 @@ let fsharpValue methName com r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         Some args.Head
     | _ -> None
 
+let curryExpr t arity (expr: Expr) =
+    Helper.CoreCall("Util", "curry", t, [makeIntConst arity; expr])
+
 let uncurryExpr t arity (expr: Expr) =
     Helper.CoreCall("Util", "uncurry", t, [makeIntConst arity; expr])
 

@@ -452,10 +452,16 @@ module private Transforms =
                     Option(FunctionType(DelegateType argTypes, retType))
                 | _ -> t
             Get(e, RecordGet(fi, ent), uncurriedType, r)
-        // TODO!!!: Assigning the field to a variable (take options into account)
-        // | Let([ident, (Get(_, RecordGet _, FunctionType _, _) as value)], body) ->
-        //     let idents, body, _ = uncurryBodies [ident] body None
-        //     Let([List.head idents, value], body)
+        // If a record function is assigned to a value, just curry it to prevent issues
+        | Let(identsAndValues, body) ->
+            let identsAndValues =
+                identsAndValues |> List.map (fun (ident, value) ->
+                    match ident.Type, value with
+                    | FunctionType(LambdaType _, _) as t, Get(_, RecordGet _, FunctionType(DelegateType delArgTypes, _), _)
+                        when List.isMultiple delArgTypes ->
+                            ident, Replacements.curryExpr t (List.length delArgTypes) value
+                    | _ -> ident, value)
+            Let(identsAndValues, body)
         | e -> e
 
     let uncurrySendingArgs_required (_: ICompiler) = function
