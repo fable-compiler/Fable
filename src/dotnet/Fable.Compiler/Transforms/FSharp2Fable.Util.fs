@@ -208,7 +208,7 @@ module Helpers =
         | None -> false
 
     /// Using memb.IsValue doesn't for function values (e.g. `let ADD = adder()` when adder returns a function)
-    let isModuleValueForDeclarations (memb: FSharpMemberOrFunctionOrValue) =        
+    let isModuleValueForDeclarations (memb: FSharpMemberOrFunctionOrValue) =
         memb.CurriedParameterGroups.Count = 0
 
     let isModuleValueForCalls (memb: FSharpMemberOrFunctionOrValue) =
@@ -600,7 +600,7 @@ module Util =
         match entity |> Option.bind (fun e -> e.TryFullName) with
         | Some entityFullName when isCandidate entityFullName ->
             let info: Fable.CallInfo =
-              { ArgTypes = argTypes
+              { SignatureArgTypes = argTypes
                 DeclaringEntityFullName = entityFullName
                 CompiledName = memb.CompiledName
                 GenericArgs = matchGenericParams memb genArgs |> Seq.toList }
@@ -745,7 +745,7 @@ module Util =
         let argInfo: Fable.ArgInfo =
           { ThisArg = callee
             Args = args
-            ArgTypes = Some argTypes
+            SignatureArgTypes = Some argTypes
             Spread = if hasSeqSpread memb then Fable.SeqSpread else Fable.NoSpread
             IsSiblingConstructorCall = false }
         match memb, memb.DeclaringEntity with

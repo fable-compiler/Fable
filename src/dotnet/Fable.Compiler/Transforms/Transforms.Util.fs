@@ -122,12 +122,10 @@ module AST =
     let makeNumConst (x: float) = NumberConstant (float x, Float64) |> Value
     let makeDecConst (x: decimal) = NumberConstant (float x, Float64) |> Value
 
-    let argTypes (args: Expr list) = args |> List.map (fun a -> a.Type)
-
     let argInfo thisArg args argTypes =
         { ThisArg = thisArg
           Args = args
-          ArgTypes = argTypes
+          SignatureArgTypes = argTypes
           Spread = NoSpread
           IsSiblingConstructorCall = false }
 

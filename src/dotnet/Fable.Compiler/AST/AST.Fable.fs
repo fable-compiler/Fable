@@ -146,14 +146,17 @@ type CallKind =
 type ArgInfo =
   { ThisArg: Expr option
     Args: Expr list
-    ArgTypes: Type list option
+    /// Argument types as defined in the method signature, this may be slightly different to types of actual argument expressions.
+    /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
+    SignatureArgTypes: Type list option
     Spread: SpreadKind
     IsSiblingConstructorCall: bool }
 
 type CallInfo =
-  { ArgTypes: Type list
+  { CompiledName: string
+    /// See ArgIngo.SignatureArgTypes
+    SignatureArgTypes: Type list
     DeclaringEntityFullName: string
-    CompiledName: string
     GenericArgs: (string * Type) list }
 
 type OperationKind =

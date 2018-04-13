@@ -460,13 +460,13 @@ module private Transforms =
 
     let uncurrySendingArgs_required (_: ICompiler) = function
         | Operation(Call(kind, info), t, r) ->
-            let info = { info with Args = uncurryArgs info.ArgTypes info.Args }
+            let info = { info with Args = uncurryArgs info.SignatureArgTypes info.Args }
             Operation(Call(kind, info), t, r)
         | Operation(CurriedApply(callee, args), t, r) ->
             let argTypes = uncurryLambdaType callee.Type |> fst |> Some
             Operation(CurriedApply(callee, uncurryArgs argTypes args), t, r)
         | Operation(Emit(macro, Some info), t, r) ->
-            let info = { info with Args = uncurryArgs info.ArgTypes info.Args }
+            let info = { info with Args = uncurryArgs info.SignatureArgTypes info.Args }
             Operation(Emit(macro, Some info), t, r)
         | e -> e
 
