@@ -56,7 +56,10 @@ module private JS =
         !!array?filter(predicate)
 
     [<Emit("$1.sort($0)")>]
-    let inline sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array:'T[]): unit = jsNative
+    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array:'T[]): unit = jsNative
+
+    [<Emit("new Array($0)")>]
+    let newArrayImpl (len: int): 'T[] = jsNative
 
 let private indexNotFound() = failwith "An index satisfying the predicate was not found in the collection."
 
@@ -77,6 +80,7 @@ let last (array : 'T[]) =
 let tryLast (array : 'T[]) =
     if array.Length = 0 then None
     else Some array.[array.Length-1]
+
 let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]) (cons: ArrayCons) =
     let len = source.Length
     let target = cons.Create(len)
@@ -143,8 +147,12 @@ let mapFoldBack<'T,'State,'Result> (mapping : 'T -> 'State -> 'Result * 'State) 
             acc <- s'
         res, acc
 
-let indexed (source: 'T[]) (cons: ArrayCons) =
-    source |> mapIndexed (fun i x -> i, x) <| cons;
+let indexed (source: 'T[]) =
+    let len = source.Length
+    let target = newArrayImpl len
+    for i = 0 to (len - 1) do
+        target.[i] <- i, source.[i]
+    target
 
 let private typedArrayConcatImpl (cons: ArrayCons) (arrays: 'T[][]): 'T[] =
     let mutable totalLength = 0
@@ -176,7 +184,7 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) (cons: ArrayCons): 'U[] =
     map mapping array cons
     |> concatImpl cons
 
-let countBy (projection: 'T->'Key) (array: 'T[]) (cons: ArrayCons) =
+let countBy (projection: 'T->'Key) (array: 'T[]) =
     let dict = System.Collections.Generic.Dictionary<'Key, int>()
 
     for value in array do
@@ -184,7 +192,7 @@ let countBy (projection: 'T->'Key) (array: 'T[]) (cons: ArrayCons) =
         let mutable prev = Unchecked.defaultof<_>
         if dict.TryGetValue(key, &prev) then dict.[key] <- prev + 1 else dict.[key] <- 1
 
-    let res = cons.Create dict.Count
+    let res = newArrayImpl dict.Count
     let mutable i = 0
     for group in dict do
         res.[i] <- group.Key, group.Value
@@ -231,7 +239,7 @@ let groupBy (projection: 'T->'Key) (array: 'T[]) (cons: ArrayCons) =
             dict.[key] <- prev
 
     // Return the array-of-arrays.
-    let result = cons.Create dict.Count
+    let result = newArrayImpl dict.Count
     let mutable i = 0
     for group in dict do
         result.[i] <- group.Key, cons.From group.Value
@@ -252,9 +260,15 @@ let initialize count initializer (cons: ArrayCons) =
         result.[i] <- initializer i
     result
 
-let pairwise (array: 'T[]) (cons: ArrayCons) =
-    if array.Length < 2 then emptyImpl cons else
-    initialize (array.Length-1) (fun i -> array.[i],array.[i+1]) cons
+let pairwise (array: 'T[]) =
+    if array.Length < 2
+    then [||]
+    else
+        let count = array.Length - 1
+        let result = newArrayImpl count
+        for i = 0 to count - 1 do
+            result.[i] <-  array.[i], array.[i+1]
+        result
 
 let replicate count initial (cons: ArrayCons) =
     // Shorthand version: = initialize count (fun _ -> initial)
@@ -525,21 +539,22 @@ let unfold<'T,'State> (generator:'State -> ('T*'State) option) (state:'State) (c
     loop state
     cons.From res
 
-let unzip (array: _[]) (cons: ArrayCons) =
+// We should pass ArrayCons here (and unzip3) but 'a and 'b may differ
+let unzip (array: _[]) =
     let len = array.Length
-    let res1 = cons.Create len
-    let res2 = cons.Create len
+    let res1 = newArrayImpl len
+    let res2 = newArrayImpl len
     iterateIndexed (fun i (item1, item2) ->
         res1.[i] <- item1
         res2.[i] <- item2
     ) array
     res1, res2
 
-let unzip3 (array: _[]) (cons: ArrayCons) =
+let unzip3 (array: _[]) =
     let len = array.Length
-    let res1 = cons.Create len
-    let res2 = cons.Create len
-    let res3 = cons.Create len
+    let res1 = newArrayImpl len
+    let res2 = newArrayImpl len
+    let res3 = newArrayImpl len
     iterateIndexed (fun i (item1, item2, item3) ->
         res1.[i] <- item1
         res2.[i] <- item2
@@ -547,18 +562,18 @@ let unzip3 (array: _[]) (cons: ArrayCons) =
     ) array
     res1, res2, res3
 
-let zip (array1: 'T[]) (array2: 'U[]) (cons: ArrayCons) =
+let zip (array1: 'T[]) (array2: 'U[]) =
     // Shorthand version: map2 (fun x y -> x, y) array1 array2
     if array1.Length <> array2.Length then failwith "Arrays had different lengths"
-    let result = cons.Create(array1.Length)
+    let result = newArrayImpl array1.Length
     for i = 0 to array1.Length - 1 do
        result.[i] <- array1.[i], array2.[i]
     result
 
-let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'U[]) (cons: ArrayCons) =
+let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'U[]) =
     // Shorthand version: map3 (fun x y z -> x, y, z) array1 array2 array3
     if array1.Length <> array2.Length || array2.Length <> array3.Length then failwith "Arrays had different lengths"
-    let result = cons.Create(array1.Length)
+    let result = newArrayImpl array1.Length
     for i = 0 to array1.Length - 1 do
        result.[i] <- array1.[i], array2.[i], array3.[i]
     result

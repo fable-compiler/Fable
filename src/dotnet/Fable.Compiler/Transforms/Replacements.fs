@@ -1,9 +1,10 @@
 module Fable.Transforms.Replacements
 
+open System.Collections.Generic
+open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open Fable.AST.Fable
-open Microsoft.FSharp.Compiler.SourceCodeServices
 open Patterns
 
 type Context = Fable.Transforms.FSharp2Fable.Context
@@ -89,7 +90,6 @@ module private Helpers =
         | _ -> Null t |> Value
 
 open Helpers
-open System.Runtime.CompilerServices
 
 type BuiltinType =
     | BclGuid
@@ -1030,14 +1030,24 @@ let seqs (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
     | meth, _ -> Helper.CoreCall("Seq", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     // | _ -> None
 
-let arrays (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let passArrayCons =
+    HashSet [|"choose"; "collect"; "concat"; "distinct"; "distinctBy"; "groupBy"; "initialize"; "map"; "map2"; "map3"
+              "mapFold"; "mapFoldBack"; "mapIndexed"; "mapIndexed2";"mapIndexed3"; "partition"; "permute"; "replicate"
+              "reverse"; "scan"; "scanBack"; "singleton"; "skip"; "skipWhile"; "sortWith"; "take"; "takeWhile"; "unfold"|]
+
+let arrays (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, args, i.CompiledName with
-    | None, [arg], "OfSeq" -> toArray com t arg |> Some
     | Some c, _, "get_Length" -> get r t c "length" |> Some
-    | None, [arg], "Length" -> get r t arg "length" |> Some
-    | None, [ar; idx], "Get" -> getExpr r t ar idx |> Some
-    | None, [ar; idx; value], "Set" -> Set(ar, ExprSet idx, value, r) |> Some
-    | _, _, "ZeroCreate" ->
+    | _ -> None
+
+let arrayModule (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match args, i.CompiledName with
+    | [arg], "ToSeq" -> Some arg
+    | [arg], "OfSeq" -> toArray com t arg |> Some
+    | [arg], "Length" -> get r t arg "length" |> Some
+    | [ar; idx], "Get" -> getExpr r t ar idx |> Some
+    | [ar; idx; value], "Set" -> Set(ar, ExprSet idx, value, r) |> Some
+    | _, "ZeroCreate" ->
         match firstGenArg com r i.GenericArgs, args with
         | Number _ as t, [len] -> NewArray(ArrayAlloc len, t) |> Value |> Some
         | Boolean, _ -> emitJs r t args "new Array($0).fill(false)" |> Some
@@ -1045,18 +1055,22 @@ let arrays (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (ar
         // may behave unexpectedly, like Array.prototype.reduce
         | _ -> emitJs r t args "new Array($0).fill(null)" |> Some
     // dynamicSet r ar idx value |> Some
-    | None, _, meth ->
+    | _, meth ->
+        let meth = Naming.lowerFirst meth
         let args, meth =
-            if meth = "Sort"
-            then (firstGenArg com r i.GenericArgs |> makeComparerFunction)::args, "SortWith"
+            if meth = "sort"
+            then (firstGenArg com r i.GenericArgs |> makeComparerFunction)::args, "sortWith"
             else args, meth
         let args =
-            match t with
-            // TODO: Check if this covers all cases where the constructor is needed
-            | Array genArg | Tuple([Array genArg; _]) -> args @ [arrayCons com genArg]
-            | _ -> args
+            if passArrayCons.Contains(meth) then
+                match meth, t with
+                | ("mapFold"|"mapFoldBack"), Tuple[Array genArg;_]
+                | "groupBy", Array(Tuple[_; Array genArg])
+                | "partition", Tuple[Array genArg;_]
+                | _, Array genArg -> args @ [arrayCons com genArg]
+                | _ -> args @ [arrayCons com Any]
+            else args
         Helper.CoreCall("Array", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | _ -> None
 
 let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, args, i.CompiledName with
@@ -1928,8 +1942,8 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Char" -> chars com r t info thisArg args
     | "System.String"
     | "Microsoft.FSharp.Core.StringModule" -> strings com r t info thisArg args
-    | "System.Array"
-    | "Microsoft.FSharp.Collections.ArrayModule" -> arrays com r t info thisArg args
+    | "System.Array" -> arrays com r t info thisArg args
+    | "Microsoft.FSharp.Collections.ArrayModule" -> arrayModule com r t info thisArg args
     | "Microsoft.FSharp.Collections.FSharpList`1"
     | "Microsoft.FSharp.Collections.ListModule" -> lists com r t info thisArg args
     | "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers"
