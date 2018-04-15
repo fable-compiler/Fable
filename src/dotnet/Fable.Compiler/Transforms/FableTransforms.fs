@@ -18,7 +18,7 @@ let visit f e =
         | NewArray(kind, t) ->
             match kind with
             | ArrayValues exprs -> NewArray(ArrayValues(List.map f exprs), t) |> Value
-            | ArrayAlloc _ -> e
+            | ArrayAlloc e -> NewArray(ArrayAlloc(f e), t) |> Value
         | NewList(ht, t) ->
             let ht = ht |> Option.map (fun (h,t) -> f h, f t)
             NewList(ht, t) |> Value
@@ -110,7 +110,9 @@ let getSubExpressions = function
         | NewOption(e, _) -> Option.toList e
         | NewTuple exprs -> exprs
         | NewArray(kind, _) ->
-            match kind with ArrayValues exprs -> exprs | ArrayAlloc _ -> []
+            match kind with
+            | ArrayValues exprs -> exprs
+            | ArrayAlloc e -> [e]
         | NewList(ht, _) ->
             match ht with Some(h,t) -> [h;t] | None -> []
         | NewRecord(exprs, _, _) -> exprs

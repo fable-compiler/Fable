@@ -1032,29 +1032,75 @@ let seqs (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
 
 let passArrayCons =
     HashSet [|"choose"; "collect"; "concat"; "distinct"; "distinctBy"; "groupBy"; "initialize"; "map"; "map2"; "map3"
-              "mapFold"; "mapFoldBack"; "mapIndexed"; "mapIndexed2";"mapIndexed3"; "partition"; "permute"; "replicate"
+              "mapFold"; "mapFoldBack"; "mapIndexed"; "mapIndexed2";"mapIndexed3"; "ofList"; "partition"; "permute"; "replicate"
               "reverse"; "scan"; "scanBack"; "singleton"; "skip"; "skipWhile"; "sortWith"; "take"; "takeWhile"; "unfold"|]
+
+let nativeArrayFunctions =
+    dict [| "Exists", "some"
+            "Filter", "filter"
+            "Find", "find"
+            "FindIndex", "findIndex"
+            "ForAll", "every"
+            "Iterate", "forEach"
+            "Reduce", "reduce"
+            "ReduceBack", "reduceRight"
+            "SortInPlace", "sort"
+            "SortInPlaceWith", "sort" |]
 
 let arrays (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, args, i.CompiledName with
-    | Some c, _, "get_Length" -> get r t c "length" |> Some
+    | Some ar, _, "get_Length" -> get r t ar "length" |> Some
+    | Some ar, [idx], "get_Item" -> getExpr r t ar idx |> Some
+    | Some ar, [idx; value], "set_Item" -> Set(ar, ExprSet idx, value, r) |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let inline newArray size t =
+        Value(NewArray(ArrayAlloc size, t))
+    let createArray size value =
+        match t with
+        | Array(Number _ as t2) ->
+            match value with
+            | None -> newArray size t2
+            | Some v -> Helper.InstanceCall(newArray size t2, "fill", t, [v])
+        | Array Boolean ->
+            let value = defaultArg value (makeBoolConst false)
+            Helper.InstanceCall(newArray size Boolean, "fill", t, [value])
+        // If we don't fill the array with null values some operations
+        // may behave unexpectedly, like Array.prototype.reduce
+        | t ->
+            let t2 = match t with Array t2 -> t2 | _ -> Any
+            let value = defaultArg value (Value(Null Any))
+            Helper.InstanceCall(newArray size t2, "fill", t, [value])
     match args, i.CompiledName with
     | [arg], "ToSeq" -> Some arg
     | [arg], "OfSeq" -> toArray com t arg |> Some
-    | [arg], "Length" -> get r t arg "length" |> Some
+    | [arg], ("Length"|"Count") -> get r t arg "length" |> Some
+    | [idx; ar], "Item" -> getExpr r t ar idx |> Some
     | [ar; idx], "Get" -> getExpr r t ar idx |> Some
     | [ar; idx; value], "Set" -> Set(ar, ExprSet idx, value, r) |> Some
-    | _, "ZeroCreate" ->
-        match firstGenArg com r i.GenericArgs, args with
-        | Number _ as t, [len] -> NewArray(ArrayAlloc len, t) |> Value |> Some
-        | Boolean, _ -> emitJs r t args "new Array($0).fill(false)" |> Some
-        // If we don't fill the array with null values some operations
-        // may behave unexpectedly, like Array.prototype.reduce
-        | _ -> emitJs r t args "new Array($0).fill(null)" |> Some
-    // dynamicSet r ar idx value |> Some
+    | [count; ar], ("Take"|"Truncate") -> Helper.InstanceCall(ar, "slice", t, [makeIntConst 0; count], ?loc=r) |> Some
+    | [count; ar], "Skip" -> Helper.InstanceCall(ar, "slice", t, [count], ?loc=r) |> Some
+    | [ar],        "Copy" -> Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
+    | [count], "ZeroCreate"    -> createArray count None |> Some
+    | [count; value], "Create" -> createArray count (Some value) |> Some
+    | _, "Empty" ->
+        let t = match t with Array t -> t | _ -> Any
+        newArray (makeIntConst 0) t |> Some
+    | [ar], "IsEmpty" ->
+        eq (get r (Number Int32) ar "length") (makeIntConst 0) |> Some
+    | [ar], "Head" -> getExpr r t ar (makeIntConst 0) |> Some
+    | [ar], "Tail" -> Helper.InstanceCall(ar, "slice", t, [makeIntConst 1], ?loc=r) |> Some
+
+    // TODO!!!
+//         | "sort" | "sortDescending" | "sortBy" | "sortByDescending" ->
+//         | "sum" | "sumBy" ->
+//         | "min" | "minBy" | "max" | "maxBy" ->
+
+    | _, Patterns.DicContains nativeArrayFunctions meth ->
+        let args, thisArg = List.splitLast args
+        let argTypes = List.take (List.length args) i.SignatureArgTypes
+        Helper.InstanceCall(thisArg, meth, t, args, argTypes, ?loc=r) |> Some
     | _, meth ->
         let meth = Naming.lowerFirst meth
         let args, meth =

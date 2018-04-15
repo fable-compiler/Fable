@@ -744,3 +744,18 @@ let averageBy (projection: 'T -> 'U) (array: 'T []) : 'U =
     let total = sumBy projection array
     total / float array.Length
 
+let ofList (source: 'T list) (cons: ArrayCons) =
+    let len = List.length source
+    let target = cons.Create(len)
+    let mutable i = 0
+    for x in source do
+        target.[i] <- x
+        i <- i + 1
+    target
+
+let toList (source: 'T[]) =
+    let len = source.Length
+    let mutable target = []
+    for i = (len - 1) downto 0 do
+        target <- source.[i]::target
+    target

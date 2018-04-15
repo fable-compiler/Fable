@@ -48,6 +48,13 @@ module List =
         | _::xs1, _::xs2 -> sameLength xs1 xs2
         | _ -> false
 
+    let splitLast (xs: 'a list) =
+        let rec splitListInner acc = function
+            | [] -> failwith "List is empty"
+            | [x] -> List.rev acc, x
+            | x::xs -> splitListInner (x::acc) xs
+        splitListInner [] xs
+
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
 
