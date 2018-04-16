@@ -25,10 +25,12 @@ type Helper =
         Operation(Call(InstanceCall None, argInfo (Some callee) args argTypes), returnType, loc)
 
     static member CoreCall(coreModule: string, coreMember: string, returnType: Type, args: Expr list,
-                           ?argTypes: Type list, ?thisArg: Expr, ?loc: SourceLocation) =
+                           ?argTypes: Type list, ?thisArg: Expr, ?isConstructor: bool, ?loc: SourceLocation) =
         let info = argInfo thisArg args argTypes
         let funcExpr = Import(coreMember, coreModule, CoreLib, Any)
-        Operation(Call(StaticCall funcExpr, info), returnType, loc)
+        match isConstructor with
+        | Some true -> Operation(Call(ConstructorCall funcExpr, info), returnType, loc)
+        | _ -> Operation(Call(StaticCall funcExpr, info), returnType, loc)
 
     static member GlobalCall(ident: string, returnType: Type, args: Expr list,
                              ?argTypes: Type list, ?thisArg: Expr, ?memb: string, ?loc: SourceLocation) =
@@ -541,7 +543,7 @@ let makeMapOrSetCons com r t (i: CallInfo) modName args =
     let typArg = firstGenArg com r i.GenericArgs
     let comparer =
         let fn = makeComparerFunction typArg
-        Helper.CoreCall("Util", "Comparer", Any, [fn])
+        Helper.CoreCall("Util", "Comparer", Any, [fn], isConstructor=true)
     let args =
         match args with
         | [] -> [Value (Null typArg); comparer]
