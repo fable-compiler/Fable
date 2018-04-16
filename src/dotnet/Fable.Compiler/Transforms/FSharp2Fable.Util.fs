@@ -584,12 +584,14 @@ module Util =
         Seq.zip genParams genArgs
 
     let callInstanceMember r typ callee (argInfo: Fable.ArgInfo) (memb: FSharpMemberOrFunctionOrValue) =
+        // TODO: Latest FCS seem to add get_/set_ to DisplayName. Bug?
+        let name = Naming.removeGetSetPrefix memb.DisplayName
         match argInfo.Args with
-        | [Fable.Value Fable.UnitConstant] when memb.IsPropertyGetterMethod ->
-            get r typ callee memb.DisplayName
+        | [] when memb.IsPropertyGetterMethod ->
+            get r typ callee name
         | [arg] when memb.IsPropertySetterMethod ->
-            Fable.Set(callee, makeStrConst memb.DisplayName |> Fable.ExprSet, arg, r)
-        | _ -> makeStrConst memb.DisplayName |> Some |> instanceCall r typ argInfo
+            Fable.Set(callee, makeStrConst name |> Fable.ExprSet, arg, r)
+        | _ -> makeStrConst name |> Some |> instanceCall r typ argInfo
 
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes genArgs (argInfo: Fable.ArgInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
@@ -748,7 +750,7 @@ module Util =
             SignatureArgTypes = Some argTypes
             Spread = if hasSeqSpread memb then Fable.SeqSpread else Fable.NoSpread
             IsSiblingConstructorCall = false }
-        match memb, memb.DeclaringEntity with
+        match memb, Some memb.ApparentEnclosingEntity with
         | Imported r typ (Some argInfo) imported, _ -> imported
         | Emitted r typ (Some argInfo) emitted, _ -> emitted
         | Replaced com ctx r typ argTypes genArgs argInfo replaced -> replaced
@@ -762,13 +764,7 @@ module Util =
                 || memb.IsOverrideOrExplicitInterfaceImplementation
                 || memb.IsDispatchSlot ->
             match callee with
-            | Some callee ->
-                match args with
-                | [Fable.Value Fable.UnitConstant] when memb.IsPropertyGetterMethod ->
-                    get r typ callee memb.DisplayName
-                | [arg] when memb.IsPropertySetterMethod ->
-                    Fable.Set(callee, makeStrConst memb.DisplayName |> Fable.ExprSet, arg, r)
-                | _ -> makeStrConst memb.DisplayName |> Some |> instanceCall r typ argInfo
+            | Some callee -> callInstanceMember r typ callee argInfo memb
             | None -> "Unexpected static interface/override call" |> attachRange r |> failwith
         | _ ->
             if isModuleValueForCalls memb

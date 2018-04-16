@@ -10,6 +10,8 @@ type FunctionTypeKind = LambdaType of Type | DelegateType of Type list
 
 type Type =
     | Any
+    /// This type is only intended to optimize POJO declarations in F# code
+    | Pojo of Core.CaseRules
     | Unit
     | Boolean
     | Char
@@ -195,7 +197,7 @@ type ObjectMemberKind =
     | ObjectGetter
     | ObjectSetter
 
-type ObjectMember = string * Expr * ObjectMemberKind
+type ObjectMember = (* name: *) Expr * (* value: *) Expr * ObjectMemberKind
 
 type Expr =
     | Value of ValueKind

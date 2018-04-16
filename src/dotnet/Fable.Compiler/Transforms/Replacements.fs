@@ -5,6 +5,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open Fable.AST.Fable
+open Fable.Core
 open Patterns
 
 type Context = Fable.Transforms.FSharp2Fable.Context
@@ -58,7 +59,7 @@ module private Helpers =
         Operation(Emit(macro, Some info), t, r)
 
     let objExpr t kvs =
-        let kvs = List.map (fun (k,v) -> k, v, ObjectValue) kvs
+        let kvs = List.map (fun (k,v) -> makeStrConst k, v, ObjectValue) kvs
         ObjectExpr(kvs, t, None)
 
     let add left right =
@@ -225,6 +226,8 @@ let rec makeTypeTest com range expr (typ: Type) =
     | Boolean -> jsTypeof "boolean" expr
     | Char | String _ -> jsTypeof "string" expr
     | FunctionType _ -> jsTypeof "function" expr
+    // TODO: Check if prototype is Object?
+    | Pojo _ -> jsTypeof "object" expr
     | Number _ | EnumType _ -> jsTypeof "number" expr
     | Regex ->
         jsInstanceof (makeIdentExpr "RegExp") expr
@@ -380,6 +383,12 @@ let toInt (round: bool) (sourceType: Type) targetType (args: Expr list) =
         | _ -> args.Head
     | _ -> args.Head
 
+let arrayCons (com: ICompiler) genArg =
+    match genArg with
+    | Number numberKind when com.Options.typedArrays ->
+        getTypedArrayName com numberKind |> makeIdentExpr
+    | _ -> makeIdentExpr "Array"
+
 // TODO: Should we pass the empty list representation here?
 let toList returnType expr =
     Helper.CoreCall("Seq", "toList", returnType, [expr])
@@ -391,10 +400,17 @@ let toArray (com: ICompiler) returnType expr =
         Helper.GlobalCall(getTypedArrayName com numberKind, returnType, [expr], memb="from")
     | _ -> Helper.GlobalCall("Array", returnType, [expr], memb="from")
 
-let toSeq returnType (expr: Expr) =
-    match expr.Type with
-    | List _ -> Helper.CoreCall("List", "toSeq", returnType, [expr])
-    | _ -> expr // TODO
+let listToArray com r t (li: Expr) =
+    match li with
+    | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
+    | _ ->
+        let args = match t with Array genArg -> [li; arrayCons com genArg] | _ -> [li]
+        Helper.CoreCall("Array", "ofList", t, args, ?loc=r)
+
+let listToSeq t (li: Expr) =
+    match li with
+    | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
+    | _ -> Helper.CoreCall("List", "toSeq", t, [li])
 
 let getZero = function
     | Char | String -> makeStrConst ""
@@ -573,7 +589,7 @@ let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
             Helper.GlobalCall(modName, t, args, i.SignatureArgTypes, ?loc=r)
 
 // TODO: Try to compile as literal object
-let makeJsLiteralFromLambda arg =
+let makePojoFromLambda arg =
     // match arg with
     // | Value(Lambda(args, lambdaBody, _)) ->
     //     (Some [], flattenSequential lambdaBody)
@@ -590,40 +606,26 @@ let makeJsLiteralFromLambda arg =
     // )
 
 // TODO: Try to compile as literal object
-let makeJsLiteral caseRule keyValueList =
-    // let rec (|Fields|_|) caseRule = function
-    //     | Value(ArrayConst(ArrayValues exprs, _)) ->
-    //         (Some [], exprs) ||> List.fold (fun acc e ->
-    //             acc |> Option.bind (fun acc ->
-    //                 match e with
-    //                 | Value(TupleConst [Value(StringConst key); value]) ->
-    //                     (key, value)::acc |> Some
-    //                 | UnionCons(tag, fields, cases) ->
-    //                     let key =
-    //                         let key = cases |> List.item tag |> fst
-    //                         match caseRule with
-    //                         | CaseRules.LowerFirst -> Naming.lowerFirst key
-    //                         | _ -> key
-    //                     let value =
-    //                         match fields with
-    //                         | [] -> Value(BoolConst true) |> Some
-    //                         | [CoreCons "List" "default" []] -> makeJsObject r [] |> Some
-    //                         | [CoreMeth "List" "ofArray" [Fields caseRule fields]] -> makeJsObject r fields |> Some
-    //                         | [expr] ->
-    //                             match expr.Type with
-    //                             // Lists references must be converted to objects at runtime
-    //                             | DeclaredType(fullName,_) when fullName = "Microsoft.FSharp.Collections.FSharpList" -> None
-    //                             | _ -> Some expr
-    //                         | exprs -> Value(ArrayConst(ArrayValues exprs, Any)) |> Some
-    //                     value |> Option.map (fun value -> (key, value)::acc)
-    //                 | _ -> None))
-    //         |> Option.map List.rev
-    //     | _ -> None
-    // match keyValueList with
-    // | CoreCons "List" "default" [] -> makeJsObject r []
-    // | CoreMeth "List" "ofArray" [Fields caseRule fields] -> makeJsObject r fields
-    // | _ ->
-        Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst])
+let makePojo caseRule keyValueList =
+    let members =
+        match keyValueList with
+        | Value(NewArray(ArrayValues ms, _)) -> Some ms
+        // | ListLiteral(ms,_) -> Some ms
+        | _ -> None
+    match members with
+    | Some ms ->
+        let success, members =
+            (ms, (true, [])) ||> List.foldBack (fun m (success, acc) ->
+                match success, m, caseRule with
+                | true, Value(NewTuple [Value(StringConstant name); value]), _ ->
+                    true, (makeStrConst name, value, ObjectValue)::acc
+                | true, Value(NewTuple [name; value]), CaseRules.None ->
+                    true, (name, value, ObjectValue)::acc
+                | _ -> false, [])
+        if success
+        then  ObjectExpr(members, Any, None)
+        else  Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst])
+    | None -> Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst])
 
 let fableCoreLib (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
@@ -661,17 +663,17 @@ let fableCoreLib (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
     | "op_EqualsEqualsGreater", _ ->
         NewTuple args |> Value |> Some
     | "createObj", [kvs] ->
-        makeJsLiteral Fable.Core.CaseRules.None kvs |> Some
+        Cast(kvs, Pojo CaseRules.None) |> Some
      | "keyValueList", _ ->
         match args with
         | [Value(Enum(NumberEnum rule, _)); keyValueList] ->
             let caseRule: Fable.Core.CaseRules = enum (int rule)
-            makeJsLiteral caseRule keyValueList |> Some
+            Cast(keyValueList, Pojo caseRule) |> Some
         | [caseRule; keyValueList] ->
             Helper.CoreCall("Util", "createObj", t, [keyValueList; caseRule], ?loc=r) |> Some
         | _ -> None
     | "jsOptions", [arg] ->
-        makeJsLiteralFromLambda arg |> Some
+        makePojoFromLambda arg |> Some
     | "jsThis", _ ->
         This t |> Value |> Some
     | "createEmpty", _ ->
@@ -1018,12 +1020,6 @@ let strings (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "Filter", _, _ -> Helper.CoreCall("String", "filter", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | _ -> None
 
-let arrayCons (com: ICompiler) genArg =
-    match genArg with
-    | Number numberKind when com.Options.typedArrays ->
-        getTypedArrayName com numberKind |> makeIdentExpr
-    | _ -> makeIdentExpr "Array"
-
 let seqs (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "ToArray", [arg] -> toArray com t arg |> Some
@@ -1065,13 +1061,6 @@ let arrays (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
     | Some ar, [idx], "get_Item" -> getExpr r t ar idx |> Some
     | Some ar, [idx; value], "set_Item" -> Set(ar, ExprSet idx, value, r) |> Some
     | _ -> None
-
-let listToArray com r t (li: Expr) =
-    match li with
-    | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
-    | _ ->
-        let args = match t with Array genArg -> [li; arrayCons com genArg] | _ -> [li]
-        Helper.CoreCall("Array", "ofList", t, args, ?loc=r)
 
 let arrayModule (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let inline newArray size t =
@@ -1570,7 +1559,6 @@ let parse isFloat (com: ICompiler) range returnT (i: CallInfo) (thisArg: Expr op
                 sprintf "%s.%s only accepts a single argument" i.DeclaringEntityFullName i.CompiledName
                 |> addErrorAndReturnNull com range |> Some
         | "ToString" ->
-            printfn "parse toString args: %A" args
             match args with
             | [Value (StringConstant _) as format] ->
                 let format = emitJs range String [format] "'{0:' + $0 + '}'"
@@ -2057,7 +2045,7 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Text.RegularExpressions.MatchCollection"
     | "System.Text.RegularExpressions.GroupCollection"
     | "System.Text.RegularExpressions.Regex" -> regex com r t info thisArg args
-    | "System.Collections.Generic.IEnumerable"
+    | "System.Collections.Generic.IEnumerable`1"
     | "System.Collections.IEnumerable" -> enumerable com r t info thisArg args
     | _ -> None
 //         | "System.Collections.Generic.Dictionary.KeyCollection"

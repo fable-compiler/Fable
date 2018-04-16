@@ -164,6 +164,14 @@ let getSubExpressions = function
     | DecisionTree(expr, targets) -> expr::(List.map snd targets)
     | DecisionTreeSuccess(_, boundValues, _) -> boundValues
 
+let rec deepExists f expr =
+    f expr || (getSubExpressions expr |> List.exists (deepExists f))
+
+let rec tryDeepExists f expr =
+    match f expr with
+    | Some res -> res
+    | None -> getSubExpressions expr |> List.exists (tryDeepExists f)
+
 let replaceValues replacements expr =
     if Map.isEmpty replacements
     then expr
@@ -216,7 +224,7 @@ module private Transforms =
         | Function(Lambda arg, body, name) -> nestedLambda [arg] body name
         | _ -> None
 
-    let rec (|NestedApply|_|) expr =
+    let (|NestedApply|_|) expr =
         let rec nestedApply r t accArgs applied =
             match applied with
             | Operation(CurriedApply(applied, args), _, _) ->
@@ -226,6 +234,14 @@ module private Transforms =
         | Operation(CurriedApply(applied, args), t, r) ->
             nestedApply r t args applied
         | _ -> None
+
+    let (|EvalsMutableIdent|_|) expr =
+        if tryDeepExists (function
+            | IdentExpr id when id.IsMutable -> Some true
+            | Function _ -> Some false // Ignore function bodies
+            | _ -> None) expr
+        then Some EvalsMutableIdent
+        else None
 
     let lambdaBetaReduction (_: ICompiler) e =
         let applyArgs (args: Ident list) argExprs body =
@@ -260,6 +276,9 @@ module private Transforms =
             let identName = ident.Name
             let replacement =
                 match value with
+                // Don't erase bindings if mutable variables are involved
+                // as the value can change in between statements
+                | EvalsMutableIdent -> None
                 // When replacing an ident with an erased option use the name but keep the unwrapped type
                 | Get(IdentExpr id, OptionValue, t, _)
                         when mustWrapOption t |> not ->
@@ -334,10 +353,13 @@ module private Transforms =
     let resolveCasts_required (com: ICompiler) = function
         | Cast(e, t) ->
             match t with
+            | Pojo caseRule ->
+                Replacements.makePojo caseRule e
             | DeclaredType(EntFullName Types.enumerable, _) ->
-                match e with
-                | Replacements.ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
-                | e -> Replacements.toSeq t e
+                match e.Type with
+                | List _ -> Replacements.listToSeq t e
+                /// TODO!!! Built-in collections and custom types to seq
+                | _ -> e
             | DeclaredType(ent, _) when ent.IsInterface ->
                 FSharp2Fable.Util.castToInterface com t ent e
             | FunctionType(DelegateType argTypes, returnType) ->
