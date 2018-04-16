@@ -110,12 +110,6 @@ let iterateIndexed2 f xs ys =
 let ofArray xs =
    Array.foldBack (fun x acc -> x::acc) xs []
 
-let toArray xs =
-   let size = length xs
-   let ys = Array.zeroCreate size
-   iterateIndexed (fun i x -> ys.[i] <- x) xs
-   ys
-
 let empty<'a> : 'a list = []
 
 let isEmpty = function
@@ -228,13 +222,13 @@ let zip3 xs ys zs =
 
 let sort xs =
    xs
-   |> toArray
+   |> List.toArray
    |> Array.sort
    |> ofArray
 
 let sortWith f xs =
    xs
-   |> toArray
+   |> List.toArray
    |> Array.sortWith f
    |> ofArray
 
@@ -269,12 +263,12 @@ let averageBy (g: ^a -> ^b ) (zs: ^a list) : ^b =
 
 let permute f xs =
    xs
-   |> toArray
+   |> List.toArray
    |> Array.permute f
    |> ofArray
 
 let sortBy f xs =
-   let ys = xs |> toArray
+   let ys = xs |> List.toArray
    Array.sortInPlaceBy f ys
    ys |> ofArray
 

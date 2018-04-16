@@ -201,16 +201,6 @@ module private Transforms =
         | Some fullName2 when fullName = fullName2 -> Some EntFullName
         | _ -> None
 
-    let (|ListLiteral|_|) e =
-        let rec untail t acc = function
-            | Value(NewList(None, _)) -> Some(List.rev acc, t)
-            | Value(NewList(Some(head, tail), _)) -> untail t (head::acc) tail
-            | _ -> None
-        match e with
-        | Value(NewList(None, t)) -> Some([], t)
-        | Value(NewList(Some(head, tail), t)) -> untail t [head] tail
-        | _ -> None
-
     let (|LambdaOrDelegate|_|) = function
         | Function(Lambda arg, body, name) -> Some([arg], body, name)
         | Function(Delegate args, body, name) -> Some(args, body, name)
@@ -346,7 +336,7 @@ module private Transforms =
             match t with
             | DeclaredType(EntFullName Types.enumerable, _) ->
                 match e with
-                | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
+                | Replacements.ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
                 | e -> Replacements.toSeq t e
             | DeclaredType(ent, _) when ent.IsInterface ->
                 FSharp2Fable.Util.castToInterface com t ent e
