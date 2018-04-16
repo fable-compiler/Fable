@@ -2057,7 +2057,7 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Text.RegularExpressions.MatchCollection"
     | "System.Text.RegularExpressions.GroupCollection"
     | "System.Text.RegularExpressions.Regex" -> regex com r t info thisArg args
-    | "System.Collections.Generic.IEnumerable"
+    | "System.Collections.Generic.IEnumerable`1"
     | "System.Collections.IEnumerable" -> enumerable com r t info thisArg args
     | _ -> None
 //         | "System.Collections.Generic.Dictionary.KeyCollection"

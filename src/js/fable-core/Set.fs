@@ -492,9 +492,9 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
    // We use .NET generics per-instantiation static fields to avoid allocating a new object for each empty
    // set (it is just a lookup into a .NET table of type-instantiation-indexed static fields).
 
-   member internal set.Comparer = comparer
+   member internal __.Comparer = comparer
    //[<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
-   member internal set.Tree : SetTree<'T> = tree
+   member internal __.Tree : SetTree<'T> = tree
 
    static member Empty : Set<'T> =
       let comparer = GenericComparer<'T>()
