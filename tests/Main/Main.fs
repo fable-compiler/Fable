@@ -6,6 +6,7 @@ let allTests =
      Arrays.tests
      Char.tests
      Lists.tests
+     Sets.tests
   |]
 
 #if FABLE_COMPILER
