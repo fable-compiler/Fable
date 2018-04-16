@@ -563,7 +563,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
       | _ -> new Set<_>(a.Comparer,SetTree.intersection a.Comparer a.Tree b.Tree)
 
    static member Union(sets:seq<Set<'T>>) : Set<'T>  =
-      Seq.fold (fun s1 s2 -> s1 + s2) Set<'T>.Empty sets
+      Seq.fold (( + )) Set<'T>.Empty sets
 
    static member IntersectionMany(sets:seq<Set<'T>>) : Set<'T>  =
       Seq.reduce (fun s1 s2 -> Set<_>.Intersection(s1,s2)) sets
@@ -627,106 +627,72 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
       let comparer = GenericComparer<'T>()
       new Set<_>(comparer,SetTree.ofArray comparer arr)
 
-[<CompiledName("IsEmpty")>]
 let isEmpty (s : Set<'T>) = s.IsEmpty
 
-[<CompiledName("Contains")>]
 let contains x (s : Set<'T>) = s.Contains(x)
 
-[<CompiledName("Add")>]
 let add x (s : Set<'T>) = s.Add(x)
 
-[<CompiledName("Singleton")>]
 let singleton x = Set<'T>.Singleton(x)
 
-[<CompiledName("Remove")>]
 let remove x (s : Set<'T>) = s.Remove(x)
 
-[<CompiledName("Union")>]
 let union (s1 : Set<'T>)  (s2 : Set<'T>)  = s1 + s2
 
-[<CompiledName("UnionMany")>]
 let unionMany sets  = Set<_>.Union(sets)
 
-[<CompiledName("Intersect")>]
 let intersect (s1 : Set<'T>)  (s2 : Set<'T>)  = Set<'T>.Intersection(s1,s2)
 
-[<CompiledName("IntersectMany")>]
 let intersectMany sets  = Set<_>.IntersectionMany(sets)
 
-
-[<CompiledName("Iterate")>]
 let iter f (s : Set<'T>)  = s.Iterate(f)
 
-[<CompiledName("Empty")>]
 let empty<'T when 'T : comparison> : Set<'T> = Set<'T>.Empty
 
-[<CompiledName("ForAll")>]
 let forall f (s : Set<'T>) = s.ForAll f
 
-[<CompiledName("Exists")>]
 let exists f (s : Set<'T>) = s.Exists f
 
-[<CompiledName("Filter")>]
 let filter f (s : Set<'T>) = s.Filter f
 
-[<CompiledName("Partition")>]
 let partition f (s : Set<'T>) = s.Partition f
 
-[<CompiledName("Fold")>]
 let fold<'T,'State  when 'T : comparison> f (z:'State) (s : Set<'T>) = SetTree.fold f z s.Tree
 
-[<CompiledName("FoldBack")>]
 let foldBack<'T,'State when 'T : comparison> f (s : Set<'T>) (z:'State) = SetTree.foldBack f s.Tree z
 
-[<CompiledName("Map")>]
 let map f (s : Set<'T>) = s.Map f
 
-[<CompiledName("Count")>]
 let count (s : Set<'T>) = s.Count
 
-[<CompiledName("MinumumElement")>]
 let minimumElement (s : Set<'T>) = s.MinimumElement
 
-[<CompiledName("MaximumElement")>]
 let maximumElement (s : Set<'T>) = s.MaximumElement
 
-[<CompiledName("OfList")>]
 let ofList l = Set<_>.From(List.toSeq l)
 
-[<CompiledName("OfArray")>]
 let ofArray (l : 'T array) = Set<'T>.FromArray(l)
 
-[<CompiledName("ToList")>]
 let toList (s : Set<'T>) = s.ToList()
 
-[<CompiledName("ToArray")>]
 let toArray (s : Set<'T>) = s.ToArray()
 
-[<CompiledName("ToSeq")>]
 let toSeq (s : Set<'T>) = (s :> seq<'T>)
 
-[<CompiledName("OfSeq")>]
 let ofSeq (c : seq<_>) = Set<_>.From(c)
 
-
-[<CompiledName("Difference")>]
 let difference (s1: Set<'T>) (s2: Set<'T>) = s1 - s2
 
-[<CompiledName("IsSubset")>]
 let isSubset (x:Set<'T>) (y: Set<'T>) = SetTree.subset x.Comparer x.Tree y.Tree
 
-[<CompiledName("IsSuperset")>]
 let isSuperset (x:Set<'T>) (y: Set<'T>) = SetTree.subset x.Comparer y.Tree x.Tree
 
-[<CompiledName("IsProperSubset")>]
 let isProperSubset (x:Set<'T>) (y: Set<'T>) = SetTree.psubset x.Comparer x.Tree y.Tree
 
-[<CompiledName("IsProperSuperset")>]
 let isProperSuperset (x:Set<'T>) (y: Set<'T>) = SetTree.psubset x.Comparer y.Tree x.Tree
 
-[<CompiledName("MinElement")>]
 let minElement (s : Set<'T>) = s.MinimumElement
 
-[<CompiledName("MaxElement")>]
 let maxElement (s : Set<'T>) = s.MaximumElement
+
+let create (l : seq<'T>) = Set<_>.Create(l)
