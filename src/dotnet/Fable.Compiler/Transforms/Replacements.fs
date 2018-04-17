@@ -546,8 +546,8 @@ let makeMapOrSetCons com r t (i: CallInfo) modName args =
         Helper.CoreCall("Util", "Comparer", Any, [fn], isConstructor=true)
     let args =
         match args with
-        | [] -> [Value (Null typArg); comparer]
-        | args -> args @ [comparer]
+        | [iterable] -> [iterable; comparer]
+        | args -> args
     Helper.CoreCall(modName, "create", t, args, i.SignatureArgTypes, ?loc=r)
 
 let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
@@ -1156,6 +1156,32 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
     | None, _, meth ->
         let meth = Naming.lowerFirst meth
         Helper.CoreCall("List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _ -> None
+
+let sets (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    Log.addWarning com r i.CompiledName
+    Log.addWarning com r (string i.GenericArgs)
+    Log.addWarning com r (string args)
+    match thisArg, args, i.CompiledName with
+    // | None, [x], "Head"
+    // | Some x, _, "get_Head" -> Get(x, ListHead, t, r) |> Some
+    // | None, [x], "Tail"
+    // | Some x, _, "get_Tail" -> Get(x, ListTail, t, r) |> Some
+    // | _, _, "get_Length" -> Helper.CoreCall("List", "length", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    // | Some x, _, "get_Item" -> Helper.CoreCall("List", "item", t, (args@[x]), i.SignatureArgTypes, ?loc=r) |> Some
+    | _, _, "get_Count" -> Helper.CoreCall("Set", "count", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | Some x, _, "get_IsEmpty" -> Test(x, ListTest false, r) |> Some
+    | None, _, "get_IsEmpty" ->
+        makeMapOrSetCons com r t i "Set" args |> Some
+    | None, _, "Empty" ->
+        makeMapOrSetCons com r t i "Set" ([NewList(None, firstGenArg com r i.GenericArgs) |> Value ]) |> Some
+    // | None, [h;t], "Cons" -> NewList(Some(h,t), firstGenArg com r i.GenericArgs) |> Value |> Some
+    // | None, [x], "ToSeq" -> Cast(x, t) |> Some
+    // | None, _, "OfSeq" -> Helper.CoreCall("Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    // | None, [x], "ToArray" -> listToArray com r t x |> Some
+    | None, _, meth ->
+        let meth = Naming.lowerFirst meth
+        Helper.CoreCall("Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 // See fable-core/Option.ts for more info on how
@@ -2059,6 +2085,8 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Text.RegularExpressions.Regex" -> regex com r t info thisArg args
     | "System.Collections.Generic.IEnumerable`1"
     | "System.Collections.IEnumerable" -> enumerable com r t info thisArg args
+    | "Microsoft.FSharp.Collections.FSharpSet`1"
+    | "Microsoft.FSharp.Collections.SetModule" -> sets com r t info thisArg args
     | _ -> None
 //         | "System.Collections.Generic.Dictionary.KeyCollection"
 //         | "System.Collections.Generic.Dictionary.ValueCollection"
@@ -2070,9 +2098,7 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
 //         | "Microsoft.FSharp.Collections.FSharpList"
 //         | "Microsoft.FSharp.Collections.ListModule" -> collectionsFirstPass com info List
 //         | "Microsoft.FSharp.Collections.FSharpMap"
-//         | "Microsoft.FSharp.Collections.MapModule"
-//         | "Microsoft.FSharp.Collections.FSharpSet"
-//         | "Microsoft.FSharp.Collections.SetModule" -> mapAndSets com info
+//         | "Microsoft.FSharp.Collections.MapModule" -> mapAndSets com info
 //         | "System.Type" -> types com info // TODO
     | "Microsoft.FSharp.Control.FSharpMailboxProcessor"
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel" -> mailbox com r t info thisArg args
