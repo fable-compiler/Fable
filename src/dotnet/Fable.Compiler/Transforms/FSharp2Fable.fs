@@ -117,7 +117,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                             |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
                             |> function Some m -> hasSeqSpread m | None -> false
                     name, Fable.ObjectMethod hasSpread
-            name, value, kind
+            makeStrConst name, value, kind
     )) |> fun members ->
         let typ = makeType com ctx.GenericArgs objType
         Fable.ObjectExpr(members, typ, baseCall)
@@ -625,7 +625,7 @@ let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSh
         elif memb.IsPropertySetterMethod
         then Fable.ObjectGetter
         else hasSeqSpread memb |> Fable.ObjectMethod
-    let objMember = memb.DisplayName, value, kind
+    let objMember = makeStrConst memb.DisplayName, value, kind
     com.AddInterfaceImplementation(memb, objMember)
     []
 

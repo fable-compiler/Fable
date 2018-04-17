@@ -67,14 +67,11 @@ module Util =
         | Fable.Lambda arg -> [arg]
         | Fable.Delegate args -> args
 
-    let rec deepExists f expr =
-        f expr || (FableTransforms.getSubExpressions expr |> List.exists (deepExists f))
-
     let decisionTargetsReferencedMultipleTimes targets expr =
         let targetRefs = Dictionary()
         for i = 1 to (List.length targets) do
             targetRefs.Add(i - 1, 0)
-        expr |> deepExists (function
+        expr |> FableTransforms.deepExists (function
             | Fable.DecisionTreeSuccess(idx,_,_) ->
                 let count = targetRefs.[idx]
                 targetRefs.[idx] <- count + 1
@@ -120,6 +117,11 @@ module Util =
         if Naming.hasIdentForbiddenChars memberName
         then upcast StringLiteral memberName, true
         else upcast Identifier memberName, false
+
+    let memberFromExpr (com: IBabelCompiler) ctx memberExpr: Expression * bool =
+        match memberExpr with
+        | Fable.Value(Fable.StringConstant name) -> memberFromName name
+        | e -> com.TransformAsExpr(ctx, e), true
 
     let coreLibCall (com: IBabelCompiler) (ctx: Context) coreModule memb args =
         let callee = com.GetImportExpr(ctx, memb, coreModule, Fable.CoreLib)
@@ -236,7 +238,7 @@ module Util =
             let rec checkCrossRefs acc = function
                 | [] | [_] -> acc
                 | (argId, _arg)::rest ->
-                    rest |> List.exists (snd >> deepExists
+                    rest |> List.exists (snd >> FableTransforms.deepExists
                         (function Fable.IdentExpr i -> argId = i.Name | _ -> false))
                     |> function true -> Map.add argId (com.GetUniqueVar()) acc | false -> acc
                     |> checkCrossRefs <| rest
@@ -287,7 +289,7 @@ module Util =
         | Fable.NewRecord(vals,ent,_) ->
             let members =
                 (ent.FSharpFields, vals)
-                ||> Seq.map2 (fun fi v -> fi.Name, v, Fable.ObjectValue)
+                ||> Seq.map2 (fun fi v -> makeStrConst fi.Name, v, Fable.ObjectValue)
                 |> Seq.toList
             com.TransformObjectExpr(ctx, members)
         | Fable.NewUnion(vals,uci,_,_) ->
@@ -306,7 +308,7 @@ module Util =
             ObjectMethod(kind, prop, args, body, computed=computed) |> U3.Case2 |> Some
         let pojo =
             members |> List.choose (fun (name, expr, kind) ->
-                let prop, computed = memberFromName name
+                let prop, computed = memberFromExpr com ctx name
                 match kind, expr with
                 | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body, _) ->
                     // Don't call the `makeObjMethod` helper here because function as values don't bind `this` arg

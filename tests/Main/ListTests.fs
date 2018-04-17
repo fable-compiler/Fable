@@ -307,10 +307,11 @@ let tests =
             equal 1 ys.Length
 
       testCase "List.toArray works" <| fun () ->
-            let xs = [1; 2]
-            let ys = xs |> List.toArray
-            ys.[0] + ys.[1]
-            |> equal 3
+            let ys = List.toArray [1; 2]
+            ys.[0] + ys.[1] |> equal 3
+            let xs = [1; 1]
+            let ys2 = List.toArray (2::xs)
+            ys2.[0] + ys2.[1] + ys2.[2] |> equal 4
 
       testCase "List.toSeq works" <| fun () ->
             [1; 2]

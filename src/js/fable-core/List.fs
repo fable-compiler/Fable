@@ -1,12 +1,19 @@
 module List
 
+open Fable.Core
+open Fable.Core.JsInterop
+
 [<AutoOpen>]
 module private JS =
-    open Fable.Core.JsInterop
 
     // TODO!!!: Pass the appropriate zero/one for the type from Fable
     let inline nativeZero<'T> : 'T = !!0
     let inline nativeOne<'T> : 'T = !!1
+
+    [<Emit("Symbol[$0]")>]
+    let SYMBOL (s: string): string = jsNative
+
+    let inline (~%) x = createObj x
 
 let rec foldIndexedAux f i acc = function
    | [] -> acc
@@ -297,10 +304,25 @@ let skip i xs =
   | 1, _::xs -> xs
   | i, xs -> skipInner i xs
 
-let toSeq (xs: _ list) =
-    seq {
-        let mutable xs = xs
-        while not xs.IsEmpty do
-            yield xs.Head
-            xs <- xs.Tail
-    }
+// let toSeq (xs: _ list) =
+//     seq {
+//         let mutable xs = xs
+//         while not xs.IsEmpty do
+//             yield xs.Head
+//             xs <- xs.Tail
+//     }
+
+let toSeq (xs: 'a list): 'a seq =
+    unbox
+        %[(SYMBOL "iterator") ==> fun () ->
+            // Capture a copy of the first value in the closure
+            // so the sequence is restarted every time, see #1230
+            let mutable tmp = xs
+            %["next" ==> fun () ->
+                match tmp with
+                | [] -> %["done" ==> true]
+                | x::xs ->
+                    tmp <- xs
+                    %["done" ==> false; "value" ==> x]
+            ]
+        ]
