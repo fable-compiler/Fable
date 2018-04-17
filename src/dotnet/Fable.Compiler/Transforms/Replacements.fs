@@ -92,6 +92,10 @@ module private Helpers =
         | Boolean -> makeBoolConst false
         | _ -> Null t |> Value
 
+    /// This helper is intended for instance and static members in fable-core library compiled from F# (FSharpSet, FSharpMap...)
+    let getMangledName (entityName: string) isStatic memberCompiledName =
+        entityName + (Naming.getMemberMangledNameSeparator isStatic) + memberCompiledName
+
 open Helpers
 
 type BuiltinType =
@@ -1148,30 +1152,14 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
     | _ -> None
 
 let sets (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    Log.addWarning com r i.CompiledName
-    Log.addWarning com r (string i.GenericArgs)
-    Log.addWarning com r (string args)
-    match thisArg, args, i.CompiledName with
-    // | None, [x], "Head"
-    // | Some x, _, "get_Head" -> Get(x, ListHead, t, r) |> Some
-    // | None, [x], "Tail"
-    // | Some x, _, "get_Tail" -> Get(x, ListTail, t, r) |> Some
-    // | _, _, "get_Length" -> Helper.CoreCall("List", "length", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    // | Some x, _, "get_Item" -> Helper.CoreCall("List", "item", t, (args@[x]), i.SignatureArgTypes, ?loc=r) |> Some
-    | _, _, "get_Count" -> Helper.CoreCall("Set", "count", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | Some x, _, "get_IsEmpty" -> Test(x, ListTest false, r) |> Some
-    | None, _, "get_IsEmpty" ->
-        makeMapOrSetCons com r t i "Set" args |> Some
-    | None, _, "Empty" ->
-        makeMapOrSetCons com r t i "Set" ([NewList(None, firstGenArg com r i.GenericArgs) |> Value ]) |> Some
-    // | None, [h;t], "Cons" -> NewList(Some(h,t), firstGenArg com r i.GenericArgs) |> Value |> Some
-    // | None, [x], "ToSeq" -> Cast(x, t) |> Some
-    // | None, _, "OfSeq" -> Helper.CoreCall("Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | None, [x], "ToArray" -> listToArray com r t x |> Some
-    | None, _, meth ->
-        let meth = Naming.lowerFirst meth
-        Helper.CoreCall("Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | _ -> None
+    Log.addWarning com r (sprintf "SETS: %s %A %A" i.CompiledName i.GenericArgs args)
+    let isStatic = Option.isNone thisArg
+    let mangledName = getMangledName "FSharpSet" isStatic i.CompiledName
+    Helper.CoreCall("Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+
+let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    Log.addWarning com r (sprintf "SET MODULE: %s %A %A" i.CompiledName i.GenericArgs args)
+    Helper.CoreCall("Set", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how
 // options behave in Fable runtime
@@ -2073,8 +2061,8 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Text.RegularExpressions.Regex" -> regex com r t info thisArg args
     | "System.Collections.Generic.IEnumerable`1"
     | "System.Collections.IEnumerable" -> enumerable com r t info thisArg args
-    | "Microsoft.FSharp.Collections.FSharpSet`1"
-    | "Microsoft.FSharp.Collections.SetModule" -> sets com r t info thisArg args
+    | "Microsoft.FSharp.Collections.FSharpSet`1" -> sets com r t info thisArg args
+    | "Microsoft.FSharp.Collections.SetModule" -> setModule com r t info thisArg args
     | _ -> None
 //         | "System.Collections.Generic.Dictionary.KeyCollection"
 //         | "System.Collections.Generic.Dictionary.ValueCollection"

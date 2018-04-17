@@ -206,6 +206,9 @@ module Naming =
         // Check if it already exists
         |> preventConflicts conflicts
 
+    let getMemberMangledNameSeparator isStatic =
+        if isStatic then "$$" else "$"
+
 module Path =
     open System
 

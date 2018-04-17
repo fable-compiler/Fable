@@ -130,8 +130,9 @@ module Helpers =
             | "" -> memb.CompiledName
             | moduleName -> moduleName + "_" + memb.CompiledName
         | Some ent ->
-            let isStatic = not memb.IsInstanceMember
-            let separator = if isStatic then "$$" else "$"
+            let separator =
+                not memb.IsInstanceMember
+                |> Naming.getMemberMangledNameSeparator
             let overloadIndex =
                 match findOverloadIndex ent memb with
                 | 0 -> ""
