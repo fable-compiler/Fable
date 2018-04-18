@@ -17,9 +17,13 @@ module Set
 open System.Collections
 open System.Collections.Generic
 
-type GenericComparer<'T>() =
+type GenericComparer<'T when 'T : equality>() =
     interface IComparer<'T> with
-        member __.Compare(x, y) = 0 // TODO
+        member __.Compare(x, y) =
+            if x = y then
+                0
+            else
+                1
 
 (* A classic functional language implementation of binary trees *)
 
@@ -390,13 +394,13 @@ module internal SetTree =
     type mkIEnumerator<'a when 'a : comparison>(s) =
         let i = ref (mkIterator s)
         interface IEnumerator<'a> with
-            member x.Current = current !i
+            member __.Current = current !i
         interface IEnumerator with
-            member x.Current = box (current !i)
-            member x.MoveNext() = moveNext !i
-            member x.Reset() = i :=  mkIterator s
+            member __.Current = box (current !i)
+            member __.MoveNext() = moveNext !i
+            member __.Reset() = i :=  mkIterator s
         interface System.IDisposable with
-            member x.Dispose() = ()
+            member __.Dispose() = ()
 
     let mkIEnumerator s =
         new mkIEnumerator<_>(s) :> IEnumerator<_>
@@ -486,7 +490,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     //
     // WARNING: The compiled name of this field may never be changed because it is part of the logical
     // WARNING: permanent serialization format for this type.
-    let serializedData = null
+    // let serializedData = null
 
 
     // We use .NET generics per-instantiation static fields to avoid allocating a new object for each empty
@@ -592,9 +596,9 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     //            res <- combineHash res (hash x)
     //      abs res
 
-    override this.GetHashCode() = 0 //this.ComputeHashCode()
+    override __.GetHashCode() = 0 //this.ComputeHashCode()
 
-    override this.Equals(that) = false
+    override __.Equals(_) = false
     //      match that with
     //      | :? Set<'T> as that ->
     //            use e1 = (this :> seq<_>).GetEnumerator()
