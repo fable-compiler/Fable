@@ -647,8 +647,7 @@ let intersectMany sets  = Set<_>.IntersectionMany(sets)
 
 let iter f (s : Set<'T>)  = s.Iterate(f)
 
-// TODO!!!: Fable 2 is not compiling `let foo<'T> = 5` as a function, fix
-let empty<'T when 'T : comparison> (): Set<'T> = Set<'T>.Empty
+let empty<'T when 'T : comparison> = Set<'T>.Empty
 
 let forall f (s : Set<'T>) = s.ForAll f
 
