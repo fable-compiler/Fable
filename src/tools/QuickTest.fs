@@ -30,12 +30,8 @@ let testCase (msg: string) f: unit =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-testCase "Set.IsEmpty works" <| fun () ->
-    let xs = Set.empty<int>
-    xs.IsEmpty |> equal true
-    let xxs = Set.empty<string>
-    xxs.IsEmpty |> equal true
-    let ys = set [1; 1]
-    ys.IsEmpty |> equal false
-    let zs = set ["1"]
-    zs.IsEmpty |> equal false
+testCase "Set.iterate works" <| fun () ->
+    let xs = set [1.; 2.; 3.; 4.]
+    let total = ref 0.
+    xs |> Set.iter (fun x -> total := !total + x)
+    !total |> equal 10.

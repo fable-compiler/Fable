@@ -14,11 +14,11 @@ let tests =
             let ys = set [1]
             Set.isEmpty ys |> equal false
 
-        // testCase "Set.IsEmpty works" <| fun () ->
-        //     let xs = Set.empty<int>
-        //     xs.IsEmpty |> equal true
-        //     let ys = set [1; 1]
-        //     ys.IsEmpty |> equal false
+        testCase "Set.IsEmpty works" <| fun () ->
+            let xs = Set.empty<int>
+            xs.IsEmpty |> equal true
+            let ys = set [1; 1]
+            ys.IsEmpty |> equal false
 
         testCase "Set.Count works" <| fun () ->
             let xs = Set.empty |> Set.add 1
@@ -31,86 +31,86 @@ let tests =
         //             xs |> Seq.isEmpty
         //             |> equal false
 
-        // testCase "Set.add works" <| fun () ->
-        //     let xs = Set.empty |> Set.add 1
-        //     Set.count xs
-        //     |> equal 1
+        testCase "Set.add works" <| fun () ->
+            let xs = Set.empty |> Set.add 1
+            Set.count xs
+            |> equal 1
 
 
-        // testCase "Set.Add works" <| fun () ->
-        //     let xs = Set.empty.Add 1
-        //     Set.count xs
-        //     |> equal 1
+        testCase "Set.Add works" <| fun () ->
+            let xs = Set.empty.Add 1
+            Set.count xs
+            |> equal 1
 
-        // testCase "Set.contains works" <| fun () ->
-        //     let xs = Set.empty |> Set.add 1
-        //     xs |> Set.contains 1 |> equal true
-        //     xs |> Set.contains 2 |> equal false
-
-
-        // testCase "Set.Contains works" <| fun () ->
-        //     let xs = Set.empty |> Set.add 1
-        //     xs.Contains 1 |> equal true
-        //     xs.Contains 2 |> equal false
+        testCase "Set.contains works" <| fun () ->
+            let xs = Set.empty |> Set.add 1
+            xs |> Set.contains 1 |> equal true
+            xs |> Set.contains 2 |> equal false
 
 
-        // testCase "Set.remove works" <| fun () ->
-        //     let xs = Set.empty |> Set.add 1 |> Set.remove 1
-        //     xs.IsEmpty |> equal true
+        testCase "Set.Contains works" <| fun () ->
+            let xs = Set.empty |> Set.add 1
+            xs.Contains 1 |> equal true
+            xs.Contains 2 |> equal false
 
 
-        // testCase "Set.Remove works" <| fun () ->
-        //     let xs = (Set.empty |> Set.add 1).Remove 1
-        //     xs.IsEmpty |> equal true
+        testCase "Set.remove works" <| fun () ->
+            let xs = Set.empty |> Set.add 1 |> Set.remove 1
+            xs.IsEmpty |> equal true
 
 
-        // testCase "Set.singleton works" <| fun () ->
-        //     let xs = Set.singleton 1
-        //     xs.Count |> equal 1
+        testCase "Set.Remove works" <| fun () ->
+            let xs = (Set.empty |> Set.add 1).Remove 1
+            xs.IsEmpty |> equal true
 
 
-        // testCase "Set.union works" <| fun () ->
-        //     let xs = Set.singleton 1
-        //     let ys = Set.singleton 2
-        //     let zs = xs |> Set.union ys
-        //     (zs.Contains 1 && zs.Contains 2)
-        //     |> equal true
+        testCase "Set.singleton works" <| fun () ->
+            let xs = Set.singleton 1
+            xs.Count |> equal 1
+
+
+        testCase "Set.union works" <| fun () ->
+            let xs = Set.singleton 1
+            let ys = Set.singleton 2
+            let zs = xs |> Set.union ys
+            (zs.Contains 1 && zs.Contains 2)
+            |> equal true
 
         // testCase "Set.union works II" <| fun () ->
         //     Set.union (set [1; 2]) (set [3; 4; 5])
         //     |> equal (set [1; 2; 3; 4; 5])
 
 
-        // testCase "Set (+) works" <| fun () ->
-        //     let xs = Set.singleton 1
-        //     let ys = Set.singleton 2
-        //     let zs = xs + ys
-        //     (zs.Contains 1 && zs.Contains 2)
-        //     |> equal true
+        testCase "Set (+) works" <| fun () ->
+            let xs = Set.singleton 1
+            let ys = Set.singleton 2
+            let zs = xs + ys
+            (zs.Contains 1 && zs.Contains 2)
+            |> equal true
 
-        // testCase "Set.unionMany works" <| fun () ->
-        //     let xs = Set.singleton 1
-        //     let ys = Set.singleton 2
-        //     let zs = Set.singleton 3
-        //     let ks = Set.unionMany [xs; ys; zs]
-        //     (ks.Contains 1 && ks.Contains 2 && ks.Contains 3)
-        //     |> equal true
+        testCase "Set.unionMany works" <| fun () ->
+            let xs = Set.singleton 1
+            let ys = Set.singleton 2
+            let zs = Set.singleton 3
+            let ks = Set.unionMany [xs; ys; zs]
+            (ks.Contains 1 && ks.Contains 2 && ks.Contains 3)
+            |> equal true
 
 
-        // testCase "Set.intersect works" <| fun () ->
-        //     let xs = set [1; 2; 3; 4]
-        //     let ys = set [0; 2; 4; 5]
-        //     let zs = xs |> Set.intersect ys
-        //     (zs.Contains 2 && zs.Contains 4 && not(zs.Contains 1) && not(zs.Contains 5))
-        //     |> equal true
+        testCase "Set.intersect works" <| fun () ->
+            let xs = set [1; 2; 3; 4]
+            let ys = set [0; 2; 4; 5]
+            let zs = xs |> Set.intersect ys
+            (zs.Contains 2 && zs.Contains 4 && not(zs.Contains 1) && not(zs.Contains 5))
+            |> equal true
 
-        // testCase "Set.intersectMany works" <| fun () ->
-        //     let xs = set [1; 2]
-        //     let ys = Set.singleton 2
-        //     let zs = set [2; 3]
-        //     let ks = Set.intersectMany [xs; ys; zs]
-        //     (ks.Contains 2 && not(ks.Contains 1 || ks.Contains 3))
-        //     |> equal true
+        testCase "Set.intersectMany works" <| fun () ->
+            let xs = set [1; 2]
+            let ys = Set.singleton 2
+            let zs = set [2; 3]
+            let ks = Set.intersectMany [xs; ys; zs]
+            (ks.Contains 2 && not(ks.Contains 1 || ks.Contains 3))
+            |> equal true
 
         // testCase "Set.iterate works" <| fun () ->
         //     let xs = set [1.; 2.; 3.; 4.]

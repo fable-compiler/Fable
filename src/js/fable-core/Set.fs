@@ -17,11 +17,14 @@ module Set
 open System.Collections
 open System.Collections.Generic
 
-type GenericComparer<'T when 'T : equality>() =
+// TODO: We can probably replace with Util.comparePrimitives
+type GenericComparer<'T when 'T : equality and 'T : comparison>() =
     interface IComparer<'T> with
         member __.Compare(x, y) =
             if x = y then
                 0
+            else if x < y then
+                -1
             else
                 1
 

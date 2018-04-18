@@ -120,7 +120,7 @@ let (|Builtin|_|) = function
         | Some "System.UInt64" -> Some BclUInt64
         | Some (Naming.StartsWith "Microsoft.FSharp.Core.int64" _) -> Some BclInt64
         | Some "System.Numerics.BigInteger" -> Some BclBigInt
-        | Some "Microsoft.FSharp.Collections.FSharpSet" -> Some FSharpSet
+        | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> Some FSharpSet
         | Some "Microsoft.FSharp.Collections.FSharpMap" -> Some FSharpMap
         | _ -> None
     | _ -> None
@@ -466,8 +466,12 @@ let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
         | _ -> "Unknown operator: " + opName |> addErrorAndReturnNull com r
     let argTypes = resolveArgTypes argTypes genArgs
     match argTypes with
-    | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset|FSharpSet as bt)::_ ->
+    | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         Helper.CoreCall(coreModFor bt, opName, t, args, argTypes, ?loc=r)
+    | Builtin FSharpSet::_ ->
+        let mangledName = getMangledName "FSharpSet" true opName
+        Log.addWarning com r (sprintf "OPERATORS: %A %A %A %A %A" mangledName opName t args argTypes)
+        Helper.CoreCall("Set", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
     | CustomOp com opName m ->
