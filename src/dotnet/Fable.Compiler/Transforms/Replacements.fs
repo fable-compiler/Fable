@@ -92,6 +92,10 @@ module private Helpers =
         | Boolean -> makeBoolConst false
         | _ -> Null t |> Value
 
+    /// This helper is intended for instance and static members in fable-core library compiled from F# (FSharpSet, FSharpMap...)
+    let getMangledName (entityName: string) isStatic memberCompiledName =
+        entityName + (Naming.getMemberMangledNameSeparator isStatic) + memberCompiledName
+
 open Helpers
 
 type BuiltinType =
@@ -116,7 +120,7 @@ let (|Builtin|_|) = function
         | Some "System.UInt64" -> Some BclUInt64
         | Some (Naming.StartsWith "Microsoft.FSharp.Core.int64" _) -> Some BclInt64
         | Some "System.Numerics.BigInteger" -> Some BclBigInt
-        | Some "Microsoft.FSharp.Collections.FSharpSet" -> Some FSharpSet
+        | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> Some FSharpSet
         | Some "Microsoft.FSharp.Collections.FSharpMap" -> Some FSharpMap
         | _ -> None
     | _ -> None
@@ -462,8 +466,12 @@ let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
         | _ -> "Unknown operator: " + opName |> addErrorAndReturnNull com r
     let argTypes = resolveArgTypes argTypes genArgs
     match argTypes with
-    | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset|FSharpSet as bt)::_ ->
+    | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         Helper.CoreCall(coreModFor bt, opName, t, args, argTypes, ?loc=r)
+    | Builtin FSharpSet::_ ->
+        let mangledName = getMangledName "FSharpSet" true opName
+        Log.addWarning com r (sprintf "OPERATORS: %A %A %A %A %A" mangledName opName t args argTypes)
+        Helper.CoreCall("Set", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
     | CustomOp com opName m ->
@@ -562,8 +570,8 @@ let makeMapOrSetCons com r t (i: CallInfo) modName args =
         Helper.CoreCall("Util", "Comparer", Any, [fn], isConstructor=true)
     let args =
         match args with
-        | [] -> [Value (Null typArg); comparer]
-        | args -> args @ [comparer]
+        | [iterable] -> [iterable; comparer]
+        | args -> args
     Helper.CoreCall(modName, "create", t, args, i.SignatureArgTypes, ?loc=r)
 
 let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
@@ -1146,6 +1154,16 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
         let meth = Naming.lowerFirst meth
         Helper.CoreCall("List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
+
+let sets (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    Log.addWarning com r (sprintf "SETS: %s %A %A" i.CompiledName i.GenericArgs args)
+    let isStatic = Option.isNone thisArg
+    let mangledName = getMangledName "FSharpSet" isStatic i.CompiledName
+    Helper.CoreCall("Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+
+let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    Log.addWarning com r (sprintf "SET MODULE: %s %A %A" i.CompiledName i.GenericArgs args)
+    Helper.CoreCall("Set", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how
 // options behave in Fable runtime
@@ -2047,6 +2065,8 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Text.RegularExpressions.Regex" -> regex com r t info thisArg args
     | "System.Collections.Generic.IEnumerable`1"
     | "System.Collections.IEnumerable" -> enumerable com r t info thisArg args
+    | "Microsoft.FSharp.Collections.FSharpSet`1" -> sets com r t info thisArg args
+    | "Microsoft.FSharp.Collections.SetModule" -> setModule com r t info thisArg args
     | _ -> None
 //         | "System.Collections.Generic.Dictionary.KeyCollection"
 //         | "System.Collections.Generic.Dictionary.ValueCollection"
@@ -2058,9 +2078,7 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
 //         | "Microsoft.FSharp.Collections.FSharpList"
 //         | "Microsoft.FSharp.Collections.ListModule" -> collectionsFirstPass com info List
 //         | "Microsoft.FSharp.Collections.FSharpMap"
-//         | "Microsoft.FSharp.Collections.MapModule"
-//         | "Microsoft.FSharp.Collections.FSharpSet"
-//         | "Microsoft.FSharp.Collections.SetModule" -> mapAndSets com info
+//         | "Microsoft.FSharp.Collections.MapModule" -> mapAndSets com info
 //         | "System.Type" -> types com info // TODO
     | "Microsoft.FSharp.Control.FSharpMailboxProcessor"
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel" -> mailbox com r t info thisArg args

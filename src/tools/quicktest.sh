@@ -1,3 +1,4 @@
+#!/bin/bash
 # First time after cloning the repository, run:
 #   bash quicktest.sh --build-core
 
