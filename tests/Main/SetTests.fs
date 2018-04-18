@@ -76,9 +76,10 @@ let tests =
             (zs.Contains 1 && zs.Contains 2)
             |> equal true
 
-        // testCase "Set.union works II" <| fun () ->
-        //     Set.union (set [1; 2]) (set [3; 4; 5])
-        //     |> equal (set [1; 2; 3; 4; 5])
+        // TODO: This is failing
+        testCase "Set.union works II" <| fun () ->
+            Set.union (set [1; 2]) (set [3; 4; 5])
+            |> equal (set [1; 2; 3; 4; 5])
 
 
         testCase "Set (+) works" <| fun () ->
@@ -261,12 +262,13 @@ let tests =
             xs.[2] = zs.[2]
             |> equal true
 
-        // testCase "Set.toSeq works" <| fun () ->
-        //     let xs = seq [1.; 2.; 3.; 4.]
-        //     let ys = Set.ofSeq xs
-        //     let zs = Set.toSeq ys
-        //     (Seq.item 2 xs) = (Seq.item 2 zs)
-        //     |> equal true
+        // TODO: This is failing
+        testCase "Set.toSeq works" <| fun () ->
+            let xs = seq [1.; 2.; 3.; 4.]
+            let ys = Set.ofSeq xs
+            let zs = Set.toSeq ys
+            (Seq.item 2 xs) = (Seq.item 2 zs)
+            |> equal true
 
         // type R = { i: int; s: string }
 
