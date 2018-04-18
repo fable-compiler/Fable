@@ -208,9 +208,10 @@ module Helpers =
         // Actually it's true in this case, but we don't consider compiler-generated members
         | None -> false
 
-    /// Using memb.IsValue doesn't for function values (e.g. `let ADD = adder()` when adder returns a function)
+    /// Using memb.IsValue doesn't work for function values
+    /// (e.g. `let ADD = adder()` when adder returns a function)
     let isModuleValueForDeclarations (memb: FSharpMemberOrFunctionOrValue) =
-        memb.CurriedParameterGroups.Count = 0
+        memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
 
     let isModuleValueForCalls (memb: FSharpMemberOrFunctionOrValue) =
         isModuleValueForDeclarations memb
