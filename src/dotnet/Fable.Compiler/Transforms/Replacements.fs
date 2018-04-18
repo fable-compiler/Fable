@@ -413,8 +413,37 @@ let listToArray com r t (li: Expr) =
 
 let listToSeq t (li: Expr) =
     match li with
+    // TODO: Use Any for Array type so we don't create typed arrays?
     | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
     | _ -> Helper.CoreCall("List", "toSeq", t, [li])
+
+// TODO: Use custom implementation?
+// See https://github.com/fable-compiler/Fable/issues/1279#issuecomment-350122284
+let stringToCharArray t e =
+    Helper.InstanceCall(e, "split", t, [makeStrConst ""])
+
+let builtinToSeq builtinType returnType expr =
+    let modName =
+        match builtinType with
+        | FSharpSet -> "Set"
+        | FSharpMap -> "Map"
+        | bt -> failwithf "Cannot convert built-in %A to seq" bt
+    let ienum = Helper.CoreCall(modName, "toSeq", returnType, [expr])
+    Helper.CoreCall("Seq", "toIterable", returnType, [ienum])
+
+let toSeq com t (e: Expr) =
+    match e.Type with
+    | List _ -> listToSeq t e
+    | Array _ -> e
+    // Convert to array to get 16-bit code units, see #1279
+    | String -> stringToCharArray t e
+    | Builtin(FSharpSet|FSharpMap as bt) ->
+        let modName = if bt = FSharpSet then "Set" else "Map"
+        let ienum = Helper.CoreCall(modName, "toSeq", t, [e])
+        Helper.CoreCall("Seq", "toIterable", t, [ienum])
+    | t ->
+        sprintf "Erasing coertion of %A to seq" t |> Log.addWarning com None
+        e // TODO!!!: Custom types to seq. Call GetEnumerable and pass result to Seq/toIterable
 
 let getZero = function
     | Char | String -> makeStrConst ""
@@ -470,7 +499,6 @@ let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
         Helper.CoreCall(coreModFor bt, opName, t, args, argTypes, ?loc=r)
     | Builtin FSharpSet::_ ->
         let mangledName = getMangledName "FSharpSet" true opName
-        Log.addWarning com r (sprintf "OPERATORS: %A %A %A %A %A" mangledName opName t args argTypes)
         Helper.CoreCall("Set", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
@@ -1155,15 +1183,15 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
         Helper.CoreCall("List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
-let sets (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    Log.addWarning com r (sprintf "SETS: %s %A %A" i.CompiledName i.GenericArgs args)
+let sets (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let isStatic = Option.isNone thisArg
     let mangledName = getMangledName "FSharpSet" isStatic i.CompiledName
     Helper.CoreCall("Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
-let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    Log.addWarning com r (sprintf "SET MODULE: %s %A %A" i.CompiledName i.GenericArgs args)
-    Helper.CoreCall("Set", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+let setModule (_: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName, args with
+    | "ToSeq", [e] -> builtinToSeq FSharpSet t e |> Some
+    | meth, _ -> Helper.CoreCall("Set", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how
 // options behave in Fable runtime

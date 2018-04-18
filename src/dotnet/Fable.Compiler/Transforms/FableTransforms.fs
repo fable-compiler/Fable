@@ -283,6 +283,8 @@ module private Transforms =
                 | Get(IdentExpr id, OptionValue, t, _)
                         when mustWrapOption t |> not ->
                     makeTypedIdent t id.Name |> IdentExpr |> Some
+                // TODO: If the ident is referenced 0 times we may delete it if there are no risk
+                // of side-effects. (e.g. when assigning JS `this` to first Arg in interface members)
                 | value when hasDoubleEvalRisk value |> not
                             || isReferencedMoreThan 1 identName body |> not ->
                     match value with
@@ -356,10 +358,7 @@ module private Transforms =
             | Pojo caseRule ->
                 Replacements.makePojo caseRule e
             | DeclaredType(EntFullName Types.enumerable, _) ->
-                match e.Type with
-                | List _ -> Replacements.listToSeq t e
-                /// TODO!!! Built-in collections and custom types to seq
-                | _ -> e
+                Replacements.toSeq com t e
             | DeclaredType(ent, _) when ent.IsInterface ->
                 FSharp2Fable.Util.castToInterface com t ent e
             | FunctionType(DelegateType argTypes, returnType) ->

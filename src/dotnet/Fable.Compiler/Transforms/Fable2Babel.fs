@@ -55,6 +55,7 @@ type IBabelCompiler =
     abstract GetImportExpr: Context * selector: string * path: string * Fable.ImportKind -> Expression
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement list
+    abstract TransformImport: Context * selector:string * path:string * Fable.ImportKind -> Expression
     abstract TransformObjectExpr: Context * Fable.ObjectMember list * ?baseCall: Fable.Expr * ?boundThis: Identifier -> Expression
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr
         -> (Pattern list) * U2<BlockStatement, Expression>
@@ -145,6 +146,9 @@ module Util =
 
     let jsObject methodName args =
         CallExpression(get None (Identifier "Object") methodName, args) :> Expression
+
+    let coreUtil (com: IBabelCompiler) ctx methodName args =
+        CallExpression(com.TransformImport(ctx, methodName, "Util", Fable.CoreLib), args) :> Expression
 
     let buildArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
         match typ with
@@ -328,7 +332,7 @@ module Util =
             ) |> ObjectExpression
         match baseCall with
         | Some(TransformExpr com ctx baseCall) ->
-            jsObject "assign" [baseCall; pojo]
+            coreUtil com ctx "extend" [baseCall; pojo]
         | None -> pojo :> Expression
 
     let transformArgs (com: IBabelCompiler) ctx args spread =
@@ -496,7 +500,6 @@ module Util =
             parts.Head, parts.Tail
         com.GetImportExpr(ctx, selector, path, kind)
         |> getParts parts
-
 
     let transformBindingExprBody (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         match value with
@@ -992,7 +995,7 @@ module Util =
                 | otherCasts ->
                     (otherCasts, [castedObj]) ||> List.foldBack (fun cast acc ->
                         (CallExpression(Identifier cast, [boundThis]) :> Expression)::acc
-                    ) |> jsObject "assign"
+                    ) |> coreUtil com ctx "extend"
             let body = BlockStatement [ReturnStatement returnedObj]
             FunctionExpression([boundThis], body) :> Expression
         [declareModuleMember info.IsPublic info.Name false funcExpr]
@@ -1105,6 +1108,7 @@ module Util =
             member __.GetAllDependencies() = upcast dependencies
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
+            member bcom.TransformImport(ctx, selector, path, kind) = transformImport bcom ctx selector path kind
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
             member bcom.TransformObjectExpr(ctx, members, baseCall, boundThis) = transformObjectExpr bcom ctx members baseCall boundThis
         interface ICompiler with

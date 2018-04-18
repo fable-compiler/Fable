@@ -11,7 +11,16 @@ export function ofList<T>(xs: T[]) {
   return delay(() => unfold((x) => x != null ? x as [T, any] : null, xs));
 }
 
-export class Enumerator<T> {
+export interface IEnumerator<T> {
+  Current: T;
+  MoveNext(): boolean;
+}
+
+export interface IEnumerable<T> {
+  GetEnumerator(): IEnumerator<T>;
+}
+
+export class Enumerator<T> implements IEnumerator<T> {
   private current: T;
   constructor(private iter: Iterator<T>) { }
   public MoveNext() {
@@ -20,24 +29,31 @@ export class Enumerator<T> {
     return !cur.done;
   }
   get Current() { return this.current; }
-  get get_Current() { return this.current; }
   public Reset() {
     throw new Error("JS iterators cannot be reset");
   }
   public Dispose() { return; }
 }
 
-export function getEnumerator<T>(o: any): Enumerator<T> {
+export function getEnumerator<T>(o: any): IEnumerator<T> {
   return typeof o.GetEnumerator === "function"
     ? o.GetEnumerator() : new Enumerator(o[Symbol.iterator]());
 }
 
-export function toIterator<T>(en: Enumerator<T>): Iterator<T> {
+export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
   return {
     next() {
       return en.MoveNext()
         ? { done: false, value: en.Current }
         : { done: true, value: null };
+    },
+  };
+}
+
+export function toIterable<T>(en: IEnumerable<T>): Iterable<T> {
+  return {
+    [Symbol.iterator]() {
+      return toIterator(en.GetEnumerator());
     },
   };
 }

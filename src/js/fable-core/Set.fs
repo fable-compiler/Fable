@@ -616,11 +616,11 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     interface System.IComparable with
         member this.CompareTo(that: obj) = SetTree.compare this.Comparer this.Tree ((that :?> Set<'T>).Tree)
 
-    interface IEnumerable<'T> with
-        member s.GetEnumerator() = SetTree.mkIEnumerator s.Tree
+    // interface IEnumerable<'T> with
+    //     member s.GetEnumerator() = SetTree.mkIEnumerator s.Tree
 
-    interface IEnumerable with
-        override s.GetEnumerator() = (SetTree.mkIEnumerator s.Tree :> IEnumerator)
+    // interface IEnumerable with
+    //     override s.GetEnumerator() = (SetTree.mkIEnumerator s.Tree :> IEnumerator)
 
     static member Singleton(x:'T) : Set<'T> = Set<'T>.Empty.Add(x)
 
@@ -686,7 +686,14 @@ let toList (s : Set<'T>) = s.ToList()
 
 let toArray (s : Set<'T>) = s.ToArray()
 
-let toSeq (s : Set<'T>) = (s :> seq<'T>)
+let toSeq (s : Set<'T>) =
+    { new IEnumerable<'T> with
+        member __.GetEnumerator() =
+            SetTree.mkIEnumerator s.Tree
+      interface IEnumerable with
+        member __.GetEnumerator() =
+            SetTree.mkIEnumerator s.Tree :> IEnumerator
+    }
 
 let ofSeq (c : seq<_>) = Set<_>.From(c)
 

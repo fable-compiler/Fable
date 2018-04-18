@@ -215,3 +215,10 @@ let testParse =
     1 .ToString("F") |> printfn "Int32.ToString:%A"
     1.1 .ToString() |> printfn "Double.ToString:%A"
     1.1 .ToString("F") |> printfn "Double.ToString:%A"
+
+    testCase "Set.toSeq works" <| fun () ->
+        let xs = seq [1.; 2.; 3.; 4.]
+        let ys = Set.ofSeq xs
+        let zs = Set.toSeq ys
+        (Seq.item 2 xs) = (Seq.item 2 zs)
+        |> equal true

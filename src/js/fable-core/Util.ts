@@ -1,6 +1,17 @@
 import { compare as compareDates, toString as dateToString } from "./Date";
 import Long, { toString as longToString } from "./Long";
 
+// Object.assign flattens getters and setters
+// See https://stackoverflow.com/questions/37054596/js-es5-how-to-assign-objects-with-setters-and-getters
+export function extend(target: any, ...sources: any[]) {
+  for (const source of sources) {
+    for (const key of Object.keys(source)) {
+        Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+    }
+  }
+  return target;
+}
+
 export type Choice<T1, T2> = ["Choice1Of2", T1] | ["Choice2Of2", T2];
 
 export interface IComparer<T> {
