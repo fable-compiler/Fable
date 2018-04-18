@@ -492,7 +492,7 @@ module private Transforms =
 
     let rec uncurryApplications_required e =
         match e with
-        | NestedApply(applied, args, t, r) when List.isMultiple args ->
+        | NestedApply(applied, args, t, r) ->
             let applied = visitFromOutsideIn uncurryApplications_required applied
             let args = args |> List.map (visitFromOutsideIn uncurryApplications_required)
             match applied.Type with

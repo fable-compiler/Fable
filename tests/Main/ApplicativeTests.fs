@@ -682,6 +682,9 @@ let maybeApply f a b =
 
 type FooRec = { myFunction: int->int->int->int }
 
+type BarRec = { fn : unit -> string -> int  }
+let getStrLen (x: unit) (y: string) = y.Length
+
 let apply3 f x y z = f x y z
 
 let add2 a b = a + b
@@ -797,6 +800,21 @@ let tests =
             f 4 4 2 |> equal 6
             apply3 r.myFunction 5 7 4 |> equal 8
             apply (r.myFunction 1 1 |> Some) (Some 5) |> equal (Some -3)
+
+        testCase "Uncurried functions in record fields can be partially applied" <| fun () ->
+            // Test also non-record functions just in case
+            let result = getStrLen () "hello"
+            let partiallyApplied = getStrLen ()
+            let secondResult = partiallyApplied "hello"
+            equal 5 result
+            equal 5 secondResult
+
+            let record = { fn = getStrLen }
+            let recordResult = record.fn () "hello"
+            let recordPartiallyApplied = record.fn ()
+            let recordSecondResult = recordPartiallyApplied "hello"
+            equal 5 recordResult
+            equal 5 recordSecondResult
 
         // // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
         // testCase "Applicative operators work with three-argument functions"
