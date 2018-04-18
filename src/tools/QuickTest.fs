@@ -31,49 +31,20 @@ let testCase (msg: string) f: unit =
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
 
-testCase "Set.IsProperSubset works" <| fun () ->
-    let xs = set [1.; 2.; 3.; 4.]
-    let ys = set [1.; 2.]
-    ys.IsProperSubsetOf xs
-    |> equal true
 
-testCase "Set.isProperSuperset works" <| fun () ->
-    let xs = set [1.; 2.; 3.; 4.]
-    let ys = set [1.; 2.]
-    Set.isProperSuperset xs ys
-    |> equal true
+// I think this test is now invalid because of how Set module build it's tree
+// It's important to note that here we hare comparing the Set object representation, it is not an equality check between 2 Set
+testCase "Set.union works II" <| fun () ->
+    Set.union (set [1; 2]) (set [3; 4; 5])
+    |> equal (set [1; 2; 3; 4; 5])
 
-testCase "Set.IsProperSuperset works" <| fun () ->
-    let xs = set [1.; 2.; 3.; 4.]
-    let ys = set [1.; 2.]
-    xs.IsProperSupersetOf ys
-    |> equal true
-
-testCase "Set.ofList works" <| fun () ->
-    let xs = Set.ofList [1.; 2.; 3.; 4.; 4.]
-    xs.Count |> equal 4
-
-testCase "Set.ofArray works" <| fun () ->
-    let xs = Set.ofArray [|1.; 2.; 3.; 4.; 4.|]
-    xs.Count |> equal 4
-
-testCase "Set.ofSeq works" <| fun () ->
-    let xs = Set.ofSeq [1.; 2.; 3.; 4.; 4.]
-    xs.Count |> equal 4
-
-testCase "Set.toList works" <| fun () ->
-    let xs = [1.; 2.; 3.; 4.]
-    let ys = Set.ofList xs
-    let zs = Set.toList ys
-    xs.[2] = zs.[2]
-    |> equal true
-
-testCase "Set.toArray works" <| fun () ->
-    let xs = [|1.; 2.; 3.; 4.|]
-    let ys = Set.ofArray xs
-    let zs = Set.toArray ys
-    xs.[2] = zs.[2]
-    |> equal true
+// I think we should write it like that
+// But this also means we need to reactivate: override __.Equals(_) = from Set type
+// Line 604
+testCase "Set.union works II" <| fun () ->
+    let xs = Set.union (set [1; 2]) (set [3; 4; 5])
+    let ys = (set [1; 2; 3; 4; 5])
+    xs = ys |> equal true
 
 testCase "Set.toSeq works" <| fun () ->
     let xs = seq [1.; 2.; 3.; 4.]
