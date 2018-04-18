@@ -652,10 +652,12 @@ let intersect (s1 : Set<'T>)  (s2 : Set<'T>)  = Set<'T>.Intersection(s1,s2)
 
 let intersectMany sets  = Set<_>.IntersectionMany(sets)
 
+[<CompiledName("iterate")>]
 let iter f (s : Set<'T>)  = s.Iterate(f)
 
 let empty<'T when 'T : comparison> = Set<'T>.Empty
 
+[<CompiledName("forAll")>]
 let forall f (s : Set<'T>) = s.ForAll f
 
 let exists f (s : Set<'T>) = s.Exists f

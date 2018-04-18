@@ -30,8 +30,54 @@ let testCase (msg: string) f: unit =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-testCase "Set.iterate works" <| fun () ->
+
+testCase "Set.IsProperSubset works" <| fun () ->
     let xs = set [1.; 2.; 3.; 4.]
-    let total = ref 0.
-    xs |> Set.iter (fun x -> total := !total + x)
-    !total |> equal 10.
+    let ys = set [1.; 2.]
+    ys.IsProperSubsetOf xs
+    |> equal true
+
+testCase "Set.isProperSuperset works" <| fun () ->
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    Set.isProperSuperset xs ys
+    |> equal true
+
+testCase "Set.IsProperSuperset works" <| fun () ->
+    let xs = set [1.; 2.; 3.; 4.]
+    let ys = set [1.; 2.]
+    xs.IsProperSupersetOf ys
+    |> equal true
+
+testCase "Set.ofList works" <| fun () ->
+    let xs = Set.ofList [1.; 2.; 3.; 4.; 4.]
+    xs.Count |> equal 4
+
+testCase "Set.ofArray works" <| fun () ->
+    let xs = Set.ofArray [|1.; 2.; 3.; 4.; 4.|]
+    xs.Count |> equal 4
+
+testCase "Set.ofSeq works" <| fun () ->
+    let xs = Set.ofSeq [1.; 2.; 3.; 4.; 4.]
+    xs.Count |> equal 4
+
+testCase "Set.toList works" <| fun () ->
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = Set.ofList xs
+    let zs = Set.toList ys
+    xs.[2] = zs.[2]
+    |> equal true
+
+testCase "Set.toArray works" <| fun () ->
+    let xs = [|1.; 2.; 3.; 4.|]
+    let ys = Set.ofArray xs
+    let zs = Set.toArray ys
+    xs.[2] = zs.[2]
+    |> equal true
+
+testCase "Set.toSeq works" <| fun () ->
+    let xs = seq [1.; 2.; 3.; 4.]
+    let ys = Set.ofSeq xs
+    let zs = Set.toSeq ys
+    (Seq.item 2 xs) = (Seq.item 2 zs)
+    |> equal true
