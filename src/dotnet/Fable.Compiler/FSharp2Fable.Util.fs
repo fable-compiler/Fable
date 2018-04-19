@@ -1034,12 +1034,15 @@ module Util =
             |> Seq.iter (fun (par, arg) ->
                 if hasAtt Atts.pojo par.Attributes then
                     match tryDefinition arg with
-                    | Some argDef when argDef.IsInterface -> ()
-                    | Some argDef when argDef.TryFullName = Some "System.Object" -> ()
-                    | Some argDef when hasAtt Atts.pojo argDef.Attributes -> ()
+                    | Some argDef ->
+                        if argDef.IsInterface then ()
+                        elif hasAtt Atts.pojo argDef.Attributes then ()
+                        else
+                            match argDef.TryFullName with
+                            | Some("System.Object"|"Microsoft.FSharp.Core.Unit") -> ()
+                            | _ -> fail (Some argDef.DisplayName) par.Name
                     | None when arg.IsGenericParameter
                         && hasAtt Atts.pojo arg.GenericParameter.Attributes -> ()
-                    | Some argDef -> fail (Some argDef.DisplayName) par.Name
                     | None -> fail None par.Name
                 )
 

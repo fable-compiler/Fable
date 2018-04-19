@@ -1,3 +1,7 @@
+### 1.3.15
+
+* Allow unit for generic parameters decorated with Pojo attribute
+
 ### 1.3.14
 
 * Fix #1376: bigint 0 times anything yields NaN
