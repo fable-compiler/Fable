@@ -36,8 +36,7 @@ export class Enumerator<T> implements IEnumerator<T> {
 }
 
 export function getEnumerator<T>(o: any): IEnumerator<T> {
-  return typeof o.GetEnumerator === "function"
-    ? o.GetEnumerator() : new Enumerator(o[Symbol.iterator]());
+  return new Enumerator(o[Symbol.iterator]());
 }
 
 export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {

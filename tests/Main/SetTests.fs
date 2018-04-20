@@ -25,11 +25,10 @@ let tests =
             xs.Count
             |> equal 1
 
-        // TODO: Fix this conversation test, it's running on .Net but not Fable
-        // testCase "seq.isEmpty function works on Set" <| fun () ->
-        //             let xs = set [1]
-        //             xs |> Seq.isEmpty
-        //             |> equal false
+        testCase "Seq.isEmpty function works on Set" <| fun () ->
+                    let xs = set [1]
+                    xs |> Seq.isEmpty
+                    |> equal false
 
         testCase "Set.add works" <| fun () ->
             let xs = Set.empty |> Set.add 1
@@ -76,11 +75,11 @@ let tests =
             (zs.Contains 1 && zs.Contains 2)
             |> equal true
 
-        // TODO: This is failing
-        // testCase "Set.union works II" <| fun () ->
-        //     Set.union (set [1; 2]) (set [3; 4; 5])
-        //     |> equal (set [1; 2; 3; 4; 5])
+        testCase "Set.union works II" <| fun () ->
+            Set.union (set [1; 2]) (set [3; 4; 5])
+            |> equal (set [5; 4; 3; 2; 1])
 
+        // TODO!!! Check set equality also with non-primitives and custom-equality types
 
         testCase "Set (+) works" <| fun () ->
             let xs = Set.singleton 1

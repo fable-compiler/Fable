@@ -7,7 +7,7 @@ let allTests =
      Char.tests
      Lists.tests
      Sets.tests
-     Maps.tests
+    //  Maps.tests
   |]
 
 #if FABLE_COMPILER

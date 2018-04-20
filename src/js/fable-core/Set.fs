@@ -17,17 +17,6 @@ module Set
 open System.Collections
 open System.Collections.Generic
 
-// TODO: We can probably replace with Util.comparePrimitives
-type GenericComparer<'T when 'T : equality and 'T : comparison>() =
-    interface IComparer<'T> with
-        member __.Compare(x, y) =
-            if x = y then
-                0
-            else if x < y then
-                -1
-            else
-                1
-
 (* A classic functional language implementation of binary trees *)
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.UseNullAsTrueValue)>]
@@ -503,8 +492,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     //[<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member internal __.Tree : SetTree<'T> = tree
 
-    static member Empty : Set<'T> =
-        let comparer = GenericComparer<'T>()
+    static member Empty(comparer: IComparer<'T>) : Set<'T> =
         new Set<'T>(comparer, SetEmpty)
 
     member s.Add(x) : Set<'T> =
@@ -535,9 +523,8 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
         | SetEmpty -> s
         | _ -> new Set<_>(s.Comparer,SetTree.filter s.Comparer f s.Tree)
 
-    member s.Map f  : Set<'U> =
-        let comparer = GenericComparer<'U>()
-        new Set<_>(comparer,SetTree.fold (fun acc k -> SetTree.add comparer (f k) acc) (SetTree<_>.SetEmpty) s.Tree)
+    member s.Map(f, comparer: IComparer<'U>): Set<'U> =
+        new Set<_>(comparer, SetTree.fold (fun acc k -> SetTree.add comparer (f k) acc) (SetTree<_>.SetEmpty) s.Tree)
 
     member s.Exists f = SetTree.exists f s.Tree
 
@@ -569,8 +556,8 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
             | SetEmpty -> a (* 0 INTER B = 0 *)
             | _ -> new Set<_>(a.Comparer,SetTree.intersection a.Comparer a.Tree b.Tree)
 
-    static member Union(sets:seq<Set<'T>>) : Set<'T>  =
-        Seq.fold (( + )) Set<'T>.Empty sets
+    static member Union(sets:seq<Set<'T>>, comparer: IComparer<'T>) : Set<'T>  =
+        Seq.fold (( + )) (Set<'T>.Empty(comparer)) sets
 
     static member IntersectionMany(sets:seq<Set<'T>>) : Set<'T>  =
         Seq.reduce (fun s1 s2 -> Set<_>.Intersection(s1,s2)) sets
@@ -592,47 +579,49 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     member x.ToList () = SetTree.toList x.Tree
     member x.ToArray () = SetTree.toArray x.Tree
 
-    //   member this.ComputeHashCode() =
-    //      let combineHash x y = (x <<< 1) + y + 631
-    //      let mutable res = 0
-    //      for x in this do
-    //            res <- combineHash res (hash x)
-    //      abs res
+    member this.ComputeHashCode() =
+        let combineHash x y = (x <<< 1) + y + 631
+        let mutable res = 0
+        let e = SetTree.mkIEnumerator this.Tree
+        while e.MoveNext() do
+            res <- combineHash res (hash e.Current)
+        abs res
 
-    override __.GetHashCode() = 0 //this.ComputeHashCode()
+    override this.GetHashCode() =
+        this.ComputeHashCode()
 
-    override __.Equals(_) = false
-    //      match that with
-    //      | :? Set<'T> as that ->
-    //            use e1 = (this :> seq<_>).GetEnumerator()
-    //            use e2 = (that :> seq<_>).GetEnumerator()
-    //            let rec loop () =
-    //               let m1 = e1.MoveNext()
-    //               let m2 = e2.MoveNext()
-    //               (m1 = m2) && (not m1 || ((e1.Current = e2.Current) && loop()))
-    //            loop()
-    //      | _ -> false
+    override this.Equals(that: obj) =
+        match that with
+        | :? Set<'T> as that ->
+            use e1 = SetTree.mkIEnumerator this.Tree
+            use e2 = SetTree.mkIEnumerator that.Tree
+            let rec loop () =
+               let m1 = e1.MoveNext()
+               let m2 = e2.MoveNext()
+               (m1 = m2) && (not m1 || ((e1.Current = e2.Current) && loop()))
+            loop()
+        | _ -> false
 
     interface System.IComparable with
         member this.CompareTo(that: obj) = SetTree.compare this.Comparer this.Tree ((that :?> Set<'T>).Tree)
 
-    // interface IEnumerable<'T> with
-    //     member s.GetEnumerator() = SetTree.mkIEnumerator s.Tree
+    interface IEnumerable<'T> with
+        member s.GetEnumerator() = SetTree.mkIEnumerator s.Tree
 
-    // interface IEnumerable with
-    //     override s.GetEnumerator() = (SetTree.mkIEnumerator s.Tree :> IEnumerator)
+    interface IEnumerable with
+        override s.GetEnumerator() = (SetTree.mkIEnumerator s.Tree :> IEnumerator)
 
-    static member Singleton(x:'T) : Set<'T> = Set<'T>.Empty.Add(x)
+    static member Singleton(x:'T, comparer: IComparer<'T>) : Set<'T> =
+        Set<'T>.Empty(comparer).Add(x)
 
-    static member From (elements : seq<'T>) =
-        let comparer = GenericComparer<'T>()
-        new Set<_>(comparer,SetTree.ofSeq comparer elements)
+    static member From (elements : seq<'T>, comparer: IComparer<'T>) =
+        new Set<_>(comparer, SetTree.ofSeq comparer elements)
 
-    static member Create(elements : seq<'T>) =  Set<'T>.From(elements)
+    static member Create(elements : seq<'T>, comparer: IComparer<'T>) =
+        Set<'T>.From(elements, comparer)
 
-    static member FromArray(arr : 'T array) : Set<'T> =
-        let comparer = GenericComparer<'T>()
-        new Set<_>(comparer,SetTree.ofArray comparer arr)
+    static member FromArray(arr : 'T array, comparer: IComparer<'T>) : Set<'T> =
+        new Set<_>(comparer, SetTree.ofArray comparer arr)
 
 let isEmpty (s : Set<'T>) = s.IsEmpty
 
@@ -640,7 +629,7 @@ let contains x (s : Set<'T>) = s.Contains(x)
 
 let add x (s : Set<'T>) = s.Add(x)
 
-let singleton x = Set<'T>.Singleton(x)
+// let singleton x = Set<'T>.Singleton(x)
 
 let remove x (s : Set<'T>) = s.Remove(x)
 
@@ -655,7 +644,7 @@ let intersectMany sets  = Set<_>.IntersectionMany(sets)
 [<CompiledName("iterate")>]
 let iter f (s : Set<'T>)  = s.Iterate(f)
 
-let empty<'T when 'T : comparison> = Set<'T>.Empty
+// let empty<'T when 'T : comparison> = Set<'T>.Empty
 
 [<CompiledName("forAll")>]
 let forall f (s : Set<'T>) = s.ForAll f
@@ -670,7 +659,7 @@ let fold<'T,'State  when 'T : comparison> f (z:'State) (s : Set<'T>) = SetTree.f
 
 let foldBack<'T,'State when 'T : comparison> f (s : Set<'T>) (z:'State) = SetTree.foldBack f s.Tree z
 
-let map f (s : Set<'T>) = s.Map f
+// let map f (s : Set<'T>) = s.Map f
 
 let count (s : Set<'T>) = s.Count
 
@@ -678,9 +667,9 @@ let minimumElement (s : Set<'T>) = s.MinimumElement
 
 let maximumElement (s : Set<'T>) = s.MaximumElement
 
-let ofList l = Set<_>.From(List.toSeq l)
+// let ofList l = Set<_>.From(List.toSeq l)
 
-let ofArray (l : 'T array) = Set<'T>.FromArray(l)
+// let ofArray (l : 'T array) = Set<'T>.FromArray(l)
 
 let toList (s : Set<'T>) = s.ToList()
 
@@ -695,7 +684,7 @@ let toSeq (s : Set<'T>) =
             SetTree.mkIEnumerator s.Tree :> IEnumerator
     }
 
-let ofSeq (c : seq<_>) = Set<_>.From(c)
+// let ofSeq (c : seq<_>) = Set<_>.From(c)
 
 let difference (s1: Set<'T>) (s2: Set<'T>) = s1 - s2
 
@@ -711,4 +700,4 @@ let minElement (s : Set<'T>) = s.MinimumElement
 
 let maxElement (s : Set<'T>) = s.MaximumElement
 
-let create (l : seq<'T>) = Set<_>.Create(l)
+// let create (l : seq<'T>) = Set<_>.Create(l)
