@@ -94,7 +94,7 @@ module private Helpers =
 
     /// This helper is intended for instance and static members in fable-core library compiled from F# (FSharpSet, FSharpMap...)
     let getMangledName (entityName: string) isStatic memberCompiledName =
-        entityName + (Naming.getMemberMangledNameSeparator isStatic) + memberCompiledName
+        entityName + (Naming.getMemberMangledNameSeparator isStatic) + (Naming.sanitizeIdentForbiddenChars memberCompiledName)
 
 open Helpers
 
@@ -1211,14 +1211,23 @@ let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args:
     | "ToSeq", [e]   -> builtinToSeq "Set" t e |> Some
     | meth, _ -> Helper.CoreCall("Set", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
-let maps (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let maps (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    Log.addWarning com r  (sprintf "FSharpMap: %A %s %A" thisArg i.CompiledName args)
     let isStatic = Option.isNone thisArg
     let mangledName = getMangledName "FSharpMap" isStatic i.CompiledName
+    let args =
+        match thisArg, i.CompiledName with
+        | None, ("get_Empty"|"Singleton"|"Create"|"From"|"FromArray"|"Union") ->
+        // | Some _, "Map" ->
+            let genArg = match t with Builtin(FSharpSet genArg) -> genArg | _ -> Any
+            args @ [makeComparer genArg]
+        | _ -> args
     Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+
 
 let mapModule (_: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    // | "ToSeq", [e] -> builtinToSeq FSharpSet t e |> Some
+    | "ToSeq", [e] -> builtinToSeq "Map" t e |> Some
     | meth, _ -> Helper.CoreCall("Map", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how

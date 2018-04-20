@@ -14,6 +14,7 @@
 
 module Map
 
+open System.Collections
 open System.Collections.Generic
 
 // TODO: We can probably replace with Util.comparePrimitives
@@ -379,7 +380,7 @@ module MapTree =
         let i = ref (mkIterator s)
         interface IEnumerator<KeyValuePair<'Key,'Value>> with
             member __.Current = current !i
-        interface System.Collections.IEnumerator with
+        interface IEnumerator with
             member __.Current = box (current !i)
             member __.MoveNext() = moveNext !i
             member __.Reset() = i :=  mkIterator s
@@ -391,13 +392,13 @@ module MapTree =
 [<CompiledName("FSharpMap")>]
 type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key,'Value>) =
 
-    [<System.NonSerialized>]
+    // [<System.NonSerialized>]
     // This type is logically immutable. This field is only mutated during deserialization.
-    let mutable comparer = comparer
+    let comparer = comparer
 
-    [<System.NonSerialized>]
+    // [<System.NonSerialized>]
     // This type is logically immutable. This field is only mutated during deserialization.
-    let mutable tree = tree
+    let tree = tree
 
     static member Empty : Map<'Key,'Value> =
         let comparer = GenericComparer<'Key>()
@@ -528,7 +529,7 @@ let forall f (m:Map<_,_>) = m.ForAll(f)
 
 let mapRange f (m:Map<_,_>) = m.MapRange(f)
 
-let map f (m:Map<_,_>) = m.Map(f)
+// let map f (m:Map<_,_>) = m.Map(f)
 
 let fold<'Key,'T,'State when 'Key : comparison> f (z:'State) (m:Map<'Key,'T>) =
     let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
@@ -538,23 +539,32 @@ let foldBack<'Key,'T,'State  when 'Key : comparison> f (m:Map<'Key,'T>) (z:'Stat
     let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
     MapTree.foldBack  f m.Tree z
 
-let toSeq (m:Map<_,_>) = m |> Seq.map (fun kvp -> kvp.Key, kvp.Value)
+let toSeq (m:Map<'a,'b>) =
+    { new IEnumerable<KeyValuePair<'a,'b>> with
+        member __.GetEnumerator() =
+            MapTree.mkIEnumerator m.Tree
+      interface IEnumerable with
+        member __.GetEnumerator() =
+            MapTree.mkIEnumerator m.Tree :> IEnumerator
+    }
 
-let findKey f (m : Map<_,_>) = m |> toSeq |> Seq.pick (fun (k,v) -> if f k v then Some(k) else None)
+// m |> Seq.map (fun kvp -> kvp.Key, kvp.Value)
 
-let tryFindKey f (m : Map<_,_>) = m |> toSeq |> Seq.tryPick (fun (k,v) -> if f k v then Some(k) else None)
+// let findKey f (m : Map<_,_>) = m |> toSeq |> Seq.pick (fun (k,v) -> if f k v then Some(k) else None)
 
-let ofList (l: ('Key * 'Value) list) = Map<_,_>.ofList(l)
+// let tryFindKey f (m : Map<_,_>) = m |> toSeq |> Seq.tryPick (fun (k,v) -> if f k v then Some(k) else None)
 
-let ofSeq l = Map<_,_>.Create(l)
+// let ofList (l: ('Key * 'Value) list) = Map<_,_>.ofList(l)
 
-let ofArray (array: ('Key * 'Value) array) =
-    let comparer = GenericComparer<'Key>()
-    new Map<_,_>(comparer,MapTree.ofArray comparer array)
+// let ofSeq l = Map<_,_>.Create(l)
+
+// let ofArray (array: ('Key * 'Value) array) =
+//     let comparer = GenericComparer<'Key>()
+//     new Map<_,_>(comparer,MapTree.ofArray comparer array)
 
 let toList (m:Map<_,_>) = m.ToList()
 
 let toArray (m:Map<_,_>) = m.ToArray()
 
 
-let empty<'Key,'Value  when 'Key : comparison> = Map<'Key,'Value>.Empty
+// let empty<'Key,'Value  when 'Key : comparison> = Map<'Key,'Value>.Empty
