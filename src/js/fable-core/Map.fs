@@ -470,17 +470,17 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
     //                res <- combineHash res (Unchecked.hash y)
     //            abs res
 
-    override __.Equals(that) = false
-    //            match that with
-    //            | :? Map<'Key,'Value> as that ->
-    //                use e1 = (this :> seq<_>).GetEnumerator()
-    //                use e2 = (that :> seq<_>).GetEnumerator()
-    //                let rec loop () =
-    //                    let m1 = e1.MoveNext()
-    //                    let m2 = e2.MoveNext()
-    //                    (m1 = m2) && (not m1 || ((e1.Current.Key = e2.Current.Key) && (Unchecked.equals e1.Current.Value e2.Current.Value) && loop()))
-    //                loop()
-    //            | _ -> false
+    override this.Equals(that) =
+       match that with
+       | :? Map<'Key,'Value> as that ->
+           use e1 = MapTree.mkIEnumerator this.Tree
+           use e2 = MapTree.mkIEnumerator that.Tree
+           let rec loop () =
+               let m1 = e1.MoveNext()
+               let m2 = e2.MoveNext()
+               (m1 = m2) && (not m1 || ((e1.Current.Key = e2.Current.Key) && (Unchecked.equals e1.Current.Value e2.Current.Value) && loop()))
+           loop()
+       | _ -> false
 
     override __.GetHashCode() = 0//this.ComputeHashCode()
 
