@@ -494,12 +494,23 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
     interface System.IComparable with
         member m.CompareTo(obj: obj) =
             let m2 = obj :?> Map<'Key,'Value>
-            Seq.compareWith
-                (fun (kvp1 : KeyValuePair<_,_>)
-                    (kvp2 : KeyValuePair<_,_>)->
-                        let c = comparer.Compare(kvp1.Key,kvp2.Key) in
-                        if c <> 0 then c else Unchecked.compare kvp1.Value kvp2.Value)
-                m m2
+            let mutable res = 0
+            let mutable finished = false
+            use e1 = MapTree.mkIEnumerator m.Tree
+            use e2 = MapTree.mkIEnumerator m2.Tree
+            while not finished && res = 0 do
+                  let available1 = e1.MoveNext()
+                  let available2 = e2.MoveNext()
+                  match available1, available2 with
+                  | false, false -> finished <- true
+                  | true, false -> res <- -1
+                  | false, true -> res <- 1
+                  | true, true ->
+                        let kvp1 = e1.Current
+                        let kvp2 = e2.Current
+                        let c = comparer.Compare(kvp1.Key, kvp2.Key)
+                        res <- if c <> 0 then c else Unchecked.compare kvp1.Value kvp2.Value
+            res
 
 let isEmpty (m:Map<_,_>) = m.IsEmpty
 
