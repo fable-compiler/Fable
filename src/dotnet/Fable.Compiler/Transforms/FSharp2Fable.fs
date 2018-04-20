@@ -612,22 +612,25 @@ let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunc
               EntityName = getEntityDeclarationName com ent }
         [Fable.OverrideDeclaration(args, body, info)]
 
-// TODO!!!: Translate System.IComparable<'T>.CompareTo as if it were an override
 let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
-    let bodyCtx, args = bindMemberArgs com ctx args
-    let interfaceFullName = tryGetInterfaceFromMethod memb |> Option.bind (fun ent -> ent.TryFullName)
-    let bodyCtx = { bodyCtx with ImplementedInterfaceFullName = interfaceFullName }
-    let body = transformExpr com bodyCtx body
-    let value = Fable.Function(Fable.Delegate args, body, None)
-    let kind =
-        if memb.IsPropertyGetterMethod
-        then Fable.ObjectGetter
-        elif memb.IsPropertySetterMethod
-        then Fable.ObjectGetter
-        else hasSeqSpread memb |> Fable.ObjectMethod
-    let objMember = makeStrConst memb.DisplayName, value, kind
-    com.AddInterfaceImplementation(memb, objMember)
-    []
+    // Compile System.IComparable<'T>.CompareTo as if it were an override
+    if memb.CompiledName = "System-IComparable-CompareTo"
+    then transformOverride com ctx memb args body
+    else
+        let bodyCtx, args = bindMemberArgs com ctx args
+        let interfaceFullName = tryGetInterfaceFromMethod memb |> Option.bind (fun ent -> ent.TryFullName)
+        let bodyCtx = { bodyCtx with ImplementedInterfaceFullName = interfaceFullName }
+        let body = transformExpr com bodyCtx body
+        let value = Fable.Function(Fable.Delegate args, body, None)
+        let kind =
+            if memb.IsPropertyGetterMethod
+            then Fable.ObjectGetter
+            elif memb.IsPropertySetterMethod
+            then Fable.ObjectGetter
+            else hasSeqSpread memb |> Fable.ObjectMethod
+        let objMember = makeStrConst memb.DisplayName, value, kind
+        com.AddInterfaceImplementation(memb, objMember)
+        []
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =

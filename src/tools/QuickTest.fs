@@ -222,3 +222,18 @@ let testParse =
         let zs = Set.toSeq ys
         (Seq.item 2 xs) = (Seq.item 2 zs)
         |> equal true
+
+type Foo6(i: int) =
+    member __.Value = i
+    interface IComparable with
+        member this.CompareTo(that: obj) =
+            match that with
+            | :? Foo6 as that -> compare this.Value that.Value
+            | _ -> -1
+
+let test5555() =
+    let x = Foo6(4)
+    let y = Foo6(5)
+    log((x :> IComparable).CompareTo(y))
+    log(compare x y)
+    Set [Foo6(4); Foo6(4); Foo6(5)]

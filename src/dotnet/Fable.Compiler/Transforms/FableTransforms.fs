@@ -360,7 +360,10 @@ module private Transforms =
             | DeclaredType(EntFullName Types.enumerable, _) ->
                 Replacements.toSeq com t e
             | DeclaredType(ent, _) when ent.IsInterface ->
-                FSharp2Fable.Util.castToInterface com t ent e
+                match ent with
+                // CompareTo method is attached to prototype
+                | EntFullName Types.comparable -> e
+                | _ -> FSharp2Fable.Util.castToInterface com t ent e
             | FunctionType(DelegateType argTypes, returnType) ->
                 uncurryExpr (Some(argTypes, returnType)) e
             | _ -> e
