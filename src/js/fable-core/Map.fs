@@ -389,8 +389,7 @@ module MapTree =
     let mkIEnumerator s = new mkIEnumerator'<_,_>(s) :> _ IEnumerator
 
 [<CompiledName("FSharpMap")>]
-type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditionalOn>]'Value when 'Key : comparison >
-        (comparer: IComparer<'Key>, tree: MapTree<'Key,'Value>) =
+type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key,'Value>) =
 
     [<System.NonSerialized>]
     // This type is logically immutable. This field is only mutated during deserialization.
@@ -501,86 +500,61 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
                         if c <> 0 then c else Unchecked.compare kvp1.Value kvp2.Value)
                 m m2
 
-[<CompiledName("IsEmpty")>]
 let isEmpty (m:Map<_,_>) = m.IsEmpty
 
-[<CompiledName("Add")>]
 let add k v (m:Map<_,_>) = m.Add(k,v)
 
-[<CompiledName("Find")>]
 let find k (m:Map<_,_>) = m.[k]
 
-[<CompiledName("TryFind")>]
 let tryFind k (m:Map<_,_>) = m.TryFind(k)
 
-[<CompiledName("Remove")>]
 let remove k (m:Map<_,_>) = m.Remove(k)
 
-[<CompiledName("ContainsKey")>]
 let containsKey k (m:Map<_,_>) = m.ContainsKey(k)
 
-[<CompiledName("Iterate")>]
 let iter f (m:Map<_,_>) = m.Iterate(f)
 
-[<CompiledName("TryPick")>]
 let tryPick f (m:Map<_,_>) = m.TryPick(f)
 
-[<CompiledName("Pick")>]
 let pick f (m:Map<_,_>) = match tryPick f m with None -> failwith "key not found" | Some res -> res
 
-[<CompiledName("Exists")>]
 let exists f (m:Map<_,_>) = m.Exists(f)
 
-[<CompiledName("Filter")>]
 let filter f (m:Map<_,_>) = m.Filter(f)
 
-[<CompiledName("Partition")>]
 let partition f (m:Map<_,_>) = m.Partition(f)
 
-[<CompiledName("ForAll")>]
 let forall f (m:Map<_,_>) = m.ForAll(f)
 
 let mapRange f (m:Map<_,_>) = m.MapRange(f)
 
-[<CompiledName("Map")>]
 let map f (m:Map<_,_>) = m.Map(f)
 
-[<CompiledName("Fold")>]
 let fold<'Key,'T,'State when 'Key : comparison> f (z:'State) (m:Map<'Key,'T>) =
     let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
     MapTree.fold f z m.Tree
 
-[<CompiledName("FoldBack")>]
 let foldBack<'Key,'T,'State  when 'Key : comparison> f (m:Map<'Key,'T>) (z:'State) =
     let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
     MapTree.foldBack  f m.Tree z
 
-[<CompiledName("ToSeq")>]
 let toSeq (m:Map<_,_>) = m |> Seq.map (fun kvp -> kvp.Key, kvp.Value)
 
-[<CompiledName("FindKey")>]
 let findKey f (m : Map<_,_>) = m |> toSeq |> Seq.pick (fun (k,v) -> if f k v then Some(k) else None)
 
-[<CompiledName("TryFindKey")>]
 let tryFindKey f (m : Map<_,_>) = m |> toSeq |> Seq.tryPick (fun (k,v) -> if f k v then Some(k) else None)
 
-[<CompiledName("OfList")>]
 let ofList (l: ('Key * 'Value) list) = Map<_,_>.ofList(l)
 
-[<CompiledName("OfSeq")>]
 let ofSeq l = Map<_,_>.Create(l)
 
-[<CompiledName("OfArray")>]
 let ofArray (array: ('Key * 'Value) array) =
     let comparer = GenericComparer<'Key>()
     new Map<_,_>(comparer,MapTree.ofArray comparer array)
 
-[<CompiledName("ToList")>]
 let toList (m:Map<_,_>) = m.ToList()
 
-[<CompiledName("ToArray")>]
 let toArray (m:Map<_,_>) = m.ToArray()
 
 
-[<CompiledName("Empty")>]
 let empty<'Key,'Value  when 'Key : comparison> = Map<'Key,'Value>.Empty

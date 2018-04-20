@@ -121,7 +121,7 @@ let (|Builtin|_|) = function
         | Some (Naming.StartsWith "Microsoft.FSharp.Core.int64" _) -> Some BclInt64
         | Some "System.Numerics.BigInteger" -> Some BclBigInt
         | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> Some FSharpSet
-        | Some "Microsoft.FSharp.Collections.FSharpMap" -> Some FSharpMap
+        | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> Some FSharpMap
         | _ -> None
     | _ -> None
 
@@ -500,6 +500,9 @@ let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
     | Builtin FSharpSet::_ ->
         let mangledName = getMangledName "FSharpSet" true opName
         Helper.CoreCall("Set", mangledName, t, args, argTypes, ?loc=r)
+    | Builtin FSharpMap::_ ->
+        let mangledName = getMangledName "FSharpMap" true opName
+        Helper.CoreCall("Map", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
     | CustomOp com opName m ->
@@ -1192,6 +1195,16 @@ let setModule (_: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: E
     match i.CompiledName, args with
     | "ToSeq", [e] -> builtinToSeq FSharpSet t e |> Some
     | meth, _ -> Helper.CoreCall("Set", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+let maps (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let isStatic = Option.isNone thisArg
+    let mangledName = getMangledName "FSharpMap" isStatic i.CompiledName
+    Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+
+let mapModule (_: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName, args with
+    | "ToSeq", [e] -> builtinToSeq FSharpSet t e |> Some
+    | meth, _ -> Helper.CoreCall("Map", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how
 // options behave in Fable runtime
@@ -2095,6 +2108,8 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Collections.IEnumerable" -> enumerable com r t info thisArg args
     | "Microsoft.FSharp.Collections.FSharpSet`1" -> sets com r t info thisArg args
     | "Microsoft.FSharp.Collections.SetModule" -> setModule com r t info thisArg args
+    | "Microsoft.FSharp.Collections.FSharpMap`2" -> maps com r t info thisArg args
+    | "Microsoft.FSharp.Collections.MapModule" -> mapModule com r t info thisArg args
     | _ -> None
 //         | "System.Collections.Generic.Dictionary.KeyCollection"
 //         | "System.Collections.Generic.Dictionary.ValueCollection"
@@ -2105,8 +2120,6 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
 //         | "Microsoft.FSharp.Collections.ArrayModule" -> collectionsFirstPass com info Array
 //         | "Microsoft.FSharp.Collections.FSharpList"
 //         | "Microsoft.FSharp.Collections.ListModule" -> collectionsFirstPass com info List
-//         | "Microsoft.FSharp.Collections.FSharpMap"
-//         | "Microsoft.FSharp.Collections.MapModule" -> mapAndSets com info
 //         | "System.Type" -> types com info // TODO
     | "Microsoft.FSharp.Control.FSharpMailboxProcessor"
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel" -> mailbox com r t info thisArg args
