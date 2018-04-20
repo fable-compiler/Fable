@@ -106,22 +106,22 @@ type BuiltinType =
     | BclInt64
     | BclUInt64
     | BclBigInt
-    | FSharpSet
-    | FSharpMap
+    | FSharpSet of Type
+    | FSharpMap of key:Type * value:Type
 
 let (|Builtin|_|) = function
-    | DeclaredType(ent,_) ->
-        match ent.TryFullName with
-        | Some Types.guid -> Some BclGuid
-        | Some Types.timespan -> Some BclTimeSpan
-        | Some Types.datetime -> Some BclDateTime
-        | Some Types.datetimeOffset -> Some BclDateTimeOffset
-        | Some "System.Int64" -> Some BclInt64
-        | Some "System.UInt64" -> Some BclUInt64
-        | Some (Naming.StartsWith "Microsoft.FSharp.Core.int64" _) -> Some BclInt64
-        | Some "System.Numerics.BigInteger" -> Some BclBigInt
-        | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> Some FSharpSet
-        | Some "Microsoft.FSharp.Collections.FSharpMap" -> Some FSharpMap
+    | DeclaredType(ent, genArgs) ->
+        match ent.TryFullName, genArgs with
+        | Some Types.guid, _ -> Some BclGuid
+        | Some Types.timespan, _ -> Some BclTimeSpan
+        | Some Types.datetime, _ -> Some BclDateTime
+        | Some Types.datetimeOffset, _ -> Some BclDateTimeOffset
+        | Some "System.Int64", _ -> Some BclInt64
+        | Some "System.UInt64", _ -> Some BclUInt64
+        | Some (Naming.StartsWith "Microsoft.FSharp.Core.int64" _), _ -> Some BclInt64
+        | Some "System.Numerics.BigInteger", _ -> Some BclBigInt
+        | Some "Microsoft.FSharp.Collections.FSharpSet`1", [t] -> Some(FSharpSet(t))
+        | Some "Microsoft.FSharp.Collections.FSharpMap`2", [k;v] -> Some(FSharpMap(k,v))
         | _ -> None
     | _ -> None
 
@@ -163,8 +163,8 @@ let coreModFor = function
     | BclUInt64 -> "Long"
     | BclBigInt -> "BigInt"
     | BclTimeSpan -> "Int32"
-    | FSharpSet -> "Set"
-    | FSharpMap -> "Map"
+    | FSharpSet _ -> "Set"
+    | FSharpMap _ -> "Map"
 
 let makeLongInt t signed (x: uint64) =
     let lowBits = NumberConstant (float (uint32 x), Float64)
@@ -422,12 +422,8 @@ let listToSeq t (li: Expr) =
 let stringToCharArray t e =
     Helper.InstanceCall(e, "split", t, [makeStrConst ""])
 
-let builtinToSeq builtinType returnType expr =
-    let modName =
-        match builtinType with
-        | FSharpSet -> "Set"
-        | FSharpMap -> "Map"
-        | bt -> failwithf "Cannot convert built-in %A to seq" bt
+/// Used to convert F# Sets and Maps to JS iterable
+let builtinToSeq modName returnType expr =
     let ienum = Helper.CoreCall(modName, "toSeq", returnType, [expr])
     Helper.CoreCall("Seq", "toIterable", returnType, [ienum])
 
@@ -437,24 +433,11 @@ let toSeq com t (e: Expr) =
     | Array _ -> e
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
-    | Builtin(FSharpSet|FSharpMap as bt) ->
-        let modName = if bt = FSharpSet then "Set" else "Map"
-        let ienum = Helper.CoreCall(modName, "toSeq", t, [e])
-        Helper.CoreCall("Seq", "toIterable", t, [ienum])
+    | Builtin(FSharpSet _) -> builtinToSeq "Set" t e
+    | Builtin(FSharpMap _) -> builtinToSeq "Map" t e
     | t ->
-        sprintf "Erasing coertion of %A to seq" t |> Log.addWarning com None
+        sprintf "Erasing coertion of %A to seq" t |> Log.addWarning com e.Range
         e // TODO!!!: Custom types to seq. Call GetEnumerable and pass result to Seq/toIterable
-
-let getZero = function
-    | Char | String -> makeStrConst ""
-    | Builtin BclTimeSpan -> makeIntConst 0
-    | Builtin BclDateTime as t -> Helper.CoreCall("Date", "minValue", t, [])
-    | Builtin BclDateTimeOffset as t -> Helper.CoreCall("DateOffset", "minValue", t, [])
-    | Builtin FSharpSet as t -> Helper.CoreCall("Set", "create", t, [])
-    | Builtin (BclInt64|BclUInt64) as t -> Helper.CoreCall("Long", "fromInt", t, [makeIntConst 0])
-    | Builtin BclBigInt as t -> Helper.CoreCall("BigInt", "fromInt32", t, [makeIntConst 0])
-    // TODO: Calls to custom Zero implementation
-    | _ -> makeIntConst 0
 
 let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
     let (|CustomOp|_|) com opName argTypes =
@@ -497,7 +480,7 @@ let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
     match argTypes with
     | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         Helper.CoreCall(coreModFor bt, opName, t, args, argTypes, ?loc=r)
-    | Builtin FSharpSet::_ ->
+    | Builtin(FSharpSet _)::_ ->
         let mangledName = getMangledName "FSharpSet" true opName
         Helper.CoreCall("Set", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
@@ -524,7 +507,7 @@ let equals r equal (args: Expr list) =
     | ExprType(Builtin(BclDateTime|BclDateTimeOffset))::_ ->
         Helper.CoreCall("Date", "equals", Boolean, args, ?loc=r) |> is equal
 
-    | ExprType(Builtin(FSharpSet|FSharpMap)) as callee::args ->
+    | ExprType(Builtin(FSharpSet _|FSharpMap _)) as callee::args ->
         Helper.InstanceCall(callee, "Equals", Boolean, args) |> is equal
 
     | ExprType(Builtin(BclInt64|BclUInt64|BclBigInt as bt))::_ ->
@@ -590,23 +573,26 @@ let makeComparerFunction typArg =
     | _ ->
         makeCoreRef t "Util" "compare"
 
-// TODO!!! This and the following method must be adjusted to new fable-core Map and Set modules
-let makeMapOrSetCons com r t (i: CallInfo) modName args =
-    let typArg = firstGenArg com r i.GenericArgs
-    let comparer =
-        let fn = makeComparerFunction typArg
-        Helper.CoreCall("Util", "Comparer", Any, [fn], isConstructor=true)
-    let args =
-        match args with
-        | [iterable] -> [iterable; comparer]
-        | args -> args
-    Helper.CoreCall(modName, "create", t, args, i.SignatureArgTypes, ?loc=r)
+let makeComparer typArg =
+    let f = makeComparerFunction typArg
+    // TODO: Use proper IComparer<'T> type instead of Any
+    ObjectExpr([makeStrConst "Compare", f, ObjectValue], Any, None)
+
+/// Helper to create Sets or Maps using static members like "Create", "From", etc. which require a comparer
+let makeSetOrMap r t moduleName methName args signArgTypes genArg =
+    let typeName =
+        if   moduleName = "Set" then "FSharpSet"
+        elif moduleName = "Map" then "FSharpMap"
+        else failwith "Expecting Set or Map"
+    let args = args @ [makeComparer genArg]
+    let mangledName = getMangledName typeName true methName
+    Helper.CoreCall(moduleName, mangledName, t, args, signArgTypes, ?loc=r)
 
 let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
     let makeFSharp typArg args =
         let args =
             match args with
-            | [iterable] -> [iterable; Helper.CoreCall("Util", "Comparer", Any, [makeComparerFunction typArg])]
+            | [iterable] -> [iterable; makeComparer typArg]
             | args -> args
         Helper.CoreCall(modName, "create", t, args, i.SignatureArgTypes, ?loc=r)
     let typArg = firstGenArg com r i.GenericArgs
@@ -623,6 +609,17 @@ let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
             makeFSharp typArg args
         | _ ->
             Helper.GlobalCall(modName, t, args, i.SignatureArgTypes, ?loc=r)
+
+let getZero = function
+    | Char | String -> makeStrConst ""
+    | Builtin BclTimeSpan -> makeIntConst 0
+    | Builtin BclDateTime as t -> Helper.CoreCall("Date", "minValue", t, [])
+    | Builtin BclDateTimeOffset as t -> Helper.CoreCall("DateOffset", "minValue", t, [])
+    | Builtin (FSharpSet genArg) as t -> makeSetOrMap None t "Set" "Empty" [] [] genArg
+    | Builtin (BclInt64|BclUInt64) as t -> Helper.CoreCall("Long", "fromInt", t, [makeIntConst 0])
+    | Builtin BclBigInt as t -> Helper.CoreCall("BigInt", "fromInt32", t, [makeIntConst 0])
+    // TODO: Calls to custom Zero implementation
+    | _ -> makeIntConst 0
 
 // TODO: Try to compile as literal object
 let makePojoFromLambda arg =
@@ -825,7 +822,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "CreateDictionary", _ ->
         makeDictionaryOrHashSet com r t i "Map" false args |> Some
     | "CreateSet", _ ->
-        makeMapOrSetCons com r t i "Set" args |> Some
+        firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "Create" args i.SignatureArgTypes |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
         let meth =
@@ -1183,14 +1180,32 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
         Helper.CoreCall("List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
-let sets (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let sets (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let isStatic = Option.isNone thisArg
     let mangledName = getMangledName "FSharpSet" isStatic i.CompiledName
+    let args =
+        match thisArg, i.CompiledName with
+        | None, ("get_Empty"|"Singleton"|"Create"|"From"|"FromArray"|"Union")
+        | Some _, "Map" ->
+            let genArg = match t with Builtin(FSharpSet genArg) -> genArg | _ -> Any
+            args @ [makeComparer genArg]
+        | _ -> args
     Helper.CoreCall("Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
-let setModule (_: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "ToSeq", [e] -> builtinToSeq FSharpSet t e |> Some
+    | "OfList", [li] -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "From"      [listToSeq li.Type li] i.SignatureArgTypes |> Some
+    | "OfSeq", _     -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "From"      args i.SignatureArgTypes |> Some
+    | "OfArray", _   -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "FromArray" args i.SignatureArgTypes |> Some
+    | "Create", _    -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "Create"    args i.SignatureArgTypes |> Some
+    | "Empty", _     -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "Empty"     args i.SignatureArgTypes |> Some
+    | "Singleton", _ -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "Singleton" args i.SignatureArgTypes |> Some
+    | "Map", [f; thisArg] ->
+        let genArg = match t with Builtin(FSharpSet genArg) -> genArg | _ -> Any
+        let args = [f; makeComparer genArg]
+        let mangledName = getMangledName "FSharpSet" false "Map"
+        Helper.CoreCall("Set", mangledName, t, args, List.take 1 i.SignatureArgTypes, thisArg=thisArg, ?loc=r) |> Some
+    | "ToSeq", [e]   -> builtinToSeq "Set" t e |> Some
     | meth, _ -> Helper.CoreCall("Set", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how
@@ -1401,7 +1416,7 @@ let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
             | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
             | _ -> Other
         | _ -> Other
-    let inline makeComparer e =
+    let inline makeComparerFromEqualityComparer e =
         Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
     let inline makeDic forceFSharpMap args =
         makeDictionaryOrHashSet com r t i "Map" forceFSharpMap args
@@ -1411,13 +1426,13 @@ let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
         | [] | [IDictionary] ->
             makeDic false args |> Some
         | [IDictionary; IEqualityComparer] ->
-            makeDic true [args.Head; makeComparer args.Tail.Head] |> Some
+            makeDic true [args.Head; makeComparerFromEqualityComparer args.Tail.Head] |> Some
         | [IEqualityComparer] ->
-            makeDic true [Value (Null Any); makeComparer args.Head] |> Some
+            makeDic true [Value (Null Any); makeComparerFromEqualityComparer args.Head] |> Some
         | [Number _] ->
             makeDic false [] |> Some
         | [Number _; IEqualityComparer] ->
-            makeDic true [Value (Null Any); makeComparer args.Tail.Head] |> Some
+            makeDic true [Value (Null Any); makeComparerFromEqualityComparer args.Tail.Head] |> Some
         | _ -> None
     | "get_IsReadOnly", _ ->
         // TODO: Check for immutable maps with IDictionary interface
@@ -1450,7 +1465,7 @@ let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Ex
             | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
             | _ -> Other
         | _ -> Other
-    let inline makeComparer e =
+    let inline makeComparerFromEqualityComparer e =
         Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
     let inline makeHashSet forceFSharpMap args =
         makeDictionaryOrHashSet com r t i "Set" forceFSharpMap args
@@ -1460,10 +1475,10 @@ let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Ex
         | [] | [IEnumerable] ->
             makeHashSet false args |> Some
         | [IEnumerable; IEqualityComparer] ->
-            [args.Head; makeComparer args.Tail.Head]
+            [args.Head; makeComparerFromEqualityComparer args.Tail.Head]
             |> makeHashSet true |> Some
         | [IEqualityComparer] ->
-            [Value (Null Any); makeComparer args.Head]
+            [Value (Null Any); makeComparerFromEqualityComparer args.Head]
             |> makeHashSet true |> Some
         | _ -> None
     | "get_Count", _, _ -> get r t thisArg.Value "size" |> Some

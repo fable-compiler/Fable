@@ -22,25 +22,6 @@ type ITailCallOpportunity =
     abstract ReplaceArgs: bool
     abstract IsRecursiveRef: Fable.Expr -> bool
 
-type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
-    let getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
-        // If some arguments are functions we need to capture the current values to
-        // prevent delayed references from getting corrupted, for that we use block-scoped
-        // ES2015 variable declarations. See #681
-        let replaceArgs =
-            args |> List.exists (fun arg ->
-                match arg.Type with
-                | Fable.FunctionType _ -> true
-                | _ -> false)
-        replaceArgs, args |> List.map (fun arg -> if replaceArgs then com.GetUniqueVar("arg") else arg.Name)
-    let replaceArgs, argIds = getTailCallArgIds com args
-    interface ITailCallOpportunity with
-        member __.Label = name
-        member __.Args = argIds
-        member __.ReplaceArgs = replaceArgs
-        member __.IsRecursiveRef(e) =
-            match e with Fable.IdentExpr id  -> name = id.Name | _ -> false
-
 type Context =
   { File: Fable.File
     DecisionTargets: (Fable.Ident list * Fable.Expr) list
@@ -67,6 +48,36 @@ module Util =
     let (|FunctionArgs|) = function
         | Fable.Lambda arg -> [arg]
         | Fable.Delegate args -> args
+
+    let discardUnitArg (args: Fable.Ident list) =
+        match args with
+        | [] -> []
+        | [unitArg] when unitArg.Type = Fable.Unit -> []
+        | [thisArg; unitArg] when thisArg.IsThisArg && unitArg.Type = Fable.Unit -> [thisArg]
+        | args -> args
+
+    type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
+        let getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
+            // If some arguments are functions we need to capture the current values to
+            // prevent delayed references from getting corrupted, for that we use block-scoped
+            // ES2015 variable declarations. See #681
+            let replaceArgs =
+                args |> List.exists (fun arg ->
+                    match arg.Type with
+                    | Fable.FunctionType _ -> true
+                    | _ -> false)
+            replaceArgs, args |> List.map (fun arg ->
+                if replaceArgs
+                then com.GetUniqueVar("arg")
+                else arg.Name)
+        let replaceArgs, argIds =
+            discardUnitArg args |> getTailCallArgIds com
+        interface ITailCallOpportunity with
+            member __.Label = name
+            member __.Args = argIds
+            member __.ReplaceArgs = replaceArgs
+            member __.IsRecursiveRef(e) =
+                match e with Fable.IdentExpr id  -> name = id.Name | _ -> false
 
     let decisionTargetsReferencedMultipleTimes targets expr =
         let targetRefs = Dictionary()
@@ -831,12 +842,7 @@ module Util =
         let tailcallChance =
             Option.map (fun name ->
                 NamedTailCallOpportunity(com, name, args) :> ITailCallOpportunity) name
-        let args =
-            match args with
-            | [] -> []
-            | [unitArg] when unitArg.Type = Fable.Unit -> []
-            | [thisArg; unitArg] when thisArg.IsThisArg && unitArg.Type = Fable.Unit -> [ident thisArg]
-            | args -> List.map ident args
+        let args = discardUnitArg args |> List.map ident
         let declaredVars = ResizeArray()
         let mutable isTailCallOptimized = false
         let ctx =
