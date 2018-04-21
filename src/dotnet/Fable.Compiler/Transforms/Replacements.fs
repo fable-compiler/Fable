@@ -591,6 +591,10 @@ let makeSetOrMap r t moduleName methName args signArgTypes genArg =
     let mangledName = getMangledName typeName true methName
     Helper.CoreCall(moduleName, mangledName, t, args, signArgTypes, ?loc=r)
 
+let makeMap r t methName args genArg =
+    let args = args @ [makeComparer genArg]
+    Helper.CoreCall("Map", Naming.lowerFirst methName, t, args, ?loc=r)
+
 let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
     let makeFSharp typArg args =
         let args =
@@ -1212,22 +1216,24 @@ let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args:
     | meth, _ -> Helper.CoreCall("Set", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let maps (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    Log.addWarning com r  (sprintf "FSharpMap: %A %s %A" thisArg i.CompiledName args)
-    let isStatic = Option.isNone thisArg
-    let mangledName = getMangledName "FSharpMap" isStatic i.CompiledName
-    let args =
-        match thisArg, i.CompiledName with
-        | None, ("get_Empty"|"Singleton"|"Create"|"From"|"FromArray"|"Union") ->
-        // | Some _, "Map" ->
-            let genArg = match t with Builtin(FSharpSet genArg) -> genArg | _ -> Any
-            args @ [makeComparer genArg]
-        | _ -> args
-    Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    // Log.addWarning com r  (sprintf "FSharpMap: %A %s %A" thisArg i.CompiledName args)
+    match i.CompiledName with
+    | ".ctor" -> firstGenArg com r i.GenericArgs |> makeMap r t "OfSeq" args |> Some
+    | _ ->
+        let isStatic = Option.isNone thisArg
+        let mangledName = getMangledName "FSharpMap" isStatic i.CompiledName
+        Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
-
-let mapModule (_: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+let mapModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "ToSeq", [e] -> builtinToSeq "Map" t e |> Some
+    | ("OfList"|"OfSeq"|"OfArray"|"Empty" as methName), _ ->
+        firstGenArg com r i.GenericArgs
+        |> makeMap r t methName args |> Some
+    | "Map", [f; m] ->
+        let genArg = match t with Builtin(FSharpMap(genArg,_)) -> genArg | _ -> Any
+        let args = [f; m; makeComparer genArg]
+        Helper.CoreCall("Map", "map", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "ToSeq", [e]   -> builtinToSeq "Map" t e |> Some
     | meth, _ -> Helper.CoreCall("Map", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how

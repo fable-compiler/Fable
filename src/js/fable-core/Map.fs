@@ -17,17 +17,6 @@ module Map
 open System.Collections
 open System.Collections.Generic
 
-// TODO: We can probably replace with Util.comparePrimitives
-type GenericComparer<'T when 'T : equality and 'T : comparison>() =
-    interface IComparer<'T> with
-        member __.Compare(x, y) =
-            if x = y then
-                0
-            else if x < y then
-                -1
-            else
-                1
-
 // [<CompilationRepresentation(CompilationRepresentationFlags.UseNullAsTrueValue)>]
 // [<NoEquality; NoComparison>]
 type MapTree<'Key,'Value when 'Key : comparison > =
@@ -400,20 +389,6 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
     // This type is logically immutable. This field is only mutated during deserialization.
     let tree = tree
 
-    static member Empty : Map<'Key,'Value> =
-        let comparer = GenericComparer<'Key>()
-        new Map<'Key,'Value>(comparer,MapTree<_,_>.MapEmpty)
-
-    static member Create(ie : IEnumerable<_>) : Map<'Key,'Value> =
-        let comparer = GenericComparer<'Key>()
-        new Map<_,_>(comparer,MapTree.ofSeq comparer ie)
-
-    static member Create() : Map<'Key,'Value> = Map.Empty
-
-    static member From(ie : seq<_>) =
-        let comparer = GenericComparer<'Key>()
-        new Map<_,_>(comparer,MapTree.ofSeq comparer ie)
-
     member internal __.Comparer = comparer
     //[<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member internal __.Tree = tree
@@ -457,10 +432,6 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
     member __.ToList() = MapTree.toList tree
 
     member __.ToArray() = MapTree.toArray tree
-
-    static member ofList(l) : Map<'Key,'Value> =
-        let comparer = GenericComparer<'Key>()
-        new Map<_,_>(comparer,MapTree.ofList comparer l)
 
     //        member this.ComputeHashCode() =
     //            let combineHash x y = (x <<< 1) + y + 631
@@ -565,17 +536,18 @@ let toSeq (m:Map<'a,'b>) =
 
 // let tryFindKey f (m : Map<_,_>) = m |> toSeq |> Seq.tryPick (fun (k,v) -> if f k v then Some(k) else None)
 
-// let ofList (l: ('Key * 'Value) list) = Map<_,_>.ofList(l)
+let ofList (l: ('Key * 'Value) list) comparer =
+    new Map<_,_>(comparer, MapTree.ofList comparer l)
 
-// let ofSeq l = Map<_,_>.Create(l)
+let ofSeq l comparer =
+    new Map<_,_>(comparer, MapTree.ofSeq comparer l)
 
-// let ofArray (array: ('Key * 'Value) array) =
-//     let comparer = GenericComparer<'Key>()
-//     new Map<_,_>(comparer,MapTree.ofArray comparer array)
+let ofArray (array: ('Key * 'Value) array) comparer =
+    new Map<_,_>(comparer, MapTree.ofArray comparer array)
 
 let toList (m:Map<_,_>) = m.ToList()
 
 let toArray (m:Map<_,_>) = m.ToArray()
 
-
-// let empty<'Key,'Value  when 'Key : comparison> = Map<'Key,'Value>.Empty
+let empty<'Key,'Value  when 'Key : comparison> comparer =
+    new Map<'Key,'Value>(comparer, MapTree.MapEmpty)
