@@ -470,9 +470,7 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
             use e1 = MapTree.mkIEnumerator m.Tree
             use e2 = MapTree.mkIEnumerator m2.Tree
             while not finished && res = 0 do
-                  let available1 = e1.MoveNext()
-                  let available2 = e2.MoveNext()
-                  match available1, available2 with
+                  match e1.MoveNext(), e2.MoveNext() with
                   | false, false -> finished <- true
                   | true, false -> res <- -1
                   | false, true -> res <- 1

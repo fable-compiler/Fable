@@ -5,10 +5,10 @@ open Fable.Tests.Util
 
 let tests =
     testList "Maps" [
-        // testCase "Map construction from lists works" <| fun () ->
-        //     let xs = Map [1,1; 2,2]
-        //     xs |> Seq.isEmpty
-        //     |> equal false
+        testCase "Map construction from lists works" <| fun () ->
+            let xs = Map [1,1; 2,2]
+            xs |> Seq.isEmpty
+            |> equal false
 
         // testCase "Map.isEmpty works" <| fun () ->
         //     let xs = Map []
