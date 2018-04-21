@@ -617,8 +617,8 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     static member From (elements : seq<'T>, comparer: IComparer<'T>) =
         new Set<_>(comparer, SetTree.ofSeq comparer elements)
 
-    static member Create(elements : seq<'T>, comparer: IComparer<'T>) =
-        Set<'T>.From(elements, comparer)
+    // static member Create(elements : seq<'T>, comparer: IComparer<'T>) =
+    //     Set<'T>.From(elements, comparer)
 
     static member FromArray(arr : 'T array, comparer: IComparer<'T>) : Set<'T> =
         new Set<_>(comparer, SetTree.ofArray comparer arr)

@@ -96,6 +96,10 @@ module private Helpers =
     let getMangledName (entityName: string) isStatic memberCompiledName =
         entityName + (Naming.getMemberMangledNameSeparator isStatic) + (Naming.sanitizeIdentForbiddenChars memberCompiledName)
 
+    let hasInterface interfaceFullname (ent: FSharpEntity) =
+        ent.AllInterfaces |> Seq.exists (fun t ->
+            t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullname)
+
 open Helpers
 
 type BuiltinType =
@@ -548,12 +552,15 @@ let compare r (args: Expr list) op =
         Helper.CoreCall(coreModFor bt, "compare", Number Int32, args, ?loc=r) |> wrapWith op
 
     | ExprType(Array _ | List _ | Tuple _)::_ ->
-        Helper.CoreCall("Util", "compareArrays", Boolean, args, ?loc=r) |> wrapWith op
+        Helper.CoreCall("Util", "compareArrays", Number Int32, args, ?loc=r) |> wrapWith op
     | ExprType(DeclaredType(ent,_))::_ when ent.IsFSharpUnion ->
-        Helper.CoreCall("Util", "compareArrays", Boolean, args, ?loc=r) |> wrapWith op
+        Helper.CoreCall("Util", "compareArrays", Number Int32, args, ?loc=r) |> wrapWith op
 
     | ExprType(DeclaredType(ent,_))::_ when ent.IsFSharpRecord ->
-        Helper.CoreCall("Util", "compareObjects", Boolean, args, ?loc=r) |> wrapWith op
+        Helper.CoreCall("Util", "compareObjects", Number Int32, args, ?loc=r) |> wrapWith op
+
+    | [ExprType(DeclaredType(ent,_)) as left; right] when hasInterface Types.comparable ent ->
+        Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r) |> wrapWith op
 
     | _ -> Helper.CoreCall("Util", "compare", Number Int32, args, ?loc=r) |> wrapWith op
 
@@ -573,6 +580,11 @@ let makeComparerFunction typArg =
         makeCoreRef t "Util" "compareArrays"
     | DeclaredType(ent,_) when ent.IsFSharpRecord ->
         makeCoreRef t "Util" "compareObjects"
+    | DeclaredType(ent,_) when hasInterface Types.comparable ent ->
+        let x = makeIdent "x"
+        let y = makeIdent "y"
+        let body = Helper.InstanceCall(IdentExpr x, "CompareTo", Number Int32, [IdentExpr y])
+        Function(Delegate [x; y], body, None)
     | _ ->
         makeCoreRef t "Util" "compare"
 
@@ -829,7 +841,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "CreateDictionary", _ ->
         makeDictionaryOrHashSet com r t i "Map" false args |> Some
     | "CreateSet", _ ->
-        firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "Create" args i.SignatureArgTypes |> Some
+        firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "From" args i.SignatureArgTypes |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
         let meth =
@@ -1187,11 +1199,15 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
         Helper.CoreCall("List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
-let sets (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let sets (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let isStatic = Option.isNone thisArg
-    let mangledName = getMangledName "FSharpSet" isStatic i.CompiledName
+    let methName =
+        match i.CompiledName with
+        | ".ctor" | "Create" -> "From"
+        | name -> name
+    let mangledName = getMangledName "FSharpSet" isStatic methName
     let args =
-        match thisArg, i.CompiledName with
+        match thisArg, methName with
         | None, ("get_Empty"|"Singleton"|"Create"|"From"|"FromArray"|"Union")
         | Some _, "Map" ->
             let genArg = match t with Builtin(FSharpSet genArg) -> genArg | _ -> Any
@@ -1200,13 +1216,16 @@ let sets (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
     Helper.CoreCall("Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    let makeSet methName args =
+        firstGenArg com r i.GenericArgs
+        |> makeSetOrMap r t "Set" methName args i.SignatureArgTypes
+        |> Some
     match i.CompiledName, args with
-    | "OfList", [li] -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "From"      [listToSeq li.Type li] i.SignatureArgTypes |> Some
-    | "OfSeq", _     -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "From"      args i.SignatureArgTypes |> Some
-    | "OfArray", _   -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "FromArray" args i.SignatureArgTypes |> Some
-    | "Create", _    -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "Create"    args i.SignatureArgTypes |> Some
-    | "Empty", _     -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "Empty"     args i.SignatureArgTypes |> Some
-    | "Singleton", _ -> firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "Singleton" args i.SignatureArgTypes |> Some
+    | "OfList", [li]        -> makeSet "From" [listToSeq li.Type li]
+    | ("OfSeq"|"Create"), _ -> makeSet "From"      args
+    | "OfArray", _          -> makeSet "FromArray" args
+    | "Empty", _            -> makeSet "Empty"     args
+    | "Singleton", _        -> makeSet "Singleton" args
     | "Map", [f; thisArg] ->
         let genArg = match t with Builtin(FSharpSet genArg) -> genArg | _ -> Any
         let args = [f; makeComparer genArg]
