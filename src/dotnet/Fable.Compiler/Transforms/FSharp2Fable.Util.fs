@@ -695,8 +695,10 @@ module Util =
             else args
 
     let castToInterface com typ (interfaceEntity: FSharpEntity) (expr: Fable.Expr) =
-        match expr.Type with
-        | Fable.DeclaredType(ent,_) as exprTyp when not ent.IsInterface ->
+        match interfaceEntity.TryFullName, expr.Type with
+        // CompareTo method is attached to prototype
+        | Some Types.comparable, _ -> expr
+        | _, (Fable.DeclaredType(ent,_) as exprTyp) when not ent.IsInterface ->
             // TODO!!!: Check if the type actually implements the interface or whether
             // it's implemented by a parent type
             match tryGetEntityLocation ent with
