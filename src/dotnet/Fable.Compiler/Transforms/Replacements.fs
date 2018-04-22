@@ -1235,7 +1235,8 @@ let mapModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args:
     | "Map", [f; m] ->
         let genArg = match t with Builtin(FSharpMap(genArg,_)) -> genArg | _ -> Any
         let args = [f; m; makeComparer genArg]
-        Helper.CoreCall("Map", "map", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        let mangledName = getMangledName "FSharpMap" false "Map"
+        Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToSeq", [e]   -> builtinToSeq "Map" t e |> Some
     | meth, _ -> Helper.CoreCall("Map", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
@@ -1260,19 +1261,23 @@ let options (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (a
     //     ccall i "Option" "getValue" [getCallee i; makeBoolConst true] |> Some
     // | "ofObj" | "ofNullable" ->
     //     wrap i.returnType (getCallee i) |> Some
-    // | "isSome" | "isNone" ->
-    //     let op =
-    //         if i.memberName = "isSome"
-    //         then BinaryUnequal
-    //         else BinaryEqual
-    //     let comp =
-    //         ([getCallee i; Fable.Value Fable.Null], op)
-    //         ||> makeEqOp i.range
-    //     match i.returnType with
-    //     | Fable.Boolean _ -> Some comp
-    //     // Hack to fix instance member calls (e.g., myOpt.IsSome)
-    //     // For some reason, F# compiler expects them to be applicable
-    //     | _ -> makeLambda [] comp |> Some
+    | "IsSome", _, [c]
+    | "IsNone", _, [c] ->
+        let op =
+            if i.CompiledName = "IsSome"
+            then BinaryUnequal
+            else BinaryEqual
+
+        makeEqOp r c (Fable.Value (ValueKind.Null (firstGenArg com r i.GenericArgs))) op |> Some
+
+        // let comp =
+        //     ([getCallee i; Fable.Value Fable.Null], op)
+        //     ||> makeEqOp i.range
+        // match i.returnType with
+        // | Fable.Boolean _ -> Some comp
+        // // Hack to fix instance member calls (e.g., myOpt.IsSome)
+        // // For some reason, F# compiler expects them to be applicable
+        // | _ -> makeLambda [] comp |> Some
     | ("Map" | "Bind"), None, [f; arg] ->
         let fType, argType =
             match i.SignatureArgTypes with

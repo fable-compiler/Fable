@@ -493,6 +493,7 @@ let remove k (m:Map<_,_>) = m.Remove(k)
 
 let containsKey k (m:Map<_,_>) = m.ContainsKey(k)
 
+[<CompiledName("iterate")>]
 let iter f (m:Map<_,_>) = m.Iterate(f)
 
 let tryPick f (m:Map<_,_>) = m.TryPick(f)
@@ -505,6 +506,7 @@ let filter f (m:Map<_,_>) = m.Filter(f)
 
 let partition f (m:Map<_,_>) = m.Partition(f)
 
+[<CompiledName("forAll")>]
 let forall f (m:Map<_,_>) = m.ForAll(f)
 
 let mapRange f (m:Map<_,_>) = m.MapRange(f)
@@ -532,7 +534,15 @@ let toSeq (m:Map<'a,'b>) =
 
 // let findKey f (m : Map<_,_>) = m |> toSeq |> Seq.pick (fun (k,v) -> if f k v then Some(k) else None)
 
-// let tryFindKey f (m : Map<_,_>) = m |> toSeq |> Seq.tryPick (fun (k,v) -> if f k v then Some(k) else None)
+let tryFindKey f (m : Map<_,_>) =
+    m
+    |> toSeq
+    |> Seq.tryPick (fun kv ->
+        if f kv.Key kv.Value then
+            Some(kv.Key)
+        else
+            None
+        )
 
 let ofList (l: ('Key * 'Value) list) comparer =
     new Map<_,_>(comparer, MapTree.ofList comparer l)
