@@ -94,7 +94,7 @@ module private Helpers =
 
     /// This helper is intended for instance and static members in fable-core library compiled from F# (FSharpSet, FSharpMap...)
     let getMangledName (entityName: string) isStatic memberCompiledName =
-        entityName + (Naming.getMemberMangledNameSeparator isStatic) + Naming.sanitizeIdentForbiddenChars memberCompiledName
+        entityName + (Naming.getMemberMangledNameSeparator isStatic) + (Naming.sanitizeIdentForbiddenChars memberCompiledName)
 
     let hasInterface interfaceFullname (ent: FSharpEntity) =
         ent.AllInterfaces |> Seq.exists (fun t ->
@@ -439,6 +439,8 @@ let toSeq com t (e: Expr) =
     | String -> stringToCharArray t e
     | Builtin(FSharpSet _) -> builtinToSeq "Set" t e
     | Builtin(FSharpMap _) -> builtinToSeq "Map" t e
+    // Casting seq to seq, do nothing
+    | DeclaredType(ent, _) when ent.TryFullName = Some Types.enumerable -> e
     | t ->
         sprintf "Erasing coertion of %A to seq" t |> Log.addWarning com e.Range
         e // TODO!!!: Custom types to seq. Call GetEnumerable and pass result to Seq/toIterable
@@ -487,6 +489,9 @@ let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
     | Builtin(FSharpSet _)::_ ->
         let mangledName = getMangledName "FSharpSet" true opName
         Helper.CoreCall("Set", mangledName, t, args, argTypes, ?loc=r)
+    | Builtin (FSharpMap _)::_ ->
+        let mangledName = getMangledName "FSharpMap" true opName
+        Helper.CoreCall("Map", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
     | CustomOp com opName m ->
@@ -590,15 +595,15 @@ let makeComparer typArg =
     // TODO: Use proper IComparer<'T> type instead of Any
     ObjectExpr([makeStrConst "Compare", f, ObjectValue], Any, None)
 
-/// Helper to create Sets or Maps using static members like "Create", "From", etc. which require a comparer
-let makeSetOrMap r t moduleName methName args signArgTypes genArg =
-    let typeName =
-        if   moduleName = "Set" then "FSharpSet"
-        elif moduleName = "Map" then "FSharpMap"
-        else failwith "Expecting Set or Map"
+/// Adds comparer as last argument for set creator methods
+let makeSet r t methName args genArg =
     let args = args @ [makeComparer genArg]
-    let mangledName = getMangledName typeName true methName
-    Helper.CoreCall(moduleName, mangledName, t, args, signArgTypes, ?loc=r)
+    Helper.CoreCall("Set", Naming.lowerFirst methName, t, args, ?loc=r)
+
+/// Adds comparer as last argument for map creator methods
+let makeMap r t methName args genArg =
+    let args = args @ [makeComparer genArg]
+    Helper.CoreCall("Map", Naming.lowerFirst methName, t, args, ?loc=r)
 
 let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
     let makeFSharp typArg args =
@@ -627,7 +632,7 @@ let getZero = function
     | Builtin BclTimeSpan -> makeIntConst 0
     | Builtin BclDateTime as t -> Helper.CoreCall("Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.CoreCall("DateOffset", "minValue", t, [])
-    | Builtin (FSharpSet genArg) as t -> makeSetOrMap None t "Set" "Empty" [] [] genArg
+    | Builtin (FSharpSet genArg) as t -> makeSet None t "Empty" [] genArg
     | Builtin (BclInt64|BclUInt64) as t -> Helper.CoreCall("Long", "fromInt", t, [makeIntConst 0])
     | Builtin BclBigInt as t -> Helper.CoreCall("BigInt", "fromInt32", t, [makeIntConst 0])
     // TODO: Calls to custom Zero implementation
@@ -834,7 +839,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "CreateDictionary", _ ->
         makeDictionaryOrHashSet com r t i "Map" false args |> Some
     | "CreateSet", _ ->
-        firstGenArg com r i.GenericArgs |> makeSetOrMap r t "Set" "From" args i.SignatureArgTypes |> Some
+        firstGenArg com r i.GenericArgs |> makeSet r t "OfSeq" args |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
         let meth =
@@ -1192,33 +1197,19 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
         Helper.CoreCall("List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
-let sets (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let isStatic = Option.isNone thisArg
-    let methName =
-        match i.CompiledName with
-        | ".ctor" | "Create" -> "From"
-        | name -> name
-    let mangledName = getMangledName "FSharpSet" isStatic methName
-    let args =
-        match thisArg, methName with
-        | None, ("get_Empty"|"Singleton"|"Create"|"From"|"FromArray"|"Union")
-        | Some _, "Map" ->
-            let genArg = match t with Builtin(FSharpSet genArg) -> genArg | _ -> Any
-            args @ [makeComparer genArg]
-        | _ -> args
-    Helper.CoreCall("Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+let sets (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | ".ctor" -> firstGenArg com r i.GenericArgs |> makeSet r t "OfSeq" args |> Some
+    | _ ->
+        let isStatic = Option.isNone thisArg
+        let mangledName = getMangledName "FSharpSet" isStatic i.CompiledName
+        Helper.CoreCall("Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let makeSet methName args =
-        firstGenArg com r i.GenericArgs
-        |> makeSetOrMap r t "Set" methName args i.SignatureArgTypes
-        |> Some
     match i.CompiledName, args with
-    | "OfList", [li]        -> makeSet "From" [listToSeq li.Type li]
-    | ("OfSeq"|"Create"), _ -> makeSet "From"      args
-    | "OfArray", _          -> makeSet "FromArray" args
-    | "Empty", _            -> makeSet "Empty"     args
-    | "Singleton", _        -> makeSet "Singleton" args
+    | ("OfList"|"OfSeq"|"OfArray"|"Empty"|"Singleton"|"UnionMany" as methName), _ ->
+        firstGenArg com r i.GenericArgs
+        |> makeSet r t methName args |> Some
     | "Map", [f; thisArg] ->
         let genArg = match t with Builtin(FSharpSet genArg) -> genArg | _ -> Any
         let args = [f; makeComparer genArg]
@@ -1226,6 +1217,28 @@ let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args:
         Helper.CoreCall("Set", mangledName, t, args, List.take 1 i.SignatureArgTypes, thisArg=thisArg, ?loc=r) |> Some
     | "ToSeq", [e]   -> builtinToSeq "Set" t e |> Some
     | meth, _ -> Helper.CoreCall("Set", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+let maps (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // Log.addWarning com r  (sprintf "FSharpMap: %A %s %A" thisArg i.CompiledName args)
+    match i.CompiledName with
+    | ".ctor" -> firstGenArg com r i.GenericArgs |> makeMap r t "OfSeq" args |> Some
+    | _ ->
+        let isStatic = Option.isNone thisArg
+        let mangledName = getMangledName "FSharpMap" isStatic i.CompiledName
+        Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+
+let mapModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName, args with
+    | ("OfList"|"OfSeq"|"OfArray"|"Empty" as methName), _ ->
+        firstGenArg com r i.GenericArgs
+        |> makeMap r t methName args |> Some
+    | "Map", [f; m] ->
+        let genArg = match t with Builtin(FSharpMap(genArg,_)) -> genArg | _ -> Any
+        let args = [f; m; makeComparer genArg]
+        let mangledName = getMangledName "FSharpMap" false "Map"
+        Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "ToSeq", [e]   -> builtinToSeq "Map" t e |> Some
+    | meth, _ -> Helper.CoreCall("Map", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how
 // options behave in Fable runtime
@@ -1248,19 +1261,23 @@ let options (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (a
     //     ccall i "Option" "getValue" [getCallee i; makeBoolConst true] |> Some
     // | "ofObj" | "ofNullable" ->
     //     wrap i.returnType (getCallee i) |> Some
-    // | "isSome" | "isNone" ->
-    //     let op =
-    //         if i.memberName = "isSome"
-    //         then BinaryUnequal
-    //         else BinaryEqual
-    //     let comp =
-    //         ([getCallee i; Fable.Value Fable.Null], op)
-    //         ||> makeEqOp i.range
-    //     match i.returnType with
-    //     | Fable.Boolean _ -> Some comp
-    //     // Hack to fix instance member calls (e.g., myOpt.IsSome)
-    //     // For some reason, F# compiler expects them to be applicable
-    //     | _ -> makeLambda [] comp |> Some
+    | "IsSome", _, [c]
+    | "IsNone", _, [c] ->
+        let op =
+            if i.CompiledName = "IsSome"
+            then BinaryUnequal
+            else BinaryEqual
+
+        makeEqOp r c (Fable.Value (ValueKind.Null (firstGenArg com r i.GenericArgs))) op |> Some
+
+        // let comp =
+        //     ([getCallee i; Fable.Value Fable.Null], op)
+        //     ||> makeEqOp i.range
+        // match i.returnType with
+        // | Fable.Boolean _ -> Some comp
+        // // Hack to fix instance member calls (e.g., myOpt.IsSome)
+        // // For some reason, F# compiler expects them to be applicable
+        // | _ -> makeLambda [] comp |> Some
     | ("Map" | "Bind"), None, [f; arg] ->
         let fType, argType =
             match i.SignatureArgTypes with
@@ -2129,6 +2146,8 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Collections.IEnumerable" -> enumerable com r t info thisArg args
     | "Microsoft.FSharp.Collections.FSharpSet`1" -> sets com r t info thisArg args
     | "Microsoft.FSharp.Collections.SetModule" -> setModule com r t info thisArg args
+    | "Microsoft.FSharp.Collections.FSharpMap`2" -> maps com r t info thisArg args
+    | "Microsoft.FSharp.Collections.MapModule" -> mapModule com r t info thisArg args
     | _ -> None
 //         | "System.Collections.Generic.Dictionary.KeyCollection"
 //         | "System.Collections.Generic.Dictionary.ValueCollection"
@@ -2139,8 +2158,6 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
 //         | "Microsoft.FSharp.Collections.ArrayModule" -> collectionsFirstPass com info Array
 //         | "Microsoft.FSharp.Collections.FSharpList"
 //         | "Microsoft.FSharp.Collections.ListModule" -> collectionsFirstPass com info List
-//         | "Microsoft.FSharp.Collections.FSharpMap"
-//         | "Microsoft.FSharp.Collections.MapModule" -> mapAndSets com info
 //         | "System.Type" -> types com info // TODO
     | "Microsoft.FSharp.Control.FSharpMailboxProcessor"
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel" -> mailbox com r t info thisArg args
