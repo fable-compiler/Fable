@@ -288,48 +288,47 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         makeCallFrom com ctx r typ genArgs callee args memb
 
-    // Application of locally inlined lambdas
-    | BasicPatterns.Application(BasicPatterns.Value var, genArgs, args) when isInline var ->
-        let range = makeRangeFrom fsExpr
-        match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
-        | Some (_,fsExpr) ->
-            let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
-            let resolvedCtx = { ctx with GenericArgs = matchGenericParams var genArgs |> Map }
-            let callee = transformExpr com resolvedCtx fsExpr
-            match args with
-            | [] -> callee
-            | args ->
-                let typ = makeType com ctx.GenericArgs fsExpr.Type
+    | BasicPatterns.Application(applied, genArgs, args) ->
+        match applied, args with
+        // TODO: Ask why application without arguments happen. So far I've seen it
+        // to access None or struct values (like the Result type)
+        | _, [] -> transformExpr com ctx applied
+        // Application of locally inlined lambdas
+        | BasicPatterns.Value var, _ when isInline var ->
+            let range = makeRangeFrom fsExpr
+            match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
+            | Some (_,fsExpr) ->
+                let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
+                let resolvedCtx = { ctx with GenericArgs = matchGenericParams var genArgs |> Map }
+                let callee = transformExpr com resolvedCtx fsExpr
+                match args with
+                | [] -> callee
+                | args ->
+                    let typ = makeType com ctx.GenericArgs fsExpr.Type
+                    let args = List.map (transformExpr com ctx) args
+                    Fable.Operation(Fable.CurriedApply(callee, args), typ, range)
+            | None ->
+                "Cannot resolve locally inlined value: " + var.DisplayName
+                |> addErrorAndReturnNull com range
+        | FableCoreDynamicOp(Transform com ctx e1, Transform com ctx e2), _ ->
+            let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
+            let argInfo: Fable.ArgInfo =
                 let args = List.map (transformExpr com ctx) args
-                Fable.Operation(Fable.CurriedApply(callee, args), typ, range)
-        | None ->
-            "Cannot resolve locally inlined value: " + var.DisplayName
-            |> addErrorAndReturnNull com range
-
-    // TODO: Ask why application without arguments happen. So far I've seen it
-    // to access None or struct values (like the Result type)
-    | BasicPatterns.Application(Transform com ctx expr, _, []) -> expr
-
-    | BasicPatterns.Application(FableCoreDynamicOp(Transform com ctx e1, Transform com ctx e2), _, args) ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
-        let argInfo: Fable.ArgInfo =
+                { argInfo (Some e1) args None with Spread = Fable.TupleSpread }
+            Fable.Operation(Fable.Call(Fable.InstanceCall(Some e2), argInfo), typ, r)
+        | _ ->
+            let applied = transformExpr com ctx applied
+            let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
             let args = List.map (transformExpr com ctx) args
-            { argInfo (Some e1) args None with Spread = Fable.TupleSpread }
-        Fable.Operation(Fable.Call(Fable.InstanceCall(Some e2), argInfo), typ, r)
-
-    | BasicPatterns.Application(Transform com ctx applied, _, args) ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
-        let args = List.map (transformExpr com ctx) args
-        Fable.Operation(Fable.CurriedApply(applied, args), typ, r)
+            Fable.Operation(Fable.CurriedApply(applied, args), typ, r)
 
     | BasicPatterns.IfThenElse (Transform com ctx guardExpr, Transform com ctx thenExpr, Transform com ctx elseExpr) ->
         Fable.IfThenElse (guardExpr, thenExpr, elseExpr)
 
-    | BasicPatterns.TryFinally (BasicPatterns.TryWith(body, _, _, catchVar, catchBody),finalBody) ->
-        makeTryCatch com ctx body (Some (catchVar, catchBody)) (Some finalBody)
-
     | BasicPatterns.TryFinally (body, finalBody) ->
-        makeTryCatch com ctx body None (Some finalBody)
+        match body with
+        | BasicPatterns.TryWith(body, _, _, catchVar, catchBody) -> makeTryCatch com ctx body (Some (catchVar, catchBody)) (Some finalBody)
+        | _ -> makeTryCatch com ctx body None (Some finalBody)
 
     | BasicPatterns.TryWith (body, _, _, catchVar, catchBody) ->
         makeTryCatch com ctx body (Some (catchVar, catchBody)) None
@@ -349,22 +348,23 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     (** ## Getters and Setters *)
 
-    // When using a self reference in constructor (e.g. `type MyType() as self =`)
-    // the F# compiler wraps self references with code we don't need
-    | BasicPatterns.FSharpFieldGet(Some ThisVar, RefType _, _)
-    | BasicPatterns.FSharpFieldGet(Some(BasicPatterns.FSharpFieldGet(Some ThisVar, _, _)), RefType _, _) ->
-        makeType com ctx.GenericArgs fsExpr.Type |> Fable.This |> Fable.Value
-
-    | BasicPatterns.FSharpFieldGet (callee, calleeType, field) ->
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
-        let callee =
-            match callee with
-            | Some (Transform com ctx callee) -> callee
-            | None -> "Unexpected static FSharpFieldGet"
-                      |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
-        if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
-        then Fable.Get(callee, Fable.RecordGet(field, calleeType.TypeDefinition), typ, r)
-        else get r typ callee field.Name
+    | BasicPatterns.FSharpFieldGet(callee, calleeType, field) ->
+        match calleeType, callee with
+        // When using a self reference in constructor (e.g. `type MyType() as self =`)
+        // the F# compiler wraps self references with code we don't need
+        | RefType _, Some ThisVar
+        | RefType _, Some(BasicPatterns.FSharpFieldGet(Some ThisVar, _, _)) ->
+            makeType com ctx.GenericArgs fsExpr.Type |> Fable.This |> Fable.Value
+        |_ ->
+            let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
+            let callee =
+                match callee with
+                | Some (Transform com ctx callee) -> callee
+                | None -> "Unexpected static FSharpFieldGet"
+                          |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
+            if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
+            then Fable.Get(callee, Fable.RecordGet(field, calleeType.TypeDefinition), typ, r)
+            else get r typ callee field.Name
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
@@ -387,22 +387,23 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let t = makeType com ctx.GenericArgs field.FieldType
             Fable.Get(unionExpr, Fable.UnionField(field, unionCase, tdef), t, range)
 
-    // When using a self reference in constructor (e.g. `type MyType() as self =`)
-    // the F# compiler introduces artificial statements that we must ignore
-    | BasicPatterns.FSharpFieldSet(Some(ThisVar _), RefType _, _, _)
-    | BasicPatterns.FSharpFieldSet(Some(BasicPatterns.FSharpFieldGet(Some(ThisVar _), _, _)), RefType _, _, _) ->
-        Fable.Null Fable.Any |> Fable.Value
-
     | BasicPatterns.FSharpFieldSet(callee, calleeType, field, Transform com ctx value) ->
-        let range = makeRangeFrom fsExpr
-        let callee =
-            match callee with
-            | Some (Transform com ctx callee) -> callee
-            | None -> "Unexpected static FSharpFieldSet"
-                      |> addErrorAndReturnNull com range
-        if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
-        then Fable.Set(callee, Fable.RecordSet(field, calleeType.TypeDefinition), value, range)
-        else Fable.Set(callee, makeStrConst field.Name |> Fable.ExprSet, value, range)
+        match calleeType, callee with
+        // When using a self reference in constructor (e.g. `type MyType() as self =`)
+        // the F# compiler introduces artificial statements that we must ignore
+        | RefType _, Some ThisVar
+        | RefType _, Some(BasicPatterns.FSharpFieldGet(Some ThisVar, _, _)) ->
+            Fable.Null Fable.Any |> Fable.Value
+        | _ ->
+            let range = makeRangeFrom fsExpr
+            let callee =
+                match callee with
+                | Some (Transform com ctx callee) -> callee
+                | None -> "Unexpected static FSharpFieldSet"
+                          |> addErrorAndReturnNull com range
+            if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
+            then Fable.Set(callee, Fable.RecordSet(field, calleeType.TypeDefinition), value, range)
+            else Fable.Set(callee, makeStrConst field.Name |> Fable.ExprSet, value, range)
 
     | BasicPatterns.UnionCaseTag(Transform com ctx unionExpr, unionType) ->
         let range = makeRangeFrom fsExpr
