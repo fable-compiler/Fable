@@ -384,13 +384,13 @@ module internal SetTree =
             not i.stack.IsEmpty
 
     type mkIEnumerator<'a when 'a : comparison>(s) =
-        let i = ref (mkIterator s)
+        let mutable i = mkIterator s
         interface IEnumerator<'a> with
-            member __.Current = current !i
+            member __.Current = current i
         interface IEnumerator with
-            member __.Current = box (current !i)
-            member __.MoveNext() = moveNext !i
-            member __.Reset() = i :=  mkIterator s
+            member __.Current = box (current i)
+            member __.MoveNext() = moveNext i
+            member __.Reset() = i <- mkIterator s
         interface System.IDisposable with
             member __.Dispose() = ()
 
@@ -447,14 +447,8 @@ module internal SetTree =
         loop s []
 
     let copyToArray s (arr: _[]) i =
-        let j = ref i
-        iter (fun x -> arr.[!j] <- x; j := !j + 1) s
-
-    let toArray s =
-        let n = (count s)
-        let res = Array.zeroCreate n
-        copyToArray s res 0;
-        res
+        let mutable j = i
+        iter (fun x -> arr.[j] <- x; j <- j + 1) s
 
     let rec mkFromEnumerator comparer acc (e : IEnumerator<_>) =
         if e.MoveNext() then
@@ -570,8 +564,8 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     member x.IsSupersetOf(y: Set<'T>) = SetTree.subset x.Comparer y.Tree x.Tree
     member x.IsProperSubsetOf(y: Set<'T>) = SetTree.psubset x.Comparer x.Tree y.Tree
     member x.IsProperSupersetOf(y: Set<'T>) = SetTree.psubset x.Comparer y.Tree x.Tree
-    member x.ToList () = SetTree.toList x.Tree
-    member x.ToArray () = SetTree.toArray x.Tree
+    // member x.ToList () = SetTree.toList x.Tree
+    // member x.ToArray () = SetTree.toArray x.Tree
 
     member this.ComputeHashCode() =
         let combineHash x y = (x <<< 1) + y + 631
@@ -658,9 +652,13 @@ let ofList (li : 'T list) (comparer: IComparer<'T>) : Set<'T> =
 let ofArray (arr : 'T array) (comparer: IComparer<'T>) : Set<'T> =
     new Set<_>(comparer, SetTree.ofArray comparer arr)
 
-let toList (s : Set<'T>) = s.ToList()
+let toList (s : Set<'T>) = SetTree.toList s.Tree
 
-let toArray (s : Set<'T>) = s.ToArray()
+let toArray (s : Set<'T>) (cons: Array.ArrayCons) =
+    let n = (count s)
+    let res = cons.Create n
+    SetTree.copyToArray s.Tree res 0
+    res
 
 let toSeq (s : Set<'T>) =
     { new IEnumerable<'T> with

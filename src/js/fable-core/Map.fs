@@ -243,22 +243,22 @@ module MapTree =
             let r2 = mapi f r
             MapNode(k,v2, l2, r2,h)
 
-    let rec foldBack (f:OptimizedClosures.FSharpFunc<_,_,_,_>) m x =
+    let rec foldBack f m x =
         match m with
         | MapEmpty -> x
-        | MapOne(k,v) -> f.Invoke(k,v,x)
+        | MapOne(k,v) -> f k v x
         | MapNode(k,v,l,r,_) ->
             let x = foldBack f r x
-            let x = f.Invoke(k,v,x)
+            let x = f k v x
             foldBack f l x
 
-    let rec fold (f:OptimizedClosures.FSharpFunc<_,_,_,_>) x m  =
+    let rec fold f x m  =
         match m with
         | MapEmpty -> x
-        | MapOne(k,v) -> f.Invoke(x,k,v)
+        | MapOne(k,v) -> f x k v
         | MapNode(k,v,l,r,_) ->
             let x = fold f x l
-            let x = f.Invoke(x,k,v)
+            let x = f x k v
             fold f x r
 
     let rec foldFromTo (comparer: IComparer<'Value>) lo hi f m x =
@@ -289,8 +289,6 @@ module MapTree =
     let toList m =
         loop m []
 
-    let toArray m = m |> toList |> Array.ofList
-
     let ofList comparer l = List.fold (fun acc (k,v) -> add comparer k v acc) empty l
 
     let rec mkFromEnumerator comparer acc (e : IEnumerator<_>) =
@@ -316,8 +314,8 @@ module MapTree =
 
 
     let copyToArray s (arr: _[]) i =
-        let j = ref i
-        s |> iter (fun x y -> arr.[!j] <- KeyValuePair(x,y); j := !j + 1)
+        let mutable j = i
+        s |> iter (fun x y -> arr.[j] <- KeyValuePair(x,y); j <- j + 1)
 
 
     /// Imperative left-to-right iterators.
@@ -366,13 +364,13 @@ module MapTree =
             not i.stack.IsEmpty
 
     type mkIEnumerator'<'Key,'Value when 'Key: comparison>(s) =
-        let i = ref (mkIterator s)
+        let mutable i = mkIterator s
         interface IEnumerator<KeyValuePair<'Key,'Value>> with
-            member __.Current = current !i
+            member __.Current = current i
         interface IEnumerator with
-            member __.Current = box (current !i)
-            member __.MoveNext() = moveNext !i
-            member __.Reset() = i :=  mkIterator s
+            member __.Current = box (current i)
+            member __.MoveNext() = moveNext i
+            member __.Reset() = i <- mkIterator s
         interface System.IDisposable with
             member __.Dispose() = ()
 
@@ -400,10 +398,10 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
             MapTree.find comparer k tree
     member __.TryPick(f) = MapTree.tryPick f tree
     member __.Exists(f) = MapTree.exists f tree
-    member __.Filter(f)  : Map<'Key,'Value> = new Map<'Key,'Value>(comparer ,MapTree.filter comparer f tree)
+    member __.Filter(f): Map<'Key,'Value> =
+        new Map<'Key,'Value>(comparer, MapTree.filter comparer f tree)
     member __.ForAll(f) = MapTree.forall f tree
     member __.Fold f acc =
-        let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
         MapTree.foldBack f tree acc
 
     member __.FoldSection (lo:'Key) (hi:'Key) f (acc:'z) = MapTree.foldSection comparer lo hi f tree acc
@@ -431,15 +429,15 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
 
     member __.ToList() = MapTree.toList tree
 
-    member __.ToArray() = MapTree.toArray tree
-
-    //        member this.ComputeHashCode() =
-    //            let combineHash x y = (x <<< 1) + y + 631
-    //            let mutable res = 0
-    //            for (KeyValue(x,y)) in this do
-    //                res <- combineHash res (hash x)
-    //                res <- combineHash res (Unchecked.hash y)
-    //            abs res
+    member this.ComputeHashCode() =
+        let combineHash x y = (x <<< 1) + y + 631
+        let mutable res = 0
+        let e = MapTree.mkIEnumerator this.Tree
+        while e.MoveNext() do
+            let (KeyValue(x,y)) = e.Current
+            res <- combineHash res (hash x)
+            res <- combineHash res (Unchecked.hash y)
+        abs res
 
     override this.Equals(that) =
        match that with
@@ -453,7 +451,7 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
            loop()
        | _ -> false
 
-    override __.GetHashCode() = 0//this.ComputeHashCode()
+    override this.GetHashCode() = this.ComputeHashCode()
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
         member __.GetEnumerator() = MapTree.mkIEnumerator tree
@@ -514,11 +512,9 @@ let mapRange f (m:Map<_,_>) = m.MapRange(f)
 // let map f (m:Map<_,_>) = m.Map(f)
 
 let fold<'Key,'T,'State when 'Key : comparison> f (z:'State) (m:Map<'Key,'T>) =
-    let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
     MapTree.fold f z m.Tree
 
 let foldBack<'Key,'T,'State  when 'Key : comparison> f (m:Map<'Key,'T>) (z:'State) =
-    let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
     MapTree.foldBack  f m.Tree z
 
 let toSeq (m:Map<'a,'b>) =
@@ -530,19 +526,14 @@ let toSeq (m:Map<'a,'b>) =
             MapTree.mkIEnumerator m.Tree :> IEnumerator
     }
 
-// m |> Seq.map (fun kvp -> kvp.Key, kvp.Value)
-
-// let findKey f (m : Map<_,_>) = m |> toSeq |> Seq.pick (fun (k,v) -> if f k v then Some(k) else None)
+let findKey f (m : Map<_,_>) =
+    m.Tree |> MapTree.tryPick (fun k v ->
+        if f k v then Some k else None)
+    |> function Some k -> k | None -> failwith "Key not found"
 
 let tryFindKey f (m : Map<_,_>) =
-    m
-    |> toSeq
-    |> Seq.tryPick (fun kv ->
-        if f kv.Key kv.Value then
-            Some(kv.Key)
-        else
-            None
-        )
+    m.Tree |> MapTree.tryPick (fun k v ->
+        if f k v then Some k else None)
 
 let ofList (l: ('Key * 'Value) list) comparer =
     new Map<_,_>(comparer, MapTree.ofList comparer l)
@@ -555,7 +546,10 @@ let ofArray (array: ('Key * 'Value) array) comparer =
 
 let toList (m:Map<_,_>) = m.ToList()
 
-let toArray (m:Map<_,_>) = m.ToArray()
+let toArray (m:Map<_,_>) (cons: Array.ArrayCons) =
+    let res = cons.Create m.Count
+    MapTree.copyToArray m.Tree res 0
+    res
 
 let empty<'Key,'Value  when 'Key : comparison> comparer =
     new Map<'Key,'Value>(comparer, MapTree.MapEmpty)

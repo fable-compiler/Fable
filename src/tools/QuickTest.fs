@@ -31,20 +31,25 @@ let testCase (msg: string) f: unit =
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
 
+testCase "Map.toSeq works" <| fun () ->
+    let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
+    let ys = Map.toSeq xs
+    Seq.isEmpty ys |> equal false
+
 testCase "Map.map works" <| fun () ->
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
-    let ys = xs |> Map.map (fun k v -> v * 2.)
+    let ys = xs |> Map.map (fun _ v -> v * 2.)
     ys.[3] |> equal 18.
 
 testCase "Map.tryFindKey works" <| fun () ->
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
-    xs |> Map.tryFindKey (fun k v -> k = 3)
+    xs |> Map.tryFindKey (fun k _ -> k = 3)
     |> Option.isSome
     |> equal true
 
 testCase "Map.toArray works" <| fun () ->
     let xs = [|1,1.; 2,4.; 3,9.; 4,16.|]
-    let ys = Map.ofArray xs
-    let zs = Map.toArray ys
+    let mutable ys = Map.ofArray xs
+    let mutable zs = Map.toArray ys
     snd xs.[2] = snd zs.[2]
     |> equal true

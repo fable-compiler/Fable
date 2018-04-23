@@ -1215,11 +1215,13 @@ let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args:
         let args = [f; makeComparer genArg]
         let mangledName = getMangledName "FSharpSet" false "Map"
         Helper.CoreCall("Set", mangledName, t, args, List.take 1 i.SignatureArgTypes, thisArg=thisArg, ?loc=r) |> Some
-    | "ToSeq", [e]   -> builtinToSeq "Set" t e |> Some
+    | "ToSeq", [e] -> builtinToSeq "Set" t e |> Some
+    | "ToArray", [e] ->
+        let arrayCons = firstGenArg com r i.GenericArgs |> arrayCons com
+        Helper.CoreCall("Set", "toArray", t, [e; arrayCons], ?loc=r) |> Some
     | meth, _ -> Helper.CoreCall("Set", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let maps (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    // Log.addWarning com r  (sprintf "FSharpMap: %A %s %A" thisArg i.CompiledName args)
     match i.CompiledName with
     | ".ctor" -> firstGenArg com r i.GenericArgs |> makeMap r t "OfSeq" args |> Some
     | _ ->
@@ -1232,12 +1234,12 @@ let mapModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args:
     | ("OfList"|"OfSeq"|"OfArray"|"Empty" as methName), _ ->
         firstGenArg com r i.GenericArgs
         |> makeMap r t methName args |> Some
-    | "Map", [f; m] ->
-        let genArg = match t with Builtin(FSharpMap(genArg,_)) -> genArg | _ -> Any
-        let args = [f; m; makeComparer genArg]
+    | "Map", [f; thisArg] ->
         let mangledName = getMangledName "FSharpMap" false "Map"
-        Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "ToSeq", [e]   -> builtinToSeq "Map" t e |> Some
+        Helper.CoreCall("Map", mangledName, t, [f], i.SignatureArgTypes, thisArg=thisArg, ?loc=r) |> Some
+    | "ToSeq", [e] -> builtinToSeq "Map" t e |> Some
+    | "ToArray", [e] ->
+        Helper.CoreCall("Map", "toArray", t, [e; arrayCons com Any], ?loc=r) |> Some
     | meth, _ -> Helper.CoreCall("Map", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how

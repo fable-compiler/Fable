@@ -93,10 +93,10 @@ let tests =
             Map.foldBack (fun k v acc -> v - acc) xs 0.
             |> equal -10.
 
-        // testCase "Map.map works" <| fun () ->
-        //     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
-        //     let ys = xs |> Map.map (fun k v -> v * 2.)
-        //     ys.[3] |> equal 18.
+        testCase "Map.map works" <| fun () ->
+            let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
+            let ys = xs |> Map.map (fun k v -> v * 2.)
+            ys.[3] |> equal 18.
 
         testCase "Map.find works" <| fun () ->
             let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
@@ -133,11 +133,15 @@ let tests =
             |> Option.isSome
             |> equal true
 
-        // testCase "Map.tryFindKey works" <| fun () ->
-        //     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
-        //     xs |> Map.tryFindKey (fun k v -> k = 3)
-        //     |> Option.isSome
-        //     |> equal true
+        testCase "Map.findKey works" <| fun () ->
+            let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
+            xs |> Map.findKey (fun _ v -> v = 9.)
+            |> equal 3
+
+        testCase "Map.tryFindKey works" <| fun () ->
+            let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
+            xs |> Map.tryFindKey (fun _ v -> v > 10.) |> equal (Some 4)
+            xs |> Map.tryFindKey (fun _ v -> v > 20.) |> equal None
 
         testCase "Map.pick works" <| fun () ->
             let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
@@ -174,12 +178,12 @@ let tests =
             snd xs.[2] = snd zs.[2]
             |> equal true
 
-        // testCase "Map.toArray works" <| fun () ->
-        //     let xs = [|1,1.; 2,4.; 3,9.; 4,16.|]
-        //     let ys = Map.ofArray xs
-        //     let zs = Map.toArray ys
-        //     snd xs.[2] = snd zs.[2]
-        //     |> equal true
+        testCase "Map.toArray works" <| fun () ->
+            let xs = [|1,1.; 2,4.; 3,9.; 4,16.|]
+            let ys = Map.ofArray xs
+            let zs = Map.toArray ys
+            snd xs.[2] = snd zs.[2]
+            |> equal true
 
         testCase "Map.toSeq works" <| fun () ->
             let xs = seq [1,1.; 2,4.; 3,9.; 4,16.]
