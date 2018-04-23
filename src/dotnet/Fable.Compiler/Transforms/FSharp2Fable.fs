@@ -190,12 +190,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // Sometimes these must be inlined, but that's resolved in BasicPatterns.Let (see below)
     | BasicPatterns.TypeLambda (_genArgs, Transform com ctx lambda) -> lambda
 
-    // TODO!!!: Compile it just as Seq.iter?
-    // TODO: Detect if it's ResizeArray and compile as FastIntegerForLoop?
-    | ForOfLoop (BindIdent com ctx (newContext, ident), Transform com ctx value, body) ->
-        Fable.ForOf (ident, value, transformExpr com newContext body)
-        |> makeLoop (makeRangeFrom fsExpr)
-
     | TryGetValue (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let callee, args = Option.map (transformExpr com ctx) callee, List.map (transformExpr com ctx) membArgs
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type

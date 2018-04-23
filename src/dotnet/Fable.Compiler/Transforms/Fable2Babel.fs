@@ -822,10 +822,6 @@ module Util =
             match loopKind with
             | Fable.While (TransformExpr com ctx guard, body) ->
                 WhileStatement(guard, transformBlock com ctx None body, ?loc=range) :> Statement
-            | Fable.ForOf (var, TransformExpr com ctx enumerable, body) ->
-                // enumerable doesn't go in VariableDeclator.init but in ForOfStatement.right
-                let var = VariableDeclaration(ident var, kind=Let)
-                ForOfStatement(U2.Case1 var, enumerable, transformBlock com ctx None body, ?loc=range) :> Statement
             | Fable.For (var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp) ->
                 let op1, op2 =
                     if isUp

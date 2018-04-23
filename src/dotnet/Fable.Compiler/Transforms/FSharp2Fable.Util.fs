@@ -268,16 +268,6 @@ module Patterns =
             Some ThisVar
         | _ -> None
 
-    let (|ForOfLoop|_|) = function
-        | Let((_, value),
-              Let((_, Call(None, memb, _, [], [])),
-                TryFinally(WhileLoop(_,Let((ident, _), body)), _)))
-        | Let((_, Call(Some value, memb, _, [], [])),
-                TryFinally(WhileLoop(_,Let((ident, _), body)), _))
-            when memb.CompiledName = "GetEnumerator" ->
-            Some(ident, value, body)
-        | _ -> None
-
     let (|FableCoreDynamicOp|_|) = function
         | BasicPatterns.Let((_, BasicPatterns.Call(None,m,_,_,[e1; e2])),_)
                 when m.FullName = "Fable.Core.JsInterop.( ? )" -> Some(e1, e2)

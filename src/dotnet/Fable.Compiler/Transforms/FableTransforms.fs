@@ -80,7 +80,6 @@ let visit f e =
         match kind with
         | While(e1, e2) -> Loop(While(f e1, f e2), r)
         | For(i, e1, e2, e3, up) -> Loop(For(i, f e1, f e2, f e3, up), r)
-        | ForOf(i, e1, e2) -> Loop(ForOf(i, f e1, f e2), r)
     | TryCatch(body, catch, finalizer) ->
         TryCatch(f body,
                  Option.map (fun (i, e) -> i, f e) catch,
@@ -156,7 +155,6 @@ let getSubExpressions = function
         match kind with
         | While(e1, e2) -> [e1; e2]
         | For(_, e1, e2, e3, _) -> [e1; e2; e3]
-        | ForOf(_, e1, e2) -> [e1; e2]
     | TryCatch(body, catch, finalizer) ->
         match catch with
         | Some(_,c) -> body::c::(Option.toList finalizer)
