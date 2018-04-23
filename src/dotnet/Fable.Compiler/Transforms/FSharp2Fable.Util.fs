@@ -257,6 +257,9 @@ module Patterns =
     let (|TypeDefinition|_|) (NonAbbreviatedType t) =
         if t.HasTypeDefinition then Some t.TypeDefinition else None
 
+    let (|MemberFullName|) (memb: FSharpMemberOrFunctionOrValue) =
+        memb.FullName
+
     let (|RefType|_|) = function
         | TypeDefinition tdef as t when tdef.TryFullName = Some Types.reference -> Some t
         | _ -> None

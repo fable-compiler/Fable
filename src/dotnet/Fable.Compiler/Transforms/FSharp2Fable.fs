@@ -310,6 +310,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 let args = List.map (transformExpr com ctx) args
                 { argInfo (Some e1) args None with Spread = Fable.TupleSpread }
             Fable.Operation(Fable.Call(Fable.InstanceCall(Some e2), argInfo), typ, r)
+        // TODO: Ask: for some reason the F# compiler translates `x.IsSome` as `Application(Call(x, get_IsSome),[unit])`
+        | (BasicPatterns.Call(Some _, MemberFullName("Microsoft.FSharp.Core.IsSome"|"Microsoft.FSharp.Core.IsNone"), _, [], []) as optionProp), [BasicPatterns.Const(null, _)] ->
+            transformExpr com ctx optionProp
         | _ ->
             let applied = transformExpr com ctx applied
             let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type

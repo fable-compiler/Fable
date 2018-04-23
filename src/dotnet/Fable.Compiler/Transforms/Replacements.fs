@@ -1261,23 +1261,8 @@ let options (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (a
     //     ccall i "Option" "getValue" [getCallee i; makeBoolConst true] |> Some
     // | "ofObj" | "ofNullable" ->
     //     wrap i.returnType (getCallee i) |> Some
-    | "IsSome", _, [c]
-    | "IsNone", _, [c] ->
-        let op =
-            if i.CompiledName = "IsSome"
-            then BinaryUnequal
-            else BinaryEqual
-
-        makeEqOp r c (Fable.Value (ValueKind.Null (firstGenArg com r i.GenericArgs))) op |> Some
-
-        // let comp =
-        //     ([getCallee i; Fable.Value Fable.Null], op)
-        //     ||> makeEqOp i.range
-        // match i.returnType with
-        // | Fable.Boolean _ -> Some comp
-        // // Hack to fix instance member calls (e.g., myOpt.IsSome)
-        // // For some reason, F# compiler expects them to be applicable
-        // | _ -> makeLambda [] comp |> Some
+    | "IsSome", _, [c] | "get_IsSome", Some c, _ -> Test(c, OptionTest true, r) |> Some
+    | "IsNone", _, [c] | "get_IsNone", Some c, _ -> Test(c, OptionTest false, r) |> Some
     | ("Map" | "Bind"), None, [f; arg] ->
         let fType, argType =
             match i.SignatureArgTypes with
