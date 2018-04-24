@@ -110,6 +110,8 @@ type BuiltinType =
     | BclInt64
     | BclUInt64
     | BclBigInt
+    | BclHashSet of Type
+    | BclDictionary of key:Type * value:Type
     | FSharpSet of Type
     | FSharpMap of key:Type * value:Type
 
@@ -128,6 +130,13 @@ let (|Builtin|_|) = function
         | Some "Microsoft.FSharp.Collections.FSharpMap`2", [k;v] -> Some(FSharpMap(k,v))
         | _ -> None
     | _ -> None
+
+let isCompatibleWithJsComparison = function
+    | Builtin(BclInt64|BclUInt64|BclBigInt)
+    | Array _ | List _ | Tuple _ -> false
+    | Builtin(BclGuid|BclTimeSpan) -> true
+    | DeclaredType _ -> false
+    | _ -> true
 
 let (|Integer|Float|) = function
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
@@ -169,6 +178,8 @@ let coreModFor = function
     | BclTimeSpan -> "Int32"
     | FSharpSet _ -> "Set"
     | FSharpMap _ -> "Map"
+    | BclHashSet _
+    | BclDictionary _ -> failwith "Cannot decide core module"
 
 let makeLongInt t signed (x: uint64) =
     let lowBits = NumberConstant (float (uint32 x), Float64)
@@ -439,6 +450,14 @@ let toSeq com t (e: Expr) =
     | String -> stringToCharArray t e
     | Builtin(FSharpSet _) -> builtinToSeq "Set" t e
     | Builtin(FSharpMap _) -> builtinToSeq "Map" t e
+    | Builtin(BclHashSet t) ->
+        if isCompatibleWithJsComparison t
+        then e
+        else builtinToSeq "Set" t e
+    | Builtin(BclDictionary(k,_)) ->
+        if isCompatibleWithJsComparison k
+        then e
+        else builtinToSeq "Map" t e
     // Casting seq to seq, do nothing
     | DeclaredType(ent, _) when ent.TryFullName = Some Types.enumerable -> e
     | t ->
@@ -613,19 +632,9 @@ let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
             | args -> args
         Helper.CoreCall(modName, "create", t, args, i.SignatureArgTypes, ?loc=r)
     let typArg = firstGenArg com r i.GenericArgs
-    if forceFSharp
+    if forceFSharp || not(isCompatibleWithJsComparison typArg)
     then makeFSharp typArg args
-    else
-        match typArg with
-        | Builtin(BclInt64|BclUInt64|BclBigInt)
-        | Array _ | List _ | Tuple _ ->
-            makeFSharp typArg args
-        | Builtin(BclGuid|BclTimeSpan) ->
-            Helper.GlobalCall(modName, t, args, i.SignatureArgTypes, ?loc=r)
-        | DeclaredType _ ->
-            makeFSharp typArg args
-        | _ ->
-            Helper.GlobalCall(modName, t, args, i.SignatureArgTypes, ?loc=r)
+    else Helper.GlobalCall(modName, t, args, i.SignatureArgTypes, ?loc=r)
 
 let getZero = function
     | Char | String -> makeStrConst ""
@@ -1431,6 +1440,9 @@ let keyValuePairs (_: ICompiler) r t (i: CallInfo) thisArg args =
     | "get_Value", Some c -> Get(c, TupleGet 1, t, r) |> Some
     | _ -> None
 
+let getEnumerator com r t expr =
+    Helper.CoreCall("Seq", "getEnumerator", t, [toSeq com Any expr], ?loc=r)
+
 let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let (|IDictionary|IEqualityComparer|Other|) = function
         | DeclaredType(ent,_) ->
@@ -1457,11 +1469,10 @@ let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
         | [Number _; IEqualityComparer] ->
             makeDic true [Value (Null Any); makeComparerFromEqualityComparer args.Tail.Head] |> Some
         | _ -> None
-    | "get_IsReadOnly", _ ->
-        // TODO: Check for immutable maps with IDictionary interface
-        makeBoolConst false |> Some
-    | "get_Count", _ ->
-        get r t thisArg.Value "size" |> Some
+    // TODO: Check for immutable maps with IDictionary interface
+    | "get_IsReadOnly", _ -> makeBoolConst false |> Some
+    | "get_Count", _ -> get r t thisArg.Value "size" |> Some
+    | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
     // TODO: Check if the key allows for a JS Map (also "TryGetValue" below)
     | "ContainsValue", _ ->
         match thisArg, args with
@@ -1880,8 +1891,13 @@ let regex com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
 
 let enumerable com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName with
-    | Some callee, "GetEnumerator" ->
-        Helper.CoreCall("Seq", "getEnumerator", t, [callee], [callee.Type]) |> Some
+    | Some callee, "GetEnumerator" -> getEnumerator com r t callee |> Some
+    | _ -> None
+
+let enumerators (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | "get_Current", Some x -> get r t x "Current" |> Some
+    | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let mailbox com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2086,6 +2102,7 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Collections.Generic.KeyValuePair`2" -> keyValuePairs com r t info thisArg args
     | "System.Collections.Generic.Dictionary`2"
     | "System.Collections.Generic.IDictionary`2" -> dictionaries com r t info thisArg args
+    | "System.Collections.Generic.Dictionary`2.Enumerator" -> enumerators com r t info thisArg args
     | "System.Collections.Generic.HashSet`1"
     | "System.Collections.Generic.ISet`1" -> hashSets com r t info thisArg args
     | "Microsoft.FSharp.Core.FSharpOption`1"
