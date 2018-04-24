@@ -313,16 +313,4 @@ let skip i xs =
 //     }
 
 let toSeq (xs: 'a list): 'a seq =
-    unbox
-        %[(SYMBOL "iterator") ==> fun () ->
-            // Capture a copy of the first value in the closure
-            // so the sequence is restarted every time, see #1230
-            let mutable tmp = xs
-            %["next" ==> fun () ->
-                match tmp with
-                | [] -> %["done" ==> true]
-                | x::xs ->
-                    tmp <- xs
-                    %["done" ==> false; "value" ==> x]
-            ]
-        ]
+    Seq.unfold (function [] -> None | x::xs -> Some(x, xs)) xs

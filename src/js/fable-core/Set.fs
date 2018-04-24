@@ -593,11 +593,11 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     interface System.IComparable with
         member this.CompareTo(that: obj) = SetTree.compare this.Comparer this.Tree ((that :?> Set<'T>).Tree)
 
-    interface IEnumerable<'T> with
-        member s.GetEnumerator() = SetTree.mkIEnumerator s.Tree
+    // interface IEnumerable<'T> with
+    //     member s.GetEnumerator() = SetTree.mkIEnumerator s.Tree
 
-    interface IEnumerable with
-        override s.GetEnumerator() = (SetTree.mkIEnumerator s.Tree :> IEnumerator)
+    // interface IEnumerable with
+    //     override s.GetEnumerator() = (SetTree.mkIEnumerator s.Tree :> IEnumerator)
 
 let isEmpty (s : Set<'T>) = s.IsEmpty
 
@@ -661,13 +661,11 @@ let toArray (s : Set<'T>) (cons: Array.ArrayCons) =
     res
 
 let toSeq (s : Set<'T>) =
-    { new IEnumerable<'T> with
-        member __.GetEnumerator() =
-            SetTree.mkIEnumerator s.Tree
-      interface IEnumerable with
-        member __.GetEnumerator() =
-            SetTree.mkIEnumerator s.Tree :> IEnumerator
-    }
+    let en = SetTree.mkIEnumerator s.Tree
+    en |> Seq.unfold (fun en ->
+        if en.MoveNext()
+        then Some(en.Current, en)
+        else None)
 
 let ofSeq (elements : seq<'T>) (comparer: IComparer<'T>) =
     new Set<_>(comparer, SetTree.ofSeq comparer elements)

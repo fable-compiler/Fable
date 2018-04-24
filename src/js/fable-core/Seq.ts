@@ -8,7 +8,7 @@ export function toList<T>(xs: Iterable<T>) {
 }
 
 export function ofList<T>(xs: T[]) {
-  return delay(() => unfold((x) => x != null ? x as [T, any] : null, xs));
+  return unfold((x) => x != null ? x as [T, any] : null, xs);
 }
 
 export interface IEnumerator<T> {

@@ -453,11 +453,11 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
 
     override this.GetHashCode() = this.ComputeHashCode()
 
-    interface IEnumerable<KeyValuePair<'Key, 'Value>> with
-        member __.GetEnumerator() = MapTree.mkIEnumerator tree
+    // interface IEnumerable<KeyValuePair<'Key, 'Value>> with
+    //     member __.GetEnumerator() = MapTree.mkIEnumerator tree
 
-    interface System.Collections.IEnumerable with
-        member __.GetEnumerator() = (MapTree.mkIEnumerator tree :> System.Collections.IEnumerator)
+    // interface System.Collections.IEnumerable with
+    //     member __.GetEnumerator() = (MapTree.mkIEnumerator tree :> System.Collections.IEnumerator)
 
 
     interface System.IComparable with
@@ -518,13 +518,11 @@ let foldBack<'Key,'T,'State  when 'Key : comparison> f (m:Map<'Key,'T>) (z:'Stat
     MapTree.foldBack  f m.Tree z
 
 let toSeq (m:Map<'a,'b>) =
-    { new IEnumerable<KeyValuePair<'a,'b>> with
-        member __.GetEnumerator() =
-            MapTree.mkIEnumerator m.Tree
-      interface IEnumerable with
-        member __.GetEnumerator() =
-            MapTree.mkIEnumerator m.Tree :> IEnumerator
-    }
+    let en = MapTree.mkIEnumerator m.Tree
+    en |> Seq.unfold (fun en ->
+        if en.MoveNext()
+        then Some(en.Current, en)
+        else None)
 
 let findKey f (m : Map<_,_>) =
     m.Tree |> MapTree.tryPick (fun k v ->

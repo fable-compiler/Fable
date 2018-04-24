@@ -438,26 +438,22 @@ let stringToCharArray t e =
     Helper.InstanceCall(e, "split", t, [makeStrConst ""])
 
 /// Used to convert F# Sets and Maps to JS iterable
-let builtinToSeq modName returnType expr =
-    let ienum = Helper.CoreCall(modName, "toSeq", returnType, [expr])
-    Helper.CoreCall("Seq", "toIterable", returnType, [ienum])
-
 let toSeq com t (e: Expr) =
     match e.Type with
     | List _ -> listToSeq t e
     | Array _ -> e
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
-    | Builtin(FSharpSet _) -> builtinToSeq "Set" t e
-    | Builtin(FSharpMap _) -> builtinToSeq "Map" t e
+    | Builtin(FSharpSet _) -> Helper.CoreCall("Set", "toSeq", t, [e])
+    | Builtin(FSharpMap _) -> Helper.CoreCall("Map", "toSeq", t, [e])
     | Builtin(BclHashSet t) ->
         if isCompatibleWithJsComparison t
         then e
-        else builtinToSeq "Set" t e
+        else Helper.CoreCall("Set", "toSeq", t, [e])
     | Builtin(BclDictionary(k,_)) ->
         if isCompatibleWithJsComparison k
         then e
-        else builtinToSeq "Map" t e
+        else Helper.CoreCall("Map", "toSeq", t, [e])
     // Casting seq to seq, do nothing
     | DeclaredType(ent, _) when ent.TryFullName = Some Types.enumerable -> e
     | t ->
@@ -1224,7 +1220,6 @@ let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args:
         let args = [f; makeComparer genArg]
         let mangledName = getMangledName "FSharpSet" false "Map"
         Helper.CoreCall("Set", mangledName, t, args, List.take 1 i.SignatureArgTypes, thisArg=thisArg, ?loc=r) |> Some
-    | "ToSeq", [e] -> builtinToSeq "Set" t e |> Some
     | "ToArray", [e] ->
         let arrayCons = firstGenArg com r i.GenericArgs |> arrayCons com
         Helper.CoreCall("Set", "toArray", t, [e; arrayCons], ?loc=r) |> Some
@@ -1246,7 +1241,6 @@ let mapModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args:
     | "Map", [f; thisArg] ->
         let mangledName = getMangledName "FSharpMap" false "Map"
         Helper.CoreCall("Map", mangledName, t, [f], i.SignatureArgTypes, thisArg=thisArg, ?loc=r) |> Some
-    | "ToSeq", [e] -> builtinToSeq "Map" t e |> Some
     | "ToArray", [e] ->
         Helper.CoreCall("Map", "toArray", t, [e; arrayCons com Any], ?loc=r) |> Some
     | meth, _ -> Helper.CoreCall("Map", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
