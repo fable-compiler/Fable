@@ -55,6 +55,11 @@ type StringEnumAttribute() =
 type ParamSeqAttribute() =
     inherit Attribute()
 
+[<AttributeUsage(AttributeTargets.Parameter)>]
+type InjectAttribute() =
+    inherit Attribute()
+    new (genericArg: string) = InjectAttribute()
+
 /// Erased union type to represent one of two possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type [<Erase>] U2<'a, 'b> =

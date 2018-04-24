@@ -120,7 +120,8 @@ module Helpers =
             |> fst
 
     let getCastDeclarationName com (implementingEntity: FSharpEntity) (interfaceEntity: FSharpEntity) =
-        getEntityMangledName com true implementingEntity + "$" + getEntityFullName interfaceEntity
+        let separator = Naming.getMemberMangledNameSeparator false
+        getEntityMangledName com true implementingEntity + separator + getEntityFullName interfaceEntity
         |> Naming.sanitizeIdent (fun _ -> false)
 
     let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =

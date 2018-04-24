@@ -16,6 +16,7 @@ module Map
 
 open System.Collections
 open System.Collections.Generic
+open Fable.Core
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.UseNullAsTrueValue)>]
 // [<NoEquality; NoComparison>]
@@ -509,7 +510,7 @@ let forall f (m:Map<_,_>) = m.ForAll(f)
 
 let mapRange f (m:Map<_,_>) = m.MapRange(f)
 
-// let map f (m:Map<_,_>) = m.Map(f)
+let map f (m:Map<_,_>) = m.Map(f)
 
 let fold<'Key,'T,'State when 'Key : comparison> f (z:'State) (m:Map<'Key,'T>) =
     MapTree.fold f z m.Tree
@@ -533,21 +534,21 @@ let tryFindKey f (m : Map<_,_>) =
     m.Tree |> MapTree.tryPick (fun k v ->
         if f k v then Some k else None)
 
-let ofList (l: ('Key * 'Value) list) comparer =
+let ofList (l: ('Key * 'Value) list) ([<Inject("Key")>] comparer: IComparer<'Key>) =
     new Map<_,_>(comparer, MapTree.ofList comparer l)
 
-let ofSeq l comparer =
+let ofSeq (l: ('Key * 'Value) seq) ([<Inject("Key")>] comparer: IComparer<'Key>) =
     new Map<_,_>(comparer, MapTree.ofSeq comparer l)
 
-let ofArray (array: ('Key * 'Value) array) comparer =
+let ofArray (array: ('Key * 'Value) array) ([<Inject("Key")>] comparer: IComparer<'Key>) =
     new Map<_,_>(comparer, MapTree.ofArray comparer array)
 
 let toList (m:Map<_,_>) = m.ToList()
 
-let toArray (m:Map<_,_>) (cons: Array.ArrayCons) =
+let toArray (m:Map<_,_>) ([<Inject>] cons: Array.ArrayCons) =
     let res = cons.Create m.Count
     MapTree.copyToArray m.Tree res 0
     res
 
-let empty<'Key,'Value  when 'Key : comparison> comparer =
+let empty<'Key,'Value  when 'Key : comparison> ([<Inject("Key")>] comparer: IComparer<'Key>) =
     new Map<'Key,'Value>(comparer, MapTree.MapEmpty)

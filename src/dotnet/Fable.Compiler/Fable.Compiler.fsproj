@@ -19,6 +19,7 @@
     <Compile Include="AST/AST.Babel.fs" />
     <Compile Include="Transforms/Transforms.Util.fs" />
     <Compile Include="Transforms/FSharp2Fable.Util.fs" />
+    <Compile Include="Transforms/Inject.fs" />
     <Compile Include="Transforms/Replacements.fs" />
     <Compile Include="Transforms/FSharp2Fable.fs" />
     <Compile Include="Transforms/FableTransforms.fs" />

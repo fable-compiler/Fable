@@ -682,6 +682,20 @@ let makePojo caseRule keyValueList =
         else  Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst])
     | None -> Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst])
 
+let injectArg moduleName methName genArgs args =
+    let (|GenericArg|_|) genArgs genArgName =
+        genArgs |> List.tryPick (fun (name, typ) ->
+            if name = genArgName then Some typ else None)
+    let info =
+        match moduleName with
+        | "Set" -> Map.tryFind methName Inject.Set
+        | "Map" -> Map.tryFind methName Inject.Map
+        | _ -> None
+    match info with
+    | Some(Types.comparer, GenericArg genArgs genArg) ->
+        args @ [makeComparer genArg]
+    | _ -> args
+
 let fableCoreLib (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "importDynamic", _ ->
@@ -1212,18 +1226,13 @@ let sets (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
 
 let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | ("OfList"|"OfSeq"|"OfArray"|"Empty"|"Singleton"|"UnionMany" as methName), _ ->
-        firstGenArg com r i.GenericArgs
-        |> makeSet r t methName args |> Some
-    | "Map", [f; thisArg] ->
-        let genArg = match t with Builtin(FSharpSet genArg) -> genArg | _ -> Any
-        let args = [f; makeComparer genArg]
-        let mangledName = getMangledName "FSharpSet" false "Map"
-        Helper.CoreCall("Set", mangledName, t, args, List.take 1 i.SignatureArgTypes, thisArg=thisArg, ?loc=r) |> Some
     | "ToArray", [e] ->
         let arrayCons = firstGenArg com r i.GenericArgs |> arrayCons com
         Helper.CoreCall("Set", "toArray", t, [e; arrayCons], ?loc=r) |> Some
-    | meth, _ -> Helper.CoreCall("Set", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, _ ->
+        let meth = Naming.lowerFirst meth
+        let args = injectArg "Set" meth i.GenericArgs args
+        Helper.CoreCall("Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let maps (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -1235,15 +1244,12 @@ let maps (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
 
 let mapModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | ("OfList"|"OfSeq"|"OfArray"|"Empty" as methName), _ ->
-        firstGenArg com r i.GenericArgs
-        |> makeMap r t methName args |> Some
-    | "Map", [f; thisArg] ->
-        let mangledName = getMangledName "FSharpMap" false "Map"
-        Helper.CoreCall("Map", mangledName, t, [f], i.SignatureArgTypes, thisArg=thisArg, ?loc=r) |> Some
     | "ToArray", [e] ->
         Helper.CoreCall("Map", "toArray", t, [e; arrayCons com Any], ?loc=r) |> Some
-    | meth, _ -> Helper.CoreCall("Map", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, _ ->
+        let meth = Naming.lowerFirst meth
+        let args = injectArg "Map" meth i.GenericArgs args
+        Helper.CoreCall("Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how
 // options behave in Fable runtime
