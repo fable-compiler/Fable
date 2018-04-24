@@ -37,9 +37,9 @@ let (|InjectAttribute|_|) (arg: FSharpParameter) =
     arg.Attributes |> Seq.tryPick (fun att ->
         match att.AttributeType.TryFullName with
         | Some "Fable.Core.InjectAttribute" when arg.Type.HasTypeDefinition ->
-            match arg.Type.TypeDefinition.TryFullName, Seq.toList att.ConstructorArguments with
-            | Some typeArgName, [(_, (:? string as genArg))] ->
-                Some(typeArgName, genArg)
+            match arg.Type.TypeDefinition.TryFullName, Seq.toList arg.Type.GenericArguments with
+            | Some typeArgName, [genArg] ->
+                Some(typeArgName, genArg.GenericParameter.Name)
             | _ -> None
         | _ -> None)
 

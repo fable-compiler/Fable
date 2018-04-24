@@ -492,8 +492,7 @@ let remove k (m:Map<_,_>) = m.Remove(k)
 
 let containsKey k (m:Map<_,_>) = m.ContainsKey(k)
 
-[<CompiledName("iterate")>]
-let iter f (m:Map<_,_>) = m.Iterate(f)
+let iterate f (m:Map<_,_>) = m.Iterate(f)
 
 let tryPick f (m:Map<_,_>) = m.TryPick(f)
 
@@ -505,8 +504,7 @@ let filter f (m:Map<_,_>) = m.Filter(f)
 
 let partition f (m:Map<_,_>) = m.Partition(f)
 
-[<CompiledName("forAll")>]
-let forall f (m:Map<_,_>) = m.ForAll(f)
+let forAll f (m:Map<_,_>) = m.ForAll(f)
 
 let mapRange f (m:Map<_,_>) = m.MapRange(f)
 
@@ -534,13 +532,13 @@ let tryFindKey f (m : Map<_,_>) =
     m.Tree |> MapTree.tryPick (fun k v ->
         if f k v then Some k else None)
 
-let ofList (l: ('Key * 'Value) list) ([<Inject("Key")>] comparer: IComparer<'Key>) =
+let ofList (l: ('Key * 'Value) list) ([<Inject>] comparer: IComparer<'Key>) =
     new Map<_,_>(comparer, MapTree.ofList comparer l)
 
-let ofSeq (l: ('Key * 'Value) seq) ([<Inject("Key")>] comparer: IComparer<'Key>) =
+let ofSeq (l: ('Key * 'Value) seq) ([<Inject>] comparer: IComparer<'Key>) =
     new Map<_,_>(comparer, MapTree.ofSeq comparer l)
 
-let ofArray (array: ('Key * 'Value) array) ([<Inject("Key")>] comparer: IComparer<'Key>) =
+let ofArray (array: ('Key * 'Value) array) ([<Inject>] comparer: IComparer<'Key>) =
     new Map<_,_>(comparer, MapTree.ofArray comparer array)
 
 let toList (m:Map<_,_>) = m.ToList()
@@ -550,5 +548,5 @@ let toArray (m:Map<_,_>) ([<Inject>] cons: Array.ArrayCons) =
     MapTree.copyToArray m.Tree res 0
     res
 
-let empty<'Key,'Value  when 'Key : comparison> ([<Inject("Key")>] comparer: IComparer<'Key>) =
+let empty<'Key,'Value  when 'Key : comparison> ([<Inject>] comparer: IComparer<'Key>) =
     new Map<'Key,'Value>(comparer, MapTree.MapEmpty)

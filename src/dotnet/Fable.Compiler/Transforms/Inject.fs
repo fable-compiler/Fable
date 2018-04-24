@@ -3,6 +3,7 @@ module Fable.Transforms.Inject
 
 let Set =
   Map [
+    "FSharpSet$Map", ("System.Collections.Generic.IComparer`1", "U")
     "singleton", ("System.Collections.Generic.IComparer`1", "T")
     "unionMany", ("System.Collections.Generic.IComparer`1", "T")
     "empty", ("System.Collections.Generic.IComparer`1", "T")
