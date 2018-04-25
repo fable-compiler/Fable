@@ -1,16 +1,6 @@
 import { Option, some, value } from "./Option";
 import { compare, equals, IDisposable } from "./Util";
 
-// ATTENTION: These two functions must be adjusted if representation of empty list changes
-export function toList<T>(xs: Iterable<T>) {
-  return foldBack((x, acc) =>
-    [x, acc], xs, null);
-}
-
-export function ofList<T>(xs: T[]) {
-  return unfold((x) => x != null ? x as [T, any] : null, xs);
-}
-
 export interface IEnumerator<T> {
   Current: T;
   MoveNext(): boolean;

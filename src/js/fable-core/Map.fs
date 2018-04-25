@@ -543,8 +543,8 @@ let ofArray (array: ('Key * 'Value) array) ([<Inject>] comparer: IComparer<'Key>
 
 let toList (m:Map<_,_>) = m.ToList()
 
-let toArray (m:Map<_,_>) ([<Inject>] cons: Array.ArrayCons) =
-    let res = cons.Create m.Count
+let toArray (m:Map<'Key,'Value>) =
+    let res = Array.Helpers.newDynamicArrayImpl m.Count
     MapTree.copyToArray m.Tree res 0
     res
 

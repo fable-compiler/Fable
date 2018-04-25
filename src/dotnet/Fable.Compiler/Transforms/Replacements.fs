@@ -1,6 +1,5 @@
 module Fable.Transforms.Replacements
 
-open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
@@ -152,6 +151,10 @@ let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
         if name2 = name then Some replacement else None)
 
 let inline (|ExprType|) (e: Expr) = e.Type
+
+let (|OrDefault|) (def:'T) = function
+    | Some v -> v
+    | None -> def
 
 let (|EntFullName|_|) (typ: Type) =
     match typ with
@@ -682,19 +685,27 @@ let makePojo caseRule keyValueList =
         else  Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst])
     | None -> Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst])
 
-let injectArg moduleName methName genArgs args =
-    let (|GenericArg|_|) genArgs genArgName =
-        genArgs |> List.tryPick (fun (name, typ) ->
-            if name = genArgName then Some typ else None)
+let injectArg com r moduleName methName (genArgs: (string*Type) list) args =
+    let (|GenericArg|_|) genArgs genArgIndex =
+        List.tryItem genArgIndex genArgs
     let info =
         match moduleName with
-        | "Set" -> Map.tryFind methName Inject.Set
-        | "Map" -> Map.tryFind methName Inject.Map
+        | "Array" -> Map.tryFind methName Inject.Array
+        | "List"   -> Map.tryFind methName Inject.List
+        | "Set"   -> Map.tryFind methName Inject.Set
+        | "Map"   -> Map.tryFind methName Inject.Map
         | _ -> None
     match info with
-    | Some(Types.comparer, GenericArg genArgs genArg) ->
+    | Some(Types.comparer, GenericArg genArgs (_,genArg)) ->
         args @ [makeComparer genArg]
-    | _ -> args
+    | Some(Types.arrayCons, GenericArg genArgs (_,genArg)) ->
+        args @ [arrayCons com genArg]
+    | Some(_, genArgIndex) ->
+        sprintf "Cannot inject arg to %s.%s (genArgs %A - expected index %i)"
+            moduleName methName (List.map fst genArgs) genArgIndex
+        |> addWarning com r
+        args
+    | None -> args
 
 let fableCoreLib (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
@@ -1092,6 +1103,8 @@ let strings (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
 let seqs (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "ToArray", [arg] -> toArray com t arg |> Some
+    | "OfList", [arg] -> Cast(arg, t) |> Some
+    | "ToList", _ -> Helper.CoreCall("List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // A export function 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
     | "Length", _ ->
         Helper.CoreCall("Seq", "count", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
@@ -1106,11 +1119,6 @@ let seqs (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
         Helper.CoreCall("Seq", "ofArray", t, [result]) |> Some
     | meth, _ -> Helper.CoreCall("Seq", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     // | _ -> None
-
-let passArrayCons =
-    HashSet [|"choose"; "collect"; "concat"; "distinct"; "distinctBy"; "groupBy"; "initialize"; "map"; "map2"; "map3"
-              "mapFold"; "mapFoldBack"; "mapIndexed"; "mapIndexed2";"mapIndexed3"; "ofList"; "partition"; "permute"; "replicate"
-              "reverse"; "scan"; "scanBack"; "singleton"; "skip"; "skipWhile"; "sortWith"; "take"; "takeWhile"; "unfold"|]
 
 let nativeArrayFunctions =
     dict [| "Exists", "some"
@@ -1131,24 +1139,18 @@ let arrays (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
     | Some ar, [idx; value], "set_Item" -> Set(ar, ExprSet idx, value, r) |> Some
     | _ -> None
 
-let arrayModule (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let arrayModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let inline newArray size t =
         Value(NewArray(ArrayAlloc size, t))
     let createArray size value =
-        match t with
-        | Array(Number _ as t2) ->
-            match value with
-            | None -> newArray size t2
-            | Some v -> Helper.InstanceCall(newArray size t2, "fill", t, [v])
-        | Array Boolean ->
-            let value = defaultArg value (makeBoolConst false)
-            Helper.InstanceCall(newArray size Boolean, "fill", t, [value])
-        // If we don't fill the array with null values some operations
-        // may behave unexpectedly, like Array.prototype.reduce
-        | t ->
-            let t2 = match t with Array t2 -> t2 | _ -> Any
-            let value = defaultArg value (Value(Null Any))
-            Helper.InstanceCall(newArray size t2, "fill", t, [value])
+        match t, value with
+        | Array(Number _ as t2), None -> newArray size t2
+        | Array(Number _ as t2), Some value
+        | Array(Boolean as t2), OrDefault (makeBoolConst false) value
+        | Array t2, OrDefault (Value(Null Any)) value ->
+            // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
+            Helper.CoreCall("Array", "fill", t, [newArray size t2; makeIntConst 0; size; value])
+        | _ -> sprintf "Expecting an array type but got %A" t |> addErrorAndReturnNull com r
     match args, i.CompiledName with
     | [arg], "ToSeq" -> Some arg
     | [arg], "OfSeq" -> toArray com t arg |> Some
@@ -1171,7 +1173,7 @@ let arrayModule (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option
     | [ar], "Tail" -> Helper.InstanceCall(ar, "slice", t, [makeIntConst 1], ?loc=r) |> Some
 
     // TODO!!!
-//         | "sort" | "sortDescending" | "sortBy" | "sortByDescending" ->
+//         | "sortDescending" | "sortBy" | "sortByDescending" ->
 //         | "sum" | "sumBy" ->
 //         | "min" | "minBy" | "max" | "maxBy" ->
 
@@ -1181,20 +1183,8 @@ let arrayModule (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option
         Helper.InstanceCall(thisArg, meth, t, args, argTypes, ?loc=r) |> Some
     | _, meth ->
         let meth = Naming.lowerFirst meth
-        let args, meth =
-            if meth = "sort"
-            then (firstGenArg com r i.GenericArgs |> makeComparerFunction)::args, "sortWith"
-            else args, meth
-        let args =
-            if passArrayCons.Contains(meth) then
-                match meth, t with
-                | ("mapFold"|"mapFoldBack"), Tuple[Array genArg;_]
-                | "groupBy", Array(Tuple[_; Array genArg])
-                | "partition", Tuple[Array genArg;_]
-                | _, Array genArg -> args @ [arrayCons com genArg]
-                | _ -> args @ [arrayCons com Any]
-            else args
-        Helper.CoreCall("Array", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        let args = injectArg com r "Array" meth i.GenericArgs args
+        Helper.CoreCall("Array", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, args, i.CompiledName with
@@ -1208,11 +1198,13 @@ let lists (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (arg
     | None, _, ("get_Empty" | "Empty") ->
         NewList(None, firstGenArg com r i.GenericArgs) |> Value |> Some
     | None, [h;t], "Cons" -> NewList(Some(h,t), firstGenArg com r i.GenericArgs) |> Value |> Some
+    // Use a cast to give it better chances of optimization (e.g. converting list
+    // literals to arrays) after the beta reduction pass
     | None, [x], "ToSeq" -> Cast(x, t) |> Some
-    | None, _, "OfSeq" -> Helper.CoreCall("Seq", "toList", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, [x], "ToArray" -> listToArray com r t x |> Some
     | None, _, meth ->
         let meth = Naming.lowerFirst meth
+        let args = injectArg com r "List" meth i.GenericArgs args
         Helper.CoreCall("List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
@@ -1231,7 +1223,7 @@ let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args:
         Helper.CoreCall("Set", "toArray", t, [e; arrayCons], ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
-        let args = injectArg "Set" meth i.GenericArgs args
+        let args = injectArg com r "Set" meth i.GenericArgs args
         Helper.CoreCall("Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let maps (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1248,7 +1240,7 @@ let mapModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args:
         Helper.CoreCall("Map", "toArray", t, [e; arrayCons com Any], ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
-        let args = injectArg "Map" meth i.GenericArgs args
+        let args = injectArg com r "Map" meth i.GenericArgs args
         Helper.CoreCall("Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how

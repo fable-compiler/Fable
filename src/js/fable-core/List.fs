@@ -1,19 +1,6 @@
 module List
 
 open Fable.Core
-open Fable.Core.JsInterop
-
-[<AutoOpen>]
-module private JS =
-
-    // TODO!!!: Pass the appropriate zero/one for the type from Fable
-    let inline nativeZero<'T> : 'T = !!0
-    let inline nativeOne<'T> : 'T = !!1
-
-    [<Emit("Symbol[$0]")>]
-    let SYMBOL (s: string): string = jsNative
-
-    let inline (~%) x = createObj x
 
 let rec foldIndexedAux f i acc = function
    | [] -> acc
@@ -227,23 +214,19 @@ let zip xs ys =
 let zip3 xs ys zs =
    map3 (fun x y z -> x, y, z) xs ys zs
 
-let sort xs =
-   xs
-   |> List.toArray
-   |> Array.sort
-   |> ofArray
+let sort (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
+   let ar = Array.ofList xs Array.DynamicArrayCons
+   Array.sort ar comparer |> ofArray
 
-let sortWith f xs =
-   xs
-   |> List.toArray
-   |> Array.sortWith f
-   |> ofArray
+let sortWith f xs: 'a list =
+   let ar = Array.ofList xs Array.DynamicArrayCons
+   Array.sortWith f ar |> ofArray
 
-let sum (xs: ^a list) : ^a =
-   fold (fun acc x -> acc + x) nativeZero xs
+let sum (xs: 'a list) : 'a =
+   fold (+) Array.Helpers.nativeZero xs
 
-let sumBy (f:^a -> ^b) (xs: ^a list) : ^b =
-   fold (fun acc x -> acc + f x) nativeZero xs
+let sumBy (f:'a -> 'b) (xs: 'a list) : 'b =
+   fold (fun acc x -> acc + f x) Array.Helpers.nativeZero xs
 
 let maxBy f xs =
    reduce (fun x y -> if f y > f x then y else x) xs
@@ -258,14 +241,14 @@ let min xs =
    reduce min xs
 
 // TODO: Pass add and divide function for non-number types
-let average (zs: ^a list) : ^a =
+let average (zs: 'a list) : 'a =
    let total = sum zs
-   let count = sumBy (fun _ -> nativeOne< ^a >) zs
+   let count = sumBy (fun _ -> Array.Helpers.nativeOne< 'a >) zs
    total / count
 
-let averageBy (g: ^a -> ^b ) (zs: ^a list) : ^b =
+let averageBy (g: 'a -> 'b ) (zs: 'a list) : 'b =
    let total = sumBy g zs
-   let count = sumBy (fun _ -> nativeOne< ^a >) zs
+   let count = sumBy (fun _ -> Array.Helpers.nativeOne< 'a >) zs
    total / count
 
 let permute f xs =
@@ -314,3 +297,6 @@ let skip i xs =
 
 let toSeq (xs: 'a list): 'a seq =
     Seq.unfold (function [] -> None | x::xs -> Some(x, xs)) xs
+
+let ofSeq (xs: 'a seq): 'a list =
+    Seq.foldBack(fun x acc -> x::acc) xs []

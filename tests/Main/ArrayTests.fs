@@ -15,9 +15,6 @@ open Fable.Core
 let jsConstructorIs (s: string) (ar: 'T[]) = true
 #endif
 
-// let f (x:obj) (y:obj) (z:obj) = (string x) + (string y) + (string z)
-let map f ar = Array.map f ar
-
 type ExceptFoo = { Bar:string }
 
 let tests =

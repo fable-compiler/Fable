@@ -60,9 +60,11 @@ let rec getInjects initialized decls =
                         | Some ent when not ent.IsFSharpModule ->
                             getMangledName ent.CompiledName (not memb.IsInstanceMember) memb.CompiledName
                         | _ -> memb.CompiledName
-                    // let index =
+                    // let argIndex =
                     //     (memb.CurriedParameterGroups |> Seq.sumBy (fun g -> g.Count)) - 1
-                    yield membName, typeArgName, genArg
+                    let genArgIndex =
+                        memb.GenericParameters |> Seq.findIndex (fun p -> p.Name = genArg)
+                    yield membName, typeArgName, genArgIndex
                     ()
                 | _ -> ()
         }
@@ -81,8 +83,8 @@ let main _argv =
             let fileName = System.IO.Path.GetFileNameWithoutExtension(file.FileName)
             lines.Add("let " + fileName + " =")
             lines.Add("  Map [")
-            for (membName, typeArgName, genArg) in injects do
-                lines.Add(sprintf "    \"%s\", (\"%s\", \"%s\")" membName typeArgName genArg)
+            for (membName, typeArgName, genArgIndex) in injects do
+                lines.Add(sprintf "    \"%s\", (\"%s\", %i)" membName typeArgName genArgIndex)
             lines.Add("]")
             lines.Add("")
     File.WriteAllLines(IO.Path.Combine(__SOURCE_DIRECTORY__,"../../dotnet/Fable.Compiler/Transforms/Inject.fs"), lines)

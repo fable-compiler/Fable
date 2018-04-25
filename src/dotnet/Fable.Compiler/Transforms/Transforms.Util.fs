@@ -217,10 +217,13 @@ module Types =
     let [<Literal>] resizeArray = "System.Collections.Generic.List`1"
     let [<Literal>] enumerable = "System.Collections.Generic.IEnumerable`1"
     let [<Literal>] comparable = "System.IComparable"
-    let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
     let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
     let [<Literal>] printf = "Microsoft.FSharp.Core.PrintfModule"
     let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
+
+    // Types compatible with Inject attribute
+    let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
+    let [<Literal>] arrayCons = "Array.ArrayCons`1"
 
 [<RequireQualifiedAccess>]
 module Operators =

@@ -27,7 +27,7 @@
             "type": "node",
             "request": "attach",
             "name": "Attach to Node",
-            "port": 5858
+            "port": 9229
         },
         {
             "type": "node",
