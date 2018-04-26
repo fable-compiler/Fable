@@ -1217,14 +1217,9 @@ let sets (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
         Helper.CoreCall("Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    match i.CompiledName, args with
-    | "ToArray", [e] ->
-        let arrayCons = firstGenArg com r i.GenericArgs |> arrayCons com
-        Helper.CoreCall("Set", "toArray", t, [e; arrayCons], ?loc=r) |> Some
-    | meth, _ ->
-        let meth = Naming.lowerFirst meth
-        let args = injectArg com r "Set" meth i.GenericArgs args
-        Helper.CoreCall("Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    let meth = Naming.lowerFirst i.CompiledName
+    let args = injectArg com r "Set" meth i.GenericArgs args
+    Helper.CoreCall("Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let maps (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -1235,13 +1230,9 @@ let maps (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
         Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let mapModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    match i.CompiledName, args with
-    | "ToArray", [e] ->
-        Helper.CoreCall("Map", "toArray", t, [e; arrayCons com Any], ?loc=r) |> Some
-    | meth, _ ->
-        let meth = Naming.lowerFirst meth
-        let args = injectArg com r "Map" meth i.GenericArgs args
-        Helper.CoreCall("Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    let meth = Naming.lowerFirst i.CompiledName
+    let args = injectArg com r "Map" meth i.GenericArgs args
+    Helper.CoreCall("Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // See fable-core/Option.ts for more info on how
 // options behave in Fable runtime
