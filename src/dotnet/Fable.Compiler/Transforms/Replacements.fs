@@ -125,17 +125,24 @@ let (|Builtin|_|) = function
         | Some "System.UInt64", _ -> Some BclUInt64
         | Some (Naming.StartsWith "Microsoft.FSharp.Core.int64" _), _ -> Some BclInt64
         | Some "System.Numerics.BigInteger", _ -> Some BclBigInt
-        | Some "Microsoft.FSharp.Collections.FSharpSet`1", [t] -> Some(FSharpSet(t))
-        | Some "Microsoft.FSharp.Collections.FSharpMap`2", [k;v] -> Some(FSharpMap(k,v))
+        | Some Types.fsharpSet, [t] -> Some(FSharpSet(t))
+        | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
+        | Some Types.hashset, [t] -> Some(BclHashSet(t))
+        | Some Types.dictionary, [k;v] -> Some(BclDictionary(k,v))
         | _ -> None
     | _ -> None
 
 let isCompatibleWithJsComparison = function
     | Builtin(BclInt64|BclUInt64|BclBigInt)
-    | Array _ | List _ | Tuple _ -> false
+    | Array _ | List _ | Tuple _ | Option _ -> false
     | Builtin(BclGuid|BclTimeSpan) -> true
+    // TODO: Non-record/union declared types without custom equality
+    // should be compatible with JS comparison
     | DeclaredType _ -> false
-    | _ -> true
+    // TODO: Raise warning when building dictionary/hashset with generic params?
+    | GenericParam _ -> true
+    | Any | Unit | Boolean | Number _ | String | Char | Regex
+    | EnumType _ | ErasedUnion _ | FunctionType _ | Pojo _ -> true
 
 let (|Integer|Float|) = function
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
@@ -688,24 +695,19 @@ let makePojo caseRule keyValueList =
 let injectArg com r moduleName methName (genArgs: (string*Type) list) args =
     let (|GenericArg|_|) genArgs genArgIndex =
         List.tryItem genArgIndex genArgs
-    let info =
-        match moduleName with
-        | "Array" -> Map.tryFind methName Inject.Array
-        | "List"   -> Map.tryFind methName Inject.List
-        | "Set"   -> Map.tryFind methName Inject.Set
-        | "Map"   -> Map.tryFind methName Inject.Map
-        | _ -> None
-    match info with
-    | Some(Types.comparer, GenericArg genArgs (_,genArg)) ->
-        args @ [makeComparer genArg]
-    | Some(Types.arrayCons, GenericArg genArgs (_,genArg)) ->
-        args @ [arrayCons com genArg]
-    | Some(_, genArgIndex) ->
-        sprintf "Cannot inject arg to %s.%s (genArgs %A - expected index %i)"
-            moduleName methName (List.map fst genArgs) genArgIndex
-        |> addWarning com r
-        args
-    | None -> args
+    Map.tryFind moduleName Inject.fableCoreModules
+    |> Option.bind (Map.tryFind methName)
+    |> function
+        | Some(Types.comparer, GenericArg genArgs (_,genArg)) ->
+            args @ [makeComparer genArg]
+        | Some(Types.arrayCons, GenericArg genArgs (_,genArg)) ->
+            args @ [arrayCons com genArg]
+        | Some(_, genArgIndex) ->
+            sprintf "Cannot inject arg to %s.%s (genArgs %A - expected index %i)"
+                moduleName methName (List.map fst genArgs) genArgIndex
+            |> addWarning com r
+            args
+        | None -> args
 
 let fableCoreLib (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
@@ -1478,7 +1480,7 @@ let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Ex
     let (|IEnumerable|IEqualityComparer|Other|) = function
         | DeclaredType(ent,_) ->
             match ent.TryFullName with
-            | Some "System.Collections.Generic.IEnumerable`1" -> IEnumerable
+            | Some Types.enumerable -> IEnumerable
             | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
             | _ -> Other
         | _ -> Other
@@ -1691,7 +1693,7 @@ let dates (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr 
     let getTime (e: Expr) =
         Helper.InstanceCall(e, "getTime", t, [])
     let moduleName =
-        if i.DeclaringEntityFullName = "System.DateTime"
+        if i.DeclaringEntityFullName = Types.datetime
         then "Date" else "DateOffset"
     match i.CompiledName with
     | ".ctor" ->
@@ -1704,7 +1706,7 @@ let dates (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr 
                 Helper.CoreCall(moduleName, "default", t, (ms::rest), t::i.SignatureArgTypes.Tail)
                 |> Some
             | _ -> None
-        | (DeclaredType(e,[]))::_ when e.FullName = "System.DateTime" ->
+        | (DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
             Helper.CoreCall("DateOffset", "fromDate", t, args, i.SignatureArgTypes)
             |> Some
         | _ ->
@@ -2083,10 +2085,10 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers"
     | "Microsoft.FSharp.Collections.SeqModule" -> seqs com r t info thisArg args
     | "System.Collections.Generic.KeyValuePair`2" -> keyValuePairs com r t info thisArg args
-    | "System.Collections.Generic.Dictionary`2"
+    | Types.dictionary
     | "System.Collections.Generic.IDictionary`2" -> dictionaries com r t info thisArg args
     | "System.Collections.Generic.Dictionary`2.Enumerator" -> enumerators com r t info thisArg args
-    | "System.Collections.Generic.HashSet`1"
+    | Types.hashset
     | "System.Collections.Generic.ISet`1" -> hashSets com r t info thisArg args
     | "Microsoft.FSharp.Core.FSharpOption`1"
     | "Microsoft.FSharp.Core.OptionModule" -> options com r t info thisArg args
@@ -2114,9 +2116,9 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Console" -> console com r t info thisArg args
     | "System.Diagnostics.Debug"
     | "System.Diagnostics.Debugger" -> debug com r t info thisArg args
-    | "System.DateTime"
-    | "System.DateTimeOffset" -> dates com r t info thisArg args
-    | "System.TimeSpan" -> timeSpans com r t info thisArg args
+    | Types.datetime
+    | Types.datetimeOffset -> dates com r t info thisArg args
+    | Types.timespan -> timeSpans com r t info thisArg args
     | "System.Environment" -> systemEnv com r t info thisArg args
     | "System.Globalization.CultureInfo" -> globalization com r t info thisArg args
     | "System.Random" -> random com r t info thisArg args
@@ -2129,11 +2131,11 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Text.RegularExpressions.MatchCollection"
     | "System.Text.RegularExpressions.GroupCollection"
     | "System.Text.RegularExpressions.Regex" -> regex com r t info thisArg args
-    | "System.Collections.Generic.IEnumerable`1"
+    | Types.enumerable
     | "System.Collections.IEnumerable" -> enumerable com r t info thisArg args
-    | "Microsoft.FSharp.Collections.FSharpSet`1" -> sets com r t info thisArg args
+    | Types.fsharpSet -> sets com r t info thisArg args
     | "Microsoft.FSharp.Collections.SetModule" -> setModule com r t info thisArg args
-    | "Microsoft.FSharp.Collections.FSharpMap`2" -> maps com r t info thisArg args
+    | Types.fsharpMap -> maps com r t info thisArg args
     | "Microsoft.FSharp.Collections.MapModule" -> mapModule com r t info thisArg args
     | _ -> None
 //         | "System.Collections.Generic.Dictionary.KeyCollection"

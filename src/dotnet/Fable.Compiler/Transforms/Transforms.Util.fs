@@ -215,6 +215,10 @@ module Types =
     let [<Literal>] option = "Microsoft.FSharp.Core.FSharpOption`1"
     let [<Literal>] list = "Microsoft.FSharp.Collections.FSharpList`1"
     let [<Literal>] resizeArray = "System.Collections.Generic.List`1"
+    let [<Literal>] dictionary = "System.Collections.Generic.Dictionary`2"
+    let [<Literal>] hashset = "System.Collections.Generic.HashSet`1"
+    let [<Literal>] fsharpMap = "Microsoft.FSharp.Collections.FSharpMap`2"
+    let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
     let [<Literal>] enumerable = "System.Collections.Generic.IEnumerable`1"
     let [<Literal>] comparable = "System.IComparable"
     let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
@@ -223,7 +227,7 @@ module Types =
 
     // Types compatible with Inject attribute
     let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
-    let [<Literal>] arrayCons = "Array.ArrayCons`1"
+    let [<Literal>] arrayCons = "Array.IArrayCons`1"
 
 [<RequireQualifiedAccess>]
 module Operators =

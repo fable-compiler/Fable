@@ -13,6 +13,12 @@ open Fable
 let getMangledName (entityName: string) isStatic memberCompiledName =
     entityName + (Naming.getMemberMangledNameSeparator isStatic) + (Naming.sanitizeIdentForbiddenChars memberCompiledName)
 
+let typeAliases =
+    Map [
+        "System.Collections.Generic.IComparer`1", "comparer"
+        "Array.IArrayCons`1", "arrayCons"
+    ]
+
 let parse (checker: FSharpChecker) projFile =
     let projFile = Path.GetFullPath(projFile)
     let options =
@@ -71,22 +77,32 @@ let rec getInjects initialized decls =
 
 [<EntryPoint>]
 let main _argv =
+    printfn "Checking methods in Fable.Core.JS with last argument decorated with Inject..."
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
     let proj = parse checker (IO.Path.Combine(__SOURCE_DIRECTORY__,"../../js/fable-core/Fable.Core.JS.fsproj"))
-    let lines = ResizeArray()
-    lines.Add("/// AUTOMATICALLY GENERATED - DO NOT TOUCH!")
-    lines.Add("module Fable.Transforms.Inject")
-    lines.Add("")
-    for file in proj.AssemblyContents.ImplementationFiles do
-        let injects = getInjects false file.Declarations |> Seq.toArray
-        if Array.length injects > 0 then
-            let fileName = System.IO.Path.GetFileNameWithoutExtension(file.FileName)
-            lines.Add("let " + fileName + " =")
-            lines.Add("  Map [")
-            for (membName, typeArgName, genArgIndex) in injects do
-                lines.Add(sprintf "    \"%s\", (\"%s\", %i)" membName typeArgName genArgIndex)
-            lines.Add("]")
-            lines.Add("")
+    let lines =
+        seq {
+            yield """/// AUTOMATICALLY GENERATED - DO NOT TOUCH!
+module Fable.Transforms.Inject
+
+let fableCoreModules =
+  Map ["""
+            for file in proj.AssemblyContents.ImplementationFiles do
+                let fileName = System.IO.Path.GetFileNameWithoutExtension(file.FileName)
+                yield sprintf "    \"%s\", Map [" fileName
+                yield!
+                    getInjects false file.Declarations
+                    |> Seq.map (fun (membName, typeArgName, genArgIndex) ->
+                        let typeArgName =
+                            match Map.tryFind typeArgName typeAliases with
+                            | Some alias -> "Types." + alias
+                            | None -> "\"" + typeArgName + "\""
+                        sprintf "      \"%s\", (%s, %i)" membName typeArgName genArgIndex
+                    )
+                yield "    ]"
+
+            yield "  ]\n"
+        }
     File.WriteAllLines(IO.Path.Combine(__SOURCE_DIRECTORY__,"../../dotnet/Fable.Compiler/Transforms/Inject.fs"), lines)
     printfn "Finished!"
     0

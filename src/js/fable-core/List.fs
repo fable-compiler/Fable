@@ -222,11 +222,11 @@ let sortWith f xs: 'a list =
    let ar = Array.ofList xs Array.DynamicArrayCons
    Array.sortWith f ar |> ofArray
 
-let sum (xs: 'a list) : 'a =
-   fold (+) Array.Helpers.nativeZero xs
+let sum (xs: float list) : float =
+   fold (+) 0. xs
 
-let sumBy (f:'a -> 'b) (xs: 'a list) : 'b =
-   fold (fun acc x -> acc + f x) Array.Helpers.nativeZero xs
+let sumBy (f:'a -> float) (xs: 'a list) : float =
+   fold (fun acc x -> acc + f x) 0. xs
 
 let maxBy f xs =
    reduce (fun x y -> if f y > f x then y else x) xs
@@ -240,16 +240,13 @@ let minBy f xs =
 let min xs =
    reduce min xs
 
-// TODO: Pass add and divide function for non-number types
-let average (zs: 'a list) : 'a =
+let average (zs: float list) : float =
    let total = sum zs
-   let count = sumBy (fun _ -> Array.Helpers.nativeOne< 'a >) zs
-   total / count
+   total / float(List.length zs)
 
-let averageBy (g: 'a -> 'b ) (zs: 'a list) : 'b =
+let averageBy (g: 'a -> float ) (zs: 'a list) : float =
    let total = sumBy g zs
-   let count = sumBy (fun _ -> Array.Helpers.nativeOne< 'a >) zs
-   total / count
+   total / float(List.length zs)
 
 let permute f xs =
    xs
