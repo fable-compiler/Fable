@@ -180,24 +180,16 @@ let replaceValues replacements expr =
             | None -> e
         | e -> e)
 
-let isReferencedMoreThan limit identName e =
-    match e with
-    // Don't try to erase bindings to these expressions
-    | Import _ | Throw _ | Sequential _ | IfThenElse _
-    | DecisionTree _ | TryCatch _ -> true
-    | _ ->
-        let mutable count = 0
-        // TODO: Can we optimize this to shortcircuit when count > limit?
-        e |> visitFromInsideOut (function
-            | _ when count > limit -> e
-            | IdentExpr id2 as e when id2.Name = identName ->
-                count <- count + 1; e
-            // // TODO: Decision tree target branchs can be duplicated, so for now
-            // // don't remove the binding until we optimize decision trees
-            // | DecisionTree _ ->
-            //     count <- limit + 1; e
-            | e -> e) |> ignore
-        count > limit
+// Don't erase expressions referenced 0 times, they may have side-effects
+let isReferencedOnlyOnce identName e =
+    let limit = 1
+    let mutable count = 0
+    e |> deepExists (function
+        | IdentExpr id2 when id2.Name = identName ->
+            count <- count + 1
+            count > limit
+        | _ -> false) |> ignore
+    count = limit
 
 module private Transforms =
     let (|ExprType|) (e: Expr) = e.Type
@@ -246,7 +238,7 @@ module private Transforms =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
                 |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                    if hasDoubleEvalRisk expr && isReferencedMoreThan 1 ident.Name body
+                    if hasDoubleEvalRisk expr && not(isReferencedOnlyOnce ident.Name body)
                     then (ident, expr)::bindings, replacements
                     else bindings, Map.add ident.Name expr replacements)
             match bindings with
@@ -283,8 +275,9 @@ module private Transforms =
                     makeTypedIdent t id.Name |> IdentExpr |> Some
                 // TODO: If the ident is referenced 0 times we may delete it if there are no risk
                 // of side-effects. (e.g. when assigning JS `this` to first Arg in interface members)
-                | value when hasDoubleEvalRisk value |> not
-                            || isReferencedMoreThan 1 identName body |> not ->
+                | value when ident.IsCompilerGenerated
+                    // TODO: Can compiler generated values be referenced more than once?
+                    && (not(hasDoubleEvalRisk value) || isReferencedOnlyOnce identName body) ->
                     match value with
                     // TODO: Check if current name is Some? Shouldn't happen...
                     | Function(args, body, _) -> Function(args, body, Some identName) |> Some

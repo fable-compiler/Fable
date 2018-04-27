@@ -1,7 +1,6 @@
 module Fable.Tests.Maps
 
 open Util.Testing
-open Fable.Tests.Util
 
 let tests =
     testList "Maps" [

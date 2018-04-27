@@ -78,6 +78,7 @@ module AST =
           Type = Any
           IsMutable = false
           IsThisArg = false
+          IsCompilerGenerated = true
           Range = None }
 
     let makeTypedIdent typ name =
@@ -85,6 +86,7 @@ module AST =
           Type = typ
           IsMutable = false
           IsThisArg = false
+          IsCompilerGenerated = true
           Range = None }
 
     let makeIdentExpr name =

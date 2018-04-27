@@ -788,10 +788,8 @@ let fableCoreLib (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
 
 let references (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", _, [arg] ->
-        objExpr t ["contents", arg] |> Some
-    | "get_Value", Some callee, _ ->
-        get r t callee "contents" |> Some
+    | ".ctor", _, [arg] -> objExpr t ["contents", arg] |> Some
+    | "get_Value", Some callee, _ -> get r t callee "contents" |> Some
     | "set_Value", Some callee, [value] ->
         Set(callee, makeStrConst "contents" |> ExprSet, value, r) |> Some
     | _ -> None
@@ -1072,10 +1070,12 @@ let strings (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "ToCharArray", Some c, _ ->
         Helper.InstanceCall(c, "split", t, [makeStrConst ""]) |> Some
     | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _, _ ->
-        // TODO!!! Cast the string to seq<char>
+        // Cast the string to seq<char>, see #1279
+        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
         Helper.CoreCall("Seq", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | ("Map" | "MapIndexed" | "Collect"), _, _ ->
-        // TODO!!! Cast the string to seq<char>
+        // Cast the string to seq<char>, see #1279
+        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
         let name = Naming.lowerFirst i.CompiledName
         emitJs r t [Helper.CoreCall("Seq", name, Any, args)] "Array.from($0).join('')" |> Some
     | "Concat", _, _ ->
@@ -1248,15 +1248,12 @@ let options (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (a
         // Prevent functions being run twice, see #198
         Helper.CoreCall("Option", "defaultArg", t, [arg; makeArray Any []; f], ?loc=r)
     match i.CompiledName, thisArg, args with
-    | "None", None, _ ->
-        NewOption(None, t) |> Value |> Some
-    | "Value", None, [c]
-    | "get_Value", Some c, _ ->
-        Get(c, OptionValue, t, r) |> Some
-    // | "toObj" | "toNullable" | "flatten" ->
-    //     ccall i "Option" "getValue" [getCallee i; makeBoolConst true] |> Some
-    // | "ofObj" | "ofNullable" ->
-    //     wrap i.returnType (getCallee i) |> Some
+    | "None", None, _ -> NewOption(None, t) |> Value |> Some
+    | "GetValue", None, [c]
+    | "get_Value", Some c, _ -> Get(c, OptionValue, t, r) |> Some
+    | ("OfObj" | "OfNullable"), None, [c] -> Some c // TODO: Call function to keep type?
+    | ("ToObj" | "ToNullable" | "Flatten"), None, [c] ->
+        Helper.CoreCall("Option", "value", t, [c; makeBoolConst true], ?loc=r) |> Some
     | "IsSome", _, [c] | "get_IsSome", Some c, _ -> Test(c, OptionTest true, r) |> Some
     | "IsNone", _, [c] | "get_IsNone", Some c, _ -> Test(c, OptionTest false, r) |> Some
     | ("Map" | "Bind"), None, [f; arg] ->
@@ -1266,27 +1263,23 @@ let options (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (a
             | _ -> f.Type, arg.Type // unexpected
         let args = [arg; Value(NewOption(None, argType)); f]
         Helper.CoreCall("Option", "defaultArg", t, args, [argType; Option argType; fType],  ?loc=r) |> Some
-    // | "filter" ->
-    //     ccall i "Option" "filter" i.args |> Some
-    // | "toArray" ->
-    //     toArray i.range i.returnType i.args.Head |> Some
-    // | "foldBack" ->
-    //     let opt = toArray None Fable.Any i.args.Tail.Head
-    //     let args = i.args.Head::opt::i.args.Tail.Tail
-    //     ccall i "Seq" "foldBack" args |> Some
-    // | "defaultValue" | "orElse" ->
-    //     List.rev i.args
-    //     |> ccall i "Option" "defaultArg" |> Some
-    // | "defaultWith" | "orElseWith" ->
-    //     List.rev i.args
-    //     |> ccall i "Option" "defaultArgWith" |> Some
-    // | "count" | "contains" | "exists"
-    // | "fold" | "forAll" | "iterate" | "toList" ->
-    //     let args =
-    //         let args = List.rev i.args
-    //         let opt = toArray None Fable.Any args.Head
-    //         List.rev (opt::args.Tail)
-    //     ccall i "Seq" i.memberName args |> Some
+    | "Filter", _, _ ->
+        Helper.CoreCall("Option", "filter", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "ToArray", _, [arg] ->
+        toArray r t arg |> Some
+    | "FoldBack", _, [folder; opt; state] ->
+        Helper.CoreCall("Seq", "foldBack", t, [folder; toArray None Any opt; state], i.SignatureArgTypes, ?loc=r) |> Some
+    | ("DefaultValue" | "OrElse"), _, _ ->
+        Helper.CoreCall("Option", "defaultArg", t, List.rev args, ?loc=r) |> Some
+    | ("DefaultWith" | "OrElseWith"), _, _ ->
+        Helper.CoreCall("Option", "defaultArgWith", t, List.rev args, List.rev i.SignatureArgTypes, ?loc=r) |> Some
+    | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" | "ToList" as meth), _, _ ->
+        let args = args |> List.replaceLast (toArray None Any)
+        let moduleName, meth =
+            if meth = "ToList"
+            then "List", "ofArray"
+            else "Seq", Naming.lowerFirst meth
+        Helper.CoreCall(moduleName, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // | "map2" | "map3" -> failwith "TODO"
     | _ -> None
 
@@ -2095,7 +2088,7 @@ let tryCall (com: ICompiler) ctx r t (info: CallInfo) (thisArg: Expr option) (ar
     | "System.Decimal" -> decimals com r t info thisArg args
     // | "System.Numerics.BigInteger"
     // | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" -> bigint com r t info thisArg args
-    | "Microsoft.FSharp.Core.FSharpRef" -> references com r t info thisArg args
+    | Types.reference -> references com r t info thisArg args
     | "Microsoft.FSharp.Core.PrintfModule"
     | Naming.StartsWith "Microsoft.FSharp.Core.PrintfFormat" _ -> fsFormat com r t info thisArg args
     | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com r t info thisArg args

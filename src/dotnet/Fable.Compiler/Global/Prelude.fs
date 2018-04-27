@@ -55,6 +55,11 @@ module List =
             | x::xs -> splitListInner (x::acc) xs
         splitListInner [] xs
 
+    let replaceLast f (xs: 'a list) =
+        let xs = List.toArray xs
+        xs.[xs.Length - 1 ] <- f xs.[xs.Length - 1 ]
+        List.ofArray xs
+
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
 

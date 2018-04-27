@@ -8,6 +8,7 @@ let allTests =
      Lists.tests
      Sets.tests
      Maps.tests
+     Option.tests
   |]
 
 #if FABLE_COMPILER

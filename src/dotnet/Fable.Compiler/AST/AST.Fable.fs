@@ -78,6 +78,7 @@ type Ident =
       Type: Type
       IsMutable: bool
       IsThisArg: bool
+      IsCompilerGenerated: bool
       Range: SourceLocation option }
 
 type ImportKind =

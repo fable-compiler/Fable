@@ -504,10 +504,12 @@ module Identifiers =
             match fsRef with
             | None -> makeTypedIdent typ sanitizedName
             | Some v ->
-                { makeTypedIdent typ sanitizedName with
-                    IsMutable = v.IsMutable
-                    IsThisArg = v.IsMemberThisValue
-                    Range = makeRange v.DeclarationLocation |> Some }
+                { Name = sanitizedName
+                  Type = typ
+                  IsMutable = v.IsMutable
+                  IsThisArg = v.IsMemberThisValue
+                  IsCompilerGenerated = v.IsCompilerGenerated
+                  Range = makeRange v.DeclarationLocation |> Some }
         let identValue = Fable.IdentExpr ident
         { ctx with Scope = (fsRef, identValue)::ctx.Scope}, ident
 
