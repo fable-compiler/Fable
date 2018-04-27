@@ -33,13 +33,17 @@ type Helper =
         | _ -> Operation(Call(StaticCall funcExpr, info), returnType, loc)
 
     static member GlobalCall(ident: string, returnType: Type, args: Expr list,
-                             ?argTypes: Type list, ?thisArg: Expr, ?memb: string, ?loc: SourceLocation) =
+                             ?argTypes: Type list, ?memb: string, ?isConstructor: bool, ?loc: SourceLocation) =
         let funcExpr =
             match memb with
             | Some m -> get None Any (makeIdentExpr ident) m
             | None -> makeIdentExpr ident
-        let info = argInfo thisArg args argTypes
-        Operation(Call(StaticCall funcExpr, info), returnType, loc)
+        let op =
+            match isConstructor with
+            | Some true -> ConstructorCall funcExpr
+            | _ -> StaticCall funcExpr
+        let info = argInfo None args argTypes
+        Operation(Call(op, info), returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         get loc typ (makeIdentExpr ident) memb
@@ -456,6 +460,8 @@ let toSeq com t (e: Expr) =
     | String -> stringToCharArray t e
     | Builtin(FSharpSet _) -> Helper.CoreCall("Set", "toSeq", t, [e])
     | Builtin(FSharpMap _) -> Helper.CoreCall("Map", "toSeq", t, [e])
+    // TODO!!! Sets and maps can also have an F# implementation
+    // if they have a custom comparer
     | Builtin(BclHashSet t) ->
         if isCompatibleWithJsComparison t
         then e
@@ -640,7 +646,7 @@ let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
     let typArg = firstGenArg com r i.GenericArgs
     if forceFSharp || not(isCompatibleWithJsComparison typArg)
     then makeFSharp typArg args
-    else Helper.GlobalCall(modName, t, args, i.SignatureArgTypes, ?loc=r)
+    else Helper.GlobalCall(modName, t, args, i.SignatureArgTypes, isConstructor=true, ?loc=r)
 
 let getZero = function
     | Char | String -> makeStrConst ""
@@ -711,8 +717,7 @@ let injectArg com r moduleName methName (genArgs: (string*Type) list) args =
 
 let fableCoreLib (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "importDynamic", _ ->
-        Helper.GlobalCall("import", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | "importDynamic", _ -> Helper.GlobalCall("import", t, args, ?loc=r) |> Some
     | Naming.StartsWith "import" suffix, _ ->
         let fail() =
             sprintf "Fable.Core.JsInterop.import%s only accepts literal strings" suffix
@@ -1173,12 +1178,6 @@ let arrayModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (arg
         eq (get r (Number Int32) ar "length") (makeIntConst 0) |> Some
     | [ar], "Head" -> getExpr r t ar (makeIntConst 0) |> Some
     | [ar], "Tail" -> Helper.InstanceCall(ar, "slice", t, [makeIntConst 1], ?loc=r) |> Some
-
-    // TODO!!!
-//         | "sortDescending" | "sortBy" | "sortByDescending" ->
-//         | "sum" | "sumBy" ->
-//         | "min" | "minBy" | "max" | "maxBy" ->
-
     | _, Patterns.DicContains nativeArrayFunctions meth ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes

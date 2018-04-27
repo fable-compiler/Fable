@@ -1,5 +1,6 @@
 module List
 
+open System.Collections.Generic
 open Fable.Core
 
 let rec foldIndexedAux f i acc = function
@@ -214,13 +215,20 @@ let zip xs ys =
 let zip3 xs ys zs =
    map3 (fun x y z -> x, y, z) xs ys zs
 
-let sort (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
-   let ar = Array.ofList xs Array.DynamicArrayCons
-   Array.sort ar comparer |> ofArray
+let sort (xs : 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
+    Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (Array.ofList xs Array.DynamicArrayCons) |> ofArray
 
-let sortWith f xs: 'a list =
-   let ar = Array.ofList xs Array.DynamicArrayCons
-   Array.sortWith f ar |> ofArray
+let sortBy (projection:'a->'b) (xs : 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
+    Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (Array.ofList xs Array.DynamicArrayCons) |> ofArray
+
+let sortDescending (xs : 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
+    Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (Array.ofList xs Array.DynamicArrayCons) |> ofArray
+
+let sortByDescending (projection:'a->'b) (xs : 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
+    Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (Array.ofList xs Array.DynamicArrayCons) |> ofArray
+
+let sortWith (comparer: 'T -> 'T -> int) (xs : 'T list): 'T list =
+    Array.sortInPlaceWith comparer (Array.ofList xs Array.DynamicArrayCons) |> ofArray
 
 let sum (xs: float list) : float =
    fold (+) 0. xs
@@ -228,17 +236,17 @@ let sum (xs: float list) : float =
 let sumBy (f:'a -> float) (xs: 'a list) : float =
    fold (fun acc x -> acc + f x) 0. xs
 
-let maxBy f xs =
-   reduce (fun x y -> if f y > f x then y else x) xs
+let maxBy (projection:'a->'b) (xs:'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
+    reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then y else x) xs
 
-let max xs =
-   reduce max xs
+let max (li:'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
+    reduce (fun x y -> if comparer.Compare(y, x) > 0 then y else x) li
 
-let minBy f xs =
-   reduce (fun x y -> if f y > f x then x else y) xs
+let minBy (projection:'a->'b) (xs:'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
+    reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then x else y) xs
 
-let min xs =
-   reduce min xs
+let min (xs:'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
+    reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
 
 let average (zs: float list) : float =
    let total = sum zs
@@ -253,11 +261,6 @@ let permute f xs =
    |> List.toArray
    |> Array.permute f
    |> ofArray
-
-let sortBy f xs =
-   let ys = xs |> List.toArray
-   Array.sortInPlaceBy f ys
-   ys |> ofArray
 
 // TODO: Is there a more efficient algorithm?
 let take i xs =

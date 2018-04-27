@@ -4,6 +4,7 @@ module Array
 // We skip this for LanguagePrimitives.ErrorStrings.
 #nowarn "1204"
 
+open System.Collections.Generic
 open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Import
@@ -72,6 +73,11 @@ let private indexNotFound() = failwith "An index satisfying the predicate was no
 let append (array1: 'T[]) (array2: 'T[]): 'T[] = concatImpl array1 array2
 
 let filter (predicate: 'T -> bool) (array: 'T[]) = filterImpl predicate array
+
+let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T): 'T[] =
+    for i = targetIndex to (targetIndex + count - 1) do
+        target.[i] <- value
+    target
 
 let getSubArray (array: 'T[]) (offset: int) (length: int): 'T[] =
     sliceImpl array offset (offset + length)
@@ -182,7 +188,8 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: IArrayCons<'U>
     |> concatImpl cons
 
 let countBy (projection: 'T->'Key) (array: 'T[]) =
-    let dict = System.Collections.Generic.Dictionary<'Key, int>()
+    // TODO!!! Inject IEqualityComparer for non-primitive types
+    let dict = Dictionary<'Key, int>()
 
     for value in array do
         let key = projection value
@@ -201,7 +208,8 @@ let distinctBy projection (array:'T[]) ([<Inject>] cons: IArrayCons<'T>) =
     let temp = cons.Create array.Length
     let mutable i = 0
 
-    let hashSet = System.Collections.Generic.HashSet<'T>()
+    // TODO!!! Inject IEqualityComparer for non-primitive types
+    let hashSet = HashSet<'T>()
     for v in array do
         if hashSet.Add(projection v) then
             temp.[i] <- v
@@ -213,24 +221,25 @@ let distinct (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) = distinctBy id arr
 
 let where predicate (array: _[]) = filterImpl predicate array
 
-let except (itemsToExclude: seq<_>) (array:_[]) =
+let except (itemsToExclude: seq<'t>) (array: 't[]) : 't[] =
     if array.Length = 0 then
         array
     else
-        let cached = System.Collections.Generic.HashSet(itemsToExclude)
+        // TODO!!! Inject IEqualityComparer for non-primitive types
+        let cached = HashSet(itemsToExclude)
         array |> filterImpl cached.Add
 
 let groupBy (projection: 'T->'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
-    let dict = System.Collections.Generic.Dictionary<'Key, 'T[]>()
+    // TODO!!! Inject IEqualityComparer for non-primitive types
+    let dict = Dictionary<'Key, 'T[]>()
 
     // Build the groupings
     for i = 0 to (array.Length - 1) do
         let v = array.[i]
         let key = projection v
-        let mutable prev = Unchecked.defaultof<_>
-        if dict.TryGetValue(key, &prev) then
-            pushImpl prev v |> ignore
-        else
+        match dict.TryGetValue(key) with
+        | true, prev -> pushImpl prev v |> ignore
+        | false, _ ->
             // Use dynamic array so we can build it up via .push()
             // Consider benchmarking if another collection type performs better here
             let prev = [|v|]
@@ -294,12 +303,11 @@ let scan<'T, 'State> folder (state: 'State) (array: 'T []) ([<Inject>] cons: IAr
         res.[i + 1] <- folder res.[i] array.[i]
     res
 
-let scanBack<'T, 'State> folder (state: 'State) (array: 'T []) ([<Inject>] cons: IArrayCons<'State>) =
-    let res = cons.Create (array.Length + 1)
-    let size = array.Length
+let scanBack<'T, 'State> folder (array: 'T []) (state: 'State) ([<Inject>] cons: IArrayCons<'State>) =
+    let res = cons.Create(array.Length + 1)
     res.[array.Length] <- state
-    for i = 1 to array.Length do
-        res.[size - i] <- folder array.[size - i] res.[size - i + 1]
+    for i = array.Length - 1 downto 0 do
+        res.[i] <- folder array.[i] res.[i + 1]
     res
 
 let skip count (array:'T[]) ([<Inject>] cons: IArrayCons<'T>) =
@@ -515,28 +523,36 @@ let setSlice (target: 'T[]) (lower: int) (upper: int) (source: 'T[]) =
         for i = 0 to length - 1 do
             target.[i + lower] <- source.[i]
 
-let sortInPlaceBy f array =
-    sortInPlaceWithImpl (fun (x:'T) (y:'T) ->
-        let x = f x
-        let y = f y
-        compare x y) array
+let sortInPlaceBy (projection:'a->'b) (xs : 'a[]) ([<Inject>] comparer: IComparer<'b>): unit =
+    sortInPlaceWithImpl (fun x y -> comparer.Compare(projection x, projection y)) xs
 
-let sortInPlace array =
-    sortInPlaceWithImpl compare array
+let sortInPlace (xs : 'T[]) ([<Inject>] comparer: IComparer<'T>) =
+    sortInPlaceWithImpl (fun x y -> comparer.Compare(x, y)) xs
 
-let sort (array : 'T[]) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
+let inline internal sortInPlaceWith (comparer: 'T -> 'T -> int) (xs : 'T[]) =
+    sortInPlaceWithImpl comparer xs
+    xs
+
+let private copyArray (array : 'T[]) =
     let result = createArrayFromImpl array
     for i = 0 to array.Length - 1 do
         result.[i] <- array.[i]
-    sortInPlaceWithImpl (fun x y -> comparer.Compare(x, y)) result
     result
 
-let sortWith (comparer: 'T -> 'T -> int) (array : 'T[]) =
-    let result = createArrayFromImpl array
-    for i = 0 to array.Length - 1 do
-        result.[i] <- array.[i]
-    sortInPlaceWithImpl comparer result
-    result
+let sort (xs : 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
+    sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (copyArray xs)
+
+let sortBy (projection:'a->'b) (xs : 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
+    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (copyArray xs)
+
+let sortDescending (xs : 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
+    sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (copyArray xs)
+
+let sortByDescending (projection:'a->'b) (xs : 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
+    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (copyArray xs)
+
+let sortWith (comparer: 'T -> 'T -> int) (xs : 'T[]): 'T[] =
+    sortInPlaceWith comparer (copyArray xs)
 
 let unfold<'T,'State> (generator:'State -> ('T*'State) option) (state:'State): 'State[] =
     let res = [||]
@@ -727,17 +743,17 @@ let sumBy (projection: 'T -> float) (array: 'T []) : float =
         acc <- acc + projection array.[i]
     acc
 
-let maxBy projection array =
-    reduce (fun x y -> if projection y > projection x then y else x) array
+let maxBy (projection:'a->'b) (xs:'a[]) ([<Inject>] comparer: IComparer<'b>): 'a =
+    reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then y else x) xs
 
-let max array =
-    reduce max array
+let max (xs:'a[]) ([<Inject>] comparer: IComparer<'a>): 'a =
+    reduce (fun x y -> if comparer.Compare(y, x) > 0 then y else x) xs
 
-let minBy projection array =
-    reduce (fun x y -> if projection y > projection x then x else y) array
+let minBy (projection:'a->'b) (xs:'a[]) ([<Inject>] comparer: IComparer<'b>): 'a =
+    reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then x else y) xs
 
-let min array =
-    reduce min array
+let min (xs:'a[]) ([<Inject>] comparer: IComparer<'a>): 'a =
+    reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
 
 let average (array: float []) : float =
     if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString

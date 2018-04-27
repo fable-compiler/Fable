@@ -29,11 +29,27 @@ let fableCoreModules =
       "takeWhile", (Types.arrayCons, 0)
       "partition", (Types.arrayCons, 0)
       "choose", (Types.arrayCons, 0)
+      "sortInPlaceBy", (Types.comparer, 1)
+      "sortInPlace", (Types.comparer, 0)
       "sort", (Types.comparer, 0)
+      "sortBy", (Types.comparer, 1)
+      "sortDescending", (Types.comparer, 0)
+      "sortByDescending", (Types.comparer, 1)
+      "maxBy", (Types.comparer, 1)
+      "max", (Types.comparer, 0)
+      "minBy", (Types.comparer, 1)
+      "min", (Types.comparer, 0)
       "ofList", (Types.arrayCons, 0)
     ]
     "List", Map [
       "sort", (Types.comparer, 0)
+      "sortBy", (Types.comparer, 1)
+      "sortDescending", (Types.comparer, 0)
+      "sortByDescending", (Types.comparer, 1)
+      "maxBy", (Types.comparer, 1)
+      "max", (Types.comparer, 0)
+      "minBy", (Types.comparer, 1)
+      "min", (Types.comparer, 0)
     ]
     "Set", Map [
       "FSharpSet$Map", (Types.comparer, 1)

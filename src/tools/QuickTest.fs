@@ -21,10 +21,17 @@ let equal expected actual =
     let areEqual = expected = actual
     printfn "%A = %A > %b" expected actual areEqual
     if not areEqual then
-        failwithf "Expected %A but got %A" expected actual
+        failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
 
 let testCase (msg: string) f: unit =
-    printfn "%s" msg; f (); printfn ""
+    try
+        printfn "%s" msg
+        f ()
+    with ex ->
+        printfn "%s" ex.Message
+        if ex.Message.StartsWith("[ASSERT ERROR]") |> not then
+            printfn "%s" ex.StackTrace
+    printfn ""
 
 // Write here your unit test, you can later move it
 // to Fable.Tests project. For example:

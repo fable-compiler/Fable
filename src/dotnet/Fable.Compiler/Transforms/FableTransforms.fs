@@ -276,7 +276,6 @@ module private Transforms =
                 // TODO: If the ident is referenced 0 times we may delete it if there are no risk
                 // of side-effects. (e.g. when assigning JS `this` to first Arg in interface members)
                 | value when ident.IsCompilerGenerated
-                    // TODO: Can compiler generated values be referenced more than once?
                     && (not(hasDoubleEvalRisk value) || isReferencedOnlyOnce identName body) ->
                     match value with
                     // TODO: Check if current name is Some? Shouldn't happen...

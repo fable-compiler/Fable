@@ -664,6 +664,8 @@ module Util =
         let ctx, bindings =
             ((ctx, []), argIdents, args) |||> List.fold2 (fun (ctx, bindings) argId arg ->
                 let ctx, ident = bindIdentFrom com ctx argId
+                // Mark ident as compiler-generated so it can be optimized
+                let ident = { ident with IsCompilerGenerated = true }
                 ctx, (ident, arg)::bindings)
         let ctx = { ctx with GenericArgs = matchGenericParams memb genArgs |> Map }
         (com.Transform(ctx, fsExpr), bindings)

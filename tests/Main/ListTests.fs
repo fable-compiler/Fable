@@ -20,11 +20,11 @@ let rec sumFirstList (zs: float list) (n: int): float =
 let tests =
   testList "Lists" [
       // TODO: Empty lists may be represented as null, make sure they don't conflict with None
-      // testCase "Some [] works" <| fun () ->
-      //     let xs: int list option = Some []
-      //     let ys: int list option = None
-      //     Option.isSome xs |> equal true
-      //     Option.isNone ys |> equal true
+      testCase "Some [] works" <| fun () ->
+          let xs: int list option = Some []
+          let ys: int list option = None
+          Option.isSome xs |> equal true
+          Option.isNone ys |> equal true
 
       testCase "Pattern matching with lists works" <| fun () ->
           match [] with [] -> true | _ -> false
@@ -293,6 +293,32 @@ let tests =
             ys.Head + ys.Tail.Head
             |> equal 3
 
+      testCase "List.sortDescending works" <| fun () ->
+          let xs = [3; 4; 1; -3; 2; 10]
+          xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
+          let ys = ["a"; "c"; "B"; "d"]
+          ys |> List.sortDescending |> List.item 1 |> equal "c"
+
+      testCase "List.max works" <| fun () ->
+            let xs = [1; 2]
+            xs |> List.max
+            |> equal 2
+
+      testCase "List.maxBy works" <| fun () ->
+            let xs = [1; 2]
+            xs |> List.maxBy (fun x -> -x)
+            |> equal 1
+
+      testCase "List.min works" <| fun () ->
+            let xs = [1; 2]
+            xs |> List.min
+            |> equal 1
+
+      testCase "List.minBy works" <| fun () ->
+            let xs = [1; 2]
+            xs |> List.minBy (fun x -> -x)
+            |> equal 2
+
       testCase "List.sum works" <| fun () ->
             [1; 2] |> List.sum
             |> equal 3
@@ -518,26 +544,6 @@ let tests =
           let xs,_ = List.mapFoldBack f ["a"] "b"
           equal "a" xs.Head
 
-      testCase "List.max works" <| fun () ->
-            let xs = [1; 2]
-            xs |> List.max
-            |> equal 2
-
-      testCase "List.maxBy works" <| fun () ->
-            let xs = [1; 2]
-            xs |> List.maxBy (fun x -> -x)
-            |> equal 1
-
-      testCase "List.min works" <| fun () ->
-            let xs = [1; 2]
-            xs |> List.min
-            |> equal 1
-
-      testCase "List.minBy works" <| fun () ->
-            let xs = [1; 2]
-            xs |> List.minBy (fun x -> -x)
-            |> equal 2
-
       testCase "List.partition works" <| fun () ->
             let xs = [1; 2; 3; 4; 5; 6]
             let ys, zs = xs |> List.partition (fun x -> x % 2 = 0)
@@ -605,12 +611,6 @@ let tests =
             | n1::n2::n3::[] -> n1 + n2 + n3
             | _ -> 0.0
           sum |> equal 6.0
-
-      testCase "List.sortDescending works" <| fun () ->
-          let xs = [3; 4; 1; -3; 2; 10]
-          xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
-          let ys = ["a"; "c"; "B"; "d"]
-          ys |> List.sortDescending |> List.item 1 |> equal "c"
 
       testCase "List.splitAt works" <| fun () ->
           let li = [1;2;3;4]
