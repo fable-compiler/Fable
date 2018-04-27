@@ -6,6 +6,7 @@ let allTests =
      Arrays.tests
      Char.tests
      Lists.tests
+     Seqs.tests
      Sets.tests
      Maps.tests
      Option.tests

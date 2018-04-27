@@ -21,8 +21,6 @@ module Testing =
         Expect.equal actual expected ""
     #endif
 
-(*
-
 #if FABLE_COMPILER
 let foo: string = Fable.Core.JsInterop.importMember "../js/foo.js"
 
@@ -116,5 +114,3 @@ module Nested =
     let getOuterValueTimes4() = mutableValue * 4
 
 let getNestedValueTimes3() = Nested.nestedMutableValue + Nested.nestedMutableValue + Nested.nestedMutableValue
-
-*)

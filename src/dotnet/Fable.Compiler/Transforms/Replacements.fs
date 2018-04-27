@@ -460,8 +460,7 @@ let toSeq com t (e: Expr) =
     | String -> stringToCharArray t e
     | Builtin(FSharpSet _) -> Helper.CoreCall("Set", "toSeq", t, [e])
     | Builtin(FSharpMap _) -> Helper.CoreCall("Map", "toSeq", t, [e])
-    // TODO!!! Sets and maps can also have an F# implementation
-    // if they have a custom comparer
+    // TODO!!! Sets and maps can also have an F# implementation if they have a custom comparer
     | Builtin(BclHashSet t) ->
         if isCompatibleWithJsComparison t
         then e
@@ -473,8 +472,9 @@ let toSeq com t (e: Expr) =
     // Casting seq to seq, do nothing
     | DeclaredType(ent, _) when ent.TryFullName = Some Types.enumerable -> e
     | t ->
+        // TODO!!!: Types implementing IEnumerable must add GetEnumerable to prototype (like ToString, Equals, Compare)
         sprintf "Erasing coertion of %A to seq" t |> Log.addWarning com e.Range
-        e // TODO!!!: Custom types to seq. Call GetEnumerable and pass result to Seq/toIterable
+        e
 
 let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
     let (|CustomOp|_|) com opName argTypes =
@@ -1104,12 +1104,15 @@ let strings (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             Helper.CoreCall("String", "split", t, c::args, ?loc=r) |> Some
         | args ->
             Helper.CoreCall("String", "split", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "Filter", _, _ -> Helper.CoreCall("String", "filter", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    // Rest of StringModule methods
+    | meth, None, _ ->
+        Helper.CoreCall("String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | _ -> None
 
 let seqs (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "ToArray", [arg] -> toArray com t arg |> Some
+    | "Cast", [arg] -> Some arg // Erase
+    | ("Cache"|"ToArray"), [arg] -> toArray com t arg |> Some
     | "OfList", [arg] -> Cast(arg, t) |> Some
     | "ToList", _ -> Helper.CoreCall("List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // A export function 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
@@ -1124,8 +1127,9 @@ let seqs (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
             | _ -> [arg1; arg2]
         let result = Helper.CoreCall("Array", Naming.lowerFirst meth, Any, args)
         Helper.CoreCall("Seq", "ofArray", t, [result]) |> Some
-    | meth, _ -> Helper.CoreCall("Seq", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    // | _ -> None
+    // TODO!!! Sort and max/min methods, pass IComparable
+    | meth, _ ->
+        Helper.CoreCall("Seq", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let nativeArrayFunctions =
     dict [| "Exists", "some"
