@@ -94,13 +94,6 @@ module Naming =
     let [<Literal>] genArgsIdent = "_genArgs"
     let [<Literal>] fablemapExt = ".fablemap"
 
-    /// Calls to methods of these interfaces will be replaced
-    let replacedInterfaces =
-        set [ "System.Collections.IEnumerable"; "System.Collections.Generic.IEnumerable";
-              "System.Collections.IEnumerator"; "System.Collections.Generic.IEnumerator";
-              "System.Collections.Generic.ICollection"; "System.Collections.Generic.IList"
-              "System.Collections.Generic.IDictionary"; "System.Collections.Generic.ISet" ]
-
     /// Interfaces automatically assigned by the F# compiler to unions and records. Ignored by Fable.
     let ignoredInterfaces =
         set [ "System.Collections.IStructuralEquatable"; "System.Collections.IStructuralComparable"
@@ -109,6 +102,11 @@ module Naming =
     let ignoredInterfaceMethods =
         set [ "System-Collections-IEnumerable-GetEnumerator"
               "System-Collections-IEnumerator-get_Current" ]
+
+    // TODO: Add dispose?
+    let interfaceMethodsImplementedInPrototype =
+        set [ "System-IComparable-CompareTo"
+              "System-Collections-Generic-IEnumerable`1-GetEnumerator" ]
 
     /// Methods automatically assigned by the F# compiler for unions and records. Ignored by Fable.
     let ignoredCompilerGenerated =

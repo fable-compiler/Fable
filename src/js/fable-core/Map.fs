@@ -454,11 +454,11 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
 
     override this.GetHashCode() = this.ComputeHashCode()
 
-    // interface IEnumerable<KeyValuePair<'Key, 'Value>> with
-    //     member __.GetEnumerator() = MapTree.mkIEnumerator tree
+    interface IEnumerable<KeyValuePair<'Key, 'Value>> with
+        member __.GetEnumerator() = MapTree.mkIEnumerator tree
 
-    // interface System.Collections.IEnumerable with
-    //     member __.GetEnumerator() = (MapTree.mkIEnumerator tree :> System.Collections.IEnumerator)
+    interface System.Collections.IEnumerable with
+        member __.GetEnumerator() = (MapTree.mkIEnumerator tree :> System.Collections.IEnumerator)
 
 
     interface System.IComparable with

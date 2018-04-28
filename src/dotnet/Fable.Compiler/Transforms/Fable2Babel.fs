@@ -940,7 +940,11 @@ module Util =
         | Fable.ObjectGetter -> defineGetterOrSetter "get" funcCons info.Name funcExpr
         | Fable.ObjectSetter -> defineGetterOrSetter "set" funcCons info.Name funcExpr
         | _ ->
-            let protoMember = get None (get None funcCons "prototype") info.Name
+            let protoMember =
+                if info.Name.StartsWith("Symbol.")
+                then get None (Identifier "Symbol") (info.Name.Substring(7))
+                else upcast StringLiteral info.Name
+            let protoMember = getExpr None (get None funcCons "prototype") protoMember
             assign None protoMember funcExpr
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
@@ -986,7 +990,6 @@ module Util =
           | None -> ()
           yield declareModuleMember info.IsPublic info.Name false exposedCons ]
 
-    // TODO!!!: Check special case System.IEnumerable<'T>
     let transformInterfaceCast (com: IBabelCompiler) ctx (info: Fable.InterfaceCastDeclarationInfo) members =
         let boundThis = Identifier "$this"
         let castedObj = transformObjectExpr com ctx members None (Some boundThis)

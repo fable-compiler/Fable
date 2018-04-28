@@ -604,15 +604,18 @@ let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunc
                 Fable.ObjectSetter
             | _ ->
                 Fable.ObjectMethod (hasSeqSpread memb)
+        let membName, body =
+            if memb.CompiledName = "System-Collections-Generic-IEnumerable`1-GetEnumerator"
+            then "Symbol.iterator", Replacements.enumerator2iterator body
+            else memb.DisplayName, body
         let info: Fable.OverrideDeclarationInfo =
-            { Name = memb.DisplayName
+            { Name = membName
               Kind = kind
               EntityName = getEntityDeclarationName com ent }
         [Fable.OverrideDeclaration(args, body, info)]
 
 let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
-    // Compile System.IComparable<'T>.CompareTo as if it were an override
-    if memb.CompiledName = "System-IComparable-CompareTo"
+    if Set.contains memb.CompiledName Naming.interfaceMethodsImplementedInPrototype
     then transformOverride com ctx memb args body
     else
         let bodyCtx, args = bindMemberArgs com ctx args

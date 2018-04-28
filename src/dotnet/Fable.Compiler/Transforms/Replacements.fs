@@ -451,30 +451,16 @@ let listToSeq t (li: Expr) =
 let stringToCharArray t e =
     Helper.InstanceCall(e, "split", t, [makeStrConst ""])
 
-/// Used to convert F# Sets and Maps to JS iterable
-let toSeq com t (e: Expr) =
+let enumerator2iterator (e: Expr) =
+    Helper.CoreCall("Seq", "toIterator", e.Type, [e])
+
+let toSeq t (e: Expr) =
     match e.Type with
     | List _ -> listToSeq t e
-    | Array _ -> e
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
-    | Builtin(FSharpSet _) -> Helper.CoreCall("Set", "toSeq", t, [e])
-    | Builtin(FSharpMap _) -> Helper.CoreCall("Map", "toSeq", t, [e])
-    // TODO!!! Sets and maps can also have an F# implementation if they have a custom comparer
-    | Builtin(BclHashSet t) ->
-        if isCompatibleWithJsComparison t
-        then e
-        else Helper.CoreCall("Set", "toSeq", t, [e])
-    | Builtin(BclDictionary(k,_)) ->
-        if isCompatibleWithJsComparison k
-        then e
-        else Helper.CoreCall("Map", "toSeq", t, [e])
-    // Casting seq to seq, do nothing
-    | DeclaredType(ent, _) when ent.TryFullName = Some Types.enumerable -> e
-    | t ->
-        // TODO!!!: Types implementing IEnumerable must add GetEnumerable to prototype (like ToString, Equals, Compare)
-        sprintf "Erasing coertion of %A to seq" t |> Log.addWarning com e.Range
-        e
+    // TODO: Add a runtime check for strings in case of generics?
+    | _ -> e
 
 let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
     let (|CustomOp|_|) com opName argTypes =
@@ -1421,8 +1407,8 @@ let keyValuePairs (_: ICompiler) r t (i: CallInfo) thisArg args =
     | "get_Value", Some c -> Get(c, TupleGet 1, t, r) |> Some
     | _ -> None
 
-let getEnumerator com r t expr =
-    Helper.CoreCall("Seq", "getEnumerator", t, [toSeq com Any expr], ?loc=r)
+let getEnumerator r t expr =
+    Helper.CoreCall("Seq", "getEnumerator", t, [toSeq Any expr], ?loc=r)
 
 let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let (|IDictionary|IEqualityComparer|Other|) = function
@@ -1453,7 +1439,7 @@ let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
     // TODO: Check for immutable maps with IDictionary interface
     | "get_IsReadOnly", _ -> makeBoolConst false |> Some
     | "get_Count", _ -> get r t thisArg.Value "size" |> Some
-    | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
+    | "GetEnumerator", Some callee -> getEnumerator r t callee |> Some
     // TODO: Check if the key allows for a JS Map (also "TryGetValue" below)
     | "ContainsValue", _ ->
         match thisArg, args with
@@ -1872,7 +1858,7 @@ let regex com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
 
 let enumerable com r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName with
-    | Some callee, "GetEnumerator" -> getEnumerator com r t callee |> Some
+    | Some callee, "GetEnumerator" -> getEnumerator r t callee |> Some
     | _ -> None
 
 let enumerators (_: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

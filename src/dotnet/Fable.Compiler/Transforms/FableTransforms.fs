@@ -348,7 +348,7 @@ module private Transforms =
             | Pojo caseRule ->
                 Replacements.makePojo caseRule e
             | DeclaredType(EntFullName Types.enumerable, _) ->
-                Replacements.toSeq com t e
+                Replacements.toSeq t e
             | DeclaredType(ent, _) when ent.IsInterface ->
                 FSharp2Fable.Util.castToInterface com t ent e
             | FunctionType(DelegateType argTypes, returnType) ->
