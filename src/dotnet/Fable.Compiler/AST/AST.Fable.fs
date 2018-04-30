@@ -195,6 +195,7 @@ type ObjectMemberKind =
     | ObjectMethod of hasSpread: bool
     | ObjectGetter
     | ObjectSetter
+    | ObjectIterator
 
 type ObjectMember = (* name: *) Expr * (* value: *) Expr * ObjectMemberKind
 

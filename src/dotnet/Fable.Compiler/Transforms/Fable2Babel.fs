@@ -212,17 +212,24 @@ module Util =
         let args, body =
             match boundThis, args with
             | Some boundThis, (thisArg: Fable.Ident)::args ->
-                let boundThis = { thisArg with Name = boundThis } |> Fable.IdentExpr
-                // If the body doesn't contain closure replace calls to thisArg with `this`
-                let containsClosures =
+                let isThisUsed =
                     body |> FableTransforms.deepExists (function
-                        | Fable.Function _ | Fable.ObjectExpr _ -> true
+                        | Fable.IdentExpr id when id.Name = thisArg.Name -> true
                         | _ -> false)
-                let body =
-                    if containsClosures
-                    then Fable.Let([thisArg, boundThis], body)
-                    else FableTransforms.replaceValues (Map [thisArg.Name, boundThis]) body
-                args, body
+                if not isThisUsed
+                then args, body
+                else
+                    let boundThis = { thisArg with Name = boundThis } |> Fable.IdentExpr
+                    // If the body doesn't contain closure replace calls to thisArg with `this`
+                    let containsClosures =
+                        body |> FableTransforms.deepExists (function
+                            | Fable.Function _ | Fable.ObjectExpr _ -> true
+                            | _ -> false)
+                    let body =
+                        if containsClosures
+                        then Fable.Let([thisArg, boundThis], body)
+                        else FableTransforms.replaceValues (Map [thisArg.Name, boundThis]) body
+                    args, body
             | _, args -> args, body
         let args, body = com.TransformFunction(ctx, name, args, body)
         let args =
@@ -337,6 +344,10 @@ module Util =
                     ObjectProperty(prop, value, computed=computed) |> U3.Case1 |> Some
                 | Fable.ObjectMethod hasSpread, Fable.Function(Fable.Delegate args, body, _) ->
                     makeObjMethod ObjectMeth prop computed hasSpread args body
+                | Fable.ObjectIterator, Fable.Function(Fable.Delegate args, body, _) ->
+                    let prop = get None (Identifier "Symbol") "iterator"
+                    Replacements.enumerator2iterator body
+                    |> makeObjMethod ObjectMeth prop true false args
                 | Fable.ObjectGetter, Fable.Function(Fable.Delegate args, body, _) ->
                     makeObjMethod ObjectGetter prop computed false args body
                 | Fable.ObjectSetter, Fable.Function(Fable.Delegate args, body, _) ->
@@ -929,20 +940,21 @@ module Util =
                   StringLiteral propName
                   ObjectExpression [ObjectProperty(StringLiteral kind, funcExpr) |> U3.Case1] ]
         let funcCons = Identifier info.EntityName :> Expression
-        let funcExpr =
-            let hasSpread =
-                match info.Kind with
-                | Fable.ObjectMethod hasSpread -> hasSpread
-                | _ -> false
-            let args, body = getMemberArgsAndBody com ctx None (Some "this") args hasSpread body
-            FunctionExpression(args, body)
+        let name, hasSpread, body =
+            match info.Kind with
+            | Fable.ObjectIterator -> "Symbol.iterator", false, Replacements.enumerator2iterator body
+            | Fable.ObjectMethod hasSpread -> info.Name, hasSpread, body
+            | _ -> info.Name, false, body
+        let args, body = getMemberArgsAndBody com ctx None (Some "this") args hasSpread body
+        let funcExpr = FunctionExpression(args, body)
         match info.Kind with
-        | Fable.ObjectGetter -> defineGetterOrSetter "get" funcCons info.Name funcExpr
-        | Fable.ObjectSetter -> defineGetterOrSetter "set" funcCons info.Name funcExpr
+        | Fable.ObjectGetter -> defineGetterOrSetter "get" funcCons name funcExpr
+        | Fable.ObjectSetter -> defineGetterOrSetter "set" funcCons name funcExpr
         | _ ->
             let protoMember =
                 match info.Name with
                 | Naming.StartsWith "Symbol." symbolName -> get None (Identifier "Symbol") symbolName
+                // Compile ToString in lower case for compatibity with JS (and debugger tools)
                 | "ToString" -> upcast StringLiteral "toString"
                 | name -> upcast StringLiteral name
             let protoMember = getExpr None (get None funcCons "prototype") protoMember

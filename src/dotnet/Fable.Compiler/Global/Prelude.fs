@@ -87,12 +87,8 @@ module Naming =
     /// future this will probably be changed to ".js"
     let targetFileExtension: string = "" // ".js"
 
-    let [<Literal>] current = "CURRENT"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
-    let [<Literal>] exportsIdent = "__exports"
-    let [<Literal>] genArgsIdent = "_genArgs"
-    let [<Literal>] fablemapExt = ".fablemap"
 
     /// Interfaces automatically assigned by the F# compiler to unions and records. Ignored by Fable.
     let ignoredInterfaces =
@@ -103,7 +99,6 @@ module Naming =
         set [ "System-Collections-IEnumerable-GetEnumerator"
               "System-Collections-IEnumerator-get_Current" ]
 
-    // TODO: Add dispose?
     let interfaceMethodsImplementedInPrototype =
         set [ "System-IComparable-CompareTo"
               "System-Collections-Generic-IEnumerable`1-GetEnumerator" ]
@@ -173,8 +168,6 @@ module Naming =
 
     let jsKeywords =
         set [
-            // Fable reserved keywords
-            exportsIdent; genArgsIdent
             // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
             "abstract"; "await"; "boolean"; "break"; "byte"; "case"; "catch"; "char"; "class"; "const"; "continue"; "debugger"; "default"; "delete"; "do"; "double";
             "else"; "enum"; "export"; "extends"; "false"; "final"; "finally"; "float"; "for"; "function"; "goto"; "if"; "implements"; "import"; "in"; "instanceof"; "int"; "interface";

@@ -103,20 +103,21 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                 | name ->
                     // Don't use the typ argument as the override may come
                     // from another type, like ToString()
-                    let typ =
-                        if over.Signature.DeclaringType.HasTypeDefinition
-                        then Some over.Signature.DeclaringType.TypeDefinition
-                        else None
-                    // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
-                    // information about ParamArray, we need to check the source method.
-                    let hasSpread =
-                        match typ with
-                        | None -> false
-                        | Some typ ->
-                            typ.TryGetMembersFunctionsAndValues
-                            |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
-                            |> function Some m -> hasSeqSpread m | None -> false
-                    name, Fable.ObjectMethod hasSpread
+                    if over.Signature.DeclaringType.HasTypeDefinition then
+                        let tdef = over.Signature.DeclaringType.TypeDefinition
+                        match tdef.TryFullName with
+                        | Some Types.enumerable ->
+                            name, Fable.ObjectIterator
+                        | _ ->
+                            // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
+                            // information about ParamArray, we need to check the source method.
+                            let hasSpread =
+                                tdef.TryGetMembersFunctionsAndValues
+                                |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
+                                |> function Some m -> hasSeqSpread m | None -> false
+                            name, Fable.ObjectMethod hasSpread
+                    else
+                        name, Fable.ObjectMethod false
             makeStrConst name, value, kind
     )) |> fun members ->
         let typ = makeType com ctx.GenericArgs objType
@@ -600,16 +601,11 @@ let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunc
             match args with
             | [_thisArg; unitArg] when memb.IsPropertyGetterMethod && unitArg.Type = Fable.Unit ->
                 Fable.ObjectGetter
-            | [_thisArg; _valueArg] when memb.IsPropertySetterMethod ->
-                Fable.ObjectSetter
-            | _ ->
-                Fable.ObjectMethod (hasSeqSpread memb)
-        let membName, body =
-            if memb.CompiledName = "System-Collections-Generic-IEnumerable`1-GetEnumerator"
-            then "Symbol.iterator", Replacements.enumerator2iterator body
-            else memb.DisplayName, body
+            | [_thisArg; _valueArg] when memb.IsPropertySetterMethod -> Fable.ObjectSetter
+            | _ when ent.TryFullName = Some Types.enumerable -> Fable.ObjectIterator
+            | _ -> Fable.ObjectMethod (hasSeqSpread memb)
         let info: Fable.OverrideDeclarationInfo =
-            { Name = membName
+            { Name = memb.DisplayName
               Kind = kind
               EntityName = getEntityDeclarationName com ent }
         [Fable.OverrideDeclaration(args, body, info)]
