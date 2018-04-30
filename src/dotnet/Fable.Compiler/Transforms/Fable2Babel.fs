@@ -941,9 +941,10 @@ module Util =
         | Fable.ObjectSetter -> defineGetterOrSetter "set" funcCons info.Name funcExpr
         | _ ->
             let protoMember =
-                if info.Name.StartsWith("Symbol.")
-                then get None (Identifier "Symbol") (info.Name.Substring(7))
-                else upcast StringLiteral info.Name
+                match info.Name with
+                | Naming.StartsWith "Symbol." symbolName -> get None (Identifier "Symbol") symbolName
+                | "ToString" -> upcast StringLiteral "toString"
+                | name -> upcast StringLiteral name
             let protoMember = getExpr None (get None funcCons "prototype") protoMember
             assign None protoMember funcExpr
         |> ExpressionStatement :> Statement

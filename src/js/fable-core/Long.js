@@ -56,7 +56,7 @@ Long.prototype.CompareTo = function (other) {
     return compare(this, other);
 }
 
-Long.prototype.ToString = function () {
+Long.prototype.toString = function () {
     return toString(this);
 }
 

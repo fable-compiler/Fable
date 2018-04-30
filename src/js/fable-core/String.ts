@@ -216,8 +216,6 @@ export function format(str: string, ...args: any[]) {
               rep = pattern;
             }
         }
-      } else if (typeof rep.ToString === "function") {
-        rep = rep.ToString(pattern);
       } else if (rep instanceof Date) {
         rep = dateToString(rep, pattern);
       }

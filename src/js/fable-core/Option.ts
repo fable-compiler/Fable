@@ -15,8 +15,9 @@ export class Some<T> {
     constructor(public value: T) {
     }
 
+    // TODO!!! toJSON
     // We don't prefix it with "Some" for consistency with erased options
-    public ToString() {
+    public toString() {
         return toString(this.value);
     }
 

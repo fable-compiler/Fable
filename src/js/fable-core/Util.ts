@@ -1,5 +1,4 @@
 import { compare as compareDates, toString as dateToString } from "./Date";
-import Long, { toString as longToString } from "./Long";
 
 // Object.assign flattens getters and setters
 // See https://stackoverflow.com/questions/37054596/js-es5-how-to-assign-objects-with-setters-and-getters
@@ -137,17 +136,6 @@ export function int32ToString(i: number, radix: number) {
 }
 
 export function toString(obj: any, quoteStrings = false): string {
-  function customToString(obj: any) {
-    if (typeof obj.ToString === "function") {
-      return obj.ToString();
-    } else if (obj instanceof Date) {
-      return dateToString(obj);
-    } else if (obj instanceof Long) {
-      return longToString(obj);
-    } else {
-      return null;
-    }
-  }
   if (obj == null) {
     return String(obj);
   }
@@ -162,21 +150,24 @@ export function toString(obj: any, quoteStrings = false): string {
     case "function":
       return obj.name;
     case "object":
-      try {
-        return customToString(obj) || JSON.stringify(obj, (k, v) => {
-          if (v != null) {
-            const custom = customToString(v);
-            if (custom != null) {
-              return custom;
-            } else if (v[Symbol.iterator] && !Array.isArray(v)) {
-              return Array.from(v);
+      if (isPlainObject(obj)) {
+        try {
+          return JSON.stringify(obj, (k, v) => {
+            if (v != null) {
+              if (v instanceof Date) {
+                return dateToString(v);
+              } else if (v[Symbol.iterator] && !Array.isArray(v)) {
+                return Array.from(v);
+              }
             }
-          }
-          return v;
-        });
-      } catch (err) {
-        // Fallback for objects with circular references
-        return "{" + Object.getOwnPropertyNames(obj).map((k) => k + ": " + String(obj[k])).join(", ") + "}";
+            return v;
+          });
+        } catch (err) {
+          // Fallback for objects with circular references
+          return "{" + Object.getOwnPropertyNames(obj).map((k) => k + ": " + String(obj[k])).join(", ") + "}";
+        }
+      } else {
+        return obj instanceof Date ? dateToString(obj) : String(obj);
       }
   }
 }
