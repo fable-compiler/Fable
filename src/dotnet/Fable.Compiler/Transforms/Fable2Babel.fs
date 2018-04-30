@@ -220,7 +220,7 @@ module Util =
                 then args, body
                 else
                     let boundThis = { thisArg with Name = boundThis } |> Fable.IdentExpr
-                    // If the body doesn't contain closure replace calls to thisArg with `this`
+                    // If the body doesn't contain closures, replace calls to thisArg with `this`
                     let containsClosures =
                         body |> FableTransforms.deepExists (function
                             | Fable.Function _ | Fable.ObjectExpr _ -> true
@@ -476,7 +476,7 @@ module Util =
         let thenStmnt = transformBlock com ctx ret thenStmnt
         let elseStmnt =
             match elseStmnt: Fable.Expr with
-            | Fable.Value(Fable.Null _) when Option.isNone ret -> None
+            | Fable.Value(Fable.Null _ | Fable.UnitConstant) when Option.isNone ret -> None
             | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt) ->
                 transformIfStatement com ctx ret guardExpr thenStmnt elseStmnt
                 :> Statement |> Some

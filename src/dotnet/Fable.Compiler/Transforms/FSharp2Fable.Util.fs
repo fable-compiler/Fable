@@ -692,25 +692,6 @@ module Util =
             then List.take validArgsLen args
             else args
 
-    let castToInterface com typ (interfaceEntity: FSharpEntity) (expr: Fable.Expr) =
-        match interfaceEntity.TryFullName, expr.Type with
-        // CompareTo method is attached to prototype
-        | Some Types.comparable, _ -> expr
-        | _, (Fable.DeclaredType(ent,_) as exprTyp) when not ent.IsInterface ->
-            // TODO!!!: Check if the type actually implements the interface or whether
-            // it's implemented by a parent type
-            match tryGetEntityLocation ent with
-            | Some entLoc ->
-                let file = Path.normalizePath entLoc.FileName
-                let funcName = getCastDeclarationName com ent interfaceEntity
-                let info = argInfo None [expr] (Some [exprTyp])
-                if file = com.CurrentFile
-                then makeIdent funcName |> Fable.IdentExpr
-                else Fable.Import(funcName, file, Fable.Internal, Fable.Any)
-                |> staticCall None typ info
-            | None -> expr
-        | _ -> expr
-
     let entityRef (com: ICompiler) (ent: FSharpEntity) =
         match tryGetEntityLocation ent with
         | Some entLoc ->

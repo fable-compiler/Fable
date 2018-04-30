@@ -343,21 +343,32 @@ module private Transforms =
                    Replacements.uncurryExpr t arity expr
         | None, _ -> expr
 
-    // TODO!!!: Some cases of coertion shouldn't be erased
-    // string :> seq #1279
-    // list (and others) :> seq in Fable 2.0
-    // concrete type :> interface in Fable 2.0
     let resolveCasts_required (com: ICompiler) = function
         | Cast(e, t) ->
             match t with
             | Pojo caseRule ->
                 Replacements.makePojo caseRule e
-            | DeclaredType(EntFullName Types.enumerable, _) ->
-                Replacements.toSeq t e
-            | DeclaredType(ent, _) when ent.IsInterface ->
-                FSharp2Fable.Util.castToInterface com t ent e
             | FunctionType(DelegateType argTypes, returnType) ->
                 uncurryExpr (Some(argTypes, returnType)) e
+            | DeclaredType(interfaceEntity, _) when interfaceEntity.IsInterface ->
+                match interfaceEntity.TryFullName, e.Type with
+                // CompareTo method is attached to prototype
+                | Some Types.comparable, _ -> e
+                | Some(Patterns.Try (Replacements.tryReplaceInterface t e) casted), _ -> casted
+                | _, (DeclaredType(ent,_) as exprTyp) when not ent.IsInterface ->
+                    // TODO!!!: Check if the type actually implements the interface or whether
+                    // it's implemented by a parent type
+                    match FSharp2Fable.Helpers.tryGetEntityLocation ent with
+                    | Some entLoc ->
+                        let file = Path.normalizePath entLoc.FileName
+                        let funcName = FSharp2Fable.Helpers.getCastDeclarationName com ent interfaceEntity
+                        let info = argInfo None [e] (Some [exprTyp])
+                        if file = com.CurrentFile
+                        then makeIdent funcName |> IdentExpr
+                        else Import(funcName, file, Internal, Any)
+                        |> staticCall None t info
+                    | None -> e
+                | _ -> e
             | _ -> e
         | e -> e
 

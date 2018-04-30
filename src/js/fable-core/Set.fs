@@ -398,6 +398,13 @@ module internal SetTree =
     let mkIEnumerator s =
         new mkIEnumerator<_>(s) :> IEnumerator<_>
 
+    let toSeq s =
+        let en = mkIEnumerator s
+        en |> Seq.unfold (fun en ->
+            if en.MoveNext()
+            then Some(en.Current, en)
+            else None)
+
     //--------------------------------------------------------------------------
     // Set comparison.  This can be expensive.
     //--------------------------------------------------------------------------
@@ -661,11 +668,7 @@ let toArray (s : Set<'T>) ([<Inject>] cons: Array.IArrayCons<'T>) =
     res
 
 let toSeq (s : Set<'T>) =
-    let en = SetTree.mkIEnumerator s.Tree
-    en |> Seq.unfold (fun en ->
-        if en.MoveNext()
-        then Some(en.Current, en)
-        else None)
+    SetTree.toSeq s.Tree
 
 let ofSeq (elements : seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
     new Set<_>(comparer, SetTree.ofSeq comparer elements)
@@ -693,6 +696,7 @@ type IMutableSet<'T> =
     abstract clear: unit -> unit
     abstract delete: 'T -> bool
     abstract has: 'T -> bool
+    abstract values: unit -> 'T seq
 
 /// Emulate JS Set with custom comparer for non-primitive values
 let createMutable (source: 'T seq) (comparer: IComparer<'T>) =
@@ -710,6 +714,8 @@ let createMutable (source: 'T seq) (comparer: IComparer<'T>) =
             else false
         member __.has x =
             SetTree.mem comparer x tree
+        member __.values () =
+            SetTree.toSeq tree
       interface IEnumerable<_> with
         member __.GetEnumerator() =
             SetTree.mkIEnumerator tree
