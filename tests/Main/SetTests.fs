@@ -26,9 +26,9 @@ let tests =
             |> equal 1
 
         testCase "Seq.isEmpty function works on Set" <| fun () ->
-                    let xs = set [1]
-                    xs |> Seq.isEmpty
-                    |> equal false
+            let xs = set [1]
+            xs |> Seq.isEmpty
+            |> equal false
 
         testCase "Set.add works" <| fun () ->
             let xs = Set.empty |> Set.add 1

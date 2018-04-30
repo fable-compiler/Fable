@@ -601,8 +601,10 @@ let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunc
             match args with
             | [_thisArg; unitArg] when memb.IsPropertyGetterMethod && unitArg.Type = Fable.Unit ->
                 Fable.ObjectGetter
-            | [_thisArg; _valueArg] when memb.IsPropertySetterMethod -> Fable.ObjectSetter
-            | _ when ent.TryFullName = Some Types.enumerable -> Fable.ObjectIterator
+            | [_thisArg; _valueArg] when memb.IsPropertySetterMethod ->
+                Fable.ObjectSetter
+            | _ when memb.CompiledName = "System-Collections-Generic-IEnumerable`1-GetEnumerator" ->
+                Fable.ObjectIterator
             | _ -> Fable.ObjectMethod (hasSeqSpread memb)
         let info: Fable.OverrideDeclarationInfo =
             { Name = memb.DisplayName

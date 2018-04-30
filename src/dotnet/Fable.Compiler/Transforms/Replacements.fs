@@ -622,17 +622,23 @@ let makeMap r t methName args genArg =
     let args = args @ [makeComparer genArg]
     Helper.CoreCall("Map", Naming.lowerFirst methName, t, args, ?loc=r)
 
-let makeDictionaryOrHashSet com r t (i: CallInfo) modName forceFSharp args =
-    let makeFSharp typArg args =
-        let args =
-            match args with
-            | [iterable] -> [iterable; makeComparer typArg]
-            | args -> args
-        Helper.CoreCall(modName, "create", t, args, i.SignatureArgTypes, ?loc=r)
-    let typArg = firstGenArg com r i.GenericArgs
-    if forceFSharp || not(isCompatibleWithJsComparison typArg)
-    then makeFSharp typArg args
-    else Helper.GlobalCall(modName, t, args, i.SignatureArgTypes, isConstructor=true, ?loc=r)
+let makeDictionaryWithComparer r t sourceSeq comparer =
+    Helper.CoreCall("Map", "createMutable", t, [sourceSeq; comparer], ?loc=r)
+
+let makeDictionary r t sourceSeq =
+    match t with
+    | DeclaredType(_,[key;_]) when not(isCompatibleWithJsComparison key) ->
+        makeComparer key |> makeDictionaryWithComparer r t sourceSeq
+    | _ -> Helper.GlobalCall("Map", t, [sourceSeq], isConstructor=true, ?loc=r)
+
+let makeHashSetWithComparer r t sourceSeq comparer =
+    Helper.CoreCall("Set", "createMutable", t, [sourceSeq; comparer], ?loc=r)
+
+let makeHashSet r t sourceSeq =
+    match t with
+    | DeclaredType(_,[key;_]) when not(isCompatibleWithJsComparison key) ->
+        makeComparer key |> makeHashSetWithComparer r t sourceSeq
+    | _ -> Helper.GlobalCall("Set", t, [sourceSeq], isConstructor=true, ?loc=r)
 
 let getZero = function
     | Char | String -> makeStrConst ""
@@ -853,10 +859,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "ToString", _ -> toString (firstGenArg com r i.GenericArgs) args |> Some
     // The cast will be resolved in a different step
     | "CreateSequence", [xs] -> Cast(xs, t) |> Some
-    | "CreateDictionary", _ ->
-        makeDictionaryOrHashSet com r t i "Map" false args |> Some
-    | "CreateSet", _ ->
-        firstGenArg com r i.GenericArgs |> makeSet r t "OfSeq" args |> Some
+    | "CreateDictionary", [arg] -> makeDictionary r t arg |> Some
+    | "CreateSet", _ -> firstGenArg com r i.GenericArgs |> makeSet r t "OfSeq" args |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
         let meth =
@@ -1406,7 +1410,10 @@ let keyValuePairs (_: ICompiler) r t (i: CallInfo) thisArg args =
 let getEnumerator r t expr =
     Helper.CoreCall("Seq", "getEnumerator", t, [toSeq Any expr], ?loc=r)
 
-let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let inline makeComparerFromEqualityComparer e =
+    Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
+
+let dictionaries (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let (|IDictionary|IEqualityComparer|Other|) = function
         | DeclaredType(ent,_) ->
             match ent.TryFullName with
@@ -1414,23 +1421,20 @@ let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
             | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
             | _ -> Other
         | _ -> Other
-    let inline makeComparerFromEqualityComparer e =
-        Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
-    let inline makeDic forceFSharpMap args =
-        makeDictionaryOrHashSet com r t i "Map" forceFSharpMap args
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
-        match i.SignatureArgTypes with
-        | [] | [IDictionary] ->
-            makeDic false args |> Some
-        | [IDictionary; IEqualityComparer] ->
-            makeDic true [args.Head; makeComparerFromEqualityComparer args.Tail.Head] |> Some
-        | [IEqualityComparer] ->
-            makeDic true [Value (Null Any); makeComparerFromEqualityComparer args.Head] |> Some
-        | [Number _] ->
-            makeDic false [] |> Some
-        | [Number _; IEqualityComparer] ->
-            makeDic true [Value (Null Any); makeComparerFromEqualityComparer args.Tail.Head] |> Some
+        match i.SignatureArgTypes, args with
+        | ([]|[Number _]), _ ->
+            makeDictionary r t (makeArray Any []) |> Some
+        | [IDictionary], [arg] ->
+            makeDictionary r t arg |> Some
+        | [IDictionary; IEqualityComparer], [arg; eqComp] ->
+            makeComparerFromEqualityComparer eqComp
+            |> makeDictionaryWithComparer r t arg |> Some
+        | [IEqualityComparer], [eqComp]
+        | [Number _; IEqualityComparer], [_; eqComp] ->
+            makeComparerFromEqualityComparer eqComp
+            |> makeDictionaryWithComparer r t (makeArray Any []) |> Some
         | _ -> None
     | "get_IsReadOnly", _ -> makeBoolConst false |> Some
     | "get_Count", _ -> get r t thisArg.Value "size" |> Some
@@ -1452,7 +1456,7 @@ let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
-let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let hashSets (_: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let (|IEnumerable|IEqualityComparer|Other|) = function
         | DeclaredType(ent,_) ->
             match ent.TryFullName with
@@ -1460,21 +1464,19 @@ let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Ex
             | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
             | _ -> Other
         | _ -> Other
-    let inline makeComparerFromEqualityComparer e =
-        Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
-    let inline makeHashSet forceFSharpMap args =
-        makeDictionaryOrHashSet com r t i "Set" forceFSharpMap args
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ ->
-        match i.SignatureArgTypes with
-        | [] | [IEnumerable] ->
-            makeHashSet false args |> Some
-        | [IEnumerable; IEqualityComparer] ->
-            [args.Head; makeComparerFromEqualityComparer args.Tail.Head]
-            |> makeHashSet true |> Some
-        | [IEqualityComparer] ->
-            [Value (Null Any); makeComparerFromEqualityComparer args.Head]
-            |> makeHashSet true |> Some
+        match i.SignatureArgTypes, args with
+        | [], _ ->
+            makeHashSet r t (makeArray Any []) |> Some
+        | [IEnumerable], [arg] ->
+            makeHashSet r t arg |> Some
+        | [IEnumerable; IEqualityComparer], [arg; eqComp] ->
+            makeComparerFromEqualityComparer eqComp
+            |> makeHashSetWithComparer r t arg |> Some
+        | [IEqualityComparer], [eqComp] ->
+            makeComparerFromEqualityComparer eqComp
+            |> makeHashSetWithComparer r t (makeArray Any []) |> Some
         | _ -> None
     | "get_Count", _, _ -> get r t thisArg.Value "size" |> Some
     | "get_IsReadOnly", _, _ -> BoolConstant false |> Value |> Some

@@ -802,20 +802,22 @@ module Util =
 
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflicts (e.g. `then` doesn't become a block while `else` does)
-        | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt) ->
+        | Fable.IfThenElse(guardExpr, thenExpr, elseExpr) ->
             let asStatement =
                 match returnStrategy with
                 | None -> true
                 | Some(Target _) -> true // Compile as statement so values can be bound
-                | Some(Assign _) -> isJsStatement false expr
-                | Some Return -> isJsStatement (Option.isSome ctx.TailCallOpportunity) expr
+                | Some(Assign _) -> (isJsStatement false thenExpr) || (isJsStatement false elseExpr)
+                | Some Return ->
+                    Option.isSome ctx.TailCallOpportunity
+                    || (isJsStatement false thenExpr) || (isJsStatement false elseExpr)
             if asStatement then
-                [transformIfStatement com ctx returnStrategy guardExpr thenStmnt elseStmnt :> Statement ]
+                [transformIfStatement com ctx returnStrategy guardExpr thenExpr elseExpr :> Statement ]
             else
-                let guardExpr = transformAsExpr com ctx guardExpr
-                let thenExpr = transformAsExpr com ctx thenStmnt
-                let elseExpr = transformAsExpr com ctx elseStmnt
-                [ConditionalExpression(guardExpr, thenExpr, elseExpr) |> resolveExpr thenStmnt.Type returnStrategy]
+                let guardExpr' = transformAsExpr com ctx guardExpr
+                let thenExpr' = transformAsExpr com ctx thenExpr
+                let elseExpr' = transformAsExpr com ctx elseExpr
+                [ConditionalExpression(guardExpr', thenExpr', elseExpr') |> resolveExpr thenExpr.Type returnStrategy]
 
         | Fable.Sequential statements ->
             let lasti = (List.length statements) - 1
@@ -940,7 +942,7 @@ module Util =
                   StringLiteral propName
                   ObjectExpression [ObjectProperty(StringLiteral kind, funcExpr) |> U3.Case1] ]
         let funcCons = Identifier info.EntityName :> Expression
-        let name, hasSpread, body =
+        let memberName, hasSpread, body =
             match info.Kind with
             | Fable.ObjectIterator -> "Symbol.iterator", false, Replacements.enumerator2iterator body
             | Fable.ObjectMethod hasSpread -> info.Name, hasSpread, body
@@ -948,11 +950,11 @@ module Util =
         let args, body = getMemberArgsAndBody com ctx None (Some "this") args hasSpread body
         let funcExpr = FunctionExpression(args, body)
         match info.Kind with
-        | Fable.ObjectGetter -> defineGetterOrSetter "get" funcCons name funcExpr
-        | Fable.ObjectSetter -> defineGetterOrSetter "set" funcCons name funcExpr
+        | Fable.ObjectGetter -> defineGetterOrSetter "get" funcCons memberName funcExpr
+        | Fable.ObjectSetter -> defineGetterOrSetter "set" funcCons memberName funcExpr
         | _ ->
             let protoMember =
-                match info.Name with
+                match memberName with
                 | Naming.StartsWith "Symbol." symbolName -> get None (Identifier "Symbol") symbolName
                 // Compile ToString in lower case for compatibity with JS (and debugger tools)
                 | "ToString" -> upcast StringLiteral "toString"

@@ -5,6 +5,7 @@ let allTests =
      Arithmetic.tests
      Arrays.tests
      Char.tests
+     HashSets.tests
      Lists.tests
      Seqs.tests
      Sets.tests

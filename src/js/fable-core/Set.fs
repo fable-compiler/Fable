@@ -685,3 +685,35 @@ let minElement (s : Set<'T>) = s.MinimumElement
 let maxElement (s : Set<'T>) = s.MaximumElement
 
 // let create (l : seq<'T>) = Set<_>.Create(l)
+
+type IMutableSet<'T> =
+    inherit IEnumerable<'T>
+    abstract size: int
+    abstract add: 'T -> IMutableSet<'T>
+    abstract clear: unit -> unit
+    abstract delete: 'T -> bool
+    abstract has: 'T -> bool
+
+/// Emulate JS Set with custom comparer for non-primitive values
+let createMutable (source: 'T seq) (comparer: IComparer<'T>) =
+    let mutable tree = SetTree.ofSeq comparer source
+    { new IMutableSet<'T> with
+        member __.size = SetTree.count tree
+        member this.add x =
+            tree <- SetTree.add comparer x tree
+            this
+        member __.clear () =
+            tree <- SetEmpty
+        member __.delete x =
+            if SetTree.mem comparer x tree
+            then tree <- SetTree.remove comparer x tree; true
+            else false
+        member __.has x =
+            SetTree.mem comparer x tree
+      interface IEnumerable<_> with
+        member __.GetEnumerator() =
+            SetTree.mkIEnumerator tree
+      interface IEnumerable with
+        member __.GetEnumerator() =
+            upcast SetTree.mkIEnumerator tree
+    }

@@ -1,9 +1,11 @@
 import { Option, some, value } from "./Option";
-import { compare, equals, IDisposable } from "./Util";
+import { compare, equals, IDisposable, isDisposable } from "./Util";
 
 export interface IEnumerator<T> {
   Current: T;
   MoveNext(): boolean;
+  Dispose(): void;
+  Reset(): void;
 }
 
 export interface IEnumerable<T> {
@@ -18,25 +20,35 @@ export class Enumerator<T> implements IEnumerator<T> {
     this.current = cur.value;
     return !cur.done;
   }
-  get Current() { return this.current; }
+  get Current() {
+    return this.current;
+  }
   public Reset() {
     throw new Error("JS iterators cannot be reset");
   }
-  public Dispose() { return; }
+  public Dispose() {
+    const d = this.iter as any;
+    if (isDisposable(d)) {
+      d.Dispose();
+    }
+  }
 }
 
 export function getEnumerator<T>(o: any): IEnumerator<T> {
   return new Enumerator(o[Symbol.iterator]());
 }
 
-export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
+export function toIterator<T>(en: IEnumerator<T>) {
   return {
     next() {
       return en.MoveNext()
         ? { done: false, value: en.Current }
         : { done: true, value: null };
     },
-  };
+    Dispose() {
+      en.Dispose();
+    },
+  } as Iterator<T>;
 }
 
 export function toIterable<T>(en: IEnumerable<T>): Iterable<T> {

@@ -31,9 +31,9 @@
     <Compile Include="DictionaryTests.fs" />
     <Compile Include="EnumerableTests.fs" />
     <Compile Include="EnumTests.fs" />
-    <Compile Include="EventTests.fs" />
+    <Compile Include="EventTests.fs" /> -->
     <Compile Include="HashSetTests.fs" />
-    <Compile Include="ImportTests.fs" />
+    <!-- <Compile Include="ImportTests.fs" />
     <Compile Include="JsInteropTests.fs" />
     <Compile Include="JsonTests.fs" /> -->
     <Compile Include="ListTests.fs" />
