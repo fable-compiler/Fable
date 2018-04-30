@@ -53,11 +53,11 @@ module AST =
 
     /// When referenced multiple times, is there a risk of double evaluation?
     let rec hasDoubleEvalRisk = function
+        // Don't erase `this` binding as it may be called from a closure
+        | Value(This _) -> false
         | IdentExpr id -> id.IsMutable
-        | Value(This _ | Null _ | UnitConstant | NumberConstant _
-                    | StringConstant _ | BoolConstant _ | Enum _) -> false
-        | Value(NewTuple exprs) ->
-            exprs |> List.exists hasDoubleEvalRisk
+        | Value(Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _ | Enum _) -> false
+        | Value(NewTuple exprs) -> exprs |> List.exists hasDoubleEvalRisk
         | Get(_,kind,_,_) ->
             match kind with
             // OptionValue has a runtime check

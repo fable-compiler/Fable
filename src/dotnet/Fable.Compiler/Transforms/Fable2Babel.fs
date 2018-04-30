@@ -37,7 +37,7 @@ type IBabelCompiler =
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement list
     abstract TransformImport: Context * selector:string * path:string * Fable.ImportKind -> Expression
-    abstract TransformObjectExpr: Context * Fable.ObjectMember list * ?baseCall: Fable.Expr * ?boundThis: Identifier -> Expression
+    abstract TransformObjectExpr: Context * Fable.ObjectMember list * ?baseCall: Fable.Expr * ?boundThis: string -> Expression
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr
         -> (Pattern list) * U2<BlockStatement, Expression>
 
@@ -208,13 +208,22 @@ module Util =
     let macroExpression range (txt: string) args =
         MacroExpression(txt, args, ?loc=range) :> Expression
 
-    // TODO: Integrate this function with the one below and check if thisArg is actually used in the body
-    let bindThisInFunctionBody boundThis thisArg args bodyStatements =
-        let thisBinding = varDeclaration thisArg false boundThis :> Statement
-        let body = BlockStatement(thisBinding::bodyStatements)
-        args, body
-
-    let getMemberArgsAndBody (com: IBabelCompiler) ctx name hasSpread args (body: Fable.Expr) =
+    let getMemberArgsAndBody (com: IBabelCompiler) ctx name boundThis args hasSpread (body: Fable.Expr) =
+        let args, body =
+            match boundThis, args with
+            | Some boundThis, (thisArg: Fable.Ident)::args ->
+                let boundThis = { thisArg with Name = boundThis } |> Fable.IdentExpr
+                // If the body doesn't contain closure replace calls to thisArg with `this`
+                let containsClosures =
+                    body |> FableTransforms.deepExists (function
+                        | Fable.Function _ | Fable.ObjectExpr _ -> true
+                        | _ -> false)
+                let body =
+                    if containsClosures
+                    then Fable.Let([thisArg, boundThis], body)
+                    else FableTransforms.replaceValues (Map [thisArg.Name, boundThis]) body
+                args, body
+            | _, args -> args, body
         let args, body = com.TransformFunction(ctx, name, args, body)
         let args =
             if not hasSpread
@@ -312,14 +321,9 @@ module Util =
             Fable.ArrayValues (tag::vals) |> buildArray com ctx Fable.Any
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
-    let transformObjectExpr (com: IBabelCompiler) ctx members baseCall (boundThis: Identifier option): Expression =
+    let transformObjectExpr (com: IBabelCompiler) ctx members baseCall (boundThis: string option): Expression =
         let makeObjMethod kind prop computed hasSpread args body =
-            let args, body = getMemberArgsAndBody com ctx None hasSpread args body
-            let args, body =
-                match boundThis, args with
-                | Some boundThis, thisArg::args ->
-                    bindThisInFunctionBody boundThis thisArg args body.body
-                | _, args -> args, body
+            let args, body = getMemberArgsAndBody com ctx None boundThis args hasSpread body
             ObjectMethod(kind, prop, args, body, computed=computed) |> U3.Case2 |> Some
         let pojo =
             members |> List.choose (fun (name, expr, kind) ->
@@ -327,7 +331,7 @@ module Util =
                 match kind, expr with
                 | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body, _) ->
                     // Don't call the `makeObjMethod` helper here because function as values don't bind `this` arg
-                    let args, body' = getMemberArgsAndBody com ctx None false args body
+                    let args, body' = getMemberArgsAndBody com ctx None None args false body
                     ObjectMethod(ObjectMeth, prop, args, body', computed=computed) |> U3.Case2 |> Some
                 | Fable.ObjectValue, TransformExpr com ctx value ->
                     ObjectProperty(prop, value, computed=computed) |> U3.Case1 |> Some
@@ -702,7 +706,7 @@ module Util =
             com.TransformFunction(ctx, name, args, body) ||> makeFunctionExpression name
 
         | Fable.ObjectExpr (members, _, baseCall) ->
-            Some(Identifier "this") |> transformObjectExpr com ctx members baseCall
+            Some "this" |> transformObjectExpr com ctx members baseCall
 
         | Fable.Operation(opKind, _, range) ->
             transformOperation com ctx range opKind
@@ -763,7 +767,7 @@ module Util =
              ||> makeFunctionExpression name |> resolveExpr expr.Type returnStrategy]
 
         | Fable.ObjectExpr (members, t, baseCall) ->
-            [Some(Identifier "this") |> transformObjectExpr com ctx members baseCall |> resolveExpr t returnStrategy]
+            [Some "this" |> transformObjectExpr com ctx members baseCall |> resolveExpr t returnStrategy]
 
         | Fable.Operation(callKind, t, range) ->
             transformOperationAsStatements com ctx range t returnStrategy callKind
@@ -902,7 +906,7 @@ module Util =
             :> ModuleDeclaration |> U2.Case2
 
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ValueDeclarationInfo) args body =
-        let args, body = getMemberArgsAndBody com ctx (Some info.Name) info.HasSpread args body
+        let args, body = getMemberArgsAndBody com ctx (Some info.Name) None args info.HasSpread body
         // Don't lexically bind `this` (with arrow function) or it will fail with extension members
         let expr: Expression = upcast FunctionExpression(args, body)
         declareModuleMember info.IsPublic info.Name false expr
@@ -930,11 +934,7 @@ module Util =
                 match info.Kind with
                 | Fable.ObjectMethod hasSpread -> hasSpread
                 | _ -> false
-            let args, body = getMemberArgsAndBody com ctx None hasSpread args body
-            let args, body =
-                match args with
-                | thisArg::args -> bindThisInFunctionBody (Identifier "this") thisArg args body.body
-                | args -> args, body
+            let args, body = getMemberArgsAndBody com ctx None (Some "this") args hasSpread body
             FunctionExpression(args, body)
         match info.Kind with
         | Fable.ObjectGetter -> defineGetterOrSetter "get" funcCons info.Name funcExpr
@@ -953,7 +953,7 @@ module Util =
         let funcCons = Identifier info.EntityName :> Expression
         let thisIdent = Identifier "this" :> Expression
         let originalCons =
-            let args, body = getMemberArgsAndBody com ctx None info.HasSpread args body
+            let args, body = getMemberArgsAndBody com ctx None None args info.HasSpread body
             match info.BaseConstructor with
             | None -> FunctionExpression(args, body) :> Expression
             | Some({ BaseConsRef = TransformExpr com ctx baseCons } as b) ->
@@ -992,7 +992,7 @@ module Util =
 
     let transformInterfaceCast (com: IBabelCompiler) ctx (info: Fable.InterfaceCastDeclarationInfo) members =
         let boundThis = Identifier "$this"
-        let castedObj = transformObjectExpr com ctx members None (Some boundThis)
+        let castedObj = transformObjectExpr com ctx members None (Some boundThis.name)
         let funcExpr =
             let returnedObj =
                 match info.InheritedInterfaces with

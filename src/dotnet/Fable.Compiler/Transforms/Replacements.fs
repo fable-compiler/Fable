@@ -833,12 +833,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.GlobalCall("Math", t, args, argTypes, memb=Naming.lowerFirst methName, ?loc=r)
 
     match i.CompiledName, args with
-    | "DefaultArg", [arg1; arg2] ->
-        if hasDoubleEvalRisk arg1
-        then Helper.CoreCall("Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        else
-            let cond = Test(arg1, OptionTest false, None)
-            IfThenElse(cond, arg1, arg2) |> Some
+    | "DefaultArg", _ ->
+        Helper.CoreCall("Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "DefaultAsyncBuilder", _ ->
         makeCoreRef t "AsyncBuilder" "singleton" |> Some
     // Erased operators. TODO: Use Cast?
@@ -1436,11 +1432,9 @@ let dictionaries (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args
         | [Number _; IEqualityComparer] ->
             makeDic true [Value (Null Any); makeComparerFromEqualityComparer args.Tail.Head] |> Some
         | _ -> None
-    // TODO: Check for immutable maps with IDictionary interface
     | "get_IsReadOnly", _ -> makeBoolConst false |> Some
     | "get_Count", _ -> get r t thisArg.Value "size" |> Some
     | "GetEnumerator", Some callee -> getEnumerator r t callee |> Some
-    // TODO: Check if the key allows for a JS Map (also "TryGetValue" below)
     | "ContainsValue", _ ->
         match thisArg, args with
         | Some c, [arg] -> Helper.CoreCall("Util", "containsValue", t, [arg; c], ?loc=r) |> Some
@@ -1484,12 +1478,10 @@ let hashSets (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option) (args: Ex
         | _ -> None
     | "get_Count", _, _ -> get r t thisArg.Value "size" |> Some
     | "get_IsReadOnly", _, _ -> BoolConstant false |> Value |> Some
-    // TODO!!!: Check key type
     | ReplaceName ["Clear",    "clear"
                    "Contains", "has"
                    "Remove",   "delete" ] methName, Some c, args ->
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // TODO: Check if the value allows for a JS Set (also "TryGetValue" below)
     | "Add", Some c, [arg] ->
         Helper.CoreCall("Util", "addToSet", t, [arg; c], ?loc=r) |> Some
     | ("isProperSubsetOf" | "isProperSupersetOf"

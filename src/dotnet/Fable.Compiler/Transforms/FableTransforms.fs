@@ -180,16 +180,24 @@ let replaceValues replacements expr =
             | None -> e
         | e -> e)
 
-// Don't erase expressions referenced 0 times, they may have side-effects
-let isReferencedOnlyOnce identName e =
-    let limit = 1
-    let mutable count = 0
-    e |> deepExists (function
-        | IdentExpr id2 when id2.Name = identName ->
-            count <- count + 1
-            count > limit
-        | _ -> false) |> ignore
-    count = limit
+let canEraseBinding identName value body =
+    // Don't erase expressions referenced 0 times, they may have side-effects
+    let isReferencedOnlyOnce identName body =
+        let limit = 1
+        let mutable count = 0
+        body |> deepExists (function
+            | IdentExpr id2 when id2.Name = identName ->
+                count <- count + 1
+                count > limit
+            | _ -> false) |> ignore
+        count = limit
+    match value with
+    | e when not(hasDoubleEvalRisk e) -> true
+    | Value(This _) -> // Check if body contains closures
+        body |> deepExists (function
+            | Function _ | ObjectExpr _ -> true
+            | _ -> false)
+    | _ -> isReferencedOnlyOnce identName body
 
 module private Transforms =
     let (|ExprType|) (e: Expr) = e.Type
@@ -238,9 +246,9 @@ module private Transforms =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
                 |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                    if hasDoubleEvalRisk expr && not(isReferencedOnlyOnce ident.Name body)
-                    then (ident, expr)::bindings, replacements
-                    else bindings, Map.add ident.Name expr replacements)
+                    if canEraseBinding ident.Name expr body
+                    then bindings, Map.add ident.Name expr replacements
+                    else (ident, expr)::bindings, replacements)
             match bindings with
             | [] -> replaceValues replacements body
             | bindings -> Let(List.rev bindings, replaceValues replacements body)
@@ -273,10 +281,7 @@ module private Transforms =
                 | Get(IdentExpr id, OptionValue, t, _)
                         when mustWrapOption t |> not ->
                     makeTypedIdent t id.Name |> IdentExpr |> Some
-                // TODO: If the ident is referenced 0 times we may delete it if there are no risk
-                // of side-effects. (e.g. when assigning JS `this` to first Arg in interface members)
-                | value when ident.IsCompilerGenerated
-                    && (not(hasDoubleEvalRisk value) || isReferencedOnlyOnce identName body) ->
+                | value when ident.IsCompilerGenerated && canEraseBinding identName value body ->
                     match value with
                     // TODO: Check if current name is Some? Shouldn't happen...
                     | Function(args, body, _) -> Function(args, body, Some identName) |> Some
