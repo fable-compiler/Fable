@@ -90,7 +90,14 @@ module Util =
                 count > 0
             | _ -> false)
 
-    let rec isJsStatement preferStatement (expr: Fable.Expr) =
+    let getDecisionTarget (ctx: Context) targetIndex boundValues =
+        match List.tryItem targetIndex ctx.DecisionTargets with
+        | None -> failwithf "Cannot find DecisionTree target %i" targetIndex
+        | Some(idents, _) when not(List.sameLength idents boundValues) ->
+            failwithf "Found DecisionTree target %i but length of bindings differ" targetIndex
+        | Some(idents, target) -> idents, target
+
+    let rec isJsStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
         | Fable.Value _ | Fable.Import _ | Fable.Cast _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
         | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ -> false
@@ -99,15 +106,18 @@ module Util =
         | Fable.Sequential _ | Fable.Let _ | Fable.Set _
         | Fable.Loop _ | Fable.Throw _ -> true
 
-        | Fable.DecisionTreeSuccess _ -> preferStatement
+        | Fable.DecisionTreeSuccess(targetIndex, boundValues, _) ->
+            getDecisionTarget ctx targetIndex boundValues
+            |> snd |> isJsStatement ctx preferStatement
+
         // TODO: Make it also statement if we have more than, say, 3 targets?
         // This will increase the chances to convert it into a switch
         | Fable.DecisionTree(_,targets) ->
             preferStatement
-            || List.exists (snd >> (isJsStatement false)) targets
+            || List.exists (snd >> (isJsStatement ctx false)) targets
 
         | Fable.IfThenElse (_,thenExpr,elseExpr) ->
-            preferStatement || isJsStatement false thenExpr || isJsStatement false elseExpr
+            preferStatement || isJsStatement ctx false thenExpr || isJsStatement ctx false elseExpr
 
     let addErrorAndReturnNull (com: ICompiler) (range: SourceLocation option) (error: string) =
         com.AddLog(error, Severity.Error, ?range=range, fileName=com.CurrentFile)
@@ -471,17 +481,18 @@ module Util =
 
     // Even if IfStatement doesn't enforce it, compile both branches as blocks
     // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
-    let rec transformIfStatement (com: IBabelCompiler) ctx ret guardExpr thenStmnt elseStmnt =
-        let guardExpr = com.TransformAsExpr(ctx, guardExpr)
+    let rec transformIfStatement (com: IBabelCompiler) ctx ret (guardExpr: Expression) thenStmnt elseStmnt =
         let thenStmnt = transformBlock com ctx ret thenStmnt
-        let elseStmnt =
-            match elseStmnt: Fable.Expr with
-            | Fable.Value(Fable.Null _ | Fable.UnitConstant) when Option.isNone ret -> None
-            | Fable.IfThenElse(guardExpr, thenStmnt, elseStmnt) ->
-                transformIfStatement com ctx ret guardExpr thenStmnt elseStmnt
-                :> Statement |> Some
-            | e -> transformBlock com ctx ret e :> Statement |> Some
-        IfStatement(guardExpr, thenStmnt, ?alternate=elseStmnt)
+        match elseStmnt: Fable.Expr with
+        | Fable.IfThenElse(TransformExpr com ctx guardExpr', thenStmnt', elseStmnt') ->
+            let elseStmnt = transformIfStatement com ctx ret guardExpr' thenStmnt' elseStmnt'
+            IfStatement(guardExpr, thenStmnt, elseStmnt)
+        | expr ->
+            match com.TransformAsStatements(ctx, ret, expr) with
+            | [] -> IfStatement(guardExpr, thenStmnt)
+            | [:? ExpressionStatement as e] when (e.expression :? NullLiteral) ->
+                IfStatement(guardExpr, thenStmnt)
+            | statements -> IfStatement(guardExpr, thenStmnt, BlockStatement statements)
 
     let transformGet (com: IBabelCompiler) ctx range typ expr (getKind: Fable.GetKind) =
         let expr = com.TransformAsExpr(ctx, expr)
@@ -545,7 +556,7 @@ module Util =
         |> assign None (ident var)
 
     let transformBindingAsStatements (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
-        if isJsStatement false value then
+        if isJsStatement ctx false value then
             let var = ident var
             let decl = VariableDeclaration var :> Statement
             let body = com.TransformAsStatements(ctx, Some(Assign var), value)
@@ -583,13 +594,6 @@ module Util =
                 cases @ [SwitchCase defaultCaseBody]
             | None -> cases
         SwitchStatement(com.TransformAsExpr(ctx, evalExpr), cases) :> Statement
-
-    let getDecisionTarget (ctx: Context) targetIndex boundValues =
-        match List.tryItem targetIndex ctx.DecisionTargets with
-        | None -> failwithf "Cannot find DecisionTree target %i" targetIndex
-        | Some(idents, _) when not(List.sameLength idents boundValues) ->
-            failwithf "Found DecisionTree target %i but length of bindings differ" targetIndex
-        | Some(idents, target) -> idents, target
 
     let getDecisionTargetAndBindValues (ctx: Context) targetIndex boundValues =
         let idents, target = getDecisionTarget ctx targetIndex boundValues
@@ -808,12 +812,15 @@ module Util =
                 match returnStrategy with
                 | None -> true
                 | Some(Target _) -> true // Compile as statement so values can be bound
-                | Some(Assign _) -> (isJsStatement false thenExpr) || (isJsStatement false elseExpr)
+                | Some(Assign _) -> (isJsStatement ctx false thenExpr) || (isJsStatement ctx false elseExpr)
                 | Some Return ->
                     Option.isSome ctx.TailCallOpportunity
-                    || (isJsStatement false thenExpr) || (isJsStatement false elseExpr)
+                    || (isJsStatement ctx false thenExpr) || (isJsStatement ctx false elseExpr)
             if asStatement then
-                [transformIfStatement com ctx returnStrategy guardExpr thenExpr elseExpr :> Statement ]
+                match com.TransformAsExpr(ctx, guardExpr) with
+                // In some situations (like some type tests) the condition may be always true
+                | :? BooleanLiteral as e when e.value -> com.TransformAsStatements(ctx, returnStrategy, thenExpr)
+                | guardExpr -> [transformIfStatement com ctx returnStrategy guardExpr thenExpr elseExpr :> Statement ]
             else
                 let guardExpr' = transformAsExpr com ctx guardExpr
                 let thenExpr' = transformAsExpr com ctx thenExpr
@@ -866,7 +873,7 @@ module Util =
         let body: U2<BlockStatement, Expression> =
             if body.Type = Fable.Unit
             then transformBlock com ctx None body |> U2.Case1
-            elif isJsStatement (Option.isSome tailcallChance) body
+            elif isJsStatement ctx (Option.isSome tailcallChance) body
             then transformBlock com ctx (Some Return) body |> U2.Case1
             else transformAsExpr com ctx body |> U2.Case2
         let args, body =

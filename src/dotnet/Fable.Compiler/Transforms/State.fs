@@ -97,7 +97,7 @@ type Compiler(currentFile, project: Project, options) =
             let fileName = Path.normalizePath fileName
             match Map.tryFind fileName project.RootModules with
             | Some rootModule -> rootModule
-            | None -> failwithf "Cannot find root module for %s" fileName
+            | None -> "" // failwithf "Cannot find root module for %s" fileName
         member __.GetOrAddInlineExpr(fullName, generate) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =

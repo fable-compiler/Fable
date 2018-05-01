@@ -225,6 +225,7 @@ module Types =
     let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
     let [<Literal>] enumerable = "System.Collections.Generic.IEnumerable`1"
     let [<Literal>] comparable = "System.IComparable"
+    let [<Literal>] disposable = "System.IDisposable"
     let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
     let [<Literal>] printf = "Microsoft.FSharp.Core.PrintfModule"
     let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"

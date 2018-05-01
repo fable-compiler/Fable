@@ -4,8 +4,8 @@ import { compare, equals, IDisposable, isDisposable } from "./Util";
 export interface IEnumerator<T> {
   Current: T;
   MoveNext(): boolean;
-  Dispose(): void;
-  Reset(): void;
+  // Dispose(): void;
+  // Reset(): void;
 }
 
 export interface IEnumerable<T> {
@@ -27,10 +27,7 @@ export class Enumerator<T> implements IEnumerator<T> {
     throw new Error("JS iterators cannot be reset");
   }
   public Dispose() {
-    const d = this.iter as any;
-    if (isDisposable(d)) {
-      d.Dispose();
-    }
+    return;
   }
 }
 
@@ -45,19 +42,16 @@ export function toIterator<T>(en: IEnumerator<T>) {
         ? { done: false, value: en.Current }
         : { done: true, value: null };
     },
-    Dispose() {
-      en.Dispose();
-    },
-  } as Iterator<T>;
-}
-
-export function toIterable<T>(en: IEnumerable<T>): Iterable<T> {
-  return {
-    [Symbol.iterator]() {
-      return toIterator(en.GetEnumerator());
-    },
   };
 }
+
+// export function toIterable<T>(en: IEnumerable<T>): Iterable<T> {
+//   return {
+//     [Symbol.iterator]() {
+//       return toIterator(en.GetEnumerator());
+//     },
+//   };
+// }
 
 function __failIfNone<T>(res: Option<T>) {
   if (res == null) {

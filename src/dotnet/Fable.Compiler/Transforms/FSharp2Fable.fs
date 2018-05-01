@@ -204,10 +204,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         makeCallFrom com ctx r typ genArgs (Some callee) args memb
 
-    // | CheckArrayLength (Transform com ctx arr, length, FableType com ctx typ) ->
-    //     let r = makeRangeFrom fsExpr
-    //     let lengthExpr = get None (Fable.Number Int32) arr "length"
-    //     makeEqOp r lengthExpr (Replacements.makeTypeConst typ length) BinaryEqualStrict
+    // TODO: Detect if it's ResizeArray and compile as FastIntegerForLoop?
+    | ForOf (BindIdent com ctx (newContext, ident), Transform com ctx value, body) ->
+        let body = transformExpr com newContext body
+        Replacements.iterate (makeRangeFrom fsExpr) ident body value
 
     (** ## Flow control *)
     | BasicPatterns.FastIntegerForLoop(Transform com ctx start, Transform com ctx limit, body, isUp) ->

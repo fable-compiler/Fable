@@ -130,18 +130,6 @@ let (|Builtin|_|) = function
         | _ -> None
     | _ -> None
 
-let isCompatibleWithJsComparison = function
-    | Builtin(BclInt64|BclUInt64|BclBigInt)
-    | Array _ | List _ | Tuple _ | Option _ -> false
-    | Builtin(BclGuid|BclTimeSpan) -> true
-    // TODO: Non-record/union declared types without custom equality
-    // should be compatible with JS comparison
-    | DeclaredType _ -> false
-    // TODO: Raise warning when building dictionary/hashset with generic params?
-    | GenericParam _ -> true
-    | Any | Unit | Boolean | Number _ | String | Char | Regex
-    | EnumType _ | ErasedUnion _ | FunctionType _ | Pojo _ -> true
-
 let (|Integer|Float|) = function
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
     | Float32 | Float64 | Decimal -> Float
@@ -278,8 +266,13 @@ let rec makeTypeTest com range expr (typ: Type) =
         Helper.CoreCall("Util", "isArray", Boolean, [expr], ?loc=range)
     | DeclaredType (ent, _) ->
         match ent.TryFullName with
-        | Some "System.IDisposable" ->
-            Helper.CoreCall("Util", "isDisposable", Boolean, [expr], ?loc=range)
+        | Some Types.disposable ->
+            match expr with
+            | Cast(ExprType(DeclaredType (ent2, _)), Any) when hasInterface Types.disposable ent2 ->
+                BoolConstant true |> Value
+            | _ -> Helper.CoreCall("Util", "isDisposable", Boolean, [expr], ?loc=range)
+        // TODO!!!
+        // | Some Types.enumerable ->
         | _ ->
             if ent.IsClass
             then jsInstanceof (FSharp2Fable.Util.entityRef com ent) expr
@@ -446,11 +439,11 @@ let listToArray com r t (li: Expr) =
         let args = match t with Array genArg -> [li; arrayCons com genArg] | _ -> [li]
         Helper.CoreCall("Array", "ofList", t, args, ?loc=r)
 
-let listToSeq t (li: Expr) =
+let listToSeq (li: Expr) =
     match li with
     // TODO: Use Any for Array type so we don't create typed arrays?
     | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
-    | _ -> Helper.CoreCall("List", "toSeq", t, [li])
+    | _ -> li // Helper.CoreCall("List", "toSeq", t, [li])
 
 // TODO: Use custom implementation?
 // See https://github.com/fable-compiler/Fable/issues/1279#issuecomment-350122284
@@ -462,11 +455,15 @@ let enumerator2iterator (e: Expr) =
 
 let toSeq t (e: Expr) =
     match e.Type with
-    | List _ -> listToSeq t e
+    | List _ -> listToSeq e
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
     // TODO: Add a runtime check for strings in case of generics?
     | _ -> e
+
+let iterate r ident body xs =
+    let f = Function(Delegate [ident], body, None)
+    Helper.CoreCall("Seq", "iterate", Unit, [f; xs], ?loc=r)
 
 let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
     let (|CustomOp|_|) com opName argTypes =
@@ -521,6 +518,18 @@ let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
         let genArgs = genArgs |> Seq.map snd
         FSharp2Fable.Util.makeCallFrom com ctx r t genArgs None args m
     | _ -> nativeOp opName argTypes args
+
+let isCompatibleWithJsComparison = function
+    | Builtin(BclInt64|BclUInt64|BclBigInt)
+    | Array _ | List _ | Tuple _ | Option _ -> false
+    | Builtin(BclGuid|BclTimeSpan) -> true
+    // TODO: Non-record/union declared types without custom equality
+    // should be compatible with JS comparison
+    | DeclaredType _ -> false
+    // TODO: Raise warning when building dictionary/hashset with generic params?
+    | GenericParam _ -> true
+    | Any | Unit | Boolean | Number _ | String | Char | Regex
+    | EnumType _ | ErasedUnion _ | FunctionType _ | Pojo _ -> true
 
 let rec equals r equal left right =
     let is equal expr =
@@ -1349,8 +1358,9 @@ let intrinsicFunctions (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option)
     match i.CompiledName, thisArg, args with
     // Erased operators
     | "CheckThis", _, [arg]
-    | "UnboxFast", _, [arg]
-    | "UnboxGeneric", _, [arg] -> Some arg
+    | "UnboxFast", _, [arg] -> Some arg
+    // Cast (e.g. used to cast to IDisposable at the end of `use` scope)
+    | "UnboxGeneric", _, [arg] -> Cast(arg, t) |> Some
     | "MakeDecimal", _, _ -> decimals com r t i thisArg args
     | "GetString", _, [ar; idx]
     | "GetArray", _, [ar; idx] -> getExpr r t ar idx |> Some

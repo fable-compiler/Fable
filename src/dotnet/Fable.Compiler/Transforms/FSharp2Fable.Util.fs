@@ -272,6 +272,20 @@ module Patterns =
             Some ThisVar
         | _ -> None
 
+    let (|ForOf|_|) = function
+        | Let((_, value), // Coertion to seq
+              Let((_, Call(None, meth, _, [], [])),
+                TryFinally(
+                  WhileLoop(_,
+                    Let((ident, _), body)), _)))
+        | Let((_, Call(Some value, meth, _, [], [])),
+                TryFinally(
+                    WhileLoop(_,
+                        Let((ident, _), body)), _))
+            when meth.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" ->
+            Some(ident, value, body)
+        | _ -> None
+
     let (|FableCoreDynamicOp|_|) = function
         | BasicPatterns.Let((_, BasicPatterns.Call(None,m,_,_,[e1; e2])),_)
                 when m.FullName = "Fable.Core.JsInterop.( ? )" -> Some(e1, e2)
@@ -310,17 +324,6 @@ module Patterns =
             let eventName = addEvent.CompiledName.Replace("add_","")
             Some (callee, eventName, memb, typArgs, methTypArgs, args)
         | _ -> None
-
-    // /// This matches the boilerplate generated to check an array's length
-    // /// when pattern matching
-    // let (|CheckArrayLength|_|) = function
-    //     | IfThenElse
-    //         (ILAsm ("[AI_ldnull; AI_cgt_un]",[],[matchValue]),
-    //          Call(None,_op_Equality,[],[_typeInt],
-    //             [ILAsm ("[I_ldlen; AI_conv DT_I4]",[],[_matchValue2])
-    //              Const (length,_typeInt2)]),
-    //          Const (_falseConst,_typeBool)) -> Some (matchValue, length, _typeInt2)
-    //     | _ -> None
 
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8
