@@ -626,25 +626,25 @@ let splitAt (index: int) (array: 'T[]): 'T[] * 'T[] =
     sliceImpl array 0 index, sliceFromImpl array index
 
 let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
-    let length1 = array1.Length
-    let length2 = array2.Length
-
-    let mutable i = 0
-    let mutable result = 0
-
-    if length1 < length2 then
-        while i < array1.Length && result = 0 do
-            result <- comparer array1.[i] array2.[i]
-            i <- i + 1
+    if isNull array1 then
+        if isNull array2 then 0 else -1
+    elif isNull array2 then
+        1
     else
-        while i < array2.Length && result = 0 do
-            result <- comparer array1.[i] array2.[i]
-            i <- i + 1
+        let mutable i = 0
+        let mutable result = 0
+        let length1 = array1.Length
+        let length2 = array2.Length
+        if length1 > length2 then 1
+        elif length1 < length2 then -1
+        else
+            while i < length1 && result = 0 do
+                result <- comparer array1.[i] array2.[i]
+                i <- i + 1
+            result
 
-    if result <> 0 then result
-    elif length1 = length2 then 0
-    elif length1 < length2 then -1
-    else 1
+let equalsWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) =
+    compareWith compare array1 array2 = 0
 
 let exactlyOne (array: 'T[]) =
     if array.Length = 1 then array.[0]

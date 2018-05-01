@@ -159,7 +159,7 @@ export function choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
 
 export function compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: Iterable<T>) {
   const nonZero = tryFind((i: number) => i !== 0, map2((x: T, y: T) => f(x, y), xs, ys));
-  return nonZero != null ? value(nonZero) : count(xs) - count(ys);
+  return nonZero != null ? value(nonZero) : length(xs) - length(ys);
 }
 
 export function delay<T>(f: () => Iterable<T>) {
@@ -408,9 +408,7 @@ export function last<T>(xs: Iterable<T>): T {
   return __failIfNone(tryLast(xs));
 }
 
-// A export function 'length' method causes problems in JavaScript -- https://github.com/Microsoft/TypeScript/issues/442
-
-export function count<T>(xs: Iterable<T>) {
+export function length<T>(xs: Iterable<T>) {
   return Array.isArray(xs) || ArrayBuffer.isView(xs)
     ? (xs as T[]).length
     : fold((acc, x) => acc + 1, 0, xs);

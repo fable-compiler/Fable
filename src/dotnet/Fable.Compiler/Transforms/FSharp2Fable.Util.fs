@@ -311,16 +311,16 @@ module Patterns =
             Some (callee, eventName, memb, typArgs, methTypArgs, args)
         | _ -> None
 
-    /// This matches the boilerplate generated to check an array's length
-    /// when pattern matching
-    let (|CheckArrayLength|_|) = function
-        | IfThenElse
-            (ILAsm ("[AI_ldnull; AI_cgt_un]",[],[matchValue]),
-             Call(None,_op_Equality,[],[_typeInt],
-                [ILAsm ("[I_ldlen; AI_conv DT_I4]",[],[_matchValue2])
-                 Const (length,_typeInt2)]),
-             Const (_falseConst,_typeBool)) -> Some (matchValue, length, _typeInt2)
-        | _ -> None
+    // /// This matches the boilerplate generated to check an array's length
+    // /// when pattern matching
+    // let (|CheckArrayLength|_|) = function
+    //     | IfThenElse
+    //         (ILAsm ("[AI_ldnull; AI_cgt_un]",[],[matchValue]),
+    //          Call(None,_op_Equality,[],[_typeInt],
+    //             [ILAsm ("[I_ldlen; AI_conv DT_I4]",[],[_matchValue2])
+    //              Const (length,_typeInt2)]),
+    //          Const (_falseConst,_typeBool)) -> Some (matchValue, length, _typeInt2)
+    //     | _ -> None
 
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8

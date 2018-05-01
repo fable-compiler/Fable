@@ -3,6 +3,46 @@ module List
 open System.Collections.Generic
 open Fable.Core
 
+let head = function
+    | x::_ -> x
+    | _ -> failwith "List was empty"
+
+let tryHead = function
+    | x::_ -> Some x
+    | _ -> None
+
+let tail = function
+    | _::xs -> xs
+    | _ -> failwith "List was empty"
+
+let rec last = function
+    | [] -> failwith "List was empty"
+    | [x] -> x
+    | _::xs -> last xs
+
+let rec tryLast = function
+    | [] -> None
+    | [x] -> Some x
+    | _::xs -> tryLast xs
+
+let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
+    if obj.ReferenceEquals(xs, ys)
+    then 0
+    else
+        let rec loop xs ys =
+            match xs, ys with
+            | [], [] -> 0
+            | [], _ -> -1
+            | _, [] -> 1
+            | x::xs, y::ys ->
+                match comparer x y with
+                | 0 -> loop xs ys
+                | res -> res
+        loop xs ys
+
+let equalsWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): bool =
+    compareWith comparer xs ys = 0
+
 let rec foldIndexedAux f i acc = function
    | [] -> acc
    | x::xs -> foldIndexedAux f (i+1) (f i acc x) xs

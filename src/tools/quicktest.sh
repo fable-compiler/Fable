@@ -39,6 +39,6 @@ if [ "${ARGS/--build-core/}" != "$ARGS" ]; then
 fi
 
 pushd ../dotnet/Fable.Compiler
-dotnet run --no-build yarn-splitter --cwd ../../tools --fable-core ../../../build/fable-core
+dotnet run --no-build yarn-splitter --port free --cwd ../../tools --fable-core ../../../build/fable-core
 popd
 node temp/QuickTest.js

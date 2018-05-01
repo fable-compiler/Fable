@@ -204,10 +204,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         makeCallFrom com ctx r typ genArgs (Some callee) args memb
 
-    | CheckArrayLength (Transform com ctx arr, length, FableType com ctx typ) ->
-        let r = makeRangeFrom fsExpr
-        let lengthExpr = get None (Fable.Number Int32) arr "length"
-        makeEqOp r lengthExpr (Replacements.makeTypeConst typ length) BinaryEqualStrict
+    // | CheckArrayLength (Transform com ctx arr, length, FableType com ctx typ) ->
+    //     let r = makeRangeFrom fsExpr
+    //     let lengthExpr = get None (Fable.Number Int32) arr "length"
+    //     makeEqOp r lengthExpr (Replacements.makeTypeConst typ length) BinaryEqualStrict
 
     (** ## Flow control *)
     | BasicPatterns.FastIntegerForLoop(Transform com ctx start, Transform com ctx limit, body, isUp) ->
@@ -244,10 +244,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             makeValueFrom com ctx (makeRangeFrom fsExpr) var
 
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
-        match typ with
-        | Fable.Boolean -> Fable.BoolConstant false |> Fable.Value
-        | Fable.Number kind -> Fable.NumberConstant (0., kind) |> Fable.Value
-        | typ -> Fable.Null typ |> Fable.Value
+        Replacements.defaultof typ
 
     (** ## Assignments *)
     | BasicPatterns.Let((var, value), body) ->
