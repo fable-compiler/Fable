@@ -386,18 +386,9 @@ module MapTree =
 
 [<CompiledName("FSharpMap")>]
 type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key,'Value>) =
-
-    // [<System.NonSerialized>]
-    // This type is logically immutable. This field is only mutated during deserialization.
-    let comparer = comparer
-
-    // [<System.NonSerialized>]
-    // This type is logically immutable. This field is only mutated during deserialization.
-    let tree = tree
-
     member internal __.Comparer = comparer
-    //[<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member internal __.Tree = tree
+
     member __.Add(k,v) : Map<'Key,'Value> =
         new Map<'Key,'Value>(comparer,MapTree.add comparer k v tree)
     member __.IsEmpty = MapTree.isEmpty tree
@@ -437,7 +428,7 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
 
     member __.ToList() = MapTree.toList tree
 
-    member this.ComputeHashCode() =
+    override this.GetHashCode() =
         let combineHash x y = (x <<< 1) + y + 631
         let mutable res = 0
         let e = MapTree.mkIEnumerator this.Tree
@@ -448,18 +439,7 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
         abs res
 
     override this.Equals(that) =
-       match that with
-       | :? Map<'Key,'Value> as that ->
-           use e1 = MapTree.mkIEnumerator this.Tree
-           use e2 = MapTree.mkIEnumerator that.Tree
-           let rec loop () =
-               let m1 = e1.MoveNext()
-               let m2 = e2.MoveNext()
-               (m1 = m2) && (not m1 || ((e1.Current.Key = e2.Current.Key) && (Unchecked.equals e1.Current.Value e2.Current.Value) && loop()))
-           loop()
-       | _ -> false
-
-    override this.GetHashCode() = this.ComputeHashCode()
+        (this :> System.IComparable).CompareTo(that) = 0
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
         member __.GetEnumerator() = MapTree.mkIEnumerator tree
@@ -476,15 +456,15 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
             use e1 = MapTree.mkIEnumerator m.Tree
             use e2 = MapTree.mkIEnumerator m2.Tree
             while not finished && res = 0 do
-                  match e1.MoveNext(), e2.MoveNext() with
-                  | false, false -> finished <- true
-                  | true, false -> res <- -1
-                  | false, true -> res <- 1
-                  | true, true ->
-                        let kvp1 = e1.Current
-                        let kvp2 = e2.Current
-                        let c = comparer.Compare(kvp1.Key, kvp2.Key)
-                        res <- if c <> 0 then c else Unchecked.compare kvp1.Value kvp2.Value
+                match e1.MoveNext(), e2.MoveNext() with
+                | false, false -> finished <- true
+                | true, false -> res <- 1
+                | false, true -> res <- -1
+                | true, true ->
+                    let kvp1 = e1.Current
+                    let kvp2 = e2.Current
+                    let c = comparer.Compare(kvp1.Key, kvp2.Key)
+                    res <- if c <> 0 then c else Unchecked.compare kvp1.Value kvp2.Value
             res
 
 let isEmpty (m:Map<_,_>) = m.IsEmpty

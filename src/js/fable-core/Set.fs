@@ -471,27 +471,7 @@ module internal SetTree =
 
 [<CompiledName("FSharpSet")>]
 type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'T>, tree: SetTree<'T>) =
-
-    //    [<System.NonSerialized>]
-    // NOTE: This type is logically immutable. This field is only mutated during deserialization.
-    let comparer = comparer
-
-    //    [<System.NonSerialized>]
-    // NOTE: This type is logically immutable. This field is only mutated during deserialization.
-    let tree = tree
-
-    // NOTE: This type is logically immutable. This field is only mutated during serialization and deserialization.
-    //
-    // WARNING: The compiled name of this field may never be changed because it is part of the logical
-    // WARNING: permanent serialization format for this type.
-    // let serializedData = null
-
-
-    // We use .NET generics per-instantiation static fields to avoid allocating a new object for each empty
-    // set (it is just a lookup into a .NET table of type-instantiation-indexed static fields).
-
     member internal __.Comparer = comparer
-    //[<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member internal __.Tree : SetTree<'T> = tree
 
     member s.Add(x) : Set<'T> =
@@ -575,7 +555,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     // member x.ToList () = SetTree.toList x.Tree
     // member x.ToArray () = SetTree.toArray x.Tree
 
-    member this.ComputeHashCode() =
+    override this.GetHashCode() =
         let combineHash x y = (x <<< 1) + y + 631
         let mutable res = 0
         let e = SetTree.mkIEnumerator this.Tree
@@ -583,20 +563,8 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
             res <- combineHash res (hash e.Current)
         abs res
 
-    override this.GetHashCode() =
-        this.ComputeHashCode()
-
     override this.Equals(that: obj) =
-        match that with
-        | :? Set<'T> as that ->
-            use e1 = SetTree.mkIEnumerator this.Tree
-            use e2 = SetTree.mkIEnumerator that.Tree
-            let rec loop () =
-               let m1 = e1.MoveNext()
-               let m2 = e2.MoveNext()
-               (m1 = m2) && (not m1 || ((e1.Current = e2.Current) && loop()))
-            loop()
-        | _ -> false
+        SetTree.compare this.Comparer this.Tree ((that :?> Set<'T>).Tree) = 0
 
     interface System.IComparable with
         member this.CompareTo(that: obj) = SetTree.compare this.Comparer this.Tree ((that :?> Set<'T>).Tree)
