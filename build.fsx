@@ -48,7 +48,7 @@ let project = "Fable"
 let gitOwner = "fable-compiler"
 let gitHome = "https://github.com/" + gitOwner
 
-let dotnetcliVersion = "2.1.300-preview1-008174"
+let dotnetcliVersion = "2.1.300-preview2-008530"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let CWD = __SOURCE_DIRECTORY__
