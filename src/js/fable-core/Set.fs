@@ -555,6 +555,9 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     // member x.ToList () = SetTree.toList x.Tree
     // member x.ToArray () = SetTree.toArray x.Tree
 
+    override this.ToString() =
+        "set [" + (Seq.map (fun x -> x.ToString()) this |> String.concat "; ") + "]"
+
     override this.GetHashCode() =
         let combineHash x y = (x <<< 1) + y + 631
         let mutable res = 0

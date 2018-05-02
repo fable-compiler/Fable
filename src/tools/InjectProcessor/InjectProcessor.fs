@@ -9,10 +9,6 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns
 open Fable
 
-/// ATTENTION: Make sure this is the same as Fable.Transforms.Replacements.Helpers.getMangledName
-let getMangledName (entityName: string) isStatic memberCompiledName =
-    entityName + (Naming.getMemberMangledNameSeparator isStatic) + (Naming.sanitizeIdentForbiddenChars memberCompiledName)
-
 let typeAliases =
     Map [
         "System.Collections.Generic.IComparer`1", "comparer"
@@ -64,7 +60,8 @@ let rec getInjects initialized decls =
                     let membName =
                         match memb.DeclaringEntity with
                         | Some ent when not ent.IsFSharpModule ->
-                            getMangledName ent.CompiledName (not memb.IsInstanceMember) memb.CompiledName
+                            Naming.buildNameWithoutSanitationFrom
+                                ent.CompiledName (not memb.IsInstanceMember) memb.CompiledName
                         | _ -> memb.CompiledName
                     // let argIndex =
                     //     (memb.CurriedParameterGroups |> Seq.sumBy (fun g -> g.Count)) - 1

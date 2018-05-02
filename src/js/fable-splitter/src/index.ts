@@ -195,7 +195,7 @@ async function getFileAstAsync(path: string, options: FableSplitterOptions, info
                 addLogs({ error: [log] }, info);
             }
         } else {
-            console.log(`fable: Skipping missing JS file: ${path}`);
+            console.log(`fable: Skip missing JS file: ${path}`);
         }
     }
     return ast;

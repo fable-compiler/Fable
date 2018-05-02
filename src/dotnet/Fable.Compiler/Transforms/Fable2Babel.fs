@@ -565,12 +565,54 @@ module Util =
             let value = transformBindingExprBody com ctx var value
             [varDeclaration (ident var) var.IsMutable value :> Statement]
 
+    let transformTypeTest (com: IBabelCompiler) ctx range expr (typ: Fable.Type): Expression =
+        let jsTypeof (primitiveType: string) (TransformExpr com ctx expr): Expression =
+            let typof = UnaryExpression(UnaryTypeof, expr)
+            upcast BinaryExpression(BinaryEqualStrict, typof, StringLiteral primitiveType, ?loc=range)
+        let jsInstanceof (TransformExpr com ctx cons) (TransformExpr com ctx expr): Expression =
+            upcast BinaryExpression(BinaryInstanceOf, expr, cons, ?loc=range)
+        match typ with
+        | Fable.Any -> upcast BooleanLiteral true
+        | Fable.Unit -> failwith "TODO" // makeEqOp range expr (Fable.Value <| Fable.Null Fable.Any) BinaryEqual
+        | Fable.Boolean -> jsTypeof "boolean" expr
+        | Fable.Char | Fable.String _ -> jsTypeof "string" expr
+        | Fable.FunctionType _ -> jsTypeof "function" expr
+        // TODO: Check if prototype is Object?
+        | Fable.Pojo _ -> jsTypeof "object" expr
+        | Fable.Number _ | Fable.EnumType _ -> jsTypeof "number" expr
+        | Fable.Regex ->
+            jsInstanceof (makeIdentExpr "RegExp") expr
+        | Replacements.Builtin (Replacements.BclInt64 | Replacements.BclUInt64) ->
+            jsInstanceof (makeCoreRef Fable.Any "Long" "default") expr
+        | Replacements.Builtin Replacements.BclBigInt ->
+            jsInstanceof (makeCoreRef Fable.Any "BigInt" "default") expr
+        | Fable.Array _ | Fable.Tuple _ ->
+            coreLibCall com ctx "Util" "isArray" [com.TransformAsExpr(ctx, expr)]
+        | Fable.List _ ->
+            jsInstanceof (makeCoreRef Fable.Any "ListClass" "List") expr
+        | Fable.DeclaredType (ent, _) ->
+            match ent.TryFullName with
+            | Some Types.disposable ->
+                match expr.Type with
+                // In F# AST this is coerced to obj, but the cast should have been removed in resolveCasts pass
+                | Fable.DeclaredType (ent2, _) when FSharp2Fable.Util.hasInterface Types.disposable ent2 ->
+                    upcast BooleanLiteral true
+                | _ -> coreLibCall com ctx "Util" "isDisposable" [com.TransformAsExpr(ctx, expr)]
+            // TODO!!! | Some Types.enumerable ->
+            | _ ->
+                if ent.IsClass
+                then jsInstanceof (FSharp2Fable.Util.entityRef com ent) expr
+                else "Cannot type test interfaces, records or unions"
+                     |> addErrorAndReturnNull com range
+        | Fable.Option _ | Fable.GenericParam _ | Fable.ErasedUnion _ ->
+            "Cannot type test options, generic parameters or erased unions"
+            |> addErrorAndReturnNull com range
+
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
         match kind with
         | Fable.TypeTest t
         | Fable.ErasedUnionTest t ->
-            let test = Replacements.makeTypeTest com range expr t
-            com.TransformAsExpr(ctx, test)
+            transformTypeTest com ctx range expr t
         | Fable.OptionTest nonEmpty ->
             let op = if nonEmpty then BinaryUnequal else BinaryEqual
             upcast BinaryExpression(op, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
@@ -1014,7 +1056,7 @@ module Util =
           yield declareModuleMember info.IsPublic info.Name false exposedCons ]
 
     let transformInterfaceCast (com: IBabelCompiler) ctx (info: Fable.InterfaceCastDeclarationInfo) members =
-        let boundThis = Identifier "$this"
+        let boundThis = com.GetUniqueVar("this") |> Identifier
         let castedObj = transformObjectExpr com ctx members None (Some boundThis.name)
         let funcExpr =
             let returnedObj =
@@ -1100,7 +1142,8 @@ module Util =
                 let x = path.TrimEnd('/')
                 x.Substring(x.LastIndexOf '/' + 1) |> Some
             | selector -> Some selector
-            |> Option.map (Naming.sanitizeIdent (fun s ->
+            |> Option.map (fun selector ->
+                (selector, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun s ->
                 ctx.File.UsedVarNames.Contains s
                     || (imports.Values |> Seq.exists (fun i -> i.LocalIdent = Some s))))
 

@@ -446,7 +446,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     (** ## Type test *)
     | BasicPatterns.TypeTest (FableType com ctx typ, Transform com ctx expr) ->
-        Replacements.makeTypeTest com (makeRangeFrom fsExpr) expr typ
+        Fable.Test(expr, Fable.TypeTest typ, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTest(unionExpr, fsType, unionCase) ->
         transformUnionCaseTest com ctx fsExpr unionExpr fsType unionCase
@@ -489,6 +489,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         sprintf "Cannot compile expression %A" expr
         |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
 
+let private isImportedOrErasedEntity (ent: FSharpEntity) =
+    ent.Attributes |> Seq.exists (fun att ->
+        match att.AttributeType.TryFullName with
+        | Some(Atts.global_ | Atts.import | Atts.erase) -> true
+        | _ -> false)
+
 /// Is compiler generated (CompareTo...) or belongs to ignored entity?
 /// (remember F# compiler puts class methods in enclosing modules)
 let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
@@ -496,9 +502,12 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
         || Option.isSome meth.LiteralValue
         || meth.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
-            | Some(Atts.import | Atts.global_ | Atts.emit | Atts.erase) -> true
+            | Some(Atts.global_ | Atts.emit | Atts.erase) -> true
             | _ -> false)
         || Naming.ignoredInterfaceMethods.Contains meth.CompiledName
+        || (match meth.DeclaringEntity with
+            | Some ent -> isImportedOrErasedEntity ent
+            | None -> false)
 
 let private transformConstructor com ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
@@ -541,30 +550,27 @@ let private transformImport typ name isPublic selector path =
         { Name = name
           IsPublic = isPublic
           // TODO!!!: compile imports as ValueDeclarations
-          // (check if they're mutable, see Zaid's issue)
+          // (check if they're mutable, see #1314)
           IsMutable = false
           HasSpread = false }
     let selector = if selector = Naming.placeholder then name else selector
     let fableValue = Fable.Import(selector, path, Fable.CustomImport, typ)
     [Fable.ValueDeclaration(fableValue, info)]
 
-let private transformMemberValue com ctx (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
-    let fableValue = transformExpr com ctx value
-    let name = getMemberDeclarationName com memb
-    com.AddUsedVarName(name)
-    match fableValue with
+let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
+    match transformExpr com ctx value with
     // Accept import expressions, e.g. let foo = import "foo" "myLib"
     | Fable.Import(selector, path, Fable.CustomImport, typ) ->
-        transformImport typ name (isPublicMember memb) selector path
+        transformImport typ name isPublic selector path
     | fableValue ->
         let info: Fable.ValueDeclarationInfo =
             { Name = name
-              IsPublic = isPublicMember memb
+              IsPublic = isPublic
               IsMutable = memb.IsMutable
               HasSpread = false }
         [Fable.ValueDeclaration(fableValue, info)]
 
-let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
     let body =
         match memb.IsConstructor, memb.DeclaringEntity with
@@ -572,20 +578,33 @@ let private transformMemberFunction com ctx (memb: FSharpMemberOrFunctionOrValue
             let bodyCtx = { bodyCtx with ConstructorEntityFullName = ent.TryFullName  }
             transformExpr com bodyCtx body
         | _ -> transformExpr com bodyCtx body
-    let name = getMemberDeclarationName com memb
-    com.AddUsedVarName(name)
-    match isModuleMember memb, body with
+    match body with
     // Accept import expressions , e.g. let foo x y = import "foo" "myLib"
-    | true, Fable.Import(selector, path, Fable.CustomImport, typ) ->
-        transformImport typ name (isPublicMember memb) selector path
-    | _, body ->
+    | Fable.Import(selector, path, Fable.CustomImport, _) ->
+        // Use the full function type
+        let typ = makeType com Map.empty memb.FullType
+        transformImport typ name isPublic selector path
+    | body ->
         let info: Fable.ValueDeclarationInfo =
             { Name = name
-              IsPublic = isPublicMember memb
+              IsPublic = isPublic
               IsMutable = false
               HasSpread = hasSeqSpread memb }
         let fn = Fable.Function(Fable.Delegate args, body, Some name)
         [Fable.ValueDeclaration(fn, info)]
+
+let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+    let isPublic = isPublicMember memb
+    let name = getMemberDeclarationName com memb
+    com.AddUsedVarName(name)
+    match tryImportAttribute memb.Attributes with
+    | Some(selector, path) ->
+        let typ = makeType com Map.empty memb.FullType
+        transformImport typ name isPublic selector path
+    | None ->
+        if isModuleValueForDeclarations memb
+        then transformMemberValue com ctx isPublic name memb body
+        else transformMemberFunction com ctx isPublic name memb args body
 
 let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
@@ -642,20 +661,23 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     then transformInterfaceImplementation com ctx memb args body
     elif memb.IsOverrideOrExplicitInterfaceImplementation
     then transformOverride com ctx memb args body
-    elif isModuleValueForDeclarations memb
-    then transformMemberValue com ctx memb body
-    else transformMemberFunction com ctx memb args body
+    else transformMemberFunctionOrValue com ctx memb args body
 
 let private transformDeclarations (com: FableCompiler) fsDecls =
     let rec transformDeclarationsInner com (ctx: Context) fsDecls =
         fsDecls |> List.collect (fun fsDecl ->
             match fsDecl with
-            | FSharpImplementationFileDeclaration.Entity(_, sub) ->
-                transformDeclarationsInner com ctx sub
+            | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
+                match tryImportAttribute ent.Attributes with
+                | Some(selector, path) ->
+                    let name = getEntityDeclarationName com ent
+                    (com :> IFableCompiler).AddUsedVarName(name)
+                    transformImport Fable.Any name (not ent.Accessibility.IsPrivate) selector path
+                | None ->
+                    transformDeclarationsInner com ctx sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
                 transformMemberDecl com ctx meth args body
             | FSharpImplementationFileDeclaration.InitAction fe ->
-                // TODO: Check if variables defined in several init actions can conflict
                 let e = transformExpr com ctx fe
                 let decl = Fable.ActionDeclaration e
                 [decl])

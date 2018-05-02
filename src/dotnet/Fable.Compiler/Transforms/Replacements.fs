@@ -89,14 +89,6 @@ module private Helpers =
             "Couldn't find any generic argument" |> addError com r
             Any)
 
-    /// This helper is intended for instance and static members in fable-core library compiled from F# (FSharpSet, FSharpMap...)
-    let getMangledName (entityName: string) isStatic memberCompiledName =
-        entityName + (Naming.getMemberMangledNameSeparator isStatic) + (Naming.sanitizeIdentForbiddenChars memberCompiledName)
-
-    let hasInterface interfaceFullname (ent: FSharpEntity) =
-        ent.AllInterfaces |> Seq.exists (fun t ->
-            t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullname)
-
 open Helpers
 
 type BuiltinType =
@@ -239,48 +231,6 @@ let makeTypeConst (typ: Type) (value: obj) =
         let values = arr |> Array.map (fun x -> NumberConstant (float x, kind) |> Value) |> Seq.toList
         NewArray (ArrayValues values, Number kind) |> Value
     | _ -> failwithf "Unexpected type %A, literal %O" typ value
-
-// TODO: We should use the TypeTest in Fable AST and resolve in last step (Fable2Babek)
-let rec makeTypeTest com range expr (typ: Type) =
-    let jsTypeof (primitiveType: string) expr =
-        let typof = makeUnOp None String expr UnaryTypeof
-        makeEqOp range typof (makeStrConst primitiveType) BinaryEqualStrict
-    let jsInstanceof (cons: Expr) expr =
-        makeBinOp range Boolean expr cons BinaryInstanceOf
-    match typ with
-    | Any -> makeBoolConst true
-    | Unit -> makeEqOp range expr (Value <| Null Any) BinaryEqual
-    | Boolean -> jsTypeof "boolean" expr
-    | Char | String _ -> jsTypeof "string" expr
-    | FunctionType _ -> jsTypeof "function" expr
-    // TODO: Check if prototype is Object?
-    | Pojo _ -> jsTypeof "object" expr
-    | Number _ | EnumType _ -> jsTypeof "number" expr
-    | Regex ->
-        jsInstanceof (makeIdentExpr "RegExp") expr
-    | Builtin (BclInt64 | BclUInt64) ->
-        jsInstanceof (makeCoreRef Any "Long" "default") expr
-    | Builtin BclBigInt ->
-        jsInstanceof (makeCoreRef Any "BigInt" "default") expr
-    | Array _ | Tuple _ | List _ ->
-        Helper.CoreCall("Util", "isArray", Boolean, [expr], ?loc=range)
-    | DeclaredType (ent, _) ->
-        match ent.TryFullName with
-        | Some Types.disposable ->
-            match expr with
-            | Cast(ExprType(DeclaredType (ent2, _)), Any) when hasInterface Types.disposable ent2 ->
-                BoolConstant true |> Value
-            | _ -> Helper.CoreCall("Util", "isDisposable", Boolean, [expr], ?loc=range)
-        // TODO!!!
-        // | Some Types.enumerable ->
-        | _ ->
-            if ent.IsClass
-            then jsInstanceof (FSharp2Fable.Util.entityRef com ent) expr
-            else "Cannot type test interfaces, records or unions"
-                 |> addErrorAndReturnNull com range
-    | Option _ | GenericParam _ | ErasedUnion _ ->
-        "Cannot type test options, generic parameters or erased unions"
-        |> addErrorAndReturnNull com range
 
 let createAtom (value: Expr) =
     let typ = value.Type
@@ -507,10 +457,10 @@ let applyOp (com: ICompiler) ctx r t opName (args: Expr list) argTypes genArgs =
     | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         Helper.CoreCall(coreModFor bt, opName, t, args, argTypes, ?loc=r)
     | Builtin(FSharpSet _)::_ ->
-        let mangledName = getMangledName "FSharpSet" true opName
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" true opName
         Helper.CoreCall("Set", mangledName, t, args, argTypes, ?loc=r)
     | Builtin (FSharpMap _)::_ ->
-        let mangledName = getMangledName "FSharpMap" true opName
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" true opName
         Helper.CoreCall("Map", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
@@ -591,7 +541,7 @@ and compare r left right =
     | ExprType(DeclaredType(ent,_)) when ent.IsFSharpRecord ->
         Helper.CoreCall("Util", "compareObjects", Number Int32, [left; right], ?loc=r)
 
-    | ExprType(DeclaredType(ent,_)) when hasInterface Types.comparable ent ->
+    | ExprType(DeclaredType(ent,_)) when FSharp2Fable.Util.hasInterface Types.comparable ent ->
         Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
 
     | _ -> Helper.CoreCall("Util", "compare", Number Int32, [left; right], ?loc=r)
@@ -1208,7 +1158,7 @@ let sets (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
     | ".ctor" -> firstGenArg com r i.GenericArgs |> makeSet r t "OfSeq" args |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
-        let mangledName = getMangledName "FSharpSet" isStatic i.CompiledName
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName
         Helper.CoreCall("Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let setModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1221,7 +1171,7 @@ let maps (com: ICompiler) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args
     | ".ctor" -> firstGenArg com r i.GenericArgs |> makeMap r t "OfSeq" args |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
-        let mangledName = getMangledName "FSharpMap" isStatic i.CompiledName
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName
         Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let mapModule (com: ICompiler) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1374,7 +1324,7 @@ let intrinsicFunctions (com: ICompiler) r t (i: CallInfo) (thisArg: Expr option)
     | "SetArraySlice", None, args ->
         Helper.CoreCall("Array", "setSlice", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "TypeTestGeneric", None, [expr] ->
-        makeTypeTest com r expr (firstGenArg com r i.GenericArgs) |> Some
+        Test(expr, TypeTest(firstGenArg com r i.GenericArgs), r) |> Some
     | "CreateInstance", None, _ ->
         None // TODO
         // let typRef, args = resolveTypeRef com i false i.memberGenArgs.Head, []

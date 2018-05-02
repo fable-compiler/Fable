@@ -110,7 +110,13 @@ module Naming =
     let umdModules =
         set ["commonjs"; "amd"; "umd"]
 
-    let isIdentChar c = System.Char.IsLetterOrDigit (c) || c = '_' || c = '$'
+    // Dollar sign is reserved by Fable as a special character
+    let isIdentChar (c: char) =
+        let code = int c
+        (48 <= code && code <= 57)      // 0-9
+        || (65 <= code && code <= 90)   // a-z
+        || (97 <= code && code <= 122)  // a-z
+        || c = '_'
 
     let hasIdentForbiddenChars (ident: string) =
         let mutable i = 0
@@ -118,8 +124,6 @@ module Naming =
         i < ident.Length
 
     let sanitizeIdentForbiddenChars (ident: string) =
-        // Replace the most common external chars in .NET types
-        let ident = ident.Replace('.', '_').Replace('`', '_')
         if hasIdentForbiddenChars ident then
             System.String.Concat(seq {
                 for c in ident ->
@@ -128,24 +132,6 @@ module Naming =
                     else sprintf "$%X$" (int c)
                 })
         else ident
-
-    let replacePattern (prefix: string) (cond: char->bool) (repl: string->string) (str: string) =
-        let rec replace (acc: string) (s: string) =
-            let i = s.IndexOf(prefix)
-            let mutable i2 = i + prefix.Length;
-            while i >= 0 && i2 < s.Length && (cond s.[i2]) do i2 <- i2 + 1
-            if i2 = i + prefix.Length then // no match
-                if acc.Length > 0 then acc + s else s
-            else // match found
-                let pattern = s.Substring(i, i2 - i)
-                replace (acc + s.Substring(0, i) + (repl pattern)) (s.Substring(i2))
-        replace "" str
-
-    let replaceGenericPlaceholder (ident: string, onMatch: string -> string) =
-        replacePattern @"\$'" isIdentChar onMatch ident
-
-    let replaceGenericArgsCount (ident: string, replacement: string) =
-        replacePattern @"`" System.Char.IsDigit (fun _ -> replacement) ident
 
     let removeGetSetPrefix (s: string) =
         if s.StartsWith("get_") || s.StartsWith("set_") then
@@ -193,17 +179,39 @@ module Naming =
             if not (conflicts name) then name else check (n+1)
         check 0
 
-    let sanitizeIdent conflicts name =
+    type MemberPart =
+        | InstanceMemberPart of string * overloadIndex: int option
+        | StaticMemberPart of string * overloadIndex: int option
+        | NoMemberPart
+
+    let private buildName sanitize name part =
+        (sanitize name) +
+            (match part with
+                | InstanceMemberPart(s, Some i) -> "$" + (sanitize s) + "$" + string i
+                | StaticMemberPart(s, Some i) -> "$$" + (sanitize s) + "$" + string i
+                | InstanceMemberPart(s, None) -> "$" + (sanitize s)
+                | StaticMemberPart(s, None) -> "$$" + (sanitize s)
+                | NoMemberPart -> "")
+
+    let buildNameWithoutSanitation name part =
+        buildName id name part
+
+    /// This helper is intended for instance and static members in fable-core library compiled from F# (FSharpSet, FSharpMap...)
+    let buildNameWithoutSanitationFrom (entityName: string) isStatic memberCompiledName =
+        (if isStatic
+            then entityName, StaticMemberPart(memberCompiledName, None)
+            else entityName, InstanceMemberPart(memberCompiledName, None))
+        ||> buildName id
+
+    let sanitizeIdent conflicts name part =
         // Replace Forbidden Chars
-        let sanitizedName = sanitizeIdentForbiddenChars name
+        let sanitizedName = buildName sanitizeIdentForbiddenChars name part
         // Check if it's a keyword or clashes with module ident pattern
-        jsKeywords.Contains sanitizedName
-        |> function true -> "_" + sanitizedName | false -> sanitizedName
+        (if jsKeywords.Contains sanitizedName
+            then "_" + sanitizedName
+            else sanitizedName)
         // Check if it already exists
         |> preventConflicts conflicts
-
-    let getMemberMangledNameSeparator isStatic =
-        if isStatic then "$$" else "$"
 
 module Path =
     open System

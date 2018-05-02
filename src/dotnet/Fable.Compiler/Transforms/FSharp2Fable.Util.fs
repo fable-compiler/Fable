@@ -75,8 +75,8 @@ module Helpers =
         | _ -> ent.CompiledName
 
     let getEntityDeclarationName (com: ICompiler) (ent: FSharpEntity) =
-        getEntityMangledName com true ent
-        |> Naming.sanitizeIdent (fun _ -> false)
+        (getEntityMangledName com true ent, Naming.NoMemberPart)
+        ||> Naming.sanitizeIdent (fun _ -> false)
 
     let getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
         match memb.ImplementationLocation with
@@ -120,35 +120,35 @@ module Helpers =
             |> fst
 
     let getCastDeclarationName com (implementingEntity: FSharpEntity) (interfaceEntity: FSharpEntity) =
-        let separator = Naming.getMemberMangledNameSeparator false
-        getEntityMangledName com true implementingEntity + separator + getEntityFullName interfaceEntity
-        |> Naming.sanitizeIdent (fun _ -> false)
+        let entityName = getEntityMangledName com true implementingEntity
+        let memberPart = Naming.StaticMemberPart(getEntityFullName interfaceEntity, None)
+        Naming.sanitizeIdent (fun _ -> false) entityName memberPart
 
     let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
         | Some ent when ent.IsFSharpModule ->
             match getEntityMangledName com trimRootModule ent with
-            | "" -> memb.CompiledName
-            | moduleName -> moduleName + "_" + memb.CompiledName
+            | "" -> memb.CompiledName, Naming.NoMemberPart
+            | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, None)
         | Some ent ->
-            let separator =
-                not memb.IsInstanceMember
-                |> Naming.getMemberMangledNameSeparator
             let overloadIndex =
                 match findOverloadIndex ent memb with
-                | 0 -> ""
-                | i -> "_" + string i
-            (getEntityMangledName com trimRootModule ent)
-                + separator + memb.CompiledName + overloadIndex
-        | None -> memb.FullName
+                | 0 -> None
+                | i -> Some i
+            let entName = getEntityMangledName com trimRootModule ent
+            if memb.IsInstanceMember
+            then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadIndex)
+            else entName, Naming.StaticMemberPart(memb.CompiledName, overloadIndex)
+        | None -> memb.FullName, Naming.NoMemberPart
 
     let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
         getMemberMangledName com true memb
-        |> Naming.sanitizeIdent (fun _ -> false)
+        ||> Naming.sanitizeIdent (fun _ -> false)
 
     /// Used to identify members uniquely in the inline expressions dictionary
-    let getMemberUniqueName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
+    let getMemberUniqueName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue): string =
         getMemberMangledName com false memb
+        ||> Naming.buildNameWithoutSanitation
 
     let tryFindAtt fullName (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
@@ -260,6 +260,14 @@ module Patterns =
 
     let (|MemberFullName|) (memb: FSharpMemberOrFunctionOrValue) =
         memb.FullName
+
+    let (|AttFullName|_|) (att: FSharpAttribute) =
+        match att.AttributeType.TryFullName with
+        | Some fullName -> Some(fullName, att)
+        | None -> None
+
+    let (|AttArguments|) (att: FSharpAttribute) =
+        att.ConstructorArguments |> Seq.map snd |> Seq.toList
 
     let (|RefType|_|) = function
         | TypeDefinition tdef as t when tdef.TryFullName = Some Types.reference -> Some t
@@ -498,7 +506,7 @@ module Identifiers =
 
     let private bindIdentPrivate (com: IFableCompiler) (ctx: Context) typ
                   (fsRef: FSharpMemberOrFunctionOrValue option) force name =
-        let sanitizedName = name |> Naming.sanitizeIdent (fun x ->
+        let sanitizedName = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun x ->
             not force && ctx.VarNames.Contains x)
         ctx.VarNames.Add sanitizedName |> ignore
         // Track all used var names in the file so they're not used for imports
@@ -626,25 +634,28 @@ module Util =
             | _ -> "EmitAttribute must receive a string argument" |> attachRange r |> failwith
         | _ -> None
 
-    /// Ignores relative imports (e.g. `[<Import("foo","./lib.js")>]`)
-    let tryImported typ (name: string) (atts: #seq<FSharpAttribute>) =
-        atts |> Seq.tryPick (fun att ->
-            match att.AttributeType.TryFullName with
-            | Some Atts.global_ ->
-                match Seq.tryHead att.ConstructorArguments with
-                | Some(_, (:? string as customName)) -> makeTypedIdent typ customName |> Fable.IdentExpr |> Some
-                | _ -> makeTypedIdent typ name |> Fable.IdentExpr |> Some
-            | Some Atts.import ->
-                match Seq.toList att.ConstructorArguments with
-                | [(_, (:? string as memb)); (_, (:? string as path))]
-                        when not(isNull memb || isNull path || path.StartsWith ".") ->
-                    Fable.Import(memb.Trim(), path.Trim(), Fable.CustomImport, typ) |> Some
-                | _ -> None
+    let tryImportAttribute (atts: #seq<FSharpAttribute>) =
+        atts |> Seq.tryPick (function
+            | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
+                Some(selector.Trim(), path.Trim())
             | _ -> None)
 
+    let tryGlobalOrAbsoluteImportExpr typ (name: string) (atts: #seq<FSharpAttribute>) =
+        atts |> Seq.tryPick (function
+            | AttFullName(Atts.global_, att) ->
+                match att with
+                | AttArguments [:? string as customName] ->
+                    makeTypedIdent typ customName |> Fable.IdentExpr |> Some
+                | _ -> makeTypedIdent typ name |> Fable.IdentExpr |> Some
+            | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)])
+                    when not(path.StartsWith ".") -> // Ignore relative imports
+                Fable.Import(selector.Trim(), path.Trim(), Fable.CustomImport, typ) |> Some
+            | _ -> None)
+
+    // TODO!!! Check also if the declaring entity is imported
     let (|Imported|_|) r typ argInfo (memb: FSharpMemberOrFunctionOrValue) =
         let importValueType = if Option.isSome argInfo then Fable.Any else typ
-        match tryImported importValueType memb.CompiledName memb.Attributes with
+        match tryGlobalOrAbsoluteImportExpr importValueType memb.CompiledName memb.Attributes with
         | Some importExpr ->
             match argInfo with
             | Some argInfo ->
@@ -694,6 +705,10 @@ module Util =
             if validArgsLen < argsLen
             then List.take validArgsLen args
             else args
+
+    let hasInterface interfaceFullname (ent: FSharpEntity) =
+        ent.AllInterfaces |> Seq.exists (fun t ->
+            t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullname)
 
     let entityRef (com: ICompiler) (ent: FSharpEntity) =
         match tryGetEntityLocation ent with

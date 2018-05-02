@@ -428,6 +428,9 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
 
     member __.ToList() = MapTree.toList tree
 
+    override this.ToString() =
+        "map [" + (this |> Seq.map (fun kv -> sprintf "(%A, %A)" kv.Key kv.Value) |> String.concat "; ") + "]"
+
     override this.GetHashCode() =
         let combineHash x y = (x <<< 1) + y + 631
         let mutable res = 0
