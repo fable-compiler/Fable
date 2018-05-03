@@ -355,8 +355,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let callee =
                 match callee with
                 | Some (Transform com ctx callee) -> callee
-                | None -> "Unexpected static FSharpFieldGet"
-                          |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
+                | None -> entityRef com calleeType.TypeDefinition
             if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
             then Fable.Get(callee, Fable.RecordGet(field, calleeType.TypeDefinition), typ, r)
             else get r typ callee field.Name
@@ -394,8 +393,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let callee =
                 match callee with
                 | Some (Transform com ctx callee) -> callee
-                | None -> "Unexpected static FSharpFieldSet"
-                          |> addErrorAndReturnNull com range
+                | None -> entityRef com calleeType.TypeDefinition
             if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
             then Fable.Set(callee, Fable.RecordSet(field, calleeType.TypeDefinition), value, range)
             else Fable.Set(callee, makeStrConst field.Name |> Fable.ExprSet, value, range)
@@ -585,13 +583,20 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
         let typ = makeType com Map.empty memb.FullType
         transformImport typ name isPublic selector path
     | body ->
-        let info: Fable.ValueDeclarationInfo =
-            { Name = name
-              IsPublic = isPublic
-              IsMutable = false
-              HasSpread = hasSeqSpread memb }
         let fn = Fable.Function(Fable.Delegate args, body, Some name)
-        [Fable.ValueDeclaration(fn, info)]
+        // If this is a static constructor, call it immediately
+        if memb.CompiledName = ".cctor"
+        then
+            let apply = staticCall None Fable.Unit (argInfo None [] None) fn
+            [Fable.ActionDeclaration apply]
+        else
+            // TODO!!! If the method has generics with constraints, force inline
+            let info: Fable.ValueDeclarationInfo =
+                { Name = name
+                  IsPublic = isPublic
+                  IsMutable = false
+                  HasSpread = hasSeqSpread memb }
+            [Fable.ValueDeclaration(fn, info)]
 
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let isPublic = isPublicMember memb
@@ -633,7 +638,7 @@ let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSh
     then transformOverride com ctx memb args body
     else
         let bodyCtx, args = bindMemberArgs com ctx args
-        let interfaceFullName = tryGetInterfaceFromMethod memb |> Option.bind (fun ent -> ent.TryFullName)
+        let interfaceFullName = tryGetInterfaceDefinitionFromMethod memb |> Option.bind (fun ent -> ent.TryFullName)
         let bodyCtx = { bodyCtx with ImplementedInterfaceFullName = interfaceFullName }
         let body = transformExpr com bodyCtx body
         let value = Fable.Function(Fable.Delegate args, body, None)
@@ -736,14 +741,14 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
         let fullName = getMemberUniqueName com memb
         com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
     member this.AddInterfaceImplementation(memb: FSharpMemberOrFunctionOrValue, objMemb: Fable.ObjectMember) =
-        match memb.DeclaringEntity, tryGetInterfaceFromMethod memb with
+        match memb.DeclaringEntity, tryGetInterfaceDefinitionFromMethod memb with
         | Some implementingEntity, Some interfaceEntity ->
-            let castFunctionName = getCastDeclarationName com implementingEntity interfaceEntity
+            let castFunctionName = getCastDeclarationName com implementingEntity interfaceEntity.FullName
             let inheritedInterfaces =
                 if interfaceEntity.AllInterfaces.Count > 1 then
                     interfaceEntity.AllInterfaces |> Seq.choose (fun t ->
                         if t.HasTypeDefinition then
-                            let fullName = getCastDeclarationName com implementingEntity t.TypeDefinition
+                            let fullName = getCastDeclarationName com implementingEntity t.TypeDefinition.FullName
                             if fullName <> castFunctionName then Some fullName else None
                         else None)
                     |> Seq.toList

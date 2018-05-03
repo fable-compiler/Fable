@@ -1197,6 +1197,9 @@ module Compiler =
     open Util
 
     let createFacade (sourceFiles: string[]) (facadeFile: string) =
+        // Remove signature files so fable-splitter doesn't try to compile them
+        // when `allFiles` option is selected
+        let sourceFiles = sourceFiles |> Array.filter (fun x -> x.EndsWith(".fsi") |> not)
         let decls =
             let importFile = Array.last sourceFiles
             StringLiteral(Path.getRelativeFileOrDirPath false facadeFile false importFile)

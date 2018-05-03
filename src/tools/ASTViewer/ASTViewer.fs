@@ -36,7 +36,7 @@ let rec printDecls prefix decls =
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
             if meth.IsValue
             then printfn "%s%i) VALUE: %s " prefix i meth.FullName
-            else printfn "%s%i) METHOD: %A " prefix i meth.FullName
+            else printfn "%s%i) METHOD: %s" prefix i meth.FullName
             // match body with
             // | BasicPatterns.Call(_,call,_,_,_) ->
             //     printfn "%s Call %s (IsDispatchSlot %b)" prefix call.FullName call.IsDispatchSlot

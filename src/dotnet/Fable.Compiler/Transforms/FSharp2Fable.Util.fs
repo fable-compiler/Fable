@@ -9,7 +9,7 @@ open Fable.AST
 open Fable.Transforms
 
 type Context =
-    { Scope: (FSharpMemberOrFunctionOrValue option * Fable.Expr) list
+    { Scope: (FSharpMemberOrFunctionOrValue * Fable.Expr) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
       /// Some expressions that create scope in F# don't do it in JS (like let bindings)
       /// so we need a mutable registry to prevent duplicated var names.
@@ -59,10 +59,16 @@ module Helpers =
         then match ent.Namespace with Some ns -> ns + "." + ent.CompiledName | None -> ent.CompiledName
         else defaultArg ent.TryFullName ent.CompiledName
 
-    // TODO: Should we check if ent.Assembly.FileName is None?
-    // Or is .ImplementationLocation enough to see if source file is being compiled?
     let tryGetEntityLocation (ent: FSharpEntity) =
-        ent.ImplementationLocation
+        // Make sure the type doesn't come from a referenced assembly
+        match ent.Assembly.FileName with
+        | None -> ent.ImplementationLocation
+        | Some _ -> None
+
+    let getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
+        match memb.ImplementationLocation with
+        | Some loc -> loc
+        | None -> memb.DeclarationLocation
 
     let private getEntityMangledName (com: ICompiler) trimRootModule (ent: FSharpEntity) =
         match ent.TryFullName, tryGetEntityLocation ent with
@@ -77,11 +83,6 @@ module Helpers =
     let getEntityDeclarationName (com: ICompiler) (ent: FSharpEntity) =
         (getEntityMangledName com true ent, Naming.NoMemberPart)
         ||> Naming.sanitizeIdent (fun _ -> false)
-
-    let getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.ImplementationLocation with
-        | Some loc -> loc
-        | None -> memb.DeclarationLocation
 
     let isUnit (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
@@ -119,9 +120,9 @@ module Helpers =
                 else i, found)
             |> fst
 
-    let getCastDeclarationName com (implementingEntity: FSharpEntity) (interfaceEntity: FSharpEntity) =
+    let getCastDeclarationName com (implementingEntity: FSharpEntity) (interfaceEntityFullName: string) =
         let entityName = getEntityMangledName com true implementingEntity
-        let memberPart = Naming.StaticMemberPart(getEntityFullName interfaceEntity, None)
+        let memberPart = Naming.StaticMemberPart(interfaceEntityFullName, None)
         Naming.sanitizeIdent (fun _ -> false) entityName memberPart
 
     let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
@@ -474,7 +475,12 @@ module TypeHelpers =
     let isAbstract (ent: FSharpEntity) =
        tryFindAtt Atts.abstractClass ent.Attributes |> Option.isSome
 
-    let tryGetInterfaceFromMethod (meth: FSharpMemberOrFunctionOrValue) =
+    let tryGetInterfaceTypeFromMethod (meth: FSharpMemberOrFunctionOrValue) =
+        if meth.ImplementedAbstractSignatures.Count > 0
+        then nonAbbreviatedType meth.ImplementedAbstractSignatures.[0].DeclaringType |> Some
+        else None
+
+    let tryGetInterfaceDefinitionFromMethod (meth: FSharpMemberOrFunctionOrValue) =
         if meth.ImplementedAbstractSignatures.Count > 0 then
             let t = nonAbbreviatedType meth.ImplementedAbstractSignatures.[0].DeclaringType
             if t.HasTypeDefinition then Some t.TypeDefinition else None
@@ -502,50 +508,34 @@ module Identifiers =
     open TypeHelpers
 
     let bindExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) expr =
-        { ctx with Scope = (Some fsRef, expr)::ctx.Scope}
+        { ctx with Scope = (fsRef, expr)::ctx.Scope}
 
-    let private bindIdentPrivate (com: IFableCompiler) (ctx: Context) typ
-                  (fsRef: FSharpMemberOrFunctionOrValue option) force name =
-        let sanitizedName = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun x ->
-            not force && ctx.VarNames.Contains x)
+    let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
+        let sanitizedName = (fsRef.CompiledName, Naming.NoMemberPart)
+                            ||> Naming.sanitizeIdent ctx.VarNames.Contains
         ctx.VarNames.Add sanitizedName |> ignore
         // Track all used var names in the file so they're not used for imports
         com.AddUsedVarName sanitizedName
-        let ident: Fable.Ident =
-            match fsRef with
-            | None -> makeTypedIdent typ sanitizedName
-            | Some v ->
-                { Name = sanitizedName
-                  Type = typ
-                  IsMutable = v.IsMutable
-                  IsThisArg = v.IsMemberThisValue
-                  IsCompilerGenerated = v.IsCompilerGenerated
-                  Range = makeRange v.DeclarationLocation |> Some }
-        let identValue = Fable.IdentExpr ident
-        { ctx with Scope = (fsRef, identValue)::ctx.Scope}, ident
-
-    let bindIdentWithExactName com ctx typ name =
-        bindIdentPrivate com ctx typ None true name
+        { Name = sanitizedName
+          Type = makeType com ctx.GenericArgs fsRef.FullType
+          IsMutable = fsRef.IsMutable
+          IsThisArg = fsRef.IsMemberThisValue
+          IsCompilerGenerated = fsRef.IsCompilerGenerated
+          Range = makeRange fsRef.DeclarationLocation |> Some }
 
     /// Sanitize F# identifier and create new context
     let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
-        let typ = makeType com ctx.GenericArgs fsRef.FullType
-        bindIdentPrivate com ctx typ (Some fsRef) false fsRef.CompiledName
-
-    let bindIdentWithTentativeName com ctx (fsRef: FSharpMemberOrFunctionOrValue) tentativeName: Context*Fable.Ident =
-        let typ = makeType com ctx.GenericArgs fsRef.FullType
-        bindIdentPrivate com ctx typ (Some fsRef) false tentativeName
+        let ident = makeIdentFrom com ctx fsRef
+        bindExpr ctx fsRef (Fable.IdentExpr ident), ident
 
     let (|BindIdent|) com ctx fsRef = bindIdentFrom com ctx fsRef
 
     /// Get corresponding identifier to F# value in current scope
     let tryGetBoundExpr (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
-        ctx.Scope
-        |> List.tryFind (fst >> function Some fsRef' -> obj.Equals(fsRef, fsRef') | None -> false)
-        |> function
-            | Some(_, Fable.IdentExpr ident) -> { ident with Range = r } |> Fable.IdentExpr |> Some
-            | Some(_, boundExpr) -> Some boundExpr
-            | None -> None
+        match List.tryFind (fun (fsRef',_)  -> obj.Equals(fsRef, fsRef')) ctx.Scope with
+        | Some(_, Fable.IdentExpr ident) -> { ident with Range = r } |> Fable.IdentExpr |> Some
+        | Some(_, boundExpr) -> Some boundExpr
+        | None -> None
 
 module Util =
     open Helpers
@@ -592,7 +582,15 @@ module Util =
             |> Seq.map (fun x -> x.Name)
         Seq.zip genParams genArgs
 
-    let callInstanceMember r typ callee (argInfo: Fable.ArgInfo) (memb: FSharpMemberOrFunctionOrValue) =
+    let callInstanceMember r typ (callee: Fable.Expr) (argInfo: Fable.ArgInfo)
+            (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
+        let callee =
+            // Sometimes an interface method can be called without casting. Example:
+            // `let foo (x: 'T when 'T :> IDisposable) = x.Dispose()`
+            match callee.Type with
+            | Fable.DeclaredType(original, _) when entity.IsInterface && not original.IsInterface ->
+                Fable.Cast(callee, Fable.DeclaredType(entity, []))
+            | _ -> callee
         // TODO: Latest FCS seem to add get_/set_ to DisplayName. Bug?
         let name = Naming.removeGetSetPrefix memb.DisplayName
         match argInfo.Args with
@@ -600,7 +598,9 @@ module Util =
             get r typ callee name
         | [arg] when memb.IsPropertySetterMethod ->
             Fable.Set(callee, makeStrConst name |> Fable.ExprSet, arg, r)
-        | _ -> makeStrConst name |> Some |> instanceCall r typ argInfo
+        | _ ->
+            let argInfo = { argInfo with ThisArg = Some callee }
+            makeStrConst name |> Some |> instanceCall r typ argInfo
 
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes genArgs (argInfo: Fable.ArgInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
@@ -620,7 +620,7 @@ module Util =
             | None ->
                 match entity, argInfo.ThisArg with
                 | Some entity, Some callee when entity.IsInterface ->
-                    callInstanceMember r typ callee argInfo memb |> Some
+                    callInstanceMember r typ callee argInfo entity memb |> Some
                 | _ -> sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
                        |> addErrorAndReturnNull com r |> Some
         | _ -> None
@@ -674,12 +674,14 @@ module Util =
     let inlineExpr (com: IFableCompiler) ctx genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
         // TODO: Log error if the inline function is called recursively
         let argIdents, fsExpr = com.GetInlineExpr(memb)
-        let args = match callee with Some c -> c::args | None -> args
+        let args: Fable.Expr list = match callee with Some c -> c::args | None -> args
         let ctx, bindings =
             ((ctx, []), argIdents, args) |||> List.fold2 (fun (ctx, bindings) argId arg ->
-                let ctx, ident = bindIdentFrom com ctx argId
-                // Mark ident as compiler-generated so it can be optimized
-                let ident = { ident with IsCompilerGenerated = true }
+                // Change type and mark ident as compiler-generated so it can be optimized
+                let ident = { makeIdentFrom com ctx argId with
+                                Type = arg.Type
+                                IsCompilerGenerated = true }
+                let ctx = bindExpr ctx argId (Fable.IdentExpr ident)
                 ctx, (ident, arg)::bindings)
         let ctx = { ctx with GenericArgs = matchGenericParams memb genArgs |> Map }
         (com.Transform(ctx, fsExpr), bindings)
@@ -709,6 +711,22 @@ module Util =
     let hasInterface interfaceFullname (ent: FSharpEntity) =
         ent.AllInterfaces |> Seq.exists (fun t ->
             t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullname)
+
+    let callInterfaceCast com t (sourceEntity: FSharpEntity) interfaceFullName expr =
+        if sourceEntity.IsInterface
+        then expr
+        else
+            // TODO!!!: Check if the type actually implements the interface or whether
+            // it's implemented by a parent type
+            match tryGetEntityLocation sourceEntity with
+            | Some entLoc ->
+                let file = Path.normalizePath entLoc.FileName
+                let funcName = getCastDeclarationName com sourceEntity interfaceFullName
+                if file = com.CurrentFile
+                then makeIdent funcName |> Fable.IdentExpr
+                else Fable.Import(funcName, file, Fable.Internal, Fable.Any)
+                |> staticCall None t (argInfo None [expr] None)
+            | None -> expr
 
     let entityRef (com: ICompiler) (ent: FSharpEntity) =
         match tryGetEntityLocation ent with
@@ -765,7 +783,7 @@ module Util =
                 || memb.IsOverrideOrExplicitInterfaceImplementation
                 || memb.IsDispatchSlot ->
             match callee with
-            | Some callee -> callInstanceMember r typ callee argInfo memb
+            | Some callee -> callInstanceMember r typ callee argInfo entity memb
             | None -> "Unexpected static interface/override call" |> attachRange r |> failwith
         | _ ->
             if isModuleValueForCalls memb

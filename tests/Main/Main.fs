@@ -3,6 +3,7 @@ module Fable.Tests.Main
 let allTests =
   [| Applicative.tests
      Arithmetic.tests
+     Async.tests
      Arrays.tests
      Char.tests
      Comparison.tests
@@ -26,7 +27,7 @@ let run () =
     for (name, tests) in allTests do
         describe name (fun () ->
             for (msg, test) in tests do
-                it msg test)
+                it msg (unbox test))
 run()
 
 #else

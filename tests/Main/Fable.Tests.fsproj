@@ -10,19 +10,19 @@
     <Reference Include="Fable.Core" HintPath="../../build/fable/Fable.Core.dll" />
     <ProjectReference Include="..\DllRef\Fable.Tests.DllRef.fsproj" />
     <ProjectReference Include="..\..\tests_external\Fable.Tests.External.fsproj" />
-    <!-- <ProjectReference Include="..\Project With Spaces\Fable.Tests.Spaces.fsproj" /> -->
+    <ProjectReference Include="..\Project With Spaces\Fable.Tests.Spaces.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- <Compile Include="Util/b.fs" />
-    <Compile Include="Util/Aether.fs" /> -->
+    <Compile Include="Util/b.fs" />
+    <Compile Include="Util/Aether.fs" />
     <Compile Include="Util/Util.fs" />
-    <!-- <Compile Include="Util/Util2.fs" />
+    <Compile Include="Util/Util2.fs" />
     <Compile Include="Util/Util3.fs" />
-    <Compile Include="../../tests_external/Util3.fs" /> -->
+    <Compile Include="../../tests_external/Util3.fs" />
     <Compile Include="ApplicativeTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
-    <!-- <Compile Include="AsyncTests.fs" /> -->
+    <Compile Include="AsyncTests.fs" />
     <Compile Include="CharTests.fs" />
     <Compile Include="ComparisonTests.fs" />
     <!-- <Compile Include="ConvertTests.fs" />

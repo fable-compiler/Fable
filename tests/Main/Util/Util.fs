@@ -4,10 +4,12 @@ open System
 
 module Testing =
     #if FABLE_COMPILER
+    open Fable.Core
     open Fable.Core.Testing
 
-    let testList name (tests: _ seq) = name, tests
-    let testCase msg test = msg, test
+    let testList (name: string) (tests: (string * obj) seq) = name, tests
+    let testCase (msg: string) (test: unit->unit) = msg, box test
+    let testCaseAsync (msg: string) (test: unit->Async<unit>) = msg, box(fun () -> test () |> Async.StartAsPromise)
 
     let equal expected actual: unit =
         Assert.AreEqual(actual, expected)
@@ -16,6 +18,7 @@ module Testing =
 
     let testList name tests = testList name tests
     let testCase msg test = testCase msg test
+    let testCaseAsync msg test = testCaseAsync msg (test ())
 
     let equal expected actual: unit =
         Expect.equal actual expected ""

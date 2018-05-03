@@ -8,14 +8,12 @@
             "name": ".NET Core Launch (console)",
             "type": "coreclr",
             "request": "launch",
-            // "program": "${workspaceRoot}/src/dotnet/Fable.Tools/bin/Debug/netcoreapp1.1/dotnet-fable.dll",
-            // "args": ["start"],
-            // "args": ["debug", "src/dotnet/Fable.Client.Browser/Fable.Client.Browser.fsproj"],
-            "program": "${workspaceRoot}/build/fable/dotnet-fable.dll",
-            "args": ["debug", "src/tools/QuickTest.fsx"],
-            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "build",
+            "program": "${workspaceRoot}/src/dotnet/Fable.Compiler/bin/Debug/netcoreapp2.0/Fable.Compiler.dll",
+            "args": ["yarn-splitter", "--fable-core", "../../../build/fable-core"],
+            "cwd": "${workspaceRoot}/src/tools/",
             "stopAtEntry": true,
-            "externalConsole": false
+            "console": "internalConsole"
         },
         {
             "name": ".NET Core Attach",

@@ -343,6 +343,8 @@ module private Transforms =
                    Replacements.uncurryExpr t arity expr
         | None, _ -> expr
 
+    // TODO: Move this to FSharp2Fable pass and just leave some
+    // special cases for latter optimization (pojo and list to seq)?
     let resolveCasts_required (com: ICompiler) = function
         | Cast(e, t) ->
             match t with
@@ -352,22 +354,9 @@ module private Transforms =
                 uncurryExpr (Some(argTypes, returnType)) e
             | DeclaredType(interfaceEntity, _) when interfaceEntity.IsInterface ->
                 match interfaceEntity.TryFullName, e.Type with
-                // CompareTo method is attached to prototype
-                | Some Types.comparable, _ -> e
                 | Some(Patterns.Try (Replacements.tryReplaceInterface t e) casted), _ -> casted
-                | _, (DeclaredType(ent,_) as exprTyp) when not ent.IsInterface ->
-                    // TODO!!!: Check if the type actually implements the interface or whether
-                    // it's implemented by a parent type
-                    match FSharp2Fable.Helpers.tryGetEntityLocation ent with
-                    | Some entLoc ->
-                        let file = Path.normalizePath entLoc.FileName
-                        let funcName = FSharp2Fable.Helpers.getCastDeclarationName com ent interfaceEntity
-                        let info = argInfo None [e] (Some [exprTyp])
-                        if file = com.CurrentFile
-                        then makeIdent funcName |> IdentExpr
-                        else Import(funcName, file, Internal, Any)
-                        |> staticCall None t info
-                    | None -> e
+                | Some interfaceFullName, (DeclaredType(sourceEntity,_)) ->
+                    FSharp2Fable.Util.callInterfaceCast com t sourceEntity interfaceFullName e
                 | _ -> e
             | _ -> e
         | e -> e
