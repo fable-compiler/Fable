@@ -103,27 +103,41 @@ module Naming =
     let umdModules =
         set ["commonjs"; "amd"; "umd"]
 
-    let isIdentChar c = System.Char.IsLetterOrDigit (c) || c = '_'
+    // Dollar sign is reserved by Fable as a special character
+    // to encode other characters, unique var names and as a separator
+    let isIdentChar i (c: char) =
+        let code = int c
+        c = '_'
+        || (65 <= code && code <= 90)   // a-z
+        || (97 <= code && code <= 122)  // A-Z
+        // Digits are not allowed in first position, see #1397
+        || (i > 0 && 48 <= code && code <= 57) // 0-9
 
     let hasIdentForbiddenChars (ident: string) =
         let mutable i = 0
-        while i < ident.Length && (isIdentChar ident.[i]) do i <- i + 1
+        while i < ident.Length && (isIdentChar i ident.[i]) do i <- i + 1
         i < ident.Length
 
     let replaceIdentForbiddenChars (ident: string) =
         System.String.Concat(seq {
-            for c in ident ->
-                if isIdentChar c then string c
-                else sprintf "$%X$" (int c)
+            for i = 0 to (ident.Length - 1) do
+                let c = ident.[i]
+                if isIdentChar i c
+                then yield string c
+                else yield sprintf "$%X$" (int c)
             })
 
     let sanitizeIdentForbiddenChars (ident: string) =
         System.String(
-           [| for c in ident -> if isIdentChar c then c else '_' |] )
+           [| for i = 0 to (ident.Length - 1) do
+                let c = ident.[i]
+                if isIdentChar i c
+                then yield c else
+                yield '_' |] )
 
     let hasGenericPlaceholder (ident: string) =
         let i = ident.IndexOf(@"\$'")
-        i >= 0 && i + 2 < ident.Length && (isIdentChar ident.[i + 2])
+        i >= 0 && i + 2 < ident.Length && (isIdentChar (i + 2) ident.[i + 2])
 
     let replacePattern (prefix: string) (cond: char->bool) (repl: string->string) (str: string) =
         let rec replace (acc: string) (s: string) =
@@ -138,7 +152,7 @@ module Naming =
         replace "" str
 
     let replaceGenericPlaceholder (ident: string, onMatch: string -> string) =
-        replacePattern @"\$'" isIdentChar onMatch ident
+        replacePattern @"\$'" (isIdentChar 1) onMatch ident
 
     let replaceGenericArgsCount (ident: string, replacement: string) =
         replacePattern @"`" System.Char.IsDigit (fun _ -> replacement) ident

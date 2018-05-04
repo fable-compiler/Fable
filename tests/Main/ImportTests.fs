@@ -10,13 +10,13 @@ type IFooImported =
     abstract foo: string
 
 #if FABLE_COMPILER
-[<Fable.Core.Import("*", "./js/foo.js")>]
+[<Fable.Core.Import("*", "./js/1foo.js")>]
 let fooAll: IFooImported = failwith "JS only"
 
 [<Test>]
 let ``Import with relative paths works``() =
     fooAll.foo |> equal "foo"
-    let fooAll2: IFooImported = Fable.Core.JsInterop.importAll "./js/foo.js"
+    let fooAll2: IFooImported = Fable.Core.JsInterop.importAll "./js/1foo.js"
     fooAll2.foo |> equal "foo"
 
 [<Test>]
@@ -99,7 +99,7 @@ let ``Identifiers are encoded correctly``() = // See #482
 #if FABLE_COMPILER
 open Fable.Core
 
-[<Import("MyClass", "./js/foo.js")>]
+[<Import("MyClass", "./js/1foo.js")>]
 type MyClass() =
     new (v: string) = MyClass()
     member x.value: string = jsNative
@@ -130,7 +130,7 @@ type FooOptional =
 
 [<Test>]
 let ``Only omitted optional arguments are removed``() = // See #231, #640
-    let x: FooOptional = Fable.Core.JsInterop.import "fooOptional" "./js/foo.js"
+    let x: FooOptional = Fable.Core.JsInterop.import "fooOptional" "./js/1foo.js"
     x.Foo1(5) |> equal 1
     x.Foo1(5, "3") |> equal 2
     x.Foo2(5, None) |> equal 2
@@ -139,12 +139,12 @@ let ``Only omitted optional arguments are removed``() = // See #231, #640
     x.Foo2(5,Some "3") |> equal 2
     x.Foo3(5, "3") |> equal 2
 
-let square : int -> int = JsInterop.importMember "./js/foo.js"
+let square : int -> int = JsInterop.importMember "./js/1foo.js"
 [<Test>]
 let ``Importing curried functions via `importMember` without naming arguments works`` () = // See #1185
     square 2 |> equal 4
 
-let add : int -> int -> int = JsInterop.importMember "./js/foo.js"
+let add : int -> int -> int = JsInterop.importMember "./js/1foo.js"
 [<Test>]
 let ``Importing curried functions with multiple arguments via `importMember` without naming arguments works`` () =
     add 40 2 |> equal 42
