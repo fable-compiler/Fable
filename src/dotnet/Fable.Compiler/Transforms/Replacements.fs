@@ -95,6 +95,7 @@ type BuiltinType =
     | BclTimeSpan
     | BclDateTime
     | BclDateTimeOffset
+    | BclTimer
     | BclInt64
     | BclUInt64
     | BclBigInt
@@ -110,6 +111,7 @@ let (|Builtin|_|) = function
         | Some Types.timespan, _ -> Some BclTimeSpan
         | Some Types.datetime, _ -> Some BclDateTime
         | Some Types.datetimeOffset, _ -> Some BclDateTimeOffset
+        | Some "System.Timers.Timer", _ -> Some BclTimer
         | Some "System.Int64", _ -> Some BclInt64
         | Some "System.UInt64", _ -> Some BclUInt64
         | Some (Naming.StartsWith "Microsoft.FSharp.Core.int64" _), _ -> Some BclInt64
@@ -164,6 +166,7 @@ let coreModFor = function
     | BclGuid -> "String"
     | BclDateTime -> "Date"
     | BclDateTimeOffset -> "DateOffset"
+    | BclTimer -> "Timer"
     | BclInt64 -> "Long"
     | BclUInt64 -> "Long"
     | BclBigInt -> "BigInt"
@@ -1613,15 +1616,12 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
         then "Date" else "DateOffset"
     match i.CompiledName with
     | ".ctor" ->
-        match i.SignatureArgTypes with
+        match args with
         | [] -> Helper.CoreCall(moduleName, "minValue", t, [], [], ?loc=r) |> Some
-        | (Number _)::_ ->
-            match args with
-            | ticks::rest ->
-                let ms = Helper.CoreCall("Long","ticksToUnixEpochMilliseconds", t, [ticks], [i.SignatureArgTypes.Head])
-                Helper.CoreCall(moduleName, "default", t, (ms::rest), t::i.SignatureArgTypes.Tail, ?loc=r) |> Some
-            | _ -> None
-        | (DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
+        | (ExprType(Builtin BclInt64) as ticks)::rest ->
+            let ms = Helper.CoreCall("Long","ticksToUnixEpochMilliseconds", t, [ticks], [i.SignatureArgTypes.Head])
+            Helper.CoreCall(moduleName, "default", t, (ms::rest), t::i.SignatureArgTypes.Tail, ?loc=r) |> Some
+        | ExprType(DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
             Helper.CoreCall("DateOffset", "fromDate", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
             let last = List.last args
@@ -1634,10 +1634,10 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
                 Helper.CoreCall(moduleName, "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToString" ->
         Helper.CoreCall("Date", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "Kind" | "Offset" ->
-        get r t thisArg.Value (Naming.lowerFirst i.CompiledName) |> Some
+    | "get_Kind" | "get_Offset" ->
+        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
     // DateTimeOffset
-    | "DateTime" | "LocalDateTime" | "UtcDateTime" as m ->
+    | "get_DateTime" | "get_LocalDateTime" | "get_UtcDateTime" as m ->
         let ms = getTime thisArg.Value
         let kind =
             if m = "LocalDateTime" then System.DateTimeKind.Local
@@ -1653,7 +1653,6 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
             then makeBinOp r t value (makeIntConst 1000) BinaryMultiply
             else value
         Helper.CoreCall("DateOffset", "default", t, [value; makeIntConst 0], [value.Type; Number Int32], ?loc=r) |> Some
-        // ccall i "DateOffset" "default" [value; makeIntConst 0] |> Some
     | "ToUnixTimeSeconds"
     | "ToUnixTimeMilliseconds" ->
         let ms = getTime thisArg.Value
@@ -1662,11 +1661,11 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
             then [makeBinOp r t ms (makeIntConst 1000) BinaryDivide]
             else [ms]
         Helper.CoreCall("Long", "fromNumber", t, args, ?loc=r) |> Some
-    // Ticks methods are moved to Long.ts so we don't have to import it to Date.ts
-    | "Ticks" | "UtcTicks" | "ToBinary" ->
+    // Ticks methods are moved to Long.ts so we don't have to import it from Date.ts
+    | "get_Ticks" | "get_UtcTicks" | "ToBinary" ->
         let ms = getTime thisArg.Value
         let offset =
-            if i.CompiledName = "UtcTicks"
+            if i.CompiledName = "get_UtcTicks"
             then makeIntConst 0
             else Helper.CoreCall("Date", "offset", Number Float64, [thisArg.Value], [thisArg.Value.Type])
         Helper.CoreCall("Long", "unixEpochMillisecondsToTicks",
@@ -1674,19 +1673,30 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
     | "AddTicks" ->
         match thisArg, args with
         | Some c, [ticks] ->
-            // TODO: this line in old Replacement.fs is div, but in Long.js there only exists op_Division, should we upgrade the fable-core?
             let ms = Helper.CoreCall("Long", "op_Division", i.SignatureArgTypes.Head, [ticks; makeIntConst 10000], [ticks.Type; Number Int32])
             let ms = Helper.CoreCall("Long", "toNumber", Number Float64, [ms], [ms.Type])
             Helper.CoreCall(moduleName, "addMilliseconds", Number Float64, [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
         | _ -> None
-    | _ -> None
+    | meth ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        Helper.CoreCall(moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let timeSpans (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
     | ".ctor" -> Helper.CoreCall("TimeSpan", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "FromMilliseconds" -> args.Head |> Some
-    | "TotalMilliseconds" -> thisArg.Value |> Some
+    | "get_TotalMilliseconds" -> thisArg.Value |> Some
+    | meth ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        Helper.CoreCall("TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+
+let timers (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | ".ctor", _, _ -> Helper.CoreCall("Timer", "default", t, args, i.SignatureArgTypes, isConstructor=true, ?loc=r) |> Some
+    | Naming.StartsWith "get_" meth, Some x, _ -> get r t x meth |> Some
+    | Naming.StartsWith "set_" meth, Some x, [value] -> Set(x, ExprSet(makeStrConst meth), value, r) |> Some
+    | meth, Some x, args -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let systemEnv (_: ICompiler) (_: Context) (_: SourceLocation option) (_: Type) (i: CallInfo) (_: Expr option) (_: Expr list) =
@@ -1769,7 +1779,9 @@ let regex com (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr 
     // MatchCollection & GroupCollection
     | "Item" -> getExpr r t thisArg.Value args.Head |> Some
     | "Count" -> propStr "length" thisArg.Value |> Some
-    | _ -> None
+    | meth ->
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        Helper.CoreCall("RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let enumerables (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
     match thisArg, i.CompiledName with
@@ -1950,13 +1962,13 @@ let partialApply t arity (fn: Expr) (args: Expr list) =
     let args = NewArray(ArrayValues args, Any) |> Value
     Helper.CoreCall("Util", "partialApply", t, [makeIntConst arity; fn; args])
 
-let tryReplaceInterface t e interfaceName =
-    match interfaceName with
+let tryReplaceInterface t (e: Expr) interfaceName =
+    match interfaceName, e.Type with
     // CompareTo method is attached to prototype
-    | Types.comparable -> Some e
-    | Types.enumerable -> toSeq t e |> Some
-    | Types.idictionary -> Some e // TODO: Check source is dictionary
-    | Types.iset -> Some e        // TODO: Check source is hashset
+    | Types.comparable, _ -> Some e
+    | Types.enumerable, _ -> toSeq t e |> Some
+    // These types in fable-core (or native JS) have methods attached to prototype
+    | _, Builtin(BclTimeSpan | BclTimer | BclHashSet _ | BclDictionary _) -> Some e
     | _ -> None
 
 let tryField returnTyp ownerTyp fieldName =
@@ -2023,6 +2035,7 @@ let private replacedModules =
     Types.datetime, dates
     Types.datetimeOffset, dates
     Types.timespan, timeSpans
+    "System.Timers.Timer", timers
     "System.Environment", systemEnv
     "System.Globalization.CultureInfo", globalization
     "System.Random", random

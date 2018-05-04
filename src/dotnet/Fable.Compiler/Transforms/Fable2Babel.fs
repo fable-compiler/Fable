@@ -626,9 +626,13 @@ module Util =
 
     let transformSwitch (com: IBabelCompiler) ctx returnStrategy evalExpr cases defaultCase: Statement =
         let cases =
-            cases |> List.map (fun (guard, expr) ->
-                let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-                SwitchCase(caseBody, com.TransformAsExpr(ctx, guard)))
+            cases |> List.choose (fun (guard, expr) ->
+                // Remove empty branches
+                match returnStrategy, expr with
+                | None, Fable.Value Fable.UnitConstant -> None
+                | _ ->
+                    let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
+                    SwitchCase(caseBody, com.TransformAsExpr(ctx, guard)) |> Some)
         let cases =
             match defaultCase with
             | Some expr ->

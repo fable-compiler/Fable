@@ -1,5 +1,5 @@
 import Long, { fromNumber, op_Division, op_Multiply, toNumber } from "./Long";
-import { compare as utilCompare } from "./Util";
+import { comparePrimitives } from "./Util";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
 
@@ -91,13 +91,8 @@ export function subtract(ts1: number, ts2: number) {
   return ts1 as number - ts2 as number;
 }
 
-export function compare(x: number, y: number) {
-  return utilCompare(x, y);
-}
-
-export function compareTo(x: number, y: number) {
-  return utilCompare(x, y);
-}
+export const compare = comparePrimitives;
+export const compareTo = comparePrimitives;
 
 export function duration(x: number) {
   return Math.abs(x as number);

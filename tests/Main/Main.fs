@@ -1,4 +1,6 @@
 module Fable.Tests.Main
+open Expecto.Logging
+open System
 
 let allTests =
   [| Applicative.tests
@@ -7,6 +9,8 @@ let allTests =
      Arrays.tests
      Char.tests
      Comparison.tests
+     DateTime.tests
+     DateTimeOffset.tests
      Dictionaries.tests
      HashSets.tests
      Lists.tests
