@@ -792,8 +792,10 @@ module Types =
         | "System.Collections.Generic.List`1" ->
             let t = Seq.tryHead genArgs |> Option.map (makeType com typeArgs)
             Fable.Array(defaultArg t Fable.Any)
-        | NumberKind kind -> Fable.Number kind
+        // ExtendedNumberKind must come first so `StartsWith "Microsoft.FSharp.Core.int"`
+        // pattern doesn't prevent matching `StartsWith "Microsoft.FSharp.Core.int64"` #1395
         | ExtendedNumberKind kind -> Fable.ExtendedNumber kind
+        | NumberKind kind -> Fable.Number kind
         | _ ->
             // Check erased types
             tdef.Attributes

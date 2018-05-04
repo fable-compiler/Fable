@@ -158,7 +158,7 @@ let makeTypeConst (typ: Type) (value: obj) =
         | Array (Number kind), (:? (uint16[]) as arr) ->
             let values = arr |> Array.map (fun x -> NumberConst (float x, kind) |> Value) |> Seq.toList
             ArrayConst (ArrayValues values, Number kind)
-        | _ -> failwithf "Unexpected type %A, literal %O" typ value
+        | _ -> failwithf "Unexpected type %A for literal %O (%s)" typ value (value.GetType().FullName)
         |> Value
 
 let makeGet range typ callee propExpr =
