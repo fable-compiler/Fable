@@ -122,6 +122,10 @@ let ``Units of measure work``() =
     let v3 = v1 + v2
     equal 8.8<mi> v3.y
 
+[<Test>]
+let ``Units of measure work with longs``() =
+    3L<km/h> + 2L<km/h> |> equal 5L<km/h>
+
 type PointWithCounter(a: int, b: int) =
     // A variable i.
     let mutable i = 0

@@ -118,4 +118,5 @@ type Compiler(currentFile, project: Project, options) =
             then logs.[severity] <- formattedMsg::logs.[severity]
             else logs.Add(severity, [formattedMsg])
         member __.GetUniqueVar(name) =
-            id <- id + 1; "$" + (defaultArg name "var") + (string id)
+            id <- id + 1
+            Naming.getUniqueName (defaultArg name "var") id

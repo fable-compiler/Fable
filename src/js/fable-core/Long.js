@@ -391,7 +391,7 @@ export function toString($this, radix) {
             var radixLong = fromNumber(radix),
                 div = op_Division($this, radixLong),
                 rem1 = op_Subtraction(op_Multiply(div, radixLong), $this);
-            return toString(div, radix) + toString(toInt(rem1), radix);
+            return toString(div, radix) + toInt(rem1).toString(radix);
         } else
             return '-' + toString(op_UnaryNegation($this), radix);
     }
@@ -404,7 +404,7 @@ export function toString($this, radix) {
     while (true) {
         var remDiv = op_Division(rem, radixToPower),
             intval = toInt(op_Subtraction(rem, op_Multiply(remDiv, radixToPower))) >>> 0,
-            digits = toString(intval, radix);
+            digits = intval.toString(radix);
         rem = remDiv;
         if (isZero(rem))
             return digits + result;

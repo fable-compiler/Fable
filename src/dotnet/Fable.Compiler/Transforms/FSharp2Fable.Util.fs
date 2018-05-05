@@ -334,6 +334,7 @@ module Patterns =
             Some (callee, eventName, memb, typArgs, methTypArgs, args)
         | _ -> None
 
+    // TODO: Convert this to dictionary
     let (|NumberKind|_|) = function
         | "System.SByte" -> Some Int8
         | "System.Byte" -> Some UInt8
@@ -345,12 +346,12 @@ module Patterns =
         | "System.Double" -> Some Float64
         | "System.Decimal" -> Some Decimal
         // Units of measure
-        | Naming.StartsWith "Microsoft.FSharp.Core.sbyte" _ -> Some Int8
-        | Naming.StartsWith "Microsoft.FSharp.Core.int16" _ -> Some Int16
-        | Naming.StartsWith "Microsoft.FSharp.Core.int" _ -> Some Int32
-        | Naming.StartsWith "Microsoft.FSharp.Core.float32" _ -> Some Float32
-        | Naming.StartsWith "Microsoft.FSharp.Core.float" _ -> Some Float64
-        | Naming.StartsWith "Microsoft.FSharp.Core.decimal" _ -> Some Decimal
+        | "Microsoft.FSharp.Core.sbyte`1" -> Some Int8
+        | "Microsoft.FSharp.Core.int16`1" -> Some Int16
+        | "Microsoft.FSharp.Core.int`1" -> Some Int32
+        | "Microsoft.FSharp.Core.float32`1" -> Some Float32
+        | "Microsoft.FSharp.Core.float`1" -> Some Float64
+        | "Microsoft.FSharp.Core.decimal`1" -> Some Decimal
         | _ -> None
 
     let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|DiscriminatedUnion|) (NonAbbreviatedType typ: FSharpType) =

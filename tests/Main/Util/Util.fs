@@ -25,17 +25,20 @@ module Testing =
     #endif
 
 #if FABLE_COMPILER
-let foo: string = Fable.Core.JsInterop.importMember "../js/foo.js"
+let foo: string = Fable.Core.JsInterop.importMember "../js/1foo.js"
 
-[<Fable.Core.Import("foo", "../js/foo.js")>]
+[<Fable.Core.Import("foo", "../js/1foo.js")>]
 let foo2: string = failwith "JS only"
 
-let apply (f:Func<int,int,int>) (x:int) (y:int) = Fable.Core.JsInterop.importMember "../js/foo.js"
+let apply (f:Func<int,int,int>) (x:int) (y:int) = Fable.Core.JsInterop.importMember "../js/1foo.js"
 #else
 let foo = "foo"
 let foo2 = "foo"
 let apply (f:Func<int,int,int>) (x:int) (y:int) = f.Invoke(x, y)
 #endif
+
+// Idents starting with a digit doesn't cause an error
+let ``1foo`` = 5
 
 open Testing
 

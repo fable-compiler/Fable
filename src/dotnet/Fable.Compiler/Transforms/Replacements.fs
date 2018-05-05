@@ -106,6 +106,7 @@ type BuiltinType =
 
 let (|Builtin|_|) = function
     | DeclaredType(ent, genArgs) ->
+        // TODO: Convert this to dictionary
         match ent.TryFullName, genArgs with
         | Some Types.guid, _ -> Some BclGuid
         | Some Types.timespan, _ -> Some BclTimeSpan
@@ -114,7 +115,7 @@ let (|Builtin|_|) = function
         | Some "System.Timers.Timer", _ -> Some BclTimer
         | Some "System.Int64", _ -> Some BclInt64
         | Some "System.UInt64", _ -> Some BclUInt64
-        | Some (Naming.StartsWith "Microsoft.FSharp.Core.int64" _), _ -> Some BclInt64
+        | Some "Microsoft.FSharp.Core.int64`1", _ -> Some BclInt64
         | Some "System.Numerics.BigInteger", _ -> Some BclBigInt
         | Some Types.fsharpSet, [t] -> Some(FSharpSet(t))
         | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
@@ -232,7 +233,7 @@ let makeTypeConst (typ: Type) (value: obj) =
     | Array (Number kind), (:? (uint16[]) as arr) ->
         let values = arr |> Array.map (fun x -> NumberConstant (float x, kind) |> Value) |> Seq.toList
         NewArray (ArrayValues values, Number kind) |> Value
-    | _ -> failwithf "Unexpected type %A, literal %O" typ value
+    | _ -> failwithf "Unexpected type %A for literal %O (%s)" typ value (value.GetType().FullName)
 
 let createAtom (value: Expr) =
     let typ = value.Type

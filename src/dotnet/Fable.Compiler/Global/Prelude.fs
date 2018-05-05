@@ -111,25 +111,28 @@ module Naming =
         set ["commonjs"; "amd"; "umd"]
 
     // Dollar sign is reserved by Fable as a special character
-    let isIdentChar (c: char) =
+    // to encode other characters, unique var names and as a separator
+    let isIdentChar index (c: char) =
         let code = int c
-        (48 <= code && code <= 57)      // 0-9
+        c = '_'
         || (65 <= code && code <= 90)   // a-z
-        || (97 <= code && code <= 122)  // a-z
-        || c = '_'
+        || (97 <= code && code <= 122)  // A-Z
+        // Digits are not allowed in first position, see #1397
+        || (index > 0 && 48 <= code && code <= 57) // 0-9
 
     let hasIdentForbiddenChars (ident: string) =
         let mutable i = 0
-        while i < ident.Length && (isIdentChar ident.[i]) do i <- i + 1
+        while i < ident.Length && (isIdentChar i ident.[i]) do i <- i + 1
         i < ident.Length
 
     let sanitizeIdentForbiddenChars (ident: string) =
         if hasIdentForbiddenChars ident then
             System.String.Concat(seq {
-                for c in ident ->
-                    if isIdentChar c
-                    then string c
-                    else sprintf "$%X$" (int c)
+                for i = 0 to (ident.Length - 1) do
+                    let c = ident.[i]
+                    if isIdentChar i c
+                    then yield string c
+                    else yield "$" + System.String.Format("{0:X}", int c).PadLeft(4, '0')
                 })
         else ident
 
@@ -173,9 +176,12 @@ module Naming =
             "arguments"; "fetch"; "eval"; "window"; "console"; "global"
         ]
 
+    // A dollar sign is used to prefix chars encoded in hexadecimal
+    // so use two as separator to prevent conflicts
+    // (see also `getUniqueName` and `buildName` below)
     let preventConflicts conflicts name =
         let rec check n =
-            let name = if n > 0 then name + "_" + (string n) else name
+            let name = if n > 0 then name + "$$" + (string n) else name
             if not (conflicts name) then name else check (n+1)
         check 0
 
@@ -184,13 +190,16 @@ module Naming =
         | StaticMemberPart of string * overloadIndex: int option
         | NoMemberPart
 
+    let getUniqueName baseName (index: int) =
+        baseName + "$$" + string index
+
     let private buildName sanitize name part =
         (sanitize name) +
             (match part with
-                | InstanceMemberPart(s, Some i) -> "$" + (sanitize s) + "$" + string i
-                | StaticMemberPart(s, Some i) -> "$$" + (sanitize s) + "$" + string i
-                | InstanceMemberPart(s, None) -> "$" + (sanitize s)
-                | StaticMemberPart(s, None) -> "$$" + (sanitize s)
+                | InstanceMemberPart(s, Some i) -> "$$" + (sanitize s) + "$$" + string i
+                | StaticMemberPart(s, Some i) -> "$$$" + (sanitize s) + "$$" + string i
+                | InstanceMemberPart(s, None) -> "$$" + (sanitize s)
+                | StaticMemberPart(s, None) -> "$$$" + (sanitize s)
                 | NoMemberPart -> "")
 
     let buildNameWithoutSanitation name part =
@@ -208,7 +217,7 @@ module Naming =
         let sanitizedName = buildName sanitizeIdentForbiddenChars name part
         // Check if it's a keyword or clashes with module ident pattern
         (if jsKeywords.Contains sanitizedName
-            then "_" + sanitizedName
+            then sanitizedName + "$"
             else sanitizedName)
         // Check if it already exists
         |> preventConflicts conflicts
