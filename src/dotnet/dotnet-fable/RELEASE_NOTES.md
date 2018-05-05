@@ -1,3 +1,8 @@
+### 1.3.16
+
+* Fix #1395: Units of measure with long integers
+* Fix #1397: import modules beginning with a number
+
 ### 1.3.15
 
 * Allow unit for generic parameters decorated with Pojo attribute
