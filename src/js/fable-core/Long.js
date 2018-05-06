@@ -251,7 +251,7 @@ export function fromString(str, unsigned, radix) {
  * @returns {!Long}
  * @inner
  */
-function fromValue(val, unsigned) {
+export function fromValue(val, unsigned) {
     if (typeof val === 'number')
         return fromNumber(val, unsigned);
     if (typeof val === 'string')

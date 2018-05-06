@@ -8,6 +8,7 @@ let allTests =
      Async.tests
      Arrays.tests
      Char.tests
+     Convert.tests
      Comparison.tests
      DateTime.tests
      DateTimeOffset.tests
@@ -23,6 +24,11 @@ let allTests =
 #if FABLE_COMPILER
 
 open Fable.Core
+open Fable.Core.JsInterop
+
+// Import a polyfill for atob and btoa, used by fable-core
+// but not available in node.js runtime
+importSideEffects "./js/polyfill"
 
 let [<Global>] describe (name: string) (f: unit->unit) = jsNative
 let [<Global>] it (msg: string) (f: unit->unit) = jsNative

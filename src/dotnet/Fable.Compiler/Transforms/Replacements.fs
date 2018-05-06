@@ -1225,46 +1225,89 @@ let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
     // | "map2" | "map3" -> failwith "TODO"
     | _ -> None
 
-let decimals (com: ICompiler) (_: Context) r (_: Type) (i: CallInfo) (_callee: Expr option) (args: Expr list) =
+type ParseTarget =
+    | Parse2Int
+    | Parse2Float
+
+let parse target (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    // TODO what about Single (and decimal)?
+    let isFloat, numberModule =
+        match target with
+        | Parse2Int -> false, "Int32"
+        | Parse2Float -> true, "Double"
+    match i.CompiledName with
+    | "IsNaN" when isFloat ->
+        match args with
+        | [_someNumber] -> Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
+        | _ -> None
+    // TODO verify that the number is within the Int32/Double/Single range
+    | "Parse" | "TryParse" ->
+        let hexConst = int System.Globalization.NumberStyles.HexNumber
+        match i.CompiledName, args with
+        | "Parse", [str] ->
+            Helper.CoreCall(numberModule, "parse", t,
+                [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
+                [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
+        | "Parse", [str; Value(Enum(NumberEnum hexConst', _))] ->
+            if hexConst' = hexConst then
+                Helper.CoreCall(numberModule, "parse", t,
+                    [str; (if isFloat then makeFloatConst 16.0 else makeIntConst 16)],
+                    [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
+            else None  (* Todo *)
+        // System.Double.Parse(string, IFormatProvider)
+        // just ignore the second args (IFormatProvider) and compile
+        // to System.Double.Parse(string)
+        | "Parse", [str; _ ] ->
+            Helper.CoreCall(numberModule, "parse", t,
+                [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
+                [i.SignatureArgTypes.Head; Number Float32])
+            |> Some
+        | "TryParse", [str; defValue] ->
+            Helper.CoreCall(numberModule, "tryParse", t,
+                [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10); defValue],
+                [i.SignatureArgTypes.Head; Number Float32; i.SignatureArgTypes.Tail.Head], ?loc=r) |> Some
+        | _ ->
+            sprintf "%s.%s only accepts a single argument" i.DeclaringEntityFullName i.CompiledName
+            |> addErrorAndReturnNull com r |> Some
+    | "ToString" ->
+        match args with
+        | [Value (StringConstant _) as format] ->
+            let format = emitJs r String [format] "'{0:' + $0 + '}'"
+            Helper.CoreCall("String", "format", t, [format; thisArg.Value], [format.Type; thisArg.Value.Type], ?loc=r) |> Some
+        | _ -> Helper.CoreCall("Util", "toString", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+    | _ -> None
+
+let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | ".ctor", [Value(NumberConstant(x, _))] ->
-#if FABLE_COMPILER
-        makeNumConst (float x) |> Some
-#else
         makeDecConst (decimal(x)) |> Some
-#endif
     | ".ctor", [Value(NewArray(ArrayValues arVals, _))] ->
         match arVals with
         | [ Value(NumberConstant(low, Int32))
             Value(NumberConstant(mid, Int32))
-            Value(NumberConstant(high, Int32))
+            Value(NumberConstant(high, Int32)) // TODO: Review
             Value(NumberConstant(scale, Int32)) ] ->
-#if FABLE_COMPILER
                 let x = (float ((uint64 (uint32 mid)) <<< 32 ||| (uint64 (uint32 low))))
                         / System.Math.Pow(10.0, float ((int scale) >>> 16 &&& 0xFF))
-                makeNumConst (if scale < 0.0 then -x else x) |> Some
-#else
-                makeDecConst (new decimal([| int low; int mid; int high; int scale |])) |> Some
-#endif
+                decimal(if scale < 0.0 then -x else x) |> makeDecConst |> Some
         | _ -> None
     | (".ctor" | "MakeDecimal"),
           [ Value(NumberConstant(low, Int32))
             Value(NumberConstant(mid, Int32))
-            Value(NumberConstant(high, Int32))
+            Value(NumberConstant(high, Int32)) // TODO: Review
             Value(BoolConstant isNegative)
             Value(NumberConstant(scale, UInt8)) ] ->
-#if FABLE_COMPILER
                 let x = (float ((uint64 (uint32 mid)) <<< 32 ||| (uint64 (uint32 low))))
                         / System.Math.Pow(10.0, float scale)
-                makeNumConst (if isNegative then -x else x) |> Some
-#else
-                makeDecConst (new decimal(int low, int mid, int high, isNegative, byte scale)) |> Some
-#endif
+                decimal (if isNegative then -x else x) |> makeDecConst |> Some
     | ".ctor", [IdentExpr _ as arg] ->
+        // TODO: Add this warning in other constructors?
         addWarning com r "Decimals are implemented with floats."
         Some arg
     | ("Parse" | "TryParse"), _ ->
-        None // TODO: parse com i true
+        parse Parse2Float com ctx r t i thisArg args
+// let parse isFloat (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+
     | _,_ -> None
 
 // let bigint (com: ICompiler) (_: Context) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1520,56 +1563,8 @@ let bitConvert (_: ICompiler) (_: Context) r (_: Type) (i: CallInfo) (_: Expr op
         else Naming.lowerFirst i.CompiledName
     Helper.CoreCall("BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r) |> Some
 
-let parse isFloat (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-        // TODO what about Single ?
-        let numberModule =
-            if isFloat
-            then "Double"
-            else "Int32"
-        match i.CompiledName with
-        | "IsNaN" when isFloat ->
-            match args with
-            | [_someNumber] -> Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
-            | _ -> None
-        // TODO verify that the number is within the Int32/Double/Single range
-        | "Parse" | "TryParse" ->
-            let hexConst = int System.Globalization.NumberStyles.HexNumber
-            match i.CompiledName, args with
-            | "Parse", [str] ->
-                Helper.CoreCall(numberModule, "parse", t,
-                    [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10)],
-                    [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
-            | "Parse", [str; Value(Enum(NumberEnum hexConst', _))] ->
-                if hexConst' = hexConst then
-                    Helper.CoreCall(numberModule, "parse", t,
-                        [str; (if isFloat then makeNumConst 16.0 else makeIntConst 16)],
-                        [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
-                else None  (* Todo *)
-            // System.Double.Parse(string, IFormatProvider)
-            // just ignore the second args (IFormatProvider) and compile
-            // to System.Double.Parse(string)
-            | "Parse", [str; _ ] ->
-                Helper.CoreCall(numberModule, "parse", t,
-                    [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10)],
-                    [i.SignatureArgTypes.Head; Number Float32])
-                |> Some
-            | "TryParse", [str; defValue] ->
-                Helper.CoreCall(numberModule, "tryParse", t,
-                    [str; (if isFloat then makeNumConst 10.0 else makeIntConst 10); defValue],
-                    [i.SignatureArgTypes.Head; Number Float32; i.SignatureArgTypes.Tail.Head], ?loc=r) |> Some
-            | _ ->
-                sprintf "%s.%s only accepts a single argument" i.DeclaringEntityFullName i.CompiledName
-                |> addErrorAndReturnNull com r |> Some
-        | "ToString" ->
-            match args with
-            | [Value (StringConstant _) as format] ->
-                let format = emitJs r String [format] "'{0:' + $0 + '}'"
-                Helper.CoreCall("String", "format", t, [format; thisArg.Value], [format.Type; thisArg.Value.Type], ?loc=r) |> Some
-            | _ -> Helper.CoreCall("Util", "toString", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
-        | _ -> None
-
 let convert (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let sourceType = firstGenArg com r i.GenericArgs
+    let sourceType = List.head i.SignatureArgTypes
     match i.CompiledName with
     | "ToSByte" | "ToByte"
     | "ToInt16" | "ToUInt16"
@@ -2026,9 +2021,9 @@ let private replacedModules =
     "System.Object", objects
     "System.Enum", enums
     "System.BitConverter", bitConvert
-    "System.Int32", parse false
-    "System.Single", parse true
-    "System.Double", parse true
+    "System.Int32", parse Parse2Int
+    "System.Single", parse Parse2Float
+    "System.Double", parse Parse2Float
     "System.Convert", convert
     "System.Console", console
     "System.Diagnostics.Debug", debug

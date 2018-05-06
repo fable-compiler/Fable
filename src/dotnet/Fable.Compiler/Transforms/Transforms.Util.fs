@@ -121,8 +121,8 @@ module AST =
     let makeBoolConst (x: bool) = BoolConstant x |> Value
     let makeStrConst (x: string) = StringConstant x |> Value
     let makeIntConst (x: int) = NumberConstant (float x, Int32) |> Value
-    let makeNumConst (x: float) = NumberConstant (float x, Float64) |> Value
-    let makeDecConst (x: decimal) = NumberConstant (float x, Float64) |> Value
+    let makeFloatConst (x: float) = NumberConstant (x, Float64) |> Value
+    let makeDecConst (x: decimal) = NumberConstant (float x, Decimal) |> Value
 
     let argInfo thisArg args argTypes =
         { ThisArg = thisArg
