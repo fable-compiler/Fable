@@ -13,6 +13,7 @@ let allTests =
      DateTime.tests
      DateTimeOffset.tests
      Dictionaries.tests
+     Enumerable.tests
      HashSets.tests
      Lists.tests
      Seqs.tests

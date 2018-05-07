@@ -1,5 +1,5 @@
-[<Util.Testing.TestFixture>]
 module Fable.Tests.Enumerable
+
 open System
 open System.Collections
 open System.Collections.Generic
@@ -45,27 +45,27 @@ let fib() = Seq.unfold (fun state ->
         Some (snd state, (snd state, fst state + snd state))
     else None) (1,1)
 
-[<Test>]
-let ``Enumerable class works``() =
-    let f1 = Seq.toArray (fib())
-    let f2 = Seq.toArray (Enumerator(fun () -> upcast new Fibonacci()))
-    f1 = f2 |> equal true
-
-[<Test>]
-let ``Enumerable object expr works``() =
-    let f1 = Seq.toArray (fib())
-    let f2 = Seq.toArray (toSeq fibGen)
-    f1 = f2 |> equal true
-
 let mkEnumerable someList =
     { new IEnumerable<'T> with
         member x.GetEnumerator() = (someList :> IEnumerable<_>).GetEnumerator() // <-- javascript runtime error here
       interface System.Collections.IEnumerable with
         member x.GetEnumerator() = ((someList :> IEnumerable<_>).GetEnumerator() :> System.Collections.IEnumerator) }
 
-[<Test>]
-let ``.NET Enumerator can be converted to JS iterator back and forth``() =
-    mkEnumerable [1..10]
-    |> Seq.toList
-    |> List.sum
-    |> equal 55
+let tests =
+  testList "Enumerable" [
+    testCase "Enumerable class works" <| fun () ->
+        let f1 = Seq.toArray (fib())
+        let f2 = Seq.toArray (Enumerator(fun () -> upcast new Fibonacci()))
+        f1 = f2 |> equal true
+
+    testCase "Enumerable object expr works" <| fun () ->
+        let f1 = Seq.toArray (fib())
+        let f2 = Seq.toArray (toSeq fibGen)
+        f1 = f2 |> equal true
+
+    testCase ".NET Enumerator can be converted to JS iterator back and forth" <| fun () ->
+        mkEnumerable [1..10]
+        |> Seq.toList
+        |> List.sum
+        |> equal 55
+  ]
