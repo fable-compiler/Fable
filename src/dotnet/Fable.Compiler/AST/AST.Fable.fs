@@ -86,7 +86,7 @@ type ImportKind =
     | Internal
     | CustomImport
 
-type EnumKind = NumberEnum of int | StringEnum of string
+type EnumKind = NumberEnum of Expr | StringEnum of Expr
 type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of Expr
 
 type ValueKind =

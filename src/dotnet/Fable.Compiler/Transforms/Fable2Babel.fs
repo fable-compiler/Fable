@@ -325,8 +325,8 @@ module Util =
             | None -> upcast NullLiteral ()
         | Fable.Enum(kind,_) ->
             match kind with
-            | Fable.NumberEnum i -> ofInt i
-            | Fable.StringEnum s -> upcast StringLiteral s
+            | Fable.NumberEnum x
+            | Fable.StringEnum x -> com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(vals,ent,_) ->
             let members =
                 (ent.FSharpFields, vals)

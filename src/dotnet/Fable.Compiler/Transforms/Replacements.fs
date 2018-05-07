@@ -217,12 +217,12 @@ let makeTypeConst (typ: Type) (value: obj) =
     // Enums
     | EnumType _, (:? int64)
     | EnumType _, (:? uint64) -> failwith "int64 enums are not supported"
-    | EnumType(_, name), (:? byte as x) -> Enum(NumberEnum(int x), name) |> Value
-    | EnumType(_, name), (:? sbyte as x) -> Enum(NumberEnum(int x), name) |> Value
-    | EnumType(_, name), (:? int16 as x) -> Enum(NumberEnum(int x), name) |> Value
-    | EnumType(_, name), (:? uint16 as x) -> Enum(NumberEnum(int x), name) |> Value
-    | EnumType(_, name), (:? int as x) -> Enum(NumberEnum(int x), name) |> Value
-    | EnumType(_, name), (:? uint32 as x) -> Enum(NumberEnum(int x), name) |> Value
+    | EnumType(_, name), (:? byte as x) -> Enum(NumberEnum(makeIntConst(int x)), name) |> Value
+    | EnumType(_, name), (:? sbyte as x) -> Enum(NumberEnum(makeIntConst(int x)), name) |> Value
+    | EnumType(_, name), (:? int16 as x) -> Enum(NumberEnum(makeIntConst(int x)), name) |> Value
+    | EnumType(_, name), (:? uint16 as x) -> Enum(NumberEnum(makeIntConst(int x)), name) |> Value
+    | EnumType(_, name), (:? int as x) -> Enum(NumberEnum(makeIntConst x), name) |> Value
+    | EnumType(_, name), (:? uint32 as x) -> Enum(NumberEnum(makeIntConst(int x)), name) |> Value
     // TODO: Regex
     | Unit, _ -> UnitConstant |> Value
     // Arrays with small data type (ushort, byte) are represented
@@ -610,6 +610,11 @@ let getZero = function
     // TODO: Calls to custom Zero implementation
     | _ -> makeIntConst 0
 
+let getOne (t: Type) =
+    match t with
+    // TODO: Calls to custom Zero implementation
+    | _ -> makeIntConst 1
+
 // TODO: Try to compile as literal object
 let makePojoFromLambda arg =
     // match arg with
@@ -704,7 +709,7 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         Cast(kvs, Pojo CaseRules.None) |> Some
      | "keyValueList", _ ->
         match args with
-        | [Value(Enum(NumberEnum rule, _)); keyValueList] ->
+        | [Value(Enum(NumberEnum(Value(NumberConstant(rule, _))), _)); keyValueList] ->
             let caseRule: Fable.Core.CaseRules = enum (int rule)
             Cast(keyValueList, Pojo caseRule) |> Some
         | [caseRule; keyValueList] ->
@@ -1044,7 +1049,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | args ->
             Helper.CoreCall("String", "split", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     // Rest of StringModule methods
-    | meth, None, _ ->
+    | meth, thisArg, args ->
         Helper.CoreCall("String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | _ -> None
 
@@ -1242,13 +1247,13 @@ let parse target (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         | _ -> None
     // TODO verify that the number is within the Int32/Double/Single range
     | "Parse" | "TryParse" ->
-        let hexConst = int System.Globalization.NumberStyles.HexNumber
+        let hexConst = float System.Globalization.NumberStyles.HexNumber
         match i.CompiledName, args with
         | "Parse", [str] ->
             Helper.CoreCall(numberModule, "parse", t,
                 [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
                 [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
-        | "Parse", [str; Value(Enum(NumberEnum hexConst', _))] ->
+        | "Parse", [str; Value(Enum(NumberEnum(Value(NumberConstant(hexConst', _))), _))] ->
             if hexConst' = hexConst then
                 Helper.CoreCall(numberModule, "parse", t,
                     [str; (if isFloat then makeFloatConst 16.0 else makeIntConst 16)],
@@ -1339,11 +1344,47 @@ let errorStrings = function
     | "InputMustBeNonNegativeString" -> s "The input must be non-negative" |> Some
     | _ -> None
 
-let languagePrimitives (_com: ICompiler) (_: Context) _r _t (i: CallInfo) (_thisArg: Expr option) (_args: Expr list) =
-    match i.CompiledName with
-    // TODO: Check for types with custom zero/one (strings?)
-    | "GenericZero" -> NumberConstant(0., Int32) |> Value |> Some
-    | "GenericOne" -> NumberConstant(1., Int32) |> Value |> Some
+let languagePrimitives (_: ICompiler) (_: Context) r t (i: CallInfo) (_thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, args, t with
+    | "GenericZero", _, _ -> getZero t |> Some
+    | "GenericOne", _, _ -> getOne t |> Some
+    | "EnumOfValue", [arg], EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> Value |> Some
+    // TODO!!!
+    // | "genericHash"
+    // | "genericHashIntrinsic" ->
+    //     CoreLibCall("Util", Some "hash", false, i.args)
+    //     |> makeCall i.range i.returnType |> Some
+    // | "genericComparison"
+    // | "genericComparisonIntrinsic" ->
+    //     CoreLibCall("Util", Some "compare", false, i.args)
+    //     |> makeCall i.range i.returnType |> Some
+    // | "genericLessThan"
+    // | "genericLessThanIntrinsic" ->
+    //     CoreLibCall("Util", Some "lessThan", false, i.args)
+    //     |> makeCall i.range i.returnType |> Some
+    // | "genericLessOrEqual"
+    // | "genericLessOrEqualIntrinsic" ->
+    //     CoreLibCall("Util", Some "lessOrEqual", false, i.args)
+    //     |> makeCall i.range i.returnType |> Some
+    // | "genericGreaterThan"
+    // | "genericGreaterThanIntrinsic" ->
+    //     CoreLibCall("Util", Some "greaterThan", false, i.args)
+    //     |> makeCall i.range i.returnType |> Some
+    // | "genericGreaterOrEqual"
+    // | "genericGreaterOrEqualIntrinsic" ->
+    //     CoreLibCall("Util", Some "greaterOrEqual", false, i.args)
+    //     |> makeCall i.range i.returnType |> Some
+    // | "genericEquality"
+    // | "genericEqualityIntrinsic" ->
+    //     CoreLibCall("Util", Some "equals", false, i.args)
+    //     |> makeCall i.range i.returnType |> Some
+    // | "physicalEquality"
+    // | "physicalEqualityIntrinsic" ->
+    //     makeEqOp i.range i.args BinaryEqualStrict |> Some
+    // | "physicalHash"
+    // | "physicalHashIntrinsic" ->
+    //     CoreLibCall("Util", Some "getHashCode", false, i.args)
+    //     |> makeCall i.range i.returnType |> Some
     | _ -> None
 
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

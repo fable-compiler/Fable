@@ -24,10 +24,11 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
             Fable.NewErasedUnion(expr, genArgs) |> Fable.Value
         | _ -> "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
-    | StringEnum _ ->
+    | StringEnum tdef ->
+        let enumName = defaultArg tdef.TryFullName "unknown"
         match argExprs with
-        | [] -> lowerCaseName unionCase
-        | _ -> "StringEnum types cannot have fields: " + (getFsTypeFullName fsType)
+        | [] -> Fable.Enum(lowerCaseName unionCase |> Fable.StringEnum, enumName) |> Fable.Value
+        | _ -> "StringEnum types cannot have fields: " + enumName
                |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
     | OptionUnion typ ->
         let typ = makeType com ctx.GenericArgs typ

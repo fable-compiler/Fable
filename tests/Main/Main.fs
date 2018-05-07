@@ -14,6 +14,7 @@ let allTests =
      DateTimeOffset.tests
      Dictionaries.tests
      Enumerable.tests
+     Enum.tests
      HashSets.tests
      Lists.tests
      Seqs.tests
