@@ -15,6 +15,7 @@ let allTests =
      Dictionaries.tests
      Enumerable.tests
      Enum.tests
+     Event.tests
      HashSets.tests
      Lists.tests
      Seqs.tests

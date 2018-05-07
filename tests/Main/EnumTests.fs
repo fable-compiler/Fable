@@ -1,16 +1,12 @@
 module Fable.Tests.Enum
 
-open System
 open FSharp.Core.LanguagePrimitives
 open Util.Testing
-open Fable.Tests.Util
 
 type Fruits =
 | Apple = 1
 | Banana = 2
 | Coconut = 4
-
-open LanguagePrimitives
 
 type Vegetables =
 | Tomato of string

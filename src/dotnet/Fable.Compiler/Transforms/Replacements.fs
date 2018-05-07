@@ -1833,6 +1833,16 @@ let enumerators (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
     | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
+let events (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | ".ctor", _ -> Helper.CoreCall("Event", "default", t, args, i.SignatureArgTypes, isConstructor=true, ?loc=r) |> Some
+    | "get_Publish", Some x -> get r t x "Publish" |> Some
+    | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | meth, None -> Helper.CoreCall("Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+let observable (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    Helper.CoreCall("Observable", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
 let mailbox (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg with
     | None ->
@@ -2099,6 +2109,9 @@ let private replacedModules =
     "Microsoft.FSharp.Control.Lazy", laziness
     "Microsoft.FSharp.Control.LazyExtensions", laziness
     "Microsoft.FSharp.Control.CommonExtensions", controlExtensions
+    "Microsoft.FSharp.Control.FSharpEvent`1", events
+    "Microsoft.FSharp.Control.EventModule", events
+    "Microsoft.FSharp.Control.ObservableModule", observable
 ]
 
 let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr option) (args: Expr list) =

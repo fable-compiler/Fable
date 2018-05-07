@@ -1,10 +1,8 @@
 module Fable.Tests.Enumerable
 
-open System
 open System.Collections
 open System.Collections.Generic
 open Util.Testing
-open Fable.Tests.Util
 
 type Enumerator<'T>(gen) =
     interface IEnumerable<'T> with
