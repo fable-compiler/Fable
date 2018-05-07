@@ -1,5 +1,5 @@
-import { value } from "./Option";
-import { Choice, IDisposable } from "./Util";
+import { Choice, tryValueIfChoice1, tryValueIfChoice2, value } from "./Option";
+import { IDisposable } from "./Util";
 
 export interface IObserver<T> {
   OnNext: (x: T) => void;
@@ -143,7 +143,7 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObse
 }
 
 export function split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, source: IObservable<T>) {
-  return [choose((v) => splitter(v)[1], source), choose((v) => splitter(v)[1], source)];
+  return [choose((v) => tryValueIfChoice1(splitter(v)), source), choose((v) => tryValueIfChoice2(splitter(v)), source)];
 }
 
 export function subscribe<T>(callback: (x: T) => void, source: IObservable<T>) {

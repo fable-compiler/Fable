@@ -11,8 +11,6 @@ export function extend(target: any, ...sources: any[]) {
   return target;
 }
 
-export type Choice<T1, T2> = ["Choice1Of2", T1] | ["Choice2Of2", T2];
-
 export interface IComparer<T> {
   Compare(x: T, y: T): number;
 }

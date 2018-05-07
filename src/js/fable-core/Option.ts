@@ -1,5 +1,25 @@
 import { compare, equals, toString } from "./Util";
 
+// TODO: Convert Choice-related functions to F# so they don't break
+// if we change the DU implementation
+export type Choice<T1, T2> = ["Choice1Of2", T1] | ["Choice2Of2", T2];
+
+export function choice1<T1, T2>(x: T1): Choice<T1, T2> {
+    return ["Choice1Of2", x];
+}
+
+export function choice2<T1, T2>(x: T2): Choice<T1, T2> {
+    return ["Choice2Of2", x];
+}
+
+export function tryValueIfChoice1<T1, T2>(x: Choice<T1, T2>): Option<T1> {
+    return x[0] === "Choice1Of2" ? some(x[1] as T1) : null;
+}
+
+export function tryValueIfChoice2<T1, T2>(x: Choice<T1, T2>): Option<T2> {
+    return x[0] === "Choice2Of2" ? some(x[1] as T2) : null;
+}
+
 // Options are erased in runtime by Fable, but we have
 // the `Some` type below to wrap values that would evaluate
 // to null in runtime. These two rules must be followed:

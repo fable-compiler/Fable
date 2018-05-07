@@ -116,22 +116,21 @@ let tests =
 
         equal state 7
 
-    // TODO!!!
-    // testCase "Event.split works" <| fun () ->
-    //     let mutable result1 = 0
-    //     let mutable result2 = 0
-    //     let source = Event<_>()
-    //     let source1, source2 =
-    //         source.Publish |> Event.split (fun x ->
-    //             if 5 > x
-    //             then Choice1Of2 (x*3)
-    //             else Choice2Of2 (x*2))
-    //     Event.add (fun n -> result1 <- n) source1
-    //     Event.add (fun n -> result2 <- n) source2
-    //     source.Trigger 6
-    //     source.Trigger 2
-    //     equal 6 result1
-    //     equal 12 result2
+    testCase "Event.split works" <| fun () ->
+        let mutable result1 = 0
+        let mutable result2 = 0
+        let source = Event<_>()
+        let source1, source2 =
+            source.Publish |> Event.split (fun x ->
+                if 5 > x
+                then Choice1Of2 (x*3)
+                else Choice2Of2 (x*2))
+        Event.add (fun n -> result1 <- n) source1
+        Event.add (fun n -> result2 <- n) source2
+        source.Trigger 6
+        source.Trigger 2
+        equal 6 result1
+        equal 12 result2
 
     testCase "IEvent.add works" <| fun () ->
         let mutable result = 0
