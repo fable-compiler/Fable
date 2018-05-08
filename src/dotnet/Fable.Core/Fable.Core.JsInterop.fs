@@ -14,7 +14,7 @@ let inline (!^) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_ErasedCast : ^
 /// Dynamically access a property of an arbitrary object.
 /// `myObj?propA` in JS becomes `myObj.propA`
 /// `myObj?(propA)` in JS becomes `myObj[propA]`
-let (?) (o: obj) (prop: obj): DynamicApplicable = jsNative
+let (?) (o: obj) (prop: obj): 'a = jsNative
 
 /// Dynamically assign a value to a property of an arbitrary object.
 /// `myObj?propA <- 5` in JS becomes `myObj.propA = 5`
@@ -23,7 +23,7 @@ let (?<-) (o: obj) (prop: obj) (v: obj): unit = jsNative
 
 /// Destructure and apply a tuple to an arbitrary value.
 /// E.g. `myFn $ (arg1, arg2)` in JS becomes `myFn(arg1, arg2)`
-let ($) (callee: obj) (args: obj): obj = jsNative
+let ($) (callee: obj) (args: obj): 'a = jsNative
 
 /// Upcast the right operand to obj and create a key-value tuple.
 /// Mostly convenient when used with `createObj`.
@@ -40,7 +40,7 @@ let createObj (fields: #seq<string*obj>): obj = jsNative
 
 /// Create a literal JS object from a collection of union constructors.
 /// E.g. `keyValueList  [ MyUnion 4 ]` in JS becomes `{ myUnion: 4 }`
-let keyValueList (caseRule: CaseRules) (li: 'T list): obj = jsNative
+let keyValueList (caseRule: CaseRules) (li: 'T seq): obj = jsNative
 
 /// Create a literal JS object from a mutator lambda. Normally used when
 /// the options interface has too many fields to be represented with a Pojo record.
@@ -105,7 +105,7 @@ let [<PassGenerics>] ofJsonWithTypeInfo<'T>(json: string): 'T = jsNative
 let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
 
 /// Reads the name of an identifier, a property or a type
-let nameof(expr: obj): string = jsNative
+let nameof(expr: 'a): string = jsNative
 
 /// Reads the name of a property or a type from the lambda body
 let nameofLambda(f: 'a->'b): string = jsNative

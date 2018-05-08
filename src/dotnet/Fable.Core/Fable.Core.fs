@@ -158,9 +158,6 @@ type [<Erase>] U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
     static member op_ErasedCast(x:'g) = Case7 x
     static member op_ErasedCast(x:'h) = Case8 x
 
-/// DO NOT USE: Internal type for Fable dynamic operations
-type DynamicApplicable = obj->obj
-
 type CaseRules =
     | None = 0
     | LowerFirst = 1

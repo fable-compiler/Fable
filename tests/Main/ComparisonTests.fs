@@ -50,7 +50,7 @@ type Test(i: int) =
             match yobj with
             | :? Test as y -> compare (y.Value + 1) x.Value
             | _ -> invalidArg "yobj" "cannot compare values of different types"
-            | _ -> -1
+            // | _ -> -1
 
     interface System.IEquatable<Test> with
         member x.Equals(y) =

@@ -311,37 +311,18 @@ module private Transforms =
         | _ -> None
 
     let uncurryExpr argsAndRetTypes expr =
-        let rec (|UncurriedLambda|_|) (argsAndRetTypes, expr) =
-            let rec uncurryLambda name accArgs remainingArity expr =
-                if remainingArity = Some 0
-                then Function(Delegate(List.rev accArgs), expr, name) |> Some
-                else
-                    match expr, remainingArity with
-                    | Function(Lambda arg, body, name2), _ ->
-                        let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
-                        uncurryLambda (Option.orElse name2 name) (arg::accArgs) remainingArity body
-                    // If there's no arity expectation we can return the flattened part
-                    | _, None when List.isEmpty accArgs |> not ->
-                        Function(Delegate(List.rev accArgs), expr, name) |> Some
-                    // We cannot flatten lambda to the expected arity
-                    | _, _ -> None
-            let arity = argsAndRetTypes |> Option.map (fun (args,_) -> List.length args)
-            match expr with
-            // Uncurry also function options
-            | Value(NewOption(Some expr, _)) ->
-                uncurryLambda None [] arity expr
-                |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type)))
-            | _ -> uncurryLambda None [] arity expr
-        match argsAndRetTypes, expr with
-        // | Some (0|1), expr -> expr // This shouldn't happen
-        | UncurriedLambda lambda -> lambda
-        | Some(argTypes, retType), _ ->
+        let arity =
+            argsAndRetTypes
+            |> Option.map (fst >> List.length)
+        match expr, argsAndRetTypes with
+        | LambdaUncurriedAtCompileTime arity lambda, _ -> lambda
+        | _, Some(argTypes, retType) ->
             let arity = List.length argTypes
             match getUncurriedArity expr with
             | Some arity2 when arity = arity2 -> expr
             | _ -> let t = FunctionType(DelegateType argTypes, retType)
-                   Replacements.uncurryExpr t arity expr
-        | None, _ -> expr
+                   Replacements.uncurryExprAtRuntime t arity expr
+        | _, None -> expr
 
     // TODO: Move this to FSharp2Fable pass and just leave some
     // special cases for latter optimization (pojo and list to seq)?
@@ -467,7 +448,7 @@ module private Transforms =
                     match ident.Type, value with
                     | FunctionType(LambdaType _, _) as t, Get(_, RecordGet _, FunctionType(DelegateType delArgTypes, _), _)
                         when List.isMultiple delArgTypes ->
-                            ident, Replacements.curryExpr t (List.length delArgTypes) value
+                            ident, Replacements.curryExprAtRuntime t (List.length delArgTypes) value
                     | _ -> ident, value)
             Let(identsAndValues, body)
         | e -> e
@@ -495,7 +476,7 @@ module private Transforms =
                     let info = argInfo None args (Some argTypes)
                     staticCall r t info applied |> Some
                 else
-                    Replacements.partialApply t (argTypes.Length - args.Length) applied args |> Some
+                    Replacements.partialApplyAtRuntime t (argTypes.Length - args.Length) applied args |> Some
             | _ -> Operation(CurriedApply(applied, args), t, r) |> Some
         | _ -> None
 

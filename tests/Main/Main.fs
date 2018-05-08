@@ -1,9 +1,8 @@
 module Fable.Tests.Main
-open Expecto.Logging
-open System
 
 let allTests =
-  [| Applicative.tests
+  [|
+     Applicative.tests
      Arithmetic.tests
      Async.tests
      Arrays.tests
@@ -17,6 +16,8 @@ let allTests =
      Enum.tests
      Event.tests
      HashSets.tests
+     Import.tests
+     JsInterop.tests
      Lists.tests
      Seqs.tests
      Sets.tests

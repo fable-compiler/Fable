@@ -131,6 +131,7 @@ let (|Integer|Float|) = function
 let (|Nameof|_|) = function
     | IdentExpr ident -> Some ident.Name
     | Get(_, ExprGet(Value(StringConstant prop)), _, _) -> Some prop
+    | Get(_, RecordGet(fi, _), _, _) -> Some fi.Name
     | _ -> None
 
 let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
@@ -162,6 +163,12 @@ let (|ArrayOrList|_|) = function
     | Array t -> Some("Array", t)
     | List t -> Some("List", t)
     | _ -> None
+
+/// Try to uncurry lambdas at compile time in dynamic assignments
+let (|MaybeLambdaUncurriedAtCompileTime|) = function
+    | LambdaUncurriedAtCompileTime None lambda -> lambda
+    | Cast(LambdaUncurriedAtCompileTime None lambda, _) -> lambda
+    | e -> e
 
 let coreModFor = function
     | BclGuid -> "String"
@@ -615,44 +622,49 @@ let getOne (t: Type) =
     // TODO: Calls to custom Zero implementation
     | _ -> makeIntConst 1
 
-// TODO: Try to compile as literal object
 let makePojoFromLambda arg =
-    // match arg with
-    // | Value(Lambda(args, lambdaBody, _)) ->
-    //     (Some [], flattenSequential lambdaBody)
-    //     ||> List.fold (fun acc statement ->
-    //         match acc, statement with
-    //         // Set of callee: Expr * property: Expr option * value: Expr * range: SourceLocation option
-    //         | Some acc, Set(_,Some(Value(StringConst prop)),value,_) ->
-    //             (prop, value)::acc |> Some
-    //         | _ -> None)
-    // | _ -> None
-    // |> Option.map (makeJsObject r)
-    // |> Option.defaultWith (fun () ->
-        Helper.CoreCall("Util", "jsOptions", Any, [arg])
-    // )
+    let rec flattenSequential = function
+        | Sequential statements ->
+            List.collect flattenSequential statements
+        | e -> [e]
+    match arg with
+    | Function(Lambda _, lambdaBody, _) ->
+        (flattenSequential lambdaBody, Some []) ||> List.foldBack (fun statement acc ->
+            match acc, statement with
+            | Some acc, Set(_, RecordSet(fi, _), value, _) ->
+                (makeStrConst fi.Name, value, ObjectValue)::acc |> Some
+            | Some acc, Set(_, ExprSet prop, value, _) ->
+                (prop, value, ObjectValue)::acc |> Some
+            | _ -> None)
+    | _ -> None
+    |> Option.map (fun members -> ObjectExpr(members, Any, None))
+    |> Option.defaultWith (fun () -> Helper.CoreCall("Util", "jsOptions", Any, [arg]))
 
-// TODO: Try to compile as literal object
+let changeCase caseRule name =
+    match caseRule with
+    | CaseRules.LowerFirst -> Naming.lowerFirst name
+    | CaseRules.None | _ -> name
+
 let makePojo caseRule keyValueList =
-    let members =
-        match keyValueList with
-        | Value(NewArray(ArrayValues ms, _)) -> Some ms
-        // | ListLiteral(ms,_) -> Some ms
-        | _ -> None
-    match members with
-    | Some ms ->
-        let success, members =
-            (ms, (true, [])) ||> List.foldBack (fun m (success, acc) ->
-                match success, m, caseRule with
-                | true, Value(NewTuple [Value(StringConstant name); value]), _ ->
-                    true, (makeStrConst name, value, ObjectValue)::acc
-                | true, Value(NewTuple [name; value]), CaseRules.None ->
-                    true, (name, value, ObjectValue)::acc
-                | _ -> false, [])
-        if success
-        then  ObjectExpr(members, Any, None)
-        else  Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst])
-    | None -> Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst])
+    match keyValueList with
+    // It should be an array because the list is casted to seq, but check also list just in case
+    | Value(NewArray(ArrayValues ms, _))
+    | ListLiteral(ms, _) ->
+        (ms, Some []) ||> List.foldBack (fun m acc ->
+            match acc, m, caseRule with
+            // For tuple literals, we can the member key and value at compile time (try to uncurry lambda values)
+            | Some acc, Value(NewTuple [Value(StringConstant name); MaybeLambdaUncurriedAtCompileTime value]), _ ->
+                (changeCase caseRule name |> makeStrConst, value, ObjectValue)::acc |> Some
+            // If it's not a string literal, try to optimize only if caseRule is None,
+            // because in other case we have to calculate it at runtime
+            | Some acc, Value(NewTuple [name; MaybeLambdaUncurriedAtCompileTime value]), CaseRules.None ->
+                (name, value, ObjectValue)::acc |> Some
+            | _ -> None)
+    | _ -> None
+    |> Option.map (fun members -> ObjectExpr(members, Any, None))
+    // With key & value for all members, build the POJO at compile time. If not, build it at runtime
+    |> Option.defaultWith (fun () ->
+        Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst]))
 
 let injectArg com r moduleName methName (genArgs: (string*Type) list) args =
     let (|GenericArg|_|) genArgs genArgIndex =
@@ -673,6 +685,11 @@ let injectArg com r moduleName methName (genArgs: (string*Type) list) args =
 
 let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
+    | ("Async.AwaitPromise.Static"|"Async.StartAsPromise.Static" as m), _ ->
+        let meth =
+            if m = "Async.AwaitPromise.Static"
+            then "awaitPromise" else "startAsPromise"
+        Helper.CoreCall("Async", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "importDynamic", _ -> Helper.GlobalCall("import", t, args, ?loc=r) |> Some
     | Naming.StartsWith "import" suffix, _ ->
         let fail() =
@@ -696,7 +713,7 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     // Dynamic casting, erase
     | "op_BangBang", _ | "op_BangHat", _ -> List.tryHead args
     | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
-    | "op_DynamicAssignment", [callee; prop; value] ->
+    | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
         Set(callee, ExprSet prop, value, r) |> Some
     | ("op_Dollar"|"createNew" as m), callee::args ->
         let argInfo = { argInfo None args None with Spread = TupleSpread }
@@ -1886,12 +1903,6 @@ let asyncs com (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr
     // `catch` cannot be used as a function name in JS
     | "Catch" -> Helper.CoreCall("Async", "catchAsync", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Fable.Core extensions
-    // TODO: This should be handled in fableCoreLib, check entity name for extension methods
-    | ("Async.AwaitPromise.Static"|"Async.StartAsPromise.Static" as m) ->
-        let meth =
-            if m = "Async.AwaitPromise.Static"
-            then "awaitPromise" else "startAsPromise"
-        Helper.CoreCall("Async", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | meth -> Helper.CoreCall("Async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let guids (_: ICompiler) (_: Context) (_: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1999,13 +2010,13 @@ let fsharpValue methName (_: ICompiler) r t (i: CallInfo) (_: Expr option) (args
         Some args.Head
     | _ -> None
 
-let curryExpr t arity (expr: Expr) =
+let curryExprAtRuntime t arity (expr: Expr) =
     Helper.CoreCall("Util", "curry", t, [makeIntConst arity; expr])
 
-let uncurryExpr t arity (expr: Expr) =
+let uncurryExprAtRuntime t arity (expr: Expr) =
     Helper.CoreCall("Util", "uncurry", t, [makeIntConst arity; expr])
 
-let partialApply t arity (fn: Expr) (args: Expr list) =
+let partialApplyAtRuntime t arity (fn: Expr) (args: Expr list) =
     let args = NewArray(ArrayValues args, Any) |> Value
     Helper.CoreCall("Util", "partialApply", t, [makeIntConst arity; fn; args])
 

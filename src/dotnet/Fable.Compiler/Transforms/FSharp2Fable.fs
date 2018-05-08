@@ -282,6 +282,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         makeCallFrom com ctx r typ genArgs callee args memb
 
     | BasicPatterns.Application(applied, genArgs, args) ->
+        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         match applied, args with
         // TODO: Ask why application without arguments happen. So far I've seen it
         // to access None or struct values (like the Result type)
@@ -303,8 +304,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             | None ->
                 "Cannot resolve locally inlined value: " + var.DisplayName
                 |> addErrorAndReturnNull com range
-        | FableCoreDynamicOp(Transform com ctx e1, Transform com ctx e2), _ ->
-            let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
+        // When using Fable dynamic operator, we must untuple arguments
+        // Note F# compiler wraps the value in a closure if it detects it's a lambda
+        | BasicPatterns.Let((_, BasicPatterns.Call(None,m,_,_,[e1; e2])),_), _
+                when m.FullName = "Fable.Core.JsInterop.( ? )" ->
+            let e1 = transformExpr com ctx e1
+            let e2 = transformExpr com ctx e2
             let argInfo: Fable.ArgInfo =
                 let args = List.map (transformExpr com ctx) args
                 { argInfo (Some e1) args None with Spread = Fable.TupleSpread }
@@ -314,7 +319,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             transformExpr com ctx optionProp
         | _ ->
             let applied = transformExpr com ctx applied
-            let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
             let args = List.map (transformExpr com ctx) args
             Fable.Operation(Fable.CurriedApply(applied, args), typ, r)
 
@@ -544,7 +548,13 @@ let private transformConstructor com ctx (memb: FSharpMemberOrFunctionOrValue) a
               EntityName = entityName }
         [Fable.ImplicitConstructorDeclaration(args, body, info)]
 
-let private transformImport typ name isPublic selector path =
+/// When using `importMember`, uses the member display name as selector
+let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
+    if selector = Naming.placeholder
+    then getMemberDisplayName memb
+    else selector
+
+let private transformImport typ isPublic name selector path =
     let info: Fable.ValueDeclarationInfo =
         { Name = name
           IsPublic = isPublic
@@ -552,7 +562,6 @@ let private transformImport typ name isPublic selector path =
           // (check if they're mutable, see #1314)
           IsMutable = false
           HasSpread = false }
-    let selector = if selector = Naming.placeholder then name else selector
     let fableValue = Fable.Import(selector, path, Fable.CustomImport, typ)
     [Fable.ValueDeclaration(fableValue, info)]
 
@@ -560,7 +569,15 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
     match transformExpr com ctx value with
     // Accept import expressions, e.g. let foo = import "foo" "myLib"
     | Fable.Import(selector, path, Fable.CustomImport, typ) ->
-        transformImport typ name isPublic selector path
+        match typ with
+        | Fable.FunctionType(Fable.LambdaType _, Fable.FunctionType(Fable.LambdaType _, _)) ->
+            "Change declaration of member: " + name + "\n"
+            + "Importing JS functions with multiple arguments as `let add: int->int->int` won't uncurry parameters." + "\n"
+            + "Use following syntax: `let add (x:int) (y:int): int = import ...`"
+            |> addWarning com None
+        | _ -> ()
+        let selector = importExprSelector memb selector
+        transformImport typ isPublic name selector path
     | fableValue ->
         let info: Fable.ValueDeclarationInfo =
             { Name = name
@@ -582,7 +599,8 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
     | Fable.Import(selector, path, Fable.CustomImport, _) ->
         // Use the full function type
         let typ = makeType com Map.empty memb.FullType
-        transformImport typ name isPublic selector path
+        let selector = importExprSelector memb selector
+        transformImport typ isPublic name selector path
     | body ->
         let fn = Fable.Function(Fable.Delegate args, body, Some name)
         // If this is a static constructor, call it immediately
@@ -606,7 +624,7 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
     match tryImportAttribute memb.Attributes with
     | Some(selector, path) ->
         let typ = makeType com Map.empty memb.FullType
-        transformImport typ name isPublic selector path
+        transformImport typ isPublic name selector path
     | None ->
         if isModuleValueForDeclarations memb
         then transformMemberValue com ctx isPublic name memb body
@@ -678,7 +696,7 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
                 | Some(selector, path) ->
                     let name = getEntityDeclarationName com ent
                     (com :> IFableCompiler).AddUsedVarName(name)
-                    transformImport Fable.Any name (not ent.Accessibility.IsPrivate) selector path
+                    transformImport Fable.Any (not ent.Accessibility.IsPrivate) name selector path
                 | None ->
                     transformDeclarationsInner com ctx sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->

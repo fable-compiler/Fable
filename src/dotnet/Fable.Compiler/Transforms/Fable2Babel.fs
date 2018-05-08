@@ -334,7 +334,10 @@ module Util =
                 |> Seq.toList
             com.TransformObjectExpr(ctx, members)
         | Fable.NewUnion(vals,uci,_,_) ->
-            let tag = Fable.Value(Fable.StringConstant uci.Name)
+            let name =
+                FSharp2Fable.Helpers.unionCaseCompiledName uci
+                |> Option.defaultValue uci.Name
+            let tag = Fable.Value(Fable.StringConstant name)
             Fable.ArrayValues (tag::vals) |> buildArray com ctx Fable.Any
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
@@ -405,6 +408,7 @@ module Util =
             upcast BinaryExpression (op, left, right, ?loc=range)
         | Fable.LogicalOperation(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
             upcast LogicalExpression (op, left, right, ?loc=range)
+        // TODO!!! Uncurry lambda arguments
         | Fable.Emit(emit, argInfo) ->
             match argInfo with
             | Some argInfo ->

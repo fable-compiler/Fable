@@ -51,6 +51,27 @@ module AST =
     open Fable.AST
     open Fable.AST.Fable
 
+    let (|LambdaUncurriedAtCompileTime|_|) arity expr =
+        let rec uncurryLambdaInner name accArgs remainingArity expr =
+            if remainingArity = Some 0
+            then Function(Delegate(List.rev accArgs), expr, name) |> Some
+            else
+                match expr, remainingArity with
+                | Function(Lambda arg, body, name2), _ ->
+                    let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
+                    uncurryLambdaInner (Option.orElse name2 name) (arg::accArgs) remainingArity body
+                // If there's no arity expectation we can return the flattened part
+                | _, None when List.isEmpty accArgs |> not ->
+                    Function(Delegate(List.rev accArgs), expr, name) |> Some
+                // We cannot flatten lambda to the expected arity
+                | _, _ -> None
+        match expr with
+        // Uncurry also function options
+        | Value(NewOption(Some expr, _)) ->
+            uncurryLambdaInner None [] arity expr
+            |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type)))
+        | _ -> uncurryLambdaInner None [] arity expr
+
     /// When referenced multiple times, is there a risk of double evaluation?
     let rec hasDoubleEvalRisk = function
         // Don't erase `this` binding as it may be called from a closure

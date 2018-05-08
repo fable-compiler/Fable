@@ -347,26 +347,35 @@ const CaseRules = {
   LowerFirst: 1,
 };
 
+function changeCase(str: string, caseRule: number) {
+  switch (caseRule) {
+    case CaseRules.LowerFirst:
+      return str.toLowerCase();
+    case CaseRules.None:
+    default:
+      return str;
+  }
+}
+
 export function createObj(fields: Iterable<any>, caseRule = CaseRules.None) {
   const o: { [k: string]: any } = {};
   for (const kvPair of fields) {
     if (Array.isArray(kvPair) && kvPair.length > 0) {
       if (kvPair.length === 1) {
-        o[kvPair[0]] = true;
+        o[changeCase(kvPair[0], caseRule)] = true;
       } else if (kvPair.length === 2) {
         const value = kvPair[1];
-        o[kvPair[0]] = typeof value[Symbol.iterator] === "function"
-          ? createObj(value, caseRule)
-          : value;
+        o[changeCase(kvPair[0], caseRule)] = value;
       } else {
-        o[kvPair[0]] = kvPair.slice(1);
+        o[changeCase(kvPair[0], caseRule)] = kvPair.slice(1);
       }
     } else if (typeof kvPair === "string") {
-      o[kvPair] = true;
+      o[changeCase(kvPair, caseRule)] = true;
     } else {
       throw new Error("Cannot infer key and value of " + toString(kvPair));
     }
   }
+  return o;
 }
 
 export function jsOptions(mutator: (x: object) => void): object {
