@@ -20,6 +20,7 @@ let allTests =
      JsInterop.tests
      Lists.tests
      Observable.tests
+     RecordTypes.tests
      Regex.tests
      Seqs.tests
      ``Seq Expressions``.tests

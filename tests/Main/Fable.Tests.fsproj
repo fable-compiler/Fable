@@ -41,8 +41,8 @@
     <!-- <Compile Include="MiscTests.fs" /> -->
     <Compile Include="ObservableTests.fs" />
     <Compile Include="OptionTests.fs" />
-    <!-- <Compile Include="RecordTypeTests.fs" />
-    <Compile Include="ReflectionTests.fs" /> -->
+    <Compile Include="RecordTypeTests.fs" />
+    <!-- <Compile Include="ReflectionTests.fs" /> -->
     <Compile Include="RegexTests.fs" />
      <!-- <Compile Include="ResizeArrayTests.fs" />
     <Compile Include="ResultTests.fs" /> -->
