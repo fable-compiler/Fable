@@ -825,7 +825,8 @@ export default class Long {
         return (!this.unsigned && !this.lessThan(0) ? "+" : "") + this.toString();
     }
 
-    static ofJSON(str: string) {
+    static ofJSON(value: any) {
+        const str = value.toString();
         return fromString(str, !/^[+-]/.test(str));
     }
 
