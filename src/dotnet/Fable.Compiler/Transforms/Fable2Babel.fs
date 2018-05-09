@@ -311,6 +311,7 @@ module Util =
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral (source, flags)
         | Fable.NewArray (arrayKind, typ) -> buildArray com ctx typ arrayKind
         | Fable.NewTuple vals -> buildArray com ctx Fable.Any (Fable.ArrayValues vals)
+        // TODO: Compile as List.ofArray if it's a list literal with many values?
         | Fable.NewList (headAndTail, _) ->
             match headAndTail with
             | None -> []

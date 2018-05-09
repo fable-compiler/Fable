@@ -3,6 +3,8 @@ module Fable.Transforms.Inject
 
 let fableCoreModules =
   Map [
+    "Fable.Core.JS.AssemblyInfo", Map [
+    ]
     "Array", Map [
       "mapIndexed", (Types.arrayCons, 1)
       "map", (Types.arrayCons, 1)

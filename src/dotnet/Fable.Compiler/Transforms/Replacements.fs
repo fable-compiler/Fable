@@ -1018,7 +1018,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                     "ToLower",          "toLocaleLowerCase"
                     "ToLowerInvariant", "toLowerCase" ] methName, Some c, args ->
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "Chars", _, _ ->
+    | "get_Chars", _, _ ->
         Helper.CoreCall("String", "getCharAtIndex", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | ("IndexOf" | "LastIndexOf"), Some c, _ ->
         match args with
@@ -1110,6 +1110,9 @@ let resizeArrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg:
     | ".ctor", _, [ExprType(Number _) as arg] -> NewArray(ArrayAlloc arg, Any) |> Value |> Some
     | ".ctor", _, [Value(NewArray(ArrayValues arVals, _))] -> makeArray Any arVals |> Some
     | ".ctor", _, args -> Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
+    | "get_Count", Some ar, _ -> get r t ar "length" |> Some
+    | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
+    | "set_Item", Some ar, [idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
     | "Add", Some ar, args -> Helper.InstanceCall(ar, "push", t, args, ?loc=r) |> Some
     | "Remove", Some ar, args -> Helper.CoreCall("Array", "removeInPlace", t, args @ [ar], ?loc=r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator r t ar |> Some

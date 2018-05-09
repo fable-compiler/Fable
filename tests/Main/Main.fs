@@ -19,6 +19,7 @@ let allTests =
      Import.tests
      JsInterop.tests
      Lists.tests
+     Maps.tests
      Observable.tests
      RecordTypes.tests
      Regex.tests
@@ -26,7 +27,8 @@ let allTests =
      Seqs.tests
      ``Seq Expressions``.tests
      Sets.tests
-     Maps.tests
+     Strings.tests
+    //  Sudoku.tests
      Option.tests
   |]
 
