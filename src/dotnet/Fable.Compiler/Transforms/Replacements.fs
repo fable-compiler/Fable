@@ -1091,6 +1091,13 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
             | _ -> [arg1; arg2]
         let result = Helper.CoreCall("Array", Naming.lowerFirst meth, Any, args)
         Helper.CoreCall("Seq", "ofArray", t, [result]) |> Some
+    // For Using we need to cast the argument to IDisposable
+    | "EnumerateUsing", [arg; f] ->
+        let arg =
+            match arg.Type with
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.callInterfaceCast com t ent Types.disposable arg
+            | _ -> arg
+        Helper.CoreCall("Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     // TODO!!! Sort and max/min methods, pass IComparable
     | meth, _ ->
         Helper.CoreCall("Seq", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some

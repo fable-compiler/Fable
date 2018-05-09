@@ -22,6 +22,7 @@ let allTests =
      Observable.tests
      Regex.tests
      Seqs.tests
+     ``Seq Expressions``.tests
      Sets.tests
      Maps.tests
      Option.tests

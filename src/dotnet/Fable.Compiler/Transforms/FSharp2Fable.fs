@@ -574,7 +574,7 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
             "Change declaration of member: " + name + "\n"
             + "Importing JS functions with multiple arguments as `let add: int->int->int` won't uncurry parameters." + "\n"
             + "Use following syntax: `let add (x:int) (y:int): int = import ...`"
-            |> addWarning com None
+            |> addError com None
         | _ -> ()
         let selector = importExprSelector memb selector
         transformImport typ isPublic name selector path
