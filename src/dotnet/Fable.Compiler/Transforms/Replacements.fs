@@ -1274,6 +1274,10 @@ let mapModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr o
     let args = injectArg com r "Map" meth i.GenericArgs args
     Helper.CoreCall("Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
+let results (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    let meth = Naming.lowerFirst i.CompiledName
+    Helper.CoreCall("Result", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
 // See fable-core/Option.ts for more info on how
 // options behave in Fable runtime
 let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2145,6 +2149,7 @@ let private replacedModules =
     Types.iset, hashSets
     "Microsoft.FSharp.Core.FSharpOption`1", options
     "Microsoft.FSharp.Core.OptionModule", options
+    "Microsoft.FSharp.Core.ResultModule", results
     "System.Decimal", decimals
     // "System.Numerics.BigInteger", bigint
     // "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigint
@@ -2208,37 +2213,27 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | Naming.StartsWith "System.Func" _
     | Naming.StartsWith "Microsoft.FSharp.Core.FSharpFunc" _
     | Naming.StartsWith "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" _ -> funcs com ctx r t info thisArg args
-    | _ -> None
-//         | "System.Collections.Generic.Dictionary.KeyCollection"
-//         | "System.Collections.Generic.Dictionary.ValueCollection"
-//         | "System.Collections.Generic.ICollection" -> collectionsSecondPass com info Seq
-//         | "System.Array"
-//         | "System.Collections.Generic.List"
-//         | "System.Collections.Generic.IList" -> collectionsSecondPass com info Array
-//         | "Microsoft.FSharp.Collections.ArrayModule" -> collectionsFirstPass com info Array
-//         | "Microsoft.FSharp.Collections.FSharpList"
-//         | "Microsoft.FSharp.Collections.ListModule" -> collectionsFirstPass com info List
-//         | "System.Type" -> types com info // TODO
-    | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType info.CompiledName com r t info thisArg args
-    | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue info.CompiledName com r t info thisArg args
-    | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
-        // In netcore F# Reflection methods become extensions
-        // with names like `FSharpType.GetExceptionFields.Static`
-        let isFSharpType = info.CompiledName.StartsWith("FSharpType")
-        let methName = info.CompiledName |> Naming.extensionMethodName
-        if isFSharpType
-        then fsharpType methName com r t info thisArg args
-        else fsharpValue methName com r t info thisArg args
-    | "Microsoft.FSharp.Reflection.UnionCaseInfo"
-    | "System.Reflection.PropertyInfo"
-    | "System.Reflection.MemberInfo" ->
-        match thisArg, info.CompiledName with
-        | _, "GetFields" -> Helper.InstanceCall(thisArg.Value, "getUnionFields", t, args) |> Some
-        | Some c, "Name" -> Helper.CoreCall("Reflection", "getName", t, [c]) |> Some
-        | Some c, ("Tag" | "PropertyType") ->
-            let prop =
-                if info.CompiledName = "Tag" then "Index" else info.CompiledName
-                |> makeStrConst
-            getExpr r t c prop |> Some
-        | _ -> None
+    // | "System.Type" -> types com info
+    // | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType info.CompiledName com r t info thisArg args
+    // | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue info.CompiledName com r t info thisArg args
+    // | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
+    //     // In netcore F# Reflection methods become extensions
+    //     // with names like `FSharpType.GetExceptionFields.Static`
+    //     let isFSharpType = info.CompiledName.StartsWith("FSharpType")
+    //     let methName = info.CompiledName |> Naming.extensionMethodName
+    //     if isFSharpType
+    //     then fsharpType methName com r t info thisArg args
+    //     else fsharpValue methName com r t info thisArg args
+    // | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+    // | "System.Reflection.PropertyInfo"
+    // | "System.Reflection.MemberInfo" ->
+    //     match thisArg, info.CompiledName with
+    //     | _, "GetFields" -> Helper.InstanceCall(thisArg.Value, "getUnionFields", t, args) |> Some
+    //     | Some c, "Name" -> Helper.CoreCall("Reflection", "getName", t, [c]) |> Some
+    //     | Some c, ("Tag" | "PropertyType") ->
+    //         let prop =
+    //             if info.CompiledName = "Tag" then "Index" else info.CompiledName
+    //             |> makeStrConst
+    //         getExpr r t c prop |> Some
+    //     | _ -> None
     | _ -> None

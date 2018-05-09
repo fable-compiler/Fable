@@ -11,5 +11,5 @@ export function mapError<T, Error1, Error2>(f: (x: Error1) => Error2, result: Re
 }
 
 export function bind<T1, T2, Error>(f: (x: T1) => Result<T2, Error>, result: Result<T1, Error>) {
-  return result[0] === "Ok" ? ["Ok", f(result[1] as T1)] : result;
+  return result[0] === "Ok" ? f(result[1] as T1) : result;
 }
