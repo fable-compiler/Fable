@@ -28,7 +28,7 @@ type FooOptional =
     abstract Foo3: x: int * y: string -> int
 
 let square : int -> int = JsInterop.importMember "./js/1foo.js"
-let add : int -> int -> int = JsInterop.importMember "./js/1foo.js"
+// let add : int -> int -> int = JsInterop.importMember "./js/1foo.js"
 #endif
 
 let tests =

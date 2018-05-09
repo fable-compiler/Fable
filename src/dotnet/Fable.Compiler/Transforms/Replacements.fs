@@ -578,6 +578,9 @@ and makeComparer typArg =
     // TODO: Use proper IComparer<'T> type instead of Any
     ObjectExpr([makeStrConst "Compare", f, ObjectValue], Any, None)
 
+let inline makeComparerFromEqualityComparer e =
+    Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
+
 /// Adds comparer as last argument for set creator methods
 let makeSet r t methName args genArg =
     let args = args @ [makeComparer genArg]
@@ -1070,6 +1073,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         Helper.CoreCall("String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | _ -> None
 
+let getEnumerator r t expr =
+    Helper.CoreCall("Seq", "getEnumerator", t, [toSeq Any expr], ?loc=r)
+
 let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
@@ -1088,6 +1094,67 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     // TODO!!! Sort and max/min methods, pass IComparable
     | meth, _ ->
         Helper.CoreCall("Seq", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+
+let resizeArrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    // Use Any to prevent creation of a typed array (not resizable)
+    // TODO: Include a value in Fable AST to indicate the Array should always be dynamic?
+    | ".ctor", _, [] -> makeArray Any [] |> Some
+    | ".ctor", _, [ExprType(Number _) as arg] -> NewArray(ArrayAlloc arg, Any) |> Value |> Some
+    | ".ctor", _, [Value(NewArray(ArrayValues arVals, _))] -> makeArray Any arVals |> Some
+    | ".ctor", _, args -> Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
+    | "Add", Some ar, args -> Helper.InstanceCall(ar, "push", t, args, ?loc=r) |> Some
+    | "Remove", Some ar, args -> Helper.CoreCall("Array", "removeInPlace", t, args @ [ar], ?loc=r) |> Some
+    | "GetEnumerator", Some ar, _ -> getEnumerator r t ar |> Some
+    | _ -> None
+    // | "find" when Option.isSome c ->
+    //     let defaultValue = defaultof i.calleeTypeArgs.Head
+    //     ccall "Option" "getValue" [
+    //         ccall "Seq" "tryFind" [args.Head;c.Value;defaultValue]
+    //         Fable.Expr.Value (Fable.ValueKind.BoolConst true) ]
+    //     |> Some
+    // | "findAll" when Option.isSome c ->
+    //     ccall "Seq" "filter" [args.Head;c.Value] |> toArray com i |> Some
+    // | "findLast" when Option.isSome c ->
+    //     let defaultValue = defaultof i.calleeTypeArgs.Head
+    //     ccall "Option" "getValue" [
+    //         ccall "Seq" "tryFindBack"
+    //             [args.Head;c.Value;defaultValue];
+    //         Fable.Expr.Value (Fable.ValueKind.BoolConst true) ]
+    //     |> Some
+    // | "addRange" ->
+    //     ccall "Array" "addRangeInPlace" [args.Head; c.Value] |> Some
+    // | "clear" ->
+    //     // ICollection.Clear method can be called on IDictionary
+    //     // too so we need to make a runtime check (see #1120)
+    //     ccall "Util" "clear" [c.Value] |> Some
+    // | "contains" ->
+    //     match c, args with
+    //     | Some c, args ->
+    //         emit i "$0.indexOf($1) > -1" (c::args) |> Some
+    //     | None, [item;xs] ->
+    //         let f =
+    //             wrapInLambda [makeIdent (com.GetUniqueVar())] (fun exprs ->
+    //                 CoreLibCall("Util", Some "equals", false, item::exprs)
+    //                 |> makeCall None Fable.Boolean)
+    //         ccall "Seq" "exists" [f;xs] |> Some
+    //     | _ -> None
+    // | "indexOf" ->
+    //     icall "indexOf" (c.Value, args) |> Some
+    // | "insert" ->
+    //     icall "splice" (c.Value, [args.Head; makeIntConst 0; args.Tail.Head]) |> Some
+    // | "removeRange" ->
+    //     icall "splice" (c.Value, args) |> Some
+    // | "removeAt" ->
+    //     icall "splice" (c.Value, [args.Head; makeIntConst 1]) |> Some
+    // | "reverse" when kind = Array ->
+    //     match i.returnType with
+    //     | Fable.Array _ ->
+    //         // Arrays need to be copied before sorted in place.
+    //         emit i "$0.slice().reverse()" i.args |> Some
+    //     | _ ->
+    //         // ResizeArray should be sorted in place without copying.
+    //         icall "reverse" (instanceArgs c i.args) |> Some
 
 let nativeArrayFunctions =
     dict [| "Exists", "some"
@@ -1462,12 +1529,6 @@ let keyValuePairs (_: ICompiler) (_: Context) r t (i: CallInfo) thisArg args =
     | "get_Value", Some c -> Get(c, TupleGet 1, t, r) |> Some
     | _ -> None
 
-let getEnumerator r t expr =
-    Helper.CoreCall("Seq", "getEnumerator", t, [toSeq Any expr], ?loc=r)
-
-let inline makeComparerFromEqualityComparer e =
-    Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
-
 let dictionaries (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let (|IDictionary|IEqualityComparer|Other|) = function
         | DeclaredType(ent,_) ->
@@ -1811,28 +1872,28 @@ let regex com (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr 
     match i.CompiledName with
     // TODO: Use RegexConst if no options have been passed?
     | ".ctor"   -> Helper.CoreCall("RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "Options" -> Helper.CoreCall("RegExp", "options", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+    | "get_Options" -> Helper.CoreCall("RegExp", "options", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     // Capture
-    | "Index" ->
+    | "get_Index" ->
         if not isGroup
         then propStr "index" thisArg.Value |> Some
         else addErrorAndReturnNull com r "Accessing index of Regex groups is not supported" |> Some
-    | "Value" ->
+    | "get_Value" ->
         if isGroup
         // In JS Regex group values can be undefined, ensure they're empty strings #838
         then makeLogOp r thisArg.Value (makeStrConst "") LogicalOr |> Some
         else propInt 0 thisArg.Value |> Some
-    | "Length" ->
+    | "get_Length" ->
         if isGroup
         then propStr "length" thisArg.Value |> Some
         else propInt 0 thisArg.Value |> propStr "length" |> Some
     // Group
-    | "Success" -> makeEqOp r thisArg.Value (Value (Null thisArg.Value.Type)) BinaryUnequal |> Some
+    | "get_Success" -> makeEqOp r thisArg.Value (Value (Null thisArg.Value.Type)) BinaryUnequal |> Some
     // Match
-    | "Groups" -> thisArg.Value |> Some
+    | "get_Groups" -> thisArg.Value |> Some
     // MatchCollection & GroupCollection
-    | "Item" -> getExpr r t thisArg.Value args.Head |> Some
-    | "Count" -> propStr "length" thisArg.Value |> Some
+    | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
+    | "get_Count" -> propStr "length" thisArg.Value |> Some
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.CoreCall("RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2070,6 +2131,8 @@ let private replacedModules =
     "System.Collections.Generic.Dictionary`2.Enumerator", enumerators
     "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", enumerators
     "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", enumerators
+    "System.Collections.Generic.List`1.Enumerator", enumerators
+    "System.Collections.Generic.List`1", resizeArrays
     "System.Collections.Generic.ICollection`1", hashSets
     Types.hashset, hashSets
     Types.iset, hashSets

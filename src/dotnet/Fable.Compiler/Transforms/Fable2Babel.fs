@@ -334,11 +334,16 @@ module Util =
                 |> Seq.toList
             com.TransformObjectExpr(ctx, members)
         | Fable.NewUnion(vals,uci,_,_) ->
-            let name =
-                FSharp2Fable.Helpers.unionCaseCompiledName uci
-                |> Option.defaultValue uci.Name
-            let tag = Fable.Value(Fable.StringConstant name)
-            Fable.ArrayValues (tag::vals) |> buildArray com ctx Fable.Any
+            let vals =
+                // If union case has EraseAttribute, don't include the tag name
+                match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
+                | Some _ -> vals
+                | None ->
+                    let name =
+                        FSharp2Fable.Helpers.unionCaseCompiledName uci
+                        |> Option.defaultValue uci.Name
+                    (Fable.Value(Fable.StringConstant name))::vals
+            Fable.ArrayValues vals |> buildArray com ctx Fable.Any
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
     let transformObjectExpr (com: IBabelCompiler) ctx members baseCall (boundThis: string option): Expression =

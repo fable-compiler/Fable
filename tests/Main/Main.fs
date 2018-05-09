@@ -19,6 +19,8 @@ let allTests =
      Import.tests
      JsInterop.tests
      Lists.tests
+     Observable.tests
+     Regex.tests
      Seqs.tests
      Sets.tests
      Maps.tests

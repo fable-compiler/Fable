@@ -298,7 +298,10 @@ module Patterns =
                 TryFinally(
                     WhileLoop(_,
                         Let((ident, _), body)), _))
-            when meth.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" ->
+            // Using only the compiled name is riskier but with the fullname we miss some cases
+            // TODO: Check the return type of meth is or implements IEnumerator
+            when meth.CompiledName = "GetEnumerator" ->
+            // when meth.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" ->
             Some(ident, value, body)
         | _ -> None
 
