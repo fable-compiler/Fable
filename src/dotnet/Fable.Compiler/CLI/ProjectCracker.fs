@@ -178,6 +178,13 @@ let private getFsprojName (fsprojFullPath: string) =
     let i = fsprojFullPath.LastIndexOf('/')
     fsprojFullPath.[(i + 1) .. (fsprojFullPath.Length - 8)]
 
+let private isUsefulOption (opt : string) =
+    [ "--define"; "-d"
+      "--nowarn"
+      "--warnon"
+      "--warnaserror" ]
+    |> List.exists opt.StartsWith
+
 /// Use Dotnet.ProjInfo (through ProjectCoreCracker) to invoke MSBuild
 /// and get F# compiler args from an .fsproj file. As we'll merge this
 /// later with other projects we'll only take the sources and the references,
@@ -200,8 +207,10 @@ let fullCrack (projFile: string): CrackedFsproj =
                 let dllName = getDllName line
                 dllRefs.Add(dllName, line)
                 src, otherOpts
-            elif line.StartsWith("-") then
+            elif isUsefulOption line then
                 src, line::otherOpts
+            elif line.StartsWith("-") then
+                src, otherOpts
             else
                 (Path.normalizeFullPath line)::src, otherOpts)
     let projRefs =
