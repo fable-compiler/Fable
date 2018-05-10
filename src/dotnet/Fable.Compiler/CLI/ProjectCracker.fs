@@ -192,17 +192,18 @@ let fullCrack (projFile: string): CrackedFsproj =
     //     match Map.tryFind "TargetFramework" msbuildProps with
     //     | Some targetFramework -> targetFramework
     //     | None -> failwithf "Cannot find TargetFramework for project %s" projFile
-    let sourceFiles =
-        (projOpts.OtherOptions, []) ||> Array.foldBack (fun line src ->
+    let sourceFiles, otherOpts =
+        (projOpts.OtherOptions, ([], []))
+        ||> Array.foldBack (fun line (src, otherOpts) ->
             if line.StartsWith("-r:") then
                 let line = Path.normalizePath (line.[3..])
                 let dllName = getDllName line
                 dllRefs.Add(dllName, line)
-                src
+                src, otherOpts
             elif line.StartsWith("-") then
-                src
+                src, line::otherOpts
             else
-                (Path.normalizeFullPath line)::src)
+                (Path.normalizeFullPath line)::src, otherOpts)
     let projRefs =
         projRefs |> List.map (fun projRef ->
             // Remove dllRefs corresponding to project references
@@ -224,7 +225,7 @@ let fullCrack (projFile: string): CrackedFsproj =
       ProjectReferences = projRefs
       DllReferences = dllRefs.Values |> Seq.toList
       PackageReferences = fablePkgs
-      OtherCompilerOptions = [] }
+      OtherCompilerOptions = otherOpts }
 
 /// For project references of main project, ignore dll and package references
 let easyCrack (projFile: string): CrackedFsproj =
