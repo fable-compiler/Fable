@@ -32,7 +32,8 @@ type CrackedFsproj =
       SourceFiles: string list
       ProjectReferences: string list
       DllReferences: string list
-      PackageReferences: FablePackage list }
+      PackageReferences: FablePackage list
+      OtherCompilerOptions: string list }
 
 let makeProjectOptions project sources otherOptions =
     { ProjectFileName = project
@@ -222,7 +223,8 @@ let fullCrack (projFile: string): CrackedFsproj =
       SourceFiles = sourceFiles
       ProjectReferences = projRefs
       DllReferences = dllRefs.Values |> Seq.toList
-      PackageReferences = fablePkgs }
+      PackageReferences = fablePkgs
+      OtherCompilerOptions = [] }
 
 /// For project references of main project, ignore dll and package references
 let easyCrack (projFile: string): CrackedFsproj =
@@ -237,7 +239,8 @@ let easyCrack (projFile: string): CrackedFsproj =
       SourceFiles = sourceFiles
       ProjectReferences = projRefs |> List.map Path.normalizeFullPath
       DllReferences = []
-      PackageReferences = [] }
+      PackageReferences = []
+      OtherCompilerOptions = [] }
 
 let getCrackedProjectsFromMainFsproj (projFile: string) =
     let rec crackProjects (acc: CrackedFsproj list) (projFile: string) =
