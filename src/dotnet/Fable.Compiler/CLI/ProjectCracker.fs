@@ -179,8 +179,7 @@ let private getFsprojName (fsprojFullPath: string) =
     fsprojFullPath.[(i + 1) .. (fsprojFullPath.Length - 8)]
 
 let private isUsefulOption (opt : string) =
-    [ "--define"; "-d"
-      "--nowarn"
+    [ "--nowarn"
       "--warnon"
       "--warnaserror" ]
     |> List.exists opt.StartsWith
