@@ -4,6 +4,7 @@ module Fable.Transforms.Inject
 let fableCoreModules =
   Map [
     "Array", Map [
+      "append", (Types.arrayCons, 0)
       "mapIndexed", (Types.arrayCons, 1)
       "map", (Types.arrayCons, 1)
       "mapIndexed2", (Types.arrayCons, 2)

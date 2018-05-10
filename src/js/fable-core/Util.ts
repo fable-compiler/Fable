@@ -417,11 +417,15 @@ export function escapeUriString(s: string): string {
   return encodeURI(s);
 }
 
-// ICollection.Clear method can be called on IDictionary
-// too so we need to make a runtime check (see #1120)
+// ICollection.Clear and Count members can be called on Arrays
+// or Dictionaries so we need a runtime check (see #1120)
+export function count<T>(col: Iterable<T>): number {
+  return isArray(col) ? (col as any).length : (col as any).size;
+}
+
 export function clear<T>(col: Iterable<T>) {
-  if (Array.isArray(col)) {
-    col.splice(0);
+  if (isArray(col)) {
+    (col as any).splice(0);
   } else {
     (col as any).clear();
   }

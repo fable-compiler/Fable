@@ -44,18 +44,18 @@
     <Compile Include="RecordTypeTests.fs" />
     <!-- <Compile Include="ReflectionTests.fs" /> -->
     <Compile Include="RegexTests.fs" />
-     <!-- <Compile Include="ResizeArrayTests.fs" />  -->
+     <Compile Include="ResizeArrayTests.fs" />
     <Compile Include="ResultTests.fs" />
     <Compile Include="SeqExpressionTests.fs" />
     <Compile Include="SeqTests.fs" />
     <Compile Include="SetTests.fs" />
     <Compile Include="StringTests.fs" />
     <Compile Include="SudokuTest.fs" />
-    <!-- <Compile Include="TailCallTests.fs" />
+    <Compile Include="TailCallTests.fs" />
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
-    <Compile Include="ElmishParserTests.fs" /> -->
+    <Compile Include="ElmishParserTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

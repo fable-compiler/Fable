@@ -1119,12 +1119,14 @@ let resizeArrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg:
     | ".ctor", _, [ExprType(Number _) as arg] -> NewArray(ArrayAlloc arg, Any) |> Value |> Some
     | ".ctor", _, [Value(NewArray(ArrayValues arVals, _))] -> makeArray Any arVals |> Some
     | ".ctor", _, args -> Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
-    | "get_Count", Some ar, _ -> get r t ar "length" |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
     | "Add", Some ar, args -> Helper.InstanceCall(ar, "push", t, args, ?loc=r) |> Some
     | "Remove", Some ar, args -> Helper.CoreCall("Array", "removeInPlace", t, args @ [ar], ?loc=r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator r t ar |> Some
+    // ICollection members, implemented in dictionaries and sets too. We need runtime checks (see #1120)
+    | "get_Count", Some ar, _ -> Helper.CoreCall("Util", "count", t, [ar], ?loc=r) |> Some
+    | "Clear", Some ar, _ -> Helper.CoreCall("Util", "clear", t, [ar], ?loc=r) |> Some
     | _ -> None
     // | "find" when Option.isSome c ->
     //     let defaultValue = defaultof i.calleeTypeArgs.Head
@@ -1143,10 +1145,6 @@ let resizeArrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg:
     //     |> Some
     // | "addRange" ->
     //     ccall "Array" "addRangeInPlace" [args.Head; c.Value] |> Some
-    // | "clear" ->
-    //     // ICollection.Clear method can be called on IDictionary
-    //     // too so we need to make a runtime check (see #1120)
-    //     ccall "Util" "clear" [c.Value] |> Some
     // | "contains" ->
     //     match c, args with
     //     | Some c, args ->
@@ -1556,7 +1554,7 @@ let dictionaries (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr op
     let (|IDictionary|IEqualityComparer|Other|) = function
         | DeclaredType(ent,_) ->
             match ent.TryFullName with
-            | Some "System.Collections.Generic.IDictionary`2" -> IDictionary
+            | Some Types.idictionary -> IDictionary
             | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
             | _ -> Other
         | _ -> Other
@@ -2156,7 +2154,8 @@ let private replacedModules =
     "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", enumerators
     "System.Collections.Generic.List`1.Enumerator", enumerators
     "System.Collections.Generic.List`1", resizeArrays
-    "System.Collections.Generic.ICollection`1", hashSets
+    "System.Collections.Generic.IList`1", resizeArrays
+    "System.Collections.Generic.ICollection`1", resizeArrays
     Types.hashset, hashSets
     Types.iset, hashSets
     "Microsoft.FSharp.Core.FSharpOption`1", options

@@ -17,6 +17,10 @@ let jsConstructorIs (s: string) (ar: 'T[]) = true
 
 type ExceptFoo = { Bar:string }
 
+let f (x:obj) (y:obj) (z:obj) = (string x) + (string y) + (string z)
+
+let map f ar = Array.map f ar
+
 let tests =
   testList "Arrays" [
     testCase "Pattern matching with arrays works" <| fun () ->
@@ -45,7 +49,6 @@ let tests =
         ys |> jsConstructorIs "Float64Array" |> equal true
         zs |> jsConstructorIs "Array" |> equal true
 
-(*
     testCase "Mapping from Typed Arrays work" <| fun () ->
         [| 1; 2; 3; |]
         |> Array.map string
@@ -62,10 +65,8 @@ let tests =
         |> Array.map float
         |> jsConstructorIs "Float64Array"
         |> equal true
-*)
     #endif
 
-(*
     testCase "Mapping from values to functions works" <| fun () ->
         let a = [| "a"; "b"; "c" |]
         let b = [| 1; 2; 3 |]
@@ -93,13 +94,13 @@ let tests =
         ar.[0] <- ar.[0] + 255uy
         equal 4uy ar.[0]
 
-    #if FABLE_COMPILER
-    testCase "Clamped byte arrays work" <| fun () ->
-        let ar = DllRef.Lib.createClampedArray()
-        ar.[0] <- ar.[0] + 255uy
-        equal 255uy ar.[0]
-    #endif
-    *)
+    // TODO
+    // #if FABLE_COMPILER
+    // testCase "Clamped byte arrays work" <| fun () ->
+    //     let ar = DllRef.Lib.createClampedArray()
+    //     ar.[0] <- ar.[0] + 255uy
+    //     equal 255uy ar.[0]
+    // #endif
 
     testCase "Array slice with upper index work" <| fun () ->
         let xs = [| 1; 2; 3; 4; 5; 6 |]
@@ -154,7 +155,6 @@ let tests =
         let xs = [|1.; 2.; 3.; 4.|]
         xs.Length |> equal 4
 
-(*
     testCase "Array.zeroCreate works" <| fun () ->
         let xs = Array.zeroCreate 2
         equal 2 xs.Length
@@ -164,6 +164,7 @@ let tests =
         let xs = Array.create 2 5
         equal 2 xs.Length
         Array.sum xs |> equal 10
+
     testCase "Array.blit works" <| fun () ->
         let xs = [|1..10|]
         let ys = Array.zeroCreate 20
@@ -196,15 +197,16 @@ let tests =
         xs.[0] |> equal "a"
         xs.[1] |> equal "b"
 
-    testCase "Array distinctBy with tuples works" <| fun () ->
-        let xs =
-            [| (0,0),"a"
-               (1,1),"b"
-               (0,0),"c" |]
-            |> Array.distinctBy(fun (x, _) -> x)
-        xs.Length |> equal 2
-        xs.[0] |> snd |> equal "a"
-        xs.[1] |> snd |> equal "b"
+    // TODO!!!
+    // testCase "Array distinctBy with tuples works" <| fun () ->
+    //     let xs =
+    //         [| (0,0),"a"
+    //            (1,1),"b"
+    //            (0,0),"c" |]
+    //         |> Array.distinctBy(fun (x, _) -> x)
+    //     xs.Length |> equal 2
+    //     xs.[0] |> snd |> equal "a"
+    //     xs.[1] |> snd |> equal "b"
 
     testCase "Array distinctBy works on large array" <| fun () ->
         let xs = [| 0 .. 50000 |]
@@ -242,7 +244,7 @@ let tests =
 
     testCase "Array.averageBy works" <| fun () ->
         let xs = [|1.; 2.; 3.; 4.|]
-        Array.averageBy (fu x -> x * 2.) xs
+        Array.averageBy (fun x -> x * 2.) xs
         |> equal 5.
 
     testCase "Array.choose works" <| fun () ->
@@ -359,7 +361,7 @@ let tests =
         |> equal 1.
         (xs.[2] > 1. && xs.[3] < 2.)
         |> equal true
-*)
+
     testCase "Array.isEmpty works" <| fun () ->
         Array.isEmpty [|"a"|] |> equal false
         Array.isEmpty [||] |> equal true
@@ -439,6 +441,7 @@ let tests =
         let result = Array.mapFoldBack (fun x acc -> (x * -2., acc - x)) xs 0.
         fst result |> Array.sum |> equal -20.
         snd result |> equal -10.
+
     testCase "Array.max works" <| fun () ->
         let xs = [|1.; 2.|]
         xs |> Array.max
@@ -654,24 +657,23 @@ let tests =
         let x, y, z = ks.[0]
         x + y + z |> equal 3.
 
-(*
     testCase "Array as IList indexer has same behaviour" <| fun () ->
         let xs = [|1.; 2.; 3.|]
-        let ys = xs :> _ IList
+        let ys = xs :> _ System.Collections.Generic.IList
         ys.[0] <- -3.
         ys.[0] + ys.[2]
         |> equal 0.
 
     testCase "Array as IList count has same behaviour" <| fun () ->
         let xs = [|1.; 2.; 3.|]
-        let ys = xs :> _ IList
+        let ys = xs :> _ System.Collections.Generic.IList
         ys.Count |> equal 3
 
     testCase "Array as IList Seq.length has same behaviour" <| fun () ->
         let xs = [|1.; 2.; 3.|]
-        let ys = xs :> _ IList
+        let ys = xs :> _ System.Collections.Generic.IList
         ys |> Seq.length |> equal 3
-*)
+
     testCase "Mapping with typed arrays doesn't coerce" <| fun () ->
         let data = [| 1 .. 12 |]
         let page size page data =
@@ -771,5 +773,4 @@ let tests =
         Array.splitAt 0 ar |> equal ([||], [|1;2;3;4|])
         Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
         Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
-
   ]

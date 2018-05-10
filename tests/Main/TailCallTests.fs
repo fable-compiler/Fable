@@ -1,11 +1,6 @@
-[<Util.Testing.TestFixture>]
 module Fable.Tests.TailCalls
 
 open Util.Testing
-open Fable.Tests.Util
-
-open System
-open System.Collections.Generic
 
 module Functions =
     let rec factorial1 aux n =
@@ -87,34 +82,11 @@ module Functions =
 
 open Functions
 
-[<Test>]
-let ``Recursive functions can be tailcall optimized``() =
-    factorial1 1 10 |> equal 3628800
-
-[<Test>]
-let ``Non-tailcall recursive functions work``() =
-    factorial2 10 |> equal 3628800
-
-[<Test>]
-let ``Nested functions can be tailcall optimized``() =
-    factorial3 10 |> equal 3628800
-
-[<Test>]
-let ``Arguments can be consumed after being "passed" in tailcall optimizations``() =
-    sum 0L 100000L 0L
-    |> equal 4999950000L
-
 type MyTailCall() =
     member x.Sum(v, m, s) =
         if v >= m
         then s
         else x.Sum(v + 1L, m, s + v)
-
-[<Test>]
-let ``Class methods can be tailcall optimized``() =
-    let x = MyTailCall()
-    x.Sum(0L, 100000L, 0L)
-    |> equal 4999950000L
 
 let rec parseNum tokens acc = function
   | x::xs when x >= '0' && x <= '9' ->
@@ -127,36 +99,52 @@ and parseTokens tokens = function
   | x::xs -> parseTokens tokens xs
   | [] -> List.rev tokens
 
-[<Test>]
-let ``Mutually recursive functions can be partially optimized``() =
-    let s = "a5b6c"
-    s.ToCharArray() |> Seq.toList |> parseTokens []
-    |> Seq.concat |> Seq.map string |> String.concat ""
-    |> equal "56"
+let tests =
+  testList "TailCalls" [
+    testCase "Recursive functions can be tailcall optimized" <| fun () ->
+        factorial1 1 10 |> equal 3628800
 
-[<Test>]
-let ``IIFEs prevent tailcall optimization``() = // See #674
-    iife [5; 4; 3] |> equal 24
+    testCase "Non-tailcall recursive functions work" <| fun () ->
+        factorial2 10 |> equal 3628800
 
-[<Test>]
-let ``Tailcall optimization doesn't cause endless loops``() = // See #675
-    One("a", 42)
-    |> tryFind "a"
-    |> equal (Some 42)
-    Tree.Empty
-    |> tryFind "a"
-    |> equal None
+    testCase "Nested functions can be tailcall optimized" <| fun () ->
+        factorial3 10 |> equal 3628800
 
-[<Test>]
-let ``Recursive functions containing finally work``() =
-    recWithFinally () |> equal "abcdeEDCBA"
+    testCase "Arguments can be consumed after being \"passed\" in tailcall optimizations" <| fun () ->
+        sum 0L 100000L 0L
+        |> equal 4999950000L
 
-[<Test>]
-let ``Recursive functions containing use work``() =
-    recWithUse () |> equal "abcdeEDCBA"
+    testCase "Class methods can be tailcall optimized" <| fun () ->
+        let x = MyTailCall()
+        x.Sum(0L, 100000L, 0L)
+        |> equal 4999950000L
 
-let ``Function arguments can be optimized``() = // See #681
-    functionArguments [1;2;3] ((+) 2) |> equal 11
+    testCase "Mutually recursive functions can be partially optimized" <| fun () ->
+        let s = "a5b6c"
+        s.ToCharArray() |> Seq.toList |> parseTokens []
+        |> Seq.concat |> Seq.map string |> String.concat ""
+        |> equal "56"
 
-let ``Function arguments can be optimized II``() = // See #681
-    iterate ((*) 2) 5 10 |> equal 320
+    testCase "IIFEs prevent tailcall optimization" <| fun () -> // See #674
+        iife [5; 4; 3] |> equal 24
+
+    testCase "Tailcall optimization doesn't cause endless loops" <| fun () -> // See #675
+        One("a", 42)
+        |> tryFind "a"
+        |> equal (Some 42)
+        Tree.Empty
+        |> tryFind "a"
+        |> equal None
+
+    testCase "Recursive functions containing finally work" <| fun () ->
+        recWithFinally () |> equal "abcdeEDCBA"
+
+    testCase "Recursive functions containing use work" <| fun () ->
+        recWithUse () |> equal "abcdeEDCBA"
+
+    testCase "Function arguments can be optimized" <| fun () -> // See #681
+        functionArguments [1;2;3] ((+) 2) |> equal 11
+
+    testCase "Function arguments can be optimized II" <| fun () -> // See #681
+        iterate ((*) 2) 5 10 |> equal 320
+  ]

@@ -45,9 +45,6 @@ module Helpers =
     let inline sliceFromImpl (array: 'T[]) (``begin``: int): 'T[] =
         !!array?slice(``begin``)
 
-    let inline concatImpl (array1: 'T[]) (array2: 'T[]): 'T[] =
-        !!array1?concat(array2)
-
     let inline indexOfImpl (array: 'T[]) (item: 'T): int =
         !!array?indexOf(item)
 
@@ -70,7 +67,16 @@ let private indexNotFound() = failwith "An index satisfying the predicate was no
 // Pay attention when benchmarking to append and filter functions below
 // if implementing via native JS array .concat() and .filter() do not fall behind due to js-native transitions.
 
-let append (array1: 'T[]) (array2: 'T[]): 'T[] = concatImpl array1 array2
+// Don't use native JS Array.prototype.concat as it doesn't work with typed arrays
+let append (array1: 'T[]) (array2: 'T[]) ([<Inject>] cons: IArrayCons<'T>): 'T[] =
+    let len1 = array1.Length
+    let len2 = array2.Length
+    let newArray = cons.Create(len1 + len2)
+    for i = 0 to len1 - 1 do
+        newArray.[i] <- array1.[i]
+    for i = 0 to len2 - 1 do
+        newArray.[i + len1] <- array2.[i]
+    newArray
 
 let filter (predicate: 'T -> bool) (array: 'T[]) = filterImpl predicate array
 

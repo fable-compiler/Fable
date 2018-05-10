@@ -630,6 +630,7 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
         then transformMemberValue com ctx isPublic name memb body
         else transformMemberFunction com ctx isPublic name memb args body
 
+/// TODO!!! We cannot implement overrides on records and unions, throw error (at least for now)
 let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
     | None -> "Unexpected override without declaring entity: " + memb.FullName

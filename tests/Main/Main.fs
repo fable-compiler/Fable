@@ -2,34 +2,44 @@ module Fable.Tests.Main
 
 let allTests =
   [|
-     Applicative.tests
-     Arithmetic.tests
-     Async.tests
-     Arrays.tests
-     Char.tests
-     Convert.tests
-     Comparison.tests
-     DateTime.tests
-     DateTimeOffset.tests
-     Dictionaries.tests
-     Enumerable.tests
-     Enum.tests
-     Event.tests
-     HashSets.tests
-     Import.tests
-     JsInterop.tests
-     Lists.tests
-     Maps.tests
-     Observable.tests
-     RecordTypes.tests
-     Regex.tests
-     Result.tests
-     Seqs.tests
-     ``Seq Expressions``.tests
-     Sets.tests
-     Strings.tests
-     Sudoku.tests
-     Option.tests
+    // TODO: Misc, Types and remaining tests in Arithmetic, seqs, lists and arrays
+    // Misc.tests
+    // TypeTests.tests
+
+    Applicative.tests
+    Arithmetic.tests
+    Async.tests
+    Arrays.tests
+    Char.tests
+    Convert.tests
+    Comparison.tests
+    DateTime.tests
+    DateTimeOffset.tests
+    Dictionaries.tests
+    Enumerable.tests
+    Enum.tests
+    Event.tests
+    HashSets.tests
+    Import.tests
+    JsInterop.tests
+    Lists.tests
+    Maps.tests
+    Observable.tests
+    RecordTypes.tests
+    Regex.tests
+    Result.tests
+    Seqs.tests
+    ``Seq Expressions``.tests
+    Sets.tests
+    Strings.tests
+    Sudoku.tests
+    TailCalls.tests
+    TupleTypes.tests
+    Option.tests
+    UnionTypes.tests
+    #if FABLE_COMPILER
+    ElmishParser.tests
+    #endif
   |]
 
 #if FABLE_COMPILER
