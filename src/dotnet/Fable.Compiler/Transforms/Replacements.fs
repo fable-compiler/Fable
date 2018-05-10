@@ -386,11 +386,20 @@ let toList returnType expr =
     Helper.CoreCall("Seq", "toList", returnType, [expr])
 
 let toArray (com: ICompiler) returnType expr =
-    match expr, returnType with
-    // Typed arrays
-    | _, Array(Number numberKind) when com.Options.typedArrays ->
-        Helper.GlobalCall(getTypedArrayName com numberKind, returnType, [expr], memb="from")
-    | _ -> Helper.GlobalCall("Array", returnType, [expr], memb="from")
+    // match expr, returnType with
+    // | _, Array(Number numberKind) when com.Options.typedArrays ->
+    //     Helper.GlobalCall(getTypedArrayName com numberKind, returnType, [expr], memb="from")
+    // | _ -> Helper.GlobalCall("Array", returnType, [expr], memb="from")
+
+    // Calling the JS global methods (Array.from) directly creates problems with lambda optimization
+    // because passing these functions as values in JS (e.g. `foo(Array.from)`) doesn't work
+    let args =
+        match returnType with
+        | Array genArg
+        // This is used also by Seq.cache, which returns `'T seq` instead of `'T array`
+        | DeclaredType(_, [genArg]) -> [expr; arrayCons com genArg]
+        | _ -> [expr]
+    Helper.CoreCall("Array", "ofSeq", returnType, args)
 
 let listToArray com r t (li: Expr) =
     match li with
@@ -1499,7 +1508,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("GetArraySlice" | "GetStringSlice"), None, [ar; lower; upper] ->
         let upper =
             match upper with
-            | Value(Null _) -> getExpr None (Number Int32) ar (makeStrConst "length")
+            | Value(NewOption(None,_)) -> getExpr None (Number Int32) ar (makeStrConst "length")
             | _ -> add upper (makeIntConst 1)
         Helper.InstanceCall(ar, "slice", t, [lower; upper], ?loc=r) |> Some
     | "SetArraySlice", None, args ->
@@ -2108,7 +2117,7 @@ let tryField returnTyp ownerTyp fieldName =
     match ownerTyp, fieldName with
     | Number Decimal, "Zero" -> makeDecConst 0M |> Some
     | Number Decimal, "One" -> makeDecConst 1M |> Some
-    | String, "Emtpy" -> makeStrConst "" |> Some
+    | String, "Empty" -> makeStrConst "" |> Some
     | Builtin BclGuid, "Empty" -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
     | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some
     | Builtin BclDateTime, ("MaxValue" | "MinValue") ->

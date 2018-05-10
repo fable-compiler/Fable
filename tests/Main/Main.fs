@@ -28,7 +28,7 @@ let allTests =
      ``Seq Expressions``.tests
      Sets.tests
      Strings.tests
-    //  Sudoku.tests
+     Sudoku.tests
      Option.tests
   |]
 

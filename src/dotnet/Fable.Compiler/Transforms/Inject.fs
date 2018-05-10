@@ -3,8 +3,6 @@ module Fable.Transforms.Inject
 
 let fableCoreModules =
   Map [
-    "Fable.Core.JS.AssemblyInfo", Map [
-    ]
     "Array", Map [
       "mapIndexed", (Types.arrayCons, 1)
       "map", (Types.arrayCons, 1)
@@ -41,6 +39,7 @@ let fableCoreModules =
       "max", (Types.comparer, 0)
       "minBy", (Types.comparer, 1)
       "min", (Types.comparer, 0)
+      "ofSeq", (Types.arrayCons, 0)
       "ofList", (Types.arrayCons, 0)
     ]
     "List", Map [

@@ -99,6 +99,7 @@ let tests =
         ar.[0] <- ar.[0] + 255uy
         equal 255uy ar.[0]
     #endif
+    *)
 
     testCase "Array slice with upper index work" <| fun () ->
         let xs = [| 1; 2; 3; 4; 5; 6 |]
@@ -139,7 +140,6 @@ let tests =
         let x = [| 1.; 2.; 3.; 4.; 5. |]
         x.[3] <- 10.
         equal 10. x.[3]
-*)
 
     testCase "Array getter works" <| fun () ->
         let x = [| 1.; 2.; 3.; 4.; 5. |]

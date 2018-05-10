@@ -40,12 +40,3 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-
-open System.Text.RegularExpressions
-
-let test() =
-    let str = "For more information, see Chapter 3.4.5.1"
-    let m = Regex.Match(str, "Chapter \d+(\.\d)*")
-    let count = ref 0
-    for g in m.Groups do count := !count + g.Value.Length
-    equal 17 !count

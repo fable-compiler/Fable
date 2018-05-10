@@ -515,12 +515,14 @@ let permute f (array: 'T[]) =
         invalidOp "Not a valid permutation"
     res
 
-let setSlice (target: 'T[]) (lower: int) (upper: int) (source: 'T[]) =
+let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[]) =
+    let lower = defaultArg lower 0
+    let upper = defaultArg upper 0
     let length = (if upper > 0 then upper else target.Length - 1) - lower
     if isTypedArrayImpl target && source.Length <= length then
         typedArraySetImpl target source lower
     else
-        for i = 0 to length - 1 do
+        for i = 0 to length do
             target.[i + lower] <- source.[i]
 
 let sortInPlaceBy (projection:'a->'b) (xs : 'a[]) ([<Inject>] comparer: IComparer<'b>): unit =
@@ -764,6 +766,9 @@ let averageBy (projection: 'T -> float) (array: 'T []) : float =
     if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     let total = sumBy projection array
     total / float array.Length
+
+let ofSeq (source: 'T list) ([<Inject>] cons: IArrayCons<'T>) =
+    cons.FromSequence(source)
 
 let ofList (source: 'T list) ([<Inject>] cons: IArrayCons<'T>) =
     let len = List.length source

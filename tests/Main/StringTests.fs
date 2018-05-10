@@ -154,12 +154,11 @@ let tests =
           let y = sprintf "B%sr" "a"
           x + y |> equal "FooBar"
 
-      // TODO!!!
-      // testCase "String slicing works" <| fun () ->
-      //       let s = "cat and dog"
-      //       sprintf "%s" s.[2..8] |> equal "t and d"
-      //       sprintf "%s" s.[2..] |> equal "t and dog"
-      //       sprintf "%s" s.[..8] |> equal "cat and d"
+      testCase "String slicing works" <| fun () ->
+            let s = "cat and dog"
+            sprintf "%s" s.[2..8] |> equal "t and d"
+            sprintf "%s" s.[2..] |> equal "t and dog"
+            sprintf "%s" s.[..8] |> equal "cat and d"
 
       testCase "String.Format works" <| fun () ->
             let arg1, arg2, arg3 = "F#", "Fable", "Babel"
@@ -443,10 +442,9 @@ let tests =
             "   abc??**".TrimEnd('*','?')
             |> equal "   abc"
 
-      // TODO!!!
-      // testCase "String.Empty works" <| fun () ->
-      //       let s = String.Empty
-      //       s |> equal ""
+      testCase "String.Empty works" <| fun () ->
+            let s = String.Empty
+            s |> equal ""
 
       testCase "String.Chars works" <| fun () ->
             let input = "hello"

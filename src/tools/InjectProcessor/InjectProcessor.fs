@@ -86,17 +86,19 @@ let fableCoreModules =
   Map ["""
             for file in proj.AssemblyContents.ImplementationFiles do
                 let fileName = System.IO.Path.GetFileNameWithoutExtension(file.FileName)
-                yield sprintf "    \"%s\", Map [" fileName
-                yield!
-                    getInjects false file.Declarations
-                    |> Seq.map (fun (membName, typeArgName, genArgIndex) ->
-                        let typeArgName =
-                            match Map.tryFind typeArgName typeAliases with
-                            | Some alias -> "Types." + alias
-                            | None -> "\"" + typeArgName + "\""
-                        sprintf "      \"%s\", (%s, %i)" membName typeArgName genArgIndex
-                    )
-                yield "    ]"
+                // Apparently FCS generates the AssemblyInfo file automatically
+                if fileName.Contains("AssemblyInfo") |> not then
+                    yield sprintf "    \"%s\", Map [" fileName
+                    yield!
+                        getInjects false file.Declarations
+                        |> Seq.map (fun (membName, typeArgName, genArgIndex) ->
+                            let typeArgName =
+                                match Map.tryFind typeArgName typeAliases with
+                                | Some alias -> "Types." + alias
+                                | None -> "\"" + typeArgName + "\""
+                            sprintf "      \"%s\", (%s, %i)" membName typeArgName genArgIndex
+                        )
+                    yield "    ]"
 
             yield "  ]\n"
         }
