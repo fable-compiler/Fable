@@ -342,6 +342,10 @@ let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: str
         let otherOptions =
             // We only keep dllRefs for the main project
             let dllRefs = [| for r in mainProj.DllReferences -> "-r:" + r |]
-            Array.append (getBasicCompilerArgs define) dllRefs
+            let otherOpts = mainProj.OtherCompilerOptions |> Array.ofList
+            [ getBasicCompilerArgs define
+              otherOpts
+              dllRefs ]
+            |> Array.concat
         makeProjectOptions projFile sourceFiles otherOptions
     projOpts, fableCorePath
