@@ -1,3 +1,7 @@
+### 1.3.17
+
+* Fix #1400: Fix Deserializing into int64 from json (@vikranthc)
+
 ### 1.3.16
 
 * Fix #1395: Units of measure with long integers
