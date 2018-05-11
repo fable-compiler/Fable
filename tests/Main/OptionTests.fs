@@ -33,7 +33,19 @@ let makeSome (x: 'a): 'a option =
 
 let tests =
   testList "Option" [
+    testCase "defaultArg works" <| fun () ->
+        let f o = defaultArg o 5
+        f (Some 2) |> equal 2
+        f None |> equal 5
+
     testCase "Option.defaultValue works" <| fun () ->
+        let a = Some "MyValue"
+        let b = None
+
+        a |> Option.defaultValue "" |> equal "MyValue"
+        b |> Option.defaultValue "default" |> equal "default"
+
+    testCase "Option.defaultValue works II" <| fun () ->
         Some 5 |> Option.defaultValue 4 |> equal 5
         None |> Option.defaultValue "foo" |> equal "foo"
 

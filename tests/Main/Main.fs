@@ -2,9 +2,8 @@ module Fable.Tests.Main
 
 let allTests =
   [|
-    // TODO: Misc, Types and remaining tests in Arithmetic, seqs, lists and arrays
-    // Misc.tests
-    // TypeTests.tests
+    // TODO: Misc and remaining tests in
+    // Applicable, Arithmetic, seqs, lists and arrays
 
     Applicative.tests
     Arithmetic.tests
@@ -35,6 +34,7 @@ let allTests =
     Sudoku.tests
     TailCalls.tests
     TupleTypes.tests
+    TypeTests.tests
     Option.tests
     UnionTypes.tests
     #if FABLE_COMPILER

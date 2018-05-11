@@ -110,12 +110,16 @@ export class Lazy<T> {
     this.isValueCreated = false;
   }
 
-  get value() {
+  get Value() {
     if (!this.isValueCreated) {
       this.createdValue = this.factory();
       this.isValueCreated = true;
     }
     return this.createdValue;
+  }
+
+  get IsValueCreated() {
+    return this.isValueCreated;
   }
 }
 

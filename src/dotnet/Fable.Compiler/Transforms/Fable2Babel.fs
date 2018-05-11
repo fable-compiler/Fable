@@ -583,7 +583,7 @@ module Util =
             upcast BinaryExpression(BinaryInstanceOf, expr, cons, ?loc=range)
         match typ with
         | Fable.Any -> upcast BooleanLiteral true
-        | Fable.Unit -> failwith "TODO" // makeEqOp range expr (Fable.Value <| Fable.Null Fable.Any) BinaryEqual
+        | Fable.Unit -> upcast BinaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
         | Fable.Boolean -> jsTypeof "boolean" expr
         | Fable.Char | Fable.String _ -> jsTypeof "string" expr
         | Fable.FunctionType _ -> jsTypeof "function" expr

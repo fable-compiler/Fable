@@ -99,6 +99,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
             let value = Fable.Function(Fable.Delegate args, transformExpr com ctx over.Body, None)
             let name, kind =
                 match over.Signature.Name with
+                // TODO!!! Check arguments too
                 | Naming.StartsWith "get_" name -> name, Fable.ObjectGetter
                 | Naming.StartsWith "set_" name -> name, Fable.ObjectSetter
                 | name ->
@@ -663,10 +664,11 @@ let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSh
         let body = transformExpr com bodyCtx body
         let value = Fable.Function(Fable.Delegate args, body, None)
         let kind =
+            // TODO!!! Check arguments too
             if memb.IsPropertyGetterMethod
             then Fable.ObjectGetter
             elif memb.IsPropertySetterMethod
-            then Fable.ObjectGetter
+            then Fable.ObjectSetter
             else hasSeqSpread memb |> Fable.ObjectMethod
         let objMember = makeStrConst memb.DisplayName, value, kind
         com.AddInterfaceImplementation(memb, objMember)

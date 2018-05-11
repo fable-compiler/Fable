@@ -1837,7 +1837,7 @@ let timers (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) 
 
 let systemEnv (_: ICompiler) (_: Context) (_: SourceLocation option) (_: Type) (i: CallInfo) (_: Expr option) (_: Expr list) =
     match i.CompiledName with
-    | "NewLine" -> Some (makeStrConst "\n")
+    | "get_NewLine" -> Some (makeStrConst "\n")
     | _ -> None
 
 // Initial support, making at least InvariantCulture compile-able
@@ -2009,15 +2009,12 @@ let uris (_: ICompiler) (_: Context) (_: SourceLocation option) t (i: CallInfo) 
     | _ -> None
 
 let laziness (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | ".ctor" | "Create" -> Helper.CoreCall("Util", "Lazy", t, args, i.SignatureArgTypes) |> Some
-    | "CreateFromValue" -> Helper.CoreCall("Util", "lazyFromValue", t, args, i.SignatureArgTypes) |> Some
-        // coreCall "lazyFromValue" false info.args |> Some
-    | "Force" | "Value" | "IsValueCreated" ->
-        let callee = thisArg |> Option.defaultWith(fun _ -> args.Head)
-        match i.CompiledName with
-        | "Force" -> "Value" | another -> another
-        |> get r t callee |> Some
+    match i.CompiledName, thisArg, args with
+    | (".ctor"|"Create"),_,_ -> Helper.CoreCall("Util", "Lazy", t, args, i.SignatureArgTypes, isConstructor=true, ?loc=r) |> Some
+    | "CreateFromValue",_,_ -> Helper.CoreCall("Util", "lazyFromValue", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Force", Some callee, _ -> get r t callee "Value" |> Some
+    | ("get_Value"|"get_IsValueCreated"), Some callee, _ ->
+        Naming.removeGetSetPrefix i.CompiledName |> get r t callee |> Some
     | _ -> None
 
 let controlExtensions (_: ICompiler) (_: Context) (_: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2202,7 +2199,7 @@ let private replacedModules =
     "Microsoft.FSharp.Control.FSharpAsync", asyncs
     "System.Guid", guids
     "System.Uri", uris
-    "System.Lazy", laziness
+    "System.Lazy`1", laziness
     "Microsoft.FSharp.Control.Lazy", laziness
     "Microsoft.FSharp.Control.LazyExtensions", laziness
     "Microsoft.FSharp.Control.CommonExtensions", controlExtensions

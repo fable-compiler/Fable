@@ -106,6 +106,48 @@ let getName4 (o:obj) = function
 
 type Firm = { name: string }
 
+// TODO!!!
+// let normalize (x: string) =
+//     #if FABLE_COMPILER
+//     x
+//     #else
+//     x.Replace("+",".")
+//     #endif
+// let inline fullname<'T> () = typeof<'T>.FullName |> normalize
+// let inline create<'T when 'T:(new : unit -> 'T)> () = new 'T()
+// let inline create2<'T> (args: obj[]) =
+//     System.Activator.CreateInstance(typeof<'T>, args) :?> 'T
+
+// testCase "Type Namespace" <| fun () ->
+//     let x = typeof<TestType>.Namespace
+//     #if FABLE_COMPILER
+//     equal "Fable.Tests.TypeTests" x
+//     #else
+//     equal "Fable.Tests" x
+//     #endif
+
+// testCase "Type FullName" <| fun () ->
+//     let x = typeof<TestType>.FullName
+//     x |> normalize |> equal "Fable.Tests.TypeTests.TestType"
+
+// testCase "Type Name" <| fun () ->
+//     let x = typeof<TestType>.Name
+//     equal "TestType" x
+
+// testCase "Get fullname of generic types with inline function" <| fun () ->
+//     fullname<TestType3>() |> equal "Fable.Tests.TypeTests.TestType3"
+//     fullname<TestType4>() |> equal "Fable.Tests.TypeTests.TestType4"
+
+// testCase "Create new generic objects with inline function" <| fun () ->
+//     create<TestType3>().Value |> equal "Hi"
+//     create<TestType4>().Value2 |> equal "Bye"
+//     // create<TestType5>() // Doesn't compile
+
+// testCase "Create new generic objects with System.Activator" <| fun () ->
+//     (create2<TestType3> [||]).Value |> equal "Hi"
+//     (create2<TestType4> [||]).Value2 |> equal "Bye"
+//     (create2<TestType5> [|"Yo"|]).Value |> equal "Yo"
+
 [<Test>]
 let ``Type name is accessible``() =
     let x = { name = "" }
