@@ -12,6 +12,7 @@ let allTests =
     Char.tests
     Convert.tests
     Comparison.tests
+    CustomOperators.tests
     DateTime.tests
     DateTimeOffset.tests
     Dictionaries.tests
