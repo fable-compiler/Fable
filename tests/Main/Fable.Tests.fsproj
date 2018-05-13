@@ -1,11 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
     <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Expecto" Version="5.1.2" />
-  </ItemGroup>
   <ItemGroup>
     <Reference Include="Fable.Core" HintPath="../../build/fable/Fable.Core.dll" />
     <ProjectReference Include="..\DllRef\Fable.Tests.DllRef.fsproj" />
@@ -36,16 +33,16 @@
     <Compile Include="HashSetTests.fs" />
     <Compile Include="ImportTests.fs" />
     <Compile Include="JsInteropTests.fs" />
-    <!-- <Compile Include="JsonTests.fs" /> -->
+    <Compile Include="JsonTests.fs" />
     <Compile Include="ListTests.fs" />
     <Compile Include="MapTests.fs" />
     <!-- <Compile Include="MiscTests.fs" /> -->
     <Compile Include="ObservableTests.fs" />
     <Compile Include="OptionTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
-    <!-- <Compile Include="ReflectionTests.fs" /> -->
+    <Compile Include="ReflectionTests.fs" />
     <Compile Include="RegexTests.fs" />
-     <Compile Include="ResizeArrayTests.fs" />
+    <Compile Include="ResizeArrayTests.fs" />
     <Compile Include="ResultTests.fs" />
     <Compile Include="SeqExpressionTests.fs" />
     <Compile Include="SeqTests.fs" />
@@ -58,5 +55,10 @@
     <Compile Include="UnionTypeTests.fs" />
     <Compile Include="ElmishParserTests.fs" />
     <Compile Include="Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Expecto" Version="5.1.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <Reference Include="Fable.JsonConverter" HintPath="../../build/json-converter/Fable.JsonConverter.dll" />
   </ItemGroup>
 </Project>
