@@ -22,6 +22,19 @@ module Testing =
 
     let equal expected actual: unit =
         Expect.equal actual expected ""
+    
+    let throwsError (expected: string) (f: unit -> 'a): unit =
+        let success =
+            try
+                f () |> ignore
+                true
+            with e ->
+                equal e.Message expected
+                false
+
+        // TODO better error messages
+        equal false success
+
     #endif
 
 #if FABLE_COMPILER
