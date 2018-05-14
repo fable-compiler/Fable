@@ -41,6 +41,9 @@ let allTests =
     #if FABLE_COMPILER
     ElmishParser.tests
     #endif
+    Json.tests
+    Reflection.tests
+    Misc.tests
   |]
 
 #if FABLE_COMPILER

@@ -36,7 +36,7 @@
     <Compile Include="JsonTests.fs" />
     <Compile Include="ListTests.fs" />
     <Compile Include="MapTests.fs" />
-    <!-- <Compile Include="MiscTests.fs" /> -->
+    <Compile Include="MiscTests.fs" />
     <Compile Include="ObservableTests.fs" />
     <Compile Include="OptionTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
