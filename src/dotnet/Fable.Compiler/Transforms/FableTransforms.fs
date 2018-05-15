@@ -192,12 +192,11 @@ let canEraseBinding identName value body =
             | _ -> false) |> ignore
         count = limit
     match value with
-    | e when not(hasDoubleEvalRisk e) -> true
     | Value(This _) -> // Check if body contains closures
         body |> deepExists (function
             | Function _ | ObjectExpr _ -> true
-            | _ -> false)
-    | _ -> isReferencedOnlyOnce identName body
+            | _ -> false) |> not
+    | e -> not(hasDoubleEvalRisk e) || isReferencedOnlyOnce identName body
 
 module private Transforms =
     let (|ExprType|) (e: Expr) = e.Type
@@ -505,6 +504,7 @@ let optimizations =
     [ // First apply beta reduction
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
+      // TODO: Combine this with bindingBetaReduction?
       fun com e -> visitFromInsideOut (getterBetaReduction com) e
       // Then resolve casts
       fun com e -> visitFromInsideOut (resolveCasts_required com) e

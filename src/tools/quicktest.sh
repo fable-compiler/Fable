@@ -10,10 +10,7 @@ ARGS="$@"
 echo "dotnet SDK version"
 dotnet --version
 
-if [ "${ARGS/--no-build/}" = "$ARGS" ]; then
-    echo "Building Fable.Compiler..."
-    dotnet build ../dotnet/Fable.Compiler
-fi
+dotnet build ../dotnet/Fable.Compiler
 
 if [ "${ARGS/--build-core/}" != "$ARGS" ]; then
     echo "Building fable-core..."
@@ -39,6 +36,9 @@ if [ "${ARGS/--build-core/}" != "$ARGS" ]; then
 fi
 
 pushd ../dotnet/Fable.Compiler
-dotnet run --no-build yarn-splitter --port free --cwd ../../tools --fable-core ../../../build/fable-core
+dotnet run --no-build yarn-splitter \
+    --cwd ../../tools \
+    --fable-core ../../../build/fable-core \
+    --args "${ARGS/--build-core/}"
 popd
 node temp/QuickTest.js

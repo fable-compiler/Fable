@@ -1,10 +1,9 @@
 module Fable.Tests.Main
 
+// TODO!!! notes and remaining tests in
+// Applicable, Arithmetic, seqs, lists and arrays
 let allTests =
   [|
-    // TODO: Misc and remaining tests in
-    // Applicable, Arithmetic, seqs, lists and arrays
-
     Applicative.tests
     Arithmetic.tests
     Async.tests
@@ -24,6 +23,7 @@ let allTests =
     JsInterop.tests
     Lists.tests
     Maps.tests
+    Misc.tests
     Observable.tests
     RecordTypes.tests
     Regex.tests

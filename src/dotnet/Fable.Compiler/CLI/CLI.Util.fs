@@ -80,3 +80,59 @@ module Json =
                 writer.WritePropertyName(p.Name)
                 serializer.Serialize(writer, p.GetValue(v)))
             writer.WriteEndObject()
+
+[<RequireQualifiedAccess>]
+module Process =
+    open System.Diagnostics
+
+    type Options(?envVars, ?redirectOutput) =
+        member val EnvVars = defaultArg envVars Map.empty<string,string>
+        member val RedirectOuput = defaultArg redirectOutput false
+
+    let start workingDir fileName args (opts: Options) =
+        let fileName, args =
+            let isWindows =
+                #if NETFX
+                true
+                #else
+                System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
+                    (System.Runtime.InteropServices.OSPlatform.Windows)
+                #endif
+            if isWindows
+            then "cmd", ("/C " + fileName + " " + args)
+            else fileName, args
+        printfn "CWD: %s" workingDir
+        printfn "%s %s" fileName args
+        let p = new Process()
+        p.StartInfo.FileName <- fileName
+        p.StartInfo.Arguments <- args
+        p.StartInfo.WorkingDirectory <- workingDir
+        p.StartInfo.RedirectStandardOutput <- opts.RedirectOuput
+        #if NETFX
+        p.StartInfo.UseShellExecute <- false
+        #endif
+        opts.EnvVars |> Map.iter (fun k v ->
+            p.StartInfo.Environment.[k] <- v)
+        p.Start() |> ignore
+        p
+
+    let run workingDir fileName args =
+        let p =
+            Options()
+            |> start workingDir fileName args
+        p.WaitForExit()
+        match p.ExitCode with
+        | 0 -> ()
+        | c -> failwithf "Process %s %s finished with code %i" fileName args c
+
+    let tryRunAndGetOutput workingDir fileName args =
+        try
+            let p =
+                Options(redirectOutput=true)
+                |> start workingDir fileName args
+            let output = p.StandardOutput.ReadToEnd()
+            // printfn "%s" output
+            p.WaitForExit()
+            output
+        with ex ->
+            "ERROR: " + ex.Message

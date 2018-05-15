@@ -8,6 +8,12 @@ open Fable
 open Fable.AST
 open Fable.Transforms
 
+type EnclosingMemberContext =
+    | ImplicitConstructor
+    | SecondaryConstructor of entityConstructorFullName: string
+    | InterfaceImplementation of interfaceFullName: string option
+    | UnknownMember
+
 type Context =
     { Scope: (FSharpMemberOrFunctionOrValue * Fable.Expr) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
@@ -15,20 +21,19 @@ type Context =
       /// so we need a mutable registry to prevent duplicated var names.
       VarNames: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
+      EnclosingMember: EnclosingMemberContext
       CaughtException: Fable.Ident option
-      /// Returned entity fullName in secondary constructor bodies
-      ConstructorEntityFullName: string option
-      /// The name of the interface being implemented in a method body
-      ImplementedInterfaceFullName: string option
+      BoundThis: Fable.Ident option
     }
     static member Create() =
         { Scope = []
           ScopeInlineValues = []
           VarNames = HashSet()
           GenericArgs = Map.empty
+          EnclosingMember = UnknownMember
           CaughtException = None
-          ConstructorEntityFullName = None
-          ImplementedInterfaceFullName = None }
+          BoundThis = None
+        }
 
 type IFableCompiler =
     inherit ICompiler
@@ -223,8 +228,8 @@ module Helpers =
         && (not memb.IsMutable || not (isPublicMember memb))
 
     let isSiblingConstructorCall (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.IsConstructor, ctx.ConstructorEntityFullName with
-        | true, Some fullName ->
+        match memb.IsConstructor, ctx.EnclosingMember with
+        | true, SecondaryConstructor fullName ->
             let returnType = memb.ReturnParameter.Type
             if returnType.HasTypeDefinition
             then returnType.TypeDefinition.TryFullName = Some fullName
@@ -279,13 +284,6 @@ module Patterns =
 
     let (|RefType|_|) = function
         | TypeDefinition tdef as t when tdef.TryFullName = Some Types.reference -> Some t
-        | _ -> None
-
-    let (|ThisVar|_|) = function
-        | BasicPatterns.ThisValue _ -> Some ThisVar
-        | BasicPatterns.Value var when
-            var.IsMemberThisValue || var.IsConstructorThisValue ->
-            Some ThisVar
         | _ -> None
 
     let (|ForOf|_|) = function
@@ -561,10 +559,20 @@ module Util =
         // To prevent name clashes in JS create a scope for members
         // where variables must always have a unique name
         let ctx = { ctx with VarNames = HashSet(ctx.VarNames) }
-        (args, (ctx, [])) ||> List.foldBack (fun tupledArg (ctx, accArgs) ->
-            // The F# compiler "untuples" the args in methods
-            let ctx, untupledArg = makeFunctionArgs com ctx tupledArg
-            ctx, untupledArg@accArgs)
+        let ctx, transformedArgs, args =
+            match args with
+            // Within private members (first arg is ConstructorThisValue) F# AST uses
+            // ThisValue instead of Value (with .IsMemberConstructorThisValue = true)
+            | (firstArg::restArgs1)::restArgs2 when firstArg.IsConstructorThisValue ->
+                let ctx, thisArg = bindIdentFrom com ctx firstArg
+                { ctx with BoundThis = Some thisArg }, [thisArg], restArgs1::restArgs2
+            | _ -> ctx, [], args
+        let ctx, args =
+            (args, (ctx, [])) ||> List.foldBack (fun tupledArg (ctx, accArgs) ->
+                // The F# compiler "untuples" the args in methods
+                let ctx, untupledArg = makeFunctionArgs com ctx tupledArg
+                ctx, untupledArg@accArgs)
+        ctx, transformedArgs @ args
 
     let makeTryCatch com ctx (Transform com ctx body) catchClause finalBody =
         let catchClause =
@@ -597,7 +605,7 @@ module Util =
             if isUnit args.[0].[0].Type then 0 else 1
         else args.[0].Count
 
-    let entityRef (com: ICompiler) (ent: FSharpEntity) =
+    let entityRef (com: ICompiler) r (ent: FSharpEntity) =
         match tryGetEntityLocation ent with
         | Some entLoc ->
             let file = Path.normalizePath entLoc.FileName
@@ -607,9 +615,9 @@ module Util =
             else Fable.Import(entityName, file, Fable.Internal, Fable.Any)
         | None ->
             "Cannot find implementation location for entity: " + (getEntityFullName ent)
-            |> addErrorAndReturnNull com None
+            |> addErrorAndReturnNull com r
 
-    let memberRefTyped (com: IFableCompiler) typ (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRefTyped (com: IFableCompiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let memberName = getMemberDeclarationName com memb
         let file =
             match memb.DeclaringEntity with
@@ -622,10 +630,10 @@ module Util =
             makeTypedIdent typ memberName |> Fable.IdentExpr
         | Some file -> Fable.Import(memberName, file, Fable.Internal, typ)
         | None -> "Cannot find implementation location for member: " + memb.FullName
-                  |> addErrorAndReturnNull com None
+                  |> addErrorAndReturnNull com r
 
-    let memberRef (com: IFableCompiler) (memb: FSharpMemberOrFunctionOrValue) =
-        memberRefTyped com Fable.Any memb
+    let memberRef (com: IFableCompiler) r (memb: FSharpMemberOrFunctionOrValue) =
+        memberRefTyped com r Fable.Any memb
 
     let callInstanceMember r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
@@ -661,6 +669,7 @@ module Util =
             let info: Fable.CallInfo =
               { SignatureArgTypes = argTypes
                 DeclaringEntityFullName = entityFullName
+                Spread = argInfo.Spread
                 CompiledName = memb.CompiledName
                 GenericArgs = matchGenericParams memb genArgs |> Seq.toList }
             match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
@@ -727,7 +736,7 @@ module Util =
                     let classExpr =
                         if path.StartsWith(".") |> not
                         then Fable.Import(selector, path, Fable.CustomImport, typ)
-                        else entityRef com e
+                        else entityRef com r e
                     if memb.IsConstructor then
                         Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r)
                     else
@@ -828,13 +837,13 @@ module Util =
             callInstanceMember r typ argInfo entity memb
         | _ ->
             if isModuleValueForCalls memb
-            then memberRefTyped com typ memb
+            then memberRefTyped com r typ memb
             else
                 let argInfo =
                     if isSiblingConstructorCall ctx memb
                     then { argInfo with IsSiblingConstructorCall = true }
                     else argInfo
-                memberRef com memb |> staticCall r typ argInfo
+                memberRef com r memb |> staticCall r typ argInfo
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType
@@ -844,4 +853,4 @@ module Util =
         | Emitted r typ None emitted, _ -> emitted
         // TODO: Replaced? Check if there're failing tests
         | Try (tryGetBoundExpr ctx r) expr, _ -> expr
-        | _ -> memberRefTyped com typ v
+        | _ -> memberRefTyped com r typ v

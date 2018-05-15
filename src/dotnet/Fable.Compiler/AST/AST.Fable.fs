@@ -157,6 +157,7 @@ type CallInfo =
   { CompiledName: string
     /// See ArgIngo.SignatureArgTypes
     SignatureArgTypes: Type list
+    Spread: SpreadKind
     DeclaringEntityFullName: string
     GenericArgs: (string * Type) list }
 

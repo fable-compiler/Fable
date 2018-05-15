@@ -3,6 +3,7 @@ module ASTViewer
 open System
 open System.IO
 open System.Collections.Generic
+open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -26,6 +27,20 @@ let parse (checker: FSharpChecker) projFile =
     options
     |> checker.ParseAndCheckProject
     |> Async.RunSynchronously
+
+let printShort limit (e: FSharpExpr) =
+    let s = Regex.Replace(sprintf "%A" e, "\\s+", " ")
+    if s.Length > limit then s.[..limit] + "..." else s
+
+let rec printExpr = function
+    | BasicPatterns.Sequential(e1, e2) ->
+        sprintf "SEQUENTIAL: %s\n%s" (printExpr e1) (printExpr e2)
+    | BasicPatterns.Let((var, value), e) ->
+        sprintf "LET: (%A, %A)\n>>>> %A" var value e
+    | e -> printShort 100 e
+
+let printVar (var: FSharpMemberOrFunctionOrValue) =
+    sprintf "var %s (isMemberThis %b isConstructorThis %b)" var.LogicalName var.IsMemberThisValue var.IsConstructorThisValue
 
 let rec printDecls prefix decls =
     decls |> Seq.iteri (fun i decl ->

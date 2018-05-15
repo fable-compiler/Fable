@@ -2,64 +2,14 @@ module Fable.CLI.Main
 
 open System
 open System.IO
-open System.Diagnostics
 open System.Net
 open Fable
 open Agent
-
-type ProcessOptions(?envVars, ?redirectOutput) =
-    member val EnvVars = defaultArg envVars Map.empty<string,string>
-    member val RedirectOuput = defaultArg redirectOutput false
 
 type Arguments =
     { port: int; cwd: string; commandArgs: string option }
 
 let konst k _ = k
-
-let startProcess workingDir fileName args (opts: ProcessOptions) =
-    let fileName, args =
-        let isWindows =
-            #if NETFX
-            true
-            #else
-            System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
-                (System.Runtime.InteropServices.OSPlatform.Windows)
-            #endif
-        if isWindows
-        then "cmd", ("/C " + fileName + " " + args)
-        else fileName, args
-    printfn "CWD: %s" workingDir
-    printfn "%s %s" fileName args
-    let p = new Process()
-    p.StartInfo.FileName <- fileName
-    p.StartInfo.Arguments <- args
-    p.StartInfo.WorkingDirectory <- workingDir
-    p.StartInfo.RedirectStandardOutput <- opts.RedirectOuput
-    #if NETFX
-    p.StartInfo.UseShellExecute <- false
-    #endif
-    opts.EnvVars |> Map.iter (fun k v ->
-        p.StartInfo.Environment.[k] <- v)
-    p.Start() |> ignore
-    p
-
-let runProcess workingDir fileName args =
-    let p =
-        ProcessOptions()
-        |> startProcess workingDir fileName args
-    p.WaitForExit()
-    match p.ExitCode with
-    | 0 -> ()
-    | c -> failwithf "Process %s %s finished with code %i" fileName args c
-
-let runProcessAndReadOutput workingDir fileName args =
-    let p =
-        ProcessOptions(redirectOutput=true)
-        |> startProcess workingDir fileName args
-    let output = p.StandardOutput.ReadToEnd()
-    printfn "%s" output
-    p.WaitForExit()
-    output
 
 let rec findPackageJsonDir dir =
     if File.Exists(IO.Path.Combine(dir, "package.json"))
@@ -103,7 +53,9 @@ let parseArguments args =
             | false, _ ->
                 printfn "Value for --port is not a valid integer, using default port"
                 Literals.DEFAULT_PORT
-        | None -> Literals.DEFAULT_PORT
+        | None ->
+            // Literals.DEFAULT_PORT
+            getFreePort() // Make free port the default
     let workingDir =
         match tryFindArgValue "--cwd" args with
         | Some cwd -> Path.GetFullPath(cwd)
@@ -130,7 +82,7 @@ let startServer port onMessage continuation =
 let startServerWithProcess workingDir port exec args =
     let mutable disposed = false
     let killProcessAndServer =
-        fun (p: Process) ->
+        fun (p: System.Diagnostics.Process) ->
             if not disposed then
                 disposed <- true
                 printfn "Killing process..."
@@ -140,8 +92,8 @@ let startServerWithProcess workingDir port exec args =
     startServer port agent.Post <| fun listen ->
         Async.Start listen
         let p =
-            ProcessOptions(envVars=Map["FABLE_SERVER_PORT", string port])
-            |> startProcess workingDir exec args
+            Process.Options(envVars=Map["FABLE_SERVER_PORT", string port])
+            |> Process.start workingDir exec args
         Console.CancelKeyPress.Add (fun _ -> killProcessAndServer p)
         #if NETFX
         System.AppDomain.CurrentDomain.ProcessExit.Add (fun _ -> killProcessAndServer p)

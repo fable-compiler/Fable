@@ -192,6 +192,10 @@ let fullCrack (projFile: string): CrackedFsproj =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
+    // Try restoring project
+    // TODO: Detect if `dotnet` is not installed globally? How does it Dotnet.ProjInfo?
+    Process.tryRunAndGetOutput (Path.GetDirectoryName projFile) "dotnet" "restore"
+    |> printfn "%s"
     let projOpts, projRefs, _msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
     // let targetFramework =

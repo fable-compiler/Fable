@@ -24,8 +24,14 @@ type Helper =
         Operation(Call(InstanceCall None, argInfo (Some callee) args argTypes), returnType, loc)
 
     static member CoreCall(coreModule: string, coreMember: string, returnType: Type, args: Expr list,
-                           ?argTypes: Type list, ?thisArg: Expr, ?isConstructor: bool, ?loc: SourceLocation) =
-        let info = argInfo thisArg args argTypes
+                           ?argTypes: Type list, ?thisArg: Expr, ?isConstructor: bool,
+                           ?hasSpread: bool, ?loc: SourceLocation) =
+        let info =
+            { ThisArg = thisArg
+              Args = args
+              SignatureArgTypes = argTypes
+              Spread = match hasSpread with Some true -> SeqSpread | _ -> NoSpread
+              IsSiblingConstructorCall = false }
         let funcExpr = Import(coreMember, coreModule, CoreLib, Any)
         match isConstructor with
         | Some true -> Operation(Call(ConstructorCall funcExpr, info), returnType, loc)
@@ -1079,7 +1085,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.CoreCall("String", "split", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     // Rest of StringModule methods
     | meth, thisArg, args ->
-        Helper.CoreCall("String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        let hasSpread = match i.Spread with SeqSpread -> true | _ -> false
+        Helper.CoreCall("String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes,
+                        hasSpread=hasSpread, ?thisArg=thisArg, ?loc=r) |> Some
     | _ -> None
 
 let getEnumerator r t expr =
@@ -1679,9 +1687,7 @@ let log (_: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
         match args with
         | [] -> []
         | [v] -> [v]
-        | (Value (StringConstant _))::_ ->
-            Helper.CoreCall("String", "format", t, args, i.SignatureArgTypes)
-            |> List.singleton
+        | (Value (StringConstant _))::_ -> [Helper.CoreCall("String", "format", t, args, i.SignatureArgTypes)]
         | _ -> [args.Head]
     Helper.GlobalCall("console", t, args, memb="log", ?loc=r)
 
