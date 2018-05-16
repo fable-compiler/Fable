@@ -7,9 +7,9 @@ type List(x: int) =
 
 type ExceptFoo = { Bar:string }
 
-// let testListChoose xss =
-//     let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
-//     xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
+let testListChoose xss =
+    let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
+    xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
 
 let rec sumFirstList (zs: float list) (n: int): float =
    match n with
@@ -393,13 +393,13 @@ let tests =
             let zs = ys @ xs
             zs.Head + zs.Tail.Head
             |> equal 1
-(*
+
       testCase "List slice works" <| fun () ->
             let xs = [1; 2; 3; 4]
             xs.[..2] |> List.sum |> equal 6
             xs.[2..] |> List.sum |> equal 7
             xs.[1..2] |> List.sum |> equal 5
-
+(*
       testCase "List.truncate works" <| fun () ->
             [1..3] = (List.truncate 3 [1..5]) |> equal true
             [1..5] = (List.truncate 10 [1..5]) |> equal true
@@ -420,11 +420,11 @@ let tests =
 
             let list1 = [10.; 20.; 30.]
             let collectList = List.collect (fun x -> [for i in 1.0..3.0 -> x * i]) list1
-            sumFirstSeq collectList 9 |> equal 360.
+            sumFirstList collectList 9 |> equal 360.
 
             let xs = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
             let ys = xs |> List.collect id
-            sumFirstSeq ys 5
+            sumFirstList ys 5
             |> equal 15.
 
       testCase "List.concat works" <| fun () ->
@@ -633,13 +633,11 @@ let tests =
           List.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> List.isEmpty |> equal true
           List.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> List.isEmpty |> equal true
           List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
-      // TODO
-      //     List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
+          List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
           List.except [{ Bar= "test" }] [{ Bar = "test" }] |> List.isEmpty |> equal true
-
-      // testCase "List iterators from range do rewind" <| fun () ->
-      //     let xs = [1..5] |> List.toSeq
-      //     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
-      //     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 *)
+      testCase "List iterators from range do rewind" <| fun () ->
+          let xs = [1..5] |> List.toSeq
+          xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+          xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
   ]

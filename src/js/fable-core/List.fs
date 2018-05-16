@@ -340,3 +340,11 @@ let toSeq (xs: 'a list): 'a seq =
 
 let ofSeq (xs: 'a seq): 'a list =
     Seq.foldBack(fun x acc -> x::acc) xs []
+
+let slice (lower: int option) (upper: int option) (xs: 'T list) =
+    let lower = defaultArg lower -1
+    let upper = defaultArg upper -1
+    ([], xs) ||> foldIndexed (fun i acc x ->
+        if (lower = -1 || lower <= i) && (upper = -1 || i <= upper)
+        then x::acc
+        else acc) |> reverse

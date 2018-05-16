@@ -1244,11 +1244,11 @@ let arrayModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr
 let lists (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, args, i.CompiledName with
     // Use methods for Head and Tail (instead of Get(ListHead) for example) to check for empty lists
-    | Some x, _, ReplaceName [ "get_Head",      "head"
-                               "get_Tail",      "tail"
-                               "get_Item",      "item"
-                            //    "get_IsEmpty",   "isEmpty"
-                               "get_Length",    "length" ] methName ->
+    | Some x, _, ReplaceName [ "get_Head",   "head"
+                               "get_Tail",   "tail"
+                               "get_Item",   "item"
+                               "get_Length", "length"
+                               "GetSlice",   "slice" ] methName ->
         let args = match args with [ExprType Unit] -> [x] | args -> args @ [x]
         Helper.CoreCall("List", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, _, "get_IsEmpty"
