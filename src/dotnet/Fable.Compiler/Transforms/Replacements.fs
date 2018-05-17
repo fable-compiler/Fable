@@ -593,6 +593,18 @@ and makeComparer typArg =
     // TODO: Use proper IComparer<'T> type instead of Any
     ObjectExpr([makeStrConst "Compare", f, ObjectValue], Any, None)
 
+let makeEqualityComparer typArg =
+    let x = makeTypedIdent typArg "x"
+    let y = makeTypedIdent typArg "y"
+    let body = equals None true (IdentExpr x) (IdentExpr y)
+    let f = Function(Delegate [x; y], body, None)
+    // TODO: Use proper IEqualityComparer<'T> type instead of Any
+    ObjectExpr
+        ([makeStrConst "Equals", f, ObjectValue
+          makeStrConst "Compare", makeComparerFunction typArg, ObjectValue
+          makeStrConst "GetHashCode", Import("hash", "Util", CoreLib, Any), ObjectValue], Any, None)
+
+// TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
     Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
 
@@ -692,6 +704,8 @@ let injectArg com r moduleName methName (genArgs: (string*Type) list) args =
     |> function
         | Some(Types.comparer, GenericArg genArgs (_,genArg)) ->
             args @ [makeComparer genArg]
+        | Some(Types.equalityComparer, GenericArg genArgs (_,genArg)) ->
+            args @ [makeEqualityComparer genArg]
         | Some(Types.arrayCons, GenericArg genArgs (_,genArg)) ->
             args @ [arrayCons com genArg]
         | Some(_, genArgIndex) ->

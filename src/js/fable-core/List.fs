@@ -2,6 +2,7 @@ module List
 
 open System.Collections.Generic
 open Fable.Core
+open System.Collections
 
 let head = function
     | x::_ -> x
@@ -348,3 +349,9 @@ let slice (lower: int option) (upper: int option) (xs: 'T list) =
         if (lower = -1 || lower <= i) && (upper = -1 || i <= upper)
         then x::acc
         else acc) |> reverse
+
+let distinctBy projection (xs:'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
+    HashSet<'T>(xs |> Seq.map projection, eq) |> ofSeq
+
+let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
+    HashSet<'T>(xs, eq) |> ofSeq

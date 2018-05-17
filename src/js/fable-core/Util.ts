@@ -190,7 +190,7 @@ export function getHashCode(x: any): number {
 }
 
 export function hash(x: any): number {
-  if (typeof x === typeof 1) {
+  if (typeof x === "number") {
     return x * 2654435761 | 0;
   }
   if (x != null && typeof x.GetHashCode === "function") {

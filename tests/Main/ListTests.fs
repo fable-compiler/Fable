@@ -474,6 +474,9 @@ let tests =
           |> List.length
           |> equal 2
 
+      testCase "List.distinct works with non-primitive types" <| fun () ->
+        List.distinct [(1, 2); (1, 3); (1, 2)] |> List.length |> equal 2
+
       testCase "List.findBack works" <| fun () ->
           let xs = [1.; 2.; 3.; 4.]
           xs |> List.find ((>) 4.) |> equal 1.

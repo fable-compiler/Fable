@@ -257,6 +257,7 @@ module Types =
 
     // Types compatible with Inject attribute
     let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
+    let [<Literal>] equalityComparer = "System.Collections.Generic.IEqualityComparer`1"
     let [<Literal>] arrayCons = "Array.IArrayCons`1"
 
 [<RequireQualifiedAccess>]

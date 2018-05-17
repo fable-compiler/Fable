@@ -52,6 +52,8 @@ let fableCoreModules =
       "max", (Types.comparer, 0)
       "minBy", (Types.comparer, 1)
       "min", (Types.comparer, 0)
+      "distinctBy", (Types.equalityComparer, 0)
+      "distinct", (Types.equalityComparer, 0)
     ]
     "Set", Map [
       "FSharpSet$$Map", (Types.comparer, 1)
