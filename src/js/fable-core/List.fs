@@ -80,6 +80,7 @@ let unfold f state =
         |None -> reverse acc
         |Some (x,state) -> unfoldInner (x::acc) state
     unfoldInner [] state
+
 let rec foldIndexed3Aux f i acc bs cs ds =
    match bs, cs, ds with
    | [], [], [] -> acc
@@ -203,6 +204,9 @@ let findIndex f xs =
 
 let item n xs =
    findIndexed (fun i _ -> n = i) xs
+
+let tryItem n xs =
+   tryFindIndexed (fun i _ -> n = i) xs
 
 let filter f xs =
    foldBack (fun x acc ->
@@ -361,6 +365,9 @@ let toSeq (xs: 'a list): 'a seq =
 
 let ofSeq (xs: 'a seq): 'a list =
     Seq.foldBack(fun x acc -> x::acc) xs []
+
+let concat (lists : #seq<'a list>) =
+    Seq.foldBack (List.foldBack (fun x acc -> x::acc)) lists []
 
 let slice (lower: int option) (upper: int option) (xs: 'T list) =
     let lower = defaultArg lower -1
