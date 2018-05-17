@@ -94,7 +94,7 @@ let tests =
         ar.[0] <- ar.[0] + 255uy
         equal 4uy ar.[0]
 
-    // TODO
+    // TODO: How to test at the same time that both clamped and non-clampled arrays work?
     // #if FABLE_COMPILER
     // testCase "Clamped byte arrays work" <| fun () ->
     //     let ar = DllRef.Lib.createClampedArray()
@@ -400,6 +400,11 @@ let tests =
     testCase "Array.length works" <| fun () ->
         let xs = [|"a"; "a"; "a"; "a"|]
         Array.length xs |> equal 4
+
+    testCase "Array.countBy works" <| fun () ->
+        let xs = [|1; 2; 3; 4|]
+        xs |> Array.countBy (fun x -> x % 2)
+        |> Array.length |> equal 2
 
     testCase "Array.map works" <| fun () ->
         let xs = [|1.|]

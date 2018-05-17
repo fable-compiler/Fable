@@ -1113,6 +1113,24 @@ let getEnumerator r t expr =
     Helper.CoreCall("Seq", "getEnumerator", t, [toSeq Any expr], ?loc=r)
 
 let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let sort r returnType genArg descending proyector args =
+        let compareFn =
+            let identExpr ident =
+                match proyector with
+                | Some proyector ->
+                    let info = argInfo None [IdentExpr ident] None
+                    Operation(Call(StaticCall proyector, info), genArg, None)
+                | None -> IdentExpr ident
+            let x = makeTypedIdent genArg "x"
+            let y = makeTypedIdent genArg "y"
+            let comparison =
+                let comparison = compare None (identExpr x) (identExpr y)
+                if descending
+                then makeUnOp None (Fable.Number Int32) comparison UnaryMinus
+                else comparison
+            Function(Delegate [x; y], comparison, None)
+        Helper.CoreCall("Seq", "sortWith", returnType, compareFn::args, ?loc=r) |> Some
+
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
     | ("Cache"|"ToArray"), [arg] -> toArray com t arg |> Some
@@ -1134,7 +1152,11 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
             | DeclaredType(ent,_) -> FSharp2Fable.Util.callInterfaceCast com t ent Types.disposable arg
             | _ -> arg
         Helper.CoreCall("Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
-    // TODO!!! Sort and max/min methods, pass IComparable
+    | ("Sort" | "SortDescending" as m), args ->
+        sort r t (List.item 0 i.GenericArgs |> snd) (m = "SortDescending") None args
+    | ("SortBy" | "SortByDescending" as m), proyector::args ->
+        sort r t (List.item 1 i.GenericArgs |> snd) (m = "SortByDescending") (Some proyector) args
+    // TODO!!! max/min methods, pass IComparable
     | meth, _ ->
         Helper.CoreCall("Seq", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 

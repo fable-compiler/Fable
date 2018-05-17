@@ -71,44 +71,43 @@ let tests =
         sumFirstTwo zs
         |> equal 7.
 
-    // TODO!!!
-    // testCase "Seq.choose works with generic arguments" <| fun () ->
-    //     let res = testSeqChoose  [ Some [  5  ] ]
-    //     equal [ 5 ] res
+    testCase "Seq.choose works with generic arguments" <| fun () ->
+        let res = testSeqChoose  [ Some [  5  ] ]
+        equal [ 5 ] res
 
-    // testCase "Seq.concat works" <| fun () ->
-    //     let xs = [[1.]; [2.]; [3.]; [4.]]
-    //     let ys = xs |> Seq.concat
-    //     sumFirstTwo ys
-    //     |> equal 3.
+    testCase "Seq.concat works" <| fun () ->
+        let xs = [[1.]; [2.]; [3.]; [4.]]
+        let ys = xs |> Seq.concat
+        sumFirstTwo ys
+        |> equal 3.
 
-    // testCase "Seq.collect works" <| fun () ->
-    //     let xs = [[1.]; [2.]; [3.]; [4.]]
-    //     let ys = xs |> Seq.collect id
-    //     sumFirstTwo ys
-    //     |> equal 3.
+    testCase "Seq.collect works" <| fun () ->
+        let xs = [[1.]; [2.]; [3.]; [4.]]
+        let ys = xs |> Seq.collect id
+        sumFirstTwo ys
+        |> equal 3.
 
-    //     let xs1 = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
-    //     let ys1 = xs1 |> Seq.collect id
-    //     sumFirstSeq ys1 5
-    //     |> equal 15.
+        let xs1 = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
+        let ys1 = xs1 |> Seq.collect id
+        sumFirstSeq ys1 5
+        |> equal 15.
 
-    // testCase "Seq.collect works with Options" <| fun () ->
-    //     let xss = [[Some 1; Some 2]; [None; Some 3]]
-    //     Seq.collect id xss
-    //     |> Seq.sumBy (function
-    //         | Some n -> n
-    //         | None -> 0
-    //     )
-    //     |> equal 6
+    testCase "Seq.collect works with Options" <| fun () ->
+        let xss = [[Some 1; Some 2]; [None; Some 3]]
+        Seq.collect id xss
+        |> Seq.sumBy (function
+            | Some n -> n
+            | None -> 0
+        )
+        |> equal 6
 
-    //     seq {
-    //         for xs in xss do
-    //             for x in xs do
-    //                 yield x
-    //     }
-    //     |> Seq.length
-    //     |> equal 4
+        seq {
+            for xs in xss do
+                for x in xs do
+                    yield x
+        }
+        |> Seq.length
+        |> equal 4
 
     testCase "Seq.chunkBySize works" <| fun () ->
         let xs = [1;2;3]
@@ -364,6 +363,31 @@ let tests =
     //     let p2 = {x=2; y=1}
     //     [p1; p2] |> Seq.minBy (fun p -> p.y) |> equal p2
 
+    // testCase "Seq.sum works" <| fun () ->
+    //     let xs = [1.; 2.]
+    //     xs |> Seq.sum
+    //     |> equal 3.
+
+    // testCase "Seq.sumBy works" <| fun () ->
+    //     let xs = [1.; 2.]
+    //     xs |> Seq.sumBy ((*) 2.)
+    //     |> equal 6.
+
+    // testCase "Seq.sum with non numeric types works" <| fun () ->
+    //     let p1 = {x=1; y=10}
+    //     let p2 = {x=2; y=20}
+    //     [p1; p2] |> Seq.sum |> (=) {x=3;y=30} |> equal true
+
+    // testCase "Seq.sumBy with non numeric types works" <| fun () ->
+    //     let p1 = {x=1; y=10}
+    //     let p2 = {x=2; y=20}
+    //     [p1; p2] |> Seq.sumBy Point.Neg |> (=) {x = -3; y = -30} |> equal true
+
+    // testCase "Seq.sumBy with numeric projection works" <| fun () ->
+    //     let p1 = {x=1; y=10}
+    //     let p2 = {x=2; y=20}
+    //     [p1; p2] |> Seq.sumBy (fun p -> p.y) |> equal 30
+
     testCase "Seq.item works" <| fun () ->
         let xs = [1.; 2.]
         Seq.item 1 xs
@@ -436,49 +460,23 @@ let tests =
         sumFirstTwo ys
         |> equal 1.
 
-    // TODO!!!
-    // testCase "Seq.sort works" <| fun () ->
-    //     let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
-    //     xs |> Seq.sort |> Seq.take 3 |> Seq.sum |> equal 0.
-    //     let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
-    //     ys |> Seq.sort |> Seq.item 1 |> equal "a"
+    testCase "Seq.sort works" <| fun () ->
+        let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
+        xs |> Seq.sort |> Seq.take 3 |> Seq.sum |> equal 0.
+        let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
+        ys |> Seq.sort |> Seq.item 1 |> equal "a"
 
-    // testCase "Seq.sortDescending works" <| fun () ->
-    //     let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
-    //     xs |> Seq.sortDescending |> Seq.take 3 |> Seq.sum |> equal 17.
-    //     let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
-    //     ys |> Seq.sortDescending |> Seq.item 1 |> equal "c"
+    testCase "Seq.sortDescending works" <| fun () ->
+        let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
+        xs |> Seq.sortDescending |> Seq.take 3 |> Seq.sum |> equal 17.
+        let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
+        ys |> Seq.sortDescending |> Seq.item 1 |> equal "c"
 
-    // testCase "Seq.sortBy works" <| fun () ->
-    //     let xs = [3.; 1.; 4.; 2.]
-    //     let ys = xs |> Seq.sortBy (fun x -> -x)
-    //     sumFirstTwo ys
-    //     |> equal 7.
-
-    // testCase "Seq.sum works" <| fun () ->
-    //     let xs = [1.; 2.]
-    //     xs |> Seq.sum
-    //     |> equal 3.
-
-    // testCase "Seq.sumBy works" <| fun () ->
-    //     let xs = [1.; 2.]
-    //     xs |> Seq.sumBy ((*) 2.)
-    //     |> equal 6.
-
-    // testCase "Seq.sum with non numeric types works" <| fun () ->
-    //     let p1 = {x=1; y=10}
-    //     let p2 = {x=2; y=20}
-    //     [p1; p2] |> Seq.sum |> (=) {x=3;y=30} |> equal true
-
-    // testCase "Seq.sumBy with non numeric types works" <| fun () ->
-    //     let p1 = {x=1; y=10}
-    //     let p2 = {x=2; y=20}
-    //     [p1; p2] |> Seq.sumBy Point.Neg |> (=) {x = -3; y = -30} |> equal true
-
-    // testCase "Seq.sumBy with numeric projection works" <| fun () ->
-    //     let p1 = {x=1; y=10}
-    //     let p2 = {x=2; y=20}
-    //     [p1; p2] |> Seq.sumBy (fun p -> p.y) |> equal 30
+    testCase "Seq.sortBy works" <| fun () ->
+        let xs = [3.; 1.; 4.; 2.]
+        let ys = xs |> Seq.sortBy (fun x -> -x)
+        sumFirstTwo ys
+        |> equal 7.
 
     testCase "Seq.skip works" <| fun () ->
         let xs = [1.; 2.; 3.]
@@ -599,12 +597,6 @@ let tests =
     //     |> Seq.length
     //     |> equal 2
 
-    testCase "Seq.exactlyOne works" <| fun () ->
-        let xs = [1.]
-        xs |> Seq.exactlyOne
-        |> equal 1.
-
-    // TODO!!!
     // testCase "Seq.groupBy works" <| fun () ->
     //     let xs = [1; 2; 3; 4]
     //     let ys = xs |> Seq.groupBy (fun x -> x % 2)
@@ -617,6 +609,11 @@ let tests =
     //     let ys = xs |> Seq.groupBy (fun x -> Number (x % 2))
     //     ys |> Seq.length
     //     |> equal 2
+
+    testCase "Seq.exactlyOne works" <| fun () ->
+        let xs = [1.]
+        xs |> Seq.exactlyOne
+        |> equal 1.
 
     testCase "Seq.initInfinite works" <| fun () ->
         Seq.initInfinite (fun i -> 2. * float i)

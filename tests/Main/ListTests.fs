@@ -599,6 +599,11 @@ let tests =
           List.tryLast xs |> equal (Some 4.)
           List.tryLast [] |> equal None
 
+      testCase "List.countBy works" <| fun () ->
+          let xs = [1; 2; 3; 4]
+          xs |> List.countBy (fun x -> x % 2)
+          |> List.length |> equal 2
+
       testCase "List.groupBy returns valid list" <| fun () ->
           let xs = [1; 2]
           let worked =
