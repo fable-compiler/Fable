@@ -2,7 +2,6 @@ module List
 
 open System.Collections.Generic
 open Fable.Core
-open System.Collections
 
 let head = function
     | x::_ -> x
@@ -271,6 +270,7 @@ let sortByDescending (projection:'a->'b) (xs : 'a list) ([<Inject>] comparer: IC
 let sortWith (comparer: 'T -> 'T -> int) (xs : 'T list): 'T list =
     Array.sortInPlaceWith comparer (Array.ofList xs Array.DynamicArrayCons) |> ofArray
 
+// TODO!!!: Pass add function for non-number types
 let sum (xs: float list) : float =
    fold (+) 0. xs
 

@@ -580,3 +580,29 @@ let createMutable (source: ('Key*'Value) seq) (comparer: IComparer<'Key>) =
         member __.GetEnumerator() =
             upcast MapTree.mkIEnumerator tree
     }
+
+let groupBy (projection: 'T->'Key) (xs: 'T seq) (comp: IComparer<'Key>): ('Key * 'T seq) seq =
+    let dict: IMutableMap<_,ResizeArray<'T>> = createMutable [] comp
+
+    // Build the groupings
+    for v in xs do
+        let key = projection v
+        if dict.has(key)
+        then dict.get(key).Add(v)
+        else dict.set(key, ResizeArray [v]) |> ignore
+
+    // Mapping shouldn't be necessary because KeyValuePair compiles
+    // as a tuple, but let's do it just in case the implementation changes
+    dict |> Seq.map (fun kv -> kv.Key, upcast kv.Value)
+
+let countBy (projection: 'T->'Key) (xs: 'T seq) (comp: Comparer<'Key>): ('Key * int) seq =
+    let dict = createMutable [] comp
+
+    for value in xs do
+        let key = projection value
+        if dict.has(key)
+        then dict.set(key, dict.get(key) + 1)
+        else dict.set(key, 1)
+        |> ignore
+
+    dict |> Seq.map (fun kv -> kv.Key, kv.Value)

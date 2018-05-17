@@ -233,9 +233,8 @@ let except (itemsToExclude: seq<'t>) (array: 't[]) ([<Inject>] eq: IEqualityComp
         let cached = HashSet(itemsToExclude, eq)
         array |> filterImpl cached.Add
 
-let groupBy (projection: 'T->'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
-    // TODO!!! Inject IEqualityComparer for non-primitive types
-    let dict = Dictionary<'Key, 'T[]>()
+let groupBy (projection: 'T->'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'Key>) =
+    let dict = Dictionary<'Key, 'T[]>(eq)
 
     // Build the groupings
     for i = 0 to (array.Length - 1) do
@@ -736,7 +735,7 @@ let rec exists2 predicate (array1: _[]) (array2: _[]) =
    if array1.Length <> array2.Length then failwith "Arrays had different lengths"
    existsOffset2 predicate array1 array2 0
 
-// TODO: Pass add function for non-number types
+// TODO!!!: Pass add function for non-number types
 let sum (array: float[]) : float =
     let mutable acc = 0.
     for i = 0 to array.Length - 1 do

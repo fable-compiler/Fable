@@ -1113,13 +1113,13 @@ let getEnumerator r t expr =
     Helper.CoreCall("Seq", "getEnumerator", t, [toSeq Any expr], ?loc=r)
 
 let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let sort r returnType genArg descending proyector args =
+    let sort r returnType genArg descending projector args =
         let compareFn =
             let identExpr ident =
-                match proyector with
-                | Some proyector ->
+                match projector with
+                | Some projector ->
                     let info = argInfo None [IdentExpr ident] None
-                    Operation(Call(StaticCall proyector, info), genArg, None)
+                    Operation(Call(StaticCall projector, info), genArg, None)
                 | None -> IdentExpr ident
             let x = makeTypedIdent genArg "x"
             let y = makeTypedIdent genArg "y"
@@ -1156,9 +1156,16 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
         sort r t (List.item 0 i.GenericArgs |> snd) (m = "SortDescending") None args
     | ("SortBy" | "SortByDescending" as m), proyector::args ->
         sort r t (List.item 1 i.GenericArgs |> snd) (m = "SortByDescending") (Some proyector) args
-    // TODO!!! max/min methods, pass IComparable
+    | ("GroupBy" | "CountBy" as m), args ->
+        let args = List.item 1 i.GenericArgs |> snd |> makeComparer |> List.singleton |> List.append args
+        Helper.CoreCall("Map", Naming.lowerFirst m, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ("Distinct" | "DistinctBy" as m), args ->
+        let args = List.item 0 i.GenericArgs |> snd |> makeComparer |> List.singleton |> List.append args
+        Helper.CoreCall("Set", Naming.lowerFirst m, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
-        Helper.CoreCall("Seq", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        let meth = Naming.lowerFirst meth
+        let args = injectArg com r "Seq" meth i.GenericArgs args
+        Helper.CoreCall("Seq", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let resizeArrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1166,7 +1173,9 @@ let resizeArrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg:
     // TODO: Include a value in Fable AST to indicate the Array should always be dynamic?
     | ".ctor", _, [] -> makeArray Any [] |> Some
     | ".ctor", _, [ExprType(Number _) as arg] -> NewArray(ArrayAlloc arg, Any) |> Value |> Some
-    | ".ctor", _, [Value(NewArray(ArrayValues arVals, _))] -> makeArray Any arVals |> Some
+    // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
+    | ".ctor", _, [Cast((Value(NewArray(ArrayValues vals, _)) | ListLiteral(vals, _)), _)] ->
+        makeArray Any vals |> Some
     | ".ctor", _, args -> Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
@@ -1177,6 +1186,7 @@ let resizeArrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg:
     | "get_Count", Some ar, _ -> Helper.CoreCall("Util", "count", t, [ar], ?loc=r) |> Some
     | "Clear", Some ar, _ -> Helper.CoreCall("Util", "clear", t, [ar], ?loc=r) |> Some
     | _ -> None
+    // TODO!!!
     // | "find" when Option.isSome c ->
     //     let defaultValue = defaultof i.calleeTypeArgs.Head
     //     ccall "Option" "getValue" [

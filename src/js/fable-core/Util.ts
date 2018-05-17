@@ -281,29 +281,23 @@ export function compareArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): number {
 export function compareObjects(x: { [k: string]: any }, y: { [k: string]: any }): number {
   if (x == null) { return y == null ? 0 : 1; }
   if (y == null) { return -1; }
-  const xhash = hash(x);
-  const yhash = hash(y);
-  if (xhash === yhash) {
-    const xKeys = Object.keys(x);
-    const yKeys = Object.keys(y);
-    if (xKeys.length !== yKeys.length) {
-      return xKeys.length < yKeys.length ? -1 : 1;
-    }
-    xKeys.sort();
-    yKeys.sort();
-    for (let i = 0, j = 0; i < xKeys.length; i++) {
-      const key = xKeys[i];
-      if (key !== yKeys[i]) {
-        return key < yKeys[i] ? -1 : 1;
-      } else {
-        j = compare(x[key], y[key]);
-        if (j !== 0) { return j; }
-      }
-    }
-    return 0;
-  } else {
-    return xhash < yhash ? -1 : 1;
+  const xKeys = Object.keys(x);
+  const yKeys = Object.keys(y);
+  if (xKeys.length !== yKeys.length) {
+    return xKeys.length < yKeys.length ? -1 : 1;
   }
+  xKeys.sort();
+  yKeys.sort();
+  for (let i = 0, j = 0; i < xKeys.length; i++) {
+    const key = xKeys[i];
+    if (key !== yKeys[i]) {
+      return key < yKeys[i] ? -1 : 1;
+    } else {
+      j = compare(x[key], y[key]);
+      if (j !== 0) { return j; }
+    }
+  }
+  return 0;
 }
 
 export function compare(x: any, y: any): number {

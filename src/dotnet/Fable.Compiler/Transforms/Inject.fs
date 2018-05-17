@@ -3,6 +3,12 @@ module Fable.Transforms.Inject
 
 let fableCoreModules =
   Map [
+    "Seq", Map [
+      "maxBy", [(Types.comparer, 1)]
+      "max", [(Types.comparer, 0)]
+      "minBy", [(Types.comparer, 1)]
+      "min", [(Types.comparer, 0)]
+    ]
     "Array", Map [
       "append", [(Types.arrayCons, 0)]
       "mapIndexed", [(Types.arrayCons, 1)]
@@ -19,7 +25,7 @@ let fableCoreModules =
       "distinctBy", [(Types.arrayCons, 0); (Types.equalityComparer, 0)]
       "distinct", [(Types.arrayCons, 0); (Types.equalityComparer, 0)]
       "except", [(Types.equalityComparer, 0)]
-      "groupBy", [(Types.arrayCons, 0)]
+      "groupBy", [(Types.arrayCons, 0); (Types.equalityComparer, 1)]
       "singleton", [(Types.arrayCons, 0)]
       "initialize", [(Types.arrayCons, 0)]
       "replicate", [(Types.arrayCons, 0)]

@@ -90,7 +90,13 @@ let main _argv =
 module Fable.Transforms.Inject
 
 let fableCoreModules =
-  Map ["""
+  Map [
+    "Seq", Map [
+      "maxBy", [(Types.comparer, 1)]
+      "max", [(Types.comparer, 0)]
+      "minBy", [(Types.comparer, 1)]
+      "min", [(Types.comparer, 0)]
+    ]"""
             for file in proj.AssemblyContents.ImplementationFiles do
                 let fileName = System.IO.Path.GetFileNameWithoutExtension(file.FileName)
                 // Apparently FCS generates the AssemblyInfo file automatically

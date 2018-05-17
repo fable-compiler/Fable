@@ -694,3 +694,9 @@ let createMutable (source: 'T seq) (comparer: IComparer<'T>) =
         member __.GetEnumerator() =
             upcast SetTree.mkIEnumerator tree
     }
+
+let distinct (xs: 'T seq) (comparer: IComparer<'T>): 'T seq =
+    createMutable xs comparer :> _ seq
+
+let distinctBy projection (xs: 'T seq) (comparer: IComparer<'T>): 'T seq =
+    createMutable (xs |> Seq.map projection) comparer :> _ seq

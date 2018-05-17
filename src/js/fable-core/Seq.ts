@@ -1,5 +1,5 @@
 import { Option, some, value } from "./Option";
-import { compare, equals, IDisposable, isDisposable } from "./Util";
+import { compare, equals, IComparer, IDisposable, isDisposable } from "./Util";
 
 export interface IEnumerator<T> {
   Current: T;
@@ -499,20 +499,24 @@ export function mapFoldBack<T, ST, R>(
   return transform !== void 0 ? [transform(result), acc] : [result, acc];
 }
 
-export function max<T extends number>(xs: Iterable<T>) {
-  return reduce((acc: T, x: T) => compare(acc, x) === 1 ? acc : x, xs);
+export function max<T extends number>(xs: Iterable<T>, comparer?: IComparer<T>) {
+  const compareFn = comparer != null ? comparer.Compare : compare;
+  return reduce((acc: T, x: T) => compareFn(acc, x) === 1 ? acc : x, xs);
 }
 
-export function maxBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>) {
-  return reduce((acc: T, x: T) => compare(f(acc), f(x)) === 1 ? acc : x, xs);
+export function maxBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>, comparer?: IComparer<U>) {
+  const compareFn = comparer != null ? comparer.Compare : compare;
+  return reduce((acc: T, x: T) => compareFn(f(acc), f(x)) === 1 ? acc : x, xs);
 }
 
-export function min<T extends number>(xs: Iterable<T>) {
-  return reduce((acc: T, x: T) => compare(acc, x) === -1 ? acc : x, xs);
+export function min<T extends number>(xs: Iterable<T>, comparer?: IComparer<T>) {
+  const compareFn = comparer != null ? comparer.Compare : compare;
+  return reduce((acc: T, x: T) => compareFn(acc, x) === -1 ? acc : x, xs);
 }
 
-export function minBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>) {
-  return reduce((acc: T, x: T) => compare(f(acc), f(x)) === -1 ? acc : x, xs);
+export function minBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>, comparer?: IComparer<U>) {
+  const compareFn = comparer != null ? comparer.Compare : compare;
+  return reduce((acc: T, x: T) => compareFn(f(acc), f(x)) === -1 ? acc : x, xs);
 }
 
 export function pairwise<T extends number>(xs: Iterable<T>) {

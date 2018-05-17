@@ -312,67 +312,67 @@ let tests =
         fst result |> Seq.sum |> equal -20.
         snd result |> equal -10.
 
+    testCase "Seq.max works" <| fun () ->
+        let xs = [1.; 2.]
+        xs |> Seq.max
+        |> equal 2.
+
+    testCase "Seq.maxBy works" <| fun () ->
+        let xs = [1.; 2.]
+        xs |> Seq.maxBy (fun x -> -x)
+        |> equal 1.
+
+    testCase "Seq.min works" <| fun () ->
+        let xs = [1.; 2.]
+        xs |> Seq.min
+        |> equal 1.
+
+    testCase "Seq.minBy works" <| fun () ->
+        let xs = [1.; 2.]
+        xs |> Seq.minBy (fun x -> -x)
+        |> equal 2.
+
+    testCase "Seq.max with non numeric types works" <| fun () ->
+        let p1 = {x=1; y=1}
+        let p2 = {x=2; y=2}
+        [p1; p2] |> Seq.max |> equal p2
+
+    testCase "Seq.maxBy with non numeric types works" <| fun () ->
+        let p1 = {x=1; y=1}
+        let p2 = {x=2; y=2}
+        [p1; p2] |> Seq.maxBy Point.Neg |> equal p1
+
+    testCase "Seq.min with non numeric types works" <| fun () ->
+        let p1 = {x=1; y=1}
+        let p2 = {x=2; y=2}
+        [p1; p2] |> Seq.min |> equal p1
+
+    testCase "Seq.minBy with non numeric types works" <| fun () ->
+        let p1 = {x=1; y=1}
+        let p2 = {x=2; y=2}
+        [p1; p2] |> Seq.minBy Point.Neg |> equal p2
+
+    testCase "Seq.maxBy with numeric projection works" <| fun () ->
+        let p1 = {x=1; y=2}
+        let p2 = {x=2; y=1}
+        [p1; p2] |> Seq.maxBy (fun p -> p.y) |> equal p1
+
+    testCase "Seq.minBy with numeric projection works" <| fun () ->
+        let p1 = {x=1; y=2}
+        let p2 = {x=2; y=1}
+        [p1; p2] |> Seq.minBy (fun p -> p.y) |> equal p2
+
+    testCase "Seq.sum works" <| fun () ->
+        let xs = [1.; 2.]
+        xs |> Seq.sum
+        |> equal 3.
+
+    testCase "Seq.sumBy works" <| fun () ->
+        let xs = [1.; 2.]
+        xs |> Seq.sumBy ((*) 2.)
+        |> equal 6.
+
     // TODO!!!
-    // testCase "Seq.max works" <| fun () ->
-    //     let xs = [1.; 2.]
-    //     xs |> Seq.max
-    //     |> equal 2.
-
-    // testCase "Seq.maxBy works" <| fun () ->
-    //     let xs = [1.; 2.]
-    //     xs |> Seq.maxBy (fun x -> -x)
-    //     |> equal 1.
-
-    // testCase "Seq.min works" <| fun () ->
-    //     let xs = [1.; 2.]
-    //     xs |> Seq.min
-    //     |> equal 1.
-
-    // testCase "Seq.minBy works" <| fun () ->
-    //     let xs = [1.; 2.]
-    //     xs |> Seq.minBy (fun x -> -x)
-    //     |> equal 2.
-
-    // testCase "Seq.max with non numeric types works" <| fun () ->
-    //     let p1 = {x=1; y=1}
-    //     let p2 = {x=2; y=2}
-    //     [p1; p2] |> Seq.max |> equal p2
-
-    // testCase "Seq.maxBy with non numeric types works" <| fun () ->
-    //     let p1 = {x=1; y=1}
-    //     let p2 = {x=2; y=2}
-    //     [p1; p2] |> Seq.maxBy Point.Neg |> equal p1
-
-    // testCase "Seq.min with non numeric types works" <| fun () ->
-    //     let p1 = {x=1; y=1}
-    //     let p2 = {x=2; y=2}
-    //     [p1; p2] |> Seq.min |> equal p1
-
-    // testCase "Seq.minBy with non numeric types works" <| fun () ->
-    //     let p1 = {x=1; y=1}
-    //     let p2 = {x=2; y=2}
-    //     [p1; p2] |> Seq.minBy Point.Neg |> equal p2
-
-    // testCase "Seq.maxBy with numeric projection works" <| fun () ->
-    //     let p1 = {x=1; y=2}
-    //     let p2 = {x=2; y=1}
-    //     [p1; p2] |> Seq.maxBy (fun p -> p.y) |> equal p1
-
-    // testCase "Seq.minBy with numeric projection works" <| fun () ->
-    //     let p1 = {x=1; y=2}
-    //     let p2 = {x=2; y=1}
-    //     [p1; p2] |> Seq.minBy (fun p -> p.y) |> equal p2
-
-    // testCase "Seq.sum works" <| fun () ->
-    //     let xs = [1.; 2.]
-    //     xs |> Seq.sum
-    //     |> equal 3.
-
-    // testCase "Seq.sumBy works" <| fun () ->
-    //     let xs = [1.; 2.]
-    //     xs |> Seq.sumBy ((*) 2.)
-    //     |> equal 6.
-
     // testCase "Seq.sum with non numeric types works" <| fun () ->
     //     let p1 = {x=1; y=10}
     //     let p2 = {x=2; y=20}
@@ -578,37 +578,36 @@ let tests =
         Seq.compareWith (fun x y -> x - y) xs zs
         |> equal 1
 
-    // TODO!!!
-    // testCase "Seq.countBy works" <| fun () ->
-    //     let xs = [1; 2; 3; 4]
-    //     let ys = xs |> Seq.countBy (fun x -> x % 2)
-    //     ys |> Seq.length
-    //     |> equal 2
+    testCase "Seq.countBy works" <| fun () ->
+        let xs = [1; 2; 3; 4]
+        let ys = xs |> Seq.countBy (fun x -> x % 2)
+        ys |> Seq.length
+        |> equal 2
 
-    // testCase "Seq.distinct works" <| fun () ->
-    //     let xs = [1; 1; 1; 2; 2; 3; 3]
-    //     let ys = xs |> Seq.distinct
-    //     ys |> Seq.length
-    //     |> equal 3
+    testCase "Seq.distinct works" <| fun () ->
+        let xs = [1; 1; 1; 2; 2; 3; 3]
+        let ys = xs |> Seq.distinct
+        ys |> Seq.length
+        |> equal 3
 
-    // testCase "Seq.distinctBy works" <| fun () ->
-    //     [1; 1; 1; 2; 2; 3; 3]
-    //     |> Seq.distinctBy (fun x -> x % 2)
-    //     |> Seq.length
-    //     |> equal 2
+    testCase "Seq.distinctBy works" <| fun () ->
+        [1; 1; 1; 2; 2; 3; 3]
+        |> Seq.distinctBy (fun x -> x % 2)
+        |> Seq.length
+        |> equal 2
 
-    // testCase "Seq.groupBy works" <| fun () ->
-    //     let xs = [1; 2; 3; 4]
-    //     let ys = xs |> Seq.groupBy (fun x -> x % 2)
-    //     ys |> Seq.length |> equal 2
-    //     ys |> Seq.item 0 |> snd |> Seq.item 1 |> equal 3
-    //     ys |> Seq.item 1 |> snd |> Seq.item 0 |> equal 2
+    testCase "Seq.groupBy works" <| fun () ->
+        let xs = [1; 2; 3; 4]
+        let ys = xs |> Seq.groupBy (fun x -> x % 2) |> dict
+        equal 2 ys.Count
+        ys.[0] |> Seq.item 0 |> equal 2
+        ys.[1] |> Seq.item 1 |> equal 3
 
-    // testCase "Seq.groupBy with structural equality works" <| fun () ->
-    //     let xs = [1; 2; 3; 4]
-    //     let ys = xs |> Seq.groupBy (fun x -> Number (x % 2))
-    //     ys |> Seq.length
-    //     |> equal 2
+    testCase "Seq.groupBy with structural equality works" <| fun () ->
+        let xs = [1; 2; 3; 4]
+        let ys = xs |> Seq.groupBy (fun x -> Number (x % 2))
+        ys |> Seq.length
+        |> equal 2
 
     testCase "Seq.exactlyOne works" <| fun () ->
         let xs = [1.]
