@@ -47,6 +47,10 @@ let (|InjectAttribute|_|) (arg: FSharpParameter) =
         | _ -> None)
 
 let rec getInjects initialized decls =
+    let processInfo (memb: FSharpMemberOrFunctionOrValue) (typeArgName) (genArg) =
+        let genArgIndex = memb.GenericParameters |> Seq.findIndex (fun p -> p.Name = genArg)
+        typeArgName, genArgIndex
+
     seq {
         for decl in decls do
             match decl with
@@ -56,21 +60,23 @@ let rec getInjects initialized decls =
                     yield! getInjects (List.isMultiple sub) sub
             | FSharpImplementationFileDeclaration.InitAction _ -> ()
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb, _, _) ->
-                match Seq.concat memb.CurriedParameterGroups |> Seq.tryLast with
-                | Some(InjectAttribute(typeArgName, genArg)) ->
+                let _, injections =
+                    (Seq.concat memb.CurriedParameterGroups, (false, []))
+                    ||> Seq.foldBack (fun arg (finished, acc) ->
+                        match finished, arg with
+                        | false, InjectAttribute(typeArg, genArg) ->
+                            false, (processInfo memb typeArg genArg)::acc
+                        | _ -> true, acc)
+                match injections with
+                | [] -> ()
+                | injections ->
                     let membName =
                         match memb.DeclaringEntity with
                         | Some ent when not ent.IsFSharpModule ->
                             Naming.buildNameWithoutSanitationFrom
                                 ent.CompiledName (not memb.IsInstanceMember) memb.CompiledName
                         | _ -> memb.CompiledName
-                    // let argIndex =
-                    //     (memb.CurriedParameterGroups |> Seq.sumBy (fun g -> g.Count)) - 1
-                    let genArgIndex =
-                        memb.GenericParameters |> Seq.findIndex (fun p -> p.Name = genArg)
-                    yield membName, typeArgName, genArgIndex
-                    ()
-                | _ -> ()
+                    yield membName, injections
         }
 
 [<EntryPoint>]
@@ -92,12 +98,15 @@ let fableCoreModules =
                     yield sprintf "    \"%s\", Map [" fileName
                     yield!
                         getInjects false file.Declarations
-                        |> Seq.map (fun (membName, typeArgName, genArgIndex) ->
-                            let typeArgName =
-                                match Map.tryFind typeArgName typeAliases with
-                                | Some alias -> "Types." + alias
-                                | None -> "\"" + typeArgName + "\""
-                            sprintf "      \"%s\", (%s, %i)" membName typeArgName genArgIndex
+                        |> Seq.map (fun (membName, infos) ->
+                            infos |> List.map (fun (typeArgName, genArgIndex) ->
+                                let typeArgName =
+                                    match Map.tryFind typeArgName typeAliases with
+                                    | Some alias -> "Types." + alias
+                                    | None -> "\"" + typeArgName + "\""
+                                sprintf "(%s, %i)" typeArgName genArgIndex)
+                            |> String.concat "; "
+                            |> sprintf "      \"%s\", [%s]" membName
                         )
                     yield "    ]"
 

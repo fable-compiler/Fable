@@ -197,16 +197,15 @@ let tests =
         xs.[0] |> equal "a"
         xs.[1] |> equal "b"
 
-    // TODO!!!
-    // testCase "Array distinctBy with tuples works" <| fun () ->
-    //     let xs =
-    //         [| (0,0),"a"
-    //            (1,1),"b"
-    //            (0,0),"c" |]
-    //         |> Array.distinctBy(fun (x, _) -> x)
-    //     xs.Length |> equal 2
-    //     xs.[0] |> snd |> equal "a"
-    //     xs.[1] |> snd |> equal "b"
+    testCase "Array distinctBy with tuples works" <| fun () ->
+        let xs =
+            [| (0,0),"a"
+               (1,1),"b"
+               (0,0),"c" |]
+            |> Array.distinctBy(fun (x, _) -> x)
+        xs.Length |> equal 2
+        xs.[0] |> snd |> equal "a"
+        xs.[1] |> snd |> equal "b"
 
     testCase "Array distinctBy works on large array" <| fun () ->
         let xs = [| 0 .. 50000 |]
@@ -736,11 +735,9 @@ let tests =
         Array.except [|1|] [|1; 1; 1; 1|] |> Array.isEmpty |> equal true
         Array.except [|'t'; 'e'; 's'; 't'|] [|'t'; 'e'; 's'; 't'|] |> Array.isEmpty |> equal true
         Array.except [|'t'; 'e'; 's'; 't'|] [|'t'; 't'|] |> Array.isEmpty |> equal true
-
-        // TODO!!! Inject IEqualityComparer for non-primitive types
-        // Array.except [|(1, 2)|] [|(1, 2)|] |> Array.isEmpty |> equal true
-        // Array.except [|Map.empty |> (fun m -> m.Add(1, 2))|] [|Map.ofList [(1, 2)]|] |> Array.isEmpty |> equal true
-        // Array.except [|{ Bar= "test" }|] [|{ Bar = "test" }|] |> Array.isEmpty |> equal true
+        Array.except [|(1, 2)|] [|(1, 2)|] |> Array.isEmpty |> equal true
+        Array.except [|Map.empty |> (fun m -> m.Add(1, 2))|] [|Map.ofList [(1, 2)]|] |> Array.isEmpty |> equal true
+        Array.except [|{ Bar= "test" }|] [|{ Bar = "test" }|] |> Array.isEmpty |> equal true
 
     testCase "Array.[i] is undefined in Fable when i is out of range" <| fun () ->
         let xs = [|0|]

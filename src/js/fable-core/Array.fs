@@ -193,9 +193,8 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: IArrayCons<'U>
     map mapping array DynamicArrayCons
     |> concatImpl cons
 
-let countBy (projection: 'T->'Key) (array: 'T[]) =
-    // TODO!!! Inject IEqualityComparer for non-primitive types
-    let dict = Dictionary<'Key, int>()
+let countBy (projection: 'T->'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
+    let dict = Dictionary<'Key, int>(eq)
 
     for value in array do
         let key = projection value
@@ -210,12 +209,11 @@ let countBy (projection: 'T->'Key) (array: 'T[]) =
         i <- i + 1
     res
 
-let distinctBy projection (array:'T[]) ([<Inject>] cons: IArrayCons<'T>) =
+let distinctBy projection (array:'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'T>) =
     let temp = cons.Create array.Length
     let mutable i = 0
 
-    // TODO!!! Inject IEqualityComparer for non-primitive types
-    let hashSet = HashSet<'T>()
+    let hashSet = HashSet<'T>(eq)
     for v in array do
         if hashSet.Add(projection v) then
             temp.[i] <- v
@@ -223,16 +221,16 @@ let distinctBy projection (array:'T[]) ([<Inject>] cons: IArrayCons<'T>) =
 
     sliceImpl temp 0 i
 
-let distinct (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) = distinctBy id array cons
+let distinct (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'T>) =
+    distinctBy id array cons eq
 
 let where predicate (array: _[]) = filterImpl predicate array
 
-let except (itemsToExclude: seq<'t>) (array: 't[]) : 't[] =
+let except (itemsToExclude: seq<'t>) (array: 't[]) ([<Inject>] eq: IEqualityComparer<'t>): 't[] =
     if array.Length = 0 then
         array
     else
-        // TODO!!! Inject IEqualityComparer for non-primitive types
-        let cached = HashSet(itemsToExclude)
+        let cached = HashSet(itemsToExclude, eq)
         array |> filterImpl cached.Add
 
 let groupBy (projection: 'T->'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =

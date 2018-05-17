@@ -699,21 +699,26 @@ let makePojo caseRule keyValueList =
 let injectArg com r moduleName methName (genArgs: (string*Type) list) args =
     let (|GenericArg|_|) genArgs genArgIndex =
         List.tryItem genArgIndex genArgs
-    Map.tryFind moduleName Fable.Transforms.Inject.fableCoreModules
-    |> Option.bind (Map.tryFind methName)
-    |> function
-        | Some(Types.comparer, GenericArg genArgs (_,genArg)) ->
-            args @ [makeComparer genArg]
-        | Some(Types.equalityComparer, GenericArg genArgs (_,genArg)) ->
-            args @ [makeEqualityComparer genArg]
-        | Some(Types.arrayCons, GenericArg genArgs (_,genArg)) ->
-            args @ [arrayCons com genArg]
-        | Some(_, genArgIndex) ->
+
+    let buildArg = function
+        | (Types.comparer, GenericArg genArgs (_,genArg)) ->
+            makeComparer genArg |> Some
+        | (Types.equalityComparer, GenericArg genArgs (_,genArg)) ->
+            makeEqualityComparer genArg |> Some
+        | (Types.arrayCons, GenericArg genArgs (_,genArg)) ->
+            arrayCons com genArg |> Some
+        | (_, genArgIndex) ->
             sprintf "Cannot inject arg to %s.%s (genArgs %A - expected index %i)"
                 moduleName methName (List.map fst genArgs) genArgIndex
-            |> addWarning com r
-            args
+            |> addError com r
+            None
+
+    Map.tryFind moduleName Fable.Transforms.Inject.fableCoreModules
+    |> Option.bind (Map.tryFind methName)
+    |> Option.map (List.choose buildArg)
+    |> function
         | None -> args
+        | Some injections -> args @ injections
 
 let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
