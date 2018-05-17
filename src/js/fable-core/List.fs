@@ -317,28 +317,35 @@ let permute f xs =
    |> ofArray
 
 // TODO: Is there a more efficient algorithm?
-let rec takeAux error i acc xs =
+let rec takeSplitAux error i acc xs =
     match i, xs with
-    | 0, _ -> reverse acc
+    | 0, _ -> reverse acc, xs
     | _, [] ->
       if error then
           failwith "The input sequence has an insufficient number of elements."
       else
-          reverse acc
-    | _, x::xs -> takeAux error (i - 1) (x::acc) xs
+          reverse acc, xs
+    | _, x::xs -> takeSplitAux error (i - 1) (x::acc) xs
 let take i xs =
   match i, xs with
   | i, _ when i < 0 -> failwith "The input must be non-negative."
   | 0, _ -> []
   | 1, x::_ -> [x]
-  | i, xs -> takeAux true i [] xs
+  | i, xs -> takeSplitAux true i [] xs |> fst
 
 let truncate i xs =
   match i, xs with
   | i, _ when i < 0 -> failwith "The input must be non-negative."
   | 0, _ -> []
   | 1, x::_ -> [x]
-  | i, xs -> takeAux false i [] xs
+  | i, xs -> takeSplitAux false i [] xs |> fst
+
+let splitAt i xs =
+  match i, xs with
+  | i, _ when i < 0 -> failwith "The input must be non-negative."
+  | 0, _ -> [],xs
+  | 1, x::xs -> [x],xs
+  | i, xs -> takeSplitAux true i [] xs
 
 let skip i xs =
   let rec skipInner i xs =
