@@ -72,7 +72,7 @@ let fold2<'a, 'b, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) =
    foldIndexed2 (fun _ acc x y -> f acc x y) seed xs ys
 
 let foldBack2<'a, 'b, 'acc> f (xs: 'a list) (ys: 'b list) (seed:'acc) =
-   fold2 f seed (reverse xs) (reverse ys)
+   fold2 (fun acc x y -> f x y acc) seed (reverse xs) (reverse ys)
 
 let rec foldIndexed3Aux f i acc bs cs ds =
    match bs, cs, ds with
@@ -113,6 +113,9 @@ let map f xs =
 let mapIndexed f xs =
    foldIndexed (fun i acc x -> f i x::acc) [] xs
    |> reverse
+
+let indexed xs =
+    mapIndexed (fun i x -> (i,x)) xs
 
 let map2 f xs ys =
    fold2 (fun acc x y -> f x y::acc) [] xs ys
@@ -203,7 +206,7 @@ let filter f xs =
 let partition f xs =
    fold (fun (lacc, racc) x ->
       if f x then x::lacc, racc
-      else lacc,x::racc) ([],[]) xs
+      else lacc,x::racc) ([],[]) (reverse xs)
 
 let choose f xs =
    fold (fun acc x ->
@@ -304,17 +307,28 @@ let permute f xs =
    |> ofArray
 
 // TODO: Is there a more efficient algorithm?
+let rec takeAux error i acc xs =
+    match i, xs with
+    | 0, _ -> reverse acc
+    | _, [] ->
+      if error then
+          failwith "The input sequence has an insufficient number of elements."
+      else
+          reverse acc
+    | _, x::xs -> takeAux error (i - 1) (x::acc) xs
 let take i xs =
-  let rec takeInner i acc xs =
-      match i, xs with
-      | 0, _ -> reverse acc
-      | _, [] -> failwith "The input sequence has an insufficient number of elements."
-      | _, x::xs -> takeInner (i - 1) (x::acc) xs
   match i, xs with
   | i, _ when i < 0 -> failwith "The input must be non-negative."
   | 0, _ -> []
   | 1, x::_ -> [x]
-  | i, xs -> takeInner i [] xs
+  | i, xs -> takeAux true i [] xs
+
+let truncate i xs =
+  match i, xs with
+  | i, _ when i < 0 -> failwith "The input must be non-negative."
+  | 0, _ -> []
+  | 1, x::_ -> [x]
+  | i, xs -> takeAux false i [] xs
 
 let skip i xs =
   let rec skipInner i xs =
