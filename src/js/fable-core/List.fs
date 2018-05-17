@@ -74,6 +74,12 @@ let fold2<'a, 'b, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) =
 let foldBack2<'a, 'b, 'acc> f (xs: 'a list) (ys: 'b list) (seed:'acc) =
    fold2 (fun acc x y -> f x y acc) seed (reverse xs) (reverse ys)
 
+let unfold f state =
+    let rec unfoldInner acc state =
+        match f state with
+        |None -> reverse acc
+        |Some (x,state) -> unfoldInner (x::acc) state
+    unfoldInner [] state
 let rec foldIndexed3Aux f i acc bs cs ds =
    match bs, cs, ds with
    | [], [], [] -> acc
