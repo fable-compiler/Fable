@@ -498,7 +498,6 @@ module TypeHelpers =
                         g |> Seq.map (fun p -> makeType com Map.empty p.Type) |> Seq.toList)
                     listEquals typeEquals args1 (Seq.toList args2)
                 else false
-        // TODO!!!: Check record fields
         let argTypesLength = List.length argTypes
         getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
             if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName

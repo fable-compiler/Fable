@@ -21,7 +21,7 @@ let equal expected actual =
     let areEqual = expected = actual
     printfn "%A = %A > %b" expected actual areEqual
     if not areEqual then
-        failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
+        failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
 
 let testCase (msg: string) f: unit =
     try

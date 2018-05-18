@@ -244,9 +244,10 @@ type Expr =
 
     member this.Range: SourceLocation option =
         match this with
-        | Value _ | Import _ | Cast _ | Function _
+        | Value _ | Import _ | Cast _
         | ObjectExpr _ | Debugger | Sequential _ | Let _
         | IfThenElse _ | TryCatch _ | DecisionTree _ | DecisionTreeSuccess _ -> None
 
+        | Function(_,body,_) -> body.Range
         | IdentExpr id -> id.Range
         | Test(_,_,r) | Operation(_,_,r) | Get(_,_,_,r) | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r

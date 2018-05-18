@@ -216,7 +216,7 @@ module private Transforms =
             match body with
             | Function(Lambda arg, body, None) ->
                 nestedLambda (arg::accArgs) body name
-            | _ -> Some(NestedLambda(List.rev accArgs, body, name))
+            | _ -> Some(List.rev accArgs, body, name)
         match expr with
         | Function(Lambda arg, body, name) -> nestedLambda [arg] body name
         | _ -> None
@@ -226,10 +226,19 @@ module private Transforms =
             match applied with
             | Operation(CurriedApply(applied, args), _, _) ->
                 nestedApply r t (args@accArgs) applied
-            | _ -> Some(NestedApply(applied, accArgs, t, r))
+            | _ -> Some(applied, accArgs, t, r)
         match expr with
         | Operation(CurriedApply(applied, args), t, r) ->
             nestedApply r t args applied
+        | _ -> None
+
+    let (|NestedLambdaType|_|) t =
+        let rec nestedLambda acc = function
+            | FunctionType(LambdaType arg, returnType) ->
+                nestedLambda (arg::acc) returnType
+            | returnType -> Some(acc, returnType)
+        match t with
+        | FunctionType(LambdaType arg, returnType) -> nestedLambda [arg] returnType
         | _ -> None
 
     let (|EvalsMutableIdent|_|) expr =
@@ -378,7 +387,22 @@ module private Transforms =
         | IdentExpr ident when ident.Name = identName -> true
         | e -> getSubExpressions e |> List.exists (lambdaMayEscapeScope identName)
 
-    let uncurryArgs argTypes args =
+    // TODO!!! See ApplicativeTests/Generic lambda arguments work
+    let checkSubArguments com expectedArgs (expr: Expr) =
+        match expr.Type with
+        | NestedLambdaType(actualArgs, _) when List.sameLength expectedArgs actualArgs ->
+            for (expected, actual) in List.zip expectedArgs actualArgs do
+                match expected, actual with
+                // Subarguments may have been uncurried already and become delegate
+                | NestedLambdaType(args1, _), FunctionType(DelegateType args2, _)
+                | NestedLambdaType(args1, _), NestedLambdaType(args2, _) ->
+                    if not <| List.sameLength args1 args2 then
+                        "Current version cannot pass a lambda with arguments of unexpected arity"
+                        |> addError com expr.Range
+                | _ -> ()
+        | _ -> ()
+
+    let uncurryArgs com argTypes args =
         let mapArgs f argTypes args =
             let rec mapArgsInner f acc argTypes args =
                 match argTypes, args with
@@ -393,8 +417,11 @@ module private Transforms =
         | Some argTypes ->
             (argTypes, args) ||> mapArgs (fun argType arg ->
                 match uncurryLambdaType argType with
-                | argTypes, retType when List.isMultiple argTypes ->
-                    uncurryExpr (Some(argTypes, retType)) arg
+                | argTypes, retType when not(List.isEmpty argTypes) ->
+                    checkSubArguments com argTypes arg
+                    if List.isMultiple argTypes
+                    then uncurryExpr (Some(argTypes, retType)) arg
+                    else arg
                 | _ -> arg)
         | None -> List.map (uncurryExpr None) args
 
@@ -425,9 +452,9 @@ module private Transforms =
             Function(Delegate args, body, name)
         | e -> e
 
-    let uncurryRecordFields_required (_: ICompiler) = function
+    let uncurryRecordFields_required (com: ICompiler) = function
         | Value(NewRecord(args, ent, genArgs)) ->
-            let args = uncurryArgs None args
+            let args = uncurryArgs com None args
             Value(NewRecord(args, ent, genArgs))
         | Get(e, RecordGet(fi, ent), t, r) ->
             let uncurriedType =
@@ -452,15 +479,15 @@ module private Transforms =
             Let(identsAndValues, body)
         | e -> e
 
-    let uncurrySendingArgs_required (_: ICompiler) = function
+    let uncurrySendingArgs_required (com: ICompiler) = function
         | Operation(Call(kind, info), t, r) ->
-            let info = { info with Args = uncurryArgs info.SignatureArgTypes info.Args }
+            let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Call(kind, info), t, r)
         | Operation(CurriedApply(callee, args), t, r) ->
             let argTypes = uncurryLambdaType callee.Type |> fst |> Some
-            Operation(CurriedApply(callee, uncurryArgs argTypes args), t, r)
+            Operation(CurriedApply(callee, uncurryArgs com argTypes args), t, r)
         | Operation(Emit(macro, Some info), t, r) ->
-            let info = { info with Args = uncurryArgs info.SignatureArgTypes info.Args }
+            let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Emit(macro, Some info), t, r)
         | e -> e
 

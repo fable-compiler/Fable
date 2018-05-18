@@ -51,21 +51,35 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
         Fable.NewUnion(argExprs, unionCase, tdef, genArgs) |> Fable.Value
 
 let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType list) traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
+    let resolveMemberCall entity membCompiledName isInstance argTypes thisArg args =
+        tryFindMember com entity membCompiledName isInstance argTypes
+        |> Option.map (fun memb -> makeCallFrom com ctx r typ [] thisArg args memb)
+
     let isInstance = flags.IsInstance
-    let argTypes = List.map (makeType com Map.empty) argTypes
+    let argTypes = List.map (makeType com ctx.GenericArgs) argTypes
     let argExprs = List.map (fun e -> com.Transform(ctx, e)) argExprs
     let thisArg, args, argTypes =
         match argExprs, argTypes with
         | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
         | args, argTypes -> None, args, argTypes
     resolveTypes ctx sourceTypes |> Seq.tryPick (fun typ ->
-        if typ.HasTypeDefinition
-        then tryFindMember com typ.TypeDefinition traitName isInstance argTypes
-        else None)
-    |> function
-        | Some memb -> makeCallFrom com ctx r typ [] thisArg args memb
-        | None -> "Cannot resolve trait call " + traitName
-                  |> addErrorAndReturnNull com r
+        if not typ.HasTypeDefinition
+        then None
+        else
+            let entity = typ.TypeDefinition
+            // SRTP only works for records if there are no arguments
+            if isInstance && entity.IsFSharpRecord && List.isEmpty args && Option.isSome thisArg then
+                let fieldName = Naming.removeGetSetPrefix traitName
+                entity.FSharpFields |> Seq.tryPick (fun fi ->
+                    if fi.Name = fieldName then
+                        let typ = makeType com ctx.GenericArgs typ
+                        Fable.Get(thisArg.Value, Fable.RecordGet(fi, entity), typ, r) |> Some
+                    else None)
+                |> Option.orElseWith (fun () ->
+                    resolveMemberCall entity traitName isInstance argTypes thisArg args)
+            else resolveMemberCall entity traitName isInstance argTypes thisArg args)
+    |> Option.defaultWith (fun () ->
+        "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com r)
 
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSharpType)
                     baseCallExpr (overrides: FSharpObjectExprOverride list) otherOverrides =
