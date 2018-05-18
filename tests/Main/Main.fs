@@ -1,7 +1,5 @@
 module Fable.Tests.Main
 
-// TODO!!! notes and remaining tests in
-// Applicable, Arithmetic and lists
 let allTests =
   [|
     Applicative.tests

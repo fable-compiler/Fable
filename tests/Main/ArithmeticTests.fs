@@ -13,9 +13,15 @@ let [<Literal>] literalNegativeValue = -345
 let checkTo3dp (expected: float) actual =
     equal (floor(actual * 1000.), expected)
 
-// let positiveInfinity = System.Double.PositiveInfinity
-// let negativeInfinity = System.Double.NegativeInfinity
-// let isNaN = fun x -> System.Double.IsNaN(x)
+let positiveInfinity = System.Double.PositiveInfinity
+let negativeInfinity = System.Double.NegativeInfinity
+let isNaN = fun x -> System.Double.IsNaN(x)
+
+let equals (x:'a) (y:'a) = x = y
+let compareTo (x:'a) (y:'a) = compare x y
+
+let decimalOne = 1M
+let decimalTwo = 2M
 
 let tests =
   testList "Arithmetic" [
@@ -110,6 +116,7 @@ let tests =
         equal (abs -4L, 4L)
 
 (*
+// TODO: BigInt
 testCase "Big integers addition works" <| fun () ->
     let x = 59823749821707124891298739821798327321028091380980I
     let y = bigint 1L
@@ -177,7 +184,6 @@ testCase "BigInt abs works" <| fun () ->
     testCase "sqrt works" <| fun () ->
         sqrt 4.5 |> checkTo3dp 2121.
 
-(*
     // As per https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L217
     testCase "sqrt matches .net core implementation" <| fun () ->
         checkTo3dp 1732. (sqrt 3.0)
@@ -187,18 +193,19 @@ testCase "BigInt abs works" <| fun () ->
         equal (isNaN (sqrt negativeInfinity), true)
         equal (sqrt positiveInfinity, positiveInfinity)
 
-    testCase "Double.Parse works with IFormatProvider" <| fun () ->
-        // culture compiles to { } for now and it is ignore on the call-site
-        let culture = Globalization.CultureInfo.InvariantCulture
-        let result = System.Double.Parse("10.5", culture)
-        equal(10.5, result)
+    // TODO!!!
+    // testCase "Double.Parse works with IFormatProvider" <| fun () ->
+    //     // culture compiles to { } for now and it is ignore on the call-site
+    //     let culture = Globalization.CultureInfo.InvariantCulture
+    //     let result = System.Double.Parse("10.5", culture)
+    //     equal(10.5, result)
 
-    testCase "Single.Parse works with IFormatProvider" <| fun () ->
-        // culture compiles to { } for now and it is ignore on the call-site
-        let culture = Globalization.CultureInfo.InvariantCulture
-        let result = System.Single.Parse("10.5", culture)
-        equal(10.5, float result)
-*)
+    // testCase "Single.Parse works with IFormatProvider" <| fun () ->
+    //     // culture compiles to { } for now and it is ignore on the call-site
+    //     let culture = Globalization.CultureInfo.InvariantCulture
+    //     let result = System.Single.Parse("10.5", culture)
+    //     equal(10.5, float result)
+
     testCase "acos works" <| fun () ->
         acos 0.25 |> checkTo3dp 1318.
 
@@ -222,7 +229,7 @@ testCase "BigInt abs works" <| fun () ->
 
     testCase "exp works" <| fun () ->
         exp 8.0 |> checkTo3dp 2980957.
-(*
+
     // https://github.com/dotnet/corefx/blob/master/src/System.Runtime.Extensions/tests/System/Math.cs#L228
     testCase "log works" <| fun () ->
         log 232.12 |> checkTo3dp 5447.
@@ -243,7 +250,7 @@ testCase "BigInt abs works" <| fun () ->
         equal (true, isNaN (Math.Log(-3.0, 3.0)))
         equal (true, isNaN (Math.Log(System.Double.NaN, 3.0)))
         equal (true, isNaN (Math.Log(negativeInfinity, 3.0)))
-*)
+
     testCase "log10 works" <| fun () ->
         log10 232.12 |> checkTo3dp 2365.
 
@@ -301,7 +308,6 @@ testCase "BigInt abs works" <| fun () ->
     testCase "Math.log10 works" <| fun () ->
         Math.Log10 232.12 |> checkTo3dp 2365.
 
-(*
     testCase "incr works" <| fun () ->
         let i = ref 5
         incr i
@@ -311,82 +317,76 @@ testCase "BigInt abs works" <| fun () ->
         let i = ref 5
         decr i
         equal(!i, 4)
-testCase "System.Random works" <| fun () ->
-    let rnd = System.Random()
-    let x = rnd.Next(5)
-    equal(true, x >= 0 && x < 5)
 
-    let y = rnd.NextDouble()
-    equal(true, y >= 0.0 && y < 1.0)
+    testCase "System.Random works" <| fun () ->
+        let rnd = System.Random()
+        let x = rnd.Next(5)
+        equal(true, x >= 0 && x < 5)
 
-let equals (x:'a) (y:'a) = x = y
-let compareTo (x:'a) (y:'a) = compare x y
+        let y = rnd.NextDouble()
+        equal(true, y >= 0.0 && y < 1.0)
 
-testCase "Long integers equality works" <| fun () ->
-    let x = 5L
-    let y = 5L
-    let z = 6L
-    equal(true, (x = y))
-    equal(false, (y = z))
-    equal(true, equals y x)
-    equal(false, equals z x)
+    testCase "Long integers equality works" <| fun () ->
+        let x = 5L
+        let y = 5L
+        let z = 6L
+        equal(true, (x = y))
+        equal(false, (y = z))
+        equal(true, equals y x)
+        equal(false, equals z x)
 
-testCase "Long integers comparison works" <| fun () ->
-    let x = 5L
-    let y = 5L
-    let z = 6L
-    equal(0, compare x y)
-    equal(-1, compare y z)
-    equal(0, compareTo y x)
-    equal(1, compareTo z x)
+    testCase "Long integers comparison works" <| fun () ->
+        let x = 5L
+        let y = 5L
+        let z = 6L
+        equal(0, compare x y)
+        equal(-1, compare y z)
+        equal(0, compareTo y x)
+        equal(1, compareTo z x)
 
-testCase "bigint equality works" <| fun () ->
-    let a = 9007199254740992I
-    let b = 9007199254740993I
-    equal(false, (a = b))
+    // TODO: BigInt
+    // testCase "bigint equality works" <| fun () ->
+    //     let a = 9007199254740992I
+    //     let b = 9007199254740993I
+    //     equal(false, (a = b))
 
-testCase "Big integers equality works" <| fun () ->
-    let x = 59823749821707124891298739821798327321028091380980I
-    let y = 59823749821707124891298739821798327321028091380980I
-    let z = 59823749821707124891298739821798327321028091380981I
-    equal(true, (x = y))
-    equal(false, (y = z))
-    equal(true, equals y x)
-    equal(false, equals z x)
+    // testCase "Big integers equality works" <| fun () ->
+    //     let x = 59823749821707124891298739821798327321028091380980I
+    //     let y = 59823749821707124891298739821798327321028091380980I
+    //     let z = 59823749821707124891298739821798327321028091380981I
+    //     equal(true, (x = y))
+    //     equal(false, (y = z))
+    //     equal(true, equals y x)
+    //     equal(false, equals z x)
 
-testCase "Big integers comparison works" <| fun () ->
-    let x = 5I
-    let y = 5I
-    let z = 6I
-    equal(0, compare x y)
-    equal(-1, compare y z)
-    equal(0, compareTo y x)
-    equal(1, compareTo z x)
+    // testCase "Big integers comparison works" <| fun () ->
+    //     let x = 5I
+    //     let y = 5I
+    //     let z = 6I
+    //     equal(0, compare x y)
+    //     equal(-1, compare y z)
+    //     equal(0, compareTo y x)
+    //     equal(1, compareTo z x)
 
-let decimalOne = 1M
-let decimalTwo = 2M
+    testCase "Member values of decimal type can be compared" <| fun () -> // See #747
+        equal(true, decimalOne < decimalTwo)
+        equal(false, decimalOne > decimalTwo)
 
-testCase "Member values of decimal type can be compared" <| fun () -> // See #747
-    equal(true, decimalOne < decimalTwo)
-    equal(false, decimalOne > decimalTwo)
-
-testCase "Sign operator works" <| fun () -> // See #1311
-    equal(1, sign 1)
-    equal(1, sign 34)
-    equal(1, sign 1L)
-    equal(1, sign 36L)
-    equal(1, sign 1.)
-    equal(1, sign 89)
-    equal(1, sign 1)
-    equal(0, sign 0)
-    equal(0, sign 0L)
-    equal(0, sign 0.)
-    equal(-1, sign -1)
-    equal(-1, sign -56)
-    equal(-1, sign -1L)
-    equal(-1, sign -72L)
-    equal(-1, sign -1.)
-    equal(-1, sign -89.)
-*)
-
+    testCase "Sign operator works" <| fun () -> // See #1311
+        equal(1, sign 1)
+        equal(1, sign 34)
+        equal(1, sign 1L)
+        equal(1, sign 36L)
+        equal(1, sign 1.)
+        equal(1, sign 89)
+        equal(1, sign 1)
+        equal(0, sign 0)
+        equal(0, sign 0L)
+        equal(0, sign 0.)
+        equal(-1, sign -1)
+        equal(-1, sign -56)
+        equal(-1, sign -1L)
+        equal(-1, sign -72L)
+        equal(-1, sign -1.)
+        equal(-1, sign -89.)
 ]
