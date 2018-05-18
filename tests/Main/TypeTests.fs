@@ -64,8 +64,8 @@ type B  = { label: string } with
 let inline show< ^T when ^T : (member show : unit -> string)> (x:^T) : string =
    (^T : (member show : unit -> string) (x))
 
-// let inline showStatic< ^T when ^T : (static member show : ^T -> string)> (x:^T) : string =
-//    (^T : (static member show : ^T -> string) (x))
+let inline showStatic< ^T when ^T : (static member show : ^T -> string)> (x:^T) : string =
+   (^T : (static member show : ^T -> string) (x))
 
 [<AllowNullLiteral>]
 type Serializable(?i: int) =
@@ -300,12 +300,11 @@ let tests =
         show a |> equal "5"
         show b |> equal "five"
 
-    // TODO!!!
-    // testCase "Statically resolved static calls work" <| fun () ->
-    //     let a = { thing = 5 }
-    //     let b = { label = "five" }
-    //     showStatic a |> equal "Static: 5"
-    //     showStatic b |> equal "Static: five"
+    testCase "Statically resolved static calls work" <| fun () ->
+        let a = { thing = 5 }
+        let b = { label = "five" }
+        showStatic a |> equal "Static: 5"
+        showStatic b |> equal "Static: five"
 
     testCase "Guid.NewGuid works" <| fun () ->
         let g1 = Guid.NewGuid()

@@ -4,7 +4,6 @@ open System
 open System.Collections.Generic
 open Util.Testing
 
-(*
 let inline (|HasLength|) x =
   fun () -> (^a: (member Length: int) x)
 
@@ -86,40 +85,38 @@ type Result<'s, 'f> =
     static member (<*>) (f: Result<('t -> 'u), 'e>, r: Result<'t, 'e>) : Result<'u, 'e> =
         f >>= fun f -> f <^> r
 
-[<Test>]
-let ``Infix applicative can be generated``() =
-    let r = Ok 1
-    let a = Ok string
-    match a <*> r with
-    | Ok x -> equal "1" x
-    | _ -> failwith "expected Ok('1')"
-
 let inline applyInline (a:'a) (b:'b) =
     a <*> b
 
-[<Test>]
-let ``Infix applicative with inline functions can be generated``() =
-    let r = Ok 1
-    let a = Ok string
-    match applyInline a r with
-    | Ok x -> equal "1" x
-    | _ -> failwith "expected Ok('1')"
+let tests1 = [
+    testCase "Infix applicative can be generated" <| fun () ->
+        let r = Ok 1
+        let a = Ok string
+        match a <*> r with
+        | Ok x -> equal "1" x
+        | _ -> failwith "expected Ok('1')"
 
-[<Test>]
-let ``Infix applicative with inline composed functions can be generated``() =
-    let r = Ok 1
-    let a = Ok (string >> int)
-    match applyInline a r with
-    | Ok x -> equal 1 x
-    | _ -> failwith "expected Ok(1)"
+    testCase "Infix applicative with inline functions can be generated" <| fun () ->
+        let r = Ok 1
+        let a = Ok string
+        match applyInline a r with
+        | Ok x -> equal "1" x
+        | _ -> failwith "expected Ok('1')"
 
-[<Test>]
-let ``Infix applicative with even more inline functions can be generated``() =
-    let r = Ok (fun x -> x + 1)
-    let a = Ok (fun f x -> f x)
-    match applyInline a r with
-    | Ok addOne -> equal 2 (addOne 1)
-    | _ -> failwith "expected Ok(addOne) where addOne(1) = 2"
+    testCase "Infix applicative with inline composed functions can be generated" <| fun () ->
+        let r = Ok 1
+        let a = Ok (string >> int)
+        match applyInline a r with
+        | Ok x -> equal 1 x
+        | _ -> failwith "expected Ok(1)"
+
+    testCase "Infix applicative with even more inline functions can be generated" <| fun () ->
+        let r = Ok (fun x -> x + 1)
+        let a = Ok (fun f x -> f x)
+        match applyInline a r with
+        | Ok addOne -> equal 2 (addOne 1)
+        | _ -> failwith "expected Ok(addOne) where addOne(1) = 2"
+]
 
 type Foo1(i) =
     member x.Foo() = i
@@ -131,40 +128,39 @@ type Foo2(i) =
 let inline foo< ^t when ^t : (member Foo : int -> int)> x i =
     (^t : (member Foo : int -> int) (x, i))
 
-[<Test>]
-let ``Local inline typed lambdas work``() =
-    let inline localFoo (x:^t) = foo x 5
-    let x1 = Foo1(2)
-    let x2 = Foo2(2)
-    equal 7 <| localFoo x1
-    equal 14 <| localFoo x2
+let tests2 = [
+    testCase "Local inline typed lambdas work" <| fun () ->
+        let inline localFoo (x:^t) = foo x 5
+        let x1 = Foo1(2)
+        let x2 = Foo2(2)
+        equal 7 <| localFoo x1
+        equal 14 <| localFoo x2
 
-[<Test>]
-let ``Local inline values work``() =
-    let res = zipAny [|("a",1);("b",2)|] [|("c",5.);("a",4.)|]
-    res.Length |> equal 3
-    res.[0] |> fst |> equal "a"
-    res.[0] |> snd |> equal (Some 1, Some 4.)
-    res.[1] |> fst |> equal "b"
-    res.[1] |> snd |> equal (Some 2, None)
-    res.[2] |> fst |> equal "c"
-    res.[2] |> snd |> equal (None, Some 5.)
+    testCase "Local inline values work" <| fun () ->
+        let res = zipAny [|("a",1);("b",2)|] [|("c",5.);("a",4.)|]
+        res.Length |> equal 3
+        res.[0] |> fst |> equal "a"
+        res.[0] |> snd |> equal (Some 1, Some 4.)
+        res.[1] |> fst |> equal "b"
+        res.[1] |> snd |> equal (Some 2, None)
+        res.[2] |> fst |> equal "c"
+        res.[2] |> snd |> equal (None, Some 5.)
 
-[<Test>]
-let ``Local inline lambdas work standalone``() = // See #1234
-    let mutable setInternalState = Some(fun (_:obj) -> ())
-    let withReact () =
-      let mutable lastModel = Some 2
-      let setState () =
-        let inline notEqual a = not <| obj.ReferenceEquals (1, a)
-        match setInternalState with
-        | Some _ ->
-            let hasUpdate = Option.map notEqual lastModel |> Option.defaultValue true
-            hasUpdate
-        | None ->
-            false
-      setState()
-    withReact() |> equal true
+    testCase "Local inline lambdas work standalone" <| fun () -> // See #1234
+        let mutable setInternalState = Some(fun (_:obj) -> ())
+        let withReact () =
+          let mutable lastModel = Some 2
+          let setState () =
+            let inline notEqual a = not <| obj.ReferenceEquals (1, a)
+            match setInternalState with
+            | Some _ ->
+                let hasUpdate = Option.map notEqual lastModel |> Option.defaultValue true
+                hasUpdate
+            | None ->
+                false
+          setState()
+        withReact() |> equal true
+]
 
 open Aether
 open Aether.Operators
@@ -181,33 +177,28 @@ let rev : Isomorphism<char[], char[]> =
 
 let inline (=!) x y = equal y x
 
-[<Test>]
-let ``Lens.get returns correct values`` () =
-    Lens_get fst_ ("Good","Bad") =! "Good"
+let tests3 = [
+    testCase "Lens.get returns correct values" <| fun () ->
+        Lens_get fst_ ("Good","Bad") =! "Good"
 
-[<Test>]
-let ``Lens.set sets value correctly`` () =
-    Lens_set fst_ "Good" ("Bad",()) =! ("Good",())
+    testCase "Lens.set sets value correctly" <| fun () ->
+        Lens_set fst_ "Good" ("Bad",()) =! ("Good",())
 
-[<Test>]
-let ``Lens.map modifies values correctly`` () =
-    Lens_map fst_ (fun x -> x + x) ("Good",()) =! ("GoodGood",())
+    testCase "Lens.map modifies values correctly" <| fun () ->
+        Lens_map fst_ (fun x -> x + x) ("Good",()) =! ("GoodGood",())
 
-[<Test>]
-let ``Ismorphism composition over a lens gets value`` () =
-    Lens_get (fst_ >-> chars) ("Good",()) =! [| 'G'; 'o'; 'o'; 'd' |]
+    testCase "Ismorphism composition over a lens gets value" <| fun () ->
+        Lens_get (fst_ >-> chars) ("Good",()) =! [| 'G'; 'o'; 'o'; 'd' |]
 
-[<Test>]
-let ``Ismorphism composition over a lens sets value`` () =
-    Lens_set (fst_ >-> chars) [| 'G'; 'o'; 'o'; 'd' |] ("Bad",()) =! ("Good",())
+    testCase "Ismorphism composition over a lens sets value" <| fun () ->
+        Lens_set (fst_ >-> chars) [| 'G'; 'o'; 'o'; 'd' |] ("Bad",()) =! ("Good",())
 
-[<Test>]
-let ``Ismorphism composition over a lens gets value over multiple isomorphisms`` () =
-    Lens_get (fst_ >-> chars >-> rev) ("dooG",()) =! [| 'G'; 'o'; 'o'; 'd' |]
+    testCase "Ismorphism composition over a lens gets value over multiple isomorphisms" <| fun () ->
+        Lens_get (fst_ >-> chars >-> rev) ("dooG",()) =! [| 'G'; 'o'; 'o'; 'd' |]
 
-[<Test>]
-let ``Ismorphism composition over a lens sets value over multiple isomorphisms`` () =
-    Lens_set (fst_ >-> chars >-> rev) [| 'd'; 'o'; 'o'; 'G' |] ("Bad",()) =! ("Good",())
+    testCase "Ismorphism composition over a lens sets value over multiple isomorphisms" <| fun () ->
+        Lens_set (fst_ >-> chars >-> rev) [| 'd'; 'o'; 'o'; 'G' |] ("Bad",()) =! ("Good",())
+]
 
 let mutable mutableValue = 0
 
@@ -219,13 +210,6 @@ let moduleMethodReturnsLambda i =
     mutableValue <- i
     fun j -> mutableValue * j
 
-[<Test>]
-let ``Module values/methods returning lambdas work``() =
-    moduleValueReturnsLambda() |> equal 10
-    moduleMethodReturnsLambda 7 9 |> equal 63
-    // mutableValue has changed so this produces a different result
-    moduleValueReturnsLambda() |> equal 14
-
 let mutable mutableValue2 = 0
 
 type LambdaFactory() =
@@ -236,48 +220,8 @@ type LambdaFactory() =
         mutableValue2 <- y
         fun z -> mutableValue2 * z
 
-[<Test>]
-let ``Class properties/methods returning lambdas work``() =
-    let x = LambdaFactory()
-    x.ClassPropertyReturnsLambda 5 |> equal 25
-    x.ClassMethodReturnsLambda 2 8 |> equal 16
-    // Class properties are actually methods,
-    // so this should still give the same result
-    x.ClassPropertyReturnsLambda 5 |> equal 25
-
-[<Test>]
-let ``Local values returning lambdas work``() =
-    let mutable mutableValue = 0
-    let localValueReturnsLambda =
-        mutableValue <- 5
-        fun () -> mutableValue * 2
-    let localFunctionReturnsLambda i =
-        mutableValue <- i
-        fun j -> mutableValue * j
-    localValueReturnsLambda() |> equal 10
-    localFunctionReturnsLambda 7 9 |> equal 63
-    // mutableValue has changed so this produces a different result
-    localValueReturnsLambda() |> equal 14
-
 let genericLambdaArgument f = f 42
 let genericLambdaArgument2 f g = f (fun x -> g)
-
-[<Test>]
-let ``Generic lambda arguments work``() =
-    genericLambdaArgument (fun x y -> x + y) 3 |> equal 45
-    genericLambdaArgument ((+) 1) |> equal 43
-    genericLambdaArgument2 (fun f -> f 1) 3 |> equal 3
-    genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
-
-[<Test>]
-let ``Generic lambda arguments work locally``() =
-    let genericLambdaArgument f = f 42
-    genericLambdaArgument (+) 3 |> equal 45
-    genericLambdaArgument (fun x -> x + 1) |> equal 43
-
-    let genericLambdaArgument2 f g = f (fun x -> g)
-    genericLambdaArgument2 (fun f -> f 1) 3 |> equal 3
-    genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
 
 let partialApplication(f: int->int->int) =
     let f2 = f 1
@@ -287,15 +231,57 @@ let partialApplication(f: int->int->int) =
     let f4' = f3' 3
     f2 7 + f4 8 + f4' 9
 
-[<Test>]
-let ``Lambdas can be partially applied``() =
-    partialApplication (+) |> equal 29
+let tests4 = [
+    testCase "Module values/methods returning lambdas work" <| fun () ->
+        moduleValueReturnsLambda() |> equal 10
+        moduleMethodReturnsLambda 7 9 |> equal 63
+        // mutableValue has changed so this produces a different result
+        moduleValueReturnsLambda() |> equal 14
 
-[<Test>]
-let ``Flattened lambdas can be composed``() = // See #704
-    let f = (+) >> id
-    List.foldBack f [1;2;3;4] 0
-    |> equal 10
+    testCase "Class properties/methods returning lambdas work" <| fun () ->
+        let x = LambdaFactory()
+        x.ClassPropertyReturnsLambda 5 |> equal 25
+        x.ClassMethodReturnsLambda 2 8 |> equal 16
+        // Class properties are actually methods,
+        // so this should still give the same result
+        x.ClassPropertyReturnsLambda 5 |> equal 25
+
+    testCase "Local values returning lambdas work" <| fun () ->
+        let mutable mutableValue = 0
+        let localValueReturnsLambda =
+            mutableValue <- 5
+            fun () -> mutableValue * 2
+        let localFunctionReturnsLambda i =
+            mutableValue <- i
+            fun j -> mutableValue * j
+        localValueReturnsLambda() |> equal 10
+        localFunctionReturnsLambda 7 9 |> equal 63
+        // mutableValue has changed so this produces a different result
+        localValueReturnsLambda() |> equal 14
+
+    testCase "Generic lambda arguments work" <| fun () ->
+        genericLambdaArgument (fun x y -> x + y) 3 |> equal 45
+        genericLambdaArgument ((+) 1) |> equal 43
+        genericLambdaArgument2 (fun f -> f 1) 3 |> equal 3
+        genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
+
+    testCase "Generic lambda arguments work locally" <| fun () ->
+        let genericLambdaArgument f = f 42
+        genericLambdaArgument (+) 3 |> equal 45
+        genericLambdaArgument (fun x -> x + 1) |> equal 43
+
+        let genericLambdaArgument2 f g = f (fun x -> g)
+        genericLambdaArgument2 (fun f -> f 1) 3 |> equal 3
+        genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
+
+    testCase "Lambdas can be partially applied" <| fun () ->
+        partialApplication (+) |> equal 29
+
+    testCase "Flattened lambdas can be composed" <| fun () -> // See #704
+        let f = (+) >> id
+        List.foldBack f [1;2;3;4] 0
+        |> equal 10
+]
 
 type ImplicitType<'a,'b> =
     | Case1 of 'a
@@ -310,79 +296,7 @@ let implicitMethod (arg: ImplicitType<string, int>) (i: int) =
     | ImplicitType.Case1 _ -> 1
     | ImplicitType.Case2 _ -> 2
 
-[<Test>]
-let ``TraitCall can resolve overloads with a single generic argument``() =
-    implicitMethod !+"hello" 5 |> equal 1
-    implicitMethod !+6       5 |> equal 2
-
-[<Test>]
-let ``NestedLambdas``() =
-    let mutable m = 0
-    let f i =
-        m <- i
-        fun j ->
-            m <- m + j
-            fun k ->
-                m <- m + k
-                fun u ->
-                    m + u
-    let f2 = f 1
-    let f3 = f2 2
-    let f4 = f3 3
-    f4 4 |> equal 10
-    let f5 = f 6 7 8
-    f5 9 |> equal 30
-
-[<Test>]
-let ``More than two lambdas can be nested``() =
-    let mutable mut = 0
-    let f x =
-        mut <- mut + 1
-        fun y z ->
-            mut <- mut + 1
-            fun u w ->
-                x + y + z + u + w
-    f 1 2 3 4 5 |> equal 15
-    let f2 = f 3 4 5 6
-    f2 7 |> equal 25
-
-[<Test>]
-let ``Multiple nested lambdas can be partially applied``() =
-    let mutable mut = 0
-    let f x y z =
-        mut <- mut + 1
-        fun u ->
-            mut <- mut + 1
-            fun w ->
-                x + y + z + u + w
-    let f2 = f 1 2
-    f2 3 4 5 |> equal 15
-
-open Microsoft.FSharp.Core.OptimizedClosures
-
-[<Test>]
-let ``Partial application of optimized closures works``() =
-  let mutable m = 1
-  let f x = m <- m + 1; (fun y z -> x + y + z)
-  let f = FSharpFunc<_,_,_,_>.Adapt(f)
-  let r = f.Invoke(1, 2, 3)
-  equal 2 m
-  equal 6 r
-
-[<Test>]
-let ``No errors because references to missing unit args``() =
-    let foofy str =
-        fun () -> "foo" + str
-    let f1 = foofy "bar"
-    f1 () |> equal "foobar"
-
 type ArityRecord = { arity2: int->int->string }
-
-[<Test>]
-let ``Arity is checked also when constructing records``() =
-    let f i j = (i * 2) + (j * 3)
-    let r = { arity2 = fun x -> f x >> fun y -> sprintf "foo%i" y }
-    r.arity2 4 5 |> equal "foo23"
 
 type RecordB = {
     A: string
@@ -416,11 +330,11 @@ type Action<'model> =
 // type Action =
 //     | InputChanged of Id: string * Value: string * Lens<RecordB, string>
 //     | CheckboxChanged of Id: string * Value: bool * Lens<RecordB, bool>
-with
-    override x.ToString () =
-        match x with
-        | InputChanged (id, value, _) -> sprintf "InputChanged (%s, %s)" id value
-        | CheckboxChanged (id, value, _) -> sprintf "CheckboxChanged (%s, %b)" id value
+// with
+//     override x.ToString () =
+//         match x with
+//         | InputChanged (id, value, _) -> sprintf "InputChanged (%s, %s)" id value
+//         | CheckboxChanged (id, value, _) -> sprintf "CheckboxChanged (%s, %b)" id value
 
 let makeInput<'model> id (model: 'model) (lens: Lens<'model, string>) =
 // let makeInput id (model: RecordB) (lens: Lens<RecordB, string>) =
@@ -444,42 +358,16 @@ let update (model: RecordA) action =
     | CheckboxChanged (id, value, lens) ->
         Optic.set (RecordA.RecordB_ >-> lens) value model
 
-[<Test>]
-let ``Aether with generics works``() = // See #750
-    let a = { RecordB = {A= "foo"; B=true} }
-    let input, checkbox = view a
-    input |> equal "foo"
-    checkbox |> equal true
-    let a2 = InputChanged("abc", "bar", RecordB.A_) |> update a
-    let input2, checkbox2 = view a2
-    input2 |> equal "bar"
-    checkbox2 |> equal true
-
 type Id = Id of string
 
 type Ideable =
     { Id: Id; Name: string }
-    with override this.ToString() = this.Name
+    // with override this.ToString() = this.Name
 
-let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
-    Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
-
-[<Test>]
-let ``Trait calls work with record fields``() =
-    let ar = [| {Id=Id"foo"; Name="Sarah"}; {Id=Id"bar"; Name="James"} |]
-    replaceById {Id=Id"ja"; Name="Voll"} ar |> Seq.head |> string |> equal "Sarah"
-    replaceById {Id=Id"foo"; Name="Anna"} ar |> Seq.head |> string |> equal "Anna"
+// let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
+//     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
 
 let doNothing () = ()
-
-[<Test>]
-let ``Unit expression arguments are not removed``() =
-    let mutable x = 0
-    let foo i =
-        x <- i
-    doNothing <| foo 5
-    equal 5 x
-
 
 let curry (fn: 'a -> 'b -> 'c) =
   let first = fun (a: 'a) ->
@@ -488,14 +376,6 @@ let curry (fn: 'a -> 'b -> 'c) =
       result
     second
   first
-
-[<Test>]
-let ``Basic currying works``() =
-    let plus = curry (+)
-    let result = plus 2 3
-    equal 5 result
-    equal 5 (plus 2 3)
-    equal 5 ((curry (+)) 2 3)
 
 let applyTup2 f1 f2 x =
   let a = f1 x
@@ -513,17 +393,114 @@ let mutateAndLambdify x =
     mutableValue3 <- x
     (fun _ -> x)
 
-[<Test>]
-let ``CurriedLambda don't delay side effects unnecessarily``() = // See #996
-      let a, b = applyTup2 id mutateAndLambdify 2685397
-      sprintf "%A" mutableValue3 |> equal "2685397"
-      let a2, b2 = applyTup2Inline id mutateAndLambdify 843252
-      sprintf "%A" mutableValue3 |> equal "843252"
-      let a3, b3 =
-          let a = id 349787
-          let b = mutateAndLambdify 349787
-          (a,b)
-      sprintf "%A" mutableValue3 |> equal "349787"
+let tests5 = [
+    testCase "TraitCall can resolve overloads with a single generic argument" <| fun () ->
+        implicitMethod !+"hello" 5 |> equal 1
+        implicitMethod !+6       5 |> equal 2
+
+    testCase "NestedLambdas" <| fun () ->
+        let mutable m = 0
+        let f i =
+            m <- i
+            fun j ->
+                m <- m + j
+                fun k ->
+                    m <- m + k
+                    fun u ->
+                        m + u
+        let f2 = f 1
+        let f3 = f2 2
+        let f4 = f3 3
+        f4 4 |> equal 10
+        let f5 = f 6 7 8
+        f5 9 |> equal 30
+
+    testCase "More than two lambdas can be nested" <| fun () ->
+        let mutable mut = 0
+        let f x =
+            mut <- mut + 1
+            fun y z ->
+                mut <- mut + 1
+                fun u w ->
+                    x + y + z + u + w
+        f 1 2 3 4 5 |> equal 15
+        let f2 = f 3 4 5 6
+        f2 7 |> equal 25
+
+    testCase "Multiple nested lambdas can be partially applied" <| fun () ->
+        let mutable mut = 0
+        let f x y z =
+            mut <- mut + 1
+            fun u ->
+                mut <- mut + 1
+                fun w ->
+                    x + y + z + u + w
+        let f2 = f 1 2
+        f2 3 4 5 |> equal 15
+
+    // TODO
+    // open Microsoft.FSharp.Core.OptimizedClosures
+
+    // testCase "Partial application of optimized closures works" <| fun () ->
+    //   let mutable m = 1
+    //   let f x = m <- m + 1; (fun y z -> x + y + z)
+    //   let f = FSharpFunc<_,_,_,_>.Adapt(f)
+    //   let r = f.Invoke(1, 2, 3)
+    //   equal 2 m
+    //   equal 6 r
+
+    testCase "No errors because references to missing unit args" <| fun () ->
+        let foofy str =
+            fun () -> "foo" + str
+        let f1 = foofy "bar"
+        f1 () |> equal "foobar"
+
+    testCase "Arity is checked also when constructing records" <| fun () ->
+        let f i j = (i * 2) + (j * 3)
+        let r = { arity2 = fun x -> f x >> fun y -> sprintf "foo%i" y }
+        r.arity2 4 5 |> equal "foo23"
+
+    testCase "Aether with generics works" <| fun () -> // See #750
+        let a = { RecordB = {A= "foo"; B=true} }
+        let input, checkbox = view a
+        input |> equal "foo"
+        checkbox |> equal true
+        let a2 = InputChanged("abc", "bar", RecordB.A_) |> update a
+        let input2, checkbox2 = view a2
+        input2 |> equal "bar"
+        checkbox2 |> equal true
+
+    // TODO!!!
+    // testCase "Trait calls work with record fields" <| fun () ->
+    //     let ar = [| {Id=Id"foo"; Name="Sarah"}; {Id=Id"bar"; Name="James"} |]
+    //     replaceById {Id=Id"ja"; Name="Voll"} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
+    //     replaceById {Id=Id"foo"; Name="Anna"} ar |> Seq.head |> fun x -> equal "Anna" x.Name
+
+    testCase "Unit expression arguments are not removed" <| fun () ->
+        let mutable x = 0
+        let foo i =
+            x <- i
+        doNothing <| foo 5
+        equal 5 x
+
+    testCase "Basic currying works" <| fun () ->
+        let plus = curry (+)
+        let result = plus 2 3
+        equal 5 result
+        equal 5 (plus 2 3)
+        equal 5 ((curry (+)) 2 3)
+
+    testCase "CurriedLambda don't delay side effects unnecessarily" <| fun () -> // See #996
+          let a, b = applyTup2 id mutateAndLambdify 2685397
+          sprintf "%A" mutableValue3 |> equal "2685397"
+          let a2, b2 = applyTup2Inline id mutateAndLambdify 843252
+          sprintf "%A" mutableValue3 |> equal "843252"
+          let a3, b3 =
+              let a = id 349787
+              let b = mutateAndLambdify 349787
+              (a,b)
+          sprintf "%A" mutableValue3 |> equal "349787"
+]
 
 module Types =
     let inline flip f a b = f b a
@@ -554,14 +531,36 @@ module State =
         |> setValue email
         |> asEmailIn model
 
-[<Test>]
-let ``Point-free style with multiple arguments works``() = // See #1041
-    let initialValue = { Types.Email = Types.StringField.Empty }
-    let m = State.update "m" initialValue
-    m.Email.Value |> equal "m"
+type StringEnvironment<'a> = string -> 'a
 
+let tests6 = [
+    testCase "Point-free style with multiple arguments works" <| fun () -> // See #1041
+        let initialValue = { Types.Email = Types.StringField.Empty }
+        let m = State.update "m" initialValue
+        m.Email.Value |> equal "m"
 
-module CurriedApplicativeTests =
+    testCase "Function generic type alias works" <| fun () -> // See #1121
+        let five = fun _ -> 5
+
+        let bind (x : StringEnvironment<'a>) (f : 'a -> StringEnvironment<'b>) : StringEnvironment<'b> =
+            fun environment ->
+                f (x environment) environment
+
+        bind five (fun i -> five) "environment"
+        |> equal 5
+
+    testCase "Function generic type alias works II" <| fun () ->
+        let three = fun _ -> 3
+
+        let bind (x : string -> 'a) (f : 'a -> string -> 'b) : string -> 'b =
+            fun environment ->
+                f (x environment) environment
+
+        bind three (fun i -> three) "environment"
+        |> equal 3
+]
+
+module CurriedApplicative =
     type Option2<'T> =
         | Some2 of 'T
         | None2
@@ -583,56 +582,29 @@ module CurriedApplicativeTests =
 
     open Option.Operators
 
-    [<Test>]
-    let ``Option.apply (<*>) non-curried`` () =
-        let f x = x + 1
-        let r = Some f <*> Some 2
-        r |> equal (Some 3)
+    let tests = [
+        testCase "Option.apply (<*>) non-curried" <| fun () ->
+            let f x = x + 1
+            let r = Some f <*> Some 2
+            r |> equal (Some 3)
 
-    [<Test>]
-    let ``Option.apply (<*>) auto curried`` () =
-        let f x y = x + y
-        let r = Some f <*> Some 2 <*> Some 3
-        r |> equal (Some 5)
+        testCase "Option.apply (<*>) auto curried" <| fun () ->
+            let f x y = x + y
+            let r = Some f <*> Some 2 <*> Some 3
+            r |> equal (Some 5)
 
-    [<Test>]
-    let ``Option.apply (<**>) auto curried`` () =
-        let f x y = x + y
-        let r = Some2 f <**> Some2 2 <**> Some2 3
-        r |> equal (Some2 5)
+        testCase "Option.apply (<**>) auto curried" <| fun () ->
+            let f x y = x + y
+            let r = Some2 f <**> Some2 2 <**> Some2 3
+            r |> equal (Some2 5)
 
-    [<Test>]
-    let ``Option.apply (<*>) manually curried workaround`` () =
-        let f x =
-            let f' = fun y -> x + y
-            f'
-        let r = Some f <*> Some 2 <*> Some 3
-        r |> equal (Some 5)
-
-type StringEnvironment<'a> = string -> 'a
-
-[<Test>]
-let ``Function generic type alias works`` () : unit = // See #1121
-    let five = fun _ -> 5
-
-    let bind (x : StringEnvironment<'a>) (f : 'a -> StringEnvironment<'b>) : StringEnvironment<'b> =
-        fun environment ->
-            f (x environment) environment
-
-    bind five (fun i -> five) "environment"
-    |> equal 5
-
-[<Test>]
-let ``Function generic type alias works II`` () : unit =
-    let three = fun _ -> 3
-
-    let bind (x : string -> 'a) (f : 'a -> string -> 'b) : string -> 'b =
-        fun environment ->
-            f (x environment) environment
-
-    bind three (fun i -> three) "environment"
-    |> equal 3
-*)
+        testCase "Option.apply (<*>) manually curried workaround" <| fun () ->
+            let f x =
+                let f' = fun y -> x + y
+                f'
+            let r = Some f <*> Some 2 <*> Some 3
+            r |> equal (Some 5)
+    ]
 
 type Node(parent: HTMLElement option) =
   member __.parentElement: HTMLElement = parent.Value
@@ -717,119 +689,129 @@ module Pointful =
         let sum = thenAdd3 <*> Some 4
         equal (Some 10) sum
 
-// module Results =
-//     open FSharp.Core
+module Results =
+    open FSharp.Core
 
-//     let applyResults (f : Result<_, unit>) (x : Result<_, unit>) =
-//         match f, x with
-//         | Ok f, Ok x -> Ok (f x)
-//         | _ -> Result.Error ()
+    let applyResults (f : Result<_, unit>) (x : Result<_, unit>) =
+        match f, x with
+        | Ok f, Ok x -> Ok (f x)
+        | _ -> Result.Error ()
 
-//     let (<!>) f x = Result.map f x
-//     let (<*>) f x = applyResults f x
+    let (<!>) f x = Result.map f x
+    let (<*>) f x = applyResults f x
 
-//     let testOperatorsWith3Args () =
-//         let sum = add3 <!> Ok 1 <*> Ok 2 <*> Ok 3
-//         equal (Ok 6) sum
+    let testOperatorsWith3Args () =
+        let sum = add3 <!> Ok 1 <*> Ok 2 <*> Ok 3
+        equal (Ok 6) sum
+
+let tests7 = [
+    testCase "SRTP with ActivePattern works" <| fun () ->
+        (lengthWrapper []) |> equal 0
+        (lengthWrapper [1;2;3;4]) |> equal 4
+        lengthFixed |> equal 3
+
+    testCase "Closures generated by casts work" <| fun () -> // See #1150
+      let rec loop (current : Element) width height =
+        let w = current.clientWidth
+        let h = current.clientHeight
+        if w > 0 && h > 0 then
+          w, h
+        else
+          loop current.parentElement w h
+      let element = getElement()
+      let result = loop element 0 0
+      equal (2,2) result
+
+    testCase "Applying to a function returned by a member works" <| fun () ->
+        equal (1,5) baz
+        equal (1,5) baz2
+
+    testCase "Applying to a function returned by a local function works" <| fun () ->
+        let foo a b c d = a , b + c d
+        let bar a = foo 1 a
+        let baz = bar 2 (fun _ -> 3) ()
+        equal (1,5) baz
+
+    testCase "Partially applied functions don't duplicate side effects" <| fun () -> // See #1156
+        ADD 1 + ADD 2 + ADD 3 |> equal 6
+
+    testCase "Partially applied functions don't duplicate side effects locally" <| fun () ->
+        let mutable counter = 0
+        let next () =
+          let result = counter
+          counter <- counter + 1
+          result
+        let adder () =
+          let add a b = a + b
+          add (next())
+        let add = adder ()
+        add 1 + add 2 + add 3 |> equal 6
+
+    testCase "Partially applied lambdas capture this" <| fun () ->
+        let foo = Foo3()
+        let f = foo.GetLambda()
+        let f2 = f 2
+        f2 3 |> equal 10
+
+    testCase "Partially applied curried lambdas capture this" <| fun () ->
+        let foo = Foo3()
+        let f = foo.GetCurriedLambda()
+        let f2 = f 2
+        f2 4 |> equal 14
+
+    testCase "Curried function options work" <| fun () ->
+        maybeApply (Some (*)) 5 6 |> equal 30
+        maybeApply None 5 6 |> equal 6
+
+    // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
+    testCase "Applying function options works"
+        Pointful.testFunctionOptions
+
+    testCase "Point-free and partial application work" <| fun () -> // See #1199
+        equal Pointfree.x Pointful.x
+
+    // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-345958891
+    testCase "Point-free works when passing a 2-arg function" <| fun () ->
+        Pointfree.y |> equal (Some 3)
+
+    testCase "Functions in record fields are uncurried" <| fun () ->
+        let r = { myFunction = fun x y z -> x + y - z }
+        r.myFunction 4 4 2 |> equal 6
+        // If the function record field is assigned
+        // to a variable, just curry it
+        let mutable f = r.myFunction
+        f 4 4 2 |> equal 6
+        apply3 r.myFunction 5 7 4 |> equal 8
+        apply (r.myFunction 1 1 |> Some) (Some 5) |> equal (Some -3)
+
+    testCase "Uncurried functions in record fields can be partially applied" <| fun () ->
+        // Test also non-record functions just in case
+        let result = getStrLen () "hello"
+        let partiallyApplied = getStrLen ()
+        let secondResult = partiallyApplied "hello"
+        equal 5 result
+        equal 5 secondResult
+
+        let record = { fn = getStrLen }
+        let recordResult = record.fn () "hello"
+        let recordPartiallyApplied = record.fn ()
+        let recordSecondResult = recordPartiallyApplied "hello"
+        equal 5 recordResult
+        equal 5 recordSecondResult
+
+    // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
+    testCase "Applicative operators work with three-argument functions"
+        Results.testOperatorsWith3Args
+]
 
 let tests =
-    testList "Applicative" [
-        // TODO!!!
-        // testCase "SRTP with ActivePattern works" <| fun () ->
-        //     (lengthWrapper []) |> equal 0
-        //     (lengthWrapper [1;2;3;4]) |> equal 4
-        //     lengthFixed |> equal 3
-
-        testCase "Closures generated by casts work" <| fun () -> // See #1150
-          let rec loop (current : Element) width height =
-            let w = current.clientWidth
-            let h = current.clientHeight
-            if w > 0 && h > 0 then
-              w, h
-            else
-              loop current.parentElement w h
-          let element = getElement()
-          let result = loop element 0 0
-          equal (2,2) result
-
-        testCase "Applying to a function returned by a member works" <| fun () ->
-            equal (1,5) baz
-            equal (1,5) baz2
-
-        testCase "Applying to a function returned by a local function works" <| fun () ->
-            let foo a b c d = a , b + c d
-            let bar a = foo 1 a
-            let baz = bar 2 (fun _ -> 3) ()
-            equal (1,5) baz
-
-        testCase "Partially applied functions don't duplicate side effects" <| fun () -> // See #1156
-            ADD 1 + ADD 2 + ADD 3 |> equal 6
-
-        testCase "Partially applied functions don't duplicate side effects locally" <| fun () ->
-            let mutable counter = 0
-            let next () =
-              let result = counter
-              counter <- counter + 1
-              result
-            let adder () =
-              let add a b = a + b
-              add (next())
-            let add = adder ()
-            add 1 + add 2 + add 3 |> equal 6
-
-        testCase "Partially applied lambdas capture this" <| fun () ->
-            let foo = Foo3()
-            let f = foo.GetLambda()
-            let f2 = f 2
-            f2 3 |> equal 10
-
-        testCase "Partially applied curried lambdas capture this" <| fun () ->
-            let foo = Foo3()
-            let f = foo.GetCurriedLambda()
-            let f2 = f 2
-            f2 4 |> equal 14
-
-        testCase "Curried function options work" <| fun () ->
-            maybeApply (Some (*)) 5 6 |> equal 30
-            maybeApply None 5 6 |> equal 6
-
-        // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347101093
-        testCase "Applying function options works"
-                 Pointful.testFunctionOptions
-
-        testCase "Point-free and partial application work" <| fun () -> // See #1199
-            equal Pointfree.x Pointful.x
-
-        // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-345958891
-        testCase "Point-free works when passing a 2-arg function" <| fun () ->
-            Pointfree.y |> equal (Some 3)
-
-        testCase "Functions in record fields are uncurried" <| fun () ->
-            let r = { myFunction = fun x y z -> x + y - z }
-            r.myFunction 4 4 2 |> equal 6
-            // If the function record field is assigned
-            // to a variable, just curry it
-            let mutable f = r.myFunction
-            f 4 4 2 |> equal 6
-            apply3 r.myFunction 5 7 4 |> equal 8
-            apply (r.myFunction 1 1 |> Some) (Some 5) |> equal (Some -3)
-
-        testCase "Uncurried functions in record fields can be partially applied" <| fun () ->
-            // Test also non-record functions just in case
-            let result = getStrLen () "hello"
-            let partiallyApplied = getStrLen ()
-            let secondResult = partiallyApplied "hello"
-            equal 5 result
-            equal 5 secondResult
-
-            let record = { fn = getStrLen }
-            let recordResult = record.fn () "hello"
-            let recordPartiallyApplied = record.fn ()
-            let recordSecondResult = recordPartiallyApplied "hello"
-            equal 5 recordResult
-            equal 5 recordSecondResult
-
-        // // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
-        // testCase "Applicative operators work with three-argument functions"
-        //          Results.testOperatorsWith3Args
-]
+    testList "Applicative" (
+        tests1
+        @ tests2
+        @ tests3
+        @ tests4
+        @ tests5
+        @ tests6
+        @ tests7
+        @ CurriedApplicative.tests
+    )

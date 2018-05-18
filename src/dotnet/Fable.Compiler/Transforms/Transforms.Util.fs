@@ -205,13 +205,11 @@ module AST =
             typeEquals a1 a2 && typeEquals t1 t2
         | FunctionType(DelegateType as1, t1), FunctionType(DelegateType as2, t2) ->
             listEquals typeEquals as1 as2 && typeEquals t1 t2
-        | GenericParam _, GenericParam _ -> true
-        | DeclaredType(ent1, _gen1), DeclaredType(ent2, _gen2) ->
+        | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) ->
             match ent1.TryFullName, ent2.TryFullName with
-            // The name includes the generic count so we don't need
-            // to check the length of generic lists
-            | Some n1, Some n2 -> n1 = n2
+            | Some n1, Some n2 when n1 = n2 -> listEquals typeEquals gen1 gen2
             | _ -> false
+        | GenericParam _, _ | _, GenericParam _ -> true
         | _ -> false
 
 [<RequireQualifiedAccess>]

@@ -20,7 +20,7 @@ type Context =
       /// Some expressions that create scope in F# don't do it in JS (like let bindings)
       /// so we need a mutable registry to prevent duplicated var names.
       VarNames: HashSet<string>
-      GenericArgs: Map<string, Fable.Type>
+      GenericArgs: Map<string, FSharpType>
       EnclosingMember: EnclosingMemberContext
       CaughtException: Fable.Ident option
       BoundThis: Fable.Ident option
@@ -434,14 +434,14 @@ module TypeHelpers =
         // Rest of declared types
         | _ -> Fable.DeclaredType(tdef, makeGenArgs com ctxTypeArgs genArgs)
 
-    and makeType (com: IFableCompiler) ctxTypeArgs (NonAbbreviatedType t) =
-        let resolveGenParam (genParam: FSharpGenericParameter) =
+    and makeType (com: IFableCompiler) (ctxTypeArgs: Map<string, FSharpType>) (NonAbbreviatedType t) =
+        let resolveGenParam ctxTypeArgs (genParam: FSharpGenericParameter) =
             match Map.tryFind genParam.Name ctxTypeArgs with
             | None -> Fable.GenericParam genParam.Name
-            | Some typ -> typ
+            | Some typ -> makeType com Map.empty typ
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
-        then resolveGenParam t.GenericParameter
+        then resolveGenParam ctxTypeArgs t.GenericParameter
         // Tuple
         elif t.IsTupleType
         then makeGenArgs com ctxTypeArgs t.GenericArguments |> Fable.Tuple
@@ -588,13 +588,21 @@ module Util =
             | None -> None
         Fable.TryCatch (body, catchClause, finalizer)
 
-    let matchGenericParams (memb: FSharpMemberOrFunctionOrValue) genArgs =
+    let resolveTypes (ctx: Context) (types: FSharpType seq) =
+        types |> Seq.map (fun t ->
+            if t.IsGenericParameter
+            then Map.tryFind t.GenericParameter.Name ctx.GenericArgs
+                 // TODO: Log error if we cannot resolve the generic parameter?
+                 |> Option.defaultValue t
+            else t)
+
+    let matchGenericParams (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) (genArgs: FSharpType seq) =
         let genParams =
             match memb.DeclaringEntity with
             | Some ent -> Seq.append ent.GenericParameters memb.GenericParameters
             | None -> upcast memb.GenericParameters
             |> Seq.map (fun x -> x.Name)
-        Seq.zip genParams genArgs
+        resolveTypes ctx genArgs |> Seq.zip genParams
 
     /// Takes only the first CurriedParameterGroup into account.
     /// If there's only a single unit parameter, returns 0.
@@ -671,7 +679,8 @@ module Util =
                 DeclaringEntityFullName = entityFullName
                 Spread = argInfo.Spread
                 CompiledName = memb.CompiledName
-                GenericArgs = matchGenericParams memb genArgs |> Seq.toList }
+                GenericArgs = matchGenericParams ctx memb genArgs |> Seq.toList
+              }
             match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
             | Some e -> Some e
             | None ->
@@ -758,7 +767,7 @@ module Util =
                                 IsCompilerGenerated = true }
                 let ctx = bindExpr ctx argId (Fable.IdentExpr ident)
                 ctx, (ident, arg)::bindings)
-        let ctx = { ctx with GenericArgs = matchGenericParams memb genArgs |> Map }
+        let ctx = { ctx with GenericArgs = matchGenericParams ctx memb genArgs |> Map }
         (com.Transform(ctx, fsExpr), bindings)
         ||> List.fold (fun body binding -> Fable.Let([binding], body))
 
@@ -810,7 +819,7 @@ module Util =
                         else Fable.Import(funcName, file, Fable.Internal, Fable.Any)
                         |> staticCall None t (argInfo None [expr] None)
 
-    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
+    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: FSharpType seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let call kind args =
             Fable.Operation(Fable.Call(kind, args), typ, r)
         let args = removeOmittedOptionalArguments memb args

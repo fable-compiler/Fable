@@ -4,7 +4,7 @@ module Fable.Tests.Main
 // Applicable, Arithmetic and lists
 let allTests =
   [|
-    Applicative.tests
+    // Applicative.tests
     Arithmetic.tests
     Async.tests
     Arrays.tests

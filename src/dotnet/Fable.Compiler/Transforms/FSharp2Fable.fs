@@ -50,7 +50,7 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
         let genArgs = makeGenArgs com ctx.GenericArgs genArgs
         Fable.NewUnion(argExprs, unionCase, tdef, genArgs) |> Fable.Value
 
-let private transformTraitCall com (ctx: Context) r typ sourceTypes traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
+let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType list) traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
     let isInstance = flags.IsInstance
     let argTypes = List.map (makeType com Map.empty) argTypes
     let argExprs = List.map (fun e -> com.Transform(ctx, e)) argExprs
@@ -58,13 +58,10 @@ let private transformTraitCall com (ctx: Context) r typ sourceTypes traitName (f
         match argExprs, argTypes with
         | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
         | args, argTypes -> None, args, argTypes
-    sourceTypes |> List.tryPick (fun typ ->
-        match makeType com ctx.GenericArgs typ with
-        | Fable.DeclaredType(ent,_) ->
-            // printfn "LOOK FOR MEMBER %s (isInstance %b) in %s with args: %A"
-            //     traitName isInstance ent.DisplayName argTypes
-            tryFindMember com ent traitName isInstance argTypes
-        | _ -> None)
+    resolveTypes ctx sourceTypes |> Seq.tryPick (fun typ ->
+        if typ.HasTypeDefinition
+        then tryFindMember com typ.TypeDefinition traitName isInstance argTypes
+        else None)
     |> function
         | Some memb -> makeCallFrom com ctx r typ [] thisArg args memb
         | None -> "Cannot resolve trait call " + traitName
@@ -88,8 +85,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
             | Some baseType when baseType.TryFullName <> Some Types.object ->
                 let typ = makeType com ctx.GenericArgs baseCallExpr.Type
                 let baseArgs = List.map (transformExpr com ctx) baseArgs
-                let genArgs = genArgs1 @ genArgs2 |> Seq.map (makeType com ctx.GenericArgs)
-                makeCallFrom com ctx None typ genArgs None baseArgs baseCall |> Some
+                makeCallFrom com ctx None typ (genArgs1@genArgs2) None baseArgs baseCall |> Some
             | _ -> None
         | _ -> None
     let members =
@@ -205,15 +201,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | TryGetValue (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let callee, args = Option.map (transformExpr com ctx) callee, List.map (transformExpr com ctx) membArgs
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
-        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
-        makeCallFrom com ctx r typ genArgs callee args memb
+        makeCallFrom com ctx r typ (ownerGenArgs @ membGenArgs) callee args memb
 
     | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let callee, args = transformExpr com ctx callee, List.map (transformExpr com ctx) membArgs
         let callee = get None Fable.Any callee eventName
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
-        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
-        makeCallFrom com ctx r typ genArgs (Some callee) args memb
+        makeCallFrom com ctx r typ (ownerGenArgs @ membGenArgs) (Some callee) args memb
 
     // TODO: Detect if it's ResizeArray and compile as FastIntegerForLoop?
     | ForOf (BindIdent com ctx (newContext, ident), Transform com ctx value, body) ->
@@ -293,8 +287,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let callee = Option.map (transformExpr com ctx) callee
         let args = List.map (transformExpr com ctx) args
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
-        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
-        makeCallFrom com ctx r typ genArgs callee args memb
+        makeCallFrom com ctx r typ (ownerGenArgs @ membGenArgs) callee args memb
 
     | BasicPatterns.Application(applied, genArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
@@ -307,8 +300,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let range = makeRangeFrom fsExpr
             match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
             | Some (_,fsExpr) ->
-                let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
-                let resolvedCtx = { ctx with GenericArgs = matchGenericParams var genArgs |> Map }
+                let resolvedCtx = { ctx with GenericArgs = matchGenericParams ctx var genArgs |> Map }
                 let callee = transformExpr com resolvedCtx fsExpr
                 match args with
                 | [] -> callee
@@ -436,7 +428,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.NewObject(memb, genArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         let args = List.map (transformExpr com ctx) args
-        let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
         makeCallFrom com ctx r typ genArgs None args memb
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->

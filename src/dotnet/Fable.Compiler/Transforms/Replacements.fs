@@ -54,11 +54,16 @@ type Helper =
         get loc typ (makeIdentExpr ident) memb
 
 module private Helpers =
-    let resolveArgTypes argTypes genArgs =
+    let inline makeType com t =
+        FSharp2Fable.TypeHelpers.makeType com Map.empty t
+
+    let resolveArgTypes com argTypes (genArgs: (string * FSharpType) list) =
         argTypes |> List.map (function
             | GenericParam name as t ->
-                genArgs |> List.tryPick (fun (name2,t) ->
-                    if name = name2 then Some t else None)
+                genArgs |> List.tryPick (fun (name2, t) ->
+                    if name = name2
+                    then makeType com t |> Some
+                    else None)
                 |> Option.defaultValue t
             | t -> t)
 
@@ -87,11 +92,12 @@ module private Helpers =
 
     let s txt = Value(StringConstant txt)
 
-    let firstGenArg (com: ICompiler) r (genArgs: (string * Type) list) =
-        List.tryHead genArgs
-        |> Option.map snd
+    let genArg (com: ICompiler) r i (genArgs: (string * FSharpType) list) =
+        List.tryItem i genArgs
+        |> Option.map (fun (_,t) -> makeType com t)
         |> Option.defaultWith (fun () ->
-            "Couldn't find any generic argument" |> addError com r
+            "Couldn't find generic argument in position " + (string i)
+            |> addError com r
             Any)
 
 open Helpers
@@ -477,7 +483,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | Operators.logicalNot, [operand] -> unOp UnaryNotBitwise operand
         | Operators.unaryNegation, [operand] -> unOp UnaryMinus operand
         | _ -> "Unknown operator: " + opName |> addErrorAndReturnNull com r
-    let argTypes = resolveArgTypes argTypes genArgs
+    let argTypes = resolveArgTypes com argTypes genArgs
     match argTypes with
     | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         Helper.CoreCall(coreModFor bt, opName, t, args, argTypes, ?loc=r)
@@ -696,17 +702,17 @@ let makePojo caseRule keyValueList =
     |> Option.defaultWith (fun () ->
         Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst]))
 
-let injectArg com r moduleName methName (genArgs: (string*Type) list) args =
+let injectArg com r moduleName methName (genArgs: (string * FSharpType) list) args =
     let (|GenericArg|_|) genArgs genArgIndex =
         List.tryItem genArgIndex genArgs
 
     let buildArg = function
         | (Types.comparer, GenericArg genArgs (_,genArg)) ->
-            makeComparer genArg |> Some
+            makeType com genArg |> makeComparer |> Some
         | (Types.equalityComparer, GenericArg genArgs (_,genArg)) ->
-            makeEqualityComparer genArg |> Some
+            makeType com genArg |> makeEqualityComparer |> Some
         | (Types.arrayCons, GenericArg genArgs (_,genArg)) ->
-            arrayCons com genArg |> Some
+            makeType com genArg |> arrayCons com |> Some
         | (_, genArgIndex) ->
             sprintf "Cannot inject arg to %s.%s (genArgs %A - expected index %i)"
                 moduleName methName (List.map fst genArgs) genArgIndex
@@ -863,21 +869,21 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Ignore", [arg]  -> Cast(arg, Unit) |> Some
     // TODO: Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"), _ ->
-        let sourceType = firstGenArg com r i.GenericArgs
+        let sourceType = genArg com r 0 i.GenericArgs
         toInt false sourceType t args |> Some
     | ("ToSingle"|"ToDouble"|"ToDecimal"), _ ->
-        let sourceType = firstGenArg com r i.GenericArgs
+        let sourceType = genArg com r 0 i.GenericArgs
         toFloat sourceType t args |> Some
-    | "ToChar", _ -> toChar (firstGenArg com r i.GenericArgs) args |> Some
-    | "ToString", _ -> toString (firstGenArg com r i.GenericArgs) args |> Some
+    | "ToChar", _ -> toChar (genArg com r 0 i.GenericArgs) args |> Some
+    | "ToString", _ -> toString (genArg com r 0 i.GenericArgs) args |> Some
     // The cast will be resolved in a different step
     | "CreateSequence", [xs] -> Cast(xs, t) |> Some
     | "CreateDictionary", [arg] -> makeDictionary r t arg |> Some
-    | "CreateSet", _ -> firstGenArg com r i.GenericArgs |> makeSet r t "OfSeq" args |> Some
+    | "CreateSet", _ -> genArg com r 0 i.GenericArgs |> makeSet r t "OfSeq" args |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
         let meth =
-            match firstGenArg com r i.GenericArgs with
+            match genArg com r 0 i.GenericArgs with
             | Char -> "rangeChar"
             | _ -> if i.CompiledName = "op_Range" then "range" else "rangeStep"
         Helper.CoreCall("Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -922,7 +928,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let divisor = math None t [arg2] (List.skip 1 i.SignatureArgTypes) "log"
         makeBinOp r t dividend divisor BinaryDivide |> Some
     | "Abs", _ ->
-        match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
+        match resolveArgTypes com i.SignatureArgTypes i.GenericArgs with
         | Builtin(BclInt64 | BclBigInt as bt)::_  ->
             Helper.CoreCall(coreModFor bt, "abs", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
@@ -1153,14 +1159,14 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
             | _ -> arg
         Helper.CoreCall("Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Sort" | "SortDescending" as m), args ->
-        sort r t (List.item 0 i.GenericArgs |> snd) (m = "SortDescending") None args
+        sort r t (genArg com r 0 i.GenericArgs) (m = "SortDescending") None args
     | ("SortBy" | "SortByDescending" as m), proyector::args ->
-        sort r t (List.item 1 i.GenericArgs |> snd) (m = "SortByDescending") (Some proyector) args
+        sort r t (genArg com r 1 i.GenericArgs) (m = "SortByDescending") (Some proyector) args
     | ("GroupBy" | "CountBy" as m), args ->
-        let args = List.item 1 i.GenericArgs |> snd |> makeComparer |> List.singleton |> List.append args
+        let args = genArg com r 1 i.GenericArgs |> makeComparer |> List.singleton |> List.append args
         Helper.CoreCall("Map", Naming.lowerFirst m, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" as m), args ->
-        let args = List.item 0 i.GenericArgs |> snd |> makeComparer |> List.singleton |> List.append args
+        let args = genArg com r 0 i.GenericArgs |> makeComparer |> List.singleton |> List.append args
         Helper.CoreCall("Set", Naming.lowerFirst m, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
@@ -1305,8 +1311,8 @@ let lists (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr
     | Some x, _, "get_IsEmpty"
     | None, [x], "IsEmpty"-> Test(x, ListTest false, r) |> Some
     | None, _, ("get_Empty" | "Empty") ->
-        NewList(None, firstGenArg com r i.GenericArgs) |> Value |> Some
-    | None, [h;t], "Cons" -> NewList(Some(h,t), firstGenArg com r i.GenericArgs) |> Value |> Some
+        NewList(None, genArg com r 0 i.GenericArgs) |> Value |> Some
+    | None, [h;t], "Cons" -> NewList(Some(h,t), genArg com r 0 i.GenericArgs) |> Value |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
     | None, [x], "ToSeq" -> Cast(x, t) |> Some
@@ -1319,7 +1325,7 @@ let lists (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr
 
 let sets (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | ".ctor" -> firstGenArg com r i.GenericArgs |> makeSet r t "OfSeq" args |> Some
+    | ".ctor" -> genArg com r 0 i.GenericArgs |> makeSet r t "OfSeq" args |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName
@@ -1332,7 +1338,7 @@ let setModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr o
 
 let maps (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | ".ctor" -> firstGenArg com r i.GenericArgs |> makeMap r t "OfSeq" args |> Some
+    | ".ctor" -> genArg com r 0 i.GenericArgs |> makeMap r t "OfSeq" args |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName
@@ -1571,7 +1577,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "SetArraySlice", None, args ->
         Helper.CoreCall("Array", "setSlice", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "TypeTestGeneric", None, [expr] ->
-        Test(expr, TypeTest(firstGenArg com r i.GenericArgs), r) |> Some
+        Test(expr, TypeTest(genArg com r 0 i.GenericArgs), r) |> Some
     | "CreateInstance", None, _ ->
         None // TODO
         // let typRef, args = resolveTypeRef com i false i.memberGenArgs.Head, []
@@ -1718,7 +1724,7 @@ let objects (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option)
 
 let unchecked (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "DefaultOf" -> firstGenArg com r i.GenericArgs |> defaultof |> Some
+    | "DefaultOf" -> genArg com r 0 i.GenericArgs |> defaultof |> Some
     | "Hash" -> Helper.CoreCall("Util", "hash", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Equals" -> Helper.CoreCall("Util", "equals", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Compare" -> Helper.CoreCall("Util", "compare", t, args, i.SignatureArgTypes, ?loc=r) |> Some
