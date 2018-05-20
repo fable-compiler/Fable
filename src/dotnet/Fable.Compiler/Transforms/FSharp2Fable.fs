@@ -51,8 +51,13 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
         Fable.NewUnion(argExprs, unionCase, tdef, genArgs) |> Fable.Value
 
 let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType list) traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
-    let resolveMemberCall entity membCompiledName isInstance argTypes thisArg args =
-        tryFindMember com entity membCompiledName isInstance argTypes
+    let resolveMemberCall (entity: FSharpEntity) (genArgs: IList<_>) membCompiledName isInstance argTypes thisArg args =
+        let genArgs =
+            if entity.GenericParameters.Count = genArgs.Count
+            then Seq.zip (entity.GenericParameters |> Seq.map (fun x -> x.Name)) genArgs |> Map
+            // TODO: Log error if they're not same length?
+            else Map.empty
+        tryFindMember com entity genArgs membCompiledName isInstance argTypes
         |> Option.map (fun memb -> makeCallFrom com ctx r typ [] thisArg args memb)
 
     let isInstance = flags.IsInstance
@@ -76,8 +81,8 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
                         Fable.Get(thisArg.Value, Fable.RecordGet(fi, entity), typ, r) |> Some
                     else None)
                 |> Option.orElseWith (fun () ->
-                    resolveMemberCall entity traitName isInstance argTypes thisArg args)
-            else resolveMemberCall entity traitName isInstance argTypes thisArg args)
+                    resolveMemberCall entity typ.GenericArguments traitName isInstance argTypes thisArg args)
+            else resolveMemberCall entity typ.GenericArguments traitName isInstance argTypes thisArg args)
     |> Option.defaultWith (fun () ->
         "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com r)
 
@@ -116,9 +121,10 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                 let value = Fable.Function(Fable.Delegate args, transformExpr com ctx over.Body, None)
                 let name, kind =
                     match over.Signature.Name with
-                    // TODO!!! Check arguments too
-                    | Naming.StartsWith "get_" name -> name, Fable.ObjectGetter
-                    | Naming.StartsWith "set_" name -> name, Fable.ObjectSetter
+                    | Naming.StartsWith "get_" name when countNonCurriedParamsForOverride over = 0 ->
+                        name, Fable.ObjectGetter
+                    | Naming.StartsWith "set_" name when countNonCurriedParamsForOverride over = 1 ->
+                        name, Fable.ObjectSetter
                     | name ->
                         // Don't use the typ argument as the override may come
                         // from another type, like ToString()
@@ -242,11 +248,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     (** Values *)
     | BasicPatterns.Const(value, FableType com ctx typ) ->
-        let expr = Replacements.makeTypeConst typ value
-        // TODO!!!: Check literals and compile as Enum
-        // if expr.Type <> typ then // Enumerations are compiled as const but they have a different type
-        //     Replacements.checkLiteral com (makeRangeFrom fsExpr) value typ
-        expr
+        Replacements.makeTypeConst typ value
 
     // TODO: Specific Fable AST entry for base?
     | BasicPatterns.BaseValue typ ->
@@ -293,7 +295,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         Fable.Let(bindings, transformExpr com ctx body)
 
     (** ## Applications *)
-    | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
+    // TODO: `argTypes2` is always empty, asked about its purpose
+    | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, argTypes2, argExprs) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         transformTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
 
@@ -664,6 +667,9 @@ let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunc
     match memb.DeclaringEntity with
     | None -> "Unexpected override without declaring entity: " + memb.FullName
               |> addError com None; []
+    | Some ent when ent.IsFSharpRecord || ent.IsFSharpUnion ->
+        sprintf "Current version cannot implement %s for records and unions" memb.DisplayName
+        |> addError com None; []
     | Some ent ->
         let bodyCtx, args = bindMemberArgs com ctx args
         let body = transformExpr com bodyCtx body
@@ -692,10 +698,9 @@ let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSh
         let body = transformExpr com bodyCtx body
         let value = Fable.Function(Fable.Delegate args, body, None)
         let kind =
-            // TODO!!! Check arguments too
-            if memb.IsPropertyGetterMethod
+            if memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0
             then Fable.ObjectGetter
-            elif memb.IsPropertySetterMethod
+            elif memb.IsPropertySetterMethod && countNonCurriedParams memb = 1
             then Fable.ObjectSetter
             else hasSeqSpread memb |> Fable.ObjectMethod
         let objMember = makeStrConst memb.DisplayName, value, kind

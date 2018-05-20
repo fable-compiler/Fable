@@ -447,11 +447,11 @@ let iterate r ident body xs =
     Helper.CoreCall("Seq", "iterate", Unit, [f; xs], ?loc=r)
 
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argTypes genArgs =
-    let (|CustomOp|_|) com opName argTypes =
-        let tryFindMember com (ent: FSharpEntity) opName argTypes =
-            FSharp2Fable.TypeHelpers.tryFindMember com ent opName false argTypes
+    let (|CustomOp|_|) com ctx opName argTypes =
+        let tryFindMember com (ctx: Context) (ent: FSharpEntity) opName argTypes =
+            FSharp2Fable.TypeHelpers.tryFindMember com ent ctx.GenericArgs opName false argTypes
         argTypes |> List.tryPick (function
-            | DeclaredType(ent,_) -> tryFindMember com ent opName argTypes
+            | DeclaredType(ent,_) -> tryFindMember com ctx ent opName argTypes
             | _ -> None)
     let unOp operator operand =
         Operation(UnaryOperation(operator, operand), t, r)
@@ -495,7 +495,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         Helper.CoreCall("Map", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
-    | CustomOp com opName m ->
+    | CustomOp com ctx opName m ->
         let genArgs = genArgs |> Seq.map snd
         FSharp2Fable.Util.makeCallFrom com ctx r t genArgs None args m
     | _ -> nativeOp opName argTypes args

@@ -396,10 +396,9 @@ let mutateAndLambdify x =
     (fun _ -> x)
 
 let tests5 = [
-    // TODO!!!
-    // testCase "TraitCall can resolve overloads with a single generic argument" <| fun () ->
-    //     implicitMethod !+"hello" 5 |> equal 1
-    //     implicitMethod !+6       5 |> equal 2
+    testCase "TraitCall can resolve overloads with a single generic argument" <| fun () ->
+        implicitMethod !+"hello" 5 |> equal 1
+        implicitMethod !+6       5 |> equal 2
 
     testCase "NestedLambdas" <| fun () ->
         let mutable m = 0
@@ -430,17 +429,16 @@ let tests5 = [
         let f2 = f 3 4 5 6
         f2 7 |> equal 25
 
-    // TODO!!!
-    // testCase "Multiple nested lambdas can be partially applied" <| fun () ->
-    //     let mutable mut = 0
-    //     let f x y z =
-    //         mut <- mut + 1
-    //         fun u ->
-    //             mut <- mut + 1
-    //             fun w ->
-    //                 x + y + z + u + w
-    //     let f2 = f 1 2
-    //     f2 3 4 5 |> equal 15
+    testCase "Multiple nested lambdas can be partially applied" <| fun () ->
+        let mutable mut = 0
+        let f x y z =
+            mut <- mut + 1
+            fun u ->
+                mut <- mut + 1
+                fun w ->
+                    x + y + z + u + w
+        let f2 = f 1 2
+        f2 3 4 5 |> equal 15
 
     // TODO
     // open Microsoft.FSharp.Core.OptimizedClosures

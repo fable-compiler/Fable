@@ -114,16 +114,18 @@ module Helpers =
             let name = m.CompiledName
             let isInstance = m.IsInstanceMember
             let parameters = flattenParams m
-            ((0, false), entity.MembersFunctionsAndValues)
-            ||> Seq.fold (fun (i, found) m2 ->
-                if not found && m2.IsInstanceMember = isInstance && m2.CompiledName = name then
-                    // .Equals() doesn't work.
-                    // .IsEffectivelySameAs() doesn't work for constructors
-                    if argsEqual parameters (flattenParams m2)
-                    then i, true
-                    else i + 1, false
-                else i, found)
-            |> fst
+            let index, _found =
+                ((0, false), entity.MembersFunctionsAndValues)
+                ||> Seq.fold (fun (i, found) m2 ->
+                    if not found && m2.IsInstanceMember = isInstance && m2.CompiledName = name then
+                        // .Equals() doesn't work.
+                        // .IsEffectivelySameAs() doesn't work for constructors
+                        if argsEqual parameters (flattenParams m2)
+                        then i, true
+                        else i + 1, false
+                    else i, found)
+            // TODO: Log error if not found?
+            index
 
     let getCastDeclarationName com (implementingEntity: FSharpEntity) (interfaceEntityFullName: string) =
         let entityName = getEntityMangledName com true implementingEntity
@@ -490,12 +492,12 @@ module TypeHelpers =
             if t.HasTypeDefinition then Some t.TypeDefinition else None
         else None
 
-    let tryFindMember com (entity: FSharpEntity) membCompiledName isInstance (argTypes: Fable.Type list) =
+    let tryFindMember com (entity: FSharpEntity) genArgs membCompiledName isInstance (argTypes: Fable.Type list) =
         let argsEqual (args1: Fable.Type list) args1Length (args2: IList<IList<FSharpParameter>>) =
                 let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
                 if args1Length = args2Length then
                     let args2 = args2 |> Seq.collect (fun g ->
-                        g |> Seq.map (fun p -> makeType com Map.empty p.Type) |> Seq.toList)
+                        g |> Seq.map (fun p -> makeType com genArgs p.Type) |> Seq.toList)
                     listEquals typeEquals args1 (Seq.toList args2)
                 else false
         let argTypesLength = List.length argTypes
@@ -611,6 +613,21 @@ module Util =
         elif args.[0].Count = 1 then
             if isUnit args.[0].[0].Type then 0 else 1
         else args.[0].Count
+
+    /// Same as `countNonCurriedParams` but applied to overrides
+    let countNonCurriedParamsForOverride (over: FSharpObjectExprOverride) =
+        let args = over.CurriedParameterGroups
+        match args with
+        | [] | [_] -> 0
+        // Unlike FSharpMemberOrFunctionOrValue.CurriedParameterGroups
+        // overrides DO include the name self instance as parameter
+        | _thisArg::firsGroup::_ ->
+            match firsGroup with
+            | [arg] ->
+                match arg.FullTypeSafe with
+                | Some t when isUnit t -> 0
+                | _ -> 1
+            | args -> List.length args
 
     let entityRef (com: ICompiler) r (ent: FSharpEntity) =
         match tryGetEntityLocation ent with

@@ -1,8 +1,15 @@
 export type MatchEvaluator = (match: any) => string;
 
 export function create(pattern: string, options: number) {
+  // Supported RegexOptions
+  // * IgnoreCase:  0x0001
+  // * Multiline:   0x0002
+  // * ECMAScript:  0x0100 (ignored)
+  if ((options & ~(1 ^ 2 ^ 256)) !== 0) {
+    throw new Error("RegexOptions only supports: IgnoreCase, Multiline and ECMAScript");
+  }
   let flags = "g";
-  flags += options & 1 ? "i" : "";
+  flags += options & 1 ? "i" : ""; // 0x0001 RegexOptions.IgnoreCase
   flags += options & 2 ? "m" : "";
   return new RegExp(pattern, flags);
 }

@@ -334,7 +334,7 @@ module private Transforms =
 
     // TODO: Move this to FSharp2Fable pass and just leave some
     // special cases for latter optimization (pojo and list to seq)?
-    let resolveCasts_required (com: ICompiler) = function
+    let resolveCasts (com: ICompiler) = function
         | Cast(e, t) ->
             match t with
             | Pojo caseRule ->
@@ -350,20 +350,22 @@ module private Transforms =
             | _ -> e
         | e -> e
 
-    let uncurryBodies idents body1 body2 =
-        let replaceIdentType replacements (id: Ident) =
-            match Map.tryFind id.Name replacements with
-            | Some(Option nestedType as optionType) ->
-                // Check if the ident to replace is an option too or not
-                match id.Type with
-                | Option _ -> { id with Type = optionType }
-                | _ ->        { id with Type = nestedType }
-            | Some typ -> { id with Type = typ }
-            | None -> id
-        let replaceBody uncurried body =
-            visitFromInsideOut (function
-                | IdentExpr id -> replaceIdentType uncurried id |> IdentExpr
-                | e -> e) body
+    let replaceIdentType replacements (id: Ident) =
+        match Map.tryFind id.Name replacements with
+        | Some(Option nestedType as optionType) ->
+            // Check if the ident to replace is an option too or not
+            match id.Type with
+            | Option _ -> { id with Type = optionType }
+            | _ ->        { id with Type = nestedType }
+        | Some typ -> { id with Type = typ }
+        | None -> id
+
+    let replaceIdentTypesInBody (identTypes: Map<string, Type>) body =
+        visitFromInsideOut (function
+            | IdentExpr id -> replaceIdentType identTypes id |> IdentExpr
+            | e -> e) body
+
+    let uncurryIdentsAndReplaceInBody (idents: Ident list) body =
         let uncurried =
             (Map.empty, idents) ||> List.fold (fun uncurried id ->
                 match uncurryLambdaType id.Type with
@@ -375,12 +377,11 @@ module private Transforms =
                     | _ -> Map.add id.Name delType uncurried
                 | _ -> uncurried)
         if Map.isEmpty uncurried
-        then idents, body1, body2
+        then idents, body
         else
             let idents = idents |> List.map (replaceIdentType uncurried)
-            let body1 = replaceBody uncurried body1
-            let body2 = Option.map (replaceBody uncurried) body2
-            idents, body1, body2
+            let body = replaceIdentTypesInBody uncurried body
+            idents, body
 
     let rec lambdaMayEscapeScope identName = function
         | Operation(CurriedApply(IdentExpr ident,_),_,_) when ident.Name = identName -> false
@@ -425,34 +426,38 @@ module private Transforms =
                 | _ -> arg)
         | None -> List.map (uncurryExpr None) args
 
-    let uncurryInnerFunctions (_: ICompiler) = function
+    let uncurryInnerFunctions (_: ICompiler) e =
+        let replaceIdentInBody identName (args: Ident list) returnType body =
+            let delType = FunctionType(DelegateType (args |> List.map (fun a -> a.Type)), returnType)
+            replaceIdentTypesInBody (Map [identName, delType]) body
+        match e with
         | Let([ident, NestedLambda(args, fnBody, _)], letBody) as e when List.isMultiple args ->
             // We need to check the function doesn't leave the current context
             if lambdaMayEscapeScope ident.Name letBody |> not then
-                let idents, fnBody, letBody = uncurryBodies [ident] fnBody (Some letBody)
-                Let([List.head idents, Function(Delegate args, fnBody, None)], letBody.Value)
+                let fnBody = replaceIdentInBody ident.Name args fnBody.Type fnBody
+                let letBody = replaceIdentInBody ident.Name args fnBody.Type letBody
+                Let([ident, Function(Delegate args, fnBody, None)], letBody)
             else e
         // Anonymous lambda immediately applied
-        | Operation(CurriedApply((NestedLambda(args, fnBody, Some name) as lambda), argExprs), t, r)
+        | Operation(CurriedApply((NestedLambda(args, fnBody, Some name)), argExprs), t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
-            let ident = makeTypedIdent lambda.Type name
-            let idents, fnBody, _ = uncurryBodies [ident] fnBody None
+            let fnBody = replaceIdentInBody name args fnBody.Type fnBody
             let info = argInfo None argExprs (args |> List.map (fun a -> a.Type) |> Some)
-            Function(Delegate args, fnBody, Some (List.head idents).Name)
+            Function(Delegate args, fnBody, Some name)
             |> staticCall r t info
         | e -> e
 
-    let uncurryReceivedArgs_required (_: ICompiler) e =
+    let uncurryReceivedArgs (_: ICompiler) e =
         match e with
         | Function(Lambda arg, body, name) ->
-            let args, body, _ = uncurryBodies [arg] body None
+            let args, body = uncurryIdentsAndReplaceInBody [arg] body
             Function(Lambda (List.head args), body, name)
         | Function(Delegate args, body, name) ->
-            let args, body, _ = uncurryBodies args body None
+            let args, body = uncurryIdentsAndReplaceInBody args body
             Function(Delegate args, body, name)
         | e -> e
 
-    let uncurryRecordFields_required (com: ICompiler) = function
+    let uncurryRecordFields (com: ICompiler) = function
         | Value(NewRecord(args, ent, genArgs)) ->
             let args = uncurryArgs com None args
             Value(NewRecord(args, ent, genArgs))
@@ -479,7 +484,7 @@ module private Transforms =
             Let(identsAndValues, body)
         | e -> e
 
-    let uncurrySendingArgs_required (com: ICompiler) = function
+    let uncurrySendingArgs (com: ICompiler) = function
         | Operation(Call(kind, info), t, r) ->
             let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Call(kind, info), t, r)
@@ -491,11 +496,11 @@ module private Transforms =
             Operation(Emit(macro, Some info), t, r)
         | e -> e
 
-    let rec uncurryApplications_required e =
+    let rec uncurryApplications e =
         match e with
         | NestedApply(applied, args, t, r) ->
-            let applied = visitFromOutsideIn uncurryApplications_required applied
-            let args = args |> List.map (visitFromOutsideIn uncurryApplications_required)
+            let applied = visitFromOutsideIn uncurryApplications applied
+            let args = args |> List.map (visitFromOutsideIn uncurryApplications)
             match applied.Type with
             | FunctionType(DelegateType argTypes, _) ->
                 if List.sameLength argTypes args then
@@ -534,14 +539,14 @@ let optimizations =
       // TODO: Combine this with bindingBetaReduction?
       fun com e -> visitFromInsideOut (getterBetaReduction com) e
       // Then resolve casts
-      fun com e -> visitFromInsideOut (resolveCasts_required com) e
+      fun com e -> visitFromInsideOut (resolveCasts com) e
       // Then apply uncurry optimizations
       // Required as fable-core and bindings expect it
-      fun com e -> visitFromInsideOut (uncurryReceivedArgs_required com) e
-      fun com e -> visitFromInsideOut (uncurryRecordFields_required com) e
-      fun com e -> visitFromInsideOut (uncurrySendingArgs_required com) e
+      fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
+      fun com e -> visitFromInsideOut (uncurryRecordFields com) e
+      fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
-      fun _   e -> visitFromOutsideIn uncurryApplications_required e
+      fun _   e -> visitFromOutsideIn uncurryApplications e
       unwrapFunctions_doNotTraverse
     ]
 
