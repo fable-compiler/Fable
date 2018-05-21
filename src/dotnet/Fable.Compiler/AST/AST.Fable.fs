@@ -10,8 +10,6 @@ type FunctionTypeKind = LambdaType of Type | DelegateType of Type list
 
 type Type =
     | Any
-    /// This type is only intended to optimize POJO declarations in F# code
-    | Pojo of Core.CaseRules
     | Unit
     | Boolean
     | Char
@@ -91,6 +89,7 @@ type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of Expr
 
 type ValueKind =
     | This of Type
+    | Super of Type
     | Null of Type
     | UnitConstant
     | BoolConstant of bool
@@ -108,7 +107,7 @@ type ValueKind =
     | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
     member this.Type =
         match this with
-        | This t | Null t -> t
+        | This t | Super t | Null t -> t
         | UnitConstant -> Unit
         | BoolConstant _ -> Boolean
         | CharConstant _ -> Char
@@ -200,10 +199,16 @@ type ObjectMemberKind =
 
 type ObjectMember = (* name: *) Expr * (* value: *) Expr * ObjectMemberKind
 
+type OptimizableCastKind =
+    | AsSeqFromList
+    | AsPojo of Core.CaseRules
+    | AsUnit
+
 type Expr =
     | Value of ValueKind
     | IdentExpr of Ident
-    | Cast of Expr * targetType: Type
+    /// Defer some casts until last pass to have more opportunities for optimization (e.g. list to seq)
+    | OptimizableCast of Expr * OptimizableCastKind * targetType: Type
     | Import of selector: string * path: string * ImportKind * Type
 
     | Function of FunctionKind * body: Expr * name: string option
@@ -232,7 +237,7 @@ type Expr =
         | Test _ -> Boolean
         | Value kind -> kind.Type
         | IdentExpr id -> id.Type
-        | Import(_,_,_,t) | Cast(_,t) | ObjectExpr(_,t,_)
+        | Import(_,_,_,t) | OptimizableCast(_,_,t) | ObjectExpr(_,t,_)
         | Operation(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | DecisionTreeSuccess(_,_,t) -> t
         | Debugger | Set _ | Loop _ -> Unit
         | Sequential exprs -> (List.last exprs).Type
@@ -244,7 +249,7 @@ type Expr =
 
     member this.Range: SourceLocation option =
         match this with
-        | Value _ | Import _ | Cast _
+        | Value _ | Import _ | OptimizableCast _
         | ObjectExpr _ | Debugger | Sequential _ | Let _
         | IfThenElse _ | TryCatch _ | DecisionTree _ | DecisionTreeSuccess _ -> None
 

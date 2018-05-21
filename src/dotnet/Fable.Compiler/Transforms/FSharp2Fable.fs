@@ -150,27 +150,14 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
     | Some boundThis -> Fable.Let([boundThis, Fable.Value (Fable.This Fable.Any)], objExpr)
     | None -> objExpr
 
-let private transformDelegate com ctx delegateType fsExpr =
-    // let wrapInZeroArgsFunction r typ (args: FSharpExpr list) argTypes fref =
-    //     let args = List.map (transformExpr com ctx) args
-    //     let argTypes = List.map (makeType com []) argTypes
-    //     let body = Fable.Operation(Fable.Apply(fref, args, argTypes), typ, r)
-    //     Fable.Function(Fable.Delegate [], body)
-    // let isSpecialCase t =
-    //     tryDefinition t
-    //     |> Option.bind (fun tdef -> tdef.TryFullName)
-    //     |> Option.toBool (fun name -> name = "System.Func`1" || name = "System.Action")
-    match fsExpr with
-    // TODO: Check which tests fail because of this
-    // There are special cases (`Func` with one gen param and `Action` with no params)
-    // the F# compiler translates as an application
-    // | BasicPatterns.Call(None,v,[],[],args)
-    // | BasicPatterns.Application(BasicPatterns.Value v, argTypes, args)
-    // | BasicPatterns.Application(BasicPatterns.Application(BasicPatterns.Value v, argTypes, args),_,_)
-    //         when isSpecialCase delegateType ->
-    //     let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-    //     makeValueFrom com ctx r v |> wrapInZeroArgsFunction r typ args argTypes
-    | fsExpr -> Fable.Cast(transformExpr com ctx fsExpr, makeType com ctx.GenericArgs delegateType)
+// TODO: Check code in Fable 1 and which tests fail because
+// we're not checking special cases
+let private transformDelegate com ctx delegateType expr =
+    let expr = transformExpr com ctx expr
+    match makeType com ctx.GenericArgs delegateType with
+    | Fable.FunctionType(Fable.DelegateType argTypes, returnType) ->
+        Replacements.uncurryExpr (Some(argTypes, returnType)) expr
+    | _ -> expr
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr)
                             unionExpr fsType (unionCase: FSharpUnionCase) =
@@ -211,7 +198,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         match ctx.EnclosingMember, tryDefinition targetType with
         | InterfaceImplementation(Some interfaceFullName), Some interfaceEntity
             when interfaceEntity.TryFullName = Some interfaceFullName -> Fable.This typ |> Fable.Value
-        | _ -> Fable.Cast(inpExpr, makeType com ctx.GenericArgs targetType)
+        | _, Some interfaceEntity when interfaceEntity.IsInterface ->
+            let targetType = makeType com ctx.GenericArgs targetType
+            match interfaceEntity.TryFullName, inpExpr.Type with
+            | Some(Patterns.Try (Replacements.tryReplaceInterface targetType inpExpr) casted), _ -> casted
+            | Some interfaceFullName, (Fable.DeclaredType(sourceEntity,_)) ->
+                callInterfaceCast com targetType sourceEntity interfaceFullName inpExpr
+            | _ -> inpExpr
+        | _ -> inpExpr
 
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
@@ -250,9 +244,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.Const(value, FableType com ctx typ) ->
         Replacements.makeTypeConst typ value
 
-    // TODO: Specific Fable AST entry for base?
     | BasicPatterns.BaseValue typ ->
-        makeType com ctx.GenericArgs typ |> Fable.This |> Fable.Value
+        makeType com ctx.GenericArgs typ |> Fable.Super |> Fable.Value
 
     | BasicPatterns.ThisValue typ ->
         match ctx.BoundThis with

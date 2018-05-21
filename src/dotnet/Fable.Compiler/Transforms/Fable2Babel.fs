@@ -99,7 +99,7 @@ module Util =
 
     let rec isJsStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
-        | Fable.Value _ | Fable.Import _ | Fable.Cast _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
+        | Fable.Value _ | Fable.Import _ | Fable.OptimizableCast _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
         | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ -> false
 
         | Fable.TryCatch _ | Fable.Debugger
@@ -295,9 +295,20 @@ module Util =
             yield assign None (Identifier argId) (Identifier tempVar) |> ExpressionStatement :> Statement
           yield upcast ContinueStatement(Identifier tc.Label) ]
 
+    let transformOptimizableCast (com: IBabelCompiler) (ctx: Context) kind expr: Expression =
+        match kind with
+        | Fable.AsSeqFromList ->
+            match expr with
+            | Replacements.ListLiteral(exprs, _) ->
+                // Use type Any to prevent creation of a typed array
+                buildArray com ctx Fable.Any (Fable.ArrayValues exprs)
+            | _ -> com.TransformAsExpr(ctx, expr)
+        | Fable.AsPojo caseRule -> com.TransformAsExpr(ctx, Replacements.makePojo caseRule expr)
+        | Fable.AsUnit -> com.TransformAsExpr(ctx, expr)
+
     let transformValue (com: IBabelCompiler) (ctx: Context) value: Expression =
         match value with
-        | Fable.This _ -> upcast ThisExpression ()
+        | Fable.This _ | Fable.Super _  -> upcast ThisExpression ()
         | Fable.Null _ -> upcast NullLiteral ()
         | Fable.UnitConstant -> upcast NullLiteral () // TODO: Use `void 0`?
         | Fable.BoolConstant x -> upcast BooleanLiteral (x)
@@ -445,13 +456,22 @@ module Util =
                 then upcast CallExpression(get None funcExpr "call", (upcast Identifier "this")::args, ?loc=range)
                 else upcast CallExpression(funcExpr, args, ?loc=range)
             | Fable.InstanceCall membExpr ->
-                match argInfo.ThisArg with
-                | None -> addErrorAndReturnNull com range "InstanceCall with empty this argument"
-                | Some(TransformExpr com ctx thisArg) ->
-                    match membExpr with
-                    | None -> upcast CallExpression(thisArg, args, ?loc=range)
-                    | Some(TransformExpr com ctx m) ->
-                        upcast CallExpression(getExpr None thisArg m, args, ?loc=range)
+                match argInfo.ThisArg, membExpr with
+                | None, _ -> addErrorAndReturnNull com range "InstanceCall with empty this argument"
+                // When calling a virtual method with default implementation from base class,
+                // compile it as: `BaseClass.prototype.Foo.call(this)` (see #701)
+                | Some(Fable.Value(Fable.Super(Fable.DeclaredType(baseEntity, _)))), Some membExpr ->
+                    let baseClassExpr =
+                        com.TransformAsExpr(ctx, FSharp2Fable.Util.entityRef com range baseEntity)
+                    let baseProtoMember =
+                        com.TransformAsExpr(ctx, membExpr)
+                        |> getExpr None (get None baseClassExpr "prototype")
+                    upcast CallExpression(get None baseProtoMember "call", (upcast Identifier "this")::args, ?loc=range)
+                | Some thisArg, None ->
+                    upcast CallExpression(com.TransformAsExpr(ctx, thisArg), args, ?loc=range)
+                | Some thisArg, Some(TransformExpr com ctx m) ->
+                    let thisArg = com.TransformAsExpr(ctx, thisArg)
+                    upcast CallExpression(getExpr None thisArg m, args, ?loc=range)
         | Fable.CurriedApply(TransformExpr com ctx applied, args) ->
             match transformArgs com ctx args Fable.NoSpread with
             | [] -> upcast CallExpression(applied, [], ?loc=range)
@@ -463,6 +483,7 @@ module Util =
     let transformOperationAsStatements com ctx range t returnStrategy opKind =
         let argsLen (i: Fable.ArgInfo) =
             List.length i.Args + (if Option.isSome i.ThisArg then 1 else 0)
+        // TODO: Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity, opKind with
         | Some Return, Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
                                 when not argInfo.IsSiblingConstructorCall
@@ -595,8 +616,6 @@ module Util =
         | Fable.Boolean -> jsTypeof "boolean" expr
         | Fable.Char | Fable.String _ -> jsTypeof "string" expr
         | Fable.FunctionType _ -> jsTypeof "function" expr
-        // TODO: Check if prototype is Object?
-        | Fable.Pojo _ -> jsTypeof "object" expr
         | Fable.Number _ | Fable.EnumType _ -> jsTypeof "number" expr
         | Fable.Regex ->
             jsInstanceof (makeIdentExpr "RegExp") expr
@@ -769,8 +788,7 @@ module Util =
 
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
-        // TODO!!!: Warn an unhandlend cast has reached Babel pass
-        | Fable.Cast(expr, _) -> transformAsExpr com ctx expr
+        | Fable.OptimizableCast(expr, kind, _) -> transformOptimizableCast com ctx kind expr
 
         | Fable.Value kind -> transformValue com ctx kind
 
@@ -826,9 +844,8 @@ module Util =
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement list =
         match expr with
-        // TODO!!!: Warn an unhandlend cast has reached Babel pass
-        | Fable.Cast(expr, _) ->
-            transformAsStatements com ctx returnStrategy expr
+        | Fable.OptimizableCast(expr, kind, t) ->
+            [transformOptimizableCast com ctx kind expr |> resolveExpr t returnStrategy]
 
         | Fable.Value kind ->
             [transformValue com ctx kind |> resolveExpr kind.Type returnStrategy]

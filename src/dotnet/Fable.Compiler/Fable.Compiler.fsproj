@@ -19,7 +19,7 @@
     <Compile Include="AST/AST.Babel.fs" />
     <Compile Include="Transforms/Transforms.Util.fs" />
     <Compile Include="Transforms/FSharp2Fable.Util.fs" />
-    <Compile Include="Transforms/Inject.fs" />
+    <Compile Include="Transforms/ReplacementsInject.fs" />
     <Compile Include="Transforms/Replacements.fs" />
     <Compile Include="Transforms/FSharp2Fable.fs" />
     <Compile Include="Transforms/FableTransforms.fs" />
@@ -45,6 +45,5 @@
     <PackageReference Include="FSharp.Compiler.Service" Version="21.0.1" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.1" />
   </ItemGroup>
-  <!-- <Import Project="..\..\..\.paket\Paket.Restore.targets" /> -->
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

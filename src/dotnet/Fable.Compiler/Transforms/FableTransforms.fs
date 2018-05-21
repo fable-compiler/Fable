@@ -10,7 +10,7 @@ let visit f e =
     | IdentExpr _ | Import _ | Debugger _ -> e
     | Value kind ->
         match kind with
-        | This _ | Null _ | UnitConstant
+        | This _ | Super _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ | Enum _ -> e
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> Value
@@ -29,7 +29,7 @@ let visit f e =
         | NewUnion(exprs, uci, ent, genArgs) ->
             NewUnion(List.map f exprs, uci, ent, genArgs) |> Value
     | Test(e, kind, r) -> Test(f e, kind, r)
-    | Cast(e, t) -> Cast(f e, t)
+    | OptimizableCast(e, kind, t) -> OptimizableCast(f e, kind, t)
     | Function(kind, body, name) -> Function(kind, f body, name)
     | ObjectExpr(members, t, baseCall) ->
         let baseCall = Option.map f baseCall
@@ -103,7 +103,7 @@ let getSubExpressions = function
     | IdentExpr _ | Import _ | Debugger _ -> []
     | Value kind ->
         match kind with
-        | This _ | Null _ | UnitConstant
+        | This _ | Super _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ | Enum _ -> []
         | NewOption(e, _) -> Option.toList e
@@ -118,7 +118,7 @@ let getSubExpressions = function
         | NewErasedUnion(e, _) -> [e]
         | NewUnion(exprs, _, _, _) -> exprs
     | Test(e, _, _) -> [e]
-    | Cast(e, _) -> [e]
+    | OptimizableCast(e, _, _) -> [e]
     | Function(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
         let members = members |> List.map (fun (_,v,_) -> v)
@@ -311,45 +311,6 @@ module private Transforms =
             uncurryLambdaTypeInner [argType] returnType
         | returnType -> [], returnType
 
-    let getUncurriedArity (e: Expr) =
-        match e with
-        | ExprType(FunctionType(DelegateType argTypes, _))
-        | ExprType(Option(FunctionType(DelegateType argTypes, _))) ->
-            List.length argTypes |> Some
-        | _ -> None
-
-    let uncurryExpr argsAndRetTypes expr =
-        let arity =
-            argsAndRetTypes
-            |> Option.map (fst >> List.length)
-        match expr, argsAndRetTypes with
-        | LambdaUncurriedAtCompileTime arity lambda, _ -> lambda
-        | _, Some(argTypes, retType) ->
-            let arity = List.length argTypes
-            match getUncurriedArity expr with
-            | Some arity2 when arity = arity2 -> expr
-            | _ -> let t = FunctionType(DelegateType argTypes, retType)
-                   Replacements.uncurryExprAtRuntime t arity expr
-        | _, None -> expr
-
-    // TODO: Move this to FSharp2Fable pass and just leave some
-    // special cases for latter optimization (pojo and list to seq)?
-    let resolveCasts (com: ICompiler) = function
-        | Cast(e, t) ->
-            match t with
-            | Pojo caseRule ->
-                Replacements.makePojo caseRule e
-            | FunctionType(DelegateType argTypes, returnType) ->
-                uncurryExpr (Some(argTypes, returnType)) e
-            | DeclaredType(interfaceEntity, _) when interfaceEntity.IsInterface ->
-                match interfaceEntity.TryFullName, e.Type with
-                | Some(Patterns.Try (Replacements.tryReplaceInterface t e) casted), _ -> casted
-                | Some interfaceFullName, (DeclaredType(sourceEntity,_)) ->
-                    FSharp2Fable.Util.callInterfaceCast com t sourceEntity interfaceFullName e
-                | _ -> e
-            | _ -> e
-        | e -> e
-
     let replaceIdentType replacements (id: Ident) =
         match Map.tryFind id.Name replacements with
         | Some(Option nestedType as optionType) ->
@@ -421,10 +382,10 @@ module private Transforms =
                 | argTypes, retType when not(List.isEmpty argTypes) ->
                     checkSubArguments com argTypes arg
                     if List.isMultiple argTypes
-                    then uncurryExpr (Some(argTypes, retType)) arg
+                    then Replacements.uncurryExpr (Some(argTypes, retType)) arg
                     else arg
                 | _ -> arg)
-        | None -> List.map (uncurryExpr None) args
+        | None -> List.map (Replacements.uncurryExpr None) args
 
     let uncurryInnerFunctions (_: ICompiler) e =
         let replaceIdentInBody identName (args: Ident list) returnType body =
@@ -511,7 +472,7 @@ module private Transforms =
             | _ -> Operation(CurriedApply(applied, args), t, r) |> Some
         | _ -> None
 
-    let unwrapFunctions_doNotTraverse (_: ICompiler) e =
+    let unwrapFunctions (_: ICompiler) e =
         let sameArgs args1 args2 =
             List.sameLength args1 args2
             && List.forall2 (fun (a1: Ident) -> function
@@ -536,18 +497,15 @@ let optimizations =
     [ // First apply beta reduction
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
-      // TODO: Combine this with bindingBetaReduction?
       fun com e -> visitFromInsideOut (getterBetaReduction com) e
-      // Then resolve casts
-      fun com e -> visitFromInsideOut (resolveCasts com) e
       // Then apply uncurry optimizations
-      // Required as fable-core and bindings expect it
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
       fun com e -> visitFromInsideOut (uncurryRecordFields com) e
       fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
       fun _   e -> visitFromOutsideIn uncurryApplications e
-      unwrapFunctions_doNotTraverse
+      // Don't traverse the expression for the unwrap function optimization
+      unwrapFunctions
     ]
 
 let optimizeExpr (com: ICompiler) e =

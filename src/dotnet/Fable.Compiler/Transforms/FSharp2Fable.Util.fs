@@ -659,7 +659,30 @@ module Util =
     let memberRef (com: IFableCompiler) r (memb: FSharpMemberOrFunctionOrValue) =
         memberRefTyped com r Fable.Any memb
 
-    let callInstanceMember r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
+    let callInterfaceCast com t (sourceEntity: FSharpEntity) interfaceFullName expr =
+        if sourceEntity.IsInterface
+        then expr
+        else
+            sourceEntity.DeclaredInterfaces
+            |> Seq.tryFind (fun (NonAbbreviatedType t) ->
+                t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullName)
+            |> function
+                // TODO!!!: Interface must be implemented by a parent type
+                | None -> expr
+                // If the interface has no members, cast is not necessary
+                | Some t when t.TypeDefinition.MembersFunctionsAndValues.Count = 0 -> expr
+                | Some _ ->
+                    match tryGetEntityLocation sourceEntity with
+                    | None -> expr
+                    | Some entLoc ->
+                        let file = Path.normalizePath entLoc.FileName
+                        let funcName = getCastDeclarationName com sourceEntity interfaceFullName
+                        if file = com.CurrentFile
+                        then makeIdent funcName |> Fable.IdentExpr
+                        else Fable.Import(funcName, file, Fable.Internal, Fable.Any)
+                        |> staticCall None t (argInfo None [expr] None)
+
+    let callInstanceMember com r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
             match argInfo.ThisArg with
             | Some callee ->
@@ -667,7 +690,7 @@ module Util =
                 // `let foo (x: 'T when 'T :> IDisposable) = x.Dispose()`
                 match callee.Type with
                 | Fable.DeclaredType(original, _) when entity.IsInterface && not original.IsInterface ->
-                    Fable.Cast(callee, Fable.DeclaredType(entity, []))
+                    callInterfaceCast com typ original entity.FullName callee
                 | _ -> callee
             | None ->
                 sprintf "Unexpected static interface/override call: %s" memb.FullName
@@ -702,7 +725,7 @@ module Util =
             | None ->
                 match entity with
                 | Some entity when entity.IsInterface ->
-                    callInstanceMember r typ argInfo entity memb |> Some
+                    callInstanceMember com r typ argInfo entity memb |> Some
                 | _ -> sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
                        |> addErrorAndReturnNull com r |> Some
         | _ -> None
@@ -756,7 +779,7 @@ module Util =
             match tryImportAttribute e.Attributes with
             | Some(selector, path) ->
                 match argInfo.ThisArg with
-                | Some _ -> callInstanceMember r typ argInfo e memb
+                | Some _ -> callInstanceMember com r typ argInfo e memb
                 | None ->
                     let classExpr =
                         if path.StartsWith(".") |> not
@@ -766,7 +789,7 @@ module Util =
                         Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r)
                     else
                         let argInfo = { argInfo with ThisArg = Some classExpr }
-                        callInstanceMember r typ argInfo e memb
+                        callInstanceMember com r typ argInfo e memb
                 |> Some
             | None -> None
         | _ -> None
@@ -812,29 +835,6 @@ module Util =
         ent.AllInterfaces |> Seq.exists (fun t ->
             t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullname)
 
-    let callInterfaceCast com t (sourceEntity: FSharpEntity) interfaceFullName expr =
-        if sourceEntity.IsInterface
-        then expr
-        else
-            sourceEntity.DeclaredInterfaces
-            |> Seq.tryFind (fun (NonAbbreviatedType t) ->
-                t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullName)
-            |> function
-                // TODO!!!: Interface must be implemented by a parent type
-                | None -> expr
-                // If the interface has no members, cast is not necessary
-                | Some t when t.TypeDefinition.MembersFunctionsAndValues.Count = 0 -> expr
-                | Some _ ->
-                    match tryGetEntityLocation sourceEntity with
-                    | None -> expr
-                    | Some entLoc ->
-                        let file = Path.normalizePath entLoc.FileName
-                        let funcName = getCastDeclarationName com sourceEntity interfaceFullName
-                        if file = com.CurrentFile
-                        then makeIdent funcName |> Fable.IdentExpr
-                        else Fable.Import(funcName, file, Fable.Internal, Fable.Any)
-                        |> staticCall None t (argInfo None [expr] None)
-
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: FSharpType seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let call kind args =
             Fable.Operation(Fable.Call(kind, args), typ, r)
@@ -859,7 +859,7 @@ module Util =
         | _, Some entity when entity.IsInterface
                 || memb.IsOverrideOrExplicitInterfaceImplementation
                 || memb.IsDispatchSlot ->
-            callInstanceMember r typ argInfo entity memb
+            callInstanceMember com r typ argInfo entity memb
         | _ ->
             if isModuleValueForCalls memb
             then memberRefTyped com r typ memb

@@ -1,5 +1,5 @@
 /// AUTOMATICALLY GENERATED - DO NOT TOUCH!
-module Fable.Transforms.Inject
+module Fable.Transforms.ReplacementsInject
 
 let fableCoreModules =
   Map [

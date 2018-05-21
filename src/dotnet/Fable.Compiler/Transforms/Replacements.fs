@@ -176,10 +176,30 @@ let (|ArrayOrList|_|) = function
     | List t -> Some("List", t)
     | _ -> None
 
+let (|LambdaUncurriedAtCompileTime|_|) arity expr =
+    let rec uncurryLambdaInner name accArgs remainingArity expr =
+        if remainingArity = Some 0
+        then Function(Delegate(List.rev accArgs), expr, name) |> Some
+        else
+            match expr, remainingArity with
+            | Function(Lambda arg, body, name2), _ ->
+                let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
+                uncurryLambdaInner (Option.orElse name2 name) (arg::accArgs) remainingArity body
+            // If there's no arity expectation we can return the flattened part
+            | _, None when List.isEmpty accArgs |> not ->
+                Function(Delegate(List.rev accArgs), expr, name) |> Some
+            // We cannot flatten lambda to the expected arity
+            | _, _ -> None
+    match expr with
+    // Uncurry also function options
+    | Value(NewOption(Some expr, _)) ->
+        uncurryLambdaInner None [] arity expr
+        |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type)))
+    | _ -> uncurryLambdaInner None [] arity expr
+
 /// Try to uncurry lambdas at compile time in dynamic assignments
 let (|MaybeLambdaUncurriedAtCompileTime|) = function
     | LambdaUncurriedAtCompileTime None lambda -> lambda
-    | Cast(LambdaUncurriedAtCompileTime None lambda, _) -> lambda
     | e -> e
 
 let coreModFor = function
@@ -420,12 +440,6 @@ let listToArray com r t (li: Expr) =
         let args = match t with Array genArg -> [li; arrayCons com genArg] | _ -> [li]
         Helper.CoreCall("Array", "ofList", t, args, ?loc=r)
 
-let listToSeq (li: Expr) =
-    match li with
-    // TODO: Use Any for Array type so we don't create typed arrays?
-    | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
-    | _ -> li // Helper.CoreCall("List", "toSeq", t, [li])
-
 // TODO: Use custom implementation?
 // See https://github.com/fable-compiler/Fable/issues/1279#issuecomment-350122284
 let stringToCharArray t e =
@@ -436,7 +450,7 @@ let enumerator2iterator (e: Expr) =
 
 let toSeq t (e: Expr) =
     match e.Type with
-    | List _ -> listToSeq e
+    | List _ -> OptimizableCast(e, AsSeqFromList, t)
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
     // TODO: Add a runtime check for strings in case of generics?
@@ -510,7 +524,7 @@ let isCompatibleWithJsComparison = function
     // TODO: Raise warning when building dictionary/hashset with generic params?
     | GenericParam _ -> true
     | Any | Unit | Boolean | Number _ | String | Char | Regex
-    | EnumType _ | ErasedUnion _ | FunctionType _ | Pojo _ -> true
+    | EnumType _ | ErasedUnion _ | FunctionType _ -> true
 
 let rec equals r equal left right =
     let is equal expr =
@@ -719,7 +733,7 @@ let injectArg com r moduleName methName (genArgs: (string * FSharpType) list) ar
             |> addError com r
             None
 
-    Map.tryFind moduleName Fable.Transforms.Inject.fableCoreModules
+    Map.tryFind moduleName ReplacementsInject.fableCoreModules
     |> Option.bind (Map.tryFind methName)
     |> Option.map (List.choose buildArg)
     |> function
@@ -766,12 +780,12 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | "op_EqualsEqualsGreater", _ ->
         NewTuple args |> Value |> Some
     | "createObj", [kvs] ->
-        Cast(kvs, Pojo CaseRules.None) |> Some
+        OptimizableCast(kvs, AsPojo CaseRules.None, t) |> Some
      | "keyValueList", _ ->
         match args with
         | [Value(Enum(NumberEnum(Value(NumberConstant(rule, _))), _)); keyValueList] ->
             let caseRule: Fable.Core.CaseRules = enum (int rule)
-            Cast(keyValueList, Pojo caseRule) |> Some
+            OptimizableCast(keyValueList, AsPojo caseRule, t) |> Some
         | [caseRule; keyValueList] ->
             Helper.CoreCall("Util", "createObj", t, [keyValueList; caseRule], ?loc=r) |> Some
         | _ -> None
@@ -866,7 +880,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), _ -> List.tryHead args
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", [arg]  -> Cast(arg, Unit) |> Some
+    | "Ignore", [arg]  -> OptimizableCast(arg, AsUnit, t) |> Some
     // TODO: Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"), _ ->
         let sourceType = genArg com r 0 i.GenericArgs
@@ -876,8 +890,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         toFloat sourceType t args |> Some
     | "ToChar", _ -> toChar (genArg com r 0 i.GenericArgs) args |> Some
     | "ToString", _ -> toString (genArg com r 0 i.GenericArgs) args |> Some
-    // The cast will be resolved in a different step
-    | "CreateSequence", [xs] -> Cast(xs, t) |> Some
+    | "CreateSequence", [xs] -> toSeq t xs |> Some
     | "CreateDictionary", [arg] -> makeDictionary r t arg |> Some
     | "CreateSet", _ -> genArg com r 0 i.GenericArgs |> makeSet r t "OfSeq" args |> Some
     // Ranges
@@ -1140,7 +1153,7 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
     | ("Cache"|"ToArray"), [arg] -> toArray com t arg |> Some
-    | "OfList", [arg] -> Cast(arg, t) |> Some
+    | "OfList", [arg] -> toSeq t arg |> Some
     | "ToList", _ -> Helper.CoreCall("List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ChunkBySize" | "Permute" as meth, [arg1; arg2] ->
         let arg2 = toArray com (Array Any) arg2
@@ -1180,7 +1193,7 @@ let resizeArrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg:
     | ".ctor", _, [] -> makeArray Any [] |> Some
     | ".ctor", _, [ExprType(Number _) as arg] -> NewArray(ArrayAlloc arg, Any) |> Value |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
-    | ".ctor", _, [Cast((Value(NewArray(ArrayValues vals, _)) | ListLiteral(vals, _)), _)] ->
+    | ".ctor", _, [Value(NewArray(ArrayValues vals, _)) | ListLiteral(vals, _)] ->
         makeArray Any vals |> Some
     | ".ctor", _, args -> Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
@@ -1315,7 +1328,7 @@ let lists (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr
     | None, [h;t], "Cons" -> NewList(Some(h,t), genArg com r 0 i.GenericArgs) |> Value |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
-    | None, [x], "ToSeq" -> Cast(x, t) |> Some
+    | None, [x], "ToSeq" -> toSeq t x |> Some
     | None, [x], "ToArray" -> listToArray com r t x |> Some
     | None, _, meth ->
         let meth = Naming.lowerFirst meth
@@ -1562,8 +1575,15 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     // Erased operators
     | "CheckThis", _, [arg]
     | "UnboxFast", _, [arg] -> Some arg
-    // Cast (e.g. used to cast to IDisposable at the end of `use` scope)
-    | "UnboxGeneric", _, [arg] -> Cast(arg, t) |> Some
+    | "UnboxGeneric", _, [arg] ->
+        // Check if this is used to cast to IDisposable at the end of `use` scope
+        match arg.Type, t with
+        | DeclaredType(sourceEntity, _), DeclaredType(targetEntity, _) ->
+            match targetEntity.TryFullName with
+            | Some Types.disposable ->
+                FSharp2Fable.Util.callInterfaceCast com t sourceEntity Types.disposable arg |> Some
+            | _ -> Some arg
+        | _ -> Some arg
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ar; idx]
     | "GetArray", _, [ar; idx] -> getExpr r t ar idx |> Some
@@ -2155,12 +2175,32 @@ let fsharpValue methName (_: ICompiler) r t (i: CallInfo) (_: Expr option) (args
 let curryExprAtRuntime t arity (expr: Expr) =
     Helper.CoreCall("Util", "curry", t, [makeIntConst arity; expr])
 
-let uncurryExprAtRuntime t arity (expr: Expr) =
-    Helper.CoreCall("Util", "uncurry", t, [makeIntConst arity; expr])
-
 let partialApplyAtRuntime t arity (fn: Expr) (args: Expr list) =
     let args = NewArray(ArrayValues args, Any) |> Value
     Helper.CoreCall("Util", "partialApply", t, [makeIntConst arity; fn; args])
+
+let getUncurriedArity (e: Expr) =
+    match e with
+    | ExprType(FunctionType(DelegateType argTypes, _))
+    | ExprType(Option(FunctionType(DelegateType argTypes, _))) ->
+        List.length argTypes |> Some
+    | _ -> None
+
+let uncurryExpr argsAndRetTypes expr =
+    let arity =
+        argsAndRetTypes
+        |> Option.map (fst >> List.length)
+    match expr, argsAndRetTypes with
+    | LambdaUncurriedAtCompileTime arity lambda, _ -> lambda
+    | _, Some(argTypes, retType) ->
+        let arity = List.length argTypes
+        match getUncurriedArity expr with
+        | Some arity2 when arity = arity2 -> expr
+        | _ ->
+            // Uncurry expression at runtime
+            let t = FunctionType(DelegateType argTypes, retType)
+            Helper.CoreCall("Util", "uncurry", t, [makeIntConst arity; expr])
+    | _, None -> expr
 
 let tryReplaceInterface t (e: Expr) interfaceName =
     match interfaceName, e.Type with

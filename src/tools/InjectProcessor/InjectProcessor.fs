@@ -87,7 +87,7 @@ let main _argv =
     let lines =
         seq {
             yield """/// AUTOMATICALLY GENERATED - DO NOT TOUCH!
-module Fable.Transforms.Inject
+module Fable.Transforms.ReplacementsInject
 
 let fableCoreModules =
   Map [
@@ -118,6 +118,6 @@ let fableCoreModules =
 
             yield "  ]\n"
         }
-    File.WriteAllLines(IO.Path.Combine(__SOURCE_DIRECTORY__,"../../dotnet/Fable.Compiler/Transforms/Inject.fs"), lines)
+    File.WriteAllLines(IO.Path.Combine(__SOURCE_DIRECTORY__,"../../dotnet/Fable.Compiler/Transforms/ReplacementsInject.fs"), lines)
     printfn "Finished!"
     0

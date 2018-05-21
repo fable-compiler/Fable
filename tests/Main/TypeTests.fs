@@ -467,9 +467,8 @@ let tests =
         (foo :> IFoo).Foo() |> equal "BARFOO"
         mangleFoo foo |> equal "BARFOO"
 
-    // TODO!!!
-    // testCase "Default implementation of non-abstract class members don't get an overload index" <| fun () -> // See #701
-    //     ExtendedClass().Init() |> equal 7
+    testCase "Default implementation of non-abstract class members don't get an overload index" <| fun () -> // See #701
+        ExtendedClass().Init() |> equal 7
 
     testCase "Circular dependencies work" <| fun () -> // See #569
         let location = { name="NY"; employees=[] }
