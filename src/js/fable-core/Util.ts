@@ -348,7 +348,7 @@ const CaseRules = {
 function changeCase(str: string, caseRule: number) {
   switch (caseRule) {
     case CaseRules.LowerFirst:
-      return str.toLowerCase();
+      return str.charAt(0).toLowerCase() + str.slice(1);
     case CaseRules.None:
     default:
       return str;

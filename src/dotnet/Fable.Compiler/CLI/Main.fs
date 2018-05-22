@@ -36,7 +36,7 @@ let tryFindArgValue key (args: string[]) =
     // i + 1 is the index of key value
     | Some i ->
         // Check if args.[i] is the last element or has no value
-        if args.Length = i + 1 || args.[i + 1].StartsWith("--")
+        if args.Length = i + 1 || (key <> "--args" && args.[i + 1].StartsWith("--"))
         then Some ""
         else Some args.[i + 1]
     | None ->

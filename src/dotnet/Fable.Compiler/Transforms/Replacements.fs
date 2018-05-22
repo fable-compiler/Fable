@@ -994,12 +994,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         makeUnOp r t operand UnaryNot |> Some
     | Patterns.SetContains Operators.standardSet, _ ->
         applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
-    // // Type ref
-    // | "typeOf" | "typeDefOf" ->
-    //     None // TODO
-    //     // info.memberGenArgs.Head
-    //     // |> resolveTypeRef com info (info.memberName = "typeOf")
-    //     // |> Some
+    // Type ref
+    | ("TypeOf" | "TypeDefOf"), _ ->
+        match genArg com r 0 i.GenericArgs with
+        | DeclaredType(ent, _) -> FSharp2Fable.Util.entityRef com r ent |> Some
+        | _ -> None // TODO: Error message
     | _ -> None
 
 let chars (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =

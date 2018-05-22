@@ -523,8 +523,15 @@ let rec private getBaseConsInfoAndBody com ctx acc body =
         acc @ [body] |> List.map (transformExpr com ctx) |> Fable.Sequential
 
     let getBaseConsInfo com ctx r (baseCall: FSharpMemberOrFunctionOrValue) baseArgs =
-        { Fable.BaseEntityRef = entityRef com r baseCall.DeclaringEntity.Value
-          Fable.BaseConsRef = memberRef com r baseCall
+        // TODO: This should always be Some, but add check in case it's not
+        let baseEntity = baseCall.DeclaringEntity.Value
+        let baseEntityRef, baseConsRef =
+            match tryImportedEntity com baseEntity with
+            // Assume in imported entities (from JS), class and constructor have same reference
+            | Some baseExpr -> baseExpr, baseExpr
+            | None -> entityRef com r baseEntity, memberRef com r baseCall
+        { Fable.BaseEntityRef = baseEntityRef
+          Fable.BaseConsRef = baseConsRef
           Fable.BaseConsArgs = List.map (transformExpr com ctx) baseArgs
           Fable.BaseConsHasSpread = hasSeqSpread baseCall }
 

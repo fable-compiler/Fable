@@ -247,7 +247,7 @@ module Helpers =
         let hasParamSeq (memb: FSharpMemberOrFunctionOrValue) =
             Seq.tryLast memb.CurriedParameterGroups
             |> Option.bind Seq.tryLast
-            |> Option.bind (fun lastParam -> tryFindAtt Atts.paramSeq lastParam.Attributes)
+            |> Option.bind (fun lastParam -> tryFindAtt Atts.paramList lastParam.Attributes)
             |> Option.isSome
 
         hasParamArray memb || hasParamSeq memb
@@ -629,17 +629,65 @@ module Util =
                 | _ -> 1
             | args -> List.length args
 
+    // When importing a relative path from a different path where the member,
+    // entity... is declared, we need to resolve the path
+    let fixImportedRelativePath (com: ICompiler) (path: string) (loc: Lazy<Range.range option>) =
+        if path.StartsWith(".") then
+            match loc.Value with
+            | Some loc ->
+                let file = Path.normalizePath loc.FileName
+                if file = com.CurrentFile
+                then path
+                else
+                    Path.Combine(Path.GetDirectoryName(file), path)
+                    |> Path.getRelativePath com.CurrentFile
+            | None -> path // TODO: Log error
+        else path
+
+    let tryImportAttribute (atts: #seq<FSharpAttribute>) =
+        atts |> Seq.tryPick (function
+            | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
+                Some(selector.Trim(), path.Trim())
+            | _ -> None)
+
+    /// Function used to check if calls must be replaced by global idents or direct imports
+    let tryGlobalOrImportExpr com typ (memb: FSharpMemberOrFunctionOrValue) =
+        memb.Attributes |> Seq.tryPick (function
+            | AttFullName(Atts.global_, att) ->
+                match att with
+                | AttArguments [:? string as customName] ->
+                    makeTypedIdent typ customName |> Fable.IdentExpr |> Some
+                | _ -> makeTypedIdent typ memb.CompiledName |> Fable.IdentExpr |> Some
+            | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
+                let path =
+                    lazy (getMemberLocation memb |> Some)
+                    |> fixImportedRelativePath com path
+                Fable.Import(selector.Trim(), path.Trim(), Fable.CustomImport, typ) |> Some
+            | _ -> None)
+
+    let tryImportedEntity (com: ICompiler) (ent: FSharpEntity) =
+        // TODO: Check also Global attribute here?
+        tryImportAttribute ent.Attributes |> Option.map (fun (selector, path) ->
+            let path =
+                lazy tryGetEntityLocation ent
+                |> fixImportedRelativePath com path
+            Fable.Import(selector.Trim(), path.Trim(), Fable.CustomImport, Fable.Any) // TODO: Use MetaType here?
+        )
+
     let entityRef (com: ICompiler) r (ent: FSharpEntity) =
-        match tryGetEntityLocation ent with
-        | Some entLoc ->
-            let file = Path.normalizePath entLoc.FileName
-            let entityName = getEntityDeclarationName com ent
-            if file = com.CurrentFile
-            then makeIdent entityName |> Fable.IdentExpr
-            else Fable.Import(entityName, file, Fable.Internal, Fable.Any)
+        match tryImportedEntity com ent with
+        | Some importedEntity -> importedEntity
         | None ->
-            "Cannot find implementation location for entity: " + (getEntityFullName ent)
-            |> addErrorAndReturnNull com r
+            match tryGetEntityLocation ent with
+            | Some entLoc ->
+                let file = Path.normalizePath entLoc.FileName
+                let entityName = getEntityDeclarationName com ent
+                if file = com.CurrentFile
+                then makeIdent entityName |> Fable.IdentExpr
+                else Fable.Import(entityName, file, Fable.Internal, Fable.Any)
+            | None ->
+                "Cannot find implementation location for entity: " + (getEntityFullName ent)
+                |> addErrorAndReturnNull com r
 
     let memberRefTyped (com: IFableCompiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let memberName = getMemberDeclarationName com memb
@@ -730,61 +778,36 @@ module Util =
                        |> addErrorAndReturnNull com r |> Some
         | _ -> None
 
-    let (|Emitted|_|) r typ argInfo (memb: FSharpMemberOrFunctionOrValue) =
+    let (|Emitted|_|) com r typ argInfo (memb: FSharpMemberOrFunctionOrValue) =
         match memb.Attributes with
         | Try (tryFindAtt Atts.emit) att ->
             match Seq.tryHead att.ConstructorArguments with
             | Some(_, (:? string as macro)) ->
+                let argInfo =
+                    // Allow combination of Import and Emit attributes
+                    match argInfo, tryGlobalOrImportExpr com Fable.Any memb with
+                    | Some argInfo, Some importExpr ->
+                        Some { argInfo with Fable.ThisArg = Some importExpr }
+                    | _ -> argInfo
                 Fable.Operation(Fable.Emit(macro, argInfo), typ, r) |> Some
             | _ -> "EmitAttribute must receive a string argument" |> attachRange r |> failwith
         | _ -> None
 
-    let tryImportAttribute (atts: #seq<FSharpAttribute>) =
-        atts |> Seq.tryPick (function
-            | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
-                Some(selector.Trim(), path.Trim())
-            | _ -> None)
-
-    /// Function used to check if calls must be replaced by global idents or direct imports
-    /// Relative imports are ignored because they're compiled as module members in the respective file
-    /// (path needs to be calculated in regard to the importing file)
-    let tryGlobalOrAbsoluteImportExpr typ (name: string) (atts: #seq<FSharpAttribute>) =
-        atts |> Seq.tryPick (function
-            | AttFullName(Atts.global_, att) ->
-                match att with
-                | AttArguments [:? string as customName] ->
-                    makeTypedIdent typ customName |> Fable.IdentExpr |> Some
-                | _ -> makeTypedIdent typ name |> Fable.IdentExpr |> Some
-            | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)])
-                    when not(path.StartsWith ".") -> // Ignore relative imports
-                Fable.Import(selector.Trim(), path.Trim(), Fable.CustomImport, typ) |> Some
-            | _ -> None)
-
     let (|Imported|_|) com r typ argInfo (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         let importValueType = if Option.isSome argInfo then Fable.Any else typ
-        match tryGlobalOrAbsoluteImportExpr importValueType memb.CompiledName memb.Attributes, argInfo, entity with
+        match tryGlobalOrImportExpr com importValueType memb, argInfo, entity with
         | Some importExpr, Some argInfo, _ ->
-            let emittedArgInfo = { argInfo with Fable.ThisArg = Some importExpr }
-            match memb with
-            // Allow combination of Import and Emit attributes
-            | Emitted r typ (Some emittedArgInfo) emitted -> Some emitted
-            | _ ->
-                if isModuleValueForCalls memb
-                then Some importExpr
-                else staticCall r typ argInfo importExpr |> Some
+            if isModuleValueForCalls memb
+            then Some importExpr
+            else staticCall r typ argInfo importExpr |> Some
         | Some importExpr, None, _ ->
             Some importExpr
         | None, Some argInfo, Some e ->
-            // TODO: Check also Global attribute here?
-            match tryImportAttribute e.Attributes with
-            | Some(selector, path) ->
+            match tryImportedEntity com e with
+            | Some classExpr ->
                 match argInfo.ThisArg with
                 | Some _ -> callInstanceMember com r typ argInfo e memb
                 | None ->
-                    let classExpr =
-                        if path.StartsWith(".") |> not
-                        then Fable.Import(selector, path, Fable.CustomImport, typ)
-                        else entityRef com r e
                     if memb.IsConstructor then
                         Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r)
                     else
@@ -847,8 +870,8 @@ module Util =
             Spread = if hasSeqSpread memb then Fable.SeqSpread else Fable.NoSpread
             IsSiblingConstructorCall = false }
         match memb, memb.DeclaringEntity with
+        | Emitted com r typ (Some argInfo) emitted, _ -> emitted
         | Imported com r typ (Some argInfo) imported -> imported
-        | Emitted r typ (Some argInfo) emitted, _ -> emitted
         | Replaced com ctx r typ argTypes genArgs argInfo replaced -> replaced
         | Inlined com ctx genArgs callee args expr, _ -> expr
         | Try (tryGetBoundExpr ctx r) funcExpr, _ ->
@@ -874,8 +897,8 @@ module Util =
         let typ = makeType com ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
         | _ when typ = Fable.Unit -> Fable.Value Fable.UnitConstant
+        | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None imported -> imported
-        | Emitted r typ None emitted, _ -> emitted
         // TODO: Replaced? Check if there're failing tests
         | Try (tryGetBoundExpr ctx r) expr, _ -> expr
         | _ -> memberRefTyped com r typ v

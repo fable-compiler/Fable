@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard1.6</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Fable.Import.React.fs" />
+    <Compile Include="Fable.Helpers.React.fs" />
+    <Compile Include="React.TodoMVC.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Fable.React" Version="3.1.2" />
+  </ItemGroup>
+</Project>

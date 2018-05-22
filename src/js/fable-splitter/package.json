@@ -27,7 +27,7 @@
     "build": "node ../../../node_modules/typescript/bin/tsc"
   },
   "peerDependencies": {
-    "babel-core": "^6.26.0"
+    "@babel/core": "^7.0.0-beta.47"
   },
   "optionalDependencies": {
     "prepack": "^0.2.5"

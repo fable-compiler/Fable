@@ -49,10 +49,10 @@ type PojoAttribute() =
 type StringEnumAttribute() =
     inherit Attribute()
 
-/// Used to spread a list as last argument. Mainly intended
-/// for `React.createElement` binding, not for general use.
+/// Used to spread the last argument. Mainly intended for `React.createElement` binding, not for general use.
+/// Fable 1 only accepted lists, but Fable 2 accepts seq as well.
 [<AttributeUsage(AttributeTargets.Parameter)>]
-type ParamSeqAttribute() =
+type ParamListAttribute() =
     inherit Attribute()
 
 [<AttributeUsage(AttributeTargets.Parameter)>]

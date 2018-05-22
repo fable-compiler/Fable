@@ -200,7 +200,7 @@ module Atts =
     let [<Literal>] global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
     let [<Literal>] erase = "Fable.Core.EraseAttribute" // typeof<Fable.Core.EraseAttribute>.FullName
     let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
-    let [<Literal>] paramSeq = "Fable.Core.ParamSeqAttribute" // typeof<Fable.Core.ParamSeqAttribute>.FullName
+    let [<Literal>] paramList = "Fable.Core.ParamListAttribute" // typeof<Fable.Core.ParamListAttribute>.FullName
 
 [<RequireQualifiedAccess>]
 module Types =
