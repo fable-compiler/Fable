@@ -868,7 +868,7 @@ let tests =
         let bytes = BitConverter.GetBytes(value)
         BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
 
-    // TODO!!!
+    // TODO: BigInt
     //-------------------------------------
     // System.Numerics.BigInteger
     //-------------------------------------

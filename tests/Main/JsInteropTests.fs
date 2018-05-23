@@ -187,7 +187,7 @@ let tests =
     //     opts2?foo2?flag1 |> unbox |> equal true
     //     opts2?bar2?(1) |> unbox |> equal 3
 
-    // TODO!!!
+    // TODO
     // testCase "Array inside keyValueList is preserved" <| fun () ->
     //     let props = [ Names [| { Name = "name" } |] ]
     //     let actual = [ Names [| { Name = "name" } |] ] |> keyValueList CaseRules.LowerFirst |> toJson

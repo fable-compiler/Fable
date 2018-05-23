@@ -86,7 +86,7 @@ let tests =
             same "%% %%"
             same "%% % % %%"
 
-      // TODO!!!
+      // TODO
       // testCase "Unions with sprintf %A" <| fun () ->
       //     Bar(1,5) |> sprintf "%A" |> equal "Bar (1,5)"
       //     #if FABLE_COMPILER

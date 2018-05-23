@@ -1,7 +1,6 @@
 module Fable.Tests.Applicative
 
 open System
-open System.Collections.Generic
 open Util.Testing
 
 let inline (|HasLength|) x =

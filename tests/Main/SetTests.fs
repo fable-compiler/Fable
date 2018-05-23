@@ -79,7 +79,7 @@ let tests =
             Set.union (set [1; 2]) (set [3; 4; 5])
             |> equal (set [5; 4; 3; 2; 1])
 
-        // TODO!!! Check set equality also with non-primitives and custom-equality types
+        // TODO: Check set equality also with non-primitives and custom-equality types
 
         testCase "Set (+) works" <| fun () ->
             let xs = Set.singleton 1

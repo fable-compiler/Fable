@@ -102,7 +102,7 @@ let tests =
         | Right _ -> failwith "unexpected"
         |> equal "abc"
 
-    // TODO!!! .ToString() with records and unions
+    // TODO: .ToString() with records and unions
     testCase "Union methods can be generated" <| fun () ->
         let x = Left 5
         x.AsString()
@@ -175,7 +175,7 @@ let tests =
         Some(5, None) |> test |> equal 0
         None |> test |> equal 0
 
-    // TODO!!!
+    // TODO
     // #if FABLE_COMPILER
     // testCase "Pattern matching json parse union cases still works" <| fun () ->
     //     // Test IntType

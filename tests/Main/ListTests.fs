@@ -421,7 +421,7 @@ let tests =
             xs.[..2] |> List.sum |> equal 6
             xs.[2..] |> List.sum |> equal 7
             xs.[1..2] |> List.sum |> equal 5
-(*
+
       testCase "List.truncate works" <| fun () ->
             [1..3] = (List.truncate 3 [1..5]) |> equal true
             [1..5] = (List.truncate 10 [1..5]) |> equal true
@@ -665,7 +665,7 @@ let tests =
           List.except [(1, 2)] [(1, 2)] |> List.isEmpty |> equal true
           List.except [Map.empty |> (fun m -> m.Add(1, 2))] [Map.ofList [(1, 2)]] |> List.isEmpty |> equal true
           List.except [{ Bar= "test" }] [{ Bar = "test" }] |> List.isEmpty |> equal true
-*)
+
       testCase "List iterators from range do rewind" <| fun () ->
           let xs = [1..5] |> List.toSeq
           xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"

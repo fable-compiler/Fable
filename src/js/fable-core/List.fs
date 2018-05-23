@@ -210,19 +210,21 @@ let findBack f xs =
 let tryFindBack f xs =
     xs |> reverse |> tryFind f
 
-let tryFindIndex f xs =
+let tryFindIndex f xs: int option =
    tryPickIndexed (fun i x -> if f x then Some i else None) xs
 
-let tryFindIndexBack f xs =
-    xs |> reverse |> tryFindIndex f
+let tryFindIndexBack f xs: int option =
+    List.toArray xs
+    |> Array.tryFindIndexBack f
 
-let findIndex f xs =
+let findIndex f xs: int =
    match tryFindIndex f xs with
    | None -> invalidOp "List did not contain any matching elements"
    | Some x -> x
 
-let findIndexBack f xs =
-    xs |> reverse |> findIndex f
+let findIndexBack f xs: int =
+    List.toArray xs
+    |> Array.findIndexBack f
 
 let item n xs =
    findIndexed (fun i _ -> n = i) xs
@@ -398,14 +400,6 @@ let skip i xs =
   | 1, _::xs -> xs
   | i, xs -> skipInner i xs
 
-// let toSeq (xs: _ list) =
-//     seq {
-//         let mutable xs = xs
-//         while not xs.IsEmpty do
-//             yield xs.Head
-//             xs <- xs.Tail
-//     }
-
 let toSeq (xs: 'a list): 'a seq =
     Seq.unfold (function [] -> None | x::xs -> Some(x, xs)) xs
 
@@ -429,22 +423,14 @@ let distinctBy projection (xs:'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
 let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
     HashSet<'T>(xs, eq) |> ofSeq
 
-
-let groupBy (projection: 'T->'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
-    let dict = Dictionary<'Key, 'T list ref>(eq)
-    iterate (fun v ->
+let groupBy (projection: 'T->'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T list) list =
+    let dict = Dictionary<'Key, 'T list>(eq)
+    for v in xs do
         let key = projection v
-        match dict.TryGetValue(key) with
-        | true, prev -> prev.contents <- v::prev.contents
-        | false, _ ->
-            let prev = [v]
-            dict.[key] <- ref prev) xs
-
-    let mutable result = []
-    for group in dict do
-        result <- (group.Key, group.Value.contents)::result
-    result
-
+        if dict.ContainsKey(key)
+        then dict.[key] <- v::dict.[key]
+        else dict.Add(key, [v])
+    dict |> Seq.map (fun kv -> kv.Key, reverse kv.Value) |> Seq.toList
 
 let countBy (projection: 'T->'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
     let dict = Dictionary<'Key, int ref>(eq)

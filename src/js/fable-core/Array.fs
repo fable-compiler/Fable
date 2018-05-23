@@ -251,8 +251,7 @@ let groupBy (projection: 'T->'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T
     let dict = Dictionary<'Key, 'T[]>(eq)
 
     // Build the groupings
-    for i = 0 to (array.Length - 1) do
-        let v = array.[i]
+    for v in array do
         let key = projection v
         match dict.TryGetValue(key) with
         | true, prev -> pushImpl prev v |> ignore
