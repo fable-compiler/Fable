@@ -357,12 +357,11 @@ let tests =
         lazyVal.Force() |> equal 5
         equal true lazyVal.IsValueCreated
 
-    // TODO!!!
-    // testCase "Lazy constructor works" <| fun () ->
-    //     let items = Lazy<string list>(fun () -> ["a";"b";"c"])
-    //     let search e = items.Value |> List.tryFind (fun m -> m = e)
-    //     search "b" |> equal (Some "b")
-    //     search "d" |> equal None
+    testCase "Lazy constructor works" <| fun () ->
+        let items = Lazy<string list>(fun () -> ["a";"b";"c"])
+        let search e = items.Value |> List.tryFind (fun m -> m = e)
+        search "b" |> equal (Some "b")
+        search "d" |> equal None
 
     // testCase "Classes can be JSON serialized forth and back" <| fun () ->
     //     let x = Serializable(5)
@@ -485,23 +484,22 @@ let tests =
         let p = Point2D(2.)
         p.Y |> equal 2.
 
-    // TODO!!!
-    // testCase "Custom F# exceptions work" <| fun () ->
-    //     try
-    //         MyEx(4,"ERROR") |> raise
-    //     with
-    //     | MyEx(4, msg) -> msg + "!!"
-    //     | MyEx(_, msg) -> msg + "??"
-    //     | ex -> "unknown"
-    //     |> equal "ERROR!!"
+    testCase "Custom F# exceptions work" <| fun () ->
+        try
+            MyEx(4,"ERROR") |> raise
+        with
+        | MyEx(4, msg) -> msg + "!!"
+        | MyEx(_, msg) -> msg + "??"
+        | ex -> "unknown"
+        |> equal "ERROR!!"
 
-    // testCase "Custom exceptions work" <| fun () ->
-    //     try
-    //         MyEx2(5.5) |> raise
-    //     with
-    //     | :? MyEx2 as ex -> ex.Message, ex.Code
-    //     | ex -> "unknown", 0.
-    //     |> equal ("Code: 5", 5.5)
+    testCase "Custom exceptions work" <| fun () ->
+        try
+            MyEx2(5.5) |> raise
+        with
+        | :? MyEx2 as ex -> ex.Message, ex.Code
+        | ex -> "unknown", 0.
+        |> equal ("Code: 5", 5.5)
 
     testCase "reraise works" <| fun () ->
         try

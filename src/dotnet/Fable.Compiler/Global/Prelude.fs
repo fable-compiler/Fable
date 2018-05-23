@@ -89,6 +89,7 @@ module Naming =
 
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
+    let [<Literal>] fsharpExceptionNameField = "__name"
 
     /// Interfaces automatically assigned by the F# compiler to unions and records. Ignored by Fable.
     let ignoredInterfaces =
@@ -156,7 +157,7 @@ module Naming =
         s.Substring(0,1).ToUpperInvariant() + s.Substring(1)
 
     let jsKeywords =
-        set [
+        System.Collections.Generic.HashSet [
             // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
             "abstract"; "await"; "boolean"; "break"; "byte"; "case"; "catch"; "char"; "class"; "const"; "continue"; "debugger"; "default"; "delete"; "do"; "double";
             "else"; "enum"; "export"; "extends"; "false"; "final"; "finally"; "float"; "for"; "function"; "goto"; "if"; "implements"; "import"; "in"; "instanceof"; "int"; "interface";

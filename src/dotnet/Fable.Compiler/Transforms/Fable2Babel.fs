@@ -344,6 +344,15 @@ module Util =
                 (ent.FSharpFields, vals)
                 ||> Seq.map2 (fun fi v -> makeStrConst fi.Name, v, Fable.ObjectValue)
                 |> Seq.toList
+            let members =
+                // Add __name and stack fields to F# exceptions (compiled as records)
+                // TODO: Warn if any of the field names collide with them
+                if ent.IsFSharpExceptionDeclaration then
+                    [
+                        makeStrConst Naming.fsharpExceptionNameField, makeStrConst ent.FullName, Fable.ObjectValue
+                        makeStrConst "stack", Replacements.Helpers.stackTrace(), Fable.ObjectValue
+                    ] @ members
+                else members
             com.TransformObjectExpr(ctx, members)
         | Fable.NewUnion(vals,uci,_,_) ->
             let vals =
@@ -462,7 +471,7 @@ module Util =
                 // compile it as: `BaseClass.prototype.Foo.call(this)` (see #701)
                 | Some(Fable.Value(Fable.Super(Fable.DeclaredType(baseEntity, _)))), Some membExpr ->
                     let baseClassExpr =
-                        com.TransformAsExpr(ctx, FSharp2Fable.Util.entityRef com range baseEntity)
+                        com.TransformAsExpr(ctx, FSharp2Fable.Util.entityRefMaybeImported com range baseEntity)
                     let baseProtoMember =
                         com.TransformAsExpr(ctx, membExpr)
                         |> getExpr None (get None baseClassExpr "prototype")
@@ -635,10 +644,15 @@ module Util =
                 | Fable.DeclaredType (ent2, _) when FSharp2Fable.Util.hasInterface Types.disposable ent2 ->
                     upcast BooleanLiteral true
                 | _ -> coreLibCall com ctx "Util" "isDisposable" [com.TransformAsExpr(ctx, expr)]
-            // TODO!!! | Some Types.enumerable ->
+            // TODO | Some Types.enumerable ->
             | _ ->
-                if ent.IsClass
-                then jsInstanceof (FSharp2Fable.Util.entityRef com range ent) expr
+                if ent.IsFSharpExceptionDeclaration then
+                    let expr = com.TransformAsExpr(ctx, expr)
+                    upcast BinaryExpression(BinaryEqualStrict,
+                        get None expr Naming.fsharpExceptionNameField,
+                        StringLiteral ent.FullName, ?loc=range)
+                elif ent.IsClass
+                then jsInstanceof (FSharp2Fable.Util.entityRefMaybeImported com range ent) expr
                 else "Cannot type test interfaces, records or unions"
                      |> addErrorAndReturnNull com range
         | Fable.Option _ | Fable.GenericParam _ | Fable.ErasedUnion _ ->

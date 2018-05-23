@@ -40,6 +40,7 @@ type IFableCompiler =
     abstract Transform: Context * FSharpExpr -> Fable.Expr
     abstract TryReplace: Context * SourceLocation option * Fable.Type * info: Fable.CallInfo
         * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
+    abstract TryReplaceInterfaceCast: Fable.Type * interfaceName: string * Fable.Expr -> Fable.Expr option
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract AddUsedVarName: string -> unit
 
@@ -389,13 +390,13 @@ module TypeHelpers =
             let argTypes =
                 match Seq.tryHead genArgs with
                 | Some genArg -> [makeType com ctxTypeArgs genArg]
-                | None -> []
+                | None -> [Fable.Unit]
             Fable.FunctionType(Fable.DelegateType argTypes, Fable.Unit)
         elif fullName.StartsWith("System.Func") then
             let argTypes, returnType =
                 match genArgs.Count with
-                | 0 -> [], Fable.Unit
-                | 1 -> [], makeType com ctxTypeArgs genArgs.[0]
+                | 0 -> [Fable.Unit], Fable.Unit
+                | 1 -> [Fable.Unit], makeType com ctxTypeArgs genArgs.[0]
                 | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctxTypeArgs) |> Seq.toList,
                         makeType com ctxTypeArgs genArgs.[c-1]
             Fable.FunctionType(Fable.DelegateType argTypes, returnType)
@@ -651,7 +652,7 @@ module Util =
             | _ -> None)
 
     /// Function used to check if calls must be replaced by global idents or direct imports
-    let tryGlobalOrImportExpr com typ (memb: FSharpMemberOrFunctionOrValue) =
+    let tryGlobalOrImportedMember com typ (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes |> Seq.tryPick (function
             | AttFullName(Atts.global_, att) ->
                 match att with
@@ -675,19 +676,22 @@ module Util =
         )
 
     let entityRef (com: ICompiler) r (ent: FSharpEntity) =
+        match tryGetEntityLocation ent with
+        | Some entLoc ->
+            let file = Path.normalizePath entLoc.FileName
+            let entityName = getEntityDeclarationName com ent
+            if file = com.CurrentFile
+            then makeIdent entityName |> Fable.IdentExpr
+            else Fable.Import(entityName, file, Fable.Internal, Fable.Any)
+        | None ->
+            "Cannot find implementation location for entity: " + (getEntityFullName ent)
+            |> addErrorAndReturnNull com r
+
+    /// First checks if the entity is imported
+    let entityRefMaybeImported (com: ICompiler) r (ent: FSharpEntity) =
         match tryImportedEntity com ent with
         | Some importedEntity -> importedEntity
-        | None ->
-            match tryGetEntityLocation ent with
-            | Some entLoc ->
-                let file = Path.normalizePath entLoc.FileName
-                let entityName = getEntityDeclarationName com ent
-                if file = com.CurrentFile
-                then makeIdent entityName |> Fable.IdentExpr
-                else Fable.Import(entityName, file, Fable.Internal, Fable.Any)
-            | None ->
-                "Cannot find implementation location for entity: " + (getEntityFullName ent)
-                |> addErrorAndReturnNull com r
+        | None -> entityRef com r ent
 
     let memberRefTyped (com: IFableCompiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let memberName = getMemberDeclarationName com memb
@@ -707,10 +711,13 @@ module Util =
     let memberRef (com: IFableCompiler) r (memb: FSharpMemberOrFunctionOrValue) =
         memberRefTyped com r Fable.Any memb
 
-    let callInterfaceCast com t (sourceEntity: FSharpEntity) interfaceFullName expr =
+    let castToInterface (com: IFableCompiler) t (sourceEntity: FSharpEntity) interfaceFullName expr =
         if sourceEntity.IsInterface
         then expr
         else
+          match com.TryReplaceInterfaceCast(t, interfaceFullName, expr) with
+          | Some expr -> expr
+          | None ->
             sourceEntity.DeclaredInterfaces
             |> Seq.tryFind (fun (NonAbbreviatedType t) ->
                 t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullName)
@@ -738,7 +745,7 @@ module Util =
                 // `let foo (x: 'T when 'T :> IDisposable) = x.Dispose()`
                 match callee.Type with
                 | Fable.DeclaredType(original, _) when entity.IsInterface && not original.IsInterface ->
-                    callInterfaceCast com typ original entity.FullName callee
+                    castToInterface com typ original entity.FullName callee
                 | _ -> callee
             | None ->
                 sprintf "Unexpected static interface/override call: %s" memb.FullName
@@ -785,7 +792,7 @@ module Util =
             | Some(_, (:? string as macro)) ->
                 let argInfo =
                     // Allow combination of Import and Emit attributes
-                    match argInfo, tryGlobalOrImportExpr com Fable.Any memb with
+                    match argInfo, tryGlobalOrImportedMember com Fable.Any memb with
                     | Some argInfo, Some importExpr ->
                         Some { argInfo with Fable.ThisArg = Some importExpr }
                     | _ -> argInfo
@@ -795,7 +802,7 @@ module Util =
 
     let (|Imported|_|) com r typ argInfo (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         let importValueType = if Option.isSome argInfo then Fable.Any else typ
-        match tryGlobalOrImportExpr com importValueType memb, argInfo, entity with
+        match tryGlobalOrImportedMember com importValueType memb, argInfo, entity with
         | Some importExpr, Some argInfo, _ ->
             if isModuleValueForCalls memb
             then Some importExpr

@@ -201,9 +201,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | _, Some interfaceEntity when interfaceEntity.IsInterface ->
             let targetType = makeType com ctx.GenericArgs targetType
             match interfaceEntity.TryFullName, inpExpr.Type with
-            | Some(Patterns.Try (Replacements.tryReplaceInterface targetType inpExpr) casted), _ -> casted
             | Some interfaceFullName, (Fable.DeclaredType(sourceEntity,_)) ->
-                callInterfaceCast com targetType sourceEntity interfaceFullName inpExpr
+                castToInterface com targetType sourceEntity interfaceFullName inpExpr
             | _ -> inpExpr
         | _ -> inpExpr
 
@@ -519,6 +518,9 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
 /// - Makes checks for self referencing (as in `type Foo() as self =`): see #124
 let rec private getBaseConsInfoAndBody com ctx acc body =
 
+    let attachToThis memb value =
+        Fable.Set(Fable.Value(Fable.This Fable.Any), Fable.ExprSet (makeStrConst memb), value, None)
+
     let transformBodyStatements com ctx acc body =
         acc @ [body] |> List.map (transformExpr com ctx) |> Fable.Sequential
 
@@ -535,18 +537,31 @@ let rec private getBaseConsInfoAndBody com ctx acc body =
           Fable.BaseConsArgs = List.map (transformExpr com ctx) baseArgs
           Fable.BaseConsHasSpread = hasSeqSpread baseCall }
 
+    let checkException com ctx (baseCall: FSharpMemberOrFunctionOrValue) baseArgs acc body =
+        let acc = List.map (transformExpr com ctx) acc
+        let body = transformExpr com ctx body
+        match baseCall.DeclaringEntity, baseArgs with
+        // Inheriting from JS Error doesn't work well (see https://stackoverflow.com/questions/8802845/inheriting-from-the-error-object-where-is-the-message-property)
+        // Attach message and stack directly to object
+        | Some ent, (Transform com ctx msg)::_ when ent.TryFullName = Some Types.exception_ ->
+            [
+                attachToThis "message" msg
+                attachToThis "stack" <| Replacements.Helpers.stackTrace()
+            ] @ acc @ [body] |> Fable.Sequential
+        | _ -> acc @ [body] |> Fable.Sequential
+
     match body with
     | BasicPatterns.Sequential(baseCall, body) ->
         match baseCall with
-        | BasicPatterns.NewObject _ ->
-            None, transformBodyStatements com ctx acc body
+        | BasicPatterns.NewObject(baseCall,_,baseArgs) ->
+            None, checkException com ctx baseCall baseArgs acc body
         | BasicPatterns.Call(None,baseCall,_,_,baseArgs) as e
                 when baseCall.IsConstructor && Option.isSome baseCall.DeclaringEntity ->
             let baseConsInfo = getBaseConsInfo com ctx (makeRangeFrom e) baseCall baseArgs
             Some baseConsInfo, transformBodyStatements com ctx acc body
         // This happens in constructors including self references
-        | BasicPatterns.Let(_, BasicPatterns.NewObject _) ->
-            None, transformBodyStatements com ctx acc body
+        | BasicPatterns.Let(_, BasicPatterns.NewObject(baseCall,_,baseArgs)) ->
+            None, checkException com ctx baseCall baseArgs acc body
         // TODO: We're discarding the bound value, detect if there's a reference to it
         // in the base constructor arguments and throw an error in that case.
         | BasicPatterns.Let(_, BasicPatterns.Call(None,baseCall,_,_,baseArgs)) as e
@@ -830,6 +845,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             transformExpr this ctx fsExpr
         member this.TryReplace(ctx, r, t, info, thisArg, args) =
             Replacements.tryCall this ctx r t info thisArg args
+        member __.TryReplaceInterfaceCast(t, name, e) =
+            Replacements.tryReplaceInterfaceCast t name e
         member this.GetInlineExpr(memb) =
             let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
             if fileName <> com.CurrentFile then

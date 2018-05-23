@@ -53,7 +53,7 @@ type Helper =
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         get loc typ (makeIdentExpr ident) memb
 
-module private Helpers =
+module Helpers =
     let inline makeType com t =
         FSharp2Fable.TypeHelpers.makeType com Map.empty t
 
@@ -89,6 +89,10 @@ module private Helpers =
 
     let error msg =
         Helper.ConstructorCall(makeIdentExpr "Error", Any, [msg])
+
+    let stackTrace () =
+        let err = Helper.ConstructorCall(makeIdentExpr "Error", Any, [])
+        get None String err "stack"
 
     let s txt = Value(StringConstant txt)
 
@@ -997,7 +1001,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Type ref
     | ("TypeOf" | "TypeDefOf"), _ ->
         match genArg com r 0 i.GenericArgs with
-        | DeclaredType(ent, _) -> FSharp2Fable.Util.entityRef com r ent |> Some
+        | DeclaredType(ent, _) -> FSharp2Fable.Util.entityRefMaybeImported com r ent |> Some
         | _ -> None // TODO: Error message
     | _ -> None
 
@@ -1167,7 +1171,7 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     | "EnumerateUsing", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.callInterfaceCast com t ent Types.disposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.disposable arg
             | _ -> arg
         Helper.CoreCall("Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Sort" | "SortDescending" as m), args ->
@@ -1580,7 +1584,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         | DeclaredType(sourceEntity, _), DeclaredType(targetEntity, _) ->
             match targetEntity.TryFullName with
             | Some Types.disposable ->
-                FSharp2Fable.Util.callInterfaceCast com t sourceEntity Types.disposable arg |> Some
+                FSharp2Fable.Util.castToInterface com t sourceEntity Types.disposable arg |> Some
             | _ -> Some arg
         | _ -> Some arg
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
@@ -2050,7 +2054,7 @@ let asyncBuilder (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | Some x, "Using", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.callInterfaceCast com t ent Types.disposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.disposable arg
             | _ -> arg
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2188,7 +2192,7 @@ let getUncurriedArity (e: Expr) =
 let uncurryExpr argsAndRetTypes expr =
     let arity =
         argsAndRetTypes
-        |> Option.map (fst >> List.length)
+        |> Option.map (fst >> List.length >> (max 1))
     match expr, argsAndRetTypes with
     | LambdaUncurriedAtCompileTime arity lambda, _ -> lambda
     | _, Some(argTypes, retType) ->
@@ -2201,7 +2205,7 @@ let uncurryExpr argsAndRetTypes expr =
             Helper.CoreCall("Util", "uncurry", t, [makeIntConst arity; expr])
     | _, None -> expr
 
-let tryReplaceInterface t (e: Expr) interfaceName =
+let tryReplaceInterfaceCast t interfaceName (e: Expr) =
     match interfaceName, e.Type with
     // CompareTo method is attached to prototype
     | Types.comparable, _ -> Some e
