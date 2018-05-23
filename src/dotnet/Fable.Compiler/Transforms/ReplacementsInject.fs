@@ -24,6 +24,7 @@ let fableCoreModules =
       "countBy", [(Types.equalityComparer, 1)]
       "distinctBy", [(Types.arrayCons, 0); (Types.equalityComparer, 0)]
       "distinct", [(Types.arrayCons, 0); (Types.equalityComparer, 0)]
+      "contains", [(Types.equalityComparer, 0)]
       "except", [(Types.equalityComparer, 0)]
       "groupBy", [(Types.arrayCons, 0); (Types.equalityComparer, 1)]
       "singleton", [(Types.arrayCons, 0)]
@@ -52,6 +53,8 @@ let fableCoreModules =
       "ofList", [(Types.arrayCons, 0)]
     ]
     "List", Map [
+      "contains", [(Types.equalityComparer, 0)]
+      "except", [(Types.equalityComparer, 0)]
       "sort", [(Types.comparer, 0)]
       "sortBy", [(Types.comparer, 1)]
       "sortDescending", [(Types.comparer, 0)]
@@ -62,6 +65,8 @@ let fableCoreModules =
       "min", [(Types.comparer, 0)]
       "distinctBy", [(Types.equalityComparer, 0)]
       "distinct", [(Types.equalityComparer, 0)]
+      "groupBy", [(Types.equalityComparer, 1)]
+      "countBy", [(Types.equalityComparer, 1)]
     ]
     "Set", Map [
       "FSharpSet$$Map", [(Types.comparer, 1)]

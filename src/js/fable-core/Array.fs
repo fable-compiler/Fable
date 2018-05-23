@@ -184,6 +184,10 @@ let private concatImpl (cons: IArrayCons<'T>) (arrays: 'T[][]): 'T[] =
     else
         cons.Create 0
 
+let truncate (count: int) (array: 'T []): 'T[] =
+    let count = max 0 count
+    sliceImpl array 0 count
+
 let concat (arrays: 'T[] seq) ([<Inject>] cons: IArrayCons<'T>): 'T[] =
     arrays
     |> Seq.toArray
@@ -225,6 +229,16 @@ let distinct (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEq
     distinctBy id array cons eq
 
 let where predicate (array: _[]) = filterImpl predicate array
+
+let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
+    let rec loop i =
+        if i >= array.Length
+        then false
+        else
+            if eq.Equals (value, array.[i]) then true
+            else loop (i + 1)
+    loop 0
+
 
 let except (itemsToExclude: seq<'t>) (array: 't[]) ([<Inject>] eq: IEqualityComparer<'t>): 't[] =
     if array.Length = 0 then
