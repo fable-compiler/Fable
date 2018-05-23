@@ -48,6 +48,13 @@ type PassGenericsAttribute() =
 type PojoAttribute() =
     inherit Attribute()
 
+type CompileAsPojoAttribute = PojoAttribute
+
+/// EXPERIMENTAL: Compile records and unions as JS arrays
+[<AttributeUsage(AttributeTargets.Class)>]
+type CompileAsArrayAttribute() =
+    inherit Attribute()
+
 /// Compile union types as string literals.
 /// More info: http://fable.io/docs/interacting.html#StringEnum-attribute
 [<AttributeUsage(AttributeTargets.Class)>]

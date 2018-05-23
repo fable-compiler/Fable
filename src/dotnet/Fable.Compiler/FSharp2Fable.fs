@@ -133,8 +133,15 @@ let private transformNewList com ctx (fsExpr: FSharpExpr) fsType argExprs =
             CoreLibCall("List", Some "ofArray", false, args)
     |> makeCall (Some range) unionType
 
-let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType unionCase (argExprs: Fable.Expr list) =
+let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType
+                        (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     let unionType, range = makeType com ctx.typeArgs fsType, makeRange fsExpr.Range
+    let argExprs =
+        let argTypes =
+            unionCase.UnionCaseFields
+            |> Seq.map (fun x -> makeType com [] x.FieldType)
+            |> Seq.toList
+        ensureArity com argTypes argExprs
     match fsType with
     | OptionUnion ->
         match argExprs with
@@ -168,16 +175,15 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
         |> List.map (fun (fi, e) -> fi.Name, e)
         |> List.append ["type", makeStrConst unionCase.Name]
         |> makeJsObject (Some range)
+    | ArrayUnion hasData ->
+        let tag = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
+        if hasData
+        then makeArray Fable.Any (tag::argExprs)
+        else tag
     | ListUnion ->
         failwithf "transformNonListNewUnionCase must not be used with List %O" range
     | OtherType ->
         let tag = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
-        let argExprs =
-            let argTypes =
-                unionCase.UnionCaseFields
-                |> Seq.map (fun x -> makeType com [] x.FieldType)
-                |> Seq.toList
-            ensureArity com argTypes argExprs
         let erasedUnion =
             // We can use the Erase attribute with union cases
             // to pass custom values to keyValueList
@@ -470,8 +476,7 @@ let private transformDelegate com ctx delegateType fsExpr =
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) fsExpr unionExpr (NonAbbreviatedType fsType) (unionCase: FSharpUnionCase) =
     let unionExpr = transformExpr com ctx unionExpr
-    let checkCase propName right =
-        let left = makeGet None Fable.String unionExpr (makeStrConst propName)
+    let equals left right =
         makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [left; right] BinaryEqualStrict
     match fsType with
     | ErasedUnion ->
@@ -501,11 +506,17 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) fsExpr u
     | StringEnum ->
         makeBinOp (makeRangeFrom fsExpr) Fable.Boolean [unionExpr; lowerCaseName unionCase] BinaryEqualStrict
     | PojoUnion ->
-        makeStrConst unionCase.Name |> checkCase "type"
+        let tag = makeStrConst "type" |> makeGet None Fable.String unionExpr
+        makeStrConst unionCase.Name |> equals tag
+    | ArrayUnion hasData ->
+        let idx = getUnionCaseIndex fsType unionCase.Name |> makeIntConst
+        if hasData then
+            let tag = makeIntConst 0 |> makeGet None (Fable.Number Int32) unionExpr
+            equals tag idx
+        else equals unionExpr idx
     | OtherType ->
-        getUnionCaseIndex fsType unionCase.Name
-        |> makeIntConst
-        |> checkCase "tag"
+        let tag = makeStrConst "tag" |> makeGet None Fable.String unionExpr
+        getUnionCaseIndex fsType unionCase.Name |> makeIntConst |> equals tag
 
 let private transformSwitch com ctx (fsExpr: FSharpExpr) (matchValue: FSharpMemberOrFunctionOrValue) isUnionType cases (defaultCase, defaultBindings) decisionTargets =
     let decisionTargets = decisionTargets |> Seq.mapi (fun i d -> (i, d)) |> Map
@@ -746,13 +757,25 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
         makeThisRef com ctx (makeRangeFrom fsExpr) None
 
     | BasicPatterns.FSharpFieldGet (callee, calleeType, FieldName fieldName) ->
-        let callee =
+        let callee, asArray =
             match callee with
-            | Some (Transform com ctx callee) -> callee
-            | None -> makeType com ctx.typeArgs calleeType
-                        |> makeNonGenTypeRef com
+            | Some callee ->
+                let asArray =
+                    match tryDefinition callee.Type with
+                    | Some tdef when hasAtt Atts.asArray tdef.Attributes -> Some tdef
+                    | _ -> None
+                transformExpr com ctx callee, asArray
+            | None ->
+                let calleeType = makeType com ctx.typeArgs calleeType
+                makeNonGenTypeRef com calleeType, None
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
-        makeGetFrom r typ callee (makeStrConst fieldName)
+        match asArray with
+        | Some tdef ->
+            tdef.FSharpFields
+            |> Seq.findIndex (fun fi' -> fi'.Name = fieldName)
+            |> makeIntConst
+            |> makeGetFrom r typ callee
+        | None -> makeStrConst fieldName |> makeGetFrom r typ callee
 
     | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
@@ -770,6 +793,9 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
             makeGet range typ unionExpr (Naming.lowerFirst fieldName |> makeStrConst)
         | PojoUnion ->
             makeStrConst fieldName |> makeGet range typ unionExpr
+        | ArrayUnion _ ->
+            let i = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = fieldName)
+            makeGet range typ unionExpr (makeIntConst (i+1)) // Index 0 holds the union tag
         | StringEnum ->
             "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com ctx.fileName range
@@ -790,15 +816,31 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.FSharpFieldSet(Some(BasicPatterns.FSharpFieldGet(Some(ThisVar _), _, _)), RefType _, _, _) ->
         Fable.Value Fable.Null
 
-    | BasicPatterns.FSharpFieldSet (callee, calleeType, FieldName fieldName, Transform com ctx value) ->
-        let callee =
+    | BasicPatterns.FSharpFieldSet (callee, calleeType, fi, Transform com ctx value) ->
+        let value = ensureArity com [makeType com [] fi.FieldType] [value] |> List.head
+        let callee, asArray =
             match callee with
-            | Some (Transform com ctx callee) -> callee
+            | Some callee ->
+                let asArray =
+                    match tryDefinition callee.Type with
+                    | Some tdef when hasAtt Atts.asArray tdef.Attributes -> Some tdef
+                    | _ -> None
+                transformExpr com ctx callee, asArray
             | None ->
                 let calleeType = makeType com ctx.typeArgs calleeType
-                makeNonGenTypeRef com calleeType
-        Fable.Set (callee, Some (makeStrConst fieldName), value, makeRangeFrom fsExpr)
+                makeNonGenTypeRef com calleeType, None
+        let prop =
+            let fieldName = fi.Name
+            match asArray with
+            | Some tdef ->
+                tdef.FSharpFields
+                |> Seq.findIndex (fun fi' -> fi'.Name = fieldName)
+                |> makeIntConst
+            | None -> makeStrConst fieldName
+        Fable.Set (callee, Some prop, value, makeRangeFrom fsExpr)
 
+    // TODO: I haven't seen this in the wild, only BasicPatterns.UnionCaseTest
+    // Should we check of other union types (PojoUnion, ArrayUnion)?
     | BasicPatterns.UnionCaseTag (Transform com ctx unionExpr, _unionType) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.typeArgs fsExpr.Type
         makeGetFrom r typ unionExpr (makeStrConst "tag")
@@ -840,19 +882,26 @@ let private transformExpr (com: IFableCompiler) ctx fsExpr =
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let range = makeRangeFrom fsExpr
         let argExprs = argExprs |> List.map (transformExpr com ctx)
-        match tryDefinition fsType with
-        | Some tdef when tdef.Attributes |> hasAtt Atts.pojo ->
+        let tdef = tryDefinition fsType
+        let argExprs =
+            match tdef with
+            | Some tdef ->
+                tdef.FSharpFields
+                |> Seq.map (fun x -> makeType com [] x.FieldType)
+                |> fun argTypes -> ensureArity com (Seq.toList argTypes) argExprs
+            | None -> argExprs
+        tdef |> Option.bind (fun tdef ->
+            tdef.Attributes |> tryFindAtt (fun name ->
+                name = Atts.pojo || name = Atts.asArray)
+            |> function Some(_, att) -> Some(tdef, att) | None -> None)
+        |> function
+        | Some(tdef, att) when att = Atts.pojo -> // Pojo records
             List.zip (Seq.toList tdef.FSharpFields) argExprs
             |> List.map (fun (fi, e) -> fi.Name, e)
             |> makeJsObject range
-        | tdef ->
-            let argExprs =
-                match tdef with
-                | Some tdef ->
-                    tdef.FSharpFields
-                    |> Seq.map (fun x -> makeType com [] x.FieldType)
-                    |> fun argTypes -> ensureArity com (Seq.toList argTypes) argExprs
-                | None -> argExprs
+        | Some(_, att) when att = Atts.asArray -> // Array records
+            makeArray Fable.Any argExprs
+        | _ ->
             let recordType = makeType com ctx.typeArgs fsType
             buildApplyInfo com ctx range recordType recordType recordType.FullName
                 ".ctor" Fable.Constructor ([],[],[],[]) (None, argExprs)
@@ -990,7 +1039,8 @@ type private DeclInfo(com, fileName) =
             || name = Atts.global_
             || name = Atts.erase
             || check ent name Atts.stringEnum ["union"]
-            || check ent name Atts.pojo ["union"; "record"])
+            || check ent name Atts.pojo ["union"; "record"]
+            || check ent name Atts.asArray ["union"; "record"])
         |> Option.isSome
     let decls = ResizeArray<_>()
     let children = Dictionary<string, TmpDecl>()
@@ -1069,7 +1119,7 @@ type private DeclInfo(com, fileName) =
 
 let private tryGetImport com (ctx: Context) r (atts: #seq<FSharpAttribute>) =
     try
-        tryFindAtt ((=) Atts.import) atts |> Option.bind (fun att ->
+        tryFindAtt ((=) Atts.import) atts |> Option.bind (fun (att,_) ->
             if att.ConstructorArguments.Count = 2 then
                 match att.ConstructorArguments.[0], att.ConstructorArguments.[1] with
                 | (_, (:? string as selector)), (_, (:? string as path)) -> Some(selector, path)

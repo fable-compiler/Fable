@@ -74,6 +74,7 @@ module Atts =
     let global_ = typeof<Fable.Core.GlobalAttribute>.FullName
     let erase = typeof<Fable.Core.EraseAttribute>.FullName
     let pojo = typeof<Fable.Core.PojoAttribute>.FullName
+    let asArray = typeof<Fable.Core.CompileAsArrayAttribute>.FullName
     let stringEnum = typeof<Fable.Core.StringEnumAttribute>.FullName
     let passGenerics = typeof<Fable.Core.PassGenericsAttribute>.FullName
     let paramList = typeof<Fable.Core.ParamListAttribute>.FullName
@@ -109,9 +110,9 @@ module Helpers =
 
     let tryFindAtt f (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
-            match att.AttributeType.TryFullName with
+            match (nonAbbreviatedEntity att.AttributeType).TryFullName with
             | Some fullName ->
-                if f fullName then Some att else None
+                if f fullName then Some(att, fullName) else None
             | None -> None)
 
     let hasAtt name atts =
@@ -214,7 +215,7 @@ module Helpers =
         unionCase.Attributes
         |> tryFindAtt ((=) Atts.compiledName)
         |> function
-            | Some name -> name.ConstructorArguments.[0] |> snd |> string
+            | Some(name,_) -> name.ConstructorArguments.[0] |> snd |> string
             | None -> Naming.lowerFirst unionCase.DisplayName
         |> makeStrConst
 
@@ -621,7 +622,7 @@ module Patterns =
         | Naming.StartsWith "Microsoft.FSharp.Core.decimal" _ -> Some Decimal
         | _ -> None
 
-    let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|PojoUnion|OtherType|) (NonAbbreviatedType typ: FSharpType) =
+    let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|PojoUnion|ArrayUnion|OtherType|) (NonAbbreviatedType typ: FSharpType) =
         match tryDefinition typ with
         | None -> OtherType
         | Some tdef ->
@@ -630,11 +631,17 @@ module Patterns =
             | "Microsoft.FSharp.Collections.FSharpList`1" -> ListUnion
             | _ ->
                 tdef.Attributes
-                |> Seq.choose (fun att -> att.AttributeType.TryFullName)
+                |> Seq.choose (fun att -> (nonAbbreviatedEntity att.AttributeType).TryFullName)
                 |> Seq.tryPick (fun name ->
                     if name = Atts.erase then Some ErasedUnion
                     elif name = Atts.stringEnum then Some StringEnum
                     elif name = Atts.pojo then Some PojoUnion
+                    elif name = Atts.asArray then
+                        // Checks if any of the union cases has a data field
+                        let anyCaseWithData =
+                            tdef.UnionCases |> Seq.exists (fun uci ->
+                                uci.UnionCaseFields.Count > 0)
+                        Some (ArrayUnion anyCaseWithData)
                     else None)
                 |> defaultArg <| OtherType
 
@@ -668,7 +675,7 @@ module Patterns =
                     Some(matchValue,true,idx,bindings,case,elseExpr)
                 | None when not var.IsMemberThisValue && not(isInline var) ->
                     match typ with
-                    | OptionUnion | ListUnion | ErasedUnion | StringEnum | PojoUnion -> None
+                    | OptionUnion | ListUnion | ErasedUnion | StringEnum | PojoUnion | ArrayUnion _ -> None
                     | OtherType -> Some(var,true,idx,bindings,case,elseExpr)
                 | _ -> None
             | _ -> None
@@ -696,7 +703,7 @@ module Patterns =
         | _ -> None
 
     let (|ContainsAtt|_|) (name: string) (atts: #seq<FSharpAttribute>) =
-        atts |> tryFindAtt ((=) name) |> Option.map (fun att ->
+        atts |> tryFindAtt ((=) name) |> Option.map (fun (att,_) ->
             att.ConstructorArguments |> Seq.map snd |> Seq.toList)
 
 module Types =
@@ -799,11 +806,11 @@ module Types =
         | _ ->
             // Check erased types
             tdef.Attributes
-            |> Seq.choose (fun att -> att.AttributeType.TryFullName)
+            |> Seq.choose (fun att -> (nonAbbreviatedEntity att.AttributeType).TryFullName)
             |> Seq.tryPick (fun name ->
                 if name = Atts.stringEnum
                 then Some Fable.String
-                elif name = Atts.erase || name = Atts.pojo
+                elif name = Atts.erase || name = Atts.pojo || name = Atts.asArray
                 then Some Fable.Any
                 else None)
             |> defaultArg <|
@@ -951,7 +958,7 @@ module Types =
                     uci.Attributes
                     |> tryFindAtt ((=) Atts.compiledName)
                     |> function
-                        | Some name -> name.ConstructorArguments.[0] |> snd |> string
+                        | Some(name,_) -> name.ConstructorArguments.[0] |> snd |> string
                         | None -> uci.Name
                 name, [for fi in uci.UnionCaseFields do yield makeType com [] fi.FieldType])
             |> Seq.toList
