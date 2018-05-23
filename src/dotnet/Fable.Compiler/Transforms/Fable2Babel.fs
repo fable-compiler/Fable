@@ -251,6 +251,16 @@ module Util =
         | U2.Case1 e -> args, e
         | U2.Case2 e -> args, BlockStatement [ReturnStatement e]
 
+    let getUnionCaseName uci =
+        FSharp2Fable.Helpers.unionCaseCompiledName uci
+        |> Option.defaultValue uci.Name
+
+    let getUnionTag r ent expr =
+        if FSharp2Fable.Helpers.hasCaseWithFields ent
+        then getExpr r expr (ofInt 0)
+        // Unions without any case with fields are compiled as strings
+        else expr
+
     /// Wrap int expressions with `| 0` to help optimization of JS VMs
     let wrapIntExpression typ (e: Expression) =
         match e, typ with
@@ -354,17 +364,18 @@ module Util =
                     ] @ members
                 else members
             com.TransformObjectExpr(ctx, members)
-        | Fable.NewUnion(vals,uci,_,_) ->
-            let vals =
-                // If union case has EraseAttribute, don't include the tag name
-                match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
-                | Some _ -> vals
-                | None ->
-                    let name =
-                        FSharp2Fable.Helpers.unionCaseCompiledName uci
-                        |> Option.defaultValue uci.Name
-                    (Fable.Value(Fable.StringConstant name))::vals
-            Fable.ArrayValues vals |> buildArray com ctx Fable.Any
+        | Fable.NewUnion(vals, uci, ent, _) ->
+            let name = getUnionCaseName uci
+            if FSharp2Fable.Helpers.hasCaseWithFields ent then
+                let vals =
+                    // If union case has EraseAttribute, don't include the tag name
+                    // This is used for `Custom`-like cases in unions meant for `keyValueList`
+                    match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
+                    | Some _ -> vals
+                    | None -> (Fable.Value(Fable.StringConstant name))::vals
+                Fable.ArrayValues vals |> buildArray com ctx Fable.Any
+            // Unions without any case with fields are compiled as strings
+            else upcast StringLiteral name
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
     let transformObjectExpr (com: IBabelCompiler) ctx members baseCall (boundThis: string option): Expression =
@@ -554,7 +565,7 @@ module Util =
             if mustWrapOption typ
             then coreLibCall com ctx "Option" "value" [expr]
             else expr
-        | Fable.UnionTag _ -> getExpr range expr (ofInt 0)
+        | Fable.UnionTag ent -> getUnionTag range ent expr
         | Fable.UnionField(field, uci, _) ->
             let fieldName = field.Name
             let index =
@@ -671,9 +682,10 @@ module Util =
             let expr = com.TransformAsExpr(ctx, expr)
             let op = if nonEmpty then BinaryUnequal else BinaryEqual
             upcast BinaryExpression(op, get None expr "tail", NullLiteral(), ?loc=range)
-        | Fable.UnionCaseTest(uci, _) ->
-            let tag1 = getExpr range (com.TransformAsExpr(ctx, expr)) (ofInt 0)
-            upcast BinaryExpression(BinaryEqualStrict, tag1, StringLiteral uci.Name, ?loc=range)
+        | Fable.UnionCaseTest(uci, ent) ->
+            let name = getUnionCaseName uci
+            let tag = com.TransformAsExpr(ctx, expr) |> getUnionTag None ent
+            upcast BinaryExpression(BinaryEqualStrict, tag, StringLiteral name, ?loc=range)
 
     let transformSwitch (com: IBabelCompiler) ctx returnStrategy evalExpr cases defaultCase: Statement =
         let cases =

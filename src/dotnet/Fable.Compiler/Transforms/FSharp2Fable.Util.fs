@@ -200,6 +200,9 @@ module Helpers =
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
 
+    let hasCaseWithFields (ent: FSharpEntity) =
+        ent.UnionCases |> Seq.exists (fun uci -> uci.UnionCaseFields.Count > 0)
+
     /// FSharpUnionCase.CompiledName doesn't give the value of CompiledNameAttribute
     /// We must check the attributes explicitly
     let unionCaseCompiledName (unionCase: FSharpUnionCase) =
