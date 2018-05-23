@@ -140,6 +140,16 @@ let mapIndexed3 f xs ys zs =
    foldIndexed3 (fun i acc x y z -> f i x y z:: acc) [] xs ys zs
    |> reverse
 
+let mapFold (f: 'S -> 'T -> 'R * 'S) s xs =
+    let foldFn (nxs, fs) x =
+        let nx, fs = f fs x
+        nx::nxs, fs
+    let nxs, s = fold foldFn ([], s) xs
+    reverse nxs, s
+
+let mapFoldBack (f: 'T -> 'S -> 'R * 'S) xs s =
+    mapFold (fun s v -> f v s) s (reverse xs)
+
 let iterate f xs =
    fold (fun () x -> f x) () xs
 
@@ -194,13 +204,25 @@ let findIndexed f xs =
 let find f xs =
    findIndexed (fun _ x -> f x) xs
 
+let findBack f xs =
+    xs |> reverse |> find f
+
+let tryFindBack f xs =
+    xs |> reverse |> tryFind f
+
 let tryFindIndex f xs =
    tryPickIndexed (fun i x -> if f x then Some i else None) xs
+
+let tryFindIndexBack f xs =
+    xs |> reverse |> tryFindIndex f
 
 let findIndex f xs =
    match tryFindIndex f xs with
    | None -> invalidOp "List did not contain any matching elements"
    | Some x -> x
+
+let findIndexBack f xs =
+    xs |> reverse |> findIndex f
 
 let item n xs =
    findIndexed (fun i _ -> n = i) xs
@@ -223,6 +245,23 @@ let choose f xs =
       match f x with
       | Some y -> y:: acc
       | None -> acc) [] xs |> reverse
+
+
+let contains<'T> (value: 'T) (list: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
+    let rec loop xs =
+        match xs with
+        | [] -> false
+        | v::rest ->
+            if eq.Equals (value, v)
+            then true
+            else loop rest
+    loop list
+
+let except (itemsToExclude: seq<'t>) (array: 't list) ([<Inject>] eq: IEqualityComparer<'t>): 't list =
+    if isEmpty array then array
+    else
+        let cached = HashSet(itemsToExclude, eq)
+        array |> filter cached.Add
 
 let initialize n f =
    let mutable xs = []
@@ -389,3 +428,34 @@ let distinctBy projection (xs:'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
 
 let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
     HashSet<'T>(xs, eq) |> ofSeq
+
+
+let groupBy (projection: 'T->'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
+    let dict = Dictionary<'Key, 'T list ref>(eq)
+    iterate (fun v ->
+        let key = projection v
+        match dict.TryGetValue(key) with
+        | true, prev -> prev.contents <- v::prev.contents
+        | false, _ ->
+            let prev = [v]
+            dict.[key] <- ref prev) xs
+
+    let mutable result = []
+    for group in dict do
+        result <- (group.Key, group.Value.contents)::result
+    result
+
+
+let countBy (projection: 'T->'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
+    let dict = Dictionary<'Key, int ref>(eq)
+    iterate (fun v ->
+        let key = projection v
+        match dict.TryGetValue(key) with
+        | true, prev -> prev.contents <- prev.contents + 1
+        | false, _ ->
+            dict.[key] <- ref 1) xs
+
+    let mutable result = []
+    for group in dict do
+        result <- (group.Key, group.Value.contents)::result
+    result
