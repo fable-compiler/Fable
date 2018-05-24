@@ -4,7 +4,7 @@
     <Description>Fable Core Library</Description>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Version>1.3.7</Version>
+    <Version>2.0.0-alpha-001</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Fable.Core.fs" />
@@ -12,9 +12,5 @@
     <Compile Include="Fable.Core.JsInterop.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />
   </ItemGroup>
-  <ItemGroup>
-    <Content Include="..\..\..\build\fable-core\" PackagePath="fable-core\" />
-  </ItemGroup>
-  <!-- <Import Project="..\..\..\.paket\Paket.Restore.targets" /> -->
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>
