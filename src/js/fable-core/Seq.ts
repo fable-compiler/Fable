@@ -605,7 +605,7 @@ export function scanBack<T, ST>(f: (x: T, st: ST) => ST, xs: Iterable<T>, seed: 
 }
 
 export function singleton<T>(y: T) {
-  return unfold((x) => x != null ? [x, null] : null, y);
+  return [y];
 }
 
 export function skip<T>(n: number, xs: Iterable<T>) {
