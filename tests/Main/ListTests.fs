@@ -670,4 +670,11 @@ let tests =
           let xs = [1..5] |> List.toSeq
           xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
           xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+
+      testCase "List comprehensions returning None work" <| fun () ->
+          let spam : string option list = [for _ in 0..5 -> None]
+
+          spam
+          |> List.length
+          |> equal 6
   ]

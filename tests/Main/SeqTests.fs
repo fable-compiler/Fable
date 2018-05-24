@@ -648,6 +648,12 @@ let tests =
         Seq.head xs |> equal 1.
         Seq.head xs |> equal 1.
 
+    testCase "Seq.singleton works with None" <| fun () ->
+        let xs : int option seq = Seq.singleton None
+        xs
+        |> Seq.length
+        |> equal 1
+
     testCase "Seq.skipWhile works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.; 5.]
         xs |> Seq.skipWhile (fun i -> i <= 3.)
