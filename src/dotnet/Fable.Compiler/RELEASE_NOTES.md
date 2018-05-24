@@ -1,3 +1,7 @@
+### 2.0.0-alpha-001
+
+* Fable 2 alpha
+
 ### 1.3.7
 
 * Fix PassGenerics attribute with optional arguments

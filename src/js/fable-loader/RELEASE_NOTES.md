@@ -1,3 +1,7 @@
+### 2.0.0-alpha-001
+
+* Fable 2 alpha
+
 ### 1.1.6
 
 * Ignore dependencies

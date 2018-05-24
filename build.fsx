@@ -42,13 +42,26 @@ let addToPath newPath =
     let separator = if isWindows then ";" else ":"
     setEnvironVar "PATH" (newPath + separator + path)
 
+// Move this to FakeHelpers
+let findLineAndGetGroupValue regexPattern (groupIndex: int) filePath =
+    let reg = Regex(regexPattern)
+    File.ReadLines(filePath)
+    |> Seq.tryPick (fun line ->
+        let m = reg.Match(line)
+        if m.Success
+        then Some m.Groups.[groupIndex].Value
+        else None)
+    // Appveyor doesn't like `Option.defaultWith`
+    |> function
+        | Some x -> x
+        | None -> failwithf "No line matches pattern %s in file %s" regexPattern filePath
+
 // Project info
 let project = "Fable"
 
 let gitOwner = "fable-compiler"
 let gitHome = "https://github.com/" + gitOwner
 
-let dotnetcliVersion = "2.1.300-preview2-008530"
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let CWD = __SOURCE_DIRECTORY__
@@ -58,6 +71,10 @@ let coreJsSrcDir = CWD </> "src/js/fable-core"
 
 // Targets
 let installDotnetSdk () =
+    let dotnetcliVersion =
+        Path.Combine(__SOURCE_DIRECTORY__, "global.json")
+        |> findLineAndGetGroupValue "\"version\": \"(.*?)\"" 1
+
     dotnetExePath <- DotNetCli.InstallDotNetSDK dotnetcliVersion
     if Path.IsPathRooted(dotnetExePath) then
         Path.GetDirectoryName(dotnetExePath) |> addToPath
@@ -97,7 +114,7 @@ let buildCoreJS () =
 
     // Compile F# files
     nugetRestore coreJsSrcDir
-    sprintf "%s/Fable.Compiler.dll node-run %s --fable-core %s -- -c splitter.config.js"
+    sprintf "%s/dotnet-fable.dll node-run %s --fable-core %s -- -c splitter.config.js"
         cliBuildDir
         "../fable-splitter/dist/cli"
         "force:${outDir}" // fable-splitter will adjust the path
@@ -112,6 +129,11 @@ let buildSplitter () =
     !! (buildDir + "/src/*.js") |> Seq.iter (fun jsFile ->
         FileUtils.cp jsFile (buildDir + "/dist") )
 
+let buildCoreJSFull () =
+    buildCLI Release ()
+    buildSplitter ()
+    buildCoreJS ()
+
 let buildJsonConverter () =
     // "restore src/dotnet/Fable.JsonConverter"
     // |> run CWD dotnetExePath
@@ -125,12 +147,13 @@ let runTestsDotnet () =
 
 let runTestsJS () =
     Yarn.install CWD
+    CleanDir "tests/.fable"
     run CWD dotnetExePath "restore tests/Main"
-    run CWD dotnetExePath "build/fable/Fable.Compiler.dll yarn-splitter --cwd tests --fable-core build/fable-core --port free"
+    run CWD dotnetExePath "build/fable/dotnet-fable.dll yarn-splitter --cwd tests --fable-core build/fable-core --port free"
     Yarn.run (CWD </> "tests") "test" ""
 
 let quickTest() =
-    run "src/tools" dotnetExePath "../../build/fable/Fable.Compiler.dll yarn-run rollup"
+    run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll yarn-run rollup"
     run CWD "node" "src/tools/temp/QuickTest.js"
 
 Target "QuickTest" quickTest
@@ -201,11 +224,11 @@ Target "PublishPackages" (fun () ->
     let baseDir = CWD </> "src"
     let packages = [
         // Nuget packages
-        Some buildCoreJS, "dotnet/Fable.Core/Fable.Core.fsproj"
-        None, "dotnet/Fable.Compiler/Fable.Compiler.fsproj"
+        None, "dotnet/Fable.Core/Fable.Core.fsproj"
+        Some buildCoreJSFull, "dotnet/Fable.Compiler/Fable.Compiler.fsproj"
         Some updateVersionInToolsUtil, "dotnet/Fable.Compiler/Fable.Compiler.fsproj"
         None, "dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"
-        None, "plugins/nunit/Fable.Plugins.NUnit.fsproj"
+        // None, "plugins/nunit/Fable.Plugins.NUnit.fsproj"
         // NPM packages
         None, "js/fable-utils"
         None, "js/fable-loader"
@@ -269,7 +292,6 @@ let buildRepl () =
     //     for file in Directory.GetFiles(replDir </> "repl/build", "*.js") do
     //         FileUtils.cp file targetDir
     //         printfn "> Copied: %s" file
-
 
 Target "All" (fun () ->
     installDotnetSdk ()

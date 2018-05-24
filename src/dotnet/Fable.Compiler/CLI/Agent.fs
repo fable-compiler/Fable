@@ -59,12 +59,13 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
                     Log.logAlways(sprintf "Compilation of file %s aborted!" relativePath)
                     implFiles, errors
                 | FSharpCheckFileAnswer.Succeeded res ->
-                    match res.ImplementationFiles with
+                    match res.ImplementationFile with
                     | None -> implFiles, errors // TODO: Log a message?
-                    | Some newImplFiles ->
+                    | Some newImplFile ->
                         let errors = Array.append errors res.Errors
-                        (implFiles, newImplFiles) ||> List.fold (fun implFiles file ->
-                            Map.add (Path.normalizePath file.FileName) file implFiles), errors)
+                        let fileName = Path.normalizePath newImplFile.FileName
+                        Map.add fileName newImplFile implFiles, errors
+            )
         | _ ->
             Log.logAlways(sprintf "Parsing %s..." (getRelativePath projectOptions.ProjectFileName))
             let checkedProject =
