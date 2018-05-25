@@ -418,9 +418,17 @@ module private Transforms =
             Function(Delegate args, body, name)
         | e -> e
 
+    // TODO: More tests about uncurrying record fields
     let uncurryRecordFields (com: ICompiler) = function
         | Value(NewRecord(args, ent, genArgs)) ->
-            let args = uncurryArgs com None args
+            let genArgsMap =
+                FSharp2Fable.Util.matchGenericParams genArgs ent.GenericParameters
+                |> Map
+            let argTypes =
+                ent.FSharpFields
+                |> Seq.map (fun fi -> FSharp2Fable.TypeHelpers.makeType com genArgsMap fi.FieldType)
+                |> Seq.toList
+            let args = uncurryArgs com (Some argTypes)  args
             Value(NewRecord(args, ent, genArgs))
         | Get(e, RecordGet(fi, ent), t, r) ->
             let uncurriedType =

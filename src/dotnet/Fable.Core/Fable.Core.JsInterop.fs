@@ -73,36 +73,13 @@ let importSideEffects (path: string): unit = jsNative
 /// Imports a file dynamically at runtime
 let importDynamic<'T> (path: string): JS.Promise<'T> = jsNative
 
-/// Convert F# unions, records and classes into plain JS objects
-/// When designing APIs, consider also using a Pojo record or union
-let toPlainJsObj (o: 'T): obj = jsNative
-
-/// Converts an F# object into a plain JS object (POJO)
-/// This is only intended if you're using a custom serialization method
-/// and will produce the same object structure that `toJson` encodes
-/// NOTE: `deflate` is currently NOT recursive
-let deflate(o: 'T): obj = jsNative
-
 /// Serialize F# objects to JSON
+[<Obsolete("Currently not working for Fable 2, replaced by JSON.stringify")>]
 let toJson(o: 'T): string = jsNative
 
 /// Instantiate F# objects from JSON
-let [<PassGenerics>] ofJson<'T>(json: string): 'T = jsNative
-
-/// Instantiate F# objects from a JSON string and a type object
-let ofJsonAsType (json: string) (typ: System.Type) : obj = jsNative
-
-/// Serialize F# objects to JSON adding $type info
-let toJsonWithTypeInfo(o: 'T): string = jsNative
-
-/// Instantiate F# objects from JSON containing $type info
-let [<PassGenerics>] ofJsonWithTypeInfo<'T>(json: string): 'T = jsNative
-
-/// Converts a plain JS object (POJO) to an instance of the specified type.
-/// This is only intended if you're using a custom serialization method
-/// (that must produce same objects as `toJson`) instead of `ofJson`.
-/// NOTE: `inflate` is currently NOT recursive
-let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
+[<Obsolete("Currently not working for Fable 2, replaced by JSON.parse")>]
+let ofJson<'T>(json: string): 'T = jsNative
 
 /// Reads the name of an identifier, a property or a type
 let nameof(expr: 'a): string = jsNative

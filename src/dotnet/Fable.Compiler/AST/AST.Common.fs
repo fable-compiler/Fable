@@ -7,7 +7,7 @@ type NumberKind =
 type RegexFlag =
     | RegexGlobal | RegexIgnoreCase | RegexMultiline | RegexSticky
 
-(** ##Operators *)
+// Operators
 type UnaryOperator =
     | UnaryMinus
     | UnaryPlus

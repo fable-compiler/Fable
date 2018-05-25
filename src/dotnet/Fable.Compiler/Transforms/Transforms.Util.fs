@@ -206,6 +206,7 @@ module Atts =
 module Types =
     let [<Literal>] attribute = "System.Attribute"
     let [<Literal>] object = "System.Object"
+    let [<Literal>] array = "System.Array"
     let [<Literal>] exception_ = "System.Exception"
     let [<Literal>] bool = "System.Boolean"
     let [<Literal>] char = "System.Char"

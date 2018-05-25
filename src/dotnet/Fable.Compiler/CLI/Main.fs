@@ -207,10 +207,11 @@ let main argv =
         startServerWithProcess args.cwd args.port cmd execArgs
     | Some npmBin ->
         let args = argv.[1..] |> parseArguments
+        let pkgJsonDir = findPackageJsonDir args.cwd
         let execArgs =
-            let scripPath = IO.Path.Combine(findPackageJsonDir args.cwd, "node_modules/.bin/" + npmBin) |> quote
+            let scripPath = IO.Path.Combine(pkgJsonDir, "node_modules/.bin/" + npmBin) |> quote
             match args.commandArgs with
             | Some scriptArgs -> scripPath + " " + scriptArgs
             | None -> scripPath
-        startServerWithProcess args.cwd args.port "node" execArgs
+        startServerWithProcess pkgJsonDir args.port "node" execArgs
     | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; 0

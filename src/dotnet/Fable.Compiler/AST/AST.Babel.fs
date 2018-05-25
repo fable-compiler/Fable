@@ -59,7 +59,7 @@ type MacroExpression(value, args, ?loc) =
     member __.args: Expression list = args
     member __.macro = true
 
-(** ##Template Literals *)
+// Template Literals
 type TemplateElement(value: string, tail, ?loc) =
     inherit Node("TemplateElement", ?loc = loc)
     member __.tail: bool = tail
@@ -75,7 +75,7 @@ type TaggedTemplateExpression(tag, quasi, ?loc) =
     member __.tag: Expression = tag
     member __.quasi: TemplateLiteral = quasi
 
-(** ##Identifier *)
+// Identifier
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier(name, ?typeAnnotation, ?loc) =
     inherit Expression("Identifier", ?loc = loc)
@@ -84,7 +84,7 @@ type Identifier(name, ?typeAnnotation, ?loc) =
     interface Pattern
     override __.ToString() = __.name
 
-(** ##Literals *)
+// Literals
 type RegExpLiteral(pattern, flags, ?loc) =
     inherit Literal("RegExpLiteral", ?loc = loc)
     member __.pattern: string = pattern
@@ -110,7 +110,7 @@ type NumericLiteral(value, ?loc) =
     inherit Literal("NumericLiteral", ?loc = loc)
     member __.value: float = value
 
-(** ##Misc *)
+// Misc
 type Decorator(value, ?loc) =
     inherit Node("Decorator", ?loc = loc)
     member __.value = value
@@ -125,7 +125,7 @@ type Directive(value, ?loc) =
     new (str, ?loc) = Directive(DirectiveLiteral str, ?loc = loc)
     member __.value: DirectiveLiteral = value
 
-(** ##Program *)
+// Program
 
 /// A complete program source tree.
 /// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module.
@@ -141,7 +141,7 @@ type Program(fileName, body, ?directives, ?logs, ?dependencies, ?sourceFiles) =
     member __.dependencies: string[] = defaultArg dependencies [||]
     member __.sourceFiles: string[] = defaultArg sourceFiles [||]
 
-(** ##Statements *)
+// Statements
 /// An expression statement, i.e., a statement consisting of a single expression.
 type ExpressionStatement(expression, ?loc) =
     inherit Statement("ExpressionStatement", ?loc = loc)
@@ -178,7 +178,7 @@ type ContinueStatement(?label, ?loc) =
 
 // type WithStatement
 
-(** ##Control Flow *)
+// Control Flow
 type ReturnStatement(argument, ?loc) =
     inherit Statement("ReturnStatement", ?loc = loc)
     member __.argument: Expression = argument
@@ -187,7 +187,7 @@ type ReturnStatement(argument, ?loc) =
 // type BreakStatement
 // type ContinueStatement
 
-(** ##U2 *)
+// U2
 type IfStatement(test, consequent, ?alternate, ?loc) =
     inherit Statement("IfStatement", ?loc = loc)
     member __.test: Expression = test
@@ -205,7 +205,7 @@ type SwitchStatement(discriminant, cases, ?loc) =
     member __.discriminant: Expression = discriminant
     member __.cases: SwitchCase list = cases
 
-(** ##Exceptions *)
+// Exceptions
 type ThrowStatement(argument, ?loc) =
     inherit Statement("ThrowStatement", ?loc = loc)
     member __.argument: Expression = argument
@@ -223,7 +223,7 @@ type TryStatement(block, ?handler, ?finalizer, ?loc) =
     member __.handler: CatchClause option = handler
     member __.finalizer: BlockStatement option = finalizer
 
-(** ##Declarations *)
+// Declarations
 type VariableDeclarator(id, ?init, ?loc) =
     inherit Declaration("VariableDeclarator", ?loc = loc)
     member __.id: Pattern = id
@@ -239,7 +239,7 @@ type VariableDeclaration(kind, declarations, ?loc) =
     member __.kind =
         match kind with Var -> "var" | Let -> "let" | Const -> "const"
 
-(** ##Loops *)
+// Loops
 type WhileStatement(test, body, ?loc) =
     inherit Statement("WhileStatement", ?loc = loc)
     member __.test: Expression = test
@@ -282,7 +282,7 @@ type FunctionDeclaration(id, ``params``, body, ?generator, ?async, ?loc) =
     member __.generator = defaultArg generator false
     member __.async = defaultArg async false
 
-(** ##Expressions *)
+// Expressions
 
 /// A super pseudo-expression.
 type Super(?loc) =
@@ -408,7 +408,7 @@ type SequenceExpression(expressions, ?loc) =
     inherit Expression("SequenceExpression", ?loc = loc)
     member __.expressions: Expression list = expressions
 
-(** ##Unary Operations *)
+// Unary Operations
 type UnaryExpression(operator, argument, ?prefix, ?loc) =
     inherit Expression("UnaryExpression", ?loc = loc)
     member __.prefix: bool = defaultArg prefix true
@@ -432,7 +432,7 @@ type UpdateExpression(operator, prefix, argument, ?loc) =
         | UpdateMinus -> "--"
         | UpdatePlus -> "++"
 
-(** ##Binary Operations *)
+// Binary Operations
 type BinaryExpression(operator, left, right, ?loc) =
     inherit Expression("BinaryExpression", ?loc = loc)
     member __.left: Expression = left
@@ -491,7 +491,7 @@ type LogicalExpression(operator, left, right, ?loc) =
         | LogicalAnd-> "&&"
 
 
-(** ##Patterns *)
+// Patterns
 // type AssignmentProperty(key, value, ?loc) =
 //     inherit ObjectProperty("AssignmentProperty", ?loc = loc)
 //     member __.value: Pattern = value
@@ -517,7 +517,7 @@ type RestElement(argument, ?loc) =
     member __.argument: Pattern = argument
     interface Pattern
 
-(** ##Classes *)
+// Classes
 type ClassMethodKind =
     | ClassConstructor | ClassFunction | ClassGetter | ClassSetter
 
@@ -573,7 +573,7 @@ type ClassExpression(body, ?id, ?super, ?typeParams, ?loc) =
 //     member __.meta: Identifier = meta
 //     member __.property: Expression = property
 
-(** ##Modules *)
+// Modules
 /// A specifier in an import or export declaration.
 [<AbstractClass>]
 type ModuleSpecifier(typ, local, ?loc) =

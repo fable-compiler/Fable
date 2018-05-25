@@ -101,22 +101,28 @@ type Compiler(currentFile, project: Project, options) =
         member __.GetOrAddInlineExpr(fullName, generate) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
-            let tag = defaultArg tag "FABLE"
-            let severity =
-                match severity with
-                | Severity.Warning -> "warning"
-                | Severity.Error -> "error"
-                | Severity.Info -> "info"
-            let formattedMsg =
-                match fileName with
-                | Some file ->
-                    match range with
-                    | Some r -> sprintf "%s(%i,%i): (%i,%i) %s %s: %s" file r.start.line r.start.column r.``end``.line r.``end``.column severity tag msg
-                    | None -> sprintf "%s(1,1): %s %s: %s" file severity tag msg
-                | None -> msg
-            if logs.ContainsKey(severity)
-            then logs.[severity] <- formattedMsg::logs.[severity]
-            else logs.Add(severity, [formattedMsg])
+            match severity, fileName with
+            // Ignore warnings in Fable packages (contained in .fable hidden dir)
+            | Severity.Warning, Some file
+                  when file.Split([|'\\'; '/'|])
+                  |> Array.exists ((=) Naming.fableHiddenDir) -> ()
+            | _ ->
+                let tag = defaultArg tag "FABLE"
+                let severity =
+                    match severity with
+                    | Severity.Warning -> "warning"
+                    | Severity.Error -> "error"
+                    | Severity.Info -> "info"
+                let formattedMsg =
+                    match fileName with
+                    | Some file ->
+                        match range with
+                        | Some r -> sprintf "%s(%i,%i): (%i,%i) %s %s: %s" file r.start.line r.start.column r.``end``.line r.``end``.column severity tag msg
+                        | None -> sprintf "%s(1,1): %s %s: %s" file severity tag msg
+                    | None -> msg
+                if logs.ContainsKey(severity)
+                then logs.[severity] <- formattedMsg::logs.[severity]
+                else logs.Add(severity, [formattedMsg])
         member __.GetUniqueVar(name) =
             id <- id + 1
             Naming.getUniqueName (defaultArg name "var") id

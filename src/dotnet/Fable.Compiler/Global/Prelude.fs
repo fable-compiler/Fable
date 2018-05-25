@@ -90,6 +90,7 @@ module Naming =
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
     let [<Literal>] fsharpExceptionNameField = "__name"
+    let [<Literal>] fableHiddenDir = ".fable"
 
     /// Interfaces automatically assigned by the F# compiler to unions and records. Ignored by Fable.
     let ignoredInterfaces =

@@ -158,7 +158,7 @@ type CallInfo =
     SignatureArgTypes: Type list
     Spread: SpreadKind
     DeclaringEntityFullName: string
-    GenericArgs: (string * FSharpType) list }
+    GenericArgs: (string * Type) list }
 
 type OperationKind =
     | Call of kind: CallKind * info: ArgInfo

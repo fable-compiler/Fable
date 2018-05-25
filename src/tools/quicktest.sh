@@ -39,6 +39,6 @@ pushd ../dotnet/Fable.Compiler
 dotnet run --no-build yarn-splitter \
     --cwd ../../tools \
     --fable-core ../../../build/fable-core \
-    --args "${ARGS/--build-core/}"
+    # --args "${ARGS/--build-core/}"
 popd
 node temp/QuickTest.js
