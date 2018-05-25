@@ -267,7 +267,7 @@ module Util =
         | :? NumericLiteral, _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
         | _, Fable.Number(Int8 | Int16 | Int32)
-        | _, Fable.EnumType _ ->
+        | _, Fable.EnumType(Fable.NumberEnumType, _) ->
             BinaryExpression(BinaryOrBitwise, e, NumericLiteral(0.)) :> Expression
         | _ -> e
 
