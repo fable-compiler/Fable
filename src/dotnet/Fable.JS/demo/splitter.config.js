@@ -1,10 +1,17 @@
-const fableSplitter = require("fable-splitter").default;
-const fableUtils = require("fable-utils");
+const babelOptions = {
+  plugins: [
+    ["transform-es2015-modules-commonjs"],
+  ],
+  // presets: [
+  //   ["env", { modules: "umd" }],
+  // ],
+  // sourceMaps: true,
+};
 
 const fableOptions = {
-  fableCore: "../../../../build/fable-core",
+  // fableCore: "../../../../build/fable-core",
+  // plugins: [],
   define: [
-    "COMPILER_PUBLIC_API",
     "FX_NO_CORHOST_SIGNER",
     "FX_NO_LINKEDRESOURCES",
     "FX_NO_PDB_READER",
@@ -12,14 +19,15 @@ const fableOptions = {
     "FX_NO_WEAKTABLE",
     "FX_REDUCED_EXCEPTIONS",
     "NO_COMPILER_BACKEND",
+    "NO_EXTENSIONTYPING",
     "NO_INLINE_IL_PARSER"
   ],
 };
 
-const options = {
+module.exports = {
   entry: "../Fable.JS.fsproj",
   outDir: "./out",
+  //port: 61225,
+  babel: babelOptions,
   fable: fableOptions,
 };
-
-fableSplitter(options);

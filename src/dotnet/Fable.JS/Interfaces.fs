@@ -17,7 +17,6 @@ type Glyph =
     | Error
     | Event
 
-[<Pojo>]
 type Error =
     { StartLineAlternate: int
       StartColumn: int
@@ -26,7 +25,6 @@ type Error =
       Message: string
       IsWarning: bool }
 
-[<Pojo>]
 type Completion =
     { Name: string
       Glyph: Glyph }
@@ -34,17 +32,17 @@ type Completion =
 type IChecker =
     interface end
 
-type IFableCompiler =
-    interface end
+// type IFableCompiler =
+//     interface end
 
 type IParseResults =
     abstract Errors: Error[]
 
 type IFableManager =
     abstract CreateChecker: references:string[] * readAllBytes:(string->byte[]) -> IChecker
-    abstract CreateCompiler: fableCorDir:string * ?replacements: seq<string * string> -> IFableCompiler
+    //abstract CreateCompiler: fableCorDir:string * ?replacements: seq<string * string> -> IFableCompiler
     abstract ParseFSharpProject: checker:IChecker * fileName:string * source:string->IParseResults
     abstract GetToolTipText: parseResults:IParseResults * line:int * col:int * lineText:string -> Async<string[]>
     abstract GetCompletionsAtLocation: parseResults:IParseResults * line:int * col:int * lineText:string -> Async<Completion[]>
-    abstract CompileToBabelAst: com: IFableCompiler * parseResults:IParseResults * fileName:string * optimized:bool -> Fable.AST.Babel.Program
-    abstract CompileToBabelJsonAst: com: IFableCompiler * parseResults:IParseResults * fileName:string * ?optimized:bool -> string
+    abstract CompileToBabelAst: fableCore:string * parseResults:IParseResults * fileName:string * optimized:bool -> Fable.AST.Babel.Program
+    // abstract CompileToBabelJsonAst: fableCore:string * parseResults:IParseResults * fileName:string * ?optimized:bool -> string

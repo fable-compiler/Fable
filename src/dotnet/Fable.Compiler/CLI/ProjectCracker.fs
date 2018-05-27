@@ -314,7 +314,7 @@ let createFableDir rootDir =
     fableDir
 
 let copyDirIfDoesNotExist (source: string) (target: string) =
-    if isDirectoryEmpty target then
+    if Directory.Exists source && isDirectoryEmpty target then
         let source = source.TrimEnd('/', '\\')
         let target = target.TrimEnd('/', '\\')
         for dirPath in Directory.GetDirectories(source, "*", SearchOption.AllDirectories) do

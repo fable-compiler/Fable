@@ -5,7 +5,8 @@ open Interfaces
 open Fable
 open Fable.AST
 open Fable.Core
-open Fable.State
+open Fable.Transforms
+open Fable.Transforms.State
 open FsAutoComplete
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
@@ -13,9 +14,9 @@ type private CheckerImpl(c: InteractiveChecker) =
     member __.Checker = c
     interface IChecker
 
-type private CompilerImpl(c: Compiler) =
-    member __.Compiler = c
-    interface IFableCompiler
+// type private CompilerImpl(c: Compiler) =
+//     member __.Compiler = c
+//     interface IFableCompiler
 
 type ParseResults =
     { ParseFile: FSharpParseFileResults
@@ -139,7 +140,7 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
         { Name = decl.Name; Glyph = convertGlyph decl.Glyph })
 }
 
-let makeProjOptions (_com: ICompiler) projFile =
+let makeProjOptions projFile =
     let projOptions: FSharpProjectOptions =
       { ProjectFileName = projFile
         SourceFiles = [| |]
@@ -154,38 +155,48 @@ let makeProjOptions (_com: ICompiler) projFile =
         Stamp = None }
     projOptions
 
-let compileAst (com: Compiler) fileName optimized (parseResults: ParseResults) =
+let makeProject fileName optimized (parseResults: ParseResults) =
     // let errors = com.ReadAllLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let checkedProject = parseResults.CheckProject
-    let projectOptions = makeProjOptions com fileName
+    let projectOptions = makeProjOptions fileName
     let implFiles =
         (if optimized
          then checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
          else checkedProject.AssemblyContents.ImplementationFiles)
         |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
     // Dealing with fableCoreDir is a bit messy atm, for the REPL, only the value in the Compiler options matters
-    let project = Project(projectOptions, implFiles, parseResults.CheckProject.Errors, Map.empty, NonFilePath "", isWatchCompile=false)
+    let project = Project(projectOptions, implFiles, parseResults.CheckProject.Errors, Map.empty, "", isWatchCompile=false)
+    project
 
-    let file: Babel.Program =
-        FSharp2Fable.Compiler.transformFile com project project.ImplementationFiles fileName
-        |> Fable2Babel.Compiler.transformFile com project
-    let loc = defaultArg file.loc SourceLocation.Empty
-    Babel.Program(file.fileName, loc, file.body, file.directives, com.ReadAllLogs())
+let makeCompiler fableCore filePath (project: Project) =
+    let options = {
+        typedArrays = true
+        clampByteArrays = false }
+    let com = Compiler(fableCore, filePath, project, options)
+    com
+
+let compileAst (com: Compiler) (project: Project) =
+    let babel =
+        FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
+        |> FableTransforms.optimizeFile com
+        |> Fable2Babel.Compiler.transformFile com
+    let program = Babel.Program(babel.fileName, babel.body, babel.directives, com.ReadAllLogs())
+    program
 
 let defaultManager =
   { new IFableManager with
         member __.CreateChecker(references, readAllBytes) =
             InteractiveChecker.Create(references, readAllBytes)
             |> CheckerImpl :> IChecker
-        member __.CreateCompiler(fableCoreDir, replacements) =
-            let options =
-                { fableCore = fableCoreDir
-                  emitReplacements = defaultArg replacements (upcast [||]) |> Map
-                  typedArrays = true
-                  clampByteArrays = false
-                  declaration = false }
-            Compiler(options) |> CompilerImpl :> IFableCompiler
+        // member __.CreateCompiler(fableCoreDir, replacements) =
+        //     let options =
+        //         { fableCore = fableCoreDir
+        //           emitReplacements = defaultArg replacements (upcast [||]) |> Map
+        //           typedArrays = true
+        //           clampByteArrays = false
+        //           declaration = false }
+        //     Compiler(options) |> CompilerImpl :> IFableCompiler
         member __.ParseFSharpProject(checker, fileName, source) =
             let c = checker :?> CheckerImpl
             parseFSharpProject c.Checker fileName source :> IParseResults
@@ -195,14 +206,15 @@ let defaultManager =
         member __.GetCompletionsAtLocation(parseResults:IParseResults, line:int, col:int, lineText:string) =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText
-        member __.CompileToBabelAst(com: IFableCompiler, parseResults:IParseResults, fileName:string, optimized: bool) =
-            let com = com :?> CompilerImpl
+        member __.CompileToBabelAst(fableCore:string, parseResults:IParseResults, fileName:string, optimized: bool) =
             let res = parseResults :?> ParseResults
-            res |> compileAst com.Compiler fileName optimized
-        member x.CompileToBabelJsonAst(com: IFableCompiler, parseResults:IParseResults, fileName:string, ?optimized: bool) =
-            let optimized = defaultArg optimized false
-            x.CompileToBabelAst(com, parseResults, fileName, optimized)
-            |> JsInterop.toJson
+            let project = makeProject fileName optimized res
+            let com = makeCompiler fableCore fileName project
+            compileAst com project
+        // member x.CompileToBabelJsonAst(fableCore:string, parseResults:IParseResults, fileName:string, ?optimized: bool) =
+        //     let optimized = defaultArg optimized false
+        //     x.CompileToBabelAst(fableCore, parseResults, fileName, optimized)
+        //     |> JsInterop.toJson
   }
 
 [<ExportDefault>]

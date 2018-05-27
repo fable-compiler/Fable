@@ -40,7 +40,7 @@
       <PackagePath>prefercliruntime</PackagePath>
       <Pack>true</Pack>
     </Content>
-    <Content Include="..\..\..\build\fable-core\" PackagePath="fable-core\" />
+    <Content Include="../../../build/fable-core" PackagePath="fable-core" />
   </ItemGroup>
-  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
+  <Import Project="../../../.paket/Paket.Restore.targets" />
 </Project>

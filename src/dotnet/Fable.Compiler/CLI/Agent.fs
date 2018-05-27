@@ -207,7 +207,8 @@ let startAgent () = MailboxProcessor<Command>.Start(fun agent ->
                 let msg = Parser.parse msg
                 // lazy sprintf "Received message %A" msg |> Log.logVerbose
                 let isUpdated, state, activeProject = updateState checker state msg
-                let com = Compiler(msg.path, activeProject, Parser.toCompilerOptions msg)
+                let fableCore = (Path.getRelativePath msg.path activeProject.FableCore).TrimEnd('/')
+                let com = Compiler(fableCore, msg.path, activeProject, Parser.toCompilerOptions msg)
                 // If the project has been updated and this is a watch compilation, add
                 // F# errors/warnings here so they're not skipped if they affect another file
                 if isUpdated && activeProject.IsWatchCompile then
