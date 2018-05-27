@@ -1,12 +1,11 @@
 {
   "private": true,
   "scripts": {
-    "prebuild": "dotnet restore --no-cache",
-    "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",
+    "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start --port 61225",
     "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run splitter",
     "webpack": "node ../../../../node_modules/webpack/bin/webpack -p",
     "rollup": "node ../../../../node_modules/rollup/bin/rollup -c",
-    "splitter": "node splitter.config.js",
+    "splitter": "node ../../../../src/js/fable-splitter/dist/cli -c splitter.config.js",
     "start": "node out/app"
   }
 }
