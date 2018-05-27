@@ -1,23 +1,20 @@
 {
   "name": "fable-loader",
-  "version": "2.0.0-alpha-001",
-  "description": "Webpack loader for Fable compiler",
+  "version": "2.0.0-alpha-002",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Alfonso Garcia-Caro",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/fable-compiler/Fable.git"
-  },
+  "description": "Webpack loader for Fable compiler",
   "keywords": [
     "fable",
     "fsharp",
     "F#",
     "webpack"
   ],
+  "author": "Alfonso Garcia-Caro",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fable-compiler/Fable.git"
+  },
   "bugs": {
     "url": "https://github.com/fable-compiler/Fable/issues"
   },
@@ -29,6 +26,7 @@
     "@babel/core": "^7.0.0-beta.47"
   },
   "dependencies": {
+    "core-js": "^2.5.7",
     "fable-utils": "^1.0.4"
   }
 }
