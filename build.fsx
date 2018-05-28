@@ -167,12 +167,12 @@ Target "QuickFableCoreTest" (fun () ->
     buildCoreJS ()
     quickTest ())
 
-let updateVersionInToolsUtil () =
+let updateVersionInCliUtil () =
     let reg = Regex(@"\bVERSION\s*=\s*""(.*?)""")
     let release =
         CWD </> "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
         |> ReleaseNotesHelper.LoadReleaseNotes
-    let mainFile = CWD </> "src/dotnet/Fable.Compiler/ToolsUtil.fs"
+    let mainFile = CWD </> "src/dotnet/Fable.Compiler/CLI/CLI.Util.fs"
     (reg, mainFile) ||> replaceLines (fun line m ->
         let replacement = sprintf "VERSION = \"%s\"" release.NugetVersion
         reg.Replace(line, replacement) |> Some)
@@ -228,10 +228,11 @@ Target "PublishPackages" (fun () ->
     let packages = [
         // Nuget packages
         None, "dotnet/Fable.Core/Fable.Core.fsproj"
-        Some buildCoreJSFull, "dotnet/Fable.Compiler/Fable.Compiler.fsproj"
-        Some updateVersionInToolsUtil, "dotnet/Fable.Compiler/Fable.Compiler.fsproj"
+        Some (fun () ->
+            buildCoreJSFull ()
+            updateVersionInCliUtil ()
+        ), "dotnet/Fable.Compiler/Fable.Compiler.fsproj"
         None, "dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"
-        // None, "plugins/nunit/Fable.Plugins.NUnit.fsproj"
         // NPM packages
         None, "js/fable-utils"
         None, "js/fable-loader"
@@ -302,22 +303,16 @@ Target "All" (fun () ->
     buildCLI Release ()
     buildSplitter ()
     buildCoreJS ()
+    // buildJsonConverter () // Temporarily disabled for Fable 2
 
-    // Fable 2.0 development
     runTestsJS ()
-    runTestsDotnet ()
 
-    // Temporarily disabled for Fable 2.0 development
-    // ----------------------------------------------
-    // buildJsonConverter ()
-    // runTestsJS ()
-
-    // match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
-    // | Some _, _ -> runTestsDotnet (); buildRepl ()
-    // // .NET tests fail most of the times in Travis for obscure reasons
-    // | _, Some _ -> buildRepl ()
-    // // Don't build repl locally (takes too long)
-    // | None, None -> runTestsDotnet ()
+    match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
+    | Some _, _ -> runTestsDotnet (); // buildRepl ()
+    // .NET tests fail most of the times in Travis for obscure reasons
+    | _, Some _ -> () // buildRepl ()
+    // Don't build repl locally (takes too long)
+    | None, None -> runTestsDotnet ()
 )
 
 Target "REPL" buildRepl
