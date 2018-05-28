@@ -177,8 +177,8 @@ module Helpers =
 
     let getFsTypeFullName (typ: FSharpType) =
         match tryDefinition typ with
-        | Some tdef -> defaultArg tdef.TryFullName "unknown"
-        | None -> "unknown"
+        | Some tdef -> defaultArg tdef.TryFullName Naming.unknown
+        | None -> Naming.unknown
 
     let isInline (memb: FSharpMemberOrFunctionOrValue) =
         match memb.InlineAnnotation with
@@ -344,25 +344,28 @@ module Patterns =
             Some (callee, eventName, memb, typArgs, methTypArgs, args)
         | _ -> None
 
-    // TODO: Convert this to dictionary
-    let (|NumberKind|_|) = function
-        | "System.SByte" -> Some Int8
-        | "System.Byte" -> Some UInt8
-        | "System.Int16" -> Some Int16
-        | "System.UInt16" -> Some UInt16
-        | "System.Int32" -> Some Int32
-        | "System.UInt32" -> Some UInt32
-        | "System.Single" -> Some Float32
-        | "System.Double" -> Some Float64
-        | "System.Decimal" -> Some Decimal
-        // Units of measure
-        | "Microsoft.FSharp.Core.sbyte`1" -> Some Int8
-        | "Microsoft.FSharp.Core.int16`1" -> Some Int16
-        | "Microsoft.FSharp.Core.int`1" -> Some Int32
-        | "Microsoft.FSharp.Core.float32`1" -> Some Float32
-        | "Microsoft.FSharp.Core.float`1" -> Some Float64
-        | "Microsoft.FSharp.Core.decimal`1" -> Some Decimal
-        | _ -> None
+    let private numberTypes =
+        dict ["System.SByte", Int8
+              "System.Byte", UInt8
+              "System.Int16", Int16
+              "System.UInt16", UInt16
+              "System.Int32", Int32
+              "System.UInt32", UInt32
+              "System.Single", Float32
+              "System.Double", Float64
+              "System.Decimal", Decimal
+               // Units of measure
+              "Microsoft.FSharp.Core.sbyte`1", Int8
+              "Microsoft.FSharp.Core.int16`1", Int16
+              "Microsoft.FSharp.Core.int`1", Int32
+              "Microsoft.FSharp.Core.float32`1", Float32
+              "Microsoft.FSharp.Core.float`1", Float64
+              "Microsoft.FSharp.Core.decimal`1", Decimal]
+
+    let (|NumberKind|_|) fullName =
+        match numberTypes.TryGetValue(fullName) with
+        | true, kind -> Some kind
+        | false, _ -> None
 
     let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|DiscriminatedUnion|) (NonAbbreviatedType typ: FSharpType) =
         match tryDefinition typ with

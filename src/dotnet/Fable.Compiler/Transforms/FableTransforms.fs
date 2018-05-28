@@ -10,7 +10,7 @@ let visit f e =
     | IdentExpr _ | Import _ | Debugger _ -> e
     | Value kind ->
         match kind with
-        | This _ | Super _ | Null _ | UnitConstant
+        | TypeInfo _ | This _ | Super _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ | Enum _ -> e
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> Value
@@ -103,7 +103,7 @@ let getSubExpressions = function
     | IdentExpr _ | Import _ | Debugger _ -> []
     | Value kind ->
         match kind with
-        | This _ | Super _ | Null _ | UnitConstant
+        | TypeInfo _ | This _ | Super _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ | Enum _ -> []
         | NewOption(e, _) -> Option.toList e

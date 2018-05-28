@@ -50,6 +50,9 @@ let jsOptions<'T> (f: 'T->unit): 'T = jsNative
 /// Create an empty JS object: {}
 let createEmpty<'T> : 'T = jsNative
 
+/// Get the JS function constructor for class types
+let jsConstructor<'T> : obj = jsNative
+
 /// Works like `ImportAttribute` (same semantics as ES6 imports).
 /// You can use "*" or "default" selectors.
 let import<'T> (selector: string) (path: string):'T = jsNative
@@ -80,6 +83,12 @@ let toJson(o: 'T): string = jsNative
 /// Instantiate F# objects from JSON
 [<Obsolete("Currently not working for Fable 2, replaced by JSON.parse")>]
 let ofJson<'T>(json: string): 'T = jsNative
+
+[<Obsolete("Doesn't do anything in Fable 2, please remove")>]
+let inflate<'T>(pojo: obj): 'T = jsNative
+
+[<Obsolete("Doesn't do anything in Fable 2, please remove")>]
+let deflate(o: 'T): obj = jsNative
 
 /// Reads the name of an identifier, a property or a type
 let nameof(expr: 'a): string = jsNative

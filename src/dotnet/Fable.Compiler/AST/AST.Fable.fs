@@ -9,6 +9,7 @@ type EnumTypeKind = NumberEnumType | StringEnumType
 type FunctionTypeKind = LambdaType of Type | DelegateType of Type list
 
 type Type =
+    | MetaType
     | Any
     | Unit
     | Boolean
@@ -88,6 +89,7 @@ type EnumKind = NumberEnum of Expr | StringEnum of Expr
 type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of Expr
 
 type ValueKind =
+    | TypeInfo of Type * SourceLocation option // Error messages need location info
     | This of Type
     | Super of Type
     | Null of Type
@@ -107,6 +109,7 @@ type ValueKind =
     | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
     member this.Type =
         match this with
+        | TypeInfo _ -> MetaType
         | This t | Super t | Null t -> t
         | UnitConstant -> Unit
         | BoolConstant _ -> Boolean

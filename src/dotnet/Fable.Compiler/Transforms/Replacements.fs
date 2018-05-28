@@ -525,7 +525,7 @@ let isCompatibleWithJsComparison = function
     | DeclaredType _ -> false
     // TODO: Raise warning when building dictionary/hashset with generic params?
     | GenericParam _ -> true
-    | Any | Unit | Boolean | Number _ | String | Char | Regex
+    | MetaType | Any | Unit | Boolean | Number _ | String | Char | Regex
     | EnumType _ | ErasedUnion _ | FunctionType _ -> true
 
 let rec equals r equal left right =
@@ -763,11 +763,11 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
             | _ ->
                 match args with
                 | Value(StringConstant selector)::args -> selector, args
-                | _ -> fail(); "*", [makeStrConst "unknown"]
+                | _ -> fail(); "*", [makeStrConst Naming.unknown]
         let path =
             match args with
             | [Value(StringConstant path)] -> path
-            | _ -> fail(); "unknown"
+            | _ -> fail(); Naming.unknown
         Import(selector, path, CustomImport, t) |> Some
     // Dynamic casting, erase
     | "op_BangBang", _ | "op_BangHat", _ -> List.tryHead args
@@ -795,17 +795,21 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         makePojoFromLambda arg |> Some
     | "jsThis", _ ->
         This t |> Value |> Some
+    | "jsConstructor", _ ->
+        match genArg com r 0 i.GenericArgs with
+        | DeclaredType(ent, _) when ent.IsClass -> FSharp2Fable.Util.entityRefMaybeImported com r ent |> Some
+        | _ -> addError com r "Only class types define a function constructor in JS"; None
     | "createEmpty", _ ->
         objExpr t [] |> Some
     | "nameof", _ ->
         match args with
         | [Nameof name] -> name
-        | _ -> "Cannot infer name of expression" |> addError com r; "unknown"
+        | _ -> "Cannot infer name of expression" |> addError com r; Naming.unknown
         |> makeStrConst |> Some
     | "nameofLambda", _ ->
         match args with
         | [Function(_, Nameof name, _)] -> name
-        | _ -> "Cannot infer name of expression" |> addError com r; "unknown"
+        | _ -> "Cannot infer name of expression" |> addError com r; Naming.unknown
         |> makeStrConst |> Some
     | "AreEqual", _ ->
         Helper.CoreCall("Util", "assertEqual", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
@@ -818,6 +822,7 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         Throw(error runtimeMsg, t, r) |> Some
     | "ofJson", _ -> Helper.GlobalCall("JS", t, args, memb="parse", ?loc=r) |> Some
     | "toJson", _ -> Helper.GlobalCall("JS", t, args, memb="stringify", ?loc=r) |> Some
+    | ("inflate"|"deflate"), _ -> List.tryHead args
     | _ -> None
 
 let references (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1003,11 +1008,23 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         makeUnOp r t operand UnaryNot |> Some
     | Patterns.SetContains Operators.standardSet, _ ->
         applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
-    // Type ref
+    // Type info
     | ("TypeOf" | "TypeDefOf"), _ ->
-        match genArg com r 0 i.GenericArgs with
-        | DeclaredType(ent, _) -> FSharp2Fable.Util.entityRefMaybeImported com r ent |> Some
-        | _ -> None // TODO: Error message
+        let t =
+            if i.CompiledName = "TypeDefOf" then
+                match genArg com r 0 i.GenericArgs with
+                | Option _ -> Option Any
+                | Array _ -> Array Any
+                | List _ -> List Any
+                | Tuple genArgs ->
+                    genArgs |> List.map (fun _ -> Any) |> Tuple
+                | DeclaredType(ent, genArgs) ->
+                    let genArgs = genArgs |> List.map (fun _ -> Any)
+                    DeclaredType(ent, genArgs)
+                // TODO: Do something with FunctionType and ErasedUnion?
+                | t -> t
+            else genArg com r 0 i.GenericArgs
+        TypeInfo(t, r) |> Value |> Some
     | _ -> None
 
 let chars (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =

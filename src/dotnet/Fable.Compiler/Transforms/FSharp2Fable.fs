@@ -25,7 +25,7 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
         | _ -> "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
     | StringEnum tdef ->
-        let enumName = defaultArg tdef.TryFullName "unknown"
+        let enumName = defaultArg tdef.TryFullName Naming.unknown
         match argExprs with
         | [] -> Fable.Enum(lowerCaseName unionCase |> Fable.StringEnum, enumName) |> Fable.Value
         | _ -> "StringEnum types cannot have fields: " + enumName

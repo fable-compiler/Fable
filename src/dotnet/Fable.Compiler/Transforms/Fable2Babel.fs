@@ -41,6 +41,16 @@ type IBabelCompiler =
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr
         -> (Pattern list) * U2<BlockStatement, Expression>
 
+/// This needs to match TypeInfoKind in fable-core/Reflection.ts
+type TypeInfoKind =
+  | Option = 1
+  | Tuple = 2
+  | Array = 3
+  | List = 4
+  | Record = 5
+  | Union = 6
+  | Class = 7
+
 module Util =
     let inline (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
     let inline (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformAsExpr(ctx, e)
@@ -171,7 +181,13 @@ module Util =
     let coreUtil (com: IBabelCompiler) ctx methodName args =
         CallExpression(com.TransformImport(ctx, methodName, "Util", Fable.CoreLib), args) :> Expression
 
-    let buildArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
+    let coreMethod (com: IBabelCompiler) ctx moduleName methodName args =
+        CallExpression(com.TransformImport(ctx, methodName, moduleName, Fable.CoreLib), args) :> Expression
+
+    let coreValue (com: IBabelCompiler) ctx moduleName methodName =
+        com.TransformImport(ctx, methodName, moduleName, Fable.CoreLib)
+
+    let makeTypedArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
         match typ with
         | Fable.Number kind when com.Options.typedArrays ->
             let cons = getTypedArrayName com kind |> Identifier
@@ -190,10 +206,16 @@ module Util =
             | Fable.ArrayAlloc(TransformExpr com ctx size) ->
                 upcast NewExpression(Identifier "Array", [size])
 
-    let buildStringArray strings =
+    let makeStringArray strings =
         strings
         |> List.map (fun x -> StringLiteral x :> Expression)
         |> ArrayExpression :> Expression
+
+    let makeJsObject pairs =
+        pairs |> List.map (fun (name, value) ->
+            let prop, computed = memberFromName name
+            ObjectProperty(prop, value, computed=computed) |> U3.Case1)
+        |> ObjectExpression :> Expression
 
     let assign range left right =
         AssignmentExpression(AssignEqual, left, right, ?loc=range)
@@ -311,13 +333,93 @@ module Util =
             match expr with
             | Replacements.ListLiteral(exprs, _) ->
                 // Use type Any to prevent creation of a typed array
-                buildArray com ctx Fable.Any (Fable.ArrayValues exprs)
+                makeTypedArray com ctx Fable.Any (Fable.ArrayValues exprs)
             | _ -> com.TransformAsExpr(ctx, expr)
         | Fable.AsPojo caseRule -> com.TransformAsExpr(ctx, Replacements.makePojo caseRule expr)
         | Fable.AsUnit -> com.TransformAsExpr(ctx, expr)
 
+    let rec transformTypeInfo (com: IBabelCompiler) ctx r t: Expression =
+        let error msg = addErrorAndReturnNull com r msg
+        let nonGenericTypeInfo fullname =
+            [ StringLiteral fullname :> Expression ]
+            |> coreMethod com ctx "Reflection" "type"
+        let resolveType argMap t =
+            FSharp2Fable.TypeHelpers.makeType com argMap t
+            |> transformTypeInfo com ctx r
+        match t with
+        | Fable.GenericParam _ -> error "Cannot get type info of generic parameter, please inline or inject a type resolver"
+        | Fable.Unit    -> coreValue com ctx "Reflection" "unit"
+        | Fable.Boolean -> coreValue com ctx "Reflection" "bool"
+        | Fable.Char    -> coreValue com ctx "Reflection" "char"
+        // TODO: Type info forErasedUnion?
+        | Fable.ErasedUnion _ | Fable.Any ->
+            coreValue com ctx "Reflection" "obj"
+        | Fable.String | Fable.EnumType(Fable.StringEnumType, _) ->
+            coreValue com ctx "Reflection" "string"
+        | Fable.EnumType(Fable.NumberEnumType, _) -> // TODO: Type info for enums?
+            coreValue com ctx "Reflection" "int32"
+        | Fable.Number kind ->
+            match kind with
+            | Int8 -> "int8"
+            | UInt8 -> "uint8"
+            | Int16 -> "int16"
+            | UInt16 -> "uint16"
+            | Int32 -> "int32"
+            | UInt32 -> "uint32"
+            | Float32 -> "float32"
+            | Float64 -> "float64"
+            | Decimal -> "decimal"
+            |> coreValue com ctx "Reflection"
+        | Fable.FunctionType(Fable.LambdaType argType, returnType) ->
+            [ transformTypeInfo com ctx r argType
+              transformTypeInfo com ctx r returnType ]
+            |> coreMethod com ctx "Reflection" "lambda"
+        | Fable.FunctionType(Fable.DelegateType argTypes, returnType) ->
+            let argTypes = List.map (transformTypeInfo com ctx r) argTypes
+            let returnType = transformTypeInfo com ctx r returnType
+            coreMethod com ctx "Reflection" "delegate" (argTypes @ [returnType])
+        | Fable.Tuple genArgs ->
+            List.map (transformTypeInfo com ctx r) genArgs
+            |> coreMethod com ctx "Reflection" "tuple"
+        | Fable.Option gen  -> [ transformTypeInfo com ctx r gen ] |> coreMethod com ctx "Reflection" "option"
+        | Fable.Array gen   -> [ transformTypeInfo com ctx r gen ] |> coreMethod com ctx "Reflection" "array"
+        | Fable.List gen    -> [ transformTypeInfo com ctx r gen ] |> coreMethod com ctx "Reflection" "list"
+        | Fable.Regex       -> nonGenericTypeInfo Types.regex
+        | Fable.MetaType    -> nonGenericTypeInfo "System.Type"
+        | Fable.DeclaredType(ent, generics) ->
+            let genMap =
+                let argNames = ent.GenericParameters |> Seq.map (fun x -> x.Name)
+                Seq.zip argNames generics |> Map
+            let generics = List.map (transformTypeInfo com ctx r) generics |> ArrayExpression :> Expression
+            let fullname = defaultArg ent.TryFullName Naming.unknown |> StringLiteral :> Expression
+            if ent.IsFSharpRecord then
+                [ yield fullname
+                  yield generics
+                  yield! ent.FSharpFields |> Seq.map (fun x ->
+                    ArrayExpression [StringLiteral x.Name; resolveType genMap x.FieldType] :> Expression)
+                ] |> coreMethod com ctx "Reflection" "record"
+            elif ent.IsFSharpUnion then
+                [ yield fullname
+                  yield generics
+                  yield! ent.UnionCases |> Seq.map (fun x ->
+                    let name = StringLiteral x.Name :> Expression
+                    if x.UnionCaseFields.Count = 0
+                    then name
+                    else
+                        let fieldTypes =
+                            x.UnionCaseFields
+                            |> Seq.map (fun x -> resolveType genMap x.FieldType)
+                            |> Seq.toList
+                        [ "name", name
+                          "fields", upcast ArrayExpression fieldTypes ]
+                        |> makeJsObject)
+                ] |> coreMethod com ctx "Reflection" "union"
+            else
+                coreMethod com ctx "Reflection" "type" [fullname; generics]
+
     let transformValue (com: IBabelCompiler) (ctx: Context) value: Expression =
         match value with
+        | Fable.TypeInfo(t, r) -> transformTypeInfo com ctx r t
         | Fable.This _ | Fable.Super _  -> upcast ThisExpression ()
         | Fable.Null _ -> upcast NullLiteral ()
         | Fable.UnitConstant -> upcast NullLiteral () // TODO: Use `void 0`?
@@ -330,8 +432,8 @@ module Util =
             then upcast UnaryExpression(UnaryMinus, NumericLiteral(x * -1.))
             else upcast NumericLiteral x
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral (source, flags)
-        | Fable.NewArray (arrayKind, typ) -> buildArray com ctx typ arrayKind
-        | Fable.NewTuple vals -> buildArray com ctx Fable.Any (Fable.ArrayValues vals)
+        | Fable.NewArray (arrayKind, typ) -> makeTypedArray com ctx typ arrayKind
+        | Fable.NewTuple vals -> makeTypedArray com ctx Fable.Any (Fable.ArrayValues vals)
         // TODO: Compile as List.ofArray if it's a list literal with many values?
         | Fable.NewList (headAndTail, _) ->
             match headAndTail with
@@ -373,7 +475,7 @@ module Util =
                     match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
                     | Some _ -> vals
                     | None -> (Fable.Value(Fable.StringConstant name))::vals
-                Fable.ArrayValues vals |> buildArray com ctx Fable.Any
+                Fable.ArrayValues vals |> makeTypedArray com ctx Fable.Any
             // Unions without any case with fields are compiled as strings
             else upcast StringLiteral name
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
@@ -631,6 +733,7 @@ module Util =
         let jsInstanceof (TransformExpr com ctx cons) (TransformExpr com ctx expr): Expression =
             upcast BinaryExpression(BinaryInstanceOf, expr, cons, ?loc=range)
         match typ with
+        | Fable.MetaType -> upcast BooleanLiteral false // TODO: Actually check if it's type info?
         | Fable.Any -> upcast BooleanLiteral true
         | Fable.Unit -> upcast BinaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
         | Fable.Boolean -> jsTypeof "boolean" expr
