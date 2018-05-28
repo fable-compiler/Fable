@@ -7,6 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- TODO: switch from local to paket reference -->
+    <!-- <ProjectReference Include="../../../paket-files/ncave/FCS/fcs/fcs-fable/fcs-fable.fsproj" /> -->
     <ProjectReference Include="../../../../FSharp.Compiler.Service_fable/fcs/fcs-fable/fcs-fable.fsproj" />
   </ItemGroup>
 
