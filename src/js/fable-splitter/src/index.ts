@@ -266,6 +266,9 @@ async function transformAsync(path: string, options: FableSplitterOptions, info:
 }
 
 function setDefaultOptions(options: FableSplitterOptions) {
+    if (options.entry == null || options.entry.length === 0) {
+        throw new Error("Missing or empty: entry path")
+    }
     options = Object.assign({}, options);
     options.entry = getFullPath(options.entry); // Normalize path
     options.outDir = getFullPath(options.outDir || ".", true);

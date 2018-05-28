@@ -120,6 +120,9 @@ let buildCoreJS () =
         "force:${outDir}" // fable-splitter will adjust the path
     |> run coreJsSrcDir dotnetExePath
 
+    // Process injects
+    run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run"
+
 let buildSplitter () =
     let buildDir = CWD </> "src/js/fable-splitter"
     Yarn.install CWD
