@@ -208,10 +208,8 @@ let main argv =
     | Some npmBin ->
         let args = argv.[1..] |> parseArguments
         let pkgJsonDir = findPackageJsonDir args.cwd
-        let execArgs =
-            let scripPath = IO.Path.Combine(pkgJsonDir, "node_modules/.bin/" + npmBin) |> quote
-            match args.commandArgs with
-            | Some scriptArgs -> scripPath + " " + scriptArgs
-            | None -> scripPath
-        startServerWithProcess pkgJsonDir args.port "node" execArgs
+        let binPath = IO.Path.Combine(pkgJsonDir, "node_modules/.bin/" + npmBin)
+        let binPath = (if Process.isWindows then binPath + ".cmd" else binPath) |> quote
+        defaultArg args.commandArgs ""
+        |> startServerWithProcess pkgJsonDir args.port binPath
     | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; 0

@@ -81,9 +81,13 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
-type Compiler(fableCore, currentFile, project: Project, options) =
+type Compiler(currentFile, project: Project, options, ?fableCore: string) =
     let mutable id = 0
     let logs = Dictionary<string, string list>()
+    let fableCore =
+        match fableCore with
+        | Some fableCore -> fableCore.TrimEnd('/')
+        | None -> (Path.getRelativePath currentFile project.FableCore).TrimEnd('/')
     member __.ReadAllLogs() =
         logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value) |> Map
     member __.Options = options

@@ -89,15 +89,16 @@ module Process =
         member val EnvVars = defaultArg envVars Map.empty<string,string>
         member val RedirectOuput = defaultArg redirectOutput false
 
+    let isWindows =
+        #if NETFX
+        true
+        #else
+        System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
+            (System.Runtime.InteropServices.OSPlatform.Windows)
+        #endif
+
     let start workingDir fileName args (opts: Options) =
         let fileName, args =
-            let isWindows =
-                #if NETFX
-                true
-                #else
-                System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
-                    (System.Runtime.InteropServices.OSPlatform.Windows)
-                #endif
             if isWindows
             then "cmd", ("/C " + fileName + " " + args)
             else fileName, args

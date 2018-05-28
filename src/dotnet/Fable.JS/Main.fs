@@ -173,7 +173,7 @@ let makeCompiler fableCore filePath (project: Project) =
     let options = {
         typedArrays = true
         clampByteArrays = false }
-    let com = Compiler(fableCore, filePath, project, options)
+    let com = Compiler(filePath, project, options, fableCore)
     com
 
 let compileAst (com: Compiler) (project: Project) =
