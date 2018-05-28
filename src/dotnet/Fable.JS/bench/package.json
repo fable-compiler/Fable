@@ -2,7 +2,7 @@
   "private": true,
   "scripts": {
     "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start --port 61225",
-    "build": "dotnet ../../../../build/fable/dotnet-fable.dll npm-run splitter",
+    "build": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../../build/fable-core",
     "webpack": "node ../../../../node_modules/webpack/bin/webpack -p",
     "rollup": "node ../../../../node_modules/rollup/bin/rollup -c",
     "splitter": "node ../../../../src/js/fable-splitter/dist/cli -c splitter.config.js",
