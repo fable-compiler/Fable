@@ -100,7 +100,7 @@ module Process =
     let start workingDir fileName args (opts: Options) =
         let fileName, args =
             if isWindows
-            then "cmd", ("/C " + fileName + " " + args)
+            then "cmd", ("/C \"" + fileName + "\" " + args)
             else fileName, args
         printfn "CWD: %s" workingDir
         printfn "%s %s" fileName args

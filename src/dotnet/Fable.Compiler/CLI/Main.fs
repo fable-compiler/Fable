@@ -118,7 +118,7 @@ let setGlobalParams(args: string[]) =
     | None -> ()
 
 let printHelp() =
-    (Literals.VERSION, Literals.DEFAULT_PORT) ||> printfn """Fable F# to JS compiler (%s)
+    Literals.VERSION |> printfn """Fable F# to JS compiler (%s)
 Usage: dotnet fable [command] [script] [fable arguments] [-- [script arguments]]
 
 Commands:
@@ -129,17 +129,16 @@ Commands:
   yarn-run            Run Fable while a yarn script is running
   node-run            Run Fable while a node script is running
   shell-run           Run Fable while a shell script is running
-  [webpack-cli]       Other commands will be assumed to be JS scripts
-                      in `node_modules/.bin` folder
+  [webpack-cli]       Other commands will be assumed to be binaries in `node_modules/.bin`
 
 Fable arguments:
-  --port              Port number (default %d) or "free" to choose a free port
-  --verbose           Print more info during execution
   --cwd               Working directory where the subprocess should run
+  --port              Port number where the Fable daemon should run
+  --verbose           Print more info during execution
 
 To pass arguments to the script, write them after `--`. Example:
 
-    dotnet fable npm-run build --port free -- -p --config webpack.production.js
+    dotnet fable webpack-cli -- --mode production
 
 You can use shortcuts for npm and yarn scripts in the following way:
 
@@ -171,8 +170,6 @@ Where 'start' and 'build' are the names of scripts in package.json:
             | None -> "run " + args.[0]
         let workingDir = fableArgs.cwd |> findPackageJsonDir
         startServerWithProcess workingDir fableArgs.port npmOrYarn execArgs
-
-let quote s = "\"" + s + "\""
 
 [<EntryPoint>]
 let main argv =
@@ -214,12 +211,6 @@ let main argv =
         if File.Exists(binPath) |> not then
             printfn "Path does not exist, please make you've restored npm dependencies: %s" binPath; -1
         else
-            let binPath, binArgs =
-                if Process.isWindows then
-                    quote binPath, defaultArg args.commandArgs ""
-                else
-                    match args.commandArgs with
-                    | Some scriptArgs -> "node", (quote binPath) + " " + scriptArgs
-                    | None -> "node", quote binPath
-            startServerWithProcess pkgJsonDir args.port binPath binArgs
+            defaultArg args.commandArgs ""
+            |> startServerWithProcess pkgJsonDir args.port binPath
     | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; 0
