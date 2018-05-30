@@ -201,6 +201,7 @@ module Atts =
     let [<Literal>] erase = "Fable.Core.EraseAttribute" // typeof<Fable.Core.EraseAttribute>.FullName
     let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
     let [<Literal>] paramList = "Fable.Core.ParamListAttribute" // typeof<Fable.Core.ParamListAttribute>.FullName
+    let [<Literal>] inject = "Fable.Core.InjectAttribute" // typeof<Fable.Core.InjectAttribute>.FullName
 
 [<RequireQualifiedAccess>]
 module Types =
@@ -208,6 +209,7 @@ module Types =
     let [<Literal>] object = "System.Object"
     let [<Literal>] array = "System.Array"
     let [<Literal>] type_ = "System.Type"
+    let [<Literal>] typeResolver = "Fable.Core.ITypeResolver`1"
     let [<Literal>] exception_ = "System.Exception"
     let [<Literal>] bool = "System.Boolean"
     let [<Literal>] char = "System.Char"

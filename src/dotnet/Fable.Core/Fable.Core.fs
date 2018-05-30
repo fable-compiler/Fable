@@ -35,6 +35,7 @@ type ExportDefaultAttribute() =
 type EmitAttribute(macro: string) =
     inherit Attribute()
 
+[<Obsolete("PassGenerics doesn't work in Fable 2, please remove the attribute.")>]
 [<AttributeUsage(AttributeTargets.Method)>]
 type PassGenericsAttribute() =
     inherit Attribute()
@@ -55,10 +56,13 @@ type StringEnumAttribute() =
 type ParamListAttribute() =
     inherit Attribute()
 
+/// Experimental: Currently only intended for some specific libraries
 [<AttributeUsage(AttributeTargets.Parameter)>]
 type InjectAttribute() =
     inherit Attribute()
-    new (genericArg: string) = InjectAttribute()
+
+type ITypeResolver<'T> =
+    abstract GetTypeInfo: unit -> Type
 
 /// Erased union type to represent one of two possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute

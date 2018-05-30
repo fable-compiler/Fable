@@ -350,6 +350,28 @@ let reflectionTests = [
     asyncProp.PropertyType.GenericTypeArguments |> Array.head |> equal typeof<string>
 ]
 
+#if FABLE_COMPILER
+open Fable.Core
+
+type R1 = { x: int }
+type R2 = { y: int }
+
+type Helper =
+    static member Make(values: obj[], [<Inject>] ?res: ITypeResolver<'U>) =
+        let t = res.Value.GetTypeInfo()
+        FSharpValue.MakeRecord(t, values) :?> 'U
+
+let injectTests = [
+    testCase "ITypeResolver can be injected" <| fun () ->
+        let x: R1 = Helper.Make [|box 5|]
+        let y: R2 = Helper.Make [|box 10|]
+        equal x { x = 5 }
+        equal y { y = 10 }
+]
+#else
+let injectTests = []
+#endif
+
 let tests =
     testList "Reflection tests" (
         // passingGenericsTest
@@ -357,4 +379,5 @@ let tests =
         @ typeNameTests
         // passGenericsAttributeTests
         @ reflectionTests
+        @ injectTests
     )
