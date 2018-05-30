@@ -1,3 +1,7 @@
+### 2.0.0-alpha-001
+
+* Fable 2 alpha
+
 ### 0.1.20
 
 * Move `allFiles` to options root
