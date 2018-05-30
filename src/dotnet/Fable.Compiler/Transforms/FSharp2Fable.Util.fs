@@ -673,7 +673,7 @@ module Util =
             let path =
                 lazy tryGetEntityLocation ent
                 |> fixImportedRelativePath com path
-            Fable.Import(selector.Trim(), path.Trim(), Fable.CustomImport, Fable.Any) // TODO: Use MetaType here?
+            Fable.Import(selector.Trim(), path.Trim(), Fable.CustomImport, Fable.Any)
         )
 
     let entityRef (com: ICompiler) r (ent: FSharpEntity) =

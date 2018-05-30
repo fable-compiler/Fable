@@ -276,6 +276,24 @@ let makeTypeConst (typ: Type) (value: obj) =
         NewArray (ArrayValues values, Number kind) |> Value
     | _ -> failwithf "Unexpected type %A for literal %O (%s)" typ value (value.GetType().FullName)
 
+let makeTypeInfo r t =
+    TypeInfo(t, r) |> Value
+
+let makeTypeDefinitionInfo r t =
+    let t =
+        match t with
+        | Option _ -> Option Any
+        | Array _ -> Array Any
+        | List _ -> List Any
+        | Tuple genArgs ->
+            genArgs |> List.map (fun _ -> Any) |> Tuple
+        | DeclaredType(ent, genArgs) ->
+            let genArgs = genArgs |> List.map (fun _ -> Any)
+            DeclaredType(ent, genArgs)
+        // TODO: Do something with FunctionType and ErasedUnion?
+        | t -> t
+    TypeInfo(t, r) |> Value
+
 let createAtom (value: Expr) =
     let typ = value.Type
     Helper.CoreCall("Util", "createAtom", typ, [value], [typ])
@@ -518,14 +536,14 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
 
 let isCompatibleWithJsComparison = function
     | Builtin(BclInt64|BclUInt64|BclBigInt)
-    | Array _ | List _ | Tuple _ | Option _ -> false
+    | Array _ | List _ | Tuple _ | Option _ | MetaType -> false
     | Builtin(BclGuid|BclTimeSpan) -> true
     // TODO: Non-record/union declared types without custom equality
     // should be compatible with JS comparison
     | DeclaredType _ -> false
     // TODO: Raise warning when building dictionary/hashset with generic params?
     | GenericParam _ -> true
-    | MetaType | Any | Unit | Boolean | Number _ | String | Char | Regex
+    | Any | Unit | Boolean | Number _ | String | Char | Regex
     | EnumType _ | ErasedUnion _ | FunctionType _ -> true
 
 let rec equals r equal left right =
@@ -553,6 +571,9 @@ let rec equals r equal left right =
         let f = makeComparerFunction t
         Helper.CoreCall(modName, "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
 
+    | ExprType(MetaType) ->
+        Helper.CoreCall("Reflection", "equal", Boolean, [left; right], ?loc=r) |> is equal
+
     | ExprType(Tuple _) ->
         Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
     | ExprType(DeclaredType(ent,_)) when ent.IsFSharpUnion ->
@@ -579,6 +600,9 @@ and compare r left right =
     | ExprType(ArrayOrList(modName, t)) ->
         let f = makeComparerFunction t
         Helper.CoreCall(modName, "compareWith", Number Int32, [f; left; right], ?loc=r)
+
+    | ExprType(MetaType) ->
+        Helper.CoreCall("Reflection", "compare", Number Int32, [left; right], ?loc=r)
 
     | ExprType(Tuple _) ->
         Helper.CoreCall("Util", "compareArrays", Number Int32, [left; right], ?loc=r)
@@ -1009,22 +1033,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | Patterns.SetContains Operators.standardSet, _ ->
         applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
     // Type info
-    | ("TypeOf" | "TypeDefOf"), _ ->
-        let t =
-            if i.CompiledName = "TypeDefOf" then
-                match genArg com r 0 i.GenericArgs with
-                | Option _ -> Option Any
-                | Array _ -> Array Any
-                | List _ -> List Any
-                | Tuple genArgs ->
-                    genArgs |> List.map (fun _ -> Any) |> Tuple
-                | DeclaredType(ent, genArgs) ->
-                    let genArgs = genArgs |> List.map (fun _ -> Any)
-                    DeclaredType(ent, genArgs)
-                // TODO: Do something with FunctionType and ErasedUnion?
-                | t -> t
-            else genArg com r 0 i.GenericArgs
-        TypeInfo(t, r) |> Value |> Some
+    | "TypeOf", _ -> genArg com r 0 i.GenericArgs |> makeTypeInfo r |> Some
+    | "TypeDefOf", _ -> genArg com r 0 i.GenericArgs |> makeTypeDefinitionInfo r |> Some
     | _ -> None
 
 let chars (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1791,6 +1801,8 @@ let objects (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option)
     | "Equals", Some arg1, [arg2]
     | "Equals", None, [arg1; arg2] ->
         Helper.CoreCall("Util", "equals", t, [arg1; arg2], ?loc=r) |> Some
+    | "GetType", Some arg, _ ->
+        makeTypeInfo r arg.Type |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -2164,63 +2176,88 @@ let controlExtensions (_: ICompiler) (_: Context) (_: SourceLocation option) t (
             |> fun (args, argTypes) -> List.rev args, List.rev argTypes
         Helper.CoreCall("Observable", meth, t, args, argTypes))
 
-let fsharpType methName (_: ICompiler) (_: SourceLocation option) t (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let hasInterface ifc (typRef: Expr) (typRefType) =
-        let proto = Helper.CoreCall("Reflection", "getPrototypeOfType", Any, [typRef], [typRefType], ?loc=typRef.Range)
-        Helper.CoreCall("Util", "hasInterface", t, [proto; makeStrConst ifc], [Any; String])
+let rec getTypeFullName = function
+    | Fable.GenericParam name -> name
+    | Fable.EnumType(_, fullname) -> fullname
+    | Fable.Unit    -> Types.unit
+    | Fable.Boolean -> Types.bool
+    | Fable.Char    -> Types.char
+    | Fable.String  -> Types.string
+    // TODO: Type info forErasedUnion?
+    | Fable.ErasedUnion _ | Fable.Any -> Types.object
+    | Fable.Number kind ->
+        match kind with
+        | Int8 -> "System.SByte"
+        | UInt8 -> "System.Byte"
+        | Int16 -> "System.Int16"
+        | UInt16 -> "System.UInt16"
+        | Int32 -> "System.Int32"
+        | UInt32 -> "System.UInt32"
+        | Float32 -> "System.Single"
+        | Float64 -> "System.Double"
+        | Decimal -> "System.Decimal"
+    | Fable.FunctionType(Fable.LambdaType _, _) ->
+        "Microsoft.FSharp.Core.FSharpFunc`2"
+    | Fable.FunctionType(Fable.DelegateType argTypes, _) ->
+        sprintf "System.Func`%i" (List.length argTypes + 1)
+    | Fable.Tuple genArgs ->
+        sprintf "System.Tuple`%i" (List.length genArgs)
+    | Fable.Array gen ->
+        sprintf "%s[]" (getTypeFullName gen)
+    | Fable.Option _ -> Types.option
+    | Fable.List _   -> Types.list
+    | Fable.Regex    -> Types.regex
+    | Fable.MetaType -> Types.type_
+    | Fable.DeclaredType(ent, _) ->
+        defaultArg ent.TryFullName Naming.unknown
+
+let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
+    let returnString x = StringConstant x |> Value |> Some
+    match thisArg with
+    | Some(Value(TypeInfo(exprType,_)) as thisArg) ->
+        match i.CompiledName with
+        | "get_FullName" -> getTypeFullName exprType |> returnString
+        | "get_Namespace" ->
+            let fullname = getTypeFullName exprType
+            match fullname.LastIndexOf(".") with
+            | -1 -> "" |> returnString
+            | i -> fullname.Substring(0, i) |> returnString
+        | "get_IsGenericType" -> List.isEmpty exprType.Generics |> not |> BoolConstant |> Value |> Some
+        | "get_GenericTypeArguments" ->
+            let arVals = exprType.Generics |> List.map (makeTypeInfo r) |> ArrayValues
+            NewArray(arVals, Any) |> Value |> Some
+        | "GetTypeInfo" -> Some thisArg
+        // | "GetGenericTypeDefinition" -> TODO
+        | _ -> None
+    | Some thisArg ->
+        match i.CompiledName with
+        | "get_FullName" -> get r t thisArg "fullname" |> Some
+        | "get_GenericTypeArguments" -> get r t thisArg "generics" |> Some // TODO: null check?
+        | "get_Namespace" | "get_IsGenericType" ->
+            let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+            Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some
+        | "GetTypeInfo" -> Some thisArg
+        // | "GetGenericTypeDefinition" -> TODO
+        | _ -> None
+    | None -> None
+
+let fsharpType methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with
-    | "GetRecordFields"
-    | "GetExceptionFields" ->
-        Helper.CoreCall("Reflection", "getProperties", t, args, i.SignatureArgTypes) |> Some
-    | "GetUnionCases"
-    | "GetTupleElements"
-    | "GetFunctionElements" ->
-        Helper.CoreCall("Reflection", Naming.lowerFirst methName, t, args, i.SignatureArgTypes) |> Some
-    | "IsUnion" ->
-        hasInterface "FSharpUnion" args.Head i.SignatureArgTypes.Head |> Some
-    | "IsRecord" ->
-        hasInterface "FSharpRecord" args.Head i.SignatureArgTypes.Head |> Some
-    | "IsExceptionRepresentation" ->
-        hasInterface "FSharpException" args.Head i.SignatureArgTypes.Head |> Some
-    | "IsTuple" ->
-        Helper.CoreCall("Reflection", "isTupleType", t, args, i.SignatureArgTypes) |> Some
-    | "IsFunction" ->
-        Helper.CoreCall("Reflection", "isFunctionType", t, args, i.SignatureArgTypes) |> Some
+    // Prevent name clash with FSharpValue.GetRecordFields
+    | "GetRecordFields" ->
+        Helper.CoreCall("Reflection", "getRecordElements", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GetUnionCases" | "GetTupleElements" | "GetFunctionElements"
+    | "IsUnion" | "IsRecord" | "IsTuple" | "IsFunction" ->
+        Helper.CoreCall("Reflection", Naming.lowerFirst methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "IsExceptionRepresentation" | "GetExceptionFields" -> None // TODO!!!
     | _ -> None
 
-let fsharpValue methName (_: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+let fsharpValue methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with
-    | "GetUnionFields" ->
-        Helper.CoreCall("Reflection", "getUnionFields", t, args, i.SignatureArgTypes) |> Some
-    | "GetRecordFields"
-    | "GetExceptionFields" ->
-        Helper.CoreCall("Reflection", "getPropertyValues", t, args, i.SignatureArgTypes) |> Some
-    | "GetTupleFields" -> // TODO: Check if it's an array first?
-        Some args.Head
-    | "GetTupleField" ->
-        getExpr r t args.Head args.Tail.Head |> Some
-    | "GetRecordField" ->
-        match args with
-        | [record; propInfo] ->
-            let prop = get propInfo.Range String propInfo "name"
-            getExpr r t record prop |> Some
-        | _ -> None
-    | "MakeUnion" ->
-        Helper.CoreCall("Reflection", "makeUnion", t, args, i.SignatureArgTypes) |> Some
-    | "MakeRecord" ->
-        match args with
-        | [typ; vals] ->
-            let typ = Helper.CoreCall("Util", "getDefinition", Any, [typ], [i.SignatureArgTypes.Head], ?loc=typ.Range)
-            let argInfo =
-                { ThisArg = None
-                  Args = [vals]
-                  SignatureArgTypes = Some i.SignatureArgTypes.Tail
-                  Spread = SeqSpread
-                  IsSiblingConstructorCall = false }
-            Operation(Call(ConstructorCall typ, argInfo), t, r) |> Some
-        | _ -> None
-    | "MakeTuple" ->
-        Some args.Head
+    | "GetUnionFields" | "GetRecordFields" | "GetRecordField" | "GetTupleFields" | "GetTupleField"
+    | "MakeUnion" | "MakeRecord" | "MakeTuple" ->
+        Helper.CoreCall("Reflection", Naming.lowerFirst methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GetExceptionFields" -> None // TODO!!!
     | _ -> None
 
 let curryExprAtRuntime t arity (expr: Expr) =
@@ -2313,6 +2350,7 @@ let private replacedModules =
     "Microsoft.FSharp.Core.OptionModule", optionModule
     "Microsoft.FSharp.Core.ResultModule", results
     "System.Decimal", decimals
+    // TODO
     // "System.Numerics.BigInteger", bigint
     // "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigint
     Types.reference, references
@@ -2375,27 +2413,33 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | Naming.StartsWith "System.Func" _
     | Naming.StartsWith "Microsoft.FSharp.Core.FSharpFunc" _
     | Naming.StartsWith "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" _ -> funcs com ctx r t info thisArg args
-    // | "System.Type" -> types com info
-    // | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType info.CompiledName com r t info thisArg args
-    // | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue info.CompiledName com r t info thisArg args
-    // | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
-    //     // In netcore F# Reflection methods become extensions
-    //     // with names like `FSharpType.GetExceptionFields.Static`
-    //     let isFSharpType = info.CompiledName.StartsWith("FSharpType")
-    //     let methName = info.CompiledName |> Naming.extensionMethodName
-    //     if isFSharpType
-    //     then fsharpType methName com r t info thisArg args
-    //     else fsharpValue methName com r t info thisArg args
-    // | "Microsoft.FSharp.Reflection.UnionCaseInfo"
-    // | "System.Reflection.PropertyInfo"
-    // | "System.Reflection.MemberInfo" ->
-    //     match thisArg, info.CompiledName with
-    //     | _, "GetFields" -> Helper.InstanceCall(thisArg.Value, "getUnionFields", t, args) |> Some
-    //     | Some c, "Name" -> Helper.CoreCall("Reflection", "getName", t, [c]) |> Some
-    //     | Some c, ("Tag" | "PropertyType") ->
-    //         let prop =
-    //             if info.CompiledName = "Tag" then "Index" else info.CompiledName
-    //             |> makeStrConst
-    //         getExpr r t c prop |> Some
-    //     | _ -> None
+    | Types.type_ -> types com ctx r t info thisArg args
+    | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType info.CompiledName r t info args
+    | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue info.CompiledName r t info args
+    | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
+        // In netcore F# Reflection methods become extensions
+        // with names like `FSharpType.GetExceptionFields.Static`
+        let isFSharpType = info.CompiledName.StartsWith("FSharpType")
+        let methName = info.CompiledName |> Naming.extensionMethodName
+        if isFSharpType
+        then fsharpType methName r t info args
+        else fsharpValue methName r t info args
+    | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+    | "System.Reflection.PropertyInfo"
+    | "System.Reflection.MemberInfo" ->
+        match thisArg, info.CompiledName with
+        | Some c, "get_PropertyType" ->
+            makeIntConst 1 |> getExpr r t c |> Some
+        | Some c, "GetFields" ->
+            Helper.CoreCall("Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
+        | Some c, "get_Name" ->
+            match c with
+            | Value(TypeInfo(exprType,_)) ->
+                let fullname = getTypeFullName exprType
+                match fullname.LastIndexOf(".") with
+                | -1 -> fullname |> StringConstant |> Value |> Some
+                | i -> fullname.Substring(i + 1) |> StringConstant |> Value |> Some
+            | c ->
+                Helper.CoreCall("Reflection", "name", t, [c], ?loc=r) |> Some
+        | _ -> None
     | _ -> None

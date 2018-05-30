@@ -24,6 +24,7 @@ let allTests =
     Misc.tests
     Observable.tests
     RecordTypes.tests
+    Reflection.tests
     Regex.tests
     Result.tests
     Seqs.tests

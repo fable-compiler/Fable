@@ -27,6 +27,16 @@ type Type =
     | ErasedUnion of genericArgs: Type list
     | DeclaredType of FSharpEntity * genericArgs: Type list
 
+    member this.Generics =
+        match this with
+        | Option gen | Array gen | List gen -> [gen]
+        | FunctionType(LambdaType argType, returnType) -> [argType; returnType]
+        | FunctionType(DelegateType argTypes, returnType) -> argTypes @ [returnType]
+        | Tuple gen -> gen
+        | ErasedUnion gen -> gen
+        | DeclaredType(_,gen) -> gen
+        | _ -> []
+
 type ValueDeclarationInfo =
     { Name: string
       IsPublic: bool

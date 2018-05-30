@@ -206,14 +206,18 @@ export function isPlainObject(x: any) {
   return x != null && Object.getPrototypeOf(x).constructor === Object;
 }
 
-export function equalArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): boolean {
+export function equalArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, eq: (x: T, y: T) => boolean): boolean {
   if (x == null) { return y == null; }
   if (y == null) { return false; }
   if (x.length !== y.length) { return false; }
   for (let i = 0; i < x.length; i++) {
-    if (!equals(x[i], y[i])) { return false; }
+    if (!eq(x[i], y[i])) { return false; }
   }
   return true;
+}
+
+export function equalArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): boolean {
+  return equalArraysWith(x, y, equals);
 }
 
 export function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean {
@@ -258,17 +262,21 @@ export function comparePrimitives(x: any, y: any): number {
   return x === y ? 0 : (x < y ? -1 : 1);
 }
 
-export function compareArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): number {
+export function compareArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, comp: (x: T, y: T) => number): number {
   if (x == null) { return y == null ? 0 : 1; }
   if (y == null) { return -1; }
   if (x.length !== y.length) {
     return x.length < y.length ? -1 : 1;
   }
   for (let i = 0, j = 0; i < x.length; i++) {
-    j = compare(x[i], y[i]);
+    j = comp(x[i], y[i]);
     if (j !== 0) { return j; }
   }
   return 0;
+}
+
+export function compareArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): number {
+  return compareArraysWith(x, y, compare);
 }
 
 export function compareObjects(x: { [k: string]: any }, y: { [k: string]: any }): number {
