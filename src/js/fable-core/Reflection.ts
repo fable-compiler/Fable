@@ -118,6 +118,14 @@ export function namespace(t: TypeInfo) {
   return i === -1 ? "" : t.fullname.substr(0, i);
 }
 
+export function isArray(t: TypeInfo): boolean {
+  return t.fullname.endsWith("[]");
+}
+
+export function getElementType(t: TypeInfo): TypeInfo {
+  return isArray(t) ? t.generics[0] : null;
+}
+
 export function isGenericType(t: TypeInfo) {
   return t.generics != null && t.generics.length > 0;
 }

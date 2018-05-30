@@ -222,6 +222,16 @@ type AsyncRecord = {
 }
 
 let reflectionTests = [
+  testCase "Reflection: Array" <| fun () ->
+    let arType = typeof<int[]>
+    let liType = typeof<int list>
+    equal true arType.IsArray
+    equal false liType.IsArray
+    let elType = arType.GetElementType()
+    typeof<int> = elType |> equal true
+    typeof<bool> = elType |> equal false
+    liType.GetElementType() |> equal null
+
   // TODO!!!
 //   testCase "FSharp.Reflection: Exception" <| fun () ->
 //     let typ = typeof<TestException>

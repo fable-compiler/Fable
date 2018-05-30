@@ -572,7 +572,7 @@ let rec equals r equal left right =
         Helper.CoreCall(modName, "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
 
     | ExprType(MetaType) ->
-        Helper.CoreCall("Reflection", "equal", Boolean, [left; right], ?loc=r) |> is equal
+        Helper.CoreCall("Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
 
     | ExprType(Tuple _) ->
         Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
@@ -2222,7 +2222,15 @@ let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
             match fullname.LastIndexOf(".") with
             | -1 -> "" |> returnString
             | i -> fullname.Substring(0, i) |> returnString
-        | "get_IsGenericType" -> List.isEmpty exprType.Generics |> not |> BoolConstant |> Value |> Some
+        | "get_IsArray" ->
+            match exprType with Array _ -> true | _ -> false
+            |> BoolConstant |> Value |> Some
+        | "GetElementType" ->
+            match exprType with
+            | Array t -> TypeInfo(t, r) |> Value |> Some
+            | _ -> Null t |> Value |> Some
+        | "get_IsGenericType" ->
+            List.isEmpty exprType.Generics |> not |> BoolConstant |> Value |> Some
         | "get_GenericTypeArguments" ->
             let arVals = exprType.Generics |> List.map (makeTypeInfo r) |> ArrayValues
             NewArray(arVals, Any) |> Value |> Some
@@ -2235,7 +2243,8 @@ let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
         match i.CompiledName with
         | "get_FullName" -> get r t thisArg "fullname" |> Some
         | "get_GenericTypeArguments" -> get r t thisArg "generics" |> Some // TODO: null check?
-        | "get_Namespace" | "get_IsGenericType" | "GetGenericTypeDefinition" ->
+        | "get_Namespace" | "get_IsArray" | "GetElementType"
+        | "get_IsGenericType" | "GetGenericTypeDefinition" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
             Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some
         | "GetTypeInfo" -> Some thisArg
