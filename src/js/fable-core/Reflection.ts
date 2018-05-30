@@ -1,18 +1,35 @@
 import { compareArraysWith, equalArraysWith } from "./Util";
 
-export interface CaseInfoWithFields {
-  name: string;
-  fields: TypeInfo[];
+export type FieldInfo = [string, TypeInfo];
+
+export class CaseInfo {
+  constructor(public tag: number,
+              public name: string,
+              public fields?: TypeInfo[]) {
+  }
+  get isRepresentedAsString() {
+    return this.fields == null;
+  }
 }
 
-export type FieldInfo = [string, TypeInfo];
-export type CaseInfo = string | CaseInfoWithFields;
-
-export interface TypeInfo {
-  fullname: string;
-  generics?: TypeInfo[];
-  fields?: FieldInfo[];
-  cases?: CaseInfo[];
+export class TypeInfo {
+  public fields?: FieldInfo[];
+  public cases?: CaseInfo[];
+  constructor(public fullname: string,
+              public generics?: TypeInfo[],
+              options?: { fields?: FieldInfo[], cases?: CaseInfo[] }) {
+    this.fields = options != null ? options.fields : void 0;
+    this.cases = options != null ? options.cases : void 0;
+  }
+  public toString() {
+    return this.fullname; // TODO: Print also generics?
+  }
+  public Equals(other: TypeInfo) {
+    return equals(this, other);
+  }
+  public CompareTo(other: TypeInfo) {
+    return compare(this, other);
+  }
 }
 
 export function equals(t1: TypeInfo, t2: TypeInfo): boolean {
@@ -31,98 +48,68 @@ export function compare(t1: TypeInfo, t2: TypeInfo): number {
 }
 
 export function type(fullname: string, generics?: TypeInfo[]): TypeInfo {
-  return {
-    fullname,
-    generics,
-  };
+  return new TypeInfo(fullname, generics);
 }
 
 export function record(fullname: string, generics: TypeInfo[], ...fields: FieldInfo[]): TypeInfo {
-  return {
-    fullname,
-    generics,
-    fields,
-  };
+  return new TypeInfo(fullname, generics, { fields });
 }
 
-export function union(fullname: string, generics: TypeInfo[], ...cases: CaseInfo[]): TypeInfo {
-  return {
-    fullname,
-    generics,
-    cases,
-  };
+export type CaseInfoInput = string | [string, TypeInfo[]];
+
+export function union(fullname: string, generics: TypeInfo[], ...cases: CaseInfoInput[]): TypeInfo {
+  // If the input is just a string, don't initialize `fields` so we now the case is represented as a string
+  return new TypeInfo(fullname, generics, { cases: cases.map((x, i) =>
+    typeof x === "string" ? new CaseInfo(i, x) : new CaseInfo(i, x[0], x[1])) });
 }
 
 export function tuple(...generics: TypeInfo[]): TypeInfo {
-  return {
-    fullname: "System.Tuple`" + generics.length,
-    generics,
-  };
+  return new TypeInfo("System.Tuple`" + generics.length, generics);
 }
 
 export function delegate(...generics: TypeInfo[]): TypeInfo {
-  return {
-    fullname: "System.Func`" + generics.length,
-    generics,
-  };
+  return new TypeInfo("System.Func`" + generics.length, generics);
 }
 
 export function lambda(argType: TypeInfo, returnType: TypeInfo): TypeInfo {
-  return {
-    fullname: "Microsoft.FSharp.Core.FSharpFunc`2",
-    generics: [argType, returnType],
-  };
+  return new TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", [argType, returnType]);
 }
 
 export function option(generic: TypeInfo): TypeInfo {
-  return {
-    fullname: "Microsoft.FSharp.Core.FSharpOption`1",
-    generics: [generic],
-  };
+  return new TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", [generic]);
 }
 
 export function list(generic: TypeInfo): TypeInfo {
-  return {
-    fullname: "Microsoft.FSharp.Collections.FSharpList`1",
-    generics: [generic],
-  };
+  return new TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", [generic]);
 }
 
 export function array(generic: TypeInfo): TypeInfo {
-  return {
-    fullname: generic.fullname,
-    generics: [generic],
-  };
+  return new TypeInfo(generic.fullname + "[]", [generic]);
 }
 
-export const obj: TypeInfo = { fullname: "System.Object" };
-export const unit: TypeInfo = { fullname: "Microsoft.FSharp.Core.Unit" };
-export const char: TypeInfo = { fullname: "System.Char" };
-export const string: TypeInfo = { fullname: "System.String" };
-export const bool: TypeInfo = { fullname: "System.Boolean" };
-export const int8: TypeInfo = { fullname: "System.SByte" };
-export const uint8: TypeInfo = { fullname: "System.Byte" };
-export const int16: TypeInfo = { fullname: "System.Int16" };
-export const uint16: TypeInfo = { fullname: "System.UInt16" };
-export const int32: TypeInfo = { fullname: "System.Int32" };
-export const uint32: TypeInfo = { fullname: "System.UInt32" };
-export const float32: TypeInfo = { fullname: "System.Single" };
-export const float64: TypeInfo = { fullname: "System.Double" };
-export const decimal: TypeInfo = { fullname: "System.Decimal" };
+export const obj: TypeInfo = new TypeInfo("System.Object");
+export const unit: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
+export const char: TypeInfo = new TypeInfo("System.Char");
+export const string: TypeInfo = new TypeInfo("System.String");
+export const bool: TypeInfo = new TypeInfo("System.Boolean");
+export const int8: TypeInfo = new TypeInfo("System.SByte");
+export const uint8: TypeInfo = new TypeInfo("System.Byte");
+export const int16: TypeInfo = new TypeInfo("System.Int16");
+export const uint16: TypeInfo = new TypeInfo("System.UInt16");
+export const int32: TypeInfo = new TypeInfo("System.Int32");
+export const uint32: TypeInfo = new TypeInfo("System.UInt32");
+export const float32: TypeInfo = new TypeInfo("System.Single");
+export const float64: TypeInfo = new TypeInfo("System.Double");
+export const decimal: TypeInfo = new TypeInfo("System.Decimal");
 
-export function name(i: FieldInfo | CaseInfo | TypeInfo): string {
-  if (typeof i === "string") {
-    return i;
-  } else if (Array.isArray(i)) {
-    return i[0];
+export function name(info: FieldInfo | CaseInfo | TypeInfo): string {
+  if (Array.isArray(info)) {
+    return info[0];
+  } else if (info instanceof CaseInfo) {
+    return info.name;
   } else {
-    const fullname = (i as TypeInfo).fullname;
-    if (fullname != null) {
-      const i = fullname.lastIndexOf(".");
-      return i === -1 ? fullname : fullname.substr(i + 1);
-    } else {
-      return (i as CaseInfoWithFields).name;
-    }
+    const i = info.fullname.lastIndexOf(".");
+    return i === -1 ? info.fullname : info.fullname.substr(i + 1);
   }
 }
 
@@ -133,6 +120,14 @@ export function namespace(t: TypeInfo) {
 
 export function isGenericType(t: TypeInfo) {
   return t.generics != null && t.generics.length > 0;
+}
+
+/**
+ * This doesn't replace types for fields (records) or cases (unions)
+ * but it should be enough for type comparison purposes
+ */
+export function getGenericTypeDefinition(t: TypeInfo) {
+  return t.generics == null ? t : new TypeInfo(t.fullname, t.generics.map(() => obj));
 }
 
 // FSharpType
@@ -189,28 +184,18 @@ export function isFunction(t: TypeInfo): boolean {
 // FSharpValue
 
 export function getUnionFields(v: any, t: TypeInfo): [CaseInfo, any[]] {
-  function fail(caseName: string) {
+  const cases = getUnionCases(t);
+  // Unions without fields may be represented in JS as a string
+  const caseName: string = typeof v === "string" ? v : v[0];
+  const case_ = cases.find((x) => x.name === caseName);
+  if (case_ == null) {
     throw new Error(`Cannot find case ${caseName} in union type`);
   }
-  const cases = getUnionCases(t);
-  if (typeof v === "string") {
-    if ((cases as string[]).indexOf(v) === -1) {
-      fail(v);
-    }
-    return [v, []];
-  } else {
-    const name = v[0];
-    const case_ = (cases as CaseInfoWithFields[]).find((x) => x.name === name);
-    if (case_ == null) {
-      fail(name);
-    }
-    return [case_, v.slice(1)];
-  }
+  return [case_, Array.isArray(v) ? v.slice(1) : []];
 }
 
-export function getUnionCaseFields(i: CaseInfo): FieldInfo[] {
-  return typeof i === "string"
-    ? [] : i.fields.map((t, i) => ["Data" + i, t] as FieldInfo);
+export function getUnionCaseFields(uci: CaseInfo): FieldInfo[] {
+  return uci.fields == null ? [] : uci.fields.map((t, i) => ["Data" + i, t] as FieldInfo);
 }
 
 export function getRecordFields(v: any): any[] {
@@ -230,7 +215,7 @@ export function getTupleField(v: any, i: number): any {
 }
 
 export function makeUnion(uci: CaseInfo, values: any[]): any {
-  return typeof uci === "string" ? uci : [uci.name].concat(values);
+  return uci.isRepresentedAsString ? uci.name : [uci.name].concat(values);
 }
 
 export function makeRecord(t: TypeInfo, values: any[]): any {

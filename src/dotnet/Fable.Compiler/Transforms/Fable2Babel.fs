@@ -395,10 +395,13 @@ module Util =
                                 x.UnionCaseFields
                                 |> Seq.map (fun x -> resolveType genMap x.FieldType)
                                 |> Seq.toList
-                            [ "name", getUnionCaseName x |> StringLiteral :> Expression
-                              "fields", upcast ArrayExpression fieldTypes ]
-                            |> makeJsObject)
+                            ArrayExpression [
+                                getUnionCaseName x |> StringLiteral :> Expression
+                                ArrayExpression fieldTypes :> Expression
+                            ] :> Expression)
                     else
+                        // If there're no cases with fields, just pass the case names
+                        // so the runtime knows the union is represented as strings.
                         ent.UnionCases |> Seq.map (fun x ->
                             getUnionCaseName x |> StringLiteral :> Expression)
                 ] |> coreMethod com ctx "Reflection" "union"

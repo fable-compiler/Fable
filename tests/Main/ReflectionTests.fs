@@ -8,6 +8,10 @@ type TestType =
 type TestType2 =
     | Union2 of string
 
+type TestType3 = class end
+type TestType4 = class end
+type TestType5 = class end
+
 type GenericRecord<'A,'B> = { a: 'A; b: 'B }
 
 (*
@@ -17,8 +21,25 @@ type PassingGenericsTest =
     [<PassGenerics>]
     static member Bar<'T,'U>() = typeof<'U>, typeof<'T>
 
-let passingGenericsTest =
-    testCase "PassGenericsAttribute works" <| fun () ->
+type PassingGenericsTest2 =
+    [<PassGenerics>]
+    static member OnlyAccept<'T>(msg: obj) =
+        let t = typeof<'T>
+        t = typeof<obj> || msg.GetType() = t
+
+type MessageBus () =
+  let _create topic value = ()
+  [<PassGenerics>]
+  member this.create (value:'t) = "topic1: " + (typeof<'t>.Name)
+  [<PassGenerics>]
+  member this.create (topic, value:'t) = topic + ": " + (typeof<'t>.Name)
+  [<PassGenerics>]
+  member this.optionalArgs (value:'t, ?flag1: bool) =
+    let flag1 = defaultArg flag1 false
+    (sprintf "%b: %s" flag1 (typeof<'t>.Name)).ToLower()
+
+let passGenericsAttributeTests = [
+  testCase "PassGenericsAttribute works" <| fun () ->
     let t = PassingGenericsTest.Foo<string>(5)
     let t1, t2 = PassingGenericsTest.Bar<TestType, bool>()
     #if FABLE_COMPILER
@@ -29,24 +50,31 @@ let passingGenericsTest =
     t1 |> equal typeof<bool>
     t2 |> equal typeof<TestType>
 
-type PassingGenericsTest2 =
-    [<PassGenerics>]
-    static member OnlyAccept<'T>(msg: obj) =
-        let t = typeof<'T>
-        t = typeof<obj> || msg.GetType() = t
+  testCase "Comparing types works with primitives" <| fun () ->
+    PassingGenericsTest2.OnlyAccept<int>(43) |> equal true
+    PassingGenericsTest2.OnlyAccept<string>("hi") |> equal true
+    PassingGenericsTest2.OnlyAccept<string>(43) |> equal false
+
+  testCase "Comparing types works with custom types" <| fun () ->
+    PassingGenericsTest2.OnlyAccept<TestType>(Union1 "bye") |> equal true
+    PassingGenericsTest2.OnlyAccept<TestType>(Union2 "bye") |> equal false
+    PassingGenericsTest2.OnlyAccept<obj>("I'll accept anything") |> equal true
+
+  testCase "Overloads with PassGenericsAttribute work" <| fun () ->
+    let x = { name = "" }
+    let bus = MessageBus()
+    bus.create x |> equal "topic1: Firm"
+    bus.create ("global", x) |> equal "global: Firm"
+
+  testCase "Optional arguments with PassGenericsAttribute work" <| fun () ->
+    let x = { name = "" }
+    let bus = MessageBus()
+    bus.optionalArgs(x) |> equal "false: firm"
+    bus.optionalArgs(x, true) |> equal "true: firm"
+]
 *)
 
 let genericTests = [
-//   testCase "Comparing types works with primitives" <| fun () ->
-//     PassingGenericsTest2.OnlyAccept<int>(43) |> equal true
-//     PassingGenericsTest2.OnlyAccept<string>("hi") |> equal true
-//     PassingGenericsTest2.OnlyAccept<string>(43) |> equal false
-
-//   testCase "Comparing types works with custom types" <| fun () ->
-//     PassingGenericsTest2.OnlyAccept<TestType>(Union1 "bye") |> equal true
-//     PassingGenericsTest2.OnlyAccept<TestType>(Union2 "bye") |> equal false
-//     PassingGenericsTest2.OnlyAccept<obj>("I'll accept anything") |> equal true
-
   testCase "typedefof works" <| fun () ->
     let tdef1 = typedefof<int list>
     let tdef2 = typedefof<string list>
@@ -62,13 +90,14 @@ let genericTests = [
     t2.IsGenericType |> equal false
     t3.IsGenericType |> equal false
 
-//   testCase "GetGenericTypeDefinition works" <| fun () ->
-//     let tdef1 = typedefof<int list>
-//     let tdef2 = typeof<int list>.GetGenericTypeDefinition()
-//     let t = typeof<int list>
-//     let tdef3 = t.GetGenericTypeDefinition()
-//     equal tdef1 tdef2
-//     equal tdef1 tdef3
+  testCase "GetGenericTypeDefinition works" <| fun () ->
+    let tdef1 = typedefof<int list>
+    let tdef2 = typeof<int list>.GetGenericTypeDefinition()
+    let t = typeof<int list>
+    let tdef3 = t.GetGenericTypeDefinition()
+    equal tdef1 tdef2
+    equal tdef1 tdef3
+    tdef1 = typeof<int list> |> equal false
 
   testCase "Comparing generic types works" <| fun () ->
     let t1 = typeof<GenericRecord<string, TestType>>
@@ -101,49 +130,49 @@ let getName3 (t:System.Type) = function
 
 type Firm = { name: string }
 
-// TODO!!!
-// let normalize (x: string) =
-//     #if FABLE_COMPILER
-//     x
-//     #else
-//     x.Replace("+",".")
-//     #endif
-// let inline fullname<'T> () = typeof<'T>.FullName |> normalize
+let normalize (x: string) =
+    #if FABLE_COMPILER
+    x
+    #else
+    x.Replace("+",".")
+    #endif
+
+let inline fullname<'T> () = typeof<'T>.FullName |> normalize
 // let inline create<'T when 'T:(new : unit -> 'T)> () = new 'T()
 // let inline create2<'T> (args: obj[]) =
 //     System.Activator.CreateInstance(typeof<'T>, args) :?> 'T
 
-// testCase "Type Namespace" <| fun () ->
-//     let x = typeof<TestType>.Namespace
-//     #if FABLE_COMPILER
-//     equal "Fable.Tests.TypeTests" x
-//     #else
-//     equal "Fable.Tests" x
-//     #endif
+let typeNameTests = [
+  testCase "Type Namespace" <| fun () ->
+    let x = typeof<TestType>.Namespace
+    #if FABLE_COMPILER
+    equal "Fable.Tests.Reflection" x
+    #else
+    equal "Fable.Tests" x
+    #endif
 
-// testCase "Type FullName" <| fun () ->
-//     let x = typeof<TestType>.FullName
-//     x |> normalize |> equal "Fable.Tests.TypeTests.TestType"
+  testCase "Type FullName" <| fun () ->
+    let x = typeof<TestType>.FullName
+    x |> normalize |> equal "Fable.Tests.Reflection.TestType"
 
-// testCase "Type Name" <| fun () ->
-//     let x = typeof<TestType>.Name
-//     equal "TestType" x
+  testCase "Type Name" <| fun () ->
+    let x = typeof<TestType>.Name
+    equal "TestType" x
 
-// testCase "Get fullname of generic types with inline function" <| fun () ->
-//     fullname<TestType3>() |> equal "Fable.Tests.TypeTests.TestType3"
-//     fullname<TestType4>() |> equal "Fable.Tests.TypeTests.TestType4"
+  testCase "Get fullname of generic types with inline function" <| fun () ->
+    fullname<TestType3>() |> equal "Fable.Tests.Reflection.TestType3"
+    fullname<TestType4>() |> equal "Fable.Tests.Reflection.TestType4"
 
-// testCase "Create new generic objects with inline function" <| fun () ->
+//   testCase "Create new generic objects with inline function" <| fun () ->
 //     create<TestType3>().Value |> equal "Hi"
 //     create<TestType4>().Value2 |> equal "Bye"
 //     // create<TestType5>() // Doesn't compile
 
-// testCase "Create new generic objects with System.Activator" <| fun () ->
+//   testCase "Create new generic objects with System.Activator" <| fun () ->
 //     (create2<TestType3> [||]).Value |> equal "Hi"
 //     (create2<TestType4> [||]).Value2 |> equal "Bye"
 //     (create2<TestType5> [|"Yo"|]).Value |> equal "Yo"
 
-let typeNameTests = [
   testCase "Type name is accessible" <| fun () ->
     let x = { name = "" }
     getName<Firm> "name" |> equal "Firm"
@@ -169,34 +198,6 @@ let typeNameTests = [
     getName3 typedefof<Firm> "fullname" |> test
     // getName4 x "fullname" |> test
 ]
-
-(*
-type MessageBus () =
-  let _create topic value = ()
-  [<PassGenerics>]
-  member this.create (value:'t) = "topic1: " + (typeof<'t>.Name)
-  [<PassGenerics>]
-  member this.create (topic, value:'t) = topic + ": " + (typeof<'t>.Name)
-  [<PassGenerics>]
-  member this.optionalArgs (value:'t, ?flag1: bool) =
-    let flag1 = defaultArg flag1 false
-    (sprintf "%b: %s" flag1 (typeof<'t>.Name)).ToLower()
-
-let passGenericsAttributeTests =
- testList "PassGenericsAttribute tests" [
-  testCase "Overloads with PassGenericsAttribute work" <| fun () ->
-    let x = { name = "" }
-    let bus = MessageBus()
-    bus.create x |> equal "topic1: Firm"
-    bus.create ("global", x) |> equal "global: Firm"
-
-  testCase "Optional arguments with PassGenericsAttribute work" <| fun () ->
-    let x = { name = "" }
-    let bus = MessageBus()
-    bus.optionalArgs(x) |> equal "false: firm"
-    bus.optionalArgs(x, true) |> equal "true: firm"
- ]
-*)
 
 // FSharpType and FSharpValue reflection tests
 open FSharp.Reflection
@@ -324,8 +325,8 @@ let reflectionTests = [
     let unionCaseInfos = [| unionCase1Info; unionCase2Info |]
     let unionCaseValueFields = [| unionCase1ValueFields; unionCase2ValueFields |]
 
-    let expectedUnionCase1Fields = "StringCase", [| typeof<string>; typeof<string> |], [| box "a"; box "b" |]
-    let expectedUnionCase2Fields = "IntCase", [| typeof<int> |], [| box 1 |]
+    let expectedUnionCase1Fields = 0, "StringCase", [| typeof<string>; typeof<string> |], [| box "a"; box "b" |]
+    let expectedUnionCase2Fields = 1, "IntCase", [| typeof<int> |], [| box 1 |]
     let expectedUnionFields = [| expectedUnionCase1Fields; expectedUnionCase2Fields |]
 
     let unionFields =
@@ -334,7 +335,7 @@ let reflectionTests = [
             let types =
                 info.GetFields()
                 |> Array.map (fun field -> field.PropertyType)
-            info.Name, types, values)
+            info.Tag, info.Name, types, values)
 
     let canMakeSameUnionCases =
         unbox<TestUnion> (FSharpValue.MakeUnion(unionCase1Info, unionCase1ValueFields)) = unionCase1
@@ -374,10 +375,9 @@ let injectTests = []
 
 let tests =
     testList "Reflection tests" (
-        // passingGenericsTest
+        // passGenericsAttributeTests
         genericTests
         @ typeNameTests
-        // passGenericsAttributeTests
         @ reflectionTests
         @ injectTests
     )

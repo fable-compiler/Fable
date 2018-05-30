@@ -2214,7 +2214,7 @@ let rec getTypeFullName = function
 let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
     let returnString x = StringConstant x |> Value |> Some
     match thisArg with
-    | Some(Value(TypeInfo(exprType,_)) as thisArg) ->
+    | Some(Value(TypeInfo(exprType, exprRange)) as thisArg) ->
         match i.CompiledName with
         | "get_FullName" -> getTypeFullName exprType |> returnString
         | "get_Namespace" ->
@@ -2227,17 +2227,18 @@ let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
             let arVals = exprType.Generics |> List.map (makeTypeInfo r) |> ArrayValues
             NewArray(arVals, Any) |> Value |> Some
         | "GetTypeInfo" -> Some thisArg
-        // | "GetGenericTypeDefinition" -> TODO
+        | "GetGenericTypeDefinition" ->
+            let newGen = exprType.Generics |> List.map (fun _ -> Any)
+            TypeInfo(exprType.ReplaceGenerics(newGen), exprRange) |> Value |> Some
         | _ -> None
     | Some thisArg ->
         match i.CompiledName with
         | "get_FullName" -> get r t thisArg "fullname" |> Some
         | "get_GenericTypeArguments" -> get r t thisArg "generics" |> Some // TODO: null check?
-        | "get_Namespace" | "get_IsGenericType" ->
+        | "get_Namespace" | "get_IsGenericType" | "GetGenericTypeDefinition" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
             Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some
         | "GetTypeInfo" -> Some thisArg
-        // | "GetGenericTypeDefinition" -> TODO
         | _ -> None
     | None -> None
 
@@ -2428,10 +2429,9 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | "System.Reflection.PropertyInfo"
     | "System.Reflection.MemberInfo" ->
         match thisArg, info.CompiledName with
-        | Some c, "get_PropertyType" ->
-            makeIntConst 1 |> getExpr r t c |> Some
-        | Some c, "GetFields" ->
-            Helper.CoreCall("Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
+        | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
+        | Some c, "get_PropertyType" -> makeIntConst 1 |> getExpr r t c |> Some
+        | Some c, "GetFields" -> Helper.CoreCall("Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
         | Some c, "get_Name" ->
             match c with
             | Value(TypeInfo(exprType,_)) ->

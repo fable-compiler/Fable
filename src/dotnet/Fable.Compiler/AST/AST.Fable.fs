@@ -36,6 +36,21 @@ type Type =
         | ErasedUnion gen -> gen
         | DeclaredType(_,gen) -> gen
         | _ -> []
+    member this.ReplaceGenerics(newGen: Type list) =
+        match this with
+        | Option _ -> Option newGen.Head
+        | Array _  -> Array newGen.Head
+        | List _   -> List newGen.Head
+        | FunctionType(LambdaType _, _) ->
+            let argTypes, returnType = List.splitLast newGen
+            FunctionType(LambdaType argTypes.Head, returnType)
+        | FunctionType(DelegateType _, _) ->
+            let argTypes, returnType = List.splitLast newGen
+            FunctionType(DelegateType argTypes, returnType)
+        | Tuple _ -> Tuple newGen
+        | ErasedUnion _ -> ErasedUnion newGen
+        | DeclaredType(ent,_) -> DeclaredType(ent,newGen)
+        | t -> t
 
 type ValueDeclarationInfo =
     { Name: string
