@@ -4,7 +4,7 @@
     <Description>Fable Core Library</Description>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Version>2.0.0-alpha-002</Version>
+    <Version>2.0.0-alpha-006</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Fable.Core.fs" />
