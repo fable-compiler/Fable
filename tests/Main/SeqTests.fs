@@ -23,6 +23,22 @@ type Point =
 
 let tests =
   testList "Seqs" [
+    testCase "Can test untyped enumerables" <| fun () ->
+        let sumEnumerable (enumerable: obj) =
+            let mutable sum = 0
+            match enumerable with
+            | :? System.Collections.IEnumerable as items ->
+                for item in items do
+                    sum <- sum + (item :?> int)
+            | _ -> sum <- -1
+            sum
+        let xs = box [|1; 2|]
+        let ys = box [3; 4]
+        let zs = box 1
+        sumEnumerable xs |> equal 3
+        sumEnumerable ys |> equal 7
+        sumEnumerable zs |> equal -1
+
     testCase "Seq.length works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
         Seq.length xs

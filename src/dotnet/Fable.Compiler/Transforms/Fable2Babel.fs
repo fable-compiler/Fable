@@ -749,7 +749,8 @@ module Util =
                 | Fable.DeclaredType (ent2, _) when FSharp2Fable.Util.hasInterface Types.disposable ent2 ->
                     upcast BooleanLiteral true
                 | _ -> coreLibCall com ctx "Util" "isDisposable" [com.TransformAsExpr(ctx, expr)]
-            // TODO | Some Types.enumerable ->
+            | Some "System.Collections.IEnumerable" ->
+                [com.TransformAsExpr(ctx, expr)] |> coreLibCall com ctx "Util" "isIterable"
             | _ ->
                 if ent.IsFSharpExceptionDeclaration then
                     let expr = com.TransformAsExpr(ctx, expr)

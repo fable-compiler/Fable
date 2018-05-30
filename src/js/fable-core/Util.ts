@@ -151,7 +151,7 @@ export function toString(obj: any, quoteStrings = false): string {
             if (v != null) {
               if (v instanceof Date) {
                 return dateToString(v);
-              } else if (v[Symbol.iterator] && !Array.isArray(v)) {
+              } else if (isIterable(v) && !Array.isArray(v)) {
                 return Array.from(v);
               }
             }
@@ -200,6 +200,10 @@ export function hash(x: any): number {
 
 export function isArray(x: any) {
   return Array.isArray(x) || ArrayBuffer.isView(x);
+}
+
+export function isIterable(x: any) {
+  return typeof x[Symbol.iterator] === "function";
 }
 
 export function isPlainObject(x: any) {
