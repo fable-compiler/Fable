@@ -745,12 +745,13 @@ module Util =
             match ent.TryFullName with
             | Some Types.disposable ->
                 match expr.Type with
-                // In F# AST this is coerced to obj, but the cast should have been removed in resolveCasts pass
+                // In F# AST this is coerced to obj, but the cast should have been removed
                 | Fable.DeclaredType (ent2, _) when FSharp2Fable.Util.hasInterface Types.disposable ent2 ->
                     upcast BooleanLiteral true
                 | _ -> coreLibCall com ctx "Util" "isDisposable" [com.TransformAsExpr(ctx, expr)]
             | Some "System.Collections.IEnumerable" ->
                 [com.TransformAsExpr(ctx, expr)] |> coreLibCall com ctx "Util" "isIterable"
+            // TODO!!! DateTime(Offset), Long
             | _ ->
                 if ent.IsFSharpExceptionDeclaration then
                     let expr = com.TransformAsExpr(ctx, expr)

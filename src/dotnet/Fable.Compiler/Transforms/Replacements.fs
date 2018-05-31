@@ -2231,7 +2231,7 @@ let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
             | _ -> Null t |> Value |> Some
         | "get_IsGenericType" ->
             List.isEmpty exprType.Generics |> not |> BoolConstant |> Value |> Some
-        | "get_GenericTypeArguments" ->
+        | "get_GenericTypeArguments" | "GetGenericArguments" ->
             let arVals = exprType.Generics |> List.map (makeTypeInfo r) |> ArrayValues
             NewArray(arVals, Any) |> Value |> Some
         | "GetTypeInfo" -> Some thisArg
@@ -2242,7 +2242,8 @@ let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
     | Some thisArg ->
         match i.CompiledName with
         | "get_FullName" -> get r t thisArg "fullname" |> Some
-        | "get_GenericTypeArguments" -> get r t thisArg "generics" |> Some // TODO: null check?
+        | "get_GenericTypeArguments" | "GetGenericArguments" ->
+            get r t thisArg "generics" |> Some // TODO: null check?
         | "get_Namespace" | "get_IsArray" | "GetElementType"
         | "get_IsGenericType" | "GetGenericTypeDefinition" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
