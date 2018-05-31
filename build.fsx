@@ -137,12 +137,6 @@ let buildCoreJSFull () =
     buildSplitter ()
     buildCoreJS ()
 
-let buildJsonConverter () =
-    // "restore src/dotnet/Fable.JsonConverter"
-    // |> run CWD dotnetExePath
-    "build src/dotnet/Fable.JsonConverter -c Release -o ../../../build/json-converter /p:TargetFramework=netstandard1.6"
-    |> run CWD dotnetExePath
-
 let runTestsDotnet () =
     // CleanDir "tests/Main/obj"
     run (CWD </> "tests/Main") dotnetExePath "run"
@@ -219,7 +213,6 @@ Target "FableCoreJS" (fun _ ->
     buildCoreJS ())
 Target "FableCoreJSFast" buildCoreJS
 Target "FableSplitter" buildSplitter
-Target "JsonConverter" buildJsonConverter
 Target "RunTestsJS" runTestsJS
 Target "RunTestsDotnet" runTestsDotnet
 
@@ -303,7 +296,6 @@ Target "All" (fun () ->
     buildCLI Release ()
     buildSplitter ()
     buildCoreJS ()
-    // buildJsonConverter () // Temporarily disabled for Fable 2
 
     runTestsJS ()
 

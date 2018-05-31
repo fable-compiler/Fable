@@ -52,7 +52,7 @@ let private msbuildPropStringList (s: string) =
   | MSBuildPrj.MSBuild.StringList list  -> list
   | _ -> []
 
-let rec private projInfo additionalMSBuildProps file =
+let rec private projInfo additionalMSBuildProps (file: string) =
   let projDir = Path.GetDirectoryName file
 
   let projectAssetsJsonPath = Path.Combine(projDir, "obj", "project.assets.json")

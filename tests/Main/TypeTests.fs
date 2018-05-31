@@ -255,6 +255,31 @@ let tests =
         [|"A"|] :> obj |> test |> equal "Array"
         [|1;2|] :> obj |> test |> equal "Array"
 
+    testCase "Type test with Date" <| fun () ->
+        let isDate (x: obj) =
+            match x with
+            | :? DateTime -> true
+            | _ -> false
+        DateTime.Now |> box |> isDate |> equal true
+        box 5 |> isDate |> equal false
+
+    testCase "Type test with Long" <| fun () ->
+        let isLong (x: obj) =
+            match x with
+            | :? int64 -> true
+            | _ -> false
+        box 5L |> isLong |> equal true
+        box 50 |> isLong |> equal false
+
+    // TODO!!!
+    // testCase "Type test with BigInt" <| fun () ->
+    //     let isBigInd (x: obj) =
+    //         match x with
+    //         | :? bigint -> true
+    //         | _ -> false
+    //     box 5I |> isBigInd |> equal true
+    //     box 50 |> isBigInd |> equal false
+
     testCase "Property names don't clash with built-in JS objects" <| fun () -> // See #168
         let gameState = {
             Now = 1

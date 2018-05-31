@@ -1,7 +1,7 @@
 source https://www.nuget.org/api/v2
 
 storage:none
-framework:netstandard2.0,netcoreapp2.0
+framework:netstandard2.0,netcoreapp2.1
 
 nuget FSharp.Compiler.Service
 nuget FSharp.Core

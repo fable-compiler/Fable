@@ -87,6 +87,7 @@ module Naming =
     /// future this will probably be changed to ".js"
     let targetFileExtension: string = "" // ".js"
 
+    let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
     let [<Literal>] fsharpExceptionNameField = "__name"

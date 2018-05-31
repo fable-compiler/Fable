@@ -101,7 +101,7 @@ let parse (msg: string) =
         |> Path.normalizeFullPath
       define =
         parseStringArray [||] "define" json
-        |> Array.append [|"FABLE_COMPILER"|]
+        |> Array.append [|Naming.fableCompilerConstant|]
         |> Array.distinct
       plugins = parseStringArray [||] "plugins" json
       typedArrays = parseBoolean true "typedArrays" json

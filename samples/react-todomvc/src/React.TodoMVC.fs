@@ -133,7 +133,7 @@ and static checking, making our app much more robust than by using plain JS obje
 module R = Fable.Helpers.React
 open R.Props
 
-type [<Pojo>] TodoItemProps =
+type TodoItemProps =
     { key: Guid
     ; todo: Todo
     ; editing: bool
@@ -143,7 +143,7 @@ type [<Pojo>] TodoItemProps =
     ; onCancel: React.SyntheticEvent->unit
     ; onToggle: React.SyntheticEvent->unit }
 
-type [<Pojo>] TodoItemState =
+type TodoItemState =
     { editText: string }
 
 let [<Literal>] ESCAPE_KEY = 27.
@@ -241,7 +241,7 @@ components cannot be directly updated, so this is a way to transmit the event to
 the parent and let it re-render the subtree if necessary.
 *)
 
-type [<Pojo>] TodoFooterProps =
+type TodoFooterProps =
     { count: int
     ; completedCount: int
     ; onClearCompleted: React.MouseEvent->unit
@@ -302,10 +302,10 @@ Note also we haven't defined an interface for the object returned by `Router`,
 so we just access its `init` method with the dynamic `?` operator.
 *)
 
-type [<Pojo>] TodoAppProps =
+type TodoAppProps =
     { model: TodoModel }
 
-type [<Pojo>] TodoAppState =
+type TodoAppState =
     { nowShowing: string
     ; editing: Guid option
     ; newTodo: string }

@@ -268,7 +268,7 @@ let stringParam name =
 
 let internal intParamHelp =
     Option.bind
-        (fun value ->
+        (fun (value: string) ->
             match System.Int32.TryParse value with
             | (true,x) -> Some x
             | _ -> None)

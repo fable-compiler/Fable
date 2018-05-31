@@ -1,7 +1,0 @@
-FSharp.Core
-Newtonsoft.Json
-
-group Test
-Microsoft.NET.Test.Sdk
-xunit
-xunit.runner.visualstudio

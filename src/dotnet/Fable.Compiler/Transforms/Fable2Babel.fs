@@ -733,10 +733,6 @@ module Util =
         | Fable.Number _ | Fable.EnumType _ -> jsTypeof "number" expr
         | Fable.Regex ->
             jsInstanceof (makeIdentExpr "RegExp") expr
-        | Replacements.Builtin (Replacements.BclInt64 | Replacements.BclUInt64) ->
-            jsInstanceof (makeCoreRef Fable.Any "Long" "default") expr
-        | Replacements.Builtin Replacements.BclBigInt ->
-            jsInstanceof (makeCoreRef Fable.Any "BigInt" "default") expr
         | Fable.Array _ | Fable.Tuple _ ->
             coreLibCall com ctx "Util" "isArray" [com.TransformAsExpr(ctx, expr)]
         | Fable.List _ ->
@@ -751,7 +747,13 @@ module Util =
                 | _ -> coreLibCall com ctx "Util" "isDisposable" [com.TransformAsExpr(ctx, expr)]
             | Some "System.Collections.IEnumerable" ->
                 [com.TransformAsExpr(ctx, expr)] |> coreLibCall com ctx "Util" "isIterable"
-            // TODO!!! DateTime(Offset), Long
+            | Some (Types.datetime | Types.datetimeOffset) ->
+                jsInstanceof (makeIdentExpr "Date") expr
+            // TODO: Include units of measure? "Microsoft.FSharp.Core.int64`1"
+            | Some ("System.Int64" | "System.UInt64") ->
+                jsInstanceof (makeCoreRef Fable.Any "Long" "default") expr
+            | Some "System.Numerics.BigInteger" ->
+                jsInstanceof (makeCoreRef Fable.Any "BigInt" "default") expr
             | _ ->
                 if ent.IsFSharpExceptionDeclaration then
                     let expr = com.TransformAsExpr(ctx, expr)

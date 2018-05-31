@@ -9,7 +9,7 @@ open Fable.Tests.Util
 // Parse and TryParse
 //-------------------------------------
 
-let tryParse f initial value =
+let tryParse f initial (value: string) =
     #if FABLE_COMPILER
     f(value)
     #else

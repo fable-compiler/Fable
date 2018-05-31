@@ -192,7 +192,7 @@ let tests =
         d.Hour + d.Minute + d.Second |> equal 52
 
     testCase "DateTime.TryParse works" <| fun () ->
-        let f d =
+        let f (d: string) =
             match DateTime.TryParse(d) with
             | true, _ -> true
             | false, _ -> false

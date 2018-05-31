@@ -1,5 +1,5 @@
 module.exports = {
-  entry: "QuickTest.fsproj",
+  entry: "src/React.TodoMVC.fsproj",
   outDir: "temp",
   fable: {
     define: ["DEBUG"]

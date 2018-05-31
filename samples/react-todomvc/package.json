@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "build-splitter": "cd ../../src/dotnet/Fable.Compiler && dotnet run fable-splitter --cwd ../../../samples/react-todomvc --fable-core ../../../build/fable-core --args \"src/React.TodoMVC.fsproj -o temp\"",
+    "build-splitter": "cd ../../src/dotnet/Fable.Compiler && dotnet run fable-splitter --cwd ../../../samples/react-todomvc --fable-core ../../../build/fable-core",
     "build-webpack": "cd ../../src/dotnet/Fable.Compiler && dotnet run webpack-cli --cwd ../../../samples/react-todomvc --fable-core ../../../build/fable-core --args \"--mode production\"",
     "build-webpack2": "webpack-cli --entry ./temp/React.TodoMVC.js -o ./dist/main.js --mode development --devtool source-map"
   },

@@ -1,5 +1,5 @@
 STORAGE: NONE
-RESTRICTION: || (== netcoreapp2.0) (== netstandard2.0)
+RESTRICTION: || (== netcoreapp2.1) (== netstandard2.0)
 NUGET
   remote: https://www.nuget.org/api/v2
     Dotnet.ProjInfo (0.9)
@@ -44,7 +44,6 @@ NUGET
       Microsoft.NETCore.Targets (>= 1.1)
       System.Runtime (>= 4.3)
     Microsoft.Win32.Registry (4.4)
-      Microsoft.NETCore.Platforms (>= 2.0) - restriction: || (== netcoreapp2.0) (&& (== netstandard2.0) (>= netcoreapp2.0))
       System.Security.AccessControl (>= 4.4)
       System.Security.Principal.Windows (>= 4.4)
     NETStandard.Library (2.0.3)
@@ -177,7 +176,7 @@ NUGET
       System.Reflection.Primitives (>= 4.3)
       System.Runtime (>= 4.3)
     System.Reflection.Metadata (1.5)
-      System.Collections.Immutable (>= 1.4) - restriction: || (&& (== netcoreapp2.0) (>= monoandroid)) (&& (== netcoreapp2.0) (>= monotouch)) (&& (== netcoreapp2.0) (< netstandard1.1)) (&& (== netcoreapp2.0) (< netstandard2.0)) (&& (== netcoreapp2.0) (< portable-net45+win8)) (&& (== netcoreapp2.0) (>= xamarinios)) (&& (== netcoreapp2.0) (>= xamarinmac)) (&& (== netcoreapp2.0) (>= xamarintvos)) (&& (== netcoreapp2.0) (>= xamarinwatchos)) (== netstandard2.0)
+      System.Collections.Immutable (>= 1.4)
     System.Reflection.Primitives (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
@@ -217,7 +216,6 @@ NUGET
       System.Runtime (>= 4.3)
       System.Runtime.Extensions (>= 4.3)
     System.Security.AccessControl (4.4.1)
-      Microsoft.NETCore.Platforms (>= 2.0) - restriction: || (== netcoreapp2.0) (&& (== netstandard2.0) (>= netcoreapp2.0))
       System.Security.Principal.Windows (>= 4.4)
     System.Security.Cryptography.Algorithms (4.3.1)
       Microsoft.NETCore.Platforms (>= 1.1)
@@ -256,7 +254,6 @@ NUGET
       System.Threading (>= 4.3)
       System.Threading.Tasks (>= 4.3)
     System.Security.Principal.Windows (4.4.1)
-      Microsoft.NETCore.Platforms (>= 2.0) - restriction: || (== netcoreapp2.0) (&& (== netstandard2.0) (>= netcoreapp2.0))
     System.Text.Encoding (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
