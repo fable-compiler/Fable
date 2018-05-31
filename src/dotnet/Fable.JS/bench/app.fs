@@ -7,7 +7,7 @@ let metadataPath =
     then "/temp/repl/metadata/"  // dotnet 4.5 binaries
     else "/temp/repl/metadata2/" // dotnet core 2.0 binaries
 
-#if !DOTNET
+#if !DOTNET_FILE_SYSTEM
 
 [<Fable.Core.Import("readFileSync", "fs")>]
 let readFileSync: System.Func<string, byte[]> = failwith "JS only"
@@ -28,7 +28,7 @@ let measureTime (f: 'a -> 'b) x =
 
 let toJson (value: obj) = value |> Fable.Core.JsInterop.toJson
 
-#else // DOTNET
+#else // DOTNET_FILE_SYSTEM
 
 let readAllBytes = fun (fileName:string) -> System.IO.File.ReadAllBytes (metadataPath + fileName)
 let readAllText = fun (filePath:string) -> System.IO.File.ReadAllText (filePath, System.Text.Encoding.UTF8)
@@ -59,6 +59,8 @@ let main argv =
         let parseFable ast = fable.CompileToBabelAst(fableCoreDir, ast, fileName, optimized)
         let bench i =
             let ms1, fcsAst = measureTime parseFSharp ()
+            fcsAst.Errors |> Array.iter (printfn "Error: %A")
+            if (Array.length fcsAst.Errors) > 0 then failwith "Too many errors."
             let ms2, babelAst = measureTime parseFable fcsAst
             printfn "iteration %d, FCS time: %d ms, Fable time: %d ms" i ms1 ms2
             //printfn "Babel AST: %s" (toJson babelAst)
