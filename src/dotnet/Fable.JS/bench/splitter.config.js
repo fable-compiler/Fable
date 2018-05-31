@@ -1,4 +1,6 @@
-const babelOptions = {
+const fableUtils = require("fable-utils");
+
+const babelOptions = fableUtils.resolveBabelOptions({
   plugins: [
     ["transform-es2015-modules-commonjs"],
   ],
@@ -6,7 +8,7 @@ const babelOptions = {
   //   ["env", { modules: "umd" }],
   // ],
   // sourceMaps: true,
-};
+});
 
 const fableOptions = {
   // fableCore: "../../../../build/fable-core",
@@ -27,7 +29,7 @@ const fableOptions = {
 module.exports = {
   entry: "./bench.fsproj",
   outDir: "./out",
-  //port: 61225,
+  // port: 61225,
   babel: babelOptions,
   fable: fableOptions,
 };

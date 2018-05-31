@@ -143,6 +143,7 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
 let makeProjOptions projFile =
     let projOptions: FSharpProjectOptions =
       { ProjectFileName = projFile
+        ProjectId = None
         SourceFiles = [| |]
         OtherOptions = [| |]
         ReferencedProjects = [| |]
