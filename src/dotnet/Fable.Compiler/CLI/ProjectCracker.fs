@@ -35,8 +35,9 @@ type CrackedFsproj =
       PackageReferences: FablePackage list
       OtherCompilerOptions: string list }
 
-let makeProjectOptions project sources otherOptions =
-    { ProjectFileName = project
+let makeProjectOptions project sources otherOptions: FSharpProjectOptions =
+    { ProjectId = None
+      ProjectFileName = project
       SourceFiles = sources
       OtherOptions = otherOptions
       ReferencedProjects = [| |]
@@ -314,9 +315,9 @@ let createFableDir rootDir =
     fableDir
 
 let copyDirIfDoesNotExist (source: string) (target: string) =
-    if Directory.Exists source |> not then
-        failwith ("Source directory is missing: " + source)
     if isDirectoryEmpty target then
+        if Directory.Exists source |> not then
+            failwith ("Source directory is missing: " + source)
         let source = source.TrimEnd('/', '\\')
         let target = target.TrimEnd('/', '\\')
         for dirPath in Directory.GetDirectories(source, "*", SearchOption.AllDirectories) do

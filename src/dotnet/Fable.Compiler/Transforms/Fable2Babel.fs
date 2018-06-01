@@ -718,26 +718,27 @@ module Util =
             [varDeclaration (ident var) var.IsMutable value :> Statement]
 
     let transformTypeTest (com: IBabelCompiler) ctx range expr (typ: Fable.Type): Expression =
+        let fail msg =
+            "Cannot type test: " + msg |> addErrorAndReturnNull com range
         let jsTypeof (primitiveType: string) (TransformExpr com ctx expr): Expression =
             let typof = UnaryExpression(UnaryTypeof, expr)
             upcast BinaryExpression(BinaryEqualStrict, typof, StringLiteral primitiveType, ?loc=range)
         let jsInstanceof (TransformExpr com ctx cons) (TransformExpr com ctx expr): Expression =
             upcast BinaryExpression(BinaryInstanceOf, expr, cons, ?loc=range)
         match typ with
-        | Fable.MetaType -> upcast BooleanLiteral false // TODO: Actually check if it's type info?
         | Fable.Any -> upcast BooleanLiteral true
         | Fable.Unit -> upcast BinaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
         | Fable.Boolean -> jsTypeof "boolean" expr
-        | Fable.Char | Fable.String _ -> jsTypeof "string" expr
+        | Fable.Char | Fable.String _ | Fable.EnumType(Fable.StringEnumType, _) -> jsTypeof "string" expr
         | Fable.FunctionType _ -> jsTypeof "function" expr
-        | Fable.Number _ | Fable.EnumType _ -> jsTypeof "number" expr
+        | Fable.Number _ | Fable.EnumType(Fable.NumberEnumType, _) -> jsTypeof "number" expr
         | Fable.Regex ->
             jsInstanceof (makeIdentExpr "RegExp") expr
         | Fable.Array _ | Fable.Tuple _ ->
             coreLibCall com ctx "Util" "isArray" [com.TransformAsExpr(ctx, expr)]
         | Fable.List _ ->
             jsInstanceof (makeCoreRef Fable.Any "ListClass" "List") expr
-        | Fable.DeclaredType (ent, _) ->
+        | Fable.DeclaredType (ent, genArgs) ->
             match ent.TryFullName with
             | Some Types.disposable ->
                 match expr.Type with
@@ -760,13 +761,16 @@ module Util =
                     upcast BinaryExpression(BinaryEqualStrict,
                         get None expr Naming.fsharpExceptionNameField,
                         StringLiteral ent.FullName, ?loc=range)
-                elif ent.IsClass
-                then jsInstanceof (FSharp2Fable.Util.entityRefMaybeImported com range ent) expr
-                else "Cannot type test interfaces, records or unions"
-                     |> addErrorAndReturnNull com range
-        | Fable.Option _ | Fable.GenericParam _ | Fable.ErasedUnion _ ->
-            "Cannot type test options, generic parameters or erased unions"
-            |> addErrorAndReturnNull com range
+                elif ent.IsClass then
+                    if not(List.isEmpty genArgs)
+                    then fail "no generic info at runtime"
+                    else
+                        match FSharp2Fable.Util.tryEntityRefMaybeImported com ent with
+                        | Some entRef -> jsInstanceof entRef expr
+                        | None -> defaultArg ent.TryFullName Naming.unknown |> fail
+                else fail "interfaces, records or unions"
+        | Fable.MetaType | Fable.Option _ | Fable.GenericParam _ | Fable.ErasedUnion _ ->
+            fail "options, generic parameters or erased unions"
 
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
         match kind with

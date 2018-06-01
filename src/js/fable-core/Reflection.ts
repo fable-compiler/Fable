@@ -58,7 +58,7 @@ export function record(fullname: string, generics: TypeInfo[], ...fields: FieldI
 export type CaseInfoInput = string | [string, TypeInfo[]];
 
 export function union(fullname: string, generics: TypeInfo[], ...cases: CaseInfoInput[]): TypeInfo {
-  // If the input is just a string, don't initialize `fields` so we now the case is represented as a string
+  // If the input is just a string, don't initialize `fields` so we know the case is represented as a string
   return new TypeInfo(fullname, generics, { cases: cases.map((x, i) =>
     typeof x === "string" ? new CaseInfo(i, x) : new CaseInfo(i, x[0], x[1])) });
 }

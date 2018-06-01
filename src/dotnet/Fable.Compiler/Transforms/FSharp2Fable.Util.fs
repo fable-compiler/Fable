@@ -676,14 +676,18 @@ module Util =
             Fable.Import(selector.Trim(), path.Trim(), Fable.CustomImport, Fable.Any)
         )
 
-    let entityRef (com: ICompiler) r (ent: FSharpEntity) =
-        match tryGetEntityLocation ent with
-        | Some entLoc ->
+    let tryEntityRef (com: ICompiler) (ent: FSharpEntity) =
+        tryGetEntityLocation ent
+        |> Option.map (fun entLoc ->
             let file = Path.normalizePath entLoc.FileName
             let entityName = getEntityDeclarationName com ent
             if file = com.CurrentFile
             then makeIdent entityName |> Fable.IdentExpr
-            else Fable.Import(entityName, file, Fable.Internal, Fable.Any)
+            else Fable.Import(entityName, file, Fable.Internal, Fable.Any))
+
+    let entityRef (com: ICompiler) r (ent: FSharpEntity) =
+        match tryEntityRef com ent with
+        | Some entRef -> entRef
         | None ->
             "Cannot find implementation location for entity: " + (getEntityFullName ent)
             |> addErrorAndReturnNull com r
@@ -693,6 +697,10 @@ module Util =
         match tryImportedEntity com ent with
         | Some importedEntity -> importedEntity
         | None -> entityRef com r ent
+
+    let tryEntityRefMaybeImported (com: ICompiler) (ent: FSharpEntity) =
+        tryImportedEntity com ent
+        |> Option.orElseWith (fun () -> tryEntityRef com ent)
 
     let memberRefTyped (com: IFableCompiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let memberName = getMemberDeclarationName com memb

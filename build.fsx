@@ -107,18 +107,23 @@ let buildCLI cfg () =
         (match cfg with Release -> "Release" | Debug -> "Debug")
     |> run cliSrcDir dotnetExePath
 
-let buildCoreJS () =
-    Yarn.install CWD
-    Yarn.run CWD "tslint" (sprintf "--project %s" coreJsSrcDir)
+let buildCoreJsTypescriptFiles () =
     Yarn.run CWD "tsc" (sprintf "--project %s" coreJsSrcDir)
 
-    // Compile F# files
+let buildCoreJsFsharpFiles () =
     nugetRestore coreJsSrcDir
     sprintf "%s/dotnet-fable.dll node-run %s --fable-core %s -- -c splitter.config.js"
         cliBuildDir
         "../fable-splitter/dist/cli"
         "force:${outDir}" // fable-splitter will adjust the path
     |> run coreJsSrcDir dotnetExePath
+
+let buildCoreJs () =
+    Yarn.install CWD
+    Yarn.run CWD "tslint" (sprintf "--project %s" coreJsSrcDir)
+    buildCoreJsTypescriptFiles ()
+
+    buildCoreJsFsharpFiles ()
 
     // Process injects
     run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run"
@@ -132,10 +137,10 @@ let buildSplitter () =
     !! (buildDir + "/src/*.js") |> Seq.iter (fun jsFile ->
         FileUtils.cp jsFile (buildDir + "/dist") )
 
-let buildCoreJSFull () =
+let buildCoreJsFull () =
     buildCLI Release ()
     buildSplitter ()
-    buildCoreJS ()
+    buildCoreJs ()
 
 let runTestsDotnet () =
     // CleanDir "tests/Main/obj"
@@ -158,7 +163,7 @@ Target "QuickFableCompilerTest" (fun () ->
     buildCLI Debug ()
     quickTest ())
 Target "QuickFableCoreTest" (fun () ->
-    buildCoreJS ()
+    buildCoreJs ()
     quickTest ())
 
 let updateVersionInCliUtil () =
@@ -207,11 +212,9 @@ Target "GitHubRelease" (fun _ ->
 Target "Clean" clean
 Target "FullClean" fullClean
 Target "FableCLI" (buildCLI Release)
-Target "FableCoreJS" (fun _ ->
-    buildCLI Release ()
-    buildSplitter ()
-    buildCoreJS ())
-Target "FableCoreJSFast" buildCoreJS
+Target "FableCoreJs" buildCoreJsFull
+Target "FableCoreJsTypescriptOnly" buildCoreJsTypescriptFiles
+Target "FableCoreJsFSharpOnly" buildCoreJsFsharpFiles
 Target "FableSplitter" buildSplitter
 Target "RunTestsJS" runTestsJS
 Target "RunTestsDotnet" runTestsDotnet
@@ -220,17 +223,16 @@ Target "PublishPackages" (fun () ->
     let baseDir = CWD </> "src"
     let packages = [
         // Nuget packages
-        None, "dotnet/Fable.Core/Fable.Core.fsproj"
-        Some (fun () ->
-            buildCoreJSFull ()
+        Package "dotnet/Fable.Core/Fable.Core.fsproj"
+        Package("dotnet/Fable.Compiler/Fable.Compiler.fsproj", (fun () ->
+            buildCoreJsFull ()
             updateVersionInCliUtil ()
-        ), "dotnet/Fable.Compiler/Fable.Compiler.fsproj"
-        None, "dotnet/Fable.JsonConverter/Fable.JsonConverter.fsproj"
+        ), pkgName="dotnet-fable")
         // NPM packages
-        None, "js/fable-utils"
-        None, "js/fable-loader"
-        None, "js/rollup-plugin-fable"
-        Some buildSplitter, "js/fable-splitter"
+        Package "js/fable-utils"
+        Package "js/fable-loader"
+        Package "js/rollup-plugin-fable"
+        Package("js/fable-splitter", buildSplitter)
     ]
     installDotnetSdk ()
     fullClean ()
@@ -295,7 +297,7 @@ Target "All" (fun () ->
     clean ()
     buildCLI Release ()
     buildSplitter ()
-    buildCoreJS ()
+    buildCoreJs ()
 
     runTestsJS ()
 

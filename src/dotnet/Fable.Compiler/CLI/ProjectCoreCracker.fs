@@ -134,8 +134,9 @@ let rec private projInfo additionalMSBuildProps (file: string) =
           else
               f
 
-      let projOptions =
+      let projOptions: FSharpProjectOptions =
           {
+              ProjectId = None
               ProjectFileName = file
               SourceFiles = [||]
               OtherOptions = rsp |> List.map compileFilesToAbsolutePath |> Array.ofList
