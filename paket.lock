@@ -274,4 +274,4 @@ GITHUB
     modules/Octokit/Octokit.fsx (97a503a180d86701ae7c56f7e15432907a86b3f3)
       Octokit (>= 0.20)
   remote: fable-compiler/fake-helpers
-    Fable.FakeHelpers.fs (0119a4a90c17bfbfc9eebedb002023efdd1a7e9f)
+    Fable.FakeHelpers.fs (2659db7061c051f1ed23c04bf21b234224374b16)
