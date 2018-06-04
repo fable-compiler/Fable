@@ -221,6 +221,10 @@ type AsyncRecord = {
   asyncProp : Async<string>
 }
 
+type MyList<'T> =
+| Nil
+| Cons of 'T * MyList<'T>
+
 let reflectionTests = [
   testCase "Reflection: Array" <| fun () ->
     let arType = typeof<int[]>
@@ -359,6 +363,14 @@ let reflectionTests = [
     let recordType = typeof<AsyncRecord>
     let asyncProp = FSharpType.GetRecordFields recordType |> Array.head
     asyncProp.PropertyType.GenericTypeArguments |> Array.head |> equal typeof<string>
+
+  testCase "Recursive types work" <| fun () ->
+    let cons =
+        FSharpType.GetUnionCases(typeof<MyList<int>>)
+        |> Array.find (fun x -> x.Name = "Cons")
+    let fieldTypes = cons.GetFields()
+    fieldTypes.[0].PropertyType.FullName |> equal typeof<int>.FullName
+    fieldTypes.[1].PropertyType.GetGenericTypeDefinition().FullName |> equal typedefof<MyList<obj>>.FullName
 ]
 
 #if FABLE_COMPILER
@@ -369,7 +381,7 @@ type R2 = { y: int }
 
 type Helper =
     static member Make(values: obj[], [<Inject>] ?res: ITypeResolver<'U>) =
-        let t = res.Value.GetTypeInfo()
+        let t = res.Value.ResolveType()
         FSharpValue.MakeRecord(t, values) :?> 'U
 
 let injectTests = [

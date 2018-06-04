@@ -97,7 +97,7 @@ let parse (msg: string) =
         parseStringRequired "path" json
         |> Path.normalizeFullPath
       rootDir =
-        parseStringRequired "rootDir" json
+        parseString GlobalParams.Singleton.WorkingDir "rootDir" json
         |> Path.normalizeFullPath
       define =
         parseStringArray [||] "define" json

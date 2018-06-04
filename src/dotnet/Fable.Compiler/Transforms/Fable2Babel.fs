@@ -79,16 +79,18 @@ module Util =
             member __.IsRecursiveRef(e) =
                 match e with Fable.IdentExpr id  -> name = id.Name | _ -> false
 
-    let decisionTargetsReferencedMultipleTimes targets expr =
+    let decisionTargetsReferencedMultipleTimes expr targetsLength =
         let targetRefs = Dictionary()
-        for i = 1 to (List.length targets) do
+        for i = 1 to targetsLength do
             targetRefs.Add(i - 1, 0)
-        expr |> FableTransforms.deepExists (function
+        expr |> FableTransforms.deepExistsWithShortcircuit (function
             | Fable.DecisionTreeSuccess(idx,_,_) ->
                 let count = targetRefs.[idx]
                 targetRefs.[idx] <- count + 1
-                count > 0
-            | _ -> false)
+                if count > 0 then Some true else None
+            // We shouldn't actually see this, but shortcircuit just in case
+            | Fable.DecisionTree _ -> Some false
+            | _ -> None)
 
     let getDecisionTarget (ctx: Context) targetIndex boundValues =
         match List.tryItem targetIndex ctx.DecisionTargets with
@@ -99,7 +101,7 @@ module Util =
 
     let rec isJsStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
-        | Fable.Value _ | Fable.Import _ | Fable.OptimizableCast _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
+        | Fable.Value _ | Fable.Import _ | Fable.DelayedResolution _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
         | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ -> false
 
         | Fable.TryCatch _ | Fable.Debugger
@@ -145,10 +147,6 @@ module Util =
         | Fable.Value(Fable.StringConstant name) -> memberFromName name
         | e -> com.TransformAsExpr(ctx, e), true
 
-    let coreLibCall (com: IBabelCompiler) (ctx: Context) coreModule memb args =
-        let callee = com.GetImportExpr(ctx, memb, coreModule, Fable.CoreLib)
-        CallExpression(callee, args) :> Expression
-
     let get r left memberName =
         let expr, computed = memberFromName memberName
         MemberExpression(left, expr, computed, ?loc=r) :> Expression
@@ -168,14 +166,14 @@ module Util =
     let jsObject methodName args =
         CallExpression(get None (Identifier "Object") methodName, args) :> Expression
 
-    let coreUtil (com: IBabelCompiler) ctx methodName args =
-        CallExpression(com.TransformImport(ctx, methodName, "Util", Fable.CoreLib), args) :> Expression
+    let coreUtil (com: IBabelCompiler) ctx memberName args =
+        CallExpression(com.TransformImport(ctx, memberName, "Util", Fable.CoreLib), args) :> Expression
 
-    let coreMethod (com: IBabelCompiler) ctx moduleName methodName args =
-        CallExpression(com.TransformImport(ctx, methodName, moduleName, Fable.CoreLib), args) :> Expression
+    let coreLibCall (com: IBabelCompiler) ctx moduleName memberName args =
+        CallExpression(com.TransformImport(ctx, memberName, moduleName, Fable.CoreLib), args) :> Expression
 
-    let coreValue (com: IBabelCompiler) ctx moduleName methodName =
-        com.TransformImport(ctx, methodName, moduleName, Fable.CoreLib)
+    let coreValue (com: IBabelCompiler) ctx moduleName memberName =
+        com.TransformImport(ctx, memberName, moduleName, Fable.CoreLib)
 
     let makeTypedArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
         match typ with
@@ -317,33 +315,54 @@ module Util =
             yield assign None (Identifier argId) (Identifier tempVar) |> ExpressionStatement :> Statement
           yield upcast ContinueStatement(Identifier tc.Label) ]
 
-    let transformOptimizableCast (com: IBabelCompiler) (ctx: Context) kind expr: Expression =
+    let transformImport (com: IBabelCompiler) ctx r (selector: Fable.Expr) (path: Fable.Expr) kind =
+        match selector, path with
+        | Fable.Value(Fable.StringConstant selector), Fable.Value(Fable.StringConstant path) ->
+            let selector, parts =
+                let parts = Array.toList(selector.Split('.'))
+                parts.Head, parts.Tail
+            com.GetImportExpr(ctx, selector, path, kind)
+            |> getParts parts
+        | _ -> "Import expressions only accept string literals" |> addErrorAndReturnNull com r
+
+    let transformDelayedResolution (com: IBabelCompiler) (ctx: Context) kind: Expression =
         match kind with
-        | Fable.AsSeqFromList ->
+        | Fable.AsSeqFromList expr ->
             match expr with
             | Replacements.ListLiteral(exprs, _) ->
                 // Use type Any to prevent creation of a typed array
                 makeTypedArray com ctx Fable.Any (Fable.ArrayValues exprs)
             | _ -> com.TransformAsExpr(ctx, expr)
-        | Fable.AsPojo caseRule -> com.TransformAsExpr(ctx, Replacements.makePojo caseRule expr)
-        | Fable.AsUnit -> com.TransformAsExpr(ctx, expr)
+        | Fable.AsPojo(expr, caseRule) -> com.TransformAsExpr(ctx, Replacements.makePojo caseRule expr)
+        | Fable.AsUnit expr -> com.TransformAsExpr(ctx, expr)
 
-    let rec transformTypeInfo (com: IBabelCompiler) ctx r t: Expression =
-        let error msg = addErrorAndReturnNull com r msg
+    let rec transformTypeInfo (com: IBabelCompiler) ctx r (knownTypes: Map<string, int>) t:  Map<string, int> * Expression =
+        let error msg =
+            knownTypes, addErrorAndReturnNull com r msg
+        let primitiveTypeInfo name =
+            knownTypes, coreValue com ctx "Reflection" name
         let nonGenericTypeInfo fullname =
             [ StringLiteral fullname :> Expression ]
-            |> coreMethod com ctx "Reflection" "type"
-        let resolveType argMap t =
+            |> coreLibCall com ctx "Reflection" "type"
+            |> Tuple.make2 knownTypes
+        let resolveGenerics knownTypes generics =
+            (generics, (knownTypes, [])) ||> List.foldBack (fun genArg (knownTypes, resolved) ->
+                let knownTypes, typeInfo = transformTypeInfo com ctx r knownTypes genArg
+                knownTypes, typeInfo::resolved)        
+        let genericTypeInfo name genArgs =
+            let knownTypes, resolved = resolveGenerics knownTypes genArgs
+            knownTypes, coreLibCall com ctx "Reflection" name resolved
+        let resolveType argMap knownTypes t =
             FSharp2Fable.TypeHelpers.makeType com argMap t
-            |> transformTypeInfo com ctx r
+            |> transformTypeInfo com ctx r knownTypes
         match t with
         | Fable.GenericParam _ -> error "Cannot get type info of generic parameter, please inline or inject a type resolver"
-        | Fable.Unit    -> coreValue com ctx "Reflection" "unit"
-        | Fable.Boolean -> coreValue com ctx "Reflection" "bool"
-        | Fable.Char    -> coreValue com ctx "Reflection" "char"
-        | Fable.String  -> coreValue com ctx "Reflection" "string"
+        | Fable.Unit    -> primitiveTypeInfo "unit"
+        | Fable.Boolean -> primitiveTypeInfo "bool"
+        | Fable.Char    -> primitiveTypeInfo "char"
+        | Fable.String  -> primitiveTypeInfo "string"
         // TODO: Type info forErasedUnion?
-        | Fable.ErasedUnion _ | Fable.Any -> coreValue com ctx "Reflection" "obj"
+        | Fable.ErasedUnion _ | Fable.Any -> primitiveTypeInfo "obj"
         | Fable.EnumType(_, fullname) -> nonGenericTypeInfo fullname
         | Fable.Number kind ->
             match kind with
@@ -356,61 +375,67 @@ module Util =
             | Float32 -> "float32"
             | Float64 -> "float64"
             | Decimal -> "decimal"
-            |> coreValue com ctx "Reflection"
+            |> primitiveTypeInfo
         | Fable.FunctionType(Fable.LambdaType argType, returnType) ->
-            [ transformTypeInfo com ctx r argType
-              transformTypeInfo com ctx r returnType ]
-            |> coreMethod com ctx "Reflection" "lambda"
+            genericTypeInfo "lambda" [argType; returnType]
         | Fable.FunctionType(Fable.DelegateType argTypes, returnType) ->
-            let argTypes = List.map (transformTypeInfo com ctx r) argTypes
-            let returnType = transformTypeInfo com ctx r returnType
-            coreMethod com ctx "Reflection" "delegate" (argTypes @ [returnType])
-        | Fable.Tuple genArgs ->
-            List.map (transformTypeInfo com ctx r) genArgs
-            |> coreMethod com ctx "Reflection" "tuple"
-        | Fable.Option gen  -> [ transformTypeInfo com ctx r gen ] |> coreMethod com ctx "Reflection" "option"
-        | Fable.Array gen   -> [ transformTypeInfo com ctx r gen ] |> coreMethod com ctx "Reflection" "array"
-        | Fable.List gen    -> [ transformTypeInfo com ctx r gen ] |> coreMethod com ctx "Reflection" "list"
-        | Fable.Regex       -> nonGenericTypeInfo Types.regex
-        | Fable.MetaType    -> nonGenericTypeInfo Types.type_
+            genericTypeInfo "delegate" (argTypes @ [returnType])
+        | Fable.Tuple genArgs   -> genericTypeInfo "tuple" genArgs
+        | Fable.Option gen      -> genericTypeInfo "option" [gen]
+        | Fable.Array gen       -> genericTypeInfo "array" [gen]
+        | Fable.List gen        -> genericTypeInfo "list" [gen]
+        | Fable.Regex           -> nonGenericTypeInfo Types.regex
+        | Fable.MetaType        -> nonGenericTypeInfo Types.type_
         | Fable.DeclaredType(ent, generics) ->
-            let genMap =
-                let argNames = ent.GenericParameters |> Seq.map (fun x -> x.Name)
-                Seq.zip argNames generics |> Map
-            let generics = List.map (transformTypeInfo com ctx r) generics |> ArrayExpression :> Expression
-            let fullname = defaultArg ent.TryFullName Naming.unknown |> StringLiteral :> Expression
-            if ent.IsFSharpRecord then
-                [ yield fullname
-                  yield generics
-                  yield! ent.FSharpFields |> Seq.map (fun x ->
-                    ArrayExpression [StringLiteral x.Name; resolveType genMap x.FieldType] :> Expression)
-                ] |> coreMethod com ctx "Reflection" "record"
-            elif ent.IsFSharpUnion then
-                [ yield fullname
-                  yield generics
-                  yield!
-                    if FSharp2Fable.Helpers.hasCaseWithFields ent then
-                        ent.UnionCases |> Seq.map (fun x ->
-                            let fieldTypes =
-                                x.UnionCaseFields
-                                |> Seq.map (fun x -> resolveType genMap x.FieldType)
-                                |> Seq.toList
-                            ArrayExpression [
-                                getUnionCaseName x |> StringLiteral :> Expression
-                                ArrayExpression fieldTypes :> Expression
-                            ] :> Expression)
-                    else
-                        // If there're no cases with fields, just pass the case names
-                        // so the runtime knows the union is represented as strings.
-                        ent.UnionCases |> Seq.map (fun x ->
-                            getUnionCaseName x |> StringLiteral :> Expression)
-                ] |> coreMethod com ctx "Reflection" "union"
-            else
-                coreMethod com ctx "Reflection" "type" [fullname; generics]
+            let fullname = FSharp2Fable.Helpers.getEntityFullName ent
+            let fullnameExpr = StringLiteral fullname :> Expression
+            match Map.tryFind fullname knownTypes with
+            | Some refCount ->
+                // If the type has been referenced before, just add the type name to prevent a Stack Overflow exception
+                // The recursive references will be resolved later in fable-core/Reflection/recursiveType
+                Map.add fullname (refCount + 1) knownTypes, coreLibCall com ctx "Reflection" "type" [fullnameExpr]
+            | None ->
+                let genMap =
+                    let argNames = ent.GenericParameters |> Seq.map (fun x -> x.Name)
+                    Seq.zip argNames generics |> Map
+                let knownTypes, generics = resolveGenerics (Map.add fullname 1 knownTypes) generics
+                let generics = ArrayExpression generics :> Expression
+                if ent.IsFSharpRecord then
+                    let knownTypes, fields =
+                        (ent.FSharpFields, (knownTypes, [])) ||> Seq.foldBack (fun x (knownTypes, resolved) ->
+                            let knownTypes, typeInfo = resolveType genMap knownTypes x.FieldType
+                            knownTypes, (ArrayExpression [StringLiteral x.Name; typeInfo] :> Expression)::resolved)        
+                    knownTypes, (fullnameExpr::generics::fields |> coreLibCall com ctx "Reflection" "record")
+                elif ent.IsFSharpUnion then
+                    let knownTypes, cases =
+                        if FSharp2Fable.Helpers.hasCaseWithFields ent then
+                            (ent.UnionCases, (knownTypes, [])) ||> Seq.foldBack (fun x (knownTypes, resolved) ->
+                                let knownTypes, fieldTypes =
+                                    (x.UnionCaseFields, (knownTypes, [])) ||> Seq.foldBack (fun x (knownTypes, resolved) ->
+                                        let knownTypes, typeInfo = resolveType genMap knownTypes x.FieldType
+                                        knownTypes, typeInfo::resolved)
+                                let caseInfo =
+                                    ArrayExpression [
+                                        getUnionCaseName x |> StringLiteral :> Expression
+                                        ArrayExpression fieldTypes :> Expression
+                                    ] :> Expression
+                                knownTypes, caseInfo::resolved)
+                        else
+                            // If there're no cases with fields, just pass the case names
+                            // so the runtime knows the union is represented as strings.
+                            knownTypes, ent.UnionCases |> Seq.map (fun x -> getUnionCaseName x |> StringLiteral :> Expression) |> Seq.toList
+                    knownTypes, (fullnameExpr::generics::cases |> coreLibCall com ctx "Reflection" "union")
+                else
+                    knownTypes, coreLibCall com ctx "Reflection" "type" [fullnameExpr; generics]
 
     let transformValue (com: IBabelCompiler) (ctx: Context) value: Expression =
         match value with
-        | Fable.TypeInfo(t, r) -> transformTypeInfo com ctx r t
+        | Fable.TypeInfo(t, r) ->
+            let knownTypes, typeInfo = transformTypeInfo com ctx r Map.empty t
+            // If there're recursive types (referenced more than one), resolve the references at runtime
+            if Map.exists (fun _ v -> v > 1) knownTypes
+            then coreLibCall com ctx "Reflection" "recursiveType" [typeInfo]
+            else typeInfo
         | Fable.This _ | Fable.Super _  -> upcast ThisExpression ()
         | Fable.Null _ -> upcast NullLiteral ()
         | Fable.UnitConstant -> upcast NullLiteral () // TODO: Use `void 0`?
@@ -681,13 +706,6 @@ module Util =
         | Fable.ExprSet(TransformExpr com ctx prop) -> getExpr None expr prop |> Assign
         | Fable.RecordSet(fi,_) -> get None expr fi.Name |> Assign
 
-    let transformImport (com: IBabelCompiler) ctx (selector: string) (path: string) kind =
-        let selector, parts =
-            let parts = Array.toList(selector.Split('.'))
-            parts.Head, parts.Tail
-        com.GetImportExpr(ctx, selector, path, kind)
-        |> getParts parts
-
     let transformBindingExprBody (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         match value with
         | Fable.Function(args, body, _) ->
@@ -698,8 +716,8 @@ module Util =
             com.TransformFunction(ctx, Some var.Name, args, body)
             ||> makeFunctionExpression (Some var.Name)
         // Check imports with name placeholder
-        | Fable.Import(Naming.placeholder, path, kind, _) ->
-            transformImport com ctx var.Name path kind
+        | Fable.Import(Fable.Value(Fable.StringConstant Naming.placeholder), path, kind, _, r) ->
+            transformImport com ctx r (makeStrConst var.Name) path kind
         | _ ->
             com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
 
@@ -737,7 +755,7 @@ module Util =
         | Fable.Array _ | Fable.Tuple _ ->
             coreLibCall com ctx "Util" "isArray" [com.TransformAsExpr(ctx, expr)]
         | Fable.List _ ->
-            jsInstanceof (makeCoreRef Fable.Any "ListClass" "List") expr
+            jsInstanceof (makeCoreRef Fable.Any "List" "ListClass") expr
         | Fable.DeclaredType (ent, genArgs) ->
             match ent.TryFullName with
             | Some Types.disposable ->
@@ -752,9 +770,9 @@ module Util =
                 jsInstanceof (makeIdentExpr "Date") expr
             // TODO: Include units of measure? "Microsoft.FSharp.Core.int64`1"
             | Some ("System.Int64" | "System.UInt64") ->
-                jsInstanceof (makeCoreRef Fable.Any "Long" "default") expr
+                jsInstanceof (makeCoreRef Fable.Any "default" "Long") expr
             | Some "System.Numerics.BigInteger" ->
-                jsInstanceof (makeCoreRef Fable.Any "BigInt" "default") expr
+                jsInstanceof (makeCoreRef Fable.Any "default" "BigInt") expr
             | _ ->
                 if ent.IsFSharpExceptionDeclaration then
                     let expr = com.TransformAsExpr(ctx, expr)
@@ -837,6 +855,30 @@ module Util =
             let bindings = bindings |> List.rev |> List.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
             bindings @ (com.TransformAsStatements(ctx, ret, target))
 
+    let transformDecisionTreeAsSwitch expr =
+        let (|Equals|_|) = function
+            | Fable.Operation(Fable.BinaryOperation(BinaryEqualStrict, Fable.IdentExpr ident, right), _, _) ->
+                Some(ident, right)
+            | _ -> None
+        let rec checkInner cases (evalIdent: Fable.Ident) = function
+            | Fable.IfThenElse(Equals(evalIdent2, caseExpr),
+                               Fable.DecisionTreeSuccess(targetIndex, boundValues, _), treeExpr)
+                                    when evalIdent.Name = evalIdent2.Name ->
+                match treeExpr with
+                | Fable.DecisionTreeSuccess(defaultTargetIndex, defaultBoundValues, _) ->
+                    let cases = (caseExpr, targetIndex, boundValues)::cases |> List.rev
+                    Some(evalIdent, cases, (defaultTargetIndex, defaultBoundValues))
+                | treeExpr -> checkInner ((caseExpr, targetIndex, boundValues)::cases) evalIdent treeExpr
+            | _ -> None
+        match expr with
+        | Fable.IfThenElse(Equals(evalIdent, caseExpr),
+                           Fable.DecisionTreeSuccess(targetIndex, boundValues, _), treeExpr) ->
+            match checkInner [caseExpr, targetIndex, boundValues] evalIdent treeExpr with
+            | Some(evalIdent, cases, defaultCase) ->
+                Some(Fable.IdentExpr evalIdent, cases, defaultCase)
+            | None -> None
+        | _ -> None
+
     let transformDecisionTreeAsExpr (com: IBabelCompiler) (ctx: Context) targets expr: Expression =
         // TODO: Check if some targets are referenced multiple times
         let ctx = { ctx with DecisionTargets = targets }
@@ -847,33 +889,9 @@ module Util =
         let transformCase t (caseExpr, targetIndex, boundValues) =
             caseExpr, Fable.DecisionTreeSuccess(targetIndex, boundValues, t)
 
-        let transformDecisionTreeAsSwitch expr =
-            let (|Equals|_|) = function
-                | Fable.Operation(Fable.BinaryOperation(BinaryEqualStrict, Fable.IdentExpr ident, right), _, _) ->
-                    Some(ident, right)
-                | _ -> None
-            let rec checkInner cases (evalIdent: Fable.Ident) = function
-                | Fable.IfThenElse(Equals(evalIdent2, caseExpr),
-                                   Fable.DecisionTreeSuccess(targetIndex, boundValues, _), treeExpr)
-                                        when evalIdent.Name = evalIdent2.Name ->
-                    match treeExpr with
-                    | Fable.DecisionTreeSuccess(defaultTargetIndex, defaultBoundValues, _) ->
-                        let cases = (caseExpr, targetIndex, boundValues)::cases |> List.rev
-                        Some(evalIdent, cases, (defaultTargetIndex, defaultBoundValues))
-                    | treeExpr -> checkInner ((caseExpr, targetIndex, boundValues)::cases) evalIdent treeExpr
-                | _ -> None
-            match expr with
-            | Fable.IfThenElse(Equals(evalIdent, caseExpr),
-                               Fable.DecisionTreeSuccess(targetIndex, boundValues, _), treeExpr) ->
-                match checkInner [caseExpr, targetIndex, boundValues] evalIdent treeExpr with
-                | Some(evalIdent, cases, defaultCase) ->
-                    Some(Fable.IdentExpr evalIdent, cases, defaultCase)
-                | None -> None
-            | _ -> None
-
         // If some targets are referenced multiple times, host bound idents,
         // resolve the decision index and compile the targets as a switch
-        if decisionTargetsReferencedMultipleTimes targets treeExpr then
+        if List.length targets |> decisionTargetsReferencedMultipleTimes treeExpr then
             // Declare $target and bound idents
             let targetId = com.GetUniqueVar("target")
             let varDeclaration =
@@ -916,14 +934,14 @@ module Util =
 
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
-        | Fable.OptimizableCast(expr, kind, _) -> transformOptimizableCast com ctx kind expr
+        | Fable.DelayedResolution(kind, _) -> transformDelayedResolution com ctx kind
 
         | Fable.Value kind -> transformValue com ctx kind
 
         | Fable.IdentExpr ident -> upcast Identifier ident.Name
 
-        | Fable.Import(selector, path, kind, _) ->
-            transformImport com ctx selector path kind
+        | Fable.Import(selector, path, kind, _, r) ->
+            transformImport com ctx r selector path kind
 
         | Fable.Test(expr, kind, range) ->
             transformTest com ctx range kind expr
@@ -972,8 +990,8 @@ module Util =
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement list =
         match expr with
-        | Fable.OptimizableCast(expr, kind, t) ->
-            [transformOptimizableCast com ctx kind expr |> resolveExpr t returnStrategy]
+        | Fable.DelayedResolution(kind, t) ->
+            [transformDelayedResolution com ctx kind |> resolveExpr t returnStrategy]
 
         | Fable.Value kind ->
             [transformValue com ctx kind |> resolveExpr kind.Type returnStrategy]
@@ -981,8 +999,8 @@ module Util =
         | Fable.IdentExpr ident ->
             [Identifier ident.Name :> Expression |> resolveExpr ident.Type returnStrategy]
 
-        | Fable.Import(selector, path, kind, t) ->
-            [transformImport com ctx selector path kind |> resolveExpr t returnStrategy]
+        | Fable.Import(selector, path, kind, t, r) ->
+            [transformImport com ctx r selector path kind |> resolveExpr t returnStrategy]
 
         | Fable.Test(expr, kind, range) ->
             [transformTest com ctx range kind expr |> resolveExpr Fable.Boolean returnStrategy]
@@ -1273,7 +1291,7 @@ module Util =
                     | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
                     | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1)
             import.Path, specifier)
-        |> Seq.groupBy (fun (path, _) -> path)
+        |> Seq.groupBy fst
         |> Seq.collect (fun (path, specifiers) ->
             let mems, defs, alls =
                 (([], [], []), Seq.choose snd specifiers)
@@ -1291,7 +1309,7 @@ module Util =
             // so we must issue an import statement for each kind
             match [mems; defs; alls] with
             | [[];[];[]] ->
-                // No specifiers, so this is just a import for side effects
+                // No specifiers, so this is just an import for side effects
                 [ImportDeclaration([], StringLiteral path) :> ModuleDeclaration |> U2.Case2]
             | specifiers ->
                 specifiers |> List.choose (function
@@ -1346,9 +1364,9 @@ module Util =
             member __.GetAllDependencies() = upcast dependencies
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
-            member bcom.TransformImport(ctx, selector, path, kind) = transformImport bcom ctx selector path kind
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
             member bcom.TransformObjectExpr(ctx, members, baseCall, boundThis) = transformObjectExpr bcom ctx members baseCall boundThis
+            member bcom.TransformImport(ctx, selector, path, kind) = transformImport bcom ctx None (makeStrConst selector) (makeStrConst path) kind
         interface ICompiler with
             member __.Options = com.Options
             member __.FableCore = com.FableCore
@@ -1384,7 +1402,7 @@ module Compiler =
                 TailCallOpportunity = None
                 OptimizeTailCall = fun () -> () }
             let rootDecls = transformDeclarations com ctx file.Declarations
-            let importDecls = transformImports <| com.GetAllImports()
+            let importDecls = com.GetAllImports() |> transformImports
             let dependencies =
                 com.GetAllDependencies()
                 |> Seq.append file.Dependencies

@@ -623,11 +623,12 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
 
 /// When using `importMember`, uses the member display name as selector
 let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
-    if selector = Naming.placeholder
-    then getMemberDisplayName memb
-    else selector
+    match selector with
+    | Fable.Value(Fable.StringConstant Naming.placeholder) ->
+        getMemberDisplayName memb |> makeStrConst
+    | _ -> selector
 
-let private transformImport typ isPublic name selector path =
+let private transformImport r typ isPublic name selector path =
     let info: Fable.ValueDeclarationInfo =
         { Name = name
           IsPublic = isPublic
@@ -635,13 +636,13 @@ let private transformImport typ isPublic name selector path =
           // (check if they're mutable, see #1314)
           IsMutable = false
           HasSpread = false }
-    let fableValue = Fable.Import(selector, path, Fable.CustomImport, typ)
+    let fableValue = Fable.Import(selector, path, Fable.CustomImport, typ, r)
     [Fable.ValueDeclaration(fableValue, info)]
 
 let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
     match transformExpr com ctx value with
     // Accept import expressions, e.g. let foo = import "foo" "myLib"
-    | Fable.Import(selector, path, Fable.CustomImport, typ) ->
+    | Fable.Import(selector, path, Fable.CustomImport, typ, r) ->
         match typ with
         | Fable.FunctionType(Fable.LambdaType _, Fable.FunctionType(Fable.LambdaType _, _)) ->
             "Change declaration of member: " + name + "\n"
@@ -650,7 +651,7 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
             |> addError com None
         | _ -> ()
         let selector = importExprSelector memb selector
-        transformImport typ isPublic name selector path
+        transformImport r typ isPublic name selector path
     | fableValue ->
         let info: Fable.ValueDeclarationInfo =
             { Name = name
@@ -672,11 +673,11 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
         | _ -> transformExpr com bodyCtx body
     match body with
     // Accept import expressions , e.g. let foo x y = import "foo" "myLib"
-    | Fable.Import(selector, path, Fable.CustomImport, _) ->
+    | Fable.Import(selector, path, Fable.CustomImport, _, r) ->
         // Use the full function type
         let typ = makeType com Map.empty memb.FullType
         let selector = importExprSelector memb selector
-        transformImport typ isPublic name selector path
+        transformImport r typ isPublic name selector path
     | body ->
         let fn = Fable.Function(Fable.Delegate args, body, Some name)
         // If this is a static constructor, call it immediately
@@ -700,7 +701,7 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
     match tryImportAttribute memb.Attributes with
     | Some(selector, path) ->
         let typ = makeType com Map.empty memb.FullType
-        transformImport typ isPublic name selector path
+        transformImport None typ isPublic name (makeStrConst selector) (makeStrConst path)
     | None ->
         if isModuleValueForDeclarations memb
         then transformMemberValue com ctx isPublic name memb body
@@ -779,7 +780,8 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
                     // to add all member names and prevent conflicts with variable names
                     // (see also other calls to .AddUsedVarName above)
                     (com :> IFableCompiler).AddUsedVarName(name)
-                    transformImport Fable.Any (not ent.Accessibility.IsPrivate) name selector path
+                    (makeStrConst selector, makeStrConst path)
+                    ||> transformImport None Fable.Any (not ent.Accessibility.IsPrivate) name
                 | None ->
                     transformDeclarationsInner com ctx sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->

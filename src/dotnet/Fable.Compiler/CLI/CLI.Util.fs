@@ -6,28 +6,47 @@ module Literals =
   let [<Literal>] DEFAULT_PORT = 61225
   let [<Literal>] FORCE = "force:"
 
-/// These values must be only set by the Main method
+open System.IO
+open System.Reflection
+
+type private TypeInThisAssembly = class end
+
 [<RequireQualifiedAccess>]
-module GlobalParams =
-  open System.IO
-  open System.Reflection
+type GlobalParams private (verbose, fableCorePath, workingDir) =
+    static let mutable singleton: GlobalParams option = None
+    let mutable _verbose = verbose
+    let mutable _fableCorePath = fableCorePath
+    let mutable _workingDir = workingDir
 
-  type private TypeInThisAssembly = class end
+    static member Singleton =
+        match singleton with
+        | Some x -> x
+        | None ->
+            let workingDir = Directory.GetCurrentDirectory()
+            let fableCorePath =
+                let execDir =
+                  typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location
+                  |> Path.GetDirectoryName
+                Path.Combine(execDir, "..", "..", "fable-core")        
+            let p = GlobalParams(false, fableCorePath, workingDir)
+            singleton <- Some p
+            p
 
-  let mutable Verbose = false
+    member __.Verbose: bool = _verbose
+    member __.FableCorePath: string = _fableCorePath
+    member __.WorkingDir: string = _workingDir
 
-  let mutable FableCorePath =
-    let execDir =
-      typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location
-      |> Path.GetDirectoryName
-    Path.Combine(execDir, "..", "..", "fable-core")
+    member __.SetValues(?verbose, ?fableCorePath, ?workingDir) =
+        _verbose        <- defaultArg verbose _verbose
+        _fableCorePath  <- defaultArg fableCorePath _fableCorePath
+        _workingDir     <- defaultArg workingDir _workingDir
 
 [<RequireQualifiedAccess>]
 module Log =
   open System
 
   let logVerbose(msg: Lazy<string>) =
-    if GlobalParams.Verbose then
+    if GlobalParams.Singleton.Verbose then
       try // Some long verbose message may conflict with other processes
         Console.WriteLine(msg.Value)
       with _ -> ()
@@ -36,7 +55,6 @@ module Log =
     Console.WriteLine(msg)
 
 module Json =
-    open System.Reflection
     open FSharp.Reflection
     open Newtonsoft.Json
     open System.Collections.Concurrent

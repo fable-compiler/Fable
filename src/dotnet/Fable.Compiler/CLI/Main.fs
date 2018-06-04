@@ -80,6 +80,7 @@ let startServer port onMessage continuation =
         1
 
 let startServerWithProcess workingDir port exec args =
+    GlobalParams.Singleton.SetValues(workingDir = workingDir)
     let mutable disposed = false
     let killProcessAndServer =
         fun (p: System.Diagnostics.Process) ->
@@ -106,16 +107,16 @@ let startServerWithProcess workingDir port exec args =
         p.ExitCode
 
 let setGlobalParams(args: string[]) =
-    match tryFindArgValue "--verbose" args with
-    | Some _ -> GlobalParams.Verbose <- true
-    | None -> ()
-    match tryFindArgValue "--fable-core" args with
-    | Some path ->
-        GlobalParams.FableCorePath <-
-            if path.StartsWith(Literals.FORCE)
-            then path
-            else Fable.Path.normalizeFullPath path
-    | None -> ()
+    GlobalParams.Singleton.SetValues(
+        ?verbose =
+            (tryFindArgValue "--verbose" args
+             |> Option.map (fun _ -> true)),
+        ?fableCorePath =
+            (tryFindArgValue "--fable-core" args
+             |> Option.map (fun path ->
+                if path.StartsWith(Literals.FORCE)
+                then path
+                else Fable.Path.normalizeFullPath path)))
 
 let printHelp() =
     Literals.VERSION |> printfn """Fable F# to JS compiler (%s)
@@ -209,7 +210,7 @@ let main argv =
             let binPath = IO.Path.Combine(pkgJsonDir, "node_modules/.bin/" + npmBin)
             if Process.isWindows then binPath + ".cmd" else binPath
         if File.Exists(binPath) |> not then
-            printfn "Path does not exist, please make you've restored npm dependencies: %s" binPath; -1
+            printfn "Path does not exist, please make sure you've restored npm dependencies: %s" binPath; -1
         else
             defaultArg args.commandArgs ""
             |> startServerWithProcess pkgJsonDir args.port binPath

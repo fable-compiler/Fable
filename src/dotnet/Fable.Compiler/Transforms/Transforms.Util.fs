@@ -95,12 +95,6 @@ module AST =
 
     let makeLoop range loopKind = Loop (loopKind, range)
 
-    let makeCoreRef t modname prop =
-        Import(prop, modname, CoreLib, t)
-
-    let makeImport t (selector: string) (path: string) =
-        Import(selector.Trim(), path.Trim(), CustomImport, t)
-
     let makeBinOp range typ left right op =
         Operation(BinaryOperation(op, left, right), typ, range)
 
@@ -124,6 +118,15 @@ module AST =
     let makeIntConst (x: int) = NumberConstant (float x, Int32) |> Value
     let makeFloatConst (x: float) = NumberConstant (x, Float64) |> Value
     let makeDecConst (x: decimal) = NumberConstant (float x, Decimal) |> Value
+
+    let makeCoreRef t memberName moduleName =
+        Import(makeStrConst memberName, makeStrConst moduleName, CoreLib, t, None)
+
+    let makeCustomImport t (selector: string) (path: string) =
+        Import(selector.Trim() |> makeStrConst, path.Trim() |> makeStrConst, CustomImport, t, None)
+
+    let makeInternalImport t (selector: string) (path: string) =
+        Import(selector.Trim() |> makeStrConst, path.Trim() |> makeStrConst, Internal, t, None)
 
     let argInfo thisArg args argTypes =
         { ThisArg = thisArg

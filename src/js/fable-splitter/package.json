@@ -32,10 +32,6 @@
   "optionalDependencies": {
     "prepack": "^0.2.5"
   },
-  "devDependencies": {
-    "@types/node": "^8.0.22",
-    "@types/babel-core": "^6.26.0"
-  },
   "dependencies": {
     "fable-utils": "^1.0.6",
     "chokidar": "^1.7.0"

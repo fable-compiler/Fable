@@ -271,7 +271,7 @@ NUGET
     Octokit (0.29)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (7207fc85d52c6ee21f49c61551b8323b4e7608ed)
+    modules/Octokit/Octokit.fsx (97a503a180d86701ae7c56f7e15432907a86b3f3)
       Octokit (>= 0.20)
   remote: fable-compiler/fake-helpers
-    Fable.FakeHelpers.fs (12e724409465e682fb10ae378b03ed3dc877fa80)
+    Fable.FakeHelpers.fs (0119a4a90c17bfbfc9eebedb002023efdd1a7e9f)

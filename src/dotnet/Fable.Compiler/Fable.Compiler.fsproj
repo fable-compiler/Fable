@@ -36,11 +36,13 @@
     <Compile Include="CLI/Agent.fs" />
     <Compile Include="CLI/Main.fs" />
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(NugetPackage)' == 'true'">
     <Content Include="prefercliruntime">
       <PackagePath>prefercliruntime</PackagePath>
       <Pack>true</Pack>
     </Content>
+    <!-- VS cannot open the project if we have a slash after fable-core
+         but we need it so `dotnet pack` includes the dir contents in the package -->
     <Content Include="../../../build/fable-core/" PackagePath="fable-core" />
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />

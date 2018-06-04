@@ -7,7 +7,8 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 // TODO: Use trampoline here?
 let visit f e =
     match e with
-    | IdentExpr _ | Import _ | Debugger _ -> e
+    | IdentExpr _ | Debugger _ -> e
+    | Import(e1, e2, kind, t, r) -> Import(f e1, f e2, kind, t, r) 
     | Value kind ->
         match kind with
         | TypeInfo _ | This _ | Super _ | Null _ | UnitConstant
@@ -29,7 +30,11 @@ let visit f e =
         | NewUnion(exprs, uci, ent, genArgs) ->
             NewUnion(List.map f exprs, uci, ent, genArgs) |> Value
     | Test(e, kind, r) -> Test(f e, kind, r)
-    | OptimizableCast(e, kind, t) -> OptimizableCast(f e, kind, t)
+    | DelayedResolution(kind, t) ->
+        match kind with
+        | AsSeqFromList e -> DelayedResolution(AsSeqFromList(f e), t)
+        | AsPojo(e, r) -> DelayedResolution(AsPojo(f e, r), t)
+        | AsUnit e -> DelayedResolution(AsUnit(f e), t)
     | Function(kind, body, name) -> Function(kind, f body, name)
     | ObjectExpr(members, t, baseCall) ->
         let baseCall = Option.map f baseCall
@@ -100,7 +105,8 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
         visit (visitFromOutsideIn f) e
 
 let getSubExpressions = function
-    | IdentExpr _ | Import _ | Debugger _ -> []
+    | IdentExpr _ | Debugger _ -> []
+    | Import(e1,e2,_,_,_) -> [e1;e2]
     | Value kind ->
         match kind with
         | TypeInfo _ | This _ | Super _ | Null _ | UnitConstant
@@ -118,7 +124,11 @@ let getSubExpressions = function
         | NewErasedUnion(e, _) -> [e]
         | NewUnion(exprs, _, _, _) -> exprs
     | Test(e, _, _) -> [e]
-    | OptimizableCast(e, _, _) -> [e]
+    | DelayedResolution(kind, _) ->
+        match kind with
+        | AsSeqFromList e
+        | AsPojo(e,_)
+        | AsUnit e -> [e]
     | Function(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
         let members = members |> List.map (fun (_,v,_) -> v)
@@ -165,10 +175,10 @@ let getSubExpressions = function
 let rec deepExists f expr =
     f expr || (getSubExpressions expr |> List.exists (deepExists f))
 
-let rec tryDeepExists f expr =
+let rec deepExistsWithShortcircuit f expr =
     match f expr with
     | Some res -> res
-    | None -> getSubExpressions expr |> List.exists (tryDeepExists f)
+    | None -> getSubExpressions expr |> List.exists (deepExistsWithShortcircuit f)
 
 let replaceValues replacements expr =
     if Map.isEmpty replacements
@@ -242,7 +252,7 @@ module private Transforms =
         | _ -> None
 
     let (|EvalsMutableIdent|_|) expr =
-        if tryDeepExists (function
+        if deepExistsWithShortcircuit (function
             | IdentExpr id when id.IsMutable -> Some true
             | Function _ -> Some false // Ignore function bodies
             | _ -> None) expr

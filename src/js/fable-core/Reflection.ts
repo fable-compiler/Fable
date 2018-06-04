@@ -51,6 +51,54 @@ export function type(fullname: string, generics?: TypeInfo[]): TypeInfo {
   return new TypeInfo(fullname, generics);
 }
 
+export function recursiveType(info: TypeInfo): TypeInfo {
+  function checkRecursive(m: Map<string, TypeInfo>, info: TypeInfo) {
+    // Check first if there're subtypes
+    if (info.generics != null || info.fields != null || info.cases != null) {
+      m.set(info.fullname, info);
+      if (info.generics != null) {
+        for (let i = 0; i < info.generics.length; i++) {
+          const t = info.generics[i];
+          if (m.has(t.fullname)) {
+            info.generics[i] = m.get(t.fullname);
+          } else {
+            checkRecursive(m, t);
+          }
+        }
+      }
+
+      if (info.fields != null) {
+        for (let i = 0; i < info.fields.length; i++) {
+          const [name, t] = info.fields[i];
+          if (m.has(t.fullname)) {
+            info.fields[i] = [name, m.get(t.fullname)];
+          } else {
+            checkRecursive(m, t);
+          }
+        }
+      }
+
+      if (info.cases != null) {
+        for (let i = 0; i < info.cases.length; i++) {
+          const uci = info.cases[i];
+          if (uci.fields != null) {
+            for (let j = 0; j < uci.fields.length; j++) {
+              const t = uci.fields[j];
+              if (m.has(t.fullname)) {
+                uci.fields[j] = m.get(t.fullname);
+              } else {
+                checkRecursive(m, t);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  checkRecursive(new Map(), info);
+  return info;
+}
+
 export function record(fullname: string, generics: TypeInfo[], ...fields: FieldInfo[]): TypeInfo {
   return new TypeInfo(fullname, generics, { fields });
 }

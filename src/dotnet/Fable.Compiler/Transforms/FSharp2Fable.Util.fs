@@ -389,8 +389,17 @@ module TypeHelpers =
     open Helpers
     open Patterns
 
-    let rec makeGenArgs (com: ICompiler) ctxTypeArgs genArgs =
-        Seq.map (makeType com ctxTypeArgs) genArgs |> Seq.toList
+    let resolveGenParam ctxTypeArgs (genParam: FSharpGenericParameter) =
+        match Map.tryFind genParam.Name ctxTypeArgs with
+        | None -> Fable.GenericParam genParam.Name
+        | Some typ -> typ
+   
+    let rec makeGenArgs (com: ICompiler) ctxTypeArgs (genArgs: IList<FSharpType>) =
+        genArgs |> Seq.map (fun genArg ->
+            if genArg.IsGenericParameter
+            then resolveGenParam ctxTypeArgs genArg.GenericParameter
+            else makeType com ctxTypeArgs genArg)
+        |> Seq.toList        
 
     and makeTypeFromDelegate com ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) (fullName: string) =
         if fullName.StartsWith("System.Action") then
@@ -419,12 +428,8 @@ module TypeHelpers =
                 Fable.FunctionType(Fable.DelegateType [Fable.Any], Fable.Any)
 
     and makeTypeFromDef (com: ICompiler) ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
-        let getSingleGenericArg genArgs =
-            Seq.tryHead genArgs
-            |> Option.map (makeType com ctxTypeArgs)
-            |> Option.defaultValue Fable.Any // Raise error if not found?
         match getEntityFullName tdef, tdef with
-        | _ when tdef.IsArrayType -> getSingleGenericArg genArgs |> Fable.Array
+        | _ when tdef.IsArrayType -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
         | fullName, _ when tdef.IsEnum -> Fable.EnumType(Fable.NumberEnumType, fullName)
         | fullName, _ when tdef.IsDelegate -> makeTypeFromDelegate com ctxTypeArgs genArgs tdef fullName
         // Fable "primitives"
@@ -434,9 +439,9 @@ module TypeHelpers =
         | Types.char, _ -> Fable.Char
         | Types.string, _ -> Fable.String
         | Types.regex, _ -> Fable.Regex
-        | Types.option, _ -> getSingleGenericArg genArgs |> Fable.Option
-        | Types.resizeArray, _ -> getSingleGenericArg genArgs |> Fable.Array
-        | Types.list, _ -> getSingleGenericArg genArgs |> Fable.List
+        | Types.option, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Option
+        | Types.resizeArray, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
+        | Types.list, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.List
         | NumberKind kind, _ -> Fable.Number kind
         // Special attributes
         | fullName, ContainsAtt Atts.stringEnum _ -> Fable.EnumType(Fable.StringEnumType, fullName)
@@ -445,10 +450,6 @@ module TypeHelpers =
         | _ -> Fable.DeclaredType(tdef, makeGenArgs com ctxTypeArgs genArgs)
 
     and makeType (com: ICompiler) (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
-        let resolveGenParam ctxTypeArgs (genParam: FSharpGenericParameter) =
-            match Map.tryFind genParam.Name ctxTypeArgs with
-            | None -> Fable.GenericParam genParam.Name
-            | Some typ -> typ
         // Generic parameter (try to resolve for inline functions)
         if t.IsGenericParameter
         then resolveGenParam ctxTypeArgs t.GenericParameter
@@ -664,7 +665,7 @@ module Util =
                 let path =
                     lazy (getMemberLocation memb |> Some)
                     |> fixImportedRelativePath com path
-                Fable.Import(selector.Trim(), path.Trim(), Fable.CustomImport, typ) |> Some
+                makeCustomImport typ selector path |> Some
             | _ -> None)
 
     let tryImportedEntity (com: ICompiler) (ent: FSharpEntity) =
@@ -673,8 +674,7 @@ module Util =
             let path =
                 lazy tryGetEntityLocation ent
                 |> fixImportedRelativePath com path
-            Fable.Import(selector.Trim(), path.Trim(), Fable.CustomImport, Fable.Any)
-        )
+            makeCustomImport Fable.Any selector path)
 
     let tryEntityRef (com: ICompiler) (ent: FSharpEntity) =
         tryGetEntityLocation ent
@@ -683,7 +683,7 @@ module Util =
             let entityName = getEntityDeclarationName com ent
             if file = com.CurrentFile
             then makeIdent entityName |> Fable.IdentExpr
-            else Fable.Import(entityName, file, Fable.Internal, Fable.Any))
+            else makeInternalImport Fable.Any entityName file)
 
     let entityRef (com: ICompiler) r (ent: FSharpEntity) =
         match tryEntityRef com ent with
@@ -713,7 +713,7 @@ module Util =
         match file with
         | Some file when file = com.CurrentFile ->
             makeTypedIdent typ memberName |> Fable.IdentExpr
-        | Some file -> Fable.Import(memberName, file, Fable.Internal, typ)
+        | Some file -> makeInternalImport typ memberName file
         | None -> "Cannot find implementation location for member: " + memb.FullName
                   |> addErrorAndReturnNull com r
 
@@ -743,7 +743,7 @@ module Util =
                         let funcName = getCastDeclarationName com sourceEntity interfaceFullName
                         if file = com.CurrentFile
                         then makeIdent funcName |> Fable.IdentExpr
-                        else Fable.Import(funcName, file, Fable.Internal, Fable.Any)
+                        else makeInternalImport Fable.Any funcName file
                         |> staticCall None t (argInfo None [expr] None)
 
     let callInstanceMember com r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
@@ -835,6 +835,7 @@ module Util =
 
     let inlineExpr (com: IFableCompiler) ctx (genArgs: Lazy<_>) callee args (memb: FSharpMemberOrFunctionOrValue) =
         // TODO: Log error if the inline function is called recursively
+        // TODO!!! Replace the source location in the inlined expressions
         let argIdents, fsExpr = com.GetInlineExpr(memb)
         let args: Fable.Expr list = match callee with Some c -> c::args | None -> args
         let ctx, bindings =
@@ -877,7 +878,7 @@ module Util =
         match typDefAndGenArgs with
         | Some(typDef, genArgs) when typDef.TryFullName = Some Types.typeResolver ->
             let f = Fable.TypeInfo(resolveParamGeneric 0 genArgs, range) |> Fable.Value |> makeDelegate []
-            Fable.ObjectExpr([makeStrConst "GetTypeInfo", f, Fable.ObjectValue], Fable.Any, None)
+            Fable.ObjectExpr([makeStrConst "ResolveType", f, Fable.ObjectValue], Fable.Any, None)
         | _ ->
             typDefAndGenArgs
             |> Option.bind (fun (x,_) -> x.TryFullName)

@@ -18,19 +18,11 @@ type SourceLocation =
             x.start.line x.start.column
             x.``end``.line x.``end``.column
 
-module Map =
-    let findOrRun<'T> (f: unit->'T) (k: string) (m: Map<string, obj>) =
-        match Map.tryFind k m with
-        | Some x -> downcast x
-        | _ -> f()
+[<RequireQualifiedAccess>]
+module Tuple =
+    let make2 x y = x, y
 
-    // let findOrNew<'T when 'T : (new : unit->'T)> (k: string) (m: Map<string, obj>) =
-    //     findOrRun (fun () -> new 'T()) k m
-
-module Option =
-    let toBool (f: 'T->bool) (opt: 'T option) =
-        match opt with Some x when f x -> true | _ -> false
-
+[<RequireQualifiedAccess>]
 module List =
     let isSingle = function
         | [_] -> true

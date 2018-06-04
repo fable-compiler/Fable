@@ -227,7 +227,7 @@ Target "PublishPackages" (fun () ->
         Package("dotnet/Fable.Compiler/Fable.Compiler.fsproj", (fun () ->
             buildCoreJsFull ()
             updateVersionInCliUtil ()
-        ), pkgName="dotnet-fable")
+        ), pkgName="dotnet-fable", msbuildProps=["NugetPackage", "true"])
         // NPM packages
         Package "js/fable-utils"
         Package "js/fable-loader"

@@ -32,7 +32,7 @@ type Helper =
               SignatureArgTypes = argTypes
               Spread = match hasSpread with Some true -> SeqSpread | _ -> NoSpread
               IsSiblingConstructorCall = false }
-        let funcExpr = Import(coreMember, coreModule, CoreLib, Any)
+        let funcExpr = makeCoreRef Any coreMember coreModule
         match isConstructor with
         | Some true -> Operation(Call(ConstructorCall funcExpr, info), returnType, loc)
         | _ -> Operation(Call(StaticCall funcExpr, info), returnType, loc)
@@ -470,7 +470,7 @@ let enumerator2iterator (e: Expr) =
 
 let toSeq t (e: Expr) =
     match e.Type with
-    | List _ -> OptimizableCast(e, AsSeqFromList, t)
+    | List _ -> DelayedResolution(AsSeqFromList e, t)
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
     // TODO: Add a runtime check for strings in case of generics?
@@ -648,7 +648,7 @@ let makeEqualityComparer typArg =
     ObjectExpr
         ([makeStrConst "Equals", f, ObjectValue
           makeStrConst "Compare", makeComparerFunction typArg, ObjectValue
-          makeStrConst "GetHashCode", Import("hash", "Util", CoreLib, Any), ObjectValue], Any, None)
+          makeStrConst "GetHashCode", makeCoreRef Any "hash" "Util", ObjectValue], Any, None)
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
@@ -775,24 +775,13 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         Helper.CoreCall("Async", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "importDynamic", _ -> Helper.GlobalCall("import", t, args, ?loc=r) |> Some
     | Naming.StartsWith "import" suffix, _ ->
-        let fail() =
-            sprintf "Fable.Core.JsInterop.import%s only accepts literal strings" suffix
-            |> addError com r
-        let selector, args =
-            match suffix with
-            | "Member" -> Naming.placeholder, args
-            | "Default" -> "default", args
-            | "SideEffects" -> "", args
-            | "All" -> "*", args
-            | _ ->
-                match args with
-                | Value(StringConstant selector)::args -> selector, args
-                | _ -> fail(); "*", [makeStrConst Naming.unknown]
-        let path =
-            match args with
-            | [Value(StringConstant path)] -> path
-            | _ -> fail(); Naming.unknown
-        Import(selector, path, CustomImport, t) |> Some
+        match suffix, args with
+        | "Member", [path]      -> Import(makeStrConst Naming.placeholder, path, CustomImport, t, r) |> Some
+        | "Default", [path]     -> Import(makeStrConst "default", path, CustomImport, t, r) |> Some
+        | "SideEffects", [path] -> Import(makeStrConst "", path, CustomImport, t, r) |> Some
+        | "All", [path]         -> Import(makeStrConst "*", path, CustomImport, t, r) |> Some
+        | _, [selector; path]   -> Import(selector, path, CustomImport, t, r) |> Some
+        | _ -> None
     // Dynamic casting, erase
     | "op_BangBang", _ | "op_BangHat", _ -> List.tryHead args
     | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
@@ -806,12 +795,12 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | "op_EqualsEqualsGreater", _ ->
         NewTuple args |> Value |> Some
     | "createObj", [kvs] ->
-        OptimizableCast(kvs, AsPojo CaseRules.None, t) |> Some
+        DelayedResolution(AsPojo(kvs, CaseRules.None), t) |> Some
      | "keyValueList", _ ->
         match args with
         | [Value(Enum(NumberEnum(Value(NumberConstant(rule, _))), _)); keyValueList] ->
             let caseRule: Fable.Core.CaseRules = enum (int rule)
-            OptimizableCast(keyValueList, AsPojo caseRule, t) |> Some
+            DelayedResolution(AsPojo(keyValueList, caseRule), t) |> Some
         | [caseRule; keyValueList] ->
             Helper.CoreCall("Util", "createObj", t, [keyValueList; caseRule], ?loc=r) |> Some
         | _ -> None
@@ -844,8 +833,9 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
             "A function supposed to be replaced by JS native code has been called, please check."
             |> StringConstant |> Value
         Throw(error runtimeMsg, t, r) |> Some
-    | "ofJson", _ -> Helper.GlobalCall("JS", t, args, memb="parse", ?loc=r) |> Some
-    | "toJson", _ -> Helper.GlobalCall("JS", t, args, memb="stringify", ?loc=r) |> Some
+    // Deprecated methods
+    | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
+    | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
     | ("inflate"|"deflate"), _ -> List.tryHead args
     | _ -> None
 
@@ -913,12 +903,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "DefaultArg", _ ->
         Helper.CoreCall("Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "DefaultAsyncBuilder", _ ->
-        makeCoreRef t "AsyncBuilder" "singleton" |> Some
+        makeCoreRef t "singleton" "AsyncBuilder" |> Some
     // Erased operators. TODO: Use Cast?
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), _ -> List.tryHead args
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", [arg]  -> OptimizableCast(arg, AsUnit, t) |> Some
+    | "Ignore", [arg]  -> DelayedResolution(AsUnit arg, t) |> Some
     // TODO: Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"), _ ->
         let sourceType = genArg com r 0 i.GenericArgs
@@ -1383,6 +1373,9 @@ let listModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr 
     match args, i.CompiledName with
     | [x], "IsEmpty" -> Test(x, ListTest false, r) |> Some
     | _, "Empty" -> NewList(None, genArg com r 0 i.GenericArgs) |> Value |> Some
+    | [x], "Singleton" ->
+        let t = genArg com r 0 i.GenericArgs
+        NewList(Some(x, Value(NewList(None, t))), t) |> Value |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
     | [x], "ToSeq" -> toSeq t x |> Some
@@ -1564,18 +1557,18 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
 //     match thisArg, i.CompiledName with
 //     | None, ".ctor" ->
 //         match i.SignatureArgTypes with
-//         | [Builtin(BclInt64|BclUInt64)] -> coreCall r t i coreMod "fromInt64" args
-//         | [_] -> coreCall r t i coreMod "fromInt32" args
-//         | _ -> coreCall r t i coreMod "default" args
+//         | [Builtin(BclInt64|BclUInt64)] -> coreCall r t i "fromInt64" coreMod args
+//         | [_] -> coreCall r t i "fromInt32" coreMod args
+//         | _ -> coreCall r t i "default" coreMod args
 //         |> Some
 //     | None, ("Zero"|"One"|"Two" as memb) ->
-//         makeCoreRef t coreMod (Naming.lowerFirst memb) |> Some
+//         makeCoreRef t (Naming.lowerFirst memb) coreMod |> Some
 //     | None, ("FromZero"|"FromOne" as memb) ->
 //         let memb = memb.Replace("From", "") |> Naming.lowerFirst
-//         makeCoreRef t coreMod memb |> Some
+//         makeCoreRef t memb coreMod |> Some
 //     | None, "FromString" ->
-//         coreCall r t i coreMod "parse" args |> Some
-//     | None, meth -> coreCall r t i coreMod meth args |> Some
+//         coreCall r t i "parse" coreMod args |> Some
+//     | None, meth -> coreCall r t i meth coreMod args |> Some
 //     | Some _callee, _ ->
 //         // icall i meth |> Some
 //         "TODO: BigInt instance methods" |> addErrorAndReturnNull com r |> Some
@@ -1588,7 +1581,7 @@ let errorStrings = function
     | "InputMustBeNonNegativeString" -> s "The input must be non-negative" |> Some
     | _ -> None
 
-let languagePrimitives (_: ICompiler) (_: Context) r t (i: CallInfo) (_thisArg: Expr option) (args: Expr list) =
+let languagePrimitives (_: ICompiler) (_: Context) (_: SourceLocation option) t (i: CallInfo) (_thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args, t with
     | "GenericZero", _, _ -> getZero t |> Some
     | "GenericOne", _, _ -> getOne t |> Some
@@ -1789,7 +1782,7 @@ let exceptions (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr opti
     | "get_StackTrace", Some e -> get r t e "stack" |> Some
     | _ -> None
 
-let objects (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let objects (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> objExpr t [] |> Some
     | "GetHashCode", Some arg, _ ->
@@ -1802,6 +1795,9 @@ let objects (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option)
     | "Equals", None, [arg1; arg2] ->
         Helper.CoreCall("Util", "equals", t, [arg1; arg2], ?loc=r) |> Some
     | "GetType", Some arg, _ ->
+        if arg.Type = Any then
+            "Types can only be resolved at compile time. At runtime this will be same as `typeof<obj>`"
+            |> addWarning com r
         makeTypeInfo r arg.Type |> Some
     | _ -> None
 
@@ -2109,7 +2105,7 @@ let mailbox (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option)
 
 let asyncBuilder (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName, args with
-    | _, "Singleton", _ -> Import("singleton", "AsyncBuilder", CoreLib, t) |> Some
+    | _, "Singleton", _ -> makeCoreRef t "singleton" "AsyncBuilder" |> Some
     // For Using we need to cast the argument to IDisposable
     | Some x, "Using", [arg; f] ->
         let arg =
@@ -2120,7 +2116,7 @@ let asyncBuilder (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth, _ -> Helper.CoreCall("AsyncBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
-let asyncs com (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let asyncs com (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     // TODO: Throw error for RunSynchronously
     | "Start" ->

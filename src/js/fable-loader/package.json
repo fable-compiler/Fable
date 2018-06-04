@@ -19,14 +19,10 @@
     "url": "https://github.com/fable-compiler/Fable/issues"
   },
   "homepage": "https://github.com/fable-compiler/Fable#readme",
-  "devDependencies": {
-    "@types/node": "^7.0.5"
-  },
   "peerDependencies": {
     "@babel/core": "^7.0.0-beta.47"
   },
   "dependencies": {
-    "core-js": "^2.5.7",
     "fable-utils": "^1.0.4"
   }
 }

@@ -62,7 +62,7 @@ type InjectAttribute() =
     inherit Attribute()
 
 type ITypeResolver<'T> =
-    abstract GetTypeInfo: unit -> Type
+    abstract ResolveType: unit -> Type
 
 /// Erased union type to represent one of two possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute

@@ -227,17 +227,17 @@ type ObjectMemberKind =
 
 type ObjectMember = (* name: *) Expr * (* value: *) Expr * ObjectMemberKind
 
-type OptimizableCastKind =
-    | AsSeqFromList
-    | AsPojo of Core.CaseRules
-    | AsUnit
+type DelayedResolutionKind =
+    | AsSeqFromList of Expr
+    | AsPojo of Expr * Core.CaseRules
+    | AsUnit of Expr
 
 type Expr =
     | Value of ValueKind
     | IdentExpr of Ident
-    /// Defer some casts until last pass to have more opportunities for optimization (e.g. list to seq)
-    | OptimizableCast of Expr * OptimizableCastKind * targetType: Type
-    | Import of selector: string * path: string * ImportKind * Type
+    /// Some expressions must be resolved in the last pass for better optimization (e.g. list to seq cast)
+    | DelayedResolution of DelayedResolutionKind * Type
+    | Import of selector: Expr * path: Expr * ImportKind * Type * SourceLocation option
 
     | Function of FunctionKind * body: Expr * name: string option
     | ObjectExpr of ObjectMember list * Type * baseCall: Expr option
@@ -265,7 +265,7 @@ type Expr =
         | Test _ -> Boolean
         | Value kind -> kind.Type
         | IdentExpr id -> id.Type
-        | Import(_,_,_,t) | OptimizableCast(_,_,t) | ObjectExpr(_,t,_)
+        | Import(_,_,_,t,_) | DelayedResolution(_,t) | ObjectExpr(_,t,_)
         | Operation(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | DecisionTreeSuccess(_,_,t) -> t
         | Debugger | Set _ | Loop _ -> Unit
         | Sequential exprs -> (List.last exprs).Type
@@ -277,7 +277,7 @@ type Expr =
 
     member this.Range: SourceLocation option =
         match this with
-        | Value _ | Import _ | OptimizableCast _
+        | Value _ | Import _ | DelayedResolution _
         | ObjectExpr _ | Debugger | Sequential _ | Let _
         | IfThenElse _ | TryCatch _ | DecisionTree _ | DecisionTreeSuccess _ -> None
 
