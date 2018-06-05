@@ -93,7 +93,7 @@ let parse (msg: string) =
     { path = path
       define =
         parseStringArray [||] "define" json
-        |> Array.append [|"FABLE_COMPILER"|]
+        |> Array.append [|"FABLE_COMPILER"; "FABLE1X"|]
         |> Array.distinct
       plugins = parseStringArray [||] "plugins" json
       fableCore = tryParseString "fableCore" json
