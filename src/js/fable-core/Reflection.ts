@@ -13,13 +13,10 @@ export class CaseInfo {
 }
 
 export class TypeInfo {
-  public fields?: FieldInfo[];
-  public cases?: CaseInfo[];
   constructor(public fullname: string,
               public generics?: TypeInfo[],
-              options?: { fields?: FieldInfo[], cases?: CaseInfo[] }) {
-    this.fields = options != null ? options.fields : void 0;
-    this.cases = options != null ? options.cases : void 0;
+              public fields?: () => FieldInfo[],
+              public cases?: () => CaseInfo[]) {
   }
   public toString() {
     return this.fullname; // TODO: Print also generics?
@@ -51,64 +48,16 @@ export function type(fullname: string, generics?: TypeInfo[]): TypeInfo {
   return new TypeInfo(fullname, generics);
 }
 
-export function recursiveType(info: TypeInfo): TypeInfo {
-  function checkRecursive(m: Map<string, TypeInfo>, info: TypeInfo) {
-    // Check first if there're subtypes
-    if (info.generics != null || info.fields != null || info.cases != null) {
-      m.set(info.fullname, info);
-      if (info.generics != null) {
-        for (let i = 0; i < info.generics.length; i++) {
-          const t = info.generics[i];
-          if (m.has(t.fullname)) {
-            info.generics[i] = m.get(t.fullname);
-          } else {
-            checkRecursive(m, t);
-          }
-        }
-      }
-
-      if (info.fields != null) {
-        for (let i = 0; i < info.fields.length; i++) {
-          const [name, t] = info.fields[i];
-          if (m.has(t.fullname)) {
-            info.fields[i] = [name, m.get(t.fullname)];
-          } else {
-            checkRecursive(m, t);
-          }
-        }
-      }
-
-      if (info.cases != null) {
-        for (let i = 0; i < info.cases.length; i++) {
-          const uci = info.cases[i];
-          if (uci.fields != null) {
-            for (let j = 0; j < uci.fields.length; j++) {
-              const t = uci.fields[j];
-              if (m.has(t.fullname)) {
-                uci.fields[j] = m.get(t.fullname);
-              } else {
-                checkRecursive(m, t);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  checkRecursive(new Map(), info);
-  return info;
-}
-
-export function record(fullname: string, generics: TypeInfo[], ...fields: FieldInfo[]): TypeInfo {
-  return new TypeInfo(fullname, generics, { fields });
+export function record(fullname: string, generics: TypeInfo[], fields: () => FieldInfo[]): TypeInfo {
+  return new TypeInfo(fullname, generics, fields);
 }
 
 export type CaseInfoInput = string | [string, TypeInfo[]];
 
-export function union(fullname: string, generics: TypeInfo[], ...cases: CaseInfoInput[]): TypeInfo {
+export function union(fullname: string, generics: TypeInfo[], cases: () => CaseInfoInput[]): TypeInfo {
   // If the input is just a string, don't initialize `fields` so we know the case is represented as a string
-  return new TypeInfo(fullname, generics, { cases: cases.map((x, i) =>
-    typeof x === "string" ? new CaseInfo(i, x) : new CaseInfo(i, x[0], x[1])) });
+  return new TypeInfo(fullname, generics, null, () => cases().map((x, i) =>
+    typeof x === "string" ? new CaseInfo(i, x) : new CaseInfo(i, x[0], x[1])));
 }
 
 export function tuple(...generics: TypeInfo[]): TypeInfo {
@@ -189,16 +138,16 @@ export function getGenericTypeDefinition(t: TypeInfo) {
 // FSharpType
 
 export function getUnionCases(t: TypeInfo): CaseInfo[] {
-  if (Array.isArray(t.cases)) {
-    return t.cases;
+  if (t.cases != null) {
+    return t.cases();
   } else {
     throw new Error(`${t.fullname} is not an F# union type`);
   }
 }
 
 export function getRecordElements(t: TypeInfo): FieldInfo[] {
-  if (Array.isArray(t.fields)) {
-    return t.fields;
+  if (t.fields != null) {
+    return t.fields();
   } else {
     throw new Error(`${t.fullname} is not an F# record type`);
   }
@@ -221,11 +170,11 @@ export function getFunctionElements(t: TypeInfo): [TypeInfo, TypeInfo] {
 }
 
 export function isUnion(t: TypeInfo): boolean {
-  return Array.isArray(t.cases);
+  return t.cases != null;
 }
 
 export function isRecord(t: TypeInfo): boolean {
-  return Array.isArray(t.fields);
+  return t.fields != null;
 }
 
 export function isTuple(t: TypeInfo): boolean {
