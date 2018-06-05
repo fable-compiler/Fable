@@ -20,7 +20,7 @@ let references use_net45_meta =
         "System.Collections.NonGeneric"
         "System.Collections.Specialized"
         "System.ComponentModel.Annotations"
-        "System.ComponentModel.Composition"
+        //"System.ComponentModel.Composition" // removed in 2.1.300
         "System.ComponentModel.DataAnnotations"
         "System.ComponentModel"
         "System.ComponentModel.EventBasedAsync"
@@ -48,6 +48,7 @@ let references use_net45_meta =
         "System.Globalization.Calendars"
         "System.Globalization"
         "System.Globalization.Extensions"
+        //"System.IO.Compression.Brotli" // added in 2.1.300
         "System.IO.Compression"
         "System.IO.Compression.FileSystem"
         "System.IO.Compression.ZipFile"
@@ -64,6 +65,7 @@ let references use_net45_meta =
         "System.Linq.Expressions"
         "System.Linq.Parallel"
         "System.Linq.Queryable"
+        //"System.Memory" // added in 2.1.300
         "System.Net"
         "System.Net.Http"
         "System.Net.HttpListener"
