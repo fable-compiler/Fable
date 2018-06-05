@@ -1581,47 +1581,43 @@ let errorStrings = function
     | "InputMustBeNonNegativeString" -> s "The input must be non-negative" |> Some
     | _ -> None
 
-let languagePrimitives (_: ICompiler) (_: Context) (_: SourceLocation option) t (i: CallInfo) (_thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, args, t with
-    | "GenericZero", _, _ -> getZero t |> Some
-    | "GenericOne", _, _ -> getOne t |> Some
-    | "EnumOfValue", [arg], EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> Value |> Some
-    // TODO!!!
-    // | "genericHash"
-    // | "genericHashIntrinsic" ->
-    //     CoreLibCall("Util", Some "hash", false, i.args)
-    //     |> makeCall i.range i.returnType |> Some
-    // | "genericComparison"
-    // | "genericComparisonIntrinsic" ->
-    //     CoreLibCall("Util", Some "compare", false, i.args)
-    //     |> makeCall i.range i.returnType |> Some
-    // | "genericLessThan"
-    // | "genericLessThanIntrinsic" ->
-    //     CoreLibCall("Util", Some "lessThan", false, i.args)
-    //     |> makeCall i.range i.returnType |> Some
-    // | "genericLessOrEqual"
-    // | "genericLessOrEqualIntrinsic" ->
-    //     CoreLibCall("Util", Some "lessOrEqual", false, i.args)
-    //     |> makeCall i.range i.returnType |> Some
-    // | "genericGreaterThan"
-    // | "genericGreaterThanIntrinsic" ->
-    //     CoreLibCall("Util", Some "greaterThan", false, i.args)
-    //     |> makeCall i.range i.returnType |> Some
-    // | "genericGreaterOrEqual"
-    // | "genericGreaterOrEqualIntrinsic" ->
-    //     CoreLibCall("Util", Some "greaterOrEqual", false, i.args)
-    //     |> makeCall i.range i.returnType |> Some
-    // | "genericEquality"
-    // | "genericEqualityIntrinsic" ->
-    //     CoreLibCall("Util", Some "equals", false, i.args)
-    //     |> makeCall i.range i.returnType |> Some
-    // | "physicalEquality"
-    // | "physicalEqualityIntrinsic" ->
-    //     makeEqOp i.range i.args BinaryEqualStrict |> Some
-    // | "physicalHash"
-    // | "physicalHashIntrinsic" ->
-    //     CoreLibCall("Util", Some "getHashCode", false, i.args)
-    //     |> makeCall i.range i.returnType |> Some
+let languagePrimitives (_: ICompiler) (_: Context) (r: SourceLocation option) t (i: CallInfo) (_thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "GenericZero" -> getZero t |> Some
+    | "GenericOne" -> getOne t |> Some
+    | "EnumOfValue" ->
+        match args, t with
+        | [arg], EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> Value |> Some
+        | _ -> None
+    | "GenericHash"
+    | "GenericHashIntrinsic" ->
+        Helper.CoreCall("Util", "hash", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GenericComparison"
+    | "GenericComparisonIntrinsic" ->
+        Helper.CoreCall("Util", "compare", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GenericLessThan"
+    | "GenericLessThanIntrinsic" ->
+        Helper.CoreCall("Util", "lessThan", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GenericLessOrEqual"
+    | "GenericLessOrEqualIntrinsic" ->
+        Helper.CoreCall("Util", "lessOrEqual", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GenericGreaterThan"
+    | "GenericGreaterThanIntrinsic" ->
+        Helper.CoreCall("Util", "greaterThan", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GenericGreaterOrEqual"
+    | "GenericGreaterOrEqualIntrinsic" ->
+        Helper.CoreCall("Util", "greaterOrEqual", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GenericEquality"
+    | "GenericEqualityIntrinsic" ->
+        Helper.CoreCall("Util", "equals", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "PhysicalEquality"
+    | "PhysicalEqualityIntrinsic" ->
+        match args with
+        | [x; y] -> makeEqOp r x y BinaryEqualStrict |> Some
+        | _ -> None
+    | "PhysicalHash"
+    | "PhysicalHashIntrinsic" ->
+        Helper.CoreCall("Util", "getHashCode", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2328,6 +2324,7 @@ let private replacedModules =
     "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions", intrinsicFunctions
     "Microsoft.FSharp.Core.Operators.OperatorIntrinsics", intrinsicFunctions
     "Microsoft.FSharp.Core.LanguagePrimitives", languagePrimitives
+    "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare", languagePrimitives
     "System.Char", chars
     Types.string, strings
     "Microsoft.FSharp.Core.StringModule", stringModule
