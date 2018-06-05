@@ -421,38 +421,36 @@ let tests =
     //     Status.CreateNewMeterReadingPicture >= Status.SelectingNewDevice
     //     |> equal true
 
-    // TODO!!!
-    // testCase "LanguagePrimitives.GenericHash works" <| fun () ->
-    //     (LanguagePrimitives.GenericHash 111) = (LanguagePrimitives.GenericHash 111) |> equal true
-    //     (LanguagePrimitives.GenericHash 222) = (LanguagePrimitives.GenericHash 333) |> equal false
-    //     (LanguagePrimitives.GenericHash "1") = (LanguagePrimitives.GenericHash "1") |> equal true
-    //     (LanguagePrimitives.GenericHash "2") = (LanguagePrimitives.GenericHash "3") |> equal false
-    //     (LanguagePrimitives.GenericHash [1]) = (LanguagePrimitives.GenericHash [1]) |> equal true
-    //     (LanguagePrimitives.GenericHash [2]) = (LanguagePrimitives.GenericHash [3]) |> equal false
+    testCase "LanguagePrimitives.GenericHash works" <| fun () ->
+        (LanguagePrimitives.GenericHash 111) = (LanguagePrimitives.GenericHash 111) |> equal true
+        (LanguagePrimitives.GenericHash 222) = (LanguagePrimitives.GenericHash 333) |> equal false
+        (LanguagePrimitives.GenericHash "1") = (LanguagePrimitives.GenericHash "1") |> equal true
+        (LanguagePrimitives.GenericHash "2") = (LanguagePrimitives.GenericHash "3") |> equal false
+        (LanguagePrimitives.GenericHash [1]) = (LanguagePrimitives.GenericHash [1]) |> equal true
+        (LanguagePrimitives.GenericHash [2]) = (LanguagePrimitives.GenericHash [3]) |> equal false
 
-    // testCase "LanguagePrimitives.GenericComparison works" <| fun () ->
-    //     LanguagePrimitives.GenericComparison 111 111 |> equal 0
-    //     LanguagePrimitives.GenericComparison 222 333 |> equal -1
-    //     LanguagePrimitives.GenericComparison 333 222 |> equal 1
-    //     LanguagePrimitives.GenericComparison "1" "1" |> equal 0
-    //     LanguagePrimitives.GenericComparison "2" "3" |> equal -1
-    //     LanguagePrimitives.GenericComparison "3" "2" |> equal 1
-    //     LanguagePrimitives.GenericComparison [1] [1] |> equal 0
-    //     LanguagePrimitives.GenericComparison [2] [3] |> equal -1
-    //     LanguagePrimitives.GenericComparison [3] [2] |> equal 1
+    testCase "LanguagePrimitives.GenericComparison works" <| fun () ->
+        LanguagePrimitives.GenericComparison 111 111 |> equal 0
+        LanguagePrimitives.GenericComparison 222 333 |> equal -1
+        LanguagePrimitives.GenericComparison 333 222 |> equal 1
+        LanguagePrimitives.GenericComparison "1" "1" |> equal 0
+        LanguagePrimitives.GenericComparison "2" "3" |> equal -1
+        LanguagePrimitives.GenericComparison "3" "2" |> equal 1
+        LanguagePrimitives.GenericComparison [1] [1] |> equal 0
+        LanguagePrimitives.GenericComparison [2] [3] |> equal -1
+        LanguagePrimitives.GenericComparison [3] [2] |> equal 1
 
-    // testCase "LanguagePrimitives.GenericEquality works" <| fun () ->
-    //     LanguagePrimitives.GenericEquality 111 111 |> equal true
-    //     LanguagePrimitives.GenericEquality 222 333 |> equal false
-    //     LanguagePrimitives.GenericEquality "1" "1" |> equal true
-    //     LanguagePrimitives.GenericEquality "2" "3" |> equal false
-    //     LanguagePrimitives.GenericEquality [1] [1] |> equal true
-    //     LanguagePrimitives.GenericEquality [2] [3] |> equal false
+    testCase "LanguagePrimitives.GenericEquality works" <| fun () ->
+        LanguagePrimitives.GenericEquality 111 111 |> equal true
+        LanguagePrimitives.GenericEquality 222 333 |> equal false
+        LanguagePrimitives.GenericEquality "1" "1" |> equal true
+        LanguagePrimitives.GenericEquality "2" "3" |> equal false
+        LanguagePrimitives.GenericEquality [1] [1] |> equal true
+        LanguagePrimitives.GenericEquality [2] [3] |> equal false
 
-    // testCase "LanguagePrimitives.PhysicalEquality works" <| fun () ->
-    //     LanguagePrimitives.PhysicalEquality "1" "1" |> equal true
-    //     LanguagePrimitives.PhysicalEquality "2" "3" |> equal false
-    //     LanguagePrimitives.PhysicalEquality [1] [1] |> equal false
-    //     LanguagePrimitives.PhysicalEquality [2] [3] |> equal false
-
+    testCase "LanguagePrimitives.PhysicalEquality works" <| fun () ->
+        LanguagePrimitives.PhysicalEquality "1" "1" |> equal true
+        LanguagePrimitives.PhysicalEquality "2" "3" |> equal false
+        LanguagePrimitives.PhysicalEquality [1] [1] |> equal false
+        LanguagePrimitives.PhysicalEquality [2] [3] |> equal false
   ]
