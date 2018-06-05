@@ -183,7 +183,12 @@ async function getFileAstAsync(path: string, options: FableSplitterOptions, info
             info.projectFiles = babelAst.sourceFiles;
         }
         addLogs(babelAst.logs, info);
-        ast = Babel.transformFromAst(babelAst, undefined, { code: false });
+        try {
+            ast = Babel.transformFromAst(babelAst, undefined, { code: false });
+        } catch (err) {
+            console.log(`fable: Error transforming ${Path.relative(process.cwd(), path)}`);
+            console.error(err);
+        }
     } else {
         // return Babel AST from JS file
         path = JAVASCRIPT_EXT.test(path) ? path : path + ".js";
