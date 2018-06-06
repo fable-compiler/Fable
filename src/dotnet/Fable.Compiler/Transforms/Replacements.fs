@@ -127,10 +127,10 @@ let (|Builtin|_|) = function
         | Some Types.datetime, _ -> Some BclDateTime
         | Some Types.datetimeOffset, _ -> Some BclDateTimeOffset
         | Some "System.Timers.Timer", _ -> Some BclTimer
-        | Some "System.Int64", _ -> Some BclInt64
-        | Some "System.UInt64", _ -> Some BclUInt64
+        | Some Types.int64, _ -> Some BclInt64
+        | Some Types.uint64, _ -> Some BclUInt64
         | Some "Microsoft.FSharp.Core.int64`1", _ -> Some BclInt64
-        | Some "System.Numerics.BigInteger", _ -> Some BclBigInt
+        | Some Types.bigint, _ -> Some BclBigInt
         | Some Types.fsharpSet, [t] -> Some(FSharpSet(t))
         | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
         | Some Types.hashset, [t] -> Some(BclHashSet(t))
@@ -613,7 +613,7 @@ and compare r left right =
     | ExprType(DeclaredType(ent,_)) when ent.IsFSharpRecord ->
         Helper.CoreCall("Util", "compareObjects", Number Int32, [left; right], ?loc=r)
 
-    | ExprType(DeclaredType(ent,_)) when FSharp2Fable.Util.hasInterface Types.comparable ent ->
+    | ExprType(DeclaredType(ent,_)) when FSharp2Fable.Util.hasInterface Types.icomparable ent ->
         Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
 
     | _ -> Helper.CoreCall("Util", "compare", Number Int32, [left; right], ?loc=r)
@@ -1211,7 +1211,7 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     | "EnumerateUsing", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.disposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.idisposable arg
             | _ -> arg
         Helper.CoreCall("Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Sort" | "SortDescending" as m), args ->
@@ -1630,8 +1630,8 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         match arg.Type, t with
         | DeclaredType(sourceEntity, _), DeclaredType(targetEntity, _) ->
             match targetEntity.TryFullName with
-            | Some Types.disposable ->
-                FSharp2Fable.Util.castToInterface com t sourceEntity Types.disposable arg |> Some
+            | Some Types.idisposable ->
+                FSharp2Fable.Util.castToInterface com t sourceEntity Types.idisposable arg |> Some
             | _ -> Some arg
         | _ -> Some arg
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
@@ -1690,7 +1690,7 @@ let dictionaries (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr op
         | DeclaredType(ent,_) ->
             match ent.TryFullName with
             | Some Types.idictionary -> IDictionary
-            | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
+            | Some Types.equalityComparer -> IEqualityComparer
             | _ -> Other
         | _ -> Other
     match i.CompiledName, thisArg with
@@ -1733,7 +1733,7 @@ let hashSets (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option
         | DeclaredType(ent,_) ->
             match ent.TryFullName with
             | Some Types.enumerable -> IEnumerable
-            | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
+            | Some Types.equalityComparer -> IEqualityComparer
             | _ -> Other
         | _ -> Other
     match i.CompiledName, thisArg, args with
@@ -2106,7 +2106,7 @@ let asyncBuilder (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | Some x, "Using", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.disposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.idisposable arg
             | _ -> arg
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2179,15 +2179,15 @@ let rec getTypeFullName = function
     | Fable.ErasedUnion _ | Fable.Any -> Types.object
     | Fable.Number kind ->
         match kind with
-        | Int8 -> "System.SByte"
-        | UInt8 -> "System.Byte"
-        | Int16 -> "System.Int16"
-        | UInt16 -> "System.UInt16"
-        | Int32 -> "System.Int32"
-        | UInt32 -> "System.UInt32"
-        | Float32 -> "System.Single"
-        | Float64 -> "System.Double"
-        | Decimal -> "System.Decimal"
+        | Int8    -> Types.int8
+        | UInt8   -> Types.uint8
+        | Int16   -> Types.int16
+        | UInt16  -> Types.uint16
+        | Int32   -> Types.int32
+        | UInt32  -> Types.uint32 
+        | Float32 -> Types.float32
+        | Float64 -> Types.float64
+        | Decimal -> Types.decimal
     | Fable.FunctionType(Fable.LambdaType _, _) ->
         "Microsoft.FSharp.Core.FSharpFunc`2"
     | Fable.FunctionType(Fable.DelegateType argTypes, _) ->
@@ -2296,7 +2296,7 @@ let uncurryExpr argsAndRetTypes expr =
 let tryReplaceInterfaceCast t interfaceName (e: Expr) =
     match interfaceName, e.Type with
     // CompareTo method is attached to prototype
-    | Types.comparable, _ -> Some e
+    | Types.icomparable, _ -> Some e
     | Types.enumerable, _ -> toSeq t e |> Some
     // These types in fable-core (or native JS) have methods attached to prototype
     | _, Builtin(BclTimeSpan | BclTimer | BclHashSet _ | BclDictionary _) -> Some e
@@ -2325,7 +2325,7 @@ let private replacedModules =
     "Microsoft.FSharp.Core.Operators.OperatorIntrinsics", intrinsicFunctions
     "Microsoft.FSharp.Core.LanguagePrimitives", languagePrimitives
     "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare", languagePrimitives
-    "System.Char", chars
+    Types.char, chars
     Types.string, strings
     "Microsoft.FSharp.Core.StringModule", stringModule
     Types.array, arrays
@@ -2338,7 +2338,7 @@ let private replacedModules =
     Types.dictionary, dictionaries
     Types.idictionary, dictionaries
     Types.enumerable, enumerables
-    "System.Collections.IEnumerable", enumerables
+    Types.ienumerable, enumerables
     "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables
     "System.Collections.Generic.Dictionary`2.KeyCollection", enumerables
     "System.Collections.Generic.Dictionary`2.Enumerator", enumerators
@@ -2353,18 +2353,18 @@ let private replacedModules =
     Types.option, options
     "Microsoft.FSharp.Core.OptionModule", optionModule
     "Microsoft.FSharp.Core.ResultModule", results
-    "System.Decimal", decimals
     // TODO
-    // "System.Numerics.BigInteger", bigint
+    // Types.bigint, bigint
     // "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigint
     Types.reference, references
     "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
-    "System.Object", objects
+    Types.object, objects
     "System.Enum", enums
     "System.BitConverter", bitConvert
-    "System.Int32", parse Parse2Int
-    "System.Single", parse Parse2Float
-    "System.Double", parse Parse2Float
+    Types.int32, parse Parse2Int
+    Types.float32, parse Parse2Float
+    Types.float64, parse Parse2Float
+    Types.decimal, decimals
     "System.Convert", convert
     "System.Console", console
     "System.Diagnostics.Debug", debug
@@ -2384,7 +2384,7 @@ let private replacedModules =
     "System.Text.RegularExpressions.Group", regex
     "System.Text.RegularExpressions.MatchCollection", regex
     "System.Text.RegularExpressions.GroupCollection", regex
-    "System.Text.RegularExpressions.Regex", regex
+    Types.regex, regex
     Types.fsharpSet, sets
     "Microsoft.FSharp.Collections.SetModule", setModule
     Types.fsharpMap, maps
@@ -2393,7 +2393,7 @@ let private replacedModules =
     "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1", mailbox
     "Microsoft.FSharp.Control.FSharpAsyncBuilder", asyncBuilder
     "Microsoft.FSharp.Control.FSharpAsync", asyncs
-    "System.Guid", guids
+    Types.guid, guids
     "System.Uri", uris
     "System.Lazy`1", laziness
     "Microsoft.FSharp.Control.Lazy", laziness
@@ -2408,8 +2408,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     match info.DeclaringEntityFullName with
     | Patterns.DicContains replacedModules replacement -> replacement com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings info.CompiledName
-    | "Microsoft.FSharp.Core.PrintfModule"
-    | Naming.StartsWith "Microsoft.FSharp.Core.PrintfFormat" _ -> fsFormat com ctx r t info thisArg args
+    | Types.printfModule
+    | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com ctx r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com ctx r t info thisArg args
     | "System.Timers.ElapsedEventArgs" -> thisArg // only signalTime is available here

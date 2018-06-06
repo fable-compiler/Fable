@@ -315,7 +315,7 @@ module Patterns =
             match List.tryLast args with
             | Some arg ->
                 if arg.Type.HasTypeDefinition
-                    && arg.Type.TypeDefinition.AccessPath = Types.printf
+                    && arg.Type.TypeDefinition.AccessPath = Types.printfModule
                 then Some e
                 else None
             | None -> None
@@ -344,15 +344,15 @@ module Patterns =
         | _ -> None
 
     let private numberTypes =
-        dict ["System.SByte", Int8
-              "System.Byte", UInt8
-              "System.Int16", Int16
-              "System.UInt16", UInt16
-              "System.Int32", Int32
-              "System.UInt32", UInt32
-              "System.Single", Float32
-              "System.Double", Float64
-              "System.Decimal", Decimal
+        dict [Types.int8, Int8
+              Types.uint8, UInt8
+              Types.int16, Int16
+              Types.uint16, UInt16
+              Types.int32, Int32
+              Types.uint32 , UInt32
+              Types.float32, Float32
+              Types.float64, Float64
+              Types.decimal, Decimal
                // Units of measure
               "Microsoft.FSharp.Core.sbyte`1", Int8
               "Microsoft.FSharp.Core.int16`1", Int16
