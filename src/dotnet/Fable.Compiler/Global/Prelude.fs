@@ -187,7 +187,7 @@ module Naming =
         | NoMemberPart
 
     let getUniqueName baseName (index: int) =
-        baseName + "$$" + string index
+        "$" + baseName + "$$" + string index
 
     let private buildName sanitize name part =
         (sanitize name) +

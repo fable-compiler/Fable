@@ -787,9 +787,8 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
                 transformMemberDecl com ctx meth args body
             | FSharpImplementationFileDeclaration.InitAction fe ->
-                let e = transformExpr com ctx fe
-                let decl = Fable.ActionDeclaration e
-                [decl])
+                [transformExpr com ctx fe |> Fable.ActionDeclaration]
+        )
     let decls = transformDeclarationsInner com (Context.Create()) fsDecls
     let interfaceImplementations =
         com.InterfaceImplementations.Values |> Seq.map (fun (info, objMember) ->

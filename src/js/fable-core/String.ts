@@ -419,7 +419,7 @@ export function replicate(n: number, x: string) {
 }
 
 export function getCharAtIndex(input: string, index: number) {
-  if (index < 0 || index > input.length) {
+  if (index < 0 || index >= input.length) {
     throw new Error("System.IndexOutOfRangeException: Index was outside the bounds of the array.");
   }
   return input[index];

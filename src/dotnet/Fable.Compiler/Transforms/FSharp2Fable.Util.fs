@@ -149,7 +149,7 @@ module Helpers =
             if memb.IsInstanceMember
             then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadIndex)
             else entName, Naming.StaticMemberPart(memb.CompiledName, overloadIndex)
-        | None -> memb.FullName, Naming.NoMemberPart
+        | None -> memb.CompiledName, Naming.NoMemberPart
 
     let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
         getMemberMangledName com true memb
@@ -221,8 +221,7 @@ module Helpers =
     let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
         | Some ent -> ent.IsFSharpModule
-        // Actually it's true in this case, but we don't consider compiler-generated members
-        | None -> false
+        | None -> true // Compiler-generated members
 
     /// Using memb.IsValue doesn't work for function values
     /// (e.g. `let ADD = adder()` when adder returns a function)
@@ -393,13 +392,13 @@ module TypeHelpers =
         match Map.tryFind genParam.Name ctxTypeArgs with
         | None -> Fable.GenericParam genParam.Name
         | Some typ -> typ
-   
+
     let rec makeGenArgs (com: ICompiler) ctxTypeArgs (genArgs: IList<FSharpType>) =
         genArgs |> Seq.map (fun genArg ->
             if genArg.IsGenericParameter
             then resolveGenParam ctxTypeArgs genArg.GenericParameter
             else makeType com ctxTypeArgs genArg)
-        |> Seq.toList        
+        |> Seq.toList
 
     and makeTypeFromDelegate com ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) (fullName: string) =
         if fullName.StartsWith("System.Action") then

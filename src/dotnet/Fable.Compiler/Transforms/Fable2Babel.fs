@@ -126,13 +126,13 @@ module Util =
         NullLiteral () :> Expression
 
     let ident (id: Fable.Ident) =
-        Identifier id.Name
+        Identifier(id.Name, ?loc=id.Range)
 
     let identAsPattern (id: Fable.Ident): Pattern =
-        Identifier id.Name :> Pattern
+        Identifier(id.Name, ?loc=id.Range) :> Pattern
 
     let identAsExpr (id: Fable.Ident) =
-        Identifier id.Name :> Expression
+        Identifier(id.Name, ?loc=id.Range) :> Expression
 
     let ofInt i =
         NumericLiteral(float i) :> Expression
@@ -216,6 +216,7 @@ module Util =
 
     let multiVarDeclaration kind (namesAndValue: (string * Expression option) list) =
         let varDeclarators =
+            // TODO: Log error if there're duplicated non-empty var declarations
             List.distinctBy fst namesAndValue
             |> List.map (fun (name, value) ->
                 VariableDeclarator(Identifier name, ?init=value))
@@ -994,7 +995,7 @@ module Util =
 
         | Fable.Value kind -> transformValue com ctx kind
 
-        | Fable.IdentExpr ident -> upcast Identifier ident.Name
+        | Fable.IdentExpr id -> upcast ident id
 
         | Fable.Import(selector, path, kind, _, r) ->
             transformImport com ctx r selector path kind
@@ -1052,8 +1053,8 @@ module Util =
         | Fable.Value kind ->
             [transformValue com ctx kind |> resolveExpr kind.Type returnStrategy]
 
-        | Fable.IdentExpr ident ->
-            [Identifier ident.Name :> Expression |> resolveExpr ident.Type returnStrategy]
+        | Fable.IdentExpr id ->
+            [ident id :> Expression |> resolveExpr id.Type returnStrategy]
 
         | Fable.Import(selector, path, kind, t, r) ->
             [transformImport com ctx r selector path kind |> resolveExpr t returnStrategy]
