@@ -802,6 +802,14 @@ let tests7 = [
     // See https://github.com/fable-compiler/Fable/issues/1199#issuecomment-347190893
     testCase "Applicative operators work with three-argument functions"
         Results.testOperatorsWith3Args
+
+    testCase "partialApply works with tuples" <| fun () ->
+        let sum x (y,z) =
+            x + y + z
+        let li =
+            [1,2; 3,4; 5,6]
+            |> List.map (sum 10)
+        List.sum li |> equal 51
 ]
 
 let tests =
