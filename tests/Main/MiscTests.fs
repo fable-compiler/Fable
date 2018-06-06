@@ -275,10 +275,10 @@ let delay (f:unit -> unit) = f
 
 let mutable mutableValue = 0
 
-// let rec recursive1 = delay (fun () -> recursive2())
-// and recursive2 =
-//     mutableValue <- 5
-//     fun () -> mutableValue <- mutableValue * 2
+let rec recursive1 = delay (fun () -> recursive2())
+and recursive2 =
+    mutableValue <- 5
+    fun () -> mutableValue <- mutableValue * 2
 
 let empty<'a> = [Unchecked.defaultof<'a>]
 
@@ -736,11 +736,10 @@ let tests =
         match x with TestRef r2 -> !r2
         |> equal true
 
-    // TODO!!!
-    // testCase "Recursive values work" <| fun () -> // See #237
-    //     mutableValue |> equal 5
-    //     recursive1()
-    //     mutableValue |> equal 10
+    testCase "Recursive values work" <| fun () -> // See #237
+        mutableValue |> equal 5
+        recursive1()
+        mutableValue |> equal 10
 
     testCase "Module generic methods without arguments work" <| fun () ->
         let li = empty<string>

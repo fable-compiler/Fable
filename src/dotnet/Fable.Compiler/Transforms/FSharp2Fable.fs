@@ -696,8 +696,10 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
 
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let isPublic = isPublicMember memb
-    let name = getMemberDeclarationName com memb
-    com.AddUsedVarName(name)
+    let name =
+        match tryGetBoundExpr ctx None memb with
+        | Some(Fable.IdentExpr id) -> id.Name
+        | _ -> failwithf "Cannot find name of member %s in scope" memb.FullName
     match tryImportAttribute memb.Attributes with
     | Some(selector, path) ->
         let typ = makeType com Map.empty memb.FullType
@@ -768,8 +770,28 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     then transformOverride com ctx memb args body
     else transformMemberFunctionOrValue com ctx memb args body
 
+let addMemberNamesToScope (com: IFableCompiler) (ctx: Context) fsDecls =
+    (ctx, fsDecls) ||> List.fold (fun ctx fsDecl ->
+        match fsDecl with
+        | FSharpImplementationFileDeclaration.Entity _ -> ctx
+        | FSharpImplementationFileDeclaration.InitAction _ -> ctx
+        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->
+            if memb.IsImplicitConstructor || memb.IsOverrideOrExplicitInterfaceImplementation
+            then ctx // Do nothing
+            else
+                let name =
+                    // Compiler-generated module members can have duplicated names, see #237
+                    if memb.IsCompilerGenerated && isModuleMember memb
+                    then memb.CompiledName + com.GetUniqueVar("")
+                    else
+                        let name = getMemberDeclarationName com memb
+                        com.AddUsedVarName(name)
+                        name
+                { ctx with Scope = (memb, makeIdentExpr name)::ctx.Scope })
+
 let private transformDeclarations (com: FableCompiler) fsDecls =
-    let rec transformDeclarationsInner com (ctx: Context) fsDecls =
+    let rec transformDeclarationsInner com (ctx: Context) fsDecls: Fable.Declaration list =
+        let ctx = addMemberNamesToScope com ctx fsDecls
         fsDecls |> List.collect (fun fsDecl ->
             match fsDecl with
             | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
@@ -787,9 +809,8 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
                 transformMemberDecl com ctx meth args body
             | FSharpImplementationFileDeclaration.InitAction fe ->
-                let e = transformExpr com ctx fe
-                let decl = Fable.ActionDeclaration e
-                [decl])
+                [transformExpr com ctx fe |> Fable.ActionDeclaration]
+        )
     let decls = transformDeclarationsInner com (Context.Create()) fsDecls
     let interfaceImplementations =
         com.InterfaceImplementations.Values |> Seq.map (fun (info, objMember) ->

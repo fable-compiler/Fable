@@ -139,7 +139,7 @@ switch (command) {
         console.log(getVersion());
         break;
     default:
-        var entry = null, restArgs = args;            
+        var entry = null, restArgs = args;
         if (command && !command.startsWith('-')) {
             entry = path.resolve(command);
             restArgs = args.slice(1);

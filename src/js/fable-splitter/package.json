@@ -1,6 +1,6 @@
 {
   "name": "fable-splitter",
-  "version": "2.0.0-alpha-001",
+  "version": "2.0.0-alpha-002",
   "description": "File splitter for Fable (F# to JavaScript compiler)",
   "author": "ncave",
   "license": "Apache-2.0",
@@ -26,14 +26,12 @@
     "prebuild": "node ../../../node_modules/tslint/bin/tslint index.ts",
     "build": "node ../../../node_modules/typescript/bin/tsc"
   },
-  "peerDependencies": {
-    "@babel/core": "^7.0.0-beta.47"
-  },
   "optionalDependencies": {
-    "prepack": "^0.2.5"
+    "prepack": "^0.2.36"
   },
   "dependencies": {
+    "babel-core": "^6.26.3",
     "fable-utils": "^1.0.6",
-    "chokidar": "^1.7.0"
+    "chokidar": "^2.0.3"
   }
 }
