@@ -169,17 +169,19 @@ let indexed (source: 'T[]) =
         target.[i] <- i, source.[i]
     target
 
-let private concatImpl (cons: IArrayCons<'T>) (arrays: 'T[][]): 'T[] =
-    if arrays.Length > 0 then
+let private concatImpl (cons: IArrayCons<'T>) (arrays: 'T[] seq): 'T[] =
+    let arrays = ResizeArray arrays
+    if arrays.Count > 0 then
+        let mutable totalIdx = 0
         let mutable totalLength = 0
         for arr in arrays do
             totalLength <- totalLength + arr.Length
-
         let result = cons.Create totalLength
-        let mutable offset = 0;
-        for arr in arrays do
-            typedArraySetImpl result arr offset
-            offset <- offset + arr.Length
+        for i = 0 to (arrays.Count - 1) do
+            let ar = arrays.[i]
+            for j = 0 to (ar.Length - 1) do
+                result.[totalIdx] <- ar.[j]
+                totalIdx <- totalIdx + 1
         result
     else
         cons.Create 0
