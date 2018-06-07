@@ -277,6 +277,12 @@ let tests =
         ys.[0] + ys.[1]
         |> equal 3.
 
+    testCase "Array.concat works with strings" <| fun test -> 
+        [| [| "One" |]; [| "Two" |] |]
+        |> Array.concat 
+        |> List.ofArray
+        |> equal [ "One"; "Two" ]
+        
     testCase "Array.exists works" <| fun () ->
         let xs = [|1u; 2u; 3u; 4u|]
         xs |> Array.exists (fun x -> x = 2u)
