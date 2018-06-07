@@ -866,18 +866,23 @@ module Util =
 
     let transformSwitch (com: IBabelCompiler) ctx returnStrategy evalExpr cases defaultCase: Statement =
         let cases =
-            cases |> List.choose (fun (guard, expr) ->
+            cases |> List.collect (fun (guards, expr) ->
                 // Remove empty branches
-                match returnStrategy, expr with
-                | None, Fable.Value Fable.UnitConstant -> None
-                | _ ->
+                match returnStrategy, expr, guards with
+                | None, Fable.Value Fable.UnitConstant, _
+                | _, _, [] -> []
+                | _, _, guards ->
+                    let guards, lastGuard = List.splitLast guards
+                    let guards = guards |> List.map (fun e -> SwitchCase([], com.TransformAsExpr(ctx, e)))
                     let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-                    SwitchCase(caseBody @ [BreakStatement()], com.TransformAsExpr(ctx, guard)) |> Some)
+                    let caseBody = caseBody @ [BreakStatement() :> Statement]
+                    guards @ [SwitchCase([BlockStatement caseBody], com.TransformAsExpr(ctx, lastGuard))]
+                )
         let cases =
             match defaultCase with
             | Some expr ->
                 let defaultCaseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-                cases @ [SwitchCase defaultCaseBody]
+                cases @ [SwitchCase [BlockStatement defaultCaseBody]]
             | None -> cases
         SwitchStatement(com.TransformAsExpr(ctx, evalExpr), cases) :> Statement
 
@@ -942,9 +947,9 @@ module Util =
         com.TransformAsExpr(ctx, expr)
 
     let transformDecisionTreeAsStaments (com: IBabelCompiler) (ctx: Context) returnStrategy
-                        (targets: (Fable.Ident list * Fable.Expr) list) treeExpr: Statement list =
+                        (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement list =
         let transformCase t (caseExpr, targetIndex, boundValues) =
-            caseExpr, Fable.DecisionTreeSuccess(targetIndex, boundValues, t)
+            [caseExpr], Fable.DecisionTreeSuccess(targetIndex, boundValues, t)
 
         // If some targets are referenced multiple times, host bound idents,
         // resolve the decision index and compile the targets as a switch
@@ -958,19 +963,22 @@ module Util =
             // Transform targets as switch
             let switch2 =
                 // TODO: Declare the last case as the default case?
-                let cases = targets |> List.mapi (fun i (_,target) -> makeIntConst i, target)
+                let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
                 transformSwitch com ctx returnStrategy (makeIdent targetId |> Fable.IdentExpr) cases None
             // Transform decision tree
             let targetAssign = Target(Identifier targetId)
             match transformDecisionTreeAsSwitch treeExpr with
             | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
                 if targets |> List.forall (fun (boundValues,_) -> List.isEmpty boundValues) then
-                    let cases = cases |> List.map (fun (caseExpr, idx, _) ->
-                        caseExpr, (List.item idx targets |> snd))
+                    let cases =
+                        cases
+                        |> List.groupBy (fun (_,idx,_) -> idx)
+                        |> List.map (fun (idx, cases) ->
+                            let caseExprs = cases |> List.map (fun (caseExpr,_,_) -> caseExpr)
+                            caseExprs, (List.item idx targets |> snd))
                     let defaultCase = List.item defaultIndex targets |> snd
                     [transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)]
                 else
-                    let ctx = { ctx with DecisionTargets = targets }
                     let cases = List.map (transformCase (Fable.Number Int32)) cases
                     let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number Int32)
                     let switch1 = transformSwitch com ctx (Some targetAssign) evalExpr cases (Some defaultCase)
@@ -983,8 +991,9 @@ module Util =
             let ctx = { ctx with DecisionTargets = targets }
             match transformDecisionTreeAsSwitch treeExpr with
             | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-                let cases = List.map (transformCase treeExpr.Type) cases
-                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, treeExpr.Type)
+                let t = treeExpr.Type
+                let cases = List.map (transformCase t) cases
+                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
                 [transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)]
             | None ->
                 com.TransformAsStatements(ctx, returnStrategy, treeExpr)

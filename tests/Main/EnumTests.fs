@@ -139,4 +139,14 @@ let tests =
 
     testCase "Non-scoped (in JS) variables with same name can be used" <| fun () -> // See #700
         equal 10 myRootValue
+
+    // See https://github.com/fable-compiler/Fable/issues/1415#issuecomment-395138456
+    testCase "Multiple cases with same target don't create variable duplication" <| fun () ->
+        let test arg =
+            match arg with
+            | 0 | 1 | 2 | 3 ->
+                let test2 x = x + x
+                test2
+            | _ -> id
+        (test 1) 5 |> equal 10
   ]
