@@ -321,9 +321,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
         let callee = Option.map (transformExpr com ctx) callee
         let args = List.map (transformExpr com ctx) args
-        let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
+        // TODO: Open issue in FSC repo. When calling module values, fsExpr.Type gives wrong values.
+        let returnType =
+            makeType com ctx.GenericArgs <|
+                if isModuleValueForDeclarations memb
+                then memb.ReturnParameter.Type
+                else fsExpr.Type
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
-        makeCallFrom com ctx r typ genArgs callee args memb
+        makeCallFrom com ctx (makeRangeFrom fsExpr) returnType genArgs callee args memb
 
     | BasicPatterns.Application(applied, genArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type

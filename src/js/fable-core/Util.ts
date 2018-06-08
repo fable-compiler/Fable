@@ -145,13 +145,14 @@ export function toString(obj: any, quoteStrings = false): string {
     case "function":
       return obj.name;
     case "object":
-      if (isPlainObject(obj)) {
+      // TODO: Print some elements of iterables?
+      if (isPlainObject(obj) || Array.isArray(obj)) {
         try {
           return JSON.stringify(obj, (k, v) => {
             if (v != null) {
               if (v instanceof Date) {
                 return dateToString(v);
-              } else if (isIterable(v) && !Array.isArray(v)) {
+              } else if (isIterable(v) && !Array.isArray(v) && typeof v !== "string") {
                 return Array.from(v);
               }
             }

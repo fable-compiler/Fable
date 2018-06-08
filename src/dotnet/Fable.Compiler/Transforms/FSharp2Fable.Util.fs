@@ -226,7 +226,7 @@ module Helpers =
     /// Using memb.IsValue doesn't work for function values
     /// (e.g. `let ADD = adder()` when adder returns a function)
     let isModuleValueForDeclarations (memb: FSharpMemberOrFunctionOrValue) =
-        memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
+        memb.CurriedParameterGroups.Count = 0 // && memb.GenericParameters.Count = 0
 
     let isModuleValueForCalls (memb: FSharpMemberOrFunctionOrValue) =
         isModuleValueForDeclarations memb

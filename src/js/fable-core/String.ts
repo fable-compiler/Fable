@@ -156,7 +156,7 @@ function formatOnce(str2: any, rep: any) {
 }
 
 function createPrinter(str: string, cont: (...args: any[]) => any) {
-  const printer = (...args: any[]) => {
+  return (...args: any[]) => {
     // Make a copy as the function may be used several times
     let strCopy = str;
     for (const arg of args) {
@@ -166,10 +166,6 @@ function createPrinter(str: string, cont: (...args: any[]) => any) {
       ? createPrinter(strCopy, cont)
       : cont(strCopy.replace(/%%/g, "%"));
   };
-  // Mark it as curried so it doesn't
-  // get wrapped by CurriedLambda
-  (printer as any).curried = true;
-  return printer;
 }
 
 export function fsFormat(str: string) {

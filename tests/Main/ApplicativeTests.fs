@@ -704,7 +704,20 @@ module Results =
         let sum = add3 <!> Ok 1 <*> Ok 2 <*> Ok 3
         equal (Ok 6) sum
 
+#if FABLE_COMPILER
 open Thoth.Json.Decode
+#endif
+
+type User =
+    { Id : int
+      Name : string
+      Email : string
+      Followers : int }
+    static member Create id email name followers =
+        { Id = id
+          Name = name
+          Email = email
+          Followers = followers }
 
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
@@ -827,6 +840,25 @@ let tests7 = [
 
         decodeString info """{ "version": 3, "data": 2 }"""
         |> equal (FSharp.Core.Ok 1)
+
+    testCase "Applying curried lambdas to a module value works" <| fun _ ->
+        let expected =
+            FSharp.Core.Ok(User.Create 67 "user@mail.com" "" 0)
+
+        let userDecoder =
+            decode User.Create
+                |> required "id" int
+                |> required "email" string
+                |> optional "name" string ""
+                |> hardcoded 0 // `hardcoded` is compiled as module value
+
+        let actual =
+            decodeString
+                userDecoder
+                """{ "id": 67, "email": "user@mail.com" }"""
+
+        equal expected actual
+
     #endif
 ]
 
