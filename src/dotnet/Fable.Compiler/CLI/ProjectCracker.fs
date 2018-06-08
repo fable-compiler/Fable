@@ -175,10 +175,6 @@ let private getDllName (dllFullPath: string) =
     let i = dllFullPath.LastIndexOf('/')
     dllFullPath.[(i + 1) .. (dllFullPath.Length - 5)] // -5 removes the .dll extension
 
-let private getFsprojName (fsprojFullPath: string) =
-    let i = fsprojFullPath.LastIndexOf('/')
-    fsprojFullPath.[(i + 1) .. (fsprojFullPath.Length - 8)]
-
 let private isUsefulOption (opt : string) =
     [ "--nowarn"
       "--warnon"
@@ -220,8 +216,10 @@ let fullCrack (projFile: string): CrackedFsproj =
     let projRefs =
         projRefs |> List.map (fun projRef ->
             // Remove dllRefs corresponding to project references
-            let projName = getFsprojName projRef
-            dllRefs.Remove(projName) |> ignore
+            let projName = Path.GetFileNameWithoutExtension(projRef)
+            let removed = dllRefs.Remove(projName)
+            if not removed then
+                printfn "Couldn't remove project reference %s from dll references" projName
             Path.normalizeFullPath projRef)
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
