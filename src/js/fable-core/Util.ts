@@ -442,28 +442,39 @@ export interface ICurried {
 /* tslint:disable */
 export function uncurry(arity: number, f: Function) {
 /* tslint:enable */
-
   // f may be a function option with None value
-  if (f == null) {
-    return null;
-  }
+  if (f == null) { return null; }
 
-  const wrap: ICurried = (...args: any[]) => {
-    // In some cases there may be more arguments applied than necessary
-    // (e.g. index when mapping an array), discard them
-    let res: any = f;
-    for (let i = 0; i < arity; i++) {
-      const accArgs = [args[i]];
-      const partialArity = Math.max(f.length, 1);
-      while (accArgs.length < partialArity) {
-        accArgs.push(args[++i]);
-      }
-      res = res.apply(null, accArgs);
-    }
-    return res;
-  };
-  wrap.curried = true;
-  return wrap;
+  //   return (...args) => {
+  //     // In some cases there may be more arguments applied than necessary
+  //     // (e.g. index when mapping an array), discard them
+  //     args = args.slice(0, arity);
+  //     let res = f;
+  //     while (args.length > 0) {
+  //         const curArgs = args.splice(0,1);
+  //         res = res.apply(null, curArgs);
+  //     }
+  //     return res;
+  //   };
+  switch (arity) {
+    case 2:
+      return (a1: any, a2: any) => f(a1)(a2);
+    case 3:
+      return (a1: any, a2: any, a3: any) => f(a1)(a2)(a3);
+    case 4:
+      return (a1: any, a2: any, a3: any, a4: any) => f(a1)(a2)(a3)(a4);
+    case 5:
+      return (a1: any, a2: any, a3: any, a4: any, a5: any) => f(a1)(a2)(a3)(a4)(a5);
+    case 6:
+      return (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any) => f(a1)(a2)(a3)(a4)(a5)(a6);
+    case 7:
+      return (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7);
+    case 8:
+      return (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any, a8: any) =>
+              f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8);
+    default:
+      throw new Error("Uncurrying to more than 8-arity is not supported: " + arity);
+  }
 }
 
 /* tslint:disable */
@@ -522,7 +533,7 @@ export function partialApply(arity: number, f: ICurried, args: any[]): any {
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) => (a6: any) =>
           (a7: any) => (a8: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5, a6, a7, a8]));
       default:
-        throw new Error("Partially applying to get a function with more than 8-arity is not supported: " + arity);
+        throw new Error("Partially applying to more than 8-arity is not supported: " + arity);
     }
   }
 }

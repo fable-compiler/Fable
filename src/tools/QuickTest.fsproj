@@ -7,6 +7,7 @@
     <Reference Include="../../build/fable/Fable.Core.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../../tests/Main/Util/Thoth.Json.Decode.fs" />
     <Compile Include="QuickTest.fs" />
   </ItemGroup>
 </Project>
