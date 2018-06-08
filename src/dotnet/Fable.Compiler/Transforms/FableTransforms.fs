@@ -8,7 +8,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 let visit f e =
     match e with
     | IdentExpr _ | Debugger _ -> e
-    | Import(e1, e2, kind, t, r) -> Import(f e1, f e2, kind, t, r) 
+    | Import(e1, e2, kind, t, r) -> Import(f e1, f e2, kind, t, r)
     | Value kind ->
         match kind with
         | TypeInfo _ | This _ | Super _ | Null _ | UnitConstant
@@ -319,6 +319,8 @@ module private Transforms =
         | FunctionType(LambdaType argType, returnType)
         | Option(FunctionType(LambdaType argType, returnType)) ->
             uncurryLambdaTypeInner [argType] returnType
+        | FunctionType(DelegateType argTypes, returnType) ->
+            argTypes, returnType
         | returnType -> [], returnType
 
     let replaceIdentType replacements (id: Ident) =
@@ -475,11 +477,11 @@ module private Transforms =
             Operation(Emit(macro, Some info), t, r)
         | e -> e
 
-    let rec uncurryApplications e =
+    let rec uncurryApplications (com: ICompiler) e =
         match e with
         | NestedApply(applied, args, t, r) ->
-            let applied = visitFromOutsideIn uncurryApplications applied
-            let args = args |> List.map (visitFromOutsideIn uncurryApplications)
+            let applied = visitFromOutsideIn (uncurryApplications com) applied
+            let args = args |> List.map (visitFromOutsideIn (uncurryApplications com))
             match applied.Type with
             | FunctionType(DelegateType argTypes, _) ->
                 if List.sameLength argTypes args then
@@ -519,9 +521,9 @@ let optimizations =
       // Then apply uncurry optimizations
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
       fun com e -> visitFromInsideOut (uncurryRecordFields com) e
-      fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
-      fun _   e -> visitFromOutsideIn uncurryApplications e
+      fun com e -> visitFromOutsideIn (uncurryApplications com) e
+      fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       // Don't traverse the expression for the unwrap function optimization
       unwrapFunctions
     ]

@@ -14,6 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util/b.fs" />
+    <Compile Include="Util/Thoth.Json.Decode.fs" />
     <Compile Include="Util/Aether.fs" />
     <Compile Include="Util/Util.fs" />
     <Compile Include="Util/Util2.fs" />

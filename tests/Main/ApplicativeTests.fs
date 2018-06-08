@@ -704,6 +704,8 @@ module Results =
         let sum = add3 <!> Ok 1 <*> Ok 2 <*> Ok 3
         equal (Ok 6) sum
 
+open Thoth.Json.Decode
+
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
         (lengthWrapper []) |> equal 0
@@ -810,6 +812,20 @@ let tests7 = [
             [1,2; 3,4; 5,6]
             |> List.map (sum 10)
         List.sum li |> equal 51
+
+    testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->
+        let infoHelp version =
+            match version with
+            | 4 -> succeed 1
+            | 3 -> succeed 1
+            | _ -> fail <| "Trying to decode info, but version " + (version.ToString()) + "is not supported"
+
+        let info : Decoder<int> =
+            field "version" int
+            |> andThen infoHelp
+
+        decodeString info """{ "version": 3, "data": 2 }"""
+        |> equal (FSharp.Core.Ok 1)
 ]
 
 let tests =

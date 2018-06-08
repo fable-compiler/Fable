@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceRoot}/src/dotnet/Fable.Compiler/bin/Debug/netcoreapp2.0/Fable.Compiler.dll",
+            "program": "${workspaceRoot}/src/dotnet/Fable.Compiler/bin/Debug/netcoreapp2.0/dotnet-fable.dll",
             "args": ["yarn-splitter", "--fable-core", "../../../build/fable-core"],
             "cwd": "${workspaceRoot}/src/tools/",
             "stopAtEntry": true,
