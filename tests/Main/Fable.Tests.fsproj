@@ -28,9 +28,10 @@
     <Compile Include="ComparisonTests.fs" />
     <Compile Include="ConvertTests.fs" />
     <Compile Include="CustomOperatorsTests.fs" />
-    <Compile Include="DateTimeTests.fs" />
     <Compile Include="DateTimeOffsetTests.fs" />
+    <Compile Include="DateTimeTests.fs" />
     <Compile Include="DictionaryTests.fs" />
+    <Compile Include="ElmishParserTests.fs" />
     <Compile Include="EnumerableTests.fs" />
     <Compile Include="EnumTests.fs" />
     <Compile Include="EventTests.fs" />
@@ -46,7 +47,7 @@
     <Compile Include="RecordTypeTests.fs" />
     <Compile Include="ReflectionTests.fs" />
     <Compile Include="RegexTests.fs" />
-     <Compile Include="ResizeArrayTests.fs" />
+    <Compile Include="ResizeArrayTests.fs" />
     <Compile Include="ResultTests.fs" />
     <Compile Include="SeqExpressionTests.fs" />
     <Compile Include="SeqTests.fs" />
@@ -57,7 +58,6 @@
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
-    <Compile Include="ElmishParserTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

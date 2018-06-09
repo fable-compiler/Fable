@@ -1229,70 +1229,64 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
         let args = injectArg com r "Seq" meth i.GenericArgs args
         Helper.CoreCall("Seq", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
-let resizeArrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let resizeArrays (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     // Use Any to prevent creation of a typed array (not resizable)
     // TODO: Include a value in Fable AST to indicate the Array should always be dynamic?
-    | ".ctor", _, [] -> makeArray Any [] |> Some
-    | ".ctor", _, [ExprType(Number _) as arg] -> NewArray(ArrayAlloc arg, Any) |> Value |> Some
+    | ".ctor", _, [] ->
+        makeArray Any [] |> Some
+    | ".ctor", _, [ExprType(Number _)] ->
+        makeArray Any [] |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
     | ".ctor", _, [Value(NewArray(ArrayValues vals, _)) | ListLiteral(vals, _)] ->
         makeArray Any vals |> Some
-    | ".ctor", _, args -> Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
+    | ".ctor", _, args ->
+        Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
-    | "Add", Some ar, args -> Helper.InstanceCall(ar, "push", t, args, ?loc=r) |> Some
-    | "Remove", Some ar, args -> Helper.CoreCall("Array", "removeInPlace", t, args @ [ar], ?loc=r) |> Some
+    | "Add", Some ar, args ->
+        Helper.InstanceCall(ar, "push", t, args, ?loc=r) |> Some
+    | "Remove", Some ar, [arg] ->
+        Helper.CoreCall("Array", "removeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator r t ar |> Some
     // ICollection members, implemented in dictionaries and sets too. We need runtime checks (see #1120)
-    | "get_Count", Some ar, _ -> Helper.CoreCall("Util", "count", t, [ar], ?loc=r) |> Some
-    | "Clear", Some ar, _ -> Helper.CoreCall("Util", "clear", t, [ar], ?loc=r) |> Some
+    | "get_Count", Some ar, _ ->
+        Helper.CoreCall("Util", "count", t, [ar], ?loc=r) |> Some
+    | "Clear", Some ar, _ ->
+        Helper.CoreCall("Util", "clear", t, [ar], ?loc=r) |> Some
+    | "Find", Some ar, [arg] ->
+        Helper.CoreCall("Option", "value", t,
+          [ Helper.CoreCall("Seq", "tryFind", t, [arg; ar; defaultof t], ?loc=r)
+            Value(BoolConstant true) ], ?loc=r) |> Some
+    | "FindLast", Some ar, [arg] ->
+        Helper.CoreCall("Option", "value", t,
+          [ Helper.CoreCall("Seq", "tryFindBack", t, [arg; ar; defaultof t], ?loc=r)
+            Value(BoolConstant true) ], ?loc=r) |> Some
+    | "FindAll", Some ar, [arg] ->
+        Helper.CoreCall("Seq", "filter", t, [arg; ar], ?loc=r) |> toArray com t |> Some
+    | "AddRange", Some ar, [arg] ->
+        Helper.CoreCall("Array", "addRangeInPlace", t, [arg; ar], ?loc=r) |> Some
+    | "Contains", Some ar, [arg] ->
+        let left = Helper.InstanceCall(ar, "indexOf", Number Int32, [arg], ?loc=r)
+        makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
+    | "IndexOf", Some ar, args ->
+        Helper.InstanceCall(ar, "indexOf", t, args, ?loc=r) |> Some
+    | "Insert", Some ar, [idx; arg] ->
+        Helper.InstanceCall(ar, "splice", t, [idx; makeIntConst 0; arg], ?loc=r) |> Some
+    | "RemoveRange", Some ar, args ->
+        Helper.InstanceCall(ar, "splice", t, args, ?loc=r) |> Some
+    | "RemoveAt", Some ar, [idx] ->
+        Helper.InstanceCall(ar, "splice", t, [idx; makeIntConst 1], ?loc=r) |> Some
+    | "Reverse", Some ar, [] ->
+        Helper.InstanceCall(ar, "reverse", t, args, ?loc=r) |> Some
+    | "Sort", Some ar, [] ->
+        let compareFn = genArg com r 0 i.GenericArgs |> makeComparerFunction
+        Helper.InstanceCall(ar, "sort", t, [compareFn], ?loc=r) |> Some
+    | "Sort", Some ar, [ExprType(Fable.FunctionType _)] ->
+        Helper.InstanceCall(ar, "sort", t, args, ?loc=r) |> Some
+    | "ToArray", Some ar, [] ->
+        Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
     | _ -> None
-    // TODO!!!
-    // | "find" when Option.isSome c ->
-    //     let defaultValue = defaultof i.calleeTypeArgs.Head
-    //     ccall "Option" "getValue" [
-    //         ccall "Seq" "tryFind" [args.Head;c.Value;defaultValue]
-    //         Fable.Expr.Value (Fable.ValueKind.BoolConst true) ]
-    //     |> Some
-    // | "findAll" when Option.isSome c ->
-    //     ccall "Seq" "filter" [args.Head;c.Value] |> toArray com i |> Some
-    // | "findLast" when Option.isSome c ->
-    //     let defaultValue = defaultof i.calleeTypeArgs.Head
-    //     ccall "Option" "getValue" [
-    //         ccall "Seq" "tryFindBack"
-    //             [args.Head;c.Value;defaultValue];
-    //         Fable.Expr.Value (Fable.ValueKind.BoolConst true) ]
-    //     |> Some
-    // | "addRange" ->
-    //     ccall "Array" "addRangeInPlace" [args.Head; c.Value] |> Some
-    // | "contains" ->
-    //     match c, args with
-    //     | Some c, args ->
-    //         emit i "$0.indexOf($1) > -1" (c::args) |> Some
-    //     | None, [item;xs] ->
-    //         let f =
-    //             wrapInLambda [makeIdent (com.GetUniqueVar())] (fun exprs ->
-    //                 CoreLibCall("Util", Some "equals", false, item::exprs)
-    //                 |> makeCall None Fable.Boolean)
-    //         ccall "Seq" "exists" [f;xs] |> Some
-    //     | _ -> None
-    // | "indexOf" ->
-    //     icall "indexOf" (c.Value, args) |> Some
-    // | "insert" ->
-    //     icall "splice" (c.Value, [args.Head; makeIntConst 0; args.Tail.Head]) |> Some
-    // | "removeRange" ->
-    //     icall "splice" (c.Value, args) |> Some
-    // | "removeAt" ->
-    //     icall "splice" (c.Value, [args.Head; makeIntConst 1]) |> Some
-    // | "reverse" when kind = Array ->
-    //     match i.returnType with
-    //     | Fable.Array _ ->
-    //         // Arrays need to be copied before sorted in place.
-    //         emit i "$0.slice().reverse()" i.args |> Some
-    //     | _ ->
-    //         // ResizeArray should be sorted in place without copying.
-    //         icall "reverse" (instanceArgs c i.args) |> Some
 
 let nativeArrayFunctions =
     dict [| "Exists", "some"

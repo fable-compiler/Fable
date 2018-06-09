@@ -15,13 +15,13 @@ function compareList(self, other) {
   }
 }
 
-export class List {
+export default class List {
   constructor(head, tail) {
     this.head = head;
     this.tail = tail;
   }
 
-  toString() {
+  ToString() {
     return "[" + Array.from(this).map(x => toString(x)).join("; ") + "]";
   }
 
