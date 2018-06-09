@@ -6,6 +6,7 @@
     "postbuild": "yarn test",
     "splitter": "node ../src/js/fable-splitter/dist/cli -c splitter.config.js",
     "webpack": "node ../node_modules/webpack/bin/webpack -p",
+    "_webpack": "node ../node_modules/webpack/bin/webpack --require babel-register --entry ../build/tests/Main.js --output ../build/tests/bundle.js",
     "rollup": "node ../node_modules/rollup/bin/rollup -c",
     "test": "node ../node_modules/mocha/bin/mocha ../build/tests"
   },

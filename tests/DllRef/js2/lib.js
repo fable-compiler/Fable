@@ -19,4 +19,4 @@ export class Bar {
     }
 }
 
-export default "bar"
+export default "bar";

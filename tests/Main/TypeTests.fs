@@ -271,14 +271,13 @@ let tests =
         box 5L |> isLong |> equal true
         box 50 |> isLong |> equal false
 
-    // TODO!!!
-    // testCase "Type test with BigInt" <| fun () ->
-    //     let isBigInd (x: obj) =
-    //         match x with
-    //         | :? bigint -> true
-    //         | _ -> false
-    //     box 5I |> isBigInd |> equal true
-    //     box 50 |> isBigInd |> equal false
+    testCase "Type test with BigInt" <| fun () ->
+        let isBigInd (x: obj) =
+            match x with
+            | :? bigint -> true
+            | _ -> false
+        box 5I |> isBigInd |> equal true
+        box 50 |> isBigInd |> equal false
 
     testCase "Property names don't clash with built-in JS objects" <| fun () -> // See #168
         let gameState = {

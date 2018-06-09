@@ -1552,26 +1552,18 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
 
     | _,_ -> None
 
-// let bigint (com: ICompiler) (_: Context) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-//     let coreMod = coreModFor BclBigInt
-//     match thisArg, i.CompiledName with
-//     | None, ".ctor" ->
-//         match i.SignatureArgTypes with
-//         | [Builtin(BclInt64|BclUInt64)] -> coreCall r t i "fromInt64" coreMod args
-//         | [_] -> coreCall r t i "fromInt32" coreMod args
-//         | _ -> coreCall r t i "default" coreMod args
-//         |> Some
-//     | None, ("Zero"|"One"|"Two" as memb) ->
-//         makeCoreRef t (Naming.lowerFirst memb) coreMod |> Some
-//     | None, ("FromZero"|"FromOne" as memb) ->
-//         let memb = memb.Replace("From", "") |> Naming.lowerFirst
-//         makeCoreRef t memb coreMod |> Some
-//     | None, "FromString" ->
-//         coreCall r t i "parse" coreMod args |> Some
-//     | None, meth -> coreCall r t i meth coreMod args |> Some
-//     | Some _callee, _ ->
-//         // icall i meth |> Some
-//         "TODO: BigInt instance methods" |> addErrorAndReturnNull com r |> Some
+let bigints (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName with
+    | None, ".ctor" ->
+        match i.SignatureArgTypes with
+        | [Builtin(BclInt64|BclUInt64)] ->
+            Helper.CoreCall("BigInt", "fromInt64", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | _ ->
+            Helper.CoreCall("BigInt", "fromInt32", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | None, meth ->
+        Helper.CoreCall("BigInt", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | Some callee, meth ->
+        Helper.CoreCall("BigInt", Naming.lowerFirst meth, t, [callee], i.SignatureArgTypes, ?loc=r) |> Some
 
 // Compile static strings to their constant values
 // reference: https://msdn.microsoft.com/en-us/visualfsharpdocs/conceptual/languageprimitives.errorstrings-module-%5bfsharp%5d
@@ -2353,9 +2345,8 @@ let private replacedModules =
     Types.option, options
     "Microsoft.FSharp.Core.OptionModule", optionModule
     "Microsoft.FSharp.Core.ResultModule", results
-    // TODO
-    // Types.bigint, bigint
-    // "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigint
+    Types.bigint, bigints
+    "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
     Types.reference, references
     "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
     Types.object, objects

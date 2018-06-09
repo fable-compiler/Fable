@@ -115,53 +115,51 @@ let tests =
     testCase "Int64 abs works" <| fun () ->
         equal (abs -4L, 4L)
 
-(*
-// TODO: BigInt
-testCase "Big integers addition works" <| fun () ->
-    let x = 59823749821707124891298739821798327321028091380980I
-    let y = bigint 1L
-    let z = 1I
-    equal(59823749821707124891298739821798327321028091380982I, (x + y + z))
+    testCase "Big integers addition works" <| fun () ->
+        let x = 59823749821707124891298739821798327321028091380980I
+        let y = bigint 1L
+        let z = 1I
+        equal(59823749821707124891298739821798327321028091380982I, (x + y + z))
 
-testCase "BigInt Infix add can be generated" <| fun () ->
-    equal (4I + 2I, 6I)
+    testCase "BigInt Infix add can be generated" <| fun () ->
+        equal (4I + 2I, 6I)
 
-testCase "BigInt Infix subtract can be generated" <| fun () ->
-    equal (4I - 2I, 2I)
+    testCase "BigInt Infix subtract can be generated" <| fun () ->
+        equal (4I - 2I, 2I)
 
-testCase "BigInt Infix multiply can be generated" <| fun () ->
-    equal (4I * 2I, 8I)
+    testCase "BigInt Infix multiply can be generated" <| fun () ->
+        equal (4I * 2I, 8I)
 
-testCase "BigInt Infix divide can be generated" <| fun () ->
-    equal (4I / 2I, 2I)
+    testCase "BigInt Infix divide can be generated" <| fun () ->
+        equal (4I / 2I, 2I)
 
-testCase "BigInt Integer division doesn't produce floats" <| fun () ->
-    equal (5. / 2., 2.5)
-    equal (5I / 2I, 2I)
-    equal (5I / 3I, 1I)
-    // equal (float 5I / 2., 2.5)
+    testCase "BigInt Integer division doesn't produce floats" <| fun () ->
+        equal (5. / 2., 2.5)
+        equal (5I / 2I, 2I)
+        equal (5I / 3I, 1I)
+        // equal (float 5I / 2., 2.5)
 
-testCase "BigInt Infix modulo can be generated" <| fun () ->
-    equal (4I % 3I, 1I)
+    testCase "BigInt Infix modulo can be generated" <| fun () ->
+        equal (4I % 3I, 1I)
 
-testCase "BigInt Evaluation order is preserved by generated code" <| fun () ->
-    equal ((4I - 2I) * 2I + 1I, 5I)
+    testCase "BigInt Evaluation order is preserved by generated code" <| fun () ->
+        equal ((4I - 2I) * 2I + 1I, 5I)
 
-testCase "BigInt Bitwise and can be generated" <| fun () ->
-    equal (6I &&& 2I, 2I)
+    testCase "BigInt Bitwise and can be generated" <| fun () ->
+        equal (6I &&& 2I, 2I)
 
-testCase "BigInt Bitwise or can be generated" <| fun () ->
-    equal (4I ||| 2I, 6I)
+    testCase "BigInt Bitwise or can be generated" <| fun () ->
+        equal (4I ||| 2I, 6I)
 
-testCase "BigInt Bitwise shift left can be generated" <| fun () ->
-    equal (4I <<< 2, 16I)
+    testCase "BigInt Bitwise shift left can be generated" <| fun () ->
+        equal (4I <<< 2, 16I)
 
-testCase "BigInt Bitwise shift right can be generated" <| fun () ->
-    equal (4I >>> 2, 1I)
+    testCase "BigInt Bitwise shift right can be generated" <| fun () ->
+        equal (4I >>> 2, 1I)
 
-testCase "BigInt abs works" <| fun () ->
-    equal (abs -4I, 4I)
-*)
+    testCase "BigInt abs works" <| fun () ->
+        equal (abs -4I, 4I)
+
     testCase "abs works" <| fun () ->
         equal (abs -4, 4)
 
@@ -344,29 +342,28 @@ testCase "BigInt abs works" <| fun () ->
         equal(0, compareTo y x)
         equal(1, compareTo z x)
 
-    // TODO: BigInt
-    // testCase "bigint equality works" <| fun () ->
-    //     let a = 9007199254740992I
-    //     let b = 9007199254740993I
-    //     equal(false, (a = b))
+    testCase "bigint equality works" <| fun () ->
+        let a = 9007199254740992I
+        let b = 9007199254740993I
+        equal(false, (a = b))
 
-    // testCase "Big integers equality works" <| fun () ->
-    //     let x = 59823749821707124891298739821798327321028091380980I
-    //     let y = 59823749821707124891298739821798327321028091380980I
-    //     let z = 59823749821707124891298739821798327321028091380981I
-    //     equal(true, (x = y))
-    //     equal(false, (y = z))
-    //     equal(true, equals y x)
-    //     equal(false, equals z x)
+    testCase "Big integers equality works" <| fun () ->
+        let x = 59823749821707124891298739821798327321028091380980I
+        let y = 59823749821707124891298739821798327321028091380980I
+        let z = 59823749821707124891298739821798327321028091380981I
+        equal(true, (x = y))
+        equal(false, (y = z))
+        equal(true, equals y x)
+        equal(false, equals z x)
 
-    // testCase "Big integers comparison works" <| fun () ->
-    //     let x = 5I
-    //     let y = 5I
-    //     let z = 6I
-    //     equal(0, compare x y)
-    //     equal(-1, compare y z)
-    //     equal(0, compareTo y x)
-    //     equal(1, compareTo z x)
+    testCase "Big integers comparison works" <| fun () ->
+        let x = 5I
+        let y = 5I
+        let z = 6I
+        equal(0, compare x y)
+        equal(-1, compare y z)
+        equal(0, compareTo y x)
+        equal(1, compareTo z x)
 
     testCase "Member values of decimal type can be compared" <| fun () -> // See #747
         equal(true, decimalOne < decimalTwo)
