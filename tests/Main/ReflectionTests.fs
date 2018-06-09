@@ -383,6 +383,21 @@ type Helper =
     static member Make(values: obj[], [<Inject>] ?res: ITypeResolver<'U>) =
         let t = res.Value.ResolveType()
         FSharpValue.MakeRecord(t, values) :?> 'U
+        
+type Maybe<'t> = 
+    | Just of 't
+    | Nothing 
+
+// The !!!NAME!!! of this type fails with somethings, I don't know
+type RecWithGenDU<'t> = { Other: 't; Value : Maybe<string> }
+// But this one works, very weird
+type GenericTestRecord<'t> = { Other: 't; Value : Maybe<string> }
+
+// helper class to extract the name of an injected type
+type Types() = 
+    static member getNameOf<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : string = 
+        let resolvedType = resolver.Value.ResolveType()
+        resolvedType.Name
 
 let injectTests = [
     testCase "ITypeResolver can be injected" <| fun () ->
@@ -390,10 +405,28 @@ let injectTests = [
         let y: R2 = Helper.Make [|box 10|]
         equal x { x = 5 }
         equal y { y = 10 }
+    
+    // this fails
+    testCase "Name can be extracted from RecWithGenDU" <| fun () -> 
+        let name = Types.getNameOf<Maybe<list<RecWithGenDU<string>>>>()
+        equal false (name = "")
+        
+    // this works, whyyyy?
+    testCase "Name can be extracted from GenericTestRecord" <| fun () -> 
+        let name = Types.getNameOf<Maybe<list<GenericTestRecord<string>>>>()
+        equal false (name = "")
 ]
 #else
 let injectTests = []
 #endif
+
+
+
+let genericTypeNamesTests = 
+    testList "Naming generic types" 
+      [  ]
+           
+           
 
 let tests =
     testList "Reflection tests" (
