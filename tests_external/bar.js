@@ -1,1 +1,1 @@
-export let bar = 5;
+exports.bar = 5

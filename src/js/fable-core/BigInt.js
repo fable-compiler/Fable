@@ -93,7 +93,7 @@ export default class BigInteger {
     }
   }
 
-  ToString() {
+  toString() {
     const matchValue = this.SignInt;
     let $var19 = null;
 
@@ -134,7 +134,7 @@ export default class BigInteger {
     return hash(this);
   }
 
-  toJSON = this.ToString;
+  toJSON = this.toString;
   static ofJSON = parse;
 }
 // setType("System.Numerics.BigInteger", BigInteger);

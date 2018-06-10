@@ -50,7 +50,6 @@ export default function Long(low, high, unsigned) {
 
 Long.prototype.Equals = function (x) { return equals(this, x); }
 Long.prototype.CompareTo = function (x) { return compare(this, x); }
-Long.prototype.ToString = function () { return toString(this); }
 Long.prototype.toString = function () { return toString(this); }
 Long.prototype.toNumber = function () { return toNumber(this); }
 Long.prototype.neg = function () { return op_UnaryNegation(this); }

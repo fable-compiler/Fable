@@ -21,7 +21,7 @@ export default class List {
     this.tail = tail;
   }
 
-  ToString() {
+  toString() {
     return "[" + Array.from(this).map(x => toString(x)).join("; ") + "]";
   }
 
