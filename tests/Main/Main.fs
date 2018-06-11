@@ -4,42 +4,44 @@ let allTests =
   [|
     Applicative.tests
     Arithmetic.tests
-    Async.tests
     Arrays.tests
-    Char.tests
-    Convert.tests
+    Async.tests
+    Chars.tests
     Comparison.tests
+    Convert.tests
     CustomOperators.tests
-    DateTime.tests
     DateTimeOffset.tests
+    DateTime.tests
     Dictionaries.tests
+#if FABLE_COMPILER
+    ElmishParser.tests
+#endif
     Enumerable.tests
     Enum.tests
     Event.tests
     HashSets.tests
     Import.tests
     JsInterop.tests
+    // Json.tests
     Lists.tests
     Maps.tests
     Misc.tests
     Observable.tests
+    Option.tests
     RecordTypes.tests
     Reflection.tests
     Regex.tests
+    ResizeArrays.tests
     Result.tests
+    SeqExpressions.tests
     Seqs.tests
-    ``Seq Expressions``.tests
     Sets.tests
     Strings.tests
     Sudoku.tests
     TailCalls.tests
     TupleTypes.tests
     TypeTests.tests
-    Option.tests
     UnionTypes.tests
-    #if FABLE_COMPILER
-    ElmishParser.tests
-    #endif
   |]
 
 #if FABLE_COMPILER

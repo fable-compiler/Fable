@@ -127,10 +127,10 @@ let (|Builtin|_|) = function
         | Some Types.datetime, _ -> Some BclDateTime
         | Some Types.datetimeOffset, _ -> Some BclDateTimeOffset
         | Some "System.Timers.Timer", _ -> Some BclTimer
-        | Some "System.Int64", _ -> Some BclInt64
-        | Some "System.UInt64", _ -> Some BclUInt64
+        | Some Types.int64, _ -> Some BclInt64
+        | Some Types.uint64, _ -> Some BclUInt64
         | Some "Microsoft.FSharp.Core.int64`1", _ -> Some BclInt64
-        | Some "System.Numerics.BigInteger", _ -> Some BclBigInt
+        | Some Types.bigint, _ -> Some BclBigInt
         | Some Types.fsharpSet, [t] -> Some(FSharpSet(t))
         | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
         | Some Types.hashset, [t] -> Some(BclHashSet(t))
@@ -613,7 +613,7 @@ and compare r left right =
     | ExprType(DeclaredType(ent,_)) when ent.IsFSharpRecord ->
         Helper.CoreCall("Util", "compareObjects", Number Int32, [left; right], ?loc=r)
 
-    | ExprType(DeclaredType(ent,_)) when FSharp2Fable.Util.hasInterface Types.comparable ent ->
+    | ExprType(DeclaredType(ent,_)) when FSharp2Fable.Util.hasInterface Types.icomparable ent ->
         Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
 
     | _ -> Helper.CoreCall("Util", "compare", Number Int32, [left; right], ?loc=r)
@@ -1211,7 +1211,7 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     | "EnumerateUsing", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.disposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.idisposable arg
             | _ -> arg
         Helper.CoreCall("Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Sort" | "SortDescending" as m), args ->
@@ -1229,70 +1229,64 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
         let args = injectArg com r "Seq" meth i.GenericArgs args
         Helper.CoreCall("Seq", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
-let resizeArrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let resizeArrays (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     // Use Any to prevent creation of a typed array (not resizable)
     // TODO: Include a value in Fable AST to indicate the Array should always be dynamic?
-    | ".ctor", _, [] -> makeArray Any [] |> Some
-    | ".ctor", _, [ExprType(Number _) as arg] -> NewArray(ArrayAlloc arg, Any) |> Value |> Some
+    | ".ctor", _, [] ->
+        makeArray Any [] |> Some
+    | ".ctor", _, [ExprType(Number _)] ->
+        makeArray Any [] |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
     | ".ctor", _, [Value(NewArray(ArrayValues vals, _)) | ListLiteral(vals, _)] ->
         makeArray Any vals |> Some
-    | ".ctor", _, args -> Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
+    | ".ctor", _, args ->
+        Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
-    | "Add", Some ar, args -> Helper.InstanceCall(ar, "push", t, args, ?loc=r) |> Some
-    | "Remove", Some ar, args -> Helper.CoreCall("Array", "removeInPlace", t, args @ [ar], ?loc=r) |> Some
+    | "Add", Some ar, args ->
+        Helper.InstanceCall(ar, "push", t, args, ?loc=r) |> Some
+    | "Remove", Some ar, [arg] ->
+        Helper.CoreCall("Array", "removeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator r t ar |> Some
     // ICollection members, implemented in dictionaries and sets too. We need runtime checks (see #1120)
-    | "get_Count", Some ar, _ -> Helper.CoreCall("Util", "count", t, [ar], ?loc=r) |> Some
-    | "Clear", Some ar, _ -> Helper.CoreCall("Util", "clear", t, [ar], ?loc=r) |> Some
+    | "get_Count", Some ar, _ ->
+        Helper.CoreCall("Util", "count", t, [ar], ?loc=r) |> Some
+    | "Clear", Some ar, _ ->
+        Helper.CoreCall("Util", "clear", t, [ar], ?loc=r) |> Some
+    | "Find", Some ar, [arg] ->
+        Helper.CoreCall("Option", "value", t,
+          [ Helper.CoreCall("Seq", "tryFind", t, [arg; ar; defaultof t], ?loc=r)
+            Value(BoolConstant true) ], ?loc=r) |> Some
+    | "FindLast", Some ar, [arg] ->
+        Helper.CoreCall("Option", "value", t,
+          [ Helper.CoreCall("Seq", "tryFindBack", t, [arg; ar; defaultof t], ?loc=r)
+            Value(BoolConstant true) ], ?loc=r) |> Some
+    | "FindAll", Some ar, [arg] ->
+        Helper.CoreCall("Seq", "filter", t, [arg; ar], ?loc=r) |> toArray com t |> Some
+    | "AddRange", Some ar, [arg] ->
+        Helper.CoreCall("Array", "addRangeInPlace", t, [arg; ar], ?loc=r) |> Some
+    | "Contains", Some ar, [arg] ->
+        let left = Helper.InstanceCall(ar, "indexOf", Number Int32, [arg], ?loc=r)
+        makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
+    | "IndexOf", Some ar, args ->
+        Helper.InstanceCall(ar, "indexOf", t, args, ?loc=r) |> Some
+    | "Insert", Some ar, [idx; arg] ->
+        Helper.InstanceCall(ar, "splice", t, [idx; makeIntConst 0; arg], ?loc=r) |> Some
+    | "RemoveRange", Some ar, args ->
+        Helper.InstanceCall(ar, "splice", t, args, ?loc=r) |> Some
+    | "RemoveAt", Some ar, [idx] ->
+        Helper.InstanceCall(ar, "splice", t, [idx; makeIntConst 1], ?loc=r) |> Some
+    | "Reverse", Some ar, [] ->
+        Helper.InstanceCall(ar, "reverse", t, args, ?loc=r) |> Some
+    | "Sort", Some ar, [] ->
+        let compareFn = genArg com r 0 i.GenericArgs |> makeComparerFunction
+        Helper.InstanceCall(ar, "sort", t, [compareFn], ?loc=r) |> Some
+    | "Sort", Some ar, [ExprType(Fable.FunctionType _)] ->
+        Helper.InstanceCall(ar, "sort", t, args, ?loc=r) |> Some
+    | "ToArray", Some ar, [] ->
+        Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
     | _ -> None
-    // TODO!!!
-    // | "find" when Option.isSome c ->
-    //     let defaultValue = defaultof i.calleeTypeArgs.Head
-    //     ccall "Option" "getValue" [
-    //         ccall "Seq" "tryFind" [args.Head;c.Value;defaultValue]
-    //         Fable.Expr.Value (Fable.ValueKind.BoolConst true) ]
-    //     |> Some
-    // | "findAll" when Option.isSome c ->
-    //     ccall "Seq" "filter" [args.Head;c.Value] |> toArray com i |> Some
-    // | "findLast" when Option.isSome c ->
-    //     let defaultValue = defaultof i.calleeTypeArgs.Head
-    //     ccall "Option" "getValue" [
-    //         ccall "Seq" "tryFindBack"
-    //             [args.Head;c.Value;defaultValue];
-    //         Fable.Expr.Value (Fable.ValueKind.BoolConst true) ]
-    //     |> Some
-    // | "addRange" ->
-    //     ccall "Array" "addRangeInPlace" [args.Head; c.Value] |> Some
-    // | "contains" ->
-    //     match c, args with
-    //     | Some c, args ->
-    //         emit i "$0.indexOf($1) > -1" (c::args) |> Some
-    //     | None, [item;xs] ->
-    //         let f =
-    //             wrapInLambda [makeIdent (com.GetUniqueVar())] (fun exprs ->
-    //                 CoreLibCall("Util", Some "equals", false, item::exprs)
-    //                 |> makeCall None Fable.Boolean)
-    //         ccall "Seq" "exists" [f;xs] |> Some
-    //     | _ -> None
-    // | "indexOf" ->
-    //     icall "indexOf" (c.Value, args) |> Some
-    // | "insert" ->
-    //     icall "splice" (c.Value, [args.Head; makeIntConst 0; args.Tail.Head]) |> Some
-    // | "removeRange" ->
-    //     icall "splice" (c.Value, args) |> Some
-    // | "removeAt" ->
-    //     icall "splice" (c.Value, [args.Head; makeIntConst 1]) |> Some
-    // | "reverse" when kind = Array ->
-    //     match i.returnType with
-    //     | Fable.Array _ ->
-    //         // Arrays need to be copied before sorted in place.
-    //         emit i "$0.slice().reverse()" i.args |> Some
-    //     | _ ->
-    //         // ResizeArray should be sorted in place without copying.
-    //         icall "reverse" (instanceArgs c i.args) |> Some
 
 let nativeArrayFunctions =
     dict [| "Exists", "some"
@@ -1552,26 +1546,18 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
 
     | _,_ -> None
 
-// let bigint (com: ICompiler) (_: Context) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-//     let coreMod = coreModFor BclBigInt
-//     match thisArg, i.CompiledName with
-//     | None, ".ctor" ->
-//         match i.SignatureArgTypes with
-//         | [Builtin(BclInt64|BclUInt64)] -> coreCall r t i "fromInt64" coreMod args
-//         | [_] -> coreCall r t i "fromInt32" coreMod args
-//         | _ -> coreCall r t i "default" coreMod args
-//         |> Some
-//     | None, ("Zero"|"One"|"Two" as memb) ->
-//         makeCoreRef t (Naming.lowerFirst memb) coreMod |> Some
-//     | None, ("FromZero"|"FromOne" as memb) ->
-//         let memb = memb.Replace("From", "") |> Naming.lowerFirst
-//         makeCoreRef t memb coreMod |> Some
-//     | None, "FromString" ->
-//         coreCall r t i "parse" coreMod args |> Some
-//     | None, meth -> coreCall r t i meth coreMod args |> Some
-//     | Some _callee, _ ->
-//         // icall i meth |> Some
-//         "TODO: BigInt instance methods" |> addErrorAndReturnNull com r |> Some
+let bigints (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName with
+    | None, ".ctor" ->
+        match i.SignatureArgTypes with
+        | [Builtin(BclInt64|BclUInt64)] ->
+            Helper.CoreCall("BigInt", "fromInt64", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | _ ->
+            Helper.CoreCall("BigInt", "fromInt32", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | None, meth ->
+        Helper.CoreCall("BigInt", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | Some callee, meth ->
+        Helper.CoreCall("BigInt", Naming.lowerFirst meth, t, [callee], i.SignatureArgTypes, ?loc=r) |> Some
 
 // Compile static strings to their constant values
 // reference: https://msdn.microsoft.com/en-us/visualfsharpdocs/conceptual/languageprimitives.errorstrings-module-%5bfsharp%5d
@@ -1630,8 +1616,8 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         match arg.Type, t with
         | DeclaredType(sourceEntity, _), DeclaredType(targetEntity, _) ->
             match targetEntity.TryFullName with
-            | Some Types.disposable ->
-                FSharp2Fable.Util.castToInterface com t sourceEntity Types.disposable arg |> Some
+            | Some Types.idisposable ->
+                FSharp2Fable.Util.castToInterface com t sourceEntity Types.idisposable arg |> Some
             | _ -> Some arg
         | _ -> Some arg
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
@@ -1690,7 +1676,7 @@ let dictionaries (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr op
         | DeclaredType(ent,_) ->
             match ent.TryFullName with
             | Some Types.idictionary -> IDictionary
-            | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
+            | Some Types.equalityComparer -> IEqualityComparer
             | _ -> Other
         | _ -> Other
     match i.CompiledName, thisArg with
@@ -1733,7 +1719,7 @@ let hashSets (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option
         | DeclaredType(ent,_) ->
             match ent.TryFullName with
             | Some Types.enumerable -> IEnumerable
-            | Some "System.Collections.Generic.IEqualityComparer`1" -> IEqualityComparer
+            | Some Types.equalityComparer -> IEqualityComparer
             | _ -> Other
         | _ -> Other
     match i.CompiledName, thisArg, args with
@@ -2106,7 +2092,7 @@ let asyncBuilder (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | Some x, "Using", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.disposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.idisposable arg
             | _ -> arg
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2179,15 +2165,15 @@ let rec getTypeFullName = function
     | Fable.ErasedUnion _ | Fable.Any -> Types.object
     | Fable.Number kind ->
         match kind with
-        | Int8 -> "System.SByte"
-        | UInt8 -> "System.Byte"
-        | Int16 -> "System.Int16"
-        | UInt16 -> "System.UInt16"
-        | Int32 -> "System.Int32"
-        | UInt32 -> "System.UInt32"
-        | Float32 -> "System.Single"
-        | Float64 -> "System.Double"
-        | Decimal -> "System.Decimal"
+        | Int8    -> Types.int8
+        | UInt8   -> Types.uint8
+        | Int16   -> Types.int16
+        | UInt16  -> Types.uint16
+        | Int32   -> Types.int32
+        | UInt32  -> Types.uint32 
+        | Float32 -> Types.float32
+        | Float64 -> Types.float64
+        | Decimal -> Types.decimal
     | Fable.FunctionType(Fable.LambdaType _, _) ->
         "Microsoft.FSharp.Core.FSharpFunc`2"
     | Fable.FunctionType(Fable.DelegateType argTypes, _) ->
@@ -2296,7 +2282,7 @@ let uncurryExpr argsAndRetTypes expr =
 let tryReplaceInterfaceCast t interfaceName (e: Expr) =
     match interfaceName, e.Type with
     // CompareTo method is attached to prototype
-    | Types.comparable, _ -> Some e
+    | Types.icomparable, _ -> Some e
     | Types.enumerable, _ -> toSeq t e |> Some
     // These types in fable-core (or native JS) have methods attached to prototype
     | _, Builtin(BclTimeSpan | BclTimer | BclHashSet _ | BclDictionary _) -> Some e
@@ -2325,7 +2311,7 @@ let private replacedModules =
     "Microsoft.FSharp.Core.Operators.OperatorIntrinsics", intrinsicFunctions
     "Microsoft.FSharp.Core.LanguagePrimitives", languagePrimitives
     "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare", languagePrimitives
-    "System.Char", chars
+    Types.char, chars
     Types.string, strings
     "Microsoft.FSharp.Core.StringModule", stringModule
     Types.array, arrays
@@ -2338,7 +2324,7 @@ let private replacedModules =
     Types.dictionary, dictionaries
     Types.idictionary, dictionaries
     Types.enumerable, enumerables
-    "System.Collections.IEnumerable", enumerables
+    Types.ienumerable, enumerables
     "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables
     "System.Collections.Generic.Dictionary`2.KeyCollection", enumerables
     "System.Collections.Generic.Dictionary`2.Enumerator", enumerators
@@ -2353,18 +2339,17 @@ let private replacedModules =
     Types.option, options
     "Microsoft.FSharp.Core.OptionModule", optionModule
     "Microsoft.FSharp.Core.ResultModule", results
-    "System.Decimal", decimals
-    // TODO
-    // "System.Numerics.BigInteger", bigint
-    // "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigint
+    Types.bigint, bigints
+    "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
     Types.reference, references
     "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
-    "System.Object", objects
+    Types.object, objects
     "System.Enum", enums
     "System.BitConverter", bitConvert
-    "System.Int32", parse Parse2Int
-    "System.Single", parse Parse2Float
-    "System.Double", parse Parse2Float
+    Types.int32, parse Parse2Int
+    Types.float32, parse Parse2Float
+    Types.float64, parse Parse2Float
+    Types.decimal, decimals
     "System.Convert", convert
     "System.Console", console
     "System.Diagnostics.Debug", debug
@@ -2384,7 +2369,7 @@ let private replacedModules =
     "System.Text.RegularExpressions.Group", regex
     "System.Text.RegularExpressions.MatchCollection", regex
     "System.Text.RegularExpressions.GroupCollection", regex
-    "System.Text.RegularExpressions.Regex", regex
+    Types.regex, regex
     Types.fsharpSet, sets
     "Microsoft.FSharp.Collections.SetModule", setModule
     Types.fsharpMap, maps
@@ -2393,7 +2378,7 @@ let private replacedModules =
     "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1", mailbox
     "Microsoft.FSharp.Control.FSharpAsyncBuilder", asyncBuilder
     "Microsoft.FSharp.Control.FSharpAsync", asyncs
-    "System.Guid", guids
+    Types.guid, guids
     "System.Uri", uris
     "System.Lazy`1", laziness
     "Microsoft.FSharp.Control.Lazy", laziness
@@ -2408,8 +2393,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     match info.DeclaringEntityFullName with
     | Patterns.DicContains replacedModules replacement -> replacement com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings info.CompiledName
-    | "Microsoft.FSharp.Core.PrintfModule"
-    | Naming.StartsWith "Microsoft.FSharp.Core.PrintfFormat" _ -> fsFormat com ctx r t info thisArg args
+    | Types.printfModule
+    | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com ctx r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com ctx r t info thisArg args
     | "System.Timers.ElapsedEventArgs" -> thisArg // only signalTime is available here

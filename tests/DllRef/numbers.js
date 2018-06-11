@@ -1,4 +1,4 @@
-exports.one = 1
-exports.two = 2
-exports.three = 3
-exports.four = 4
+export let one = 1;
+export let two = 2;
+export let three = 3;
+export let four = 4;

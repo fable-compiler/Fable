@@ -145,6 +145,9 @@ export function toString(obj: any, quoteStrings = false): string {
     case "function":
       return obj.name;
     case "object":
+      // if (typeof obj.ToString === "function") {
+      //   return obj.ToString();
+      // }
       // TODO: Print some elements of iterables?
       if (isPlainObject(obj) || Array.isArray(obj)) {
         try {

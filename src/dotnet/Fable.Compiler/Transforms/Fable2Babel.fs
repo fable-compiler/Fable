@@ -815,20 +815,20 @@ module Util =
             jsInstanceof (makeCoreRef Fable.Any "List" "ListClass") expr
         | Fable.DeclaredType (ent, genArgs) ->
             match ent.TryFullName with
-            | Some Types.disposable ->
+            | Some Types.idisposable ->
                 match expr.Type with
                 // In F# AST this is coerced to obj, but the cast should have been removed
-                | Fable.DeclaredType (ent2, _) when FSharp2Fable.Util.hasInterface Types.disposable ent2 ->
+                | Fable.DeclaredType (ent2, _) when FSharp2Fable.Util.hasInterface Types.idisposable ent2 ->
                     upcast BooleanLiteral true
                 | _ -> coreLibCall com ctx "Util" "isDisposable" [com.TransformAsExpr(ctx, expr)]
-            | Some "System.Collections.IEnumerable" ->
+            | Some Types.ienumerable ->
                 [com.TransformAsExpr(ctx, expr)] |> coreLibCall com ctx "Util" "isIterable"
             | Some (Types.datetime | Types.datetimeOffset) ->
                 jsInstanceof (makeIdentExpr "Date") expr
             // TODO: Include units of measure? "Microsoft.FSharp.Core.int64`1"
-            | Some ("System.Int64" | "System.UInt64") ->
+            | Some (Types.int64 | Types.uint64) ->
                 jsInstanceof (makeCoreRef Fable.Any "default" "Long") expr
-            | Some "System.Numerics.BigInteger" ->
+            | Some Types.bigint ->
                 jsInstanceof (makeCoreRef Fable.Any "default" "BigInt") expr
             | _ ->
                 if ent.IsFSharpExceptionDeclaration then

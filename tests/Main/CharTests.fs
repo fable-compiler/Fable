@@ -1,4 +1,4 @@
-module Fable.Tests.Char
+module Fable.Tests.Chars
 
 open System
 open Util.Testing
@@ -9,7 +9,7 @@ open System.Collections.Generic
 // System.Char
 
 let tests =
-    testList "Char" [
+    testList "Chars" [
         testCase "Char.ToUpper works" <| fun () ->
               Char.ToUpper('b') |> equal 'B'
 

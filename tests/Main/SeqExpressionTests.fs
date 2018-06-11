@@ -1,4 +1,4 @@
-module Fable.Tests.``Seq Expressions``
+module Fable.Tests.SeqExpressions
 
 open System
 open Util.Testing
@@ -12,7 +12,7 @@ type DisposableAction(f) =
         member __.Dispose() = f()
 
 let tests =
-  testList "Seq Expressions" [
+  testList "SeqExpressions" [
     testCase "empty seq expressions work" <| fun () ->
         seq { do () }
         |> Seq.length |> float |> equal 0.

@@ -868,59 +868,58 @@ let tests =
         let bytes = BitConverter.GetBytes(value)
         BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
 
-    // TODO: BigInt
     //-------------------------------------
     // System.Numerics.BigInteger
     //-------------------------------------
 
-    // testCase "BigInt ToSByte works" <| fun () ->
-    //     let value = 0x02y
-    //     sbyte (bigint (int32 value)) |> equal value
+    testCase "BigInt ToSByte works" <| fun () ->
+        let value = 0x02y
+        sbyte (bigint (int32 value)) |> equal value
 
-    // testCase "BigInt ToInt16 works" <| fun () ->
-    //     let value = 0x0102s
-    //     int16 (bigint (int32 value)) |> equal value
+    testCase "BigInt ToInt16 works" <| fun () ->
+        let value = 0x0102s
+        int16 (bigint (int32 value)) |> equal value
 
-    // testCase "BigInt ToInt32 works" <| fun () ->
-    //     let value = 0x01020304
-    //     int32 (bigint value) |> equal value
+    testCase "BigInt ToInt32 works" <| fun () ->
+        let value = 0x01020304
+        int32 (bigint value) |> equal value
 
-    // testCase "BigInt ToInt64 works" <| fun () ->
-    //     let value = 0x0102030405060708L
-    //     int64 (bigint value) |> equal value
+    testCase "BigInt ToInt64 works" <| fun () ->
+        let value = 0x0102030405060708L
+        int64 (bigint value) |> equal value
 
-    // testCase "BigInt ToByte works" <| fun () ->
-    //     let value = 0x02uy
-    //     byte (bigint (uint32 value)) |> equal value
+    testCase "BigInt ToByte works" <| fun () ->
+        let value = 0x02uy
+        byte (bigint (uint32 value)) |> equal value
 
-    // testCase "BigInt ToUInt16 works" <| fun () ->
-    //     let value = 0xFF02us
-    //     uint16 (bigint (uint32 value)) |> equal value
+    testCase "BigInt ToUInt16 works" <| fun () ->
+        let value = 0xFF02us
+        uint16 (bigint (uint32 value)) |> equal value
 
-    // testCase "BigInt ToUInt32 works" <| fun () ->
-    //     //let value = 0xFF020304u //TODO: BigInt.fromUInt32 not implemented yet, so this will fail
-    //     let value = 0x1F020304u
-    //     uint32 (bigint value) |> equal value
+    testCase "BigInt ToUInt32 works" <| fun () ->
+        //let value = 0xFF020304u //TODO: BigInt.FromUInt32 not implemented yet, so this will fail
+        let value = 0x1F020304u
+        uint32 (bigint value) |> equal value
 
-    // testCase "BigInt ToUInt64 works" <| fun () ->
-    //     let value = 0xFF02030405060708UL
-    //     uint64 (bigint value) |> equal value
+    testCase "BigInt ToUInt64 works" <| fun () ->
+        let value = 0xFF02030405060708UL
+        uint64 (bigint value) |> equal value
 
-    // testCase "BigInt ToSingle works" <| fun () ->
-    //     let value = 1.0f
-    //     single (bigint value) |> equal value
+    testCase "BigInt ToSingle works" <| fun () ->
+        let value = 1.0f
+        single (bigint value) |> equal value
 
-    // testCase "BigInt ToDouble works" <| fun () ->
-    //     let value = -1.0
-    //     double (bigint value) |> equal value
+    testCase "BigInt ToDouble works" <| fun () ->
+        let value = -1.0
+        double (bigint value) |> equal value
 
-    // testCase "BigInt ToDecimal works" <| fun () ->
-    //     let value = 1.0m
-    //     decimal (bigint value) |> equal value
+    testCase "BigInt ToDecimal works" <| fun () ->
+        let value = 1.0m
+        decimal (bigint value) |> equal value
 
-    // testCase "BigInt ToString works" <| fun () ->
-    //     let value = 1234567890
-    //     string (bigint value) |> equal "1234567890"
+    testCase "BigInt ToString works" <| fun () ->
+        let value = 1234567890
+        string (bigint value) |> equal "1234567890"
 
     testCase "Convert.ToBase64String works" <| fun () ->
         let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]

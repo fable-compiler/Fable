@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
+    <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -9,6 +11,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- <Compile Include="BigInt/n.fsi"/> -->
+    <!-- <Compile Include="BigInt/n.fs"/> -->
+    <!-- <Compile Include="BigInt/z.fsi"/> -->
+    <!-- <Compile Include="BigInt/z.fs"/> -->
+    <!-- <Compile Include="BigInt.fs" /> -->
     <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
     <Compile Include="Set.fs" />

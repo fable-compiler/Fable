@@ -61,7 +61,6 @@ let tests =
         System.Predicate<_> (fun x -> x = 1.)  |> li.Find |> equal 1.
         System.Predicate<_> (fun x -> x = -1.) |> li.Find |> equal 0.
 
-
     testCase "ResizeArray.Find with option works" <| fun () ->
         let li = ResizeArray<_>()
         li.Add(Some 1); li.Add(None);
@@ -86,7 +85,6 @@ let tests =
         System.Predicate<_> (fun _ -> true)  |> li.FindLast |> equal None
         System.Predicate<_> (fun _ -> false)  |> li.FindLast |> equal None
         System.Predicate<_> Option.isSome  |> li.FindLast |> equal (Some 1)
-
 
     testCase "ResizeArray indexer getter works" <| fun () ->
         let li = ResizeArray<_>()

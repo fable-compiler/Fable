@@ -15,7 +15,7 @@ function compareList(self, other) {
   }
 }
 
-export class List {
+export default class List {
   constructor(head, tail) {
     this.head = head;
     this.tail = tail;
