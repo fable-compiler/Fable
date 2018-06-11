@@ -1,10 +1,11 @@
+// tslint:disable
 // import { setType } from "./Symbol";
 // import _Symbol from "./Symbol";
-import { toString as toString_1, Array as _Array } from "./Util";
+import { toString as toString_1 } from "./Util";
 import { factorial as bigNatFactorial, ofString, toFloat, toUInt64 as bigNattoUInt64, toUInt32 as bigNattoUInt32, pow as bigNatPow, two as bigNatTwo, rem, lte, hcf, bitOr, bitAnd, divmod, mul, isOne, sub, gte, scale as bigNatScale, one as bigNatOne, add, ofInt64, toString, hash as bigNatHash, gt, lt, isZero, equal, getSmall, isSmall, ofInt32 } from "./BigInt/BigNat";
 // import BigNat from "./BigInt/BigNat";
 import { initialize } from "./Seq";
-import { fromBits, fromNumber } from "./Long";
+import { fromBits, fromNumber, neg as neg_1, add as add_1, mul as mul_1 } from "./Long";
 import { trim } from "./String";
 
 export default class BigInteger {
@@ -155,7 +156,7 @@ export function fromInt32(n) {
   if (n >= 0) {
     return new BigInteger(1, nat(ofInt32(n)));
   } else if (n === -2147483648) {
-    return new BigInteger(-1, nat(ofInt64(fromNumber(n, false).neg())));
+    return new BigInteger(-1, nat(ofInt64(neg_1(fromNumber(n, false)))));
   } else {
     return new BigInteger(-1, nat(ofInt32(-n)));
   }
@@ -167,7 +168,7 @@ export function fromInt64(n) {
   } else if (n.Equals(fromBits(0, 2147483648, false))) {
     return new BigInteger(-1, nat(add(ofInt64(fromBits(4294967295, 2147483647, false)), bigNatOne)));
   } else {
-    return new BigInteger(-1, nat(ofInt64(n.neg())));
+    return new BigInteger(-1, nat(ofInt64(neg_1(n))));
   }
 }
 
@@ -662,8 +663,8 @@ export function toInt64(x) {
     const u = bigNattoUInt64(x.V);
 
     if (u.CompareTo(fromBits(4294967295, 2147483647, false)) <= 0) {
-      return fromNumber(x.SignInt, false).mul(u);
-    } else if (x.SignInt === -1 ? u.Equals(fromBits(4294967295, 2147483647, false).add(fromBits(1, 0, false))) : false) {
+      return mul_1(fromNumber(x.SignInt, false), u);
+    } else if (x.SignInt === -1 ? u.Equals(add_1(fromBits(4294967295, 2147483647, false), fromBits(1, 0, false))) : false) {
       return fromBits(0, 2147483648, false);
     } else {
       throw new Error();

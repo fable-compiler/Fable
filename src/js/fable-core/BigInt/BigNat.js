@@ -1,7 +1,7 @@
 // import { setType } from "../Symbol";
 // import _Symbol from "../Symbol";
 // import { Array as FArray } from "../Util";
-import { fromBits, fromNumber } from "../Long";
+import { fromBits, fromNumber, toNumber, add as add_1, mul as mul_1, div as div_1, mod as mod_1, shl as shl_1, and as and_1 } from "../Long";
 import { replicate, initialize } from "../Seq";
 import { computeFftPaddedPolynomialProduct, toInt, mzero, ofInt32 as ofInt32_1, maxBitsInsideFp } from "./FFT";
 import List from "../ListClass";
@@ -45,9 +45,9 @@ export function pow64(x, n) {
   if (n === 0) {
     return fromBits(1, 0, false);
   } else if (n % 2 === 0) {
-    return pow64(x.mul(x), ~~(n / 2));
+    return pow64(mul_1(x, x), ~~(n / 2));
   } else {
-    return x.mul(pow64(x.mul(x), ~~(n / 2)));
+    return mul_1(x, pow64(mul_1(x, x), ~~(n / 2)));
   }
 }
 export function pow32(x, n) {
@@ -146,7 +146,7 @@ export function embed64(x) {
   const r = createN(boundInt64);
 
   for (let i = 0; i <= boundInt64 - 1; i++) {
-    r.digits[i] = ~~x_1.div(pow64(baseNi64, i)).mod(baseNi64).toNumber();
+    r.digits[i] = ~~toNumber(mod_1(div_1(x_1, pow64(baseNi64, i)), baseNi64));
   }
 
   return normN(r);
@@ -171,7 +171,7 @@ export function eval64(n) {
     let acc = fromBits(0, 0, false);
 
     for (let i = n.bound - 1; i >= 0; i--) {
-      acc = fromNumber(n.digits[i], false).add(baseNi64.mul(acc));
+      acc = add_1(fromNumber(n.digits[i], false), mul_1(baseNi64, acc));
     }
 
     return acc;
@@ -358,9 +358,9 @@ export function max(a, b) {
   }
 }
 export function contributeArr(a, i, c) {
-  const x = fromNumber(a[i], false).add(c);
-  const c_1 = x.div(baseNi64);
-  const x_1 = ~~x.and(baseMaski64).toNumber();
+  const x = add_1(fromNumber(a[i], false), c);
+  const c_1 = div_1(x, baseNi64);
+  const x_1 = ~~toNumber(and_1(x, baseMaski64));
   a[i] = x_1;
 
   if (c_1.CompareTo(fromBits(0, 0, false)) > 0) {
@@ -373,7 +373,7 @@ export function scale(k, p) {
   const k_1 = fromNumber(k, false);
 
   for (let i = 0; i <= p.bound - 1; i++) {
-    const kpi = k_1.mul(fromNumber(p.digits[i], false));
+    const kpi = mul_1(k_1, fromNumber(p.digits[i], false));
     contributeArr(r.digits, i, kpi);
   }
 
@@ -381,16 +381,16 @@ export function scale(k, p) {
 }
 export function mulSchoolBookBothSmall(p, q) {
   const r = createN(2);
-  const rak = fromNumber(p, false).mul(fromNumber(q, false));
-  setCoeff(r, 0, ~~rak.and(baseMaski64).toNumber());
-  setCoeff(r, 1, ~~rak.div(baseNi64).toNumber());
+  const rak = mul_1(fromNumber(p, false), fromNumber(q, false));
+  setCoeff(r, 0, ~~toNumber(and_1(rak, baseMaski64)));
+  setCoeff(r, 1, ~~toNumber(div_1(rak, baseNi64)));
   return normN(r);
 }
 export function mulSchoolBookCarry(r, c, k) {
   if (c.CompareTo(fromBits(0, 0, false)) > 0) {
-    const rak = coeff64(r, k).add(c);
-    setCoeff(r, k, ~~rak.and(baseMaski64).toNumber());
-    mulSchoolBookCarry(r, rak.div(baseNi64), k + 1);
+    const rak = add_1(coeff64(r, k), c);
+    setCoeff(r, k, ~~toNumber(and_1(rak, baseMaski64)));
+    mulSchoolBookCarry(r, div_1(rak, baseNi64), k + 1);
   }
 }
 export function mulSchoolBookOneSmall(p, q) {
@@ -401,9 +401,9 @@ export function mulSchoolBookOneSmall(p, q) {
   let c = fromBits(0, 0, false);
 
   for (let i = 0; i <= bp - 1; i++) {
-    const rak = c.add(coeff64(r, i)).add(coeff64(p, i).mul(q_1));
-    setCoeff(r, i, ~~rak.and(baseMaski64).toNumber());
-    c = rak.div(baseNi64);
+    const rak = add_1(add_1(c, coeff64(r, i)), mul_1(coeff64(p, i), q_1));
+    setCoeff(r, i, ~~toNumber(and_1(rak, baseMaski64)));
+    c = div_1(rak, baseNi64);
   }
 
   mulSchoolBookCarry(r, c, bp);
@@ -420,9 +420,9 @@ export function mulSchoolBookNeitherSmall(p, q) {
 
     for (let j = 0; j <= q.bound - 1; j++) {
       const qaj = fromNumber(q.digits[j], false);
-      const rak = fromNumber(r.digits[k], false).add(c).add(pai.mul(qaj));
-      r.digits[k] = ~~rak.and(baseMaski64).toNumber();
-      c = rak.div(baseNi64);
+      const rak = add_1(add_1(fromNumber(r.digits[k], false), c), mul_1(pai, qaj));
+      r.digits[k] = ~~toNumber(and_1(rak, baseMaski64));
+      c = div_1(rak, baseNi64);
       k = k + 1;
     }
 
@@ -481,7 +481,7 @@ export const table = [mkEncoding(1, 28, 268435456, 268435456), mkEncoding(2, 26,
 export function calculateTableTow(bigL) {
   const k = maxBitsInsideFp - 2 * bigL;
   const bigK = pow64(fromBits(2, 0, false), k);
-  const N = bigK.mul(fromNumber(bigL, false));
+  const N = mul_1(bigK, fromNumber(bigL, false));
   return [bigL, k, bigK, N];
 }
 export function encodingGivenResultBits(bitsRes) {
@@ -583,7 +583,7 @@ export function decodePoly(enc, poly) {
   const evaluate = i => j => d => {
     if (i === enc.bigK) {} else {
       if (j >= rbound) {} else {
-        const x = fromNumber(toInt(poly[i]), false).mul(twopowersI64[d]);
+        const x = mul_1(fromNumber(toInt(poly[i]), false), twopowersI64[d]);
         contributeArr(r.digits, j, x);
       }
 
@@ -644,7 +644,7 @@ export function scaleSubInPlace(x, f, a, n) {
   const patternInput_1 = [a.digits, degree(a)];
   const f_1 = fromNumber(f, false);
   let j = 0;
-  let z = f_1.mul(fromNumber(patternInput_1[0][0], false));
+  let z = mul_1(f_1, fromNumber(patternInput_1[0][0], false));
 
   while (z.CompareTo(fromBits(0, 0, false)) > 0 ? true : j < patternInput_1[1]) {
     if (j > patternInput[1]) {
@@ -652,18 +652,18 @@ export function scaleSubInPlace(x, f, a, n) {
     }
 
     invariant([z, j, n]);
-    let zLo = ~~z.and(baseMaski64).toNumber();
-    let zHi = z.div(baseNi64);
+    let zLo = ~~toNumber(and_1(z, baseMaski64));
+    let zHi = div_1(z, baseNi64);
 
     if (zLo <= patternInput[0][j + n]) {
       patternInput[0][j + n] = patternInput[0][j + n] - zLo;
     } else {
       patternInput[0][j + n] = patternInput[0][j + n] + (baseN - zLo);
-      zHi = zHi.add(fromBits(1, 0, false));
+      zHi = add_1(zHi, fromBits(1, 0, false));
     }
 
     if (j < patternInput_1[1]) {
-      z = zHi.add(f_1.mul(fromNumber(patternInput_1[0][j + 1], false)));
+      z = add_1(zHi, mul_1(f_1, fromNumber(patternInput_1[0][j + 1], false)));
     } else {
       z = zHi;
     }
@@ -685,7 +685,7 @@ export function scaleAddInPlace(x, f, a, n) {
   const patternInput_1 = [a.digits, degree(a)];
   const f_1 = fromNumber(f, false);
   let j = 0;
-  let z = f_1.mul(fromNumber(patternInput_1[0][0], false));
+  let z = mul_1(f_1, fromNumber(patternInput_1[0][0], false));
 
   while (z.CompareTo(fromBits(0, 0, false)) > 0 ? true : j < patternInput_1[1]) {
     if (j > patternInput[1]) {
@@ -693,18 +693,18 @@ export function scaleAddInPlace(x, f, a, n) {
     }
 
     invariant([z, j, n]);
-    let zLo = ~~z.and(baseMaski64).toNumber();
-    let zHi = z.div(baseNi64);
+    let zLo = ~~toNumber(and_1(z, baseMaski64));
+    let zHi = div_1(z, baseNi64);
 
     if (zLo < baseN - patternInput[0][j + n]) {
       patternInput[0][j + n] = patternInput[0][j + n] + zLo;
     } else {
       patternInput[0][j + n] = zLo - (baseN - patternInput[0][j + n]);
-      zHi = zHi.add(fromBits(1, 0, false));
+      zHi = add_1(zHi, fromBits(1, 0, false));
     }
 
     if (j < patternInput_1[1]) {
-      z = zHi.add(f_1.mul(fromNumber(patternInput_1[0][j + 1], false)));
+      z = add_1(zHi, mul_1(f_1, fromNumber(patternInput_1[0][j + 1], false)));
     } else {
       z = zHi;
     }
@@ -729,10 +729,10 @@ export function removeFactor(x, a, n) {
     const f = patternInput[0] === 0
       ? patternInput[1] === n
         ? ~~(patternInput_1[1][n] / patternInput_1[0][0])
-        : fromNumber(patternInput_1[1][patternInput[1]], false).mul(baseNi64).add(fromNumber(patternInput_1[1][patternInput[1] - 1], false)).div(fromNumber(patternInput_1[0][0], false)).toNumber()
+        : toNumber(div_1(add_1(mul_1(fromNumber(patternInput_1[1][patternInput[1]], false), baseNi64), fromNumber(patternInput_1[1][patternInput[1] - 1], false)), fromNumber(patternInput_1[0][0], false)))
       : patternInput[1] === patternInput[0] + n
         ? ~~(patternInput_1[1][patternInput[1]] / (patternInput_1[0][patternInput[0]] + 1))
-        : fromNumber(patternInput_1[1][patternInput[1]], false).mul(baseNi64).add(fromNumber(patternInput_1[1][patternInput[1] - 1], false)).div(fromNumber(patternInput_1[0][patternInput[0]], false).add(fromBits(1, 0, false))).toNumber();
+        : toNumber(div_1(add_1(mul_1(fromNumber(patternInput_1[1][patternInput[1]], false), baseNi64), fromNumber(patternInput_1[1][patternInput[1] - 1], false)), add_1(fromNumber(patternInput_1[0][patternInput[0]], false), fromBits(1, 0, false))));
 
     if (f === 0) {
       const lte_1 = shiftCompare(a, n, x, 0) !== 1;
@@ -929,14 +929,14 @@ export function toUInt64(n) {
         break;
 
     case 2:
-      $var16 = fromNumber(n.digits[0] & baseMask64A, true).add(fromNumber(n.digits[1] & baseMask64B, true).shl(baseShift64B));
+      $var16 = add_1(fromNumber(n.digits[0] & baseMask64A, true), shl_1(fromNumber(n.digits[1] & baseMask64B, true), baseShift64B));
       break;
 
     case 3:
       if (n.digits[2] > baseMask64C) {
         throw new Error();
       }
-      $var16 = fromNumber(n.digits[0] & baseMask64A, true).add(fromNumber(n.digits[1] & baseMask64B, true).shl(baseShift64B)).add(fromNumber(n.digits[2] & baseMask64C, true).shl(baseShift64C));
+      $var16 = add_1(add_1(fromNumber(n.digits[0] & baseMask64A, true), shl_1(fromNumber(n.digits[1] & baseMask64B, true), baseShift64B)), shl_1(fromNumber(n.digits[2] & baseMask64C, true), baseShift64C));
       break;
 
     default:
