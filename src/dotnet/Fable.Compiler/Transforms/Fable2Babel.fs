@@ -403,7 +403,7 @@ module Util =
                 let argNames = ent.GenericParameters |> Seq.map (fun x -> x.Name)
                 Seq.zip argNames generics |> Map
             let knownTypes, generics = resolveGenerics knownTypes generics
-            let generics = ArrayExpression generics :> Expression
+            let generics = ArrowFunctionExpression([], U2.Case2(ArrayExpression generics :> Expression)) :> Expression
             if ent.IsFSharpRecord then
                 let knownTypes, fields =
                     (knownTypes, ent.FSharpFields) ||> foldAndMap (fun knownTypes x ->

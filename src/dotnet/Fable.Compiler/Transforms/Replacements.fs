@@ -2170,7 +2170,7 @@ let rec getTypeFullName = function
         | Int16   -> Types.int16
         | UInt16  -> Types.uint16
         | Int32   -> Types.int32
-        | UInt32  -> Types.uint32 
+        | UInt32  -> Types.uint32
         | Float32 -> Types.float32
         | Float64 -> Types.float64
         | Decimal -> Types.decimal
@@ -2219,9 +2219,11 @@ let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
         | _ -> None
     | Some thisArg ->
         match i.CompiledName with
-        | "get_FullName" -> get r t thisArg "fullname" |> Some
+        | "get_FullName" ->
+            // TODO!!! FullName must include generics
+            get r t thisArg "fullname" |> Some
         | "get_GenericTypeArguments" | "GetGenericArguments" ->
-            get r t thisArg "generics" |> Some // TODO: null check?
+            Helper.CoreCall("Reflection", "getGenerics", t, [thisArg], ?loc=r) |> Some
         | "get_Namespace" | "get_IsArray" | "GetElementType"
         | "get_IsGenericType" | "GetGenericTypeDefinition" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst

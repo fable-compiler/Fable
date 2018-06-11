@@ -14,7 +14,7 @@ export class CaseInfo {
 
 export class TypeInfo {
   constructor(public fullname: string,
-              public generics?: TypeInfo[],
+              public generics?: () => TypeInfo[],
               public fields?: () => FieldInfo[],
               public cases?: () => CaseInfo[]) {
   }
@@ -29,9 +29,13 @@ export class TypeInfo {
   }
 }
 
+export function getGenerics(t: TypeInfo): TypeInfo[] {
+  return t.generics != null ? t.generics() : [];
+}
+
 export function equals(t1: TypeInfo, t2: TypeInfo): boolean {
   return t1.fullname === t2.fullname
-    && equalArraysWith(t1.generics, t2.generics, equals);
+    && equalArraysWith(getGenerics(t1), getGenerics(t2), equals);
 }
 
 // System.Type is not comparable in .NET, but let's implement this
@@ -40,48 +44,48 @@ export function compare(t1: TypeInfo, t2: TypeInfo): number {
   if (t1.fullname !== t2.fullname) {
     return t1.fullname < t2.fullname ? -1 : 1;
   } else {
-    return compareArraysWith(t1.generics, t2.generics, compare);
+    return compareArraysWith(getGenerics(t1), getGenerics(t2), compare);
   }
 }
 
-export function type(fullname: string, generics?: TypeInfo[]): TypeInfo {
+export function type(fullname: string, generics?: () => TypeInfo[]): TypeInfo {
   return new TypeInfo(fullname, generics);
 }
 
-export function record(fullname: string, generics: TypeInfo[], fields: () => FieldInfo[]): TypeInfo {
+export function record(fullname: string, generics: () => TypeInfo[], fields: () => FieldInfo[]): TypeInfo {
   return new TypeInfo(fullname, generics, fields);
 }
 
 export type CaseInfoInput = string | [string, TypeInfo[]];
 
-export function union(fullname: string, generics: TypeInfo[], cases: () => CaseInfoInput[]): TypeInfo {
+export function union(fullname: string, generics: () => TypeInfo[], cases: () => CaseInfoInput[]): TypeInfo {
   // If the input is just a string, don't initialize `fields` so we know the case is represented as a string
   return new TypeInfo(fullname, generics, null, () => cases().map((x, i) =>
     typeof x === "string" ? new CaseInfo(i, x) : new CaseInfo(i, x[0], x[1])));
 }
 
 export function tuple(...generics: TypeInfo[]): TypeInfo {
-  return new TypeInfo("System.Tuple`" + generics.length, generics);
+  return new TypeInfo("System.Tuple`" + generics.length, () => generics);
 }
 
 export function delegate(...generics: TypeInfo[]): TypeInfo {
-  return new TypeInfo("System.Func`" + generics.length, generics);
+  return new TypeInfo("System.Func`" + generics.length, () => generics);
 }
 
 export function lambda(argType: TypeInfo, returnType: TypeInfo): TypeInfo {
-  return new TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", [argType, returnType]);
+  return new TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", () => [argType, returnType]);
 }
 
 export function option(generic: TypeInfo): TypeInfo {
-  return new TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", [generic]);
+  return new TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", () => [generic]);
 }
 
 export function list(generic: TypeInfo): TypeInfo {
-  return new TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", [generic]);
+  return new TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", () => [generic]);
 }
 
 export function array(generic: TypeInfo): TypeInfo {
-  return new TypeInfo(generic.fullname + "[]", [generic]);
+  return new TypeInfo(generic.fullname + "[]", () => [generic]);
 }
 
 export const obj: TypeInfo = new TypeInfo("System.Object");
@@ -120,11 +124,11 @@ export function isArray(t: TypeInfo): boolean {
 }
 
 export function getElementType(t: TypeInfo): TypeInfo {
-  return isArray(t) ? t.generics[0] : null;
+  return isArray(t) ? t.generics()[0] : null;
 }
 
 export function isGenericType(t: TypeInfo) {
-  return t.generics != null && t.generics.length > 0;
+  return t.generics != null && t.generics().length > 0;
 }
 
 /**
@@ -132,7 +136,7 @@ export function isGenericType(t: TypeInfo) {
  * but it should be enough for type comparison purposes
  */
 export function getGenericTypeDefinition(t: TypeInfo) {
-  return t.generics == null ? t : new TypeInfo(t.fullname, t.generics.map(() => obj));
+  return t.generics == null ? t : new TypeInfo(t.fullname, () => t.generics().map(() => obj));
 }
 
 // FSharpType
@@ -155,7 +159,7 @@ export function getRecordElements(t: TypeInfo): FieldInfo[] {
 
 export function getTupleElements(t: TypeInfo): TypeInfo[] {
   if (isTuple(t)) {
-    return t.generics;
+    return t.generics();
   } else {
     throw new Error(`${t.fullname} is not a tuple type`);
   }
@@ -163,7 +167,8 @@ export function getTupleElements(t: TypeInfo): TypeInfo[] {
 
 export function getFunctionElements(t: TypeInfo): [TypeInfo, TypeInfo] {
   if (isFunction(t)) {
-    return [t.generics[0], t.generics[1]];
+    const gen = t.generics();
+    return [gen[0], gen[1]];
   } else {
     throw new Error(`${t.fullname} is not an F# function type`);
   }
