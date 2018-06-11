@@ -51,19 +51,19 @@ export default function Long(low, high, unsigned) {
 Long.prototype.Equals = function (x) { return equals(this, x); }
 Long.prototype.CompareTo = function (x) { return compare(this, x); }
 Long.prototype.toString = function () { return toString(this); }
-Long.prototype.toNumber = function () { return toNumber(this); }
-Long.prototype.neg = function () { return op_UnaryNegation(this); }
-Long.prototype.not = function () { return op_LogicalNot(this); }
-Long.prototype.add = function (x) { return op_Addition(this, x); }
-Long.prototype.sub = function (x) { return op_Subtraction(this, x); }
-Long.prototype.mul = function (x) { return op_Multiply(this, x); }
-Long.prototype.div = function (x) { return op_Division(this, x); }
-Long.prototype.mod = function (x) { return op_Modulus(this, x); }
-Long.prototype.shl = function (x) { return op_LeftShift(this, x); }
-Long.prototype.shr = function (x) { return op_RightShift(this, x); }
-Long.prototype.and = function (x) { return op_BitwiseAnd(this, x); }
-Long.prototype.or = function (x) { return op_BitwiseOr(this, x); }
-Long.prototype.xor = function (x) { return op_ExclusiveOr(this, x); }
+
+export const neg = op_UnaryNegation;
+export const not = op_LogicalNot;
+export const add = op_Addition;
+export const sub = op_Subtraction;
+export const mul = op_Multiply;
+export const div = op_Division;
+export const mod = op_Modulus;
+export const shl = op_LeftShift;
+export const shr = op_RightShift;
+export const and = op_BitwiseAnd;
+export const or  = op_BitwiseOr;
+export const xor = op_ExclusiveOr;
 
 // The internal representation of a long is the two given signed, 32-bit values.
 // We use 32-bit pieces because these are the size of integers on which
