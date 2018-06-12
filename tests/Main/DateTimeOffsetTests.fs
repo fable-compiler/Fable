@@ -174,6 +174,11 @@ let tests =
         let d = DateTimeOffset.Parse("1:5:34 PM")
         d.Hour + d.Minute + d.Second |> equal 52
 
+    testCase "DateTimeOffset.Parse with only date and offset works" <| fun () -> // See #1422
+        let d = DateTimeOffset.Parse("05/01/2008 +3:00")
+        d.Year + d.Month + d.Day |> equal 2014
+        d.Offset |> equal (TimeSpan.FromHours(3.))
+
     testCase "DateTimeOffset.TryParse works" <| fun () ->
         let f (d: string) =
             match DateTimeOffset.TryParse(d) with

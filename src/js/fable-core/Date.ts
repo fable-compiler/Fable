@@ -14,7 +14,7 @@ export interface IDateTimeOffset extends Date {
   offset?: number;
 }
 
-export const offsetRegex = /(?:Z|[+-](\d{2}):?(\d{2})?)$/;
+export const offsetRegex = /(?:Z|[+-](\d+):?([0-5]?\d)?)\s*$/;
 
 export function padWithZeros(i: number, length: number) {
   let str = i.toString(10);
@@ -148,10 +148,44 @@ export function maxValue() {
 export function parseRaw(str: string) {
   let date = new Date(str);
   if (isNaN(date.getTime())) {
-    // Check if this is a time-only string, which JS Date parsing cannot handle (see #1045)
-    if (/^(?:[01]?\d|2[0-3]):(?:[0-5]?\d)(?::[0-5]?\d(?:\.\d+)?)?(?:\s*[AaPp][Mm])?$/.test(str)) {
-      const d = new Date();
-      date = new Date(d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + str);
+    // Try to check strings JS Date cannot parse (see #1045, #1422)
+    /* tslint:disable */
+    const m = /^\s*(\d+[^\w\s:]\d+[^\w\s:]\d+)?\s*(\d+:\d+(?::\d+(?:\.\d+)?)?)?\s*([AaPp][Mm])?\s*([+-]\d+(?::\d+)?)?\s*$/.exec(str);
+    /* tslint:enable */
+    if (m != null) {
+      let baseDate: Date = null;
+      let timeInSeconds = 0;
+      if (m[2] != null) {
+        const timeParts = m[2].split(":");
+        timeInSeconds = parseInt(timeParts[0], 10) * 3600 +
+                        parseInt(timeParts[1] || "0", 10) * 60 +
+                        parseFloat(timeParts[2] || "0");
+        if (m[3] != null && m[3].toUpperCase() === "PM") {
+          timeInSeconds += 720;
+        }
+      }
+      if (m[4] != null) { // There's an offset, parse as UTC
+        if (m[1] != null) {
+          baseDate = new Date(m[1] + " UTC");
+        } else {
+          const d = new Date();
+          baseDate = new Date(d.getUTCFullYear() + "/" + (d.getUTCMonth() + 1) + "/" + d.getUTCDate());
+        }
+        const offsetParts = m[4].substr(1).split(":");
+        let offsetInMinutes = parseInt(offsetParts[0], 10) * 60 + parseInt(offsetParts[1] || "0", 10);
+        if (m[4][0] === "+") {
+          offsetInMinutes *= -1;
+        }
+        timeInSeconds += offsetInMinutes * 60;
+      } else {
+        if (m[1] != null) {
+          baseDate = new Date(m[1]);
+        } else {
+          const d = new Date();
+          baseDate = new Date(d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate());
+        }
+      }
+      date = new Date(baseDate.getTime() + timeInSeconds * 1000);
     } else {
       throw new Error("The string is not a valid Date.");
     }
