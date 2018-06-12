@@ -114,6 +114,15 @@ export function name(info: FieldInfo | CaseInfo | TypeInfo): string {
   }
 }
 
+export function fullName(t: TypeInfo): string {
+  const gen = t.generics != null && !isArray(t) ? t.generics() : [];
+  if (gen.length > 0) {
+    return t.fullname + "[" + gen.map(fullName).join(",") + "]";
+  } else {
+    return t.fullname;
+  }
+}
+
 export function namespace(t: TypeInfo) {
   const i = t.fullname.lastIndexOf(".");
   return i === -1 ? "" : t.fullname.substr(0, i);

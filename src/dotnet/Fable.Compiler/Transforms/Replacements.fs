@@ -2157,6 +2157,8 @@ let controlExtensions (_: ICompiler) (_: Context) (_: SourceLocation option) t (
 let rec getTypeFullName = function
     | Fable.GenericParam name -> name
     | Fable.EnumType(_, fullname) -> fullname
+    | Fable.Regex    -> Types.regex
+    | Fable.MetaType -> Types.type_
     | Fable.Unit    -> Types.unit
     | Fable.Boolean -> Types.bool
     | Fable.Char    -> Types.char
@@ -2174,20 +2176,30 @@ let rec getTypeFullName = function
         | Float32 -> Types.float32
         | Float64 -> Types.float64
         | Decimal -> Types.decimal
-    | Fable.FunctionType(Fable.LambdaType _, _) ->
-        "Microsoft.FSharp.Core.FSharpFunc`2"
-    | Fable.FunctionType(Fable.DelegateType argTypes, _) ->
-        sprintf "System.Func`%i" (List.length argTypes + 1)
+    | Fable.FunctionType(Fable.LambdaType argType, returnType) ->
+        sprintf "Microsoft.FSharp.Core.FSharpFunc`2[%s,%s]"
+            (getTypeFullName argType) (getTypeFullName returnType)
+    | Fable.FunctionType(Fable.DelegateType argTypes, returnType) ->
+        sprintf "System.Func`%i[%s,%s]"
+            (List.length argTypes + 1)
+            (List.map getTypeFullName argTypes |> String.concat ",")
+            (getTypeFullName returnType)
     | Fable.Tuple genArgs ->
-        sprintf "System.Tuple`%i" (List.length genArgs)
+        sprintf "System.Tuple`%i[%s]"
+            (List.length genArgs)
+            (List.map getTypeFullName genArgs |> String.concat ",")
     | Fable.Array gen ->
         sprintf "%s[]" (getTypeFullName gen)
-    | Fable.Option _ -> Types.option
-    | Fable.List _   -> Types.list
-    | Fable.Regex    -> Types.regex
-    | Fable.MetaType -> Types.type_
-    | Fable.DeclaredType(ent, _) ->
-        defaultArg ent.TryFullName Naming.unknown
+    | Fable.Option gen ->
+        Types.option + "[" + (getTypeFullName gen) + "]"
+    | Fable.List gen   ->
+        Types.list + "[" + (getTypeFullName gen) + "]"
+    | Fable.DeclaredType(ent, gen) ->
+        match ent.TryFullName with
+        | None -> Naming.unknown
+        | Some fullname when List.isEmpty gen -> fullname
+        | Some fullname ->
+            fullname + "[" + (List.map getTypeFullName gen |> String.concat ",") + "]"
 
 let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
     let returnString x = StringConstant x |> Value |> Some
@@ -2219,12 +2231,9 @@ let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
         | _ -> None
     | Some thisArg ->
         match i.CompiledName with
-        | "get_FullName" ->
-            // TODO!!! FullName must include generics
-            get r t thisArg "fullname" |> Some
         | "get_GenericTypeArguments" | "GetGenericArguments" ->
             Helper.CoreCall("Reflection", "getGenerics", t, [thisArg], ?loc=r) |> Some
-        | "get_Namespace" | "get_IsArray" | "GetElementType"
+        | "get_FullName" | "get_Namespace" | "get_IsArray" | "GetElementType"
         | "get_IsGenericType" | "GetGenericTypeDefinition" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
             Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some

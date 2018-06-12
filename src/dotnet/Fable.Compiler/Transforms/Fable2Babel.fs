@@ -464,22 +464,20 @@ module Util =
         | Fable.Regex           -> nonGenericTypeInfo knownTypes Types.regex
         | Fable.MetaType        -> nonGenericTypeInfo knownTypes Types.type_
         | Fable.DeclaredType(ent, generics) ->
-            let fullname = FSharp2Fable.Helpers.getEntityFullName ent
+            let fullname = defaultArg ent.TryFullName Naming.unknown
+            let fullnameWithGenerics = Replacements.getTypeFullName t
             // Check if the type has been referenced before to prevent a Stack Overflow exception
             match knownTypes with
             | None -> transformEntityInfo knownTypes ent fullname generics
             | Some knownTypesValue ->
-                // TODO!!! Fullname must include generics for the search
-                match Map.tryFind fullname knownTypesValue with
-                //  |> List.tryPick (fun (fn,(ident,_)) ->
-                //     if fn = fullname then Some ident else None)
+                match Map.tryFind fullnameWithGenerics knownTypesValue with
                 | Some(ident,_) -> knownTypes, Identifier ident :> Expression
                 | None ->
                     // Add a placeholder
                     let ident = com.GetUniqueVar("type")
-                    let knownTypes = Map.add fullname (ident, NullLiteral() :> Expression) knownTypesValue |> Some
+                    let knownTypes = Map.add fullnameWithGenerics (ident, NullLiteral() :> Expression) knownTypesValue |> Some
                     let knownTypes, typeInfo = transformEntityInfo knownTypes ent fullname generics
-                    knownTypes |> Option.map (Map.add fullname (ident, typeInfo)), Identifier ident :> Expression
+                    knownTypes |> Option.map (Map.add fullnameWithGenerics (ident, typeInfo)), Identifier ident :> Expression
 
     let transformValue (com: IBabelCompiler) (ctx: Context) value: Expression =
         match value with
@@ -531,7 +529,7 @@ module Util =
                 |> Seq.toList
             let members =
                 // Add __name and stack fields to F# exceptions (compiled as records)
-                // TODO: Warn if any of the field names collide with them
+                // TODO: Warn if any of the field names collide with them. Use symbols instead?
                 if ent.IsFSharpExceptionDeclaration then
                     [
                         makeStrConst Naming.fsharpExceptionNameField, makeStrConst ent.FullName, Fable.ObjectValue
@@ -628,7 +626,6 @@ module Util =
             upcast BinaryExpression (op, left, right, ?loc=range)
         | Fable.LogicalOperation(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
             upcast LogicalExpression (op, left, right, ?loc=range)
-        // TODO!!! Uncurry lambda arguments
         | Fable.Emit(emit, argInfo) ->
             match argInfo with
             | Some argInfo ->
