@@ -398,6 +398,10 @@ type Types() =
     static member getNameOf<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : string = 
         let resolvedType = resolver.Value.ResolveType()
         resolvedType.Name
+        
+    static member get<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : System.Type = 
+        let resolvedType = resolver.Value.ResolveType()
+        resolvedType
 
 let injectTests = [
     testCase "ITypeResolver can be injected" <| fun () ->
@@ -405,13 +409,23 @@ let injectTests = [
         let y: R2 = Helper.Make [|box 10|]
         equal x { x = 5 }
         equal y { y = 10 }
+        
+    testCase "Recursively reading generic arguments of nested generic types works" <| fun () -> 
+        let typeInfo = Types.get<Maybe<Maybe<int>>>()
+        
+        // recursively reads the generic arguments
+        let rec getGenericArgs (typeDef: System.Type) : string list = 
+            [ yield typeDef.Name
+              for genericTypeArg in typeDef.GetGenericArguments() do 
+                yield! getGenericArgs genericTypeArg ]    
+         
+        getGenericArgs typeInfo
+        |> equal ["Maybe`1"; "Maybe`1"; "Int32"] 
     
-    // this fails
     testCase "Name can be extracted from RecWithGenDU" <| fun () -> 
         let name = Types.getNameOf<Maybe<list<RecWithGenDU<string>>>>()
         equal false (name = "")
         
-    // this works, whyyyy?
     testCase "Name can be extracted from GenericTestRecord" <| fun () -> 
         let name = Types.getNameOf<Maybe<list<GenericTestRecord<string>>>>()
         equal false (name = "")
