@@ -68,10 +68,11 @@ module AST =
             | _ -> true
         | _ -> true
 
-    /// For unit, unresolved generics, lists or nested options, create a runtime wrapper
+    /// TODO: Add string and other nullable types?
+    /// For unit, unresolved generics or nested options, create a runtime wrapper
     /// See fable-core/Option.ts for more info
     let rec mustWrapOption = function
-        | Unit | GenericParam _ | Option _ | List _ -> true
+        | Unit | GenericParam _ | Option _ -> true
         | _ -> false
 
     let makeIdent name =

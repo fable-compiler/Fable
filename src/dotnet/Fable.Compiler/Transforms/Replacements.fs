@@ -707,8 +707,8 @@ let makePojoFromLambda arg =
     | Function(Lambda _, lambdaBody, _) ->
         (flattenSequential lambdaBody, Some []) ||> List.foldBack (fun statement acc ->
             match acc, statement with
-            | Some acc, Set(_, RecordSet(fi, _), value, _) ->
-                (makeStrConst fi.Name, value, ObjectValue)::acc |> Some
+            | Some acc, Set(_, FieldSet(fiName, _), value, _) ->
+                (makeStrConst fiName, value, ObjectValue)::acc |> Some
             | Some acc, Set(_, ExprSet prop, value, _) ->
                 (prop, value, ObjectValue)::acc |> Some
             | _ -> None)

@@ -149,4 +149,24 @@ let tests =
                 test2
             | _ -> id
         (test 1) 5 |> equal 10
+
+    // See https://github.com/fable-compiler/Fable/issues/1415#issuecomment-396456500
+    testCase "Decision targets can be found" <| fun () ->
+        let test x =
+            match x with
+            | (4 | 5) as r -> r
+            | _ -> 1
+        test 2 |> equal 1
+
+    // See https://github.com/fable-compiler/Fable/issues/1415#issuecomment-396457352
+    testCase "Decision targets in nested pattern matching can be found" <| fun () ->
+        let test x =
+            match x with
+            | 1 -> 1
+            | 2 ->
+                match x with
+                | (4 | 5) as r -> r
+                | _ -> 1
+            | _ -> 0
+        test 2 |> equal 1
   ]

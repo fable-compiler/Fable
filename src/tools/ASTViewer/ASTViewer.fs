@@ -42,6 +42,11 @@ let rec printExpr = function
 let printVar (var: FSharpMemberOrFunctionOrValue) =
     sprintf "var %s (isMemberThis %b isConstructorThis %b)" var.LogicalName var.IsMemberThisValue var.IsConstructorThisValue
 
+let rec deepSearch (f: FSharpExpr -> 'a option) e =
+    match f e with
+    | Some x -> Some x
+    | None -> e.ImmediateSubExpressions |> List.tryPick (deepSearch f)
+
 let rec printDecls prefix decls =
     decls |> Seq.iteri (fun i decl ->
         match decl with

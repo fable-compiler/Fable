@@ -438,28 +438,23 @@ export function clear<T>(col: Iterable<T>) {
   }
 }
 
-export interface ICurried {
-  curried?: boolean;
-  (...args: any[]): any;
-}
-
 /* tslint:disable */
 export function uncurry(arity: number, f: Function) {
 /* tslint:enable */
   // f may be a function option with None value
   if (f == null) { return null; }
 
-  //   return (...args) => {
-  //     // In some cases there may be more arguments applied than necessary
-  //     // (e.g. index when mapping an array), discard them
-  //     args = args.slice(0, arity);
-  //     let res = f;
-  //     while (args.length > 0) {
-  //         const curArgs = args.splice(0,1);
-  //         res = res.apply(null, curArgs);
-  //     }
-  //     return res;
-  //   };
+  // return (...args: any[]) => {
+  //   // In some cases there may be more arguments applied than necessary
+  //   // (e.g. index when mapping an array), discard them
+  //   args = args.slice(0, arity);
+  //   let res = f;
+  //   while (args.length > 0) {
+  //       const curArgs = args.splice(0, res.length);
+  //       res = res.apply(null, curArgs);
+  //   }
+  //   return res;
+  // };
   switch (arity) {
     case 2:
       return (a1: any, a2: any) => f(a1)(a2);
@@ -483,7 +478,7 @@ export function uncurry(arity: number, f: Function) {
 
 /* tslint:disable */
 export function curry(arity: number, f: Function): Function {
-/* tslint:disable */
+/* tslint:enable */
   switch (arity) {
     case 2:
       return (a1: any) => (a2: any) => f(a1, a2);
@@ -508,9 +503,11 @@ export function curry(arity: number, f: Function): Function {
   }
 }
 
-export function partialApply(arity: number, f: ICurried, args: any[]): any {
-  if (f.curried) {
-    return f.apply(null, args);
+/* tslint:disable */
+export function partialApply(arity: number, f: Function, args: any[]): any {
+/* tslint:enable */
+  if (f == null) {
+    return null;
   } else {
     switch (arity) {
       case 1:

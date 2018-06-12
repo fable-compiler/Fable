@@ -434,9 +434,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> entityRef com range calleeType.TypeDefinition
-        if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
-        then Fable.Set(callee, Fable.RecordSet(field, calleeType.TypeDefinition), value, range)
-        else Fable.Set(callee, makeStrConst field.Name |> Fable.ExprSet, value, range)
+        let ent = calleeType.TypeDefinition
+        let genArgs = makeGenArgs com ctx.GenericArgs calleeType.GenericArguments
+        let genArgsMap = matchGenericParams genArgs ent.GenericParameters |> Map
+        Fable.Set(callee, Fable.FieldSet(field.Name, makeType com genArgsMap field.FieldType), value, range)
 
     | BasicPatterns.UnionCaseTag(Transform com ctx unionExpr, unionType) ->
         let range = makeRangeFrom fsExpr

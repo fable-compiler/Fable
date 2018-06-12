@@ -745,7 +745,7 @@ module Util =
                         else makeInternalImport Fable.Any funcName file
                         |> staticCall None t (argInfo None [expr] None)
 
-    let callInstanceMember com r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
+    let callInstanceMember com r typ (genArgs: Lazy<_>) (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
             match argInfo.ThisArg with
             | Some callee ->
@@ -761,7 +761,8 @@ module Util =
         let name = getMemberDisplayName memb
         match argInfo.Args with
         | [arg] when memb.IsPropertySetterMethod ->
-            Fable.Set(callee, makeStrConst name |> Fable.ExprSet, arg, r)
+            let t = memb.CurriedParameterGroups.[0].[0].Type
+            Fable.Set(callee, Fable.FieldSet(name, makeType com (Map genArgs.Value) t), arg, r)
         | _ when memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0 ->
             get r typ callee name
         | _ ->
@@ -785,7 +786,7 @@ module Util =
             | None ->
                 match entity with
                 | Some entity when entity.IsInterface ->
-                    callInstanceMember com r typ argInfo entity memb |> Some
+                    callInstanceMember com r typ genArgs argInfo entity memb |> Some
                 | _ -> sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
                        |> addErrorAndReturnNull com r |> Some
         match entity with
@@ -813,26 +814,26 @@ module Util =
             | _ -> "EmitAttribute must receive a string argument" |> attachRange r |> failwith
         | _ -> None
 
-    let (|Imported|_|) com r typ argInfo (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
-        let importValueType = if Option.isSome argInfo then Fable.Any else typ
-        match tryGlobalOrImportedMember com importValueType memb, argInfo, entity with
-        | Some importExpr, Some argInfo, _ ->
+    let (|Imported|_|) com r typ genArgsAndArgInfo (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
+        let importValueType = if Option.isSome genArgsAndArgInfo then Fable.Any else typ
+        match tryGlobalOrImportedMember com importValueType memb, genArgsAndArgInfo, entity with
+        | Some importExpr, Some(_, argInfo), _ ->
             if isModuleValueForCalls memb
             then Some importExpr
             else staticCall r typ argInfo importExpr |> Some
         | Some importExpr, None, _ ->
             Some importExpr
-        | None, Some argInfo, Some e ->
+        | None, Some(genArgs, argInfo), Some e ->
             match tryImportedEntity com e with
             | Some classExpr ->
                 match argInfo.ThisArg with
-                | Some _ -> callInstanceMember com r typ argInfo e memb
+                | Some _ -> callInstanceMember com r typ genArgs argInfo e memb
                 | None ->
                     if memb.IsConstructor then
                         Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r)
                     else
                         let argInfo = { argInfo with ThisArg = Some classExpr }
-                        callInstanceMember com r typ argInfo e memb
+                        callInstanceMember com r typ genArgs argInfo e memb
                 |> Some
             | None -> None
         | _ -> None
@@ -927,7 +928,7 @@ module Util =
             IsSiblingConstructorCall = false }
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some argInfo) emitted, _ -> emitted
-        | Imported com r typ (Some argInfo) imported -> imported
+        | Imported com r typ (Some(genArgs, argInfo)) imported -> imported
         | Replaced com ctx r typ argTypes genArgs argInfo replaced -> replaced
         | Inlined com ctx genArgs callee args expr, _ -> expr
         | Try (tryGetBoundExpr ctx r) funcExpr, _ ->
@@ -938,7 +939,7 @@ module Util =
         | _, Some entity when entity.IsInterface
                 || memb.IsOverrideOrExplicitInterfaceImplementation
                 || memb.IsDispatchSlot ->
-            callInstanceMember com r typ argInfo entity memb
+            callInstanceMember com r typ genArgs argInfo entity memb
         | _ ->
             if isModuleValueForCalls memb
             then memberRefTyped com r typ memb

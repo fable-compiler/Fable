@@ -754,14 +754,14 @@ module Util =
         let var =
             match setKind with
             | Fable.VarSet -> var
-            | Fable.RecordSet(field, _) -> get None var field.Name
+            | Fable.FieldSet(name,_) -> get None var name
             | Fable.ExprSet(TransformExpr com ctx e) -> getExpr None var e
         assign range var value
 
     let getSetReturnStrategy com ctx (TransformExpr com ctx expr) = function
         | Fable.VarSet -> Assign expr
         | Fable.ExprSet(TransformExpr com ctx prop) -> getExpr None expr prop |> Assign
-        | Fable.RecordSet(fi,_) -> get None expr fi.Name |> Assign
+        | Fable.FieldSet(name,_) -> get None expr name |> Assign
 
     let transformBindingExprBody (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         match value with
@@ -967,6 +967,7 @@ module Util =
                 transformSwitch com ctx returnStrategy (makeIdent targetId |> Fable.IdentExpr) cases None
             // Transform decision tree
             let targetAssign = Target(Identifier targetId)
+            let ctx = { ctx with DecisionTargets = targets }
             match transformDecisionTreeAsSwitch treeExpr with
             | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
                 if targets |> List.forall (fun (boundValues,_) -> List.isEmpty boundValues) then
@@ -984,7 +985,6 @@ module Util =
                     let switch1 = transformSwitch com ctx (Some targetAssign) evalExpr cases (Some defaultCase)
                     [varDeclaration; switch1; switch2]
             | None ->
-                let ctx = { ctx with DecisionTargets = targets }
                 let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
                 varDeclaration::(decisionTree @ [switch2])
         else

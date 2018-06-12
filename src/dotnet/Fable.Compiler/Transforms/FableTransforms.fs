@@ -78,7 +78,7 @@ let visit f e =
         IfThenElse(f cond, f thenExpr, f elseExpr)
     | Set(e, kind, v, r) ->
         match kind with
-        | VarSet | RecordSet _ ->
+        | VarSet | FieldSet _ ->
             Set(f e, kind, f v, r)
         | ExprSet e2 -> Set(f e, ExprSet (f e2), f v, r)
     | Loop (kind, r) ->
@@ -159,7 +159,7 @@ let getSubExpressions = function
     | IfThenElse(cond, thenExpr, elseExpr) -> [cond; thenExpr; elseExpr]
     | Set(e, kind, v, _) ->
         match kind with
-        | VarSet | RecordSet _ -> [e; v]
+        | VarSet | FieldSet _ -> [e; v]
         | ExprSet e2 -> [e; e2; v]
     | Loop (kind, _) ->
         match kind with
@@ -442,6 +442,11 @@ module private Transforms =
                 |> Seq.toList
             let args = uncurryArgs com (Some argTypes)  args
             Value(NewRecord(args, ent, genArgs))
+        | Set(e, FieldSet(fieldName, fieldType), value, r) ->
+            let value = uncurryArgs com (Some [fieldType])  [value]
+            Set(e, FieldSet(fieldName, fieldType), List.head value, r)
+        // TODO!!! Add FieldGet to get also the type of interface getters
+        // (e.g. type IFoo = abstract member handler: (int->int->unit) with get, set)
         | Get(e, RecordGet(fi, ent), t, r) ->
             let uncurriedType =
                 match t with

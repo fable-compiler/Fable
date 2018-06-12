@@ -209,7 +209,7 @@ type GetKind =
 type SetKind =
     | VarSet
     | ExprSet of Expr
-    | RecordSet of FSharpField * FSharpEntity
+    | FieldSet of string * Type
 
 type TestKind =
     | TypeTest of Type
