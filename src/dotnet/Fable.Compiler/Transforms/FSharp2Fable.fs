@@ -634,6 +634,11 @@ let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
         getMemberDisplayName memb |> makeStrConst
     | _ -> selector
 
+let private isEntityRecordOrUnion (memb: FSharpMemberOrFunctionOrValue) =
+    match memb.DeclaringEntity with
+    | Some e -> e.IsFSharpRecord || e.IsFSharpUnion
+    | None -> false
+
 let private transformImport r typ isPublic name selector path =
     let info: Fable.ValueDeclarationInfo =
         { Name = name
@@ -704,6 +709,9 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
     let isPublic = isPublicMember memb
     let name = getMemberDeclarationName com memb
     com.AddUsedVarName(name)
+    if memb.IsOverrideOrExplicitInterfaceImplementation && (isEntityRecordOrUnion memb) then
+        sprintf "%s override compiled as member for records and unions" memb.DisplayName
+        |> addWarning com None
     match tryImportAttribute memb.Attributes with
     | Some(selector, path) ->
         let typ = makeType com Map.empty memb.FullType
@@ -713,14 +721,11 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
         then transformMemberValue com ctx isPublic name memb body
         else transformMemberFunction com ctx isPublic name memb args body
 
-/// TODO!!! We cannot implement overrides on records and unions, throw error (at least for now)
+/// Note: overrides on records and unions are transformed as members
 let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
     | None -> "Unexpected override without declaring entity: " + memb.FullName
               |> addError com None; []
-    | Some ent when ent.IsFSharpRecord || ent.IsFSharpUnion ->
-        sprintf "Current version cannot implement %s for records and unions" memb.DisplayName
-        |> addError com None; []
     | Some ent ->
         let bodyCtx, args = bindMemberArgs com ctx args
         let body = transformExpr com bodyCtx body
@@ -770,7 +775,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     then transformImplicitConstructor com ctx memb args body
     elif memb.IsExplicitInterfaceImplementation
     then transformInterfaceImplementation com ctx memb args body
-    elif memb.IsOverrideOrExplicitInterfaceImplementation
+    elif memb.IsOverrideOrExplicitInterfaceImplementation && not (isEntityRecordOrUnion memb)
     then transformOverride com ctx memb args body
     else transformMemberFunctionOrValue com ctx memb args body
 

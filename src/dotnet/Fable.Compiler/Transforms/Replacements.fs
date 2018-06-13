@@ -14,6 +14,12 @@ type Helper =
                                   ?argTypes: Type list, ?loc: SourceLocation) =
         Operation(Call(ConstructorCall consExpr, argInfo None args argTypes), returnType, loc)
 
+    static member StaticCall(fileName: string, memb: string, returnType: Type, args: Expr list,
+                               ?argTypes: Type list, ?loc: SourceLocation) =
+        let funcExpr = makeInternalImport Fable.Any memb fileName
+        let info = argInfo None args argTypes
+        staticCall loc returnType info funcExpr
+
     static member InstanceCall(callee: Expr, memb: string, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?loc: SourceLocation) =
         let kind = makeStrConst memb |> Some |> InstanceCall
@@ -313,6 +319,9 @@ let toString (sourceType: Type) (args: Expr list) =
     | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
     | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
     | Number _ -> Helper.InstanceCall(args.Head, "toString", String, args.Tail)
+    | DeclaredType(ent, _) when ent.IsFSharpRecord || ent.IsFSharpUnion ->
+        let mangledName = Naming.buildNameWithoutSanitationFrom ent.DisplayName false "ToString"
+        Helper.StaticCall(ent.DeclarationLocation.FileName, mangledName, String, args)
     | _ -> Helper.CoreCall("Util", "toString", String, args)
 
 let toFloat (sourceType: Type) targetType (args: Expr list) =
