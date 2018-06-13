@@ -86,9 +86,10 @@ let private parseDic (key: string) (o: JObject): IDictionary<string,string> =
     | :? JObject as v -> v.ToObject<IDictionary<string,string>>()
     | _ -> dict []
 
-let toCompilerOptions (msg: Message) =
+let toCompilerOptions (msg: Message): CompilerOptions =
     { typedArrays = msg.typedArrays
       clampByteArrays = msg.clampByteArrays
+      verbose = GlobalParams.Singleton.Verbose
     }
 
 let parse (msg: string) =

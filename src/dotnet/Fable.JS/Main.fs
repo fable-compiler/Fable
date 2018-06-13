@@ -171,9 +171,10 @@ let makeProject fileName optimized (parseResults: ParseResults) =
     project
 
 let makeCompiler fableCore filePath (project: Project) =
-    let options = {
-        typedArrays = true
-        clampByteArrays = false }
+    let options =
+        { typedArrays = true
+          clampByteArrays = false
+          verbose = false }
     let com = Compiler(filePath, project, options, fableCore)
     com
 

@@ -2,7 +2,9 @@ namespace Fable
 
 type CompilerOptions =
     { typedArrays: bool
-      clampByteArrays: bool }
+      clampByteArrays: bool
+      verbose: bool
+    }
 
 [<RequireQualifiedAccess>]
 type Severity =

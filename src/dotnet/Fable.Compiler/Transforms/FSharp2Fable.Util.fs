@@ -155,6 +155,13 @@ module Helpers =
         getMemberMangledName com true memb
         ||> Naming.sanitizeIdent (fun _ -> false)
 
+    let getNotOverloadedTypeMemberDeclarationName (com: ICompiler) classEntity isStatic memberCompiledName =
+        let entName = getEntityMangledName com true classEntity
+        (if not isStatic
+         then entName, Naming.InstanceMemberPart(memberCompiledName, None)
+         else entName, Naming.StaticMemberPart(memberCompiledName, None))
+        ||> Naming.sanitizeIdent (fun _ -> false)
+
     /// Used to identify members uniquely in the inline expressions dictionary
     let getMemberUniqueName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue): string =
         getMemberMangledName com false memb
@@ -701,20 +708,31 @@ module Util =
         tryImportedEntity com ent
         |> Option.orElseWith (fun () -> tryEntityRef com ent)
 
-    let memberRefTyped (com: IFableCompiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
-        let memberName = getMemberDeclarationName com memb
-        let file =
-            match memb.DeclaringEntity with
-            | Some ent -> tryGetEntityLocation ent |> Option.map (fun loc -> Path.normalizePath loc.FileName)
+    let private memberRefPrivate (com: IFableCompiler) r typ (entity: FSharpEntity option) memberName =
+        let file, entityFullName =
+            match entity with
+            | Some ent ->
+                tryGetEntityLocation ent
+                |> Option.map (fun loc -> Path.normalizePath loc.FileName),
+                getEntityFullName ent
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
-            | None -> Some com.CurrentFile
+            | None -> Some com.CurrentFile, Naming.unknown
         match file with
         | Some file when file = com.CurrentFile ->
             makeTypedIdent typ memberName |> Fable.IdentExpr
         | Some file -> makeInternalImport typ memberName file
-        | None -> "Cannot find implementation location for member: " + memb.FullName
+        | None -> sprintf "Cannot find implementation location for member: %s (%s)" memberName entityFullName
                   |> addErrorAndReturnNull com r
+
+    /// This is intended as a helper for Replacements module, it won't work with overloaded members
+    let notOverloadedTypeMemberRef (com: IFableCompiler) r (classEntity: FSharpEntity) isStatic memberCompiledName =
+        getNotOverloadedTypeMemberDeclarationName com classEntity isStatic memberCompiledName
+        |> memberRefPrivate com r Fable.Any (Some classEntity)
+
+    let memberRefTyped (com: IFableCompiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
+        getMemberDeclarationName com memb
+        |> memberRefPrivate com r typ memb.DeclaringEntity
 
     let memberRef (com: IFableCompiler) r (memb: FSharpMemberOrFunctionOrValue) =
         memberRefTyped com r Fable.Any memb

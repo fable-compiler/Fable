@@ -709,8 +709,8 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
     let isPublic = isPublicMember memb
     let name = getMemberDeclarationName com memb
     com.AddUsedVarName(name)
-    if memb.IsOverrideOrExplicitInterfaceImplementation && (isEntityRecordOrUnion memb) then
-        sprintf "%s override compiled as member for records and unions" memb.DisplayName
+    if com.Options.verbose && memb.IsOverrideOrExplicitInterfaceImplementation && (isEntityRecordOrUnion memb) then
+        sprintf "%s override compiled as static member for records and unions" memb.FullName
         |> addWarning com None
     match tryImportAttribute memb.Attributes with
     | Some(selector, path) ->

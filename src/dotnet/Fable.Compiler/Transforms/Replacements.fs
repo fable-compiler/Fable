@@ -14,9 +14,10 @@ type Helper =
                                   ?argTypes: Type list, ?loc: SourceLocation) =
         Operation(Call(ConstructorCall consExpr, argInfo None args argTypes), returnType, loc)
 
-    static member StaticCall(fileName: string, memb: string, returnType: Type, args: Expr list,
-                               ?argTypes: Type list, ?loc: SourceLocation) =
-        let funcExpr = makeInternalImport Fable.Any memb fileName
+    static member NotOverloadedTypeMemberCall(com: ICompiler, ent: FSharpEntity, memberCompiledName: string, returnType: Type,
+                                              args: Expr list, ?isStatic: bool, ?argTypes: Type list, ?loc: SourceLocation) =
+        let isStatic = defaultArg isStatic false
+        let funcExpr = FSharp2Fable.Util.notOverloadedTypeMemberRef com loc ent isStatic memberCompiledName
         let info = argInfo None args argTypes
         staticCall loc returnType info funcExpr
 
@@ -310,7 +311,7 @@ let toChar (sourceType: Type) (args: Expr list) =
     | String -> args.Head
     | _ -> Helper.GlobalCall("String", Char, args, memb="fromCharCode")
 
-let toString (sourceType: Type) (args: Expr list) =
+let toString com r (sourceType: Type) (args: Expr list) =
     match sourceType with
     | Char | String -> args.Head
     | Unit | Boolean | Array _ | Tuple _ | FunctionType _ | EnumType _ ->
@@ -320,8 +321,7 @@ let toString (sourceType: Type) (args: Expr list) =
     | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
     | Number _ -> Helper.InstanceCall(args.Head, "toString", String, args.Tail)
     | DeclaredType(ent, _) when ent.IsFSharpRecord || ent.IsFSharpUnion ->
-        let mangledName = Naming.buildNameWithoutSanitationFrom ent.DisplayName false "ToString"
-        Helper.StaticCall(ent.DeclarationLocation.FileName, mangledName, String, args)
+        Helper.NotOverloadedTypeMemberCall(com, ent, "ToString", String, args, ?loc=r)
     | _ -> Helper.CoreCall("Util", "toString", String, args)
 
 let toFloat (sourceType: Type) targetType (args: Expr list) =
@@ -926,7 +926,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let sourceType = genArg com r 0 i.GenericArgs
         toFloat sourceType t args |> Some
     | "ToChar", _ -> toChar (genArg com r 0 i.GenericArgs) args |> Some
-    | "ToString", _ -> toString (genArg com r 0 i.GenericArgs) args |> Some
+    | "ToString", _ -> toString com r (genArg com r 0 i.GenericArgs) args |> Some
     | "CreateSequence", [xs] -> toSeq t xs |> Some
     | "CreateDictionary", [arg] -> makeDictionary r t arg |> Some
     | "CreateSet", _ -> genArg com r 0 i.GenericArgs |> makeSet r t "OfSeq" args |> Some
@@ -1847,7 +1847,7 @@ let convert (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (ar
     | "ToSingle" | "ToDouble" | "ToDecimal"
         -> toFloat sourceType t args |> Some
     | "ToChar" -> toChar sourceType args |> Some
-    | "ToString" -> toString sourceType args |> Some
+    | "ToString" -> toString com r sourceType args |> Some
     | "ToBase64String" | "FromBase64String" ->
         if not(List.isSingle args) then
             sprintf "Convert.%s only accepts one single argument" (Naming.upperFirst i.CompiledName)
