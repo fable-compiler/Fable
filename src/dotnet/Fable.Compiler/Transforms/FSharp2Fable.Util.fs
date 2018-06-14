@@ -928,6 +928,10 @@ module Util =
                     | _ -> true, arg::acc)
             |> snd
 
+    let hasAttribute attFullName (ent: FSharpEntity) =
+        ent.Attributes |> Seq.exists (fun att ->
+            att.AttributeType.TryFullName = Some attFullName)
+
     let hasInterface interfaceFullname (ent: FSharpEntity) =
         ent.AllInterfaces |> Seq.exists (fun t ->
             t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullname)

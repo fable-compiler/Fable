@@ -636,7 +636,7 @@ let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
 
 let private isEntityRecordOrUnion (memb: FSharpMemberOrFunctionOrValue) =
     match memb.DeclaringEntity with
-    | Some e -> e.IsFSharpRecord || e.IsFSharpUnion
+    | Some ent -> ent.IsFSharpRecord || ent.IsFSharpUnion
     | None -> false
 
 let private transformImport r typ isPublic name selector path =
@@ -710,7 +710,7 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
     let name = getMemberDeclarationName com memb
     com.AddUsedVarName(name)
     if com.Options.verbose && memb.IsOverrideOrExplicitInterfaceImplementation && (isEntityRecordOrUnion memb) then
-        sprintf "%s override compiled as static member for records and unions" memb.FullName
+        sprintf "%s is compiled as a non-virtual member for records and unions" memb.FullName
         |> addWarning com None
     match tryImportAttribute memb.Attributes with
     | Some(selector, path) ->
@@ -773,7 +773,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         []
     elif memb.IsImplicitConstructor
     then transformImplicitConstructor com ctx memb args body
-    elif memb.IsExplicitInterfaceImplementation
+    elif memb.IsExplicitInterfaceImplementation && not (isEntityRecordOrUnion memb)
     then transformInterfaceImplementation com ctx memb args body
     elif memb.IsOverrideOrExplicitInterfaceImplementation && not (isEntityRecordOrUnion memb)
     then transformOverride com ctx memb args body
