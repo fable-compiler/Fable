@@ -541,8 +541,12 @@ let rec optimizeDeclaration (com: ICompiler) = function
         ActionDeclaration(optimizeExpr com expr)
     | ValueDeclaration(value, info) ->
         ValueDeclaration(optimizeExpr com value, info)
-    | ImplicitConstructorDeclaration(args, body, info) ->
-        ImplicitConstructorDeclaration(args, optimizeExpr com body, info)
+    | ConstructorDeclaration kind as consDecl ->
+        match kind with
+        | ClassImplicitConstructor info ->
+            { info with Body = optimizeExpr com info.Body }
+            |> ClassImplicitConstructor |> ConstructorDeclaration
+        | _ -> consDecl
     | OverrideDeclaration(args, body, info) ->
         OverrideDeclaration(args, optimizeExpr com body, info)
     | InterfaceCastDeclaration(members, info) ->

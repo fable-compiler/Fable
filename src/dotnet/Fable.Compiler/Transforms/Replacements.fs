@@ -95,10 +95,6 @@ module Helpers =
     let error msg =
         Helper.ConstructorCall(makeIdentExpr "Error", Any, [msg])
 
-    let stackTrace () =
-        let err = Helper.ConstructorCall(makeIdentExpr "Error", Any, [])
-        get None String err "stack"
-
     let s txt = Value(StringConstant txt)
 
     let genArg (com: ICompiler) r i (genArgs: (string * Type) list) =
@@ -319,8 +315,6 @@ let toString com r (args: Expr list) =
     | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
     | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
     | Number _ -> Helper.InstanceCall(args.Head, "toString", String, args.Tail)
-    | DeclaredType(ent, _) when ent.IsFSharpRecord || ent.IsFSharpUnion ->
-        Helper.NotOverloadedTypeMemberCall(com, ent, "ToString", String, args, ?loc=r)
     | _ -> Helper.CoreCall("Util", "toString", String, args)
 
 let toFloat targetType (args: Expr list) =
