@@ -827,6 +827,8 @@ module Util =
                 jsInstanceof (makeCoreRef Fable.Any "default" "Long") expr
             | Some Types.bigint ->
                 jsInstanceof (makeCoreRef Fable.Any "default" "BigInt") expr
+            | Some name when name.EndsWith "Exception" ->
+                jsInstanceof (makeIdentExpr "Error") expr
             | _ ->
                 if ent.IsFSharpExceptionDeclaration then
                     let expr = com.TransformAsExpr(ctx, expr)
