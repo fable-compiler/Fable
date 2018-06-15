@@ -1744,13 +1744,13 @@ let hashSets (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr opti
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Add", Some c, [arg] ->
         Helper.CoreCall("Util", "addToSet", t, [arg; c], ?loc=r) |> Some
-    | ("isProperSubsetOf" | "isProperSupersetOf"
-    |  "unionWith" | "intersectWith" | "exceptWith"
-    |  "isSubsetOf" | "isSupersetOf" | "copyTo" as methName), Some c, args ->
+    | ("IsProperSubsetOf" | "IsProperSupersetOf" |
+        "UnionWith" | "IntersectWith" | "ExceptWith" |
+        "IsSubsetOf" | "IsSupersetOf" | "CopyTo" as methName), Some c, args ->
         let methName =
-            let m = match methName with "exceptWith" -> "differenceWith" | m -> m
+            let m = match methName with "ExceptWith" -> "DifferenceWith" | m -> m
             m.Replace("With", "InPlace")
-        Helper.CoreCall("Set", methName, t, c::args, ?loc=r) |> Some
+        Helper.CoreCall("Set", Naming.lowerFirst methName, t, c::args, ?loc=r) |> Some
     // TODO
     // | "setEquals"
     // | "overlaps"
