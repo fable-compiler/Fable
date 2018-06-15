@@ -140,6 +140,9 @@ module Util =
     let ofInt i =
         NumericLiteral(float i) :> Expression
 
+    let ofString s =
+        StringLiteral s :> Expression
+
     let memberFromName memberName: Expression * bool =
         if Naming.hasIdentForbiddenChars memberName
         then upcast StringLiteral memberName, true
@@ -269,15 +272,11 @@ module Util =
         | U2.Case1 e -> args, e
         | U2.Case2 e -> args, BlockStatement [ReturnStatement e]
 
-    let getUnionCaseName uci =
-        FSharp2Fable.Helpers.unionCaseCompiledName uci
-        |> Option.defaultValue uci.Name
+    let getUnionExprTag r expr =
+        getExpr r expr (ofString "tag")
 
-    let getUnionTag r ent expr =
-        if FSharp2Fable.Helpers.hasCaseWithFields ent
-        then getExpr r expr (ofInt 0)
-        // Unions without any case with fields are compiled as strings
-        else expr
+    let getUnionExprField r expr fieldIndex =
+        getExpr r (getExpr None expr (ofString "fields")) (ofInt fieldIndex)
 
     /// Wrap int expressions with `| 0` to help optimization of JS VMs
     let wrapIntExpression typ (e: Expression) =
@@ -420,21 +419,19 @@ module Util =
                 knownTypes, ([fullnameExpr; generics; fields] |> coreLibCall com ctx "Reflection" "record")
             elif ent.IsFSharpUnion then
                 let knownTypes, cases =
-                    if FSharp2Fable.Helpers.hasCaseWithFields ent then
-                        (knownTypes, ent.UnionCases) ||> foldAndMap (fun knownTypes x ->
-                            let knownTypes, fieldTypes =
-                                (knownTypes, x.UnionCaseFields) ||> foldAndMap (fun knownTypes x ->
-                                    resolveType genMap knownTypes x.FieldType)
-                            let caseInfo =
+                    (knownTypes, ent.UnionCases) ||> foldAndMap (fun knownTypes uci ->
+                        let knownTypes, fieldTypes =
+                            (knownTypes, uci.UnionCaseFields) ||> foldAndMap (fun knownTypes fi ->
+                                resolveType genMap knownTypes fi.FieldType)
+                        let caseInfo =
+                            match fieldTypes with
+                            | [] -> StringLiteral uci.Name :> Expression
+                            | fieldTypes ->
                                 ArrayExpression [
-                                    getUnionCaseName x |> StringLiteral :> Expression
+                                    StringLiteral uci.Name :> Expression
                                     ArrayExpression fieldTypes :> Expression
                                 ] :> Expression
-                            knownTypes, caseInfo)
-                    else
-                        // If there're no cases with fields, just pass the case names
-                        // so the runtime knows the union is represented as strings.
-                        knownTypes, ent.UnionCases |> Seq.map (fun x -> getUnionCaseName x |> StringLiteral :> Expression) |> Seq.toList
+                        knownTypes, caseInfo)
                 let cases = ArrowFunctionExpression([], ArrayExpression cases :> Expression |> U2.Case2) :> Expression
                 knownTypes, ([fullnameExpr; generics; cases] |> coreLibCall com ctx "Reflection" "union")
             else
@@ -535,15 +532,23 @@ module Util =
                 ||> Seq.map2 (fun fi v -> makeStrConst fi.Name, v, Fable.ObjectValue)
                 |> Seq.toList
             com.TransformObjectExpr(ctx, members)
-        | Fable.NewUnion(vals, uci, ent, _) ->
+        | Fable.NewUnion(values, uci, ent, _) ->
             // Union cases with EraseAttribute are used for `Custom`-like cases in unions meant for `keyValueList`
             match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
-            | Some _ -> Fable.ArrayValues vals |> makeTypedArray com ctx Fable.Any
+            | Some _ -> Fable.ArrayValues values |> makeTypedArray com ctx Fable.Any
             | None ->
-                let tag = ent.UnionCases |> Seq.findIndex (fun uci2 -> uci.Name = uci2.Name) |> makeIntConst
-                let name = getUnionCaseName uci |> makeStrConst
-                let consRef = com.TransformAsExpr(ctx, FSharp2Fable.Util.entityRef com None ent)
-                upcast NewExpression(consRef, tag::name::vals |> List.map (fun arg -> com.TransformAsExpr(ctx, arg)))
+                let consRef =
+                    match FSharp2Fable.Util.tryEntityRef com ent with
+                    | Some entRef -> com.TransformAsExpr(ctx, entRef)
+                    | None ->
+                        match Replacements.tryEntityRef ent with
+                        | Some entRef -> com.TransformAsExpr(ctx, entRef)
+                        | None ->
+                            sprintf "Cannot find %s constructor" ent.FullName
+                            |> addErrorAndReturnNull com None
+                let tag = FSharp2Fable.Helpers.unionCaseTag ent uci
+                let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
+                upcast NewExpression(consRef, (ofInt tag)::(ofString uci.Name)::values)
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
     let transformObjectExpr (com: IBabelCompiler) ctx members baseCall (boundThis: string option): Expression =
@@ -732,13 +737,12 @@ module Util =
             if mustWrapOption typ
             then coreLibCall com ctx "Option" "value" [expr]
             else expr
-        | Fable.UnionTag ent -> getUnionTag range ent expr
+        | Fable.UnionTag _ -> getUnionExprTag range expr
         | Fable.UnionField(field, uci, _) ->
             let fieldName = field.Name
-            let index =
-                uci.UnionCaseFields
-                |> Seq.findIndex (fun fi -> fi.Name = fieldName)
-            getExpr range expr (index + 1 |> ofInt)
+            uci.UnionCaseFields
+            |> Seq.findIndex (fun fi -> fi.Name = fieldName)
+            |> getUnionExprField range expr
 
     let transformSet (com: IBabelCompiler) ctx range var (value: Fable.Expr) (setKind: Fable.SetKind) =
         let var = com.TransformAsExpr(ctx, var)
@@ -825,14 +829,17 @@ module Util =
             | Some name when name.EndsWith "Exception" ->
                 jsInstanceof (makeIdentExpr "Error") expr
             | _ ->
-                if ent.IsClass then
-                    if not(List.isEmpty genArgs)
-                    then fail "no generic info at runtime"
-                    else
-                        match FSharp2Fable.Util.tryEntityRefMaybeImported com ent with
+                if ent.IsInterface then
+                    fail "interfaces (TODO)"
+                elif not(List.isEmpty genArgs) then
+                    fail "no generic info at runtime"
+                else
+                    match FSharp2Fable.Util.tryEntityRefMaybeImported com ent with
+                    | Some entRef -> jsInstanceof entRef expr
+                    | None ->
+                        match Replacements.tryEntityRef ent with
                         | Some entRef -> jsInstanceof entRef expr
                         | None -> defaultArg ent.TryFullName Naming.unknown |> fail
-                else fail "interfaces, records or unions"
         | Fable.MetaType | Fable.Option _ | Fable.GenericParam _ | Fable.ErasedUnion _ ->
             fail "options, generic parameters or erased unions"
 
@@ -849,9 +856,9 @@ module Util =
             let op = if nonEmpty then BinaryUnequal else BinaryEqual
             upcast BinaryExpression(op, get None expr "tail", NullLiteral(), ?loc=range)
         | Fable.UnionCaseTest(uci, ent) ->
-            let name = getUnionCaseName uci
-            let tag = com.TransformAsExpr(ctx, expr) |> getUnionTag None ent
-            upcast BinaryExpression(BinaryEqualStrict, tag, StringLiteral name, ?loc=range)
+            let expected = FSharp2Fable.Helpers.unionCaseTag ent uci |> ofInt
+            let actual = com.TransformAsExpr(ctx, expr) |> getUnionExprTag None
+            upcast BinaryExpression(BinaryEqualStrict, actual, expected, ?loc=range)
 
     let transformSwitch (com: IBabelCompiler) ctx returnStrategy evalExpr cases defaultCase: Statement =
         let cases =
@@ -1254,7 +1261,7 @@ module Util =
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
-    let transformUnionConstructor (com: IBabelCompiler) ctx name (ent: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpEntity) =
+    let transformUnionConstructor (com: IBabelCompiler) ctx name =
         let consIdent = Identifier name
         let baseRef = coreValue com ctx "Types" "Union"
         let args: Pattern list = [Identifier "tag"; Identifier "name"; RestElement(Identifier "fields")]
@@ -1266,6 +1273,11 @@ module Util =
             inherits com ctx (consIdent :> Expression) baseRef
         ]
 
+    let transformRecordConstructor (com: IBabelCompiler) ctx name (ent: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpEntity) =
+        // if ent.IsFSharpExceptionDeclaration then
+        addWarning com None "TODO: Record constructors"
+        [ExpressionStatement(NullLiteral()) :> Statement |> U2.Case1]
+
     let transformImplicitConstructor (com: IBabelCompiler) ctx (info: Fable.ClassImplicitConstructorInfo) =
         let funcCons = Identifier info.EntityName :> Expression
         let originalCons =
@@ -1274,7 +1286,7 @@ module Util =
             | Fable.NoBaseConstructor ->
                 FunctionExpression(args, body) :> Expression
             | Fable.ExceptionConstructor msg ->
-                failwith "TODO: ExceptionConstructor"
+                addErrorAndReturnNull com None "TODO: ExceptionConstructor"
             | Fable.BaseConstructor(TransformExpr com ctx baseCons, _, baseArgs, baseHasSpread) ->
                 let baseArgs =
                     if baseHasSpread then Fable.SeqSpread else Fable.NoSpread
@@ -1345,9 +1357,10 @@ module Util =
                 match kind with
                 | Fable.ClassImplicitConstructor info ->
                     transformImplicitConstructor com ctx info
-                | Fable.UnionConstructor(name, ent) ->
-                    transformUnionConstructor com ctx name ent
-                | _ -> failwith "TODO: ConstructorDeclaration"
+                | Fable.UnionConstructor(name, _ent) ->
+                    transformUnionConstructor com ctx name
+                | Fable.RecordConstructor(name, ent) ->
+                    transformRecordConstructor com ctx name ent
             | Fable.OverrideDeclaration(args, body, info) ->
                 transformOverride com ctx info args body
             | Fable.InterfaceCastDeclaration(members, info) ->

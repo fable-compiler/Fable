@@ -210,7 +210,7 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: 
   }, source.delegates) as IEvent<U>;
 }
 
-export function split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, sourceEvent: IEvent<T>) {
+export function split<T, U1, U2>(splitter: (x: T) => /* Choice<U1, U2> */ any, sourceEvent: IEvent<T>) {
   return [
     choose((v) => tryValueIfChoice1(splitter(v)), sourceEvent),
     choose((v) => tryValueIfChoice2(splitter(v)), sourceEvent),

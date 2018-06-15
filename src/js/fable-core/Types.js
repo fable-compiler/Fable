@@ -77,7 +77,7 @@ export function L(h, t) {
 }
 
 export function Union(tag, name, ...fields) {
-  this.tag = tag;
+  this.tag = tag | 0;
   this.name = name;
   this.fields = fields;
 }

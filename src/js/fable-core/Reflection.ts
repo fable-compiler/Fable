@@ -7,9 +7,6 @@ export class CaseInfo {
               public name: string,
               public fields?: TypeInfo[]) {
   }
-  get isRepresentedAsString() {
-    return this.fields == null;
-  }
 }
 
 export class TypeInfo {
@@ -59,7 +56,6 @@ export function record(fullname: string, generics: () => TypeInfo[], fields: () 
 export type CaseInfoInput = string | [string, TypeInfo[]];
 
 export function union(fullname: string, generics: () => TypeInfo[], cases: () => CaseInfoInput[]): TypeInfo {
-  // If the input is just a string, don't initialize `fields` so we know the case is represented as a string
   return new TypeInfo(fullname, generics, null, () => cases().map((x, i) =>
     typeof x === "string" ? new CaseInfo(i, x) : new CaseInfo(i, x[0], x[1])));
 }
@@ -233,10 +229,12 @@ export function getTupleField(v: any, i: number): any {
   return v[i];
 }
 
+// TODO!!!
 export function makeUnion(uci: CaseInfo, values: any[]): any {
-  return uci.isRepresentedAsString ? uci.name : [uci.name].concat(values);
+  return [uci.name].concat(values);
 }
 
+// TODO!!!
 export function makeRecord(t: TypeInfo, values: any[]): any {
   const o: any = {};
   const fields = getRecordElements(t);

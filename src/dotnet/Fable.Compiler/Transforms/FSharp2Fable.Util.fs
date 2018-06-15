@@ -5,6 +5,7 @@ open System.Collections.Generic
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Fable
+open Fable.Core
 open Fable.AST
 open Fable.Transforms
 
@@ -155,13 +156,6 @@ module Helpers =
         getMemberMangledName com true memb
         ||> Naming.sanitizeIdent (fun _ -> false)
 
-    let getNotOverloadedTypeMemberDeclarationName (com: ICompiler) classEntity isStatic memberCompiledName =
-        let entName = getEntityMangledName com true classEntity
-        (if not isStatic
-         then entName, Naming.InstanceMemberPart(memberCompiledName, None)
-         else entName, Naming.StaticMemberPart(memberCompiledName, None))
-        ||> Naming.sanitizeIdent (fun _ -> false)
-
     /// Used to identify members uniquely in the inline expressions dictionary
     let getMemberUniqueName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue): string =
         getMemberMangledName com false memb
@@ -208,8 +202,16 @@ module Helpers =
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
 
-    let hasCaseWithFields (ent: FSharpEntity) =
-        ent.UnionCases |> Seq.exists (fun uci -> uci.UnionCaseFields.Count > 0)
+    // let hasCaseWithFields (ent: FSharpEntity) =
+    //     ent.UnionCases |> Seq.exists (fun uci -> uci.UnionCaseFields.Count > 0)
+
+    let unionCaseTag (ent: FSharpEntity) (unionCase: FSharpUnionCase) =
+        let name = unionCase.Name
+        ent.UnionCases
+        |> Seq.tryFindIndex (fun uci -> name = uci.Name)
+        |> function
+            | Some i -> i
+            | None -> failwithf "Cannot find case %s in %s" name (getEntityFullName ent)
 
     /// FSharpUnionCase.CompiledName doesn't give the value of CompiledNameAttribute
     /// We must check the attributes explicitly
@@ -218,11 +220,14 @@ module Helpers =
         |> tryFindAtt Atts.compiledName
         |> Option.map (fun att -> att.ConstructorArguments.[0] |> snd |> string)
 
-    /// Lower first letter if there's no explicit compiled name
-    let lowerCaseName (unionCase: FSharpUnionCase) =
+    /// Apply case rules to case name if there's no explicit compiled name
+    let applyCaseRule (rule: CaseRules) (unionCase: FSharpUnionCase) =
         match unionCaseCompiledName unionCase with
         | Some name -> name
-        | None -> Naming.lowerFirst unionCase.DisplayName
+        | None ->
+            match rule with
+            | CaseRules.LowerFirst -> Naming.lowerFirst unionCase.Name
+            | CaseRules.None | _ -> unionCase.Name
         |> makeStrConst
 
     let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =
@@ -384,7 +389,10 @@ module Patterns =
                 tdef.Attributes |> Seq.tryPick (fun att ->
                     match att.AttributeType.TryFullName with
                     | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments))
-                    | Some Atts.stringEnum -> Some (StringEnum tdef)
+                    | Some Atts.stringEnum ->
+                        match Seq.tryHead att.ConstructorArguments with
+                        | Some(_, (:? CaseRules as rule)) -> Some (StringEnum(tdef, rule))
+                        | _ -> Some (StringEnum(tdef, CaseRules.None))
                     | _ -> None)
                 |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
 
@@ -724,11 +732,6 @@ module Util =
         | Some file -> makeInternalImport typ memberName file
         | None -> sprintf "Cannot find implementation location for member: %s (%s)" memberName entityFullName
                   |> addErrorAndReturnNull com r
-
-    /// This is intended as a helper for Replacements module, it won't work with overloaded members
-    let notOverloadedTypeMemberRef (com: IFableCompiler) r (classEntity: FSharpEntity) isStatic memberCompiledName =
-        getNotOverloadedTypeMemberDeclarationName com classEntity isStatic memberCompiledName
-        |> memberRefPrivate com r Fable.Any (Some classEntity)
 
     let memberRefTyped (com: IFableCompiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
         getMemberDeclarationName com memb

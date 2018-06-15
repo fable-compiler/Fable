@@ -6,7 +6,7 @@ import { IAsyncContext } from "./AsyncBuilder";
 import { protectedCont } from "./AsyncBuilder";
 import { protectedBind } from "./AsyncBuilder";
 import { protectedReturn } from "./AsyncBuilder";
-import { Choice, choice1, choice2 } from "./Option";
+import { choice1, choice2 } from "./Option";
 import { map } from "./Seq";
 
 // Implemented just for type references
@@ -61,7 +61,7 @@ export function cancellationToken() {
 export const defaultCancellationToken = { isCancelled: false };
 
 export function catchAsync<T>(work: IAsync<T>) {
-  return protectedCont((ctx: IAsyncContext<Choice<T, Error>>) => {
+  return protectedCont((ctx: IAsyncContext<any>) => { // ctx: IAsyncContext<Choice<T, Error>>
     work({
       onSuccess: (x) => ctx.onSuccess(choice1(x)),
       onError: (ex) => ctx.onSuccess(choice2(ex)),

@@ -77,7 +77,6 @@ type ConstructorKind =
     | ClassImplicitConstructor of ClassImplicitConstructorInfo
     | UnionConstructor of name: string * FSharpEntity
     | RecordConstructor of name: string * FSharpEntity
-    | FSharpExceptionConstructor
 
 type OverrideDeclarationInfo =
     { Name: string

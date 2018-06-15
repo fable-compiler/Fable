@@ -1,5 +1,7 @@
-import { Option, some, value } from "./Option";
+import { Some, some, value } from "./Option";
 import { compare, equals, IComparer, IDisposable, isDisposable } from "./Util";
+
+type Option<T> = T | Some;
 
 export interface IEnumerator<T> {
   Current: T;

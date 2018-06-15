@@ -1,3 +1,4 @@
+[<RequireQualifiedAccess>]
 module Fable.Transforms.Replacements
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -13,13 +14,6 @@ type Helper =
     static member ConstructorCall(consExpr: Expr, returnType: Type, args: Expr list,
                                   ?argTypes: Type list, ?loc: SourceLocation) =
         Operation(Call(ConstructorCall consExpr, argInfo None args argTypes), returnType, loc)
-
-    static member NotOverloadedTypeMemberCall(com: ICompiler, ent: FSharpEntity, memberCompiledName: string, returnType: Type,
-                                              args: Expr list, ?isStatic: bool, ?argTypes: Type list, ?loc: SourceLocation) =
-        let isStatic = defaultArg isStatic false
-        let funcExpr = FSharp2Fable.Util.notOverloadedTypeMemberRef com loc ent isStatic memberCompiledName
-        let info = argInfo None args argTypes
-        staticCall loc returnType info funcExpr
 
     static member InstanceCall(callee: Expr, memb: string, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?loc: SourceLocation) =
@@ -549,13 +543,8 @@ let isCompatibleWithJsComparison = function
     | Any | Unit | Boolean | Number _ | String | Char | Regex
     | EnumType _ | ErasedUnion _ | FunctionType _ -> true
 
-let hash (com: ICompiler) r methName (arg: Expr) =
-    match arg.Type with
-    | DeclaredType(ent,_) when (ent.IsFSharpRecord || ent.IsFSharpUnion)
-        && FSharp2Fable.Util.hasAttribute Atts.customEquality ent ->
-            Helper.NotOverloadedTypeMemberCall(com, ent, "GetHashCode", Number Int32, [arg], ?loc=r)
-    | _ ->
-        Helper.CoreCall("Util", Naming.lowerFirst methName, Number Int32, [arg], ?loc=r)
+let hash r (arg: Expr) =
+    Helper.CoreCall("Util", "getHashCode", Number Int32, [arg], ?loc=r)
 
 let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     let is equal expr =
@@ -588,15 +577,8 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     | Tuple _ ->
         Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
 
-    | DeclaredType(ent,_) when (ent.IsFSharpRecord || ent.IsFSharpUnion)
-        && FSharp2Fable.Util.hasAttribute Atts.customEquality ent ->
-            Helper.NotOverloadedTypeMemberCall(com, ent, "Equals", Boolean, [left; right], ?loc=r)
-
-    | DeclaredType(ent,_) when ent.IsFSharpUnion ->
-        Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
-
-    | DeclaredType(ent,_) when ent.IsFSharpRecord ->
-        Helper.CoreCall("Util", "equalObjects", Boolean, [left; right], ?loc=r) |> is equal
+    | DeclaredType(ent,_) when ent.IsFSharpRecord || ent.IsFSharpUnion ->
+        Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
 
     | _ -> Helper.CoreCall("Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
 
@@ -617,14 +599,8 @@ and compare (com: ICompiler) r (left: Expr) (right: Expr) =
         Helper.CoreCall("Reflection", "compare", Number Int32, [left; right], ?loc=r)
     | Tuple _ ->
         Helper.CoreCall("Util", "compareArrays", Number Int32, [left; right], ?loc=r)
-    | DeclaredType(ent,_) when (ent.IsFSharpRecord || ent.IsFSharpUnion)
-        && FSharp2Fable.Util.hasAttribute Atts.customComparison ent ->
-            Helper.NotOverloadedTypeMemberCall(com, ent, "System-IComparable-CompareTo", Number Int32, [left; right], ?loc=r)
-    | DeclaredType(ent,_) when ent.IsFSharpUnion ->
-        Helper.CoreCall("Util", "compareArrays", Number Int32, [left; right], ?loc=r)
-    // TODO: Create an ad-hoc comparison for the records?
-    | DeclaredType(ent,_) when ent.IsFSharpRecord ->
-        Helper.CoreCall("Util", "compareObjects", Number Int32, [left; right], ?loc=r)
+    | DeclaredType(ent,_) when ent.IsFSharpRecord || ent.IsFSharpUnion ->
+        Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
     | DeclaredType(ent,_) when FSharp2Fable.Util.hasInterface Types.icomparable ent ->
         Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
     | _ -> Helper.CoreCall("Util", "compare", Number Int32, [left; right], ?loc=r)
@@ -659,7 +635,7 @@ let makeEqualityComparer (com: ICompiler) typArg =
     ObjectExpr
         ([makeStrConst "Equals", f, ObjectValue
           makeStrConst "Compare", makeComparerFunction com typArg, ObjectValue
-          makeStrConst "GetHashCode", makeCoreRef Any "hash" "Util", ObjectValue], Any, None)
+          makeStrConst "GetHashCode", makeCoreRef Any "getHashCode" "Util", ObjectValue], Any, None)
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
@@ -1014,7 +990,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("op_Inequality"|"Neq"), [left; right] -> equals com r false left right |> Some
     | ("op_Equality"|"Eq"), [left; right] -> equals com r true left right |> Some
     | "IsNull", [arg] -> makeEqOp r arg (Null arg.Type |> Value) BinaryEqual |> Some
-    | "Hash", [arg] -> hash com r "Hash" arg |> Some
+    | "Hash", [arg] -> hash r arg |> Some
     // Comparison
     | "Compare", [left; right] -> compare com r left right |> Some
     | ("op_LessThan"|"Lt"), [left; right] -> compareIf com r left right BinaryLess |> Some
@@ -1411,8 +1387,12 @@ let mapModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr o
     Helper.CoreCall("Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let results (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let meth = Naming.lowerFirst i.CompiledName
-    Helper.CoreCall("Result", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    match i.CompiledName with
+    | "Map" -> Some "mapOk"
+    | "MapError" -> Some "mapError"
+    | "Bind" -> Some "bindOk"
+    | _ -> None
+    |> Option.map (fun meth -> Helper.CoreCall("Option", meth, t, args, i.SignatureArgTypes, ?loc=r))
 
 // See fable-core/Option.ts for more info on how options behave in Fable runtime
 let options (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1581,7 +1561,7 @@ let languagePrimitives (com: ICompiler) (_: Context) (r: SourceLocation option) 
         | EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> Value |> Some
         | _ -> None
     | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
-        hash com r "Hash" arg |> Some
+        hash r arg |> Some
     | ("GenericComparison" | "GenericComparisonIntrinsic"), [left; right] ->
         compare com r left right |> Some
     | ("GenericLessThan" | "GenericLessThanIntrinsic"), [left; right] ->
@@ -1597,7 +1577,7 @@ let languagePrimitives (com: ICompiler) (_: Context) (r: SourceLocation option) 
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
         makeEqOp r left right BinaryEqualStrict |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
-        hash com r "GetHashCode" arg |> Some
+        hash r arg |> Some
     | _ -> None
 
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1762,7 +1742,7 @@ let objects (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr optio
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> objExpr t [] |> Some
     | "GetHashCode", Some arg, _ ->
-        hash com r "GetHashCode" arg |> Some
+        hash r arg |> Some
     | "ToString", Some arg, _ ->
         toString com r [arg] |> Some
     | "ReferenceEquals", _, [left; right] ->
@@ -1780,7 +1760,7 @@ let objects (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr optio
 let unchecked (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "DefaultOf" -> (genArg com r 0 i.GenericArgs) |> defaultof |> Some
-    | "Hash" -> Helper.CoreCall("Util", "hash", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Hash" -> Helper.CoreCall("Util", "getHashCode", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Equals" -> Helper.CoreCall("Util", "equals", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Compare" -> Helper.CoreCall("Util", "compare", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
@@ -2283,7 +2263,7 @@ let uncurryExpr argsAndRetTypes expr =
             Helper.CoreCall("Util", "uncurry", t, [makeIntConst arity; expr])
     | _, None -> expr
 
-let tryReplaceInterfaceCast t interfaceName (e: Expr) =
+let tryInterfaceCast t interfaceName (e: Expr) =
     match interfaceName, e.Type with
     // CompareTo method is attached to prototype
     | Types.icomparable, _ -> Some e
@@ -2434,4 +2414,12 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
             | c ->
                 Helper.CoreCall("Reflection", "name", t, [c], ?loc=r) |> Some
         | _ -> None
+    | _ -> None
+
+// TODO: Add other entities (see Fable 1 Replacements.tryReplaceEntity)
+let tryEntityRef (ent: FSharpEntity) =
+    match ent.FullName with
+    | Types.result -> makeCoreRef Any "Result" "Option" |> Some
+    | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
+    | Naming.EndsWith "Exception" _ -> makeIdentExpr "Error" |> Some
     | _ -> None

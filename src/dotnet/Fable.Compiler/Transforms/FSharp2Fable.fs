@@ -24,10 +24,10 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
             Fable.NewErasedUnion(expr, genArgs) |> Fable.Value
         | _ -> "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
-    | StringEnum tdef ->
+    | StringEnum(tdef, rule) ->
         let enumName = defaultArg tdef.TryFullName Naming.unknown
         match argExprs with
-        | [] -> Fable.Enum(lowerCaseName unionCase |> Fable.StringEnum, enumName) |> Fable.Value
+        | [] -> Fable.Enum(applyCaseRule rule unionCase |> Fable.StringEnum, enumName) |> Fable.Value
         | _ -> "StringEnum types cannot have fields: " + enumName
                |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
     | OptionUnion typ ->
@@ -209,8 +209,8 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
     | ListUnion _ ->
         let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")
         Fable.Test(unionExpr, kind, makeRangeFrom fsExpr)
-    | StringEnum _ ->
-        makeEqOp (makeRangeFrom fsExpr) unionExpr (lowerCaseName unionCase) BinaryEqualStrict
+    | StringEnum(_, rule) ->
+        makeEqOp (makeRangeFrom fsExpr) unionExpr (applyCaseRule rule unionCase) BinaryEqualStrict
     | DiscriminatedUnion(tdef,_) ->
         let kind = Fable.UnionCaseTest(unionCase, tdef)
         Fable.Test(unionExpr, kind, makeRangeFrom fsExpr)
@@ -888,7 +888,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
         member this.TryReplace(ctx, r, t, info, thisArg, args) =
             Replacements.tryCall this ctx r t info thisArg args
         member __.TryReplaceInterfaceCast(t, name, e) =
-            Replacements.tryReplaceInterfaceCast t name e
+            Replacements.tryInterfaceCast t name e
         member this.GetInlineExpr(memb) =
             let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
             if fileName <> com.CurrentFile then

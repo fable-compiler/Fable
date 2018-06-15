@@ -40,3 +40,22 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+
+// type A() = class end
+
+// type B() = inherit A()
+
+// [<CustomEquality; NoComparison>]
+type MyUnion =
+    | Foo
+    | Bar of int
+    override __.ToString() = "ooooh"
+    // override __.GetHashCode() = 0
+    // override __.Equals(_) = true
+
+let test() =
+    let x = Bar 5
+    let y = Bar 5
+    x = y
+
+test() |> log
