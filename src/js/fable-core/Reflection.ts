@@ -2,8 +2,13 @@ import { compareArraysWith, equalArraysWith } from "./Util";
 
 export type FieldInfo = [string, TypeInfo];
 
+export interface Constructor {
+  new(...args: any[]): any;
+}
+
 export class CaseInfo {
-  constructor(public tag: number,
+  constructor(public declaringType: TypeInfo,
+              public tag: number,
               public name: string,
               public fields?: TypeInfo[]) {
   }
@@ -12,11 +17,12 @@ export class CaseInfo {
 export class TypeInfo {
   constructor(public fullname: string,
               public generics?: () => TypeInfo[],
+              public constructor?: Constructor,
               public fields?: () => FieldInfo[],
               public cases?: () => CaseInfo[]) {
   }
   public toString() {
-    return this.fullname; // TODO: Print also generics?
+    return fullName(this);
   }
   public Equals(other: TypeInfo) {
     return equals(this, other);
@@ -49,15 +55,18 @@ export function type(fullname: string, generics?: () => TypeInfo[]): TypeInfo {
   return new TypeInfo(fullname, generics);
 }
 
-export function record(fullname: string, generics: () => TypeInfo[], fields: () => FieldInfo[]): TypeInfo {
-  return new TypeInfo(fullname, generics, fields);
+export function record(fullname: string, generics: () => TypeInfo[],
+                       constructor: Constructor, fields: () => FieldInfo[]): TypeInfo {
+  return new TypeInfo(fullname, generics, constructor, fields);
 }
 
 export type CaseInfoInput = string | [string, TypeInfo[]];
 
-export function union(fullname: string, generics: () => TypeInfo[], cases: () => CaseInfoInput[]): TypeInfo {
-  return new TypeInfo(fullname, generics, null, () => cases().map((x, i) =>
-    typeof x === "string" ? new CaseInfo(i, x) : new CaseInfo(i, x[0], x[1])));
+export function union(fullname: string, generics: () => TypeInfo[],
+                      constructor: Constructor, cases: () => CaseInfoInput[]): TypeInfo {
+  const t: TypeInfo = new TypeInfo(fullname, generics, constructor, null, () => cases().map((x, i) =>
+    typeof x === "string" ? new CaseInfo(t, i, x) : new CaseInfo(t, i, x[0], x[1])));
+  return t;
 }
 
 export function tuple(...generics: TypeInfo[]): TypeInfo {
@@ -200,13 +209,11 @@ export function isFunction(t: TypeInfo): boolean {
 
 export function getUnionFields(v: any, t: TypeInfo): [CaseInfo, any[]] {
   const cases = getUnionCases(t);
-  // Unions without fields may be represented in JS as a string
-  const caseName: string = typeof v === "string" ? v : v[0];
-  const case_ = cases.find((x) => x.name === caseName);
+  const case_ = cases[v.tag];
   if (case_ == null) {
-    throw new Error(`Cannot find case ${caseName} in union type`);
+    throw new Error(`Cannot find case ${v.name} in union type`);
   }
-  return [case_, Array.isArray(v) ? v.slice(1) : []];
+  return [case_, v.fields];
 }
 
 export function getUnionCaseFields(uci: CaseInfo): FieldInfo[] {
@@ -229,22 +236,20 @@ export function getTupleField(v: any, i: number): any {
   return v[i];
 }
 
-// TODO!!!
 export function makeUnion(uci: CaseInfo, values: any[]): any {
-  return [uci.name].concat(values);
+  const expectedLength = (uci.fields || []).length;
+  if (values.length !== expectedLength) {
+    throw new Error(`Expected an array of length ${expectedLength} but got ${values.length}`);
+  }
+  return new uci.declaringType.constructor(uci.tag, uci.name, ...values);
 }
 
-// TODO!!!
 export function makeRecord(t: TypeInfo, values: any[]): any {
-  const o: any = {};
   const fields = getRecordElements(t);
   if (fields.length !== values.length) {
     throw new Error(`Expected an array of length ${fields.length} but got ${values.length}`);
   }
-  for (let i = 0; i < fields.length; i++) {
-    o[fields[i][0]] = values[i];
-  }
-  return o;
+  return new t.constructor(...values);
 }
 
 export function makeTuple(values: any[], t: TypeInfo): any {

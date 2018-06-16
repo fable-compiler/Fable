@@ -441,7 +441,7 @@ module Util =
                         let knownTypes, typeInfo = resolveType genMap knownTypes x.FieldType
                         knownTypes, (ArrayExpression [StringLiteral x.Name; typeInfo] :> Expression))
                 let fields = ArrowFunctionExpression([], ArrayExpression fields :> Expression |> U2.Case2) :> Expression
-                knownTypes, ([fullnameExpr; generics; fields] |> coreLibCall com ctx "Reflection" "record")
+                knownTypes, ([fullnameExpr; generics; entityRef com ctx ent; fields] |> coreLibCall com ctx "Reflection" "record")
             elif ent.IsFSharpUnion then
                 let knownTypes, cases =
                     (knownTypes, ent.UnionCases) ||> foldAndMap (fun knownTypes uci ->
@@ -458,7 +458,7 @@ module Util =
                                 ] :> Expression
                         knownTypes, caseInfo)
                 let cases = ArrowFunctionExpression([], ArrayExpression cases :> Expression |> U2.Case2) :> Expression
-                knownTypes, ([fullnameExpr; generics; cases] |> coreLibCall com ctx "Reflection" "union")
+                knownTypes, ([fullnameExpr; generics; entityRef com ctx ent; cases] |> coreLibCall com ctx "Reflection" "union")
             else
                 knownTypes, coreLibCall com ctx "Reflection" "type" [fullnameExpr; generics]
         match t with
