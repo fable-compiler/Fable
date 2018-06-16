@@ -8,35 +8,35 @@ open System.Collections.Generic
 
 type UTest = A of int | B of int
 
-// [<CustomEquality; CustomComparison>]
-// type UTest2 =
-//     | String of string
-//     override x.GetHashCode() = x.GetHashCode()
-//     override x.Equals(yobj) =
-//        match yobj with
-//          | :? UTest2 as y ->
-//             match x, y with
-//             | String s1, String s2 -> (s1 + s1) = s2
-//          | _ -> false
-//     interface System.IEquatable<UTest2> with
-//         member x.Equals(y) =
-//             match x, y with
-//             | String s1, String s2 -> (s1 + s1) = s2
-//     interface System.IComparable with
-//         member x.CompareTo(yobj) =
-//             match yobj with
-//             | :? UTest2 as y ->
-//                 match x, y with
-//                 | String s1, String s2 -> compare (s1 + s1) s2
-//             | _ -> invalidArg "yobj" "cannot compare values of different types"
-//             | _ -> -1
+[<CustomEquality; CustomComparison>]
+type UTest2 =
+    | String of string
+    override x.GetHashCode() = x.GetHashCode()
+    override x.Equals(yobj) =
+       match yobj with
+         | :? UTest2 as y ->
+            match x, y with
+            | String s1, String s2 -> (s1 + s1) = s2
+         | _ -> false
+    interface System.IEquatable<UTest2> with
+        member x.Equals(y) =
+            match x, y with
+            | String s1, String s2 -> (s1 + s1) = s2
+    interface System.IComparable with
+        member x.CompareTo(yobj) =
+            match yobj with
+            | :? UTest2 as y ->
+                match x, y with
+                | String s1, String s2 -> compare (s1 + s1) s2
+            | _ -> invalidArg "yobj" "cannot compare values of different types"
+            | _ -> -1
 
 type RTest = { a: int; b: int }
 
 exception Ex of int
 
-// [<ReferenceEquality>]
-// type RTest2 = { a2: int; b2: int }
+[<ReferenceEquality>]
+type RTest2 = { a2: int; b2: int }
 
 type Test(i: int) =
     member x.Value = i
@@ -145,12 +145,12 @@ let tests =
         Object.ReferenceEquals(u1, u1) |> equal true
         Object.ReferenceEquals(u1, u2) |> equal false
 
-    // testCase "Union custom equality works" <| fun () ->
-    //     let u1 = String "A"
-    //     let u2 = String "A"
-    //     let u3 = String "AA"
-    //     equal false (u1 = u2)
-    //     equal true (u1 = u3)
+    testCase "Union custom equality works" <| fun () ->
+        let u1 = String "A"
+        let u2 = String "A"
+        let u3 = String "AA"
+        equal false (u1 = u2)
+        equal true (u1 = u3)
 
     testCase "Record equality works" <| fun () ->
         let r1 = { a = 1; b = 2 }
@@ -163,11 +163,9 @@ let tests =
         Object.ReferenceEquals(r1, r1) |> equal true
         Object.ReferenceEquals(r1, r2) |> equal false
 
-    // TODO: Exceptions differ because of the stack
-    // Remove it? Add special equality/comparisons for F# exceptions?
-    // testCase "Exception equality works" <| fun () ->
-    //     equal true ((Ex 1) = (Ex 1))
-    //     equal false ((Ex 1) = (Ex 2))
+    testCase "Exception equality works" <| fun () ->
+        equal true ((Ex 1) = (Ex 1))
+        equal false ((Ex 1) = (Ex 2))
 
     // TODO: If we want to make this work in Fable 2 we'll have
     // to access reflection info for records
@@ -189,6 +187,7 @@ let tests =
     //     equal 0 (compare r1 r2)
     // #endif
 
+    // TODO!!!
     // testCase "Record reference equality works" <| fun () ->
     //     let r1 = { a2 = 1; b2 = 2 }
     //     let r2 = { a2 = 1; b2 = 2 }
@@ -313,12 +312,12 @@ let tests =
         equal false (u1 < u4)
         (compare u1 u5) = 0 |> equal false
 
-    // testCase "Union custom comparison works" <| fun () ->
-    //     let u1 = String "A"
-    //     let u2 = String "A"
-    //     let u3 = String "AA"
-    //     equal 0 (compare u1 u3)
-    //     equal true (compare u1 u2 > 0)
+    testCase "Union custom comparison works" <| fun () ->
+        let u1 = String "A"
+        let u2 = String "A"
+        let u3 = String "AA"
+        equal 0 (compare u1 u3)
+        equal true (compare u1 u2 > 0)
 
     testCase "Record comparison works" <| fun () ->
         let r1 = { a = 1; b = 2 }
@@ -417,13 +416,15 @@ let tests =
         Unchecked.compare [2] [3] |> equal -1
         Unchecked.compare [3] [2] |> equal 1
 
-    // TODO!!! Union case comparison in Fable 2
-    // testCase "DU comparison works" <| fun () ->
-    //     // let hasStatusReached expectedStatus status =
-    //     //     status >= expectedStatus
+    testCase "DU comparison works" <| fun () ->
+        let hasStatusReached expectedStatus status =
+            status >= expectedStatus
 
-    //     Status.CreateNewMeterReadingPicture >= Status.SelectingNewDevice
-    //     |> equal true
+        Status.CreateNewMeterReadingPicture >= Status.SelectingNewDevice
+        |> equal true
+
+        hasStatusReached Status.SelectingNewDevice Status.CreateNewMeterReadingPicture
+        |> equal true
 
     testCase "LanguagePrimitives.GenericHash works" <| fun () ->
         (LanguagePrimitives.GenericHash 111) = (LanguagePrimitives.GenericHash 111) |> equal true

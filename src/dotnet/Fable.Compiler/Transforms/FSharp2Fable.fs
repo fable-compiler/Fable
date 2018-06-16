@@ -782,9 +782,11 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
                     ||> transformImport None Fable.Any (not ent.Accessibility.IsPrivate) name
                 | None when ent.IsFSharpUnion ->
                     let name = getEntityDeclarationName com ent
+                    // TODO!!! Check ReferenceEquality attribute
                     [Fable.UnionConstructor(name, isPublicEntity ent, ent) |> Fable.ConstructorDeclaration]
                 | None when ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration || ent.IsValueType ->
                     let name = getEntityDeclarationName com ent
+                    // TODO!!! Check ReferenceEquality attribute
                     [Fable.RecordConstructor(name, isPublicEntity ent, ent) |> Fable.ConstructorDeclaration]
                 | None ->
                     transformDeclarationsInner com ctx sub

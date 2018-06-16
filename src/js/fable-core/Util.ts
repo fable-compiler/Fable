@@ -192,12 +192,16 @@ function stringHash(s: string) {
   return h;
 }
 
+export function numberHash(x: number) {
+  return x * 2654435761 | 0;
+}
+
 function hashPrivate(x: any, identity?: boolean): number {
   switch (typeof x) {
     case "boolean":
       return x ? 1 : 0;
     case "number":
-      return x * 2654435761 | 0;
+      return numberHash(x);
     case "string":
       return stringHash(x);
     default:
@@ -209,7 +213,7 @@ function hashPrivate(x: any, identity?: boolean): number {
   }
 }
 
-export function getHashCode(x: any, defaultToIdentity?: boolean) {
+export function hash(x: any, defaultToIdentity?: boolean) {
   if (x == null) {
     return 0;
   } else if (typeof x.GetHashCode === "function") {

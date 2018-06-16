@@ -526,8 +526,8 @@ let optimizations =
       fun com e -> visitFromInsideOut (getterBetaReduction com) e
       // Then apply uncurry optimizations
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
-      fun com e -> visitFromInsideOut (uncurryFields com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
+      fun com e -> visitFromInsideOut (uncurryFields com) e
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
       fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       // Don't traverse the expression for the unwrap function optimization

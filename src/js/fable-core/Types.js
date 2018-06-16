@@ -1,7 +1,17 @@
-import { compare, compareArrays, equals, equalArrays, toString } from "./Util";
+import { compare, compareArrays, equals, equalArrays, hash, numberHash, toString } from "./Util";
 
-export function sameType(x, y) {
+function sameType(x, y) {
   return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
+}
+
+/**
+ * From https://stackoverflow.com/a/37449594
+ * @param {number[]} hashes
+ */
+function combineHashCodes(hashes) {
+  return hashes.reduce(function (h1, h2) {
+    return ((h1 << 5) + h1) ^ h2;
+  });
 }
 
 // Taken from Babel helpers
@@ -65,6 +75,10 @@ List.prototype[Symbol.iterator] = function () {
   };
 }
 
+List.prototype.GetHashCode = function () {
+  return combineHashCodes(Array.from(this).map(hash));
+}
+
 List.prototype.Equals = function (other) {
   return compareList(this, other) === 0;
 }
@@ -100,6 +114,12 @@ Union.prototype.toJSON = function () {
     : [this.name].concat(this.fields);
 }
 
+Union.prototype.GetHashCode = function () {
+  let hashes = this.fields.map(hash);
+  hashes.splice(0, 0, numberHash(this.tag))
+  return combineHashCodes(hashes);
+}
+
 Union.prototype.Equals = function (other) {
   return this === other
     || (sameType(this, other)
@@ -119,22 +139,22 @@ Union.prototype.CompareTo = function (other) {
   }
 }
 
-function recordToJson(record) {
+function recordToJson(record, getFieldNames) {
   const o = {};
-  const keys = Object.keys(record);
+  const keys = getFieldNames == null ? Object.keys(record) : getFieldNames(record);
   for (let i = 0; i < keys.length; i++) {
     o[keys[i]] = record[keys[i]];
   }
   return o;
 }
 
-function recordEquals(self, other) {
+function recordEquals(self, other, getFieldNames) {
   if (self === other) {
     return true;
   } else if (!sameType(self, other)) {
     return false;
   } else {
-    const thisNames = Object.keys(self);
+    const thisNames = getFieldNames == null ? Object.keys(self) : getFieldNames(self);
     for (let i = 0; i < thisNames.length; i++) {
       if (!equals(self[thisNames[i]], other[thisNames[i]])) {
         return false;
@@ -144,13 +164,13 @@ function recordEquals(self, other) {
   }
 }
 
-function recordCompare(self, other) {
+function recordCompare(self, other, getFieldNames) {
   if (self === other) {
     return 0;
   } else if (!sameType(self, other)) {
     return -1;
   } else {
-    const thisNames = Object.keys(self);
+    const thisNames = getFieldNames == null ? Object.keys(self) : getFieldNames(self);
     for (let i = 0; i < thisNames.length; i++) {
       const result = compare(self[thisNames[i]], other[thisNames[i]]);
       if (result !== 0) {
@@ -170,6 +190,10 @@ Record.prototype.toString = function () {
 
 Record.prototype.toJSON = function () {
   return recordToJson(this);
+}
+
+Record.prototype.GetHashCode = function () {
+  return combineHashCodes(Object.keys(this).map(k => hash(this[k])));
 }
 
 Record.prototype.Equals = function (other) {
@@ -201,6 +225,10 @@ inherits(FSharpRef, Record);
 
 // F# EXCEPTIONS
 
+function getFSharpExceptionFieldNames(self) {
+  return Object.keys(self).filter(k => k !== "message" && k !== "stack");
+}
+
 export function FSharpException(name) {
   const _this = Error.call(this, name);
   Object.setPrototypeOf(_this, FSharpException.prototype);
@@ -209,7 +237,7 @@ export function FSharpException(name) {
 inherits(FSharpException, Error);
 
 FSharpException.prototype.toString = function() {
-  const fieldNames = Object.keys(this).filter(k => k !== "message" && k !== "stack");
+  const fieldNames = getFSharpExceptionFieldNames(this);
   const len = fieldNames.length;
   if (len === 0) {
     return this.message;
@@ -221,15 +249,19 @@ FSharpException.prototype.toString = function() {
 }
 
 FSharpException.prototype.toJSON = function () {
-  return recordToJson(this);
+  return recordToJson(this, getFSharpExceptionFieldNames);
+}
+
+FSharpException.prototype.GetHashCode = function () {
+  return combineHashCodes(getFSharpExceptionFieldNames(this).map(k => hash(this[k])));
 }
 
 FSharpException.prototype.Equals = function (other) {
-  return recordEquals(this, other);
+  return recordEquals(this, other, getFSharpExceptionFieldNames);
 }
 
 FSharpException.prototype.CompareTo = function (other) {
-  return recordCompare(this, other);
+  return recordCompare(this, other, getFSharpExceptionFieldNames);
 }
 
 // function MyFSharpException(x, y) {

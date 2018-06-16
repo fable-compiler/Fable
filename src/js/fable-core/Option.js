@@ -1,5 +1,5 @@
 import { inherits, Union } from "./Types";
-import { compare, equals, toString } from "./Util";
+import { compare, equals, hash, toString } from "./Util";
 
 // Options are erased in runtime by Fable, but we have
 // the `Some` type below to wrap values that would evaluate
@@ -17,6 +17,7 @@ export class Some {
         this.value = value;
     }
 
+    // Don't add "Some" for consistency with erased options
     toString() {
         return toString(this.value);
     }
@@ -25,22 +26,20 @@ export class Some {
         return this.value;
     }
 
+    GetHashCode () {
+        return hash(this.value);
+    }
+
     Equals(other) {
-        if (other == null) {
-            return false;
-        } else {
-            return equals(this.value, other instanceof Some
-                ? other.value : other);
-        }
+        return other == null
+            ? false
+            : equals(this.value, other instanceof Some ? other.value : other);
     }
 
     CompareTo(other) {
-        if (other == null) {
-            return 1;
-        } else {
-            return compare(this.value, other instanceof Some
-                ? other.value : other);
-        }
+        return other == null
+            ? 1
+            : compare(this.value, other instanceof Some ? other.value : other);
     }
 }
 
@@ -110,13 +109,13 @@ export function error(x) {
 }
 
 export function mapOk(f, result) {
-  return result.tag === 0 ? ok(f(result.fields[0])) : result;
+    return result.tag === 0 ? ok(f(result.fields[0])) : result;
 }
 
 export function mapError(f, result) {
-  return result.tag === 1 ? error(f(result.fields[0])) : result;
+    return result.tag === 1 ? error(f(result.fields[0])) : result;
 }
 
 export function bindOk(f, result) {
-  return result.tag === 0 ? f(result.fields[0]) : result;
+    return result.tag === 0 ? f(result.fields[0]) : result;
 }

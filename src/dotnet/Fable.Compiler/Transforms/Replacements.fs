@@ -298,23 +298,28 @@ let createAtom (value: Expr) =
     let typ = value.Type
     Helper.CoreCall("Util", "createAtom", typ, [value], [typ])
 
-let toChar (args: Expr list) =
-    match args.Head.Type with
-    | Char | String -> args.Head
-    | _ -> Helper.GlobalCall("String", Char, args, memb="fromCharCode")
+let toChar (arg: Expr) =
+    match arg.Type with
+    | Char | String -> arg
+    | _ -> Helper.GlobalCall("String", Char, [arg], memb="fromCharCode")
 
 let toString com r (args: Expr list) =
-    match args.Head.Type with
-    | Char | String -> args.Head
-    | Unit | Boolean | Array _ | Tuple _ | FunctionType _ | EnumType _ ->
-        Helper.GlobalCall("String", String, args)
-    | Builtin (BclInt64 | BclUInt64) -> Helper.CoreCall("Long", "toString", String, args)
-    | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
-    | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
-    | Number _ -> Helper.InstanceCall(args.Head, "toString", String, args.Tail)
-    | DeclaredType(ent,_) when hasStructuralComparison ent ->
-        Helper.InstanceCall(args.Head, "toString", String, [])
-    | _ -> Helper.CoreCall("Util", "toString", String, args)
+    match args with
+    | [] ->
+        "toString is called with empty args"
+        |> addErrorAndReturnNull com r
+    | head::tail ->
+        match head.Type with
+        | Char | String -> head
+        | Unit | Boolean | Array _ | Tuple _ | FunctionType _ | EnumType _ ->
+            Helper.GlobalCall("String", String, [head])
+        | Builtin (BclInt64 | BclUInt64) -> Helper.CoreCall("Long", "toString", String, args)
+        | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
+        | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
+        | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
+        | DeclaredType(ent,_) when hasStructuralComparison ent ->
+            Helper.InstanceCall(head, "toString", String, [])
+        | _ -> Helper.CoreCall("Util", "toString", String, [head])
 
 let toFloat targetType (args: Expr list) =
     match args.Head.Type with
@@ -548,11 +553,16 @@ let isCompatibleWithJsComparison = function
     | Any | Unit | Boolean | Number _ | String | Char | Regex
     | EnumType _ | ErasedUnion _ | FunctionType _ -> true
 
-let getHashCode r (arg: Expr) =
+// Overview of hash rules:
+// * `hash`, `Unchecked.hash` first check if GetHashCode is implemented and then default to structural hash.
+// * `.GetHashCode` called directly defaults to identity hash (for reference types except string) if not implemented.
+// * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
+let hash r (arg: Expr) =
     match arg.Type with
+    // Optimization for types already implementing GetHashCode
     | DeclaredType(ent,_) when hasStructuralComparison ent ->
         Helper.InstanceCall(arg, "GetHashCode", Number Int32, [], ?loc=r)
-    | _ -> Helper.CoreCall("Util", "getHashCode", Number Int32, [arg], ?loc=r)
+    | _ -> Helper.CoreCall("Util", "hash", Number Int32, [arg], ?loc=r)
 
 let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     let is equal expr =
@@ -643,7 +653,7 @@ let makeEqualityComparer (com: ICompiler) typArg =
     ObjectExpr
         ([makeStrConst "Equals", f, ObjectValue
           makeStrConst "Compare", makeComparerFunction com typArg, ObjectValue
-          makeStrConst "GetHashCode", makeCoreRef Any "getHashCode" "Util", ObjectValue], Any, None)
+          makeStrConst "GetHashCode", makeCoreRef Any "hash" "Util", ObjectValue], Any, None)
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
@@ -912,7 +922,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         toInt false t args |> Some
     | ("ToSingle"|"ToDouble"|"ToDecimal"), _ ->
         toFloat t args |> Some
-    | "ToChar", _ -> toChar args |> Some
+    | "ToChar", _ -> toChar args.Head |> Some
     | "ToString", _ -> toString com r args |> Some
     | "CreateSequence", [xs] -> toSeq t xs |> Some
     | "CreateDictionary", [arg] -> makeDictionary com r t arg |> Some
@@ -1000,7 +1010,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("op_Inequality"|"Neq"), [left; right] -> equals com r false left right |> Some
     | ("op_Equality"|"Eq"), [left; right] -> equals com r true left right |> Some
     | "IsNull", [arg] -> makeEqOp r arg (Null arg.Type |> Value) BinaryEqual |> Some
-    | "Hash", [arg] -> getHashCode r arg |> Some
+    | "Hash", [arg] -> hash r arg |> Some
     // Comparison
     | "Compare", [left; right] -> compare com r left right |> Some
     | ("op_LessThan"|"Lt"), [left; right] -> compareIf com r left right BinaryLess |> Some
@@ -1571,7 +1581,7 @@ let languagePrimitives (com: ICompiler) (_: Context) (r: SourceLocation option) 
         | EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> Value |> Some
         | _ -> None
     | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
-        getHashCode r arg |> Some
+        hash r arg |> Some
     | ("GenericComparison" | "GenericComparisonIntrinsic"), [left; right] ->
         compare com r left right |> Some
     | ("GenericLessThan" | "GenericLessThanIntrinsic"), [left; right] ->
@@ -1753,7 +1763,7 @@ let objects (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr optio
     | ".ctor", _, _ -> objExpr t [] |> Some
     | "GetHashCode", Some arg, _ ->
         // Default to identity hash when .GetHashCode is called directly
-        Helper.CoreCall("Util", "getHashCode", Number Int32, [arg; makeBoolConst false], ?loc=r) |> Some
+        Helper.CoreCall("Util", "hash", Number Int32, [arg; makeBoolConst false], ?loc=r) |> Some
     | "ToString", Some arg, _ ->
         toString com r [arg] |> Some
     | "ReferenceEquals", _, [left; right] ->
@@ -1771,7 +1781,7 @@ let objects (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr optio
 let unchecked (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "DefaultOf" -> (genArg com r 0 i.GenericArgs) |> defaultof |> Some
-    | "Hash" -> Helper.CoreCall("Util", "getHashCode", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Hash" -> Helper.CoreCall("Util", "hash", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Equals" -> Helper.CoreCall("Util", "equals", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Compare" -> Helper.CoreCall("Util", "compare", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
@@ -1821,7 +1831,7 @@ let convert (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (ar
         -> toInt true t args |> Some
     | "ToSingle" | "ToDouble" | "ToDecimal"
         -> toFloat t args |> Some
-    | "ToChar" -> toChar args |> Some
+    | "ToChar" -> toChar args.Head |> Some
     | "ToString" -> toString com r args |> Some
     | "ToBase64String" | "FromBase64String" ->
         if not(List.isSingle args) then
