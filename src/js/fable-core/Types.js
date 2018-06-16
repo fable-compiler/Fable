@@ -4,6 +4,7 @@ export function sameType(x, y) {
   return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
 }
 
+// Taken from Babel helpers
 export function inherits(subClass, superClass) {
   // if (typeof superClass !== "function" && superClass !== null) {
   //   throw new TypeError(
@@ -118,29 +119,47 @@ Union.prototype.CompareTo = function (other) {
   }
 }
 
-// function Foo(tag, name, ...fields) {
-//   Union.call(this, tag, name, ...fields);
-// }
-// inherits(Foo, Union);
+function recordToJson(record) {
+  const o = {};
+  const keys = Object.keys(record);
+  for (let i = 0; i < keys.length; i++) {
+    o[keys[i]] = record[keys[i]];
+  }
+  return o;
+}
 
-// function MyRecord(a1, a2, a3, a4) {
-//   this.foo = a1;
-//   this.bar = a2;
-// }
-// inherits(MyRecord, Record);
+function recordEquals(self, other) {
+  if (self === other) {
+    return true;
+  } else if (!sameType(self, other)) {
+    return false;
+  } else {
+    const thisNames = Object.keys(self);
+    for (let i = 0; i < thisNames.length; i++) {
+      if (!equals(self[thisNames[i]], other[thisNames[i]])) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
 
-// Foo.prototype.toString = function() { return "ajaja"}
-
-// var c1a = new Foo(1, "Foo", 5, "bar");
-// var c1b = new Foo(1, "Foo", 5, "bar");
-// var c1c = new Foo(1, "Foo", 5, "barx");
-// var c2 = new Bar(1, "Foo", 5, "bar");
-
-// console.log(c1a.Equals(c1b));
-// console.log(c1a.Equals(c1c));
-// console.log(c1a.Equals(c2));
-
-// console.log(String(c));
+function recordCompare(self, other) {
+  if (self === other) {
+    return 0;
+  } else if (!sameType(self, other)) {
+    return -1;
+  } else {
+    const thisNames = Object.keys(self);
+    for (let i = 0; i < thisNames.length; i++) {
+      const result = compare(self[thisNames[i]], other[thisNames[i]]);
+      if (result !== 0) {
+        return result;
+      }
+    }
+    return 0;
+  }
+}
 
 export function Record() {
 }
@@ -150,45 +169,15 @@ Record.prototype.toString = function () {
 }
 
 Record.prototype.toJSON = function () {
-  const o = {};
-  const keys = Object.keys(this);
-  for (let i = 0; i < keys.length; i++) {
-    o[keys[i]] = this[keys[i]];
-  }
-  return o;
+  return recordToJson(this);
 }
 
 Record.prototype.Equals = function (other) {
-  if (this === other) {
-    return true;
-  } else if (!sameType(this, other)) {
-    return false;
-  } else {
-    const thisNames = Object.keys(this);
-    for (let i = 0; i < thisNames.length; i++) {
-      if (!equals(this[thisNames[i]], other[thisNames[i]])) {
-        return false;
-      }
-    }
-    return true;
-  }
+  return recordEquals(this, other);
 }
 
 Record.prototype.CompareTo = function (other) {
-  if (this === other) {
-    return 0;
-  } else if (!sameType(this, other)) {
-    return -1;
-  } else {
-    const thisNames = Object.keys(this);
-    for (let i = 0; i < thisNames.length; i++) {
-      const result = compare(this[thisNames[i]], other[thisNames[i]]);
-      if (result !== 0) {
-        return result;
-      }
-    }
-    return 0;
-  }
+  return recordCompare(this, other);
 }
 
 export function FSharpRef(contents) {
@@ -209,8 +198,6 @@ inherits(FSharpRef, Record);
 //   return _this;
 // }
 // inherits(MyException, Error);
-
-// var ex = new MyException(5, "$");
 
 // F# EXCEPTIONS
 
@@ -233,16 +220,28 @@ FSharpException.prototype.toString = function() {
   }
 }
 
+FSharpException.prototype.toJSON = function () {
+  return recordToJson(this);
+}
+
+FSharpException.prototype.Equals = function (other) {
+  return recordEquals(this, other);
+}
+
+FSharpException.prototype.CompareTo = function (other) {
+  return recordCompare(this, other);
+}
+
 // function MyFSharpException(x, y) {
 //   function init(x, y) {
 //     this.x = x;
 //     this.y = y;
 //   }
 //   var _this = FSharpException.call(this, "MyFSharpException");
-//   init.call(_this, x, y);
+//   _this.x = x;
+//   _this.y = y;
 //   Object.setPrototypeOf(_this, MyFSharpException.prototype);
 //   return _this;
 // }
 // inherits(MyFSharpException, FSharpException);
 
-// var ex2 = new MyFSharpException(1,2);

@@ -99,6 +99,9 @@ module Helpers =
             |> addError com r
             Any)
 
+    let hasStructuralComparison (ent: FSharpEntity) =
+        ent.IsFSharpRecord || ent.IsFSharpUnion || ent.IsFSharpExceptionDeclaration || ent.IsValueType
+
 open Helpers
 
 type BuiltinType =
@@ -309,7 +312,7 @@ let toString com r (args: Expr list) =
     | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
     | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
     | Number _ -> Helper.InstanceCall(args.Head, "toString", String, args.Tail)
-    | DeclaredType(ent,_) when ent.IsFSharpRecord || ent.IsFSharpUnion ->
+    | DeclaredType(ent,_) when hasStructuralComparison ent ->
         Helper.InstanceCall(args.Head, "toString", String, [])
     | _ -> Helper.CoreCall("Util", "toString", String, args)
 
@@ -545,8 +548,11 @@ let isCompatibleWithJsComparison = function
     | Any | Unit | Boolean | Number _ | String | Char | Regex
     | EnumType _ | ErasedUnion _ | FunctionType _ -> true
 
-let hash r (arg: Expr) =
-    Helper.CoreCall("Util", "getHashCode", Number Int32, [arg], ?loc=r)
+let getHashCode r (arg: Expr) =
+    match arg.Type with
+    | DeclaredType(ent,_) when hasStructuralComparison ent ->
+        Helper.InstanceCall(arg, "GetHashCode", Number Int32, [], ?loc=r)
+    | _ -> Helper.CoreCall("Util", "getHashCode", Number Int32, [arg], ?loc=r)
 
 let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     let is equal expr =
@@ -579,7 +585,7 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     | Tuple _ ->
         Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
 
-    | DeclaredType(ent,_) when ent.IsFSharpRecord || ent.IsFSharpUnion ->
+    | DeclaredType(ent,_) when hasStructuralComparison ent ->
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
 
     | _ -> Helper.CoreCall("Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -601,7 +607,7 @@ and compare (com: ICompiler) r (left: Expr) (right: Expr) =
         Helper.CoreCall("Reflection", "compare", Number Int32, [left; right], ?loc=r)
     | Tuple _ ->
         Helper.CoreCall("Util", "compareArrays", Number Int32, [left; right], ?loc=r)
-    | DeclaredType(ent,_) when ent.IsFSharpRecord || ent.IsFSharpUnion ->
+    | DeclaredType(ent,_) when hasStructuralComparison ent ->
         Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
     | DeclaredType(ent,_) when FSharp2Fable.Util.hasInterface Types.icomparable ent ->
         Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
@@ -994,7 +1000,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("op_Inequality"|"Neq"), [left; right] -> equals com r false left right |> Some
     | ("op_Equality"|"Eq"), [left; right] -> equals com r true left right |> Some
     | "IsNull", [arg] -> makeEqOp r arg (Null arg.Type |> Value) BinaryEqual |> Some
-    | "Hash", [arg] -> hash r arg |> Some
+    | "Hash", [arg] -> getHashCode r arg |> Some
     // Comparison
     | "Compare", [left; right] -> compare com r left right |> Some
     | ("op_LessThan"|"Lt"), [left; right] -> compareIf com r left right BinaryLess |> Some
@@ -1565,7 +1571,7 @@ let languagePrimitives (com: ICompiler) (_: Context) (r: SourceLocation option) 
         | EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> Value |> Some
         | _ -> None
     | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
-        hash r arg |> Some
+        getHashCode r arg |> Some
     | ("GenericComparison" | "GenericComparisonIntrinsic"), [left; right] ->
         compare com r left right |> Some
     | ("GenericLessThan" | "GenericLessThanIntrinsic"), [left; right] ->
@@ -1581,7 +1587,7 @@ let languagePrimitives (com: ICompiler) (_: Context) (r: SourceLocation option) 
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
         makeEqOp r left right BinaryEqualStrict |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
-        hash r arg |> Some
+        Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r) |> Some
     | _ -> None
 
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1746,7 +1752,8 @@ let objects (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr optio
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> objExpr t [] |> Some
     | "GetHashCode", Some arg, _ ->
-        hash r arg |> Some
+        // Default to identity hash when .GetHashCode is called directly
+        Helper.CoreCall("Util", "getHashCode", Number Int32, [arg; makeBoolConst false], ?loc=r) |> Some
     | "ToString", Some arg, _ ->
         toString com r [arg] |> Some
     | "ReferenceEquals", _, [left; right] ->

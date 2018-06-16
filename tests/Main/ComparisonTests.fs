@@ -385,6 +385,8 @@ let tests =
         (hash "2") = (hash "3") |> equal false
         (hash [1]) = (hash [1]) |> equal true
         (hash [2]) = (hash [3]) |> equal false
+        (hash [|1|]) = (hash [|1|]) |> equal true
+        (hash [|2|]) = (hash [|3|]) |> equal false
 
     testCase "Unchecked.hash works" <| fun () ->
         (Unchecked.hash 111) = (Unchecked.hash 111) |> equal true
@@ -393,6 +395,8 @@ let tests =
         (Unchecked.hash "2") = (Unchecked.hash "3") |> equal false
         (Unchecked.hash [1]) = (Unchecked.hash [1]) |> equal true
         (Unchecked.hash [2]) = (Unchecked.hash [3]) |> equal false
+        (Unchecked.hash [|1|]) = (Unchecked.hash [|1|]) |> equal true
+        (Unchecked.hash [|2|]) = (Unchecked.hash [|3|]) |> equal false
 
     testCase "Unchecked.equals works" <| fun () ->
         Unchecked.equals 111 111 |> equal true

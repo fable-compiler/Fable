@@ -182,31 +182,45 @@ export abstract class ObjectRef {
   private static count = 0;
 }
 
-export function getHashCode(x: any): number {
+function stringHash(s: string) {
+  let i = 0;
+  let h = 5381;
+  const len = s.length;
+  while (i < len) {
+    h = (h * 33) ^ s.charCodeAt(i++);
+  }
+  return h;
+}
+
+function hashPrivate(x: any, identity?: boolean): number {
+  switch (typeof x) {
+    case "boolean":
+      return x ? 1 : 0;
+    case "number":
+      return x * 2654435761 | 0;
+    case "string":
+      return stringHash(x);
+    default:
+      if (identity) {
+        return ObjectRef.id(x) * 2654435761 | 0;
+      } else {
+        return stringHash(toString(x)); // structural
+      }
+  }
+}
+
+export function getHashCode(x: any, defaultToIdentity?: boolean) {
   if (x == null) {
     return 0;
+  } else if (typeof x.GetHashCode === "function") {
+    return x.GetHashCode();
   } else {
-    switch (typeof x) {
-      case "boolean":
-        return x ? 1 : 0;
-      case "number":
-        return x * 2654435761 | 0;
-      case "string":
-        let i = 0;
-        let h = 5381;
-        const len = x.length;
-        while (i < len) {
-          h = (h * 33) ^ x.charCodeAt(i++);
-        }
-        return h;
-      default:
-        if (typeof x.GetHashCode === "function") {
-          return x.GetHashCode();
-        } else {
-          return ObjectRef.id(x) * 2654435761 | 0;
-        }
-    }
+    return hashPrivate(x, defaultToIdentity);
   }
+}
+
+export function identityHash(x: any) {
+  return x == null ? 0 : hashPrivate(x, true);
 }
 
 export function isArray(x: any) {

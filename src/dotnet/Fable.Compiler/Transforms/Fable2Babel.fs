@@ -1300,9 +1300,6 @@ module Util =
                 yield Identifier("arg" + string i) |]
         let bodyStatements, baseRef =
             if ent.IsFSharpExceptionDeclaration then
-                // TODO: Inherit from fable-core/Types/FSharpException to get structural equality?
-                // let baseRef = coreValue com ctx "Types" "FSharpException"
-                let baseRef = Identifier "Error" :> Expression
                 // We need some special operations to inherit from Error, see transformExceptionConstructor
                 let adHocThisIdent = Identifier "this$"
                 let statements =
@@ -1315,7 +1312,7 @@ module Util =
                                 |> ExpressionStatement :> _
                         yield ReturnStatement adHocThisIdent :> _
                     ]
-                statements, baseRef
+                statements, coreValue com ctx "Types" "FSharpException"
             else
                 makeSetters thisIdent args, coreValue com ctx "Types" "Record"
         [
