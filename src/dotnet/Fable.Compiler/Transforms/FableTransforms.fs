@@ -431,7 +431,8 @@ module private Transforms =
         | e -> e
 
     // TODO: More tests about uncurrying record fields
-    let uncurryRecordFields (com: ICompiler) = function
+    // TODO!!! Also NewUnion/UnionField
+    let uncurryFields (com: ICompiler) = function
         | Value(NewRecord(args, ent, genArgs)) ->
             let genArgsMap =
                 FSharp2Fable.Util.matchGenericParams genArgs ent.GenericParameters
@@ -525,7 +526,7 @@ let optimizations =
       fun com e -> visitFromInsideOut (getterBetaReduction com) e
       // Then apply uncurry optimizations
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
-      fun com e -> visitFromInsideOut (uncurryRecordFields com) e
+      fun com e -> visitFromInsideOut (uncurryFields com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
       fun com e -> visitFromInsideOut (uncurrySendingArgs com) e

@@ -99,7 +99,7 @@ exports.getTransformMacroExpressions = function(babelTemplate) {
             catch (err) {
                 err.message =
                     "BABEL ERROR: Failed to parse macro: " + macro + "\n" +
-                    "MACRO ARGUMENTS: " + Object.getOwnPropertyNames(buildArgs).join() + "\n" +
+                    "MACRO ARGUMENTS: " + Object.keys(buildArgs).join() + "\n" +
                     err.message;
                 throw err;
             }

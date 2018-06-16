@@ -163,7 +163,7 @@ export function toString(obj: any, quoteStrings = false): string {
           });
         } catch (err) {
           // Fallback for objects with circular references
-          return "{" + Object.getOwnPropertyNames(obj).map((k) => k + ": " + String(obj[k])).join(", ") + "}";
+          return "{" + Object.keys(obj).map((k) => k + ": " + String(obj[k])).join(", ") + "}";
         }
       } else {
         return obj instanceof Date ? dateToString(obj) : String(obj);

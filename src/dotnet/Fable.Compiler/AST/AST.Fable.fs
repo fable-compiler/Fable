@@ -60,7 +60,7 @@ type ValueDeclarationInfo =
 
 type BaseConstructorKind =
     | NoBaseConstructor
-    | ExceptionConstructor of message: string
+    | ExceptionConstructor of errorMessage: Expr
     | BaseConstructor of consRef: Expr * entityRef: Expr * args: Expr list * hasSpread: bool
 
 type ClassImplicitConstructorInfo =
@@ -75,8 +75,8 @@ type ClassImplicitConstructorInfo =
 
 type ConstructorKind =
     | ClassImplicitConstructor of ClassImplicitConstructorInfo
-    | UnionConstructor of name: string * FSharpEntity
-    | RecordConstructor of name: string * FSharpEntity
+    | UnionConstructor of name: string * isPublic: bool * FSharpEntity
+    | RecordConstructor of name: string * isPublic: bool * FSharpEntity
 
 type OverrideDeclarationInfo =
     { Name: string

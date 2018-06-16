@@ -1,4 +1,4 @@
-import { Union } from "./Types";
+import { inherits, Union } from "./Types";
 import { compare, equals, toString } from "./Util";
 
 // Options are erased in runtime by Fable, but we have
@@ -76,6 +76,7 @@ export function filter(predicate, arg) {
 export function Choice(tag, name, field) {
     Union.call(this, tag, name, field);
 }
+inherits(Choice, Union);
 
 export function choice1(x) {
     return new Choice(0, "Choice1Of2", x);
@@ -98,6 +99,7 @@ export function tryValueIfChoice2(x) {
 export function Result(tag, name, field) {
     Union.call(this, tag, name, field);
 }
+inherits(Result, Union);
 
 export function ok(x) {
     return new Result(0, "Ok", x);

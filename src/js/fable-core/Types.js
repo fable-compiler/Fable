@@ -1,4 +1,4 @@
-import { compare, equalArrays, toString } from "./Util";
+import { compare, compareArrays, equals, equalArrays, toString } from "./Util";
 
 export function sameType(x, y) {
   return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
@@ -109,7 +109,7 @@ Union.prototype.Equals = function (other) {
 Union.prototype.CompareTo = function (other) {
   if (this === other) {
     return 0;
-  } else if (!sameType(x, y)) {
+  } else if (!sameType(this, other)) {
     return -1;
   } else if (this.tag === other.tag) {
     return compareArrays(this.fields, other.fields);
@@ -142,34 +142,59 @@ Union.prototype.CompareTo = function (other) {
 
 // console.log(String(c));
 
-// class Record {
-//   // TODO!!!
-//   // public toJSON() {
-//   // }
+export function Record() {
+}
 
-//   public Equals(other: Union) {
-//     const thisNames = Object.getOwnPropertyNames(this);
-//     const otherNames = Object.getOwnPropertyNames(other);
-//     for (let i = 0; i < thisNames.length; i++) {
-//       if (!equals((this as any)[thisNames[i]], (other as any)[otherNames[i]])) {
-//         return false;
-//       }
-//     }
-//     return true;
-//   }
+Record.prototype.toString = function () {
+  return "{" + Object.keys(this).map((k) => k + " = " + toString(obj[k])).join(";\n ") + "}";
+}
 
-//   // TODO!!!
-//   // public CompareTo(other: Union) {
-//   //   if (this === other) {
-//   //     return 0;
-//   //   } else if (this.name === other.name) {
-//   //     return compareArrays(this.fields, other.fields);
-//   //   } else {
-//   //     // TODO: We need the tag index to get the proper order
-//   //     return this.name < other.name ? -1 : 1;
-//   //   }
-//   // }
-// }
+Record.prototype.toJSON = function () {
+  const o = {};
+  const keys = Object.keys(this);
+  for (let i = 0; i < keys.length; i++) {
+    o[keys[i]] = this[keys[i]];
+  }
+  return o;
+}
+
+Record.prototype.Equals = function (other) {
+  if (this === other) {
+    return true;
+  } else if (!sameType(this, other)) {
+    return false;
+  } else {
+    const thisNames = Object.keys(this);
+    for (let i = 0; i < thisNames.length; i++) {
+      if (!equals(this[thisNames[i]], other[thisNames[i]])) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+Record.prototype.CompareTo = function (other) {
+  if (this === other) {
+    return 0;
+  } else if (!sameType(this, other)) {
+    return -1;
+  } else {
+    const thisNames = Object.keys(this);
+    for (let i = 0; i < thisNames.length; i++) {
+      const result = compare(this[thisNames[i]], other[thisNames[i]]);
+      if (result !== 0) {
+        return result;
+      }
+    }
+    return 0;
+  }
+}
+
+export function FSharpRef(contents) {
+  this.contents = contents;
+}
+inherits(FSharpRef, Record);
 
 // EXCEPTIONS
 
@@ -197,9 +222,7 @@ export function FSharpException(name) {
 inherits(FSharpException, Error);
 
 FSharpException.prototype.toString = function() {
-  const fieldNames =
-    Object.getOwnPropertyNames(this)
-      .filter(k => k !== "message" && k !== "stack");
+  const fieldNames = Object.keys(this).filter(k => k !== "message" && k !== "stack");
   const len = fieldNames.length;
   if (len === 0) {
     return this.message;
@@ -217,7 +240,7 @@ FSharpException.prototype.toString = function() {
 //   }
 //   var _this = FSharpException.call(this, "MyFSharpException");
 //   init.call(_this, x, y);
-//   // Object.setPrototypeOf(_this, MyFSharpException.prototype);
+//   Object.setPrototypeOf(_this, MyFSharpException.prototype);
 //   return _this;
 // }
 // inherits(MyFSharpException, FSharpException);

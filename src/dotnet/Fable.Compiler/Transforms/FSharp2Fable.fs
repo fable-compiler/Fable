@@ -572,7 +572,7 @@ let rec private getBaseConsKindAndBody com ctx acc body =
     // TODO: We should check for classes inheriting classes inheriting System.Exception as well
     let checkException (baseCall: FSharpMemberOrFunctionOrValue) baseArgs =
         match baseCall.DeclaringEntity, baseArgs with
-        | Some ent, (BasicPatterns.Const(:? string as msg, _))::_ when ent.TryFullName = Some Types.exception_ ->
+        | Some ent, (Transform com ctx msg)::_ when ent.TryFullName = Some Types.exception_ ->
             Fable.ExceptionConstructor msg
         | _ -> Fable.NoBaseConstructor
 
@@ -629,11 +629,6 @@ let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
     | Fable.Value(Fable.StringConstant Naming.placeholder) ->
         getMemberDisplayName memb |> makeStrConst
     | _ -> selector
-
-let private isEntityRecordOrUnion (memb: FSharpMemberOrFunctionOrValue) =
-    match memb.DeclaringEntity with
-    | Some ent -> ent.IsFSharpRecord || ent.IsFSharpUnion
-    | None -> false
 
 let private transformImport r typ isPublic name selector path =
     let info: Fable.ValueDeclarationInfo =
@@ -787,10 +782,10 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
                     ||> transformImport None Fable.Any (not ent.Accessibility.IsPrivate) name
                 | None when ent.IsFSharpUnion ->
                     let name = getEntityDeclarationName com ent
-                    [Fable.UnionConstructor(name, ent) |> Fable.ConstructorDeclaration]
-                | None when ent.IsFSharpRecord ->
+                    [Fable.UnionConstructor(name, isPublicEntity ent, ent) |> Fable.ConstructorDeclaration]
+                | None when ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration || ent.IsValueType ->
                     let name = getEntityDeclarationName com ent
-                    [Fable.RecordConstructor(name, ent) |> Fable.ConstructorDeclaration]
+                    [Fable.RecordConstructor(name, isPublicEntity ent, ent) |> Fable.ConstructorDeclaration]
                 | None ->
                     transformDeclarationsInner com ctx sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->

@@ -309,6 +309,8 @@ let toString com r (args: Expr list) =
     | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
     | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
     | Number _ -> Helper.InstanceCall(args.Head, "toString", String, args.Tail)
+    | DeclaredType(ent,_) when ent.IsFSharpRecord || ent.IsFSharpUnion ->
+        Helper.InstanceCall(args.Head, "toString", String, [])
     | _ -> Helper.CoreCall("Util", "toString", String, args)
 
 let toFloat targetType (args: Expr list) =
@@ -827,12 +829,14 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | ("inflate"|"deflate"), _ -> List.tryHead args
     | _ -> None
 
+let getReference r t expr = get r t expr "contents"
+let setReference r expr value = Set(expr, makeStrConst "contents" |> ExprSet, value, r)
+let newReference r t value = Helper.ConstructorCall(makeCoreRef Any "FSharpRef" "Types", t, [value], ?loc=r)
+
 let references (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", _, [arg] -> objExpr t ["contents", arg] |> Some
-    | "get_Value", Some callee, _ -> get r t callee "contents" |> Some
-    | "set_Value", Some callee, [value] ->
-        Set(callee, makeStrConst "contents" |> ExprSet, value, r) |> Some
+    | "get_Value", Some callee, _ -> getReference r t callee |> Some
+    | "set_Value", Some callee, [value] -> setReference r callee value |> Some
     | _ -> None
 
 let fsFormat (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -979,9 +983,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Fst", [tup] -> Get(tup, TupleGet 0, t, r) |> Some
     | "Snd", [tup] -> Get(tup, TupleGet 1, t, r) |> Some
     // Reference
-    | "op_Dereference", [arg] -> get r t arg "contents" |> Some
-    | "op_ColonEquals", [o; v] -> Set(o, makeStrConst "contents" |> ExprSet, v, r) |> Some
-    | "Ref", [arg] -> objExpr t ["contents", arg] |> Some
+    | "op_Dereference", [arg] -> getReference r t arg  |> Some
+    | "op_ColonEquals", [o; v] -> setReference r o v |> Some
+    | "Ref", [arg] -> newReference r t arg |> Some
     | ("Increment"|"Decrement"), _ ->
         if i.CompiledName = "Increment" then "void($0.contents++)" else "void($0.contents--)"
         |> emitJs r t args |> Some
@@ -2419,6 +2423,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
 // TODO: Add other entities (see Fable 1 Replacements.tryReplaceEntity)
 let tryEntityRef (ent: FSharpEntity) =
     match ent.FullName with
+    | Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
     | Types.result -> makeCoreRef Any "Result" "Option" |> Some
     | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
     | Naming.EndsWith "Exception" _ -> makeIdentExpr "Error" |> Some

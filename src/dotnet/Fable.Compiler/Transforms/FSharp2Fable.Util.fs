@@ -190,6 +190,9 @@ module Helpers =
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
 
+    let isPublicEntity (ent: FSharpEntity) =
+        not ent.Accessibility.IsPrivate
+
     let isPublicMember (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsCompilerGenerated
         then false
@@ -479,6 +482,14 @@ module TypeHelpers =
         elif t.HasTypeDefinition
         then makeTypeFromDef com ctxTypeArgs t.GenericArguments t.TypeDefinition
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
+
+    // TODO: This is intended to wrap JS expressions with `| 0`, check enum as well?
+    let isSignedIntType (NonAbbreviatedType t) =
+        if t.HasTypeDefinition then
+            match t.TypeDefinition.TryFullName with
+            | Some(Types.int8 | Types.int16 | Types.int32) -> true
+            | _ -> false
+        else false
 
     let getBaseClass (tdef: FSharpEntity) =
         match tdef.BaseType with
