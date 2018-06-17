@@ -225,6 +225,12 @@ type MyList<'T> =
 | Nil
 | Cons of 'T * MyList<'T>
 
+let inline create<'T when 'T: (new: unit->'T)> () = new 'T()
+
+type A() = member __.Value = 5
+
+type B() = member __.Value = 10
+
 let reflectionTests = [
   testCase "Reflection: Array" <| fun () ->
     let arType = typeof<int[]>
@@ -371,6 +377,12 @@ let reflectionTests = [
     let fieldTypes = cons.GetFields()
     fieldTypes.[0].PropertyType.FullName |> equal typeof<int>.FullName
     fieldTypes.[1].PropertyType.GetGenericTypeDefinition().FullName |> equal typedefof<MyList<obj>>.FullName
+
+  testCase "Calling constructor of generic type in inline functions works" <| fun () ->
+    let a = create<A>()
+    let b = create<B>()
+    a.Value |> equal 5
+    b.Value |> equal 10
 ]
 
 #if FABLE_COMPILER
@@ -383,10 +395,10 @@ type Helper =
     static member Make(values: obj[], [<Inject>] ?res: ITypeResolver<'U>) =
         let t = res.Value.ResolveType()
         FSharpValue.MakeRecord(t, values) :?> 'U
-        
-type Maybe<'t> = 
+
+type Maybe<'t> =
     | Just of 't
-    | Nothing 
+    | Nothing
 
 // The !!!NAME!!! of this type fails with somethings, I don't know
 type RecWithGenDU<'t> = { Other: 't; Value : Maybe<string> }
@@ -394,12 +406,12 @@ type RecWithGenDU<'t> = { Other: 't; Value : Maybe<string> }
 type GenericTestRecord<'t> = { Other: 't; Value : Maybe<string> }
 
 // helper class to extract the name of an injected type
-type Types() = 
-    static member getNameOf<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : string = 
+type Types() =
+    static member getNameOf<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : string =
         let resolvedType = resolver.Value.ResolveType()
         resolvedType.Name
-        
-    static member get<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : System.Type = 
+
+    static member get<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : System.Type =
         let resolvedType = resolver.Value.ResolveType()
         resolvedType
 
@@ -409,24 +421,24 @@ let injectTests = [
         let y: R2 = Helper.Make [|box 10|]
         equal x { x = 5 }
         equal y { y = 10 }
-        
-    testCase "Recursively reading generic arguments of nested generic types works" <| fun () -> 
+
+    testCase "Recursively reading generic arguments of nested generic types works" <| fun () ->
         let typeInfo = Types.get<Maybe<Maybe<int>>>()
-        
+
         // recursively reads the generic arguments
-        let rec getGenericArgs (typeDef: System.Type) : string list = 
+        let rec getGenericArgs (typeDef: System.Type) : string list =
             [ yield typeDef.Name
-              for genericTypeArg in typeDef.GetGenericArguments() do 
-                yield! getGenericArgs genericTypeArg ]    
-         
+              for genericTypeArg in typeDef.GetGenericArguments() do
+                yield! getGenericArgs genericTypeArg ]
+
         getGenericArgs typeInfo
-        |> equal ["Maybe`1"; "Maybe`1"; "Int32"] 
-    
-    testCase "Name can be extracted from RecWithGenDU" <| fun () -> 
+        |> equal ["Maybe`1"; "Maybe`1"; "Int32"]
+
+    testCase "Name can be extracted from RecWithGenDU" <| fun () ->
         let name = Types.getNameOf<Maybe<list<RecWithGenDU<string>>>>()
         equal false (name = "")
-        
-    testCase "Name can be extracted from GenericTestRecord" <| fun () -> 
+
+    testCase "Name can be extracted from GenericTestRecord" <| fun () ->
         let name = Types.getNameOf<Maybe<list<GenericTestRecord<string>>>>()
         equal false (name = "")
 ]
@@ -436,11 +448,11 @@ let injectTests = []
 
 
 
-let genericTypeNamesTests = 
-    testList "Naming generic types" 
+let genericTypeNamesTests =
+    testList "Naming generic types"
       [  ]
-           
-           
+
+
 
 let tests =
     testList "Reflection tests" (

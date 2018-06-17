@@ -1629,9 +1629,12 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "TypeTestGeneric", None, [expr] ->
         Test(expr, TypeTest((genArg com r 0 i.GenericArgs)), r) |> Some
     | "CreateInstance", None, _ ->
-        None // TODO
-        // let typRef, args = resolveTypeRef com i false i.memberGenArgs.Head, []
-        // Apply (typRef, args, ApplyCons, t, r) |> Some
+        match genArg com r 0 i.GenericArgs with
+        | DeclaredType(ent, _) ->
+            let entRef = FSharp2Fable.Util.entityRefMaybeImported com r ent
+            Helper.ConstructorCall(entRef, t, [], ?loc=r) |> Some
+        | t -> sprintf "Cannot create instance of type unresolved at compile time: %A" t
+               |> addErrorAndReturnNull com r |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
     // Type: PowDouble : float -> int -> float
     // Usage: PowDouble x n
@@ -1996,6 +1999,7 @@ let cancels (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option)
 
 let activator (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
+    // TODO!!! This probably won't work, add test
     | "CreateInstance", None, typRef::args ->
         let info = argInfo None args (Some i.SignatureArgTypes.Tail)
         constructorCall r t info typRef |> Some
