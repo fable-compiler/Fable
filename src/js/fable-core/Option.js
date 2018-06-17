@@ -26,7 +26,7 @@ export class Some {
         return this.value;
     }
 
-    GetHashCode () {
+    GetHashCode() {
         return hash(this.value);
     }
 

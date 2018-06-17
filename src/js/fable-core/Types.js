@@ -9,7 +9,7 @@ function sameType(x, y) {
  * @param {number[]} hashes
  */
 function combineHashCodes(hashes) {
-  return hashes.reduce(function (h1, h2) {
+  return hashes.reduce(function(h1, h2) {
     return ((h1 << 5) + h1) ^ h2;
   });
 }
@@ -27,8 +27,8 @@ export function inherits(subClass, superClass) {
       value: subClass,
       enumerable: false,
       writable: true,
-      configurable: true
-    }
+      configurable: true,
+    },
   });
   // if (superClass)
   //   Object.setPrototypeOf
@@ -56,15 +56,15 @@ export function List(head, tail) {
   this.tail = tail;
 }
 
-List.prototype.toString = function () {
+List.prototype.toString = function() {
   return "[" + Array.from(this).map(x => toString(x)).join("; ") + "]";
-}
+};
 
-List.prototype.toJSON = function () {
+List.prototype.toJSON = function() {
   return Array.from(this);
-}
+};
 
-List.prototype[Symbol.iterator] = function () {
+List.prototype[Symbol.iterator] = function() {
   let cur = this;
   return {
     next: () => {
@@ -73,19 +73,19 @@ List.prototype[Symbol.iterator] = function () {
       return { done: tmp.tail == null, value: tmp.head };
     },
   };
-}
+};
 
-List.prototype.GetHashCode = function () {
+List.prototype.GetHashCode = function() {
   return combineHashCodes(Array.from(this).map(hash));
-}
+};
 
-List.prototype.Equals = function (other) {
+List.prototype.Equals = function(other) {
   return compareList(this, other) === 0;
-}
+};
 
-List.prototype.CompareTo = function (other) {
+List.prototype.CompareTo = function(other) {
   return compareList(this, other);
-}
+};
 
 export function L(h, t) {
   return new List(h, t);
@@ -97,7 +97,7 @@ export function Union(tag, name, ...fields) {
   this.fields = fields;
 }
 
-Union.prototype.toString = function () {
+Union.prototype.toString = function() {
   const len = this.fields.length;
   if (len === 0) {
     return this.name;
@@ -106,28 +106,28 @@ Union.prototype.toString = function () {
   } else {
     return this.name + " (" + this.fields.map(toString).join(",") + ")";
   }
-}
+};
 
-Union.prototype.toJSON = function () {
+Union.prototype.toJSON = function() {
   return this.fields.length === 0
     ? this.name
     : [this.name].concat(this.fields);
-}
+};
 
-Union.prototype.GetHashCode = function () {
+Union.prototype.GetHashCode = function() {
   let hashes = this.fields.map(hash);
-  hashes.splice(0, 0, numberHash(this.tag))
+  hashes.splice(0, 0, numberHash(this.tag));
   return combineHashCodes(hashes);
-}
+};
 
-Union.prototype.Equals = function (other) {
+Union.prototype.Equals = function(other) {
   return this === other
     || (sameType(this, other)
         && this.tag === other.tag
         && equalArrays(this.fields, other.fields));
-}
+};
 
-Union.prototype.CompareTo = function (other) {
+Union.prototype.CompareTo = function(other) {
   if (this === other) {
     return 0;
   } else if (!sameType(this, other)) {
@@ -137,7 +137,7 @@ Union.prototype.CompareTo = function (other) {
   } else {
     return this.tag < other.tag ? -1 : 1;
   }
-}
+};
 
 function recordToJson(record, getFieldNames) {
   const o = {};
@@ -184,25 +184,25 @@ function recordCompare(self, other, getFieldNames) {
 export function Record() {
 }
 
-Record.prototype.toString = function () {
+Record.prototype.toString = function() {
   return "{" + Object.keys(this).map((k) => k + " = " + toString(obj[k])).join(";\n ") + "}";
-}
+};
 
-Record.prototype.toJSON = function () {
+Record.prototype.toJSON = function() {
   return recordToJson(this);
-}
+};
 
-Record.prototype.GetHashCode = function () {
+Record.prototype.GetHashCode = function() {
   return combineHashCodes(Object.keys(this).map(k => hash(this[k])));
-}
+};
 
-Record.prototype.Equals = function (other) {
+Record.prototype.Equals = function(other) {
   return recordEquals(this, other);
-}
+};
 
-Record.prototype.CompareTo = function (other) {
+Record.prototype.CompareTo = function(other) {
   return recordCompare(this, other);
-}
+};
 
 export function FSharpRef(contents) {
   this.contents = contents;
@@ -246,23 +246,23 @@ FSharpException.prototype.toString = function() {
   } else {
     return this.message + " (" + fieldNames.map(k => String(this[k])).join(",") + ")";
   }
-}
+};
 
-FSharpException.prototype.toJSON = function () {
+FSharpException.prototype.toJSON = function() {
   return recordToJson(this, getFSharpExceptionFieldNames);
-}
+};
 
-FSharpException.prototype.GetHashCode = function () {
+FSharpException.prototype.GetHashCode = function() {
   return combineHashCodes(getFSharpExceptionFieldNames(this).map(k => hash(this[k])));
-}
+};
 
-FSharpException.prototype.Equals = function (other) {
+FSharpException.prototype.Equals = function(other) {
   return recordEquals(this, other, getFSharpExceptionFieldNames);
-}
+};
 
-FSharpException.prototype.CompareTo = function (other) {
+FSharpException.prototype.CompareTo = function(other) {
   return recordCompare(this, other, getFSharpExceptionFieldNames);
-}
+};
 
 // function MyFSharpException(x, y) {
 //   function init(x, y) {
@@ -276,4 +276,3 @@ FSharpException.prototype.CompareTo = function (other) {
 //   return _this;
 // }
 // inherits(MyFSharpException, FSharpException);
-
