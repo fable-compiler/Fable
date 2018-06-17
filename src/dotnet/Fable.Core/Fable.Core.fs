@@ -8,6 +8,10 @@ module Exceptions =
     /// Used to indicate that a member is only implemented in native Javascript
     let jsNative<'T> : 'T = failwith "JS only"
 
+type CaseRules =
+    | None = 0
+    | LowerFirst = 1
+
 /// Used for erased union types and to ignore modules in JS compilation.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type EraseAttribute() =
@@ -49,6 +53,7 @@ type PojoAttribute() =
 [<AttributeUsage(AttributeTargets.Class)>]
 type StringEnumAttribute() =
     inherit Attribute()
+    new (caseRules: CaseRules) = StringEnumAttribute()
 
 /// Used to spread the last argument. Mainly intended for `React.createElement` binding, not for general use.
 /// Fable 1 only accepted lists, but Fable 2 accepts seq as well.
@@ -161,10 +166,6 @@ type [<Erase>] U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
     static member op_ErasedCast(x:'f) = Case6 x
     static member op_ErasedCast(x:'g) = Case7 x
     static member op_ErasedCast(x:'h) = Case8 x
-
-type CaseRules =
-    | None = 0
-    | LowerFirst = 1
 
 module Testing =
     type Assert =

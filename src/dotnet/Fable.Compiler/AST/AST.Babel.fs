@@ -519,13 +519,13 @@ type RestElement(argument, ?loc) =
 
 // Classes
 type ClassMethodKind =
-    | ClassConstructor | ClassFunction | ClassGetter | ClassSetter
+    | ClassImplicitConstructor | ClassFunction | ClassGetter | ClassSetter
 
 type ClassMethod(kind, key, ``params``, body, computed, ``static``, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     member __.kind =
         match kind with
-        | ClassConstructor -> "constructor"
+        | ClassImplicitConstructor -> "constructor"
         | ClassGetter -> "get"
         | ClassSetter -> "set"
         | ClassFunction -> "method"

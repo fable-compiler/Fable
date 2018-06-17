@@ -4,7 +4,7 @@
 import { fromBits, fromNumber, toNumber, add as add_1, mul as mul_1, div as div_1, mod as mod_1, shl as shl_1, and as and_1 } from "../Long";
 import { replicate, initialize } from "../Seq";
 import { computeFftPaddedPolynomialProduct, toInt, mzero, ofInt32 as ofInt32_1, maxBitsInsideFp } from "./FFT";
-import List from "../ListClass";
+import { List } from "../Types";
 import { isNullOrEmpty, join } from "../String";
 
 export default class BigNat {

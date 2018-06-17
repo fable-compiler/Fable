@@ -163,7 +163,7 @@ export function toString(obj: any, quoteStrings = false): string {
           });
         } catch (err) {
           // Fallback for objects with circular references
-          return "{" + Object.getOwnPropertyNames(obj).map((k) => k + ": " + String(obj[k])).join(", ") + "}";
+          return "{" + Object.keys(obj).map((k) => k + ": " + String(obj[k])).join(", ") + "}";
         }
       } else {
         return obj instanceof Date ? dateToString(obj) : String(obj);
@@ -182,24 +182,49 @@ export abstract class ObjectRef {
   private static count = 0;
 }
 
-export function getHashCode(x: any): number {
-  return ObjectRef.id(x) * 2654435761 | 0;
+function stringHash(s: string) {
+  let i = 0;
+  let h = 5381;
+  const len = s.length;
+  while (i < len) {
+    h = (h * 33) ^ s.charCodeAt(i++);
+  }
+  return h;
 }
 
-export function hash(x: any): number {
-  if (typeof x === "number") {
-    return x * 2654435761 | 0;
+export function numberHash(x: number) {
+  return x * 2654435761 | 0;
+}
+
+function hashPrivate(x: any, identity?: boolean): number {
+  switch (typeof x) {
+    case "boolean":
+      return x ? 1 : 0;
+    case "number":
+      return numberHash(x);
+    case "string":
+      return stringHash(x);
+    default:
+      if (identity) {
+        return ObjectRef.id(x) * 2654435761 | 0;
+      } else {
+        return stringHash(toString(x)); // structural
+      }
   }
-  if (x != null && typeof x.GetHashCode === "function") {
+}
+
+export function hash(x: any, defaultToIdentity?: boolean) {
+  if (x == null) {
+    return 0;
+  } else if (typeof x.GetHashCode === "function") {
     return x.GetHashCode();
   } else {
-    const s = toString(x);
-    let h = 5381;
-    let i = 0;
-    const len = s.length;
-    while (i < len) { h = (h * 33) ^ s.charCodeAt(i++); }
-    return h;
+    return hashPrivate(x, defaultToIdentity);
   }
+}
+
+export function identityHash(x: any) {
+  return x == null ? 0 : hashPrivate(x, true);
 }
 
 export function isArray(x: any) {
@@ -255,8 +280,6 @@ export function equals(x: any, y: any): boolean {
     return false;
   } else if (typeof x.Equals === "function") {
     return x.Equals(y);
-  } else if (isPlainObject(x)) {
-    return isPlainObject(y) && equalObjects(x, y);
   } else if (isArray(x)) {
     return isArray(y) && equalArrays(x, y);
   } else if (x instanceof Date) {
@@ -318,8 +341,6 @@ export function compare(x: any, y: any): number {
     return x < y ? -1 : 1;
   } else if (typeof x.CompareTo === "function") {
     return x.CompareTo(y);
-  } else if (isPlainObject(x)) {
-    return isPlainObject(y) && compareObjects(x, y);
   } else if (isArray(x)) {
     return isArray(y) && compareArrays(x, y);
   } else if (x instanceof Date) {
@@ -365,21 +386,36 @@ function changeCase(str: string, caseRule: number) {
 }
 
 export function createObj(fields: Iterable<any>, caseRule = CaseRules.None) {
+  function fail(kvPair: any) {
+    throw new Error("Cannot infer key and value of " + toString(kvPair));
+  }
   const o: { [k: string]: any } = {};
-  for (const kvPair of fields) {
-    if (Array.isArray(kvPair) && kvPair.length > 0) {
-      if (kvPair.length === 1) {
-        o[changeCase(kvPair[0], caseRule)] = true;
-      } else if (kvPair.length === 2) {
-        const value = kvPair[1];
-        o[changeCase(kvPair[0], caseRule)] = value;
-      } else {
-        o[changeCase(kvPair[0], caseRule)] = kvPair.slice(1);
+  for (let kvPair of fields) {
+    if (kvPair == null) {
+      fail(kvPair);
+    }
+    if (typeof kvPair.toJSON === "function") { // Deflate unions
+      kvPair = kvPair.toJSON();
+    }
+    if (Array.isArray(kvPair)) {
+      switch (kvPair.length) {
+        case 0:
+          fail(kvPair);
+          break;
+        case 1:
+          o[changeCase(kvPair[0], caseRule)] = true;
+          break;
+        case 2:
+          const value = kvPair[1];
+          o[changeCase(kvPair[0], caseRule)] = value;
+          break;
+        default:
+          o[changeCase(kvPair[0], caseRule)] = kvPair.slice(1);
       }
     } else if (typeof kvPair === "string") {
       o[changeCase(kvPair, caseRule)] = true;
     } else {
-      throw new Error("Cannot infer key and value of " + toString(kvPair));
+      fail(kvPair);
     }
   }
   return o;

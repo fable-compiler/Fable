@@ -58,18 +58,25 @@ type ValueDeclarationInfo =
       IsMutable: bool
       HasSpread: bool }
 
-type BaseConstructorInfo =
-    { BaseEntityRef: Expr
-      BaseConsRef: Expr
-      BaseConsArgs: Expr list
-      BaseConsHasSpread: bool }
+type BaseConstructorKind =
+    | NoBaseConstructor
+    | ExceptionConstructor of errorMessage: Expr
+    | BaseConstructor of consRef: Expr * entityRef: Expr * args: Expr list * hasSpread: bool
 
-type ImplicitConstructorDeclarationInfo =
+type ClassImplicitConstructorInfo =
     { Name: string
+      EntityName: string
       IsPublic: bool
       HasSpread: bool
-      BaseConstructor: BaseConstructorInfo option
-      EntityName: string }
+      BaseConstructor: BaseConstructorKind
+      Arguments: Ident list
+      Body: Expr
+    }
+
+type ConstructorKind =
+    | ClassImplicitConstructor of ClassImplicitConstructorInfo
+    | UnionConstructor of name: string * isPublic: bool * FSharpEntity
+    | RecordConstructor of name: string * isPublic: bool * FSharpEntity
 
 type OverrideDeclarationInfo =
     { Name: string
@@ -89,7 +96,7 @@ type Declaration =
     | ValueDeclaration of Expr * ValueDeclarationInfo
     | InterfaceCastDeclaration of ObjectMember list * InterfaceCastDeclarationInfo
     | OverrideDeclaration of args: Ident list * body: Expr * OverrideDeclarationInfo
-    | ImplicitConstructorDeclaration of args: Ident list * body: Expr * ImplicitConstructorDeclarationInfo
+    | ConstructorDeclaration of ConstructorKind
 
 type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
     member __.SourcePath: string = sourcePath

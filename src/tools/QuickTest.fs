@@ -29,7 +29,7 @@ let testCase (msg: string) f: unit =
         f ()
     with ex ->
         printfn "%s" ex.Message
-        if ex.Message.StartsWith("[ASSERT ERROR]") |> not then
+        if ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not then
             printfn "%s" ex.StackTrace
     printfn ""
 

@@ -22,7 +22,6 @@ let allTests =
     HashSets.tests
     Import.tests
     JsInterop.tests
-    // Json.tests
     Lists.tests
     Maps.tests
     Misc.tests

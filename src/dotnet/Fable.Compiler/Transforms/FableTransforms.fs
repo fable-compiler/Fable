@@ -431,7 +431,8 @@ module private Transforms =
         | e -> e
 
     // TODO: More tests about uncurrying record fields
-    let uncurryRecordFields (com: ICompiler) = function
+    // TODO!!! Also NewUnion/UnionField
+    let uncurryFields (com: ICompiler) = function
         | Value(NewRecord(args, ent, genArgs)) ->
             let genArgsMap =
                 FSharp2Fable.Util.matchGenericParams genArgs ent.GenericParameters
@@ -525,8 +526,8 @@ let optimizations =
       fun com e -> visitFromInsideOut (getterBetaReduction com) e
       // Then apply uncurry optimizations
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
-      fun com e -> visitFromInsideOut (uncurryRecordFields com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
+      fun com e -> visitFromInsideOut (uncurryFields com) e
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
       fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       // Don't traverse the expression for the unwrap function optimization
@@ -541,8 +542,12 @@ let rec optimizeDeclaration (com: ICompiler) = function
         ActionDeclaration(optimizeExpr com expr)
     | ValueDeclaration(value, info) ->
         ValueDeclaration(optimizeExpr com value, info)
-    | ImplicitConstructorDeclaration(args, body, info) ->
-        ImplicitConstructorDeclaration(args, optimizeExpr com body, info)
+    | ConstructorDeclaration kind as consDecl ->
+        match kind with
+        | ClassImplicitConstructor info ->
+            { info with Body = optimizeExpr com info.Body }
+            |> ClassImplicitConstructor |> ConstructorDeclaration
+        | _ -> consDecl
     | OverrideDeclaration(args, body, info) ->
         OverrideDeclaration(args, optimizeExpr com body, info)
     | InterfaceCastDeclaration(members, info) ->

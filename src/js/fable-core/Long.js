@@ -50,7 +50,7 @@ export default function Long(low, high, unsigned) {
 
 Long.prototype.Equals = function (x) { return equals(this, x); }
 Long.prototype.CompareTo = function (x) { return compare(this, x); }
-Long.prototype.toString = function () { return toString(this); }
+Long.prototype.toString = function (radix) { return toString(this, radix); }
 
 export const neg = op_UnaryNegation;
 export const not = op_LogicalNot;
