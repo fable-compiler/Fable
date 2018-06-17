@@ -414,8 +414,9 @@ export function createObj(fields: Iterable<any>, caseRule = CaseRules.None) {
       }
     } else if (typeof kvPair === "string") {
       o[changeCase(kvPair, caseRule)] = true;
+    } else {
+      fail(kvPair);
     }
-    fail(kvPair);
   }
   return o;
 }

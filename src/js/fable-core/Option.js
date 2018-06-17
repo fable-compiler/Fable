@@ -12,6 +12,7 @@ import { compare, equals, hash, toString } from "./Util";
 
 // export type Option<T> = T | Some<T>;
 
+// Using a class here for better compatibility with TS files importing Some
 export class Some {
     constructor(value) {
         this.value = value;

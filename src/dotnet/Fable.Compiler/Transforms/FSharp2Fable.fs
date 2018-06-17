@@ -531,7 +531,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 let private isImportedOrErasedEntity (ent: FSharpEntity) =
     ent.Attributes |> Seq.exists (fun att ->
         match att.AttributeType.TryFullName with
-        | Some(Atts.global_ | Atts.import | Atts.erase) -> true
+        | Some(Atts.global_ | Atts.import | Atts.erase | Atts.stringEnum) -> true
         | _ -> false)
 
 /// Is compiler generated (CompareTo...) or belongs to ignored entity?
@@ -780,13 +780,18 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
                     (com :> IFableCompiler).AddUsedVarName(name)
                     (makeStrConst selector, makeStrConst path)
                     ||> transformImport None Fable.Any (not ent.Accessibility.IsPrivate) name
-                | None when ent.IsFSharpUnion ->
+                // Discard erased unions and string enums
+                | None when ent.IsFSharpUnion && not (isImportedOrErasedEntity ent) ->
                     let name = getEntityDeclarationName com ent
+                    com.AddUsedVarName(name)
                     // TODO!!! Check ReferenceEquality attribute
                     [Fable.UnionConstructor(name, isPublicEntity ent, ent) |> Fable.ConstructorDeclaration]
+                // We don't import or erase records (only interfaces or classes are importe)
+                // so the `isImportedOrErasedEntity` shouldn't be necessary
                 | None when ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration || ent.IsValueType ->
                     let name = getEntityDeclarationName com ent
-                    // TODO!!! Check ReferenceEquality attribute
+                    com.AddUsedVarName(name)
+                    // TODO!!! Check ReferenceEquality atattribute
                     [Fable.RecordConstructor(name, isPublicEntity ent, ent) |> Fable.ConstructorDeclaration]
                 | None ->
                     transformDeclarationsInner com ctx sub

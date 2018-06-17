@@ -21,7 +21,7 @@ let allTests =
     Event.tests
     HashSets.tests
     Import.tests
-    // JsInterop.tests
+    JsInterop.tests
     Lists.tests
     Maps.tests
     Misc.tests

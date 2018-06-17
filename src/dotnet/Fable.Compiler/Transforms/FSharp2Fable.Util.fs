@@ -394,8 +394,8 @@ module Patterns =
                     | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments))
                     | Some Atts.stringEnum ->
                         match Seq.tryHead att.ConstructorArguments with
-                        | Some(_, (:? CaseRules as rule)) -> Some (StringEnum(tdef, rule))
-                        | _ -> Some (StringEnum(tdef, CaseRules.None))
+                        | Some(_, (:? int as rule)) -> Some (StringEnum(tdef, enum<CaseRules>(rule)))
+                        | _ -> Some (StringEnum(tdef, CaseRules.LowerFirst))
                     | _ -> None)
                 |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
 

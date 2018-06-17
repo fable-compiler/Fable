@@ -297,6 +297,10 @@ module Util =
         | U2.Case1 e -> args, e
         | U2.Case2 e -> args, BlockStatement [ReturnStatement e]
 
+    let getUnionCaseName uci =
+        FSharp2Fable.Helpers.unionCaseCompiledName uci
+        |> Option.defaultValue uci.Name
+
     let getUnionExprTag r expr =
         getExpr r expr (ofString "tag")
 
@@ -450,10 +454,10 @@ module Util =
                                 resolveType genMap knownTypes fi.FieldType)
                         let caseInfo =
                             match fieldTypes with
-                            | [] -> StringLiteral uci.Name :> Expression
+                            | [] -> getUnionCaseName uci |> StringLiteral :> Expression
                             | fieldTypes ->
                                 ArrayExpression [
-                                    StringLiteral uci.Name :> Expression
+                                    getUnionCaseName uci |> StringLiteral :> Expression
                                     ArrayExpression fieldTypes :> Expression
                                 ] :> Expression
                         knownTypes, caseInfo)
@@ -560,10 +564,11 @@ module Util =
             match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
             | Some _ -> Fable.ArrayValues values |> makeTypedArray com ctx Fable.Any
             | None ->
+                let name = getUnionCaseName uci
                 let consRef = entityRef com ctx ent
                 let tag = FSharp2Fable.Helpers.unionCaseTag ent uci
                 let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
-                upcast NewExpression(consRef, (ofInt tag)::(ofString uci.Name)::values)
+                upcast NewExpression(consRef, (ofInt tag)::(ofString name)::values)
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
     let transformObjectExpr (com: IBabelCompiler) ctx members baseCall (boundThis: string option): Expression =
