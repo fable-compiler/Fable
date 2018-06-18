@@ -277,16 +277,10 @@ module private Transforms =
             applyArgs args argExprs body
         | e -> e
 
-    // TODO: Other erasable getters? (List.head, List.item...)
-    let getterBetaReduction (_: ICompiler) = function
-        | Get(Value(NewTuple(exprs,_)), kind, _, _) as e ->
-            match kind with
-            // Don't optimize this, it has to go through the `uncurryFields` transform
-            | TupleGet(_, FunctionType _) -> e
-            | TupleGet(index, _) ->
-                defaultArg (List.tryItem index exprs) e // TODO: Log error if not found
-            | _ -> e
-        | Get(Value(NewOption(Some expr, _)), OptionValue, _, _) -> expr
+    /// Tuples created when pattern matching multiple elements can usually be erased
+    /// after the bingind and lambda beta reduction
+    let tupleBetaReduction (_: ICompiler) = function
+        | Get(Value(NewTuple(exprs,_)), TupleGet(index, _), _, _) -> List.item index exprs
         | e -> e
 
     let bindingBetaReduction (_: ICompiler) e =
@@ -426,25 +420,6 @@ module private Transforms =
         | e -> e
 
     let uncurryReceivedArgs (_: ICompiler) e =
-        match e with
-        | Function(Lambda arg, body, name) ->
-            let args, body = uncurryIdentsAndReplaceInBody [arg] body
-            Function(Lambda (List.head args), body, name)
-        | Function(Delegate args, body, name) ->
-            let args, body = uncurryIdentsAndReplaceInBody args body
-            Function(Delegate args, body, name)
-        | e -> e
-
-    // TODO: More tests about uncurrying fields
-    let uncurryFields (com: ICompiler) e =
-        let uncurryConsArgs args (ent: FSharpEntity) genArgs =
-            let genArgsMap =
-                FSharp2Fable.Util.matchGenericParams genArgs ent.GenericParameters |> Map
-            let argTypes =
-                ent.FSharpFields
-                |> Seq.map (fun fi -> FSharp2Fable.TypeHelpers.makeType com genArgsMap fi.FieldType)
-                |> Seq.toList
-            uncurryArgs com (Some argTypes) args
         let uncurryGetType fieldType returnType =
             match fieldType with
             | FunctionType(LambdaType _, _) ->
@@ -455,18 +430,13 @@ module private Transforms =
                 Option(FunctionType(DelegateType argTypes, retType))
             | _ -> returnType
         match e with
-        | Value(NewRecord(args, ent, genArgs)) ->
-            let args = uncurryConsArgs args ent genArgs
-            Value(NewRecord(args, ent, genArgs))
-        | Value(NewUnion(args, uci, ent, genArgs)) ->
-            let args = uncurryConsArgs args ent genArgs
-            Value(NewUnion(args, uci, ent, genArgs))
-        | Value(NewTuple(args, argTypes)) ->
-            let args = uncurryArgs com (Some argTypes) args
-            Value(NewTuple(args, argTypes))
-        | Set(e, FieldSet(fieldName, fieldType), value, r) ->
-            let value = uncurryArgs com (Some [fieldType])  [value]
-            Set(e, FieldSet(fieldName, fieldType), List.head value, r)
+        | Function(Lambda arg, body, name) ->
+            let args, body = uncurryIdentsAndReplaceInBody [arg] body
+            Function(Lambda (List.head args), body, name)
+        | Function(Delegate args, body, name) ->
+            let args, body = uncurryIdentsAndReplaceInBody args body
+            Function(Delegate args, body, name)
+        // Uncurry also values received from getters
         | Get(e, kind, returnType, r) ->
             let uncurriedType =
                 match kind with
@@ -487,7 +457,16 @@ module private Transforms =
             Let(identsAndValues, body)
         | e -> e
 
-    let uncurrySendingArgs (com: ICompiler) = function
+    let uncurrySendingArgs (com: ICompiler) e =
+        let uncurryConsArgs args (ent: FSharpEntity) genArgs =
+            let genArgsMap =
+                FSharp2Fable.Util.matchGenericParams genArgs ent.GenericParameters |> Map
+            let argTypes =
+                ent.FSharpFields
+                |> Seq.map (fun fi -> FSharp2Fable.TypeHelpers.makeType com genArgsMap fi.FieldType)
+                |> Seq.toList
+            uncurryArgs com (Some argTypes) args
+        match e with
         | Operation(Call(kind, info), t, r) ->
             let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Call(kind, info), t, r)
@@ -497,6 +476,20 @@ module private Transforms =
         | Operation(Emit(macro, Some info), t, r) ->
             let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Emit(macro, Some info), t, r)
+        // Uncurry also values in setters or new record/union/tuple
+        // TODO: Tests for these uncurry operations
+        | Value(NewRecord(args, ent, genArgs)) ->
+            let args = uncurryConsArgs args ent genArgs
+            Value(NewRecord(args, ent, genArgs))
+        | Value(NewUnion(args, uci, ent, genArgs)) ->
+            let args = uncurryConsArgs args ent genArgs
+            Value(NewUnion(args, uci, ent, genArgs))
+        | Value(NewTuple(args, argTypes)) ->
+            let args = uncurryArgs com (Some argTypes) args
+            Value(NewTuple(args, argTypes))
+        | Set(e, FieldSet(fieldName, fieldType), value, r) ->
+            let value = uncurryArgs com (Some [fieldType])  [value]
+            Set(e, FieldSet(fieldName, fieldType), List.head value, r)
         | e -> e
 
     let rec uncurryApplications (com: ICompiler) e =
@@ -539,11 +532,10 @@ let optimizations =
     [ // First apply beta reduction
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
-      fun com e -> visitFromInsideOut (getterBetaReduction com) e
+      fun com e -> visitFromInsideOut (tupleBetaReduction com) e
       // Then apply uncurry optimizations
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
-      fun com e -> visitFromInsideOut (uncurryFields com) e
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
       fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       // Don't traverse the expression for the unwrap function optimization
