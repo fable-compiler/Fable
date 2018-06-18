@@ -1,17 +1,7 @@
-import { compare, compareArrays, equals, equalArrays, hash, numberHash, toString } from "./Util";
+import { combineHashCodes, compare, compareArrays, equals, equalArrays, hash, numberHash, toString } from "./Util";
 
 function sameType(x, y) {
   return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
-}
-
-/**
- * From https://stackoverflow.com/a/37449594
- * @param {number[]} hashes
- */
-function combineHashCodes(hashes) {
-  return hashes.reduce(function(h1, h2) {
-    return ((h1 << 5) + h1) ^ h2;
-  });
 }
 
 // Taken from Babel helpers

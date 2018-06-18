@@ -1,6 +1,3 @@
-// import { setType } from "../Symbol";
-// import _Symbol from "../Symbol";
-// import { Array as FArray } from "../Util";
 import { fromBits, fromNumber, toNumber, add as add_1, mul as mul_1, div as div_1, mod as mod_1, shl as shl_1, and as and_1 } from "../Long";
 import { replicate, initialize } from "../Seq";
 import { computeFftPaddedPolynomialProduct, toInt, mzero, ofInt32 as ofInt32_1, maxBitsInsideFp } from "./FFT";
@@ -12,20 +9,7 @@ export default class BigNat {
     this.bound = bound;
     this.digits = digits;
   }
-
-  // [_Symbol.reflection]() {
-  //   return {
-  //     type: "Microsoft.FSharp.Math.BigNat",
-  //     interfaces: ["FSharpRecord"],
-  //     properties: {
-  //       bound: "number",
-  //       digits: FArray(Int32Array, true),
-  //     },
-  //   };
-  // }
-
 }
-// setType("Microsoft.FSharp.Math.BigNat", BigNat);
 export function bound(n) {
   return n.bound;
 }
@@ -455,25 +439,7 @@ export class Encoding {
     this.split = split;
     this.splits = splits;
   }
-
-  // [_Symbol.reflection]() {
-  //   return {
-  //     type: "Microsoft.FSharp.Math.BigNatModule.Encoding",
-  //     interfaces: ["FSharpRecord"],
-  //     properties: {
-  //       bigL: "number",
-  //       twoToBigL: "number",
-  //       k: "number",
-  //       bigK: "number",
-  //       bigN: "number",
-  //       split: "number",
-  //       splits: Int32Array,
-  //     },
-  //   };
-  // }
-
 }
-// setType("Microsoft.FSharp.Math.BigNatModule.Encoding", Encoding);
 export function mkEncoding(bigL, k, bigK, bigN) {
   return new Encoding(bigL, pow32(2, bigL), k, bigK, bigN, ~~(baseBits / bigL), Int32Array.from(initialize(~~(baseBits / bigL), i => pow32(2, bigL * i))));
 }

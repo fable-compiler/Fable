@@ -3,6 +3,7 @@
 
 /* tslint:disable */
 import { isValid } from "./Int32";
+import { combineHashCodes } from "./Util";
 
 /**
  * wasm optimizations, to do native i64 multiplication and divide
@@ -48,9 +49,13 @@ export default function Long(low, high, unsigned) {
     this.unsigned = !!unsigned;
 }
 
+Long.prototype.GetHashCode = function () {
+    return combineHashCodes([this.unsigned ? 1 : 0, this.high, this.low]);
+}
 Long.prototype.Equals = function (x) { return equals(this, x); }
 Long.prototype.CompareTo = function (x) { return compare(this, x); }
 Long.prototype.toString = function (radix) { return toString(this, radix); }
+Long.prototype.toJSON = function () { return toString(this); }
 
 export const neg = op_UnaryNegation;
 export const not = op_LogicalNot;

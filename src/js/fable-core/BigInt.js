@@ -1,25 +1,11 @@
 // tslint:disable
-// import { setType } from "./Symbol";
-// import _Symbol from "./Symbol";
 import { toString as toString_1 } from "./Util";
 import { factorial as bigNatFactorial, ofString, toFloat, toUInt64 as bigNattoUInt64, toUInt32 as bigNattoUInt32, pow as bigNatPow, two as bigNatTwo, rem, lte, hcf, bitOr, bitAnd, divmod, mul, isOne, sub, gte, scale as bigNatScale, one as bigNatOne, add, ofInt64, toString, hash as bigNatHash, gt, lt, isZero, equal, getSmall, isSmall, ofInt32 } from "./BigInt/BigNat";
-// import BigNat from "./BigInt/BigNat";
 import { initialize } from "./Seq";
 import { fromBits, fromNumber, neg as neg_1, add as add_1, mul as mul_1 } from "./Long";
 import { trim } from "./String";
 
 export default class BigInteger {
-  // [_Symbol.reflection]() {
-  //   return {
-  //     type: "System.Numerics.BigInteger",
-  //     interfaces: ["FSharpRecord", "System.IComparable"],
-  //     properties: {
-  //       signInt: "number",
-  //       v: BigNat,
-  //     },
-  //   };
-  // }
-
   constructor(signInt, v) {
     this.signInt = signInt;
     this.v = v;
@@ -135,10 +121,10 @@ export default class BigInteger {
     return hash(this);
   }
 
-  toJSON = this.toString;
-  static ofJSON = parse;
+  toJSON() {
+    return this.toString();
+  }
 }
-// setType("System.Numerics.BigInteger", BigInteger);
 
 const smallLim = 4096;
 const smallPosTab = Array.from(initialize(smallLim, n => ofInt32(n)));
