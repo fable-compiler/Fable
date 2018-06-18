@@ -65,18 +65,28 @@ type BaseConstructorKind =
 
 type ClassImplicitConstructorInfo =
     { Name: string
+      Entity: FSharpEntity
       EntityName: string
       IsPublic: bool
       HasSpread: bool
       BaseConstructor: BaseConstructorKind
       Arguments: Ident list
-      Body: Expr
-    }
+      Body: Expr }
+
+type UnionConstructorInfo =
+    { Entity: FSharpEntity
+      EntityName: string
+      IsPublic: bool }
+
+type RecordConstructorInfo =
+    { Entity: FSharpEntity
+      EntityName: string
+      IsPublic: bool }
 
 type ConstructorKind =
     | ClassImplicitConstructor of ClassImplicitConstructorInfo
-    | UnionConstructor of name: string * isPublic: bool * FSharpEntity
-    | RecordConstructor of name: string * isPublic: bool * FSharpEntity
+    | UnionConstructor of UnionConstructorInfo
+    | RecordConstructor of RecordConstructorInfo
 
 type OverrideDeclarationInfo =
     { Name: string

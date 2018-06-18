@@ -99,7 +99,7 @@ module Helpers =
             |> addError com r
             Any)
 
-    let hasStructuralComparison (ent: FSharpEntity) =
+    let hasBaseImplemeningBasicMethods (ent: FSharpEntity) =
         ent.IsFSharpRecord || ent.IsFSharpUnion || ent.IsFSharpExceptionDeclaration || ent.IsValueType
 
 open Helpers
@@ -317,7 +317,7 @@ let toString com r (args: Expr list) =
         | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
         | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
-        | DeclaredType(ent,_) when hasStructuralComparison ent ->
+        | DeclaredType(ent,_) when hasBaseImplemeningBasicMethods ent ->
             Helper.InstanceCall(head, "toString", String, [])
         | _ -> Helper.CoreCall("Util", "toString", String, [head])
 
@@ -560,7 +560,7 @@ let isCompatibleWithJsComparison = function
 let hash r (arg: Expr) =
     match arg.Type with
     // Optimization for types already implementing GetHashCode
-    | DeclaredType(ent,_) when hasStructuralComparison ent ->
+    | DeclaredType(ent,_) when hasBaseImplemeningBasicMethods ent ->
         Helper.InstanceCall(arg, "GetHashCode", Number Int32, [], ?loc=r)
     | _ -> Helper.CoreCall("Util", "hash", Number Int32, [arg], ?loc=r)
 
@@ -595,7 +595,7 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     | Tuple _ ->
         Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
 
-    | DeclaredType(ent,_) when hasStructuralComparison ent ->
+    | DeclaredType(ent,_) when hasBaseImplemeningBasicMethods ent ->
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
 
     | _ -> Helper.CoreCall("Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -617,7 +617,7 @@ and compare (com: ICompiler) r (left: Expr) (right: Expr) =
         Helper.CoreCall("Reflection", "compare", Number Int32, [left; right], ?loc=r)
     | Tuple _ ->
         Helper.CoreCall("Util", "compareArrays", Number Int32, [left; right], ?loc=r)
-    | DeclaredType(ent,_) when hasStructuralComparison ent ->
+    | DeclaredType(ent,_) when hasBaseImplemeningBasicMethods ent ->
         Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
     | DeclaredType(ent,_) when FSharp2Fable.Util.hasInterface Types.icomparable ent ->
         Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
@@ -1760,13 +1760,9 @@ let hashSets (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr opti
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Add", Some c, [arg] ->
         Helper.CoreCall("Util", "addToSet", t, [arg; c], ?loc=r) |> Some
-    | ("IsProperSubsetOf" | "IsProperSupersetOf" |
-        "UnionWith" | "IntersectWith" | "ExceptWith" |
-        "IsSubsetOf" | "IsSupersetOf" | "CopyTo" as methName), Some c, args ->
-        let methName =
-            let m = match methName with "ExceptWith" -> "DifferenceWith" | m -> m
-            m.Replace("With", "InPlace")
-        Helper.CoreCall("Set", Naming.lowerFirst methName, t, c::args, ?loc=r) |> Some
+    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" |
+        "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" | "CopyTo"), Some c, args ->
+        Helper.CoreCall("Set", Naming.lowerFirst i.CompiledName, t, c::args, ?loc=r) |> Some
     // TODO
     // | "setEquals"
     // | "overlaps"
@@ -2009,9 +2005,9 @@ let cancels (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option)
     match i.CompiledName with
     | ".ctor" -> Helper.CoreCall("Async", "createCancellationToken", t, args, i.SignatureArgTypes) |> Some
     | "get_Token" -> thisArg
-    | "Cancel" | "CancelAfter" | "IsCancellationRequested" ->
+    | "Cancel" | "CancelAfter" | "get_IsCancellationRequested" ->
         let args, argTypes = match thisArg with Some c -> c::args, c.Type::i.SignatureArgTypes | None -> args, i.SignatureArgTypes
-        Helper.CoreCall("Async", Naming.lowerFirst i.CompiledName, t, args, argTypes, ?loc=r) |> Some
+        Helper.CoreCall("Async", Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst, t, args, argTypes, ?loc=r) |> Some
     // TODO: Add check so CancellationTokenSource cannot be cancelled after disposed?
     | "Dispose" -> Null Type.Unit |> Value |> Some
     | _ -> None
