@@ -170,7 +170,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                                 name, Fable.ObjectMethod hasSpread
                         else
                             name, Fable.ObjectMethod false
-                makeStrConst name, value, kind
+                Fable.ObjectMember(makeStrConst name, value, kind)
             ))
     let objExpr = Fable.ObjectExpr(members, makeType com ctx.GenericArgs objType, baseCall)
     match boundThis with
@@ -765,7 +765,7 @@ let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSh
             elif memb.IsPropertySetterMethod && countNonCurriedParams memb = 1
             then Fable.ObjectSetter
             else hasSeqSpread memb |> Fable.ObjectMethod
-        let objMember = makeStrConst memb.DisplayName, value, kind
+        let objMember = Fable.ObjectMember(makeStrConst memb.DisplayName, value, kind)
         com.AddInterfaceImplementation(memb, objMember)
         []
 

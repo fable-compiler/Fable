@@ -71,7 +71,7 @@ module Helpers =
         Operation(Emit(macro, Some info), t, r)
 
     let objExpr t kvs =
-        let kvs = List.map (fun (k,v) -> makeStrConst k, v, ObjectValue) kvs
+        let kvs = List.map (fun (k,v) -> ObjectMember(makeStrConst k, v, ObjectValue)) kvs
         ObjectExpr(kvs, t, None)
 
     let add left right =
@@ -643,8 +643,9 @@ and makeComparerFunction (com: ICompiler) typArg =
 
 and makeComparer (com: ICompiler) typArg =
     let f = makeComparerFunction com typArg
+    let m = ObjectMember(makeStrConst "Compare", f, ObjectValue)
     // TODO: Use proper IComparer<'T> type instead of Any
-    ObjectExpr([makeStrConst "Compare", f, ObjectValue], Any, None)
+    ObjectExpr([m], Any, None)
 
 let makeEqualityComparer (com: ICompiler) typArg =
     let x = makeTypedIdent typArg "x"
@@ -653,9 +654,9 @@ let makeEqualityComparer (com: ICompiler) typArg =
     let f = Function(Delegate [x; y], body, None)
     // TODO: Use proper IEqualityComparer<'T> type instead of Any
     ObjectExpr
-        ([makeStrConst "Equals", f, ObjectValue
-          makeStrConst "Compare", makeComparerFunction com typArg, ObjectValue
-          makeStrConst "GetHashCode", makeCoreRef Any "hash" "Util", ObjectValue], Any, None)
+        ([ObjectMember(makeStrConst "Equals", f, ObjectValue)
+          ObjectMember(makeStrConst "Compare", makeComparerFunction com typArg, ObjectValue)
+          ObjectMember(makeStrConst "GetHashCode", makeCoreRef Any "hash" "Util", ObjectValue)], Any, None)
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
@@ -716,9 +717,9 @@ let makePojoFromLambda arg =
         (flattenSequential lambdaBody, Some []) ||> List.foldBack (fun statement acc ->
             match acc, statement with
             | Some acc, Set(_, FieldSet(fiName, _), value, _) ->
-                (makeStrConst fiName, value, ObjectValue)::acc |> Some
+                ObjectMember(makeStrConst fiName, value, ObjectValue)::acc |> Some
             | Some acc, Set(_, ExprSet prop, value, _) ->
-                (prop, value, ObjectValue)::acc |> Some
+                ObjectMember(prop, value, ObjectValue)::acc |> Some
             | _ -> None)
     | _ -> None
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
@@ -736,7 +737,7 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
             | [] -> makeBoolConst true
             | [value] -> value
             | values -> Value(NewArray(ArrayValues values, Any))
-        (changeCase caseRule name |> makeStrConst, value, ObjectValue)
+        ObjectMember(changeCase caseRule name |> makeStrConst, value, ObjectValue)
     let caseRule: CaseRules =
         match caseRule with
         | Value(NumberConstant(rule, _))

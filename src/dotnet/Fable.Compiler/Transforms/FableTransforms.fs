@@ -38,7 +38,7 @@ let visit f e =
     | Function(kind, body, name) -> Function(kind, f body, name)
     | ObjectExpr(members, t, baseCall) ->
         let baseCall = Option.map f baseCall
-        let members = members |> List.map (fun (n,v,k) -> n, f v, k)
+        let members = members |> List.map (fun (ObjectMember(k,v,kind)) -> ObjectMember(f k, f v, kind))
         ObjectExpr(members, t, baseCall)
     | Operation(kind, t, r) ->
         match kind with
@@ -130,7 +130,7 @@ let getSubExpressions = function
         | AsPojo(e1, e2) -> [e1; e2]
     | Function(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
-        let members = members |> List.map (fun (_,v,_) -> v)
+        let members = members |> List.collect (fun (ObjectMember(k,v,_)) -> [k;v])
         match baseCall with Some b -> b::members | None -> members
     | Operation(kind, _, _) ->
         match kind with
@@ -507,6 +507,9 @@ module private Transforms =
             | _ -> Operation(CurriedApply(applied, args), t, r) |> Some
         | _ -> None
 
+    // Unwrapping functions (e.g `(x, y) => f(x, y)` --> `f`) is important for readability
+    // and also in some situations, like passing fucntions as props to React components
+    // See https://blog.vbfox.net/2018/02/08/fable-react-2-optimizing-react.html
     let unwrapFunctions (_: ICompiler) e =
         let sameArgs args1 args2 =
             List.sameLength args1 args2
@@ -516,7 +519,11 @@ module private Transforms =
         let unwrapFunctionsInner = function
             // TODO: When Option.isSome info.ThisArg we could bind it (also for InstanceCall)
             | LambdaOrDelegate(args, Operation(Call(StaticCall funcExpr, info), _, _), _)
-                when Option.isNone info.ThisArg && sameArgs args info.Args -> funcExpr
+                when Option.isNone info.ThisArg
+                    // Make sure first argument is not `this`, because it wil be removed
+                    // from args is Fable2Babel.transformObjectExpr (see #1434).
+                    && List.tryHead args |> Option.map (fun x -> x.IsThisArg) |> Option.defaultValue false |> not
+                    && sameArgs args info.Args -> funcExpr
             | e -> e
         match e with
         // We cannot apply the unwrap optimization to the outmost function,
@@ -559,7 +566,8 @@ let rec optimizeDeclaration (com: ICompiler) = function
     | OverrideDeclaration(args, body, info) ->
         OverrideDeclaration(args, optimizeExpr com body, info)
     | InterfaceCastDeclaration(members, info) ->
-        let members = members |> List.map (fun (n,v,k) -> n, optimizeExpr com v, k)
+        let members = members |> List.map (fun (ObjectMember(k,v,kind)) ->
+            ObjectMember(optimizeExpr com k, optimizeExpr com v, kind))
         InterfaceCastDeclaration(members, info)
 
 let optimizeFile (com: ICompiler) (file: File) =

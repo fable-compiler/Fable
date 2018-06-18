@@ -243,7 +243,8 @@ type ObjectMemberKind =
     | ObjectSetter
     | ObjectIterator
 
-type ObjectMember = (* name: *) Expr * (* value: *) Expr * ObjectMemberKind
+type ObjectMember =
+    | ObjectMember of key: Expr * value: Expr * ObjectMemberKind
 
 type DelayedResolutionKind =
     | AsSeqFromList of Expr

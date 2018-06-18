@@ -576,32 +576,32 @@ module Util =
             let args, body = getMemberArgsAndBody com ctx None boundThis args hasSpread body
             ObjectMethod(kind, prop, args, body, computed=computed) |> U3.Case2 |> Some
         let pojo =
-            members |> List.choose (fun (name, expr, kind) ->
+            members |> List.choose (fun (Fable.ObjectMember(key, expr, kind)) ->
                 match kind, expr with
                 | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body, _) ->
                     // Don't call the `makeObjMethod` helper here because function as values don't bind `this` arg
                     let args, body' = getMemberArgsAndBody com ctx None None args false body
-                    let prop, computed = memberFromExpr com ctx name
+                    let prop, computed = memberFromExpr com ctx key
                     ObjectMethod(ObjectMeth, prop, args, body', computed=computed) |> U3.Case2 |> Some
                 | Fable.ObjectValue, TransformExpr com ctx value ->
-                    let prop, computed = memberFromExpr com ctx name
+                    let prop, computed = memberFromExpr com ctx key
                     ObjectProperty(prop, value, computed=computed) |> U3.Case1 |> Some
                 | Fable.ObjectMethod hasSpread, Fable.Function(Fable.Delegate args, body, _) ->
                     let prop, computed =
-                        match name with
+                        match key with
                         // Compile ToString in lower case for compatibity with JS (and debugger tools)
                         | Fable.Value(Fable.StringConstant "ToString") -> memberFromName "toString"
-                        | name -> memberFromExpr com ctx name
+                        | key -> memberFromExpr com ctx key
                     makeObjMethod ObjectMeth prop computed hasSpread args body
                 | Fable.ObjectIterator, Fable.Function(Fable.Delegate args, body, _) ->
                     let prop = get None (Identifier "Symbol") "iterator"
                     Replacements.enumerator2iterator body
                     |> makeObjMethod ObjectMeth prop true false args
                 | Fable.ObjectGetter, Fable.Function(Fable.Delegate args, body, _) ->
-                    let prop, computed = memberFromExpr com ctx name
+                    let prop, computed = memberFromExpr com ctx key
                     makeObjMethod ObjectGetter prop computed false args body
                 | Fable.ObjectSetter, Fable.Function(Fable.Delegate args, body, _) ->
-                    let prop, computed = memberFromExpr com ctx name
+                    let prop, computed = memberFromExpr com ctx key
                     makeObjMethod ObjectSetter prop computed false args body
                 | kind, _ ->
                     sprintf "Object member has kind %A but value is not a function" kind

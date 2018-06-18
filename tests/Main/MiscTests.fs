@@ -286,6 +286,16 @@ let empty<'a> = [Unchecked.defaultof<'a>]
 type IInterface =
   abstract member Member : thing1:string -> thing2:string -> string
 
+type Taster =
+    abstract Starter: float
+    abstract Taste: quality: float * quantity: float -> int
+
+type Eater =
+    abstract Bite: unit -> int
+
+let taste (com: Taster) qlty qty =
+    com.Starter * qlty + qty |> int
+
 module private MyPrivateModule =
     let private bar = "bar"
     let publicFoo() = sprintf "foo %s" bar
@@ -518,6 +528,17 @@ let tests =
     testCase "Inlined object expression doesn't change argument this context" <| fun () -> // See #1291
         let t = TestClass(42)
         t.GetNum() |> equal 46
+
+    testCase "Object expressions don't optimize members away" <| fun () -> // See #1434
+        let o =
+            { new Taster with
+                member __.Starter = 5.5
+                member this.Taste(quality, quantity) =
+                    taste this quality quantity
+              interface Eater with
+                member __.Bite() = 25
+            }
+        o.Taste(4., 6.) |> equal 28
 
     // TODO!!!
     // testCase "Composition with recursive `this` works" <| fun () ->

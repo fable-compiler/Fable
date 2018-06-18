@@ -924,7 +924,8 @@ module Util =
         match typDefAndGenArgs with
         | Some(typDef, genArgs) when typDef.TryFullName = Some Types.typeResolver ->
             let f = Fable.TypeInfo(resolveParamGeneric 0 genArgs, range) |> Fable.Value |> makeDelegate []
-            Fable.ObjectExpr([makeStrConst "ResolveType", f, Fable.ObjectValue], Fable.Any, None)
+            let m = Fable.ObjectMember(makeStrConst "ResolveType", f, Fable.ObjectValue)
+            Fable.ObjectExpr([m], Fable.Any, None)
         | _ ->
             typDefAndGenArgs
             |> Option.bind (fun (x,_) -> x.TryFullName)
