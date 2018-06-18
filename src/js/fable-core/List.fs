@@ -445,3 +445,7 @@ let countBy (projection: 'T->'Key) (xs: 'T list)([<Inject>] eq: IEqualityCompare
     for group in dict do
         result <- (group.Key, group.Value.contents)::result
     result
+
+let skipWhile f = toSeq >> Seq.skipWhile f
+let takeWhile f = toSeq >> Seq.takeWhile f
+let where f = toSeq >> Seq.where f

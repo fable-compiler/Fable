@@ -317,7 +317,7 @@ module Util =
             BinaryExpression(BinaryOrBitwise, e, NumericLiteral(0.)) :> Expression
         | _ -> e
 
-    let makeFunctionExpression name args body: Expression =
+    let makeFunctionExpression name args (body: U2<BlockStatement, Expression>): Expression =
         let id =
             match name with
             | Some name -> Some(Identifier name)
@@ -1273,8 +1273,8 @@ module Util =
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
-    let transformUnionConstructor (com: IBabelCompiler) ctx name isPublic =
-        let consIdent = Identifier name
+    let transformUnionConstructor (com: IBabelCompiler) ctx (info: Fable.UnionConstructorInfo) =
+        let consIdent = Identifier info.EntityName
         let baseRef = coreValue com ctx "Types" "Union"
         let args: Pattern list = [Identifier "tag"; Identifier "name"; RestElement(Identifier "fields")]
         let body =
@@ -1282,14 +1282,13 @@ module Util =
             |> callFunctionWithThisContext baseRef thisIdent |> ExpressionStatement
         [
             FunctionExpression(args, BlockStatement [body])
-                |> declareModuleMember isPublic name false
+                |> declareModuleMember info.IsPublic info.EntityName false
             inherits com ctx (consIdent :> Expression) baseRef
         ]
 
-    let transformRecordConstructor (com: IBabelCompiler) ctx name isPublic
-                                   (ent: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpEntity) =
+    let transformRecordConstructor (com: IBabelCompiler) ctx (info: Fable.RecordConstructorInfo) =
         let makeSetters thisIdent (args: Identifier[]) =
-            ent.FSharpFields
+            info.Entity.FSharpFields
             |> Seq.mapi (fun i fi ->
                 let left = get None thisIdent fi.Name
                 let right =
@@ -1299,18 +1298,18 @@ module Util =
                     else args.[i] :> _
                 assign None left right |> ExpressionStatement :> Statement)
             |> Seq.toList
-        let consIdent = Identifier name
+        let consIdent = Identifier info.EntityName
         let args =
-            [| for i = 1 to ent.FSharpFields.Count do
+            [| for i = 1 to info.Entity.FSharpFields.Count do
                 yield Identifier("arg" + string i) |]
         let bodyStatements, baseRef =
-            if ent.IsFSharpExceptionDeclaration then
+            if info.Entity.IsFSharpExceptionDeclaration then
                 // We need some special operations to inherit from Error, see transformExceptionConstructor
                 let adHocThisIdent = Identifier "this$"
                 let statements =
                     [
                         yield varDeclaration adHocThisIdent false
-                                (callFunctionWithThisContext (Identifier "Error") thisIdent [ofString ent.CompiledName])
+                                (callFunctionWithThisContext (Identifier "Error") thisIdent [ofString info.Entity.CompiledName])
                                 :> Statement
                         yield! makeSetters adHocThisIdent args
                         yield jsObject "setPrototypeOf" [adHocThisIdent; get None consIdent "prototype"]
@@ -1323,7 +1322,7 @@ module Util =
         [
             FunctionExpression([for arg in args do yield arg :> Pattern],
                                BlockStatement bodyStatements)
-                |> declareModuleMember isPublic name false
+                |> declareModuleMember info.IsPublic info.EntityName false
             inherits com ctx (consIdent :> Expression) baseRef
         ]
 
@@ -1394,7 +1393,8 @@ module Util =
                             NewExpression(consIdent, argExprs))
                     )])
         [
-            yield declareModuleMember info.IsPublic info.EntityName false originalCons
+            if not info.Entity.IsValueType then
+                yield declareModuleMember info.IsPublic info.EntityName false originalCons
             match info.BaseConstructor with
             | Fable.NoBaseConstructor -> ()
             | Fable.ExceptionConstructor _ ->
@@ -1441,10 +1441,10 @@ module Util =
                 match kind with
                 | Fable.ClassImplicitConstructor info ->
                     transformImplicitConstructor com ctx info
-                | Fable.UnionConstructor(name, isPublic, _) ->
-                    transformUnionConstructor com ctx name isPublic
-                | Fable.RecordConstructor(name, isPublic, ent) ->
-                    transformRecordConstructor com ctx name isPublic ent
+                | Fable.UnionConstructor info ->
+                    transformUnionConstructor com ctx info
+                | Fable.RecordConstructor info ->
+                    transformRecordConstructor com ctx info
             | Fable.OverrideDeclaration(args, body, info) ->
                 transformOverride com ctx info args body
             | Fable.InterfaceCastDeclaration(members, info) ->
@@ -1489,23 +1489,26 @@ module Util =
                     :> ModuleDeclaration |> U2.Case2 |> Some))
         |> Seq.toList
 
-    let makeCompiler (com: ICompiler) =
-        let getLocalIdent (ctx: Context) (imports: Dictionary<string,Import>) (path: string) (selector: string) =
-            match selector with
-            | "" -> None
-            | "*" | "default" ->
-                let x = path.TrimEnd('/')
-                x.Substring(x.LastIndexOf '/' + 1) |> Some
-            | selector -> Some selector
-            |> Option.map (fun selector ->
-                (selector, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun s ->
-                ctx.File.UsedVarNames.Contains s
-                    || (imports.Values |> Seq.exists (fun i -> i.LocalIdent = Some s))))
+    let getLocalIdent (ctx: Context) (imports: Dictionary<string,Import>) (path: string) (selector: string) =
+        match selector with
+        | "" -> None
+        | "*" | "default" ->
+            let x = path.TrimEnd('/')
+            x.Substring(x.LastIndexOf '/' + 1) |> Some
+        | selector -> Some selector
+        |> Option.map (fun selector ->
+            (selector, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun s ->
+            ctx.File.UsedVarNames.Contains s
+                || (imports.Values |> Seq.exists (fun i -> i.LocalIdent = Some s))))
 
+module Compiler =
+    open Util
+
+    type BabelCompiler (com: ICompiler) =
         let dependencies = HashSet<string>()
         let imports = Dictionary<string,Import>()
 
-        { new IBabelCompiler with
+        interface IBabelCompiler with
             member __.GetImportExpr(ctx, selector, path, kind) =
                 match imports.TryGetValue(path + "::" + selector) with
                 | true, i ->
@@ -1537,6 +1540,7 @@ module Util =
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
             member bcom.TransformObjectExpr(ctx, members, baseCall, boundThis) = transformObjectExpr bcom ctx members baseCall boundThis
             member bcom.TransformImport(ctx, selector, path, kind) = transformImport bcom ctx None (makeStrConst selector) (makeStrConst path) kind
+
         interface ICompiler with
             member __.Options = com.Options
             member __.FableCore = com.FableCore
@@ -1546,10 +1550,8 @@ module Util =
             member __.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
             member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
-        }
 
-module Compiler =
-    open Util
+    let makeCompiler com = new BabelCompiler(com)
 
     let createFacade (sourceFiles: string[]) (facadeFile: string) =
         // Remove signature files so fable-splitter doesn't try to compile them
@@ -1564,7 +1566,7 @@ module Compiler =
     let transformFile (com: ICompiler) (file: Fable.File) =
         try
             // let t = PerfTimer("Fable > Babel")
-            let com = makeCompiler com
+            let com = makeCompiler com :> IBabelCompiler
             let ctx =
               { File = file
                 DecisionTargets = []

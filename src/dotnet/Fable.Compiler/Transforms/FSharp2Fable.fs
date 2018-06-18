@@ -632,6 +632,7 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
         com.AddUsedVarName(entityName)
         let info: Fable.ClassImplicitConstructorInfo =
             { Name = name
+              Entity = ent
               EntityName = entityName
               IsPublic = isPublicMember memb
               HasSpread = hasSeqSpread memb
@@ -800,17 +801,25 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
                     ||> transformImport None Fable.Any (not ent.Accessibility.IsPrivate) name
                 // Discard erased unions and string enums
                 | None when ent.IsFSharpUnion && not (isImportedOrErasedEntity ent) ->
-                    let name = getEntityDeclarationName com ent
-                    com.AddUsedVarName(name)
+                    let entityName = getEntityDeclarationName com ent
+                    com.AddUsedVarName(entityName)
                     // TODO!!! Check ReferenceEquality attribute
-                    [Fable.UnionConstructor(name, isPublicEntity ent, ent) |> Fable.ConstructorDeclaration]
-                // We don't import or erase records (only interfaces or classes are importe)
+                    let info: Fable.UnionConstructorInfo =
+                      { Entity = ent
+                        EntityName = entityName
+                        IsPublic = isPublicEntity ent }
+                    [Fable.UnionConstructor info |> Fable.ConstructorDeclaration]
+                // We don't import or erase records (only interfaces or classes are imported)
                 // so the `isImportedOrErasedEntity` shouldn't be necessary
                 | None when ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration || ent.IsValueType ->
-                    let name = getEntityDeclarationName com ent
-                    com.AddUsedVarName(name)
+                    let entityName = getEntityDeclarationName com ent
+                    com.AddUsedVarName(entityName)
                     // TODO!!! Check ReferenceEquality atattribute
-                    [Fable.RecordConstructor(name, isPublicEntity ent, ent) |> Fable.ConstructorDeclaration]
+                    let info: Fable.RecordConstructorInfo = 
+                      { Entity = ent
+                        EntityName = entityName
+                        IsPublic = isPublicEntity ent }
+                    [Fable.RecordConstructor info |> Fable.ConstructorDeclaration]
                 | None ->
                     transformDeclarationsInner com ctx sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->

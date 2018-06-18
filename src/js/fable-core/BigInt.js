@@ -149,6 +149,9 @@ export const zero = fromInt32(0);
 export const equals = op_Equality;
 export const fromString = parse;
 
+export const get_Zero = fromZero;
+export const get_One = fromOne;
+
 export function fromZero() { return zero; }
 export function fromOne() { return one; }
 

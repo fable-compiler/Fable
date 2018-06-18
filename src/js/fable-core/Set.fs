@@ -644,15 +644,15 @@ let toSeq (s : Set<'T>) =
 let ofSeq (elements : seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
     new Set<_>(comparer, SetTree.ofSeq comparer elements)
 
-let difference (s1: Set<'T>) (s2: Set<'T>) = s1 - s2
+let difference (x: Set<'T>) (y: Set<'T>) = x - y
 
-let isSubset (x:Set<'T>) (y: Set<'T>) = SetTree.subset x.Comparer x.Tree y.Tree
+let isSubset (x:Set<'T>) (y: Set<'T>) = x.IsSubsetOf(y)
 
-let isSuperset (x:Set<'T>) (y: Set<'T>) = SetTree.subset x.Comparer y.Tree x.Tree
+let isSuperset (x:Set<'T>) (y: Set<'T>) = x.IsSupersetOf(y)
 
-let isProperSubset (x:Set<'T>) (y: Set<'T>) = SetTree.psubset x.Comparer x.Tree y.Tree
+let isProperSubset (x:Set<'T>) (y: Set<'T>) = x.IsProperSubsetOf(y)
 
-let isProperSuperset (x:Set<'T>) (y: Set<'T>) = SetTree.psubset x.Comparer y.Tree x.Tree
+let isProperSuperset (x:Set<'T>) (y: Set<'T>) = x.IsProperSupersetOf(y)
 
 let minElement (s : Set<'T>) = s.MinimumElement
 
@@ -700,3 +700,11 @@ let distinct (xs: 'T seq) (comparer: IComparer<'T>): 'T seq =
 
 let distinctBy projection (xs: 'T seq) (comparer: IComparer<'T>): 'T seq =
     createMutable (xs |> Seq.map projection) comparer :> _ seq
+
+let unionWith = union
+let intersectWith = intersect
+let exceptWith = difference
+let isSubsetOf = isSubset
+let isSupersetOf = isSuperset
+let isProperSubsetOf = isProperSubset
+let isProperSupersetOf = isProperSuperset
