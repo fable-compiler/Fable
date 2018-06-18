@@ -232,7 +232,7 @@ export function isArray(x: any) {
 }
 
 export function isIterable(x: any) {
-  return typeof x[Symbol.iterator] === "function";
+  return x != null && typeof x[Symbol.iterator] === "function";
 }
 
 export function isPlainObject(x: any) {

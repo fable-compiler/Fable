@@ -361,7 +361,7 @@ module Util =
             |> getParts parts
         | _ -> "Import expressions only accept string literals" |> addErrorAndReturnNull com r
 
-    let transformDelayedResolution (com: IBabelCompiler) (ctx: Context) kind: Expression =
+    let transformDelayedResolution (com: IBabelCompiler) (ctx: Context) r kind: Expression =
         match kind with
         | Fable.AsSeqFromList expr ->
             match expr with
@@ -369,7 +369,7 @@ module Util =
                 // Use type Any to prevent creation of a typed array
                 makeTypedArray com ctx Fable.Any (Fable.ArrayValues exprs)
             | _ -> com.TransformAsExpr(ctx, expr)
-        | Fable.AsPojo(expr, caseRule) -> com.TransformAsExpr(ctx, Replacements.makePojo caseRule expr)
+        | Fable.AsPojo(expr, caseRule) -> com.TransformAsExpr(ctx, Replacements.makePojo com r caseRule expr)
         | Fable.AsUnit expr -> com.TransformAsExpr(ctx, expr)
 
     let rec hasRecursiveTypes com acc t =
@@ -537,7 +537,7 @@ module Util =
             else upcast NumericLiteral x
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral (source, flags)
         | Fable.NewArray (arrayKind, typ) -> makeTypedArray com ctx typ arrayKind
-        | Fable.NewTuple vals -> makeTypedArray com ctx Fable.Any (Fable.ArrayValues vals)
+        | Fable.NewTuple (vals,_) -> makeTypedArray com ctx Fable.Any (Fable.ArrayValues vals)
         // TODO: Compile as List.ofArray if it's a list literal with many values?
         | Fable.NewList (headAndTail, _) ->
             match headAndTail with
@@ -616,7 +616,7 @@ module Util =
         match args, spread with
         | [], _
         | [Fable.Value Fable.UnitConstant], _ -> []
-        | [Fable.Value(Fable.NewTuple args)], Fable.TupleSpread ->
+        | [Fable.Value(Fable.NewTuple(args,_))], Fable.TupleSpread ->
             List.map (fun e -> com.TransformAsExpr(ctx, e)) args
         | args, Fable.SeqSpread ->
             match List.rev args with
@@ -750,13 +750,13 @@ module Util =
         | Fable.ExprGet(TransformExpr com ctx prop) -> getExpr range expr prop
         | Fable.ListHead -> get range expr "head"
         | Fable.ListTail -> get range expr "tail"
-        | Fable.RecordGet(fi,_) -> get range expr fi.Name
-        | Fable.TupleGet index -> getExpr range expr (ofInt index)
+        | Fable.FieldGet(fieldName,_,_) -> get range expr fieldName
+        | Fable.TupleGet(index,_) -> getExpr range expr (ofInt index)
         | Fable.OptionValue ->
             if mustWrapOption typ
             then coreLibCall com ctx "Option" "value" [expr]
             else expr
-        | Fable.UnionTag _ -> getUnionExprTag range expr
+        | Fable.UnionTag -> getUnionExprTag range expr
         | Fable.UnionField(field, uci, _) ->
             let fieldName = field.Name
             uci.UnionCaseFields
@@ -1008,7 +1008,7 @@ module Util =
 
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
-        | Fable.DelayedResolution(kind, _) -> transformDelayedResolution com ctx kind
+        | Fable.DelayedResolution(kind, _, r) -> transformDelayedResolution com ctx r kind
 
         | Fable.Value kind -> transformValue com ctx kind
 
@@ -1064,8 +1064,8 @@ module Util =
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement list =
         match expr with
-        | Fable.DelayedResolution(kind, t) ->
-            [transformDelayedResolution com ctx kind |> resolveExpr t returnStrategy]
+        | Fable.DelayedResolution(kind, t, r) ->
+            [transformDelayedResolution com ctx r kind |> resolveExpr t returnStrategy]
 
         | Fable.Value kind ->
             [transformValue com ctx kind |> resolveExpr kind.Type returnStrategy]

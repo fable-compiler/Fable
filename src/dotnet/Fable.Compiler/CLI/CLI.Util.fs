@@ -12,11 +12,12 @@ open System.Reflection
 type private TypeInThisAssembly = class end
 
 [<RequireQualifiedAccess>]
-type GlobalParams private (verbose, fableCorePath, workingDir) =
+type GlobalParams private (verbose, fableCorePath, workingDir, replaceFile) =
     static let mutable singleton: GlobalParams option = None
     let mutable _verbose = verbose
     let mutable _fableCorePath = fableCorePath
     let mutable _workingDir = workingDir
+    let mutable _replaceFile = replaceFile
 
     static member Singleton =
         match singleton with
@@ -27,19 +28,21 @@ type GlobalParams private (verbose, fableCorePath, workingDir) =
                 let execDir =
                   typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location
                   |> Path.GetDirectoryName
-                Path.Combine(execDir, "..", "..", "fable-core")        
-            let p = GlobalParams(false, fableCorePath, workingDir)
+                Path.Combine(execDir, "..", "..", "fable-core")
+            let p = GlobalParams(false, fableCorePath, workingDir, None)
             singleton <- Some p
             p
 
     member __.Verbose: bool = _verbose
     member __.FableCorePath: string = _fableCorePath
     member __.WorkingDir: string = _workingDir
+    member __.ReplaceFile: string option = _replaceFile
 
-    member __.SetValues(?verbose, ?fableCorePath, ?workingDir) =
+    member __.SetValues(?verbose, ?fableCorePath, ?workingDir, ?replaceFile) =
         _verbose        <- defaultArg verbose _verbose
         _fableCorePath  <- defaultArg fableCorePath _fableCorePath
         _workingDir     <- defaultArg workingDir _workingDir
+        _replaceFile    <- replaceFile |> Option.orElse _replaceFile
 
 [<RequireQualifiedAccess>]
 module Log =

@@ -133,12 +133,12 @@ type ValueKind =
     | RegexConstant of source: string * flags: RegexFlag list
     | Enum of EnumKind * enumFullName: string
     | NewOption of value: Expr option * Type
-    | NewTuple of Expr list
     | NewArray of NewArrayKind * Type
     | NewList of headAndTail: (Expr * Expr) option * Type
+    | NewTuple of Expr list * genArgs: Type list
     | NewRecord of Expr list * FSharpEntity * genArgs: Type list
-    | NewErasedUnion of Expr * genericArgs: Type list
     | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
+    | NewErasedUnion of Expr * genericArgs: Type list
     member this.Type =
         match this with
         | TypeInfo _ -> MetaType
@@ -156,12 +156,12 @@ type ValueKind =
                 | StringEnum _ -> StringEnumType
             EnumType(kind, fullName)
         | NewOption(_, t) -> Option t
-        | NewTuple exprs -> exprs |> List.map (fun e -> e.Type) |> Tuple
         | NewArray(_, t) -> Array t
         | NewList(_, t) -> List t
+        | NewTuple(_, genArgs) -> Tuple genArgs
         | NewRecord(_, ent, genArgs) -> DeclaredType(ent, genArgs)
-        | NewErasedUnion(_, genArgs) -> ErasedUnion genArgs
         | NewUnion(_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
+        | NewErasedUnion(_, genArgs) -> ErasedUnion genArgs
 
 type LoopKind =
     | While of guard: Expr * body: Expr
@@ -205,13 +205,14 @@ type OperationKind =
 
 type GetKind =
     | ExprGet of Expr
+    // We keep the expected type here for the uncurrying optimization
+    | TupleGet of int * expectedType: Type
+    | FieldGet of string * hasDoubleEvalRisk: bool * expectedType: Type
+    | UnionField of FSharpField * FSharpUnionCase * expectedType: Type
+    | UnionTag
     | ListHead
     | ListTail
     | OptionValue
-    | TupleGet of int
-    | UnionTag of FSharpEntity
-    | UnionField of FSharpField * FSharpUnionCase * FSharpEntity
-    | RecordGet of FSharpField * FSharpEntity
 
 type SetKind =
     | VarSet
@@ -236,14 +237,14 @@ type ObjectMember = (* name: *) Expr * (* value: *) Expr * ObjectMemberKind
 
 type DelayedResolutionKind =
     | AsSeqFromList of Expr
-    | AsPojo of Expr * Core.CaseRules
+    | AsPojo of Expr * caseRules: Expr
     | AsUnit of Expr
 
 type Expr =
     | Value of ValueKind
     | IdentExpr of Ident
     /// Some expressions must be resolved in the last pass for better optimization (e.g. list to seq cast)
-    | DelayedResolution of DelayedResolutionKind * Type
+    | DelayedResolution of DelayedResolutionKind * Type * SourceLocation option
     | Import of selector: Expr * path: Expr * ImportKind * Type * SourceLocation option
 
     | Function of FunctionKind * body: Expr * name: string option
@@ -272,7 +273,7 @@ type Expr =
         | Test _ -> Boolean
         | Value kind -> kind.Type
         | IdentExpr id -> id.Type
-        | Import(_,_,_,t,_) | DelayedResolution(_,t) | ObjectExpr(_,t,_)
+        | Import(_,_,_,t,_) | DelayedResolution(_,t,_) | ObjectExpr(_,t,_)
         | Operation(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | DecisionTreeSuccess(_,_,t) -> t
         | Debugger | Set _ | Loop _ -> Unit
         | Sequential exprs -> (List.last exprs).Type

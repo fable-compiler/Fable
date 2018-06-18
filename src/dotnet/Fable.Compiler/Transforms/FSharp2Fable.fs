@@ -99,8 +99,11 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
             if isInstance && entity.IsFSharpRecord && List.isEmpty args && Option.isSome thisArg then
                 let fieldName = Naming.removeGetSetPrefix traitName
                 entity.FSharpFields |> Seq.tryPick (fun fi ->
-                    if fi.Name = fieldName
-                    then Fable.Get(thisArg.Value, Fable.RecordGet(fi, entity), typ, r) |> Some
+                    if fi.Name = fieldName then
+                        let genArgs = makeGenArgs com ctx.GenericArgs (getGenericArguments t)
+                        let genArgsMap = matchGenericParams genArgs entity.GenericParameters |> Map
+                        let kind = Fable.FieldGet(fi.Name, fi.IsMutable, makeType com genArgsMap fi.FieldType)
+                        Fable.Get(thisArg.Value, kind, typ, r) |> Some
                     else None)
                 |> Option.orElseWith (fun () ->
                     resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args)
@@ -226,7 +229,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let targetType = makeType com ctx.GenericArgs targetType
             match interfaceEntity.TryFullName, inpExpr.Type with
             | Some interfaceFullName, (Fable.DeclaredType(sourceEntity,_)) ->
-                castToInterface com targetType sourceEntity interfaceFullName inpExpr
+                castToInterface com (makeRangeFrom fsExpr) targetType sourceEntity interfaceFullName inpExpr
             | _ -> inpExpr
         | _ -> inpExpr
 
@@ -321,7 +324,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
         let callee = Option.map (transformExpr com ctx) callee
         let args = List.map (transformExpr com ctx) args
-        // TODO: Open issue in FSC repo. When calling module values, fsExpr.Type gives wrong values.
+        // TODO: Check answer to #868 in FSC repo
         let returnType =
             makeType com ctx.GenericArgs <|
                 if isModuleValueForDeclarations memb
@@ -403,14 +406,21 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> entityRef com r calleeType.TypeDefinition
-        if calleeType.HasTypeDefinition && calleeType.TypeDefinition.IsFSharpRecord
-        then Fable.Get(callee, Fable.RecordGet(field, calleeType.TypeDefinition), typ, r)
-        else get r typ callee field.Name
+        let ent = calleeType.TypeDefinition
+        let genArgs = makeGenArgs com ctx.GenericArgs (getGenericArguments calleeType)
+        let genArgsMap = matchGenericParams genArgs ent.GenericParameters |> Map
+        let kind = Fable.FieldGet(field.Name, field.IsMutable, makeType com genArgsMap field.FieldType)
+        Fable.Get(callee, kind, typ, r)
 
-    | BasicPatterns.TupleGet (_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
+    | BasicPatterns.TupleGet(tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
+        let itemType =
+            match makeType com ctx.GenericArgs tupleType with
+            | Fable.Tuple argTypes ->
+                List.tryItem tupleElemIndex argTypes
+                |> Option.defaultWith (fun () -> tupleExpr.Type) // TODO: Log error if not found?
+            | _ -> tupleExpr.Type
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
-        // makeIndexGet r typ tupleExpr tupleElemIndex
-        Fable.Get(tupleExpr, Fable.TupleGet tupleElemIndex, typ, r)
+        Fable.Get(tupleExpr, Fable.TupleGet(tupleElemIndex, itemType), typ, r)
 
     | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, fsType, unionCase, field) ->
         let range = makeRangeFrom fsExpr
@@ -424,9 +434,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | ListUnion t ->
             let kind = if field.Name = "Head" then Fable.ListHead else Fable.ListTail
             Fable.Get(unionExpr, kind, makeType com ctx.GenericArgs t, range)
-        | DiscriminatedUnion(tdef,_) ->
-            let t = makeType com ctx.GenericArgs field.FieldType
-            Fable.Get(unionExpr, Fable.UnionField(field, unionCase, tdef), t, range)
+        | DiscriminatedUnion(ent, genArgs) ->
+            let t = makeType com ctx.GenericArgs fsExpr.Type
+            let genArgs = makeGenArgs com ctx.GenericArgs genArgs
+            let genArgsMap = matchGenericParams genArgs ent.GenericParameters |> Map
+            let kind = Fable.UnionField(field, unionCase, makeType com genArgsMap field.FieldType)
+            Fable.Get(unionExpr, kind, t, range)
 
     | BasicPatterns.FSharpFieldSet(callee, calleeType, field, Transform com ctx value) ->
         let range = makeRangeFrom fsExpr
@@ -435,13 +448,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             | Some (Transform com ctx callee) -> callee
             | None -> entityRef com range calleeType.TypeDefinition
         let ent = calleeType.TypeDefinition
-        let genArgs = makeGenArgs com ctx.GenericArgs calleeType.GenericArguments
+        let genArgs = makeGenArgs com ctx.GenericArgs (getGenericArguments calleeType)
         let genArgsMap = matchGenericParams genArgs ent.GenericParameters |> Map
         Fable.Set(callee, Fable.FieldSet(field.Name, makeType com genArgsMap field.FieldType), value, range)
 
-    | BasicPatterns.UnionCaseTag(Transform com ctx unionExpr, unionType) ->
+    | BasicPatterns.UnionCaseTag(Transform com ctx unionExpr, _unionType) ->
         let range = makeRangeFrom fsExpr
-        Fable.Get(unionExpr, Fable.UnionTag unionType.TypeDefinition, Fable.Any, range)
+        Fable.Get(unionExpr, Fable.UnionTag, Fable.Any, range)
 
     | BasicPatterns.UnionCaseSet (_unionExpr, _type, _case, _caseField, _valueExpr) ->
         "Unexpected UnionCaseSet" |> addErrorAndReturnNull com (makeRangeFrom fsExpr)
@@ -462,8 +475,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.NewArray(FableType com ctx elTyp, arrExprs) ->
         makeArray elTyp (arrExprs |> List.map (transformExpr com ctx))
 
-    | BasicPatterns.NewTuple(_, argExprs) ->
-        argExprs |> List.map (transformExpr com ctx) |> Fable.NewTuple |> Fable.Value
+    | BasicPatterns.NewTuple(tupleType, argExprs) ->
+        let argExprs = List.map (transformExpr com ctx) argExprs
+        let argTypes =
+            match makeType com ctx.GenericArgs tupleType with
+            | Fable.Tuple argTypes -> argTypes
+            | _ -> argExprs |> List.map (fun x -> x.Type) // TODO: Log error?
+        Fable.NewTuple(argExprs, argTypes) |> Fable.Value
 
     | BasicPatterns.ObjectExpr(objType, baseCall, overrides, otherOverrides) ->
         transformObjExpr com ctx objType baseCall overrides otherOverrides
@@ -476,7 +494,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let argExprs = List.map (transformExpr com ctx) argExprs
-        let genArgs = makeGenArgs com ctx.GenericArgs fsType.GenericArguments
+        let genArgs = makeGenArgs com ctx.GenericArgs (getGenericArguments fsType)
         Fable.NewRecord(argExprs, fsType.TypeDefinition, genArgs) |> Fable.Value
 
     | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
@@ -889,8 +907,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             transformExpr this ctx fsExpr
         member this.TryReplace(ctx, r, t, info, thisArg, args) =
             Replacements.tryCall this ctx r t info thisArg args
-        member __.TryReplaceInterfaceCast(t, name, e) =
-            Replacements.tryInterfaceCast t name e
+        member __.TryReplaceInterfaceCast(r, t, name, e) =
+            Replacements.tryInterfaceCast r t name e
         member this.GetInlineExpr(memb) =
             let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
             if fileName <> com.CurrentFile then

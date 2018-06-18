@@ -116,7 +116,10 @@ let setGlobalParams(args: string[]) =
              |> Option.map (fun path ->
                 if path.StartsWith(Literals.FORCE)
                 then path
-                else Fable.Path.normalizeFullPath path)))
+                else Fable.Path.normalizeFullPath path)),
+        ?replaceFile =
+            (tryFindArgValue "--replace-file" args)
+    )
 
 let printHelp() =
     Literals.VERSION |> printfn """Fable F# to JS compiler (%s)

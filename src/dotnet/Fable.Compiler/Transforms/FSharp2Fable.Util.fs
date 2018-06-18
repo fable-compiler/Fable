@@ -39,9 +39,10 @@ type Context =
 type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context * FSharpExpr -> Fable.Expr
-    abstract TryReplace: Context * SourceLocation option * Fable.Type * info: Fable.CallInfo
-        * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
-    abstract TryReplaceInterfaceCast: Fable.Type * interfaceName: string * Fable.Expr -> Fable.Expr option
+    abstract TryReplace: Context * SourceLocation option * Fable.Type *
+        info: Fable.CallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
+    abstract TryReplaceInterfaceCast: SourceLocation option * Fable.Type *
+        interfaceName: string * Fable.Expr -> Fable.Expr option
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract AddUsedVarName: string -> unit
     abstract IsUsedVarName: string -> bool
@@ -66,6 +67,12 @@ module Helpers =
         if ent.IsNamespace
         then match ent.Namespace with Some ns -> ns + "." + ent.CompiledName | None -> ent.CompiledName
         else defaultArg ent.TryFullName ent.CompiledName
+
+    let getGenericArguments (t: FSharpType) =
+        // Accessing .GenericArguments for a generic parameter will fail
+        if t.IsGenericParameter
+        then [||] :> IList<_>
+        else (nonAbbreviatedType t).GenericArguments
 
     let tryGetEntityLocation (ent: FSharpEntity) =
         // Make sure the type doesn't come from a referenced assembly
@@ -751,11 +758,11 @@ module Util =
     let memberRef (com: IFableCompiler) r (memb: FSharpMemberOrFunctionOrValue) =
         memberRefTyped com r Fable.Any memb
 
-    let castToInterface (com: IFableCompiler) t (sourceEntity: FSharpEntity) interfaceFullName expr =
+    let castToInterface (com: IFableCompiler) r t (sourceEntity: FSharpEntity) interfaceFullName expr =
         if sourceEntity.IsInterface
         then expr
         else
-          match com.TryReplaceInterfaceCast(t, interfaceFullName, expr) with
+          match com.TryReplaceInterfaceCast(r, t, interfaceFullName, expr) with
           | Some expr -> expr
           | None ->
             sourceEntity.DeclaredInterfaces
@@ -785,7 +792,7 @@ module Util =
                 // `let foo (x: 'T when 'T :> IDisposable) = x.Dispose()`
                 match callee.Type with
                 | Fable.DeclaredType(original, _) when entity.IsInterface && not original.IsInterface ->
-                    castToInterface com typ original entity.FullName callee
+                    castToInterface com r typ original entity.FullName callee
                 | _ -> callee
             | None ->
                 sprintf "Unexpected static interface/override call: %s" memb.FullName
@@ -796,7 +803,9 @@ module Util =
             let t = memb.CurriedParameterGroups.[0].[0].Type
             Fable.Set(callee, Fable.FieldSet(name, makeType com (Map genArgs.Value) t), arg, r)
         | _ when memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0 ->
-            get r typ callee name
+            let t = memb.ReturnParameter.Type
+            let kind = Fable.FieldGet(name, true, makeType com (Map genArgs.Value) t)
+            Fable.Get(callee, kind, typ, r)
         | _ ->
             let argInfo = { argInfo with ThisArg = Some callee }
             makeStrConst name |> Some |> instanceCall r typ argInfo

@@ -15,7 +15,7 @@ let visit f e =
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ | Enum _ -> e
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> Value
-        | NewTuple exprs -> NewTuple(List.map f exprs) |> Value
+        | NewTuple(exprs, genArgs) -> NewTuple(List.map f exprs, genArgs) |> Value
         | NewArray(kind, t) ->
             match kind with
             | ArrayValues exprs -> NewArray(ArrayValues(List.map f exprs), t) |> Value
@@ -30,11 +30,11 @@ let visit f e =
         | NewUnion(exprs, uci, ent, genArgs) ->
             NewUnion(List.map f exprs, uci, ent, genArgs) |> Value
     | Test(e, kind, r) -> Test(f e, kind, r)
-    | DelayedResolution(kind, t) ->
+    | DelayedResolution(kind, t, r) ->
         match kind with
-        | AsSeqFromList e -> DelayedResolution(AsSeqFromList(f e), t)
-        | AsPojo(e, r) -> DelayedResolution(AsPojo(f e, r), t)
-        | AsUnit e -> DelayedResolution(AsUnit(f e), t)
+        | AsSeqFromList e -> DelayedResolution(AsSeqFromList(f e), t, r)
+        | AsPojo(e1, e2) -> DelayedResolution(AsPojo(f e1, f e2), t, r)
+        | AsUnit e -> DelayedResolution(AsUnit(f e), t, r)
     | Function(kind, body, name) -> Function(kind, f body, name)
     | ObjectExpr(members, t, baseCall) ->
         let baseCall = Option.map f baseCall
@@ -66,8 +66,8 @@ let visit f e =
             Operation(LogicalOperation(op, f left, f right), t, r)
     | Get(e, kind, t, r) ->
         match kind with
-        | ListHead | ListTail | OptionValue | TupleGet _ | UnionTag _
-        | UnionField _ | RecordGet _ -> Get(f e, kind, t, r)
+        | ListHead | ListTail | OptionValue | TupleGet _ | UnionTag
+        | UnionField _ | FieldGet _ -> Get(f e, kind, t, r)
         | ExprGet e2 -> Get(f e, ExprGet (f e2), t, r)
     | Throw(e, typ, r) -> Throw(f e, typ, r)
     | Sequential exprs -> Sequential(List.map f exprs)
@@ -113,7 +113,7 @@ let getSubExpressions = function
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ | Enum _ -> []
         | NewOption(e, _) -> Option.toList e
-        | NewTuple exprs -> exprs
+        | NewTuple(exprs, _) -> exprs
         | NewArray(kind, _) ->
             match kind with
             | ArrayValues exprs -> exprs
@@ -124,11 +124,10 @@ let getSubExpressions = function
         | NewErasedUnion(e, _) -> [e]
         | NewUnion(exprs, _, _, _) -> exprs
     | Test(e, _, _) -> [e]
-    | DelayedResolution(kind, _) ->
+    | DelayedResolution(kind, _, _) ->
         match kind with
-        | AsSeqFromList e
-        | AsPojo(e,_)
-        | AsUnit e -> [e]
+        | AsSeqFromList e | AsUnit e -> [e]
+        | AsPojo(e1, e2) -> [e1; e2]
     | Function(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
         let members = members |> List.map (fun (_,v,_) -> v)
@@ -150,8 +149,8 @@ let getSubExpressions = function
         | LogicalOperation(_, left, right) -> [left; right]
     | Get(e, kind, _, _) ->
         match kind with
-        | ListHead | ListTail | OptionValue | TupleGet _ | UnionTag _
-        | UnionField _ | RecordGet _ -> [e]
+        | ListHead | ListTail | OptionValue | TupleGet _ | UnionTag
+        | UnionField _ | FieldGet _ -> [e]
         | ExprGet e2 -> [e; e2]
     | Throw(e, _, _) -> [e]
     | Sequential exprs -> exprs
@@ -280,7 +279,13 @@ module private Transforms =
 
     // TODO: Other erasable getters? (List.head, List.item...)
     let getterBetaReduction (_: ICompiler) = function
-        | Get(Value(NewTuple exprs), TupleGet index, _, _) -> List.item index exprs
+        | Get(Value(NewTuple(exprs,_)), kind, _, _) as e ->
+            match kind with
+            // Don't optimize this, it has to go through the `uncurryFields` transform
+            | TupleGet(_, FunctionType _) -> e
+            | TupleGet(index, _) ->
+                defaultArg (List.tryItem index exprs) e // TODO: Log error if not found
+            | _ -> e
         | Get(Value(NewOption(Some expr, _)), OptionValue, _, _) -> expr
         | e -> e
 
@@ -430,41 +435,52 @@ module private Transforms =
             Function(Delegate args, body, name)
         | e -> e
 
-    // TODO: More tests about uncurrying record fields
-    // TODO!!! Also NewUnion/UnionField
-    let uncurryFields (com: ICompiler) = function
-        | Value(NewRecord(args, ent, genArgs)) ->
+    // TODO: More tests about uncurrying fields
+    let uncurryFields (com: ICompiler) e =
+        let uncurryConsArgs args (ent: FSharpEntity) genArgs =
             let genArgsMap =
-                FSharp2Fable.Util.matchGenericParams genArgs ent.GenericParameters
-                |> Map
+                FSharp2Fable.Util.matchGenericParams genArgs ent.GenericParameters |> Map
             let argTypes =
                 ent.FSharpFields
                 |> Seq.map (fun fi -> FSharp2Fable.TypeHelpers.makeType com genArgsMap fi.FieldType)
                 |> Seq.toList
-            let args = uncurryArgs com (Some argTypes)  args
+            uncurryArgs com (Some argTypes) args
+        let uncurryGetType fieldType returnType =
+            match fieldType with
+            | FunctionType(LambdaType _, _) ->
+                let argTypes, retType = uncurryLambdaType fieldType
+                FunctionType(DelegateType argTypes, retType)
+            | Option(FunctionType(LambdaType _, _) as t) ->
+                let argTypes, retType = uncurryLambdaType t
+                Option(FunctionType(DelegateType argTypes, retType))
+            | _ -> returnType
+        match e with
+        | Value(NewRecord(args, ent, genArgs)) ->
+            let args = uncurryConsArgs args ent genArgs
             Value(NewRecord(args, ent, genArgs))
+        | Value(NewUnion(args, uci, ent, genArgs)) ->
+            let args = uncurryConsArgs args ent genArgs
+            Value(NewUnion(args, uci, ent, genArgs))
+        | Value(NewTuple(args, argTypes)) ->
+            let args = uncurryArgs com (Some argTypes) args
+            Value(NewTuple(args, argTypes))
         | Set(e, FieldSet(fieldName, fieldType), value, r) ->
             let value = uncurryArgs com (Some [fieldType])  [value]
             Set(e, FieldSet(fieldName, fieldType), List.head value, r)
-        // TODO!!! Add FieldGet to get also the type of interface getters
-        // (e.g. type IFoo = abstract member handler: (int->int->unit) with get, set)
-        | Get(e, RecordGet(fi, ent), t, r) ->
+        | Get(e, kind, returnType, r) ->
             let uncurriedType =
-                match t with
-                | FunctionType(LambdaType _, _) ->
-                    let argTypes, retType = uncurryLambdaType t
-                    FunctionType(DelegateType argTypes, retType)
-                | Option(FunctionType(LambdaType _, _) as t) ->
-                    let argTypes, retType = uncurryLambdaType t
-                    Option(FunctionType(DelegateType argTypes, retType))
-                | _ -> t
-            Get(e, RecordGet(fi, ent), uncurriedType, r)
-        // If a record function is assigned to a value, just curry it to prevent issues
+                match kind with
+                | FieldGet(_,_,fieldType)
+                | TupleGet(_,fieldType)
+                | UnionField(_,_,fieldType) -> uncurryGetType fieldType returnType
+                | _ -> returnType
+            Get(e, kind, uncurriedType, r)
+        // If a field function is assigned to a value, just curry it to prevent issues
         | Let(identsAndValues, body) ->
             let identsAndValues =
                 identsAndValues |> List.map (fun (ident, value) ->
                     match ident.Type, value with
-                    | FunctionType(LambdaType _, _) as t, Get(_, RecordGet _, FunctionType(DelegateType delArgTypes, _), _)
+                    | FunctionType(LambdaType _, _) as t, Get(_, (FieldGet _| TupleGet _| UnionField _), FunctionType(DelegateType delArgTypes, _), _)
                         when List.isMultiple delArgTypes ->
                             ident, Replacements.curryExprAtRuntime t (List.length delArgTypes) value
                     | _ -> ident, value)

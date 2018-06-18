@@ -145,7 +145,7 @@ let (|Integer|Float|) = function
 let (|Nameof|_|) = function
     | IdentExpr ident -> Some ident.Name
     | Get(_, ExprGet(Value(StringConstant prop)), _, _) -> Some prop
-    | Get(_, RecordGet(fi, _), _, _) -> Some fi.Name
+    | Get(_, FieldGet(fi,_,_), _, _) -> Some fi
     | _ -> None
 
 let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
@@ -475,9 +475,9 @@ let stringToCharArray t e =
 let enumerator2iterator (e: Expr) =
     Helper.CoreCall("Seq", "toIterator", e.Type, [e])
 
-let toSeq t (e: Expr) =
+let toSeq r t (e: Expr) =
     match e.Type with
-    | List _ -> DelayedResolution(AsSeqFromList e, t)
+    | List _ -> DelayedResolution(AsSeqFromList e, t, r)
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
     // TODO: Add a runtime check for strings in case of generics?
@@ -727,20 +727,38 @@ let changeCase caseRule name =
     | CaseRules.LowerFirst -> Naming.lowerFirst name
     | CaseRules.None | _ -> name
 
-let makePojo caseRule keyValueList =
+let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
+    let makeObjMember caseRule name values =
+        let value =
+            match values with
+            | [] -> makeBoolConst true
+            | [value] -> value
+            | values -> Value(NewArray(ArrayValues values, Any))
+        (changeCase caseRule name |> makeStrConst, value, ObjectValue)
+    let caseRule: CaseRules =
+        match caseRule with
+        | Value(NumberConstant(rule, _))
+        | Value(Enum(NumberEnum(Value(NumberConstant(rule, _))), _)) -> enum(int rule)
+        | _ -> addError com r "Cannot infer case rule, using None"; CaseRules.None
     match keyValueList with
     // It should be an array because the list is casted to seq, but check also list just in case
     | Value(NewArray(ArrayValues ms, _))
     | ListLiteral(ms, _) ->
         (ms, Some []) ||> List.foldBack (fun m acc ->
-            match acc, m, caseRule with
-            // For tuple literals, we can the member key and value at compile time (try to uncurry lambda values)
-            | Some acc, Value(NewTuple [Value(StringConstant name); MaybeLambdaUncurriedAtCompileTime value]), _ ->
-                (changeCase caseRule name |> makeStrConst, value, ObjectValue)::acc |> Some
-            // If it's not a string literal, try to optimize only if caseRule is None,
-            // because in other case we have to calculate it at runtime
-            | Some acc, Value(NewTuple [name; MaybeLambdaUncurriedAtCompileTime value]), CaseRules.None ->
-                (name, value, ObjectValue)::acc |> Some
+            match acc, m with
+            // Try to get the member key and value at compile time for unions and tuples
+            | Some acc, Value(NewUnion(values, uci, _, _)) ->
+                // Union cases with EraseAttribute are used for `Custom`-like cases
+                match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
+                | Some _ ->
+                    match values with
+                    | (Value(StringConstant name))::values -> makeObjMember caseRule name values::acc |> Some
+                    | _ -> None
+                | None ->
+                    let name = defaultArg (FSharp2Fable.Helpers.unionCaseCompiledName uci) uci.Name
+                    makeObjMember caseRule name values::acc |> Some
+            | Some acc, Value(NewTuple((Value(StringConstant name))::values,_)) ->
+                makeObjMember caseRule name values::acc |> Some
             | _ -> None)
     | _ -> None
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
@@ -799,17 +817,11 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         then constructorCall r t argInfo callee |> Some
         else staticCall r t argInfo callee |> Some
     | "op_EqualsEqualsGreater", _ ->
-        NewTuple args |> Value |> Some
+        NewTuple(args, args |> List.map (fun x -> x.Type)) |> Value |> Some
     | "createObj", [kvs] ->
-        DelayedResolution(AsPojo(kvs, CaseRules.None), t) |> Some
-     | "keyValueList", _ ->
-        match args with
-        | [Value(Enum(NumberEnum(Value(NumberConstant(rule, _))), _)); keyValueList] ->
-            let caseRule: Fable.Core.CaseRules = enum (int rule)
-            DelayedResolution(AsPojo(keyValueList, caseRule), t) |> Some
-        | [caseRule; keyValueList] ->
-            Helper.CoreCall("Util", "createObj", t, [keyValueList; caseRule], ?loc=r) |> Some
-        | _ -> None
+        DelayedResolution(AsPojo(kvs, (CaseRules.None |> int |> makeIntConst)), t, r) |> Some
+     | "keyValueList", [caseRule; keyValueList] ->
+            DelayedResolution(AsPojo(keyValueList, caseRule), t, r) |> Some
     | "jsOptions", [arg] ->
         makePojoFromLambda arg |> Some
     | "jsThis", _ ->
@@ -916,7 +928,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), _ -> List.tryHead args
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", [arg]  -> DelayedResolution(AsUnit arg, t) |> Some
+    | "Ignore", [arg]  -> DelayedResolution(AsUnit arg, t, r) |> Some
     // TODO: Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"), _ ->
         toInt false t args |> Some
@@ -924,7 +936,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         toFloat t args |> Some
     | "ToChar", _ -> toChar args.Head |> Some
     | "ToString", _ -> toString com r args |> Some
-    | "CreateSequence", [xs] -> toSeq t xs |> Some
+    | "CreateSequence", [xs] -> toSeq r t xs |> Some
     | "CreateDictionary", [arg] -> makeDictionary com r t arg |> Some
     | "CreateSet", _ -> (genArg com r 0 i.GenericArgs) |> makeSet com r t "OfSeq" args |> Some
     // Ranges
@@ -993,11 +1005,18 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.GlobalIdent("Number", "POSITIVE_INFINITY", t, ?loc=r) |> Some
     | ("NaN"|"NaNSingle"), _ ->
         Helper.GlobalIdent("Number", "NaN", t, ?loc=r) |> Some
-    // TODO: Move these optimizations to special pass and check side effects
-    // | "Fst", [Value(NewTuple(fst::_))] -> Some fst
-    // | "Snd", [Value(NewTuple(_::snd::_))] -> Some snd
-    | "Fst", [tup] -> Get(tup, TupleGet 0, t, r) |> Some
-    | "Snd", [tup] -> Get(tup, TupleGet 1, t, r) |> Some
+    | "Fst", [tup] ->
+        let itemType =
+            match tup.Type with
+            | Tuple ts -> defaultArg (List.tryItem 0 ts) t
+            | _ -> t
+        Get(tup, TupleGet(0, itemType), t, r) |> Some
+    | "Snd", [tup] ->
+        let itemType =
+            match tup.Type with
+            | Tuple ts -> defaultArg (List.tryItem 1 ts) t
+            | _ -> t
+        Get(tup, TupleGet(1, itemType), t, r) |> Some
     // Reference
     | "op_Dereference", [arg] -> getReference r t arg  |> Some
     | "op_ColonEquals", [o; v] -> setReference r o v |> Some
@@ -1174,7 +1193,7 @@ let stringModule (_: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) 
         Helper.CoreCall("String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let getEnumerator r t expr =
-    Helper.CoreCall("Seq", "getEnumerator", t, [toSeq Any expr], ?loc=r)
+    Helper.CoreCall("Seq", "getEnumerator", t, [toSeq r Any expr], ?loc=r)
 
 let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let sort r returnType descending projector args genArg =
@@ -1198,7 +1217,7 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
     | ("Cache"|"ToArray"), [arg] -> toArray com t arg |> Some
-    | "OfList", [arg] -> toSeq t arg |> Some
+    | "OfList", [arg] -> toSeq r t arg |> Some
     | "ToList", _ -> Helper.CoreCall("List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ChunkBySize" | "Permute" as meth, [arg1; arg2] ->
         let arg2 = toArray com (Array Any) arg2
@@ -1213,7 +1232,7 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     | "EnumerateUsing", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.idisposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com r t ent Types.idisposable arg
             | _ -> arg
         Helper.CoreCall("Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Sort" | "SortDescending" as m), args ->
@@ -1373,7 +1392,7 @@ let listModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr 
         NewList(Some(x, Value(NewList(None, t))), (genArg com r 0 i.GenericArgs)) |> Value |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
-    | [x], "ToSeq" -> toSeq t x |> Some
+    | [x], "ToSeq" -> toSeq r t x |> Some
     | [x], "ToArray" -> listToArray com r t x |> Some
     | _, meth ->
         let meth = Naming.lowerFirst meth
@@ -1611,7 +1630,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         | DeclaredType(sourceEntity, _), DeclaredType(targetEntity, _) ->
             match targetEntity.TryFullName with
             | Some Types.idisposable ->
-                FSharp2Fable.Util.castToInterface com t sourceEntity Types.idisposable arg |> Some
+                FSharp2Fable.Util.castToInterface com r t sourceEntity Types.idisposable arg |> Some
             | _ -> Some arg
         | _ -> Some arg
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
@@ -1661,11 +1680,11 @@ let funcs (_: ICompiler) (_: Context) r t (i: CallInfo) thisArg args =
         Helper.Application(callee, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
-let keyValuePairs (_: ICompiler) (_: Context) r t (i: CallInfo) thisArg args =
+let keyValuePairs (com: ICompiler) (_: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Value(NewTuple args) |> Some
-    | "get_Key", Some c -> Get(c, TupleGet 0, t, r) |> Some
-    | "get_Value", Some c -> Get(c, TupleGet 1, t, r) |> Some
+    | ".ctor", _ -> Value(NewTuple(args, i.GenericArgs |> List.map snd)) |> Some
+    | "get_Key", Some c -> Get(c, TupleGet(0, genArg com r 0 i.GenericArgs), t, r) |> Some
+    | "get_Value", Some c -> Get(c, TupleGet(1, genArg com r 1 i.GenericArgs), t, r) |> Some
     | _ -> None
 
 let dictionaries (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2090,7 +2109,7 @@ let asyncBuilder (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | Some x, "Using", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com t ent Types.idisposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com r t ent Types.idisposable arg
             | _ -> arg
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2273,6 +2292,8 @@ let getUncurriedArity (e: Expr) =
     | _ -> None
 
 let uncurryExpr argsAndRetTypes expr =
+    // TODO!!! When we don't have a expected arity,
+    // should we take it from the type of the expression?
     let arity =
         argsAndRetTypes
         |> Option.map (fst >> List.length >> (max 1))
@@ -2288,11 +2309,11 @@ let uncurryExpr argsAndRetTypes expr =
             Helper.CoreCall("Util", "uncurry", t, [makeIntConst arity; expr])
     | _, None -> expr
 
-let tryInterfaceCast t interfaceName (e: Expr) =
+let tryInterfaceCast r t interfaceName (e: Expr) =
     match interfaceName, e.Type with
     // CompareTo method is attached to prototype
     | Types.icomparable, _ -> Some e
-    | Types.enumerable, _ -> toSeq t e |> Some
+    | Types.enumerable, _ -> toSeq r t e |> Some
     // These types in fable-core (or native JS) have methods attached to prototype
     | _, Builtin(BclTimeSpan | BclTimer | BclHashSet _ | BclDictionary _) -> Some e
     | _ -> None

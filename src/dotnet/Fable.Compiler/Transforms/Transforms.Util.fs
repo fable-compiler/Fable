@@ -58,13 +58,13 @@ module AST =
         | Value(This _) -> true
         | IdentExpr id -> id.IsMutable
         | Value(Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _ | Enum _) -> false
-        | Value(NewTuple exprs) -> exprs |> List.exists hasDoubleEvalRisk
+        | Value(NewTuple(exprs,_)) -> exprs |> List.exists hasDoubleEvalRisk
         | Get(_,kind,_,_) ->
             match kind with
             // OptionValue has a runtime check
             | ListHead | ListTail | TupleGet _
-            | UnionTag _ | UnionField _ -> false
-            | RecordGet(fi,_) -> fi.IsMutable
+            | UnionTag | UnionField _ -> false
+            | FieldGet(_,hasDoubleEvalRisk,_) -> hasDoubleEvalRisk
             | _ -> true
         | _ -> true
 
