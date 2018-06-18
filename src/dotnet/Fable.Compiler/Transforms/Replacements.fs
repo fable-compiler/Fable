@@ -99,7 +99,9 @@ module Helpers =
             |> addError com r
             Any)
 
-    let hasBaseImplemeningBasicMethods (ent: FSharpEntity) =
+    /// Records, unions and F# exceptions (value types are assimilated into records) will have a base
+    /// implementing basic methods: toString, toJSON, GetHashCode, Equals, CompareTo. See fable-core/Types
+    let hasBaseImplementingBasicMethods (ent: FSharpEntity) =
         ent.IsFSharpRecord || ent.IsFSharpUnion || ent.IsFSharpExceptionDeclaration || ent.IsValueType
 
 open Helpers
@@ -317,7 +319,7 @@ let toString com r (args: Expr list) =
         | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
         | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
-        | DeclaredType(ent,_) when hasBaseImplemeningBasicMethods ent ->
+        | DeclaredType(ent,_) when hasBaseImplementingBasicMethods ent ->
             Helper.InstanceCall(head, "toString", String, [])
         | _ -> Helper.CoreCall("Util", "toString", String, [head])
 
@@ -560,7 +562,7 @@ let isCompatibleWithJsComparison = function
 let hash r (arg: Expr) =
     match arg.Type with
     // Optimization for types already implementing GetHashCode
-    | DeclaredType(ent,_) when hasBaseImplemeningBasicMethods ent ->
+    | DeclaredType(ent,_) when hasBaseImplementingBasicMethods ent ->
         Helper.InstanceCall(arg, "GetHashCode", Number Int32, [], ?loc=r)
     | _ -> Helper.CoreCall("Util", "hash", Number Int32, [arg], ?loc=r)
 
@@ -595,7 +597,7 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     | Tuple _ ->
         Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
 
-    | DeclaredType(ent,_) when hasBaseImplemeningBasicMethods ent ->
+    | DeclaredType(ent,_) when hasBaseImplementingBasicMethods ent ->
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
 
     | _ -> Helper.CoreCall("Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -617,7 +619,7 @@ and compare (com: ICompiler) r (left: Expr) (right: Expr) =
         Helper.CoreCall("Reflection", "compare", Number Int32, [left; right], ?loc=r)
     | Tuple _ ->
         Helper.CoreCall("Util", "compareArrays", Number Int32, [left; right], ?loc=r)
-    | DeclaredType(ent,_) when hasBaseImplemeningBasicMethods ent ->
+    | DeclaredType(ent,_) when hasBaseImplementingBasicMethods ent ->
         Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
     | DeclaredType(ent,_) when FSharp2Fable.Util.hasInterface Types.icomparable ent ->
         Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
@@ -701,7 +703,7 @@ let getZero (com: ICompiler) (t: Type) =
 
 let getOne (com: ICompiler) (t: Type) =
     match t with
-    // TODO: Calls to custom Zero implementation
+    // TODO: Calls to custom One implementation
     | _ -> makeIntConst 1
 
 let makePojoFromLambda arg =

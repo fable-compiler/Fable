@@ -810,12 +810,12 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
                         IsPublic = isPublicEntity ent }
                     [Fable.UnionConstructor info |> Fable.ConstructorDeclaration]
                 // We don't import or erase records (only interfaces or classes are imported)
-                // so the `isImportedOrErasedEntity` shouldn't be necessary
+                // so the `isImportedOrErasedEntity` check shouldn't be necessary
                 | None when ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration || ent.IsValueType ->
                     let entityName = getEntityDeclarationName com ent
                     com.AddUsedVarName(entityName)
                     // TODO!!! Check ReferenceEquality atattribute
-                    let info: Fable.RecordConstructorInfo = 
+                    let info: Fable.RecordConstructorInfo =
                       { Entity = ent
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
