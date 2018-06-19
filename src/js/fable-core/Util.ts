@@ -215,6 +215,7 @@ function hashPrivate(x: any, identity?: boolean): number {
 
 // From https://stackoverflow.com/a/37449594
 export function combineHashCodes(hashes: number[]) {
+  if (hashes.length === 0) { return 0; }
   return hashes.reduce((h1, h2) => {
     return ((h1 << 5) + h1) ^ h2;
   });
