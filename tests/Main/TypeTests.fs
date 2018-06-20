@@ -129,11 +129,12 @@ type IFoo =
 
 let mangleFoo(x: IFoo) = x.Foo()
 
-type FooImplementor() =
+type FooImplementor(i: int) =
     let mutable mut1 = 0
     let mutable mut2 = 5
+    new () = FooImplementor(1)
 
-    member x.Foo() = "foo"
+    member x.Foo() = String.replicate i "foo"
     member x.Bar = "he"
     member x.MySetter with get() = mut1 and set(v) = mut1 <- v + 2
 
@@ -141,6 +142,9 @@ type FooImplementor() =
         member x.Foo() = x.Foo() + "bar"
         member x.Bar = x.Bar + "ho"
         member x.MySetter with get() = mut1 + mut2 and set(v) = mut2 <- v + 3
+
+type FooImplementorChild() =
+    inherit FooImplementor(3)
 
 [<AbstractClass>]
 type AbstractFoo() =
@@ -472,6 +476,12 @@ let tests =
         (foo :> IFoo).Foo() |> equal "foobar"
         mangleFoo foo |> equal "foobar"
 
+    testCase "A child can be casted to parent's interface" <| fun () ->
+        let foo = FooImplementorChild()
+        foo.Foo() |> equal "foofoofoo"
+        (foo :> IFoo).Foo() |> equal "foofoofoobar"
+        mangleFoo foo |> equal "foofoofoobar"
+
     testCase "A type can overload an interface getter" <| fun () ->
         let foo = FooImplementor()
         foo.Bar |> equal "he"
@@ -505,25 +515,29 @@ let tests =
         test.foo |> equal "foo"
         let test2 = ValueType2(3, 4)
         test2.Value |> equal 7
+        let test3 = ValueType2(3, 4)
+        test2 = test3 |> equal true
         let p = Point2D(2.)
         p.Y |> equal 2.
+        let p2 = Point2D(2.)
+        equal p p2
 
     testCase "Custom F# exceptions work" <| fun () ->
         try
             MyEx(4,"ERROR") |> raise
         with
-        | MyEx(4, msg) -> msg + "!!"
-        | MyEx(_, msg) -> msg + "??"
-        | ex -> "unknown"
-        |> equal "ERROR!!"
+        | MyEx(4, msg) as e -> (box e :? Exception, msg + "!!")
+        | MyEx(_, msg) as e -> (box e :? Exception, msg + "??")
+        | ex -> (false, "unknown")
+        |> equal (true, "ERROR!!")
 
     testCase "Custom exceptions work" <| fun () ->
         try
             MyEx2(5.5) |> raise
         with
-        | :? MyEx2 as ex -> ex.Message, ex.Code
-        | ex -> "unknown", 0.
-        |> equal ("Code: 5", 5.5)
+        | :? MyEx2 as ex -> (box ex :? Exception, ex.Message, ex.Code)
+        | ex -> (false, "unknown", 0.)
+        |> equal (true, "Code: 5", 5.5)
 
     testCase "reraise works" <| fun () ->
         try

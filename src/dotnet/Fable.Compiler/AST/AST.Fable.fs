@@ -58,10 +58,9 @@ type ValueDeclarationInfo =
       IsMutable: bool
       HasSpread: bool }
 
-type BaseConstructorKind =
-    | NoBaseConstructor
-    | ExceptionConstructor of errorMessage: Expr
-    | BaseConstructor of consRef: Expr * entityRef: Expr * args: Expr list * hasSpread: bool
+type BaseConstructorInfo =
+    { Entity: FSharpEntity
+      Call: Expr }
 
 type ClassImplicitConstructorInfo =
     { Name: string
@@ -69,7 +68,7 @@ type ClassImplicitConstructorInfo =
       EntityName: string
       IsPublic: bool
       HasSpread: bool
-      BaseConstructor: BaseConstructorKind
+      BaseConstructor: BaseConstructorInfo option
       Arguments: Ident list
       Body: Expr }
 
@@ -195,9 +194,9 @@ type ArgInfo =
     /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
     SignatureArgTypes: Type list option
     Spread: SpreadKind
-    IsSiblingConstructorCall: bool }
+    IsSelfConstructorCall: bool }
 
-type CallInfo =
+type ReplaceCallInfo =
   { CompiledName: string
     /// See ArgIngo.SignatureArgTypes
     SignatureArgTypes: Type list

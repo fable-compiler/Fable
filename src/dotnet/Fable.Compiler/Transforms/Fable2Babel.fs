@@ -203,6 +203,14 @@ module Util =
                 sprintf "Cannot find %s constructor" ent.FullName
                 |> addErrorAndReturnNull com None
 
+    let isNativeJsType ent =
+        match FSharp2Fable.Helpers.tryGetEntityLocation ent with
+        | Some _ -> false
+        | None ->
+            match Replacements.tryEntityRef ent with
+            | Some(Fable.IdentExpr _) -> true
+            | _ -> false
+
     let inherits com ctx subExpr baseExpr: U2<Statement, ModuleDeclaration> =
         coreLibCall com ctx "Types" "inherits" [subExpr; baseExpr]
         |> ExpressionStatement :> Statement |> U2.Case1
@@ -275,16 +283,13 @@ module Util =
                 if not isThisUsed
                 then args, body
                 else
-                    let boundThis = { thisArg with Name = boundThis } |> Fable.IdentExpr
-                    // If the body doesn't contain closures, replace calls to thisArg with `this`
-                    let containsClosures =
-                        body |> FableTransforms.deepExists (function
-                            | Fable.Function _ | Fable.ObjectExpr _ -> true
-                            | _ -> false)
+                    // If the boundThis is the actual JS `this` keyword bind it at the beginning
+                    // to prevent problems in closures. If not, replace thisArg in body with boundThis.
+                    let boundThisExpr = { thisArg with Name = boundThis } |> Fable.IdentExpr
                     let body =
-                        if containsClosures
-                        then Fable.Let([thisArg, boundThis], body)
-                        else FableTransforms.replaceValues (Map [thisArg.Name, boundThis]) body
+                        if boundThis = "this"
+                        then Fable.Let([thisArg, boundThisExpr], body)
+                        else FableTransforms.replaceValues (Map [thisArg.Name, boundThisExpr]) body
                     args, body
             | _, args -> args, body
         let args, body = com.TransformFunction(ctx, name, args, body)
@@ -664,7 +669,7 @@ module Util =
                     match argInfo.ThisArg with
                     | Some(TransformExpr com ctx thisArg) -> thisArg::args
                     | None -> args
-                if argInfo.IsSiblingConstructorCall
+                if argInfo.IsSelfConstructorCall
                 then upcast CallExpression(get None funcExpr "call", (upcast Identifier "this")::args, ?loc=range)
                 else upcast CallExpression(funcExpr, args, ?loc=range)
             | Fable.InstanceCall membExpr ->
@@ -697,7 +702,7 @@ module Util =
         // TODO: Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity, opKind with
         | Some Return, Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
-                                when not argInfo.IsSiblingConstructorCall
+                                when not argInfo.IsSelfConstructorCall
                                 && tc.IsRecursiveRef(funcExpr)
                                 && argsLen argInfo = List.length tc.Args ->
             let args =
@@ -1302,63 +1307,45 @@ module Util =
         let args =
             [| for i = 1 to info.Entity.FSharpFields.Count do
                 yield Identifier("arg" + string i) |]
-        let bodyStatements, baseRef =
-            if info.Entity.IsFSharpExceptionDeclaration then
-                // We need some special operations to inherit from Error, see transformExceptionConstructor
-                let adHocThisIdent = Identifier "this$"
-                let statements =
-                    [
-                        yield varDeclaration adHocThisIdent false
-                                (callFunctionWithThisContext (Identifier "Error") thisIdent [ofString info.Entity.CompiledName])
-                                :> Statement
-                        yield! makeSetters adHocThisIdent args
-                        yield jsObject "setPrototypeOf" [adHocThisIdent; get None consIdent "prototype"]
-                                |> ExpressionStatement :> _
-                        yield ReturnStatement adHocThisIdent :> _
-                    ]
-                statements, coreValue com ctx "Types" "FSharpException"
-            else
-                makeSetters thisIdent args, coreValue com ctx "Types" "Record"
+        let baseRef =
+            if info.Entity.IsFSharpExceptionDeclaration
+            then coreValue com ctx "Types" "FSharpException"
+            else coreValue com ctx "Types" "Record"
         [
             FunctionExpression([for arg in args do yield arg :> Pattern],
-                               BlockStatement bodyStatements)
+                               BlockStatement (makeSetters thisIdent args))
                 |> declareModuleMember info.IsPublic info.EntityName false
             inherits com ctx (consIdent :> Expression) baseRef
         ]
 
-// function MyException(x, y) {
-//   function init(x, y) {
-//     this.bar = x;
-//     this.foo = y;
-//   }
-//   const _this = Error.call(this, "FATAL CRASH");
-//   init.call(_this, x, y);
-//   Object.setPrototypeOf(_this, MyException.prototype);
-//   return _this;
-// }
-// inherits(MyException, Error);
-
-    // Inheriting from JS Error in browser that don't fully support JS classes is tricky
-    // We need to do some specific operations (ad-hoc this, setting prototype)
-    let transformExceptionConstructor errorMsg consIdent argIdents argExprs body =
-        let initIdent = Identifier "init"
-        let adHocThisIdent = Identifier "this$"
-        let statements =
-            [
-                FunctionDeclaration(initIdent, argIdents, body) :> Statement
-                varDeclaration adHocThisIdent false
-                    (callFunctionWithThisContext (Identifier "Error") thisIdent [errorMsg]) :> _
-                callFunctionWithThisContext initIdent adHocThisIdent argExprs
-                    |> ExpressionStatement :> _
-                jsObject "setPrototypeOf" [adHocThisIdent; get None consIdent "prototype"]
-                    |> ExpressionStatement :> _
-                ReturnStatement adHocThisIdent :> _
-            ]
-        FunctionExpression(argIdents, BlockStatement statements) :> Expression
-
     let transformImplicitConstructor (com: IBabelCompiler) ctx (info: Fable.ClassImplicitConstructorInfo) =
         let consIdent = Identifier info.EntityName :> Expression
-        let args, body = getMemberArgsAndBody com ctx None None info.Arguments info.HasSpread info.Body
+        let body =
+            match info.BaseConstructor with
+            // We need some special operations to inherit from native JS types
+            // See https://github.com/Microsoft/TypeScript/wiki/FAQ#why-doesnt-extending-built-ins-like-error-array-and-map-work
+            | Some i when isNativeJsType i.Entity ->
+                let adHocThisIdent = com.GetUniqueVar("this") |> makeIdent
+                let adHocThisIdentExpr = Fable.IdentExpr adHocThisIdent
+                let body =
+                    [ FableTransforms.replaceThis adHocThisIdentExpr info.Body
+                      Replacements.Helper.InstanceCall(
+                          makeIdentExpr "Object", "setPrototypeOf", Fable.Unit,
+                          [adHocThisIdentExpr; Transforms.AST.get None Fable.Any (makeIdentExpr info.EntityName) "prototype"])
+                      adHocThisIdentExpr ]
+                Fable.Let([adHocThisIdent, i.Call], Fable.Sequential body)
+            | Some i ->
+                let consCall =
+                    match i.Call with
+                    | Fable.Operation(Fable.Call(Fable.StaticCall consRef, argInfo), typ, r) ->
+                        let argInfo = { argInfo with ThisArg = Some consRef
+                                                     Args = (makeIdentExpr "this")::argInfo.Args }
+                        let kind = makeStrConst "call" |> Some |> Fable.InstanceCall
+                        Fable.Operation(Fable.Call(kind, argInfo), typ, r)
+                    | e -> e // TODO: Log error?
+                Fable.Sequential [consCall; info.Body]
+            | None -> info.Body
+        let args, body = getMemberArgsAndBody com ctx None None info.Arguments info.HasSpread body
         let argIdents, argExprs: Pattern list * Expression list =
             match info.Arguments with
             | [] -> [], []
@@ -1368,21 +1355,7 @@ module Util =
                 (RestElement(ident args.Head) :> Pattern) :: (List.map identAsPattern args.Tail) |> List.rev,
                 (SpreadElement(ident args.Head) :> Expression) :: (List.map identAsExpr args.Tail) |> List.rev
             | args -> List.map identAsPattern args, List.map identAsExpr args
-        let originalCons =
-            match info.BaseConstructor with
-            | Fable.NoBaseConstructor ->
-                FunctionExpression(args, body) :> Expression
-            | Fable.ExceptionConstructor errorMsg ->
-                let errorMsg = com.TransformAsExpr(ctx, errorMsg)
-                transformExceptionConstructor errorMsg consIdent argIdents argExprs body
-            | Fable.BaseConstructor(TransformExpr com ctx baseCons, _, baseArgs, baseHasSpread) ->
-                let baseArgs =
-                    if baseHasSpread then Fable.SeqSpread else Fable.NoSpread
-                    |> transformArgs com ctx baseArgs
-                let baseCall =
-                    callFunctionWithThisContext baseCons thisIdent baseArgs
-                    |> ExpressionStatement :> Statement
-                FunctionExpression(args, BlockStatement(baseCall::body.body)) :> Expression
+        let originalCons = FunctionExpression(args, body) :> Expression
         let exposedCons =
             FunctionExpression(argIdents,
                 BlockStatement [
@@ -1393,14 +1366,15 @@ module Util =
                             NewExpression(consIdent, argExprs))
                     )])
         [
-            if not info.Entity.IsValueType then
-                yield declareModuleMember info.IsPublic info.EntityName false originalCons
+            yield declareModuleMember info.IsPublic info.EntityName false originalCons
             match info.BaseConstructor with
-            | Fable.NoBaseConstructor -> ()
-            | Fable.ExceptionConstructor _ ->
-                yield inherits com ctx consIdent (Identifier "Error")
-            | Fable.BaseConstructor(_,TransformExpr com ctx baseExpr,_,_) ->
-                yield inherits com ctx consIdent baseExpr
+            | Some i ->
+                yield entityRefMaybeImported com ctx i.Entity
+                |> inherits com ctx consIdent
+            | None when info.Entity.IsValueType ->
+                yield coreValue com ctx "Types" "Record"
+                |> inherits com ctx consIdent
+            | None -> ()
             yield declareModuleMember info.IsPublic info.Name false exposedCons
         ]
 

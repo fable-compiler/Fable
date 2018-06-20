@@ -5,8 +5,11 @@ exports.getRemoveUnneededNulls = function() {
   return {
     visitor: {
         // Remove `null;` statements (e.g. at the end of constructors)
+        // and orphan empty object literals (on top of constructors with no base)
         ExpressionStatement: function (path) {
-            if (path.node.expression.type === "NullLiteral") {
+            var expr = path.node.expression;
+            if (expr.type === "NullLiteral"
+                || (expr.type === "ObjectExpression" && expr.properties.length === 0)) {
                 path.remove();
             }
         }

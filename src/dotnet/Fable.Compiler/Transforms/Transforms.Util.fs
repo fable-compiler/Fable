@@ -134,7 +134,7 @@ module AST =
           Args = args
           SignatureArgTypes = argTypes
           Spread = NoSpread
-          IsSiblingConstructorCall = false }
+          IsSelfConstructorCall = false }
 
     let staticCall r t argInfo functionExpr =
         Fable.Operation(Fable.Call(Fable.StaticCall functionExpr, argInfo), t, r)
@@ -213,6 +213,7 @@ module Atts =
 module Types =
     let [<Literal>] attribute = "System.Attribute"
     let [<Literal>] object = "System.Object"
+    let [<Literal>] valueType = "System.ValueType"
     let [<Literal>] array = "System.Array"
     let [<Literal>] type_ = "System.Type"
     let [<Literal>] typeResolver = "Fable.Core.ITypeResolver`1"

@@ -9,12 +9,6 @@ open Fable.Core
 open Fable.AST
 open Fable.Transforms
 
-type EnclosingMemberContext =
-    | ImplicitConstructor
-    | SecondaryConstructor of entityConstructorFullName: string
-    | InterfaceImplementation of interfaceFullName: string option
-    | UnknownMember
-
 type Context =
     { Scope: (FSharpMemberOrFunctionOrValue * Fable.Expr) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
@@ -22,7 +16,7 @@ type Context =
       /// so we need a mutable registry to prevent duplicated var names.
       VarNames: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
-      EnclosingMember: EnclosingMemberContext
+      EnclosingMember: FSharpMemberOrFunctionOrValue option
       CaughtException: Fable.Ident option
       BoundThis: Fable.Ident option
     }
@@ -31,7 +25,7 @@ type Context =
           ScopeInlineValues = []
           VarNames = HashSet()
           GenericArgs = Map.empty
-          EnclosingMember = UnknownMember
+          EnclosingMember = None
           CaughtException = None
           BoundThis = None
         }
@@ -40,7 +34,7 @@ type IFableCompiler =
     inherit ICompiler
     abstract Transform: Context * FSharpExpr -> Fable.Expr
     abstract TryReplace: Context * SourceLocation option * Fable.Type *
-        info: Fable.CallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
+        info: Fable.ReplaceCallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
     abstract TryReplaceInterfaceCast: SourceLocation option * Fable.Type *
         interfaceName: string * Fable.Expr -> Fable.Expr option
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
@@ -188,6 +182,14 @@ module Helpers =
         | Some tdef -> defaultArg tdef.TryFullName Naming.unknown
         | None -> Naming.unknown
 
+    let tryEntityBase (ent: FSharpEntity) =
+        ent.BaseType
+        |> Option.bind tryDefinition
+        |> Option.bind (fun baseEntity ->
+            if baseEntity.TryFullName = Some Types.object
+            then None
+            else Some baseEntity)
+
     let isInline (memb: FSharpMemberOrFunctionOrValue) =
         match memb.InlineAnnotation with
         | FSharpInlineAnnotation.NeverInline
@@ -255,13 +257,12 @@ module Helpers =
         // Mutable public values must be called as functions (see #986)
         && (not memb.IsMutable || not (isPublicMember memb))
 
-    let isSiblingConstructorCall (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.IsConstructor, ctx.EnclosingMember with
-        | true, SecondaryConstructor fullName ->
-            let returnType = memb.ReturnParameter.Type
-            if returnType.HasTypeDefinition
-            then returnType.TypeDefinition.TryFullName = Some fullName
-            else false
+    let isSelfConstructorCall (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) =
+        match memb.IsConstructor, memb.DeclaringEntity, ctx.EnclosingMember with
+        | true, Some ent, Some enclosingMember when enclosingMember.IsConstructor ->
+            match enclosingMember.DeclaringEntity with
+            | Some enclosingEntity -> ent = enclosingEntity
+            | None -> false
         | _ -> false
 
     let hasSeqSpread (memb: FSharpMemberOrFunctionOrValue) =
@@ -758,6 +759,24 @@ module Util =
     let memberRef (com: IFableCompiler) r (memb: FSharpMemberOrFunctionOrValue) =
         memberRefTyped com r Fable.Any memb
 
+    let rec tryFindImplementingEntity (ent: FSharpEntity) interfaceFullName =
+        let found =
+            ent.DeclaredInterfaces
+            |> Seq.tryPick (fun (NonAbbreviatedType ifcType) ->
+                if ifcType.HasTypeDefinition then
+                    let ifcEntity = ifcType.TypeDefinition
+                    if ifcEntity.TryFullName = Some interfaceFullName
+                    then Some(ent, ifcEntity)
+                    else None
+                else None)
+        match found with
+        | Some ent -> Some ent
+        | None ->
+            match ent.BaseType with
+            | Some(NonAbbreviatedType t) when t.HasTypeDefinition ->
+                tryFindImplementingEntity t.TypeDefinition interfaceFullName
+            | _ -> None
+
     let castToInterface (com: IFableCompiler) r t (sourceEntity: FSharpEntity) interfaceFullName expr =
         if sourceEntity.IsInterface
         then expr
@@ -765,24 +784,20 @@ module Util =
           match com.TryReplaceInterfaceCast(r, t, interfaceFullName, expr) with
           | Some expr -> expr
           | None ->
-            sourceEntity.DeclaredInterfaces
-            |> Seq.tryFind (fun (NonAbbreviatedType t) ->
-                t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullName)
-            |> function
-                // TODO!!!: Interface must be implemented by a parent type
-                | None -> expr
-                // If the interface has no members, cast is not necessary
-                | Some t when t.TypeDefinition.MembersFunctionsAndValues.Count = 0 -> expr
-                | Some _ ->
-                    match tryGetEntityLocation sourceEntity with
-                    | None -> expr
-                    | Some entLoc ->
-                        let file = Path.normalizePath entLoc.FileName
-                        let funcName = getCastDeclarationName com sourceEntity interfaceFullName
-                        if file = com.CurrentFile
-                        then makeIdent funcName |> Fable.IdentExpr
-                        else makeInternalImport Fable.Any funcName file
-                        |> staticCall None t (argInfo None [expr] None)
+            match tryFindImplementingEntity sourceEntity interfaceFullName with
+            | None -> expr // TODO: Log error?
+            // If the interface has no members, cast is not necessary
+            | Some(_,ifcEnt) when ifcEnt.MembersFunctionsAndValues.Count = 0 -> expr
+            | Some(ent,_) ->
+                match tryGetEntityLocation ent with
+                | None -> expr // TODO: Log error?
+                | Some entLoc ->
+                    let file = Path.normalizePath entLoc.FileName
+                    let funcName = getCastDeclarationName com ent interfaceFullName
+                    if file = com.CurrentFile
+                    then makeIdent funcName |> Fable.IdentExpr
+                    else makeInternalImport Fable.Any funcName file
+                    |> staticCall None t (argInfo None [expr] None)
 
     let callInstanceMember com r typ (genArgs: Lazy<_>) (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
@@ -815,13 +830,12 @@ module Util =
         let isCandidate (entityFullName: string) =
             entityFullName.StartsWith("Fable.Core.")
         let tryReplace (entityFullName: string) =
-            let info: Fable.CallInfo =
+            let info: Fable.ReplaceCallInfo =
               { SignatureArgTypes = argTypes
                 DeclaringEntityFullName = entityFullName
                 Spread = argInfo.Spread
                 CompiledName = memb.CompiledName
-                GenericArgs = genArgs.Value
-              }
+                GenericArgs = genArgs.Value }
             match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
             | Some e -> Some e
             | None ->
@@ -960,6 +974,10 @@ module Util =
         ent.AllInterfaces |> Seq.exists (fun t ->
             t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullname)
 
+    let hasImplicitConstructor (ent: FSharpEntity) =
+        ent.MembersFunctionsAndValues
+        |> Seq.exists(fun m -> m.IsImplicitConstructor)
+
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let call kind args =
             Fable.Operation(Fable.Call(kind, args), typ, r)
@@ -971,7 +989,8 @@ module Util =
             Args = args
             SignatureArgTypes = Some argTypes
             Spread = if hasSeqSpread memb then Fable.SeqSpread else Fable.NoSpread
-            IsSiblingConstructorCall = false }
+            IsSelfConstructorCall = false
+          }
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some argInfo) emitted, _ -> emitted
         | Imported com r typ (Some(genArgs, argInfo)) imported -> imported
@@ -991,8 +1010,8 @@ module Util =
             then memberRefTyped com r typ memb
             else
                 let argInfo =
-                    if isSiblingConstructorCall ctx memb
-                    then { argInfo with IsSiblingConstructorCall = true }
+                    if isSelfConstructorCall ctx memb
+                    then { argInfo with IsSelfConstructorCall = true }
                     else argInfo
                 memberRef com r memb |> staticCall r typ argInfo
 

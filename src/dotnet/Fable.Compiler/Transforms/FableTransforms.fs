@@ -189,6 +189,13 @@ let replaceValues replacements expr =
             | None -> e
         | e -> e)
 
+let replaceThis replacement expr =
+    expr |> visitFromOutsideIn (function
+        | Value(This _) -> Some replacement
+        // Don't get into closures
+        | Function _ | ObjectExpr _ as e -> Some e
+        | _ -> None)
+
 let canEraseBinding identName value body =
     // Don't erase expressions referenced 0 times, they may have side-effects
     let isReferencedOnlyOnce identName body =
@@ -201,10 +208,8 @@ let canEraseBinding identName value body =
             | _ -> false) |> ignore
         count = limit
     match value with
-    | Value(This _) -> // Check if body contains closures
-        body |> deepExists (function
-            | Function _ | ObjectExpr _ -> true
-            | _ -> false) |> not
+    // Deal with these cases in Fable2Babel
+    | Value(This _) -> false
     | e -> not(hasDoubleEvalRisk e) || isReferencedOnlyOnce identName body
 
 module private Transforms =

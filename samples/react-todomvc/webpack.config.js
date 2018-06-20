@@ -3,8 +3,8 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.fs(proj)?$/,
-        use: { loader: "fable-loader" }
+        test: /\.fs(x|proj)?$/,
+        use: "fable-loader"
       }
     ]
   },

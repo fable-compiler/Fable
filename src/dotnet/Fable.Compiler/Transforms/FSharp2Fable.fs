@@ -51,7 +51,7 @@ let private transformNewUnion com ctx (fsExpr: FSharpExpr) fsType
         Fable.NewUnion(argExprs, unionCase, tdef, genArgs) |> Fable.Value
 
 let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType list) traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
-    let makeCallInfo traitName entityFullName argTypes genArgs: Fable.CallInfo =
+    let makeCallInfo traitName entityFullName argTypes genArgs: Fable.ReplaceCallInfo =
         { SignatureArgTypes = argTypes
           DeclaringEntityFullName = entityFullName
           Spread = Fable.NoSpread
@@ -117,13 +117,13 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
     let ctx, boundThis =
         match ctx.BoundThis, ctx.EnclosingMember with
          // If `this` is already bound we don't need to worry here
-        | None, ImplicitConstructor ->
+        | None, Some m when m.IsImplicitConstructor ->
             let boundThis = com.GetUniqueVar("this") |> makeIdent |> Some
             { ctx with BoundThis = boundThis }, boundThis
         | _ -> ctx, None
     let baseCall =
         match baseCallExpr with
-        // For interface implementations this should be BasicPatterns.NewObject
+        // TODO: For interface implementations this should be BasicPatterns.NewObject
         // but check the baseCall.DeclaringEntity name just in case
         | BasicPatterns.Call(None,baseCall,genArgs1,genArgs2,baseArgs) ->
             match baseCall.DeclaringEntity with
@@ -221,11 +221,8 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr:
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     match fsExpr with
     | BasicPatterns.Coerce(targetType, Transform com ctx inpExpr) ->
-        let typ = makeType com ctx.GenericArgs targetType
-        match ctx.EnclosingMember, tryDefinition targetType with
-        | InterfaceImplementation(Some interfaceFullName), Some interfaceEntity
-            when interfaceEntity.TryFullName = Some interfaceFullName -> Fable.This typ |> Fable.Value
-        | _, Some interfaceEntity when interfaceEntity.IsInterface ->
+        match tryDefinition targetType with
+        | Some interfaceEntity when interfaceEntity.IsInterface ->
             let targetType = makeType com ctx.GenericArgs targetType
             match interfaceEntity.TryFullName, inpExpr.Type with
             | Some interfaceFullName, (Fable.DeclaredType(sourceEntity,_)) ->
@@ -567,56 +564,47 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
             | None -> false)
 
 /// This function matches the pattern in F# implicit constructor when either:
-/// - Calls the base constructor (if it's `obj()` will be erased)
+/// - Calls the base constructor
 /// - Makes checks for self referencing (as in `type Foo() as self =`): see #124
-let rec private getBaseConsKindAndBody com ctx acc body =
+let rec private getBaseConsAndBody com ctx (baseType: FSharpType option) acc body =
     let transformBodyStatements com ctx acc body =
         acc @ [body] |> List.map (transformExpr com ctx) |> Fable.Sequential
 
-    let getBaseConsInfo com ctx r (baseCall: FSharpMemberOrFunctionOrValue) baseArgs =
-        // TODO: This should always be Some, but add check in case it's not
-        let baseEntity = baseCall.DeclaringEntity.Value
-        let baseEntityRef, baseConsRef =
-            match tryImportedEntity com baseEntity with
-            // Assume in imported entities (from JS), class and constructor have same reference
-            | Some baseExpr -> baseExpr, baseExpr
-            | None -> entityRef com r baseEntity, memberRef com r baseCall
-        Fable.BaseConstructor(
-            consRef     = baseConsRef,
-            entityRef   = baseEntityRef,
-            args        = List.map (transformExpr com ctx) baseArgs,
-            hasSpread   = hasSeqSpread baseCall)
-
-    // TODO: We should check for classes inheriting classes inheriting System.Exception as well
-    let checkException (baseCall: FSharpMemberOrFunctionOrValue) baseArgs =
-        match baseCall.DeclaringEntity, baseArgs with
-        | Some ent, (Transform com ctx msg)::_ when ent.TryFullName = Some Types.exception_ ->
-            Fable.ExceptionConstructor msg
-        | _ -> Fable.NoBaseConstructor
+    let getBaseConsInfo com ctx (baseCall: FSharpMemberOrFunctionOrValue) genArgs baseArgs: Fable.BaseConstructorInfo option =
+        baseType |> Option.bind (fun (NonAbbreviatedType baseType) ->
+            if baseType.HasTypeDefinition then
+                let ent = baseType.TypeDefinition
+                match ent.TryFullName with
+                | Some name when name <> Types.object -> Some ent
+                | _ -> None
+            else None)
+        |> Option.map (fun baseEntity ->
+            let baseArgs = List.map (transformExpr com ctx) baseArgs
+            let genArgs = genArgs |> Seq.map (makeType com ctx.GenericArgs)
+            { Entity = baseEntity
+              Call   = makeCallFrom com ctx None Fable.Unit genArgs None baseArgs baseCall })
 
     match body with
     | BasicPatterns.Sequential(baseCall, body) ->
         match baseCall with
-        | BasicPatterns.NewObject(baseCall,_,baseArgs) ->
-            let consKind = checkException baseCall baseArgs
-            consKind, transformBodyStatements com ctx acc body
-        | BasicPatterns.Call(None,baseCall,_,_,baseArgs) as e
-                when baseCall.IsConstructor && Option.isSome baseCall.DeclaringEntity ->
-            let baseConsInfo = getBaseConsInfo com ctx (makeRangeFrom e) baseCall baseArgs
+        | BasicPatterns.NewObject(baseCall, genArgs, baseArgs) ->
+            let baseConsInfo = getBaseConsInfo com ctx baseCall genArgs baseArgs
+            baseConsInfo, transformBodyStatements com ctx acc body
+        | BasicPatterns.Call(None, baseCall, genArgs1, genArgs2, baseArgs) when baseCall.IsConstructor ->
+            let baseConsInfo = getBaseConsInfo com ctx baseCall (genArgs1 @ genArgs2) baseArgs
             baseConsInfo, transformBodyStatements com ctx acc body
         // This happens in constructors including self references
-        | BasicPatterns.Let(_, BasicPatterns.NewObject(baseCall,_,baseArgs)) ->
-            let consKind = checkException baseCall baseArgs
-            consKind, transformBodyStatements com ctx acc body
         // TODO: We're discarding the bound value, detect if there's a reference to it
         // in the base constructor arguments and throw an error in that case.
-        | BasicPatterns.Let(_, BasicPatterns.Call(None,baseCall,_,_,baseArgs)) as e
-                when baseCall.IsConstructor && Option.isSome baseCall.DeclaringEntity ->
-            let baseConsInfo = getBaseConsInfo com ctx (makeRangeFrom e) baseCall baseArgs
+        | BasicPatterns.Let(_, BasicPatterns.NewObject(baseCall, genArgs, baseArgs)) ->
+            let baseConsInfo = getBaseConsInfo com ctx baseCall genArgs baseArgs
             baseConsInfo, transformBodyStatements com ctx acc body
-        | _ -> getBaseConsKindAndBody com ctx (acc @ [baseCall]) body
+        | BasicPatterns.Let(_, BasicPatterns.Call(None, baseCall, genArgs1, genArgs2, baseArgs)) when baseCall.IsConstructor ->
+            let baseConsInfo = getBaseConsInfo com ctx baseCall (genArgs1 @ genArgs2) baseArgs
+            baseConsInfo, transformBodyStatements com ctx acc body
+        | _ -> getBaseConsAndBody com ctx baseType (acc @ [baseCall]) body
     // TODO: Kindda unexpected, log warning?
-    | body -> Fable.NoBaseConstructor, transformBodyStatements com ctx acc body
+    | body -> None, transformBodyStatements com ctx acc body
 
 let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
@@ -624,8 +612,7 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
               |> addError com None; []
     | Some ent ->
         let bodyCtx, args = bindMemberArgs com ctx args
-        let bodyCtx = { bodyCtx with EnclosingMember = ImplicitConstructor }
-        let baseConsKind, body = getBaseConsKindAndBody com bodyCtx [] body
+        let baseCons, body = getBaseConsAndBody com bodyCtx ent.BaseType [] body
         let name = getMemberDeclarationName com memb
         let entityName = getEntityDeclarationName com ent
         com.AddUsedVarName(name)
@@ -636,7 +623,7 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
               EntityName = entityName
               IsPublic = isPublicMember memb
               HasSpread = hasSeqSpread memb
-              BaseConstructor = baseConsKind
+              BaseConstructor = baseCons
               Arguments = args
               Body = body
             }
@@ -683,15 +670,7 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
 
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
-    let body =
-        match memb.IsConstructor, memb.DeclaringEntity with
-        | true, Some ent ->
-            let bodyCtx =
-                ent.TryFullName |> Option.map (fun fullName ->
-                    { bodyCtx with EnclosingMember = SecondaryConstructor fullName })
-                |> Option.defaultValue bodyCtx
-            transformExpr com bodyCtx body
-        | _ -> transformExpr com bodyCtx body
+    let body = transformExpr com bodyCtx body
     match body with
     // Accept import expressions, e.g. let foo x y = import "foo" "myLib"
     | Fable.Import(selector, path, Fable.CustomImport, _, r) ->
@@ -755,8 +734,6 @@ let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSh
     then transformOverride com ctx memb args body
     else
         let bodyCtx, args = bindMemberArgs com ctx args
-        let interfaceFullName = tryGetInterfaceDefinitionFromMethod memb |> Option.bind (fun ent -> ent.TryFullName)
-        let bodyCtx = { bodyCtx with EnclosingMember = InterfaceImplementation interfaceFullName }
         let body = transformExpr com bodyCtx body
         let value = Fable.Function(Fable.Delegate args, body, None)
         let kind =
@@ -771,6 +748,7 @@ let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSh
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
+    let ctx = { ctx with EnclosingMember = Some memb }
     if isIgnoredMember memb
     then []
     elif isInline memb then
@@ -811,10 +789,12 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
                     [Fable.UnionConstructor info |> Fable.ConstructorDeclaration]
                 // We don't import or erase records (only interfaces or classes are imported)
                 // so the `isImportedOrErasedEntity` check shouldn't be necessary
-                | None when ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration || ent.IsValueType ->
+                | None when ent.IsFSharpRecord
+                        || ent.IsFSharpExceptionDeclaration
+                        || (ent.IsValueType && not(hasImplicitConstructor ent)) ->
                     let entityName = getEntityDeclarationName com ent
                     com.AddUsedVarName(entityName)
-                    // TODO!!! Check ReferenceEquality atattribute
+                    // TODO!!! Check ReferenceEquality attribute
                     let info: Fable.RecordConstructorInfo =
                       { Entity = ent
                         EntityName = entityName

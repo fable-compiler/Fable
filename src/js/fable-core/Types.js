@@ -175,7 +175,7 @@ export function Record() {
 }
 
 Record.prototype.toString = function() {
-  return "{" + Object.keys(this).map((k) => k + " = " + toString(obj[k])).join(";\n ") + "}";
+  return "{" + Object.keys(this).map((k) => k + " = " + toString(this[k])).join(";\n ") + "}";
 };
 
 Record.prototype.toJSON = function() {
@@ -219,10 +219,7 @@ function getFSharpExceptionFieldNames(self) {
   return Object.keys(self).filter(k => k !== "message" && k !== "stack");
 }
 
-export function FSharpException(name) {
-  const _this = Error.call(this, name);
-  Object.setPrototypeOf(_this, FSharpException.prototype);
-  return _this;
+export function FSharpException() {
 }
 inherits(FSharpException, Error);
 

@@ -1,12 +1,11 @@
 {
   "private": true,
   "scripts": {
-    "build-splitter": "cd ../../src/dotnet/Fable.Compiler && dotnet run fable-splitter --cwd ../../../samples/react-todomvc --fable-core ../../../build/fable-core",
-    "build-webpack": "cd ../../src/dotnet/Fable.Compiler && dotnet run webpack-cli --cwd ../../../samples/react-todomvc --fable-core ../../../build/fable-core --args \"--mode production\"",
-    "build-webpack2": "webpack-cli --entry ./temp/React.TodoMVC.js -o ./dist/main.js --mode development --devtool source-map"
+    "build-splitter": "cd ../../src/dotnet/Fable.Compiler && dotnet run fable-splitter --cwd ../../../samples/react-todomvc --fable-core ../../../build/fable-core --args \"src/React.TodoMVC.fsproj -o temp -w\"",
+    "build-webpack": "cd ../../src/dotnet/Fable.Compiler && dotnet run webpack-cli --cwd ../../../samples/react-todomvc --fable-core ../../../build/fable-core --args \"--mode production\""
   },
   "devDependencies": {
-    "@babel/core": "^7.0.0-beta.47",
+    "babel-core": "^6.26.3",
     "fable-loader": "file:../../src/js/fable-loader",
     "fable-splitter": "file:../../src/js/fable-splitter",
     "webpack": "^4.8.3",

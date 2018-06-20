@@ -9,6 +9,7 @@ open Fable.Core
 
 type Context = Fable.Transforms.FSharp2Fable.Context
 type ICompiler = Fable.Transforms.FSharp2Fable.IFableCompiler
+type CallInfo = Fable.ReplaceCallInfo
 
 type Helper =
     static member ConstructorCall(consExpr: Expr, returnType: Type, args: Expr list,
@@ -32,7 +33,7 @@ type Helper =
               Args = args
               SignatureArgTypes = argTypes
               Spread = match hasSpread with Some true -> SeqSpread | _ -> NoSpread
-              IsSiblingConstructorCall = false }
+              IsSelfConstructorCall = false }
         let funcExpr = makeCoreRef Any coreMember coreModule
         match isConstructor with
         | Some true -> Operation(Call(ConstructorCall funcExpr, info), returnType, loc)
@@ -1799,6 +1800,15 @@ let objects (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr optio
         makeTypeInfo r arg.Type |> Some
     | _ -> None
 
+let valueTypes (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | ".ctor", _ -> objExpr t [] |> Some
+    | "ToString", Some thisArg ->
+        Helper.InstanceCall(thisArg, "toString", String, []) |> Some
+    | ("GetHashCode"|"Equals"|"CompareTo"), Some thisArg ->
+        Helper.InstanceCall(thisArg, i.CompiledName, t, []) |> Some
+    | _ -> None
+
 let unchecked (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "DefaultOf" -> (genArg com r 0 i.GenericArgs) |> defaultof |> Some
@@ -2373,6 +2383,7 @@ let private replacedModules =
     Types.reference, references
     "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
     Types.object, objects
+    Types.valueType, valueTypes
     "System.Enum", enums
     "System.BitConverter", bitConvert
     Types.int32, parse Parse2Int
@@ -2466,6 +2477,7 @@ let tryEntityRef (ent: FSharpEntity) =
     match ent.FullName with
     | Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
     | Types.result -> makeCoreRef Any "Result" "Option" |> Some
+    | Types.valueType -> makeCoreRef Any "Record" "Types" |> Some
     | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
     | Naming.EndsWith "Exception" _ -> makeIdentExpr "Error" |> Some
     | _ -> None
