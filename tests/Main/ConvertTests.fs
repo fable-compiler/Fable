@@ -82,8 +82,18 @@ let tests =
 
     testCase "System.Int32.Parse with hex works" <| fun () ->
         Int32.Parse("555555", System.Globalization.NumberStyles.HexNumber) |> equal 5592405
+        Int32.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95
         (fun () -> Int32.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
         (fun () -> Int32.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
+
+    testCase "System.Int64.Parse works" <| fun () ->
+        Int64.Parse("5") |> equal 5L
+        (fun () -> Int64.Parse("5f")) |> throwsError ""
+
+    testCase "System.Int64.Parse with hex works" <| fun () ->
+        Int64.Parse("555555", System.Globalization.NumberStyles.HexNumber) |> equal 5592405L
+        Int32.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95
+        (fun () -> Int64.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
 
     testCase "Parsing integers with different radices works" <| fun () ->
         equal 11 (int "11")

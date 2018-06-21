@@ -48,9 +48,9 @@ let throwsError (expected: string) (f: unit -> 'a): unit =
             f () |> ignore
             true
         with e ->
-            equal e.Message expected
+            if not <| String.IsNullOrEmpty(expected) then
+                equal e.Message expected
             false
-
     // TODO better error messages
     equal false success
 

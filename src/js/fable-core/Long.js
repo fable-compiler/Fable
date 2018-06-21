@@ -254,6 +254,19 @@ export function fromString(str, unsigned, radix) {
     return result;
 }
 
+// For compatibility with Int32 module
+export function parse(str, radix) {
+    return fromString(str, false, radix);
+}
+
+export function tryParse(str, radix, defaultValue) {
+    try {
+        return [true, fromString(str, false, radix)];
+    } catch {
+        return [false, defaultValue];
+    }
+}
+
 /**
  * @function
  * @param {!Long|number|string|!{low: number, high: number, unsigned: boolean}} val

@@ -1507,6 +1507,7 @@ let optionModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Exp
 
 type ParseTarget =
     | Parse2Int
+    | Parse2Int64
     | Parse2Float
 
 let parse target (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1514,6 +1515,7 @@ let parse target (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     let isFloat, numberModule =
         match target with
         | Parse2Int -> false, "Int32"
+        | Parse2Int64 -> false, "Long"
         | Parse2Float -> true, "Double"
     match i.CompiledName with
     | "IsNaN" when isFloat ->
@@ -2389,6 +2391,7 @@ let private replacedModules =
     "System.Enum", enums
     "System.BitConverter", bitConvert
     Types.int32, parse Parse2Int
+    Types.int64, parse Parse2Int64
     Types.float32, parse Parse2Float
     Types.float64, parse Parse2Float
     Types.decimal, decimals

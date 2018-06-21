@@ -23,6 +23,18 @@ let equal expected actual =
     if not areEqual then
         failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
 
+let throwsError (expected: string) (f: unit -> 'a): unit =
+    let success =
+        try
+            f () |> ignore
+            true
+        with e ->
+            if not <| String.IsNullOrEmpty(expected) then
+                equal e.Message expected
+            false
+    // TODO better error messages
+    equal false success
+
 let testCase (msg: string) f: unit =
     try
         printfn "%s" msg
