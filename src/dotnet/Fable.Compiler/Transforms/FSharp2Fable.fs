@@ -704,7 +704,6 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
             let apply = staticCall None Fable.Unit (argInfo None [] None) fn
             [Fable.ActionDeclaration apply]
         else
-            // TODO!!! If the method has generics with constraints, force inline
             let info: Fable.ValueDeclarationInfo =
                 { Name = name
                   IsPublic = isPublic

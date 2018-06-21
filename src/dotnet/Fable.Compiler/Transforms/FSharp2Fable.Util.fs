@@ -814,6 +814,10 @@ module Util =
                 match callee.Type with
                 | Fable.DeclaredType(original, _) when entity.IsInterface && not original.IsInterface ->
                     castToInterface com r typ original entity.FullName callee
+                | Fable.GenericParam _ ->
+                    "An instance member of an unresolved generic parameter is being called, " +
+                        "this will likely fail at compile time. Please try inlining or not using flexible types."
+                    |> addWarning com r; callee
                 | _ -> callee
             | None ->
                 sprintf "Unexpected static interface/override call: %s" memb.FullName
