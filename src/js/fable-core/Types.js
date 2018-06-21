@@ -1,3 +1,5 @@
+import { createMutable as createMutableMap } from "./Map";
+import { createMutable as createMutableSet } from "./Set";
 import { combineHashCodes, compare, compareArrays, equals, equalArrays, hash, numberHash, toString } from "./Util";
 
 function sameType(x, y) {
@@ -219,9 +221,19 @@ function getFSharpExceptionFieldNames(self) {
   return Object.keys(self).filter(k => k !== "message" && k !== "stack");
 }
 
-export function FSharpException() {
+export function Exception(msg) {
+  this.stack = Error().stack;
+  this.message = msg;
 }
-inherits(FSharpException, Error);
+
+export function isException(x) {
+  return x instanceof Error || x instanceof Exception;
+}
+
+export function FSharpException() {
+  Exception.call(this);
+}
+inherits(FSharpException, Exception);
 
 FSharpException.prototype.toString = function() {
   const fieldNames = getFSharpExceptionFieldNames(this);
@@ -251,15 +263,31 @@ FSharpException.prototype.CompareTo = function(other) {
   return recordCompare(this, other, getFSharpExceptionFieldNames);
 };
 
-// function MyFSharpException(x, y) {
-//   function init(x, y) {
-//     this.x = x;
-//     this.y = y;
-//   }
-//   var _this = FSharpException.call(this, "MyFSharpException");
-//   _this.x = x;
-//   _this.y = y;
-//   Object.setPrototypeOf(_this, MyFSharpException.prototype);
-//   return _this;
-// }
-// inherits(MyFSharpException, FSharpException);
+export function Dictionary(source, comparer) {
+  this.__mutableMap = createMutableMap(source, comparer);
+}
+Object.defineProperty(Dictionary.prototype, "size", { get: function() {
+  return this.__mutableMap.size;
+}});
+Dictionary.prototype.clear = function() { return this.__mutableMap.clear(); };
+Dictionary.prototype.delete = function(k) { return this.__mutableMap.delete(k); };
+Dictionary.prototype.entries = function() { return this.__mutableMap.entries(); };
+Dictionary.prototype.get = function(k) { return this.__mutableMap.get(k); };
+Dictionary.prototype.has = function(k) { return this.__mutableMap.has(k); };
+Dictionary.prototype.keys = function() { return this.__mutableMap.keys(); };
+Dictionary.prototype.set = function(k, v) { return this.__mutableMap.set(k, v); };
+Dictionary.prototype.values = function() { return this.__mutableMap.values(); };
+Dictionary.prototype[Symbol.iterator] = function() { return this.__mutableMap[Symbol.iterator](); };
+
+export function HashSet(source, comparer) {
+  this.__mutableSet = createMutableSet(source, comparer);
+}
+Object.defineProperty(HashSet.prototype, "size", { get: function() {
+  return this.__mutableSet.size;
+}});
+HashSet.prototype.add = function(v) { return this.__mutableSet.add(v); };
+HashSet.prototype.clear = function() { return this.__mutableSet.clear(); };
+HashSet.prototype.delete = function(k) { return this.__mutableSet.delete(k); };
+HashSet.prototype.has = function(k) { return this.__mutableSet.has(k); };
+HashSet.prototype.values = function() { return this.__mutableSet.values(); };
+HashSet.prototype[Symbol.iterator] = function() { return this.__mutableSet[Symbol.iterator](); };

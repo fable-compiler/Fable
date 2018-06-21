@@ -500,7 +500,7 @@ let tests =
         (foo :> IFoo).Foo() |> equal "BARFOO"
         mangleFoo foo |> equal "BARFOO"
 
-    testCase "Default implementation of non-abstract class members don't get an overload index" <| fun () -> // See #701
+    testCase "Calling default implementation of base members don't cause infinite recursion" <| fun () -> // See #701
         ExtendedClass().Init() |> equal 7
 
     testCase "Circular dependencies work" <| fun () -> // See #569
@@ -515,12 +515,8 @@ let tests =
         test.foo |> equal "foo"
         let test2 = ValueType2(3, 4)
         test2.Value |> equal 7
-        let test3 = ValueType2(3, 4)
-        test2 = test3 |> equal true
         let p = Point2D(2.)
         p.Y |> equal 2.
-        let p2 = Point2D(2.)
-        equal p p2
 
     testCase "Custom F# exceptions work" <| fun () ->
         try

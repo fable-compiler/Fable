@@ -207,6 +207,22 @@ let (|MaybeLambdaUncurriedAtCompileTime|) = function
     | LambdaUncurriedAtCompileTime None lambda -> lambda
     | e -> e
 
+let (|IDictionary|IEqualityComparer|Other|) = function
+    | DeclaredType(ent,_) ->
+        match ent.TryFullName with
+        | Some Types.idictionary -> IDictionary
+        | Some Types.equalityComparer -> IEqualityComparer
+        | _ -> Other
+    | _ -> Other
+
+let (|IEnumerable|IEqualityComparer|Other|) = function
+    | DeclaredType(ent,_) ->
+        match ent.TryFullName with
+        | Some Types.enumerable -> IEnumerable
+        | Some Types.equalityComparer -> IEqualityComparer
+        | _ -> Other
+    | _ -> Other
+
 let coreModFor = function
     | BclGuid -> "String"
     | BclDateTime -> "Date"
@@ -1692,13 +1708,6 @@ let keyValuePairs (com: ICompiler) (_: Context) r t (i: CallInfo) thisArg args =
     | _ -> None
 
 let dictionaries (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let (|IDictionary|IEqualityComparer|Other|) = function
-        | DeclaredType(ent,_) ->
-            match ent.TryFullName with
-            | Some Types.idictionary -> IDictionary
-            | Some Types.equalityComparer -> IEqualityComparer
-            | _ -> Other
-        | _ -> Other
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
         match i.SignatureArgTypes, args with
@@ -1735,13 +1744,6 @@ let dictionaries (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | _ -> None
 
 let hashSets (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let (|IEnumerable|IEqualityComparer|Other|) = function
-        | DeclaredType(ent,_) ->
-            match ent.TryFullName with
-            | Some Types.enumerable -> IEnumerable
-            | Some Types.equalityComparer -> IEqualityComparer
-            | _ -> Other
-        | _ -> Other
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ ->
         match i.SignatureArgTypes, args with
@@ -2477,7 +2479,37 @@ let tryEntityRef (ent: FSharpEntity) =
     match ent.FullName with
     | Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
     | Types.result -> makeCoreRef Any "Result" "Option" |> Some
-    | Types.valueType -> makeCoreRef Any "Record" "Types" |> Some
     | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
-    | Naming.EndsWith "Exception" _ -> makeIdentExpr "Error" |> Some
+    | _ -> None
+
+let tryBaseConstructor com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) genArgs args =
+    match ent.FullName with
+    | Types.exception_ -> Some(makeCoreRef Any "Exception" "Types", args)
+    | Types.dictionary ->
+        let args =
+            match FSharp2Fable.TypeHelpers.getArgTypes com memb, args with
+            | ([]|[Number _]), _ ->
+                [makeArray Any []; makeComparer com (Seq.head genArgs)]
+            | [IDictionary], [arg] ->
+                [arg; makeComparer com (Seq.head genArgs)]
+            | [IDictionary; IEqualityComparer], [arg; eqComp] ->
+                [arg; makeComparerFromEqualityComparer eqComp]
+            | [IEqualityComparer], [eqComp]
+            | [Number _; IEqualityComparer], [_; eqComp] ->
+                [makeArray Any []; makeComparerFromEqualityComparer eqComp]
+            | _ -> failwith "Unexpected dictionary constructor"
+        Some(makeCoreRef Any "Dictionary" "Types", args)
+    | Types.hashset ->
+        let args =
+            match FSharp2Fable.TypeHelpers.getArgTypes com memb, args with
+            | [], _ ->
+                [makeArray Any []; makeComparer com (Seq.head genArgs)]
+            | [IEnumerable], [arg] ->
+                [arg; makeComparer com (Seq.head genArgs)]
+            | [IEnumerable; IEqualityComparer], [arg; eqComp] ->
+                [arg; makeComparerFromEqualityComparer eqComp]
+            | [IEqualityComparer], [eqComp] ->
+                [makeArray Any []; makeComparerFromEqualityComparer eqComp]
+            | _ -> failwith "Unexpected hashset constructor"
+        Some(makeCoreRef Any "HashSet" "Types", args)
     | _ -> None

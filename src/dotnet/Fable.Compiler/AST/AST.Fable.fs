@@ -58,9 +58,10 @@ type ValueDeclarationInfo =
       IsMutable: bool
       HasSpread: bool }
 
-type BaseConstructorInfo =
-    { Entity: FSharpEntity
-      Call: Expr }
+type BaseConstructorKind =
+    | NoBaseConstructor
+    | ReplacedBaseConstructor of baseRef: Expr * args: Expr list
+    | DeclaredBaseConstructor of baseEntity: FSharpEntity * constructorCall: Expr
 
 type ClassImplicitConstructorInfo =
     { Name: string
@@ -68,7 +69,7 @@ type ClassImplicitConstructorInfo =
       EntityName: string
       IsPublic: bool
       HasSpread: bool
-      BaseConstructor: BaseConstructorInfo option
+      BaseConstructor: BaseConstructorKind
       Arguments: Ident list
       Body: Expr }
 
@@ -77,7 +78,7 @@ type UnionConstructorInfo =
       EntityName: string
       IsPublic: bool }
 
-type RecordConstructorInfo =
+type CompilerGeneratedConstructorInfo =
     { Entity: FSharpEntity
       EntityName: string
       IsPublic: bool }
@@ -85,7 +86,7 @@ type RecordConstructorInfo =
 type ConstructorKind =
     | ClassImplicitConstructor of ClassImplicitConstructorInfo
     | UnionConstructor of UnionConstructorInfo
-    | RecordConstructor of RecordConstructorInfo
+    | CompilerGeneratedConstructor of CompilerGeneratedConstructorInfo
 
 type OverrideDeclarationInfo =
     { Name: string

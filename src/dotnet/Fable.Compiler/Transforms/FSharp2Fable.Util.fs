@@ -366,6 +366,12 @@ module Patterns =
             Some (callee, eventName, memb, typArgs, methTypArgs, args)
         | _ -> None
 
+    let (|ConstructorCall|_|) = function
+        | NewObject(baseCall, genArgs, baseArgs) -> Some(baseCall, genArgs, baseArgs)
+        | Call(None, baseCall, genArgs1, genArgs2, baseArgs) when baseCall.IsConstructor ->
+            Some(baseCall, genArgs1 @ genArgs2, baseArgs)
+        | _ -> None
+
     let private numberTypes =
         dict [Types.int8, Int8
               Types.uint8, UInt8
@@ -825,10 +831,14 @@ module Util =
             let argInfo = { argInfo with ThisArg = Some callee }
             makeStrConst name |> Some |> instanceCall r typ argInfo
 
+    let isReplacementCandidate (ent: FSharpEntity) =
+        match ent.TryFullName, ent.Assembly.FileName with
+        | Some _, Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> true
+        | Some entityFullName, _ when entityFullName.StartsWith("Fable.Core.") -> true
+        | _ -> false
+
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes (genArgs: Lazy<_>) (argInfo: Fable.ArgInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
-        let isCandidate (entityFullName: string) =
-            entityFullName.StartsWith("Fable.Core.")
         let tryReplace (entityFullName: string) =
             let info: Fable.ReplaceCallInfo =
               { SignatureArgTypes = argTypes
@@ -845,13 +855,7 @@ module Util =
                 | _ -> sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
                        |> addErrorAndReturnNull com r |> Some
         match entity with
-        | Some ent ->
-            match ent.TryFullName, ent.Assembly.FileName with
-            | Some entityFullName, Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) ->
-                tryReplace entityFullName
-            | Some entityFullName, _ when isCandidate entityFullName ->
-                tryReplace entityFullName
-            | _ -> None
+        | Some ent when isReplacementCandidate ent -> tryReplace ent.FullName
         | _ -> None
 
     let (|Emitted|_|) com r typ argInfo (memb: FSharpMemberOrFunctionOrValue) =

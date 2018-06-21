@@ -5,7 +5,8 @@
 # Next time, if src/js/fable-core files haven't changed, just:
 #   bash quicktest.sh
 
-ARGS="$@"
+# The dummy arg is necessary to prevent failure of dotnet SDK 2.1.200 CLI arg parsing
+ARGS="$@ --dummy"
 
 echo "dotnet SDK version"
 dotnet --version
@@ -39,6 +40,6 @@ pushd ../dotnet/Fable.Compiler
 dotnet run --no-build yarn-splitter \
     --cwd ../../tools \
     --fable-core ../../../build/fable-core \
-    # --args "${ARGS/--build-core/}"
+    --args "${ARGS/--build-core/}"
 popd
 node temp/QuickTest.js
