@@ -174,13 +174,20 @@ and Location = { name: string; mutable employees: Employee list }
 
 [<Struct>]
 type ValueType<'T> =
-    new (f) = { foo = f }
-    val foo : 'T
-    member x.Value = x.foo
+    new (v) = { value = v }
+    val value : 'T
+    member x.Value = x.value
+
+[<Struct>]
+type ValueType1<'T>(value: 'T) =
+    member x.Value = value
 
 [<Struct>]
 type ValueType2(i: int, j: int) =
     member x.Value = i + j
+
+[<Struct>]
+type StructUnion = Value of string
 
 type Point2D =
    struct
@@ -517,10 +524,30 @@ let tests =
         location.name |> equal "NY"
         alice.age |> equal 20.
 
-    testCase "Value Types work" <| fun () -> // See #568
-        let test = ValueType<_>("foo")
-        test.Value |> equal "foo"
-        test.foo |> equal "foo"
+    testCase "Value Type records work" <| fun () -> // See #568
+        let foo1 = ValueType<_>("foo")
+        let foo2 = ValueType<_>("foo")
+        foo1.Value |> equal "foo"
+        foo1.value |> equal "foo"
+        foo1 |> equal foo2
+
+    testCase "Value Type unions work" <| fun () ->
+        let du1 = StructUnion.Value "du"
+        let du2 = StructUnion.Value "du"
+        du1 |> equal du2
+
+    testCase "Value Type tuples work" <| fun () ->
+        let tu1 = struct ("a","b")
+        let tu2 = struct ("a","b")
+        tu1 |> equal tu2
+
+    testCase "Value Types work" <| fun () ->
+        let bar1 = ValueType1("bar")
+        let bar2 = ValueType1("bar")
+        bar1.Value |> equal "bar"
+        bar1 |> equal bar2
+
+    testCase "Other Value Types work" <| fun () ->
         let test2 = ValueType2(3, 4)
         test2.Value |> equal 7
         let p = Point2D(2.)
