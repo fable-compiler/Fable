@@ -1234,7 +1234,10 @@ module Util =
         let args, body = getMemberArgsAndBody com ctx (Some info.Name) None args info.HasSpread body
         // Don't lexically bind `this` (with arrow function) or it will fail with extension members
         let expr: Expression = upcast FunctionExpression(args, body)
-        declareModuleMember info.IsPublic info.Name false expr
+        if info.IsEntryPoint then
+            declareEntryPoint com ctx expr |> U2.Case1
+        else
+            declareModuleMember info.IsPublic info.Name false expr
 
     let transformAction (com: IBabelCompiler) ctx expr =
         let statements = transformAsStatements com ctx None expr

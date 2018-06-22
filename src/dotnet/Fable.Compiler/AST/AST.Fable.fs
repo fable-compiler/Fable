@@ -56,6 +56,7 @@ type ValueDeclarationInfo =
     { Name: string
       IsPublic: bool
       IsMutable: bool
+      IsEntryPoint: bool
       HasSpread: bool }
 
 type BaseConstructorKind =
