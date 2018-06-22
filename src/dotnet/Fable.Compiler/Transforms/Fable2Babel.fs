@@ -1316,7 +1316,11 @@ module Util =
         ]
 
     let transformImplicitConstructor (com: IBabelCompiler) ctx (info: Fable.ClassImplicitConstructorInfo) =
-        let makeBaseCall argInfo =
+        let makeBaseCall (argInfo: Fable.ArgInfo) =
+            let argInfo =
+                match argInfo.Args with
+                | [thisArg; Fable.Value Fable.UnitConstant] -> { argInfo with Args = [thisArg] }
+                | _ -> argInfo
             let kind = makeStrConst "call" |> Some |> Fable.InstanceCall
             Fable.Operation(Fable.Call(kind, argInfo), Fable.Unit, None)
         let baseRef, baseCall =
@@ -1360,11 +1364,13 @@ module Util =
                             NewExpression(consIdent, argExprs))
                     )])
         [
-            yield declareModuleMember info.IsPublic info.EntityName false originalCons
+            yield declareModuleMember info.IsEntityPublic info.EntityName false originalCons
             match baseRef with
             | Some baseRef -> yield inherits com ctx consIdent baseRef
+            | None when info.Entity.IsValueType ->
+                yield coreValue com ctx "Types" "Record" |> inherits com ctx consIdent
             | None -> ()
-            yield declareModuleMember info.IsPublic info.Name false exposedCons
+            yield declareModuleMember info.IsConstructorPublic info.Name false exposedCons
         ]
 
     let transformInterfaceCast (com: IBabelCompiler) ctx (info: Fable.InterfaceCastDeclarationInfo) members =

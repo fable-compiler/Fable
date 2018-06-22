@@ -639,7 +639,8 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
             { Name = name
               Entity = ent
               EntityName = entityName
-              IsPublic = isPublicMember memb
+              IsEntityPublic = isPublicEntity ent
+              IsConstructorPublic = isPublicMember memb
               HasSpread = hasSeqSpread memb
               BaseConstructor = baseCons
               Arguments = args
@@ -804,8 +805,9 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
                     [Fable.UnionConstructor info |> Fable.ConstructorDeclaration]
-                | None when (ent.IsFSharpRecord || ent.IsValueType || ent.IsFSharpExceptionDeclaration)
-                        || (ent.IsClass && not ent.IsMeasure && not (hasImplicitConstructor ent)) ->
+                | None when ent.IsFSharpRecord
+                        || ent.IsFSharpExceptionDeclaration
+                        || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent)) ->
                     let entityName = getEntityDeclarationName com ent
                     com.AddUsedVarName(entityName)
                     // TODO!!! Check Equality/Comparison attributes

@@ -67,7 +67,8 @@ type ClassImplicitConstructorInfo =
     { Name: string
       Entity: FSharpEntity
       EntityName: string
-      IsPublic: bool
+      IsEntityPublic: bool
+      IsConstructorPublic: bool
       HasSpread: bool
       BaseConstructor: BaseConstructorKind
       Arguments: Ident list
