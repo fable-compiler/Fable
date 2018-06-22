@@ -2481,6 +2481,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
 let tryEntityRef (ent: FSharpEntity) =
     match ent.FullName with
     | Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
+    | Types.matchFail -> makeCoreRef Any "MatchFailureException" "Types" |> Some
     | Types.result -> makeCoreRef Any "Result" "Option" |> Some
     | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
     | _ -> None

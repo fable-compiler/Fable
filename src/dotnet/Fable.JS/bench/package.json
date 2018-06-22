@@ -3,7 +3,7 @@
   "scripts": {
     "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start --port 61225",
     "build": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../../build/fable-core",
-    "rollup": "node ../../../../node_modules/rollup/bin/rollup -i ./out/app.js -o ./out/bundle2.js --format cjs",
+    "rollup": "node ../../../../node_modules/rollup/bin/rollup -i ./out/app.js -o ./out/bundle.js --format cjs",
     "webpack": "node ../../../../node_modules/webpack-command/lib/cli.js -p --entry ./out/app.js --output ./out/bundle.js",
     "splitter": "node ../../../../src/js/fable-splitter/dist/cli -c splitter.config.js",
     "start": "node out/app"
