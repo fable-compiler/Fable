@@ -242,6 +242,7 @@ module Types =
     let [<Literal>] unit = "Microsoft.FSharp.Core.Unit"
     let [<Literal>] option = "Microsoft.FSharp.Core.FSharpOption`1"
     let [<Literal>] result = "Microsoft.FSharp.Core.FSharpResult`2"
+    let [<Literal>] matchFail = "Microsoft.FSharp.Core.MatchFailureException"
     let [<Literal>] choiceNonGeneric = "Microsoft.FSharp.Core.FSharpChoice"
     let [<Literal>] list = "Microsoft.FSharp.Collections.FSharpList`1"
     let [<Literal>] resizeArray = "System.Collections.Generic.List`1"

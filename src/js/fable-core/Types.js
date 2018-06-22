@@ -3,7 +3,7 @@ import { createMutable as createMutableSet } from "./Set";
 import { combineHashCodes, compare, compareArrays, equals, equalArrays, hash, numberHash, toString } from "./Util";
 
 function sameType(x, y) {
-  return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
+  return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
 }
 
 // Taken from Babel helpers
@@ -32,6 +32,9 @@ function compareList(self, other) {
   if (self === other) {
     return 0;
   } else {
+    if (other == null) {
+      return -1;
+    }
     while (self.tail != null) {
       if (other.tail == null) { return 1; }
       const res = compare(self.head, other.head);
@@ -262,6 +265,13 @@ FSharpException.prototype.Equals = function(other) {
 FSharpException.prototype.CompareTo = function(other) {
   return recordCompare(this, other, getFSharpExceptionFieldNames);
 };
+
+export function MatchFailureException(arg1, arg2, arg3) {
+  this.arg1 = arg1;
+  this.arg2 = arg2 | 0;
+  this.arg3 = arg3 | 0;
+}
+inherits(MatchFailureException, FSharpException);
 
 export function Dictionary(source, comparer) {
   this.__mutableMap = createMutableMap(source, comparer);

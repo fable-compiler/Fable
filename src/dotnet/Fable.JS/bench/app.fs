@@ -43,7 +43,7 @@ let toJson (value: obj) = Newtonsoft.Json.JsonConvert.SerializeObject(value)
 #endif
 
 
-[<EntryPoint>]
+// [<EntryPoint>]
 let main argv =
     try
         let fileName = "test_script.fsx"
@@ -68,3 +68,5 @@ let main argv =
     with ex ->
         printfn "Error: %A" ex.Message
     0
+
+main [||] |> ignore

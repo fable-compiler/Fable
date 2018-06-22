@@ -1311,7 +1311,7 @@ module Util =
                     |> declareModuleMember info.IsPublic info.EntityName false
             if info.Entity.IsFSharpExceptionDeclaration
             then yield coreValue com ctx "Types" "FSharpException" |> inherits com ctx consIdent
-            elif info.Entity.IsFSharpRecord
+            elif info.Entity.IsFSharpRecord || info.Entity.IsValueType
             then yield coreValue com ctx "Types" "Record" |> inherits com ctx consIdent
         ]
 
