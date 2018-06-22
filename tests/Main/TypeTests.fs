@@ -160,13 +160,14 @@ type ChildFoo() =
 
 type BaseClass () =
     abstract member Init: unit -> int
-    default self.Init () = 5
+    default __.Init () = 5
+    abstract member Prop: string
+    default __.Prop = "base"
 
 type ExtendedClass () =
     inherit BaseClass ()
-
-    override self.Init() =
-        base.Init() + 2
+    override __.Init() = base.Init() + 2
+    override __.Prop = base.Prop + "-extension"
 
 type Employee = { name: string; age: float; location: Location }
 and Location = { name: string; mutable employees: Employee list }
@@ -501,7 +502,14 @@ let tests =
         mangleFoo foo |> equal "BARFOO"
 
     testCase "Calling default implementation of base members don't cause infinite recursion" <| fun () -> // See #701
-        ExtendedClass().Init() |> equal 7
+        let x = ExtendedClass()
+        x.Init() |> equal 7
+        (x :> BaseClass).Init() |> equal 7
+
+    testCase "Calling default implementation of base properties don't cause infinite recursion" <| fun () -> // See #701
+        let x = ExtendedClass()
+        x.Prop |> equal "base-extension"
+        (x :> BaseClass).Prop |> equal "base-extension"
 
     testCase "Circular dependencies work" <| fun () -> // See #569
         let location = { name="NY"; employees=[] }

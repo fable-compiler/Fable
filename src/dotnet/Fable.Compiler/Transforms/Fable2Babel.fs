@@ -657,7 +657,7 @@ module Util =
                 match argInfo.ThisArg, membExpr with
                 | None, _ -> addErrorAndReturnNull com range "InstanceCall with empty this argument"
                 // When calling a virtual method with default implementation from base class,
-                // compile it as: `BaseClass.prototype.Foo.call(this)` (see #701)
+                // compile it as: `BaseClass.prototype.Foo.call(this, ...args)` (see #701)
                 | Some(Fable.Value(Fable.Super(Fable.DeclaredType(baseEntity, _)))), Some membExpr ->
                     let baseClassExpr = entityRefMaybeImported com ctx baseEntity
                     let baseProtoMember =
@@ -730,13 +730,22 @@ module Util =
                 IfStatement(guardExpr, thenStmnt)
             | statements -> IfStatement(guardExpr, thenStmnt, BlockStatement statements)
 
-    let transformGet (com: IBabelCompiler) ctx range typ expr (getKind: Fable.GetKind) =
-        let expr = com.TransformAsExpr(ctx, expr)
+    let transformGet (com: IBabelCompiler) ctx range typ fableExpr (getKind: Fable.GetKind) =
+        let expr = com.TransformAsExpr(ctx, fableExpr)
         match getKind with
         | Fable.ExprGet(TransformExpr com ctx prop) -> getExpr range expr prop
         | Fable.ListHead -> get range expr "head"
         | Fable.ListTail -> get range expr "tail"
-        | Fable.FieldGet(fieldName,_,_) -> get range expr fieldName
+        | Fable.FieldGet(fieldName,_,_) ->
+            let expr =
+                match fableExpr with
+                // When calling a virtual property with default implementation from base class,
+                // compile it as: `BaseClass.prototype.Foo` (see #701)
+                | Fable.Value(Fable.Super(Fable.DeclaredType(baseEntity, _))) ->
+                    let baseClassExpr = entityRefMaybeImported com ctx baseEntity
+                    get None baseClassExpr "prototype"
+                | _ -> expr
+            get range expr fieldName
         | Fable.TupleGet(index,_) -> getExpr range expr (ofInt index)
         | Fable.OptionValue ->
             if mustWrapOption typ
