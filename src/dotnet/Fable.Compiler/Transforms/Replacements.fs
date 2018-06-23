@@ -2184,53 +2184,6 @@ let controlExtensions (_: ICompiler) (_: Context) (_: SourceLocation option) t (
             |> fun (args, argTypes) -> List.rev args, List.rev argTypes
         Helper.CoreCall("Observable", meth, t, args, argTypes))
 
-let rec getTypeFullName = function
-    | Fable.GenericParam name -> name
-    | Fable.EnumType(_, fullname) -> fullname
-    | Fable.Regex    -> Types.regex
-    | Fable.MetaType -> Types.type_
-    | Fable.Unit    -> Types.unit
-    | Fable.Boolean -> Types.bool
-    | Fable.Char    -> Types.char
-    | Fable.String  -> Types.string
-    // TODO: Type info forErasedUnion?
-    | Fable.ErasedUnion _ | Fable.Any -> Types.object
-    | Fable.Number kind ->
-        match kind with
-        | Int8    -> Types.int8
-        | UInt8   -> Types.uint8
-        | Int16   -> Types.int16
-        | UInt16  -> Types.uint16
-        | Int32   -> Types.int32
-        | UInt32  -> Types.uint32
-        | Float32 -> Types.float32
-        | Float64 -> Types.float64
-        | Decimal -> Types.decimal
-    | Fable.FunctionType(Fable.LambdaType argType, returnType) ->
-        sprintf "Microsoft.FSharp.Core.FSharpFunc`2[%s,%s]"
-            (getTypeFullName argType) (getTypeFullName returnType)
-    | Fable.FunctionType(Fable.DelegateType argTypes, returnType) ->
-        sprintf "System.Func`%i[%s,%s]"
-            (List.length argTypes + 1)
-            (List.map getTypeFullName argTypes |> String.concat ",")
-            (getTypeFullName returnType)
-    | Fable.Tuple genArgs ->
-        sprintf "System.Tuple`%i[%s]"
-            (List.length genArgs)
-            (List.map getTypeFullName genArgs |> String.concat ",")
-    | Fable.Array gen ->
-        sprintf "%s[]" (getTypeFullName gen)
-    | Fable.Option gen ->
-        Types.option + "[" + (getTypeFullName gen) + "]"
-    | Fable.List gen   ->
-        Types.list + "[" + (getTypeFullName gen) + "]"
-    | Fable.DeclaredType(ent, gen) ->
-        match ent.TryFullName with
-        | None -> Naming.unknown
-        | Some fullname when List.isEmpty gen -> fullname
-        | Some fullname ->
-            fullname + "[" + (List.map getTypeFullName gen |> String.concat ",") + "]"
-
 let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
     let returnString x = StringConstant x |> Value |> Some
     match thisArg with

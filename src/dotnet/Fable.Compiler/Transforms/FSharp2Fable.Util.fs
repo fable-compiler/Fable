@@ -17,15 +17,17 @@ type Context =
       VarNames: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
+      EnclosingEntity: FSharpEntity option
       CaughtException: Fable.Ident option
       BoundThis: Fable.Ident option
     }
-    static member Create() =
+    static member Create(enclosingEntity) =
         { Scope = []
           ScopeInlineValues = []
           VarNames = HashSet()
           GenericArgs = Map.empty
           EnclosingMember = None
+          EnclosingEntity = enclosingEntity
           CaughtException = None
           BoundThis = None
         }
@@ -37,6 +39,8 @@ type IFableCompiler =
         info: Fable.ReplaceCallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
     abstract TryReplaceInterfaceCast: SourceLocation option * Fable.Type *
         interfaceName: string * Fable.Expr -> Fable.Expr option
+    abstract InjectArgument: enclosingEntity: FSharpEntity option *
+        genArgs: (Lazy<(string * Fable.Type) list>) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract AddUsedVarName: string -> unit
     abstract IsUsedVarName: string -> bool
@@ -546,7 +550,7 @@ module TypeHelpers =
                 if args1Length = args2Length then
                     let args2 = args2 |> Seq.collect (fun g ->
                         g |> Seq.map (fun p -> makeType com genArgs p.Type) |> Seq.toList)
-                    listEquals typeEquals args1 (Seq.toList args2)
+                    listEquals (typeEquals false) args1 (Seq.toList args2)
                 else false
         let argTypesLength = List.length argTypes
         getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
@@ -923,39 +927,9 @@ module Util =
         then None
         else inlineExpr com ctx genArgs callee args memb |> Some
 
-    // TODO: Move this to replacements to make more types injectable
-    let injectArg com (genArgs: Lazy<(string * Fable.Type) list>) (par: FSharpParameter): Fable.Expr =
-        let resolveParamGeneric index (paramGenArgs: IList<FSharpType>) =
-            let parGenArg = paramGenArgs.[index]
-            if parGenArg.IsGenericParameter then
-                let genParamName = parGenArg.GenericParameter.Name
-                genArgs.Value
-                |> List.tryPick (fun (k,v) -> if k = genParamName then Some v else None)
-                // We could add an error here if not found, but it will be added anyways
-                // when trying to compile TypeInfo for a generic in Fable2Babel
-                |> Option.defaultValue (Fable.GenericParam genParamName)
-            else makeType com Map.empty parGenArg
-        let parType = nonAbbreviatedType par.Type
-        let range = makeRange par.DeclarationLocation |> Some
-        let typDefAndGenArgs =
-            // The type of the parameter must be an option
-            if parType.HasTypeDefinition && parType.TypeDefinition.TryFullName = Some Types.option then
-                let typ = parType.GenericArguments.[0]
-                if typ.HasTypeDefinition then Some(typ.TypeDefinition, typ.GenericArguments) else None
-            else None
-        match typDefAndGenArgs with
-        | Some(typDef, genArgs) when typDef.TryFullName = Some Types.typeResolver ->
-            let f = Fable.TypeInfo(resolveParamGeneric 0 genArgs, range) |> Fable.Value |> makeDelegate []
-            let m = Fable.ObjectMember(makeStrConst "ResolveType", f, Fable.ObjectValue)
-            Fable.ObjectExpr([m], Fable.Any, None)
-        | _ ->
-            typDefAndGenArgs
-            |> Option.bind (fun (x,_) -> x.TryFullName)
-            |> Option.defaultValue Naming.unknown
-            |> sprintf "Cannot inject argument of type %s"
-            |> addErrorAndReturnNull com range
-
-    let removeOmittedOptionalArguments com (memb: FSharpMemberOrFunctionOrValue) genArgs (args: Fable.Expr list) =
+    /// Removes optional arguments set to None in tail position and calls the injector
+    let transformOptionalArguments (com: IFableCompiler) (ctx: Context)
+                (memb: FSharpMemberOrFunctionOrValue) genArgs (args: Fable.Expr list) =
         if memb.CurriedParameterGroups.Count <> 1
             || memb.CurriedParameterGroups.[0].Count <> (List.length args)
         then args
@@ -967,10 +941,10 @@ module Util =
                 else
                     match par.IsOptionalArg, arg with
                     | true, Fable.Value(Fable.NewOption(None,_)) ->
-                        // Has Inject attribute?
-                        if tryFindAtt Atts.inject par.Attributes |> Option.isSome
-                        then true, (injectArg com genArgs par)::acc
-                        else false, acc
+                        match tryFindAtt Atts.inject par.Attributes with
+                        // TODO: Replacements can do multiple injections, enable it here too?
+                        | Some _ -> true, (com.InjectArgument(ctx.EnclosingEntity, genArgs, par))::acc
+                        | None -> false, acc
                     | _ -> true, arg::acc)
             |> snd
 
@@ -990,7 +964,7 @@ module Util =
         let call kind args =
             Fable.Operation(Fable.Call(kind, args), typ, r)
         let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
-        let args = removeOmittedOptionalArguments com memb genArgs args
+        let args = transformOptionalArguments com ctx memb genArgs args
         let argTypes = getArgTypes com memb
         let argInfo: Fable.ArgInfo =
           { ThisArg = callee

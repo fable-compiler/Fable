@@ -565,7 +565,16 @@ let rec optimizeDeclaration (com: ICompiler) = function
     | ConstructorDeclaration kind as consDecl ->
         match kind with
         | ClassImplicitConstructor info ->
-            { info with Body = optimizeExpr com info.Body }
+            let args, body =
+                // Create a function so the arguments can be uncurried, see #1441
+                Function(Delegate info.Arguments, info.Body, None)
+                |> optimizeExpr com
+                |> function
+                    | Function(Delegate args, body, _) -> args, body
+                    | _ ->
+                        addWarning com None "Unexpected result when optimizing ClassImplicitConstructor, please report"
+                        info.Arguments, info.Body
+            { info with Arguments = args; Body = body }
             |> ClassImplicitConstructor |> ConstructorDeclaration
         | _ -> consDecl
     | OverrideDeclaration(args, body, info) ->

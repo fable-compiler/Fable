@@ -52,3 +52,16 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+
+open Fable.Core.Experimental
+open Api
+open Domain
+open Behaviors
+
+let [<Implicit>] adder: IAdder<Point> = upcast PointAdder1()
+// let [<Implicit>] adder2: IAdder<Point> = upcast PointAdder2()
+
+let p1 = { x = 5; y = 12 }
+let p2 = { x = 23; y = -4 }
+
+Helper.AddAndPrint(p1, p2)

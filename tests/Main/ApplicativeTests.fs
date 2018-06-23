@@ -719,6 +719,9 @@ type User =
           Email = email
           Followers = followers }
 
+type ImplicitConstructorUncurrying(f) =
+    member val Value = f "a" "b"
+
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
         (lengthWrapper []) |> equal 0
@@ -826,6 +829,12 @@ let tests7 = [
             |> List.map (sum 10)
         List.sum li |> equal 51
 
+    testCase "Arguments of implicit constructors are uncurried too" <| fun () -> // See #1441
+        let f1 x y = if x = y then 0 else 1
+        let f2 x y = if x = y then 1 else 0
+        ImplicitConstructorUncurrying(f1).Value |> equal 1
+        ImplicitConstructorUncurrying(f2).Value |> equal 0
+
     #if FABLE_COMPILER
     testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->
         let infoHelp version =
@@ -858,7 +867,6 @@ let tests7 = [
                 """{ "id": 67, "email": "user@mail.com" }"""
 
         equal expected actual
-
     #endif
 ]
 
