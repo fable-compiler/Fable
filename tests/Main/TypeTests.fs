@@ -202,6 +202,10 @@ type MyEx2(f: float) =
   inherit Exception(sprintf "Code: %i" (int f))
   member __.Code = f
 
+type ThisContextInConstructor(v) =
+    let f () = v
+    member val Value = f
+
 let tests =
   testList "Types" [
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
@@ -581,4 +585,7 @@ let tests =
             "foo"
         with ex -> ex.Message
         |> equal "Will I be reraised?"
+
+    testCase "This context is not lost in closures within implicit constructor" <| fun () -> // See #1444
+        ThisContextInConstructor(7).Value() |> equal 7
   ]

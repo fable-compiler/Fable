@@ -14,13 +14,6 @@ open FSharp2Fable.TypeHelpers
 let private fullName (ent: FSharpEntity) (genArgs: Fable.Type list) =
     Fable.DeclaredType(ent, genArgs) |> getTypeFullName
 
-let private hasAtt fullname (atts: IList<FSharpAttribute>) =
-    let mutable found = false
-    let fullname = Some fullname
-    for att in atts do
-        found <- found || att.AttributeType.TryFullName = fullname
-    found
-
 let private resolveParamGeneric com (genArg: Lazy<(string * Fable.Type) list>) (parGenArg: FSharpType) =
     if parGenArg.IsGenericParameter then
         let genParamName = parGenArg.GenericParameter.Name
@@ -38,7 +31,7 @@ let (|TryDefinition|_|) (NonAbbreviatedType t) =
 
 let (|Implicit|_|) com r enclosingEntity genArgs (par: FSharpParameter) (typDef: FSharpEntity, paramGen: IList<FSharpType>) =
 
-    if hasAtt Atts.implicit par.Attributes then
+    if hasAttribute Atts.implicit par.Attributes then
         let genArgs = paramGen |> Seq.map (fun g -> resolveParamGeneric com genArgs g) |> Seq.toList
         let fail msg =
             let msg = if String.IsNullOrEmpty(msg) then "Cannot find {0} in enclosing scope" else msg
@@ -50,7 +43,7 @@ let (|Implicit|_|) com r enclosingEntity genArgs (par: FSharpParameter) (typDef:
             let candidates =
                 enclosingEntity.MembersFunctionsAndValues
                 |> Seq.choose (fun m ->
-                    if hasAtt Atts.implicit m.Attributes then
+                    if hasAttribute Atts.implicit m.Attributes then
                         match m.FullTypeSafe with
                         | Some(TryDefinition(typDef2, genArgs2))
                             when typDef = typDef2

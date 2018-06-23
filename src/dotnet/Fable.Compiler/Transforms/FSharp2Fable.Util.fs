@@ -576,7 +576,7 @@ module Identifiers =
         { Name = sanitizedName
           Type = makeType com ctx.GenericArgs fsRef.FullType
           IsMutable = fsRef.IsMutable
-          IsThisArg = fsRef.IsMemberThisValue
+          IsThisArg = fsRef.IsMemberThisValue || fsRef.IsConstructorThisValue
           IsCompilerGenerated = fsRef.IsCompilerGenerated
           Range = makeRange fsRef.DeclarationLocation |> Some }
 
@@ -949,16 +949,24 @@ module Util =
             |> snd
 
     let hasAttribute attFullName (attributes: IList<FSharpAttribute>) =
-        attributes |> Seq.exists (fun att ->
-            att.AttributeType.TryFullName = Some attFullName)
+        let mutable found = false
+        let attFullName = Some attFullName
+        for att in attributes do
+            found <- found || att.AttributeType.TryFullName = attFullName
+        found
 
     let hasInterface interfaceFullname (ent: FSharpEntity) =
-        ent.AllInterfaces |> Seq.exists (fun t ->
-            t.HasTypeDefinition && t.TypeDefinition.TryFullName = Some interfaceFullname)
+        let mutable found = false
+        let interfaceFullname = Some interfaceFullname
+        for t in ent.AllInterfaces do
+            found <- found || t.HasTypeDefinition && t.TypeDefinition.TryFullName = interfaceFullname
+        found
 
     let hasImplicitConstructor (ent: FSharpEntity) =
-        ent.MembersFunctionsAndValues
-        |> Seq.exists(fun m -> m.IsImplicitConstructor)
+        let mutable found = false
+        for m in ent.MembersFunctionsAndValues do
+            found <- found || m.IsImplicitConstructor
+        found
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let call kind args =

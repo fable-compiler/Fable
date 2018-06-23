@@ -37,7 +37,7 @@ type IBabelCompiler =
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement list
     abstract TransformImport: Context * selector:string * path:string * Fable.ImportKind -> Expression
-    abstract TransformObjectExpr: Context * Fable.ObjectMember list * ?baseCall: Fable.Expr * ?boundThis: string -> Expression
+    abstract TransformObjectExpr: Context * Fable.ObjectMember list * boundThis: string * ?baseCall: Fable.Expr -> Expression
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr
         -> (Pattern list) * U2<BlockStatement, Expression>
 
@@ -78,6 +78,11 @@ module Util =
             member __.ReplaceArgs = replaceArgs
             member __.IsRecursiveRef(e) =
                 match e with Fable.IdentExpr id  -> name = id.Name | _ -> false
+
+    let prepareBoundThis (boundThis: string) (args: Fable.Ident list) =
+        match args with
+        | thisArg::args -> Some(boundThis, thisArg), args
+        | _ -> failwith "Expecting thisArg to be first element of argument list"
 
     let decisionTargetsReferencedMultipleTimes expr targetsLength =
         let targetRefs = Dictionary()
@@ -255,8 +260,8 @@ module Util =
 
     let getMemberArgsAndBody (com: IBabelCompiler) ctx name boundThis args hasSpread (body: Fable.Expr) =
         let args, body =
-            match boundThis, args with
-            | Some boundThis, (thisArg: Fable.Ident)::args ->
+            match boundThis with
+            | Some(boundThis, thisArg: Fable.Ident) ->
                 let isThisUsed =
                     body |> FableTransforms.deepExists (function
                         | Fable.IdentExpr id when id.Name = thisArg.Name -> true
@@ -272,7 +277,7 @@ module Util =
                         then Fable.Let([thisArg, boundThisExpr], body)
                         else FableTransforms.replaceValues (Map [thisArg.Name, boundThisExpr]) body
                     args, body
-            | _, args -> args, body
+            | None -> args, body
         let args, body = com.TransformFunction(ctx, name, args, body)
         let args =
             if not hasSpread
@@ -557,8 +562,9 @@ module Util =
                 upcast NewExpression(consRef, (ofInt tag)::(ofString name)::values)
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
-    let transformObjectExpr (com: IBabelCompiler) ctx members baseCall (boundThis: string option): Expression =
+    let transformObjectExpr (com: IBabelCompiler) ctx members (boundThis: string) baseCall: Expression =
         let makeObjMethod kind prop computed hasSpread args body =
+            let boundThis, args = prepareBoundThis boundThis args
             let args, body = getMemberArgsAndBody com ctx None boundThis args hasSpread body
             ObjectMethod(kind, prop, args, body, computed=computed) |> U3.Case2 |> Some
         let pojo =
@@ -1027,7 +1033,7 @@ module Util =
             com.TransformFunction(ctx, name, args, body) ||> makeFunctionExpression name
 
         | Fable.ObjectExpr (members, _, baseCall) ->
-            Some "this" |> transformObjectExpr com ctx members baseCall
+           transformObjectExpr com ctx members "this" baseCall
 
         | Fable.Operation(opKind, _, range) ->
             transformOperation com ctx range opKind
@@ -1087,7 +1093,7 @@ module Util =
              ||> makeFunctionExpression name |> resolveExpr expr.Type returnStrategy]
 
         | Fable.ObjectExpr (members, t, baseCall) ->
-            [Some "this" |> transformObjectExpr com ctx members baseCall |> resolveExpr t returnStrategy]
+            [transformObjectExpr com ctx members "this" baseCall |> resolveExpr t returnStrategy]
 
         | Fable.Operation(callKind, t, range) ->
             transformOperationAsStatements com ctx range t returnStrategy callKind
@@ -1262,7 +1268,8 @@ module Util =
             | Fable.ObjectIterator -> "Symbol.iterator", false, Replacements.enumerator2iterator body
             | Fable.ObjectMethod hasSpread -> info.Name, hasSpread, body
             | _ -> info.Name, false, body
-        let args, body = getMemberArgsAndBody com ctx None (Some "this") args hasSpread body
+        let boundThis, args = prepareBoundThis "this" args
+        let args, body = getMemberArgsAndBody com ctx None boundThis args hasSpread body
         let funcExpr = FunctionExpression(args, body)
         match info.Kind with
         | Fable.ObjectGetter -> defineGetterOrSetter "get" funcCons memberName funcExpr
@@ -1345,7 +1352,8 @@ module Util =
             match baseCall with
             | Some baseCall -> Fable.Sequential [baseCall; info.Body]
             | None -> info.Body
-        let args, body = getMemberArgsAndBody com ctx None None info.Arguments info.HasSpread body
+        let boundThis = Some("this", info.BoundThis)
+        let args, body = getMemberArgsAndBody com ctx None boundThis info.Arguments info.HasSpread body
         let argIdents, argExprs: Pattern list * Expression list =
             match info.Arguments with
             | [] -> [], []
@@ -1378,7 +1386,7 @@ module Util =
 
     let transformInterfaceCast (com: IBabelCompiler) ctx (info: Fable.InterfaceCastDeclarationInfo) members =
         let boundThis = com.GetUniqueVar("this") |> Identifier
-        let castedObj = transformObjectExpr com ctx members None (Some boundThis.name)
+        let castedObj = transformObjectExpr com ctx members boundThis.name None
         let funcExpr =
             let returnedObj =
                 match info.InheritedInterfaces with
@@ -1510,7 +1518,7 @@ module Compiler =
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
-            member bcom.TransformObjectExpr(ctx, members, baseCall, boundThis) = transformObjectExpr bcom ctx members baseCall boundThis
+            member bcom.TransformObjectExpr(ctx, members, boundThis, baseCall) = transformObjectExpr bcom ctx members boundThis baseCall
             member bcom.TransformImport(ctx, selector, path, kind) = transformImport bcom ctx None (makeStrConst selector) (makeStrConst path) kind
 
         interface ICompiler with

@@ -73,6 +73,7 @@ type ClassImplicitConstructorInfo =
       HasSpread: bool
       BaseConstructor: BaseConstructorKind
       Arguments: Ident list
+      BoundThis: Ident
       Body: Expr }
 
 type UnionConstructorInfo =

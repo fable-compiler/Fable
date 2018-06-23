@@ -114,13 +114,6 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
 
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSharpType)
                     baseCallExpr (overrides: FSharpObjectExprOverride list) otherOverrides =
-    let ctx, boundThis =
-        match ctx.BoundThis, ctx.EnclosingMember with
-         // If `this` is already bound we don't need to worry here
-        | None, Some m when m.IsImplicitConstructor ->
-            let boundThis = com.GetUniqueVar("this") |> makeIdent |> Some
-            { ctx with BoundThis = boundThis }, boundThis
-        | _ -> ctx, None
     let baseCall =
         match baseCallExpr with
         // TODO: For interface implementations this should be BasicPatterns.NewObject
@@ -172,10 +165,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                             name, Fable.ObjectMethod false
                 Fable.ObjectMember(makeStrConst name, value, kind)
             ))
-    let objExpr = Fable.ObjectExpr(members, makeType com ctx.GenericArgs objType, baseCall)
-    match boundThis with
-    | Some boundThis -> Fable.Let([boundThis, Fable.Value (Fable.This Fable.Any)], objExpr)
-    | None -> objExpr
+    Fable.ObjectExpr(members, makeType com ctx.GenericArgs objType, baseCall)
 
 // TODO: Check code in Fable 1 and which tests fail because
 // we're not checking special cases
@@ -630,6 +620,8 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
               |> addError com None; []
     | Some ent ->
         let bodyCtx, args = bindMemberArgs com ctx args
+        let boundThis = com.GetUniqueVar("this") |> makeIdent
+        let bodyCtx = { bodyCtx with BoundThis = boundThis |> Some }
         let baseCons, body = getBaseConsAndBody com bodyCtx ent.BaseType [] body
         let name = getMemberDeclarationName com memb
         let entityName = getEntityDeclarationName com ent
@@ -644,6 +636,7 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
               HasSpread = hasSeqSpread memb
               BaseConstructor = baseCons
               Arguments = args
+              BoundThis = boundThis
               Body = body
             }
         [Fable.ClassImplicitConstructor info |> Fable.ConstructorDeclaration]
