@@ -529,23 +529,23 @@ let tests =
         let foo2 = ValueType<_>("foo")
         foo1.Value |> equal "foo"
         foo1.value |> equal "foo"
-        foo1 |> equal foo2
+        foo1 = foo2 |> equal true
 
     testCase "Value Type unions work" <| fun () ->
         let du1 = StructUnion.Value "du"
         let du2 = StructUnion.Value "du"
-        du1 |> equal du2
+        du1 = du2 |> equal true
 
     testCase "Value Type tuples work" <| fun () ->
         let tu1 = struct ("a","b")
         let tu2 = struct ("a","b")
-        tu1 |> equal tu2
+        tu1 = tu2 |> equal true
 
     testCase "Value Types work" <| fun () ->
         let bar1 = ValueType1("bar")
         let bar2 = ValueType1("bar")
         bar1.Value |> equal "bar"
-        bar1 |> equal bar2
+        bar1 = bar2 |> equal true
 
     testCase "Other Value Types work" <| fun () ->
         let test2 = ValueType2(3, 4)
