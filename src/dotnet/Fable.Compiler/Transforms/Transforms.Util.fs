@@ -1,5 +1,124 @@
 namespace Fable.Transforms
 
+[<RequireQualifiedAccess>]
+module Atts =
+    let [<Literal>] customEquality = "Microsoft.FSharp.Core.CustomEqualityAttribute" // typeof<CustomEqualityAttribute>.FullName
+    let [<Literal>] customComparison = "Microsoft.FSharp.Core.CustomComparisonAttribute" // typeof<CustomComparisonAttribute>.FullName
+    let [<Literal>] abstractClass = "Microsoft.FSharp.Core.AbstractClassAttribute" // typeof<AbstractClassAttribute>.FullName
+    let [<Literal>] compiledName = "Microsoft.FSharp.Core.CompiledNameAttribute" // typeof<CompiledNameAttribute>.FullName
+    let [<Literal>] sealed_ = "Microsoft.FSharp.Core.SealedAttribute"
+    let [<Literal>] emit = "Fable.Core.EmitAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
+    let [<Literal>] import = "Fable.Core.ImportAttribute" // typeof<Fable.Core.ImportAttribute>.FullName
+    let [<Literal>] global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
+    let [<Literal>] erase = "Fable.Core.EraseAttribute" // typeof<Fable.Core.EraseAttribute>.FullName
+    let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
+    let [<Literal>] paramList = "Fable.Core.ParamListAttribute" // typeof<Fable.Core.ParamListAttribute>.FullName
+    let [<Literal>] inject = "Fable.Core.InjectAttribute" // typeof<Fable.Core.InjectAttribute>.FullName
+    let [<Literal>] implicit = "Fable.Core.Experimental.ImplicitAttribute" // typeof<Fable.Core.Experimental.ImplicitAttribute>.FullName
+
+[<RequireQualifiedAccess>]
+module Types =
+    let [<Literal>] attribute = "System.Attribute"
+    let [<Literal>] object = "System.Object"
+    let [<Literal>] valueType = "System.ValueType"
+    let [<Literal>] array = "System.Array"
+    let [<Literal>] type_ = "System.Type"
+    let [<Literal>] typeResolver = "Fable.Core.ITypeResolver`1"
+    let [<Literal>] exception_ = "System.Exception"
+    let [<Literal>] bool = "System.Boolean"
+    let [<Literal>] char = "System.Char"
+    let [<Literal>] string = "System.String"
+    let [<Literal>] guid = "System.Guid"
+    let [<Literal>] timespan = "System.TimeSpan"
+    let [<Literal>] datetime = "System.DateTime"
+    let [<Literal>] datetimeOffset = "System.DateTimeOffset"
+    let [<Literal>] int8 = "System.SByte"
+    let [<Literal>] uint8 = "System.Byte"
+    let [<Literal>] int16 = "System.Int16"
+    let [<Literal>] uint16 = "System.UInt16"
+    let [<Literal>] int32 = "System.Int32"
+    let [<Literal>] uint32 = "System.UInt32"
+    let [<Literal>] int64 = "System.Int64"
+    let [<Literal>] uint64 = "System.UInt64"
+    let [<Literal>] float32 = "System.Single"
+    let [<Literal>] float64 = "System.Double"
+    let [<Literal>] decimal = "System.Decimal"
+    let [<Literal>] bigint = "System.Numerics.BigInteger"
+    let [<Literal>] regex = "System.Text.RegularExpressions.Regex"
+    let [<Literal>] unit = "Microsoft.FSharp.Core.Unit"
+    let [<Literal>] option = "Microsoft.FSharp.Core.FSharpOption`1"
+    let [<Literal>] result = "Microsoft.FSharp.Core.FSharpResult`2"
+    let [<Literal>] matchFail = "Microsoft.FSharp.Core.MatchFailureException"
+    let [<Literal>] choiceNonGeneric = "Microsoft.FSharp.Core.FSharpChoice"
+    let [<Literal>] list = "Microsoft.FSharp.Collections.FSharpList`1"
+    let [<Literal>] resizeArray = "System.Collections.Generic.List`1"
+    let [<Literal>] dictionary = "System.Collections.Generic.Dictionary`2"
+    let [<Literal>] idictionary = "System.Collections.Generic.IDictionary`2"
+    let [<Literal>] hashset = "System.Collections.Generic.HashSet`1"
+    let [<Literal>] iset = "System.Collections.Generic.ISet`1"
+    let [<Literal>] fsharpMap = "Microsoft.FSharp.Collections.FSharpMap`2"
+    let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
+    let [<Literal>] enumerable = "System.Collections.Generic.IEnumerable`1"
+    let [<Literal>] ienumerable = "System.Collections.IEnumerable"
+    let [<Literal>] icomparable = "System.IComparable"
+    let [<Literal>] idisposable = "System.IDisposable"
+    let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
+    let [<Literal>] printfModule = "Microsoft.FSharp.Core.PrintfModule"
+    let [<Literal>] printfFormat = "Microsoft.FSharp.Core.PrintfFormat"
+    let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
+
+    // Types compatible with Inject attribute
+    let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
+    let [<Literal>] equalityComparer = "System.Collections.Generic.IEqualityComparer`1"
+    let [<Literal>] arrayCons = "Array.IArrayCons`1"
+
+[<RequireQualifiedAccess>]
+module Operators =
+    let [<Literal>] addition = "op_Addition"
+    let [<Literal>] subtraction = "op_Subtraction"
+    let [<Literal>] multiply = "op_Multiply"
+    let [<Literal>] division = "op_Division"
+    let [<Literal>] modulus = "op_Modulus"
+    let [<Literal>] leftShift = "op_LeftShift"
+    let [<Literal>] rightShift = "op_RightShift"
+    let [<Literal>] bitwiseAnd = "op_BitwiseAnd"
+    let [<Literal>] bitwiseOr = "op_BitwiseOr"
+    let [<Literal>] exclusiveOr = "op_ExclusiveOr"
+    let [<Literal>] booleanAnd = "op_BooleanAnd"
+    let [<Literal>] booleanOr = "op_BooleanOr"
+    let [<Literal>] logicalNot = "op_LogicalNot"
+    let [<Literal>] unaryNegation = "op_UnaryNegation"
+    // let [<Literal>] equality = "op_Equality"
+    // let [<Literal>] inequality = "op_Inequality"
+    // let [<Literal>] lessThan = "op_LessThan"
+    // let [<Literal>] greaterThan = "op_GreaterThan"
+    // let [<Literal>] lessThanOrEqual = "op_LessThanOrEqual"
+    // let [<Literal>] greaterThanOrEqual = "op_GreaterThanOrEqual"
+
+    let standardSet =
+        set [ addition
+              subtraction
+              multiply
+              division
+              modulus
+              leftShift
+              rightShift
+              bitwiseAnd
+              bitwiseOr
+              exclusiveOr
+              booleanAnd
+              booleanOr
+              logicalNot
+              unaryNegation ]
+
+    // let equalitySet =
+    //     set [ equality
+    //           inequality
+    //           lessThan
+    //           greaterThan
+    //           lessThanOrEqual
+    //           greaterThanOrEqual ]
+
 [<AutoOpen>]
 module Extensions =
     type System.Collections.Generic.Dictionary<'TKey,'TValue> with
@@ -168,8 +287,8 @@ module AST =
         | h1::t1, h2::t2 -> f h1 h2 && listEquals f t1 t2
         | _ -> false
 
-    /// This function is useed to solve SRTP, etc, so doesn't take generic params into account
-    let rec typeEquals typ1 typ2 =
+    /// When strict is false doesn't take generic params into account (e.g. when solving SRTP)
+    let rec typeEquals strict typ1 typ2 =
         match typ1, typ2 with
         | Any, Any
         | Unit, Unit
@@ -181,134 +300,64 @@ module AST =
         | EnumType(kind1, name1), EnumType(kind2, name2) -> kind1 = kind2 && name1 = name2
         | Option t1, Option t2
         | Array t1, Array t2
-        | List t1, List t2 -> typeEquals t1 t2
+        | List t1, List t2 -> typeEquals strict t1 t2
         | ErasedUnion ts1, ErasedUnion ts2
-        | Tuple ts1, Tuple ts2 -> listEquals typeEquals ts1 ts2
+        | Tuple ts1, Tuple ts2 -> listEquals (typeEquals strict) ts1 ts2
         | FunctionType(LambdaType a1, t1), FunctionType(LambdaType a2, t2) ->
-            typeEquals a1 a2 && typeEquals t1 t2
+            typeEquals strict a1 a2 && typeEquals strict t1 t2
         | FunctionType(DelegateType as1, t1), FunctionType(DelegateType as2, t2) ->
-            listEquals typeEquals as1 as2 && typeEquals t1 t2
+            listEquals (typeEquals strict) as1 as2 && typeEquals strict t1 t2
         | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) ->
             match ent1.TryFullName, ent2.TryFullName with
-            | Some n1, Some n2 when n1 = n2 -> listEquals typeEquals gen1 gen2
+            | Some n1, Some n2 when n1 = n2 -> listEquals (typeEquals strict) gen1 gen2
             | _ -> false
-        | GenericParam _, _ | _, GenericParam _ -> true
+        | GenericParam _, _ | _, GenericParam _ when not strict -> true
+        | GenericParam name1, GenericParam name2 -> name1 = name2
         | _ -> false
 
-[<RequireQualifiedAccess>]
-module Atts =
-    let [<Literal>] customEquality = "Microsoft.FSharp.Core.CustomEqualityAttribute" // typeof<CustomEqualityAttribute>.FullName
-    let [<Literal>] customComparison = "Microsoft.FSharp.Core.CustomComparisonAttribute" // typeof<CustomComparisonAttribute>.FullName
-    let [<Literal>] abstractClass = "Microsoft.FSharp.Core.AbstractClassAttribute" // typeof<AbstractClassAttribute>.FullName
-    let [<Literal>] compiledName = "Microsoft.FSharp.Core.CompiledNameAttribute" // typeof<CompiledNameAttribute>.FullName
-    let [<Literal>] sealed_ = "Microsoft.FSharp.Core.SealedAttribute"
-    let [<Literal>] emit = "Fable.Core.EmitAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
-    let [<Literal>] import = "Fable.Core.ImportAttribute" // typeof<Fable.Core.ImportAttribute>.FullName
-    let [<Literal>] global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
-    let [<Literal>] erase = "Fable.Core.EraseAttribute" // typeof<Fable.Core.EraseAttribute>.FullName
-    let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
-    let [<Literal>] paramList = "Fable.Core.ParamListAttribute" // typeof<Fable.Core.ParamListAttribute>.FullName
-    let [<Literal>] inject = "Fable.Core.InjectAttribute" // typeof<Fable.Core.InjectAttribute>.FullName
-
-[<RequireQualifiedAccess>]
-module Types =
-    let [<Literal>] attribute = "System.Attribute"
-    let [<Literal>] object = "System.Object"
-    let [<Literal>] valueType = "System.ValueType"
-    let [<Literal>] array = "System.Array"
-    let [<Literal>] type_ = "System.Type"
-    let [<Literal>] typeResolver = "Fable.Core.ITypeResolver`1"
-    let [<Literal>] exception_ = "System.Exception"
-    let [<Literal>] bool = "System.Boolean"
-    let [<Literal>] char = "System.Char"
-    let [<Literal>] string = "System.String"
-    let [<Literal>] guid = "System.Guid"
-    let [<Literal>] timespan = "System.TimeSpan"
-    let [<Literal>] datetime = "System.DateTime"
-    let [<Literal>] datetimeOffset = "System.DateTimeOffset"
-    let [<Literal>] int8 = "System.SByte"
-    let [<Literal>] uint8 = "System.Byte"
-    let [<Literal>] int16 = "System.Int16"
-    let [<Literal>] uint16 = "System.UInt16"
-    let [<Literal>] int32 = "System.Int32"
-    let [<Literal>] uint32 = "System.UInt32"
-    let [<Literal>] int64 = "System.Int64"
-    let [<Literal>] uint64 = "System.UInt64"
-    let [<Literal>] float32 = "System.Single"
-    let [<Literal>] float64 = "System.Double"
-    let [<Literal>] decimal = "System.Decimal"
-    let [<Literal>] bigint = "System.Numerics.BigInteger"
-    let [<Literal>] regex = "System.Text.RegularExpressions.Regex"
-    let [<Literal>] unit = "Microsoft.FSharp.Core.Unit"
-    let [<Literal>] option = "Microsoft.FSharp.Core.FSharpOption`1"
-    let [<Literal>] result = "Microsoft.FSharp.Core.FSharpResult`2"
-    let [<Literal>] matchFail = "Microsoft.FSharp.Core.MatchFailureException"
-    let [<Literal>] choiceNonGeneric = "Microsoft.FSharp.Core.FSharpChoice"
-    let [<Literal>] list = "Microsoft.FSharp.Collections.FSharpList`1"
-    let [<Literal>] resizeArray = "System.Collections.Generic.List`1"
-    let [<Literal>] dictionary = "System.Collections.Generic.Dictionary`2"
-    let [<Literal>] idictionary = "System.Collections.Generic.IDictionary`2"
-    let [<Literal>] hashset = "System.Collections.Generic.HashSet`1"
-    let [<Literal>] iset = "System.Collections.Generic.ISet`1"
-    let [<Literal>] fsharpMap = "Microsoft.FSharp.Collections.FSharpMap`2"
-    let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
-    let [<Literal>] enumerable = "System.Collections.Generic.IEnumerable`1"
-    let [<Literal>] ienumerable = "System.Collections.IEnumerable"
-    let [<Literal>] icomparable = "System.IComparable"
-    let [<Literal>] idisposable = "System.IDisposable"
-    let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
-    let [<Literal>] printfModule = "Microsoft.FSharp.Core.PrintfModule"
-    let [<Literal>] printfFormat = "Microsoft.FSharp.Core.PrintfFormat"
-    let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
-
-    // Types compatible with Inject attribute
-    let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
-    let [<Literal>] equalityComparer = "System.Collections.Generic.IEqualityComparer`1"
-    let [<Literal>] arrayCons = "Array.IArrayCons`1"
-
-[<RequireQualifiedAccess>]
-module Operators =
-    let [<Literal>] addition = "op_Addition"
-    let [<Literal>] subtraction = "op_Subtraction"
-    let [<Literal>] multiply = "op_Multiply"
-    let [<Literal>] division = "op_Division"
-    let [<Literal>] modulus = "op_Modulus"
-    let [<Literal>] leftShift = "op_LeftShift"
-    let [<Literal>] rightShift = "op_RightShift"
-    let [<Literal>] bitwiseAnd = "op_BitwiseAnd"
-    let [<Literal>] bitwiseOr = "op_BitwiseOr"
-    let [<Literal>] exclusiveOr = "op_ExclusiveOr"
-    let [<Literal>] booleanAnd = "op_BooleanAnd"
-    let [<Literal>] booleanOr = "op_BooleanOr"
-    let [<Literal>] logicalNot = "op_LogicalNot"
-    let [<Literal>] unaryNegation = "op_UnaryNegation"
-    // let [<Literal>] equality = "op_Equality"
-    // let [<Literal>] inequality = "op_Inequality"
-    // let [<Literal>] lessThan = "op_LessThan"
-    // let [<Literal>] greaterThan = "op_GreaterThan"
-    // let [<Literal>] lessThanOrEqual = "op_LessThanOrEqual"
-    // let [<Literal>] greaterThanOrEqual = "op_GreaterThanOrEqual"
-
-    let standardSet =
-        set [ addition
-              subtraction
-              multiply
-              division
-              modulus
-              leftShift
-              rightShift
-              bitwiseAnd
-              bitwiseOr
-              exclusiveOr
-              booleanAnd
-              booleanOr
-              logicalNot
-              unaryNegation ]
-
-    // let equalitySet =
-    //     set [ equality
-    //           inequality
-    //           lessThan
-    //           greaterThan
-    //           lessThanOrEqual
-    //           greaterThanOrEqual ]
+    let rec getTypeFullName = function
+        | Fable.GenericParam name -> name
+        | Fable.EnumType(_, fullname) -> fullname
+        | Fable.Regex    -> Types.regex
+        | Fable.MetaType -> Types.type_
+        | Fable.Unit    -> Types.unit
+        | Fable.Boolean -> Types.bool
+        | Fable.Char    -> Types.char
+        | Fable.String  -> Types.string
+        // TODO: Type info forErasedUnion?
+        | Fable.ErasedUnion _ | Fable.Any -> Types.object
+        | Fable.Number kind ->
+            match kind with
+            | Int8    -> Types.int8
+            | UInt8   -> Types.uint8
+            | Int16   -> Types.int16
+            | UInt16  -> Types.uint16
+            | Int32   -> Types.int32
+            | UInt32  -> Types.uint32
+            | Float32 -> Types.float32
+            | Float64 -> Types.float64
+            | Decimal -> Types.decimal
+        | Fable.FunctionType(Fable.LambdaType argType, returnType) ->
+            sprintf "Microsoft.FSharp.Core.FSharpFunc`2[%s,%s]"
+                (getTypeFullName argType) (getTypeFullName returnType)
+        | Fable.FunctionType(Fable.DelegateType argTypes, returnType) ->
+            sprintf "System.Func`%i[%s,%s]"
+                (List.length argTypes + 1)
+                (List.map getTypeFullName argTypes |> String.concat ",")
+                (getTypeFullName returnType)
+        | Fable.Tuple genArgs ->
+            sprintf "System.Tuple`%i[%s]"
+                (List.length genArgs)
+                (List.map getTypeFullName genArgs |> String.concat ",")
+        | Fable.Array gen ->
+            sprintf "%s[]" (getTypeFullName gen)
+        | Fable.Option gen ->
+            Types.option + "[" + (getTypeFullName gen) + "]"
+        | Fable.List gen   ->
+            Types.list + "[" + (getTypeFullName gen) + "]"
+        | Fable.DeclaredType(ent, gen) ->
+            match ent.TryFullName with
+            | None -> Naming.unknown
+            | Some fullname when List.isEmpty gen -> fullname
+            | Some fullname ->
+                fullname + "[" + (List.map getTypeFullName gen |> String.concat ",") + "]"

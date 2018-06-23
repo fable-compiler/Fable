@@ -781,7 +781,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     then transformOverride com ctx memb args body
     else transformMemberFunctionOrValue com ctx memb args body
 
-let private transformDeclarations (com: FableCompiler) fsDecls =
+let private transformDeclarations (com: FableCompiler) rootEnt rootDecls =
     let rec transformDeclarationsInner com (ctx: Context) fsDecls =
         fsDecls |> List.collect (fun fsDecl ->
             match fsDecl with
@@ -817,13 +817,13 @@ let private transformDeclarations (com: FableCompiler) fsDecls =
                         IsPublic = isPublicEntity ent }
                     [Fable.CompilerGeneratedConstructor info |> Fable.ConstructorDeclaration]
                 | None ->
-                    transformDeclarationsInner com ctx sub
+                    transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
                 transformMemberDecl com ctx meth args body
             | FSharpImplementationFileDeclaration.InitAction fe ->
                 [transformExpr com ctx fe |> Fable.ActionDeclaration]
         )
-    let decls = transformDeclarationsInner com (Context.Create()) fsDecls
+    let decls = transformDeclarationsInner com (Context.Create rootEnt) rootDecls
     let interfaceImplementations =
         com.InterfaceImplementations.Values |> Seq.map (fun (info, objMember) ->
             Fable.InterfaceCastDeclaration(Seq.toList objMember, info)) |> Seq.toList
@@ -914,6 +914,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             Replacements.tryCall this ctx r t info thisArg args
         member __.TryReplaceInterfaceCast(r, t, name, e) =
             Replacements.tryInterfaceCast r t name e
+        member this.InjectArgument(enclosingEntity, genArgs, parameter) =
+            Inject.injectArg this enclosingEntity genArgs parameter
         member this.GetInlineExpr(memb) =
             let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
             if fileName <> com.CurrentFile then
@@ -953,8 +955,8 @@ let transformFile (com: ICompiler) (implFiles: Map<string, FSharpImplementationF
             | Some file -> file
             | None -> failwithf "File %s doesn't belong to parsed project" com.CurrentFile
         let fcom = FableCompiler(com, implFiles)
-        let _, rootDecls = getRootModuleAndDecls file.Declarations
-        let rootDecls = transformDeclarations fcom rootDecls
+        let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
+        let rootDecls = transformDeclarations fcom rootEnt rootDecls
         Fable.File(com.CurrentFile, rootDecls, set fcom.UsedVarNames, set fcom.Dependencies)
     with
     | ex -> exn (sprintf "%s (%s)" ex.Message com.CurrentFile, ex) |> raise

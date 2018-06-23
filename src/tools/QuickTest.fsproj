@@ -7,6 +7,9 @@
     <Reference Include="../../build/fable/Fable.Core.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Api.fs" />
+    <Compile Include="Domain.fs" />
+    <Compile Include="Behaviors.fs" />
     <Compile Include="QuickTest.fs" />
   </ItemGroup>
 </Project>
