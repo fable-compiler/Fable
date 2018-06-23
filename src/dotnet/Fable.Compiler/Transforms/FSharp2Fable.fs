@@ -700,8 +700,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
     | body ->
         let fn = Fable.Function(Fable.Delegate args, body, Some name)
         // If this is a static constructor, call it immediately
-        if memb.CompiledName = ".cctor"
-        then
+        if memb.CompiledName = ".cctor" then
             let apply = staticCall None Fable.Unit (argInfo None [] None) fn
             [Fable.ActionDeclaration apply]
         else
