@@ -463,11 +463,11 @@ module private Transforms =
         | e -> e
 
     let uncurrySendingArgs (com: ICompiler) e =
-        let uncurryConsArgs args (ent: FSharpEntity) genArgs =
+        let uncurryConsArgs args (fields: seq<FSharpField>) genParams genArgs =
             let genArgsMap =
-                FSharp2Fable.Util.matchGenericParams genArgs ent.GenericParameters |> Map
+                FSharp2Fable.Util.matchGenericParams genArgs genParams |> Map
             let argTypes =
-                ent.FSharpFields
+                fields
                 |> Seq.map (fun fi -> FSharp2Fable.TypeHelpers.makeType com genArgsMap fi.FieldType)
                 |> Seq.toList
             uncurryArgs com (Some argTypes) args
@@ -484,10 +484,10 @@ module private Transforms =
         // Uncurry also values in setters or new record/union/tuple
         // TODO: Tests for these uncurry operations
         | Value(NewRecord(args, ent, genArgs)) ->
-            let args = uncurryConsArgs args ent genArgs
+            let args = uncurryConsArgs args ent.FSharpFields ent.GenericParameters genArgs
             Value(NewRecord(args, ent, genArgs))
         | Value(NewUnion(args, uci, ent, genArgs)) ->
-            let args = uncurryConsArgs args ent genArgs
+            let args = uncurryConsArgs args uci.UnionCaseFields ent.GenericParameters genArgs
             Value(NewUnion(args, uci, ent, genArgs))
         | Value(NewTuple(args, argTypes)) ->
             let args = uncurryArgs com (Some argTypes) args

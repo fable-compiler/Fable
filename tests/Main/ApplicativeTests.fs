@@ -722,6 +722,8 @@ type User =
 type ImplicitConstructorUncurrying(f) =
     member val Value = f "a" "b"
 
+type Fun = Fun of (int -> int -> int list)
+
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
         (lengthWrapper []) |> equal 0
@@ -834,6 +836,11 @@ let tests7 = [
         let f2 x y = if x = y then 1 else 0
         ImplicitConstructorUncurrying(f1).Value |> equal 1
         ImplicitConstructorUncurrying(f2).Value |> equal 0
+
+    testCase "Union case function fields are properly uncurried/curried" <| fun () ->
+        let (Fun f) = Fun (fun x y -> [x; y])
+        let xs = f 3 4
+        List.sum xs |> equal 7
 
     #if FABLE_COMPILER
     testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->
