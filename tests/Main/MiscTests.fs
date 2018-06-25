@@ -265,6 +265,10 @@ module Internal =
 
     type internal MyType =
         static member Subtract x y = x - y
+        static member Add(?x: int, ?y: int) =
+            let x = defaultArg x 20
+            let y = defaultArg y 50
+            x + y
 
 type MyEnum =
     | One = 1
@@ -789,4 +793,7 @@ let tests =
         Trampoline.run (fun _ -> Trampoline.Break "hello") () |> ignore
         Trampoline.run (fun _ -> Trampoline.Break 42) () |> ignore
         Trampoline.run (fun _ -> Trampoline.Break ()) () |> ignore
+
+    testCase "Removing optional arguments not in tail position works" <| fun () ->
+        Internal.MyType.Add(y=6) |> equal 26
   ]

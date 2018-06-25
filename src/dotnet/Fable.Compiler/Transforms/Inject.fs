@@ -30,7 +30,6 @@ let (|TryDefinition|_|) (NonAbbreviatedType t) =
     else None
 
 let (|Implicit|_|) com r enclosingEntity genArgs (par: FSharpParameter) (typDef: FSharpEntity, paramGen: IList<FSharpType>) =
-
     if hasAttribute Atts.implicit par.Attributes then
         let genArgs = paramGen |> Seq.map (fun g -> resolveParamGeneric com genArgs g) |> Seq.toList
         let fail msg =

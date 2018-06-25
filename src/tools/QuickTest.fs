@@ -58,10 +58,19 @@ open Api
 open Domain
 open Behaviors
 
-let [<Implicit>] adder: IAdder<Point> = upcast PointAdder1()
-// let [<Implicit>] adder2: IAdder<Point> = upcast PointAdder2()
+let [<Implicit>] pointAdder     = Implementors1.pointAdder
+let [<Implicit>] squareAdder    = Implementors1.squareAdder
+let [<Implicit>] pointSquarer   = Implementors1.pointSquarer
+let [<Implicit>] squareSquarer  = Implementors1.squareSquarer
 
+// Points
 let p1 = { x = 5; y = 12 }
 let p2 = { x = 23; y = -4 }
 
-Helper.AddAndPrint(p1, p2)
+// Squares
+let s1 = { size = 20 }
+let s2 = { size = 5 }
+
+// Type checked polymorphism!
+Helper.AddSquareAndPrint(p1, p2)
+Helper.AddSquareAndPrint(s1, s2)

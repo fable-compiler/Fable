@@ -934,18 +934,18 @@ module Util =
             || memb.CurriedParameterGroups.[0].Count <> (List.length args)
         then args
         else
-            (memb.CurriedParameterGroups.[0], args, (false, []))
-            |||> Seq.foldBack2 (fun par arg (finish, acc) ->
-                if finish
-                then true, arg::acc
-                else
-                    match par.IsOptionalArg, arg with
-                    | true, Fable.Value(Fable.NewOption(None,_)) ->
+            (memb.CurriedParameterGroups.[0], args, ("optional", []))
+            |||> Seq.foldBack2 (fun par arg (condition, acc) ->
+                match condition with
+                | "optional" | "inject" when par.IsOptionalArg ->
+                    match arg with
+                    | Fable.Value(Fable.NewOption(None,_)) ->
                         match tryFindAtt Atts.inject par.Attributes with
-                        // TODO: Replacements can do multiple injections, enable it here too?
-                        | Some _ -> true, (com.InjectArgument(ctx.EnclosingEntity, genArgs, par))::acc
-                        | None -> false, acc
-                    | _ -> true, arg::acc)
+                        | Some _ -> "inject", (com.InjectArgument(ctx.EnclosingEntity, genArgs, par))::acc
+                        // Don't remove optional arguments if they're not in tail position
+                        | None -> condition, if condition = "optional" then acc else arg::acc
+                    | _ -> "inject", arg::acc // Keep checking for injects
+                | _ -> "none", arg::acc)
             |> snd
 
     let hasAttribute attFullName (attributes: IList<FSharpAttribute>) =
