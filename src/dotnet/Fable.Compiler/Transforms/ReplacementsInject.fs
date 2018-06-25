@@ -63,7 +63,7 @@ let fableCoreModules =
       "max", [(Types.comparer, 0)]
       "minBy", [(Types.comparer, 1)]
       "min", [(Types.comparer, 0)]
-      "distinctBy", [(Types.equalityComparer, 0)]
+      "distinctBy", [(Types.equalityComparer, 1)]
       "distinct", [(Types.equalityComparer, 0)]
       "groupBy", [(Types.equalityComparer, 1)]
       "countBy", [(Types.equalityComparer, 1)]
