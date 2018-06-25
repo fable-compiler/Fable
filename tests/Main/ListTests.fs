@@ -491,10 +491,10 @@ let tests =
           |> equal 3
 
       testCase "List.distinctBy works" <| fun () ->
-          [1; 1; 1; 2; 2; 3; 3]
-          |> List.distinctBy (fun x -> x % 2)
-          |> List.length
-          |> equal 2
+          let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
+          let ys = xs |> List.distinctBy (fun (x,y) -> x % 2)
+          ys |> List.length |> equal 2
+          fst (ys |> List.minBy fst) >= 4 |> equal true
 
       testCase "List.distinct works with non-primitive types" <| fun () ->
         List.distinct [(1, 2); (1, 3); (1, 2)] |> List.length |> equal 2

@@ -417,8 +417,11 @@ let slice (lower: int option) (upper: int option) (xs: 'T list) =
         then x::acc
         else acc) |> reverse
 
-let distinctBy projection (xs:'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
-    HashSet<'T>(xs |> Seq.map projection, eq) |> ofSeq
+let distinctBy (projection: 'T->'Key) (xs:'T list) ([<Inject>] eq: IEqualityComparer<'Key>) =
+    let hashSet = HashSet<'Key>(eq)
+    fold (fun acc x ->
+      if hashSet.Add(projection x) then x::acc
+      else acc) [] xs
 
 let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
     HashSet<'T>(xs, eq) |> ofSeq

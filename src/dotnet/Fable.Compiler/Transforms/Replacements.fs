@@ -651,7 +651,6 @@ let makeEqualityComparer (com: ICompiler) typArg =
     // TODO: Use proper IEqualityComparer<'T> type instead of Any
     ObjectExpr
         ([ObjectMember(makeStrConst "Equals", f, ObjectValue)
-          ObjectMember(makeStrConst "Compare", makeComparerFunction com typArg, ObjectValue)
           ObjectMember(makeStrConst "GetHashCode", makeCoreRef Any "hash" "Util", ObjectValue)], Any, None)
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?

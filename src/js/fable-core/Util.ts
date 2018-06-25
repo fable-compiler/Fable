@@ -159,7 +159,7 @@ export function toString(obj: any, quoteStrings = false): string {
                 return Array.from(v);
               }
             }
-            return v;
+            return String(v);
           });
         } catch (err) {
           // Fallback for objects with circular references
