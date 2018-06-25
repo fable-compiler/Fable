@@ -362,6 +362,7 @@ module Util =
             | _ -> com.TransformAsExpr(ctx, expr)
         | Fable.AsPojo(expr, caseRule) -> com.TransformAsExpr(ctx, Replacements.makePojo com r caseRule expr)
         | Fable.AsUnit expr -> com.TransformAsExpr(ctx, expr)
+        | Fable.Curry(expr, arity) -> com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime arity expr)
 
     let rec hasRecursiveTypes com acc t =
         match t with
@@ -528,7 +529,7 @@ module Util =
             else upcast NumericLiteral x
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral (source, flags)
         | Fable.NewArray (arrayKind, typ) -> makeTypedArray com ctx typ arrayKind
-        | Fable.NewTuple (vals,_) -> makeTypedArray com ctx Fable.Any (Fable.ArrayValues vals)
+        | Fable.NewTuple vals -> makeTypedArray com ctx Fable.Any (Fable.ArrayValues vals)
         // TODO: Compile as List.ofArray if it's a list literal with many values?
         | Fable.NewList (headAndTail, _) ->
             match headAndTail with
@@ -608,7 +609,7 @@ module Util =
         match args, spread with
         | [], _
         | [Fable.Value Fable.UnitConstant], _ -> []
-        | [Fable.Value(Fable.NewTuple(args,_))], Fable.TupleSpread ->
+        | [Fable.Value(Fable.NewTuple args)], Fable.TupleSpread ->
             List.map (fun e -> com.TransformAsExpr(ctx, e)) args
         | args, Fable.SeqSpread ->
             match List.rev args with
@@ -752,7 +753,7 @@ module Util =
                     get None baseClassExpr "prototype"
                 | _ -> expr
             get range expr fieldName
-        | Fable.TupleGet(index,_) -> getExpr range expr (ofInt index)
+        | Fable.TupleGet index -> getExpr range expr (ofInt index)
         | Fable.OptionValue ->
             if mustWrapOption typ
             then coreLibCall com ctx "Option" "value" [expr]

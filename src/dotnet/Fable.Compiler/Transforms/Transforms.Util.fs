@@ -178,7 +178,7 @@ module AST =
         | Value(This _) -> true
         | IdentExpr id -> id.IsMutable
         | Value(Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _ | Enum _) -> false
-        | Value(NewTuple(exprs,_)) -> exprs |> List.exists hasDoubleEvalRisk
+        | Value(NewTuple exprs) -> exprs |> List.exists hasDoubleEvalRisk
         | Get(_,kind,_,_) ->
             match kind with
             // OptionValue has a runtime check

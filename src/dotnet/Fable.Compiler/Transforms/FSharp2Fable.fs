@@ -100,9 +100,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
                 let fieldName = Naming.removeGetSetPrefix traitName
                 entity.FSharpFields |> Seq.tryPick (fun fi ->
                     if fi.Name = fieldName then
-                        let genArgs = makeGenArgs com ctx.GenericArgs (getGenericArguments t)
-                        let genArgsMap = matchGenericParams genArgs entity.GenericParameters |> Map
-                        let kind = Fable.FieldGet(fi.Name, fi.IsMutable, makeType com genArgsMap fi.FieldType)
+                        let kind = Fable.FieldGet(fi.Name, fi.IsMutable, makeType com Map.empty fi.FieldType)
                         Fable.Get(thisArg.Value, kind, typ, r) |> Some
                     else None)
                 |> Option.orElseWith (fun () ->
@@ -390,21 +388,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> entityRef com r calleeType.TypeDefinition
-        let ent = calleeType.TypeDefinition
-        let genArgs = makeGenArgs com ctx.GenericArgs (getGenericArguments calleeType)
-        let genArgsMap = matchGenericParams genArgs ent.GenericParameters |> Map
-        let kind = Fable.FieldGet(field.Name, field.IsMutable, makeType com genArgsMap field.FieldType)
+        let kind = Fable.FieldGet(field.Name, field.IsMutable, makeType com Map.empty field.FieldType)
         Fable.Get(callee, kind, typ, r)
 
-    | BasicPatterns.TupleGet(tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
-        let itemType =
-            match makeType com ctx.GenericArgs tupleType with
-            | Fable.Tuple argTypes ->
-                List.tryItem tupleElemIndex argTypes
-                |> Option.defaultWith (fun () -> tupleExpr.Type) // TODO: Log error if not found?
-            | _ -> tupleExpr.Type
+    | BasicPatterns.TupleGet(_tupleType, tupleElemIndex, Transform com ctx tupleExpr) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
-        Fable.Get(tupleExpr, Fable.TupleGet(tupleElemIndex, itemType), typ, r)
+        Fable.Get(tupleExpr, Fable.TupleGet tupleElemIndex, typ, r)
 
     | BasicPatterns.UnionCaseGet (Transform com ctx unionExpr, fsType, unionCase, field) ->
         let range = makeRangeFrom fsExpr
@@ -418,11 +407,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | ListUnion t ->
             let kind = if field.Name = "Head" then Fable.ListHead else Fable.ListTail
             Fable.Get(unionExpr, kind, makeType com ctx.GenericArgs t, range)
-        | DiscriminatedUnion(ent, genArgs) ->
+        | DiscriminatedUnion _ ->
             let t = makeType com ctx.GenericArgs fsExpr.Type
-            let genArgs = makeGenArgs com ctx.GenericArgs genArgs
-            let genArgsMap = matchGenericParams genArgs ent.GenericParameters |> Map
-            let kind = Fable.UnionField(field, unionCase, makeType com genArgsMap field.FieldType)
+            let kind = Fable.UnionField(field, unionCase, makeType com Map.empty field.FieldType)
             Fable.Get(unionExpr, kind, t, range)
 
     | BasicPatterns.FSharpFieldSet(callee, calleeType, field, Transform com ctx value) ->
@@ -431,10 +418,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             match callee with
             | Some (Transform com ctx callee) -> callee
             | None -> entityRef com range calleeType.TypeDefinition
-        let ent = calleeType.TypeDefinition
-        let genArgs = makeGenArgs com ctx.GenericArgs (getGenericArguments calleeType)
-        let genArgsMap = matchGenericParams genArgs ent.GenericParameters |> Map
-        Fable.Set(callee, Fable.FieldSet(field.Name, makeType com genArgsMap field.FieldType), value, range)
+        Fable.Set(callee, Fable.FieldSet(field.Name, makeType com Map.empty field.FieldType), value, range)
 
     | BasicPatterns.UnionCaseTag(Transform com ctx unionExpr, _unionType) ->
         let range = makeRangeFrom fsExpr
@@ -459,13 +443,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.NewArray(FableType com ctx elTyp, arrExprs) ->
         makeArray elTyp (arrExprs |> List.map (transformExpr com ctx))
 
-    | BasicPatterns.NewTuple(tupleType, argExprs) ->
+    | BasicPatterns.NewTuple(_tupleType, argExprs) ->
         let argExprs = List.map (transformExpr com ctx) argExprs
-        let argTypes =
-            match makeType com ctx.GenericArgs tupleType with
-            | Fable.Tuple argTypes -> argTypes
-            | _ -> argExprs |> List.map (fun x -> x.Type) // TODO: Log error?
-        Fable.NewTuple(argExprs, argTypes) |> Fable.Value
+        Fable.NewTuple(argExprs) |> Fable.Value
 
     | BasicPatterns.ObjectExpr(objType, baseCall, overrides, otherOverrides) ->
         transformObjExpr com ctx objType baseCall overrides otherOverrides

@@ -15,7 +15,7 @@ let visit f e =
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ | Enum _ -> e
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> Value
-        | NewTuple(exprs, genArgs) -> NewTuple(List.map f exprs, genArgs) |> Value
+        | NewTuple exprs -> NewTuple(List.map f exprs) |> Value
         | NewArray(kind, t) ->
             match kind with
             | ArrayValues exprs -> NewArray(ArrayValues(List.map f exprs), t) |> Value
@@ -35,6 +35,7 @@ let visit f e =
         | AsSeqFromList e -> DelayedResolution(AsSeqFromList(f e), t, r)
         | AsPojo(e1, e2) -> DelayedResolution(AsPojo(f e1, f e2), t, r)
         | AsUnit e -> DelayedResolution(AsUnit(f e), t, r)
+        | Curry(e, arity) -> DelayedResolution(Curry(f e, arity), t, r)
     | Function(kind, body, name) -> Function(kind, f body, name)
     | ObjectExpr(members, t, baseCall) ->
         let baseCall = Option.map f baseCall
@@ -113,7 +114,7 @@ let getSubExpressions = function
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ | Enum _ -> []
         | NewOption(e, _) -> Option.toList e
-        | NewTuple(exprs, _) -> exprs
+        | NewTuple exprs -> exprs
         | NewArray(kind, _) ->
             match kind with
             | ArrayValues exprs -> exprs
@@ -126,7 +127,7 @@ let getSubExpressions = function
     | Test(e, _, _) -> [e]
     | DelayedResolution(kind, _, _) ->
         match kind with
-        | AsSeqFromList e | AsUnit e -> [e]
+        | AsSeqFromList e | AsUnit e | Curry(e,_) -> [e]
         | AsPojo(e1, e2) -> [e1; e2]
     | Function(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
@@ -188,13 +189,6 @@ let replaceValues replacements expr =
             | Some e -> e
             | None -> e
         | e -> e)
-
-let replaceThis replacement expr =
-    expr |> visitFromOutsideIn (function
-        | Value(This _) -> Some replacement
-        // Don't get into closures
-        | Function _ | ObjectExpr _ as e -> Some e
-        | _ -> None)
 
 let canEraseBinding identName value body =
     // Don't erase expressions referenced 0 times, they may have side-effects
@@ -285,7 +279,7 @@ module private Transforms =
     /// Tuples created when pattern matching multiple elements can usually be erased
     /// after the bingind and lambda beta reduction
     let tupleBetaReduction (_: ICompiler) = function
-        | Get(Value(NewTuple(exprs,_)), TupleGet(index, _), _, _) -> List.item index exprs
+        | Get(Value(NewTuple exprs), TupleGet index, _, _) -> List.item index exprs
         | e -> e
 
     let bindingBetaReduction (_: ICompiler) e =
@@ -425,15 +419,6 @@ module private Transforms =
         | e -> e
 
     let uncurryReceivedArgs (_: ICompiler) e =
-        let uncurryGetType fieldType returnType =
-            match fieldType with
-            | FunctionType(LambdaType _, _) ->
-                let argTypes, retType = uncurryLambdaType fieldType
-                FunctionType(DelegateType argTypes, retType)
-            | Option(FunctionType(LambdaType _, _) as t) ->
-                let argTypes, retType = uncurryLambdaType t
-                Option(FunctionType(DelegateType argTypes, retType))
-            | _ -> returnType
         match e with
         | Function(Lambda arg, body, name) ->
             let args, body = uncurryIdentsAndReplaceInBody [arg] body
@@ -441,34 +426,45 @@ module private Transforms =
         | Function(Delegate args, body, name) ->
             let args, body = uncurryIdentsAndReplaceInBody args body
             Function(Delegate args, body, name)
-        // Uncurry also values received from getters
-        | Get(e, kind, returnType, r) ->
-            let uncurriedType =
-                match kind with
-                | FieldGet(_,_,fieldType)
-                | TupleGet(_,fieldType)
-                | UnionField(_,_,fieldType) -> uncurryGetType fieldType returnType
-                | _ -> returnType
-            Get(e, kind, uncurriedType, r)
-        // If a field function is assigned to a value, just curry it to prevent issues
+        // Uncurry also values received from getters (with delayed resolution)
+        | Get(_, (FieldGet(_,_,fieldType) | UnionField(_,_,fieldType)), t, r) ->
+            let rec nestedLambda acc = function
+                | FunctionType(LambdaType _, t) ->
+                    nestedLambda (acc + 1) t
+                | _ -> acc
+            let arity =
+                match fieldType with
+                | FunctionType(LambdaType _, t) -> nestedLambda 1 t
+                | Option(FunctionType(LambdaType _, t)) -> nestedLambda 1 t
+                | _ -> 0
+            if arity > 1
+            then DelayedResolution(Curry(e, arity), t, r)
+            else e
+        // Optimization: Uncurry ident at compile time if DelayedResolution(Curry) is assigned to a value
         | Let(identsAndValues, body) ->
-            let identsAndValues =
-                identsAndValues |> List.map (fun (ident, value) ->
-                    match ident.Type, value with
-                    | FunctionType(LambdaType _, _) as t, Get(_, (FieldGet _| TupleGet _| UnionField _), FunctionType(DelegateType delArgTypes, _), _)
-                        when List.isMultiple delArgTypes ->
-                            ident, Replacements.curryExprAtRuntime t (List.length delArgTypes) value
-                    | _ -> ident, value)
-            Let(identsAndValues, body)
+            let identsAndValues, replacements =
+                (identsAndValues, ([], Map.empty)) ||> List.foldBack (fun (id, value) (identsAndValues, replacements) ->
+                    match value with
+                    | DelayedResolution(Curry(innerExpr, arity),_,_) ->
+                        match uncurryLambdaType id.Type with
+                        | argTypes, returnType when List.length argTypes = arity ->
+                            let delType = FunctionType(DelegateType argTypes, returnType)
+                            // uncurryLambdaType ignores options, so check the original type
+                            match id.Type with
+                            | Option _ -> (id, innerExpr)::identsAndValues, Map.add id.Name (Option delType) replacements
+                            | _ -> (id, innerExpr)::identsAndValues, Map.add id.Name delType replacements
+                        | _ -> (id, value)::identsAndValues, replacements
+                    | _ -> (id, value)::identsAndValues, replacements)
+            if Map.isEmpty replacements
+            then Let(identsAndValues, body)
+            else Let(identsAndValues, replaceIdentTypesInBody replacements body)
         | e -> e
 
     let uncurrySendingArgs (com: ICompiler) e =
-        let uncurryConsArgs args (fields: seq<FSharpField>) genParams genArgs =
-            let genArgsMap =
-                FSharp2Fable.Util.matchGenericParams genArgs genParams |> Map
+        let uncurryConsArgs args (fields: seq<FSharpField>) =
             let argTypes =
                 fields
-                |> Seq.map (fun fi -> FSharp2Fable.TypeHelpers.makeType com genArgsMap fi.FieldType)
+                |> Seq.map (fun fi -> FSharp2Fable.TypeHelpers.makeType com Map.empty fi.FieldType)
                 |> Seq.toList
             uncurryArgs com (Some argTypes) args
         match e with
@@ -476,22 +472,21 @@ module private Transforms =
             let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Call(kind, info), t, r)
         | Operation(CurriedApply(callee, args), t, r) ->
-            let argTypes = uncurryLambdaType callee.Type |> fst |> Some
-            Operation(CurriedApply(callee, uncurryArgs com argTypes args), t, r)
+            match uncurryLambdaType callee.Type with
+            | argTypes, _ when not(List.isEmpty argTypes) ->
+                Operation(CurriedApply(callee, uncurryArgs com (Some argTypes) args), t, r)
+            | _ -> e
         | Operation(Emit(macro, Some info), t, r) ->
             let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Emit(macro, Some info), t, r)
         // Uncurry also values in setters or new record/union/tuple
         // TODO: Tests for these uncurry operations
         | Value(NewRecord(args, ent, genArgs)) ->
-            let args = uncurryConsArgs args ent.FSharpFields ent.GenericParameters genArgs
+            let args = uncurryConsArgs args ent.FSharpFields
             Value(NewRecord(args, ent, genArgs))
         | Value(NewUnion(args, uci, ent, genArgs)) ->
-            let args = uncurryConsArgs args uci.UnionCaseFields ent.GenericParameters genArgs
+            let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, uci, ent, genArgs))
-        | Value(NewTuple(args, argTypes)) ->
-            let args = uncurryArgs com (Some argTypes) args
-            Value(NewTuple(args, argTypes))
         | Set(e, FieldSet(fieldName, fieldType), value, r) ->
             let value = uncurryArgs com (Some [fieldType])  [value]
             Set(e, FieldSet(fieldName, fieldType), List.head value, r)
@@ -502,13 +497,19 @@ module private Transforms =
         | NestedApply(applied, args, t, r) ->
             let applied = visitFromOutsideIn (uncurryApplications com) applied
             let args = args |> List.map (visitFromOutsideIn (uncurryApplications com))
-            match applied.Type with
-            | FunctionType(DelegateType argTypes, _) ->
-                if List.sameLength argTypes args then
-                    let info = argInfo None args (Some argTypes)
+            let applied, uncurriedArity =
+                match applied with
+                | DelayedResolution(Curry(e, arity),_,_) -> e, Some arity
+                | ExprType(FunctionType(DelegateType argTypes, _)) -> applied, Some argTypes.Length
+                | _ -> applied, None
+            match uncurriedArity with
+            | Some uncurriedArity ->
+                let argsLen = List.length args
+                if uncurriedArity = argsLen then
+                    let info = argInfo None args None
                     staticCall r t info applied |> Some
                 else
-                    Replacements.partialApplyAtRuntime t (argTypes.Length - args.Length) applied args |> Some
+                    Replacements.partialApplyAtRuntime t (uncurriedArity - argsLen) applied args |> Some
             | _ -> Operation(CurriedApply(applied, args), t, r) |> Some
         | _ -> None
 
@@ -548,8 +549,9 @@ let optimizations =
       // Then apply uncurry optimizations
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
-      fun com e -> visitFromOutsideIn (uncurryApplications com) e
       fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
+      // uncurryApplications must come after uncurrySendingArgs as it erases argument type info
+      fun com e -> visitFromOutsideIn (uncurryApplications com) e
       // Don't traverse the expression for the unwrap function optimization
       unwrapFunctions
     ]

@@ -523,6 +523,7 @@ export function uncurry(arity: number, f: Function) {
 /* tslint:disable */
 export function curry(arity: number, f: Function): Function {
 /* tslint:enable */
+  if (f == null) { return null; }
   switch (arity) {
     case 2:
       return (a1: any) => (a2: any) => f(a1, a2);

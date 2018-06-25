@@ -777,7 +777,7 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
                 | None ->
                     let name = defaultArg (FSharp2Fable.Helpers.unionCaseCompiledName uci) uci.Name
                     makeObjMember caseRule name values::acc |> Some
-            | Some acc, Value(NewTuple((Value(StringConstant name))::values,_)) ->
+            | Some acc, Value(NewTuple((Value(StringConstant name))::values)) ->
                 makeObjMember caseRule name values::acc |> Some
             | _ -> None)
     | _ -> None
@@ -836,8 +836,8 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         if m = "createNew"
         then constructorCall r t argInfo callee |> Some
         else staticCall r t argInfo callee |> Some
-    | "op_EqualsEqualsGreater", _ ->
-        NewTuple(args, args |> List.map (fun x -> x.Type)) |> Value |> Some
+    | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
+        NewTuple [name; value] |> Value |> Some
     | "createObj", [kvs] ->
         DelayedResolution(AsPojo(kvs, (CaseRules.None |> int |> makeIntConst)), t, r) |> Some
      | "keyValueList", [caseRule; keyValueList] ->
@@ -1025,18 +1025,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.GlobalIdent("Number", "POSITIVE_INFINITY", t, ?loc=r) |> Some
     | ("NaN"|"NaNSingle"), _ ->
         Helper.GlobalIdent("Number", "NaN", t, ?loc=r) |> Some
-    | "Fst", [tup] ->
-        let itemType =
-            match tup.Type with
-            | Tuple ts -> defaultArg (List.tryItem 0 ts) t
-            | _ -> t
-        Get(tup, TupleGet(0, itemType), t, r) |> Some
-    | "Snd", [tup] ->
-        let itemType =
-            match tup.Type with
-            | Tuple ts -> defaultArg (List.tryItem 1 ts) t
-            | _ -> t
-        Get(tup, TupleGet(1, itemType), t, r) |> Some
+    | "Fst", [tup] -> Get(tup, TupleGet 0, t, r) |> Some
+    | "Snd", [tup] -> Get(tup, TupleGet 1, t, r) |> Some
     // Reference
     | "op_Dereference", [arg] -> getReference r t arg  |> Some
     | "op_ColonEquals", [o; v] -> setReference r o v |> Some
@@ -1704,9 +1694,9 @@ let funcs (_: ICompiler) (_: Context) r t (i: CallInfo) thisArg args =
 
 let keyValuePairs (com: ICompiler) (_: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Value(NewTuple(args, i.GenericArgs |> List.map snd)) |> Some
-    | "get_Key", Some c -> Get(c, TupleGet(0, genArg com r 0 i.GenericArgs), t, r) |> Some
-    | "get_Value", Some c -> Get(c, TupleGet(1, genArg com r 1 i.GenericArgs), t, r) |> Some
+    | ".ctor", _ -> Value(NewTuple args) |> Some
+    | "get_Key", Some c -> Get(c, TupleGet 0, t, r) |> Some
+    | "get_Value", Some c -> Get(c, TupleGet 1, t, r) |> Some
     | _ -> None
 
 let dictionaries (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2243,8 +2233,8 @@ let fsharpValue methName (r: SourceLocation option) t (i: CallInfo) (args: Expr 
     | "GetExceptionFields" -> None // TODO!!!
     | _ -> None
 
-let curryExprAtRuntime t arity (expr: Expr) =
-    Helper.CoreCall("Util", "curry", t, [makeIntConst arity; expr])
+let curryExprAtRuntime arity (expr: Expr) =
+    Helper.CoreCall("Util", "curry", expr.Type, [makeIntConst arity; expr])
 
 let partialApplyAtRuntime t arity (fn: Expr) (args: Expr list) =
     let args = NewArray(ArrayValues args, Any) |> Value
@@ -2267,7 +2257,11 @@ let uncurryExpr argsAndRetTypes expr =
     | LambdaUncurriedAtCompileTime arity lambda, _ -> lambda
     | _, Some(argTypes, retType) ->
         let arity = List.length argTypes
-        match getUncurriedArity expr with
+        let expr, uncurriedArity =
+            match expr with
+            | DelayedResolution(Curry(innerExpr, arity),_,_) -> innerExpr, Some arity
+            | _ -> expr, getUncurriedArity expr
+        match uncurriedArity with
         | Some arity2 when arity = arity2 -> expr
         | _ ->
             // Uncurry expression at runtime

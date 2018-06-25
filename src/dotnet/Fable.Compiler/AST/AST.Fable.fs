@@ -148,7 +148,7 @@ type ValueKind =
     | NewOption of value: Expr option * Type
     | NewArray of NewArrayKind * Type
     | NewList of headAndTail: (Expr * Expr) option * Type
-    | NewTuple of Expr list * genArgs: Type list
+    | NewTuple of Expr list
     | NewRecord of Expr list * FSharpEntity * genArgs: Type list
     | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
     | NewErasedUnion of Expr * genericArgs: Type list
@@ -171,7 +171,7 @@ type ValueKind =
         | NewOption(_, t) -> Option t
         | NewArray(_, t) -> Array t
         | NewList(_, t) -> List t
-        | NewTuple(_, genArgs) -> Tuple genArgs
+        | NewTuple exprs -> exprs |> List.map (fun e -> e.Type) |> Tuple
         | NewRecord(_, ent, genArgs) -> DeclaredType(ent, genArgs)
         | NewUnion(_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
         | NewErasedUnion(_, genArgs) -> ErasedUnion genArgs
@@ -218,10 +218,9 @@ type OperationKind =
 
 type GetKind =
     | ExprGet of Expr
-    // We keep the expected type here for the uncurrying optimization
-    | TupleGet of int * expectedType: Type
-    | FieldGet of string * hasDoubleEvalRisk: bool * expectedType: Type
-    | UnionField of FSharpField * FSharpUnionCase * expectedType: Type
+    | TupleGet of int
+    | FieldGet of string * hasDoubleEvalRisk: bool * fieldType: Type
+    | UnionField of FSharpField * FSharpUnionCase * fieldType: Type
     | UnionTag
     | ListHead
     | ListTail
@@ -253,6 +252,7 @@ type DelayedResolutionKind =
     | AsSeqFromList of Expr
     | AsPojo of Expr * caseRules: Expr
     | AsUnit of Expr
+    | Curry of Expr * arity: int
 
 type Expr =
     | Value of ValueKind
