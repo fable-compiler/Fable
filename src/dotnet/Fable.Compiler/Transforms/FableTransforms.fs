@@ -232,10 +232,21 @@ module private Transforms =
             | [] -> replaceValues replacements body
             | bindings -> Let(List.rev bindings, replaceValues replacements body)
         match e with
-        | Operation(CurriedApply(NestedLambda(args, body, None), argExprs), _, _)
-            // TODO: Partial apply if args.Length > argExprs.Length
-            when List.sameLength args argExprs ->
-            applyArgs args argExprs body
+        | Operation(CurriedApply(NestedLambda(args, body, None) as lambda, argExprs), _, _) ->
+            if List.sameLength args argExprs
+            then applyArgs args argExprs body
+            else
+                // Partial apply
+                match List.length argExprs, lambda with
+                | 1, Function(Lambda arg, body, _) ->
+                    applyArgs [arg] argExprs body
+                | 2, Function(Lambda arg1, Function(Lambda arg2, body,_),_) ->
+                    applyArgs [arg1; arg2] argExprs body
+                | 3, Function(Lambda arg1, Function(Lambda arg2, Function(Lambda arg3, body,_),_),_) ->
+                    applyArgs [arg1; arg2; arg3] argExprs body
+                | 4, Function(Lambda arg1, Function(Lambda arg2, Function(Lambda arg3, Function(Lambda arg4, body,_),_),_),_) ->
+                    applyArgs [arg1; arg2; arg3; arg4] argExprs body
+                | _ -> e
         | e -> e
 
     /// Tuples created when pattern matching multiple elements can usually be erased
@@ -304,11 +315,13 @@ module private Transforms =
         | LambdaUncurriedAtCompileTime arity lambda, _ -> lambda
         | _, Some arity ->
             match expr with
+            // TODO: check cases where arity <> arity2
             | DelayedResolution(Curry(innerExpr, arity2),_,_)
-            | Get(DelayedResolution(Curry(innerExpr, arity2),_,_), OptionValue, _, _)
-            | Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity2),_,_)),_))
-                // TODO: check cases where arity <> arity2
                 when arity = arity2 -> innerExpr
+            | Get(DelayedResolution(Curry(innerExpr, arity2),_,_), OptionValue, t, r)
+                when arity = arity2 -> Get(innerExpr, OptionValue, t, r)
+            | Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity2),_,_)),r))
+                when arity = arity2 -> Value(NewOption(Some(innerExpr),r))
             | _ -> Replacements.uncurryExprAtRuntime arity expr
         | _, None -> expr
 
@@ -351,20 +364,37 @@ module private Transforms =
         | None -> List.map (uncurryExpr None) args
 
     let uncurryInnerFunctions (_: ICompiler) e =
-        let replaceIdentInBody identName (args: Ident list) body =
+        let curryIdentInBody identName (args: Ident list) body =
             curryIdentsInBody (Map [identName, List.length args]) body
         match e with
         | Let([ident, NestedLambda(args, fnBody, _)], letBody) when List.isMultiple args ->
-            let fnBody = replaceIdentInBody ident.Name args fnBody
-            let letBody = replaceIdentInBody ident.Name args letBody
+            let fnBody = curryIdentInBody ident.Name args fnBody
+            let letBody = curryIdentInBody ident.Name args letBody
             Let([ident, Function(Delegate args, fnBody, None)], letBody)
         // Anonymous lambda immediately applied
         | Operation(CurriedApply((NestedLambda(args, fnBody, Some name)), argExprs), t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
-            let fnBody = replaceIdentInBody name args fnBody
+            let fnBody = curryIdentInBody name args fnBody
             let info = argInfo None argExprs (args |> List.map (fun a -> a.Type) |> Some)
             Function(Delegate args, fnBody, Some name)
             |> staticCall r t info
+        | e -> e
+
+    let propagateUncurryingThroughLets (_: ICompiler) = function
+        | Let(identsAndValues, body) ->
+            let identsAndValues, replacements =
+                (identsAndValues, ([], Map.empty)) ||> List.foldBack (fun (id, value) (identsAndValues, replacements) ->
+                    match value with
+                    | DelayedResolution(Curry(innerExpr, arity),_,_) ->
+                        (id, innerExpr)::identsAndValues, Map.add id.Name arity replacements
+                    | Get(DelayedResolution(Curry(innerExpr, arity),_,_), OptionValue, t, r) ->
+                        (id, Get(innerExpr, OptionValue, t, r))::identsAndValues, Map.add id.Name arity replacements
+                    | Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity),_,_)),r)) ->
+                        (id, Value(NewOption(Some(innerExpr),r)))::identsAndValues, Map.add id.Name arity replacements
+                    | _ -> (id, value)::identsAndValues, replacements)
+            if Map.isEmpty replacements
+            then Let(identsAndValues, body)
+            else Let(identsAndValues, curryIdentsInBody replacements body)
         | e -> e
 
     let uncurryReceivedArgs (_: ICompiler) e =
@@ -381,24 +411,6 @@ module private Transforms =
             if arity > 1
             then DelayedResolution(Curry(e, arity), t, r)
             else e
-        // // Optimization: Uncurry ident at compile time if DelayedResolution(Curry) is assigned to a value
-        // | Let(identsAndValues, body) ->
-        //     let identsAndValues, replacements =
-        //         (identsAndValues, ([], Map.empty)) ||> List.foldBack (fun (id, value) (identsAndValues, replacements) ->
-        //             match value with
-        //             | DelayedResolution(Curry(innerExpr, arity),_,_) ->
-        //                 match getLambdaTypeArity id.Type with
-        //                 | argTypes, returnType when List.length argTypes = arity ->
-        //                     let delType = FunctionType(DelegateType argTypes, returnType)
-        //                     // getLambdaTypeArity ignores options, so check the original type
-        //                     match id.Type with
-        //                     | Option _ -> (id, innerExpr)::identsAndValues, Map.add id.Name (Option delType) replacements
-        //                     | _ -> (id, innerExpr)::identsAndValues, Map.add id.Name delType replacements
-        //                 | _ -> (id, value)::identsAndValues, replacements
-        //             | _ -> (id, value)::identsAndValues, replacements)
-        //     if Map.isEmpty replacements
-        //     then Let(identsAndValues, body)
-        //     else Let(identsAndValues, replaceIdentTypesInBody replacements body)
         | e -> e
 
     let uncurrySendingArgs (com: ICompiler) e =
@@ -433,19 +445,22 @@ module private Transforms =
         | e -> e
 
     let rec uncurryApplications (com: ICompiler) e =
+        let uncurryApply r t applied args uncurriedArity =
+            let argsLen = List.length args
+            if uncurriedArity = argsLen then
+                let info = argInfo None args None
+                staticCall r t info applied |> Some
+            else
+                Replacements.partialApplyAtRuntime t (uncurriedArity - argsLen) applied args |> Some
         match e with
         | NestedApply(applied, args, t, r) ->
             let applied = visitFromOutsideIn (uncurryApplications com) applied
             let args = args |> List.map (visitFromOutsideIn (uncurryApplications com))
             match applied with
-            | DelayedResolution(Curry(applied, uncurriedArity),_,_)
-            | Get(DelayedResolution(Curry(applied, uncurriedArity),_,_), OptionValue, _, _) ->
-                let argsLen = List.length args
-                if uncurriedArity = argsLen then
-                    let info = argInfo None args None
-                    staticCall r t info applied |> Some
-                else
-                    Replacements.partialApplyAtRuntime t (uncurriedArity - argsLen) applied args |> Some
+            | DelayedResolution(Curry(applied, uncurriedArity),_,_) ->
+                uncurryApply r t applied args uncurriedArity
+            | Get(DelayedResolution(Curry(applied, uncurriedArity),_,_), OptionValue, t2, r2) ->
+                uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity
             | _ -> Operation(CurriedApply(applied, args), t, r) |> Some
         | _ -> None
 
@@ -485,6 +500,7 @@ let optimizations =
       // Then apply uncurry optimizations
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
+      fun com e -> visitFromInsideOut (propagateUncurryingThroughLets com) e
       fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       // uncurryApplications must come after uncurrySendingArgs as it erases argument type info
       fun com e -> visitFromOutsideIn (uncurryApplications com) e

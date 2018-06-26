@@ -313,11 +313,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let callee = Option.map (transformExpr com ctx) callee
         let args = List.map (transformExpr com ctx) args
         // TODO: Check answer to #868 in FSC repo
-        let returnType =
-            makeType com ctx.GenericArgs <|
-                if isModuleValueForDeclarations memb
-                then memb.ReturnParameter.Type
-                else fsExpr.Type
+        let returnType = makeType com ctx.GenericArgs fsExpr.Type
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         makeCallFrom com ctx (makeRangeFrom fsExpr) returnType genArgs callee args memb
 
