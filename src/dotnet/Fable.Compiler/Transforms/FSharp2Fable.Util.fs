@@ -39,7 +39,7 @@ type IFableCompiler =
         info: Fable.ReplaceCallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
     abstract TryReplaceInterfaceCast: SourceLocation option * Fable.Type *
         interfaceName: string * Fable.Expr -> Fable.Expr option
-    abstract InjectArgument: enclosingEntity: FSharpEntity option *
+    abstract InjectArgument: enclosingEntity: FSharpEntity option * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract AddUsedVarName: string -> unit
@@ -928,7 +928,7 @@ module Util =
         else inlineExpr com ctx genArgs callee args memb |> Some
 
     /// Removes optional arguments set to None in tail position and calls the injector
-    let transformOptionalArguments (com: IFableCompiler) (ctx: Context)
+    let transformOptionalArguments (com: IFableCompiler) (ctx: Context) r
                 (memb: FSharpMemberOrFunctionOrValue) (genArgs: Lazy<_>) (args: Fable.Expr list) =
         if memb.CurriedParameterGroups.Count <> 1
             || memb.CurriedParameterGroups.[0].Count <> (List.length args)
@@ -941,7 +941,7 @@ module Util =
                     match arg with
                     | Fable.Value(Fable.NewOption(None,_)) ->
                         match tryFindAtt Atts.inject par.Attributes with
-                        | Some _ -> "inject", (com.InjectArgument(ctx.EnclosingEntity, genArgs.Value, par))::acc
+                        | Some _ -> "inject", (com.InjectArgument(ctx.EnclosingEntity, r, genArgs.Value, par))::acc
                         // Don't remove optional arguments if they're not in tail position
                         | None -> condition, if condition = "optional" then acc else arg::acc
                     | _ -> "inject", arg::acc // Keep checking for injects
@@ -970,7 +970,7 @@ module Util =
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
-        let args = transformOptionalArguments com ctx memb genArgs args
+        let args = transformOptionalArguments com ctx r memb genArgs args
         let argTypes = getArgTypes com memb
         let argInfo: Fable.ArgInfo =
           { ThisArg = callee

@@ -2157,9 +2157,9 @@ let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
     match thisArg with
     | Some(Value(TypeInfo(exprType, exprRange)) as thisArg) ->
         match i.CompiledName with
-        | "get_FullName" -> getTypeFullName exprType |> returnString
+        | "get_FullName" -> getTypeFullName false exprType |> returnString
         | "get_Namespace" ->
-            let fullname = getTypeFullName exprType
+            let fullname = getTypeFullName false exprType
             match fullname.LastIndexOf(".") with
             | -1 -> "" |> returnString
             | i -> fullname.Substring(0, i) |> returnString
@@ -2367,7 +2367,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | Some c, "get_Name" ->
             match c with
             | Value(TypeInfo(exprType,_)) ->
-                let fullname = getTypeFullName exprType
+                let fullname = getTypeFullName false exprType
                 match fullname.LastIndexOf(".") with
                 | -1 -> fullname |> StringConstant |> Value |> Some
                 | i -> fullname.Substring(i + 1) |> StringConstant |> Value |> Some

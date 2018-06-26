@@ -888,8 +888,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             Replacements.tryCall this ctx r t info thisArg args
         member __.TryReplaceInterfaceCast(r, t, name, e) =
             Replacements.tryInterfaceCast r t name e
-        member this.InjectArgument(enclosingEntity, genArgs, parameter) =
-            Inject.injectArg this enclosingEntity genArgs parameter
+        member this.InjectArgument(enclosingEntity, r, genArgs, parameter) =
+            Inject.injectArg this enclosingEntity r genArgs parameter
         member this.GetInlineExpr(memb) =
             let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
             if fileName <> com.CurrentFile then

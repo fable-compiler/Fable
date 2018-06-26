@@ -489,7 +489,7 @@ module Util =
         | Fable.MetaType        -> nonGenericTypeInfo knownTypes Types.type_
         | Fable.DeclaredType(ent, generics) ->
             let fullname = defaultArg ent.TryFullName Naming.unknown
-            let fullnameWithGenerics = getTypeFullName t
+            let fullnameWithGenerics = getTypeFullName false t
             // Check if the type has been referenced before to prevent a Stack Overflow exception
             match knownTypes with
             | None -> transformEntityInfo knownTypes ent fullname generics

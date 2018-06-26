@@ -28,8 +28,8 @@ let (|TryDefinition|_|) (NonAbbreviatedType t) =
 let (|Implicit|_|) com r enclosingEntity (par: FSharpParameter) typ =
     if hasAttribute Atts.implicit par.Attributes then
         let fail msg =
-            let msg = if String.IsNullOrEmpty(msg) then "Cannot find {0} in enclosing scope" else msg
-            let msg = String.Format(msg, "implicit value with type " + getTypeFullName typ)
+            let msg = if String.IsNullOrEmpty(msg) then "Cannot find {0} in enclosing module" else msg
+            let msg = String.Format(msg, "implicit for `" + par.DisplayName + "` (" + getTypeFullName true typ + ")")
             addErrorAndReturnNull com r msg |> Some
         match enclosingEntity with
         | None -> fail ""
@@ -67,9 +67,8 @@ let (|TypeResolver|_|) r = function
         Fable.ObjectExpr([m], Fable.Any, None) |> Some
     | _ -> None
 
-let injectArg com enclosingEntity (genArgs: (string * Fable.Type) list) (par: FSharpParameter): Fable.Expr =
+let injectArg com enclosingEntity r (genArgs: (string * Fable.Type) list) (par: FSharpParameter): Fable.Expr =
     let parType = nonAbbreviatedType par.Type
-    let r = makeRange par.DeclarationLocation |> Some
     let typ =
         // The type of the parameter must be an option
         if parType.HasTypeDefinition && parType.TypeDefinition.TryFullName = Some Types.option
@@ -80,7 +79,7 @@ let injectArg com enclosingEntity (genArgs: (string * Fable.Type) list) (par: FS
     | Some(TypeResolver r e) -> e
     | _ ->
         match typ with
-        | Some typ -> getTypeFullName typ
+        | Some typ -> getTypeFullName true typ
         | None -> string parType
-        |> sprintf "Cannot inject argument of type %s"
+        |> sprintf "Cannot inject argument %s of type %s" par.DisplayName
         |> addErrorAndReturnNull com r

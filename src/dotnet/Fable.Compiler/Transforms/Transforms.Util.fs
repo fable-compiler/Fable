@@ -373,7 +373,7 @@ module AST =
         | GenericParam name1, GenericParam name2 -> name1 = name2
         | _ -> false
 
-    let rec getTypeFullName = function
+    let rec getTypeFullName prettify = function
         | Fable.GenericParam name -> name
         | Fable.EnumType(_, fullname) -> fullname
         | Fable.Regex    -> Types.regex
@@ -396,26 +396,31 @@ module AST =
             | Float64 -> Types.float64
             | Decimal -> Types.decimal
         | Fable.FunctionType(Fable.LambdaType argType, returnType) ->
-            sprintf "Microsoft.FSharp.Core.FSharpFunc`2[%s,%s]"
-                (getTypeFullName argType) (getTypeFullName returnType)
+            let argType = getTypeFullName prettify argType
+            let returnType = getTypeFullName prettify returnType
+            if prettify
+            then argType + " -> " + returnType
+            else "Microsoft.FSharp.Core.FSharpFunc`2[" + argType + "," + returnType + "]"
         | Fable.FunctionType(Fable.DelegateType argTypes, returnType) ->
             sprintf "System.Func`%i[%s,%s]"
                 (List.length argTypes + 1)
-                (List.map getTypeFullName argTypes |> String.concat ",")
-                (getTypeFullName returnType)
+                (List.map (getTypeFullName prettify) argTypes |> String.concat ",")
+                (getTypeFullName prettify returnType)
         | Fable.Tuple genArgs ->
-            sprintf "System.Tuple`%i[%s]"
-                (List.length genArgs)
-                (List.map getTypeFullName genArgs |> String.concat ",")
+            let genArgs = List.map (getTypeFullName prettify) genArgs
+            if prettify
+            then String.concat " * " genArgs
+            else sprintf "System.Tuple`%i[%s]" (List.length genArgs) (String.concat "," genArgs)
         | Fable.Array gen ->
-            sprintf "%s[]" (getTypeFullName gen)
+            (getTypeFullName prettify gen) + "[]"
         | Fable.Option gen ->
-            Types.option + "[" + (getTypeFullName gen) + "]"
+            Types.option + "[" + (getTypeFullName prettify gen) + "]"
         | Fable.List gen   ->
-            Types.list + "[" + (getTypeFullName gen) + "]"
+            Types.list + "[" + (getTypeFullName prettify gen) + "]"
         | Fable.DeclaredType(ent, gen) ->
             match ent.TryFullName with
             | None -> Naming.unknown
             | Some fullname when List.isEmpty gen -> fullname
             | Some fullname ->
-                fullname + "[" + (List.map getTypeFullName gen |> String.concat ",") + "]"
+                // TODO: Prettify lists, options, etc...
+                fullname + "[" + (List.map (getTypeFullName prettify) gen |> String.concat ",") + "]"
