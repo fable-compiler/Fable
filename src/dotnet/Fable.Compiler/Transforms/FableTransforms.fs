@@ -311,19 +311,24 @@ module private Transforms =
         else curryIdentsInBody replacements body
 
     let uncurryExpr arity expr =
-        match expr, arity with
-        | LambdaUncurriedAtCompileTime arity lambda, _ -> lambda
-        | _, Some arity ->
-            match expr with
+        let matches arity arity2 =
+            match arity with
             // TODO: check cases where arity <> arity2
-            | DelayedResolution(Curry(innerExpr, arity2),_,_)
-                when arity = arity2 -> innerExpr
-            | Get(DelayedResolution(Curry(innerExpr, arity2),_,_), OptionValue, t, r)
-                when arity = arity2 -> Get(innerExpr, OptionValue, t, r)
-            | Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity2),_,_)),r))
-                when arity = arity2 -> Value(NewOption(Some(innerExpr),r))
-            | _ -> Replacements.uncurryExprAtRuntime arity expr
-        | _, None -> expr
+            | Some arity -> arity = arity2
+            // Remove currying for dynamic operations (no arity)
+            | None -> true
+        match expr, expr with
+        | LambdaUncurriedAtCompileTime arity lambda, _ -> lambda
+        | _, DelayedResolution(Curry(innerExpr, arity2),_,_)
+            when matches arity arity2 -> innerExpr
+        | _, Get(DelayedResolution(Curry(innerExpr, arity2),_,_), OptionValue, t, r)
+            when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
+        | _, Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity2),_,_)),r))
+            when matches arity arity2 -> Value(NewOption(Some(innerExpr),r))
+        | _ ->
+            match arity with
+            | Some arity -> Replacements.uncurryExprAtRuntime arity expr
+            | None -> expr
 
     // TODO!!! See ApplicativeTests/Generic lambda arguments work
     let checkSubArguments com expectedArgs (expr: Expr) =
