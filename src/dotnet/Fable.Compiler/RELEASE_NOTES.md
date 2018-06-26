@@ -1,4 +1,4 @@
-### 2.0.0-alpha-022
+### 2.0.0-alpha-023
 
 * Fable 2 alpha
 
