@@ -170,8 +170,11 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
 let private transformDelegate com ctx delegateType expr =
     let expr = transformExpr com ctx expr
     match makeType com ctx.GenericArgs delegateType with
-    | Fable.FunctionType(Fable.DelegateType argTypes, returnType) ->
-        Replacements.uncurryExpr (Some(argTypes, returnType)) expr
+    | Fable.FunctionType(Fable.DelegateType argTypes, _) ->
+        let arity = List.length argTypes
+        match expr with
+        | LambdaUncurriedAtCompileTime (Some arity) lambda -> lambda
+        | _ -> Replacements.uncurryExprAtRuntime arity expr
     | _ -> expr
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) (fsExpr: FSharpExpr)

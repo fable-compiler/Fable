@@ -207,46 +207,9 @@ let canEraseBinding identName value body =
     | e -> not(hasDoubleEvalRisk e) || isReferencedOnlyOnce identName body
 
 module private Transforms =
-    let (|ExprType|) (e: Expr) = e.Type
-
-    let (|EntFullName|_|) fullName (ent: FSharpEntity) =
-        match ent.TryFullName with
-        | Some fullName2 when fullName = fullName2 -> Some EntFullName
-        | _ -> None
-
     let (|LambdaOrDelegate|_|) = function
         | Function(Lambda arg, body, name) -> Some([arg], body, name)
         | Function(Delegate args, body, name) -> Some(args, body, name)
-        | _ -> None
-
-    let rec (|NestedLambda|_|) expr =
-        let rec nestedLambda accArgs body name =
-            match body with
-            | Function(Lambda arg, body, None) ->
-                nestedLambda (arg::accArgs) body name
-            | _ -> Some(List.rev accArgs, body, name)
-        match expr with
-        | Function(Lambda arg, body, name) -> nestedLambda [arg] body name
-        | _ -> None
-
-    let (|NestedApply|_|) expr =
-        let rec nestedApply r t accArgs applied =
-            match applied with
-            | Operation(CurriedApply(applied, args), _, _) ->
-                nestedApply r t (args@accArgs) applied
-            | _ -> Some(applied, accArgs, t, r)
-        match expr with
-        | Operation(CurriedApply(applied, args), t, r) ->
-            nestedApply r t args applied
-        | _ -> None
-
-    let (|NestedLambdaType|_|) t =
-        let rec nestedLambda acc = function
-            | FunctionType(LambdaType arg, returnType) ->
-                nestedLambda (arg::acc) returnType
-            | returnType -> Some(acc, returnType)
-        match t with
-        | FunctionType(LambdaType arg, returnType) -> nestedLambda [arg] returnType
         | _ -> None
 
     let (|EvalsMutableIdent|_|) expr =
@@ -269,9 +232,8 @@ module private Transforms =
             | [] -> replaceValues replacements body
             | bindings -> Let(List.rev bindings, replaceValues replacements body)
         match e with
-        // TODO: `Invoke` calls for delegates? Partial applications too?
-        // TODO: Don't inline if one of the arguments is `this`?
         | Operation(CurriedApply(NestedLambda(args, body, None), argExprs), _, _)
+            // TODO: Partial apply if args.Length > argExprs.Length
             when List.sameLength args argExprs ->
             applyArgs args argExprs body
         | e -> e
@@ -294,8 +256,7 @@ module private Transforms =
                 // as the value can change in between statements
                 | EvalsMutableIdent -> None
                 // When replacing an ident with an erased option use the name but keep the unwrapped type
-                | Get(IdentExpr id, OptionValue, t, _)
-                        when mustWrapOption t |> not ->
+                | Get(IdentExpr id, OptionValue, t, _) when not(mustWrapOption t) ->
                     makeTypedIdent t id.Name |> IdentExpr |> Some
                 | value when ident.IsCompilerGenerated && canEraseBinding identName value body ->
                     match value with
@@ -308,56 +269,48 @@ module private Transforms =
             | None -> e
         | e -> e
 
-    let uncurryLambdaType t =
-        let rec uncurryLambdaTypeInner acc = function
-            | FunctionType(LambdaType argType, returnType) ->
-                uncurryLambdaTypeInner (argType::acc) returnType
-            | returnType -> List.rev acc, returnType
+    let getLambdaTypeArity t =
+        let rec getLambdaTypeArity acc = function
+            | FunctionType(LambdaType _, returnType) ->
+                getLambdaTypeArity (acc + 1) returnType
+            | _ -> acc
         match t with
-        | FunctionType(LambdaType argType, returnType)
-        | Option(FunctionType(LambdaType argType, returnType)) ->
-            uncurryLambdaTypeInner [argType] returnType
-        | FunctionType(DelegateType argTypes, returnType) ->
-            argTypes, returnType
-        | returnType -> [], returnType
+        | FunctionType(LambdaType _, returnType)
+        | Option(FunctionType(LambdaType _, returnType)) ->
+            getLambdaTypeArity 1 returnType
+        | _ -> 0
 
-    let replaceIdentType replacements (id: Ident) =
-        match Map.tryFind id.Name replacements with
-        | Some(Option nestedType as optionType) ->
-            // Check if the ident to replace is an option too or not
-            match id.Type with
-            | Option _ -> { id with Type = optionType }
-            | _ ->        { id with Type = nestedType }
-        | Some typ -> { id with Type = typ }
-        | None -> id
-
-    let replaceIdentTypesInBody (identTypes: Map<string, Type>) body =
+    let curryIdentsInBody replacements body =
         visitFromInsideOut (function
-            | IdentExpr id -> replaceIdentType identTypes id |> IdentExpr
+            | IdentExpr id as e ->
+                match Map.tryFind id.Name replacements with
+                | Some arity -> DelayedResolution(Curry(e, arity), id.Type, id.Range)
+                | None -> e
             | e -> e) body
 
     let uncurryIdentsAndReplaceInBody (idents: Ident list) body =
-        let uncurried =
-            (Map.empty, idents) ||> List.fold (fun uncurried id ->
-                match uncurryLambdaType id.Type with
-                | argTypes, returnType when List.isMultiple argTypes ->
-                    let delType = FunctionType(DelegateType argTypes, returnType)
-                    // uncurryLambdaType ignores options, so check the original type
-                    match id.Type with
-                    | Option _ -> Map.add id.Name (Option delType) uncurried
-                    | _ -> Map.add id.Name delType uncurried
-                | _ -> uncurried)
-        if Map.isEmpty uncurried
-        then idents, body
-        else
-            let idents = idents |> List.map (replaceIdentType uncurried)
-            let body = replaceIdentTypesInBody uncurried body
-            idents, body
+        let replacements =
+            (Map.empty, idents) ||> List.fold (fun replacements id ->
+                let arity = getLambdaTypeArity id.Type
+                if arity > 1
+                then Map.add id.Name arity replacements
+                else replacements)
+        if Map.isEmpty replacements
+        then body
+        else curryIdentsInBody replacements body
 
-    let rec lambdaMayEscapeScope identName = function
-        | Operation(CurriedApply(IdentExpr ident,_),_,_) when ident.Name = identName -> false
-        | IdentExpr ident when ident.Name = identName -> true
-        | e -> getSubExpressions e |> List.exists (lambdaMayEscapeScope identName)
+    let uncurryExpr arity expr =
+        match expr, arity with
+        | LambdaUncurriedAtCompileTime arity lambda, _ -> lambda
+        | _, Some arity ->
+            match expr with
+            | DelayedResolution(Curry(innerExpr, arity2),_,_)
+            | Get(DelayedResolution(Curry(innerExpr, arity2),_,_), OptionValue, _, _)
+            | Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity2),_,_)),_))
+                // TODO: check cases where arity <> arity2
+                when arity = arity2 -> innerExpr
+            | _ -> Replacements.uncurryExprAtRuntime arity expr
+        | _, None -> expr
 
     // TODO!!! See ApplicativeTests/Generic lambda arguments work
     let checkSubArguments com expectedArgs (expr: Expr) =
@@ -388,31 +341,27 @@ module private Transforms =
         | Some [] -> args // Do nothing
         | Some argTypes ->
             (argTypes, args) ||> mapArgs (fun argType arg ->
-                match uncurryLambdaType argType with
-                | argTypes, retType when not(List.isEmpty argTypes) ->
+                let arity = getLambdaTypeArity argType
+                if arity > 0 then
                     checkSubArguments com argTypes arg
-                    if List.isMultiple argTypes
-                    then Replacements.uncurryExpr (Some(argTypes, retType)) arg
+                    if arity > 1
+                    then uncurryExpr (Some arity) arg
                     else arg
-                | _ -> arg)
-        | None -> List.map (Replacements.uncurryExpr None) args
+                else arg)
+        | None -> List.map (uncurryExpr None) args
 
     let uncurryInnerFunctions (_: ICompiler) e =
-        let replaceIdentInBody identName (args: Ident list) returnType body =
-            let delType = FunctionType(DelegateType (args |> List.map (fun a -> a.Type)), returnType)
-            replaceIdentTypesInBody (Map [identName, delType]) body
+        let replaceIdentInBody identName (args: Ident list) body =
+            curryIdentsInBody (Map [identName, List.length args]) body
         match e with
-        | Let([ident, NestedLambda(args, fnBody, _)], letBody) as e when List.isMultiple args ->
-            // We need to check the function doesn't leave the current context
-            if lambdaMayEscapeScope ident.Name letBody |> not then
-                let fnBody = replaceIdentInBody ident.Name args fnBody.Type fnBody
-                let letBody = replaceIdentInBody ident.Name args fnBody.Type letBody
-                Let([ident, Function(Delegate args, fnBody, None)], letBody)
-            else e
+        | Let([ident, NestedLambda(args, fnBody, _)], letBody) when List.isMultiple args ->
+            let fnBody = replaceIdentInBody ident.Name args fnBody
+            let letBody = replaceIdentInBody ident.Name args letBody
+            Let([ident, Function(Delegate args, fnBody, None)], letBody)
         // Anonymous lambda immediately applied
         | Operation(CurriedApply((NestedLambda(args, fnBody, Some name)), argExprs), t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
-            let fnBody = replaceIdentInBody name args fnBody.Type fnBody
+            let fnBody = replaceIdentInBody name args fnBody
             let info = argInfo None argExprs (args |> List.map (fun a -> a.Type) |> Some)
             Function(Delegate args, fnBody, Some name)
             |> staticCall r t info
@@ -421,43 +370,35 @@ module private Transforms =
     let uncurryReceivedArgs (_: ICompiler) e =
         match e with
         | Function(Lambda arg, body, name) ->
-            let args, body = uncurryIdentsAndReplaceInBody [arg] body
-            Function(Lambda (List.head args), body, name)
+            let body = uncurryIdentsAndReplaceInBody [arg] body
+            Function(Lambda arg, body, name)
         | Function(Delegate args, body, name) ->
-            let args, body = uncurryIdentsAndReplaceInBody args body
+            let body = uncurryIdentsAndReplaceInBody args body
             Function(Delegate args, body, name)
-        // Uncurry also values received from getters (with delayed resolution)
+        // Uncurry also values received from getters
         | Get(_, (FieldGet(_,_,fieldType) | UnionField(_,_,fieldType)), t, r) ->
-            let rec nestedLambda acc = function
-                | FunctionType(LambdaType _, t) ->
-                    nestedLambda (acc + 1) t
-                | _ -> acc
-            let arity =
-                match fieldType with
-                | FunctionType(LambdaType _, t) -> nestedLambda 1 t
-                | Option(FunctionType(LambdaType _, t)) -> nestedLambda 1 t
-                | _ -> 0
+            let arity = getLambdaTypeArity fieldType
             if arity > 1
             then DelayedResolution(Curry(e, arity), t, r)
             else e
-        // Optimization: Uncurry ident at compile time if DelayedResolution(Curry) is assigned to a value
-        | Let(identsAndValues, body) ->
-            let identsAndValues, replacements =
-                (identsAndValues, ([], Map.empty)) ||> List.foldBack (fun (id, value) (identsAndValues, replacements) ->
-                    match value with
-                    | DelayedResolution(Curry(innerExpr, arity),_,_) ->
-                        match uncurryLambdaType id.Type with
-                        | argTypes, returnType when List.length argTypes = arity ->
-                            let delType = FunctionType(DelegateType argTypes, returnType)
-                            // uncurryLambdaType ignores options, so check the original type
-                            match id.Type with
-                            | Option _ -> (id, innerExpr)::identsAndValues, Map.add id.Name (Option delType) replacements
-                            | _ -> (id, innerExpr)::identsAndValues, Map.add id.Name delType replacements
-                        | _ -> (id, value)::identsAndValues, replacements
-                    | _ -> (id, value)::identsAndValues, replacements)
-            if Map.isEmpty replacements
-            then Let(identsAndValues, body)
-            else Let(identsAndValues, replaceIdentTypesInBody replacements body)
+        // // Optimization: Uncurry ident at compile time if DelayedResolution(Curry) is assigned to a value
+        // | Let(identsAndValues, body) ->
+        //     let identsAndValues, replacements =
+        //         (identsAndValues, ([], Map.empty)) ||> List.foldBack (fun (id, value) (identsAndValues, replacements) ->
+        //             match value with
+        //             | DelayedResolution(Curry(innerExpr, arity),_,_) ->
+        //                 match getLambdaTypeArity id.Type with
+        //                 | argTypes, returnType when List.length argTypes = arity ->
+        //                     let delType = FunctionType(DelegateType argTypes, returnType)
+        //                     // getLambdaTypeArity ignores options, so check the original type
+        //                     match id.Type with
+        //                     | Option _ -> (id, innerExpr)::identsAndValues, Map.add id.Name (Option delType) replacements
+        //                     | _ -> (id, innerExpr)::identsAndValues, Map.add id.Name delType replacements
+        //                 | _ -> (id, value)::identsAndValues, replacements
+        //             | _ -> (id, value)::identsAndValues, replacements)
+        //     if Map.isEmpty replacements
+        //     then Let(identsAndValues, body)
+        //     else Let(identsAndValues, replaceIdentTypesInBody replacements body)
         | e -> e
 
     let uncurrySendingArgs (com: ICompiler) e =
@@ -472,15 +413,14 @@ module private Transforms =
             let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Call(kind, info), t, r)
         | Operation(CurriedApply(callee, args), t, r) ->
-            match uncurryLambdaType callee.Type with
-            | argTypes, _ when not(List.isEmpty argTypes) ->
+            match callee.Type with
+            | NestedLambdaType(argTypes, _) ->
                 Operation(CurriedApply(callee, uncurryArgs com (Some argTypes) args), t, r)
             | _ -> e
         | Operation(Emit(macro, Some info), t, r) ->
             let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Emit(macro, Some info), t, r)
         // Uncurry also values in setters or new record/union/tuple
-        // TODO: Tests for these uncurry operations
         | Value(NewRecord(args, ent, genArgs)) ->
             let args = uncurryConsArgs args ent.FSharpFields
             Value(NewRecord(args, ent, genArgs))
@@ -497,13 +437,9 @@ module private Transforms =
         | NestedApply(applied, args, t, r) ->
             let applied = visitFromOutsideIn (uncurryApplications com) applied
             let args = args |> List.map (visitFromOutsideIn (uncurryApplications com))
-            let applied, uncurriedArity =
-                match applied with
-                | DelayedResolution(Curry(e, arity),_,_) -> e, Some arity
-                | ExprType(FunctionType(DelegateType argTypes, _)) -> applied, Some argTypes.Length
-                | _ -> applied, None
-            match uncurriedArity with
-            | Some uncurriedArity ->
+            match applied with
+            | DelayedResolution(Curry(applied, uncurriedArity),_,_)
+            | Get(DelayedResolution(Curry(applied, uncurriedArity),_,_), OptionValue, _, _) ->
                 let argsLen = List.length args
                 if uncurriedArity = argsLen then
                     let info = argInfo None args None

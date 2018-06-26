@@ -181,27 +181,6 @@ let (|ArrayOrList|_|) = function
     | List t -> Some("List", t)
     | _ -> None
 
-let (|LambdaUncurriedAtCompileTime|_|) arity expr =
-    let rec uncurryLambdaInner name accArgs remainingArity expr =
-        if remainingArity = Some 0
-        then Function(Delegate(List.rev accArgs), expr, name) |> Some
-        else
-            match expr, remainingArity with
-            | Function(Lambda arg, body, name2), _ ->
-                let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
-                uncurryLambdaInner (Option.orElse name2 name) (arg::accArgs) remainingArity body
-            // If there's no arity expectation we can return the flattened part
-            | _, None when List.isEmpty accArgs |> not ->
-                Function(Delegate(List.rev accArgs), expr, name) |> Some
-            // We cannot flatten lambda to the expected arity
-            | _, _ -> None
-    match expr with
-    // Uncurry also function options
-    | Value(NewOption(Some expr, _)) ->
-        uncurryLambdaInner None [] arity expr
-        |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type)))
-    | _ -> uncurryLambdaInner None [] arity expr
-
 /// Try to uncurry lambdas at compile time in dynamic assignments
 let (|MaybeLambdaUncurriedAtCompileTime|) = function
     | LambdaUncurriedAtCompileTime None lambda -> lambda
@@ -2236,38 +2215,12 @@ let fsharpValue methName (r: SourceLocation option) t (i: CallInfo) (args: Expr 
 let curryExprAtRuntime arity (expr: Expr) =
     Helper.CoreCall("Util", "curry", expr.Type, [makeIntConst arity; expr])
 
+let uncurryExprAtRuntime arity (expr: Expr) =
+    Helper.CoreCall("Util", "uncurry", expr.Type, [makeIntConst arity; expr])
+
 let partialApplyAtRuntime t arity (fn: Expr) (args: Expr list) =
     let args = NewArray(ArrayValues args, Any) |> Value
     Helper.CoreCall("Util", "partialApply", t, [makeIntConst arity; fn; args])
-
-let getUncurriedArity (e: Expr) =
-    match e.Type with
-    | FunctionType(DelegateType argTypes, _)
-    | Option(FunctionType(DelegateType argTypes, _)) ->
-        List.length argTypes |> Some
-    | _ -> None
-
-let uncurryExpr argsAndRetTypes expr =
-    // TODO!!! When we don't have a expected arity,
-    // should we take it from the type of the expression?
-    let arity =
-        argsAndRetTypes
-        |> Option.map (fst >> List.length >> (max 1))
-    match expr, argsAndRetTypes with
-    | LambdaUncurriedAtCompileTime arity lambda, _ -> lambda
-    | _, Some(argTypes, retType) ->
-        let arity = List.length argTypes
-        let expr, uncurriedArity =
-            match expr with
-            | DelayedResolution(Curry(innerExpr, arity),_,_) -> innerExpr, Some arity
-            | _ -> expr, getUncurriedArity expr
-        match uncurriedArity with
-        | Some arity2 when arity = arity2 -> expr
-        | _ ->
-            // Uncurry expression at runtime
-            let t = FunctionType(DelegateType argTypes, retType)
-            Helper.CoreCall("Util", "uncurry", t, [makeIntConst arity; expr])
-    | _, None -> expr
 
 let tryInterfaceCast r t interfaceName (e: Expr) =
     match interfaceName, e.Type with

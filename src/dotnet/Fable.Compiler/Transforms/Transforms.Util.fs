@@ -171,6 +171,59 @@ module AST =
     open Fable.AST
     open Fable.AST.Fable
 
+    let inline (|ExprType|) (e: Expr) = e.Type
+
+    let rec (|NestedLambda|_|) expr =
+        let rec nestedLambda accArgs body name =
+            match body with
+            | Function(Lambda arg, body, None) ->
+                nestedLambda (arg::accArgs) body name
+            | _ -> Some(List.rev accArgs, body, name)
+        match expr with
+        | Function(Lambda arg, body, name) -> nestedLambda [arg] body name
+        | _ -> None
+
+    let (|NestedApply|_|) expr =
+        let rec nestedApply r t accArgs applied =
+            match applied with
+            | Operation(CurriedApply(applied, args), _, _) ->
+                nestedApply r t (args@accArgs) applied
+            | _ -> Some(applied, accArgs, t, r)
+        match expr with
+        | Operation(CurriedApply(applied, args), t, r) ->
+            nestedApply r t args applied
+        | _ -> None
+
+    let (|NestedLambdaType|_|) t =
+        let rec nestedLambda acc = function
+            | FunctionType(LambdaType arg, returnType) ->
+                nestedLambda (arg::acc) returnType
+            | returnType -> Some(List.rev acc, returnType)
+        match t with
+        | FunctionType(LambdaType arg, returnType) -> nestedLambda [arg] returnType
+        | _ -> None
+
+    let (|LambdaUncurriedAtCompileTime|_|) arity expr =
+        let rec uncurryLambdaInner name accArgs remainingArity expr =
+            if remainingArity = Some 0
+            then Function(Delegate(List.rev accArgs), expr, name) |> Some
+            else
+                match expr, remainingArity with
+                | Function(Lambda arg, body, name2), _ ->
+                    let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
+                    uncurryLambdaInner (Option.orElse name2 name) (arg::accArgs) remainingArity body
+                // If there's no arity expectation we can return the flattened part
+                | _, None when List.isEmpty accArgs |> not ->
+                    Function(Delegate(List.rev accArgs), expr, name) |> Some
+                // We cannot flatten lambda to the expected arity
+                | _, _ -> None
+        match expr with
+        // Uncurry also function options
+        | Value(NewOption(Some expr, _)) ->
+            uncurryLambdaInner None [] arity expr
+            |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type)))
+        | _ -> uncurryLambdaInner None [] arity expr
+
     /// When referenced multiple times, is there a risk of double evaluation?
     let rec hasDoubleEvalRisk = function
         // Don't erase `this` binding as it may be called from a closure
@@ -233,6 +286,10 @@ module AST =
 
     let makeDelegate args body =
         Function(Delegate args, body, None)
+
+    let makeLambda (args: Ident list) (body: Expr) =
+        (args, body) ||> List.foldBack (fun arg body ->
+            Function(Lambda arg, body, None))
 
     let makeBoolConst (x: bool) = BoolConstant x |> Value
     let makeStrConst (x: string) = StringConstant x |> Value

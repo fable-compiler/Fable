@@ -40,7 +40,7 @@ type IFableCompiler =
     abstract TryReplaceInterfaceCast: SourceLocation option * Fable.Type *
         interfaceName: string * Fable.Expr -> Fable.Expr option
     abstract InjectArgument: enclosingEntity: FSharpEntity option *
-        genArgs: (Lazy<(string * Fable.Type) list>) * FSharpParameter -> Fable.Expr
+        genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract AddUsedVarName: string -> unit
     abstract IsUsedVarName: string -> bool
@@ -929,7 +929,7 @@ module Util =
 
     /// Removes optional arguments set to None in tail position and calls the injector
     let transformOptionalArguments (com: IFableCompiler) (ctx: Context)
-                (memb: FSharpMemberOrFunctionOrValue) genArgs (args: Fable.Expr list) =
+                (memb: FSharpMemberOrFunctionOrValue) (genArgs: Lazy<_>) (args: Fable.Expr list) =
         if memb.CurriedParameterGroups.Count <> 1
             || memb.CurriedParameterGroups.[0].Count <> (List.length args)
         then args
@@ -941,7 +941,7 @@ module Util =
                     match arg with
                     | Fable.Value(Fable.NewOption(None,_)) ->
                         match tryFindAtt Atts.inject par.Attributes with
-                        | Some _ -> "inject", (com.InjectArgument(ctx.EnclosingEntity, genArgs, par))::acc
+                        | Some _ -> "inject", (com.InjectArgument(ctx.EnclosingEntity, genArgs.Value, par))::acc
                         // Don't remove optional arguments if they're not in tail position
                         | None -> condition, if condition = "optional" then acc else arg::acc
                     | _ -> "inject", arg::acc // Keep checking for injects
@@ -969,8 +969,6 @@ module Util =
         found
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
-        let call kind args =
-            Fable.Operation(Fable.Call(kind, args), typ, r)
         let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
         let args = transformOptionalArguments com ctx memb genArgs args
         let argTypes = getArgTypes com memb

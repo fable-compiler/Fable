@@ -42,7 +42,6 @@ type IBabelCompiler =
         -> (Pattern list) * U2<BlockStatement, Expression>
 
 module Util =
-    let inline (|ExprType|) (fexpr: Fable.Expr) = fexpr.Type
     let inline (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformAsExpr(ctx, e)
 
     let (|FunctionArgs|) = function
