@@ -250,7 +250,7 @@ module private Transforms =
         | e -> e
 
     /// Tuples created when pattern matching multiple elements can usually be erased
-    /// after the bingind and lambda beta reduction
+    /// after the binding and lambda beta reduction
     let tupleBetaReduction (_: ICompiler) = function
         | Get(Value(NewTuple exprs), TupleGet index, _, _) -> List.item index exprs
         | e -> e
@@ -269,6 +269,9 @@ module private Transforms =
                 // When replacing an ident with an erased option use the name but keep the unwrapped type
                 | Get(IdentExpr id, OptionValue, t, _) when not(mustWrapOption t) ->
                     makeTypedIdent t id.Name |> IdentExpr |> Some
+                // Match automatic destructuring of tuple arguments in inner functions
+                | Get(IdentExpr tupleIdent,_,_, _) as value when tupleIdent.IsCompilerGenerated ->
+                    Some value
                 | value when ident.IsCompilerGenerated && canEraseBinding identName value body ->
                     match value with
                     // TODO: Check if current name is Some? Shouldn't happen...
@@ -280,6 +283,7 @@ module private Transforms =
             | None -> e
         | e -> e
 
+    /// Returns arity of lambda (or lambda option) types
     let getLambdaTypeArity t =
         let rec getLambdaTypeArity acc = function
             | FunctionType(LambdaType _, returnType) ->

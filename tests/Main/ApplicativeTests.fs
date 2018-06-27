@@ -837,10 +837,21 @@ let tests7 = [
         ImplicitConstructorUncurrying(f1).Value |> equal 1
         ImplicitConstructorUncurrying(f2).Value |> equal 0
 
-    testCase "Union case function fields are properly uncurried/curried" <| fun () ->
+    testCase "Union case function fields are properly uncurried/curried" <| fun () -> // See #1445
         let (Fun f) = Fun (fun x y -> [x; y])
         let xs = f 3 4
         List.sum xs |> equal 7
+
+    testCase "Lambdas with tuple arguments don't conflict with uncurrying" <| fun () -> // See #1448
+        let revert xs =
+            let rec rev ls (a,b) acc =
+                match ls with
+                | [] -> acc
+                | h::t -> rev t (a,b) (h::acc)
+            rev xs (0, 0) []
+        let res = revert [2;3;4]
+        equal 3 res.Length
+        equal 4 res.Head
 
     #if FABLE_COMPILER
     testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->

@@ -173,14 +173,28 @@ module AST =
 
     let inline (|ExprType|) (e: Expr) = e.Type
 
+    let (|NestedLambdaType|_|) t =
+        let rec nestedLambda acc = function
+            | FunctionType(LambdaType arg, returnType) ->
+                nestedLambda (arg::acc) returnType
+            | returnType -> Some(List.rev acc, returnType)
+        match t with
+        | FunctionType(LambdaType arg, returnType) -> nestedLambda [arg] returnType
+        | _ -> None
+
+    /// Only matches lambda immediately nested within each other
     let rec (|NestedLambda|_|) expr =
         let rec nestedLambda accArgs body name =
             match body with
             | Function(Lambda arg, body, None) ->
                 nestedLambda (arg::accArgs) body name
-            | _ -> Some(List.rev accArgs, body, name)
+            | _ -> List.rev accArgs, body, name
         match expr with
-        | Function(Lambda arg, body, name) -> nestedLambda [arg] body name
+        | Function(Lambda arg, body, name) ->
+            let args, body, name = nestedLambda [arg] body name
+            match expr.Type with
+            | NestedLambdaType(argTypes, _) when List.sameLength args argTypes -> Some(args, body, name)
+            | _ -> None
         | _ -> None
 
     let (|NestedApply|_|) expr =
@@ -192,15 +206,6 @@ module AST =
         match expr with
         | Operation(CurriedApply(applied, args), t, r) ->
             nestedApply r t args applied
-        | _ -> None
-
-    let (|NestedLambdaType|_|) t =
-        let rec nestedLambda acc = function
-            | FunctionType(LambdaType arg, returnType) ->
-                nestedLambda (arg::acc) returnType
-            | returnType -> Some(List.rev acc, returnType)
-        match t with
-        | FunctionType(LambdaType arg, returnType) -> nestedLambda [arg] returnType
         | _ -> None
 
     let (|LambdaUncurriedAtCompileTime|_|) arity expr =
