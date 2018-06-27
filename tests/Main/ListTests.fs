@@ -673,8 +673,18 @@ let tests =
 
       testCase "List comprehensions returning None work" <| fun () ->
           let spam : string option list = [for _ in 0..5 -> None]
+          List.length spam |> equal 6
 
-          spam
-          |> List.length
-          |> equal 6
+      testCase "Int list tail doesn't get wrapped with `| 0`" <| fun () -> // See #1447
+          let revert xs =
+              let rec rev acc (ls: int list) =
+                  match ls with
+                  | [] -> acc
+                  | h::t -> rev (h::acc) t
+              rev [] xs
+          let res = revert [2;3;4]
+          equal 3 res.Length
+          equal 4 res.Head
+
+
   ]

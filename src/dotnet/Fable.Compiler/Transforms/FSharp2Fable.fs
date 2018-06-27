@@ -404,8 +404,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | OptionUnion t ->
             Fable.Get(unionExpr, Fable.OptionValue, makeType com ctx.GenericArgs t, range)
         | ListUnion t ->
-            let kind = if field.Name = "Head" then Fable.ListHead else Fable.ListTail
-            Fable.Get(unionExpr, kind, makeType com ctx.GenericArgs t, range)
+            let t = makeType com ctx.GenericArgs t
+            let kind, t =
+                if field.Name = "Head"
+                then Fable.ListHead, t
+                else Fable.ListTail, Fable.List t
+            Fable.Get(unionExpr, kind, t, range)
         | DiscriminatedUnion _ ->
             let t = makeType com ctx.GenericArgs fsExpr.Type
             let kind = Fable.UnionField(field, unionCase, makeType com Map.empty field.FieldType)
