@@ -199,7 +199,7 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: IArrayCons<'U>
     map mapping array DynamicArrayCons
     |> concatImpl cons
 
-let countBy (projection: 'T->'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
+let countBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
     let dict = Dictionary<'Key, int>(eq)
 
     for value in array do
@@ -215,20 +215,12 @@ let countBy (projection: 'T->'Key) (array: 'T[]) ([<Inject>] eq: IEqualityCompar
         i <- i + 1
     res
 
-let distinctBy projection (array:'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'T>) =
-    let temp = cons.Create array.Length
-    let mutable i = 0
+let distinctBy (projection: 'T -> 'Key) (array:'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
+    let hashSet = HashSet<'Key>(eq)
+    array |> filter (projection >> hashSet.Add)
 
-    let hashSet = HashSet<'T>(eq)
-    for v in array do
-        if hashSet.Add(projection v) then
-            temp.[i] <- v
-            i <- i + 1
-
-    sliceImpl temp 0 i
-
-let distinct (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'T>) =
-    distinctBy id array cons eq
+let distinct (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
+    distinctBy id array eq
 
 let where predicate (array: _[]) = filterImpl predicate array
 
@@ -249,7 +241,7 @@ let except (itemsToExclude: seq<'t>) (array: 't[]) ([<Inject>] eq: IEqualityComp
         let cached = HashSet(itemsToExclude, eq)
         array |> filterImpl cached.Add
 
-let groupBy (projection: 'T->'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'Key>) =
+let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'Key>) =
     let dict = Dictionary<'Key, 'T[]>(eq)
 
     // Build the groupings

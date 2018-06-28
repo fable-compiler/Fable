@@ -158,7 +158,7 @@ let tests =
         equal 10. x.[3]
 
     testCase "Array.Length works" <| fun () ->
-        let xs = [|1.; 2.; 3.; 4.|]
+        let xs = [| 1.; 2.; 3.; 4. |]
         xs.Length |> equal 4
 
     testCase "Array.zeroCreate works" <| fun () ->
@@ -172,46 +172,40 @@ let tests =
         Array.sum xs |> equal 10
 
     testCase "Array.blit works" <| fun () ->
-        let xs = [|1..10|]
+        let xs = [| 1..10 |]
         let ys = Array.zeroCreate 20
         Array.blit xs 3 ys 5 4        // [|0; 0; 0; 0; 0; 4; 5; 6; 7; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0|]
         ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal 22
 
     testCase "Array.copy works" <| fun () ->
-        let xs = [|1; 2; 3; 4|]
+        let xs = [| 1; 2; 3; 4 |]
         let ys = Array.copy xs
         xs.[0] <- 0                   // Ensure a deep copy
         ys |> Array.sum |> equal 10
 
-    testCase "Array distinct works" <| fun () ->
-        let xs =
-            [| "b"
-               "a"
-               "b" |]
-            |> Array.distinct
-        xs.Length |> equal 2
-        xs.[0] |> equal "b"
-        xs.[1] |> equal "a"
+    testCase "Array.distinct works" <| fun () ->
+        let xs = [| 1; 1; 1; 2; 2; 3; 3 |]
+        let ys = xs |> Array.distinct
+        ys |> Array.length |> equal 3
+        ys |> Array.sum |> equal 6
 
-    testCase "Array distinctBy works" <| fun () ->
-        let xs =
-            [| "a"
-               "b"
-               "a" |]
-            |> Array.distinctBy(fun x -> x + "_")
-        xs.Length |> equal 2
-        xs.[0] |> equal "a"
-        xs.[1] |> equal "b"
+    testCase "Array.distinct with tuples works" <| fun () ->
+        let xs = [|(1, 2); (2, 3); (1, 2)|]
+        let ys = xs |> Array.distinct
+        ys |> Array.length |> equal 2
+        ys |> Array.sumBy fst |> equal 3
 
-    testCase "Array distinctBy with tuples works" <| fun () ->
-        let xs =
-            [| (0,0),"a"
-               (1,1),"b"
-               (0,0),"c" |]
-            |> Array.distinctBy(fun (x, _) -> x)
-        xs.Length |> equal 2
-        xs.[0] |> snd |> equal "a"
-        xs.[1] |> snd |> equal "b"
+    testCase "Array.distinctBy works" <| fun () ->
+        let xs = [| 4; 4; 4; 6; 6; 5; 5 |]
+        let ys = xs |> Array.distinctBy (fun x -> x % 2)
+        ys |> Array.length |> equal 2
+        ys |> Array.head >= 4 |> equal true
+
+    testCase "Array.distinctBy with tuples works" <| fun () ->
+          let xs = [| 4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7 |]
+          let ys = xs |> Array.distinctBy (fun (x,_) -> x % 2)
+          ys |> Array.length |> equal 2
+          ys |> Array.head |> fst >= 4 |> equal true
 
     // This takes longer than 2s in Travis and fails
     #if !TRAVIS

@@ -550,7 +550,7 @@ type IMutableMap<'Key,'Value> =
     abstract values: unit -> 'Value seq
 
 /// Emulate JS Map with custom comparer for non-primitive keys
-let createMutable (source: ('Key*'Value) seq) (comparer: IComparer<'Key>) =
+let createMutable (source: ('Key*'Value) seq) ([<Inject>] comparer: IComparer<'Key>) =
     let mutable tree = MapTree.ofSeq comparer source
     { new IMutableMap<'Key,'Value> with
         member __.size = MapTree.size tree
@@ -581,8 +581,8 @@ let createMutable (source: ('Key*'Value) seq) (comparer: IComparer<'Key>) =
             upcast MapTree.mkIEnumerator tree
     }
 
-let groupBy (projection: 'T->'Key) (xs: 'T seq) (comp: IComparer<'Key>): ('Key * 'T seq) seq =
-    let dict: IMutableMap<_,ResizeArray<'T>> = createMutable [] comp
+let groupBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Inject>] comparer: IComparer<'Key>): ('Key * 'T seq) seq =
+    let dict: IMutableMap<_,ResizeArray<'T>> = createMutable Seq.empty comparer
 
     // Build the groupings
     for v in xs do
@@ -595,8 +595,8 @@ let groupBy (projection: 'T->'Key) (xs: 'T seq) (comp: IComparer<'Key>): ('Key *
     // as a tuple, but let's do it just in case the implementation changes
     dict |> Seq.map (fun kv -> kv.Key, upcast kv.Value)
 
-let countBy (projection: 'T->'Key) (xs: 'T seq) (comp: Comparer<'Key>): ('Key * int) seq =
-    let dict = createMutable [] comp
+let countBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Inject>] comparer: IComparer<'Key>): ('Key * int) seq =
+    let dict = createMutable Seq.empty comparer
 
     for value in xs do
         let key = projection value

@@ -417,16 +417,14 @@ let slice (lower: int option) (upper: int option) (xs: 'T list) =
         then x::acc
         else acc) |> reverse
 
-let distinctBy (projection: 'T->'Key) (xs:'T list) ([<Inject>] eq: IEqualityComparer<'Key>) =
+let distinctBy (projection: 'T -> 'Key) (xs:'T list) ([<Inject>] eq: IEqualityComparer<'Key>) =
     let hashSet = HashSet<'Key>(eq)
-    fold (fun acc x ->
-      if hashSet.Add(projection x) then x::acc
-      else acc) [] xs
+    xs |> filter (projection >> hashSet.Add)
 
 let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
-    HashSet<'T>(xs, eq) |> ofSeq
+    distinctBy id xs eq
 
-let groupBy (projection: 'T->'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T list) list =
+let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T list) list =
     let dict = Dictionary<'Key, 'T list>(eq)
     for v in xs do
         let key = projection v
@@ -435,7 +433,7 @@ let groupBy (projection: 'T->'Key) (xs: 'T list)([<Inject>] eq: IEqualityCompare
         else dict.Add(key, [v])
     dict |> Seq.map (fun kv -> kv.Key, reverse kv.Value) |> Seq.toList
 
-let countBy (projection: 'T->'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
+let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
     let dict = Dictionary<'Key, int ref>(eq)
     iterate (fun v ->
         let key = projection v

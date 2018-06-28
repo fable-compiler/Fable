@@ -492,12 +492,12 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
 
     member s.IsEmpty  = SetTree.isEmpty s.Tree
 
-    member s.Partition f  : Set<'T> *  Set<'T> =
+    member s.Partition f : Set<'T> * Set<'T> =
         match s.Tree with
         | SetEmpty -> s,s
         | _ -> let t1,t2 = SetTree.partition s.Comparer f s.Tree in new Set<_>(s.Comparer,t1), new Set<_>(s.Comparer,t2)
 
-    member s.Filter f  : Set<'T> =
+    member s.Filter f : Set<'T> =
         match s.Tree with
         | SetEmpty -> s
         | _ -> new Set<_>(s.Comparer,SetTree.filter s.Comparer f s.Tree)
@@ -578,23 +578,23 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     interface IEnumerable with
         override s.GetEnumerator() = (SetTree.mkIEnumerator s.Tree :> IEnumerator)
 
-let isEmpty (s : Set<'T>) = s.IsEmpty
+let isEmpty (s: Set<'T>) = s.IsEmpty
 
-let contains x (s : Set<'T>) = s.Contains(x)
+let contains x (s: Set<'T>) = s.Contains(x)
 
-let add x (s : Set<'T>) = s.Add(x)
+let add x (s: Set<'T>) = s.Add(x)
 
-let singleton (x:'T) ([<Inject>] comparer: IComparer<'T>) : Set<'T> =
+let singleton (x: 'T) ([<Inject>] comparer: IComparer<'T>) : Set<'T> =
     new Set<'T>(comparer, SetOne x)
 
-let remove x (s : Set<'T>) = s.Remove(x)
+let remove x (s: Set<'T>) = s.Remove(x)
 
-let union (s1 : Set<'T>) (s2 : Set<'T>) = s1 + s2
+let union (s1: Set<'T>) (s2: Set<'T>) = s1 + s2
 
-let unionMany (sets:seq<Set<'T>>) ([<Inject>] comparer: IComparer<'T>) : Set<'T>  =
+let unionMany (sets: seq<Set<'T>>) ([<Inject>] comparer: IComparer<'T>) : Set<'T>  =
     Seq.fold (( + )) (new Set<_>(comparer, SetEmpty)) sets
 
-let intersect (s1 : Set<'T>)  (s2 : Set<'T>)  = Set<'T>.Intersection(s1,s2)
+let intersect (s1: Set<'T>)  (s2: Set<'T>)  = Set<'T>.Intersection(s1,s2)
 
 let intersectMany sets  = Set<_>.IntersectionMany(sets)
 
@@ -603,80 +603,81 @@ let iterate f (s : Set<'T>)  = s.Iterate(f)
 let empty<'T when 'T : comparison> ([<Inject>] comparer: IComparer<'T>) : Set<'T> =
     new Set<'T>(comparer, SetEmpty)
 
-let forAll f (s : Set<'T>) = s.ForAll f
+let forAll f (s: Set<'T>) = s.ForAll f
 
-let exists f (s : Set<'T>) = s.Exists f
+let exists f (s: Set<'T>) = s.Exists f
 
-let filter f (s : Set<'T>) = s.Filter f
+let filter f (s: Set<'T>) = s.Filter f
 
-let partition f (s : Set<'T>) = s.Partition f
+let partition f (s: Set<'T>) = s.Partition f
 
-let fold<'T,'State  when 'T : comparison> f (z:'State) (s : Set<'T>) = SetTree.fold f z s.Tree
+let fold<'T,'State  when 'T : comparison> f (z: 'State) (s: Set<'T>) = SetTree.fold f z s.Tree
 
-let foldBack<'T,'State when 'T : comparison> f (s : Set<'T>) (z:'State) = SetTree.foldBack f s.Tree z
+let foldBack<'T,'State when 'T : comparison> f (s: Set<'T>) (z:'State) = SetTree.foldBack f s.Tree z
 
-let map f (s : Set<'T>) ([<Inject>] comparer: IComparer<'U>): Set<'U> =
+let map f (s: Set<'T>) ([<Inject>] comparer: IComparer<'U>): Set<'U> =
     new Set<_>(comparer, SetTree.fold (fun acc k -> SetTree.add comparer (f k) acc) (SetTree<_>.SetEmpty) s.Tree)
 
-let count (s : Set<'T>) = s.Count
+let count (s: Set<'T>) = s.Count
 
-let minimumElement (s : Set<'T>) = s.MinimumElement
+let minimumElement (s: Set<'T>) = s.MinimumElement
 
-let maximumElement (s : Set<'T>) = s.MaximumElement
+let maximumElement (s: Set<'T>) = s.MaximumElement
 
-let ofList (li : 'T list) ([<Inject>] comparer: IComparer<'T>) : Set<'T> =
+let ofList (li: 'T list) ([<Inject>] comparer: IComparer<'T>) : Set<'T> =
     new Set<_>(comparer, SetTree.ofSeq comparer li)
 
-let ofArray (arr : 'T array) ([<Inject>] comparer: IComparer<'T>) : Set<'T> =
+let ofArray (arr: 'T array) ([<Inject>] comparer: IComparer<'T>) : Set<'T> =
     new Set<_>(comparer, SetTree.ofArray comparer arr)
 
-let toList (s : Set<'T>) = SetTree.toList s.Tree
+let toList (s: Set<'T>) = SetTree.toList s.Tree
 
-let toArray (s : Set<'T>) ([<Inject>] cons: Array.IArrayCons<'T>) =
+let toArray (s: Set<'T>) ([<Inject>] cons: Array.IArrayCons<'T>) =
     let n = (count s)
     let res = cons.Create n
     SetTree.copyToArray s.Tree res 0
     res
 
-let toSeq (s : Set<'T>) =
+let toSeq (s: Set<'T>) =
     SetTree.toSeq s.Tree
 
-let ofSeq (elements : seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
+let ofSeq (elements: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
     new Set<_>(comparer, SetTree.ofSeq comparer elements)
 
 let difference (x: Set<'T>) (y: Set<'T>) = x - y
 
-let isSubset (x:Set<'T>) (y: Set<'T>) = x.IsSubsetOf(y)
+let isSubset (x: Set<'T>) (y: Set<'T>) = x.IsSubsetOf(y)
 
-let isSuperset (x:Set<'T>) (y: Set<'T>) = x.IsSupersetOf(y)
+let isSuperset (x: Set<'T>) (y: Set<'T>) = x.IsSupersetOf(y)
 
-let isProperSubset (x:Set<'T>) (y: Set<'T>) = x.IsProperSubsetOf(y)
+let isProperSubset (x: Set<'T>) (y: Set<'T>) = x.IsProperSubsetOf(y)
 
-let isProperSuperset (x:Set<'T>) (y: Set<'T>) = x.IsProperSupersetOf(y)
+let isProperSuperset (x: Set<'T>) (y: Set<'T>) = x.IsProperSupersetOf(y)
 
-let minElement (s : Set<'T>) = s.MinimumElement
+let minElement (s: Set<'T>) = s.MinimumElement
 
-let maxElement (s : Set<'T>) = s.MaximumElement
+let maxElement (s: Set<'T>) = s.MaximumElement
 
-// let create (l : seq<'T>) = Set<_>.Create(l)
+// let create (l: seq<'T>) = Set<_>.Create(l)
 
 type IMutableSet<'T> =
     inherit IEnumerable<'T>
     abstract size: int
-    abstract add: 'T -> IMutableSet<'T>
+    abstract add: 'T -> bool
     abstract clear: unit -> unit
     abstract delete: 'T -> bool
     abstract has: 'T -> bool
     abstract values: unit -> 'T seq
 
 /// Emulate JS Set with custom comparer for non-primitive values
-let createMutable (source: 'T seq) (comparer: IComparer<'T>) =
+let createMutable (source: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
     let mutable tree = SetTree.ofSeq comparer source
     { new IMutableSet<'T> with
         member __.size = SetTree.count tree
-        member this.add x =
-            tree <- SetTree.add comparer x tree
-            this
+        member __.add x =
+            if SetTree.mem comparer x tree
+            then false
+            else tree <- SetTree.add comparer x tree; true
         member __.clear () =
             tree <- SetEmpty
         member __.delete x =
@@ -695,11 +696,19 @@ let createMutable (source: 'T seq) (comparer: IComparer<'T>) =
             upcast SetTree.mkIEnumerator tree
     }
 
-let distinct (xs: 'T seq) (comparer: IComparer<'T>): 'T seq =
+let distinct (xs: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
     createMutable xs comparer :> _ seq
 
-let distinctBy projection (xs: 'T seq) (comparer: IComparer<'T>): 'T seq =
-    createMutable (xs |> Seq.map projection) comparer :> _ seq
+let distinctBy (projection: 'T -> 'Key) (xs: seq<'T>) ([<Inject>] comparer: IComparer<'Key>) =
+    let hashSet = createMutable Seq.empty comparer
+    xs |> Seq.filter (projection >> hashSet.add)
+
+// let distinctBy (projection: 'T -> 'Key) (xs: seq<'T>) ([<Inject>] eq: IEqualityComparer<'Key>) =
+//     let hashSet = HashSet<'Key>(eq)
+//     xs |> Seq.filter (projection >> hashSet.Add)
+
+// let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
+//     distinctBy id xs eq
 
 let unionWith = union
 let intersectWith = intersect
