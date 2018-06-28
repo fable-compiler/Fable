@@ -262,8 +262,10 @@ let tests4 = [
         genericLambdaArgument (fun x y -> x + y) 3 |> equal 45
         genericLambdaArgument ((+) 1) |> equal 43
         genericLambdaArgument2 (fun f -> f 1) 3 |> equal 3
-        // TODO!!!
-        // genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
+
+    testCase "Generic lambda arguments work with multi-arity subargument" <| fun () ->
+        // TODO: Add test also with expected arity for f > 1
+        genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
 
     testCase "Generic lambda arguments work locally" <| fun () ->
         let genericLambdaArgument f = f 42
@@ -272,8 +274,6 @@ let tests4 = [
 
         let genericLambdaArgument2 f g = f (fun x -> g)
         genericLambdaArgument2 (fun f -> f 1) 3 |> equal 3
-        // TODO!!!
-        // genericLambdaArgument2 (fun f -> f 1 2) id |> equal 2
 
     testCase "Lambdas can be partially applied" <| fun () ->
         partialApplication (+) |> equal 29

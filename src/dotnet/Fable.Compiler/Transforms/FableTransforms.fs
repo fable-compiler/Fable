@@ -334,22 +334,43 @@ module private Transforms =
             | Some arity -> Replacements.uncurryExprAtRuntime arity expr
             | None -> expr
 
-    // TODO!!! See ApplicativeTests/Generic lambda arguments work
-    let checkSubArguments com expectedArgs (expr: Expr) =
-        match expr.Type with
-        | NestedLambdaType(actualArgs, _) when List.sameLength expectedArgs actualArgs ->
-            for (expected, actual) in List.zip expectedArgs actualArgs do
-                match expected, actual with
-                // Subarguments may have been uncurried already and become delegate
-                | NestedLambdaType(args1, _), FunctionType(DelegateType args2, _)
-                | NestedLambdaType(args1, _), NestedLambdaType(args2, _) ->
-                    if not <| List.sameLength args1 args2 then
-                        "Current version cannot pass a lambda with arguments of unexpected arity"
-                        |> addError com expr.Range
-                | _ -> ()
-        | _ -> ()
+    // For function arguments check if the arity of their own function arguments is expected or not
+    // TODO: Do we need to do this recursively, and check options and delegates too?
+    let checkSubArguments expectedType (expr: Expr) =
+        match expectedType, expr with
+        | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs, returnType))
+                when List.sameLength expectedArgs actualArgs ->
+            let _, replacements =
+                ((0, Map.empty), expectedArgs, actualArgs)
+                |||> List.fold2 (fun (index, replacements) expected actual ->
+                    match expected, actual with
+                    | NestedLambdaType(args1, _), NestedLambdaType(args2, _)
+                            when not(List.sameLength args1 args2) ->
+                        let expectedArity = List.length args1
+                        let actualArity = List.length args2
+                        index + 1, Map.add index (expectedArity, actualArity) replacements
+                    | _ -> index + 1, replacements)
+            if Map.isEmpty replacements
+            then expr
+            else
+                let args = [ for i=1 to List.length actualArgs do
+                                yield makeIdent ("arg" + string i) ]
+                let argExprs =
+                    args |> List.mapi (fun i arg ->
+                        let argExpr = IdentExpr arg
+                        match Map.tryFind i replacements with
+                        | Some (expectedArity, actualArity) ->
+                            let argExpr =
+                                if expectedArity > 1
+                                then Replacements.curryExprAtRuntime expectedArity argExpr
+                                else argExpr
+                            Replacements.uncurryExprAtRuntime actualArity argExpr
+                        | None -> argExpr)
+                let body = Operation(CurriedApply(expr, argExprs), returnType, None)
+                makeLambda args body
+        | _ -> expr
 
-    let uncurryArgs com argTypes args =
+    let uncurryArgs argTypes args =
         let mapArgs f argTypes args =
             let rec mapArgsInner f acc argTypes args =
                 match argTypes, args with
@@ -362,13 +383,11 @@ module private Transforms =
         match argTypes with
         | Some [] -> args // Do nothing
         | Some argTypes ->
-            (argTypes, args) ||> mapArgs (fun argType arg ->
-                let arity = getLambdaTypeArity argType
-                if arity > 0 then
-                    checkSubArguments com argTypes arg
-                    if arity > 1
-                    then uncurryExpr (Some arity) arg
-                    else arg
+            (argTypes, args) ||> mapArgs (fun expectedType arg ->
+                let arg = checkSubArguments expectedType arg
+                let arity = getLambdaTypeArity expectedType
+                if arity > 1
+                then uncurryExpr (Some arity) arg
                 else arg)
         | None -> List.map (uncurryExpr None) args
 
@@ -428,18 +447,18 @@ module private Transforms =
                 fields
                 |> Seq.map (fun fi -> FSharp2Fable.TypeHelpers.makeType com Map.empty fi.FieldType)
                 |> Seq.toList
-            uncurryArgs com (Some argTypes) args
+            uncurryArgs (Some argTypes) args
         match e with
         | Operation(Call(kind, info), t, r) ->
-            let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
+            let info = { info with Args = uncurryArgs info.SignatureArgTypes info.Args }
             Operation(Call(kind, info), t, r)
         | Operation(CurriedApply(callee, args), t, r) ->
             match callee.Type with
             | NestedLambdaType(argTypes, _) ->
-                Operation(CurriedApply(callee, uncurryArgs com (Some argTypes) args), t, r)
+                Operation(CurriedApply(callee, uncurryArgs (Some argTypes) args), t, r)
             | _ -> e
         | Operation(Emit(macro, Some info), t, r) ->
-            let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
+            let info = { info with Args = uncurryArgs info.SignatureArgTypes info.Args }
             Operation(Emit(macro, Some info), t, r)
         // Uncurry also values in setters or new record/union/tuple
         | Value(NewRecord(args, ent, genArgs)) ->
@@ -449,7 +468,7 @@ module private Transforms =
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, uci, ent, genArgs))
         | Set(e, FieldSet(fieldName, fieldType), value, r) ->
-            let value = uncurryArgs com (Some [fieldType])  [value]
+            let value = uncurryArgs (Some [fieldType])  [value]
             Set(e, FieldSet(fieldName, fieldType), List.head value, r)
         | e -> e
 
