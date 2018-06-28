@@ -459,7 +459,9 @@ module Util =
         match t with
         // TODO: Type info forErasedUnion?
         | Fable.ErasedUnion _ | Fable.Any -> primitiveTypeInfo knownTypes "obj"
-        | Fable.GenericParam _ -> error knownTypes "Cannot get type info of generic parameter, please inline or inject a type resolver"
+        | Fable.GenericParam _ ->
+            Replacements.genericTypeInfoError com r
+            knownTypes, NullLiteral () :> Expression
         | Fable.Unit    -> primitiveTypeInfo knownTypes "unit"
         | Fable.Boolean -> primitiveTypeInfo knownTypes "bool"
         | Fable.Char    -> primitiveTypeInfo knownTypes "char"

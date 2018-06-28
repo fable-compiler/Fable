@@ -379,7 +379,7 @@ module AST =
         | _ -> false
 
     let rec getTypeFullName prettify = function
-        | Fable.GenericParam name -> name
+        | Fable.GenericParam name -> "'" + name
         | Fable.EnumType(_, fullname) -> fullname
         | Fable.Regex    -> Types.regex
         | Fable.MetaType -> Types.type_
@@ -419,13 +419,22 @@ module AST =
         | Fable.Array gen ->
             (getTypeFullName prettify gen) + "[]"
         | Fable.Option gen ->
-            Types.option + "[" + (getTypeFullName prettify gen) + "]"
-        | Fable.List gen   ->
-            Types.list + "[" + (getTypeFullName prettify gen) + "]"
+            let gen = getTypeFullName prettify gen
+            if prettify then gen + " option" else Types.option + "[" + gen + "]"
+        | Fable.List gen ->
+            let gen = getTypeFullName prettify gen
+            if prettify then gen + " list" else Types.list + "[" + gen + "]"
         | Fable.DeclaredType(ent, gen) ->
             match ent.TryFullName with
             | None -> Naming.unknown
             | Some fullname when List.isEmpty gen -> fullname
             | Some fullname ->
-                // TODO: Prettify lists, options, etc...
-                fullname + "[" + (List.map (getTypeFullName prettify) gen |> String.concat ",") + "]"
+                let gen = (List.map (getTypeFullName prettify) gen |> String.concat ",")
+                let fullname =
+                    if prettify then
+                        match fullname with
+                        | Types.result -> "Result"
+                        | Naming.StartsWith Types.choiceNonGeneric _ -> "Choice"
+                        | _ -> fullname // TODO: Prettify other types?
+                    else fullname
+                fullname + "[" + gen + "]"

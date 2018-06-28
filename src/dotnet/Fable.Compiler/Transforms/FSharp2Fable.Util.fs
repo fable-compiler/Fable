@@ -254,7 +254,7 @@ module Helpers =
     /// Using memb.IsValue doesn't work for function values
     /// (e.g. `let ADD = adder()` when adder returns a function)
     let isModuleValueForDeclarations (memb: FSharpMemberOrFunctionOrValue) =
-        memb.CurriedParameterGroups.Count = 0 // && memb.GenericParameters.Count = 0
+        memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
 
     let isModuleValueForCalls (memb: FSharpMemberOrFunctionOrValue) =
         isModuleValueForDeclarations memb
@@ -642,13 +642,16 @@ module Util =
         Fable.TryCatch (body, catchClause, finalizer)
 
     let matchGenericParams (genArgs: Fable.Type seq) (genParams: FSharpGenericParameter seq) =
-        // TODO: Log error if they've different lengths
         Seq.zip (genParams |> Seq.map (fun x -> x.Name)) genArgs
 
     let matchGenericParamsFrom (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type seq) =
+        let genArgsLen = Seq.length genArgs
         match memb.DeclaringEntity with
-        | Some ent -> Seq.append ent.GenericParameters memb.GenericParameters
-        | None -> upcast memb.GenericParameters
+        // It seems that for F# types memb.GenericParameters contains all generics
+        // but for BCL types we need to check the DeclaringEntity generics too
+        | Some ent when genArgsLen > memb.GenericParameters.Count ->
+            Seq.append ent.GenericParameters memb.GenericParameters
+        | _ -> upcast memb.GenericParameters
         |> matchGenericParams genArgs
 
     /// Takes only the first CurriedParameterGroup into account.
@@ -927,7 +930,7 @@ module Util =
         then None
         else inlineExpr com ctx genArgs callee args memb |> Some
 
-    /// Removes optional arguments set to None in tail position and calls the injector
+    /// Removes optional arguments set to None in tail position and calls the injector if necessary
     let transformOptionalArguments (com: IFableCompiler) (ctx: Context) r
                 (memb: FSharpMemberOrFunctionOrValue) (genArgs: Lazy<_>) (args: Fable.Expr list) =
         if memb.CurriedParameterGroups.Count <> 1

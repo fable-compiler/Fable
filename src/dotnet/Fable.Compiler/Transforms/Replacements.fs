@@ -216,6 +216,10 @@ let coreModFor = function
     | BclHashSet _
     | BclDictionary _ -> failwith "Cannot decide core module"
 
+let genericTypeInfoError com r =
+    "Cannot get type info of generic parameter, please inline or inject a type resolver"
+    |> addError com r
+
 let defaultof (t: Type) =
     match t with
     | Number _ -> makeIntConst 0
@@ -2156,10 +2160,13 @@ let controlExtensions (_: ICompiler) (_: Context) (_: SourceLocation option) t (
             |> fun (args, argTypes) -> List.rev args, List.rev argTypes
         Helper.CoreCall("Observable", meth, t, args, argTypes))
 
-let types (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
+let types (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
     let returnString x = StringConstant x |> Value |> Some
     match thisArg with
     | Some(Value(TypeInfo(exprType, exprRange)) as thisArg) ->
+        match exprType with
+        | GenericParam _ -> genericTypeInfoError com exprRange
+        | _ -> ()
         match i.CompiledName with
         | "get_FullName" -> getTypeFullName false exprType |> returnString
         | "get_Namespace" ->
