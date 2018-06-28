@@ -587,43 +587,50 @@ let tests =
         let xs = [1; 2; 3; 4]
         let ys = [1; 2; 3; 5]
         let zs = [1; 2; 3; 3]
-        Seq.compareWith (fun x y -> x - y) xs xs
-        |> equal 0
-        Seq.compareWith (fun x y -> x - y) xs ys
-        |> equal -1
-        Seq.compareWith (fun x y -> x - y) xs zs
-        |> equal 1
+        Seq.compareWith (-) xs xs |> equal 0
+        Seq.compareWith (-) xs ys |> equal -1
+        Seq.compareWith (-) xs zs |> equal 1
 
     testCase "Seq.countBy works" <| fun () ->
         let xs = [1; 2; 3; 4]
         let ys = xs |> Seq.countBy (fun x -> x % 2)
-        ys |> Seq.length
-        |> equal 2
+        ys |> Seq.length |> equal 2
 
     testCase "Seq.distinct works" <| fun () ->
         let xs = [1; 1; 1; 2; 2; 3; 3]
         let ys = xs |> Seq.distinct
-        ys |> Seq.length
-        |> equal 3
+        ys |> Seq.length |> equal 3
+        ys |> Seq.sum |> equal 6
+
+    testCase "Seq.distinct with tuples works" <| fun () ->
+        let xs = [(1, 2); (2, 3); (1, 2)]
+        let ys = xs |> Seq.distinct
+        ys |> Seq.length |> equal 2
+        ys |> Seq.sumBy fst |> equal 3
 
     testCase "Seq.distinctBy works" <| fun () ->
-        [1; 1; 1; 2; 2; 3; 3]
-        |> Seq.distinctBy (fun x -> x % 2)
-        |> Seq.length
-        |> equal 2
+        let xs = [4; 4; 4; 6; 6; 5; 5]
+        let ys = xs |> Seq.distinctBy (fun x -> x % 2)
+        ys |> Seq.length |> equal 2
+        // ys |> Seq.head >= 4 |> equal true // TODO:
+
+    testCase "Seq.distinctBy with tuples works" <| fun () ->
+        let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
+        let ys = xs |> Seq.distinctBy (fun (x,_) -> x % 2)
+        ys |> Seq.length |> equal 2
+        // ys |> Seq.head |> fst >= 4 |> equal true // TODO:
 
     testCase "Seq.groupBy works" <| fun () ->
         let xs = [1; 2; 3; 4]
         let ys = xs |> Seq.groupBy (fun x -> x % 2) |> dict
-        equal 2 ys.Count
+        ys |> Seq.length |> equal 2
         ys.[0] |> Seq.item 0 |> equal 2
         ys.[1] |> Seq.item 1 |> equal 3
 
     testCase "Seq.groupBy with structural equality works" <| fun () ->
         let xs = [1; 2; 3; 4]
         let ys = xs |> Seq.groupBy (fun x -> Number (x % 2))
-        ys |> Seq.length
-        |> equal 2
+        ys |> Seq.length |> equal 2
 
     testCase "Seq.exactlyOne works" <| fun () ->
         let xs = [1.]

@@ -487,17 +487,26 @@ let tests =
       testCase "List.distinct works" <| fun () ->
           let xs = [1; 1; 1; 2; 2; 3; 3]
           let ys = xs |> List.distinct
-          ys |> List.length
-          |> equal 3
+          ys |> List.length |> equal 3
+          ys |> List.sum |> equal 6
+
+      testCase "List.distinct with tuples works" <| fun () ->
+          let xs = [(1, 2); (2, 3); (1, 2)]
+          let ys = xs |> List.distinct
+          ys |> List.length |> equal 2
+          ys |> List.sumBy fst |> equal 3
 
       testCase "List.distinctBy works" <| fun () ->
-          let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
-          let ys = xs |> List.distinctBy (fun (x,y) -> x % 2)
+          let xs = [4; 4; 4; 6; 6; 5; 5]
+          let ys = xs |> List.distinctBy (fun x -> x % 2)
           ys |> List.length |> equal 2
-          fst (ys |> List.minBy fst) >= 4 |> equal true
+          ys |> List.head >= 4 |> equal true
 
-      testCase "List.distinct works with non-primitive types" <| fun () ->
-        List.distinct [(1, 2); (1, 3); (1, 2)] |> List.length |> equal 2
+      testCase "List.distinctBy with tuples works" <| fun () ->
+          let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
+          let ys = xs |> List.distinctBy (fun (x,_) -> x % 2)
+          ys |> List.length |> equal 2
+          ys |> List.head |> fst >= 4 |> equal true
 
       testCase "List.findBack works" <| fun () ->
           let xs = [1.; 2.; 3.; 4.]

@@ -189,12 +189,14 @@ module Surfaces =
     let Checkerboard =
         { new Surface with
             member s.Diffuse pos =
-                if (int (System.Math.Floor(pos.Z) + System.Math.Floor(pos.X))) % 2 <> 0
+                // if (int (Math.Floor(pos.Z) + Math.Floor(pos.X))) % 2 <> 0
+                if ((int pos.Z) + (int pos.X)) % 2 <> 0
                 then Color.White
                 else Color.Black
             member s.Specular pos = Color.White
             member s.Reflect pos =
-                if (int (System.Math.Floor(pos.Z) + System.Math.Floor(pos.X))) % 2 <> 0
+                // if (int (Math.Floor(pos.Z) + Math.Floor(pos.X))) % 2 <> 0
+                if ((int pos.Z) + (int pos.X)) % 2 <> 0
                 then 0.1
                 else 0.7
             member s.Roughness = 150.0 }

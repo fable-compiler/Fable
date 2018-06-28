@@ -1184,13 +1184,13 @@ let getEnumerator r t expr =
     Helper.CoreCall("Seq", "getEnumerator", t, [toSeq r Any expr], ?loc=r)
 
 let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let sort r returnType descending projector args genArg =
+    let sort r returnType descending projection args genArg =
         let compareFn =
             let identExpr ident =
-                match projector with
-                | Some projector ->
+                match projection with
+                | Some projection ->
                     let info = argInfo None [IdentExpr ident] None
-                    Operation(Call(StaticCall projector, info), genArg, None)
+                    Operation(Call(StaticCall projection, info), genArg, None)
                 | None -> IdentExpr ident
             let x = makeTypedIdent genArg "x"
             let y = makeTypedIdent genArg "y"
@@ -1223,16 +1223,18 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
             | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com r t ent Types.idisposable arg
             | _ -> arg
         Helper.CoreCall("Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Sort" | "SortDescending" as m), args ->
-        (genArg com r 0 i.GenericArgs) |> sort r t (m = "SortDescending") None args
-    | ("SortBy" | "SortByDescending" as m), proyector::args ->
-        (genArg com r 1 i.GenericArgs) |> sort r t (m = "SortByDescending") (Some proyector) args
-    | ("GroupBy" | "CountBy" as m), args ->
-        let args = (genArg com r 1 i.GenericArgs) |> makeComparer com |> List.singleton |> List.append args
-        Helper.CoreCall("Map", Naming.lowerFirst m, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Distinct" | "DistinctBy" as m), args ->
-        let args = (genArg com r 0 i.GenericArgs) |> makeComparer com |> List.singleton |> List.append args
-        Helper.CoreCall("Set", Naming.lowerFirst m, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ("Sort" | "SortDescending" as meth), args ->
+        (genArg com r 0 i.GenericArgs) |> sort r t (meth = "SortDescending") None args
+    | ("SortBy" | "SortByDescending" as meth), projection::args ->
+        (genArg com r 1 i.GenericArgs) |> sort r t (meth = "SortByDescending") (Some projection) args
+    | ("GroupBy" | "CountBy" as meth), args ->
+        let meth = Naming.lowerFirst meth
+        let args = injectArg com r "Map" meth i.GenericArgs args
+        Helper.CoreCall("Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ("Distinct" | "DistinctBy" as meth), args ->
+        let meth = Naming.lowerFirst meth
+        let args = injectArg com r "Set" meth i.GenericArgs args
+        Helper.CoreCall("Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com r "Seq" meth i.GenericArgs args
