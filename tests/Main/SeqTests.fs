@@ -624,10 +624,8 @@ let tests =
         let xs = [1; 2; 3; 4]
         let ys = xs |> Seq.groupBy (fun x -> x % 2)
         ys |> Seq.length |> equal 2
-        ys |> Seq.item 0 |> snd |> Seq.item 0 |> equal 2
-        ys |> Seq.item 0 |> snd |> Seq.item 1 |> equal 4
-        ys |> Seq.item 1 |> snd |> Seq.item 0 |> equal 1
-        ys |> Seq.item 1 |> snd |> Seq.item 1 |> equal 3
+        ys |> Seq.iter (fun (k,v) ->
+            v |> Seq.exists (fun x -> x % 2 <> k) |> equal false)
 
     testCase "Seq.groupBy with structural equality works" <| fun () ->
         let xs = [1; 2; 3; 4]
