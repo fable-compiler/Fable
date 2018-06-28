@@ -612,20 +612,22 @@ let tests =
         let xs = [4; 4; 4; 6; 6; 5; 5]
         let ys = xs |> Seq.distinctBy (fun x -> x % 2)
         ys |> Seq.length |> equal 2
-        // ys |> Seq.head >= 4 |> equal true // TODO:
+        ys |> Seq.head >= 4 |> equal true
 
     testCase "Seq.distinctBy with tuples works" <| fun () ->
         let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
         let ys = xs |> Seq.distinctBy (fun (x,_) -> x % 2)
         ys |> Seq.length |> equal 2
-        // ys |> Seq.head |> fst >= 4 |> equal true // TODO:
+        ys |> Seq.head |> fst >= 4 |> equal true
 
     testCase "Seq.groupBy works" <| fun () ->
         let xs = [1; 2; 3; 4]
-        let ys = xs |> Seq.groupBy (fun x -> x % 2) |> dict
+        let ys = xs |> Seq.groupBy (fun x -> x % 2)
         ys |> Seq.length |> equal 2
-        ys.[0] |> Seq.item 0 |> equal 2
-        ys.[1] |> Seq.item 1 |> equal 3
+        ys |> Seq.item 0 |> snd |> Seq.item 0 |> equal 2
+        ys |> Seq.item 0 |> snd |> Seq.item 1 |> equal 4
+        ys |> Seq.item 1 |> snd |> Seq.item 0 |> equal 1
+        ys |> Seq.item 1 |> snd |> Seq.item 1 |> equal 3
 
     testCase "Seq.groupBy with structural equality works" <| fun () ->
         let xs = [1; 2; 3; 4]

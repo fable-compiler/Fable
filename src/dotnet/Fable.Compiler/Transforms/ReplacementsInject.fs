@@ -81,6 +81,11 @@ let fableCoreModules =
       "createMutable", [(Types.comparer, 0)]
       "distinct", [(Types.comparer, 0)]
       "distinctBy", [(Types.comparer, 1)]
+      "intersectWith", [(Types.comparer, 0)]
+      "isSubsetOf", [(Types.comparer, 0)]
+      "isSupersetOf", [(Types.comparer, 0)]
+      "isProperSubsetOf", [(Types.comparer, 0)]
+      "isProperSupersetOf", [(Types.comparer, 0)]
     ]
     "Map", Map [
       "ofList", [(Types.comparer, 0)]

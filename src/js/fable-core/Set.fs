@@ -660,21 +660,28 @@ let maxElement (s: Set<'T>) = s.MaximumElement
 
 // let create (l: seq<'T>) = Set<_>.Create(l)
 
+/// Fable uses JS Set to represent .NET HashSet. However when keys are non-primitive,
+/// we need to disguise an F# set as a mutable set. Thus, this interface matches JS Set prototype.
+/// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set
 type IMutableSet<'T> =
     inherit IEnumerable<'T>
     abstract size: int
-    abstract add: 'T -> bool
+    abstract add: 'T -> IMutableSet<'T>
+    /// Convenience method (not in JS Set prototype) to check if the element has actually been added
+    abstract add_: 'T -> bool
     abstract clear: unit -> unit
     abstract delete: 'T -> bool
     abstract has: 'T -> bool
     abstract values: unit -> 'T seq
 
-/// Emulate JS Set with custom comparer for non-primitive values
-let createMutable (source: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
-    let mutable tree = SetTree.ofSeq comparer source
+let private createMutablePrivate (comparer: IComparer<'T>) tree' =
+    let mutable tree = tree'
     { new IMutableSet<'T> with
         member __.size = SetTree.count tree
-        member __.add x =
+        member this.add x =
+            tree <- SetTree.add comparer x tree
+            this
+        member __.add_ x =
             if SetTree.mem comparer x tree
             then false
             else tree <- SetTree.add comparer x tree; true
@@ -696,24 +703,45 @@ let createMutable (source: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
             upcast SetTree.mkIEnumerator tree
     }
 
+/// Emulate JS Set with custom comparer for non-primitive values
+let createMutable (source: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
+    SetTree.ofSeq comparer source
+    |> createMutablePrivate comparer
+
 let distinct (xs: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
     createMutable xs comparer :> _ seq
 
 let distinctBy (projection: 'T -> 'Key) (xs: seq<'T>) ([<Inject>] comparer: IComparer<'Key>) =
+    let li = ResizeArray()
     let hashSet = createMutable Seq.empty comparer
-    xs |> Seq.filter (projection >> hashSet.add)
+    for x in xs do
+        if projection x |> hashSet.add_ then
+            li.Add(x)
+    li :> _ seq
 
-// let distinctBy (projection: 'T -> 'Key) (xs: seq<'T>) ([<Inject>] eq: IEqualityComparer<'Key>) =
-//     let hashSet = HashSet<'Key>(eq)
-//     xs |> Seq.filter (projection >> hashSet.Add)
+// Helpers to replicate HashSet methods
 
-// let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
-//     distinctBy id xs eq
+let unionWith (s1: IMutableSet<'T>) (s2: 'T seq) =
+    (s1, s2) ||> Seq.fold (fun acc x -> acc.add x)
 
-let unionWith = union
-let intersectWith = intersect
-let exceptWith = difference
-let isSubsetOf = isSubset
-let isSupersetOf = isSuperset
-let isProperSubsetOf = isProperSubset
-let isProperSupersetOf = isProperSuperset
+let intersectWith (s1: IMutableSet<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
+    let s2 = ofSeq s2 comparer
+    for x in s1 do
+        if not(s2.Contains x) then
+            s1.delete x |> ignore
+
+let exceptWith (s1: IMutableSet<'T>) (s2: 'T seq) =
+    for x in s2 do
+        s1.delete x |> ignore
+
+let isSubsetOf (s1: IMutableSet<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
+    isSubset (ofSeq s1 comparer) (ofSeq s2 comparer)
+
+let isSupersetOf (s1: IMutableSet<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
+    isSuperset (ofSeq s1 comparer) (ofSeq s2 comparer)
+
+let isProperSubsetOf (s1: IMutableSet<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
+    isProperSubset (ofSeq s1 comparer) (ofSeq s2 comparer)
+
+let isProperSupersetOf (s1: IMutableSet<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
+    isProperSuperset (ofSeq s1 comparer) (ofSeq s2 comparer)

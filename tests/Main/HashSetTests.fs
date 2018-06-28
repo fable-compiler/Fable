@@ -67,7 +67,7 @@ let tests =
         let xs = set [1; 2]
         xs.Remove 3 |> equal false
         xs.Count |> equal 2
-    (*
+
     testCase "HashSet.UnionWith works" <| fun () ->
         let xs = set [1; 2]
         let ys = set [2; 4]
@@ -152,27 +152,28 @@ let tests =
         hs.Contains("Hello") |> equal true
         hs.Contains("Everybody!") |> equal false
 
-    testCase "HashSet.CopyTo works" <| fun () ->
-        let hs = HashSet<_>()
-        for i in 1 .. 9 do hs.Add(i) |> ignore
+    // TODO!!!
+    // testCase "HashSet.CopyTo works" <| fun () ->
+    //     let hs = HashSet<_>()
+    //     for i in 1 .. 9 do hs.Add(i) |> ignore
 
-        let arr1 = Array.zeroCreate 9
-        let arr2 = Array.zeroCreate 11
-        let arr3 = Array.zeroCreate 7
+    //     let arr1 = Array.zeroCreate 9
+    //     let arr2 = Array.zeroCreate 11
+    //     let arr3 = Array.zeroCreate 7
 
-        hs.CopyTo(arr1)         // [|1;2;3;4;5;6;7;8;9|]
-        hs.CopyTo(arr2, 2)      // [|0;0;1;2;3;4;5;6;7;8;9|]
-        hs.CopyTo(arr3, 3, 4)   // [|0;0;0;1;2;3;4|]
+    //     hs.CopyTo(arr1)         // [|1;2;3;4;5;6;7;8;9|]
+    //     hs.CopyTo(arr2, 2)      // [|0;0;1;2;3;4;5;6;7;8;9|]
+    //     hs.CopyTo(arr3, 3, 4)   // [|0;0;0;1;2;3;4|]
 
-        let sum = fun acc item -> acc + item
-        arr1 |> Seq.fold sum 0 |> equal 45
-        arr1.Length |> equal 9
+    //     let sum = fun acc item -> acc + item
+    //     arr1 |> Seq.fold sum 0 |> equal 45
+    //     arr1.Length |> equal 9
 
-        arr2 |> Seq.fold sum 0 |> equal 45
-        arr2.Length |> equal 11
+    //     arr2 |> Seq.fold sum 0 |> equal 45
+    //     arr2.Length |> equal 11
 
-        arr3 |> Seq.fold sum 0 |> equal 10
-        arr3.Length |> equal 7
+    //     arr3 |> Seq.fold sum 0 |> equal 10
+    //     arr3.Length |> equal 7
 
     testCase "HashSet.Remove works" <| fun () ->
         let hs = HashSet<_>()
@@ -187,12 +188,13 @@ let tests =
         let x3 = { a = 10 }
         let hs = HashSet<_>()
         hs.Add(x1) |> ignore
+        hs.Add(x2) |> ignore
         hs.Count |> equal 1
         hs.Remove(x3) |> equal false
         hs.Count |> equal 1
         hs.Remove(x1) |> equal true
         hs.Count |> equal 0
-    *)
+
     // testCase "HashSet can be JSON serialized forth and back" <| fun () ->
     //     let x = HashSet<_>()
     //     x.Add(1) |> ignore

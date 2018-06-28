@@ -681,7 +681,7 @@ let makeHashSetWithComparer r t sourceSeq comparer =
 
 let makeHashSet (com: ICompiler) r t sourceSeq =
     match t with
-    | DeclaredType(_,[key;_]) when not(isCompatibleWithJsComparison key) ->
+    | DeclaredType(_,[key]) when not(isCompatibleWithJsComparison key) ->
         makeComparer com key |> makeHashSetWithComparer r t sourceSeq
     | _ -> Helper.GlobalCall("Set", t, [sourceSeq], isConstructor=true, ?loc=r)
 
@@ -1672,7 +1672,7 @@ let funcs (_: ICompiler) (_: Context) r t (i: CallInfo) thisArg args =
         Helper.Application(callee, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
-let keyValuePairs (com: ICompiler) (_: Context) r t (i: CallInfo) thisArg args =
+let keyValuePairs (_: ICompiler) (_: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
     | ".ctor", _ -> Value(NewTuple args) |> Some
     | "get_Key", Some c -> Get(c, TupleGet 0, t, r) |> Some
@@ -1739,12 +1739,14 @@ let hashSets (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr opti
     | "Add", Some c, [arg] ->
         Helper.CoreCall("Util", "addToSet", t, [arg; c], ?loc=r) |> Some
     | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" |
-        "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" | "CopyTo"), Some c, args ->
-        Helper.CoreCall("Set", Naming.lowerFirst i.CompiledName, t, c::args, ?loc=r) |> Some
-    // TODO
-    // | "setEquals"
-    // | "overlaps"
-    // | "symmetricExceptWith"
+        "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
+        let meth = Naming.lowerFirst meth
+        let args = injectArg com r "Set" meth i.GenericArgs args
+        Helper.CoreCall("Set", meth, t, c::args, ?loc=r) |> Some
+    // | "CopyTo" // TODO!!!
+    // | "SetEquals"
+    // | "Overlaps"
+    // | "SymmetricExceptWith"
     | _ -> None
 
 let exceptions (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
