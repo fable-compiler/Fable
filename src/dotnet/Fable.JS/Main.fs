@@ -2,7 +2,7 @@ module Fable.JS.Main
 
 open System
 open Interfaces
-open Fable
+//open Fable
 open Fable.AST
 open Fable.Core
 open Fable.Transforms
@@ -10,20 +10,25 @@ open Fable.Transforms.State
 open FsAutoComplete
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-type private CheckerImpl(c: InteractiveChecker) =
-    member __.Checker = c
+type CheckerImpl(checker: InteractiveChecker) =
+    member __.Checker = checker
     interface IChecker
 
 // type private CompilerImpl(c: Compiler) =
 //     member __.Compiler = c
 //     interface IFableCompiler
 
-type ParseResults =
-    { ParseFile: FSharpParseFileResults
-      CheckFile: FSharpCheckFileResults
-      CheckProject: FSharpCheckProjectResults }
-    interface IParseResults with
-        member this.Errors = this.CheckProject.Errors |> Array.map (fun er ->
+type ParseResults
+   (parseFile: FSharpParseFileResults,
+    checkFile: FSharpCheckFileResults,
+    checkProject: FSharpCheckProjectResults) =
+
+    member __.ParseFile = parseFile
+    member __.CheckFile = checkFile
+    member __.CheckProject = checkProject
+
+    // interface IParseResults with // disabled until #1452 is fixed
+    member __.Errors = checkProject.Errors |> Array.map (fun er ->
             { StartLineAlternate = er.StartLineAlternate
               StartColumn = er.StartColumn
               EndLineAlternate = er.EndLineAlternate
@@ -34,6 +39,7 @@ type ParseResults =
                 | FSharpErrorSeverity.Error -> false
                 | FSharpErrorSeverity.Warning -> true
             })
+    interface IParseResults
 
 let inline private tryGetLexerSymbolIslands (sym: Lexer.LexerSymbol) =
   match sym.Text with
@@ -98,9 +104,7 @@ let convertGlyph glyph =
 
 let parseFSharpProject (checker: InteractiveChecker) fileName source =
     let parseResults, typeCheckResults, projectResults = checker.ParseAndCheckScript (fileName, source)
-    { ParseFile = parseResults
-      CheckFile = typeCheckResults
-      CheckProject = projectResults }
+    ParseResults (parseResults, typeCheckResults, projectResults)
 
 let tooltipToString (el: FSharpToolTipElement<string>): string[] =
     let dataToString (data: FSharpToolTipElementData<string>) =
@@ -165,13 +169,13 @@ let makeProject fileName optimized (parseResults: ParseResults) =
         (if optimized
          then checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
          else checkedProject.AssemblyContents.ImplementationFiles)
-        |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
+        |> Seq.map (fun file -> Fable.Path.normalizePath file.FileName, file) |> Map
     // Dealing with fableCoreDir is a bit messy atm, for the REPL, only the value in the Compiler options matters
     let project = Project(projectOptions, implFiles, parseResults.CheckProject.Errors, Map.empty, "", isWatchCompile=false)
     project
 
 let makeCompiler fableCore filePath (project: Project) =
-    let options =
+    let options: Fable.CompilerOptions =
         { typedArrays = true
           clampByteArrays = false
           verbose = false }
@@ -202,6 +206,9 @@ let defaultManager =
         member __.ParseFSharpProject(checker, fileName, source) =
             let c = checker :?> CheckerImpl
             parseFSharpProject c.Checker fileName source :> IParseResults
+        member __.GetParseErrors(parseResults:IParseResults) =
+            let res = parseResults :?> ParseResults
+            res.Errors
         member __.GetToolTipText(parseResults:IParseResults, line:int, col:int, lineText:string) =
             let res = parseResults :?> ParseResults
             getToolTipAtLocation res line col lineText
@@ -217,6 +224,16 @@ let defaultManager =
         //     let optimized = defaultArg optimized false
         //     x.CompileToBabelAst(fableCore, parseResults, fileName, optimized)
         //     |> JsInterop.toJson
+        member __.PrintFSharpAst(parseResults:IParseResults, optimized: bool, printFn: string -> unit) =
+            let res = parseResults :?> ParseResults
+            if optimized then
+                printFn "Typed AST (optimized):"
+                res.CheckProject.GetOptimizedAssemblyContents().ImplementationFiles
+                |> Seq.iter (fun file -> AstPrint.printFSharpDecls "" file.Declarations |> Seq.iter printFn)
+            else
+                printFn "Typed AST (unoptimized):"
+                res.CheckProject.AssemblyContents.ImplementationFiles
+                |> Seq.iter (fun file -> AstPrint.printFSharpDecls "" file.Declarations |> Seq.iter printFn)
   }
 
 [<ExportDefault>]

@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="11.0.*" />
+    <!-- <PackageReference Include="Fable.Core" Version="1.3.7" /> -->
+    <!-- <DotNetCliToolReference Include="dotnet-fable" Version="1.3.7" /> -->
   </ItemGroup>
 
 </Project>
