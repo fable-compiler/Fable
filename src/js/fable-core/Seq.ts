@@ -393,11 +393,7 @@ export function isEmpty<T>(xs: Iterable<T>) {
 }
 
 export function tryLast<T>(xs: Iterable<T>): Option<T> {
-  try {
-    return some(reduce((_, x) => x, xs));
-  } catch (err) {
-    return null;
-  }
+  return isEmpty(xs) ? null : some(reduce((_, x) => x, xs));
 }
 
 export function last<T>(xs: Iterable<T>): T {
