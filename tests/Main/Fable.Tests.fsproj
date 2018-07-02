@@ -20,6 +20,9 @@
     <Compile Include="Util/Util2.fs" />
     <Compile Include="Util/Util3.fs" />
     <Compile Include="../../tests_external/Util3.fs" />
+    <Compile Include="Experimental/Api.fs" />
+    <Compile Include="Experimental/Domain.fs" />
+    <Compile Include="Experimental/Behaviors.fs" />
     <Compile Include="ApplicativeTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
@@ -35,6 +38,7 @@
     <Compile Include="EnumerableTests.fs" />
     <Compile Include="EnumTests.fs" />
     <Compile Include="EventTests.fs" />
+    <Compile Include="ExperimentalTests.fs" />
     <Compile Include="HashSetTests.fs" />
     <Compile Include="ImportTests.fs" />
     <Compile Include="JsInteropTests.fs" />

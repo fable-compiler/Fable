@@ -15,6 +15,7 @@ let allTests =
     Dictionaries.tests
 #if FABLE_COMPILER
     ElmishParser.tests
+    Experimental.tests
 #endif
     Enumerable.tests
     Enum.tests
