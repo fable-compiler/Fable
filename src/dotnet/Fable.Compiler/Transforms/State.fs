@@ -89,7 +89,7 @@ type Compiler(currentFile, project: Project, options, ?fableCore: string) =
         | Some fableCore -> fableCore.TrimEnd('/')
         | None -> (Path.getRelativePath currentFile project.FableCore).TrimEnd('/')
     member __.ReadAllLogs() =
-        logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value) |> Map
+        logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value |> List.toArray) |> Map
     member __.Options = options
     member __.CurrentFile = currentFile
     interface ICompiler with

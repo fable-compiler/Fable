@@ -89,6 +89,7 @@ let toJson =
     let jsonSettings =
         JsonSerializerSettings(
             Converters=[|Json.ErasedUnionConverter()|],
+            ContractResolver=Serialization.CamelCasePropertyNamesContractResolver(),
             NullValueHandling=NullValueHandling.Ignore)
             // StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
     fun (value: obj) ->
@@ -193,8 +194,8 @@ let compile (com: Compiler) (project: Project) =
             addFSharpErrorLogs com project.Errors (Some com.CurrentFile)
         project.MarkSent(com.CurrentFile)
         // Don't send dependencies to JS client (see #1241)
-        project.AddDependencies(com.CurrentFile, babel.dependencies)
-        Babel.Program(babel.fileName, babel.body, babel.directives, com.ReadAllLogs())
+        project.AddDependencies(com.CurrentFile, babel.Dependencies)
+        Babel.Program(babel.FileName, babel.Body, babel.Directives, com.ReadAllLogs())
         |> toJson
 
 type Command = string * (string -> unit)
