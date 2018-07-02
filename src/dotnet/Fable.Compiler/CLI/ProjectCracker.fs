@@ -60,7 +60,7 @@ let getProjectOptionsFromScript (checker: FSharpChecker) (define: string[]) scri
     checker.GetProjectOptionsFromScript(scriptFile, File.ReadAllText scriptFile,
                                         assumeDotNetFramework=false, otherFlags=otherFlags)
     |> Async.RunSynchronously
-    |> fun (opts, errors) ->
+    |> fun (opts, _errors) ->
         // TODO: Check errors
         opts.OtherOptions
         |> makeProjectOptions scriptFile opts.SourceFiles
@@ -340,6 +340,11 @@ let copyFableCoreAndPackageSources rootDir (pkgs: FablePackage list) =
             IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)))
     fableCorePath, pkgRefs
 
+// See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
+let removeFilesInObjFolder sourceFiles =
+    let reg = System.Text.RegularExpressions.Regex(@"[\\\/]obj[\\\/]")
+    sourceFiles |> Array.filter (reg.IsMatch >> not)
+
 let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: string) (projFile: string) =
     let projFile = Path.GetFullPath(projFile)
     if not(File.Exists(projFile)) then
@@ -351,7 +356,7 @@ let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: str
         let sourceFiles =
             let pkgSources = pkgRefs |> List.collect getSourcesFromFsproj
             let refSources = projRefs |> List.collect (fun x -> x.SourceFiles)
-            pkgSources @ refSources @ mainProj.SourceFiles |> List.toArray
+            pkgSources @ refSources @ mainProj.SourceFiles |> List.toArray |> removeFilesInObjFolder
         let sourceFiles =
             match GlobalParams.Singleton.ReplaceFile with
             | Some value ->
