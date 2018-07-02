@@ -59,11 +59,6 @@ type ValueDeclarationInfo =
       IsEntryPoint: bool
       HasSpread: bool }
 
-type BaseConstructorKind =
-    | NoBaseConstructor
-    | ReplacedBaseConstructor of baseRef: Expr * args: Expr list
-    | DeclaredBaseConstructor of baseEntity: FSharpEntity * constructorCall: Expr
-
 type ClassImplicitConstructorInfo =
     { Name: string
       Entity: FSharpEntity
@@ -71,7 +66,7 @@ type ClassImplicitConstructorInfo =
       IsEntityPublic: bool
       IsConstructorPublic: bool
       HasSpread: bool
-      BaseConstructor: BaseConstructorKind
+      Base: Expr option
       Arguments: Ident list
       BoundThis: Ident
       Body: Expr }
@@ -198,7 +193,7 @@ type ArgInfo =
     /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
     SignatureArgTypes: Type list option
     Spread: SpreadKind
-    IsSelfConstructorCall: bool }
+    IsBaseOrSelfConstructorCall: bool }
 
 type ReplaceCallInfo =
   { CompiledName: string

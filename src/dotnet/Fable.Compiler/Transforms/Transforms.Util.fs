@@ -316,7 +316,7 @@ module AST =
           Args = args
           SignatureArgTypes = argTypes
           Spread = NoSpread
-          IsSelfConstructorCall = false }
+          IsBaseOrSelfConstructorCall = false }
 
     let staticCall r t argInfo functionExpr =
         Fable.Operation(Fable.Call(Fable.StaticCall functionExpr, argInfo), t, r)

@@ -67,7 +67,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
     let resolveMemberCall (entity: FSharpEntity) genArgs membCompiledName isInstance argTypes thisArg args =
         let genArgs = matchGenericParams genArgs entity.GenericParameters
         tryFindMember com entity (Map genArgs) membCompiledName isInstance argTypes
-        |> Option.map (fun memb -> makeCallFrom com ctx r typ [] thisArg args memb)
+        |> Option.map (fun memb -> makeCallFrom com ctx r typ false [] thisArg args memb)
 
     let isInstance = flags.IsInstance
     let argTypes = List.map (makeType com ctx.GenericArgs) argTypes
@@ -122,7 +122,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                 let typ = makeType com ctx.GenericArgs baseCallExpr.Type
                 let baseArgs = List.map (transformExpr com ctx) baseArgs
                 let genArgs = genArgs1 @ genArgs2 |> Seq.map (makeType com ctx.GenericArgs)
-                makeCallFrom com ctx None typ genArgs None baseArgs baseCall |> Some
+                makeCallFrom com ctx None typ false genArgs None baseArgs baseCall |> Some
             | _ -> None
         | _ -> None
     let members =
@@ -230,14 +230,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let callee, args = Option.map (transformExpr com ctx) callee, List.map (transformExpr com ctx) membArgs
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
-        makeCallFrom com ctx r typ genArgs callee args memb
+        makeCallFrom com ctx r typ false genArgs callee args memb
 
     | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let callee, args = transformExpr com ctx callee, List.map (transformExpr com ctx) membArgs
         let callee = get None Fable.Any callee eventName
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
-        makeCallFrom com ctx r typ genArgs (Some callee) args memb
+        makeCallFrom com ctx r typ false genArgs (Some callee) args memb
 
     // TODO: Detect if it's ResizeArray and compile as FastIntegerForLoop?
     | ForOf (BindIdent com ctx (newContext, ident), Transform com ctx value, body) ->
@@ -315,7 +315,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // TODO: Check answer to #868 in FSC repo
         let returnType = makeType com ctx.GenericArgs fsExpr.Type
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
-        makeCallFrom com ctx (makeRangeFrom fsExpr) returnType genArgs callee args memb
+        makeCallFrom com ctx (makeRangeFrom fsExpr) returnType false genArgs callee args memb
 
     | BasicPatterns.Application(applied, genArgs, args) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
@@ -457,7 +457,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         let args = List.map (transformExpr com ctx) args
         let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
-        makeCallFrom com ctx r typ genArgs None args memb
+        makeCallFrom com ctx r typ false genArgs None args memb
 
     | BasicPatterns.Sequential(ConstructorCall(baseCall,_,_), BasicPatterns.NewRecord(fsType, argExprs)) ->
         match baseCall.DeclaringEntity with
@@ -558,9 +558,9 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
 /// - Makes checks for self referencing (as in `type Foo() as self =`): see #124
 let rec private getBaseConsAndBody com ctx (baseType: FSharpType option) acc body =
     let transformBodyStatements com ctx acc body =
-        acc @ [body] |> List.map (transformExpr com ctx) |> Fable.Sequential
+        acc @ [body] |> List.map (transformExpr com ctx)
 
-    let getBaseConsInfo com ctx (baseCall: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
+    let getBaseConsInfo com ctx r (baseCall: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
         baseType |> Option.bind (fun (NonAbbreviatedType baseType) ->
             if baseType.HasTypeDefinition then
                 let ent = baseType.TypeDefinition
@@ -569,33 +569,41 @@ let rec private getBaseConsAndBody com ctx (baseType: FSharpType option) acc bod
                 | _ -> None
             else None)
         |> Option.map (fun baseEntity ->
+            let thisArg = ctx.BoundThis |> Option.map Fable.IdentExpr
             let baseArgs = List.map (transformExpr com ctx) baseArgs
             let genArgs = genArgs |> Seq.map (makeType com ctx.GenericArgs)
             match Replacements.tryBaseConstructor com baseEntity baseCall genArgs baseArgs with
-            | Some(baseRef, args) -> Fable.ReplacedBaseConstructor(baseRef, args)
+            | Some(baseRef, args) ->
+                // TODO: Should Replacements.tryBaseConstructor return the argInfo?
+                let argInfo: Fable.ArgInfo =
+                  { ThisArg = thisArg
+                    Args = args
+                    SignatureArgTypes = getArgTypes com baseCall |> Some
+                    Spread = Fable.NoSpread
+                    IsBaseOrSelfConstructorCall = true }
+                baseRef, staticCall r Fable.Unit argInfo baseRef
             | None ->
                 if not(hasImplicitConstructor baseEntity) then
                     "Classes without a primary constructor cannot be inherited: " + baseEntity.FullName
                     |> addError com None
-                let consCall = makeCallFrom com ctx None Fable.Unit genArgs None baseArgs baseCall
-                Fable.DeclaredBaseConstructor(baseEntity, consCall))
-        |> Option.defaultValue Fable.NoBaseConstructor
+                let baseCons = makeCallFrom com ctx r Fable.Unit true genArgs thisArg baseArgs baseCall
+                entityRefMaybeImported com r baseEntity, baseCons)
 
     match body with
     | BasicPatterns.Sequential(baseCall, body) ->
         match baseCall with
-        | ConstructorCall(baseCall, genArgs, baseArgs) ->
-            let baseConsInfo = getBaseConsInfo com ctx baseCall genArgs baseArgs
+        | ConstructorCall(baseCall, genArgs, baseArgs) as fsExpr ->
+            let baseConsInfo = getBaseConsInfo com ctx (makeRangeFrom fsExpr) baseCall genArgs baseArgs
             baseConsInfo, transformBodyStatements com ctx acc body
         // This happens in constructors including self references
         // TODO: We're discarding the bound value, detect if there's a reference to it
         // in the base constructor arguments and throw an error in that case.
-        | BasicPatterns.Let(_, ConstructorCall(baseCall, genArgs, baseArgs)) ->
-            let baseConsInfo = getBaseConsInfo com ctx baseCall genArgs baseArgs
+        | BasicPatterns.Let(_, (ConstructorCall(baseCall, genArgs, baseArgs) as fsExpr)) ->
+            let baseConsInfo = getBaseConsInfo com ctx (makeRangeFrom fsExpr) baseCall genArgs baseArgs
             baseConsInfo, transformBodyStatements com ctx acc body
         | _ -> getBaseConsAndBody com ctx baseType (acc @ [baseCall]) body
     // TODO: Kindda unexpected, log warning?
-    | body -> Fable.NoBaseConstructor, transformBodyStatements com ctx acc body
+    | body -> None, transformBodyStatements com ctx acc body
 
 let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
@@ -606,6 +614,10 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
         let boundThis = com.GetUniqueVar("this") |> makeIdent
         let bodyCtx = { bodyCtx with BoundThis = boundThis |> Some }
         let baseCons, body = getBaseConsAndBody com bodyCtx ent.BaseType [] body
+        let baseExpr, body =
+            match baseCons with
+            | Some(baseExpr, baseCons) -> Some baseExpr, Fable.Sequential(baseCons::body)
+            | None -> None, Fable.Sequential body
         let name = getMemberDeclarationName com memb
         let entityName = getEntityDeclarationName com ent
         com.AddUsedVarName(name)
@@ -617,7 +629,7 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
               IsEntityPublic = isPublicEntity ent
               IsConstructorPublic = isPublicMember memb
               HasSpread = hasSeqSpread memb
-              BaseConstructor = baseCons
+              Base = baseExpr
               Arguments = args
               BoundThis = boundThis
               Body = body

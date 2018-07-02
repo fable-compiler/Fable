@@ -730,6 +730,12 @@ type BaseClass (f: string -> string -> string) =
 type AddString () =
   inherit BaseClass (fun a b -> a + b)
 
+type BaseClass2 (f: string -> string -> string) =
+  member __.MakeString a b = f a b
+
+type AddString2 (f: string -> string -> string) =
+  inherit BaseClass2 (fun a b -> f a b + " - " + f b a)
+
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
         (lengthWrapper []) |> equal 0
@@ -862,6 +868,10 @@ let tests7 = [
     testCase "Uncurrying works for base constructors" <| fun () -> // See #1458
         let str = AddString()
         str.MakeString "foo" "bar" |> equal "foobar"
+
+    testCase "Uncurrying works for base constructors II" <| fun () -> // See #1459
+        let str = AddString2 (fun a b -> "Prefix: " + a + b)
+        str.MakeString "a" "b" |> equal "Prefix: ab - Prefix: ba"
 
     #if FABLE_COMPILER
     testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->

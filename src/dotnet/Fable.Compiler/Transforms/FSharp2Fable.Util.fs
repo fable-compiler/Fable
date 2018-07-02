@@ -974,7 +974,7 @@ module Util =
             found <- found || m.IsImplicitConstructor
         found
 
-    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
+    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ isBaseCall (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
         let args = transformOptionalArguments com ctx r memb genArgs args
         let argTypes = getArgTypes com memb
@@ -983,7 +983,7 @@ module Util =
             Args = args
             SignatureArgTypes = Some argTypes
             Spread = if hasSeqSpread memb then Fable.SeqSpread else Fable.NoSpread
-            IsSelfConstructorCall = false
+            IsBaseOrSelfConstructorCall = isBaseCall
           }
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some argInfo) emitted, _ -> emitted
@@ -1004,8 +1004,8 @@ module Util =
             then memberRefTyped com r typ memb
             else
                 let argInfo =
-                    if isSelfConstructorCall ctx memb
-                    then { argInfo with IsSelfConstructorCall = true }
+                    if not argInfo.IsBaseOrSelfConstructorCall && isSelfConstructorCall ctx memb
+                    then { argInfo with IsBaseOrSelfConstructorCall = true }
                     else argInfo
                 memberRef com r memb |> staticCall r typ argInfo
 

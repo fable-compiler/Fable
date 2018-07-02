@@ -33,7 +33,7 @@ type Helper =
               Args = args
               SignatureArgTypes = argTypes
               Spread = match hasSpread with Some true -> SeqSpread | _ -> NoSpread
-              IsSelfConstructorCall = false }
+              IsBaseOrSelfConstructorCall = false }
         let funcExpr = makeCoreRef Any coreMember coreModule
         match isConstructor with
         | Some true -> Operation(Call(ConstructorCall funcExpr, info), returnType, loc)
@@ -540,7 +540,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         nativeOp opName argTypes args
     | CustomOp com ctx opName m ->
         let genArgs = genArgs |> Seq.map snd
-        FSharp2Fable.Util.makeCallFrom com ctx r t genArgs None args m
+        FSharp2Fable.Util.makeCallFrom com ctx r t false genArgs None args m
     | _ -> nativeOp opName argTypes args
 
 let isCompatibleWithJsComparison = function

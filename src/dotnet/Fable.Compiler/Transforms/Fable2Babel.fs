@@ -659,13 +659,18 @@ module Util =
             | Fable.ConstructorCall(TransformExpr com ctx consExpr) ->
                 upcast NewExpression(consExpr, List.toArray args, ?loc=range)
             | Fable.StaticCall(TransformExpr com ctx funcExpr) ->
-                let args =
-                    match argInfo.ThisArg with
-                    | Some(TransformExpr com ctx thisArg) -> thisArg::args
-                    | None -> args
-                if argInfo.IsSelfConstructorCall
-                then upcast CallExpression(get None funcExpr "call", List.toArray ((upcast Identifier "this")::args), ?loc=range)
-                else upcast CallExpression(funcExpr, List.toArray args, ?loc=range)
+                if argInfo.IsBaseOrSelfConstructorCall then
+                    let args =
+                        match argInfo.ThisArg with
+                        | Some(TransformExpr com ctx thisArg) -> thisArg::args
+                        | None -> (upcast Identifier "this")::args
+                    upcast CallExpression(get None funcExpr "call", List.toArray args, ?loc=range)
+                else
+                    let args =
+                        match argInfo.ThisArg with
+                        | Some(TransformExpr com ctx thisArg) -> thisArg::args
+                        | None -> args
+                    upcast CallExpression(funcExpr, List.toArray args, ?loc=range)
             | Fable.InstanceCall membExpr ->
                 match argInfo.ThisArg, membExpr with
                 | None, _ -> addErrorAndReturnNull com range "InstanceCall with empty this argument"
@@ -696,7 +701,7 @@ module Util =
         // TODO: Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity, opKind with
         | Some Return, Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
-                                when not argInfo.IsSelfConstructorCall
+                                when not argInfo.IsBaseOrSelfConstructorCall
                                 && tc.IsRecursiveRef(funcExpr)
                                 && argsLen argInfo = List.length tc.Args ->
             let args =
@@ -1342,27 +1347,8 @@ module Util =
                 | _ -> argInfo
             let kind = makeStrConst "call" |> Some |> Fable.InstanceCall
             Fable.Operation(Fable.Call(kind, argInfo), Fable.Unit, None)
-        let baseRef, baseCall =
-            match info.BaseConstructor with
-            | Fable.NoBaseConstructor -> None, None
-            | Fable.DeclaredBaseConstructor(baseEntity, baseCall) ->
-                let baseEntity = entityRefMaybeImported com ctx baseEntity
-                let baseCall =
-                    match baseCall with
-                    | Fable.Operation(Fable.Call(Fable.StaticCall consRef, argInfo), _, _) ->
-                        makeBaseCall { argInfo with ThisArg = Some consRef
-                                                    Args = (makeIdentExpr "this")::argInfo.Args }
-                    | e -> e // TODO: Log error?
-                Some baseEntity, Some baseCall
-            | Fable.ReplacedBaseConstructor(baseRef, baseArgs) ->
-                com.TransformAsExpr(ctx, baseRef) |> Some,
-                argInfo (Some baseRef) (makeIdentExpr "this"::baseArgs) None |> makeBaseCall |> Some
-        let body =
-            match baseCall with
-            | Some baseCall -> Fable.Sequential [baseCall; info.Body]
-            | None -> info.Body
         let boundThis = Some("this", info.BoundThis)
-        let args, body = getMemberArgsAndBody com ctx None boundThis info.Arguments info.HasSpread body
+        let args, body = getMemberArgsAndBody com ctx None boundThis info.Arguments info.HasSpread info.Body
         let argIdents, argExprs: Pattern list * Expression list =
             match info.Arguments with
             | [] -> [], []
@@ -1385,8 +1371,8 @@ module Util =
             )   |])
         [
             yield declareModuleMember info.IsEntityPublic info.EntityName false originalCons
-            match baseRef with
-            | Some baseRef -> yield inherits com ctx consIdent baseRef
+            match info.Base with
+            | Some(TransformExpr com ctx baseRef) -> yield inherits com ctx consIdent baseRef
             | None when info.Entity.IsValueType ->
                 yield coreValue com ctx "Types" "Record" |> inherits com ctx consIdent
             | None -> ()
