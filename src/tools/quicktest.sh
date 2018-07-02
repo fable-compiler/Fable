@@ -31,15 +31,26 @@ if [ "${ARGS/--build-core/}" != "$ARGS" ]; then
 
     pushd ../js/fable-core
     dotnet restore
-    bash quickfsbuild.sh --no-build
+    sh quickfsbuild.sh --no-build
     popd
     dotnet restore
+fi
+
+
+if [ "${ARGS/--build-js-core/}" != "$ARGS" ]; then
+    echo "Building JS fable-core..."
+    rm -rf .fable
+
+    pushd ../..
+    # yarn tslint --project src/js/fable-core
+    yarn tsc --project src/js/fable-core
+    popd
 fi
 
 pushd ../dotnet/Fable.Compiler
 dotnet run --no-build yarn-splitter \
     --cwd ../../tools \
     --fable-core ../../../build/fable-core \
-    --args "${ARGS/--build-core/}"
+    --args "$ARGS"
 popd
 node temp/QuickTest.js
