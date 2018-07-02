@@ -798,7 +798,10 @@ module Util =
           | Some expr -> expr
           | None ->
             match tryFindImplementingEntity sourceEntity interfaceFullName with
-            | None -> expr // TODO: Log error?
+            | None ->
+                "Type implementing interface must be known at compile time, cast does nothing"
+                |> addWarning com r
+                expr
             // If the interface has no members, cast is not necessary
             | Some(_,ifcEnt) when ifcEnt.MembersFunctionsAndValues.Count = 0 -> expr
             | Some(ent,_) ->

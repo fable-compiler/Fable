@@ -818,7 +818,7 @@ module Util =
     let transformTypeTest (com: IBabelCompiler) ctx range expr (typ: Fable.Type): Expression =
         let fail msg =
             "Cannot type test: " + msg |> addErrorAndReturnNull com range
-        let warn msg =
+        let warnAndEvalToFalse msg =
             "Cannot type test (evals to false): " + msg |> addWarning com range
             BooleanLiteral false :> Expression
         let jsTypeof (primitiveType: string) (TransformExpr com ctx expr): Expression =
@@ -826,6 +826,8 @@ module Util =
             upcast BinaryExpression(BinaryEqualStrict, typof, StringLiteral primitiveType, ?loc=range)
         let jsInstanceof consExpr (TransformExpr com ctx expr): Expression =
             upcast BinaryExpression(BinaryInstanceOf, expr, consExpr, ?loc=range)
+        let jsInstanceofExtended consExpr (TransformExpr com ctx expr): Expression =
+            coreUtil com ctx "instanceofExtended" [|expr; consExpr|]
         match typ with
         | Fable.Any -> upcast BooleanLiteral true
         | Fable.Unit -> upcast BinaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
@@ -857,17 +859,17 @@ module Util =
             | Some Types.bigint ->
                 jsInstanceof (coreValue com ctx "BigInt" "default") expr
             | _ when ent.IsInterface ->
-                fail "interfaces (TODO)"
-            | _ when not(List.isEmpty genArgs) ->
-                fail "no generic info at runtime"
+                fail "interfaces"
             | _ when FSharp2Fable.Util.isReplacementCandidate ent ->
                 match ent.TryFullName with
                 | Some Types.exception_ ->
                     coreLibCall com ctx "Types" "isException" [|com.TransformAsExpr(ctx, expr)|]
-                | fullName -> warn (defaultArg fullName Naming.unknown)
+                | fullName -> warnAndEvalToFalse (defaultArg fullName Naming.unknown)
             | _ ->
+                if not(List.isEmpty genArgs) then
+                    "Cannot type test generic arguments" |> addWarning com range
                 let entRef = entityRefMaybeImported com ctx ent
-                jsInstanceof entRef expr
+                jsInstanceofExtended entRef expr
         | Fable.MetaType | Fable.Option _ | Fable.GenericParam _ | Fable.ErasedUnion _ ->
             fail "options, generic parameters or erased unions"
 
@@ -1392,7 +1394,9 @@ module Util =
         ]
 
     let transformInterfaceCast (com: IBabelCompiler) ctx (info: Fable.InterfaceCastDeclarationInfo) members =
-        let boundThis = com.GetUniqueVar("this") |> Identifier
+        let thisArg = com.GetUniqueVar("this")
+        let members = (Fable.ObjectMember(makeCoreRef Fable.Any "THIS_REF" "Util", makeIdentExpr thisArg, Fable.ObjectValue))::members
+        let boundThis = Identifier thisArg
         let castedObj = transformObjectExpr com ctx members boundThis.Name None
         let funcExpr =
             let returnedObj =

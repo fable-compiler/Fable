@@ -1,5 +1,16 @@
 import { compare as compareDates, toString as dateToString } from "./Date";
 
+export const THIS_REF = Symbol("this");
+
+// In case the object has been casted to an interface, test also agains THIS_REF
+export function instanceofExtended(obj: any, cons: FunctionConstructor) {
+  return obj instanceof cons || obj[THIS_REF] instanceof cons;
+}
+
+export function downcast(obj: any) {
+  return obj[THIS_REF] != null ? obj[THIS_REF] : obj;
+}
+
 // Object.assign flattens getters and setters
 // See https://stackoverflow.com/questions/37054596/js-es5-how-to-assign-objects-with-setters-and-getters
 export function extend(target: any, ...sources: any[]) {

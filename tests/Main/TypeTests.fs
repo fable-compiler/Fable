@@ -206,6 +206,11 @@ type ThisContextInConstructor(v) =
     let f () = v
     member val Value = f
 
+type DowncastTest(value: int) =
+    member __.Value = value
+    interface System.IDisposable with
+        member __.Dispose() = ()
+
 let tests =
   testList "Types" [
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
@@ -511,6 +516,15 @@ let tests =
         foo.Foo() |> equal "BAR"
         (foo :> IFoo).Foo() |> equal "BARFOO"
         mangleFoo foo |> equal "BARFOO"
+
+    testCase "Interface casting round-trip" <| fun () -> // See #1452
+        let d = new DowncastTest(3) :> System.IDisposable
+        let t = d :?> DowncastTest
+        t.Value |> equal 3
+        equal 3 <|
+            match d with
+            | :? DowncastTest as t2 -> t2.Value
+            | _ -> 5
 
     testCase "Calling default implementation of base members don't cause infinite recursion" <| fun () -> // See #701
         let x = ExtendedClass()
