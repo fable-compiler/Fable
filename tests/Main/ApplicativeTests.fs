@@ -724,6 +724,12 @@ type ImplicitConstructorUncurrying(f) =
 
 type Fun = Fun of (int -> int -> int list)
 
+type BaseClass (f: string -> string -> string) =
+  member __.MakeString a b = f a b
+
+type AddString () =
+  inherit BaseClass (fun a b -> a + b)
+
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
         (lengthWrapper []) |> equal 0
@@ -852,6 +858,10 @@ let tests7 = [
         let res = revert [2;3;4]
         equal 3 res.Length
         equal 4 res.Head
+
+    testCase "Uncurrying works for base constructors" <| fun () -> // See #1458
+        let str = AddString()
+        str.MakeString "foo" "bar" |> equal "foobar"
 
     #if FABLE_COMPILER
     testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->
