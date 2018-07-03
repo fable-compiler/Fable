@@ -9,27 +9,22 @@ let metadataPath =
 
 #if !DOTNET_FILE_SYSTEM
 
-[<Fable.Core.Import("readFileSync", "fs")>]
-let readFileSync: System.Func<string, byte[]> = failwith "JS only"
-[<Fable.Core.Import("readFileSync", "fs")>]
-let readTextSync: System.Func<string, string, string> = failwith "JS only"
-[<Fable.Core.Import("writeFileSync", "fs")>]
-let writeTextSync: System.Action<string, string> = failwith "JS only"
-[<Fable.Core.Emit("process.hrtime()")>]
-let hrTimeNow(): float[] = failwith "JS only"
-[<Fable.Core.Emit("process.hrtime($0)")>]
-let hrTimeElapsed(time: float[]): float[] = failwith "JS only"
+let readFileSync: System.Func<string, byte[]> = Fable.Core.JsInterop.import "readFileSync" "fs"
+let readTextSync: System.Func<string, string, string> = Fable.Core.JsInterop.import "readFileSync" "fs"
+let writeTextSync: System.Action<string, string> = Fable.Core.JsInterop.import "writeFileSync" "fs"
+let hrTimeNow: System.Func<float[]> = Fable.Core.JsInterop.import "hrtime" "process"
+let hrTimeElapsed: System.Func<float[], float[]> = Fable.Core.JsInterop.import "hrtime" "process"
 
 let readAllBytes (fileName:string) = readFileSync.Invoke (metadataPath + fileName)
 let readAllText (filePath:string) = readTextSync.Invoke (filePath, "utf8")
 let writeAllText (filePath:string) (text:string) = writeTextSync.Invoke (filePath, text)
 let measureTime (f: 'a -> 'b) x =
-    let startTime = hrTimeNow()
+    let startTime = hrTimeNow.Invoke()
     let res = f x
-    let elapsed = hrTimeElapsed(startTime)
+    let elapsed = hrTimeElapsed.Invoke(startTime)
     int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6), res
 
-let toJson (value: obj) = value |> Fable.Core.JsInterop.toJson
+let toJson (value: obj) = Fable.Core.JsInterop.toJson value
 
 #else // DOTNET_FILE_SYSTEM
 
