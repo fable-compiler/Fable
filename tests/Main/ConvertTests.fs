@@ -968,6 +968,47 @@ let tests =
         let g = Guid [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
         g.ToString() |> equal("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
 
+    //-------------------------------------
+    // System.Text.Encoding
+    //-------------------------------------
+
+    testCase "Encoding.Unicode.GetBytes works" <| fun () ->
+        System.Text.Encoding.Unicode.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF")
+        |> equal [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
+
+    testCase "Encoding.Unicode.GetBytes for range works" <| fun () ->
+        System.Text.Encoding.Unicode.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF", 4, 3)
+        |> equal [| 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
+
+    testCase "Encoding.Unicode.GetString works" <| fun () ->
+        let bytes = [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
+        System.Text.Encoding.Unicode.GetString(bytes)
+        |> equal "za\u0306\u01FD\u03B2\uD8FF\uDCFF"
+
+    testCase "Encoding.Unicode.GetString for range works" <| fun () ->
+        let bytes = [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
+        System.Text.Encoding.Unicode.GetString(bytes, 8, 6)
+        |> equal "\u03B2\uD8FF\uDCFF"
+
+    testCase "Encoding.UTF8.GetBytes works" <| fun () ->
+        System.Text.Encoding.UTF8.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF")
+        |> equal [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+
+    testCase "Encoding.UTF8.GetBytes for range works" <| fun () ->
+        System.Text.Encoding.UTF8.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF", 4, 3)
+        |> equal [| 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+
+    testCase "Encoding.UTF8.GetString works" <| fun () ->
+        let bytes = [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+        System.Text.Encoding.UTF8.GetString(bytes)
+        |> equal "za\u0306\u01FD\u03B2\uD8FF\uDCFF"
+
+    testCase "Encoding.UTF8.GetString for range works" <| fun () ->
+        let bytes = [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
+        System.Text.Encoding.UTF8.GetString(bytes, 6, 6)
+        |> equal "\u03B2\uD8FF\uDCFF"
+
+
     // testCase "int64 can be JSON serialized forth and back" <| fun () ->
     //     let val1 = 5348937298839933899L
     //     #if FABLE_COMPILER

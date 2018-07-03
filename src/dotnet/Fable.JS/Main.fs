@@ -187,7 +187,7 @@ let compileAst (com: Compiler) (project: Project) =
         FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
         |> FableTransforms.optimizeFile com
         |> Fable2Babel.Compiler.transformFile com
-    let program = Babel.Program(babel.fileName, babel.body, babel.directives, com.ReadAllLogs())
+    let program = Babel.Program(babel.FileName, babel.Body, babel.Directives, com.ReadAllLogs())
     program
 
 let defaultManager =

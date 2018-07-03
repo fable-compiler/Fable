@@ -1133,6 +1133,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
                |> addErrorAndReturnNull com r |> Some
+    | ("Trim" | "TrimStart" | "TrimEnd"), Some c, [] ->
+        Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Trim" | "TrimStart" | "TrimEnd"), Some c, _ ->
         let side =
             match i.CompiledName with
@@ -1146,6 +1148,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         match args with
         // Optimization
         | [] -> Helper.InstanceCall(c, "split", t, [makeStrConst ""]) |> Some
+        | [Value(CharConstant _) as separator]
         | [Value(StringConstant _) as separator]
         | [Value(NewArray(ArrayValues [separator],_))] ->
             Helper.InstanceCall(c, "split", t, [separator]) |> Some
@@ -2047,6 +2050,15 @@ let regex com (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr 
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.CoreCall("RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
+let encoding com (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args.Length with
+    | ("get_Unicode" | "get_UTF8"), _, _ ->
+        Helper.CoreCall("Encoding", i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ("GetBytes" | "GetString"), Some callee, (1 | 3) ->
+        let meth = Naming.lowerFirst i.CompiledName
+        Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _ -> None
+
 let enumerables (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
     match thisArg, i.CompiledName with
     // This property only belongs to Key and Value Collections
@@ -2317,6 +2329,9 @@ let private replacedModules =
     "System.Threading.CancellationToken", cancels
     "System.Threading.CancellationTokenSource", cancels
     "System.Activator", activator
+    "System.Text.Encoding", encoding
+    "System.Text.UnicodeEncoding", encoding
+    "System.Text.UTF8Encoding", encoding
     "System.Text.RegularExpressions.Capture", regex
     "System.Text.RegularExpressions.Match", regex
     "System.Text.RegularExpressions.Group", regex
