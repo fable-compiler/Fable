@@ -1133,15 +1133,12 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
                |> addErrorAndReturnNull com r |> Some
-    | ("Trim" | "TrimStart" | "TrimEnd"), Some c, [] ->
-        Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Trim" | "TrimStart" | "TrimEnd"), Some c, _ ->
-        let side =
-            match i.CompiledName with
-            | "TrimStart" -> "start"
-            | "TrimEnd" -> "end"
-            | _ -> "both"
-        Helper.CoreCall("String", "trim", t, (c::(makeStrConst side)::args), ?loc=r) |> Some
+    | ReplaceName [ "Trim",     "trim"
+                    "TrimStart","trimStart"
+                    "TrimEnd",  "trimEnd" ] methName, Some c, _ ->
+        match args with
+        | [] -> Helper.InstanceCall(c, methName, t, [], i.SignatureArgTypes, ?loc=r) |> Some
+        | args -> Helper.CoreCall("String", methName, t, c::args, hasSpread=true, ?loc=r) |> Some
     | "ToCharArray", Some c, _ ->
         Helper.InstanceCall(c, "split", t, [makeStrConst ""]) |> Some
     | "Split", Some c, _ ->

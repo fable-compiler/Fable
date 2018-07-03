@@ -5,3 +5,11 @@ global.atob = function(b64Encoded) {
 global.btoa = function(str) {
     return Buffer.from(str).toString("base64")
 };
+
+if (!String.prototype.trimStart) {
+    String.prototype.trimStart = String.prototype.trimLeft;
+}
+
+if (!String.prototype.trimEnd) {
+    String.prototype.trimEnd = String.prototype.trimRight;
+}

@@ -270,7 +270,7 @@ export function join(delimiter: string, xs: ArrayLike<string>) {
 
 /** Validates UUID as specified in RFC4122 (versions 1-5). Trims braces. */
 export function validateGuid(str: string, doNotThrow?: boolean): string|[boolean, string] {
-  const trimmed = trim(str, "both", "{", "}");
+  const trimmed = trim(str, "{", "}");
   if (guidRegex.test(trimmed)) {
     return doNotThrow ? [true, trimmed] : trimmed;
   } else if (doNotThrow) {
@@ -459,19 +459,24 @@ export function split(str: string, splitters: string[], count?: number, removeEm
   return splits;
 }
 
-export function trim(str: string, side: "start" | "end" | "both", ...chars: string[]) {
+export function trim(str: string, ...chars: string[]) {
   if (chars.length === 0) {
-    return side === "start" ? str.trimLeft() : side === "end" ? str.trimRight() : str.trim();
+    return str.trim();
   }
-  if (side === "start" || side === "both") {
-    const reg = chars.length === 0 ? /^\s+/ : new RegExp("^[" + escape(chars.join("")) + "]+");
-    str = str.replace(reg, "");
-  }
-  if (side === "end" || side === "both") {
-    const reg = chars.length === 0 ? /\s+$/ : new RegExp("[" + escape(chars.join("")) + "]+$");
-    str = str.replace(reg, "");
-  }
-  return str;
+  const pattern = "[" + escape(chars.join("")) + "]+";
+  return str.replace(new RegExp("^" + pattern), "").replace(new RegExp(pattern + "$"), "");
+}
+
+export function trimStart(str: string, ...chars: string[]) {
+  return chars.length === 0
+    ? (str as any).trimStart()
+    : str.replace(new RegExp("^[" + escape(chars.join("")) + "]+"), "");
+}
+
+export function trimEnd(str: string, ...chars: string[]) {
+  return chars.length === 0
+    ? (str as any).trimEnd()
+    : str.replace(new RegExp("[" + escape(chars.join("")) + "]+$"), "");
 }
 
 export function filter(pred: (i: string) => string, x: string) {
