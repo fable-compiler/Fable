@@ -1133,9 +1133,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
                |> addErrorAndReturnNull com r |> Some
-    | ReplaceName [ "Trim",     "trim"
-                    "TrimStart","trimStart"
-                    "TrimEnd",  "trimEnd" ] methName, Some c, _ ->
+    | ("Trim" | "TrimStart" | "TrimEnd"), Some c, _ ->
+        let methName = Naming.lowerFirst i.CompiledName
         match args with
         | [] -> Helper.InstanceCall(c, methName, t, [], i.SignatureArgTypes, ?loc=r) |> Some
         | args -> Helper.CoreCall("String", methName, t, c::args, hasSpread=true, ?loc=r) |> Some
