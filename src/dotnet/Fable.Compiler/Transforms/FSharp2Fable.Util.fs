@@ -897,18 +897,18 @@ module Util =
         | Some importExpr, None, _ ->
             Some importExpr
         | None, Some argInfo, Some e ->
-            match tryImportedEntity com e with
-            | Some classExpr ->
-                match argInfo.ThisArg with
-                | Some _ -> callInstanceMember com r typ argInfo e memb
-                | None ->
-                    if memb.IsConstructor then
-                        Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r)
-                    else
-                        let argInfo = { argInfo with ThisArg = Some classExpr }
-                        callInstanceMember com r typ argInfo e memb
-                |> Some
-            | None -> None
+            match tryImportedEntity com e, argInfo.IsBaseOrSelfConstructorCall, argInfo.ThisArg with
+            | Some classExpr, true, _ ->
+                staticCall r typ argInfo classExpr |> Some
+            | Some _, false, Some _ ->
+                callInstanceMember com r typ argInfo e memb |> Some
+            | Some classExpr, false, None ->
+                if memb.IsConstructor
+                then Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r) |> Some
+                else
+                    let argInfo = { argInfo with ThisArg = Some classExpr }
+                    callInstanceMember com r typ argInfo e memb |> Some
+            | None, _, _ -> None
         | _ -> None
 
     let inlineExpr (com: IFableCompiler) ctx (genArgs: Lazy<_>) callee args (memb: FSharpMemberOrFunctionOrValue) =

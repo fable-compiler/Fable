@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Description>Fable: F# to JS Compiler</Description>
     <Version>2.0.0</Version>
-    <PackageVersion>2.0.0-alpha-027</PackageVersion>
+    <PackageVersion>2.0.0-alpha-028</PackageVersion>
     <OutputType>Exe</OutputType>
     <PackageType>DotnetCliTool</PackageType>
     <AssemblyName>dotnet-fable</AssemblyName>
