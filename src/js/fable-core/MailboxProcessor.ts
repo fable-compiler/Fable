@@ -2,7 +2,6 @@ import { defaultCancellationToken } from "./Async";
 import { fromContinuations } from "./Async";
 import { startImmediate } from "./Async";
 import { IAsync } from "./AsyncBuilder";
-import { IAsyncContext } from "./AsyncBuilder";
 import { Continuation, Continuations } from "./AsyncBuilder";
 import { CancellationToken } from "./AsyncBuilder";
 

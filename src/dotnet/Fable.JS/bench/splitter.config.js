@@ -11,7 +11,7 @@ const babelOptions = fableUtils.resolveBabelOptions({
 });
 
 const fableOptions = {
-  // fableCore: "../../../../build/fable-core",
+  // fableCore: "./.fable/fable-core.1.3.7",
   // plugins: [],
   define: [
     "FX_NO_CORHOST_SIGNER",

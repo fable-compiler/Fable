@@ -432,6 +432,7 @@ export function split(str: string, splitters: string[], count?: number, removeEm
   }
   let splitters2 = splitters;
   if (!Array.isArray(splitters)) {
+    if (removeEmpty === 0) { return str.split(splitters, count); }
     const len = arguments.length;
     splitters2 = Array(len - 1);
     for (let key = 1; key < len; key++) {
@@ -459,8 +460,8 @@ export function split(str: string, splitters: string[], count?: number, removeEm
 }
 
 export function trim(str: string, side: "start" | "end" | "both", ...chars: string[]) {
-  if (side === "both" && chars.length === 0) {
-    return str.trim();
+  if (chars.length === 0) {
+    return side === "start" ? str.trimLeft() : side === "end" ? str.trimRight() : str.trim();
   }
   if (side === "start" || side === "both") {
     const reg = chars.length === 0 ? /^\s+/ : new RegExp("^[" + escape(chars.join("")) + "]+");
