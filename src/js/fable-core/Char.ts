@@ -1,8 +1,8 @@
-// based on: https://github.com/hakatashi/general-category
+// Adapted from: https://github.com/hakatashi/general-category
 import * as Encoding from "./Encoding";
-import packedUnicode from "./Unicode.9.0.0.utf8";
+import packedUnicode from "./Unicode.9.0.0";
 
-function decodeToIntegerArray(buffer: Uint8Array) {
+function decodeVByteToIntegerArray(buffer: Uint8Array) {
   const ret = [];
   let carried = 0;
   let register = 0;
@@ -19,17 +19,19 @@ function decodeToIntegerArray(buffer: Uint8Array) {
 }
 
 function getCategory() {
+  // unpack Unicode ranges and categories (delta encoded, vbyte encoded, utf8 encoded)
   const unicodeBuffer = Encoding.get_UTF8().getBytes(packedUnicode);
-  const unicodeDiffs = decodeToIntegerArray(unicodeBuffer);
-  const codepoints = new Uint32Array(unicodeDiffs.length / 2);
-  const categories = new Uint8Array(unicodeDiffs.length / 2);
+  const unicodeDeltas = decodeVByteToIntegerArray(unicodeBuffer);
+  const codepoints = new Uint32Array(unicodeDeltas.length / 2);
+  const categories = new Uint8Array(unicodeDeltas.length / 2);
   const categoryEnum = new Uint8Array(
     [14, 15, 29, 17, 16, 1, 3, 4, 2, 0, 6, 7, 5, 8, 9, 10, 18, 19, 21, 23, 22, 24, 20, 26, 27, 25, 28, 12, 13, 11]);
   let currentCodepoint = 0;
-  for (let i = 0; i < unicodeDiffs.length; i += 2) {
-    codepoints[i / 2] = (currentCodepoint += unicodeDiffs[i]);
-    categories[i / 2] = unicodeDiffs[i + 1];
+  for (let i = 0; i < unicodeDeltas.length; i += 2) {
+    codepoints[i / 2] = (currentCodepoint += unicodeDeltas[i]);
+    categories[i / 2] = unicodeDeltas[i + 1];
   }
+  // binary search in unicode ranges
   return (s: string, index?: number) => {
     const cp = s.codePointAt(index || 0);
     let hi = codepoints.length;
