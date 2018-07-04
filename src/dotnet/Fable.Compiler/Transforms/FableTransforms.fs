@@ -344,6 +344,8 @@ module private Transforms =
                 ((0, Map.empty), expectedArgs, actualArgs)
                 |||> List.fold2 (fun (index, replacements) expected actual ->
                     match expected, actual with
+                    | GenericParam _, NestedLambdaType(args2, _) when List.isMultiple args2 ->
+                        index + 1, Map.add index (0, List.length args2) replacements
                     | NestedLambdaType(args1, _), NestedLambdaType(args2, _)
                             when not(List.sameLength args1 args2) ->
                         let expectedArity = List.length args1

@@ -873,6 +873,12 @@ let tests7 = [
         let str = AddString2 (fun a b -> "Prefix: " + a + b)
         str.MakeString "a" "b" |> equal "Prefix: ab - Prefix: ba"
 
+    testCase "Sequence of functions is uncurried in folding" <| fun () ->
+        let vals = [(4,5); (6,7)]
+        let ops  = [(+); (-)]
+        (-5, vals, ops) |||> List.fold2 (fun acc (v1,v2) op -> acc * op v1 v2)
+        |> equal 45
+
     #if FABLE_COMPILER
     testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->
         let infoHelp version =
