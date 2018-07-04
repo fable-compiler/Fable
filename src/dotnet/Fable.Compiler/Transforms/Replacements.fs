@@ -1052,21 +1052,14 @@ let chars (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args
     | "ToUpperInvariant" -> icall r t args i.SignatureArgTypes "toUpperCase"
     | "ToLower" -> icall r t args i.SignatureArgTypes "toLocaleLowerCase"
     | "ToLowerInvariant" -> icall r t args i.SignatureArgTypes "toLowerCase"
-    | "IsLetter" | "IsNumber" | "IsDigit"
-    | "IsLetterOrDigit" | "IsWhiteSpace"
-    | "IsUpper" | "IsLower"
+    | "ToString" -> toString com r args |> Some
+    | "GetUnicodeCategory" | "IsControl" | "IsDigit" | "IsLetter"
+    | "IsLetterOrDigit" | "IsUpper" | "IsLower" | "IsNumber"
+    | "IsPunctuation" | "IsSeparator" | "IsSymbol" | "IsWhiteSpace"
+    | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogate" | "IsSurrogatePair"
     | "Parse" ->
-        let methName =
-            match i.CompiledName with
-            | "IsNumber" ->
-                addWarning com r "Char.IsNumber is compiled as Char.IsDigit"
-                "isDigit"
-            | methName -> Naming.lowerFirst methName
-        let args, argTypes =
-            match args with
-            | [str; idx] -> [getExpr None Char str idx], [Char]
-            | args -> args, i.SignatureArgTypes
-        Helper.CoreCall("Char", methName, t, args, argTypes, ?loc=r) |> Some
+        let methName = Naming.lowerFirst i.CompiledName
+        Helper.CoreCall("Char", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let implementedStringFunctions =

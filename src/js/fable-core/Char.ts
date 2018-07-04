@@ -1,35 +1,201 @@
-const digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+// based on: https://github.com/hakatashi/general-category
+import * as Encoding from "./Encoding";
+import packedUnicode from "./Unicode.9.0.0.utf8";
 
-export function isLetter(input: string) {
-    return input.toLowerCase() !== input.toUpperCase();
+function decodeToIntegerArray(buffer: Uint8Array) {
+  const ret = [];
+  let carried = 0;
+  let register = 0;
+  for (let i = 0; i < buffer.length; ++i) {
+    const byte = buffer[i] ^ 0xFF;
+    register += (byte & 127) << carried * 7;
+    carried++;
+    if ((byte & 128) !== 0) {
+      ret.push(register - 1);
+      carried = register = 0;
+    }
+  }
+  return ret;
 }
 
-export function isUpper(input: string) {
-    const upper = input.toUpperCase();
-    return upper === input && upper !== input.toLowerCase();
+function getCategory() {
+  const unicodeBuffer = Encoding.get_UTF8().getBytes(packedUnicode);
+  const unicodeDiffs = decodeToIntegerArray(unicodeBuffer);
+  const codepoints = new Uint32Array(unicodeDiffs.length / 2);
+  const categories = new Uint8Array(unicodeDiffs.length / 2);
+  const categoryEnum = new Uint8Array(
+    [14, 15, 29, 17, 16, 1, 3, 4, 2, 0, 6, 7, 5, 8, 9, 10, 18, 19, 21, 23, 22, 24, 20, 26, 27, 25, 28, 12, 13, 11]);
+  let currentCodepoint = 0;
+  for (let i = 0; i < unicodeDiffs.length; i += 2) {
+    codepoints[i / 2] = (currentCodepoint += unicodeDiffs[i]);
+    categories[i / 2] = unicodeDiffs[i + 1];
+  }
+  return (s: string, index?: number) => {
+    const cp = s.codePointAt(index || 0);
+    let hi = codepoints.length;
+    let lo = 0;
+    while (hi - lo > 1) {
+      const mid = Math.floor((hi + lo) / 2);
+      const test = codepoints[mid];
+      if (cp < test) {
+        hi = mid;
+      } else if (cp === test) {
+        hi = lo = mid;
+        break;
+      } else if (test < cp) {
+        lo = mid;
+      }
+    }
+    return categoryEnum[categories[lo]];
+  };
 }
 
-export function isLower(input: string) {
-    const lower = input.toLowerCase();
-    return lower === input && lower !== input.toUpperCase();
+export const enum UnicodeCategory {
+  Control = 14,
+  Format = 15,
+  OtherNotAssigned = 29,
+  PrivateUse = 17,
+  Surrogate = 16,
+  LowercaseLetter = 1,
+  ModifierLetter = 3,
+  OtherLetter = 4,
+  TitlecaseLetter = 2,
+  UppercaseLetter = 0,
+  SpacingCombiningMark = 6,
+  EnclosingMark = 7,
+  NonSpacingMark = 5,
+  DecimalDigitNumber = 8,
+  LetterNumber = 9,
+  OtherNumber = 10,
+  ConnectorPunctuation = 18,
+  DashPunctuation = 19,
+  ClosePunctuation = 21,
+  FinalQuotePunctuation = 23,
+  InitialQuotePunctuation = 22,
+  OtherPunctuation = 24,
+  OpenPunctuation = 20,
+  CurrencySymbol = 26,
+  ModifierSymbol = 27,
+  MathSymbol = 25,
+  OtherSymbol = 28,
+  LineSeparator = 12,
+  ParagraphSeparator = 13,
+  SpaceSeparator = 11,
 }
 
-export function isDigit(input: string) {
-    return digits.indexOf(input) >= 0;
+const isControlMask = 1 << UnicodeCategory.Control;
+const isDigitMask = 1 << UnicodeCategory.DecimalDigitNumber;
+const isLetterMask = 0
+  | 1 << UnicodeCategory.UppercaseLetter
+  | 1 << UnicodeCategory.LowercaseLetter
+  | 1 << UnicodeCategory.TitlecaseLetter
+  | 1 << UnicodeCategory.ModifierLetter
+  | 1 << UnicodeCategory.OtherLetter;
+const isLetterOrDigitMask = isLetterMask | isDigitMask;
+const isUpperMask = 1 << UnicodeCategory.UppercaseLetter;
+const isLowerMask = 1 << UnicodeCategory.LowercaseLetter;
+const isNumberMask = 0
+  | 1 << UnicodeCategory.DecimalDigitNumber
+  | 1 << UnicodeCategory.LetterNumber
+  | 1 << UnicodeCategory.OtherNumber;
+const isPunctuationMask = 0
+  | 1 << UnicodeCategory.ConnectorPunctuation
+  | 1 << UnicodeCategory.DashPunctuation
+  | 1 << UnicodeCategory.OpenPunctuation
+  | 1 << UnicodeCategory.ClosePunctuation
+  | 1 << UnicodeCategory.InitialQuotePunctuation
+  | 1 << UnicodeCategory.FinalQuotePunctuation
+  | 1 << UnicodeCategory.OtherPunctuation;
+const isSeparatorMask = 0
+  | 1 << UnicodeCategory.SpaceSeparator
+  | 1 << UnicodeCategory.LineSeparator
+  | 1 << UnicodeCategory.ParagraphSeparator;
+const isSymbolMask = 0
+  | 1 << UnicodeCategory.MathSymbol
+  | 1 << UnicodeCategory.CurrencySymbol
+  | 1 << UnicodeCategory.ModifierSymbol
+  | 1 << UnicodeCategory.OtherSymbol;
+
+export const getUnicodeCategory = getCategory();
+
+export function isControl(s: string, index?: number) {
+  const test = 1 << getUnicodeCategory(s, index);
+  return (test & isControlMask) !== 0;
 }
 
-export function isLetterOrDigit(input: string) {
-    return isLetter(input) || isDigit(input);
+export function isDigit(s: string, index?: number) {
+  const test = 1 << getUnicodeCategory(s, index);
+  return (test & isDigitMask) !== 0;
 }
 
-export function isWhiteSpace(input: string) {
-    return /\s/.test(input);
+export function isLetter(s: string, index?: number) {
+  const test = 1 << getUnicodeCategory(s, index);
+  return (test & isLetterMask) !== 0;
+}
+
+export function isLetterOrDigit(s: string, index?: number) {
+  const test = 1 << getUnicodeCategory(s, index);
+  return (test & isLetterOrDigitMask) !== 0;
+}
+
+export function isUpper(s: string, index?: number) {
+  const test = 1 << getUnicodeCategory(s, index);
+  return (test & isUpperMask) !== 0;
+}
+
+export function isLower(s: string, index?: number) {
+  const test = 1 << getUnicodeCategory(s, index);
+  return (test & isLowerMask) !== 0;
+}
+
+export function isNumber(s: string, index?: number) {
+  const test = 1 << getUnicodeCategory(s, index);
+  return (test & isNumberMask) !== 0;
+}
+
+export function isPunctuation(s: string, index?: number) {
+  const test = 1 << getUnicodeCategory(s, index);
+  return (test & isPunctuationMask) !== 0;
+}
+
+export function isSeparator(s: string, index?: number) {
+  const test = 1 << getUnicodeCategory(s, index);
+  return (test & isSeparatorMask) !== 0;
+}
+
+export function isSymbol(s: string, index?: number) {
+  const test = 1 << getUnicodeCategory(s, index);
+  return (test & isSymbolMask) !== 0;
+}
+
+export function isWhiteSpace(s: string, index?: number) {
+  return /[\s\x09-\x0D\x85\xA0]/.test(s.charAt(index || 0));
+}
+
+export function isHighSurrogate(s: string, index?: number) {
+  return /[\uD800-\uDBFF]/.test(s.charAt(index || 0));
+}
+
+export function isLowSurrogate(s: string, index?: number) {
+  return /[\uDC00-\uDFFF]/.test(s.charAt(index || 0));
+}
+
+export function isSurrogate(s: string, index?: number) {
+  return /[\uD800-\uDFFF]/.test(s.charAt(index || 0));
+}
+
+export function isSurrogatePair(s: string, index: string|number) {
+  if (typeof index === "number") {
+    return isHighSurrogate(s, index) && isLowSurrogate(s, index + 1);
+  } else {
+    return isHighSurrogate(s) && isLowSurrogate(index);
+  }
 }
 
 export function parse(input: string) {
-    if (input.length === 1) {
-        return input[0];
-    } else {
-        throw Error ("String must be exactly one character long.");
-    }
+  if (input.length === 1) {
+    return input[0];
+  } else {
+    throw Error("String must be exactly one character long.");
+  }
 }
