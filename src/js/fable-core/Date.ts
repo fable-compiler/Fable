@@ -129,9 +129,8 @@ export function toString(date: IDateTime | IDateTimeOffset, format?: string) {
 }
 
 export default function DateTime(value: number, kind?: DateKind) {
-  kind = kind == null ? DateKind.Unspecified : kind;
   const d = new Date(value) as IDateTime;
-  d.kind = kind | 0;
+  d.kind = (kind == null ? DateKind.Unspecified : kind) | 0;
   return d;
 }
 

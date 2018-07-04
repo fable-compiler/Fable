@@ -302,7 +302,7 @@ export function equals(x: any, y: any): boolean {
   } else if (isArray(x)) {
     return isArray(y) && equalArrays(x, y);
   } else if (x instanceof Date) {
-    return x.getTime() === y.getTime();
+    return y instanceof Date && x.getTime() === y.getTime();
   } else {
     return false;
   }
@@ -363,7 +363,7 @@ export function compare(x: any, y: any): number {
   } else if (isArray(x)) {
     return isArray(y) && compareArrays(x, y);
   } else if (x instanceof Date) {
-    return compareDates(x, y);
+    return y instanceof Date && compareDates(x, y);
   } else {
     return 1;
   }
