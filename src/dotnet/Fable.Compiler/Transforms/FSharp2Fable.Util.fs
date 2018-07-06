@@ -577,9 +577,8 @@ module Identifiers =
         com.AddUsedVarName sanitizedName
         { Name = sanitizedName
           Type = makeType com ctx.GenericArgs fsRef.FullType
+          Kind = Fable.UnespecifiedIdent
           IsMutable = fsRef.IsMutable
-          IsThisArg = false
-          IsBaseValue = false
           IsCompilerGenerated = fsRef.IsCompilerGenerated
           Range = makeRange fsRef.DeclarationLocation |> Some }
 
@@ -621,7 +620,7 @@ module Util =
             // ThisValue instead of Value (with .IsMemberConstructorThisValue = true)
             | (firstArg::restArgs1)::restArgs2 when firstArg.IsConstructorThisValue || firstArg.IsMemberThisValue ->
                 let ctx, thisArg = bindIdentFrom com ctx firstArg
-                let thisArg = { thisArg with IsThisArg = true }
+                let thisArg = { thisArg with Kind = Fable.ThisArgIdentDeclaration }
                 let ctx =
                     if firstArg.IsConstructorThisValue
                     then { ctx with BoundConstructorThis = Some thisArg }

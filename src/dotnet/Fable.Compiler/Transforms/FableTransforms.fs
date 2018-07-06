@@ -209,13 +209,13 @@ module private Transforms =
         | Function(Delegate args, body, name) -> Some(args, body, name)
         | _ -> None
 
-    let (|EvalsMutableIdent|_|) expr =
-        if deepExistsWithShortcircuit (function
+    // Don't erase bindings if mutable variables are involved
+    // as the value can change in between statements
+    let evalsMutableIdent expr =
+        deepExistsWithShortcircuit (function
             | IdentExpr id when id.IsMutable -> Some true
             | Function _ -> Some false // Ignore function bodies
             | _ -> None) expr
-        then Some EvalsMutableIdent
-        else None
 
     let lambdaBetaReduction (_: ICompiler) e =
         let applyArgs (args: Ident list) argExprs body =
@@ -260,16 +260,15 @@ module private Transforms =
             let identName = ident.Name
             let replacement =
                 match value with
-                // Don't erase bindings if mutable variables are involved
-                // as the value can change in between statements
-                | EvalsMutableIdent -> None
                 // When replacing an ident with an erased option use the name but keep the unwrapped type
-                | Get(IdentExpr id, OptionValue, t, _) when not(mustWrapOption t) ->
+                | Get(IdentExpr id, OptionValue, t, _) when not id.IsMutable && not(mustWrapOption t) ->
                     makeTypedIdent t id.Name |> IdentExpr |> Some
                 // Match automatic destructuring of tuple arguments in inner functions
                 | Get(IdentExpr tupleIdent,_,_, _) as value when tupleIdent.IsCompilerGenerated ->
                     Some value
-                | value when ident.IsCompilerGenerated && canEraseBinding identName value body ->
+                | value when ident.IsCompilerGenerated
+                            && canEraseBinding identName value body
+                            && not(evalsMutableIdent value) ->
                     match value with
                     // TODO: Check if current name is Some? Shouldn't happen...
                     | Function(args, body, _) -> Function(args, body, Some identName) |> Some
@@ -506,7 +505,7 @@ module private Transforms =
                 when Option.isNone info.ThisArg
                     // Make sure first argument is not `this`, because it wil be removed
                     // from args in Fable2Babel.transformObjectExpr (see #1434).
-                    && List.tryHead args |> Option.map (fun x -> x.IsThisArg) |> Option.defaultValue false |> not
+                    && List.tryHead args |> Option.map (fun x -> x.IsThisArgDeclaration) |> Option.defaultValue false |> not
                     && sameArgs args info.Args -> funcExpr
             | e -> e
         match e with

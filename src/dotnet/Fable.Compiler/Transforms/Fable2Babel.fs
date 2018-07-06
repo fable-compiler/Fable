@@ -52,7 +52,7 @@ module Util =
         match args with
         | [] -> []
         | [unitArg] when unitArg.Type = Fable.Unit -> []
-        | [thisArg; unitArg] when thisArg.IsThisArg && unitArg.Type = Fable.Unit -> [thisArg]
+        | [thisArg; unitArg] when thisArg.IsThisArgDeclaration && unitArg.Type = Fable.Unit -> [thisArg]
         | args -> args
 
     type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =

@@ -112,14 +112,20 @@ type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
     member __.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
     member __.Dependencies: Set<string> = defaultArg dependencies Set.empty
 
+type IdentKind =
+    | UnespecifiedIdent
+    | BaseValueIdent
+    | ThisArgIdentDeclaration
+
 type Ident =
     { Name: string
       Type: Type
+      Kind: IdentKind
       IsMutable: bool
-      IsThisArg: bool
-      IsBaseValue: bool
       IsCompilerGenerated: bool
       Range: SourceLocation option }
+      member x.IsBaseValue = match x.Kind with BaseValueIdent -> true | _ -> false
+      member x.IsThisArgDeclaration = match x.Kind with ThisArgIdentDeclaration -> true | _ -> false
 
 type ImportKind =
     | CoreLib

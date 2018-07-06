@@ -263,13 +263,15 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.BaseValue typ ->
         let typ = makeType com Map.empty typ
         match ctx.BoundMemberThis, ctx.BoundConstructorThis with
-        | Some thisArg, _ -> { thisArg with IsBaseValue = true; Type = typ } |> Fable.IdentExpr
-        | _, Some thisArg -> { thisArg with IsBaseValue = true; Type = typ } |> Fable.IdentExpr
+        | Some thisArg, _ | _, Some thisArg ->
+            { thisArg with Kind = Fable.BaseValueIdent; Type = typ } |> Fable.IdentExpr
         | _ ->
             addError com (makeRangeFrom fsExpr) "Unexpected unbound this for base value"
             Fable.Value(Fable.Null Fable.Any)
 
     | BasicPatterns.ThisValue _typ ->
+        // NOTE: We don't check ctx.BoundMemberThis here because F# compiler doesn't represent
+        // `this` in members as BasicPatterns.ThisValue (but BasicPatterns.Value)
         match ctx.BoundConstructorThis with
         | Some thisArg -> Fable.IdentExpr thisArg
         | _ ->

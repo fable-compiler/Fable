@@ -18,4 +18,4 @@ module DynamicExtensions =
       member __.Item with get(idx: string): obj = jsNative
                      and set(idx: string) (value: obj): unit = jsNative
       [<Emit("$0($1...)")>]
-      member __.Invoke([<ParamArray>] args: obj[]): obj = jsNative
+      member __.Invoke([<ParamArray>] args: obj[]): 'a = jsNative
