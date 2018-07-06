@@ -68,7 +68,7 @@ type ClassImplicitConstructorInfo =
       HasSpread: bool
       Base: Expr option
       Arguments: Ident list
-      BoundThis: Ident
+      BoundConstructorThis: Ident
       Body: Expr }
 
 type UnionConstructorInfo =
@@ -117,6 +117,7 @@ type Ident =
       Type: Type
       IsMutable: bool
       IsThisArg: bool
+      IsBaseValue: bool
       IsCompilerGenerated: bool
       Range: SourceLocation option }
 
@@ -130,8 +131,6 @@ type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of Expr
 
 type ValueKind =
     | TypeInfo of Type * SourceLocation option // Error messages need location info
-    | This of Type
-    | Super of Type
     | Null of Type
     | UnitConstant
     | BoolConstant of bool
@@ -150,7 +149,7 @@ type ValueKind =
     member this.Type =
         match this with
         | TypeInfo _ -> MetaType
-        | This t | Super t | Null t -> t
+        | Null t -> t
         | UnitConstant -> Unit
         | BoolConstant _ -> Boolean
         | CharConstant _ -> Char

@@ -215,6 +215,13 @@ let tests =
         f$() |> equal 0
         (f :?> JsFunc).Invoke() |> unbox<int> |> equal 0
 
+    testCase "jsThis works" <| fun () ->
+        let o = createObj [
+            "z" ==> 5
+            "add" ==> fun x y -> x + y + jsThis?z
+        ]
+        o?add(2,3) |> equal 10
+
     testCase "Erase attribute works" <| fun () ->
         adder.Add(4, 5) |> equal 9
 

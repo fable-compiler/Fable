@@ -169,6 +169,15 @@ type ExtendedClass () =
     override __.Init() = base.Init() + 2
     override __.Prop = base.Prop + "-extension"
 
+type BaseClass2() =
+    let field = 1
+    member __.A() = field
+
+type ExtendedClass2() =
+    inherit BaseClass2()
+    member __.A() = 2
+    member __.B() = base.A()
+
 type Employee = { name: string; age: float; location: Location }
 and Location = { name: string; mutable employees: Employee list }
 
@@ -535,6 +544,10 @@ let tests =
         let x = ExtendedClass()
         x.Prop |> equal "base-extension"
         (x :> BaseClass).Prop |> equal "base-extension"
+
+    testCase "Calling base members works" <| fun () -> // See #1464
+        let bar = ExtendedClass2()
+        bar.B() |> equal 1
 
     testCase "Circular dependencies work" <| fun () -> // See #569
         let location = { name="NY"; employees=[] }

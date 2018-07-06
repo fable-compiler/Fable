@@ -261,12 +261,20 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         Replacements.makeTypeConst typ value
 
     | BasicPatterns.BaseValue typ ->
-        makeType com ctx.GenericArgs typ |> Fable.Super |> Fable.Value
+        let typ = makeType com Map.empty typ
+        match ctx.BoundMemberThis, ctx.BoundConstructorThis with
+        | Some thisArg, _ -> { thisArg with IsBaseValue = true; Type = typ } |> Fable.IdentExpr
+        | _, Some thisArg -> { thisArg with IsBaseValue = true; Type = typ } |> Fable.IdentExpr
+        | _ ->
+            addError com (makeRangeFrom fsExpr) "Unexpected unbound this for base value"
+            Fable.Value(Fable.Null Fable.Any)
 
-    | BasicPatterns.ThisValue typ ->
-        match ctx.BoundThis with
+    | BasicPatterns.ThisValue _typ ->
+        match ctx.BoundConstructorThis with
         | Some thisArg -> Fable.IdentExpr thisArg
-        | _ -> makeType com ctx.GenericArgs typ |> Fable.This |> Fable.Value
+        | _ ->
+            addError com (makeRangeFrom fsExpr) "Unexpected unbound this"
+            Fable.Value(Fable.Null Fable.Any)
 
     | BasicPatterns.Value var ->
         if isInline var then
@@ -569,7 +577,7 @@ let rec private getBaseConsAndBody com ctx (baseType: FSharpType option) acc bod
                 | _ -> None
             else None)
         |> Option.map (fun baseEntity ->
-            let thisArg = ctx.BoundThis |> Option.map Fable.IdentExpr
+            let thisArg = ctx.BoundConstructorThis |> Option.map Fable.IdentExpr
             let baseArgs = List.map (transformExpr com ctx) baseArgs
             let genArgs = genArgs |> Seq.map (makeType com ctx.GenericArgs)
             match Replacements.tryBaseConstructor com baseEntity baseCall genArgs baseArgs with
@@ -612,7 +620,7 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
     | Some ent ->
         let bodyCtx, args = bindMemberArgs com ctx args
         let boundThis = com.GetUniqueVar("this") |> makeIdent
-        let bodyCtx = { bodyCtx with BoundThis = boundThis |> Some }
+        let bodyCtx = { bodyCtx with BoundConstructorThis = boundThis |> Some }
         let baseCons, body = getBaseConsAndBody com bodyCtx ent.BaseType [] body
         let baseExpr, body =
             match baseCons with
@@ -631,7 +639,7 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
               HasSpread = hasSeqSpread memb
               Base = baseExpr
               Arguments = args
-              BoundThis = boundThis
+              BoundConstructorThis = boundThis
               Body = body
             }
         [Fable.ClassImplicitConstructor info |> Fable.ConstructorDeclaration]

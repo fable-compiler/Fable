@@ -138,8 +138,8 @@ module Util =
     let identAsExpr (id: Fable.Ident) =
         Identifier(id.Name, ?loc=id.Range) :> Expression
 
-    let thisIdent =
-        Identifier "this" :> Expression
+    let thisExpr =
+        ThisExpression() :> Expression
 
     let ofInt i =
         NumericLiteral(float i) :> Expression
@@ -251,8 +251,8 @@ module Util =
         let kind = if isMutable then Let else Const
         VariableDeclaration(var, value, kind)
 
-    let callFunctionWithThisContext funcExpr thisExpr (args: Expression list) =
-        CallExpression(get None funcExpr "call", List.toArray (thisExpr::args)) :> Expression
+    let callFunctionWithThisContext r funcExpr thisArg (args: Expression list) =
+        CallExpression(get None funcExpr "call", List.toArray (thisArg::args), ?loc=r) :> Expression
 
     let macroExpression range (txt: string) args =
         MacroExpression(txt, List.toArray args, ?loc=range) :> Expression
@@ -522,7 +522,6 @@ module Util =
                 let block = varDeclarations @ [ReturnStatement typeInfo] |> List.toArray |> BlockStatement
                 upcast CallExpression(FunctionExpression([||], block), [||])
             else transformTypeInfo com ctx r None t |> snd
-        | Fable.This _ | Fable.Super _  -> upcast ThisExpression ()
         | Fable.Null _ -> upcast NullLiteral ()
         | Fable.UnitConstant -> upcast NullLiteral () // TODO: Use `void 0`?
         | Fable.BoolConstant x -> upcast BooleanLiteral (x)
@@ -660,11 +659,11 @@ module Util =
                 upcast NewExpression(consExpr, List.toArray args, ?loc=range)
             | Fable.StaticCall(TransformExpr com ctx funcExpr) ->
                 if argInfo.IsBaseOrSelfConstructorCall then
-                    let args =
+                    let thisArg =
                         match argInfo.ThisArg with
-                        | Some(TransformExpr com ctx thisArg) -> thisArg::args
-                        | None -> (upcast Identifier "this")::args
-                    upcast CallExpression(get None funcExpr "call", List.toArray args, ?loc=range)
+                        | Some(TransformExpr com ctx thisArg) -> thisArg
+                        | None -> thisExpr
+                    callFunctionWithThisContext range funcExpr thisArg args
                 else
                     let args =
                         match argInfo.ThisArg with
@@ -676,12 +675,13 @@ module Util =
                 | None, _ -> addErrorAndReturnNull com range "InstanceCall with empty this argument"
                 // When calling a virtual method with default implementation from base class,
                 // compile it as: `BaseClass.prototype.Foo.call(this, ...args)` (see #701)
-                | Some(Fable.Value(Fable.Super(Fable.DeclaredType(baseEntity, _)))), Some membExpr ->
+                | Some(Fable.IdentExpr(IdentType(Fable.DeclaredType(baseEntity, _)) as thisIdent)), Some membExpr
+                        when thisIdent.IsBaseValue ->
                     let baseClassExpr = entityRefMaybeImported com ctx baseEntity
                     let baseProtoMember =
                         com.TransformAsExpr(ctx, membExpr)
                         |> getExpr None (get None baseClassExpr "prototype")
-                    upcast CallExpression(get None baseProtoMember "call", List.toArray ((upcast Identifier "this")::args), ?loc=range)
+                    callFunctionWithThisContext range baseProtoMember (ident thisIdent) args
                 | Some thisArg, None ->
                     upcast CallExpression(com.TransformAsExpr(ctx, thisArg),List.toArray args, ?loc=range)
                 | Some thisArg, Some(TransformExpr com ctx m) ->
@@ -759,7 +759,8 @@ module Util =
                 match fableExpr with
                 // When calling a virtual property with default implementation from base class,
                 // compile it as: `BaseClass.prototype.Foo` (see #701)
-                | Fable.Value(Fable.Super(Fable.DeclaredType(baseEntity, _))) ->
+                | Fable.IdentExpr(IdentType(Fable.DeclaredType(baseEntity, _)) as thisIdent)
+                        when thisIdent.IsBaseValue ->
                     let baseClassExpr = entityRefMaybeImported com ctx baseEntity
                     get None baseClassExpr "prototype"
                 | _ -> expr
@@ -1306,7 +1307,7 @@ module Util =
         let args: Pattern[] = [|Identifier "tag"; Identifier "name"; RestElement(Identifier "fields")|]
         let body =
             [Identifier "tag" :> Expression; Identifier "name" :> _; SpreadElement(Identifier "fields") :> _]
-            |> callFunctionWithThisContext baseRef thisIdent |> ExpressionStatement
+            |> callFunctionWithThisContext None baseRef thisExpr |> ExpressionStatement
         [
             FunctionExpression(args, BlockStatement [|body|])
                 |> declareModuleMember info.IsPublic info.EntityName false
@@ -1314,10 +1315,14 @@ module Util =
         ]
 
     let transformCompilerGeneratedConstructor (com: IBabelCompiler) ctx (info: Fable.CompilerGeneratedConstructorInfo) =
-        let makeSetters thisIdent (args: Identifier[]) =
+        let consIdent = Identifier info.EntityName :> Expression
+        let args =
+            [| for i = 1 to info.Entity.FSharpFields.Count do
+                yield Identifier("arg" + string i) |]
+        let setters =
             info.Entity.FSharpFields
             |> Seq.mapi (fun i fi ->
-                let left = get None thisIdent fi.Name
+                let left = get None (ThisExpression()) fi.Name
                 let right =
                     /// Shortcut instead of using wrapIntExpression
                     if FSharp2Fable.TypeHelpers.isSignedIntType fi.FieldType
@@ -1325,13 +1330,8 @@ module Util =
                     else args.[i] :> _
                 assign None left right |> ExpressionStatement :> Statement)
             |> Seq.toArray
-        let consIdent = Identifier info.EntityName :> Expression
-        let args =
-            [| for i = 1 to info.Entity.FSharpFields.Count do
-                yield Identifier("arg" + string i) |]
         [
-            yield FunctionExpression([|for arg in args do yield arg :> Pattern|],
-                                     BlockStatement (makeSetters thisIdent args))
+            yield FunctionExpression([|for arg in args do yield arg :> Pattern|], BlockStatement setters)
                     |> declareModuleMember info.IsPublic info.EntityName false
             if info.Entity.IsFSharpExceptionDeclaration
             then yield coreValue com ctx "Types" "FSharpException" |> inherits com ctx consIdent
@@ -1340,14 +1340,7 @@ module Util =
         ]
 
     let transformImplicitConstructor (com: IBabelCompiler) ctx (info: Fable.ClassImplicitConstructorInfo) =
-        let makeBaseCall (argInfo: Fable.ArgInfo) =
-            let argInfo =
-                match argInfo.Args with
-                | [thisArg; Fable.Value Fable.UnitConstant] -> { argInfo with Args = [thisArg] }
-                | _ -> argInfo
-            let kind = makeStrConst "call" |> Some |> Fable.InstanceCall
-            Fable.Operation(Fable.Call(kind, argInfo), Fable.Unit, None)
-        let boundThis = Some("this", info.BoundThis)
+        let boundThis = Some("this", info.BoundConstructorThis)
         let args, body = getMemberArgsAndBody com ctx None boundThis info.Arguments info.HasSpread info.Body
         let argIdents, argExprs: Pattern list * Expression list =
             match info.Arguments with
@@ -1365,8 +1358,8 @@ module Util =
                 BlockStatement [|
                     ReturnStatement(
                         ConditionalExpression(
-                            BinaryExpression(BinaryUnequal, thisIdent, NullLiteral()),
-                            CallExpression(get None consIdent "call", thisIdent::argExprs |> List.toArray),
+                            BinaryExpression(BinaryUnequal, ThisExpression(), NullLiteral()),
+                            callFunctionWithThisContext None consIdent thisExpr argExprs,
                             NewExpression(consIdent,List.toArray argExprs))
             )   |])
         [

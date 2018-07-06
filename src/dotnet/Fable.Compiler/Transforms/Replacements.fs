@@ -827,7 +827,7 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | "jsOptions", [arg] ->
         makePojoFromLambda arg |> Some
     | "jsThis", _ ->
-        This t |> Value |> Some
+        makeTypedIdent t "this" |> IdentExpr |> Some
     | "jsConstructor", _ ->
         match (genArg com r 0 i.GenericArgs) with
         | DeclaredType(ent, _) when ent.IsClass -> FSharp2Fable.Util.entityRefMaybeImported com r ent |> Some

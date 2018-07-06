@@ -19,7 +19,8 @@ type Context =
       EnclosingMember: FSharpMemberOrFunctionOrValue option
       EnclosingEntity: FSharpEntity option
       CaughtException: Fable.Ident option
-      BoundThis: Fable.Ident option
+      BoundConstructorThis: Fable.Ident option
+      BoundMemberThis: Fable.Ident option
     }
     static member Create(enclosingEntity) =
         { Scope = []
@@ -29,7 +30,8 @@ type Context =
           EnclosingMember = None
           EnclosingEntity = enclosingEntity
           CaughtException = None
-          BoundThis = None
+          BoundConstructorThis = None
+          BoundMemberThis = None
         }
 
 type IFableCompiler =
@@ -576,7 +578,8 @@ module Identifiers =
         { Name = sanitizedName
           Type = makeType com ctx.GenericArgs fsRef.FullType
           IsMutable = fsRef.IsMutable
-          IsThisArg = fsRef.IsMemberThisValue || fsRef.IsConstructorThisValue
+          IsThisArg = false
+          IsBaseValue = false
           IsCompilerGenerated = fsRef.IsCompilerGenerated
           Range = makeRange fsRef.DeclarationLocation |> Some }
 
@@ -616,9 +619,14 @@ module Util =
             match args with
             // Within private members (first arg is ConstructorThisValue) F# AST uses
             // ThisValue instead of Value (with .IsMemberConstructorThisValue = true)
-            | (firstArg::restArgs1)::restArgs2 when firstArg.IsConstructorThisValue ->
+            | (firstArg::restArgs1)::restArgs2 when firstArg.IsConstructorThisValue || firstArg.IsMemberThisValue ->
                 let ctx, thisArg = bindIdentFrom com ctx firstArg
-                { ctx with BoundThis = Some thisArg }, [thisArg], restArgs1::restArgs2
+                let thisArg = { thisArg with IsThisArg = true }
+                let ctx =
+                    if firstArg.IsConstructorThisValue
+                    then { ctx with BoundConstructorThis = Some thisArg }
+                    else { ctx with BoundMemberThis = Some thisArg }
+                ctx, [thisArg], restArgs1::restArgs2
             | _ -> ctx, [], args
         let ctx, args =
             (args, (ctx, [])) ||> List.foldBack (fun tupledArg (ctx, accArgs) ->

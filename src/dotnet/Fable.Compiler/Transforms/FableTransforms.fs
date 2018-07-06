@@ -11,7 +11,7 @@ let visit f e =
     | Import(e1, e2, kind, t, r) -> Import(f e1, f e2, kind, t, r)
     | Value kind ->
         match kind with
-        | TypeInfo _ | This _ | Super _ | Null _ | UnitConstant
+        | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ | Enum _ -> e
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> Value
@@ -110,7 +110,7 @@ let getSubExpressions = function
     | Import(e1,e2,_,_,_) -> [e1;e2]
     | Value kind ->
         match kind with
-        | TypeInfo _ | This _ | Super _ | Null _ | UnitConstant
+        | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ | Enum _ -> []
         | NewOption(e, _) -> Option.toList e
@@ -201,10 +201,7 @@ let canEraseBinding identName value body =
                 count > limit
             | _ -> false) |> ignore
         count = limit
-    match value with
-    // Deal with these cases in Fable2Babel
-    | Value(This _) -> false
-    | e -> not(hasDoubleEvalRisk e) || isReferencedOnlyOnce identName body
+    not(hasDoubleEvalRisk value) || isReferencedOnlyOnce identName body
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
@@ -508,7 +505,7 @@ module private Transforms =
             | LambdaOrDelegate(args, Operation(Call(StaticCall funcExpr, info), _, _), _)
                 when Option.isNone info.ThisArg
                     // Make sure first argument is not `this`, because it wil be removed
-                    // from args is Fable2Babel.transformObjectExpr (see #1434).
+                    // from args in Fable2Babel.transformObjectExpr (see #1434).
                     && List.tryHead args |> Option.map (fun x -> x.IsThisArg) |> Option.defaultValue false |> not
                     && sameArgs args info.Args -> funcExpr
             | e -> e

@@ -172,6 +172,7 @@ module AST =
     open Fable.AST.Fable
 
     let inline (|ExprType|) (e: Expr) = e.Type
+    let inline (|IdentType|) (id: Ident) = id.Type
 
     let (|NestedLambdaType|_|) t =
         let rec nestedLambda acc = function
@@ -231,9 +232,6 @@ module AST =
 
     /// When referenced multiple times, is there a risk of double evaluation?
     let rec hasDoubleEvalRisk = function
-        // Don't erase `this` binding as it may be called from a closure
-        // TODO: Detect also if this is an expression including `this` (e.g. `this.foo`)
-        | Value(This _) -> true
         | IdentExpr id -> id.IsMutable
         | Value(Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _ | Enum _) -> false
         | Value(NewTuple exprs) -> exprs |> List.exists hasDoubleEvalRisk
@@ -258,6 +256,7 @@ module AST =
           Type = Any
           IsMutable = false
           IsThisArg = false
+          IsBaseValue = false
           IsCompilerGenerated = true
           Range = None }
 
@@ -266,6 +265,7 @@ module AST =
           Type = typ
           IsMutable = false
           IsThisArg = false
+          IsBaseValue = false
           IsCompilerGenerated = true
           Range = None }
 
