@@ -101,8 +101,7 @@ let fableCoreModules =
                 let fileName = System.IO.Path.GetFileNameWithoutExtension(file.FileName)
                 // Apparently FCS generates the AssemblyInfo file automatically
                 if fileName.Contains("AssemblyInfo") |> not then
-                    yield sprintf "    \"%s\", Map [" fileName
-                    yield!
+                    let moduleInjects =
                         getInjects false file.Declarations
                         |> Seq.map (fun (membName, infos) ->
                             infos |> List.map (fun (typeArgName, genArgIndex) ->
@@ -112,10 +111,12 @@ let fableCoreModules =
                                     | None -> "\"" + typeArgName + "\""
                                 sprintf "(%s, %i)" typeArgName genArgIndex)
                             |> String.concat "; "
-                            |> sprintf "      \"%s\", [%s]" membName
-                        )
-                    yield "    ]"
-
+                            |> sprintf "      \"%s\", [%s]" membName)
+                        |> Seq.toArray
+                    if moduleInjects.Length > 0 then
+                        yield sprintf "    \"%s\", Map [" fileName
+                        yield! moduleInjects
+                        yield "    ]"
             yield "  ]\n"
         }
     File.WriteAllLines(IO.Path.Combine(__SOURCE_DIRECTORY__,"../../dotnet/Fable.Compiler/Transforms/ReplacementsInject.fs"), lines)

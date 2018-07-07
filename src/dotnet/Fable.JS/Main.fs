@@ -195,14 +195,6 @@ let defaultManager =
         member __.CreateChecker(references, readAllBytes) =
             InteractiveChecker.Create(references, readAllBytes)
             |> CheckerImpl :> IChecker
-        // member __.CreateCompiler(fableCoreDir, replacements) =
-        //     let options =
-        //         { fableCore = fableCoreDir
-        //           emitReplacements = defaultArg replacements (upcast [||]) |> Map
-        //           typedArrays = true
-        //           clampByteArrays = false
-        //           declaration = false }
-        //     Compiler(options) |> CompilerImpl :> IFableCompiler
         member __.ParseFSharpProject(checker, fileName, source) =
             let c = checker :?> CheckerImpl
             parseFSharpProject c.Checker fileName source :> IParseResults
@@ -220,20 +212,12 @@ let defaultManager =
             let project = makeProject fileName optimized res
             let com = makeCompiler fableCore fileName project
             compileAst com project
-        // member x.CompileToBabelJsonAst(fableCore:string, parseResults:IParseResults, fileName:string, ?optimized: bool) =
-        //     let optimized = defaultArg optimized false
-        //     x.CompileToBabelAst(fableCore, parseResults, fileName, optimized)
-        //     |> JsInterop.toJson
-        member __.PrintFSharpAst(parseResults:IParseResults, optimized: bool, printFn: string -> unit) =
+        member __.FSharpAstToString(parseResults:IParseResults, optimized: bool) =
             let res = parseResults :?> ParseResults
-            if optimized then
-                printFn "Typed AST (optimized):"
-                res.CheckProject.GetOptimizedAssemblyContents().ImplementationFiles
-                |> Seq.iter (fun file -> AstPrint.printFSharpDecls "" file.Declarations |> Seq.iter printFn)
-            else
-                printFn "Typed AST (unoptimized):"
-                res.CheckProject.AssemblyContents.ImplementationFiles
-                |> Seq.iter (fun file -> AstPrint.printFSharpDecls "" file.Declarations |> Seq.iter printFn)
+            if not optimized then res.CheckProject.AssemblyContents.ImplementationFiles
+            else res.CheckProject.GetOptimizedAssemblyContents().ImplementationFiles
+            |> Seq.collect (fun file -> AstPrint.printFSharpDecls "" file.Declarations)
+            |> String.concat "\n"
   }
 
 [<ExportDefault>]

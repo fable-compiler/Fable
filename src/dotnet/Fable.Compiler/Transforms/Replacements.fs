@@ -869,7 +869,25 @@ let references (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr opti
     | "set_Value", Some callee, [value] -> setReference r callee value |> Some
     | _ -> None
 
-let fsFormat (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let getMangledNames (i: CallInfo) (thisArg: Expr option) =
+    let isStatic = Option.isNone thisArg
+    let pos = i.DeclaringEntityFullName.LastIndexOf('.')
+    let moduleName = i.DeclaringEntityFullName.Substring(0, pos).Replace("Microsoft.", "")
+    let entityName = Naming.sanitizeIdentForbiddenChars (i.DeclaringEntityFullName.Substring(pos + 1))
+    let memberName = Naming.sanitizeIdentForbiddenChars (i.CompiledName)
+    let mangledName = Naming.buildNameWithoutSanitationFrom entityName isStatic memberName
+    moduleName, mangledName
+
+let bclType (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let moduleName, mangledName = getMangledNames i thisArg
+    let args = match thisArg with Some callee -> callee::args | _ -> args
+    Helper.CoreCall(moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+let fsharpModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let moduleName, mangledName = getMangledNames i thisArg
+    Helper.CoreCall(moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some callee, _ ->
         get None t callee "input" |> Some
@@ -892,6 +910,9 @@ let fsFormat (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option
         Helper.InstanceCall(callee, "cont", t, [arg]) |> Some
     | "PrintFormatToStringThenFail", _, _ ->
         Helper.CoreCall("String", "toFail", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ("PrintFormatToStringBuilder"      // bprintf
+    |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
+       ), _, _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, arg::_ ->
         Helper.CoreCall("String", "printf", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
@@ -959,11 +980,18 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "op_ComposeLeft", [f2; f1] -> compose com r t f1 f2 |> Some
     // Strings
     | ("PrintFormatToString"             // sprintf
-    |  "PrintFormatToStringThen"         // Printf.sprintf
+    |  "PrintFormatToStringThen"         // Printf.ksprintf
     |  "PrintFormat" | "PrintFormatLine" // printf / printfn
     |  "PrintFormatThen"                 // Printf.kprintf
-    |  "PrintFormatToStringThenFail"), _ ->  // Printf.failwithf
-        fsFormat com ctx r t i thisArg args
+    |  "PrintFormatToStringThenFail"     // Printf.failwithf
+    |  "PrintFormatToStringBuilder"      // bprintf
+    |  "PrintFormatToStringBuilderThen"  // Printf.kbprintf
+        ), _ -> fsFormat com ctx r t i thisArg args
+    | ("Failure"
+    |  "FailurePattern"  // (|Failure|_|)
+    |  "Lock"            // lock
+    |  "NullArg"         // nullArg
+       ), _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
     | "FailWith", [msg] | "InvalidOp", [msg] ->
         Throw(error msg, t, r) |> Some
@@ -1579,7 +1607,7 @@ let errorStrings = function
     | "InputMustBeNonNegativeString" -> s "The input must be non-negative" |> Some
     | _ -> None
 
-let languagePrimitives (com: ICompiler) (_: Context) (r: SourceLocation option) t (i: CallInfo) (_thisArg: Expr option) (args: Expr list) =
+let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "GenericZero", _ -> getZero com t |> Some
     | "GenericOne", _ -> getOne com t |> Some
@@ -1605,6 +1633,8 @@ let languagePrimitives (com: ICompiler) (_: Context) (r: SourceLocation option) 
         makeEqOp r left right BinaryEqualStrict |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
         Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r) |> Some
+    | "FastGenericComparer", _ ->
+        fsharpModule com ctx r t i thisArg args
     | _ -> None
 
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2266,10 +2296,13 @@ let private replacedModules =
     Types.char, chars
     Types.string, strings
     "Microsoft.FSharp.Core.StringModule", stringModule
+    "System.Text.StringBuilder", bclType
     Types.array, arrays
-    "Microsoft.FSharp.Collections.ArrayModule", arrayModule
     Types.list, lists
+    "Microsoft.FSharp.Collections.ArrayModule", arrayModule
     "Microsoft.FSharp.Collections.ListModule", listModule
+    "Microsoft.FSharp.Collections.HashIdentity", fsharpModule
+    "Microsoft.FSharp.Collections.ComparisonIdentity", fsharpModule
     "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers", seqs
     "Microsoft.FSharp.Collections.SeqModule", seqs
     "System.Collections.Generic.KeyValuePair`2", keyValuePairs
