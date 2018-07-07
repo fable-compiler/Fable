@@ -25,8 +25,8 @@ let tests =
             "bar" + notALiteral |> equal "barfoo"
 
       testCase "String chunkBySize works" <| fun () -> // See #1296
-          "fffff" |> Seq.chunkBySize 3 |> Seq.map String |> Seq.toList
-          |> equal ["fff"; "ff"]
+            "fffff" |> Seq.chunkBySize 3 |> Seq.map String |> Seq.toList
+            |> equal ["fff"; "ff"]
 
       // Format
 
@@ -37,10 +37,25 @@ let tests =
             Printf.kprintf f "%.2f %g" 0.5468989 5. |> equal "0.55 5XX"
 
       testCase "kprintf works indirectly" <| fun () -> // See #1204
-          let lines = ResizeArray<string>()
-          let linef fmt = Printf.ksprintf lines.Add fmt // broken
-          linef "open %s" "Foo"
-          lines |> Seq.toList |> equal ["open Foo"]
+            let lines = ResizeArray<string>()
+            let linef fmt = Printf.ksprintf lines.Add fmt // broken
+            linef "open %s" "Foo"
+            lines |> Seq.toList |> equal ["open Foo"]
+
+      testCase "kbprintf works" <| fun () ->
+            let sb = System.Text.StringBuilder()
+            let mutable i = 0
+            let f () = i <- i + 1
+            Printf.kbprintf f sb "Hello"
+            Printf.kbprintf f sb " %s!" "world"
+            i |> equal 2
+            sb.ToString() |> equal "Hello world!"
+
+      testCase "bprintf works" <| fun () ->
+            let sb = System.Text.StringBuilder()
+            Printf.bprintf sb "Hello"
+            Printf.bprintf sb " %s!" "world"
+            sb.ToString() |> equal "Hello world!"
 
       testCase "sprintf works" <| fun () ->
             // Immediately applied
@@ -58,8 +73,8 @@ let tests =
             printer2 "?" |> equal "Hi Maxime, good afternoon?"
 
       testCase "Print.sprintf works" <| fun () -> // See #1216
-          let res = Printf.sprintf "%s" "abc"
-          equal "res: abc" ("res: " + res)
+            let res = Printf.sprintf "%s" "abc"
+            equal "res: abc" ("res: " + res)
 
       testCase "sprintf without arguments works" <| fun () ->
             sprintf "hello" |> equal "hello"

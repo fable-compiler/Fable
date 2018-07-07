@@ -29,7 +29,6 @@ type UTest2 =
                 match x, y with
                 | String s1, String s2 -> compare (s1 + s1) s2
             | _ -> invalidArg "yobj" "cannot compare values of different types"
-            | _ -> -1
 
 type RTest = { a: int; b: int }
 
@@ -363,6 +362,14 @@ let tests =
         let c1 = Test(5)
         let c2 = Test(5)
         Object.ReferenceEquals(min c1 c2, c2) |> equal true
+
+    testCase "nullArg works" <| fun () ->
+        try
+            nullArg null
+            true
+        with _ex ->
+            false
+        |> equal false
 
     testCase "isNull works with primitives" <| fun () ->
         isNull null |> equal true

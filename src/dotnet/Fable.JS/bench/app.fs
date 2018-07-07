@@ -18,6 +18,7 @@ let hrTimeElapsed: System.Func<float[], float[]> = Fable.Core.JsInterop.import "
 let readAllBytes (fileName:string) = readFileSync.Invoke (metadataPath + fileName)
 let readAllText (filePath:string) = readTextSync.Invoke (filePath, "utf8")
 let writeAllText (filePath:string) (text:string) = writeTextSync.Invoke (filePath, text)
+
 let measureTime (f: 'a -> 'b) x =
     let startTime = hrTimeNow.Invoke()
     let res = f x
@@ -31,6 +32,7 @@ let toJson (value: obj) = Fable.Core.JsInterop.toJson value
 let readAllBytes (fileName:string) = System.IO.File.ReadAllBytes (metadataPath + fileName)
 let readAllText (filePath:string) = System.IO.File.ReadAllText (filePath, System.Text.Encoding.UTF8)
 let writeAllText (filePath:string) (text:string) = System.IO.File.WriteAllText (filePath, text)
+
 let measureTime (f: 'a -> 'b) x =
     let sw = System.Diagnostics.Stopwatch.StartNew()
     let res = f x
@@ -46,7 +48,7 @@ let toJson (value: obj) = Newtonsoft.Json.JsonConvert.SerializeObject(value)
 let main argv =
     try
         let fileName = "test_script.fsx"
-        let fsAstFile = Fable.Path.ChangeExtension(fileName, ".fsharp.ast.json")
+        let fsAstFile = Fable.Path.ChangeExtension(fileName, ".fsharp.ast.txt")
         let babelAstFile = Fable.Path.ChangeExtension(fileName, ".babel.ast.json")
         let source = readAllText fileName
         let fable = Fable.JS.Main.defaultManager
@@ -54,7 +56,6 @@ let main argv =
         let ms0, checker = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
         let fableCoreDir = "../../../../build/fable-core"
-        //let com = fable.CreateCompiler(fableCoreDir)
         let optimized = false // todo: from compiler option
         let parseFSharp () = fable.ParseFSharpProject(checker, fileName, source)
         let parseFable ast = fable.CompileToBabelAst(fableCoreDir, ast, fileName, optimized)
@@ -64,11 +65,12 @@ let main argv =
             errors |> Array.iter (printfn "Error: %A")
             if errors.Length > 0 then failwith "Too many errors."
             let ms2, babelAst = measureTime parseFable fsAst
-            if i = 1 then
-                // fable.PrintFSharpAst (fsAst, false, printfn "%s")
-                // printfn "Babel AST: %s" (toJson babelAst)
-                // writeAllText fsAstFile (toJson fsAst)
-                writeAllText babelAstFile (toJson babelAst)
+            // if i = 1 then
+            //     let fsAstStr = fable.FSharpAstToString(fsAst, optimized)
+            //     printfn "Typed AST (unoptimized): %s" fsAstStr
+            //     writeAllText fsAstFile fsAstStr
+            //     printfn "Babel AST: %s" (toJson babelAst)
+            //     writeAllText babelAstFile (toJson babelAst)
             printfn "iteration %d, FCS time: %d ms, Fable time: %d ms" i ms1 ms2
         [1..10] |> List.iter bench
     with ex ->

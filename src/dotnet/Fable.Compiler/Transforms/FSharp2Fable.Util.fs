@@ -799,14 +799,17 @@ module Util =
           | None ->
             match tryFindImplementingEntity sourceEntity interfaceFullName with
             | None ->
-                "Type implementing interface must be known at compile time, cast does nothing"
+                "Type implementing interface must be known at compile time, cast does nothing."
                 |> addWarning com r
                 expr
             // If the interface has no members, cast is not necessary
             | Some(_,ifcEnt) when ifcEnt.MembersFunctionsAndValues.Count = 0 -> expr
             | Some(ent,_) ->
                 match tryGetEntityLocation ent with
-                | None -> expr // TODO: Log error?
+                | None ->
+                    "Cast interface type location must be known at compile time, cast does nothing."
+                    |> addWarning com r
+                    expr
                 | Some entLoc ->
                     let file = Path.normalizePath entLoc.FileName
                     let funcName = getCastDeclarationName com ent interfaceFullName
