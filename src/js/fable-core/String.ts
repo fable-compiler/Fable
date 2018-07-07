@@ -7,23 +7,23 @@ const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
 // From https://stackoverflow.com/a/13653180/3922220
 const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const StringComparison = {
-  CurrentCulture: 0,
-  CurrentCultureIgnoreCase: 1,
-  InvariantCulture: 2,
-  InvariantCultureIgnoreCase: 3,
-  Ordinal: 4,
-  OrdinalIgnoreCase: 5,
-};
+const enum StringComparison {
+  CurrentCulture = 0,
+  CurrentCultureIgnoreCase = 1,
+  InvariantCulture = 2,
+  InvariantCultureIgnoreCase = 3,
+  Ordinal = 4,
+  OrdinalIgnoreCase = 5,
+}
 
-function cmp(x: string, y: string, ic: any) {
-  function isIgnoreCase(i: any) {
+function cmp(x: string, y: string, ic: boolean|StringComparison) {
+  function isIgnoreCase(i: boolean|StringComparison) {
     return i === true ||
       i === StringComparison.CurrentCultureIgnoreCase ||
       i === StringComparison.InvariantCultureIgnoreCase ||
       i === StringComparison.OrdinalIgnoreCase;
   }
-  function isOrdinal(i: any) {
+  function isOrdinal(i: boolean|StringComparison) {
     return i === StringComparison.Ordinal ||
       i === StringComparison.OrdinalIgnoreCase;
   }
@@ -51,8 +51,12 @@ export function compare(...args: any[]): number {
   }
 }
 
+export function compareOrdinal(x: string, y: string) {
+  return cmp(x, y, StringComparison.Ordinal);
+}
+
 export function compareTo(x: string, y: string) {
-  return cmp(x, y, false);
+  return cmp(x, y, StringComparison.CurrentCulture);
 }
 
 export function startsWith(str: string, pattern: string, ic: number) {

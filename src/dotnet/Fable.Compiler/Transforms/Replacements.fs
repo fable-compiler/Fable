@@ -1180,6 +1180,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.CoreCall("String", "split", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Concat", None, _ ->
         Helper.CoreCall("String", "join", t, (makeStrConst "")::args, ?loc=r) |> Some
+    | "CompareOrdinal", None, _ ->
+        Helper.CoreCall("String", "compareOrdinal", t, args, ?loc=r) |> Some
     | Patterns.SetContains implementedStringFunctions, thisArg, args ->
         let hasSpread = match i.Spread with SeqSpread -> true | _ -> false
         Helper.CoreCall("String", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes,
@@ -1336,10 +1338,10 @@ let nativeArrayFunctions =
             "SortInPlaceWith", "sort" |]
 
 let arrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, args, i.CompiledName with
-    | Some ar, _, "get_Length" -> get r t ar "length" |> Some
-    | Some ar, [idx], "get_Item" -> getExpr r t ar idx |> Some
-    | Some ar, [idx; value], "set_Item" -> Set(ar, ExprSet idx, value, r) |> Some
+    match i.CompiledName, thisArg, args with
+    | "get_Length", Some ar, _ -> get r t ar "length" |> Some
+    | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
+    | "set_Item", Some ar, [idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1354,61 +1356,65 @@ let arrayModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr
             // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
             Helper.CoreCall("Array", "fill", t, [newArray size t2; makeIntConst 0; size; value])
         | _ -> sprintf "Expecting an array type but got %A" t |> addErrorAndReturnNull com r
-    match args, i.CompiledName with
-    | [arg], "ToSeq" -> Some arg
-    | [arg], "OfSeq" -> toArray com t arg |> Some
-    | [arg], "OfList" -> listToArray com r t arg |> Some
-    | [arg], ("Length"|"Count") -> get r t arg "length" |> Some
-    | [idx; ar], "Item" -> getExpr r t ar idx |> Some
-    | [ar; idx], "Get" -> getExpr r t ar idx |> Some
-    | [ar; idx; value], "Set" -> Set(ar, ExprSet idx, value, r) |> Some
-    | [count; ar], ("Take"|"Truncate") -> Helper.InstanceCall(ar, "slice", t, [makeIntConst 0; count], ?loc=r) |> Some
-    | [count; ar], "Skip" -> Helper.InstanceCall(ar, "slice", t, [count], ?loc=r) |> Some
-    | [ar],        "Copy" -> Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
-    | [count], "ZeroCreate"    -> createArray count None |> Some
-    | [count; value], "Create" -> createArray count (Some value) |> Some
-    | _, "Empty" ->
+    match i.CompiledName, args with
+    | "ToSeq", [arg] -> Some arg
+    | "OfSeq", [arg] -> toArray com t arg |> Some
+    | "OfList", [arg] -> listToArray com r t arg |> Some
+    | ("Length" | "Count"), [arg] -> get r t arg "length" |> Some
+    | "Item", [idx; ar] -> getExpr r t ar idx |> Some
+    | "Get", [ar; idx] -> getExpr r t ar idx |> Some
+    | "Set", [ar; idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
+    | ("Take" | "Truncate"), [count; ar] ->
+        Helper.InstanceCall(ar, "slice", t, [makeIntConst 0; count], ?loc=r) |> Some
+    | "Skip", [count; ar] -> Helper.InstanceCall(ar, "slice", t, [count], ?loc=r) |> Some
+    | "Copy", [ar] -> Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
+    | "ZeroCreate", [count] -> createArray count None |> Some
+    | "Create", [count; value] -> createArray count (Some value) |> Some
+    | "Empty", _ ->
         let t = match t with Array t -> t | _ -> Any
         newArray (makeIntConst 0) t |> Some
-    | [ar], "IsEmpty" ->
+    | "IsEmpty", [ar] ->
         eq (get r (Number Int32) ar "length") (makeIntConst 0) |> Some
-    | [ar], "Head" -> getExpr r t ar (makeIntConst 0) |> Some
-    | [ar], "Tail" -> Helper.InstanceCall(ar, "slice", t, [makeIntConst 1], ?loc=r) |> Some
-    | _, Patterns.DicContains nativeArrayFunctions meth ->
+    | "Head", [ar] -> getExpr r t ar (makeIntConst 0) |> Some
+    | "Tail", [ar] -> Helper.InstanceCall(ar, "slice", t, [makeIntConst 1], ?loc=r) |> Some
+    | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
         Helper.InstanceCall(thisArg, meth, t, args, argTypes, ?loc=r) |> Some
-    | _, meth ->
+    | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com r "Array" meth i.GenericArgs args
         Helper.CoreCall("Array", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let lists (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match thisArg, args, i.CompiledName with
+    match i.CompiledName, thisArg, args with
     // Use methods for Head and Tail (instead of Get(ListHead) for example) to check for empty lists
-    | Some x, _, ReplaceName [ "get_Head",   "head"
-                               "get_Tail",   "tail"
-                               "get_Item",   "item"
-                               "get_Length", "length"
-                               "GetSlice",   "slice" ] methName ->
-        let args = match args with [ExprType Unit] -> [x] | args -> args @ [x]
-        Helper.CoreCall("List", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | Some x, _, "get_IsEmpty" -> Test(x, ListTest false, r) |> Some
-    | None, _, "get_Empty" -> NewList(None, (genArg com r 0 i.GenericArgs)) |> Value |> Some
-    | None, [h;t], "Cons" -> NewList(Some(h,t), (genArg com r 0 i.GenericArgs)) |> Value |> Some
+    | ReplaceName
+      [ "get_Head",   "head"
+        "get_Tail",   "tail"
+        "get_Item",   "item"
+        "get_Length", "length"
+        "GetSlice",   "slice" ] methName, Some x, _ ->
+            let args = match args with [ExprType Unit] -> [x] | args -> args @ [x]
+            Helper.CoreCall("List", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "get_IsEmpty", Some x, _ -> Test(x, ListTest false, r) |> Some
+    | "get_Empty", None, _ -> NewList(None, (genArg com r 0 i.GenericArgs)) |> Value |> Some
+    | "Cons", None, [h;t] -> NewList(Some(h,t), (genArg com r 0 i.GenericArgs)) |> Value |> Some
+    | ("GetHashCode" | "Equals" | "CompareTo"), Some callee, _ ->
+        Helper.InstanceCall(callee, i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let listModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    match args, i.CompiledName with
-    | [x], "IsEmpty" -> Test(x, ListTest false, r) |> Some
-    | _, "Empty" -> NewList(None, (genArg com r 0 i.GenericArgs)) |> Value |> Some
-    | [x], "Singleton" ->
+    match i.CompiledName, args with
+    | "IsEmpty", [x] -> Test(x, ListTest false, r) |> Some
+    | "Empty", _ -> NewList(None, (genArg com r 0 i.GenericArgs)) |> Value |> Some
+    | "Singleton", [x] ->
         NewList(Some(x, Value(NewList(None, t))), (genArg com r 0 i.GenericArgs)) |> Value |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
-    | [x], "ToSeq" -> toSeq r t x |> Some
-    | [x], "ToArray" -> listToArray com r t x |> Some
-    | _, meth ->
+    | "ToSeq", [x] -> toSeq r t x |> Some
+    | "ToArray", [x] -> listToArray com r t x |> Some
+    | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com r "List" meth i.GenericArgs args
         Helper.CoreCall("List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -1511,47 +1517,40 @@ let parse target (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         | Parse2Int -> false, "Int32"
         | Parse2Int64 -> false, "Long"
         | Parse2Float -> true, "Double"
-    match i.CompiledName with
-    | "IsNaN" when isFloat ->
-        match args with
-        | [_someNumber] -> Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
-        | _ -> None
+    match i.CompiledName, args with
+    | "IsNaN", [arg] when isFloat ->
+        Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
     // TODO verify that the number is within the Int32/Double/Single range
-    | "Parse" | "TryParse" ->
+    | "Parse", [str] ->
+        Helper.CoreCall(numberModule, "parse", t,
+            [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
+            [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
+    | "Parse", [str; Value(Enum(NumberEnum(Value(NumberConstant(hexConst', _))), _))] ->
         let hexConst = float System.Globalization.NumberStyles.HexNumber
-        match i.CompiledName, args with
-        | "Parse", [str] ->
+        if hexConst' = hexConst then
             Helper.CoreCall(numberModule, "parse", t,
-                [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
+                [str; (if isFloat then makeFloatConst 16.0 else makeIntConst 16)],
                 [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
-        | "Parse", [str; Value(Enum(NumberEnum(Value(NumberConstant(hexConst', _))), _))] ->
-            if hexConst' = hexConst then
-                Helper.CoreCall(numberModule, "parse", t,
-                    [str; (if isFloat then makeFloatConst 16.0 else makeIntConst 16)],
-                    [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
-            else None  (* Todo *)
-        // System.Double.Parse(string, IFormatProvider)
-        // just ignore the second args (IFormatProvider) and compile
-        // to System.Double.Parse(string)
-        | "Parse", [str; _ ] ->
-            Helper.CoreCall(numberModule, "parse", t,
-                [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
-                [i.SignatureArgTypes.Head; Number Float32])
-            |> Some
-        | "TryParse", [str; defValue] ->
-            Helper.CoreCall(numberModule, "tryParse", t,
-                [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10); defValue],
-                [i.SignatureArgTypes.Head; Number Float32; i.SignatureArgTypes.Tail.Head], ?loc=r) |> Some
-        | _ ->
-            sprintf "%s.%s only accepts a single argument" i.DeclaringEntityFullName i.CompiledName
-            |> addErrorAndReturnNull com r |> Some
-    | "ToString" ->
-        match args with
-        | [Value (StringConstant _) as format] ->
-            let format = emitJs r String [format] "'{0:' + $0 + '}'"
-            Helper.CoreCall("String", "format", t, [format; thisArg.Value], [format.Type; thisArg.Value.Type], ?loc=r) |> Some
-        | _ -> Helper.CoreCall("Util", "toString", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
-    | _ -> None
+        else None  // TODO:
+    | "Parse", str::_ ->
+        // e.g. Double.Parse(string, IFormatProvider) etc.
+        sprintf "%s.Parse(): second argument is ignored" i.DeclaringEntityFullName
+        |> addWarning com r
+        Helper.CoreCall(numberModule, "parse", t,
+            [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
+            [i.SignatureArgTypes.Head; Number Float32])
+        |> Some
+    | "TryParse", [str; defValue] ->
+        Helper.CoreCall(numberModule, "tryParse", t,
+            [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10); defValue],
+            [i.SignatureArgTypes.Head; Number Float32; i.SignatureArgTypes.Tail.Head], ?loc=r) |> Some
+    | "ToString", [Value (StringConstant _) as format] ->
+        let format = emitJs r String [format] "'{0:' + $0 + '}'"
+        Helper.CoreCall("String", "format", t, [format; thisArg.Value], [format.Type; thisArg.Value.Type], ?loc=r) |> Some
+    | "ToString", _ ->
+        Helper.CoreCall("Util", "toString", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+    | _ ->
+        None
 
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
@@ -1582,8 +1581,10 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         Some arg
     | ("Parse" | "TryParse"), _ ->
         parse Parse2Float com ctx r t i thisArg args
-// let parse isFloat (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-
+    | "op_LessThan", [left; right] -> compareIf com r left right BinaryLess |> Some
+    | "op_LessThanOrEqual", [left; right] -> compareIf com r left right BinaryLessOrEqual |> Some
+    | "op_GreaterThan", [left; right] -> compareIf com r left right BinaryGreater |> Some
+    | "op_GreaterThanOrEqual", [left; right] -> compareIf com r left right BinaryGreaterOrEqual |> Some
     | _,_ -> None
 
 let bigints (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1619,6 +1620,8 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         hash r arg |> Some
     | ("GenericComparison" | "GenericComparisonIntrinsic"), [left; right] ->
         compare com r left right |> Some
+    | ("GenericComparisonWithComparer" | "GenericComparisonWithComparerIntrinsic"), [comp; left; right] ->
+        Helper.InstanceCall(comp, "Compare", t, [left; right], i.SignatureArgTypes, ?loc=r) |> Some
     | ("GenericLessThan" | "GenericLessThanIntrinsic"), [left; right] ->
         compareIf com r left right BinaryLess |> Some
     | ("GenericLessOrEqual" | "GenericLessOrEqualIntrinsic"), [left; right] ->
@@ -1629,12 +1632,22 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         compareIf com r left right BinaryGreaterOrEqual |> Some
     | ("GenericEquality" | "GenericEqualityIntrinsic"), [left; right] ->
         equals com r true left right |> Some
+    | ("GenericEqualityER" | "GenericEqualityERIntrinsic"), [left; right] ->
+        // TODO: In ER mode, equality on two NaNs returns "true".
+        equals com r true left right |> Some
+    | ("GenericEqualityWithComparer" | "GenericEqualityWithComparerIntrinsic"), [comp; left; right] ->
+        Helper.InstanceCall(comp, "Equals", t, [left; right], i.SignatureArgTypes, ?loc=r) |> Some
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
         makeEqOp r left right BinaryEqualStrict |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
         Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r) |> Some
-    | "FastGenericComparer", _ ->
-        fsharpModule com ctx r t i thisArg args
+    | ("FastGenericComparer"
+    |  "FastGenericComparerFromTable"
+    |  "GenericEqualityComparer"
+    |  "GenericEqualityERComparer"
+        ), _ -> fsharpModule com ctx r t i thisArg args
+    | ("ParseInt32" | "ParseUInt32" | "ParseInt64" | "ParseUInt64"), [arg] ->
+        toInt false t [arg] |> Some
     | _ -> None
 
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1804,9 +1817,9 @@ let valueTypes (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr opti
     match i.CompiledName, thisArg with
     | ".ctor", _ -> objExpr t [] |> Some
     | "ToString", Some thisArg ->
-        Helper.InstanceCall(thisArg, "toString", String, []) |> Some
-    | ("GetHashCode"|"Equals"|"CompareTo"), Some thisArg ->
-        Helper.InstanceCall(thisArg, i.CompiledName, t, []) |> Some
+        Helper.InstanceCall(thisArg, "toString", String, [], i.SignatureArgTypes, ?loc=r) |> Some
+    | ("GetHashCode" | "Equals" | "CompareTo"), Some thisArg ->
+        Helper.InstanceCall(thisArg, i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1994,7 +2007,7 @@ let systemEnv (_: ICompiler) (_: Context) (_: SourceLocation option) (_: Type) (
 // see https://github.com/fable-compiler/Fable/pull/1197#issuecomment-348034660
 let globalization (_: ICompiler) (_: Context) (_: SourceLocation option) t (i: CallInfo) (_: Expr option) (_: Expr list) =
     match i.CompiledName with
-    | "InvariantCulture" ->
+    | "get_InvariantCulture" ->
         // System.Globalization namespace is not supported by Fable. The value InvariantCulture will be compiled to an empty object literal
         ObjectExpr([], t, None) |> Some
     | _ -> None
@@ -2287,10 +2300,11 @@ let private replacedModules =
   dict [
     "System.Math", operators
     "Microsoft.FSharp.Core.Operators", operators
-    "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators", operators
+    "Microsoft.FSharp.Core.Operators.Checked", operators
+    "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
+    "Microsoft.FSharp.Core.Operators.OperatorIntrinsics", intrinsicFunctions
     "Microsoft.FSharp.Core.ExtraTopLevelOperators", operators
     "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions", intrinsicFunctions
-    "Microsoft.FSharp.Core.Operators.OperatorIntrinsics", intrinsicFunctions
     "Microsoft.FSharp.Core.LanguagePrimitives", languagePrimitives
     "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare", languagePrimitives
     Types.char, chars
@@ -2327,7 +2341,6 @@ let private replacedModules =
     Types.bigint, bigints
     "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI", bigints
     Types.reference, references
-    "Microsoft.FSharp.Core.Operators.Unchecked", unchecked
     Types.object, objects
     Types.valueType, valueTypes
     "System.Enum", enums
