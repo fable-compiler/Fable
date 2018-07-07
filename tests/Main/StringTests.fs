@@ -208,17 +208,13 @@ let tests =
 
       // Conversions
 
-      testCase "Conversion string to char works" <| fun () ->
-            let c1 = char "h"
-            equal "h" (string c1)
-
-      testCase "Conversion int to char works" <| fun () ->
-            let c2 = char 97
-            equal "a" (string c2)
-
       testCase "Conversion char to int works" <| fun () ->
             equal 97 (int 'a')
             equal 'a' (char 97)
+
+      testCase "Conversion string to char works" <| fun () ->
+            equal 'a' (char "a")
+            equal "a" (string 'a')
 
       testCase "Conversion string to int works" <| fun () ->
             equal 5 (int "5")
@@ -226,7 +222,7 @@ let tests =
 
       testCase "Conversion string to int8 works" <| fun () ->
             equal 5y (int8 "5")
-            equal "5" (string 5)
+            equal "5" (string 5y)
 
       testCase "Conversion string to int16 works" <| fun () ->
             equal 5s (int16 "5")

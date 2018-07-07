@@ -1,8 +1,19 @@
 namespace FSharp.Core
 
 module LanguagePrimitives =
+    let FastGenericComparerFromTable<'T when 'T: comparison> =
+        { new System.Collections.Generic.IComparer<'T> with
+            override __.Compare(x,y) = LanguagePrimitives.GenericComparison x y }
     let FastGenericComparer<'T when 'T : comparison> =
         FSharp.Collections.ComparisonIdentity.Structural<'T>
+    let GenericEqualityComparer =
+        { new System.Collections.IEqualityComparer with
+            override __.Equals(x:obj,y:obj) = LanguagePrimitives.GenericEquality x y
+            override __.GetHashCode(x:obj) = LanguagePrimitives.GenericHash x }
+    let GenericEqualityERComparer =
+        { new System.Collections.IEqualityComparer with
+            override __.Equals(x:obj,y:obj) = LanguagePrimitives.GenericEqualityER x y
+            override __.GetHashCode(x:obj) = LanguagePrimitives.GenericHash x }
 
 module Operators =
     let Failure message = new System.Exception(message)
