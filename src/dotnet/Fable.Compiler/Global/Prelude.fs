@@ -53,10 +53,10 @@ module List =
         List.ofArray xs
 
     let mapToArray f (xs: 'a list) =
-        List.toArray xs |> Array.map f
+        xs |> List.map f |> List.toArray
 
     let mapiToArray f (xs: 'a list) =
-        List.toArray xs |> Array.mapi f
+        xs |> List.mapi f |> List.toArray
 
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
