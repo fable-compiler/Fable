@@ -224,12 +224,11 @@ module Helpers =
     //     ent.UnionCases |> Seq.exists (fun uci -> uci.UnionCaseFields.Count > 0)
 
     let unionCaseTag (ent: FSharpEntity) (unionCase: FSharpUnionCase) =
-        let name = unionCase.Name
-        ent.UnionCases
-        |> Seq.tryFindIndex (fun uci -> name = uci.Name)
-        |> function
-            | Some i -> i
-            | None -> failwithf "Cannot find case %s in %s" name (getEntityFullName ent)
+        try
+            let name = unionCase.Name
+            ent.UnionCases |> Seq.findIndex (fun uci -> name = uci.Name)
+        with _ ->
+            failwithf "Cannot find case %s in %s" unionCase.Name (getEntityFullName ent)
 
     /// FSharpUnionCase.CompiledName doesn't give the value of CompiledNameAttribute
     /// We must check the attributes explicitly
