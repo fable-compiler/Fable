@@ -7,6 +7,9 @@ open Fable.Core.JsInterop
 open System.Collections.Generic
 
 type UTest = A of int | B of int
+type RTest = { a: int; b: int }
+type STest = struct val A: int; new(a: int) = { A = a }; end
+type OTest(a) = member val A = a with get, set
 
 [<CustomEquality; CustomComparison>]
 type UTest2 =
@@ -29,8 +32,6 @@ type UTest2 =
                 match x, y with
                 | String s1, String s2 -> compare (s1 + s1) s2
             | _ -> invalidArg "yobj" "cannot compare values of different types"
-
-type RTest = { a: int; b: int }
 
 exception Ex of int
 
@@ -371,18 +372,42 @@ let tests =
             false
         |> equal false
 
-    testCase "isNull works with primitives" <| fun () ->
+    testCase "isNull with primitives works" <| fun () ->
         isNull null |> equal true
         isNull "" |> equal false
         isNull "0" |> equal false
         isNull "hello" |> equal false
 
-    testCase "isNull works with objects" <| fun () ->
+    testCase "isNull with objects works" <| fun () ->
         let s1: String = null
         isNull s1 |> equal true
-
-        let s2: String = "hello";
+        let s2: String = "hello"
         isNull s2 |> equal false
+
+    testCase "hash with unions works" <| fun () ->
+        (hash (UTest.A 3)) = (hash (UTest.A 3)) |> equal true
+        (hash (UTest.A 4)) = (hash (UTest.A 3)) |> equal false
+        (hash (UTest.B 3)) = (hash (UTest.A 3)) |> equal false
+
+    testCase "hash with records works" <| fun () ->
+        (hash ({a=3;b=4})) = (hash ({a=3;b=4})) |> equal true
+        (hash ({a=4;b=3})) = (hash ({a=3;b=4})) |> equal false
+        (hash ({a=3;b=3})) = (hash ({a=3;b=4})) |> equal false
+
+    testCase "hash with structs works" <| fun () ->
+        (hash (STest(3))) = (hash (STest(3))) |> equal true
+        (hash (STest(4))) = (hash (STest(3))) |> equal false
+
+    testCase "hash with objects works" <| fun () ->
+        (hash (OTest(3))) = (hash (OTest(3))) |> equal false
+        (hash (OTest(4))) = (hash (OTest(3))) |> equal false
+
+    testCase "hash with same object works" <| fun () ->
+        let o = OTest(3)
+        let h1 = hash o
+        o.A <- 4
+        let h2 = hash o
+        h1 = h2 |> equal true
 
     testCase "hash works" <| fun () ->
         (hash 111) = (hash 111) |> equal true
