@@ -1798,7 +1798,7 @@ let objects (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr optio
     | ".ctor", _, _ -> objExpr t [] |> Some
     | "GetHashCode", Some arg, _ ->
         // Default to identity hash when .GetHashCode is called directly
-        Helper.CoreCall("Util", "hash", Number Int32, [arg; makeBoolConst false], ?loc=r) |> Some
+        Helper.CoreCall("Util", "hash", Number Int32, [arg; makeBoolConst true], ?loc=r) |> Some
     | "ToString", Some arg, _ ->
         toString com r [arg] |> Some
     | "ReferenceEquals", _, [left; right] ->
