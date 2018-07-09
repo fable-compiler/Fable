@@ -7,13 +7,9 @@ else
   MONO="mono"
 fi
 
-if [ -e "paket.lock" ]; then
-$MONO .paket/paket.exe restore
-else
-$MONO .paket/paket.exe install
-fi
+$MONO .paket/paket.exe restore --silent
 exit_code=$?
 if [ $exit_code -ne 0 ]; then
 exit $exit_code
 fi
-$MONO packages/build/FAKE/tools/FAKE.exe $@ --fsiargs build.fsx
+$MONO packages/build/FAKE/tools/FAKE.exe build.fsx $@

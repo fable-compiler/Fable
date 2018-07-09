@@ -16,8 +16,8 @@ cache:
 before_script:
   - nvm install 6.11.5
   - nvm use 6.11.5
-  # Update npm
-  - npm install -g npm
+  # # Update npm
+  # - npm install -g npm
 
 script:
   - ./build.sh All
