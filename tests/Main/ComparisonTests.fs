@@ -384,6 +384,18 @@ let tests =
         let s2: String = "hello"
         isNull s2 |> equal false
 
+    testCase "hash with arrays works" <| fun () ->
+        (hash [|3; 4|]) = (hash [|3; 4|]) |> equal true
+        (hash [|3; 4|]) = (hash [|3; 5|]) |> equal false
+
+    testCase "hash with lists works" <| fun () ->
+        (hash [3; 4]) = (hash [3; 4]) |> equal true
+        (hash [3; 4]) = (hash [3; 5]) |> equal false
+
+    testCase "hash with tuples works" <| fun () ->
+        (hash (3, 4)) = (hash (3, 4)) |> equal true
+        (hash (3, 4)) = (hash (3, 5)) |> equal false
+
     testCase "hash with unions works" <| fun () ->
         (hash (UTest.A 3)) = (hash (UTest.A 3)) |> equal true
         (hash (UTest.A 4)) = (hash (UTest.A 3)) |> equal false
@@ -409,15 +421,11 @@ let tests =
         let h2 = hash o
         h1 = h2 |> equal true
 
-    testCase "hash works" <| fun () ->
+    testCase "hash with primitives works" <| fun () ->
         (hash 111) = (hash 111) |> equal true
         (hash 222) = (hash 333) |> equal false
         (hash "1") = (hash "1") |> equal true
         (hash "2") = (hash "3") |> equal false
-        (hash [1]) = (hash [1]) |> equal true
-        (hash [2]) = (hash [3]) |> equal false
-        (hash [|1|]) = (hash [|1|]) |> equal true
-        (hash [|2|]) = (hash [|3|]) |> equal false
 
     testCase "Unchecked.hash works" <| fun () ->
         (Unchecked.hash 111) = (Unchecked.hash 111) |> equal true

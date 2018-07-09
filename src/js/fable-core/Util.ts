@@ -207,23 +207,6 @@ export function numberHash(x: number) {
   return x * 2654435761 | 0;
 }
 
-function hashPrivate(x: any, identity?: boolean): number {
-  switch (typeof x) {
-    case "boolean":
-      return x ? 1 : 0;
-    case "number":
-      return numberHash(x);
-    case "string":
-      return stringHash(x);
-    default:
-      if (identity) {
-        return ObjectRef.id(x) * 2654435761 | 0;
-      } else {
-        return stringHash(toString(x)); // structural
-      }
-  }
-}
-
 // From https://stackoverflow.com/a/37449594
 export function combineHashCodes(hashes: number[]) {
   if (hashes.length === 0) { return 0; }
@@ -232,18 +215,35 @@ export function combineHashCodes(hashes: number[]) {
   });
 }
 
-export function hash(x: any, defaultToIdentity?: boolean) {
+export function hash(x: any, structural?: boolean): number {
   if (x == null) {
     return 0;
   } else if (typeof x.GetHashCode === "function") {
     return x.GetHashCode();
   } else {
-    return hashPrivate(x, defaultToIdentity);
+    switch (typeof x) {
+      case "boolean":
+        return x ? 1 : 0;
+      case "number":
+        return numberHash(x);
+      case "string":
+        return stringHash(x);
+      default:
+        if (isArray(x)) {
+          const ar = (x as ArrayLike<any>);
+          const len = ar.length;
+          const hashes: number[] = new Array(len);
+          for (let i = 0; i < len; i++) {
+            hashes[i] = hash(ar[i], structural);
+          }
+          return combineHashCodes(hashes);
+        } else {
+          return structural
+            ? stringHash(toString(x))
+            : ObjectRef.id(x) * 2654435761;
+        }
+    }
   }
-}
-
-export function identityHash(x: any) {
-  return x == null ? 0 : hashPrivate(x, true);
 }
 
 export function isArray(x: any) {

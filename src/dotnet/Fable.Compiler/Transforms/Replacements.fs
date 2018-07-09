@@ -824,6 +824,9 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         DelayedResolution(AsPojo(kvs, (CaseRules.None |> int |> makeIntConst)), t, r) |> Some
      | "keyValueList", [caseRule; keyValueList] ->
             DelayedResolution(AsPojo(keyValueList, caseRule), t, r) |> Some
+    | "toPlainJsObj", _ ->
+        let emptyObj = ObjectExpr([], t, None)
+        Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
     | "jsOptions", [arg] ->
         makePojoFromLambda arg |> Some
     | "jsThis", _ ->
@@ -1640,7 +1643,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
         makeEqOp r left right BinaryEqualStrict |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
-        Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r) |> Some
+        Helper.CoreCall("Util", "hash", Number Int32, [arg], ?loc=r) |> Some
     | ("FastGenericComparer"
     |  "FastGenericComparerFromTable"
     |  "GenericEqualityComparer"
@@ -1797,8 +1800,7 @@ let objects (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr optio
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> objExpr t [] |> Some
     | "GetHashCode", Some arg, _ ->
-        // Default to identity hash when .GetHashCode is called directly
-        Helper.CoreCall("Util", "hash", Number Int32, [arg; makeBoolConst true], ?loc=r) |> Some
+        Helper.CoreCall("Util", "hash", Number Int32, [arg], ?loc=r) |> Some
     | "ToString", Some arg, _ ->
         toString com r [arg] |> Some
     | "ReferenceEquals", _, [left; right] ->

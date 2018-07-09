@@ -25,7 +25,7 @@ let (?<-) (o: obj) (prop: obj) (v: obj): unit = jsNative
 /// E.g. `myFn $ (arg1, arg2)` in JS becomes `myFn(arg1, arg2)`
 let ($) (callee: obj) (args: obj): 'a = jsNative
 
-/// Upcast the right operand to obj and create a key-value tuple.
+/// Upcast the right operand to obj (and uncurry it if it's a function) and create a key-value tuple.
 /// Mostly convenient when used with `createObj`.
 /// E.g. `createObj [ "a" ==> 5 ]` in JS becomes `{ a: 5 }`
 let (==>) (key: string) (v: obj): string*obj = jsNative
@@ -75,6 +75,9 @@ let importSideEffects (path: string): unit = jsNative
 
 /// Imports a file dynamically at runtime
 let importDynamic<'T> (path: string): JS.Promise<'T> = jsNative
+
+/// Used when you need to send an F# record to a JS library accepting only plain JS objects (POJOs)
+let toPlainJsObj(o: 'T): obj = jsNative
 
 /// Serialize F# objects to JSON
 [<Obsolete("Currently not working for Fable 2, replaced by JSON.stringify")>]
