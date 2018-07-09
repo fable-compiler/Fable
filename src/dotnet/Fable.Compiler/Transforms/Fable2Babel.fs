@@ -198,16 +198,19 @@ module Util =
             com.TransformAsExpr(ctx, entRef)
 
     let makeTypedArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
-        match typ with
-        | Fable.Number kind when com.Options.typedArrays ->
-            let cons = getTypedArrayName com kind |> Identifier
+        let makeJsTypedArray jsName =
             let args =
                 match arrayKind with
                 | Fable.ArrayValues args ->
                     [| List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) args
                        |> ArrayExpression :> Expression |]
                 | Fable.ArrayAlloc(TransformExpr com ctx size) -> [|size|]
-            NewExpression(cons, args) :> Expression
+            NewExpression(Identifier jsName, args) :> Expression
+        match typ with
+        | Fable.Char when com.Options.typedArrays ->
+            makeJsTypedArray "Uint16Array"
+        | Fable.Number kind when com.Options.typedArrays ->
+            getTypedArrayName com kind |> makeJsTypedArray
         | _ ->
             match arrayKind with
             | Fable.ArrayValues args ->
@@ -523,7 +526,7 @@ module Util =
         | Fable.Null _ -> upcast NullLiteral ()
         | Fable.UnitConstant -> upcast NullLiteral () // TODO: Use `void 0`?
         | Fable.BoolConstant x -> upcast BooleanLiteral (x)
-        | Fable.CharConstant x -> upcast StringLiteral (string x)
+        | Fable.CharConstant x -> upcast NumericLiteral (float x)
         | Fable.StringConstant x -> upcast StringLiteral (x)
         | Fable.NumberConstant (x,_) ->
             if x < 0.
