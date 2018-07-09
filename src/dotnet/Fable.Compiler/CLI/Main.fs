@@ -117,8 +117,10 @@ let setGlobalParams(args: string[]) =
                 if path.StartsWith(Literals.FORCE)
                 then path
                 else Fable.Path.normalizeFullPath path)),
-        ?replaceFile =
-            (tryFindArgValue "--replace-file" args)
+        ?replaceFiles =
+            (tryFindArgValue "--replace-files" args),
+        ?experimental =
+            (tryFindArgValue "--experimental" args)
     )
 
 let printHelp() =

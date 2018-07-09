@@ -12,12 +12,13 @@ open System.Reflection
 type private TypeInThisAssembly = class end
 
 [<RequireQualifiedAccess>]
-type GlobalParams private (verbose, fableCorePath, workingDir, replaceFile) =
+type GlobalParams private (verbose, fableCorePath, workingDir) =
     static let mutable singleton: GlobalParams option = None
     let mutable _verbose = verbose
     let mutable _fableCorePath = fableCorePath
     let mutable _workingDir = workingDir
-    let mutable _replaceFile = replaceFile
+    let mutable _replaceFiles = []
+    let mutable _experimental: Set<string> = Set.empty
 
     static member Singleton =
         match singleton with
@@ -29,20 +30,34 @@ type GlobalParams private (verbose, fableCorePath, workingDir, replaceFile) =
                   typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location
                   |> Path.GetDirectoryName
                 Path.Combine(execDir, "..", "..", "fable-core")
-            let p = GlobalParams(false, fableCorePath, workingDir, None)
+            let p = GlobalParams(false, fableCorePath, workingDir)
             singleton <- Some p
             p
 
     member __.Verbose: bool = _verbose
     member __.FableCorePath: string = _fableCorePath
     member __.WorkingDir: string = _workingDir
-    member __.ReplaceFile: string option = _replaceFile
+    member __.ReplaceFiles = _replaceFiles
+    member __.Experimental = _experimental
 
-    member __.SetValues(?verbose, ?fableCorePath, ?workingDir, ?replaceFile) =
+    member __.SetValues(?verbose, ?fableCorePath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
         _verbose        <- defaultArg verbose _verbose
         _fableCorePath  <- defaultArg fableCorePath _fableCorePath
         _workingDir     <- defaultArg workingDir _workingDir
-        _replaceFile    <- replaceFile |> Option.orElse _replaceFile
+        _replaceFiles   <-
+            match replaceFiles with
+            | None -> _replaceFiles
+            | Some replaceFiles ->
+                replaceFiles.Split([|","; ";"|], System.StringSplitOptions.RemoveEmptyEntries)
+                |> Array.map (fun pair ->
+                    let parts = pair.Split(':')
+                    parts.[0].Trim(), parts.[1].Trim())
+                |> Array.toList
+        _experimental   <-
+            match experimental with
+            | None -> _experimental
+            | Some experimental ->
+                experimental.Split([|","; ";"|], System.StringSplitOptions.RemoveEmptyEntries) |> Set
 
 [<RequireQualifiedAccess>]
 module Log =

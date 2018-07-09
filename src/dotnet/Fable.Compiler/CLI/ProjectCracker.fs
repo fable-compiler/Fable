@@ -358,17 +358,12 @@ let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: str
             let refSources = projRefs |> List.collect (fun x -> x.SourceFiles)
             pkgSources @ refSources @ mainProj.SourceFiles |> List.toArray |> removeFilesInObjFolder
         let sourceFiles =
-            match GlobalParams.Singleton.ReplaceFile with
-            | Some value ->
+            match GlobalParams.Singleton.ReplaceFiles with
+            | [] -> sourceFiles
+            | replacements ->
                 try
-                    let replacements =
-                        value.Split([|","; ";"|], StringSplitOptions.RemoveEmptyEntries)
-                        |> Array.map (fun pair ->
-                            let parts = pair.Split(':')
-                            parts.[0].Trim(), parts.[1].Trim())
                     sourceFiles |> Array.map (fun path ->
-                        replacements
-                        |> Array.tryPick (fun (pattern, replacement) ->
+                        replacements |> List.tryPick (fun (pattern, replacement) ->
                             if path.Contains(pattern)
                             then Path.normalizeFullPath(replacement) |> Some
                             else None)
@@ -376,7 +371,6 @@ let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: str
                 with ex ->
                     printfn "Cannot replace files: %s" ex.Message
                     sourceFiles
-            | _ -> sourceFiles
         let otherOptions =
             // We only keep dllRefs for the main project
             let dllRefs = [| for r in mainProj.DllReferences -> "-r:" + r |]

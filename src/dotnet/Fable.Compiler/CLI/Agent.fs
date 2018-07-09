@@ -76,7 +76,7 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
                 |> Async.RunSynchronously
             tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
                 Printers.printAst dir checkedProject)
-            let optimized = false // TODO: from compiler option
+            let optimized = GlobalParams.Singleton.Experimental.Contains("optimize-fcs")
             let implFiles =
                 if not optimized then checkedProject.AssemblyContents.ImplementationFiles
                 else checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
