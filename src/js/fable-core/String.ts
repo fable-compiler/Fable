@@ -1,6 +1,6 @@
 import { toString as dateToString } from "./Date";
 import { escape } from "./RegExp";
-import { toString } from "./Util";
+import { isArray, toString } from "./Util";
 
 function asString(x: string|number): string {
   return typeof x === "number" ? String.fromCharCode(x) : x;
@@ -464,19 +464,29 @@ export function split(str: string, splitters: Array<string|number>, count?: numb
   if (count === 0) {
     return [];
   }
-  if (!Array.isArray(splitters)) {
-    if (removeEmpty === 0) { return str.split(splitters, count); }
+  if (!isArray(splitters)) {
+    if (removeEmpty === 0) {
+      return str.split(asString(splitters as any), count);
+    }
     const len = arguments.length;
     splitters = Array(len - 1);
     for (let key = 1; key < len; key++) {
       splitters[key - 1] = arguments[key];
     }
   }
-  splitters = splitters.map((x) => escape(asString(x)));
-  splitters = splitters.length > 0 ? splitters : [" "];
-  let i = 0;
+  let pattern = " ";
+  const splittersLen = splitters.length;
+  if (splittersLen > 0) {
+    const temp = new Array(splittersLen);
+    // splitters may be an Uint16TypedArray of chars, we cannot use .map
+    for (let i = 0; i < splittersLen; i++) {
+      temp[i] = escape(asString(splitters[i]));
+    }
+    pattern = temp.join("|");
+  }
+  const reg = new RegExp(pattern, "g");
   const splits: string[] = [];
-  const reg = new RegExp(splitters.join("|"), "g");
+  let i = 0;
   while (count == null || count > 1) {
     const m = reg.exec(str);
     if (m === null) { break; }
@@ -512,6 +522,18 @@ export function trimEnd(str: string, ...chars: number[]) {
     : str.replace(new RegExp("[" + escape(String.fromCharCode(...chars)) + "]+$"), "");
 }
 
-export function filter(pred: (i: number) => boolean, x: string) {
-  return fromCharArray(toCharArray(x).filter(pred));
+export function filter(pred: (c: number) => boolean, str: string) {
+  return fromCharArray(toCharArray(str).filter(pred));
+}
+
+export function map(f: (char: number) => number, str: string) {
+  return fromCharArray(toCharArray(str).map(f));
+}
+
+export function mapIndexed(f: (index: number, char: number) => number, str: string) {
+  return fromCharArray(toCharArray(str).map((c, i) => f(i, c)));
+}
+
+export function collect(f: (char: number) => string, str: string) {
+  return toCharArray(str).map(f).join("");
 }
