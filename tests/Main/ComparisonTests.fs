@@ -385,57 +385,70 @@ let tests =
         isNull s2 |> equal false
 
     testCase "hash with arrays works" <| fun () ->
-        (hash [|3; 4|]) = (hash [|3; 4|]) |> equal true
-        (hash [|3; 4|]) = (hash [|3; 5|]) |> equal false
+        (hash [|1; 2|], hash [|1; 2|]) ||> equal
+        (hash [|2; 1|], hash [|1; 2|]) ||> notEqual
 
     testCase "hash with lists works" <| fun () ->
-        (hash [3; 4]) = (hash [3; 4]) |> equal true
-        (hash [3; 4]) = (hash [3; 5]) |> equal false
+        (hash [1; 2], hash [1; 2]) ||> equal
+        (hash [2; 1], hash [1; 2]) ||> notEqual
 
     testCase "hash with tuples works" <| fun () ->
-        (hash (3, 4)) = (hash (3, 4)) |> equal true
-        (hash (3, 4)) = (hash (3, 5)) |> equal false
+        (hash (1, 2), hash (1, 2)) ||> equal
+        (hash (2, 1), hash (1, 2)) ||> notEqual
 
     testCase "hash with unions works" <| fun () ->
-        (hash (UTest.A 3)) = (hash (UTest.A 3)) |> equal true
-        (hash (UTest.A 4)) = (hash (UTest.A 3)) |> equal false
-        (hash (UTest.B 3)) = (hash (UTest.A 3)) |> equal false
+        (hash (UTest.A 1), hash (UTest.A 1)) ||> equal
+        (hash (UTest.A 2), hash (UTest.A 1)) ||> notEqual
+        (hash (UTest.B 1), hash (UTest.A 1)) ||> notEqual
 
     testCase "hash with records works" <| fun () ->
-        (hash ({a=3;b=4})) = (hash ({a=3;b=4})) |> equal true
-        (hash ({a=4;b=3})) = (hash ({a=3;b=4})) |> equal false
-        (hash ({a=3;b=3})) = (hash ({a=3;b=4})) |> equal false
+        (hash {a=1; b=2}, hash {a=1; b=2}) ||> equal
+        (hash {a=2; b=1}, hash {a=1; b=2}) ||> notEqual
 
     testCase "hash with structs works" <| fun () ->
-        (hash (STest(3))) = (hash (STest(3))) |> equal true
-        (hash (STest(4))) = (hash (STest(3))) |> equal false
+        (hash (STest(1)), hash (STest(1))) ||> equal
+        (hash (STest(2)), hash (STest(1))) ||> notEqual
 
     testCase "hash with objects works" <| fun () ->
-        (hash (OTest(3))) = (hash (OTest(3))) |> equal false
-        (hash (OTest(4))) = (hash (OTest(3))) |> equal false
+        (hash (OTest(1)), hash (OTest(1))) ||> notEqual
+        (hash (OTest(2)), hash (OTest(1))) ||> notEqual
 
     testCase "hash with same object works" <| fun () ->
-        let o = OTest(3)
+        let o = OTest(1)
         let h1 = hash o
-        o.A <- 4
+        o.A <- 2
         let h2 = hash o
-        h1 = h2 |> equal true
+        (h1, h2) ||> equal
+
+    testCase "hash with longs works" <| fun () ->
+        (hash (1L<<<33), hash (1L<<<33)) ||> equal
+        (hash (1L<<<34), hash (1L<<<33)) ||> notEqual
+        (hash 3L, hash (3L + (1L<<<33))) ||> notEqual
+        (hash (-3L), hash (3L))          ||> notEqual
 
     testCase "hash with primitives works" <| fun () ->
-        (hash 111) = (hash 111) |> equal true
-        (hash 222) = (hash 333) |> equal false
-        (hash "1") = (hash "1") |> equal true
-        (hash "2") = (hash "3") |> equal false
+        (hash 111, hash 111) ||> equal
+        (hash 222, hash 111) ||> notEqual
+        (hash "1", hash "1") ||> equal
+        (hash "2", hash "1") ||> notEqual
 
-    testCase "Unchecked.hash works" <| fun () ->
-        (Unchecked.hash 111) = (Unchecked.hash 111) |> equal true
-        (Unchecked.hash 222) = (Unchecked.hash 333) |> equal false
-        (Unchecked.hash "1") = (Unchecked.hash "1") |> equal true
-        (Unchecked.hash "2") = (Unchecked.hash "3") |> equal false
-        (Unchecked.hash [1]) = (Unchecked.hash [1]) |> equal true
-        (Unchecked.hash [2]) = (Unchecked.hash [3]) |> equal false
-        (Unchecked.hash [|1|]) = (Unchecked.hash [|1|]) |> equal true
-        (Unchecked.hash [|2|]) = (Unchecked.hash [|3|]) |> equal false
+    testCase "Unchecked.hash with primitives works" <| fun () ->
+        (Unchecked.hash 111, Unchecked.hash 111) ||> equal
+        (Unchecked.hash 222, Unchecked.hash 333) ||> notEqual
+        (Unchecked.hash "1", Unchecked.hash "1") ||> equal
+        (Unchecked.hash "2", Unchecked.hash "3") ||> notEqual
+
+    testCase "Unchecked.hash with lists works" <| fun () ->
+        (Unchecked.hash [1;2], Unchecked.hash [1;2]) ||> equal
+        (Unchecked.hash [2;1], Unchecked.hash [1;2]) ||> notEqual
+
+    testCase "Unchecked.hash with arrays works" <| fun () ->
+        (Unchecked.hash [|1;2|], Unchecked.hash [|1;2|]) ||> equal
+        (Unchecked.hash [|2;1|], Unchecked.hash [|1;2|]) ||> notEqual
+
+    testCase "Unchecked.hash with tuples works" <| fun () ->
+        (Unchecked.hash (1,2), Unchecked.hash (1,2)) ||> equal
+        (Unchecked.hash (2,1), Unchecked.hash (1,2)) ||> notEqual
 
     testCase "Unchecked.equals works" <| fun () ->
         Unchecked.equals 111 111 |> equal true
@@ -459,20 +472,44 @@ let tests =
     testCase "DU comparison works" <| fun () ->
         let hasStatusReached expectedStatus status =
             status >= expectedStatus
-
         Status.CreateNewMeterReadingPicture >= Status.SelectingNewDevice
         |> equal true
-
         hasStatusReached Status.SelectingNewDevice Status.CreateNewMeterReadingPicture
         |> equal true
 
-    testCase "LanguagePrimitives.GenericHash works" <| fun () ->
-        (LanguagePrimitives.GenericHash 111) = (LanguagePrimitives.GenericHash 111) |> equal true
-        (LanguagePrimitives.GenericHash 222) = (LanguagePrimitives.GenericHash 333) |> equal false
-        (LanguagePrimitives.GenericHash "1") = (LanguagePrimitives.GenericHash "1") |> equal true
-        (LanguagePrimitives.GenericHash "2") = (LanguagePrimitives.GenericHash "3") |> equal false
-        (LanguagePrimitives.GenericHash [1]) = (LanguagePrimitives.GenericHash [1]) |> equal true
-        (LanguagePrimitives.GenericHash [2]) = (LanguagePrimitives.GenericHash [3]) |> equal false
+    testCase "LanguagePrimitives.GenericHash with primitives works" <| fun () ->
+        (LanguagePrimitives.GenericHash 111, LanguagePrimitives.GenericHash 111) ||> equal
+        (LanguagePrimitives.GenericHash 222, LanguagePrimitives.GenericHash 111) ||> notEqual
+        (LanguagePrimitives.GenericHash "1", LanguagePrimitives.GenericHash "1") ||> equal
+        (LanguagePrimitives.GenericHash "2", LanguagePrimitives.GenericHash "1") ||> notEqual
+
+    testCase "LanguagePrimitives.GenericHash with lists works" <| fun () ->
+        (LanguagePrimitives.GenericHash [1;2], LanguagePrimitives.GenericHash [1;2]) ||> equal
+        (LanguagePrimitives.GenericHash [2;1], LanguagePrimitives.GenericHash [1;2]) ||> notEqual
+
+    testCase "LanguagePrimitives.GenericHash with arrays works" <| fun () ->
+        (LanguagePrimitives.GenericHash [|1;2|], LanguagePrimitives.GenericHash [|1;2|]) ||> equal
+        (LanguagePrimitives.GenericHash [|2;1|], LanguagePrimitives.GenericHash [|1;2|]) ||> notEqual
+
+    testCase "LanguagePrimitives.GenericHash with tuples works" <| fun () ->
+        (LanguagePrimitives.GenericHash (1,2), LanguagePrimitives.GenericHash (1,2)) ||> equal
+        (LanguagePrimitives.GenericHash (2,1), LanguagePrimitives.GenericHash (1,2)) ||> notEqual
+
+    testCase "LanguagePrimitives.PhysicalHash with primitives works" <| fun () ->
+        (LanguagePrimitives.PhysicalHash "1", LanguagePrimitives.PhysicalHash "1") ||> equal
+        (LanguagePrimitives.PhysicalHash "2", LanguagePrimitives.PhysicalHash "1") ||> notEqual
+
+    testCase "LanguagePrimitives.PhysicalHash with lists works" <| fun () ->
+        (LanguagePrimitives.PhysicalHash [1;2], LanguagePrimitives.PhysicalHash [1;2]) ||> notEqual
+        (LanguagePrimitives.PhysicalHash [2;1], LanguagePrimitives.PhysicalHash [1;2]) ||> notEqual
+
+    testCase "LanguagePrimitives.PhysicalHash with arrays works" <| fun () ->
+        (LanguagePrimitives.PhysicalHash [|1;2|], LanguagePrimitives.PhysicalHash [|1;2|]) ||> notEqual
+        (LanguagePrimitives.PhysicalHash [|2;1|], LanguagePrimitives.PhysicalHash [|1;2|]) ||> notEqual
+
+    testCase "LanguagePrimitives.PhysicalHash with tuples works" <| fun () ->
+        (LanguagePrimitives.PhysicalHash (1,2), LanguagePrimitives.PhysicalHash (1,2)) ||> notEqual
+        (LanguagePrimitives.PhysicalHash (2,1), LanguagePrimitives.PhysicalHash (1,2)) ||> notEqual
 
     testCase "LanguagePrimitives.GenericComparison works" <| fun () ->
         LanguagePrimitives.GenericComparison 111 111 |> equal 0

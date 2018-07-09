@@ -559,12 +559,24 @@ let isCompatibleWithJsComparison = function
 // * `hash`, `Unchecked.hash` first check if GetHashCode is implemented and then default to structural hash.
 // * `.GetHashCode` called directly defaults to identity hash (for reference types except string) if not implemented.
 // * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
-let hash r (arg: Expr) =
+let identityHash r (arg: Expr) =
     match arg.Type with
-    // Optimization for types already implementing GetHashCode
-    | DeclaredType(ent,_) when hasBaseImplementingBasicMethods ent ->
-        Helper.InstanceCall(arg, "GetHashCode", Number Int32, [], ?loc=r)
-    | _ -> Helper.CoreCall("Util", "hash", Number Int32, [arg], ?loc=r)
+    | Boolean | Char | String | Number _ | EnumType _
+    | Builtin(BclInt64|BclUInt64|BclBigInt)
+    | Builtin(BclDateTime|BclDateTimeOffset)
+    | Builtin(BclGuid|BclTimeSpan) ->
+        Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
+    | DeclaredType(ent,_) when ent.IsValueType ->
+        Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
+    | _ ->
+        Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r)
+
+let structuralHash r (arg: Expr) =
+    match arg.Type with
+    | DeclaredType(ent,_) when ent.IsClass ->
+        Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r)
+    | _ ->
+        Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
 
 let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     let is equal expr =
@@ -655,7 +667,7 @@ let makeEqualityComparer (com: ICompiler) typArg =
     // TODO: Use proper IEqualityComparer<'T> type instead of Any
     ObjectExpr
         ([ObjectMember(makeStrConst "Equals", f, ObjectValue)
-          ObjectMember(makeStrConst "GetHashCode", makeCoreRef Any "hash" "Util", ObjectValue)], Any, None)
+          ObjectMember(makeStrConst "GetHashCode", makeCoreRef Any "structuralHash" "Util", ObjectValue)], Any, None)
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
@@ -849,6 +861,8 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         |> makeStrConst |> Some
     | "AreEqual", _ ->
         Helper.CoreCall("Util", "assertEqual", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | "NotEqual", _ ->
+        Helper.CoreCall("Util", "assertNotEqual", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "jsNative", _ ->
         // TODO: Fail at compile time?
         addWarning com r "jsNative is being compiled without replacement, this will fail at runtime."
@@ -1052,7 +1066,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("op_Inequality"|"Neq"), [left; right] -> equals com r false left right |> Some
     | ("op_Equality"|"Eq"), [left; right] -> equals com r true left right |> Some
     | "IsNull", [arg] -> makeEqOp r arg (Null arg.Type |> Value) BinaryEqual |> Some
-    | "Hash", [arg] -> hash r arg |> Some
+    | "Hash", [arg] -> structuralHash r arg |> Some
     // Comparison
     | "Compare", [left; right] -> compare com r left right |> Some
     | ("op_LessThan"|"Lt"), [left; right] -> compareIf com r left right BinaryLess |> Some
@@ -1620,7 +1634,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         | EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> Value |> Some
         | _ -> None
     | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
-        hash r arg |> Some
+        structuralHash r arg |> Some
     | ("GenericComparison" | "GenericComparisonIntrinsic"), [left; right] ->
         compare com r left right |> Some
     | ("GenericComparisonWithComparer" | "GenericComparisonWithComparerIntrinsic"), [comp; left; right] ->
@@ -1643,7 +1657,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
         makeEqOp r left right BinaryEqualStrict |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
-        Helper.CoreCall("Util", "hash", Number Int32, [arg], ?loc=r) |> Some
+        identityHash r arg |> Some
     | ("FastGenericComparer"
     |  "FastGenericComparerFromTable"
     |  "GenericEqualityComparer"
@@ -1800,7 +1814,7 @@ let objects (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr optio
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> objExpr t [] |> Some
     | "GetHashCode", Some arg, _ ->
-        Helper.CoreCall("Util", "hash", Number Int32, [arg], ?loc=r) |> Some
+        identityHash r arg |> Some
     | "ToString", Some arg, _ ->
         toString com r [arg] |> Some
     | "ReferenceEquals", _, [left; right] ->
@@ -1827,7 +1841,7 @@ let valueTypes (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr opti
 let unchecked (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "DefaultOf" -> (genArg com r 0 i.GenericArgs) |> defaultof |> Some
-    | "Hash" -> Helper.CoreCall("Util", "hash", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Hash" -> structuralHash r args.Head |> Some
     | "Equals" -> Helper.CoreCall("Util", "equals", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Compare" -> Helper.CoreCall("Util", "compare", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
