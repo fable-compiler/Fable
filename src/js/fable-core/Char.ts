@@ -32,8 +32,8 @@ function getCategory() {
     categories[i / 2] = unicodeDeltas[i + 1];
   }
   // binary search in unicode ranges
-  return (s: string, index?: number) => {
-    const cp = s.charCodeAt(index || 0);
+  return (s: string|number, index?: number) => {
+    const cp = typeof s === "string" ? s.charCodeAt(index || 0) : s;
     let hi = codepoints.length;
     let lo = 0;
     while (hi - lo > 1) {
@@ -120,74 +120,79 @@ const isSymbolMask = 0
 
 export const getUnicodeCategory = getCategory();
 
-export function isControl(s: string, index?: number) {
+export function isControl(s: string|number, index?: number) {
   const test = 1 << getUnicodeCategory(s, index);
   return (test & isControlMask) !== 0;
 }
 
-export function isDigit(s: string, index?: number) {
+export function isDigit(s: string|number, index?: number) {
   const test = 1 << getUnicodeCategory(s, index);
   return (test & isDigitMask) !== 0;
 }
 
-export function isLetter(s: string, index?: number) {
+export function isLetter(s: string|number, index?: number) {
   const test = 1 << getUnicodeCategory(s, index);
   return (test & isLetterMask) !== 0;
 }
 
-export function isLetterOrDigit(s: string, index?: number) {
+export function isLetterOrDigit(s: string|number, index?: number) {
   const test = 1 << getUnicodeCategory(s, index);
   return (test & isLetterOrDigitMask) !== 0;
 }
 
-export function isUpper(s: string, index?: number) {
+export function isUpper(s: string|number, index?: number) {
   const test = 1 << getUnicodeCategory(s, index);
   return (test & isUpperMask) !== 0;
 }
 
-export function isLower(s: string, index?: number) {
+export function isLower(s: string|number, index?: number) {
   const test = 1 << getUnicodeCategory(s, index);
   return (test & isLowerMask) !== 0;
 }
 
-export function isNumber(s: string, index?: number) {
+export function isNumber(s: string|number, index?: number) {
   const test = 1 << getUnicodeCategory(s, index);
   return (test & isNumberMask) !== 0;
 }
 
-export function isPunctuation(s: string, index?: number) {
+export function isPunctuation(s: string|number, index?: number) {
   const test = 1 << getUnicodeCategory(s, index);
   return (test & isPunctuationMask) !== 0;
 }
 
-export function isSeparator(s: string, index?: number) {
+export function isSeparator(s: string|number, index?: number) {
   const test = 1 << getUnicodeCategory(s, index);
   return (test & isSeparatorMask) !== 0;
 }
 
-export function isSymbol(s: string, index?: number) {
+export function isSymbol(s: string|number, index?: number) {
   const test = 1 << getUnicodeCategory(s, index);
   return (test & isSymbolMask) !== 0;
 }
 
-export function isWhiteSpace(s: string, index?: number) {
-  return /[\s\x09-\x0D\x85\xA0]/.test(s.charAt(index || 0));
+function toString(s: string|number, index?: number): string {
+  return typeof s === "string" ? s.charAt(index || 0) : String.fromCharCode(s);
 }
 
-export function isHighSurrogate(s: string, index?: number) {
-  return /[\uD800-\uDBFF]/.test(s.charAt(index || 0));
+// TODO: Can we make this more performant for numeric chars?
+export function isWhiteSpace(s: string|number, index?: number) {
+  return /[\s\x09-\x0D\x85\xA0]/.test(toString(s, index));
 }
 
-export function isLowSurrogate(s: string, index?: number) {
-  return /[\uDC00-\uDFFF]/.test(s.charAt(index || 0));
+export function isHighSurrogate(s: string|number, index?: number) {
+  return /[\uD800-\uDBFF]/.test(toString(s, index));
 }
 
-export function isSurrogate(s: string, index?: number) {
-  return /[\uD800-\uDFFF]/.test(s.charAt(index || 0));
+export function isLowSurrogate(s: string|number, index?: number) {
+  return /[\uDC00-\uDFFF]/.test(toString(s, index));
 }
 
-export function isSurrogatePair(s: string, index: string|number) {
-  if (typeof index === "number") {
+export function isSurrogate(s: string|number, index?: number) {
+  return /[\uD800-\uDFFF]/.test(toString(s, index));
+}
+
+export function isSurrogatePair(s: string|number, index: number) {
+  if (typeof s === "string") {
     return isHighSurrogate(s, index) && isLowSurrogate(s, index + 1);
   } else {
     return isHighSurrogate(s) && isLowSurrogate(index);
@@ -196,7 +201,7 @@ export function isSurrogatePair(s: string, index: string|number) {
 
 export function parse(input: string) {
   if (input.length === 1) {
-    return input[0];
+    return input.charCodeAt(0);
   } else {
     throw Error("String must be exactly one character long.");
   }
