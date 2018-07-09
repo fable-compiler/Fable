@@ -3,7 +3,7 @@ module Fable.Tests.Util
 open System
 
 module Testing =
-    #if FABLE_COMPILER
+#if FABLE_COMPILER
     open Fable.Core
     open Fable.Core.Testing
 
@@ -11,18 +11,18 @@ module Testing =
     let testCase (msg: string) (test: unit->unit) = msg, box test
     let testCaseAsync (msg: string) (test: unit->Async<unit>) = msg, box(fun () -> test () |> Async.StartAsPromise)
 
-    let equal expected actual: unit =
-        Assert.AreEqual(actual, expected)
-    #else
+    let equal expected actual: unit = Assert.AreEqual(actual, expected)
+    let notEqual expected actual: unit = Assert.NotEqual(actual, expected)
+#else
     open Expecto
 
     let testList name tests = testList name tests
     let testCase msg test = testCase msg test
     let testCaseAsync msg test = testCaseAsync msg (test ())
 
-    let equal expected actual: unit =
-        Expect.equal actual expected ""
-    #endif
+    let equal expected actual: unit = Expect.equal actual expected ""
+    let notEqual expected actual: unit = Expect.notEqual actual expected ""
+#endif
 
 #if FABLE_COMPILER
 let foo: string = Fable.Core.JsInterop.importMember "../js/1foo.js"

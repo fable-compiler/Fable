@@ -170,4 +170,5 @@ type [<Erase>] U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
 module Testing =
     type Assert =
         static member AreEqual(expected: 'T, actual: 'T, ?msg: string): unit = jsNative
+        static member NotEqual(expected: 'T, actual: 'T, ?msg: string): unit = jsNative
 

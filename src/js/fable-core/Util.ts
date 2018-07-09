@@ -103,6 +103,15 @@ export function assertEqual<T>(actual: T, expected: T, msg?: string): void {
   }
 }
 
+export function assertNotEqual<T>(actual: T, expected: T, msg?: string): void {
+  if (equals(actual, expected)) {
+    throw Object.assign(new Error(msg || `Expected: ${expected} - Actual: ${actual}`), {
+      actual,
+      expected,
+    });
+  }
+}
+
 export class Lazy<T> {
   public factory: () => T;
   public isValueCreated: boolean;
@@ -203,7 +212,7 @@ function stringHash(s: string) {
   return h;
 }
 
-export function numberHash(x: number) {
+function numberHash(x: number) {
   return x * 2654435761 | 0;
 }
 
@@ -215,33 +224,46 @@ export function combineHashCodes(hashes: number[]) {
   });
 }
 
-export function hash(x: any, structural?: boolean): number {
+export function identityHash(x: any): number {
   if (x == null) {
     return 0;
-  } else if (typeof x.GetHashCode === "function") {
-    return x.GetHashCode();
-  } else {
-    switch (typeof x) {
-      case "boolean":
-        return x ? 1 : 0;
-      case "number":
-        return numberHash(x);
-      case "string":
-        return stringHash(x);
-      default:
-        if (isArray(x)) {
-          const ar = (x as ArrayLike<any>);
-          const len = ar.length;
-          const hashes: number[] = new Array(len);
-          for (let i = 0; i < len; i++) {
-            hashes[i] = hash(ar[i], structural);
-          }
-          return combineHashCodes(hashes);
-        } else {
-          return structural
-            ? stringHash(toString(x))
-            : ObjectRef.id(x) * 2654435761;
+  }
+  switch (typeof x) {
+    case "boolean":
+      return x ? 1 : 0;
+    case "number":
+      return numberHash(x);
+    case "string":
+      return stringHash(x);
+    default: {
+      return numberHash(ObjectRef.id(x));
+    }
+  }
+}
+
+export function structuralHash(x: any): number {
+  if (x == null) {
+    return 0;
+  }
+  switch (typeof x) {
+    case "boolean":
+      return x ? 1 : 0;
+    case "number":
+      return numberHash(x);
+    case "string":
+      return stringHash(x);
+    default: {
+      if (isArray(x)) {
+        const ar = (x as ArrayLike<any>);
+        const len = ar.length;
+        const hashes: number[] = new Array(len);
+        for (let i = 0; i < len; i++) {
+          hashes[i] = structuralHash(ar[i]);
         }
+        return combineHashCodes(hashes);
+      } else {
+        return stringHash(toString(x));
+      }
     }
   }
 }
