@@ -1201,18 +1201,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                         hasSpread=hasSpread, ?thisArg=thisArg, ?loc=r) |> Some
     | _ -> None
 
-let stringModule (_: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+let stringModule (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "Length", [arg] -> get r t arg "length" |> Some
     | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _ ->
         // Cast the string to array<char>, see #1279
         let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
         Helper.CoreCall("Array", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Map" | "MapIndexed" | "Collect"), _ ->
-        // Cast the string to array<char>, see #1279
-        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
-        let intermediateResult = Helper.CoreCall("Array", Naming.lowerFirst i.CompiledName, Any, args)
-        Helper.CoreCall("String", "fromCharArray", t, [intermediateResult], i.SignatureArgTypes, ?loc=r) |> Some
     | "Concat", _ ->
         Helper.CoreCall("String", "join", t, args, ?loc=r) |> Some
     // Rest of StringModule methods
