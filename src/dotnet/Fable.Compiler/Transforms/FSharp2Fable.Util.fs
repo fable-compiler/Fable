@@ -779,9 +779,12 @@ module Util =
 
     // Entities coming from assemblies (we don't have access to source code) are candidates for replacement
     let isReplacementCandidate (ent: FSharpEntity) =
-        match ent.Assembly.FileName with
-        | Some asmPath -> not(System.String.IsNullOrEmpty(asmPath))
-        | None -> false
+        match ent.Assembly.FileName, ent.TryFullName with
+        | Some asmPath, _ -> not(System.String.IsNullOrEmpty(asmPath))
+        // When compiling Fable itself, Fable.Core entities will be part of the code base,
+        // but still need to be replaced
+        | None, Some entityFullName -> entityFullName.StartsWith("Fable.Core.")
+        | None, None -> false
 
     let castToInterface (com: IFableCompiler) r t (sourceEntity: FSharpEntity) interfaceFullName expr =
         if sourceEntity.IsInterface

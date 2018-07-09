@@ -452,6 +452,8 @@ let tests =
       testCase "String.TrimEnd with chars works" <| fun () ->
             "   abc??**".TrimEnd('*','?')
             |> equal "   abc"
+            @"\foo\bar\".Replace("\\", "/").TrimEnd('/')
+            |> equal "/foo/bar"
 
       testCase "String.Empty works" <| fun () ->
             let s = String.Empty

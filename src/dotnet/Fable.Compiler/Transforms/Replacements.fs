@@ -1175,7 +1175,12 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         let methName = Naming.lowerFirst i.CompiledName
         match args with
         | [] -> Helper.InstanceCall(c, methName, t, [], i.SignatureArgTypes, ?loc=r) |> Some
-        | args -> Helper.CoreCall("String", methName, t, c::args, hasSpread=true, ?loc=r) |> Some
+        | head::tail ->
+            let spread =
+                match head.Type, tail with
+                | Array _, [] -> true
+                | _ -> false
+            Helper.CoreCall("String", methName, t, c::args, hasSpread=spread, ?loc=r) |> Some
     | "ToCharArray", Some c, _ ->
         Helper.InstanceCall(c, "split", t, [makeStrConst ""]) |> Some
     | "Split", Some c, _ ->
