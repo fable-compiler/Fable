@@ -3,6 +3,10 @@
 open System
 open Util.Testing
 
+// Check if custom attributes can be created
+type MyAttribute() =
+    inherit System.Attribute()
+
 type ITest = interface end
 type ITest2 = interface end
 

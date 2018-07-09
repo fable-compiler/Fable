@@ -2449,6 +2449,7 @@ let tryEntityRef (ent: FSharpEntity) =
 let tryBaseConstructor com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) genArgs args =
     match ent.FullName with
     | Types.exception_ -> Some(makeCoreRef Any "Exception" "Types", args)
+    | Types.attribute -> Some(makeCoreRef Any "Attribute" "Types", args)
     | Types.dictionary ->
         let args =
             match FSharp2Fable.TypeHelpers.getArgTypes com memb, args with
