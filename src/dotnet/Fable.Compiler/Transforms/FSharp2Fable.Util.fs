@@ -74,11 +74,10 @@ module Helpers =
         then [||] :> IList<_>
         else (nonAbbreviatedType t).GenericArguments
 
-    let tryGetEntityLocation (ent: FSharpEntity) =
-        // Make sure the type doesn't come from a referenced assembly
-        match ent.Assembly.FileName with
-        | None -> ent.ImplementationLocation
-        | Some _ -> None
+    let getEntityLocation (ent: FSharpEntity) =
+        match ent.ImplementationLocation with
+        | Some loc -> loc
+        | None -> ent.DeclarationLocation
 
     let getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
         match memb.ImplementationLocation with
@@ -86,14 +85,15 @@ module Helpers =
         | None -> memb.DeclarationLocation
 
     let private getEntityMangledName (com: ICompiler) trimRootModule (ent: FSharpEntity) =
-        match ent.TryFullName, tryGetEntityLocation ent with
-        | Some fullName, _ when not trimRootModule -> fullName
-        | Some fullName, Some loc ->
+        match ent.TryFullName with
+        | Some fullName when not trimRootModule -> fullName
+        | Some fullName ->
+            let loc = getEntityLocation ent
             let rootMod = com.GetRootModule(loc.FileName)
             if fullName.StartsWith(rootMod)
             then fullName.Substring(rootMod.Length).TrimStart('.')
             else fullName
-        | _ -> ent.CompiledName
+        | None -> ent.CompiledName
 
     let getEntityDeclarationName (com: ICompiler) (ent: FSharpEntity) =
         (getEntityMangledName com true ent, Naming.NoMemberPart)
@@ -686,17 +686,14 @@ module Util =
 
     // When importing a relative path from a different path where the member,
     // entity... is declared, we need to resolve the path
-    let fixImportedRelativePath (com: ICompiler) (path: string) (loc: Lazy<Range.range option>) =
+    let fixImportedRelativePath (com: ICompiler) (path: string) (loc: Lazy<Range.range>) =
         if path.StartsWith(".") then
-            match loc.Value with
-            | Some loc ->
-                let file = Path.normalizePath loc.FileName
-                if file = com.CurrentFile
-                then path
-                else
-                    Path.Combine(Path.GetDirectoryName(file), path)
-                    |> Path.getRelativePath com.CurrentFile
-            | None -> path // TODO: Log error
+            let file = Path.normalizePath loc.Value.FileName
+            if file = com.CurrentFile
+            then path
+            else
+                Path.Combine(Path.GetDirectoryName(file), path)
+                |> Path.getRelativePath com.CurrentFile
         else path
 
     let tryImportAttribute (atts: #seq<FSharpAttribute>) =
@@ -715,7 +712,7 @@ module Util =
                 | _ -> makeTypedIdent typ memb.CompiledName |> Fable.IdentExpr |> Some
             | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
                 let path =
-                    lazy (getMemberLocation memb |> Some)
+                    lazy getMemberLocation memb
                     |> fixImportedRelativePath com path
                 makeCustomImport typ selector path |> Some
             | _ -> None)
@@ -724,52 +721,36 @@ module Util =
         // TODO: Check also Global attribute here?
         tryImportAttribute ent.Attributes |> Option.map (fun (selector, path) ->
             let path =
-                lazy tryGetEntityLocation ent
+                lazy getEntityLocation ent
                 |> fixImportedRelativePath com path
             makeCustomImport Fable.Any selector path)
 
-    let tryEntityRef (com: ICompiler) (ent: FSharpEntity) =
-        tryGetEntityLocation ent
-        |> Option.map (fun entLoc ->
-            let file = Path.normalizePath entLoc.FileName
-            let entityName = getEntityDeclarationName com ent
-            if file = com.CurrentFile
-            then makeIdent entityName |> Fable.IdentExpr
-            else makeInternalImport Fable.Any entityName file)
-
-    let entityRef (com: ICompiler) r (ent: FSharpEntity) =
-        match tryEntityRef com ent with
-        | Some entRef -> entRef
-        | None ->
-            "Cannot find implementation location for entity: " + (getEntityFullName ent)
-            |> addErrorAndReturnNull com r
+    let entityRef (com: ICompiler) (ent: FSharpEntity) =
+        let entLoc = getEntityLocation ent
+        let file = Path.normalizePath entLoc.FileName
+        let entityName = getEntityDeclarationName com ent
+        if file = com.CurrentFile
+        then makeIdent entityName |> Fable.IdentExpr
+        else makeInternalImport Fable.Any entityName file
 
     /// First checks if the entity is imported
-    let entityRefMaybeImported (com: ICompiler) r (ent: FSharpEntity) =
+    let entityRefMaybeImported (com: ICompiler) (ent: FSharpEntity) =
         match tryImportedEntity com ent with
         | Some importedEntity -> importedEntity
-        | None -> entityRef com r ent
-
-    let tryEntityRefMaybeImported (com: ICompiler) (ent: FSharpEntity) =
-        tryImportedEntity com ent
-        |> Option.orElseWith (fun () -> tryEntityRef com ent)
+        | None -> entityRef com ent
 
     let private memberRefPrivate (com: IFableCompiler) r typ (entity: FSharpEntity option) memberName =
-        let file, entityFullName =
+        let file =
             match entity with
             | Some ent ->
-                tryGetEntityLocation ent
-                |> Option.map (fun loc -> Path.normalizePath loc.FileName),
-                getEntityFullName ent
+                let entLoc = getEntityLocation ent
+                Path.normalizePath entLoc.FileName
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
-            | None -> Some com.CurrentFile, Naming.unknown
-        match file with
-        | Some file when file = com.CurrentFile ->
-            makeTypedIdent typ memberName |> Fable.IdentExpr
-        | Some file -> makeInternalImport typ memberName file
-        | None -> sprintf "Cannot find implementation location for member: %s (%s)" memberName entityFullName
-                  |> addErrorAndReturnNull com r
+            | None -> com.CurrentFile
+        if file = com.CurrentFile
+        then makeTypedIdent typ memberName |> Fable.IdentExpr
+        else makeInternalImport typ memberName file
 
     let memberRefTyped (com: IFableCompiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
         getMemberDeclarationName com memb
@@ -796,6 +777,12 @@ module Util =
                 tryFindImplementingEntity t.TypeDefinition interfaceFullName
             | _ -> None
 
+    // Entities coming from assemblies (we don't have access to source code) are candidates for replacement
+    let isReplacementCandidate (ent: FSharpEntity) =
+        match ent.Assembly.FileName with
+        | Some asmPath -> not(System.String.IsNullOrEmpty(asmPath))
+        | None -> false
+
     let castToInterface (com: IFableCompiler) r t (sourceEntity: FSharpEntity) interfaceFullName expr =
         if sourceEntity.IsInterface
         then expr
@@ -810,19 +797,15 @@ module Util =
                 expr
             // If the interface has no members, cast is not necessary
             | Some(_,ifcEnt) when ifcEnt.MembersFunctionsAndValues.Count = 0 -> expr
-            | Some(ent,_) ->
-                match tryGetEntityLocation ent with
-                | None ->
-                    "Cast interface type location must be known at compile time, cast does nothing."
-                    |> addWarning com r
-                    expr
-                | Some entLoc ->
-                    let file = Path.normalizePath entLoc.FileName
-                    let funcName = getCastDeclarationName com ent interfaceFullName
-                    if file = com.CurrentFile
-                    then makeIdent funcName |> Fable.IdentExpr
-                    else makeInternalImport Fable.Any funcName file
-                    |> staticCall None t (argInfo None [expr] None)
+            | Some(ent,_) when isReplacementCandidate ent -> expr
+            | Some(ent,_)  ->
+                let entLoc = getEntityLocation ent
+                let file = Path.normalizePath entLoc.FileName
+                let funcName = getCastDeclarationName com ent interfaceFullName
+                if file = com.CurrentFile
+                then makeIdent funcName |> Fable.IdentExpr
+                else makeInternalImport Fable.Any funcName file
+                |> staticCall None t (argInfo None [expr] None)
 
     let callInstanceMember com r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
@@ -853,12 +836,6 @@ module Util =
         | _ ->
             let argInfo = { argInfo with ThisArg = Some callee }
             makeStrConst name |> Some |> instanceCall r typ argInfo
-
-    let isReplacementCandidate (ent: FSharpEntity) =
-        match ent.TryFullName, ent.Assembly.FileName with
-        | Some _, Some asmPath when not(System.String.IsNullOrEmpty(asmPath)) -> true
-        | Some entityFullName, _ when entityFullName.StartsWith("Fable.Core.") -> true
-        | _ -> false
 
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes (genArgs: Lazy<_>) (argInfo: Fable.ArgInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =

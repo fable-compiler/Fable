@@ -833,7 +833,7 @@ let fableCoreLib (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         makeTypedIdent t "this" |> IdentExpr |> Some
     | "jsConstructor", _ ->
         match (genArg com r 0 i.GenericArgs) with
-        | DeclaredType(ent, _) when ent.IsClass -> FSharp2Fable.Util.entityRefMaybeImported com r ent |> Some
+        | DeclaredType(ent, _) when ent.IsClass -> FSharp2Fable.Util.entityRefMaybeImported com ent |> Some
         | _ -> addError com r "Only class types define a function constructor in JS"; None
     | "createEmpty", _ ->
         objExpr t [] |> Some
@@ -1682,7 +1682,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "CreateInstance", None, _ ->
         match genArg com r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
-            let entRef = FSharp2Fable.Util.entityRefMaybeImported com r ent
+            let entRef = FSharp2Fable.Util.entityRefMaybeImported com ent
             Helper.ConstructorCall(entRef, t, [], ?loc=r) |> Some
         | t -> sprintf "Cannot create instance of type unresolved at compile time: %A" t
                |> addErrorAndReturnNull com r |> Some

@@ -33,7 +33,7 @@ function getCategory() {
   }
   // binary search in unicode ranges
   return (s: string, index?: number) => {
-    const cp = s.codePointAt(index || 0);
+    const cp = s.charCodeAt(index || 0);
     let hi = codepoints.length;
     let lo = 0;
     while (hi - lo > 1) {

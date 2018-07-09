@@ -134,11 +134,11 @@ function formatOnce(str2: any, rep: any) {
     (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) => {
       switch (format) {
         case "f": case "F":
-          rep = rep.toFixed(precision || 6); break;
+          rep = Number(rep).toFixed(precision || 6); break;
         case "g": case "G":
-          rep = rep.toPrecision(precision); break;
+          rep = Number(rep).toPrecision(precision); break;
         case "e": case "E":
-          rep = rep.toExponential(precision); break;
+          rep = Number(rep).toExponential(precision); break;
         case "O":
           rep = toString(rep); break;
         case "A":
@@ -152,7 +152,7 @@ function formatOnce(str2: any, rep: any) {
       pad = parseInt(pad, 10);
       if (!isNaN(pad)) {
         const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
-        rep = padLeft(rep, Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
+        rep = padLeft(String(rep), Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
       }
       const once = prefix + (plusPrefix ? "+" + rep : rep);
       return once.replace(/%/g, "%%");
@@ -200,9 +200,9 @@ export function format(str: string, ...args: any[]) {
             rep = (pattern.length > 1 ? (rep * 100).toFixed(pattern.substring(1)) : (rep * 100).toFixed(2)) + " %";
             break;
           case "x":
-            rep = toHex(Number(rep)); break;
+            rep = toHex(rep); break;
           case "X":
-            rep = toHex(Number(rep)).toUpperCase(); break;
+            rep = toHex(rep).toUpperCase(); break;
           default:
             const m = /^(0+)(\.0+)?$/.exec(pattern);
             if (m != null) {
@@ -221,7 +221,7 @@ export function format(str: string, ...args: any[]) {
       }
       pad = parseInt((pad || "").substring(1), 10);
       if (!isNaN(pad)) {
-        rep = padLeft(rep, Math.abs(pad), padSymbol, pad < 0);
+        rep = padLeft(String(rep), Math.abs(pad), padSymbol, pad < 0);
       }
       return rep;
     });
@@ -386,9 +386,8 @@ export function fromBase64String(b64Encoded: string) {
   return bytes;
 }
 
-export function padLeft(str: any, len: number, ch?: string, isRight?: boolean) {
+export function padLeft(str: string, len: number, ch?: string, isRight?: boolean) {
   ch = ch || " ";
-  str = String(str);
   len = len - str.length;
   for (let i = 0; i < len; i++) {
     str = isRight ? str + ch : ch + str;
@@ -396,7 +395,7 @@ export function padLeft(str: any, len: number, ch?: string, isRight?: boolean) {
   return str;
 }
 
-export function padRight(str: any, len: number, ch?: string) {
+export function padRight(str: string, len: number, ch?: string) {
   return padLeft(str, len, ch, true);
 }
 
@@ -483,6 +482,6 @@ export function trimEnd(str: string, ...chars: string[]) {
     : str.replace(new RegExp("[" + escape(chars.join("")) + "]+$"), "");
 }
 
-export function filter(pred: (i: string) => string, x: string) {
+export function filter(pred: (i: string) => boolean, x: string) {
   return x.split("").filter(pred).join("");
 }

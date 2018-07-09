@@ -396,7 +396,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> entityRef com r calleeType.TypeDefinition
+            | None -> entityRef com calleeType.TypeDefinition
         let kind = Fable.FieldGet(field.Name, field.IsMutable, makeType com Map.empty field.FieldType)
         Fable.Get(callee, kind, typ, r)
 
@@ -430,7 +430,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let callee =
             match callee with
             | Some (Transform com ctx callee) -> callee
-            | None -> entityRef com range calleeType.TypeDefinition
+            | None -> entityRef com calleeType.TypeDefinition
         Fable.Set(callee, Fable.FieldSet(field.Name, makeType com Map.empty field.FieldType), value, range)
 
     | BasicPatterns.UnionCaseTag(Transform com ctx unionExpr, _unionType) ->
@@ -597,7 +597,7 @@ let rec private getBaseConsAndBody com ctx (baseType: FSharpType option) acc bod
                     "Classes without a primary constructor cannot be inherited: " + baseEntity.FullName
                     |> addError com None
                 let baseCons = makeCallFrom com ctx r Fable.Unit true genArgs thisArg baseArgs baseCall
-                entityRefMaybeImported com r baseEntity, baseCons)
+                entityRefMaybeImported com baseEntity, baseCons)
 
     match body with
     | BasicPatterns.Sequential(baseCall, body) ->

@@ -186,15 +186,16 @@ module Util =
         com.TransformImport(ctx, memberName, moduleName, Fable.CoreLib)
 
     let entityRefMaybeImported (com: IBabelCompiler) ctx ent =
-        match FSharp2Fable.Util.tryEntityRefMaybeImported com ent with
-        | Some entRef -> com.TransformAsExpr(ctx, entRef)
-        | None ->
+        if FSharp2Fable.Util.isReplacementCandidate ent then
             // Some unions like Choice or Result belong to FSharp.Core
             match Replacements.tryEntityRef ent with
             | Some entRef -> com.TransformAsExpr(ctx, entRef)
             | None ->
                 sprintf "Cannot find %s constructor" ent.FullName
                 |> addErrorAndReturnNull com None
+        else
+            let entRef = FSharp2Fable.Util.entityRefMaybeImported com ent
+            com.TransformAsExpr(ctx, entRef)
 
     let inherits com ctx subExpr baseExpr: U2<Statement, ModuleDeclaration> =
         coreLibCall com ctx "Types" "inherits" [|subExpr; baseExpr|]
