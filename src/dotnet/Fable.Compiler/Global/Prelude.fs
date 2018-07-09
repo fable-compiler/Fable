@@ -52,11 +52,15 @@ module List =
         xs.[xs.Length - 1 ] <- f xs.[xs.Length - 1 ]
         List.ofArray xs
 
-    let mapToArray f (xs: 'a list) =
-        xs |> List.map f |> List.toArray
+    let mapToArray (f: 'a -> 'b) (xs: 'a list) =
+        let ar: 'b[] = List.length xs |> Array.zeroCreate 
+        xs |> List.iteri (fun i x -> ar.[i] <- f x)
+        ar
 
-    let mapiToArray f (xs: 'a list) =
-        xs |> List.mapi f |> List.toArray
+    let mapiToArray (f: int -> 'a -> 'b) (xs: 'a list) =
+        let ar: 'b[] = List.length xs |> Array.zeroCreate
+        xs |> List.iteri (fun i x -> ar.[i] <- f i x)
+        ar
 
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
