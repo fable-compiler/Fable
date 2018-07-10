@@ -72,14 +72,14 @@ export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
   }
   const startIndex = (args.length > 0) ? args[0] : 0;
   if (startIndex < 0) {
-    throw new Error("String.indexOfAny: Start index cannot be negative");
+    throw new Error("Start index cannot be negative");
   }
   const length = (args.length > 1) ? args[1] : str.length - startIndex;
   if (length < 0) {
-    throw new Error("String.indexOfAny: Length cannot be negative");
+    throw new Error("Length cannot be negative");
   }
   if (length > str.length - startIndex) {
-    throw new Error("String.indexOfAny: Invalid startIndex and length");
+    throw new Error("Invalid startIndex and length");
   }
   str = str.substr(startIndex, length);
   for (const c of anyOf) {
@@ -419,7 +419,7 @@ export function replicate(n: number, x: string) {
 
 export function getCharAtIndex(input: string, index: number) {
   if (index < 0 || index >= input.length) {
-    throw new Error("System.IndexOutOfRangeException: Index was outside the bounds of the array.");
+    throw new Error("Index was outside the bounds of the array.");
   }
   return input[index];
 }
@@ -433,20 +433,19 @@ export function split(str: string, splitters: string[], count?: number, removeEm
   if (count === 0) {
     return [];
   }
-  let splitters2 = splitters;
   if (!Array.isArray(splitters)) {
     if (removeEmpty === 0) { return str.split(splitters, count); }
     const len = arguments.length;
-    splitters2 = Array(len - 1);
+    splitters = Array(len - 1);
     for (let key = 1; key < len; key++) {
-      splitters2[key - 1] = arguments[key];
+      splitters[key - 1] = arguments[key];
     }
   }
-  splitters2 = splitters2.map((x) => escape(x));
-  splitters2 = splitters2.length > 0 ? splitters2 : [" "];
+  splitters = splitters.map((x) => escape(x));
+  splitters = splitters.length > 0 ? splitters : [" "];
   let i = 0;
   const splits: string[] = [];
-  const reg = new RegExp(splitters2.join("|"), "g");
+  const reg = new RegExp(splitters.join("|"), "g");
   while (count == null || count > 1) {
     const m = reg.exec(str);
     if (m === null) { break; }

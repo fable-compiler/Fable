@@ -214,10 +214,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.Coerce(targetType, Transform com ctx inpExpr) ->
         match tryDefinition targetType with
         | Some interfaceEntity when interfaceEntity.IsInterface ->
+            let range = makeRangeFrom fsExpr
             let targetType = makeType com ctx.GenericArgs targetType
             match interfaceEntity.TryFullName, inpExpr.Type with
             | Some interfaceFullName, (Fable.DeclaredType(sourceEntity,_)) ->
-                castToInterface com (makeRangeFrom fsExpr) targetType sourceEntity interfaceFullName inpExpr
+                castToInterface com range targetType sourceEntity interfaceFullName inpExpr
+            | Some interfaceFullName, _ ->
+                Replacements.tryInterfaceCast range targetType interfaceFullName inpExpr
+                |> Option.defaultValue inpExpr
             | _ -> inpExpr
         | _ -> inpExpr
 
