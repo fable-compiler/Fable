@@ -68,6 +68,25 @@ module Helpers =
         then match ent.Namespace with Some ns -> ns + "." + ent.CompiledName | None -> ent.CompiledName
         else defaultArg ent.TryFullName ent.CompiledName
 
+    // Attention: we need to keep this similar to makeType
+    let rec getTypeFastFullName (t: FSharpType) =
+        let t = nonAbbreviatedType t
+        if t.IsGenericParameter
+        then t.GenericParameter.Name
+        elif t.IsTupleType
+        then t.GenericArguments |> Seq.map getTypeFastFullName |> String.concat " * "
+        elif t.IsFunctionType
+        then t.GenericArguments |> Seq.map getTypeFastFullName |> String.concat " -> "
+        elif t.HasTypeDefinition
+        then
+            let tdef = t.TypeDefinition
+            let genArgs = t.GenericArguments |> Seq.map getTypeFastFullName |> String.concat ","
+            match tdef.IsArrayType, genArgs with
+            | true, _ -> genArgs + "[]"
+            | false, "" -> t.TypeDefinition.FullName
+            | false, genArgs -> t.TypeDefinition.FullName + "[" + genArgs + "]"
+        else Types.object
+
     let getGenericArguments (t: FSharpType) =
         // Accessing .GenericArguments for a generic parameter will fail
         if t.IsGenericParameter
@@ -105,37 +124,34 @@ module Helpers =
         then typ.TypeDefinition.TryFullName = Some Types.unit
         else false
 
-    let findOverloadIndex (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
-        let argsEqual (args1: FSharpParameter[]) (args2: FSharpParameter[]) =
-            if args1.Length = args2.Length
-            // Checking equality of FSharpParameter seems to be fast
-            // See https://github.com/fsharp/FSharp.Compiler.Service/blob/0d87c8878c14ab2b283fbd696096e4e4714fab6b/src/fsharp/symbols/Symbols.fs#L2145
-            then (args1, args2) ||> Array.forall2 (=)
-            else false
-        let flattenParams (m: FSharpMemberOrFunctionOrValue) =
-            match m.CurriedParameterGroups |> Seq.concat |> Seq.toArray with
-            // (?) Sometimes .CurriedParameterGroups contains the unit arg and sometimes doesn't
-            | [|arg|] when isUnit arg.Type -> [||]
-            | args -> args
-        if m.IsImplicitConstructor || m.IsOverrideOrExplicitInterfaceImplementation
+    // From https://stackoverflow.com/a/37449594
+    let private combineHashCodes (hashes: int seq) =
+        let hashes = Seq.toArray hashes
+        if hashes.Length = 0
+        then 0
+        else hashes |> Array.reduce (fun h1 h2 -> ((h1 <<< 5) + h1) ^^^ h2)
+
+    // F# hash function gives different results in different runs
+    // Taken from fable-core/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
+    let private stringHash (s: string) =
+        let mutable h = 5381
+        for i = 0 to s.Length - 1 do
+            h <- (h * 33) ^^^ (int s.[i])
+        h
+
+    let getOverloadIndex (m: FSharpMemberOrFunctionOrValue) =
+        let curriedParams = m.CurriedParameterGroups
+            // Overrides and interface implementations don't have override suffix in Fable
+        if m.IsOverrideOrExplicitInterfaceImplementation
+            // Members with curried params cannot be overloaded in F#
+            || curriedParams.Count <> 1
+            // Don't use overload suffix for members without arguments
+            || (curriedParams.[0].Count = 1 && isUnit curriedParams.[0].[0].Type)
         then 0
         else
-            // m.Overloads(false) doesn't work
-            let name = m.CompiledName
-            let isInstance = m.IsInstanceMember
-            let parameters = flattenParams m
-            let index, _found =
-                ((0, false), entity.MembersFunctionsAndValues)
-                ||> Seq.fold (fun (i, found) m2 ->
-                    if not found && m2.IsInstanceMember = isInstance && m2.CompiledName = name then
-                        // .Equals() doesn't work.
-                        // .IsEffectivelySameAs() doesn't work for constructors
-                        if argsEqual parameters (flattenParams m2)
-                        then i, true
-                        else i + 1, false
-                    else i, found)
-            // TODO: Log error if not found?
-            index
+            curriedParams.[0]
+            |> Seq.map (fun p -> getTypeFastFullName p.Type |> stringHash)
+            |> combineHashCodes
 
     let getCastDeclarationName com (implementingEntity: FSharpEntity) (interfaceEntityFullName: string) =
         let entityName = getEntityMangledName com true implementingEntity
@@ -150,7 +166,7 @@ module Helpers =
             | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, None)
         | Some ent ->
             let overloadIndex =
-                match findOverloadIndex ent memb with
+                match getOverloadIndex memb with
                 | 0 -> None
                 | i -> Some i
             let entName = getEntityMangledName com trimRootModule ent
