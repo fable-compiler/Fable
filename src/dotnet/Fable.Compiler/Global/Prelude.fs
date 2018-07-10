@@ -198,13 +198,17 @@ module Naming =
     let getUniqueName baseName (index: int) =
         "$" + baseName + "$$" + string index
 
+    let private printOverloadIndex (index: int option) =
+        match index with
+        | None | Some 0 -> ""
+        | Some i when i < 0 -> "$$_" + string (abs i)
+        | Some i -> "$$" + string i
+
     let private buildName sanitize name part =
         (sanitize name) +
             (match part with
-                | InstanceMemberPart(s, Some i) -> "$$" + (sanitize s) + "$$" + string i
-                | StaticMemberPart(s, Some i) -> "$$$" + (sanitize s) + "$$" + string i
-                | InstanceMemberPart(s, None) -> "$$" + (sanitize s)
-                | StaticMemberPart(s, None) -> "$$$" + (sanitize s)
+                | InstanceMemberPart(s, i) -> "$$" + (sanitize s) + printOverloadIndex i
+                | StaticMemberPart(s, i) -> "$$$" + (sanitize s) + printOverloadIndex i
                 | NoMemberPart -> "")
 
     let buildNameWithoutSanitation name part =
