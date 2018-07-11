@@ -1262,7 +1262,7 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     | "EnumerateUsing", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com r t ent Types.idisposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterfaceWithFullName com r t ent Types.idisposable arg
             | _ -> arg
         Helper.CoreCall("Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Sort" | "SortDescending" as meth), args ->
@@ -1676,7 +1676,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         // Check if this is used to cast to IDisposable at the end of `use` scope
         | DeclaredType(sourceEntity, _), DeclaredType(targetEntity, _)
                 when targetEntity.TryFullName = Some Types.idisposable ->
-            FSharp2Fable.Util.castToInterface com r t sourceEntity Types.idisposable arg |> Some
+            FSharp2Fable.Util.castToInterfaceWithFullName com r t sourceEntity Types.idisposable arg |> Some
         | _ -> Helper.CoreCall("Util", "downcast", t, [arg]) |> Some
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ar; idx]
@@ -2155,7 +2155,7 @@ let asyncBuilder (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | Some x, "Using", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com r t ent Types.idisposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterfaceWithFullName com r t ent Types.idisposable arg
             | _ -> arg
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2289,8 +2289,8 @@ let partialApplyAtRuntime t arity (fn: Expr) (args: Expr list) =
     let args = NewArray(ArrayValues args, Any) |> Value
     Helper.CoreCall("Util", "partialApply", t, [makeIntConst arity; fn; args])
 
-let tryInterfaceCast r t interfaceName (e: Expr) =
-    match interfaceName, e.Type with
+let tryInterfaceCast r t interfaceFullName (e: Expr) =
+    match interfaceFullName, e.Type with
     // CompareTo method is attached to prototype
     | Types.icomparable, _ -> Some e
     | Types.enumerable, _ -> toSeq r t e |> Some

@@ -216,13 +216,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | Some interfaceEntity when interfaceEntity.IsInterface ->
             let range = makeRangeFrom fsExpr
             let targetType = makeType com ctx.GenericArgs targetType
-            match interfaceEntity.TryFullName, inpExpr.Type with
-            | Some interfaceFullName, (Fable.DeclaredType(sourceEntity,_)) ->
-                castToInterface com range targetType sourceEntity interfaceFullName inpExpr
-            | Some interfaceFullName, _ ->
-                Replacements.tryInterfaceCast range targetType interfaceFullName inpExpr
+            match inpExpr.Type with
+            | Fable.DeclaredType(sourceEntity,_) ->
+                castToInterface com range targetType sourceEntity interfaceEntity inpExpr
+            | _ ->
+                Replacements.tryInterfaceCast range targetType interfaceEntity.FullName inpExpr
                 |> Option.defaultValue inpExpr
-            | _ -> inpExpr
         | _ -> inpExpr
 
     // TypeLambda is a local generic lambda

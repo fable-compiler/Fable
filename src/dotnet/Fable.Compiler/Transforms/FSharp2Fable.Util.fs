@@ -786,7 +786,7 @@ module Util =
         | None, Some entityFullName -> entityFullName.StartsWith("Fable.Core.")
         | None, None -> false
 
-    let castToInterface (com: IFableCompiler) r t (sourceEntity: FSharpEntity) interfaceFullName expr =
+    let castToInterfaceWithFullName (com: IFableCompiler) r t (sourceEntity: FSharpEntity) interfaceFullName expr =
         if sourceEntity.IsInterface
         then expr
         else
@@ -798,8 +798,6 @@ module Util =
                 "Type implementing interface must be known at compile time, cast does nothing."
                 |> addWarning com r
                 expr
-            // If the interface has no members, cast is not necessary
-            | Some(_,ifcEnt) when ifcEnt.MembersFunctionsAndValues.Count = 0 -> expr
             | Some(ent,_) when isReplacementCandidate ent -> expr
             | Some(ent,_)  ->
                 let entLoc = getEntityLocation ent
@@ -810,6 +808,12 @@ module Util =
                 else makeInternalImport Fable.Any funcName file
                 |> staticCall None t (argInfo None [expr] None)
 
+    let castToInterface (com: IFableCompiler) r t (sourceEntity: FSharpEntity) (interfaceEntity: FSharpEntity) expr =
+        // If the interface has no members, cast is not necessary
+        if interfaceEntity.MembersFunctionsAndValues.Count = 0
+        then expr
+        else castToInterfaceWithFullName com r t sourceEntity interfaceEntity.FullName expr
+
     let callInstanceMember com r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
             match argInfo.ThisArg with
@@ -818,7 +822,7 @@ module Util =
                 // `let foo (x: 'T when 'T :> IDisposable) = x.Dispose()`
                 match callee.Type with
                 | Fable.DeclaredType(original, _) when entity.IsInterface && not original.IsInterface ->
-                    castToInterface com r typ original entity.FullName callee
+                    castToInterface com r typ original entity callee
                 | Fable.GenericParam _ when entity.IsInterface ->
                     "An interface member of an unresolved generic parameter is being called, " +
                         "this will likely fail at compile time. Please try inlining or not using flexible types."
