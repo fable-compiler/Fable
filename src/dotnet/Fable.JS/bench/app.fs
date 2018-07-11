@@ -57,6 +57,7 @@ let main argv =
         printfn "InteractiveChecker created in %d ms" ms0
         let fableCoreDir = "../../../../build/fable-core"
         let optimized = false // todo: from compiler option
+        let writeAst = false
         let parseFSharp () = fable.ParseFSharpProject(checker, fileName, source)
         let parseFable ast = fable.CompileToBabelAst(fableCoreDir, ast, fileName, optimized)
         let bench i =
@@ -65,12 +66,12 @@ let main argv =
             errors |> Array.iter (printfn "Error: %A")
             if errors.Length > 0 then failwith "Too many errors."
             let ms2, babelAst = measureTime parseFable fsAst
-            // if i = 1 then
-            //     let fsAstStr = fable.FSharpAstToString(fsAst, optimized)
-            //     printfn "Typed AST (unoptimized): %s" fsAstStr
-            //     writeAllText fsAstFile fsAstStr
-            //     printfn "Babel AST: %s" (toJson babelAst)
-            //     writeAllText babelAstFile (toJson babelAst)
+            if writeAst && i = 1 then
+                let fsAstStr = fable.FSharpAstToString(fsAst, optimized)
+                printfn "Typed AST (unoptimized): %s" fsAstStr
+                writeAllText fsAstFile fsAstStr
+                printfn "Babel AST: %s" (toJson babelAst)
+                writeAllText babelAstFile (toJson babelAst)
             printfn "iteration %d, FCS time: %d ms, Fable time: %d ms" i ms1 ms2
         [1..10] |> List.iter bench
     with ex ->
