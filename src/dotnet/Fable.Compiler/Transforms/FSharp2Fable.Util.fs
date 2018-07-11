@@ -12,9 +12,6 @@ open Fable.Transforms
 type Context =
     { Scope: (FSharpMemberOrFunctionOrValue * Fable.Expr) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
-      /// Some expressions that create scope in F# don't do it in JS (like let bindings)
-      /// so we need a mutable registry to prevent duplicated var names.
-      VarNames: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
       EnclosingEntity: FSharpEntity option
@@ -25,7 +22,6 @@ type Context =
     static member Create(enclosingEntity) =
         { Scope = []
           ScopeInlineValues = []
-          VarNames = HashSet()
           GenericArgs = Map.empty
           EnclosingMember = None
           EnclosingEntity = enclosingEntity
@@ -544,9 +540,10 @@ module Identifiers =
 
     let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let sanitizedName = (fsRef.CompiledName, Naming.NoMemberPart)
-                            ||> Naming.sanitizeIdent (fun x -> ctx.VarNames.Contains(x) || com.IsUsedVarName(x))
-        ctx.VarNames.Add sanitizedName |> ignore
+                            ||> Naming.sanitizeIdent com.IsUsedVarName
         // Track all used var names in the file so they're not used for imports
+        // Also, in some situations variable names in different scopes can conflict
+        // so just try to give a unique name to each identifier per file for safety
         com.AddUsedVarName sanitizedName
         { Name = sanitizedName
           Type = makeType com ctx.GenericArgs fsRef.FullType
@@ -584,9 +581,6 @@ module Util =
         ctx, List.rev args
 
     let bindMemberArgs com ctx (args: FSharpMemberOrFunctionOrValue list list) =
-        // To prevent name clashes in JS create a scope for members
-        // where variables must always have a unique name
-        let ctx = { ctx with VarNames = HashSet(ctx.VarNames) }
         let ctx, transformedArgs, args =
             match args with
             // Within private members (first arg is ConstructorThisValue) F# AST uses
