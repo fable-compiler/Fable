@@ -15,7 +15,7 @@ module JS =
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: s: string -> PropertyDescriptor with get, set
 
     and [<AllowNullLiteral>] Object =
-        abstract ``constructor``: LambdaType with get, set
+        abstract ``constructor``: Function with get, set
         abstract toString: unit -> string
         abstract toLocaleString: unit -> string
         abstract valueOf: unit -> obj
@@ -53,11 +53,11 @@ module JS =
         abstract getOwnPropertyDescriptor: o: obj * propertyKey: obj -> PropertyDescriptor
         abstract defineProperty: o: obj * propertyKey: obj * attributes: PropertyDescriptor -> obj
 
-    and [<AllowNullLiteral>] LambdaType =
+    and [<AllowNullLiteral>] Function =
         abstract prototype: obj with get, set
         abstract length: float with get, set
         abstract arguments: obj with get, set
-        abstract caller: LambdaType with get, set
+        abstract caller: Function with get, set
         abstract name: string with get, set
         abstract apply: thisArg: obj * ?argArray: obj -> obj
         abstract call: thisArg: obj * [<ParamArray>] argArray: obj[] -> obj
@@ -66,14 +66,14 @@ module JS =
         [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: obj[] -> obj
 
     and [<AllowNullLiteral>] FunctionConstructor =
-        abstract prototype: LambdaType with get, set
-        [<Emit("new $0($1...)")>] abstract Create: [<ParamArray>] args: string[] -> LambdaType
-        [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: string[] -> LambdaType
+        abstract prototype: Function with get, set
+        [<Emit("new $0($1...)")>] abstract Create: [<ParamArray>] args: string[] -> Function
+        [<Emit("$0($1...)")>] abstract Invoke: [<ParamArray>] args: string[] -> Function
 
     and [<AllowNullLiteral>] IArguments =
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> obj with get, set
         abstract length: float with get, set
-        abstract callee: LambdaType with get, set
+        abstract callee: Function with get, set
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<obj>
 
     and [<AllowNullLiteral>] String =
@@ -1000,7 +1000,7 @@ module JS =
         [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<'T>
 
     and [<AllowNullLiteral>] GeneratorFunction =
-        inherit LambdaType
+        inherit Function
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
 
     and [<AllowNullLiteral>] GeneratorFunctionConstructor =
@@ -1101,7 +1101,7 @@ module JS =
 
     and [<AllowNullLiteral>] PromiseConstructor =
         abstract prototype: Promise<obj> with get, set
-        [<Emit("$0[Symbol.species]{{=$1}}")>] abstract ``[Symbol.species]``: LambdaType with get, set
+        [<Emit("$0[Symbol.species]{{=$1}}")>] abstract ``[Symbol.species]``: Function with get, set
         [<Emit("new $0($1...)")>] abstract Create: executor: ((obj->unit) -> (obj->unit) -> unit) -> Promise<'T>
         abstract all: [<ParamArray>] values: obj[] -> Promise<obj>
         abstract race: values: obj seq -> Promise<obj>
@@ -1111,8 +1111,8 @@ module JS =
         abstract resolve: unit -> Promise<unit>
 
     type [<AllowNullLiteral>] [<Global>] Reflect =
-        static member apply(target: LambdaType, thisArgument: obj, argumentsList: ArrayLike<obj>): obj = jsNative
-        static member construct(target: LambdaType, argumentsList: ArrayLike<obj>, ?newTarget: obj): obj = jsNative
+        static member apply(target: Function, thisArgument: obj, argumentsList: ArrayLike<obj>): obj = jsNative
+        static member construct(target: Function, argumentsList: ArrayLike<obj>, ?newTarget: obj): obj = jsNative
         static member defineProperty(target: obj, propertyKey: obj, attributes: PropertyDescriptor): bool = jsNative
         static member deleteProperty(target: obj, propertyKey: obj): bool = jsNative
         static member enumerate(target: obj): IterableIterator<obj> = jsNative
@@ -1157,7 +1157,7 @@ module JS =
     let [<Global>] NaN: float = jsNative
     let [<Global>] Infinity: float = jsNative
     let [<Global>] Object: ObjectConstructor = jsNative
-    let [<Global>] LambdaType: FunctionConstructor = jsNative
+    let [<Global>] Function: FunctionConstructor = jsNative
     let [<Global>] String: StringConstructor = jsNative
     let [<Global>] Boolean: BooleanConstructor = jsNative
     let [<Global>] Number: NumberConstructor = jsNative

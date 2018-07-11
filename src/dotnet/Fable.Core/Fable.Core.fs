@@ -34,7 +34,7 @@ type ImportAttribute(selector: string, from: string) =
 type ExportDefaultAttribute() =
     inherit Attribute()
 
-/// LambdaType calls will be replaced by inlined JS code.
+/// Function calls will be replaced by inlined JS code.
 /// More info: http://fable.io/docs/interacting.html#Import-attribute
 type EmitAttribute(macro: string) =
     inherit Attribute()

@@ -96,7 +96,7 @@ let convertGlyph glyph =
     | FSharpGlyph.Field ->
         Glyph.Field
     | FSharpGlyph.Delegate ->
-        Glyph.LambdaType
+        Glyph.Function
     | FSharpGlyph.Error | FSharpGlyph.Exception ->
         Glyph.Error
     | FSharpGlyph.Event ->

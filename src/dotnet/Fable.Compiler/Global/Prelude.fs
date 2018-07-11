@@ -53,7 +53,7 @@ module List =
         List.ofArray xs
 
     let mapToArray (f: 'a -> 'b) (xs: 'a list) =
-        let ar: 'b[] = List.length xs |> Array.zeroCreate 
+        let ar: 'b[] = List.length xs |> Array.zeroCreate
         xs |> List.iteri (fun i x -> ar.[i] <- f x)
         ar
 
@@ -168,7 +168,7 @@ module Naming =
             "let"; "long"; "native"; "new"; "null"; "package"; "private"; "protected"; "public"; "return"; "self"; "short"; "static"; "super"; "switch"; "synchronized";
             "this"; "throw"; "throws"; "transient"; "true"; "try"; "typeof"; "undefined"; "var"; "void"; "volatile"; "while"; "with"; "yield";
             // Standard built-in objects (https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects)
-            "Object"; "LambdaType"; "Boolean"; "Symbol"; "Map"; "Set"; "NaN"; "Number"; "Math"; "Date"; "String"; "RegExp"; "JSON"; "Promise";
+            "Object"; "Function"; "Boolean"; "Symbol"; "Map"; "Set"; "NaN"; "Number"; "Math"; "Date"; "String"; "RegExp"; "JSON"; "Promise";
             "Array"; "Int8Array"; "Uint8Array"; "Uint8ClampedArray"; "Int16Array"; "Uint16Array"; "Int32Array"; "Uint32Array"; "Float32Array"; "Float64Array";
             // DOM interfaces (https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model)
             "Attr"; "CharacterData"; "Comment"; "CustomEvent"; "Document"; "DocumentFragment"; "DocumentType"; "DOMError"; "DOMException"; "DOMImplementation";

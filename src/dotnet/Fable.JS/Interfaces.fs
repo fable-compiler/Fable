@@ -13,7 +13,7 @@ type Glyph =
     | Method
     | Property
     | Field
-    | LambdaType
+    | Function
     | Error
     | Event
 
