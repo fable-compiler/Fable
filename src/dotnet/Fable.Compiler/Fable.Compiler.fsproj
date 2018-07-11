@@ -20,6 +20,7 @@
     <Compile Include="AST/AST.Fable.fs" />
     <Compile Include="AST/AST.Babel.fs" />
     <Compile Include="Transforms/Transforms.Util.fs" />
+    <Compile Include="Transforms/OverloadSuffix.fs" />
     <Compile Include="Transforms/FSharp2Fable.Util.fs" />
     <Compile Include="Transforms/Inject.fs" />
     <Compile Include="Transforms/ReplacementsInject.fs" />

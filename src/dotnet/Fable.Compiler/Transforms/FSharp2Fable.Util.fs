@@ -48,14 +48,6 @@ type IFableCompiler =
     abstract IsUsedVarName: string -> bool
 
 module Helpers =
-    let tryBoth (f1: 'a->'b option) (f2: 'a->'b option) (x: 'a) =
-        match f1 x with
-        | Some _ as res -> res
-        | None ->
-            match f2 x with
-            | Some _ as res -> res
-            | None -> None
-
     let rec nonAbbreviatedType (t: FSharpType) =
         if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
 
@@ -68,40 +60,25 @@ module Helpers =
         then match ent.Namespace with Some ns -> ns + "." + ent.CompiledName | None -> ent.CompiledName
         else defaultArg ent.TryFullName ent.CompiledName
 
-    // Attention: we need to keep this similar to makeType
-    let rec getTypeFastFullName (t: FSharpType) =
-        let t = nonAbbreviatedType t
-        if t.IsGenericParameter
-        then t.GenericParameter.Name
-        elif t.IsTupleType
-        then t.GenericArguments |> Seq.map getTypeFastFullName |> String.concat " * "
-        elif t.IsFunctionType
-        then t.GenericArguments |> Seq.map getTypeFastFullName |> String.concat " -> "
-        elif t.HasTypeDefinition
-        then
-            let tdef = t.TypeDefinition
-            let genArgs = t.GenericArguments |> Seq.map getTypeFastFullName |> String.concat ","
-            match tdef.IsArrayType, genArgs with
-            | true, _ -> genArgs + "[]"
-            | false, "" -> t.TypeDefinition.FullName
-            | false, genArgs -> t.TypeDefinition.FullName + "[" + genArgs + "]"
-        else Types.object
-
     let getGenericArguments (t: FSharpType) =
         // Accessing .GenericArguments for a generic parameter will fail
         if t.IsGenericParameter
         then [||] :> IList<_>
         else (nonAbbreviatedType t).GenericArguments
 
-    let getEntityLocation (ent: FSharpEntity) =
-        match ent.ImplementationLocation with
-        | Some loc -> loc
-        | None -> ent.DeclarationLocation
+    let inline getEntityLocation (ent: FSharpEntity) =
+        ent.DeclarationLocation
+        // As we're using a hash for the overload suffix, we shouldn't care
+        // whether the location belongs to the implementation or the signature
+        // match ent.ImplementationLocation with
+        // | Some loc -> loc
+        // | None -> ent.DeclarationLocation
 
-    let getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.ImplementationLocation with
-        | Some loc -> loc
-        | None -> memb.DeclarationLocation
+    let inline getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
+        memb.DeclarationLocation
+        // match memb.ImplementationLocation with
+        // | Some loc -> loc
+        // | None -> memb.DeclarationLocation
 
     let private getEntityMangledName (com: ICompiler) trimRootModule (ent: FSharpEntity) =
         match ent.TryFullName with
@@ -124,38 +101,9 @@ module Helpers =
         then typ.TypeDefinition.TryFullName = Some Types.unit
         else false
 
-    // From https://stackoverflow.com/a/37449594
-    let private combineHashCodes (hashes: int seq) =
-        let hashes = Seq.toArray hashes
-        if hashes.Length = 0
-        then 0
-        else hashes |> Array.reduce (fun h1 h2 -> ((h1 <<< 5) + h1) ^^^ h2)
-
-    // F# hash function gives different results in different runs
-    // Taken from fable-core/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
-    let private stringHash (s: string) =
-        let mutable h = 5381
-        for i = 0 to s.Length - 1 do
-            h <- (h * 33) ^^^ (int s.[i])
-        h
-
-    let getOverloadIndex (m: FSharpMemberOrFunctionOrValue) =
-        let curriedParams = m.CurriedParameterGroups
-            // Overrides and interface implementations don't have override suffix in Fable
-        if m.IsOverrideOrExplicitInterfaceImplementation
-            // Members with curried params cannot be overloaded in F#
-            || curriedParams.Count <> 1
-            // Don't use overload suffix for members without arguments
-            || (curriedParams.[0].Count = 1 && isUnit curriedParams.[0].[0].Type)
-        then 0
-        else
-            curriedParams.[0]
-            |> Seq.map (fun p -> getTypeFastFullName p.Type |> stringHash)
-            |> combineHashCodes
-
     let getCastDeclarationName com (implementingEntity: FSharpEntity) (interfaceEntityFullName: string) =
         let entityName = getEntityMangledName com true implementingEntity
-        let memberPart = Naming.StaticMemberPart(interfaceEntityFullName, None)
+        let memberPart = Naming.StaticMemberPart(interfaceEntityFullName, "")
         Naming.sanitizeIdent (fun _ -> false) entityName memberPart
 
     let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
@@ -163,16 +111,16 @@ module Helpers =
         | Some ent when ent.IsFSharpModule ->
             match getEntityMangledName com trimRootModule ent with
             | "" -> memb.CompiledName, Naming.NoMemberPart
-            | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, None)
+            | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
         | Some ent ->
-            let overloadIndex =
-                match getOverloadIndex memb with
-                | 0 -> None
-                | i -> Some i
+            let overloadSuffix =
+                if com.Options.overloadIndex
+                then OverloadSuffix.getIndex ent memb
+                else OverloadSuffix.getHash memb
             let entName = getEntityMangledName com trimRootModule ent
             if memb.IsInstanceMember
-            then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadIndex)
-            else entName, Naming.StaticMemberPart(memb.CompiledName, overloadIndex)
+            then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
+            else entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)
         | None -> memb.CompiledName, Naming.NoMemberPart
 
     let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
@@ -714,7 +662,7 @@ module Util =
     // entity... is declared, we need to resolve the path
     let fixImportedRelativePath (com: ICompiler) (path: string) (loc: Lazy<Range.range>) =
         if path.StartsWith(".") then
-            let file = Path.normalizePath loc.Value.FileName
+            let file = Path.normalizePathAndEnsureFsExtension loc.Value.FileName
             if file = com.CurrentFile
             then path
             else
@@ -753,7 +701,7 @@ module Util =
 
     let entityRef (com: ICompiler) (ent: FSharpEntity) =
         let entLoc = getEntityLocation ent
-        let file = Path.normalizePath entLoc.FileName
+        let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
         let entityName = getEntityDeclarationName com ent
         if file = com.CurrentFile
         then makeIdent entityName |> Fable.IdentExpr
@@ -770,7 +718,7 @@ module Util =
             match entity with
             | Some ent ->
                 let entLoc = getEntityLocation ent
-                Path.normalizePath entLoc.FileName
+                Path.normalizePathAndEnsureFsExtension entLoc.FileName
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
             | None -> com.CurrentFile
@@ -827,7 +775,7 @@ module Util =
             | Some(ent,_) when isReplacementCandidate ent -> expr
             | Some(ent,_)  ->
                 let entLoc = getEntityLocation ent
-                let file = Path.normalizePath entLoc.FileName
+                let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
                 let funcName = getCastDeclarationName com ent interfaceFullName
                 if file = com.CurrentFile
                 then makeIdent funcName |> Fable.IdentExpr
@@ -872,12 +820,14 @@ module Util =
 
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes (genArgs: Lazy<_>) (argInfo: Fable.ArgInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
-        let tryReplace (entityFullName: string) =
+        match entity with
+        | Some ent when isReplacementCandidate ent ->
             let info: Fable.ReplaceCallInfo =
               { SignatureArgTypes = argTypes
-                DeclaringEntityFullName = entityFullName
+                DeclaringEntityFullName = ent.FullName
                 Spread = argInfo.Spread
                 CompiledName = memb.CompiledName
+                OverloadSuffix = lazy OverloadSuffix.getIndex ent memb
                 GenericArgs = genArgs.Value }
             match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
             | Some e -> Some e
@@ -887,8 +837,6 @@ module Util =
                     callInstanceMember com r typ argInfo entity memb |> Some
                 | _ -> sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
                        |> addErrorAndReturnNull com r |> Some
-        match entity with
-        | Some ent when isReplacementCandidate ent -> tryReplace ent.FullName
         | _ -> None
 
     let (|Emitted|_|) com r typ argInfo (memb: FSharpMemberOrFunctionOrValue) =
@@ -1026,6 +974,7 @@ module Util =
                     if not argInfo.IsBaseOrSelfConstructorCall && isSelfConstructorCall ctx memb
                     then { argInfo with IsBaseOrSelfConstructorCall = true }
                     else argInfo
+
                 memberRef com r memb |> staticCall r typ argInfo
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =

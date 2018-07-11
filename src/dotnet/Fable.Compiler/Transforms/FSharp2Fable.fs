@@ -56,6 +56,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
           DeclaringEntityFullName = entityFullName
           Spread = Fable.NoSpread
           CompiledName = traitName
+          OverloadSuffix = lazy ""
           GenericArgs =
             // TODO: Check the source F# entity to get the actual gen param names?
             match genArgs with
@@ -923,7 +924,9 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
         member this.InjectArgument(enclosingEntity, r, genArgs, parameter) =
             Inject.injectArg this enclosingEntity r genArgs parameter
         member this.GetInlineExpr(memb) =
-            let fileName = (getMemberLocation memb).FileName |> Path.normalizePath
+            let fileName =
+                (getMemberLocation memb).FileName
+                |> Path.normalizePathAndEnsureFsExtension
             if fileName <> com.CurrentFile then
                 this.Dependencies.Add(fileName) |> ignore
             let fullName = getMemberUniqueName com memb

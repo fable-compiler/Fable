@@ -73,8 +73,9 @@ let rec getInjects initialized decls =
                     let membName =
                         match memb.DeclaringEntity with
                         | Some ent when not ent.IsFSharpModule ->
+                            let suffix = Fable.Transforms.OverloadSuffix.getIndex ent memb
                             Naming.buildNameWithoutSanitationFrom
-                                ent.CompiledName (not memb.IsInstanceMember) memb.CompiledName
+                                ent.CompiledName (not memb.IsInstanceMember) memb.CompiledName suffix
                         | _ -> memb.CompiledName
                     yield membName, injections
         }

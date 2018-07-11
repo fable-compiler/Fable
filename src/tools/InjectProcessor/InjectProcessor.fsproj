@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="../../dotnet/Fable.Compiler/CLI/ProjectCoreCracker.fs" />
     <Compile Include="../../dotnet/Fable.Compiler/Global/Prelude.fs" />
+    <Compile Include="../../dotnet/Fable.Compiler/Transforms/OverloadSuffix.fs" />
     <Compile Include="InjectProcessor.fs" />
   </ItemGroup>
   <ItemGroup>
