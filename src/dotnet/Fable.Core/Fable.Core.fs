@@ -44,7 +44,7 @@ type EmitAttribute(macro: string) =
 type PassGenericsAttribute() =
     inherit Attribute()
 
-[<Obsolete("Records are compiled as pojos now by default, please remove the attribute.")>]
+[<Obsolete("Doesn't to anything in Fable 2, use `Fable.Core.JsInterop.toPlainJsObj` if needed.")>]
 type PojoAttribute() =
     inherit Attribute()
 
