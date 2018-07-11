@@ -270,6 +270,16 @@ module Helpers =
             | None -> false
         | _ -> false
 
+    let rec isInterfaceInheritingMembers (ent: FSharpEntity) =
+        if ent.AllInterfaces.Count > 1 then
+            let fullname = ent.FullName
+            ent.AllInterfaces |> Seq.exists (fun ifc ->
+                match tryDefinition ifc with
+                | Some e when e.FullName <> fullname ->
+                    e.MembersFunctionsAndValues.Count > 0 || isInterfaceInheritingMembers e
+                | _ -> false)
+        else false
+
     let hasSeqSpread (memb: FSharpMemberOrFunctionOrValue) =
         let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
             if memb.CurriedParameterGroups.Count <> 1 then false else

@@ -393,7 +393,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | _ -> failwith "makeFunctionArgs returns args with different length"
 
     // Getters and Setters
-
     | BasicPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let r, typ = makeRangeFrom fsExpr, makeType com ctx.GenericArgs fsExpr.Type
         let callee =
@@ -820,6 +819,10 @@ let private transformDeclarations (com: FableCompiler) rootEnt rootDecls =
                         IsPublic = isPublicEntity ent }
                     [Fable.CompilerGeneratedConstructor info |> Fable.ConstructorDeclaration]
                 | None ->
+                    // Cast for empty interfaces is erased, so they must not inherit members
+                    if ent.IsInterface && ent.MembersFunctionsAndValues.Count = 0 && isInterfaceInheritingMembers ent then
+                        sprintf "Empty interfaces cannot inherit members: %s" ent.FullName
+                        |> addError com None
                     transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
                 transformMemberDecl com ctx meth args body
