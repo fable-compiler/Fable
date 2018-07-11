@@ -191,34 +191,31 @@ module Naming =
         check 0
 
     type MemberPart =
-        | InstanceMemberPart of string * overloadIndex: int option
-        | StaticMemberPart of string * overloadIndex: int option
+        | InstanceMemberPart of string * overloadSuffix: string
+        | StaticMemberPart of string * overloadSuffix: string
         | NoMemberPart
 
     let getUniqueName baseName (index: int) =
         "$" + baseName + "$$" + string index
 
-    let private printOverloadIndex (index: int option) =
-        match index with
-        | None | Some 0 -> ""
-        | Some i when i < 0 -> "$$_" + string (abs i)
-        | Some i -> "$$" + string i
+    let private printOverloadSuffix (suffix: string) =
+        if suffix = "" then "" else "$$" + suffix
 
     let private buildName sanitize name part =
         (sanitize name) +
             (match part with
-                | InstanceMemberPart(s, i) -> "$$" + (sanitize s) + printOverloadIndex i
-                | StaticMemberPart(s, i) -> "$$$" + (sanitize s) + printOverloadIndex i
+                | InstanceMemberPart(s, i) -> "$$" + (sanitize s) + printOverloadSuffix i
+                | StaticMemberPart(s, i) -> "$$$" + (sanitize s) + printOverloadSuffix i
                 | NoMemberPart -> "")
 
     let buildNameWithoutSanitation name part =
         buildName id name part
 
     /// This helper is intended for instance and static members in fable-core library compiled from F# (FSharpSet, FSharpMap...)
-    let buildNameWithoutSanitationFrom (entityName: string) isStatic memberCompiledName =
+    let buildNameWithoutSanitationFrom (entityName: string) isStatic memberCompiledName overloadSuffix =
         (if isStatic
-            then entityName, StaticMemberPart(memberCompiledName, None)
-            else entityName, InstanceMemberPart(memberCompiledName, None))
+            then entityName, StaticMemberPart(memberCompiledName, overloadSuffix)
+            else entityName, InstanceMemberPart(memberCompiledName, overloadSuffix))
         ||> buildName id
 
     let sanitizeIdent conflicts name part =
@@ -279,6 +276,13 @@ module Path =
 
     let normalizeFullPath (path: string) =
         normalizePath (GetFullPath path)
+
+    /// If path belongs to a signature file (.fsi), replace the extension with .fs
+    let normalizePathAndEnsureFsExtension (path: string) =
+        let path = normalizePath path
+        if path.EndsWith("fsi")
+        then path.Substring(0, path.Length - 1)
+        else path
 
     /// Creates a relative path from one file or folder to another.
     let getRelativeFileOrDirPath fromIsDir fromFullPath toIsDir toFullPath =

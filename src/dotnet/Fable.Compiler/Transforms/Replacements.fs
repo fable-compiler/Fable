@@ -531,10 +531,11 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
     | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         Helper.CoreCall(coreModFor bt, opName, t, args, argTypes, ?loc=r)
     | Builtin(FSharpSet _)::_ ->
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" true opName
+        // F# Set and Map operators shouldn't have an overload index
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" true opName ""
         Helper.CoreCall("Set", mangledName, t, args, argTypes, ?loc=r)
     | Builtin (FSharpMap _)::_ ->
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" true opName
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" true opName ""
         Helper.CoreCall("Map", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
@@ -886,7 +887,7 @@ let getMangledNames (i: CallInfo) (thisArg: Expr option) =
     let moduleName = i.DeclaringEntityFullName.Substring(0, pos).Replace("Microsoft.", "")
     let entityName = Naming.sanitizeIdentForbiddenChars (i.DeclaringEntityFullName.Substring(pos + 1))
     let memberName = Naming.sanitizeIdentForbiddenChars (i.CompiledName)
-    let mangledName = Naming.buildNameWithoutSanitationFrom entityName isStatic memberName
+    let mangledName = Naming.buildNameWithoutSanitationFrom entityName isStatic memberName i.OverloadSuffix.Value
     moduleName, mangledName
 
 let bclType (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1440,7 +1441,8 @@ let sets (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     | ".ctor" -> (genArg com r 0 i.GenericArgs) |> makeSet com r t "OfSeq" args |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName i.OverloadSuffix.Value
+        let args = injectArg com r "Set" mangledName i.GenericArgs args
         Helper.CoreCall("Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let setModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1453,7 +1455,8 @@ let maps (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     | ".ctor" -> (genArg com r 0 i.GenericArgs) |> makeMap com r t "OfSeq" args |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName i.OverloadSuffix.Value
+        let args = injectArg com r "Map" mangledName i.GenericArgs args
         Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let mapModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =

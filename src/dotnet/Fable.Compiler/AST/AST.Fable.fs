@@ -202,6 +202,7 @@ type ArgInfo =
 
 type ReplaceCallInfo =
   { CompiledName: string
+    OverloadSuffix: Lazy<string>
     /// See ArgIngo.SignatureArgTypes
     SignatureArgTypes: Type list
     Spread: SpreadKind

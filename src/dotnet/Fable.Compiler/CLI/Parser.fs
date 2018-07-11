@@ -90,6 +90,7 @@ let toCompilerOptions (msg: Message): CompilerOptions =
     { typedArrays = msg.typedArrays
       clampByteArrays = msg.clampByteArrays
       verbose = GlobalParams.Singleton.Verbose
+      overloadIndex = GlobalParams.Singleton.Experimental.Contains("overload-index")
     }
 
 let parse (msg: string) =
