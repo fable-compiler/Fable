@@ -1,6 +1,6 @@
 import { createMutable as createMutableMap } from "./Map";
 import { createMutable as createMutableSet } from "./Set";
-import { combineHashCodes, compare, compareArrays, equals, equalArrays, hash, numberHash, toString } from "./Util";
+import { combineHashCodes, compare, compareArrays, equals, equalArrays, structuralHash, numberHash, toString } from "./Util";
 
 function sameType(x, y) {
   return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
@@ -71,7 +71,8 @@ List.prototype[Symbol.iterator] = function() {
 };
 
 List.prototype.GetHashCode = function() {
-  return combineHashCodes(Array.from(this).map(hash));
+  const hashes = Array.from(this).map(structuralHash);
+  return combineHashCodes(hashes);
 };
 
 List.prototype.Equals = function(other) {
@@ -110,7 +111,7 @@ Union.prototype.toJSON = function() {
 };
 
 Union.prototype.GetHashCode = function() {
-  let hashes = this.fields.map(hash);
+  let hashes = this.fields.map(structuralHash);
   hashes.splice(0, 0, numberHash(this.tag));
   return combineHashCodes(hashes);
 };
@@ -188,7 +189,8 @@ Record.prototype.toJSON = function() {
 };
 
 Record.prototype.GetHashCode = function() {
-  return combineHashCodes(Object.keys(this).map(k => hash(this[k])));
+  const hashes = Object.keys(this).map(k => structuralHash(this[k]));
+  return combineHashCodes(hashes);
 };
 
 Record.prototype.Equals = function(other) {
@@ -255,7 +257,8 @@ FSharpException.prototype.toJSON = function() {
 };
 
 FSharpException.prototype.GetHashCode = function() {
-  return combineHashCodes(getFSharpExceptionFieldNames(this).map(k => hash(this[k])));
+  const hashes = getFSharpExceptionFieldNames(this).map(k => structuralHash(this[k]));
+  return combineHashCodes(hashes);
 };
 
 FSharpException.prototype.Equals = function(other) {

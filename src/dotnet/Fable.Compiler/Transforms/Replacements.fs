@@ -583,36 +583,30 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
         if equal
         then expr
         else makeUnOp None Boolean expr UnaryNot
-
     match left.Type with
     | Builtin(BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | EnumType _ ->
         let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
         makeBinOp r Boolean left right op
-
     | Builtin(BclDateTime|BclDateTimeOffset) ->
         Helper.CoreCall("Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
-
     | Builtin(FSharpSet _|FSharpMap _) ->
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
-
     | Builtin(BclInt64|BclUInt64|BclBigInt as bt) ->
         Helper.CoreCall(coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
-
     | ArrayOrList(modName, t) ->
         let f = makeComparerFunction com t
         Helper.CoreCall(modName, "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
-
     | MetaType ->
         Helper.CoreCall("Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
-
     | Tuple _ ->
         Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
-
     | DeclaredType(ent,_) when hasBaseImplementingBasicMethods ent ->
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
-
-    | _ -> Helper.CoreCall("Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+    | DeclaredType(ent,_) when ent.IsClass ->
+        Helper.CoreCall("Util", "equalObjects", Boolean, [left; right], ?loc=r) |> is equal
+    | _ ->
+        Helper.CoreCall("Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) r (left: Expr) (right: Expr) =

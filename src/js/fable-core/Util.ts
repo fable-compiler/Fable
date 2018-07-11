@@ -1,3 +1,4 @@
+// tslint:disable:ban-types
 import { compare as compareDates, toString as dateToString } from "./Date";
 
 export const THIS_REF = Symbol("this");
@@ -16,7 +17,7 @@ export function downcast(obj: any) {
 export function extend(target: any, ...sources: any[]) {
   for (const source of sources) {
     for (const key of Object.keys(source)) {
-        Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
     }
   }
   return target;
@@ -202,7 +203,7 @@ export abstract class ObjectRef {
   private static count = 0;
 }
 
-function stringHash(s: string) {
+export function stringHash(s: string) {
   let i = 0;
   let h = 5381;
   const len = s.length;
@@ -212,7 +213,7 @@ function stringHash(s: string) {
   return h;
 }
 
-function numberHash(x: number) {
+export function numberHash(x: number) {
   return x * 2654435761 | 0;
 }
 
@@ -235,9 +236,8 @@ export function identityHash(x: any): number {
       return numberHash(x);
     case "string":
       return stringHash(x);
-    default: {
+    default:
       return numberHash(ObjectRef.id(x));
-    }
   }
 }
 
@@ -253,7 +253,9 @@ export function structuralHash(x: any): number {
     case "string":
       return stringHash(x);
     default: {
-      if (isArray(x)) {
+      if (typeof x.GetHashCode === "function") {
+        return x.GetHashCode();
+      } else if (isArray(x)) {
         const ar = (x as ArrayLike<any>);
         const len = ar.length;
         const hashes: number[] = new Array(len);
@@ -294,23 +296,37 @@ export function equalArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): boolean {
   return equalArraysWith(x, y, equals);
 }
 
-export function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean {
-  if (x == null) { return y == null; }
-  if (y == null) { return false; }
-  const xKeys = Object.keys(x);
-  const yKeys = Object.keys(y);
-  if (xKeys.length !== yKeys.length) {
+export function equalObjects(x: any, y: any): boolean {
+  if (x == null) {
+    return y == null;
+  } else if (y == null) {
     return false;
+  } else if (typeof x.Equals === "function") {
+    return x.Equals(y);
+  } else {
+    const hashX = identityHash(x);
+    const hashY = identityHash(y);
+    return hashX === hashY;
   }
-  xKeys.sort();
-  yKeys.sort();
-  for (let i = 0; i < xKeys.length; i++) {
-    if (xKeys[i] !== yKeys[i] || !equals(x[xKeys[i]], y[yKeys[i]])) {
-      return false;
-    }
-  }
-  return true;
 }
+
+// export function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean {
+//   if (x == null) { return y == null; }
+//   if (y == null) { return false; }
+//   const xKeys = Object.keys(x);
+//   const yKeys = Object.keys(y);
+//   if (xKeys.length !== yKeys.length) {
+//     return false;
+//   }
+//   xKeys.sort();
+//   yKeys.sort();
+//   for (let i = 0; i < xKeys.length; i++) {
+//     if (xKeys[i] !== yKeys[i] || !equals(x[xKeys[i]], y[yKeys[i]])) {
+//       return false;
+//     }
+//   }
+//   return true;
+// }
 
 export function equals(x: any, y: any): boolean {
   if (x === y) {
@@ -399,7 +415,7 @@ export function max<T>(comparer: (x: T, y: T) => number, x: T, y: T) {
   return comparer(x, y) > 0 ? x : y;
 }
 
-export function createAtom<T>(value: T): (v?: T) => T|void {
+export function createAtom<T>(value: T): (v?: T) => T | void {
   let atom = value;
   return (value: T) => {
     if (value === void 0) {
@@ -515,9 +531,7 @@ export function clear<T>(col: Iterable<T>) {
   }
 }
 
-/* tslint:disable */
 export function uncurry(arity: number, f: Function) {
-/* tslint:enable */
   // f may be a function option with None value
   if (f == null) { return null; }
 
@@ -547,15 +561,13 @@ export function uncurry(arity: number, f: Function) {
       return (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7);
     case 8:
       return (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any, a8: any) =>
-              f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8);
+        f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8);
     default:
       throw new Error("Uncurrying to more than 8-arity is not supported: " + arity);
   }
 }
 
-/* tslint:disable */
 export function curry(arity: number, f: Function): Function {
-/* tslint:enable */
   if (f == null) { return null; }
   switch (arity) {
     case 2:
@@ -581,9 +593,7 @@ export function curry(arity: number, f: Function): Function {
   }
 }
 
-/* tslint:disable */
 export function partialApply(arity: number, f: Function, args: any[]): any {
-/* tslint:enable */
   if (f == null) {
     return null;
   } else {
