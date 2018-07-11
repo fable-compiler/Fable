@@ -4,7 +4,7 @@ module Fable.Transforms.OverloadSuffix
 open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-// TODO: These two first functions are duplicateds from FSharp2Fable.Util
+// TODO: These two first functions are duplicated from FSharp2Fable.Util
 let rec private nonAbbreviatedType (t: FSharpType) =
     if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
 
@@ -15,18 +15,21 @@ let private isUnit (typ: FSharpType) =
     else false
 
 // Attention: we need to keep this similar to FSharp2Fable.TypeHelpers.makeType
-let rec private getTypeFastFullName (t: FSharpType) =
+let rec private getTypeFastFullName genParams (t: FSharpType) =
     let t = nonAbbreviatedType t
     if t.IsGenericParameter
-    then t.GenericParameter.Name
+    // Generics can have different names in signature and implementation files, use the position
+    then
+        let name = t.GenericParameter.Name
+        List.findIndex ((=) name) genParams |> string
     elif t.IsTupleType
-    then t.GenericArguments |> Seq.map getTypeFastFullName |> String.concat " * "
+    then t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
     elif t.IsFunctionType
-    then t.GenericArguments |> Seq.map getTypeFastFullName |> String.concat " -> "
+    then t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " -> "
     elif t.HasTypeDefinition
     then
         let tdef = t.TypeDefinition
-        let genArgs = t.GenericArguments |> Seq.map getTypeFastFullName |> String.concat ","
+        let genArgs = t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat ","
         match tdef.IsArrayType, genArgs with
         | true, _ -> genArgs + "[]"
         | false, "" -> t.TypeDefinition.FullName
@@ -42,7 +45,7 @@ let private combineHashCodes (hashes: int seq) =
 
 // F# hash function gives different results in different runs
 // Taken from fable-core/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
-let stringHash (s: string) =
+let private stringHash (s: string) =
     let mutable h = 5381
     for i = 0 to s.Length - 1 do
         h <- (h * 33) ^^^ (int s.[i])
@@ -53,7 +56,21 @@ let private hashToString (i: int) =
     then "Z" + (abs i).ToString("X")
     else i.ToString("X")
 
-let getHash (m: FSharpMemberOrFunctionOrValue) =
+let private getGenParams (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
+    // It seems that for F# types memb.GenericParameters contains all generics
+    // but for BCL types we need to check the DeclaringEntity generics too
+    let rec skipEntGenParams = function
+        | head1::tail1, (head2::tail2 as li2) ->
+            if head1 = head2
+            then skipEntGenParams (tail1, tail2)
+            else li2
+        | [], li2 -> li2
+        | _, [] -> []
+    let entGenParams = entity.GenericParameters |> Seq.map (fun p -> p.Name) |> Seq.toList
+    let membGenParams = m.GenericParameters |> Seq.map (fun p -> p.Name) |> Seq.toList
+    entGenParams @ skipEntGenParams (entGenParams, membGenParams)
+
+let getHash (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
     let curriedParams = m.CurriedParameterGroups
         // Overrides and interface implementations don't have override suffix in Fable
     if m.IsOverrideOrExplicitInterfaceImplementation
@@ -64,8 +81,9 @@ let getHash (m: FSharpMemberOrFunctionOrValue) =
         || (curriedParams.[0].Count = 1 && isUnit curriedParams.[0].[0].Type)
     then ""
     else
+        let genParams = getGenParams entity m
         curriedParams.[0]
-        |> Seq.map (fun p -> getTypeFastFullName p.Type |> stringHash)
+        |> Seq.map (fun p -> getTypeFastFullName genParams p.Type |> stringHash)
         |> combineHashCodes
         |> hashToString
 

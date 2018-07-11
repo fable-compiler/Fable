@@ -112,7 +112,7 @@ module Helpers =
             let overloadSuffix =
                 if com.Options.overloadIndex
                 then OverloadSuffix.getIndex ent memb
-                else OverloadSuffix.getHash memb
+                else OverloadSuffix.getHash ent memb
             let entName = getEntityMangledName com trimRootModule ent
             if memb.IsInstanceMember
             then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
