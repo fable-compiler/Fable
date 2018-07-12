@@ -296,20 +296,6 @@ export function equalArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): boolean {
   return equalArraysWith(x, y, equals);
 }
 
-export function equalObjects(x: any, y: any): boolean {
-  if (x == null) {
-    return y == null;
-  } else if (y == null) {
-    return false;
-  } else if (typeof x.Equals === "function") {
-    return x.Equals(y);
-  } else {
-    const hashX = identityHash(x);
-    const hashY = identityHash(y);
-    return hashX === hashY;
-  }
-}
-
 // export function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean {
 //   if (x == null) { return y == null; }
 //   if (y == null) { return false; }

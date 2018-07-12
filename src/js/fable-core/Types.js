@@ -1,6 +1,6 @@
 import { createMutable as createMutableMap } from "./Map";
 import { createMutable as createMutableSet } from "./Set";
-import { combineHashCodes, compare, compareArrays, equals, equalArrays, structuralHash, numberHash, toString } from "./Util";
+import { combineHashCodes, compare, compareArrays, equals, equalArrays, identityHash, structuralHash, numberHash, toString } from "./Util";
 
 function sameType(x, y) {
   return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
@@ -27,6 +27,21 @@ export function inherits(subClass, superClass) {
   //     ? Object.setPrototypeOf(subClass, superClass)
   //     : (subClass.__proto__ = superClass);
 }
+
+export function SystemObject() {
+}
+
+SystemObject.prototype.toString = function() {
+  return "{" + Object.keys(this).map((k) => k + " = " + toString(this[k])).join(";\n ") + "}";
+};
+
+SystemObject.prototype.GetHashCode = function() {
+  return identityHash(this);
+};
+
+SystemObject.prototype.Equals = function(other) {
+  return this === other;
+};
 
 function compareList(self, other) {
   if (self === other) {

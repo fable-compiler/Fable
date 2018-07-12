@@ -572,11 +572,7 @@ let identityHash r (arg: Expr) =
         Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r)
 
 let structuralHash r (arg: Expr) =
-    match arg.Type with
-    | DeclaredType(ent,_) when ent.IsClass ->
-        Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r)
-    | _ ->
-        Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
+    Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
 
 let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     let is equal expr =
@@ -601,10 +597,6 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
         Helper.CoreCall("Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Tuple _ ->
         Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
-    | DeclaredType(ent,_) when hasBaseImplementingBasicMethods ent ->
-        Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
-    | DeclaredType(ent,_) when ent.IsClass ->
-        Helper.CoreCall("Util", "equalObjects", Boolean, [left; right], ?loc=r) |> is equal
     | _ ->
         Helper.CoreCall("Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
 
