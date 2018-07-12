@@ -60,6 +60,7 @@ module Types =
     let [<Literal>] fsharpMap = "Microsoft.FSharp.Collections.FSharpMap`2"
     let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
     let [<Literal>] enumerable = "System.Collections.Generic.IEnumerable`1"
+    let [<Literal>] enumerableUntyped = "System.Collections.IEnumerable"
     let [<Literal>] ienumerable = "System.Collections.IEnumerable"
     let [<Literal>] icomparable = "System.IComparable"
     let [<Literal>] idisposable = "System.IDisposable"

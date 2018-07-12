@@ -789,7 +789,7 @@ module Util =
                 // Sometimes an interface method can be called without casting. Example:
                 // `let foo (x: 'T when 'T :> IDisposable) = x.Dispose()`
                 match callee.Type with
-                | Fable.DeclaredType(original, _) when entity.IsInterface && not original.IsInterface ->
+                | Fable.DeclaredType(original, _) when entity.IsInterface ->
                     castToInterface com r typ original entity callee
                 | Fable.GenericParam _ when entity.IsInterface ->
                     "An interface member of an unresolved generic parameter is being called, " +

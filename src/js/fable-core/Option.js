@@ -1,5 +1,5 @@
 import { declare, Union } from "./Types";
-import { compare, equals, hash, toString } from "./Util";
+import { compare, equals, structuralHash, toString } from "./Util";
 
 // Options are erased in runtime by Fable, but we have
 // the `Some` type below to wrap values that would evaluate
@@ -28,7 +28,7 @@ export class Some {
     }
 
     GetHashCode() {
-        return hash(this.value);
+        return structuralHash(this.value);
     }
 
     Equals(other) {

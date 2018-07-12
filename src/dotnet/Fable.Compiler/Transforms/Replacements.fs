@@ -2293,7 +2293,8 @@ let tryInterfaceCast r t interfaceFullName (e: Expr) =
     match interfaceFullName, e.Type with
     // CompareTo method is attached to prototype
     | Types.icomparable, _ -> Some e
-    | Types.enumerable, _ -> toSeq r t e |> Some
+    | Types.enumerable, _
+    | Types.enumerableUntyped, _ -> toSeq r t e |> Some
     // These types in fable-core (or native JS) have methods attached to prototype
     | _, Builtin(BclTimeSpan | BclTimer | BclHashSet _ | BclDictionary _) -> Some e
     | _ -> None
