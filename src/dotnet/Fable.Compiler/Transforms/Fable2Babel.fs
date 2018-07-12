@@ -1334,10 +1334,12 @@ module Util =
         [
             yield FunctionExpression([|for arg in args do yield arg :> Pattern|], BlockStatement setters)
                     |> declareModuleMember info.IsPublic info.EntityName false
-            if info.Entity.IsFSharpExceptionDeclaration
-            then yield coreValue com ctx "Types" "FSharpException" |> inherits com ctx consIdent
-            elif info.Entity.IsFSharpRecord || info.Entity.IsValueType
-            then yield coreValue com ctx "Types" "Record" |> inherits com ctx consIdent
+            if info.Entity.IsFSharpExceptionDeclaration then
+                yield coreValue com ctx "Types" "FSharpException" |> inherits com ctx consIdent
+            elif info.Entity.IsFSharpRecord || info.Entity.IsValueType then
+                yield coreValue com ctx "Types" "Record" |> inherits com ctx consIdent
+            elif info.Entity.IsClass then
+                yield coreValue com ctx "Types" "SystemObject" |> inherits com ctx consIdent
         ]
 
     let transformImplicitConstructor (com: IBabelCompiler) ctx (info: Fable.ClassImplicitConstructorInfo) =
@@ -1369,6 +1371,8 @@ module Util =
             | Some(TransformExpr com ctx baseRef) -> yield inherits com ctx consIdent baseRef
             | None when info.Entity.IsValueType ->
                 yield coreValue com ctx "Types" "Record" |> inherits com ctx consIdent
+            | None when info.Entity.IsClass ->
+                yield coreValue com ctx "Types" "SystemObject" |> inherits com ctx consIdent
             | None -> ()
             yield declareModuleMember info.IsConstructorPublic info.Name false exposedCons
         ]
