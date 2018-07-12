@@ -243,8 +243,6 @@ Target "PublishPackages" (fun () ->
 )
 
 let buildRepl () =
-    let replDir = CWD </> "src/dotnet/Fable.JS/demo"
-    let testappDir = CWD </> "src/dotnet/Fable.JS/testapp"
     let fcsFork = "https://github.com/ncave/FSharp.Compiler.Service"
     let fcsFableDir =
         // Appveyor has problems with too long paths so download the fork closer to root
@@ -256,31 +254,35 @@ let buildRepl () =
     let fableJsProj = CWD </> "src/dotnet/Fable.JS/Fable.JS.fsproj"
     let fcsFableProj = fcsFableDir </> "fcs/fcs-fable/fcs-fable.fsproj"
 
+    let reg = Regex(@"ProjectReference Include="".*?""")
+    (reg, fableJsProj) ||> replaceLines (fun line _ ->
+        let replacement = reg.Replace(line, sprintf @"ProjectReference Include=""%s""" fcsFableProj)
+        printfn "REPLACED:\n\t%s\n\t%s" line replacement
+        Some replacement)
+
     CleanDir fcsFableDir
-    Repository.cloneSingleBranch CWD fcsFork "fable" fcsFableDir
+    Repository.cloneSingleBranch CWD fcsFork "fable2" fcsFableDir
 
     runBashOrCmd fcsFableDir "fcs/build" "CodeGen.Fable"
     Directory.GetFiles(fcsFableDir </> "fcs/fcs-fable/codegen")
     |> Seq.iter (printfn "%s")
 
-    let reg = Regex(@"ProjectReference Include="".*?""")
-    (reg, fableJsProj) ||> replaceLines (fun line _ ->
-        reg.Replace(line, sprintf @"ProjectReference Include=""%s""" fcsFableProj) |> Some)
-
     // Build and minify REPL
+    let replDir = CWD </> "src/dotnet/Fable.JS/bench"
     Yarn.install replDir
     Yarn.run replDir "build" ""
-    Yarn.run replDir "minify" ""
+    // Yarn.run replDir "minify" ""
 
-    // build fable-core for umd
-    sprintf "--project %s -m umd --outDir %s" coreJsSrcDir (replDir </> "repl/build/fable-core")
-    |> Yarn.run CWD "tsc"
+    // // build fable-core for umd
+    // sprintf "--project %s -m umd --outDir %s" coreJsSrcDir (replDir </> "repl/build/fable-core")
+    // |> Yarn.run CWD "tsc"
 
-    // Build testapp
-    Yarn.install testappDir
-    Yarn.run testappDir "build" ""
-    Yarn.run testappDir "start" ""
-    Yarn.run testappDir "test" ""
+    // // Build testapp
+    // let testappDir = CWD </> "src/dotnet/Fable.JS/testapp"
+    // Yarn.install testappDir
+    // Yarn.run testappDir "build" ""
+    // Yarn.run testappDir "start" ""
+    // Yarn.run testappDir "test" ""
 
     // Copy generated files to `../fable-compiler.github.io/public/repl/build`
     // let targetDir =  CWD </> "../fable-compiler.github.io/public/repl"
@@ -305,7 +307,7 @@ Target "All" (fun () ->
     runTestsJS ()
 
     match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
-    | Some _, _ -> runTestsDotnet (); // buildRepl ()
+    | Some _, _ -> runTestsDotnet (); buildRepl ()
     // .NET tests fail most of the times in Travis for obscure reasons
     | _, Some _ -> () // buildRepl ()
     // Don't build repl locally (takes too long)

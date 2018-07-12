@@ -25,6 +25,7 @@
     <Compile Include="../Fable.Compiler/AST/AST.Fable.fs" />
     <Compile Include="../Fable.Compiler/AST/AST.Babel.fs" />
     <Compile Include="../Fable.Compiler/Transforms/Transforms.Util.fs" />
+    <Compile Include="../Fable.Compiler/Transforms/OverloadSuffix.fs" />
     <Compile Include="../Fable.Compiler/Transforms/FSharp2Fable.Util.fs" />
     <Compile Include="../Fable.Compiler/Transforms/Inject.fs" />
     <Compile Include="../Fable.Compiler/Transforms/ReplacementsInject.fs" />

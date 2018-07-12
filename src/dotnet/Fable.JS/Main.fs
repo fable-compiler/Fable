@@ -178,7 +178,8 @@ let makeCompiler fableCore filePath (project: Project) =
     let options: Fable.CompilerOptions =
         { typedArrays = true
           clampByteArrays = false
-          verbose = false }
+          verbose = false
+          overloadIndex = false }
     let com = Compiler(filePath, project, options, fableCore)
     com
 

@@ -1,6 +1,4 @@
-const fableUtils = require("fable-utils");
-
-const babelOptions = fableUtils.resolveBabelOptions({
+const babelOptions = {
   plugins: [
     ["transform-es2015-modules-commonjs"],
   ],
@@ -8,7 +6,7 @@ const babelOptions = fableUtils.resolveBabelOptions({
   //   ["env", { modules: "umd" }],
   // ],
   // sourceMaps: true,
-});
+};
 
 const fableOptions = {
   // fableCore: "./.fable/fable-core.1.3.7",
