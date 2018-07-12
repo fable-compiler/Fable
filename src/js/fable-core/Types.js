@@ -7,7 +7,7 @@ function sameType(x, y) {
 }
 
 // Taken from Babel helpers
-export function inherits(subClass, superClass) {
+function inherits(subClass, superClass) {
   // if (typeof superClass !== "function" && superClass !== null) {
   //   throw new TypeError(
   //     "Super expression must either be null or a function, not " +
@@ -26,6 +26,11 @@ export function inherits(subClass, superClass) {
   //   Object.setPrototypeOf
   //     ? Object.setPrototypeOf(subClass, superClass)
   //     : (subClass.__proto__ = superClass);
+}
+
+export function declare(cons, superClass) {
+  inherits(cons, superClass || SystemObject);
+  return cons;
 }
 
 export function SystemObject() {
@@ -216,44 +221,28 @@ Record.prototype.CompareTo = function(other) {
   return recordCompare(this, other);
 };
 
-export function FSharpRef(contents) {
+export const FSharpRef = declare(function FSharpRef(contents) {
   this.contents = contents;
-}
-inherits(FSharpRef, Record);
+}, Record);
 
 // EXCEPTIONS
 
-// function MyException(x, y) {
-//   function init(x, y) {
-//     this.bar = x;
-//     this.foo = y;
-//   }
-//   const _this = Error.call(this, "FATAL CRASH");
-//   init.call(_this, x, y);
-//   Object.setPrototypeOf(_this, MyException.prototype);
-//   return _this;
-// }
-// inherits(MyException, Error);
-
-// F# EXCEPTIONS
-
-function getFSharpExceptionFieldNames(self) {
-  return Object.keys(self).filter(k => k !== "message" && k !== "stack");
-}
-
-export function Exception(msg) {
+export const Exception = declare(function Exception(msg) {
   this.stack = Error().stack;
   this.message = msg;
-}
+});
 
 export function isException(x) {
   return x instanceof Error || x instanceof Exception;
 }
 
-export function FSharpException() {
-  Exception.call(this);
+function getFSharpExceptionFieldNames(self) {
+  return Object.keys(self).filter(k => k !== "message" && k !== "stack");
 }
-inherits(FSharpException, Exception);
+
+export const FSharpException = declare(function FSharpException() {
+  Exception.call(this);
+}, Exception);
 
 FSharpException.prototype.toString = function() {
   const fieldNames = getFSharpExceptionFieldNames(this);
@@ -284,16 +273,15 @@ FSharpException.prototype.CompareTo = function(other) {
   return recordCompare(this, other, getFSharpExceptionFieldNames);
 };
 
-export function MatchFailureException(arg1, arg2, arg3) {
+export const MatchFailureException = declare(function MatchFailureException(arg1, arg2, arg3) {
   this.arg1 = arg1;
   this.arg2 = arg2 | 0;
   this.arg3 = arg3 | 0;
-}
-inherits(MatchFailureException, FSharpException);
+}, FSharpException);
 
-export function Dictionary(source, comparer) {
+export const Dictionary = declare(function Dictionary(source, comparer) {
   this.__mutableMap = createMutableMap(source, comparer);
-}
+});
 Object.defineProperty(Dictionary.prototype, "size", { get: function() {
   return this.__mutableMap.size;
 }});
@@ -307,9 +295,9 @@ Dictionary.prototype.set = function(k, v) { return this.__mutableMap.set(k, v); 
 Dictionary.prototype.values = function() { return this.__mutableMap.values(); };
 Dictionary.prototype[Symbol.iterator] = function() { return this.__mutableMap[Symbol.iterator](); };
 
-export function HashSet(source, comparer) {
+export const HashSet = declare(function HashSet(source, comparer) {
   this.__mutableSet = createMutableSet(source, comparer);
-}
+});
 Object.defineProperty(HashSet.prototype, "size", { get: function() {
   return this.__mutableSet.size;
 }});
@@ -320,5 +308,4 @@ HashSet.prototype.has = function(k) { return this.__mutableSet.has(k); };
 HashSet.prototype.values = function() { return this.__mutableSet.values(); };
 HashSet.prototype[Symbol.iterator] = function() { return this.__mutableSet[Symbol.iterator](); };
 
-export function Attribute() {
-}
+export const Attribute = declare(function Attribute() { });

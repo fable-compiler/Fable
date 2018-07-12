@@ -197,10 +197,6 @@ module Util =
             let entRef = FSharp2Fable.Util.entityRefMaybeImported com ent
             com.TransformAsExpr(ctx, entRef)
 
-    let inherits com ctx subExpr baseExpr: U2<Statement, ModuleDeclaration> =
-        coreLibCall com ctx "Types" "inherits" [|subExpr; baseExpr|]
-        |> ExpressionStatement :> Statement |> U2.Case1
-
     let makeTypedArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
         match typ with
         | Fable.Number kind when com.Options.typedArrays ->
@@ -238,6 +234,7 @@ module Util =
     /// Immediately Invoked Function Expression
     let iife (com: IBabelCompiler) ctx (expr: Fable.Expr) =
         let _, body = com.TransformFunction(ctx, None, [], expr)
+        // Use an arrow function in case we need to capture `this`
         CallExpression(ArrowFunctionExpression([||], body), [||])
 
     let multiVarDeclaration kind (namesAndValue: (string * Expression option) list) =
@@ -1252,6 +1249,14 @@ module Util =
             ExportNamedDeclaration(decl)
             :> ModuleDeclaration |> U2.Case2
 
+    let declareType com ctx isPublic name consArgs consBody baseExpr: U2<Statement, ModuleDeclaration> =
+        let consFunction = makeFunctionExpression (Some name) consArgs (U2.Case1 consBody)
+        match baseExpr with
+        | Some e -> [|consFunction; e|]
+        | None -> [|consFunction|]
+        |> coreLibCall com ctx "Types" "declare"
+        |> declareModuleMember isPublic name false
+
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ValueDeclarationInfo) args body =
         let args, body = getMemberArgsAndBody com ctx (Some info.Name) None args info.HasSpread body
         // Don't lexically bind `this` (with arrow function) or it will fail with extension members
@@ -1303,20 +1308,14 @@ module Util =
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
     let transformUnionConstructor (com: IBabelCompiler) ctx (info: Fable.UnionConstructorInfo) =
-        let consIdent = Identifier info.EntityName
         let baseRef = coreValue com ctx "Types" "Union"
         let args: Pattern[] = [|Identifier "tag"; Identifier "name"; RestElement(Identifier "fields")|]
         let body =
             [Identifier "tag" :> Expression; Identifier "name" :> _; SpreadElement(Identifier "fields") :> _]
             |> callFunctionWithThisContext None baseRef thisExpr |> ExpressionStatement
-        [
-            FunctionExpression(args, BlockStatement [|body|])
-                |> declareModuleMember info.IsPublic info.EntityName false
-            inherits com ctx (consIdent :> Expression) baseRef
-        ]
+        [declareType com ctx info.IsPublic info.EntityName args (BlockStatement [|body|]) (Some baseRef)]
 
     let transformCompilerGeneratedConstructor (com: IBabelCompiler) ctx (info: Fable.CompilerGeneratedConstructorInfo) =
-        let consIdent = Identifier info.EntityName :> Expression
         let args =
             [| for i = 1 to info.Entity.FSharpFields.Count do
                 yield Identifier("arg" + string i) |]
@@ -1331,16 +1330,14 @@ module Util =
                     else args.[i] :> _
                 assign None left right |> ExpressionStatement :> Statement)
             |> Seq.toArray
-        [
-            yield FunctionExpression([|for arg in args do yield arg :> Pattern|], BlockStatement setters)
-                    |> declareModuleMember info.IsPublic info.EntityName false
-            if info.Entity.IsFSharpExceptionDeclaration then
-                yield coreValue com ctx "Types" "FSharpException" |> inherits com ctx consIdent
-            elif info.Entity.IsFSharpRecord || info.Entity.IsValueType then
-                yield coreValue com ctx "Types" "Record" |> inherits com ctx consIdent
-            elif info.Entity.IsClass then
-                yield coreValue com ctx "Types" "SystemObject" |> inherits com ctx consIdent
-        ]
+        let baseExpr =
+            if info.Entity.IsFSharpExceptionDeclaration
+            then coreValue com ctx "Types" "FSharpException" |> Some
+            elif info.Entity.IsFSharpRecord || info.Entity.IsValueType
+            then coreValue com ctx "Types" "Record" |> Some
+            else None
+        let args = [|for arg in args do yield arg :> Pattern|]
+        [declareType com ctx info.IsPublic info.EntityName args (BlockStatement setters) baseExpr]
 
     let transformImplicitConstructor (com: IBabelCompiler) ctx (info: Fable.ClassImplicitConstructorInfo) =
         let boundThis = Some("this", info.BoundConstructorThis)
@@ -1355,7 +1352,6 @@ module Util =
                 (SpreadElement(ident args.Head) :> Expression) :: (List.map identAsExpr args.Tail) |> List.rev
             | args -> List.map identAsPattern args, List.map identAsExpr args
         let consIdent = Identifier info.EntityName :> Expression
-        let originalCons = FunctionExpression(args, body) :> Expression
         let exposedCons =
             FunctionExpression(List.toArray argIdents,
                 BlockStatement [|
@@ -1365,16 +1361,15 @@ module Util =
                             callFunctionWithThisContext None consIdent thisExpr argExprs,
                             NewExpression(consIdent,List.toArray argExprs))
             )   |])
-        [
-            yield declareModuleMember info.IsEntityPublic info.EntityName false originalCons
+        let baseExpr =
             match info.Base with
-            | Some(TransformExpr com ctx baseRef) -> yield inherits com ctx consIdent baseRef
-            | None when info.Entity.IsValueType ->
-                yield coreValue com ctx "Types" "Record" |> inherits com ctx consIdent
-            | None when info.Entity.IsClass ->
-                yield coreValue com ctx "Types" "SystemObject" |> inherits com ctx consIdent
-            | None -> ()
-            yield declareModuleMember info.IsConstructorPublic info.Name false exposedCons
+            | Some(TransformExpr com ctx baseRef) -> Some baseRef
+            // Structs have same properties as records
+            | None when info.Entity.IsValueType -> coreValue com ctx "Types" "Record" |> Some
+            | None -> None
+        [
+            declareType com ctx info.IsEntityPublic info.EntityName args body baseExpr
+            declareModuleMember info.IsConstructorPublic info.Name false exposedCons
         ]
 
     let transformInterfaceCast (com: IBabelCompiler) ctx (info: Fable.InterfaceCastDeclarationInfo) members =

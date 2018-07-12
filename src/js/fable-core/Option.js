@@ -1,4 +1,4 @@
-import { inherits, Union } from "./Types";
+import { declare, Union } from "./Types";
 import { compare, equals, hash, toString } from "./Util";
 
 // Options are erased in runtime by Fable, but we have
@@ -73,10 +73,9 @@ export function filter(predicate, arg) {
 
 // CHOICE
 
-export function Choice(tag, name, field) {
+export const Choice = declare(function Choice(tag, name, field) {
     Union.call(this, tag, name, field);
-}
-inherits(Choice, Union);
+}, Union);
 
 export function choice1(x) {
     return new Choice(0, "Choice1Of2", x);
@@ -96,10 +95,9 @@ export function tryValueIfChoice2(x) {
 
 // RESULT
 
-export function Result(tag, name, field) {
+export const Result = declare(function Result(tag, name, field) {
     Union.call(this, tag, name, field);
-}
-inherits(Result, Union);
+}, Union);
 
 export function ok(x) {
     return new Result(0, "Ok", x);

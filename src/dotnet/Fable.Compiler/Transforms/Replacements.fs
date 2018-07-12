@@ -597,6 +597,8 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
         Helper.CoreCall("Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Tuple _ ->
         Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
+    | DeclaredType(ent,_) when hasBaseImplementingBasicMethods ent ->
+        Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
     | _ ->
         Helper.CoreCall("Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
 
