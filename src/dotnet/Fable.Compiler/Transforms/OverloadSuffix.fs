@@ -97,9 +97,10 @@ let getIndex (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
         else false
     // Check that m.CurriedParameterGroups.Count <= 1 before using this
     let getOverloadableParams (m: FSharpMemberOrFunctionOrValue): IList<_> =
-        if m.CurriedParameterGroups.Count = 0
+        let curriedParams = m.CurriedParameterGroups
+        if curriedParams.Count = 0 || (curriedParams.[0].Count = 1 && isUnit curriedParams.[0].[0].Type)
         then upcast [||]
-        else m.CurriedParameterGroups.[0]
+        else curriedParams.[0]
     // Overrides and interface implementations don't have override suffix in Fable
     // Members with curried params cannot be overloaded in F#
     if m.IsOverrideOrExplicitInterfaceImplementation || m.CurriedParameterGroups.Count > 1
