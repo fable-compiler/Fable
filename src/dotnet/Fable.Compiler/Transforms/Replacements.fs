@@ -531,10 +531,11 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
     | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         Helper.CoreCall(coreModFor bt, opName, t, args, argTypes, ?loc=r)
     | Builtin(FSharpSet _)::_ ->
-        // F# Set and Map operators shouldn't have an overload index
+        // FSharpSet operators don't have an overload index
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" true opName ""
         Helper.CoreCall("Set", mangledName, t, args, argTypes, ?loc=r)
     | Builtin (FSharpMap _)::_ ->
+        // FSharpMap operators don't have an overload index
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" true opName ""
         Helper.CoreCall("Map", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
@@ -1441,7 +1442,8 @@ let sets (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     | ".ctor" -> (genArg com r 0 i.GenericArgs) |> makeSet com r t "OfSeq" args |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName i.OverloadSuffix.Value
+        // FSharpSet doesn't have overloads, we don't need to calculate the suffix
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName ""
         let args = injectArg com r "Set" mangledName i.GenericArgs args
         Helper.CoreCall("Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
@@ -1455,7 +1457,8 @@ let maps (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     | ".ctor" -> (genArg com r 0 i.GenericArgs) |> makeMap com r t "OfSeq" args |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName i.OverloadSuffix.Value
+        // FSharpMap doesn't have overloads, we don't need to calculate the suffix
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName ""
         let args = injectArg com r "Map" mangledName i.GenericArgs args
         Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
