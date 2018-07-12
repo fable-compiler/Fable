@@ -185,13 +185,13 @@ let private isUsefulOption (opt : string) =
 /// and get F# compiler args from an .fsproj file. As we'll merge this
 /// later with other projects we'll only take the sources and the references,
 /// checking if some .dlls correspond to Fable libraries
-let fullCrack (projFile: string): CrackedFsproj =
+let fullCrack rootDir (projFile: string): CrackedFsproj =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
     // Try restoring project
-    // TODO: Detect if `dotnet` is not installed globally? How does it Dotnet.ProjInfo?
-    Process.tryRunAndGetOutput (Path.GetDirectoryName projFile) "dotnet" "restore"
+    // TODO: Detect if `dotnet` is not installed globally? How does Dotnet.ProjInfo detect it?
+    Process.tryRunAndGetOutput rootDir "dotnet" (sprintf "restore \"%s\"" projFile)
     |> printfn "%s"
     let projOpts, projRefs, _msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
@@ -254,7 +254,7 @@ let easyCrack (projFile: string): CrackedFsproj =
       PackageReferences = []
       OtherCompilerOptions = [] }
 
-let getCrackedProjectsFromMainFsproj (projFile: string) =
+let getCrackedProjectsFromMainFsproj rootDir (projFile: string) =
     let rec crackProjects (acc: CrackedFsproj list) (projFile: string) =
         let crackedFsproj =
             match acc |> List.tryFind (fun x -> x.ProjectFile = projFile) with
@@ -263,30 +263,30 @@ let getCrackedProjectsFromMainFsproj (projFile: string) =
         // Add always a reference to the front to preserve compilation order
         // Duplicated items will be removed later
         List.fold crackProjects (crackedFsproj::acc) crackedFsproj.ProjectReferences
-    let mainProj = fullCrack projFile
+    let mainProj = fullCrack rootDir projFile
     let refProjs =
         List.fold crackProjects [] mainProj.ProjectReferences
         |> List.distinctBy (fun x -> x.ProjectFile)
     refProjs, mainProj
 
-let getCrackedProjects (checker: FSharpChecker) (projFile: string) =
+let getCrackedProjects (checker: FSharpChecker) rootDir (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
     | ".fsx" ->
         // getProjectOptionsFromScript checker define projFile
         failwith "Parsing .fsx scripts is not currently possible, please use a .fsproj project"
     | ".fsproj" ->
-        getCrackedProjectsFromMainFsproj projFile
+        getCrackedProjectsFromMainFsproj rootDir projFile
     | s -> failwithf "Unsupported project type: %s" s
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
 // file for changes. In some cases that editor will lock the file which can cause fable to
 // get a read error. If that happens the lock is usually brief so we can reasonably wait
 // for it to be released.
-let retryGetCrackedProjects (checker: FSharpChecker) (projFile: string) =
+let retryGetCrackedProjects (checker: FSharpChecker) rootDir (projFile: string) =
     let retryUntil = (DateTime.Now + TimeSpan.FromSeconds 2.)
     let rec retry () =
         try
-            getCrackedProjects checker projFile
+            getCrackedProjects checker rootDir projFile
         with
         | :? IOException as ioex ->
             if retryUntil > DateTime.Now then
@@ -349,7 +349,7 @@ let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: str
     let projFile = Path.GetFullPath(projFile)
     if not(File.Exists(projFile)) then
         failwith ("File does not exist: " + projFile)
-    let projRefs, mainProj = retryGetCrackedProjects checker projFile
+    let projRefs, mainProj = retryGetCrackedProjects checker rootDir projFile
     let fableCorePath, pkgRefs =
         copyFableCoreAndPackageSources rootDir mainProj.PackageReferences
     let projOpts =
