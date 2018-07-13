@@ -704,7 +704,7 @@ module Util =
         | Some importedEntity -> importedEntity
         | None -> entityRef com ent
 
-    let private memberRefPrivate (com: IFableCompiler) r typ (entity: FSharpEntity option) memberName =
+    let private memberRefPrivate (com: IFableCompiler) typ (entity: FSharpEntity option) memberName =
         let file =
             match entity with
             | Some ent ->
@@ -717,12 +717,12 @@ module Util =
         then makeTypedIdent typ memberName |> Fable.IdentExpr
         else makeInternalImport typ memberName file
 
-    let memberRefTyped (com: IFableCompiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRefTyped (com: IFableCompiler) typ (memb: FSharpMemberOrFunctionOrValue) =
         getMemberDeclarationName com memb
-        |> memberRefPrivate com r typ memb.DeclaringEntity
+        |> memberRefPrivate com typ memb.DeclaringEntity
 
-    let memberRef (com: IFableCompiler) r (memb: FSharpMemberOrFunctionOrValue) =
-        memberRefTyped com r Fable.Any memb
+    let memberRef (com: IFableCompiler) (memb: FSharpMemberOrFunctionOrValue) =
+        memberRefTyped com Fable.Any memb
 
     let rec tryFindImplementingEntity (ent: FSharpEntity) interfaceFullName =
         let found =
@@ -959,14 +959,13 @@ module Util =
             callInstanceMember com r typ argInfo entity memb
         | _ ->
             if isModuleValueForCalls memb
-            then memberRefTyped com r typ memb
+            then memberRefTyped com typ memb
             else
                 let argInfo =
                     if not argInfo.IsBaseOrSelfConstructorCall && isSelfConstructorCall ctx memb
                     then { argInfo with IsBaseOrSelfConstructorCall = true }
                     else argInfo
-
-                memberRef com r memb |> staticCall r typ argInfo
+                memberRef com memb |> staticCall r typ argInfo
 
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType
@@ -976,4 +975,4 @@ module Util =
         | Imported com r typ None imported -> imported
         // TODO: Replaced? Check if there're failing tests
         | Try (tryGetBoundExpr ctx r) expr, _ -> expr
-        | _ -> memberRefTyped com r typ v
+        | _ -> memberRefTyped com typ v

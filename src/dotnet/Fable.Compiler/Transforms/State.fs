@@ -40,7 +40,7 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
         |> Map
     let rootModules =
         implFiles
-        |> Map.filter (fun file _ -> not <| file.EndsWith("fsi"))
+        |> Map.filter (fun file _ -> not(file.EndsWith("fsi")))
         |> Map.map (fun _ file -> FSharp2Fable.Compiler.getRootModuleFullName file)
     member __.TimeStamp = timestamp
     member __.FableCore = fableCore
@@ -97,7 +97,7 @@ type Compiler(currentFile, project: Project, options, ?fableCore: string) =
         member __.FableCore = fableCore
         member __.CurrentFile = currentFile
         member __.GetRootModule(fileName) =
-            let fileName = Path.normalizePath fileName
+            let fileName = Path.normalizePathAndEnsureFsExtension fileName
             match Map.tryFind fileName project.RootModules with
             | Some rootModule -> rootModule
             | None -> "" // failwithf "Cannot find root module for %s" fileName
