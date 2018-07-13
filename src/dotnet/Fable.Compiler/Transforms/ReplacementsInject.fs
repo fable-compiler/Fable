@@ -69,7 +69,7 @@ let fableCoreModules =
       "countBy", [(Types.equalityComparer, 1)]
     ]
     "Set", Map [
-      "FSharpSet$$Map", [(Types.comparer, 1)]
+      "FSharpSet$$Map$$596F5D77", [(Types.comparer, 1)]
       "singleton", [(Types.comparer, 0)]
       "unionMany", [(Types.comparer, 0)]
       "empty", [(Types.comparer, 0)]

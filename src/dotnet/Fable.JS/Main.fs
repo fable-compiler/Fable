@@ -178,8 +178,7 @@ let makeCompiler fableCore filePath (project: Project) =
     let options: Fable.CompilerOptions =
         { typedArrays = true
           clampByteArrays = false
-          verbose = false
-          overloadIndex = false }
+          verbose = false }
     let com = Compiler(filePath, project, options, fableCore)
     com
 
@@ -221,5 +220,4 @@ let defaultManager =
             |> String.concat "\n"
   }
 
-[<ExportDefault>]
 let exports = defaultManager

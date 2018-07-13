@@ -4,8 +4,6 @@ type CompilerOptions =
     { typedArrays: bool
       clampByteArrays: bool
       verbose: bool
-      /// Use overload index instead of hash, intended for fable-core F# types
-      overloadIndex: bool
     }
 
 [<RequireQualifiedAccess>]

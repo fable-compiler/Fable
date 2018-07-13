@@ -1,18 +1,38 @@
 [<RequireQualifiedAccess>]
 module Fable.Transforms.OverloadSuffix
 
-open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-// TODO: These two first functions are duplicated from FSharp2Fable.Util
+[<RequireQualifiedAccess>]
+module private Atts =
+    let [<Literal>] replaces = "Fable.Core.ReplacesAttribute" // typeof<Fable.Core.ReplacesAttribute>.FullName
+    let [<Literal>] overloadSuffix = "Fable.Core.OverloadSuffixAttribute" // typeof<Fable.Core.OverloadSuffixAttribute>.FullName
+
+[<RequireQualifiedAccess>]
+module private Types =
+    let [<Literal>] object = "System.Object"
+    let [<Literal>] unit = "Microsoft.FSharp.Core.Unit"
+
+// NOTE: These helper functions are (more or less) duplicated from FSharp2Fable.Util
 let rec private nonAbbreviatedType (t: FSharpType) =
     if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
 
 let private isUnit (typ: FSharpType) =
     let typ = nonAbbreviatedType typ
     if typ.HasTypeDefinition
-    then typ.TypeDefinition.TryFullName = Some "Microsoft.FSharp.Core.Unit"
+    then typ.TypeDefinition.TryFullName = Some Types.unit
     else false
+
+let private tryFindAttributeArgs fullName (atts: #seq<FSharpAttribute>) =
+    atts |> Seq.tryPick (fun att ->
+        match att.AttributeType.TryFullName with
+        | Some fullName' ->
+            if fullName = fullName'
+            then att.ConstructorArguments |> Seq.map snd |> Seq.toList |> Some
+            else None
+        | None -> None)
+
+// -------- End of helper functions
 
 // Attention: we need to keep this similar to FSharp2Fable.TypeHelpers.makeType
 let rec private getTypeFastFullName genParams (t: FSharpType) =
@@ -30,11 +50,16 @@ let rec private getTypeFastFullName genParams (t: FSharpType) =
     then
         let tdef = t.TypeDefinition
         let genArgs = t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat ","
-        match tdef.IsArrayType, genArgs with
-        | true, _ -> genArgs + "[]"
-        | false, "" -> t.TypeDefinition.FullName
-        | false, genArgs -> t.TypeDefinition.FullName + "[" + genArgs + "]"
-    else "System.Object"
+        match tdef.IsArrayType, tryFindAttributeArgs Atts.replaces tdef.Attributes with
+        | true, _ ->
+            genArgs + "[]"
+        | false, Some [:? string as replacedTypeFullName] ->
+            let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
+            replacedTypeFullName + genArgs
+        | false, _ ->
+            let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
+            t.TypeDefinition.FullName + genArgs
+    else Types.object
 
 // From https://stackoverflow.com/a/37449594
 let private combineHashCodes (hashes: int seq) =
@@ -81,44 +106,11 @@ let getHash (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
         || (curriedParams.[0].Count = 1 && isUnit curriedParams.[0].[0].Type)
     then ""
     else
-        let genParams = getGenParams entity m
-        curriedParams.[0]
-        |> Seq.map (fun p -> getTypeFastFullName genParams p.Type |> stringHash)
-        |> combineHashCodes
-        |> hashToString
-
-/// Simple overload resolution enumerating overloads within an entity (used for fable-core F# types)
-let getIndex (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
-    let argsEqual (args1: IList<FSharpParameter>) (args2: IList<FSharpParameter>) =
-        if args1.Count = args2.Count
-        // We're using the overload index mainly for types in fable-core to replace BCL classes,
-        // just checking the param name should be enough to disambiguate interfaces
-        then (args1, args2) ||> Seq.forall2 (fun a1 a2 -> a1.Name = a2.Name)
-        else false
-    // Check that m.CurriedParameterGroups.Count <= 1 before using this
-    let getOverloadableParams (m: FSharpMemberOrFunctionOrValue): IList<_> =
-        let curriedParams = m.CurriedParameterGroups
-        if curriedParams.Count = 0 || (curriedParams.[0].Count = 1 && isUnit curriedParams.[0].[0].Type)
-        then upcast [||]
-        else curriedParams.[0]
-    // Overrides and interface implementations don't have override suffix in Fable
-    // Members with curried params cannot be overloaded in F#
-    if m.IsOverrideOrExplicitInterfaceImplementation || m.CurriedParameterGroups.Count > 1
-    then ""
-    else
-        // m.Overloads(false) doesn't work
-        let name = m.CompiledName
-        let isInstance = m.IsInstanceMember
-        let params1 = getOverloadableParams m
-        let index, _found =
-            ((0, false), entity.MembersFunctionsAndValues)
-            ||> Seq.fold (fun (i, found) m2 ->
-                if not found && m2.IsInstanceMember = isInstance && m2.CompiledName = name && m2.CurriedParameterGroups.Count <= 1 then
-                    // .Equals() doesn't work.
-                    // .IsEffectivelySameAs() doesn't work for constructors
-                    if argsEqual params1 (getOverloadableParams m2)
-                    then i, true
-                    else i + 1, false
-                else i, found)
-        // TODO: Log error if not found?
-        if index = 0 then "" else string index
+        match tryFindAttributeArgs Atts.overloadSuffix m.Attributes with
+        | Some [:? string as overloadSuffix] -> overloadSuffix
+        | _ ->
+            let genParams = getGenParams entity m
+            curriedParams.[0]
+            |> Seq.map (fun p -> getTypeFastFullName genParams p.Type |> stringHash)
+            |> combineHashCodes
+            |> hashToString

@@ -469,7 +469,7 @@ module internal SetTree =
 
     let ofArray comparer l = Array.fold (fun acc k -> add comparer k acc) SetEmpty l
 
-[<CompiledName("FSharpSet")>]
+[<CompiledName("FSharpSet"); Replaces("Microsoft.FSharp.Collections.FSharpSet`1")>]
 type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'T>, tree: SetTree<'T>) =
     member internal __.Comparer = comparer
     member internal __.Tree : SetTree<'T> = tree
@@ -509,6 +509,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
 
     member s.ForAll f = SetTree.forall f s.Tree
 
+    [<OverloadSuffix("")>]
     [<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates")>]
     static member (-) (a: Set<'T>, b: Set<'T>) =
         match a.Tree with
@@ -518,6 +519,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
             | SetEmpty -> a (* A - 0 = A *)
             | _ -> new Set<_>(a.Comparer,SetTree.diff a.Comparer  a.Tree b.Tree)
 
+    [<OverloadSuffix("")>]
     [<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates")>]
     static member (+) (a: Set<'T>, b: Set<'T>) =
         match b.Tree with

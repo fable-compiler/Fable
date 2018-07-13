@@ -112,13 +112,10 @@ let buildCoreJsTypescriptFiles () =
 
 let buildCoreJsFsharpFiles () =
     nugetRestore coreJsSrcDir
-    sprintf "%s/dotnet-fable.dll %s %s %s"
+    sprintf "%s/dotnet-fable.dll %s %s"
         cliBuildDir
         "node-run ../fable-splitter/dist/cli"
         "--fable-core force:${outDir}"  // fable-splitter will adjust the path
-        // Use overload indices instead of hashes
-        // See https://github.com/fable-compiler/Fable/issues/1472#issuecomment-403976332
-        "--experimental overload-index"
     |> run coreJsSrcDir dotnetExePath
 
 let buildCoreJs () =

@@ -52,7 +52,7 @@ let tests =
             sb.ToString() |> equal "Hello world!"
 
       testCase "bprintf works" <| fun () ->
-            let sb = System.Text.StringBuilder()
+            let sb = System.Text.StringBuilder(10)
             Printf.bprintf sb "Hello"
             Printf.bprintf sb " %s!" "world"
             sb.ToString() |> equal "Hello world!"

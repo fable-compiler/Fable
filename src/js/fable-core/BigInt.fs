@@ -1,6 +1,5 @@
 module BigInt
 
-[<Fable.Core.ExportDefault>]
 type bigint = System.Numerics.BigInteger
 
 let op_Addition = bigint.(+)

@@ -109,10 +109,7 @@ module Helpers =
             | "" -> memb.CompiledName, Naming.NoMemberPart
             | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
         | Some ent ->
-            let overloadSuffix =
-                if com.Options.overloadIndex
-                then OverloadSuffix.getIndex ent memb
-                else OverloadSuffix.getHash ent memb
+            let overloadSuffix = OverloadSuffix.getHash ent memb
             let entName = getEntityMangledName com trimRootModule ent
             if memb.IsInstanceMember
             then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
@@ -821,7 +818,7 @@ module Util =
                 DeclaringEntityFullName = ent.FullName
                 Spread = argInfo.Spread
                 CompiledName = memb.CompiledName
-                OverloadSuffix = lazy OverloadSuffix.getIndex ent memb
+                OverloadSuffix = lazy OverloadSuffix.getHash ent memb
                 GenericArgs = genArgs.Value }
             match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
             | Some e -> Some e

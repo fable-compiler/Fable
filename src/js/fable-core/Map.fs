@@ -384,7 +384,7 @@ module MapTree =
             then Some(en.Current, en)
             else None)
 
-[<CompiledName("FSharpMap")>]
+[<CompiledName("FSharpMap"); Replaces("Microsoft.FSharp.Collections.FSharpSet`1")>]
 type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key,'Value>) =
     member internal __.Comparer = comparer
     member internal __.Tree = tree
