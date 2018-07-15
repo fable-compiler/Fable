@@ -72,6 +72,9 @@ let tests =
         equal (0x80000000 >>> 1, -1073741824)
         equal (0x80000000u >>> 1, 1073741824u)
 
+    testCase "UInt64 multiplication with 0 returns uint" <| fun () -> // See #1480
+        equal (0x0UL * 0x1UL, 0x0UL)
+
     testCase "Decimal literals can be generated" <| fun () ->
         equal (System.Decimal.Zero, 0.M)
         equal (System.Decimal.One, 1.M)

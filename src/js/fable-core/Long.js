@@ -681,7 +681,7 @@ export function op_Subtraction($this, subtrahend) {
  */
 export function op_Multiply($this, multiplier) {
     if (isZero($this))
-        return ZERO;
+        return $this.unsigned ? UZERO : ZERO;
     if (!isLong(multiplier))
         multiplier = fromValue(multiplier);
 
@@ -695,7 +695,7 @@ export function op_Multiply($this, multiplier) {
     }
 
     if (isZero(multiplier))
-        return ZERO;
+        return $this.unsigned ? UZERO : ZERO;
     if (equals($this, MIN_VALUE))
         return isOdd(multiplier) ? MIN_VALUE : ZERO;
     if (equals(multiplier, MIN_VALUE))
