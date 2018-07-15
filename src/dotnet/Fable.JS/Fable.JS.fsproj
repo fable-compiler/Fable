@@ -13,12 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../Fable.Core/Fable.Core.fs" />
-    <Compile Include="../Fable.Core/Fable.Import.JS.fs" />
-    <Compile Include="../Fable.Core/Fable.Core.JsInterop.fs" />
-    <Compile Include="../Fable.Core/Fable.Core.Extensions.fs" />
-    <Compile Include="../Fable.Core/Fable.Core.Experimental.fs" />
-
+    <Compile Include="../Fable.Compiler/Global/Fable.Core.fs" />
     <Compile Include="../Fable.Compiler/Global/Prelude.fs" />
     <Compile Include="../Fable.Compiler/Global/Compiler.fs" />
     <Compile Include="../Fable.Compiler/AST/AST.Common.fs" />

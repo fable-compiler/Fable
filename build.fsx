@@ -166,15 +166,31 @@ Target "QuickFableCoreTest" (fun () ->
     buildCoreJs ()
     quickTest ())
 
-let updateVersionInCliUtil () =
-    let reg = Regex(@"\bVERSION\s*=\s*""(.*?)""")
+let updateVersionInFile useNugetVersion releaseNotesPath targetFilePath (regexPatternInTargetFile: string) =
+    let reg = Regex regexPatternInTargetFile
     let release =
-        CWD </> "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
+        CWD </> releaseNotesPath
         |> ReleaseNotesHelper.LoadReleaseNotes
-    let mainFile = CWD </> "src/dotnet/Fable.Compiler/CLI/CLI.Util.fs"
+    let mainFile = CWD </> targetFilePath
     (reg, mainFile) ||> replaceLines (fun line m ->
-        let replacement = sprintf "VERSION = \"%s\"" release.NugetVersion
-        reg.Replace(line, replacement) |> Some)
+        let original = m.Value
+        let versionIndex = m.Groups.[1].Index - m.Index
+        let versionLastIndex = versionIndex + m.Groups.[1].Value.Length
+        reg.Replace(line,
+            original.Substring(0, versionIndex) +
+            (if useNugetVersion then release.NugetVersion else release.AssemblyVersion) +
+            (if versionLastIndex < original.Length then original.Substring(versionLastIndex) else "")
+        ) |> Some)
+
+let updateVersionInCliUtil () =
+    updateVersionInFile true
+        "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
+        "src/dotnet/Fable.Compiler/CLI/CLI.Util.fs"
+        @"\bVERSION\s*=\s*""(.*?)"""
+    updateVersionInFile false
+        "src/dotnet/Fable.Core/RELEASE_NOTES.md"
+        "src/dotnet/Fable.Compiler/CLI/CLI.Util.fs"
+        @"\bCORE_VERSION\s*=\s*""(.*?)"""
 
 Target "GitHubRelease" (fun _ ->
     let release =
@@ -223,7 +239,12 @@ Target "PublishPackages" (fun () ->
     let baseDir = CWD </> "src"
     let packages = [
         // Nuget packages
-        Package "dotnet/Fable.Core/Fable.Core.fsproj"
+        Package("dotnet/Fable.Core/Fable.Core.fsproj", (fun () ->
+            updateVersionInFile false
+                "src/dotnet/Fable.Core/RELEASE_NOTES.md"
+                "src/dotnet/Fable.Core/AssemblyInfo.fs"
+                @"\bAssemblyVersion\s*\(\s*""(.*?)"""
+        ))
         Package("dotnet/Fable.Compiler/Fable.Compiler.fsproj", (fun () ->
             buildCoreJsFull ()
             updateVersionInCliUtil ()

@@ -11,9 +11,7 @@
     <RuntimeFrameworkVersion>2.0.0</RuntimeFrameworkVersion>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
+    <Compile Include="Global/Fable.Core.fs" />
     <Compile Include="Global/Prelude.fs" />
     <Compile Include="Global/Compiler.fs" />
     <Compile Include="AST/AST.Common.fs" />

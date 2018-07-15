@@ -3,6 +3,7 @@ namespace Fable.CLI
 module Literals =
 
   let [<Literal>] VERSION = "2.0.0-alpha-030"
+  let [<Literal>] CORE_VERSION = "2.0.0"
   let [<Literal>] DEFAULT_PORT = 61225
   let [<Literal>] FORCE = "force:"
 
@@ -173,3 +174,36 @@ module Process =
             output
         with ex ->
             "ERROR: " + ex.Message
+
+[<RequireQualifiedAccess>]
+module Async =
+    let fold f (state: 'State) (xs: 'T seq) = async {
+        let mutable state = state
+        for x in xs do
+            let! result = f state x
+            state <- result
+        return state
+    }
+
+    let map f x = async {
+        let! x = x
+        return f x
+    }
+
+    let tryPick (f: 'T->Async<'Result option>) xs: Async<'Result option> = async {
+        let mutable result: 'Result option = None
+        for x in xs do
+            match result with
+            | Some _ -> ()
+            | None ->
+                let! r = f x
+                result <- r
+        return result
+    }
+
+    let orElse (f: unit->Async<'T>) (x: Async<'T option>): Async<'T> = async {
+        let! x = x
+        match x with
+        | Some x -> return x
+        | None -> return! f ()
+    }

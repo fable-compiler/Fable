@@ -8,6 +8,7 @@
     <PackageVersion>2.0.0-alpha-012</PackageVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Fable.Core.fs" />
     <Compile Include="Fable.Import.JS.fs" />
     <Compile Include="Fable.Core.JsInterop.fs" />
