@@ -494,6 +494,12 @@ module private Transforms =
     // and also in some situations, like passing fucntions as props to React components
     // See https://blog.vbfox.net/2018/02/08/fable-react-2-optimizing-react.html
     let unwrapFunctions (_: ICompiler) e =
+        let notReferencedInExpr (args: Ident list) (e: Expr) =
+            args |> List.exists (fun a ->
+                let identName = a.Name
+                e |> deepExists (function
+                    | IdentExpr id -> id.Name = identName
+                    | _ -> false)) |> not
         let sameArgs args1 args2 =
             List.sameLength args1 args2
             && List.forall2 (fun (a1: Ident) -> function
@@ -506,7 +512,10 @@ module private Transforms =
                     // Make sure first argument is not `this`, because it wil be removed
                     // from args in Fable2Babel.transformObjectExpr (see #1434).
                     && List.tryHead args |> Option.map (fun x -> x.IsThisArgDeclaration) |> Option.defaultValue false |> not
-                    && sameArgs args info.Args -> funcExpr
+                    && sameArgs args info.Args
+                    // Check the args are not used in the expression. See #1484
+                    && notReferencedInExpr args funcExpr
+                -> funcExpr
             | e -> e
         match e with
         // We cannot apply the unwrap optimization to the outmost function,
