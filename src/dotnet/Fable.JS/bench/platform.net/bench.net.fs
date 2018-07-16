@@ -13,3 +13,6 @@ let measureTime (f: 'a -> 'b) x =
     let res = f x
     sw.Stop()
     sw.ElapsedMilliseconds, res
+
+let writeJs (filePath:string) (babelAst:obj) =
+    () // Do nothing in .NET for now

@@ -1,6 +1,6 @@
 module App
 
-open Platform
+open Bench.Platform
 
 let use_net45_meta = false
 let references = Fable.JS.Metadata.references use_net45_meta
@@ -10,7 +10,11 @@ let metadataPath =
     else "/temp/repl/metadata2/" // dotnet core 2.0 binaries
 
 [<EntryPoint>]
-let main _argv =
+let main argv =
+    let metadataPath, testScriptPath, compiledScriptPath =
+        match argv with
+        | [|metadataPath; testScriptPath; compiledScriptPath|] -> metadataPath, testScriptPath, compiledScriptPath
+        | _ -> metadataPath, testScriptPath, testScriptPath.Replace(".fsx", ".js")
     try
         let optimized = false // TODO: from compiler option
         // let fsAstFile = Fable.Path.ChangeExtension(testScriptPath, ".fsharp.ast.txt")
@@ -28,12 +32,14 @@ let main _argv =
             errors |> Array.iter (printfn "Error: %A")
             if errors.Length > 0 then failwith "Too many errors."
             let ms2, babelAst = measureTime parseFable fsAst
-            // if writeAst && i = 1 then
-            //     let fsAstStr = fable.FSharpAstToString(fsAst, optimized)
-            //     printfn "Typed AST (unoptimized): %s" fsAstStr
-            //     writeAllText fsAstFile fsAstStr
-            //     printfn "Babel AST: %s" (toJson babelAst)
-            //     writeAllText babelAstFile (toJson babelAst)
+            if i = 1 then
+                // if writeAst then
+                //     let fsAstStr = fable.FSharpAstToString(fsAst, optimized)
+                //     printfn "Typed AST (unoptimized): %s" fsAstStr
+                //     writeAllText fsAstFile fsAstStr
+                //     printfn "Babel AST: %s" (toJson babelAst)
+                //     writeAllText babelAstFile (toJson babelAst)
+                writeJs compiledScriptPath babelAst
             printfn "iteration %d, FCS time: %d ms, Fable time: %d ms" i ms1 ms2
         [1..10] |> List.iter bench
     with ex ->
