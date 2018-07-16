@@ -529,6 +529,10 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
     let argTypes = resolveArgTypes argTypes genArgs
     match argTypes with
     | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
+        let opName =
+            match bt, opName with
+            | BclUInt64, "op_RightShift" -> "op_RightShiftUnsigned" // See #1482
+            | _ -> opName
         Helper.CoreCall(coreModFor bt, opName, t, args, argTypes, ?loc=r)
     | Builtin(FSharpSet _)::_ ->
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" true opName ""

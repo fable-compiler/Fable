@@ -821,7 +821,7 @@ export function op_Division($this, divisor) {
             divisor = toUnsigned(divisor);
         if (greaterThan(divisor, $this))
             return UZERO;
-        if (greaterThan(divisor, shiftRightUnsigned($this, 1))) // 15 >>> 1 = 7 ; with divisor = 8 ; true
+        if (greaterThan(divisor, op_RightShiftUnsigned($this, 1))) // 15 >>> 1 = 7 ; with divisor = 8 ; true
             return UONE;
         res = UZERO;
     }
@@ -964,7 +964,7 @@ export function op_RightShift($this, numBits) {
  * @param {number|!Long} numBits Number of bits
  * @returns {!Long} Shifted Long
  */
-export function shiftRightUnsigned($this, numBits) {
+export function op_RightShiftUnsigned($this, numBits) {
     if (isLong(numBits))
         numBits = toInt(numBits);
     numBits &= 63;

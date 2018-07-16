@@ -115,6 +115,9 @@ let tests =
     testCase "Int64 Bitwise shift right can be generated" <| fun () ->
         equal (4L >>> 2, 1L)
 
+    testCase "UInt64 Bitwise shift right can be generated" <| fun () -> // See #1482
+      equal (15210016002388773605UL >>> 33, 1770678907UL)
+
     testCase "Int64 abs works" <| fun () ->
         equal (abs -4L, 4L)
 
