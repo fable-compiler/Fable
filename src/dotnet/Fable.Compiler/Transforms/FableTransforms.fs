@@ -538,18 +538,10 @@ let optimizeExpr (com: ICompiler) e =
     List.fold (fun e f -> f com e) e optimizations
 
 let rec optimizeDeclaration (com: ICompiler) = function
-
-#if FABLE_COMPILER
-    // optimization for actions and values does not result in a valid expr
-    // TODO: enable optimization when it's fixed
-    | ActionDeclaration expr -> ActionDeclaration expr
-    | ValueDeclaration(value, info) -> ValueDeclaration(value, info)
-#else
     | ActionDeclaration expr ->
         ActionDeclaration(optimizeExpr com expr)
     | ValueDeclaration(value, info) ->
         ValueDeclaration(optimizeExpr com value, info)
-#endif
     | ConstructorDeclaration kind as consDecl ->
         match kind with
         | ClassImplicitConstructor info ->

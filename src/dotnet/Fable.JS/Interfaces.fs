@@ -1,4 +1,4 @@
-module Fable.JS.Interfaces
+namespace Fable.JS
 
 open Fable.Core
 
@@ -33,8 +33,7 @@ type IChecker =
     interface end
 
 type IParseResults =
-    interface end
-    // abstract Errors: Error[] // see #1452
+    abstract Errors: Error[]
 
 type IFableManager =
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) -> IChecker

@@ -1,4 +1,5 @@
 # Output
+out/
 bench/out
 demo/out
 demo/repl/build

@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../build/fable-core",
+    "splitter": "node ../../js/fable-splitter/dist/cli"
+  }
+}

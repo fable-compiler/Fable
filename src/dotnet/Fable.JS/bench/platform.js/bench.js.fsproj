@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="../../../../../build/fable/Fable.Core.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../Interfaces.fs"/>
+    <Compile Include="../../Metadata.fs"/>
+    <Compile Include="bench.js.fs"/>
+    <Compile Include="../app.fs"/>
+  </ItemGroup>
+
+</Project>

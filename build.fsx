@@ -286,7 +286,7 @@ let buildRepl () =
     |> Seq.iter (printfn "%s")
 
     // Build and minify REPL
-    let replDir = CWD </> "src/dotnet/Fable.JS/bench"
+    let replDir = CWD </> "src/dotnet/Fable.JS"
     Yarn.install replDir
     Yarn.run replDir "build" ""
     // Yarn.run replDir "minify" ""

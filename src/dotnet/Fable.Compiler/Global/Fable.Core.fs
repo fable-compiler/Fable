@@ -8,6 +8,11 @@ type CaseRules =
     | None = 0
     | LowerFirst = 1
 
+[<AttributeUsage(AttributeTargets.Class)>]
+type StringEnumAttribute() =
+    inherit Attribute()
+    new (caseRules: CaseRules) = StringEnumAttribute()
+
 type EraseAttribute() =
     inherit Attribute()
 

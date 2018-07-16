@@ -1,10 +1,7 @@
 module Fable.JS.Main
 
 open System
-open Interfaces
-//open Fable
 open Fable.AST
-open Fable.Core
 open Fable.Transforms
 open Fable.Transforms.State
 open FsAutoComplete
@@ -13,10 +10,6 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 type CheckerImpl(checker: InteractiveChecker) =
     member __.Checker = checker
     interface IChecker
-
-// type private CompilerImpl(c: Compiler) =
-//     member __.Compiler = c
-//     interface IFableCompiler
 
 type ParseResults
    (parseFile: FSharpParseFileResults,
@@ -27,19 +20,18 @@ type ParseResults
     member __.CheckFile = checkFile
     member __.CheckProject = checkProject
 
-    // interface IParseResults with // disabled until #1452 is fixed
-    member __.Errors = checkProject.Errors |> Array.map (fun er ->
-            { StartLineAlternate = er.StartLineAlternate
-              StartColumn = er.StartColumn
-              EndLineAlternate = er.EndLineAlternate
-              EndColumn = er.EndColumn
-              Message = er.Message
-              IsWarning =
-                match er.Severity with
-                | FSharpErrorSeverity.Error -> false
-                | FSharpErrorSeverity.Warning -> true
-            })
-    interface IParseResults
+    interface IParseResults with
+        member __.Errors = checkProject.Errors |> Array.map (fun er ->
+                { StartLineAlternate = er.StartLineAlternate
+                  StartColumn = er.StartColumn
+                  EndLineAlternate = er.EndLineAlternate
+                  EndColumn = er.EndColumn
+                  Message = er.Message
+                  IsWarning =
+                    match er.Severity with
+                    | FSharpErrorSeverity.Error -> false
+                    | FSharpErrorSeverity.Warning -> true
+                })
 
 let inline private tryGetLexerSymbolIslands (sym: Lexer.LexerSymbol) =
   match sym.Text with
@@ -190,7 +182,7 @@ let compileAst (com: Compiler) (project: Project) =
     let program = Babel.Program(babel.FileName, babel.Body, babel.Directives, com.ReadAllLogs())
     program
 
-let defaultManager =
+let init () =
   { new IFableManager with
         member __.CreateChecker(references, readAllBytes) =
             InteractiveChecker.Create(references, readAllBytes)
@@ -199,8 +191,7 @@ let defaultManager =
             let c = checker :?> CheckerImpl
             parseFSharpProject c.Checker fileName source :> IParseResults
         member __.GetParseErrors(parseResults:IParseResults) =
-            let res = parseResults :?> ParseResults
-            res.Errors
+            parseResults.Errors
         member __.GetToolTipText(parseResults:IParseResults, line:int, col:int, lineText:string) =
             let res = parseResults :?> ParseResults
             getToolTipAtLocation res line col lineText
@@ -219,5 +210,3 @@ let defaultManager =
             |> Seq.collect (fun file -> AstPrint.printFSharpDecls "" file.Declarations)
             |> String.concat "\n"
   }
-
-let exports = defaultManager
