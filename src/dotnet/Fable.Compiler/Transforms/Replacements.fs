@@ -365,9 +365,10 @@ let toInt (round: bool) targetType (args: Expr list) =
         let h = kindIndex typeTo   // return type (horizontal)
         ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
     let emitLong unsigned (args: Expr list) =
+        let args = args @ [makeBoolConst unsigned]
         match sourceType with
         | Builtin (BclInt64|BclUInt64) -> Helper.CoreCall("Long", "fromValue", targetType, args)
-        | _ -> Helper.CoreCall("Long", "fromNumber", targetType, args@[makeBoolConst unsigned])
+        | _ -> Helper.CoreCall("Long", "fromNumber", targetType, args)
     let emitBigInt (args: Expr list) =
         match sourceType with
         | Builtin (BclInt64|BclUInt64) -> Helper.CoreCall("BigInt", "fromInt64", targetType, args)

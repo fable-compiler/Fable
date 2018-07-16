@@ -467,6 +467,10 @@ let tests =
         (fun () -> Convert.ToUInt64("1.4")) |> throwsError "Input string was not in a correct format."
         (fun () -> Convert.ToUInt64("foo")) |> throwsError "Input string was not in a correct format."
 
+    testCase "Convert between (un)signed long" <| fun () -> // See #1485
+        int64 System.UInt64.MaxValue |> equal -1L
+        uint64 -1L |> equal System.UInt64.MaxValue
+
     testCase "System.Convert.ToSingle works" <| fun () ->
         let x = 1.f
         float32(1y) |> equal x
