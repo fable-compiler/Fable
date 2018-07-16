@@ -79,18 +79,16 @@ let importDynamic<'T> (path: string): JS.Promise<'T> = jsNative
 /// Used when you need to send an F# record to a JS library accepting only plain JS objects (POJOs)
 let toPlainJsObj(o: 'T): obj = jsNative
 
-/// Serialize F# objects to JSON
-[<Obsolete("Currently not working for Fable 2, replaced by JSON.stringify")>]
+[<Obsolete("Not working in Fable 2, please use Thoth.Json")>]
 let toJson(o: 'T): string = jsNative
 
-/// Instantiate F# objects from JSON
-[<Obsolete("Currently not working for Fable 2, replaced by JSON.parse")>]
+[<Obsolete("Not working in Fable 2, please use Thoth.Json")>]
 let ofJson<'T>(json: string): 'T = jsNative
 
 [<Obsolete("Doesn't do anything in Fable 2, please remove")>]
 let inflate<'T>(pojo: obj): 'T = jsNative
 
-[<Obsolete("Doesn't do anything in Fable 2, please remove")>]
+[<Obsolete("Doesn't do anything in Fable 2, please remove or use `toPlainJsObj`")>]
 let deflate(o: 'T): obj = jsNative
 
 /// Reads the name of an identifier, a property or a type
