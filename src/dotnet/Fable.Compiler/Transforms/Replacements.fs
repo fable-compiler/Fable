@@ -1669,11 +1669,12 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "UnboxFast", _, [arg] -> Some arg
     | "UnboxGeneric", _, [arg] ->
         match arg.Type, t with
-        // Check if this is used to cast to IDisposable at the end of `use` scope
-        | DeclaredType(sourceEntity, _), DeclaredType(targetEntity, _)
-                when targetEntity.TryFullName = Some Types.idisposable ->
-            FSharp2Fable.Util.castToInterfaceWithFullName com r t sourceEntity Types.idisposable arg |> Some
-        | _ -> Helper.CoreCall("Util", "downcast", t, [arg]) |> Some
+        // UnboxGeneric is used to cast to `System.IDisposable` at the end of `use` scope
+        | DeclaredType(sourceEntity, _), DeclaredType(targetEntity, _) when targetEntity.IsInterface ->
+            FSharp2Fable.Util.castToInterface com r t sourceEntity targetEntity arg |> Some
+        | _, DeclaredType(targetEntity, _) when not targetEntity.IsInterface ->
+            Helper.CoreCall("Util", "downcast", t, [arg]) |> Some
+        | _ -> Some arg
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ar; idx]
     | "GetArray", _, [ar; idx] -> getExpr r t ar idx |> Some
