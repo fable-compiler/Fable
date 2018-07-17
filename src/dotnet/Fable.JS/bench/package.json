@@ -3,14 +3,16 @@
   "scripts": {
     "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start --port 61225",
     "build": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../../build/fable-core",
+    "build-es6": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter-es6 --fable-core ../../../../build/fable-core",
     "build-v1": "dotnet fable yarn-splitter",
     "rename": "cd out && for /r %x in (*.js) do ren \"%x\" *.mjs",
-    "rollup": "node ../../../../node_modules/rollup/bin/rollup -i ./out/bench/app.js -o ./out/bundle.js --format cjs",
-    "webpack": "node ../../../../node_modules/webpack-command/lib/cli.js -p --entry ./out/bench/app.js --output ./out/bundle.js",
-    "splitter": "node ../../../../src/js/fable-splitter/dist/cli",
-    "start": "node out/bench/app",
-    "profile": "node --prof out/bench/app",
+    "rollup": "node ../../../../node_modules/rollup/bin/rollup -i ./out/app.js -o ./out/bundle.js --format cjs",
+    "webpack": "node ../../../../node_modules/webpack-command/lib/cli.js -p --entry ./out/app.js --output ./out/bundle.js",
+    "splitter": "node ../../../js/fable-splitter/dist/cli --commonjs",
+    "splitter-es6": "node ../../../js/fable-splitter/dist/cli",
+    "start": "node out/app",
+    "profile": "node --prof out/app",
     "process": "chcp 65001 > nul && for %x in (isolate-*.log) do node --prof-process %x > %x.txt",
-    "trace": "node --trace-deopt out/bench/app > deopt.txt"
+    "trace": "node --trace-deopt out/app > deopt.txt"
   }
 }

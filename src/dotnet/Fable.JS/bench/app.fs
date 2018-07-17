@@ -1,4 +1,4 @@
-module App
+module Bench.App
 
 open Bench.Platform
 
@@ -11,6 +11,7 @@ let metadataPath =
 
 [<EntryPoint>]
 let main argv =
+    let testScriptPath = "test_script.fsx"
     let metadataPath, testScriptPath, compiledScriptPath =
         match argv with
         | [|metadataPath; testScriptPath; compiledScriptPath|] -> metadataPath, testScriptPath, compiledScriptPath
@@ -32,14 +33,14 @@ let main argv =
             errors |> Array.iter (printfn "Error: %A")
             if errors.Length > 0 then failwith "Too many errors."
             let ms2, babelAst = measureTime parseFable fsAst
-            if i = 1 then
+            // if i = 1 then
                 // if writeAst then
                 //     let fsAstStr = fable.FSharpAstToString(fsAst, optimized)
                 //     printfn "Typed AST (unoptimized): %s" fsAstStr
                 //     writeAllText fsAstFile fsAstStr
                 //     printfn "Babel AST: %s" (toJson babelAst)
                 //     writeAllText babelAstFile (toJson babelAst)
-                writeJs compiledScriptPath babelAst
+                // writeJs compiledScriptPath babelAst
             printfn "iteration %d, FCS time: %d ms, Fable time: %d ms" i ms1 ms2
         [1..10] |> List.iter bench
     with ex ->
