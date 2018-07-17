@@ -1379,9 +1379,6 @@ let arrayModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr
     | "Item", [idx; ar] -> getExpr r t ar idx |> Some
     | "Get", [ar; idx] -> getExpr r t ar idx |> Some
     | "Set", [ar; idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
-    | ("Take" | "Truncate"), [count; ar] ->
-        Helper.InstanceCall(ar, "slice", t, [makeIntConst 0; count], ?loc=r) |> Some
-    | "Skip", [count; ar] -> Helper.InstanceCall(ar, "slice", t, [count], ?loc=r) |> Some
     | "Copy", [ar] -> Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
     | "ZeroCreate", [count] -> createArray count None |> Some
     | "Create", [count; value] -> createArray count (Some value) |> Some

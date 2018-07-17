@@ -111,32 +111,32 @@ let map (f: 'T -> 'U) (source: 'T[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
     target
 
 let mapIndexed2 (f: int->'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
-   if source1.Length <> source2.Length then failwith "Arrays had different lengths"
-   let result = cons.Create(source1.Length)
-   for i = 0 to source1.Length - 1 do
-      result.[i] <- f i source1.[i] source2.[i]
-   result
+    if source1.Length <> source2.Length then failwith "Arrays had different lengths"
+    let result = cons.Create(source1.Length)
+    for i = 0 to source1.Length - 1 do
+        result.[i] <- f i source1.[i] source2.[i]
+    result
 
 let map2 (f: 'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
-   if source1.Length <> source2.Length then failwith "Arrays had different lengths"
-   let result = cons.Create(source1.Length)
-   for i = 0 to source1.Length - 1 do
-      result.[i] <- f source1.[i] source2.[i]
-   result
+    if source1.Length <> source2.Length then failwith "Arrays had different lengths"
+    let result = cons.Create(source1.Length)
+    for i = 0 to source1.Length - 1 do
+        result.[i] <- f source1.[i] source2.[i]
+    result
 
 let mapIndexed3 (f: int->'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
-   if source1.Length <> source2.Length || source2.Length <> source3.Length then failwith "Arrays had different lengths"
-   let result = cons.Create(source1.Length)
-   for i = 0 to source1.Length - 1 do
-      result.[i] <- f i source1.[i] source2.[i] source3.[i]
-   result
+    if source1.Length <> source2.Length || source2.Length <> source3.Length then failwith "Arrays had different lengths"
+    let result = cons.Create(source1.Length)
+    for i = 0 to source1.Length - 1 do
+        result.[i] <- f i source1.[i] source2.[i] source3.[i]
+    result
 
 let map3 f (source1: 'T[]) (source2: 'U[]) (source3: 'U[]) ([<Inject>] cons: IArrayCons<'W>): 'W[] =
-   if source1.Length <> source2.Length || source2.Length <> source3.Length then failwith "Arrays had different lengths"
-   let result = cons.Create(source1.Length)
-   for i = 0 to source1.Length - 1 do
-      result.[i] <- f source1.[i] source2.[i] source3.[i]
-   result
+    if source1.Length <> source2.Length || source2.Length <> source3.Length then failwith "Arrays had different lengths"
+    let result = cons.Create(source1.Length)
+    for i = 0 to source1.Length - 1 do
+        result.[i] <- f source1.[i] source2.[i] source3.[i]
+    result
 
 let mapFold<'T,'State,'Result> (mapping : 'State -> 'T -> 'Result * 'State) state (array: 'T[]) ([<Inject>] cons: IArrayCons<'Result>) =
     match array.Length with
@@ -325,7 +325,7 @@ let skip count (array:'T[]) ([<Inject>] cons: IArrayCons<'T>) =
     if count = array.Length then
         emptyImpl cons
     else
-        let count = if count > 0 then 0 else 0
+        let count = if count < 0 then 0 else count
         sliceFromImpl array count
 
 let skipWhile predicate (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
@@ -686,61 +686,61 @@ let tryItem index (array:'T[]) =
 //     List.ofArray array
 
 let foldBackIndexed<'T,'State> folder (array: 'T[]) (state:'State) =
-   let mutable acc = state
-   let size = array.Length
-   for i = 1 to size do
-      acc <- folder (i-1) array.[size - i] acc
-   acc
+    let mutable acc = state
+    let size = array.Length
+    for i = 1 to size do
+        acc <- folder (i-1) array.[size - i] acc
+    acc
 
 let foldBack<'T,'State> folder (array: 'T[]) (state:'State) =
-   foldBackIndexed (fun _ x acc -> folder x acc) array state
+    foldBackIndexed (fun _ x acc -> folder x acc) array state
 
 let foldIndexed2 folder state (array1: _[]) (array2: _[]) =
-   let mutable acc = state
-   if array1.Length <> array2.Length then failwith "Arrays have different lengths"
-   for i = 0 to array1.Length - 1 do
-      acc <- folder i acc array1.[i] array2.[i]
-   acc
+    let mutable acc = state
+    if array1.Length <> array2.Length then failwith "Arrays have different lengths"
+    for i = 0 to array1.Length - 1 do
+        acc <- folder i acc array1.[i] array2.[i]
+    acc
 
 let fold2<'T1, 'T2, 'State> folder (state: 'State) (array1: 'T1[]) (array2: 'T2[]) =
-   foldIndexed2 (fun _ acc x y -> folder acc x y) state array1 array2
+    foldIndexed2 (fun _ acc x y -> folder acc x y) state array1 array2
 
 let foldBackIndexed2<'T1, 'T2, 'State> folder (array1: 'T1[]) (array2: 'T2[]) (state:'State) =
-   let mutable acc = state
-   if array1.Length <> array2.Length then failwith "Arrays had different lengths"
-   let size = array1.Length
-   for i = 1 to size do
-      acc <- folder (i-1) array1.[size - i] array2.[size - i] acc
-   acc
+    let mutable acc = state
+    if array1.Length <> array2.Length then failwith "Arrays had different lengths"
+    let size = array1.Length
+    for i = 1 to size do
+        acc <- folder (i-1) array1.[size - i] array2.[size - i] acc
+    acc
 
 let foldBack2<'T1, 'T2, 'State> f (array1: 'T1[]) (array2: 'T2[]) (state: 'State) =
-   foldBackIndexed2 (fun _ x y acc -> f x y acc) array1 array2 state
+    foldBackIndexed2 (fun _ x y acc -> f x y acc) array1 array2 state
 
 let reduce reduction (array: 'T[]) =
-   if array.Length = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
-   else foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> array
+    if array.Length = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    else foldIndexed (fun i acc x -> if i = 0 then x else reduction acc x) Unchecked.defaultof<_> array
 
 let reduceBack reduction (array: 'T[]) =
-   if array.Length = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
-   else foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) array Unchecked.defaultof<_>
+    if array.Length = 0 then invalidOp LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    else foldBackIndexed (fun i x acc -> if i = 0 then x else reduction acc x) array Unchecked.defaultof<_>
 
 let forAll2 predicate array1 array2 =
-   fold2 (fun acc x y -> acc && predicate x y) true array1 array2
+    fold2 (fun acc x y -> acc && predicate x y) true array1 array2
 
 let rec existsOffset predicate (array: 'T[]) index =
-   if index = array.Length then false
-   else predicate array.[index] || existsOffset predicate array (index+1)
+    if index = array.Length then false
+    else predicate array.[index] || existsOffset predicate array (index+1)
 
 let exists predicate array =
-   existsOffset predicate array 0
+    existsOffset predicate array 0
 
 let rec existsOffset2 predicate (array1: _[]) (array2: _[]) index =
-   if index = array1.Length then false
-   else predicate array1.[index] array2.[index] || existsOffset2 predicate array1 array2 (index+1)
+    if index = array1.Length then false
+    else predicate array1.[index] array2.[index] || existsOffset2 predicate array1 array2 (index+1)
 
 let rec exists2 predicate (array1: _[]) (array2: _[]) =
-   if array1.Length <> array2.Length then failwith "Arrays had different lengths"
-   existsOffset2 predicate array1 array2 0
+    if array1.Length <> array2.Length then failwith "Arrays had different lengths"
+    existsOffset2 predicate array1 array2 0
 
 // TODO!!!: Pass add function for non-number types
 let sum (array: float[]) : float =
