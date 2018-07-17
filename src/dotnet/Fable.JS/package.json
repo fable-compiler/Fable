@@ -1,7 +1,14 @@
 {
   "private": true,
   "scripts": {
-    "build": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../build/fable-core",
-    "splitter": "node ../../js/fable-splitter/dist/cli"
+    "build":             "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter-commonjs --fable-core ../../../build/fable-core",
+    "build-modules":     "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter          --fable-core ../../../build/fable-core",
+    "splitter-commonjs": "node ../../js/fable-splitter/dist/cli --commonjs",
+    "splitter":          "node ../../js/fable-splitter/dist/cli"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-plugin-transform-es2015-modules-amd": "^6.24.1",
+    "webpack-cli": "^3.0.8"
   }
 }

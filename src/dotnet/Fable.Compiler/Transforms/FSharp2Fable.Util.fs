@@ -818,7 +818,7 @@ module Util =
                 DeclaringEntityFullName = ent.FullName
                 Spread = argInfo.Spread
                 CompiledName = memb.CompiledName
-                OverloadSuffix = lazy OverloadSuffix.getHash ent memb
+                OverloadSuffix = lazy if ent.IsFSharpModule then "" else OverloadSuffix.getHash ent memb
                 GenericArgs = genArgs.Value }
             match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
             | Some e -> Some e

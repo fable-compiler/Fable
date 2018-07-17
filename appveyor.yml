@@ -27,11 +27,11 @@ build_script:
 test: off
 # version: 0.0.1.{build}
 artifacts:
-# https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/dotnet/Fable.JS/fable-repl.zip
+# https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/dotnet/Fable.JS/repl.zip
   - path: src\dotnet\Fable.JS\out
-    name: fable-repl
+    name: repl
     type: zip
-# # https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/dotnet/Fable.JS/bench/repl/bundle.zip
-#   - path: src\dotnet\Fable.JS\bench\repl\build
-#     name: bundle
-#     type: zip
+# https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/dotnet/Fable.JS/repl-bundle.zip
+  - path: src\dotnet\Fable.JS\bundle
+    name: repl-bundle
+    type: zip

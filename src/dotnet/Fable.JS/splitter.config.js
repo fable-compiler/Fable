@@ -1,8 +1,13 @@
-const babelOptions = {
-  plugins: [
-    ["transform-es2015-modules-commonjs"],
-  ],
-};
+let babelOptions = {};
+
+if (process.argv.find(v => v === "--commonjs")) {
+  babelOptions = {
+    plugins: ["transform-es2015-modules-commonjs"],
+  };
+  console.log("Compiling to commmonjs...");
+} else {
+  console.log("Compiling to ES2015 modules...");
+}
 
 const fableOptions = {
   define: [

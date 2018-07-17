@@ -1,5 +1,6 @@
 # Output
 out/
+bundle/
 bench/out
 demo/out
 demo/repl/build

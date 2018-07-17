@@ -66,6 +66,7 @@ let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let CWD = __SOURCE_DIRECTORY__
 let cliBuildDir = CWD </> "build/fable"
+let coreJsBuildDir = CWD </> "build/fable-core"
 let cliSrcDir = CWD </> "src/dotnet/Fable.Compiler"
 let coreJsSrcDir = CWD </> "src/js/fable-core"
 
@@ -285,35 +286,14 @@ let buildRepl () =
     Directory.GetFiles(fcsFableDir </> "fcs/fcs-fable/codegen")
     |> Seq.iter (printfn "%s")
 
-    // Build and minify REPL
+    // Build REPL
     let replDir = CWD </> "src/dotnet/Fable.JS"
     Yarn.install replDir
-    Yarn.run replDir "build" ""
-    // Yarn.run replDir "minify" ""
-
-    // // build fable-core for umd
-    // sprintf "--project %s -m umd --outDir %s" coreJsSrcDir (replDir </> "repl/build/fable-core")
-    // |> Yarn.run CWD "tsc"
-
-    // // Build testapp
-    // let testappDir = CWD </> "src/dotnet/Fable.JS/testapp"
-    // Yarn.install testappDir
-    // Yarn.run testappDir "build" ""
-    // Yarn.run testappDir "start" ""
-    // Yarn.run testappDir "test" ""
-
-    // Copy generated files to `../fable-compiler.github.io/public/repl/build`
-    // let targetDir =  CWD </> "../fable-compiler.github.io/public/repl"
-    // if Directory.Exists(targetDir) then
-    //     let targetDir = targetDir </> "build"
-    //     // fable-core
-    //     sprintf "--project %s -m amd --outDir %s" coreJsSrcDir (targetDir </> "fable-core")
-    //     |> Yarn.run CWD "tsc"
-    //     // REPL bundle
-    //     printfn "Copy REPL JS files to %s" targetDir
-    //     for file in Directory.GetFiles(replDir </> "repl/build", "*.js") do
-    //         FileUtils.cp file targetDir
-    //         printfn "> Copied: %s" file
+    Yarn.run replDir "build-modules" ""
+    Yarn.run replDir "webpack-cli" "" // Bundle
+    // Build fable-core for AMD
+    sprintf "%s --out-dir bundle/fable-core --plugins=transform-es2015-modules-amd" coreJsBuildDir
+    |> Yarn.run replDir "babel"
 
 Target "All" (fun () ->
     installDotnetSdk ()
