@@ -96,11 +96,14 @@ type Compiler(currentFile, project: Project, options, ?fableCore: string) =
         member __.Options = options
         member __.FableCore = fableCore
         member __.CurrentFile = currentFile
-        member __.GetRootModule(fileName) =
+        member x.GetRootModule(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
             match Map.tryFind fileName project.RootModules with
             | Some rootModule -> rootModule
-            | None -> "" // failwithf "Cannot find root module for %s" fileName
+            | None ->
+                let msg = sprintf "Cannot find root module for %s" fileName
+                (x :> ICompiler).AddLog(msg, Severity.Warning)
+                "" // failwith msg
         member __.GetOrAddInlineExpr(fullName, generate) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =

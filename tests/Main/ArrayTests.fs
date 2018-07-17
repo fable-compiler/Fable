@@ -800,4 +800,31 @@ let tests =
         Array.splitAt 0 ar |> equal ([||], [|1;2;3;4|])
         Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
         Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
+
+    testCase "Array.skip works" <| fun () ->
+        let xs = [|1.; 2.; 3.; 4.; 5.|]
+        let ys = xs |> Array.skip 1
+        ys |> Array.head
+        |> equal 2.
+
+    testCase "Array.skipWhile works" <| fun () ->
+        let xs = [|1.; 2.; 3.; 4.; 5.|]
+        xs |> Array.skipWhile (fun i -> i <= 3.)
+        |> Array.head
+        |> equal 4.
+
+    testCase "Array.take works" <| fun () ->
+        let xs = [|1.; 2.; 3.; 4.; 5.|]
+        xs |> Array.take 2
+        |> Array.last
+        |> equal 2.
+        // Array.take should throw an exception if there're not enough elements
+        try xs |> Array.take 20 |> Array.length with _ -> -1
+        |> equal -1
+
+    testCase "Array.takeWhile works" <| fun () ->
+        let xs = [|1.; 2.; 3.; 4.; 5.|]
+        xs |> Array.takeWhile (fun i -> i < 3.)
+        |> Array.last
+        |> equal 2.
   ]

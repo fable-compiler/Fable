@@ -44,35 +44,35 @@ let equalsWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): bool =
     compareWith comparer xs ys = 0
 
 let rec foldIndexedAux f i acc = function
-   | [] -> acc
-   | x::xs -> foldIndexedAux f (i+1) (f i acc x) xs
+    | [] -> acc
+    | x::xs -> foldIndexedAux f (i+1) (f i acc x) xs
 
 let foldIndexed<'a,'acc> f (seed:'acc) (xs: 'a list) =
-   foldIndexedAux f 0 seed xs
+    foldIndexedAux f 0 seed xs
 
 let fold<'a,'acc> f (seed:'acc) (xs: 'a list) =
-   foldIndexed (fun _ acc x -> f acc x) seed xs
+    foldIndexed (fun _ acc x -> f acc x) seed xs
 
 let reverse xs =
-   fold (fun acc x -> x::acc) [] xs
+    fold (fun acc x -> x::acc) [] xs
 
 let foldBack<'a,'acc> f (xs: 'a list) (seed:'acc) =
-   fold (fun acc x -> f x acc) seed (reverse xs)
+    fold (fun acc x -> f x acc) seed (reverse xs)
 
 let rec foldIndexed2Aux f i acc bs cs =
-   match bs, cs with
-   | [], [] -> acc
-   | x::xs, y::ys -> foldIndexed2Aux f (i+1) (f i acc x y) xs ys
-   | _ -> invalidOp "Lists had different lengths"
+    match bs, cs with
+    | [], [] -> acc
+    | x::xs, y::ys -> foldIndexed2Aux f (i+1) (f i acc x y) xs ys
+    | _ -> invalidOp "Lists had different lengths"
 
 let foldIndexed2<'a, 'b, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) =
-   foldIndexed2Aux f 0 seed xs ys
+    foldIndexed2Aux f 0 seed xs ys
 
 let fold2<'a, 'b, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) =
-   foldIndexed2 (fun _ acc x y -> f acc x y) seed xs ys
+    foldIndexed2 (fun _ acc x y -> f acc x y) seed xs ys
 
 let foldBack2<'a, 'b, 'acc> f (xs: 'a list) (ys: 'b list) (seed:'acc) =
-   fold2 (fun acc x y -> f x y acc) seed (reverse xs) (reverse ys)
+    fold2 (fun acc x y -> f x y acc) seed (reverse xs) (reverse ys)
 
 let unfold f state =
     let rec unfoldInner acc state =
@@ -82,63 +82,63 @@ let unfold f state =
     unfoldInner [] state
 
 let rec foldIndexed3Aux f i acc bs cs ds =
-   match bs, cs, ds with
-   | [], [], [] -> acc
-   | x::xs, y::ys, z::zs -> foldIndexed3Aux f (i+1) (f i acc x y z) xs ys zs
-   | _ -> invalidOp "Lists had different lengths"
+    match bs, cs, ds with
+    | [], [], [] -> acc
+    | x::xs, y::ys, z::zs -> foldIndexed3Aux f (i+1) (f i acc x y z) xs ys zs
+    | _ -> invalidOp "Lists had different lengths"
 
 let foldIndexed3<'a, 'b, 'c, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
-   foldIndexed3Aux f 0 seed xs ys zs
+    foldIndexed3Aux f 0 seed xs ys zs
 
 let fold3<'a, 'b, 'c, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
-   foldIndexed3 (fun _ acc x y z -> f acc x y z) seed xs ys zs
+    foldIndexed3 (fun _ acc x y z -> f acc x y z) seed xs ys zs
 
 let scan<'a, 'acc> f (seed:'acc) (xs: 'a list) =
-   fold (fun acc x ->
-      match acc with
-      | [] -> failwith "never"
-      | y::_ -> f y x::acc) [seed] xs
-   |> reverse
+    fold (fun acc x ->
+        match acc with
+        | [] -> failwith "never"
+        | y::_ -> f y x::acc) [seed] xs
+    |> reverse
 
 let scanBack<'a, 'acc> f (xs: 'a list) (seed:'acc) =
-   scan (fun acc x -> f x acc) seed (reverse xs)
-   |> reverse
+    scan (fun acc x -> f x acc) seed (reverse xs)
+    |> reverse
 
 let length xs =
-   fold (fun acc _ -> acc + 1) 0 xs
+    fold (fun acc _ -> acc + 1) 0 xs
 
 let append xs ys =
-   fold (fun acc x -> x::acc) ys (reverse xs)
+    fold (fun acc x -> x::acc) ys (reverse xs)
 
 let collect f xs =
-   fold (fun acc x -> append (f x) acc) [] (reverse xs)
+    fold (fun acc x -> append (f x) acc) [] (reverse xs)
 
 let map f xs =
-   fold (fun acc x -> (f x::acc)) [] xs
-   |> reverse
+    fold (fun acc x -> (f x::acc)) [] xs
+    |> reverse
 
 let mapIndexed f xs =
-   foldIndexed (fun i acc x -> f i x::acc) [] xs
-   |> reverse
+    foldIndexed (fun i acc x -> f i x::acc) [] xs
+    |> reverse
 
 let indexed xs =
     mapIndexed (fun i x -> (i,x)) xs
 
 let map2 f xs ys =
-   fold2 (fun acc x y -> f x y::acc) [] xs ys
-   |> reverse
+    fold2 (fun acc x y -> f x y::acc) [] xs ys
+    |> reverse
 
 let mapIndexed2 f xs ys =
-   foldIndexed2 (fun i acc x y  -> f i x y:: acc) [] xs ys
-   |> reverse
+    foldIndexed2 (fun i acc x y  -> f i x y:: acc) [] xs ys
+    |> reverse
 
 let map3 f xs ys zs =
-   fold3 (fun acc x y z -> f x y z::acc) [] xs ys zs
-   |> reverse
+    fold3 (fun acc x y z -> f x y z::acc) [] xs ys zs
+    |> reverse
 
 let mapIndexed3 f xs ys zs =
-   foldIndexed3 (fun i acc x y z -> f i x y z:: acc) [] xs ys zs
-   |> reverse
+    foldIndexed3 (fun i acc x y z -> f i x y z:: acc) [] xs ys zs
+    |> reverse
 
 let mapFold (f: 'S -> 'T -> 'R * 'S) s xs =
     let foldFn (nxs, fs) x =
@@ -151,58 +151,58 @@ let mapFoldBack (f: 'T -> 'S -> 'R * 'S) xs s =
     mapFold (fun s v -> f v s) s (reverse xs)
 
 let iterate f xs =
-   fold (fun () x -> f x) () xs
+    fold (fun () x -> f x) () xs
 
 let iterate2 f xs ys =
-   fold2 (fun () x y -> f x y) () xs ys
+    fold2 (fun () x y -> f x y) () xs ys
 
 let iterateIndexed f xs =
-   foldIndexed (fun i () x -> f i x) () xs
+    foldIndexed (fun i () x -> f i x) () xs
 
 let iterateIndexed2 f xs ys =
-   foldIndexed2 (fun i () x y -> f i x y) () xs ys
+    foldIndexed2 (fun i () x y -> f i x y) () xs ys
 
 let ofArray xs =
-   Array.foldBack (fun x acc -> x::acc) xs []
+    Array.foldBack (fun x acc -> x::acc) xs []
 
 let empty<'a> : 'a list = []
 
 let isEmpty = function
-   | [] -> true
-   | _ -> false
+    | [] -> true
+    | _ -> false
 
 let rec tryPickIndexedAux f i = function
-   | [] -> None
-   | x::xs ->
-      let result = f i x
-      match result with
-      | Some _ -> result
-      | None -> tryPickIndexedAux f (i+1) xs
+    | [] -> None
+    | x::xs ->
+        let result = f i x
+        match result with
+        | Some _ -> result
+        | None -> tryPickIndexedAux f (i+1) xs
 
 let tryPickIndexed f xs =
-   tryPickIndexedAux f 0 xs
+    tryPickIndexedAux f 0 xs
 
 let tryPick f xs =
-   tryPickIndexed (fun _ x -> f x) xs
+    tryPickIndexed (fun _ x -> f x) xs
 
 let pick f xs =
-   match tryPick f xs with
-   | None -> invalidOp "List did not contain any matching elements"
-   | Some x -> x
+    match tryPick f xs with
+    | None -> invalidOp "List did not contain any matching elements"
+    | Some x -> x
 
 let tryFindIndexed f xs =
-   tryPickIndexed (fun i x -> if f i x then Some x else None) xs
+    tryPickIndexed (fun i x -> if f i x then Some x else None) xs
 
 let tryFind f xs =
-   tryPickIndexed (fun _ x -> if f x then Some x else None) xs
+    tryPickIndexed (fun _ x -> if f x then Some x else None) xs
 
 let findIndexed f xs =
-   match tryFindIndexed f xs with
-   | None -> invalidOp "List did not contain any matching elements"
-   | Some x -> x
+    match tryFindIndexed f xs with
+    | None -> invalidOp "List did not contain any matching elements"
+    | Some x -> x
 
 let find f xs =
-   findIndexed (fun _ x -> f x) xs
+    findIndexed (fun _ x -> f x) xs
 
 let findBack f xs =
     xs |> reverse |> find f
@@ -211,42 +211,42 @@ let tryFindBack f xs =
     xs |> reverse |> tryFind f
 
 let tryFindIndex f xs: int option =
-   tryPickIndexed (fun i x -> if f x then Some i else None) xs
+    tryPickIndexed (fun i x -> if f x then Some i else None) xs
 
 let tryFindIndexBack f xs: int option =
     List.toArray xs
     |> Array.tryFindIndexBack f
 
 let findIndex f xs: int =
-   match tryFindIndex f xs with
-   | None -> invalidOp "List did not contain any matching elements"
-   | Some x -> x
+    match tryFindIndex f xs with
+    | None -> invalidOp "List did not contain any matching elements"
+    | Some x -> x
 
 let findIndexBack f xs: int =
     List.toArray xs
     |> Array.findIndexBack f
 
 let item n xs =
-   findIndexed (fun i _ -> n = i) xs
+    findIndexed (fun i _ -> n = i) xs
 
 let tryItem n xs =
-   tryFindIndexed (fun i _ -> n = i) xs
+    tryFindIndexed (fun i _ -> n = i) xs
 
 let filter f xs =
-   foldBack (fun x acc ->
-      if f x then x::acc
-      else acc) xs []
+    foldBack (fun x acc ->
+        if f x then x::acc
+        else acc) xs []
 
 let partition f xs =
-   fold (fun (lacc, racc) x ->
-      if f x then x::lacc, racc
-      else lacc,x::racc) ([],[]) (reverse xs)
+    fold (fun (lacc, racc) x ->
+        if f x then x::lacc, racc
+        else lacc,x::racc) ([],[]) (reverse xs)
 
 let choose f xs =
-   fold (fun acc x ->
-      match f x with
-      | Some y -> y:: acc
-      | None -> acc) [] xs |> reverse
+    fold (fun acc x ->
+        match f x with
+        | Some y -> y:: acc
+        | None -> acc) [] xs |> reverse
 
 
 let contains<'T> (value: 'T) (list: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
@@ -266,48 +266,48 @@ let except (itemsToExclude: seq<'t>) (array: 't list) ([<Inject>] eq: IEqualityC
         array |> filter cached.Add
 
 let initialize n f =
-   let mutable xs = []
-   for i = 1 to n do xs <- f (n - i):: xs
-   xs
+    let mutable xs = []
+    for i = 1 to n do xs <- f (n - i):: xs
+    xs
 
 let replicate n x =
-   initialize n (fun _ -> x)
+    initialize n (fun _ -> x)
 
 let reduce f = function
-   | [] -> invalidOp "List was empty"
-   | h::t -> fold f h t
+    | [] -> invalidOp "List was empty"
+    | h::t -> fold f h t
 
 let reduceBack f = function
-   | [] -> invalidOp "List was empty"
-   | h::t -> foldBack f t h
+    | [] -> invalidOp "List was empty"
+    | h::t -> foldBack f t h
 
 let forAll f xs =
-   fold (fun acc x -> acc && f x) true xs
+    fold (fun acc x -> acc && f x) true xs
 
 let forAll2 f xs ys =
-   fold2 (fun acc x y -> acc && f x y) true xs ys
+    fold2 (fun acc x y -> acc && f x y) true xs ys
 
 let rec exists f = function
-   | [] -> false
-   | x::xs -> f x || exists f xs
+    | [] -> false
+    | x::xs -> f x || exists f xs
 
 let rec exists2 f bs cs =
-   match bs, cs with
-   | [], [] -> false
-   | x::xs, y::ys -> f x y || exists2 f xs ys
-   | _ -> invalidOp "Lists had different lengths"
+    match bs, cs with
+    | [], [] -> false
+    | x::xs, y::ys -> f x y || exists2 f xs ys
+    | _ -> invalidOp "Lists had different lengths"
 
 let unzip xs =
-   foldBack (fun (x, y) (lacc, racc) -> x::lacc, y::racc) xs ([],[])
+    foldBack (fun (x, y) (lacc, racc) -> x::lacc, y::racc) xs ([],[])
 
 let unzip3 xs =
-   foldBack (fun (x, y, z) (lacc, macc, racc) -> x::lacc, y::macc, z::racc) xs ([],[],[])
+    foldBack (fun (x, y, z) (lacc, macc, racc) -> x::lacc, y::macc, z::racc) xs ([],[],[])
 
 let zip xs ys =
-   map2 (fun x y -> x, y) xs ys
+    map2 (fun x y -> x, y) xs ys
 
 let zip3 xs ys zs =
-   map3 (fun x y z -> x, y, z) xs ys zs
+    map3 (fun x y z -> x, y, z) xs ys zs
 
 let sort (xs : 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
     Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (Array.ofList xs Array.DynamicArrayCons) |> ofArray
@@ -326,10 +326,10 @@ let sortWith (comparer: 'T -> 'T -> int) (xs : 'T list): 'T list =
 
 // TODO!!!: Pass add function for non-number types
 let sum (xs: float list) : float =
-   fold (+) 0. xs
+    fold (+) 0. xs
 
 let sumBy (f:'a -> float) (xs: 'a list) : float =
-   fold (fun acc x -> acc + f x) 0. xs
+    fold (fun acc x -> acc + f x) 0. xs
 
 let maxBy (projection:'a->'b) (xs:'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then y else x) xs
@@ -344,61 +344,75 @@ let min (xs:'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
     reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
 
 let average (zs: float list) : float =
-   let total = sum zs
-   total / float(List.length zs)
+    let total = sum zs
+    total / float(List.length zs)
 
 let averageBy (g: 'a -> float ) (zs: 'a list) : float =
-   let total = sumBy g zs
-   total / float(List.length zs)
+    let total = sumBy g zs
+    total / float(List.length zs)
 
 let permute f xs =
-   xs
-   |> List.toArray
-   |> Array.permute f
-   |> ofArray
+    xs
+    |> List.toArray
+    |> Array.permute f
+    |> ofArray
+
+let skip i xs =
+    let rec skipInner i xs =
+        match i, xs with
+        | 0, _ -> xs
+        | _, [] -> failwith "The input sequence has an insufficient number of elements."
+        | _, _::xs -> skipInner (i - 1) xs
+    match i, xs with
+    | i, _ when i < 0 -> failwith "The input must be non-negative."
+    | 0, _ -> xs
+    | 1, _::xs -> xs
+    | i, xs -> skipInner i xs
+
+let rec skipWhile predicate xs =
+    match xs with
+    | h::t when predicate h -> skipWhile predicate t
+    | _ -> xs
 
 // TODO: Is there a more efficient algorithm?
 let rec takeSplitAux error i acc xs =
     match i, xs with
     | 0, _ -> reverse acc, xs
     | _, [] ->
-      if error then
-          failwith "The input sequence has an insufficient number of elements."
-      else
-          reverse acc, xs
+        if error then
+            failwith "The input sequence has an insufficient number of elements."
+        else
+            reverse acc, xs
     | _, x::xs -> takeSplitAux error (i - 1) (x::acc) xs
+
 let take i xs =
-  match i, xs with
-  | i, _ when i < 0 -> failwith "The input must be non-negative."
-  | 0, _ -> []
-  | 1, x::_ -> [x]
-  | i, xs -> takeSplitAux true i [] xs |> fst
+    match i, xs with
+    | i, _ when i < 0 -> failwith "The input must be non-negative."
+    | 0, _ -> []
+    | 1, x::_ -> [x]
+    | i, xs -> takeSplitAux true i [] xs |> fst
+
+let rec takeWhile predicate (xs: 'T list) =
+    match xs with
+    | [] -> xs
+    | x::([] as nil) -> if predicate x then xs else nil
+    | x::xs ->
+        if not (predicate x) then []
+        else x::(takeWhile predicate xs)
 
 let truncate i xs =
-  match i, xs with
-  | i, _ when i < 0 -> failwith "The input must be non-negative."
-  | 0, _ -> []
-  | 1, x::_ -> [x]
-  | i, xs -> takeSplitAux false i [] xs |> fst
+    match i, xs with
+    | i, _ when i < 0 -> failwith "The input must be non-negative."
+    | 0, _ -> []
+    | 1, x::_ -> [x]
+    | i, xs -> takeSplitAux false i [] xs |> fst
 
 let splitAt i xs =
-  match i, xs with
-  | i, _ when i < 0 -> failwith "The input must be non-negative."
-  | 0, _ -> [],xs
-  | 1, x::xs -> [x],xs
-  | i, xs -> takeSplitAux true i [] xs
-
-let skip i xs =
-  let rec skipInner i xs =
-      match i, xs with
-      | 0, _ -> xs
-      | _, [] -> failwith "The input sequence has an insufficient number of elements."
-      | _, _::xs -> skipInner (i - 1) xs
-  match i, xs with
-  | i, _ when i < 0 -> failwith "The input must be non-negative."
-  | 0, _ -> xs
-  | 1, _::xs -> xs
-  | i, xs -> skipInner i xs
+    match i, xs with
+    | i, _ when i < 0 -> failwith "The input must be non-negative."
+    | 0, _ -> [],xs
+    | 1, x::xs -> [x],xs
+    | i, xs -> takeSplitAux true i [] xs
 
 let toSeq (xs: 'a list): 'a seq =
     Seq.unfold (function [] -> None | x::xs -> Some(x, xs)) xs
@@ -447,6 +461,4 @@ let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityCompa
         result <- (group.Key, group.Value.contents)::result
     result
 
-let skipWhile f = toSeq >> Seq.skipWhile f
-let takeWhile f = toSeq >> Seq.takeWhile f
-let where f = toSeq >> Seq.where f
+let where predicate xs = filter predicate xs
