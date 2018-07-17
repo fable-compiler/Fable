@@ -202,7 +202,7 @@ let init () =
             let res = parseResults :?> ParseResults
             let project = makeProject fileName optimized res
             let com = makeCompiler fableCore fileName project
-            compileAst com project
+            compileAst com project :> obj
         member __.FSharpAstToString(parseResults:IParseResults, optimized: bool) =
             let res = parseResults :?> ParseResults
             if not optimized then res.CheckProject.AssemblyContents.ImplementationFiles
