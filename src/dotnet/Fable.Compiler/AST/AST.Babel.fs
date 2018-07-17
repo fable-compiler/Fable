@@ -55,9 +55,10 @@ type Pattern = interface end
 /// Not in Babel specs, disguised as StringLiteral
 type MacroExpression(value, args, ?loc) =
     inherit Literal("StringLiteral", ?loc = loc)
+    let macro = true
     member __.Value: string = value
     member __.Args: Expression array = args
-    member __.Macro = true
+    member __.Macro = macro
 
 // Template Literals
 type TemplateElement(value: string, tail, ?loc) =
