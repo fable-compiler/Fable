@@ -742,36 +742,37 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
             | [value] -> value
             | values -> Value(NewArray(ArrayValues values, Any))
         ObjectMember(changeCase caseRule name |> makeStrConst, value, ObjectValue)
-    let caseRule: CaseRules =
-        match caseRule with
-        | Value(NumberConstant(rule, _))
-        | Value(Enum(NumberEnum(Value(NumberConstant(rule, _))), _)) -> enum(int rule)
-        | _ -> addError com r "Cannot infer case rule, using None"; CaseRules.None
-    match keyValueList with
-    // It should be an array because the list is casted to seq, but check also list just in case
-    | Value(NewArray(ArrayValues ms, _))
-    | ListLiteral(ms, _) ->
-        (ms, Some []) ||> List.foldBack (fun m acc ->
-            match acc, m with
-            // Try to get the member key and value at compile time for unions and tuples
-            | Some acc, Value(NewUnion(values, uci, _, _)) ->
-                // Union cases with EraseAttribute are used for `Custom`-like cases
-                match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
-                | Some _ ->
-                    match values with
-                    | (Value(StringConstant name))::values -> makeObjMember caseRule name values::acc |> Some
-                    | _ -> None
-                | None ->
-                    let name = defaultArg (FSharp2Fable.Helpers.unionCaseCompiledName uci) uci.Name
+    match caseRule with
+    | Value(NumberConstant(rule, _))
+    | Value(Enum(NumberEnum(Value(NumberConstant(rule, _))), _)) ->
+        let caseRule = enum(int rule)
+        match keyValueList with
+        // It should be an array because the list is casted to seq, but check also list just in case
+        | Value(NewArray(ArrayValues ms, _))
+        | ListLiteral(ms, _) ->
+            (ms, Some []) ||> List.foldBack (fun m acc ->
+                match acc, m with
+                // Try to get the member key and value at compile time for unions and tuples
+                | Some acc, Value(NewUnion(values, uci, _, _)) ->
+                    // Union cases with EraseAttribute are used for `Custom`-like cases
+                    match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
+                    | Some _ ->
+                        match values with
+                        | (Value(StringConstant name))::values -> makeObjMember caseRule name values::acc |> Some
+                        | _ -> None
+                    | None ->
+                        let name = defaultArg (FSharp2Fable.Helpers.unionCaseCompiledName uci) uci.Name
+                        makeObjMember caseRule name values::acc |> Some
+                | Some acc, Value(NewTuple((Value(StringConstant name))::values)) ->
                     makeObjMember caseRule name values::acc |> Some
-            | Some acc, Value(NewTuple((Value(StringConstant name))::values)) ->
-                makeObjMember caseRule name values::acc |> Some
-            | _ -> None)
-    | _ -> None
-    |> Option.map (fun members -> ObjectExpr(members, Any, None))
-    // With key & value for all members, build the POJO at compile time. If not, build it at runtime
-    |> Option.defaultWith (fun () ->
-        Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst]))
+                | _ -> None)
+        | _ -> None
+        |> Option.map (fun members -> ObjectExpr(members, Any, None))
+        // With key & value for all members, build the POJO at compile time. If not, build it at runtime
+        |> Option.defaultWith (fun () ->
+            Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst]))
+    | _ ->
+        Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule])
 
 let injectArg com r moduleName methName (genArgs: (string * Type) list) args =
     let (|GenericArg|_|) genArgs genArgIndex =

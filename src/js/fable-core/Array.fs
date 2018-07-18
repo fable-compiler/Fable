@@ -57,6 +57,9 @@ module Helpers =
     let inline filterImpl (predicate: 'T -> bool) (array: 'T[]): 'T[] =
         !!array?filter(predicate)
 
+    // Inlining in combination with dynamic application may cause problems with uncurrying
+    // Using Emit keeps the argument signature
+    [<Emit("$1.sort($0)")>]
     let inline sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array:'T[]): unit =
         !!array?sort(comparer)
 

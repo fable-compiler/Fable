@@ -529,9 +529,9 @@ open Transforms
 // TODO: Optimize binary operations with numerical or string literals
 let optimizations =
     [ // First apply beta reduction
-      fun com e -> visitFromInsideOut (bindingBetaReduction com) e
-      fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
-      fun com e -> visitFromInsideOut (tupleBetaReduction com) e
+    //   fun com e -> visitFromInsideOut (bindingBetaReduction com) e
+    //   fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
+    //   fun com e -> visitFromInsideOut (tupleBetaReduction com) e
       // Then apply uncurry optimizations
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
@@ -540,7 +540,7 @@ let optimizations =
       // uncurryApplications must come after uncurrySendingArgs as it erases argument type info
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
       // Don't traverse the expression for the unwrap function optimization
-      unwrapFunctions
+    //   unwrapFunctions
     ]
 
 let optimizeExpr (com: ICompiler) e =
