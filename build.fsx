@@ -291,9 +291,9 @@ let buildRepl () =
     Yarn.install replDir
     Yarn.run replDir "build-modules" ""
     Yarn.run replDir "webpack-cli" "" // Bundle
-    // Build fable-core for AMD
-    sprintf "%s --out-dir bundle/fable-core --plugins=transform-es2015-modules-amd" coreJsBuildDir
-    |> Yarn.run replDir "babel"
+
+    // Put fable-core files next to bundle
+    FileUtils.cp_r coreJsBuildDir (replDir </> "bundle/fable-core")
 
 Target "All" (fun () ->
     installDotnetSdk ()

@@ -190,18 +190,18 @@ let replaceValues replacements expr =
             | None -> e
         | e -> e)
 
-let canEraseBinding identName value body =
+let countReferences limit identName body =
+    let mutable count = 0
+    body |> deepExists (function
+        | IdentExpr id2 when id2.Name = identName ->
+            count <- count + 1
+            count > limit
+        | _ -> false) |> ignore
+    count
+
+let canInlineArg identName value body =
     // Don't erase expressions referenced 0 times, they may have side-effects
-    let isReferencedOnlyOnce identName body =
-        let limit = 1
-        let mutable count = 0
-        body |> deepExists (function
-            | IdentExpr id2 when id2.Name = identName ->
-                count <- count + 1
-                count > limit
-            | _ -> false) |> ignore
-        count = limit
-    not(hasDoubleEvalRisk value) || isReferencedOnlyOnce identName body
+    not(hasDoubleEvalRisk value) || (countReferences 1 identName body = 1)
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
@@ -209,20 +209,12 @@ module private Transforms =
         | Function(Delegate args, body, name) -> Some(args, body, name)
         | _ -> None
 
-    // Don't erase bindings if mutable variables are involved
-    // as the value can change in between statements
-    let evalsMutableIdent expr =
-        deepExistsWithShortcircuit (function
-            | IdentExpr id when id.IsMutable -> Some true
-            | Function _ -> Some false // Ignore function bodies
-            | _ -> None) expr
-
     let lambdaBetaReduction (_: ICompiler) e =
         let applyArgs (args: Ident list) argExprs body =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
                 |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                    if canEraseBinding ident.Name expr body
+                    if canInlineArg ident.Name expr body
                     then bindings, Map.add ident.Name expr replacements
                     else (ident, expr)::bindings, replacements)
             match bindings with
@@ -252,31 +244,21 @@ module private Transforms =
         | Get(Value(NewTuple exprs), TupleGet index, _, _) -> List.item index exprs
         | e -> e
 
-    let bindingBetaReduction (_: ICompiler) e =
+    let bindingBetaReduction (com: ICompiler) e =
         match e with
         // Don't try to optimize bindings with multiple ident-value pairs
         // as they can reference each other
-        | Let([ident, value], body) when not ident.IsMutable ->
-            let identName = ident.Name
-            let replacement =
-                match value with
-                // When replacing an ident with an erased option use the name but keep the unwrapped type
-                | Get(IdentExpr id, OptionValue, t, _) when not id.IsMutable && not(mustWrapOption t) ->
-                    makeTypedIdent t id.Name |> IdentExpr |> Some
-                // Match automatic destructuring of tuple arguments in inner functions
-                | Get(IdentExpr tupleIdent,_,_, _) as value when tupleIdent.IsCompilerGenerated ->
-                    Some value
-                | value when ident.IsCompilerGenerated
-                            && canEraseBinding identName value body
-                            && not(evalsMutableIdent value) ->
-                    match value with
-                    // TODO: Check if current name is Some? Shouldn't happen...
-                    | Function(args, body, _) -> Function(args, body, Some identName) |> Some
-                    | value -> Some value
-                | _ -> None
-            match replacement with
-            | Some value -> replaceValues (Map [identName, value]) body
-            | None -> e
+        | Let([ident, Function(args, funBody, currentName)], letBody)
+            when ident.IsCompilerGenerated && not ident.IsMutable
+                && (countReferences 1 ident.Name letBody <= 1) ->
+            if Option.isSome currentName then
+                sprintf "Unexpected named function when erasing binding (%s > %s)" currentName.Value ident.Name
+                |> addWarning com ident.Range
+            let replacement = Function(args, funBody, Some ident.Name)
+            replaceValues (Map [ident.Name, replacement]) letBody
+        | Let([ident, value], body) when ident.IsCompilerGenerated && not ident.IsMutable
+                                        && not(hasDoubleEvalRisk value) ->
+            replaceValues (Map [ident.Name, value]) body
         | e -> e
 
     /// Returns arity of lambda (or lambda option) types
@@ -529,9 +511,9 @@ open Transforms
 // TODO: Optimize binary operations with numerical or string literals
 let optimizations =
     [ // First apply beta reduction
-    //   fun com e -> visitFromInsideOut (bindingBetaReduction com) e
-    //   fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
-    //   fun com e -> visitFromInsideOut (tupleBetaReduction com) e
+      fun com e -> visitFromInsideOut (bindingBetaReduction com) e
+      fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
+      fun com e -> visitFromInsideOut (tupleBetaReduction com) e
       // Then apply uncurry optimizations
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
@@ -540,7 +522,7 @@ let optimizations =
       // uncurryApplications must come after uncurrySendingArgs as it erases argument type info
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
       // Don't traverse the expression for the unwrap function optimization
-    //   unwrapFunctions
+      unwrapFunctions
     ]
 
 let optimizeExpr (com: ICompiler) e =

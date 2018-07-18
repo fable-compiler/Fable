@@ -1,8 +1,7 @@
 const path = require("path");
-const UglifyJSPlugin = require('uglifyjs-webpack-plugin');
 
 module.exports = {
-  mode: "none",
+  mode: "production",
   devtool: "source-map",
   entry: "./out/Main.js",
   output: {
@@ -11,11 +10,13 @@ module.exports = {
     libraryTarget: 'var',
     library: 'Fable',
   },
-  // plugins: [
-  //   // Inlining is causing problems in minified code
-  //   // See https://github.com/mishoo/UglifyJS2/issues/2842#issuecomment-359527962
-  //   new UglifyJSPlugin({
-  //     uglifyOptions: { compress: { inline: 1 } }
-  //   }),
-  // ]
+  module: {
+    rules: [{
+      test: /\.js$/,
+      use: {
+        loader: 'babel-loader',
+        options: { presets: [ ["env", { modules: false } ] ] },
+      },
+    }]
+  }
 };

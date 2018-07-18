@@ -785,17 +785,14 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     else transformMemberFunctionOrValue com ctx memb args body
 
 let private transformDeclarations (com: FableCompiler) rootEnt rootDecls =
-    let rec transformDeclarationsInner com (ctx: Context) fsDecls =
+    let rec transformDeclarationsInner (com: FableCompiler) (ctx: Context) fsDecls =
         fsDecls |> List.collect (fun fsDecl ->
             match fsDecl with
             | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
                 match tryImportAttribute ent.Attributes with
                 | Some(selector, path) ->
                     let name = getEntityDeclarationName com ent
-                    // TODO: For recursive namespaces we may need to make a first pass
-                    // to add all member names and prevent conflicts with variable names
-                    // (see also other calls to .AddUsedVarName above)
-                    (com :> IFableCompiler).AddUsedVarName(name)
+                    com.AddUsedVarName(name)
                     (makeStrConst selector, makeStrConst path)
                     ||> transformImport None Fable.Any (not ent.Accessibility.IsPrivate) name
                 // Discard erased unions and string enums
@@ -830,6 +827,15 @@ let private transformDeclarations (com: FableCompiler) rootEnt rootDecls =
             | FSharpImplementationFileDeclaration.InitAction fe ->
                 [transformExpr com ctx fe |> Fable.ActionDeclaration]
         )
+    // In case this is a recursive module, do a first pass to add
+    // all entity and member names as used var names
+    rootDecls |> List.iter (function
+        | FSharpImplementationFileDeclaration.Entity(ent,_) ->
+            com.AddUsedVarName(ent.CompiledName)
+        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->
+            com.AddUsedVarName(memb.CompiledName)
+        | FSharpImplementationFileDeclaration.InitAction _ -> ()
+    )
     let decls = transformDeclarationsInner com (Context.Create rootEnt) rootDecls
     let interfaceImplementations =
         com.InterfaceImplementations.Values |> Seq.map (fun (info, objMember) ->
@@ -881,6 +887,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
     member val UsedVarNames = HashSet<string>()
     member val Dependencies = HashSet<string>()
     member val InterfaceImplementations: Dictionary<_,_> = Dictionary()
+    member this.AddUsedVarName(varName) =
+        this.UsedVarNames.Add(varName) |> ignore
     member __.AddInlineExpr(memb, inlineExpr) =
         let fullName = getMemberUniqueName com memb
         com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
@@ -935,7 +943,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
                 | Some(args, body) -> List.concat args, body
                 | None -> failwith ("Cannot find inline member " + memb.FullName))
         member this.AddUsedVarName(varName) =
-            this.UsedVarNames.Add(varName) |> ignore
+            this.AddUsedVarName(varName) |> ignore
         member this.IsUsedVarName(varName) =
             this.UsedVarNames.Contains(varName)
     interface ICompiler with
