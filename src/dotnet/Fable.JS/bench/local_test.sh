@@ -1,5 +1,5 @@
 yarn build
-node out/bench/app.js \
+node out/app.js \
     ../metadata/ \
     test_script.fsx \
     out/test_script.js
