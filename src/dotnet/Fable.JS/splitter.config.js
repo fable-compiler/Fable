@@ -1,13 +1,14 @@
-let babelOptions = {};
+const useCommonjs = process.argv.find(v => v === "--commonjs");
+console.log("Compiling to " + (useCommonjs ? "commonjs" : "ES2015 modules") + "...")
 
-if (process.argv.find(v => v === "--commonjs")) {
-  babelOptions = {
-    plugins: ["transform-es2015-modules-commonjs"],
+const babelOptions = useCommonjs
+  ? { plugins: ["transform-es2015-modules-commonjs"] }
+  : {
+    presets: [
+      // Uglify-js will fail if we don't compile to ES5
+      ["es2015", { modules: false }]
+    ]
   };
-  console.log("Compiling to commmonjs...");
-} else {
-  console.log("Compiling to ES2015 modules...");
-}
 
 const fableOptions = {
   define: [

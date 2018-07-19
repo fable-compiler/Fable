@@ -290,7 +290,7 @@ let buildRepl () =
     let replDir = CWD </> "src/dotnet/Fable.JS"
     Yarn.install replDir
     Yarn.run replDir "build-modules" ""
-    Yarn.run replDir "webpack-cli" "" // Bundle
+    Yarn.run replDir "bundle" ""
 
     // Put fable-core files next to bundle
     FileUtils.cp_r coreJsBuildDir (replDir </> "bundle/fable-core")

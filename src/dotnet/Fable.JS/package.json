@@ -1,16 +1,17 @@
 {
   "private": true,
   "scripts": {
-    "build": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter-commonjs --fable-core ../../../build/fable-core",
+    "build": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --args \"--commonjs\" --fable-core ../../../build/fable-core",
     "build-modules": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../build/fable-core",
-    "splitter-commonjs": "node ../../js/fable-splitter/dist/cli --commonjs",
-    "splitter": "node ../../js/fable-splitter/dist/cli"
+    "splitter": "node ../../js/fable-splitter/dist/cli",
+    "bundle": "rollup out/Main.js --file bundle/bundle.js --format iife --name Fable",
+    "postbundle": "uglifyjs bundle/bundle.js -o bundle/bundle.min.js -c -m"
   },
   "devDependencies": {
     "babel-core": "^6.26.3",
-    "babel-loader": "^7.1.5",
-    "babel-preset-env": "^1.7.0",
-    "webpack": "^4.16.1",
-    "webpack-cli": "^3.0.8"
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
+    "babel-preset-es2015": "^6.24.1",
+    "rollup": "^0.63.2",
+    "uglify-js": "^3.4.5"
   }
 }
