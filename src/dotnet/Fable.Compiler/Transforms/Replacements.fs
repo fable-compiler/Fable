@@ -344,7 +344,14 @@ let fastIntFloor expr =
     makeUnOp None (Number Int32) inner UnaryNotBitwise
 
 let toInt (round: bool) targetType (args: Expr list) =
-    let sourceType = args.Head.Type
+    let sourceType =
+        match args.Head.Type with
+        | EnumType(NumberEnumType, _) -> Number Int32
+        | t -> t
+    let targetType =
+        match targetType with
+        | EnumType(NumberEnumType, _) -> Number Int32
+        | t -> t
     let kindIndex t =             //         0   1   2   3   4   5   6   7   8   9  10  11
         match t with              //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
         | Number Int8 -> 0        //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
@@ -359,7 +366,7 @@ let toInt (round: bool) targetType (args: Expr list) =
         | Number Float64 -> 9     //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
         | Number Decimal -> 10    // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
         | Builtin BclBigInt -> 11 // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
-        | _ -> failwith "Unexpected non-number type"
+        | _ -> failwithf "Unexpected non-number type %A" t
     let needToCast typeFrom typeTo =
         let v = kindIndex typeFrom // argument type (vertical)
         let h = kindIndex typeTo   // return type (horizontal)
@@ -388,7 +395,7 @@ let toInt (round: bool) targetType (args: Expr list) =
         | Number Float32 -> args.Head
         | Number Float64 -> args.Head
         | Number Decimal -> args.Head
-        | _ -> failwith "Unexpected non-number type"
+        | _ -> failwithf "Unexpected non-number type %A" typeTo
     let castBigIntMethod typeTo =
         match typeTo with
         | Builtin BclBigInt -> failwith "Unexpected conversion"
@@ -403,11 +410,7 @@ let toInt (round: bool) targetType (args: Expr list) =
         | Number Float32 -> "toSingle"
         | Number Float64 -> "toDouble"
         | Number Decimal -> "toDecimal"
-        | _ -> failwith "Unexpected non-number type"
-    let sourceType =
-        match sourceType with
-        | EnumType(NumberEnumType, _) -> Number Int32
-        | t -> t
+        | _ -> failwithf "Unexpected non-number type %A" typeTo
     match sourceType with
     | Char -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
     | String ->

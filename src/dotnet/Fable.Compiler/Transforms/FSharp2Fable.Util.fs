@@ -182,8 +182,7 @@ module Helpers =
 
     let unionCaseTag (ent: FSharpEntity) (unionCase: FSharpUnionCase) =
         try
-            let name = unionCase.Name
-            ent.UnionCases |> Seq.findIndex (fun uci -> name = uci.Name)
+            ent.UnionCases |> Seq.findIndex (fun uci -> unionCase.Name = uci.Name)
         with _ ->
             failwithf "Cannot find case %s in %s" unionCase.Name (getEntityFullName ent)
 
