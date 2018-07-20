@@ -1361,6 +1361,10 @@ let arrays (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     | "get_Length", Some ar, _ -> get r t ar "length" |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
+    | "Copy", None, [source; target; count] ->
+        Helper.CoreCall("Array", "copyTo", t, [source; makeIntConst 0; target; makeIntConst 0; count], i.SignatureArgTypes, ?loc=r) |> Some
+    | "Copy", None, [source; sourceIndex; target; targetIndex; count] ->
+        Helper.CoreCall("Array", "copyTo", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1603,6 +1607,8 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     | "op_LessThanOrEqual", [left; right] -> compareIf com r left right BinaryLessOrEqual |> Some
     | "op_GreaterThan", [left; right] -> compareIf com r left right BinaryGreater |> Some
     | "op_GreaterThanOrEqual", [left; right] -> compareIf com r left right BinaryGreaterOrEqual |> Some
+    | "op_UnaryNegation", [arg] -> 
+        applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
     | _,_ -> None
 
 let bigints (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1636,6 +1642,8 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         | _ -> None
     | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
         structuralHash r arg |> Some
+    | ("GenericHashWithComparer" | "GenericHashWithComparerIntrinsic"), [comp; arg] ->
+        Helper.InstanceCall(comp, "GetHashCode", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
     | ("GenericComparison" | "GenericComparisonIntrinsic"), [left; right] ->
         compare com r left right |> Some
     | ("GenericComparisonWithComparer" | "GenericComparisonWithComparerIntrinsic"), [comp; left; right] ->
@@ -1659,10 +1667,12 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         makeEqOp r left right BinaryEqualStrict |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
         identityHash r arg |> Some
-    | ("FastGenericComparer"
-    |  "FastGenericComparerFromTable"
-    |  "GenericEqualityComparer"
+    | ("GenericEqualityComparer"
     |  "GenericEqualityERComparer"
+    |  "FastGenericComparer"
+    |  "FastGenericComparerFromTable"
+    |  "FastGenericEqualityComparer"
+    |  "FastGenericEqualityComparerFromTable"
         ), _ -> fsharpModule com ctx r t i thisArg args
     | ("ParseInt32" | "ParseUInt32" | "ParseInt64" | "ParseUInt64"), [arg] ->
         toInt false t [arg] |> Some
@@ -1715,9 +1725,11 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
     // Type: RangeDouble: float -> float -> float -> seq<float>
     // Usage: RangeDouble start step stop
-    | "RangeDouble", None, _ ->
-        Helper.CoreCall("Seq", "rangeStep", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "RangeInt32", None, args ->
+    | ("RangeSByte" | "RangeByte"
+    | "RangeInt16"  | "RangeUInt16"
+    | "RangeInt32"  | "RangeUInt32"
+    | "RangeInt64"  | "RangeUInt64"
+    | "RangeSingle" | "RangeDouble"), None, args ->
         Helper.CoreCall("Seq", "rangeStep", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
@@ -2056,6 +2068,11 @@ let cancels (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option)
     | "Dispose" -> Null Type.Unit |> Value |> Some
     | _ -> None
 
+let monitor (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Enter" | "Exit" -> Null Type.Unit |> Value |> Some
+    | _ -> None
+
 let activator (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     // TODO!!! This probably won't work, add test
@@ -2382,6 +2399,7 @@ let private replacedModules =
     "System.Random", random
     "System.Threading.CancellationToken", cancels
     "System.Threading.CancellationTokenSource", cancels
+    "System.Threading.Monitor", monitor
     "System.Activator", activator
     "System.Text.Encoding", encoding
     "System.Text.UnicodeEncoding", encoding

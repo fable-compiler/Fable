@@ -863,7 +863,7 @@ module Util =
             | Some Types.bigint ->
                 jsInstanceof (coreValue com ctx "BigInt" "default") expr
             | _ when ent.IsInterface ->
-                fail "interfaces"
+                fail (sprintf "interface %A" ent.FullName)
             | _ when FSharp2Fable.Util.isReplacementCandidate ent ->
                 match ent.TryFullName with
                 | Some Types.exception_ ->
