@@ -3,6 +3,7 @@
   "scripts": {
     "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start --port 61225",
     "build": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../../build/fable-core",
+    "build-opt": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../../build/fable-core --experimental optimize-fcs",
     "build-es6": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter-es6 --fable-core ../../../../build/fable-core",
     "build-v1": "dotnet fable yarn-splitter",
     "rename": "cd out && for /r %x in (*.js) do ren \"%x\" *.mjs",

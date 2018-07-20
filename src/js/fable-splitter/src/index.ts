@@ -224,7 +224,13 @@ function transformAndSaveAst(fullPath: string, ast: any, options: FableSplitterO
     babelOptions.plugins = (babelOptions.plugins || [])
         .concat(getResolvePathPlugin(jsDir, options));
     // transform and save
-    let result = Babel.transformFromAst(ast, code, babelOptions);
+    let result: Babel.BabelFileResult = {};
+    try {
+        result = Babel.transformFromAst(ast, code, babelOptions);
+    } catch (err) {
+        console.log(`fable: Error transforming Babel AST.`);
+        console.error(err);
+    }
     if (options.prepack) {
         const prepack = require("prepack");
         result = prepack.prepackFromAst(result.ast, result.code, options.prepack);
