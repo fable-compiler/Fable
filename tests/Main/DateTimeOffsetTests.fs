@@ -99,6 +99,19 @@ let tests =
         equal 7 d.Month
         equal 27 d.Day
 
+    testCase "DateTimeOffset <-> Ticks isomorphism" <| fun () ->
+        let checkIsomorphism (d: DateTimeOffset) = 
+            try
+                equal d (DateTimeOffset (d.Ticks, d.Offset))
+                equal d.Ticks (DateTimeOffset (d.Ticks, d.Offset)).Ticks
+            with e ->
+                failwithf "%A: %O" d e
+        checkIsomorphism DateTimeOffset.MinValue
+        checkIsomorphism DateTimeOffset.MaxValue
+        checkIsomorphism DateTimeOffset.Now
+        checkIsomorphism <| DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.Zero)
+        checkIsomorphism <| DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours 1.0)
+
     // DateTimeOffset specific tests -----------------------
 
     testCase "DateTimeOffset constructors with DateTime work" <| fun () ->
