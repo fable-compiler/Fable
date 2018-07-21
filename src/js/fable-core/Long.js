@@ -4,6 +4,7 @@
 /* tslint:disable */
 import { isValid } from "./Int32";
 import { combineHashCodes } from "./Util";
+import DateTime, { offset } from "./Date";
 
 /**
  * wasm optimizations, to do native i64 multiplication and divide
@@ -1100,9 +1101,11 @@ export function fromBytesBE(bytes, unsigned) {
     );
 };
 export function unixEpochMillisecondsToTicks(ms, offset) {
+    //return op_Multiply(op_Addition(fromNumber(ms), 62135596800000), 10000);
     return op_Multiply(op_Addition(op_Addition(fromNumber(ms), 62135596800000), offset), 10000);
 }
 
 export function ticksToUnixEpochMilliseconds(ticks) {
-    return toNumber(op_Subtraction(op_Division(ticks, 10000), 62135596800000));
+    const localOffset = offset(new Date());
+    return toNumber(op_Subtraction(op_Subtraction(op_Division(ticks, 10000), 62135596800000), offset));
 }
