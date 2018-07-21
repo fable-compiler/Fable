@@ -181,6 +181,12 @@ export function fsFormat(str: string) {
 }
 
 export function format(str: string, ...args: any[]) {
+  if (typeof str === "object" && args.length > 0) {
+    // Called with culture info
+    str = args[0];
+    args.shift();
+  }
+
   return str.replace(formatRegExp,
     (match: any, idx: any, pad: any, pattern: any) => {
       let rep = args[idx];
