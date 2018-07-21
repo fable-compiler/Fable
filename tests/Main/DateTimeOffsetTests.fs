@@ -114,8 +114,10 @@ let tests =
                 let utcTicks = d.UtcTicks
                 let offset = d.Offset
                 let fromTicks = DateTimeOffset (ticks, offset)
+                let fromUtcTicks = DateTimeOffset (utcTicks, TimeSpan.Zero)
 
                 equal d fromTicks
+                equal d fromUtcTicks
                 equal ticks fromTicks.Ticks
                 equal utcTicks fromTicks.UtcTicks
                 if offset <> TimeSpan.Zero 
