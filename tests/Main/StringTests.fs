@@ -183,7 +183,7 @@ let tests =
       testCase "String.Format with extra formatting works" <| fun () ->
             let i = 0.5466788
             let dt = DateTime(2014, 9, 26).AddMinutes(19.)
-            String.Format("{0:F2} {0:P2} {1:yyyy-MM-dd HH:mm}", i, dt)
+            String.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:F2} {0:P2} {1:yyyy-MM-dd HH:mm}", i, dt)
                   .Replace(",", ".").Replace(" %", "%")
             |> equal "0.55 54.67% 2014-09-26 00:19"
 
