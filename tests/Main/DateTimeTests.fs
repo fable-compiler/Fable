@@ -153,11 +153,27 @@ let tests =
         equal 7 d.Month
         equal 27 d.Day
 
+    testCase "DateTime.Ticks does not care about kind" <| fun () ->
+        let d1 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Local)
+        let d2 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+        let d3 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Unspecified)
+        equal d1.Ticks d2.Ticks
+        equal d1.Ticks d3.Ticks
+        equal d2.Ticks d3.Ticks
+
     testCase "DateTime <-> Ticks isomorphism" <| fun () ->
         let checkIsomorphism (d: DateTime) = 
             try
-                equal d (DateTime d.Ticks)
-                equal d.Ticks (DateTime d.Ticks).Ticks
+                let ticks = d.Ticks
+                let kind = d.Kind
+                let fromTicks = DateTime ticks
+                let fromTicksWithKind = DateTime (ticks, kind)
+
+                equal d fromTicks
+                equal ticks fromTicks.Ticks
+                equal d fromTicksWithKind
+                equal ticks fromTicksWithKind.Ticks
+                equal kind fromTicksWithKind.Kind
             with e ->
                 failwithf "%A: %O" d e            
         checkIsomorphism DateTime.MinValue

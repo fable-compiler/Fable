@@ -1,6 +1,7 @@
 import DateTime, { compare as compareDates, create as createDate,
   DateKind, daysInMonth, IDateTime, IDateTimeOffset,
   offsetRegex, offsetToString, padWithZeros, parseRaw } from "./Date";
+import { fromValue, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long";
 
 export default function DateTimeOffset(value: number, offset?: number) {
   const d = new Date(value) as IDateTimeOffset;
@@ -17,6 +18,18 @@ export function fromDate(date: IDateTime, offset?: number) {
       : "The UTC Offset of the local dateTime parameter does not match the offset argument.");
   }
   return DateTimeOffset(date.getTime(), offset2);
+}
+
+export function fromTicks(ticks: number | any, offset: number) {
+  ticks = fromValue(ticks);
+
+  const epoch = ticksToUnixEpochMilliseconds(ticks);
+
+  return DateTimeOffset(epoch, offset);
+}
+
+export function getUtcTicks(date: IDateTimeOffset) {
+  return unixEpochMillisecondsToTicks(date.getTime(), date.offset);
 }
 
 export function minValue() {

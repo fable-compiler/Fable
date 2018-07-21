@@ -1,3 +1,5 @@
+import { fromValue, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long";
+
 // Don't change, this corresponds to DateTime.Kind
 // enum values in .NET
 export const enum DateKind {
@@ -132,6 +134,22 @@ export default function DateTime(value: number, kind?: DateKind) {
   const d = new Date(value) as IDateTime;
   d.kind = (kind == null ? DateKind.Unspecified : kind) | 0;
   return d;
+}
+
+export function fromTicks(ticks: number | any, kind?: DateKind) {
+  ticks = fromValue(ticks);
+  kind = kind !== undefined ? kind : DateKind.Unspecified;
+
+  let epoch = ticksToUnixEpochMilliseconds(ticks);
+  if (kind !== 1) {
+    epoch = epoch + offset(new Date());
+  }
+
+  return DateTime(epoch, kind);
+}
+
+export function getTicks(date: IDateTime | IDateTimeOffset) {
+  return unixEpochMillisecondsToTicks(date.getTime(), offset(date));
 }
 
 export function minValue() {

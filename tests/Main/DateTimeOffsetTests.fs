@@ -99,11 +99,28 @@ let tests =
         equal 7 d.Month
         equal 27 d.Day
 
+    testCase "DateTimeOffset.Ticks does not care about offset" <| fun () ->
+        let d1 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.Zero)
+        let d2 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours 1.0)
+        let d3 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours -5.0)
+        equal d1.Ticks d2.Ticks
+        equal d1.Ticks d3.Ticks
+        equal d2.Ticks d3.Ticks
+
     testCase "DateTimeOffset <-> Ticks isomorphism" <| fun () ->
         let checkIsomorphism (d: DateTimeOffset) = 
             try
-                equal d (DateTimeOffset (d.Ticks, d.Offset))
-                equal d.Ticks (DateTimeOffset (d.Ticks, d.Offset)).Ticks
+                let ticks = d.Ticks
+                let utcTicks = d.UtcTicks
+                let offset = d.Offset
+                let fromTicks = DateTimeOffset (ticks, offset)
+
+                equal d fromTicks
+                equal ticks fromTicks.Ticks
+                equal utcTicks fromTicks.UtcTicks
+                if offset <> TimeSpan.Zero 
+                then notEqual ticks utcTicks
+                else equal ticks utcTicks
             with e ->
                 failwithf "%A: %O" d e
         checkIsomorphism DateTimeOffset.MinValue
@@ -111,6 +128,7 @@ let tests =
         checkIsomorphism DateTimeOffset.Now
         checkIsomorphism <| DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.Zero)
         checkIsomorphism <| DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours 1.0)
+        checkIsomorphism <| DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours -5.0)
 
     // DateTimeOffset specific tests -----------------------
 

@@ -1946,9 +1946,10 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
     | ".ctor" ->
         match args with
         | [] -> Helper.CoreCall(moduleName, "minValue", t, [], [], ?loc=r) |> Some
-        | (ExprType(Builtin BclInt64) as ticks)::rest ->
-            let ms = Helper.CoreCall("Long","ticksToUnixEpochMilliseconds", t, [ticks], [i.SignatureArgTypes.Head])
-            Helper.CoreCall(moduleName, "default", t, (ms::rest), t::i.SignatureArgTypes.Tail, ?loc=r) |> Some
+        | ExprType(Builtin BclInt64)::_ ->
+            Helper.CoreCall(moduleName, "fromTicks", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            // let ms = Helper.CoreCall("Long","ticksToUnixEpochMilliseconds", t, [ticks], [i.SignatureArgTypes.Head])
+            // Helper.CoreCall(moduleName, "default", t, (ms::rest), t::i.SignatureArgTypes.Tail, ?loc=r) |> Some
         | ExprType(DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
             Helper.CoreCall("DateOffset", "fromDate", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
@@ -1989,15 +1990,10 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
             then [makeBinOp r t ms (makeIntConst 1000) BinaryDivide]
             else [ms]
         Helper.CoreCall("Long", "fromNumber", t, args, ?loc=r) |> Some
-    // Ticks methods are moved to Long.ts so we don't have to import it from Date.ts
-    | "get_Ticks" | "get_UtcTicks" | "ToBinary" ->
-        let ms = getTime thisArg.Value
-        let offset =
-            if i.CompiledName = "get_UtcTicks"
-            then makeIntConst 0
-            else Helper.CoreCall("Date", "offset", Number Float64, [thisArg.Value], [thisArg.Value.Type])
-        Helper.CoreCall("Long", "unixEpochMillisecondsToTicks",
-                        Number Float64, [ms; offset], [ms.Type; offset.Type], ?loc=r) |> Some
+    | "get_Ticks" ->
+        Helper.CoreCall("Date", "getTicks", Number Float64, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+    | "get_UtcTicks" ->
+        Helper.CoreCall("DateOffset", "getUtcTicks", Number Float64, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     | "AddTicks" ->
         match thisArg, args with
         | Some c, [ticks] ->
