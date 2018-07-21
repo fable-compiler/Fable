@@ -1947,9 +1947,8 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
         match args with
         | [] -> Helper.CoreCall(moduleName, "minValue", t, [], [], ?loc=r) |> Some
         | ExprType(Builtin BclInt64)::_ ->
+            // TODO: Figure out why this is not allways working.
             Helper.CoreCall(moduleName, "fromTicks", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-            // let ms = Helper.CoreCall("Long","ticksToUnixEpochMilliseconds", t, [ticks], [i.SignatureArgTypes.Head])
-            // Helper.CoreCall(moduleName, "default", t, (ms::rest), t::i.SignatureArgTypes.Tail, ?loc=r) |> Some
         | ExprType(DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
             Helper.CoreCall("DateOffset", "fromDate", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
@@ -1967,13 +1966,13 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
     // DateTimeOffset
     | "get_DateTime" | "get_LocalDateTime" | "get_UtcDateTime" as m ->
-        let ms = getTime thisArg.Value
+        let getTicks = Helper.CoreCall("Date", "getTicks", Number Float64, [thisArg.Value], [thisArg.Value.Type])
         let kind =
             if m = "LocalDateTime" then System.DateTimeKind.Local
             elif m = "UtcDateTime" then System.DateTimeKind.Utc
             else System.DateTimeKind.Unspecified
             |> int |> makeIntConst
-        Helper.CoreCall("Date", "default", t, [ms; kind], [ms.Type; kind.Type], ?loc=r) |> Some
+        Helper.CoreCall("Date", "fromTicks", t, [getTicks; kind], [getTicks.Type; kind.Type], ?loc=r) |> Some
     | "FromUnixTimeSeconds"
     | "FromUnixTimeMilliseconds" ->
         let value = Helper.CoreCall("Long", "toNumber", Number Float64, args, i.SignatureArgTypes)

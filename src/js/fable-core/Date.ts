@@ -139,13 +139,17 @@ export default function DateTime(value: number, kind?: DateKind) {
 export function fromTicks(ticks: number | any, kind?: DateKind) {
   ticks = fromValue(ticks);
   kind = kind !== undefined ? kind : DateKind.Unspecified;
+  let date = DateTime(ticksToUnixEpochMilliseconds(ticks), kind);
 
-  let epoch = ticksToUnixEpochMilliseconds(ticks);
-  if (kind !== 1) {
-    epoch = epoch + offset(new Date());
+  // Note: this is likley to be brittle right around offset changes
+  // (like transitions to and from DST). Not sure there's anything
+  // that can be done about that, while still using JS Dates, as they
+  // are fundamentally broken in that department.
+  if (kind !== DateKind.UTC) {
+    date = DateTime(date.getTime() - offset(date), kind);
   }
 
-  return DateTime(epoch, kind);
+  return date;
 }
 
 export function getTicks(date: IDateTime | IDateTimeOffset) {
@@ -417,8 +421,8 @@ export function equals(d1: IDateTime, d2: IDateTime) {
 }
 
 export function compare(x: Date, y: Date) {
-  const xtime = x.getTime();
-  const ytime = y.getTime();
+  const xtime = x.getTime() + offset(x);
+  const ytime = y.getTime() + offset(y);
   return xtime === ytime ? 0 : (xtime < ytime ? -1 : 1);
 }
 

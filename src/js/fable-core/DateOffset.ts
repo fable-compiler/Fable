@@ -1,5 +1,5 @@
 import DateTime, { compare as compareDates, create as createDate,
-  DateKind, daysInMonth, IDateTime, IDateTimeOffset,
+  DateKind, daysInMonth, IDateTime, IDateTimeOffset, offset as dateOffset,
   offsetRegex, offsetToString, padWithZeros, parseRaw } from "./Date";
 import { fromValue, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long";
 
@@ -22,14 +22,13 @@ export function fromDate(date: IDateTime, offset?: number) {
 
 export function fromTicks(ticks: number | any, offset: number) {
   ticks = fromValue(ticks);
+  const epoc = ticksToUnixEpochMilliseconds(ticks) - offset;
 
-  const epoch = ticksToUnixEpochMilliseconds(ticks);
-
-  return DateTimeOffset(epoch, offset);
+  return DateTimeOffset(epoc, offset);
 }
 
 export function getUtcTicks(date: IDateTimeOffset) {
-  return unixEpochMillisecondsToTicks(date.getTime(), date.offset);
+  return unixEpochMillisecondsToTicks(date.getTime(), 0);
 }
 
 export function minValue() {

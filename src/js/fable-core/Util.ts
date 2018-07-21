@@ -326,7 +326,7 @@ export function equals(x: any, y: any): boolean {
   } else if (isArray(x)) {
     return isArray(y) && equalArrays(x, y);
   } else if (x instanceof Date) {
-    return y instanceof Date && x.getTime() === y.getTime();
+    return y instanceof Date && compareDates(x, y) === 0;
   } else {
     return false;
   }
