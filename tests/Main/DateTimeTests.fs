@@ -153,6 +153,22 @@ let tests =
         equal 7 d.Month
         equal 27 d.Day
 
+    testCase "DateTime <-> Ticks isomorphism" <| fun () ->
+        let checkIsomorphism (d: DateTime) = 
+            try
+                equal d (DateTime d.Ticks)
+                equal d.Ticks (DateTime d.Ticks).Ticks
+            with e ->
+                failwithf "%A: %O" d e            
+        checkIsomorphism DateTime.MinValue
+        checkIsomorphism DateTime.MaxValue
+        checkIsomorphism DateTime.Now
+        checkIsomorphism <| DateTime(2014, 10, 9)
+        checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30)
+        checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+        checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500)
+        checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+
     testCase "DateTime.IsLeapYear works" <| fun () ->
         DateTime.IsLeapYear(2014) |> equal false
         DateTime.IsLeapYear(2016) |> equal true
