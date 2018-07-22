@@ -1966,13 +1966,13 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
     // DateTimeOffset
     | "get_DateTime" | "get_LocalDateTime" | "get_UtcDateTime" as m ->
-        let getTicks = Helper.CoreCall("Date", "getTicks", Number Float64, [thisArg.Value], [thisArg.Value.Type])
+        let getTime = getTime thisArg.Value
         let kind =
-            if m = "LocalDateTime" then System.DateTimeKind.Local
-            elif m = "UtcDateTime" then System.DateTimeKind.Utc
+            if m = "get_LocalDateTime" then System.DateTimeKind.Local
+            elif m = "get_UtcDateTime" then System.DateTimeKind.Utc
             else System.DateTimeKind.Unspecified
             |> int |> makeIntConst
-        Helper.CoreCall("Date", "fromTicks", t, [getTicks; kind], [getTicks.Type; kind.Type], ?loc=r) |> Some
+        Helper.CoreCall("Date", "default", t, [getTime; kind], [getTime.Type; kind.Type], ?loc=r) |> Some
     | "FromUnixTimeSeconds"
     | "FromUnixTimeMilliseconds" ->
         let value = Helper.CoreCall("Long", "toNumber", Number Float64, args, i.SignatureArgTypes)

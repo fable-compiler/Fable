@@ -1,3 +1,13 @@
+/**
+ * DateTimeOffset functions.
+ *
+ * Note: Date instances are always DateObjects in local
+ * timezone (because JS dates are all kinds of messed up).
+ * A local date returns UTC epoc when `.getTime()` is called.
+ *
+ * Basically; invariant: date.getTime() always return UTC time.
+ */
+
 import { fromValue, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long";
 
 // Don't change, this corresponds to DateTime.Kind
@@ -138,13 +148,12 @@ export default function DateTime(value: number, kind?: DateKind) {
 
 export function fromTicks(ticks: number | any, kind?: DateKind) {
   ticks = fromValue(ticks);
-  kind = kind !== undefined ? kind : DateKind.Unspecified;
+  kind = kind != null ? kind : DateKind.Unspecified;
   let date = DateTime(ticksToUnixEpochMilliseconds(ticks), kind);
 
-  // Note: this is likley to be brittle right around offset changes
-  // (like transitions to and from DST). Not sure there's anything
-  // that can be done about that, while still using JS Dates, as they
-  // are fundamentally broken in that department.
+  // Ticks are local to offset (in this case, either UTC or Local/Unknown).
+  // If kind is anything but UTC, that means that the tick number was not
+  // in utc, thus getTime() cannot return UTC, and needs to be shifted.
   if (kind !== DateKind.UTC) {
     date = DateTime(date.getTime() - offset(date), kind);
   }
@@ -421,8 +430,8 @@ export function equals(d1: IDateTime, d2: IDateTime) {
 }
 
 export function compare(x: Date, y: Date) {
-  const xtime = x.getTime() + offset(x);
-  const ytime = y.getTime() + offset(y);
+  const xtime = x.getTime();
+  const ytime = y.getTime();
   return xtime === ytime ? 0 : (xtime < ytime ? -1 : 1);
 }
 
