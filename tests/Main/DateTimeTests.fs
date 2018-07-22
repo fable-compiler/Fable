@@ -201,7 +201,13 @@ let tests =
                 equal ticks fromTicksWithKind.Ticks
                 equal kind fromTicksWithKind.Kind
             with e ->
-                failwithf "%A: %O" d e            
+                failwithf "%A: %O" d e      
+
+            try
+                equal d.Ticks (DateTime d.Ticks).Ticks
+            with e ->
+                failwithf "%s%O" "replacement bug. " e
+
         checkIsomorphism DateTime.MinValue
         checkIsomorphism DateTime.MaxValue
         checkIsomorphism DateTime.Now
