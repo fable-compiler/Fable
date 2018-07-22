@@ -1989,9 +1989,9 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
             else [ms]
         Helper.CoreCall("Long", "fromNumber", t, args, ?loc=r) |> Some
     | "get_Ticks" ->
-        Helper.CoreCall("Date", "getTicks", Number Float64, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+        Helper.CoreCall("Date", "getTicks", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     | "get_UtcTicks" ->
-        Helper.CoreCall("DateOffset", "getUtcTicks", Number Float64, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+        Helper.CoreCall("DateOffset", "getUtcTicks", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
     | "AddTicks" ->
         match thisArg, args with
         | Some c, [ticks] ->
