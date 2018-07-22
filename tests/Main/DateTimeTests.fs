@@ -2,6 +2,8 @@ module Fable.Tests.DateTime
 
 open System
 open Util.Testing
+open Fable.Tests
+open Fable.Tests
 
 let toSigFigs nSigFigs x =
     let absX = abs x
@@ -152,11 +154,35 @@ let tests =
         equal 1978 d.Year
         equal 7 d.Month
         equal 27 d.Day
+        equal 0 d.Hour
+        equal 0 d.Minute
+
+        let d = DateTime(624059424000000000L, DateTimeKind.Local)
+        equal 1978 d.Year
+        equal 7 d.Month
+        equal 27 d.Day
+        equal 0 d.Hour
+        equal 0 d.Minute
+
+        let d = DateTime(624059424000000000L)
+        equal 1978 d.Year
+        equal 7 d.Month
+        equal 27 d.Day
+        equal 0 d.Hour
+        equal 0 d.Minute
 
     testCase "DateTime.Ticks does not care about kind" <| fun () ->
         let d1 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Local)
         let d2 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
         let d3 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Unspecified)
+        equal d1.Ticks d2.Ticks
+        equal d1.Ticks d3.Ticks
+        equal d2.Ticks d3.Ticks
+
+        let t = DateTime.UtcNow.Ticks
+        let d1 = DateTime(t, DateTimeKind.Local)
+        let d2 = DateTime(t, DateTimeKind.Utc)
+        let d3 = DateTime(t, DateTimeKind.Unspecified)
         equal d1.Ticks d2.Ticks
         equal d1.Ticks d3.Ticks
         equal d2.Ticks d3.Ticks
@@ -179,6 +205,7 @@ let tests =
         checkIsomorphism DateTime.MinValue
         checkIsomorphism DateTime.MaxValue
         checkIsomorphism DateTime.Now
+        checkIsomorphism DateTime.UtcNow
         checkIsomorphism <| DateTime(2014, 10, 9)
         checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30)
         checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
