@@ -161,6 +161,16 @@ export function fromTicks(ticks: number | any, kind?: DateKind) {
   return date;
 }
 
+export function fromDateTimeOffset(date: IDateTimeOffset, kind: DateKind) {
+  switch (kind) {
+    case DateKind.UTC: return DateTime(date.getTime(), DateKind.UTC);
+    case DateKind.Local: return DateTime(date.getTime(), DateKind.Local);
+    default:
+      const d = DateTime(date.getTime() + date.offset, kind);
+      return DateTime(d.getTime() - offset(d), kind);
+  }
+}
+
 export function getTicks(date: IDateTime | IDateTimeOffset) {
   return unixEpochMillisecondsToTicks(date.getTime(), offset(date));
 }

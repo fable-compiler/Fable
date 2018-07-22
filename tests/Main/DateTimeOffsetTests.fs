@@ -113,6 +113,23 @@ let tests =
         let d2 = DateTimeOffset(2014, 10, 9, 14, 23, 30, 500, TimeSpan.FromHours 1.0)
         equal d1 d2
 
+    testCase "DateTimeOffset DateTime - Offset - UtcDateTime relationship" <| fun () ->
+        let dto = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours -5.0)
+        let date = dto.DateTime
+        let utcDate = dto.UtcDateTime
+        let offset = dto.Offset
+        let compound = date - offset
+        equal compound utcDate
+
+    // Note: This test is "trivial" if current offset to UTC is 0.
+    testCase "DateTimeOffset UtcDateTime - LocalDateTime relationship" <| fun () ->
+        let localOffset = DateTimeOffset.Now.Offset
+        let dto = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours -5.0)
+        let localDate = dto.LocalDateTime
+        let utcDate = dto.UtcDateTime
+        let compound = localDate - localOffset
+        equal compound utcDate
+
     testCase "DateTimeOffset <-> Ticks isomorphism" <| fun () ->
         let checkIsomorphism (d: DateTimeOffset) = 
             try
