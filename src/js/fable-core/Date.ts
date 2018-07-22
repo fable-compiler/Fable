@@ -429,9 +429,19 @@ export function equals(d1: IDateTime, d2: IDateTime) {
   return d1.getTime() === d2.getTime();
 }
 
-export function compare(x: Date, y: Date) {
-  const xtime = x.getTime();
-  const ytime = y.getTime();
+export function compare(x: Date | IDateTime | IDateTimeOffset, y: Date | IDateTime | IDateTimeOffset) {
+  let xtime;
+  let ytime;
+
+  // DateTimeOffset and DateTime deals with equality differently.
+  if ("offset" in x && "offset" in y) {
+    xtime = x.getTime();
+    ytime = y.getTime();
+  } else {
+    xtime = x.getTime() + offset(x);
+    ytime = y.getTime() + offset(y);
+  }
+
   return xtime === ytime ? 0 : (xtime < ytime ? -1 : 1);
 }
 
