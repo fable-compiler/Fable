@@ -1947,7 +1947,6 @@ let dates (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
         match args with
         | [] -> Helper.CoreCall(moduleName, "minValue", t, [], [], ?loc=r) |> Some
         | ExprType(Builtin BclInt64)::_ ->
-            // TODO: Figure out why this is not allways working.
             Helper.CoreCall(moduleName, "fromTicks", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | ExprType(DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
             Helper.CoreCall("DateOffset", "fromDate", t, args, i.SignatureArgTypes, ?loc=r) |> Some
