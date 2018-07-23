@@ -248,17 +248,23 @@ module private Transforms =
         match e with
         // Don't try to optimize bindings with multiple ident-value pairs
         // as they can reference each other
-        | Let([ident, Function(args, funBody, currentName)], letBody)
-            when ident.IsCompilerGenerated && not ident.IsMutable
-                && (countReferences 1 ident.Name letBody <= 1) ->
-            if Option.isSome currentName then
-                sprintf "Unexpected named function when erasing binding (%s > %s)" currentName.Value ident.Name
-                |> addWarning com ident.Range
-            let replacement = Function(args, funBody, Some ident.Name)
-            replaceValues (Map [ident.Name, replacement]) letBody
-        | Let([ident, value], body) when ident.IsCompilerGenerated && not ident.IsMutable
-                                        && not(hasDoubleEvalRisk value) ->
-            replaceValues (Map [ident.Name, value]) body
+        | Let([ident, value], letBody) when not ident.IsMutable ->
+            match value with
+            // Match automatic destructuring of tuple arguments in inner functions
+            | Get(IdentExpr tupleIdent,_,_, _) as value
+                    when tupleIdent.IsCompilerGenerated ->
+                replaceValues (Map [ident.Name, value]) letBody
+            | Function(args, funBody, currentName)
+                    when ident.IsCompilerGenerated
+                    && (countReferences 1 ident.Name letBody <= 1) ->
+                if Option.isSome currentName then
+                    sprintf "Unexpected named function when erasing binding (%s > %s)" currentName.Value ident.Name
+                    |> addWarning com ident.Range
+                let replacement = Function(args, funBody, Some ident.Name)
+                replaceValues (Map [ident.Name, replacement]) letBody
+            | value when ident.IsCompilerGenerated && canInlineArg ident.Name value letBody ->
+                replaceValues (Map [ident.Name, value]) letBody
+            | _ -> e
         | e -> e
 
     /// Returns arity of lambda (or lambda option) types
