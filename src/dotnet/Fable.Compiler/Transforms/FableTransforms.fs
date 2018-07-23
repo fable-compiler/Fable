@@ -245,12 +245,14 @@ module private Transforms =
         | e -> e
 
     let bindingBetaReduction (com: ICompiler) e =
+        let isTuple = function
+            | Tuple _ -> true
+            | _ -> false
         match e with
-        // Don't try to optimize bindings with multiple ident-value pairs
-        // as they can reference each other
+        // Don't try to optimize bindings with multiple ident-value pairs as they can reference each other
         | Let([ident, value], letBody) when not ident.IsMutable ->
             match value with
-            // Match automatic destructuring of tuple arguments in inner functions
+            // Erase bindings for getters of compiler-generated tuples (as in pattern matching or lambdas destructuring tuple args)
             | Get(IdentExpr tupleIdent, TupleGet _, _, _) as value when tupleIdent.IsCompilerGenerated ->
                 replaceValues (Map [ident.Name, value]) letBody
             | Function(args, funBody, currentName) when ident.IsCompilerGenerated
@@ -261,6 +263,9 @@ module private Transforms =
                 let replacement = Function(args, funBody, Some ident.Name)
                 replaceValues (Map [ident.Name, replacement]) letBody
             | value when ident.IsCompilerGenerated
+                    // Don't erase the binding if the compiler-generated ident is a tuple, because the getters
+                    // will be erased later (see above) and there's a risk the expression gets totally removed
+                    && not(isTuple ident.Type)
                     && canInlineArg ident.Name value letBody ->
                 replaceValues (Map [ident.Name, value]) letBody
             | _ -> e
