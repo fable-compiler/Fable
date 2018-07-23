@@ -250,10 +250,10 @@ module private Transforms =
         // as they can reference each other
         | Let([ident, value], letBody) when not ident.IsMutable ->
             match value with
-            // Match automatic destructuring of tuple arguments in inner functions
-            | Get(IdentExpr tupleIdent,_,_, _) as value
-                    when tupleIdent.IsCompilerGenerated ->
-                replaceValues (Map [ident.Name, value]) letBody
+            // // Match automatic destructuring of tuple arguments in inner functions
+            // | Get(IdentExpr tupleIdent,_,_, _) as value
+            //         when tupleIdent.IsCompilerGenerated ->
+            //     replaceValues (Map [ident.Name, value]) letBody
             | Function(args, funBody, currentName)
                     when ident.IsCompilerGenerated
                     && (countReferences 1 ident.Name letBody <= 1) ->
