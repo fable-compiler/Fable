@@ -52,3 +52,18 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+
+type MarkedStatic =
+    abstract parse : string * int -> ResizeArray<obj>
+    abstract parse : string -> string
+
+ [<Global>]
+let marked : MarkedStatic = jsNative
+
+[<Erase>]
+type Globals =
+    [<Global>]
+    static member marked : MarkedStatic = jsNative
+
+let test() =
+    Globals.marked.parse "bar"

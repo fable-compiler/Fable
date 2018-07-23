@@ -673,7 +673,7 @@ module Util =
                 match att with
                 | AttArguments [:? string as customName] ->
                     makeTypedIdent typ customName |> Fable.IdentExpr |> Some
-                | _ -> makeTypedIdent typ memb.CompiledName |> Fable.IdentExpr |> Some
+                | _ -> getMemberDisplayName memb |> makeTypedIdent typ |> Fable.IdentExpr |> Some
             | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
                 let path =
                     lazy getMemberLocation memb
@@ -847,8 +847,9 @@ module Util =
     let (|Imported|_|) com r typ argInfo (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         let importValueType = if Option.isSome argInfo then Fable.Any else typ
         match tryGlobalOrImportedMember com importValueType memb, argInfo, entity with
-        | Some importExpr, Some argInfo, _ ->
-            if isModuleValueForCalls memb
+        | Some importExpr, Some argInfo, Some e ->
+            if (e.IsFSharpModule && isModuleValueForCalls memb)
+                || (memb.IsPropertyGetterMethod && (countNonCurriedParams memb) = 0)
             then Some importExpr
             else staticCall r typ argInfo importExpr |> Some
         | Some importExpr, None, _ ->
