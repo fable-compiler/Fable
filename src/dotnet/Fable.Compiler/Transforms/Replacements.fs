@@ -1097,10 +1097,14 @@ let chars (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args
     | "GetUnicodeCategory" | "IsControl" | "IsDigit" | "IsLetter"
     | "IsLetterOrDigit" | "IsUpper" | "IsLower" | "IsNumber"
     | "IsPunctuation" | "IsSeparator" | "IsSymbol" | "IsWhiteSpace"
-    | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogate" | "IsSurrogatePair"
-    | "Parse" ->
-        let methName = Naming.lowerFirst i.CompiledName
-        Helper.CoreCall("Char", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogate" ->
+        let args =
+            match args with
+            | [str; index] -> [Helper.InstanceCall(str, "charCodeAt", Char, [index])]
+            | _ -> args
+        Helper.CoreCall("Char", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "IsSurrogatePair" | "Parse" ->
+        Helper.CoreCall("Char", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let implementedStringFunctions =
@@ -1596,7 +1600,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     | "op_LessThanOrEqual", [left; right] -> compareIf com r left right BinaryLessOrEqual |> Some
     | "op_GreaterThan", [left; right] -> compareIf com r left right BinaryGreater |> Some
     | "op_GreaterThanOrEqual", [left; right] -> compareIf com r left right BinaryGreaterOrEqual |> Some
-    | "op_UnaryNegation", [arg] -> 
+    | "op_UnaryNegation", [arg] ->
         applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
     | _,_ -> None
 
