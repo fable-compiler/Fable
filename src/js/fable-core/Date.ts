@@ -100,7 +100,7 @@ function toStringWithCustomFormat(date: Date, format: string, utc: boolean) {
 
 export function toStringWithOffset(date: IDateTimeOffset, format?: string) {
   const d = new Date(date.getTime() + date.offset);
-  if (!format) {
+  if (typeof format !== "string") {
     return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + offsetToString(date.offset);
   } else if (format.length === 1) {
     switch (format) {
@@ -116,7 +116,7 @@ export function toStringWithOffset(date: IDateTimeOffset, format?: string) {
 
 export function toStringWithKind(date: IDateTime, format?: string) {
   const utc = date.kind === DateKind.UTC;
-  if (!format) {
+  if (typeof format !== "string") {
     return utc ? date.toUTCString() : date.toLocaleString();
   } else if (format.length === 1) {
     switch (format) {
