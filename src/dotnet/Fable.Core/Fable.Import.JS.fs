@@ -486,480 +486,393 @@ module JS =
         abstract ``then``: ?onfulfilled: ('T->'TResult) * ?onrejected: (obj->'TResult) -> PromiseLike<'TResult>
 
     and [<AllowNullLiteral>] ArrayLike<'T> =
-        abstract length: float with get, set
+        abstract length: int with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: n: int -> 'T with get, set
 
     and [<AllowNullLiteral>] ArrayBuffer =
-        abstract byteLength: float with get, set
+        abstract byteLength: int with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
-        abstract slice: ``begin``: float * ?``end``: float -> ArrayBuffer
+        abstract slice: ``begin``: int * ?``end``: int -> ArrayBuffer
 
     and [<AllowNullLiteral>] ArrayBufferConstructor =
         abstract prototype: ArrayBuffer with get, set
-        [<Emit("new $0($1...)")>] abstract Create: byteLength: float -> ArrayBuffer
+        [<Emit("new $0($1...)")>] abstract Create: byteLength: int -> ArrayBuffer
         abstract isView: arg: obj -> bool
 
     and [<AllowNullLiteral>] ArrayBufferView =
         abstract buffer: ArrayBuffer with get, set
-        abstract byteLength: float with get, set
-        abstract byteOffset: float with get, set
+        abstract byteLength: int with get, set
+        abstract byteOffset: int with get, set
 
     and [<AllowNullLiteral>] DataView =
         abstract buffer: ArrayBuffer with get, set
-        abstract byteLength: float with get, set
-        abstract byteOffset: float with get, set
+        abstract byteLength: int with get, set
+        abstract byteOffset: int with get, set
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
-        abstract getFloat32: byteOffset: float * ?littleEndian: bool -> float
-        abstract getFloat64: byteOffset: float * ?littleEndian: bool -> float
-        abstract getInt8: byteOffset: float -> float
-        abstract getInt16: byteOffset: float * ?littleEndian: bool -> float
-        abstract getInt32: byteOffset: float * ?littleEndian: bool -> float
-        abstract getUint8: byteOffset: float -> float
-        abstract getUint16: byteOffset: float * ?littleEndian: bool -> float
-        abstract getUint32: byteOffset: float * ?littleEndian: bool -> float
-        abstract setFloat32: byteOffset: float * value: float * ?littleEndian: bool -> unit
-        abstract setFloat64: byteOffset: float * value: float * ?littleEndian: bool -> unit
-        abstract setInt8: byteOffset: float * value: float -> unit
-        abstract setInt16: byteOffset: float * value: float * ?littleEndian: bool -> unit
-        abstract setInt32: byteOffset: float * value: float * ?littleEndian: bool -> unit
-        abstract setUint8: byteOffset: float * value: float -> unit
-        abstract setUint16: byteOffset: float * value: float * ?littleEndian: bool -> unit
-        abstract setUint32: byteOffset: float * value: float * ?littleEndian: bool -> unit
+        abstract getFloat32: byteOffset: int * ?littleEndian: bool -> float32
+        abstract getFloat64: byteOffset: int * ?littleEndian: bool -> float
+        abstract getInt8: byteOffset: int -> int8
+        abstract getInt16: byteOffset: int * ?littleEndian: bool -> int16
+        abstract getInt32: byteOffset: int * ?littleEndian: bool -> int32
+        abstract getUint8: byteOffset: int -> uint8
+        abstract getUint16: byteOffset: int * ?littleEndian: bool -> uint16
+        abstract getUint32: byteOffset: int * ?littleEndian: bool -> uint32
+        abstract setFloat32: byteOffset: int * value: float32 * ?littleEndian: bool -> unit
+        abstract setFloat64: byteOffset: int * value: float * ?littleEndian: bool -> unit
+        abstract setInt8: byteOffset: int * value: int8 -> unit
+        abstract setInt16: byteOffset: int * value: int16 * ?littleEndian: bool -> unit
+        abstract setInt32: byteOffset: int * value: int32 * ?littleEndian: bool -> unit
+        abstract setUint8: byteOffset: int * value: uint8 -> unit
+        abstract setUint16: byteOffset: int * value: uint16 * ?littleEndian: bool -> unit
+        abstract setUint32: byteOffset: int * value: uint32 * ?littleEndian: bool -> unit
 
     and [<AllowNullLiteral>] DataViewConstructor =
-        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?byteLength: float -> DataView
+        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?byteLength: int -> DataView
 
-    and [<AllowNullLiteral>] Int8Array =
-        abstract BYTES_PER_ELEMENT: float with get, set
-        abstract buffer: ArrayBuffer with get, set
-        abstract byteLength: float with get, set
-        abstract byteOffset: float with get, set
-        abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
-        [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
-        abstract copyWithin: target: float * start: float * ?``end``: float -> Int8Array
-        abstract every: callbackfn: (float->float->Int8Array->bool) * ?thisArg: obj -> bool
-        abstract fill: value: float * ?start: float * ?``end``: float -> Int8Array
-        abstract filter: callbackfn: (float->float->Int8Array->bool) * ?thisArg: obj -> Int8Array
-        abstract find: predicate: (float->float->ResizeArray<float>->bool) * ?thisArg: obj -> float
-        abstract findIndex: predicate: (float->bool) * ?thisArg: obj -> float
-        abstract forEach: callbackfn: (float->float->Int8Array->unit) * ?thisArg: obj -> unit
-        abstract indexOf: searchElement: float * ?fromIndex: float -> float
+    and [<AllowNullLiteral>] TypedArray<'T> =
+        abstract BYTES_PER_ELEMENT: int
+        abstract buffer: ArrayBuffer
+        abstract byteLength: int
+        abstract byteOffset: int
+        abstract length: int
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> 'T with get, set
+        [<Emit("$0[Symbol.toStringTag]")>] abstract ``[Symbol.toStringTag]``: string
+        abstract indexOf: searchElement: 'T * ?fromIndex: int -> int
+        abstract lastIndexOf: searchElement: 'T * ?fromIndex: int -> int
         abstract join: ?separator: string -> string
-        abstract lastIndexOf: searchElement: float * ?fromIndex: float -> float
-        abstract map: callbackfn: (float->float->Int8Array->float) * ?thisArg: obj -> Int8Array
-        abstract reduce: callbackfn: (float->float->float->Int8Array->float) * ?initialValue: float -> float
-        abstract reduce: callbackfn: ('U->float->float->Int8Array->'U) * initialValue: 'U -> 'U
-        abstract reduceRight: callbackfn: (float->float->float->Int8Array->float) * ?initialValue: float -> float
-        abstract reduceRight: callbackfn: ('U->float->float->Int8Array->'U) * initialValue: 'U -> 'U
-        abstract reverse: unit -> Int8Array
-        abstract set: index: float * value: float -> unit
-        abstract set: array: ArrayLike<float> * ?offset: float -> unit
-        abstract slice: ?start: float * ?``end``: float -> Int8Array
-        abstract some: callbackfn: (float->float->Int8Array->bool) * ?thisArg: obj -> bool
-        abstract sort: ?compareFn: (float->float->float) -> Int8Array
-        abstract subarray: ``begin``: float * ?``end``: float -> Int8Array
+        abstract set: array: Array<'T> * ?offset: int -> unit
+        abstract set: array: ResizeArray<'T> * ?offset: int -> unit
+        abstract set: array: TypedArray<'T> * ?offset: int -> unit
         abstract toLocaleString: unit -> string
         abstract toString: unit -> string
-        abstract entries: unit -> IterableIterator<float * float>
-        abstract keys: unit -> IterableIterator<float>
-        abstract values: unit -> IterableIterator<float>
-        [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
+        abstract entries: unit -> IterableIterator<int * 'T>
+        abstract keys: unit -> IterableIterator<int>
+        abstract values: unit -> IterableIterator<'T>
+        [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<'T>
+
+    and [<AllowNullLiteral>] Int8Array =
+        inherit TypedArray<int8>
+        abstract copyWithin: target: int * start: int * ?``end``: int -> Int8Array
+        abstract every: callbackfn: (int8->int->Int8Array->bool) * ?thisArg: obj -> bool
+        abstract fill: value: int8 * ?start: int * ?``end``: int -> Int8Array
+        abstract filter: callbackfn: (int8->int->Int8Array->bool) * ?thisArg: obj -> Int8Array
+        abstract find: predicate: (int8->int->Int8Array->bool) * ?thisArg: obj -> int8 option
+        abstract findIndex: predicate: (int8->int->Int8Array->bool) * ?thisArg: obj -> int option
+        abstract forEach: callbackfn: (int8->int->Int8Array->unit) * ?thisArg: obj -> unit
+        abstract map: callbackfn: (int8->int->Int8Array->int8) * ?thisArg: obj -> Int8Array
+        abstract reduce: callbackFn: (int8->int8->int->Int8Array->int8) -> int8
+        abstract reduce: callbackfn: ('U->int8->int->Int8Array->'U) * initialValue: 'U -> 'U
+        abstract reduceRight: callbackFn: (int8->int8->int->Int8Array->int8) -> int8
+        abstract reduceRight: callbackfn: ('U->int8->int->Int8Array->'U) * initialValue: 'U -> 'U
+        abstract reverse: unit -> Int8Array
+        abstract slice: ?start: int * ?``end``: int -> Int8Array
+        abstract some: callbackfn: (int8->int->Int8Array->bool) * ?thisArg: obj -> bool
+        abstract sort: ?compareFn: (int8->int8->int) -> Int8Array
+        abstract subarray: ``begin``: int * ?``end``: int -> Int8Array
 
     and [<AllowNullLiteral>] Int8ArrayConstructor =
         abstract prototype: Int8Array with get, set
-        abstract BYTES_PER_ELEMENT: float with get, set
-        [<Emit("new $0($1...)")>] abstract Create: length: float -> Int8Array
-        [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Int8Array
-        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Int8Array
-        abstract ``of``: [<ParamArray>] items: float[] -> Int8Array
-        abstract from: arrayLike: ArrayLike<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Int8Array
-        [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Int8Array
-        abstract from: arrayLike: Iterable<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Int8Array
+        abstract BYTES_PER_ELEMENT: int
+        [<Emit("new $0()")>] abstract Create: unit -> Int8Array
+        [<Emit("new $0($1...)")>] abstract Create: length: int -> Int8Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Array<_> -> Int8Array
+        [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<_> -> Int8Array
+        [<Emit("new $0($1...)")>] abstract Create: array: TypedArray<_> -> Int8Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Iterable<_> -> Int8Array
+        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?length: int -> Int8Array
+        abstract ``of``: [<ParamArray>] items: _[] -> Int8Array
+        abstract from: arrayLike: Array<'a> * ?mapfn: ('a->int->int8) * ?thisArg: obj -> Int8Array
+        abstract from: arrayLike: ResizeArray<'a> * ?mapfn: ('a->int->int8) * ?thisArg: obj -> Int8Array
+        abstract from: arrayLike: TypedArray<'a> * ?mapfn: ('a->int->int8) * ?thisArg: obj -> Int8Array
+        abstract from: arrayLike: Iterable<'a> * ?mapfn: ('a->int->int8) * ?thisArg: obj -> Int8Array
 
     and [<AllowNullLiteral>] Uint8Array =
-        abstract BYTES_PER_ELEMENT: float with get, set
-        abstract buffer: ArrayBuffer with get, set
-        abstract byteLength: float with get, set
-        abstract byteOffset: float with get, set
-        abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
-        [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
-        abstract copyWithin: target: float * start: float * ?``end``: float -> Uint8Array
-        abstract every: callbackfn: (float->float->Uint8Array->bool) * ?thisArg: obj -> bool
-        abstract fill: value: float * ?start: float * ?``end``: float -> Uint8Array
-        abstract filter: callbackfn: (float->float->Uint8Array->bool) * ?thisArg: obj -> Uint8Array
-        abstract find: predicate: (float->float->ResizeArray<float>->bool) * ?thisArg: obj -> float
-        abstract findIndex: predicate: (float->bool) * ?thisArg: obj -> float
-        abstract forEach: callbackfn: (float->float->Uint8Array->unit) * ?thisArg: obj -> unit
-        abstract indexOf: searchElement: float * ?fromIndex: float -> float
-        abstract join: ?separator: string -> string
-        abstract lastIndexOf: searchElement: float * ?fromIndex: float -> float
-        abstract map: callbackfn: (float->float->Uint8Array->float) * ?thisArg: obj -> Uint8Array
-        abstract reduce: callbackfn: (float->float->float->Uint8Array->float) * ?initialValue: float -> float
-        abstract reduce: callbackfn: ('U->float->float->Uint8Array->'U) * initialValue: 'U -> 'U
-        abstract reduceRight: callbackfn: (float->float->float->Uint8Array->float) * ?initialValue: float -> float
-        abstract reduceRight: callbackfn: ('U->float->float->Uint8Array->'U) * initialValue: 'U -> 'U
+        inherit TypedArray<uint8>
+        abstract copyWithin: target: int * start: int * ?``end``: int -> Uint8Array
+        abstract every: callbackfn: (uint8->int->Uint8Array->bool) * ?thisArg: obj -> bool
+        abstract fill: value: uint8 * ?start: int * ?``end``: int -> Uint8Array
+        abstract filter: callbackfn: (uint8->int->Uint8Array->bool) * ?thisArg: obj -> Uint8Array
+        abstract find: predicate: (uint8->int->Uint8Array->bool) * ?thisArg: obj -> uint8 option
+        abstract findIndex: predicate: (uint8->int->Uint8Array->bool) * ?thisArg: obj -> int option
+        abstract forEach: callbackfn: (uint8->int->Uint8Array->unit) * ?thisArg: obj -> unit
+        abstract map: callbackfn: (uint8->int->Uint8Array->uint8) * ?thisArg: obj -> Uint8Array
+        abstract reduce: callbackFn: (uint8->uint8->int->Uint8Array->uint8) -> uint8
+        abstract reduce: callbackfn: ('U->uint8->int->Uint8Array->'U) * initialValue: 'U -> 'U
+        abstract reduceRight: callbackFn: (uint8->uint8->int->Uint8Array->uint8) -> uint8
+        abstract reduceRight: callbackfn: ('U->uint8->int->Uint8Array->'U) * initialValue: 'U -> 'U
         abstract reverse: unit -> Uint8Array
-        abstract set: index: float * value: float -> unit
-        abstract set: array: ArrayLike<float> * ?offset: float -> unit
-        abstract slice: ?start: float * ?``end``: float -> Uint8Array
-        abstract some: callbackfn: (float->float->Uint8Array->bool) * ?thisArg: obj -> bool
-        abstract sort: ?compareFn: (float->float->float) -> Uint8Array
-        abstract subarray: ``begin``: float * ?``end``: float -> Uint8Array
-        abstract toLocaleString: unit -> string
-        abstract toString: unit -> string
-        abstract entries: unit -> IterableIterator<float * float>
-        abstract keys: unit -> IterableIterator<float>
-        abstract values: unit -> IterableIterator<float>
-        [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
+        abstract slice: ?start: int * ?``end``: int -> Uint8Array
+        abstract some: callbackfn: (uint8->int->Uint8Array->bool) * ?thisArg: obj -> bool
+        abstract sort: ?compareFn: (uint8->uint8->int) -> Uint8Array
+        abstract subarray: ``begin``: int * ?``end``: int -> Uint8Array
 
     and [<AllowNullLiteral>] Uint8ArrayConstructor =
         abstract prototype: Uint8Array with get, set
-        abstract BYTES_PER_ELEMENT: float with get, set
-        [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint8Array
-        [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Uint8Array
-        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint8Array
-        abstract ``of``: [<ParamArray>] items: float[] -> Uint8Array
-        abstract from: arrayLike: ArrayLike<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Uint8Array
-        [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint8Array
-        abstract from: arrayLike: Iterable<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Uint8Array
+        abstract BYTES_PER_ELEMENT: int
+        [<Emit("new $0()")>] abstract Create: unit -> Uint8Array
+        [<Emit("new $0($1...)")>] abstract Create: length: int -> Uint8Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Array<_> -> Uint8Array
+        [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<_> -> Uint8Array
+        [<Emit("new $0($1...)")>] abstract Create: array: TypedArray<_> -> Uint8Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Iterable<_> -> Uint8Array
+        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?length: int -> Uint8Array
+        abstract ``of``: [<ParamArray>] items: _[] -> Uint8Array
+        abstract from: arrayLike: Array<'a> * ?mapfn: ('a->int->uint8) * ?thisArg: obj -> Uint8Array
+        abstract from: arrayLike: ResizeArray<'a> * ?mapfn: ('a->int->uint8) * ?thisArg: obj -> Uint8Array
+        abstract from: arrayLike: TypedArray<'a> * ?mapfn: ('a->int->uint8) * ?thisArg: obj -> Uint8Array
+        abstract from: arrayLike: Iterable<'a> * ?mapfn: ('a->int->uint8) * ?thisArg: obj -> Uint8Array
 
     and [<AllowNullLiteral>] Uint8ClampedArray =
-        abstract BYTES_PER_ELEMENT: float with get, set
-        abstract buffer: ArrayBuffer with get, set
-        abstract byteLength: float with get, set
-        abstract byteOffset: float with get, set
-        abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
-        [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
-        abstract copyWithin: target: float * start: float * ?``end``: float -> Uint8ClampedArray
-        abstract every: callbackfn: (float->float->Uint8ClampedArray->bool) * ?thisArg: obj -> bool
-        abstract fill: value: float * ?start: float * ?``end``: float -> Uint8ClampedArray
-        abstract filter: callbackfn: (float->float->Uint8ClampedArray->bool) * ?thisArg: obj -> Uint8ClampedArray
-        abstract find: predicate: (float->float->ResizeArray<float>->bool) * ?thisArg: obj -> float
-        abstract findIndex: predicate: (float->bool) * ?thisArg: obj -> float
-        abstract forEach: callbackfn: (float->float->Uint8ClampedArray->unit) * ?thisArg: obj -> unit
-        abstract indexOf: searchElement: float * ?fromIndex: float -> float
-        abstract join: ?separator: string -> string
-        abstract lastIndexOf: searchElement: float * ?fromIndex: float -> float
-        abstract map: callbackfn: (float->float->Uint8ClampedArray->float) * ?thisArg: obj -> Uint8ClampedArray
-        abstract reduce: callbackfn: (float->float->float->Uint8ClampedArray->float) * ?initialValue: float -> float
-        abstract reduce: callbackfn: ('U->float->float->Uint8ClampedArray->'U) * initialValue: 'U -> 'U
-        abstract reduceRight: callbackfn: (float->float->float->Uint8ClampedArray->float) * ?initialValue: float -> float
-        abstract reduceRight: callbackfn: ('U->float->float->Uint8ClampedArray->'U) * initialValue: 'U -> 'U
+        inherit TypedArray<uint8>
+        abstract copyWithin: target: int * start: int * ?``end``: int -> Uint8ClampedArray
+        abstract every: callbackfn: (uint8->int->Uint8ClampedArray->bool) * ?thisArg: obj -> bool
+        abstract fill: value: uint8 * ?start: int * ?``end``: int -> Uint8ClampedArray
+        abstract filter: callbackfn: (uint8->int->Uint8ClampedArray->bool) * ?thisArg: obj -> Uint8ClampedArray
+        abstract find: predicate: (uint8->int->Uint8ClampedArray->bool) * ?thisArg: obj -> uint8 option
+        abstract findIndex: predicate: (uint8->int->Uint8ClampedArray->bool) * ?thisArg: obj -> int option
+        abstract forEach: callbackfn: (uint8->int->Uint8ClampedArray->unit) * ?thisArg: obj -> unit
+        abstract map: callbackfn: (uint8->int->Uint8ClampedArray->uint8) * ?thisArg: obj -> Uint8ClampedArray
+        abstract reduce: callbackFn: (uint8->uint8->int->Uint8ClampedArray->uint8) -> uint8
+        abstract reduce: callbackfn: ('U->uint8->int->Uint8ClampedArray->'U) * initialValue: 'U -> 'U
+        abstract reduceRight: callbackFn: (uint8->uint8->int->Uint8ClampedArray->uint8) -> uint8
+        abstract reduceRight: callbackfn: ('U->uint8->int->Uint8ClampedArray->'U) * initialValue: 'U -> 'U
         abstract reverse: unit -> Uint8ClampedArray
-        abstract set: index: float * value: float -> unit
-        abstract set: array: Uint8ClampedArray * ?offset: float -> unit
-        abstract slice: ?start: float * ?``end``: float -> Uint8ClampedArray
-        abstract some: callbackfn: (float->float->Uint8ClampedArray->bool) * ?thisArg: obj -> bool
-        abstract sort: ?compareFn: (float->float->float) -> Uint8ClampedArray
-        abstract subarray: ``begin``: float * ?``end``: float -> Uint8ClampedArray
-        abstract toLocaleString: unit -> string
-        abstract toString: unit -> string
-        abstract entries: unit -> IterableIterator<float * float>
-        abstract keys: unit -> IterableIterator<float>
-        abstract values: unit -> IterableIterator<float>
-        [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
+        abstract slice: ?start: int * ?``end``: int -> Uint8ClampedArray
+        abstract some: callbackfn: (uint8->int->Uint8ClampedArray->bool) * ?thisArg: obj -> bool
+        abstract sort: ?compareFn: (uint8->uint8->int) -> Uint8ClampedArray
+        abstract subarray: ``begin``: int * ?``end``: int -> Uint8ClampedArray
 
     and [<AllowNullLiteral>] Uint8ClampedArrayConstructor =
         abstract prototype: Uint8ClampedArray with get, set
-        abstract BYTES_PER_ELEMENT: float with get, set
-        [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint8ClampedArray
-        [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Uint8ClampedArray
-        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint8ClampedArray
-        abstract ``of``: [<ParamArray>] items: float[] -> Uint8ClampedArray
-        abstract from: arrayLike: ArrayLike<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Uint8ClampedArray
-        [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint8ClampedArray
-        abstract from: arrayLike: Iterable<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Uint8ClampedArray
+        abstract BYTES_PER_ELEMENT: int
+        [<Emit("new $0()")>] abstract Create: unit -> Uint8ClampedArray
+        [<Emit("new $0($1...)")>] abstract Create: length: int -> Uint8ClampedArray
+        [<Emit("new $0($1...)")>] abstract Create: array: Array<_> -> Uint8ClampedArray
+        [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<_> -> Uint8ClampedArray
+        [<Emit("new $0($1...)")>] abstract Create: array: TypedArray<_> -> Uint8ClampedArray
+        [<Emit("new $0($1...)")>] abstract Create: array: Iterable<_> -> Uint8ClampedArray
+        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?length: int -> Uint8ClampedArray
+        abstract ``of``: [<ParamArray>] items: _[] -> Uint8ClampedArray
+        abstract from: arrayLike: Array<'a> * ?mapfn: ('a->int->uint8) * ?thisArg: obj -> Uint8ClampedArray
+        abstract from: arrayLike: ResizeArray<'a> * ?mapfn: ('a->int->uint8) * ?thisArg: obj -> Uint8ClampedArray
+        abstract from: arrayLike: TypedArray<'a> * ?mapfn: ('a->int->uint8) * ?thisArg: obj -> Uint8ClampedArray
+        abstract from: arrayLike: Iterable<'a> * ?mapfn: ('a->int->uint8) * ?thisArg: obj -> Uint8ClampedArray
 
     and [<AllowNullLiteral>] Int16Array =
-        abstract BYTES_PER_ELEMENT: float with get, set
-        abstract buffer: ArrayBuffer with get, set
-        abstract byteLength: float with get, set
-        abstract byteOffset: float with get, set
-        abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
-        [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
-        abstract copyWithin: target: float * start: float * ?``end``: float -> Int16Array
-        abstract every: callbackfn: (float->float->Int16Array->bool) * ?thisArg: obj -> bool
-        abstract fill: value: float * ?start: float * ?``end``: float -> Int16Array
-        abstract filter: callbackfn: (float->float->Int16Array->bool) * ?thisArg: obj -> Int16Array
-        abstract find: predicate: (float->float->ResizeArray<float>->bool) * ?thisArg: obj -> float
-        abstract findIndex: predicate: (float->bool) * ?thisArg: obj -> float
-        abstract forEach: callbackfn: (float->float->Int16Array->unit) * ?thisArg: obj -> unit
-        abstract indexOf: searchElement: float * ?fromIndex: float -> float
-        abstract join: ?separator: string -> string
-        abstract lastIndexOf: searchElement: float * ?fromIndex: float -> float
-        abstract map: callbackfn: (float->float->Int16Array->float) * ?thisArg: obj -> Int16Array
-        abstract reduce: callbackfn: (float->float->float->Int16Array->float) * ?initialValue: float -> float
-        abstract reduce: callbackfn: ('U->float->float->Int16Array->'U) * initialValue: 'U -> 'U
-        abstract reduceRight: callbackfn: (float->float->float->Int16Array->float) * ?initialValue: float -> float
-        abstract reduceRight: callbackfn: ('U->float->float->Int16Array->'U) * initialValue: 'U -> 'U
+        inherit TypedArray<int16>
+        abstract copyWithin: target: int * start: int * ?``end``: int -> Int16Array
+        abstract every: callbackfn: (int16->int->Int16Array->bool) * ?thisArg: obj -> bool
+        abstract fill: value: int16 * ?start: int * ?``end``: int -> Int16Array
+        abstract filter: callbackfn: (int16->int->Int16Array->bool) * ?thisArg: obj -> Int16Array
+        abstract find: predicate: (int16->int->Int16Array->bool) * ?thisArg: obj -> int16 option
+        abstract findIndex: predicate: (int16->int->Int16Array->bool) * ?thisArg: obj -> int option
+        abstract forEach: callbackfn: (int16->int->Int16Array->unit) * ?thisArg: obj -> unit
+        abstract map: callbackfn: (int16->int->Int16Array->int16) * ?thisArg: obj -> Int16Array
+        abstract reduce: callbackFn: (int16->int16->int->Int16Array->int16) -> int16
+        abstract reduce: callbackfn: ('U->int16->int->Int16Array->'U) * initialValue: 'U -> 'U
+        abstract reduceRight: callbackFn: (int16->int16->int->Int16Array->int16) -> int16
+        abstract reduceRight: callbackfn: ('U->int16->int->Int16Array->'U) * initialValue: 'U -> 'U
         abstract reverse: unit -> Int16Array
-        abstract set: index: float * value: float -> unit
-        abstract set: array: ArrayLike<float> * ?offset: float -> unit
-        abstract slice: ?start: float * ?``end``: float -> Int16Array
-        abstract some: callbackfn: (float->float->Int16Array->bool) * ?thisArg: obj -> bool
-        abstract sort: ?compareFn: (float->float->float) -> Int16Array
-        abstract subarray: ``begin``: float * ?``end``: float -> Int16Array
-        abstract toLocaleString: unit -> string
-        abstract toString: unit -> string
-        abstract entries: unit -> IterableIterator<float * float>
-        abstract keys: unit -> IterableIterator<float>
-        abstract values: unit -> IterableIterator<float>
-        [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
+        abstract slice: ?start: int * ?``end``: int -> Int16Array
+        abstract some: callbackfn: (int16->int->Int16Array->bool) * ?thisArg: obj -> bool
+        abstract sort: ?compareFn: (int16->int16->int) -> Int16Array
+        abstract subarray: ``begin``: int * ?``end``: int -> Int16Array
 
     and [<AllowNullLiteral>] Int16ArrayConstructor =
         abstract prototype: Int16Array with get, set
-        abstract BYTES_PER_ELEMENT: float with get, set
-        [<Emit("new $0($1...)")>] abstract Create: length: float -> Int16Array
-        [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Int16Array
-        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Int16Array
-        abstract ``of``: [<ParamArray>] items: float[] -> Int16Array
-        abstract from: arrayLike: ArrayLike<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Int16Array
-        [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Int16Array
-        abstract from: arrayLike: Iterable<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Int16Array
+        abstract BYTES_PER_ELEMENT: int
+        [<Emit("new $0()")>] abstract Create: unit -> Int16Array
+        [<Emit("new $0($1...)")>] abstract Create: length: int -> Int16Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Array<_> -> Int16Array
+        [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<_> -> Int16Array
+        [<Emit("new $0($1...)")>] abstract Create: array: TypedArray<_> -> Int16Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Iterable<_> -> Int16Array
+        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?length: int -> Int16Array
+        abstract ``of``: [<ParamArray>] items: _[] -> Int16Array
+        abstract from: arrayLike: Array<'a> * ?mapfn: ('a->int->int16) * ?thisArg: obj -> Int16Array
+        abstract from: arrayLike: ResizeArray<'a> * ?mapfn: ('a->int->int16) * ?thisArg: obj -> Int16Array
+        abstract from: arrayLike: TypedArray<'a> * ?mapfn: ('a->int->int16) * ?thisArg: obj -> Int16Array
+        abstract from: arrayLike: Iterable<'a> * ?mapfn: ('a->int->int16) * ?thisArg: obj -> Int16Array
 
     and [<AllowNullLiteral>] Uint16Array =
-        abstract BYTES_PER_ELEMENT: float with get, set
-        abstract buffer: ArrayBuffer with get, set
-        abstract byteLength: float with get, set
-        abstract byteOffset: float with get, set
-        abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
-        [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
-        abstract copyWithin: target: float * start: float * ?``end``: float -> Uint16Array
-        abstract every: callbackfn: (float->float->Uint16Array->bool) * ?thisArg: obj -> bool
-        abstract fill: value: float * ?start: float * ?``end``: float -> Uint16Array
-        abstract filter: callbackfn: (float->float->Uint16Array->bool) * ?thisArg: obj -> Uint16Array
-        abstract find: predicate: (float->float->ResizeArray<float>->bool) * ?thisArg: obj -> float
-        abstract findIndex: predicate: (float->bool) * ?thisArg: obj -> float
-        abstract forEach: callbackfn: (float->float->Uint16Array->unit) * ?thisArg: obj -> unit
-        abstract indexOf: searchElement: float * ?fromIndex: float -> float
-        abstract join: ?separator: string -> string
-        abstract lastIndexOf: searchElement: float * ?fromIndex: float -> float
-        abstract map: callbackfn: (float->float->Uint16Array->float) * ?thisArg: obj -> Uint16Array
-        abstract reduce: callbackfn: (float->float->float->Uint16Array->float) * ?initialValue: float -> float
-        abstract reduce: callbackfn: ('U->float->float->Uint16Array->'U) * initialValue: 'U -> 'U
-        abstract reduceRight: callbackfn: (float->float->float->Uint16Array->float) * ?initialValue: float -> float
-        abstract reduceRight: callbackfn: ('U->float->float->Uint16Array->'U) * initialValue: 'U -> 'U
+        inherit TypedArray<uint16>
+        abstract copyWithin: target: int * start: int * ?``end``: int -> Uint16Array
+        abstract every: callbackfn: (uint16->int->Uint16Array->bool) * ?thisArg: obj -> bool
+        abstract fill: value: uint16 * ?start: int * ?``end``: int -> Uint16Array
+        abstract filter: callbackfn: (uint16->int->Uint16Array->bool) * ?thisArg: obj -> Uint16Array
+        abstract find: predicate: (uint16->int->Uint16Array->bool) * ?thisArg: obj -> uint16 option
+        abstract findIndex: predicate: (uint16->int->Uint16Array->bool) * ?thisArg: obj -> int option
+        abstract forEach: callbackfn: (uint16->int->Uint16Array->unit) * ?thisArg: obj -> unit
+        abstract map: callbackfn: (uint16->int->Uint16Array->uint16) * ?thisArg: obj -> Uint16Array
+        abstract reduce: callbackFn: (uint16->uint16->int->Uint16Array->uint16) -> uint16
+        abstract reduce: callbackfn: ('U->uint16->int->Uint16Array->'U) * initialValue: 'U -> 'U
+        abstract reduceRight: callbackFn: (uint16->uint16->int->Uint16Array->uint16) -> uint16
+        abstract reduceRight: callbackfn: ('U->uint16->int->Uint16Array->'U) * initialValue: 'U -> 'U
         abstract reverse: unit -> Uint16Array
-        abstract set: index: float * value: float -> unit
-        abstract set: array: ArrayLike<float> * ?offset: float -> unit
-        abstract slice: ?start: float * ?``end``: float -> Uint16Array
-        abstract some: callbackfn: (float->float->Uint16Array->bool) * ?thisArg: obj -> bool
-        abstract sort: ?compareFn: (float->float->float) -> Uint16Array
-        abstract subarray: ``begin``: float * ?``end``: float -> Uint16Array
-        abstract toLocaleString: unit -> string
-        abstract toString: unit -> string
-        abstract entries: unit -> IterableIterator<float * float>
-        abstract keys: unit -> IterableIterator<float>
-        abstract values: unit -> IterableIterator<float>
-        [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
+        abstract slice: ?start: int * ?``end``: int -> Uint16Array
+        abstract some: callbackfn: (uint16->int->Uint16Array->bool) * ?thisArg: obj -> bool
+        abstract sort: ?compareFn: (uint16->uint16->int) -> Uint16Array
+        abstract subarray: ``begin``: int * ?``end``: int -> Uint16Array
 
     and [<AllowNullLiteral>] Uint16ArrayConstructor =
         abstract prototype: Uint16Array with get, set
-        abstract BYTES_PER_ELEMENT: float with get, set
-        [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint16Array
-        [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Uint16Array
-        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint16Array
-        abstract ``of``: [<ParamArray>] items: float[] -> Uint16Array
-        abstract from: arrayLike: ArrayLike<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Uint16Array
-        [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint16Array
-        abstract from: arrayLike: Iterable<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Uint16Array
+        abstract BYTES_PER_ELEMENT: int
+        [<Emit("new $0()")>] abstract Create: unit -> Uint16Array
+        [<Emit("new $0($1...)")>] abstract Create: length: int -> Uint16Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Array<_> -> Uint16Array
+        [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<_> -> Uint16Array
+        [<Emit("new $0($1...)")>] abstract Create: array: TypedArray<_> -> Uint16Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Iterable<_> -> Uint16Array
+        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?length: int -> Uint16Array
+        abstract ``of``: [<ParamArray>] items: _[] -> Uint16Array
+        abstract from: arrayLike: Array<'a> * ?mapfn: ('a->int->uint16) * ?thisArg: obj -> Uint16Array
+        abstract from: arrayLike: ResizeArray<'a> * ?mapfn: ('a->int->uint16) * ?thisArg: obj -> Uint16Array
+        abstract from: arrayLike: TypedArray<'a> * ?mapfn: ('a->int->uint16) * ?thisArg: obj -> Uint16Array
+        abstract from: arrayLike: Iterable<'a> * ?mapfn: ('a->int->uint16) * ?thisArg: obj -> Uint16Array
 
     and [<AllowNullLiteral>] Int32Array =
-        abstract BYTES_PER_ELEMENT: float with get, set
-        abstract buffer: ArrayBuffer with get, set
-        abstract byteLength: float with get, set
-        abstract byteOffset: float with get, set
-        abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
-        [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
-        abstract copyWithin: target: float * start: float * ?``end``: float -> Int32Array
-        abstract every: callbackfn: (float->float->Int32Array->bool) * ?thisArg: obj -> bool
-        abstract fill: value: float * ?start: float * ?``end``: float -> Int32Array
-        abstract filter: callbackfn: (float->float->Int32Array->bool) * ?thisArg: obj -> Int32Array
-        abstract find: predicate: (float->float->ResizeArray<float>->bool) * ?thisArg: obj -> float
-        abstract findIndex: predicate: (float->bool) * ?thisArg: obj -> float
-        abstract forEach: callbackfn: (float->float->Int32Array->unit) * ?thisArg: obj -> unit
-        abstract indexOf: searchElement: float * ?fromIndex: float -> float
-        abstract join: ?separator: string -> string
-        abstract lastIndexOf: searchElement: float * ?fromIndex: float -> float
-        abstract map: callbackfn: (float->float->Int32Array->float) * ?thisArg: obj -> Int32Array
-        abstract reduce: callbackfn: (float->float->float->Int32Array->float) * ?initialValue: float -> float
-        abstract reduce: callbackfn: ('U->float->float->Int32Array->'U) * initialValue: 'U -> 'U
-        abstract reduceRight: callbackfn: (float->float->float->Int32Array->float) * ?initialValue: float -> float
-        abstract reduceRight: callbackfn: ('U->float->float->Int32Array->'U) * initialValue: 'U -> 'U
+        inherit TypedArray<int32>
+        abstract copyWithin: target: int * start: int * ?``end``: int -> Int32Array
+        abstract every: callbackfn: (int32->int->Int32Array->bool) * ?thisArg: obj -> bool
+        abstract fill: value: int32 * ?start: int * ?``end``: int -> Int32Array
+        abstract filter: callbackfn: (int32->int->Int32Array->bool) * ?thisArg: obj -> Int32Array
+        abstract find: predicate: (int32->int->Int32Array->bool) * ?thisArg: obj -> int32 option
+        abstract findIndex: predicate: (int32->int->Int32Array->bool) * ?thisArg: obj -> int option
+        abstract forEach: callbackfn: (int32->int->Int32Array->unit) * ?thisArg: obj -> unit
+        abstract map: callbackfn: (int32->int->Int32Array->int32) * ?thisArg: obj -> Int32Array
+        abstract reduce: callbackFn: (int32->int32->int->Int32Array->int32) -> int32
+        abstract reduce: callbackfn: ('U->int32->int->Int32Array->'U) * initialValue: 'U -> 'U
+        abstract reduceRight: callbackFn: (int32->int32->int->Int32Array->int32) -> int32
+        abstract reduceRight: callbackfn: ('U->int32->int->Int32Array->'U) * initialValue: 'U -> 'U
         abstract reverse: unit -> Int32Array
-        abstract set: index: float * value: float -> unit
-        abstract set: array: ArrayLike<float> * ?offset: float -> unit
-        abstract slice: ?start: float * ?``end``: float -> Int32Array
-        abstract some: callbackfn: (float->float->Int32Array->bool) * ?thisArg: obj -> bool
-        abstract sort: ?compareFn: (float->float->float) -> Int32Array
-        abstract subarray: ``begin``: float * ?``end``: float -> Int32Array
-        abstract toLocaleString: unit -> string
-        abstract toString: unit -> string
-        abstract entries: unit -> IterableIterator<float * float>
-        abstract keys: unit -> IterableIterator<float>
-        abstract values: unit -> IterableIterator<float>
-        [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
+        abstract slice: ?start: int * ?``end``: int -> Int32Array
+        abstract some: callbackfn: (int32->int->Int32Array->bool) * ?thisArg: obj -> bool
+        abstract sort: ?compareFn: (int32->int32->int) -> Int32Array
+        abstract subarray: ``begin``: int * ?``end``: int -> Int32Array
 
     and [<AllowNullLiteral>] Int32ArrayConstructor =
         abstract prototype: Int32Array with get, set
-        abstract BYTES_PER_ELEMENT: float with get, set
-        [<Emit("new $0($1...)")>] abstract Create: length: float -> Int32Array
-        [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Int32Array
-        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Int32Array
-        abstract ``of``: [<ParamArray>] items: float[] -> Int32Array
-        abstract from: arrayLike: ArrayLike<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Int32Array
-        [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Int32Array
-        abstract from: arrayLike: Iterable<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Int32Array
+        abstract BYTES_PER_ELEMENT: int
+        [<Emit("new $0()")>] abstract Create: unit -> Int32Array
+        [<Emit("new $0($1...)")>] abstract Create: length: int -> Int32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Array<_> -> Int32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<_> -> Int32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: TypedArray<_> -> Int32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Iterable<_> -> Int32Array
+        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?length: int -> Int32Array
+        abstract ``of``: [<ParamArray>] items: _[] -> Int32Array
+        abstract from: arrayLike: Array<'a> * ?mapfn: ('a->int->int32) * ?thisArg: obj -> Int32Array
+        abstract from: arrayLike: ResizeArray<'a> * ?mapfn: ('a->int->int32) * ?thisArg: obj -> Int32Array
+        abstract from: arrayLike: TypedArray<'a> * ?mapfn: ('a->int->int32) * ?thisArg: obj -> Int32Array
+        abstract from: arrayLike: Iterable<'a> * ?mapfn: ('a->int->int32) * ?thisArg: obj -> Int32Array
 
     and [<AllowNullLiteral>] Uint32Array =
-        abstract BYTES_PER_ELEMENT: float with get, set
-        abstract buffer: ArrayBuffer with get, set
-        abstract byteLength: float with get, set
-        abstract byteOffset: float with get, set
-        abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
-        [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
-        abstract copyWithin: target: float * start: float * ?``end``: float -> Uint32Array
-        abstract every: callbackfn: (float->float->Uint32Array->bool) * ?thisArg: obj -> bool
-        abstract fill: value: float * ?start: float * ?``end``: float -> Uint32Array
-        abstract filter: callbackfn: (float->float->Uint32Array->bool) * ?thisArg: obj -> Uint32Array
-        abstract find: predicate: (float->float->ResizeArray<float>->bool) * ?thisArg: obj -> float
-        abstract findIndex: predicate: (float->bool) * ?thisArg: obj -> float
-        abstract forEach: callbackfn: (float->float->Uint32Array->unit) * ?thisArg: obj -> unit
-        abstract indexOf: searchElement: float * ?fromIndex: float -> float
-        abstract join: ?separator: string -> string
-        abstract lastIndexOf: searchElement: float * ?fromIndex: float -> float
-        abstract map: callbackfn: (float->float->Uint32Array->float) * ?thisArg: obj -> Uint32Array
-        abstract reduce: callbackfn: (float->float->float->Uint32Array->float) * ?initialValue: float -> float
-        abstract reduce: callbackfn: ('U->float->float->Uint32Array->'U) * initialValue: 'U -> 'U
-        abstract reduceRight: callbackfn: (float->float->float->Uint32Array->float) * ?initialValue: float -> float
-        abstract reduceRight: callbackfn: ('U->float->float->Uint32Array->'U) * initialValue: 'U -> 'U
+        inherit TypedArray<uint32>
+        abstract copyWithin: target: int * start: int * ?``end``: int -> Uint32Array
+        abstract every: callbackfn: (uint32->int->Uint32Array->bool) * ?thisArg: obj -> bool
+        abstract fill: value: uint32 * ?start: int * ?``end``: int -> Uint32Array
+        abstract filter: callbackfn: (uint32->int->Uint32Array->bool) * ?thisArg: obj -> Uint32Array
+        abstract find: predicate: (uint32->int->Uint32Array->bool) * ?thisArg: obj -> uint32 option
+        abstract findIndex: predicate: (uint32->int->Uint32Array->bool) * ?thisArg: obj -> int option
+        abstract forEach: callbackfn: (uint32->int->Uint32Array->unit) * ?thisArg: obj -> unit
+        abstract map: callbackfn: (uint32->int->Uint32Array->uint32) * ?thisArg: obj -> Uint32Array
+        abstract reduce: callbackFn: (uint32->uint32->int->Uint32Array->uint32) -> uint32
+        abstract reduce: callbackfn: ('U->uint32->int->Uint32Array->'U) * initialValue: 'U -> 'U
+        abstract reduceRight: callbackFn: (uint32->uint32->int->Uint32Array->uint32) -> uint32
+        abstract reduceRight: callbackfn: ('U->uint32->int->Uint32Array->'U) * initialValue: 'U -> 'U
         abstract reverse: unit -> Uint32Array
-        abstract set: index: float * value: float -> unit
-        abstract set: array: ArrayLike<float> * ?offset: float -> unit
-        abstract slice: ?start: float * ?``end``: float -> Uint32Array
-        abstract some: callbackfn: (float->float->Uint32Array->bool) * ?thisArg: obj -> bool
-        abstract sort: ?compareFn: (float->float->float) -> Uint32Array
-        abstract subarray: ``begin``: float * ?``end``: float -> Uint32Array
-        abstract toLocaleString: unit -> string
-        abstract toString: unit -> string
-        abstract entries: unit -> IterableIterator<float * float>
-        abstract keys: unit -> IterableIterator<float>
-        abstract values: unit -> IterableIterator<float>
-        [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
+        abstract slice: ?start: int * ?``end``: int -> Uint32Array
+        abstract some: callbackfn: (uint32->int->Uint32Array->bool) * ?thisArg: obj -> bool
+        abstract sort: ?compareFn: (uint32->uint32->int) -> Uint32Array
+        abstract subarray: ``begin``: int * ?``end``: int -> Uint32Array
 
     and [<AllowNullLiteral>] Uint32ArrayConstructor =
         abstract prototype: Uint32Array with get, set
-        abstract BYTES_PER_ELEMENT: float with get, set
-        [<Emit("new $0($1...)")>] abstract Create: length: float -> Uint32Array
-        [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Uint32Array
-        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Uint32Array
-        abstract ``of``: [<ParamArray>] items: float[] -> Uint32Array
-        abstract from: arrayLike: ArrayLike<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Uint32Array
-        [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Uint32Array
-        abstract from: arrayLike: Iterable<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Uint32Array
+        abstract BYTES_PER_ELEMENT: int
+        [<Emit("new $0()")>] abstract Create: unit -> Uint32Array
+        [<Emit("new $0($1...)")>] abstract Create: length: int -> Uint32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Array<_> -> Uint32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<_> -> Uint32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: TypedArray<_> -> Uint32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Iterable<_> -> Uint32Array
+        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?length: int -> Uint32Array
+        abstract ``of``: [<ParamArray>] items: _[] -> Uint32Array
+        abstract from: arrayLike: Array<'a> * ?mapfn: ('a->int->uint32) * ?thisArg: obj -> Uint32Array
+        abstract from: arrayLike: ResizeArray<'a> * ?mapfn: ('a->int->uint32) * ?thisArg: obj -> Uint32Array
+        abstract from: arrayLike: TypedArray<'a> * ?mapfn: ('a->int->uint32) * ?thisArg: obj -> Uint32Array
+        abstract from: arrayLike: Iterable<'a> * ?mapfn: ('a->int->uint32) * ?thisArg: obj -> Uint32Array
 
     and [<AllowNullLiteral>] Float32Array =
-        abstract BYTES_PER_ELEMENT: float with get, set
-        abstract buffer: ArrayBuffer with get, set
-        abstract byteLength: float with get, set
-        abstract byteOffset: float with get, set
-        abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
-        [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
-        abstract copyWithin: target: float * start: float * ?``end``: float -> Float32Array
-        abstract every: callbackfn: (float->float->Float32Array->bool) * ?thisArg: obj -> bool
-        abstract fill: value: float * ?start: float * ?``end``: float -> Float32Array
-        abstract filter: callbackfn: (float->float->Float32Array->bool) * ?thisArg: obj -> Float32Array
-        abstract find: predicate: (float->float->ResizeArray<float>->bool) * ?thisArg: obj -> float
-        abstract findIndex: predicate: (float->bool) * ?thisArg: obj -> float
-        abstract forEach: callbackfn: (float->float->Float32Array->unit) * ?thisArg: obj -> unit
-        abstract indexOf: searchElement: float * ?fromIndex: float -> float
-        abstract join: ?separator: string -> string
-        abstract lastIndexOf: searchElement: float * ?fromIndex: float -> float
-        abstract map: callbackfn: (float->float->Float32Array->float) * ?thisArg: obj -> Float32Array
-        abstract reduce: callbackfn: (float->float->float->Float32Array->float) * ?initialValue: float -> float
-        abstract reduce: callbackfn: ('U->float->float->Float32Array->'U) * initialValue: 'U -> 'U
-        abstract reduceRight: callbackfn: (float->float->float->Float32Array->float) * ?initialValue: float -> float
-        abstract reduceRight: callbackfn: ('U->float->float->Float32Array->'U) * initialValue: 'U -> 'U
+        inherit TypedArray<float32>
+        abstract copyWithin: target: int * start: int * ?``end``: int -> Float32Array
+        abstract every: callbackfn: (float32->int->Float32Array->bool) * ?thisArg: obj -> bool
+        abstract fill: value: float32 * ?start: int * ?``end``: int -> Float32Array
+        abstract filter: callbackfn: (float32->int->Float32Array->bool) * ?thisArg: obj -> Float32Array
+        abstract find: predicate: (float32->int->Float32Array->bool) * ?thisArg: obj -> float32 option
+        abstract findIndex: predicate: (float32->int->Float32Array->bool) * ?thisArg: obj -> int option
+        abstract forEach: callbackfn: (float32->int->Float32Array->unit) * ?thisArg: obj -> unit
+        abstract map: callbackfn: (float32->int->Float32Array->float32) * ?thisArg: obj -> Float32Array
+        abstract reduce: callbackFn: (float32->float32->int->Float32Array->float32) -> float32
+        abstract reduce: callbackfn: ('U->float32->int->Float32Array->'U) * initialValue: 'U -> 'U
+        abstract reduceRight: callbackFn: (float32->float32->int->Float32Array->float32) -> float32
+        abstract reduceRight: callbackfn: ('U->float32->int->Float32Array->'U) * initialValue: 'U -> 'U
         abstract reverse: unit -> Float32Array
-        abstract set: index: float * value: float -> unit
-        abstract set: array: ArrayLike<float> * ?offset: float -> unit
-        abstract slice: ?start: float * ?``end``: float -> Float32Array
-        abstract some: callbackfn: (float->float->Float32Array->bool) * ?thisArg: obj -> bool
-        abstract sort: ?compareFn: (float->float->float) -> Float32Array
-        abstract subarray: ``begin``: float * ?``end``: float -> Float32Array
-        abstract toLocaleString: unit -> string
-        abstract toString: unit -> string
-        abstract entries: unit -> IterableIterator<float * float>
-        abstract keys: unit -> IterableIterator<float>
-        abstract values: unit -> IterableIterator<float>
-        [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
+        abstract slice: ?start: int * ?``end``: int -> Float32Array
+        abstract some: callbackfn: (float32->int->Float32Array->bool) * ?thisArg: obj -> bool
+        abstract sort: ?compareFn: (float32->float32->int) -> Float32Array
+        abstract subarray: ``begin``: int * ?``end``: int -> Float32Array
 
     and [<AllowNullLiteral>] Float32ArrayConstructor =
         abstract prototype: Float32Array with get, set
-        abstract BYTES_PER_ELEMENT: float with get, set
-        [<Emit("new $0($1...)")>] abstract Create: length: float -> Float32Array
-        [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Float32Array
-        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Float32Array
-        abstract ``of``: [<ParamArray>] items: float[] -> Float32Array
-        abstract from: arrayLike: ArrayLike<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Float32Array
-        [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Float32Array
-        abstract from: arrayLike: Iterable<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Float32Array
+        abstract BYTES_PER_ELEMENT: int
+        [<Emit("new $0()")>] abstract Create: unit -> Float32Array
+        [<Emit("new $0($1...)")>] abstract Create: length: int -> Float32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Array<_> -> Float32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<_> -> Float32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: TypedArray<_> -> Float32Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Iterable<_> -> Float32Array
+        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?length: int -> Float32Array
+        abstract ``of``: [<ParamArray>] items: _[] -> Float32Array
+        abstract from: arrayLike: Array<'a> * ?mapfn: ('a->int->float32) * ?thisArg: obj -> Float32Array
+        abstract from: arrayLike: ResizeArray<'a> * ?mapfn: ('a->int->float32) * ?thisArg: obj -> Float32Array
+        abstract from: arrayLike: TypedArray<'a> * ?mapfn: ('a->int->float32) * ?thisArg: obj -> Float32Array
+        abstract from: arrayLike: Iterable<'a> * ?mapfn: ('a->int->float32) * ?thisArg: obj -> Float32Array
 
     and [<AllowNullLiteral>] Float64Array =
-        abstract BYTES_PER_ELEMENT: float with get, set
-        abstract buffer: ArrayBuffer with get, set
-        abstract byteLength: float with get, set
-        abstract byteOffset: float with get, set
-        abstract length: float with get, set
-        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> float with get, set
-        [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
-        abstract copyWithin: target: float * start: float * ?``end``: float -> Float64Array
-        abstract every: callbackfn: (float->float->Float64Array->bool) * ?thisArg: obj -> bool
-        abstract fill: value: float * ?start: float * ?``end``: float -> Float64Array
-        abstract filter: callbackfn: (float->float->Float64Array->bool) * ?thisArg: obj -> Float64Array
-        abstract find: predicate: (float->float->ResizeArray<float>->bool) * ?thisArg: obj -> float
-        abstract findIndex: predicate: (float->bool) * ?thisArg: obj -> float
-        abstract forEach: callbackfn: (float->float->Float64Array->unit) * ?thisArg: obj -> unit
-        abstract indexOf: searchElement: float * ?fromIndex: float -> float
-        abstract join: ?separator: string -> string
-        abstract lastIndexOf: searchElement: float * ?fromIndex: float -> float
-        abstract map: callbackfn: (float->float->Float64Array->float) * ?thisArg: obj -> Float64Array
-        abstract reduce: callbackfn: (float->float->float->Float64Array->float) * ?initialValue: float -> float
-        abstract reduce: callbackfn: ('U->float->float->Float64Array->'U) * initialValue: 'U -> 'U
-        abstract reduceRight: callbackfn: (float->float->float->Float64Array->float) * ?initialValue: float -> float
-        abstract reduceRight: callbackfn: ('U->float->float->Float64Array->'U) * initialValue: 'U -> 'U
+        inherit TypedArray<float>
+        abstract copyWithin: target: int * start: int * ?``end``: int -> Float64Array
+        abstract every: callbackfn: (float->int->Float64Array->bool) * ?thisArg: obj -> bool
+        abstract fill: value: float * ?start: int * ?``end``: int -> Float64Array
+        abstract filter: callbackfn: (float->int->Float64Array->bool) * ?thisArg: obj -> Float64Array
+        abstract find: predicate: (float->int->Float64Array->bool) * ?thisArg: obj -> float option
+        abstract findIndex: predicate: (float->int->Float64Array->bool) * ?thisArg: obj -> int option
+        abstract forEach: callbackfn: (float->int->Float64Array->unit) * ?thisArg: obj -> unit
+        abstract map: callbackfn: (float->int->Float64Array->float) * ?thisArg: obj -> Float64Array
+        abstract reduce: callbackFn: (float->float->int->Float64Array->float) -> float
+        abstract reduce: callbackfn: ('U->float->int->Float64Array->'U) * initialValue: 'U -> 'U
+        abstract reduceRight: callbackFn: (float->float->int->Float64Array->float) -> float
+        abstract reduceRight: callbackfn: ('U->float->int->Float64Array->'U) * initialValue: 'U -> 'U
         abstract reverse: unit -> Float64Array
-        abstract set: index: float * value: float -> unit
-        abstract set: array: ArrayLike<float> * ?offset: float -> unit
-        abstract slice: ?start: float * ?``end``: float -> Float64Array
-        abstract some: callbackfn: (float->float->Float64Array->bool) * ?thisArg: obj -> bool
-        abstract sort: ?compareFn: (float->float->float) -> Float64Array
-        abstract subarray: ``begin``: float * ?``end``: float -> Float64Array
-        abstract toLocaleString: unit -> string
-        abstract toString: unit -> string
-        abstract entries: unit -> IterableIterator<float * float>
-        abstract keys: unit -> IterableIterator<float>
-        abstract values: unit -> IterableIterator<float>
-        [<Emit("$0[Symbol.iterator]($1...)")>] abstract ``[Symbol.iterator]``: unit -> IterableIterator<float>
+        abstract slice: ?start: int * ?``end``: int -> Float64Array
+        abstract some: callbackfn: (float->int->Float64Array->bool) * ?thisArg: obj -> bool
+        abstract sort: ?compareFn: (float->float->int) -> Float64Array
+        abstract subarray: ``begin``: int * ?``end``: int -> Float64Array
 
     and [<AllowNullLiteral>] Float64ArrayConstructor =
         abstract prototype: Float64Array with get, set
-        abstract BYTES_PER_ELEMENT: float with get, set
-        [<Emit("new $0($1...)")>] abstract Create: length: float -> Float64Array
-        [<Emit("new $0($1...)")>] abstract Create: array: ArrayLike<float> -> Float64Array
-        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: float * ?length: float -> Float64Array
-        abstract ``of``: [<ParamArray>] items: float[] -> Float64Array
-        abstract from: arrayLike: ArrayLike<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Float64Array
-        [<Emit("new $0($1...)")>] abstract Create: elements: Iterable<float> -> Float64Array
-        abstract from: arrayLike: Iterable<float> * ?mapfn: (float->float->float) * ?thisArg: obj -> Float64Array
+        abstract BYTES_PER_ELEMENT: int
+        [<Emit("new $0()")>] abstract Create: unit -> Float64Array
+        [<Emit("new $0($1...)")>] abstract Create: length: int -> Float64Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Array<_> -> Float64Array
+        [<Emit("new $0($1...)")>] abstract Create: array: ResizeArray<_> -> Float64Array
+        [<Emit("new $0($1...)")>] abstract Create: array: TypedArray<_> -> Float64Array
+        [<Emit("new $0($1...)")>] abstract Create: array: Iterable<_> -> Float64Array
+        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?length: int -> Float64Array
+        abstract ``of``: [<ParamArray>] items: _[] -> Float64Array
+        abstract from: arrayLike: Array<'a> * ?mapfn: ('a->int->float) * ?thisArg: obj -> Float64Array
+        abstract from: arrayLike: ResizeArray<'a> * ?mapfn: ('a->int->float) * ?thisArg: obj -> Float64Array
+        abstract from: arrayLike: TypedArray<'a> * ?mapfn: ('a->int->float) * ?thisArg: obj -> Float64Array
+        abstract from: arrayLike: Iterable<'a> * ?mapfn: ('a->int->float) * ?thisArg: obj -> Float64Array
 
     and [<AllowNullLiteral>] Symbol =
         [<Emit("$0[Symbol.toStringTag]{{=$1}}")>] abstract ``[Symbol.toStringTag]``: obj with get, set
