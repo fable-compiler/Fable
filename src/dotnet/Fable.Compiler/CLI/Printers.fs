@@ -102,15 +102,15 @@ let printFableDecls decls = seq {
         yield sprintf "%A" decl
 }
 
-let printAst outDir (proj: FSharpCheckProjectResults) =
+let printAst outDir (implFiles: FSharpImplementationFileContents list) =
     if Directory.Exists(outDir) |> not then
         Directory.CreateDirectory(outDir) |> ignore
-    for f in proj.AssemblyContents.ImplementationFiles do
+    for implFile in implFiles do
         let target =
-            let name = System.IO.Path.GetFileNameWithoutExtension(f.FileName)
-            Path.Combine(outDir, name + ".fs.ast")
+            let fileName = System.IO.Path.GetFileNameWithoutExtension(implFile.FileName)
+            Path.Combine(outDir, fileName + ".fs.ast")
         Log.logVerbose(lazy sprintf "Print AST %s" target)
-        printFSharpDecls "" f.Declarations
+        printFSharpDecls "" implFile.Declarations
         |> fun lines -> System.IO.File.WriteAllLines(target, lines)
         // printFableDecls fableFile.Declarations
-        // |> fun lines -> System.IO.File.WriteAllLines(Path.Combine(outDir, name + ".fable.ast"), lines)
+        // |> fun lines -> System.IO.File.WriteAllLines(Path.Combine(outDir, fileName + ".fable.ast"), lines)
