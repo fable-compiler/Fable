@@ -80,15 +80,17 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
         |> checker.ParseAndCheckProject
         |> Async.map (fun checkedProject ->
             checkFableCoreVersion checkedProject
-            tryGetOption "saveAst" msg.extra |> Option.iter (fun dir ->
-                Printers.printAst dir checkedProject)
             let optimized = GlobalParams.Singleton.Experimental.Contains("optimize-fcs")
             let implFiles =
                 if not optimized
                 then checkedProject.AssemblyContents.ImplementationFiles
                 else checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
+            let implFilesMap =
+                implFiles
                 |> Seq.map (fun file -> Path.normalizePath file.FileName, file) |> Map
-            implFiles, checkedProject.Errors)
+            tryGetOption "saveAst" msg.extra |> Option.iter (fun outDir ->
+                Printers.printAst outDir implFiles)
+            implFilesMap, checkedProject.Errors)
     |> Async.map (fun (implFiles, errors) ->
         Project(projectOptions, implFiles, errors, deps, fableCore, isWatchCompile))
 

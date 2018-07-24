@@ -21,6 +21,7 @@ const fableOptions = {
     "NO_EXTENSIONTYPING",
     "NO_INLINE_IL_PARSER"
   ],
+  // extra: { saveAst: "./ast" }
 };
 
 module.exports = {
