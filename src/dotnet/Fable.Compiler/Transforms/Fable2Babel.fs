@@ -471,8 +471,11 @@ module Util =
         | Fable.Unit    -> primitiveTypeInfo knownTypes "unit"
         | Fable.Boolean -> primitiveTypeInfo knownTypes "bool"
         | Fable.Char    -> primitiveTypeInfo knownTypes "char"
-        | Fable.String  -> primitiveTypeInfo knownTypes "string"
-        | Fable.EnumType(_, fullname) -> nonGenericTypeInfo knownTypes fullname
+        | Fable.String
+        | Fable.EnumType(Fable.StringEnumType, _) ->
+            primitiveTypeInfo knownTypes "string"
+        | Fable.EnumType(Fable.NumberEnumType, _) ->
+            primitiveTypeInfo knownTypes "int32"
         | Fable.Number kind ->
             match kind with
             | Int8 -> "int8"
