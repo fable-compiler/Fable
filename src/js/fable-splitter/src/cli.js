@@ -35,7 +35,7 @@ function findFlag(arr, arg) {
             return true;
         }
     }
-    return false;
+    return null;
 }
 
 function findArgValue(arr, arg, f) {
@@ -55,7 +55,7 @@ function tooClose(filename, prev /* [string, Date] */) {
 }
 
 /** Like Object.assign but checks first if properties in the source are null */
-function objectAssignNoOverwrite(target, source) {
+function objectAssignNonNull(target, source) {
     for (var k in source) {
         if (source[k] != null) {
             target[k] = source[k];
@@ -80,9 +80,10 @@ function run(entry, args) {
     var opts = cfgFile
         ? readConfig(cfgFile, true)
         : (readConfig("fable-splitter.config.js") || readConfig("splitter.config.js") || {});
-    objectAssignNoOverwrite(opts, {
+    objectAssignNonNull(opts, {
         entry: entry,
-        outDir: findArgValue(restArgs, ["-o", "--outDir"], path.resolve)
+        outDir: findArgValue(restArgs, ["-o", "--outDir"], path.resolve),
+        allFiles: findFlag(restArgs, "--allFiles")
     });
 
     /// @ts-ignore
