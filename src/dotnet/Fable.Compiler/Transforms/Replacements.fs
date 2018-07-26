@@ -900,6 +900,30 @@ let fsharpModule (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisAr
     let moduleName, mangledName = getMangledNames i thisArg
     Helper.CoreCall(moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
+let getFableReplLibImport isStatic (entityFullName: string) memberName overloadSuffix =
+    // Remove Fable.Repl.Lib. prefix from entity name
+    let entityFullName = entityFullName.Substring(15)
+    let memberName = Naming.sanitizeIdentForbiddenChars memberName
+    let fileName, name, memberPart =
+        match entityFullName.IndexOf('.') with
+        | -1 -> entityFullName, memberName, Naming.NoMemberPart
+        | pos ->
+            let fileName = entityFullName.Substring(0, pos)
+            let entityName = Naming.sanitizeIdentForbiddenChars (entityFullName.Substring(pos + 1))
+            let memberPart =
+                match memberName, isStatic with
+                | "", _ -> Naming.NoMemberPart
+                | _, true -> Naming.StaticMemberPart(memberName, overloadSuffix)
+                | _, false -> Naming.InstanceMemberPart(memberName, overloadSuffix)
+            fileName, entityName, memberPart
+    let mangledName = Naming.buildNameWithoutSanitation name memberPart
+    makeCustomImport Fable.Any mangledName ("fable-repl-lib/" + fileName)
+
+let fableReplLib (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let argInfo = { argInfo thisArg args (Some i.SignatureArgTypes) with Spread = i.Spread }
+    getFableReplLibImport (Option.isNone thisArg) i.DeclaringEntityFullName i.CompiledName i.OverloadSuffix.Value
+    |> staticCall r t argInfo |> Some
+
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some callee, _ ->
@@ -2422,6 +2446,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | Types.printfModule
     | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com ctx r t info thisArg args
+    | Naming.StartsWith "Fable.Repl.Lib." _ -> fableReplLib com ctx r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com ctx r t info thisArg args
     | "System.Timers.ElapsedEventArgs" -> thisArg // only signalTime is available here
     | Naming.StartsWith "System.Action" _
@@ -2465,6 +2490,7 @@ let tryEntityRef (ent: FSharpEntity) =
     | Types.matchFail -> makeCoreRef Any "MatchFailureException" "Types" |> Some
     | Types.result -> makeCoreRef Any "Result" "Option" |> Some
     | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
+    | Naming.StartsWith "Fable.Repl.Lib." _ -> getFableReplLibImport true ent.FullName "" "" |> Some
     | _ -> None
 
 let tryBaseConstructor com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) genArgs args =

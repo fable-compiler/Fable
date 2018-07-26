@@ -318,16 +318,16 @@ module AST =
           IsBaseOrSelfConstructorCall = false }
 
     let staticCall r t argInfo functionExpr =
-        Fable.Operation(Fable.Call(Fable.StaticCall functionExpr, argInfo), t, r)
+        Operation(Call(StaticCall functionExpr, argInfo), t, r)
 
     let constructorCall r t argInfo consExpr =
-        Fable.Operation(Fable.Call(Fable.ConstructorCall consExpr, argInfo), t, r)
+        Operation(Call(ConstructorCall consExpr, argInfo), t, r)
 
     let instanceCall r t argInfo memb =
-        Fable.Operation(Fable.Call(Fable.InstanceCall memb, argInfo), t, r)
+        Operation(Call(InstanceCall memb, argInfo), t, r)
 
     let getExpr r t left memb =
-        Fable.Get(left, ExprGet memb, t, r)
+        Get(left, ExprGet memb, t, r)
 
     let get r t left membName =
         makeStrConst membName |> getExpr r t left
@@ -378,17 +378,17 @@ module AST =
         | _ -> false
 
     let rec getTypeFullName prettify = function
-        | Fable.GenericParam name -> "'" + name
-        | Fable.EnumType(_, fullname) -> fullname
-        | Fable.Regex    -> Types.regex
-        | Fable.MetaType -> Types.type_
-        | Fable.Unit    -> Types.unit
-        | Fable.Boolean -> Types.bool
-        | Fable.Char    -> Types.char
-        | Fable.String  -> Types.string
+        | GenericParam name -> "'" + name
+        | EnumType(_, fullname) -> fullname
+        | Regex    -> Types.regex
+        | MetaType -> Types.type_
+        | Unit    -> Types.unit
+        | Boolean -> Types.bool
+        | Char    -> Types.char
+        | String  -> Types.string
         // TODO: Type info forErasedUnion?
-        | Fable.ErasedUnion _ | Fable.Any -> Types.object
-        | Fable.Number kind ->
+        | ErasedUnion _ | Any -> Types.object
+        | Number kind ->
             match kind with
             | Int8    -> Types.int8
             | UInt8   -> Types.uint8
@@ -399,31 +399,31 @@ module AST =
             | Float32 -> Types.float32
             | Float64 -> Types.float64
             | Decimal -> Types.decimal
-        | Fable.FunctionType(Fable.LambdaType argType, returnType) ->
+        | FunctionType(LambdaType argType, returnType) ->
             let argType = getTypeFullName prettify argType
             let returnType = getTypeFullName prettify returnType
             if prettify
             then argType + " -> " + returnType
             else "Microsoft.FSharp.Core.FSharpFunc`2[" + argType + "," + returnType + "]"
-        | Fable.FunctionType(Fable.DelegateType argTypes, returnType) ->
+        | FunctionType(DelegateType argTypes, returnType) ->
             sprintf "System.Func`%i[%s,%s]"
                 (List.length argTypes + 1)
                 (List.map (getTypeFullName prettify) argTypes |> String.concat ",")
                 (getTypeFullName prettify returnType)
-        | Fable.Tuple genArgs ->
+        | Tuple genArgs ->
             let genArgs = List.map (getTypeFullName prettify) genArgs
             if prettify
             then String.concat " * " genArgs
             else sprintf "System.Tuple`%i[%s]" (List.length genArgs) (String.concat "," genArgs)
-        | Fable.Array gen ->
+        | Array gen ->
             (getTypeFullName prettify gen) + "[]"
-        | Fable.Option gen ->
+        | Option gen ->
             let gen = getTypeFullName prettify gen
             if prettify then gen + " option" else Types.option + "[" + gen + "]"
-        | Fable.List gen ->
+        | List gen ->
             let gen = getTypeFullName prettify gen
             if prettify then gen + " list" else Types.list + "[" + gen + "]"
-        | Fable.DeclaredType(ent, gen) ->
+        | DeclaredType(ent, gen) ->
             match ent.TryFullName with
             | None -> Naming.unknown
             | Some fullname when List.isEmpty gen -> fullname

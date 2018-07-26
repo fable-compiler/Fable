@@ -821,12 +821,11 @@ module Util =
                 GenericArgs = genArgs.Value }
             match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
             | Some e -> Some e
+            | None when ent.IsInterface ->
+                callInstanceMember com r typ argInfo ent memb |> Some
             | None ->
-                match entity with
-                | Some entity when entity.IsInterface ->
-                    callInstanceMember com r typ argInfo entity memb |> Some
-                | _ -> sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
-                       |> addErrorAndReturnNull com r |> Some
+                sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
+                |> addErrorAndReturnNull com r |> Some
         | _ -> None
 
     let (|Emitted|_|) com r typ argInfo (memb: FSharpMemberOrFunctionOrValue) =
