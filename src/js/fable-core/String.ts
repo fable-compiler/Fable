@@ -6,16 +6,20 @@ function asString(x: string|number): string {
   return typeof x === "number" ? String.fromCharCode(x) : x;
 }
 
-export function toCharArray(str: string): number[] {
+export function toCharArray(str: string): Uint16Array {
   const len = str.length;
-  const ar: number[] = new Array(len);
+  const ar = new Uint16Array(len);
   for (let i = 0; i < len; i++) {
     ar[i] = str.charCodeAt(i);
   }
   return ar;
 }
 
-export function fromCharArray(ar: number[], startIndex?: number, count?: number): string {
+export function toCharIterable(source: any): Iterable<number> {
+  return typeof source === "string" ? toCharArray(source) : source;
+}
+
+export function fromCharArray(ar: Uint16Array|number[], startIndex?: number, count?: number): string {
   const ar2 = startIndex == null
     ? ar
     // If count arg is undefined, startIndex becomes the count and startIndex is 0
@@ -535,5 +539,10 @@ export function mapIndexed(f: (index: number, char: number) => number, str: stri
 }
 
 export function collect(f: (char: number) => string, str: string) {
-  return toCharArray(str).map(f).join("");
+  const ar1 = toCharArray(str);
+  const ar2 = new Array(ar1.length);
+  for (let i = 0; i < ar1.length; i++) {
+    ar2[i] = f(ar1[i]);
+  }
+  return ar2.join("");
 }

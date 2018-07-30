@@ -324,7 +324,7 @@ let toString com r (args: Expr list) =
             Helper.InstanceCall(head, "toString", String, [])
         | _ -> Helper.CoreCall("Util", "toString", String, [head])
 
-let toFloat targetType (args: Expr list) =
+let toFloat com r targetType (args: Expr list) =
     match args.Head.Type with
     | String ->
         Helper.CoreCall("Double", "parse", Number Float64, args)
@@ -337,14 +337,17 @@ let toFloat targetType (args: Expr list) =
                     | Number Decimal -> "toDecimal"
                     | _ -> failwith "Unexpected BigInt conversion"
         Helper.CoreCall("BigInt", meth, Number Float64, args)
-    | _ -> args.Head
+    | Number _ -> args.Head
+    | _ ->
+        addWarning com r "Cannot make conversion at compile time because source type is unknown"
+        args.Head
 
 // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
 let fastIntFloor expr =
     let inner = makeUnOp None Any expr UnaryNotBitwise
     makeUnOp None (Number Int32) inner UnaryNotBitwise
 
-let toInt (round: bool) targetType (args: Expr list) =
+let toInt com r (round: bool) targetType (args: Expr list) =
     let sourceType =
         match args.Head.Type with
         | EnumType(NumberEnumType, _) -> Number Int32
@@ -439,7 +442,9 @@ let toInt (round: bool) targetType (args: Expr list) =
             emitLong (kind = BclUInt64) [args.Head]
         | Number _ -> args.Head
         | _ -> args.Head
-    | _ -> args.Head
+    | _ ->
+        addWarning com r "Cannot make conversion at compile time because source type is unknown"
+        args.Head
 
 let arrayCons (com: ICompiler) genArg =
     match genArg with
@@ -485,7 +490,11 @@ let toSeq r t (e: Expr) =
     | List _ -> DelayedResolution(AsSeqFromList e, t, r)
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
-    // TODO: Add a runtime check for strings in case of generics?
+    | GenericParam _ ->
+        match t with
+        // Runtime check for generics upcasted to `char seq`
+        | DeclaredType(_, [Char]) -> Helper.CoreCall("String", "toCharIterable", t, [e])
+        | _ -> e
     | _ -> e
 
 let iterate r ident body xs =
@@ -991,9 +1000,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Ignore", [arg]  -> DelayedResolution(AsUnit arg, t, r) |> Some
     // TODO: Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"), _ ->
-        toInt false t args |> Some
+        toInt com r false t args |> Some
     | ("ToSingle"|"ToDouble"|"ToDecimal"), _ ->
-        toFloat t args |> Some
+        toFloat com r t args |> Some
     | "ToChar", _ -> toChar args.Head |> Some
     | "ToString", _ -> toString com r args |> Some
     | "CreateSequence", [xs] -> toSeq r t xs |> Some
@@ -1065,7 +1074,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Round", _ ->
         Helper.CoreCall("Util", "round", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Sign", _ ->
-        let args = toFloat t args |> List.singleton
+        let args = toFloat com r t args |> List.singleton
         Helper.CoreCall("Util", "sign", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Numbers
     | ("Infinity"|"InfinitySingle"), _ ->
@@ -1692,7 +1701,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     |  "FastGenericEqualityComparerFromTable"
         ), _ -> fsharpModule com ctx r t i thisArg args
     | ("ParseInt32" | "ParseUInt32" | "ParseInt64" | "ParseUInt64"), [arg] ->
-        toInt false t [arg] |> Some
+        toInt com r false t [arg] |> Some
     | _ -> None
 
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1920,9 +1929,9 @@ let convert (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (ar
     | "ToInt16" | "ToUInt16"
     | "ToInt32" | "ToUInt32"
     | "ToInt64" | "ToUInt64"
-        -> toInt true t args |> Some
+        -> toInt com r true t args |> Some
     | "ToSingle" | "ToDouble" | "ToDecimal"
-        -> toFloat t args |> Some
+        -> toFloat com r t args |> Some
     | "ToChar" -> toChar args.Head |> Some
     | "ToString" -> toString com r args |> Some
     | "ToBase64String" | "FromBase64String" ->

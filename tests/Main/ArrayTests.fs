@@ -207,15 +207,12 @@ let tests =
           ys |> Array.length |> equal 2
           ys |> Array.head |> fst >= 4 |> equal true
 
-    // This takes longer than 2s in CI and fails
-    #if !TRAVIS && !APPVEYOR
     testCase "Array distinctBy works on large array" <| fun () ->
         let xs = [| 0 .. 50000 |]
         let ys =
             Array.append xs xs
             |> Array.distinctBy(fun x -> x.ToString())
         ys |> equal xs
-    #endif
 
     testCase "Array.sub works" <| fun () ->
         let xs = [|0..99|]

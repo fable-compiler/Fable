@@ -9,7 +9,7 @@
     "webpack": "node ../node_modules/webpack/bin/webpack -p",
     "_webpack": "node ../node_modules/webpack-command/lib/cli.js --entry ../build/tests/Main.js --output ../build/tests/bundle.js",
     "rollup": "node ../node_modules/rollup/bin/rollup -c",
-    "test": "node ../node_modules/mocha/bin/mocha ../build/tests --reporter dot"
+    "test": "node ../node_modules/mocha/bin/mocha ../build/tests --reporter dot -t 10000"
   },
   "devDependencies": {
     "chokidar-cli": "^1.2.0",
