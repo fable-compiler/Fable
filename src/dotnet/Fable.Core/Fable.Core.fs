@@ -8,6 +8,10 @@ module Exceptions =
     /// Used to indicate that a member is only implemented in native Javascript
     let jsNative<'T> : 'T = failwith "JS only"
 
+/// Not used in Fable 2 but added temporarily to avoid errors when using dotnet CLI
+/// to build projects with dependencies referencing Fable.Core 1.x
+type Applicable = obj->obj
+
 type CaseRules =
     | None = 0
     | LowerFirst = 1
