@@ -15,24 +15,8 @@ open Identifiers
 open Helpers
 open Util
 
-let rec private transformExprListAcc acc com ctx xs =
-    trampoline {
-        match xs with
-        | [] -> return List.rev acc
-        | h::t ->
-            let! x = transformExpr com ctx h
-            return! transformExprListAcc (x::acc) com ctx t
-    }
-let private transformExprList = transformExprListAcc []
-
-let private transformExprOpt com ctx x =
-    trampoline {
-        match x with
-        | Some expr ->
-            let! x = transformExpr com ctx expr
-            return Some x
-        | None -> return None
-    }
+let inline private transformExprList com ctx xs = trampolineListMap (transformExpr com ctx) xs
+let inline private transformExprOpt com ctx opt = trampolineOptionMap (transformExpr com ctx) opt
 
 let private transformNewUnion com ctx r fsType
                 (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =

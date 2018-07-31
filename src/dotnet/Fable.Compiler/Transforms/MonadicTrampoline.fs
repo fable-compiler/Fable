@@ -46,3 +46,23 @@ type TrampolineBuilder() =
 let trampoline = new TrampolineBuilder()
 
 let run (tr : ITrampoline<'T>) = tr.Run()
+
+let rec private trampolineListMapAcc acc f xs =
+    trampoline {
+        match xs with
+        | [] -> return List.rev acc
+        | h::t ->
+            let! x = f h
+            return! trampolineListMapAcc (x::acc) f t
+    }
+let trampolineListMap (f: 'a -> ITrampoline<'b>) xs =
+    trampolineListMapAcc [] f xs
+
+let trampolineOptionMap (f: 'a -> ITrampoline<'b>) opt =
+    trampoline {
+        match opt with
+        | Some e ->
+            let! x = f e
+            return Some x
+        | None -> return None
+    }
