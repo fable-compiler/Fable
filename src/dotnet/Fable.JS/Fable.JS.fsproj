@@ -19,6 +19,7 @@
     <Compile Include="../Fable.Compiler/AST/AST.Common.fs" />
     <Compile Include="../Fable.Compiler/AST/AST.Fable.fs" />
     <Compile Include="../Fable.Compiler/AST/AST.Babel.fs" />
+    <Compile Include="../Fable.Compiler/Transforms/MonadicTrampoline.fs" />
     <Compile Include="../Fable.Compiler/Transforms/Transforms.Util.fs" />
     <Compile Include="../Fable.Compiler/Transforms/OverloadSuffix.fs" />
     <Compile Include="../Fable.Compiler/Transforms/FSharp2Fable.Util.fs" />
