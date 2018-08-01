@@ -1,6 +1,6 @@
-### 2.0.0-alpha-032
+### 2.0.0-beta-001
 
-* Fable 2 alpha
+* Fable 2 beta
 
 ### 1.3.7
 
