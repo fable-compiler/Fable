@@ -117,21 +117,59 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
 
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSharpType)
                     baseCallExpr (overrides: FSharpObjectExprOverride list) otherOverrides =
-    let baseCall =
-        match baseCallExpr with
-        // TODO: For interface implementations this should be BasicPatterns.NewObject
-        // but check the baseCall.DeclaringEntity name just in case
-        | BasicPatterns.Call(None,baseCall,genArgs1,genArgs2,baseArgs) ->
-            match baseCall.DeclaringEntity with
-            | Some baseType when baseType.TryFullName <> Some Types.object ->
-                let typ = makeType com ctx.GenericArgs baseCallExpr.Type
-                let baseArgs = transformExprList com ctx baseArgs |> run
-                let genArgs = genArgs1 @ genArgs2 |> Seq.map (makeType com ctx.GenericArgs)
-                makeCallFrom com ctx None typ false genArgs None baseArgs baseCall |> Some
-            | _ -> None
-        | _ -> None
-    let members =
-        (objType, overrides)::otherOverrides |> List.collect (fun (typ, overrides) ->
+
+    let mapOverride (over: FSharpObjectExprOverride) =
+      trampoline {
+        let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
+        let! body = transformExpr com ctx over.Body
+        let value = Fable.Function(Fable.Delegate args, body, None)
+        let name, kind =
+            match over.Signature.Name with
+            | Naming.StartsWith "get_" name when countNonCurriedParamsForOverride over = 0 ->
+                name, Fable.ObjectGetter
+            | Naming.StartsWith "set_" name when countNonCurriedParamsForOverride over = 1 ->
+                name, Fable.ObjectSetter
+            | name ->
+                // Don't use the typ argument as the override may come
+                // from another type, like ToString()
+                if over.Signature.DeclaringType.HasTypeDefinition then
+                    let tdef = over.Signature.DeclaringType.TypeDefinition
+                    match tdef.TryFullName with
+                    | Some Types.enumerable ->
+                        name, Fable.ObjectIterator
+                    | _ ->
+                        // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
+                        // information about ParamArray, we need to check the source method.
+                        let hasSpread =
+                            tdef.TryGetMembersFunctionsAndValues
+                            |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
+                            |> function Some m -> hasSeqSpread m | None -> false
+                        name, Fable.ObjectMethod hasSpread
+                else
+                    name, Fable.ObjectMethod false
+        return Fable.ObjectMember(makeStrConst name, value, kind)
+      }
+
+    trampoline {
+      let! baseCall =
+        trampoline {
+            match baseCallExpr with
+            // TODO: For interface implementations this should be BasicPatterns.NewObject
+            // but check the baseCall.DeclaringEntity name just in case
+            | BasicPatterns.Call(None,baseCall,genArgs1,genArgs2,baseArgs) ->
+                match baseCall.DeclaringEntity with
+                | Some baseType when baseType.TryFullName <> Some Types.object ->
+                    let typ = makeType com ctx.GenericArgs baseCallExpr.Type
+                    let! baseArgs = transformExprList com ctx baseArgs
+                    let genArgs = genArgs1 @ genArgs2 |> Seq.map (makeType com ctx.GenericArgs)
+                    return makeCallFrom com ctx None typ false genArgs None baseArgs baseCall |> Some
+                | _ -> return None
+            | _ -> return None
+        }
+
+      let! members =
+        (objType, overrides)::otherOverrides
+        |> trampolineListMap (fun (typ, overrides) ->
             let overrides =
                 if not typ.HasTypeDefinition then overrides else
                 let typName = typ.TypeDefinition.FullName.Replace(".","-")
@@ -139,37 +177,10 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                     typName + "-" + x.Signature.Name
                     |> Naming.ignoredInterfaceMethods.Contains
                     |> not)
-            overrides |> List.map (fun over ->
-                let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
-                let body = transformExpr com ctx over.Body |> run
-                let value = Fable.Function(Fable.Delegate args, body, None)
-                let name, kind =
-                    match over.Signature.Name with
-                    | Naming.StartsWith "get_" name when countNonCurriedParamsForOverride over = 0 ->
-                        name, Fable.ObjectGetter
-                    | Naming.StartsWith "set_" name when countNonCurriedParamsForOverride over = 1 ->
-                        name, Fable.ObjectSetter
-                    | name ->
-                        // Don't use the typ argument as the override may come
-                        // from another type, like ToString()
-                        if over.Signature.DeclaringType.HasTypeDefinition then
-                            let tdef = over.Signature.DeclaringType.TypeDefinition
-                            match tdef.TryFullName with
-                            | Some Types.enumerable ->
-                                name, Fable.ObjectIterator
-                            | _ ->
-                                // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
-                                // information about ParamArray, we need to check the source method.
-                                let hasSpread =
-                                    tdef.TryGetMembersFunctionsAndValues
-                                    |> Seq.tryFind (fun x -> x.CompiledName = over.Signature.Name)
-                                    |> function Some m -> hasSeqSpread m | None -> false
-                                name, Fable.ObjectMethod hasSpread
-                        else
-                            name, Fable.ObjectMethod false
-                Fable.ObjectMember(makeStrConst name, value, kind)
-            ))
-    Fable.ObjectExpr(members, makeType com ctx.GenericArgs objType, baseCall)
+            overrides |> trampolineListMap mapOverride)
+
+      return Fable.ObjectExpr(members |> List.concat, makeType com ctx.GenericArgs objType, baseCall)
+    }
 
 // TODO: Check code in Fable 1 and which tests fail because
 // we're not checking special cases
@@ -307,8 +318,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         if isInline var then
             match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
             | Some (_,fsExpr) ->
-                let! ret = transformExpr com ctx fsExpr
-                return ret
+                return! transformExpr com ctx fsExpr
             | None ->
                 return "Cannot resolve locally inlined value: " + var.DisplayName
                 |> addErrorAndReturnNull com r
@@ -322,8 +332,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.Let((var, value), body) ->
         if isInline var then
             let ctx = { ctx with ScopeInlineValues = (var, value)::ctx.ScopeInlineValues }
-            let! ret = transformExpr com ctx body
-            return ret
+            return! transformExpr com ctx body
         else
             let! value = transformExpr com ctx value
             let ctx, ident = bindIdentFrom com ctx var
@@ -357,8 +366,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.Application(applied, genArgs, []) ->
         // TODO: Ask why application without arguments happen. So far I've seen it
         // to access None or struct values (like the Result type)
-        let! ret = transformExpr com ctx applied
-        return ret
+        return! transformExpr com ctx applied
 
     // Application of locally inlined lambdas
     | BasicPatterns.Application(BasicPatterns.Value var, genArgs, args) when isInline var ->
@@ -391,8 +399,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // TODO: Ask: for some reason the F# compiler translates `x.IsSome` as `Application(Call(x, get_IsSome),[unit])`
     | BasicPatterns.Application(BasicPatterns.Call(Some _, memb, _, [], []) as optionProp, genArgs, [BasicPatterns.Const(null, _)])
         when memb.FullName = "Microsoft.FSharp.Core.IsSome" || memb.FullName = "Microsoft.FSharp.Core.IsNone" ->
-        let! ret = transformExpr com ctx optionProp
-        return ret
+        return! transformExpr com ctx optionProp
 
     | BasicPatterns.Application(applied, genArgs, args) ->
         let! applied = transformExpr com ctx applied
@@ -416,8 +423,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     // Lambdas
     | BasicPatterns.NewDelegate(delegateType, fsExpr) ->
-        let! ret = transformDelegate com ctx delegateType fsExpr
-        return ret
+        return! transformDelegate com ctx delegateType fsExpr
 
     | BasicPatterns.Lambda(arg, body) ->
         let ctx, args = makeFunctionArgs com ctx [arg]
@@ -500,7 +506,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Fable.NewTuple(argExprs) |> Fable.Value
 
     | BasicPatterns.ObjectExpr(objType, baseCall, overrides, otherOverrides) ->
-        return transformObjExpr com ctx objType baseCall overrides otherOverrides
+        return! transformObjExpr com ctx objType baseCall overrides otherOverrides
 
     | BasicPatterns.NewObject(memb, genArgs, args) ->
         let! args = transformExprList com ctx args
@@ -538,8 +544,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Fable.Test(expr, Fable.TypeTest typ, r)
 
     | BasicPatterns.UnionCaseTest(unionExpr, fsType, unionCase) ->
-        let! ret = transformUnionCaseTest com ctx r unionExpr fsType unionCase
-        return ret
+        return! transformUnionCaseTest com ctx r unionExpr fsType unionCase
 
     // Pattern Matching
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
