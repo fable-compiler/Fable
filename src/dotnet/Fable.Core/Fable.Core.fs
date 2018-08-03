@@ -29,7 +29,7 @@ type ExportDefaultAttribute() =
     inherit Attribute()
 
 /// Function calls will be replaced by inlined JS code.
-/// More info: http://fable.io/docs/interacting.html#Import-attribute
+/// More info: http://fable.io/docs/interacting.html#Emit-attribute
 type EmitAttribute private () =
     inherit Attribute()
     new (macro: string) = EmitAttribute()
