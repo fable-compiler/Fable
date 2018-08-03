@@ -4,10 +4,10 @@ console.log("Compiling to " + (useCommonjs ? "commonjs" : "ES2015 modules") + ".
 const babelOptions = useCommonjs
   ? { plugins: ["transform-es2015-modules-commonjs"] }
   : {
-    presets: [
-      // Uglify-js will fail if we don't compile to ES5
-      ["es2015", { modules: false }]
-    ]
+    // presets: [
+    //   // Uglify-js will fail if we don't compile to ES5
+    //   ["es2015", { modules: false }]
+    // ]
   };
 
 const fableOptions = {
