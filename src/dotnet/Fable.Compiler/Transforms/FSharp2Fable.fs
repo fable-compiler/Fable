@@ -237,7 +237,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     match fsExpr with
 
     | BasicPatterns.Coerce(targetType, inpExpr) ->
-        let! inpExpr = transformExpr com ctx inpExpr
+        let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr
         match tryDefinition targetType with
         | Some interfaceEntity when interfaceEntity.IsInterface ->
             let targetType = makeType com ctx.GenericArgs targetType
