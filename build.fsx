@@ -81,22 +81,9 @@ let installDotnetSdk () =
         Path.GetDirectoryName(dotnetExePath) |> addToPath
     run CWD dotnetExePath "--version"
 
-let clean_ (full: bool) =
-    !! "src/dotnet/**/bin"
-        -- "src/dotnet/Fable.Client.JS/demo/**"
-        -- "src/dotnet/Fable.Client.JS/testapp/**"
-        ++ "tests*/**/bin"
-        ++ "build"
-        ++ "**/.fable"
+let clean () =
+    !! "build" ++ "**/.fable"
     |> CleanDirs
-
-    if full then
-        !! "src/dotnet/**/obj"
-            ++"tests**/**/obj"
-        |> CleanDirs
-
-let clean () = clean_ false
-let fullClean () = clean_ true
 
 let nugetRestore dir =
     run dir dotnetExePath "restore"
@@ -227,7 +214,6 @@ Target "GitHubRelease" (fun _ ->
 )
 
 Target "Clean" clean
-Target "FullClean" fullClean
 Target "FableCLI" (buildCLI Release)
 Target "FableCoreJs" buildCoreJsFull
 Target "FableCoreJsTypescriptOnly" buildCoreJsTypescriptFiles
@@ -257,34 +243,34 @@ Target "PublishPackages" (fun () ->
         Package("js/fable-splitter", buildSplitter)
     ]
     installDotnetSdk ()
-    fullClean ()
     publishPackages2 baseDir dotnetExePath packages
 )
 
-let buildRepl () =
-    let fcsFork = "https://github.com/ncave/FSharp.Compiler.Service"
-    let fcsFableDir =
-        // Appveyor has problems with too long paths so download the fork closer to root
-        // TODO: Another option for local Windows Systems (not AppVeyor)
-        match environVarOrNone "APPVEYOR" with
-        | Some _ -> "/projects/fcs"
-        | None -> CWD </> "paket-files/ncave/FCS"
+let bundleRepl (fetchNcaveFork: bool) () =
+    if fetchNcaveFork then
+        let fcsFork = "https://github.com/ncave/FSharp.Compiler.Service"
+        let fcsFableDir =
+            // Appveyor has problems with too long paths so download the fork closer to root
+            // TODO: Another option for local Windows Systems (not AppVeyor)
+            match environVarOrNone "APPVEYOR" with
+            | Some _ -> "/projects/fcs"
+            | None -> CWD </> "paket-files/ncave/FCS"
 
-    let fableJsProj = CWD </> "src/dotnet/Fable.JS/Fable.JS.fsproj"
-    let fcsFableProj = fcsFableDir </> "fcs/fcs-fable/fcs-fable.fsproj"
+        let fableJsProj = CWD </> "src/dotnet/Fable.JS/Fable.JS.fsproj"
+        let fcsFableProj = fcsFableDir </> "fcs/fcs-fable/fcs-fable.fsproj"
 
-    let reg = Regex(@"ProjectReference Include="".*?""")
-    (reg, fableJsProj) ||> replaceLines (fun line _ ->
-        let replacement = reg.Replace(line, sprintf @"ProjectReference Include=""%s""" fcsFableProj)
-        printfn "REPLACED:\n\t%s\n\t%s" line replacement
-        Some replacement)
+        let reg = Regex(@"ProjectReference Include="".*?""")
+        (reg, fableJsProj) ||> replaceLines (fun line _ ->
+            let replacement = reg.Replace(line, sprintf @"ProjectReference Include=""%s""" fcsFableProj)
+            printfn "REPLACED:\n\t%s\n\t%s" line replacement
+            Some replacement)
 
-    CleanDir fcsFableDir
-    Repository.cloneSingleBranch CWD fcsFork "fable2" fcsFableDir
+        CleanDir fcsFableDir
+        Repository.cloneSingleBranch CWD fcsFork "fable2" fcsFableDir
 
-    runBashOrCmd fcsFableDir "fcs/build" "CodeGen.Fable"
-    Directory.GetFiles(fcsFableDir </> "fcs/fcs-fable/codegen")
-    |> Seq.iter (printfn "%s")
+        runBashOrCmd fcsFableDir "fcs/build" "CodeGen.Fable"
+        Directory.GetFiles(fcsFableDir </> "fcs/fcs-fable/codegen")
+        |> Seq.iter (printfn "%s")
 
     // Build REPL
     let replDir = CWD </> "src/dotnet/Fable.JS"
@@ -293,7 +279,18 @@ let buildRepl () =
     Yarn.run replDir "bundle" ""
 
     // Put fable-core files next to bundle
-    FileUtils.cp_r coreJsBuildDir (replDir </> "bundle/fable-core")
+    let fableCoreTarget = replDir </> "bundle/fable-core"
+    FileUtils.cp_r coreJsBuildDir fableCoreTarget
+    // These files will be used in the browser, so make sure the import paths include .js extension
+    let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
+    for file in Directory.EnumerateFiles(fableCoreTarget, "*.js", SearchOption.AllDirectories) do
+        File.WriteAllText(file, reg.Replace(File.ReadAllText(file), "import $1.js$2"))
+
+    // Write version number in a version.txt file
+    let release =
+        CWD </> "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
+        |> ReleaseNotesHelper.LoadReleaseNotes
+    File.WriteAllText(replDir </> "bundle/version.txt", release.NugetVersion)
 
 Target "All" (fun () ->
     installDotnetSdk ()
@@ -305,14 +302,14 @@ Target "All" (fun () ->
     runTestsJS ()
 
     match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
-    | Some _, _ -> runTestsDotnet (); buildRepl ()
+    | Some _, _ -> runTestsDotnet (); bundleRepl true ()
     // .NET tests fail most of the times in Travis for obscure reasons
-    | _, Some _ -> () // buildRepl ()
+    | _, Some _ -> () // bundleRepl true ()
     // Don't build repl locally (takes too long)
     | None, None -> runTestsDotnet ()
 )
 
-Target "REPL" buildRepl
+Target "BundleReplLocally" (bundleRepl false)
 
 // Note: build target "All" and "REPL" before this
 Target "REPL.test" (fun () ->
