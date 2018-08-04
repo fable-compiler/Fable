@@ -24,3 +24,8 @@ export function parse(s: string | null, radix: number = 10): number {
     throw new Error("Input string was not in a correct format.");
   }
 }
+
+// JS Number.isFinite function evals false for NaN
+export function isInfinity(x: number) {
+  return x === Number.POSITIVE_INFINITY || x === Number.NEGATIVE_INFINITY;
+}

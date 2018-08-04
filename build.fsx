@@ -277,6 +277,7 @@ let bundleRepl (fetchNcaveFork: bool) () =
     Yarn.install replDir
     Yarn.run replDir "build-modules" ""
     Yarn.run replDir "bundle" ""
+    Yarn.run replDir "minify" ""
 
     // Put fable-core files next to bundle
     let fableCoreTarget = replDir </> "bundle/fable-core"

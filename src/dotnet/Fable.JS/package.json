@@ -5,7 +5,7 @@
     "build-modules": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../build/fable-core",
     "splitter": "node ../../js/fable-splitter/dist/cli",
     "bundle": "rollup out/Main.js --file bundle/bundle.js --format iife --name Fable",
-    "postbundle": "uglifyjs bundle/bundle.js -o bundle/bundle.min.js -c -m"
+    "minify": "uglifyjs bundle/bundle.js -o bundle/bundle.min.js -c -m"
   },
   "devDependencies": {
     "babel-core": "^6.26.3",

@@ -67,7 +67,7 @@ let run thunk =
     runInner [] thunk :?> 'T
 
 type TrampolineBuilder() =
-    member __.Bind(thunk, f: 'T->Thunk) = BindValue(thunk, unbox f)
+    member __.Bind(thunk, f: 'T->Thunk) = BindValue(thunk, unbox >> f)
     member __.Delay f = DelayValue f
     member __.Return a = ReturnValue a
     member __.ReturnFrom (a: Thunk) = a

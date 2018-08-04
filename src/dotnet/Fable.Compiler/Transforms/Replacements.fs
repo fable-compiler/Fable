@@ -337,7 +337,7 @@ let toFloat com r targetType (args: Expr list) =
                     | Number Decimal -> "toDecimal"
                     | _ -> failwith "Unexpected BigInt conversion"
         Helper.CoreCall("BigInt", meth, Number Float64, args)
-    | Number _ -> args.Head
+    | Number _ | Char | EnumType(NumberEnumType,_) -> args.Head
     | _ ->
         addWarning com r "Cannot make conversion at compile time because source type is unknown"
         args.Head
@@ -416,7 +416,7 @@ let toInt com r (round: bool) targetType (args: Expr list) =
         | Number Decimal -> "toDecimal"
         | _ -> failwithf "Unexpected non-number type %A" typeTo
     match sourceType with
-    | Char -> args.Head
+    | Char | EnumType(NumberEnumType,_) -> args.Head
     | String ->
         match targetType with
         | Builtin (BclInt64|BclUInt64 as kind) ->
@@ -1566,8 +1566,10 @@ let parse target (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
         | Parse2Int64 -> false, "Long"
         | Parse2Float -> true, "Double"
     match i.CompiledName, args with
-    | "IsNaN", [arg] when isFloat ->
+    | "IsNaN", [_] when isFloat ->
         Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
+    | "IsInfinity", [_] when isFloat ->
+        Helper.CoreCall("Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // TODO verify that the number is within the Int32/Double/Single range
     | "Parse", [str] ->
         Helper.CoreCall(numberModule, "parse", t,
