@@ -153,14 +153,19 @@ module Helpers =
             then None
             else Some baseEntity)
 
-    let isInline (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.InlineAnnotation with
-        | FSharpInlineAnnotation.NeverInline
-        // TODO: Add compiler option to inline also `OptionalInline`
-        | FSharpInlineAnnotation.OptionalInline -> false
+    let private isInlinePrivate acceptOptionalInline (var: FSharpMemberOrFunctionOrValue) =
+        match var.InlineAnnotation with
+        | FSharpInlineAnnotation.NeverInline -> false
+        | FSharpInlineAnnotation.OptionalInline -> acceptOptionalInline
         | FSharpInlineAnnotation.PseudoValue
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
+
+    let isMemberInline (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
+        isInlinePrivate com.Options.aggressiveInline memb
+
+    let isLocalInline (var: FSharpMemberOrFunctionOrValue) =
+        isInlinePrivate false var
 
     let isPublicEntity (ent: FSharpEntity) =
         not ent.Accessibility.IsPrivate
@@ -886,7 +891,7 @@ module Util =
         ||> List.fold (fun body binding -> Fable.Let([binding], body))
 
     let (|Inlined|_|) (com: IFableCompiler) ctx genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
-        if not(isInline memb)
+        if not(isMemberInline com memb)
         then None
         else inlineExpr com ctx genArgs callee args memb |> Some
 

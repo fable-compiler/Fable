@@ -315,7 +315,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return Fable.Value(Fable.Null Fable.Any)
 
     | BasicPatterns.Value var ->
-        if isInline var then
+        if isLocalInline var then
             match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
             | Some (_,fsExpr) ->
                 return! transformExpr com ctx fsExpr
@@ -330,7 +330,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     // Assignments
     | BasicPatterns.Let((var, value), body) ->
-        if isInline var then
+        if isLocalInline var then
             let ctx = { ctx with ScopeInlineValues = (var, value)::ctx.ScopeInlineValues }
             return! transformExpr com ctx body
         else
@@ -369,7 +369,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return! transformExpr com ctx applied
 
     // Application of locally inlined lambdas
-    | BasicPatterns.Application(BasicPatterns.Value var, genArgs, args) when isInline var ->
+    | BasicPatterns.Application(BasicPatterns.Value var, genArgs, args) when isLocalInline var ->
         match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
         | Some (_,fsExpr) ->
             let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
@@ -826,7 +826,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     let ctx = { ctx with EnclosingMember = Some memb }
     if isIgnoredMember memb
     then []
-    elif isInline memb then
+    elif isMemberInline com memb then
         // TODO: Compiler flag to output pseudo-inline expressions? (e.g. for REPL libs)
         com.AddInlineExpr(memb, (List.concat args, body))
         []

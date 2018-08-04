@@ -41,5 +41,6 @@ type IFableManager =
     abstract GetParseErrors: parseResults: IParseResults -> Error[]
     abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<string[]>
     abstract GetCompletionsAtLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Completion[]>
-    abstract CompileToBabelAst: fableCore: string * parseResults: IParseResults * fileName: string * optimized: bool -> obj
+    abstract CompileToBabelAst: fableCore: string * parseResults: IParseResults * fileName: string
+                                * fcsOptimized: bool * aggressiveInline: bool -> obj
     abstract FSharpAstToString: parseResults: IParseResults * optimized: bool -> string

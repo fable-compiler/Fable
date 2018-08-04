@@ -4,6 +4,7 @@ type CompilerOptions =
     { typedArrays: bool
       clampByteArrays: bool
       verbose: bool
+      aggressiveInline: bool
     }
 
 [<RequireQualifiedAccess>]
