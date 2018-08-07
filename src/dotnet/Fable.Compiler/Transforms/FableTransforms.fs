@@ -262,7 +262,7 @@ module private Transforms =
                     |> addWarning com ident.Range
                 let replacement = Function(args, funBody, Some ident.Name)
                 replaceValues (Map [ident.Name, replacement]) letBody
-            | value when ident.IsCompilerGenerated
+            | value when (ident.IsCompilerGenerated || com.Options.aggressiveInline)
                     // Don't erase the binding if the compiler-generated ident is a tuple, because the getters
                     // will be erased later (see above) and there's a risk the expression gets totally removed
                     && not(isTuple ident.Type)

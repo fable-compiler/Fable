@@ -29,7 +29,7 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
              errors: FSharpErrorInfo array, dependencies: Map<string, string[]>, fableCore: string, isWatchCompile: bool) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
-    let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
+    let inlineExprs = ConcurrentDictionary<string, InlineExpr option>()
     let normalizedFiles =
         projectOptions.SourceFiles
         |> Seq.map (fun f ->

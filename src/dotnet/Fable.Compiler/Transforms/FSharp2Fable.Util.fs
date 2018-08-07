@@ -39,7 +39,7 @@ type IFableCompiler =
         interfaceName: string * Fable.Expr -> Fable.Expr option
     abstract InjectArgument: enclosingEntity: FSharpEntity option * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
-    abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
+    abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr option
     abstract AddUsedVarName: string -> unit
     abstract IsUsedVarName: string -> bool
 
@@ -153,6 +153,10 @@ module Helpers =
             then None
             else Some baseEntity)
 
+    let rec isFunctionRecursive (memb: FSharpMemberOrFunctionOrValue) = function
+        | BasicPatterns.Call(_,memb2,_,_,_) -> obj.Equals(memb, memb2)
+        | e -> e.ImmediateSubExpressions |> List.exists (isFunctionRecursive memb)
+
     let private isInlinePrivate acceptOptionalInline (var: FSharpMemberOrFunctionOrValue) =
         match var.InlineAnnotation with
         | FSharpInlineAnnotation.NeverInline -> false
@@ -162,7 +166,7 @@ module Helpers =
         | FSharpInlineAnnotation.AggressiveInline -> true
 
     let isMemberInline (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
-        isInlinePrivate com.Options.aggressiveInline memb
+        isInlinePrivate (com.Options.aggressiveInline) memb
 
     let isLocalInline (var: FSharpMemberOrFunctionOrValue) =
         isInlinePrivate false var
@@ -873,10 +877,8 @@ module Util =
             | None, _, _ -> None
         | _ -> None
 
-    let inlineExpr (com: IFableCompiler) ctx (genArgs: Lazy<_>) callee args (memb: FSharpMemberOrFunctionOrValue) =
-        // TODO: Log error if the inline function is called recursively
-        // TODO!!! Replace the source location in the inlined expressions
-        let argIdents, fsExpr = com.GetInlineExpr(memb)
+    let inlineExpr (com: IFableCompiler) ctx (genArgs: Lazy<_>) callee args argIdents fsExpr =
+        // TODO!!! Replace the filepath in inline expressions
         let args: Fable.Expr list = match callee with Some c -> c::args | None -> args
         let ctx, bindings =
             ((ctx, []), argIdents, args) |||> List.fold2 (fun (ctx, bindings) argId arg ->
@@ -893,7 +895,8 @@ module Util =
     let (|Inlined|_|) (com: IFableCompiler) ctx genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
         if not(isMemberInline com memb)
         then None
-        else inlineExpr com ctx genArgs callee args memb |> Some
+        else com.GetInlineExpr(memb) |> Option.map (fun (argIdents, fsExpr) ->
+            inlineExpr com ctx genArgs callee args argIdents fsExpr)
 
     /// Removes optional arguments set to None in tail position and calls the injector if necessary
     let transformOptionalArguments (com: IFableCompiler) (ctx: Context) r

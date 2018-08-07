@@ -769,7 +769,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
                   HasSpread = hasSeqSpread memb }
             [Fable.ValueDeclaration(fn, info)]
 
-let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+let private transformMemberFunctionOrValue (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let isPublic = isPublicMember memb
     let name = getMemberDeclarationName com memb
     com.AddUsedVarName(name)
@@ -780,6 +780,14 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
     | None ->
         if isModuleValueForDeclarations memb
         then transformMemberValue com ctx isPublic name memb body
+        elif isMemberInline com memb then
+            // TODO: Check if function is already cached
+            if isFunctionRecursive memb body then
+                com.AddInlineExpr(memb, None)
+                transformMemberFunction com ctx isPublic name memb args body
+            else
+                com.AddInlineExpr(memb, Some(List.concat args, body))
+                []
         else transformMemberFunction com ctx isPublic name memb args body
 
 let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -826,10 +834,6 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     let ctx = { ctx with EnclosingMember = Some memb }
     if isIgnoredMember memb
     then []
-    elif isMemberInline com memb then
-        // TODO: Compiler flag to output pseudo-inline expressions? (e.g. for REPL libs)
-        com.AddInlineExpr(memb, (List.concat args, body))
-        []
     elif memb.IsImplicitConstructor
     then transformImplicitConstructor com ctx memb args body
     elif memb.IsExplicitInterfaceImplementation
@@ -994,7 +998,11 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             let fullName = getMemberUniqueName com memb
             com.GetOrAddInlineExpr(fullName, fun () ->
                 match tryGetMemberArgsAndBody implFiles fileName memb with
-                | Some(args, body) -> List.concat args, body
+                | Some(args, body) ->
+                    // TODO: Check if this takes too long for always-inline functions
+                    if isFunctionRecursive memb body
+                    then None
+                    else Some(List.concat args, body)
                 | None -> failwith ("Cannot find inline member " + memb.FullName))
         member this.AddUsedVarName(varName) =
             this.AddUsedVarName(varName) |> ignore

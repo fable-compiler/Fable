@@ -23,6 +23,6 @@ type ICompiler =
     abstract Options: CompilerOptions
     abstract GetUniqueVar: ?name: string -> string
     abstract GetRootModule: string -> string
-    abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
+    abstract GetOrAddInlineExpr: string * (unit->InlineExpr option) -> InlineExpr option
     abstract AddLog: msg:string * severity: Severity * ?range:SourceLocation
                         * ?fileName:string * ?tag: string -> unit
