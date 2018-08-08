@@ -315,8 +315,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return Fable.Value(Fable.Null Fable.Any)
 
     | BasicPatterns.Value var ->
-        if isLocalInline var then
-            match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
+        if isLocallyInlined var then
+            match ctx.LocallyInlinedValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
             | Some (_,fsExpr) ->
                 return! transformExpr com ctx fsExpr
             | None ->
@@ -330,8 +330,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     // Assignments
     | BasicPatterns.Let((var, value), body) ->
-        if isLocalInline var then
-            let ctx = { ctx with ScopeInlineValues = (var, value)::ctx.ScopeInlineValues }
+        if isLocallyInlined var then
+            let ctx = { ctx with LocallyInlinedValues = (var, value)::ctx.LocallyInlinedValues }
             return! transformExpr com ctx body
         else
             let! value = transformExpr com ctx value
@@ -369,8 +369,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return! transformExpr com ctx applied
 
     // Application of locally inlined lambdas
-    | BasicPatterns.Application(BasicPatterns.Value var, genArgs, args) when isLocalInline var ->
-        match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
+    | BasicPatterns.Application(BasicPatterns.Value var, genArgs, args) when isLocallyInlined var ->
+        match ctx.LocallyInlinedValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
         | Some (_,fsExpr) ->
             let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
             let resolvedCtx = { ctx with GenericArgs = matchGenericParamsFrom var genArgs |> Map }
@@ -780,15 +780,10 @@ let private transformMemberFunctionOrValue (com: FableCompiler) ctx (memb: FShar
     | None ->
         if isModuleValueForDeclarations memb
         then transformMemberValue com ctx isPublic name memb body
-        elif isMemberInline com memb then
-            // TODO: Check if function is already cached
-            if isFunctionRecursive memb body then
-                com.AddInlineExpr(memb, None)
-                transformMemberFunction com ctx isPublic name memb args body
-            else
-                com.AddInlineExpr(memb, Some(List.concat args, body))
-                []
-        else transformMemberFunction com ctx isPublic name memb args body
+        else
+            match com.TryGetInlinedMember(memb, (args, body)) with
+            | Some _ -> []
+            | None -> transformMemberFunction com ctx isPublic name memb args body
 
 let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
@@ -945,11 +940,10 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
     member val UsedVarNames = HashSet<string>()
     member val Dependencies = HashSet<string>()
     member val InterfaceImplementations: Dictionary<_,_> = Dictionary()
+
     member this.AddUsedVarName(varName) =
         this.UsedVarNames.Add(varName) |> ignore
-    member __.AddInlineExpr(memb, inlineExpr) =
-        let fullName = getMemberUniqueName com memb
-        com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
+
     member this.AddInterfaceImplementation(memb: FSharpMemberOrFunctionOrValue, objMemb: Fable.ObjectMember) =
         match memb.DeclaringEntity, tryGetInterfaceDefinitionFromMethod memb with
         | Some implementingEntity, Some interfaceEntity ->
@@ -980,6 +974,40 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
         | _ ->
             "Cannot find implementing and/or interface entities for " + memb.FullName
             |> addError com None
+
+    member this.TryGetInlinedMember(memb: FSharpMemberOrFunctionOrValue, ?argsAndBody) =
+        // Use a tri-state:
+        //  - None: never inline
+        //  - Some false: optional inline
+        //  - Some true: always inline
+        let isInlined =
+            match memb.InlineAnnotation with
+            | FSharpInlineAnnotation.NeverInline -> None
+            | FSharpInlineAnnotation.OptionalInline ->
+                if com.Options.fableOptimize then Some false else None
+            | FSharpInlineAnnotation.PseudoValue
+            | FSharpInlineAnnotation.AlwaysInline
+            | FSharpInlineAnnotation.AggressiveInline -> Some true
+        match isInlined with
+        | None -> None
+        | Some alwaysInline ->
+            let fileName =
+                (getMemberLocation memb).FileName
+                |> Path.normalizePathAndEnsureFsExtension
+            if fileName <> com.CurrentFile then
+                this.Dependencies.Add(fileName) |> ignore
+            let fullName = getMemberUniqueName com memb
+            com.GetOrAddInlinedMember(fullName, fun () ->
+                let argsAndBody = argsAndBody |> Option.orElseWith (fun () ->
+                    tryGetMemberArgsAndBody implFiles fileName memb)
+                match argsAndBody with
+                | Some(args, body) ->
+                    // If it's optional inline check if it's a simple function
+                    if alwaysInline || acceptOptionalInline memb body
+                    then Some(List.concat args, body)
+                    else None
+                | None -> failwith ("Cannot find inline member " + memb.FullName))
+
     interface IFableCompiler with
         member this.Transform(ctx, fsExpr) =
             transformExpr this ctx fsExpr |> run
@@ -989,25 +1017,13 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             Replacements.tryInterfaceCast r t name e
         member this.InjectArgument(enclosingEntity, r, genArgs, parameter) =
             Inject.injectArg this enclosingEntity r genArgs parameter
-        member this.GetInlineExpr(memb) =
-            let fileName =
-                (getMemberLocation memb).FileName
-                |> Path.normalizePathAndEnsureFsExtension
-            if fileName <> com.CurrentFile then
-                this.Dependencies.Add(fileName) |> ignore
-            let fullName = getMemberUniqueName com memb
-            com.GetOrAddInlineExpr(fullName, fun () ->
-                match tryGetMemberArgsAndBody implFiles fileName memb with
-                | Some(args, body) ->
-                    // TODO: Check if this takes too long for always-inline functions
-                    if isFunctionRecursive memb body
-                    then None
-                    else Some(List.concat args, body)
-                | None -> failwith ("Cannot find inline member " + memb.FullName))
+        member this.TryGetInlinedMember(memb) =
+            this.TryGetInlinedMember(memb)
         member this.AddUsedVarName(varName) =
             this.AddUsedVarName(varName) |> ignore
         member this.IsUsedVarName(varName) =
             this.UsedVarNames.Contains(varName)
+
     interface ICompiler with
         member __.Options = com.Options
         member __.FableCore = com.FableCore
@@ -1016,8 +1032,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             com.GetUniqueVar(?name=name)
         member __.GetRootModule(fileName) =
             com.GetRootModule(fileName)
-        member __.GetOrAddInlineExpr(fullName, generate) =
-            com.GetOrAddInlineExpr(fullName, generate)
+        member __.GetOrAddInlinedMember(fullName, generate) =
+            com.GetOrAddInlinedMember(fullName, generate)
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 

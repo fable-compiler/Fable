@@ -2,7 +2,7 @@
   "private": true,
   "scripts": {
     "build": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --args \"--commonjs\" --fable-core ../../../build/fable-core",
-    "build-modules": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../build/fable-core --experimental aggressive-inline",
+    "build-modules": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../build/fable-core --experimental fable-optimize",
     "build-es6": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --args \"--es6\" --fable-core ../../../build/fable-core",
     "splitter": "node ../../js/fable-splitter/dist/cli",
     "webpack": "node ../../../node_modules/webpack-command/lib/cli.js -p --entry ./out/Main.js --output ./bundle/bundle.min.js --output-library Fable",

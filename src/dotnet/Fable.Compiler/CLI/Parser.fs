@@ -90,7 +90,7 @@ let toCompilerOptions (msg: Message): CompilerOptions =
     { typedArrays = msg.typedArrays
       clampByteArrays = msg.clampByteArrays
       verbose = GlobalParams.Singleton.Verbose
-      aggressiveInline = GlobalParams.Singleton.Experimental.Contains("aggressive-inline")
+      fableOptimize = GlobalParams.Singleton.Experimental.Contains("fable-optimize")
     }
 
 let parse (msg: string) =

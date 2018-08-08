@@ -4,7 +4,7 @@ type CompilerOptions =
     { typedArrays: bool
       clampByteArrays: bool
       verbose: bool
-      aggressiveInline: bool
+      fableOptimize: bool
     }
 
 [<RequireQualifiedAccess>]
@@ -15,7 +15,7 @@ type Severity =
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-type InlineExpr = FSharpMemberOrFunctionOrValue list * FSharpExpr
+type InlinedMember = FSharpMemberOrFunctionOrValue list * FSharpExpr
 
 type ICompiler =
     abstract FableCore: string
@@ -23,6 +23,6 @@ type ICompiler =
     abstract Options: CompilerOptions
     abstract GetUniqueVar: ?name: string -> string
     abstract GetRootModule: string -> string
-    abstract GetOrAddInlineExpr: string * (unit->InlineExpr option) -> InlineExpr option
+    abstract GetOrAddInlinedMember: string * (unit->InlinedMember option) -> InlinedMember option
     abstract AddLog: msg:string * severity: Severity * ?range:SourceLocation
                         * ?fileName:string * ?tag: string -> unit

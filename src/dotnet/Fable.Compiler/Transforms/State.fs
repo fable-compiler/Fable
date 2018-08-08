@@ -29,7 +29,7 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
              errors: FSharpErrorInfo array, dependencies: Map<string, string[]>, fableCore: string, isWatchCompile: bool) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
-    let inlineExprs = ConcurrentDictionary<string, InlineExpr option>()
+    let inlineExprs = ConcurrentDictionary<string, InlinedMember option>()
     let normalizedFiles =
         projectOptions.SourceFiles
         |> Seq.map (fun f ->
@@ -76,7 +76,7 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
             if filesAndDependent.Contains(kv.Key)
             then Some kv.Key else None)
         |> Seq.toArray
-    member __.GetOrAddInlineExpr(fullName, generate) =
+    member __.GetOrAddInlinedMember(fullName, generate) =
         inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
 /// Type with utilities for compiling F# files to JS
@@ -104,7 +104,7 @@ type Compiler(currentFile, project: Project, options, ?fableCore: string) =
                 let msg = sprintf "Cannot find root module for %s" fileName
                 (x :> ICompiler).AddLog(msg, Severity.Warning)
                 "" // failwith msg
-        member __.GetOrAddInlineExpr(fullName, generate) =
+        member __.GetOrAddInlinedMember(fullName, generate) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             match severity, fileName with

@@ -152,13 +152,13 @@ let makeProjOptions projFile =
         Stamp = None }
     projOptions
 
-let makeProject fileName fcsOptimized (parseResults: ParseResults) =
+let makeProject fileName fcsOptimize (parseResults: ParseResults) =
     // let errors = com.ReadAllLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let checkedProject = parseResults.CheckProject
     let projectOptions = makeProjOptions fileName
     let implFiles =
-        (if fcsOptimized
+        (if fcsOptimize
          then checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
          else checkedProject.AssemblyContents.ImplementationFiles)
         |> Seq.map (fun file -> Fable.Path.normalizePath file.FileName, file) |> Map
@@ -166,11 +166,11 @@ let makeProject fileName fcsOptimized (parseResults: ParseResults) =
     let project = Project(projectOptions, implFiles, parseResults.CheckProject.Errors, Map.empty, "", isWatchCompile=false)
     project
 
-let makeCompilerOptions aggressiveInline: Fable.CompilerOptions =
+let makeCompilerOptions fableOptimze: Fable.CompilerOptions =
     { typedArrays = true
       clampByteArrays = false
       verbose = false
-      aggressiveInline = aggressiveInline
+      fableOptimize = fableOptimze
     }
 
 let compileAst (com: Compiler) (project: Project) =
@@ -198,15 +198,15 @@ let init () =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText
         member __.CompileToBabelAst(fableCore:string, parseResults:IParseResults, fileName:string,
-                                    fcsOptimized: bool, aggressiveInline: bool) =
+                                    fcsOptimize: bool, fableOptimize: bool) =
             let res = parseResults :?> ParseResults
-            let project = makeProject fileName fcsOptimized res
-            let comOpts = makeCompilerOptions aggressiveInline
+            let project = makeProject fileName fcsOptimize res
+            let comOpts = makeCompilerOptions fableOptimize
             let com = Compiler(fileName, project, comOpts, fableCore)
             compileAst com project :> obj
-        member __.FSharpAstToString(parseResults:IParseResults, fcsOptimized: bool) =
+        member __.FSharpAstToString(parseResults:IParseResults, fcsOptimize: bool) =
             let res = parseResults :?> ParseResults
-            if not fcsOptimized then res.CheckProject.AssemblyContents.ImplementationFiles
+            if not fcsOptimize then res.CheckProject.AssemblyContents.ImplementationFiles
             else res.CheckProject.GetOptimizedAssemblyContents().ImplementationFiles
             |> Seq.collect (fun file -> AstPrint.printFSharpDecls "" file.Declarations)
             |> String.concat "\n"

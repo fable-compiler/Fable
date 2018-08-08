@@ -11,7 +11,7 @@ open Fable.Transforms
 
 type Context =
     { Scope: (FSharpMemberOrFunctionOrValue * Fable.Expr) list
-      ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
+      LocallyInlinedValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
       EnclosingEntity: FSharpEntity option
@@ -21,7 +21,7 @@ type Context =
     }
     static member Create(enclosingEntity) =
         { Scope = []
-          ScopeInlineValues = []
+          LocallyInlinedValues = []
           GenericArgs = Map.empty
           EnclosingMember = None
           EnclosingEntity = enclosingEntity
@@ -39,7 +39,7 @@ type IFableCompiler =
         interfaceName: string * Fable.Expr -> Fable.Expr option
     abstract InjectArgument: enclosingEntity: FSharpEntity option * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
-    abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr option
+    abstract TryGetInlinedMember: FSharpMemberOrFunctionOrValue -> InlinedMember option
     abstract AddUsedVarName: string -> unit
     abstract IsUsedVarName: string -> bool
 
@@ -157,19 +157,27 @@ module Helpers =
         | BasicPatterns.Call(_,memb2,_,_,_) -> obj.Equals(memb, memb2)
         | e -> e.ImmediateSubExpressions |> List.exists (isFunctionRecursive memb)
 
-    let private isInlinePrivate acceptOptionalInline (var: FSharpMemberOrFunctionOrValue) =
+    let isLocallyInlined (var: FSharpMemberOrFunctionOrValue) =
         match var.InlineAnnotation with
-        | FSharpInlineAnnotation.NeverInline -> false
-        | FSharpInlineAnnotation.OptionalInline -> acceptOptionalInline
+        | FSharpInlineAnnotation.NeverInline
+        | FSharpInlineAnnotation.OptionalInline -> false
         | FSharpInlineAnnotation.PseudoValue
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
 
-    let isMemberInline (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
-        isInlinePrivate (com.Options.aggressiveInline) memb
-
-    let isLocalInline (var: FSharpMemberOrFunctionOrValue) =
-        isInlinePrivate false var
+    // The F# compiler marks too many functions as optional-inline causing SO errors
+    // (for recursive or mutually recursive functions) or a bigger bundle size.
+    // For now, let's just inline simple getters and setters.
+    let acceptOptionalInline (memb: FSharpMemberOrFunctionOrValue) body =
+        if memb.IsPropertyGetterMethod then
+            match body with
+            | BasicPatterns.FSharpFieldGet _ -> true
+            | _ -> false
+        elif memb.IsPropertySetterMethod then
+            match body with
+            | BasicPatterns.FSharpFieldSet _ -> true
+            | _ -> false
+        else false
 
     let isPublicEntity (ent: FSharpEntity) =
         not ent.Accessibility.IsPrivate
@@ -893,9 +901,7 @@ module Util =
         ||> List.fold (fun body binding -> Fable.Let([binding], body))
 
     let (|Inlined|_|) (com: IFableCompiler) ctx genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
-        if not(isMemberInline com memb)
-        then None
-        else com.GetInlineExpr(memb) |> Option.map (fun (argIdents, fsExpr) ->
+        com.TryGetInlinedMember(memb) |> Option.map (fun (argIdents, fsExpr) ->
             inlineExpr com ctx genArgs callee args argIdents fsExpr)
 
     /// Removes optional arguments set to None in tail position and calls the injector if necessary

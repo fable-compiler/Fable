@@ -255,20 +255,24 @@ module private Transforms =
             // Erase bindings for getters of compiler-generated tuples (as in pattern matching or lambdas destructuring tuple args)
             | Get(IdentExpr tupleIdent, TupleGet _, _, _) as value when tupleIdent.IsCompilerGenerated ->
                 replaceValues (Map [ident.Name, value]) letBody
-            | Function(args, funBody, currentName) when ident.IsCompilerGenerated
-                                                    && (countReferences 1 ident.Name letBody <= 1) ->
-                if Option.isSome currentName then
-                    sprintf "Unexpected named function when erasing binding (%s > %s)" currentName.Value ident.Name
-                    |> addWarning com ident.Range
-                let replacement = Function(args, funBody, Some ident.Name)
-                replaceValues (Map [ident.Name, replacement]) letBody
-            | value when (ident.IsCompilerGenerated || com.Options.aggressiveInline)
-                    // Don't erase the binding if the compiler-generated ident is a tuple, because the getters
-                    // will be erased later (see above) and there's a risk the expression gets totally removed
-                    && not(isTuple ident.Type)
-                    && canInlineArg ident.Name value letBody ->
-                replaceValues (Map [ident.Name, value]) letBody
-            | _ -> e
+            // Don't erase the binding if the compiler-generated ident is a tuple, because the getters
+            // will be erased later (see above) and there's a risk the expression gets totally removed
+            | _ when ident.IsCompilerGenerated && isTuple ident.Type ->
+                e
+            | Function(args, funBody, currentName) ->
+                if ident.IsCompilerGenerated && (countReferences 1 ident.Name letBody <= 1) then
+                    if Option.isSome currentName then
+                        sprintf "Unexpected named function when erasing binding (%s > %s)" currentName.Value ident.Name
+                        |> addWarning com ident.Range
+                    let replacement = Function(args, funBody, Some ident.Name)
+                    replaceValues (Map [ident.Name, replacement]) letBody
+                else e
+            | value ->
+                // There are some errors when compiling the REPL with `fable-optimize` option if we try to inline all bindings
+                if (ident.IsCompilerGenerated) //|| com.Options.fableOptimize)
+                    && canInlineArg ident.Name value letBody
+                then replaceValues (Map [ident.Name, value]) letBody
+                else e
         | e -> e
 
     /// Returns arity of lambda (or lambda option) types

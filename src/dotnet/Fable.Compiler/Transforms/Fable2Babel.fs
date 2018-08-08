@@ -1523,7 +1523,7 @@ module Compiler =
             member __.CurrentFile = com.CurrentFile
             member __.GetUniqueVar(name) = com.GetUniqueVar(?name=name)
             member __.GetRootModule(fileName) = com.GetRootModule(fileName)
-            member __.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
+            member __.GetOrAddInlinedMember(fullName, generate) = com.GetOrAddInlinedMember(fullName, generate)
             member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
