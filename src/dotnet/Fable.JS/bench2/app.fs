@@ -16,7 +16,7 @@ let main argv =
         | [|metadataPath; testScriptPath; compiledScriptPath|] -> metadataPath, testScriptPath, compiledScriptPath
         | _ -> metadataPath, testScriptPath, testScriptPath.Replace(".fsx", ".js")
     try
-        let optimized = false // TODO: from compiler option
+        let fcsOptimize, fableOptimize = false, false // TODO: from compiler option
         // let fsAstFile = Fable.Path.ChangeExtension(testScriptPath, ".fsharp.ast.txt")
         // let babelAstFile = Fable.Path.ChangeExtension(testScriptPath, ".babel.ast.json")
         let source = readAllText testScriptPath
@@ -25,7 +25,7 @@ let main argv =
         let ms0, checker = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
         let parseFSharp () = fable.ParseFSharpProject(checker, testScriptPath, source)
-        let parseFable ast = fable.CompileToBabelAst(fableCoreDir, ast, testScriptPath, optimized)
+        let parseFable ast = fable.CompileToBabelAst(fableCoreDir, ast, testScriptPath, fcsOptimize, fableOptimize)
         let fcsMeasures = ResizeArray()
         let fableMeasures = ResizeArray()
         let bench i =
