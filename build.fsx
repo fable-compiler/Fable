@@ -293,6 +293,16 @@ let bundleRepl (fetchNcaveFork: bool) () =
         |> ReleaseNotesHelper.LoadReleaseNotes
     File.WriteAllText(replDir </> "bundle/version.txt", release.NugetVersion)
 
+let runBench2 () =
+    let replDir = CWD </> "src/dotnet/Fable.JS"
+    Yarn.run replDir "babel" "out --out-dir out2 --plugins transform-es2015-modules-commonjs --quiet"
+    Yarn.run replDir "babel" "../../../build/fable-core --out-dir out-fable-core --plugins transform-es2015-modules-commonjs --quiet"
+    let bench2Dir = CWD </> "src/dotnet/Fable.JS/bench2"
+    Yarn.install bench2Dir
+    Yarn.run bench2Dir "build" ""
+    Yarn.run bench2Dir "start" ""
+    Yarn.run bench2Dir "test" ""
+
 Target "All" (fun () ->
     installDotnetSdk ()
     clean ()
@@ -303,7 +313,7 @@ Target "All" (fun () ->
     runTestsJS ()
 
     match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
-    | Some _, _ -> runTestsDotnet (); bundleRepl true ()
+    | Some _, _ -> runTestsDotnet (); bundleRepl true (); runBench2 ()
     // .NET tests fail most of the times in Travis for obscure reasons
     | _, Some _ -> () // bundleRepl true ()
     // Don't build repl locally (takes too long)

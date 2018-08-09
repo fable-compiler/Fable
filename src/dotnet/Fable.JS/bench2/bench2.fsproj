@@ -6,13 +6,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="../Interfaces.fs"/>
-    <Compile Include="../Metadata.fs"/>
-    <Compile Include="app.fs"/>
+    <Reference Include="../../../../build/fable/Fable.Core.dll" />
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="../../../../build/fable/Fable.Core.dll" />
+    <Compile Include="../Interfaces.fs"/>
+    <Compile Include="../Metadata.fs"/>
+    <Compile Include="platform.fs"/>
+    <Compile Include="app.fs"/>
   </ItemGroup>
+
 
 </Project>
