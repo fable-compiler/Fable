@@ -280,6 +280,6 @@ let main argv =
         let execArgs = defaultArg args.commandArgs ""
         let workingDir = Directory.GetCurrentDirectory()
         startServerWithProcess workingDir args.port cmd execArgs
-    | Some "add" -> printfn "The add command has been deprecated. Use Paket to manage Fable libraries."; 0
-    | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options." cmd; 0
-    | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; 0
+    | Some "add" -> printfn "The add command has been deprecated. Use Paket to manage Fable libraries."; 1
+    | Some cmd -> printfn "Unrecognized command: %s. Use `dotnet fable --help` to see available options." cmd; 1
+    | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; 1
