@@ -911,7 +911,10 @@ module Util =
                     let guards, lastGuard = List.splitLast guards
                     let guards = guards |> List.map (fun e -> SwitchCase([||], com.TransformAsExpr(ctx, e)))
                     let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-                    let caseBody = Array.append caseBody [|BreakStatement() :> Statement|]
+                    let caseBody =
+                        match returnStrategy with
+                        | Some Return -> caseBody
+                        | _ -> Array.append caseBody [|BreakStatement() :> Statement|]
                     guards @ [SwitchCase([|BlockStatement caseBody|], com.TransformAsExpr(ctx, lastGuard))]
                 )
         let cases =
@@ -955,25 +958,35 @@ module Util =
 
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
-            | Fable.Operation(Fable.BinaryOperation(BinaryEqualStrict, Fable.IdentExpr ident, right), _, _) ->
-                Some(ident, right)
+            | Fable.Operation(Fable.BinaryOperation(BinaryEqualStrict, expr, right), _, _) ->
+                Some(expr, right)
+            | Fable.Test(expr, Fable.UnionCaseTest(uci, ent), _) ->
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number Int32, None)
+                let right = Fable.NumberConstant(FSharp2Fable.Helpers.unionCaseTag ent uci |> float, Int32) |> Fable.Value
+                Some(evalExpr, right)
             | _ -> None
-        let rec checkInner cases (evalIdent: Fable.Ident) = function
-            | Fable.IfThenElse(Equals(evalIdent2, caseExpr),
+        let sameEvalExprs evalExpr1 evalExpr2 =
+            match evalExpr1, evalExpr2 with
+            | Fable.IdentExpr i1, Fable.IdentExpr i2
+            | Fable.Get(Fable.IdentExpr i1,Fable.UnionTag,_,_), Fable.Get(Fable.IdentExpr i2,Fable.UnionTag,_,_) ->
+                i1.Name = i2.Name
+            | _ -> false
+        let rec checkInner cases evalExpr = function
+            | Fable.IfThenElse(Equals(evalExpr2, caseExpr),
                                Fable.DecisionTreeSuccess(targetIndex, boundValues, _), treeExpr)
-                                    when evalIdent.Name = evalIdent2.Name ->
+                                    when sameEvalExprs evalExpr evalExpr2 ->
                 match treeExpr with
                 | Fable.DecisionTreeSuccess(defaultTargetIndex, defaultBoundValues, _) ->
                     let cases = (caseExpr, targetIndex, boundValues)::cases |> List.rev
-                    Some(evalIdent, cases, (defaultTargetIndex, defaultBoundValues))
-                | treeExpr -> checkInner ((caseExpr, targetIndex, boundValues)::cases) evalIdent treeExpr
+                    Some(evalExpr, cases, (defaultTargetIndex, defaultBoundValues))
+                | treeExpr -> checkInner ((caseExpr, targetIndex, boundValues)::cases) evalExpr treeExpr
             | _ -> None
         match expr with
-        | Fable.IfThenElse(Equals(evalIdent, caseExpr),
+        | Fable.IfThenElse(Equals(evalExpr, caseExpr),
                            Fable.DecisionTreeSuccess(targetIndex, boundValues, _), treeExpr) ->
-            match checkInner [caseExpr, targetIndex, boundValues] evalIdent treeExpr with
-            | Some(evalIdent, cases, defaultCase) ->
-                Some(Fable.IdentExpr evalIdent, cases, defaultCase)
+            match checkInner [caseExpr, targetIndex, boundValues] evalExpr treeExpr with
+            | Some(evalExpr, cases, defaultCase) ->
+                Some(evalExpr, cases, defaultCase)
             | None -> None
         | _ -> None
 
@@ -1006,16 +1019,17 @@ module Util =
             let ctx = { ctx with DecisionTargets = targets }
             match transformDecisionTreeAsSwitch treeExpr with
             | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-                if targets |> List.forall (fun (boundValues,_) -> List.isEmpty boundValues) then
-                    let cases =
-                        cases
-                        |> List.groupBy (fun (_,idx,_) -> idx)
-                        |> List.map (fun (idx, cases) ->
-                            let caseExprs = cases |> List.map (fun (caseExpr,_,_) -> caseExpr)
-                            caseExprs, (List.item idx targets |> snd))
-                    let defaultCase = List.item defaultIndex targets |> snd
-                    [|transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)|]
-                else
+                // TODO: This code is causing problems in the REPL. Investigate or remove.
+                // if targets |> List.forall (fun (boundValues,_) -> List.isEmpty boundValues) then
+                //     let cases =
+                //         cases
+                //         |> List.groupBy (fun (_,idx,_) -> idx)
+                //         |> List.map (fun (idx, cases) ->
+                //             let caseExprs = cases |> List.map (fun (caseExpr,_,_) -> caseExpr)
+                //             caseExprs, (List.item idx targets |> snd))
+                //     let defaultCase = List.item defaultIndex targets |> snd
+                //     [|transformSwitch com ctx returnStrategy evalExpr cases (Some defaultCase)|]
+                // else
                     let cases = List.map (transformCase (Fable.Number Int32)) cases
                     let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number Int32)
                     let switch1 = transformSwitch com ctx (Some targetAssign) evalExpr cases (Some defaultCase)
