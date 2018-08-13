@@ -219,4 +219,4 @@ let main argv =
         else
             defaultArg args.commandArgs ""
             |> startServerWithProcess pkgJsonDir args.port binPath
-    | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; 0
+    | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; -1
