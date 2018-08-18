@@ -23,6 +23,12 @@ module Tuple =
     let make2 x y = x, y
 
 [<RequireQualifiedAccess>]
+module Tuple3 =
+    let item1 (x,_,_) = x
+    let item2 (_,y,_) = y
+    let item3 (_,_,z) = z
+
+[<RequireQualifiedAccess>]
 module List =
     let isSingle = function
         | [_] -> true
