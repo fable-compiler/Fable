@@ -153,7 +153,7 @@ let makeProjOptions projFile =
     projOptions
 
 let makeProject fileName optimized (parseResults: ParseResults) =
-    // let errors = com.ReadAllLogs() |> Map.tryFind "error"
+    // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let checkedProject = parseResults.CheckProject
     let projectOptions = makeProjOptions fileName
@@ -179,7 +179,7 @@ let compileAst (com: Compiler) (project: Project) =
         FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
         |> FableTransforms.optimizeFile com
         |> Fable2Babel.Compiler.transformFile com
-    let program = Babel.Program(babel.FileName, babel.Body, babel.Directives, com.ReadAllLogs())
+    let program = Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs())
     program
 
 let init () =
@@ -202,7 +202,27 @@ let init () =
             let res = parseResults :?> ParseResults
             let project = makeProject fileName optimized res
             let com = makeCompiler fableCore fileName project
-            compileAst com project :> obj
+            let ast = compileAst com project
+            let errors =
+                com.GetLogs()
+                |> List.map (fun log ->
+                    let r = defaultArg log.Range Fable.SourceLocation.Empty
+                    { StartLineAlternate = r.start.line
+                      StartColumn = r.start.column
+                      EndLineAlternate = r.``end``.line
+                      EndColumn = r.``end``.column
+                      Message =
+                        if log.Tag = "FABLE"
+                        then "FABLE: " + log.Message
+                        else log.Message
+                      IsWarning =
+                        match log.Severity with
+                        | Fable.Severity.Error -> false
+                        | Fable.Severity.Warning
+                        | Fable.Severity.Info -> true
+                    })
+                |> List.toArray
+            ast :> obj, errors
         member __.FSharpAstToString(parseResults:IParseResults, optimized: bool) =
             let res = parseResults :?> ParseResults
             if not optimized then res.CheckProject.AssemblyContents.ImplementationFiles

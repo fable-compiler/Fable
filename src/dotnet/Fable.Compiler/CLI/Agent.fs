@@ -209,7 +209,7 @@ let startCompilation (msgHandler: Server.MessageHandler) (com: Compiler) (projec
                 project.MarkSent(com.CurrentFile)
                 // Don't send dependencies to JS client (see #1241)
                 project.AddDependencies(com.CurrentFile, babel.Dependencies)
-                Babel.Program(babel.FileName, babel.Body, babel.Directives, com.ReadAllLogs())
+                Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs())
                 |> toJson msgHandler
         with ex ->
             sendError msgHandler ex

@@ -79,17 +79,42 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
     member __.GetOrAddInlineExpr(fullName, generate) =
         inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
+type Log =
+    { Message: string
+      Tag: string
+      Severity: Severity
+      Range: SourceLocation option
+      FileName: string option }
+
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
 type Compiler(currentFile, project: Project, options, ?fableCore: string) =
     let mutable id = 0
-    let logs = Dictionary<string, string list>()
+    let logs = ResizeArray<Log>()
     let fableCore =
         match fableCore with
         | Some fableCore -> fableCore.TrimEnd('/')
         | None -> (Path.getRelativePath currentFile project.FableCore).TrimEnd('/')
-    member __.ReadAllLogs() =
-        logs |> Seq.map (fun kv -> kv.Key, List.rev kv.Value |> List.toArray) |> Map
+    member __.GetLogs() =
+        logs |> Seq.toList
+    member __.GetFormattedLogs() =
+        let severityToString = function
+            | Severity.Warning -> "warning"
+            | Severity.Error -> "error"
+            | Severity.Info -> "info"
+        logs
+        |> Seq.groupBy (fun log -> severityToString log.Severity)
+        |> Seq.map (fun (severity, logs) ->
+            logs |> Seq.map (fun log ->
+                match log.FileName with
+                | Some file ->
+                    match log.Range with
+                    | Some r -> sprintf "%s(%i,%i): (%i,%i) %s %s: %s" file r.start.line r.start.column r.``end``.line r.``end``.column severity log.Tag log.Message
+                    | None -> sprintf "%s(1,1): %s %s: %s" file severity log.Tag log.Message
+                | None -> log.Message)
+            |> Seq.toArray
+            |> Tuple.make2 severity)
+        |> Map
     member __.Options = options
     member __.CurrentFile = currentFile
     interface ICompiler with
@@ -108,27 +133,18 @@ type Compiler(currentFile, project: Project, options, ?fableCore: string) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             match severity, fileName with
-            // Ignore warnings in Fable packages (contained in .fable hidden dir)
+            // TODO!!! Temporarily ignore warnings in Fable packages
+            /// (contained in .fable hidden dir) until they're updated to Fable 2
             | Severity.Warning, Some file
                   when file.Split([|'\\'; '/'|])
                   |> Array.exists ((=) Naming.fableHiddenDir) -> ()
             | _ ->
-                let tag = defaultArg tag "FABLE"
-                let severity =
-                    match severity with
-                    | Severity.Warning -> "warning"
-                    | Severity.Error -> "error"
-                    | Severity.Info -> "info"
-                let formattedMsg =
-                    match fileName with
-                    | Some file ->
-                        match range with
-                        | Some r -> sprintf "%s(%i,%i): (%i,%i) %s %s: %s" file r.start.line r.start.column r.``end``.line r.``end``.column severity tag msg
-                        | None -> sprintf "%s(1,1): %s %s: %s" file severity tag msg
-                    | None -> msg
-                if logs.ContainsKey(severity)
-                then logs.[severity] <- formattedMsg::logs.[severity]
-                else logs.Add(severity, [formattedMsg])
+                { Message = msg
+                  Tag = defaultArg tag "FABLE"
+                  Severity = severity
+                  Range = range
+                  FileName = fileName }
+                |> logs.Add
         member __.GetUniqueVar(name) =
             id <- id + 1
             Naming.getUniqueName (defaultArg name "var") id
