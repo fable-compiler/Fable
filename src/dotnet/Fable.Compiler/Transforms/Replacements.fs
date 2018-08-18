@@ -1668,6 +1668,10 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         match t with
         | EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> Value |> Some
         | _ -> None
+    | "EnumToValue", [arg] ->
+        match arg with
+        | Value(Enum(NumberEnum(v), _)) -> v |> Some
+        | _ -> None
     | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
         structuralHash r arg |> Some
     | ("GenericHashWithComparer" | "GenericHashWithComparerIntrinsic"), [comp; arg] ->

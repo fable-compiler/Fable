@@ -116,6 +116,11 @@ let tests =
         EnumOfValue 2 |> equal Fruits.Banana
         EnumOfValue 4 |> equal Fruits.Coconut
 
+    testCase "EnumToValue works" <| fun () ->
+        EnumToValue Fruits.Apple |> equal 1
+        EnumToValue Fruits.Banana |> equal 2
+        EnumToValue Fruits.Coconut |> equal 4
+
     testCase "Enum operator enum works" <| fun () ->
         enum 1 |> equal Fruits.Apple
         enum 2 |> equal Fruits.Banana
