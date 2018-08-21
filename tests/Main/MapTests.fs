@@ -36,6 +36,11 @@ let tests =
             xs.Count
             |> equal 1
 
+        testCase "Map.TryGetValue works" <| fun () ->
+            let xs = Map.empty.Add(1, 1)
+            xs.TryGetValue(1)
+            |> equal (true, 1)
+
         testCase "Map.containsKey works" <| fun () ->
             let xs = Map.empty |> Map.add 1 1
             xs |> Map.containsKey 1 |> equal true
