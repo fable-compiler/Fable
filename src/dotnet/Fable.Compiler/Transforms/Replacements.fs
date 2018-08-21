@@ -2307,6 +2307,8 @@ let types (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option)
 
 let fsharpType methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with
+    | "MakeTupleType" ->
+        Helper.CoreCall("Reflection", "tuple", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Prevent name clash with FSharpValue.GetRecordFields
     | "GetRecordFields" ->
         Helper.CoreCall("Reflection", "getRecordElements", t, args, i.SignatureArgTypes, ?loc=r) |> Some
