@@ -2368,6 +2368,7 @@ let private replacedModules =
     "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions", intrinsicFunctions
     "Microsoft.FSharp.Core.LanguagePrimitives", languagePrimitives
     "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare", languagePrimitives
+    "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators", operators
     Types.char, chars
     Types.string, strings
     "Microsoft.FSharp.Core.StringModule", stringModule

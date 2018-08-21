@@ -58,6 +58,15 @@ let moduleOperators = [
         5 >> 5 |> equal 50
 ]
 
+let operatorsAsFunctions = [
+    testCase "logical or" <| fun () ->
+        let x = [true] |> List.fold (||) false
+        x |> equal true
+    testCase "logical and" <| fun () ->
+        let x = [true] |> List.fold (&&) false
+        x |> equal false
+]
+
 let tests =
   testList "Miscellaneous"
-    (typeOperators @ moduleOperators)
+    (typeOperators @ moduleOperators @ operatorsAsFunctions)
