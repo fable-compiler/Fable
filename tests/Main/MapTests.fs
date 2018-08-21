@@ -42,6 +42,12 @@ let ``Map.Add works``() =
     |> equal 1
 
 [<Test>]
+let ``Map.TryGetValue works``() =
+    let xs = Map.empty.Add(1, 1)
+    xs.TryGetValue(1)
+    |> equal (true, 1)
+
+[<Test>]
 let ``Map.containsKey works``() =
     let xs = Map.empty |> Map.add 1 1
     xs |> Map.containsKey 1 |> equal true
