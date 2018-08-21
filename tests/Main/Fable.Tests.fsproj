@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Expecto" Version="5.1.2" />
+    <PackageReference Include="FSharp.Core" Version="4.5.2" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Fable.Core" HintPath="../../build/fable/Fable.Core.dll" />
