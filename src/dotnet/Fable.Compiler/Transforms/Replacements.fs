@@ -525,7 +525,11 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
             | Number Integer::_ -> binOp BinaryDivide left right |> fastIntFloor
             | _ -> binOp BinaryDivide left right
         | Operators.modulus, [left; right] -> binOp BinaryModulus left right
-        | Operators.leftShift, [left; right] -> binOp BinaryShiftLeft left right
+        | Operators.leftShift, [left; right] ->
+            let res = binOp BinaryShiftLeft left right
+            match argTypes with
+            | Number UInt32::_ -> binOp BinaryShiftRightZeroFill res (makeIntConst 0) // See #1530
+            | _ -> res
         | Operators.rightShift, [left; right] ->
             match argTypes with
             | Number UInt32::_ -> binOp BinaryShiftRightZeroFill left right // See #646

@@ -65,7 +65,10 @@ let tests =
     testCase "Bitwise shift left can be generated" <| fun () ->
         equal (4 <<< 2, 16)
 
-    testCase "Bitwise shift right can be generated" <| fun () ->
+    testCase "Bitwise shift left with unsigned integer works" <| fun () ->
+        equal (1u <<< 31, 2147483648u)
+
+    testCase "Bitwise shift right can be generated" <| fun () -> // See #1530
         equal (4 >>> 2, 1)
 
     testCase "Zero fill shift right (>>>) for uint32" <| fun () -> // See #646
