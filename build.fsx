@@ -69,6 +69,8 @@ let cliBuildDir = CWD </> "build/fable"
 let coreJsBuildDir = CWD </> "build/fable-core"
 let cliSrcDir = CWD </> "src/dotnet/Fable.Compiler"
 let coreJsSrcDir = CWD </> "src/js/fable-core"
+let ncaveFcsForkRepo = "https://github.com/ncave/FSharp.Compiler.Service"
+let ncaveFcsForkBranch = "fable2"
 
 // Targets
 let installDotnetSdk () =
@@ -248,7 +250,6 @@ Target "PublishPackages" (fun () ->
 
 let bundleRepl (fetchNcaveFork: bool) () =
     if fetchNcaveFork then
-        let fcsFork = "https://github.com/ncave/FSharp.Compiler.Service"
         let fcsFableDir =
             // Appveyor has problems with too long paths so download the fork closer to root
             // TODO: Another option for local Windows Systems (not AppVeyor)
@@ -266,7 +267,7 @@ let bundleRepl (fetchNcaveFork: bool) () =
             Some replacement)
 
         CleanDir fcsFableDir
-        Repository.cloneSingleBranch CWD fcsFork "fable2" fcsFableDir
+        Repository.cloneSingleBranch CWD ncaveFcsForkRepo ncaveFcsForkBranch fcsFableDir
 
         runBashOrCmd fcsFableDir "fcs/build" "CodeGen.Fable"
         Directory.GetFiles(fcsFableDir </> "fcs/fcs-fable/codegen")
@@ -309,7 +310,6 @@ Target "All" (fun () ->
     buildCLI Release ()
     buildSplitter ()
     buildCoreJs ()
-
     runTestsJS ()
 
     match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
@@ -320,12 +320,16 @@ Target "All" (fun () ->
     | None, None -> runTestsDotnet ()
 )
 
-Target "BundleReplLocally" (bundleRepl false)
+Target "BundleReplLocally" (fun () ->
+    printfn "Make sure you've run target All before this."
+    printfn "You need to clone '%s' branch of '%s' repository in a sibling folder named: %s"
+        ncaveFcsForkBranch ncaveFcsForkRepo "FSharp.Compiler.Service_fable"
+    bundleRepl false ())
 
-// Note: build target "All" and "REPL" before this
-Target "REPL.test" (fun () ->
-    let replTestDir = "src/dotnet/Fable.JS/testapp"
-    Yarn.run replTestDir "build" ""
+Target "BuildReplAsNodeApp" (fun () ->
+    printfn "Make sure you've run target BundleReplLocally before this."
+    printfn "Check 'start' script in src/dotnet/Fable.JS/bench2/package.json to see how to run the REPL as a node app."
+    runBench2 ()
 )
 
 "PublishPackages"
