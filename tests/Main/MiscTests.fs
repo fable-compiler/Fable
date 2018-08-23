@@ -422,6 +422,12 @@ let tests =
       equal res1.a res2.a
       counter() |> equal 3
 
+    testCase "Inline overloaded methods in other files work" <| fun () ->
+      let res1 = MiscTestsHelper.Type.New(5).Method(false).Method(true).Method()
+      let res2 = MiscTestsHelper.Type.New(5).MethodI(false).MethodI(true).MethodI()
+      equal res1.a res2.a
+      MiscTestsHelper.counter() |> equal 3
+
     testCase "Calls to core lib from a subfolder work" <| fun () ->
         Util2.Helper.Format("{0} + {0} = {1}", 2, 4)
         |> equal "2 + 2 = 4"
