@@ -920,7 +920,7 @@ let private getRootModuleAndDecls decls =
         | decls -> outerEnt, decls
     getRootModuleAndDeclsInner None decls
 
-let private tryGetMemberArgsAndBody (implFiles: Map<string, FSharpImplementationFileContents>)
+let private tryGetMemberArgsAndBody com (implFiles: Map<string, FSharpImplementationFileContents>)
                                     fileName (meth: FSharpMemberOrFunctionOrValue) =
     let rec tryGetMemberArgsAndBody' (methFullName: string) = function
         | FSharpImplementationFileDeclaration.Entity (e, decls) ->
@@ -929,13 +929,14 @@ let private tryGetMemberArgsAndBody (implFiles: Map<string, FSharpImplementation
             then List.tryPick (tryGetMemberArgsAndBody' methFullName) decls
             else None
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth2, args, body) ->
-            if methFullName = meth2.FullName
+            if getMemberUniqueName com meth2 = methFullName
             then Some(args, body)
             else None
         | FSharpImplementationFileDeclaration.InitAction _ -> None
+    let fullName = getMemberUniqueName com meth
     Map.tryFind fileName implFiles
     |> Option.bind (fun f ->
-        f.Declarations |> List.tryPick (tryGetMemberArgsAndBody' meth.FullName))
+        f.Declarations |> List.tryPick (tryGetMemberArgsAndBody' fullName))
 
 type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFileContents>) =
     member val UsedVarNames = HashSet<string>()
@@ -993,7 +994,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
                 this.Dependencies.Add(fileName) |> ignore
             let fullName = getMemberUniqueName com memb
             com.GetOrAddInlineExpr(fullName, fun () ->
-                match tryGetMemberArgsAndBody implFiles fileName memb with
+                match tryGetMemberArgsAndBody com implFiles fileName memb with
                 | Some(args, body) -> List.concat args, body
                 | None -> failwith ("Cannot find inline member " + memb.FullName))
         member this.AddUsedVarName(varName) =
