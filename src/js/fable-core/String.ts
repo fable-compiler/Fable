@@ -1,4 +1,5 @@
 import { toString as dateToString } from "./Date";
+import Long, { toString as longToString } from "./Long";
 import { escape } from "./RegExp";
 import { isArray, toString } from "./Util";
 
@@ -120,10 +121,8 @@ export function indexOfAny(str: string, anyOf: number[], ...args: number[]) {
   return -1;
 }
 
-function toHex(value: number) {
-  return value < 0
-    ? "ff" + (16777215 - (Math.abs(value) - 1)).toString(16)
-    : value.toString(16);
+function toHex(x: any) {
+  return x instanceof Long ? longToString(x, 16) : (Number(x) >>> 0).toString(16);
 }
 
 export type IPrintfFormatContinuation =
@@ -173,9 +172,9 @@ function formatOnce(str2: any, rep: any) {
         case "A":
           rep = toString(rep, true); break;
         case "x":
-          rep = toHex(Number(rep)); break;
+          rep = toHex(rep); break;
         case "X":
-          rep = toHex(Number(rep)).toUpperCase(); break;
+          rep = toHex(rep).toUpperCase(); break;
       }
       const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep, 10) >= 0;
       pad = parseInt(pad, 10);
@@ -220,7 +219,7 @@ export function format(str: string, ...args: any[]) {
     (match: any, idx: any, pad: any, pattern: any) => {
       let rep = args[idx];
       let padSymbol = 32; // " ";
-      if (typeof rep === "number") {
+      if (typeof rep === "number" || rep instanceof Long) {
         switch ((pattern || "").substring(0, 1)) {
           case "f": case "F":
             rep = pattern.length > 1 ? rep.toFixed(pattern.substring(1)) : rep.toFixed(2);

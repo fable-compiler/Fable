@@ -146,12 +146,34 @@ let tests =
       #endif
 
       testCase "sprintf \"%X\" works" <| fun () ->
-            sprintf "%X" 255 |> equal "FF"
-            sprintf "%x" 255 |> equal "ff"
-            sprintf "%X" -255 |> equal "FFFFFF01"
-            String.Format("{0:X}", 255) |> equal "FF"
-            String.Format("{0:x}", 255) |> equal "ff"
-            String.Format("{0:X}", -255) |> equal "FFFFFF01"
+            //These should all be the Native JS Versions (except int64 / uint64)
+            //See #1530 for more information.
+
+            sprintf "255: %X" 255 |> equal "255: FF"
+            sprintf "255: %x" 255 |> equal "255: ff"
+            sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
+            sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
+            sprintf "-4095L: %X" -4095L |> equal "-4095L: -FFF"
+            sprintf "1 <<< 31: %x" (1 <<< 31) |> equal "1 <<< 31: 80000000"
+            sprintf "1u <<< 31: %x" (1u <<< 31) |> equal "1u <<< 31: 80000000"
+            sprintf "2147483649L: %x" 2147483649L |> equal "2147483649L: 80000001"
+            sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
+            sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: -8000000000000000"
+            sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
+
+      testCase "String.Format {0:x} works" <| fun () ->
+            //See above comment on expected values
+            String.Format("255: {0:X}", 255) |> equal "255: FF"
+            String.Format("255: {0:x}", 255) |> equal "255: ff"
+            String.Format("-255: {0:X}", -255) |> equal "-255: FFFFFF01"
+            String.Format("4095L: {0:X}", 4095L) |> equal "4095L: FFF"
+            String.Format("-4095L: {0:X}", -4095L) |> equal "-4095L: -FFF"
+            String.Format("1 <<< 31: {0:x}", (1 <<< 31)) |> equal "1 <<< 31: 80000000"
+            String.Format("1u <<< 31: {0:x}", (1u <<< 31)) |> equal "1u <<< 31: 80000000"
+            String.Format("2147483649L: {0:x}", 2147483649L) |> equal "2147483649L: 80000001"
+            String.Format("2147483650uL: {0:x}", 2147483650uL) |> equal "2147483650uL: 80000002"
+            String.Format("1L <<< 63: {0:x}", (1L <<< 63)) |> equal "1L <<< 63: -8000000000000000"
+            String.Format("1uL <<< 63: {0:x}", (1uL <<< 63)) |> equal "1uL <<< 63: 8000000000000000"
 
       testCase "Printf works with generic argument" <| fun () ->
           spr "bar %s" "a" |> equal "bar a"
