@@ -8,16 +8,45 @@
 
 Fable is an F# to JavaScript compiler powered by [Babel](https://babeljs.io/), designed to produce readable and standard code. [Check the website](http://fable.io) for more information and if you find the project useful, don't forget to give us a star!
 
+## Getting started
+
+- Fable 1: Check the [simple app template](https://github.com/fable-compiler/fable-templates/blob/d1759f7058fc519485ce8bcd62521890573539c6/simple/Content/README.md).
+- Fable 2 (beta): Check the [Fable 2 minimal sample](https://github.com/fable-compiler/fable2-samples/tree/0b4c6c011c1d8836cd3a650c08ab5a6ccc473ba7/minimal) and the [blog post announcing Fable 2](http://fable.io/blog/Introducing-2-0-beta.html).
+
 ## Building
 
 Make sure the following **requirements** are installed in your system:
 
-* [dotnet SDK](https://www.microsoft.com/net/download/core) 2.0 or higher
-* [node.js](https://nodejs.org) 6.11 or higher
-* [yarn](https://yarnpkg.com)
-* [Mono](http://www.mono-project.com/) if you're on Linux or macOS.
+- [dotnet SDK](https://www.microsoft.com/net/download/core) 2.0 or higher
+- [node.js](https://nodejs.org) 6.11 or higher
+- [yarn](https://yarnpkg.com)
+- [Mono](http://www.mono-project.com/) if you're on Linux or macOS.
 
 Then you just need to type `./build.cmd` or `./build.sh` depending on your system to build a local copy of Fable and run the test suite. After that, if you want to quickly try changes to Fable source, please check `src/tools/QuickTest.fs`.
+
+## Using your local build in your projects
+
+Many of you are making really useful contributions that you also need for your own projects, however a new release may take several days. If you need the latest features the easiest way is to use `dotnet run` that will automatically build and run Fable based on latest code. For this, in macOS/Linux you can write a `fable-next` script as follows:
+
+```shell
+#!/bin/sh
+
+dotnet --version
+dotnet run -c Release -p /Users/alfonso/Fable/src/dotnet/Fable.Compiler $@
+```
+
+> Note you need the **full path to Fable.Compiler**.
+
+Make it executable (`chmod +x fable-next`) and put it somewhere included in your PATH (e.g. in macOS `/usr/local/bin`). Then in your projects, instead of running `dotnet fable webpack-dev-server`, use `fable-next webpack-dev-server`.
+
+In Windows, you would write a `fable-next.cmd` script as follows:
+
+```cmd
+dotnet --version
+dotnet run -c Release -p C:\Users\alfonso\Documents\Fable\src\dotnet\Fable.Compiler %*
+```
+
+**ATTENTION**: Remember to **build fable-core JS files beforehand**. This can be done just by building the whole project (see "Building" above) or running the `FableCoreJs` FAKE target (after this, if you edit one of the src/js/fablecore JS or TS files, you can run the `FableCoreJsTypescriptOnly` which is faster).
 
 ## Contributing
 
