@@ -325,13 +325,17 @@ let copyDirIfDoesNotExist (source: string) (target: string) =
 
 let copyFableCoreAndPackageSources rootDir (pkgs: FablePackage list) =
     let fableDir = createFableDir rootDir
+    let fableCoreSource = GlobalParams.Singleton.FableCorePath
     let fableCorePath =
-        if GlobalParams.Singleton.FableCorePath.StartsWith(Literals.FORCE)
-        then GlobalParams.Singleton.FableCorePath.Replace(Literals.FORCE, "")
+        if fableCoreSource.StartsWith(Literals.FORCE)
+        then fableCoreSource.Replace(Literals.FORCE, "")
         else
-            let fableCoreDir = IO.Path.Combine(fableDir, "fable-core" + "." + Literals.VERSION)
-            copyDirIfDoesNotExist GlobalParams.Singleton.FableCorePath fableCoreDir
-            fableCoreDir
+            if isDirectoryEmpty fableCoreSource then
+                failwithf "fable-core directory is empty, please build FableCoreJS: %s" fableCoreSource
+            Log.logVerbose(lazy ("fable-core: " + fableCoreSource))
+            let fableCoreTarget = IO.Path.Combine(fableDir, "fable-core" + "." + Literals.VERSION)
+            copyDirIfDoesNotExist fableCoreSource fableCoreTarget
+            fableCoreTarget
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)

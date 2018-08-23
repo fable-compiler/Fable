@@ -1,9 +1,9 @@
 {
   "private": true,
   "scripts": {
-    "build": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --args \"--commonjs\" --fable-core ../../../build/fable-core",
-    "build-modules": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../build/fable-core",
-    "build-es6": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --args \"--es6\" --fable-core ../../../build/fable-core",
+    "build": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --args \"--commonjs\"",
+    "build-modules": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter",
+    "build-es6": "dotnet ../../../build/fable/dotnet-fable.dll yarn-splitter --args \"--es6\"",
     "splitter": "node ../../js/fable-splitter/dist/cli",
     "webpack": "node ../../../node_modules/webpack-command/lib/cli.js -p --entry ./out/Main.js --output ./bundle/bundle.min.js --output-library Fable",
     "bundle": "rollup out/Main.js --file bundle/bundle.js --format iife --name Fable",

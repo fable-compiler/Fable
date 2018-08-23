@@ -112,9 +112,7 @@ let buildCoreJs () =
     Yarn.install CWD
     Yarn.run CWD "tslint" (sprintf "--project %s" coreJsSrcDir)
     buildCoreJsTypescriptFiles ()
-
     buildCoreJsFsharpFiles ()
-
     // Process injects
     run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run"
 

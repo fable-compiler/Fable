@@ -47,10 +47,7 @@ if [ "${ARGS/--build-js-core/}" != "$ARGS" ]; then
     popd
 fi
 
-pushd ../dotnet/Fable.Compiler
-dotnet run --no-build yarn-splitter \
-    --cwd ../../tools \
-    --fable-core ../../../build/fable-core \
-    --args "$ARGS"
-popd
+dotnet run --no-build -p ../dotnet/Fable.Compiler \
+    yarn-splitter --args "$ARGS"
+
 node temp/QuickTest.js

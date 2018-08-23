@@ -26,11 +26,18 @@ type GlobalParams private (verbose, fableCorePath, workingDir) =
         | Some x -> x
         | None ->
             let workingDir = Directory.GetCurrentDirectory()
+            let execDir =
+              typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location
+              |> Path.GetDirectoryName
+            let defaultFableCorePaths =
+                [ "../../fable-core/"                     // running from package
+                  "../fable-core"                         // running from build/fable
+                  "../../../../../../build/fable-core/" ] // running from bin/Release/netcoreapp2.0
+                |> List.map (fun x -> Path.GetFullPath(Path.Combine(execDir, x)))
             let fableCorePath =
-                let execDir =
-                  typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location
-                  |> Path.GetDirectoryName
-                Path.Combine(execDir, "..", "..", "fable-core")
+                defaultFableCorePaths
+                |> List.tryFind Directory.Exists
+                |> Option.defaultValue (List.last defaultFableCorePaths)
             let p = GlobalParams(false, fableCorePath, workingDir)
             singleton <- Some p
             p

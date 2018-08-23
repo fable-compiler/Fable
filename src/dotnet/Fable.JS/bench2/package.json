@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "build": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../../build/fable-core",
+    "build": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter",
     "splitter": "node ../../../js/fable-splitter/dist/cli",
     "start": "node out/app ../metadata/ test_script.fs out/test_script.js",
     "test": "node out/test_script.js"

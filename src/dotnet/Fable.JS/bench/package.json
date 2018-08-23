@@ -2,9 +2,9 @@
   "private": true,
   "scripts": {
     "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start --port 61225",
-    "build": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../../build/fable-core",
-    "build-opt": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../../../../build/fable-core --experimental optimize-fcs",
-    "build-es6": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter-es6 --fable-core ../../../../build/fable-core",
+    "build": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter",
+    "build-opt": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter --experimental optimize-fcs",
+    "build-es6": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter-es6",
     "build-v1": "dotnet fable yarn-splitter",
     "rename": "cd out && for /r %x in (*.js) do ren \"%x\" *.mjs",
     "rollup": "node ../../../../node_modules/rollup/bin/rollup -i ./out/app.js -o ./out/bundle2.js --format cjs",
