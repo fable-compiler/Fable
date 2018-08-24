@@ -22,7 +22,6 @@
     "url": "https://github.com/fable-compiler/Fable/issues"
   },
   "scripts": {
-    "fable": "dotnet ../../../build/fable/dotnet-fable.dll start",
     "prebuild": "node ../../../node_modules/tslint/bin/tslint index.ts",
     "build": "node ../../../node_modules/typescript/bin/tsc"
   },

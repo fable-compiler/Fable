@@ -1,14 +1,9 @@
 {
   "private": true,
   "scripts": {
-    "start": "concurrently --names TEST,COMPILER -k \"chokidar '../build/tests' -c 'yarn test'\" \"cd ../src/dotnet/Fable.Compiler && dotnet watch run yarn-splitter --cwd ../../../tests --fable-core ../../../build/fable-core\" ",
-    "build": "rm -rf .fable && cd ../src/dotnet/Fable.Compiler && dotnet run -c Release yarn-splitter --cwd ../../../tests --fable-core ../../../build/fable-core",
-    "build-opt": "dotnet ../build/fable/dotnet-fable.dll yarn-splitter --fable-core ../build/fable-core --experimental optimize-fcs",
+    "build": "dotnet run -c Release -p ../src/dotnet/Fable.Compiler yarn-splitter",
     "postbuild": "yarn test",
-    "splitter": "node ../src/js/fable-splitter/dist/cli -c splitter.config.js",
-    "webpack": "node ../node_modules/webpack/bin/webpack -p",
-    "_webpack": "node ../node_modules/webpack-command/lib/cli.js --entry ../build/tests/Main.js --output ../build/tests/bundle.js",
-    "rollup": "node ../node_modules/rollup/bin/rollup -c",
+    "splitter": "node ../src/js/fable-splitter/dist/cli",
     "test": "node ../node_modules/mocha/bin/mocha ../build/tests --reporter dot -t 10000"
   },
   "devDependencies": {

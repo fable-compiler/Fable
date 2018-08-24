@@ -297,13 +297,9 @@ let retryGetCrackedProjects (checker: FSharpChecker) (projFile: string) =
         | _ -> reraise()
     retry()
 
-// FAKE and other tools clean dirs but don't remove them, so check if it's empty
+/// FAKE and other tools clean dirs but don't remove them, so check whether it doesn't exist or it's empty
 let isDirectoryEmpty dir =
-    if Directory.Exists(dir)
-    then Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
-    else
-        Directory.CreateDirectory(dir) |> ignore
-        true
+    not(Directory.Exists(dir)) || Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
 
 let createFableDir rootDir =
     let fableDir = IO.Path.Combine(rootDir, Naming.fableHiddenDir)
@@ -313,7 +309,8 @@ let createFableDir rootDir =
     fableDir
 
 let copyDirIfDoesNotExist (source: string) (target: string) =
-    if isDirectoryEmpty target then
+    if GlobalParams.Singleton.ForcePkgs || isDirectoryEmpty target then
+        Directory.CreateDirectory(target) |> ignore
         if Directory.Exists source |> not then
             failwith ("Source directory is missing: " + source)
         let source = source.TrimEnd('/', '\\')

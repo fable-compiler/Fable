@@ -11,11 +11,8 @@ ARGS="$@ --dummy"
 echo "dotnet SDK version"
 dotnet --version
 
-dotnet build ../dotnet/Fable.Compiler
-
 if [ "${ARGS/--build-core/}" != "$ARGS" ]; then
     echo "Building fable-core..."
-    rm -rf .fable
 
     pushd ../..
     dotnet publish src/dotnet/Fable.Core -o ../../../build/fable
@@ -31,7 +28,7 @@ if [ "${ARGS/--build-core/}" != "$ARGS" ]; then
 
     pushd ../js/fable-core
     dotnet restore
-    sh quickfsbuild.sh --no-build
+    sh quickfsbuild.sh
     popd
     dotnet restore
 fi
@@ -39,7 +36,6 @@ fi
 
 if [ "${ARGS/--build-js-core/}" != "$ARGS" ]; then
     echo "Building JS fable-core..."
-    rm -rf .fable
 
     pushd ../..
     # yarn tslint --project src/js/fable-core
@@ -47,7 +43,5 @@ if [ "${ARGS/--build-js-core/}" != "$ARGS" ]; then
     popd
 fi
 
-dotnet run --no-build -p ../dotnet/Fable.Compiler \
-    yarn-splitter --args "$ARGS"
-
-node temp/QuickTest.js
+dotnet run -p ../dotnet/Fable.Compiler \
+    yarn-build --force-pkgs --args "$ARGS"

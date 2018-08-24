@@ -13,9 +13,10 @@ open System.Reflection
 type private TypeInThisAssembly = class end
 
 [<RequireQualifiedAccess>]
-type GlobalParams private (verbose, fableCorePath, workingDir) =
+type GlobalParams private (verbose, forcePkgs, fableCorePath, workingDir) =
     static let mutable singleton: GlobalParams option = None
     let mutable _verbose = verbose
+    let mutable _forcePkgs = forcePkgs
     let mutable _fableCorePath = fableCorePath
     let mutable _workingDir = workingDir
     let mutable _replaceFiles = []
@@ -38,18 +39,20 @@ type GlobalParams private (verbose, fableCorePath, workingDir) =
                 defaultFableCorePaths
                 |> List.tryFind Directory.Exists
                 |> Option.defaultValue (List.last defaultFableCorePaths)
-            let p = GlobalParams(false, fableCorePath, workingDir)
+            let p = GlobalParams(false, false, fableCorePath, workingDir)
             singleton <- Some p
             p
 
     member __.Verbose: bool = _verbose
+    member __.ForcePkgs: bool = _forcePkgs
     member __.FableCorePath: string = _fableCorePath
     member __.WorkingDir: string = _workingDir
     member __.ReplaceFiles = _replaceFiles
     member __.Experimental = _experimental
 
-    member __.SetValues(?verbose, ?fableCorePath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
+    member __.SetValues(?verbose, ?forcePkgs, ?fableCorePath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
         _verbose        <- defaultArg verbose _verbose
+        _forcePkgs      <- defaultArg forcePkgs _forcePkgs
         _fableCorePath  <- defaultArg fableCorePath _fableCorePath
         _workingDir     <- defaultArg workingDir _workingDir
         _replaceFiles   <-

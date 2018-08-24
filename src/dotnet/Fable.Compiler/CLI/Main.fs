@@ -108,39 +108,37 @@ let startServerWithProcess workingDir port exec args =
 
 let setGlobalParams(args: string[]) =
     GlobalParams.Singleton.SetValues(
-        ?verbose =
-            (tryFindArgValue "--verbose" args
-             |> Option.map (fun _ -> true)),
+        verbose   = (tryFindArgValue "--verbose" args |> Option.isSome),
+        forcePkgs = (tryFindArgValue "--force-pkgs" args |> Option.isSome),
+        ?replaceFiles = (tryFindArgValue "--replace-files" args),
+        ?experimental = (tryFindArgValue "--experimental" args),
         ?fableCorePath =
             (tryFindArgValue "--fable-core" args
              |> Option.map (fun path ->
                 if path.StartsWith(Literals.FORCE)
                 then path
-                else Fable.Path.normalizeFullPath path)),
-        ?replaceFiles =
-            (tryFindArgValue "--replace-files" args),
-        ?experimental =
-            (tryFindArgValue "--experimental" args)
+                else Fable.Path.normalizeFullPath path))
     )
 
 let printHelp() =
-    Literals.VERSION |> printfn """Fable F# to JS compiler (%s)
+    (Literals.VERSION, Literals.DEFAULT_PORT) ||> printfn """Fable F# to JS compiler (%s)
 Usage: dotnet fable [command] [script] [fable arguments] [-- [script arguments]]
 
 Commands:
   -h|--help           Show help
   --version           Print version
-  start               Start Fable daemon
   npm-run             Run Fable while an npm script is running
   yarn-run            Run Fable while a yarn script is running
   node-run            Run Fable while a node script is running
   shell-run           Run Fable while a shell script is running
+  start               Start Fable as a standalone daemon (default port: %i)
   [webpack-cli]       Other commands will be assumed to be binaries in `node_modules/.bin`
 
 Fable arguments:
   --cwd               Working directory where the subprocess should run
   --port              Port number where the Fable daemon should run
   --verbose           Print more info during execution
+  --force-pkgs        Force a new copy of package sources into `.fable` folder.
 
 To pass arguments to the script, write them after `--`. Example:
 

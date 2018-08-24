@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start --port 61225",
+    "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",
     "build": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter",
     "build-opt": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter --experimental optimize-fcs",
     "build-es6": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter-es6",

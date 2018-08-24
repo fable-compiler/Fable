@@ -32,10 +32,10 @@ Many of you are making really useful contributions that you also need for your o
 #!/bin/sh
 
 dotnet --version
-dotnet run -c Release -p /Users/alfonso/Fable/src/dotnet/Fable.Compiler $@
+dotnet run -c Release -p /Users/alfonso/Fable/src/dotnet/Fable.Compiler $@ --force-pkgs
 ```
 
-> Note you need the **full path to Fable.Compiler**.
+> Note you need the **full path to Fable.Compiler**. The `--force-pkgs` option is used to force a new copy of package sources (including fable-core) in the hidden `.fable` folder.
 
 Make it executable (`chmod +x fable-next`) and put it somewhere included in your PATH (e.g. in macOS `/usr/local/bin`). Then in your projects, instead of running `dotnet fable webpack-dev-server`, use `fable-next webpack-dev-server`.
 
@@ -43,7 +43,7 @@ In Windows, you would write a `fable-next.cmd` script as follows:
 
 ```cmd
 dotnet --version
-dotnet run -c Release -p C:\Users\alfonso\Documents\Fable\src\dotnet\Fable.Compiler %*
+dotnet run -c Release -p C:\Users\alfonso\Documents\Fable\src\dotnet\Fable.Compiler %* --force-pkgs
 ```
 
 **ATTENTION**: Remember to **build fable-core JS files beforehand**. This can be done just by building the whole project (see "Building" above) or running the `FableCoreJs` FAKE target (after this, if you edit one of the src/js/fablecore JS or TS files, you can run the `FableCoreJsTypescriptOnly` which is faster).

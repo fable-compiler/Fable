@@ -1,9 +1,5 @@
-pushd ../../dotnet/Fable.Compiler
-dotnet run $1 node-run ../fable-splitter/dist/cli \
-    --cwd ../../js/fable-core --fable-core force:\${outDir}
-popd
+dotnet run -p ../../dotnet/Fable.Compiler \
+    node-run ../fable-splitter/dist/cli --fable-core force:\${outDir}
 
 # Check argument injections
-pushd ../../tools/InjectProcessor
-dotnet run
-popd
+dotnet run -p ../../tools/InjectProcessor
