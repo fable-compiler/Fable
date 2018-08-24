@@ -211,8 +211,7 @@ module Extensions =
     type AnotherClass with
         member x.FullName = sprintf "%i" x.Value
         member x.Overload(i: int) = i * 4
-        // TODO!!!
-        // member x.Overload(s: string) = s + s
+        member x.Overload(s: string) = s + s
 
 open Extensions
 
@@ -570,16 +569,14 @@ let tests =
         let c = SomeClass("John")
         c.NameTimes(1,2) |> equal "JohnJohnJohn"
 
-    // TODO!!!
-    // testCase "Type extension methods with same name work" <| fun () ->
-    //     let c = AnotherClass(3)
-    //     equal "3" c.FullName
+    testCase "Type extension methods with same name work" <| fun () ->
+        let c = AnotherClass(3)
+        equal "3" c.FullName
 
-    // TODO!!!
-    // testCase "Type extension overloads work" <| fun () ->
-    //     let c = AnotherClass(3)
-    //     c.Overload("3") |> equal "33"
-    //     c.Overload(3) |> equal 12
+    testCase "Type extension overloads work" <| fun () ->
+        let c = AnotherClass(3)
+        c.Overload("3") |> equal "33"
+        c.Overload(3) |> equal 12
 
     testCase "Module, members and properties with same name don't clash" <| fun () ->
         StyleBuilderHelper.test() |> equal true

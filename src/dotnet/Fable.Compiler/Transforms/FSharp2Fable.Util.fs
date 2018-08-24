@@ -104,7 +104,7 @@ module Helpers =
 
     let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
-        | Some ent when ent.IsFSharpModule ->
+        | Some ent when ent.IsFSharpModule && not memb.IsExtensionMember ->
             match getEntityMangledName com trimRootModule ent with
             | "" -> memb.CompiledName, Naming.NoMemberPart
             | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
@@ -203,10 +203,10 @@ module Helpers =
             | CaseRules.None | _ -> unionCase.Name
         |> makeStrConst
 
-    let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.DeclaringEntity with
-        | Some ent -> ent.IsFSharpModule
-        | None -> true // Compiler-generated members
+    // let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =
+    //     match memb.DeclaringEntity with
+    //     | Some ent -> ent.IsFSharpModule
+    //     | None -> true // Compiler-generated members
 
     /// Using memb.IsValue doesn't work for function values
     /// (e.g. `let ADD = adder()` when adder returns a function)
