@@ -1,3 +1,7 @@
+### 2.0.0-beta-001
+
+* Compatibility with Fable 2 beta
+
 ### 1.1.1
 
 * Always generate source maps for Rollup #1142
