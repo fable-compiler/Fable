@@ -1,5 +1,5 @@
 import { toString as dateToString } from "./Date";
-import Long, { toString as longToString } from "./Long";
+import Long, { fromBytes as longFromBytes, toBytes as longToBytes, toString as longToString } from "./Long";
 import { escape } from "./RegExp";
 import { isArray, toString } from "./Util";
 
@@ -122,7 +122,11 @@ export function indexOfAny(str: string, anyOf: number[], ...args: number[]) {
 }
 
 function toHex(x: any) {
-  return x instanceof Long ? longToString(x, 16) : (Number(x) >>> 0).toString(16);
+  if (x instanceof Long) {
+    return longToString(x.unsigned ? x : longFromBytes(longToBytes(x), true), 16);
+  } else {
+    return (Number(x) >>> 0).toString(16);
+  }
 }
 
 export type IPrintfFormatContinuation =

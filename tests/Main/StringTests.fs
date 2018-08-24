@@ -153,12 +153,12 @@ let tests =
             sprintf "255: %x" 255 |> equal "255: ff"
             sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
             sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
-            sprintf "-4095L: %X" -4095L |> equal "-4095L: -FFF"
+            sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
             sprintf "1 <<< 31: %x" (1 <<< 31) |> equal "1 <<< 31: 80000000"
             sprintf "1u <<< 31: %x" (1u <<< 31) |> equal "1u <<< 31: 80000000"
             sprintf "2147483649L: %x" 2147483649L |> equal "2147483649L: 80000001"
             sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
-            sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: -8000000000000000"
+            sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
             sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
 
       testCase "String.Format {0:x} works" <| fun () ->
@@ -167,12 +167,12 @@ let tests =
             String.Format("255: {0:x}", 255) |> equal "255: ff"
             String.Format("-255: {0:X}", -255) |> equal "-255: FFFFFF01"
             String.Format("4095L: {0:X}", 4095L) |> equal "4095L: FFF"
-            String.Format("-4095L: {0:X}", -4095L) |> equal "-4095L: -FFF"
+            String.Format("-4095L: {0:X}", -4095L) |> equal "-4095L: FFFFFFFFFFFFF001"
             String.Format("1 <<< 31: {0:x}", (1 <<< 31)) |> equal "1 <<< 31: 80000000"
             String.Format("1u <<< 31: {0:x}", (1u <<< 31)) |> equal "1u <<< 31: 80000000"
             String.Format("2147483649L: {0:x}", 2147483649L) |> equal "2147483649L: 80000001"
             String.Format("2147483650uL: {0:x}", 2147483650uL) |> equal "2147483650uL: 80000002"
-            String.Format("1L <<< 63: {0:x}", (1L <<< 63)) |> equal "1L <<< 63: -8000000000000000"
+            String.Format("1L <<< 63: {0:x}", (1L <<< 63)) |> equal "1L <<< 63: 8000000000000000"
             String.Format("1uL <<< 63: {0:x}", (1uL <<< 63)) |> equal "1uL <<< 63: 8000000000000000"
 
       testCase "Printf works with generic argument" <| fun () ->
