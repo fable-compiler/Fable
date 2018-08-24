@@ -72,8 +72,12 @@ let inline f x y = x + y
 module FooModule =
     type FooInline() =
         member __.Bar = "Bar"
+        member val Value = 0uy with get, set
         member inline self.Foo = "Foo" + self.Bar
         member inline self.Foofy(i) = String.replicate i self.Bar
+        member inline this.PropertyInline
+            with get() = this.Value
+            and set(v: uint8) = this.Value <- v
 
 type FooModule.FooInline with
     member inline self.Bar2 = "Bar" + self.Bar
@@ -409,6 +413,11 @@ let tests =
         let x = FooModule.FooInline()
         x.Foo |> equal "FooBar"
         x.Foofy 4 |> equal "BarBarBarBar"
+
+    testCase "Inline properties work" <| fun () ->
+        let x = FooModule.FooInline()
+        x.PropertyInline <- 3uy
+        x.PropertyInline |> equal 3uy
 
     testCase "Inline extension methods with this argument work" <| fun () -> // See #638
         let x = FooModule.FooInline()

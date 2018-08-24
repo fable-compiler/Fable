@@ -47,9 +47,6 @@ module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
         if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
 
-    let getEntityName (ent: FSharpEntity) =
-        ent.CompiledName.Replace('`', '_')
-
     // TODO: Report bug in FCS repo, when ent.IsNamespace, FullName doesn't work.
     let getEntityFullName (ent: FSharpEntity) =
         if ent.IsNamespace
