@@ -47,17 +47,30 @@ let rec foldIndexedAux f i acc = function
     | [] -> acc
     | x::xs -> foldIndexedAux f (i+1) (f i acc x) xs
 
-let foldIndexed<'a,'acc> f (seed:'acc) (xs: 'a list) =
-    foldIndexedAux f 0 seed xs
+let foldIndexed<'a,'acc> f (state: 'acc) (xs: 'a list) =
+    foldIndexedAux f 0 state xs
 
-let fold<'a,'acc> f (seed:'acc) (xs: 'a list) =
-    foldIndexed (fun _ acc x -> f acc x) seed xs
+let rec fold<'a,'acc> f (state: 'acc) (xs: 'a list) =
+    match xs with
+    | [] -> state
+    | h::t -> fold f (f state h) t
 
 let reverse xs =
     fold (fun acc x -> x::acc) [] xs
 
-let foldBack<'a,'acc> f (xs: 'a list) (seed:'acc) =
-    fold (fun acc x -> f x acc) seed (reverse xs)
+let foldBack<'a,'acc> f (xs: 'a list) (state: 'acc) =
+    fold (fun acc x -> f x acc) state (reverse xs)
+
+let toSeq (xs: 'a list): 'a seq =
+    Seq.map id xs
+
+let ofSeq (xs: 'a seq): 'a list =
+    Seq.fold (fun acc x -> x::acc) [] xs
+    |> reverse
+
+let concat (lists : #seq<'a list>) =
+    Seq.fold (fold (fun acc x -> x::acc)) [] lists
+    |> reverse
 
 let rec foldIndexed2Aux f i acc bs cs =
     match bs, cs with
@@ -65,20 +78,20 @@ let rec foldIndexed2Aux f i acc bs cs =
     | x::xs, y::ys -> foldIndexed2Aux f (i+1) (f i acc x y) xs ys
     | _ -> invalidOp "Lists had different lengths"
 
-let foldIndexed2<'a, 'b, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) =
-    foldIndexed2Aux f 0 seed xs ys
+let foldIndexed2<'a, 'b, 'acc> f (state: 'acc) (xs: 'a list) (ys: 'b list) =
+    foldIndexed2Aux f 0 state xs ys
 
-let fold2<'a, 'b, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) =
-    foldIndexed2 (fun _ acc x y -> f acc x y) seed xs ys
+let fold2<'a, 'b, 'acc> f (state: 'acc) (xs: 'a list) (ys: 'b list) =
+    Seq.fold2 f state xs ys
 
-let foldBack2<'a, 'b, 'acc> f (xs: 'a list) (ys: 'b list) (seed:'acc) =
-    fold2 (fun acc x y -> f x y acc) seed (reverse xs) (reverse ys)
+let foldBack2<'a, 'b, 'acc> f (xs: 'a list) (ys: 'b list) (state: 'acc) =
+    Seq.foldBack2 f xs ys state
 
 let unfold f state =
     let rec unfoldInner acc state =
         match f state with
-        |None -> reverse acc
-        |Some (x,state) -> unfoldInner (x::acc) state
+        | None -> reverse acc
+        | Some (x,state) -> unfoldInner (x::acc) state
     unfoldInner [] state
 
 let rec foldIndexed3Aux f i acc bs cs ds =
@@ -90,19 +103,14 @@ let rec foldIndexed3Aux f i acc bs cs ds =
 let foldIndexed3<'a, 'b, 'c, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
     foldIndexed3Aux f 0 seed xs ys zs
 
-let fold3<'a, 'b, 'c, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
-    foldIndexed3 (fun _ acc x y z -> f acc x y z) seed xs ys zs
+let fold3<'a, 'b, 'c, 'acc> f (state: 'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
+    foldIndexed3 (fun _ acc x y z -> f acc x y z) state xs ys zs
 
-let scan<'a, 'acc> f (seed:'acc) (xs: 'a list) =
-    fold (fun acc x ->
-        match acc with
-        | [] -> failwith "never"
-        | y::_ -> f y x::acc) [seed] xs
-    |> reverse
+let scan<'a, 'acc> f (state: 'acc) (xs: 'a list) =
+    Seq.scan f state xs |> ofSeq
 
-let scanBack<'a, 'acc> f (xs: 'a list) (seed:'acc) =
-    scan (fun acc x -> f x acc) seed (reverse xs)
-    |> reverse
+let scanBack<'a, 'acc> f (xs: 'a list) (state: 'acc) =
+    Seq.scanBack f xs state |> ofSeq
 
 let length xs =
     fold (fun acc _ -> acc + 1) 0 xs
@@ -110,11 +118,11 @@ let length xs =
 let append xs ys =
     fold (fun acc x -> x::acc) ys (reverse xs)
 
-let collect f xs =
-    fold (fun acc x -> append (f x) acc) [] (reverse xs)
+let collect f (xs: 'a list) =
+    Seq.collect f xs |> ofSeq
 
 let map f xs =
-    fold (fun acc x -> (f x::acc)) [] xs
+    fold (fun acc x -> f x::acc) [] xs
     |> reverse
 
 let mapIndexed f xs =
@@ -413,15 +421,6 @@ let splitAt i xs =
     | 0, _ -> [],xs
     | 1, x::xs -> [x],xs
     | i, xs -> takeSplitAux true i [] xs
-
-let toSeq (xs: 'a list): 'a seq =
-    Seq.unfold (function [] -> None | x::xs -> Some(x, xs)) xs
-
-let ofSeq (xs: 'a seq): 'a list =
-    Seq.foldBack(fun x acc -> x::acc) xs []
-
-let concat (lists : #seq<'a list>) =
-    Seq.foldBack (List.foldBack (fun x acc -> x::acc)) lists []
 
 let slice (lower: int option) (upper: int option) (xs: 'T list) =
     let lower = defaultArg lower -1
