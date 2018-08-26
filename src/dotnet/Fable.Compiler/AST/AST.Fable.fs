@@ -91,20 +91,20 @@ type OverrideDeclarationInfo =
       Kind: ObjectMemberKind
       EntityName: string }
 
-type InterfaceCastDeclarationInfo =
+type InterfaceImplementation =
     { Name: string
       IsPublic: bool
       ImplementingType: FSharpEntity
       InterfaceType: FSharpEntity
       /// Name of the casting functions for inherited interfaces
-      InheritedInterfaces: string list }
+      InheritedInterfaces: string list
+      Members: ObjectMember list }
 
 type Declaration =
     | ActionDeclaration of Expr
     | ValueDeclaration of Expr * ValueDeclarationInfo
-    | InterfaceCastDeclaration of ObjectMember list * InterfaceCastDeclarationInfo
     | OverrideDeclaration of args: Ident list * body: Expr * OverrideDeclarationInfo
-    | ConstructorDeclaration of ConstructorKind
+    | ConstructorDeclaration of ConstructorKind * InterfaceImplementation list
 
 type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
     member __.SourcePath: string = sourcePath
@@ -250,7 +250,7 @@ type ObjectMember =
     | ObjectMember of key: Expr * value: Expr * ObjectMemberKind
 
 type DelayedResolutionKind =
-    | AsSeqFromList of Expr
+    | AsInterface of source: Expr * cast: (Expr->Expr) * interfaceFullName: string
     | AsPojo of Expr * caseRules: Expr
     | AsUnit of Expr
     | Curry of Expr * arity: int

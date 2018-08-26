@@ -135,7 +135,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                 if over.Signature.DeclaringType.HasTypeDefinition then
                     let tdef = over.Signature.DeclaringType.TypeDefinition
                     match tdef.TryFullName with
-                    | Some Types.enumerable ->
+                    | Some Types.ienumerableGeneric ->
                         name, Fable.ObjectIterator
                     | _ ->
                         // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
@@ -170,13 +170,6 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
       let! members =
         (objType, overrides)::otherOverrides
         |> trampolineListMap (fun (typ, overrides) ->
-            let overrides =
-                if not typ.HasTypeDefinition then overrides else
-                let typName = typ.TypeDefinition.FullName.Replace(".","-")
-                overrides |> List.where (fun x ->
-                    typName + "-" + x.Signature.Name
-                    |> Naming.ignoredInterfaceMethods.Contains
-                    |> not)
             overrides |> trampolineListMap mapOverride)
 
       return Fable.ObjectExpr(members |> List.concat, makeType com ctx.GenericArgs objType, baseCall)
@@ -239,13 +232,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.Coerce(targetType, inpExpr) ->
         let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr
         match tryDefinition targetType with
-        | Some interfaceEntity when interfaceEntity.IsInterface ->
+        | Some(interfaceEntity, Some interfaceFullName) when interfaceEntity.IsInterface ->
             let targetType = makeType com ctx.GenericArgs targetType
             match inpExpr.Type with
             | Fable.DeclaredType(sourceEntity,_) ->
-                return castToInterface com r targetType sourceEntity interfaceEntity inpExpr
+                return castToInterface com r targetType sourceEntity interfaceFullName inpExpr
             | _ ->
-                return Replacements.tryInterfaceCast r targetType interfaceEntity.FullName inpExpr
+                return Replacements.tryInterfaceCast r targetType interfaceFullName inpExpr
                 |> Option.defaultValue inpExpr
         | _ -> return inpExpr
 
@@ -614,7 +607,6 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
             match att.AttributeType.TryFullName with
             | Some(Atts.global_ | Atts.emit | Atts.erase) -> true
             | _ -> false)
-        || Naming.ignoredInterfaceMethods.Contains meth.CompiledName
         || (match meth.DeclaringEntity with
             | Some ent -> isImportedEntity ent
             | None -> false)
@@ -700,7 +692,8 @@ let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOr
               BoundConstructorThis = boundThis
               Body = body
             }
-        [Fable.ClassImplicitConstructor info |> Fable.ConstructorDeclaration]
+        let interfaces = interfaceImplementations com ent
+        [Fable.ConstructorDeclaration(Fable.ClassImplicitConstructor info, interfaces)]
 
 /// When using `importMember`, uses the member display name as selector
 let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
@@ -713,8 +706,7 @@ let private transformImport r typ isPublic name selector path =
     let info: Fable.ValueDeclarationInfo =
         { Name = name
           IsPublic = isPublic
-          // TODO!!!: compile imports as ValueDeclarations
-          // (check if they're mutable, see #1314)
+          // TODO: Check if they're mutable, see #1314
           IsMutable = false
           IsEntryPoint = false
           HasSpread = false }
@@ -804,21 +796,26 @@ let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunc
               EntityName = getEntityDeclarationName com ent }
         [Fable.OverrideDeclaration(args, body, info)]
 
-let private transformInterfaceImplementation (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+let private transformInterfaceImplementationMember (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+    // Some interfaces will be implemented in the prototype
     if Set.contains memb.CompiledName Naming.interfaceMethodsImplementedInPrototype
     then transformOverride com ctx memb args body
     else
-        let bodyCtx, args = bindMemberArgs com ctx args
-        let body = transformExpr com bodyCtx body |> run
-        let value = Fable.Function(Fable.Delegate args, body, None)
-        let kind =
-            if memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0
-            then Fable.ObjectGetter
-            elif memb.IsPropertySetterMethod && countNonCurriedParams memb = 1
-            then Fable.ObjectSetter
-            else hasSeqSpread memb |> Fable.ObjectMethod
-        let objMember = Fable.ObjectMember(makeStrConst memb.DisplayName, value, kind)
-        com.AddInterfaceImplementation(memb, objMember)
+        match memb.DeclaringEntity, tryGetInterfaceDefinitionFromMethod memb with
+        | Some ent, Some interfaceEntity when not(Naming.ignoredInterfaces.Contains interfaceEntity.FullName) ->
+            let bodyCtx, args = bindMemberArgs com ctx args
+            let body = transformExpr com bodyCtx body |> run
+            let value = Fable.Function(Fable.Delegate args, body, None)
+            let kind =
+                if memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0
+                then Fable.ObjectGetter
+                elif memb.IsPropertySetterMethod && countNonCurriedParams memb = 1
+                then Fable.ObjectSetter
+                else hasSeqSpread memb |> Fable.ObjectMethod
+            let objMember = Fable.ObjectMember(makeStrConst memb.DisplayName, value, kind)
+            let ifcImplName = getInterfaceImplementationName com ent interfaceEntity.FullName
+            com.InterfaceImplementationMembers.Add(ifcImplName, objMember)
+        | _ -> ()
         []
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
@@ -833,10 +830,38 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     elif memb.IsImplicitConstructor
     then transformImplicitConstructor com ctx memb args body
     elif memb.IsExplicitInterfaceImplementation
-    then transformInterfaceImplementation com ctx memb args body
+    then transformInterfaceImplementationMember com ctx memb args body
     elif memb.IsOverrideOrExplicitInterfaceImplementation
     then transformOverride com ctx memb args body
     else transformMemberFunctionOrValue com ctx memb args body
+
+let interfaceImplementations (com: IFableCompiler) (ent: FSharpEntity) =
+    ent.AllInterfaces |> Seq.choose (fun interfaceType ->
+        match tryDefinition interfaceType with
+        | Some(interfaceEnt, Some interfaceFullName)
+                when not(Naming.ignoredInterfaces.Contains interfaceFullName) ->
+            let castFunctionName = getInterfaceImplementationName com ent interfaceFullName
+            com.AddUsedVarName(castFunctionName)
+            let inheritedInterfaces =
+                interfaceEnt.AllInterfaces |> Seq.choose (fun t ->
+                    match tryDefinition t with
+                    // If the parent interface doesn't bring any method, we can ignore it
+                    | Some(tdef, Some fullName)
+                            when fullName <> interfaceFullName
+                                && not(Naming.ignoredInterfaces.Contains fullName)
+                                && not(isInterfaceEmpty tdef) ->
+                        getInterfaceImplementationName com ent tdef.FullName |> Some
+                    | _ -> None)
+                |> Seq.toList
+            { Name = castFunctionName
+              IsPublic = not ent.Accessibility.IsPrivate
+              ImplementingType = ent
+              InterfaceType = interfaceEnt
+              InheritedInterfaces = inheritedInterfaces
+              Members = []
+            }: Fable.InterfaceImplementation |> Some
+        | _ -> None)
+    |> Seq.toList
 
 let private transformDeclarations (com: FableCompiler) rootEnt rootDecls =
     let rec transformDeclarationsInner (com: FableCompiler) (ctx: Context) fsDecls =
@@ -853,34 +878,31 @@ let private transformDeclarations (com: FableCompiler) rootEnt rootDecls =
                 | None when ent.IsFSharpUnion && not (isErasedUnion ent) ->
                     let entityName = getEntityDeclarationName com ent
                     com.AddUsedVarName(entityName)
-                    // TODO!!! Check Equality/Comparison attributes
+                    // TODO: Check Equality/Comparison attributes
                     let info: Fable.UnionConstructorInfo =
                       { Entity = ent
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
-                    [Fable.UnionConstructor info |> Fable.ConstructorDeclaration]
+                    let interfaces = interfaceImplementations com ent
+                    [Fable.ConstructorDeclaration(Fable.UnionConstructor info, interfaces)]
                 | None when ent.IsFSharpRecord
                         || ent.IsFSharpExceptionDeclaration
                         || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent)) ->
                     let entityName = getEntityDeclarationName com ent
                     com.AddUsedVarName(entityName)
-                    // TODO!!! Check Equality/Comparison attributes
+                    // TODO: Check Equality/Comparison attributes
                     let info: Fable.CompilerGeneratedConstructorInfo =
                       { Entity = ent
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
-                    [Fable.CompilerGeneratedConstructor info |> Fable.ConstructorDeclaration]
+                    let interfaces = interfaceImplementations com ent
+                    [Fable.ConstructorDeclaration(Fable.CompilerGeneratedConstructor info, interfaces)]
                 | None ->
-                    // Cast for empty interfaces is erased, so they must not inherit members
-                    if ent.IsInterface && ent.MembersFunctionsAndValues.Count = 0 && isInterfaceInheritingMembers ent then
-                        sprintf "Empty interfaces cannot inherit members: %s" ent.FullName
-                        |> addError com None
                     transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
                 transformMemberDecl com ctx meth args body
             | FSharpImplementationFileDeclaration.InitAction fe ->
-                [transformExpr com ctx fe |> run |> Fable.ActionDeclaration]
-        )
+                [transformExpr com ctx fe |> run |> Fable.ActionDeclaration])
     // In case this is a recursive module, do a first pass to add
     // all entity and member names as used var names
     rootDecls |> List.iter (function
@@ -891,10 +913,13 @@ let private transformDeclarations (com: FableCompiler) rootEnt rootDecls =
         | FSharpImplementationFileDeclaration.InitAction _ -> ()
     )
     let decls = transformDeclarationsInner com (Context.Create rootEnt) rootDecls
-    let interfaceImplementations =
-        com.InterfaceImplementations.Values |> Seq.map (fun (info, objMember) ->
-            Fable.InterfaceCastDeclaration(Seq.toList objMember, info)) |> Seq.toList
-    decls @ interfaceImplementations
+    if com.InterfaceImplementationMembers.Count > 0 then
+        decls |> List.map (function
+            | Fable.ConstructorDeclaration(kind, interfaces) when not(List.isEmpty interfaces) ->
+                Fable.ConstructorDeclaration(kind, interfaces |> List.map (fun info ->
+                    { info with Members = com.InterfaceImplementationMembers.Get(info.Name) }))
+            | decl -> decl)
+    else decls
 
 let private getRootModuleAndDecls decls =
     let (|CommonNamespace|_|) = function
@@ -941,42 +966,12 @@ let private tryGetMemberArgsAndBody com (implFiles: Map<string, FSharpImplementa
 type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFileContents>) =
     member val UsedVarNames = HashSet<string>()
     member val Dependencies = HashSet<string>()
-    member val InterfaceImplementations: Dictionary<_,_> = Dictionary()
+    member val InterfaceImplementationMembers: ResizeArrayDictionary<_,_> = ResizeArrayDictionary<string, Fable.ObjectMember>()
     member this.AddUsedVarName(varName) =
         this.UsedVarNames.Add(varName) |> ignore
     member __.AddInlineExpr(memb, inlineExpr) =
         let fullName = getMemberUniqueName com memb
         com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
-    member this.AddInterfaceImplementation(memb: FSharpMemberOrFunctionOrValue, objMemb: Fable.ObjectMember) =
-        match memb.DeclaringEntity, tryGetInterfaceDefinitionFromMethod memb with
-        | Some implementingEntity, Some interfaceEntity ->
-            let castFunctionName = getCastDeclarationName com implementingEntity interfaceEntity.FullName
-            let inheritedInterfaces =
-                if interfaceEntity.AllInterfaces.Count > 1 then
-                    interfaceEntity.AllInterfaces |> Seq.choose (fun t ->
-                        if t.HasTypeDefinition then
-                            let fullName = getCastDeclarationName com implementingEntity t.TypeDefinition.FullName
-                            if fullName <> castFunctionName then Some fullName else None
-                        else None)
-                    |> Seq.toList
-                else []
-            match this.InterfaceImplementations.TryGetValue(castFunctionName) with
-            | false, _ ->
-                let info: Fable.InterfaceCastDeclarationInfo =
-                    { Name = castFunctionName
-                      IsPublic = not implementingEntity.Accessibility.IsPrivate
-                      ImplementingType = implementingEntity
-                      InterfaceType = interfaceEntity
-                      InheritedInterfaces = inheritedInterfaces
-                    }
-                let members = ResizeArray()
-                members.Add(objMemb)
-                this.UsedVarNames.Add(castFunctionName) |> ignore
-                this.InterfaceImplementations.Add(castFunctionName, (info, members) )
-            | true, (_, members) -> members.Add(objMemb)
-        | _ ->
-            "Cannot find implementing and/or interface entities for " + memb.FullName
-            |> addError com None
     interface IFableCompiler with
         member this.Transform(ctx, fsExpr) =
             transformExpr this ctx fsExpr |> run

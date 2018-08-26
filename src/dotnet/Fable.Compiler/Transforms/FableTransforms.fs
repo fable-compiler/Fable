@@ -32,7 +32,7 @@ let visit f e =
     | Test(e, kind, r) -> Test(f e, kind, r)
     | DelayedResolution(kind, t, r) ->
         match kind with
-        | AsSeqFromList e -> DelayedResolution(AsSeqFromList(f e), t, r)
+        | AsInterface(e, cast, name) -> DelayedResolution(AsInterface(f e, cast, name), t, r)
         | AsPojo(e1, e2) -> DelayedResolution(AsPojo(f e1, f e2), t, r)
         | AsUnit e -> DelayedResolution(AsUnit(f e), t, r)
         | Curry(e, arity) -> DelayedResolution(Curry(f e, arity), t, r)
@@ -127,7 +127,7 @@ let getSubExpressions = function
     | Test(e, _, _) -> [e]
     | DelayedResolution(kind, _, _) ->
         match kind with
-        | AsSeqFromList e | AsUnit e | Curry(e,_) -> [e]
+        | AsInterface(e,_,_) | AsUnit e | Curry(e,_) -> [e]
         | AsPojo(e1, e2) -> [e1; e2]
     | Function(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
@@ -543,27 +543,29 @@ let rec optimizeDeclaration (com: ICompiler) = function
         ActionDeclaration(optimizeExpr com expr)
     | ValueDeclaration(value, info) ->
         ValueDeclaration(optimizeExpr com value, info)
-    | ConstructorDeclaration kind as consDecl ->
-        match kind with
-        | ClassImplicitConstructor info ->
-            let args, body =
-                // Create a function so the arguments can be uncurried, see #1441
-                Function(Delegate info.Arguments, info.Body, None)
-                |> optimizeExpr com
-                |> function
-                    | Function(Delegate args, body, _) -> args, body
-                    | _ ->
-                        addWarning com None "Unexpected result when optimizing ClassImplicitConstructor, please report"
-                        info.Arguments, info.Body
-            { info with Arguments = args; Body = body }
-            |> ClassImplicitConstructor |> ConstructorDeclaration
-        | _ -> consDecl
+    | ConstructorDeclaration(kind, interfaces) ->
+        let kind =
+            match kind with
+            | ClassImplicitConstructor info ->
+                let args, body =
+                    // Create a function so the arguments can be uncurried, see #1441
+                    Function(Delegate info.Arguments, info.Body, None)
+                    |> optimizeExpr com
+                    |> function
+                        | Function(Delegate args, body, _) -> args, body
+                        | _ ->
+                            addWarning com None "Unexpected result when optimizing ClassImplicitConstructor, please report"
+                            info.Arguments, info.Body
+                ClassImplicitConstructor { info with Arguments = args; Body = body }
+            | kind -> kind
+        let interfaces =
+            interfaces |> List.map (fun info ->
+                let members = info.Members |> List.map (fun (ObjectMember(k,v,kind)) ->
+                    ObjectMember(optimizeExpr com k, optimizeExpr com v, kind))
+                { info with Members = members })
+        ConstructorDeclaration(kind, interfaces)
     | OverrideDeclaration(args, body, info) ->
         OverrideDeclaration(args, optimizeExpr com body, info)
-    | InterfaceCastDeclaration(members, info) ->
-        let members = members |> List.map (fun (ObjectMember(k,v,kind)) ->
-            ObjectMember(optimizeExpr com k, optimizeExpr com v, kind))
-        InterfaceCastDeclaration(members, info)
 
 let optimizeFile (com: ICompiler) (file: File) =
     let newDecls = List.map (optimizeDeclaration com) file.Declarations

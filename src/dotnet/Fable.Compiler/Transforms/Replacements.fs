@@ -186,6 +186,10 @@ let (|MaybeLambdaUncurriedAtCompileTime|) = function
     | LambdaUncurriedAtCompileTime None lambda -> lambda
     | e -> e
 
+let (|MaybeAsInterface|) = function
+    | DelayedResolution(AsInterface(e,_,_),_,_) -> e
+    | e -> e
+
 let (|IDictionary|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
         match ent.TryFullName with
@@ -197,7 +201,7 @@ let (|IDictionary|IEqualityComparer|Other|) = function
 let (|IEnumerable|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
         match ent.TryFullName with
-        | Some Types.enumerable -> IEnumerable
+        | Some Types.ienumerableGeneric -> IEnumerable
         | Some Types.equalityComparer -> IEqualityComparer
         | _ -> Other
     | _ -> Other
@@ -487,7 +491,10 @@ let enumerator2iterator (e: Expr) =
 
 let toSeq r t (e: Expr) =
     match e.Type with
-    | List _ -> DelayedResolution(AsSeqFromList e, t, r)
+    // Delay resolution for a chance to optimize a list into an array
+    | List _ ->
+        let kind = AsInterface(e, id, Types.ienumerableGeneric)
+        DelayedResolution(kind, t, r)
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
     | GenericParam _ ->
@@ -762,13 +769,11 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
     | Value(Enum(NumberEnum(Value(NumberConstant(rule, _))), _)) ->
         let caseRule = enum(int rule)
         match keyValueList with
-        // It should be an array because the list is casted to seq, but check also list just in case
-        | Value(NewArray(ArrayValues ms, _))
-        | ListLiteral(ms, _) ->
+        | MaybeAsInterface(Value(NewArray(ArrayValues ms, _)) | ListLiteral(ms, _)) ->
             (ms, Some []) ||> List.foldBack (fun m acc ->
                 match acc, m with
                 // Try to get the member key and value at compile time for unions and tuples
-                | Some acc, Value(NewUnion(values, uci, _, _)) ->
+                | Some acc, MaybeAsInterface(Value(NewUnion(values, uci, _, _))) ->
                     // Union cases with EraseAttribute are used for `Custom`-like cases
                     match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
                     | Some _ ->
@@ -780,7 +785,8 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
                         makeObjMember caseRule name values::acc |> Some
                 | Some acc, Value(NewTuple((Value(StringConstant name))::values)) ->
                     makeObjMember caseRule name values::acc |> Some
-                | _ -> None)
+                | _ ->
+                    None)
         | _ -> None
         |> Option.map (fun members -> ObjectExpr(members, Any, None))
         // With key & value for all members, build the POJO at compile time. If not, build it at runtime
@@ -1295,7 +1301,7 @@ let seqs (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr 
     | "EnumerateUsing", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterfaceWithFullName com r t ent Types.idisposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com r t ent Types.idisposable arg
             | _ -> arg
         Helper.CoreCall("Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Sort" | "SortDescending" as meth), args ->
@@ -1723,7 +1729,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         match arg.Type, t with
         // UnboxGeneric is used to cast to `System.IDisposable` at the end of `use` scope
         | DeclaredType(sourceEntity, _), DeclaredType(targetEntity, _) when targetEntity.IsInterface ->
-            FSharp2Fable.Util.castToInterface com r t sourceEntity targetEntity arg |> Some
+            FSharp2Fable.Util.castToInterface com r t sourceEntity targetEntity.FullName arg |> Some
         | _, DeclaredType(targetEntity, _) when not targetEntity.IsInterface ->
             Helper.CoreCall("Util", "downcast", t, [arg]) |> Some
         | _ -> Some arg
@@ -2204,7 +2210,7 @@ let asyncBuilder (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr 
     | Some x, "Using", [arg; f] ->
         let arg =
             match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterfaceWithFullName com r t ent Types.idisposable arg
+            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com r t ent Types.idisposable arg
             | _ -> arg
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2344,7 +2350,7 @@ let tryInterfaceCast r t interfaceFullName (e: Expr) =
     match interfaceFullName, e.Type with
     // CompareTo method is attached to prototype
     | Types.icomparable, _ -> Some e
-    | Types.enumerable, _
+    | Types.ienumerableGeneric, _
     | Types.ienumerable, _ -> toSeq r t e |> Some
     // These types in fable-core (or native JS) have methods attached to prototype
     | _, Builtin(BclTimeSpan | BclTimer | BclHashSet _ | BclDictionary _) -> Some e
@@ -2390,7 +2396,7 @@ let private replacedModules =
     "System.Collections.Generic.KeyValuePair`2", keyValuePairs
     Types.dictionary, dictionaries
     Types.idictionary, dictionaries
-    Types.enumerable, enumerables
+    Types.ienumerableGeneric, enumerables
     Types.ienumerable, enumerables
     "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables
     "System.Collections.Generic.Dictionary`2.KeyCollection", enumerables

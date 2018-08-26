@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "build": "dotnet run -c Release -p ../src/dotnet/Fable.Compiler yarn-splitter",
+    "build": "dotnet run -c Release -p ../src/dotnet/Fable.Compiler yarn-splitter --force-pkgs",
     "postbuild": "yarn test",
     "splitter": "node ../src/js/fable-splitter/dist/cli",
     "test": "node ../node_modules/mocha/bin/mocha ../build/tests --reporter dot -t 10000"

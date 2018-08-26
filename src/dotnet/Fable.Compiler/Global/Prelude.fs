@@ -1,5 +1,17 @@
 namespace Fable
 
+type ResizeArrayDictionary<'K, 'V when 'K : equality>() =
+    let dic = System.Collections.Generic.Dictionary<'K, ResizeArray<'V>>()
+    member __.Count = dic.Count
+    member __.Add(k: 'K, v: 'V) =
+        match dic.TryGetValue(k) with
+        | true, xs -> xs.Add(v)
+        | false, _ -> dic.Add(k, ResizeArray [|v|])
+    member __.Get(k: 'K) =
+        match dic.TryGetValue(k) with
+        | true, xs -> Seq.toList xs
+        | false, _ -> []
+
 /// Each Position object consists of a line number (1-indexed) and a column number (0-indexed):
 type Position =
     { line: int; column: int; }
@@ -101,14 +113,13 @@ module Naming =
     let [<Literal>] fableHiddenDir = ".fable"
     let [<Literal>] unknown = "UNKNOWN"
 
-    /// Interfaces automatically assigned by the F# compiler to unions and records. Ignored by Fable.
+    /// Interfaces implemented in the prototype or automatically assigned by the F# compiler to unions and records.
     let ignoredInterfaces =
-        set [ "System.Collections.IStructuralEquatable"; "System.Collections.IStructuralComparable"
-              "System.Collections.IEnumerable"; "System.Collections.IEnumerator" ]
-
-    let ignoredInterfaceMethods =
-        set [ "System-Collections-IEnumerable-GetEnumerator"
-              "System-Collections-IEnumerator-get_Current" ]
+        set [ "System.Collections.IStructuralEquatable"
+              "System.Collections.IStructuralComparable"
+              "System.Collections.Generic.IEnumerable"
+              "System.Collections.IEnumerable"
+              "System.IComparable" ]
 
     let interfaceMethodsImplementedInPrototype =
         set [ "System-IComparable-CompareTo"

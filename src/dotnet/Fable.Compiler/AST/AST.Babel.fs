@@ -19,6 +19,11 @@ type Node(``type``, ?loc) =
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 [<AbstractClass>] type Expression(typ, ?loc) = inherit Node(typ, ?loc = loc)
 
+[<AbstractClass>] type PatternNode(typ, ?loc) = inherit Node(typ, ?loc = loc)
+[<AbstractClass>] type PatternExpression(typ, ?loc) = inherit Expression(typ, ?loc = loc)
+
+type Pattern = U2<PatternNode, PatternExpression>
+
 [<AbstractClass>] type Literal(typ, ?loc) = inherit Expression(typ, ?loc = loc)
 
 [<AbstractClass>] type Statement(typ, ?loc) = inherit Node(typ, ?loc = loc)
@@ -50,8 +55,6 @@ type TypeParameterInstantiation(``params``) =
     member __.Type = "TypeParameterInstantiation"
     member __.Params: TypeAnnotationInfo array = ``params``
 
-type Pattern = interface end
-
 /// Not in Babel specs, disguised as StringLiteral
 type MacroExpression(value, args, ?loc) =
     inherit Literal("StringLiteral", ?loc = loc)
@@ -79,10 +82,9 @@ type TaggedTemplateExpression(tag, quasi, ?loc) =
 // Identifier
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier(name, ?typeAnnotation, ?loc) =
-    inherit Expression("Identifier", ?loc = loc)
+    inherit PatternExpression("Identifier", ?loc = loc)
     member __.Name: string = name
     member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
-    interface Pattern
     override __.ToString() = __.Name
 
 // Literals
@@ -391,12 +393,11 @@ type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?generator_, ?async_
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
 type MemberExpression(``object``, property, ?computed_, ?loc) =
-    inherit Expression("MemberExpression", ?loc = loc)
+    inherit PatternExpression("MemberExpression", ?loc = loc)
     let computed = defaultArg computed_ false
     member __.Object: Expression = ``object``
     member __.Property: Expression = property
     member __.Computed: bool = computed
-    interface Pattern
 
 type ObjectExpression(properties, ?loc) =
     inherit Expression("ObjectExpression", ?loc = loc)
@@ -526,20 +527,17 @@ type LogicalExpression(operator_, left, right, ?loc) =
 //     interface Pattern
 
 type ArrayPattern(elements, ?loc) =
-    inherit Node("ArrayPattern", ?loc = loc)
+    inherit PatternNode("ArrayPattern", ?loc = loc)
     member __.Elements: Pattern option array = elements
-    interface Pattern
 
 type AssignmentPattern(left, right, ?loc) =
-    inherit Node("AssignmentPattern", ?loc = loc)
+    inherit PatternNode("AssignmentPattern", ?loc = loc)
     member __.Left: Pattern = left
     member __.Right: Expression = right
-    interface Pattern
 
 type RestElement(argument, ?loc) =
-    inherit Node("RestElement", ?loc = loc)
+    inherit PatternNode("RestElement", ?loc = loc)
     member __.Argument: Pattern = argument
-    interface Pattern
 
 // Classes
 type ClassMethodKind =

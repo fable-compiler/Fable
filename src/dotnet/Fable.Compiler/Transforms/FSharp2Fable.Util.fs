@@ -94,7 +94,7 @@ module Helpers =
         then typ.TypeDefinition.TryFullName = Some Types.unit
         else false
 
-    let getCastDeclarationName com (implementingEntity: FSharpEntity) (interfaceEntityFullName: string) =
+    let getInterfaceImplementationName com (implementingEntity: FSharpEntity) (interfaceEntityFullName: string) =
         let entityName = getEntityMangledName com true implementingEntity
         let memberPart = Naming.StaticMemberPart(interfaceEntityFullName, "")
         Naming.sanitizeIdent (fun _ -> false) entityName memberPart
@@ -135,20 +135,21 @@ module Helpers =
 
     let tryDefinition (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
-        if typ.HasTypeDefinition then Some typ.TypeDefinition else None
+        if typ.HasTypeDefinition then
+            let tdef = typ.TypeDefinition
+            Some(tdef, tdef.TryFullName)
+        else None
 
     let getFsTypeFullName (typ: FSharpType) =
         match tryDefinition typ with
-        | Some tdef -> defaultArg tdef.TryFullName Naming.unknown
-        | None -> Naming.unknown
+        | Some(_, Some fullName) -> fullName
+        | _ -> Naming.unknown
 
     let tryEntityBase (ent: FSharpEntity) =
         ent.BaseType
         |> Option.bind tryDefinition
-        |> Option.bind (fun baseEntity ->
-            if baseEntity.TryFullName = Some Types.object
-            then None
-            else Some baseEntity)
+        |> Option.bind (fun (baseEntity, fullName) ->
+            if fullName = Some Types.object then None else Some baseEntity)
 
     let isInline (memb: FSharpMemberOrFunctionOrValue) =
         match memb.InlineAnnotation with
@@ -223,15 +224,18 @@ module Helpers =
             | None -> false
         | _ -> false
 
-    let rec isInterfaceInheritingMembers (ent: FSharpEntity) =
-        if ent.AllInterfaces.Count > 1 then
-            let fullname = ent.FullName
-            ent.AllInterfaces |> Seq.exists (fun ifc ->
-                match tryDefinition ifc with
-                | Some e when e.FullName <> fullname ->
-                    e.MembersFunctionsAndValues.Count > 0 || isInterfaceInheritingMembers e
-                | _ -> false)
-        else false
+    let rec isInterfaceEmpty (ent: FSharpEntity) =
+        ent.MembersFunctionsAndValues.Count = 0
+            && (if ent.AllInterfaces.Count > 1 then
+                    let fullname = ent.FullName
+                    ent.AllInterfaces |> Seq.forall (fun ifc ->
+                        match tryDefinition ifc with
+                        | Some(e, Some fullname2) ->
+                            if fullname = fullname2
+                            then true
+                            else isInterfaceEmpty e
+                        | _ -> true)
+                else true)
 
     let hasSeqSpread (memb: FSharpMemberOrFunctionOrValue) =
         let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
@@ -366,8 +370,8 @@ module Patterns =
     let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|DiscriminatedUnion|) (NonAbbreviatedType typ: FSharpType) =
         match tryDefinition typ with
         | None -> failwith "Union without definition"
-        | Some tdef ->
-            match defaultArg tdef.TryFullName tdef.CompiledName with
+        | Some(tdef, fullName) ->
+            match defaultArg fullName tdef.CompiledName with
             | Types.option -> OptionUnion typ.GenericArguments.[0]
             | Types.list -> ListUnion typ.GenericArguments.[0]
             | _ ->
@@ -747,7 +751,7 @@ module Util =
         | None, Some entityFullName -> entityFullName.StartsWith("Fable.Core.")
         | None, None -> false
 
-    let castToInterfaceWithFullName (com: IFableCompiler) r t (sourceEntity: FSharpEntity) interfaceFullName expr =
+    let castToInterface (com: IFableCompiler) r t (sourceEntity: FSharpEntity) interfaceFullName expr =
         if sourceEntity.IsInterface
         then expr
         else
@@ -761,19 +765,15 @@ module Util =
                 expr
             | Some(ent,_) when isReplacementCandidate ent -> expr
             | Some(ent,_)  ->
-                let entLoc = getEntityLocation ent
-                let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
-                let funcName = getCastDeclarationName com ent interfaceFullName
-                if file = com.CurrentFile
-                then makeIdent funcName |> Fable.IdentExpr
-                else makeInternalImport Fable.Any funcName file
-                |> staticCall None t (argInfo None [expr] None)
-
-    let castToInterface (com: IFableCompiler) r t (sourceEntity: FSharpEntity) (interfaceEntity: FSharpEntity) expr =
-        // If the interface has no members, cast is not necessary
-        if interfaceEntity.MembersFunctionsAndValues.Count = 0
-        then expr
-        else castToInterfaceWithFullName com r t sourceEntity interfaceEntity.FullName expr
+                let cast expr =
+                    let entLoc = getEntityLocation ent
+                    let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
+                    let funcName = getInterfaceImplementationName com ent interfaceFullName
+                    if file = com.CurrentFile
+                    then makeIdent funcName |> Fable.IdentExpr
+                    else makeInternalImport Fable.Any funcName file
+                    |> staticCall None t (argInfo None [expr] None)
+                Fable.DelayedResolution(Fable.AsInterface(expr, cast, interfaceFullName), t, r)
 
     let callInstanceMember com r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
@@ -783,7 +783,7 @@ module Util =
                 // `let foo (x: 'T when 'T :> IDisposable) = x.Dispose()`
                 match callee.Type with
                 | Fable.DeclaredType(original, _) when entity.IsInterface ->
-                    castToInterface com r typ original entity callee
+                    castToInterface com r typ original entity.FullName callee
                 | Fable.GenericParam _ when entity.IsInterface ->
                     "An interface member of an unresolved generic parameter is being called, " +
                         "this will likely fail at compile time. Please try inlining or not using flexible types."

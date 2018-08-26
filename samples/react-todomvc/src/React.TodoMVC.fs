@@ -69,7 +69,7 @@ type Todo = { id: Guid; title: string; completed: bool }
 type TodoModel(key) =
     member val key = key
     member val todos: Todo[] = defaultArg (Util.load key) [||] with get, set
-    member val onChanges: (unit->unit)[] = [||] with get, set
+    member val onChanges: (unit->unit) [] = [||] with get, set
 
     member this.subscribe(onChange) =
         this.onChanges <- [|onChange|]
@@ -135,13 +135,13 @@ open R.Props
 
 type TodoItemProps =
     { key: Guid
-    ; todo: Todo
-    ; editing: bool
-    ; onSave: string->unit
-    ; onEdit: React.SyntheticEvent->unit
-    ; onDestroy: React.SyntheticEvent->unit
-    ; onCancel: React.SyntheticEvent->unit
-    ; onToggle: React.SyntheticEvent->unit }
+      todo: Todo
+      editing: bool
+      onSave: string->unit
+      onEdit: React.SyntheticEvent->unit
+      onDestroy: React.SyntheticEvent->unit
+      onCancel: React.SyntheticEvent->unit
+      onToggle: React.SyntheticEvent->unit }
 
 type TodoItemState =
     { editText: string }
@@ -206,10 +206,10 @@ type TodoItem(props) =
         // The React helper defines a simple DSL to build HTML elements.
         // For more info about transforming F# unions to JS option objects:
         // https://fable-compiler.github.io/docs/interacting.html#KeyValueList-attribute
-        R.li [ ClassName className ] [
-            R.div [ ClassName "view" ] [
+        R.li [ Class className ] [
+            R.div [ Class "view" ] [
                 R.input [
-                    ClassName "toggle"
+                    Class "toggle"
                     Type "checkbox"
                     Checked this.props.todo.completed
                     OnChange (fun e -> this.props.onToggle(upcast e))
@@ -217,11 +217,11 @@ type TodoItem(props) =
                 R.label [ OnDoubleClick this.handleEdit ]
                         [ R.str this.props.todo.title ]
                 R.button [
-                    ClassName "destroy"
+                    Class "destroy"
                     OnClick (fun e -> this.props.onDestroy(upcast e)) ] [ ]
             ]
             R.input [
-                ClassName "edit"
+                Class "edit"
                 Ref (fun x -> editField <- Some(x:?>Browser.HTMLInputElement))
                 Value this.state.editText
                 OnBlur this.handleSubmit
@@ -243,9 +243,9 @@ the parent and let it re-render the subtree if necessary.
 
 type TodoFooterProps =
     { count: int
-    ; completedCount: int
-    ; onClearCompleted: React.MouseEvent->unit
-    ; nowShowing: string }
+      completedCount: int
+      onClearCompleted: React.MouseEvent->unit
+      nowShowing: string }
 
 let TodoFooter(props: TodoFooterProps) =
     let activeTodoWord =
@@ -254,35 +254,35 @@ let TodoFooter(props: TodoFooterProps) =
         if props.completedCount > 0
         then
             R.button [
-                ClassName "clear-completed"
+                Class "clear-completed"
                 OnClick props.onClearCompleted
             ] [ R.str "Clear completed" ] |> Some
         else None
     let className category =
         classNames(
             createObj ["selected" ==> (props.nowShowing = category)])
-    R.footer [ ClassName "footer" ] [
-        R.span [ ClassName "todo-count" ] [
+    R.footer [ Class "footer" ] [
+        R.span [ Class "todo-count" ] [
             R.strong [] [ props.count |> string |> R.str ]
             R.str (" " + activeTodoWord + " left")
         ]
-        R.ul [ ClassName "filters" ] [
+        R.ul [ Class "filters" ] [
             R.li [] [
                 R.a [
                     Href "#/"
-                    ClassName (className ALL_TODOS)
+                    Class (className ALL_TODOS)
                 ] [ R.str "All" ] ]
             R.str " "
             R.li [] [
                 R.a [
                     Href "#/active"
-                    ClassName (className ACTIVE_TODOS)
+                    Class (className ACTIVE_TODOS)
                 ] [ R.str "Active" ] ]
             R.str " "
             R.li [] [
                 R.a [
                     Href "#/completed"
-                    ClassName (className COMPLETED_TODOS)
+                    Class (className COMPLETED_TODOS)
                 ] [ R.str "Completed" ] ]
             R.ofOption clearButton
         ]
@@ -307,8 +307,8 @@ type TodoAppProps =
 
 type TodoAppState =
     { nowShowing: string
-    ; editing: Guid option
-    ; newTodo: string }
+      editing: Guid option
+      newTodo: string }
 
 type TodoApp(props) =
     inherit React.Component<TodoAppProps, TodoAppState>(props)
@@ -370,16 +370,16 @@ type TodoApp(props) =
             |> Seq.map (fun todo ->
                 R.ofType<TodoItem,_,_>
                     { key = todo.id
-                    ; todo = todo
-                    ; onToggle = fun _ -> this.toggle(todo)
-                    ; onDestroy = fun _ -> this.destroy(todo)
-                    ; onEdit = fun _ -> this.edit(todo)
-                    ; editing =
+                      todo = todo
+                      onToggle = fun _ -> this.toggle(todo)
+                      onDestroy = fun _ -> this.destroy(todo)
+                      onEdit = fun _ -> this.edit(todo)
+                      editing =
                         match this.state.editing with
                         | Some editing -> editing = todo.id
                         | None -> false
-                    ; onSave = fun text -> this.save(todo, string text)
-                    ; onCancel = fun _ -> this.cancel() } [])
+                      onSave = fun text -> this.save(todo, string text)
+                      onCancel = fun _ -> this.cancel() } [])
                 |> Seq.toList
         let activeTodoCount =
             todos |> Array.fold (fun accum todo ->
@@ -392,29 +392,29 @@ type TodoApp(props) =
             then
                 R.ofFunction TodoFooter
                     { count = activeTodoCount
-                    ; completedCount = completedCount
-                    ; nowShowing = this.state.nowShowing
-                    ; onClearCompleted = fun _ -> this.clearCompleted() } []
+                      completedCount = completedCount
+                      nowShowing = this.state.nowShowing
+                      onClearCompleted = fun _ -> this.clearCompleted() } []
                 |> Some
             else None
         let main =
             if todos.Length > 0
             then
-                R.section [ ClassName "main" ] [
+                R.section [ Class "main" ] [
                     R.input [
-                        ClassName "toggle-all"
+                        Class "toggle-all"
                         Type "checkbox"
                         OnChange this.toggleAll
                         Checked (activeTodoCount = 0)
                     ]
-                    R.ul [ ClassName "todo-list" ] todoItems
+                    R.ul [ Class "todo-list" ] todoItems
                 ] |> Some
             else None
         R.div [] [
-            R.header [ ClassName "header" ] [
+            R.header [ Class "header" ] [
                 R.h1 [] [ R.str "todos" ]
                 R.input [
-                    ClassName "new-todo"
+                    Class "new-todo"
                     Placeholder "What needs to be done?"
                     Value this.state.newTodo
                     OnKeyDown this.handleNewTodoKeyDown
