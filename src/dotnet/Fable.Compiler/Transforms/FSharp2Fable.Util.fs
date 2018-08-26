@@ -966,7 +966,11 @@ module Util =
     let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
-        | _ when typ = Fable.Unit -> Fable.Value Fable.UnitConstant
+        | _ when typ = Fable.Unit ->
+            if not v.IsCompilerGenerated then
+                sprintf "Value %s is replaced with unit constant" v.DisplayName
+                |> addWarning com r
+            Fable.Value Fable.UnitConstant
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None imported -> imported
         // TODO: Replaced? Check if there're failing tests
