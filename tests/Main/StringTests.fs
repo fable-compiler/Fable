@@ -518,6 +518,15 @@ let tests =
             arr |> Array.map (fun _ -> 1) |> Array.sum
             |> equal arr.Length
 
+      testCase "String enumeration handles surrogates pairs" <| fun () -> // See #1279
+          let unicodeString = ".\U0001f404."
+          unicodeString |> List.ofSeq |> Seq.length |> equal 4
+          String.length unicodeString |> equal 4
+          let mutable len = 0
+          for i in unicodeString do
+              len <- len + 1
+          equal 4 len
+
       testCase "String.Join works" <| fun () ->
             String.Join("--", "a", "b", "c")
             |> equal "a--b--c"

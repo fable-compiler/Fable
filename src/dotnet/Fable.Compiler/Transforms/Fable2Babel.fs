@@ -210,8 +210,6 @@ module Util =
                 | Fable.ArrayAlloc(TransformExpr com ctx size) -> [|size|]
             NewExpression(Identifier jsName, args) :> Expression
         match typ with
-        | Fable.Char when com.Options.typedArrays ->
-            makeJsTypedArray "Uint16Array"
         | Fable.Number kind when com.Options.typedArrays ->
             getTypedArrayName com kind |> makeJsTypedArray
         | _ ->
@@ -536,7 +534,7 @@ module Util =
         | Fable.Null _ -> upcast NullLiteral ()
         | Fable.UnitConstant -> upcast NullLiteral () // TODO: Use `void 0`?
         | Fable.BoolConstant x -> upcast BooleanLiteral (x)
-        | Fable.CharConstant x -> upcast NumericLiteral (float x)
+        | Fable.CharConstant x -> upcast StringLiteral (string x)
         | Fable.StringConstant x -> upcast StringLiteral (x)
         | Fable.NumberConstant (x,_) ->
             if x < 0.
@@ -849,8 +847,8 @@ module Util =
         | Fable.Any -> upcast BooleanLiteral true
         | Fable.Unit -> upcast BinaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
         | Fable.Boolean -> jsTypeof "boolean" expr
-        | Fable.String _ | Fable.EnumType(Fable.StringEnumType, _) -> jsTypeof "string" expr
-        | Fable.Number _ | Fable.Char | Fable.EnumType(Fable.NumberEnumType, _) -> jsTypeof "number" expr
+        | Fable.Char | Fable.String _ | Fable.EnumType(Fable.StringEnumType, _) -> jsTypeof "string" expr
+        | Fable.Number _ | Fable.EnumType(Fable.NumberEnumType, _) -> jsTypeof "number" expr
         | Fable.Regex -> jsInstanceof (Identifier "RegExp") expr
         // TODO: Fail for functions, arrays, tuples and list because we cannot check generics?
         | Fable.FunctionType _ -> jsTypeof "function" expr

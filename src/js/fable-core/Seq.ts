@@ -528,8 +528,8 @@ export function rangeStep(first: number, step: number, last: number) {
   return delay(() => unfold((x) => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : null, first));
 }
 
-export function rangeChar(first: number, last: number) {
-  return delay(() => unfold((x) => x <= last ? [x, x + 1] : null, first));
+export function rangeChar(first: string, last: string) {
+  return delay(() => unfold((x) => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null, first));
 }
 
 export function range(first: number, last: number) {

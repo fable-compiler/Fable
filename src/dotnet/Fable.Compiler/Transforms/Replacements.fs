@@ -306,8 +306,8 @@ let createAtom (value: Expr) =
 
 let toChar (arg: Expr) =
     match arg.Type with
-    | String -> Helper.InstanceCall(arg, "charCodeAt", Char, [makeIntConst 0])
-    | _ -> arg
+    | Char | String -> arg
+    | _ -> Helper.GlobalCall("String", Char, [arg], memb="fromCharCode")
 
 let toString com r (args: Expr list) =
     match args with
@@ -316,8 +316,7 @@ let toString com r (args: Expr list) =
         |> addErrorAndReturnNull com r
     | head::tail ->
         match head.Type with
-        | String -> head
-        | Char -> Helper.GlobalCall("String", String, [head], memb="fromCharCode")
+        | Char | String -> head
         | Unit | Boolean | Array _ | Tuple _ | FunctionType _ | EnumType _ ->
             Helper.GlobalCall("String", String, [head])
         | Builtin (BclInt64 | BclUInt64) -> Helper.CoreCall("Long", "toString", String, args)
@@ -420,7 +419,8 @@ let toInt com r (round: bool) targetType (args: Expr list) =
         | Number Decimal -> "toDecimal"
         | _ -> failwithf "Unexpected non-number type %A" typeTo
     match sourceType with
-    | Char | EnumType(NumberEnumType,_) -> args.Head
+    | EnumType(NumberEnumType,_) -> args.Head
+    | Char -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
     | String ->
         match targetType with
         | Builtin (BclInt64|BclUInt64 as kind) ->
@@ -484,7 +484,7 @@ let listToArray com r t (li: Expr) =
         Helper.CoreCall("Array", "ofList", t, args, ?loc=r)
 
 let stringToCharArray t e =
-    Helper.CoreCall("String", "toCharArray", t, [e])
+    Helper.InstanceCall(e, "split", t, [makeStrConst ""])
 
 let enumerator2iterator (e: Expr) =
     Helper.CoreCall("Seq", "toIterator", e.Type, [e])
@@ -497,16 +497,11 @@ let toSeq r t (e: Expr) =
         DelayedResolution(kind, t, r)
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
-    | GenericParam _ ->
-        match t with
-        // Runtime check for generics upcasted to `char seq`
-        | DeclaredType(_, [Char]) -> Helper.CoreCall("String", "toCharIterable", t, [e])
-        | _ -> e
     | _ -> e
 
-let iterate r ident body xs =
+let iterate r ident body (xs: Expr) =
     let f = Function(Delegate [ident], body, None)
-    Helper.CoreCall("Seq", "iterate", Unit, [f; xs], ?loc=r)
+    Helper.CoreCall("Seq", "iterate", Unit, [f; toSeq r xs.Type xs], ?loc=r)
 
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argTypes genArgs =
     let (|CustomOp|_|) com ctx opName argTypes =
@@ -718,8 +713,8 @@ let makeHashSet (com: ICompiler) r t sourceSeq =
 
 let getZero (com: ICompiler) (t: Type) =
     match t with
-    | String -> makeStrConst ""
-    | Char | Builtin BclTimeSpan -> makeIntConst 0
+    | Char | String -> makeStrConst ""
+    | Builtin BclTimeSpan -> makeIntConst 0
     | Builtin BclDateTime as t -> Helper.CoreCall("Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.CoreCall("DateOffset", "minValue", t, [])
     | Builtin (FSharpSet genArg) as t -> makeSet com None t "Empty" [] genArg
@@ -1125,29 +1120,25 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | _ -> None
 
 let chars (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let icall r args argTypes memb  =
+    let icall r t args argTypes memb  =
         match args, argTypes with
         | thisArg::args, _::argTypes ->
-            let info = argInfo (toString com None [thisArg] |> Some) args (Some argTypes)
-            instanceCall r String info (makeStrConst memb |> Some) |> toChar |> Some
+            let info = argInfo (Some thisArg) args (Some argTypes)
+            instanceCall r t info (makeStrConst memb |> Some) |> Some
         | _ -> None
     match i.CompiledName with
-    | "ToUpper" -> icall r args i.SignatureArgTypes "toLocaleUpperCase"
-    | "ToUpperInvariant" -> icall r args i.SignatureArgTypes "toUpperCase"
-    | "ToLower" -> icall r args i.SignatureArgTypes "toLocaleLowerCase"
-    | "ToLowerInvariant" -> icall r args i.SignatureArgTypes "toLowerCase"
+    | "ToUpper" -> icall r t args i.SignatureArgTypes "toLocaleUpperCase"
+    | "ToUpperInvariant" -> icall r t args i.SignatureArgTypes "toUpperCase"
+    | "ToLower" -> icall r t args i.SignatureArgTypes "toLocaleLowerCase"
+    | "ToLowerInvariant" -> icall r t args i.SignatureArgTypes "toLowerCase"
     | "ToString" -> toString com r args |> Some
     | "GetUnicodeCategory" | "IsControl" | "IsDigit" | "IsLetter"
     | "IsLetterOrDigit" | "IsUpper" | "IsLower" | "IsNumber"
     | "IsPunctuation" | "IsSeparator" | "IsSymbol" | "IsWhiteSpace"
-    | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogate" ->
-        let args =
-            match args with
-            | [str; index] -> [Helper.InstanceCall(str, "charCodeAt", Char, [index])]
-            | _ -> args
-        Helper.CoreCall("Char", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "IsSurrogatePair" | "Parse" ->
-        Helper.CoreCall("Char", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogate" | "IsSurrogatePair"
+    | "Parse" ->
+        let methName = Naming.lowerFirst i.CompiledName
+        Helper.CoreCall("Char", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let implementedStringFunctions =
@@ -1168,11 +1159,19 @@ let implementedStringFunctions =
 
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", _, _ ->
-        match List.head i.SignatureArgTypes with
-        | Char -> Helper.CoreCall("String", "fromChar", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | Array _ -> Helper.CoreCall("String", "fromCharArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | _ -> fsFormat com ctx r t i thisArg args
+    | ".ctor", _, fstArg::_ ->
+        match fstArg.Type with
+        | Char ->
+            match args with
+            | [_; _] -> emitJs r t args "Array($1 + 1).join($0)" |> Some // String(char, int)
+            | _ -> addErrorAndReturnNull com r "Unexpected arguments in System.String constructor." |> Some
+        | Array _ ->
+            match args with
+            | [_] -> emitJs r t args "$0.join('')" |> Some // String(char[])
+            | [_; _; _] -> emitJs r t args "$0.join('').substr($1, $2)" |> Some // String(char[], int, int)
+            | _ -> addErrorAndReturnNull com r "Unexpected arguments in System.String constructor." |> Some
+        | _ ->
+            fsFormat com ctx r t i thisArg args
     | "get_Length", Some c, _ -> get r t c "length" |> Some
     | "get_Chars", Some c, _ ->
         Helper.CoreCall("String", "getCharAtIndex", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
@@ -1199,12 +1198,10 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("IndexOf" | "LastIndexOf"), Some c, _ ->
         match args with
-        | [ExprType String]
-        | [ExprType String; ExprType(Number Int32)] ->
-            Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | [ExprType Char]
-        | [ExprType Char; ExprType(Number Int32)] ->
-            let args = match args with head::tail -> (toString com None [head])::tail | [] -> []
+        | [ExprType String]
+        | [ExprType Char; ExprType(Number Int32)]
+        | [ExprType String; ExprType(Number Int32)] ->
             Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
                |> addErrorAndReturnNull com r |> Some
@@ -1227,7 +1224,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [Value(CharConstant _) as separator]
         | [Value(StringConstant _) as separator]
         | [Value(NewArray(ArrayValues [separator],_))] ->
-            Helper.InstanceCall(c, "split", t, [toString com None [separator]]) |> Some
+            Helper.InstanceCall(c, "split", t, [separator]) |> Some
         | [arg1; ExprType(EnumType _) as arg2] ->
             let arg1 =
                 match arg1.Type with
@@ -1252,9 +1249,13 @@ let stringModule (com: ICompiler) (_: Context) r t (i: CallInfo) (_: Expr option
     match i.CompiledName, args with
     | "Length", [arg] -> get r t arg "length" |> Some
     | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _ ->
-        // Cast the string to array<char>, see #1279
+        // Cast the string to char[], see #1279
         let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
-        Helper.CoreCall("Array", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.CoreCall("Seq", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ("Map" | "MapIndexed" | "Collect"), _ ->
+        // Cast the string to char[], see #1279        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
+        let name = Naming.lowerFirst i.CompiledName
+        emitJs r t [Helper.CoreCall("Seq", name, Any, args)] "Array.from($0).join('')" |> Some
     | "Concat", _ ->
         Helper.CoreCall("String", "join", t, args, ?loc=r) |> Some
     // Rest of StringModule methods
@@ -1734,8 +1735,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
             Helper.CoreCall("Util", "downcast", t, [arg]) |> Some
         | _ -> Some arg
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
-    | "GetString", _, [str; idx] ->
-        Helper.CoreCall("String", "getCharAtIndex", t, [idx], i.SignatureArgTypes, str, ?loc=r) |> Some
+    | "GetString", _, [ar; idx]
     | "GetArray", _, [ar; idx] -> getExpr r t ar idx |> Some
     | "SetArray", _, [ar; idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
     | ("GetArraySlice" | "GetStringSlice"), None, [ar; lower; upper] ->
@@ -1926,11 +1926,11 @@ let bitConvert (_: ICompiler) (_: Context) r (_: Type) (i: CallInfo) (_: Expr op
         if i.CompiledName = "GetBytes" then
             match args.Head.Type with
             | Boolean -> "getBytesBoolean"
-            | String -> "getBytesChar"
+            | Char | String -> "getBytesChar"
             | Number Int16 -> "getBytesInt16"
             | Number Int32 -> "getBytesInt32"
             | Builtin BclInt64 -> "getBytesInt64"
-            | Char | Number UInt16 -> "getBytesUInt16"
+            | Number UInt16 -> "getBytesUInt16"
             | Builtin BclUInt64 -> "getBytesUInt64"
             | Number UInt32 -> "getBytesUInt32"
             | Number Float32 -> "getBytesSingle"
@@ -2158,7 +2158,8 @@ let encoding (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option
     | ("get_Unicode" | "get_UTF8"), _, _ ->
         Helper.CoreCall("Encoding", i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("GetBytes" | "GetString"), Some callee, (1 | 3) ->
-        Helper.InstanceCall(callee, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        let meth = Naming.lowerFirst i.CompiledName
+        Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let enumerables (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
