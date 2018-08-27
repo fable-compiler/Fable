@@ -50,15 +50,18 @@ let rec private getTypeFastFullName genParams (t: FSharpType) =
     then
         let tdef = t.TypeDefinition
         let genArgs = t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat ","
-        match tdef.IsArrayType, tryFindAttributeArgs Atts.replaces tdef.Attributes with
-        | true, _ ->
-            genArgs + "[]"
-        | false, Some [:? string as replacedTypeFullName] ->
-            let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
-            replacedTypeFullName + genArgs
-        | false, _ ->
-            let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
-            t.TypeDefinition.FullName + genArgs
+        if tdef.IsArrayType
+        then genArgs + "[]"
+        elif tdef.IsByRef // Ignore byref
+        then genArgs
+        else
+            match tryFindAttributeArgs Atts.replaces tdef.Attributes with
+            | Some [:? string as replacedTypeFullName] ->
+                let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
+                replacedTypeFullName + genArgs
+            | _ ->
+                let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
+                tdef.FullName + genArgs
     else Types.object
 
 // From https://stackoverflow.com/a/37449594

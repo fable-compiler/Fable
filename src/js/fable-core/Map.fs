@@ -395,6 +395,10 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
     member __.Item
         with get(k : 'Key) =
             MapTree.find comparer k tree
+    member __.TryGetValue(k: 'Key, defValue: 'Value) =
+        match MapTree.tryFind comparer k tree with
+        | Some v -> true, v
+        | None -> false, defValue
     member __.TryPick(f) = MapTree.tryPick f tree
     member __.Exists(f) = MapTree.exists f tree
     member __.Filter(f): Map<'Key,'Value> =
