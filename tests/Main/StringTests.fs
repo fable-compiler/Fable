@@ -532,11 +532,28 @@ let tests =
             |> equal "a--b--c"
             String.Join("--", seq { yield "a"; yield "b"; yield "c" })
             |> equal "a--b--c"
-            // TODO!!!
-            // String.Join("--", [|3I; 5I|])
-            // |> equal "3--5"
-            // String.Join("--", 3I, 5I)
-            // |> equal "3--5"
+
+      testCase "String.Join with indices works" <| fun () ->
+            String.Join("**", [|"a"; "b"; "c"; "d"|], 1, 2)
+            |> equal "b**c"
+            String.Join("*", [|"a"; "b"; "c"; "d"|], 1, 3)
+            |> equal "b*c*d"
+
+      testCase "String.Join works with chars" <| fun () -> // See #1524
+            String.Join("--", 'a', 'b', 'c')
+            |> equal "a--b--c"
+            String.Join("--", seq { yield 'a'; yield 'b'; yield 'c' })
+            |> equal "a--b--c"
+            [0..10]
+            |> List.map (fun _ -> '*')
+            |> fun chars -> String.Join("", chars)
+            |> equal "***********"
+
+      testCase "String.Join with big integers works" <| fun () ->
+            String.Join("--", [|3I; 5I|])
+            |> equal "3--5"
+            String.Join("--", 3I, 5I)
+            |> equal "3--5"
 
       testCase "String.Join with single argument works" <| fun () -> // See #1182
             String.Join(",", "abc") |> equal "abc"
