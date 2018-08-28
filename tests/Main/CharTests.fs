@@ -37,7 +37,7 @@ let tests =
             Char.GetUnicodeCategory(str,2) |> int |> equal 8 //UnicodeCategory.DecimalDigitNumber
 
         testCase "Char.IsControl works" <| fun () ->
-            Char.IsControl('a') |> equal false 
+            Char.IsControl('a') |> equal false
             Char.IsControl('\u0000') |> equal true
             Char.IsControl('\u001F') |> equal true
             Char.IsControl('\u007F') |> equal true
@@ -142,6 +142,11 @@ let tests =
             Char.IsWhiteSpace(' ') |> equal true
             Char.IsWhiteSpace('\n') |> equal true
             Char.IsWhiteSpace('\t') |> equal true
+            Char.IsWhiteSpace('\009') |> equal true
+            Char.IsWhiteSpace('\013') |> equal true
+            Char.IsWhiteSpace('\133') |> equal true
+            Char.IsWhiteSpace('\160') |> equal true
+            Char.IsWhiteSpace('-') |> equal false
 
         testCase "Char.IsWhitespace works with two args" <| fun () ->
             let input = " \r"
