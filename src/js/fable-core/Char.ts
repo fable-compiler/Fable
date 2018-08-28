@@ -117,6 +117,10 @@ const isSymbolMask = 0
   | 1 << UnicodeCategory.CurrencySymbol
   | 1 << UnicodeCategory.ModifierSymbol
   | 1 << UnicodeCategory.OtherSymbol;
+const isWhiteSpaceMask = 0
+  | 1 << UnicodeCategory.SpaceSeparator
+  | 1 << UnicodeCategory.LineSeparator
+  | 1 << UnicodeCategory.ParagraphSeparator;
 
 export const getUnicodeCategory = getCategory();
 
@@ -171,7 +175,12 @@ export function isSymbol(s: string, index?: number) {
 }
 
 export function isWhiteSpace(s: string, index?: number) {
-  return /[\s\x09-\x0D\x85\xA0]/.test(s.charAt(index || 0));
+  const test = 1 << getUnicodeCategory(s, index);
+  if ((test & isWhiteSpaceMask) !== 0) {
+    return true;
+  }
+  const cp = s.charCodeAt(index || 0);
+  return (0x09 <= cp && cp <= 0x0D) || cp === 0x85 || cp === 0xA0;
 }
 
 export function isHighSurrogate(s: string, index?: number) {
