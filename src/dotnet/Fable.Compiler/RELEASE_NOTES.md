@@ -1,3 +1,20 @@
+### 2.0.0-beta-002
+
+* Compile chars as JS strings (as in Fable 1)
+* Add Map.TryGetValue
+* Add EnumToValue @zpodlovics #1522
+* Fix: Use operators as functions @xdaDaveShaw #1529
+* Fix hexadecimal printing @xdaDaveShaw #1535
+* Fix overloaded inline methods in other files @dgchurchill #1534
+* Fix #1516: Add warning if unit value is replaced
+* Fix #1533: Enable inheriting empty interfaces
+* Fix #1519: FSharpType.MakeTupleType
+* Fix extension member overloads
+* Fix: Check bitwise shift left for unsigned integers
+* Improvements in pattern matching compilation
+* Add --force-pkgs CLI option
+* Return non-zero error code when CLI arguments are wrong @theimowski #1515
+
 ### 2.0.0-beta-001
 
 * Fable 2 beta
