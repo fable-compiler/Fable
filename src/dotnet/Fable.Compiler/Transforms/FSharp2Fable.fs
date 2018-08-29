@@ -27,13 +27,13 @@ let private transformNewUnion com ctx r fsType
             let genArgs = makeGenArgs com ctx.GenericArgs genArgs
             Fable.NewErasedUnion(expr, genArgs) |> Fable.Value
         | _ -> "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
-               |> addErrorAndReturnNull com r
+               |> addErrorAndReturnNull com ctx.FileName r
     | StringEnum(tdef, rule) ->
         let enumName = defaultArg tdef.TryFullName Naming.unknown
         match argExprs with
         | [] -> Fable.Enum(applyCaseRule rule unionCase |> Fable.StringEnum, enumName) |> Fable.Value
         | _ -> "StringEnum types cannot have fields: " + enumName
-               |> addErrorAndReturnNull com r
+               |> addErrorAndReturnNull com ctx.FileName r
     | OptionUnion typ ->
         let typ = makeType com ctx.GenericArgs typ
         let expr =
@@ -113,7 +113,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
             else resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args
         | _ -> None
     ) |> Option.defaultWith (fun () ->
-        "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com r)
+        "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.FileName r)
 
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSharpType)
                     baseCallExpr (overrides: FSharpObjectExprOverride list) otherOverrides =
@@ -197,7 +197,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
     | ErasedUnion(tdef, genArgs) ->
         if unionCase.UnionCaseFields.Count <> 1 then
             return "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
-            |> addErrorAndReturnNull com r
+            |> addErrorAndReturnNull com ctx.FileName r
         else
             let fi = unionCase.UnionCaseFields.[0]
             let typ =
@@ -236,7 +236,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let targetType = makeType com ctx.GenericArgs targetType
             match inpExpr.Type with
             | Fable.DeclaredType(sourceEntity,_) ->
-                return castToInterface com r targetType sourceEntity interfaceFullName inpExpr
+                return castToInterface com ctx r targetType sourceEntity interfaceFullName inpExpr
             | _ ->
                 return Replacements.tryInterfaceCast r targetType interfaceFullName inpExpr
                 |> Option.defaultValue inpExpr
@@ -295,7 +295,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | Some thisArg, _ | _, Some thisArg ->
             return { thisArg with Kind = Fable.BaseValueIdent; Type = typ } |> Fable.IdentExpr
         | _ ->
-            addError com r "Unexpected unbound this for base value"
+            addError com ctx.FileName r "Unexpected unbound this for base value"
             return Fable.Value(Fable.Null Fable.Any)
 
     | BasicPatterns.ThisValue _typ ->
@@ -304,7 +304,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         match ctx.BoundConstructorThis with
         | Some thisArg -> return Fable.IdentExpr thisArg
         | _ ->
-            addError com r "Unexpected unbound this"
+            addError com ctx.FileName r "Unexpected unbound this"
             return Fable.Value(Fable.Null Fable.Any)
 
     | BasicPatterns.Value var ->
@@ -314,7 +314,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 return! transformExpr com ctx fsExpr
             | None ->
                 return "Cannot resolve locally inlined value: " + var.DisplayName
-                |> addErrorAndReturnNull com r
+                |> addErrorAndReturnNull com ctx.FileName r
         else
             return makeValueFrom com ctx r var
 
@@ -376,7 +376,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 return Fable.Operation(Fable.CurriedApply(callee, args), typ, r)
         | None ->
             return "Cannot resolve locally inlined value: " + var.DisplayName
-            |> addErrorAndReturnNull com r
+            |> addErrorAndReturnNull com ctx.FileName r
 
     // When using Fable dynamic operator, we must untuple arguments
     // Note F# compiler wraps the value in a closure if it detects it's a lambda
@@ -446,7 +446,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | ErasedUnion _ -> return unionExpr
         | StringEnum _ ->
             return "StringEnum types cannot have fields"
-            |> addErrorAndReturnNull com r
+            |> addErrorAndReturnNull com ctx.FileName r
         | OptionUnion t ->
             return Fable.Get(unionExpr, Fable.OptionValue, makeType com ctx.GenericArgs t, r)
         | ListUnion t ->
@@ -475,7 +475,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Fable.Get(unionExpr, Fable.UnionTag, Fable.Any, r)
 
     | BasicPatterns.UnionCaseSet (_unionExpr, _type, _case, _caseField, _valueExpr) ->
-        return "Unexpected UnionCaseSet" |> addErrorAndReturnNull com r
+        return "Unexpected UnionCaseSet" |> addErrorAndReturnNull com ctx.FileName r
 
     | BasicPatterns.ValueSet (valToSet, valueExpr) ->
         let! valueExpr = transformExpr com ctx valueExpr
@@ -514,7 +514,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return Fable.NewRecord(argExprs, fsType.TypeDefinition, genArgs) |> Fable.Value
         | _ ->
             return "Internal constructor with inheritance are not supported"
-            |> addErrorAndReturnNull com r
+            |> addErrorAndReturnNull com ctx.FileName r
 
     | BasicPatterns.Sequential (first, second) ->
         let! first = transformExpr com ctx first
@@ -567,11 +567,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | Some expr -> return expr
         | None ->
             return sprintf "Cannot compile ILFieldGet(%A, %s)" ownerTyp fieldName
-            |> addErrorAndReturnNull com r
+            |> addErrorAndReturnNull com ctx.FileName r
 
     | BasicPatterns.Quote _ ->
         return "Quotes are not currently supported by Fable"
-        |> addErrorAndReturnNull com r
+        |> addErrorAndReturnNull com ctx.FileName r
 
     // TODO: Ask. I see this when accessing Result types (all structs?)
     | BasicPatterns.AddressOf(expr) ->
@@ -583,7 +583,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // | BasicPatterns.ILAsm _
     | expr ->
         return sprintf "Cannot compile expression %A" expr
-        |> addErrorAndReturnNull com r
+        |> addErrorAndReturnNull com ctx.FileName r
   }
 
 let private isImportedEntity (ent: FSharpEntity) =
@@ -643,7 +643,7 @@ let rec private getBaseConsAndBody com ctx (baseType: FSharpType option) acc bod
             | None ->
                 if not(hasImplicitConstructor baseEntity) then
                     "Classes without a primary constructor cannot be inherited: " + baseEntity.FullName
-                    |> addError com None
+                    |> addError com ctx.FileName None
                 let baseCons = makeCallFrom com ctx r Fable.Unit true genArgs thisArg baseArgs baseCall
                 entityRefMaybeImported com baseEntity, baseCons)
 
@@ -663,10 +663,11 @@ let rec private getBaseConsAndBody com ctx (baseType: FSharpType option) acc bod
     // TODO: Kindda unexpected, log warning?
     | body -> None, transformBodyStatements com ctx acc body
 
-let private transformImplicitConstructor com ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+let private transformImplicitConstructor com (ctx: Context)
+            (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
     | None -> "Unexpected constructor without declaring entity: " + memb.FullName
-              |> addError com None; []
+              |> addError com ctx.FileName None; []
     | Some ent ->
         let bodyCtx, args = bindMemberArgs com ctx args
         let boundThis = com.GetUniqueVar("this") |> makeIdent
@@ -723,7 +724,7 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
             "Change declaration of member: " + name + "\n"
             + "Importing JS functions with multiple arguments as `let add: int->int->int` won't uncurry parameters." + "\n"
             + "Use following syntax: `let add (x:int) (y:int): int = import ...`"
-            |> addError com None
+            |> addError com ctx.FileName None
         | _ -> ()
         let selector = importExprSelector memb selector
         transformImport r typ isPublic name selector path
@@ -774,10 +775,11 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
         then transformMemberValue com ctx isPublic name memb body
         else transformMemberFunction com ctx isPublic name memb args body
 
-let private transformOverride (com: FableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+let private transformOverride (com: FableCompiler) (ctx: Context)
+            (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
     | None -> "Unexpected override without declaring entity: " + memb.FullName
-              |> addError com None; []
+              |> addError com ctx.FileName None; []
     | Some ent ->
         let bodyCtx, args = bindMemberArgs com ctx args
         let body = transformExpr com bodyCtx body |> run
@@ -823,9 +825,12 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     let ctx = { ctx with EnclosingMember = Some memb }
     if isIgnoredMember memb
     then []
+    // TODO: Compiler flag to output pseudo-inline expressions? (e.g. for REPL libs)
     elif isInline memb then
-        // TODO: Compiler flag to output pseudo-inline expressions? (e.g. for REPL libs)
-        com.AddInlineExpr(memb, (List.concat args, body))
+        let inlineExpr = { Args = List.concat args
+                           Body = body
+                           FileName = ctx.FileName }
+        com.AddInlineExpr(memb, inlineExpr)
         []
     elif memb.IsImplicitConstructor
     then transformImplicitConstructor com ctx memb args body
@@ -863,7 +868,7 @@ let interfaceImplementations (com: IFableCompiler) (ent: FSharpEntity) =
         | _ -> None)
     |> Seq.toList
 
-let private transformDeclarations (com: FableCompiler) rootEnt rootDecls =
+let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
     let rec transformDeclarationsInner (com: FableCompiler) (ctx: Context) fsDecls =
         fsDecls |> List.collect (fun fsDecl ->
             match fsDecl with
@@ -912,7 +917,7 @@ let private transformDeclarations (com: FableCompiler) rootEnt rootDecls =
             com.AddUsedVarName(memb.CompiledName)
         | FSharpImplementationFileDeclaration.InitAction _ -> ()
     )
-    let decls = transformDeclarationsInner com (Context.Create rootEnt) rootDecls
+    let decls = transformDeclarationsInner com ctx rootDecls
     if com.InterfaceImplementationMembers.Count > 0 then
         decls |> List.map (function
             | Fable.ConstructorDeclaration(kind, interfaces) when not(List.isEmpty interfaces) ->
@@ -969,7 +974,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
     member val InterfaceImplementationMembers: ResizeArrayDictionary<_,_> = ResizeArrayDictionary<string, Fable.ObjectMember>()
     member this.AddUsedVarName(varName) =
         this.UsedVarNames.Add(varName) |> ignore
-    member __.AddInlineExpr(memb, inlineExpr) =
+    member __.AddInlineExpr(memb, inlineExpr: InlineExpr) =
         let fullName = getMemberUniqueName com memb
         com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
     interface IFableCompiler with
@@ -979,8 +984,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             Replacements.tryCall this ctx r t info thisArg args
         member __.TryReplaceInterfaceCast(r, t, name, e) =
             Replacements.tryInterfaceCast r t name e
-        member this.InjectArgument(enclosingEntity, r, genArgs, parameter) =
-            Inject.injectArg this enclosingEntity r genArgs parameter
+        member this.InjectArgument(ctx, r, genArgs, parameter) =
+            Inject.injectArg this ctx r genArgs parameter
         member this.GetInlineExpr(memb) =
             let fileName =
                 (getMemberLocation memb).FileName
@@ -990,7 +995,10 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             let fullName = getMemberUniqueName com memb
             com.GetOrAddInlineExpr(fullName, fun () ->
                 match tryGetMemberArgsAndBody com implFiles fileName memb with
-                | Some(args, body) -> List.concat args, body
+                | Some(args, body) ->
+                    { Args = List.concat args
+                      Body = body
+                      FileName = fileName }
                 | None -> failwith ("Cannot find inline member " + memb.FullName))
         member this.AddUsedVarName(varName) =
             this.AddUsedVarName(varName) |> ignore
@@ -1021,9 +1029,10 @@ let transformFile (com: ICompiler) (implFiles: Map<string, FSharpImplementationF
             match Map.tryFind com.CurrentFile implFiles with
             | Some file -> file
             | None -> failwithf "File %s doesn't belong to parsed project" com.CurrentFile
-        let fcom = FableCompiler(com, implFiles)
         let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
-        let rootDecls = transformDeclarations fcom rootEnt rootDecls
+        let ctx = Context.Create(com.CurrentFile, rootEnt)
+        let fcom = FableCompiler(com, implFiles)
+        let rootDecls = transformDeclarations fcom ctx rootEnt rootDecls
         Fable.File(com.CurrentFile, rootDecls, set fcom.UsedVarNames, set fcom.Dependencies)
     with
     | ex -> exn (sprintf "%s (%s)" ex.Message com.CurrentFile, ex) |> raise

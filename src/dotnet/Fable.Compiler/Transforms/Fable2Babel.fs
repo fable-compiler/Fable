@@ -471,7 +471,7 @@ module Util =
         // TODO: Type info forErasedUnion?
         | Fable.ErasedUnion _ | Fable.Any -> primitiveTypeInfo knownTypes "obj"
         | Fable.GenericParam _ ->
-            Replacements.genericTypeInfoError com r
+            Replacements.genericTypeInfoError com com.CurrentFile r
             knownTypes, NullLiteral () :> Expression
         | Fable.Unit    -> primitiveTypeInfo knownTypes "unit"
         | Fable.Boolean -> primitiveTypeInfo knownTypes "bool"
@@ -612,7 +612,7 @@ module Util =
                     makeObjMethod ObjectSetter prop computed false args body
                 | kind, _ ->
                     sprintf "Object member has kind %A but value is not a function" kind
-                    |> addError com None; None
+                    |> addError com com.CurrentFile None; None
             ) |> List.toArray |> ObjectExpression
         match baseCall with
         | Some(TransformExpr com ctx baseCall) ->
@@ -834,7 +834,8 @@ module Util =
         let fail msg =
             "Cannot type test: " + msg |> addErrorAndReturnNull com range
         let warnAndEvalToFalse msg =
-            "Cannot type test (evals to false): " + msg |> addWarning com range
+            "Cannot type test (evals to false): " + msg
+            |> addWarning com com.CurrentFile range
             BooleanLiteral false :> Expression
         let jsTypeof (primitiveType: string) (TransformExpr com ctx expr): Expression =
             let typof = UnaryExpression(UnaryTypeof, expr)
@@ -882,7 +883,8 @@ module Util =
                 | fullName -> warnAndEvalToFalse (defaultArg fullName Naming.unknown)
             | _ ->
                 if not(List.isEmpty genArgs) then
-                    "Cannot type test generic arguments" |> addWarning com range
+                    "Cannot type test generic arguments"
+                    |> addWarning com com.CurrentFile range
                 let entRef = entityRefMaybeImported com ctx ent
                 jsInstanceofExtended entRef expr
         | Fable.MetaType | Fable.Option _ | Fable.GenericParam _ | Fable.ErasedUnion _ ->
@@ -1525,7 +1527,7 @@ module Compiler =
                       { Selector =
                             if selector = Naming.placeholder
                             then "`importMember` must be assigned to a variable"
-                                 |> addError com None; selector
+                                 |> addError com com.CurrentFile None; selector
                             else selector
                         LocalIdent = localId
                         Path = sanitizedPath }

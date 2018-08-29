@@ -144,14 +144,14 @@ module Extensions =
 module Log =
     open Fable
 
-    let addWarning (com: ICompiler) (range: SourceLocation option) (warning: string) =
-        com.AddLog(warning, Severity.Warning, ?range=range, fileName=com.CurrentFile)
+    let addWarning (com: ICompiler) file (range: SourceLocation option) (warning: string) =
+        com.AddLog(warning, Severity.Warning, ?range=range, fileName=file)
 
-    let addError (com: ICompiler) (range: SourceLocation option) (error: string) =
-        com.AddLog(error, Severity.Error, ?range=range, fileName=com.CurrentFile)
+    let addError (com: ICompiler) file (range: SourceLocation option) (error: string) =
+        com.AddLog(error, Severity.Error, ?range=range, fileName=file)
 
-    let addErrorAndReturnNull (com: ICompiler) (range: SourceLocation option) (error: string) =
-        com.AddLog(error, Severity.Error, ?range=range, fileName=com.CurrentFile)
+    let addErrorAndReturnNull (com: ICompiler) file (range: SourceLocation option) (error: string) =
+        com.AddLog(error, Severity.Error, ?range=range, fileName=file)
         AST.Fable.Null AST.Fable.Any |> AST.Fable.Value
 
     let attachRange (range: SourceLocation option) msg =

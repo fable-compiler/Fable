@@ -24,13 +24,13 @@ let (|TryDefinition|_|) (NonAbbreviatedType t) =
     then Some(t.TypeDefinition, t.GenericArguments)
     else None
 
-let (|Implicit|_|) com r enclosingEntity (par: FSharpParameter) typ =
+let (|Implicit|_|) com (ctx: FSharp2Fable.Context) r (par: FSharpParameter) typ =
     if hasAttribute Atts.implicit par.Attributes then
         let fail msg =
             let msg = if String.IsNullOrEmpty(msg) then "Cannot find {0} in enclosing module" else msg
             let msg = String.Format(msg, "implicit for `" + par.DisplayName + "` (" + getTypeFullName true typ + ")")
-            addErrorAndReturnNull com r msg |> Some
-        match enclosingEntity with
+            addErrorAndReturnNull com ctx.FileName r msg |> Some
+        match ctx.EnclosingEntity with
         | None -> fail ""
         | Some (enclosingEntity: FSharpEntity) ->
             let candidates =
@@ -66,7 +66,7 @@ let (|TypeResolver|_|) r = function
         Fable.ObjectExpr([m], Fable.Any, None) |> Some
     | _ -> None
 
-let injectArg com enclosingEntity r (genArgs: (string * Fable.Type) list) (par: FSharpParameter): Fable.Expr =
+let injectArg com ctx r (genArgs: (string * Fable.Type) list) (par: FSharpParameter): Fable.Expr =
     let parType = nonAbbreviatedType par.Type
     let typ =
         // The type of the parameter must be an option
@@ -74,11 +74,11 @@ let injectArg com enclosingEntity r (genArgs: (string * Fable.Type) list) (par: 
         then makeType com (Map genArgs) parType.GenericArguments.[0] |> Some
         else None
     match typ with
-    | Some(Implicit com r enclosingEntity par e) -> e
+    | Some(Implicit com ctx r par e) -> e
     | Some(TypeResolver r e) -> e
     | _ ->
         match typ with
         | Some typ -> getTypeFullName true typ
         | None -> string parType
         |> sprintf "Cannot inject argument %s of type %s" par.DisplayName
-        |> addErrorAndReturnNull com r
+        |> addErrorAndReturnNull com ctx.FileName r

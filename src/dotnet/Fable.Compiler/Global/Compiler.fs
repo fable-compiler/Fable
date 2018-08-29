@@ -14,7 +14,10 @@ type Severity =
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-type InlineExpr = FSharpMemberOrFunctionOrValue list * FSharpExpr
+type InlineExpr =
+    { Args: FSharpMemberOrFunctionOrValue list
+      Body: FSharpExpr
+      FileName: string }
 
 type ICompiler =
     abstract FableCore: string
