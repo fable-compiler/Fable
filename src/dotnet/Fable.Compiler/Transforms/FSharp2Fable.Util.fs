@@ -100,18 +100,22 @@ module Helpers =
         Naming.sanitizeIdent (fun _ -> false) entityName memberPart
 
     let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.DeclaringEntity with
-        | Some ent when ent.IsFSharpModule && not memb.IsExtensionMember ->
-            match getEntityMangledName com trimRootModule ent with
-            | "" -> memb.CompiledName, Naming.NoMemberPart
-            | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
-        | Some ent ->
-            let overloadSuffix = OverloadSuffix.getHash ent memb
-            let entName = getEntityMangledName com trimRootModule ent
-            if memb.IsInstanceMember
-            then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
-            else entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)
-        | None -> memb.CompiledName, Naming.NoMemberPart
+        if memb.IsExtensionMember then
+            let overloadSuffix = OverloadSuffix.getExtensionHash memb
+            memb.CompiledName, Naming.InstanceMemberPart("", overloadSuffix)
+        else
+            match memb.DeclaringEntity with
+            | Some ent when ent.IsFSharpModule ->
+                match getEntityMangledName com trimRootModule ent with
+                | "" -> memb.CompiledName, Naming.NoMemberPart
+                | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
+            | Some ent ->
+                let overloadSuffix = OverloadSuffix.getHash ent memb
+                let entName = getEntityMangledName com trimRootModule ent
+                if memb.IsInstanceMember
+                then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
+                else entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)
+            | None -> memb.CompiledName, Naming.NoMemberPart
 
     let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
         getMemberMangledName com true memb
@@ -963,11 +967,11 @@ module Util =
                     else argInfo
                 memberRef com memb |> staticCall r typ argInfo
 
-    let makeValueFrom com (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
+    let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
         | _ when typ = Fable.Unit ->
-            if not v.IsCompilerGenerated then
+            if com.Options.verbose && not v.IsCompilerGenerated then
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com r
             Fable.Value Fable.UnitConstant

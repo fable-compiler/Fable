@@ -113,8 +113,6 @@ let buildCoreJs () =
     Yarn.run CWD "tslint" (sprintf "--project %s" coreJsSrcDir)
     buildCoreJsTypescriptFiles ()
     buildCoreJsFsharpFiles ()
-    // Process injects
-    run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run"
 
 let buildSplitter () =
     let buildDir = CWD </> "src/js/fable-splitter"
@@ -218,6 +216,8 @@ Target "FableCLI" (buildCLI Release)
 Target "FableCoreJs" buildCoreJsFull
 Target "FableCoreJsTypescriptOnly" buildCoreJsTypescriptFiles
 Target "FableCoreJsFSharpOnly" buildCoreJsFsharpFiles
+Target "FableCoreJsInjects" (fun _ ->
+    run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run")
 Target "FableSplitter" buildSplitter
 Target "RunTestsJS" runTestsJS
 Target "RunTestsDotnet" runTestsDotnet
