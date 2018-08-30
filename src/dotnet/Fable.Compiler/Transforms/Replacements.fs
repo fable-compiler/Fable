@@ -382,6 +382,7 @@ let toInt com r (round: bool) targetType (args: Expr list) =
         let args = args @ [makeBoolConst unsigned]
         match sourceType with
         | Builtin (BclInt64|BclUInt64) -> Helper.CoreCall("Long", "fromValue", targetType, args)
+        | Number Integer -> Helper.CoreCall("Long", "fromInteger", targetType, args @ [makeIntConst (kindIndex sourceType)])
         | _ -> Helper.CoreCall("Long", "fromNumber", targetType, args)
     let emitBigInt (args: Expr list) =
         match sourceType with
@@ -435,6 +436,8 @@ let toInt com r (round: bool) targetType (args: Expr list) =
         match targetType with
         | typeTo when needToCast typeFrom typeTo ->
             match typeFrom, typeTo with
+            | Builtin (BclUInt64|BclInt64), Number Integer ->
+                Helper.CoreCall("Long", "toIntNumber", targetType, args)
             | Builtin (BclUInt64|BclInt64), Number _ ->
                 Helper.CoreCall("Long", "toNumber", targetType, args)
             | Number (Decimal|Float), (Number Integer | Builtin(BclInt64|BclUInt64)) when round ->
