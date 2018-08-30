@@ -844,16 +844,16 @@ let interfaceImplementations (com: IFableCompiler) (ent: FSharpEntity) =
     ent.AllInterfaces |> Seq.choose (fun interfaceType ->
         match tryDefinition interfaceType with
         | Some(interfaceEnt, Some interfaceFullName)
-                when not(Naming.ignoredInterfaces.Contains interfaceFullName) ->
+                when not(Naming.ignoredInterfaces.Contains interfaceFullName)
+                    && ent.DeclaredInterfaces |> Seq.exists (testInterfaceHierarcy interfaceFullName) ->
             let castFunctionName = getInterfaceImplementationName com ent interfaceFullName
             com.AddUsedVarName(castFunctionName)
             let inheritedInterfaces =
-                interfaceEnt.AllInterfaces |> Seq.choose (fun t ->
+                interfaceEnt.DeclaredInterfaces |> Seq.choose (fun t ->
                     match tryDefinition t with
                     // If the parent interface doesn't bring any method, we can ignore it
                     | Some(tdef, Some fullName)
-                            when fullName <> interfaceFullName
-                                && not(Naming.ignoredInterfaces.Contains fullName)
+                            when not(Naming.ignoredInterfaces.Contains fullName)
                                 && not(isInterfaceEmpty tdef) ->
                         getInterfaceImplementationName com ent tdef.FullName |> Some
                     | _ -> None)

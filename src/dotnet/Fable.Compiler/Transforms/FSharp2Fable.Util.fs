@@ -232,16 +232,22 @@ module Helpers =
 
     let rec isInterfaceEmpty (ent: FSharpEntity) =
         ent.MembersFunctionsAndValues.Count = 0
-            && (if ent.AllInterfaces.Count > 1 then
-                    let fullname = ent.FullName
-                    ent.AllInterfaces |> Seq.forall (fun ifc ->
+            && (if ent.DeclaredInterfaces.Count > 0 then
+                    ent.DeclaredInterfaces |> Seq.forall (fun ifc ->
                         match tryDefinition ifc with
-                        | Some(e, Some fullname2) ->
-                            if fullname = fullname2
-                            then true
-                            else isInterfaceEmpty e
-                        | _ -> true)
+                        | Some(e, _) -> isInterfaceEmpty e
+                        | None -> true)
                 else true)
+
+    /// Test if the name corresponds to this interface or anyone in its hierarchy
+    let rec testInterfaceHierarcy interfaceFullname interfaceType =
+        match tryDefinition interfaceType with
+        | Some(e, Some fullname2) ->
+            if interfaceFullname = fullname2
+            then true
+            else e.DeclaredInterfaces
+                 |> Seq.exists (testInterfaceHierarcy interfaceFullname)
+        | _ -> false
 
     let hasSeqSpread (memb: FSharpMemberOrFunctionOrValue) =
         let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
@@ -730,23 +736,17 @@ module Util =
     let memberRef (com: IFableCompiler) (memb: FSharpMemberOrFunctionOrValue) =
         memberRefTyped com Fable.Any memb
 
+    /// Checks who's the actual implementor of the interface, this entity or any of its parents
     let rec tryFindImplementingEntity (ent: FSharpEntity) interfaceFullName =
-        let found =
-            ent.DeclaredInterfaces
-            |> Seq.tryPick (fun (NonAbbreviatedType ifcType) ->
-                if ifcType.HasTypeDefinition then
-                    let ifcEntity = ifcType.TypeDefinition
-                    if ifcEntity.TryFullName = Some interfaceFullName
-                    then Some(ent, ifcEntity)
-                    else None
-                else None)
-        match found with
-        | Some ent -> Some ent
-        | None ->
-            match ent.BaseType with
-            | Some(NonAbbreviatedType t) when t.HasTypeDefinition ->
-                tryFindImplementingEntity t.TypeDefinition interfaceFullName
-            | _ -> None
+        ent.DeclaredInterfaces
+        |> Seq.exists (testInterfaceHierarcy interfaceFullName)
+        |> function
+            | true -> Some ent
+            | false ->
+                match ent.BaseType with
+                | Some(NonAbbreviatedType t) when t.HasTypeDefinition ->
+                    tryFindImplementingEntity t.TypeDefinition interfaceFullName
+                | _ -> None
 
     // Entities coming from assemblies (we don't have access to source code) are candidates for replacement
     let isReplacementCandidate (ent: FSharpEntity) =
@@ -766,11 +766,12 @@ module Util =
           | None ->
             match tryFindImplementingEntity sourceEntity interfaceFullName with
             | None ->
-                "Type implementing interface must be known at compile time, cast does nothing."
+                (interfaceFullName, sourceEntity.TryFullName)
+                ||> sprintf "Cannot find type implementing interface %s in %A hierarchy, cast does nothing."
                 |> addWarning com ctx.InlinePath r
                 expr
-            | Some(ent,_) when isReplacementCandidate ent -> expr
-            | Some(ent,_)  ->
+            | Some ent when isReplacementCandidate ent -> expr
+            | Some ent  ->
                 let cast expr =
                     let entLoc = getEntityLocation ent
                     let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
