@@ -198,7 +198,6 @@ export function fromInteger(value, unsigned, kind) {
         case 2: x = value >> 0; xh = x; break;
         case 6: x = value >>> 0;
     }
-    if (unsigned) xh = 0;
     return fromBits(x, xh >> 31, unsigned);
 }
 

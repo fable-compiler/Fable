@@ -255,7 +255,7 @@ let tests =
     testCase "Special cases conversion to/from Int64 work" <| fun () ->
         let xn = -1L
         let xnu = 0xFFFFFFFFFFFFFFFFuL
-        -1 |> uint64 |> equal 0xFFFFFFFFuL
+        -1 |> uint64 |> equal xnu
         0xFFFFFFFFu |> int64 |> equal 0xFFFFFFFFL
         xn |> uint64 |> equal xnu
         xnu |> int64 |> equal -1L
