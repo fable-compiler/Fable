@@ -259,7 +259,7 @@ module private Transforms =
                                                     && (countReferences 1 ident.Name letBody <= 1) ->
                 if Option.isSome currentName then
                     sprintf "Unexpected named function when erasing binding (%s > %s)" currentName.Value ident.Name
-                    |> addWarning com com.CurrentFile ident.Range
+                    |> addWarning com [] ident.Range
                 let replacement = Function(args, funBody, Some ident.Name)
                 replaceValues (Map [ident.Name, replacement]) letBody
             | value when ident.IsCompilerGenerated
@@ -555,7 +555,7 @@ let rec optimizeDeclaration (com: ICompiler) = function
                         | Function(Delegate args, body, _) -> args, body
                         | _ ->
                             "Unexpected result when optimizing ClassImplicitConstructor, please report"
-                            |> addWarning com com.CurrentFile None
+                            |> addWarning com [] None
                             info.Arguments, info.Body
                 ClassImplicitConstructor { info with Arguments = args; Body = body }
             | kind -> kind

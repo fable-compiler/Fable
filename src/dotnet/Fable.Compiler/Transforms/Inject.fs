@@ -29,7 +29,7 @@ let (|Implicit|_|) com (ctx: FSharp2Fable.Context) r (par: FSharpParameter) typ 
         let fail msg =
             let msg = if String.IsNullOrEmpty(msg) then "Cannot find {0} in enclosing module" else msg
             let msg = String.Format(msg, "implicit for `" + par.DisplayName + "` (" + getTypeFullName true typ + ")")
-            addErrorAndReturnNull com ctx.FileName r msg |> Some
+            addErrorAndReturnNull com ctx.InlinePath r msg |> Some
         match ctx.EnclosingEntity with
         | None -> fail ""
         | Some (enclosingEntity: FSharpEntity) ->
@@ -81,4 +81,4 @@ let injectArg com ctx r (genArgs: (string * Fable.Type) list) (par: FSharpParame
         | Some typ -> getTypeFullName true typ
         | None -> string parType
         |> sprintf "Cannot inject argument %s of type %s" par.DisplayName
-        |> addErrorAndReturnNull com ctx.FileName r
+        |> addErrorAndReturnNull com ctx.InlinePath r

@@ -126,7 +126,7 @@ module Util =
             preferStatement || isJsStatement ctx false thenExpr || isJsStatement ctx false elseExpr
 
     let addErrorAndReturnNull (com: ICompiler) (range: SourceLocation option) (error: string) =
-        com.AddLog(error, Severity.Error, ?range=range, fileName=com.CurrentFile)
+        addError com [] range error
         NullLiteral () :> Expression
 
     let toPattern (e: PatternExpression): Pattern =
@@ -471,7 +471,7 @@ module Util =
         // TODO: Type info forErasedUnion?
         | Fable.ErasedUnion _ | Fable.Any -> primitiveTypeInfo knownTypes "obj"
         | Fable.GenericParam _ ->
-            Replacements.genericTypeInfoError com com.CurrentFile r
+            Replacements.genericTypeInfoError com [] r
             knownTypes, NullLiteral () :> Expression
         | Fable.Unit    -> primitiveTypeInfo knownTypes "unit"
         | Fable.Boolean -> primitiveTypeInfo knownTypes "bool"
@@ -612,7 +612,7 @@ module Util =
                     makeObjMethod ObjectSetter prop computed false args body
                 | kind, _ ->
                     sprintf "Object member has kind %A but value is not a function" kind
-                    |> addError com com.CurrentFile None; None
+                    |> addError com [] None; None
             ) |> List.toArray |> ObjectExpression
         match baseCall with
         | Some(TransformExpr com ctx baseCall) ->
@@ -835,7 +835,7 @@ module Util =
             "Cannot type test: " + msg |> addErrorAndReturnNull com range
         let warnAndEvalToFalse msg =
             "Cannot type test (evals to false): " + msg
-            |> addWarning com com.CurrentFile range
+            |> addWarning com [] range
             BooleanLiteral false :> Expression
         let jsTypeof (primitiveType: string) (TransformExpr com ctx expr): Expression =
             let typof = UnaryExpression(UnaryTypeof, expr)
@@ -884,7 +884,7 @@ module Util =
             | _ ->
                 if not(List.isEmpty genArgs) then
                     "Cannot type test generic arguments"
-                    |> addWarning com com.CurrentFile range
+                    |> addWarning com [] range
                 let entRef = entityRefMaybeImported com ctx ent
                 jsInstanceofExtended entRef expr
         | Fable.MetaType | Fable.Option _ | Fable.GenericParam _ | Fable.ErasedUnion _ ->
@@ -1527,7 +1527,7 @@ module Compiler =
                       { Selector =
                             if selector = Naming.placeholder
                             then "`importMember` must be assigned to a variable"
-                                 |> addError com com.CurrentFile None; selector
+                                 |> addError com [] None; selector
                             else selector
                         LocalIdent = localId
                         Path = sanitizedPath }

@@ -144,14 +144,34 @@ module Extensions =
 module Log =
     open Fable
 
-    let addWarning (com: ICompiler) file (range: SourceLocation option) (warning: string) =
-        com.AddLog(warning, Severity.Warning, ?range=range, fileName=file)
+    let private addLog (com: ICompiler) inlinePath range msg severity =
+        let printInlineSource refPath path r =
+            let path = Path.getRelativeFileOrDirPath false refPath false path
+            match r with
+            | Some r -> sprintf "%s(%i,%i)" path r.start.line r.start.column
+            | None -> path
+        let rec buildInlinePath acc refPath r = function
+            | [] ->
+                (printInlineSource refPath com.CurrentFile r)::acc
+                |> List.rev |> String.concat " < "
+                |> (+) " - Inline call from "
+            | (file,r2)::rest ->
+                let acc = (printInlineSource refPath file r)::acc
+                buildInlinePath acc refPath r2 rest
+        let actualFile, msg =
+            match inlinePath with
+            | [] -> com.CurrentFile, msg
+            | (file,r)::inlinePath -> file, msg + (buildInlinePath [] file r inlinePath)
+        com.AddLog(msg, severity, ?range=range, fileName=actualFile)
 
-    let addError (com: ICompiler) file (range: SourceLocation option) (error: string) =
-        com.AddLog(error, Severity.Error, ?range=range, fileName=file)
+    let addWarning (com: ICompiler) inlinePath range warning =
+        addLog com inlinePath range warning Severity.Warning
 
-    let addErrorAndReturnNull (com: ICompiler) file (range: SourceLocation option) (error: string) =
-        com.AddLog(error, Severity.Error, ?range=range, fileName=file)
+    let addError (com: ICompiler) inlinePath range error =
+        addLog com inlinePath range error Severity.Error
+
+    let addErrorAndReturnNull (com: ICompiler) inlinePath range error =
+        addLog com inlinePath range error Severity.Error
         AST.Fable.Null AST.Fable.Any |> AST.Fable.Value
 
     let attachRange (range: SourceLocation option) msg =

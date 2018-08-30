@@ -97,7 +97,7 @@ module Helpers =
         |> Option.map snd
         |> Option.defaultWith (fun () ->
             "Couldn't find generic argument in position " + (string i)
-            |> addError com ctx.FileName r
+            |> addError com ctx.InlinePath r
             Any)
 
     /// Records, unions and F# exceptions (value types are assimilated into records) will have a base
@@ -313,7 +313,7 @@ let toString com (ctx: Context) r (args: Expr list) =
     match args with
     | [] ->
         "toString is called with empty args"
-        |> addErrorAndReturnNull com ctx.FileName r
+        |> addErrorAndReturnNull com ctx.InlinePath r
     | head::tail ->
         match head.Type with
         | Char | String -> head
@@ -342,7 +342,7 @@ let toFloat com (ctx: Context) r targetType (args: Expr list) =
         Helper.CoreCall("BigInt", meth, Number Float64, args)
     | Number _ | Char | EnumType(NumberEnumType,_) -> args.Head
     | _ ->
-        addWarning com ctx.FileName r "Cannot make conversion at compile time because source type is unknown"
+        addWarning com ctx.InlinePath r "Cannot make conversion at compile time because source type is unknown"
         args.Head
 
 // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
@@ -447,7 +447,7 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
         | Number _ -> args.Head
         | _ -> args.Head
     | _ ->
-        addWarning com ctx.FileName r "Cannot make conversion at compile time because source type is unknown"
+        addWarning com ctx.InlinePath r "Cannot make conversion at compile time because source type is unknown"
         args.Head
 
 let arrayCons (com: ICompiler) genArg =
@@ -543,7 +543,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | Operators.booleanOr, [left; right] -> logicOp LogicalOr left right
         | Operators.logicalNot, [operand] -> unOp UnaryNotBitwise operand
         | Operators.unaryNegation, [operand] -> unOp UnaryMinus operand
-        | _ -> "Unknown operator: " + opName |> addErrorAndReturnNull com ctx.FileName r
+        | _ -> "Unknown operator: " + opName |> addErrorAndReturnNull com ctx.InlinePath r
     let argTypes = resolveArgTypes argTypes genArgs
     match argTypes with
     | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
@@ -804,7 +804,7 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
         | (_, genArgIndex) ->
             sprintf "Cannot inject arg to %s.%s (genArgs %A - expected index %i)"
                 moduleName methName (List.map fst genArgs) genArgIndex
-            |> addError com ctx.FileName r
+            |> addError com ctx.InlinePath r
             None
 
     Map.tryFind moduleName ReplacementsInject.fableCoreModules
@@ -857,20 +857,20 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         match (genArg com ctx r 0 i.GenericArgs) with
         | DeclaredType(ent, _) when ent.IsClass -> FSharp2Fable.Util.entityRefMaybeImported com ent |> Some
         | _ -> "Only class types define a function constructor in JS"
-               |> addError com ctx.FileName r; None
+               |> addError com ctx.InlinePath r; None
     | "createEmpty", _ ->
         objExpr t [] |> Some
     | "nameof", _ ->
         match args with
         | [Nameof name] -> name
         | _ -> "Cannot infer name of expression"
-               |> addError com ctx.FileName r; Naming.unknown
+               |> addError com ctx.InlinePath r; Naming.unknown
         |> makeStrConst |> Some
     | "nameofLambda", _ ->
         match args with
         | [Function(_, Nameof name, _)] -> name
         | _ -> "Cannot infer name of expression"
-               |> addError com ctx.FileName r; Naming.unknown
+               |> addError com ctx.InlinePath r; Naming.unknown
         |> makeStrConst |> Some
     | "AreEqual", _ ->
         Helper.CoreCall("Util", "assertEqual", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
@@ -878,7 +878,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Helper.CoreCall("Util", "assertNotEqual", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "jsNative", _ ->
         // TODO: Fail at compile time?
-        addWarning com ctx.FileName r "jsNative is being compiled without replacement, this will fail at runtime."
+        addWarning com ctx.InlinePath r "jsNative is being compiled without replacement, this will fail at runtime."
         let runtimeMsg =
             "A function supposed to be replaced by JS native code has been called, please check."
             |> StringConstant |> Value
@@ -1058,7 +1058,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | Some ex -> Throw(IdentExpr ex, t, r) |> Some
         | None ->
             "`reraise` used in context where caught exception is not available, please report"
-            |> addError com ctx.FileName r
+            |> addError com ctx.InlinePath r
             Throw(error (s ""), t, r) |> Some
     // Math functions
     // TODO: optimize square pow: x * x
@@ -1175,13 +1175,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             match args with
             | [_; _] -> emitJs r t args "Array($1 + 1).join($0)" |> Some // String(char, int)
             | _ -> "Unexpected arguments in System.String constructor."
-                   |> addErrorAndReturnNull com ctx.FileName r |> Some
+                   |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | Array _ ->
             match args with
             | [_] -> emitJs r t args "$0.join('')" |> Some // String(char[])
             | [_; _; _] -> emitJs r t args "$0.join('').substr($1, $2)" |> Some // String(char[], int, int)
             | _ -> "Unexpected arguments in System.String constructor."
-                   |> addErrorAndReturnNull com ctx.FileName r |> Some
+                   |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ ->
             fsFormat com ctx r t i thisArg args
     | "get_Length", Some c, _ -> get r t c "length" |> Some
@@ -1194,7 +1194,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
     | "Contains", Some c, arg::_ ->
         if (List.length args) > 1 then
-            addWarning com ctx.FileName r "String.Contains: second argument is ignored"
+            addWarning com ctx.InlinePath r "String.Contains: second argument is ignored"
         let left = Helper.InstanceCall(c, "indexOf", Number Int32, [arg])
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
     | "StartsWith", Some c, [_str] ->
@@ -1216,7 +1216,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [ExprType String; ExprType(Number Int32)] ->
             Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
-               |> addErrorAndReturnNull com ctx.FileName r |> Some
+               |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     | ("Trim" | "TrimStart" | "TrimEnd"), Some c, _ ->
         let methName = Naming.lowerFirst i.CompiledName
         match args with
@@ -1431,7 +1431,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
             // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
             Helper.CoreCall("Array", "fill", t, [newArray size t2; makeIntConst 0; size; value])
         | _ -> sprintf "Expecting an array type but got %A" t
-               |> addErrorAndReturnNull com ctx.FileName r
+               |> addErrorAndReturnNull com ctx.InlinePath r
     match i.CompiledName, args with
     | "ToSeq", [arg] -> Some arg
     | "OfSeq", [arg] -> toArray com t arg |> Some
@@ -1612,7 +1612,7 @@ let parse target (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "Parse", str::_ ->
         // e.g. Double.Parse(string, IFormatProvider) etc.
         sprintf "%s.Parse(): second argument is ignored" i.DeclaringEntityFullName
-        |> addWarning com ctx.FileName r
+        |> addWarning com ctx.InlinePath r
         Helper.CoreCall(numberModule, "parse", t,
             [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
             [i.SignatureArgTypes.Head; Number Float32])
@@ -1654,7 +1654,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
                 decimal (if isNegative then -x else x) |> makeDecConst |> Some
     | ".ctor", [IdentExpr _ as arg] ->
         // TODO: Add this warning in other constructors?
-        addWarning com ctx.FileName r "Decimals are implemented with floats."
+        addWarning com ctx.InlinePath r "Decimals are implemented with floats."
         Some arg
     | ("Parse" | "TryParse"), _ ->
         parse Parse2Float com ctx r t i thisArg args
@@ -1770,7 +1770,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
             let entRef = FSharp2Fable.Util.entityRefMaybeImported com ent
             Helper.ConstructorCall(entRef, t, [], ?loc=r) |> Some
         | t -> sprintf "Cannot create instance of type unresolved at compile time: %A" t
-               |> addErrorAndReturnNull com ctx.FileName r |> Some
+               |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
     // Type: PowDouble : float -> int -> float
     // Usage: PowDouble x n
@@ -1898,7 +1898,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "GetType", Some arg, _ ->
         if arg.Type = Any then
             "Types can only be resolved at compile time. At runtime this will be same as `typeof<obj>`"
-            |> addWarning com ctx.FileName r
+            |> addWarning com ctx.InlinePath r
         makeTypeInfo r arg.Type |> Some
     | _ -> None
 
@@ -1969,7 +1969,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToBase64String" | "FromBase64String" ->
         if not(List.isSingle args) then
             sprintf "Convert.%s only accepts one single argument" (Naming.upperFirst i.CompiledName)
-            |> addWarning com ctx.FileName r
+            |> addWarning com ctx.InlinePath r
         Helper.CoreCall("String", (Naming.lowerFirst i.CompiledName), t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
@@ -1977,7 +1977,7 @@ let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName with
     | "Out" -> None
     | "Write" ->
-        addWarning com ctx.FileName r "Write will behave as WriteLine"
+        addWarning com ctx.InlinePath r "Write will behave as WriteLine"
         log com r t i thisArg args |> Some
     | "WriteLine" -> log com r t i thisArg args |> Some
     | _ -> None
@@ -1985,7 +1985,7 @@ let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "Write" ->
-        addWarning com ctx.FileName r "Write will behave as WriteLine"
+        addWarning com ctx.InlinePath r "Write will behave as WriteLine"
         log com r t i thisArg args |> Some
     | "WriteLine" -> log com r t i thisArg args |> Some
     | "Break" -> Debugger |> Some
@@ -2149,7 +2149,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         if not isGroup
         then propStr "index" thisArg.Value |> Some
         else "Accessing index of Regex groups is not supported"
-             |> addErrorAndReturnNull com ctx.FileName r |> Some
+             |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     | "get_Value" ->
         if isGroup
         // In JS Regex group values can be undefined, ensure they're empty strings #838
@@ -2238,7 +2238,7 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     match i.CompiledName with
     // TODO: Throw error for RunSynchronously
     | "Start" ->
-        "Async.Start will behave as StartImmediate" |> addWarning com ctx.FileName r
+        "Async.Start will behave as StartImmediate" |> addWarning com ctx.InlinePath r
         Helper.CoreCall("Async", "start", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Make sure cancellationToken is called as a function and not a getter
     | "get_CancellationToken" -> Helper.CoreCall("Async", "cancellationToken", t, [], ?loc=r) |> Some
@@ -2295,7 +2295,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     match thisArg with
     | Some(Value(TypeInfo(exprType, exprRange)) as thisArg) ->
         match exprType with
-        | GenericParam _ -> genericTypeInfoError com ctx.FileName exprRange
+        | GenericParam _ -> genericTypeInfoError com ctx.InlinePath exprRange
         | _ -> ()
         match i.CompiledName with
         | "get_FullName" -> getTypeFullName false exprType |> returnString

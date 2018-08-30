@@ -18,9 +18,9 @@ type Context =
       CaughtException: Fable.Ident option
       BoundConstructorThis: Fable.Ident option
       BoundMemberThis: Fable.Ident option
-      FileName: string
+      InlinePath: (string * (SourceLocation option)) list
     }
-    static member Create(fileName, enclosingEntity) =
+    static member Create(enclosingEntity) =
         { Scope = []
           ScopeInlineValues = []
           GenericArgs = Map.empty
@@ -29,7 +29,7 @@ type Context =
           CaughtException = None
           BoundConstructorThis = None
           BoundMemberThis = None
-          FileName = fileName
+          InlinePath = []
         }
 
 type IFableCompiler =
@@ -767,7 +767,7 @@ module Util =
             match tryFindImplementingEntity sourceEntity interfaceFullName with
             | None ->
                 "Type implementing interface must be known at compile time, cast does nothing."
-                |> addWarning com ctx.FileName r
+                |> addWarning com ctx.InlinePath r
                 expr
             | Some(ent,_) when isReplacementCandidate ent -> expr
             | Some(ent,_)  ->
@@ -793,7 +793,7 @@ module Util =
                 | Fable.GenericParam _ when entity.IsInterface ->
                     "An interface member of an unresolved generic parameter is being called, " +
                         "this will likely fail at compile time. Please try inlining or not using flexible types."
-                    |> addWarning com ctx.FileName r; callee
+                    |> addWarning com ctx.InlinePath r; callee
                 | _ -> callee
             | None ->
                 sprintf "Unexpected static interface/override call: %s" memb.FullName
@@ -828,7 +828,7 @@ module Util =
                 callInstanceMember com ctx r typ argInfo ent memb |> Some
             | None ->
                 sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
-                |> addErrorAndReturnNull com ctx.FileName r |> Some
+                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ -> None
 
     let (|Emitted|_|) com r typ argInfo (memb: FSharpMemberOrFunctionOrValue) =
@@ -871,7 +871,7 @@ module Util =
             | None, _, _ -> None
         | _ -> None
 
-    let inlineExpr (com: IFableCompiler) (ctx: Context) (genArgs: Lazy<_>) callee args (memb: FSharpMemberOrFunctionOrValue) =
+    let inlineExpr (com: IFableCompiler) (ctx: Context) r (genArgs: Lazy<_>) callee args (memb: FSharpMemberOrFunctionOrValue) =
         // TODO: Log error if the inline function is called recursively
         let args: Fable.Expr list =
             match callee with
@@ -887,14 +887,14 @@ module Util =
                 let ctx = bindExpr ctx argId (Fable.IdentExpr ident)
                 ctx, (ident, arg)::bindings)
         let ctx = { ctx with GenericArgs = genArgs.Value |> Map
-                             FileName = inExpr.FileName }
+                             InlinePath = (inExpr.FileName, r)::ctx.InlinePath }
         (com.Transform(ctx, inExpr.Body), bindings)
         ||> List.fold (fun body binding -> Fable.Let([binding], body))
 
-    let (|Inlined|_|) (com: IFableCompiler) ctx genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
+    let (|Inlined|_|) (com: IFableCompiler) ctx r genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
         if not(isInline memb)
         then None
-        else inlineExpr com ctx genArgs callee args memb |> Some
+        else inlineExpr com ctx r genArgs callee args memb |> Some
 
     /// Removes optional arguments set to None in tail position and calls the injector if necessary
     let transformOptionalArguments (com: IFableCompiler) (ctx: Context) r
@@ -952,7 +952,7 @@ module Util =
         | Emitted com r typ (Some argInfo) emitted, _ -> emitted
         | Imported com ctx r typ (Some argInfo) imported -> imported
         | Replaced com ctx r typ argTypes genArgs argInfo replaced -> replaced
-        | Inlined com ctx genArgs callee args expr, _ -> expr
+        | Inlined com ctx r genArgs callee args expr, _ -> expr
         | Try (tryGetBoundExpr ctx r) funcExpr, _ ->
             if isModuleValueForCalls memb
             then funcExpr
@@ -976,9 +976,9 @@ module Util =
         let typ = makeType com ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
         | _ when typ = Fable.Unit ->
-            if not v.IsCompilerGenerated then
+            if com.Options.verbose && not v.IsCompilerGenerated then // See #1516
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
-                |> addWarning com ctx.FileName r
+                |> addWarning com ctx.InlinePath r
             Fable.Value Fable.UnitConstant
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com ctx r typ None imported -> imported
