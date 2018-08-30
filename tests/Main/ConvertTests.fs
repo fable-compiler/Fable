@@ -252,6 +252,18 @@ let tests =
         (fun () -> Convert.ToInt32("1.4")) |> throwsError "Input string was not in a correct format."
         (fun () -> Convert.ToInt32("foo")) |> throwsError "Input string was not in a correct format."
 
+    testCase "Special cases conversion to/from Int64 work" <| fun () ->
+        let xn = -1L
+        let xnu = 0xFFFFFFFFFFFFFFFFuL
+        -1 |> uint64 |> equal 0xFFFFFFFFuL
+        0xFFFFFFFFu |> int64 |> equal 0xFFFFFFFFL
+        xn |> uint64 |> equal xnu
+        xnu |> int64 |> equal -1L
+        xn |> int32 |> equal -1
+        xn |> uint32 |> equal 0xFFFFFFFFu
+        xnu |> int32 |> equal -1
+        xnu |> uint32 |> equal 0xFFFFFFFFu
+
     testCase "System.Convert.ToInt64 works" <| fun () ->
         let x = 1L
         int64(1y) |> equal x

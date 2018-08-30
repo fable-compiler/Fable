@@ -181,6 +181,30 @@ export function fromNumber(value, unsigned) {
 }
 
 /**
+ * @param {number} value
+ * @param {boolean} unsigned
+ * @param {number} kind
+ * @returns {!Long}
+ * @inner
+ */
+export function fromInteger(value, unsigned, kind) {
+    var x;
+    var xh = 0;
+    switch (kind) {
+        case 0: x = value << 24 >> 24; xh = x; break;
+        case 4: x = value << 24 >>> 24; break;
+        case 1: x = value << 16 >> 16; xh = x; break;
+        case 5: x = value << 16 >>> 16; break;
+        case 2: x = value >> 0; xh = x; break;
+        case 6: x = value >>> 0;
+    }
+    if (unsigned) xh = 0;
+    return fromBits(x, xh >> 31, unsigned);
+}
+
+
+
+/**
  * @param {number} lowBits
  * @param {number} highBits
  * @param {boolean=} unsigned
@@ -392,6 +416,13 @@ export function toNumber($this) {
     if ($this.unsigned)
         return (($this.high >>> 0) * TWO_PWR_32_DBL) + ($this.low >>> 0);
     return $this.high * TWO_PWR_32_DBL + ($this.low >>> 0);
+};
+/**
+ * Converts the Long to a 32 bit integer.
+ * @returns {number}
+ */
+export function toIntNumber($this) {
+        return $this.low >>> 0;
 };
 
 /**
