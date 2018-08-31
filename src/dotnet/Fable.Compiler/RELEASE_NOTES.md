@@ -1,3 +1,10 @@
+### 2.0.0-beta-003
+
+* Improve int64 conversions @tomcl #1546
+* Add full call path for errors in inlined functions
+* Fix #1545: Warning when casting to and interface not directly implemented
+* Fix extension member overloads
+
 ### 2.0.0-beta-002
 
 * Compile chars as JS strings (as in Fable 1)
