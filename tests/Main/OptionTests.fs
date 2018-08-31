@@ -97,6 +97,11 @@ let tests =
             fun () -> match value with Some x -> value <- None; Some x | None -> None
         getOnlyOnce() |> Option.bind ((+) "Hello " >> Some) |> equal (Some "Hello Alfonso")
 
+    testCase "Option.contains works" <| fun () ->
+        Some "test" |> Option.contains "test" |> equal true
+        Some "123" |> Option.contains "test" |> equal false
+        None |> Option.contains "test" |> equal false
+
     testCase "Option.filter works" <| fun () -> // See #390
         let optionToString opt =
             match opt with
