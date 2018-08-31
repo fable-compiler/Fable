@@ -114,12 +114,16 @@ module Naming =
     let [<Literal>] unknown = "UNKNOWN"
 
     /// Interfaces implemented in the prototype or automatically assigned by the F# compiler to unions and records.
+    /// TODO: Allow explicit implementation of the first four?
     let ignoredInterfaces =
         set [ "System.Collections.IStructuralEquatable"
               "System.Collections.IStructuralComparable"
+              "System.IEquatable`1"
+              "System.IComparable`1"
+              "System.IComparable"
               "System.Collections.Generic.IEnumerable"
               "System.Collections.IEnumerable"
-              "System.IComparable" ]
+            ]
 
     let interfaceMethodsImplementedInPrototype =
         set [ "System-IComparable-CompareTo"
@@ -215,14 +219,15 @@ module Naming =
     let getUniqueName baseName (index: int) =
         "$" + baseName + "$$" + string index
 
-    let private printOverloadSuffix (suffix: string) =
-        if suffix = "" then "" else "$$" + suffix
+    let private printPart sanitize separator part overloadSuffix =
+        (if part = "" then "" else separator + (sanitize part)) +
+            (if overloadSuffix = "" then "" else "$$" + overloadSuffix)
 
     let private buildName sanitize name part =
         (sanitize name) +
             (match part with
-                | InstanceMemberPart(s, i) -> "$$" + (sanitize s) + printOverloadSuffix i
-                | StaticMemberPart(s, i) -> "$$$" + (sanitize s) + printOverloadSuffix i
+                | InstanceMemberPart(s, i) -> printPart sanitize "$$" s i
+                | StaticMemberPart(s, i)   -> printPart sanitize "$$$" s i
                 | NoMemberPart -> "")
 
     let buildNameWithoutSanitation name part =

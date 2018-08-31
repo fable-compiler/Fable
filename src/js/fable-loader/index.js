@@ -1,7 +1,7 @@
 /// @ts-check
 
 var path = require("path");
-var babel = require("babel-core");
+var babel = require("@babel/core");
 var fableUtils = require ("fable-utils");
 
 var DEFAULT_PORT =
@@ -26,14 +26,14 @@ var customPlugins = [
     fableUtils.babelPlugins.getTransformMacroExpressions(babel.template)
 ];
 
-function transformBabelAst(babelAst, babelOptions, sourceMapOptions) {
+function transformBabelAst(babelAst, babelOptions, sourceMapOptions, callback) {
     var fsCode = null;
     if (sourceMapOptions != null) {
         fsCode = sourceMapOptions.buffer.toString();
         babelOptions.sourceMaps = true;
         babelOptions.sourceFileName = path.relative(process.cwd(), sourceMapOptions.path.replace(/\\/g, '/'));
     }
-    return babel.transformFromAst(babelAst, fsCode, babelOptions);
+    babel.transformFromAst(babelAst, fsCode, babelOptions, callback);
 }
 
 var Loader = function(buffer) {
@@ -93,9 +93,14 @@ var Loader = function(buffer) {
                     path: data.fileName,
                     buffer: buffer
                 } : null;
-                var babelParsed = transformBabelAst(data, babelOptions, sourceMapOpts);
-                console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
-                callback(null, babelParsed.code, babelParsed.map);
+                transformBabelAst(data, babelOptions, sourceMapOpts, function (err, babelParsed) {
+                    if (err) {
+                        callback(err);
+                    } else {
+                        console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
+                        callback(null, babelParsed.code, babelParsed.map);
+                    }
+                });
             }
             catch (err) {
                 callback(err)

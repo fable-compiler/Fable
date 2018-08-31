@@ -1,7 +1,10 @@
 [<RequireQualifiedAccess>]
 module Fable.Transforms.OverloadSuffix
 
+open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
+
+type Params = IList<IList<FSharpParameter>>
 
 [<RequireQualifiedAccess>]
 module private Atts =
@@ -35,13 +38,12 @@ let private tryFindAttributeArgs fullName (atts: #seq<FSharpAttribute>) =
 // -------- End of helper functions
 
 // Attention: we need to keep this similar to FSharp2Fable.TypeHelpers.makeType
-let rec private getTypeFastFullName genParams (t: FSharpType) =
+let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType) =
     let t = nonAbbreviatedType t
-    if t.IsGenericParameter
-    // Generics can have different names in signature and implementation files, use the position
-    then
-        let name = t.GenericParameter.Name
-        List.findIndex ((=) name) genParams |> string
+    if t.IsGenericParameter then
+        match genParams.TryGetValue(t.GenericParameter.Name) with
+        | true, i -> i
+        | false, _ -> ""
     elif t.IsTupleType
     then t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
     elif t.IsFunctionType
@@ -84,36 +86,42 @@ let private hashToString (i: int) =
     then "Z" + (abs i).ToString("X")
     else i.ToString("X")
 
-let private getGenParams (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
-    // It seems that for F# types memb.GenericParameters contains all generics
-    // but for BCL types we need to check the DeclaringEntity generics too
-    let rec skipEntGenParams = function
-        | head1::tail1, (head2::tail2 as li2) ->
-            if head1 = head2
-            then skipEntGenParams (tail1, tail2)
-            else li2
-        | [], li2 -> li2
-        | _, [] -> []
-    let entGenParams = entity.GenericParameters |> Seq.map (fun p -> p.Name) |> Seq.toList
-    let membGenParams = m.GenericParameters |> Seq.map (fun p -> p.Name) |> Seq.toList
-    entGenParams @ skipEntGenParams (entGenParams, membGenParams)
+let private getHashPrivate (m: FSharpMemberOrFunctionOrValue) (curriedParams: Params) genParams =
+    match tryFindAttributeArgs Atts.overloadSuffix m.Attributes with
+    | Some [:? string as overloadSuffix] -> overloadSuffix
+    | _ ->
+        curriedParams.[0]
+        |> Seq.map (fun p -> getTypeFastFullName genParams p.Type |> stringHash)
+        |> combineHashCodes
+        |> hashToString
+
+let hasEmptyOverloadSuffix (m: FSharpMemberOrFunctionOrValue) (curriedParams: Params) =
+    // Overrides and interface implementations don't have override suffix in Fable
+    m.IsOverrideOrExplicitInterfaceImplementation
+    // Members with curried params cannot be overloaded in F#
+    || curriedParams.Count <> 1
+    // Don't use overload suffix for members without arguments
+    || curriedParams.[0].Count = 0
+    || (curriedParams.[0].Count = 1 && isUnit curriedParams.[0].[0].Type)
 
 let getHash (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
     let curriedParams = m.CurriedParameterGroups
-        // Overrides and interface implementations don't have override suffix in Fable
-    if m.IsOverrideOrExplicitInterfaceImplementation
-        // Members with curried params cannot be overloaded in F#
-        || curriedParams.Count <> 1
-        // Don't use overload suffix for members without arguments
-        || curriedParams.[0].Count = 0
-        || (curriedParams.[0].Count = 1 && isUnit curriedParams.[0].[0].Type)
+    if hasEmptyOverloadSuffix m curriedParams
     then ""
     else
-        match tryFindAttributeArgs Atts.overloadSuffix m.Attributes with
-        | Some [:? string as overloadSuffix] -> overloadSuffix
-        | _ ->
-            let genParams = getGenParams entity m
-            curriedParams.[0]
-            |> Seq.map (fun p -> getTypeFastFullName genParams p.Type |> stringHash)
-            |> combineHashCodes
-            |> hashToString
+        // Generics can have different names in signature
+        // and implementation files, use the position instead
+        let genParams =
+            entity.GenericParameters
+            |> Seq.mapi (fun i p -> p.Name, string i)
+            |> dict
+        getHashPrivate m curriedParams genParams
+
+/// Used for extension members
+let getExtensionHash (m: FSharpMemberOrFunctionOrValue) =
+    let curriedParams = m.CurriedParameterGroups
+    if hasEmptyOverloadSuffix m curriedParams
+    then ""
+    // Type resolution in extension member seems to be different
+    // and doesn't take generics into account
+    else dict [] |> getHashPrivate m curriedParams
