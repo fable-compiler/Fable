@@ -254,6 +254,10 @@ export function exists2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, 
   return false;
 }
 
+export function contains<T>(i: T, xs: Iterable<T>) {
+  return exists((x) => equals(x, i), xs);
+}
+
 export function filter<T>(f: (x: T) => boolean, xs: Iterable<T>) {
   return delay(() => unfold((iter) => {
     let cur = iter.next();
