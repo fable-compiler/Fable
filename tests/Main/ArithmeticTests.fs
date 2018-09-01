@@ -68,6 +68,18 @@ let tests =
     testCase "Bitwise shift left with unsigned integer works" <| fun () ->
         equal (1u <<< 31, 2147483648u)
 
+    testCase "Bitwise OR on large unsigned integer works" <| fun () ->
+        equal (0x80000000u ||| 0u, (0x80000000u ||| 0u >>> 0))
+
+    testCase "Bitwise AND on large unsigned integer works" <| fun () ->
+        equal (0x80000000u &&& 0xffffffffu, (0x80000000u &&& 0xffffffffu >>> 0))
+
+    testCase "Bitwise XOR on large unsigned integer works" <| fun () ->
+        equal (0x80000000u ^^^ 0u, (0x80000000u ^^^ 0u >>> 0))
+
+    testCase "Bitwise Invert on large unsigned integer works" <| fun () ->
+        equal ( ~~~0x80000000u, (~~~0x80000000u >>> 0))
+
     testCase "Bitwise shift right can be generated" <| fun () -> // See #1530
         equal (4 >>> 2, 1)
 
