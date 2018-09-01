@@ -36,28 +36,38 @@ exports.getTransformMacroExpressions = function(babelTemplate) {
                 }
                 return;
             }
-            var buildArgs = {}, macro = node.value;
-            // console.log("MACRO 1: " + macro);
+
+            var DOLLAR_REGEX = /\$\d+/g;
+            var buildArgs = {};
+            var originalMacro = node.value;
+            var macro = originalMacro;
+
             try {
                 // Check if there are more placeholders than args, this may happen
                 // if null optional arguments have been removed.
-                var placeholders = [], m = null;
-                var reg = /\$\d+/g, args = node.args || [];
-                while (m = reg.exec(macro)) {
+                var m = null;
+                var placeholders = [];
+                var args = node.args || [];
+
+                while (m = DOLLAR_REGEX.exec(macro)) {
                     placeholders.push(parseInt(m[0].substr(1), 10))
                 }
+
                 if (placeholders.length > 0) {
                     var max = placeholders.reduce((x, y) => Math.max(x, y))
                     // If there're actually more args than placeholders (e.g `$0($1...)`), use the args length
                     var argsLength = Math.max(max + 1, args.length);
                     for (var i = 0; i < argsLength; i++) {
-                        buildArgs["$" + i] = args[i] == null
-                            ? { type: "NullLiteral" }
-                            : args[i];
+                        buildArgs["$" + String(i)] =
+                            args[i] == null
+                                ? { type: "NullLiteral" }
+                                : args[i];
                     }
                 }
+
                 macro = macro
-                    .replace(/\$(\d+)\.\.\./, function (m, i) {
+                    // Macro transformations, see http://fable.io/docs/interacting.html#emit-attribute
+                    .replace(/\$(\d+)\.\.\./, function (_, i) {
                         var rep = [], j = parseInt(i, 10);
                         for (; j < args.length; j++) {
                             rep.push("$" + j);
@@ -71,23 +81,28 @@ exports.getTransformMacroExpressions = function(babelTemplate) {
                     .replace(/\{\{([^\}]*\$(\d+).*?)\}\}/g, function (_, g1, g2) {
                         var i = parseInt(g2, 10);
                         return typeof args[i] === "object" && args[i].type !== "NullLiteral" ? g1 : "";
-                    });
+                    })
 
                 // Babel 7 throws error if there're unused arguments, remove them
-                var actualArgs = macro.match(/\$\d+/g);
-                if (Array.isArray(actualArgs)) {
-                    for (var j = 0; j < args.length; j++) {
-                        if (actualArgs.indexOf("$" + j) < 0)
-                            delete buildArgs["$" + j];
+                var actualArgs = [];
+                var buildArgKeys = Object.keys(buildArgs);
+                while (m = DOLLAR_REGEX.exec(macro)) {
+                    actualArgs.push(m[0]);
+                }
+                for (var j = 0; j < buildArgKeys.length; j++) {
+                    if (actualArgs.indexOf(buildArgKeys[j]) < 0) {
+                        delete buildArgs[buildArgKeys[j]];
                     }
-                } else {
-                    buildArgs = {};
                 }
 
-                // console.log("MACRO 2: " + macro);
-                // console.log("MACRO ARGS: " + JSON.stringify(buildArgs));
-                // console.log("BUILT MACRO: " + JSON.stringify(babelTemplate(macro)(buildArgs)));
-                var builtMacro = babelTemplate(macro)(buildArgs);
+                // console.log("MACRO 1", originalMacro);
+                // console.log("MACRO 2", macro);
+                // console.log("MACRO ARGS", buildArgs);
+
+                var builtMacro = babelTemplate(macro, {
+                    placeholderPattern: /^\$\d+$/
+                })(buildArgs);
+
                 if (builtMacro != null) {
                     path.replaceWithMultiple(builtMacro);
                 }
@@ -100,11 +115,10 @@ exports.getTransformMacroExpressions = function(babelTemplate) {
                 }
             }
             catch (err) {
-                err.message =
-                    "BABEL ERROR: Failed to parse macro: " + macro + "\n" +
+                throw new Error(
+                    "BABEL ERROR: Failed to parse macro: " + originalMacro + " -> " + macro + "\n" +
                     "MACRO ARGUMENTS: " + Object.keys(buildArgs).join() + "\n" +
-                    err.message;
-                throw err;
+                    err.message);
             }
         }
     }

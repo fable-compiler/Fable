@@ -2128,9 +2128,9 @@ extsprintf@^1.2.0:
   resolved "https://registry.yarnpkg.com/extsprintf/-/extsprintf-1.4.0.tgz#e2689f8f356fad62cca65a3a91c5df5f9551692f"
 
 "fable-loader@file:./src/js/fable-loader":
-  version "2.0.0-alpha-003"
+  version "2.0.0-beta-001"
   dependencies:
-    fable-utils "^1.0.4"
+    fable-utils "^1.1.0"
 
 "fable-splitter@file:./src/js/fable-splitter":
   version "2.0.0-alpha-003"
@@ -2145,8 +2145,12 @@ fable-utils@^1.0.4, fable-utils@^1.0.6:
   version "1.0.6"
   resolved "https://registry.yarnpkg.com/fable-utils/-/fable-utils-1.0.6.tgz#df4af260a2948b7562e3cbcfa044a3482b5c0573"
 
+fable-utils@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/fable-utils/-/fable-utils-1.1.0.tgz#05d79f61b93d6cee17a63c18ea311bd97179fda4"
+
 "fable-utils@file:./src/js/fable-utils":
-  version "1.0.6"
+  version "1.1.0"
 
 fast-deep-equal@^2.0.1:
   version "2.0.1"
@@ -4093,7 +4097,7 @@ rollup-plugin-commonjs@^9.1.4:
     rollup-pluginutils "^2.0.1"
 
 "rollup-plugin-fable@file:./src/js/rollup-plugin-fable":
-  version "1.1.1"
+  version "2.0.0-beta-001"
   dependencies:
     fable-utils "^1.0.4"
     rollup-pluginutils "2.0.1"
@@ -4505,6 +4509,7 @@ term-size@^1.2.0:
     execa "^0.7.0"
 
 terser@^3.8.1, uglify-es@^3.3.4, "uglify-es@npm:terser":
+  name uglify-es
   version "3.8.1"
   resolved "https://registry.yarnpkg.com/terser/-/terser-3.8.1.tgz#cb70070ac9e0a71add169dfb63c0a64fca2738ac"
   dependencies:

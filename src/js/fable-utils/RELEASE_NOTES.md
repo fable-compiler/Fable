@@ -1,3 +1,7 @@
+### 1.1.0
+
+* Compatibility with Babel 7 templates
+
 ### 1.0.6
 
 * Add TypeScript declaration file
