@@ -100,19 +100,18 @@ let buildCLI cfg () =
 let buildCoreJsTypescriptFiles () =
     Yarn.run CWD "tsc" (sprintf "--project %s" coreJsSrcDir)
 
-let buildCoreJsFsharpFiles () =
-    nugetRestore coreJsSrcDir
-    sprintf "%s/dotnet-fable.dll %s %s"
-        cliBuildDir
-        "node-run ../fable-splitter/dist/cli"
-        "--fable-core force:${outDir}"  // fable-splitter will adjust the path
-    |> run coreJsSrcDir dotnetExePath
+let runFableCli command fableArgs commandArgs =
+    sprintf
+        // "%s/dotnet-fable.dll %s %s -- %s" cliBuildDir
+        "run -c Release -p %s %s %s --args \"%s\"" cliSrcDir
+        command fableArgs commandArgs
+    |> run CWD dotnetExePath
 
-let buildCoreJs () =
-    Yarn.install CWD
-    Yarn.run CWD "tslint" (sprintf "--project %s" coreJsSrcDir)
-    buildCoreJsTypescriptFiles ()
-    buildCoreJsFsharpFiles ()
+let buildCoreJsFsharpFiles () =
+    runFableCli
+        "fable-splitter"
+        "--fable-core force:${outDir}"  // fable-splitter will adjust the path
+        "-c src/js/fable-core/splitter.config.js"
 
 let buildSplitter () =
     let buildDir = CWD </> "src/js/fable-splitter"
@@ -124,9 +123,10 @@ let buildSplitter () =
         FileUtils.cp jsFile (buildDir + "/dist") )
 
 let buildCoreJsFull () =
-    buildCLI Release ()
-    buildSplitter ()
-    buildCoreJs ()
+    Yarn.install CWD
+    Yarn.run CWD "tslint" (sprintf "--project %s" coreJsSrcDir)
+    buildCoreJsTypescriptFiles ()
+    buildCoreJsFsharpFiles ()
 
 let runTestsDotnet () =
     // CleanDir "tests/Main/obj"
@@ -135,22 +135,7 @@ let runTestsDotnet () =
 
 let runTestsJS () =
     Yarn.install CWD
-    CleanDir "tests/.fable"
-    run CWD dotnetExePath "restore tests/Main"
-    run CWD dotnetExePath "build/fable/dotnet-fable.dll yarn-splitter --cwd tests --fable-core build/fable-core"
-    Yarn.run (CWD </> "tests") "test" ""
-
-let quickTest() =
-    run "src/tools" dotnetExePath "../../build/fable/dotnet-fable.dll yarn-run rollup"
-    run CWD "node" "src/tools/temp/QuickTest.js"
-
-Target "QuickTest" quickTest
-Target "QuickFableCompilerTest" (fun () ->
-    buildCLI Debug ()
-    quickTest ())
-Target "QuickFableCoreTest" (fun () ->
-    buildCoreJs ()
-    quickTest ())
+    Yarn.run CWD "build-tests" ""
 
 let updateVersionInFile useNugetVersion releaseNotesPath targetFilePath (regexPatternInTargetFile: string) =
     let reg = Regex regexPatternInTargetFile
@@ -212,7 +197,6 @@ Target "GitHubRelease" (fun _ ->
 )
 
 Target "Clean" clean
-Target "FableCLI" (buildCLI Release)
 Target "FableCoreJs" buildCoreJsFull
 Target "FableCoreJsTypescriptOnly" buildCoreJsTypescriptFiles
 Target "FableCoreJsFSharpOnly" buildCoreJsFsharpFiles
@@ -255,7 +239,7 @@ let bundleRepl (fetchNcaveFork: bool) () =
             | Some _ -> "/projects/fcs"
             | None -> CWD </> "paket-files/ncave/FCS"
 
-        let fableJsProj = CWD </> "src/dotnet/Fable.JS/Fable.JS.fsproj"
+        let fableJsProj = CWD </> "src/dotnet/Fable.Repl/Fable.Repl.fsproj"
         let fcsFableProj = fcsFableDir </> "fcs/fcs-fable/fcs-fable.fsproj"
 
         let reg = Regex(@"ProjectReference Include="".*?""")
@@ -272,13 +256,13 @@ let bundleRepl (fetchNcaveFork: bool) () =
         |> Seq.iter (printfn "%s")
 
     // Build REPL
-    let replDir = CWD </> "src/dotnet/Fable.JS"
-    Yarn.install replDir
-    Yarn.run replDir "build-modules" ""
-    Yarn.run replDir "bundle" ""
-    Yarn.run replDir "minify" ""
+    Yarn.install CWD
+    Yarn.run CWD "build-repl-modules" ""
+    Yarn.run CWD "bundle-repl" ""
+    Yarn.run CWD "minify-repl" ""
 
     // Put fable-core files next to bundle
+    let replDir = CWD </> "src/dotnet/Fable.Repl"
     let fableCoreTarget = replDir </> "bundle/fable-core"
     FileUtils.cp_r coreJsBuildDir fableCoreTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
@@ -293,21 +277,19 @@ let bundleRepl (fetchNcaveFork: bool) () =
     File.WriteAllText(replDir </> "bundle/version.txt", release.NugetVersion)
 
 let runBench2 () =
-    let replDir = CWD </> "src/dotnet/Fable.JS"
-    Yarn.run replDir "babel" "out --out-dir out2 --plugins transform-es2015-modules-commonjs --quiet"
-    Yarn.run replDir "babel" "../../../build/fable-core --out-dir out-fable-core --plugins transform-es2015-modules-commonjs --quiet"
-    let bench2Dir = CWD </> "src/dotnet/Fable.JS/bench2"
-    Yarn.install bench2Dir
-    Yarn.run bench2Dir "build" ""
-    Yarn.run bench2Dir "start" ""
-    Yarn.run bench2Dir "test" ""
+    Yarn.install CWD
+    Yarn.run CWD "babel" "src/dotnet/Fable.Repl/out --out-dir src/dotnet/Fable.Repl/out2 --plugins transform-es2015-modules-commonjs --quiet"
+    Yarn.run CWD "build-bench2" ""
+    Yarn.run CWD "start-bench2" ""
+
+    // Run the test script
+    Yarn.run CWD "babel" "build/fable-core --out-dir src/dotnet/Fable.Repl/out-fable-core --plugins transform-es2015-modules-commonjs --quiet"
+    Yarn.run CWD "test-bench2" ""
 
 Target "All" (fun () ->
     installDotnetSdk ()
     clean ()
-    buildCLI Release ()
-    buildSplitter ()
-    buildCoreJs ()
+    buildCoreJsFull ()
     runTestsJS ()
 
     match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
@@ -319,14 +301,14 @@ Target "All" (fun () ->
 )
 
 Target "BundleReplLocally" (fun () ->
-    printfn "Make sure you've run target All before this."
+    printfn "Make sure you've run target All or FableCoreJs before this."
     printfn "You need to clone '%s' branch of '%s' repository in a sibling folder named: %s"
         ncaveFcsForkBranch ncaveFcsForkRepo "FSharp.Compiler.Service_fable"
     bundleRepl false ())
 
 Target "BuildReplAsNodeApp" (fun () ->
     printfn "Make sure you've run target BundleReplLocally before this."
-    printfn "Check 'start' script in src/dotnet/Fable.JS/bench2/package.json to see how to run the REPL as a node app."
+    printfn "Check 'start-bench2' script in package.json to see how to run the REPL as a node app."
     runBench2 ()
 )
 

@@ -1,10 +1,12 @@
+const path = require("path");
+
 const useES6 = process.argv.find(v => v === "--es6");
 const useCommonjs = process.argv.find(v => v === "--commonjs");
 console.log("Compiling to " + (useCommonjs ? "commonjs" : "ES2015 modules") + "...")
 
 const babelOptions = useES6 ? { } // no plugins, default presets
   : useCommonjs ? { plugins: ["transform-es2015-modules-commonjs"] }
-  : { presets: [ ["@babel/preset-env", { modules: false }] ] }; // Uglify-js requires ES5
+  : { presets: [ ["env", { modules: false }] ] }; // Uglify-js requires ES5
 
 const fableOptions = {
   define: [
@@ -21,8 +23,8 @@ const fableOptions = {
 };
 
 module.exports = {
-  entry: "./Fable.JS.fsproj",
-  outDir: "./out",
+  entry: path.join(__dirname, "./Fable.Repl.fsproj"),
+  outDir: path.join(__dirname, "./out"),
   // port: 61225,
   babel: babelOptions,
   fable: fableOptions,

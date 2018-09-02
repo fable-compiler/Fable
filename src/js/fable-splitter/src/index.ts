@@ -187,7 +187,7 @@ async function getBabelAst(path: string, options: FableSplitterOptions, info: Co
     } else {
         // return Babel AST from JS file
         path = JAVASCRIPT_EXT.test(path) ? path : path + ".js";
-        if (await fs.pathExists(path)) {
+        if (fs.existsSync(path)) {
             ast = await getBabelAstFromJsFile(path, info);
         } else {
             console.log(`fable: Skip missing JS file: ${path}`);

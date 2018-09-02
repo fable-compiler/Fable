@@ -4,6 +4,8 @@ NUGET
   remote: https://www.nuget.org/api/v2
     Dotnet.ProjInfo (0.9)
       FSharp.Core (>= 4.2.3)
+    Fable.Core (2.0.0-beta-001)
+      FSharp.Core (>= 4.3.4)
     FSharp.Compiler.Service (23.0.3)
       FSharp.Core (>= 4.1.18)
       System.Collections.Immutable (>= 1.3.1)
