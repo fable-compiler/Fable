@@ -1,4 +1,4 @@
-### 2.0.0-beta-001
+### 2.0.0-beta-002
 
 * Compatibility with Babel 7
 

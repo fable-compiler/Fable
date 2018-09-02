@@ -159,8 +159,8 @@ function fixImportPath(fromDir: string, path: string, info: CompilationInfo) {
 }
 
 /** Ignores paths to external modules like "react/react-dom-server" */
-function getRelativeOrAbsoluteImportDeclarations(ast: Babel.types.Node) {
-    const decls = ensureArray((ast as Babel.types.Program).body);
+function getRelativeOrAbsoluteImportDeclarations(ast: Babel.types.Program) {
+    const decls = ensureArray(ast.body);
     return decls.filter((d) => {
         if (d.source != null && typeof d.source.value === "string") {
             const path = d.source.value;
@@ -171,7 +171,7 @@ function getRelativeOrAbsoluteImportDeclarations(ast: Babel.types.Node) {
 }
 
 async function getBabelAst(path: string, options: FableSplitterOptions, info: CompilationInfo) {
-    let ast: Babel.types.Node | null = null;
+    let ast: Babel.types.Program | null = null;
     if (FSHARP_EXT.test(path)) {
         // return Babel AST from F# file
         const fableMsg = JSON.stringify(Object.assign({}, options.fable, { path, rootDir: process.cwd() }));
@@ -197,20 +197,24 @@ async function getBabelAst(path: string, options: FableSplitterOptions, info: Co
 }
 
 function getBabelAstFromJsFile(path: string, info: CompilationInfo) {
-    return new Promise<Babel.types.Node | null>((resolve) => {
+    return new Promise<Babel.types.Program | null>((resolve) => {
         Babel.transformFile(path, { code: false, ast: true }, (error, res) => {
             if (error != null) {
                 const log = `${path}(1,1): error BABEL: ${error.message}`;
                 addLogs({ error: [log] }, info);
                 resolve(null);
             } else {
-                resolve(res != null ? res.ast : null);
+                let program: Babel.types.Program | null = null;
+                if (res != null && res.ast != null) {
+                    program = (res.ast as Babel.types.File).program;
+                }
+                resolve(program);
             }
         });
     });
 }
 
-function generateJsCodeFromBabelAst(ast: Babel.types.Node, code?: string,
+function generateJsCodeFromBabelAst(ast: Babel.types.Program, code?: string,
                                     options?: Babel.TransformOptions) {
     return new Promise<Babel.BabelFileResult | null>((resolve) => {
         Babel.transformFromAst(ast, code, options, (error, res) => {
@@ -224,7 +228,7 @@ function generateJsCodeFromBabelAst(ast: Babel.types.Node, code?: string,
     });
 }
 
-async function generateJsCode(fullPath: string, ast: Babel.types.Node,
+async function generateJsCode(fullPath: string, ast: Babel.types.Program,
                               options: FableSplitterOptions,
                               info: CompilationInfo) {
     // resolve output paths
@@ -285,8 +289,8 @@ async function transformAsync(path: string, options: FableSplitterOptions,
         }
 
         // if not an .fsproj, transform and save
-        if (!FSPROJ_EXT.test(fullPath) && ast != null) {
-            generateJsCode(fullPath, ast, options, info);
+        if (!FSPROJ_EXT.test(fullPath)) {
+            await generateJsCode(fullPath, ast, options, info);
         }
 
         // compile all dependencies (imports)
