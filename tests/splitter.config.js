@@ -1,6 +1,8 @@
+const path = require("path");
+
 module.exports = {
-  entry: "Main/Fable.Tests.fsproj",
-  outDir: "../build/tests",
+  entry: path.join(__dirname, "Main/Fable.Tests.fsproj"),
+  outDir: path.join(__dirname, "../build/tests"),
   fable: { define: defineConstants() },
   babel: {
     plugins: ["transform-es2015-modules-commonjs"],

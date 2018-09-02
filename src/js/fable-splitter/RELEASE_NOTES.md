@@ -1,3 +1,7 @@
+### 2.0.0-beta-002
+
+* Compatibility with Babel 7
+
 ### 2.0.0-alpha-003
 
 * Fable 2 alpha

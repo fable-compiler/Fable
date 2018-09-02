@@ -6,9 +6,9 @@
   <ItemGroup>
     <PackageReference Include="Expecto" Version="5.1.2" />
     <PackageReference Include="FSharp.Core" Version="4.5.2" />
+    <PackageReference Include="Fable.Core" Version="2.0.0-beta-001" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Fable.Core" HintPath="../../build/fable/Fable.Core.dll" />
     <ProjectReference Include="..\DllRef\Fable.Tests.DllRef.fsproj" />
     <ProjectReference Include="..\..\tests_external\Fable.Tests.External.fsproj" />
     <ProjectReference Include="..\Project With Spaces\Fable.Tests.Spaces.fsproj" />

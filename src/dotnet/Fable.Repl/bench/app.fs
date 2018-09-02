@@ -3,7 +3,7 @@ module Bench.App
 open Bench.Platform
 
 let use_net45_meta = false
-let references = Fable.JS.Metadata.references use_net45_meta
+let references = Fable.Repl.Metadata.references use_net45_meta
 let metadataPath =
     if use_net45_meta
     then "/temp/repl/metadata/"  // dotnet 4.5 binaries
@@ -36,7 +36,7 @@ let main argv =
         // let fsAstFile = Fable.Path.ChangeExtension(testScriptPath, ".fsharp.ast.txt")
         // let babelAstFile = Fable.Path.ChangeExtension(testScriptPath, ".babel.ast.json")
         let source = readAllText testScriptPath
-        let fable = Fable.JS.Main.init ()
+        let fable = Fable.Repl.Main.init ()
         let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath)
         let ms0, checker = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0

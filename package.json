@@ -1,10 +1,18 @@
 {
   "private": true,
   "scripts": {
-    "tsc": "tsc",
-    "tslint": "tslint",
-    "mocha": "mocha",
-    "webpack": "webpack"
+    "fable": "dotnet run -c Release -p src/dotnet/Fable.Compiler",
+    "build-tests": "yarn fable fable-splitter --force-pkgs --args \"-c tests/splitter.config.js\"",
+    "postbuild-tests": "yarn test",
+    "test": "mocha build/tests --reporter dot -t 10000",
+    "build-repl": "yarn fable fable-splitter --args \"-c src/dotnet/Fable.Repl/splitter.config.js --commonjs\"",
+    "build-repl-modules": "yarn fable fable-splitter --args \"-c src/dotnet/Fable.Repl/splitter.config.js \"",
+    "build-repl-es6": "yarn fable fable-splitter --args \"-c src/dotnet/Fable.Repl/splitter.config.js --es6\"",
+    "bundle-repl": "rollup src/dotnet/Fable.Repl/out/Main.js --file src/dotnet/Fable.Repl/bundle/bundle.js --format iife --name Fable",
+    "minify-repl": "uglifyjs src/dotnet/Fable.Repl/bundle/bundle.js -o src/dotnet/Fable.Repl/bundle/bundle.min.js -c -m",
+    "build-bench2": "yarn fable fable-splitter --args \"-c src/dotnet/Fable.Repl/bench2/splitter.config.js\"",
+    "start-bench2": "cd src/dotnet/Fable.Repl/bench2 && node out/app ../metadata/ test_script.fs out/test_script.js",
+    "test-bench2": "node src/dotnet/Fable.Repl/bench2/out/test_script.js"
   },
   "resolutions": {
     "uglify-es": "npm:terser"
@@ -12,24 +20,27 @@
   "devDependencies": {
     "@types/babel-core": "^6.25.5",
     "@types/node": "^10.5.4",
+    "babel-cli": "^6.26.0",
     "babel-core": "^6.26.3",
     "babel-loader": "^7.1.5",
     "babel-minify": "^0.4.3",
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
     "babel-preset-env": "^1.7.0",
     "babel-register": "^6.26.0",
-    "fable-loader": "file:./src/js/fable-loader",
-    "fable-splitter": "file:./src/js/fable-splitter",
-    "fable-utils": "file:./src/js/fable-utils",
+    "babel-standalone": "^6.26.0",
+    "fable-loader": "2.0.0-alpha-003",
+    "fable-splitter": "2.0.0-alpha-003",
     "mocha": "^5.2.0",
     "rollup": "^0.63.4",
     "rollup-plugin-babel": "^3.0.7",
     "rollup-plugin-commonjs": "^9.1.4",
-    "rollup-plugin-fable": "file:./src/js/rollup-plugin-fable",
+    "rollup-plugin-fable": "2.0.0-beta-001",
     "rollup-pluginutils": "^2.3.0",
     "rollup-watch": "^4.3.1",
     "terser": "^3.8.1",
     "tslint": "^5.11.0",
     "typescript": "^3.0.1",
+    "uglify-js": "^3.4.9",
     "webpack": "^4.16.1",
     "webpack-command": "^0.4.1"
   }

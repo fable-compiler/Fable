@@ -3,7 +3,7 @@ module Bench.App
 open Bench.Platform
 
 let use_net45_meta = false
-let references = Fable.JS.Metadata.references use_net45_meta
+let references = Fable.Repl.Metadata.references use_net45_meta
 let metadataPath =
     if use_net45_meta
     then "/temp/repl/metadata/"  // dotnet 4.5 binaries
