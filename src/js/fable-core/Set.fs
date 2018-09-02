@@ -32,6 +32,7 @@ type SetTree<'T> when 'T : comparison =
     // ~6 and 3 words respectively.
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+[<RequireQualifiedAccess>]
 module internal SetTree =
     let rec countAux s acc =
         match s with
@@ -42,7 +43,6 @@ module internal SetTree =
     let count s = countAux s 0
     let SetOne n = SetTree.SetOne n
     let SetNode (x,l,r,h) = SetTree.SetNode(x,l,r,h)
-
 
     let height t =
         match t with
@@ -157,7 +157,7 @@ module internal SetTree =
 
     let rec spliceOutSuccessor t =
         match t with
-        | SetEmpty -> failwith "internal error: Map.spliceOutSuccessor"
+        | SetEmpty -> failwith "internal error: Set.spliceOutSuccessor"
         | SetOne (k2) -> k2,SetEmpty
         | SetNode (k2,l,r,_) ->
             match l with
@@ -343,10 +343,10 @@ module internal SetTree =
     //--------------------------------------------------------------------------
 
     [<NoEquality; NoComparison>]
-    type SetIterator<'T> when 'T : comparison  =
-        {  mutable stack: SetTree<'T> list;  // invariant: always collapseLHS result
-           mutable started : bool           // true when MoveNext has been called
-        }
+    type SetIterator<'T> when 'T : comparison = {
+        mutable stack: SetTree<'T> list;  // invariant: always collapseLHS result
+        mutable started : bool           // true when MoveNext has been called
+    }
 
     // collapseLHS:
     // a) Always returns either [] or a list starting with SetOne.
@@ -697,10 +697,10 @@ let private createMutablePrivate (comparer: IComparer<'T>) tree' =
             SetTree.mem comparer x tree
         member __.values () =
             SetTree.toSeq tree
-      interface IEnumerable<_> with
+    interface IEnumerable<_> with
         member __.GetEnumerator() =
             SetTree.mkIEnumerator tree
-      interface IEnumerable with
+    interface IEnumerable with
         member __.GetEnumerator() =
             upcast SetTree.mkIEnumerator tree
     }

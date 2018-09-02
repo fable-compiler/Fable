@@ -318,19 +318,19 @@ let zip3 xs ys zs =
     map3 (fun x y z -> x, y, z) xs ys zs
 
 let sort (xs : 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (Array.ofList xs Array.DynamicArrayCons) |> ofArray
+    Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (List.toArray xs) |> ofArray
 
 let sortBy (projection:'a->'b) (xs : 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (Array.ofList xs Array.DynamicArrayCons) |> ofArray
+    Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (List.toArray xs) |> ofArray
 
 let sortDescending (xs : 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (Array.ofList xs Array.DynamicArrayCons) |> ofArray
+    Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (List.toArray xs) |> ofArray
 
 let sortByDescending (projection:'a->'b) (xs : 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (Array.ofList xs Array.DynamicArrayCons) |> ofArray
+    Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (List.toArray xs) |> ofArray
 
 let sortWith (comparer: 'T -> 'T -> int) (xs : 'T list): 'T list =
-    Array.sortInPlaceWith comparer (Array.ofList xs Array.DynamicArrayCons) |> ofArray
+    Array.sortInPlaceWith comparer (List.toArray xs) |> ofArray
 
 // TODO!!!: Pass add function for non-number types
 let sum (xs: float list) : float =
@@ -353,11 +353,11 @@ let min (xs:'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
 
 let average (zs: float list) : float =
     let total = sum zs
-    total / float(List.length zs)
+    total / float (length zs)
 
 let averageBy (g: 'a -> float ) (zs: 'a list) : float =
     let total = sumBy g zs
-    total / float(List.length zs)
+    total / float (length zs)
 
 let permute f xs =
     xs
@@ -444,7 +444,7 @@ let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityCompa
         if dict.ContainsKey(key)
         then dict.[key] <- v::dict.[key]
         else dict.Add(key, [v])
-    dict |> Seq.map (fun kv -> kv.Key, reverse kv.Value) |> Seq.toList
+    dict |> Seq.map (fun kv -> kv.Key, reverse kv.Value) |> ofSeq
 
 let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
     let dict = Dictionary<'Key, int ref>(eq)
