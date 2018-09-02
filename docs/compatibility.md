@@ -1,5 +1,7 @@
 # .NET and F# Compatibility
 
+> This document applies to Fable 1. It will be updated soon with Fable 2 information.
+
 Fable provides support for some classes of .NET BCL (Base Class Library) and most of FSharp.Core library. When possible, Fable translates .NET types and methods to native JavaScript APIs for minimum overhead.
 
 ## .NET Base Class Library
