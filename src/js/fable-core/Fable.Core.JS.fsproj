@@ -7,10 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="../../../build/fable/Fable.Core.dll" />
-  </ItemGroup>
-
-  <ItemGroup>
     <!-- <Compile Include="BigInt/n.fsi"/> -->
     <!-- <Compile Include="BigInt/n.fs"/> -->
     <!-- <Compile Include="BigInt/z.fsi"/> -->
@@ -26,5 +22,5 @@
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />
   </ItemGroup>
-
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

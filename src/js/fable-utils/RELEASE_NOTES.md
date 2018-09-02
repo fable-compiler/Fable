@@ -1,3 +1,7 @@
+### 1.2.0
+
+* Bring back `validateFableOptions` for backwards compatibility.
+
 ### 1.1.0
 
 * Compatibility with Babel 7 templates

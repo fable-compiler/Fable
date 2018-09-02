@@ -1,4 +1,4 @@
-module Fable.JS.Main
+module Fable.Repl.Main
 
 open System
 open Fable.AST

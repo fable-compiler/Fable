@@ -1,6 +1,6 @@
-import * as Babel from "babel-core";
+import * as Babel from "@babel/core";
 import * as fableUtils from "fable-utils";
-import * as fs from "fs";
+import * as fs from "fs-extra";
 import * as Path from "path";
 import * as Process from "process";
 
@@ -159,8 +159,8 @@ function fixImportPath(fromDir: string, path: string, info: CompilationInfo) {
 }
 
 /** Ignores paths to external modules like "react/react-dom-server" */
-function getRelativeOrAbsoluteImportDeclarations(ast: any) {
-    const decls = ast && ast.program ? ensureArray(ast.program.body) : [];
+function getRelativeOrAbsoluteImportDeclarations(ast: Babel.types.Program) {
+    const decls = ensureArray(ast.body);
     return decls.filter((d) => {
         if (d.source != null && typeof d.source.value === "string") {
             const path = d.source.value;
@@ -170,8 +170,8 @@ function getRelativeOrAbsoluteImportDeclarations(ast: any) {
     });
 }
 
-async function getFileAstAsync(path: string, options: FableSplitterOptions, info: CompilationInfo) {
-    let ast: Babel.BabelFileResult | undefined;
+async function getBabelAst(path: string, options: FableSplitterOptions, info: CompilationInfo) {
+    let ast: Babel.types.Program | null = null;
     if (FSHARP_EXT.test(path)) {
         // return Babel AST from F# file
         const fableMsg = JSON.stringify(Object.assign({}, options.fable, { path, rootDir: process.cwd() }));
@@ -183,22 +183,12 @@ async function getFileAstAsync(path: string, options: FableSplitterOptions, info
             info.projectFiles = babelAst.sourceFiles;
         }
         addLogs(babelAst.logs, info);
-        try {
-            ast = Babel.transformFromAst(babelAst, undefined, { code: false });
-        } catch (err) {
-            console.log(`fable: Error transforming ${Path.relative(process.cwd(), path)}`);
-            console.error(err);
-        }
+        ast = babelAst;
     } else {
         // return Babel AST from JS file
         path = JAVASCRIPT_EXT.test(path) ? path : path + ".js";
         if (fs.existsSync(path)) {
-            try {
-                ast = Babel.transformFileSync(path, { code: false });
-            } catch (err) {
-                const log = `${path}(1,1): error BABEL: ${err.message}`;
-                addLogs({ error: [log] }, info);
-            }
+            ast = await getBabelAstFromJsFile(path, info);
         } else {
             console.log(`fable: Skip missing JS file: ${path}`);
         }
@@ -206,12 +196,47 @@ async function getFileAstAsync(path: string, options: FableSplitterOptions, info
     return ast;
 }
 
-function transformAndSaveAst(fullPath: string, ast: any, options: FableSplitterOptions, info: CompilationInfo) {
+function getBabelAstFromJsFile(path: string, info: CompilationInfo) {
+    return new Promise<Babel.types.Program | null>((resolve) => {
+        Babel.transformFile(path, { code: false, ast: true }, (error, res) => {
+            if (error != null) {
+                const log = `${path}(1,1): error BABEL: ${error.message}`;
+                addLogs({ error: [log] }, info);
+                resolve(null);
+            } else {
+                let program: Babel.types.Program | null = null;
+                if (res != null && res.ast != null) {
+                    program = (res.ast as Babel.types.File).program;
+                }
+                resolve(program);
+            }
+        });
+    });
+}
+
+function generateJsCodeFromBabelAst(ast: Babel.types.Program, code?: string,
+                                    options?: Babel.TransformOptions) {
+    return new Promise<Babel.BabelFileResult | null>((resolve) => {
+        Babel.transformFromAst(ast, code, options, (error, res) => {
+            if (error != null) {
+                console.error("fable: Error transforming Babel AST", error);
+                resolve(null);
+            } else {
+                resolve(res);
+            }
+        });
+    });
+}
+
+async function generateJsCode(fullPath: string, ast: Babel.types.Program,
+                              options: FableSplitterOptions,
+                              info: CompilationInfo) {
     // resolve output paths
     const outPath = getOutPath(fullPath, info) + ".js";
     const jsPath = join(options.outDir, outPath);
     const jsDir = Path.dirname(jsPath);
     ensureDirExists(jsDir);
+
     // set sourcemap paths
     const code: string | undefined = undefined;
     const babelOptions = Object.assign({}, options.babel) as Babel.TransformOptions;
@@ -219,31 +244,30 @@ function transformAndSaveAst(fullPath: string, ast: any, options: FableSplitterO
         // code = fs.readFileSync(fullPath, "utf8");
         const relPath = Path.relative(jsDir, fullPath);
         babelOptions.sourceFileName = relPath.replace(/\\/g, "/");
-        babelOptions.sourceMapTarget = Path.basename(outPath);
     }
+
+    // Add ResolvePathPlugin
     babelOptions.plugins = (babelOptions.plugins || [])
         .concat(getResolvePathPlugin(jsDir, options));
+
     // transform and save
-    let result: Babel.BabelFileResult = {};
-    try {
-        result = Babel.transformFromAst(ast, code, babelOptions);
-    } catch (err) {
-        console.log(`fable: Error transforming Babel AST.`);
-        console.error(err);
+    let result = await generateJsCodeFromBabelAst(ast, code, babelOptions);
+    if (result != null) {
+        if (options.prepack) {
+            const prepack = require("prepack");
+            result = prepack.prepackFromAst(result.ast, result.code, options.prepack) as Babel.BabelFileResult;
+        }
+        await fs.writeFile(jsPath, result.code);
+        if (result.map) {
+            await fs.appendFile(jsPath, "\n//# sourceMappingURL=" + Path.basename(jsPath) + ".map");
+            await fs.writeFile(jsPath + ".map", JSON.stringify(result.map));
+        }
+        console.log(`fable: Compiled ${Path.relative(process.cwd(), fullPath)}`);
     }
-    if (options.prepack) {
-        const prepack = require("prepack");
-        result = prepack.prepackFromAst(result.ast, result.code, options.prepack);
-    }
-    fs.writeFileSync(jsPath, result.code);
-    if (result.map) {
-        fs.appendFileSync(jsPath, "\n//# sourceMappingURL=" + Path.basename(jsPath) + ".map");
-        fs.writeFileSync(jsPath + ".map", JSON.stringify(result.map));
-    }
-    console.log(`fable: Compiled ${Path.relative(process.cwd(), fullPath)}`);
 }
 
-async function transformAsync(path: string, options: FableSplitterOptions, info: CompilationInfo, force?: boolean) {
+async function transformAsync(path: string, options: FableSplitterOptions,
+                              info: CompilationInfo, force?: boolean): Promise<void> {
     const fullPath = getFullPath(path);
     if (!info.compiledPaths.has(fullPath)) {
         info.compiledPaths.add(fullPath);
@@ -251,20 +275,22 @@ async function transformAsync(path: string, options: FableSplitterOptions, info:
         return;
     }
 
-    // get file AST (no transformation)
-    const ast = await getFileAstAsync(fullPath, options, info);
-    if (ast) {
-        const importPaths = [];
+    const ast = await getBabelAst(fullPath, options, info);
+
+    if (ast != null) {
+        const importPaths: string[] = [];
         const fromDir = Path.dirname(fullPath);
-        for (const decl of getRelativeOrAbsoluteImportDeclarations(ast.ast)) {
+
+        // Fix import paths
+        for (const decl of getRelativeOrAbsoluteImportDeclarations(ast)) {
             const importPath = decl.source.value;
             importPaths.push(importPath);
             decl.source.value = fixImportPath(fromDir, importPath, info);
         }
 
-        // if not a .fsproj, transform and save
+        // if not an .fsproj, transform and save
         if (!FSPROJ_EXT.test(fullPath)) {
-            transformAndSaveAst(fullPath, ast.ast, options, info);
+            await generateJsCode(fullPath, ast, options, info);
         }
 
         // compile all dependencies (imports)
@@ -322,12 +348,14 @@ export default function fableSplitter(options: FableSplitterOptions, previousInf
     const startDate = new Date();
     const startDateStr = startDate.toLocaleTimeString();
     console.log(`fable: Compilation started at ${startDateStr}`);
+
     const startTime = process.hrtime();
+
     // options.path will only be filled in watch compilations
     return transformAsync(options.path || options.entry, options, info, true)
         .then(() => {
             if (options.allFiles) {
-                const promises = [];
+                const promises: Array<Promise<void>> = [];
                 for (const file of ensureArray(info.projectFiles)) {
                     promises.push(transformAsync(file, options, info));
                 }
@@ -340,12 +368,15 @@ export default function fableSplitter(options: FableSplitterOptions, previousInf
             Object.keys(info.logs).forEach((severity) =>
                 ensureArray(info.logs[severity]).forEach((log) =>
                     output(log, severity)));
+
             const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
             const date = new Date();
             const dateStr = date.toLocaleTimeString();
             const elapsed = process.hrtime(startTime);
             const duration = (elapsed[0] + elapsed[1] / 1e9).toFixed(3);
+
             console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"} at ${dateStr} (${duration} s)`);
+
             if (!hasError && typeof options.postbuild === "function") {
                 options.postbuild();
             }

@@ -517,6 +517,11 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         Operation(UnaryOperation(operator, operand), t, r)
     let binOp op left right =
         Operation(BinaryOperation(op, left, right), t, r)
+    let truncateUnsigned operation = // see #1550
+        match t with
+        | Number UInt32 -> 
+            Operation(BinaryOperation(BinaryShiftRightZeroFill,operation,makeIntConst 0), t, r)
+        | _ -> operation
     let logicOp op left right =
         Operation(LogicalOperation(op, left, right), Boolean, r)
     let nativeOp opName argTypes args =
@@ -530,21 +535,17 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
             | Number Integer::_ -> binOp BinaryDivide left right |> fastIntFloor
             | _ -> binOp BinaryDivide left right
         | Operators.modulus, [left; right] -> binOp BinaryModulus left right
-        | Operators.leftShift, [left; right] ->
-            let res = binOp BinaryShiftLeft left right
-            match argTypes with
-            | Number UInt32::_ -> binOp BinaryShiftRightZeroFill res (makeIntConst 0) // See #1530
-            | _ -> res
+        | Operators.leftShift, [left; right] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
         | Operators.rightShift, [left; right] ->
             match argTypes with
             | Number UInt32::_ -> binOp BinaryShiftRightZeroFill left right // See #646
             | _ -> binOp BinaryShiftRightSignPropagating left right
-        | Operators.bitwiseAnd, [left; right] -> binOp BinaryAndBitwise left right
-        | Operators.bitwiseOr, [left; right] -> binOp BinaryOrBitwise left right
-        | Operators.exclusiveOr, [left; right] -> binOp BinaryXorBitwise left right
+        | Operators.bitwiseAnd, [left; right] -> binOp BinaryAndBitwise left right |> truncateUnsigned
+        | Operators.bitwiseOr, [left; right] -> binOp BinaryOrBitwise left right |> truncateUnsigned
+        | Operators.exclusiveOr, [left; right] -> binOp BinaryXorBitwise left right |> truncateUnsigned
         | Operators.booleanAnd, [left; right] -> logicOp LogicalAnd left right
         | Operators.booleanOr, [left; right] -> logicOp LogicalOr left right
-        | Operators.logicalNot, [operand] -> unOp UnaryNotBitwise operand
+        | Operators.logicalNot, [operand] -> unOp UnaryNotBitwise operand |> truncateUnsigned
         | Operators.unaryNegation, [operand] -> unOp UnaryMinus operand
         | _ -> "Unknown operator: " + opName |> addErrorAndReturnNull com ctx.InlinePath r
     let argTypes = resolveArgTypes argTypes genArgs

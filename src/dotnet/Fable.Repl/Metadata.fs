@@ -1,4 +1,4 @@
-module Fable.JS.Metadata
+module Fable.Repl.Metadata
 
 let references use_net45_meta =
     if use_net45_meta then
