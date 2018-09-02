@@ -195,7 +195,6 @@ let truncate (count: int) (array: 'T []): 'T[] =
 
 let concat (arrays: 'T[] seq) ([<Inject>] cons: IArrayCons<'T>): 'T[] =
     arrays
-    |> Seq.toArray
     |> concatImpl cons
 
 let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
@@ -364,8 +363,8 @@ let addRangeInPlace (range: JS.Iterable<'T>) (array: 'T[]) =
     let iter = range.``[Symbol.iterator]``()
     let mutable cur = iter.next()
     while not (cur.``done``) do
-       pushImpl array !!cur.value |> ignore
-       cur <- iter.next()
+        pushImpl array !!cur.value |> ignore
+        cur <- iter.next()
 
 let removeInPlace (item: 'T) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
@@ -461,15 +460,15 @@ let tryFindIndexBack predicate (array : _[]) =
     loop (array.Length - 1)
 
 let choose f (source: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
-   let res = cons.Create 0
-   let mutable j = 0
-   for i = 0 to source.Length - 1 do
-      match f source.[i] with
-      | Some y ->
-         res.[j] <- y
-         j <- j + 1
-      | None -> ()
-   res
+    let res = cons.Create 0
+    let mutable j = 0
+    for i = 0 to source.Length - 1 do
+        match f source.[i] with
+        | Some y ->
+            res.[j] <- y
+            j <- j + 1
+        | None -> ()
+    res
 
 let foldIndexed folder state (array: 'T[]) =
     let mutable acc = state
@@ -608,7 +607,7 @@ let zip (array1: 'T[]) (array2: 'U[]) =
     if array1.Length <> array2.Length then failwith "Arrays had different lengths"
     let result = newDynamicArrayImpl array1.Length
     for i = 0 to array1.Length - 1 do
-       result.[i] <- array1.[i], array2.[i]
+        result.[i] <- array1.[i], array2.[i]
     result
 
 let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'U[]) =
@@ -616,7 +615,7 @@ let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'U[]) =
     if array1.Length <> array2.Length || array2.Length <> array3.Length then failwith "Arrays had different lengths"
     let result = newDynamicArrayImpl array1.Length
     for i = 0 to array1.Length - 1 do
-       result.[i] <- array1.[i], array2.[i], array3.[i]
+        result.[i] <- array1.[i], array2.[i], array3.[i]
     result
 
 let chunkBySize (chunkSize: int) (array: 'T[]): 'T[][] =

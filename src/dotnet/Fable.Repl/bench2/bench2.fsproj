@@ -16,5 +16,4 @@
     <Compile Include="app.fs"/>
   </ItemGroup>
 
-
 </Project>
