@@ -346,3 +346,24 @@ let ``Case testing with erased unions works``() =
         | Str s -> "s: " + s
     Str "foo" |> strify |> equal "s: foo"
     Int 42 |> strify |> equal "i: 42"
+
+#if FABLE_COMPILER
+open Fable.Core
+open Fable.Core.JsInterop
+
+type DUErasedCase =
+    | [<Erase>] ErasedCase of string * obj
+
+[<Test>]
+let ``Erased union case transforms properly with non const key``() =
+    let k = "k"
+    let ey = "ey"
+    let key = k + ey // ! must be non const
+    let result = keyValueList CaseRules.LowerFirst [ ErasedCase (key, "value") ]
+    !!result?key |> equal "value"
+
+[<Test>]
+let ``Erased union case transorms properly with const key``() =
+    let result = keyValueList CaseRules.LowerFirst [ ErasedCase ("key", "value") ]
+    !!result?key |> equal "value"
+#endif

@@ -183,8 +183,8 @@ let private transformNonListNewUnionCase com ctx (fsExpr: FSharpExpr) fsType uni
             // to pass custom values to keyValueList
             if hasAtt Atts.erase unionCase.Attributes then
                 match argExprs with
-                | [Fable.Value(Fable.StringConst key); value] ->
-                    Fable.Value(Fable.TupleConst [Fable.Value(Fable.StringConst key); value]) |> Some
+                | [Fable.Value(key); value] ->
+                    Fable.Value(Fable.TupleConst [Fable.Value(key); value]) |> Some
                 | _ ->
                     sprintf "Case %s from %s is decorated with %s, but the fields are not a key-value pair"
                         unionCase.Name unionType.FullName Atts.erase
