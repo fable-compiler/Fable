@@ -14,9 +14,10 @@ Make sure the question is not answered already either here or in the documentati
 
 Using a [Compiler Directive](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-directives).
 
-F.ex :
 ```fsharp
-#if RELEASE
+#if !DEBUG
 printfn "only printing in production bundle"
 #endif
 ```
+
+You can define compilation directives using the `define` option in your Fable client. Latest [fable-loader](https://www.npmjs.com/package/fable-loader) will automatically define `DEBUG` when running Webpack in development mode.
