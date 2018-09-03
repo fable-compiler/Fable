@@ -184,15 +184,18 @@ export function isWhiteSpace(s: string, index?: number) {
 }
 
 export function isHighSurrogate(s: string, index?: number) {
-  return /[\uD800-\uDBFF]/.test(s.charAt(index || 0));
+  const cp = s.charCodeAt(index || 0);
+  return (0xD800 <= cp && cp <= 0xDBFF);
 }
 
 export function isLowSurrogate(s: string, index?: number) {
-  return /[\uDC00-\uDFFF]/.test(s.charAt(index || 0));
+  const cp = s.charCodeAt(index || 0);
+  return (0xDC00 <= cp && cp <= 0xDFFF);
 }
 
 export function isSurrogate(s: string, index?: number) {
-  return /[\uD800-\uDFFF]/.test(s.charAt(index || 0));
+  const cp = s.charCodeAt(index || 0);
+  return (0xD800 <= cp && cp <= 0xDFFF);
 }
 
 export function isSurrogatePair(s: string, index: string|number) {

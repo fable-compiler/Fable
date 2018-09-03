@@ -684,9 +684,6 @@ let tryItem index (array:'T[]) =
     if index < 0 || index >= array.Length then None
     else Some array.[index]
 
-// let toList array =
-//     List.ofArray array
-
 let foldBackIndexed<'T,'State> folder (array: 'T[]) (state:'State) =
     let mutable acc = state
     let size = array.Length
@@ -779,17 +776,11 @@ let averageBy (projection: 'T -> float) (array: 'T []) : float =
     let total = sumBy projection array
     total / float array.Length
 
-let ofSeq (source: 'T list) ([<Inject>] cons: IArrayCons<'T>) =
+let ofSeq (source: 'T seq) ([<Inject>] cons: IArrayCons<'T>) =
     cons.FromSequence(source)
 
 let ofList (source: 'T list) ([<Inject>] cons: IArrayCons<'T>) =
-    let len = List.length source
-    let target = cons.Create(len)
-    let mutable i = 0
-    for x in source do
-        target.[i] <- x
-        i <- i + 1
-    target
+    cons.FromSequence(source)
 
 let toList (source: 'T[]) =
     let len = source.Length
