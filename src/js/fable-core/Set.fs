@@ -467,7 +467,11 @@ module internal SetTree =
         use ie = c.GetEnumerator()
         mkFromEnumerator comparer SetEmpty ie
 
-    let ofArray comparer l = Array.fold (fun acc k -> add comparer k acc) SetEmpty l
+    let ofArray comparer (arr: _[]) =
+        let mutable acc = SetEmpty
+        for i = 0 to arr.Length - 1 do
+            acc <- add comparer arr.[i] acc
+        acc
 
 [<CompiledName("FSharpSet"); Replaces("Microsoft.FSharp.Collections.FSharpSet`1")>]
 type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'T>, tree: SetTree<'T>) =
@@ -475,19 +479,17 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     member internal __.Tree : SetTree<'T> = tree
 
     member s.Add(x) : Set<'T> =
-
         new Set<'T>(s.Comparer,SetTree.add s.Comparer x s.Tree )
 
     member s.Remove(x) : Set<'T> =
-
         new Set<'T>(s.Comparer,SetTree.remove s.Comparer x s.Tree)
 
     member s.Count = SetTree.count s.Tree
 
-    member s.Contains(x) =
+    member s.Contains(x) = SetTree.mem s.Comparer x s.Tree
 
-        SetTree.mem s.Comparer  x s.Tree
-    member s.Iterate(x) = SetTree.iter  x s.Tree
+    member s.Iterate(x) = SetTree.iter x s.Tree
+
     member s.Fold f z  = SetTree.fold (fun x z -> f z x) z s.Tree
 
     member s.IsEmpty  = SetTree.isEmpty s.Tree
