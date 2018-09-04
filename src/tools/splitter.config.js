@@ -1,6 +1,8 @@
+const path = require("path");
+
 module.exports = {
-  entry: "QuickTest.fsproj",
-  outDir: "temp",
+  entry: path.join(__dirname, "QuickTest.fsproj"),
+  outDir: path.join(__dirname, "temp"),
   fable: {
     define: ["DEBUG"]
   },

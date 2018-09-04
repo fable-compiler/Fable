@@ -522,7 +522,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         Operation(BinaryOperation(op, left, right), t, r)
     let truncateUnsigned operation = // see #1550
         match t with
-        | Number UInt32 -> 
+        | Number UInt32 ->
             Operation(BinaryOperation(BinaryShiftRightZeroFill,operation,makeIntConst 0), t, r)
         | _ -> operation
     let logicOp op left right =
@@ -732,6 +732,8 @@ let getZero (com: ICompiler) (t: Type) =
 
 let getOne (com: ICompiler) (t: Type) =
     match t with
+    | Builtin (BclInt64|BclUInt64) as t -> Helper.CoreCall("Long", "fromInt", t, [makeIntConst 1])
+    | Builtin BclBigInt as t -> Helper.CoreCall("BigInt", "fromInt32", t, [makeIntConst 1])
     // TODO: Calls to custom One implementation
     | _ -> makeIntConst 1
 
@@ -1025,10 +1027,18 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com r t "OfSeq" args |> Some
     // Ranges
     | ("op_Range"|"op_RangeStep"), _ ->
-        let meth =
-            match (genArg com ctx r 0 i.GenericArgs) with
-            | Char -> "rangeChar"
-            | _ -> if i.CompiledName = "op_Range" then "range" else "rangeStep"
+        let genArg = genArg com ctx r 0 i.GenericArgs
+        let addStep args =
+            match args with
+            | [first; last] -> [first; getOne com genArg; last]
+            | _ -> args
+        let meth, args =
+            match genArg with
+            // TODO: BigInt?
+            | Char -> "rangeChar", args
+            | Builtin BclInt64 -> "rangeLong", addStep args
+            | Builtin BclUInt64 -> "rangeLong", (addStep args) @ [makeBoolConst true]
+            | _ -> "rangeNumber", addStep args
         Helper.CoreCall("Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Pipes and composition
     | "op_PipeRight", [x; f]

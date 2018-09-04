@@ -440,13 +440,14 @@ let tests =
         |> Seq.reduce (+)
         |> equal 15
 
-        seq{0..2..9}
-        |> Seq.reduce (+)
-        |> equal 20
-
         seq{1. .. 5.}
         |> Seq.reduce (+)
         |> equal 15.
+
+    testCase "Seq.range step works" <| fun () ->
+        seq{0..2..9}
+        |> Seq.reduce (+)
+        |> equal 20
 
         seq{0. .. 2. .. 9.}
         |> Seq.reduce (+)
@@ -456,6 +457,7 @@ let tests =
         |> Seq.reduce (+)
         |> equal 25
 
+    testCase "Seq.range works with chars" <| fun () ->
         seq{'a' .. 'f'}
         |> Seq.toArray
         |> System.String
@@ -464,6 +466,24 @@ let tests =
         seq{'z' .. 'a'}
         |> Seq.length
         |> equal 0
+
+    testCase "Seq.range works with long" <| fun () ->
+        seq{1L..5L}
+        |> Seq.reduce (+)
+        |> equal 15L
+
+        seq{1UL .. 5UL}
+        |> Seq.reduce (+)
+        |> equal 15UL
+
+    testCase "Seq.range step works with long" <| fun () ->
+        seq{0L..2L..9L}
+        |> Seq.reduce (+)
+        |> equal 20L
+
+        seq{0UL..2UL..9UL}
+        |> Seq.reduce (+)
+        |> equal 20UL
 
     testCase "Seq.reduce works" <| fun () ->
         let xs = [1.; 2.]
