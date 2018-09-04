@@ -1136,3 +1136,11 @@ export function unixEpochMillisecondsToTicks(ms, offset) {
 export function ticksToUnixEpochMilliseconds(ticks) {
     return toNumber(op_Subtraction(op_Division(ticks, 10000), 62135596800000));
 }
+
+export function makeRangeStepFunction(step, last, unsigned) {
+    const zero = unsigned ? UZERO : ZERO;
+    return (x) =>
+        greaterThan(step, zero) && lessThanOrEqual(x, last)
+        || lessThan(step, zero) && greaterThanOrEqual(x, last)
+        ? [x, op_Addition(x, step)] : null
+}
