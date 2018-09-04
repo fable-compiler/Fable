@@ -127,6 +127,7 @@ let buildCoreJsFull () =
     Yarn.run CWD "tslint" (sprintf "--project %s" coreJsSrcDir)
     buildCoreJsTypescriptFiles ()
     buildCoreJsFsharpFiles ()
+    run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run"
 
 let runTestsDotnet () =
     // CleanDir "tests/Main/obj"

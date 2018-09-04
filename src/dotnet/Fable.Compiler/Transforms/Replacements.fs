@@ -78,6 +78,9 @@ module Helpers =
     let add left right =
         Operation(BinaryOperation(BinaryPlus, left, right), left.Type, None)
 
+    let sub left right =
+        Operation(BinaryOperation(BinaryMinus, left, right), left.Type, None)
+
     let eq left right =
         Operation(BinaryOperation(BinaryEqualStrict, left, right), Boolean, None)
 
@@ -1444,7 +1447,6 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "Item", [idx; ar] -> getExpr r t ar idx |> Some
     | "Get", [ar; idx] -> getExpr r t ar idx |> Some
     | "Set", [ar; idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
-    | "Copy", [ar] -> Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
     | "ZeroCreate", [count] -> createArray count None |> Some
     | "Create", [count; value] -> createArray count (Some value) |> Some
     | "Empty", _ ->
@@ -1452,8 +1454,6 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         newArray (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
         eq (get r (Number Int32) ar "length") (makeIntConst 0) |> Some
-    | "Head", [ar] -> getExpr r t ar (makeIntConst 0) |> Some
-    | "Tail", [ar] -> Helper.InstanceCall(ar, "slice", t, [makeIntConst 1], ?loc=r) |> Some
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
