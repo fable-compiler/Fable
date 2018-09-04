@@ -474,15 +474,15 @@ module internal SetTree =
         acc
 
 [<CompiledName("FSharpSet"); Replaces("Microsoft.FSharp.Collections.FSharpSet`1")>]
-type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'T>, tree: SetTree<'T>) =
+type Set<[<EqualityConditionalOn>]'T when 'T : comparison>(comparer:IComparer<'T>, tree: SetTree<'T>) =
     member internal __.Comparer = comparer
     member internal __.Tree : SetTree<'T> = tree
 
     member s.Add(x) : Set<'T> =
-        new Set<'T>(s.Comparer,SetTree.add s.Comparer x s.Tree )
+        new Set<'T>(s.Comparer, SetTree.add s.Comparer x s.Tree)
 
     member s.Remove(x) : Set<'T> =
-        new Set<'T>(s.Comparer,SetTree.remove s.Comparer x s.Tree)
+        new Set<'T>(s.Comparer, SetTree.remove s.Comparer x s.Tree)
 
     member s.Count = SetTree.count s.Tree
 
@@ -492,7 +492,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
 
     member s.Fold f z  = SetTree.fold (fun x z -> f z x) z s.Tree
 
-    member s.IsEmpty  = SetTree.isEmpty s.Tree
+    member s.IsEmpty = SetTree.isEmpty s.Tree
 
     member s.Partition f : Set<'T> * Set<'T> =
         match s.Tree with
@@ -502,7 +502,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
     member s.Filter f : Set<'T> =
         match s.Tree with
         | SetEmpty -> s
-        | _ -> new Set<_>(s.Comparer,SetTree.filter s.Comparer f s.Tree)
+        | _ -> new Set<_>(s.Comparer, SetTree.filter s.Comparer f s.Tree)
 
     member s.Map(f, [<Inject>] comparer: IComparer<'U>): Set<'U> =
         new Set<_>(comparer, SetTree.fold (fun acc k -> SetTree.add comparer (f k) acc) (SetTree<_>.SetEmpty) s.Tree)
@@ -519,7 +519,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
         | _ ->
             match b.Tree with
             | SetEmpty -> a (* A - 0 = A *)
-            | _ -> new Set<_>(a.Comparer,SetTree.diff a.Comparer  a.Tree b.Tree)
+            | _ -> new Set<_>(a.Comparer, SetTree.diff a.Comparer a.Tree b.Tree)
 
     [<OverloadSuffix("")>]
     [<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates")>]
@@ -529,7 +529,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T : comparison >(comparer:IComparer<'
         | _ ->
             match a.Tree with
             | SetEmpty -> b  (* 0 U B = B *)
-            | _ -> new Set<_>(a.Comparer,SetTree.union a.Comparer  a.Tree b.Tree)
+            | _ -> new Set<_>(a.Comparer, SetTree.union a.Comparer a.Tree b.Tree)
 
     static member Intersection(a: Set<'T>, b: Set<'T>) : Set<'T>  =
         match b.Tree with
@@ -615,12 +615,11 @@ let filter f (s: Set<'T>) = s.Filter f
 
 let partition f (s: Set<'T>) = s.Partition f
 
-let fold<'T,'State  when 'T : comparison> f (z: 'State) (s: Set<'T>) = SetTree.fold f z s.Tree
+let fold<'T,'State when 'T : comparison> f (z: 'State) (s: Set<'T>) = SetTree.fold f z s.Tree
 
 let foldBack<'T,'State when 'T : comparison> f (s: Set<'T>) (z:'State) = SetTree.foldBack f s.Tree z
 
-let map f (s: Set<'T>) ([<Inject>] comparer: IComparer<'U>): Set<'U> =
-    new Set<_>(comparer, SetTree.fold (fun acc k -> SetTree.add comparer (f k) acc) (SetTree<_>.SetEmpty) s.Tree)
+let map f (s: Set<'T>) ([<Inject>] comparer: IComparer<'U>): Set<'U> = s.Map(f, comparer)
 
 let count (s: Set<'T>) = s.Count
 

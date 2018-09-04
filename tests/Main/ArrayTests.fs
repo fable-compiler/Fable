@@ -46,7 +46,7 @@ let tests =
     testCase "Passing an array to ParamArrayAttribute from another function works" <| fun () ->
         add [|5;-7|] |> equal -2
 
-    #if FABLE_COMPILER
+#if FABLE_COMPILER
     testCase "Typed Arrays work" <| fun () ->
         let xs = [| 1; 2; 3; |]
         let ys = [| 1.; 2.; 3.; |]
@@ -55,23 +55,24 @@ let tests =
         ys |> jsConstructorIs "Float64Array" |> equal true
         zs |> jsConstructorIs "Array" |> equal true
 
-    testCase "Mapping from Typed Arrays work" <| fun () ->
-        [| 1; 2; 3; |]
-        |> Array.map string
-        |> jsConstructorIs "Int32Array"
-        |> equal false
+    testCase "Mapping from Typed to Typed Arrays works" <| fun () ->
+        let xs = [| 1.; 2.; 3.; |] |> Array.map int
+        xs |> jsConstructorIs "Int32Array" |> equal true
+        xs |> Array.sum |> equal 6
+        let ys = [| 1; 2; 3; |] |> Array.map float
+        ys |> jsConstructorIs "Float64Array" |> equal true
+        ys |> Array.sum |> equal 6.0
 
-    testCase "Mapping to Typed Arrays work" <| fun () ->
-        [| "1"; "2"; "3"; |]
-        |> Array.map int
-        |> jsConstructorIs "Int32Array"
-        |> equal true
+    testCase "Mapping from Typed to Dynamic Arrays works" <| fun () ->
+        let xs = [| 1; 2; 3; |] |> Array.map string
+        xs |> jsConstructorIs "Array" |> equal true
+        xs |> String.concat "" |> equal "123"
 
-        [| 1; 2; 3; |]
-        |> Array.map float
-        |> jsConstructorIs "Float64Array"
-        |> equal true
-    #endif
+    testCase "Mapping from Dynamic to Dynamic Arrays works" <| fun () ->
+        let xs = [| "1"; "2"; "3"; |] |> Array.map int
+        xs |> jsConstructorIs "Array" |> equal true
+        xs |> Array.sum |> equal 6
+#endif
 
     testCase "Mapping from values to functions works" <| fun () ->
         let a = [| "a"; "b"; "c" |]
@@ -101,12 +102,12 @@ let tests =
         equal 4uy ar.[0]
 
     // TODO: How to test at the same time that both clamped and non-clampled arrays work?
-    // #if FABLE_COMPILER
-    // testCase "Clamped byte arrays work" <| fun () ->
-    //     let ar = DllRef.Lib.createClampedArray()
-    //     ar.[0] <- ar.[0] + 255uy
-    //     equal 255uy ar.[0]
-    // #endif
+// #if FABLE_COMPILER
+//     testCase "Clamped byte arrays work" <| fun () ->
+//         let ar = DllRef.Lib.createClampedArray()
+//         ar.[0] <- ar.[0] + 255uy
+//         equal 255uy ar.[0]
+// #endif
 
     testCase "Array slice with upper index work" <| fun () ->
         let xs = [| 1; 2; 3; 4; 5; 6 |]
@@ -768,11 +769,11 @@ let tests =
 
     testCase "Array.[i] is undefined in Fable when i is out of range" <| fun () ->
         let xs = [|0|]
-        #if FABLE_COMPILER
+#if FABLE_COMPILER
         isNull <| box xs.[1]
-        #else
+#else
         try xs.[1] |> ignore; false with _ -> true
-        #endif
+#endif
         |> equal true
 
     testCase "Array iterators from range do rewind" <| fun () ->

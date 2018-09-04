@@ -30,6 +30,7 @@ let fableCoreModules =
       "singleton", [(Types.arrayCons, 0)]
       "initialize", [(Types.arrayCons, 0)]
       "replicate", [(Types.arrayCons, 0)]
+      "copy", [(Types.arrayCons, 0)]
       "reverse", [(Types.arrayCons, 0)]
       "scan", [(Types.arrayCons, 1)]
       "scanBack", [(Types.arrayCons, 1)]
@@ -69,7 +70,7 @@ let fableCoreModules =
       "countBy", [(Types.equalityComparer, 1)]
     ]
     "Set", Map [
-      "FSharpSet$$Map$$596F5D77", [(Types.comparer, 1)]
+      "FSharpSet$$Map$$38806891", [(Types.comparer, 1)]
       "singleton", [(Types.comparer, 0)]
       "unionMany", [(Types.comparer, 0)]
       "empty", [(Types.comparer, 0)]
