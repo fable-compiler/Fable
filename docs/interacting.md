@@ -1,5 +1,7 @@
 # Interacting with JavaScript
 
+> This document applies to Fable 1. It will be updated soon with Fable 2 information.
+
 This page is structured as a reference document. For a more practical approach to Fable and JavaScript interop, please check [this great guide by Zaid Ajaj](https://medium.com/@zaid.naom/f-interop-with-javascript-in-fable-the-complete-guide-ccc5b896a59f).
 
 ## Importing JavaScript code

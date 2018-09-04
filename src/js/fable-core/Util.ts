@@ -141,12 +141,12 @@ export function lazyFromValue<T>(v: T) {
   return new Lazy(() => v);
 }
 
-export function int16ToString(i: number, radix: number) {
+export function int16ToString(i: number, radix?: number) {
   i = i < 0 && radix != null && radix !== 10 ? 0xFFFF + i + 1 : i;
   return i.toString(radix);
 }
 
-export function int32ToString(i: number, radix: number) {
+export function int32ToString(i: number, radix?: number) {
   i = i < 0 && radix != null && radix !== 10 ? 0xFFFFFFFF + i + 1 : i;
   return i.toString(radix);
 }
