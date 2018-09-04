@@ -21,3 +21,7 @@ printfn "only printing in production bundle"
 ```
 
 You can define compilation directives using the `define` option in your Fable client. Latest [fable-loader](https://www.npmjs.com/package/fable-loader) will automatically define `DEBUG` when running Webpack in development mode.
+
+* How are numbers compiled to JS?
+
+All numeric types including decimal become `JS number` (64-bit floating type), except for longs and big integers. Tom Clarke has documented in much more detail the differences in numeric types between .NET and JS, [check it out](../docs/numbers.md).

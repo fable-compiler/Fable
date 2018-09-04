@@ -37,11 +37,11 @@ The following static methods are also available:
 - `System.Diagnostics.Debugger.Break()`
 - `System.Activator.CreateInstance<'T>()`
 
-There is also support to convert between numeric types and ot parse strings, check [the convert tests](https://github.com/fable-compiler/Fable/blob/master/tests/Main/ConvertTests.fs).
+There is also support to convert between numeric types and to parse strings, check [the convert tests](https://github.com/fable-compiler/Fable/blob/master/tests/Main/ConvertTests.fs).
 
 ### Caveats
 
-- All numeric types including `decimal` become JS `number` (64-bit floating type), except for `int64`, `uint64` and `bigint`.
+- All numeric types including `decimal` become JS `number` (64-bit floating type), except for `int64`, `uint64` and `bigint`. Check [this document](numbers.md) to learn more about the differences in numeric types between .NET and JS.
 - Numeric arrays are compiled to [Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray) when possible.
 - No bound checks for numeric types (unless you do explicit conversions like `byte 500`) nor for array indices.
 - `Regex` will always behave as if passed `RegexOptions.ECMAScript` flag (e.g., no negative look-behind or named groups).
