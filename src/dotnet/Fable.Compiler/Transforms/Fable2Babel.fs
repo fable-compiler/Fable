@@ -1469,7 +1469,7 @@ module Util =
                         transformUnionConstructor com ctx info
                     | Fable.CompilerGeneratedConstructor info ->
                         transformCompilerGeneratedConstructor com ctx info
-                consDecls @ (ifcs |> List.map (transformInterfaceCast com ctx))
+                consDecls // @ (ifcs |> List.map (transformInterfaceCast com ctx))
                 |> List.append transformed
                 |> transformDeclarations com ctx restDecls
             | Fable.OverrideDeclaration(args, body, info) ->

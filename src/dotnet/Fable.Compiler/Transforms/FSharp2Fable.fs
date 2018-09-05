@@ -803,22 +803,26 @@ let private transformInterfaceImplementationMember (com: FableCompiler) ctx (mem
     if Set.contains memb.CompiledName Naming.interfaceMethodsImplementedInPrototype
     then transformOverride com ctx memb args body
     else
-        match memb.DeclaringEntity, tryGetInterfaceDefinitionFromMethod memb with
-        | Some ent, Some interfaceEntity when not(Naming.ignoredInterfaces.Contains interfaceEntity.FullName) ->
-            let bodyCtx, args = bindMemberArgs com ctx args
-            let body = transformExpr com bodyCtx body |> run
-            let value = Fable.Function(Fable.Delegate args, body, None)
-            let kind =
-                if memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0
-                then Fable.ObjectGetter
-                elif memb.IsPropertySetterMethod && countNonCurriedParams memb = 1
-                then Fable.ObjectSetter
-                else hasSeqSpread memb |> Fable.ObjectMethod
-            let objMember = Fable.ObjectMember(makeStrConst memb.DisplayName, value, kind)
-            let ifcImplName = getInterfaceImplementationName com ent interfaceEntity.FullName
-            com.InterfaceImplementationMembers.Add(ifcImplName, objMember)
-        | _ -> ()
-        []
+        match tryGetInterfaceDefinitionFromMethod memb with
+        | Some interfaceEntity when not(Naming.ignoredInterfaces.Contains interfaceEntity.FullName) ->
+            transformOverride com ctx memb args body
+        | _ -> []
+        // match memb.DeclaringEntity, tryGetInterfaceDefinitionFromMethod memb with
+        // | Some ent, Some interfaceEntity when not(Naming.ignoredInterfaces.Contains interfaceEntity.FullName) ->
+        //     let bodyCtx, args = bindMemberArgs com ctx args
+        //     let body = transformExpr com bodyCtx body |> run
+        //     let value = Fable.Function(Fable.Delegate args, body, None)
+        //     let kind =
+        //         if memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0
+        //         then Fable.ObjectGetter
+        //         elif memb.IsPropertySetterMethod && countNonCurriedParams memb = 1
+        //         then Fable.ObjectSetter
+        //         else hasSeqSpread memb |> Fable.ObjectMethod
+        //     let objMember = Fable.ObjectMember(makeStrConst memb.DisplayName, value, kind)
+        //     let ifcImplName = getInterfaceImplementationName com ent interfaceEntity.FullName
+        //     com.InterfaceImplementationMembers.Add(ifcImplName, objMember)
+        // | _ -> ()
+        // []
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =

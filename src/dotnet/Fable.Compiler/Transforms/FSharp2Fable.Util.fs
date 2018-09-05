@@ -763,24 +763,24 @@ module Util =
         else
           match com.TryReplaceInterfaceCast(r, t, interfaceFullName, expr) with
           | Some expr -> expr
-          | None ->
-            match tryFindImplementingEntity sourceEntity interfaceFullName with
-            | None ->
-                (interfaceFullName, sourceEntity.TryFullName)
-                ||> sprintf "Cannot find type implementing interface %s in %A hierarchy, cast does nothing."
-                |> addWarning com ctx.InlinePath r
-                expr
-            | Some ent when isReplacementCandidate ent -> expr
-            | Some ent  ->
-                let cast expr =
-                    let entLoc = getEntityLocation ent
-                    let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
-                    let funcName = getInterfaceImplementationName com ent interfaceFullName
-                    if file = com.CurrentFile
-                    then makeIdent funcName |> Fable.IdentExpr
-                    else makeInternalImport Fable.Any funcName file
-                    |> staticCall None t (argInfo None [expr] Fable.NoUncurrying)
-                Fable.DelayedResolution(Fable.AsInterface(expr, cast, interfaceFullName), t, r)
+          | None -> expr
+            // match tryFindImplementingEntity sourceEntity interfaceFullName with
+            // | None ->
+            //     (interfaceFullName, sourceEntity.TryFullName)
+            //     ||> sprintf "Cannot find type implementing interface %s in %A hierarchy, cast does nothing."
+            //     |> addWarning com ctx.InlinePath r
+            //     expr
+            // | Some ent when isReplacementCandidate ent -> expr
+            // | Some ent  ->
+            //     let cast expr =
+            //         let entLoc = getEntityLocation ent
+            //         let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
+            //         let funcName = getInterfaceImplementationName com ent interfaceFullName
+            //         if file = com.CurrentFile
+            //         then makeIdent funcName |> Fable.IdentExpr
+            //         else makeInternalImport Fable.Any funcName file
+            //         |> staticCall None t (argInfo None [expr] Fable.NoUncurrying)
+            //     Fable.DelayedResolution(Fable.AsInterface(expr, cast, interfaceFullName), t, r)
 
     let callInstanceMember com ctx r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
