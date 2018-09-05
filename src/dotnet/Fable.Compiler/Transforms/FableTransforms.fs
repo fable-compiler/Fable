@@ -371,15 +371,15 @@ module private Transforms =
                 | _, [] -> List.rev acc
             mapArgsInner f [] argTypes args
         match argTypes with
-        | Some [] -> args // Do nothing
-        | Some argTypes ->
+        | NoUncurrying | Typed [] -> args // Do nothing
+        | Typed argTypes ->
             (argTypes, args) ||> mapArgs (fun expectedType arg ->
                 let arg = checkSubArguments expectedType arg
                 let arity = getLambdaTypeArity expectedType
                 if arity > 1
                 then uncurryExpr (Some arity) arg
                 else arg)
-        | None -> List.map (uncurryExpr None) args
+        | AutoUncurrying -> List.map (uncurryExpr None) args
 
     let uncurryInnerFunctions (_: ICompiler) e =
         let curryIdentInBody identName (args: Ident list) body =
@@ -393,7 +393,7 @@ module private Transforms =
         | Operation(CurriedApply((NestedLambda(args, fnBody, Some name)), argExprs), t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
             let fnBody = curryIdentInBody name args fnBody
-            let info = argInfo None argExprs (args |> List.map (fun a -> a.Type) |> Some)
+            let info = argInfo None argExprs (args |> List.map (fun a -> a.Type) |> Typed)
             Function(Delegate args, fnBody, Some name)
             |> staticCall r t info
         | e -> e
@@ -437,7 +437,7 @@ module private Transforms =
                 fields
                 |> Seq.map (fun fi -> FSharp2Fable.TypeHelpers.makeType com Map.empty fi.FieldType)
                 |> Seq.toList
-            uncurryArgs (Some argTypes) args
+            uncurryArgs (Typed argTypes) args
         match e with
         | Operation(Call(kind, info), t, r) ->
             let info = { info with Args = uncurryArgs info.SignatureArgTypes info.Args }
@@ -445,7 +445,7 @@ module private Transforms =
         | Operation(CurriedApply(callee, args), t, r) ->
             match callee.Type with
             | NestedLambdaType(argTypes, _) ->
-                Operation(CurriedApply(callee, uncurryArgs (Some argTypes) args), t, r)
+                Operation(CurriedApply(callee, uncurryArgs (Typed argTypes) args), t, r)
             | _ -> e
         | Operation(Emit(macro, Some info), t, r) ->
             let info = { info with Args = uncurryArgs info.SignatureArgTypes info.Args }
@@ -458,7 +458,7 @@ module private Transforms =
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, uci, ent, genArgs))
         | Set(e, FieldSet(fieldName, fieldType), value, r) ->
-            let value = uncurryArgs (Some [fieldType])  [value]
+            let value = uncurryArgs (Typed [fieldType])  [value]
             Set(e, FieldSet(fieldName, fieldType), List.head value, r)
         | e -> e
 
@@ -466,7 +466,7 @@ module private Transforms =
         let uncurryApply r t applied args uncurriedArity =
             let argsLen = List.length args
             if uncurriedArity = argsLen then
-                let info = argInfo None args None
+                let info = argInfo None args AutoUncurrying
                 staticCall r t info applied |> Some
             else
                 Replacements.partialApplyAtRuntime t (uncurriedArity - argsLen) applied args |> Some

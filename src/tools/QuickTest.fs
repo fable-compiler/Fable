@@ -52,28 +52,3 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-
-type IBar =
-    abstract Add2: int * int -> int
-
-type IFoo =
-    inherit IBar
-    abstract Add: int * int -> int
-
-type Base() =
-    interface IFoo with
-        member __.Add2(x, y) = x - y
-        member __.Add(x, y) = x + y
-
-type Child() =
-    inherit Base()
-
-let test() =
-    let c = Child()
-    let f1 = c :> IFoo
-    let f2 = c :> IBar
-    f1.Add(4, 5) |> printfn "%i"
-    f1.Add2(4, 5) |> printfn "%i"
-    f2.Add2(4, 5) |> printfn "%i"
-
-test()

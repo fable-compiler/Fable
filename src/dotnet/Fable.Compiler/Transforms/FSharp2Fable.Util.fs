@@ -779,7 +779,7 @@ module Util =
                     if file = com.CurrentFile
                     then makeIdent funcName |> Fable.IdentExpr
                     else makeInternalImport Fable.Any funcName file
-                    |> staticCall None t (argInfo None [expr] None)
+                    |> staticCall None t (argInfo None [expr] Fable.NoUncurrying)
                 Fable.DelayedResolution(Fable.AsInterface(expr, cast, interfaceFullName), t, r)
 
     let callInstanceMember com ctx r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
@@ -945,7 +945,7 @@ module Util =
         let argInfo: Fable.ArgInfo =
           { ThisArg = callee
             Args = args
-            SignatureArgTypes = Some argTypes
+            SignatureArgTypes = Fable.Typed argTypes
             Spread = if hasSeqSpread memb then Fable.SeqSpread else Fable.NoSpread
             IsBaseOrSelfConstructorCall = isBaseCall
           }

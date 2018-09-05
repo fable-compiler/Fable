@@ -1307,6 +1307,7 @@ module Util =
         else Array.map U2.Case1 statements |> Array.toList
 
     let transformOverride (com: IBabelCompiler) ctx (info: Fable.OverrideDeclarationInfo) args body =
+        // TODO!!! Getter and setter for same property must be declared at the same time
         let defineGetterOrSetter kind funcCons propName funcExpr =
             jsObject "defineProperty"
                 [| get None funcCons "prototype"

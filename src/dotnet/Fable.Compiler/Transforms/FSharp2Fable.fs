@@ -386,7 +386,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! e2 = transformExpr com ctx e2
         let! args = transformExprList com ctx args
         let argInfo: Fable.ArgInfo =
-            { argInfo (Some e1) args None with Spread = Fable.TupleSpread }
+            { argInfo (Some e1) args Fable.AutoUncurrying with Spread = Fable.TupleSpread }
         return Fable.Operation(Fable.Call(Fable.InstanceCall(Some e2), argInfo), typ, r)
 
     // TODO: Ask: for some reason the F# compiler translates `x.IsSome` as `Application(Call(x, get_IsSome),[unit])`
@@ -636,7 +636,7 @@ let rec private getBaseConsAndBody com ctx (baseType: FSharpType option) acc bod
                 let argInfo: Fable.ArgInfo =
                   { ThisArg = thisArg
                     Args = args
-                    SignatureArgTypes = getArgTypes com baseCall |> Some
+                    SignatureArgTypes = getArgTypes com baseCall |> Fable.Typed
                     Spread = Fable.NoSpread
                     IsBaseOrSelfConstructorCall = true }
                 baseRef, staticCall r Fable.Unit argInfo baseRef
@@ -751,7 +751,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
         let fn = Fable.Function(Fable.Delegate args, body, Some name)
         // If this is a static constructor, call it immediately
         if memb.CompiledName = ".cctor" then
-            let apply = staticCall None Fable.Unit (argInfo None [] None) fn
+            let apply = staticCall None Fable.Unit (argInfo None [] Fable.NoUncurrying) fn
             [Fable.ActionDeclaration apply]
         else
             let info: Fable.ValueDeclarationInfo =
