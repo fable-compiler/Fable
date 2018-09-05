@@ -126,6 +126,15 @@ type ConcreteClass2 () =
     override x.MethodWithDefault () = "Hi "
     override x.MustImplement () = "World!!"
 
+[<AbstractClass>]
+type AbstractClass3() =
+    abstract MyProp: int with get, set
+
+type ConcreteClass3() =
+    inherit AbstractClass3()
+    let mutable v = 5
+    override __.MyProp with get() = v and set(v2) = v <- v + v2
+
 type ISomeInterface =
     abstract OnlyGetProp: int with get
     abstract OnlyProp: int
@@ -508,6 +517,11 @@ let tests =
         x.CallMethodWithDefault() |> equal "Hello World!!"
         let x = ConcreteClass2()
         x.CallMethodWithDefault() |> equal "Hi World!!"
+
+    testCase "Abstract properties with getters and setters work" <| fun () ->
+        let x = ConcreteClass3() :> AbstractClass3
+        x.MyProp <- 2
+        equal 7 x.MyProp
 
     testCase "Interface setters don't conflict" <| fun () -> // See #505
         let x = XISomeInterface () :> ISomeInterface

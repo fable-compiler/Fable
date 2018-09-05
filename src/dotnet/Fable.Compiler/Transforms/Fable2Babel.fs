@@ -1306,13 +1306,30 @@ module Util =
               |> ExpressionStatement :> Statement |> U2.Case1 ]
         else Array.map U2.Case1 statements |> Array.toList
 
-    let transformOverride (com: IBabelCompiler) ctx (info: Fable.OverrideDeclarationInfo) args body =
-        // TODO!!! Getter and setter for same property must be declared at the same time
-        let defineGetterOrSetter kind funcCons propName funcExpr =
-            jsObject "defineProperty"
-                [| get None funcCons "prototype"
-                   StringLiteral propName
-                   ObjectExpression [|ObjectProperty(StringLiteral kind, funcExpr) |> U3.Case1|] |]
+    let transformOverrideProperty (com: IBabelCompiler) ctx (info: Fable.OverrideDeclarationInfo) getter setter =
+        let funcExpr (args, body) =
+            let boundThis, args = prepareBoundThis "this" args
+            let args, body = getMemberArgsAndBody com ctx None boundThis args false body
+            FunctionExpression(args, body)
+        let getterFuncExpr = Option.map funcExpr getter
+        let setterFuncExpr = Option.map funcExpr setter
+        let funcCons = Identifier info.EntityName :> Expression
+        jsObject "defineProperty" [|
+            get None funcCons "prototype"
+            StringLiteral info.Name
+            ObjectExpression [|
+                match getterFuncExpr with
+                | Some e -> yield ObjectProperty(StringLiteral "get", e) |> U3.Case1
+                | None -> ()
+                match setterFuncExpr with
+                | Some e -> yield ObjectProperty(StringLiteral "set", e) |> U3.Case1
+                | None -> ()
+            |]
+        |]
+        |> ExpressionStatement :> Statement
+        |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
+
+    let transformOverrideMethod (com: IBabelCompiler) ctx (info: Fable.OverrideDeclarationInfo) args body =
         let funcCons = Identifier info.EntityName :> Expression
         let memberName, hasSpread, body =
             match info.Kind with
@@ -1322,18 +1339,14 @@ module Util =
         let boundThis, args = prepareBoundThis "this" args
         let args, body = getMemberArgsAndBody com ctx None boundThis args hasSpread body
         let funcExpr = FunctionExpression(args, body)
-        match info.Kind with
-        | Fable.ObjectGetter -> defineGetterOrSetter "get" funcCons memberName funcExpr
-        | Fable.ObjectSetter -> defineGetterOrSetter "set" funcCons memberName funcExpr
-        | _ ->
-            let protoMember =
-                match memberName with
-                | Naming.StartsWith "Symbol." symbolName -> get None (Identifier "Symbol") symbolName
-                // Compile ToString in lower case for compatibity with JS (and debugger tools)
-                | "ToString" -> upcast StringLiteral "toString"
-                | name -> upcast StringLiteral name
-            let protoMember = getExpr None (get None funcCons "prototype") protoMember
-            assign None protoMember funcExpr
+        let protoMember =
+            match memberName with
+            | Naming.StartsWith "Symbol." symbolName -> get None (Identifier "Symbol") symbolName
+            // Compile ToString in lower case for compatibity with JS (and debugger tools)
+            | "ToString" -> upcast StringLiteral "toString"
+            | name -> upcast StringLiteral name
+        let protoMember = getExpr None (get None funcCons "prototype") protoMember
+        assign None protoMember funcExpr
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
@@ -1422,10 +1435,15 @@ module Util =
             FunctionExpression([|toPattern boundThis|], body) :> Expression
         declareModuleMember info.IsPublic info.Name false funcExpr
 
-    let transformDeclarations (com: IBabelCompiler) ctx decls =
-        decls |> List.collect (function
+    let rec transformDeclarations (com: IBabelCompiler) ctx decls transformed =
+        match decls with
+        | [] -> transformed
+        | decl::restDecls ->
+            match decl with
             | Fable.ActionDeclaration e ->
                 transformAction com ctx e
+                |> List.append transformed
+                |> transformDeclarations com ctx restDecls
             | Fable.ValueDeclaration(value, info) ->
                 match value with
                 // Mutable public values must be compiled as functions (see #986)
@@ -1440,6 +1458,8 @@ module Util =
                 | _ ->
                     let value = transformAsExpr com ctx value
                     [declareModuleMember info.IsPublic info.Name info.IsMutable value]
+                |> List.append transformed
+                |> transformDeclarations com ctx restDecls
             | Fable.ConstructorDeclaration(kind, ifcs) ->
                 let consDecls =
                     match kind with
@@ -1450,8 +1470,27 @@ module Util =
                     | Fable.CompilerGeneratedConstructor info ->
                         transformCompilerGeneratedConstructor com ctx info
                 consDecls @ (ifcs |> List.map (transformInterfaceCast com ctx))
+                |> List.append transformed
+                |> transformDeclarations com ctx restDecls
             | Fable.OverrideDeclaration(args, body, info) ->
-                transformOverride com ctx info args body)
+                let newDecls, restDecls =
+                    match info.Kind with
+                    | Fable.ObjectGetter | Fable.ObjectSetter as kind ->
+                        let getter, setter, restDecls =
+                            // Check if the next declaration is a getter/setter for same property
+                            match restDecls with
+                            | Fable.OverrideDeclaration(args2, body2, info2)::restDecls when info.Name = info2.Name ->
+                                match kind with
+                                | Fable.ObjectGetter -> Some(args, body), Some(args2, body2), restDecls
+                                | _ -> Some(args2, body2), Some(args, body), restDecls
+                            | _ ->
+                                match kind with
+                                | Fable.ObjectGetter -> Some(args, body), None, restDecls
+                                | _ -> None, Some(args, body), restDecls
+                        transformOverrideProperty com ctx info getter setter, restDecls
+                    | _ -> transformOverrideMethod com ctx info args body, restDecls
+                List.append transformed newDecls
+                |> transformDeclarations com ctx restDecls
 
     let transformImports (imports: Import seq): U2<Statement, ModuleDeclaration> list =
         imports |> Seq.map (fun import ->
@@ -1576,7 +1615,7 @@ module Compiler =
                 HoistVars = fun _ -> false
                 TailCallOpportunity = None
                 OptimizeTailCall = fun () -> () }
-            let rootDecls = transformDeclarations com ctx file.Declarations
+            let rootDecls = transformDeclarations com ctx file.Declarations []
             let importDecls = com.GetAllImports() |> transformImports
             let dependencies =
                 com.GetAllDependencies()

@@ -32,3 +32,5 @@ fi
 dotnet run -p ../dotnet/Fable.Compiler \
     fable-splitter --force-pkgs \
     --args "-c src/tools/splitter.config.js $ARGS"
+
+node temp/QuickTest.js
