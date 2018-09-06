@@ -26,6 +26,37 @@ You can define compilation directives using the `define` option in your Fable cl
 
 All numeric types including decimal become `JS number` (64-bit floating type), except for longs and big integers. Tom Clarke has documented in much more detail the differences in numeric types between .NET and JS, [check it out](../docs/numbers.md).
 
+## Special symbols
+
+* ? (property accessor)
+
+Allows you to dynamically access a property of an object.
+
+```fsharp
+let jqElement = Browser.window?jQuery
+```
+
+* !^ (erased upcast operator)
+
+Syntax sugar so you don't have to type `U2.Case1`, `U3.Case2`, etc...
+
+```fsharp
+let map (userPosition : Leaflet.LatLngTuple) =
+    RL.map [ RL.MapProps.Center !^userPosition
+             RL.MapProps.Zoom 14.
+             RL.MapProps.Key "map"
+             RL.MapProps.Style [ Height "100%"; Width "100%" ] ]
+```
+
+* !! (dynamic casting erased)
+
+This is the equivalent of `unbox`.
+Can be interpreted as `I don't care what the type checker tells me, I'm writing JS!`
+
+```fsharp
+!!myObj?bar(5) : float
+```
+
 ## Library authors
 
 * Which files need to be included in the nuget package?
