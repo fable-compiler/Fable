@@ -10,6 +10,13 @@ type MyAttribute() =
 type ITest = interface end
 type ITest2 = interface end
 
+type ITest3 =
+    abstract Add2: int * int -> int
+
+type ITest4 =
+    inherit ITest3
+    abstract Add: int * int -> int
+
 type TestType(s: string) =
     member __.Value = s
     interface ITest
@@ -39,6 +46,14 @@ type TestType9() =
     inherit TestType8()
     let foo = TestType8("Hello")
     member __.Greet(name) = foo.Value + " " + name
+
+type TestType10Base() =
+    interface ITest4 with
+        member __.Add2(x, y) = x - y
+        member __.Add(x, y) = x + y
+
+type TestType10Child() =
+    inherit TestType10Base()
 
 type RenderState =
     { Now : int
@@ -110,6 +125,15 @@ type ConcreteClass2 () =
     inherit AbstractClassWithDefaults()
     override x.MethodWithDefault () = "Hi "
     override x.MustImplement () = "World!!"
+
+[<AbstractClass>]
+type AbstractClass3() =
+    abstract MyProp: int with get, set
+
+type ConcreteClass3() =
+    inherit AbstractClass3()
+    let mutable v = 5
+    override __.MyProp with get() = v and set(v2) = v <- v + v2
 
 type ISomeInterface =
     abstract OnlyGetProp: int with get
@@ -494,6 +518,11 @@ let tests =
         let x = ConcreteClass2()
         x.CallMethodWithDefault() |> equal "Hi World!!"
 
+    testCase "Abstract properties with getters and setters work" <| fun () ->
+        let x = ConcreteClass3() :> AbstractClass3
+        x.MyProp <- 2
+        equal 7 x.MyProp
+
     testCase "Interface setters don't conflict" <| fun () -> // See #505
         let x = XISomeInterface () :> ISomeInterface
         x.Sender |> equal 0
@@ -619,4 +648,12 @@ let tests =
 
     testCase "This context is not lost in closures within implicit constructor" <| fun () -> // See #1444
         ThisContextInConstructor(7).Value() |> equal 7
+
+    testCase "Type can be casted to an interface implemented by parent" <| fun () ->
+        let c = TestType10Child()
+        let f1 = c :> ITest4
+        let f2 = c :> ITest3
+        f1.Add(4, 5) |> equal 9
+        f1.Add2(4, 5) |> equal -1
+        f2.Add2(4, 5) |> equal -1
   ]

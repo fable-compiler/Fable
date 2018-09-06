@@ -184,19 +184,36 @@ type FunctionKind =
     | Lambda of arg: Ident
     | Delegate of args: Ident list
 
-type SpreadKind = NoSpread | SeqSpread | TupleSpread
+type SpreadKind =
+    | NoSpread
+    /// The ... spread operator will be applied to last argument
+    | SeqSpread
+    /// If the argument is a tuple apply its members as separate arguments
+    /// (Used for dynamic calls like `foo?bar(4, 5, 6)`)
+    | TupleSpread
 
 type CallKind =
+    /// Constructor calls will add the `new` keyword in JS
     | ConstructorCall of Expr
+    /// Static calls contain a direct reference to the function and will pass `ThisArg` as first argument
     | StaticCall of Expr
+    /// Instance calls will be applied to `ThisArg` (optionally through member access)
     | InstanceCall of memb: Expr option
+
+type SignatureKind =
+    /// Argument expected types will be checked for the uncurrying optimization
+    | Typed of Type list
+    /// Nested function arguments will be automatically uncurried
+    | AutoUncurrying
+    /// Arguments won't be uncurried
+    | NoUncurrying
 
 type ArgInfo =
   { ThisArg: Expr option
     Args: Expr list
     /// Argument types as defined in the method signature, this may be slightly different to types of actual argument expressions.
     /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
-    SignatureArgTypes: Type list option
+    SignatureArgTypes: SignatureKind
     Spread: SpreadKind
     IsBaseOrSelfConstructorCall: bool }
 

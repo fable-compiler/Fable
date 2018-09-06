@@ -14,15 +14,18 @@ type CallInfo = Fable.ReplaceCallInfo
 type Helper =
     static member ConstructorCall(consExpr: Expr, returnType: Type, args: Expr list,
                                   ?argTypes: Type list, ?loc: SourceLocation) =
+        let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
         Operation(Call(ConstructorCall consExpr, argInfo None args argTypes), returnType, loc)
 
     static member InstanceCall(callee: Expr, memb: string, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?loc: SourceLocation) =
         let kind = makeStrConst memb |> Some |> InstanceCall
+        let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
         Operation(Call(kind, argInfo (Some callee) args argTypes), returnType, loc)
 
     static member Application(callee: Expr, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?loc: SourceLocation) =
+        let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
         Operation(Call(InstanceCall None, argInfo (Some callee) args argTypes), returnType, loc)
 
     static member CoreCall(coreModule: string, coreMember: string, returnType: Type, args: Expr list,
@@ -31,7 +34,7 @@ type Helper =
         let info =
             { ThisArg = thisArg
               Args = args
-              SignatureArgTypes = argTypes
+              SignatureArgTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
               Spread = match hasSpread with Some true -> SeqSpread | _ -> NoSpread
               IsBaseOrSelfConstructorCall = false }
         let funcExpr = makeCoreRef Any coreMember coreModule
@@ -49,6 +52,7 @@ type Helper =
             match isConstructor with
             | Some true -> ConstructorCall funcExpr
             | _ -> StaticCall funcExpr
+        let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
         let info = argInfo None args argTypes
         Operation(Call(op, info), returnType, loc)
 
@@ -68,7 +72,7 @@ module Helpers =
             | t -> t)
 
     let emitJs r t args macro =
-        let info = argInfo None args None
+        let info = argInfo None args AutoUncurrying
         Operation(Emit(macro, Some info), t, r)
 
     let objExpr t kvs =
@@ -845,7 +849,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
         Set(callee, ExprSet prop, value, r) |> Some
     | ("op_Dollar"|"createNew" as m), callee::args ->
-        let argInfo = { argInfo None args None with Spread = TupleSpread }
+        let argInfo = { argInfo None args AutoUncurrying with Spread = TupleSpread }
         if m = "createNew"
         then constructorCall r t argInfo callee |> Some
         else staticCall r t argInfo callee |> Some
@@ -946,7 +950,7 @@ let getFableReplLibImport isStatic (entityFullName: string) memberName overloadS
     makeCustomImport Fable.Any mangledName ("fable-repl-lib/" + fileName)
 
 let fableReplLib (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let argInfo = { argInfo thisArg args (Some i.SignatureArgTypes) with Spread = i.Spread }
+    let argInfo = { argInfo thisArg args (Typed i.SignatureArgTypes) with Spread = i.Spread }
     getFableReplLibImport (Option.isNone thisArg) i.DeclaringEntityFullName i.CompiledName i.OverloadSuffix.Value
     |> staticCall r t argInfo |> Some
 
@@ -1144,7 +1148,7 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
     let icall r t args argTypes memb  =
         match args, argTypes with
         | thisArg::args, _::argTypes ->
-            let info = argInfo (Some thisArg) args (Some argTypes)
+            let info = argInfo (Some thisArg) args (Typed argTypes)
             instanceCall r t info (makeStrConst memb |> Some) |> Some
         | _ -> None
     match i.CompiledName with
@@ -1285,9 +1289,10 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
         let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
         Helper.CoreCall("Seq", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Map" | "MapIndexed" | "Collect"), _ ->
-        // Cast the string to char[], see #1279        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
+        // Cast the string to char[], see #1279
+        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
         let name = Naming.lowerFirst i.CompiledName
-        emitJs r t [Helper.CoreCall("Seq", name, Any, args)] "Array.from($0).join('')" |> Some
+        emitJs r t [Helper.CoreCall("Seq", name, Any, args, i.SignatureArgTypes)] "Array.from($0).join('')" |> Some
     | "Concat", _ ->
         Helper.CoreCall("String", "join", t, args, hasSpread=true, ?loc=r) |> Some
     // Rest of StringModule methods
@@ -1303,7 +1308,7 @@ let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
             let identExpr ident =
                 match projection with
                 | Some projection ->
-                    let info = argInfo None [IdentExpr ident] None
+                    let info = argInfo None [IdentExpr ident] NoUncurrying
                     Operation(Call(StaticCall projection, info), genArg, None)
                 | None -> IdentExpr ident
             let x = makeTypedIdent genArg "x"
@@ -2143,7 +2148,7 @@ let activator (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     match i.CompiledName, thisArg, args with
     // TODO!!! This probably won't work, add test
     | "CreateInstance", None, typRef::args ->
-        let info = argInfo None args (Some i.SignatureArgTypes.Tail)
+        let info = argInfo None args (Typed i.SignatureArgTypes.Tail)
         constructorCall r t info typRef |> Some
     | _ -> None
 

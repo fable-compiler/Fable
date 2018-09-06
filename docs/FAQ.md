@@ -21,3 +21,22 @@ printfn "only printing in production bundle"
 ```
 
 You can define compilation directives using the `define` option in your Fable client. Latest [fable-loader](https://www.npmjs.com/package/fable-loader) will automatically define `DEBUG` when running Webpack in development mode.
+
+* How are numbers compiled to JS?
+
+All numeric types including decimal become `JS number` (64-bit floating type), except for longs and big integers. Tom Clarke has documented in much more detail the differences in numeric types between .NET and JS, [check it out](../docs/numbers.md).
+
+## Library authors
+
+* Which files need to be included in the nuget package?
+
+The F# source code and the F# project file have to be included in the Nuget Package in a folder named fable within the package. This may sound complicated but it's only a matter of adding a couple of lines to your project file and let the `dotnet pack` command do all the rest.
+
+```fsharp
+<!-- Add source files to "fable" folder in Nuget package -->
+<ItemGroup>
+    <Content Include="*.fsproj; **\*.fs" PackagePath="fable\" />
+</ItemGroup>
+```
+
+Possible cryptic error message when you don't include the project file and/or source files is `Cannot find root module`.
