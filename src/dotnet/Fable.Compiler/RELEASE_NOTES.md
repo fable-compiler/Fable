@@ -1,3 +1,12 @@
+### 2.0.0-beta-004
+
+* Attach interface members to prototype (as in Fable 1, no cast needed anymore) #1562
+* Improvements in fable-core JS files @ncave
+* Fix #1551: Truncation of large unsigned bitwise op results @tomcl
+* Fix #1337: Add Option.contains @iyegoroff
+* Fix #1383: Range with longs
+* Fix abstract properties with getter and setter
+
 ### 2.0.0-beta-003
 
 * Improve int64 conversions @tomcl #1546
