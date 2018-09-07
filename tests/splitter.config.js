@@ -5,8 +5,8 @@ module.exports = {
   outDir: path.join(__dirname, "../build/tests"),
   fable: { define: defineConstants() },
   babel: {
-    plugins: ["transform-es2015-modules-commonjs"],
-    // presets: [ ["env", {"modules": false}] ]
+    plugins: ["@babel/plugin-transform-modules-commonjs"],
+    // presets: [ ["@babel/preset-env", {"modules": false}] ]
   },
   // allFiles: true
 };
