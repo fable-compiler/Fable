@@ -123,6 +123,7 @@ module Naming =
               "System.IComparable"
               "System.Collections.Generic.IEnumerable"
               "System.Collections.IEnumerable"
+              "System.Collections.Generic.IEnumerator`1"
             ]
 
     let interfaceMethodsImplementedInPrototype =
