@@ -842,8 +842,6 @@ module Util =
             upcast BinaryExpression(BinaryEqualStrict, typof, StringLiteral primitiveType, ?loc=range)
         let jsInstanceof consExpr (TransformExpr com ctx expr): Expression =
             upcast BinaryExpression(BinaryInstanceOf, expr, consExpr, ?loc=range)
-        let jsInstanceofExtended consExpr (TransformExpr com ctx expr): Expression =
-            coreUtil com ctx "instanceofExtended" [|expr; consExpr|]
         match typ with
         | Fable.Any -> upcast BooleanLiteral true
         | Fable.Unit -> upcast BinaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
@@ -886,7 +884,7 @@ module Util =
                     "Cannot type test generic arguments"
                     |> addWarning com [] range
                 let entRef = entityRefMaybeImported com ctx ent
-                jsInstanceofExtended entRef expr
+                jsInstanceof entRef expr
         | Fable.MetaType | Fable.Option _ | Fable.GenericParam _ | Fable.ErasedUnion _ ->
             fail "options, generic parameters or erased unions"
 
@@ -1306,7 +1304,7 @@ module Util =
               |> ExpressionStatement :> Statement |> U2.Case1 ]
         else Array.map U2.Case1 statements |> Array.toList
 
-    let transformOverrideProperty (com: IBabelCompiler) ctx (info: Fable.OverrideDeclarationInfo) getter setter =
+    let transformOverrideProperty (com: IBabelCompiler) ctx (info: Fable.AttachedMemberDeclarationInfo) getter setter =
         let funcExpr (args, body) =
             let boundThis, args = prepareBoundThis "this" args
             let args, body = getMemberArgsAndBody com ctx None boundThis args false body
@@ -1329,7 +1327,7 @@ module Util =
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
-    let transformOverrideMethod (com: IBabelCompiler) ctx (info: Fable.OverrideDeclarationInfo) args body =
+    let transformOverrideMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberDeclarationInfo) args body =
         let funcCons = Identifier info.EntityName :> Expression
         let memberName, hasSpread, body =
             match info.Kind with
@@ -1418,23 +1416,6 @@ module Util =
             declareModuleMember info.IsConstructorPublic info.Name false exposedCons
         ]
 
-    let transformInterfaceCast (com: IBabelCompiler) ctx (info: Fable.InterfaceImplementation) =
-        let thisArg = com.GetUniqueVar("this")
-        let members = (Fable.ObjectMember(makeCoreRef Fable.Any "THIS_REF" "Util", makeIdentExpr thisArg, Fable.ObjectValue))::info.Members
-        let boundThis = Identifier thisArg
-        let castedObj = transformObjectExpr com ctx members boundThis.Name None
-        let funcExpr =
-            let returnedObj =
-                match info.InheritedInterfaces with
-                | [] -> castedObj
-                | otherCasts ->
-                    (otherCasts, [castedObj]) ||> List.foldBack (fun cast acc ->
-                        (CallExpression(Identifier cast, [|boundThis|]) :> Expression)::acc
-                    ) |> List.toArray |> coreUtil com ctx "extend"
-            let body = BlockStatement [|ReturnStatement returnedObj|]
-            FunctionExpression([|toPattern boundThis|], body) :> Expression
-        declareModuleMember info.IsPublic info.Name false funcExpr
-
     let rec transformDeclarations (com: IBabelCompiler) ctx decls transformed =
         match decls with
         | [] -> transformed
@@ -1460,7 +1441,7 @@ module Util =
                     [declareModuleMember info.IsPublic info.Name info.IsMutable value]
                 |> List.append transformed
                 |> transformDeclarations com ctx restDecls
-            | Fable.ConstructorDeclaration(kind, ifcs) ->
+            | Fable.ConstructorDeclaration kind ->
                 let consDecls =
                     match kind with
                     | Fable.ClassImplicitConstructor info ->
@@ -1469,17 +1450,17 @@ module Util =
                         transformUnionConstructor com ctx info
                     | Fable.CompilerGeneratedConstructor info ->
                         transformCompilerGeneratedConstructor com ctx info
-                consDecls // @ (ifcs |> List.map (transformInterfaceCast com ctx))
+                consDecls
                 |> List.append transformed
                 |> transformDeclarations com ctx restDecls
-            | Fable.OverrideDeclaration(args, body, info) ->
+            | Fable.AttachedMemberDeclaration(args, body, info) ->
                 let newDecls, restDecls =
                     match info.Kind with
                     | Fable.ObjectGetter | Fable.ObjectSetter as kind ->
                         let getter, setter, restDecls =
                             // Check if the next declaration is a getter/setter for same property
                             match restDecls with
-                            | Fable.OverrideDeclaration(args2, body2, info2)::restDecls when info.Name = info2.Name ->
+                            | Fable.AttachedMemberDeclaration(args2, body2, info2)::restDecls when info.Name = info2.Name ->
                                 match kind with
                                 | Fable.ObjectGetter -> Some(args, body), Some(args2, body2), restDecls
                                 | _ -> Some(args2, body2), Some(args, body), restDecls

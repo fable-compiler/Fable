@@ -37,8 +37,6 @@ type IFableCompiler =
     abstract Transform: Context * FSharpExpr -> Fable.Expr
     abstract TryReplace: Context * SourceLocation option * Fable.Type *
         info: Fable.ReplaceCallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
-    abstract TryReplaceInterfaceCast: SourceLocation option * Fable.Type *
-        interfaceName: string * Fable.Expr -> Fable.Expr option
     abstract InjectArgument: Context * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
@@ -757,45 +755,10 @@ module Util =
         | None, Some entityFullName -> entityFullName.StartsWith("Fable.Core.")
         | None, None -> false
 
-    let castToInterface (com: IFableCompiler) ctx r t (sourceEntity: FSharpEntity) interfaceFullName expr =
-        if sourceEntity.IsInterface
-        then expr
-        else
-          match com.TryReplaceInterfaceCast(r, t, interfaceFullName, expr) with
-          | Some expr -> expr
-          | None -> expr
-            // match tryFindImplementingEntity sourceEntity interfaceFullName with
-            // | None ->
-            //     (interfaceFullName, sourceEntity.TryFullName)
-            //     ||> sprintf "Cannot find type implementing interface %s in %A hierarchy, cast does nothing."
-            //     |> addWarning com ctx.InlinePath r
-            //     expr
-            // | Some ent when isReplacementCandidate ent -> expr
-            // | Some ent  ->
-            //     let cast expr =
-            //         let entLoc = getEntityLocation ent
-            //         let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
-            //         let funcName = getInterfaceImplementationName com ent interfaceFullName
-            //         if file = com.CurrentFile
-            //         then makeIdent funcName |> Fable.IdentExpr
-            //         else makeInternalImport Fable.Any funcName file
-            //         |> staticCall None t (argInfo None [expr] Fable.NoUncurrying)
-            //     Fable.DelayedResolution(Fable.AsInterface(expr, cast, interfaceFullName), t, r)
-
     let callInstanceMember com ctx r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
             match argInfo.ThisArg with
-            | Some callee ->
-                // Sometimes an interface method can be called without casting. Example:
-                // `let foo (x: 'T when 'T :> IDisposable) = x.Dispose()`
-                match callee.Type with
-                | Fable.DeclaredType(original, _) when entity.IsInterface ->
-                    castToInterface com ctx r typ original entity.FullName callee
-                | Fable.GenericParam _ when entity.IsInterface ->
-                    "An interface member of an unresolved generic parameter is being called, " +
-                        "this will likely fail at compile time. Please try inlining or not using flexible types."
-                    |> addWarning com ctx.InlinePath r; callee
-                | _ -> callee
+            | Some callee -> callee
             | None ->
                 sprintf "Unexpected static interface/override call: %s" memb.FullName
                 |> attachRange r |> failwith

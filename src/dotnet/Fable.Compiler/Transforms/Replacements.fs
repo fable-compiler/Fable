@@ -1337,10 +1337,6 @@ let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
         Helper.CoreCall("Seq", "ofArray", t, [result]) |> Some
     // For Using we need to cast the argument to IDisposable
     | "EnumerateUsing", [arg; f] ->
-        let arg =
-            match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com ctx r t ent Types.idisposable arg
-            | _ -> arg
         Helper.CoreCall("Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Sort" | "SortDescending" as meth), args ->
         (genArg com ctx r 0 i.GenericArgs) |> sort r t (meth = "SortDescending") None args
@@ -1760,15 +1756,8 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     match i.CompiledName, thisArg, args with
     // Erased operators
     | "CheckThis", _, [arg]
-    | "UnboxFast", _, [arg] -> Some arg
-    | "UnboxGeneric", _, [arg] ->
-        match arg.Type, t with
-        // UnboxGeneric is used to cast to `System.IDisposable` at the end of `use` scope
-        | DeclaredType(sourceEntity, _), DeclaredType(targetEntity, _) when targetEntity.IsInterface ->
-            FSharp2Fable.Util.castToInterface com ctx r t sourceEntity targetEntity.FullName arg |> Some
-        | _, DeclaredType(targetEntity, _) when not targetEntity.IsInterface ->
-            Helper.CoreCall("Util", "downcast", t, [arg]) |> Some
-        | _ -> Some arg
+    | "UnboxFast", _, [arg]
+    | "UnboxGeneric", _, [arg] -> Some arg
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ar; idx]
     | "GetArray", _, [ar; idx] -> getExpr r t ar idx |> Some
@@ -2245,10 +2234,6 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _, "Singleton", _ -> makeCoreRef t "singleton" "AsyncBuilder" |> Some
     // For Using we need to cast the argument to IDisposable
     | Some x, "Using", [arg; f] ->
-        let arg =
-            match arg.Type with
-            | DeclaredType(ent,_) -> FSharp2Fable.Util.castToInterface com ctx r t ent Types.idisposable arg
-            | _ -> arg
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
     | Some x, meth, _ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth, _ -> Helper.CoreCall("AsyncBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2382,16 +2367,6 @@ let uncurryExprAtRuntime arity (expr: Expr) =
 let partialApplyAtRuntime t arity (fn: Expr) (args: Expr list) =
     let args = NewArray(ArrayValues args, Any) |> Value
     Helper.CoreCall("Util", "partialApply", t, [makeIntConst arity; fn; args])
-
-let tryInterfaceCast r t interfaceFullName (e: Expr) =
-    match interfaceFullName, e.Type with
-    // CompareTo method is attached to prototype
-    | Types.icomparable, _ -> Some e
-    | Types.ienumerableGeneric, _
-    | Types.ienumerable, _ -> toSeq r t e |> Some
-    // These types in fable-core (or native JS) have methods attached to prototype
-    | _, Builtin(BclTimeSpan | BclTimer | BclHashSet _ | BclDictionary _) -> Some e
-    | _ -> None
 
 let tryField returnTyp ownerTyp fieldName =
     match ownerTyp, fieldName with
