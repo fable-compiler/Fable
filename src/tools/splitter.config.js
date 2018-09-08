@@ -7,8 +7,8 @@ module.exports = {
     define: ["DEBUG"]
   },
   babel: {
-    plugins: ["transform-es2015-modules-commonjs"],
-    //   presets: [["env", { modules: "commonjs" }]],
+    plugins: ["@babel/plugin-transform-modules-commonjs"],
+    //   presets: [["@babel/preset-env", { modules: "commonjs" }]],
   },
   // allFiles: true
 };

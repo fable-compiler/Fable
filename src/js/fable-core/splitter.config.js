@@ -1,15 +1,5 @@
 const path = require("path");
 
-// const babelOptions = {
-//   plugins: [
-//     ["transform-es2015-modules-commonjs"],
-//   ],
-//   // presets: [
-//   //   ["env", { modules: "umd" }],
-//   // ],
-//   // sourceMaps: true,
-// };
-
 const fableOptions = {
   define: [
     "FX_NO_BIGINT"

@@ -8,7 +8,7 @@ open Fable.Import
 /// The casted type can be defined on the call site: `!!myObj?bar(5): float`
 let (!!) x: 'T = jsNative
 
-// Implicit cast for erased types
+/// Implicit cast for erased unions (U2, U3...)
 let inline (!^) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_ErasedCast : ^t1 -> ^t2) x)
 
 /// Dynamically access a property of an arbitrary object.
@@ -39,7 +39,7 @@ let createNew (o: obj) (args: obj): obj = jsNative
 let createObj (fields: #seq<string*obj>): obj = jsNative
 
 /// Create a literal JS object from a collection of union constructors.
-/// E.g. `keyValueList  [ MyUnion 4 ]` in JS becomes `{ myUnion: 4 }`
+/// E.g. `keyValueList CaseRules.LowerFirst [ MyUnion 4 ]` in JS becomes `{ myUnion: 4 }`
 let keyValueList (caseRule: CaseRules) (li: 'T seq): obj = jsNative
 
 /// Create a literal JS object from a mutator lambda. Normally used when

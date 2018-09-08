@@ -543,7 +543,7 @@ let rec optimizeDeclaration (com: ICompiler) = function
         ActionDeclaration(optimizeExpr com expr)
     | ValueDeclaration(value, info) ->
         ValueDeclaration(optimizeExpr com value, info)
-    | ConstructorDeclaration(kind, interfaces) ->
+    | ConstructorDeclaration kind ->
         let kind =
             match kind with
             | ClassImplicitConstructor info ->
@@ -559,14 +559,9 @@ let rec optimizeDeclaration (com: ICompiler) = function
                             info.Arguments, info.Body
                 ClassImplicitConstructor { info with Arguments = args; Body = body }
             | kind -> kind
-        let interfaces =
-            interfaces |> List.map (fun info ->
-                let members = info.Members |> List.map (fun (ObjectMember(k,v,kind)) ->
-                    ObjectMember(optimizeExpr com k, optimizeExpr com v, kind))
-                { info with Members = members })
-        ConstructorDeclaration(kind, interfaces)
-    | OverrideDeclaration(args, body, info) ->
-        OverrideDeclaration(args, optimizeExpr com body, info)
+        ConstructorDeclaration kind
+    | AttachedMemberDeclaration(args, body, info) ->
+        AttachedMemberDeclaration(args, optimizeExpr com body, info)
 
 let optimizeFile (com: ICompiler) (file: File) =
     let newDecls = List.map (optimizeDeclaration com) file.Declarations

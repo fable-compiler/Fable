@@ -86,25 +86,16 @@ type ConstructorKind =
     | UnionConstructor of UnionConstructorInfo
     | CompilerGeneratedConstructor of CompilerGeneratedConstructorInfo
 
-type OverrideDeclarationInfo =
+type AttachedMemberDeclarationInfo =
     { Name: string
       Kind: ObjectMemberKind
       EntityName: string }
 
-type InterfaceImplementation =
-    { Name: string
-      IsPublic: bool
-      ImplementingType: FSharpEntity
-      InterfaceType: FSharpEntity
-      /// Name of the casting functions for inherited interfaces
-      InheritedInterfaces: string list
-      Members: ObjectMember list }
-
 type Declaration =
     | ActionDeclaration of Expr
     | ValueDeclaration of Expr * ValueDeclarationInfo
-    | OverrideDeclaration of args: Ident list * body: Expr * OverrideDeclarationInfo
-    | ConstructorDeclaration of ConstructorKind * InterfaceImplementation list
+    | AttachedMemberDeclaration of args: Ident list * body: Expr * AttachedMemberDeclarationInfo
+    | ConstructorDeclaration of ConstructorKind
 
 type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
     member __.SourcePath: string = sourcePath
