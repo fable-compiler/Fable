@@ -10,6 +10,10 @@ Make sure the question is not answered already either here or in the documentati
 
 ## Compiler
 
+* Can I use Type Providers with Fable?
+
+Erasure Type Providers compatible with netstandard should be compatible with Fable, however they must generate code that doesn't call .NET APIs unsupported by Fable. At the time of writing there are no Type Providers designed for Fable available.
+
 * How can I run a certain piece of code only in my production build?
 
 Using a [Compiler Directive](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-directives).
