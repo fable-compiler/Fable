@@ -3,7 +3,7 @@ let babelOptions = {};
 
 if (process.argv.find(v => v === "--commonjs")) {
   babelOptions = {
-    plugins: ["transform-es2015-modules-commonjs"],
+    plugins: ["@babel/plugin-transform-modules-commonjs"],
   };
   console.log("Compiling to commmonjs...");
 } else {
