@@ -1218,7 +1218,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             addWarning com ctx.InlinePath r "String.Contains: second argument is ignored"
         let left = Helper.InstanceCall(c, "indexOf", Number Int32, [arg])
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
-    | "StartsWith", Some c, [_str] ->
+    | ("StartsWith" | "StartsWithOrdinal"), Some c, [_str] ->
         let left = Helper.InstanceCall(c, "indexOf", Number Int32, args)
         makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
     | "StartsWith", Some c, [_str; _comp] ->
