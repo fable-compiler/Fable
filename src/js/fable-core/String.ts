@@ -17,14 +17,14 @@ const enum StringComparison {
   OrdinalIgnoreCase = 5,
 }
 
-function cmp(x: string, y: string, ic: boolean|StringComparison) {
-  function isIgnoreCase(i: boolean|StringComparison) {
+function cmp(x: string, y: string, ic: boolean | StringComparison) {
+  function isIgnoreCase(i: boolean | StringComparison) {
     return i === true ||
       i === StringComparison.CurrentCultureIgnoreCase ||
       i === StringComparison.InvariantCultureIgnoreCase ||
       i === StringComparison.OrdinalIgnoreCase;
   }
-  function isOrdinal(i: boolean|StringComparison) {
+  function isOrdinal(i: boolean | StringComparison) {
     return i === StringComparison.Ordinal ||
       i === StringComparison.OrdinalIgnoreCase;
   }
@@ -101,7 +101,7 @@ function toHex(x: any) {
 }
 
 export type IPrintfFormatContinuation =
-(f: (x: string) => any) => ((x: string) => any);
+  (f: (x: string) => any) => ((x: string) => any);
 
 export interface IPrintfFormat {
   input: string;
@@ -280,7 +280,7 @@ export function joinWithIndices<T>(delimiter: string, xs: string[], startIndex: 
 }
 
 /** Validates UUID as specified in RFC4122 (versions 1-5). Trims braces. */
-export function validateGuid(str: string, doNotThrow?: boolean): string|[boolean, string] {
+export function validateGuid(str: string, doNotThrow?: boolean): string | [boolean, string] {
   const trimmed = trim(str, "{", "}");
   if (guidRegex.test(trimmed)) {
     return doNotThrow ? [true, trimmed] : trimmed;
@@ -290,29 +290,26 @@ export function validateGuid(str: string, doNotThrow?: boolean): string|[boolean
   throw new Error("Guid should contain 32 digits with 4 dashes: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
 }
 
-/* tslint:disable */
 // From https://gist.github.com/LeverOne/1308368
-export function newGuid(){
-  let b = ''
-  for(
-    let a = 0;
-    a++ < 36;
+export function newGuid() {
+  let b = "";
+  for (let a = 0; a++ < 36;) {
     b += a * 51 & 52
-      ? (a^15 ? 8^Math.random() * (a^20 ? 16 : 4) : 4).toString(16)
-      : '-'
-  );
+      ? (a ^ 15 ? 8 ^ Math.random() * (a ^ 20 ? 16 : 4) : 4).toString(16)
+      : "-";
+  }
   return b;
 }
 
 // Maps for number <-> hex string conversion
 let _convertMapsInitialized = false;
 let _byteToHex: string[];
-let _hexToByte: {[k:string]: number};
+let _hexToByte: { [k: string]: number };
 
 function initConvertMaps() {
   _byteToHex = new Array(256);
   _hexToByte = {};
-  for (var i = 0; i < 256; i++) {
+  for (let i = 0; i < 256; i++) {
     _byteToHex[i] = (i + 0x100).toString(16).substr(1);
     _hexToByte[_byteToHex[i]] = i;
   }
@@ -327,9 +324,9 @@ export function guidToArray(s: string) {
   }
   let i = 0;
   const buf = new Uint8Array(16);
-  s.toLowerCase().replace(/[0-9a-f]{2}/g, (function(oct: number) {
+  s.toLowerCase().replace(/[0-9a-f]{2}/g, ((oct: number) => {
     switch (i) {
-      // .NET saves first three byte groups with differten endianness
+      // .NET saves first three byte groups with different endianness
       // See https://stackoverflow.com/a/16722909/3922220
       case 0: case 1: case 2: case 3:
         buf[3 - i++] = _hexToByte[oct];
@@ -361,16 +358,15 @@ export function arrayToGuid(buf: ArrayLike<number>) {
   if (!_convertMapsInitialized) {
     initConvertMaps();
   }
-  return _byteToHex[buf[ 3]] + _byteToHex[buf[ 2]] +
-         _byteToHex[buf[ 1]] + _byteToHex[buf[ 0]] + '-' +
-         _byteToHex[buf[ 5]] + _byteToHex[buf[ 4]] + '-' +
-         _byteToHex[buf[ 7]] + _byteToHex[buf[ 6]] + '-' +
-         _byteToHex[buf[ 8]] + _byteToHex[buf[ 9]] + '-' +
+  return _byteToHex[buf[3]] + _byteToHex[buf[2]] +
+         _byteToHex[buf[1]] + _byteToHex[buf[0]] + "-" +
+         _byteToHex[buf[5]] + _byteToHex[buf[4]] + "-" +
+         _byteToHex[buf[7]] + _byteToHex[buf[6]] + "-" +
+         _byteToHex[buf[8]] + _byteToHex[buf[9]] + "-" +
          _byteToHex[buf[10]] + _byteToHex[buf[11]] +
          _byteToHex[buf[12]] + _byteToHex[buf[13]] +
          _byteToHex[buf[14]] + _byteToHex[buf[15]];
 }
-/* tslint:enable */
 
 function notSupported(name: string): never {
   throw new Error("The environment doesn't support '" + name + "', please use a polyfill.");

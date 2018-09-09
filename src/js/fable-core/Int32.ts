@@ -1,4 +1,4 @@
-const parseRadix = /^\s*([\+\-])?(0[xob])?([0-9a-fA-F]+)\s*$/;
+const parseRadix = /^\s*([\+\-])?(0[xXoObB])?([0-9a-fA-F]+)\s*$/;
 const invalidRadix2 = /[^01]/;
 const invalidRadix8 = /[^0-7]/;
 const invalidRadix10 = /[^0-9]/;
@@ -8,10 +8,10 @@ export function isValid(s: string, radix?: number): [string[], number] {
   if (res != null) {
     if (radix == null) {
       switch (res[2]) {
-        case "0b": radix = 2; break;
-        case "0o": radix = 8; break;
-        case "0x": radix = 16; break;
-        default:   radix = 10; break;
+        case "0b": case "0B": radix = 2; break;
+        case "0o": case "0O": radix = 8; break;
+        case "0x": case "0X": radix = 16; break;
+        default: radix = 10; break;
       }
     }
     switch (radix) {

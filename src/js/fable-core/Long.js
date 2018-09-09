@@ -231,9 +231,12 @@ var pow_dbl = Math.pow; // Used 4 times (4*8 to 15+4)
  * @inner
  */
 export function fromString(str, unsigned, radix) {
-    if (isValid(str, radix) === null) {
+    const a = isValid(str, radix);
+    if (a === null) {
         throw new Error("Input string was not in a correct format.");
-      }
+    }
+    str = a[0][3];
+    radix = a[1];
 
     if (str.length === 0)
         throw Error('empty string');
