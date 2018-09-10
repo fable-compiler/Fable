@@ -117,10 +117,10 @@ function getOutPath(path: string, info: CompilationInfo): string {
         // dedup output path
         let i = 0;
         outPath = newPath;
-        while (info.dedupOutPaths.has(outPath)) {
+        while (info.dedupOutPaths.has(outPath.toLowerCase())) {
             outPath = `${newPath}.${++i}`;
         }
-        info.dedupOutPaths.add(outPath);
+        info.dedupOutPaths.add(outPath.toLowerCase());
         info.mapInOutPaths.set(path, outPath);
     }
     return outPath;
