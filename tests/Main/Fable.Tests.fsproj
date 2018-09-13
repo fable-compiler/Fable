@@ -64,6 +64,7 @@
     <Compile Include="TupleTypeTests.fs" />
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
+    <Compile Include="UriTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

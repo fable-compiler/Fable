@@ -42,6 +42,7 @@ let allTests =
     TupleTypes.tests
     TypeTests.tests
     UnionTypes.tests
+    Uri.tests
   |]
 
 #if FABLE_COMPILER
