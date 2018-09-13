@@ -49,7 +49,7 @@ let throwsError (expected: string) (f: unit -> 'a): unit =
             true
         with e ->
             if not <| String.IsNullOrEmpty(expected) then
-                equal e.Message expected
+                equal expected e.Message
             false
     // TODO better error messages
     equal false success
