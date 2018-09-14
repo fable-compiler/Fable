@@ -14,8 +14,8 @@ cache:
   yarn: true
 
 before_script:
-  - nvm install 6.11.5
-  - nvm use 6.11.5
+  - nvm install 10.10.0
+  - nvm use 10.10.0
   # # Update npm
   # - npm install -g npm
 
