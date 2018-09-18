@@ -1,3 +1,9 @@
+### 2.0.0-beta-005
+
+* Update to FCS 25.0.1
+* Add replacements for System.Uri @JacobChang
+* Fix #1539: 0xFFFFFFFFu is read as 0u in REPL @ncave
+
 ### 2.0.0-beta-004
 
 * Attach interface members to prototype (as in Fable 1, no cast needed anymore) #1562
