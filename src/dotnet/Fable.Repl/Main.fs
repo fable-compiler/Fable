@@ -175,12 +175,9 @@ let makeCompiler fableCore filePath (project: Project) =
     com
 
 let compileAst (com: Compiler) (project: Project) =
-    let babel =
-        FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
-        |> FableTransforms.optimizeFile com
-        |> Fable2Babel.Compiler.transformFile com
-    let program = Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs())
-    program
+    FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
+    |> FableTransforms.optimizeFile com
+    |> Fable2Babel.Compiler.transformFile com
 
 let init () =
   { new IFableManager with
@@ -222,7 +219,7 @@ let init () =
                         | Fable.Severity.Info -> true
                     })
                 |> List.toArray
-            ast :> obj, errors
+            ast :> obj, Array.append parseResults.Errors errors
         member __.FSharpAstToString(parseResults:IParseResults, optimized: bool) =
             let res = parseResults :?> ParseResults
             if not optimized then res.CheckProject.AssemblyContents.ImplementationFiles
