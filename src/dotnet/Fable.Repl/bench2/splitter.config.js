@@ -4,6 +4,6 @@ module.exports = {
   entry: path.join(__dirname, "./bench2.fsproj"),
   outDir: path.join(__dirname, "./out"),
   babel: {
-    plugins: ["@babel/plugin-transform-modules-commonjs"],
+    plugins: ["transform-es2015-modules-commonjs"],
   },
 };
