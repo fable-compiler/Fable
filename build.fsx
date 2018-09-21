@@ -261,7 +261,6 @@ let bundleRepl (fetchNcaveFork: bool) () =
     Yarn.install CWD
     Yarn.run CWD "build-repl-modules" ""
     Yarn.run CWD "bundle-repl" ""
-    Yarn.run CWD "minify-repl" ""
 
     // Put fable-core files next to bundle
     let replDir = CWD </> "src/dotnet/Fable.Repl"
@@ -280,12 +279,12 @@ let bundleRepl (fetchNcaveFork: bool) () =
 
 let runBench2 () =
     Yarn.install CWD
-    Yarn.run CWD "babel" "src/dotnet/Fable.Repl/out --out-dir src/dotnet/Fable.Repl/out2 --plugins transform-es2015-modules-commonjs --quiet"
+    Yarn.run CWD "babel" "src/dotnet/Fable.Repl/out --out-dir src/dotnet/Fable.Repl/out2 --plugins @babel/plugin-transform-modules-commonjs --quiet"
     Yarn.run CWD "build-bench2" ""
     Yarn.run CWD "start-bench2" ""
 
     // Run the test script
-    Yarn.run CWD "babel" "build/fable-core --out-dir src/dotnet/Fable.Repl/out-fable-core --plugins transform-es2015-modules-commonjs --quiet"
+    Yarn.run CWD "babel" "build/fable-core --out-dir src/dotnet/Fable.Repl/out-fable-core --plugins @babel/plugin-transform-modules-commonjs --quiet"
     Yarn.run CWD "test-bench2" ""
 
 Target "All" (fun () ->
