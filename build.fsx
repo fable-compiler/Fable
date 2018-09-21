@@ -71,6 +71,7 @@ let cliSrcDir = CWD </> "src/dotnet/Fable.Compiler"
 let coreJsSrcDir = CWD </> "src/js/fable-core"
 let ncaveFcsForkRepo = "https://github.com/ncave/FSharp.Compiler.Service"
 let ncaveFcsForkBranch = "fable2"
+let ncaveFcsCodeGenTarget = "fcs/build CodeGen.Fable"
 
 // Targets
 let installDotnetSdk () =
@@ -303,8 +304,9 @@ Target "All" (fun () ->
 
 Target "BundleReplLocally" (fun () ->
     printfn "Make sure you've run target All or FableCoreJs before this."
-    printfn "You need to clone '%s' branch of '%s' repository in a sibling folder named: %s"
+    printfn "You need to clone '%s' branch of '%s' repository in a sibling folder named: %s."
         ncaveFcsForkBranch ncaveFcsForkRepo "FSharp.Compiler.Service_fable"
+    printfn "And run '%s' build target." ncaveFcsCodeGenTarget
     bundleRepl false ())
 
 Target "BuildReplAsNodeApp" (fun () ->
