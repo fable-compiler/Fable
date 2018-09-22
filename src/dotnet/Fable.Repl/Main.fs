@@ -118,6 +118,23 @@ let tooltipToString (el: FSharpToolTipElement<string>): string[] =
     | FSharpToolTipElement.CompositionError err -> [|err|]
 
 /// Get tool tip at the specified location
+let getDeclarationLocation (parseResults: ParseResults) line col lineText = async {
+    match findLongIdents(col - 1, lineText) with
+    | None -> return None
+    | Some(col,identIsland) ->
+        let! (declarations: FSharpFindDeclResult) = parseResults.CheckFile.GetDeclarationLocation(line, col, lineText, identIsland)
+        match declarations with
+        | FSharpFindDeclResult.DeclNotFound _
+        | FSharpFindDeclResult.ExternalDecl _ ->
+            return None
+        | FSharpFindDeclResult.DeclFound range ->
+            return Some { StartLine = range.StartLine
+                          StartColumn = range.StartColumn
+                          EndLine = range.EndLine
+                          EndColumn = range.EndColumn }
+}
+
+/// Get tool tip at the specified location
 let getToolTipAtLocation (parseResults: ParseResults) line col lineText = async {
     match findLongIdents(col - 1, lineText) with
     | None -> return [|"Cannot find ident for tooltip"|]
@@ -189,6 +206,9 @@ let init () =
             parseFSharpProject c.Checker fileName source :> IParseResults
         member __.GetParseErrors(parseResults:IParseResults) =
             parseResults.Errors
+        member __.GetDeclarationLocation(parseResults:IParseResults, line:int, col:int, lineText:string) =
+            let res = parseResults :?> ParseResults
+            getDeclarationLocation res line col lineText
         member __.GetToolTipText(parseResults:IParseResults, line:int, col:int, lineText:string) =
             let res = parseResults :?> ParseResults
             getToolTipAtLocation res line col lineText

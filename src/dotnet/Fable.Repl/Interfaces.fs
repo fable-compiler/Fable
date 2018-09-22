@@ -25,6 +25,12 @@ type Error =
       Message: string
       IsWarning: bool }
 
+type Range =
+    { StartLine: int
+      StartColumn: int
+      EndLine: int
+      EndColumn: int }
+
 type Completion =
     { Name: string
       Glyph: Glyph }
@@ -39,6 +45,7 @@ type IFableManager =
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) -> IChecker
     abstract ParseFSharpProject: checker: IChecker * fileName: string * source: string -> IParseResults
     abstract GetParseErrors: parseResults: IParseResults -> Error[]
+    abstract GetDeclarationLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Range option>
     abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<string[]>
     abstract GetCompletionsAtLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Completion[]>
     abstract CompileToBabelAst: fableCore: string * parseResults: IParseResults * fileName: string * optimized: bool -> obj * Error[]
