@@ -25,7 +25,7 @@ let metadataPath =
 
 [<EntryPoint>]
 let main argv =
-    let testScriptPath = "test_script.fsx"
+    let testScriptPath = "test_script_50k.fsx"
     let metadataPath, testScriptPath, compiledScriptPath =
         match argv with
         | [|metadataPath; testScriptPath; compiledScriptPath|] -> metadataPath, testScriptPath, compiledScriptPath
