@@ -104,7 +104,7 @@ type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
     member __.Dependencies: Set<string> = defaultArg dependencies Set.empty
 
 type IdentKind =
-    | UnespecifiedIdent
+    | UnspecifiedIdent
     | BaseValueIdent
     | ThisArgIdentDeclaration
 

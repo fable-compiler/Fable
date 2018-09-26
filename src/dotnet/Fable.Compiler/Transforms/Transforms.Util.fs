@@ -274,7 +274,7 @@ module AST =
     let makeIdent name =
         { Name = name
           Type = Any
-          Kind = UnespecifiedIdent
+          Kind = UnspecifiedIdent
           IsMutable = false
           IsCompilerGenerated = true
 
@@ -283,7 +283,7 @@ module AST =
     let makeTypedIdent typ name =
         { Name = name
           Type = typ
-          Kind = UnespecifiedIdent
+          Kind = UnspecifiedIdent
           IsMutable = false
           IsCompilerGenerated = true
           Range = None }

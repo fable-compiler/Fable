@@ -554,7 +554,7 @@ module Identifiers =
         com.AddUsedVarName sanitizedName
         { Name = sanitizedName
           Type = makeType com ctx.GenericArgs fsRef.FullType
-          Kind = Fable.UnespecifiedIdent
+          Kind = Fable.UnspecifiedIdent
           IsMutable = fsRef.IsMutable
           IsCompilerGenerated = fsRef.IsCompilerGenerated
           Range = makeRange fsRef.DeclarationLocation |> Some }
