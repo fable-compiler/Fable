@@ -15,14 +15,14 @@
     "test-bench2": "node src/dotnet/Fable.Repl/bench2/out/test_script.js"
   },
   "devDependencies": {
-    "@types/node": "^10.10.1",
     "@babel/cli": "^7.1.0",
     "@babel/core": "^7.1.0",
     "@babel/plugin-transform-modules-commonjs": "^7.1.0",
     "@babel/preset-env": "^7.1.0",
-    "@babel/register": "7.0.0",
+    "@babel/register": "^7.0.0",
     "@babel/standalone": "^7.1.0",
     "@babel/template": "^7.1.0",
+    "@types/node": "^10.11.0",
     "babel-loader": "^8.0.2",
     "fable-loader": "2.0.0-beta-001",
     "fable-splitter": "2.0.0-beta-002",
@@ -31,8 +31,7 @@
     "terser-webpack-plugin": "^1.1.0",
     "tslint": "^5.11.0",
     "typescript": "^3.0.3",
-    "webpack": "^4.19.1",
-    "webpack-cli": "^3.1.0",
-    "webpack-command": "^0.4.1"
+    "webpack": "^4.20.2",
+    "webpack-cli": "^3.1.1"
   }
 }

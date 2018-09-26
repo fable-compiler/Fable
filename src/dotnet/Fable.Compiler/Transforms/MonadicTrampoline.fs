@@ -1,7 +1,7 @@
 ﻿// Source: http://fssnip.net/dK/title/Monadic-Trampoline
 module MonadicTrampoline
 
-#if !FABLE_COMPILER
+#if NETSTANDARD2_0 || !FABLE_COMPILER
 type TrampolineValue<'T> =
     | DelayValue of Delay<'T>
     | ReturnValue of Return<'T>
@@ -48,7 +48,7 @@ let inline run (tr : ITrampoline<'T>) = tr.Run()
 #else
 // Fable cannot tail-call optimize mutually recursive functions, rendering
 // the implementation above useless, so we use the following one instead.
-// However, take note this uses uses unsafe boxing/unboxing, which is ok
+// However, take note this uses unsafe boxing/unboxing, which is ok
 // in JS but not in .NET (fails with generic types: `obj list :?> Expr list`)
 type Thunk =
     | DelayValue of (unit -> Thunk)
