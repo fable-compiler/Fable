@@ -8,6 +8,17 @@ This is the section for quick questions or to miss the holes in the documentatio
 
 Make sure the question is not answered already either here or in the documentation. Then just [click here to edit this page in Github](https://github.com/fable-compiler/Fable/edit/master/docs/FAQ.md), add your question to the bottom and create a PR. Maintainers will write an answer and ask you if that solves the issue. If it does, the PR will be merged and the question will be added to the page so it can be referenced by other users.
 
+
+#### Where can I find a minimal template project? That shows how to add some Vanilla JS to a mostly static websites ( e.g. served via Giraffe)
+
+You can [play in the Repl](http://fable.io/repl2/) with some Vanilla JS but ther is no sample project !????????????
+
+#### Where can I find template web app projects using React and Elmish?
+
+For Fable 2 go to https://github.com/fable-compiler/fable2-samples
+
+For Fable 1 go to https://github.com/fable-compiler/fable-templates
+
 ## Compiler
 
 #### Can I use Type Providers with Fable?
