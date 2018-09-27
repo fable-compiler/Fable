@@ -1,5 +1,6 @@
 import { createMutable as createMutableMap } from "./Map";
 import { createMutable as createMutableSet } from "./Set";
+import { declare } from "./Types";
 
 export const Dictionary = declare(function Dictionary(source, comparer) {
   this.__mutableMap = createMutableMap(source, comparer);
