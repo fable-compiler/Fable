@@ -291,7 +291,7 @@ module MapTree =
     let toList m =
         loop m []
 
-    let ofList comparer l = List.fold (fun acc (k,v) -> add comparer k v acc) empty l
+    let ofList comparer l = Seq.fold (fun acc (k,v) -> add comparer k v acc) empty l
 
     let rec mkFromEnumerator comparer acc (e : IEnumerator<_>) =
         if e.MoveNext() then

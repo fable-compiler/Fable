@@ -245,7 +245,7 @@ let truncate (count: int) (array: 'T[]): 'T[] =
     subArrayImpl array 0 count
 
 let concat<'T> (arrays: 'T[] seq) ([<Inject>] cons: IArrayCons<'T>): 'T[] =
-    let arrays = Seq.toArray arrays
+    let arrays = DynamicArrayCons.FromSequence arrays
     match arrays.Length with
     | 0 -> cons.Create 0
     | 1 -> arrays.[0]
