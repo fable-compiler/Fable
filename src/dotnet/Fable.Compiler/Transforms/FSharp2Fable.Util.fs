@@ -102,7 +102,9 @@ module Helpers =
     let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsExtensionMember then
             let overloadSuffix = OverloadSuffix.getExtensionHash memb
-            memb.CompiledName, Naming.InstanceMemberPart("", overloadSuffix)
+            if trimRootModule
+            then memb.CompiledName, Naming.InstanceMemberPart("", overloadSuffix)
+            else memb.FullName, Naming.InstanceMemberPart("", overloadSuffix)
         else
             match memb.DeclaringEntity with
             | Some ent when ent.IsFSharpModule ->
