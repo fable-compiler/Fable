@@ -2,7 +2,7 @@
 
 ### The compiler that emits JavaScript you can be proud of!
 
-[![Mono Build Status](https://travis-ci.org/fable-compiler/Fable.svg "Mono Build Status")](https://travis-ci.org/fable-compiler/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![NuGet Status](https://img.shields.io/nuget/v/Fable.Compiler.svg?style=flat)](https://www.nuget.org/packages/Fable.Compiler/) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Mono Build Status](https://travis-ci.org/fable-compiler/Fable.svg "Mono Build Status")](https://travis-ci.org/fable-compiler/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![NuGet Status](https://img.shields.io/nuget/v/dotnet-fable.svg?style=flat)](https://www.nuget.org/packages/dotnet-fable/) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 [RELEASE NOTES](https://github.com/fable-compiler/Fable/blob/master/src/dotnet/Fable.Compiler/RELEASE_NOTES.md) · [Follow us on Twitter!](https://twitter.com/FableCompiler)
 
