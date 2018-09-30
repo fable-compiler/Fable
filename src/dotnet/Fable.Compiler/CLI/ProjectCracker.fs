@@ -87,18 +87,26 @@ let getBasicCompilerArgs (define: string[]) =
     |]
 
 let sortFablePackages (pkgs: FablePackage list) =
-    let final = ResizeArray(List.length pkgs)
-    match pkgs with
-    | head::tail ->
-        final.Add(head)
-        for p in tail do
-            final |> Seq.tryFindIndex (fun p2 ->
-                p2.Dependencies.Contains(p.Id))
-            |> function
-                | Some i -> final.Insert(i, p)
-                | None -> final.Add(p)
-        Seq.toList final
-    | [] -> []
+    ([], pkgs) ||> List.fold (fun acc pkg ->
+        match List.tryFindIndexBack (fun x -> pkg.Dependencies.Contains(x.Id)) acc with
+        | None -> pkg::acc
+        | Some targetIdx ->
+            let rec insertAfter x targetIdx i before after =
+                match after with
+                | justBefore::after ->
+                    if i = targetIdx then
+                        if i > 0 then
+                            let dependent, nonDependent =
+                                List.rev before |> List.partition (fun x ->
+                                    x.Dependencies.Contains(pkg.Id))
+                            nonDependent @ justBefore::x::dependent @ after
+                        else
+                            (justBefore::before |> List.rev) @ x::after
+                    else
+                        insertAfter x targetIdx (i + 1) (justBefore::before) after
+                | [] -> failwith "Unexpected empty list in insertAfter"
+            insertAfter pkg targetIdx 0 [] acc
+    )
 
 let tryGetFablePackage (dllPath: string) =
     let tryFileWithPattern dir pattern =
