@@ -23,6 +23,17 @@ type Point =
     static member Neg(p: Point) = { x = -p.x; y = -p.y }
     static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
 
+type MyNumber =
+    | MyNumber of int
+    static member Zero = MyNumber 0
+    static member (+) (MyNumber x, MyNumber y) =
+        MyNumber(x + y)
+    static member DivideByInt (MyNumber x, i: int) =
+        MyNumber(x / i)
+
+type MyNumberWrapper =
+    { MyNumber: MyNumber }
+
 let tests =
   testList "Lists" [
     // TODO: Empty lists may be represented as null, make sure they don't conflict with None
@@ -333,21 +344,27 @@ let tests =
             [1; 2] |> List.sumBy (fun x -> x*2)
             |> equal 6
 
-    // TODO!!!
-    // testCase "List.sum with non numeric types works" <| fun () ->
-    //   let p1 = {x=1; y=10}
-    //   let p2 = {x=2; y=20}
-    //   [p1; p2] |> List.sum |> (=) {x=3;y=30} |> equal true
+    testCase "List.sum with non numeric types works" <| fun () ->
+      let p1 = {x=1; y=10}
+      let p2 = {x=2; y=20}
+      [p1; p2] |> List.sum |> (=) {x=3;y=30} |> equal true
 
-    // testCase "List.sumBy with non numeric types works" <| fun () ->
-    //   let p1 = {x=1; y=10}
-    //   let p2 = {x=2; y=20}
-    //   [p1; p2] |> List.sumBy Point.Neg |> (=) {x = -3; y = -30} |> equal true
+    testCase "List.sumBy with non numeric types works" <| fun () ->
+      let p1 = {x=1; y=10}
+      let p2 = {x=2; y=20}
+      [p1; p2] |> List.sumBy Point.Neg |> (=) {x = -3; y = -30} |> equal true
 
-    // testCase "List.sumBy with numeric projection works" <| fun () ->
-    //   let p1 = {x=1; y=10}
-    //   let p2 = {x=2; y=20}
-    //   [p1; p2] |> List.sumBy (fun p -> p.y) |> equal 30
+    testCase "List.sumBy with numeric projection works" <| fun () ->
+      let p1 = {x=1; y=10}
+      let p2 = {x=2; y=20}
+      [p1; p2] |> List.sumBy (fun p -> p.y) |> equal 30
+
+    testCase "List.sum with non numeric types works II" <| fun () ->
+        [MyNumber 1; MyNumber 2; MyNumber 3] |> List.sum |> equal (MyNumber 6)
+
+    testCase "List.sumBy with non numeric types works II" <| fun () ->
+        [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
+        |> List.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
 
     testCase "List.skip works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.; 5.]
@@ -509,6 +526,13 @@ let tests =
             [1.; 2.; 3.; 4.]
             |> List.averageBy (fun x -> x * 2.)
             |> equal 5.
+
+    testCase "List.average works with custom types" <| fun () ->
+        [MyNumber 1; MyNumber 2; MyNumber 3] |> List.average |> equal (MyNumber 2)
+
+    testCase "List.averageBy works with custom types" <| fun () ->
+        [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
+        |> List.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
     testCase "List.distinct works" <| fun () ->
         let xs = [1; 1; 1; 2; 2; 3; 3]

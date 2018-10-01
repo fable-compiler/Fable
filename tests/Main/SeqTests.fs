@@ -21,6 +21,17 @@ type Point =
     static member Neg(p: Point) = { x = -p.x; y = -p.y }
     static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
 
+type MyNumber =
+    | MyNumber of int
+    static member Zero = MyNumber 0
+    static member (+) (MyNumber x, MyNumber y) =
+        MyNumber(x + y)
+    static member DivideByInt (MyNumber x, i: int) =
+        MyNumber(x / i)
+
+type MyNumberWrapper =
+    { MyNumber: MyNumber }
+
 let tests =
   testList "Seqs" [
     testCase "Can test untyped enumerables" <| fun () ->
@@ -70,14 +81,22 @@ let tests =
         |> equal 1.
 
     testCase "Seq.average works" <| fun () ->
-        let xs = [1.; 2.; 3.; 4.]
+        let xs = seq {yield 1.; yield 2.; yield 3.; yield 4.}
         Seq.average xs
         |> equal 2.5
 
     testCase "Seq.averageBy works" <| fun () ->
-        let xs = [1.; 2.; 3.; 4.]
+        let xs = seq {yield 1.; yield 2.; yield 3.; yield 4.}
         Seq.averageBy ((*) 2.) xs
         |> equal 5.
+
+    testCase "Seq.average works with custom types" <| fun () ->
+        seq {yield MyNumber 1; yield MyNumber 2; yield MyNumber 3}
+        |> Seq.average |> equal (MyNumber 2)
+
+    testCase "Seq.averageBy works with custom types" <| fun () ->
+        seq {yield { MyNumber = MyNumber 5 }; yield { MyNumber = MyNumber 4 }; yield { MyNumber = MyNumber 3 }}
+        |> Seq.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
     testCase "Seq.choose works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
@@ -388,21 +407,28 @@ let tests =
         xs |> Seq.sumBy ((*) 2.)
         |> equal 6.
 
-    // TODO!!!
-    // testCase "Seq.sum with non numeric types works" <| fun () ->
-    //     let p1 = {x=1; y=10}
-    //     let p2 = {x=2; y=20}
-    //     [p1; p2] |> Seq.sum |> (=) {x=3;y=30} |> equal true
+    testCase "Seq.sum with non numeric types works" <| fun () ->
+        let p1 = {x=1; y=10}
+        let p2 = {x=2; y=20}
+        [p1; p2] |> Seq.sum |> (=) {x=3;y=30} |> equal true
 
-    // testCase "Seq.sumBy with non numeric types works" <| fun () ->
-    //     let p1 = {x=1; y=10}
-    //     let p2 = {x=2; y=20}
-    //     [p1; p2] |> Seq.sumBy Point.Neg |> (=) {x = -3; y = -30} |> equal true
+    testCase "Seq.sumBy with non numeric types works" <| fun () ->
+        let p1 = {x=1; y=10}
+        let p2 = {x=2; y=20}
+        [p1; p2] |> Seq.sumBy Point.Neg |> (=) {x = -3; y = -30} |> equal true
 
-    // testCase "Seq.sumBy with numeric projection works" <| fun () ->
-    //     let p1 = {x=1; y=10}
-    //     let p2 = {x=2; y=20}
-    //     [p1; p2] |> Seq.sumBy (fun p -> p.y) |> equal 30
+    testCase "Seq.sumBy with numeric projection works" <| fun () ->
+        let p1 = {x=1; y=10}
+        let p2 = {x=2; y=20}
+        [p1; p2] |> Seq.sumBy (fun p -> p.y) |> equal 30
+
+    testCase "Seq.sum with non numeric types works II" <| fun () ->
+        seq {yield MyNumber 1; yield MyNumber 2; yield MyNumber 3}
+        |> Seq.sum |> equal (MyNumber 6)
+
+    testCase "Seq.sumBy with non numeric types works II" <| fun () ->
+        seq {yield { MyNumber = MyNumber 5 }; yield { MyNumber = MyNumber 4 }; yield { MyNumber = MyNumber 3 }}
+        |> Seq.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
 
     testCase "Seq.item works" <| fun () ->
         let xs = [1.; 2.]

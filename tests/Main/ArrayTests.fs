@@ -27,6 +27,17 @@ type Point =
     static member Neg(p: Point) = { x = -p.x; y = -p.y }
     static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
 
+type MyNumber =
+    | MyNumber of int
+    static member Zero = MyNumber 0
+    static member (+) (MyNumber x, MyNumber y) =
+        MyNumber(x + y)
+    static member DivideByInt (MyNumber x, i: int) =
+        MyNumber(x / i)
+
+type MyNumberWrapper =
+    { MyNumber: MyNumber }
+
 let tests =
   testList "Arrays" [
     testCase "Pattern matching with arrays works" <| fun () ->
@@ -246,6 +257,13 @@ let tests =
         let xs = [|1.; 2.; 3.; 4.|]
         Array.averageBy (fun x -> x * 2.) xs
         |> equal 5.
+
+    testCase "Array.average works with custom types" <| fun () ->
+        [|MyNumber 1; MyNumber 2; MyNumber 3|] |> Array.average |> equal (MyNumber 2)
+
+    testCase "Array.averageBy works with custom types" <| fun () ->
+        [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
+        |> Array.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
     testCase "Array.choose works" <| fun () ->
         let xs = [|1L; 2L; 3L; 4L|]
@@ -604,21 +622,27 @@ let tests =
         xs |> Array.sumBy (fun x -> x * 2.)
         |> equal 6.
 
-    // TODO!!!
-    // testCase "Array.sum with non numeric types works" <| fun () ->
-    //     let p1 = {x=1; y=10}
-    //     let p2 = {x=2; y=20}
-    //     [|p1; p2|] |> Array.sum |> (=) {x=3;y=30} |> equal true
+    testCase "Array.sum with non numeric types works" <| fun () ->
+        let p1 = {x=1; y=10}
+        let p2 = {x=2; y=20}
+        [|p1; p2|] |> Array.sum |> equal {x=3;y=30}
 
-    // testCase "Array.sumBy with non numeric types works" <| fun () ->
-    //     let p1 = {x=1; y=10}
-    //     let p2 = {x=2; y=20}
-    //     [|p1; p2|] |> Array.sumBy Point.Neg |> (=) {x = -3; y = -30} |> equal true
+    testCase "Array.sumBy with non numeric types works" <| fun () ->
+        let p1 = {x=1; y=10}
+        let p2 = {x=2; y=20}
+        [|p1; p2|] |> Array.sumBy Point.Neg |> equal {x = -3; y = -30}
 
-    // testCase "Array.sumBy with numeric projection works" <| fun () ->
-    //     let p1 = {x=1; y=10}
-    //     let p2 = {x=2; y=20}
-    //     [|p1; p2|] |> Array.sumBy (fun p -> p.y) |> equal 30
+    testCase "Array.sumBy with numeric projection works" <| fun () ->
+        let p1 = {x=1; y=10}
+        let p2 = {x=2; y=20}
+        [|p1; p2|] |> Array.sumBy (fun p -> p.y) |> equal 30
+
+    testCase "Array.sum with non numeric types works II" <| fun () ->
+        [|MyNumber 1; MyNumber 2; MyNumber 3|] |> Array.sum |> equal (MyNumber 6)
+
+    testCase "Array.sumBy with non numeric types works II" <| fun () ->
+        [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
+        |> Array.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
 
     testCase "Array.toList works" <| fun () ->
         let xs = [|1.; 2.|]

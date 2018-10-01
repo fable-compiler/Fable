@@ -16,6 +16,17 @@ export interface IEnumerable<T> {
   GetEnumerator(): IEnumerator<T>;
 }
 
+interface IGenericAdder<T> {
+  GetZero(): T;
+  Add(x: T, y: T): T;
+}
+
+interface IGenericAverager<T> {
+  GetZero(): T;
+  Add(x: T, y: T): T;
+  DivideByInt(x: T, i: number): T;
+}
+
 export class Enumerator<T> implements IEnumerator<T> {
   private current: T;
   constructor(private iter: Iterator<T>) { }
@@ -90,22 +101,22 @@ export function append<T>(xs: Iterable<T>, ys: Iterable<T>) {
   });
 }
 
-export function average(xs: Iterable<number>) {
-  let count = 1;
-  const sum = reduce((acc: number, x: number) => {
+export function average<T>(xs: Iterable<T>, averager: IGenericAverager<T>): T {
+  let count = 0;
+  const total = fold((acc, x) => {
     count++;
-    return acc + x;
-  }, xs);
-  return sum / count;
+    return averager.Add(acc, x);
+  }, averager.GetZero(), xs);
+  return averager.DivideByInt(total, count);
 }
 
-export function averageBy(f: (a: number) => number, xs: Iterable<number>) {
-  let count = 1;
-  const sum = reduce((acc: number, x: number) => {
+export function averageBy<T, T2>(f: (a: T) => T2, xs: Iterable<T>, averager: IGenericAverager<T2>): T2 {
+  let count = 0;
+  const total = fold((acc, x) => {
     count++;
-    return (count === 2 ? f(acc) : acc) + f(x);
-  }, xs);
-  return sum / count;
+    return averager.Add(acc, f(x));
+  }, averager.GetZero(), xs);
+  return averager.DivideByInt(total, count);
 }
 
 export function concat<T>(xs: Iterable<Iterable<T>>) {
@@ -639,12 +650,12 @@ export function sortWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>) {
   return ofArray(ys.sort(f));
 }
 
-export function sum(xs: Iterable<number>) {
-  return fold((acc, x) => acc + x, 0, xs);
+export function sum<T>(xs: Iterable<T>, adder: IGenericAdder<T>): T {
+  return fold((acc, x) => adder.Add(acc, x), adder.GetZero(), xs);
 }
 
-export function sumBy<T>(f: (x: T) => number, xs: Iterable<T>) {
-  return fold((acc, x) => acc + f(x), 0, xs);
+export function sumBy<T, T2>(f: (x: T) => T2, xs: Iterable<T>, adder: IGenericAdder<T2>): T2 {
+  return fold((acc, x) => adder.Add(acc, f(x)), adder.GetZero(), xs);
 }
 
 export function tail<T>(xs: Iterable<T>) {

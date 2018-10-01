@@ -59,11 +59,23 @@ let (|Implicit|_|) com (ctx: FSharp2Fable.Context) r (par: FSharpParameter) typ 
             | _ -> fail "Found more than one {0}, please disambiguate"
     else None
 
-let (|TypeResolver|_|) r = function
-    | Fable.DeclaredType(typDef,[t]) when typDef.TryFullName = Some Types.typeResolver ->
-        let f = Fable.TypeInfo(t, r) |> Fable.Value |> makeDelegate []
-        let m = Fable.ObjectMember(makeStrConst "ResolveType", f, Fable.ObjectValue)
-        Fable.ObjectExpr([m], Fable.Any, None) |> Some
+let (|GeneratedInterface|_|) com ctx r t =
+    match t with
+    | Fable.DeclaredType(typDef,[t]) ->
+        // TODO: Unify with Replacements.injectArg?
+        match typDef.TryFullName with
+        | Some Types.typeResolver ->
+            let fn = Fable.TypeInfo(t, r) |> Fable.Value |> makeDelegate []
+            Replacements.makeFunctionsObject ["ResolveType", fn] |> Some
+        | Some Types.comparer ->
+            Replacements.makeComparer com t |> Some
+        | Some Types.equalityComparer ->
+            Replacements.makeEqualityComparer com t |> Some
+        | Some Types.adder ->
+            Replacements.makeGenericAdder com ctx t |> Some
+        | Some Types.averager ->
+            Replacements.makeGenericAverager com ctx t |> Some
+        | _ -> None
     | _ -> None
 
 let injectArg com ctx r (genArgs: (string * Fable.Type) list) (par: FSharpParameter): Fable.Expr =
@@ -75,7 +87,7 @@ let injectArg com ctx r (genArgs: (string * Fable.Type) list) (par: FSharpParame
         else None
     match typ with
     | Some(Implicit com ctx r par e) -> e
-    | Some(TypeResolver r e) -> e
+    | Some(GeneratedInterface com ctx r e) -> e
     | _ ->
         match typ with
         | Some typ -> getTypeFullName true typ

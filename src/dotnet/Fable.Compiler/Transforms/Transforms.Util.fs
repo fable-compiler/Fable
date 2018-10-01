@@ -24,7 +24,6 @@ module Types =
     let [<Literal>] valueType = "System.ValueType"
     let [<Literal>] array = "System.Array"
     let [<Literal>] type_ = "System.Type"
-    let [<Literal>] typeResolver = "Fable.Core.ITypeResolver`1"
     let [<Literal>] exception_ = "System.Exception"
     let [<Literal>] bool = "System.Boolean"
     let [<Literal>] char = "System.Char"
@@ -72,6 +71,9 @@ module Types =
     let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
     let [<Literal>] equalityComparer = "System.Collections.Generic.IEqualityComparer`1"
     let [<Literal>] arrayCons = "Array.IArrayCons`1"
+    let [<Literal>] typeResolver = "Fable.Core.ITypeResolver`1"
+    let [<Literal>] adder = "Fable.Core.IGenericAdder`1"
+    let [<Literal>] averager = "Fable.Core.IGenericAverager`1"
 
 [<RequireQualifiedAccess>]
 module Operators =
@@ -89,6 +91,7 @@ module Operators =
     let [<Literal>] booleanOr = "op_BooleanOr"
     let [<Literal>] logicalNot = "op_LogicalNot"
     let [<Literal>] unaryNegation = "op_UnaryNegation"
+    let [<Literal>] divideByInt = "DivideByInt"
     // let [<Literal>] equality = "op_Equality"
     // let [<Literal>] inequality = "op_Inequality"
     // let [<Literal>] lessThan = "op_LessThan"

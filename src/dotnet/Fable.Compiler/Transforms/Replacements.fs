@@ -513,13 +513,16 @@ let iterate r ident body (xs: Expr) =
     let f = Function(Delegate [ident], body, None)
     Helper.CoreCall("Seq", "iterate", Unit, [f; toSeq r xs.Type xs], ?loc=r)
 
+let (|ListSingleton|) x = [x]
+
+let (|CustomOp|_|) com ctx opName argTypes sourceTypes =
+    let tryFindMember com (ctx: Context) (ent: FSharpEntity) opName argTypes =
+        FSharp2Fable.TypeHelpers.tryFindMember com ent ctx.GenericArgs opName false argTypes
+    sourceTypes |> List.tryPick (function
+        | DeclaredType(ent,_) -> tryFindMember com ctx ent opName argTypes
+        | _ -> None)
+
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argTypes genArgs =
-    let (|CustomOp|_|) com ctx opName argTypes =
-        let tryFindMember com (ctx: Context) (ent: FSharpEntity) opName argTypes =
-            FSharp2Fable.TypeHelpers.tryFindMember com ent ctx.GenericArgs opName false argTypes
-        argTypes |> List.tryPick (function
-            | DeclaredType(ent,_) -> tryFindMember com ctx ent opName argTypes
-            | _ -> None)
     let unOp operator operand =
         Operation(UnaryOperation(operator, operand), t, r)
     let binOp op left right =
@@ -536,7 +539,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | Operators.addition, [left; right] -> binOp BinaryPlus left right
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
-        | Operators.division, [left; right] ->
+        | (Operators.division|Operators.divideByInt), [left; right] ->
             match argTypes with
             // Floor result of integer divisions (see #172)
             | Number Integer::_ -> binOp BinaryDivide left right |> fastIntFloor
@@ -554,7 +557,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | Operators.booleanOr, [left; right] -> logicOp LogicalOr left right
         | Operators.logicalNot, [operand] -> unOp UnaryNotBitwise operand |> truncateUnsigned
         | Operators.unaryNegation, [operand] -> unOp UnaryMinus operand
-        | _ -> "Unknown operator: " + opName |> addErrorAndReturnNull com ctx.InlinePath r
+        | _ -> sprintf "Operator %s not found in %A" opName argTypes
+               |> addErrorAndReturnNull com ctx.InlinePath r
     let argTypes = resolveArgTypes argTypes genArgs
     match argTypes with
     | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
@@ -571,7 +575,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
     //     Helper.CoreCall("Map", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan::_ ->
         nativeOp opName argTypes args
-    | CustomOp com ctx opName m ->
+    | CustomOp com ctx opName argTypes m ->
         let genArgs = genArgs |> Seq.map snd
         FSharp2Fable.Util.makeCallFrom com ctx r t false genArgs None args m
     | _ -> nativeOp opName argTypes args
@@ -606,6 +610,12 @@ let identityHash r (arg: Expr) =
 
 let structuralHash r (arg: Expr) =
     Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
+
+let makeFunctionsObject (namesAndFunctions: (string * Expr) list) =
+    let members =
+        namesAndFunctions |> List.map (fun (name, fn) ->
+            Fable.ObjectMember(makeStrConst name, fn, Fable.ObjectValue))
+    ObjectExpr(members, Fable.Any, None)
 
 let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     let is equal expr =
@@ -675,10 +685,8 @@ and makeComparerFunction (com: ICompiler) typArg =
     Function(Delegate [x; y], body, None)
 
 and makeComparer (com: ICompiler) typArg =
-    let f = makeComparerFunction com typArg
-    let m = ObjectMember(makeStrConst "Compare", f, ObjectValue)
-    // TODO: Use proper IComparer<'T> type instead of Any
-    ObjectExpr([m], Any, None)
+    let fn = makeComparerFunction com typArg
+    makeFunctionsObject ["Compare", fn]
 
 let makeEqualityComparer (com: ICompiler) typArg =
     let x = makeTypedIdent typArg "x"
@@ -722,7 +730,7 @@ let makeHashSet (com: ICompiler) r t sourceSeq =
         makeComparer com key |> makeHashSetWithComparer r t sourceSeq
     | _ -> Helper.GlobalCall("Set", t, [sourceSeq], isConstructor=true, ?loc=r)
 
-let getZero (com: ICompiler) (t: Type) =
+let getZero (com: ICompiler) ctx (t: Type) =
     match t with
     | Char | String -> makeStrConst ""
     | Builtin BclTimeSpan -> makeIntConst 0
@@ -731,15 +739,41 @@ let getZero (com: ICompiler) (t: Type) =
     | Builtin (FSharpSet genArg) as t -> makeSet com None t "Empty" [] genArg
     | Builtin (BclInt64|BclUInt64) as t -> Helper.CoreCall("Long", "fromInt", t, [makeIntConst 0])
     | Builtin BclBigInt as t -> Helper.CoreCall("BigInt", "fromInt32", t, [makeIntConst 0])
-    // TODO: Calls to custom Zero implementation
+    | ListSingleton(CustomOp com ctx "get_Zero" [] m) ->
+        FSharp2Fable.Util.makeCallFrom com ctx None t false [] None [] m
     | _ -> makeIntConst 0
 
-let getOne (com: ICompiler) (t: Type) =
+let getOne (com: ICompiler) ctx (t: Type) =
     match t with
     | Builtin (BclInt64|BclUInt64) as t -> Helper.CoreCall("Long", "fromInt", t, [makeIntConst 1])
     | Builtin BclBigInt as t -> Helper.CoreCall("BigInt", "fromInt32", t, [makeIntConst 1])
-    // TODO: Calls to custom One implementation
+    | ListSingleton(CustomOp com ctx "get_One" [] m) ->
+        FSharp2Fable.Util.makeCallFrom com ctx None t false [] None [] m
     | _ -> makeIntConst 1
+
+let makeAddFunction (com: ICompiler) ctx t =
+    let x = makeTypedIdent t "x"
+    let y = makeTypedIdent t "y"
+    let body = applyOp com ctx None t Operators.addition [IdentExpr x; IdentExpr y] [t; t] []
+    Function(Delegate [x; y], body, None)
+
+let makeGenericAdder (com: ICompiler) ctx t =
+    makeFunctionsObject [
+        "GetZero", getZero com ctx t |> makeDelegate []
+        "Add", makeAddFunction com ctx t
+    ]
+
+let makeGenericAverager (com: ICompiler) ctx t =
+    let divideFn =
+        let x = makeTypedIdent t "x"
+        let i = makeTypedIdent (Number Int32) "i"
+        let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i] [t; Number Int32] []
+        Function(Delegate [x; i], body, None)
+    makeFunctionsObject [
+        "GetZero", getZero com ctx t |> makeDelegate []
+        "Add", makeAddFunction com ctx t
+        "DivideByInt", divideFn
+    ]
 
 let makePojoFromLambda arg =
     let rec flattenSequential = function
@@ -814,6 +848,10 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
             makeEqualityComparer com genArg |> Some
         | (Types.arrayCons, GenericArg genArgs (_,genArg)) ->
             arrayCons com genArg |> Some
+        | (Types.adder, GenericArg genArgs (_,genArg)) ->
+            makeGenericAdder com ctx genArg |> Some
+        | (Types.averager, GenericArg genArgs (_,genArg)) ->
+            makeGenericAverager com ctx genArg |> Some
         | (_, genArgIndex) ->
             sprintf "Cannot inject arg to %s.%s (genArgs %A - expected index %i)"
                 moduleName methName (List.map fst genArgs) genArgIndex
@@ -1034,7 +1072,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let genArg = genArg com ctx r 0 i.GenericArgs
         let addStep args =
             match args with
-            | [first; last] -> [first; getOne com genArg; last]
+            | [first; last] -> [first; getOne com ctx genArg; last]
             | _ -> args
         let meth, args =
             match genArg with
@@ -1704,8 +1742,8 @@ let errorStrings = function
 
 let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "GenericZero", _ -> getZero com t |> Some
-    | "GenericOne", _ -> getOne com t |> Some
+    | "GenericZero", _ -> getZero com ctx t |> Some
+    | "GenericOne", _ -> getOne com ctx t |> Some
     | "EnumOfValue", [arg] ->
         match t with
         | EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> Value |> Some

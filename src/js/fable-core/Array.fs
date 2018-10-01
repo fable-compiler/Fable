@@ -835,17 +835,16 @@ let rec exists2 predicate (array1: _[]) (array2: _[]) =
     if array1.Length <> array2.Length then failwith "Arrays had different lengths"
     existsOffset2 predicate array1 array2 0
 
-// TODO!!!: Pass add function for non-number types
-let sum (array: float[]): float =
-    let mutable acc = 0.
+let sum (array: 'T[]) ([<Inject>] adder: IGenericAdder<'T>): 'T =
+    let mutable acc = adder.GetZero()
     for i = 0 to array.Length - 1 do
-        acc <- acc + array.[i]
+        acc <- adder.Add(acc, array.[i])
     acc
 
-let sumBy (projection: 'T -> float) (array: 'T[]): float =
-    let mutable acc = 0.
+let sumBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] adder: IGenericAdder<'T2>): 'T2 =
+    let mutable acc = adder.GetZero()
     for i = 0 to array.Length - 1 do
-        acc <- acc + projection array.[i]
+        acc <- adder.Add(acc, projection array.[i])
     acc
 
 let maxBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a =
@@ -860,15 +859,19 @@ let minBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 
 let min (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>): 'a =
     reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
 
-let average (array: float []): float =
+let average (array: 'T []) ([<Inject>] averager: IGenericAverager<'T>): 'T =
     if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
-    let total = sum array
-    total / float array.Length
+    let mutable total = averager.GetZero()
+    for i = 0 to array.Length - 1 do
+        total <- averager.Add(total, array.[i])
+    averager.DivideByInt(total, array.Length)
 
-let averageBy (projection: 'T -> float) (array: 'T[]): float =
+let averageBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] averager: IGenericAverager<'T2>): 'T2 =
     if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
-    let total = sumBy projection array
-    total / float array.Length
+    let mutable total = averager.GetZero()
+    for i = 0 to array.Length - 1 do
+        total <- averager.Add(total, projection array.[i])
+    averager.DivideByInt(total, array.Length)
 
 let ofSeq (source: 'T seq) ([<Inject>] cons: IArrayCons<'T>) =
     cons.FromSequence(source)

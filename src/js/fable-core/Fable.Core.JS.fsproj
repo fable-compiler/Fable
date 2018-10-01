@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Global.fs" />
     <!-- <Compile Include="BigInt/n.fsi"/> -->
     <!-- <Compile Include="BigInt/n.fs"/> -->
     <!-- <Compile Include="BigInt/z.fsi"/> -->
