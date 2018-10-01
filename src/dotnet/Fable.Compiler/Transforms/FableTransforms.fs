@@ -324,7 +324,7 @@ module private Transforms =
 
     // For function arguments check if the arity of their own function arguments is expected or not
     // TODO: Do we need to do this recursively, and check options and delegates too?
-    let checkSubArguments expectedType (expr: Expr) =
+    let checkSubArguments com expectedType (expr: Expr) =
         match expectedType, expr with
         | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs, returnType))
                 when List.sameLength expectedArgs actualArgs ->
@@ -343,8 +343,7 @@ module private Transforms =
             if Map.isEmpty replacements
             then expr
             else
-                let args = [ for i=1 to List.length actualArgs do
-                                yield makeIdent ("arg" + string i) ]
+                let args = List.map (fun _ -> makeIdentUnique com "arg") actualArgs
                 let argExprs =
                     args |> List.mapi (fun i arg ->
                         let argExpr = IdentExpr arg
@@ -360,7 +359,7 @@ module private Transforms =
                 makeLambda args body
         | _ -> expr
 
-    let uncurryArgs argTypes args =
+    let uncurryArgs com argTypes args =
         let mapArgs f argTypes args =
             let rec mapArgsInner f acc argTypes args =
                 match argTypes, args with
@@ -374,7 +373,7 @@ module private Transforms =
         | NoUncurrying | Typed [] -> args // Do nothing
         | Typed argTypes ->
             (argTypes, args) ||> mapArgs (fun expectedType arg ->
-                let arg = checkSubArguments expectedType arg
+                let arg = checkSubArguments com expectedType arg
                 let arity = getLambdaTypeArity expectedType
                 if arity > 1
                 then uncurryExpr (Some arity) arg
@@ -437,18 +436,18 @@ module private Transforms =
                 fields
                 |> Seq.map (fun fi -> FSharp2Fable.TypeHelpers.makeType com Map.empty fi.FieldType)
                 |> Seq.toList
-            uncurryArgs (Typed argTypes) args
+            uncurryArgs com (Typed argTypes) args
         match e with
         | Operation(Call(kind, info), t, r) ->
-            let info = { info with Args = uncurryArgs info.SignatureArgTypes info.Args }
+            let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Call(kind, info), t, r)
         | Operation(CurriedApply(callee, args), t, r) ->
             match callee.Type with
             | NestedLambdaType(argTypes, _) ->
-                Operation(CurriedApply(callee, uncurryArgs (Typed argTypes) args), t, r)
+                Operation(CurriedApply(callee, uncurryArgs com (Typed argTypes) args), t, r)
             | _ -> e
         | Operation(Emit(macro, Some info), t, r) ->
-            let info = { info with Args = uncurryArgs info.SignatureArgTypes info.Args }
+            let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Emit(macro, Some info), t, r)
         // Uncurry also values in setters or new record/union/tuple
         | Value(NewRecord(args, ent, genArgs)) ->
@@ -458,7 +457,7 @@ module private Transforms =
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, uci, ent, genArgs))
         | Set(e, FieldSet(fieldName, fieldType), value, r) ->
-            let value = uncurryArgs (Typed [fieldType])  [value]
+            let value = uncurryArgs com (Typed [fieldType]) [value]
             Set(e, FieldSet(fieldName, fieldType), List.head value, r)
         | e -> e
 

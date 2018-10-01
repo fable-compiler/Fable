@@ -51,7 +51,7 @@ let (|Implicit|_|) com (ctx: FSharp2Fable.Context) r (par: FSharpParameter) typ 
                 | Fable.FunctionType(Fable.LambdaType _, Fable.FunctionType(Fable.LambdaType _, _)) ->
                     let paramsCount = implicitValue.CurriedParameterGroups.Count
                     if paramsCount > 0 then
-                        let args = [for i=1 to paramsCount do yield makeIdent ("arg" + string i)]
+                        let args = [for i=1 to paramsCount do yield makeIdentUnique com "arg"]
                         let argInfo = argInfo None (List.map Fable.IdentExpr args) Fable.NoUncurrying
                         staticCall None Fable.Any argInfo e |> makeLambda args |> Some
                     else Some e

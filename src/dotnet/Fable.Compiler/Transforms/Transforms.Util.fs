@@ -274,16 +274,21 @@ module AST =
         | Unit | GenericParam _ | Option _ -> true
         | _ -> false
 
-    let makeIdent name =
+    /// ATTENTION: Make sure the ident name will be unique within the file
+    let makeIdentNonMangled name =
         { Name = name
           Type = Any
           Kind = UnspecifiedIdent
           IsMutable = false
           IsCompilerGenerated = true
-
           Range = None }
 
-    let makeTypedIdent typ name =
+    /// Mangles ident name to prevent conflicts in the file
+    let makeIdentUnique (com: ICompiler) name =
+        com.GetUniqueVar(name) |> makeIdentNonMangled
+
+    /// ATTENTION: Make sure the ident name will be unique within the file
+    let makeTypedIdentNonMangled typ name =
         { Name = name
           Type = typ
           Kind = UnspecifiedIdent
@@ -291,8 +296,13 @@ module AST =
           IsCompilerGenerated = true
           Range = None }
 
-    let makeIdentExpr name =
-        makeIdent name |> IdentExpr
+    /// Mangles ident name to prevent conflicts in the file
+    let makeTypedIdentUnique (com: ICompiler) typ name =
+        com.GetUniqueVar(name) |> makeTypedIdentNonMangled typ
+
+    /// ATTENTION: Make sure the ident name will be unique within the file
+    let makeIdentExprNonMangled name =
+        makeIdentNonMangled name |> IdentExpr
 
     let makeLoop range loopKind = Loop (loopKind, range)
 

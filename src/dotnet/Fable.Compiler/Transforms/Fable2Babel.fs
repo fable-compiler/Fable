@@ -1017,7 +1017,7 @@ module Util =
             let switch2 =
                 // TODO: Declare the last case as the default case?
                 let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
-                transformSwitch com ctx true returnStrategy (makeIdent targetId |> Fable.IdentExpr) cases None
+                transformSwitch com ctx true returnStrategy (makeIdentNonMangled targetId |> Fable.IdentExpr) cases None
             // Transform decision tree
             let targetAssign = Target(Identifier targetId)
             let ctx = { ctx with DecisionTargets = targets }

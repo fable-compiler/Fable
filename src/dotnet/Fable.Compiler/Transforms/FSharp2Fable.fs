@@ -695,7 +695,7 @@ let private transformImplicitConstructor com (ctx: Context)
               |> addError com ctx.InlinePath None; []
     | Some ent ->
         let bodyCtx, args = bindMemberArgs com ctx args
-        let boundThis = com.GetUniqueVar("this") |> makeIdent
+        let boundThis = makeIdentUnique com "this"
         let bodyCtx = { bodyCtx with BoundConstructorThis = boundThis |> Some }
         let baseCons, body = getBaseConsAndBody com bodyCtx ent.BaseType [] body
         let baseExpr, body =

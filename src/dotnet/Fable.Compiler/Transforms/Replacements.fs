@@ -46,8 +46,8 @@ type Helper =
                              ?argTypes: Type list, ?memb: string, ?isConstructor: bool, ?loc: SourceLocation) =
         let funcExpr =
             match memb with
-            | Some m -> get None Any (makeIdentExpr ident) m
-            | None -> makeIdentExpr ident
+            | Some m -> get None Any (makeIdentExprNonMangled ident) m
+            | None -> makeIdentExprNonMangled ident
         let op =
             match isConstructor with
             | Some true -> ConstructorCall funcExpr
@@ -57,7 +57,7 @@ type Helper =
         Operation(Call(op, info), returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
-        get loc typ (makeIdentExpr ident) memb
+        get loc typ (makeIdentExprNonMangled ident) memb
 
 module Helpers =
     let inline makeType com t =
@@ -95,7 +95,7 @@ module Helpers =
         Operation(BinaryOperation(BinaryEqual, expr, Value(Null Any)), Boolean, None)
 
     let error msg =
-        Helper.ConstructorCall(makeIdentExpr "Error", Any, [msg])
+        Helper.ConstructorCall(makeIdentExprNonMangled "Error", Any, [msg])
 
     let s txt = Value(StringConstant txt)
 
@@ -463,8 +463,8 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
 let arrayCons (com: ICompiler) genArg =
     match genArg with
     | Number numberKind when com.Options.typedArrays ->
-        getTypedArrayName com numberKind |> makeIdentExpr
-    | _ -> makeIdentExpr "Array"
+        getTypedArrayName com numberKind |> makeIdentExprNonMangled
+    | _ -> makeIdentExprNonMangled "Array"
 
 // TODO: Should we pass the empty list representation here?
 let toList returnType expr =
@@ -679,8 +679,8 @@ and compareIf (com: ICompiler) r (left: Expr) (right: Expr) op =
         makeEqOp r comparison (makeIntConst 0) op
 
 and makeComparerFunction (com: ICompiler) typArg =
-    let x = makeTypedIdent typArg "x"
-    let y = makeTypedIdent typArg "y"
+    let x = makeTypedIdentUnique com typArg "x"
+    let y = makeTypedIdentUnique com typArg "y"
     let body = compare com None (IdentExpr x) (IdentExpr y)
     Function(Delegate [x; y], body, None)
 
@@ -689,8 +689,8 @@ and makeComparer (com: ICompiler) typArg =
     makeFunctionsObject ["Compare", fn]
 
 let makeEqualityComparer (com: ICompiler) typArg =
-    let x = makeTypedIdent typArg "x"
-    let y = makeTypedIdent typArg "y"
+    let x = makeTypedIdentUnique com typArg "x"
+    let y = makeTypedIdentUnique com typArg "y"
     let body = equals com None true (IdentExpr x) (IdentExpr y)
     let f = Function(Delegate [x; y], body, None)
     // TODO: Use proper IEqualityComparer<'T> type instead of Any
@@ -752,8 +752,8 @@ let getOne (com: ICompiler) ctx (t: Type) =
     | _ -> makeIntConst 1
 
 let makeAddFunction (com: ICompiler) ctx t =
-    let x = makeTypedIdent t "x"
-    let y = makeTypedIdent t "y"
+    let x = makeTypedIdentUnique com t "x"
+    let y = makeTypedIdentUnique com t "y"
     let body = applyOp com ctx None t Operators.addition [IdentExpr x; IdentExpr y] [t; t] []
     Function(Delegate [x; y], body, None)
 
@@ -765,8 +765,8 @@ let makeGenericAdder (com: ICompiler) ctx t =
 
 let makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
-        let x = makeTypedIdent t "x"
-        let i = makeTypedIdent (Number Int32) "i"
+        let x = makeTypedIdentUnique com t "x"
+        let i = makeTypedIdentUnique com (Number Int32) "i"
         let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i] [t; Number Int32] []
         Function(Delegate [x; i], body, None)
     makeFunctionsObject [
@@ -903,7 +903,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "jsOptions", [arg] ->
         makePojoFromLambda arg |> Some
     | "jsThis", _ ->
-        makeTypedIdent t "this" |> IdentExpr |> Some
+        makeTypedIdentNonMangled t "this" |> IdentExpr |> Some
     | "jsConstructor", _ ->
         match (genArg com ctx r 0 i.GenericArgs) with
         | DeclaredType(ent, _) when ent.IsClass -> FSharp2Fable.Util.entityRefMaybeImported com ent |> Some
@@ -1031,7 +1031,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             match t with
             | FunctionType(LambdaType argType, retType) -> argType, retType
             | _ -> Any, Any
-        let tempVar = com.GetUniqueVar("arg") |> makeTypedIdent argType
+        let tempVar = makeTypedIdentUnique com argType "arg"
         let tempVarExpr =
             match argType with
             // Erase unit references, because the arg may be erased
@@ -1349,8 +1349,8 @@ let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
                     let info = argInfo None [IdentExpr ident] NoUncurrying
                     Operation(Call(StaticCall projection, info), genArg, None)
                 | None -> IdentExpr ident
-            let x = makeTypedIdent genArg "x"
-            let y = makeTypedIdent genArg "y"
+            let x = makeTypedIdentUnique com genArg "x"
+            let y = makeTypedIdentUnique com genArg "y"
             let comparison =
                 let comparison = compare com None (identExpr x) (identExpr y)
                 if descending
@@ -1591,7 +1591,7 @@ let options (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
 
 let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let toArray r t arg =
-        let ident = makeIdent (com.GetUniqueVar())
+        let ident = makeIdentUnique com "x"
         let f =
             [IdentExpr ident]
             |> makeArray Any
@@ -1924,7 +1924,7 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let exceptions (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Error", t, args, ?loc=r) |> Some
+    | ".ctor", _ -> Helper.ConstructorCall(makeIdentExprNonMangled "Error", t, args, ?loc=r) |> Some
     | "get_Message", Some e -> get r t e "message" |> Some
     | "get_StackTrace", Some e -> get r t e "stack" |> Some
     | _ -> None

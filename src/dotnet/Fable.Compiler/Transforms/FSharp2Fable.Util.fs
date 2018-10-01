@@ -705,8 +705,8 @@ module Util =
             | AttFullName(Atts.global_, att) ->
                 match att with
                 | AttArguments [:? string as customName] ->
-                    makeTypedIdent typ customName |> Fable.IdentExpr |> Some
-                | _ -> getMemberDisplayName memb |> makeTypedIdent typ |> Fable.IdentExpr |> Some
+                    makeTypedIdentNonMangled typ customName |> Fable.IdentExpr |> Some
+                | _ -> getMemberDisplayName memb |> makeTypedIdentNonMangled typ |> Fable.IdentExpr |> Some
             | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
                 let path =
                     lazy getMemberLocation memb
@@ -727,7 +727,7 @@ module Util =
         let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
         let entityName = getEntityDeclarationName com ent
         if file = com.CurrentFile
-        then makeIdent entityName |> Fable.IdentExpr
+        then makeIdentExprNonMangled entityName
         else makeInternalImport Fable.Any entityName file
 
     /// First checks if the entity is imported
@@ -746,7 +746,7 @@ module Util =
             // We assume the member belongs to the current file
             | None -> com.CurrentFile
         if file = com.CurrentFile
-        then makeTypedIdent typ memberName |> Fable.IdentExpr
+        then makeTypedIdentNonMangled typ memberName |> Fable.IdentExpr
         else makeInternalImport typ memberName file
 
     let memberRefTyped (com: IFableCompiler) typ (memb: FSharpMemberOrFunctionOrValue) =
