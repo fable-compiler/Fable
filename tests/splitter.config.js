@@ -20,5 +20,8 @@ function defineConstants() {
     console.log("Running on TRAVIS...");
     ar.push("TRAVIS");
   }
+  if (process.argv.find(v => v === "-d:OPTIMIZE_FCS")) {
+    ar.push("OPTIMIZE_FCS");
+  }
   return ar;
 }

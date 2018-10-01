@@ -40,9 +40,6 @@ let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
                 | res -> res
         loop xs ys
 
-let equalsWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): bool =
-    compareWith comparer xs ys = 0
-
 let rec foldIndexedAux f i acc = function
     | [] -> acc
     | x::xs -> foldIndexedAux f (i+1) (f i acc x) xs

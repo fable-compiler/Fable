@@ -3,7 +3,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="2.0.0-beta-001" />
+    <PackageReference Include="Fable.Core" Version="2.0.0" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util/Util.fs" />

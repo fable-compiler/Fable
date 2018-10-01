@@ -157,7 +157,7 @@ export function dateOffset(date: IDateTime | IDateTimeOffset): number {
   return typeof date1.offset === "number"
     ? date1.offset
     : ((date as IDateTime).kind === DateKind.UTC
-        ? 0 : date.getTimezoneOffset() * -60000);
+      ? 0 : date.getTimezoneOffset() * -60000);
 }
 
 export function dateOffsetToString(offset: number) {
@@ -166,8 +166,8 @@ export function dateOffsetToString(offset: number) {
   const hours = ~~(offset / 3600000);
   const minutes = (offset % 3600000) / 60000;
   return (isMinus ? "-" : "+") +
-          padWithZeros(hours, 2) + ":" +
-          padWithZeros(minutes, 2);
+    padWithZeros(hours, 2) + ":" +
+    padWithZeros(minutes, 2);
 }
 
 export function dateToHalfUTCString(date: IDateTime, half: "first" | "second") {
@@ -183,14 +183,14 @@ function dateToISOString(d: IDateTime, utc: boolean) {
   } else {
     // JS Date is always local
     const printOffset = d.kind == null ? true : d.kind === DateKind.Local;
-    return  padWithZeros(d.getFullYear(), 4) + "-" +
-            padWithZeros(d.getMonth() + 1, 2)    + "-" +
-            padWithZeros(d.getDate(), 2)     + "T" +
-            padWithZeros(d.getHours(), 2)    + ":" +
-            padWithZeros(d.getMinutes(), 2)  + ":" +
-            padWithZeros(d.getSeconds(), 2)  + "." +
-            padWithZeros(d.getMilliseconds(), 3) +
-            (printOffset ? dateOffsetToString(d.getTimezoneOffset() * -60000) : "");
+    return padWithZeros(d.getFullYear(), 4) + "-" +
+      padWithZeros(d.getMonth() + 1, 2) + "-" +
+      padWithZeros(d.getDate(), 2) + "T" +
+      padWithZeros(d.getHours(), 2) + ":" +
+      padWithZeros(d.getMinutes(), 2) + ":" +
+      padWithZeros(d.getSeconds(), 2) + "." +
+      padWithZeros(d.getMilliseconds(), 3) +
+      (printOffset ? dateOffsetToString(d.getTimezoneOffset() * -60000) : "");
   }
 }
 
@@ -275,23 +275,12 @@ export function int32ToString(i: number, radix?: number) {
 }
 
 export function toString(obj: any, quoteStrings = false): string {
-  if (obj == null) {
-    return String(obj);
-  }
   switch (typeof obj) {
-    case "number":
-    case "boolean":
-    case "symbol":
-    case "undefined":
-      return String(obj);
     case "string":
       return quoteStrings ? JSON.stringify(obj) : obj;
     case "function":
       return obj.name;
     case "object":
-      // if (typeof obj.ToString === "function") {
-      //   return obj.ToString();
-      // }
       // TODO: Print some elements of iterables?
       if (isPlainObject(obj) || Array.isArray(obj)) {
         try {
@@ -312,6 +301,9 @@ export function toString(obj: any, quoteStrings = false): string {
       } else {
         return obj instanceof Date ? dateToString(obj) : String(obj);
       }
+    // number|boolean|symbol|null|undefined:
+    default:
+      return String(obj);
   }
 }
 
@@ -442,6 +434,8 @@ export function equals(x: any, y: any): boolean {
     return true;
   } else if (x == null) {
     return y == null;
+  } else if (y == null) {
+    return false;
   } else if (typeof x !== "object") {
     return false;
   } else if (typeof x.Equals === "function") {
@@ -449,7 +443,7 @@ export function equals(x: any, y: any): boolean {
   } else if (isArray(x)) {
     return isArray(y) && equalArrays(x, y);
   } else if (x instanceof Date) {
-    return y instanceof Date && compareDates(x, y) === 0;
+    return (y instanceof Date) && compareDates(x, y) === 0;
   } else {
     return false;
   }
@@ -519,6 +513,8 @@ export function compare(x: any, y: any): number {
     return 0;
   } else if (x == null) {
     return y == null ? 0 : -1;
+  } else if (y == null) {
+    return 1;
   } else if (typeof x !== "object") {
     return x < y ? -1 : 1;
   } else if (typeof x.CompareTo === "function") {
@@ -526,7 +522,7 @@ export function compare(x: any, y: any): number {
   } else if (isArray(x)) {
     return isArray(y) && compareArrays(x, y);
   } else if (x instanceof Date) {
-    return y instanceof Date && compareDates(x, y);
+    return (y instanceof Date) && compareDates(x, y);
   } else {
     return 1;
   }
