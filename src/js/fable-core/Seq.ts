@@ -542,7 +542,7 @@ export function rangeChar(first: string, last: string) {
   return delay(() => unfold((x) => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null, first));
 }
 
-export function rangeLong(first: Long, step: Long, last: Long, unsigned?: boolean) {
+export function rangeLong(first: Long, step: Long, last: Long, unsigned: boolean) {
   const stepFn = makeRangeStepFunction(step, last, unsigned);
   return delay(() => unfold(stepFn as any, first));
 }

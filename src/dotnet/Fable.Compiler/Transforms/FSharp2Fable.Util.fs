@@ -300,7 +300,7 @@ module Patterns =
         | _ -> None
 
     let (|ForOf|_|) = function
-        | Let((_, value), // Coertion to seq
+        | Let((_, value), // Coercion to seq
               Let((_, Call(None, meth, _, [], [])),
                 TryFinally(
                   WhileLoop(_,

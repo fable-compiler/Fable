@@ -2,6 +2,8 @@ module Fable.Tests.Reflection
 
 open Util.Testing
 
+#if !OPTIMIZE_FCS
+
 type TestType =
     | Union1 of string
 
@@ -468,3 +470,7 @@ let tests =
         @ reflectionTests
         @ injectTests
     )
+
+#else // OPTIMIZE_FCS
+let tests = testList "Reflection tests" []
+#endif

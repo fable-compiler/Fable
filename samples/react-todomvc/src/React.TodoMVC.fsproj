@@ -8,7 +8,7 @@
     <Compile Include="React.TodoMVC.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="2.0.0-beta-001" />
+    <PackageReference Include="Fable.Core" Version="2.0.0" />
     <PackageReference Include="Fable.Import.Browser" Version="1.1.2" />
   </ItemGroup>
 </Project>
