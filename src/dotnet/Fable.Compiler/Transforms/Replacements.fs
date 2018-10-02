@@ -183,15 +183,6 @@ let (|ListLiteral|_|) e =
     | Value(NewList(Some(head, tail), t)) -> untail t [head] tail
     | _ -> None
 
-/// Try to uncurry lambdas at compile time in dynamic assignments
-let (|MaybeLambdaUncurriedAtCompileTime|) = function
-    | LambdaUncurriedAtCompileTime None lambda -> lambda
-    | e -> e
-
-let (|MaybeAsInterface|) = function
-    | DelayedResolution(AsInterface(e,_,_),_,_) -> e
-    | e -> e
-
 let (|IDictionary|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
         match ent.TryFullName with
@@ -342,10 +333,10 @@ let toFloat com (ctx: Context) r targetType (args: Expr list) =
                     | Number Decimal -> "toDecimal"
                     | _ -> failwith "Unexpected BigInt conversion"
         Helper.CoreCall("BigInt", meth, Number Float64, args)
-    | Number _ | Char | EnumType(NumberEnumType,_) -> args.Head
+    | Number _ | Char | EnumType(NumberEnumType,_) -> TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion at compile time because source type is unknown"
-        args.Head
+        TypeCast(args.Head, targetType)
 
 // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
 let fastIntFloor expr =
@@ -401,10 +392,9 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
         | Number UInt8 -> emitJs None targetType args "$0 & 0xFF"
         | Number UInt16 -> emitJs None targetType args "$0 & 0xFFFF"
         | Number UInt32 -> emitJs None targetType args "$0 >>> 0"
-        // TODO: Use Cast(args.Head, targetType) for these cases (more below)?
-        | Number Float32 -> args.Head
-        | Number Float64 -> args.Head
-        | Number Decimal -> args.Head
+        | Number Float32 -> TypeCast(args.Head, targetType)
+        | Number Float64 -> TypeCast(args.Head, targetType)
+        | Number Decimal -> TypeCast(args.Head, targetType)
         | _ -> failwithf "Unexpected non-number type %A" typeTo
     let castBigIntMethod typeTo =
         match typeTo with
@@ -422,7 +412,7 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
         | Number Decimal -> "toDecimal"
         | _ -> failwithf "Unexpected non-number type %A" typeTo
     match sourceType with
-    | EnumType(NumberEnumType,_) -> args.Head
+    | EnumType(NumberEnumType,_) -> TypeCast(args.Head, targetType)
     | Char -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
     | String ->
         match targetType with
@@ -449,11 +439,10 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
             |> emitCast typeTo
         | Builtin (BclUInt64|BclInt64 as kind) ->
             emitLong (kind = BclUInt64) [args.Head]
-        | Number _ -> args.Head
-        | _ -> args.Head
+        | _ -> TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion at compile time because source type is unknown"
-        args.Head
+        TypeCast(args.Head, targetType)
 
 let arrayCons (com: ICompiler) genArg =
     match genArg with
@@ -494,19 +483,15 @@ let stringToCharArray t e =
 let enumerator2iterator (e: Expr) =
     Helper.CoreCall("Seq", "toIterator", e.Type, [e])
 
-let toSeq r t (e: Expr) =
+let toSeq t (e: Expr) =
     match e.Type with
-    // Delay resolution for a chance to optimize a list into an array
-    | List _ ->
-        let kind = AsInterface(e, id, Types.ienumerableGeneric)
-        DelayedResolution(kind, t, r)
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
-    | _ -> e
+    | _ -> TypeCast(e, t)
 
 let iterate r ident body (xs: Expr) =
     let f = Function(Delegate [ident], body, None)
-    Helper.CoreCall("Seq", "iterate", Unit, [f; toSeq r xs.Type xs], ?loc=r)
+    Helper.CoreCall("Seq", "iterate", Unit, [f; toSeq xs.Type xs], ?loc=r)
 
 let (|ListSingleton|) x = [x]
 
@@ -812,11 +797,11 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
     | Value(Enum(NumberEnum(Value(NumberConstant(rule, _))), _)) ->
         let caseRule = enum(int rule)
         match keyValueList with
-        | MaybeAsInterface(Value(NewArray(ArrayValues ms, _)) | ListLiteral(ms, _)) ->
+        | MaybeCasted(Value(NewArray(ArrayValues ms, _)) | ListLiteral(ms, _)) ->
             (ms, Some []) ||> List.foldBack (fun m acc ->
                 match acc, m with
                 // Try to get the member key and value at compile time for unions and tuples
-                | Some acc, MaybeAsInterface(Value(NewUnion(values, uci, _, _))) ->
+                | Some acc, MaybeCasted(Value(NewUnion(values, uci, _, _))) ->
                     // Union cases with EraseAttribute are used for `Custom`-like cases
                     match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
                     | Some _ ->
@@ -1053,11 +1038,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.CoreCall("Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "DefaultAsyncBuilder", _ ->
         makeCoreRef t "singleton" "AsyncBuilder" |> Some
-    // Erased operators. TODO: Use Cast?
+    // Erased operators.
     // KeyValuePair is already compiled as a tuple
-    | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), _ -> List.tryHead args
+    | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", [arg]  -> DelayedResolution(AsUnit arg, t, r) |> Some
+    | "Ignore", [arg]  -> TypeCast(arg, Unit) |> Some
     // TODO: Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"), _ ->
         toInt com ctx r false t args |> Some
@@ -1065,7 +1050,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         toFloat com ctx r t args |> Some
     | "ToChar", _ -> toChar args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
-    | "CreateSequence", [xs] -> toSeq r t xs |> Some
+    | "CreateSequence", [xs] -> toSeq t xs |> Some
     | "CreateDictionary", [arg] -> makeDictionary com r t arg |> Some
     | "CreateSet", _ -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com r t "OfSeq" args |> Some
     // Ranges
@@ -1339,7 +1324,7 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
         Helper.CoreCall("String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let getEnumerator r t expr =
-    Helper.CoreCall("Seq", "getEnumerator", t, [toSeq r Any expr], ?loc=r)
+    Helper.CoreCall("Seq", "getEnumerator", t, [toSeq Any expr], ?loc=r)
 
 let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let sort r returnType descending projection args genArg =
@@ -1363,7 +1348,7 @@ let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
     | ("Cache"|"ToArray"), [arg] -> toArray com t arg |> Some
-    | "OfList", [arg] -> toSeq r t arg |> Some
+    | "OfList", [arg] -> toSeq t arg |> Some
     | "ToList", _ -> Helper.CoreCall("List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ChunkBySize" | "Permute" as meth, [arg1; arg2] ->
         let arg2 = toArray com (Array Any) arg2
@@ -1539,7 +1524,7 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
         NewList(Some(x, Value(NewList(None, t))), (genArg com ctx r 0 i.GenericArgs)) |> Value |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
-    | "ToSeq", [x] -> toSeq r t x |> Some
+    | "ToSeq", [x] -> toSeq t x |> Some
     | "ToArray", [x] -> listToArray com r t x |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
@@ -1602,7 +1587,7 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t) |> Value |> Some
     | "GetValue", [c] -> Get(c, OptionValue, t, r) |> Some
-    | ("OfObj" | "OfNullable"), [c] -> Some c // TODO: Call function to keep type?
+    | ("OfObj" | "OfNullable"), [c] -> TypeCast(c, t) |> Some
     | ("ToObj" | "ToNullable" | "Flatten"), [c] ->
         Helper.CoreCall("Option", "value", t, [c; makeBoolConst true], ?loc=r) |> Some
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
@@ -2121,8 +2106,8 @@ let timeSpans (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
     | ".ctor" -> Helper.CoreCall("TimeSpan", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "FromMilliseconds" -> args.Head |> Some
-    | "get_TotalMilliseconds" -> thisArg.Value |> Some
+    | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
+    | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t) |> Some
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.CoreCall("TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some

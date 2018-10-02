@@ -253,6 +253,15 @@ module AST =
             |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type)))
         | _ -> uncurryLambdaInner None [] arity expr
 
+    let (|MaybeCasted|) = function
+        | TypeCast(e,_) -> e
+        | e -> e
+
+    /// Try to uncurry lambdas at compile time in dynamic assignments
+    let (|MaybeLambdaUncurriedAtCompileTime|) = function
+        | MaybeCasted(LambdaUncurriedAtCompileTime None lambda) -> lambda
+        | e -> e
+
     /// When referenced multiple times, is there a risk of double evaluation?
     let rec hasDoubleEvalRisk = function
         | IdentExpr id -> id.IsMutable

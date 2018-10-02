@@ -258,14 +258,13 @@ type ObjectMember =
     | ObjectMember of key: Expr * value: Expr * ObjectMemberKind
 
 type DelayedResolutionKind =
-    | AsInterface of source: Expr * cast: (Expr->Expr) * interfaceFullName: string
     | AsPojo of Expr * caseRules: Expr
-    | AsUnit of Expr
     | Curry of Expr * arity: int
 
 type Expr =
     | Value of ValueKind
     | IdentExpr of Ident
+    | TypeCast of Expr * Type
     /// Some expressions must be resolved in the last pass for better optimization (e.g. list to seq cast)
     | DelayedResolution of DelayedResolutionKind * Type * SourceLocation option
     | Import of selector: Expr * path: Expr * ImportKind * Type * SourceLocation option
@@ -296,7 +295,7 @@ type Expr =
         | Test _ -> Boolean
         | Value kind -> kind.Type
         | IdentExpr id -> id.Type
-        | Import(_,_,_,t,_) | DelayedResolution(_,t,_) | ObjectExpr(_,t,_)
+        | TypeCast(_,t) | Import(_,_,_,t,_) | DelayedResolution(_,t,_) | ObjectExpr(_,t,_)
         | Operation(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | DecisionTreeSuccess(_,_,t) -> t
         | Debugger | Set _ | Loop _ -> Unit
         | Sequential exprs -> (List.last exprs).Type
@@ -312,6 +311,6 @@ type Expr =
         | ObjectExpr _ | Debugger | Sequential _ | Let _
         | IfThenElse _ | TryCatch _ | DecisionTree _ | DecisionTreeSuccess _ -> None
 
-        | Function(_,body,_) -> body.Range
+        | Function(_,e,_) | TypeCast(e,_) -> e.Range
         | IdentExpr id -> id.Range
         | Test(_,_,r) | Operation(_,_,r) | Get(_,_,_,r) | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r

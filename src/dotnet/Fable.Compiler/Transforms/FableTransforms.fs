@@ -8,6 +8,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 let visit f e =
     match e with
     | IdentExpr _ | Debugger _ -> e
+    | TypeCast(e, t) -> TypeCast(f e, t)
     | Import(e1, e2, kind, t, r) -> Import(f e1, f e2, kind, t, r)
     | Value kind ->
         match kind with
@@ -32,9 +33,7 @@ let visit f e =
     | Test(e, kind, r) -> Test(f e, kind, r)
     | DelayedResolution(kind, t, r) ->
         match kind with
-        | AsInterface(e, cast, name) -> DelayedResolution(AsInterface(f e, cast, name), t, r)
         | AsPojo(e1, e2) -> DelayedResolution(AsPojo(f e1, f e2), t, r)
-        | AsUnit e -> DelayedResolution(AsUnit(f e), t, r)
         | Curry(e, arity) -> DelayedResolution(Curry(f e, arity), t, r)
     | Function(kind, body, name) -> Function(kind, f body, name)
     | ObjectExpr(members, t, baseCall) ->
@@ -107,6 +106,7 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
 
 let getSubExpressions = function
     | IdentExpr _ | Debugger _ -> []
+    | TypeCast(e,_) -> [e]
     | Import(e1,e2,_,_,_) -> [e1;e2]
     | Value kind ->
         match kind with
@@ -127,7 +127,7 @@ let getSubExpressions = function
     | Test(e, _, _) -> [e]
     | DelayedResolution(kind, _, _) ->
         match kind with
-        | AsInterface(e,_,_) | AsUnit e | Curry(e,_) -> [e]
+        | Curry(e,_) -> [e]
         | AsPojo(e1, e2) -> [e1; e2]
     | Function(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
@@ -310,7 +310,7 @@ module private Transforms =
             // Remove currying for dynamic operations (no arity)
             | None -> true
         match expr, expr with
-        | LambdaUncurriedAtCompileTime arity lambda, _ -> lambda
+        | MaybeCasted(LambdaUncurriedAtCompileTime arity lambda), _ -> lambda
         | _, DelayedResolution(Curry(innerExpr, arity2),_,_)
             when matches arity arity2 -> innerExpr
         | _, Get(DelayedResolution(Curry(innerExpr, arity2),_,_), OptionValue, t, r)

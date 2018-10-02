@@ -106,7 +106,7 @@ module Util =
     let rec isJsStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
         | Fable.Value _ | Fable.Import _ | Fable.DelayedResolution _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
-        | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ -> false
+        | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ | Fable.TypeCast _ -> false
 
         | Fable.TryCatch _ | Fable.Debugger
         | Fable.Sequential _ | Fable.Let _ | Fable.Set _
@@ -360,16 +360,19 @@ module Util =
             |> getParts parts
         | _ -> "Import expressions only accept string literals" |> addErrorAndReturnNull com r
 
-    let transformDelayedResolution (com: IBabelCompiler) (ctx: Context) r kind: Expression =
-        match kind with
-        | Fable.AsInterface(expr, cast, interfaceFullName) ->
-            match expr, interfaceFullName with
-            | Replacements.ListLiteral(exprs, _), Types.ienumerableGeneric ->
+    let transformCast (com: IBabelCompiler) (ctx: Context) t e: Expression =
+        match t with
+        | Fable.DeclaredType(ent,[_]) when ent.TryFullName = Some Types.ienumerableGeneric ->
+            match e with
+            | Replacements.ListLiteral(exprs, _) ->
                 // Use type Any to prevent creation of a typed array
                 makeTypedArray com ctx Fable.Any (Fable.ArrayValues exprs)
-            | _ -> com.TransformAsExpr(ctx, cast expr)
+            | _ -> com.TransformAsExpr(ctx, e)
+        | _ -> com.TransformAsExpr(ctx, e)
+
+    let transformDelayedResolution (com: IBabelCompiler) (ctx: Context) r kind: Expression =
+        match kind with
         | Fable.AsPojo(expr, caseRule) -> com.TransformAsExpr(ctx, Replacements.makePojo com r caseRule expr)
-        | Fable.AsUnit expr -> com.TransformAsExpr(ctx, expr)
         | Fable.Curry(expr, arity) -> com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime arity expr)
 
     let rec hasRecursiveTypes com acc t =
@@ -622,8 +625,8 @@ module Util =
     let transformArgs (com: IBabelCompiler) ctx args spread =
         match args, spread with
         | [], _
-        | [Fable.Value Fable.UnitConstant], _ -> []
-        | [Fable.Value(Fable.NewTuple args)], Fable.TupleSpread ->
+        | [MaybeCasted(Fable.Value Fable.UnitConstant)], _ -> []
+        | [MaybeCasted(Fable.Value(Fable.NewTuple args))], Fable.TupleSpread ->
             List.map (fun e -> com.TransformAsExpr(ctx, e)) args
         | args, Fable.SeqSpread ->
             match List.rev args with
@@ -1057,6 +1060,8 @@ module Util =
 
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
+        | Fable.TypeCast(e,t) -> transformCast com ctx t e
+
         | Fable.DelayedResolution(kind, _, r) -> transformDelayedResolution com ctx r kind
 
         | Fable.Value kind -> transformValue com ctx kind
@@ -1113,6 +1118,9 @@ module Util =
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =
         match expr with
+        | Fable.TypeCast(e, t) ->
+            [|transformCast com ctx t e |> resolveExpr t returnStrategy|]
+
         | Fable.DelayedResolution(kind, t, r) ->
             [|transformDelayedResolution com ctx r kind |> resolveExpr t returnStrategy|]
 

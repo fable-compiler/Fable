@@ -241,14 +241,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.Coerce(targetType, inpExpr) ->
         let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr
+        let t = makeType com ctx.GenericArgs targetType
         match tryDefinition targetType with
-        | Some(interfaceEntity, Some interfaceFullName) when interfaceEntity.IsInterface ->
-            match interfaceFullName with
-            | Types.ienumerableGeneric | Types.ienumerable ->
-                let targetType = makeType com ctx.GenericArgs targetType
-                return Replacements.toSeq (makeRangeFrom fsExpr) targetType inpExpr
-            | _ -> return inpExpr
-        | _ -> return inpExpr
+        | Some(_, Some (Types.ienumerableGeneric | Types.ienumerable)) ->
+            return Replacements.toSeq t inpExpr
+        | _ -> return Fable.TypeCast(inpExpr, t)
 
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"

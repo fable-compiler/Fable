@@ -103,11 +103,11 @@ let tests =
         dynObj?fn()?subtract(3,2) |> equal 1
         // Using $ operator
         dynObj?add $ (2,2) |> equal 4
-        dynObj?foo |> unbox |> equal "foo"
+        dynObj?foo |> equal "foo"
         // Delegates are not modified when applied dynamically
         let del = Func<_,_,_>(fun x y -> y - x)
-        dynObj?apply(del) |> unbox |> equal 1
-        dynObj?apply(Func<_,_,_>(fun x y -> x - y)) |> unbox |> equal -1
+        dynObj?apply(del) |> equal 1
+        dynObj?apply(Func<_,_,_>(fun x y -> x - y)) |> equal -1
 
         // TODO: This doesn't work in Fable 2, fix it or leave it as is?
         // Assigning dynamic access result to a value and applying multiple args
