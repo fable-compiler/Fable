@@ -1,3 +1,9 @@
+### 2.0.2
+
+* Fix #1583: Generated idents must always be unique
+* Fix #1582: Enable Seq.sum(By)/average(By) with custom types
+* Fixes for optimization switch @ncave
+
 ### 2.0.1
 
 * Fix sorting of Fable dependencies
