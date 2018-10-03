@@ -175,18 +175,23 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
       return Fable.ObjectExpr(members |> List.concat, makeType com ctx.GenericArgs objType, baseCall)
     }
 
-// TODO: Check code in Fable 1 and which tests fail because
-// we're not checking special cases
+// TODO: Fix Action and Func tests in ConvertTests
 let private transformDelegate com ctx delegateType expr =
   trampoline {
     let! expr = transformExpr com ctx expr
-    match makeType com ctx.GenericArgs delegateType with
-    | Fable.FunctionType(Fable.DelegateType argTypes, _) ->
-        let arity = List.length argTypes
-        match expr with
-        | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
-        | _ -> return Replacements.uncurryExprAtRuntime arity expr
-    | _ -> return expr
+    match tryDefinition delegateType with
+    // Special cases: Action and Func with less generic arguments than expecte
+    // | Some(_, Some "System.Action")
+    | Some(_, Some "System.Func`1") ->
+        return expr
+    | _ ->
+        match makeType com ctx.GenericArgs delegateType with
+        | Fable.FunctionType(Fable.DelegateType argTypes, _) ->
+            let arity = List.length argTypes
+            match expr with
+            | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
+            | _ -> return Replacements.uncurryExprAtRuntime arity expr
+        | _ -> return expr
   }
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r

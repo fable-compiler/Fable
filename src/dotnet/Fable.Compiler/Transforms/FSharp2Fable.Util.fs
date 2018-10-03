@@ -449,30 +449,17 @@ module TypeHelpers =
         |> Seq.toList
 
     and makeTypeFromDelegate com ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) (fullName: string) =
-        if fullName.StartsWith("System.Action") then
-            let argTypes =
-                match Seq.tryHead genArgs with
-                | Some genArg -> [makeType com ctxTypeArgs genArg]
-                | None -> [Fable.Unit]
-            Fable.FunctionType(Fable.DelegateType argTypes, Fable.Unit)
-        elif fullName.StartsWith("System.Func") then
-            let argTypes, returnType =
-                match genArgs.Count with
-                | 0 -> [Fable.Unit], Fable.Unit
-                | 1 -> [Fable.Unit], makeType com ctxTypeArgs genArgs.[0]
-                | c -> Seq.take (c-1) genArgs |> Seq.map (makeType com ctxTypeArgs) |> Seq.toList,
-                        makeType com ctxTypeArgs genArgs.[c-1]
-            Fable.FunctionType(Fable.DelegateType argTypes, returnType)
-        else
-            try
-                let argTypes =
-                    tdef.FSharpDelegateSignature.DelegateArguments
-                    |> Seq.map (snd >> makeType com ctxTypeArgs) |> Seq.toList
-                let returnType =
-                    makeType com ctxTypeArgs tdef.FSharpDelegateSignature.DelegateReturnType
-                Fable.FunctionType(Fable.DelegateType argTypes, returnType)
-            with _ -> // TODO: Log error here?
-                Fable.FunctionType(Fable.DelegateType [Fable.Any], Fable.Any)
+        // tdef.FSharpDelegateSignature doesn't work with types coming f
+        let invokeMember =
+            tdef.MembersFunctionsAndValues
+            |> Seq.find (fun f -> f.DisplayName = "Invoke")
+        let argTypes =
+            invokeMember.CurriedParameterGroups.[0]
+            |> Seq.map (fun p -> makeType com ctxTypeArgs p.Type) |> Seq.toList
+        let returnType =
+            invokeMember.ReturnParameter.Type
+            |> makeType com ctxTypeArgs
+        Fable.FunctionType(Fable.DelegateType argTypes, returnType)
 
     and makeTypeFromDef (com: ICompiler) ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         match getEntityFullName tdef, tdef with

@@ -176,6 +176,13 @@ let tests =
         li.Sort(fun x y -> if x > y then -1 elif x < y then 1 else 0)
         equal 4. li.[3]
 
+    testCase "ResizeArray.SortInPlaceWith works with custom comparison function" <| fun () -> // See #1386
+        let ns = ResizeArray<int> [1;3;2]
+        ns.Sort(fun x y -> if x < y then 1 else -1)
+        Seq.toList ns |> equal [3; 2; 1]
+        ns.Sort(compare)
+        Seq.toList ns |> equal [1;2;3]
+
     testCase "ResizeArray.ToArray works" <| fun () ->
         let li = ResizeArray<_>()
         li.Add(3.); li.Add(6.); li.Add(5.); li.Add(4.); li.Add(8.)
