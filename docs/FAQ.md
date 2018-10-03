@@ -31,10 +31,16 @@ You can define compilation directives using the `define` option in your Fable cl
 Fable emits a warning on incomplete pattern matching expressions by default. To turn this particular warning into an error, add the following block to your project file:
 
 ```xml
-<PropertyGroup>
-  <!-- FS0025: Incomplete pattern matches on this expression. -->
-  <WarningsAsErrors>25</WarningsAsErrors>
-</PropertyGroup>
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- ... -->
+
+  <PropertyGroup>
+    <!-- FS0025: Incomplete pattern matches on this expression. -->
+    <WarningsAsErrors>25</WarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- ... -->
+</Project>
 ```
 
 This setting will not only make your compilation process fail on the command line, but will also make your IDE show an error at the location in the source code.
