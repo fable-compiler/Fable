@@ -52,8 +52,3 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-
-let test() =
-    let ts = TimeSpan.FromMilliseconds(300.)
-    let ms = int ts.TotalMilliseconds
-    ms

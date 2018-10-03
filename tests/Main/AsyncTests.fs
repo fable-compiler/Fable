@@ -18,6 +18,10 @@ let cancelWork: Async<string> = Async.FromContinuations(fun (_,_,onCancel) ->
 
 type Message = string * AsyncReplyChannel<string>
 
+type Get =
+    | GetZero of replyChannel: AsyncReplyChannel<int>
+    | GetOne of replyChannel: AsyncReplyChannel<int>
+
 let tests =
   testList "Async" [
     testCase "Simple async translates without exception" <| fun () ->
@@ -262,6 +266,30 @@ let tests =
             equal "Msg: 0 - Hi" resp
             let! resp = agent.PostAndAsyncReply(fun replyChannel -> "Bye", replyChannel)
             equal "Msg: 1 - Bye" resp
+        }
+
+    testCaseAsync "MailboxProcessor.postAndAsyncReply works with falsy values" <| fun () -> // See #1588
+        async {
+            let agent = MailboxProcessor.Start(fun inbox ->
+                let rec loop () =
+                    async {
+                        let! msg = inbox.Receive()
+                        match msg with
+                        | GetZero replyChannel ->
+                            // printfn "Replying 0"
+                            replyChannel.Reply 0
+                            return! loop ()
+                        | GetOne replyChannel ->
+                            // printfn "Replying 1"
+                            replyChannel.Reply 1
+                            return! loop ()
+                    }
+                loop () )
+
+            let! resp = agent.PostAndAsyncReply(GetOne)
+            equal 1 resp
+            let! resp = agent.PostAndAsyncReply(GetZero)
+            equal 0 resp
         }
 
     testCase "Async try .. with returns correctly from 'with' branch" <| fun () ->
