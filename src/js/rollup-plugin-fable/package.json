@@ -30,7 +30,7 @@
     "prettier": "1.1.0"
   },
   "peerDependencies": {
-    "babel-core": "^6.24.1"
+    "@babel/core": "^7.0.0"
   },
   "dependencies": {
     "fable-utils": "^1.0.4",
