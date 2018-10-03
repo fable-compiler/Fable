@@ -1,7 +1,7 @@
 /// @ts-check
 
 const path = require('path');
-const babel = require('babel-core');
+const babel = require('@babel/core');
 const fableUtils = require ("fable-utils");
 const { createFilter } = require('rollup-pluginutils');
 
