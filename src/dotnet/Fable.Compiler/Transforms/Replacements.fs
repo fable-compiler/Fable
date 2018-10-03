@@ -1712,7 +1712,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         | _ -> None
     | _,_ -> None
 
-let bigints (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName with
     | None, ".ctor" ->
         match i.SignatureArgTypes with
@@ -1720,6 +1720,13 @@ let bigints (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
             Helper.CoreCall("BigInt", "fromInt64", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
             Helper.CoreCall("BigInt", "fromInt32", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | None, "op_Explicit" ->
+        match t with
+        | Number Integer | Builtin(BclInt64|BclUInt64) ->
+            toInt com ctx r false t args |> Some
+        | Number Float ->
+            toFloat com ctx r t args |> Some
+        | _ -> None
     | None, meth ->
         Helper.CoreCall("BigInt", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | Some callee, meth ->
@@ -2281,7 +2288,6 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     | "get_CancellationToken" -> Helper.CoreCall("Async", "cancellationToken", t, [], ?loc=r) |> Some
     // `catch` cannot be used as a function name in JS
     | "Catch" -> Helper.CoreCall("Async", "catchAsync", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "MakeAsync" -> Helper.CoreCall("Async", "start", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Fable.Core extensions
     | meth -> Helper.CoreCall("Async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 

@@ -314,6 +314,18 @@ module Patterns =
             when meth.CompiledName = "GetEnumerator" ->
             // when meth.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" ->
             Some(ident, value, body)
+        // optimized "for x in list"
+        | Let((_, UnionCaseGet(value, typ, unionCase, field)),
+                WhileLoop(_, Let((ident, _), body)))
+            when (getFsTypeFullName typ) = Types.list
+                && unionCase.Name = "op_ColonColon" && field.Name = "Tail" ->
+            Some (ident, value, body)
+        // optimized "for _x in list"
+        | Let((ident, UnionCaseGet(value, typ, unionCase, field)),
+                WhileLoop(_, body))
+            when (getFsTypeFullName typ) = Types.list
+                && unionCase.Name = "op_ColonColon" && field.Name = "Tail" ->
+            Some (ident, value, body)
         | _ -> None
 
     let (|PrintFormat|_|) fsExpr =

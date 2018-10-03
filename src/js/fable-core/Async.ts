@@ -17,6 +17,23 @@ function emptyContinuation<T>(x: T) {
   // NOP
 }
 
+// MakeAsync: body:(AsyncActivation<'T> -> AsyncReturn) -> Async<'T>
+export function makeAsync<T>(body: IAsync<T>) {
+  return body;
+}
+// Invoke: computation: Async<'T> -> ctxt:AsyncActivation<'T> -> AsyncReturn
+export function invoke<T>(computation: IAsync<T>, ctx: IAsyncContext<T>) {
+  return computation(ctx);
+}
+// CallThenInvoke: ctxt:AsyncActivation<'T> -> result1:'U -> part2:('U -> Async<'T>) -> AsyncReturn
+export function callThenInvoke<T, U>(ctx: IAsyncContext<T>, result1: U, part2: (x: U) => IAsync<T>) {
+  return part2(result1)(ctx);
+}
+// Bind: ctxt:AsyncActivation<'T> -> part1:Async<'U> -> part2:('U -> Async<'T>) -> AsyncReturn
+export function bind<T, U>(ctx: IAsyncContext<T>, part1: IAsync<U>, part2: (x: U) => IAsync<T>) {
+  return protectedBind(part1, part2)(ctx);
+}
+
 export function createCancellationToken(arg?: boolean|number): CancellationToken {
   const token = { isCancelled: false };
   if (typeof arg === "number") {

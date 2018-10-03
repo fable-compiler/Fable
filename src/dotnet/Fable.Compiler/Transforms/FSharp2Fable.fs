@@ -536,6 +536,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return "Internal constructor with inheritance are not supported"
             |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
+    // work-around for optimized "for x in list" (erases this sequential)
+    | BasicPatterns.Sequential (BasicPatterns.ValueSet (current, BasicPatterns.Value next1),
+                                (BasicPatterns.ValueSet (next2, BasicPatterns.UnionCaseGet
+                                    (_value, typ, unionCase, field))))
+            when next1.FullName = "next" && next2.FullName = "next"
+                && current.FullName = "current" && (getFsTypeFullName typ) = Types.list
+                && unionCase.Name = "op_ColonColon" && field.Name = "Tail" ->
+        // replace with nothing
+        return Fable.Value Fable.UnitConstant
+
     | BasicPatterns.Sequential (first, second) ->
         let! first = transformExpr com ctx first
         let! second = transformExpr com ctx second
