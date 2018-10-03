@@ -33,7 +33,7 @@
     "@babel/core": "^7.0.0"
   },
   "dependencies": {
-    "fable-utils": "^1.0.4",
-    "rollup-pluginutils": "2.0.1"
+    "fable-utils": "^1.1.0",
+    "rollup-pluginutils": "^2.3.3"
   }
 }
