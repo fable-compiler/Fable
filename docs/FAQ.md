@@ -26,6 +26,21 @@ printfn "only printing in production bundle"
 
 You can define compilation directives using the `define` option in your Fable client. Latest [fable-loader](https://www.npmjs.com/package/fable-loader) will automatically define `DEBUG` when running Webpack in development mode.
 
+#### How can I make the compilation fail on incomplete pattern matches?
+
+Fable emits a warning on incomplete pattern matching expressions by default. To turn this particular warning into an error, add the following block to your project file:
+
+```xml
+<PropertyGroup>
+  <!-- FS0025: Incomplete pattern matches on this expression. -->
+  <WarningsAsErrors>25</WarningsAsErrors>
+</PropertyGroup>
+```
+
+This setting will not only make your compilation process fail on the command line, but will also make your IDE show an error at the location in the source code.
+
+To turn more warnings into errors, separate them with commas or semicolons.
+
 #### How are numbers compiled to JS?
 
 All numeric types including decimal become `JS number` (64-bit floating type), except for longs and big integers. Tom Clarke has documented in much more detail the differences in numeric types between .NET and JS, [check it out](../docs/numbers.md).
