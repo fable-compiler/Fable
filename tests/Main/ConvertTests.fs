@@ -88,6 +88,7 @@ let tests =
 
     testCase "System.Int64.Parse works" <| fun () ->
         Int64.Parse("5") |> equal 5L
+        Int64.Parse("-5") |> equal -5L
         (fun () -> Int64.Parse("5f")) |> throwsError ""
 
     testCase "System.Int64.Parse with hex works" <| fun () ->

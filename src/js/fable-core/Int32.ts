@@ -1,12 +1,14 @@
 const parseRadix = /^\s*([\+\-])?(0[xXoObB])?([0-9a-fA-F]+)\s*$/;
-const invalidRadix2 = /[^01]/;
+const invalidRadix2 = /[^0-1]/;
 const invalidRadix8 = /[^0-7]/;
 const invalidRadix10 = /[^0-9]/;
+const invalidRadix16 = /[^0-9a-fA-F]/;
 
 function validResponse(regexMatch: RegExpExecArray, radix: number) {
-  const [, prefix, , digits] = regexMatch;
+  const [_all, sign, prefix, digits] = regexMatch;
   return {
-    prefix: prefix || "",
+    sign: sign || "",
+    prefix,
     digits,
     radix,
   };
@@ -31,7 +33,7 @@ export function isValid(s: string, radix?: number) {
       case 10:
         return invalidRadix10.test(res[3]) ? null : validResponse(res, 10);
       case 16:
-        return validResponse(res, 16);
+        return invalidRadix16.test(res[3]) ? null : validResponse(res, 16);
       default:
         throw new Error("Invalid Base.");
     }
@@ -43,7 +45,7 @@ export function isValid(s: string, radix?: number) {
 export function tryParse(s: string | null, radix?: number, initial?: number): [boolean, number] {
   const res = isValid(s, radix);
   if (res !== null) {
-    const v = parseInt(res.prefix + res.digits, res.radix);
+    const v = parseInt(res.sign + res.digits, res.radix);
     if (!Number.isNaN(v)) {
       return [true, v];
     }
