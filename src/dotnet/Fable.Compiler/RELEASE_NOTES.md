@@ -1,3 +1,11 @@
+### 2.0.3
+
+* Fix #1588: MailboxProcessor.PostAndAsyncReply with falsy values @nilekirk
+* Fix #1586: Parsing signed longs @ncave
+* Fix #1585: Timespan milliseconds to int conversion
+* Fix #1386: Proper convertion to .NET delegates
+* More fixes for optimization switch @ncave
+
 ### 2.0.2
 
 * Fix #1583: Generated idents must always be unique
