@@ -235,7 +235,7 @@ export function fromString(str, unsigned, radix) {
     if (res === null) {
         throw new Error("Input string was not in a correct format.");
     }
-    str = res.prefix + res.digits;
+    str = res.sign + res.digits;
     radix = res.radix;
 
     if (str.length === 0)
@@ -253,8 +253,8 @@ export function fromString(str, unsigned, radix) {
     if (radix < 2 || 36 < radix)
         throw RangeError('radix');
 
-    var p;
-    if ((p = str.indexOf('-')) > 0)
+    var p = str.indexOf('-');
+    if (p > 0)
         throw Error('interior hyphen');
     else if (p === 0) {
         return op_UnaryNegation(fromString(str.substring(1), unsigned, radix));

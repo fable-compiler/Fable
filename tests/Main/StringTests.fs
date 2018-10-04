@@ -238,9 +238,21 @@ let tests =
             equal 'a' (char "a")
             equal "a" (string 'a')
 
-      testCase "Conversion string to int works" <| fun () ->
-            equal 5 (int "5")
-            equal "5" (string 5)
+      testCase "Conversion string to negative int8 works" <| fun () ->
+            equal -5y (int8 "-5")
+            equal "-5" (string -5y)
+
+      testCase "Conversion string to negative int16 works" <| fun () ->
+            equal -5s (int16 "-5")
+            equal "-5" (string -5s)
+
+      testCase "Conversion string to negative int32 works" <| fun () ->
+            equal -5 (int32 "-5")
+            equal "-5" (string -5)
+
+      testCase "Conversion string to negative int64 works" <| fun () ->
+            equal -5L (int64 "-5")
+            equal "-5" (string -5L)
 
       testCase "Conversion string to int8 works" <| fun () ->
             equal 5y (int8 "5")
@@ -276,18 +288,21 @@ let tests =
 
       testCase "Conversion string to single works" <| fun () ->
             equal 5.f (float32 "5.0")
+            equal -5.f (float32 "-5.0")
             (string 5.f).StartsWith("5") |> equal true
             equal 5.25f (float32 "5.25")
             (string 5.25f).StartsWith("5.25") |> equal true
 
       testCase "Conversion string to double works" <| fun () ->
             equal 5. (float "5.0")
+            equal -5. (float "-5.0")
             (string 5.).StartsWith("5") |> equal true
             equal 5.25 (float "5.25")
             (string 5.25).StartsWith("5.25") |> equal true
 
       testCase "Conversion string to decimal works" <| fun () ->
             equal 5.m (decimal "5.0")
+            equal -5.m (decimal "-5.0")
             (string 5.m).StartsWith("5") |> equal true
             equal 5.25m (decimal "5.25")
             (string 5.25m).StartsWith("5.25") |> equal true
