@@ -10,6 +10,35 @@ Make sure the question is not answered already either here or in the documentati
 
 ## Compiler
 
+#### How does Fable work?
+
+Fable has two "hearts" or sides: the .NET side is a daemon (a lightweight TCP server listening by default on port 61225) that waits for messages containing the F# source (.fs) or project (.fsproj) file to parse together with other options, and returns its contents in the form of a [Babel compliant AST](https://github.com/babel/babel/blob/master/packages/babel-parser/ast/spec.md).
+
+On the other side, there is a JS client that takes care of watching the files, communicating with the Fable daemon, resolving npm dependencies and outputting the actual JS code. At the time of writing there are three JS clients for Fable available:
+
+* [fable-loader](https://www.npmjs.com/package/fable-loader) is a plugin for [Webpack](https://webpack.js.org/), a powerful JS bundler with many handy features for development, like live reloading.
+* [rollup-plugin-fable](https://www.npmjs.com/package/rollup-plugin-fable) for [Rollup](https://rollupjs.org/), another bundler focused on tree shaking.
+* [fable-splitter](https://www.npmjs.com/package/fable-splitter) is a standalone tool which, unlike the previous ones, outputs separated files instead of a single bundle.
+
+> All the clients need a configuration file, click the links above for more details.
+
+The usual way to run a JS tool is a [package.json script](https://docs.npmjs.com/misc/scripts), so when you type `npm run build` this will invoke a command named "build" within the "scripts" property of the package.json file. For convenience, you can tell Fable to automatically start the package.json script and stop whenever it finishes:
+
+```shell
+dotnet fable npm-run build
+```
+
+The Fable daemon must be invoked in a directory with an .fsproj including a [dotnet CLI tool reference](https://docs.microsoft.com/en-us/dotnet/core/tools/extensibility#per-project-based-extensibility) to the `dotnet-fable` Nuget package ([how to manage CLI tools with Paket](https://fsprojects.github.io/Paket/nuget-dependencies.html#Special-case-CLI-tools)). Run `dotnet fable --help` to know more about the Fable daemon specific options.
+
+It is also possible to run the Fable daemon and the JS clients separately if necessary:
+
+```shell
+dotnet fable start
+
+# In a different shell
+npm run build
+```
+
 #### Can I use Type Providers with Fable?
 
 Erasure Type Providers compatible with netstandard should be compatible with Fable, however they must generate code that doesn't call .NET APIs unsupported by Fable. At the time of writing there are no Type Providers designed for Fable available.
