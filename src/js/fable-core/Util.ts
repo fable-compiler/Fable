@@ -201,9 +201,8 @@ function dateToISOStringWithOffset(dateWithOffset: Date, offset: number) {
   return str.substring(0, str.length - 1) + dateOffsetToString(offset);
 }
 
-function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) :string {
-  //TODO consider moment.js
-      
+function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean): string {
+  // TODO consider moment.js
   /*
       //This comment from (MIT) corefx/src/Common/src/CoreLib/System/Globalization/DateTimeFormat.cs
 
@@ -265,65 +264,84 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
                   -Unspecified ""
                   -DateTimeOffset      "zzzzz" e.g -07:30:15
             "g*"                the current era name                  A.D.
-            ":"                 time separator                        : -- DEPRECATED - Insert separator directly into pattern (eg: "H.mm.ss")
-            "/"                 date separator                        /-- DEPRECATED - Insert separator directly into pattern (eg: "M-dd-yyyy")
+            ":"                 time separator
+            : -- DEPRECATED - Insert separator directly into pattern (eg: "H.mm.ss")
+            "/"                 date separator
+            /-- DEPRECATED - Insert separator directly into pattern (eg: "M-dd-yyyy")
             "'"                 quoted string                         'ABC' will insert ABC into the formatted string.
             '"'                 quoted string                         "ABC" will insert ABC into the formatted string.
-            "%"                 used to quote a single pattern characters      E.g.The format character "%y" is to print two digit year.
-            "\"                 escaped character                     E.g. '\d' insert the character 'd' into the format string.
+            "%"                 used to quote a single pattern characters      E.g.The format character "%y" is to
+              print two digit year.
+            "\"                 escaped character                     E.g. '\d' insert the character 'd' into the
+              format string.
             other characters    insert the character into the format string.
         Pre-defined format characters:
             (U) to indicate Universal time is used.
             (G) to indicate Gregorian calendar is used.
-            Format              Description                             Real format                             Example
-            =========           =================================       ======================                  =======================
-            "d"                 short date                              culture-specific                        10/31/1999
-            "D"                 long data                               culture-specific                        Sunday, October 31, 1999
-            "f"                 full date (long date + short time)      culture-specific                        Sunday, October 31, 1999 2:00 AM
-            "F"                 full date (long date + long time)       culture-specific                        Sunday, October 31, 1999 2:00:00 AM
-            "g"                 general date (short date + short time)  culture-specific                        10/31/1999 2:00 AM
-            "G"                 general date (short date + long time)   culture-specific                        10/31/1999 2:00:00 AM
-            "m"/"M"             Month/Day date                          culture-specific                        October 31
-    (G)     "o"/"O"             Round Trip XML                          "yyyy-MM-ddTHH:mm:ss.fffffffK"          1999-10-31 02:00:00.0000000Z
-    (G)     "r"/"R"             RFC 1123 date,                          "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'"   Sun, 31 Oct 1999 10:00:00 GMT
-    (G)     "s"                 Sortable format, based on ISO 8601.     "yyyy-MM-dd'T'HH:mm:ss"                 1999-10-31T02:00:00
+            Format              Description                             Real format
+            =========           =================================       ======================
+            "d"                 short date                              culture-specific
+              10/31/1999
+            "D"                 long data                               culture-specific
+              Sunday, October 31, 1999
+            "f"                 full date (long date + short time)      culture-specific
+              Sunday, October 31, 1999 2:00 AM
+            "F"                 full date (long date + long time)       culture-specific
+              Sunday, October 31, 1999 2:00:00 AM
+            "g"                 general date (short date + short time)  culture-specific
+              10/31/1999 2:00 AM
+            "G"                 general date (short date + long time)   culture-specific
+              10/31/1999 2:00:00 AM
+            "m"/"M"             Month/Day date                          culture-specific
+              October 31
+    (G)     "o"/"O"             Round Trip XML                          "yyyy-MM-ddTHH:mm:ss.fffffffK"
+              1999-10-31 02:00:00.0000000Z
+    (G)     "r"/"R"             RFC 1123 date,                          "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'"
+              Sun, 31 Oct 1999 10:00:00 GMT
+    (G)     "s"                 Sortable format, based on ISO 8601.     "yyyy-MM-dd'T'HH:mm:ss"
+              1999-10-31T02:00:00
                                                                         ('T' for local time)
-            "t"                 short time                              culture-specific                        2:00 AM
-            "T"                 long time                               culture-specific                        2:00:00 AM
-    (G)     "u"                 Universal time with sortable format,    "yyyy'-'MM'-'dd HH':'mm':'ss'Z'"        1999-10-31 10:00:00Z
+            "t"                 short time                              culture-specific
+              2:00 AM
+            "T"                 long time                               culture-specific
+              2:00:00 AM
+    (G)     "u"                 Universal time with sortable format,    "yyyy'-'MM'-'dd HH':'mm':'ss'Z'"
+              1999-10-31 10:00:00Z
                                 based on ISO 8601.
-    (U)     "U"                 Universal time with full                culture-specific                        Sunday, October 31, 1999 10:00:00 AM
+    (U)     "U"                 Universal time with full                culture-specific
+              Sunday, October 31, 1999 10:00:00 AM
                                 (long date + long time) format
-                                "y"/"Y"             Year/Month day                          culture-specific                        October, 1999
+            "y"/"Y"             Year/Month day                          culture-specific
+              October, 1999
     */
   switch (format) {
-    case "d"://TODO localization
+    case "d": // TODO localization
       format = "M/d/yyyy"; break;
-    case "D"://TODO localization
-      format = "dddd, MMMM d, yyyy";break;
-    case "f"://TODO localization
-      format = "dddd, MMMM d, yyyy hh:mm tt";break;
-    case "F": //TODO localization
-      format = "dddd, MMMM d, yyyy hh:mm:ss tt";break;
-    case "g"://TODO localization
+    case "D": // TODO localization
+      format = "dddd, MMMM d, yyyy"; break;
+    case "f": // TODO localization
+      format = "dddd, MMMM d, yyyy hh:mm tt"; break;
+    case "F": // TODO localization
+      format = "dddd, MMMM d, yyyy hh:mm:ss tt"; break;
+    case "g": // TODO localization
       format = "MM/dd/yyyy hh:mm tt"; break;
-    case "G"://TODO localization
+    case "G": // TODO localization
       format = "MM/d/yyyy hh:mm:ss tt"; break;
-    case "m": case "M": //TODO localization
+    case "m": case "M": // TODO localization
       format = "MMMM d"; break;
     // case "o": case "O": //offset dates are handled by a different function (GMT)
     //   format = "yyyy-MM-ddTHH:mm:ss.fffffffK"; break;
     // case "r": case "R": //offset dates are handled by a different function (GMT)
     //  format =  "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'"; break;
     // case "s": //offset dates are handled by a different function (GMT)
-    //   format = "yyyy-MM-dd'T'HH:mm:ss";break; // TODO single quoted things should not be replaced
-    case "t": //TODO localization
+    //   format = "yyyy-MM-dd'T'HH:mm:ss"; break; // TODO single quoted things should not be replaced
+    case "t": // TODO localization
       format = "HH:mm tt"; break;
-    case "T": //TODO localization
+    case "T": // TODO localization
       format = "HH:mm:ss tt"; break;
     // case "u": //offset dates are handled by a different function (GMT)
     //   format = "yyyy-mm-dd hh:mm:ssZ"; break;
-    case "U": //TODO localization
+    case "U": // TODO localization
       format = "dddd, MMMM d, yyyy h:m:s"; break;
   }
 
@@ -333,9 +351,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
       case "y":
         const y = utc ? date.getUTCFullYear() : date.getFullYear();
         rep = match.length < 4 ? y % 100 : y; break;
-      case "M": 
-        date.toDateString
-        //TODO localization
+      case "M":
+        // TODO localization
         const months = [ "January",
           "February",
           "March",
@@ -347,57 +364,53 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
           "September",
           "October",
           "November",
-          "December" ]
+          "December" ];
 
-        //TODO localization
+        // TODO localization
         const monthsShort = [ "Jan",
-          "Feb", 
-          "Mar", 
-          "Apr", 
-          "May", 
-          "Jun", 
-          "Jul", 
-          "Aug", 
-          "Sep", 
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
           "Oct",
-          "Nov", 
-          "Dec"]
+          "Nov",
+          "Dec"];
         const m = (utc ? date.getUTCMonth() : date.getMonth());
-        if(match.length > 3){
-          rep = months[m]
-        }
-        else if(match.length == 3){
-          rep = monthsShort[m]
-        }
-        else{
-          rep = m + 1
+        if (match.length > 3) {
+          rep = months[m];
+        } else if (match.length === 3) {
+          rep = monthsShort[m];
+        } else {
+          rep = m + 1;
         }
         break;
-      case "d": 
-        //TODO localization
-        const weekdays =  [ "Sunday", 
+      case "d":
+        // TODO localization
+        const weekdays =  [ "Sunday",
           "Monday",
           "Tuesday",
           "Wednesday",
           "Thursday",
           "Friday",
           "Saturday" ];
-        //TODO localization
-        const weekdaysShort =  [ "Sun", 
+        // TODO localization
+        const weekdaysShort =  [ "Sun",
           "Mon",
           "Tue",
           "Wed",
           "Thu",
           "Fri",
           "Sat" ];
-        if(match.length > 3){
+        if (match.length > 3) {
           rep = weekdays[date.getDay()];
-        }
-        else if (match.length == 3){
+        } else if (match.length === 3) {
           rep = weekdaysShort[date.getDay()];
-        }
-        else{
-          rep = utc ? date.getUTCDate() : date.getDate(); 
+        } else {
+          rep = utc ? date.getUTCDate() : date.getDate();
         }
         break;
       case "H": rep = utc ? date.getUTCHours() : date.getHours(); break;
@@ -406,15 +419,16 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
         rep = h > 12 ? h % 12 : h; break;
       case "m": rep = utc ? date.getUTCMinutes() : date.getMinutes(); break;
       case "s": rep = utc ? date.getUTCSeconds() : date.getSeconds(); break;
-      case "f": case "F": rep = padWithZeros((utc ? date.getUTCMilliseconds() : date.getMilliseconds()),3); 
-        rep = rep.slice(0,match.length)
+      case "f": case "F":
+        rep = padWithZeros((utc ? date.getUTCMilliseconds() : date.getMilliseconds()), 3);
+        rep = rep.slice(0, match.length);
         break;
-      case "z": rep = utc ?  0:date.getTimezoneOffset(); break;
-      case "t": 
+      case "z": rep = utc ? 0 : date.getTimezoneOffset(); break;
+      case "t":
         const t = utc ? date.getUTCHours() : date.getHours();
-        rep = t<13 ? "AM" : "PM"
-        rep = rep.slice(0,match.length)
-        break; 
+        rep = t < 13 ? "AM" : "PM";
+        rep = rep.slice(0, match.length);
+        break;
     }
     if (rep !== match && rep < 10 && match.length > 1) {
       rep = "0" + rep;
