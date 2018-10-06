@@ -458,16 +458,20 @@ let copyTo (source: JS.ArrayLike<'T>) sourceIndex (target: JS.ArrayLike<'T>) tar
     for i = sourceIndex to sourceIndex + count - 1 do
         target.[i + diff] <- source.[i]
 
-let partition (f: 'T -> bool) (source: 'T[]) =
+let partition (f: 'T -> bool) (source: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
     let len = source.Length
-    let res1 = ResizeArray<'T>()
-    let res2 = ResizeArray<'T>()
+    let res1 = cons.Create len
+    let res2 = cons.Create len
+    let mutable iTrue = 0
+    let mutable iFalse = 0
     for i = 0 to len - 1 do
         if f source.[i] then
-            res1.Add source.[i]
+            res1.[iTrue] <- source.[i]
+            iTrue <- iTrue + 1
         else
-            res2.Add source.[i]
-    res1, res2
+            res2.[iFalse] <- source.[i]
+            iFalse <- iFalse + 1
+    res1 |> Array.truncate iTrue, res2 |> Array.truncate iFalse
 
 
 let find (predicate: 'T -> bool) (array: 'T[]): 'T =
