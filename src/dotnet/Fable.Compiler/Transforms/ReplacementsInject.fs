@@ -42,7 +42,6 @@ let fableCoreModules =
       "skipWhile", [(Types.arrayCons, 0)]
       "take", [(Types.arrayCons, 0)]
       "takeWhile", [(Types.arrayCons, 0)]
-      "partition", [(Types.arrayCons, 0)]
       "choose", [(Types.arrayCons, 0)]
       "sortInPlaceBy", [(Types.comparer, 1)]
       "sortInPlace", [(Types.comparer, 0)]

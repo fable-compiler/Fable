@@ -502,10 +502,11 @@ let tests =
         ys.[0] |> equal 1
 
     testCase "Array.partition works" <| fun () ->
-        let xs = [|1.; 2.|]
+        let xs = [|1.; 2.; 3.|]
         let ys, zs = xs |> Array.partition (fun x -> x <= 1.)
-        ys.[0] - zs.[0]
-        |> equal -1.
+        Array.length ys |> equal 1
+        Array.length zs |> equal 2
+        ys.[0] - zs.[0] |> equal -1.
 
     testCase "Array.permute works" <| fun () ->
         let xs = [|1.; 2.|]
