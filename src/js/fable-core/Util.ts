@@ -1,3 +1,5 @@
+import { isNumber } from "./Char";
+
 // tslint:disable:ban-types
 
 // Object.assign flattens getters and setters
@@ -199,21 +201,220 @@ function dateToISOStringWithOffset(dateWithOffset: Date, offset: number) {
   return str.substring(0, str.length - 1) + dateOffsetToString(offset);
 }
 
-function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) {
+function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) :string {
+  //TODO consider moment.js
+      
+  /*
+      //This comment from (MIT) corefx/src/Common/src/CoreLib/System/Globalization/DateTimeFormat.cs
+
+      Customized format patterns:
+        P.S. Format in the table below is the internal number format used to display the pattern.
+        Patterns   Format      Description                           Example
+        =========  ==========  ===================================== ========
+            "h"     "0"         hour (12-hour clock)w/o leading zero  3
+            "hh"    "00"        hour (12-hour clock)with leading zero 03
+            "hh*"   "00"        hour (12-hour clock)with leading zero 03
+            "H"     "0"         hour (24-hour clock)w/o leading zero  8
+            "HH"    "00"        hour (24-hour clock)with leading zero 08
+            "HH*"   "00"        hour (24-hour clock)                  08
+            "m"     "0"         minute w/o leading zero
+            "mm"    "00"        minute with leading zero
+            "mm*"   "00"        minute with leading zero
+            "s"     "0"         second w/o leading zero
+            "ss"    "00"        second with leading zero
+            "ss*"   "00"        second with leading zero
+            "f"     "0"         second fraction (1 digit)
+            "ff"    "00"        second fraction (2 digit)
+            "fff"   "000"       second fraction (3 digit)
+            "ffff"  "0000"      second fraction (4 digit)
+            "fffff" "00000"         second fraction (5 digit)
+            "ffffff"    "000000"    second fraction (6 digit)
+            "fffffff"   "0000000"   second fraction (7 digit)
+            "F"     "0"         second fraction (up to 1 digit)
+            "FF"    "00"        second fraction (up to 2 digit)
+            "FFF"   "000"       second fraction (up to 3 digit)
+            "FFFF"  "0000"      second fraction (up to 4 digit)
+            "FFFFF" "00000"         second fraction (up to 5 digit)
+            "FFFFFF"    "000000"    second fraction (up to 6 digit)
+            "FFFFFFF"   "0000000"   second fraction (up to 7 digit)
+            "t"                 first character of AM/PM designator   A
+            "tt"                AM/PM designator                      AM
+            "tt*"               AM/PM designator                      PM
+            "d"     "0"         day w/o leading zero                  1
+            "dd"    "00"        day with leading zero                 01
+            "ddd"               short weekday name (abbreviation)     Mon
+            "dddd"              full weekday name                     Monday
+            "dddd*"             full weekday name                     Monday
+            "M"     "0"         month w/o leading zero                2
+            "MM"    "00"        month with leading zero               02
+            "MMM"               short month name (abbreviation)       Feb
+            "MMMM"              full month name                       Febuary
+            "MMMM*"             full month name                       Febuary
+            "y"     "0"         two digit year (year % 100) w/o leading zero           0
+            "yy"    "00"        two digit year (year % 100) with leading zero          00
+            "yyy"   "D3"        year                                  2000
+            "yyyy"  "D4"        year                                  2000
+            "yyyyy" "D5"        year                                  2000
+            ...
+            "z"     "+0;-0"     timezone offset w/o leading zero      -8
+            "zz"    "+00;-00"   timezone offset with leading zero     -08
+            "zzz"      "+00;-00" for hour offset, "00" for minute offset  full timezone offset   -07:30
+            "zzz*"  "+00;-00" for hour offset, "00" for minute offset   full timezone offset   -08:00
+            "K"    -Local       "zzz", e.g. -08:00
+                  -Utc         "'Z'", representing UTC
+                  -Unspecified ""
+                  -DateTimeOffset      "zzzzz" e.g -07:30:15
+            "g*"                the current era name                  A.D.
+            ":"                 time separator                        : -- DEPRECATED - Insert separator directly into pattern (eg: "H.mm.ss")
+            "/"                 date separator                        /-- DEPRECATED - Insert separator directly into pattern (eg: "M-dd-yyyy")
+            "'"                 quoted string                         'ABC' will insert ABC into the formatted string.
+            '"'                 quoted string                         "ABC" will insert ABC into the formatted string.
+            "%"                 used to quote a single pattern characters      E.g.The format character "%y" is to print two digit year.
+            "\"                 escaped character                     E.g. '\d' insert the character 'd' into the format string.
+            other characters    insert the character into the format string.
+        Pre-defined format characters:
+            (U) to indicate Universal time is used.
+            (G) to indicate Gregorian calendar is used.
+            Format              Description                             Real format                             Example
+            =========           =================================       ======================                  =======================
+            "d"                 short date                              culture-specific                        10/31/1999
+            "D"                 long data                               culture-specific                        Sunday, October 31, 1999
+            "f"                 full date (long date + short time)      culture-specific                        Sunday, October 31, 1999 2:00 AM
+            "F"                 full date (long date + long time)       culture-specific                        Sunday, October 31, 1999 2:00:00 AM
+            "g"                 general date (short date + short time)  culture-specific                        10/31/1999 2:00 AM
+            "G"                 general date (short date + long time)   culture-specific                        10/31/1999 2:00:00 AM
+            "m"/"M"             Month/Day date                          culture-specific                        October 31
+    (G)     "o"/"O"             Round Trip XML                          "yyyy-MM-ddTHH:mm:ss.fffffffK"          1999-10-31 02:00:00.0000000Z
+    (G)     "r"/"R"             RFC 1123 date,                          "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'"   Sun, 31 Oct 1999 10:00:00 GMT
+    (G)     "s"                 Sortable format, based on ISO 8601.     "yyyy-MM-dd'T'HH:mm:ss"                 1999-10-31T02:00:00
+                                                                        ('T' for local time)
+            "t"                 short time                              culture-specific                        2:00 AM
+            "T"                 long time                               culture-specific                        2:00:00 AM
+    (G)     "u"                 Universal time with sortable format,    "yyyy'-'MM'-'dd HH':'mm':'ss'Z'"        1999-10-31 10:00:00Z
+                                based on ISO 8601.
+    (U)     "U"                 Universal time with full                culture-specific                        Sunday, October 31, 1999 10:00:00 AM
+                                (long date + long time) format
+                                "y"/"Y"             Year/Month day                          culture-specific                        October, 1999
+    */
+  switch (format) {
+    case "d"://TODO localization
+      format = "M/d/yyyy"; break;
+    case "D"://TODO localization
+      format = "dddd, MMMM d, yyyy";break;
+    case "f"://TODO localization
+      format = "dddd, MMMM d, yyyy hh:mm tt";break;
+    case "F": //TODO localization
+      format = "dddd, MMMM d, yyyy hh:mm:ss tt";break;
+    case "g"://TODO localization
+      format = "MM/dd/yyyy hh:mm tt"; break;
+    case "G"://TODO localization
+      format = "MM/d/yyyy hh:mm:ss tt"; break;
+    case "m": case "M": //TODO localization
+      format = "MMMM d"; break;
+    // case "o": case "O": //offset dates are handled by a different function (GMT)
+    //   format = "yyyy-MM-ddTHH:mm:ss.fffffffK"; break;
+    // case "r": case "R": //offset dates are handled by a different function (GMT)
+    //  format =  "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'"; break;
+    // case "s": //offset dates are handled by a different function (GMT)
+    //   format = "yyyy-MM-dd'T'HH:mm:ss";break; // TODO single quoted things should not be replaced
+    case "t": //TODO localization
+      format = "HH:mm tt"; break;
+    case "T": //TODO localization
+      format = "HH:mm:ss tt"; break;
+    // case "u": //offset dates are handled by a different function (GMT)
+    //   format = "yyyy-mm-dd hh:mm:ssZ"; break;
+    case "U": //TODO localization
+      format = "dddd, MMMM d, yyyy h:m:s"; break;
+  }
+
   return format.replace(/(\w)\1*/g, (match: any) => {
     let rep = match;
     switch (match.substring(0, 1)) {
       case "y":
         const y = utc ? date.getUTCFullYear() : date.getFullYear();
         rep = match.length < 4 ? y % 100 : y; break;
-      case "M": rep = (utc ? date.getUTCMonth() : date.getMonth()) + 1; break;
-      case "d": rep = utc ? date.getUTCDate() : date.getDate(); break;
+      case "M": 
+        date.toDateString
+        //TODO localization
+        const months = [ "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December" ]
+
+        //TODO localization
+        const monthsShort = [ "Jan",
+          "Feb", 
+          "Mar", 
+          "Apr", 
+          "May", 
+          "Jun", 
+          "Jul", 
+          "Aug", 
+          "Sep", 
+          "Oct",
+          "Nov", 
+          "Dec"]
+        const m = (utc ? date.getUTCMonth() : date.getMonth());
+        if(match.length > 3){
+          rep = months[m]
+        }
+        else if(match.length == 3){
+          rep = monthsShort[m]
+        }
+        else{
+          rep = m + 1
+        }
+        break;
+      case "d": 
+        //TODO localization
+        const weekdays =  [ "Sunday", 
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday" ];
+        //TODO localization
+        const weekdaysShort =  [ "Sun", 
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat" ];
+        if(match.length > 3){
+          rep = weekdays[date.getDay()];
+        }
+        else if (match.length == 3){
+          rep = weekdaysShort[date.getDay()];
+        }
+        else{
+          rep = utc ? date.getUTCDate() : date.getDate(); 
+        }
+        break;
       case "H": rep = utc ? date.getUTCHours() : date.getHours(); break;
       case "h":
         const h = utc ? date.getUTCHours() : date.getHours();
         rep = h > 12 ? h % 12 : h; break;
       case "m": rep = utc ? date.getUTCMinutes() : date.getMinutes(); break;
       case "s": rep = utc ? date.getUTCSeconds() : date.getSeconds(); break;
+      case "f": case "F": rep = padWithZeros((utc ? date.getUTCMilliseconds() : date.getMilliseconds()),3); 
+        rep = rep.slice(0,match.length)
+        break;
+      case "z": rep = utc ?  0:date.getTimezoneOffset(); break;
+      case "t": 
+        const t = utc ? date.getUTCHours() : date.getHours();
+        rep = t<13 ? "AM" : "PM"
+        rep = rep.slice(0,match.length)
+        break; 
     }
     if (rep !== match && rep < 10 && match.length > 1) {
       rep = "0" + rep;
