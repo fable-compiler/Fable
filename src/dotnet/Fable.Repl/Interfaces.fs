@@ -18,7 +18,8 @@ type Glyph =
     | Event
 
 type Error =
-    { StartLineAlternate: int
+    { FileName: string
+      StartLineAlternate: int
       StartColumn: int
       EndLineAlternate: int
       EndColumn: int
@@ -41,9 +42,14 @@ type IChecker =
 type IParseResults =
     abstract Errors: Error[]
 
+type IParseFilesResults =
+    abstract Errors: Error[]
+    abstract GetResults: fileName: string -> IParseResults option
+
 type IFableManager =
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) -> IChecker
     abstract ParseFSharpProject: checker: IChecker * fileName: string * source: string -> IParseResults
+    abstract ParseFSharpProjectFiles: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] -> IParseFilesResults
     abstract GetParseErrors: parseResults: IParseResults -> Error[]
     abstract GetDeclarationLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Range option>
     abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<string[]>
