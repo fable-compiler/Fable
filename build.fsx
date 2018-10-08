@@ -70,7 +70,7 @@ let coreJsBuildDir = CWD </> "build/fable-core"
 let cliSrcDir = CWD </> "src/dotnet/Fable.Compiler"
 let coreJsSrcDir = CWD </> "src/js/fable-core"
 let ncaveFcsForkRepo = "https://github.com/ncave/FSharp.Compiler.Service"
-let ncaveFcsForkBranch = "fable2"
+let ncaveFcsForkBranch = "fable"
 let ncaveFcsCodeGenTarget = "fcs/build CodeGen.Fable"
 
 // Targets
