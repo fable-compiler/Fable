@@ -390,7 +390,7 @@ export function isArray(x: any) {
 }
 
 export function isIterable(x: any) {
-  return x != null && typeof x[Symbol.iterator] === "function";
+  return x != null && typeof x === "object" && Symbol.iterator in x;
 }
 
 export function isPlainObject(x: any) {
