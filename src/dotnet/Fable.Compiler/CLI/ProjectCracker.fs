@@ -380,6 +380,9 @@ let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: str
                 with ex ->
                     printfn "Cannot replace files: %s" ex.Message
                     sourceFiles
+        for file in sourceFiles do
+            if file.EndsWith(".fs") && not(File.Exists(file)) then
+                failwithf "File does not exist: %s" file
         let otherOptions =
             // We only keep dllRefs for the main project
             let dllRefs = [| for r in mainProj.DllReferences -> "-r:" + r |]
