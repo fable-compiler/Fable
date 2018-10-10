@@ -243,7 +243,8 @@ let makeCompiler fableCore fileName (project: Project) =
     let options: Fable.CompilerOptions =
         { typedArrays = true
           clampByteArrays = false
-          verbose = false }
+          verbose = false
+          outputPublicInlinedFunctions = false }
     let com = Compiler(fileName, project, options, fableCore)
     com
 

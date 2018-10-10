@@ -90,6 +90,7 @@ let toCompilerOptions (msg: Message): CompilerOptions =
     { typedArrays = msg.typedArrays
       clampByteArrays = msg.clampByteArrays
       verbose = GlobalParams.Singleton.Verbose
+      outputPublicInlinedFunctions = Array.contains "FABLE_REPL_LIB" msg.define
     }
 
 let parse (msg: string) =

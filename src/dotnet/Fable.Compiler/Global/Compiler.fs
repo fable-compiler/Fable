@@ -4,7 +4,10 @@ type CompilerOptions =
     { typedArrays: bool
       clampByteArrays: bool
       verbose: bool
-    }
+      // This option is meant for precompiled libraries (like the Repl Lib)
+      // to make public inlined functions part of the JS
+      outputPublicInlinedFunctions: bool
+  }
 
 [<RequireQualifiedAccess>]
 type Severity =

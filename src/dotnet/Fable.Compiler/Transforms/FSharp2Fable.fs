@@ -841,13 +841,14 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     let ctx = { ctx with EnclosingMember = Some memb }
     if isIgnoredMember memb
     then []
-    // TODO: Compiler flag to output pseudo-inline expressions? (e.g. for REPL libs)
     elif isInline memb then
         let inlineExpr = { Args = List.concat args
                            Body = body
                            FileName = (com :> ICompiler).CurrentFile }
         com.AddInlineExpr(memb, inlineExpr)
-        []
+        if com.Options.outputPublicInlinedFunctions && isPublicMember memb then
+            transformMemberFunctionOrValue com ctx memb args body
+        else []
     elif memb.IsImplicitConstructor
     then transformImplicitConstructor com ctx memb args body
     elif memb.IsExplicitInterfaceImplementation then
@@ -956,6 +957,7 @@ let private tryGetMemberArgsAndBody com (implFiles: Map<string, FSharpImplementa
 type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFileContents>) =
     member val UsedVarNames = HashSet<string>()
     member val Dependencies = HashSet<string>()
+    member __.Options = com.Options
     member this.AddUsedVarName(varName) =
         this.UsedVarNames.Add(varName) |> ignore
     member __.AddInlineExpr(memb, inlineExpr: InlineExpr) =
