@@ -295,7 +295,7 @@ module Path =
 #endif
 
     let normalizePath (path: string) =
-        path.Replace("\\", "/")
+        path.Replace('\\', '/')
 
     let normalizeFullPath (path: string) =
         normalizePath (GetFullPath path)
@@ -306,6 +306,18 @@ module Path =
         if path.EndsWith("fsi")
         then path.Substring(0, path.Length - 1)
         else path
+
+    /// Checks if path starts with "./", ".\" or ".."
+    let isRelativePath (path: string) =
+        if path.[0] = '.' then
+            if path.Length = 1
+            then true
+            // Some folders start with a dot, see #1599
+            // For simplicity, ignore folders starting with TWO dots
+            else match path.[1] with
+                    | '/' | '\\' | '.' -> true
+                    | _ -> false
+        else false
 
     /// Creates a relative path from one file or folder to another.
     let getRelativeFileOrDirPath fromIsDir fromFullPath toIsDir toFullPath =
@@ -344,7 +356,8 @@ module Path =
             let fromPath = addDummyFile fromIsDir fromFullPath
             let toPath = addDummyFile toIsDir toFullPath
             match (pathDifference fromPath toPath).Replace(Naming.dummyFile, "") with
-            | path when path.StartsWith "." -> path
+            // Some folders start with a period, see #1599
+            | path when isRelativePath path -> path
             | path -> "./" + path
 
     let getRelativePath fromFullPath toFullPath =

@@ -61,7 +61,7 @@ function getResolvePathPlugin(targetDir: string, opts: FableSplitterOptions) {
                     const newRelPath = (Path.relative(targetDir, fullPath) + match[3]).replace(/\\/g, "/");
                     // console.log("FULL PATH: " + fullPath);
                     // console.log("REL. PATH: " + newRelPath);
-                    node.value = newRelPath.startsWith(".") ? newRelPath : "./" + newRelPath;
+                    node.value = isRelativePath(newRelPath) ? newRelPath : "./" + newRelPath;
                 }
             },
         },
@@ -117,6 +117,8 @@ function getOutPath(path: string, info: CompilationInfo): string {
         // dedup output path
         let i = 0;
         outPath = newPath;
+        // In Windows and Mac file paths are case insensitive
+        // so it may happen we get two identical paths with different case
         while (info.dedupOutPaths.has(outPath.toLowerCase())) {
             outPath = `${newPath}.${++i}`;
         }
@@ -158,13 +160,17 @@ function fixImportPath(fromDir: string, path: string, info: CompilationInfo) {
     }
 }
 
+function isRelativePath(path: string) {
+    return path.startsWith("./") || path.startsWith("../");
+}
+
 /** Ignores paths to external modules like "react/react-dom-server" */
 function getRelativeOrAbsoluteImportDeclarations(ast: Babel.types.Program) {
     const decls = ensureArray(ast.body);
     return decls.filter((d) => {
         if (d.source != null && typeof d.source.value === "string") {
             const path = d.source.value;
-            return path.startsWith(".") || Path.isAbsolute(path);
+            return isRelativePath(path) || Path.isAbsolute(path);
         }
         return false;
     });

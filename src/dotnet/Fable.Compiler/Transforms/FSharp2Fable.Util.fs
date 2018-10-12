@@ -683,7 +683,7 @@ module Util =
     // When importing a relative path from a different path where the member,
     // entity... is declared, we need to resolve the path
     let fixImportedRelativePath (com: ICompiler) (path: string) (loc: Lazy<Range.range>) =
-        if path.StartsWith(".") then
+        if Path.isRelativePath path then
             let file = Path.normalizePathAndEnsureFsExtension loc.Value.FileName
             if file = com.CurrentFile
             then path

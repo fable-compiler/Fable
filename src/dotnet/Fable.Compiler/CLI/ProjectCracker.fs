@@ -168,7 +168,7 @@ let getSourcesFromFsproj (projFile: string) =
             if el.Name.LocalName = "Compile" then
                 el.Elements() |> withName "Link"
                 |> Seq.tryHead |> function
-                | Some link when link.Value.StartsWith(".") ->
+                | Some link when Path.isRelativePath link.Value ->
                     link.Value::src
                 | _ ->
                     match el.Attribute(XName.Get "Include") with
