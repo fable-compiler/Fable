@@ -1,3 +1,11 @@
+### 2.0.4
+
+* Fix #1594 Array.partition results are too long @ericharding
+* Fix #1599: Folders starting with dot @OnurGumus @inosik
+* Check files exist when collecing all sources into single .fsproj @dbrattli
+* Don't trigger Symbol.iterator when testing for iterables
+* Improvements for Fable REPL @ncave
+
 ### 2.0.3
 
 * Fix #1588: MailboxProcessor.PostAndAsyncReply with falsy values @nilekirk

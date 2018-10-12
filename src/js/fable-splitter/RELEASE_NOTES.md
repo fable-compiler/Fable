@@ -1,3 +1,7 @@
+### 2.0.1
+
+* Improve relative path check
+
 ### 2.0.0
 
 * Fable 2
