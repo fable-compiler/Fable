@@ -955,29 +955,24 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     let moduleName, mangledName = getMangledNames i thisArg
     Helper.CoreCall(moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
-let getFableReplLibImport isStatic (entityFullName: string) memberName overloadSuffix =
-    // Remove Fable.Repl.Lib. prefix from entity name
-    let entityFullName = entityFullName.Substring(15)
+let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
     let memberName = Naming.sanitizeIdentForbiddenChars memberName
-    let fileName, name, memberPart =
-        match entityFullName.IndexOf('.') with
-        | -1 -> entityFullName, memberName, Naming.NoMemberPart
-        | pos ->
-            let fileName = entityFullName.Substring(0, pos)
-            let entityName = Naming.sanitizeIdentForbiddenChars (entityFullName.Substring(pos + 1))
-            let memberPart =
-                match memberName, isStatic with
-                | "", _ -> Naming.NoMemberPart
-                | _, true -> Naming.StaticMemberPart(memberName, overloadSuffix)
-                | _, false -> Naming.InstanceMemberPart(memberName, overloadSuffix)
-            fileName, entityName, memberPart
-    let mangledName = Naming.buildNameWithoutSanitation name memberPart
-    makeCustomImport Fable.Any mangledName ("fable-repl-lib/" + fileName)
+    let entityName = Naming.sanitizeIdentForbiddenChars entityName
+    let name, memberPart =
+        match entityName, isStatic with
+        | "", _ -> memberName, Naming.NoMemberPart
+        | _, true -> entityName, Naming.StaticMemberPart(memberName, overloadSuffix)
+        | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
+    Naming.buildNameWithoutSanitation name memberPart
 
-let fableReplLib (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let argInfo = { argInfo thisArg args (Typed i.SignatureArgTypes) with Spread = i.Spread }
-    getFableReplLibImport (Option.isNone thisArg) i.DeclaringEntityFullName i.CompiledName i.OverloadSuffix.Value
-    |> staticCall r t argInfo |> Some
+let precompiledLib r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) (rootModule, importPath) =
+    let entityName = i.DeclaringEntityFullName.Replace(rootModule, "").TrimEnd('.')
+    let mangledName = getPrecompiledLibMangledName entityName i.CompiledName i.OverloadSuffix.Value (Option.isNone thisArg)
+    if i.IsModuleValue
+    then makeCustomImport t mangledName importPath
+    else
+        let argInfo = { argInfo thisArg args (Typed i.SignatureArgTypes) with Spread = i.Spread }
+        makeCustomImport Any mangledName importPath |> staticCall r t argInfo
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -2553,7 +2548,6 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | Types.printfModule
     | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com ctx r t info thisArg args
-    | Naming.StartsWith "Fable.Repl.Lib." _ -> fableReplLib com ctx r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com ctx r t info thisArg args
     | "System.Timers.ElapsedEventArgs" -> thisArg // only signalTime is available here
     | Naming.StartsWith "System.Action" _
@@ -2587,17 +2581,25 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
             | c ->
                 Helper.CoreCall("Reflection", "name", t, [c], ?loc=r) |> Some
         | _ -> None
-    | _ -> None
+    | _ ->
+        com.Options.precompiledLib
+        |> Option.bind (fun tryLib -> tryLib info.DeclaringEntityFullName)
+        |> Option.map (precompiledLib r t info thisArg args)
 
 // TODO: Add other entities (see Fable 1 Replacements.tryReplaceEntity)
-let tryEntityRef (ent: FSharpEntity) =
+let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
     match ent.FullName with
     | Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
     | Types.matchFail -> makeCoreRef Any "MatchFailureException" "Types" |> Some
     | Types.result -> makeCoreRef Any "Result" "Option" |> Some
     | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
-    | Naming.StartsWith "Fable.Repl.Lib." _ -> getFableReplLibImport true ent.FullName "" "" |> Some
-    | _ -> None
+    | entFullName ->
+        com.Options.precompiledLib
+        |> Option.bind (fun tryLib -> tryLib entFullName)
+        |> Option.map (fun (rootModule, importPath) ->
+            let entityName = entFullName.Replace(rootModule, "").TrimEnd('.')
+            makeCustomImport Any entityName importPath)
+
 
 let tryBaseConstructor com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) genArgs args =
     match ent.FullName with

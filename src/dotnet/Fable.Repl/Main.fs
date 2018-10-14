@@ -239,12 +239,13 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
         return [||]
 }
 
-let makeCompiler fableCore fileName (project: Project) =
+let makeCompiler fableCore fileName (project: Project) precompiledLib =
     let options: Fable.CompilerOptions =
         { typedArrays = true
           clampByteArrays = false
           verbose = false
-          outputPublicInlinedFunctions = false }
+          outputPublicInlinedFunctions = false
+          precompiledLib = precompiledLib }
     let com = Compiler(fileName, project, options, fableCore)
     com
 
@@ -288,10 +289,10 @@ let init () =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText
 
-        member __.CompileToBabelAst(fableCore:string, parseResults:IParseResults, fileName:string, optimized: bool) =
+        member __.CompileToBabelAst(fableCore:string, parseResults:IParseResults, fileName:string, optimized: bool, ?precompiledLib) =
             let res = parseResults :?> ParseResults
             let project = if optimized then res.OptimizedProject else res.UnoptimizedProject
-            let com = makeCompiler fableCore fileName project
+            let com = makeCompiler fableCore fileName project precompiledLib
             let ast = compileAst com project
             let errors =
                 com.GetLogs()

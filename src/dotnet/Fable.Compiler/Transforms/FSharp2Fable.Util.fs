@@ -796,7 +796,7 @@ module Util =
             let argInfo = { argInfo with ThisArg = Some callee }
             makeStrConst name |> Some |> instanceCall r typ argInfo
 
-    let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes (genArgs: Lazy<_>) (argInfo: Fable.ArgInfo)
+    let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes (genArgs: Lazy<_>) (argInfo: Fable.ArgInfo) isModuleValue
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         match entity with
         | Some ent when isReplacementCandidate ent ->
@@ -804,6 +804,7 @@ module Util =
               { SignatureArgTypes = argTypes
                 DeclaringEntityFullName = ent.FullName
                 Spread = argInfo.Spread
+                IsModuleValue = isModuleValue
                 CompiledName = memb.CompiledName
                 OverloadSuffix = lazy if ent.IsFSharpModule then "" else OverloadSuffix.getHash ent memb
                 GenericArgs = genArgs.Value }
@@ -926,6 +927,7 @@ module Util =
         let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
         let args = transformOptionalArguments com ctx r memb genArgs args
         let argTypes = getArgTypes com memb
+        let isModuleValue = isModuleValueForCalls memb
         let argInfo: Fable.ArgInfo =
           { ThisArg = callee
             Args = args
@@ -936,10 +938,10 @@ module Util =
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some argInfo) emitted, _ -> emitted
         | Imported com ctx r typ (Some argInfo) imported -> imported
-        | Replaced com ctx r typ argTypes genArgs argInfo replaced -> replaced
+        | Replaced com ctx r typ argTypes genArgs argInfo isModuleValue replaced -> replaced
         | Inlined com ctx r genArgs callee args expr, _ -> expr
         | Try (tryGetBoundExpr ctx r) funcExpr, _ ->
-            if isModuleValueForCalls memb
+            if isModuleValue
             then funcExpr
             else staticCall r typ argInfo funcExpr
         // Check if this is an interface or abstract/overriden method
@@ -948,7 +950,7 @@ module Util =
                 || memb.IsDispatchSlot ->
             callInstanceMember com ctx r typ argInfo entity memb
         | _ ->
-            if isModuleValueForCalls memb
+            if isModuleValue
             then memberRefTyped com typ memb
             else
                 let argInfo =

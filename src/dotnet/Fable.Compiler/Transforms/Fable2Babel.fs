@@ -191,7 +191,7 @@ module Util =
     let entityRefMaybeImported (com: IBabelCompiler) ctx ent =
         if FSharp2Fable.Util.isReplacementCandidate ent then
             // Some unions like Choice or Result belong to FSharp.Core
-            match Replacements.tryEntityRef ent with
+            match Replacements.tryEntityRef com ent with
             | Some entRef -> com.TransformAsExpr(ctx, entRef)
             | None ->
                 sprintf "Cannot find %s constructor" ent.FullName
