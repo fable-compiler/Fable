@@ -59,6 +59,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
         { SignatureArgTypes = argTypes
           DeclaringEntityFullName = entityFullName
           Spread = Fable.NoSpread
+          IsModuleValue = false
           CompiledName = traitName
           OverloadSuffix = lazy ""
           GenericArgs =

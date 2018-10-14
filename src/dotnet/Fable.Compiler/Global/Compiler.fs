@@ -4,9 +4,11 @@ type CompilerOptions =
     { typedArrays: bool
       clampByteArrays: bool
       verbose: bool
-      // This option is meant for precompiled libraries (like the Repl Lib)
-      // to make public inlined functions part of the JS
+      /// Meant for precompiled libraries (like the Repl Lib)
+      /// to make public inlined functions part of the JS
       outputPublicInlinedFunctions: bool
+      /// Mainly intended for the REPL to compile REPL lib calls
+      precompiledLib: (string -> (string*string) option) option
   }
 
 [<RequireQualifiedAccess>]

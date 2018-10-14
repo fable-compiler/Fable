@@ -214,6 +214,7 @@ type ReplaceCallInfo =
     /// See ArgIngo.SignatureArgTypes
     SignatureArgTypes: Type list
     Spread: SpreadKind
+    IsModuleValue: bool
     DeclaringEntityFullName: string
     GenericArgs: (string * Type) list }
 
