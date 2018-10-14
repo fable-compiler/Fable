@@ -47,7 +47,7 @@ type IParseFilesResults =
     abstract GetResults: fileName: string -> IParseResults option
 
 type IFableManager =
-    abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) -> IChecker
+    abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * definesOpt: string[] option -> IChecker
     abstract ParseFSharpProject: checker: IChecker * fileName: string * source: string -> IParseResults
     abstract ParseFSharpProjectFiles: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] -> IParseFilesResults
     abstract GetParseErrors: parseResults: IParseResults -> Error[]

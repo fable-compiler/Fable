@@ -37,7 +37,7 @@ let main argv =
         // let babelAstFile = Fable.Path.ChangeExtension(testScriptPath, ".babel.ast.json")
         let source = readAllText testScriptPath
         let fable = Fable.Repl.Main.init ()
-        let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath)
+        let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, None)
         let ms0, checker = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
         let parseFSharp () = fable.ParseFSharpProject(checker, testScriptPath, source)
