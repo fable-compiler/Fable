@@ -1,0 +1,19 @@
+{
+  "private": true,
+  "scripts": {
+    "fable": "dotnet ../../../../build/fable/dotnet-fable.dll start",
+    "build": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter",
+    "build-opt": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter --experimental optimize-fcs",
+    "build-es6": "dotnet ../../../../build/fable/dotnet-fable.dll yarn-splitter-es6",
+    "build-v1": "dotnet fable yarn-splitter",
+    "rename": "cd out && for /r %x in (*.js) do ren \"%x\" *.mjs",
+    "rollup": "node ../../../../node_modules/rollup/bin/rollup -i ./out/app.js -o ./out/bundle2.js --format cjs",
+    "webpack": "node ../../../../node_modules/webpack-cli/bin/cli.js -p --entry ./out/app.js --output ./out/bundle.js --target node",
+    "splitter": "node ../../../js/fable-splitter/dist/cli --commonjs",
+    "splitter-es6": "node ../../../js/fable-splitter/dist/cli",
+    "start": "node out/app",
+    "profile": "node --prof out/app",
+    "process": "chcp 65001 > nul && for %x in (isolate-*.log) do node --prof-process %x > %x.txt",
+    "trace": "node --trace-deopt out/app > deopt.txt"
+  }
+}

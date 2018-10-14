@@ -287,6 +287,19 @@ let runBench2 () =
     Yarn.run CWD "babel" "build/fable-core --out-dir src/dotnet/Fable.Repl/out-fable-core --plugins @babel/plugin-transform-modules-commonjs --quiet"
     Yarn.run CWD "test-bench2" ""
 
+let buildCompiler () =
+    let replDir = CWD </> "src/dotnet/Fable.Repl"
+    let buildDir = CWD </> "src/js/fable-compiler/dist"
+    if not (Directory.Exists(replDir </> "bundle")) then
+        bundleRepl false ()
+    CleanDir buildDir
+    FileUtils.cp_r (replDir </> "bundle") (buildDir </> "bundle")
+    FileUtils.cp_r (replDir </> "metadata2") (buildDir </> "metadata2")
+    Yarn.run CWD "build-compiler" ""
+
+Target "fable-compiler" (fun () ->
+    buildCompiler ())
+
 Target "All" (fun () ->
     installDotnetSdk ()
     clean ()

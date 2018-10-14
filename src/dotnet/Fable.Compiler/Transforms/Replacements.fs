@@ -853,6 +853,7 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
+    | ".ctor", _ -> objExpr t [] |> Some
     | ("Async.AwaitPromise.Static"|"Async.StartAsPromise.Static" as m), _ ->
         let meth =
             if m = "Async.AwaitPromise.Static"

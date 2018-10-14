@@ -236,8 +236,8 @@ let compileAst (com: Compiler) (project: Project) =
 
 let init () =
   { new IFableManager with
-        member __.CreateChecker(references, readAllBytes) =
-            let defines = [| "DEBUG" |] // todo: make it an argument
+        member __.CreateChecker(references, readAllBytes, definesOpt) =
+            let defines = defaultArg definesOpt [| "FABLE_COMPILER"; "DEBUG" |]
             InteractiveChecker.Create(references, readAllBytes, defines)
             |> CheckerImpl :> IChecker
 

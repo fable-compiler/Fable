@@ -6,7 +6,10 @@ module.exports = {
     output: {
         filename: 'bundle.min.js',
         path: resolve('bundle'),
-        library: 'Fable'
+        library: 'Fable',
+        libraryTarget: 'umd',
+        // https://github.com/webpack/webpack/issues/6525
+        globalObject: `typeof self !== 'undefined' ? self : this`,
     },
     mode: "production",
     optimization: {
