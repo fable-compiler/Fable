@@ -805,12 +805,16 @@ module Util =
                 DeclaringEntityFullName = ent.FullName
                 Spread = argInfo.Spread
                 IsModuleValue = isModuleValue
+                // TODO: We should also check for
+                // memb.IsOverrideOrExplicitInterfaceImplementation
+                // memb.IsDispatchSlot
+                IsInterface = ent.IsInterface
                 CompiledName = memb.CompiledName
                 OverloadSuffix = lazy if ent.IsFSharpModule then "" else OverloadSuffix.getHash ent memb
                 GenericArgs = genArgs.Value }
             match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
             | Some e -> Some e
-            | None when ent.IsInterface ->
+            | None when info.IsInterface ->
                 callInstanceMember com ctx r typ argInfo ent memb |> Some
             | None ->
                 sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName

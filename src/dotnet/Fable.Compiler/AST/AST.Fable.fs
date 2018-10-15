@@ -215,6 +215,7 @@ type ReplaceCallInfo =
     SignatureArgTypes: Type list
     Spread: SpreadKind
     IsModuleValue: bool
+    IsInterface: bool
     DeclaringEntityFullName: string
     GenericArgs: (string * Type) list }
 
