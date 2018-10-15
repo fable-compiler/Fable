@@ -60,6 +60,9 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
           DeclaringEntityFullName = entityFullName
           Spread = Fable.NoSpread
           IsModuleValue = false
+          // We only need this for types with own entries in Fable AST
+          // (no interfaces, see below) so it's safe to set this to false
+          IsInterface = false
           CompiledName = traitName
           OverloadSuffix = lazy ""
           GenericArgs =

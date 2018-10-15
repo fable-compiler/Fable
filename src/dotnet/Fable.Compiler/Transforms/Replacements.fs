@@ -2580,10 +2580,11 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
             | c ->
                 Helper.CoreCall("Reflection", "name", t, [c], ?loc=r) |> Some
         | _ -> None
-    | _ ->
+    | _ when not info.IsInterface ->
         com.Options.precompiledLib
         |> Option.bind (fun tryLib -> tryLib info.DeclaringEntityFullName)
         |> Option.map (precompiledLib r t info thisArg args)
+    | _ -> None
 
 // TODO: Add other entities (see Fable 1 Replacements.tryReplaceEntity)
 let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
