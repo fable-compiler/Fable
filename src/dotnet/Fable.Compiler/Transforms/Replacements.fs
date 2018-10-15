@@ -963,10 +963,9 @@ let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
         | "", _ -> memberName, Naming.NoMemberPart
         | _, true -> entityName, Naming.StaticMemberPart(memberName, overloadSuffix)
         | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
-    Naming.buildNameWithoutSanitation name memberPart
+    Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
-let precompiledLib r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) (rootModule, importPath) =
-    let entityName = i.DeclaringEntityFullName.Replace(rootModule, "").TrimEnd('.')
+let precompiledLib r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) (entityName, importPath) =
     let mangledName = getPrecompiledLibMangledName entityName i.CompiledName i.OverloadSuffix.Value (Option.isNone thisArg)
     if i.IsModuleValue
     then makeCustomImport t mangledName importPath
@@ -2596,8 +2595,8 @@ let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
     | entFullName ->
         com.Options.precompiledLib
         |> Option.bind (fun tryLib -> tryLib entFullName)
-        |> Option.map (fun (rootModule, importPath) ->
-            let entityName = entFullName.Replace(rootModule, "").TrimEnd('.')
+        |> Option.map (fun (entityName, importPath) ->
+            let entityName = Naming.sanitizeIdentForbiddenChars entityName |> Naming.checkJsKeywords
             makeCustomImport Any entityName importPath)
 
 
