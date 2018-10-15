@@ -241,13 +241,15 @@ module Naming =
             else entityName, InstanceMemberPart(memberCompiledName, overloadSuffix))
         ||> buildName id
 
+    let checkJsKeywords name =
+        if jsKeywords.Contains name
+        then name + "$"
+        else name
+
     let sanitizeIdent conflicts name part =
         // Replace Forbidden Chars
-        let sanitizedName = buildName sanitizeIdentForbiddenChars name part
-        // Check if it's a keyword or clashes with module ident pattern
-        (if jsKeywords.Contains sanitizedName
-            then sanitizedName + "$"
-            else sanitizedName)
+        buildName sanitizeIdentForbiddenChars name part
+        |> checkJsKeywords
         // Check if it already exists
         |> preventConflicts conflicts
 
