@@ -309,8 +309,11 @@ module Path =
 
     /// Checks if path starts with "./", ".\" or ".."
     let isRelativePath (path: string) =
-        if path.[0] = '.' then
-            if path.Length = 1
+        let len = path.Length
+        if len = 0
+        then false
+        elif path.[0] = '.' then
+            if len = 1
             then true
             // Some folders start with a dot, see #1599
             // For simplicity, ignore folders starting with TWO dots
@@ -356,6 +359,7 @@ module Path =
             let fromPath = addDummyFile fromIsDir fromFullPath
             let toPath = addDummyFile toIsDir toFullPath
             match (pathDifference fromPath toPath).Replace(Naming.dummyFile, "") with
+            | "" -> "."
             // Some folders start with a period, see #1599
             | path when isRelativePath path -> path
             | path -> "./" + path
