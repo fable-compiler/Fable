@@ -1,7 +1,7 @@
 module Bench.App
 
 open Bench.Platform
-//open Microsoft.FSharp.Compiler.SourceCodeServices
+// open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.Text.RegularExpressions
 
 [<EntryPoint>]
@@ -57,9 +57,8 @@ let main argv =
         let makePath fileName = Fable.Path.Combine(projectFileDir, fileName)
         let sources = fileNames |> Array.map (fun fileName -> fileName |> makePath |> readAllText)
 
-        //let defines = [| "DEBUG" |]
-        //let checker = InteractiveChecker.Create(references, readAllBytes metadataPath, defines)
-        //let results = checker.ParseAndCheckProject(projectFileName, fileNames, sources)
+        // let checker = InteractiveChecker.Create(references, readAllBytes metadataPath, defines)
+        // let results = checker.ParseAndCheckProject_simple(projectFileName, fileNames, sources)
 
         // create checker
         let fable = Fable.Repl.Main.init ()
@@ -69,7 +68,7 @@ let main argv =
         printfn "InteractiveChecker created in %d ms" ms0
 
         // Parse F# files to AST
-        let parseFSharp () = fable.ParseFSharpProjectFiles(checker, projectFileName, fileNames, sources)
+        let parseFSharp () = fable.ParseFSharpProjectSimple(checker, projectFileName, fileNames, sources)
         let parseFable (fileName, ast) = fable.CompileToBabelAst(fableCoreDir, ast, fileName, optimized)
         let ms1, parseRes = measureTime parseFSharp ()
         printfn "Project: %s, FCS time: %d ms" projectFileName ms1
@@ -91,33 +90,32 @@ let main argv =
         let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
         // Fable (F# to Babel)
+        let fsAst = parseRes.ProjectResults
         for fileName in fileNames do
-            match parseRes.GetResults(fileName) with
-            | Some fsAst ->
-                // transform F# AST to Babel AST
-                let ms2, (babelAst, errors) = measureTime parseFable (fileName, fsAst)
-                printfn "File: %s, Fable time: %d ms" fileName ms2
-                if errors |> hasErrors then
-                    errors |> Array.iter printError
-                    failwith "Too many errors."
 
-                //let fsAstStr = fable.FSharpAstToString(fsAst, optimized)
-                //printfn "%s Typed AST: %s" fileName fsAstStr
-                //printfn "%s Babel AST: %s" fileName (toJson babelAst)
+            // transform F# AST to Babel AST
+            let ms2, (babelAst, errors) = measureTime parseFable (fileName, fsAst)
+            printfn "File: %s, Fable time: %d ms" fileName ms2
+            if errors |> hasErrors then
+                errors |> Array.iter printError
+                failwith "Too many errors."
 
-                // let jsFileName = Fable.Path.ChangeExtension(fileName, ".json")
-                // let jsFilePath = Fable.Path.Combine(outDir, jsFileName)
-                // let jsFileText = toJson babelAst
-                // ensureDirExists(Fable.Path.GetDirectoryName(jsFilePath))
-                // writeAllText jsFilePath jsFileText
+            // let fsAstStr = fable.FSharpAstToString(fsAst, fileName, optimized)
+            // printfn "%s Typed AST: %s" fileName fsAstStr
+            // printfn "%s Babel AST: %s" fileName (toJson babelAst)
 
-                // // transform Babel AST to js
-                // let jsFileName = Fable.Path.ChangeExtension(fileName, ".js")
-                // let jsFilePath = Fable.Path.Combine(outDir, jsFileName)
-                // ensureDirExists(Fable.Path.GetDirectoryName(jsFilePath))
-                // writeJs jsFilePath babelAst
+            // let jsFileName = Fable.Path.ChangeExtension(fileName, ".json")
+            // let jsFilePath = Fable.Path.Combine(outDir, jsFileName)
+            // let jsFileText = toJson babelAst
+            // ensureDirExists(Fable.Path.GetDirectoryName(jsFilePath))
+            // writeAllText jsFilePath jsFileText
 
-            | None -> ()
+            // // transform Babel AST to js
+            // let jsFileName = Fable.Path.ChangeExtension(fileName, ".js")
+            // let jsFilePath = Fable.Path.Combine(outDir, jsFileName)
+            // ensureDirExists(Fable.Path.GetDirectoryName(jsFilePath))
+            // writeJs jsFilePath babelAst
+
      with ex ->
         printfn "Error: %A" ex.Message
     0
