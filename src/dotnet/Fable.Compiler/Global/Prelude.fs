@@ -303,7 +303,7 @@ module Path =
     /// If path belongs to a signature file (.fsi), replace the extension with .fs
     let normalizePathAndEnsureFsExtension (path: string) =
         let path = normalizePath path
-        if path.EndsWith("fsi")
+        if path.EndsWith(".fsi")
         then path.Substring(0, path.Length - 1)
         else path
 

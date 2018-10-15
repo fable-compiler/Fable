@@ -24,8 +24,10 @@ let main argv =
         let projectFileDir = Path.GetDirectoryName projectPath
         let projectText = readAllText projectPath
 
+        // remove comments
         let projectText = Regex.Replace(projectText, @"<!--.*?-->", "", RegexOptions.Multiline)
 
+        // get files list
         let fileNamesRegex = @"<Compile\s+Include\s*=\s*(""[^""]*|'[^']*)"
         let fileNames =
             Regex.Matches(projectText, fileNamesRegex, RegexOptions.Multiline)
@@ -39,6 +41,7 @@ let main argv =
         let fable = initFable ()
         let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, Some defines)
         let ms0, checker = measureTime createChecker ()
+        printfn "--------------------------------------------"
         printfn "InteractiveChecker created in %d ms" ms0
 
         // Parse F# files to AST
@@ -46,6 +49,7 @@ let main argv =
         let parseFable (fileName, ast) = fable.CompileToBabelAst(fableCoreDir, ast, fileName, optimized)
         let ms1, parseRes = measureTime parseFSharp ()
         printfn "Project: %s, FCS time: %d ms" projectFileName ms1
+        printfn "--------------------------------------------"
 
         // Check for errors
         let printError (e: Fable.Repl.Error) =
@@ -57,6 +61,9 @@ let main argv =
             errors |> Array.exists (fun e -> not e.IsWarning)
         parseRes.Errors |> Array.iter printError
         if parseRes.Errors |> hasErrors then failwith "Too many errors."
+
+        // Exclude signature files
+        let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
         // Fable (F# to Babel)
         for fileName in fileNames do

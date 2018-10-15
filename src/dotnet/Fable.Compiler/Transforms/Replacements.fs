@@ -1841,6 +1841,12 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         Helper.CoreCall("Seq", "rangeLong", t, args @ [isUnsigned] , i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
+let runtimeHelpers (_: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
+    match i.CompiledName, args with
+    | "GetHashCode", [arg] ->
+        identityHash r arg |> Some
+    | _ -> None
+
 let funcs (_: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
     | "Adapt", _ -> List.tryHead args // TODO: What's this used for?
@@ -2449,6 +2455,7 @@ let private replacedModules =
     "Microsoft.FSharp.Core.LanguagePrimitives", languagePrimitives
     "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare", languagePrimitives
     "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators", operators
+    "System.Runtime.CompilerServices.RuntimeHelpers", runtimeHelpers
     Types.char, chars
     Types.string, strings
     "Microsoft.FSharp.Core.StringModule", stringModule

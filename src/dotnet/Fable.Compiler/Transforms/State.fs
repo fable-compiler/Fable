@@ -40,7 +40,7 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
         |> Map
     let rootModules =
         implFiles
-        |> Map.filter (fun file _ -> not(file.EndsWith("fsi")))
+        |> Map.filter (fun file _ -> not(file.EndsWith(".fsi")))
         |> Map.map (fun _ file -> FSharp2Fable.Compiler.getRootModuleFullName file)
     member __.TimeStamp = timestamp
     member __.FableCore = fableCore

@@ -31,6 +31,7 @@ type ParseResults (optimizedProject: Lazy<Project>,
                    parseFile: FSharpParseFileResults,
                    checkFile: FSharpCheckFileResults,
                    checkProject: FSharpCheckProjectResults) =
+
     member __.OptimizedProject = optimizedProject.Force()
     member __.UnoptimizedProject = unoptimizedProject.Force()
     member __.ParseFile = parseFile
@@ -290,7 +291,7 @@ let init () =
                         | Fable.Severity.Info -> true
                     })
                 |> List.toArray
-            ast :> obj, Array.append parseResults.Errors errors
+            ast :> obj, errors
 
         member __.FSharpAstToString(parseResults:IParseResults, optimized: bool) =
             let res = parseResults :?> ParseResults
