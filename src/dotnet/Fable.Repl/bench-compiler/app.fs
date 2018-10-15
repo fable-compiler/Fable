@@ -10,23 +10,25 @@ let main argv =
         let references = Fable.Repl.Metadata.references false
         let metadataPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, "../metadata2/") // .NET BCL binaries
 
-        // let testProj = "../../../../../FSharp.Compiler.Service_fable/fcs/fcs-fable/fcs-fable.fsproj"
-        let testProj = "../Fable.Core.fsproj"
+        // let testProj = "../../../../../fable-test/fable-test.fsproj"
+        let testProj = "../../../../../FSharp.Compiler.Service_fable/fcs/fcs-fable/fcs-fable.fsproj"
+        let outDir = "./out"
+
         let defines = [|
             "FABLE_COMPILER"
-            // "FX_NO_CORHOST_SIGNER"
-            // "FX_NO_LINKEDRESOURCES"
-            // "FX_NO_PDB_READER"
-            // "FX_NO_PDB_WRITER"
-            // "FX_NO_WEAKTABLE"
-            // "FX_REDUCED_EXCEPTIONS"
-            // "NO_COMPILER_BACKEND"
-            // "NO_EXTENSIONTYPING"
-            // "NO_INLINE_IL_PARSER"
+            "FX_NO_CORHOST_SIGNER"
+            "FX_NO_LINKEDRESOURCES"
+            "FX_NO_PDB_READER"
+            "FX_NO_PDB_WRITER"
+            "FX_NO_WEAKTABLE"
+            "FX_REDUCED_EXCEPTIONS"
+            "NO_COMPILER_BACKEND"
+            "NO_EXTENSIONTYPING"
+            "NO_INLINE_IL_PARSER"
         |]
 
         let projectPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, testProj)
-        let outDir = Fable.Path.Combine(__SOURCE_DIRECTORY__, "./out")
+        let outDir = Fable.Path.Combine(__SOURCE_DIRECTORY__, outDir)
 
         // TODO: read arguments from fable.config.js
         let projectPath, outDir =
@@ -41,9 +43,11 @@ let main argv =
         let projectFileDir = Fable.Path.GetDirectoryName projectPath
         let projectText = readAllText projectPath
 
+        // remove comments
         let projectText = Regex.Replace(projectText, @"<!--.*?-->", "", RegexOptions.Multiline)
-        // let projectText = projectText.Replace(@"$(FSharpSourcesRoot)", "../../src")
+        let projectText = projectText.Replace(@"$(FSharpSourcesRoot)", "../../src")
 
+        // get files list
         let fileNamesRegex = @"<Compile\s+Include\s*=\s*(""[^""]*|'[^']*)"
         let fileNames =
             Regex.Matches(projectText, fileNamesRegex, RegexOptions.Multiline)
@@ -61,6 +65,7 @@ let main argv =
         let fable = Fable.Repl.Main.init ()
         let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, Some defines)
         let ms0, checker = measureTime createChecker ()
+        printfn "--------------------------------------------"
         printfn "InteractiveChecker created in %d ms" ms0
 
         // Parse F# files to AST
@@ -68,6 +73,7 @@ let main argv =
         let parseFable (fileName, ast) = fable.CompileToBabelAst(fableCoreDir, ast, fileName, optimized)
         let ms1, parseRes = measureTime parseFSharp ()
         printfn "Project: %s, FCS time: %d ms" projectFileName ms1
+        printfn "--------------------------------------------"
 
         // Check for errors
         let printError (e: Fable.Repl.Error) =
@@ -77,8 +83,12 @@ let main argv =
                 e.EndLineAlternate e.EndColumn e.Message
         let hasErrors (errors: Fable.Repl.Error[]) =
             errors |> Array.exists (fun e -> not e.IsWarning)
-        parseRes.Errors |> Array.iter printError
-        if parseRes.Errors |> hasErrors then failwith "Too many errors."
+        if parseRes.Errors |> hasErrors then
+            parseRes.Errors |> Array.iter printError
+            failwith "Too many errors."
+
+        // exclude signature files
+        let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
         // Fable (F# to Babel)
         for fileName in fileNames do
@@ -87,8 +97,9 @@ let main argv =
                 // transform F# AST to Babel AST
                 let ms2, (babelAst, errors) = measureTime parseFable (fileName, fsAst)
                 printfn "File: %s, Fable time: %d ms" fileName ms2
-                errors |> Array.iter printError
-                if errors |> hasErrors then failwith "Too many errors."
+                if errors |> hasErrors then
+                    errors |> Array.iter printError
+                    failwith "Too many errors."
 
                 //let fsAstStr = fable.FSharpAstToString(fsAst, optimized)
                 //printfn "%s Typed AST: %s" fileName fsAstStr

@@ -22,7 +22,6 @@
   },
   "homepage": "https://github.com/fable-compiler/Fable#readme",
   "dependencies": {
-    "@babel/core": "^7.1.2",
-    "fable-utils": "^1.2.0"
+    "@babel/core": "^7.1.2"
   }
 }

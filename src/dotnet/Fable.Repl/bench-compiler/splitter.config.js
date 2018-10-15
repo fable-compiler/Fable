@@ -26,7 +26,7 @@ const fableOptions = {
 };
 
 module.exports = {
-  entry: path.join(__dirname, "./compiler.fsproj"),
+  entry: path.join(__dirname, "./bench-compiler.fsproj"),
   outDir: path.join(__dirname, "./out"),
   // port: 61225,
   babel: babelOptions,
