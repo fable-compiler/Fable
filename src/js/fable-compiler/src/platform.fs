@@ -15,7 +15,7 @@ let private FileSystem: IFileSystem = importAll "fs"
 let private Process: IProcess = importAll "process"
 
 let readAllBytes metadataPath (fileName:string) = FileSystem.readFileSync(metadataPath + fileName)
-let readAllText (filePath:string) = FileSystem.readFileSync (filePath, "utf8")
+let readAllText (filePath:string) = (FileSystem.readFileSync (filePath, "utf8")).TrimStart('\uFEFF')
 let writeAllText (filePath:string) (text:string) = FileSystem.writeFileSync (filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
