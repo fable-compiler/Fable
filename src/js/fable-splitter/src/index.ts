@@ -40,6 +40,7 @@ export type FableSplitterOptions = {
     babel?: Babel.TransformOptions,
     fable?: FableOptions,
     allFiles?: boolean,
+    externals?: any,
     prepack?: any,
     postbuild?: () => void,
 };
@@ -176,6 +177,59 @@ function getRelativeOrAbsoluteImportDeclarations(ast: Babel.types.Program) {
     });
 }
 
+function varDeclarator(ident: string, init: any) {
+    return {
+        type: "VariableDeclarator",
+        id: {
+            type: "Identifier",
+            name: ident
+        },
+        init
+    };
+}
+
+function member(left: string, right: string) {
+    return {
+        type: "MemberExpression",
+        object: {
+          type: "Identifier",
+          name: left
+        },
+        property: {
+            type: "Identifier",
+            name: right
+        },
+        computed: false
+    };
+}
+
+function fixExternalImports(ast: Babel.types.Program, externals: any) {
+    if (Array.isArray(ast.body)) {
+        const importDecls: any[] = [];
+        const fixedDecls: any[] = [];
+        const otherDecls = ast.body.filter((decl) => {
+            if (decl.source != null && typeof decl.source.value === "string") {
+                const path: string = decl.source.value;
+                if (path in externals) {
+                    const replacement = externals[path];
+                    // TODO: Check for ImportNamespaceSpecifier
+                    const varDeclarators = decl.specifiers.map((specifier) => varDeclarator(specifier.local.name, member(replacement, specifier.imported.name)));
+                    fixedDecls.push({
+                        type: "VariableDeclaration",
+                        declarations: varDeclarators,
+                        kind: "const"
+                    });
+                } else {
+                    importDecls.push(decl);
+                }
+                return false;
+            }
+            return true;
+        });
+        ast.body = importDecls.concat(fixedDecls, otherDecls);
+    };
+}
+
 async function getBabelAst(path: string, options: FableSplitterOptions, info: CompilationInfo) {
     let ast: Babel.types.Program | null = null;
     if (FSHARP_EXT.test(path)) {
@@ -292,6 +346,10 @@ async function transformAsync(path: string, options: FableSplitterOptions,
             const importPath = decl.source.value;
             importPaths.push(importPath);
             decl.source.value = fixImportPath(fromDir, importPath, info);
+        }
+
+        if (options.externals != null) {
+            fixExternalImports(ast, options.externals);
         }
 
         // if not an .fsproj, transform and save
