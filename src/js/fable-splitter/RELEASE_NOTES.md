@@ -1,3 +1,7 @@
+### 2.0.2
+
+* Add "externals" option (similar to Webpack's but only for global values)
+
 ### 2.0.1
 
 * Improve relative path check
