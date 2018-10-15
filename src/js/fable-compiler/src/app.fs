@@ -24,13 +24,13 @@ let main argv =
         let projectFileDir = Path.GetDirectoryName projectPath
         let projectText = readAllText projectPath
 
-        // remove comments
-        let projectText = Regex.Replace(projectText, @"<!--.*?-->", "", RegexOptions.Multiline)
+        // remove all comments
+        let projectText = Regex.Replace(projectText, @"<!--[\s\S]*?-->", "")
 
         // get files list
         let fileNamesRegex = @"<Compile\s+Include\s*=\s*(""[^""]*|'[^']*)"
         let fileNames =
-            Regex.Matches(projectText, fileNamesRegex, RegexOptions.Multiline)
+            Regex.Matches(projectText, fileNamesRegex)
             |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim())
             |> Seq.toArray
 
