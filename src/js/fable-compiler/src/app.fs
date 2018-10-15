@@ -45,7 +45,7 @@ let main argv =
         printfn "InteractiveChecker created in %d ms" ms0
 
         // Parse F# files to AST
-        let parseFSharp () = fable.ParseFSharpProjectFiles(checker, projectFileName, fileNames, sources)
+        let parseFSharp () = fable.ParseFSharpProjectSimple(checker, projectFileName, fileNames, sources)
         let parseFable (fileName, ast) = fable.CompileToBabelAst(fableCoreDir, ast, fileName, optimized)
         let ms1, parseRes = measureTime parseFSharp ()
         printfn "Project: %s, FCS time: %d ms" projectFileName ms1
@@ -66,21 +66,21 @@ let main argv =
         let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
         // Fable (F# to Babel)
+        let fsAst = parseRes.ProjectResults
         for fileName in fileNames do
-            match parseRes.GetResults(fileName) with
-            | Some fsAst ->
-                // transform F# AST to Babel AST
-                let ms2, (babelAst, errors) = measureTime parseFable (fileName, fsAst)
-                printfn "File: %s, Fable time: %d ms" fileName ms2
-                errors |> Array.iter printError
-                if errors |> hasErrors then failwith "Too many errors."
 
-                // transform Babel AST to js
-                let jsFileName = Path.ChangeExtension(fileName, ".js")
-                let jsFilePath = Path.Combine(outDir, jsFileName)
-                ensureDirExists(Path.GetDirectoryName(jsFilePath))
-                writeJs jsFilePath babelAst
-            | None -> ()
+            // transform F# AST to Babel AST
+            let ms2, (babelAst, errors) = measureTime parseFable (fileName, fsAst)
+            printfn "File: %s, Fable time: %d ms" fileName ms2
+            errors |> Array.iter printError
+            if errors |> hasErrors then failwith "Too many errors."
+
+            // transform Babel AST to js
+            let jsFileName = Path.ChangeExtension(fileName, ".js")
+            let jsFilePath = Path.Combine(outDir, jsFileName)
+            ensureDirExists(Path.GetDirectoryName(jsFilePath))
+            writeJs jsFilePath babelAst
+
      with ex ->
         printfn "Error: %A" ex.Message
     0
