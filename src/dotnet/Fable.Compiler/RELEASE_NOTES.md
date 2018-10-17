@@ -1,3 +1,9 @@
+### 2.0.5
+
+* Don't change the first letter of erased union cases in keyValueList
+* Updates for creating precompiled libraries
+* Fix `isRelativePath`
+
 ### 2.0.4
 
 * Fix #1594 Array.partition results are too long @ericharding
