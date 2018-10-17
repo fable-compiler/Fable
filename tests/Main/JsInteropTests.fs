@@ -195,18 +195,24 @@ let tests =
     //     actual |> equal expected
 
     testCase "Erased union cases work with keyValueList" <| fun () ->
-        let props: Props list = [ Custom("Foo", 5) ]
-        let actual = [ Custom("Bar", 10) ] |> keyValueList CaseRules.LowerFirst
+        let props: Props list = [ Custom("Foo", 5); Names [|{Name = "Mikhail"}|] ]
+        let compiletime = [Custom("Bar", 10); Names [|{Name = "Mikhail"}|]]
+                          |> keyValueList CaseRules.LowerFirst
         let expected = props |> keyValueList CaseRules.LowerFirst
-        actual?Bar |> equal 10
+        compiletime?Bar |> equal 10
         expected?Foo |> equal 5
+        compiletime?names?(0)?Name |> equal "Mikhail"
+        compiletime?names?(0)?Name |> equal "Mikhail"
 
     testCase "Dynamic casting works with keyValueList" <| fun () ->
-        let props: Props list = [ !!("Foo", 5) ]
-        let actual = [ (!!("Bar", 10): Props) ] |> keyValueList CaseRules.LowerFirst
+        let props: Props list = [ !!("Foo", 5); Names [|{Name = "Mikhail"}|] ]
+        let compiletime = [ (!!("Bar", 10): Props); Names [|{Name = "Mikhail"}|] ]
+                          |> keyValueList CaseRules.LowerFirst
         let expected = props |> keyValueList CaseRules.LowerFirst
-        actual?Bar |> equal 10
+        compiletime?Bar |> equal 10
         expected?Foo |> equal 5
+        compiletime?names?(0)?Name |> equal "Mikhail"
+        compiletime?names?(0)?Name |> equal "Mikhail"
 
     testCase "Unit argument is not replaced by null in dynamic programming" <| fun () ->
         let o = createObj ["foo" ==> fun () -> argCount]
