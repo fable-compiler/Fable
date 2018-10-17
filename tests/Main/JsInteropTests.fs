@@ -198,15 +198,15 @@ let tests =
         let props: Props list = [ Custom("Foo", 5) ]
         let actual = [ Custom("Bar", 10) ] |> keyValueList CaseRules.LowerFirst
         let expected = props |> keyValueList CaseRules.LowerFirst
-        actual?bar |> equal 10
-        expected?foo |> equal 5
+        actual?Bar |> equal 10
+        expected?Foo |> equal 5
 
     testCase "Dynamic casting works with keyValueList" <| fun () ->
         let props: Props list = [ !!("Foo", 5) ]
         let actual = [ (!!("Bar", 10): Props) ] |> keyValueList CaseRules.LowerFirst
         let expected = props |> keyValueList CaseRules.LowerFirst
-        actual?bar |> equal 10
-        expected?foo |> equal 5
+        actual?Bar |> equal 10
+        expected?Foo |> equal 5
 
     testCase "Unit argument is not replaced by null in dynamic programming" <| fun () ->
         let o = createObj ["foo" ==> fun () -> argCount]

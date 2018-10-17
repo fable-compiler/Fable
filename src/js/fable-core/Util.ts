@@ -574,6 +574,8 @@ export function createObj(fields: Iterable<any>, caseRule = CaseRules.None) {
     }
     if (typeof kvPair.toJSON === "function") { // Deflate unions
       kvPair = kvPair.toJSON();
+    } else {
+      caseRule = CaseRules.None; // Don't change the case if it's not a union, as in Fable 1
     }
     if (Array.isArray(kvPair)) {
       switch (kvPair.length) {

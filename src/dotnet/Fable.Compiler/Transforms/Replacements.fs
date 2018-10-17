@@ -806,13 +806,16 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
                     match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
                     | Some _ ->
                         match values with
-                        | (Value(StringConstant name))::values -> makeObjMember caseRule name values::acc |> Some
+                        | (Value(StringConstant name))::values ->
+                            // Don't change the case for erased cases
+                            makeObjMember CaseRules.None name values::acc |> Some
                         | _ -> None
                     | None ->
                         let name = defaultArg (FSharp2Fable.Helpers.unionCaseCompiledName uci) uci.Name
                         makeObjMember caseRule name values::acc |> Some
                 | Some acc, Value(NewTuple((Value(StringConstant name))::values)) ->
-                    makeObjMember caseRule name values::acc |> Some
+                    // Don't change the case for tuples in disguise
+                    makeObjMember CaseRules.None name values::acc |> Some
                 | _ ->
                     None)
         | _ -> None
