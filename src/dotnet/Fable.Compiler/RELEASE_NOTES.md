@@ -1,4 +1,4 @@
-### 2.0.5
+### 2.0.6
 
 * Don't change the first letter of erased union cases in keyValueList
 * Updates for creating precompiled libraries
