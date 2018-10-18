@@ -19,6 +19,7 @@ type Context =
       BoundConstructorThis: Fable.Ident option
       BoundMemberThis: Fable.Ident option
       InlinePath: (string * (SourceLocation option)) list
+      CaptureBaseConsCall: (FSharpEntity * (Fable.Expr * Fable.Expr -> unit)) option
     }
     static member Create(enclosingEntity) =
         { Scope = []
@@ -30,6 +31,7 @@ type Context =
           BoundConstructorThis = None
           BoundMemberThis = None
           InlinePath = []
+          CaptureBaseConsCall = None
         }
 
 type IFableCompiler =
@@ -383,6 +385,18 @@ module Patterns =
             Some(baseCall, genArgs1 @ genArgs2, baseArgs)
         | _ -> None
 
+    let (|CapturedBaseConsCall|_|) com (ctx: Context) transformBaseCall = function
+        | BasicPatterns.Sequential(ConstructorCall(call, genArgs, args) as expr1, expr2)
+        // This pattern occurs in constructors that define a this value: `type C() as this`
+        // TODO: We're discarding the bound `this` value, check if it's actually used in the base constructor arguments?
+        | BasicPatterns.Sequential(BasicPatterns.Let(_, (ConstructorCall(call, genArgs, args) as expr1)), expr2) ->
+            match call.DeclaringEntity, ctx.CaptureBaseConsCall with
+            | Some baseEnt, Some(expectedBaseEnt, capture) when baseEnt = expectedBaseEnt ->
+                transformBaseCall com ctx (makeRangeFrom expr1) baseEnt call genArgs args |> capture
+                Some expr2
+            | _ -> None
+        | _ -> None
+
     let (|OptimizedOperator|_|) = function
         // work-around for optimized string operator (Operators.string)
         | BasicPatterns.Let((var, BasicPatterns.Call(None, memb, _, membArgTypes, membArgs)),
@@ -602,12 +616,15 @@ module Identifiers =
 
     let (|BindIdent|) com ctx fsRef = bindIdentFrom com ctx fsRef
 
-    /// Get corresponding identifier to F# value in current scope
-    let tryGetBoundExpr (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
-        match List.tryFind (fun (fsRef',_)  -> obj.Equals(fsRef, fsRef')) ctx.Scope with
+    let inline tryGetBoundExprWhere (ctx: Context) r predicate =
+        match List.tryFind (fun (fsRef,_)  -> predicate fsRef) ctx.Scope with
         | Some(_, Fable.IdentExpr ident) -> { ident with Range = r } |> Fable.IdentExpr |> Some
         | Some(_, boundExpr) -> Some boundExpr
         | None -> None
+
+    /// Get corresponding identifier to F# value in current scope
+    let tryGetBoundExpr (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
+        tryGetBoundExprWhere ctx r (fun fsRef' -> obj.Equals(fsRef, fsRef'))
 
 module Util =
     open Helpers

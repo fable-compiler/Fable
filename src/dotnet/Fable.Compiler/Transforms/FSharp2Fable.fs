@@ -18,6 +18,27 @@ open Util
 let inline private transformExprList com ctx xs = trampolineListMap (transformExpr com ctx) xs
 let inline private transformExprOpt com ctx opt = trampolineOptionMap (transformExpr com ctx) opt
 
+let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
+    let thisArg = ctx.BoundConstructorThis |> Option.map Fable.IdentExpr
+    let baseArgs = transformExprList com ctx baseArgs |> run
+    let genArgs = genArgs |> Seq.map (makeType com ctx.GenericArgs)
+    match Replacements.tryBaseConstructor com baseEnt baseCons genArgs baseArgs with
+    | Some(baseRef, args) ->
+        // TODO: Should Replacements.tryBaseConstructor return the argInfo?
+        let argInfo: Fable.ArgInfo =
+          { ThisArg = thisArg
+            Args = args
+            SignatureArgTypes = getArgTypes com baseCons |> Fable.Typed
+            Spread = Fable.NoSpread
+            IsBaseOrSelfConstructorCall = true }
+        baseRef, staticCall r Fable.Unit argInfo baseRef
+    | None ->
+        if not(hasImplicitConstructor baseEnt) then
+            "Classes without a primary constructor cannot be inherited: " + baseEnt.FullName
+            |> addError com ctx.InlinePath r
+        let baseCons = makeCallFrom com ctx r Fable.Unit true genArgs thisArg baseArgs baseCons
+        entityRefMaybeImported com baseEnt, baseCons
+
 let private transformNewUnion com ctx r fsType
                 (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match fsType with
@@ -315,14 +336,22 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             addError com ctx.InlinePath (makeRangeFrom fsExpr) "Unexpected unbound this for base value"
             return Fable.Value(Fable.Null Fable.Any)
 
-    | BasicPatterns.ThisValue _typ ->
+    | BasicPatterns.ThisValue typ ->
+        let fail r msg =
+            addError com ctx.InlinePath r msg
+            Fable.Value(Fable.Null Fable.Any)
         // NOTE: We don't check ctx.BoundMemberThis here because F# compiler doesn't represent
         // `this` in members as BasicPatterns.ThisValue (but BasicPatterns.Value)
-        match ctx.BoundConstructorThis with
-        | Some thisArg -> return Fable.IdentExpr thisArg
-        | _ ->
-            addError com ctx.InlinePath (makeRangeFrom fsExpr) "Unexpected unbound this"
-            return Fable.Value(Fable.Null Fable.Any)
+        return
+            match typ, ctx.BoundConstructorThis with
+            // When the type is a ref type, it means this is a reference to a constructor this value `type C() as x`
+            | RefType _, _ ->
+                let r = makeRangeFrom fsExpr
+                match tryGetBoundExprWhere ctx r (fun fsRef -> fsRef.IsConstructorThisValue) with
+                | Some e -> e
+                | None -> fail r "Cannot find ConstructorThisValue"
+            | _, Some thisArg -> Fable.IdentExpr thisArg
+            | _ -> fail (makeRangeFrom fsExpr) "Unexpected unbound this"
 
     | BasicPatterns.Value var ->
         let r = makeRangeFrom fsExpr
@@ -363,6 +392,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Fable.Let(bindings, body)
 
     // Applications
+    | CapturedBaseConsCall com ctx transformBaseConsCall nextExpr ->
+        return! transformExpr com ctx nextExpr
+
     // TODO: `argTypes2` is always empty, asked about its purpose
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
         let typ = makeType com ctx.GenericArgs fsExpr.Type
@@ -546,16 +578,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs None args memb
 
-    | BasicPatterns.Sequential(ConstructorCall(baseCall,_,_), BasicPatterns.NewRecord(fsType, argExprs)) ->
-        match baseCall.DeclaringEntity with
-        | Some baseEnt when baseEnt.TryFullName = Some Types.object ->
-            let! argExprs = transformExprList com ctx argExprs
-            let genArgs = makeGenArgs com ctx.GenericArgs (getGenericArguments fsType)
-            return Fable.NewRecord(argExprs, fsType.TypeDefinition, genArgs) |> Fable.Value
-        | _ ->
-            return "Internal constructor with inheritance are not supported"
-            |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
-
     // work-around for optimized "for x in list" (erases this sequential)
     | BasicPatterns.Sequential (BasicPatterns.ValueSet (current, BasicPatterns.Value next1),
                                 (BasicPatterns.ValueSet (next2, BasicPatterns.UnionCaseGet
@@ -689,58 +711,6 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
             | Some ent -> isImportedEntity ent
             | None -> false)
 
-/// This function matches the pattern in F# implicit constructor when either:
-/// - Calls the base constructor
-/// - Makes checks for self referencing (as in `type Foo() as self =`): see #124
-let rec private getBaseConsAndBody com ctx (baseType: FSharpType option) acc body =
-    let transformBodyStatements com ctx acc body =
-        acc @ [body] |> transformExprList com ctx |> run
-
-    let getBaseConsInfo com ctx r (baseCall: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
-        baseType |> Option.bind (fun (NonAbbreviatedType baseType) ->
-            if baseType.HasTypeDefinition then
-                let ent = baseType.TypeDefinition
-                match ent.TryFullName with
-                | Some name when name <> Types.object -> Some ent
-                | _ -> None
-            else None)
-        |> Option.map (fun baseEntity ->
-            let thisArg = ctx.BoundConstructorThis |> Option.map Fable.IdentExpr
-            let baseArgs = transformExprList com ctx baseArgs |> run
-            let genArgs = genArgs |> Seq.map (makeType com ctx.GenericArgs)
-            match Replacements.tryBaseConstructor com baseEntity baseCall genArgs baseArgs with
-            | Some(baseRef, args) ->
-                // TODO: Should Replacements.tryBaseConstructor return the argInfo?
-                let argInfo: Fable.ArgInfo =
-                  { ThisArg = thisArg
-                    Args = args
-                    SignatureArgTypes = getArgTypes com baseCall |> Fable.Typed
-                    Spread = Fable.NoSpread
-                    IsBaseOrSelfConstructorCall = true }
-                baseRef, staticCall r Fable.Unit argInfo baseRef
-            | None ->
-                if not(hasImplicitConstructor baseEntity) then
-                    "Classes without a primary constructor cannot be inherited: " + baseEntity.FullName
-                    |> addError com ctx.InlinePath None
-                let baseCons = makeCallFrom com ctx r Fable.Unit true genArgs thisArg baseArgs baseCall
-                entityRefMaybeImported com baseEntity, baseCons)
-
-    match body with
-    | BasicPatterns.Sequential(baseCall, body) ->
-        match baseCall with
-        | ConstructorCall(baseCall, genArgs, baseArgs) as fsExpr ->
-            let baseConsInfo = getBaseConsInfo com ctx (makeRangeFrom fsExpr) baseCall genArgs baseArgs
-            baseConsInfo, transformBodyStatements com ctx acc body
-        // This happens in constructors including self references
-        // TODO: We're discarding the bound value, detect if there's a reference to it
-        // in the base constructor arguments and throw an error in that case.
-        | BasicPatterns.Let(_, (ConstructorCall(baseCall, genArgs, baseArgs) as fsExpr)) ->
-            let baseConsInfo = getBaseConsInfo com ctx (makeRangeFrom fsExpr) baseCall genArgs baseArgs
-            baseConsInfo, transformBodyStatements com ctx acc body
-        | _ -> getBaseConsAndBody com ctx baseType (acc @ [baseCall]) body
-    // TODO: Kindda unexpected, log warning?
-    | body -> None, transformBodyStatements com ctx acc body
-
 let private transformImplicitConstructor com (ctx: Context)
             (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
@@ -749,12 +719,24 @@ let private transformImplicitConstructor com (ctx: Context)
     | Some ent ->
         let bodyCtx, args = bindMemberArgs com ctx args
         let boundThis = makeIdentUnique com "this"
-        let bodyCtx = { bodyCtx with BoundConstructorThis = boundThis |> Some }
-        let baseCons, body = getBaseConsAndBody com bodyCtx ent.BaseType [] body
+        let mutable baseCons = None
+        let captureBaseCall =
+            ent.BaseType |> Option.bind (fun (NonAbbreviatedType baseType) ->
+                if baseType.HasTypeDefinition then
+                    let ent = baseType.TypeDefinition
+                    match ent.TryFullName with
+                    | Some name when name <> Types.object ->
+                        // TODO: Throw if assigning to baseCons more than once?
+                        Some(ent, fun c -> baseCons <- Some c)
+                    | _ -> None
+                else None)
+        let bodyCtx = { bodyCtx with BoundConstructorThis = Some boundThis
+                                     CaptureBaseConsCall = captureBaseCall }
+        let body = transformExpr com bodyCtx body |> run
         let baseExpr, body =
             match baseCons with
-            | Some(baseExpr, baseCons) -> Some baseExpr, Fable.Sequential(baseCons::body)
-            | None -> None, Fable.Sequential body
+            | Some(baseExpr, baseCons) -> Some baseExpr, Fable.Sequential [baseCons; body]
+            | None -> None, body
         let name = getMemberDeclarationName com memb
         let entityName = getEntityDeclarationName com ent
         com.AddUsedVarName(name)

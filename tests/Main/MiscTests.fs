@@ -197,10 +197,12 @@ type TestClass(n) =
     let inner = makeNum (fun () -> addOne n)
     member __.GetNum() = inner.Num
 
-type RecursiveType(subscribe) as this =
+type RecursiveType(subscribe) as self =
+    let foo = 3
     let getNumber() = 3
-    do subscribe (getNumber >> this.Add2)
-    member this.Add2(i) = i + 2
+    do subscribe (getNumber >> self.Add2)
+    member __.Add2(i) = self.MultiplyFoo(i) + 2
+    member __.MultiplyFoo(i) = i * foo
 
 module Extensions =
     type IDisposable with
@@ -577,11 +579,10 @@ let tests =
             }
         o.Taste(4., 6.) |> equal 28
 
-    // TODO!!!
-    // testCase "Composition with recursive `this` works" <| fun () ->
-    //     let mutable x = 0
-    //     RecursiveType(fun f -> x <- f()) |> ignore
-    //     equal 5 x
+    testCase "Composition with recursive `this` works" <| fun () ->
+        let mutable x = 0
+        RecursiveType(fun f -> x <- f()) |> ignore
+        equal 11 x
 
     testCase "Type extension static methods work" <| fun () ->
         let disposed = ref false
