@@ -236,7 +236,7 @@ type Point2D =
 exception MyEx of int*string
 
 type MyEx2(f: float) =
-  inherit Exception(sprintf "Code: %i" (int f))
+  inherit exn(sprintf "Code: %i" (int f))
   member __.Code = f
 
 type ThisContextInConstructor(v) =
