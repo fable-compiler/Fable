@@ -619,7 +619,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     // Pattern Matching
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
-        let! fableDecisionExpr = transformExpr com ctx decisionExpr 
+        let! fableDecisionExpr = transformExpr com ctx decisionExpr
         let rec transformDecisionTargets acc xs =
             trampoline {
                 match xs with
@@ -635,6 +635,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
         let! fableDecisionTargets = transformDecisionTargets [] decisionTargets
         
+        // rewrite last decision target if it throws MatchFailureException
         let compiledFableTargets = 
             match isRasingMatchFailureExpr (snd (List.last decisionTargets)) with 
             | Some fileNameWhereErrorOccurs -> 
@@ -642,16 +643,18 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 | BasicPatterns.IfThenElse(BasicPatterns.UnionCaseTest(unionValue, unionType, unionCaseInfo), _, _) ->
                     let rangeOfLastDecisionTarget = makeRangeFrom (snd (List.last decisionTargets))
                     let errorMessage = 
-                        sprintf "The match cases were incomplete: case '%s' of type '%s' was not handled at %s" 
-                            unionCaseInfo.Name 
+                        sprintf "The match cases were incomplete against type of '%s' at %s" 
                             unionType.TypeDefinition.DisplayName
                             fileNameWhereErrorOccurs
                     let errorExpr = createThrowErrorExpr errorMessage rangeOfLastDecisionTarget 
 
                     fableDecisionTargets
                     |> List.replaceLast (fun lastExpr -> [], errorExpr)
+
                 | _ ->
+                    // TODO: rewrite other `MatchFailureException` to `failwith "The match cases were incomplete"`
                     fableDecisionTargets
+
             | None -> fableDecisionTargets
 
         return Fable.DecisionTree(fableDecisionExpr, compiledFableTargets)
