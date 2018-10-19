@@ -232,6 +232,45 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         return Fable.Test(unionExpr, kind, r)
   }
 
+let private isRasingMatchFailureExpr (expr: FSharpExpr) = 
+    match expr with 
+    | BasicPatterns.Call(None, methodInfo, [ ], [unitType], [value]) ->   
+        match methodInfo.FullName with 
+        | "Microsoft.FSharp.Core.Operators.raise" -> 
+            match value with 
+            | BasicPatterns.NewRecord(recordType, [ BasicPatterns.Const (value, valueT) ; rangeFrom; rangeTo ]) -> 
+                match recordType.TypeDefinition.FullName with 
+                | "Microsoft.FSharp.Core.MatchFailureException"-> Some (value.ToString())
+                | _ -> None
+            | _ -> None 
+        | _ -> None 
+    | _ -> None  
+
+/// Creates a "throw Error({errorMessage})" expression
+let private createThrowErrorExpr (errorMessage: string) range : Fable.Expr = 
+    let errorCallExpr = 
+        let errorArgInfo : Fable.ArgInfo = {
+            ThisArg = None
+            Args = [Fable.Value(Fable.StringConstant errorMessage)]
+            SignatureArgTypes = Fable.NoUncurrying
+            Spread = Fable.NoSpread 
+            IsBaseOrSelfConstructorCall = false
+        } 
+
+        let errorId : Fable.Ident = {
+            Name = "Error"
+            Type = Fable.Any
+            Kind = Fable.UnspecifiedIdent
+            IsMutable = false 
+            IsCompilerGenerated = true
+            Range = None
+        }
+
+        Fable.Call(Fable.CallKind.ConstructorCall(Fable.Expr.IdentExpr errorId), errorArgInfo)
+    
+    // Todo: add range information
+    Fable.Throw(Fable.Operation(errorCallExpr, Fable.Type.Any, None), Fable.Type.Any, range)
+
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
   trampoline {
     match fsExpr with
@@ -580,7 +619,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     // Pattern Matching
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
-        let! decisionExpr = transformExpr com ctx decisionExpr
+        let! fableDecisionExpr = transformExpr com ctx decisionExpr 
         let rec transformDecisionTargets acc xs =
             trampoline {
                 match xs with
@@ -593,8 +632,29 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                     let! expr = transformExpr com ctx expr
                     return! transformDecisionTargets ((idents, expr)::acc) tail
             }
-        let! decisionTargets = transformDecisionTargets [] decisionTargets
-        return Fable.DecisionTree(decisionExpr, decisionTargets)
+
+        let! fableDecisionTargets = transformDecisionTargets [] decisionTargets
+        
+        let compiledFableTargets = 
+            match isRasingMatchFailureExpr (snd (List.last decisionTargets)) with 
+            | Some fileNameWhereErrorOccurs -> 
+                match decisionExpr with 
+                | BasicPatterns.IfThenElse(BasicPatterns.UnionCaseTest(unionValue, unionType, unionCaseInfo), _, _) ->
+                    let rangeOfLastDecisionTarget = makeRangeFrom (snd (List.last decisionTargets))
+                    let errorMessage = 
+                        sprintf "The match cases were incomplete: case '%s' of type '%s' was not handled at %s" 
+                            unionCaseInfo.Name 
+                            unionType.TypeDefinition.DisplayName
+                            fileNameWhereErrorOccurs
+                    let errorExpr = createThrowErrorExpr errorMessage rangeOfLastDecisionTarget 
+
+                    fableDecisionTargets
+                    |> List.replaceLast (fun lastExpr -> [], errorExpr)
+                | _ ->
+                    fableDecisionTargets
+            | None -> fableDecisionTargets
+
+        return Fable.DecisionTree(fableDecisionExpr, compiledFableTargets)
 
     | BasicPatterns.DecisionTreeSuccess(targetIndex, boundValues) ->
         let! boundValues = transformExprList com ctx boundValues
