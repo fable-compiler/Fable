@@ -299,6 +299,21 @@ module Patterns =
         | TypeDefinition tdef as t when tdef.TryFullName = Some Types.reference -> Some t
         | _ -> None
 
+    /// Detects AST pattern of "raise MatchFailureException()" 
+    let (|RasingMatchFailureExpr|_|) (expr: FSharpExpr) = 
+        match expr with 
+        | BasicPatterns.Call(None, methodInfo, [ ], [unitType], [value]) ->   
+            match methodInfo.FullName with 
+            | "Microsoft.FSharp.Core.Operators.raise" -> 
+                match value with 
+                | BasicPatterns.NewRecord(recordType, [ BasicPatterns.Const (value, valueT) ; rangeFrom; rangeTo ]) -> 
+                    match recordType.TypeDefinition.FullName with 
+                    | "Microsoft.FSharp.Core.MatchFailureException"-> Some (value.ToString())
+                    | _ -> None
+                | _ -> None 
+            | _ -> None 
+        | _ -> None  
+        
     let (|ForOf|_|) = function
         | Let((_, value), // Coercion to seq
               Let((_, Call(None, meth, _, [], [])),
