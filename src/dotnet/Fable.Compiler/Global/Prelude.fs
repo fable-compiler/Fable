@@ -257,10 +257,10 @@ module Path =
     open System
 
     let Combine (path1: string, path2: string) =
-        (path1.TrimEnd [|'\\';'/'|]) + "/" + (path2.TrimStart [|'\\';'/'|])
-
-    let Combine3 (path1: string, path2: string, path3: string) =
-        (path1.TrimEnd [|'\\';'/'|]) + "/" + (path2.Trim [|'\\';'/'|]) + "/" + (path3.TrimStart [|'\\';'/'|])
+        let path1 =
+            if path1.Length = 0 then path1
+            else (path1.TrimEnd [|'\\';'/'|]) + "/"
+        path1 + (path2.TrimStart [|'\\';'/'|])
 
     let ChangeExtension (path: string, ext: string) =
         let i = path.LastIndexOf(".")

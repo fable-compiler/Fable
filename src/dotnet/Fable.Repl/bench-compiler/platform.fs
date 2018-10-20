@@ -54,8 +54,6 @@ let toJson = Json.toJson
 let ensureDirExists (dir: string): unit =
     System.IO.Directory.CreateDirectory(dir) |> ignore
 
-let writeJs (filePath:string) (babelAst:obj) = () // Does nothing in .NET for now
-
 #else
 
 open Fable.Core.JsInterop
@@ -87,15 +85,5 @@ let measureTime (f: 'a -> 'b) x =
 let toJson (value: obj) = value |> toJson
 
 let ensureDirExists (dir: string): unit = importMember "./util.js"
-
-type private IBabelResult =
-    abstract code: string
-type private IBabel =
-    abstract transformFromAst: babelAst: obj -> IBabelResult
-let private Babel: IBabel = importAll "@babel/core"
-
-let writeJs (filePath: string) (babelAst: obj) =
-    let res = Babel.transformFromAst babelAst
-    writeAllText filePath res.code
 
 #endif

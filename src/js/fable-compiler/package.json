@@ -1,9 +1,9 @@
 {
   "name": "fable-compiler",
   "version": "2.0.0-alpha-001",
-  "main": "./dist/app.js",
+  "main": "index.js",
   "bin": {
-    "fable": "./dist/app.js"
+    "fable": "index.js"
   },
   "description": "Fable compiler",
   "keywords": [

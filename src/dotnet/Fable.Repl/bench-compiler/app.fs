@@ -6,11 +6,8 @@ open System.Text.RegularExpressions
 let references = Fable.Repl.Metadata.references false
 let metadataPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, "../metadata2/") // .NET BCL binaries
 
-let parseProject projectPath outDir =
-    let optimized = false
-
+let parseProject projectPath =
     let projectFileName = Fable.Path.GetFileName projectPath
-    let projectFileDir = Fable.Path.GetDirectoryName projectPath
     let projectText = readAllText projectPath
 
     // remove all comments
@@ -38,6 +35,13 @@ let parseProject projectPath outDir =
         |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim())
         |> Seq.toArray
 
+    (projectFileName, fileNames, defines)
+
+let parseFiles projectPath outDir optimized =
+    let (projectFileName, fileNames, defines) = parseProject projectPath
+
+    // get file sources
+    let projectFileDir = Fable.Path.GetDirectoryName projectPath
     let makePath fileName = Fable.Path.Combine(projectFileDir, fileName)
     let sources = fileNames |> Array.map (fun fileName -> fileName |> makePath |> readAllText)
 
@@ -73,7 +77,6 @@ let parseProject projectPath outDir =
     let fableCoreDir = Fable.Path.Combine(__SOURCE_DIRECTORY__, "/fable-core")
     let parseFable (fileName, ast) = fable.CompileToBabelAst(fableCoreDir, ast, fileName, optimized)
     let fsAst = parseRes.ProjectResults
-
     for fileName in fileNames do
 
         // transform F# AST to Babel AST
@@ -93,31 +96,21 @@ let parseProject projectPath outDir =
         // ensureDirExists(Fable.Path.GetDirectoryName(jsFilePath))
         // writeAllText jsFilePath jsFileText
 
-        // // transform Babel AST to js
-        // let jsFileName = Fable.Path.ChangeExtension(fileName, ".js")
-        // let jsFilePath = Fable.Path.Combine(outDir, jsFileName)
-        // ensureDirExists(Fable.Path.GetDirectoryName(jsFilePath))
-        // writeJs jsFilePath babelAst
+let parseArguments (argv: string[]) =
+    // TODO: more sophisticated argument parsing
+    let usage = "Usage: fable-compiler projectPath [--options]"
+    let opts, args = argv |> Array.partition (fun s -> s.StartsWith("--"))
+    match args with
+    | [| projectPath |] ->
+        let outDir = "./out"
+        let optimized = opts |> Array.contains "--optimize-fcs"
+        parseFiles projectPath outDir optimized
+    | _ -> printfn "%s" usage
 
 [<EntryPoint>]
 let main argv =
     try
-        // TODO: read arguments from fable.config.js
-        let testProj = "../../../../../FSharp.Compiler.Service_fable/fcs/fcs-fable/fcs-fable.fsproj"
-        let outDir = "./out"
-
-        let projectPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, testProj)
-        let outDir = Fable.Path.Combine(__SOURCE_DIRECTORY__, outDir)
-
-        // TODO: read arguments from fable.config.js
-        let projectPath, outDir =
-            match argv with
-            | [| projectPath; outDir |] -> projectPath, outDir
-            | [| projectPath |] -> projectPath, outDir
-            | _ -> projectPath, outDir
-
-        parseProject projectPath outDir
-
-     with ex ->
+        parseArguments argv
+    with ex ->
         printfn "Error: %A" ex.Message
     0
