@@ -138,7 +138,7 @@ let parseFiles projectPath outDir optimized =
 
 let parseArguments (argv: string[]) =
     // TODO: more sophisticated argument parsing
-    let usage = "Usage: fable-compiler projectPath [--options]"
+    let usage = "Usage: fable <PROJECT_PATH> [--options]"
     let opts, args = argv |> Array.partition (fun s -> s.StartsWith("--"))
     match args with
     | [| projectPath |] ->
