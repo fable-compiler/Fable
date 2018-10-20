@@ -76,6 +76,14 @@
             "runtimeArgs": ["--experimental-modules"],
             "args": [],
             "cwd": "${workspaceRoot}/src/dotnet/Fable.Repl/bench"
-        }
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch fable-compiler",
+            "program": "${workspaceRoot}/src/js/fable-compiler/dist/app.js",
+            "args": ["../fable-test/fable-test.fsproj", "../fable-test/out"],
+            "cwd": "${workspaceRoot}"
+        },
     ]
 }

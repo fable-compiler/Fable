@@ -471,8 +471,7 @@ let partition (f: 'T -> bool) (source: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
         else
             res2.[iFalse] <- source.[i]
             iFalse <- iFalse + 1
-    res1 |> Array.truncate iTrue, res2 |> Array.truncate iFalse
-
+    res1 |> truncate iTrue, res2 |> truncate iFalse
 
 let find (predicate: 'T -> bool) (array: 'T[]): 'T =
     match findImpl predicate array with

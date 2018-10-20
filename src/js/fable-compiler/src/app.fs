@@ -6,11 +6,8 @@ open System.Text.RegularExpressions
 let references = Fable.Repl.Metadata.references false
 let metadataPath = __dirname + "/metadata2/" // .NET BCL binaries (metadata)
 
-let parseProject projectPath outDir =
-    let optimized = false
-
+let parseProject projectPath =
     let projectFileName = Path.GetFileName projectPath
-    let projectFileDir = Path.GetDirectoryName projectPath
     let projectText = readAllText projectPath
 
     // remove all comments
@@ -34,9 +31,16 @@ let parseProject projectPath outDir =
     let fileNamesRegex = @"<Compile\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
     let fileNames =
         Regex.Matches(projectText, fileNamesRegex)
-        |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim())
+        |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/"))
         |> Seq.toArray
 
+    (projectFileName, fileNames, defines)
+
+let parseFiles projectPath outDir optimized =
+    let (projectFileName, fileNames, defines) = parseProject projectPath
+
+    // get file sources
+    let projectFileDir = Path.GetDirectoryName projectPath
     let makePath fileName = Path.Combine(projectFileDir, fileName)
     let sources = fileNames |> Array.map (fun fileName -> fileName |> makePath |> readAllText)
 
@@ -68,10 +72,10 @@ let parseProject projectPath outDir =
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
     // Fable (F# to Babel)
-    let fableCoreDir = __dirname + "/fable-core"
+    let fableCoreDir = "fable-core"
+    copyFolder (__dirname + "/bundle/fable-core", Path.Combine(outDir, fableCoreDir))
     let parseFable (fileName, ast) = fable.CompileToBabelAst(fableCoreDir, ast, fileName, optimized)
     let fsAst = parseRes.ProjectResults
-
     for fileName in fileNames do
 
         // transform F# AST to Babel AST
@@ -80,23 +84,25 @@ let parseProject projectPath outDir =
         errors |> Array.iter printError
         if errors |> hasErrors then failwith "Too many errors."
 
-        // transform Babel AST to js
-        let jsFileName = Path.ChangeExtension(fileName, ".js")
-        let jsFilePath = Path.Combine(outDir, jsFileName)
-        ensureDirExists(Path.GetDirectoryName(jsFilePath))
-        writeJs jsFilePath babelAst
+        // transform and save Babel AST
+        transformAndSaveBabelAst(babelAst, fileName, outDir)
+
+let parseArguments (argv: string[]) =
+    // TODO: more sophisticated argument parsing
+    let usage = "Usage: fable projectPath outDir [--options]"
+    let opts, args = argv |> Array.partition (fun s -> s.StartsWith("--"))
+    match opts, args with
+    | [| "--help" |], _ -> printfn "%s" usage
+    | [| "--version" |], _ -> printfn "v%s" (getVersion())
+    | _, [| projectPath; outDir |] ->
+        let optimized = opts |> Array.contains "--optimize-fcs"
+        parseFiles projectPath outDir optimized
+    | _ -> printfn "%s" usage
 
 [<EntryPoint>]
 let main argv =
     try
-        // TODO: read arguments from fable.config.js
-        let projectPath, outDir =
-            match argv with
-            | [| projectPath; outDir |] -> projectPath, outDir
-            | _ -> failwith "Usage: fable-compiler projectPath outDir"
-
-        parseProject projectPath outDir
-
-     with ex ->
+        parseArguments argv
+    with ex ->
         printfn "Error: %A" ex.Message
     0
