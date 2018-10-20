@@ -2,10 +2,16 @@
 
 [Fable](http://fable.io/) (F# to JS compiler)
 
-## Installation
+## Global installation
 
-```npm install fable-compiler```
+```shell
+npm install -g fable-compiler@next
+fable <PROJECT_PATH> <OUT_DIR> [--options]
+```
 
-## Usage
+## Local installation (with yarn)
 
-```fable projectPath outDir [--options]```
+```shell
+yarn add --dev fable-compiler@next
+yarn fable <PROJECT_PATH> <OUT_DIR> [--options]
+```

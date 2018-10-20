@@ -198,40 +198,6 @@ Target "GitHubRelease" (fun _ ->
     |> Async.RunSynchronously
 )
 
-Target "Clean" clean
-Target "FableCoreJs" buildCoreJsFull
-Target "FableCoreJsTypescriptOnly" buildCoreJsTypescriptFiles
-Target "FableCoreJsFSharpOnly" buildCoreJsFsharpFiles
-Target "FableCoreJsInjects" (fun _ ->
-    run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run")
-Target "FableSplitter" buildSplitter
-Target "RunTestsJS" runTestsJS
-Target "RunTestsDotnet" runTestsDotnet
-
-Target "PublishPackages" (fun () ->
-    let baseDir = CWD </> "src"
-    let packages = [
-        // Nuget packages
-        Package("dotnet/Fable.Core/Fable.Core.fsproj", (fun () ->
-            updateVersionInFile false
-                "src/dotnet/Fable.Core/RELEASE_NOTES.md"
-                "src/dotnet/Fable.Core/AssemblyInfo.fs"
-                @"\bAssemblyVersion\s*\(\s*""(.*?)"""
-        ))
-        Package("dotnet/Fable.Compiler/Fable.Compiler.fsproj", (fun () ->
-            buildCoreJsFull ()
-            updateVersionInCliUtil ()
-        ), pkgName="dotnet-fable", msbuildProps=["NugetPackage", "true"])
-        // NPM packages
-        Package "js/fable-utils"
-        Package "js/fable-loader"
-        Package "js/rollup-plugin-fable"
-        Package("js/fable-splitter", buildSplitter)
-    ]
-    installDotnetSdk ()
-    publishPackages2 baseDir dotnetExePath packages
-)
-
 let bundleRepl (fetchNcaveFork: bool) () =
     if fetchNcaveFork then
         let fcsFableDir =
@@ -277,16 +243,6 @@ let bundleRepl (fetchNcaveFork: bool) () =
         |> ReleaseNotesHelper.LoadReleaseNotes
     File.WriteAllText(replDir </> "bundle/version.txt", release.NugetVersion)
 
-let runBench2 () =
-    Yarn.install CWD
-    Yarn.run CWD "babel" "src/dotnet/Fable.Repl/out --out-dir src/dotnet/Fable.Repl/out2 --plugins @babel/plugin-transform-modules-commonjs --quiet"
-    Yarn.run CWD "build-bench2" ""
-    Yarn.run CWD "start-bench2" ""
-
-    // Run the test script
-    Yarn.run CWD "babel" "build/fable-core --out-dir src/dotnet/Fable.Repl/out-fable-core --plugins @babel/plugin-transform-modules-commonjs --quiet"
-    Yarn.run CWD "test-bench2" ""
-
 let buildCompiler () =
     let replDir = CWD </> "src/dotnet/Fable.Repl"
     let buildDir = CWD </> "src/js/fable-compiler/dist"
@@ -296,6 +252,51 @@ let buildCompiler () =
     FileUtils.cp_r (replDir </> "bundle") (buildDir </> "bundle")
     FileUtils.cp_r (replDir </> "metadata2") (buildDir </> "metadata2")
     Yarn.run CWD "build-compiler" ""
+
+Target "Clean" clean
+Target "FableCoreJs" buildCoreJsFull
+Target "FableCoreJsTypescriptOnly" buildCoreJsTypescriptFiles
+Target "FableCoreJsFSharpOnly" buildCoreJsFsharpFiles
+Target "FableCoreJsInjects" (fun _ ->
+    run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run")
+Target "FableSplitter" buildSplitter
+Target "RunTestsJS" runTestsJS
+Target "RunTestsDotnet" runTestsDotnet
+
+Target "PublishPackages" (fun () ->
+    let baseDir = CWD </> "src"
+    let packages = [
+        // Nuget packages
+        Package("dotnet/Fable.Core/Fable.Core.fsproj", (fun () ->
+            updateVersionInFile false
+                "src/dotnet/Fable.Core/RELEASE_NOTES.md"
+                "src/dotnet/Fable.Core/AssemblyInfo.fs"
+                @"\bAssemblyVersion\s*\(\s*""(.*?)"""
+        ))
+        Package("dotnet/Fable.Compiler/Fable.Compiler.fsproj", (fun () ->
+            buildCoreJsFull ()
+            updateVersionInCliUtil ()
+        ), pkgName="dotnet-fable", msbuildProps=["NugetPackage", "true"])
+        // NPM packages
+        Package("js/fable-compiler", buildCompiler)
+        Package "js/fable-utils"
+        Package "js/fable-loader"
+        Package "js/rollup-plugin-fable"
+        Package("js/fable-splitter", buildSplitter)
+    ]
+    installDotnetSdk ()
+    publishPackages2 baseDir dotnetExePath packages
+)
+
+let runBench2 () =
+    Yarn.install CWD
+    Yarn.run CWD "babel" "src/dotnet/Fable.Repl/out --out-dir src/dotnet/Fable.Repl/out2 --plugins @babel/plugin-transform-modules-commonjs --quiet"
+    Yarn.run CWD "build-bench2" ""
+    Yarn.run CWD "start-bench2" ""
+
+    // Run the test script
+    Yarn.run CWD "babel" "build/fable-core --out-dir src/dotnet/Fable.Repl/out-fable-core --plugins @babel/plugin-transform-modules-commonjs --quiet"
+    Yarn.run CWD "test-bench2" ""
 
 Target "fable-compiler" (fun () ->
     buildCompiler ())
