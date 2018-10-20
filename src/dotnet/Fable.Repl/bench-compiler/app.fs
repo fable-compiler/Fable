@@ -6,7 +6,7 @@ open System.Text.RegularExpressions
 let references = Fable.Repl.Metadata.references false
 let metadataPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, "../metadata2/") // .NET BCL binaries
 
-let parseProject projectPath =
+let parseProjectFile projectPath =
     let projectFileName = Fable.Path.GetFileName projectPath
     let projectText = readAllText projectPath
 
@@ -24,26 +24,66 @@ let parseProject projectPath =
         |> Seq.except ["$(DefineConstants)"; ""]
         |> Seq.toArray
 
+    // get project references
+    let projectRefsRegex = @"<ProjectReference\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
+    let projectRefs =
+        Regex.Matches(projectText, projectRefsRegex)
+        |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/"))
+        |> Seq.toArray
+
     // replace some variables
     let projectText = projectText.Replace(@"$(MSBuildProjectDirectory)", ".")
     let projectText = projectText.Replace(@"$(FSharpSourcesRoot)", "../../src")
 
-    // get files list
-    let fileNamesRegex = @"<Compile\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
-    let fileNames =
-        Regex.Matches(projectText, fileNamesRegex)
+    // get source files
+    let sourceFilesRegex = @"<Compile\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
+    let sourceFiles =
+        Regex.Matches(projectText, sourceFilesRegex)
         |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim())
         |> Seq.toArray
 
-    (projectFileName, fileNames, defines)
+    (projectFileName, projectRefs, sourceFiles, defines)
+
+let rec parseProject projectPath =
+    let (projectFileName, projectRefs, sourceFiles, defines) = parseProjectFile projectPath
+
+    let projectFileDir = Fable.Path.GetDirectoryName projectPath
+    let isAbsolutePath (path: string) = path.StartsWith("/")
+    let trimPath (path: string) = path.TrimStart([|'.';'/'|])
+    let makePath path = if isAbsolutePath path then path else Fable.Path.Combine(projectFileDir, path)
+    let makeName path = Fable.Path.Combine(trimPath projectFileDir, trimPath path)
+
+    let fileNames = sourceFiles |> Array.map (fun path -> path |> makeName)
+    let sources = sourceFiles |> Array.map (fun path -> path |> makePath |> readAllText)
+
+    let parsedProjects = projectRefs |> Array.map makePath |> Array.map parseProject
+    let fileNames = fileNames |> Array.append (parsedProjects |> Array.collect (fun (_,x,_,_) -> x))
+    let sources   = sources   |> Array.append (parsedProjects |> Array.collect (fun (_,_,x,_) -> x))
+    let defines   = defines   |> Array.append (parsedProjects |> Array.collect (fun (_,_,_,x) -> x))
+
+    (projectFileName, fileNames, sources, defines |> Array.distinct)
+
+let dedupFileNames fileNames =
+    let nameSet = System.Collections.Generic.HashSet<string>()
+    let padName (name: string) =
+        let pos = name.LastIndexOf(".")
+        let nm = if pos < 0 then name else name.Substring(0, pos)
+        let ext = if pos < 0 then "" else name.Substring(pos)
+        nm + "_" + ext
+    let rec dedup name =
+        if nameSet.Contains(name) then
+            dedup (padName name)
+        else
+            nameSet.Add(name) |> ignore
+            name
+    fileNames |> Array.map dedup
 
 let parseFiles projectPath outDir optimized =
-    let (projectFileName, fileNames, defines) = parseProject projectPath
+    // parse project
+    let (projectFileName, fileNames, sources, defines) = parseProject projectPath
 
-    // get file sources
-    let projectFileDir = Fable.Path.GetDirectoryName projectPath
-    let makePath fileName = Fable.Path.Combine(projectFileDir, fileName)
-    let sources = fileNames |> Array.map (fun fileName -> fileName |> makePath |> readAllText)
+    // dedup file names
+    let fileNames = dedupFileNames fileNames
 
     // create checker
     let fable = Fable.Repl.Main.init ()
