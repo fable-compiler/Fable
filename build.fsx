@@ -4,6 +4,7 @@
 
 open System
 open System.IO
+open System.Net
 open System.Text.RegularExpressions
 open Fake
 open Fake.Git
@@ -72,8 +73,19 @@ let coreJsSrcDir = CWD </> "src/js/fable-core"
 let ncaveFcsForkRepo = "https://github.com/ncave/FSharp.Compiler.Service"
 let ncaveFcsForkBranch = "fable"
 let ncaveFcsCodeGenTarget = "fcs/build CodeGen.Fable"
+let APPVEYOR_REPL_ARTIFACT_URL = "https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/dotnet/Fable.Repl/repl-bundle.zip?branch=master&pr=false"
 
 // Targets
+let downloadArtifact path (url: string) =
+    let tempFile = Path.ChangeExtension(Path.GetTempFileName(), ".zip")
+    use client = new WebClient()
+    printfn "GET %s" url
+    client.DownloadFile(Uri url, tempFile)
+    CleanDir path
+    Unzip path tempFile
+    File.Delete tempFile
+    printfn "Artifact unzipped at %s" path
+
 let installDotnetSdk () =
     let dotnetcliVersion =
         Path.Combine(__SOURCE_DIRECTORY__, "global.json")
@@ -243,11 +255,10 @@ let bundleRepl (fetchNcaveFork: bool) () =
         |> ReleaseNotesHelper.LoadReleaseNotes
     File.WriteAllText(replDir </> "bundle/version.txt", release.NugetVersion)
 
-let buildCompiler () =
+let buildCompilerForNode () =
     let replDir = CWD </> "src/dotnet/Fable.Repl"
     let buildDir = CWD </> "src/js/fable-compiler/dist"
-    if not (Directory.Exists(replDir </> "bundle")) then
-        bundleRepl false ()
+    downloadArtifact (replDir </> "bundle") APPVEYOR_REPL_ARTIFACT_URL
     CleanDir buildDir
     FileUtils.cp_r (replDir </> "bundle") (buildDir </> "bundle")
     FileUtils.cp_r (replDir </> "metadata2") (buildDir </> "metadata2")
@@ -278,7 +289,7 @@ Target "PublishPackages" (fun () ->
             updateVersionInCliUtil ()
         ), pkgName="dotnet-fable", msbuildProps=["NugetPackage", "true"])
         // NPM packages
-        Package("js/fable-compiler", buildCompiler)
+        Package("js/fable-compiler", buildCompilerForNode)
         Package "js/fable-utils"
         Package "js/fable-loader"
         Package "js/rollup-plugin-fable"
@@ -299,7 +310,7 @@ let runBench2 () =
     Yarn.run CWD "test-bench2" ""
 
 Target "fable-compiler" (fun () ->
-    buildCompiler ())
+    buildCompilerForNode ())
 
 Target "All" (fun () ->
     installDotnetSdk ()
