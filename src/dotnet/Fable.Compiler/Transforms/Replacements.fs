@@ -989,6 +989,9 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.CoreCall("String", "toText", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "PrintFormatLine", _, _ ->
         Helper.CoreCall("String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ("PrintFormatToError"|"PrintFormatLineToError"), _, _ ->
+        // addWarning com ctx.FileName r "eprintf will behave as eprintfn"
+        Helper.CoreCall("String", "toConsoleError", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("PrintFormatToTextWriter"|"PrintFormatLineToTextWriter"), _, _::args ->
         // addWarning com ctx.FileName r "fprintfn will behave as printfn"
         Helper.CoreCall("String", "toConsole", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -1079,6 +1082,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("PrintFormatToString"             // sprintf
     |  "PrintFormatToStringThen"         // Printf.ksprintf
     |  "PrintFormat" | "PrintFormatLine" // printf / printfn
+    |  "PrintFormatToError"              // eprintf
+    |  "PrintFormatLineToError"          // eprintfn
     |  "PrintFormatThen"                 // Printf.kprintf
     |  "PrintFormatToStringThenFail"     // Printf.failwithf
     |  "PrintFormatToStringBuilder"      // bprintf
