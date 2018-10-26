@@ -398,7 +398,7 @@ module JS =
         abstract stringify: value: obj * replacer: (string->obj->obj) -> string
         abstract stringify: value: obj * replacer: (string->obj->obj) * space: obj -> string
 
-    and [<AllowNullLiteral>] ReadOnlyArray<'T> =
+    and [<AllowNullLiteral>] ReadonlyArray<'T> =
         abstract length: float with get, set
         [<Emit("$0[$1]{{=$2}}")>] abstract Item: n: int -> 'T with get, set
         abstract toString: unit -> string
@@ -409,15 +409,15 @@ module JS =
         abstract slice: ?start: float * ?``end``: float -> ResizeArray<'T>
         abstract indexOf: searchElement: 'T * ?fromIndex: float -> float
         abstract lastIndexOf: searchElement: 'T * ?fromIndex: float -> float
-        abstract every: callbackfn: ('T->float->ReadOnlyArray<'T>->bool) * ?thisArg: obj -> bool
-        abstract some: callbackfn: ('T->float->ReadOnlyArray<'T>->bool) * ?thisArg: obj -> bool
-        abstract forEach: callbackfn: ('T->float->ReadOnlyArray<'T>->unit) * ?thisArg: obj -> unit
-        abstract map: callbackfn: ('T->float->ReadOnlyArray<'T>->'U) * ?thisArg: obj -> ResizeArray<'U>
-        abstract filter: callbackfn: ('T->float->ReadOnlyArray<'T>->bool) * ?thisArg: obj -> ResizeArray<'T>
-        abstract reduce: callbackfn: ('T->'T->float->ReadOnlyArray<'T>->'T) * ?initialValue: 'T -> 'T
-        abstract reduce: callbackfn: ('U->'T->float->ReadOnlyArray<'T>->'U) * initialValue: 'U -> 'U
-        abstract reduceRight: callbackfn: ('T->'T->float->ReadOnlyArray<'T>->'T) * ?initialValue: 'T -> 'T
-        abstract reduceRight: callbackfn: ('U->'T->float->ReadOnlyArray<'T>->'U) * initialValue: 'U -> 'U
+        abstract every: callbackfn: ('T->float->ReadonlyArray<'T>->bool) * ?thisArg: obj -> bool
+        abstract some: callbackfn: ('T->float->ReadonlyArray<'T>->bool) * ?thisArg: obj -> bool
+        abstract forEach: callbackfn: ('T->float->ReadonlyArray<'T>->unit) * ?thisArg: obj -> unit
+        abstract map: callbackfn: ('T->float->ReadonlyArray<'T>->'U) * ?thisArg: obj -> ResizeArray<'U>
+        abstract filter: callbackfn: ('T->float->ReadonlyArray<'T>->bool) * ?thisArg: obj -> ResizeArray<'T>
+        abstract reduce: callbackfn: ('T->'T->float->ReadonlyArray<'T>->'T) * ?initialValue: 'T -> 'T
+        abstract reduce: callbackfn: ('U->'T->float->ReadonlyArray<'T>->'U) * initialValue: 'U -> 'U
+        abstract reduceRight: callbackfn: ('T->'T->float->ReadonlyArray<'T>->'T) * ?initialValue: 'T -> 'T
+        abstract reduceRight: callbackfn: ('U->'T->float->ReadonlyArray<'T>->'U) * initialValue: 'U -> 'U
 
     and [<AllowNullLiteral>] Array<'T> =
         abstract length: float with get, set

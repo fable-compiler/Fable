@@ -1,3 +1,7 @@
+### 2.0.1
+
+* Fix `ReadonlyArray` spelling
+
 ### 2.0.0
 
 * Fable 2
