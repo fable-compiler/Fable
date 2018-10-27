@@ -2,8 +2,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Description>Fable: F# to JS Compiler</Description>
-    <Version>2.0.6</Version>
-    <PackageVersion>2.0.6</PackageVersion>
+    <Version>2.0.7</Version>
+    <PackageVersion>2.0.7</PackageVersion>
     <OutputType>Exe</OutputType>
     <PackageType>DotnetCliTool</PackageType>
     <AssemblyName>dotnet-fable</AssemblyName>

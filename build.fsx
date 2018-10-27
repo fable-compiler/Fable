@@ -97,7 +97,7 @@ let installDotnetSdk () =
     run CWD dotnetExePath "--version"
 
 let clean () =
-    !! "build" ++ "**/.fable"
+    !! "build" ++ "**/.fable" ++ "src/**/obj"
     |> CleanDirs
 
 let nugetRestore dir =
@@ -339,7 +339,8 @@ Target "BuildReplAsNodeApp" (fun () ->
     runBench2 ()
 )
 
-"PublishPackages"
+"Clean"
+==> "PublishPackages"
 ==> "GitHubRelease"
 
 // Start build

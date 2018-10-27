@@ -1,3 +1,10 @@
+### 2.0.7
+
+* Implement eprintf and eprintfn @inosik
+* Fix #1389: Throw proper error when match cases are incomplete @Zaid-Aja
+* Fix #1602: constructor "as this" notation
+* Only check for Fable.Core major and minor version
+
 ### 2.0.6
 
 * Don't change the first letter of erased union cases in keyValueList

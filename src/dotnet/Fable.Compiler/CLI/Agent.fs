@@ -35,7 +35,7 @@ let tryGetOption name (opts: IDictionary<string, string>) =
 let checkFableCoreVersion (checkedProject: FSharpCheckProjectResults) =
     for ref in checkedProject.ProjectContext.GetReferencedAssemblies() do
         if ref.SimpleName = "Fable.Core" then
-            let version = System.Text.RegularExpressions.Regex.Match(ref.QualifiedName, @"Version=(\d+\.\d+\.\d+)")
+            let version = System.Text.RegularExpressions.Regex.Match(ref.QualifiedName, @"Version=(\d+\.\d+)\.\d+")
             if version.Groups.[1].Value <> Literals.CORE_VERSION then
                 failwithf "Fable.Core v%s detected, expecting v%s" version.Groups.[1].Value Literals.CORE_VERSION
             // else printfn "Fable.Core version matches"
