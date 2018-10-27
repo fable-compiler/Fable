@@ -1,4 +1,4 @@
-### 2.0.7
+### 2.0.8
 
 * Implement eprintf and eprintfn @inosik
 * Fix #1389: Throw proper error when match cases are incomplete @Zaid-Aja

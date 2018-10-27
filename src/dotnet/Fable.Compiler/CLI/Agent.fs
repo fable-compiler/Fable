@@ -32,12 +32,19 @@ let tryGetOption name (opts: IDictionary<string, string>) =
     | true, value -> Some value
     | false, _ -> None
 
+let splitVersion (version: string) =
+    match System.Version.TryParse(version) with
+    | true, v -> v.Major, v.Minor, v.Revision
+    | _ -> 0, 0, 0
+
 let checkFableCoreVersion (checkedProject: FSharpCheckProjectResults) =
     for ref in checkedProject.ProjectContext.GetReferencedAssemblies() do
         if ref.SimpleName = "Fable.Core" then
-            let version = System.Text.RegularExpressions.Regex.Match(ref.QualifiedName, @"Version=(\d+\.\d+)\.\d+")
-            if version.Groups.[1].Value <> Literals.CORE_VERSION then
-                failwithf "Fable.Core v%s detected, expecting v%s" version.Groups.[1].Value Literals.CORE_VERSION
+            let version = System.Text.RegularExpressions.Regex.Match(ref.QualifiedName, @"Version=(\d+\.\d+\.\d+)")
+            let expectedMajor, expectedMinor, _ = splitVersion Literals.CORE_VERSION
+            let actualMajor, actualMinor, _ = splitVersion version.Groups.[1].Value
+            if not(actualMajor = expectedMajor && actualMinor = expectedMinor) then
+                failwithf "Fable.Core v%i.%i detected, expecting v%i.%i" actualMajor actualMinor expectedMajor expectedMinor
             // else printfn "Fable.Core version matches"
 
 let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.Message) projFile =
