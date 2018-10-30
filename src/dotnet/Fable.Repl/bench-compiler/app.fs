@@ -93,7 +93,7 @@ let parseFiles projectPath outDir optimized =
     printfn "InteractiveChecker created in %d ms" ms0
 
     // Parse F# files to AST
-    let parseFSharp () = fable.ParseFSharpProjectSimple(checker, projectFileName, fileNames, sources)
+    let parseFSharp () = fable.ParseFSharpProjectFilesSimple(checker, projectFileName, fileNames, sources)
     let ms1, parseRes = measureTime parseFSharp ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"

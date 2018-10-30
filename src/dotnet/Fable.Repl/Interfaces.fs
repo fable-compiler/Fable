@@ -52,9 +52,9 @@ type IProjectResults =
 
 type IFableManager =
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * definesOpt: string[] option -> IChecker
-    abstract ParseFSharpProject: checker: IChecker * fileName: string * source: string -> IParseResults
+    abstract ParseFSharpScript: checker: IChecker * fileName: string * source: string -> IParseResults
     abstract ParseFSharpProjectFiles: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] -> IParseFilesResults
-    abstract ParseFSharpProjectSimple: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] -> IProjectResults
+    abstract ParseFSharpProjectFilesSimple: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] -> IProjectResults
     abstract GetParseErrors: parseResults: IParseResults -> Error[]
     abstract GetDeclarationLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Range option>
     abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<string[]>

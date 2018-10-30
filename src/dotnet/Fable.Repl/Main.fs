@@ -40,7 +40,7 @@ type ParseResults (optimizedProject: Lazy<Project>,
 
     interface IParseResults with
         member __.Errors = mapErrors checkProject
- 
+
 type ParseFilesResults (optimizedProject: Lazy<Project>,
                         unoptimizedProject: Lazy<Project>,
                         parseFiles: FSharpParseFileResults[],
@@ -155,7 +155,7 @@ let makeProject projectOptions (projectResults: FSharpCheckProjectResults) optim
     let project = Project(projectOptions, implFiles, projectResults.Errors, Map.empty, "", isWatchCompile=false)
     project
 
-let parseFSharpProject (checker: InteractiveChecker) projectFileName fileName source =
+let parseFSharpScript (checker: InteractiveChecker) projectFileName fileName source =
     let parseResults, typeCheckResults, projectResults =
         checker.ParseAndCheckScript (projectFileName, fileName, source)
     let projectOptions = makeProjOptions projectFileName [| fileName |]
@@ -261,16 +261,16 @@ let init () =
             InteractiveChecker.Create(references, readAllBytes, defines)
             |> CheckerImpl :> IChecker
 
-        member __.ParseFSharpProject(checker, fileName, source) =
+        member __.ParseFSharpScript(checker, fileName, source) =
             let c = checker :?> CheckerImpl
             let projectFileName = "project" // todo: make it an argument
-            parseFSharpProject c.Checker projectFileName fileName source :> IParseResults
+            parseFSharpScript c.Checker projectFileName fileName source :> IParseResults
 
         member __.ParseFSharpProjectFiles(checker, projectFileName, fileNames, sources) =
             let c = checker :?> CheckerImpl
             parseFSharpProjectFiles c.Checker projectFileName fileNames sources false :> IParseFilesResults
 
-        member __.ParseFSharpProjectSimple(checker, projectFileName, fileNames, sources) =
+        member __.ParseFSharpProjectFilesSimple(checker, projectFileName, fileNames, sources) =
             let c = checker :?> CheckerImpl
             parseFSharpProjectFiles c.Checker projectFileName fileNames sources true :> IProjectResults
 
@@ -314,7 +314,7 @@ let init () =
                         | Fable.Severity.Info -> true
                     })
                 |> List.toArray
-            ast :> obj, errors
+            ast :> obj, Array.append parseResults.Errors errors
 
         member __.FSharpAstToString(parseResults:IParseResults, fileName:string, optimized: bool) =
             let res = parseResults :?> ParseResults
