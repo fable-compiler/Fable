@@ -326,27 +326,31 @@ module Util =
         upcast FunctionExpression(args, body, ?id=id)
 
     let optimizeTailCall (com: IBabelCompiler) (ctx: Context) (tc: ITailCallOpportunity) args =
+        let rec checkCrossRefs tempVars allArgs = function
+            | [] -> tempVars
+            | (argId, _arg)::rest ->
+                let found = allArgs |> List.exists (FableTransforms.deepExists (function
+                    | Fable.IdentExpr i -> argId = i.Name
+                    | _ -> false))
+                let tempVars =
+                    if found
+                    then Map.add argId (com.GetUniqueVar(argId)) tempVars
+                    else tempVars
+                checkCrossRefs tempVars allArgs rest
         ctx.OptimizeTailCall()
         let zippedArgs = List.zip tc.Args args
-        let tempVars =
-            let rec checkCrossRefs acc = function
-                | [] | [_] -> acc
-                | (argId, _arg)::rest ->
-                    rest |> List.exists (snd >> FableTransforms.deepExists
-                        (function Fable.IdentExpr i -> argId = i.Name | _ -> false))
-                    |> function true -> Map.add argId (com.GetUniqueVar()) acc | false -> acc
-                    |> checkCrossRefs <| rest
-            checkCrossRefs Map.empty zippedArgs
+        let tempVars = checkCrossRefs Map.empty args zippedArgs
+        let tempVarReplacements = tempVars |> Map.map (fun _ v -> makeIdentExprNonMangled v)
         [|
+            // First declare temp variables
+            for (KeyValue(argId, tempVar)) in tempVars do
+                yield varDeclaration (Identifier tempVar) false (Identifier argId) :> Statement
+            // Then assign argument expressions to the original argument identifiers
+            // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
             for (argId, arg) in zippedArgs do
+                let arg = FableTransforms.replaceValues tempVarReplacements arg
                 let arg = com.TransformAsExpr(ctx, arg)
-                match Map.tryFind argId tempVars with
-                | Some tempVar ->
-                    yield varDeclaration (Identifier tempVar) false arg :> Statement
-                | None ->
-                    yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
-            for KeyValue(argId,tempVar) in tempVars do
-                yield assign None (Identifier argId) (Identifier tempVar) |> ExpressionStatement :> Statement
+                yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
             yield upcast ContinueStatement(Identifier tc.Label)
         |]
 

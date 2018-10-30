@@ -147,4 +147,19 @@ let tests =
 
     testCase "Function arguments can be optimized II" <| fun () -> // See #681
         iterate ((*) 2) 5 10 |> equal 320
+
+    // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
+    testCase "State of internally mutated tail called function parameters is preserved properly" <| fun () ->
+        let rec loop i lst =
+            if i <= 0
+            then lst
+            else loop (i - 1) ((fun () -> i) :: lst)
+        loop 3 [] |> List.map (fun f -> f()) |> equal [1;2;3]
+
+    testCase "State of internally mutated tail called function parameters is preserved properly II" <| fun () ->
+        let rec loop lst i =
+            if i <= 0
+            then lst
+            else loop ((fun () -> i) :: lst) (i - 1)
+        loop [] 3 |> List.map (fun f -> f()) |> equal [1;2;3]
   ]
