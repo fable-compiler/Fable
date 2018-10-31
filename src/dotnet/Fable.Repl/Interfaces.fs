@@ -50,6 +50,10 @@ type IProjectResults =
     inherit IParseResults
     abstract ProjectResults: IParseResults
 
+type IBabelResult =
+    abstract BabelAst: obj
+    abstract FableErrors: Error[]
+
 type IFableManager =
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * definesOpt: string[] option -> IChecker
     abstract ParseFSharpScript: checker: IChecker * fileName: string * source: string -> IParseResults
@@ -59,5 +63,5 @@ type IFableManager =
     abstract GetDeclarationLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Range option>
     abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<string[]>
     abstract GetCompletionsAtLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Completion[]>
-    abstract CompileToBabelAst: fableCore: string * parseResults: IParseResults * fileName: string * optimized: bool * ?precompiledLib: (string->(string*string) option) -> obj * Error[]
+    abstract CompileToBabelAst: fableCore: string * parseResults: IParseResults * fileName: string * optimized: bool * ?precompiledLib: (string->(string*string) option) -> IBabelResult
     abstract FSharpAstToString: parseResults: IParseResults * fileName: string * optimized: bool -> string

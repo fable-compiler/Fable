@@ -145,6 +145,7 @@ type Compiler(currentFile, project: Project, options, ?fableCore: string) =
                   Range = range
                   FileName = fileName }
                 |> logs.Add
+        // TODO: If name includes `$$2` at the end, remove it
         member __.GetUniqueVar(name) =
             id <- id + 1
             Naming.getUniqueName (defaultArg name "var") id

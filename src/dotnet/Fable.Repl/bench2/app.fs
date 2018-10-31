@@ -33,9 +33,9 @@ let main argv =
             let errors = fable.GetParseErrors fsAst
             errors |> Array.iter (printfn "Error: %A")
             if errors.Length > 0 then failwith "Too many errors."
-            let ms2, (babelAst, _) = measureTime parseFable fsAst
+            let ms2, res = measureTime parseFable fsAst
             if i = 1 then
-                writeJs compiledScriptPath babelAst
+                writeJs compiledScriptPath res.BabelAst
             printfn "iteration %d, FCS time: %d ms, Fable time: %d ms" i ms1 ms2
             fcsMeasures.Add(ms1)
             fableMeasures.Add(ms2)

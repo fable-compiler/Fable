@@ -314,7 +314,9 @@ let init () =
                         | Fable.Severity.Info -> true
                     })
                 |> List.toArray
-            ast :> obj, Array.append parseResults.Errors errors
+            { new IBabelResult with
+                member __.BabelAst = ast :> obj
+                member __.FableErrors = errors }
 
         member __.FSharpAstToString(parseResults:IParseResults, fileName:string, optimized: bool) =
             let res = parseResults :?> ParseResults

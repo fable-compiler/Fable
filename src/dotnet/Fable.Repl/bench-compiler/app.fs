@@ -120,10 +120,10 @@ let parseFiles projectPath outDir optimized =
     for fileName in fileNames do
 
         // transform F# AST to Babel AST
-        let ms2, (babelAst, errors) = measureTime parseFable (fileName, fsAst)
+        let ms2, res = measureTime parseFable (fileName, fsAst)
         printfn "File: %s, Fable time: %d ms" fileName ms2
-        if errors |> hasErrors then
-            errors |> Array.iter printError
+        if res.FableErrors |> hasErrors then
+            res.FableErrors |> Array.iter printError
             failwith "Too many errors."
 
         // let fsAstStr = fable.FSharpAstToString(fsAst, fileName, optimized)

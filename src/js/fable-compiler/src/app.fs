@@ -119,13 +119,13 @@ let parseFiles projectPath outDir optimized =
     for fileName in fileNames do
 
         // transform F# AST to Babel AST
-        let ms2, (babelAst, errors) = measureTime parseFable (fileName, fsAst)
+        let ms2, res = measureTime parseFable (fileName, fsAst)
         printfn "File: %s, Fable time: %d ms" fileName ms2
-        errors |> Array.iter printError
-        if errors |> hasErrors then failwith "Too many errors."
+        res.FableErrors |> Array.iter printError
+        if res.FableErrors |> hasErrors then failwith "Too many errors."
 
         // transform and save Babel AST
-        transformAndSaveBabelAst(babelAst, fileName, outDir)
+        transformAndSaveBabelAst(res.BabelAst, fileName, outDir)
 
 let parseArguments (argv: string[]) =
     // TODO: more sophisticated argument parsing
