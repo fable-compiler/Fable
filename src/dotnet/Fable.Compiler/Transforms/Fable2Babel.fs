@@ -8,6 +8,7 @@ open System.Collections.Generic
 
 type ReturnStrategy =
     | Return
+    | ReturnUnit
     | Assign of Expression // TODO: Add SourceLocation?
     | Target of Identifier
 
@@ -644,13 +645,13 @@ module Util =
                 rest @ [SpreadElement(com.TransformAsExpr(ctx, last))]
         | args, _ -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args
 
-    let resolveExpr t strategy babelExpr: Statement[] =
+    let resolveExpr t strategy babelExpr: Statement =
         match strategy with
-        | None -> [|ExpressionStatement babelExpr|]
+        | None | Some ReturnUnit -> upcast ExpressionStatement babelExpr
         // TODO: Where to put these int wrappings? Add them also for function arguments?
-        | Some Return -> [|ReturnStatement(wrapIntExpression t babelExpr)|]
-        | Some(Assign left) -> [|ExpressionStatement(assign None left babelExpr)|]
-        | Some(Target left) -> [|ExpressionStatement(assign None left babelExpr)|]
+        | Some Return -> upcast ReturnStatement(wrapIntExpression t babelExpr)
+        | Some(Assign left) -> upcast ExpressionStatement(assign None left babelExpr)
+        | Some(Target left) -> upcast ExpressionStatement(assign None left babelExpr)
 
     let transformOperation com ctx range opKind: Expression =
         match opKind with
@@ -716,7 +717,7 @@ module Util =
             List.length i.Args + (if Option.isSome i.ThisArg then 1 else 0)
         // TODO: Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity, opKind with
-        | Some Return, Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
+        | Some(Return|ReturnUnit), Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
                                 when not argInfo.IsBaseOrSelfConstructorCall
                                 && tc.IsRecursiveRef(funcExpr)
                                 && argsLen argInfo = List.length tc.Args ->
@@ -725,12 +726,12 @@ module Util =
                 | Some thisArg -> thisArg::argInfo.Args
                 | None -> argInfo.Args
             optimizeTailCall com ctx tc args
-        | Some Return, Some tc, Fable.CurriedApply(funcExpr, args)
+        | Some(Return|ReturnUnit), Some tc, Fable.CurriedApply(funcExpr, args)
                                 when tc.IsRecursiveRef(funcExpr)
                                 && List.sameLength args tc.Args ->
             optimizeTailCall com ctx tc args
         | _ ->
-            transformOperation com ctx range opKind |> resolveExpr t returnStrategy
+            [|transformOperation com ctx range opKind |> resolveExpr t returnStrategy|]
 
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
@@ -912,7 +913,7 @@ module Util =
             let actual = com.TransformAsExpr(ctx, expr) |> getUnionExprTag None
             upcast BinaryExpression(BinaryEqualStrict, actual, expected, ?loc=range)
 
-    let transformSwitch (com: IBabelCompiler) ctx t useBlocks returnStrategy evalExpr cases defaultCase: Statement =
+    let transformSwitch (com: IBabelCompiler) ctx useBlocks returnStrategy evalExpr cases defaultCase: Statement =
         let consequent caseBody =
             if useBlocks then [|BlockStatement caseBody :> Statement|] else caseBody
         let cases =
@@ -1011,7 +1012,6 @@ module Util =
 
     let transformDecisionTreeAsStaments (com: IBabelCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement[] =
-        let t = treeExpr.Type
         // If some targets are referenced multiple times, host bound idents,
         // resolve the decision index and compile the targets as a switch
         if List.length targets |> decisionTargetsReferencedMultipleTimes treeExpr then
@@ -1025,7 +1025,7 @@ module Util =
             let switch2 =
                 // TODO: Declare the last case as the default case?
                 let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
-                transformSwitch com ctx t true returnStrategy (makeIdentNonMangled targetId |> Fable.IdentExpr) cases None
+                transformSwitch com ctx true returnStrategy (makeIdentNonMangled targetId |> Fable.IdentExpr) cases None
             // Transform decision tree
             let targetAssign = Target(Identifier targetId)
             let ctx = { ctx with DecisionTargets = targets }
@@ -1046,7 +1046,7 @@ module Util =
                         let boundValues = cases |> List.head |> Tuple3.item3
                         caseExprs, Fable.DecisionTreeSuccess(idx, boundValues, Fable.Number Int32))
                 let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number Int32)
-                let switch1 = transformSwitch com ctx Fable.Unit false (Some targetAssign) evalExpr cases (Some defaultCase)
+                let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
                 [|varDeclaration; switch1; switch2|]
             | None ->
                 let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
@@ -1055,10 +1055,11 @@ module Util =
             let ctx = { ctx with DecisionTargets = targets }
             match transformDecisionTreeAsSwitch treeExpr with
             | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+                let t = treeExpr.Type
                 let cases = cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
                     [caseExpr], Fable.DecisionTreeSuccess(targetIndex, boundValues, t))
                 let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
-                [|transformSwitch com ctx t true returnStrategy evalExpr cases (Some defaultCase)|]
+                [|transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)|]
             | None ->
                 com.TransformAsStatements(ctx, returnStrategy, treeExpr)
 
@@ -1123,37 +1124,35 @@ module Util =
                                     (expr: Fable.Expr): Statement array =
         match expr with
         | Fable.TypeCast(e, t) ->
-            transformCast com ctx t e |> resolveExpr t returnStrategy
+            [|transformCast com ctx t e |> resolveExpr t returnStrategy|]
 
         | Fable.DelayedResolution(kind, t, r) ->
-            transformDelayedResolution com ctx r kind |> resolveExpr t returnStrategy
+            [|transformDelayedResolution com ctx r kind |> resolveExpr t returnStrategy|]
 
         | Fable.Value kind ->
-            match kind, returnStrategy with
-            | Fable.UnitConstant, Some Return -> [|ReturnStatement()|]
-            | _ -> transformValue com ctx kind |> resolveExpr kind.Type returnStrategy
+            [|transformValue com ctx kind |> resolveExpr kind.Type returnStrategy|]
 
         | Fable.IdentExpr id ->
-            ident id :> Expression |> resolveExpr id.Type returnStrategy
+            [|ident id :> Expression |> resolveExpr id.Type returnStrategy|]
 
         | Fable.Import(selector, path, kind, t, r) ->
-            transformImport com ctx r selector path kind |> resolveExpr t returnStrategy
+            [|transformImport com ctx r selector path kind |> resolveExpr t returnStrategy|]
 
         | Fable.Test(expr, kind, range) ->
-            transformTest com ctx range kind expr |> resolveExpr Fable.Boolean returnStrategy
+            [|transformTest com ctx range kind expr |> resolveExpr Fable.Boolean returnStrategy|]
 
         | Fable.Function(FunctionArgs args, body, name) ->
-            com.TransformFunction(ctx, name, args, body)
-            ||> makeFunctionExpression name |> resolveExpr expr.Type returnStrategy
+            [|com.TransformFunction(ctx, name, args, body)
+             ||> makeFunctionExpression name |> resolveExpr expr.Type returnStrategy|]
 
         | Fable.ObjectExpr (members, t, baseCall) ->
-            transformObjectExpr com ctx members "this" baseCall |> resolveExpr t returnStrategy
+            [|transformObjectExpr com ctx members "this" baseCall |> resolveExpr t returnStrategy|]
 
         | Fable.Operation(callKind, t, range) ->
             transformOperationAsStatements com ctx range t returnStrategy callKind
 
         | Fable.Get(expr, getKind, t, range) ->
-            transformGet com ctx range t expr getKind |> resolveExpr t returnStrategy
+            [|transformGet com ctx range t expr getKind |> resolveExpr t returnStrategy|]
 
         | Fable.Let(bindings, body) ->
             let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toArray
@@ -1174,7 +1173,7 @@ module Util =
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr) ->
             let asStatement =
                 match returnStrategy with
-                | None -> true
+                | None | Some ReturnUnit -> true
                 | Some(Target _) -> true // Compile as statement so values can be bound
                 | Some(Assign _) -> (isJsStatement ctx false thenExpr) || (isJsStatement ctx false elseExpr)
                 | Some Return ->
@@ -1189,7 +1188,7 @@ module Util =
                 let guardExpr' = transformAsExpr com ctx guardExpr
                 let thenExpr' = transformAsExpr com ctx thenExpr
                 let elseExpr' = transformAsExpr com ctx elseExpr
-                ConditionalExpression(guardExpr', thenExpr', elseExpr') |> resolveExpr thenExpr.Type returnStrategy
+                [|ConditionalExpression(guardExpr', thenExpr', elseExpr') |> resolveExpr thenExpr.Type returnStrategy|]
 
         | Fable.Sequential statements ->
             let lasti = (List.length statements) - 1
@@ -1235,14 +1234,11 @@ module Util =
                        HoistVars = fun ids -> declaredVars.AddRange(ids); true
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true }
         let body: U2<BlockStatement, Expression> =
-            if body.Type = Fable.Unit then
-                // If there's a tail call chance, use return to prevent falling in infinite loops
-                let ret = tailcallChance |> Option.map (fun _ -> Return)
-                transformBlock com ctx ret body |> U2.Case1
-            elif isJsStatement ctx (Option.isSome tailcallChance) body then
-                transformBlock com ctx (Some Return) body |> U2.Case1
-            else
-                transformAsExpr com ctx body |> U2.Case2
+            if body.Type = Fable.Unit
+            then transformBlock com ctx (Some ReturnUnit) body |> U2.Case1
+            elif isJsStatement ctx (Option.isSome tailcallChance) body
+            then transformBlock com ctx (Some Return) body |> U2.Case1
+            else transformAsExpr com ctx body |> U2.Case2
         let args, body =
             match isTailCallOptimized, tailcallChance, body with
             | true, Some tc, U2.Case1 body ->
@@ -1254,6 +1250,8 @@ module Util =
                             |> multiVarDeclaration Const
                         tc.Args |> List.map Identifier, BlockStatement(Array.append [|varDeclaration|] body.Body)
                     else args, body
+                // Make sure we don't get trapped in an infinite loop, see #1624
+                let body = BlockStatement(Array.append body.Body [|BreakStatement()|])
                 args, LabeledStatement(Identifier tc.Label, WhileStatement(BooleanLiteral true, body))
                 :> Statement |> Array.singleton |> BlockStatement |> U2.Case1
             | _ -> args, body

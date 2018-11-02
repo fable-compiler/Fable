@@ -189,9 +189,9 @@ type ContinueStatement(?label, ?loc) =
 // type WithStatement
 
 // Control Flow
-type ReturnStatement(?argument, ?loc) =
+type ReturnStatement(argument, ?loc) =
     inherit Statement("ReturnStatement", ?loc = loc)
-    member __.Argument: Expression option = argument
+    member __.Argument: Expression = argument
 
 // type LabeledStatement
 // type BreakStatement
