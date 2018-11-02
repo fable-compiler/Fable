@@ -162,4 +162,34 @@ let tests =
             then lst
             else loop ((fun () -> i) :: lst) (i - 1)
         loop [] 3 |> List.map (fun f -> f()) |> equal [1;2;3]
+
+    // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
+    testCase "Functions returning unit can be tail called" <| fun () ->
+      let cmpsts = Array.zeroCreate 16384
+      let rec loop x =
+        if x > 0 then
+          let rec loopi i =
+            if i <= 254 then
+              if cmpsts.[i >>> 3] &&& (1uy <<< (i &&& 7)) <> 0uy then loopi (i + 1) else
+              let p = i + i + 3
+              let s0 = 2 * i * (i + 3) + 3
+              let lmt = min 131072 <| s0 + (p <<< 3)
+              let rec loops s =
+                if s < lmt then
+                  let msk = 1uy <<< (s &&& 7)
+                  let rec loopj j =
+                    let cmpsts = cmpsts
+                    if j < 16384 then
+                      cmpsts.[j] <- cmpsts.[j] ||| msk
+                      loopj (j + p)
+                  loopj (s >>> 3); loops (s + p)
+              loops s0; loopi (i + 1)
+          loopi 0; loop (x - 1)
+      loop 100
+      let oddprms = seq {
+        for i in 0 .. 131071 do
+          if cmpsts.[i >>> 3] &&& (1uy <<< (i &&& 7)) = 0uy
+          then yield i + i + 3 }
+      seq { yield 2; yield! oddprms }
+      |> Seq.length |> equal 23000
   ]
