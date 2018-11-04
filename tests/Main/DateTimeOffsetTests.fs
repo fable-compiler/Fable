@@ -123,8 +123,8 @@ let tests =
 
     // Note: This test is "trivial" if current offset to UTC is 0.
     testCase "DateTimeOffset UtcDateTime - LocalDateTime relationship" <| fun () ->
-        let localOffset = DateTimeOffset.Now.Offset
-        let dto = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours -5.0)
+        let dto = DateTimeOffset.Now
+        let localOffset = dto.Offset
         let localDate = dto.LocalDateTime
         let utcDate = dto.UtcDateTime
         let compound = localDate - localOffset
