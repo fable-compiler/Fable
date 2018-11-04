@@ -6,6 +6,7 @@
  *  MIT Licence: https://github.com/MikeMcl/big.js/blob/master/LICENCE
  */
 
+/* tslint:disable */
 import { combineHashCodes } from "./Util";
 
 /************************************** EDITABLE DEFAULTS *****************************************/
