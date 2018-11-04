@@ -85,5 +85,17 @@
             "args": ["../fable-test/fable-test.fsproj", "../fable-test/out"],
             "cwd": "${workspaceRoot}"
         },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Run Mocha Tests",
+            "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+            "args": [
+                "--no-timeouts",
+                "--colors",
+                "${workspaceFolder}/build/tests"
+            ],
+            "internalConsoleOptions": "openOnSessionStart"
+        },
     ]
 }

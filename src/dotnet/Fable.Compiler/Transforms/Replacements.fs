@@ -2080,12 +2080,12 @@ let dates (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option)
     | "get_Kind" | "get_Offset" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
     // DateTimeOffset
-    | "get_DateTime" | "get_LocalDateTime" | "get_UtcDateTime" as m ->
-        let kind =
-            if m = "get_LocalDateTime" then System.DateTimeKind.Local
-            elif m = "get_UtcDateTime" then System.DateTimeKind.Utc
-            else System.DateTimeKind.Unspecified
-            |> int |> makeIntConst
+    | "get_LocalDateTime" ->
+        Helper.CoreCall("DateOffset", "toLocalTime", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+    | "get_UtcDateTime" ->
+        Helper.CoreCall("DateOffset", "toUniversalTime", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+    | "get_DateTime" ->
+        let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
         Helper.CoreCall("Date", "fromDateTimeOffset", t, [thisArg.Value; kind], [thisArg.Value.Type; kind.Type], ?loc=r) |> Some
     | "FromUnixTimeSeconds"
     | "FromUnixTimeMilliseconds" ->
