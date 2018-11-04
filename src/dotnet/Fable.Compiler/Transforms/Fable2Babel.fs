@@ -8,6 +8,7 @@ open System.Collections.Generic
 
 type ReturnStrategy =
     | Return
+    | ReturnUnit
     | Assign of Expression // TODO: Add SourceLocation?
     | Target of Identifier
 
@@ -646,7 +647,7 @@ module Util =
 
     let resolveExpr t strategy babelExpr: Statement =
         match strategy with
-        | None -> upcast ExpressionStatement babelExpr
+        | None | Some ReturnUnit -> upcast ExpressionStatement babelExpr
         // TODO: Where to put these int wrappings? Add them also for function arguments?
         | Some Return -> upcast ReturnStatement(wrapIntExpression t babelExpr)
         | Some(Assign left) -> upcast ExpressionStatement(assign None left babelExpr)
@@ -716,7 +717,7 @@ module Util =
             List.length i.Args + (if Option.isSome i.ThisArg then 1 else 0)
         // TODO: Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity, opKind with
-        | Some Return, Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
+        | Some(Return|ReturnUnit), Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
                                 when not argInfo.IsBaseOrSelfConstructorCall
                                 && tc.IsRecursiveRef(funcExpr)
                                 && argsLen argInfo = List.length tc.Args ->
@@ -725,7 +726,7 @@ module Util =
                 | Some thisArg -> thisArg::argInfo.Args
                 | None -> argInfo.Args
             optimizeTailCall com ctx tc args
-        | Some Return, Some tc, Fable.CurriedApply(funcExpr, args)
+        | Some(Return|ReturnUnit), Some tc, Fable.CurriedApply(funcExpr, args)
                                 when tc.IsRecursiveRef(funcExpr)
                                 && List.sameLength args tc.Args ->
             optimizeTailCall com ctx tc args
@@ -1172,7 +1173,7 @@ module Util =
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr) ->
             let asStatement =
                 match returnStrategy with
-                | None -> true
+                | None | Some ReturnUnit -> true
                 | Some(Target _) -> true // Compile as statement so values can be bound
                 | Some(Assign _) -> (isJsStatement ctx false thenExpr) || (isJsStatement ctx false elseExpr)
                 | Some Return ->
@@ -1234,7 +1235,7 @@ module Util =
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true }
         let body: U2<BlockStatement, Expression> =
             if body.Type = Fable.Unit
-            then transformBlock com ctx None body |> U2.Case1
+            then transformBlock com ctx (Some ReturnUnit) body |> U2.Case1
             elif isJsStatement ctx (Option.isSome tailcallChance) body
             then transformBlock com ctx (Some Return) body |> U2.Case1
             else transformAsExpr com ctx body |> U2.Case2
@@ -1249,6 +1250,8 @@ module Util =
                             |> multiVarDeclaration Const
                         tc.Args |> List.map Identifier, BlockStatement(Array.append [|varDeclaration|] body.Body)
                     else args, body
+                // Make sure we don't get trapped in an infinite loop, see #1624
+                let body = BlockStatement(Array.append body.Body [|BreakStatement()|])
                 args, LabeledStatement(Identifier tc.Label, WhileStatement(BooleanLiteral true, body))
                 :> Statement |> Array.singleton |> BlockStatement |> U2.Case1
             | _ -> args, body
