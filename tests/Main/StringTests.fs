@@ -699,4 +699,8 @@ let tests =
         System.Uri.EscapeUriString("http://kvz.io/") |> equal "http://kvz.io/"
         System.Uri.EscapeUriString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
         |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
+
+      // See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
+      testCase "Passing Char.IsDigit as a function reference doesn't make String.filter hang" <| fun () ->
+            "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
 ]

@@ -35,7 +35,7 @@ export function SystemObject() {
 }
 
 SystemObject.prototype.toString = function() {
-  return "{" + Object.keys(this).map((k) => k + " = " + toString(this[k])).join(";\n ") + "}";
+  return "{" + Object.keys(this).map(k => k + " = " + toString(this[k])).join(";\n ") + "}";
 };
 
 SystemObject.prototype.GetHashCode = function() {
@@ -118,7 +118,7 @@ Union.prototype.toString = function() {
   } else if (len === 1) {
     return this.name + " " + toString(this.fields[0]);
   } else {
-    return this.name + " (" + this.fields.map(toString).join(",") + ")";
+    return this.name + " (" + this.fields.map(x => toString(x)).join(",") + ")";
   }
 };
 
@@ -129,7 +129,7 @@ Union.prototype.toJSON = function() {
 };
 
 Union.prototype.GetHashCode = function() {
-  let hashes = this.fields.map(structuralHash);
+  let hashes = this.fields.map(x => structuralHash(x));
   hashes.splice(0, 0, numberHash(this.tag));
   return combineHashCodes(hashes);
 };
@@ -199,7 +199,7 @@ export function Record() {
 }
 
 Record.prototype.toString = function() {
-  return "{" + Object.keys(this).map((k) => k + " = " + toString(this[k])).join(";\n ") + "}";
+  return "{" + Object.keys(this).map(k => k + " = " + toString(this[k])).join(";\n ") + "}";
 };
 
 Record.prototype.toJSON = function() {

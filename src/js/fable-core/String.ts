@@ -486,6 +486,6 @@ export function trimEnd(str: string, ...chars: string[]) {
     : str.replace(new RegExp("[" + escape(chars.join("")) + "]+$"), "");
 }
 
-export function filter(pred: (i: string) => boolean, x: string) {
-  return x.split("").filter(pred).join("");
+export function filter(pred: (char: string) => boolean, x: string) {
+  return x.split("").filter((c) => pred(c)).join("");
 }

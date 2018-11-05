@@ -122,7 +122,7 @@ export function name(info: FieldInfo | CaseInfo | TypeInfo): string {
 export function fullName(t: TypeInfo): string {
   const gen = t.generics != null && !isArray(t) ? t.generics() : [];
   if (gen.length > 0) {
-    return t.fullname + "[" + gen.map(fullName).join(",") + "]";
+    return t.fullname + "[" + gen.map((x) => fullName(x)).join(",") + "]";
   } else {
     return t.fullname;
   }
