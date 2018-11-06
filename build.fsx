@@ -43,20 +43,6 @@ let addToPath newPath =
     let separator = if isWindows then ";" else ":"
     setEnvironVar "PATH" (newPath + separator + path)
 
-// Move this to FakeHelpers
-let findLineAndGetGroupValue regexPattern (groupIndex: int) filePath =
-    let reg = Regex(regexPattern)
-    File.ReadLines(filePath)
-    |> Seq.tryPick (fun line ->
-        let m = reg.Match(line)
-        if m.Success
-        then Some m.Groups.[groupIndex].Value
-        else None)
-    // Appveyor doesn't like `Option.defaultWith`
-    |> function
-        | Some x -> x
-        | None -> failwithf "No line matches pattern %s in file %s" regexPattern filePath
-
 // Project info
 let project = "Fable"
 
