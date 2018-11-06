@@ -1,3 +1,11 @@
+### 2.0.9
+
+* Include non-mangled identifier names for source maps
+* Optimize tailcalls returning unit #1624
+* Fix DateTimeOffset @ncave
+* Fix #1607: More descriptive error when two module members have same name
+* Fix #1628: `String.filter Char.IsDigit` freezes REPL
+
 ### 2.0.8
 
 * Implement eprintf and eprintfn @inosik

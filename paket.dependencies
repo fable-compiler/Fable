@@ -7,11 +7,11 @@ nuget FSharp.Compiler.Service
 nuget FSharp.Core
 nuget Newtonsoft.Json
 nuget Dotnet.ProjInfo
-nuget Fable.Core prerelease
+nuget Fable.Core
 
 group Build
   framework >= net45
   source https://www.nuget.org/api/v2
-  nuget FAKE
+  nuget FAKE ~> 4
   github fsharp/FAKE modules/Octokit/Octokit.fsx
   github fable-compiler/fake-helpers Fable.FakeHelpers.fs
