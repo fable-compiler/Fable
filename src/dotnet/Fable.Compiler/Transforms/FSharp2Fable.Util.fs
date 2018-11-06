@@ -178,7 +178,8 @@ module Helpers =
 
     let makeRange (r: Range.range) =
         { start = { line = r.StartLine; column = r.StartColumn }
-          ``end``= { line = r.EndLine; column = r.EndColumn } }
+          ``end``= { line = r.EndLine; column = r.EndColumn }
+          identifierName = None }
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
@@ -621,7 +622,8 @@ module Identifiers =
           Kind = Fable.UnspecifiedIdent
           IsMutable = fsRef.IsMutable
           IsCompilerGenerated = fsRef.IsCompilerGenerated
-          Range = makeRange fsRef.DeclarationLocation |> Some }
+          Range = { makeRange fsRef.DeclarationLocation
+                    with identifierName = Some fsRef.DisplayName } |> Some }
 
     /// Sanitize F# identifier and create new context
     let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
