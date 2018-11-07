@@ -1,14 +1,11 @@
 const path = require("path");
-let babelOptions = {};
 
-if (process.argv.find(v => v === "--commonjs")) {
-  babelOptions = {
-    plugins: ["@babel/plugin-transform-modules-commonjs"],
-  };
-  console.log("Compiling to commmonjs...");
-} else {
-  console.log("Compiling to ES2015 modules...");
-}
+const useCommonjs = process.argv.find(v => v === "--commonjs");
+console.log("Compiling to " + (useCommonjs ? "commonjs" : "ES2015 modules") + "...")
+
+const babelOptions = useCommonjs
+  ? { plugins: ["@babel/plugin-transform-modules-commonjs"] }
+  : {};
 
 const fableOptions = {
   define: [
