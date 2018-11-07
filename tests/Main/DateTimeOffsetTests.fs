@@ -2,7 +2,6 @@ module Fable.Tests.DateTimeOffset
 
 open System
 open Util.Testing
-open Expecto.Logging
 
 let toSigFigs nSigFigs x =
     let absX = abs x
