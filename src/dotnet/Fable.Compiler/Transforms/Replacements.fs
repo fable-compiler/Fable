@@ -2045,11 +2045,11 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         addWarning com ctx.InlinePath r "Write will behave as WriteLine"
         log com r t i thisArg args |> Some
     | "WriteLine" -> log com r t i thisArg args |> Some
-    | "Break" -> Debugger |> Some
+    | "Break" -> Debugger r |> Some
     | "Assert" ->
         // emit i "if (!$0) { debugger; }" i.args |> Some
         let cond = Operation(UnaryOperation (UnaryNot, args.Head), Boolean, r)
-        IfThenElse(cond, Debugger, Value (Null Unit)) |> Some
+        IfThenElse(cond, Debugger r, Value (Null Unit)) |> Some
     | _ -> None
 
 let dates (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

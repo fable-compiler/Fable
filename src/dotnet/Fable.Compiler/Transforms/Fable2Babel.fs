@@ -109,7 +109,7 @@ module Util =
         | Fable.Value _ | Fable.Import _ | Fable.DelayedResolution _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
         | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ | Fable.TypeCast _ -> false
 
-        | Fable.TryCatch _ | Fable.Debugger
+        | Fable.TryCatch _ | Fable.Debugger _
         | Fable.Sequential _ | Fable.Let _ | Fable.Set _
         | Fable.Loop _ | Fable.Throw _ -> true
 
@@ -1165,8 +1165,8 @@ module Util =
         | Fable.Throw(TransformExpr com ctx ex, _, range) ->
             [|ThrowStatement(ex, ?loc=range) :> Statement|]
 
-        | Fable.Debugger ->
-            [|DebuggerStatement() :> Statement|]
+        | Fable.Debugger range ->
+            [|DebuggerStatement(?loc=range) :> Statement|]
 
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflicts (e.g. `then` doesn't become a block while `else` does)
