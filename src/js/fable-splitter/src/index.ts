@@ -182,9 +182,9 @@ function varDeclarator(ident: string, init: any) {
         type: "VariableDeclarator",
         id: {
             type: "Identifier",
-            name: ident
+            name: ident,
         },
-        init
+        init,
     };
 }
 
@@ -193,13 +193,13 @@ function member(left: string, right: string) {
         type: "MemberExpression",
         object: {
           type: "Identifier",
-          name: left
+          name: left,
         },
         property: {
             type: "Identifier",
-            name: right
+            name: right,
         },
-        computed: false
+        computed: false,
     };
 }
 
@@ -207,17 +207,18 @@ function fixExternalImports(ast: Babel.types.Program, externals: any) {
     if (Array.isArray(ast.body)) {
         const importDecls: any[] = [];
         const fixedDecls: any[] = [];
-        const otherDecls = ast.body.filter((decl) => {
+        const otherDecls = ast.body.filter((decl: any) => {
             if (decl.source != null && typeof decl.source.value === "string") {
                 const path: string = decl.source.value;
                 if (path in externals) {
                     const replacement = externals[path];
                     // TODO: Check for ImportNamespaceSpecifier
-                    const varDeclarators = decl.specifiers.map((specifier) => varDeclarator(specifier.local.name, member(replacement, specifier.imported.name)));
+                    const varDeclarators = decl.specifiers.map((specifier) =>
+                        varDeclarator(specifier.local.name, member(replacement, specifier.imported.name)));
                     fixedDecls.push({
                         type: "VariableDeclaration",
                         declarations: varDeclarators,
-                        kind: "const"
+                        kind: "const",
                     });
                 } else {
                     importDecls.push(decl);
@@ -227,7 +228,7 @@ function fixExternalImports(ast: Babel.types.Program, externals: any) {
             return true;
         });
         ast.body = importDecls.concat(fixedDecls, otherDecls);
-    };
+    }
 }
 
 async function getBabelAst(path: string, options: FableSplitterOptions, info: CompilationInfo) {

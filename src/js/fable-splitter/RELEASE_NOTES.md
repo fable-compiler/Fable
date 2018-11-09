@@ -1,3 +1,7 @@
+### 2.1.0-alpha-001
+
+* Add `--run` option
+
 ### 2.0.2
 
 * Add "externals" option (similar to Webpack's but only for global values)

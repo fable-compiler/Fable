@@ -2,10 +2,47 @@
 
 /// @ts-check
 
-var fs = require("fs");
-var path = require("path");
-var chokidar = require("chokidar");
-var fableSplitter = require("./index").default;
+const fs = require("fs");
+const path = require("path");
+const fableSplitter = require("./index").default;
+const chokidarLazy = requireLazy("chokidar");
+const nodemonLazy = requireLazy("nodemon");
+
+function requireLazy(module) {
+    var cache = null;
+    return function () {
+        if (cache === null) {
+            cache = require(module);
+        }
+        return cache;
+    }
+}
+
+function getMainScriptPath(options, info) {
+    const lastFile = info.projectFiles[info.projectFiles.length - 1];
+    const mainScript = path.join(options.outDir, info.mapInOutPaths.get(lastFile));
+    return mainScript.endsWith(".js") ? mainScript : mainScript + ".js";
+}
+
+function runScriptOnce(scriptPath) {
+    require(scriptPath);
+}
+
+function runScriptWithWatch(scriptPath) {
+    const nodemon = nodemonLazy();
+    nodemon({
+        script: scriptPath,
+        ext: 'js'
+      });
+
+    nodemon
+        // .on('start', function () { console.log('App has started'); })
+        // .on('restart', function (files) { console.log('App restarted due to: ', files); })
+        .on('quit', function () {
+            // console.log('App has quit');
+            process.exit();
+        });
+}
 
 function getVersion() {
     /// @ts-ignore
@@ -25,6 +62,7 @@ Arguments:
   -o|--outDir       Output directory
   -c|--config       Config file
   -w|--watch        [FLAG] Watch mode
+  --run             [FLAG] Run script with node after compilation
 `
 }
 
@@ -76,22 +114,25 @@ function readConfig(filePath, force) {
 }
 
 function run(entry, args) {
-    var cfgFile = findArgValue(restArgs, ["-c", "--config"]);
+    var cfgFile = findArgValue(args, ["-c", "--config"]);
     var opts = cfgFile
         ? readConfig(cfgFile, true)
         : (readConfig("fable-splitter.config.js") || readConfig("splitter.config.js") || {});
     objectAssignNonNull(opts, {
         entry: entry,
-        outDir: findArgValue(restArgs, ["-o", "--outDir"], path.resolve),
-        allFiles: findFlag(restArgs, "--allFiles")
+        outDir: findArgValue(args, ["-o", "--outDir"], path.resolve),
+        allFiles: findFlag(args, "--allFiles")
     });
 
     /// @ts-ignore
     fableSplitter(opts).then(info => {
-        if (findFlag(restArgs, ["-w", "--watch"])) {
+        if (findFlag(args, ["-w", "--watch"])) {
+            if (findFlag(args, "--run")) {
+                runScriptWithWatch(getMainScriptPath(opts, info));
+            }
             var cachedInfo = info;
             var ready = false, next = null, prev = null;
-            var watcher = chokidar
+            var watcher = chokidarLazy()
                 .watch(Array.from(info.compiledPaths), {
                     ignored: /node_modules/,
                     persistent: true
@@ -120,11 +161,15 @@ function run(entry, args) {
                         }
                     }
                 });
-            }
-            else {
-                var hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
+        }
+        else {
+            var hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
+            if (!hasError && findFlag(args, "--run")) {
+                runScriptOnce(getMainScriptPath(opts, info));
+            } else {
                 process.exit(hasError ? 1 : 0);
             }
+        }
     });
 }
 
