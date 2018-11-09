@@ -1,6 +1,11 @@
+### 2.1.0-alpha-002
+
+* Add `-d|--debug` flag to automatically define "DEBUG" constant
+* Automatically add `@babel/plugin-transform-modules-commonjs` plugin when using `--run`
+
 ### 2.1.0-alpha-001
 
-* Add `--run` option
+* Add `--run` flag to run script with node after compilation (compatible with `--watch`)
 
 ### 2.0.2
 
