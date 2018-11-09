@@ -1,13 +1,24 @@
+// Adapted from https://github.com/MikeMcl/big.js/blob/01b3ce3a6b0ba7b42442ea48ec4ffc88d1669ec4/big.mjs
+/* tslint:disable */
+
+import { combineHashCodes } from "../Util";
+
+// The shared prototype object.
+var P = {
+    GetHashCode() { return combineHashCodes([this.s, this.e, this.c]) },
+    Equals(x) { return !this.cmp(x) },
+    CompareTo(x) { return this.cmp(x) },
+    toString () { return stringify(this) },
+    toJSON () { return stringify(this, 4); },
+};
+
 /*
- *  Adapted from: https://github.com/MikeMcl/big.js/blob/01b3ce3a6b0ba7b42442ea48ec4ffc88d1669ec4/big.mjs
  *  big.js v5.2.2
  *  A small, fast, easy-to-use library for arbitrary-precision decimal arithmetic.
  *  Copyright (c) 2018 Michael Mclaughlin <M8ch88l@gmail.com>
- *  MIT Licence: https://github.com/MikeMcl/big.js/blob/master/LICENCE
+ *  https://github.com/MikeMcl/big.js/LICENCE
  */
 
-/* tslint:disable */
-import { combineHashCodes } from "./Util";
 
 /************************************** EDITABLE DEFAULTS *****************************************/
 
@@ -18,7 +29,7 @@ import { combineHashCodes } from "./Util";
    * The maximum number of decimal places (DP) of the results of operations involving division:
    * div and sqrt, and pow with negative exponents.
    */
-  const DP = 20,          // 0 to MAX_DP
+  var DP = 20,          // 0 to MAX_DP
 
   /*
    * The rounding mode (RM) used when rounding to the above decimal places.
@@ -62,23 +73,27 @@ import { combineHashCodes } from "./Util";
   INVALID_RM = INVALID + 'rounding mode',
   DIV_BY_ZERO = NAME + 'Division by zero',
 
-  // The shared prototype object.
-  P = {},
   UNDEFINED = void 0,
   NUMERIC = /^-?(\d+(\.\d*)?|\.\d+)(e[+-]?\d+)?$/i;
 
 
 /*
- * The Big constructor and exported function.
- * Create and return a new instance of a Big number object.
+ * Create and return a Big constructor.
  *
- * n {Big} A numeric value.
  */
-export default function Big(n) {
+function _Big_() {
+
+  /*
+   * The Big constructor and exported function.
+   * Create and return a new instance of a Big number object.
+   *
+   * n {number|string|Big} A numeric value.
+   */
+  function Big(n) {
     var x = this;
 
-    // // Enable constructor usage without new.
-    // if (!(x instanceof Big)) return n === UNDEFINED ? _Big_() : new Big(n);
+    // Enable constructor usage without new.
+    if (!(x instanceof Big)) return n === UNDEFINED ? _Big_() : new Big(n);
 
     // Duplicate.
     if (n instanceof Big) {
@@ -89,26 +104,26 @@ export default function Big(n) {
       parse(x, n);
     }
 
-    // /*
-    //  * Retain a reference to this Big constructor, and shadow Big.prototype.constructor which
-    //  * points to Object.
-    //  */
-    // x.constructor = Big;
+    /*
+     * Retain a reference to this Big constructor, and shadow Big.prototype.constructor which
+     * points to Object.
+     */
+    x.constructor = Big;
+  }
+
+  Big.prototype = P;
+  Big.DP = DP;
+  Big.RM = RM;
+  Big.NE = NE;
+  Big.PE = PE;
+  Big.version = '5.2.2';
+
+  return Big;
 }
 
-Big.DP = DP;
-Big.RM = RM;
-Big.NE = NE;
-Big.PE = PE;
-Big.version = '5.2.2';
 
-Big.prototype.GetHashCode = function () {
-    return combineHashCodes([x, e, c]);
-}
-Big.prototype.Equals = function (x) { return equals(this, x); }
-Big.prototype.CompareTo = function (x) { return compare(this, x); }
-Big.prototype.toString = function () { return stringify(this); }
-Big.prototype.toJSON = function () { return stringify(this, 4); }
+
+
 
 /*
  * Parse the number or string value passed to a Big constructor.
@@ -175,7 +190,7 @@ function parse(x, n) {
  * rm {number} 0, 1, 2 or 3 (DOWN, HALF_UP, HALF_EVEN, UP)
  * [more] {boolean} Whether the result of division was truncated.
  */
-function roundPrivate(x, dp, rm, more) {
+function round(x, dp, rm, more) {
   var xc = x.c,
     i = x.e + dp + 1;
 
@@ -265,7 +280,7 @@ function stringify(x, id, n, k) {
     n = k - x.e;
 
     // Round?
-    if (x.c.length > ++k) roundPrivate(x, n, Big.RM);
+    if (x.c.length > ++k) round(x, n, Big.RM);
 
     // toFixed: recalculate k as x.e may have changed if value rounded up.
     if (id == 2) k = x.e + n + 1;
@@ -303,8 +318,8 @@ function stringify(x, id, n, k) {
 /*
  * Return a new Big whose value is the absolute value of this Big.
  */
-export function abs(x) {
-  x = new x.constructor(x);
+P.abs = function () {
+  var x = new this.constructor(this);
   x.s = 1;
   return x;
 };
@@ -315,8 +330,9 @@ export function abs(x) {
  *       -1 if the value of this Big is less than the value of Big y, or
  *        0 if they have the same value.
 */
-export function compare(x, y) {
+P.cmp = function (y) {
   var isneg,
+    x = this,
     xc = x.c,
     yc = (y = new x.constructor(y)).c,
     i = x.s,
@@ -351,8 +367,9 @@ export function compare(x, y) {
  * Return a new Big whose value is the value of this Big divided by the value of Big y, rounded,
  * if necessary, to a maximum of Big.DP decimal places using rounding mode Big.RM.
  */
-export function op_Division(x, y) {
-  var Big = x.constructor,
+P.div = function (y) {
+  var x = this,
+    Big = x.constructor,
     a = x.c,                  // dividend
     b = (y = new Big(y)).c,   // divisor
     k = x.s == y.s ? 1 : -1,
@@ -442,7 +459,7 @@ export function op_Division(x, y) {
   }
 
   // Round?
-  if (qi > d) roundPrivate(q, dp, Big.RM, r[0] !== UNDEFINED);
+  if (qi > d) round(q, dp, Big.RM, r[0] !== UNDEFINED);
 
   return q;
 };
@@ -451,8 +468,8 @@ export function op_Division(x, y) {
 /*
  * Return true if the value of this Big is equal to the value of Big y, otherwise return false.
  */
-export function equals(x, y) {
-  return !compare(x, y);
+P.eq = function (y) {
+  return !this.cmp(y);
 };
 
 
@@ -460,8 +477,8 @@ export function equals(x, y) {
  * Return true if the value of this Big is greater than the value of Big y, otherwise return
  * false.
  */
-export function gt(x, y) {
-  return compare(x, y) > 0;
+P.gt = function (y) {
+  return this.cmp(y) > 0;
 };
 
 
@@ -469,16 +486,16 @@ export function gt(x, y) {
  * Return true if the value of this Big is greater than or equal to the value of Big y, otherwise
  * return false.
  */
-export function gte(x, y) {
-  return compare(x, y) > -1;
+P.gte = function (y) {
+  return this.cmp(y) > -1;
 };
 
 
 /*
  * Return true if the value of this Big is less than the value of Big y, otherwise return false.
  */
-export function lt(x, y) {
-  return compare(x, y) < 0;
+P.lt = function (y) {
+  return this.cmp(y) < 0;
 };
 
 
@@ -486,16 +503,17 @@ export function lt(x, y) {
  * Return true if the value of this Big is less than or equal to the value of Big y, otherwise
  * return false.
  */
-export function lte(x, y) {
-  return compare(x, y) < 1;
+P.lte = function (y) {
+  return this.cmp(y) < 1;
 };
 
 
 /*
  * Return a new Big whose value is the value of this Big minus the value of Big y.
  */
-export function op_Subtraction(x, y) {
+P.minus = P.sub = function (y) {
   var i, j, t, xlty,
+    x = this,
     Big = x.constructor,
     a = x.s,
     b = (y = new Big(y)).s;
@@ -503,7 +521,7 @@ export function op_Subtraction(x, y) {
   // Signs differ?
   if (a != b) {
     y.s = -b;
-    return op_Addition(x, y);
+    return x.plus(y);
   }
 
   var xc = x.c.slice(),
@@ -598,8 +616,9 @@ export function op_Subtraction(x, y) {
 /*
  * Return a new Big whose value is the value of this Big modulo the value of Big y.
  */
-export function op_Modulus(x, y) {
+P.mod = function (y) {
   var ygtx,
+    x = this,
     Big = x.constructor,
     a = x.s,
     b = (y = new Big(y)).s;
@@ -607,7 +626,7 @@ export function op_Modulus(x, y) {
   if (!y.c[0]) throw Error(DIV_BY_ZERO);
 
   x.s = y.s = 1;
-  ygtx = compare(y, x) == 1;
+  ygtx = y.cmp(x) == 1;
   x.s = a;
   y.s = b;
 
@@ -616,19 +635,20 @@ export function op_Modulus(x, y) {
   a = Big.DP;
   b = Big.RM;
   Big.DP = Big.RM = 0;
-  x = op_Division(x, y);
+  x = x.div(y);
   Big.DP = a;
   Big.RM = b;
 
-  return op_Subtraction(x, op_Multiply(x, y));
+  return this.minus(x.times(y));
 };
 
 
 /*
  * Return a new Big whose value is the value of this Big plus the value of Big y.
  */
-export function op_Addition(x, y) {
+P.plus = P.add = function (y) {
   var t,
+    x = this,
     Big = x.constructor,
     a = x.s,
     b = (y = new Big(y)).s;
@@ -636,7 +656,7 @@ export function op_Addition(x, y) {
   // Signs differ?
   if (a != b) {
     y.s = -b;
-    return op_Subtraction(x, y);
+    return x.minus(y);
   }
 
   var xe = x.e,
@@ -701,8 +721,9 @@ export function op_Addition(x, y) {
  *
  * n {number} Integer, -MAX_POWER to MAX_POWER inclusive.
  */
-export function pow(x, n) {
-  var one = new x.constructor(1),
+P.pow = function (n) {
+  var x = this,
+    one = new x.constructor(1),
     y = one,
     isneg = n < 0;
 
@@ -710,13 +731,13 @@ export function pow(x, n) {
   if (isneg) n = -n;
 
   for (;;) {
-    if (n & 1) y = op_Multiply(y, x);
+    if (n & 1) y = y.times(x);
     n >>= 1;
     if (!n) break;
-    x = op_Multiply(x, x);
+    x = x.times(x);
   }
 
-  return isneg ? op_Division(one, y) : y;
+  return isneg ? one.div(y) : y;
 };
 
 
@@ -730,11 +751,11 @@ export function pow(x, n) {
  * dp? {number} Integer, -MAX_DP to MAX_DP inclusive.
  * rm? 0, 1, 2 or 3 (ROUND_DOWN, ROUND_HALF_UP, ROUND_HALF_EVEN, ROUND_UP)
  */
-export function round(x, dp, rm) {
-  var Big = x.constructor;
+P.round = function (dp, rm) {
+  var Big = this.constructor;
   if (dp === UNDEFINED) dp = 0;
   else if (dp !== ~~dp || dp < -MAX_DP || dp > MAX_DP) throw Error(INVALID_DP);
-  return roundPrivate(new Big(x), dp, rm === UNDEFINED ? Big.RM : rm);
+  return round(new Big(this), dp, rm === UNDEFINED ? Big.RM : rm);
 };
 
 
@@ -742,8 +763,9 @@ export function round(x, dp, rm) {
  * Return a new Big whose value is the square root of the value of this Big, rounded, if
  * necessary, to a maximum of Big.DP decimal places using rounding mode Big.RM.
  */
-export function sqrt(x) {
+P.sqrt = function () {
   var r, c, t,
+    x = this,
     Big = x.constructor,
     s = x.s,
     e = x.e,
@@ -765,7 +787,7 @@ export function sqrt(x) {
     if (!(c.length + e & 1)) c += '0';
     s = Math.sqrt(c);
     e = ((e + 1) / 2 | 0) - (e < 0 || e & 1);
-    r = new Big((s == 1 / 0 ? '1e' : (s = toExponential(s)).slice(0, s.indexOf('e') + 1)) + e);
+    r = new Big((s == 1 / 0 ? '1e' : (s = s.toExponential()).slice(0, s.indexOf('e') + 1)) + e);
   } else {
     r = new Big(s);
   }
@@ -775,18 +797,19 @@ export function sqrt(x) {
   // Newton-Raphson iteration.
   do {
     t = r;
-    r = op_Multiply(half, op_Addition(t, op_Division(x, t)));
+    r = half.times(t.plus(x.div(t)));
   } while (t.c.slice(0, e).join('') !== r.c.slice(0, e).join(''));
 
-  return roundPrivate(r, Big.DP -= 4, Big.RM);
+  return round(r, Big.DP -= 4, Big.RM);
 };
 
 
 /*
  * Return a new Big whose value is the value of this Big times the value of Big y.
  */
-export function op_Multiply(x, y) {
+P.times = P.mul = function (y) {
   var c,
+    x = this,
     Big = x.constructor,
     xc = x.c,
     yc = (y = new Big(y)).c,
@@ -855,8 +878,8 @@ export function op_Multiply(x, y) {
  *
  * dp? {number} Integer, 0 to MAX_DP inclusive.
  */
-export function toExponential(x, dp) {
-  return stringify(x, 1, dp, dp);
+P.toExponential = function (dp) {
+  return stringify(this, 1, dp, dp);
 };
 
 
@@ -869,8 +892,8 @@ export function toExponential(x, dp) {
  * (-0).toFixed(0) is '0', but (-0.1).toFixed(0) is '-0'.
  * (-0).toFixed(1) is '0.0', but (-0.01).toFixed(1) is '-0.0'.
  */
-export function toFixed(x, dp) {
-  return stringify(x, 2, dp, x.e + dp);
+P.toFixed = function (dp) {
+  return stringify(this, 2, dp, this.e + dp);
 };
 
 
@@ -881,8 +904,8 @@ export function toFixed(x, dp) {
  *
  * sd {number} Integer, 1 to MAX_DP inclusive.
  */
-export function toPrecision(x, sd) {
-  return stringify(x, 3, sd, sd - 1);
+P.toPrecision = function (sd) {
+  return stringify(this, 3, sd, sd - 1);
 };
 
 
@@ -892,7 +915,25 @@ export function toPrecision(x, sd) {
  * Big.PE, or a negative exponent equal to or less than Big.NE.
  * Omit the sign for negative zero.
  */
-export function toString(x) {
-  return stringify(x);
+P.toString = function () {
+  return stringify(this);
 };
 
+
+/*
+ * Return a string representing the value of this Big.
+ * Return exponential notation if this Big has a positive exponent equal to or greater than
+ * Big.PE, or a negative exponent equal to or less than Big.NE.
+ * Include the sign for negative zero.
+ */
+P.valueOf = P.toJSON = function () {
+  return stringify(this, 4);
+};
+
+
+// Export
+
+
+export var Big = _Big_();
+
+export default Big;
