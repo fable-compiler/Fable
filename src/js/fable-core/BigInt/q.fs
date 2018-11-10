@@ -4,7 +4,7 @@
 #nowarn "44"  // OK to use the "compiler only" function RangeGeneric
 #nowarn "52"  // The value has been copied to ensure the original is not mutated by this operation
 
-namespace Microsoft.FSharp.Math
+namespace BigInt
 
     open System
     open System.Numerics

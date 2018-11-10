@@ -2,7 +2,7 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
 #nowarn "44" // This construct is deprecated. This function is for use by compiled F# code and should not be used directly
-namespace System.Numerics
+namespace BigInt
 
 #if FX_NO_BIGINT
     open Microsoft.FSharp.Collections
@@ -327,17 +327,17 @@ namespace System.Numerics
         member x.ToSingle = single x.ToDouble
         member x.ToDecimal = decimal x.ToDouble //TODO: proper implementation
 
-        static member op_Explicit (x:BigInteger) = x.ToSByte
-        static member op_Explicit (x:BigInteger) = x.ToByte
-        static member op_Explicit (x:BigInteger) = x.ToInt16
-        static member op_Explicit (x:BigInteger) = x.ToUInt16
-        static member op_Explicit (x:BigInteger) = x.ToInt32
-        static member op_Explicit (x:BigInteger) = x.ToUInt32
-        static member op_Explicit (x:BigInteger) = x.ToInt64
-        static member op_Explicit (x:BigInteger) = x.ToUInt64
-        static member op_Explicit (x:BigInteger) = x.ToSingle
-        static member op_Explicit (x:BigInteger) = x.ToDouble
-        static member op_Explicit (x:BigInteger) = x.ToDecimal
+        // static member op_Explicit (x:BigInteger) = x.ToSByte
+        // static member op_Explicit (x:BigInteger) = x.ToByte
+        // static member op_Explicit (x:BigInteger) = x.ToInt16
+        // static member op_Explicit (x:BigInteger) = x.ToUInt16
+        // static member op_Explicit (x:BigInteger) = x.ToInt32
+        // static member op_Explicit (x:BigInteger) = x.ToUInt32
+        // static member op_Explicit (x:BigInteger) = x.ToInt64
+        // static member op_Explicit (x:BigInteger) = x.ToUInt64
+        // static member op_Explicit (x:BigInteger) = x.ToSingle
+        // static member op_Explicit (x:BigInteger) = x.ToDouble
+        // static member op_Explicit (x:BigInteger) = x.ToDecimal
 
         static member Parse(text:string) =
             if isNull text then raise (new ArgumentNullException("text"))
@@ -364,7 +364,7 @@ namespace System.Numerics
 
         static member FromInt32(x:int32) = new BigInteger(x)
 #endif
-
+(*
 namespace Microsoft.FSharp.Core
 
 
@@ -397,13 +397,6 @@ namespace Microsoft.FSharp.Core
     module NumericLiterals =
 
         module NumericLiteralI = 
-#if FABLE_COMPILER
-            let FromZero () = BigInteger.Zero
-            let FromOne () = BigInteger.One
-            let FromInt32 (value:int32) = new BigInteger(value)
-            let FromInt64 (value:int64) = new BigInteger(value)
-            let FromString (text:string) = BigInteger.Parse text
-#else
             let tab64 = new System.Collections.Generic.Dictionary<int64,obj>()
             let tabParse = new System.Collections.Generic.Dictionary<string,obj>()
             
@@ -462,4 +455,4 @@ namespace Microsoft.FSharp.Core
             let FromString (text:string) : 'T = 
                 (FromStringDynamic text :?> 'T)
                 when 'T : BigInteger = getParse text
-#endif //FABLE_COMPILER
+*)

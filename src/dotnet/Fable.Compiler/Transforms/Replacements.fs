@@ -28,6 +28,9 @@ type Helper =
         let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
         Operation(Call(InstanceCall None, argInfo (Some callee) args argTypes), returnType, loc)
 
+    static member CoreValue(coreModule: string, coreMember: string, returnType: Type) =
+        makeCoreRef returnType coreMember coreModule
+
     static member CoreCall(coreModule: string, coreMember: string, returnType: Type, args: Expr list,
                            ?argTypes: Type list, ?thisArg: Expr, ?isConstructor: bool,
                            ?hasSpread: bool, ?loc: SourceLocation) =
@@ -1730,10 +1733,11 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
         | Number Float ->
             toFloat com ctx r t args |> Some
         | _ -> None
-    | None, meth ->
+    | None, meth when meth.StartsWith("get_") ->
+        Helper.CoreValue("BigInt", meth, t) |> Some
+    | callee, meth ->
+        let args = match callee with None -> args | Some c -> c::args
         Helper.CoreCall("BigInt", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | Some callee, meth ->
-        Helper.CoreCall("BigInt", Naming.lowerFirst meth, t, [callee], i.SignatureArgTypes, ?loc=r) |> Some
 
 // Compile static strings to their constant values
 // reference: https://msdn.microsoft.com/en-us/visualfsharpdocs/conceptual/languageprimitives.errorstrings-module-%5bfsharp%5d

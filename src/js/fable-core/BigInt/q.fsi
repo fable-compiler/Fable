@@ -1,7 +1,7 @@
 // source: https://github.com/fsprojects/powerpack-archive
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-namespace Microsoft.FSharp.Math
+namespace BigInt
 
     open System
     open System.Numerics

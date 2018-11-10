@@ -1,7 +1,10 @@
-module BigInt
+module BigInt.Exports
 
-type bigint = System.Numerics.BigInteger
+type bigint = BigInt.BigInteger
 
+let isBigInt (x: obj) = x :? bigint
+let get_Zero = bigint.Zero
+let get_One = bigint.One
 let op_Addition = bigint.(+)
 let op_Subtraction = bigint.(-)
 let op_Multiply = bigint.(*)

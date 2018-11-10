@@ -1,7 +1,7 @@
 // source: https://github.com/fsharp/fsharp
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-namespace System.Numerics
+namespace BigInt
 #if FX_NO_BIGINT
 
     open System
@@ -59,28 +59,28 @@ namespace System.Numerics
         /// Convert a big integer to a decimal number
         member ToDecimal : decimal
 
-       /// Convert a big integer to a 8-bit signed integer
-        static member op_Explicit : x:BigInteger -> sbyte
-        /// Convert a big integer to a 8-bit unsigned integer
-        static member op_Explicit : x:BigInteger -> byte
-       /// Convert a big integer to a 16-bit signed integer
-        static member op_Explicit : x:BigInteger -> int16
-        /// Convert a big integer to a 16-bit unsigned integer
-        static member op_Explicit : x:BigInteger -> uint16
-        /// Convert a big integer to a 32-bit signed integer
-        static member op_Explicit : x:BigInteger -> int32
-        /// Convert a big integer to a 32-bit unsigned integer
-        static member op_Explicit : x:BigInteger -> uint32
-        /// Convert a big integer to a 64-bit signed integer
-        static member op_Explicit : x:BigInteger -> int64
-        /// Convert a big integer to a 64-bit unsigned integer
-        static member op_Explicit : x:BigInteger -> uint64
-        /// Convert a big integer to a 32-bit floating point number
-        static member op_Explicit : x:BigInteger -> single
-        /// Convert a big integer to a 64-bit floating point number
-        static member op_Explicit : x:BigInteger -> double
-        /// Convert a big integer to a decimal number
-        static member op_Explicit : x:BigInteger -> decimal
+    //    /// Convert a big integer to a 8-bit signed integer
+    //     static member op_Explicit : x:BigInteger -> sbyte
+    //     /// Convert a big integer to a 8-bit unsigned integer
+    //     static member op_Explicit : x:BigInteger -> byte
+    //    /// Convert a big integer to a 16-bit signed integer
+    //     static member op_Explicit : x:BigInteger -> int16
+    //     /// Convert a big integer to a 16-bit unsigned integer
+    //     static member op_Explicit : x:BigInteger -> uint16
+    //     /// Convert a big integer to a 32-bit signed integer
+    //     static member op_Explicit : x:BigInteger -> int32
+    //     /// Convert a big integer to a 32-bit unsigned integer
+    //     static member op_Explicit : x:BigInteger -> uint32
+    //     /// Convert a big integer to a 64-bit signed integer
+    //     static member op_Explicit : x:BigInteger -> int64
+    //     /// Convert a big integer to a 64-bit unsigned integer
+    //     static member op_Explicit : x:BigInteger -> uint64
+    //     /// Convert a big integer to a 32-bit floating point number
+    //     static member op_Explicit : x:BigInteger -> single
+    //     /// Convert a big integer to a 64-bit floating point number
+    //     static member op_Explicit : x:BigInteger -> double
+    //     /// Convert a big integer to a decimal number
+    //     static member op_Explicit : x:BigInteger -> decimal
  
         /// Parse a big integer from a string format
         static member Parse    : text:string -> BigInteger
@@ -130,7 +130,7 @@ namespace System.Numerics
         new : x:int64 -> BigInteger
 #endif
 
-
+(*
 namespace Microsoft.FSharp.Core
 
     type bigint = System.Numerics.BigInteger
@@ -142,13 +142,6 @@ namespace Microsoft.FSharp.Core
         /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
         module NumericLiteralI = 
             open System.Numerics
-#if FABLE_COMPILER
-            val FromZero : value:unit -> BigInteger
-            val FromOne : value:unit -> BigInteger
-            val FromInt32 : value:int32 -> BigInteger
-            val FromInt64 : value:int64 -> BigInteger
-            val FromString : text:string -> BigInteger
-#else
             /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
             val FromZero : value:unit -> 'T
             /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
@@ -163,4 +156,4 @@ namespace Microsoft.FSharp.Core
             val FromInt64Dynamic : value:int64 -> obj
             /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
             val FromStringDynamic : text:string -> obj
-#endif
+*)
