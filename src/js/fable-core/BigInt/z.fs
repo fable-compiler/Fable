@@ -364,7 +364,7 @@ namespace BigInt
 
         static member FromInt32(x:int32) = new BigInteger(x)
 #endif
-
+(*
 namespace Microsoft.FSharp.Core
 
 
@@ -397,13 +397,6 @@ namespace Microsoft.FSharp.Core
     module NumericLiterals =
 
         module NumericLiteralI = 
-#if FABLE_COMPILER
-            let FromZero () = BigInteger.Zero
-            let FromOne () = BigInteger.One
-            let FromInt32 (value:int32) = new BigInteger(value)
-            let FromInt64 (value:int64) = new BigInteger(value)
-            let FromString (text:string) = BigInteger.Parse text
-#else
             let tab64 = new System.Collections.Generic.Dictionary<int64,obj>()
             let tabParse = new System.Collections.Generic.Dictionary<string,obj>()
             
@@ -462,4 +455,4 @@ namespace Microsoft.FSharp.Core
             let FromString (text:string) : 'T = 
                 (FromStringDynamic text :?> 'T)
                 when 'T : BigInteger = getParse text
-#endif //FABLE_COMPILER
+*)

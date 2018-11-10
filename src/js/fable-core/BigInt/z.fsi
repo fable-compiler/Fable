@@ -130,7 +130,7 @@ namespace BigInt
         new : x:int64 -> BigInteger
 #endif
 
-
+(*
 namespace Microsoft.FSharp.Core
 
     type bigint = System.Numerics.BigInteger
@@ -142,13 +142,6 @@ namespace Microsoft.FSharp.Core
         /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
         module NumericLiteralI = 
             open System.Numerics
-#if FABLE_COMPILER
-            val FromZero : value:unit -> BigInteger
-            val FromOne : value:unit -> BigInteger
-            val FromInt32 : value:int32 -> BigInteger
-            val FromInt64 : value:int64 -> BigInteger
-            val FromString : text:string -> BigInteger
-#else
             /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
             val FromZero : value:unit -> 'T
             /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
@@ -163,4 +156,4 @@ namespace Microsoft.FSharp.Core
             val FromInt64Dynamic : value:int64 -> obj
             /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
             val FromStringDynamic : text:string -> obj
-#endif
+*)
