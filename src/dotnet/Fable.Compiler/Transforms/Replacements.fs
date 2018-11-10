@@ -1674,29 +1674,54 @@ let parse target (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _ ->
         None
 
+// From https://github.com/dotnet/corefx/blob/3b1ed33fabb695267d7671772a67fbdc613ad013/src/Common/src/CoreLib/System/Decimal.cs#L532
+let getDecimalBytes (lo: int) (mid: int) (hi: int) (flags: int) =
+    let buffer = Array.zeroCreate<byte> 16
+    buffer.[0] <- byte lo
+    buffer.[1] <- byte (lo >>> 8)
+    buffer.[2] <- byte (lo >>> 16)
+    buffer.[3] <- byte (lo >>> 24)
+
+    buffer.[4] <- byte mid
+    buffer.[5] <- byte (mid >>> 8)
+    buffer.[6] <- byte (mid >>> 16)
+    buffer.[7] <- byte (mid >>> 24)
+
+    buffer.[8] <- byte hi
+    buffer.[9] <- byte (hi >>> 8)
+    buffer.[10] <- byte (hi >>> 16)
+    buffer.[11] <- byte (hi >>> 24)
+
+    buffer.[12] <- byte flags
+    buffer.[13] <- byte (flags >>> 8)
+    buffer.[14] <- byte (flags >>> 16)
+    buffer.[15] <- byte (flags >>> 24)
+    buffer
+
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | ".ctor", [Value(NumberConstant(x, _))] ->
-        makeDecConst (decimal(x)) |> Some
+        failwith "TODO: Call Decimal"
     | ".ctor", [Value(NewArray(ArrayValues arVals, _))] ->
         match arVals with
         | [ Value(NumberConstant(low, Int32))
             Value(NumberConstant(mid, Int32))
-            Value(NumberConstant(_high, Int32)) // TODO: Review
-            Value(NumberConstant(scale, Int32)) ] ->
-                let x = (float ((uint64 (uint32 mid)) <<< 32 ||| (uint64 (uint32 low))))
-                        / System.Math.Pow(10.0, float ((int scale) >>> 16 &&& 0xFF))
-                decimal(if scale < 0.0 then -x else x) |> makeDecConst |> Some
+            Value(NumberConstant(high, Int32))
+            Value(NumberConstant(flags, Int32)) ] ->
+                let bytes = getDecimalBytes (int low) (int mid) (int high) (int flags)
+                failwith "TODO: Call Decimal/fromBytes"
         | _ -> None
     | (".ctor" | "MakeDecimal"),
           [ Value(NumberConstant(low, Int32))
             Value(NumberConstant(mid, Int32))
-            Value(NumberConstant(high, Int32)) // TODO: Review
+            Value(NumberConstant(high, Int32))
             Value(BoolConstant isNegative)
             Value(NumberConstant(scale, UInt8)) ] ->
-                let x = (float ((uint64 (uint32 mid)) <<< 32 ||| (uint64 (uint32 low))))
-                        / System.Math.Pow(10.0, float scale)
-                decimal (if isNegative then -x else x) |> makeDecConst |> Some
+                let flags = (int scale) <<< 16
+                let flags = if isNegative then flags ||| 0x80000000 else flags
+                let bytes = getDecimalBytes (int low) (int mid) (int high) flags
+                failwith "TODO: Call Decimal/fromBytes"
+    // TODO TODO TODO
     | ".ctor", [IdentExpr _ as arg] ->
         // TODO: Add this warning in other constructors?
         addWarning com ctx.InlinePath r "Decimals are implemented with floats."

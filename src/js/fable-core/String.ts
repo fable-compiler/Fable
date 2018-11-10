@@ -1,4 +1,5 @@
 import { toString as dateToString } from "./Date";
+import Decimal from "./Decimal";
 import Long, { fromBytes as longFromBytes, toBytes as longToBytes, toString as longToString } from "./Long";
 import { escape } from "./RegExp";
 import { toString } from "./Util";
@@ -194,7 +195,7 @@ export function format(str: string, ...args: any[]) {
     (match: any, idx: any, pad: any, pattern: any) => {
       let rep = args[idx];
       let padSymbol = " ";
-      if (typeof rep === "number" || rep instanceof Long) {
+      if (typeof rep === "number" || rep instanceof Long || rep instanceof Decimal) {
         switch ((pattern || "").substring(0, 1)) {
           case "f": case "F":
             rep = pattern.length > 1 ? rep.toFixed(pattern.substring(1)) : rep.toFixed(2);
