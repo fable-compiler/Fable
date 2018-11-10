@@ -7,6 +7,108 @@ open Fable.AST
 open Fable.AST.Fable
 open Fable.Core
 
+module Decimal =
+    let ToDecHex x = x
+    let HundredMillion = 100000000u
+    let HundredMillion64 = 100000000UL
+    let ULongDivHundredMillion: uint64 = System.UInt64.MaxValue / HundredMillion64
+    let ULongModHundredMillion: uint64 = 1UL + (System.UInt64.MaxValue % HundredMillion64)
+
+    let InitDecHexDigits (value: uint64) =
+        let mutable value = value
+        let mutable _val1 = 0
+        let mutable _val2 = 0
+        let mutable _val3 = 0
+        if value >= HundredMillion64 then
+            let mutable div1 = (int64)(value / HundredMillion64)
+            value <- value - HundredMillion64 * (uint64)div1
+            if (div1 >= int64 HundredMillion64) then
+                let div2 = (int)(div1 / int64 HundredMillion64)
+                div1 <- div1 - (int64 (div2 * (int HundredMillion)))
+                _val3 <- ToDecHex (int div2)
+            if (div1 <> 0L) then
+                _val2 <- ToDecHex (int div1)
+        if (value <> 0UL) then
+            _val1 <- ToDecHex (int value)
+        _val1, _val2, _val3
+
+    // From https://github.com/mono/mono/blob/95a26ebff9d20be9d5dd51b5d9a79c8e27516944/mcs/class/corlib/System/NumberFormatter.cs#L138
+    // See https://stackoverflow.com/a/5483418
+    let InitDecHexDigits (hi: uint32, lo: uint64) =
+        let mutable hi = hi
+        let mutable lo = lo
+
+        if hi = 0u
+        then InitDecHexDigits (lo) // Only the lower 64 bits matter.
+        else
+            // Compute (hi, lo) = (hi , lo) / HundredMillion.
+            let divhi: uint32 = hi / HundredMillion
+            let mutable remhi: uint64 = hi - divhi * HundredMillion |> uint64
+            let mutable divlo: uint64 = lo / uint64 HundredMillion
+            let mutable remlo: uint64 = lo - divlo * HundredMillion64 + remhi * ULongModHundredMillion
+            hi <- divhi
+            lo <- divlo + remhi * ULongDivHundredMillion
+            divlo <- remlo / HundredMillion64
+            remlo <- remlo - divlo * HundredMillion64
+            lo <- lo + divlo
+            let _val1 = ToDecHex (int remlo)
+
+            // Divide hi * 2 ^ 64 + lo by HundredMillion using the fact that
+            // hi < HundredMillion.
+            divlo <- lo / HundredMillion64
+            remlo <- lo - divlo * HundredMillion64
+            lo <- divlo
+            if hi <> 0u then
+                lo <- lo + (uint64 hi) * ULongDivHundredMillion
+                remlo <- remlo + (uint64 hi) * ULongModHundredMillion
+                divlo <- remlo / HundredMillion64
+                lo <- lo + divlo
+                remlo <- remlo - divlo * HundredMillion64
+            let _val2 = ToDecHex (int remlo)
+
+            // Now we are left with 64 bits store in lo.
+            if lo >= HundredMillion64 then
+                divlo <- lo / HundredMillion64
+                lo <- lo - divlo * HundredMillion64
+                // _val4 = ToDecHex (int divlo) TODO
+            let _val3 = ToDecHex (int lo)
+            _val1, _val2, _val3 //, _val4
+
+    let getDecHexDigits (lo: int) (mid: int) (hi: int) =
+        InitDecHexDigits(uint32 hi, (uint64 mid <<< 32) ||| uint64 lo)
+
+    let decimalToString (lo: int) (mid: int) (hi: int) (isNegative: bool) (scale: int) =
+        let d1, d2, _d3 = InitDecHexDigits(uint32 hi, (uint64 mid <<< 32) ||| uint64 lo)
+        let str = (string d2) + (string d1) // TODO: What to do with d3?
+        let prefix = if isNegative then "-" else ""
+        match str.Length - scale with
+        | 0 -> prefix + "0." + str
+        | decPointPos -> prefix + str.[..decPointPos - 1] + "." + str.[decPointPos..]
+
+    // From https://github.com/dotnet/corefx/blob/3b1ed33fabb695267d7671772a67fbdc613ad013/src/Common/src/CoreLib/System/Decimal.cs#L532
+    let getDecimalBytes (lo: int) (mid: int) (hi: int) (flags: int) =
+        let buffer = Array.zeroCreate<byte> 16
+        buffer.[0] <- byte lo
+        buffer.[1] <- byte (lo >>> 8)
+        buffer.[2] <- byte (lo >>> 16)
+        buffer.[3] <- byte (lo >>> 24)
+
+        buffer.[4] <- byte mid
+        buffer.[5] <- byte (mid >>> 8)
+        buffer.[6] <- byte (mid >>> 16)
+        buffer.[7] <- byte (mid >>> 24)
+
+        buffer.[8] <- byte hi
+        buffer.[9] <- byte (hi >>> 8)
+        buffer.[10] <- byte (hi >>> 16)
+        buffer.[11] <- byte (hi >>> 24)
+
+        buffer.[12] <- byte flags
+        buffer.[13] <- byte (flags >>> 8)
+        buffer.[14] <- byte (flags >>> 16)
+        buffer.[15] <- byte (flags >>> 24)
+        buffer
+
 type Context = Fable.Transforms.FSharp2Fable.Context
 type ICompiler = Fable.Transforms.FSharp2Fable.IFableCompiler
 type CallInfo = Fable.ReplaceCallInfo
@@ -1674,29 +1776,6 @@ let parse target (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _ ->
         None
 
-// From https://github.com/dotnet/corefx/blob/3b1ed33fabb695267d7671772a67fbdc613ad013/src/Common/src/CoreLib/System/Decimal.cs#L532
-let getDecimalBytes (lo: int) (mid: int) (hi: int) (flags: int) =
-    let buffer = Array.zeroCreate<byte> 16
-    buffer.[0] <- byte lo
-    buffer.[1] <- byte (lo >>> 8)
-    buffer.[2] <- byte (lo >>> 16)
-    buffer.[3] <- byte (lo >>> 24)
-
-    buffer.[4] <- byte mid
-    buffer.[5] <- byte (mid >>> 8)
-    buffer.[6] <- byte (mid >>> 16)
-    buffer.[7] <- byte (mid >>> 24)
-
-    buffer.[8] <- byte hi
-    buffer.[9] <- byte (hi >>> 8)
-    buffer.[10] <- byte (hi >>> 16)
-    buffer.[11] <- byte (hi >>> 24)
-
-    buffer.[12] <- byte flags
-    buffer.[13] <- byte (flags >>> 8)
-    buffer.[14] <- byte (flags >>> 16)
-    buffer.[15] <- byte (flags >>> 24)
-    buffer
 
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
@@ -1707,9 +1786,11 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         | [ Value(NumberConstant(low, Int32))
             Value(NumberConstant(mid, Int32))
             Value(NumberConstant(high, Int32))
-            Value(NumberConstant(flags, Int32)) ] ->
-                let bytes = getDecimalBytes (int low) (int mid) (int high) (int flags)
-                failwith "TODO: Call Decimal/fromBytes"
+            Value(NumberConstant(signExp, Int32)) ] ->
+                let scale = (min (((int signExp &&& 0xFF0000) >>> 16) &&& 0xFF) 28)
+                let isNegative = (int signExp &&& 0x80000000) <> 0
+                let str = Decimal.decimalToString (int low) (int mid) (int high) isNegative scale
+                failwith "TODO: Call Decimal"
         | _ -> None
     | (".ctor" | "MakeDecimal"),
           [ Value(NumberConstant(low, Int32))
@@ -1717,10 +1798,8 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             Value(NumberConstant(high, Int32))
             Value(BoolConstant isNegative)
             Value(NumberConstant(scale, UInt8)) ] ->
-                let flags = (int scale) <<< 16
-                let flags = if isNegative then flags ||| 0x80000000 else flags
-                let bytes = getDecimalBytes (int low) (int mid) (int high) flags
-                failwith "TODO: Call Decimal/fromBytes"
+                let str = Decimal.decimalToString (int low) (int mid) (int high) isNegative scale
+                failwith "TODO: Call Decimal"
     // TODO TODO TODO
     | ".ctor", [IdentExpr _ as arg] ->
         // TODO: Add this warning in other constructors?
