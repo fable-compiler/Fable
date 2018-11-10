@@ -9,7 +9,7 @@ open Microsoft.FSharp.Core
 
 /// Abstract internal type
 [<NoEquality; NoComparison>]
-type internal BigNat
+type internal BigNat 
 
 module internal BigNatModule =
 
@@ -52,7 +52,7 @@ module internal BigNatModule =
 
     val toUInt32   : BigNat -> uint32
     val toUInt64   : BigNat -> uint64
-
+      
     val factorial  : BigNat -> BigNat
     // val randomBits : int32 -> BigNat
     val bits       : BigNat -> int32

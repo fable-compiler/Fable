@@ -15,7 +15,7 @@ open Microsoft.FSharp.Primitives.Basics
 type ints = int array
 
 [<NoEquality; NoComparison>]
-type BigNat =
+type internal BigNat = 
 
     // Have n = sum (from i=0 to bound) a.[i] * baseN ^ i
     // Have 0 <= a.[i] < baseN.
@@ -26,7 +26,7 @@ type BigNat =
     // but not structurally so,
     // since arrays may have non-contributing cells at a.[bound] and beyond.
     //
-    { mutable bound : int;  // non-zero coeff must be 0...(bound-1)
+    { mutable bound : int;  // non-zero coeff must be 0...(bound-1) 
       digits : ints         // must have at least elts   0...(bound-1),
                             // maybe more (which should be zero!).
                             // Actually, the "zero" condition may be relaxed.
@@ -34,7 +34,7 @@ type BigNat =
     }
 
 
-module internal BigNatModule =
+module internal BigNatModule = 
 
     //-------------------------------------------------------------------------
     // misc
@@ -46,7 +46,7 @@ module internal BigNatModule =
 
     module FFT =
         let rec pow32 x n =
-            if   n=0       then 1
+            if   n=0       then 1 
             elif n % 2 = 0 then pow32 (x*x) (n / 2)
             else                x* pow32 (x*x) (n / 2)
 
@@ -61,20 +61,20 @@ module internal BigNatModule =
         // Given p = 2^k.m + 1 prime and w a primitive 2^k root of unity (mod p).
         // Required to define arithmetic ops for Fp = field modulo p.
         // The following are possible choices for p.
+           
+        //                            p,  k,  m,       g,  w 
+        //  let p,k,m,g,w =         97L,  4,  6,       5,   8           // p is  7 bit 
+        //  let p,k,m,g,w =        769L,  8,  3,       7,   7           // p is 10 bit 
+        //  let p,k,m,g,w =       7681L,  8, 30,      13, 198           // p is 13 bit 
+        //  let p,k,m,g,w =      12289L, 10, 12,      11,  49           // p is 14 bit 
+        //  let p,k,m,g,w =  167772161L, 25,  5,  557092, 39162105      // p is 28 bit 
+        //  let p,k,m,g,w =  469762049L, 26,  7, 1226571, 288772249     // p is 29 bit 
+        
 
-        //                            p,  k,  m,       g,  w
-        //  let p,k,m,g,w =         97L,  4,  6,       5,   8           // p is  7 bit
-        //  let p,k,m,g,w =        769L,  8,  3,       7,   7           // p is 10 bit
-        //  let p,k,m,g,w =       7681L,  8, 30,      13, 198           // p is 13 bit
-        //  let p,k,m,g,w =      12289L, 10, 12,      11,  49           // p is 14 bit
-        //  let p,k,m,g,w =  167772161L, 25,  5,  557092, 39162105      // p is 28 bit
-        //  let p,k,m,g,w =  469762049L, 26,  7, 1226571, 288772249     // p is 29 bit
+        let p,k,m,g,w = 2013265921L, 27, 15,      31, 440564289     // p is 31 bit 
+        let primeP = p  
 
-
-        let p,k,m,g,w = 2013265921L, 27, 15,      31, 440564289     // p is 31 bit
-        let primeP = p
-
-        let maxBitsInsideFp = 30
+        let maxBitsInsideFp = 30    
 
 
         //-------------------------------------------------------------------------
@@ -83,8 +83,8 @@ module internal BigNatModule =
 
 
         type fp = uint32
-        // operations in Fp (finite field size p)
-        module Fp =
+        // operations in Fp (finite field size p) 
+        module Fp = 
             //module I = UInt32
             let p   = 2013265921ul : fp
             let p64 = 2013265921UL : uint64
@@ -102,13 +102,13 @@ module internal BigNatModule =
                 if n=0       then mone
                 elif n % 2=0 then mpow (mmul x x) (n / 2)
                 else              mmul x (mpow (mmul x x) (n / 2))
-
+                    
             let rec mpowL x n =
                 if   n = 0L      then mone
                 elif n % 2L = 0L then mpowL (mmul x x) (n / 2L)
                 else                  mmul x (mpowL (mmul x x) (n / 2L))
-
-            // Have the w is primitive 2^kth root of 1 in Zp
+                    
+            // Have the w is primitive 2^kth root of 1 in Zp           
             let m2PowNthRoot n =
                 // Find x s.t. x is (2^n)th root of unity.
                 //
@@ -118,9 +118,9 @@ module internal BigNatModule =
                 // = pow (pow w (pow 2 (k-n))) (pow 2 n)
                 //
                 // Take wn = pow (pow w (pow 2 (k-n)))
-
+                 
                 mpow (uint32 w) (pow32 2 (k-n))
-
+                
             let minv x = mpowL x (primeP - 2L)
 
 
@@ -136,7 +136,7 @@ module internal BigNatModule =
             //       poly(lambda,mu,x) = sum(i<n) u(lambda.i + mu).x^i
             //
             //       Note, "lambda.i + mu" for i=0...(n-1) defines the coefficients of the u(x) odd/even sub polys.
-            //
+            // 
             // Compute res.[offset+j] = poly(lambda,mu,w^j)
             // ---
             // poly(lambda,mu,x) = sum(i<n/2) u.[lambda.2i + mu] * x^2i  + x.sum(i<n/2) u.[lambda.(2i+1) + mu] * x^2i
@@ -151,19 +151,19 @@ module internal BigNatModule =
             //   odd  = res.[offset+j+n/2]
             //   res.[offset+j]     = even + w^j * odd
             //   res.[offset+j+n/2] = even - w^j * odd
-
+             
             if n=1 then
                 res.[offset] <- u.[mu]
             else
-                let halfN       = n/2
-                let ww          = mmul w w
-                let offsetHalfN = offset + halfN
-                computeFFT (lambda*2) mu            halfN ww u res offset
-                computeFFT (lambda*2) (lambda + mu) halfN ww u res offsetHalfN
-                let mutable wj  = mone
+                let halfN       = n/2 
+                let ww          = mmul w w 
+                let offsetHalfN = offset + halfN 
+                computeFFT (lambda*2) mu            halfN ww u res offset      
+                computeFFT (lambda*2) (lambda + mu) halfN ww u res offsetHalfN 
+                let mutable wj  = mone 
                 for j = 0 to halfN-1 do
-                    let even = res.[offset+j]
-                    let odd  = res.[offsetHalfN+j]
+                    let even = res.[offset+j]      
+                    let odd  = res.[offsetHalfN+j] 
                     res.[offset+j]      <- madd even (mmul wj odd);
                     res.[offsetHalfN+j] <- msub even (mmul wj odd);
                     wj <- mmul w wj
@@ -172,16 +172,16 @@ module internal BigNatModule =
             // Given n a power of 2,
             //       w a primitive nth root of unity in Fp,
             //       u(x) = sum(i<n) u.[i] * x^i
-            // Compute res.[j] = u(w^j) for j<n.
-            let lambda = 1
-            let mu     = 0
-            let res    = Array.create n mzero
-            let offset = 0
+            // Compute res.[j] = u(w^j) for j<n.           
+            let lambda = 1 
+            let mu     = 0 
+            let res    = Array.create n mzero 
+            let offset = 0 
             computeFFT lambda mu n w u res offset;
             res
 
         let computeInverseFftInPlace n w uT =
-            let bigKInv = minv (uint32 n)
+            let bigKInv = minv (uint32 n) 
             Array.map
               (mmul bigKInv)
               (computFftInPlace n (minv w) uT)
@@ -202,27 +202,27 @@ module internal BigNatModule =
             // Computes the product polynomial by FFT.
             // For correctness,
             //   require the result coeff to be in range [0,p-1], for p defining Fp above.
-
+             
         #if SELFTEST
             check ( k <= maxTwoPower );
             check ( bigK = twoPowerTable.[k] );
             check ( u.Length = bigK );
             check ( v.Length = bigK );
         #endif
-            // Find 2^k primitive root of 1
-            let w      = m2PowNthRoot k
-            // FFT
-            let n  = bigK
-            let uT = computFftInPlace n w u
-            let vT = computFftInPlace n w v
-            // Evaluate
-            let rT = Array.init n (fun i -> mmul uT.[i] vT.[i])
-            // INV FFT
-            let r  = computeInverseFftInPlace n w rT
+            // Find 2^k primitive root of 1 
+            let w      = m2PowNthRoot k 
+            // FFT 
+            let n  = bigK 
+            let uT = computFftInPlace n w u 
+            let vT = computFftInPlace n w v 
+            // Evaluate 
+            let rT = Array.init n (fun i -> mmul uT.[i] vT.[i]) 
+            // INV FFT 
+            let r  = computeInverseFftInPlace n w rT 
             r
 
         let padTo n (u: _ array) =
-            let uBound = u.Length
+            let uBound = u.Length 
             Array.init n (fun i -> if i<uBound then Fp.ofInt32 u.[i] else Fp.mzero)
 
         let computeFftPolynomialProduct degu u degv v =
@@ -230,22 +230,22 @@ module internal BigNatModule =
             // Compute the product polynomial by FFT.
             // For correctness,
             //   require the result coeff to be in range [0,p-1], for p defining Fp above.
-
-            let deguv  = degu + degv
-            let bound  = deguv + 1
-            let bigK,k = leastBounding2Power bound
-            let w      = m2PowNthRoot k
-            // PAD
-            let u      = padTo bigK u
-            let v      = padTo bigK v
-            // FFT
-            let n  = bigK
-            let uT = computFftInPlace n w u
-            let vT = computFftInPlace n w v
-            // Evaluate
-            let rT = Array.init n (fun i -> mmul uT.[i] vT.[i])
-            // INV FFT
-            let r  = computeInverseFftInPlace n w rT
+             
+            let deguv  = degu + degv 
+            let bound  = deguv + 1   
+            let bigK,k = leastBounding2Power bound 
+            let w      = m2PowNthRoot k 
+            // PAD 
+            let u      = padTo bigK u 
+            let v      = padTo bigK v 
+            // FFT 
+            let n  = bigK 
+            let uT = computFftInPlace n w u 
+            let vT = computFftInPlace n w v 
+            // Evaluate 
+            let rT = Array.init n (fun i -> mmul uT.[i] vT.[i]) 
+            // INV FFT 
+            let r  = computeInverseFftInPlace n w rT 
             Array.map Fp.toInt r
 
 
@@ -261,7 +261,7 @@ module internal BigNatModule =
         //-------------------------------------------------------------------------
         // FFT - reference implementation
         //-----------------------------------------------------------------------
-
+            
         #if SELFTEST
         open Fp
         let rec computeFftReference n w u =
@@ -280,10 +280,10 @@ module internal BigNatModule =
               [| u.[0];
               |]
             else
-                let ueven   = Array.init (n/2) (fun i -> u.[2*i])
-                let uodd    = Array.init (n/2) (fun i -> u.[2*i+1])
-                let uevenFT = computeFftReference (n/2) (mmul w w) ueven
-                let uoddFT  = computeFftReference (n/2) (mmul w w) uodd
+                let ueven   = Array.init (n/2) (fun i -> u.[2*i])   
+                let uodd    = Array.init (n/2) (fun i -> u.[2*i+1]) 
+                let uevenFT = computeFftReference (n/2) (mmul w w) ueven 
+                let uoddFT  = computeFftReference (n/2) (mmul w w) uodd  
                   Array.init n
                     (fun j ->
                        if j < n/2 then
@@ -293,7 +293,7 @@ module internal BigNatModule =
                               (mpow w j)
                               (uoddFT.[j]))
                        else
-                         let j = j - (n/2)
+                         let j = j - (n/2) 
                          msub
                              (uevenFT.[j])
                              (mmul
@@ -302,7 +302,7 @@ module internal BigNatModule =
         #endif
 
     open FFT
-
+    
     type n = BigNat
 
     let bound (n: n) = n.bound
@@ -312,18 +312,18 @@ module internal BigNatModule =
     let setCoeff (n:n) i v = n.digits.[i] <- v
 
     let rec pow64 x n =
-        if   n=0       then 1L
+        if   n=0       then 1L 
         elif n % 2 = 0 then pow64 (x * x) (n / 2)
         else                x * (pow64 (x * x) (n / 2))
 
     let rec pow32 x n =
-        if   n=0       then 1
+        if   n=0       then 1 
         elif n % 2 = 0 then pow32 (x*x) (n / 2)
         else                x* pow32 (x*x) (n / 2)
-
-    let hash(n) =
-        let mutable res = 0
-        for i = 0 to n.bound - 1 do  // could stop soon, it's "hash"
+      
+    let hash(n) = 
+        let mutable res = 0 
+        for i = 0 to n.bound - 1 do  // could stop soon, it's "hash" 
            res <- n.digits.[i] + (res <<< 3)
         done;
         res
@@ -335,8 +335,8 @@ module internal BigNatModule =
 #if CHECKED
     let check b str = if not b then failwith ("check failed: " + str)
 #endif
-    let maxInt a b = if a<b then b else (a:int)
-    let minInt a b = if a<b then a else (b:int)
+    let maxInt a b = if a<b then b else (a:int)  
+    let minInt a b = if a<b then a else (b:int)  
 
 //----------------------------------------------------------------------------
 // n = big nat
@@ -354,7 +354,7 @@ module internal BigNatModule =
     let baseMaski64 = 0xffffffL
     let baseMaskU   = 0xffffffUL
 
-    // Masks and shifts to generate a uint32
+    // Masks and shifts to generate a uint32      
     let baseMask32A  = 0xffffff
     let baseMask32B  = 0xff
     let baseShift32B = 24
@@ -365,14 +365,14 @@ module internal BigNatModule =
     let baseMask64C  = 0xffff
     let baseShift64B = 24
     let baseShift64C = 48
-
-
+      
+      
 #if CHECKED
     let _ = check (baseN    = pow32 2 baseBits) "baseN"
     let _ = check (baseNi64 = int64 baseN)   "baseNi64"
     let _ = check (baseMaski64 + 1L = baseNi64)     "baseMask"
 #endif
-
+     
     let inline mod64base  (x:int64) = (x &&& baseMaski64) |> int32
 #if FABLE_COMPILER
     let inline div64base  (x:int64) = (x / baseNi64)
@@ -381,36 +381,36 @@ module internal BigNatModule =
 #endif
     let divbase x = int32 (uint32 x >>> baseBits)
     let modbase x = (x &&& baseMask)
-
+      
     let inline index z i = if i < z.bound then z.digits.[i] else 0
 
-    let createN b = { bound = b;
+    let createN b = { bound = b; 
                       digits = Array.zeroCreate b }
-    let copyN   x = { bound = x.bound;
-                      digits = Array.copy x.digits } // could copy just enough...
+    let copyN   x = { bound = x.bound; 
+                      digits = Array.copy x.digits } // could copy just enough... 
 
     let normN n =
-        // normalises bound
+        // normalises bound 
         let rec findLeastBound (na:ints) i = if i = -1 || na.[i]<>0 then i+1 else findLeastBound na (i-1)
         let bound = findLeastBound n.digits (n.bound-1)
         n.bound <- bound;
         n
 
-    let boundInt    = 2 // int  will fit with bound=2
-    let boundInt64  = 3 // int64  will fit with bound=3
-    let boundBase   = 1 // base will fit with bound=1 - obviously!
+    let boundInt    = 2 // int  will fit with bound=2 
+    let boundInt64  = 3 // int64  will fit with bound=3 
+    let boundBase   = 1 // base will fit with bound=1 - obviously! 
 
 //----------------------------------------------------------------------------
 // base, coefficients, poly
 //--------------------------------------------------------------------------
 
     let embed x =
-        let x = if x<0 then 0 else x // no -ve naturals
+        let x = if x<0 then 0 else x // no -ve naturals 
         if x < baseN then
             let r = createN 1
             r.digits.[0] <- x;
             normN r
-        else
+        else 
             let r = createN boundInt
             for i = 0 to boundInt - 1 do
               r.digits.[i] <- (x / pow32 baseN i) % baseN
@@ -418,16 +418,16 @@ module internal BigNatModule =
             normN r
 
     let embed64 x =
-        let x = if x<0L then 0L else x // no -ve naturals
+        let x = if x<0L then 0L else x // no -ve naturals 
         let r = createN boundInt64
         for i = 0 to boundInt64-1 do
             r.digits.[i] <- int32 ( (x / pow64 baseNi64 i) % baseNi64)
         done;
         normN r
 
-    let eval32 n =
-      if n.bound = 1
-      then n.digits.[0]
+    let eval32 n = 
+      if n.bound = 1 
+      then n.digits.[0] 
       else
           let mutable acc = 0
           for i = n.bound-1 downto 0 do
@@ -436,16 +436,16 @@ module internal BigNatModule =
           acc
 
     let eval64 n =
-      if n.bound = 1
-      then int64 n.digits.[0]
-      else
+      if n.bound = 1 
+      then int64 n.digits.[0] 
+      else 
           let mutable acc = 0L
           for i = n.bound-1 downto 0 do
             acc <- int64 (n.digits.[i]) + baseNi64 * acc
           done;
           acc
 
-    let one  = embed 1
+    let one  = embed 1  
     let zero = embed 0
 
     let restrictTo d n =
@@ -475,13 +475,13 @@ module internal BigNatModule =
 // add, sub
 //--------------------------------------------------------------------------
 
-    // addition
-    let rec addP i n c p q r = // p+q + c
+    // addition       
+    let rec addP i n c p q r = // p+q + c 
         if i<n then
             let x = index p i + index q i + c
             r.digits.[i] <- modbase x;
             let c = divbase x
-            // if p (or q) exhausted and c zero could switch to copying mode
+            // if p (or q) exhausted and c zero could switch to copying mode 
             addP (i+1) n c p q r
 
     let add p q =
@@ -491,27 +491,27 @@ module internal BigNatModule =
         addP 0 rbound carry p q r;
         normN r
 
-    // subtraction
-    let rec subP i n c p q r = // p-q + c
+    // subtraction 
+    let rec subP i n c p q r = // p-q + c 
         if i<n then
             let x = index p i - index q i + c
-            if x>0 then
+            if x>0 then 
                 r.digits.[i] <- modbase x;
                 let c = divbase x
-                // if p (or q) exhausted and c zero could switch to copying mode
+                // if p (or q) exhausted and c zero could switch to copying mode 
                 subP (i+1) n c p q r
-            else
-                let x = x + baseN      // add baseN
+            else 
+                let x = x + baseN      // add baseN 
                 r.digits.[i] <- modbase x;
-                let c = divbase x - 1  // sub baseN
-                // if p (or q) exhausted and c zero could switch to copying mode
+                let c = divbase x - 1  // sub baseN 
+                // if p (or q) exhausted and c zero could switch to copying mode 
                 subP (i+1) n c p q r
         else
             let underflow = c<>0
             underflow
 
     let sub p q =
-        // NOTE: x-y=0 when x<=y, it is natural subtraction
+        // NOTE: x-y=0 when x<=y, it is natural subtraction 
         let rbound = maxInt p.bound q.bound
         let r = createN rbound
         let carry = 0
@@ -533,18 +533,18 @@ module internal BigNatModule =
     let equal p q =
       (p.bound = q.bound) &&
       (let rec check (pa:ints) (qa:ints) i =
-         // HAVE: pa.[j] = qa.[j] for i < j < p.bound
+         // HAVE: pa.[j] = qa.[j] for i < j < p.bound 
             (i = -1) || (pa.[i]=qa.[i] && check pa qa (i-1))
-
+      
        check p.digits q.digits (p.bound-1))
-
+        
     let shiftCompare p pn q qn  =
-        if   p.bound + pn < q.bound + qn then -1
-        elif p.bound + pn > q.bound + pn then  1
+        if   p.bound + pn < q.bound + qn then -1 
+        elif p.bound + pn > q.bound + pn then  1 
         else
             let rec check (pa:ints) (qa:ints) i =
-              // HAVE: pa.[j-pn] = qa.[j-qn] for i < j < p.bound
-              // Looking for most significant differing coeffs to determine ordering
+              // HAVE: pa.[j-pn] = qa.[j-qn] for i < j < p.bound 
+              // Looking for most significant differing coeffs to determine ordering 
               if i = -1 then
                 0
               else
@@ -553,16 +553,16 @@ module internal BigNatModule =
                 if   pai = qai then check pa qa (i-1)
                 elif pai < qai then -1
                 else                1
-
+           
             check p.digits q.digits (p.bound + pn - 1)
 
     let compare p q =
-        if p.bound < q.bound then -1
-        elif p.bound > q.bound then  1
+        if p.bound < q.bound then -1 
+        elif p.bound > q.bound then  1 
         else
             let rec check (pa:ints) (qa:ints) i =
-                // HAVE: pa.[j] = qa.[j] for i < j < p.bound
-                // Looking for most significant differing coeffs to determine ordering
+                // HAVE: pa.[j] = qa.[j] for i < j < p.bound 
+                // Looking for most significant differing coeffs to determine ordering 
                 if i = -1 then 0
                 elif pa.[i]=qa.[i] then check pa qa (i-1)
                 elif pa.[i]<qa.[i] then -1
@@ -588,25 +588,25 @@ module internal BigNatModule =
 // scale
 //--------------------------------------------------------------------------
 
-    // REQUIRE: baseN + baseN.2^32 < Int64.maxInt
+    // REQUIRE: baseN + baseN.2^32 < Int64.maxInt 
     let rec contributeArr (a:ints) i (c:int64) =
         // Given c and require c < baseN.2^32
         // Compute: r <- r + c . B^i
         // via r.digits.[i] <- r.digits.[i] + c and normalised
         let x = int64 a.[i] + c
-        // HAVE: x < baseN + baseN.2^32
+        // HAVE: x < baseN + baseN.2^32 
         let c = div64base x
         let x = mod64base x
-        // HAVE: c < 1 + 2^32 < baseN.2^32, recursive call ok
-        // HAVE: x < baseN
-        a.[i] <- x;  // store residue x
+        // HAVE: c < 1 + 2^32 < baseN.2^32, recursive call ok 
+        // HAVE: x < baseN 
+        a.[i] <- x;  // store residue x 
         if c>0L then
-            contributeArr a (i+1) c // contribute carry next position
+            contributeArr a (i+1) c // contribute carry next position 
 
     let inline contribute r i c = contributeArr r.digits i c
 
     // REQUIRE: maxInt < 2^32
-    [<SuppressMessage("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")>]
+    [<SuppressMessage("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")>]    
     let rec scale (k:int) (p:n) =
       // Given k and p and require k < 2^32
       // Computes "scalar" product k.p
@@ -616,7 +616,7 @@ module internal BigNatModule =
       let k = int64 k
       for i = 0 to p.bound-1 do
         let kpi = k * int64 p.digits.[i]
-        // HAVE: kpi < 2^32 * baseN which meets "contribute" requirement
+        // HAVE: kpi < 2^32 * baseN which meets "contribute" requirement 
         contribute r i kpi
       done;
       normN r
@@ -626,7 +626,7 @@ module internal BigNatModule =
 // mulSchoolBook
 //--------------------------------------------------------------------------
 
-    // multiplication: naively O(n^2)
+    // multiplication: naively O(n^2) 
 (*
     let mulSchoolBook' p q =
       let rbound = p.bound + q.bound + boundBase*2
@@ -650,7 +650,7 @@ module internal BigNatModule =
 
     let rec mulSchoolBookCarry r c k =
         if ( c > 0L ) then
-            // ToAdd = c.B^k
+            // ToAdd = c.B^k 
             let rak = (coeff64 r k) + c
             setCoeff r k (mod64base rak);
             mulSchoolBookCarry r (div64base rak) (k + 1)
@@ -669,22 +669,22 @@ module internal BigNatModule =
         normN r
 
 
-    // multiplication: naively O(n^2) -- this version - unchecked - is faster
+    // multiplication: naively O(n^2) -- this version - unchecked - is faster 
     let mulSchoolBookNeitherSmall p q =
-        let rbound = p.bound + q.bound
+        let rbound = p.bound + q.bound 
         let r = createN rbound
         let ra = r.digits
         let pa = p.digits
         let qa = q.digits
-        // ToAdd p*q
+        // ToAdd p*q 
         for i = 0 to p.bound-1 do
-            // ToAdd p.[i] * q * B^i
+            // ToAdd p.[i] * q * B^i 
             let pai = int64 pa.[i]
             let mutable c = 0L
-            let mutable k = i  // k = i + j
-            // ToAdd = pi.qj.B^(i+j) for j = 0,j+1...
+            let mutable k = i  // k = i + j 
+            // ToAdd = pi.qj.B^(i+j) for j = 0,j+1... 
             for j = 0 to q.bound-1 do
-                // ToAdd = c.B^k + pi.qj.B^(i+j) for j = j,j+1... and k = i+j
+                // ToAdd = c.B^k + pi.qj.B^(i+j) for j = j,j+1... and k = i+j      
                 let qaj = int64 qa.[j]
                 let rak = int64 ra.[k] + c + pai * qaj
                 ra.[k] <- int32 (mod64base rak);
@@ -697,11 +697,11 @@ module internal BigNatModule =
         let pSmall = (bound(p) = 1)
         let qSmall = (bound(q) = 1)
         if (pSmall && qSmall) then mulSchoolBookBothSmall (coeff p 0) (coeff q 0)
-        elif pSmall           then mulSchoolBookOneSmall q (coeff p 0)
-        elif qSmall           then mulSchoolBookOneSmall p (coeff q 0)
+        elif pSmall           then mulSchoolBookOneSmall q (coeff p 0) 
+        elif qSmall           then mulSchoolBookOneSmall p (coeff q 0) 
         else mulSchoolBookNeitherSmall p q
 
-
+       
 //----------------------------------------------------------------------------
 // quickMulUsingFft
 //--------------------------------------------------------------------------
@@ -722,7 +722,7 @@ module internal BigNatModule =
     // For bigL=1, the FFT will cater for a product of upto 256M bits.
     // Larger bigL have less reach, but compute faster.
     // So plan to choose bigL depending on the number of bits product.
-    //
+    //  
     // DETERMINING THE K,L BOUNDS.
     //
     // Given representing using K-vectors, K a power of 2, K=2^k, and
@@ -731,7 +731,7 @@ module internal BigNatModule =
     // The result coeff are:
     //
     //   res(i) = sum (j<i)   x(i) * y(i)
-    //
+    // 
     // So "bits(res(i)) < bits(K) + 2L".
     // Require "bits(res(i)) <= maxBitsInsideFp",
     // So choose "bits(K) + 2L <= maxBitsInsideFp".
@@ -744,12 +744,12 @@ module internal BigNatModule =
 
     [<NoEquality; NoComparison>]
     type encoding =
-        { bigL      : int;       // bits per input coeff
-          twoToBigL : int;       // 2^bigL
-          k         : int;
-          bigK      : int;       // bigK = 2^k, number of terms polynomials
-          bigN      : int;       // bits result (under-estimate of limit)
-          split     : int;       // baseBits / bigL
+        { bigL      : int;       // bits per input coeff 
+          twoToBigL : int;       // 2^bigL 
+          k         : int; 
+          bigK      : int;       // bigK = 2^k, number of terms polynomials 
+          bigN      : int;       // bits result (under-estimate of limit) 
+          split     : int;       // baseBits / bigL 
           splits    : int array;
         }
 
@@ -771,7 +771,7 @@ module internal BigNatModule =
         k         = k;
         bigK      = bigK;
         bigN      = bigN;
-        split     = baseBits/bigL;  // should divide exactly
+        split     = baseBits/bigL;  // should divide exactly 
         splits    = Array.init (baseBits/bigL) (fun i -> pow32 2 (bigL*i))
       }
 
@@ -792,25 +792,25 @@ module internal BigNatModule =
         mkEncoding ( 13    , 4  , 16        , 208          ) ;
       |]
 
-    let calculateTableTow bigL =
+    let calculateTableTow bigL = 
       // Given L.
       // Have L via "log2 K <= maxBitsInsideFp - 2L".
       // Have N via "N = K.L"
-      //
+      // 
       let k    = maxBitsInsideFp - 2*bigL
       let bigK = pow64 2L k
       let N    = bigK * int64 bigL
       bigL,k,bigK,N
 
     let encodingGivenResultBits bitsRes =
-      // choose maximum bigL s.t. bitsRes < bigN
-      // EXCEPTION: fails is bitsRes exceeds 2^28 (largest bigN table)
+      // choose maximum bigL s.t. bitsRes < bigN 
+      // EXCEPTION: fails is bitsRes exceeds 2^28 (largest bigN table) 
       let rec selectFrom i =
         if i+1 < table.Length && bitsRes < table.[i+1].bigN then
           selectFrom (i+1)
         else
           table.[i]
-
+     
       if bitsRes >= table.[0].bigN then
         failwith "Product is huge, around 268435456 bits, beyond quickmul"
       else
@@ -819,41 +819,41 @@ module internal BigNatModule =
     let bitmask      = Array.init baseBits (fun i -> (pow32 2  i - 1))
     let twopowers    = Array.init baseBits (fun i -> (pow32 2  i))
     let twopowersI64 = Array.init baseBits (fun i -> (pow64 2L i))
-    // bitmask(k)   = 2^k - 1
-    // twopowers(k) = 2^k    //
+    // bitmask(k)   = 2^k - 1 
+    // twopowers(k) = 2^k    //    
 
     let wordBits word =
       let rec hi k =
-        if k=0 then 0
-        elif (word &&& twopowers.[k-1]) <> 0 then k
+        if k=0 then 0 
+        elif (word &&& twopowers.[k-1]) <> 0 then k 
         else hi (k-1)
-
+     
       hi baseBits
-
+      
     let bits u =
-      if u.bound=0 then 0
+      if u.bound=0 then 0 
       else degree u * baseBits + wordBits u.digits.[degree u]
-
+      
     let extractBits n enc bi =
-      let bj  = bi + enc.bigL - 1  // the last bit (inclusive)
-      let biw = bi / baseBits     // first bit is this index pos
-      let bjw = bj / baseBits     // last  bit is this index pos
+      let bj  = bi + enc.bigL - 1  // the last bit (inclusive) 
+      let biw = bi / baseBits     // first bit is this index pos 
+      let bjw = bj / baseBits     // last  bit is this index pos 
       if biw <> bjw then
-        // two words
-        let x = index n biw
-        let y = index n bjw           // bjw = biw+1
-        let xbit   = bi % baseBits                // start bit x
-        let nxbits = baseBits - xbit              // number of bitsin x
-        let x = x >>> xbit          // shift down x so bit0 is first
-        let y = y <<< nxbits        // shift up   y so it starts where x finished
-        let x = x ||| y                   // combine them
-        let x = x &&& bitmask.[enc.bigL] // mask out (high y bits) to get required bits
+        // two words 
+        let x = index n biw          
+        let y = index n bjw           // bjw = biw+1 
+        let xbit   = bi % baseBits                // start bit x 
+        let nxbits = baseBits - xbit              // number of bitsin x 
+        let x = x >>> xbit          // shift down x so bit0 is first 
+        let y = y <<< nxbits        // shift up   y so it starts where x finished 
+        let x = x ||| y                   // combine them 
+        let x = x &&& bitmask.[enc.bigL] // mask out (high y bits) to get required bits 
         x
       else
-        // one word
+        // one word 
         let x = index n biw
-        let xbit = bi % baseBits                  // start bit x
-        let x = x >>> xbit
+        let xbit = bi % baseBits                  // start bit x 
+        let x = x >>> xbit         
         let x = x &&& bitmask.[enc.bigL]
         x
 
@@ -864,9 +864,9 @@ module internal BigNatModule =
       let poly = Array.create enc.bigK (Fp.ofInt32 0)
       let biMax = n.bound * baseBits
       let rec encoder i bi =
-        // bi = i * bigL
+        // bi = i * bigL 
         if i=enc.bigK || bi > biMax then
-          () // done
+          () // done 
         else
           ( let pi = extractBits n enc bi
             poly.[i] <- Fp.ofInt32 pi;
@@ -874,7 +874,7 @@ module internal BigNatModule =
             let bi    = bi + enc.bigL
             encoder i bi
           )
-
+     
       encoder 0 0;
       poly
 
@@ -893,13 +893,13 @@ module internal BigNatModule =
       //        <= 2^(maxBitsInsideFp + bigL.n + 1)
       //
       let mutable n = 0
-      for i = 0 to poly.Length-1 do
-        if poly.[i] <> mzero then n <- i
+      for i = 0 to poly.Length-1 do 
+        if poly.[i] <> mzero then n <- i 
       done;
       let rbits = maxBitsInsideFp + enc.bigL * n + 1
-      rbits + 1 // +1 since 2^1 requires 2 bits not 1
+      rbits + 1 // +1 since 2^1 requires 2 bits not 1 
 
-    // REQUIRE: bigL <= baseBits
+    // REQUIRE: bigL <= baseBits 
     let decodePoly enc poly =
       // Find n = poly evaluated at x=2^bigL
       // Note, 0 <= pi < maxFp.
@@ -907,9 +907,9 @@ module internal BigNatModule =
       let rbound = (decodeResultBits enc poly) / baseBits + 1
       let r = createN rbound
       let rec evaluate i j d =
-        // HAVE: bigL.i = j * baseBits + d   and  d<baseBits
+        // HAVE: bigL.i = j * baseBits + d   and  d<baseBits 
         if i=enc.bigK then
-          () // done
+          () // done 
         else
           // Consider ith term:
           //     poly.[i] . 2 ^ (bigL.i)
@@ -917,23 +917,23 @@ module internal BigNatModule =
           //   = x                . 2 ^ (j.baseBits)
           // So contribute "x = poly.[i] . 2 ^ d" to r.[j].
           //
-          ( if j >= rbound then
+          ( if j >= rbound then 
 #if CHECKED
               check (poly.[i] = mzero) "decodePoly";
 #endif
               ()
             else (
               let x = int64 (Fp.toInt poly.[i]) * twopowersI64.[d]
-              // HAVE: x < 2^32 . 2^baseBits = 2^32.baseN
+              // HAVE: x < 2^32 . 2^baseBits = 2^32.baseN 
               contribute r j x
             );
             let i   = i + 1
             let d   = d + enc.bigL
             let j,d = if d >= baseBits then j+1 , d-baseBits else j,d
-            // HAVE: d < baseBits, note: bigL<baseBits
+            // HAVE: d < baseBits, note: bigL<baseBits 
             evaluate i j d
           )
-
+     
       evaluate 0 0 0;
       normN r
 
@@ -943,14 +943,14 @@ module internal BigNatModule =
       // First, estimate an upper bound on the number of bits uv.
       // This determines (bigL,k,bigK) defining the encoding into polynomials.
       //
-      let bitsRes  = bits u + bits v // upper estimate on result bits
+      let bitsRes  = bits u + bits v // upper estimate on result bits 
       let enc   = encodingGivenResultBits bitsRes
-      // Represent u and v as polynomials with L-bit coeff evaluated at 2^bigL
+      // Represent u and v as polynomials with L-bit coeff evaluated at 2^bigL 
       let upoly = encodePoly enc u
       let vpoly = encodePoly enc v
-      // Compute polynomial product via FFT
+      // Compute polynomial product via FFT 
       let rpoly = computeFftPaddedPolynomialProduct enc.bigK enc.k upoly vpoly
-      // Obtain uv by evaluating product polynomial at 2^bigL
+      // Obtain uv by evaluating product polynomial at 2^bigL 
       let r = decodePoly enc rpoly
       normN r
 
@@ -959,7 +959,7 @@ module internal BigNatModule =
 // mulKaratsuba
 //--------------------------------------------------------------------------
 
-    let minDigitsKaratsuba = 16 // useful for tuning recMulKaratsuba
+    let minDigitsKaratsuba = 16 // useful for tuning recMulKaratsuba 
 
     let recMulKaratsuba mul p q =
        let bp = p.bound
@@ -1006,7 +1006,7 @@ module internal BigNatModule =
     let productDigitsUpperFft  = (table.[0].bigN / baseBits)
        // QuickMul is good upto a finite (but huge) limit:
        // Limit 268,435,456 bits product.
-       //
+       // 
        // From the code:
        //   let bitsRes = bits u + bits v
        //   fails when bitsRes >= table.[0].bigN
@@ -1037,11 +1037,11 @@ module internal BigNatModule =
            p.bound  < singleDigitForceSchoolBook   ||
            q.bound  < singleDigitForceSchoolBook
         then
-            // Within school-book initial range:
+            // Within school-book initial range: 
             mulSchoolBook p q
         else
           if pqBound < productDigitsUpperFft then
-            // Inside QuickMul FFT range:
+            // Inside QuickMul FFT range: 
             quickMulUsingFft p q
           else
             // Beyond QuickMul FFT range, or maybe between Schoolbook and QuickMul (no!):
@@ -1089,12 +1089,12 @@ module internal BigNatModule =
       //             Have z <= B^2 - 1 when B >= 2 which is required for B being a base.
       //           P1 holds,
       //             moved f.digits_(j+1).B^(j+1+n) factor over.
-      //
+      // 
       // Once j+1 exceeds ad, summation is zero and it contributes no more terms (b).
       // Continue until z = 0, which happens since z decreases towards 0.
       // Done.
       //
-      let invariant (_,_,_) = ()
+      let invariant (_,_,_) = ()     
     #if CHECKED
       let x_initial = copyN x
       let x_result  = sub x_initial (shiftUp n (scale f a))
@@ -1108,7 +1108,7 @@ module internal BigNatModule =
         let P2 = z < baseNi64 * baseNi64 - 1L
         check P1 "P1";
         check P2 "P2"
-
+     
     #endif
       let xres = x
       let x,xd = x.digits,degree x
@@ -1118,7 +1118,7 @@ module internal BigNatModule =
       let mutable z = f * int64 a.[0]
       while( z > 0L || j < ad ) do
         if j > xd then failwith "scaleSubInPlace: pre-condition did not apply, result would be -ve";
-        invariant(z,j,n); // P1,P2 hold
+        invariant(z,j,n); // P1,P2 hold 
         let mutable zLo = mod64base z |> int32
         let mutable zHi = div64base z
         if zLo <= x.[j+n] then
@@ -1127,17 +1127,17 @@ module internal BigNatModule =
           x.[j+n] <- x.[j+n] + (baseN - zLo);
           zHi <- zHi + 1L
         );
-        // P1 holds
+        // P1 holds 
         if j < ad then
           z <- zHi + f * int64 a.[j+1]
         else
           z <- zHi;
         j <- j + 1;
-        // P1,P2 hold
+        // P1,P2 hold 
       done;
       ignore (normN xres)
 
-    //
+    //    
     let scaleSub x f a n =
       let freshx = add x zero
       scaleSubInPlace freshx f a n;
@@ -1145,14 +1145,14 @@ module internal BigNatModule =
 (*
 
     let scaleSub2 x f a n = sub x (shiftUp n (mul (embed f) a))
-
+      
     let x = (mul (embed 234234234) (pow (embed 10) (embed 20)))
     let f = 2
     let a = (embed 1231231231)
     let n = 2
-    let res  = scaleSub  x f a n
+    let res  = scaleSub  x f a n 
     let res2 = scaleSub2 x f a n
-
+     
     let x, xd, f, a, ad, n = freshx.digits, freshx.bound, f, a.digits, a.bound, n
    *)
 
@@ -1194,12 +1194,12 @@ module internal BigNatModule =
       //             Have z <= B^2 - 1 when B >= 2 which is required for B being a base.
       //           P1 holds,
       //             moved f.digits_(j+1).B^(j+1+n) factor over.
-      //
+      // 
       // Once j+1 exceeds ad, summation is zero and it contributes no more terms (b).
       // Continue until z = 0, which happens since z decreases towards 0.
       // Done.
       //
-      let invariant (_,_,_) = ()
+      let invariant (_,_,_) = ()     
 #if CHECKED
       let x_initial = copyN x
       let x_result  = add x_initial (shiftUp n (scale f a))
@@ -1213,17 +1213,17 @@ module internal BigNatModule =
         let P2 = z < baseNi64 * baseNi64 - 1L
         check P1 "P1";
         check P2 "P2"
-
+     
 #endif
       let xres = x
       let x,xd = x.digits,degree x
-      let a,ad = a.digits,degree a
+      let a,ad = a.digits,degree a      
       let f = int64 f
       let mutable j = 0
       let mutable z = f * int64 a.[0]
       while( z > 0L || j < ad ) do
         if j > xd then failwith "scaleSubInPlace: pre-condition did not apply, result would be -ve";
-        invariant(z,j,n); // P1,P2 hold
+        invariant(z,j,n); // P1,P2 hold 
         let mutable zLo = mod64base z |> int32
         let mutable zHi = div64base z
         if zLo < baseN - x.[j+n] then
@@ -1232,17 +1232,17 @@ module internal BigNatModule =
           x.[j+n] <- zLo - (baseN - x.[j+n]);
           zHi <- zHi + 1L
         );
-        // P1 holds
+        // P1 holds 
         if j < ad then
           z <- zHi + f * int64 a.[j+1]
         else
           z <- zHi;
-        j <- j + 1;
-        // P1,P2 hold
+        j <- j + 1;    
+        // P1,P2 hold 
       done;
       ignore (normN xres)
 
-    //
+    //    
     let scaleAdd x f a n =
       let freshx = add x zero
       scaleAddInPlace freshx f a n;
@@ -1250,17 +1250,17 @@ module internal BigNatModule =
 
 (*
     let scaleAdd2 x f a n = add x (shiftUp n (mul (embed f) a))
-
+      
     let x = (mul (embed 234234234) (pow (embed 10) (embed 20)))
     let f = 2
     let a = (embed 1231231231)
     let n = 2
-    let res  = scaleAdd  x f a n
+    let res  = scaleAdd  x f a n 
     let res2 = scaleAdd2 x f a n
-
+     
     let x, xd, f, a, ad, n = freshx.digits, freshx.bound, f, a.digits, a.bound, n
 *)
-
+        
 //----------------------------------------------------------------------------
 // division - removeFactor
 //--------------------------------------------------------------------------
@@ -1269,7 +1269,7 @@ module internal BigNatModule =
     let removeFactorReference x a n =
       let ff = div x (shiftUp n a)
       toInt ff
-   *)
+   *)     
 
     let removeFactor x a n =
       // Assumes x < a.B^(n+1)
@@ -1278,10 +1278,10 @@ module internal BigNatModule =
       //  (b) f=0  iff  x < a.B^n
       //
       let dega,degx = degree a,degree x
-      if degx < dega + n then 0 else // possible with "normalisation"
+      if degx < dega + n then 0 else // possible with "normalisation" 
       let aa,xa = a.digits,x.digits
-      let f =
-        if dega = 0 then // a = a0
+      let f = 
+        if dega = 0 then // a = a0 
           if degx = n then
             xa.[n] / aa.[0]
           else (
@@ -1291,18 +1291,18 @@ module internal BigNatModule =
             let f64 = (int64 xa.[degx] * baseNi64 + int64 xa.[degx-1]) / int64 aa.[0]
             int32 f64
           )
-        else // a = sumR 0 dega (\i.digitsi.B^i)
+        else // a = sumR 0 dega (\i.digitsi.B^i) 
           if degx = dega + n then
-            xa.[degx] / (aa.[dega] + 1)              // +1 to bound above a
+            xa.[degx] / (aa.[dega] + 1)              // +1 to bound above a 
           else (
 #if CHECKED
             check (degx = dega+n+1) "removeFactor degx#2";
 #endif
             let f64 = (int64 xa.[degx] * baseNi64 + int64 xa.[degx-1])
-                    / (int64 aa.[dega] + 1L)        // +1 to bound above a
+                    / (int64 aa.[dega] + 1L)        // +1 to bound above a 
             int32 f64
           )
-
+     
       if f = 0 then
         let lte = (shiftCompare a n x 0) <> 1
         if lte then 1 else 0
@@ -1353,16 +1353,16 @@ module internal BigNatModule =
       //      words(d) = words(b) - words(a) + 1
       //------
       //
-      if isZero a then raise (new System.DivideByZeroException()) else
+      if isZero a then raise (new System.DivideByZeroException()) else    
       if degree b < degree a then
-          // "b = d.digits + r" as "b = 0.digits + b" when b<a
+          // "b = d.digits + r" as "b = 0.digits + b" when b<a 
           zero,b
       else
           let x = copyN b
           let d = createN ((degree b - degree a + 1) + 1)
           let mutable p = degree b
           let         m = degree a
-          let mutable n = p - m
+          let mutable n = p - m   
 #if CHECKED
           let Invariant(d,x,n,p) =
             let P1 = equal b (add (mul d a) x)
@@ -1372,41 +1372,41 @@ module internal BigNatModule =
             check P2 "P2";
             check P3 "P3"
 #else
-          let Invariant(_,_,_,_) = ()
-#endif
+          let Invariant(_,_,_,_) = ()           
+#endif      
           let mutable finished = false
           while( not finished ) do
               //printf "-- p=%d n=%d m=%d\n" p n m;
               Invariant(d,x,n,p);
               let f = removeFactor x a n
               //printf " - x=%s a=%s n=%d f=%d\n" (toString x) (toString a) n f;
-              //printf " - n=%d f=%d\n" n f;
+              //printf " - n=%d f=%d\n" n f;    
               if f>0 then
                   scaleSubInPlace x f a   n;
                   scaleAddInPlace d f one n;
                   Invariant(d,x,n,p)
-              else
+              else 
                   finished <- f=0 && n=0;
                   if not finished then
-                      if p = m+n then
+                      if p = m+n then 
                           Invariant(d,x,n-1,p);
                           n <- n-1
-                      else
+                      else 
                           Invariant(d,x,n-1,p-1);
                           n <- n-1;
                           p <- p-1
-          // Have: "b = d.digits + x" return d,x
+          // Have: "b = d.digits + x" return d,x 
           normN d,normN x
-
+        
     //----------------------------------------------------------------------------
     // div, mod
     //--------------------------------------------------------------------------
 
-    [<SuppressMessage("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")>]
-    let div b a = fst (divmod b a)
-    [<SuppressMessage("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")>]
+    [<SuppressMessage("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")>]    
+    let div b a = fst (divmod b a)  
+    [<SuppressMessage("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")>]                                               
     let rem b a = snd (divmod b a)
-    // rem b a, for small a can do (base mod a) trick - O(N)
+    // rem b a, for small a can do (base mod a) trick - O(N) 
 
     //----------------------------------------------------------------------------
     // bitwise and
@@ -1437,17 +1437,17 @@ module internal BigNatModule =
     //--------------------------------------------------------------------------
 
     let hcf a b =
-        // Have: 0 <= a,b since naturals
-        let rec hcfloop a b = // Require: 0 <= a <= b
-            if equal zero a then b
+        // Have: 0 <= a,b since naturals 
+        let rec hcfloop a b = // Require: 0 <= a <= b 
+            if equal zero a then b 
             else
-                // Have: 0 < a <= b
+                // Have: 0 < a <= b 
                 let _,r = divmod b a
-                // Have: r < a  from divmod
-                hcfloop r a // Have: 0 <= r < a
-
-        if lt a b then hcfloop a b // Have: 0 <= a <  b
-                  else hcfloop b a // Have: 0 <= b <= a
+                // Have: r < a  from divmod 
+                hcfloop r a // Have: 0 <= r < a  
+       
+        if lt a b then hcfloop a b // Have: 0 <= a <  b 
+                  else hcfloop b a // Have: 0 <= b <= a 
 
     //----------------------------------------------------------------------------
     // pow
@@ -1459,17 +1459,17 @@ module internal BigNatModule =
             if n=0 then acc
             elif n % 2=0 then power acc         (mul x x) (n / 2)
             else              power (mul x acc) (mul x x) (n / 2)
-
+       
         power one x n
 
     let pow x n =
         let rec power acc x n =
             if isZero n then acc
             else
-              let ndiv2,nmod2 = divmod n two  // use: intdivmod when available
+              let ndiv2,nmod2 = divmod n two  // use: intdivmod when available 
               if isZero nmod2 then power acc         (mul x x) ndiv2
               else                 power (mul x acc) (mul x x) ndiv2
-
+       
         power one x n
 
 //----------------------------------------------------------------------------
@@ -1500,7 +1500,7 @@ module internal BigNatModule =
         | 2 -> let xA,xB = n.digits.[0],n.digits.[1]
                if xB > baseMask32B then raise (System.OverflowException())
                ( uint32 (xA &&& baseMask32A)) +
-               ((uint32 (xB &&& baseMask32B)) <<< baseShift32B)
+               ((uint32 (xB &&& baseMask32B)) <<< baseShift32B)        
         | _ -> raise (System.OverflowException())
 
     /// Convert BigNat to uint64 otherwise OverflowException.
@@ -1517,13 +1517,13 @@ module internal BigNatModule =
                ((uint64 (xB &&& baseMask64B)) <<< baseShift64B) +
                ((uint64 (xC &&& baseMask64C)) <<< baseShift64C)
         | _ -> raise (System.OverflowException())
-
+            
 
 //----------------------------------------------------------------------------
 // n  -> string
 //--------------------------------------------------------------------------
 
-
+     
 #if CHECKED
     let checks = false
 #endif
@@ -1540,46 +1540,46 @@ module internal BigNatModule =
       let kten2ks = route [] 0 (embed 10)
       let rec collect isLeading digits n = function
         | [] ->
-            // Have 0 <= n < 10^1, so collect a single digit (if needed)
+            // Have 0 <= n < 10^1, so collect a single digit (if needed) 
             let n = eval32 n
 #if CHECKED
             if checks then check (0 <= n) "toString: digit0";
             if checks then check (n <= 9) "toString: digit9";
 #endif
-            if isLeading && n=0 then digits // suppress leading 0
+            if isLeading && n=0 then digits // suppress leading 0  
             else string n :: digits
         | (_,ten2k)::prior ->
 #if CHECKED
             if checks then check (lt n (mul ten2k ten2k)) "string_of_int: bound n";
 #endif
-            // Have 0 <= n     < (ten2k)^2 and ten2k = 10^(2^k)
+            // Have 0 <= n     < (ten2k)^2 and ten2k = 10^(2^k) 
             let nH,nL  = divmod n ten2k
 #if CHECKED
             if checks then check (lt nH ten2k) "string_of_int: bound nH";
             if checks then check (lt nL ten2k) "string_of_int: bound nL";
 #endif
-            // Have 0 <= nH,nL < (ten2k)   and ten2k = 10^(2^k)
+            // Have 0 <= nH,nL < (ten2k)   and ten2k = 10^(2^k) 
             if isLeading && isZero nH then
-              // suppress leading 0s
+              // suppress leading 0s 
               let digits = collect isLeading digits nL prior
               digits
             else
               let digits = collect false     digits nL prior
               let digits = collect isLeading digits nH prior
               digits
-
+     
       let prior  = kten2ks
       let digits = collect true [] n prior
-      match digits with
-      | [] -> "0"
-      | _ -> digits |> Array.ofList |> System.String.Concat
-
+      match digits with 
+      | [] -> "0" 
+      | _ -> digits |> Array.ofList |> System.String.Concat 
+        
 //----------------------------------------------------------------------------
 // n <-  string
 //--------------------------------------------------------------------------
 
     let ofString (str:string) =
-        // Would it be better to split string half and combine results?
+        // Would it be better to split string half and combine results? 
         let len = str.Length
         if System.String.IsNullOrEmpty str then invalidArg "str" "empty string";
         let ten = embed 10
@@ -1588,12 +1588,12 @@ module internal BigNatModule =
               acc
             else
                 let c = str.[i]
-                let d = int c - int '0'
+                let d = int c - int '0' 
                 if 0 <= d && d <= 9 then
                     build (add (mul ten acc) (embed d)) (i+1)
                 else
                     raise (new System.FormatException())//SR.GetString(SR.badFormatString)))
-
+       
         build (embed 0) 0
 
     let isSmall n = (n.bound <= 1)
@@ -1618,11 +1618,11 @@ module internal BigNatModule =
         //
         //****
         let rec productR a b =
-            if equal a b then a
+            if equal a b then a 
             else
                 let m = div (add a b) (ofInt32 2)
                 mul (productR a m) (productR (add m one) b)
-
+       
         productR one n
 
 

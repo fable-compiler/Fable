@@ -7,7 +7,7 @@ namespace BigInt
     open System
     open Microsoft.FSharp.Collections
     open Microsoft.FSharp.Core
-
+    
     /// The type of arbitrary-sized integers
     [<Struct>]
     [<CustomEquality; CustomComparison>]
@@ -81,7 +81,7 @@ namespace BigInt
     //     static member op_Explicit : x:BigInteger -> double
     //     /// Convert a big integer to a decimal number
     //     static member op_Explicit : x:BigInteger -> decimal
-
+ 
         /// Parse a big integer from a string format
         static member Parse    : text:string -> BigInteger
         /// Return the sign of a big integer: 0, +1 or -1
@@ -106,14 +106,14 @@ namespace BigInt
         static member GreatestCommonDivisor : x:BigInteger * y:BigInteger -> BigInteger
         /// Return n^m for two big integers
         static member Pow    : x:BigInteger * y:int32 -> BigInteger
-        /// Compute the absolute value of a big integer
+        /// Compute the absolute value of a big integer 
         static member Abs    : x:BigInteger -> BigInteger
         /// Get the big integer for zero
-        static member Zero    : BigInteger
+        static member Zero    : BigInteger 
         /// Get the big integer for one
-        static member One     : BigInteger
+        static member One     : BigInteger 
         /// Get the big integer for two
-        static member Two     : BigInteger
+        static member Two     : BigInteger 
 
         /// Return true if a big integer is 'zero'
         member IsZero : bool
@@ -136,11 +136,11 @@ namespace Microsoft.FSharp.Core
     type bigint = System.Numerics.BigInteger
 
     [<AutoOpen>]
-    /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI'
+    /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
     module NumericLiterals =
 
-        /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI'
-        module NumericLiteralI =
+        /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
+        module NumericLiteralI = 
             open System.Numerics
 #if FABLE_COMPILER
             val FromZero : value:unit -> BigInteger
@@ -149,18 +149,18 @@ namespace Microsoft.FSharp.Core
             val FromInt64 : value:int64 -> BigInteger
             val FromString : text:string -> BigInteger
 #else
-            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI'
+            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
             val FromZero : value:unit -> 'T
-            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI'
+            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
             val FromOne : value:unit -> 'T
-            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI'
+            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
             val FromInt32 : value:int32 -> 'T
-            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI'
+            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
             val FromInt64 : value:int64 -> 'T
-            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI'
+            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
             val FromString : text:string -> 'T
-            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI'
+            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
             val FromInt64Dynamic : value:int64 -> obj
-            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI'
+            /// Provides a default implementations of F# numeric literal syntax  for literals of the form 'dddI' 
             val FromStringDynamic : text:string -> obj
 #endif
