@@ -15,7 +15,7 @@ open Microsoft.FSharp.Primitives.Basics
 type ints = int array
 
 [<NoEquality; NoComparison>]
-type internal BigNat = 
+type BigNat = 
 
     // Have n = sum (from i=0 to bound) a.[i] * baseN ^ i
     // Have 0 <= a.[i] < baseN.
