@@ -1,7 +1,7 @@
 // source: https://github.com/fsharp/fsharp
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-namespace Microsoft.FSharp.Math
+namespace BigInt
 
 #if FX_NO_BIGINT
 open Microsoft.FSharp.Collections
@@ -9,7 +9,7 @@ open Microsoft.FSharp.Core
 
 /// Abstract internal type
 [<NoEquality; NoComparison>]
-type internal BigNat 
+type internal BigNat
 
 module internal BigNatModule =
 
@@ -52,7 +52,7 @@ module internal BigNatModule =
 
     val toUInt32   : BigNat -> uint32
     val toUInt64   : BigNat -> uint64
-      
+
     val factorial  : BigNat -> BigNat
     // val randomBits : int32 -> BigNat
     val bits       : BigNat -> int32
