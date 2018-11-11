@@ -2,16 +2,15 @@ import Decimal from "./lib/decimal";
 
 export default Decimal;
 
+export const get_Zero = new Decimal(0);
+export const get_One = new Decimal(1);
+
 export function abs(x: Decimal) {
   return x.abs();
 }
 
 export function compare(x: Decimal, y: Decimal) {
   return x.cmp(y);
-}
-
-export function op_Division(x: Decimal, y: Decimal) {
-  return x.div(y);
 }
 
 export function equals(x: Decimal, y: Decimal) {
@@ -38,12 +37,36 @@ export function sqrt(x: Decimal) {
   return x.sqrt();
 }
 
+export function op_Division(x: Decimal, y: Decimal) {
+  return x.div(y);
+}
+
 export function op_Multiply(x: Decimal, y: Decimal) {
   return x.mul(y);
 }
 
+export function op_UnaryNegation(x: Decimal) {
+  return x.negated();
+}
+
 export function toString(x: Decimal) {
   return x.toString();
+}
+
+export function parse(str: string) {
+  return new Decimal(str.trim());
+}
+
+export function tryParse(str: string, defaultValue: Decimal) {
+  try {
+      return [true, new Decimal(str.trim())];
+  } catch {
+      return [false, defaultValue];
+  }
+}
+
+export function round(x: Decimal, digits: number = 0) {
+  return x.toDecimalPlaces(digits);
 }
 
 // tslint:disable

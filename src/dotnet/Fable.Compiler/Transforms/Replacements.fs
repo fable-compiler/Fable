@@ -7,108 +7,6 @@ open Fable.AST
 open Fable.AST.Fable
 open Fable.Core
 
-module Decimal =
-    let ToDecHex x = x
-    let HundredMillion = 100000000u
-    let HundredMillion64 = 100000000UL
-    let ULongDivHundredMillion: uint64 = System.UInt64.MaxValue / HundredMillion64
-    let ULongModHundredMillion: uint64 = 1UL + (System.UInt64.MaxValue % HundredMillion64)
-
-    let InitDecHexDigits (value: uint64) =
-        let mutable value = value
-        let mutable _val1 = 0
-        let mutable _val2 = 0
-        let mutable _val3 = 0
-        if value >= HundredMillion64 then
-            let mutable div1 = (int64)(value / HundredMillion64)
-            value <- value - HundredMillion64 * (uint64)div1
-            if (div1 >= int64 HundredMillion64) then
-                let div2 = (int)(div1 / int64 HundredMillion64)
-                div1 <- div1 - (int64 (div2 * (int HundredMillion)))
-                _val3 <- ToDecHex (int div2)
-            if (div1 <> 0L) then
-                _val2 <- ToDecHex (int div1)
-        if (value <> 0UL) then
-            _val1 <- ToDecHex (int value)
-        _val1, _val2, _val3
-
-    // From https://github.com/mono/mono/blob/95a26ebff9d20be9d5dd51b5d9a79c8e27516944/mcs/class/corlib/System/NumberFormatter.cs#L138
-    // See https://stackoverflow.com/a/5483418
-    let InitDecHexDigits (hi: uint32, lo: uint64) =
-        let mutable hi = hi
-        let mutable lo = lo
-
-        if hi = 0u
-        then InitDecHexDigits (lo) // Only the lower 64 bits matter.
-        else
-            // Compute (hi, lo) = (hi , lo) / HundredMillion.
-            let divhi: uint32 = hi / HundredMillion
-            let mutable remhi: uint64 = hi - divhi * HundredMillion |> uint64
-            let mutable divlo: uint64 = lo / uint64 HundredMillion
-            let mutable remlo: uint64 = lo - divlo * HundredMillion64 + remhi * ULongModHundredMillion
-            hi <- divhi
-            lo <- divlo + remhi * ULongDivHundredMillion
-            divlo <- remlo / HundredMillion64
-            remlo <- remlo - divlo * HundredMillion64
-            lo <- lo + divlo
-            let _val1 = ToDecHex (int remlo)
-
-            // Divide hi * 2 ^ 64 + lo by HundredMillion using the fact that
-            // hi < HundredMillion.
-            divlo <- lo / HundredMillion64
-            remlo <- lo - divlo * HundredMillion64
-            lo <- divlo
-            if hi <> 0u then
-                lo <- lo + (uint64 hi) * ULongDivHundredMillion
-                remlo <- remlo + (uint64 hi) * ULongModHundredMillion
-                divlo <- remlo / HundredMillion64
-                lo <- lo + divlo
-                remlo <- remlo - divlo * HundredMillion64
-            let _val2 = ToDecHex (int remlo)
-
-            // Now we are left with 64 bits store in lo.
-            if lo >= HundredMillion64 then
-                divlo <- lo / HundredMillion64
-                lo <- lo - divlo * HundredMillion64
-                // _val4 = ToDecHex (int divlo) TODO
-            let _val3 = ToDecHex (int lo)
-            _val1, _val2, _val3 //, _val4
-
-    let getDecHexDigits (lo: int) (mid: int) (hi: int) =
-        InitDecHexDigits(uint32 hi, (uint64 mid <<< 32) ||| uint64 lo)
-
-    let decimalToString (lo: int) (mid: int) (hi: int) (isNegative: bool) (scale: int) =
-        let d1, d2, _d3 = InitDecHexDigits(uint32 hi, (uint64 mid <<< 32) ||| uint64 lo)
-        let str = (string d2) + (string d1) // TODO: What to do with d3?
-        let prefix = if isNegative then "-" else ""
-        match str.Length - scale with
-        | 0 -> prefix + "0." + str
-        | decPointPos -> prefix + str.[..decPointPos - 1] + "." + str.[decPointPos..]
-
-    // From https://github.com/dotnet/corefx/blob/3b1ed33fabb695267d7671772a67fbdc613ad013/src/Common/src/CoreLib/System/Decimal.cs#L532
-    let getDecimalBytes (lo: int) (mid: int) (hi: int) (flags: int) =
-        let buffer = Array.zeroCreate<byte> 16
-        buffer.[0] <- byte lo
-        buffer.[1] <- byte (lo >>> 8)
-        buffer.[2] <- byte (lo >>> 16)
-        buffer.[3] <- byte (lo >>> 24)
-
-        buffer.[4] <- byte mid
-        buffer.[5] <- byte (mid >>> 8)
-        buffer.[6] <- byte (mid >>> 16)
-        buffer.[7] <- byte (mid >>> 24)
-
-        buffer.[8] <- byte hi
-        buffer.[9] <- byte (hi >>> 8)
-        buffer.[10] <- byte (hi >>> 16)
-        buffer.[11] <- byte (hi >>> 24)
-
-        buffer.[12] <- byte flags
-        buffer.[13] <- byte (flags >>> 8)
-        buffer.[14] <- byte (flags >>> 16)
-        buffer.[15] <- byte (flags >>> 24)
-        buffer
-
 type Context = Fable.Transforms.FSharp2Fable.Context
 type ICompiler = Fable.Transforms.FSharp2Fable.IFableCompiler
 type CallInfo = Fable.ReplaceCallInfo
@@ -227,6 +125,7 @@ type BuiltinType =
     | BclTimer
     | BclInt64
     | BclUInt64
+    | BclDecimal
     | BclBigInt
     | BclHashSet of Type
     | BclDictionary of key:Type * value:Type
@@ -245,6 +144,8 @@ let (|Builtin|_|) = function
         | Some Types.int64, _ -> Some BclInt64
         | Some Types.uint64, _ -> Some BclUInt64
         | Some "Microsoft.FSharp.Core.int64`1", _ -> Some BclInt64
+        | Some Types.decimal, _
+        | Some "Microsoft.FSharp.Core.decimal`1", _ -> Some BclDecimal
         | Some Types.bigint, _ -> Some BclBigInt
         | Some Types.fsharpSet, [t] -> Some(FSharpSet(t))
         | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
@@ -255,7 +156,7 @@ let (|Builtin|_|) = function
 
 let (|Integer|Float|) = function
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
-    | Float32 | Float64 | Decimal -> Float
+    | Float32 | Float64 -> Float
 
 let (|Nameof|_|) = function
     | IdentExpr ident -> Some ident.Name
@@ -311,6 +212,7 @@ let coreModFor = function
     | BclTimer -> "Timer"
     | BclInt64 -> "Long"
     | BclUInt64 -> "Long"
+    | BclDecimal -> "Decimal"
     | BclBigInt -> "BigInt"
     | BclTimeSpan -> "Int32"
     | FSharpSet _ -> "Set"
@@ -335,6 +237,13 @@ let makeLongInt t signed (x: uint64) =
     let args = [Value lowBits; Value highBits; Value unsigned]
     Helper.CoreCall("Long", "fromBits", t, args)
 
+let makeDecimal t (x: decimal) =
+    let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
+    Helper.CoreCall("Decimal", "default", t, [makeStrConst str], isConstructor=true)
+
+let makeDecimalFromExpr t (e: Expr) =
+    Helper.CoreCall("Decimal", "default", t, [e], isConstructor=true)
+
 let makeFloat32 (x: float32) =
     Helper.GlobalCall("Math", Number Float32, [NumberConstant (float x, Float32) |> Value], memb="fround")
 
@@ -344,7 +253,7 @@ let makeTypeConst (typ: Type) (value: obj) =
     | Builtin BclInt64, (:? int64 as x) -> makeLongInt typ true (uint64 x)
     | Builtin BclUInt64, (:? uint64 as x) -> makeLongInt typ false x
     // Decimal type
-    | Number Decimal, (:? decimal as x) -> makeDecConst x
+    | Builtin BclDecimal, (:? decimal as x) -> makeDecimal typ x
     // Short Float type
     | Number Float32, (:? float32 as x) -> makeFloat32 x
     | Boolean, (:? bool as x) -> BoolConstant x |> Value
@@ -435,7 +344,7 @@ let toFloat com (ctx: Context) r targetType (args: Expr list) =
         let meth = match targetType with
                     | Number Float32 -> "toSingle"
                     | Number Float64 -> "toDouble"
-                    | Number Decimal -> "toDecimal"
+                    | Builtin BclDecimal -> "toDecimal"
                     | _ -> failwith "Unexpected BigInt conversion"
         Helper.CoreCall("BigInt", meth, Number Float64, args)
     | Number _ | Char | EnumType(NumberEnumType,_) -> TypeCast(args.Head, targetType)
@@ -469,7 +378,7 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
         | Builtin BclUInt64 -> 7  //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
         | Number Float32 -> 8     //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
         | Number Float64 -> 9     //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
-        | Number Decimal -> 10    // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
+        | Builtin BclDecimal -> 10// 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
         | Builtin BclBigInt -> 11 // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
         | _ -> failwithf "Unexpected non-number type %A" t
     let needToCast typeFrom typeTo =
@@ -482,6 +391,10 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
         | Builtin (BclInt64|BclUInt64) -> Helper.CoreCall("Long", "fromValue", targetType, args)
         | Number Integer -> Helper.CoreCall("Long", "fromInteger", targetType, args @ [makeIntConst (kindIndex sourceType)])
         | _ -> Helper.CoreCall("Long", "fromNumber", targetType, args)
+    let emitDecimal (args: Expr list) =
+        match sourceType with
+        | Builtin (BclInt64|BclUInt64) -> Helper.CoreCall("Long", "toString", String, args) |> makeDecimalFromExpr targetType
+        | _ -> Helper.CoreCall("Decimal", "fromNumber", targetType, args)
     let emitBigInt (args: Expr list) =
         match sourceType with
         | Builtin (BclInt64|BclUInt64) -> Helper.CoreCall("BigInt", "fromInt64", targetType, args)
@@ -491,6 +404,7 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
         | Builtin BclBigInt -> emitBigInt args
         | Builtin BclUInt64 -> emitLong true args
         | Builtin BclInt64 -> emitLong false args
+        | Builtin BclDecimal -> emitDecimal args
         | Number Int8 -> emitJs None targetType args "($0 + 0x80 & 0xFF) - 0x80"
         | Number Int16 -> emitJs None targetType args "($0 + 0x8000 & 0xFFFF) - 0x8000"
         | Number Int32 -> fastIntFloor args.Head
@@ -499,7 +413,6 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
         | Number UInt32 -> emitJs None targetType args "$0 >>> 0"
         | Number Float32 -> TypeCast(args.Head, targetType)
         | Number Float64 -> TypeCast(args.Head, targetType)
-        | Number Decimal -> TypeCast(args.Head, targetType)
         | _ -> failwithf "Unexpected non-number type %A" typeTo
     let castBigIntMethod typeTo =
         match typeTo with
@@ -514,7 +427,7 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
         | Builtin BclUInt64 -> "toUInt64"
         | Number Float32 -> "toSingle"
         | Number Float64 -> "toDouble"
-        | Number Decimal -> "toDecimal"
+        | Builtin BclDecimal -> "toDecimal"
         | _ -> failwithf "Unexpected non-number type %A" typeTo
     match sourceType with
     | EnumType(NumberEnumType,_) -> TypeCast(args.Head, targetType)
@@ -529,7 +442,7 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
     | Builtin BclBigInt ->
         let meth = castBigIntMethod targetType
         Helper.CoreCall("BigInt", meth, targetType, args)
-    | Number _ | Builtin (BclInt64 | BclUInt64) as typeFrom ->
+    | Number _ | Builtin (BclInt64 | BclUInt64 | BclDecimal) as typeFrom ->
         match targetType with
         | typeTo when needToCast typeFrom typeTo ->
             match typeFrom, typeTo with
@@ -537,13 +450,16 @@ let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
                 Helper.CoreCall("Long", "toIntNumber", targetType, args)
             | Builtin (BclUInt64|BclInt64), Number _ ->
                 Helper.CoreCall("Long", "toNumber", targetType, args)
-            | Number (Decimal|Float), (Number Integer | Builtin(BclInt64|BclUInt64)) when round ->
-                Helper.CoreCall("Util", "round", targetType, args)
+            | (Number Float| Builtin BclDecimal), (Number Integer | Builtin(BclInt64|BclUInt64)) when round ->
+                let modName = match typeFrom with Builtin BclDecimal -> "Decimal" | _ -> "Util"
+                Helper.CoreCall(modName, "round", targetType, args)
             | _, _ -> args.Head
             |> List.singleton
             |> emitCast typeTo
         | Builtin (BclUInt64|BclInt64 as kind) ->
             emitLong (kind = BclUInt64) [args.Head]
+        | Builtin BclDecimal ->
+            emitDecimal [args.Head]
         | _ -> TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion at compile time because source type is unknown"
@@ -646,7 +562,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
                |> addErrorAndReturnNull com ctx.InlinePath r
     let argTypes = resolveArgTypes argTypes genArgs
     match argTypes with
-    | Builtin(BclInt64|BclUInt64|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
+    | Builtin(BclInt64|BclUInt64|BclDecimal|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         let opName =
             match bt, opName with
             | BclUInt64, "op_RightShift" -> "op_RightShiftUnsigned" // See #1482
@@ -716,7 +632,7 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
         Helper.CoreCall("Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin(FSharpSet _|FSharpMap _) ->
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
-    | Builtin(BclInt64|BclUInt64|BclBigInt as bt) ->
+    | Builtin(BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.CoreCall(coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
         let f = makeComparerFunction com t
@@ -741,7 +657,7 @@ and compare (com: ICompiler) r (left: Expr) (right: Expr) =
         Helper.CoreCall("Util", "comparePrimitives", Number Int32, [left; right], ?loc=r)
     | Builtin(BclDateTime|BclDateTimeOffset) ->
         Helper.CoreCall("Date", "compare", Number Int32, [left; right], ?loc=r)
-    | Builtin(BclInt64|BclUInt64|BclBigInt as bt) ->
+    | Builtin(BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.CoreCall(coreModFor bt, "compare", Number Int32, [left; right], ?loc=r)
     | Array t ->
         let f = makeComparerFunction com t
@@ -1731,14 +1647,15 @@ type ParseTarget =
     | Parse2Int
     | Parse2Int64
     | Parse2Float
+    | Parse2Decimal
 
 let parse target (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    // TODO what about Single (and decimal)?
     let isFloat, numberModule =
         match target with
         | Parse2Int -> false, "Int32"
         | Parse2Int64 -> false, "Long"
         | Parse2Float -> true, "Double"
+        | Parse2Decimal -> true, "Decimal"
     match i.CompiledName, args with
     | "IsNaN", [_] when isFloat ->
         Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
@@ -1779,18 +1696,18 @@ let parse target (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | ".ctor", [Value(NumberConstant(x, _))] ->
-        failwith "TODO: Call Decimal"
+    // The Fable REPL won't take the bits from decimal constants, so we can ignore these constructors
+    // See https://github.com/fable-compiler/Fable/pull/1627
+    #if !FABLE_COMPILER
     | ".ctor", [Value(NewArray(ArrayValues arVals, _))] ->
         match arVals with
         | [ Value(NumberConstant(low, Int32))
             Value(NumberConstant(mid, Int32))
             Value(NumberConstant(high, Int32))
             Value(NumberConstant(signExp, Int32)) ] ->
-                let scale = (min (((int signExp &&& 0xFF0000) >>> 16) &&& 0xFF) 28)
-                let isNegative = (int signExp &&& 0x80000000) <> 0
-                let str = Decimal.decimalToString (int low) (int mid) (int high) isNegative scale
-                failwith "TODO: Call Decimal"
+                let d = System.Decimal [|int low; int mid; int high; int signExp|]
+                let str = d.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                makeStrConst str |> makeDecimalFromExpr t |> Some
         | _ -> None
     | (".ctor" | "MakeDecimal"),
           [ Value(NumberConstant(low, Int32))
@@ -1798,26 +1715,25 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             Value(NumberConstant(high, Int32))
             Value(BoolConstant isNegative)
             Value(NumberConstant(scale, UInt8)) ] ->
-                let str = Decimal.decimalToString (int low) (int mid) (int high) isNegative scale
-                failwith "TODO: Call Decimal"
-    // TODO TODO TODO
-    | ".ctor", [IdentExpr _ as arg] ->
-        // TODO: Add this warning in other constructors?
-        addWarning com ctx.InlinePath r "Decimals are implemented with floats."
-        Some arg
+                let d = System.Decimal(int low, int mid, int high, isNegative, byte scale)
+                let str = d.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                makeStrConst str |> makeDecimalFromExpr t |> Some
+    #endif
+    | ".ctor", [arg] ->
+        makeDecimalFromExpr t arg |> Some
     | ("Parse" | "TryParse"), _ ->
-        parse Parse2Float com ctx r t i thisArg args
+        parse Parse2Decimal com ctx r t i thisArg args
     | "op_LessThan", [left; right] -> compareIf com r left right BinaryLess |> Some
     | "op_LessThanOrEqual", [left; right] -> compareIf com r left right BinaryLessOrEqual |> Some
     | "op_GreaterThan", [left; right] -> compareIf com r left right BinaryGreater |> Some
     | "op_GreaterThanOrEqual", [left; right] -> compareIf com r left right BinaryGreaterOrEqual |> Some
-    | "op_UnaryNegation", [arg] ->
+    | "op_UnaryNegation", _ ->
         applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
-    | "op_Explicit", [arg] ->
+    | "op_Explicit", _ ->
         match t with
         | Number Integer | Builtin(BclInt64|BclUInt64) ->
             toInt com ctx r false t args |> Some
-        | Number Float ->
+        | Number Float | Builtin BclDecimal ->
             toFloat com ctx r t args |> Some
         | _ -> None
     | _,_ -> None
@@ -1834,7 +1750,7 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
         match t with
         | Number Integer | Builtin(BclInt64|BclUInt64) ->
             toInt com ctx r false t args |> Some
-        | Number Float ->
+        | Number Float | Builtin BclDecimal ->
             toFloat com ctx r t args |> Some
         | _ -> None
     | None, meth when meth.StartsWith("get_") ->
@@ -2542,8 +2458,8 @@ let partialApplyAtRuntime t arity (fn: Expr) (args: Expr list) =
 
 let tryField returnTyp ownerTyp fieldName =
     match ownerTyp, fieldName with
-    | Number Decimal, "Zero" -> makeDecConst 0M |> Some
-    | Number Decimal, "One" -> makeDecConst 1M |> Some
+    | Builtin BclDecimal, "Zero" -> makeIntConst 0 |> makeDecimalFromExpr returnTyp |> Some
+    | Builtin BclDecimal, "One" -> makeIntConst 1 |> makeDecimalFromExpr returnTyp |> Some
     | String, "Empty" -> makeStrConst "" |> Some
     | Builtin BclGuid, "Empty" -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
     | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some

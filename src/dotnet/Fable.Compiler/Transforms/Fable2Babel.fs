@@ -499,7 +499,6 @@ module Util =
             | UInt32 -> "uint32"
             | Float32 -> "float32"
             | Float64 -> "float64"
-            | Decimal -> "decimal"
             |> primitiveTypeInfo knownTypes
         | Fable.FunctionType(Fable.LambdaType argType, returnType) ->
             genericTypeInfo knownTypes "lambda" [argType; returnType]
