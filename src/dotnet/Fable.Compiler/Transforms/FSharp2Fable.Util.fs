@@ -441,14 +441,12 @@ module Patterns =
               Types.uint32 , UInt32
               Types.float32, Float32
               Types.float64, Float64
-              Types.decimal, Decimal
                // Units of measure
               "Microsoft.FSharp.Core.sbyte`1", Int8
               "Microsoft.FSharp.Core.int16`1", Int16
               "Microsoft.FSharp.Core.int`1", Int32
               "Microsoft.FSharp.Core.float32`1", Float32
-              "Microsoft.FSharp.Core.float`1", Float64
-              "Microsoft.FSharp.Core.decimal`1", Decimal]
+              "Microsoft.FSharp.Core.float`1", Float64]
 
     let (|NumberKind|_|) fullName =
         match numberTypes.TryGetValue(fullName) with

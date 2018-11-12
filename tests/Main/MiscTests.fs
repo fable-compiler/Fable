@@ -333,10 +333,10 @@ let setCell x: (int*int) option =
     let max = max
     Option.map (fun (x, y) -> max (x - 1) 0, y) x
 
-type Shape = 
-    | Circle of int 
-    | Square of int 
-    | Rectangle of int * int 
+type Shape =
+    | Circle of int
+    | Square of int
+    | Rectangle of int * int
 
 let tests =
   testList "Miscellaneous" [
@@ -408,6 +408,9 @@ let tests =
 
     testCase "Units of measure work with longs" <| fun () ->
         3L<km/h> + 2L<km/h> |> equal 5L<km/h>
+
+    testCase "Units of measure work with decimals" <| fun () ->
+        3M<km/h> + 2M<km/h> |> equal 5M<km/h>
 
     testCase "Static constructors work" <| fun () ->
         let point1 = PointWithCounter(10, 52)
@@ -679,11 +682,11 @@ let tests =
     //
     // The same applies to try-with expression.
 
-    testCase "Pattern-matching against discriminated unions gives proper error message" <| fun () -> 
-        try 
+    testCase "Pattern-matching against discriminated unions gives proper error message" <| fun () ->
+        try
             let unitCircle = Circle 1
             match unitCircle with
-            | Rectangle(n, m) -> failwith "Should not happen" 
+            | Rectangle(n, m) -> failwith "Should not happen"
             | Square n -> failwith "Should not happen"
         with
             | ex -> ex.Message.StartsWith "The match cases were incomplete" |> equal true

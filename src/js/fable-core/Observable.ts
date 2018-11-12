@@ -1,4 +1,4 @@
-import { Choice, tryValueIfChoice1, tryValueIfChoice2, value } from "./Option";
+import { tryValueIfChoice1, tryValueIfChoice2, value } from "./Option";
 import { IDisposable } from "./Util";
 
 export interface IObserver<T> {

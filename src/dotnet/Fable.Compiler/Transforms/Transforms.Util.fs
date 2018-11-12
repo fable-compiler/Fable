@@ -341,7 +341,6 @@ module AST =
     let makeStrConst (x: string) = StringConstant x |> Value
     let makeIntConst (x: int) = NumberConstant (float x, Int32) |> Value
     let makeFloatConst (x: float) = NumberConstant (x, Float64) |> Value
-    let makeDecConst (x: decimal) = NumberConstant (float x, Decimal) |> Value
 
     let makeCoreRef t memberName moduleName =
         Import(makeStrConst memberName, makeStrConst moduleName, CoreLib, t, None)
@@ -383,7 +382,7 @@ module AST =
         | Int32 -> "Int32Array"
         | UInt32 -> "Uint32Array"
         | Float32 -> "Float32Array"
-        | Float64 | Decimal -> "Float64Array"
+        | Float64 -> "Float64Array"
 
     let rec listEquals f li1 li2 =
         match li1, li2 with
@@ -440,7 +439,6 @@ module AST =
             | UInt32  -> Types.uint32
             | Float32 -> Types.float32
             | Float64 -> Types.float64
-            | Decimal -> Types.decimal
         | FunctionType(LambdaType argType, returnType) ->
             let argType = getTypeFullName prettify argType
             let returnType = getTypeFullName prettify returnType
