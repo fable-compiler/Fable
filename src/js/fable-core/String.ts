@@ -2,7 +2,6 @@ import { toString as dateToString } from "./Date";
 import Decimal from "./Decimal";
 import Long, { fromBytes as longFromBytes, toBytes as longToBytes, toString as longToString } from "./Long";
 import { escape } from "./RegExp";
-import { toString } from "./Util";
 
 const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
@@ -144,9 +143,8 @@ function formatOnce(str2: any, rep: any) {
         case "e": case "E":
           rep = Number(rep).toExponential(precision); break;
         case "O":
-          rep = toString(rep); break;
         case "A":
-          rep = toString(rep, true); break;
+          rep = String(rep); break;
         case "x":
           rep = toHex(rep); break;
         case "X":

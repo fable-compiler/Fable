@@ -158,6 +158,20 @@ let (|Integer|Float|) = function
     | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> Integer
     | Float32 | Float64 -> Float
 
+type NumberExtKind =
+    | JsNumber of NumberKind
+    | Decimal
+    | Long of unsigned: bool
+    | BigInt
+
+let (|NumberExt|_|) = function
+    | Number n -> Some(JsNumber n)
+    | Builtin BclDecimal -> Some Decimal
+    | Builtin BclInt64 -> Some(Long false)
+    | Builtin BclUInt64 -> Some(Long true)
+    | Builtin BclBigInt -> Some BigInt
+    | _ -> None
+
 let (|Nameof|_|) = function
     | IdentExpr ident -> Some ident.Name
     | Get(_, ExprGet(Value(StringConstant prop)), _, _) -> Some prop
@@ -324,32 +338,85 @@ let toString com (ctx: Context) r (args: Expr list) =
     | head::tail ->
         match head.Type with
         | Char | String -> head
-        | Unit | Boolean | Array _ | Tuple _ | FunctionType _ | EnumType _ ->
-            Helper.GlobalCall("String", String, [head])
         | Builtin (BclInt64 | BclUInt64) -> Helper.CoreCall("Long", "toString", String, args)
         | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
         | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
         | DeclaredType(ent,_) when hasBaseImplementingBasicMethods ent ->
             Helper.InstanceCall(head, "toString", String, [])
-        | _ -> Helper.CoreCall("Util", "toString", String, [head])
+        // | Unit | Boolean | Array _ | Tuple _ | FunctionType _ | EnumType _
+        | _ ->
+            Helper.GlobalCall("String", String, [head])
 
-let toFloat com (ctx: Context) r targetType (args: Expr list) =
+let castBigIntMethod typeTo =
+    match typeTo with
+    | NumberExt n ->
+        match n with
+        | JsNumber Int8 -> "toSByte"
+        | JsNumber Int16 -> "toInt16"
+        | JsNumber Int32 -> "toInt32"
+        | JsNumber UInt8 -> "toByte"
+        | JsNumber UInt16 -> "toUInt16"
+        | JsNumber UInt32 -> "toUInt32"
+        | Long unsigned -> if unsigned then "toUInt64" else "toInt64"
+        | JsNumber Float32 -> "toSingle"
+        | JsNumber Float64 -> "toDouble"
+        | Decimal -> "toDecimal"
+        | BigInt -> failwith "Unexpected bigint-bigint conversion"
+    | _ -> failwithf "Unexpected non-number type %A" typeTo
+
+let kindIndex t =           //         0   1   2   3   4   5   6   7   8   9  10  11
+    match t with            //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
+    | JsNumber Int8 -> 0    //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
+    | JsNumber Int16 -> 1   //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
+    | JsNumber Int32 -> 2   //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
+    | Long false -> 3       //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
+    | JsNumber UInt8 -> 4   //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
+    | JsNumber UInt16 -> 5  //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
+    | JsNumber UInt32 -> 6  //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
+    | Long true -> 7        //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
+    | JsNumber Float32 -> 8 //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
+    | JsNumber Float64 -> 9 //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
+    | Decimal -> 10         // 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
+    | BigInt -> 11          // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
+
+let needToCast typeFrom typeTo =
+    let v = kindIndex typeFrom // argument type (vertical)
+    let h = kindIndex typeTo   // return type (horizontal)
+    ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
+
+/// Conversions to floating point
+let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
     match args.Head.Type with
-    | String ->
-        Helper.CoreCall("Double", "parse", Number Float64, args)
-    | Builtin (BclInt64 | BclUInt64) ->
-        Helper.CoreCall("Long", "toNumber", Number Float64, args)
-    | Builtin BclBigInt ->
-        let meth = match targetType with
-                    | Number Float32 -> "toSingle"
-                    | Number Float64 -> "toDouble"
-                    | Builtin BclDecimal -> "toDecimal"
-                    | _ -> failwith "Unexpected BigInt conversion"
-        Helper.CoreCall("BigInt", meth, Number Float64, args)
-    | Number _ | Char | EnumType(NumberEnumType,_) -> TypeCast(args.Head, targetType)
+    | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Number Int32, [makeIntConst 0])
+    | String -> Helper.CoreCall("Double", "parse", targetType, args)
+    | NumberExt kind ->
+        match kind with
+        | BigInt -> Helper.CoreCall("BigInt", castBigIntMethod targetType, targetType, args)
+        | Long _ -> Helper.CoreCall("Long", "toNumber", targetType, args)
+        | Decimal -> Helper.CoreCall("Decimal", "toNumber", targetType, args)
+        | JsNumber _ -> TypeCast(args.Head, targetType)
+    | EnumType(NumberEnumType,_) -> TypeCast(args.Head, targetType)
     | _ ->
-        addWarning com ctx.InlinePath r "Cannot make conversion at compile time because source type is unknown"
+        addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
+        TypeCast(args.Head, targetType)
+
+let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
+    match args.Head.Type with
+    | Char ->
+        Helper.InstanceCall(args.Head, "charCodeAt", Number Int32, [makeIntConst 0])
+        |> makeDecimalFromExpr targetType
+    | String -> makeDecimalFromExpr targetType args.Head
+    | NumberExt kind ->
+        match kind with
+        | BigInt -> Helper.CoreCall("BigInt", castBigIntMethod targetType, targetType, args)
+        | Long _ -> Helper.CoreCall("Long", "toNumber", Number Float64, args)
+                    |> makeDecimalFromExpr targetType
+        | Decimal -> args.Head
+        | JsNumber _ -> makeDecimalFromExpr targetType args.Head
+    | EnumType(NumberEnumType,_) -> makeDecimalFromExpr targetType args.Head
+    | _ ->
+        addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
 
 // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
@@ -357,113 +424,72 @@ let fastIntFloor expr =
     let inner = makeUnOp None Any expr UnaryNotBitwise
     makeUnOp None (Number Int32) inner UnaryNotBitwise
 
-let toInt com (ctx: Context) r (round: bool) targetType (args: Expr list) =
-    let sourceType =
-        match args.Head.Type with
-        | EnumType(NumberEnumType, _) -> Number Int32
-        | t -> t
-    let targetType =
-        match targetType with
-        | EnumType(NumberEnumType, _) -> Number Int32
-        | t -> t
-    let kindIndex t =             //         0   1   2   3   4   5   6   7   8   9  10  11
-        match t with              //         i8 i16 i32 i64  u8 u16 u32 u64 f32 f64 dec big
-        | Number Int8 -> 0        //  0 i8   -   -   -   -   +   +   +   +   -   -   -   +
-        | Number Int16 -> 1       //  1 i16  +   -   -   -   +   +   +   +   -   -   -   +
-        | Number Int32 -> 2       //  2 i32  +   +   -   -   +   +   +   +   -   -   -   +
-        | Builtin BclInt64 -> 3   //  3 i64  +   +   +   -   +   +   +   +   -   -   -   +
-        | Number UInt8 -> 4       //  4 u8   +   +   +   +   -   -   -   -   -   -   -   +
-        | Number UInt16 -> 5      //  5 u16  +   +   +   +   +   -   -   -   -   -   -   +
-        | Number UInt32 -> 6      //  6 u32  +   +   +   +   +   +   -   -   -   -   -   +
-        | Builtin BclUInt64 -> 7  //  7 u64  +   +   +   +   +   +   +   -   -   -   -   +
-        | Number Float32 -> 8     //  8 f32  +   +   +   +   +   +   +   +   -   -   -   +
-        | Number Float64 -> 9     //  9 f64  +   +   +   +   +   +   +   +   -   -   -   +
-        | Builtin BclDecimal -> 10// 10 dec  +   +   +   +   +   +   +   +   -   -   -   +
-        | Builtin BclBigInt -> 11 // 11 big  +   +   +   +   +   +   +   +   +   +   +   -
-        | _ -> failwithf "Unexpected non-number type %A" t
-    let needToCast typeFrom typeTo =
-        let v = kindIndex typeFrom // argument type (vertical)
-        let h = kindIndex typeTo   // return type (horizontal)
-        ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
-    let emitLong unsigned (args: Expr list) =
-        let args = args @ [makeBoolConst unsigned]
-        match sourceType with
-        | Builtin (BclInt64|BclUInt64) -> Helper.CoreCall("Long", "fromValue", targetType, args)
-        | Number Integer -> Helper.CoreCall("Long", "fromInteger", targetType, args @ [makeIntConst (kindIndex sourceType)])
-        | _ -> Helper.CoreCall("Long", "fromNumber", targetType, args)
-    let emitDecimal (args: Expr list) =
-        match sourceType with
-        | Builtin (BclInt64|BclUInt64) -> Helper.CoreCall("Long", "toString", String, args) |> makeDecimalFromExpr targetType
-        | _ -> Helper.CoreCall("Decimal", "fromNumber", targetType, args)
-    let emitBigInt (args: Expr list) =
-        match sourceType with
-        | Builtin (BclInt64|BclUInt64) -> Helper.CoreCall("BigInt", "fromInt64", targetType, args)
-        | _ -> Helper.CoreCall("BigInt", "fromInt32", targetType, args)
-    let emitCast typeTo args =
-        match typeTo with
-        | Builtin BclBigInt -> emitBigInt args
-        | Builtin BclUInt64 -> emitLong true args
-        | Builtin BclInt64 -> emitLong false args
-        | Builtin BclDecimal -> emitDecimal args
-        | Number Int8 -> emitJs None targetType args "($0 + 0x80 & 0xFF) - 0x80"
-        | Number Int16 -> emitJs None targetType args "($0 + 0x8000 & 0xFFFF) - 0x8000"
-        | Number Int32 -> fastIntFloor args.Head
-        | Number UInt8 -> emitJs None targetType args "$0 & 0xFF"
-        | Number UInt16 -> emitJs None targetType args "$0 & 0xFFFF"
-        | Number UInt32 -> emitJs None targetType args "$0 >>> 0"
-        | Number Float32 -> TypeCast(args.Head, targetType)
-        | Number Float64 -> TypeCast(args.Head, targetType)
-        | _ -> failwithf "Unexpected non-number type %A" typeTo
-    let castBigIntMethod typeTo =
-        match typeTo with
-        | Builtin BclBigInt -> failwith "Unexpected conversion"
-        | Number Int8 -> "toSByte"
-        | Number Int16 -> "toInt16"
-        | Number Int32 -> "toInt32"
-        | Builtin BclInt64 -> "toInt64"
-        | Number UInt8 -> "toByte"
-        | Number UInt16 -> "toUInt16"
-        | Number UInt32 -> "toUInt32"
-        | Builtin BclUInt64 -> "toUInt64"
-        | Number Float32 -> "toSingle"
-        | Number Float64 -> "toDouble"
-        | Builtin BclDecimal -> "toDecimal"
-        | _ -> failwithf "Unexpected non-number type %A" typeTo
+let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): Expr =
+    let fromInteger kind arg =
+        let kind = makeIntConst (kindIndex (JsNumber kind))
+        Helper.CoreCall("Long", "fromInteger", targetType, [arg; makeBoolConst unsigned; kind])
+    let sourceType = args.Head.Type
     match sourceType with
-    | EnumType(NumberEnumType,_) -> TypeCast(args.Head, targetType)
-    | Char -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
+    | Char ->
+        Helper.InstanceCall(args.Head, "charCodeAt", Number Int32, [makeIntConst 0])
+        |> fromInteger UInt16
     | String ->
-        match targetType with
-        | Builtin (BclInt64|BclUInt64 as kind) ->
-            let unsigned = kind = BclUInt64
-            let args = [args.Head]@[makeBoolConst unsigned]@args.Tail
-            Helper.CoreCall("Long", "fromString", targetType, args)
-        | _ -> Helper.CoreCall("Int32", "parse", targetType, args)
-    | Builtin BclBigInt ->
-        let meth = castBigIntMethod targetType
-        Helper.CoreCall("BigInt", meth, targetType, args)
-    | Number _ | Builtin (BclInt64 | BclUInt64 | BclDecimal) as typeFrom ->
-        match targetType with
-        | typeTo when needToCast typeFrom typeTo ->
-            match typeFrom, typeTo with
-            | Builtin (BclUInt64|BclInt64), Number Integer ->
-                Helper.CoreCall("Long", "toIntNumber", targetType, args)
-            | Builtin (BclUInt64|BclInt64), Number _ ->
-                Helper.CoreCall("Long", "toNumber", targetType, args)
-            | (Number Float| Builtin BclDecimal), (Number Integer | Builtin(BclInt64|BclUInt64)) when round ->
-                let modName = match typeFrom with Builtin BclDecimal -> "Decimal" | _ -> "Util"
-                Helper.CoreCall(modName, "round", targetType, args)
-            | _, _ -> args.Head
-            |> List.singleton
-            |> emitCast typeTo
-        | Builtin (BclUInt64|BclInt64 as kind) ->
-            emitLong (kind = BclUInt64) [args.Head]
-        | Builtin BclDecimal ->
-            emitDecimal [args.Head]
-        | _ -> TypeCast(args.Head, targetType)
+        let args = [args.Head]@[makeBoolConst unsigned]@args.Tail
+        Helper.CoreCall("Long", "fromString", targetType, args)
+    | NumberExt kind ->
+        match kind with
+        | BigInt -> Helper.CoreCall("BigInt", castBigIntMethod targetType, targetType, args)
+        | Long _ -> Helper.CoreCall("Long", "fromValue", targetType, args @ [makeBoolConst unsigned])
+        | Decimal ->
+            let n = Helper.CoreCall("Decimal", "toNumber", Number Float64, args)
+            Helper.CoreCall("Long", "fromNumber", targetType, [n; makeBoolConst unsigned])
+        | JsNumber (Integer as kind) -> fromInteger kind args.Head
+        | JsNumber Float -> Helper.CoreCall("Long", "fromNumber", targetType, args @ [makeBoolConst unsigned])
+    | EnumType(NumberEnumType,_) -> fromInteger Int32 args.Head
     | _ ->
-        addWarning com ctx.InlinePath r "Cannot make conversion at compile time because source type is unknown"
+        addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
+
+/// Conversion to integers (excluding longs and bigints)
+let toInt com (ctx: Context) r targetType (args: Expr list) =
+    let transformEnumType = function EnumType(NumberEnumType, _) -> Number Int32 | t -> t
+    let sourceType = transformEnumType args.Head.Type
+    let targetType = transformEnumType targetType
+    let emitCast typeTo arg =
+        match typeTo with
+        | JsNumber Int8 -> emitJs None (Number Int8) [arg] "($0 + 0x80 & 0xFF) - 0x80"
+        | JsNumber Int16 -> emitJs None (Number Int16) [arg] "($0 + 0x8000 & 0xFFFF) - 0x8000"
+        | JsNumber Int32 -> fastIntFloor arg
+        | JsNumber UInt8 -> emitJs None (Number UInt8) [arg] "$0 & 0xFF"
+        | JsNumber UInt16 -> emitJs None (Number UInt16) [arg] "$0 & 0xFFFF"
+        | JsNumber UInt32 -> emitJs None (Number UInt32) [arg] "$0 >>> 0"
+        | _ -> failwithf "Unexpected non-integer type %A" typeTo
+    match sourceType, targetType with
+    | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
+    | String, _ -> Helper.CoreCall("Int32", "parse", targetType, args)
+    | Builtin BclBigInt, _ -> Helper.CoreCall("BigInt", castBigIntMethod targetType, targetType, args)
+    | NumberExt typeFrom, NumberExt typeTo  ->
+        if needToCast typeFrom typeTo then
+            match typeFrom with
+            | Long _ -> Helper.CoreCall("Long", "toInt", targetType, args)
+            | Decimal -> Helper.CoreCall("Decimal", "toNumber", targetType, args)
+            | _ -> args.Head
+            |> emitCast typeTo
+        else TypeCast(args.Head, targetType)
+    | _ ->
+        addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
+        TypeCast(args.Head, targetType)
+
+let round (args: Expr list) =
+    match args.Head.Type with
+    | Builtin BclDecimal ->
+        let n = Helper.CoreCall("Decimal", "toNumber", Number Float64, [args.Head])
+        let rounded = Helper.CoreCall("Util", "round", Number Float64, [n])
+        rounded::args.Tail
+    | Number Float ->
+        let rounded = Helper.CoreCall("Util", "round", Number Float64, [args.Head])
+        rounded::args.Tail
+    | _ -> args
 
 let arrayCons (com: ICompiler) genArg =
     match genArg with
@@ -746,6 +772,7 @@ let getZero (com: ICompiler) ctx (t: Type) =
     | Builtin (FSharpSet genArg) as t -> makeSet com None t "Empty" [] genArg
     | Builtin (BclInt64|BclUInt64) as t -> Helper.CoreCall("Long", "fromInt", t, [makeIntConst 0])
     | Builtin BclBigInt as t -> Helper.CoreCall("BigInt", "fromInt32", t, [makeIntConst 0])
+    | Builtin BclDecimal as t -> makeIntConst 0 |> makeDecimalFromExpr t
     | ListSingleton(CustomOp com ctx "get_Zero" [] m) ->
         FSharp2Fable.Util.makeCallFrom com ctx None t false [] None [] m
     | _ -> makeIntConst 0
@@ -754,6 +781,7 @@ let getOne (com: ICompiler) ctx (t: Type) =
     match t with
     | Builtin (BclInt64|BclUInt64) as t -> Helper.CoreCall("Long", "fromInt", t, [makeIntConst 1])
     | Builtin BclBigInt as t -> Helper.CoreCall("BigInt", "fromInt32", t, [makeIntConst 1])
+    | Builtin BclDecimal as t -> makeIntConst 1 |> makeDecimalFromExpr t
     | ListSingleton(CustomOp com ctx "get_One" [] m) ->
         FSharp2Fable.Util.makeCallFrom com ctx None t false [] None [] m
     | _ -> makeIntConst 1
@@ -1065,11 +1093,13 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
     | "Ignore", [arg]  -> TypeCast(arg, Unit) |> Some
-    // TODO: Number and String conversions
-    | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"|"ToInt64"|"ToUInt64"), _ ->
-        toInt com ctx r false t args |> Some
-    | ("ToSingle"|"ToDouble"|"ToDecimal"), _ ->
-        toFloat com ctx r t args |> Some
+    // Number and String conversions
+    | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"), _ ->
+        toInt com ctx r t args |> Some
+    | "ToInt64", _ -> toLong com ctx r false t args |> Some
+    | "ToUInt64", _ -> toLong com ctx r true t args |> Some
+    | ("ToSingle"|"ToDouble"), _ -> toFloat com ctx r t args |> Some
+    | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
     | "ToChar", _ -> toChar args.Head |> Some
     | "ToString", _ -> toString com ctx r args |> Some
     | "CreateSequence", [xs] -> toSeq t xs |> Some
@@ -1689,7 +1719,7 @@ let parse target (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         let format = emitJs r String [format] "'{0:' + $0 + '}'"
         Helper.CoreCall("String", "format", t, [format; thisArg.Value], [format.Type; thisArg.Value.Type], ?loc=r) |> Some
     | "ToString", _ ->
-        Helper.CoreCall("Util", "toString", t, [thisArg.Value], [thisArg.Value.Type], ?loc=r) |> Some
+        Helper.GlobalCall("String", String, [thisArg.Value], ?loc=r) |> Some
     | _ ->
         None
 
@@ -1731,10 +1761,13 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
     | "op_Explicit", _ ->
         match t with
-        | Number Integer | Builtin(BclInt64|BclUInt64) ->
-            toInt com ctx r false t args |> Some
-        | Number Float | Builtin BclDecimal ->
-            toFloat com ctx r t args |> Some
+        | NumberExt n ->
+            match n with
+            | JsNumber Integer -> toInt com ctx r t args |> Some
+            | JsNumber Float -> toFloat com ctx r t args |> Some
+            | Long unsigned -> toLong com ctx r unsigned t args |> Some
+            | Decimal -> toDecimal com ctx r t args |> Some
+            | BigInt -> None
         | _ -> None
     | _,_ -> None
 
@@ -1748,10 +1781,13 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             Helper.CoreCall("BigInt", "fromInt32", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, "op_Explicit" ->
         match t with
-        | Number Integer | Builtin(BclInt64|BclUInt64) ->
-            toInt com ctx r false t args |> Some
-        | Number Float | Builtin BclDecimal ->
-            toFloat com ctx r t args |> Some
+        | NumberExt n ->
+            match n with
+            | JsNumber Integer -> toInt com ctx r t args |> Some
+            | JsNumber Float -> toFloat com ctx r t args |> Some
+            | Long unsigned -> toLong com ctx r unsigned t args |> Some
+            | Decimal -> toDecimal com ctx r t args |> Some
+            | BigInt -> None
         | _ -> None
     | None, meth when meth.StartsWith("get_") ->
         Helper.CoreValue("BigInt", meth, t) |> Some
@@ -1813,8 +1849,9 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     |  "FastGenericEqualityComparer"
     |  "FastGenericEqualityComparerFromTable"
         ), _ -> fsharpModule com ctx r t i thisArg args
-    | ("ParseInt32" | "ParseUInt32" | "ParseInt64" | "ParseUInt64"), [arg] ->
-        toInt com ctx r false t [arg] |> Some
+    | ("ParseInt32"|"ParseUInt32"), [arg] -> toInt com ctx r t [arg] |> Some
+    | "ParseInt64", [arg] -> toLong com ctx r false t [arg] |> Some
+    | "ParseUInt64", [arg] -> toLong com ctx r true t [arg] |> Some
     | _ -> None
 
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2041,10 +2078,11 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToSByte" | "ToByte"
     | "ToInt16" | "ToUInt16"
     | "ToInt32" | "ToUInt32"
-    | "ToInt64" | "ToUInt64"
-        -> toInt com ctx r true t args |> Some
-    | "ToSingle" | "ToDouble" | "ToDecimal"
-        -> toFloat com ctx r t args |> Some
+        -> round args |> toInt com ctx r t |> Some
+    | "ToInt64"  -> round args |> toLong com ctx r false t |> Some
+    | "ToUInt64" -> round args |> toLong com ctx r true t |> Some
+    | "ToSingle" | "ToDouble"  -> toFloat com ctx r t args |> Some
+    | "ToDecimal" -> toDecimal com ctx r t args |> Some
     | "ToChar" -> toChar args.Head |> Some
     | "ToString" -> toString com ctx r args |> Some
     | "ToBase64String" | "FromBase64String" ->

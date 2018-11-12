@@ -94,6 +94,14 @@ let tests =
         equal (System.Decimal.Zero, 0.M)
         equal (System.Decimal.One, 1.M)
 
+    testCase "Decimal precision is kept" <| fun () ->
+        let items = [ 290.8M
+                      290.8M
+                      337.12M
+                      6.08M
+                      -924.8M ]
+        equal(List.sum items, 0M)
+
     testCase "Int64 Infix add can be generated" <| fun () ->
         equal (4L + 2L, 6L)
 

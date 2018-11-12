@@ -1,4 +1,4 @@
-import { combineHashCodes, compare, compareArrays, equals, equalArrays, identityHash, structuralHash, numberHash, toString } from "./Util";
+import { combineHashCodes, compare, compareArrays, equals, equalArrays, identityHash, structuralHash, numberHash } from "./Util";
 
 function sameType(x, y) {
   return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
@@ -35,7 +35,7 @@ export function SystemObject() {
 }
 
 SystemObject.prototype.toString = function() {
-  return "{" + Object.keys(this).map(k => k + " = " + toString(this[k])).join(";\n ") + "}";
+  return "{" + Object.keys(this).map(k => k + " = " + String(this[k])).join(";\n ") + "}";
 };
 
 SystemObject.prototype.GetHashCode = function() {
@@ -70,7 +70,7 @@ export function List(head, tail) {
 }
 
 List.prototype.toString = function() {
-  return "[" + Array.from(this).map(x => toString(x)).join("; ") + "]";
+  return "[" + Array.from(this).map(x => String(x)).join("; ") + "]";
 };
 
 List.prototype.toJSON = function() {
@@ -116,9 +116,9 @@ Union.prototype.toString = function() {
   if (len === 0) {
     return this.name;
   } else if (len === 1) {
-    return this.name + " " + toString(this.fields[0]);
+    return this.name + " " + String(this.fields[0]);
   } else {
-    return this.name + " (" + this.fields.map(x => toString(x)).join(",") + ")";
+    return this.name + " (" + this.fields.map(x => String(x)).join(",") + ")";
   }
 };
 
@@ -199,7 +199,7 @@ export function Record() {
 }
 
 Record.prototype.toString = function() {
-  return "{" + Object.keys(this).map(k => k + " = " + toString(this[k])).join(";\n ") + "}";
+  return "{" + Object.keys(this).map(k => k + " = " + String(this[k])).join(";\n ") + "}";
 };
 
 Record.prototype.toJSON = function() {
