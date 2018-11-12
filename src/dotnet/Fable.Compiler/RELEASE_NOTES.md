@@ -1,3 +1,9 @@
+### 2.0.10
+
+* Improve decimal support #1627
+* Compile fable-core/BigInt from F# #1631
+* Add range info to Debugger statement
+
 ### 2.0.9
 
 * Include non-mangled identifier names for source maps
