@@ -862,6 +862,21 @@ module Util =
             coreLibCall com ctx "Util" "isArray" [|com.TransformAsExpr(ctx, expr)|]
         | Fable.List _ ->
             jsInstanceof (coreValue com ctx "Types" "List") expr
+        | Replacements.Builtin kind ->
+            match kind with
+            | Replacements.BclGuid -> jsTypeof "string" expr
+            | Replacements.BclTimeSpan -> jsTypeof "number" expr
+            | Replacements.BclDateTime
+            | Replacements.BclDateTimeOffset -> jsInstanceof (Identifier "Date") expr
+            | Replacements.BclTimer -> jsInstanceof (coreValue com ctx "Timer" "default") expr
+            | Replacements.BclInt64
+            | Replacements.BclUInt64 -> jsInstanceof (coreValue com ctx "Long" "default") expr
+            | Replacements.BclDecimal -> jsInstanceof (coreValue com ctx "Decimal" "default") expr
+            | Replacements.BclBigInt -> coreLibCall com ctx "BigInt" "isBigInt" [|com.TransformAsExpr(ctx, expr)|]
+            | Replacements.BclHashSet _
+            | Replacements.BclDictionary _
+            | Replacements.FSharpSet _
+            | Replacements.FSharpMap _ -> fail "set/maps"
         | Fable.DeclaredType (ent, genArgs) ->
             match ent.TryFullName with
             | Some Types.idisposable ->
@@ -872,13 +887,6 @@ module Util =
                 | _ -> coreLibCall com ctx "Util" "isDisposable" [|com.TransformAsExpr(ctx, expr)|]
             | Some Types.ienumerable ->
                 [|com.TransformAsExpr(ctx, expr)|] |> coreLibCall com ctx "Util" "isIterable"
-            | Some (Types.datetime | Types.datetimeOffset) ->
-                jsInstanceof (Identifier "Date") expr
-            // TODO: Include units of measure? "Microsoft.FSharp.Core.int64`1"
-            | Some (Types.int64 | Types.uint64) ->
-                jsInstanceof (coreValue com ctx "Long" "default") expr
-            | Some Types.bigint ->
-                coreLibCall com ctx "BigInt" "isBigInt" [|com.TransformAsExpr(ctx, expr)|]
             | _ when ent.IsInterface ->
                 fail (sprintf "interface %A" ent.FullName)
             | _ when FSharp2Fable.Util.isReplacementCandidate ent ->

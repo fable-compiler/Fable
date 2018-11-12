@@ -268,8 +268,6 @@ let makeTypeConst (typ: Type) (value: obj) =
     | Builtin BclUInt64, (:? uint64 as x) -> makeLongInt typ false x
     // Decimal type
     | Builtin BclDecimal, (:? decimal as x) -> makeDecimal typ x
-    // Short Float type
-    | Number Float32, (:? float32 as x) -> makeFloat32 x
     | Boolean, (:? bool as x) -> BoolConstant x |> Value
     | String, (:? string as x) -> StringConstant x |> Value
     | Char, (:? char as x) -> CharConstant x |> Value
@@ -281,6 +279,7 @@ let makeTypeConst (typ: Type) (value: obj) =
     | Number Int32, (:? int as x) -> NumberConstant (float x, Int32) |> Value
     | Number UInt32, (:? uint32 as x) -> NumberConstant (float x, UInt32) |> Value
     // Float types
+    | Number Float32, (:? float32 as x) -> makeFloat32 x
     | Number Float64, (:? float as x) -> NumberConstant (float x, Float64) |> Value
     // Enums
     | EnumType _, (:? int64)
