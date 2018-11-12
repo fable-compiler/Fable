@@ -1161,9 +1161,16 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Math functions
     // TODO: optimize square pow: x * x
     | "Pow", _ | "PowInteger", _ | "op_Exponentiation", _ ->
-        math r t args i.SignatureArgTypes "pow" |> Some
-    | "Ceil", _ | "Ceiling", _ ->
-        math r t args i.SignatureArgTypes "ceil" |> Some
+        match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
+        | Builtin(BclDecimal)::_  ->
+            Helper.CoreCall("Decimal", "pow", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | _ -> math r t args i.SignatureArgTypes "pow" |> Some
+    | ("Ceil"|"Ceiling"|"Floor" as meth), _ ->
+        let meth = if meth = "Floor" then "floor" else "ceil"
+        match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
+        | Builtin(BclDecimal)::_  ->
+            Helper.CoreCall("Decimal", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | _ -> math r t args i.SignatureArgTypes meth |> Some
     | "Log", [arg1; arg2] ->
         // "Math.log($0) / Math.log($1)"
         let dividend = math None t [arg1] (List.take 1 i.SignatureArgTypes) "log"
@@ -1171,15 +1178,18 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         makeBinOp r t dividend divisor BinaryDivide |> Some
     | "Abs", _ ->
         match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
-        | Builtin(BclInt64 | BclBigInt as bt)::_  ->
+        | Builtin(BclInt64 | BclBigInt | BclDecimal as bt)::_  ->
             Helper.CoreCall(coreModFor bt, "abs", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Acos", _ | "Asin", _ | "Atan", _ | "Atan2", _
-    | "Cos", _ | "Exp", _ | "Floor", _ | "Log", _ | "Log10", _
+    | "Cos", _ | "Exp", _ | "Log", _ | "Log10", _
     | "Sin", _ | "Sqrt", _ | "Tan", _ ->
         math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Round", _ ->
-        Helper.CoreCall("Util", "round", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
+        | Builtin(BclDecimal)::_  ->
+            Helper.CoreCall("Decimal", "round", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | _ -> Helper.CoreCall("Util", "round", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Sign", _ ->
         let args = toFloat com ctx r t args |> List.singleton
         Helper.CoreCall("Util", "sign", t, args, i.SignatureArgTypes, ?loc=r) |> Some
