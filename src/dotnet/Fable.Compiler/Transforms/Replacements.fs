@@ -342,11 +342,10 @@ let toString com (ctx: Context) r (args: Expr list) =
         | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
         | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
-        | DeclaredType(ent,_) when hasBaseImplementingBasicMethods ent ->
-            Helper.InstanceCall(head, "toString", String, [])
+        // | DeclaredType(ent,_) when hasBaseImplementingBasicMethods ent ->
+        //     Helper.InstanceCall(head, "toString", String, [])
         // | Unit | Boolean | Array _ | Tuple _ | FunctionType _ | EnumType _
-        | _ ->
-            Helper.GlobalCall("String", String, [head])
+        | _ -> Helper.GlobalCall("String", String, [head])
 
 let castBigIntMethod typeTo =
     match typeTo with
@@ -1769,6 +1768,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             | Decimal -> toDecimal com ctx r t args |> Some
             | BigInt -> None
         | _ -> None
+    | "ToString", _ -> Helper.InstanceCall(thisArg.Value, "toString", String, []) |> Some
     | _,_ -> None
 
 let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
