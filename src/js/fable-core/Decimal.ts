@@ -1,4 +1,4 @@
-import Decimal from "./lib/decimal";
+import Decimal from "./lib/big";
 
 export default Decimal;
 
@@ -46,7 +46,9 @@ export function op_Multiply(x: Decimal, y: Decimal) {
 }
 
 export function op_UnaryNegation(x: Decimal) {
-  return x.negated();
+  const x2 = new Decimal(x);
+  x2.s = -x2.s || 0;
+  return x2;
 }
 
 export function toString(x: Decimal) {
@@ -65,8 +67,8 @@ export function tryParse(str: string, defaultValue: Decimal) {
   }
 }
 
-export function round(x: Decimal, digits: number = 0) {
-  return x.toDecimalPlaces(digits);
+export function toNumber(x: Decimal) {
+  return +x;
 }
 
 // tslint:disable
