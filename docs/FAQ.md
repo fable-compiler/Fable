@@ -168,3 +168,50 @@ The F# source code and the F# project file have to be included in the Nuget Pack
 
 Possible cryptic error message when you don't include the project file and/or source files is `Cannot find root module`.
 
+## Unit tests
+
+#### How do I add unit tests to an existing project?
+
+Writing unit tests in Fable requires that the F# files are compiled to a format that can be processed by a nodejs test runner (f.ex Jest or Mocha).
+In general you don't really need one bundle with all your test files, so the easiest way is to have every test file compiled as individual file.
+
+[fable-splitter](https://github.com/fable-compiler/Fable/tree/master/src/js/fable-splitter) can be used to achieve this. To run tests in nodejs you typically don't need ES5 code, the only real requirement is that ES6 modules are transpiled to commonjs (as this is the format nodejs uses). This can be achieve with the [@babel/plugin-transform-modules-commonjs](https://babeljs.io/docs/en/next/babel-plugin-transform-modules-commonjs.html) babel plugin. 
+
+Example configuration for the fable splitter:
+
+```js
+const path = require("path");
+
+function resolve(relativePath) {
+    return path.join(__dirname, relativePath);
+}
+
+module.exports = {
+    entry: resolve("test/test.fsproj"),
+    outDir: resolve("test/output"),
+    babel: {
+        "plugins": ["@babel/plugin-transform-modules-commonjs"]
+    }
+}
+```
+
+Folowing F# test file
+```fsharp
+module MyApp.Test
+open Fable.Import.Jest // See https://github.com/jgrund/fable-jest
+
+test "Demo test" <| fun () ->
+    expect.Invoke(true).toBeTruthy()
+```
+
+gets compiled to
+```js
+"use strict";
+var _String = require("./fable-core.2.0.10/String");
+
+test("Demo test", function () {
+  expect((0, _String.toText)((0, _String.printf)("%d"))(42)).toEqual("42");
+});
+```
+
+which can be ran as normal JavaScript would run with our test runner (Jest in this example).
