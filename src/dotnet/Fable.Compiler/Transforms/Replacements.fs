@@ -2546,6 +2546,8 @@ let private replacedModules =
     "Microsoft.FSharp.Control.ObservableModule", observable
     Types.type_, types
     "System.Reflection.TypeInfo", types
+    "System.Numerics.Vector3", bclType
+    "System.Numerics.Quaternion", bclType
 ]
 
 let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr option) (args: Expr list) =

@@ -36,6 +36,7 @@ let allTests =
     SeqExpressions.tests
     Seqs.tests
     Sets.tests
+    SystemNumerics.tests
     Strings.tests
     Sudoku.tests
     TailCalls.tests
