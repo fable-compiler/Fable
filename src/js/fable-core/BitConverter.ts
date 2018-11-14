@@ -1,4 +1,4 @@
-import Long, { fromBits, getHighBits, getHighBitsUnsigned, getLowBits, getLowBitsUnsigned } from "./Long";
+import { fromBits, getHighBits, getHighBitsUnsigned, getLowBits, getLowBitsUnsigned } from "./Long";
 
 const littleEndian = true;
 

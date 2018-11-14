@@ -1,7 +1,7 @@
 import { toString as dateToString } from "./Date";
+import Decimal from "./Decimal";
 import Long, { fromBytes as longFromBytes, toBytes as longToBytes, toString as longToString } from "./Long";
 import { escape } from "./RegExp";
-import { toString } from "./Util";
 
 const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
@@ -143,9 +143,8 @@ function formatOnce(str2: any, rep: any) {
         case "e": case "E":
           rep = Number(rep).toExponential(precision); break;
         case "O":
-          rep = toString(rep); break;
         case "A":
-          rep = toString(rep, true); break;
+          rep = String(rep); break;
         case "x":
           rep = toHex(rep); break;
         case "X":
@@ -194,7 +193,7 @@ export function format(str: string, ...args: any[]) {
     (match: any, idx: any, pad: any, pattern: any) => {
       let rep = args[idx];
       let padSymbol = " ";
-      if (typeof rep === "number" || rep instanceof Long) {
+      if (typeof rep === "number" || rep instanceof Long || rep instanceof Decimal) {
         switch ((pattern || "").substring(0, 1)) {
           case "f": case "F":
             rep = pattern.length > 1 ? rep.toFixed(pattern.substring(1)) : rep.toFixed(2);
@@ -486,6 +485,6 @@ export function trimEnd(str: string, ...chars: string[]) {
     : str.replace(new RegExp("[" + escape(chars.join("")) + "]+$"), "");
 }
 
-export function filter(pred: (i: string) => boolean, x: string) {
-  return x.split("").filter(pred).join("");
+export function filter(pred: (char: string) => boolean, x: string) {
+  return x.split("").filter((c) => pred(c)).join("");
 }

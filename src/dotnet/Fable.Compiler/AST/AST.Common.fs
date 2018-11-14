@@ -2,7 +2,7 @@ namespace Fable.AST
 
 /// Numbers that are represented with JS native number type
 type NumberKind =
-    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Float32 | Float64 | Decimal
+    | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Float32 | Float64
 
 type RegexFlag =
     | RegexGlobal | RegexIgnoreCase | RegexMultiline | RegexSticky

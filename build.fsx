@@ -43,20 +43,6 @@ let addToPath newPath =
     let separator = if isWindows then ";" else ":"
     setEnvironVar "PATH" (newPath + separator + path)
 
-// Move this to FakeHelpers
-let findLineAndGetGroupValue regexPattern (groupIndex: int) filePath =
-    let reg = Regex(regexPattern)
-    File.ReadLines(filePath)
-    |> Seq.tryPick (fun line ->
-        let m = reg.Match(line)
-        if m.Success
-        then Some m.Groups.[groupIndex].Value
-        else None)
-    // Appveyor doesn't like `Option.defaultWith`
-    |> function
-        | Some x -> x
-        | None -> failwithf "No line matches pattern %s in file %s" regexPattern filePath
-
 // Project info
 let project = "Fable"
 
@@ -257,11 +243,15 @@ let bundleRepl (fetchNcaveFork: bool) () =
 
 let buildCompilerForNode () =
     let replDir = CWD </> "src/dotnet/Fable.Repl"
-    let buildDir = CWD </> "src/js/fable-compiler/dist"
-    downloadArtifact (replDir </> "bundle") APPVEYOR_REPL_ARTIFACT_URL
-    CleanDir buildDir
-    FileUtils.cp_r (replDir </> "bundle") (buildDir </> "bundle")
-    FileUtils.cp_r (replDir </> "metadata2") (buildDir </> "metadata2")
+    let distDir = CWD </> "src/js/fable-compiler/dist"
+    if not (Directory.Exists(replDir </> "bundle")) then
+        // bundleRepl false ()
+        downloadArtifact (replDir </> "bundle") APPVEYOR_REPL_ARTIFACT_URL
+    CleanDir distDir
+    FileUtils.cp_r (replDir </> "bundle") (distDir </> "bundle")
+    FileUtils.cp_r (replDir </> "metadata2") (distDir </> "metadata2")
+    Yarn.run CWD "babel" (sprintf "%s --out-dir %s --plugins @babel/plugin-transform-modules-commonjs --quiet"
+        (replDir </> "bundle/fable-core") (distDir </> "fable-core-commonjs"))
     Yarn.run CWD "build-compiler" ""
 
 Target "Clean" clean

@@ -48,16 +48,20 @@ let tests =
         parse Decimal.Parse "1.5" |> equal 1.5M
 
     testCase "System.Decimal.TryParse works" <| fun () ->
-        tryParse Decimal.TryParse 0.0M "1" |> equal (true, 1.0M)
-        tryParse Decimal.TryParse 0.0M "    1     " |> equal (true, 1.0M)
-        tryParse Decimal.TryParse 0.0M "1.5" |> equal (true, 1.5M)
-        tryParse Decimal.TryParse 0.0M "    1.5     " |> equal (true, 1.5M)
-        tryParse Decimal.TryParse 0.0M "foo" |> equal (false, 0.0M)
-        tryParse Decimal.TryParse 0.0M "9X" |> equal (false, 0.0M)
-        tryParse Decimal.TryParse 0.0M "X9" |> equal (false, 0.0M)
-        tryParse Decimal.TryParse 0.0M "X9TRE34" |> equal (false, 0.0M)
-        tryParse Decimal.TryParse 0.0M "9SayWhat12Huh" |> equal (false, 0.0M)
-        tryParse Decimal.TryParse 0.0M "-1.5" |> equal (true, -1.5M)
+        let equal expected (success, actual) =
+            match expected with
+            | Some expected -> equal true success; equal expected actual
+            | None -> equal false success
+        tryParse Decimal.TryParse 0.0M "1" |> equal (Some 1.0M)
+        tryParse Decimal.TryParse 0.0M "    1     " |> equal (Some 1.0M)
+        tryParse Decimal.TryParse 0.0M "1.5" |> equal (Some 1.5M)
+        tryParse Decimal.TryParse 0.0M "    1.5     " |> equal (Some 1.5M)
+        tryParse Decimal.TryParse 0.0M "foo" |> equal None
+        tryParse Decimal.TryParse 0.0M "9X" |> equal None
+        tryParse Decimal.TryParse 0.0M "X9" |> equal None
+        tryParse Decimal.TryParse 0.0M "X9TRE34" |> equal None
+        tryParse Decimal.TryParse 0.0M "9SayWhat12Huh" |> equal None
+        tryParse Decimal.TryParse 0.0M "-1.5" |> equal (Some -1.5M)
 
     testCase "System.Single.Parse works" <| fun () ->
         parse Single.Parse "1.5" |> equal 1.5f
@@ -571,7 +575,7 @@ let tests =
         decimal(1.) |> equal x
         decimal(1.m) |> equal x
         decimal("1.") |> equal x
-        (fun () -> decimal("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> decimal("foo")) |> throwsError ""
 
         Convert.ToDecimal(1y) |> equal x
         Convert.ToDecimal(1uy) |> equal x
@@ -586,7 +590,7 @@ let tests =
         Convert.ToDecimal(1.) |> equal x
         Convert.ToDecimal(1.m) |> equal x
         parse Convert.ToDecimal "1." |> equal x
-        (fun () -> Convert.ToDecimal("foo")) |> throwsError "Input string was not in a correct format."
+        (fun () -> Convert.ToDecimal("foo")) |> throwsError ""
 
     // String to number convertions (with base)
 

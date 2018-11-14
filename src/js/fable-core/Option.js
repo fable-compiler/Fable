@@ -1,5 +1,5 @@
 import { declare, Union } from "./Types";
-import { compare, equals, structuralHash, toString } from "./Util";
+import { compare, equals, structuralHash } from "./Util";
 
 // Options are erased in runtime by Fable, but we have
 // the `Some` type below to wrap values that would evaluate
@@ -20,7 +20,7 @@ export class Some {
 
     // Don't add "Some" for consistency with erased options
     toString() {
-        return toString(this.value);
+        return String(this.value);
     }
 
     toJSON() {

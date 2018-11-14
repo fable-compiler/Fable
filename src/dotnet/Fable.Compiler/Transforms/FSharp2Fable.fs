@@ -459,15 +459,15 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! thenExpr = transformExpr com ctx thenExpr
         let! fableElseExpr = transformExpr com ctx elseExpr
 
-        let altElseExpr = 
-            match elseExpr with 
-            | RasingMatchFailureExpr fileNameWhereErrorOccurs -> 
+        let altElseExpr =
+            match elseExpr with
+            | RasingMatchFailureExpr fileNameWhereErrorOccurs ->
                 let errorMessage = "The match cases were incomplete"
                 let rangeOfElseExpr = makeRangeFrom elseExpr
                 let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage))
-                Fable.Throw(errorExpr, Fable.Any, rangeOfElseExpr)   
-            | _ -> 
-                fableElseExpr 
+                Fable.Throw(errorExpr, Fable.Any, rangeOfElseExpr)
+            | _ ->
+                fableElseExpr
 
         return Fable.IfThenElse (guardExpr, thenExpr, altElseExpr)
 
@@ -628,22 +628,22 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             }
 
         let! fableDecisionTargets = transformDecisionTargets [] decisionTargets
-        
+
         // rewrite last decision target if it throws MatchFailureException
-        let compiledFableTargets = 
-            match snd (List.last decisionTargets) with 
-            | RasingMatchFailureExpr fileNameWhereErrorOccurs -> 
-                match decisionExpr with 
+        let compiledFableTargets =
+            match snd (List.last decisionTargets) with
+            | RasingMatchFailureExpr fileNameWhereErrorOccurs ->
+                match decisionExpr with
                 | BasicPatterns.IfThenElse(BasicPatterns.UnionCaseTest(unionValue, unionType, unionCaseInfo), _, _) ->
                     let rangeOfLastDecisionTarget = makeRangeFrom (snd (List.last decisionTargets))
-                    let errorMessage = 
-                        sprintf "The match cases were incomplete against type of '%s' at %s" 
+                    let errorMessage =
+                        sprintf "The match cases were incomplete against type of '%s' at %s"
                             unionType.TypeDefinition.DisplayName
                             fileNameWhereErrorOccurs
-                    let errorExpr = Replacements.Helpers.error (Fable.Value (Fable.StringConstant errorMessage))  
+                    let errorExpr = Replacements.Helpers.error (Fable.Value (Fable.StringConstant errorMessage))
                     // Creates a "throw Error({errorMessage})" expression
                     let throwExpr = Fable.Throw(errorExpr, Fable.Any, rangeOfLastDecisionTarget)
-                    
+
                     fableDecisionTargets
                     |> List.replaceLast (fun lastExpr -> [], throwExpr)
 
@@ -886,6 +886,21 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     then transformAttachedMember com ctx memb args body
     else transformMemberFunctionOrValue com ctx memb args body
 
+// In case this is a recursive module, do a first pass to add
+// all entity and member names as used var names
+let rec checkMemberNames (com: FableCompiler) decls =
+    for decl in decls do
+        match decl with
+        | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
+            let entityName = getEntityDeclarationName com ent
+            com.AddUsedVarName(entityName, isRoot=true)
+            checkMemberNames com sub
+        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->
+            if not(isIgnoredMember memb) then
+                let memberName = getMemberDeclarationName com memb
+                com.AddUsedVarName(memberName, isRoot=true)
+        | FSharpImplementationFileDeclaration.InitAction _ -> ()
+
 let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
     let rec transformDeclarationsInner (com: FableCompiler) (ctx: Context) fsDecls =
         fsDecls |> List.collect (fun fsDecl ->
@@ -924,31 +939,11 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                 transformMemberDecl com ctx meth args body
             | FSharpImplementationFileDeclaration.InitAction fe ->
                 [transformExpr com ctx fe |> run |> Fable.ActionDeclaration])
-    // In case this is a recursive module, do a first pass to add
-    // all entity and member names as used var names
-    rootDecls |> List.iter (function
-        | FSharpImplementationFileDeclaration.Entity(ent,_) ->
-            com.AddUsedVarName(ent.CompiledName)
-        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->
-            com.AddUsedVarName(memb.CompiledName)
-        | FSharpImplementationFileDeclaration.InitAction _ -> ()
-    )
+
+    checkMemberNames com rootDecls
     transformDeclarationsInner com ctx rootDecls
 
 let private getRootModuleAndDecls decls =
-    let (|CommonNamespace|_|) = function
-        | (FSharpImplementationFileDeclaration.Entity(ent, subDecls))::restDecls
-            when ent.IsNamespace ->
-            let commonName = ent.CompiledName
-            (Some subDecls, restDecls) ||> List.fold (fun acc decl ->
-                match acc, decl with
-                | (Some subDecls), (FSharpImplementationFileDeclaration.Entity(ent, subDecls2)) ->
-                    if ent.CompiledName = commonName
-                    then Some(subDecls@subDecls2)
-                    else None
-                | _ -> None)
-            |> Option.map (fun subDecls -> ent, subDecls)
-        | _ -> None
     let rec getRootModuleAndDeclsInner outerEnt decls =
         match decls with
         | [FSharpImplementationFileDeclaration.Entity (ent, decls)]
@@ -981,8 +976,12 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
     member val UsedVarNames = HashSet<string>()
     member val Dependencies = HashSet<string>()
     member __.Options = com.Options
-    member this.AddUsedVarName(varName) =
-        this.UsedVarNames.Add(varName) |> ignore
+    member this.AddUsedVarName(varName, ?isRoot) =
+        let isRoot = defaultArg isRoot false
+        let success = this.UsedVarNames.Add(varName)
+        if not success && isRoot then
+            sprintf "Cannot have two module members with same name: %s" varName
+            |> addError com [] None
     member __.AddInlineExpr(memb, inlineExpr: InlineExpr) =
         let fullName = getMemberUniqueName com memb
         com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
@@ -1007,8 +1006,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
                       Body = body
                       FileName = fileName }
                 | None -> failwith ("Cannot find inline member " + memb.FullName))
-        member this.AddUsedVarName(varName) =
-            this.AddUsedVarName(varName) |> ignore
+        member this.AddUsedVarName(varName, ?isRoot) =
+            this.AddUsedVarName(varName, ?isRoot=isRoot)
         member this.IsUsedVarName(varName) =
             this.UsedVarNames.Contains(varName)
     interface ICompiler with

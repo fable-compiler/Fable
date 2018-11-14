@@ -16,34 +16,34 @@ let measureTime (f: 'a -> 'b) x =
 
 module Json =
     open Newtonsoft.Json
-    // open FSharp.Reflection
-    // open System.Collections.Concurrent
+    open FSharp.Reflection
+    open System.Collections.Concurrent
 
-    // let isErasedUnion (t: System.Type) =
-    //     t.Name = "FSharpOption`1" ||
-    //     FSharpType.IsUnion t &&
-    //         t.GetCustomAttributes true
-    //         |> Seq.exists (fun a -> (a.GetType ()).Name = "EraseAttribute")
+    let isErasedUnion (t: System.Type) =
+        t.Name = "FSharpOption`1" ||
+        FSharpType.IsUnion t &&
+            t.GetCustomAttributes true
+            |> Seq.exists (fun a -> (a.GetType ()).Name = "EraseAttribute")
 
-    // let getErasedUnionValue (v: obj) =
-    //     match FSharpValue.GetUnionFields (v, v.GetType()) with
-    //     | _, [|v|] -> Some v
-    //     | _ -> None
+    let getErasedUnionValue (v: obj) =
+        match FSharpValue.GetUnionFields (v, v.GetType()) with
+        | _, [|v|] -> Some v
+        | _ -> None
 
-    // type ErasedUnionConverter() =
-    //     inherit JsonConverter()
-    //     let typeCache = ConcurrentDictionary<System.Type, bool>()
-    //     override __.CanConvert t =
-    //         typeCache.GetOrAdd(t, isErasedUnion)
-    //     override __.ReadJson(_reader, _t, _v, _serializer) =
-    //         failwith "Not implemented"
-    //     override __.WriteJson(writer, v, serializer) =
-    //         match getErasedUnionValue v with
-    //         | Some v -> serializer.Serialize(writer, v)
-    //         | None -> writer.WriteNull()
+    type ErasedUnionConverter() =
+        inherit JsonConverter()
+        let typeCache = ConcurrentDictionary<System.Type, bool>()
+        override __.CanConvert t =
+            typeCache.GetOrAdd(t, isErasedUnion)
+        override __.ReadJson(_reader, _t, _v, _serializer) =
+            failwith "Not implemented"
+        override __.WriteJson(writer, v, serializer) =
+            match getErasedUnionValue v with
+            | Some v -> serializer.Serialize(writer, v)
+            | None -> writer.WriteNull()
 
     let jsonSettings = JsonSerializerSettings(
-                        // Converters = [| ErasedUnionConverter() |],
+                        Converters = [| ErasedUnionConverter() |],
                         ContractResolver = Serialization.CamelCasePropertyNamesContractResolver(),
                         NullValueHandling = NullValueHandling.Ignore)
 

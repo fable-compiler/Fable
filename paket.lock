@@ -2,10 +2,10 @@ STORAGE: NONE
 RESTRICTION: || (== netcoreapp2.0) (== netstandard2.0)
 NUGET
   remote: https://www.nuget.org/api/v2
-    Dotnet.ProjInfo (0.9)
-      FSharp.Core (>= 4.2.3)
-    Fable.Core (2.0.0-beta-001)
-      FSharp.Core (>= 4.3.4)
+    Dotnet.ProjInfo (0.20)
+      FSharp.Core (>= 4.1.18)
+    Fable.Core (2.0.1)
+      FSharp.Core (>= 4.5.2)
     FSharp.Compiler.Service (25.0.1)
       FSharp.Core (>= 4.1.18)
       System.Collections.Immutable (>= 1.5)
@@ -24,7 +24,7 @@ NUGET
       Microsoft.NETCore.Targets (>= 1.1)
       System.Runtime (>= 4.3)
     Microsoft.Win32.Registry (4.5)
-      System.Buffers (>= 4.4) - restriction: || (&& (== netcoreapp2.0) (>= monoandroid)) (&& (== netcoreapp2.0) (>= monotouch)) (&& (== netcoreapp2.0) (>= xamarinios)) (&& (== netcoreapp2.0) (>= xamarinmac)) (&& (== netcoreapp2.0) (>= xamarintvos)) (&& (== netcoreapp2.0) (>= xamarinwatchos)) (== netstandard2.0)
+      System.Buffers (>= 4.4) - restriction: || (&& (== netcoreapp2.0) (>= monoandroid) (< netstandard2.0)) (&& (== netcoreapp2.0) (>= monotouch)) (&& (== netcoreapp2.0) (>= xamarinios)) (&& (== netcoreapp2.0) (>= xamarinmac)) (&& (== netcoreapp2.0) (>= xamarintvos)) (&& (== netcoreapp2.0) (>= xamarinwatchos)) (== netstandard2.0)
       System.Memory (>= 4.5)
       System.Security.AccessControl (>= 4.5)
       System.Security.Principal.Windows (>= 4.5)
@@ -66,7 +66,7 @@ NUGET
     runtime.ubuntu.16.04-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
     runtime.ubuntu.16.10-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
     runtime.ubuntu.18.04-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
-    System.Buffers (4.5) - restriction: || (&& (== netcoreapp2.0) (>= monoandroid)) (&& (== netcoreapp2.0) (>= monotouch)) (&& (== netcoreapp2.0) (>= xamarinios)) (&& (== netcoreapp2.0) (>= xamarinmac)) (&& (== netcoreapp2.0) (>= xamarintvos)) (&& (== netcoreapp2.0) (>= xamarinwatchos)) (== netstandard2.0)
+    System.Buffers (4.5) - restriction: || (&& (== netcoreapp2.0) (>= monoandroid) (< netstandard2.0)) (&& (== netcoreapp2.0) (>= monotouch)) (&& (== netcoreapp2.0) (>= xamarinios)) (&& (== netcoreapp2.0) (>= xamarinmac)) (&& (== netcoreapp2.0) (>= xamarintvos)) (&& (== netcoreapp2.0) (>= xamarinwatchos)) (== netstandard2.0)
     System.Collections (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
@@ -151,7 +151,7 @@ NUGET
       System.Runtime (>= 4.3)
       System.Runtime.Extensions (>= 4.3)
     System.Memory (4.5.1)
-      System.Buffers (>= 4.4) - restriction: || (&& (== netcoreapp2.0) (>= monoandroid)) (&& (== netcoreapp2.0) (>= monotouch)) (&& (== netcoreapp2.0) (>= net461)) (&& (== netcoreapp2.0) (< netstandard1.1)) (&& (== netcoreapp2.0) (< netstandard2.0)) (&& (== netcoreapp2.0) (>= xamarinios)) (&& (== netcoreapp2.0) (>= xamarinmac)) (&& (== netcoreapp2.0) (>= xamarintvos)) (&& (== netcoreapp2.0) (>= xamarinwatchos)) (== netstandard2.0)
+      System.Buffers (>= 4.4) - restriction: || (&& (== netcoreapp2.0) (>= monotouch)) (&& (== netcoreapp2.0) (>= net461)) (&& (== netcoreapp2.0) (< netstandard1.1)) (&& (== netcoreapp2.0) (< netstandard2.0)) (&& (== netcoreapp2.0) (>= xamarinios)) (&& (== netcoreapp2.0) (>= xamarinmac)) (&& (== netcoreapp2.0) (>= xamarintvos)) (&& (== netcoreapp2.0) (>= xamarinwatchos)) (== netstandard2.0)
       System.Numerics.Vectors (>= 4.4) - restriction: || (&& (== netcoreapp2.0) (>= net461)) (== netstandard2.0)
       System.Runtime.CompilerServices.Unsafe (>= 4.5)
     System.Numerics.Vectors (4.5) - restriction: || (&& (== netcoreapp2.0) (>= net461)) (== netstandard2.0)
@@ -187,7 +187,7 @@ NUGET
     System.Runtime (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
-    System.Runtime.CompilerServices.Unsafe (4.5.1)
+    System.Runtime.CompilerServices.Unsafe (4.5.2)
     System.Runtime.Extensions (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
@@ -251,7 +251,7 @@ NUGET
       System.Runtime (>= 4.3)
       System.Threading (>= 4.3)
       System.Threading.Tasks (>= 4.3)
-    System.Security.Principal.Windows (4.5)
+    System.Security.Principal.Windows (4.5.1)
       Microsoft.NETCore.Platforms (>= 2.0) - restriction: || (== netcoreapp2.0) (&& (== netstandard2.0) (>= netcoreapp2.0))
     System.Text.Encoding (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
@@ -280,10 +280,10 @@ RESTRICTION: >= net45
 NUGET
   remote: https://www.nuget.org/api/v2
     FAKE (4.64.13)
-    Octokit (0.29)
+    Octokit (0.32)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (97a503a180d86701ae7c56f7e15432907a86b3f3)
+    modules/Octokit/Octokit.fsx (3827f95ad533978ec14c29db92658f48b0609e05)
       Octokit (>= 0.20)
   remote: fable-compiler/fake-helpers
-    Fable.FakeHelpers.fs (2659db7061c051f1ed23c04bf21b234224374b16)
+    Fable.FakeHelpers.fs (46b48de9f1b532b63b015a9e2e2b22d150734728)

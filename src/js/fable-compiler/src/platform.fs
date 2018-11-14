@@ -33,7 +33,7 @@ let ensureDirExists (dir: string): unit =
 let copyFolder (from: string, dest: string): unit =
     importMember "./util.js"
 
-let transformAndSaveBabelAst (babelAst: obj, fileName: string, outDir: string): unit =
+let transformAndSaveBabelAst (babelAst: obj, fileName: string, outDir: string, commonjs: bool): unit =
     importMember "./util.js"
 
 let initFable (): Fable.Repl.IFableManager =

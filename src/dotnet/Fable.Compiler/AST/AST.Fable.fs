@@ -278,7 +278,7 @@ type Expr =
     | Operation of OperationKind * typ: Type * range: SourceLocation option
     | Get of Expr * GetKind * typ: Type * range: SourceLocation option
 
-    | Debugger
+    | Debugger of range: SourceLocation option
     | Throw of Expr * typ: Type * range: SourceLocation option
 
     | DecisionTree of Expr * targets: (Ident list * Expr) list
@@ -299,7 +299,7 @@ type Expr =
         | IdentExpr id -> id.Type
         | TypeCast(_,t) | Import(_,_,_,t,_) | DelayedResolution(_,t,_) | ObjectExpr(_,t,_)
         | Operation(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | DecisionTreeSuccess(_,_,t) -> t
-        | Debugger | Set _ | Loop _ -> Unit
+        | Debugger _ | Set _ | Loop _ -> Unit
         | Sequential exprs -> (List.last exprs).Type
         | Let(_,expr) | TryCatch(expr,_,_) | IfThenElse(_,expr,_) | DecisionTree(expr,_) -> expr.Type
         | Function(kind,body,_) ->
@@ -310,9 +310,9 @@ type Expr =
     member this.Range: SourceLocation option =
         match this with
         | Value _ | Import _ | DelayedResolution _
-        | ObjectExpr _ | Debugger | Sequential _ | Let _
+        | ObjectExpr _ | Sequential _ | Let _
         | IfThenElse _ | TryCatch _ | DecisionTree _ | DecisionTreeSuccess _ -> None
 
         | Function(_,e,_) | TypeCast(e,_) -> e.Range
         | IdentExpr id -> id.Range
-        | Test(_,_,r) | Operation(_,_,r) | Get(_,_,_,r) | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r
+        | Debugger r | Test(_,_,r) | Operation(_,_,r) | Get(_,_,_,r) | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r

@@ -94,6 +94,55 @@ let tests =
         equal (System.Decimal.Zero, 0.M)
         equal (System.Decimal.One, 1.M)
 
+    testCase "Decimal precision is kept" <| fun () ->
+        let items = [ 290.8M
+                      290.8M
+                      337.12M
+                      6.08M
+                      -924.8M ]
+        equal(List.sum items, 0M)
+
+    testCase "Decimal Infix add can be generated" <| fun () ->
+        equal (4.0868M + 2.289348M, 6.376148M)
+
+    testCase "Decimal Infix subtract can be generated" <| fun () ->
+        equal (4.0868M - 2.289348M, 1.797452M)
+
+    testCase "Decimal Infix multiply can be generated" <| fun () ->
+        equal (4.0868M * 2.289348M, 9.3561074064M)
+
+    testCase "Decimal Infix divide can be generated" <| fun () ->
+        equal (4M / 2M, 2M)
+
+    testCase "Decimal Infix modulo can be generated" <| fun () ->
+        equal (4.0868M % 2.289348M, 1.797452M)
+
+    testCase "Decimal Evaluation order is preserved by generated code" <| fun () ->
+        equal ((4.4567M - 2.2234M) * 2.6492M + 1.2493M, 7.16575836M)
+
+    testCase "Decimal abs works" <| fun () ->
+        equal (abs -4M, 4M)
+
+    testCase "Decimal round works" <| fun () ->
+        equal (round -12.5M, -12.M)
+        equal (round 1.5M, 2.M)
+        equal (round 1.535M, 2.M)
+        equal (round 1.525M, 2.M)
+        equal (Math.Round 1.425M, 1.M)
+
+    testCase "Decimal ceil works" <| fun () ->
+        equal (ceil 11.25M, 12.M)
+        equal (ceil -11.25M, -11.M)
+        equal (Math.Ceiling 11.25M, 12.M)
+
+    testCase "Decimal floor works" <| fun () ->
+        equal (floor 11.75M, 11.M)
+        equal (floor -11.75M, -12.M)
+        equal (Math.Floor 11.25M, 11.M)
+
+    testCase "Decimal pown works" <| fun () ->
+        equal (pown 2.2M 3, 10.648M)
+
     testCase "Int64 Infix add can be generated" <| fun () ->
         equal (4L + 2L, 6L)
 
@@ -189,13 +238,17 @@ let tests =
         equal (round 1.5, 2.)
         equal (round 1.535, 2.)
         equal (round 1.525, 2.)
-        equal (System.Math.Round(1.55, 1), 1.6)
+        equal (Math.Round 1.425M, 1.M)
 
     testCase "ceil works" <| fun () ->
         equal (ceil 11.25, 12.)
+        equal (ceil -11.25, -11.)
+        equal (Math.Ceiling 11.25, 12.)
 
     testCase "floor works" <| fun () ->
         equal (floor 11.75, 11.)
+        equal (floor -11.75, -12.)
+        equal (Math.Floor 11.25, 11.)
 
     testCase "pown works" <| fun () ->
         pown 2.2 3 |> checkTo3dp 10648.
@@ -212,18 +265,17 @@ let tests =
         equal (isNaN (sqrt negativeInfinity), true)
         equal (sqrt positiveInfinity, positiveInfinity)
 
-    // TODO!!!
-    // testCase "Double.Parse works with IFormatProvider" <| fun () ->
-    //     // culture compiles to { } for now and it is ignore on the call-site
-    //     let culture = Globalization.CultureInfo.InvariantCulture
-    //     let result = System.Double.Parse("10.5", culture)
-    //     equal(10.5, result)
+    testCase "Double.Parse works with IFormatProvider" <| fun () ->
+        // culture compiles to { } for now and it is ignored on the call-site
+        let culture = Globalization.CultureInfo.InvariantCulture
+        let result = System.Double.Parse("10.5", culture)
+        equal(10.5, result)
 
-    // testCase "Single.Parse works with IFormatProvider" <| fun () ->
-    //     // culture compiles to { } for now and it is ignore on the call-site
-    //     let culture = Globalization.CultureInfo.InvariantCulture
-    //     let result = System.Single.Parse("10.5", culture)
-    //     equal(10.5, float result)
+    testCase "Single.Parse works with IFormatProvider" <| fun () ->
+        // culture compiles to { } for now and it is ignored on the call-site
+        let culture = Globalization.CultureInfo.InvariantCulture
+        let result = System.Single.Parse("10.5", culture)
+        equal(10.5, float result)
 
     testCase "acos works" <| fun () ->
         acos 0.25 |> checkTo3dp 1318.

@@ -42,7 +42,7 @@ type IFableCompiler =
     abstract InjectArgument: Context * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
-    abstract AddUsedVarName: string -> unit
+    abstract AddUsedVarName: string * ?isRoot: bool -> unit
     abstract IsUsedVarName: string -> bool
 
 module Helpers =
@@ -178,7 +178,8 @@ module Helpers =
 
     let makeRange (r: Range.range) =
         { start = { line = r.StartLine; column = r.StartColumn }
-          ``end``= { line = r.EndLine; column = r.EndColumn } }
+          ``end``= { line = r.EndLine; column = r.EndColumn }
+          identifierName = None }
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
@@ -275,6 +276,20 @@ module Patterns =
     let inline (|Transform|) (com: IFableCompiler) ctx e = com.Transform(ctx, e)
     let inline (|FieldName|) (fi: FSharpField) = fi.Name
 
+    let (|CommonNamespace|_|) = function
+        | (FSharpImplementationFileDeclaration.Entity(ent, subDecls))::restDecls
+            when ent.IsNamespace ->
+            let commonName = ent.CompiledName
+            (Some subDecls, restDecls) ||> List.fold (fun acc decl ->
+                match acc, decl with
+                | (Some subDecls), (FSharpImplementationFileDeclaration.Entity(ent, subDecls2)) ->
+                    if ent.CompiledName = commonName
+                    then Some(subDecls@subDecls2)
+                    else None
+                | _ -> None)
+            |> Option.map (fun subDecls -> ent, subDecls)
+        | _ -> None
+
     let inline (|NonAbbreviatedType|) (t: FSharpType) =
         nonAbbreviatedType t
 
@@ -301,21 +316,21 @@ module Patterns =
         | TypeDefinition tdef as t when tdef.TryFullName = Some Types.reference -> Some t
         | _ -> None
 
-    /// Detects AST pattern of "raise MatchFailureException()" 
-    let (|RasingMatchFailureExpr|_|) (expr: FSharpExpr) = 
-        match expr with 
-        | BasicPatterns.Call(None, methodInfo, [ ], [unitType], [value]) ->   
-            match methodInfo.FullName with 
-            | "Microsoft.FSharp.Core.Operators.raise" -> 
-                match value with 
-                | BasicPatterns.NewRecord(recordType, [ BasicPatterns.Const (value, valueT) ; rangeFrom; rangeTo ]) -> 
-                    match recordType.TypeDefinition.FullName with 
+    /// Detects AST pattern of "raise MatchFailureException()"
+    let (|RasingMatchFailureExpr|_|) (expr: FSharpExpr) =
+        match expr with
+        | BasicPatterns.Call(None, methodInfo, [ ], [unitType], [value]) ->
+            match methodInfo.FullName with
+            | "Microsoft.FSharp.Core.Operators.raise" ->
+                match value with
+                | BasicPatterns.NewRecord(recordType, [ BasicPatterns.Const (value, valueT) ; rangeFrom; rangeTo ]) ->
+                    match recordType.TypeDefinition.FullName with
                     | "Microsoft.FSharp.Core.MatchFailureException"-> Some (value.ToString())
                     | _ -> None
-                | _ -> None 
-            | _ -> None 
-        | _ -> None  
-        
+                | _ -> None
+            | _ -> None
+        | _ -> None
+
     let (|ForOf|_|) = function
         | Let((_, value), // Coercion to seq
               Let((_, Call(None, meth, _, [], [])),
@@ -426,14 +441,12 @@ module Patterns =
               Types.uint32 , UInt32
               Types.float32, Float32
               Types.float64, Float64
-              Types.decimal, Decimal
                // Units of measure
               "Microsoft.FSharp.Core.sbyte`1", Int8
               "Microsoft.FSharp.Core.int16`1", Int16
               "Microsoft.FSharp.Core.int`1", Int32
               "Microsoft.FSharp.Core.float32`1", Float32
-              "Microsoft.FSharp.Core.float`1", Float64
-              "Microsoft.FSharp.Core.decimal`1", Decimal]
+              "Microsoft.FSharp.Core.float`1", Float64]
 
     let (|NumberKind|_|) fullName =
         match numberTypes.TryGetValue(fullName) with
@@ -607,7 +620,8 @@ module Identifiers =
           Kind = Fable.UnspecifiedIdent
           IsMutable = fsRef.IsMutable
           IsCompilerGenerated = fsRef.IsCompilerGenerated
-          Range = makeRange fsRef.DeclarationLocation |> Some }
+          Range = { makeRange fsRef.DeclarationLocation
+                    with identifierName = Some fsRef.DisplayName } |> Some }
 
     /// Sanitize F# identifier and create new context
     let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =

@@ -197,7 +197,8 @@ let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFil
             | FSharpErrorSeverity.Error -> Severity.Error
         let range =
             { start={ line=er.StartLineAlternate; column=er.StartColumn}
-              ``end``={ line=er.EndLineAlternate; column=er.EndColumn} }
+              ``end``={ line=er.EndLineAlternate; column=er.EndColumn}
+              identifierName = None }
         er.FileName, range, severity, er.Message)
     |> Seq.distinct // Sometimes errors are duplicated
     |> Seq.iter (fun (fileName, range, severity, msg) ->

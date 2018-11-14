@@ -1,6 +1,6 @@
 {
   "name": "fable-splitter",
-  "version": "2.0.2",
+  "version": "2.1.0-alpha-002",
   "description": "File splitter for Fable (F# to JavaScript compiler)",
   "author": "ncave",
   "license": "Apache-2.0",
@@ -30,9 +30,11 @@
   },
   "dependencies": {
     "@babel/core": "^7.0.0",
+    "@babel/plugin-transform-modules-commonjs": "^7.1.0",
     "chokidar": "^2.0.4",
     "fable-utils": "^1.2.0",
-    "fs-extra": "^7.0.0"
+    "fs-extra": "^7.0.0",
+    "nodemon": "^1.18.6"
   },
   "devDependencies": {
     "@types/babel__core": "^7.0.1",

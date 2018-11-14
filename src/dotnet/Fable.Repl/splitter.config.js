@@ -3,8 +3,7 @@ const path = require("path");
 const useCommonjs = process.argv.find(v => v === "--commonjs");
 console.log("Compiling to " + (useCommonjs ? "commonjs" : "ES2015 modules") + "...")
 
-const babelOptions =
-  useCommonjs
+const babelOptions = useCommonjs
   ? { plugins: ["@babel/plugin-transform-modules-commonjs"] }
   : {};
 

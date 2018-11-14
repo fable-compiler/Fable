@@ -9,11 +9,113 @@
  */
 
 import { fromValue, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long";
-import { compareDates, DateKind, dateOffset, dateToString, IDateTime, IDateTimeOffset } from "./Util";
+import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util";
 
 export const offsetRegex = /(?:Z|[+-](\d+):?([0-5]?\d)?)\s*$/;
 
-export const toString = dateToString;
+export function dateOffsetToString(offset: number) {
+  const isMinus = offset < 0;
+  offset = Math.abs(offset);
+  const hours = ~~(offset / 3600000);
+  const minutes = (offset % 3600000) / 60000;
+  return (isMinus ? "-" : "+") +
+    padWithZeros(hours, 2) + ":" +
+    padWithZeros(minutes, 2);
+}
+
+export function dateToHalfUTCString(date: IDateTime, half: "first" | "second") {
+  const str = date.toISOString();
+  return half === "first"
+    ? str.substring(0, str.indexOf("T"))
+    : str.substring(str.indexOf("T") + 1, str.length - 1);
+}
+
+function dateToISOString(d: IDateTime, utc: boolean) {
+  if (utc) {
+    return d.toISOString();
+  } else {
+    // JS Date is always local
+    const printOffset = d.kind == null ? true : d.kind === DateKind.Local;
+    return padWithZeros(d.getFullYear(), 4) + "-" +
+      padWithZeros(d.getMonth() + 1, 2) + "-" +
+      padWithZeros(d.getDate(), 2) + "T" +
+      padWithZeros(d.getHours(), 2) + ":" +
+      padWithZeros(d.getMinutes(), 2) + ":" +
+      padWithZeros(d.getSeconds(), 2) + "." +
+      padWithZeros(d.getMilliseconds(), 3) +
+      (printOffset ? dateOffsetToString(d.getTimezoneOffset() * -60000) : "");
+  }
+}
+
+function dateToISOStringWithOffset(dateWithOffset: Date, offset: number) {
+  const str = dateWithOffset.toISOString();
+  return str.substring(0, str.length - 1) + dateOffsetToString(offset);
+}
+
+function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) {
+  return format.replace(/(\w)\1*/g, (match: any) => {
+    let rep = match;
+    switch (match.substring(0, 1)) {
+      case "y":
+        const y = utc ? date.getUTCFullYear() : date.getFullYear();
+        rep = match.length < 4 ? y % 100 : y; break;
+      case "M": rep = (utc ? date.getUTCMonth() : date.getMonth()) + 1; break;
+      case "d": rep = utc ? date.getUTCDate() : date.getDate(); break;
+      case "H": rep = utc ? date.getUTCHours() : date.getHours(); break;
+      case "h":
+        const h = utc ? date.getUTCHours() : date.getHours();
+        rep = h > 12 ? h % 12 : h; break;
+      case "m": rep = utc ? date.getUTCMinutes() : date.getMinutes(); break;
+      case "s": rep = utc ? date.getUTCSeconds() : date.getSeconds(); break;
+    }
+    if (rep !== match && rep < 10 && match.length > 1) {
+      rep = "0" + rep;
+    }
+    return rep;
+  });
+}
+
+function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
+  const d = new Date(date.getTime() + date.offset);
+  if (typeof format !== "string") {
+    return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString(date.offset);
+  } else if (format.length === 1) {
+    switch (format) {
+      case "D": case "d": return dateToHalfUTCString(d, "first");
+      case "T": case "t": return dateToHalfUTCString(d, "second");
+      case "O": case "o": return dateToISOStringWithOffset(d, date.offset);
+      default: throw new Error("Unrecognized Date print format");
+    }
+  } else {
+    return dateToStringWithCustomFormat(d, format, true);
+  }
+}
+
+function dateToStringWithKind(date: IDateTime, format?: string) {
+  const utc = date.kind === DateKind.UTC;
+  if (typeof format !== "string") {
+    return utc ? date.toUTCString() : date.toLocaleString();
+  } else if (format.length === 1) {
+    switch (format) {
+      case "D": case "d":
+        return utc ? dateToHalfUTCString(date, "first") : date.toLocaleDateString();
+      case "T": case "t":
+        return utc ? dateToHalfUTCString(date, "second") : date.toLocaleTimeString();
+      case "O": case "o":
+        return dateToISOString(date, utc);
+      default:
+        throw new Error("Unrecognized Date print format");
+    }
+  } else {
+    return dateToStringWithCustomFormat(date, format, utc);
+  }
+}
+
+export function toString(date: IDateTime | IDateTimeOffset, format?: string) {
+  return (date as IDateTimeOffset).offset != null
+    ? dateToStringWithOffset(date, format)
+    : dateToStringWithKind(date, format);
+}
 
 export default function DateTime(value: number, kind?: DateKind) {
   const d = new Date(value) as IDateTime;
@@ -100,6 +202,8 @@ export function parseRaw(str: string) {
         }
       }
       date = new Date(baseDate.getTime() + timeInSeconds * 1000);
+      // correct for daylight savings time
+      date = new Date(date.getTime() + (date.getTimezoneOffset() - baseDate.getTimezoneOffset()) * 60000);
     } else {
       throw new Error("The string is not a valid Date.");
     }

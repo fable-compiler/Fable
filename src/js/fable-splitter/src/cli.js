@@ -2,10 +2,47 @@
 
 /// @ts-check
 
-var fs = require("fs");
-var path = require("path");
-var chokidar = require("chokidar");
-var fableSplitter = require("./index").default;
+const fs = require("fs");
+const path = require("path");
+const fableSplitter = require("./index").default;
+const chokidarLazy = requireLazy("chokidar");
+const nodemonLazy = requireLazy("nodemon");
+
+function requireLazy(module) {
+    var cache = null;
+    return function () {
+        if (cache === null) {
+            cache = require(module);
+        }
+        return cache;
+    }
+}
+
+function getMainScriptPath(options, info) {
+    const lastFile = info.projectFiles[info.projectFiles.length - 1];
+    const mainScript = path.join(options.outDir, info.mapInOutPaths.get(lastFile));
+    return mainScript.endsWith(".js") ? mainScript : mainScript + ".js";
+}
+
+function runScriptOnce(scriptPath) {
+    require(scriptPath);
+}
+
+function runScriptWithWatch(scriptPath) {
+    const nodemon = nodemonLazy();
+    nodemon({
+        script: scriptPath,
+        ext: 'js'
+      });
+
+    nodemon
+        // .on('start', function () { console.log('App has started'); })
+        // .on('restart', function (files) { console.log('App restarted due to: ', files); })
+        .on('quit', function () {
+            // console.log('App has quit');
+            process.exit();
+        });
+}
 
 function getVersion() {
     /// @ts-ignore
@@ -25,6 +62,8 @@ Arguments:
   -o|--outDir       Output directory
   -c|--config       Config file
   -w|--watch        [FLAG] Watch mode
+  -d|--debug        [FLAG] Define DEBUG constant
+  --run             [FLAG] Run script with node after compilation
 `
 }
 
@@ -64,6 +103,19 @@ function objectAssignNonNull(target, source) {
     return target;
 }
 
+function concatIfNotExists(ar, item) {
+    if (ar == null) {
+        return [item];
+    } else {
+        ar = Array.isArray(ar) ? ar : [ar];
+        if (ar.indexOf(item) === -1) {
+            return ar.concat(item);
+        } else {
+            return ar;
+        }
+    }
+}
+
 function readConfig(filePath, force) {
     filePath = path.resolve(filePath);
     if (fs.existsSync(filePath)) {
@@ -76,22 +128,42 @@ function readConfig(filePath, force) {
 }
 
 function run(entry, args) {
-    var cfgFile = findArgValue(restArgs, ["-c", "--config"]);
-    var opts = cfgFile
+    const cfgFile = findArgValue(args, ["-c", "--config"]);
+
+    const opts = cfgFile
         ? readConfig(cfgFile, true)
         : (readConfig("fable-splitter.config.js") || readConfig("splitter.config.js") || {});
-    objectAssignNonNull(opts, {
-        entry: entry,
-        outDir: findArgValue(restArgs, ["-o", "--outDir"], path.resolve),
-        allFiles: findFlag(restArgs, "--allFiles")
-    });
+
+        objectAssignNonNull(opts, {
+            entry: entry,
+            outDir: findArgValue(args, ["-o", "--outDir"], path.resolve),
+            allFiles: findFlag(args, "--allFiles")
+        });
+
+        if (findFlag(args, ["-d", "--debug"])) {
+            let fableOpts = opts.fable || {}
+            fableOpts.define = concatIfNotExists(fableOpts.define, "DEBUG");
+            opts.fable = fableOpts;
+        }
+
+        // If we're passing --run assume we're compiling for Node
+        // TODO: In the future, we may want to use ES2015 modules and .mjs files
+        if (findFlag(args, ["--run"])) {
+            let babelOpts = opts.babel || {};
+            babelOpts.plugins = concatIfNotExists(babelOpts.define, "@babel/plugin-transform-modules-commonjs");
+            opts.babel = babelOpts;
+        }
 
     /// @ts-ignore
+    console.log(`fable-splitter ${getVersion()}`);
     fableSplitter(opts).then(info => {
-        if (findFlag(restArgs, ["-w", "--watch"])) {
-            var cachedInfo = info;
-            var ready = false, next = null, prev = null;
-            var watcher = chokidar
+        if (findFlag(args, ["-w", "--watch"])) {
+            if (findFlag(args, "--run")) {
+                runScriptWithWatch(getMainScriptPath(opts, info));
+            }
+            let cachedInfo = info;
+            let ready = false, next = null, prev = null;
+            const watcher = chokidarLazy()
                 .watch(Array.from(info.compiledPaths), {
                     ignored: /node_modules/,
                     persistent: true
@@ -106,11 +178,11 @@ function run(entry, args) {
                         next = [filePath, new Date()];
                         if (!tooClose(filePath, prev)) {
                             // console.log(ev + ": " + filePath + " at " + next[1].toLocaleTimeString());
-                            var newOpts = Object.assign({}, opts, { path: filePath });
+                            const newOpts = Object.assign({}, opts, { path: filePath });
                             /// @ts-ignore
                             fableSplitter(newOpts, cachedInfo).then(info => {
                                 if (info.compiledPaths.size > cachedInfo.compiledPaths.size) {
-                                    var newFiles = Array.from(info.compiledPaths)
+                                    const newFiles = Array.from(info.compiledPaths)
                                         .filter(x => !cachedInfo.compiledPaths.has(x));
                                     // console.log("fable: Add " + newFiles.join())
                                     watcher.add(newFiles);
@@ -120,16 +192,20 @@ function run(entry, args) {
                         }
                     }
                 });
-            }
-            else {
-                var hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
+        }
+        else {
+            const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
+            if (!hasError && findFlag(args, "--run")) {
+                runScriptOnce(getMainScriptPath(opts, info));
+            } else {
                 process.exit(hasError ? 1 : 0);
             }
+        }
     });
 }
 
-var args = process.argv.slice(2);
-var command = args[0];
+const args = process.argv.slice(2);
+const command = args[0];
 
 switch (command) {
     case "-h":
@@ -140,7 +216,7 @@ switch (command) {
         console.log(getVersion());
         break;
     default:
-        var entry = null, restArgs = args;
+        let entry = null, restArgs = args;
         if (command && !command.startsWith('-')) {
             entry = path.resolve(command);
             restArgs = args.slice(1);

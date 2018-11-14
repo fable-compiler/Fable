@@ -1,7 +1,7 @@
 // source: https://github.com/fsharp/fsharp
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-namespace Microsoft.FSharp.Math
+namespace BigInt
 
 #if FX_NO_BIGINT
 open System
@@ -15,7 +15,7 @@ open Microsoft.FSharp.Primitives.Basics
 type ints = int array
 
 [<NoEquality; NoComparison>]
-type internal BigNat = 
+type BigNat = 
 
     // Have n = sum (from i=0 to bound) a.[i] * baseN ^ i
     // Have 0 <= a.[i] < baseN.

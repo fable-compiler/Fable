@@ -1,4 +1,4 @@
-import Long, { fromNumber, op_Division, op_Multiply, toNumber } from "./Long";
+import { fromNumber, op_Division, op_Multiply, toNumber } from "./Long";
 import { comparePrimitives } from "./Util";
 
 // TimeSpan in runtime just becomes a number representing milliseconds

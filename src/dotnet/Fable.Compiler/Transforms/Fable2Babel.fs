@@ -8,6 +8,7 @@ open System.Collections.Generic
 
 type ReturnStrategy =
     | Return
+    | ReturnUnit
     | Assign of Expression // TODO: Add SourceLocation?
     | Target of Identifier
 
@@ -108,7 +109,7 @@ module Util =
         | Fable.Value _ | Fable.Import _ | Fable.DelayedResolution _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
         | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ | Fable.TypeCast _ -> false
 
-        | Fable.TryCatch _ | Fable.Debugger
+        | Fable.TryCatch _ | Fable.Debugger _
         | Fable.Sequential _ | Fable.Let _ | Fable.Set _
         | Fable.Loop _ | Fable.Throw _ -> true
 
@@ -326,27 +327,31 @@ module Util =
         upcast FunctionExpression(args, body, ?id=id)
 
     let optimizeTailCall (com: IBabelCompiler) (ctx: Context) (tc: ITailCallOpportunity) args =
+        let rec checkCrossRefs tempVars allArgs = function
+            | [] -> tempVars
+            | (argId, _arg)::rest ->
+                let found = allArgs |> List.exists (FableTransforms.deepExists (function
+                    | Fable.IdentExpr i -> argId = i.Name
+                    | _ -> false))
+                let tempVars =
+                    if found
+                    then Map.add argId (com.GetUniqueVar(argId)) tempVars
+                    else tempVars
+                checkCrossRefs tempVars allArgs rest
         ctx.OptimizeTailCall()
         let zippedArgs = List.zip tc.Args args
-        let tempVars =
-            let rec checkCrossRefs acc = function
-                | [] | [_] -> acc
-                | (argId, _arg)::rest ->
-                    rest |> List.exists (snd >> FableTransforms.deepExists
-                        (function Fable.IdentExpr i -> argId = i.Name | _ -> false))
-                    |> function true -> Map.add argId (com.GetUniqueVar()) acc | false -> acc
-                    |> checkCrossRefs <| rest
-            checkCrossRefs Map.empty zippedArgs
+        let tempVars = checkCrossRefs Map.empty args zippedArgs
+        let tempVarReplacements = tempVars |> Map.map (fun _ v -> makeIdentExprNonMangled v)
         [|
+            // First declare temp variables
+            for (KeyValue(argId, tempVar)) in tempVars do
+                yield varDeclaration (Identifier tempVar) false (Identifier argId) :> Statement
+            // Then assign argument expressions to the original argument identifiers
+            // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
             for (argId, arg) in zippedArgs do
+                let arg = FableTransforms.replaceValues tempVarReplacements arg
                 let arg = com.TransformAsExpr(ctx, arg)
-                match Map.tryFind argId tempVars with
-                | Some tempVar ->
-                    yield varDeclaration (Identifier tempVar) false arg :> Statement
-                | None ->
-                    yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
-            for KeyValue(argId,tempVar) in tempVars do
-                yield assign None (Identifier argId) (Identifier tempVar) |> ExpressionStatement :> Statement
+                yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
             yield upcast ContinueStatement(Identifier tc.Label)
         |]
 
@@ -494,7 +499,6 @@ module Util =
             | UInt32 -> "uint32"
             | Float32 -> "float32"
             | Float64 -> "float64"
-            | Decimal -> "decimal"
             |> primitiveTypeInfo knownTypes
         | Fable.FunctionType(Fable.LambdaType argType, returnType) ->
             genericTypeInfo knownTypes "lambda" [argType; returnType]
@@ -642,7 +646,7 @@ module Util =
 
     let resolveExpr t strategy babelExpr: Statement =
         match strategy with
-        | None -> upcast ExpressionStatement babelExpr
+        | None | Some ReturnUnit -> upcast ExpressionStatement babelExpr
         // TODO: Where to put these int wrappings? Add them also for function arguments?
         | Some Return -> upcast ReturnStatement(wrapIntExpression t babelExpr)
         | Some(Assign left) -> upcast ExpressionStatement(assign None left babelExpr)
@@ -712,7 +716,7 @@ module Util =
             List.length i.Args + (if Option.isSome i.ThisArg then 1 else 0)
         // TODO: Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity, opKind with
-        | Some Return, Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
+        | Some(Return|ReturnUnit), Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
                                 when not argInfo.IsBaseOrSelfConstructorCall
                                 && tc.IsRecursiveRef(funcExpr)
                                 && argsLen argInfo = List.length tc.Args ->
@@ -721,7 +725,7 @@ module Util =
                 | Some thisArg -> thisArg::argInfo.Args
                 | None -> argInfo.Args
             optimizeTailCall com ctx tc args
-        | Some Return, Some tc, Fable.CurriedApply(funcExpr, args)
+        | Some(Return|ReturnUnit), Some tc, Fable.CurriedApply(funcExpr, args)
                                 when tc.IsRecursiveRef(funcExpr)
                                 && List.sameLength args tc.Args ->
             optimizeTailCall com ctx tc args
@@ -858,6 +862,21 @@ module Util =
             coreLibCall com ctx "Util" "isArray" [|com.TransformAsExpr(ctx, expr)|]
         | Fable.List _ ->
             jsInstanceof (coreValue com ctx "Types" "List") expr
+        | Replacements.Builtin kind ->
+            match kind with
+            | Replacements.BclGuid -> jsTypeof "string" expr
+            | Replacements.BclTimeSpan -> jsTypeof "number" expr
+            | Replacements.BclDateTime
+            | Replacements.BclDateTimeOffset -> jsInstanceof (Identifier "Date") expr
+            | Replacements.BclTimer -> jsInstanceof (coreValue com ctx "Timer" "default") expr
+            | Replacements.BclInt64
+            | Replacements.BclUInt64 -> jsInstanceof (coreValue com ctx "Long" "default") expr
+            | Replacements.BclDecimal -> jsInstanceof (coreValue com ctx "Decimal" "default") expr
+            | Replacements.BclBigInt -> coreLibCall com ctx "BigInt" "isBigInt" [|com.TransformAsExpr(ctx, expr)|]
+            | Replacements.BclHashSet _
+            | Replacements.BclDictionary _
+            | Replacements.FSharpSet _
+            | Replacements.FSharpMap _ -> fail "set/maps"
         | Fable.DeclaredType (ent, genArgs) ->
             match ent.TryFullName with
             | Some Types.idisposable ->
@@ -868,13 +887,6 @@ module Util =
                 | _ -> coreLibCall com ctx "Util" "isDisposable" [|com.TransformAsExpr(ctx, expr)|]
             | Some Types.ienumerable ->
                 [|com.TransformAsExpr(ctx, expr)|] |> coreLibCall com ctx "Util" "isIterable"
-            | Some (Types.datetime | Types.datetimeOffset) ->
-                jsInstanceof (Identifier "Date") expr
-            // TODO: Include units of measure? "Microsoft.FSharp.Core.int64`1"
-            | Some (Types.int64 | Types.uint64) ->
-                jsInstanceof (coreValue com ctx "Long" "default") expr
-            | Some Types.bigint ->
-                jsInstanceof (coreValue com ctx "BigInt" "default") expr
             | _ when ent.IsInterface ->
                 fail (sprintf "interface %A" ent.FullName)
             | _ when FSharp2Fable.Util.isReplacementCandidate ent ->
@@ -1160,15 +1172,15 @@ module Util =
         | Fable.Throw(TransformExpr com ctx ex, _, range) ->
             [|ThrowStatement(ex, ?loc=range) :> Statement|]
 
-        | Fable.Debugger ->
-            [|DebuggerStatement() :> Statement|]
+        | Fable.Debugger range ->
+            [|DebuggerStatement(?loc=range) :> Statement|]
 
         // Even if IfStatement doesn't enforce it, compile both branches as blocks
         // to prevent conflicts (e.g. `then` doesn't become a block while `else` does)
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr) ->
             let asStatement =
                 match returnStrategy with
-                | None -> true
+                | None | Some ReturnUnit -> true
                 | Some(Target _) -> true // Compile as statement so values can be bound
                 | Some(Assign _) -> (isJsStatement ctx false thenExpr) || (isJsStatement ctx false elseExpr)
                 | Some Return ->
@@ -1230,7 +1242,7 @@ module Util =
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true }
         let body: U2<BlockStatement, Expression> =
             if body.Type = Fable.Unit
-            then transformBlock com ctx None body |> U2.Case1
+            then transformBlock com ctx (Some ReturnUnit) body |> U2.Case1
             elif isJsStatement ctx (Option.isSome tailcallChance) body
             then transformBlock com ctx (Some Return) body |> U2.Case1
             else transformAsExpr com ctx body |> U2.Case2
@@ -1245,6 +1257,8 @@ module Util =
                             |> multiVarDeclaration Const
                         tc.Args |> List.map Identifier, BlockStatement(Array.append [|varDeclaration|] body.Body)
                     else args, body
+                // Make sure we don't get trapped in an infinite loop, see #1624
+                let body = BlockStatement(Array.append body.Body [|BreakStatement()|])
                 args, LabeledStatement(Identifier tc.Label, WhileStatement(BooleanLiteral true, body))
                 :> Statement |> Array.singleton |> BlockStatement |> U2.Case1
             | _ -> args, body

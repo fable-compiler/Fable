@@ -1,24 +1,59 @@
-const babel = require("@babel/core");
 const fs = require("fs");
-const path = require("path");
+const Path = require("path");
+const Babel = require("@babel/core");
 
-function getFiles(dir) {
+const FSHARP_EXT = /\.(fs|fsx)$/i;
+
+function ensureArray(obj) {
+    return (Array.isArray(obj) ? obj : obj != null ? [obj] : []);
+}
+
+function getRelPath(fromPath, toPath) {
+    let relPath = Path.relative(Path.dirname(fromPath), toPath);
+    relPath = relPath.replace(/\\/g, "/").replace(FSHARP_EXT, "");
+    relPath = relPath.endsWith(".js") ? relPath : relPath + ".js";
+    return relPath.startsWith("..") ? relPath : "./" + relPath;
+}
+
+function fixImportPaths(babelAst, sourcePath) {
+    const decls = ensureArray(babelAst.body);
+    for (const decl of decls) {
+        if (decl.source != null && typeof decl.source.value === "string") {
+            const importPath = decl.source.value;
+            if (importPath.startsWith("fable-core/") || importPath.match(FSHARP_EXT)) {
+                decl.source.value = getRelPath(sourcePath, importPath);
+            }
+        }
+    }
+}
+
+const useCommonjs = process.argv.find(v => v === "--commonjs");
+console.log("Compiling to " + (useCommonjs ? "commonjs" : "ES2015 modules") + "...")
+
+const babelOptions = useCommonjs
+  ? { plugins: ["@babel/plugin-transform-modules-commonjs"] }
+  : {};
+
+function getFilePaths(dir) {
     const subdirs = fs.readdirSync(dir);
     const files = subdirs.map((subdir) => {
-        const res = path.resolve(dir, subdir);
-        return fs.statSync(res).isDirectory() ? getFiles(res) : res;
+        const res = Path.resolve(dir, subdir);
+        return fs.statSync(res).isDirectory() ? getFilePaths(res) : res;
     });
     return files.reduce((acc, file) => acc.concat(file), []);
 }
 
-const files = getFiles("./test_out");
+const outDir = "./out-test";
+const filePaths = getFilePaths(outDir);
 
-for (const fileIn of files) {
-    if (fileIn.endsWith(".json")) {
-        const babelJson = fs.readFileSync(fileIn, "utf8");
+for (const filePath of filePaths) {
+    if (filePath.endsWith(".json")) {
+        const babelJson = fs.readFileSync(filePath, "utf8");
         const babelAst = JSON.parse(babelJson);
-        const res = babel.transformFromAst(babelAst[0]);
-        const fileOut = fileIn.replace(".json", ".js")
+        const fileName = Path.relative(outDir, filePath);
+        fixImportPaths(babelAst, fileName);
+        const res = Babel.transformFromAstSync(babelAst, null, babelOptions);
+        const fileOut = filePath.replace(/\.json$/, ".js")
         fs.writeFileSync(fileOut, res.code);
     }
 }

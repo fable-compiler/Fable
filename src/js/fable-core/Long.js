@@ -419,13 +419,6 @@ export function toNumber($this) {
         return (($this.high >>> 0) * TWO_PWR_32_DBL) + ($this.low >>> 0);
     return $this.high * TWO_PWR_32_DBL + ($this.low >>> 0);
 };
-/**
- * Converts the Long to a 32 bit integer.
- * @returns {number}
- */
-export function toIntNumber($this) {
-        return $this.low >>> 0;
-};
 
 /**
  * Converts the Long to a string written in the specified radix.

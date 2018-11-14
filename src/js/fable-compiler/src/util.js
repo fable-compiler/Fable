@@ -55,13 +55,16 @@ export function copyFolder(from, dest) {
     });
 }
 
-export function transformAndSaveBabelAst(babelAst, fileName, outDir) {
+export function transformAndSaveBabelAst(babelAst, fileName, outDir, commonjs) {
     try {
-        fixImportPaths(babelAst, fileName);
-        const res = Babel.transformFromAstSync(babelAst);
+        // this solves a weird commonjs issue where some imports are not properly qualified
+        babelAst = JSON.parse(JSON.stringify(babelAst)); // somehow this helps with that
         const jsPath = fileName.replace(FSHARP_EXT, ".js");
         const outPath = Path.join(outDir, jsPath);
         ensureDirExists(Path.dirname(outPath));
+        fixImportPaths(babelAst, fileName);
+        const babelOptions = commonjs ? { plugins: ["@babel/plugin-transform-modules-commonjs"] } : {};
+        const res = Babel.transformFromAstSync(babelAst, null, babelOptions);
         fs.writeFileSync(outPath, res.code);
     } catch (err) {
         console.error(err);

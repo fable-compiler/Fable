@@ -77,7 +77,20 @@ let dedupFileNames fileNames =
             name
     fileNames |> Array.map dedup
 
-let parseFiles projectPath outDir optimized =
+let printErrors showWarnings (errors: Fable.Repl.Error[]) =
+    let printError (e: Fable.Repl.Error) =
+        let errorType = (if e.IsWarning then "Warning" else "Error")
+        printfn "%s (%d,%d--%d,%d): %s: %s" e.FileName e.EndLineAlternate
+            e.StartColumn e.EndLineAlternate e.EndColumn errorType e.Message
+    let warnings, errors = errors |> Array.partition (fun e -> e.IsWarning)
+    let hasErrors = not (Array.isEmpty errors)
+    if showWarnings then
+        warnings |> Array.iter printError
+    if hasErrors then
+        errors |> Array.iter printError
+        failwith "Too many errors."
+
+let parseFiles projectPath outDir optimized commonjs =
     // parse project
     let (projectFileName, fileNames, sources, defines) = parseProject projectPath
 
@@ -91,41 +104,32 @@ let parseFiles projectPath outDir optimized =
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0
 
-    // Parse F# files to AST
-    let parseFSharp () = fable.ParseFSharpProjectSimple(checker, projectFileName, fileNames, sources)
+    // parse F# files to AST
+    let parseFSharp () = fable.ParseFSharpProjectFilesSimple(checker, projectFileName, fileNames, sources)
     let ms1, parseRes = measureTime parseFSharp ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
+    let showWarnings = true
+    parseRes.Errors |> printErrors showWarnings
 
-    // Check for errors
-    let printError (e: Fable.Repl.Error) =
-        printfn "%s: %s (%d,%d--%d,%d): %s"
-            (if e.IsWarning then "Warning" else "Error")
-            e.FileName e.EndLineAlternate e.StartColumn
-            e.EndLineAlternate e.EndColumn e.Message
-    let hasErrors (errors: Fable.Repl.Error[]) =
-        errors |> Array.exists (fun e -> not e.IsWarning)
-    parseRes.Errors |> Array.iter printError
-    if parseRes.Errors |> hasErrors then failwith "Too many errors."
-
-    // Exclude signature files
+    // exclude signature files
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
     // Fable (F# to Babel)
     let fableCoreDir = "fable-core"
-    copyFolder (__dirname + "/bundle/fable-core", Path.Combine(outDir, fableCoreDir))
+    let fableCoreDist = if commonjs then "/fable-core-commonjs" else "/bundle/fable-core"
+    copyFolder (__dirname + fableCoreDist, Path.Combine(outDir, fableCoreDir))
     let parseFable (fileName, ast) = fable.CompileToBabelAst(fableCoreDir, ast, fileName, optimized)
     let fsAst = parseRes.ProjectResults
     for fileName in fileNames do
 
         // transform F# AST to Babel AST
-        let ms2, (babelAst, errors) = measureTime parseFable (fileName, fsAst)
+        let ms2, res = measureTime parseFable (fileName, fsAst)
         printfn "File: %s, Fable time: %d ms" fileName ms2
-        errors |> Array.iter printError
-        if errors |> hasErrors then failwith "Too many errors."
+        res.FableErrors |> printErrors showWarnings
 
         // transform and save Babel AST
-        transformAndSaveBabelAst(babelAst, fileName, outDir)
+        transformAndSaveBabelAst(res.BabelAst, fileName, outDir, commonjs)
 
 let parseArguments (argv: string[]) =
     // TODO: more sophisticated argument parsing
@@ -136,7 +140,8 @@ let parseArguments (argv: string[]) =
     | [| "--version" |], _ -> printfn "v%s" (getVersion())
     | _, [| projectPath; outDir |] ->
         let optimized = opts |> Array.contains "--optimize-fcs"
-        parseFiles projectPath outDir optimized
+        let commonjs = opts |> Array.contains "--commonjs"
+        parseFiles projectPath outDir optimized commonjs
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]

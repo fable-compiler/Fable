@@ -18,13 +18,13 @@ type Position =
     static member Empty = { line = 1; column = 0 }
 
 type SourceLocation =
-    { (*source: string option;*) start: Position; ``end``: Position; }
-    member x.Collapse() =
-        { start = x.start; ``end`` = x.start }
-    static member (+) (r1: SourceLocation, r2: SourceLocation) =
-        { start = r1.start; ``end`` = r2.``end`` }
+    { start: Position;
+      ``end``: Position;
+      identifierName: string option }
     static member Empty =
-        { start = Position.Empty; ``end`` = Position.Empty }
+        { start = Position.Empty
+          ``end`` = Position.Empty
+          identifierName = None }
     override x.ToString() =
         sprintf "(L%i,%i-L%i,%i)"
             x.start.line x.start.column
