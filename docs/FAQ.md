@@ -201,7 +201,7 @@ module MyApp.Test
 open Fable.Import.Jest // See https://github.com/jgrund/fable-jest
 
 test "Demo test" <| fun () ->
-    expect.Invoke(true).toBeTruthy()
+    expect.Invoke(sprintf "%d" 42).toEqual("42")
 ```
 
 gets compiled to
