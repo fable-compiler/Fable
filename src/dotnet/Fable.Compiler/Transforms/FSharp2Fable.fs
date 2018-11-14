@@ -493,6 +493,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | _ -> return failwith "makeFunctionArgs returns args with different length"
 
     // Getters and Setters
+
     | BasicPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let! callee = transformExprOpt com ctx callee
         let callee =
@@ -500,6 +501,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             | Some callee -> callee
             | None -> entityRef com calleeType.TypeDefinition
         let kind = Fable.FieldGet(field.Name, field.IsMutable, makeType com Map.empty field.FieldType)
+        let typ = makeType com ctx.GenericArgs fsExpr.Type
+        return Fable.Get(callee, kind, typ, makeRangeFrom fsExpr)
+        
+    | BasicPatterns.ILFieldGet(callee, calleeType, field) ->
+        let! callee = transformExprOpt com ctx callee
+        let callee =
+            match callee with
+            | Some callee -> callee
+            | None -> entityRef com calleeType.TypeDefinition
+        let fsField = calleeType.TypeDefinition.FSharpFields |> Seq.filter (fun f -> f.Name = field) |> Seq.exactlyOne
+        let kind = Fable.FieldGet(field, true, makeType com Map.empty fsField.FieldType)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return Fable.Get(callee, kind, typ, makeRangeFrom fsExpr)
 
@@ -539,6 +551,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             | Some callee -> callee
             | None -> entityRef com calleeType.TypeDefinition
         return Fable.Set(callee, Fable.FieldSet(field.Name, makeType com Map.empty field.FieldType), value, makeRangeFrom fsExpr)
+
+    | BasicPatterns.ILFieldSet(callee, calleeType, field, value) ->
+        let! callee = transformExprOpt com ctx callee
+        let! value = transformExpr com ctx value
+        let callee =
+            match callee with
+            | Some callee -> callee
+            | None -> entityRef com calleeType.TypeDefinition
+        let fsField = calleeType.TypeDefinition.FSharpFields |> Seq.filter (fun f -> f.Name = field) |> Seq.exactlyOne
+        return Fable.Set(callee, Fable.FieldSet(field, makeType com Map.empty fsField.FieldType), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag(unionExpr, _unionType) ->
         let! unionExpr = transformExpr com ctx unionExpr
