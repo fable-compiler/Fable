@@ -221,7 +221,7 @@ Compile the test with an npm script to trigger the splitter when the Fable daemo
 ```json
 {
   "scripts" : {
-     "test" : "jest"
+     "test" : "jest",
      "compile" : "fable-splitter --config splitter.config.js"
   }
 }
