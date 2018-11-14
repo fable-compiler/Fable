@@ -5,23 +5,24 @@
 
 
 
-[<Struct>]
-type Vector3(x : single, y : single, z : single) =
+type Vector3 =
+  struct
 
-    new (value : single) = Vector3(value, value, value)
+    val mutable public X : single
+    val mutable public Y : single
+    val mutable public Z : single
 
-    member __.X = x
-    member __.Y = y
-    member __.Z = z
+    new (value : single) = { X = value; Y = value; Z = value }
+    new (x : single, y : single, z : single) = { X = x; Y = y; Z = z }
 
-    member __.Abs() = Vector3(System.Math.Abs(x), System.Math.Abs(y), System.Math.Abs(z))
+    member this.Abs() = Vector3(System.Math.Abs(this.X), System.Math.Abs(this.Y), System.Math.Abs(this.Z))
 
-    member __.CopyTo(arr : single array, index : int) =
-        arr.[index + 0] <- x
-        arr.[index + 1] <- y
-        arr.[index + 2] <- z
+    member this.CopyTo(arr : single array, index : int) =
+        arr.[index + 0] <- this.X
+        arr.[index + 1] <- this.Y
+        arr.[index + 2] <- this.Z
 
-    member __.CopyTo(arr : single array) = __.CopyTo(arr, 0)
+    member this.CopyTo(arr : single array) = this.CopyTo(arr, 0)
 
     //member __.Equals(other : Vector3) =
     //    x = other.X &&
@@ -37,6 +38,7 @@ type Vector3(x : single, y : single, z : single) =
     //override __.GetHashCode() =
     //    hash(x, y, z)
     
+
     // --------------------------------
     // Static members of Vector3
 
@@ -85,6 +87,7 @@ type Vector3(x : single, y : single, z : single) =
         let num5 = num2 * num2 + num3 * num3 + num4 * num4;
         num5
 
+
     // --------------------------------
     // Operators of Vector3
     
@@ -96,32 +99,34 @@ type Vector3(x : single, y : single, z : single) =
 
     static member (/) (left:Vector3, right:single) : Vector3 =
         Vector3.Divide(left, right)
+  end
+  
+type Quaternion =
+  struct
 
+    val mutable public X : single
+    val mutable public Y : single
+    val mutable public Z : single
+    val mutable public W : single
 
-[<Struct>]
-type Quaternion(x : single, y : single, z : single, w : single) =
-    
+    new (x : single, y : single, z : single, w : single) = { X = x; Y = y; Z = z; W = w }
     new(vectorPart : Vector3, scalarPart : single) =
         Quaternion(vectorPart.X, vectorPart.Y, vectorPart.Z, scalarPart)
 
-    member __.X = x
-    member __.Y = y
-    member __.Z = z
-    member __.W = w
-
-    member __.IsIdentity =
-        x = 0.f &&
-        y = 0.f &&
-        z = 0.f &&
-        w = 1.f
+    member this.IsIdentity =
+        this.X = 0.f &&
+        this.Y = 0.f &&
+        this.Z = 0.f &&
+        this.W = 1.f
 
     member this.Length() : single =
         let ls = this.LengthSquared()
         single ( System.Math.Sqrt(float ls) )
 
-    member __.LengthSquared() : single =
-        x * x + y * y + z * z + w * w
+    member this.LengthSquared() : single =
+        this.X * this.X + this.Y * this.Y + this.Z * this.Z + this.W * this.W
         
+
     // --------------------------------
     // static members of Quaternion
 
@@ -226,6 +231,7 @@ type Quaternion(x : single, y : single, z : single, w : single) =
             value1.W * value2
         )
 
+
     // --------------------------------
     // Operators of Quaternion
     
@@ -240,3 +246,5 @@ type Quaternion(x : single, y : single, z : single, w : single) =
     
     static member (*) (left:Quaternion, right:single) : Quaternion =
         Quaternion.Multiply(left, right)
+
+  end
