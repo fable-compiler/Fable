@@ -195,7 +195,7 @@ module.exports = {
 }
 ```
 
-Folowing F# test file
+Folowing F# test file `App.test.fs`
 ```fsharp
 module MyApp.Test
 open Fable.Import.Jest // See https://github.com/jgrund/fable-jest
@@ -204,7 +204,7 @@ test "Demo test" <| fun () ->
     expect.Invoke(sprintf "%d" 42).toEqual("42")
 ```
 
-gets compiled to
+gets compiled to `test/output/App.test.js`
 ```js
 "use strict";
 var _String = require("./fable-core.2.0.10/String");
@@ -215,3 +215,18 @@ test("Demo test", function () {
 ```
 
 which can be ran as normal JavaScript would run with our test runner (Jest in this example).
+
+Compile the test with an npm script to trigger the splitter when the Fable daemon runs:
+
+```json
+{
+  "scripts" : {
+     "test" : "jest"
+     "compile" : "fable-splitter --config splitter.config.js"
+  }
+}
+```
+
+> dotnet fable npm-run compile
+
+Once the compilation is complete: `npm test`.
