@@ -4,52 +4,40 @@ JS client for [Fable](http://fable.io/) that compiles F# files to individual JS 
 
 ## Installation
 
-```npm install --save-dev fable-splitter babel-core```
+```npm install --save-dev fable-splitter```
 
 ## Usage
 
-Add the following to the `scripts` section in your package.json:
+```txt
+fable-splitter [command] [arguments]
 
-```json
-"scripts": {
-  "build": "fable-splitter src/MyProject.fsproj --outDir out"
-}
+Commands:
+  -h|--help         Show help
+  --version         Print version
+  [file path]       Compile an F# project or script to JS
+
+Arguments:
+  -o|--outDir       Output directory
+  -c|--config       Config file
+  -w|--watch        [FLAG] Watch mode
+  -d|--debug        [FLAG] Define DEBUG constant
+  --run             [FLAG] Run script with node after compilation
+
+Example: fable-splitter src/App.fsproj -o dist/
 ```
 
-> You can also add `--watch` for watch mode. Type `./node_modules/.bin/fable-splitter --help` to see the available CLI arguments.
-
-You can then compile your app by running: `dotnet fable npm-build`. Check [Fable website](http://fable.io/) for more info.
+> You can use node, npm scripts, yarn or npx to run the tool.
 
 There are more options available using the JS API. For this, you can create a config file like the following:
 
 ```js
-const path = require("path");
-const fableUtils = require("fable-utils");
-
-function resolve(relativePath) {
-    return path.join(__dirname, relativePath);
-}
-
 module.exports = {
-  entry: resolve("src/MyProject.fsproj"),
-  outDir: resolve("out"),
-  babel: fableUtils.resolveBabelOptions({
+  entry: "src/App.fsproj",
+  outDir: "out",
+  babel: {
     presets: [["env", { modules: "commonjs" }]],
-    sourceMaps: true,
-  }),
-  fable: {
-    define: ["DEBUG"]
+    sourceMaps: false,
   }
-}
-```
-
-> Note we're resolving paths as well as Babel options to prevent conflicts in case Fable pulls files from outside the project local directory (for example, from Nuget cache).
-
-Then modify your build script as follows:
-
-```json
-"scripts": {
-  "build": "fable-splitter --config splitter.config.js"
 }
 ```
 
@@ -57,15 +45,12 @@ These are the options that can be passed to `fable-splitter` through the JS API:
 
 - **entry**: F# project entry file (`.fsproj` or `.fsx`).
 - **outDir**: Output directory where JS files must be saved. Current directory will be used if not specified.
-- **port**: Fable daemon port (61225 by default).
+- **allFiles**: Compiles all project files even if some are not referenced (default `false`).
+- **babel**: Babel options, check [Babel website](https://babeljs.io/docs/usage/api/#options) to find more.
 - **fable**: Options to be passed to Fable:
   - **define**: Array of compiler directives passed to the F# compiler (like `DEBUG`). Note _Fable will ignore the `DefineConstants` property in .fsproj_.
-  - **plugins**: Array of paths to Fable plugins (.dll files).
   - **typedArrays**: Translate numeric arrays as JS [Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray). True by default.
   - **clampByteArrays**: If true, Fable will translate byte arrays as [Uint8ClampedArray](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8ClampedArray).
-  - **fableCore**: Specify a directory containing Fable.Core JS files, normally used for testing new Fable versions.
-- **babel**: Babel options, check [Babel website](https://babeljs.io/docs/usage/api/#options) to find more.
-- **allFiles**: Compiles all project files even if some are not referenced (default `false`).
 
 ## Path resolution
 

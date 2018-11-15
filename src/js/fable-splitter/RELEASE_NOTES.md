@@ -1,3 +1,7 @@
+### 2.1.0-beta-001
+
+* Add fable-compiler-dotnet dependency for standalone compilation
+
 ### 2.1.0-alpha-002
 
 * Add `-d|--debug` flag to automatically define "DEBUG" constant

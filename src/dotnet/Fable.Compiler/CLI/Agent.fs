@@ -114,19 +114,12 @@ let jsonSettings =
         NullValueHandling=NullValueHandling.Ignore)
         // StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
 
-let toJson (msgHandler: Server.MessageHandler) (value: obj) =
-        use writer = msgHandler.ResponseStream
-        use jsonWriter = new JsonTextWriter(writer)
-        let serializer = JsonSerializer.Create(jsonSettings)
-        serializer.Serialize(jsonWriter, value)
-        jsonWriter.Flush()
-
-let sendError msgHandler (ex: Exception) =
+let sendError (respond: obj->unit) (ex: Exception) =
     let rec innerStack (ex: Exception) =
         if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
     let stack = innerStack ex
     Log.logAlways(sprintf "ERROR: %s\n%s" ex.Message stack)
-    ["error", ex.Message] |> dict |> toJson msgHandler
+    ["error", ex.Message] |> dict |> respond
 
 let updateState (checker: FSharpChecker) (state: Map<string,Project>) (msg: Parser.Message) =
     let getDirtyFiles (project: Project) sourceFile =
@@ -205,13 +198,13 @@ let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFil
         com.AddLog(msg, severity, range, fileName, "FSHARP"))
 
 /// Don't await file compilation to let the agent receive more requests to implement files.
-let startCompilation (msgHandler: Server.MessageHandler) (com: Compiler) (project: Project) =
+let startCompilation (respond: obj->unit) (com: Compiler) (project: Project) =
     async {
         try
             if com.CurrentFile.EndsWith(".fsproj") then
                 // If we compile the last file here, Webpack watcher will ignore changes in it
                 Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles com.CurrentFile
-                |> toJson msgHandler
+                |> respond
             else
                 let babel =
                     FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
@@ -224,14 +217,24 @@ let startCompilation (msgHandler: Server.MessageHandler) (com: Compiler) (projec
                 // Don't send dependencies to JS client (see #1241)
                 project.AddDependencies(com.CurrentFile, babel.Dependencies)
                 Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs())
-                |> toJson msgHandler
+                |> respond
         with ex ->
-            sendError msgHandler ex
+            sendError respond ex
     } |> Async.Start
 
-let startAgent () = MailboxProcessor<Server.MessageHandler>.Start(fun agent ->
+let startAgent () = MailboxProcessor<AgentMsg>.Start(fun agent ->
     let rec loop (checker: FSharpChecker) (state: Map<string,Project>) = async {
-        use! msgHandler = agent.Receive()
+      match! agent.Receive() with
+      | Respond(value, msgHandler) ->
+        msgHandler.Respond(fun writer ->
+            // Don't use `use` (pun unintended), it will close the underlying writer
+            let jsonWriter = new JsonTextWriter(writer)
+            let serializer = JsonSerializer.Create(jsonSettings)
+            serializer.Serialize(jsonWriter, value))
+        return! loop checker state
+      | Received msgHandler ->
+        let respond(res: obj) =
+            Respond(res, msgHandler) |> agent.Post
         try
             let msg = Parser.parse msgHandler.Message
             // lazy sprintf "Received message %A" msg |> Log.logVerbose
@@ -241,10 +244,10 @@ let startAgent () = MailboxProcessor<Server.MessageHandler>.Start(fun agent ->
             // F# errors/warnings here so they're not skipped if they affect another file
             if isUpdated && activeProject.IsWatchCompile then
                 addFSharpErrorLogs com activeProject.Errors None
-            startCompilation msgHandler com activeProject
+            startCompilation respond com activeProject
             return! loop checker newState
         with ex ->
-            sendError msgHandler ex
+            sendError respond ex
             return! loop checker state
     }
     let checker = FSharpChecker.Create(keepAssemblyContents=true)

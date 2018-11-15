@@ -72,7 +72,7 @@ let parseArguments args =
 
 let startServer port onMessage continuation =
     try
-        let work = Server.start port onMessage
+        let work = Server.start port (AgentMsg.Received >> onMessage)
         continuation work
     with
     | ex ->
@@ -88,7 +88,7 @@ let startServerWithProcess workingDir port exec args =
                 disposed <- true
                 printfn "Killing process..."
                 p.Kill()
-                Server.stop port |> Async.RunSynchronously
+                Server.stop port
     let agent = startAgent()
     startServer port agent.Post <| fun listen ->
         Async.Start listen
@@ -103,7 +103,7 @@ let startServerWithProcess workingDir port exec args =
         #endif
         p.WaitForExit()
         disposed <- true
-        Server.stop port |> Async.RunSynchronously
+        Server.stop port
         p.ExitCode
 
 let setGlobalParams(args: string[]) =
@@ -186,6 +186,10 @@ let main argv =
         let args = argv.[1..] |> parseArguments
         let agent = startAgent()
         startServer args.port agent.Post (Async.RunSynchronously >> konst 0)
+    | Some "start-stdin" ->
+        Log.logAlways(sprintf "dotnet-fable (%s) has started" Literals.VERSION)
+        let agent = startAgent()
+        Stdin.start (AgentMsg.Received >> agent.Post)
     | Some "npm-run" ->
         runNpmOrYarn "npm" argv.[1..]
     | Some (Naming.StartsWith "npm-" command) ->

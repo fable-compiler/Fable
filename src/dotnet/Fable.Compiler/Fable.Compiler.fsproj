@@ -7,8 +7,8 @@
     <OutputType>Exe</OutputType>
     <PackageType>DotnetCliTool</PackageType>
     <AssemblyName>dotnet-fable</AssemblyName>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
-    <RuntimeFrameworkVersion>2.0.0</RuntimeFrameworkVersion>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <!-- <RuntimeFrameworkVersion>2.0.0</RuntimeFrameworkVersion> -->
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Global/Fable.Core.fs" />
@@ -34,6 +34,7 @@
     <Compile Include="CLI/ProjectCracker.fs" />
     <Compile Include="CLI/Printers.fs" />
     <Compile Include="CLI/Server.fs" />
+    <Compile Include="CLI/Stdin.fs" />
     <Compile Include="CLI/Agent.fs" />
     <Compile Include="CLI/Main.fs" />
   </ItemGroup>

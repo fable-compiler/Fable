@@ -37,10 +37,6 @@ module.exports = {
 
 ```
 
-You can then bundle your app by running `dotnet fable webpack-cli` in the directory where you have installed dotnet-fable tool. Check [Fable website](http://fable.io/) for more info.
-
-You can use the fable-loader in combination with `babel-loader` to further transform JavaScript files (e.g., to make them compatible with older browsers). Check [their website](https://github.com/babel/babel-loader) for more info.
-
 These are the options that can be passed to `fable-loader`:
 
 - **babel**: [Babel options](https://babeljs.io/docs/en/options) (only applied when transforming F# files, you may want to use the `babel-loader` if you also have JS files in your project).

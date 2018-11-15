@@ -1,13 +1,12 @@
 {
-  "name": "fable-loader",
-  "version": "2.1.0-beta-001",
-  "main": "index.js",
-  "description": "Webpack loader for Fable compiler",
+  "name": "fable-compiler-dotnet",
+  "version": "2.1.0-alpha-002",
+  "main": "dist/index.js",
+  "description": "Fable compiler",
   "keywords": [
     "fable",
     "fsharp",
-    "F#",
-    "webpack"
+    "F#"
   ],
   "author": "Alfonso Garcia-Caro",
   "license": "MIT",
@@ -19,11 +18,10 @@
     "url": "https://github.com/fable-compiler/Fable/issues"
   },
   "homepage": "https://github.com/fable-compiler/Fable#readme",
-  "peerDependencies": {
-    "@babel/core": "^7.0.0"
+  "devDependencies": {
+    "@types/node": "^10.12.8"
   },
   "dependencies": {
-    "@types/babel__core": "^7.0.1",
-    "fable-compiler-dotnet": "^2.1.0-alpha-002"
+    "uuid": "^3.3.2"
   }
 }

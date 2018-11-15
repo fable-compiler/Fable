@@ -6,9 +6,18 @@ module Literals =
   let [<Literal>] CORE_VERSION = "2.0.1"
   let [<Literal>] DEFAULT_PORT = 61225
   let [<Literal>] FORCE = "force:"
+  let [<Literal>] EXIT = "exit"
 
 open System.IO
 open System.Reflection
+
+type IMessageHandler =
+    abstract Message: string
+    abstract Respond: write: (TextWriter->unit) -> unit
+
+type AgentMsg =
+    | Received of hanlder: IMessageHandler
+    | Respond of response: obj * hanlder: IMessageHandler
 
 type private TypeInThisAssembly = class end
 

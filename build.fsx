@@ -91,8 +91,8 @@ let nugetRestore dir =
 
 type BuildConfig = Release | Debug
 
-let buildCLI cfg () =
-    sprintf "publish -o %s -c %s" cliBuildDir
+let buildCLI cfg outDir () =
+    sprintf "publish -o %s -c %s" (CWD </> outDir)
         (match cfg with Release -> "Release" | Debug -> "Debug")
     |> run cliSrcDir dotnetExePath
 
@@ -112,14 +112,11 @@ let buildCoreJsFsharpFiles () =
         "--fable-core force:${outDir}"  // fable-splitter will adjust the path
         "-c src/js/fable-core/splitter.config.js"
 
-let buildSplitter () =
-    let buildDir = CWD </> "src/js/fable-splitter"
+let buildTypescript projectDir () =
     Yarn.install CWD
-    // Yarn.run CWD "tslint" [sprintf "--project %s" buildDir]
-    Yarn.run CWD "tsc" (sprintf "--project %s" buildDir)
-    // Copy JS files
-    !! (buildDir + "/src/*.js") |> Seq.iter (fun jsFile ->
-        FileUtils.cp jsFile (buildDir + "/dist") )
+    let projectDir = CWD </> projectDir
+    // Yarn.run CWD "tslint" [sprintf "--project %s" projectDir]
+    Yarn.run CWD "tsc" (sprintf "--project %s" projectDir)
 
 let buildCoreJsFull () =
     Yarn.install CWD
@@ -241,7 +238,7 @@ let bundleRepl (fetchNcaveFork: bool) () =
         |> ReleaseNotesHelper.LoadReleaseNotes
     File.WriteAllText(replDir </> "bundle/version.txt", release.NugetVersion)
 
-let buildCompilerForNode () =
+let buildNpmFableCompiler () =
     let replDir = CWD </> "src/dotnet/Fable.Repl"
     let distDir = CWD </> "src/js/fable-compiler/dist"
     if not (Directory.Exists(replDir </> "bundle")) then
@@ -254,13 +251,31 @@ let buildCompilerForNode () =
         (replDir </> "bundle/fable-core") (distDir </> "fable-core-commonjs"))
     Yarn.run CWD "build-compiler" ""
 
+let buildNpmFableCompilerDotnet () =
+    let projectDir = "src/js/fable-compiler-dotnet"
+    buildTypescript projectDir ()
+    buildCLI Release (projectDir </> "bin/fable") ()
+    buildCoreJsTypescriptFiles ()
+    buildCoreJsFsharpFiles ()
+    FileUtils.cp_r coreJsBuildDir (projectDir </> "bin/fable-core")
+
 Target "Clean" clean
+Target "FableCLI" (buildCLI Release cliBuildDir)
 Target "FableCoreJs" buildCoreJsFull
 Target "FableCoreJsTypescriptOnly" buildCoreJsTypescriptFiles
 Target "FableCoreJsFSharpOnly" buildCoreJsFsharpFiles
 Target "FableCoreJsInjects" (fun _ ->
     run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run")
-Target "FableSplitter" buildSplitter
+Target "fable-splitter" (buildTypescript "src/js/fable-splitter")
+Target "fable-compiler" buildNpmFableCompiler
+Target "fable-compiler-dotnet" (fun () ->
+    let projectDir = "src/js/fable-compiler-dotnet"
+    buildTypescript projectDir ()
+    buildCLI Release (projectDir </> "bin/fable") ()
+    buildCoreJsTypescriptFiles ()
+    buildCoreJsFsharpFiles ()
+    FileUtils.cp_r coreJsBuildDir (projectDir </> "bin/fable-core")
+)
 Target "RunTestsJS" runTestsJS
 Target "RunTestsDotnet" runTestsDotnet
 
@@ -279,11 +294,12 @@ Target "PublishPackages" (fun () ->
             updateVersionInCliUtil ()
         ), pkgName="dotnet-fable", msbuildProps=["NugetPackage", "true"])
         // NPM packages
-        Package("js/fable-compiler", buildCompilerForNode)
+        Package("js/fable-compiler", buildNpmFableCompiler)
+        Package("js/fable-compiler-dotnet", buildNpmFableCompilerDotnet)
         Package "js/fable-utils"
         Package "js/fable-loader"
         Package "js/rollup-plugin-fable"
-        Package("js/fable-splitter", buildSplitter)
+        Package("js/fable-splitter", buildTypescript "src/js/fable-splitter")
     ]
     installDotnetSdk ()
     publishPackages2 baseDir dotnetExePath packages
@@ -298,9 +314,6 @@ let runBench2 () =
     // Run the test script
     Yarn.run CWD "babel" "build/fable-core --out-dir src/dotnet/Fable.Repl/out-fable-core --plugins @babel/plugin-transform-modules-commonjs --quiet"
     Yarn.run CWD "test-bench2" ""
-
-Target "fable-compiler" (fun () ->
-    buildCompilerForNode ())
 
 Target "All" (fun () ->
     installDotnetSdk ()
