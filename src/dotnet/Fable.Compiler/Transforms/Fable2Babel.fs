@@ -186,6 +186,9 @@ module Util =
     let coreLibCall (com: IBabelCompiler) ctx moduleName memberName args =
         CallExpression(com.TransformImport(ctx, memberName, moduleName, Fable.CoreLib), args) :> Expression
 
+    let coreLibConstructorCall (com: IBabelCompiler) ctx moduleName memberName args =
+        NewExpression(com.TransformImport(ctx, memberName, moduleName, Fable.CoreLib), args) :> Expression
+
     let coreValue (com: IBabelCompiler) ctx moduleName memberName =
         com.TransformImport(ctx, memberName, moduleName, Fable.CoreLib)
 
@@ -201,8 +204,20 @@ module Util =
             let entRef = FSharp2Fable.Util.entityRefMaybeImported com ent
             com.TransformAsExpr(ctx, entRef)
 
+    let makeList com ctx headAndTail =
+        match headAndTail with
+        | None -> [||]
+        | Some(TransformExpr com ctx head, TransformExpr com ctx tail) -> [|head; tail|]
+        |> coreLibConstructorCall com ctx "Types" "List"
+
+    let makeArray (com: IBabelCompiler) ctx exprs =
+        List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) exprs
+        |> ArrayExpression :> Expression
+
     let makeTypedArray (com: IBabelCompiler) ctx typ (arrayKind: Fable.NewArrayKind) =
-        let makeJsTypedArray jsName =
+        match typ, arrayKind with
+        | Fable.Number kind, _ when com.Options.typedArrays ->
+            let jsName = getTypedArrayName com kind
             let args =
                 match arrayKind with
                 | Fable.ArrayValues args ->
@@ -210,16 +225,10 @@ module Util =
                        |> ArrayExpression :> Expression |]
                 | Fable.ArrayAlloc(TransformExpr com ctx size) -> [|size|]
             NewExpression(Identifier jsName, args) :> Expression
-        match typ with
-        | Fable.Number kind when com.Options.typedArrays ->
-            getTypedArrayName com kind |> makeJsTypedArray
-        | _ ->
-            match arrayKind with
-            | Fable.ArrayValues args ->
-                List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) args
-                |> ArrayExpression :> Expression
-            | Fable.ArrayAlloc(TransformExpr com ctx size) ->
-                upcast NewExpression(Identifier "Array", [|size|])
+        | _, Fable.ArrayAlloc(TransformExpr com ctx size) ->
+            upcast NewExpression(Identifier "Array", [|size|])
+        | _, Fable.ArrayValues exprs ->
+            makeArray com ctx exprs
 
     let makeStringArray strings =
         strings
@@ -369,9 +378,8 @@ module Util =
         match t with
         | Fable.DeclaredType(ent,[_]) when ent.TryFullName = Some Types.ienumerableGeneric ->
             match e with
-            | Replacements.ListLiteral(exprs, _) ->
-                // Use type Any to prevent creation of a typed array
-                makeTypedArray com ctx Fable.Any (Fable.ArrayValues exprs)
+            | Fable.Value(Replacements.ListLiteral(exprs, _)) ->
+                makeArray com ctx exprs
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 
@@ -551,12 +559,14 @@ module Util =
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral (source, flags)
         | Fable.NewArray (arrayKind, typ) -> makeTypedArray com ctx typ arrayKind
         | Fable.NewTuple vals -> makeTypedArray com ctx Fable.Any (Fable.ArrayValues vals)
-        // TODO: Compile as List.ofArray if it's a list literal with many values?
+        // Optimization for bundle size: compile list literals as List.ofArray
+        | Replacements.ListLiteral(exprs, t) ->
+            match exprs with
+            | [] -> makeList com ctx None
+            | [expr] -> Some(expr, Fable.Value(Fable.NewList (None,t))) |> makeList com ctx
+            | exprs -> [|makeArray com ctx exprs|] |> coreLibCall com ctx "List" "ofArray"
         | Fable.NewList (headAndTail, _) ->
-            match headAndTail with
-            | None -> [||]
-            | Some(TransformExpr com ctx head, TransformExpr com ctx tail) -> [|head; tail|]
-            |> coreLibCall com ctx "Types" "L"
+            makeList com ctx headAndTail
         | Fable.NewOption (value, t) ->
             match value with
             | Some (TransformExpr com ctx e) ->

@@ -199,8 +199,8 @@ let (|ListLiteral|_|) e =
         | Value(NewList(Some(head, tail), _)) -> untail t (head::acc) tail
         | _ -> None
     match e with
-    | Value(NewList(None, t)) -> Some([], t)
-    | Value(NewList(Some(head, tail), t)) -> untail t [head] tail
+    | NewList(None, t) -> Some([], t)
+    | NewList(Some(head, tail), t) -> untail t [head] tail
     | _ -> None
 
 let (|IDictionary|IEqualityComparer|Other|) = function
@@ -517,7 +517,8 @@ let toArray (com: ICompiler) returnType expr =
 
 let listToArray com r t (li: Expr) =
     match li with
-    | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
+    | Value(ListLiteral(exprs, t)) ->
+        NewArray(ArrayValues exprs, t) |> Value
     | _ ->
         let args = match t with Array genArg -> [li; arrayCons com genArg] | _ -> [li]
         Helper.CoreCall("Array", "ofList", t, args, ?loc=r)
@@ -844,7 +845,7 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
     | Value(Enum(NumberEnum(Value(NumberConstant(rule, _))), _)) ->
         let caseRule = enum(int rule)
         match keyValueList with
-        | MaybeCasted(Value(NewArray(ArrayValues ms, _)) | ListLiteral(ms, _)) ->
+        | MaybeCasted(Value(NewArray(ArrayValues ms, _)|ListLiteral(ms, _))) ->
             (ms, Some []) ||> List.foldBack (fun m acc ->
                 match acc, m with
                 // Try to get the member key and value at compile time for unions and tuples
@@ -1450,7 +1451,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [ExprType(Number _)] ->
         makeArray Any [] |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
-    | ".ctor", _, [Value(NewArray(ArrayValues vals, _)) | ListLiteral(vals, _)] ->
+    | ".ctor", _, [Value(NewArray(ArrayValues vals, _)|ListLiteral(vals, _))] ->
         makeArray Any vals |> Some
     | ".ctor", _, args ->
         Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some

@@ -101,10 +101,6 @@ List.prototype.CompareTo = function(other) {
   return compareList(this, other);
 };
 
-export function L(h, t) {
-  return new List(h, t);
-}
-
 export function Union(tag, name, ...fields) {
   this.tag = tag | 0;
   this.name = name;
