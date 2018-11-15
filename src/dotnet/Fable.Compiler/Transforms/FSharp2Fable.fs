@@ -679,16 +679,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! expr = transformExpr com ctx expr
         return expr
         
-    //| BasicPatterns.ILFieldGet(callee, calleeType, field) ->
-    //    let! callee = transformExprOpt com ctx callee
-    //    let callee =
-    //        match callee with
-    //        | Some callee -> callee
-    //        | None -> entityRef com calleeType.TypeDefinition
-    //    let fsField = calleeType.TypeDefinition.FSharpFields |> Seq.filter (fun f -> f.Name = field) |> Seq.exactlyOne
-    //    let kind = Fable.FieldGet(field, true, makeType com Map.empty fsField.FieldType)
-    //    let typ = makeType com ctx.GenericArgs fsExpr.Type
-    //    return Fable.Get(callee, kind, typ, makeRangeFrom fsExpr)
+    | BasicPatterns.ILFieldGet(callee, calleeType, field) ->
+        let! callee = transformExprOpt com ctx callee
+        let callee =
+            match callee with
+            | Some callee -> callee
+            | None -> entityRef com calleeType.TypeDefinition
+        let fsField = calleeType.TypeDefinition.FSharpFields |> Seq.filter (fun f -> f.Name = field) |> Seq.exactlyOne
+        let kind = Fable.FieldGet(field, true, makeType com Map.empty fsField.FieldType)
+        let typ = makeType com ctx.GenericArgs fsExpr.Type
+        return Fable.Get(callee, kind, typ, makeRangeFrom fsExpr)
 
     | BasicPatterns.ILFieldSet(callee, calleeType, field, value) ->
         let! callee = transformExprOpt com ctx callee
