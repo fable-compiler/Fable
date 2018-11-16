@@ -673,7 +673,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     // read a member field (Example: Vector3.X)
     | BasicPatterns.ILFieldGet(Some callee, calleeType, fieldName)
-       when (Replacements.isILMemberFieldSupported (makeType com ctx.GenericArgs fsExpr.Type) fieldName) ->
+       when (Replacements.isILMemberFieldSupported (makeType com ctx.GenericArgs calleeType) fieldName) ->
         let! callee = transformExprOpt com ctx (Some callee)
         let callee =
             match callee with
@@ -686,7 +686,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     // write a member field (example: Vector3.X)
     | BasicPatterns.ILFieldSet(Some callee, calleeType, fieldName, value)
-       when (Replacements.isILMemberFieldSupported (makeType com ctx.GenericArgs fsExpr.Type) fieldName) ->
+       when (Replacements.isILMemberFieldSupported (makeType com ctx.GenericArgs calleeType) fieldName) ->
         let! callee = transformExprOpt com ctx (Some callee)
         let! value = transformExpr com ctx value
         let callee =
