@@ -873,6 +873,8 @@ module Util =
             | Replacements.BclUInt64 -> jsInstanceof (coreValue com ctx "Long" "default") expr
             | Replacements.BclDecimal -> jsInstanceof (coreValue com ctx "Decimal" "default") expr
             | Replacements.BclBigInt -> coreLibCall com ctx "BigInt" "isBigInt" [|com.TransformAsExpr(ctx, expr)|]
+            | Replacements.BclQuaternion -> jsInstanceof (coreValue com ctx "Quaternion" "default") expr
+            | Replacements.BclVector3 -> jsInstanceof (coreValue com ctx "Vector3" "default") expr
             | Replacements.BclHashSet _
             | Replacements.BclDictionary _
             | Replacements.FSharpSet _

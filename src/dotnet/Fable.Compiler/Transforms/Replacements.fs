@@ -127,6 +127,8 @@ type BuiltinType =
     | BclUInt64
     | BclDecimal
     | BclBigInt
+    | BclQuaternion
+    | BclVector3
     | BclHashSet of Type
     | BclDictionary of key:Type * value:Type
     | FSharpSet of Type
@@ -147,6 +149,8 @@ let (|Builtin|_|) = function
         | Some Types.decimal, _
         | Some "Microsoft.FSharp.Core.decimal`1", _ -> Some BclDecimal
         | Some Types.bigint, _ -> Some BclBigInt
+        | Some Types.quaternion, _ -> Some BclQuaternion
+        | Some Types.vector3, _ -> Some BclVector3
         | Some Types.fsharpSet, [t] -> Some(FSharpSet(t))
         | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
         | Some Types.hashset, [t] -> Some(BclHashSet(t))
@@ -228,6 +232,8 @@ let coreModFor = function
     | BclUInt64 -> "Long"
     | BclDecimal -> "Decimal"
     | BclBigInt -> "BigInt"
+    | BclQuaternion _ -> "Quaternion"
+    | BclVector3 _ -> "Vector3"
     | BclTimeSpan -> "Int32"
     | FSharpSet _ -> "Set"
     | FSharpMap _ -> "Map"
@@ -2503,6 +2509,7 @@ let partialApplyAtRuntime t arity (fn: Expr) (args: Expr list) =
     let args = NewArray(ArrayValues args, Any) |> Value
     Helper.CoreCall("Util", "partialApply", t, [makeIntConst arity; fn; args])
 
+/// try to map a static field (e.g. Decimal.Zero)
 let tryField returnTyp ownerTyp fieldName =
     match ownerTyp, fieldName with
     | Builtin BclDecimal, "Zero" -> makeIntConst 0 |> makeDecimalFromExpr returnTyp |> Some
@@ -2515,6 +2522,14 @@ let tryField returnTyp ownerTyp fieldName =
     | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue") ->
         Helper.CoreCall(coreModFor BclDateTimeOffset, Naming.lowerFirst fieldName, returnTyp, []) |> Some
     | _ -> None
+
+// this is queried when an IL member field is read / written.
+// at the moment member fields are only supported for Vector3 / Quaternion, all other supported BCL types expose properties instead of fields.
+let isILMemberFieldSupported ownerTyp _fieldName =
+    match ownerTyp with
+    | Builtin BclQuaternion
+    | Builtin BclVector3 -> true
+    | _ -> false
 
 let private replacedModules =
   dict [
