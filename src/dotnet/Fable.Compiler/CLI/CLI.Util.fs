@@ -16,8 +16,8 @@ type IMessageHandler =
     abstract Respond: write: (TextWriter->unit) -> unit
 
 type AgentMsg =
-    | Received of hanlder: IMessageHandler
-    | Respond of response: obj * hanlder: IMessageHandler
+    | Received of handler: IMessageHandler
+    | Respond of response: obj * handler: IMessageHandler
 
 type private TypeInThisAssembly = class end
 

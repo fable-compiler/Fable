@@ -227,8 +227,8 @@ let startAgent () = MailboxProcessor<AgentMsg>.Start(fun agent ->
       match! agent.Receive() with
       | Respond(value, msgHandler) ->
         msgHandler.Respond(fun writer ->
-            // Don't use `use` (pun unintended), it will close the underlying writer
-            let jsonWriter = new JsonTextWriter(writer)
+            // CloseOutput=false is necessary to prevent closing the underlying stream
+            use jsonWriter = new JsonTextWriter(writer, CloseOutput=false)
             let serializer = JsonSerializer.Create(jsonSettings)
             serializer.Serialize(jsonWriter, value))
         return! loop checker state
