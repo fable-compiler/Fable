@@ -32,7 +32,7 @@
     "@babel/core": "^7.0.0",
     "@babel/plugin-transform-modules-commonjs": "^7.1.0",
     "chokidar": "^2.0.4",
-    "fable-compiler-dotnet": "^2.1.0-alpha-002",
+    "fable-compiler-dotnet": "~2.1.0-alpha-002",
     "fs-extra": "^7.0.0",
     "nodemon": "^1.18.6"
   },

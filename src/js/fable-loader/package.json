@@ -24,6 +24,6 @@
   },
   "dependencies": {
     "@types/babel__core": "^7.0.1",
-    "fable-compiler-dotnet": "^2.1.0-alpha-002"
+    "fable-compiler-dotnet": "~2.1.0-alpha-002"
   }
 }
