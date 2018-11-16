@@ -18,6 +18,14 @@ function parseJson(json) {
     }
 }
 
+function getVersion(): string  {
+    try {
+        return require("../package.json").version;
+    } catch {
+        return "";
+    }
+}
+
 function processArgs(args?: {[x: string]: any}) {
     let cliArgs = [BIN_PATH, "start-stdin"];
     if (args != null) {
@@ -42,6 +50,7 @@ export interface ICompilerProxy {
 
 export default function start(cliArgs?: {}): ICompilerProxy {
     const child = spawn("dotnet", processArgs(cliArgs));
+    console.log(`fable-compiler-dotnet ${getVersion()}`);
 
     // Error handling
     child.on("error", (err) => {
@@ -57,7 +66,9 @@ export default function start(cliArgs?: {}): ICompilerProxy {
     // Pending promises
     const pending: Map<string, ((x: object) => void)> = new Map();
 
-    const linereader = readline.createInterface(child.stdout, child.stdin);
+    const linereader = readline.createInterface({
+        input: child.stdout,
+    });
     linereader.on("line", (data: string) => {
         const pattern = /^JSON:([\w-]+):(.*)$/.exec(data);
         if (pattern != null) {

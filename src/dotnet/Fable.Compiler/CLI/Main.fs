@@ -187,7 +187,6 @@ let main argv =
         let agent = startAgent()
         startServer args.port agent.Post (Async.RunSynchronously >> konst 0)
     | Some "start-stdin" ->
-        Log.logAlways(sprintf "dotnet-fable (%s) has started" Literals.VERSION)
         let agent = startAgent()
         Stdin.start (AgentMsg.Received >> agent.Post)
     | Some "npm-run" ->

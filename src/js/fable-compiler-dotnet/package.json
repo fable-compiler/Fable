@@ -1,6 +1,6 @@
 {
   "name": "fable-compiler-dotnet",
-  "version": "2.1.0-alpha-002",
+  "version": "2.1.0-beta-001",
   "main": "dist/index.js",
   "description": "Fable compiler",
   "keywords": [

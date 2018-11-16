@@ -1,6 +1,6 @@
 {
   "name": "fable-loader",
-  "version": "2.1.0-beta-001",
+  "version": "2.1.0-beta-003",
   "main": "index.js",
   "description": "Webpack loader for Fable compiler",
   "keywords": [
@@ -24,6 +24,6 @@
   },
   "dependencies": {
     "@types/babel__core": "^7.0.1",
-    "fable-compiler-dotnet": "~2.1.0-alpha-002"
+    "fable-compiler-dotnet": "^2.1.0-beta-001"
   }
 }

@@ -8,7 +8,7 @@
     <PackageType>DotnetCliTool</PackageType>
     <AssemblyName>dotnet-fable</AssemblyName>
     <TargetFramework>netcoreapp2.1</TargetFramework>
-    <!-- <RuntimeFrameworkVersion>2.0.0</RuntimeFrameworkVersion> -->
+    <RuntimeFrameworkVersion>2.1.0</RuntimeFrameworkVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Global/Fable.Core.fs" />

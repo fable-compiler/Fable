@@ -1,3 +1,7 @@
+### 2.1.0-beta-001
+
+* Update assembly and set 2.1.0 as minimum runtime version
+
 ### 2.1.0-alpha-002
 
 * Add babel-plugins

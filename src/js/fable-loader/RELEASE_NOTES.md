@@ -1,3 +1,11 @@
+### 2.1.0-beta-003
+
+* Fix detection of Webpack watch mode
+
+### 2.1.0-beta-002
+
+* Pin minor version of fable-compiler-dotnet
+
 ### 2.1.0-beta-001
 
 * Add fable-compiler-dotnet dependency for standalone compilation

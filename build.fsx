@@ -268,14 +268,7 @@ Target "FableCoreJsInjects" (fun _ ->
     run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run")
 Target "fable-splitter" (buildTypescript "src/js/fable-splitter")
 Target "fable-compiler" buildNpmFableCompiler
-Target "fable-compiler-dotnet" (fun () ->
-    let projectDir = "src/js/fable-compiler-dotnet"
-    buildTypescript projectDir ()
-    buildCLI Release (projectDir </> "bin/fable") ()
-    buildCoreJsTypescriptFiles ()
-    buildCoreJsFsharpFiles ()
-    FileUtils.cp_r coreJsBuildDir (projectDir </> "bin/fable-core")
-)
+Target "fable-compiler-dotnet" buildNpmFableCompilerDotnet
 Target "RunTestsJS" runTestsJS
 Target "RunTestsDotnet" runTestsDotnet
 
