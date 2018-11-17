@@ -189,6 +189,10 @@ type SomeClass(name: string) =
 type AnotherClass(value: int) =
     member x.Value = value
 
+module NestedModule =
+    type AnotherClass(value: int) =
+        member x.Value = value + 5
+
 type INum = abstract member Num: int
 let inline makeNum f = { new INum with member __.Num = f() }
 
@@ -218,6 +222,10 @@ module Extensions =
         member x.FullName = sprintf "%i" x.Value
         member x.Overload(i: int) = i * 4
         member x.Overload(s: string) = s + s
+        member x.Value2 = x.Value * 2
+
+    type NestedModule.AnotherClass with
+        member x.Value2 = x.Value * 4
 
 open Extensions
 
@@ -609,6 +617,10 @@ let tests =
         let c = AnotherClass(3)
         c.Overload("3") |> equal "33"
         c.Overload(3) |> equal 12
+
+    testCase "Extending different types with same name and same method works" <| fun () ->
+        AnotherClass(5).Value2 |> equal 10
+        NestedModule.AnotherClass(5).Value2 |> equal 40
 
     testCase "Module, members and properties with same name don't clash" <| fun () ->
         StyleBuilderHelper.test() |> equal true
