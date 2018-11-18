@@ -2,7 +2,7 @@ namespace Fable.CLI
 
 module Literals =
 
-  let [<Literal>] VERSION = "2.0.10"
+  let [<Literal>] VERSION = "2.0.11"
   let [<Literal>] CORE_VERSION = "2.0.1"
   let [<Literal>] DEFAULT_PORT = 61225
   let [<Literal>] FORCE = "force:"
