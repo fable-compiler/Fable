@@ -15,7 +15,6 @@ module Atts =
     let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
     let [<Literal>] paramList = "Fable.Core.ParamListAttribute" // typeof<Fable.Core.ParamListAttribute>.FullName
     let [<Literal>] inject = "Fable.Core.InjectAttribute" // typeof<Fable.Core.InjectAttribute>.FullName
-    let [<Literal>] implicit = "Fable.Core.Experimental.ImplicitAttribute" // typeof<Fable.Core.Experimental.ImplicitAttribute>.FullName
 
 [<RequireQualifiedAccess>]
 module Types =
