@@ -115,8 +115,14 @@ type Ident =
       IsMutable: bool
       IsCompilerGenerated: bool
       Range: SourceLocation option }
-      member x.IsBaseValue = match x.Kind with BaseValueIdent -> true | _ -> false
-      member x.IsThisArgDeclaration = match x.Kind with ThisArgIdentDeclaration -> true | _ -> false
+      member x.IsBaseValue =
+        match x.Kind with BaseValueIdent -> true | _ -> false
+      member x.IsThisArgDeclaration =
+        match x.Kind with ThisArgIdentDeclaration -> true | _ -> false
+      member x.DisplayName =
+        x.Range
+        |> Option.bind (fun r -> r.identifierName)
+        |> Option.defaultValue x.Name
 
 type ImportKind =
     | CoreLib
@@ -267,7 +273,7 @@ type Expr =
     | Value of ValueKind
     | IdentExpr of Ident
     | TypeCast of Expr * Type
-    /// Some expressions must be resolved in the last pass for better optimization (e.g. list to seq cast)
+    /// Some expressions must be resolved in the last pass for better optimization
     | DelayedResolution of DelayedResolutionKind * Type * SourceLocation option
     | Import of selector: Expr * path: Expr * ImportKind * Type * SourceLocation option
 

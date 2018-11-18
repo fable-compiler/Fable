@@ -46,7 +46,7 @@ let (|Implicit|_|) com (ctx: FSharp2Fable.Context) r (par: FSharpParameter) typ 
             | [] -> fail ""
             | [m] when m.IsMutable -> fail "Found {0} but it's mutable"
             | [implicitValue] ->
-                let e = memberRefTyped com typ implicitValue
+                let e = memberRefTyped com r typ implicitValue
                 match typ with  // Wrap lambda values
                 | Fable.FunctionType(Fable.LambdaType _, Fable.FunctionType(Fable.LambdaType _, _)) ->
                     let paramsCount = implicitValue.CurriedParameterGroups.Count

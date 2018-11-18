@@ -173,9 +173,14 @@ let (|NumberExt|_|) = function
     | _ -> None
 
 let (|Nameof|_|) = function
-    | IdentExpr ident -> Some ident.Name
+    | IdentExpr ident -> Some ident.DisplayName
     | Get(_, ExprGet(Value(StringConstant prop)), _, _) -> Some prop
     | Get(_, FieldGet(fi,_,_), _, _) -> Some fi
+    | NestedLambda(args, Operation(Call(StaticCall(IdentExpr ident), info),_,_), None) ->
+        if List.sameLength args info.Args && List.zip args info.Args |> List.forall (fun (a1, a2) ->
+            match a2 with IdentExpr id2 -> a1.Name = id2.Name | _ -> false)
+        then Some ident.DisplayName
+        else None
     | _ -> None
 
 let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =

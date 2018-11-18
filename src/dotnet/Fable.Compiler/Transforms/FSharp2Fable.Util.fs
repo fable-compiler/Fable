@@ -631,7 +631,10 @@ module Identifiers =
 
     let inline tryGetBoundExprWhere (ctx: Context) r predicate =
         match List.tryFind (fun (fsRef,_)  -> predicate fsRef) ctx.Scope with
-        | Some(_, Fable.IdentExpr ident) -> { ident with Range = r } |> Fable.IdentExpr |> Some
+        | Some(_, Fable.IdentExpr ident) ->
+            let originalName = ident.Range |> Option.bind (fun r -> r.identifierName)
+            { ident with Range = r |> Option.map (fun r -> { r with identifierName = originalName }) }
+            |> Fable.IdentExpr |> Some
         | Some(_, boundExpr) -> Some boundExpr
         | None -> None
 
@@ -780,7 +783,7 @@ module Util =
         | Some importedEntity -> importedEntity
         | None -> entityRef com ent
 
-    let private memberRefPrivate (com: IFableCompiler) typ (entity: FSharpEntity option) memberName =
+    let private memberRefPrivate (com: IFableCompiler) r typ (entity: FSharpEntity option) memberName =
         let file =
             match entity with
             | Some ent ->
@@ -789,16 +792,18 @@ module Util =
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
             | None -> com.CurrentFile
-        if file = com.CurrentFile
-        then makeTypedIdentNonMangled typ memberName |> Fable.IdentExpr
+        if file = com.CurrentFile then
+            { makeTypedIdentNonMangled typ memberName with Range = r }
+            |> Fable.IdentExpr
         else makeInternalImport typ memberName file
 
-    let memberRefTyped (com: IFableCompiler) typ (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRefTyped (com: IFableCompiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
+        let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         getMemberDeclarationName com memb
-        |> memberRefPrivate com typ memb.DeclaringEntity
+        |> memberRefPrivate com r typ memb.DeclaringEntity
 
-    let memberRef (com: IFableCompiler) (memb: FSharpMemberOrFunctionOrValue) =
-        memberRefTyped com Fable.Any memb
+    let memberRef (com: IFableCompiler) r (memb: FSharpMemberOrFunctionOrValue) =
+        memberRefTyped com r Fable.Any memb
 
     /// Checks who's the actual implementor of the interface, this entity or any of its parents
     let rec tryFindImplementingEntity (ent: FSharpEntity) interfaceFullName =
@@ -1000,13 +1005,13 @@ module Util =
             callInstanceMember com ctx r typ argInfo entity memb
         | _ ->
             if isModuleValue
-            then memberRefTyped com typ memb
+            then memberRefTyped com r typ memb
             else
                 let argInfo =
                     if not argInfo.IsBaseOrSelfConstructorCall && isSelfConstructorCall ctx memb
                     then { argInfo with IsBaseOrSelfConstructorCall = true }
                     else argInfo
-                memberRef com memb |> staticCall r typ argInfo
+                memberRef com r memb |> staticCall r typ argInfo
 
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType
@@ -1020,4 +1025,4 @@ module Util =
         | Imported com ctx r typ None imported -> imported
         // TODO: Replaced? Check if there're failing tests
         | Try (tryGetBoundExpr ctx r) expr, _ -> expr
-        | _ -> memberRefTyped com typ v
+        | _ -> memberRefTyped com r typ v
