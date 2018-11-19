@@ -388,6 +388,27 @@ let needToCast typeFrom typeTo =
     let h = kindIndex typeTo   // return type (horizontal)
     ((v > h) || (v < 4 && h > 3)) && (h < 8) || (h <> v && (h = 11 || v = 11))
 
+let getParseParams (typ: Type) =
+    let typ =
+        match typ with
+        | Tuple [Boolean; t] -> t
+        | _ -> typ
+    let isFloatOrDecimal, numberModule, unsigned, bitsize =
+        match typ with
+        | Number Int8 -> false, "Int32", false, 8
+        | Number UInt8 -> false, "Int32", true, 8
+        | Number Int16 -> false, "Int32", false, 16
+        | Number UInt16 -> false, "Int32", true, 16
+        | Number Int32 -> false, "Int32", false, 32
+        | Number UInt32 -> false, "Int32", true, 32
+        | Number Float32 -> true, "Double", false, 32
+        | Number Float64 -> true, "Double", false, 64
+        | Builtin BclInt64 -> false, "Long", false, 64
+        | Builtin BclUInt64 -> false, "Long", true, 64
+        | Builtin BclDecimal -> true, "Decimal", false, 128
+        | x -> failwithf "Unsupported type in getParseParams: %A" x
+    isFloatOrDecimal, numberModule, unsigned, bitsize
+
 /// Conversions to floating point
 let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
     match args.Head.Type with
@@ -427,6 +448,13 @@ let fastIntFloor expr =
     let inner = makeUnOp None Any expr UnaryNotBitwise
     makeUnOp None (Number Int32) inner UnaryNotBitwise
 
+let stringToInt com (ctx: Context) r targetType (args: Expr list): Expr =
+    let style = int System.Globalization.NumberStyles.Any
+    let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams targetType
+    let parseArgs = [makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize]
+    Helper.CoreCall(numberModule, "parse", targetType,
+        [args.Head] @ parseArgs @ args.Tail, ?loc=r)
+
 let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): Expr =
     let fromInteger kind arg =
         let kind = makeIntConst (kindIndex (JsNumber kind))
@@ -436,9 +464,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
     | Char ->
         Helper.InstanceCall(args.Head, "charCodeAt", Number Int32, [makeIntConst 0])
         |> fromInteger UInt16
-    | String ->
-        let args = [args.Head]@[makeBoolConst unsigned]@args.Tail
-        Helper.CoreCall("Long", "fromString", targetType, args)
+    | String -> stringToInt com ctx r targetType args
     | NumberExt kind ->
         match kind with
         | BigInt -> Helper.CoreCall("BigInt", castBigIntMethod targetType, targetType, args)
@@ -469,7 +495,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         | _ -> failwithf "Unexpected non-integer type %A" typeTo
     match sourceType, targetType with
     | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
-    | String, _ -> Helper.CoreCall("Int32", "parse", targetType, args)
+    | String, _ -> stringToInt com ctx r targetType args
     | Builtin BclBigInt, _ -> Helper.CoreCall("BigInt", castBigIntMethod targetType, targetType, args)
     | NumberExt typeFrom, NumberExt typeTo  ->
         if needToCast typeFrom typeTo then
@@ -1687,48 +1713,47 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     // | "map2" | "map3" -> failwith "TODO"
     | _ -> None
 
-type ParseTarget =
-    | Parse2Int
-    | Parse2Int64
-    | Parse2Float
-    | Parse2Decimal
-
-let parse target (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let isFloat, numberModule =
-        match target with
-        | Parse2Int -> false, "Int32"
-        | Parse2Int64 -> false, "Long"
-        | Parse2Float -> true, "Double"
-        | Parse2Decimal -> true, "Decimal"
+let parse (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let parseCall meth str style =
+        let isFloatOrDecimal, numberModule, unsigned, bitsize =
+            getParseParams t
+        if isFloatOrDecimal then
+            Helper.CoreCall(numberModule, Naming.lowerFirst meth, t,
+                [str], [i.SignatureArgTypes.Head], ?loc=r) |> Some
+        else
+            Helper.CoreCall(numberModule, Naming.lowerFirst meth, t,
+                [str; makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize],
+                [i.SignatureArgTypes.Head; Number Int32; Boolean; Number Int32], ?loc=r) |> Some
+    let isFloat =
+        match i.SignatureArgTypes.Head with
+        | Number (Float32 | Float64) -> true
+        | _ -> false
     match i.CompiledName, args with
     | "IsNaN", [_] when isFloat ->
         Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
     | "IsInfinity", [_] when isFloat ->
         Helper.CoreCall("Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // TODO verify that the number is within the Int32/Double/Single range
-    | "Parse", [str] ->
-        Helper.CoreCall(numberModule, "parse", t,
-            [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
-            [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
-    | "Parse", [str; Value(Enum(NumberEnum(Value(NumberConstant(hexConst', _))), _))] ->
-        let hexConst = float System.Globalization.NumberStyles.HexNumber
-        if hexConst' = hexConst then
-            Helper.CoreCall(numberModule, "parse", t,
-                [str; (if isFloat then makeFloatConst 16.0 else makeIntConst 16)],
-                [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
-        else None  // TODO:
-    | "Parse", str::_ ->
-        // e.g. Double.Parse(string, IFormatProvider) etc.
-        sprintf "%s.Parse(): second argument is ignored" i.DeclaringEntityFullName
-        |> addWarning com ctx.InlinePath r
-        Helper.CoreCall(numberModule, "parse", t,
-            [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
-            [i.SignatureArgTypes.Head; Number Float32])
-        |> Some
-    | "TryParse", [str; defValue] ->
-        Helper.CoreCall(numberModule, "tryParse", t,
-            [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10); defValue],
-            [i.SignatureArgTypes.Head; Number Float32; i.SignatureArgTypes.Tail.Head], ?loc=r) |> Some
+    | "Parse" as meth,
+            str::Value(Enum(NumberEnum(Value(NumberConstant(style, Int32))), _))::_ ->
+        let style, hexConst = int style, int System.Globalization.NumberStyles.HexNumber
+        if not (style = hexConst) then
+            sprintf "%s.%s(): NumberStyle %d is ignored" i.DeclaringEntityFullName meth style
+            |> addWarning com ctx.InlinePath r
+        if List.length args > 2 then
+            // e.g. Double.Parse(string, style, IFormatProvider) etc.
+            sprintf "%s.%s(): provider argument is ignored" i.DeclaringEntityFullName meth
+            |> addWarning com ctx.InlinePath r
+        parseCall meth str style
+    | "Parse" as meth, str::_ ->
+        if List.length args > 1 then
+            // e.g. Double.Parse(string, IFormatProvider) etc.
+            sprintf "%s.%s(): provider argument is ignored" i.DeclaringEntityFullName meth
+            |> addWarning com ctx.InlinePath r
+        let style = int System.Globalization.NumberStyles.Any
+        parseCall meth str style
+    | "TryParse" as meth, [str; defaultValue] ->
+        let style = int System.Globalization.NumberStyles.Any
+        parseCall meth str style
     | "ToString", [Value (StringConstant _) as format] ->
         let format = emitJs r String [format] "'{0:' + $0 + '}'"
         Helper.CoreCall("String", "format", t, [format; thisArg.Value], [format.Type; thisArg.Value.Type], ?loc=r) |> Some
@@ -1736,7 +1761,6 @@ let parse target (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Helper.GlobalCall("String", String, [thisArg.Value], ?loc=r) |> Some
     | _ ->
         None
-
 
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
@@ -1766,7 +1790,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     | ".ctor", [arg] ->
         makeDecimalFromExpr t arg |> Some
     | ("Parse" | "TryParse"), _ ->
-        parse Parse2Decimal com ctx r t i thisArg args
+        parse com ctx r t i thisArg args
     | "op_LessThan", [left; right] -> compareIf com r left right BinaryLess |> Some
     | "op_LessThanOrEqual", [left; right] -> compareIf com r left right BinaryLessOrEqual |> Some
     | "op_GreaterThan", [left; right] -> compareIf com r left right BinaryGreater |> Some
@@ -2573,10 +2597,16 @@ let private replacedModules =
     Types.valueType, valueTypes
     "System.Enum", enums
     "System.BitConverter", bitConvert
-    Types.int32, parse Parse2Int
-    Types.int64, parse Parse2Int64
-    Types.float32, parse Parse2Float
-    Types.float64, parse Parse2Float
+    Types.int8, parse
+    Types.uint8, parse
+    Types.int16, parse
+    Types.uint16, parse
+    Types.int32, parse
+    Types.uint32, parse
+    Types.int64, parse
+    Types.uint64, parse
+    Types.float32, parse
+    Types.float64, parse
     Types.decimal, decimals
     "System.Convert", convert
     "System.Console", console
@@ -2684,7 +2714,6 @@ let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
         |> Option.map (fun (entityName, importPath) ->
             let entityName = Naming.sanitizeIdentForbiddenChars entityName |> Naming.checkJsKeywords
             makeCustomImport Any entityName importPath)
-
 
 let tryBaseConstructor com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) genArgs args =
     match ent.FullName with

@@ -71,11 +71,10 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch REPL bench (ES6)",
-            "program": "${workspaceRoot}/src/dotnet/Fable.Repl/bench/out/app.mjs",
-            "runtimeArgs": ["--experimental-modules"],
-            "args": [],
-            "cwd": "${workspaceRoot}/src/dotnet/Fable.Repl/bench"
+            "name": "Launch bench-compiler",
+            "program": "${workspaceRoot}/src/dotnet/Fable.Repl/bench-compiler/out/app.js",
+            "args": ["../../../../../fable-test/fable-test.fsproj"],
+            "cwd": "${workspaceRoot}/src/dotnet/Fable.Repl/bench-compiler"
         },
         {
             "type": "node",

@@ -4,6 +4,9 @@ export default Decimal;
 
 export const get_Zero = new Decimal(0);
 export const get_One = new Decimal(1);
+export const get_MinusOne = new Decimal(-1);
+export const get_MaxValue = new Decimal("79228162514264337593543950335");
+export const get_MinValue = new Decimal("-79228162514264337593543950335");
 
 export function compare(x: Decimal, y: Decimal) {
   return x.cmp(y);
@@ -67,15 +70,20 @@ export function toString(x: Decimal) {
   return x.toString();
 }
 
-export function parse(str: string) {
-  return new Decimal(str.trim());
+export function tryParse(str: string): [boolean, Decimal] {
+  try {
+    return [true, new Decimal(str.trim())];
+  } catch {
+    return [false, get_Zero];
+  }
 }
 
-export function tryParse(str: string, defaultValue: Decimal) {
-  try {
-      return [true, new Decimal(str.trim())];
-  } catch {
-      return [false, defaultValue];
+export function parse(str: string): Decimal {
+  const [ok, value] = tryParse(str);
+  if (ok) {
+    return value;
+  } else {
+    throw new Error("Input string was not in a correct format.");
   }
 }
 

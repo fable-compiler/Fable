@@ -122,15 +122,16 @@ let parseFiles projectPath outDir optimized =
     let fsAst = parseRes.ProjectResults
     for fileName in fileNames do
 
+        // // print F# AST
+        // let fsAstStr = fable.FSharpAstToString(fsAst, fileName, optimized)
+        // printfn "%s Typed AST: %s" fileName fsAstStr
+
         // transform F# AST to Babel AST
         let ms2, res = measureTime parseFable (fileName, fsAst)
         printfn "File: %s, Fable time: %d ms" fileName ms2
         res.FableErrors |> printErrors showWarnings
 
-        // let fsAstStr = fable.FSharpAstToString(fsAst, fileName, optimized)
-        // printfn "%s Typed AST: %s" fileName fsAstStr
         // printfn "%s Babel AST: %s" fileName (toJson res.BabelAst)
-
         let jsFileName = Fable.Path.ChangeExtension(fileName, ".json")
         let jsFilePath = Fable.Path.Combine(outDir, jsFileName)
         let jsFileText = toJson res.BabelAst
