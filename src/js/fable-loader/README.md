@@ -8,7 +8,9 @@
 
 ## Usage
 
-Create a `webpack-config.js` like the following:
+Create a `webpack-config.js` like the following run it using [Webpack CLI](https://webpack.js.org/guides/getting-started/).
+
+**ATTENTION**: In Fable 2.0 you had to call Webpack through dotnet-fable cli too (e.g. `dotnet fable webpack`), starting from Fable 2.1 you can call Webpack directly (e.g. `npx webpack`).
 
 > See the [Fable webpack-config-template](https://github.com/fable-compiler/webpack-config-template) for a more comprehensive example of a Webpack configuration for Fable projects.
 
@@ -36,6 +38,8 @@ module.exports = {
 }
 
 ```
+
+## Options
 
 These are the options that can be passed to `fable-loader`:
 

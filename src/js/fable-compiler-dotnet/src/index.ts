@@ -30,7 +30,10 @@ function processArgs(args?: {[x: string]: any}) {
     let cliArgs = [BIN_PATH, "start-stdin"];
     if (args != null) {
         if (args.path) {
-            cliArgs = ["run", "-c", "Release", "-p", path.resolve(args.path), "start-stdin", "--force-pkgs"];
+            const filePath = path.resolve(args.path);
+            cliArgs = filePath.endsWith(".dll")
+                ? [filePath, "start-stdin", "--force-pkgs"]
+                : ["run", "-c", "Release", "-p", filePath, "start-stdin", "--force-pkgs"];
             delete args.path;
         }
         for (const k of Object.keys(args)) {

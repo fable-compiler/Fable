@@ -2,11 +2,11 @@
 
 var path = require("path");
 var babel = require("@babel/core");
-var babelPlugins = require("fable-compiler-dotnet").babelPlugins;
-var getCompiler = require("./src/compiler");
+// var fable = require("../fable-compiler-dotnet"); // testing
+var fable = require("fable-compiler-dotnet");
 
 if (process.env.FABLE_SERVER_PORT) {
-    throw new Error("This version is not compatible with dotnet-fable CLI tool, see README");
+    throw new Error("This version is not compatible with dotnet-fable cli tool, see https://www.npmjs.com/package/fable-loader#usage");
 }
 
 function or(option, _default) {
@@ -22,9 +22,23 @@ function ensureArray(obj) {
 }
 
 var customPlugins = [
-    babelPlugins.getRemoveUnneededNulls(),
-    babelPlugins.getTransformMacroExpressions(babel.template)
+    fable.babelPlugins.getRemoveUnneededNulls(),
+    fable.babelPlugins.getTransformMacroExpressions(babel.template)
 ];
+
+var compilerCache = null;
+
+function getCompiler(webpack, args) {
+    if (compilerCache == null) {
+        compilerCache = fable.default(args);
+        if (!webpack.watchMode) {
+            webpack.hooks.done.tap("fable-loader", function() {
+                compilerCache.close();
+            });
+        }
+    }
+    return compilerCache;
+}
 
 function transformBabelAst(babelAst, babelOptions, sourceMapOptions, callback) {
     var fsCode = null;
