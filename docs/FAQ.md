@@ -191,11 +191,12 @@ module.exports = {
     outDir: resolve("test/output"),
     babel: {
         "plugins": ["@babel/plugin-transform-modules-commonjs"]
-    }
+    },
+    allFiles: true
 }
 ```
 
-Folowing F# test file `App.test.fs`
+Following F# test file `App.test.fs`
 ```fsharp
 module MyApp.Test
 open Fable.Import.Jest // See https://github.com/jgrund/fable-jest
