@@ -1,3 +1,7 @@
+### 2.0.2
+
+* Add `nameof2` and `exportDefault`
+
 ### 2.0.1
 
 * Fix `ReadonlyArray` spelling

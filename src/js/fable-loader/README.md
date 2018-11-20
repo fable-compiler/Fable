@@ -12,6 +12,8 @@ Create a `webpack-config.js` like the following run it using [Webpack CLI](https
 
 **ATTENTION**: In Fable 2.0 you had to call Webpack through dotnet-fable cli too (e.g. `dotnet fable webpack`), starting from Fable 2.1 you can call Webpack directly (e.g. `npx webpack`).
 
+**NOTE**: This package depends on `fable-compiler-dotnet` for the actual F# to JS compilation. If you need more control over the compiler version, add a direct reference to `fable-compiler-dotnet` in your package.json.
+
 > See the [Fable webpack-config-template](https://github.com/fable-compiler/webpack-config-template) for a more comprehensive example of a Webpack configuration for Fable projects.
 
 ```js

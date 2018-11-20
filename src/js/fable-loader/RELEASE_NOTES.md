@@ -1,3 +1,7 @@
+### 2.1.0-beta-004
+
+* Minor refactoring and update README
+
 ### 2.1.0-beta-003
 
 * Fix detection of Webpack watch mode

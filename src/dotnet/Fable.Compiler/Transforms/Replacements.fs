@@ -980,12 +980,15 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                |> addError com ctx.InlinePath r; None
     | "createEmpty", _ ->
         objExpr t [] |> Some
-    | "nameof", _ ->
+    | ("nameof"|"nameof2" as meth), _ ->
         match args with
-        | [Nameof name] -> name
+        | [Nameof name as arg] ->
+            if meth = "nameof2"
+            then NewTuple [makeStrConst name; arg] |> Value |> Some
+            else makeStrConst name |> Some
         | _ -> "Cannot infer name of expression"
-               |> addError com ctx.InlinePath r; Naming.unknown
-        |> makeStrConst |> Some
+               |> addError com ctx.InlinePath r
+               makeStrConst Naming.unknown |> Some
     | "nameofLambda", _ ->
         match args with
         | [Function(_, Nameof name, _)] -> name

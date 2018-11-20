@@ -121,61 +121,82 @@ let sendError (respond: obj->unit) (ex: Exception) =
     Log.logAlways(sprintf "ERROR: %s\n%s" ex.Message stack)
     ["error", ex.Message] |> dict |> respond
 
+let rec findFsprojUpwards originalFile dir =
+    match IO.Directory.GetFiles(dir, "*.fsproj") with
+    | [||] ->
+        let parentDir = IO.Path.GetDirectoryName(dir)
+        if isNull parentDir
+        then failwithf "Cannot find project file for %s. Do you need symlinks:false in your webpack.config?" originalFile
+        else findFsprojUpwards originalFile parentDir
+    | [|projFile|] -> projFile
+    | _ -> failwithf "Found more than one project file for %s, please disambiguate." originalFile
+
+let getDirtyFiles (project: Project) sourceFile =
+    let isDirty = IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp
+    // In watch compilations, always recompile the requested file in case it has non-solved errors
+    if isDirty || project.HasSent(sourceFile) then
+        project.ProjectOptions.SourceFiles
+        |> Array.filter (fun file ->
+            let file = Path.normalizePath file
+            file = sourceFile || IO.File.GetLastWriteTime(file) > project.TimeStamp)
+        |> project.GetFilesAndDependent
+    else [||]
+
+let addOrUpdateProject state (project: Project) =
+    let state = Map.add project.ProjectFile project state
+    true, state, project
+
+let tryFindAndUpdateProject (checker: FSharpChecker) state (msg: Parser.Message) sourceFile =
+    // Dirty files mean this is recompilation in watch mode
+    let checkIfThereAreDirtyFiles project sourceFile =
+        let dirtyFiles = getDirtyFiles project sourceFile
+        if Array.length dirtyFiles > 0 then
+            createProject checker dirtyFiles (Some project) msg project.ProjectFile
+            |> Async.map (addOrUpdateProject state)
+        // No need to call F# compiler and recreate the project
+        else async.Return(false, state, project)
+
+    let checkIfProjectIsAlreadyInState projFile =
+        let projFile = Path.normalizeFullPath projFile
+        match Map.tryFind projFile state with
+        | Some project ->
+            checkIfThereAreDirtyFiles project sourceFile
+        | None ->
+            createProject checker [||] None msg projFile
+            |> Async.map (addOrUpdateProject state)
+
+    // Check for the `extra.projectFile` option. This is used to
+    // disambiguate files referenced by several projects, see #1116
+    match msg.extra.TryGetValue("projectFile") with
+    | true, projFile ->
+        checkIfProjectIsAlreadyInState projFile
+    | false, _ ->
+        state |> Map.tryPick (fun _ (project: Project) ->
+            if project.ContainsFile(sourceFile)
+            then Some project
+            else None)
+        |> function
+            | Some project ->
+                checkIfThereAreDirtyFiles project sourceFile
+            | None ->
+                IO.Path.GetDirectoryName(sourceFile)
+                |> findFsprojUpwards sourceFile
+                |> checkIfProjectIsAlreadyInState
+
 let updateState (checker: FSharpChecker) (state: Map<string,Project>) (msg: Parser.Message) =
-    let getDirtyFiles (project: Project) sourceFile =
-        let isDirty = IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp
-        // In watch compilations, always recompile the requested file in case it has non-solved errors
-        if isDirty || project.HasSent(sourceFile) then
-            project.ProjectOptions.SourceFiles
-            |> Array.filter (fun file ->
-                let file = Path.normalizePath file
-                file = sourceFile || IO.File.GetLastWriteTime(file) > project.TimeStamp)
-            |> project.GetFilesAndDependent
-        else [||]
-    let addOrUpdateProject state (project: Project) =
-        let state = Map.add project.ProjectFile project state
-        true, state, project
-    let tryFindAndUpdateProject state sourceFile =
-        let checkWatchCompilation project sourceFile =
-            let dirtyFiles = getDirtyFiles project sourceFile
-            if Array.length dirtyFiles > 0 then
-                createProject checker dirtyFiles (Some project) msg project.ProjectFile
-                |> Async.map (addOrUpdateProject state >> Some)
-            else
-                Some(false, state, project) |> async.Return
-        match msg.extra.TryGetValue("projectFile") with
-        | true, projFile ->
-            let projFile = Path.normalizeFullPath projFile
-            match Map.tryFind projFile state with
-            | Some project -> checkWatchCompilation project sourceFile
-            | None -> createProject checker [||] None msg projFile
-                      |> Async.map (addOrUpdateProject state >> Some)
-        | false, _ ->
-            state |> Async.tryPick (fun (KeyValue(_, project: Project)) ->
-                if project.ContainsFile(sourceFile)
-                then checkWatchCompilation project sourceFile
-                else async.Return None)
     match IO.Path.GetExtension(msg.path).ToLower() with
     | ".fsproj" ->
         createProject checker [||] None msg msg.path
         |> Async.map (addOrUpdateProject state)
     | ".fsx" ->
-        if Map.containsKey msg.path state then
-            // When a script is modified, restart the project with new options
-            // (to check for new references, loaded projects, etc.)
-            createProject checker [||] None msg msg.path
-            |> Async.map (addOrUpdateProject state)
-        else
-            tryFindAndUpdateProject state msg.path
-            |> Async.orElse (fun () ->
-                createProject checker [||] None msg msg.path
-                |> Async.map (addOrUpdateProject state))
+        // When a script is modified, restart the project with new options
+        // (to check for new references, loaded projects, etc.)
+        createProject checker [||] None msg msg.path
+        |> Async.map (addOrUpdateProject state)
     | ".fs" ->
-        tryFindAndUpdateProject state msg.path
-        |> Async.orElse (fun () ->
-            state |> Map.map (fun _ p -> p.ProjectFile) |> Seq.toList
-            |> failwithf "%s doesn't belong to any of loaded projects %A" msg.path)
-    | ".fsi" -> failwithf "Signature files cannot be compiled to JS: %s" msg.path
+        tryFindAndUpdateProject checker state msg msg.path
+    | ".fsi" ->
+        failwithf "Signature files cannot be compiled to JS: %s" msg.path
     | _ -> failwithf "Not an F# source file: %s" msg.path
 
 let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFilter: string option) =
