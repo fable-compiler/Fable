@@ -25,9 +25,6 @@
     "prebuild": "node ../../../node_modules/tslint/bin/tslint index.ts",
     "build": "node ../../../node_modules/typescript/bin/tsc"
   },
-  "optionalDependencies": {
-    "prepack": "^0.2.36"
-  },
   "peerDependencies": {
     "fable-compiler-dotnet": "~2.1.0-beta-002"
   },

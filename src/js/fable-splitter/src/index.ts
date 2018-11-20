@@ -46,7 +46,6 @@ export type FableSplitterOptions = {
     cli?: {},
     allFiles?: boolean,
     externals?: any,
-    prepack?: any,
     postbuild?: () => void,
 };
 
@@ -319,12 +318,8 @@ async function generateJsCode(fullPath: string, ast: Babel.types.Program,
         .concat(getResolvePathPlugin(jsDir, options));
 
     // transform and save
-    let result = await generateJsCodeFromBabelAst(ast, code, babelOptions);
+    const result = await generateJsCodeFromBabelAst(ast, code, babelOptions);
     if (result != null) {
-        if (options.prepack) {
-            const prepack = require("prepack");
-            result = prepack.prepackFromAst(result.ast, result.code, options.prepack) as Babel.BabelFileResult;
-        }
         await fs.writeFile(jsPath, result.code);
         if (result.map) {
             await fs.appendFile(jsPath, "\n//# sourceMappingURL=" + Path.basename(jsPath) + ".map");
@@ -385,7 +380,6 @@ function setDefaultOptions(options: FableSplitterOptions) {
     options.fable = options.fable || {};
     options.babel = options.babel || {};
     options.babel.plugins = customPlugins.concat(options.babel.plugins || []);
-    // options.prepack = options.prepack;
     return options;
 }
 
