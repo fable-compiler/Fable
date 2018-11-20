@@ -20,10 +20,10 @@
   },
   "homepage": "https://github.com/fable-compiler/Fable#readme",
   "peerDependencies": {
-    "@babel/core": "^7.0.0"
+    "@babel/core": "^7.0.0",
+    "fable-compiler-dotnet": "~2.1.0-beta-002"
   },
-  "dependencies": {
-    "@types/babel__core": "^7.0.1",
-    "fable-compiler-dotnet": "^2.1.0-beta-001"
+  "devDependencies": {
+    "@types/babel__core": "^7.0.1"
   }
 }

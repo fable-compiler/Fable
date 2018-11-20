@@ -6,7 +6,8 @@ import * as Process from "process";
 import getCompiler from "./compiler";
 
 if (Process.env.FABLE_SERVER_PORT) {
-    throw new Error("This version is not compatible with dotnet-fable CLI tool, see README");
+    throw new Error("This version is not compatible with dotnet-fable cli tool, "
+        + "see https://www.npmjs.com/package/fable-splitter#usage");
 }
 
 const FSHARP_EXT = /\.(fs|fsx|fsproj)$/;

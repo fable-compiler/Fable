@@ -4,9 +4,13 @@ JS client for [Fable](http://fable.io/) that compiles F# files to individual JS 
 
 ## Installation
 
-```npm install --save-dev fable-splitter```
+```npm install fable-splitter fable-compiler-dotnet```
 
 ## Usage
+
+**ATTENTION**: In Fable 2.0 you had to call fable-splitter through dotnet-fable cli too (e.g. `dotnet fable fable-splitter`), starting from Fable 2.1 you call fable-splitter directly (e.g. `npx fable-splitter`).
+
+**NOTE**: The actual F# to JS compilation is done by `fable-compiler-dotnet`. You can control the compiler version through this package.
 
 ```txt
 fable-splitter [command] [arguments]
@@ -14,7 +18,7 @@ fable-splitter [command] [arguments]
 Commands:
   -h|--help         Show help
   --version         Print version
-  [file path]       Compile an F# project or script to JS
+  [file/dir path]   Compile an F# project to JS
 
 Arguments:
   -o|--outDir       Output directory
@@ -22,8 +26,11 @@ Arguments:
   -w|--watch        [FLAG] Watch mode
   -d|--debug        [FLAG] Define DEBUG constant
   --run             [FLAG] Run script with node after compilation
+                    Arguments after --run will be passed to the script
 
-Example: fable-splitter src/App.fsproj -o dist/
+Examples:
+  fable-splitter src/App.fsproj -o dist/
+  fable-splitter src/ -w --run
 ```
 
 > You can use node, npm scripts, yarn or npx to run the tool.

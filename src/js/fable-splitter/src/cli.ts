@@ -3,9 +3,9 @@
 import * as fs from "fs";
 import * as path from "path";
 import fableSplitter from "./index";
+import runScript from "./run";
 
 const chokidarLazy = requireLazy("chokidar");
-const nodemonLazy = requireLazy("nodemon");
 
 function requireLazy(module) {
     let cache = null;
@@ -16,26 +16,6 @@ function getMainScriptPath(options, info) {
     const lastFile = info.projectFiles[info.projectFiles.length - 1];
     const mainScript = path.join(options.outDir, info.mapInOutPaths.get(lastFile));
     return mainScript.endsWith(".js") ? mainScript : mainScript + ".js";
-}
-
-function runScriptOnce(scriptPath) {
-    require(scriptPath);
-}
-
-function runScriptWithWatch(scriptPath) {
-    const nodemon = nodemonLazy();
-    nodemon({
-        script: scriptPath,
-        ext: "js",
-      });
-
-    nodemon
-        // .on('start', function () { console.log('App has started'); })
-        // .on('restart', function (files) { console.log('App restarted due to: ', files); })
-        .on("quit", () => {
-            // console.log('App has quit');
-            process.exit();
-        });
 }
 
 function getVersion() {
@@ -50,7 +30,7 @@ Usage: fable-splitter [command] [arguments]
 Commands:
   -h|--help         Show help
   --version         Print version
-  [file path]       Compile an F# project or script to JS
+  [file/dir path]   Compile an F# project to JS
 
 Arguments:
   -o|--outDir       Output directory
@@ -58,21 +38,30 @@ Arguments:
   -w|--watch        [FLAG] Watch mode
   -d|--debug        [FLAG] Define DEBUG constant
   --run             [FLAG] Run script with node after compilation
+                    Arguments after --run will be passed to the script
 
-Example: fable-splitter src/App.fsproj -o dist/
+Examples:
+  fable-splitter src/App.fsproj -o dist/
+  fable-splitter src/ -w --run
 `;
 }
 
 function findFlag(arr: string[], arg): boolean {
-    const args = Array.isArray(arg) ? arg : [arg];
-    for (const item of arr) {
-        if (args.indexOf(item) >= 0) {
-            return true;
-        }
-    }
-    return false;
+    return findFlagIndex(arr, arg) > -1;
 }
 
+// TODO: Stop after --run?
+function findFlagIndex(arr: string[], arg): number {
+    const args = Array.isArray(arg) ? arg : [arg];
+    for (let i = 0; i < arr.length; i++) {
+        if (args.indexOf(arr[i]) >= 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// TODO: Stop after --run?
 function findArgValue(arr: string[], arg, f?): string|null {
     const args = Array.isArray(arg) ? arg : [arg];
     for (let i = 0; i < arr.length; i++) {
@@ -138,6 +127,11 @@ function fixEntryPath(entry: string|null) {
     return entry;
 }
 
+function mustRun(args: string[]): [boolean, string[]] {
+    const i = findFlagIndex(args, "--run");
+    return i >= 0 ? [true, args.slice(i + 1)] : [false, []];
+}
+
 function run(entry, args) {
     const cfgFile = findArgValue(args, ["-c", "--config"]);
 
@@ -172,8 +166,9 @@ function run(entry, args) {
     console.log(`fable-splitter ${getVersion()}`);
     fableSplitter(opts).then((info) => {
         if (findFlag(args, ["-w", "--watch"])) {
-            if (findFlag(args, "--run")) {
-                runScriptWithWatch(getMainScriptPath(opts, info));
+            const [isRun, runArgs] = mustRun(args);
+            if (isRun) {
+                runScript(getMainScriptPath(opts, info), runArgs);
             }
             let cachedInfo = info;
             let ready = false;
@@ -204,14 +199,20 @@ function run(entry, args) {
                                     watcher.add(newFiles);
                                 }
                                 cachedInfo = info2;
+                                if (isRun) {
+                                    runScript(getMainScriptPath(opts, info2), runArgs);
+                                }
                             });
                         }
                     }
                 });
         } else {
+            const [isRun, runArgs] = mustRun(args);
             const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
-            if (!hasError && findFlag(args, "--run")) {
-                runScriptOnce(getMainScriptPath(opts, info));
+            if (!hasError && isRun) {
+                runScript(getMainScriptPath(opts, info), runArgs).then((code) => {
+                    process.exit(code);
+                });
             } else {
                 process.exit(hasError ? 1 : 0);
             }
