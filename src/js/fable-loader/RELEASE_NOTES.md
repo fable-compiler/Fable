@@ -1,3 +1,7 @@
+### 2.1.0-beta-005
+
+* Make fable-compiler-dotnet a peerDependency
+
 ### 2.1.0-beta-004
 
 * Minor refactoring and update README
