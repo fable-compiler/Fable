@@ -456,14 +456,14 @@ module Util =
                 let argNames = ent.GenericParameters |> Seq.map (fun x -> x.Name)
                 Seq.zip argNames generics |> Map
             let knownTypes, generics = resolveGenerics knownTypes generics
-            let generics = ArrowFunctionExpression([||], U2.Case2(ArrayExpression generics :> Expression)) :> Expression
+            let genericsFn = ArrowFunctionExpression([||], U2.Case2(ArrayExpression generics :> Expression)) :> Expression
             if ent.IsFSharpRecord then
                 let knownTypes, fields =
                     (knownTypes, ent.FSharpFields) ||> foldAndMap (fun knownTypes x ->
                         let knownTypes, typeInfo = resolveType genMap knownTypes x.FieldType
                         knownTypes, (ArrayExpression [|StringLiteral x.Name; typeInfo|] :> Expression))
                 let fields = ArrowFunctionExpression([||], ArrayExpression fields :> Expression |> U2.Case2) :> Expression
-                knownTypes, ([|fullnameExpr; generics; entityRefMaybeImported com ctx ent; fields|] |> coreLibCall com ctx "Reflection" "record")
+                knownTypes, ([|fullnameExpr; genericsFn; entityRefMaybeImported com ctx ent; fields|] |> coreLibCall com ctx "Reflection" "record")
             elif ent.IsFSharpUnion then
                 let knownTypes, cases =
                     (knownTypes, ent.UnionCases) ||> foldAndMap (fun knownTypes uci ->
@@ -480,9 +480,10 @@ module Util =
                                 |] :> Expression
                         knownTypes, caseInfo)
                 let cases = ArrowFunctionExpression([||], ArrayExpression cases :> Expression |> U2.Case2) :> Expression
-                knownTypes, ([|fullnameExpr; generics; entityRefMaybeImported com ctx ent; cases|] |> coreLibCall com ctx "Reflection" "union")
+                knownTypes, ([|fullnameExpr; genericsFn; entityRefMaybeImported com ctx ent; cases|] |> coreLibCall com ctx "Reflection" "union")
             else
-                knownTypes, coreLibCall com ctx "Reflection" "type" [|fullnameExpr; generics|]
+                let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; genericsFn|]
+                knownTypes, coreLibCall com ctx "Reflection" "type" args
         match t with
         // TODO: Type info forErasedUnion?
         | Fable.ErasedUnion _ | Fable.Any -> primitiveTypeInfo knownTypes "obj"

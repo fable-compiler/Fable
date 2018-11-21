@@ -25,6 +25,7 @@ Arguments:
   -c|--config       Config file
   -w|--watch        [FLAG] Watch mode
   -d|--debug        [FLAG] Define DEBUG constant
+  --allFiles        [FLAG] Compile all files in the F# project
   --run             [FLAG] Run script with node after compilation
                     Arguments after --run will be passed to the script
 

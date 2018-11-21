@@ -1,3 +1,7 @@
+### 2.1.0-beta-003
+
+* Fix #1646: Don't override `allFiles` in config file if cli flag is not set
+
 ### 2.1.0-beta-002
 
 * Remove nodemon dependency
