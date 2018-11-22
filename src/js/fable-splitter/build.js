@@ -2,7 +2,7 @@ const util = require("../common");
 
 util.runTargets({
     async test() {
-        await util.runNpmBin("mocha", "tests/index.js -t 30000");
+        await util.runNpmBin("ava", "tests/index.js");
     },
     async build() {
         await util.runNpmBin("tslint", "--project .");

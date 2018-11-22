@@ -16,15 +16,17 @@ async function runNpmBin(name, args) {
     }
 }
 
-async function runTargets(targets) {
+function runTargets(targets) {
     const args = process.argv.slice(2);
     const [target, restArgs] =
         typeof args[0] === "string" && !args[0].startsWith("--")
         ? [args[0].toLowerCase(), args.splice(1)]
         : ["build", args];
-    if (target in targets) {
-        await targets[target].apply(targets, restArgs);
-    } else {
-        throw new Error(`Cannot find ${target} in targets`);
+    const res = targets[target].apply(targets, restArgs);
+    if (res instanceof Promise) {
+        res.then(() => {}, er => {
+            console.error(er);
+            process.exit(1);
+        })
     }
 }
