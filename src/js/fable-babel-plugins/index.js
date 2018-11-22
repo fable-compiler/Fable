@@ -1,7 +1,12 @@
+module.exports = {
+    getRemoveUnneededNulls,
+    getTransformMacroExpressions
+}
+
 /**
  * Removes unnecessary null statements (e.g. at the end of constructors)
  */
-export function getRemoveUnneededNulls() {
+function getRemoveUnneededNulls() {
   return {
     visitor: {
         // Remove `null;` statements (e.g. at the end of constructors)
@@ -20,7 +25,7 @@ export function getRemoveUnneededNulls() {
 /**
  * Custom plugin to simulate macro expressions.
  */
-export function getTransformMacroExpressions(babelTemplate) {
+function getTransformMacroExpressions(babelTemplate) {
   return {
     visitor: {
         StringLiteral(path) {
@@ -45,8 +50,8 @@ export function getTransformMacroExpressions(babelTemplate) {
             try {
                 // Check if there are more placeholders than args, this may happen
                 // if null optional arguments have been removed.
-                let m: RegExpExecArray|null = null;
-                const placeholders: number[] = [];
+                let m = null;
+                const placeholders = [];
                 const args = node.args || [];
 
                 // tslint:disable-next-line:no-conditional-assignment
@@ -69,7 +74,7 @@ export function getTransformMacroExpressions(babelTemplate) {
                 macro = macro
                     // Macro transformations, see http://fable.io/docs/interacting.html#emit-attribute
                     .replace(/\$(\d+)\.\.\./, (_, i) => {
-                        const rep: string[] = [];
+                        const rep = [];
                         for (let j = parseInt(i, 10); j < args.length; j++) {
                             rep.push("$" + j);
                         }
@@ -85,7 +90,7 @@ export function getTransformMacroExpressions(babelTemplate) {
                     });
 
                 // Babel 7 throws error if there're unused arguments, remove them
-                const actualArgs: string[] = [];
+                const actualArgs = [];
                 const buildArgKeys = Object.keys(buildArgs);
 
                 // tslint:disable-next-line:no-conditional-assignment

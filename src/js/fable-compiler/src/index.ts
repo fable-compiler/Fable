@@ -4,9 +4,6 @@ import { spawn } from "child_process";
 import * as path from "path";
 import * as readline from "readline";
 import * as uuid from "uuid/v4";
-import * as plugins from "./babel-plugins";
-
-export const babelPlugins = plugins;
 
 const BIN_PATH = path.join(__dirname, "../bin/fable-compiler/Fable.Compiler.dll");
 

@@ -1,5 +1,5 @@
 import * as Babel from "@babel/core";
-import { babelPlugins } from "fable-compiler";
+import * as babelPlugins from "fable-babel-plugins";
 import * as fs from "fs-extra";
 import * as Path from "path";
 import * as Process from "process";

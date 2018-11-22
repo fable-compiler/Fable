@@ -1,3 +1,7 @@
+### 2.1.0-beta-007
+
+* Use fable-babel-plugins package
+
 ### 2.1.0-beta-006
 
 * Use fable-compiler package

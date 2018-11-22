@@ -2,6 +2,7 @@
 
 var path = require("path");
 var babel = require("@babel/core");
+var babelPlugins = require("fable-babel-plugins");
 // var fable = require("../fable-compiler"); // testing
 var fable = require("fable-compiler");
 
@@ -9,17 +10,13 @@ function or(option, _default) {
     return option !== void 0 ? option : _default;
 }
 
-function join(arg) {
-    return Array.isArray(arg) ? arg.join(";") : arg;
-}
-
 function ensureArray(obj) {
     return Array.isArray(obj) ? obj : (obj != null ? [obj] : []);
 }
 
 var customPlugins = [
-    fable.babelPlugins.getRemoveUnneededNulls(),
-    fable.babelPlugins.getTransformMacroExpressions(babel.template)
+    babelPlugins.getRemoveUnneededNulls(),
+    babelPlugins.getTransformMacroExpressions(babel.template)
 ];
 
 var compilerCache = null;
