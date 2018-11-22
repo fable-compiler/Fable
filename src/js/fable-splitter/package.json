@@ -22,8 +22,8 @@
     "url": "https://github.com/fable-compiler/Fable/issues"
   },
   "scripts": {
-    "prebuild": "node ../../../node_modules/tslint/bin/tslint index.ts",
-    "build": "node ../../../node_modules/typescript/bin/tsc"
+    "build": "node build.js",
+    "test": "node build.js test"
   },
   "peerDependencies": {
     "fable-compiler": "~2.1.0-beta-003"

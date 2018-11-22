@@ -118,6 +118,13 @@ let buildTypescript projectDir () =
     // Yarn.run CWD "tslint" [sprintf "--project %s" projectDir]
     Yarn.run CWD "tsc" (sprintf "--project %s" projectDir)
 
+let buildNpmPackage pkgDir () =
+    Yarn.install CWD
+    let pkgDir = CWD </> pkgDir
+    run pkgDir "npm" "install"
+    run pkgDir "npm" "run build"
+    run pkgDir "npm" "test"
+
 let buildPrecompiledFull () =
     Yarn.install CWD
     Yarn.run CWD "tslint" (sprintf "--project %s" precompiledSrcDir)
@@ -277,7 +284,7 @@ Target "FablePrecompiledTypescriptOnly" buildPrecompiledTypescriptFiles
 Target "FablePrecompiledFSharpOnly" buildPrecompiledFsharpFiles
 Target "FablePrecompiledInjects" (fun _ ->
     run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run")
-Target "fable-splitter" (buildTypescript "src/js/fable-splitter")
+Target "fable-splitter" (buildNpmPackage "src/js/fable-splitter")
 Target "fable-compiler" buildNpmFableCompilerDotnet
 Target "fable-compiler-js" buildNpmFableCompilerJs
 Target "RunTestsJS" runTestsJS
@@ -302,7 +309,7 @@ Target "PublishPackages" (fun () ->
         Package("js/fable-compiler", buildNpmFableCompilerDotnet)
         Package "js/fable-loader"
         Package "js/rollup-plugin-fable"
-        Package("js/fable-splitter", buildTypescript "src/js/fable-splitter")
+        Package("js/fable-splitter", buildNpmPackage "src/js/fable-splitter")
     ]
     installDotnetSdk ()
     clean ()
