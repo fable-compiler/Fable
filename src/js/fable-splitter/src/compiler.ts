@@ -1,4 +1,4 @@
-import start, { ICompilerProxy } from "fable-compiler-dotnet";
+import start, { ICompilerProxy } from "fable-compiler";
 
 let cache: ICompilerProxy|null = null;
 

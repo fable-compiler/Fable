@@ -82,15 +82,15 @@ let rec getInjects initialized decls =
 
 [<EntryPoint>]
 let main _argv =
-    printfn "Checking methods in Fable.Core.JS with last argument decorated with Inject..."
+    printfn "Checking methods in Fable.Precompiled with last argument decorated with Inject..."
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
-    let proj = parse checker (IO.Path.Combine(__SOURCE_DIRECTORY__,"../../js/fable-core/Fable.Core.JS.fsproj"))
+    let proj = parse checker (IO.Path.Combine(__SOURCE_DIRECTORY__,"../../js/fable-precompiled/Fable.Precompiled.fsproj"))
     let lines =
         seq {
             yield """/// AUTOMATICALLY GENERATED - DO NOT TOUCH!
 module Fable.Transforms.ReplacementsInject
 
-let fableCoreModules =
+let fablePrecompiledModules =
   Map [
     "Seq", Map [
       "maxBy", [(Types.comparer, 1)]

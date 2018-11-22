@@ -1,11 +1,20 @@
-### 2.0.0-alpha-003
+### 2.1.0-beta-003
 
-* Added --commonjs support
+* Rename to fable-compiler
 
-### 2.0.0-alpha-002
+### 2.1.0-beta-002
 
-* project references support
+* Allow referencing .fs directly and other enhancements
 
-### 2.0.0-alpha-001
+### 2.1.0-beta-001
 
-* First draft
+* Update assembly and set 2.1.0 as minimum runtime version
+
+### 2.1.0-alpha-002
+
+* Add babel-plugins
+* Accept `path` argument to run Fable locally
+
+### 2.1.0-alpha-001
+
+* First release

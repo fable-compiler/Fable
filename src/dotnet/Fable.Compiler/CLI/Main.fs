@@ -112,8 +112,8 @@ let setGlobalParams(args: string[]) =
         forcePkgs = (tryFindArgValue "--force-pkgs" args |> Option.isSome),
         ?replaceFiles = (tryFindArgValue "--replace-files" args),
         ?experimental = (tryFindArgValue "--experimental" args),
-        ?fableCorePath =
-            (tryFindArgValue "--fable-core" args
+        ?fablePrecompiledPath =
+            (tryFindArgValue "--fable-precompiled" args
              |> Option.map (fun path ->
                 if path.StartsWith(Literals.FORCE)
                 then path

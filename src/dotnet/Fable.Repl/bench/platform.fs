@@ -2,7 +2,7 @@ module Bench.Platform
 
 #if DOTNET_FILE_SYSTEM
 
-let fableCoreDir = System.IO.Path.Combine(__SOURCE_DIRECTORY__, "../../../build/fable-core")
+let fablePrecompiledDir = System.IO.Path.Combine(__SOURCE_DIRECTORY__, "../../../build/fable-precompiled")
 
 let readAllBytes metadataPath (fileName:string) = System.IO.File.ReadAllBytes (metadataPath + fileName)
 let readAllText (filePath:string) = System.IO.File.ReadAllText (filePath, System.Text.Encoding.UTF8)
@@ -19,7 +19,7 @@ let toJson (value: obj) = sprintf "%A" value // Newtonsoft.Json.JsonConvert.Seri
 
 #else
 
-let fableCoreDir = "${entryDir}/../../../build/fable-core"
+let fablePrecompiledDir = "${entryDir}/../../../build/fable-precompiled"
 
 type private IFileSystem =
     abstract readFileSync: string -> byte[]

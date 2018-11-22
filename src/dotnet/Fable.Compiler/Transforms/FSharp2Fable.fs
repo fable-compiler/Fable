@@ -1012,7 +1012,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             this.UsedVarNames.Contains(varName)
     interface ICompiler with
         member __.Options = com.Options
-        member __.FableCore = com.FableCore
+        member __.FablePrecompiled = com.FablePrecompiled
         member __.CurrentFile = com.CurrentFile
         member __.GetUniqueVar(name) =
             com.GetUniqueVar(?name=name)

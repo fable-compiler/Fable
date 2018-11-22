@@ -111,7 +111,7 @@ module Helpers =
             Any)
 
     /// Records, unions and F# exceptions (value types are assimilated into records) will have a base
-    /// implementing basic methods: toString, toJSON, GetHashCode, Equals, CompareTo. See fable-core/Types
+    /// implementing basic methods: toString, toJSON, GetHashCode, Equals, CompareTo. See fable-precompiled/Types
     let hasBaseImplementingBasicMethods (ent: FSharpEntity) =
         ent.IsFSharpRecord || ent.IsFSharpUnion || ent.IsFSharpExceptionDeclaration || ent.IsValueType
 
@@ -926,14 +926,14 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
             |> addError com ctx.InlinePath r
             None
 
-    Map.tryFind moduleName ReplacementsInject.fableCoreModules
+    Map.tryFind moduleName ReplacementsInject.fablePrecompiledModules
     |> Option.bind (Map.tryFind methName)
     |> Option.map (List.choose buildArg)
     |> function
         | None -> args
         | Some injections -> args @ injections
 
-let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let fablePrecompiledLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | ".ctor", _ -> objExpr t [] |> Some
     | ("Async.AwaitPromise.Static"|"Async.StartAsPromise.Static" as m), _ ->
@@ -1664,7 +1664,7 @@ let results (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr opt
     | _ -> None
     |> Option.map (fun meth -> Helper.CoreCall("Option", meth, t, args, i.SignatureArgTypes, ?loc=r))
 
-// See fable-core/Option.ts for more info on how options behave in Fable runtime
+// See fable-precompiled/Option.ts for more info on how options behave in Fable runtime
 let options (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some c, _ -> Get(c, OptionValue, t, r) |> Some
@@ -2664,7 +2664,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings info.CompiledName
     | Types.printfModule
     | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
-    | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com ctx r t info thisArg args
+    | Naming.StartsWith "Fable.Core." _ -> fablePrecompiledLib com ctx r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com ctx r t info thisArg args
     | "System.Timers.ElapsedEventArgs" -> thisArg // only signalTime is available here
     | Naming.StartsWith "System.Action" _

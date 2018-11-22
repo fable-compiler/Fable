@@ -1,7 +1,7 @@
 var Babel = require("@babel/standalone");
 var BabelTemplate = require("@babel/template");
 var BabelPluginCommonJs = require("@babel/plugin-transform-modules-commonjs").default;
-var BabelPlugins = require("${entryDir}/../../../js/fable-utils/babel-plugins");
+var BabelPlugins = require("${entryDir}/../../../js/fable-compiler/dist/babel-plugins");
 
 export function babelAstToJs(ast) {
     var options = {

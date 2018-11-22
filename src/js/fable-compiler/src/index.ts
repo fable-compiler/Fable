@@ -8,7 +8,7 @@ import * as plugins from "./babel-plugins";
 
 export const babelPlugins = plugins;
 
-const BIN_PATH = path.join(__dirname, "../bin/fable/dotnet-fable.dll");
+const BIN_PATH = path.join(__dirname, "../bin/fable-compiler/Fable.Compiler.dll");
 
 function parseJson(json) {
     try {
@@ -53,7 +53,7 @@ export interface ICompilerProxy {
 
 export default function start(cliArgs?: {}): ICompilerProxy {
     const child = spawn("dotnet", processArgs(cliArgs));
-    console.log(`fable-compiler-dotnet ${getVersion()}`);
+    console.log(`fable-compiler ${getVersion()}`);
 
     // Error handling
     child.on("error", (err) => {

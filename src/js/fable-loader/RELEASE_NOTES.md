@@ -1,3 +1,7 @@
+### 2.1.0-beta-006
+
+* Use fable-compiler package
+
 ### 2.1.0-beta-005
 
 * Make fable-compiler-dotnet a peerDependency

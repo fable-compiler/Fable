@@ -2,12 +2,8 @@
 
 var path = require("path");
 var babel = require("@babel/core");
-// var fable = require("../fable-compiler-dotnet"); // testing
-var fable = require("fable-compiler-dotnet");
-
-if (process.env.FABLE_SERVER_PORT) {
-    throw new Error("This version is not compatible with dotnet-fable cli tool, see https://www.npmjs.com/package/fable-loader#usage");
-}
+// var fable = require("../fable-compiler"); // testing
+var fable = require("fable-compiler");
 
 function or(option, _default) {
     return option !== void 0 ? option : _default;
@@ -52,8 +48,13 @@ function transformBabelAst(babelAst, babelOptions, sourceMapOptions, callback) {
 
 var Loader = function(buffer) {
     var callback = this.async();
-    var opts = this.loaders[0].options || {};
 
+    if (process.env.FABLE_SERVER_PORT) {
+        callback(new Error("This version is not compatible with dotnet-fable cli tool, see https://www.npmjs.com/package/fable-loader#usage"));
+        return;
+    }
+
+    var opts = this.loaders[0].options || {};
     var babelOptions = opts.babel || {};
     babelOptions.plugins = customPlugins.concat(babelOptions.plugins || []);
 

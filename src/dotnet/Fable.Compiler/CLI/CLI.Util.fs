@@ -22,11 +22,11 @@ type AgentMsg =
 type private TypeInThisAssembly = class end
 
 [<RequireQualifiedAccess>]
-type GlobalParams private (verbose, forcePkgs, fableCorePath, workingDir) =
+type GlobalParams private (verbose, forcePkgs, fablePrecompiledPath, workingDir) =
     static let mutable singleton: GlobalParams option = None
     let mutable _verbose = verbose
     let mutable _forcePkgs = forcePkgs
-    let mutable _fableCorePath = fableCorePath
+    let mutable _fablePrecompiledPath = fablePrecompiledPath
     let mutable _workingDir = workingDir
     let mutable _replaceFiles = []
     let mutable _experimental: Set<string> = Set.empty
@@ -39,30 +39,30 @@ type GlobalParams private (verbose, forcePkgs, fableCorePath, workingDir) =
             let execDir =
               typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location
               |> Path.GetDirectoryName
-            let defaultFableCorePaths =
-                [ "../../fable-core/"                     // running from package
-                  "../fable-core"                         // running from build/fable
-                  "../../../../../../build/fable-core/" ] // running from bin/Release/netcoreapp2.0
+            let defaultFablePrecompiledPaths =
+                [ "../fable-precompiled"                         // running from npm package
+                  "../../fable-precompiled/"                     // running from nuget package
+                  "../../../../../../build/fable-precompiled/" ] // running from bin/Release/netcoreapp2.0
                 |> List.map (fun x -> Path.GetFullPath(Path.Combine(execDir, x)))
-            let fableCorePath =
-                defaultFableCorePaths
+            let fablePrecompiledPath =
+                defaultFablePrecompiledPaths
                 |> List.tryFind Directory.Exists
-                |> Option.defaultValue (List.last defaultFableCorePaths)
-            let p = GlobalParams(false, false, fableCorePath, workingDir)
+                |> Option.defaultValue (List.last defaultFablePrecompiledPaths)
+            let p = GlobalParams(false, false, fablePrecompiledPath, workingDir)
             singleton <- Some p
             p
 
     member __.Verbose: bool = _verbose
     member __.ForcePkgs: bool = _forcePkgs
-    member __.FableCorePath: string = _fableCorePath
+    member __.FablePrecompiledPath: string = _fablePrecompiledPath
     member __.WorkingDir: string = _workingDir
     member __.ReplaceFiles = _replaceFiles
     member __.Experimental = _experimental
 
-    member __.SetValues(?verbose, ?forcePkgs, ?fableCorePath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
+    member __.SetValues(?verbose, ?forcePkgs, ?fablePrecompiledPath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
         _verbose        <- defaultArg verbose _verbose
         _forcePkgs      <- defaultArg forcePkgs _forcePkgs
-        _fableCorePath  <- defaultArg fableCorePath _fableCorePath
+        _fablePrecompiledPath  <- defaultArg fablePrecompiledPath _fablePrecompiledPath
         _workingDir     <- defaultArg workingDir _workingDir
         _replaceFiles   <-
             match replaceFiles with

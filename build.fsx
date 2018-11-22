@@ -53,9 +53,9 @@ let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let CWD = __SOURCE_DIRECTORY__
 let cliBuildDir = CWD </> "build/fable"
-let coreJsBuildDir = CWD </> "build/fable-core"
+let precompiledBuildDir = CWD </> "build/fable-precompiled"
 let cliSrcDir = CWD </> "src/dotnet/Fable.Compiler"
-let coreJsSrcDir = CWD </> "src/js/fable-core"
+let precompiledSrcDir = CWD </> "src/js/fable-precompiled"
 let ncaveFcsForkRepo = "https://github.com/ncave/FSharp.Compiler.Service"
 let ncaveFcsForkBranch = "fable"
 let ncaveFcsCodeGenTarget = "fcs/build CodeGen.Fable"
@@ -91,13 +91,13 @@ let nugetRestore dir =
 
 type BuildConfig = Release | Debug
 
-let buildCLI cfg outDir () =
+let buildCompilerDotnet cfg outDir () =
     sprintf "publish -o %s -c %s" (CWD </> outDir)
         (match cfg with Release -> "Release" | Debug -> "Debug")
     |> run cliSrcDir dotnetExePath
 
-let buildCoreJsTypescriptFiles () =
-    Yarn.run CWD "tsc" (sprintf "--project %s" coreJsSrcDir)
+let buildPrecompiledTypescriptFiles () =
+    Yarn.run CWD "tsc" (sprintf "--project %s" precompiledSrcDir)
 
 let runFableCli command fableArgs commandArgs =
     sprintf
@@ -106,11 +106,11 @@ let runFableCli command fableArgs commandArgs =
         command fableArgs commandArgs
     |> run CWD dotnetExePath
 
-let buildCoreJsFsharpFiles () =
+let buildPrecompiledFsharpFiles () =
     runFableCli
         "fable-splitter"
-        "--fable-core force:${outDir}"  // fable-splitter will adjust the path
-        "-c src/js/fable-core/splitter.config.js"
+        "--fable-precompiled force:${outDir}"  // fable-splitter will adjust the path
+        "-c src/js/fable-precompiled/splitter.config.js"
 
 let buildTypescript projectDir () =
     Yarn.install CWD
@@ -118,11 +118,11 @@ let buildTypescript projectDir () =
     // Yarn.run CWD "tslint" [sprintf "--project %s" projectDir]
     Yarn.run CWD "tsc" (sprintf "--project %s" projectDir)
 
-let buildCoreJsFull () =
+let buildPrecompiledFull () =
     Yarn.install CWD
-    Yarn.run CWD "tslint" (sprintf "--project %s" coreJsSrcDir)
-    buildCoreJsTypescriptFiles ()
-    buildCoreJsFsharpFiles ()
+    Yarn.run CWD "tslint" (sprintf "--project %s" precompiledSrcDir)
+    buildPrecompiledTypescriptFiles ()
+    buildPrecompiledFsharpFiles ()
     run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run"
 
 let runTestsDotnet () =
@@ -160,9 +160,9 @@ let updateVersionInCliUtil () =
         "src/dotnet/Fable.Compiler/CLI/CLI.Util.fs"
         @"\bCORE_VERSION\s*=\s*""(.*?)"""
 
-Target "GitHubRelease" (fun _ ->
+let githubRelease releaseNotesDir () =
     let release =
-        CWD </> "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
+        CWD </> releaseNotesDir </> "RELEASE_NOTES.md"
         |> ReleaseNotesHelper.LoadReleaseNotes
     let user =
         match getBuildParam "github-user" with
@@ -191,7 +191,7 @@ Target "GitHubRelease" (fun _ ->
     // |> uploadFile (buildDir</>("FSharp.Compiler.Service." + release.NugetVersion + ".nupkg"))
     |> releaseDraft
     |> Async.RunSynchronously
-)
+
 
 let bundleRepl (fetchNcaveFork: bool) () =
     if fetchNcaveFork then
@@ -223,13 +223,13 @@ let bundleRepl (fetchNcaveFork: bool) () =
     Yarn.run CWD "build-repl-modules" ""
     Yarn.run CWD "bundle-repl" ""
 
-    // Put fable-core files next to bundle
+    // Put fable-precompiled files next to bundle
     let replDir = CWD </> "src/dotnet/Fable.Repl"
-    let fableCoreTarget = replDir </> "bundle/fable-core"
-    FileUtils.cp_r coreJsBuildDir fableCoreTarget
+    let precompiledTarget = replDir </> "bundle/fable-precompiled"
+    FileUtils.cp_r precompiledBuildDir precompiledTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
     let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
-    for file in Directory.EnumerateFiles(fableCoreTarget, "*.js", SearchOption.AllDirectories) do
+    for file in Directory.EnumerateFiles(precompiledTarget, "*.js", SearchOption.AllDirectories) do
         File.WriteAllText(file, reg.Replace(File.ReadAllText(file), "import $1.js$2"))
 
     // Write version number in a version.txt file
@@ -238,9 +238,9 @@ let bundleRepl (fetchNcaveFork: bool) () =
         |> ReleaseNotesHelper.LoadReleaseNotes
     File.WriteAllText(replDir </> "bundle/version.txt", release.NugetVersion)
 
-let buildNpmFableCompiler () =
+let buildNpmFableCompilerJs () =
     let replDir = CWD </> "src/dotnet/Fable.Repl"
-    let distDir = CWD </> "src/js/fable-compiler/dist"
+    let distDir = CWD </> "src/js/fable-compiler-js/dist"
     if not (Directory.Exists(replDir </> "bundle")) then
         // bundleRepl false ()
         downloadArtifact (replDir </> "bundle") APPVEYOR_REPL_ARTIFACT_URL
@@ -248,27 +248,38 @@ let buildNpmFableCompiler () =
     FileUtils.cp_r (replDir </> "bundle") (distDir </> "bundle")
     FileUtils.cp_r (replDir </> "metadata2") (distDir </> "metadata2")
     Yarn.run CWD "babel" (sprintf "%s --out-dir %s --plugins @babel/plugin-transform-modules-commonjs --quiet"
-        (replDir </> "bundle/fable-core") (distDir </> "fable-core-commonjs"))
+        (replDir </> "bundle/fable-precompiled") (distDir </> "fable-precompiled-commonjs"))
     Yarn.run CWD "build-compiler" ""
 
 let buildNpmFableCompilerDotnet () =
-    let projectDir = "src/js/fable-compiler-dotnet"
+    let projectDir = "src/js/fable-compiler"
+    CleanDir (projectDir </> "dist")
+    CleanDir (projectDir </> "bin")
     buildTypescript projectDir ()
-    buildCLI Release (projectDir </> "bin/fable") ()
-    buildCoreJsTypescriptFiles ()
-    buildCoreJsFsharpFiles ()
-    FileUtils.cp_r coreJsBuildDir (projectDir </> "bin/fable-core")
+    buildCompilerDotnet Release (projectDir </> "bin/fable-compiler") ()
+    buildPrecompiledTypescriptFiles ()
+    buildPrecompiledFsharpFiles ()
+    FileUtils.cp_r precompiledBuildDir (projectDir </> "bin/fable-precompiled")
+
+let runBench2 () =
+    Yarn.install CWD
+    Yarn.run CWD "babel" "src/dotnet/Fable.Repl/out --out-dir src/dotnet/Fable.Repl/out2 --plugins @babel/plugin-transform-modules-commonjs --quiet"
+    Yarn.run CWD "build-bench2" ""
+    Yarn.run CWD "start-bench2" ""
+
+    // Run the test script
+    Yarn.run CWD "babel" "build/fable-precompiled --out-dir src/dotnet/Fable.Repl/out-fable-precompiled --plugins @babel/plugin-transform-modules-commonjs --quiet"
+    Yarn.run CWD "test-bench2" ""
 
 Target "Clean" clean
-Target "FableCLI" (buildCLI Release cliBuildDir)
-Target "FableCoreJs" buildCoreJsFull
-Target "FableCoreJsTypescriptOnly" buildCoreJsTypescriptFiles
-Target "FableCoreJsFSharpOnly" buildCoreJsFsharpFiles
-Target "FableCoreJsInjects" (fun _ ->
+Target "FablePrecompiled" buildPrecompiledFull
+Target "FablePrecompiledTypescriptOnly" buildPrecompiledTypescriptFiles
+Target "FablePrecompiledFSharpOnly" buildPrecompiledFsharpFiles
+Target "FablePrecompiledInjects" (fun _ ->
     run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run")
 Target "fable-splitter" (buildTypescript "src/js/fable-splitter")
-Target "fable-compiler" buildNpmFableCompiler
-Target "fable-compiler-dotnet" buildNpmFableCompilerDotnet
+Target "fable-compiler" buildNpmFableCompilerDotnet
+Target "fable-compiler-js" buildNpmFableCompilerJs
 Target "RunTestsJS" runTestsJS
 Target "RunTestsDotnet" runTestsDotnet
 
@@ -283,47 +294,35 @@ Target "PublishPackages" (fun () ->
                 @"\bAssemblyVersion\s*\(\s*""(.*?)"""
         ))
         Package("dotnet/Fable.Compiler/Fable.Compiler.fsproj", (fun () ->
-            buildCoreJsFull ()
+            buildPrecompiledFull ()
             updateVersionInCliUtil ()
         ), pkgName="dotnet-fable", msbuildProps=["NugetPackage", "true"])
         // NPM packages
-        Package("js/fable-compiler", buildNpmFableCompiler)
-        Package("js/fable-compiler-dotnet", buildNpmFableCompilerDotnet)
-        Package "js/fable-utils"
+        Package("js/fable-compiler-js", buildNpmFableCompilerJs)
+        Package("js/fable-compiler", buildNpmFableCompilerDotnet)
         Package "js/fable-loader"
         Package "js/rollup-plugin-fable"
         Package("js/fable-splitter", buildTypescript "src/js/fable-splitter")
     ]
     installDotnetSdk ()
+    clean ()
     publishPackages2 baseDir dotnetExePath packages
 )
-
-let runBench2 () =
-    Yarn.install CWD
-    Yarn.run CWD "babel" "src/dotnet/Fable.Repl/out --out-dir src/dotnet/Fable.Repl/out2 --plugins @babel/plugin-transform-modules-commonjs --quiet"
-    Yarn.run CWD "build-bench2" ""
-    Yarn.run CWD "start-bench2" ""
-
-    // Run the test script
-    Yarn.run CWD "babel" "build/fable-core --out-dir src/dotnet/Fable.Repl/out-fable-core --plugins @babel/plugin-transform-modules-commonjs --quiet"
-    Yarn.run CWD "test-bench2" ""
 
 Target "All" (fun () ->
     installDotnetSdk ()
     clean ()
-    buildCoreJsFull ()
+    buildPrecompiledFull ()
     runTestsJS ()
 
     match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
     | Some _, _ -> runTestsDotnet (); bundleRepl true (); runBench2 ()
-    // .NET tests fail most of the times in Travis for obscure reasons
-    | _, Some _ -> () // bundleRepl true ()
-    // Don't build repl locally (takes too long)
-    | None, None -> runTestsDotnet ()
+    | _, Some _ -> () // .NET tests fail in Travis for obscure reasons
+    | None, None -> runTestsDotnet () // Don't build repl locally (takes too long)
 )
 
 Target "BundleReplLocally" (fun () ->
-    printfn "Make sure you've run target All or FableCoreJs before this."
+    printfn "Make sure you've run target All or FablePrecompiled before this."
     printfn "You need to clone '%s' branch of '%s' repository in a sibling folder named: %s."
         ncaveFcsForkBranch ncaveFcsForkRepo "FSharp.Compiler.Service_fable"
     printfn "And run '%s' build target." ncaveFcsCodeGenTarget
@@ -335,8 +334,9 @@ Target "BuildReplAsNodeApp" (fun () ->
     runBench2 ()
 )
 
-"Clean"
-==> "PublishPackages"
+Target "GitHubRelease" (githubRelease "src/js/fable-compiler")
+
+"PublishPackages"
 ==> "GitHubRelease"
 
 // Start build

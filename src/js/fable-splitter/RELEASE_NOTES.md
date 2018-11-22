@@ -1,3 +1,7 @@
+### 2.1.0-beta-004
+
+* Use fable-compiler package
+
 ### 2.1.0-beta-003
 
 * Fix #1646: Don't override `allFiles` in config file if cli flag is not set

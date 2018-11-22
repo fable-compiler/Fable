@@ -1,10 +1,7 @@
 {
   "name": "fable-compiler",
-  "version": "2.0.0-alpha-003",
-  "main": "index.js",
-  "bin": {
-    "fable": "index.js"
-  },
+  "version": "2.1.0-beta-003",
+  "main": "dist/index.js",
   "description": "Fable compiler",
   "keywords": [
     "fable",
@@ -21,8 +18,10 @@
     "url": "https://github.com/fable-compiler/Fable/issues"
   },
   "homepage": "https://github.com/fable-compiler/Fable#readme",
+  "devDependencies": {
+    "@types/node": "^10.12.8"
+  },
   "dependencies": {
-    "@babel/core": "^7.1.2",
-    "@babel/plugin-transform-modules-commonjs": "^7.1.0"
+    "uuid": "^3.3.2"
   }
 }

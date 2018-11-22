@@ -25,7 +25,7 @@ type InlineExpr =
       FileName: string }
 
 type ICompiler =
-    abstract FableCore: string
+    abstract FablePrecompiled: string
     abstract CurrentFile: string
     abstract Options: CompilerOptions
     abstract GetUniqueVar: ?name: string -> string

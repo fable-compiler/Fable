@@ -1,6 +1,6 @@
 {
   "name": "fable-splitter",
-  "version": "2.1.0-beta-003",
+  "version": "2.1.0-beta-004",
   "description": "File splitter for Fable (F# to JavaScript compiler)",
   "author": "ncave",
   "license": "Apache-2.0",
@@ -26,7 +26,7 @@
     "build": "node ../../../node_modules/typescript/bin/tsc"
   },
   "peerDependencies": {
-    "fable-compiler-dotnet": "~2.1.0-beta-002"
+    "fable-compiler": "~2.1.0-beta-003"
   },
   "dependencies": {
     "@babel/core": "^7.0.0",
