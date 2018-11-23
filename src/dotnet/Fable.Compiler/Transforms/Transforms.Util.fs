@@ -277,7 +277,7 @@ module AST =
 
     /// TODO: Add string and other nullable types?
     /// For unit, unresolved generics or nested options, create a runtime wrapper
-    /// See fable-precompiled/Option.ts for more info
+    /// See fable-replacements/Option.ts for more info
     let rec mustWrapOption = function
         | Unit | GenericParam _ | Option _ -> true
         | _ -> false
@@ -342,7 +342,7 @@ module AST =
     let makeFloatConst (x: float) = NumberConstant (x, Float64) |> Value
 
     let makeCoreRef t memberName moduleName =
-        Import(makeStrConst memberName, makeStrConst moduleName, Precompiled, t, None)
+        Import(makeStrConst memberName, makeStrConst moduleName, Replacements, t, None)
 
     let makeCustomImport t (selector: string) (path: string) =
         Import(selector.Trim() |> makeStrConst, path.Trim() |> makeStrConst, CustomImport, t, None)

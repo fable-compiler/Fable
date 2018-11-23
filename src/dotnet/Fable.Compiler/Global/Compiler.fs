@@ -4,11 +4,11 @@ type CompilerOptions =
     { typedArrays: bool
       clampByteArrays: bool
       verbose: bool
-      /// Meant for precompiled libraries (like the Repl Lib)
+      /// Meant for replacements libraries (like the Repl Lib)
       /// to make public inlined functions part of the JS
       outputPublicInlinedFunctions: bool
       /// Mainly intended for the REPL to compile REPL lib calls
-      precompiledLib: (string -> (string*string) option) option
+      replacementsLib: (string -> (string*string) option) option
   }
 
 [<RequireQualifiedAccess>]
@@ -25,7 +25,7 @@ type InlineExpr =
       FileName: string }
 
 type ICompiler =
-    abstract FablePrecompiled: string
+    abstract ReplacementsDir: string
     abstract CurrentFile: string
     abstract Options: CompilerOptions
     abstract GetUniqueVar: ?name: string -> string

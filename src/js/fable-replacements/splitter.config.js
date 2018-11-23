@@ -14,11 +14,11 @@ const fableOptions = {
 };
 
 const outDir = useCommonjs
-  ? "../../../build/fable-precompiled-commonjs"
-  : "../../../build/fable-precompiled";
+  ? "../../../build/fable-replacements-commonjs"
+  : "../../../build/fable-replacements";
 
 module.exports = {
-  entry: path.join(__dirname, "Fable.Precompiled.fsproj"),
+  entry: path.join(__dirname, "Fable.Replacements.fsproj"),
   outDir: path.join(__dirname, outDir),
   allFiles: true,
   // port: 61225,

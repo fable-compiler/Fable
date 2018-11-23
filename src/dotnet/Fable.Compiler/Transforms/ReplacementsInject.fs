@@ -1,7 +1,7 @@
 /// AUTOMATICALLY GENERATED - DO NOT TOUCH!
 module Fable.Transforms.ReplacementsInject
 
-let fablePrecompiledModules =
+let fableReplacementsModules =
   Map [
     "Seq", Map [
       "maxBy", [(Types.comparer, 1)]

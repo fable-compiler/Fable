@@ -111,7 +111,7 @@ module Helpers =
             Any)
 
     /// Records, unions and F# exceptions (value types are assimilated into records) will have a base
-    /// implementing basic methods: toString, toJSON, GetHashCode, Equals, CompareTo. See fable-precompiled/Types
+    /// implementing basic methods: toString, toJSON, GetHashCode, Equals, CompareTo. See fable-replacements/Types
     let hasBaseImplementingBasicMethods (ent: FSharpEntity) =
         ent.IsFSharpRecord || ent.IsFSharpUnion || ent.IsFSharpExceptionDeclaration || ent.IsValueType
 
@@ -926,14 +926,14 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
             |> addError com ctx.InlinePath r
             None
 
-    Map.tryFind moduleName ReplacementsInject.fablePrecompiledModules
+    Map.tryFind moduleName ReplacementsInject.fableReplacementsModules
     |> Option.bind (Map.tryFind methName)
     |> Option.map (List.choose buildArg)
     |> function
         | None -> args
         | Some injections -> args @ injections
 
-let fablePrecompiledLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let fableReplacementsLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | ".ctor", _ -> objExpr t [] |> Some
     | ("Async.AwaitPromise.Static"|"Async.StartAsPromise.Static" as m), _ ->
@@ -1040,7 +1040,7 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     let moduleName, mangledName = getMangledNames i thisArg
     Helper.CoreCall(moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
-let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
+let getReplacementsLibMangledName entityName memberName overloadSuffix isStatic =
     let memberName = Naming.sanitizeIdentForbiddenChars memberName
     let entityName = Naming.sanitizeIdentForbiddenChars entityName
     let name, memberPart =
@@ -1050,8 +1050,8 @@ let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
         | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
     Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
-let precompiledLib r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) (entityName, importPath) =
-    let mangledName = getPrecompiledLibMangledName entityName i.CompiledName i.OverloadSuffix.Value (Option.isNone thisArg)
+let replacementsLib r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) (entityName, importPath) =
+    let mangledName = getReplacementsLibMangledName entityName i.CompiledName i.OverloadSuffix.Value (Option.isNone thisArg)
     if i.IsModuleValue
     then makeCustomImport t mangledName importPath
     else
@@ -1664,7 +1664,7 @@ let results (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr opt
     | _ -> None
     |> Option.map (fun meth -> Helper.CoreCall("Option", meth, t, args, i.SignatureArgTypes, ?loc=r))
 
-// See fable-precompiled/Option.ts for more info on how options behave in Fable runtime
+// See fable-replacements/Option.ts for more info on how options behave in Fable runtime
 let options (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some c, _ -> Get(c, OptionValue, t, r) |> Some
@@ -2664,7 +2664,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings info.CompiledName
     | Types.printfModule
     | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
-    | Naming.StartsWith "Fable.Core." _ -> fablePrecompiledLib com ctx r t info thisArg args
+    | Naming.StartsWith "Fable.Core." _ -> fableReplacementsLib com ctx r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com ctx r t info thisArg args
     | "System.Timers.ElapsedEventArgs" -> thisArg // only signalTime is available here
     | Naming.StartsWith "System.Action" _
@@ -2699,9 +2699,9 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
                 Helper.CoreCall("Reflection", "name", t, [c], ?loc=r) |> Some
         | _ -> None
     | _ when not info.IsInterface ->
-        com.Options.precompiledLib
+        com.Options.replacementsLib
         |> Option.bind (fun tryLib -> tryLib info.DeclaringEntityFullName)
-        |> Option.map (precompiledLib r t info thisArg args)
+        |> Option.map (replacementsLib r t info thisArg args)
     | _ -> None
 
 // TODO: Add other entities (see Fable 1 Replacements.tryReplaceEntity)
@@ -2712,7 +2712,7 @@ let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
     | Types.result -> makeCoreRef Any "Result" "Option" |> Some
     | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
     | entFullName ->
-        com.Options.precompiledLib
+        com.Options.replacementsLib
         |> Option.bind (fun tryLib -> tryLib entFullName)
         |> Option.map (fun (entityName, importPath) ->
             let entityName = Naming.sanitizeIdentForbiddenChars entityName |> Naming.checkJsKeywords

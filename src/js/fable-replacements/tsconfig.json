@@ -4,7 +4,7 @@
   ],
   "compilerOptions": {
     /* Basic Options */
-    "outDir": "../../../build/fable-precompiled", /* Redirect output structure to the directory. */
+    "outDir": "../../../build/fable-replacements", /* Redirect output structure to the directory. */
     "target": "es2015",                       /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017', or 'ESNEXT'. */
     "module": "es2015",                       /* Specify module code generation: 'commonjs', 'amd', 'system', 'umd' or 'es2015'. */
     "allowJs": true,                          /* Allow javascript files to be compiled. */

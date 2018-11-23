@@ -181,16 +181,16 @@ module Util =
         CallExpression(get None (Identifier "Object") methodName, args) :> Expression
 
     let coreUtil (com: IBabelCompiler) ctx memberName args =
-        CallExpression(com.TransformImport(ctx, memberName, "Util", Fable.Precompiled), args) :> Expression
+        CallExpression(com.TransformImport(ctx, memberName, "Util", Fable.Replacements), args) :> Expression
 
     let coreLibCall (com: IBabelCompiler) ctx moduleName memberName args =
-        CallExpression(com.TransformImport(ctx, memberName, moduleName, Fable.Precompiled), args) :> Expression
+        CallExpression(com.TransformImport(ctx, memberName, moduleName, Fable.Replacements), args) :> Expression
 
     let coreLibConstructorCall (com: IBabelCompiler) ctx moduleName memberName args =
-        NewExpression(com.TransformImport(ctx, memberName, moduleName, Fable.Precompiled), args) :> Expression
+        NewExpression(com.TransformImport(ctx, memberName, moduleName, Fable.Replacements), args) :> Expression
 
     let coreValue (com: IBabelCompiler) ctx moduleName memberName =
-        com.TransformImport(ctx, memberName, moduleName, Fable.Precompiled)
+        com.TransformImport(ctx, memberName, moduleName, Fable.Replacements)
 
     let entityRefMaybeImported (com: IBabelCompiler) ctx ent =
         if FSharp2Fable.Util.isReplacementCandidate ent then
@@ -1576,7 +1576,7 @@ module Compiler =
                     let sanitizedPath =
                         match kind with
                         | Fable.CustomImport | Fable.Internal _ -> path
-                        | Fable.Precompiled -> com.FablePrecompiled + "/" + path + Naming.targetFileExtension
+                        | Fable.Replacements -> com.ReplacementsDir + "/" + path + Naming.targetFileExtension
                     let i =
                       { Selector =
                             if selector = Naming.placeholder
@@ -1599,7 +1599,7 @@ module Compiler =
 
         interface ICompiler with
             member __.Options = com.Options
-            member __.FablePrecompiled = com.FablePrecompiled
+            member __.ReplacementsDir = com.ReplacementsDir
             member __.CurrentFile = com.CurrentFile
             member __.GetUniqueVar(name) = com.GetUniqueVar(?name=name)
             member __.GetRootModule(fileName) = com.GetRootModule(fileName)

@@ -26,7 +26,7 @@ type FileInfo =
       mutable Dependencies: string[] }
 
 type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharpImplementationFileContents>,
-             errors: FSharpErrorInfo array, dependencies: Map<string, string[]>, fablePrecompiled: string, isWatchCompile: bool) =
+             errors: FSharpErrorInfo array, dependencies: Map<string, string[]>, fableReplacements: string, isWatchCompile: bool) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
@@ -43,7 +43,7 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
         |> Map.filter (fun file _ -> not(file.EndsWith(".fsi")))
         |> Map.map (fun _ file -> FSharp2Fable.Compiler.getRootModuleFullName file)
     member __.TimeStamp = timestamp
-    member __.FablePrecompiled = fablePrecompiled
+    member __.ReplacementsDir = fableReplacements
     member __.IsWatchCompile = isWatchCompile
     member __.ImplementationFiles = implFiles
     member __.RootModules = rootModules
@@ -88,13 +88,13 @@ type Log =
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
-type Compiler(currentFile, project: Project, options, ?fablePrecompiled: string) =
+type Compiler(currentFile, project: Project, options, ?fableReplacements: string) =
     let mutable id = 0
     let logs = ResizeArray<Log>()
-    let fablePrecompiled =
-        match fablePrecompiled with
-        | Some fablePrecompiled -> fablePrecompiled.TrimEnd('/')
-        | None -> (Path.getRelativePath currentFile project.FablePrecompiled).TrimEnd('/')
+    let fableReplacements =
+        match fableReplacements with
+        | Some fableReplacements -> fableReplacements.TrimEnd('/')
+        | None -> (Path.getRelativePath currentFile project.ReplacementsDir).TrimEnd('/')
     member __.GetLogs() =
         logs |> Seq.toList
     member __.GetFormattedLogs() =
@@ -119,7 +119,7 @@ type Compiler(currentFile, project: Project, options, ?fablePrecompiled: string)
     member __.CurrentFile = currentFile
     interface ICompiler with
         member __.Options = options
-        member __.FablePrecompiled = fablePrecompiled
+        member __.ReplacementsDir = fableReplacements
         member __.CurrentFile = currentFile
         member x.GetRootModule(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName

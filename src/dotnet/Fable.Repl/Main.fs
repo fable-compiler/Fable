@@ -151,7 +151,7 @@ let makeProject projectOptions (projectResults: FSharpCheckProjectResults) optim
         then projectResults.GetOptimizedAssemblyContents()
         else projectResults.AssemblyContents).ImplementationFiles
         |> Seq.map (fun file -> Fable.Path.normalizePath file.FileName, file) |> Map
-    // Dealing with fablePrecompiledDir is a bit messy atm, for the REPL, only the value in the Compiler options matters
+    // Dealing with fableReplacementsDir is a bit messy atm, for the REPL, only the value in the Compiler options matters
     let project = Project(projectOptions, implFiles, projectResults.Errors, Map.empty, "", isWatchCompile=false)
     project
 
@@ -239,14 +239,14 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
         return [||]
 }
 
-let makeCompiler fablePrecompiled fileName (project: Project) precompiledLib =
+let makeCompiler fableReplacements fileName (project: Project) replacementsLib =
     let options: Fable.CompilerOptions =
         { typedArrays = true
           clampByteArrays = false
           verbose = false
           outputPublicInlinedFunctions = false
-          precompiledLib = precompiledLib }
-    let com = Compiler(fileName, project, options, fablePrecompiled)
+          replacementsLib = replacementsLib }
+    let com = Compiler(fileName, project, options, fableReplacements)
     com
 
 let compileAst (com: Compiler) (project: Project) =
@@ -289,10 +289,10 @@ let init () =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText
 
-        member __.CompileToBabelAst(fablePrecompiled:string, parseResults:IParseResults, fileName:string, optimized: bool, ?precompiledLib) =
+        member __.CompileToBabelAst(fableReplacements:string, parseResults:IParseResults, fileName:string, optimized: bool, ?replacementsLib) =
             let res = parseResults :?> ParseResults
             let project = if optimized then res.OptimizedProject else res.UnoptimizedProject
-            let com = makeCompiler fablePrecompiled fileName project precompiledLib
+            let com = makeCompiler fableReplacements fileName project replacementsLib
             let ast = compileAst com project
             let errors =
                 com.GetLogs()

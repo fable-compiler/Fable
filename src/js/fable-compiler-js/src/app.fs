@@ -116,10 +116,10 @@ let parseFiles projectPath outDir optimized commonjs =
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
     // Fable (F# to Babel)
-    let fablePrecompiledDir = "fable-precompiled"
-    let fablePrecompiledDist = if commonjs then "/fable-precompiled-commonjs" else "/bundle/fable-precompiled"
-    copyFolder (__dirname + fablePrecompiledDist, Path.Combine(outDir, fablePrecompiledDir))
-    let parseFable (fileName, ast) = fable.CompileToBabelAst(fablePrecompiledDir, ast, fileName, optimized)
+    let fableReplacementsDir = "fable-replacements"
+    let fableReplacementsDist = if commonjs then "/fable-replacements-commonjs" else "/bundle/fable-replacements"
+    copyFolder (__dirname + fableReplacementsDist, Path.Combine(outDir, fableReplacementsDir))
+    let parseFable (fileName, ast) = fable.CompileToBabelAst(fableReplacementsDir, ast, fileName, optimized)
     let fsAst = parseRes.ProjectResults
     for fileName in fileNames do
 
