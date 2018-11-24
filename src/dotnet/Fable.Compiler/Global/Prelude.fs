@@ -234,7 +234,7 @@ module Naming =
     let buildNameWithoutSanitation name part =
         buildName id name part
 
-    /// This helper is intended for instance and static members in fable-replacements library compiled from F# (FSharpSet, FSharpMap...)
+    /// This helper is intended for instance and static members in fable-library library compiled from F# (FSharpSet, FSharpMap...)
     let buildNameWithoutSanitationFrom (entityName: string) isStatic memberCompiledName overloadSuffix =
         (if isStatic
             then entityName, StaticMemberPart(memberCompiledName, overloadSuffix)

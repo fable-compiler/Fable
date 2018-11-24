@@ -49,7 +49,7 @@ let allTests =
 open Fable.Core
 open Fable.Core.JsInterop
 
-// Import a polyfill for atob and btoa, used by fable-replacements
+// Import a polyfill for atob and btoa, used by fable-library
 // but not available in node.js runtime
 importSideEffects "./js/polyfill"
 

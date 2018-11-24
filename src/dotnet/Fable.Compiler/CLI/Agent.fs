@@ -37,7 +37,7 @@ let splitVersion (version: string) =
     | true, v -> v.Major, v.Minor, v.Revision
     | _ -> 0, 0, 0
 
-let checkFableReplacementsVersion (checkedProject: FSharpCheckProjectResults) =
+let checkFableCoreVersion (checkedProject: FSharpCheckProjectResults) =
     for ref in checkedProject.ProjectContext.GetReferencedAssemblies() do
         if ref.SimpleName = "Fable.Core" then
             let version = System.Text.RegularExpressions.Regex.Match(ref.QualifiedName, @"Version=(\d+\.\d+\.\d+)")
@@ -49,19 +49,19 @@ let checkFableReplacementsVersion (checkedProject: FSharpCheckProjectResults) =
 
 let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.Message) projFile =
     let isWatchCompile = Array.length dirtyFiles > 0
-    let projectOptions, fableReplacements, deps =
+    let projectOptions, fableLibrary, deps =
         match prevProject with
         | Some prevProject ->
-            prevProject.ProjectOptions, prevProject.ReplacementsDir, prevProject.GetDependencies()
+            prevProject.ProjectOptions, prevProject.LibraryDir, prevProject.GetDependencies()
         | None ->
-            let projectOptions, fableReplacements =
+            let projectOptions, fableLibrary =
                 getFullProjectOpts checker msg.define msg.rootDir projFile
             Log.logVerbose(lazy
                 let proj = getRelativePath projectOptions.ProjectFileName
                 let opts = projectOptions.OtherOptions |> String.concat "\n   "
                 let files = projectOptions.SourceFiles |> String.concat "\n   "
                 sprintf "F# PROJECT: %s\n   %s\n   %s" proj opts files)
-            projectOptions, fableReplacements, Map.empty
+            projectOptions, fableLibrary, Map.empty
     match prevProject with
     | Some prevProject when isWatchCompile ->
         ((prevProject.ImplementationFiles, [||]), dirtyFiles) ||> Async.fold (fun (implFiles, errors) dirtyFile ->
@@ -92,7 +92,7 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
         { projectOptions with LoadTime = DateTime.Now }
         |> checker.ParseAndCheckProject
         |> Async.map (fun checkedProject ->
-            checkFableReplacementsVersion checkedProject
+            checkFableCoreVersion checkedProject
             let optimized = GlobalParams.Singleton.Experimental.Contains("optimize-fcs")
             let implFiles =
                 if not optimized
@@ -105,7 +105,7 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
                 Printers.printAst outDir implFiles)
             implFilesMap, checkedProject.Errors)
     |> Async.map (fun (implFiles, errors) ->
-        Project(projectOptions, implFiles, errors, deps, fableReplacements, isWatchCompile))
+        Project(projectOptions, implFiles, errors, deps, fableLibrary, isWatchCompile))
 
 let jsonSettings =
     JsonSerializerSettings(

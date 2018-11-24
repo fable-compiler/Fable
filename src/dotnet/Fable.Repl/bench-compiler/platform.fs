@@ -2,7 +2,7 @@ module Bench.Platform
 
 #if DOTNET_FILE_SYSTEM
 
-let fableReplacementsDir = System.IO.Path.Combine(__SOURCE_DIRECTORY__, "../../../build/fable-replacements")
+let fableLibraryDir = System.IO.Path.Combine(__SOURCE_DIRECTORY__, "../../../build/fable-library")
 
 let readAllBytes metadataPath (fileName:string) = System.IO.File.ReadAllBytes (metadataPath + fileName)
 let readAllText (filePath:string) = System.IO.File.ReadAllText (filePath, System.Text.Encoding.UTF8)
@@ -58,7 +58,7 @@ let ensureDirExists (dir: string): unit =
 
 open Fable.Core.JsInterop
 
-let fableReplacementsDir = "${entryDir}/../../../build/fable-replacements"
+let fableLibraryDir = "${entryDir}/../../../build/fable-library"
 
 type private IFileSystem =
     abstract readFileSync: string -> byte[]

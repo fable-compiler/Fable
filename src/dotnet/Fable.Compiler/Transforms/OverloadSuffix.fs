@@ -74,7 +74,7 @@ let private combineHashCodes (hashes: int seq) =
     else hashes |> Array.reduce (fun h1 h2 -> ((h1 <<< 5) + h1) ^^^ h2)
 
 // F# hash function gives different results in different runs
-// Taken from fable-replacements/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
+// Taken from fable-library/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
 let private stringHash (s: string) =
     let mutable h = 5381
     for i = 0 to s.Length - 1 do

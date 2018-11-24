@@ -117,8 +117,8 @@ let parseFiles projectPath outDir optimized =
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
     // Fable (F# to Babel)
-    let fableReplacementsDir = "fable-replacements"
-    let parseFable (fileName, ast) = fable.CompileToBabelAst(fableReplacementsDir, ast, fileName, optimized)
+    let fableLibraryDir = "fable-library"
+    let parseFable (fileName, ast) = fable.CompileToBabelAst(fableLibraryDir, ast, fileName, optimized)
     let fsAst = parseRes.ProjectResults
     for fileName in fileNames do
 

@@ -126,7 +126,7 @@ type Ident =
 
 type ImportKind =
     | Internal
-    | Replacements
+    | Library
     | CustomImport
 
 type EnumKind = NumberEnum of Expr | StringEnum of Expr

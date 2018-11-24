@@ -52,10 +52,10 @@ let gitHome = "https://github.com/" + gitOwner
 let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
 
 let CWD = __SOURCE_DIRECTORY__
-let cliBuildDir = CWD </> "build/fable"
-let replacementsBuildDir = CWD </> "build/fable-replacements"
+let cliBuildDir = CWD </> "build/fable-compiler"
+let libraryBuildDir = CWD </> "build/fable-library"
 let cliSrcDir = CWD </> "src/dotnet/Fable.Compiler"
-let replacementsSrcDir = CWD </> "src/js/fable-replacements"
+let librarySrcDir = CWD </> "src/js/fable-library"
 let ncaveFcsForkRepo = "https://github.com/ncave/FSharp.Compiler.Service"
 let ncaveFcsForkBranch = "fable"
 let ncaveFcsCodeGenTarget = "fcs/build CodeGen.Fable"
@@ -96,8 +96,8 @@ let buildCompilerDotnet cfg outDir () =
         (match cfg with Release -> "Release" | Debug -> "Debug")
     |> run cliSrcDir dotnetExePath
 
-let buildReplacementsTypescriptFiles () =
-    Yarn.run CWD "tsc" (sprintf "--project %s" replacementsSrcDir)
+let buildLibraryTypescriptFiles () =
+    Yarn.run CWD "tsc" (sprintf "--project %s" librarySrcDir)
 
 let runFableCli command fableArgs commandArgs =
     sprintf
@@ -106,11 +106,11 @@ let runFableCli command fableArgs commandArgs =
         command fableArgs commandArgs
     |> run CWD dotnetExePath
 
-let buildReplacementsFsharpFiles () =
+let buildLibraryFsharpFiles () =
     runFableCli
         "fable-splitter"
-        "--fable-replacements force:${outDir}"  // fable-splitter will adjust the path
-        "-c src/js/fable-replacements/splitter.config.js"
+        "--fable-library force:${outDir}"  // fable-splitter will adjust the path
+        "-c src/js/fable-library/splitter.config.js"
 
 let buildTypescript projectDir () =
     Yarn.install CWD
@@ -125,11 +125,11 @@ let buildNpmPackage pkgDir () =
     run pkgDir "npm" "run build"
     run pkgDir "npm" "test"
 
-let buildReplacementsFull () =
+let buildLibraryFull () =
     Yarn.install CWD
-    Yarn.run CWD "tslint" (sprintf "--project %s" replacementsSrcDir)
-    buildReplacementsTypescriptFiles ()
-    buildReplacementsFsharpFiles ()
+    Yarn.run CWD "tslint" (sprintf "--project %s" librarySrcDir)
+    buildLibraryTypescriptFiles ()
+    buildLibraryFsharpFiles ()
     run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run"
 
 let runTestsDotnet () =
@@ -230,13 +230,13 @@ let bundleRepl (fetchNcaveFork: bool) () =
     Yarn.run CWD "build-repl-modules" ""
     Yarn.run CWD "bundle-repl" ""
 
-    // Put fable-replacements files next to bundle
+    // Put fable-library files next to bundle
     let replDir = CWD </> "src/dotnet/Fable.Repl"
-    let replacementsTarget = replDir </> "bundle/fable-replacements"
-    FileUtils.cp_r replacementsBuildDir replacementsTarget
+    let libraryTarget = replDir </> "bundle/fable-library"
+    FileUtils.cp_r libraryBuildDir libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
     let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
-    for file in Directory.EnumerateFiles(replacementsTarget, "*.js", SearchOption.AllDirectories) do
+    for file in Directory.EnumerateFiles(libraryTarget, "*.js", SearchOption.AllDirectories) do
         File.WriteAllText(file, reg.Replace(File.ReadAllText(file), "import $1.js$2"))
 
     // Write version number in a version.txt file
@@ -255,7 +255,7 @@ let buildNpmFableCompilerJs () =
     FileUtils.cp_r (replDir </> "bundle") (distDir </> "bundle")
     FileUtils.cp_r (replDir </> "metadata2") (distDir </> "metadata2")
     Yarn.run CWD "babel" (sprintf "%s --out-dir %s --plugins @babel/plugin-transform-modules-commonjs --quiet"
-        (replDir </> "bundle/fable-replacements") (distDir </> "fable-replacements-commonjs"))
+        (replDir </> "bundle/fable-library") (distDir </> "fable-library-commonjs"))
     Yarn.run CWD "build-compiler" ""
 
 let buildNpmFableCompilerDotnet () =
@@ -264,9 +264,9 @@ let buildNpmFableCompilerDotnet () =
     CleanDir (projectDir </> "bin")
     buildTypescript projectDir ()
     buildCompilerDotnet Release (projectDir </> "bin/fable-compiler") ()
-    buildReplacementsTypescriptFiles ()
-    buildReplacementsFsharpFiles ()
-    FileUtils.cp_r replacementsBuildDir (projectDir </> "bin/fable-replacements")
+    buildLibraryTypescriptFiles ()
+    buildLibraryFsharpFiles ()
+    FileUtils.cp_r libraryBuildDir (projectDir </> "bin/fable-library")
 
 let runBench2 () =
     Yarn.install CWD
@@ -275,14 +275,14 @@ let runBench2 () =
     Yarn.run CWD "start-bench2" ""
 
     // Run the test script
-    Yarn.run CWD "babel" "build/fable-replacements --out-dir src/dotnet/Fable.Repl/out-fable-replacements --plugins @babel/plugin-transform-modules-commonjs --quiet"
+    Yarn.run CWD "babel" "build/fable-library --out-dir src/dotnet/Fable.Repl/out-fable-library --plugins @babel/plugin-transform-modules-commonjs --quiet"
     Yarn.run CWD "test-bench2" ""
 
 Target "Clean" clean
-Target "FableReplacements" buildReplacementsFull
-Target "FableReplacementsTypescriptOnly" buildReplacementsTypescriptFiles
-Target "FableReplacementsFSharpOnly" buildReplacementsFsharpFiles
-Target "FableReplacementsInjects" (fun _ ->
+Target "FableLibrary" buildLibraryFull
+Target "FableLibraryTypescriptOnly" buildLibraryTypescriptFiles
+Target "FableLibraryFSharpOnly" buildLibraryFsharpFiles
+Target "FableLibraryInjects" (fun _ ->
     run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run")
 Target "fable-splitter" (buildNpmPackage "src/js/fable-splitter")
 Target "fable-compiler" buildNpmFableCompilerDotnet
@@ -301,7 +301,7 @@ Target "PublishPackages" (fun () ->
                 @"\bAssemblyVersion\s*\(\s*""(.*?)"""
         ))
         Package("dotnet/Fable.Compiler/Fable.Compiler.fsproj", (fun () ->
-            buildReplacementsFull ()
+            buildLibraryFull ()
             updateVersionInCliUtil ()
         ), pkgName="dotnet-fable", msbuildProps=["NugetPackage", "true"])
         // NPM packages
@@ -319,7 +319,7 @@ Target "PublishPackages" (fun () ->
 Target "All" (fun () ->
     installDotnetSdk ()
     clean ()
-    buildReplacementsFull ()
+    buildLibraryFull ()
     runTestsJS ()
 
     match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
@@ -329,7 +329,7 @@ Target "All" (fun () ->
 )
 
 Target "BundleReplLocally" (fun () ->
-    printfn "Make sure you've run target All or FableReplacements before this."
+    printfn "Make sure you've run target All or FableLibrary before this."
     printfn "You need to clone '%s' branch of '%s' repository in a sibling folder named: %s."
         ncaveFcsForkBranch ncaveFcsForkRepo "FSharp.Compiler.Service_fable"
     printfn "And run '%s' build target." ncaveFcsCodeGenTarget

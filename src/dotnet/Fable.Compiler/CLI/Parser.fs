@@ -56,7 +56,7 @@ let toCompilerOptions (msg: Message): CompilerOptions =
       clampByteArrays = msg.clampByteArrays
       verbose = GlobalParams.Singleton.Verbose
       outputPublicInlinedFunctions = Array.contains "FABLE_REPL_LIB" msg.define
-      replacementsLib = None
+      precompiledLib = None
     }
 
 let parse (msg: string) =
