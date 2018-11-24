@@ -230,8 +230,11 @@ let bundleRepl (fetchNcaveFork: bool) () =
     Yarn.run CWD "build-repl-modules" ""
     Yarn.run CWD "bundle-repl" ""
 
-    // Put fable-library files next to bundle
     let replDir = CWD </> "src/dotnet/Fable.Repl"
+    let bundleSize = IO.FileInfo(replDir </> "bundle/bundle.min.js").Length / 1000L
+    printf "REPL bundle size: %iKB" bundleSize
+
+    // Put fable-library files next to bundle
     let libraryTarget = replDir </> "bundle/fable-library"
     FileUtils.cp_r libraryBuildDir libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension

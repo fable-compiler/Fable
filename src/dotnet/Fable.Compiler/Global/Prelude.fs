@@ -220,6 +220,11 @@ module Naming =
     let getUniqueName baseName (index: int) =
         "$" + baseName + "$$" + string index
 
+    let appendSuffix baseName suffix =
+        if suffix = ""
+        then baseName
+        else baseName + "$$" + suffix + "$"
+
     let private printPart sanitize separator part overloadSuffix =
         (if part = "" then "" else separator + (sanitize part)) +
             (if overloadSuffix = "" then "" else "$$" + overloadSuffix)

@@ -769,13 +769,21 @@ module Util =
                 |> fixImportedRelativePath com path
             makeCustomImport Fable.Any selector path)
 
-    let entityRef (com: ICompiler) (ent: FSharpEntity) =
+    let isImported (ent: FSharpEntity) =
+        tryImportAttribute ent.Attributes |> Option.isSome
+
+    /// We can add a suffix to the entity name for special methods, like reflection declaration
+    let entityRefWithSuffix (com: ICompiler) (ent: FSharpEntity) suffix =
         let entLoc = getEntityLocation ent
         let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
         let entityName = getEntityDeclarationName com ent
+        let entityName = Naming.appendSuffix entityName suffix
         if file = com.CurrentFile
         then makeIdentExprNonMangled entityName
         else makeInternalImport Fable.Any entityName file
+
+    let entityRef (com: ICompiler) (ent: FSharpEntity) =
+        entityRefWithSuffix com ent ""
 
     /// First checks if the entity is imported
     let entityRefMaybeImported (com: ICompiler) (ent: FSharpEntity) =

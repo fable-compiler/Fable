@@ -336,7 +336,7 @@ let copyFableLibraryAndPackageSources rootDir (pkgs: FablePackage list) =
         then fableLibrarySource.Replace(Literals.FORCE, "")
         else
             if isDirectoryEmpty fableLibrarySource then
-                failwithf "fable-library directory is empty, please build FableLibraryJS: %s" fableLibrarySource
+                failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
             Log.logVerbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableDir, "fable-library" + "." + Literals.VERSION)
             copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
