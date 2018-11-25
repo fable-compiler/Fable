@@ -1,3 +1,7 @@
+### 2.1.0-beta-004
+
+* Add reflection info for each declared type
+
 ### 2.1.0-beta-003
 
 * Rename to fable-compiler
