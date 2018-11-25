@@ -933,83 +933,86 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
         | None -> args
         | Some injections -> args @ injections
 
-let fableReplacementsLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, args with
-    | ".ctor", _ -> objExpr t [] |> Some
-    | ("Async.AwaitPromise.Static"|"Async.StartAsPromise.Static" as m), _ ->
-        let meth =
-            if m = "Async.AwaitPromise.Static"
-            then "awaitPromise" else "startAsPromise"
-        Helper.CoreCall("Async", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "importDynamic", _ -> Helper.GlobalCall("import", t, args, ?loc=r) |> Some
-    | Naming.StartsWith "import" suffix, _ ->
-        match suffix, args with
-        | "Member", [path]      -> Import(makeStrConst Naming.placeholder, path, CustomImport, t, r) |> Some
-        | "Default", [path]     -> Import(makeStrConst "default", path, CustomImport, t, r) |> Some
-        | "SideEffects", [path] -> Import(makeStrConst "", path, CustomImport, t, r) |> Some
-        | "All", [path]         -> Import(makeStrConst "*", path, CustomImport, t, r) |> Some
-        | _, [selector; path]   -> Import(selector, path, CustomImport, t, r) |> Some
-        | _ -> None
-    // Dynamic casting, erase
-    | "op_BangBang", _ | "op_BangHat", _ -> List.tryHead args
-    | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
-    | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
-        Set(callee, ExprSet prop, value, r) |> Some
-    | ("op_Dollar"|"createNew" as m), callee::args ->
-        let argInfo = { argInfo None args AutoUncurrying with Spread = TupleSpread }
-        if m = "createNew"
-        then constructorCall r t argInfo callee |> Some
-        else staticCall r t argInfo callee |> Some
-    | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
-        NewTuple [name; value] |> Value |> Some
-    | "createObj", [kvs] ->
-        DelayedResolution(AsPojo(kvs, (CaseRules.None |> int |> makeIntConst)), t, r) |> Some
-     | "keyValueList", [caseRule; keyValueList] ->
-            DelayedResolution(AsPojo(keyValueList, caseRule), t, r) |> Some
-    | "toPlainJsObj", _ ->
-        let emptyObj = ObjectExpr([], t, None)
-        Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
-    | "jsOptions", [arg] ->
-        makePojoFromLambda arg |> Some
-    | "jsThis", _ ->
-        makeTypedIdentNonMangled t "this" |> IdentExpr |> Some
-    | "jsConstructor", _ ->
-        match (genArg com ctx r 0 i.GenericArgs) with
-        | DeclaredType(ent, _) when ent.IsClass -> FSharp2Fable.Util.entityRefMaybeImported com ent |> Some
-        | _ -> "Only class types define a function constructor in JS"
-               |> addError com ctx.InlinePath r; None
-    | "createEmpty", _ ->
-        objExpr t [] |> Some
-    | ("nameof"|"nameof2" as meth), _ ->
-        match args with
-        | [Nameof name as arg] ->
-            if meth = "nameof2"
-            then NewTuple [makeStrConst name; arg] |> Value |> Some
-            else makeStrConst name |> Some
-        | _ -> "Cannot infer name of expression"
-               |> addError com ctx.InlinePath r
-               makeStrConst Naming.unknown |> Some
-    | "nameofLambda", _ ->
-        match args with
-        | [Function(_, Nameof name, _)] -> name
-        | _ -> "Cannot infer name of expression"
-               |> addError com ctx.InlinePath r; Naming.unknown
-        |> makeStrConst |> Some
-    | "AreEqual", _ ->
-        Helper.CoreCall("Util", "assertEqual", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "NotEqual", _ ->
-        Helper.CoreCall("Util", "assertNotEqual", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "jsNative", _ ->
+let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.DeclaringEntityFullName, i.CompiledName with
+    | _, ".ctor" -> objExpr t [] |> Some
+    | _, "jsNative" ->
         // TODO: Fail at compile time?
         addWarning com ctx.InlinePath r "jsNative is being compiled without replacement, this will fail at runtime."
         let runtimeMsg =
             "A function supposed to be replaced by JS native code has been called, please check."
             |> StringConstant |> Value
         Throw(error runtimeMsg, t, r) |> Some
-    // Deprecated methods
-    | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
-    | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
-    | ("inflate"|"deflate"), _ -> List.tryHead args
+    | _, "Async.AwaitPromise.Static" -> Helper.CoreCall("Async", "awaitPromise", t, args, ?loc=r) |> Some
+    | _, "Async.StartAsPromise.Static" -> Helper.CoreCall("Async", "startAsPromise", t, args, ?loc=r) |> Some
+    | "Fable.Core.Testing.Assert", _ ->
+        match i.CompiledName with
+        | "AreEqual" -> Helper.CoreCall("Util", "assertEqual", t, args, ?loc=r) |> Some
+        | "NotEqual" -> Helper.CoreCall("Util", "assertNotEqual", t, args, ?loc=r) |> Some
+        | _ -> None
+    | "Fable.Core.Reflection", meth ->
+        Helper.CoreCall("Reflection", meth, t, args, ?loc=r) |> Some
+    | "Fable.Core.JsInterop", _ ->
+        match i.CompiledName, args with
+        | "importDynamic", _ -> Helper.GlobalCall("import", t, args, ?loc=r) |> Some
+        | Naming.StartsWith "import" suffix, _ ->
+            match suffix, args with
+            | "Member", [path]      -> Import(makeStrConst Naming.placeholder, path, CustomImport, t, r) |> Some
+            | "Default", [path]     -> Import(makeStrConst "default", path, CustomImport, t, r) |> Some
+            | "SideEffects", [path] -> Import(makeStrConst "", path, CustomImport, t, r) |> Some
+            | "All", [path]         -> Import(makeStrConst "*", path, CustomImport, t, r) |> Some
+            | _, [selector; path]   -> Import(selector, path, CustomImport, t, r) |> Some
+            | _ -> None
+        // Dynamic casting, erase
+        | "op_BangBang", _ | "op_BangHat", _ -> List.tryHead args
+        | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
+        | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
+            Set(callee, ExprSet prop, value, r) |> Some
+        | ("op_Dollar"|"createNew" as m), callee::args ->
+            let argInfo = { argInfo None args AutoUncurrying with Spread = TupleSpread }
+            if m = "createNew"
+            then constructorCall r t argInfo callee |> Some
+            else staticCall r t argInfo callee |> Some
+        | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
+            NewTuple [name; value] |> Value |> Some
+        | "createObj", [kvs] ->
+            DelayedResolution(AsPojo(kvs, (CaseRules.None |> int |> makeIntConst)), t, r) |> Some
+         | "keyValueList", [caseRule; keyValueList] ->
+                DelayedResolution(AsPojo(keyValueList, caseRule), t, r) |> Some
+        | "toPlainJsObj", _ ->
+            let emptyObj = ObjectExpr([], t, None)
+            Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
+        | "jsOptions", [arg] ->
+            makePojoFromLambda arg |> Some
+        | "jsThis", _ ->
+            makeTypedIdentNonMangled t "this" |> IdentExpr |> Some
+        | "jsConstructor", _ ->
+            match (genArg com ctx r 0 i.GenericArgs) with
+            | DeclaredType(ent, _) when ent.IsClass -> FSharp2Fable.Util.entityRefMaybeImported com ent |> Some
+            | _ -> "Only class types define a function constructor in JS"
+                   |> addError com ctx.InlinePath r; None
+        | "createEmpty", _ ->
+            objExpr t [] |> Some
+        | ("nameof"|"nameof2" as meth), _ ->
+            match args with
+            | [Nameof name as arg] ->
+                if meth = "nameof2"
+                then NewTuple [makeStrConst name; arg] |> Value |> Some
+                else makeStrConst name |> Some
+            | _ -> "Cannot infer name of expression"
+                   |> addError com ctx.InlinePath r
+                   makeStrConst Naming.unknown |> Some
+        | "nameofLambda", _ ->
+            match args with
+            | [Function(_, Nameof name, _)] -> name
+            | _ -> "Cannot infer name of expression"
+                   |> addError com ctx.InlinePath r; Naming.unknown
+            |> makeStrConst |> Some
+        // Deprecated methods
+        | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
+        | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
+        | ("inflate"|"deflate"), _ -> List.tryHead args
+        | _ -> None
     | _ -> None
 
 let getReference r t expr = get r t expr "contents"
@@ -2664,7 +2667,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | "Microsoft.FSharp.Core.LanguagePrimitives.ErrorStrings" -> errorStrings info.CompiledName
     | Types.printfModule
     | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
-    | Naming.StartsWith "Fable.Core." _ -> fableReplacementsLib com ctx r t info thisArg args
+    | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com ctx r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com ctx r t info thisArg args
     | "System.Timers.ElapsedEventArgs" -> thisArg // only signalTime is available here
     | Naming.StartsWith "System.Action" _

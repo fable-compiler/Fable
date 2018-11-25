@@ -189,12 +189,12 @@ export function getFunctionElements(t: TypeInfo): [TypeInfo, TypeInfo] {
   }
 }
 
-export function isUnion(t: TypeInfo): boolean {
-  return t.cases != null;
+export function isUnion(t: any): boolean {
+  return t instanceof TypeInfo ? t.cases != null : t instanceof Union;
 }
 
-export function isRecord(t: TypeInfo): boolean {
-  return t.fields != null;
+export function isRecord(t: any): boolean {
+  return t instanceof TypeInfo ? t.fields != null : t instanceof Record;
 }
 
 export function isTuple(t: TypeInfo): boolean {
@@ -255,4 +255,27 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
 
 export function makeTuple(values: any[], t: TypeInfo): any {
   return values;
+}
+
+// Fable.Core.Reflection
+
+function assertUnion(x: any) {
+  if (!(x instanceof Union)) {
+    throw new Error(`Value is not an F# union type`);
+  }
+}
+
+export function getCaseTag(x: any): number {
+  assertUnion(x);
+  return x.tag;
+}
+
+export function getCaseName(x: any): string {
+  assertUnion(x);
+  return x.name;
+}
+
+export function getCaseFields(x: any): any[] {
+  assertUnion(x);
+  return x.fields;
 }

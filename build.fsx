@@ -157,9 +157,9 @@ let updateVersionInFile useNugetVersion releaseNotesPath targetFilePath (regexPa
             (if versionLastIndex < original.Length then original.Substring(versionLastIndex) else "")
         ) |> Some)
 
-let updateVersionInCliUtil () =
+let updateVersionInCliUtil compilerReleaseNotes =
     updateVersionInFile true
-        "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
+        compilerReleaseNotes
         "src/dotnet/Fable.Compiler/CLI/CLI.Util.fs"
         @"\bVERSION\s*=\s*""(.*?)"""
     updateVersionInFile false
@@ -232,7 +232,7 @@ let bundleRepl (fetchNcaveFork: bool) () =
 
     let replDir = CWD </> "src/dotnet/Fable.Repl"
     let bundleSize = IO.FileInfo(replDir </> "bundle/bundle.min.js").Length / 1000L
-    printf "REPL bundle size: %iKB" bundleSize
+    printfn "REPL bundle size: %iKB" bundleSize
 
     // Put fable-library files next to bundle
     let libraryTarget = replDir </> "bundle/fable-library"
@@ -266,9 +266,9 @@ let buildNpmFableCompilerDotnet () =
     CleanDir (projectDir </> "dist")
     CleanDir (projectDir </> "bin")
     buildTypescript projectDir ()
+    buildLibraryFull ()
+    updateVersionInCliUtil "src/js/fable-compiler/RELEASE_NOTES.md"
     buildCompilerDotnet Release (projectDir </> "bin/fable-compiler") ()
-    buildLibraryTypescriptFiles ()
-    buildLibraryFsharpFiles ()
     FileUtils.cp_r libraryBuildDir (projectDir </> "bin/fable-library")
 
 let runBench2 () =
@@ -305,7 +305,7 @@ Target "PublishPackages" (fun () ->
         ))
         Package("dotnet/Fable.Compiler/Fable.Compiler.fsproj", (fun () ->
             buildLibraryFull ()
-            updateVersionInCliUtil ()
+            updateVersionInCliUtil "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
         ), pkgName="dotnet-fable", msbuildProps=["NugetPackage", "true"])
         // NPM packages
         Package("js/fable-compiler-js", buildNpmFableCompilerJs)
