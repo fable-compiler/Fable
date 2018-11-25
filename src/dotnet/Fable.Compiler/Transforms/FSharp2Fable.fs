@@ -692,12 +692,6 @@ let private isImportedEntity (ent: FSharpEntity) =
         | Some(Atts.global_ | Atts.import) -> true
         | _ -> false)
 
-let private isErasedUnion (ent: FSharpEntity) =
-    ent.Attributes |> Seq.exists (fun att ->
-        match att.AttributeType.TryFullName with
-        | Some(Atts.erase | Atts.stringEnum) -> true
-        | _ -> false)
-
 /// Is compiler generated (CompareTo...) or belongs to ignored entity?
 /// (remember F# compiler puts class methods in enclosing modules)
 let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =

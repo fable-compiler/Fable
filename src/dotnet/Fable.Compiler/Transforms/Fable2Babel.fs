@@ -442,7 +442,10 @@ module Util =
         | Fable.MetaType        -> nonGenericTypeInfo Types.type_
         | Fable.DeclaredType(ent, generics) ->
             let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
-            if FSharp2Fable.Util.isImported ent || FSharp2Fable.Util.isReplacementCandidate ent then
+            if ent.IsInterface
+                || FSharp2Fable.Util.isErasedUnion ent
+                || FSharp2Fable.Util.isImported ent
+                || FSharp2Fable.Util.isReplacementCandidate ent then
                 let fullname = defaultArg ent.TryFullName Naming.unknown
                 let fullnameExpr = StringLiteral fullname :> Expression
                 let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]

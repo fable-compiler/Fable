@@ -772,6 +772,12 @@ module Util =
     let isImported (ent: FSharpEntity) =
         tryImportAttribute ent.Attributes |> Option.isSome
 
+    let isErasedUnion (ent: FSharpEntity) =
+        ent.Attributes |> Seq.exists (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some(Atts.erase | Atts.stringEnum) -> true
+            | _ -> false)
+
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityRefWithSuffix (com: ICompiler) (ent: FSharpEntity) suffix =
         let entLoc = getEntityLocation ent

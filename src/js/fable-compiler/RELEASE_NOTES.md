@@ -1,4 +1,4 @@
-### 2.1.0-beta-004
+### 2.1.0-beta-005
 
 * Add reflection info for each declared type
 

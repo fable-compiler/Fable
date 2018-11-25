@@ -393,6 +393,8 @@ let reflectionTests = [
     b.Value |> equal 10
 ]
 
+// TODO!!! Add reflection tests for interfaces, erased unions,
+// string enums, imported and replaced types
 #if FABLE_COMPILER
 open Fable.Core
 // open Fable.Core.Reflection
