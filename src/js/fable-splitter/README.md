@@ -4,7 +4,8 @@ JS client for [Fable](http://fable.io/) that compiles F# files to individual JS 
 
 ## Installation
 
-```npm install fable-splitter fable-compiler-dotnet```
+```npm install fable-splitter@next fable-compiler@next --save-dev```
+```yarn add -D fable-splitter@next fable-compiler@next```
 
 ## Usage
 
