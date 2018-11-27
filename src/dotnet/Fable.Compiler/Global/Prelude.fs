@@ -223,7 +223,7 @@ module Naming =
     let appendSuffix baseName suffix =
         if suffix = ""
         then baseName
-        else baseName + "$$" + suffix + "$"
+        else baseName + "$" + suffix
 
     let private printPart sanitize separator part overloadSuffix =
         (if part = "" then "" else separator + (sanitize part)) +

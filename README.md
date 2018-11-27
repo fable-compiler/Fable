@@ -25,27 +25,29 @@ Then you just need to type `./build.cmd` or `./build.sh` depending on your syste
 
 ## Using your local build in your projects
 
-Many of you are making really useful contributions that you also need for your own projects, however a new release may take several days. If you need the latest features the easiest way is to use `dotnet run` that will automatically build and run Fable based on latest code. For this, in macOS/Linux you can write a `fable-next` script as follows:
+Many of you are making really useful contributions that you also need for your own projects, however a new release may take several days. If you need the latest features you can tell `fable-compiler` to use a local build. For this, use the `cli.path` option. For example when using the `fable-loader` you can include the following in your webpack.config.js:
 
-```shell
-#!/bin/sh
-
-dotnet --version
-dotnet run -c Release -p /Users/alfonso/Fable/src/dotnet/Fable.Compiler $@ --force-pkgs
+```js
+  module: {
+    rules: [
+      {
+        test: /\.fs(x|proj)?$/,
+        use: {
+            loader: "fable-loader",
+            options: {
+                cli: {
+                    // This should be the path to your local clone of Fable
+                    path: "../Fable/src/dotnet/Fable.Compiler"
+                }
+            }
+        }
+      }
+    ]
+  }
 ```
 
-> Note you need the **full path to Fable.Compiler**. The `--force-pkgs` option is used to force a new copy of package sources (including fable-core) in the hidden `.fable` folder.
 
-Make it executable (`chmod +x fable-next`) and put it somewhere included in your PATH (e.g. in macOS `/usr/local/bin`). Then in your projects, instead of running `dotnet fable webpack-dev-server`, use `fable-next webpack-dev-server`.
-
-In Windows, you would write a `fable-next.cmd` script as follows:
-
-```cmd
-dotnet --version
-dotnet run -c Release -p C:\Users\alfonso\Documents\Fable\src\dotnet\Fable.Compiler %* --force-pkgs
-```
-
-**ATTENTION**: Remember to **build fable-core JS files beforehand**. This can be done just by building the whole project (see "Building" above) or running the `FableCoreJs` FAKE target (after this, if you edit one of the src/js/fablecore JS or TS files, you can run the `FableCoreJsTypescriptOnly` which is faster).
+**ATTENTION**: Remember to **build fable-library files beforehand**. This can be done just by building the whole project (see "Building" above) or running the `FableLibrary` FAKE target (after this, if you edit one of the src/js/fable-library JS or TS files, you can run the `FableLibraryTypescriptOnly` which is faster).
 
 ## Contributing
 

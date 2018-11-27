@@ -3,9 +3,21 @@
 import { spawn } from "child_process";
 import * as path from "path";
 import * as readline from "readline";
-import * as uuid from "uuid/v4";
 
 const BIN_PATH = path.join(__dirname, "../bin/fable-compiler/Fable.Compiler.dll");
+
+// From https://gist.github.com/LeverOne/1308368
+/* tslint:disable:no-bitwise */
+function uuid() {
+    let b = "";
+    for (let a = 0; a++ < 36;) {
+        b += a * 51 & 52
+            ? (a ^ 15 ? 8 ^ Math.random() * (a ^ 20 ? 16 : 4) : 4).toString(16)
+            : "-";
+    }
+    return b;
+}
+/* tslint:enable:no-bitwise */
 
 function parseJson(json) {
     try {

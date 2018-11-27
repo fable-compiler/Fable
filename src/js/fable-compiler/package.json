@@ -20,8 +20,5 @@
   "homepage": "https://github.com/fable-compiler/Fable#readme",
   "devDependencies": {
     "@types/node": "^10.12.8"
-  },
-  "dependencies": {
-    "uuid": "^3.3.2"
   }
 }

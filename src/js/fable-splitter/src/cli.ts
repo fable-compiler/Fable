@@ -38,6 +38,7 @@ Arguments:
   -w|--watch        [FLAG] Watch mode
   -d|--debug        [FLAG] Define DEBUG constant
   --allFiles        [FLAG] Compile all files in the F# project
+  --commonjs        [FLAG] Compile to commonjs modules
   --run             [FLAG] Run script with node after compilation
                     Arguments after --run will be passed to the script
 
@@ -157,7 +158,7 @@ function run(entry, args) {
 
     // If we're passing --run assume we're compiling for Node
     // TODO: In the future, we may want to use ES2015 modules and .mjs files
-    if (findFlag(args, ["--run"])) {
+    if (findFlag(args, ["--commonjs", "--run"])) {
         const babelOpts = opts.babel || {};
         babelOpts.plugins = concatIfNotExists(babelOpts.define, "@babel/plugin-transform-modules-commonjs");
         opts.babel = babelOpts;

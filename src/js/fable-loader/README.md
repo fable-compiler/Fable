@@ -4,15 +4,15 @@
 
 ## Installation
 
-```npm install webpack webpack-cli @babel/core fable-loader fable-compiler-dotnet```
+```npm install fable-loader fable-compiler @babel/core```
 
 ## Usage
 
-Create a `webpack-config.js` like the following run it using [Webpack CLI](https://webpack.js.org/guides/getting-started/) (e.g. `npx webpack`).
+Create a `webpack-config.js` like the following and run it using [Webpack](https://webpack.js.org/guides/getting-started/) (e.g. `npx webpack`).
 
 **ATTENTION**: In Fable 2.0 you had to call Webpack through dotnet-fable cli too (e.g. `dotnet fable webpack`), starting from Fable 2.1 you call Webpack directly.
 
-**NOTE**: The actual F# to JS compilation is done by `fable-compiler-dotnet`. You can control the compiler version through this package.
+**NOTE**: The actual F# to JS compilation is done by `fable-compiler`. You can control the compiler version through this package.
 
 > See the [Fable webpack-config-template](https://github.com/fable-compiler/webpack-config-template) for a more comprehensive example of a Webpack configuration for Fable projects.
 
