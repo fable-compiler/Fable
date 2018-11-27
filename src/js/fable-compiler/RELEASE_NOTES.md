@@ -1,3 +1,7 @@
+### 2.1.0-beta-006
+
+* Fix #1640: Nicer display name for function constructors
+
 ### 2.1.0-beta-005
 
 * Add reflection info for each declared type
