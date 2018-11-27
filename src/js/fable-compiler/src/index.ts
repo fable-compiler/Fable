@@ -40,6 +40,7 @@ function processArgs(args?: {[x: string]: any}) {
     if (args != null) {
         if (args.path) {
             const filePath = path.resolve(args.path);
+            console.log(`dotnet binary: ${filePath}`);
             cliArgs = filePath.endsWith(".dll")
                 ? [filePath, "start-stdin", "--force-pkgs"]
                 : ["run", "-c", "Release", "-p", filePath, "start-stdin", "--force-pkgs"];
@@ -61,8 +62,8 @@ export interface ICompilerProxy {
 }
 
 export default function start(cliArgs?: {}): ICompilerProxy {
-    const child = spawn("dotnet", processArgs(cliArgs));
     console.log(`fable-compiler ${getVersion()}`);
+    const child = spawn("dotnet", processArgs(cliArgs));
 
     // Error handling
     child.on("error", (err) => {

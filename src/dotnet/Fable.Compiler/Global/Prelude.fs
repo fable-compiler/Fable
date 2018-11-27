@@ -163,6 +163,10 @@ module Naming =
                 })
         else ident
 
+    /// Does not guarantee unique names, only used to clean function constructor names
+    let unsafeReplaceIdentForbiddenChars (replacement: char) (ident: string): string =
+        ident.ToCharArray() |> Array.mapi (fun i c -> if isIdentChar i c then c else replacement) |> System.String
+
     let removeGetSetPrefix (s: string) =
         if s.StartsWith("get_") || s.StartsWith("set_") then
             s.Substring(4)

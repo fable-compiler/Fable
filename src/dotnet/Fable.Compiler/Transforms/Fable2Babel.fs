@@ -326,10 +326,7 @@ module Util =
         | _ -> e
 
     let makeFunctionExpression name args (body: U2<BlockStatement, Expression>): Expression =
-        let id =
-            match name with
-            | Some name -> Some(Identifier name)
-            | None -> None
+        let id = name |> Option.map Identifier
         let body =
             match body with
             | U2.Case1 body -> body
@@ -1260,7 +1257,11 @@ module Util =
             :> ModuleDeclaration |> U2.Case2
 
     let declareType com ctx isPublic (ent: FSharpEntity) name consArgs consBody baseExpr: U2<Statement, ModuleDeclaration> list =
-        let consFunction = makeFunctionExpression (Some name) consArgs (U2.Case1 consBody)
+        let displayName =
+            ent.TryGetFullDisplayName()
+            |> Option.map (Naming.unsafeReplaceIdentForbiddenChars '_')
+            |> Option.defaultValue name
+        let consFunction = makeFunctionExpression (Some displayName) consArgs (U2.Case1 consBody)
         let typeDeclaration =
             match baseExpr with
             | Some e -> [|consFunction; e|]
