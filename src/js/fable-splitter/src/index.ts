@@ -76,9 +76,9 @@ function getResolvePathPlugin(targetDir: string, opts: FableSplitterOptions) {
 
 function output(msg: string, severity: string) {
     if (severity === "warning") {
-        console.warn(chalk.yellow(msg));
+        console.warn(chalk.bold.yellow(msg));
     } else if (severity === "error") {
-        console.error(chalk.red(msg));
+        console.error(chalk.bold.red(msg));
     } else {
         console.log(msg);
     }
