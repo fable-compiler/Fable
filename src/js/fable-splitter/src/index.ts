@@ -1,10 +1,10 @@
 import * as Babel from "@babel/core";
+import chalk from "chalk";
 import * as babelPlugins from "fable-babel-plugins";
 import * as fs from "fs-extra";
 import * as Path from "path";
 import * as Process from "process";
 import getCompiler from "./compiler";
-import chalk from "chalk";
 
 if (Process.env.FABLE_SERVER_PORT) {
     throw new Error("This version is not compatible with dotnet-fable cli tool, "

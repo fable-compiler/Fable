@@ -10,7 +10,8 @@ module.exports = {
 const REPO_ROOT_DIR = path.join(__dirname, "../../..");
 
 async function runNpmBin(name, args) {
-    const res = await shell.exec(`node ${path.join(REPO_ROOT_DIR, "node_modules/.bin", name)} ${args || ""}`);
+    const isWin = process.platform === "win32";
+    const res = await shell.exec(`${path.join(REPO_ROOT_DIR, "node_modules/.bin", name + (isWin ? ".cmd" : ""))} ${args || ""}`);
     if (res.code !== 0) {
         throw new Error(`${name} failed with code ${res.code}`);
     }
