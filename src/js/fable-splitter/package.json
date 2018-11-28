@@ -33,7 +33,8 @@
     "@babel/plugin-transform-modules-commonjs": "^7.1.0",
     "chokidar": "^2.0.4",
     "fable-babel-plugins": "^2.1.0-beta-001",
-    "fs-extra": "^7.0.0"
+    "fs-extra": "^7.0.0",
+    "chalk": "2.4.1"
   },
   "devDependencies": {
     "@types/fs-extra": "^5.0.4"

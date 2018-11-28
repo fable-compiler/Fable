@@ -4,6 +4,7 @@ import * as fs from "fs-extra";
 import * as Path from "path";
 import * as Process from "process";
 import getCompiler from "./compiler";
+import chalk from "chalk";
 
 if (Process.env.FABLE_SERVER_PORT) {
     throw new Error("This version is not compatible with dotnet-fable cli tool, "
@@ -75,9 +76,9 @@ function getResolvePathPlugin(targetDir: string, opts: FableSplitterOptions) {
 
 function output(msg: string, severity: string) {
     if (severity === "warning") {
-        console.warn(msg);
+        console.warn(chalk.yellow(msg));
     } else if (severity === "error") {
-        console.error(msg);
+        console.error(chalk.red(msg));
     } else {
         console.log(msg);
     }
