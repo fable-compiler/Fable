@@ -1,3 +1,11 @@
+### 2.1.0
+
+* Release _stablish_ version
+
+### 2.1.0-beta-007
+
+* Use fable-babel-plugins package
+
 ### 2.1.0-beta-006
 
 * Fix #1640: Nicer display name for function constructors

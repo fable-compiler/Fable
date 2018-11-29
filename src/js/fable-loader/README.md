@@ -10,7 +10,7 @@
 
 Create a `webpack-config.js` like the following and run it using [Webpack](https://webpack.js.org/guides/getting-started/) (e.g. `npx webpack`).
 
-**ATTENTION**: In Fable 2.0 you had to call Webpack through dotnet-fable cli too (e.g. `dotnet fable webpack`), starting from Fable 2.1 you call Webpack directly.
+**ATTENTION**: In Fable 2.0 you had to call Webpack through the dotnet-fable CLI tool, starting from Fable 2.1 you call Webpack directly. For example, if you used the command `dotnet fable webpack -- --config src/webpack.config.js`, replace it with `npx webpack --config src/webpack.config.js` (you can also use `yarn` instead of `npx`). Note you don't need the `--` separator anymore.
 
 **NOTE**: The actual F# to JS compilation is done by `fable-compiler`. You can control the compiler version through this package.
 
