@@ -198,9 +198,12 @@ let fullCrack (projFile: string): CrackedFsproj =
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
     // Try restoring project
-    // TODO: Detect if `dotnet` is not installed globally? How does Dotnet.ProjInfo detect it?
-    Process.tryRunAndGetOutput (IO.Path.GetDirectoryName projFile) "dotnet" ("restore " + (IO.Path.GetFileName projFile))
-    |> Console.WriteLine
+    do
+        Process.runCmd
+            Console.WriteLine Console.WriteLine
+            (IO.Path.GetDirectoryName projFile)
+            "dotnet" ["restore"; IO.Path.GetFileName projFile]
+        |> ignore
     let projOpts, projRefs, _msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
     // let targetFramework =

@@ -2,7 +2,7 @@ namespace Fable.CLI
 
 module Literals =
 
-  let [<Literal>] VERSION = "2.1.0"
+  let [<Literal>] VERSION = "2.1.1"
   let [<Literal>] CORE_VERSION = "2.0.2"
   let [<Literal>] DEFAULT_PORT = 61225
   let [<Literal>] FORCE = "force:"
@@ -173,26 +173,47 @@ module Process =
         p.Start() |> ignore
         p
 
-    let run workingDir fileName args =
-        let p =
-            Options()
-            |> start workingDir fileName args
-        p.WaitForExit()
-        match p.ExitCode with
-        | 0 -> ()
-        | c -> failwithf "Process %s %s finished with code %i" fileName args c
+    // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
+    let runCmd log errorLog workingDir exePath args =
+        log (workingDir + "> " + exePath + " " + (args |> String.concat " "))
 
-    let tryRunAndGetOutput workingDir fileName args =
-        try
-            let p =
-                Options(redirectOutput=true)
-                |> start workingDir fileName args
-            let output = p.StandardOutput.ReadToEnd()
-            // printfn "%s" output
-            p.WaitForExit()
-            output
-        with ex ->
-            "ERROR: " + ex.Message
+        let logOut = System.Collections.Concurrent.ConcurrentQueue<string>()
+        let logErr = System.Collections.Concurrent.ConcurrentQueue<string>()
+
+        let runProcess (workingDir: string) (exePath: string) (args: string) =
+            let psi = System.Diagnostics.ProcessStartInfo()
+            psi.FileName <- exePath
+            psi.WorkingDirectory <- workingDir
+            psi.RedirectStandardOutput <- true
+            psi.RedirectStandardError <- true
+            psi.Arguments <- args
+            psi.CreateNoWindow <- true
+            psi.UseShellExecute <- false
+
+            use p = new System.Diagnostics.Process()
+            p.StartInfo <- psi
+
+            p.OutputDataReceived.Add(fun ea -> logOut.Enqueue (ea.Data))
+            p.ErrorDataReceived.Add(fun ea -> logErr.Enqueue (ea.Data))
+
+            try
+                p.Start() |> ignore
+                p.BeginOutputReadLine()
+                p.BeginErrorReadLine()
+                p.WaitForExit()
+                p.ExitCode
+            with ex ->
+                errorLog ("Cannot run: " + ex.Message)
+                -1
+
+        let exitCode =
+            String.concat " " args
+            |> runProcess workingDir exePath
+
+        for x in logOut.ToArray() do log x
+        for x in logErr.ToArray() do errorLog x
+
+        exitCode
 
 [<RequireQualifiedAccess>]
 module Async =

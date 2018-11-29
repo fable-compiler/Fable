@@ -1,3 +1,7 @@
+### 2.1.1
+
+* Try not to stop compilation if `dotnet restore` fails.
+
 ### 2.1.0
 
 * Release _stablish_ version

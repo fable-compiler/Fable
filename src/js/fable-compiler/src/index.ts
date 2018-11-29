@@ -19,14 +19,6 @@ function uuid() {
 }
 /* tslint:enable:no-bitwise */
 
-function parseJson(json) {
-    try {
-        return JSON.parse(json);
-    } catch {
-        return json;
-    }
-}
-
 function getVersion(): string  {
     try {
         return require("../package.json").version;
@@ -83,14 +75,13 @@ export default function start(cliArgs?: {}): ICompilerProxy {
         input: child.stdout,
     });
     linereader.on("line", (data: string) => {
-        const pattern = /^JSON:([\w-]+):(.*)$/.exec(data);
+        const pattern = /^JSON:([\w-]+):/.exec(data);
         if (pattern != null) {
             const id = pattern[1];
             const resolve = pending.get(id);
             if (resolve != null) {
-                const response = parseJson(pattern[2]);
-                resolve(response);
                 pending.delete(id);
+                resolve(JSON.parse(data.substr(pattern[0].length)));
             }
         } else { // LOG
             console.log(data);

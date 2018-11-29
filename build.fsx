@@ -194,7 +194,7 @@ let githubRelease releaseNotesDir () =
 
     // release on github
     createClient user pw
-    |> createDraft gitOwner project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
+    |> createRelease gitOwner project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
     // |> uploadFile (buildDir</>("FSharp.Compiler.Service." + release.NugetVersion + ".nupkg"))
     |> releaseDraft
     |> Async.RunSynchronously
