@@ -1,3 +1,7 @@
+### 2.1.0
+
+* Release _stablish_ version
+
 ### 2.1.0-beta-007
 
 * Use fable-babel-plugins package

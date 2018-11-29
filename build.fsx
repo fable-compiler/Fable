@@ -311,6 +311,7 @@ Target "PublishPackages" (fun () ->
         Package("js/fable-compiler-js", buildNpmFableCompilerJs)
         Package("js/fable-compiler", buildNpmFableCompilerDotnet)
         Package "js/fable-loader"
+        Package "js/fable-babel-plugins"
         Package "js/rollup-plugin-fable"
         Package("js/fable-splitter", buildNpmPackage "src/js/fable-splitter")
     ]
