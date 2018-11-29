@@ -7,6 +7,15 @@ open Util.Testing
 open Fable.Core
 open Fable.Core.JsInterop
 
+[<Global>]
+module GlobalModule =
+    [<Emit("var GlobalModule = { add(x, y) { return x + y }, foo: 'bar' }")>]
+    let declare() = ()
+    let add (x: int) (y: int): int = jsNative
+    let foo: string = jsNative
+
+GlobalModule.declare()
+
 let myMeth (x: int) (y: int) = x - y
 
 type IMyOptions =
@@ -80,7 +89,7 @@ let validatePassword = function
 
 let tests =
   testList "JsInterop" [
-    #if FABLE_COMPILER
+#if FABLE_COMPILER
     testCase "Dynamic application works" <| fun () ->
         let dynObj =
             createObj [
@@ -268,7 +277,12 @@ let tests =
     testCase "StringEnum attribute works" <| fun () ->
         Vertical |> unbox |> equal "vertical"
         Horizontal |> unbox |> equal "Horizontal"
-    #endif
+
+    // See https://github.com/fable-compiler/fable-import/issues/72
+    testCase "Can use values and functions from global modules" <| fun () ->
+        GlobalModule.add 3 4 |> equal 7
+        GlobalModule.foo |> equal "bar"
+#endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->
         validatePassword NewPassword

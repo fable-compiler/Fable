@@ -933,6 +933,31 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
         | None -> args
         | Some injections -> args @ injections
 
+// TODO: Add other entities (see Fable 1 Replacements.tryReplaceEntity)
+let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
+    match ent.FullName with
+    | Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
+    | Types.matchFail -> makeCoreRef Any "MatchFailureException" "Types" |> Some
+    | Types.result -> makeCoreRef Any "Result" "Option" |> Some
+    | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
+    | entFullName ->
+        com.Options.precompiledLib
+        |> Option.bind (fun tryLib -> tryLib entFullName)
+        |> Option.map (fun (entityName, importPath) ->
+            let entityName = Naming.sanitizeIdentForbiddenChars entityName |> Naming.checkJsKeywords
+            makeCustomImport Any entityName importPath)
+
+let jsConstructor com ent =
+    if FSharp2Fable.Util.isReplacementCandidate ent then
+        match tryEntityRef com ent with
+        | Some entRef -> entRef
+        | None ->
+            defaultArg ent.TryFullName ent.CompiledName
+            |> sprintf "Cannot find %s constructor"
+            |> addErrorAndReturnNull com [] None
+    else
+        FSharp2Fable.Util.entityRefMaybeGlobalOrImported com ent
+
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, ".ctor" -> objExpr t [] |> Some
@@ -988,8 +1013,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             makeTypedIdentNonMangled t "this" |> IdentExpr |> Some
         | "jsConstructor", _ ->
             match (genArg com ctx r 0 i.GenericArgs) with
-            | DeclaredType(ent, _) when ent.IsClass -> FSharp2Fable.Util.entityRefMaybeImported com ent |> Some
-            | _ -> "Only class types define a function constructor in JS"
+            | DeclaredType(ent, _) -> jsConstructor com ent |> Some
+            | _ -> "Only declared types define a function constructor in JS"
                    |> addError com ctx.InlinePath r; None
         | "createEmpty", _ ->
             objExpr t [] |> Some
@@ -1742,7 +1767,7 @@ let parse (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "Parse" as meth,
             str::Value(Enum(NumberEnum(Value(NumberConstant(style, Int32))), _))::_ ->
         let style, hexConst = int style, int System.Globalization.NumberStyles.HexNumber
-        if not (style = hexConst) then
+        if style <> hexConst then
             sprintf "%s.%s(): NumberStyle %d is ignored" i.DeclaringEntityFullName meth style
             |> addWarning com ctx.InlinePath r
         if List.length args > 2 then
@@ -1922,8 +1947,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "CreateInstance", None, _ ->
         match genArg com ctx r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
-            let entRef = FSharp2Fable.Util.entityRefMaybeImported com ent
-            Helper.ConstructorCall(entRef, t, [], ?loc=r) |> Some
+            Helper.ConstructorCall(jsConstructor com ent, t, [], ?loc=r) |> Some
         | t -> sprintf "Cannot create instance of type unresolved at compile time: %A" t
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
@@ -2706,20 +2730,6 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         |> Option.bind (fun tryLib -> tryLib info.DeclaringEntityFullName)
         |> Option.map (precompiledLib r t info thisArg args)
     | _ -> None
-
-// TODO: Add other entities (see Fable 1 Replacements.tryReplaceEntity)
-let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
-    match ent.FullName with
-    | Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
-    | Types.matchFail -> makeCoreRef Any "MatchFailureException" "Types" |> Some
-    | Types.result -> makeCoreRef Any "Result" "Option" |> Some
-    | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
-    | entFullName ->
-        com.Options.precompiledLib
-        |> Option.bind (fun tryLib -> tryLib entFullName)
-        |> Option.map (fun (entityName, importPath) ->
-            let entityName = Naming.sanitizeIdentForbiddenChars entityName |> Naming.checkJsKeywords
-            makeCustomImport Any entityName importPath)
 
 let tryBaseConstructor com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) genArgs args =
     match ent.FullName with

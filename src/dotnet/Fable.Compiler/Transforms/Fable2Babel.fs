@@ -193,17 +193,9 @@ module Util =
     let coreValue (com: IBabelCompiler) ctx moduleName memberName =
         com.TransformImport(ctx, memberName, moduleName, Fable.Library)
 
-    let entityRefMaybeImported (com: IBabelCompiler) ctx ent =
-        if FSharp2Fable.Util.isReplacementCandidate ent then
-            // Some unions like Choice or Result belong to FSharp.Core
-            match Replacements.tryEntityRef com ent with
-            | Some entRef -> com.TransformAsExpr(ctx, entRef)
-            | None ->
-                sprintf "Cannot find %s constructor" ent.FullName
-                |> addErrorAndReturnNull com None
-        else
-            let entRef = FSharp2Fable.Util.entityRefMaybeImported com ent
-            com.TransformAsExpr(ctx, entRef)
+    let jsConstructor (com: IBabelCompiler) ctx ent =
+        let entRef = Replacements.jsConstructor com ent
+        com.TransformAsExpr(ctx, entRef)
 
     let makeList com ctx headAndTail =
         match headAndTail with
@@ -439,10 +431,7 @@ module Util =
         | Fable.MetaType        -> nonGenericTypeInfo Types.type_
         | Fable.DeclaredType(ent, generics) ->
             let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
-            if ent.IsInterface
-                || FSharp2Fable.Util.isErasedUnion ent
-                || FSharp2Fable.Util.isImported ent
-                || FSharp2Fable.Util.isReplacementCandidate ent then
+            if FSharp2Fable.Util.isNonDeclaredEntity ent then
                 let fullname = defaultArg ent.TryFullName Naming.unknown
                 let fullnameExpr = StringLiteral fullname :> Expression
                 let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]
@@ -466,7 +455,7 @@ module Util =
                     (ArrayExpression [|StringLiteral x.Name; typeInfo|] :> Expression))
                 |> Seq.toArray
             let fields = ArrowFunctionExpression([||], ArrayExpression fields :> Expression |> U2.Case2) :> Expression
-            [|fullnameExpr; upcast ArrayExpression generics; entityRefMaybeImported com ctx ent; fields|]
+            [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx ent; fields|]
             |> coreLibCall com ctx "Reflection" "record"
         elif ent.IsFSharpUnion then
             let cases =
@@ -485,7 +474,7 @@ module Util =
                             |] :> Expression
                     caseInfo) |> Seq.toArray
             let cases = ArrowFunctionExpression([||], ArrayExpression cases :> Expression |> U2.Case2) :> Expression
-            [|fullnameExpr; upcast ArrayExpression generics; entityRefMaybeImported com ctx ent; cases|]
+            [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx ent; cases|]
             |> coreLibCall com ctx "Reflection" "union"
         else
             let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]
@@ -527,7 +516,7 @@ module Util =
             | Fable.NumberEnum x
             | Fable.StringEnum x -> com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(values, ent, _) ->
-            let consRef = entityRefMaybeImported com ctx ent
+            let consRef = jsConstructor com ctx ent
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             upcast NewExpression(consRef, values)
         | Fable.NewUnion(values, uci, ent, _) ->
@@ -536,7 +525,7 @@ module Util =
             | Some _ -> Fable.ArrayValues values |> makeTypedArray com ctx Fable.Any
             | None ->
                 let name = getUnionCaseName uci
-                let consRef = entityRefMaybeImported com ctx ent
+                let consRef = jsConstructor com ctx ent
                 let tag = FSharp2Fable.Helpers.unionCaseTag ent uci
                 let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
                 upcast NewExpression(consRef, (ofInt tag)::(ofString name)::values |> List.toArray)
@@ -651,7 +640,7 @@ module Util =
                 // compile it as: `BaseClass.prototype.Foo.call(this, ...args)` (see #701)
                 | Some(Fable.IdentExpr(IdentType(Fable.DeclaredType(baseEntity, _)) as thisIdent)), Some membExpr
                         when thisIdent.IsBaseValue ->
-                    let baseClassExpr = entityRefMaybeImported com ctx baseEntity
+                    let baseClassExpr = jsConstructor com ctx baseEntity
                     let baseProtoMember =
                         com.TransformAsExpr(ctx, membExpr)
                         |> getExpr None (get None baseClassExpr "prototype")
@@ -735,7 +724,7 @@ module Util =
                 // compile it as: `BaseClass.prototype.Foo` (see #701)
                 | Fable.IdentExpr(IdentType(Fable.DeclaredType(baseEntity, _)) as thisIdent)
                         when thisIdent.IsBaseValue ->
-                    let baseClassExpr = entityRefMaybeImported com ctx baseEntity
+                    let baseClassExpr = jsConstructor com ctx baseEntity
                     get None baseClassExpr "prototype"
                 | _ -> expr
             get range expr fieldName
@@ -856,7 +845,7 @@ module Util =
                 if not(List.isEmpty genArgs) then
                     "Cannot type test generic arguments"
                     |> addWarning com [] range
-                let entRef = entityRefMaybeImported com ctx ent
+                let entRef = jsConstructor com ctx ent
                 jsInstanceof entRef expr
         | Fable.MetaType | Fable.Option _ | Fable.GenericParam _ | Fable.ErasedUnion _ ->
             fail "options, generic parameters or erased unions"
