@@ -15,7 +15,6 @@ let allTests =
     Dictionaries.tests
 #if FABLE_COMPILER
     ElmishParser.tests
-    Experimental.tests
 #endif
     Enumerable.tests
     Enum.tests
@@ -50,7 +49,7 @@ let allTests =
 open Fable.Core
 open Fable.Core.JsInterop
 
-// Import a polyfill for atob and btoa, used by fable-core
+// Import a polyfill for atob and btoa, used by fable-library
 // but not available in node.js runtime
 importSideEffects "./js/polyfill"
 

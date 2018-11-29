@@ -761,25 +761,70 @@ module Util =
                 makeCustomImport typ selector path |> Some
             | _ -> None)
 
-    let tryImportedEntity (com: ICompiler) (ent: FSharpEntity) =
-        // TODO: Check also Global attribute here?
-        tryImportAttribute ent.Attributes |> Option.map (fun (selector, path) ->
-            let path =
-                lazy getEntityLocation ent
-                |> fixImportedRelativePath com path
-            makeCustomImport Fable.Any selector path)
+    let tryGlobalOrImportedEntity (com: ICompiler) (ent: FSharpEntity) =
+        ent.Attributes |> Seq.tryPick (function
+            | AttFullName(Atts.global_, att) ->
+                match att with
+                | AttArguments [:? string as customName] ->
+                    makeTypedIdentNonMangled Fable.Any customName |> Fable.IdentExpr |> Some
+                | _ -> ent.DisplayName |> makeTypedIdentNonMangled Fable.Any |> Fable.IdentExpr |> Some
+            | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
+                let path =
+                    lazy getEntityLocation ent
+                    |> fixImportedRelativePath com path
+                makeCustomImport Fable.Any selector path |> Some
+            | _ -> None)
+
+    let isGlobalOrImportedEntity (ent: FSharpEntity) =
+        ent.Attributes |> Seq.exists (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some(Atts.global_ | Atts.import) -> true
+            | _ -> false)
+
+    let isErasedUnion (ent: FSharpEntity) =
+        ent.Attributes |> Seq.exists (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some(Atts.erase | Atts.stringEnum) -> true
+            | _ -> false)
+
+    /// Entities coming from assemblies (we don't have access to source code) are candidates for replacement
+    let isReplacementCandidate (ent: FSharpEntity) =
+        match ent.Assembly.FileName, ent.TryFullName with
+        | Some asmPath, _ -> not(System.String.IsNullOrEmpty(asmPath))
+        // When compiling Fable itself, Fable.Core entities will be part of the code base,
+        // but still need to be replaced
+        | None, Some entityFullName -> entityFullName.StartsWith("Fable.Core.")
+        | None, None -> false
+
+    /// Check if an entity is NOT actually declared in JS code
+    /// Currently used to check if there's reflection info available at runtime
+    let isNonDeclaredEntity (ent: FSharpEntity) =
+        ent.IsInterface
+        || isErasedUnion ent
+        || isGlobalOrImportedEntity ent
+        || isReplacementCandidate ent
+
+    /// We can add a suffix to the entity name for special methods, like reflection declaration
+    let entityRefWithSuffix (com: ICompiler) (ent: FSharpEntity) suffix =
+        if ent.IsInterface then
+            defaultArg ent.TryFullName ent.CompiledName
+            |> sprintf "Cannot reference an interface %s"
+            |> addErrorAndReturnNull com [] None
+        else
+            let entLoc = getEntityLocation ent
+            let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
+            let entityName = getEntityDeclarationName com ent
+            let entityName = Naming.appendSuffix entityName suffix
+            if file = com.CurrentFile
+            then makeIdentExprNonMangled entityName
+            else makeInternalImport Fable.Any entityName file
 
     let entityRef (com: ICompiler) (ent: FSharpEntity) =
-        let entLoc = getEntityLocation ent
-        let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
-        let entityName = getEntityDeclarationName com ent
-        if file = com.CurrentFile
-        then makeIdentExprNonMangled entityName
-        else makeInternalImport Fable.Any entityName file
+        entityRefWithSuffix com ent ""
 
-    /// First checks if the entity is imported
-    let entityRefMaybeImported (com: ICompiler) (ent: FSharpEntity) =
-        match tryImportedEntity com ent with
+    /// First checks if the entity is global or imported
+    let entityRefMaybeGlobalOrImported (com: ICompiler) (ent: FSharpEntity) =
+        match tryGlobalOrImportedEntity com ent with
         | Some importedEntity -> importedEntity
         | None -> entityRef com ent
 
@@ -817,16 +862,7 @@ module Util =
                     tryFindImplementingEntity t.TypeDefinition interfaceFullName
                 | _ -> None
 
-    // Entities coming from assemblies (we don't have access to source code) are candidates for replacement
-    let isReplacementCandidate (ent: FSharpEntity) =
-        match ent.Assembly.FileName, ent.TryFullName with
-        | Some asmPath, _ -> not(System.String.IsNullOrEmpty(asmPath))
-        // When compiling Fable itself, Fable.Core entities will be part of the code base,
-        // but still need to be replaced
-        | None, Some entityFullName -> entityFullName.StartsWith("Fable.Core.")
-        | None, None -> false
-
-    let callInstanceMember com ctx r typ (argInfo: Fable.ArgInfo) (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
+    let callInstanceMember com r typ (argInfo: Fable.ArgInfo) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
             match argInfo.ThisArg with
             | Some callee -> callee
@@ -865,7 +901,7 @@ module Util =
             match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
             | Some e -> Some e
             | None when info.IsInterface ->
-                callInstanceMember com ctx r typ argInfo ent memb |> Some
+                callInstanceMember com r typ argInfo memb |> Some
             | None ->
                 sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
@@ -886,7 +922,7 @@ module Util =
             | _ -> "EmitAttribute must receive a string argument" |> attachRange r |> failwith
         | _ -> None
 
-    let (|Imported|_|) com ctx r typ argInfo (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
+    let (|Imported|_|) com r typ argInfo isModuleValue (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         let importValueType = if Option.isSome argInfo then Fable.Any else typ
         match tryGlobalOrImportedMember com importValueType memb, argInfo, entity with
         | Some importExpr, Some argInfo, Some e ->
@@ -897,17 +933,20 @@ module Util =
         | Some importExpr, None, _ ->
             Some importExpr
         | None, Some argInfo, Some e ->
-            match tryImportedEntity com e, argInfo.IsBaseOrSelfConstructorCall, argInfo.ThisArg with
+            match tryGlobalOrImportedEntity com e, argInfo.IsBaseOrSelfConstructorCall, argInfo.ThisArg with
             | Some classExpr, true, _ ->
                 staticCall r typ argInfo classExpr |> Some
-            | Some _, false, Some _ ->
-                callInstanceMember com ctx r typ argInfo e memb |> Some
+            | Some _, false, Some _thisArg ->
+                callInstanceMember com r typ argInfo memb |> Some
             | Some classExpr, false, None ->
-                if memb.IsConstructor
-                then Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r) |> Some
+                if memb.IsConstructor then
+                    Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r) |> Some
+                elif isModuleValue then
+                    let kind = Fable.FieldGet(getMemberDisplayName memb, true, Fable.Any)
+                    Fable.Get(classExpr, kind, typ, r) |> Some
                 else
                     let argInfo = { argInfo with ThisArg = Some classExpr }
-                    callInstanceMember com ctx r typ argInfo e memb |> Some
+                    callInstanceMember com r typ argInfo memb |> Some
             | None, _, _ -> None
         | _ -> None
 
@@ -991,7 +1030,7 @@ module Util =
           }
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some argInfo) emitted, _ -> emitted
-        | Imported com ctx r typ (Some argInfo) imported -> imported
+        | Imported com r typ (Some argInfo) isModuleValue imported -> imported
         | Replaced com ctx r typ argTypes genArgs argInfo isModuleValue replaced -> replaced
         | Inlined com ctx r genArgs callee args expr, _ -> expr
         | Try (tryGetBoundExpr ctx r) funcExpr, _ ->
@@ -1002,7 +1041,7 @@ module Util =
         | _, Some entity when entity.IsInterface
                 || memb.IsOverrideOrExplicitInterfaceImplementation
                 || memb.IsDispatchSlot ->
-            callInstanceMember com ctx r typ argInfo entity memb
+            callInstanceMember com r typ argInfo memb
         | _ ->
             if isModuleValue
             then memberRefTyped com r typ memb
@@ -1022,7 +1061,7 @@ module Util =
                 |> addWarning com ctx.InlinePath r
             Fable.Value Fable.UnitConstant
         | Emitted com r typ None emitted, _ -> emitted
-        | Imported com ctx r typ None imported -> imported
+        | Imported com r typ None true imported -> imported
         // TODO: Replaced? Check if there're failing tests
         | Try (tryGetBoundExpr ctx r) expr, _ -> expr
         | _ -> memberRefTyped com r typ v

@@ -1,6 +1,5 @@
 module Fable.CLI.Parser
 
-open System
 open System.Collections.Generic
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
@@ -14,40 +13,6 @@ type Message =
       typedArrays: bool
       clampByteArrays: bool
       extra: IDictionary<string,string> }
-
-let foldi f init (xs: 'T seq) =
-    let mutable i = -1
-    (init, xs) ||> Seq.fold (fun state x ->
-        i <- i + 1
-        f i state x)
-
-type ComparisonResult = Smaller | Same | Bigger
-
-let compareVersions (expected: string) (actual: string) =
-    if actual = "*" // Wildcard for custom fable-core builds
-    then Same
-    else
-        let expected = expected.Split('.', '-')
-        let actual = actual.Split('.', '-')
-        (Same, expected) ||> foldi (fun i comp expectedPart ->
-            match comp with
-            | Bigger -> Bigger
-            | Same when actual.Length <= i -> Smaller
-            | Same ->
-                let actualPart = actual.[i]
-                match Int32.TryParse(expectedPart), Int32.TryParse(actualPart) with
-                // TODO: Don't allow bigger for major version?
-                | (true, expectedPart), (true, actualPart) ->
-                    if actualPart > expectedPart
-                    then Bigger
-                    elif actualPart = expectedPart
-                    then Same
-                    else Smaller
-                | _ ->
-                    if actualPart = expectedPart
-                    then Same
-                    else Smaller
-            | Smaller -> Smaller)
 
 let private parseStringArray (def: string[]) (key: string) (o: JObject)  =
     match o.[key] with

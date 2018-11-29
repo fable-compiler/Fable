@@ -125,8 +125,8 @@ type Ident =
         |> Option.defaultValue x.Name
 
 type ImportKind =
-    | CoreLib
     | Internal
+    | Library
     | CustomImport
 
 type EnumKind = NumberEnum of Expr | StringEnum of Expr

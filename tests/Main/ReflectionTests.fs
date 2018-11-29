@@ -393,8 +393,11 @@ let reflectionTests = [
     b.Value |> equal 10
 ]
 
+// TODO!!! Add reflection tests for interfaces, erased unions,
+// string enums, imported and replaced types
 #if FABLE_COMPILER
 open Fable.Core
+// open Fable.Core.Reflection
 
 type R1 = { x: int }
 type R2 = { y: int }
@@ -408,9 +411,7 @@ type Maybe<'t> =
     | Just of 't
     | Nothing
 
-// The !!!NAME!!! of this type fails with somethings, I don't know
 type RecWithGenDU<'t> = { Other: 't; Value : Maybe<string> }
-// But this one works, very weird
 type GenericTestRecord<'t> = { Other: 't; Value : Maybe<string> }
 
 // helper class to extract the name of an injected type
@@ -422,6 +423,14 @@ type Types() =
     static member get<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : System.Type =
         let resolvedType = resolver.Value.ResolveType()
         resolvedType
+
+type MyUnion20 =
+    | Union20_A
+    | Union20_B of int * string
+
+type MyRecord20 =
+    { FieldA: int
+      FieldB: string }
 
 let injectTests = [
     testCase "ITypeResolver can be injected" <| fun () ->
@@ -449,18 +458,34 @@ let injectTests = [
     testCase "Name can be extracted from GenericTestRecord" <| fun () ->
         let name = Types.getNameOf<Maybe<list<GenericTestRecord<string>>>>()
         equal false (name = "")
+
+    // TODO!!! Enable these tests when a new Fable.Core version is released
+    // testCase "Can check unions and records without type" <| fun () ->
+    //     let x = box Union20_A
+    //     let y = box { FieldA = 5; FieldB = "foo" }
+    //     isUnion x |> equal true
+    //     isRecord x |> equal false
+    //     isUnion y |> equal false
+    //     isRecord y |> equal true
+
+    // testCase "Can get union values without type" <| fun () ->
+    //     let x = box Union20_A
+    //     let y = Union20_B(5, "foo") |> box
+    //     getCaseTag x |> equal 0
+    //     getCaseTag y |> equal 1
+    //     getCaseName x |> equal "Union20_A"
+    //     getCaseName y |> equal "Union20_B"
+    //     getCaseFields x |> equal [||]
+    //     getCaseFields y |> equal [|5; "foo"|]
 ]
+
 #else
 let injectTests = []
 #endif
 
-
-
 let genericTypeNamesTests =
     testList "Naming generic types"
       [  ]
-
-
 
 let tests =
     testList "Reflection tests" (

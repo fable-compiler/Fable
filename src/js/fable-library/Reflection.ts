@@ -1,3 +1,4 @@
+import { Record, Union } from "./Types";
 import { compareArraysWith, equalArraysWith } from "./Util";
 
 export type FieldInfo = [string, TypeInfo];
@@ -16,7 +17,7 @@ export class CaseInfo {
 
 export class TypeInfo {
   constructor(public fullname: string,
-              public generics?: () => TypeInfo[],
+              public generics?: TypeInfo[],
               public constructor?: Constructor,
               public fields?: () => FieldInfo[],
               public cases?: () => CaseInfo[]) {
@@ -33,7 +34,7 @@ export class TypeInfo {
 }
 
 export function getGenerics(t: TypeInfo): TypeInfo[] {
-  return t.generics != null ? t.generics() : [];
+  return t.generics != null ? t.generics : [];
 }
 
 export function equals(t1: TypeInfo, t2: TypeInfo): boolean {
@@ -51,18 +52,18 @@ export function compare(t1: TypeInfo, t2: TypeInfo): number {
   }
 }
 
-export function type(fullname: string, generics?: () => TypeInfo[]): TypeInfo {
+export function type(fullname: string, generics?: TypeInfo[]): TypeInfo {
   return new TypeInfo(fullname, generics);
 }
 
-export function record(fullname: string, generics: () => TypeInfo[],
+export function record(fullname: string, generics: TypeInfo[],
                        constructor: Constructor, fields: () => FieldInfo[]): TypeInfo {
   return new TypeInfo(fullname, generics, constructor, fields);
 }
 
 export type CaseInfoInput = string | [string, TypeInfo[]];
 
-export function union(fullname: string, generics: () => TypeInfo[],
+export function union(fullname: string, generics: TypeInfo[],
                       constructor: Constructor, cases: () => CaseInfoInput[]): TypeInfo {
   const t: TypeInfo = new TypeInfo(fullname, generics, constructor, null, () => cases().map((x, i) =>
     typeof x === "string" ? new CaseInfo(t, i, x) : new CaseInfo(t, i, x[0], x[1])));
@@ -70,27 +71,27 @@ export function union(fullname: string, generics: () => TypeInfo[],
 }
 
 export function tuple(...generics: TypeInfo[]): TypeInfo {
-  return new TypeInfo("System.Tuple`" + generics.length, () => generics);
+  return new TypeInfo("System.Tuple`" + generics.length, generics);
 }
 
 export function delegate(...generics: TypeInfo[]): TypeInfo {
-  return new TypeInfo("System.Func`" + generics.length, () => generics);
+  return new TypeInfo("System.Func`" + generics.length, generics);
 }
 
 export function lambda(argType: TypeInfo, returnType: TypeInfo): TypeInfo {
-  return new TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", () => [argType, returnType]);
+  return new TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", [argType, returnType]);
 }
 
 export function option(generic: TypeInfo): TypeInfo {
-  return new TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", () => [generic]);
+  return new TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", [generic]);
 }
 
 export function list(generic: TypeInfo): TypeInfo {
-  return new TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", () => [generic]);
+  return new TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", [generic]);
 }
 
 export function array(generic: TypeInfo): TypeInfo {
-  return new TypeInfo(generic.fullname + "[]", () => [generic]);
+  return new TypeInfo(generic.fullname + "[]", [generic]);
 }
 
 export const obj: TypeInfo = new TypeInfo("System.Object");
@@ -120,7 +121,7 @@ export function name(info: FieldInfo | CaseInfo | TypeInfo): string {
 }
 
 export function fullName(t: TypeInfo): string {
-  const gen = t.generics != null && !isArray(t) ? t.generics() : [];
+  const gen = t.generics != null && !isArray(t) ? t.generics : [];
   if (gen.length > 0) {
     return t.fullname + "[" + gen.map((x) => fullName(x)).join(",") + "]";
   } else {
@@ -138,11 +139,11 @@ export function isArray(t: TypeInfo): boolean {
 }
 
 export function getElementType(t: TypeInfo): TypeInfo {
-  return isArray(t) ? t.generics()[0] : null;
+  return isArray(t) ? t.generics[0] : null;
 }
 
 export function isGenericType(t: TypeInfo) {
-  return t.generics != null && t.generics().length > 0;
+  return t.generics != null && t.generics.length > 0;
 }
 
 /**
@@ -150,7 +151,7 @@ export function isGenericType(t: TypeInfo) {
  * but it should be enough for type comparison purposes
  */
 export function getGenericTypeDefinition(t: TypeInfo) {
-  return t.generics == null ? t : new TypeInfo(t.fullname, () => t.generics().map(() => obj));
+  return t.generics == null ? t : new TypeInfo(t.fullname, t.generics.map(() => obj));
 }
 
 // FSharpType
@@ -173,7 +174,7 @@ export function getRecordElements(t: TypeInfo): FieldInfo[] {
 
 export function getTupleElements(t: TypeInfo): TypeInfo[] {
   if (isTuple(t)) {
-    return t.generics();
+    return t.generics;
   } else {
     throw new Error(`${t.fullname} is not a tuple type`);
   }
@@ -181,19 +182,19 @@ export function getTupleElements(t: TypeInfo): TypeInfo[] {
 
 export function getFunctionElements(t: TypeInfo): [TypeInfo, TypeInfo] {
   if (isFunction(t)) {
-    const gen = t.generics();
+    const gen = t.generics;
     return [gen[0], gen[1]];
   } else {
     throw new Error(`${t.fullname} is not an F# function type`);
   }
 }
 
-export function isUnion(t: TypeInfo): boolean {
-  return t.cases != null;
+export function isUnion(t: any): boolean {
+  return t instanceof TypeInfo ? t.cases != null : t instanceof Union;
 }
 
-export function isRecord(t: TypeInfo): boolean {
-  return t.fields != null;
+export function isRecord(t: any): boolean {
+  return t instanceof TypeInfo ? t.fields != null : t instanceof Record;
 }
 
 export function isTuple(t: TypeInfo): boolean {
@@ -254,4 +255,27 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
 
 export function makeTuple(values: any[], t: TypeInfo): any {
   return values;
+}
+
+// Fable.Core.Reflection
+
+function assertUnion(x: any) {
+  if (!(x instanceof Union)) {
+    throw new Error(`Value is not an F# union type`);
+  }
+}
+
+export function getCaseTag(x: any): number {
+  assertUnion(x);
+  return x.tag;
+}
+
+export function getCaseName(x: any): string {
+  assertUnion(x);
+  return x.name;
+}
+
+export function getCaseFields(x: any): any[] {
+  assertUnion(x);
+  return x.fields;
 }

@@ -53,6 +53,12 @@ let createEmpty<'T> : 'T = jsNative
 /// Get the JS function constructor for class types
 let jsConstructor<'T> : obj = jsNative
 
+/// Makes an expression the default export for the JS module.
+/// Used to interact with JS tools that require a default export.
+/// ATTENTION: This statement must appear on the root level of the file module.
+[<Emit("export default $0")>]
+let exportDefault (x: obj): unit = jsNative
+
 /// Works like `ImportAttribute` (same semantics as ES6 imports).
 /// You can use "*" or "default" selectors.
 let import<'T> (selector: string) (path: string):'T = jsNative
@@ -93,6 +99,9 @@ let deflate(o: 'T): obj = jsNative
 
 /// Reads the name of an identifier, a property or a type
 let nameof(expr: 'a): string = jsNative
+
+/// Like nameof but also returns the expression as second element of the tuple
+let nameof2(expr: 'a): string * 'a = jsNative
 
 /// Reads the name of a property or a type from the lambda body
 let nameofLambda(f: 'a->'b): string = jsNative

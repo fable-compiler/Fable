@@ -221,6 +221,8 @@ module private Transforms =
             | [] -> replaceValues replacements body
             | bindings -> Let(List.rev bindings, replaceValues replacements body)
         match e with
+        | Operation(BinaryOperation(AST.BinaryPlus, Value(StringConstant str1), Value(StringConstant str2)),_,_) ->
+            Value(StringConstant (str1 + str2))
         | Operation(CurriedApply(NestedLambda(args, body, None) as lambda, argExprs), _, _) ->
             if List.sameLength args argExprs
             then applyArgs args argExprs body

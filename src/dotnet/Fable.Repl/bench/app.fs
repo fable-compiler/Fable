@@ -41,7 +41,7 @@ let main argv =
         let ms0, checker = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
         let parseFSharp () = fable.ParseFSharpScript(checker, testScriptPath, source)
-        let parseFable ast = fable.CompileToBabelAst(fableCoreDir, ast, testScriptPath, optimized)
+        let parseFable ast = fable.CompileToBabelAst(fableLibraryDir, ast, testScriptPath, optimized)
         let bench i =
             let ms1, fsAst = measureTime parseFSharp ()
             let errors = fable.GetParseErrors fsAst

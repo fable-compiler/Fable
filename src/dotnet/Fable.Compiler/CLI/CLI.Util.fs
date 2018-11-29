@@ -2,22 +2,31 @@ namespace Fable.CLI
 
 module Literals =
 
-  let [<Literal>] VERSION = "2.0.11"
-  let [<Literal>] CORE_VERSION = "2.0.1"
+  let [<Literal>] VERSION = "2.1.0"
+  let [<Literal>] CORE_VERSION = "2.0.2"
   let [<Literal>] DEFAULT_PORT = 61225
   let [<Literal>] FORCE = "force:"
+  let [<Literal>] EXIT = "exit"
 
 open System.IO
 open System.Reflection
 
+type IMessageHandler =
+    abstract Message: string
+    abstract Respond: write: (TextWriter->unit) -> unit
+
+type AgentMsg =
+    | Received of handler: IMessageHandler
+    | Respond of response: obj * handler: IMessageHandler
+
 type private TypeInThisAssembly = class end
 
 [<RequireQualifiedAccess>]
-type GlobalParams private (verbose, forcePkgs, fableCorePath, workingDir) =
+type GlobalParams private (verbose, forcePkgs, fableLibraryPath, workingDir) =
     static let mutable singleton: GlobalParams option = None
     let mutable _verbose = verbose
     let mutable _forcePkgs = forcePkgs
-    let mutable _fableCorePath = fableCorePath
+    let mutable _fableLibraryPath = fableLibraryPath
     let mutable _workingDir = workingDir
     let mutable _replaceFiles = []
     let mutable _experimental: Set<string> = Set.empty
@@ -30,30 +39,30 @@ type GlobalParams private (verbose, forcePkgs, fableCorePath, workingDir) =
             let execDir =
               typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location
               |> Path.GetDirectoryName
-            let defaultFableCorePaths =
-                [ "../../fable-core/"                     // running from package
-                  "../fable-core"                         // running from build/fable
-                  "../../../../../../build/fable-core/" ] // running from bin/Release/netcoreapp2.0
+            let defaultFableLibraryPaths =
+                [ "../fable-library"                         // running from npm package
+                  "../../fable-library/"                     // running from nuget package
+                  "../../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp2.0
                 |> List.map (fun x -> Path.GetFullPath(Path.Combine(execDir, x)))
-            let fableCorePath =
-                defaultFableCorePaths
+            let fableLibraryPath =
+                defaultFableLibraryPaths
                 |> List.tryFind Directory.Exists
-                |> Option.defaultValue (List.last defaultFableCorePaths)
-            let p = GlobalParams(false, false, fableCorePath, workingDir)
+                |> Option.defaultValue (List.last defaultFableLibraryPaths)
+            let p = GlobalParams(false, false, fableLibraryPath, workingDir)
             singleton <- Some p
             p
 
     member __.Verbose: bool = _verbose
     member __.ForcePkgs: bool = _forcePkgs
-    member __.FableCorePath: string = _fableCorePath
+    member __.FableLibraryPath: string = _fableLibraryPath
     member __.WorkingDir: string = _workingDir
     member __.ReplaceFiles = _replaceFiles
     member __.Experimental = _experimental
 
-    member __.SetValues(?verbose, ?forcePkgs, ?fableCorePath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
+    member __.SetValues(?verbose, ?forcePkgs, ?fableLibraryPath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
         _verbose        <- defaultArg verbose _verbose
         _forcePkgs      <- defaultArg forcePkgs _forcePkgs
-        _fableCorePath  <- defaultArg fableCorePath _fableCorePath
+        _fableLibraryPath  <- defaultArg fableLibraryPath _fableLibraryPath
         _workingDir     <- defaultArg workingDir _workingDir
         _replaceFiles   <-
             match replaceFiles with

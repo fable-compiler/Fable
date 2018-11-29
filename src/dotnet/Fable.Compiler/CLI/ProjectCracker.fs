@@ -328,26 +328,26 @@ let copyDirIfDoesNotExist (source: string) (target: string) =
         for newPath in Directory.GetFiles(source, "*.*", SearchOption.AllDirectories) do
             File.Copy(newPath, newPath.Replace(source, target), true)
 
-let copyFableCoreAndPackageSources rootDir (pkgs: FablePackage list) =
+let copyFableLibraryAndPackageSources rootDir (pkgs: FablePackage list) =
     let fableDir = createFableDir rootDir
-    let fableCoreSource = GlobalParams.Singleton.FableCorePath
-    let fableCorePath =
-        if fableCoreSource.StartsWith(Literals.FORCE)
-        then fableCoreSource.Replace(Literals.FORCE, "")
+    let fableLibrarySource = GlobalParams.Singleton.FableLibraryPath
+    let fableLibraryPath =
+        if fableLibrarySource.StartsWith(Literals.FORCE)
+        then fableLibrarySource.Replace(Literals.FORCE, "")
         else
-            if isDirectoryEmpty fableCoreSource then
-                failwithf "fable-core directory is empty, please build FableCoreJS: %s" fableCoreSource
-            Log.logVerbose(lazy ("fable-core: " + fableCoreSource))
-            let fableCoreTarget = IO.Path.Combine(fableDir, "fable-core" + "." + Literals.VERSION)
-            copyDirIfDoesNotExist fableCoreSource fableCoreTarget
-            fableCoreTarget
+            if isDirectoryEmpty fableLibrarySource then
+                failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
+            Log.logVerbose(lazy ("fable-library: " + fableLibrarySource))
+            let fableLibraryTarget = IO.Path.Combine(fableDir, "fable-library" + "." + Literals.VERSION)
+            copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
+            fableLibraryTarget
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir = IO.Path.Combine(fableDir, pkg.Id + "." + pkg.Version)
             copyDirIfDoesNotExist sourceDir targetDir
             IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)))
-    fableCorePath, pkgRefs
+    fableLibraryPath, pkgRefs
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
 let removeFilesInObjFolder sourceFiles =
@@ -359,8 +359,8 @@ let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: str
     if not(File.Exists(projFile)) then
         failwith ("File does not exist: " + projFile)
     let projRefs, mainProj = retryGetCrackedProjects checker projFile
-    let fableCorePath, pkgRefs =
-        copyFableCoreAndPackageSources rootDir mainProj.PackageReferences
+    let fableLibraryPath, pkgRefs =
+        copyFableLibraryAndPackageSources rootDir mainProj.PackageReferences
     let projOpts =
         let sourceFiles =
             let pkgSources = pkgRefs |> List.collect getSourcesFromFsproj
@@ -392,4 +392,4 @@ let getFullProjectOpts (checker: FSharpChecker) (define: string[]) (rootDir: str
               dllRefs ]
             |> Array.concat
         makeProjectOptions projFile sourceFiles otherOptions
-    projOpts, fableCorePath
+    projOpts, fableLibraryPath

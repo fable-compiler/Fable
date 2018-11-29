@@ -15,7 +15,6 @@ module Atts =
     let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
     let [<Literal>] paramList = "Fable.Core.ParamListAttribute" // typeof<Fable.Core.ParamListAttribute>.FullName
     let [<Literal>] inject = "Fable.Core.InjectAttribute" // typeof<Fable.Core.InjectAttribute>.FullName
-    let [<Literal>] implicit = "Fable.Core.Experimental.ImplicitAttribute" // typeof<Fable.Core.Experimental.ImplicitAttribute>.FullName
 
 [<RequireQualifiedAccess>]
 module Types =
@@ -278,7 +277,7 @@ module AST =
 
     /// TODO: Add string and other nullable types?
     /// For unit, unresolved generics or nested options, create a runtime wrapper
-    /// See fable-core/Option.ts for more info
+    /// See fable-library/Option.ts for more info
     let rec mustWrapOption = function
         | Unit | GenericParam _ | Option _ -> true
         | _ -> false
@@ -343,7 +342,7 @@ module AST =
     let makeFloatConst (x: float) = NumberConstant (x, Float64) |> Value
 
     let makeCoreRef t memberName moduleName =
-        Import(makeStrConst memberName, makeStrConst moduleName, CoreLib, t, None)
+        Import(makeStrConst memberName, makeStrConst moduleName, Library, t, None)
 
     let makeCustomImport t (selector: string) (path: string) =
         Import(selector.Trim() |> makeStrConst, path.Trim() |> makeStrConst, CustomImport, t, None)

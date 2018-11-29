@@ -1,19 +1,25 @@
 import * as Babel from "@babel/core";
-import * as fableUtils from "fable-utils";
+import chalk from "chalk";
+import * as babelPlugins from "fable-babel-plugins";
 import * as fs from "fs-extra";
 import * as Path from "path";
 import * as Process from "process";
+import getCompiler from "./compiler";
 
-const customPlugins = [
-    fableUtils.babelPlugins.getRemoveUnneededNulls(),
-    fableUtils.babelPlugins.getTransformMacroExpressions(Babel.template),
-];
+if (Process.env.FABLE_SERVER_PORT) {
+    throw new Error("This version is not compatible with dotnet-fable cli tool, "
+        + "see https://www.npmjs.com/package/fable-splitter#usage");
+}
 
-const DEFAULT_PORT = parseInt(Process.env.FABLE_SERVER_PORT || "61225", 10);
 const FSHARP_EXT = /\.(fs|fsx|fsproj)$/;
 const FSPROJ_EXT = /\.fsproj$/;
 const JAVASCRIPT_EXT = /\.js$/;
 const MACRO = /^\${(\w+)}[\\/]?(.*?)([\\/]?)$/;
+
+const customPlugins: any[] = [
+    babelPlugins.getRemoveUnneededNulls(),
+    babelPlugins.getTransformMacroExpressions(Babel.template),
+];
 
 export type CompilationInfo = {
     entry: string,
@@ -36,12 +42,11 @@ export type FableSplitterOptions = {
     entry: string,
     outDir: string,
     path?: string,
-    port?: number,
     babel?: Babel.TransformOptions,
     fable?: FableOptions,
+    cli?: {},
     allFiles?: boolean,
     externals?: any,
-    prepack?: any,
     postbuild?: () => void,
 };
 
@@ -71,9 +76,9 @@ function getResolvePathPlugin(targetDir: string, opts: FableSplitterOptions) {
 
 function output(msg: string, severity: string) {
     if (severity === "warning") {
-        console.warn(msg);
+        console.warn(chalk.bold.yellow(msg));
     } else if (severity === "error") {
-        console.error(msg);
+        console.error(chalk.bold.red(msg));
     } else {
         console.log(msg);
     }
@@ -235,9 +240,11 @@ async function getBabelAst(path: string, options: FableSplitterOptions, info: Co
     let ast: Babel.types.Program | null = null;
     if (FSHARP_EXT.test(path)) {
         // return Babel AST from F# file
-        const fableMsg = JSON.stringify(Object.assign({}, options.fable, { path, rootDir: process.cwd() }));
-        const response = await fableUtils.client.send(options.port as number, fableMsg);
-        const babelAst = JSON.parse(response);
+        const compiler = getCompiler(options.cli);
+        const babelAst: any = await compiler.send(Object.assign({},
+            options.fable,
+            { path, rootDir: process.cwd() },
+        ));
         if (babelAst.error) {
             throw new Error(babelAst.error);
         } else if (path.endsWith(".fsproj")) {
@@ -312,12 +319,8 @@ async function generateJsCode(fullPath: string, ast: Babel.types.Program,
         .concat(getResolvePathPlugin(jsDir, options));
 
     // transform and save
-    let result = await generateJsCodeFromBabelAst(ast, code, babelOptions);
+    const result = await generateJsCodeFromBabelAst(ast, code, babelOptions);
     if (result != null) {
-        if (options.prepack) {
-            const prepack = require("prepack");
-            result = prepack.prepackFromAst(result.ast, result.code, options.prepack) as Babel.BabelFileResult;
-        }
         await fs.writeFile(jsPath, result.code);
         if (result.map) {
             await fs.appendFile(jsPath, "\n//# sourceMappingURL=" + Path.basename(jsPath) + ".map");
@@ -374,12 +377,10 @@ function setDefaultOptions(options: FableSplitterOptions) {
     options = Object.assign({}, options);
     options.entry = getFullPath(options.entry); // Normalize path
     options.outDir = getFullPath(options.outDir || ".", true);
-    options.port = options.port || DEFAULT_PORT;
 
     options.fable = options.fable || {};
     options.babel = options.babel || {};
     options.babel.plugins = customPlugins.concat(options.babel.plugins || []);
-    // options.prepack = options.prepack;
     return options;
 }
 
@@ -449,9 +450,6 @@ export default function fableSplitter(options: FableSplitterOptions, previousInf
         })
         .catch((err) => {
             console.error(`ERROR: ${err.message}`);
-            if (err.message.indexOf("ECONN") !== -1) {
-                console.log(`Make sure Fable server is running on port ${options.port}`);
-            }
             return info;
         });
 }

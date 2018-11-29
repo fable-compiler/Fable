@@ -37,7 +37,7 @@ let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFun
             "Classes without a primary constructor cannot be inherited: " + baseEnt.FullName
             |> addError com ctx.InlinePath r
         let baseCons = makeCallFrom com ctx r Fable.Unit true genArgs thisArg baseArgs baseCons
-        entityRefMaybeImported com baseEnt, baseCons
+        entityRefMaybeGlobalOrImported com baseEnt, baseCons
 
 let private transformNewUnion com ctx r fsType
                 (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
@@ -686,18 +686,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
   }
 
-let private isImportedEntity (ent: FSharpEntity) =
-    ent.Attributes |> Seq.exists (fun att ->
-        match att.AttributeType.TryFullName with
-        | Some(Atts.global_ | Atts.import) -> true
-        | _ -> false)
-
-let private isErasedUnion (ent: FSharpEntity) =
-    ent.Attributes |> Seq.exists (fun att ->
-        match att.AttributeType.TryFullName with
-        | Some(Atts.erase | Atts.stringEnum) -> true
-        | _ -> false)
-
 /// Is compiler generated (CompareTo...) or belongs to ignored entity?
 /// (remember F# compiler puts class methods in enclosing modules)
 let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
@@ -708,7 +696,7 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
             | Some(Atts.global_ | Atts.emit | Atts.erase) -> true
             | _ -> false)
         || (match meth.DeclaringEntity with
-            | Some ent -> isImportedEntity ent
+            | Some ent -> isGlobalOrImportedEntity ent
             | None -> false)
 
 let private transformImplicitConstructor com (ctx: Context)
@@ -1012,7 +1000,7 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
             this.UsedVarNames.Contains(varName)
     interface ICompiler with
         member __.Options = com.Options
-        member __.FableCore = com.FableCore
+        member __.LibraryDir = com.LibraryDir
         member __.CurrentFile = com.CurrentFile
         member __.GetUniqueVar(name) =
             com.GetUniqueVar(?name=name)
