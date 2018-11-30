@@ -59,7 +59,7 @@ export default function start(cliArgs?: {}): ICompilerProxy {
 
     // Error handling
     child.on("error", (err) => {
-        console.error(err);
+        console.error("Cannot spawn dotnet", err.message);
     });
     // child.stderr.on("data", (data) => {
     //     console.error(`child proccess errored: ${data}`);

@@ -229,6 +229,8 @@ module Naming =
         then baseName
         else baseName + "$" + suffix
 
+    let reflectionSuffix = "reflection"
+
     let private printPart sanitize separator part overloadSuffix =
         (if part = "" then "" else separator + (sanitize part)) +
             (if overloadSuffix = "" then "" else "$$" + overloadSuffix)

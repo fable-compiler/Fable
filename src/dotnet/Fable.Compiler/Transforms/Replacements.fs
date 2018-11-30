@@ -131,26 +131,36 @@ type BuiltinType =
     | BclDictionary of key:Type * value:Type
     | FSharpSet of Type
     | FSharpMap of key:Type * value:Type
+    // TODO: Add Choice for reflection support?
+    | FSharpResult of Type * Type
+    | FSharpReference of Type
+
+let (|BuiltinEntity|_|) (ent: FSharpEntity, genArgs) =
+    // TODO: Convert this to dictionary
+    match ent.TryFullName, genArgs with
+    | Some Types.guid, _ -> Some BclGuid
+    | Some Types.timespan, _ -> Some BclTimeSpan
+    | Some Types.datetime, _ -> Some BclDateTime
+    | Some Types.datetimeOffset, _ -> Some BclDateTimeOffset
+    | Some "System.Timers.Timer", _ -> Some BclTimer
+    | Some Types.int64, _ -> Some BclInt64
+    | Some Types.uint64, _ -> Some BclUInt64
+    | Some "Microsoft.FSharp.Core.int64`1", _ -> Some BclInt64
+    | Some Types.decimal, _
+    | Some "Microsoft.FSharp.Core.decimal`1", _ -> Some BclDecimal
+    | Some Types.bigint, _ -> Some BclBigInt
+    | Some Types.fsharpSet, [t] -> Some(FSharpSet(t))
+    | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
+    | Some Types.hashset, [t] -> Some(BclHashSet(t))
+    | Some Types.dictionary, [k;v] -> Some(BclDictionary(k,v))
+    | Some Types.result, [k;v] -> Some(FSharpResult(k,v))
+    | Some Types.reference, [v] -> Some(FSharpReference(v))
+    | _ -> None
 
 let (|Builtin|_|) = function
     | DeclaredType(ent, genArgs) ->
-        // TODO: Convert this to dictionary
-        match ent.TryFullName, genArgs with
-        | Some Types.guid, _ -> Some BclGuid
-        | Some Types.timespan, _ -> Some BclTimeSpan
-        | Some Types.datetime, _ -> Some BclDateTime
-        | Some Types.datetimeOffset, _ -> Some BclDateTimeOffset
-        | Some "System.Timers.Timer", _ -> Some BclTimer
-        | Some Types.int64, _ -> Some BclInt64
-        | Some Types.uint64, _ -> Some BclUInt64
-        | Some "Microsoft.FSharp.Core.int64`1", _ -> Some BclInt64
-        | Some Types.decimal, _
-        | Some "Microsoft.FSharp.Core.decimal`1", _ -> Some BclDecimal
-        | Some Types.bigint, _ -> Some BclBigInt
-        | Some Types.fsharpSet, [t] -> Some(FSharpSet(t))
-        | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
-        | Some Types.hashset, [t] -> Some(BclHashSet(t))
-        | Some Types.dictionary, [k;v] -> Some(BclDictionary(k,v))
+        match ent, genArgs with
+        | BuiltinEntity x -> Some x
         | _ -> None
     | _ -> None
 
@@ -236,6 +246,8 @@ let coreModFor = function
     | BclTimeSpan -> "Int32"
     | FSharpSet _ -> "Set"
     | FSharpMap _ -> "Map"
+    | FSharpResult _ -> "Option"
+    | FSharpReference _ -> "Types"
     | BclHashSet _
     | BclDictionary _ -> failwith "Cannot decide core module"
 
@@ -933,7 +945,7 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
         | None -> args
         | Some injections -> args @ injections
 
-// TODO: Add other entities (see Fable 1 Replacements.tryReplaceEntity)
+// TODO!!! How to add other entities?
 let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
     match ent.FullName with
     | Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some

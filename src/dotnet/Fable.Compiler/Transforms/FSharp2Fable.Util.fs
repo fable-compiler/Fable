@@ -796,14 +796,6 @@ module Util =
         | None, Some entityFullName -> entityFullName.StartsWith("Fable.Core.")
         | None, None -> false
 
-    /// Check if an entity is NOT actually declared in JS code
-    /// Currently used to check if there's reflection info available at runtime
-    let isNonDeclaredEntity (ent: FSharpEntity) =
-        ent.IsInterface
-        || isErasedUnion ent
-        || isGlobalOrImportedEntity ent
-        || isReplacementCandidate ent
-
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityRefWithSuffix (com: ICompiler) (ent: FSharpEntity) suffix =
         if ent.IsInterface then
