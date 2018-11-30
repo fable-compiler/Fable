@@ -1,3 +1,8 @@
+
+### 2.1.2
+
+Fix #1655: Result reflection
+
 ### 2.1.1
 
 * Try not to stop compilation if `dotnet restore` fails.
