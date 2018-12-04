@@ -38,6 +38,10 @@ type MyNumber =
 type MyNumberWrapper =
     { MyNumber: MyNumber }
 
+type Things =
+    { MainThing: int
+      OtherThing: string }
+
 let tests =
   testList "Arrays" [
     testCase "Pattern matching with arrays works" <| fun () ->
@@ -272,6 +276,11 @@ let tests =
            else None)
         result.[0] + result.[1]
         |> equal 7L
+
+    testCase "Array.choose must construct array of output type" <| fun () -> // See #1658
+        let source = [|1; 3; 5; 7|]
+        let target = source |> Array.choose (fun x -> Some { MainThing=x; OtherThing="asd" })
+        target.[3].MainThing |> equal 7
 
     testCase "Array.collect works" <| fun () ->
         let xs = [|[|1|]; [|2|]; [|3|]; [|4|]|]

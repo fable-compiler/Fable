@@ -43,7 +43,7 @@ let fableReplacementsModules =
       "take", [(Types.arrayCons, 0)]
       "takeWhile", [(Types.arrayCons, 0)]
       "partition", [(Types.arrayCons, 0)]
-      "choose", [(Types.arrayCons, 0)]
+      "choose", [(Types.arrayCons, 1)]
       "sortInPlaceBy", [(Types.comparer, 1)]
       "sortInPlace", [(Types.comparer, 0)]
       "sort", [(Types.comparer, 0)]

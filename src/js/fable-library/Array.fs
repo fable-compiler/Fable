@@ -537,7 +537,7 @@ let tryFindIndexBack predicate (array: _[]) =
         else loop (i - 1)
     loop (array.Length - 1)
 
-let choose f (source: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
+let choose (f: 'T->'U option) (source: 'T[]) ([<Inject>] cons: IArrayCons<'U>) =
     let res = cons.Create 0
     let mutable j = 0
     for i = 0 to source.Length - 1 do

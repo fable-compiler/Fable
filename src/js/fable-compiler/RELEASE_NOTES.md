@@ -1,7 +1,10 @@
+### 2.1.3
+
+* Fix #1658: Array.choose must construct array of output type @GBirkel
 
 ### 2.1.2
 
-Fix #1655: Result reflection
+* Fix #1655: Result reflection
 
 ### 2.1.1
 
