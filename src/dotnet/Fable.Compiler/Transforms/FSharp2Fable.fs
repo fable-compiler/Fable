@@ -291,6 +291,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs callee args memb
 
+    | TryParse (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
+        let! callee = transformExprOpt com ctx callee
+        let! args = transformExprList com ctx membArgs
+        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
+        let typ = makeType com ctx.GenericArgs fsExpr.Type
+        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs callee args memb
+
     | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let! callee = transformExpr com ctx callee
         let! args = transformExprList com ctx membArgs
