@@ -316,7 +316,7 @@ module Patterns =
         | _ -> None
 
     /// Detects AST pattern of "raise MatchFailureException()"
-    let (|RasingMatchFailureExpr|_|) (expr: FSharpExpr) =
+    let (|RaisingMatchFailureExpr|_|) (expr: FSharpExpr) =
         match expr with
         | BasicPatterns.Call(None, methodInfo, [ ], [unitType], [value]) ->
             match methodInfo.FullName with
@@ -357,18 +357,6 @@ module Patterns =
             when (getFsTypeFullName typ) = Types.list
                 && unionCase.Name = "op_ColonColon" && field.Name = "Tail" ->
             Some (ident, value, body)
-        | _ -> None
-
-    let (|PrintFormat|_|) fsExpr =
-        match fsExpr with
-        | Let((v,(Call(None,_,_,_,args) as e)),_) when v.IsCompilerGenerated ->
-            match List.tryLast args with
-            | Some arg ->
-                if arg.Type.HasTypeDefinition
-                    && arg.Type.TypeDefinition.AccessPath = Types.printfModule
-                then Some e
-                else None
-            | None -> None
         | _ -> None
 
     /// This matches the boilerplate F# compiler generates for methods

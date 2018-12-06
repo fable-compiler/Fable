@@ -461,7 +461,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
         let altElseExpr =
             match elseExpr with
-            | RasingMatchFailureExpr fileNameWhereErrorOccurs ->
+            | RaisingMatchFailureExpr fileNameWhereErrorOccurs ->
                 let errorMessage = "The match cases were incomplete"
                 let rangeOfElseExpr = makeRangeFrom elseExpr
                 let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage))
@@ -632,7 +632,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // rewrite last decision target if it throws MatchFailureException
         let compiledFableTargets =
             match snd (List.last decisionTargets) with
-            | RasingMatchFailureExpr fileNameWhereErrorOccurs ->
+            | RaisingMatchFailureExpr fileNameWhereErrorOccurs ->
                 match decisionExpr with
                 | BasicPatterns.IfThenElse(BasicPatterns.UnionCaseTest(unionValue, unionType, unionCaseInfo), _, _) ->
                     let rangeOfLastDecisionTarget = makeRangeFrom (snd (List.last decisionTargets))
