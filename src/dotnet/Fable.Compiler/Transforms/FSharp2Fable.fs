@@ -759,12 +759,15 @@ let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
         getMemberDisplayName memb |> makeStrConst
     | _ -> selector
 
-let private transformImport r typ isPublic name selector path =
+let private transformImport com r typ isMutable isPublic name selector path =
+    if isMutable && isPublic then
+        "Imported members cannot be mutable and public, please make it private: " + name
+        |> addError com [] None
     let info: Fable.ValueDeclarationInfo =
         { Name = name
           IsPublic = isPublic
           // TODO: Check if they're mutable, see #1314
-          IsMutable = false
+          IsMutable = isMutable
           IsEntryPoint = false
           HasSpread = false }
     let fableValue = Fable.Import(selector, path, Fable.CustomImport, typ, r)
@@ -783,7 +786,7 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
             |> addError com ctx.InlinePath None
         | _ -> ()
         let selector = importExprSelector memb selector
-        transformImport r typ isPublic name selector path
+        transformImport com r typ memb.IsMutable isPublic name selector path
     | fableValue ->
         let info: Fable.ValueDeclarationInfo =
             { Name = name
@@ -802,7 +805,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
         // Use the full function type
         let typ = makeType com Map.empty memb.FullType
         let selector = importExprSelector memb selector
-        transformImport r typ isPublic name selector path
+        transformImport com r typ false isPublic name selector path
     | body ->
         let fn = Fable.Function(Fable.Delegate args, body, Some name)
         // If this is a static constructor, call it immediately
@@ -825,7 +828,7 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
     match tryImportAttribute memb.Attributes with
     | Some(selector, path) ->
         let typ = makeType com Map.empty memb.FullType
-        transformImport None typ isPublic name (makeStrConst selector) (makeStrConst path)
+        transformImport com None typ memb.IsMutable isPublic name (makeStrConst selector) (makeStrConst path)
     | None ->
         if isModuleValueForDeclarations memb
         then transformMemberValue com ctx isPublic name memb body
@@ -857,8 +860,11 @@ let private transformAttachedMember (com: FableCompiler) (ctx: Context)
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let ctx = { ctx with EnclosingMember = Some memb }
-    if isIgnoredMember memb
-    then []
+    if isIgnoredMember memb then
+        if memb.IsMutable && isPublicMember memb && hasAttribute Atts.global_ memb.Attributes then
+            "Global members cannot be mutable and public, please make it private: " + memb.DisplayName
+            |> addError com [] None
+        []
     elif isInline memb then
         let inlineExpr = { Args = List.concat args
                            Body = body
@@ -907,7 +913,7 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                     let name = getEntityDeclarationName com ent
                     com.AddUsedVarName(name)
                     (makeStrConst selector, makeStrConst path)
-                    ||> transformImport None Fable.Any (not ent.Accessibility.IsPrivate) name
+                    ||> transformImport com None Fable.Any false (not ent.Accessibility.IsPrivate) name
                 // Discard erased unions and string enums
                 | None when ent.IsFSharpUnion && not (isErasedUnion ent) ->
                     let entityName = getEntityDeclarationName com ent
