@@ -1,3 +1,8 @@
+### 2.1.5
+
+* Fix #1662: Type aliases with same name in different modules of same file
+* Throw error for global/imported members that are mutable and public
+
 ### 2.1.4
 
 * Improve number parsing @ncave
