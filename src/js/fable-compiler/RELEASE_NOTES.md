@@ -1,3 +1,9 @@
+### 2.1.4
+
+* Improve number parsing @ncave
+* BigInt.TryParse
+* Don't get reflection info for generic numbers into the runtime
+
 ### 2.1.3
 
 * Fix #1658: Array.choose must construct array of output type @GBirkel

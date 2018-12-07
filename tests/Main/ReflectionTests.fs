@@ -391,6 +391,11 @@ let reflectionTests = [
     let b = create<B>()
     a.Value |> equal 5
     b.Value |> equal 10
+
+  // See https://github.com/Microsoft/visualfsharp/issues/5992
+  testCase "Generic numbers type info doesn't get into runtime" <| fun () ->
+    let value = 0.7833263478179128134089M
+    value.GetType().FullName |> equal "System.Decimal"
 ]
 
 // TODO!!! Add reflection tests for interfaces, erased unions,

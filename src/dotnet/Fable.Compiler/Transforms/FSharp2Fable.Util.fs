@@ -47,7 +47,14 @@ type IFableCompiler =
 
 module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
-        if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
+        if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType
+        elif t.HasTypeDefinition then
+            let abbr = t.AbbreviatedType
+            // .IsAbbreviation doesn't eval to true for generic numbers
+            // See https://github.com/Microsoft/visualfsharp/issues/5992
+            if t.GenericArguments.Count = abbr.GenericArguments.Count then t
+            else abbr
+        else t
 
     // TODO: Report bug in FCS repo, when ent.IsNamespace, FullName doesn't work.
     let getEntityFullName (ent: FSharpEntity) =

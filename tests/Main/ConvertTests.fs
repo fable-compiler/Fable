@@ -124,6 +124,10 @@ let tests =
         tryParse Int32.TryParse 0 "9SayWhat12Huh" |> equal (false, 0)
         tryParse Int32.TryParse 0 "-1" |> equal (true, -1)
 
+    testCase "BigInt.TryParse works" <| fun () ->
+        tryParse bigint.TryParse 0I "4234523548923954" |> equal (true, 4234523548923954I)
+        tryParse bigint.TryParse 0I "9SayWhat12Huh" |> equal (false, 0I)
+
     //-------------------------------------
     // System.Convert
     //-------------------------------------

@@ -25,6 +25,13 @@ let op_GreaterThanOrEqual = bigint.op_GreaterThanOrEqual
 let op_Equality = bigint.op_Equality
 let op_Inequality = bigint.op_Inequality
 
+let tryParse str =
+    try
+        let res = bigint.Parse str
+        true, res
+    with _ ->
+        false, bigint.Zero
+
 let parse = bigint.Parse
 let divRem = bigint.DivRem
 let greatestCommonDivisor = bigint.GreatestCommonDivisor
