@@ -274,24 +274,13 @@ export function fromString(str, unsigned, radix) {
 }
 
 function getMaxValue(unsigned, radix, isNegative) {
-    if (unsigned) {
-        switch (radix) {
-            case 2: return "1111111111111111111111111111111111111111111111111111111111111111";
-            case 8: return "1777777777777777777777";
-            case 10: return "18446744073709551615";
-            case 16: return "FFFFFFFFFFFFFFFF";
-            default: throw new Error("Invalid radix.");
-        }
-    } else {
-        switch (radix) {
-            case 2: return (isNegative
-                ? "1000000000000000000000000000000000000000000000000000000000000000"
-                : "111111111111111111111111111111111111111111111111111111111111111");
-            case 8: return (isNegative ? "1000000000000000000000" : "777777777777777777777");
-            case 10: return (isNegative ? "9223372036854775808" : "9223372036854775807");
-            case 16: return (isNegative ? "8000000000000000" : "7FFFFFFFFFFFFFFF");
-            default: throw new Error("Invalid radix.");
-        }
+    switch (radix) {
+        case 2: return "1111111111111111111111111111111111111111111111111111111111111111";
+        case 8: return "1777777777777777777777";
+        case 10: return unsigned ? "18446744073709551615" :
+            (isNegative ? "9223372036854775808" : "9223372036854775807");
+        case 16: return "FFFFFFFFFFFFFFFF";
+        default: throw new Error("Invalid radix.");
     }
 }
 

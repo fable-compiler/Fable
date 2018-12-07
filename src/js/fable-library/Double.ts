@@ -1,7 +1,7 @@
 export function tryParse(str: string): [boolean, number] {
   // TODO: test if value is valid and in range
   if (str != null && /\S/.test(str)) {
-    const v = +str;
+    const v = +str.replace("_", "");
     if (!Number.isNaN(v)) {
       return [true, v];
     }
