@@ -46,9 +46,9 @@
       <PackagePath>prefercliruntime</PackagePath>
       <Pack>true</Pack>
     </Content>
-    <!-- VS cannot open the project if we have a slash after fable-core
+    <!-- VS cannot open the project if we have a slash after fable-library
          but we need it so `dotnet pack` includes the dir contents in the package -->
-    <Content Include="../../../build/fable-core/" PackagePath="fable-core" />
+    <Content Include="../../../build/fable-library/" PackagePath="fable-library" />
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

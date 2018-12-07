@@ -20,7 +20,7 @@ function fixImportPaths(babelAst, sourcePath) {
     for (const decl of decls) {
         if (decl.source != null && typeof decl.source.value === "string") {
             const importPath = decl.source.value;
-            if (importPath.startsWith("fable-core/") || importPath.match(FSHARP_EXT)) {
+            if (importPath.startsWith("fable-library/") || importPath.match(FSHARP_EXT)) {
                 decl.source.value = getRelPath(sourcePath, importPath);
             }
         }
