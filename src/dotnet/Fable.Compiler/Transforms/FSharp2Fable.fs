@@ -887,9 +887,10 @@ let rec checkMemberNames (com: FableCompiler) decls =
     for decl in decls do
         match decl with
         | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
-            let entityName = getEntityDeclarationName com ent
-            com.AddUsedVarName(entityName, isRoot=true)
-            checkMemberNames com sub
+            match sub with
+            | [] when ent.IsFSharpAbbreviation -> ()
+            | [] -> com.AddUsedVarName(getEntityDeclarationName com ent, isRoot=true)
+            | sub -> checkMemberNames com sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->
             if not(isIgnoredMember memb) then
                 let memberName = getMemberDeclarationName com memb

@@ -3,6 +3,13 @@ module Fable.Tests.Misc
 open System
 open Util.Testing
 
+// We can have aliases with same name in same file #1662
+module One =
+    type Id = System.Guid
+
+module Two =
+    type Id = System.Guid
+
 type Base() =
     let mutable x = 5
     member this.Mutate i = x <- x + i
