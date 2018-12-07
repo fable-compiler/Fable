@@ -1,3 +1,7 @@
+### 2.1.6
+
+* Fix #1664: Reflection info for built-in Choice
+
 ### 2.1.5
 
 * Fix #1662: Type aliases with same name in different modules of same file

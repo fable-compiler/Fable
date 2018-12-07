@@ -504,6 +504,9 @@ module Util =
                         transformTypeInfo com ctx r genMap ok
                         transformTypeInfo com ctx r genMap err
                     |]
+                | Replacements.FSharpChoice gen ->
+                    let gen = List.map (transformTypeInfo com ctx r genMap) gen
+                    List.toArray gen |> transformUnionReflectionInfo com ctx ent
                 | Replacements.FSharpReference gen ->
                     transformRecordReflectionInfo com ctx ent [|transformTypeInfo com ctx r genMap gen|]
             | _ ->
@@ -875,7 +878,8 @@ module Util =
             | Replacements.FSharpSet _
             | Replacements.FSharpMap _ -> fail "set/maps"
             | Replacements.FSharpResult _
-            | Replacements.FSharpReference _ -> fail "result/reference"
+            | Replacements.FSharpChoice _
+            | Replacements.FSharpReference _ -> fail "result/choice/reference"
         | Fable.DeclaredType (ent, genArgs) ->
             match ent.TryFullName with
             | Some Types.idisposable ->

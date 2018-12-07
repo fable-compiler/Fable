@@ -131,7 +131,7 @@ type BuiltinType =
     | BclDictionary of key:Type * value:Type
     | FSharpSet of Type
     | FSharpMap of key:Type * value:Type
-    // TODO: Add Choice for reflection support?
+    | FSharpChoice of Type list
     | FSharpResult of Type * Type
     | FSharpReference of Type
 
@@ -155,6 +155,7 @@ let (|BuiltinEntity|_|) (ent: FSharpEntity, genArgs) =
     | Some Types.dictionary, [k;v] -> Some(BclDictionary(k,v))
     | Some Types.result, [k;v] -> Some(FSharpResult(k,v))
     | Some Types.reference, [v] -> Some(FSharpReference(v))
+    | Some (Naming.StartsWith Types.choiceNonGeneric _), gen -> Some(FSharpChoice gen)
     | _ -> None
 
 let (|Builtin|_|) = function
@@ -255,6 +256,7 @@ let coreModFor = function
     | FSharpSet _ -> "Set"
     | FSharpMap _ -> "Map"
     | FSharpResult _ -> "Option"
+    | FSharpChoice _ -> "Option"
     | FSharpReference _ -> "Types"
     | BclHashSet _
     | BclDictionary _ -> failwith "Cannot decide core module"

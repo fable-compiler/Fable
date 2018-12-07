@@ -373,6 +373,25 @@ let reflectionTests = [
     unionFields |> equal expectedUnionFields
     canMakeSameUnionCases |> equal true
 
+  testCase "FSharp.Reflection: Result" <| fun () ->
+    let typ = typeof<Result<int,string>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Result<_,string>.Ok 5))
+    FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Result<int,_>.Error "foo"))
+
+  testCase "FSharp.Reflection: Choice" <| fun () ->
+    let typ = typeof<Choice<int,string>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Choice<_,string>.Choice1Of2 5))
+    FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Choice<int,_>.Choice2Of2 "foo"))
+
+    let typ = typeof<Choice<float,string list,float>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box -0.3|]) |> equal (box (Choice<_,string list,float>.Choice1Of3 -0.3))
+    FSharpValue.MakeUnion(ucis.[1], [|box ["foo";"bar"]|]) |> equal (box (Choice<float,_,float>.Choice2Of3 ["foo";"bar"]))
+    FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> equal (box (Choice<float,string list,_>.Choice3Of3 3.5))
+    FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> (=) (box (Choice<float,string list,_>.Choice1Of3 3.5)) |> equal false
+
   testCase "Type.GenericTypeArguments works" <| fun () ->
     let recordType = typeof<AsyncRecord>
     let asyncProp = FSharpType.GetRecordFields recordType |> Array.head
