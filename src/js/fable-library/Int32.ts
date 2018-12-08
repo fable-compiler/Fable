@@ -53,7 +53,7 @@ function getInvalidDigits(radix: number): RegExp {
   }
 }
 
-export function getRadix(prefix: string, style: number) {
+function getRadix(prefix: string, style: number) {
   if (style & NumberStyles.AllowHexSpecifier) {
     return 16;
   } else {
@@ -80,28 +80,30 @@ export function isValid(str: string, style: number, radix?: number) {
   return null;
 }
 
-export function tryParse(
-  str: string, style: number, unsigned: boolean, bitsize: number, radix?: number): [boolean, number] {
-  try {
-    const res = isValid(str, style, radix);
-    if (res != null) {
+export function parse(str: string, style: number, unsigned: boolean, bitsize: number, radix?: number): number {
+  const res = isValid(str, style, radix);
+  if (res != null) {
+    let v = Number.parseInt(res.sign + res.digits, res.radix);
+    if (!Number.isNaN(v)) {
+      const [umin, umax] = getRange(true, bitsize);
+      if (!unsigned && res.radix !== 10 && v >= umin && v <= umax) {
+        v = v << (32 - bitsize) >> (32 - bitsize);
+      }
       const [min, max] = getRange(unsigned, bitsize);
-      const v = parseInt(res.sign + res.digits, res.radix);
-      if (!Number.isNaN(v) && v >= min && v <= max) {
-        return [true, v];
+      if (v >= min && v <= max) {
+        return v;
       }
     }
+  }
+  throw new Error("Input string was not in a correct format.");
+}
+
+export function tryParse(str: string, style: number, unsigned: boolean, bitsize: number): [boolean, number] {
+  try {
+    const v = parse(str, style, unsigned, bitsize);
+    return [true, v];
   } catch {
     // supress error
   }
   return [false, 0];
-}
-
-export function parse(str: string, style: number, unsigned: boolean, bitsize: number, radix?: number): number {
-  const [ok, value] = tryParse(str, style, unsigned, bitsize, radix);
-  if (ok) {
-    return value;
-  } else {
-    throw new Error("Input string was not in a correct format.");
-  }
 }
