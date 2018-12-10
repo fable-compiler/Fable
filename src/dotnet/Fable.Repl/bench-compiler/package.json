@@ -14,6 +14,7 @@
     "start-dotnet": "dotnet run -c Release ../Fable.Repl.fsproj && node transform",
     "test-node": "node out/app ../../../../../fable-test/fable-test.fsproj && node transform --commonjs",
     "test-dotnet": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj && node transform --commonjs",
+    "test-run": "node ./out-test/fable-test/src/test.js",
     "build-tests-node": "node out/app ../../../../tests/Main/Fable.Tests.fsproj && node transform --commonjs",
     "build-tests-dotnet": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj && node transform --commonjs",
     "run-tests": "../../../../node_modules/.bin/mocha --colors out-test/tests/Main/Main.js",
