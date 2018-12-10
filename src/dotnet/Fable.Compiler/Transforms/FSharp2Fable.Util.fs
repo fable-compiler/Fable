@@ -952,6 +952,13 @@ module Util =
         | _ -> None
 
     let inlineExpr (com: IFableCompiler) (ctx: Context) r (genArgs: Lazy<_>) callee args (memb: FSharpMemberOrFunctionOrValue) =
+        let rec foldArgs acc = function
+            | argIdent::restArgIdents, argExpr::restArgExprs ->
+                foldArgs ((argIdent, argExpr)::acc) (restArgIdents, restArgExprs)
+            | (argIdent: FSharpMemberOrFunctionOrValue)::restArgIdents, [] ->
+                let t = makeType com ctx.GenericArgs argIdent.FullType
+                foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, t)))::acc) (restArgIdents, [])
+            | [], _ -> List.rev acc
         // TODO: Log error if the inline function is called recursively
         let args: Fable.Expr list =
             match callee with
@@ -959,7 +966,7 @@ module Util =
             | None -> args
         let inExpr = com.GetInlineExpr(memb)
         let ctx, bindings =
-            ((ctx, []), inExpr.Args, args) |||> List.fold2 (fun (ctx, bindings) argId arg ->
+            ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
                 // Change type and mark ident as compiler-generated so it can be optimized
                 let ident = { makeIdentFrom com ctx argId with
                                 Type = arg.Type
