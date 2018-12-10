@@ -262,13 +262,13 @@ let buildNpmFableCompilerJs () =
     Yarn.run CWD "build-compiler-js" ""
 
 let buildNpmFableCompilerDotnet () =
-    let projectDir = "src/js/fable-compiler-js"
+    let projectDir = "src/js/fable-compiler"
     CleanDir (projectDir </> "dist")
     CleanDir (projectDir </> "bin")
     buildTypescript projectDir ()
     buildLibraryFull ()
-    updateVersionInCliUtil "src/js/fable-compiler-js/RELEASE_NOTES.md"
-    buildCompilerDotnet Release (projectDir </> "bin/fable-compiler-js") ()
+    updateVersionInCliUtil "src/js/fable-compiler/RELEASE_NOTES.md"
+    buildCompilerDotnet Release (projectDir </> "bin/fable-compiler") ()
     FileUtils.cp_r libraryBuildDir (projectDir </> "bin/fable-library")
 
 let runBench2 () =

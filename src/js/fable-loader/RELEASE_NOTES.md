@@ -1,3 +1,7 @@
+### 2.1.1
+
+* Fix #1523: Mark files with inlined functions as dependencies
+
 ### 2.1.0
 
 * Release _stablish_ version

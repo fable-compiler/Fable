@@ -77,9 +77,11 @@ var Loader = function(buffer) {
         }
         else {
             try {
-                if (opts.watchInlineDependencies && !msg.path.endsWith(".fsproj")) {
-                    ensureArray(data.dependencies).forEach(path => {
-                        this.addDependency(path)
+                if (!msg.path.endsWith(".fsproj")) {
+                    ensureArray(data.dependencies).forEach(p => {
+                        // Fable normalizes path separator to '/' which causes issues in Windows
+                        // Use `path.resolve` to restore the separator to the system default
+                        this.addDependency(path.resolve(p));
                     });
                 }
                 if (typeof data.logs === "object") {

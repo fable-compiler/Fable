@@ -1,3 +1,9 @@
+### 2.1.7
+
+* Fixed parsing to match F# behavior a bit closer @ncave #1665
+* Fix #1523: Mark files with inlined functions as dependencies
+* Fix inlined member with optional arguments
+
 ### 2.1.6
 
 * Fix #1664: Reflection info for built-in Choice
