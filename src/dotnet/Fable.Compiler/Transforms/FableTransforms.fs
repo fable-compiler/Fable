@@ -566,4 +566,4 @@ let rec optimizeDeclaration (com: ICompiler) = function
 
 let optimizeFile (com: ICompiler) (file: File) =
     let newDecls = List.map (optimizeDeclaration com) file.Declarations
-    File(file.SourcePath, newDecls, usedVarNames=file.UsedVarNames, dependencies=file.Dependencies)
+    File(file.SourcePath, newDecls, usedVarNames=file.UsedVarNames, inlineDependencies=file.InlineDependencies)

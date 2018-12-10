@@ -9,7 +9,6 @@ type Message =
     { path: string
       rootDir: string
       define: string[]
-      plugins: string[]
       typedArrays: bool
       clampByteArrays: bool
       extra: IDictionary<string,string> }
@@ -71,7 +70,6 @@ let parse (msg: string) =
         parseStringArray [||] "define" json
         |> Array.append [|Naming.fableCompilerConstant|]
         |> Array.distinct
-      plugins = parseStringArray [||] "plugins" json
       typedArrays = parseBoolean true "typedArrays" json
       clampByteArrays = parseBoolean false "clampByteArrays" json
       extra = parseDic "extra" json }

@@ -34,7 +34,6 @@ type Context =
 type IBabelCompiler =
     inherit ICompiler
     abstract GetAllImports: unit -> seq<Import>
-    abstract GetAllDependencies: unit -> seq<string>
     abstract GetImportExpr: Context * selector: string * path: string * Fable.ImportKind -> Expression
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement array
@@ -1564,7 +1563,6 @@ module Compiler =
     open Util
 
     type BabelCompiler (com: ICompiler) =
-        let dependencies = HashSet<string>()
         let imports = Dictionary<string,Import>()
 
         interface IBabelCompiler with
@@ -1593,7 +1591,6 @@ module Compiler =
                     | Some localId -> upcast Identifier(localId)
                     | None -> upcast NullLiteral ()
             member __.GetAllImports() = upcast imports.Values
-            member __.GetAllDependencies() = upcast dependencies
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
@@ -1634,10 +1631,9 @@ module Compiler =
                 OptimizeTailCall = fun () -> () }
             let rootDecls = transformDeclarations com ctx file.Declarations []
             let importDecls = com.GetAllImports() |> transformImports
-            let dependencies =
-                com.GetAllDependencies()
-                |> Seq.append file.Dependencies
-                |> Seq.toArray
-            Program(file.SourcePath, importDecls@rootDecls |> List.toArray, dependencies_=dependencies)
+            Program(file.SourcePath, importDecls@rootDecls |> List.toArray,
+                    // We don't add imports as dependencies because those will be handled by Webpack
+                    // TODO: Do it for other clients, like fable-splitter?
+                    dependencies_ = Array.ofSeq file.InlineDependencies)
         with
         | ex -> exn (sprintf "%s (%s)" ex.Message file.SourcePath, ex) |> raise

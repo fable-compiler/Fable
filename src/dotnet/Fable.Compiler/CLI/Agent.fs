@@ -235,9 +235,8 @@ let startCompilation (respond: obj->unit) (com: Compiler) (project: Project) =
                 if not project.IsWatchCompile then
                     addFSharpErrorLogs com project.Errors (Some com.CurrentFile)
                 project.MarkSent(com.CurrentFile)
-                // Don't send dependencies to JS client (see #1241)
                 project.AddDependencies(com.CurrentFile, babel.Dependencies)
-                Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs())
+                Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs(), babel.Dependencies)
                 |> respond
         with ex ->
             sendError respond ex

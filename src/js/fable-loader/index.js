@@ -66,7 +66,6 @@ var Loader = function(buffer) {
         path: this.resourcePath,
         rootDir: process.cwd(),
         define: define,
-        plugins: ensureArray(or(opts.plugins, [])),
         typedArrays: or(opts.typedArrays, true),
         clampByteArrays: or(opts.clampByteArrays, false),
         extra: opts.extra || {}
@@ -78,11 +77,14 @@ var Loader = function(buffer) {
         }
         else {
             try {
+                if (opts.watchInlineDependencies && !msg.path.endsWith(".fsproj")) {
+                    ensureArray(data.dependencies).forEach(path => {
+                        this.addDependency(path)
+                    });
+                }
                 if (typeof data.logs === "object") {
                     var isErrored = false;
                     Object.keys(data.logs).forEach(key => {
-                        // TODO: Fail if there's one or more error logs?
-                        // That would prevent compilation of other files
                         ensureArray(data.logs[key]).forEach(msg => {
                             switch (key)  {
                                 case "error":

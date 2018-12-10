@@ -97,11 +97,11 @@ type Declaration =
     | AttachedMemberDeclaration of args: Ident list * body: Expr * AttachedMemberDeclarationInfo
     | ConstructorDeclaration of ConstructorKind
 
-type File(sourcePath, decls, ?usedVarNames, ?dependencies) =
+type File(sourcePath, decls, ?usedVarNames, ?inlineDependencies) =
     member __.SourcePath: string = sourcePath
     member __.Declarations: Declaration list = decls
     member __.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
-    member __.Dependencies: Set<string> = defaultArg dependencies Set.empty
+    member __.InlineDependencies: Set<string> = defaultArg inlineDependencies Set.empty
 
 type IdentKind =
     | UnspecifiedIdent

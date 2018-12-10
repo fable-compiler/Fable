@@ -976,7 +976,7 @@ let private tryGetMemberArgsAndBody com (implFiles: Map<string, FSharpImplementa
 
 type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFileContents>) =
     member val UsedVarNames = HashSet<string>()
-    member val Dependencies = HashSet<string>()
+    member val InlineDependencies = HashSet<string>()
     member __.Options = com.Options
     member this.AddUsedVarName(varName, ?isRoot) =
         let isRoot = defaultArg isRoot false
@@ -999,7 +999,8 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
                 (getMemberLocation memb).FileName
                 |> Path.normalizePathAndEnsureFsExtension
             if fileName <> com.CurrentFile then
-                this.Dependencies.Add(fileName) |> ignore
+                // TODO: Add literal values as InlineDependencies too?
+                this.InlineDependencies.Add(fileName) |> ignore
             let fullName = getMemberUniqueName com memb
             com.GetOrAddInlineExpr(fullName, fun () ->
                 match tryGetMemberArgsAndBody com implFiles fileName memb with
@@ -1041,6 +1042,6 @@ let transformFile (com: ICompiler) (implFiles: Map<string, FSharpImplementationF
         let fcom = FableCompiler(com, implFiles)
         let ctx = Context.Create(rootEnt)
         let rootDecls = transformDeclarations fcom ctx rootEnt rootDecls
-        Fable.File(com.CurrentFile, rootDecls, set fcom.UsedVarNames, set fcom.Dependencies)
+        Fable.File(com.CurrentFile, rootDecls, set fcom.UsedVarNames, set fcom.InlineDependencies)
     with
     | ex -> exn (sprintf "%s (%s)" ex.Message com.CurrentFile, ex) |> raise
