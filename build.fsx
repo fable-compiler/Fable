@@ -167,18 +167,15 @@ let updateVersionInCliUtil compilerReleaseNotes =
         "src/dotnet/Fable.Compiler/CLI/CLI.Util.fs"
         @"\bCORE_VERSION\s*=\s*""(.*?)"""
 
+let getBuildParamOrUserInput buildParam prompt =
+    match getBuildParam buildParam with
+    | s when not (String.IsNullOrWhiteSpace s) -> s
+    | _ -> getUserInput (prompt + ": ")
+
 let githubRelease releaseNotesDir () =
     let release =
         CWD </> releaseNotesDir </> "RELEASE_NOTES.md"
         |> ReleaseNotesHelper.LoadReleaseNotes
-    let user =
-        match getBuildParam "github-user" with
-        | s when not (String.IsNullOrWhiteSpace s) -> s
-        | _ -> getUserInput "GitHub Username: "
-    let pw =
-        match getBuildParam "github-pw" with
-        | s when not (String.IsNullOrWhiteSpace s) -> s
-        | _ -> getUserPassword "GitHub Password: "
     let remote =
         Git.CommandHelper.getGitResult "" "remote -v"
         |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
@@ -193,12 +190,13 @@ let githubRelease releaseNotesDir () =
     Branches.pushTag "" remote release.NugetVersion
 
     // release on github
+    let user = getBuildParamOrUserInput "github-user" "GitHub Username"
+    let pw = getBuildParamOrUserInput "github-pw" "GitHub Password"
     createClient user pw
     |> createRelease gitOwner project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
     // |> uploadFile (buildDir</>("FSharp.Compiler.Service." + release.NugetVersion + ".nupkg"))
     |> releaseDraft
     |> Async.RunSynchronously
-
 
 let bundleRepl (fetchNcaveFork: bool) () =
     if fetchNcaveFork then
