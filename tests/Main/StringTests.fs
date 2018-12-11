@@ -51,6 +51,14 @@ let tests =
             i |> equal 2
             sb.ToString() |> equal "Hello world!"
 
+      testCase "ksprintf curries correctly" <| fun () ->
+          let append (a: string) b = a + b
+
+          let step1 = Printf.ksprintf append "%d"
+          let step2 = step1 42
+          let result = step2 "The answer is: "
+          result |> equal "42The answer is: "
+
       testCase "bprintf works" <| fun () ->
             let sb = System.Text.StringBuilder(10)
             Printf.bprintf sb "Hello"
