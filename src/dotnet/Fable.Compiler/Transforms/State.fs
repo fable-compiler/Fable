@@ -29,11 +29,12 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
              errors: FSharpErrorInfo array, dependencies: Map<string, string[]>, fableLibrary: string, isWatchCompile: bool) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
+    // These should be already normalized, but just in case
+    // TODO: We should add a NormalizedFullPath type so we don't need normalize everywhere
+    let sourceFiles = projectOptions.SourceFiles |> Array.map Path.normalizeFullPath
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
-    let normalizedFiles =
-        projectOptions.SourceFiles
-        |> Seq.map (fun f ->
-            let path = Path.normalizeFullPath f
+    let fileMap =
+        sourceFiles |> Seq.map (fun path ->
             match Map.tryFind path dependencies with
             | Some deps -> path, { SentToClient=false; Dependencies=deps }
             | None -> path, { SentToClient=false; Dependencies=[||] })
@@ -52,30 +53,27 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectFile
     member __.ContainsFile(sourceFile) =
-        normalizedFiles.ContainsKey(sourceFile)
+        fileMap.ContainsKey(sourceFile)
     member __.HasSent(sourceFile) =
-        normalizedFiles.[sourceFile].SentToClient
+        fileMap.[sourceFile].SentToClient
     member __.MarkSent(sourceFile) =
-        match Map.tryFind sourceFile normalizedFiles with
+        match Map.tryFind sourceFile fileMap with
         | Some f -> f.SentToClient <- true
         | None -> ()
     member __.GetDependencies() =
-        normalizedFiles |> Map.map (fun _ info -> info.Dependencies)
+        fileMap |> Map.map (fun _ info -> info.Dependencies)
     member __.AddDependencies(sourceFile, dependencies) =
-        match Map.tryFind sourceFile normalizedFiles with
+        match Map.tryFind sourceFile fileMap with
         | Some f -> f.Dependencies <- Array.map Path.normalizePath dependencies
         | None -> ()
     member __.GetFilesAndDependent(files: seq<string>) =
         let files = set files
         let dependentFiles =
-            normalizedFiles |> Seq.filter (fun kv ->
+            fileMap |> Seq.filter (fun kv ->
                 kv.Value.Dependencies |> Seq.exists files.Contains)
             |> Seq.map (fun kv -> kv.Key) |> set
         let filesAndDependent = Set.union files dependentFiles
-        normalizedFiles |> Seq.choose (fun kv ->
-            if filesAndDependent.Contains(kv.Key)
-            then Some kv.Key else None)
-        |> Seq.toArray
+        Array.filter filesAndDependent.Contains sourceFiles
     member __.GetOrAddInlineExpr(fullName, generate) =
         inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
