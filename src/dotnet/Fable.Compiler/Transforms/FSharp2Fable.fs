@@ -957,22 +957,21 @@ let private getRootModuleAndDecls decls =
     getRootModuleAndDeclsInner None decls
 
 let private tryGetMemberArgsAndBody com (implFiles: Map<string, FSharpImplementationFileContents>)
-                                    fileName (meth: FSharpMemberOrFunctionOrValue) =
-    let rec tryGetMemberArgsAndBody' (methFullName: string) = function
+                                    fileName entityFullName memberUniqueName =
+    let rec tryGetMemberArgsAndBodyInner (entityFullName: string) (memberUniqueName: string) = function
         | FSharpImplementationFileDeclaration.Entity (e, decls) ->
-            let entFullName = getEntityFullName e
-            if methFullName.StartsWith(entFullName)
-            then List.tryPick (tryGetMemberArgsAndBody' methFullName) decls
+            let entityFullName2 = getEntityFullName e
+            if entityFullName.StartsWith(entityFullName2)
+            then List.tryPick (tryGetMemberArgsAndBodyInner entityFullName memberUniqueName) decls
             else None
-        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth2, args, body) ->
-            if getMemberUniqueName com meth2 = methFullName
+        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (memb2, args, body) ->
+            if getMemberUniqueName com memb2 = memberUniqueName
             then Some(args, body)
             else None
         | FSharpImplementationFileDeclaration.InitAction _ -> None
-    let fullName = getMemberUniqueName com meth
     Map.tryFind fileName implFiles
     |> Option.bind (fun f ->
-        f.Declarations |> List.tryPick (tryGetMemberArgsAndBody' fullName))
+        f.Declarations |> List.tryPick (tryGetMemberArgsAndBodyInner entityFullName memberUniqueName))
 
 type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFileContents>) =
     member val UsedVarNames = HashSet<string>()
@@ -995,20 +994,26 @@ type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFi
         member this.InjectArgument(ctx, r, genArgs, parameter) =
             Inject.injectArg this ctx r genArgs parameter
         member this.GetInlineExpr(memb) =
-            let fileName =
-                (getMemberLocation memb).FileName
-                |> Path.normalizePathAndEnsureFsExtension
-            if fileName <> com.CurrentFile then
-                // TODO: Add literal values as InlineDependencies too?
-                this.InlineDependencies.Add(fileName) |> ignore
-            let fullName = getMemberUniqueName com memb
-            com.GetOrAddInlineExpr(fullName, fun () ->
-                match tryGetMemberArgsAndBody com implFiles fileName memb with
-                | Some(args, body) ->
-                    { Args = List.concat args
-                      Body = body
-                      FileName = fileName }
-                | None -> failwith ("Cannot find inline member " + memb.FullName))
+            let membUniqueName = getMemberUniqueName com memb
+            match memb.DeclaringEntity with
+            | None -> failwith ("Unexpected inlined member without declaring entity. Please report: " + membUniqueName)
+            | Some ent ->
+                // The entity name is not included in the member unique name
+                // for type extensions, see #1667
+                let entFullName = getEntityFullName ent
+                let fileName =
+                    (getMemberLocation memb).FileName
+                    |> Path.normalizePathAndEnsureFsExtension
+                if fileName <> com.CurrentFile then
+                    // TODO: Add literal values as InlineDependencies too?
+                    this.InlineDependencies.Add(fileName) |> ignore
+                com.GetOrAddInlineExpr(membUniqueName, fun () ->
+                    match tryGetMemberArgsAndBody com implFiles fileName entFullName membUniqueName with
+                    | Some(args, body) ->
+                        { Args = List.concat args
+                          Body = body
+                          FileName = fileName }
+                    | None -> failwith ("Cannot find inline member. Please report: " + membUniqueName))
         member this.AddUsedVarName(varName, ?isRoot) =
             this.AddUsedVarName(varName, ?isRoot=isRoot)
         member this.IsUsedVarName(varName) =

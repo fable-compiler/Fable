@@ -2,6 +2,7 @@ module Fable.Tests.Misc
 
 open System
 open Util.Testing
+open Util2.Extensions
 
 // We can have aliases with same name in same file #1662
 module One =
@@ -466,6 +467,10 @@ let tests =
         let x = FooModule.FooInline()
         x.Bar2 |> equal "BarBar"
         x.FoofyPlus 3 |> equal "BarBarBarBarBarBar"
+
+    testCase "Inline extension methods in other files can be found" <| fun () -> // See #1667
+        "HOLA CARACOLA".StartsWith("hola") |> equal false
+        "HOLA CARACOLA".StartsWithIgnoreCase("hola") |> equal true
 
     testCase "Inline overloaded methods work" <| fun () ->
       let res1 = Type.New(5).Method(false).Method(true).Method()
