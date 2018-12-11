@@ -1,3 +1,9 @@
+### 2.1.8
+
+* Added LazyPattern operator @ncave #1669
+* Fix #1667: cannot find inline type extensions in other files
+* Fix order of files returned by Project.GetFilesAndDependent
+
 ### 2.1.7
 
 * Fixed parsing to match F# behavior a bit closer @ncave #1665
