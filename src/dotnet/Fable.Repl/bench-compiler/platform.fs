@@ -1,6 +1,6 @@
 module Bench.Platform
 
-#if DOTNET_FILE_SYSTEM
+#if DOTNET_FILE_SYSTEM && !FABLE_COMPILER
 
 let fableLibraryDir = System.IO.Path.Combine(__SOURCE_DIRECTORY__, "../../../build/fable-library")
 

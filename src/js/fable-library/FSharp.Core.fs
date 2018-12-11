@@ -31,6 +31,10 @@ module Operators =
     [<CompiledName("Lock")>]
     let lock _lockObj action = action() // no locking, just invoke
 
+module ExtraTopLevelOperators =
+    [<CompiledName("LazyPattern")>]
+    let (|Lazy|) (input:Lazy<_>) = input.Force()
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Printf =
 
