@@ -1905,7 +1905,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "EnumOfValue", [arg] ->
         match t with
         | EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> Value |> Some
-        | _ -> None
+        | _ -> Enum(NumberEnum arg, Naming.unknown) |> Value |> Some
     | "EnumToValue", [arg] ->
         match arg with
         | Value(Enum(NumberEnum(v), _)) -> v |> Some

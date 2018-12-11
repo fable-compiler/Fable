@@ -14,7 +14,11 @@ let visit f e =
         match kind with
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
-        | NumberConstant _ | RegexConstant _ | Enum _ -> e
+        | NumberConstant _ | RegexConstant _ -> e
+        | Enum(kind, name) ->
+            match kind with
+            | NumberEnum e -> Enum(NumberEnum(f e), name) |> Value
+            | StringEnum e -> Enum(StringEnum(f e), name) |> Value
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> Value
         | NewTuple exprs -> NewTuple(List.map f exprs) |> Value
         | NewArray(kind, t) ->
@@ -112,7 +116,11 @@ let getSubExpressions = function
         match kind with
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
-        | NumberConstant _ | RegexConstant _ | Enum _ -> []
+        | NumberConstant _ | RegexConstant _ -> []
+        | Enum(kind, _) ->
+            match kind with
+            | NumberEnum e -> [e]
+            | StringEnum e -> [e]
         | NewOption(e, _) -> Option.toList e
         | NewTuple exprs -> exprs
         | NewArray(kind, _) ->
