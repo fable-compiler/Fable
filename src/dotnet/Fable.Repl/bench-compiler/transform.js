@@ -54,6 +54,7 @@ for (const filePath of filePaths) {
         fixImportPaths(babelAst, fileName);
         const res = Babel.transformFromAstSync(babelAst, null, babelOptions);
         const fileOut = filePath.replace(/\.json$/, ".js")
+        fs.renameSync(filePath, fileOut);
         fs.writeFileSync(fileOut, res.code);
     }
 }

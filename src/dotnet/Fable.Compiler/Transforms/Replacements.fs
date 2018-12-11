@@ -1224,6 +1224,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         ), _ -> fsFormat com ctx r t i thisArg args
     | ("Failure"
     |  "FailurePattern"  // (|Failure|_|)
+    |  "LazyPattern"     // (|Lazy|_|)
     |  "Lock"            // lock
     |  "NullArg"         // nullArg
        ), _ -> fsharpModule com ctx r t i thisArg args
