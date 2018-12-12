@@ -2274,12 +2274,16 @@ let dates (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option)
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.CoreCall(moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
-let timeSpans (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
     | ".ctor" -> Helper.CoreCall("TimeSpan", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
     | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t) |> Some
+    | "ToString" when not(List.isEmpty args) ->
+        "TimeSpan.ToString with arguments is not supported"
+        |> addError com ctx.InlinePath r
+        None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.CoreCall("TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
