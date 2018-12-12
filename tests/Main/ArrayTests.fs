@@ -832,6 +832,20 @@ let tests =
         Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
         Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
 
+    testCase "Arrays are independent from type of the elements" <| fun () ->
+        let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
+        [|"a";"b"|] |> fromArrayToListAndBack |> equal [|"a";"b"|]
+        [|1;2|] |> fromArrayToListAndBack |> equal [|1;2|]
+
+    testCase "Arrays are independent from being binded to a name" <| fun () ->
+        let intList = [1;2;3]
+        intList  |> List.toArray  |> equal [|1;2;3|]
+        [1;2;3]  |> List.toArray  |> equal [|1;2;3|]
+
+    testCase "Functions on arrays should behave the same whether binded to a name or not" <| fun () ->
+        let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
+        [|1;2|] |> Array.toList |> List.toArray  |> equal ([|1;2|] |> fromArrayToListAndBack)
+
     testCase "Array.skip works" <| fun () ->
         let xs = [|1.; 2.; 3.; 4.; 5.|]
         let ys = xs |> Array.skip 1
