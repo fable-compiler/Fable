@@ -1026,6 +1026,12 @@ let tests =
         g1.ToString().Trim('{','}').ToLower() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
         g2.ToString().Trim('{','}').ToLower() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
 
+    testCase "Guid.Parse works relaxed" <| fun () ->
+        let g1 = Guid.Parse("773788c2-ae1c-2ce4-e053-6c04a8c05e57")
+        let g2 = Guid("{00000000-0000-0000-0000-000000000000}")
+        g1.ToString().Trim('{','}').ToLower() |> equal "773788c2-ae1c-2ce4-e053-6c04a8c05e57"
+        g2.ToString().Trim('{','}').ToLower() |> equal "00000000-0000-0000-0000-000000000000"
+
     testCase "Guid.Parse fails if string is not well formed" <| fun () ->
         let success =
             try
