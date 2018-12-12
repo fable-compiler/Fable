@@ -3,37 +3,44 @@ module Fable.Tests.Util
 open System
 
 module Testing =
-    #if FABLE_COMPILER
-    type Assert = Fable.Core.Testing.Assert
-    type TestAttribute = Fable.Core.Testing.TestAttribute
-    #else
-    type Assert = Xunit.Assert
-    type TestAttribute = Xunit.FactAttribute
-    #endif
-    type TestFixtureAttribute = Fable.Core.Testing.TestFixtureAttribute
+#if FABLE_COMPILER
+    open Fable.Core
+    open Fable.Core.Testing
 
+    let testList (name: string) (tests: (string * obj) seq) = name, tests
+    let testCase (msg: string) (test: unit->unit) = msg, box test
+    let testCaseAsync (msg: string) (test: unit->Async<unit>) = msg, box(fun () -> test () |> Async.StartAsPromise)
 
-open Testing
+    let equal expected actual: unit = Assert.AreEqual(actual, expected)
+    let notEqual expected actual: unit = Assert.NotEqual(actual, expected)
+#else
+    open Expecto
+
+    let testList name tests = testList name tests
+    let testCase msg test = testCase msg test
+    let testCaseAsync msg test = testCaseAsync msg (test ())
+
+    let equal expected actual: unit = Expect.equal actual expected ""
+    let notEqual expected actual: unit = Expect.notEqual actual expected ""
+#endif
 
 #if FABLE_COMPILER
-let foo: string = Fable.Core.JsInterop.importMember "../js/foo.js"
+let foo: string = Fable.Core.JsInterop.importMember "../js/1foo.js"
 
-[<Fable.Core.Import("foo", "../js/foo.js")>]
+[<Fable.Core.Import("foo", "../js/1foo.js")>]
 let foo2: string = failwith "JS only"
 
-let apply (f:Func<int,int,int>) (x:int) (y:int) = Fable.Core.JsInterop.importMember "../js/foo.js"
+let apply (f:Func<int,int,int>) (x:int) (y:int) = Fable.Core.JsInterop.importMember "../js/1foo.js"
 #else
 let foo = "foo"
 let foo2 = "foo"
 let apply (f:Func<int,int,int>) (x:int) (y:int) = f.Invoke(x, y)
 #endif
 
-let equal (expected: 'T) (actual: 'T): unit =
-    #if FABLE_COMPILER
-    Assert.AreEqual(expected, actual)
-    #else
-    Assert.Equal<'T>(expected, actual)
-    #endif
+// Idents starting with a digit doesn't cause an error
+let ``1foo`` = 5
+
+open Testing
 
 let throwsError (expected: string) (f: unit -> 'a): unit =
     let success =
@@ -41,9 +48,9 @@ let throwsError (expected: string) (f: unit -> 'a): unit =
             f () |> ignore
             true
         with e ->
-            equal e.Message expected
+            if not <| String.IsNullOrEmpty(expected) then
+                equal expected e.Message
             false
-
     // TODO better error messages
     equal false success
 
@@ -52,12 +59,6 @@ let rec sumFirstSeq (zs: seq<float>) (n: int): float =
    | 0 -> 0.
    | 1 -> Seq.head zs
    | _ -> (Seq.head zs) + sumFirstSeq (Seq.skip 1 zs) (n-1)
-
-let rec sumFirstList (zs: float list) (n: int): float =
-   match n with
-   | 0 -> 0.
-   | 1 -> zs.Head
-   | _ -> zs.Head + sumFirstList zs.Tail (n-1)
 
 let f2 a b = a + b
 

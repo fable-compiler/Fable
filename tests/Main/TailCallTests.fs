@@ -1,11 +1,6 @@
-[<Util.Testing.TestFixture>]
 module Fable.Tests.TailCalls
 
 open Util.Testing
-open Fable.Tests.Util
-
-open System
-open System.Collections.Generic
 
 module Functions =
     let rec factorial1 aux n =
@@ -87,34 +82,11 @@ module Functions =
 
 open Functions
 
-[<Test>]
-let ``Recursive functions can be tailcall optimized``() =
-    factorial1 1 10 |> equal 3628800
-
-[<Test>]
-let ``Non-tailcall recursive functions work``() =
-    factorial2 10 |> equal 3628800
-
-[<Test>]
-let ``Nested functions can be tailcall optimized``() =
-    factorial3 10 |> equal 3628800
-
-[<Test>]
-let ``Arguments can be consumed after being "passed" in tailcall optimizations``() =
-    sum 0L 100000L 0L
-    |> equal 4999950000L
-
 type MyTailCall() =
     member x.Sum(v, m, s) =
         if v >= m
         then s
         else x.Sum(v + 1L, m, s + v)
-
-[<Test>]
-let ``Class methods can be tailcall optimized``() =
-    let x = MyTailCall()
-    x.Sum(0L, 100000L, 0L)
-    |> equal 4999950000L
 
 let rec parseNum tokens acc = function
   | x::xs when x >= '0' && x <= '9' ->
@@ -127,36 +99,97 @@ and parseTokens tokens = function
   | x::xs -> parseTokens tokens xs
   | [] -> List.rev tokens
 
-[<Test>]
-let ``Mutually recursive functions can be partially optimized``() =
-    let s = "a5b6c"
-    s.ToCharArray() |> Seq.toList |> parseTokens []
-    |> Seq.concat |> Seq.map string |> String.concat ""
-    |> equal "56"
+let tests =
+  testList "TailCalls" [
+    testCase "Recursive functions can be tailcall optimized" <| fun () ->
+        factorial1 1 10 |> equal 3628800
 
-[<Test>]
-let ``IIFEs prevent tailcall optimization``() = // See #674
-    iife [5; 4; 3] |> equal 24
+    testCase "Non-tailcall recursive functions work" <| fun () ->
+        factorial2 10 |> equal 3628800
 
-[<Test>]
-let ``Tailcall optimization doesn't cause endless loops``() = // See #675
-    One("a", 42)
-    |> tryFind "a"
-    |> equal (Some 42)
-    Tree.Empty
-    |> tryFind "a"
-    |> equal None
+    testCase "Nested functions can be tailcall optimized" <| fun () ->
+        factorial3 10 |> equal 3628800
 
-[<Test>]
-let ``Recursive functions containing finally work``() =
-    recWithFinally () |> equal "abcdeEDCBA"
+    testCase "Arguments can be consumed after being \"passed\" in tailcall optimizations" <| fun () ->
+        sum 0L 100000L 0L
+        |> equal 4999950000L
 
-[<Test>]
-let ``Recursive functions containing use work``() =
-    recWithUse () |> equal "abcdeEDCBA"
+    testCase "Class methods can be tailcall optimized" <| fun () ->
+        let x = MyTailCall()
+        x.Sum(0L, 100000L, 0L)
+        |> equal 4999950000L
 
-let ``Function arguments can be optimized``() = // See #681
-    functionArguments [1;2;3] ((+) 2) |> equal 11
+    testCase "Mutually recursive functions can be partially optimized" <| fun () ->
+        let s = "a5b6c"
+        s.ToCharArray() |> Seq.toList |> parseTokens []
+        |> Seq.concat |> Seq.map string |> String.concat ""
+        |> equal "56"
 
-let ``Function arguments can be optimized II``() = // See #681
-    iterate ((*) 2) 5 10 |> equal 320
+    testCase "IIFEs prevent tailcall optimization" <| fun () -> // See #674
+        iife [5; 4; 3] |> equal 24
+
+    testCase "Tailcall optimization doesn't cause endless loops" <| fun () -> // See #675
+        One("a", 42)
+        |> tryFind "a"
+        |> equal (Some 42)
+        Tree.Empty
+        |> tryFind "a"
+        |> equal None
+
+    testCase "Recursive functions containing finally work" <| fun () ->
+        recWithFinally () |> equal "abcdeEDCBA"
+
+    testCase "Recursive functions containing use work" <| fun () ->
+        recWithUse () |> equal "abcdeEDCBA"
+
+    testCase "Function arguments can be optimized" <| fun () -> // See #681
+        functionArguments [1;2;3] ((+) 2) |> equal 11
+
+    testCase "Function arguments can be optimized II" <| fun () -> // See #681
+        iterate ((*) 2) 5 10 |> equal 320
+
+    // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
+    testCase "State of internally mutated tail called function parameters is preserved properly" <| fun () ->
+        let rec loop i lst =
+            if i <= 0
+            then lst
+            else loop (i - 1) ((fun () -> i) :: lst)
+        loop 3 [] |> List.map (fun f -> f()) |> equal [1;2;3]
+
+    testCase "State of internally mutated tail called function parameters is preserved properly II" <| fun () ->
+        let rec loop lst i =
+            if i <= 0
+            then lst
+            else loop ((fun () -> i) :: lst) (i - 1)
+        loop [] 3 |> List.map (fun f -> f()) |> equal [1;2;3]
+
+    // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
+    testCase "Functions returning unit can be tail called" <| fun () ->
+      let cmpsts = Array.zeroCreate 16384
+      let rec loop x =
+        if x > 0 then
+          let rec loopi i =
+            if i <= 254 then
+              if cmpsts.[i >>> 3] &&& (1uy <<< (i &&& 7)) <> 0uy then loopi (i + 1) else
+              let p = i + i + 3
+              let s0 = 2 * i * (i + 3) + 3
+              let lmt = min 131072 <| s0 + (p <<< 3)
+              let rec loops s =
+                if s < lmt then
+                  let msk = 1uy <<< (s &&& 7)
+                  let rec loopj j =
+                    let cmpsts = cmpsts
+                    if j < 16384 then
+                      cmpsts.[j] <- cmpsts.[j] ||| msk
+                      loopj (j + p)
+                  loopj (s >>> 3); loops (s + p)
+              loops s0; loopi (i + 1)
+          loopi 0; loop (x - 1)
+      loop 100
+      let oddprms = seq {
+        for i in 0 .. 131071 do
+          if cmpsts.[i >>> 3] &&& (1uy <<< (i &&& 7)) = 0uy
+          then yield i + i + 3 }
+      seq { yield 2; yield! oddprms }
+      |> Seq.length |> equal 23000
+  ]

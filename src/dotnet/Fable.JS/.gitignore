@@ -1,8 +1,0 @@
-# Output
-bench/out
-demo/out
-demo/repl/build
-testapp/out
-
-# Node
-node_modules/

@@ -8,13 +8,13 @@ open Fable.Import
 /// The casted type can be defined on the call site: `!!myObj?bar(5): float`
 let (!!) x: 'T = jsNative
 
-// Implicit cast for erased types
+/// Implicit cast for erased unions (U2, U3...)
 let inline (!^) (x:^t1) : ^t2 = ((^t1 or ^t2) : (static member op_ErasedCast : ^t1 -> ^t2) x)
 
 /// Dynamically access a property of an arbitrary object.
 /// `myObj?propA` in JS becomes `myObj.propA`
 /// `myObj?(propA)` in JS becomes `myObj[propA]`
-let (?) (o: obj) (prop: obj): Applicable = jsNative
+let (?) (o: obj) (prop: obj): 'a = jsNative
 
 /// Dynamically assign a value to a property of an arbitrary object.
 /// `myObj?propA <- 5` in JS becomes `myObj.propA = 5`
@@ -23,9 +23,9 @@ let (?<-) (o: obj) (prop: obj) (v: obj): unit = jsNative
 
 /// Destructure and apply a tuple to an arbitrary value.
 /// E.g. `myFn $ (arg1, arg2)` in JS becomes `myFn(arg1, arg2)`
-let ($) (callee: obj) (args: obj): obj = jsNative
+let ($) (callee: obj) (args: obj): 'a = jsNative
 
-/// Upcast the right operand to obj and create a key-value tuple.
+/// Upcast the right operand to obj (and uncurry it if it's a function) and create a key-value tuple.
 /// Mostly convenient when used with `createObj`.
 /// E.g. `createObj [ "a" ==> 5 ]` in JS becomes `{ a: 5 }`
 let (==>) (key: string) (v: obj): string*obj = jsNative
@@ -39,8 +39,8 @@ let createNew (o: obj) (args: obj): obj = jsNative
 let createObj (fields: #seq<string*obj>): obj = jsNative
 
 /// Create a literal JS object from a collection of union constructors.
-/// E.g. `keyValueList  [ MyUnion 4 ]` in JS becomes `{ myUnion: 4 }`
-let keyValueList (caseRule: CaseRules) (li: 'T list): obj = jsNative
+/// E.g. `keyValueList CaseRules.LowerFirst [ MyUnion 4 ]` in JS becomes `{ myUnion: 4 }`
+let keyValueList (caseRule: CaseRules) (li: 'T seq): obj = jsNative
 
 /// Create a literal JS object from a mutator lambda. Normally used when
 /// the options interface has too many fields to be represented with a Pojo record.
@@ -50,8 +50,14 @@ let jsOptions<'T> (f: 'T->unit): 'T = jsNative
 /// Create an empty JS object: {}
 let createEmpty<'T> : 'T = jsNative
 
-/// Internally used by Fable, not intended for general use
-let [<Obsolete>] applySpread (callee: obj) (args: obj) : 'T = jsNative
+/// Get the JS function constructor for class types
+let jsConstructor<'T> : obj = jsNative
+
+/// Makes an expression the default export for the JS module.
+/// Used to interact with JS tools that require a default export.
+/// ATTENTION: This statement must appear on the root level of the file module.
+[<Emit("export default $0")>]
+let exportDefault (x: obj): unit = jsNative
 
 /// Works like `ImportAttribute` (same semantics as ES6 imports).
 /// You can use "*" or "default" selectors.
@@ -76,39 +82,26 @@ let importSideEffects (path: string): unit = jsNative
 /// Imports a file dynamically at runtime
 let importDynamic<'T> (path: string): JS.Promise<'T> = jsNative
 
-/// Convert F# unions, records and classes into plain JS objects
-/// When designing APIs, consider also using a Pojo record or union
-let toPlainJsObj (o: 'T): obj = jsNative
+/// Used when you need to send an F# record to a JS library accepting only plain JS objects (POJOs)
+let toPlainJsObj(o: 'T): obj = jsNative
 
-/// Converts an F# object into a plain JS object (POJO)
-/// This is only intended if you're using a custom serialization method
-/// and will produce the same object structure that `toJson` encodes
-/// NOTE: `deflate` is currently NOT recursive
-let deflate(o: 'T): obj = jsNative
-
-/// Serialize F# objects to JSON
+[<Obsolete("Not working in Fable 2, please use Thoth.Json")>]
 let toJson(o: 'T): string = jsNative
 
-/// Instantiate F# objects from JSON
-let [<PassGenerics>] ofJson<'T>(json: string): 'T = jsNative
+[<Obsolete("Not working in Fable 2, please use Thoth.Json")>]
+let ofJson<'T>(json: string): 'T = jsNative
 
-/// Instantiate F# objects from a JSON string and a type object
-let ofJsonAsType (json: string) (typ: System.Type) : obj = jsNative
+[<Obsolete("Doesn't do anything in Fable 2, please remove")>]
+let inflate<'T>(pojo: obj): 'T = jsNative
 
-/// Serialize F# objects to JSON adding $type info
-let toJsonWithTypeInfo(o: 'T): string = jsNative
-
-/// Instantiate F# objects from JSON containing $type info
-let [<PassGenerics>] ofJsonWithTypeInfo<'T>(json: string): 'T = jsNative
-
-/// Converts a plain JS object (POJO) to an instance of the specified type.
-/// This is only intended if you're using a custom serialization method
-/// (that must produce same objects as `toJson`) instead of `ofJson`.
-/// NOTE: `inflate` is currently NOT recursive
-let [<PassGenerics>] inflate<'T>(pojo: obj): 'T = jsNative
+[<Obsolete("Doesn't do anything in Fable 2, please remove or use `toPlainJsObj`")>]
+let deflate(o: 'T): obj = jsNative
 
 /// Reads the name of an identifier, a property or a type
-let nameof(expr: obj): string = jsNative
+let nameof(expr: 'a): string = jsNative
+
+/// Like nameof but also returns the expression as second element of the tuple
+let nameof2(expr: 'a): string * 'a = jsNative
 
 /// Reads the name of a property or a type from the lambda body
 let nameofLambda(f: 'a->'b): string = jsNative

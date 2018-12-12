@@ -1,6 +1,6 @@
 {
   "name": "rollup-plugin-fable",
-  "version": "1.1.1",
+  "version": "2.0.0",
   "description": "Rollup Plugin for Fable",
   "main": "index.js",
   "scripts": {
@@ -22,7 +22,7 @@
   "bugs": {
     "url": "https://github.com/fable-compiler/Fable/issues"
   },
-  "homepage": "https://github.com/fable-compiler/Fable/tree/master/src/typescript/rollup-plugin-fable#readme",
+  "homepage": "https://github.com/fable-compiler/Fable/tree/master/src/js/rollup-plugin-fable#readme",
   "devDependencies": {
     "eslint": "3.19.0",
     "eslint-config-prettier": "1.7.0",
@@ -30,10 +30,10 @@
     "prettier": "1.1.0"
   },
   "peerDependencies": {
-    "babel-core": "^6.24.1"
+    "@babel/core": "^7.0.0"
   },
   "dependencies": {
-    "fable-utils": "^1.0.4",
-    "rollup-pluginutils": "2.0.1"
+    "fable-utils": "^1.1.0",
+    "rollup-pluginutils": "^2.3.3"
   }
 }

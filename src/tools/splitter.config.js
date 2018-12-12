@@ -1,23 +1,14 @@
 const path = require("path");
-const fableUtils = require("fable-utils");
-
-function resolve(filePath) {
-  return path.resolve(__dirname, filePath)
-}
-
-var babelOptions = fableUtils.resolveBabelOptions({
-  plugins: ["transform-es2015-modules-commonjs"],
-  //   presets: [["env", { modules: "commonjs" }]],
-  //   sourceMaps: true,
-})
 
 module.exports = {
-  entry: resolve("QuickTest.fsproj"),
-  outDir: resolve("temp"),
-  babel: babelOptions,
+  entry: path.join(__dirname, "QuickTest.fsproj"),
+  outDir: path.join(__dirname, "temp"),
   fable: {
-    fableCore: resolve("../../build/fable-core"),
     define: ["DEBUG"]
+  },
+  babel: {
+    plugins: ["@babel/plugin-transform-modules-commonjs"],
+    //   presets: [["@babel/preset-env", { modules: "commonjs" }]],
   },
   // allFiles: true
 };

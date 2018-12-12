@@ -2,25 +2,53 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Description>Fable: F# to JS Compiler</Description>
-    <PackageProjectUrl>http://fable.io</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/fable-compiler/Fable.git</RepositoryUrl>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/fable-compiler/Fable/master/LICENSE</PackageLicenseUrl>
-    <PackageIconUrl>https://raw.githubusercontent.com/fable-compiler/Fable/master/docs/img/fable_logo.png</PackageIconUrl>
-    <PackageTags>fsharp;fable;javascript;f#;js</PackageTags>
-    <Authors>Alfonso García-Caro Núñez</Authors>
-    <Version>1.3.4</Version>
-    <TargetFramework>netstandard1.6</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <RuntimeFrameworkVersion>2.1.0</RuntimeFrameworkVersion>
+    <!-- Only used for Nuget distribution -->
+    <Version>2.0.11</Version>
+    <PackageVersion>2.0.11</PackageVersion>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Fable.Core/Fable.Core.fsproj" />
+    <Compile Include="Global/Fable.Core.fs" />
+    <Compile Include="Global/Prelude.fs" />
+    <Compile Include="Global/Compiler.fs" />
+    <Compile Include="AST/AST.Common.fs" />
+    <Compile Include="AST/AST.Fable.fs" />
+    <Compile Include="AST/AST.Babel.fs" />
+    <Compile Include="Transforms/MonadicTrampoline.fs" />
+    <Compile Include="Transforms/Transforms.Util.fs" />
+    <Compile Include="Transforms/OverloadSuffix.fs" />
+    <Compile Include="Transforms/FSharp2Fable.Util.fs" />
+    <Compile Include="Transforms/ReplacementsInject.fs" />
+    <Compile Include="Transforms/Replacements.fs" />
+    <Compile Include="Transforms/Inject.fs" />
+    <Compile Include="Transforms/FSharp2Fable.fs" />
+    <Compile Include="Transforms/FableTransforms.fs" />
+    <Compile Include="Transforms/Fable2Babel.fs" />
+    <Compile Include="Transforms/State.fs" />
+    <Compile Include="CLI/CLI.Util.fs" />
+    <Compile Include="CLI/Parser.fs" />
+    <Compile Include="CLI/ProjectCoreCracker.fs" />
+    <Compile Include="CLI/ProjectCracker.fs" />
+    <Compile Include="CLI/Printers.fs" />
+    <Compile Include="CLI/Server.fs" />
+    <Compile Include="CLI/Stdin.fs" />
+    <Compile Include="CLI/Agent.fs" />
+    <Compile Include="CLI/Main.fs" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Utils.fs" />
-    <Compile Include="Replacements.fs" />
-    <Compile Include="FSharp2Fable.Util.fs" />
-    <Compile Include="FSharp2Fable.fs" />
-    <Compile Include="Fable2Babel.fs" />
-    <Compile Include="State.fs" />
+  <!-- Special instructions for Nuget distribution -->
+  <PropertyGroup Condition="'$(NugetPackage)' == 'true'">
+    <AssemblyName>dotnet-fable</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(NugetPackage)' == 'true'">
+    <Content Include="prefercliruntime">
+      <PackagePath>prefercliruntime</PackagePath>
+      <Pack>true</Pack>
+    </Content>
+    <!-- VS cannot open the project if we have a slash after fable-library
+         but we need it so `dotnet pack` includes the dir contents in the package -->
+    <Content Include="../../../build/fable-library/" PackagePath="fable-library" />
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

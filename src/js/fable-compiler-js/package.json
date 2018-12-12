@@ -1,0 +1,28 @@
+{
+  "name": "fable-compiler-js",
+  "version": "2.0.0-alpha-003",
+  "main": "index.js",
+  "bin": {
+    "fable": "index.js"
+  },
+  "description": "Fable compiler",
+  "keywords": [
+    "fable",
+    "fsharp",
+    "F#"
+  ],
+  "author": "Alfonso Garcia-Caro",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fable-compiler/Fable.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fable-compiler/Fable/issues"
+  },
+  "homepage": "https://github.com/fable-compiler/Fable#readme",
+  "dependencies": {
+    "@babel/core": "^7.1.2",
+    "@babel/plugin-transform-modules-commonjs": "^7.1.0"
+  }
+}

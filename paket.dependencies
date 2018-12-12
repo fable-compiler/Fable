@@ -1,27 +1,17 @@
 source https://www.nuget.org/api/v2
 
 storage:none
+framework:netstandard2.0,netcoreapp2.1
 
 nuget FSharp.Compiler.Service
 nuget FSharp.Core
 nuget Newtonsoft.Json
-nuget System.Runtime.Loader
-nuget System.Collections.Immutable
-nuget System.Reflection.Metadata
 nuget Dotnet.ProjInfo
-
-github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
-
-group Test
-  source https://www.nuget.org/api/v2
-  storage:none
-  nuget Microsoft.NET.Test.Sdk
-  nuget xunit
-  nuget xunit.runner.visualstudio
+nuget Fable.Core
 
 group Build
   framework >= net45
   source https://www.nuget.org/api/v2
-  nuget FAKE
+  nuget FAKE ~> 4
   github fsharp/FAKE modules/Octokit/Octokit.fsx
-  github fable-compiler/fake-helpers Fable.FakeHelpers.fs
+  github fable-compiler/fake-helpers:fake_legacy Fable.FakeHelpers.fs

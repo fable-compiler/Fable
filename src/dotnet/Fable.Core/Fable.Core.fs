@@ -1,10 +1,20 @@
 namespace Fable.Core
 open System
 
+#nowarn "1204"
+
 [<AutoOpen>]
 module Exceptions =
     /// Used to indicate that a member is only implemented in native Javascript
     let jsNative<'T> : 'T = failwith "JS only"
+
+/// Not used in Fable 2 but added temporarily to avoid errors when using dotnet CLI
+/// to build projects with dependencies referencing Fable.Core 1.x
+type Applicable = obj->obj
+
+type CaseRules =
+    | None = 0
+    | LowerFirst = 1
 
 /// Used for erased union types and to ignore modules in JS compilation.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
@@ -24,27 +34,17 @@ type GlobalAttribute() =
 type ImportAttribute(selector: string, from: string) =
     inherit Attribute()
 
-/// ATTENTION: Use only in the last file of a project to export a member as default for JS consumption.
-type ExportDefaultAttribute() =
-    inherit Attribute()
-
 /// Function calls will be replaced by inlined JS code.
 /// More info: http://fable.io/docs/interacting.html#Import-attribute
-type EmitAttribute private () =
+type EmitAttribute(macro: string) =
     inherit Attribute()
-    new (macro: string) = EmitAttribute()
-    new (emitterType: Type, methodName: string) = EmitAttribute()
-    new (emitterType: Type, methodName: string, extraArg: string) = EmitAttribute()
 
-/// When this is attached to a method, Fable will add the generic info
-/// as an extra argument to every call, making it possible to access
-/// a type 'T with `typeof<'T>` within the method body
+[<Obsolete("PassGenerics doesn't work in Fable 2, please remove the attribute.")>]
 [<AttributeUsage(AttributeTargets.Method)>]
 type PassGenericsAttribute() =
     inherit Attribute()
 
-/// Compile a record as a JS object literals.
-/// More info: http://fable.io/docs/interacting.html
+[<Obsolete("Doesn't do anything in Fable 2, use `Fable.Core.JsInterop.toPlainJsObj` if needed.")>]
 type PojoAttribute() =
     inherit Attribute()
 
@@ -53,12 +53,31 @@ type PojoAttribute() =
 [<AttributeUsage(AttributeTargets.Class)>]
 type StringEnumAttribute() =
     inherit Attribute()
+    new (caseRules: CaseRules) = StringEnumAttribute()
 
-/// Used to spread a list as last argument. Mainly intended
-/// for `React.createElement` binding, not for general use.
+/// Used to spread the last argument. Mainly intended for `React.createElement` binding, not for general use.
+/// Fable 1 only accepted lists, but Fable 2 accepts seq as well.
 [<AttributeUsage(AttributeTargets.Parameter)>]
 type ParamListAttribute() =
     inherit Attribute()
+
+/// Experimental: Currently only intended for some specific libraries
+[<AttributeUsage(AttributeTargets.Parameter)>]
+type InjectAttribute() =
+    inherit Attribute()
+
+/// Intended for replacement types in Fable.Library
+[<AttributeUsage(AttributeTargets.Class)>]
+type ReplacesAttribute(replacedTypeFullName: string) =
+    inherit Attribute()
+
+/// Intended for replacement types in Fable.Library
+[<AttributeUsage(AttributeTargets.Method)>]
+type OverloadSuffixAttribute(value: string) =
+    inherit Attribute()
+
+type ITypeResolver<'T> =
+    abstract ResolveType: unit -> Type
 
 /// Erased union type to represent one of two possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
@@ -158,32 +177,8 @@ type [<Erase>] U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
     static member op_ErasedCast(x:'g) = Case7 x
     static member op_ErasedCast(x:'h) = Case8 x
 
-/// DO NOT USE: Internal type for Fable dynamic operations
-type Applicable = obj->obj
-
-type CaseRules =
-    | None = 0
-    | LowerFirst = 1
-
 module Testing =
-    type TestAttribute() =
-        inherit Attribute()
-
-    type TestFixtureAttribute() =
-        inherit Attribute()
-
-    type TestFixtureSetUpAttribute() =
-        inherit Attribute()
-
-    type TestFixtureTearDownAttribute() =
-        inherit Attribute()
-
-    type SetUpAttribute() =
-        inherit Attribute()
-
-    type TearDownAttribute() =
-        inherit Attribute()
-
     type Assert =
         static member AreEqual(expected: 'T, actual: 'T, ?msg: string): unit = jsNative
+        static member NotEqual(expected: 'T, actual: 'T, ?msg: string): unit = jsNative
 

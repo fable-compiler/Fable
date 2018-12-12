@@ -4,81 +4,48 @@
 
 ## Installation
 
-```npm install --save-dev webpack babel-core fable-loader```
+```npm install fable-loader fable-compiler @babel/core```
 
 ## Usage
 
-Create a `webpack-config.js` like the following:
+Create a `webpack-config.js` like the following and run it using [Webpack](https://webpack.js.org/guides/getting-started/) (e.g. `npx webpack`).
+
+**ATTENTION**: In Fable 2.0 you had to call Webpack through the dotnet-fable CLI tool, starting from Fable 2.1 you call Webpack directly. For example, if you used the command `dotnet fable webpack -- --config src/webpack.config.js`, replace it with `npx webpack --config src/webpack.config.js` (you can also use `yarn` instead of `npx`). Note you don't need the `--` separator anymore.
+
+**NOTE**: The actual F# to JS compilation is done by `fable-compiler`. You can control the compiler version through this package.
+
+> See the [Fable webpack-config-template](https://github.com/fable-compiler/webpack-config-template) for a more comprehensive example of a Webpack configuration for Fable projects.
 
 ```js
+
 var path = require("path");
-var fableUtils = require("fable-utils");
-
-function resolve(relativePath) {
-    return path.join(__dirname, relativePath);
-}
-
-var babelOptions = fableUtils.resolveBabelOptions({
-  "presets": [
-    ["env", {"modules": false}]
-  ]
-});
 
 module.exports = {
-  entry: resolve('src/MyProject.fsproj'),
-  output: {
-    filename: 'bundle.js',
-    path: resolve('build/'),
-  },
-  resolve: {
-    modules: [resolve("node_modules/")]
-  },
-  module: {
-    rules: [
-      {
-        test: /\.fs(proj|x)?$/,
-        use: {
-          loader: "fable-loader",
-          options: {
-            define: ["DEBUG"],
-            babel: babelOptions
-          }
-        }
-      },
-      {
-        test: /\.js$/,
-        exclude: /node_modules/,
-        use: {
-          loader: 'babel-loader',
-          options: babelOptions
-        },
-      }
-    ]
-  }
-};
-```
-
-> Note we're resolving paths as well as Babel options and node modules to prevent conflicts in case Fable pulls files from outside the project local directory (for example, from Nuget cache).
-
-Add this to your [package.json](https://docs.npmjs.com/files/package.json).
-
-```json
-"scripts": {
-  "build": "webpack"
+    mode: "production",
+    entry: "./src/App.fsproj",
+    output: {
+        path: path.join(__dirname, "./public"),
+        filename: "bundle.js",
+    },
+    devServer: {
+        contentBase: "./public",
+        port: 8080,
+    },
+    module: {
+        rules: [{
+            test: /\.fs(x|proj)?$/,
+            use: "fable-loader"
+        }]
+    }
 }
+
 ```
 
-You can then bundle your app by running: `dotnet fable npm-run build`.
-
-> Check [Fable website](http://fable.io/) for more info
-
-As you can see in the sample, normally you'll install `babel-loader` for other JavaScript files in your project (including those in Fable.Core) and you'll share the Babel options between both loaders. Check [Babel website](https://babeljs.io/docs/usage/api/#options) to find more info about the available options.
+## Options
 
 These are the options that can be passed to `fable-loader`:
 
-- **babel**: Babel options as mentioned above.
-- **define**: Array of compiler directives passed to the F# compiler (like `DEBUG`). Note _Fable will ignore the `DefineConstants` property in .fsproj_.
-- **plugins**: Array of paths to Fable plugins (.dll files).
+- **babel**: [Babel options](https://babeljs.io/docs/en/options) (only applied when transforming F# files, you may want to use the `babel-loader` if you also have JS files in your project).
+- **define**: Array of compilation constants passed to the F# compiler. Fable automatically defines `FABLE_COMPILER` and fable-loader will also define `DEBUG` in Webpack "development" mode.
 - **typedArrays**: Translate numeric arrays as JS [Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray). True by default.
 - **clampByteArrays**: If true, Fable will translate byte arrays as [Uint8ClampedArray](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8ClampedArray).
-- **fableCore**: Specify a directory containing Fable.Core JS files, normally used for testing new Fable versions.

@@ -1,12 +1,12 @@
 # .NET and F# Compatibility
 
-Fable provides support for some classes of .NET BCL (Base Class Library) and most of
-FSharp.Core library. When possible, Fable translates .NET types and methods to native JavaScript APIs for minimum overhead.
+> This document applies to Fable 1. It will be updated soon with Fable 2 information.
+
+Fable provides support for some classes of .NET BCL (Base Class Library) and most of FSharp.Core library. When possible, Fable translates .NET types and methods to native JavaScript APIs for minimum overhead.
 
 ## .NET Base Class Library
 
-The following classes are translated to JS and most of their methods
-(static and instance) should be available in Fable.
+The following classes are translated to JS and most of their methods (static and instance) should be available in Fable.
 
 .NET                                  | JavaScript
 --------------------------------------|----------------------------
@@ -19,6 +19,7 @@ System.String                         | string
 System.Guid                           | string
 System.TimeSpan                       | number
 System.DateTime                       | Date
+System.DateTimeOffset                 | Date
 System.Timers.Timer                   | fable-core/Timer
 System.Collections.Generic.List       | Array
 System.Collections.Generic.HashSet    | Set
@@ -36,25 +37,26 @@ The following static methods are also available:
 - `System.Diagnostics.Debugger.Break()`
 - `System.Activator.CreateInstance<'T>()`
 
+There is also support to convert between numeric types and to parse strings, check [the convert tests](https://github.com/fable-compiler/Fable/blob/master/tests/Main/ConvertTests.fs).
+
 ### Caveats
 
-- All numeric types including `decimal` become JS `number` (64-bit floating type), except for `int64`, `uint64` and `bigint`.
+- All numeric types including `decimal` become JS `number` (64-bit floating type), except for `int64`, `uint64` and `bigint`. Check [this document](numbers.md) to learn more about the differences in numeric types between .NET and JS.
 - Numeric arrays are compiled to [Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray) when possible.
 - No bound checks for numeric types (unless you do explicit conversions like `byte 500`) nor for array indices.
 - `Regex` will always behave as if passed `RegexOptions.ECMAScript` flag (e.g., no negative look-behind or named groups).
 
 ## FSharp.Core
 
-Most of FSharp.Core operators are supported, as well as formatting with
-`sprintf`, `printfn` or `failwithf` (`String.Format` is also available).
-The following types and/or corresponding modules from FSharp.Core lib will
-likewise translate to JS:
+Most of FSharp.Core operators are supported, as well as formatting with `sprintf`, `printfn` or `failwithf` (`String.Format` is also available).
+The following types and/or corresponding modules from FSharp.Core lib will likewise translate to JS:
 
 .NET              | JavaScript
 ------------------|----------------------------------------------------------
 Tuples            | Array
 Option            | (erased)
 Choice            | fable-core/Choice
+Result            | fable-core/Result
 String            | fable-core/String (module)
 Seq               | [Iterable](http://babeljs.io/docs/learn-es2015/#iterators-for-of)
 List              | fable-core/List
@@ -80,12 +82,9 @@ The following F# semantic and syntactic features are also available:
 
 ### Caveats
 
-- Options are **erased** in JS (`Some 5` becomes just `5` in JS and `None` translates to `null`).
-  This is needed for example, to represent TypeScript [optional properties](https://www.typescriptlang.org/docs/handbook/interfaces.html#optional-properties).
+- Options are **erased** in JS (`Some 5` becomes just `5` in JS and `None` translates to `null`). This is needed for example, to represent TypeScript [optional properties](https://www.typescriptlang.org/docs/handbook/interfaces.html#optional-properties). However in a few cases (like nested options) there is an actual representation of the option in the runtime.
 - `Async.RunSynchronously` is not supported.
-- `MailboxProcessor` is single-threaded in JS and currently only
-  `Start`, `Receive`, `Post` and `PostAndAsyncReply` are implemented
-  (`cancellationToken` or `timeout` optional arguments are not supported).
+- `MailboxProcessor` is single-threaded in JS and currently only `Start`, `Receive`, `Post` and `PostAndAsyncReply` are implemented (`cancellationToken` or `timeout` optional arguments are not supported).
 
 ## Object Oriented Programming
 

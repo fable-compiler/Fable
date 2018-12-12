@@ -1,16 +1,8 @@
-[<Util.Testing.TestFixture>]
 module Fable.Tests.Reflection
 
-#if DOTNETCORE && !FABLE_COMPILER
-open System.Reflection
-module System =
-    type System.Type with
-        member this.IsGenericType = this.GetTypeInfo().IsGenericType
-#endif
-
-open System
 open Util.Testing
-open Fable.Tests.Util
+
+#if !OPTIMIZE_FCS
 
 type TestType =
     | Union1 of string
@@ -18,17 +10,38 @@ type TestType =
 type TestType2 =
     | Union2 of string
 
+type TestType3 = class end
+type TestType4 = class end
+type TestType5 = class end
+
 type GenericRecord<'A,'B> = { a: 'A; b: 'B }
 
-open Fable.Core
+(*
 type PassingGenericsTest =
     [<PassGenerics>]
     static member Foo<'T>(x: int) = typeof<'T>
     [<PassGenerics>]
     static member Bar<'T,'U>() = typeof<'U>, typeof<'T>
 
-[<Test>]
-let ``PassGenericsAttribute works``() =
+type PassingGenericsTest2 =
+    [<PassGenerics>]
+    static member OnlyAccept<'T>(msg: obj) =
+        let t = typeof<'T>
+        t = typeof<obj> || msg.GetType() = t
+
+type MessageBus () =
+  let _create topic value = ()
+  [<PassGenerics>]
+  member this.create (value:'t) = "topic1: " + (typeof<'t>.Name)
+  [<PassGenerics>]
+  member this.create (topic, value:'t) = topic + ": " + (typeof<'t>.Name)
+  [<PassGenerics>]
+  member this.optionalArgs (value:'t, ?flag1: bool) =
+    let flag1 = defaultArg flag1 false
+    (sprintf "%b: %s" flag1 (typeof<'t>.Name)).ToLower()
+
+let passGenericsAttributeTests = [
+  testCase "PassGenericsAttribute works" <| fun () ->
     let t = PassingGenericsTest.Foo<string>(5)
     let t1, t2 = PassingGenericsTest.Bar<TestType, bool>()
     #if FABLE_COMPILER
@@ -39,32 +52,37 @@ let ``PassGenericsAttribute works``() =
     t1 |> equal typeof<bool>
     t2 |> equal typeof<TestType>
 
-type PassingGenericsTest2 =
-    [<PassGenerics>]
-    static member OnlyAccept<'T>(msg: obj) =
-        let t = typeof<'T>
-        t = typeof<obj> || msg.GetType() = t
-
-[<Test>]
-let ``Comparing types works with primitives``() =
+  testCase "Comparing types works with primitives" <| fun () ->
     PassingGenericsTest2.OnlyAccept<int>(43) |> equal true
     PassingGenericsTest2.OnlyAccept<string>("hi") |> equal true
     PassingGenericsTest2.OnlyAccept<string>(43) |> equal false
 
-[<Test>]
-let ``Comparing types works with custom types``() =
+  testCase "Comparing types works with custom types" <| fun () ->
     PassingGenericsTest2.OnlyAccept<TestType>(Union1 "bye") |> equal true
     PassingGenericsTest2.OnlyAccept<TestType>(Union2 "bye") |> equal false
     PassingGenericsTest2.OnlyAccept<obj>("I'll accept anything") |> equal true
 
-[<Test>]
-let ``typedefof works``() =
+  testCase "Overloads with PassGenericsAttribute work" <| fun () ->
+    let x = { name = "" }
+    let bus = MessageBus()
+    bus.create x |> equal "topic1: Firm"
+    bus.create ("global", x) |> equal "global: Firm"
+
+  testCase "Optional arguments with PassGenericsAttribute work" <| fun () ->
+    let x = { name = "" }
+    let bus = MessageBus()
+    bus.optionalArgs(x) |> equal "false: firm"
+    bus.optionalArgs(x, true) |> equal "true: firm"
+]
+*)
+
+let genericTests = [
+  testCase "typedefof works" <| fun () ->
     let tdef1 = typedefof<int list>
     let tdef2 = typedefof<string list>
     equal tdef1 tdef2
 
-[<Test>]
-let ``IsGenericType works``() =
+  testCase "IsGenericType works" <| fun () ->
     typeof<int list>.IsGenericType |> equal true
     typeof<TestType>.IsGenericType |> equal false
     let t1 = typeof<int list>
@@ -74,29 +92,29 @@ let ``IsGenericType works``() =
     t2.IsGenericType |> equal false
     t3.IsGenericType |> equal false
 
-[<Test>]
-let ``GetGenericTypeDefinition works``() =
+  testCase "GetGenericTypeDefinition works" <| fun () ->
     let tdef1 = typedefof<int list>
     let tdef2 = typeof<int list>.GetGenericTypeDefinition()
     let t = typeof<int list>
     let tdef3 = t.GetGenericTypeDefinition()
     equal tdef1 tdef2
     equal tdef1 tdef3
+    tdef1 = typeof<int list> |> equal false
 
-[<Test>]
-let ``Comparing generic types works``() =
+  testCase "Comparing generic types works" <| fun () ->
     let t1 = typeof<GenericRecord<string, TestType>>
     let t2 = typeof<GenericRecord<string, TestType>>
     let t3 = typeof<GenericRecord<string, int>>
     t1 = t2 |> equal true
     t1 = t3 |> equal false
+]
 
-let [<PassGenerics>] getName<'t> = function
+let inline getName<'t> = function
     | "namespace" -> typedefof<'t>.Namespace
     | "name" -> typedefof<'t>.Name
     | _ -> typedefof<'t>.FullName
 
-let [<PassGenerics>] getName2 (d:'t) = function
+let inline getName2 (d:'t) = function
     | "namespace" -> typeof<'t>.Namespace
     | "name" -> typeof<'t>.Name
     | _ -> typeof<'t>.FullName
@@ -106,57 +124,84 @@ let getName3 (t:System.Type) = function
     | "name" -> t.Name
     | _ -> t.FullName
 
-let getName4 (o:obj) = function
-    | "namespace" -> o.GetType().Namespace
-    | "name" -> o.GetType().Name
-    | _ -> o.GetType().FullName
+// Fable 2 cannot check types unknown at compile time
+// let getName4 (o:obj) = function
+//     | "namespace" -> o.GetType().Namespace
+//     | "name" -> o.GetType().Name
+//     | _ -> o.GetType().FullName
 
 type Firm = { name: string }
 
-[<Test>]
-let ``Type name is accessible``() =
+let normalize (x: string) =
+    #if FABLE_COMPILER
+    x
+    #else
+    x.Replace("+",".")
+    #endif
+
+let inline fullname<'T> () = typeof<'T>.FullName |> normalize
+// let inline create<'T when 'T:(new : unit -> 'T)> () = new 'T()
+// let inline create2<'T> (args: obj[]) =
+//     System.Activator.CreateInstance(typeof<'T>, args) :?> 'T
+
+let typeNameTests = [
+  testCase "Type Namespace" <| fun () ->
+    let x = typeof<TestType>.Namespace
+    #if FABLE_COMPILER
+    equal "Fable.Tests.Reflection" x
+    #else
+    equal "Fable.Tests" x
+    #endif
+
+  testCase "Type FullName" <| fun () ->
+    let x = typeof<TestType>.FullName
+    x |> normalize |> equal "Fable.Tests.Reflection.TestType"
+
+  testCase "Type Name" <| fun () ->
+    let x = typeof<TestType>.Name
+    equal "TestType" x
+
+  testCase "Get fullname of generic types with inline function" <| fun () ->
+    fullname<TestType3>() |> equal "Fable.Tests.Reflection.TestType3"
+    fullname<TestType4>() |> equal "Fable.Tests.Reflection.TestType4"
+
+//   testCase "Create new generic objects with inline function" <| fun () ->
+//     create<TestType3>().Value |> equal "Hi"
+//     create<TestType4>().Value2 |> equal "Bye"
+//     // create<TestType5>() // Doesn't compile
+
+//   testCase "Create new generic objects with System.Activator" <| fun () ->
+//     (create2<TestType3> [||]).Value |> equal "Hi"
+//     (create2<TestType4> [||]).Value2 |> equal "Bye"
+//     (create2<TestType5> [|"Yo"|]).Value |> equal "Yo"
+
+  testCase "Type name is accessible" <| fun () ->
     let x = { name = "" }
     getName<Firm> "name" |> equal "Firm"
     getName2 x "name" |> equal "Firm"
     getName3 typedefof<Firm> "name" |> equal "Firm"
-    getName4 x "name" |> equal "Firm"
+    // getName4 x "name" |> equal "Firm"
 
-[<Test>]
-let ``Type namespace is accessible``() =
+  testCase "Type namespace is accessible" <| fun () ->
     let test (x: string) =
         x.StartsWith("Fable.Tests") |> equal true
     let x = { name = "" }
     getName<Firm> "namespace" |> test
     getName2 x "namespace" |> test
     getName3 typedefof<Firm> "namespace" |> test
-    getName4 x "namespace" |> test
+    // getName4 x "namespace" |> test
 
-[<Test>]
-let ``Type full name is accessible``() =
+  testCase "Type full name is accessible" <| fun () ->
     let test (x: string) =
         x.Replace("+", ".") |> equal "Fable.Tests.Reflection.Firm"
     let x = { name = "" }
     getName<Firm> "fullname" |> test
     getName2 x "fullname" |> test
     getName3 typedefof<Firm> "fullname" |> test
-    getName4 x "fullname" |> test
-
-type MessageBus () =
-  let _create topic value = ()
-  [<PassGenerics>]
-  member this.create (value:'t) = "topic1: " + (typeof<'t>.Name)
-  [<PassGenerics>]
-  member this.create (topic, value:'t) = topic + ": " + (typeof<'t>.Name)
-
-[<Test>]
-let ``Overloads with PassGenericsAttribute work``() =
-    let x = { name = "" }
-    let bus = MessageBus()
-    bus.create x |> equal "topic1: Firm"
-    bus.create ("global", x) |> equal "global: Firm"
+    // getName4 x "fullname" |> test
+]
 
 // FSharpType and FSharpValue reflection tests
-
 open FSharp.Reflection
 
 exception TestException of String: string * Int: int
@@ -172,32 +217,58 @@ type TestUnion =
     | StringCase of String: string * string
     | IntCase of Int: int
 
-[<Test>]
-let ``FSharp.Reflection: Exception`` () =
-    let typ = typeof<TestException>
-    let ex = TestException("a", 1)
-    let exTypeFields = FSharpType.GetExceptionFields typ
-    let exValueFields = FSharpValue.GetExceptionFields(ex)
+type RecordF = { F : int -> string }
 
-    let expectedExFields =
-        [|
-            "String", box "a"
-            "Int", box 1
-        |]
+type AsyncRecord = {
+  asyncProp : Async<string>
+}
 
-    let exFields =
-        exTypeFields
-        |> Array.map (fun field -> field.Name)
-        |> flip Array.zip exValueFields
+type MyList<'T> =
+| Nil
+| Cons of 'T * MyList<'T>
 
-    let isExceptionRepresentation = FSharpType.IsExceptionRepresentation typ
-    let matchExFields = exFields = expectedExFields
+let inline create<'T when 'T: (new: unit->'T)> () = new 'T()
 
-    let all = isExceptionRepresentation && matchExFields
-    all |> equal true
+type A() = member __.Value = 5
 
-[<Test>]
-let ``FSharp.Reflection: Record`` () =
+type B() = member __.Value = 10
+
+let reflectionTests = [
+  testCase "Reflection: Array" <| fun () ->
+    let arType = typeof<int[]>
+    let liType = typeof<int list>
+    equal true arType.IsArray
+    equal false liType.IsArray
+    let elType = arType.GetElementType()
+    typeof<int> = elType |> equal true
+    typeof<bool> = elType |> equal false
+    liType.GetElementType() |> equal null
+
+  // TODO!!!
+//   testCase "FSharp.Reflection: Exception" <| fun () ->
+//     let typ = typeof<TestException>
+//     let ex = TestException("a", 1)
+//     let exTypeFields = FSharpType.GetExceptionFields typ
+//     let exValueFields = FSharpValue.GetExceptionFields(ex)
+
+//     let expectedExFields =
+//         [|
+//             "String", box "a"
+//             "Int", box 1
+//         |]
+
+//     let exFields =
+//         exTypeFields
+//         |> Array.map (fun field -> field.Name)
+//         |> flip Array.zip exValueFields
+
+//     let isExceptionRepresentation = FSharpType.IsExceptionRepresentation typ
+//     let matchExFields = exFields = expectedExFields
+
+//     let all = isExceptionRepresentation && matchExFields
+//     all |> equal true
+
+  testCase "FSharp.Reflection: Record" <| fun () ->
     let typ = typeof<TestRecord>
     let record = { String = "a"; Int = 1 }
     let recordTypeFields = FSharpType.GetRecordFields typ
@@ -227,9 +298,7 @@ let ``FSharp.Reflection: Record`` () =
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
-type RecordF = { F : int -> string }
-[<Test>]
-let ``FSharp.Reflection Functions``() =
+  testCase "FSharp.Reflection Functions" <| fun () ->
     let recordType = typeof<RecordF>
     let fields = FSharpType.GetRecordFields recordType
     let funcProperty = Array.head fields
@@ -239,8 +308,7 @@ let ``FSharp.Reflection Functions``() =
     equal range typeof<string>
     equal true (FSharpType.IsFunction funcType)
 
-[<Test>]
-let ``FSharp.Reflection: Tuple`` () =
+  testCase "FSharp.Reflection: Tuple" <| fun () ->
     let typ = typeof<string * int>
     let tuple = "a", 1
     let tupleTypeFields = FSharpType.GetTupleElements typ
@@ -268,8 +336,13 @@ let ``FSharp.Reflection: Tuple`` () =
     let all = isTuple && matchTupleFields && matchIndividualTupleFields && canMakeSameTuple
     all |> equal true
 
-[<Test>]
-let ``FSharp.Reflection: Union`` () =
+  testCase "FSharp.Reflection: MakeTupleType" <| fun () ->
+    let t = FSharpType.MakeTupleType [|typeof<float>; typeof<string>; typeof<int[]>|]
+    FSharpValue.MakeTuple([|5.; "foo"; [|2;3|]|], t)
+    |> unbox<float * string * int[]>
+    |> equal (5., "foo", [|2;3|])
+
+  testCase "FSharp.Reflection: Union" <| fun () ->
     let typ = typeof<TestUnion>
     let unionCase1 = StringCase("a", "b")
     let unionCase2 = IntCase 1
@@ -300,12 +373,153 @@ let ``FSharp.Reflection: Union`` () =
     unionFields |> equal expectedUnionFields
     canMakeSameUnionCases |> equal true
 
-type AsyncRecord = {
-  asyncProp : Async<string>
-}
+  testCase "FSharp.Reflection: Result" <| fun () ->
+    let typ = typeof<Result<int,string>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Result<_,string>.Ok 5))
+    FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Result<int,_>.Error "foo"))
 
-[<Test>]
-let ``Type.GenericTypeArguments works``() =
+  testCase "FSharp.Reflection: Choice" <| fun () ->
+    let typ = typeof<Choice<int,string>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Choice<_,string>.Choice1Of2 5))
+    FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Choice<int,_>.Choice2Of2 "foo"))
+
+    let typ = typeof<Choice<float,string list,float>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box -0.3|]) |> equal (box (Choice<_,string list,float>.Choice1Of3 -0.3))
+    FSharpValue.MakeUnion(ucis.[1], [|box ["foo";"bar"]|]) |> equal (box (Choice<float,_,float>.Choice2Of3 ["foo";"bar"]))
+    FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> equal (box (Choice<float,string list,_>.Choice3Of3 3.5))
+    FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> (=) (box (Choice<float,string list,_>.Choice1Of3 3.5)) |> equal false
+
+  testCase "Type.GenericTypeArguments works" <| fun () ->
     let recordType = typeof<AsyncRecord>
     let asyncProp = FSharpType.GetRecordFields recordType |> Array.head
     asyncProp.PropertyType.GenericTypeArguments |> Array.head |> equal typeof<string>
+
+  testCase "Recursive types work" <| fun () ->
+    let cons =
+        FSharpType.GetUnionCases(typeof<MyList<int>>)
+        |> Array.find (fun x -> x.Name = "Cons")
+    let fieldTypes = cons.GetFields()
+    fieldTypes.[0].PropertyType.FullName |> equal typeof<int>.FullName
+    fieldTypes.[1].PropertyType.GetGenericTypeDefinition().FullName |> equal typedefof<MyList<obj>>.FullName
+
+  testCase "Calling constructor of generic type in inline functions works" <| fun () ->
+    let a = create<A>()
+    let b = create<B>()
+    a.Value |> equal 5
+    b.Value |> equal 10
+
+  // See https://github.com/Microsoft/visualfsharp/issues/5992
+  testCase "Generic numbers type info doesn't get into runtime" <| fun () ->
+    let value = 0.7833263478179128134089M
+    value.GetType().FullName |> equal "System.Decimal"
+]
+
+// TODO!!! Add reflection tests for interfaces, erased unions,
+// string enums, imported and replaced types
+#if FABLE_COMPILER
+open Fable.Core
+// open Fable.Core.Reflection
+
+type R1 = { x: int }
+type R2 = { y: int }
+
+type Helper =
+    static member Make(values: obj[], [<Inject>] ?res: ITypeResolver<'U>) =
+        let t = res.Value.ResolveType()
+        FSharpValue.MakeRecord(t, values) :?> 'U
+
+type Maybe<'t> =
+    | Just of 't
+    | Nothing
+
+type RecWithGenDU<'t> = { Other: 't; Value : Maybe<string> }
+type GenericTestRecord<'t> = { Other: 't; Value : Maybe<string> }
+
+// helper class to extract the name of an injected type
+type Types() =
+    static member getNameOf<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : string =
+        let resolvedType = resolver.Value.ResolveType()
+        resolvedType.Name
+
+    static member get<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : System.Type =
+        let resolvedType = resolver.Value.ResolveType()
+        resolvedType
+
+type MyUnion20 =
+    | Union20_A
+    | Union20_B of int * string
+
+type MyRecord20 =
+    { FieldA: int
+      FieldB: string }
+
+let injectTests = [
+    testCase "ITypeResolver can be injected" <| fun () ->
+        let x: R1 = Helper.Make [|box 5|]
+        let y: R2 = Helper.Make [|box 10|]
+        equal x { x = 5 }
+        equal y { y = 10 }
+
+    testCase "Recursively reading generic arguments of nested generic types works" <| fun () ->
+        let typeInfo = Types.get<Maybe<Maybe<int>>>()
+
+        // recursively reads the generic arguments
+        let rec getGenericArgs (typeDef: System.Type) : string list =
+            [ yield typeDef.Name
+              for genericTypeArg in typeDef.GetGenericArguments() do
+                yield! getGenericArgs genericTypeArg ]
+
+        getGenericArgs typeInfo
+        |> equal ["Maybe`1"; "Maybe`1"; "Int32"]
+
+    testCase "Name can be extracted from RecWithGenDU" <| fun () ->
+        let name = Types.getNameOf<Maybe<list<RecWithGenDU<string>>>>()
+        equal false (name = "")
+
+    testCase "Name can be extracted from GenericTestRecord" <| fun () ->
+        let name = Types.getNameOf<Maybe<list<GenericTestRecord<string>>>>()
+        equal false (name = "")
+
+    // TODO!!! Enable these tests when a new Fable.Core version is released
+    // testCase "Can check unions and records without type" <| fun () ->
+    //     let x = box Union20_A
+    //     let y = box { FieldA = 5; FieldB = "foo" }
+    //     isUnion x |> equal true
+    //     isRecord x |> equal false
+    //     isUnion y |> equal false
+    //     isRecord y |> equal true
+
+    // testCase "Can get union values without type" <| fun () ->
+    //     let x = box Union20_A
+    //     let y = Union20_B(5, "foo") |> box
+    //     getCaseTag x |> equal 0
+    //     getCaseTag y |> equal 1
+    //     getCaseName x |> equal "Union20_A"
+    //     getCaseName y |> equal "Union20_B"
+    //     getCaseFields x |> equal [||]
+    //     getCaseFields y |> equal [|5; "foo"|]
+]
+
+#else
+let injectTests = []
+#endif
+
+let genericTypeNamesTests =
+    testList "Naming generic types"
+      [  ]
+
+let tests =
+    testList "Reflection tests" (
+        // passGenericsAttributeTests
+        genericTests
+        @ typeNameTests
+        @ reflectionTests
+        @ injectTests
+    )
+
+#else // OPTIMIZE_FCS
+let tests = testList "Reflection tests" []
+#endif

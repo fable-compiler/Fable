@@ -1,14 +1,241 @@
+### 2.0.11
+
+* Fix conflicting extensions with same type and member names
+
+### 2.0.10
+
+* Improve decimal support #1627
+* Compile fable-core/BigInt from F# #1631
+* Add range info to Debugger statement
+
+### 2.0.9
+
+* Include non-mangled identifier names for source maps
+* Optimize tailcalls returning unit #1624
+* Fix DateTimeOffset @ncave
+* Fix #1607: More descriptive error when two module members have same name
+* Fix #1628: `String.filter Char.IsDigit` freezes REPL
+
+### 2.0.8
+
+* Implement eprintf and eprintfn @inosik
+* Fix #1389: Throw proper error when match cases are incomplete @Zaid-Aja
+* Fix #1602: constructor "as this" notation
+* Only check for Fable.Core major and minor version
+
+### 2.0.6
+
+* Don't change the first letter of erased union cases in keyValueList
+* Updates for creating precompiled libraries
+* Fix `isRelativePath`
+
+### 2.0.4
+
+* Fix #1594 Array.partition results are too long @ericharding
+* Fix #1599: Folders starting with dot @OnurGumus @inosik
+* Check files exist when collecing all sources into single .fsproj @dbrattli
+* Don't trigger Symbol.iterator when testing for iterables
+* Improvements for Fable REPL @ncave
+
+### 2.0.3
+
+* Fix #1588: MailboxProcessor.PostAndAsyncReply with falsy values @nilekirk
+* Fix #1586: Parsing signed longs @ncave
+* Fix #1585: Timespan milliseconds to int conversion
+* Fix #1386: Proper convertion to .NET delegates
+* More fixes for optimization switch @ncave
+
+### 2.0.2
+
+* Fix #1583: Generated idents must always be unique
+* Fix #1582: Enable Seq.sum(By)/average(By) with custom types
+* Fixes for optimization switch @ncave
+
+### 2.0.1
+
+* Fix sorting of Fable dependencies
+
+### 2.0.0
+
+* Fable 2
+
+### 2.0.0-beta-005
+
+* Update to FCS 25.0.1
+* Add replacements for System.Uri @JacobChang
+* Fix #1539: 0xFFFFFFFFu is read as 0u in REPL @ncave
+
+### 2.0.0-beta-004
+
+* Attach interface members to prototype (as in Fable 1, no cast needed anymore) #1562
+* Improvements in fable-core JS files @ncave
+* Fix #1551: Truncation of large unsigned bitwise op results @tomcl
+* Fix #1337: Add Option.contains @iyegoroff
+* Fix #1383: Range with longs
+* Fix abstract properties with getter and setter
+
+### 2.0.0-beta-003
+
+* Improve int64 conversions @tomcl #1546
+* Add full call path for errors in inlined functions
+* Fix #1545: Warning when casting to and interface not directly implemented
+* Fix extension member overloads
+
+### 2.0.0-beta-002
+
+* Compile chars as JS strings (as in Fable 1)
+* Add Map.TryGetValue
+* Add EnumToValue @zpodlovics #1522
+* Fix: Use operators as functions @xdaDaveShaw #1529
+* Fix hexadecimal printing @xdaDaveShaw #1535
+* Fix overloaded inline methods in other files @dgchurchill #1534
+* Fix #1516: Add warning if unit value is replaced
+* Fix #1533: Enable inheriting empty interfaces
+* Fix #1519: FSharpType.MakeTupleType
+* Fix extension member overloads
+* Fix: Check bitwise shift left for unsigned integers
+* Improvements in pattern matching compilation
+* Add --force-pkgs CLI option
+* Return non-zero error code when CLI arguments are wrong @theimowski #1515
+
+### 2.0.0-beta-001
+
+* Fable 2 beta
+
+### 1.3.7
+
+* Fix PassGenerics attribute with optional arguments
+* Fix interface getter and setter overloads
+* Add PhysicalHash (@ncave)
+* Check empty/whitespace strings when parsing floats
+* Fix #1296 String chunkBySize fails
+
+### 1.3.6
+
+* Fix #1294: Deserializing F# Result doesn't restore type information (@inosik)
+
+### 1.3.5
+
+* Change license to MIT
+* Remove point-free warning
+* Fix #1272 #1274: Decimal literals and parsing
+* Fix #1199: Application of point-free functions
+* Fix #1291: Inlined object expression shouldn't change `this` context of argument
+* Fix Compare and Equal for IE11 (@SCullman)
+* Fix assignment block optimization inside try...with
+* Add PowDouble, RangeChar and RangeDouble (@Zaid-Ajaj)
+* Make `Double.Parse` and `Single.Parse` compilable with IFormatProvider (@Zaid-Ajaj)
+* Add ErrorStrings (@Zaid-Ajaj)
+* Add `List.Equals` & `List.CompareTo` (@Zaid-Ajaj)
+* Add `Char.parse` (@inosik)
+
 ### 1.3.4
 
-* See dotnet-fable 1.3.4 release notes
+* Optimize assignment blocks as expressions (#1265)
+* Improve method resolution with function parameters
+* Fix applicative operators with 3-arg functions
+
+### 1.3.3
+
+* Add Char.IsWhiteSpace
+* Bring back warning for point-free style
+* Better error message when `ofJson` fails
+* Fix application of function options
+* Fix #1256: Optimize unions without fields
+* Fix #1255: Add Enum.HasFlag
+* Fix #838: Return empty group values when group is not matched instead of undefined
+* Fix option wrapper in serialization
+
+### 1.3.2
+
+* Don't pass dependencies to JS clients (see #1241)
+* Recompile edited and dependent files in watch compilations and send errors (if any) to client
+* Remove point-free warning for now as it was too noisy (see #1244)
+* Added List.RemoveRange (PR #1243 by Zaid-Ajaj)
+* Built with dotnet SDK 2.0.3 on Windows
+
+### 1.3.1
+
+* Add warning for point-free style function declarations
+* Fix #1238: Inline overloaded methods and "this" double eval
+* Fix #1236 #1237: Char.IsUpper, Char.IsDigit and friends
+* Fix #1234: Local inline lambdas work standalone
+* Fix #1185: Transform importMember expressions for functions
+
+### 1.3.0
+
+* Optimize watch compilations
+* Add dependencies to ensure all necessary files are recompiled in a watch compilation (#1188)
+* Enable nested options (#1189, #1219)
+* Remove closures generated by F# compiler
+* Add DateTimeOffset
+* Added inf, nan operators
+* Fix #1218: Multiple namespaces in same file
+* Fix #1230: Seq.singleton returns empty after first use
+* Fix #1227: Names in paket.references are not case sensitive
+* Fix #1223: Async.StartChild
+* Fix #1216: Print.sprintf (note the qualified module)
+* Fix #1204: kprintf works indirectly
+* Fix #1203: choose and pick with generic options
+* Fix #1201: Cannot find replacement for `System.Char::ToUpper`
+* Fix #1193 and other string printing errors
+* Fix #1190: Trait calls don't check inherited members
+* Fix #1187: List.truncate returning one-too-many elements
+* Fix #1186: Negated negative values
 
 ### 1.3.0-beta-009
 
-* See dotnet-fable 1.3.0-beta-009 release notes
+* Fix #1218: Multiple namespaces in same file
+* Add "eval" to JS keywords
+* Fix DateTime[Offset].ToString() (without format)
+
+### 1.3.0-beta-008
+
+* Add DateTimeOffset
+* Added inf, nan operators
+* Fix #1223: Async.StartChild
+* Fix #1230: Seq.singleton returns empty after first use
+
+### 1.3.0-beta-007
+
+* Fix #1227: Names in paket.references are not case sensitive
+* Fix #1216: Print.sprintf (note the qualified module)
+* More fixes for nested options (see PR #1219)
+
+### 1.3.0-beta-005
+
+* Add `PackageType` to dotnet-fable.fsproj
+
+### 1.3.0-beta-003
+
+* Fix #1203: choose and pick with generic options
+* Fix #1204: kprintf works indirectly
+* Fix #1201: Cannot find replacement for `System.Char::ToUpper`
+* Fix #1193 and other string printing errors
+* Fix #1190: Trait calls don't check inherited members
+* Fix option handling
+* Remove closures generated by F# compiler
+
+### 1.3.0-beta-002
+
+* #1188: Add dependencies to ensure all necessary files are recompiled in a watch compilation
+* #1189: Enable nested options
+* Fix #1187: List.truncate returning one-too-many elements
+* Fix #1186: Negated negative values
+
+### 1.3.0-beta-001
+
+* Optimize watch compilations with `extra.optimizeWatch` option (see FSharp.Compiler.Service/issues/796)
 
 ### 1.2.4
 
-* See dotnet-fable 1.2.4 release notes
+* Add `jsOptions` helper
+* Add `List/Array.splitAt`
+* Add `ParamListAttribute`
+* Don't reference `Buffer` from fable-core
+* Fix #1156: Partially applied functions don't duplicate side effects
+* Fix #1155: Regex replacing with `$0` doesn't work
+* Fix #1154: Applying to a function returned by a member works
 
 ### 1.2.3
 

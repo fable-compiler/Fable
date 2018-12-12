@@ -16,3 +16,9 @@ type Helper3(i: int) =
     member x.Value = string i
 
 type H = Helper3
+
+
+module Extensions =
+    type String with
+        member inline x.StartsWithIgnoreCase(value) =
+            x.StartsWith(value, StringComparison.OrdinalIgnoreCase)

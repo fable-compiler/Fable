@@ -1,11 +1,7 @@
-[<Util.Testing.TestFixture>]
-module Fable.Tests.ParserTests
-
+module Fable.Tests.ElmishParser
 
 [<RequireQualifiedAccess>]
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Option =
-
     let tuple a b =
         match (a,b) with
         | Some a, Some b -> Some (a,b)
@@ -30,7 +26,6 @@ type State<'v> =
     value : 'v }
 
 [<RequireQualifiedAccess>]
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal State =
   let mkState visited unvisited args value =
         { visited = visited
@@ -120,8 +115,6 @@ let s str : Parser<_,_> =
                 []
     inner
 
-
-
 (**
 #### Combining parsers
 Parse a path with multiple segments.
@@ -145,6 +138,7 @@ Parse a path with multiple segments.
     /cats/         ==>  None
 </pre>
 *)
+
 let inline (</>) (parseBefore:Parser<_,_>) (parseAfter:Parser<_,_>) =
   fun state ->
     List.collect parseAfter (parseBefore state)
@@ -205,7 +199,6 @@ let map (subValue:'a) (parse:Parser<'a,'b>) : Parser<'b->'c,'c> =
 let oneOf parsers state =
     List.collect (fun parser -> parser state) parsers
 
-
 (** A parser that does not consume any path segments.
 ```
     type BlogRoute = Overview | Post of int
@@ -223,8 +216,6 @@ let oneOf parsers state =
 let top state=
     [state]
 
-
-
 (**
 #### Query parameters
 Turn query parameters like `?name=tom&age=42` into nice data.
@@ -232,7 +223,6 @@ Turn query parameters like `?name=tom&age=42` into nice data.
 *)
 
 type QueryParser<'a,'b> = State<'a> -> State<'b> list
-
 
 (** Parse some query parameters.
 ```
@@ -264,7 +254,6 @@ let customParam (key: string) (func:string option -> _) : QueryParser<_,_> =
         [ State.mkState visited unvisited args (value (func (Map.tryFind key args))) ]
     inner
 
-
 (** Parse a query parameter as a `string`.
 ```
     parse (s "blog" <?> stringParam "search") location
@@ -279,7 +268,7 @@ let stringParam name =
 
 let internal intParamHelp =
     Option.bind
-        (fun value ->
+        (fun (value: string) ->
             match System.Int32.TryParse value with
             | (true,x) -> Some x
             | _ -> None)
@@ -297,7 +286,6 @@ should appear first.
 *)
 let intParam name =
     customParam name intParamHelp
-
 
 // PARSER HELPERS
 
@@ -339,7 +327,6 @@ let internal toKeyValuePair (segment:string) =
         Option.tuple (Option.ofFunc JS.decodeURI key) (Option.ofFunc JS.decodeURI value)
     | _ -> None
 
-
 let internal parseParams (querystring:string) =
     querystring.Substring(1).Split('&')
     |> Seq.map toKeyValuePair
@@ -370,32 +357,30 @@ let pageParser: Parser<Page->Page,_> =
   let curry f a b = f (a,b)
   map (curry (Some >> Samples)) (s "samples" </> i32 </> str)
 
-open Fable.Tests.Util
 open Util.Testing
 
-[<Test>]
-let ``Parses``() =
-    parse pageParser "samples/400/test" (Map [])
-    |> equal (Some (Samples (Some (400, "test"))))
+let tests =
+  testList "Elmish Parser" [
+    testCase "Parses" <| fun () ->
+        parse pageParser "samples/400/test" (Map [])
+        |> equal (Some (Samples (Some (400, "test"))))
 
-[<Test>]
-let ``Parses 2 string params with missing one`` () =
-    let f a b = a, b
-    let parser = map f (s "samples" <?> stringParam "param1" <?> stringParam "param2")
-    parseHash parser "#samples?param1=test"
-    |> equal (Some (Some "test", None))
+    testCase "Parses 2 string params with missing one" <| fun () ->
+        let f a b = a, b
+        let parser = map f (s "samples" <?> stringParam "param1" <?> stringParam "param2")
+        parseHash parser "#samples?param1=test"
+        |> equal (Some (Some "test", None))
 
-[<Test>]
-let ``Parses 2 string params with both supplied`` () =
-    let f a b = a, b
-    let parser = map f (s "samples" <?> stringParam "param1" <?> stringParam "param2")
-    parseHash parser "#samples?param1=test1&param2=test2"
-    |> equal (Some (Some "test1", Some "test2"))
+    testCase "Parses 2 string params with both supplied" <| fun () ->
+        let f a b = a, b
+        let parser = map f (s "samples" <?> stringParam "param1" <?> stringParam "param2")
+        parseHash parser "#samples?param1=test1&param2=test2"
+        |> equal (Some (Some "test1", Some "test2"))
 
-[<Test>]
-let ``Parses string segment followed by string param`` () =
-    let f a b = a, b
-    let parser = map f (s "samples" </> str <?> stringParam "param1")
-    parseHash parser "#samples/test1?param1=test2"
-    |> equal (Some ("test1", Some "test2"))
+    testCase "Parses string segment followed by string param" <| fun () ->
+        let f a b = a, b
+        let parser = map f (s "samples" </> str <?> stringParam "param1")
+        parseHash parser "#samples/test1?param1=test2"
+        |> equal (Some ("test1", Some "test2"))
+  ]
 #endif

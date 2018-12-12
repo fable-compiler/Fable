@@ -1,9 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="../../build/fable/Fable.Core.dll" />
+    <PackageReference Include="FSharp.Core" Version="4.5.2" />
+    <PackageReference Include="Fable.Core" Version="2.0.2" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="QuickTest.fs" />
   </ItemGroup>
 </Project>

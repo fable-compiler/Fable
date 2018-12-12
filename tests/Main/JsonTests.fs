@@ -483,4 +483,19 @@ let ``Roundtripped int64 is convertible to float``() =
     let r = {long = 0L} |> toJson  |> ofJson<RrdWithLong>
     r.long |> float
     |> equal 0.
+
+type WrappedInteger = { Data : int }
+
+[<Test>]
+let ``Can roundtrip Result of non-primitive type`` () =
+    let x = { Data = 0 }
+    let wx : Result<_, unit> = Ok x
+    let wx' = wx |> toJson |> ofJson
+    match wx' with
+    | Ok x' ->
+        if x' = x then
+            ()
+        else
+            failwithf "Unexpected data %A" x'
+    | res -> failwithf "Unexpected result %A" res
 #endif

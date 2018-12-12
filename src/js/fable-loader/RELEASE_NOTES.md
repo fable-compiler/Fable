@@ -1,3 +1,51 @@
+### 2.1.1
+
+* Fix #1523: Mark files with inlined functions as dependencies
+
+### 2.1.0
+
+* Release _stablish_ version
+
+### 2.1.0-beta-007
+
+* Use fable-babel-plugins package
+
+### 2.1.0-beta-006
+
+* Use fable-compiler package
+
+### 2.1.0-beta-005
+
+* Make fable-compiler-dotnet a peerDependency
+
+### 2.1.0-beta-004
+
+* Minor refactoring and update README
+
+### 2.1.0-beta-003
+
+* Fix detection of Webpack watch mode
+
+### 2.1.0-beta-002
+
+* Pin minor version of fable-compiler-dotnet
+
+### 2.1.0-beta-001
+
+* Add fable-compiler-dotnet dependency for standalone compilation
+
+### 2.0.0
+
+* Fable 2
+
+### 2.0.0-beta-001
+
+* Compatibility with Babel 7
+
+### 2.0.0-alpha-003
+
+* Fable 2 alpha
+
 ### 1.1.6
 
 * Ignore dependencies

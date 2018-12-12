@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../dotnet/Fable.Compiler/CLI/ProjectCoreCracker.fs" />
+    <Compile Include="../../dotnet/Fable.Compiler/Global/Prelude.fs" />
+    <Compile Include="../../dotnet/Fable.Compiler/Transforms/OverloadSuffix.fs" />
+    <Compile Include="InjectProcessor.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Dotnet.ProjInfo" Version="0.9.0" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="23.0.3" />
+  </ItemGroup>
+</Project>

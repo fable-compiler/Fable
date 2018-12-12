@@ -1,6 +1,22 @@
-### 1.3.4
+### 2.0.3
 
-* See dotnet-fable 1.3.4 release notes
+* Add `Fable.Core.Reflection` module
+
+### 2.0.2
+
+* Add `nameof2` and `exportDefault`
+
+### 2.0.1
+
+* Fix `ReadonlyArray` spelling
+
+### 2.0.0
+
+* Fable 2
+
+### 1.3.7
+
+* See dotnet-fable 1.3.7 release notes
 
 ### 1.3.0-beta-009
 
