@@ -238,9 +238,9 @@ let tryItem n xs =
     tryFindIndexed (fun i _ -> n = i) xs
 
 let filter f xs =
-    foldBack (fun x acc ->
+    fold (fun acc x ->
         if f x then x::acc
-        else acc) xs []
+        else acc) [] xs |> reverse
 
 let partition f xs =
     fold (fun (lacc, racc) x ->
