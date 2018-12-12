@@ -87,6 +87,30 @@ type Result<'s, 'f> =
 let inline applyInline (a:'a) (b:'b) =
     a <*> b
 
+let sideEffectsCounter =
+    let mutable i = 0
+    fun () ->
+        i <- i + 1
+        i
+
+type SideEffects =
+    { a     : int
+      b     : int
+      c     : int
+      d     : int
+      count : int }
+    static member New(n) =
+        { a     = n
+          b     = n * 2
+          c     = n * 3
+          d     = n * 4
+          count = sideEffectsCounter() } // <== should only be called once per invocation
+
+    member        this.MethodN (v:bool) = { this with a = this.a * if v then 2 else 3 }
+    member inline this.MethodI (v:bool) = { this with a = this.a * if v then 2 else 3 }
+    member        this.MethodN ()       = { this with a = this.a * 10                 }
+    member inline this.MethodI ()       = { this with a = this.a * 10                 }
+
 let tests1 = [
     testCase "Infix applicative can be generated" <| fun () ->
         let r = Ok 1
@@ -115,6 +139,12 @@ let tests1 = [
         match applyInline a r with
         | Ok addOne -> equal 2 (addOne 1)
         | _ -> failwith "expected Ok(addOne) where addOne(1) = 2"
+
+    testCase "Inline code doesn't call many times function with side effects" <| fun () -> // See #1321
+        SideEffects.New(5).MethodN(false).MethodN(true).MethodN().count |> equal 1
+        SideEffects.New(5).MethodN(false).MethodN(true).MethodN().count |> equal 2
+        SideEffects.New(5).MethodI(false).MethodI(true).MethodI().count |> equal 3
+        SideEffects.New(5).MethodI(false).MethodI(true).MethodI().count |> equal 4
 ]
 
 type Foo1(i) =
