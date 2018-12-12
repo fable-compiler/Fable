@@ -855,6 +855,10 @@ let tests =
         let t = Spaces.TRec.Create("haha", "hoho")
         t.Value |> equal "hahahoho"
 
+    testCase "Primary constructor of types from signature files work" <| fun () -> // See #571
+        Spaces.Test(true).Status |> equal true
+        Spaces.Test(false).Status |> equal false
+
     testCase "Two types with same name in different folders work" <| fun () -> // See #781
         tempet.SayA.hello "Albert"
         |> equal "Hello Albert from SayA"

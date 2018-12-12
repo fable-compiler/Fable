@@ -6,6 +6,9 @@ open Util.Testing
 open Fable.Core.JsInterop
 #endif
 
+// LINE SEPARATOR char doesn't cause an error #1283
+let LINE_SEPARATOR = "\u2028"
+
 let [<Literal>] aLiteral = "foo"
 let notALiteral = "foo"
 
