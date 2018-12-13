@@ -70,3 +70,11 @@ export function transformAndSaveBabelAst(babelAst, fileName, outDir, commonjs) {
         console.error(err);
     }
 }
+
+export function runCmd(cmd) {
+    var child_process = require("child_process");
+    console.log(">", cmd);
+    child_process.execSync(cmd, {
+        stdio: "inherit"
+    });
+}

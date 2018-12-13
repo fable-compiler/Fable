@@ -14,7 +14,7 @@ type private IProcess =
 let private FileSystem: IFileSystem = importAll "fs"
 let private Process: IProcess = importAll "process"
 
-let readAllBytes metadataPath (fileName:string) = FileSystem.readFileSync(metadataPath + fileName)
+let readAllBytes (fileName:string) = FileSystem.readFileSync(fileName)
 let readAllText (filePath:string) = (FileSystem.readFileSync (filePath, "utf8")).TrimStart('\uFEFF')
 let writeAllText (filePath:string) (text:string) = FileSystem.writeFileSync (filePath, text)
 
@@ -39,6 +39,9 @@ let transformAndSaveBabelAst (babelAst: obj, fileName: string, outDir: string, c
 let initFable (): Fable.Repl.IFableManager =
     import "init" "./bundle/bundle.min.js"
 
+let runCmd (cmd: string): unit =
+    importMember "./util.js"
+
 let [<Emit("__dirname")>] __dirname: string = jsNative
 
 module Path =
@@ -53,6 +56,11 @@ module Path =
         let normPath = path.Replace("\\", "/").TrimEnd('/')
         let i = normPath.LastIndexOf("/")
         path.Substring(i + 1)
+
+    let GetFileNameWithoutExtension (path: string) =
+        let path = GetFileName path
+        let i = path.LastIndexOf(".")
+        path.Substring(0, i)
 
     let GetDirectoryName (path: string) =
         let normPath = path.Replace("\\", "/")
