@@ -31,6 +31,8 @@ let references = [|
     "System.Text.Encoding.Extensions"
     "System.Text.RegularExpressions"
     "System.ValueTuple"
+    "System.Threading"
+    "System.Threading.Tasks"
 |]
 
 let metadataPath = __dirname + "/metadata2/" // .NET BCL binaries (metadata)

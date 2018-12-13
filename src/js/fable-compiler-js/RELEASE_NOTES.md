@@ -1,4 +1,4 @@
-### 1.0.0-alpha-004
+### 1.0.0-alpha-005
 
 * Fix Fable.Core method calls
 
