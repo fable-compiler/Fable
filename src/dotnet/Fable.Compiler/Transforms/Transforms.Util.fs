@@ -265,7 +265,7 @@ module AST =
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec hasDoubleEvalRisk = function
         | IdentExpr id -> id.IsMutable
-        | Value(Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _ | Enum _) -> false
+        | Value(Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _) -> false
         | Value(NewTuple exprs) -> exprs |> List.exists hasDoubleEvalRisk
         | Value(Enum(kind, _)) ->
             match kind with NumberEnum e | StringEnum e -> hasDoubleEvalRisk e

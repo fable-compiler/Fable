@@ -247,10 +247,11 @@ let bundleRepl (fetchNcaveFork: bool) () =
         |> ReleaseNotesHelper.LoadReleaseNotes
     File.WriteAllText(replDir </> "bundle/version.txt", release.NugetVersion)
 
-let buildNpmFableCompilerJs () =
+let buildNpmFableCompilerJs forceBundle () =
+    buildLibraryFull ()
     let replDir = CWD </> "src/dotnet/Fable.Repl"
     let distDir = CWD </> "src/js/fable-compiler-js/dist"
-    if not (Directory.Exists(replDir </> "bundle")) then
+    if forceBundle || not (Directory.Exists(replDir </> "bundle")) then
         // bundleRepl false ()
         downloadArtifact (replDir </> "bundle") APPVEYOR_REPL_ARTIFACT_URL
     CleanDir distDir
@@ -288,7 +289,7 @@ Target "FableLibraryInjects" (fun _ ->
     run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run")
 Target "fable-splitter" (buildNpmPackage "src/js/fable-splitter")
 Target "fable-compiler" buildNpmFableCompilerDotnet
-Target "fable-compiler-js" buildNpmFableCompilerJs
+Target "fable-compiler-js" (buildNpmFableCompilerJs false)
 Target "RunTestsJS" runTestsJS
 Target "RunTestsDotnet" runTestsDotnet
 
@@ -307,7 +308,7 @@ Target "PublishPackages" (fun () ->
             updateVersionInCliUtil "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
         ), pkgName="dotnet-fable", msbuildProps=["NugetPackage", "true"])
         // NPM packages
-        Package("js/fable-compiler-js", buildNpmFableCompilerJs)
+        Package("js/fable-compiler-js", buildNpmFableCompilerJs true)
         Package("js/fable-compiler", buildNpmFableCompilerDotnet)
         Package "js/fable-loader"
         Package "js/fable-babel-plugins"

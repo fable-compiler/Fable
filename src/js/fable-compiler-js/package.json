@@ -1,6 +1,6 @@
 {
   "name": "fable-compiler-js",
-  "version": "2.0.0-alpha-003",
+  "version": "1.0.0-alpha-002",
   "main": "index.js",
   "bin": {
     "fable": "index.js"

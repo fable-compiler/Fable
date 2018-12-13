@@ -1,11 +1,3 @@
-### 2.0.0-alpha-003
+### 1.0.0-alpha-002
 
-* Added --commonjs support
-
-### 2.0.0-alpha-002
-
-* project references support
-
-### 2.0.0-alpha-001
-
-* First draft
+* First release as `fable-compiler-js` package

@@ -1,17 +1,17 @@
-# fable-compiler
+# fable-compiler-js
 
-[Fable](http://fable.io/) (F# to JS compiler)
+[Fable](http://fable.io/) (F# to JS compiler) running entirely on node.js (no dotnet installation required). This version is stil **experimental**. For example, packages are not yet supported.
 
 ## Global installation
 
 ```shell
-npm install -g fable-compiler@next
+npm install -g fable-compiler-js
 fable <PROJECT_PATH> <OUT_DIR> [--options]
 ```
 
-## Local installation (with yarn)
+## Local installation
 
 ```shell
-yarn add --dev fable-compiler@next
-yarn fable <PROJECT_PATH> <OUT_DIR> [--options]
+npm install fable-compiler-js
+npx fable <PROJECT_PATH> <OUT_DIR> [--options]
 ```
