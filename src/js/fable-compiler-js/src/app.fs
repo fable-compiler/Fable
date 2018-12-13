@@ -198,6 +198,10 @@ let parseArguments (argv: string[]) =
     | [| "--help" |], _ -> printfn "%s" usage
     | [| "--version" |], _ -> printfn "v%s" (getVersion())
     | _, [| projectPath; outDir |] ->
+        let outDir =
+            if outDir = "--run" then
+                Path.Combine(Path.GetDirectoryName(projectPath), "bin")
+            else outDir
         let commandToRun =
             opts |> Array.tryFindIndex ((=) "--run")
             |> Option.map (fun i ->
