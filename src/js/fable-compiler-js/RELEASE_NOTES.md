@@ -1,3 +1,7 @@
+### 1.0.0-alpha-008
+
+* Add fable-babel-plugins
+
 ### 1.0.0-alpha-005
 
 * Fix Fable.Core method calls

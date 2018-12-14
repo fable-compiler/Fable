@@ -309,8 +309,8 @@ Target "PublishPackages" (fun () ->
             updateVersionInCliUtil "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
         ), pkgName="dotnet-fable", msbuildProps=["NugetPackage", "true"])
         // NPM packages
-        Package("js/fable-compiler-js", buildNpmFableCompilerJs false)
-        Package("js/fable-compiler", buildNpmFableCompilerDotnet)
+        Package "js/fable-compiler-js" //, buildNpmFableCompilerJs false)
+        Package "js/fable-compiler" //, buildNpmFableCompilerDotnet)
         Package "js/fable-loader"
         Package "js/fable-babel-plugins"
         Package "js/rollup-plugin-fable"

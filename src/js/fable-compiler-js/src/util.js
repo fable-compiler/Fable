@@ -1,6 +1,7 @@
 const fs = require("fs");
 const Path = require("path");
 const Babel = require("@babel/core");
+const BabelPlugins = require("fable-babel-plugins");
 
 const FSHARP_EXT = /\.(fs|fsx)$/i;
 
@@ -55,6 +56,11 @@ export function copyFolder(from, dest) {
     });
 }
 
+const customPlugins = [
+    BabelPlugins.getRemoveUnneededNulls(),
+    BabelPlugins.getTransformMacroExpressions(Babel.template)
+];
+
 export function transformAndSaveBabelAst(babelAst, fileName, outDir, commonjs) {
     try {
         // this solves a weird commonjs issue where some imports are not properly qualified
@@ -63,8 +69,8 @@ export function transformAndSaveBabelAst(babelAst, fileName, outDir, commonjs) {
         const outPath = Path.join(outDir, jsPath);
         ensureDirExists(Path.dirname(outPath));
         fixImportPaths(babelAst, fileName);
-        const babelOptions = commonjs ? { plugins: ["@babel/plugin-transform-modules-commonjs"] } : {};
-        const res = Babel.transformFromAstSync(babelAst, null, babelOptions);
+        const plugins = commonjs ? customPlugins.concat("@babel/plugin-transform-modules-commonjs") : customPlugins;
+        const res = Babel.transformFromAstSync(babelAst, null, { plugins });
         fs.writeFileSync(outPath, res.code);
     } catch (err) {
         console.error(err);
