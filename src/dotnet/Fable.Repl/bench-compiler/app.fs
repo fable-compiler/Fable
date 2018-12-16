@@ -100,14 +100,14 @@ let parseFiles projectPath outDir optimized =
 
     // create checker
     let fable = Fable.Repl.Main.init ()
-    let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, Some defines)
+    let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, defines, optimize=false)
     let ms0, checker = measureTime createChecker ()
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0
 
     // parse F# files to AST
-    let parseFSharp () = fable.ParseFSharpProjectFilesSimple(checker, projectFileName, fileNames, sources)
-    let ms1, parseRes = measureTime parseFSharp ()
+    let parseFSharpProject () = fable.ParseFSharpProject(checker, projectFileName, fileNames, sources)
+    let ms1, parseRes = measureTime parseFSharpProject ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
     let showWarnings = false // turning off warnings for cleaner output
@@ -118,16 +118,16 @@ let parseFiles projectPath outDir optimized =
 
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
-    let parseFable (fileName, ast) = fable.CompileToBabelAst(fableLibraryDir, ast, fileName, optimized)
-    let fsAst = parseRes.ProjectResults
+    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, optimized)
+
     for fileName in fileNames do
 
         // // print F# AST
-        // let fsAstStr = fable.FSharpAstToString(fsAst, fileName, optimized)
+        // let fsAstStr = fable.FSharpAstToString(parseRes, fileName, optimized)
         // printfn "%s Typed AST: %s" fileName fsAstStr
 
         // transform F# AST to Babel AST
-        let ms2, res = measureTime parseFable (fileName, fsAst)
+        let ms2, res = measureTime parseFable (parseRes, fileName)
         printfn "File: %s, Fable time: %d ms" fileName ms2
         res.FableErrors |> printErrors showWarnings
 

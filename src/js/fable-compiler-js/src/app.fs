@@ -157,17 +157,18 @@ let parseFiles projectPath outDir optimized commonjs =
 
     // create checker
     let fable = initFable ()
-    let createChecker () = fable.CreateChecker(references, (fun name ->
+    let readBytesExtra name =
         Map.tryFind name extraDll
         |> Option.defaultValue (metadataPath + name)
-        |> readAllBytes), Some defines)
+        |> readAllBytes
+    let createChecker () = fable.CreateChecker(references, readBytesExtra, defines, optimize=false)
     let ms0, checker = measureTime createChecker ()
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0
 
     // parse F# files to AST
-    let parseFSharp () = fable.ParseFSharpProjectFilesSimple(checker, projectFileName, fileNames, sources)
-    let ms1, parseRes = measureTime parseFSharp ()
+    let parseFSharpProject () = fable.ParseFSharpProject(checker, projectFileName, fileNames, sources)
+    let ms1, parseRes = measureTime parseFSharpProject ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
     let showWarnings = true
@@ -180,12 +181,12 @@ let parseFiles projectPath outDir optimized commonjs =
     let fableLibraryDir = "fable-library"
     let fableLibraryDist = if commonjs then "/fable-library-commonjs" else "/bundle/fable-library"
     copyFolder (__dirname + fableLibraryDist, Path.Combine(outDir, fableLibraryDir))
-    let parseFable (fileName, ast) = fable.CompileToBabelAst(fableLibraryDir, ast, fileName, optimized)
-    let fsAst = parseRes.ProjectResults
+    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, optimized)
+
     for fileName in fileNames do
 
         // transform F# AST to Babel AST
-        let ms2, res = measureTime parseFable (fileName, fsAst)
+        let ms2, res = measureTime parseFable (parseRes, fileName)
         printfn "File: %s, Fable time: %d ms" fileName ms2
         res.FableErrors |> printErrors showWarnings
 
