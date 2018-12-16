@@ -40,17 +40,18 @@ let main argv =
         let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, None)
         let ms0, checker = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
-        let parseFSharp () = fable.ParseFSharpScript(checker, testScriptPath, source)
-        let parseFable ast = fable.CompileToBabelAst(fableLibraryDir, ast, testScriptPath, optimized)
+        let parseFSharpScript () = fable.ParseFSharpScript(checker, testScriptPath, source)
+        let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, optimized)
         let bench i =
-            let ms1, fsAst = measureTime parseFSharp ()
-            let errors = fable.GetParseErrors fsAst
+            let fileName = testScriptPath
+            let ms1, parseRes = measureTime parseFSharpScript ()
+            let errors = fable.GetParseErrors parseRes
             errors |> Array.iter (printfn "Error: %A")
             if errors.Length > 0 then failwith "Too many errors."
-            let ms2, babelAst = measureTime parseFable fsAst
+            let ms2, babelAst = measureTime parseFable (parseRes, fileName)
             // if i = 1 && writeAst then
-            //     let fsAstStr = fable.FSharpAstToString(fsAst, optimized)
-            //     // printfn "Typed AST (unoptimized): %s" fsAstStr
+            //     // let fsAstStr = fable.FSharpAstToString(parseRes, fileName, optimized)
+            //     // printfn "%s Typed AST: %s" fileName fsAstStr
             //     // writeAllText fsAstFile fsAstStr
             //     // printfn "Babel AST: %s" (toJson babelAst)
             //     writeAllText babelAstFile (toJson babelAst)
