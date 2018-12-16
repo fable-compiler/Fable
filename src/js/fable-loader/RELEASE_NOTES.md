@@ -1,3 +1,7 @@
+### 2.1.2
+
+* Add webpack >= 4.23.0 as peerDependency
+
 ### 2.1.1
 
 * Fix #1523: Mark files with inlined functions as dependencies
