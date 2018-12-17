@@ -1,3 +1,7 @@
+### 1.0.0-alpha-010
+
+* Fix #1674: paths on Windows @ncave
+
 ### 1.0.0-alpha-008
 
 * Add fable-babel-plugins
