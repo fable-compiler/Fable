@@ -1555,6 +1555,9 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.CoreCall("Option", "value", t,
           [ Helper.CoreCall("Seq", "tryFind", t, [arg; ar; defaultof t], ?loc=r)
             Value(BoolConstant true) ], ?loc=r) |> Some
+    | "Exists", Some ar, [arg] ->
+        let left = Helper.InstanceCall(ar, "findIndex", Number Int32, [arg], ?loc=r)
+        makeEqOp r left (makeIntConst -1) BinaryGreater |> Some
     | "FindLast", Some ar, [arg] ->
         Helper.CoreCall("Option", "value", t,
           [ Helper.CoreCall("Seq", "tryFindBack", t, [arg; ar; defaultof t], ?loc=r)

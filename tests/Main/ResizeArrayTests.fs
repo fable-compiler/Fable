@@ -142,6 +142,16 @@ let tests =
         equal 1 xs.[0]
         equal 4 xs.[1]
         equal 5 xs.[2]
+    
+    testCase "ResizeArray.Exists works" <| fun () ->
+        let xs = ResizeArray<int>()
+        for x in [1 .. 5] do xs.Add(x)
+        xs.Exists (fun a -> a > 5) |> equal false
+        xs.Exists (fun a -> a = 5) |> equal true
+        xs.Exists (fun a -> a > 1) |> equal true
+        xs.Exists (fun a -> a = 1) |> equal true
+        xs.Exists (fun a -> a < 1) |> equal false
+        xs.Exists (fun a -> a = 3) |> equal true
 
     testCase "ResizeArray.RemoveAt works" <| fun () ->
         let li = ResizeArray<_>()
