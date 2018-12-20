@@ -256,7 +256,7 @@ async function getBabelAst(path: string, options: FableSplitterOptions, info: Co
         // return Babel AST from JS file
         path = JAVASCRIPT_EXT.test(path) ? path : path + ".js";
         if (fs.existsSync(path)) {
-            ast = await getBabelAstFromJsFile(path, info);
+            ast = await getBabelAstFromJsFile(path, info, options.babel);
         } else {
             console.log(`fable: Skip missing JS file: ${path}`);
         }
@@ -264,9 +264,10 @@ async function getBabelAst(path: string, options: FableSplitterOptions, info: Co
     return ast;
 }
 
-function getBabelAstFromJsFile(path: string, info: CompilationInfo) {
+function getBabelAstFromJsFile(path: string, info: CompilationInfo, babel: Babel.TransformOptions) {
+    const transformOptions = Object.assign({}, babel, { code: false, ast: true });
     return new Promise<Babel.types.Program | null>((resolve) => {
-        Babel.transformFile(path, { code: false, ast: true }, (error, res) => {
+        Babel.transformFile(path, transformOptions, (error, res) => {
             if (error != null) {
                 const log = `${path}(1,1): error BABEL: ${error.message}`;
                 addLogs({ error: [log] }, info);
