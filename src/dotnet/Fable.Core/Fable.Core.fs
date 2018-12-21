@@ -66,12 +66,12 @@ type ParamListAttribute() =
 type InjectAttribute() =
     inherit Attribute()
 
-/// Intended for replacement types in Fable.Core.JS
+/// Intended for replacement types in Fable.Library
 [<AttributeUsage(AttributeTargets.Class)>]
 type ReplacesAttribute(replacedTypeFullName: string) =
     inherit Attribute()
 
-/// Intended for replacement types in Fable.Core.JS
+/// Intended for replacement types in Fable.Library
 [<AttributeUsage(AttributeTargets.Method)>]
 type OverloadSuffixAttribute(value: string) =
     inherit Attribute()

@@ -15,7 +15,6 @@ module Atts =
     let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
     let [<Literal>] paramList = "Fable.Core.ParamListAttribute" // typeof<Fable.Core.ParamListAttribute>.FullName
     let [<Literal>] inject = "Fable.Core.InjectAttribute" // typeof<Fable.Core.InjectAttribute>.FullName
-    let [<Literal>] implicit = "Fable.Core.Experimental.ImplicitAttribute" // typeof<Fable.Core.Experimental.ImplicitAttribute>.FullName
 
 [<RequireQualifiedAccess>]
 module Types =
@@ -265,10 +264,13 @@ module AST =
         | e -> e
 
     /// When referenced multiple times, is there a risk of double evaluation?
+    // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec hasDoubleEvalRisk = function
         | IdentExpr id -> id.IsMutable
-        | Value(Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _ | Enum _) -> false
+        | Value(Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _) -> false
         | Value(NewTuple exprs) -> exprs |> List.exists hasDoubleEvalRisk
+        | Value(Enum(kind, _)) ->
+            match kind with NumberEnum e | StringEnum e -> hasDoubleEvalRisk e
         | Get(_,kind,_,_) ->
             match kind with
             // OptionValue has a runtime check
@@ -280,7 +282,7 @@ module AST =
 
     /// TODO: Add string and other nullable types?
     /// For unit, unresolved generics or nested options, create a runtime wrapper
-    /// See fable-core/Option.ts for more info
+    /// See fable-library/Option.ts for more info
     let rec mustWrapOption = function
         | Unit | GenericParam _ | Option _ -> true
         | _ -> false
@@ -345,7 +347,7 @@ module AST =
     let makeFloatConst (x: float) = NumberConstant (x, Float64) |> Value
 
     let makeCoreRef t memberName moduleName =
-        Import(makeStrConst memberName, makeStrConst moduleName, CoreLib, t, None)
+        Import(makeStrConst memberName, makeStrConst moduleName, Library, t, None)
 
     let makeCustomImport t (selector: string) (path: string) =
         Import(selector.Trim() |> makeStrConst, path.Trim() |> makeStrConst, CustomImport, t, None)

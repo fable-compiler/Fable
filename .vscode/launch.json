@@ -9,10 +9,10 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceRoot}/src/dotnet/Fable.Compiler/bin/Debug/netcoreapp2.0/dotnet-fable.dll",
-            "args": ["yarn-splitter", "--fable-core", "../../../build/fable-core"],
-            "cwd": "${workspaceRoot}/src/tools/",
-            "stopAtEntry": true,
+            "program": "${workspaceRoot}/src/dotnet/Fable.Compiler/bin/Debug/netcoreapp2.1/dotnet-fable.dll",
+            "args": ["fable-splitter", "--args", "-c tests/splitter.config.js"],
+            "cwd": "${workspaceRoot}",
+            "stopAtEntry": false,
             "console": "internalConsole"
         },
         {
@@ -71,11 +71,10 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch REPL bench (ES6)",
-            "program": "${workspaceRoot}/src/dotnet/Fable.Repl/bench/out/app.mjs",
-            "runtimeArgs": ["--experimental-modules"],
-            "args": [],
-            "cwd": "${workspaceRoot}/src/dotnet/Fable.Repl/bench"
+            "name": "Launch bench-compiler",
+            "program": "${workspaceRoot}/src/dotnet/Fable.Repl/bench-compiler/out/app.js",
+            "args": ["../../../../../fable-test/fable-test.fsproj"],
+            "cwd": "${workspaceRoot}/src/dotnet/Fable.Repl/bench-compiler"
         },
         {
             "type": "node",

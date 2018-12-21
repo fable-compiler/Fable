@@ -6,7 +6,7 @@
   <ItemGroup>
     <PackageReference Include="Expecto" Version="5.1.2" />
     <PackageReference Include="FSharp.Core" Version="4.5.2" />
-    <PackageReference Include="Fable.Core" Version="2.0.1" />
+    <PackageReference Include="Fable.Core" Version="2.0.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DllRef\Fable.Tests.DllRef.fsproj" />
@@ -21,9 +21,6 @@
     <Compile Include="Util/Util2.fs" />
     <Compile Include="Util/Util3.fs" />
     <Compile Include="../../tests_external/Util3.fs" />
-    <Compile Include="Experimental/Api.fs" />
-    <Compile Include="Experimental/Domain.fs" />
-    <Compile Include="Experimental/Behaviors.fs" />
     <Compile Include="ApplicativeTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
@@ -39,7 +36,6 @@
     <Compile Include="EnumerableTests.fs" />
     <Compile Include="EnumTests.fs" />
     <Compile Include="EventTests.fs" />
-    <Compile Include="ExperimentalTests.fs" />
     <Compile Include="HashSetTests.fs" />
     <Compile Include="ImportTests.fs" />
     <Compile Include="JsInteropTests.fs" />

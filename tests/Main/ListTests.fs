@@ -34,6 +34,11 @@ type MyNumber =
 type MyNumberWrapper =
     { MyNumber: MyNumber }
 
+module List =
+    let filteri f (xs: 'T list) =
+        let mutable i = -1
+        List.filter (fun x -> i <- i + 1; f i x) xs
+
 let tests =
   testList "Lists" [
     // TODO: Empty lists may be represented as null, make sure they don't conflict with None
@@ -126,6 +131,10 @@ let tests =
             let xs = [1; 2; 3; 4]
             let ys = xs |> List.filter (fun x -> x > 5)
             equal ys.IsEmpty true
+
+    testCase "List.filter doesn't work backwards" <| fun () -> // See #1672
+            let li = [1; 2; 3; 4; 5]
+            li |> List.filteri (fun i _ -> i <> 1) |> equal [1; 3; 4; 5]
 
     testCase "List.find works" <| fun () ->
             [1; 2; 3; 4]

@@ -26,14 +26,15 @@ type FileInfo =
       mutable Dependencies: string[] }
 
 type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharpImplementationFileContents>,
-             errors: FSharpErrorInfo array, dependencies: Map<string, string[]>, fableCore: string, isWatchCompile: bool) =
+             errors: FSharpErrorInfo array, dependencies: Map<string, string[]>, fableLibrary: string, isWatchCompile: bool) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
+    // These should be already normalized, but just in case
+    // TODO: We should add a NormalizedFullPath type so we don't need normalize everywhere
+    let sourceFiles = projectOptions.SourceFiles |> Array.map Path.normalizeFullPath
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
-    let normalizedFiles =
-        projectOptions.SourceFiles
-        |> Seq.map (fun f ->
-            let path = Path.normalizeFullPath f
+    let fileMap =
+        sourceFiles |> Seq.map (fun path ->
             match Map.tryFind path dependencies with
             | Some deps -> path, { SentToClient=false; Dependencies=deps }
             | None -> path, { SentToClient=false; Dependencies=[||] })
@@ -43,7 +44,7 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
         |> Map.filter (fun file _ -> not(file.EndsWith(".fsi")))
         |> Map.map (fun _ file -> FSharp2Fable.Compiler.getRootModuleFullName file)
     member __.TimeStamp = timestamp
-    member __.FableCore = fableCore
+    member __.LibraryDir = fableLibrary
     member __.IsWatchCompile = isWatchCompile
     member __.ImplementationFiles = implFiles
     member __.RootModules = rootModules
@@ -52,30 +53,27 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectFile
     member __.ContainsFile(sourceFile) =
-        normalizedFiles.ContainsKey(sourceFile)
+        fileMap.ContainsKey(sourceFile)
     member __.HasSent(sourceFile) =
-        normalizedFiles.[sourceFile].SentToClient
+        fileMap.[sourceFile].SentToClient
     member __.MarkSent(sourceFile) =
-        match Map.tryFind sourceFile normalizedFiles with
+        match Map.tryFind sourceFile fileMap with
         | Some f -> f.SentToClient <- true
         | None -> ()
     member __.GetDependencies() =
-        normalizedFiles |> Map.map (fun _ info -> info.Dependencies)
+        fileMap |> Map.map (fun _ info -> info.Dependencies)
     member __.AddDependencies(sourceFile, dependencies) =
-        match Map.tryFind sourceFile normalizedFiles with
+        match Map.tryFind sourceFile fileMap with
         | Some f -> f.Dependencies <- Array.map Path.normalizePath dependencies
         | None -> ()
     member __.GetFilesAndDependent(files: seq<string>) =
         let files = set files
         let dependentFiles =
-            normalizedFiles |> Seq.filter (fun kv ->
+            fileMap |> Seq.filter (fun kv ->
                 kv.Value.Dependencies |> Seq.exists files.Contains)
             |> Seq.map (fun kv -> kv.Key) |> set
         let filesAndDependent = Set.union files dependentFiles
-        normalizedFiles |> Seq.choose (fun kv ->
-            if filesAndDependent.Contains(kv.Key)
-            then Some kv.Key else None)
-        |> Seq.toArray
+        Array.filter filesAndDependent.Contains sourceFiles
     member __.GetOrAddInlineExpr(fullName, generate) =
         inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
@@ -88,13 +86,13 @@ type Log =
 
 /// Type with utilities for compiling F# files to JS
 /// No thread-safe, an instance must be created per file
-type Compiler(currentFile, project: Project, options, ?fableCore: string) =
+type Compiler(currentFile, project: Project, options, ?fableLibrary: string) =
     let mutable id = 0
     let logs = ResizeArray<Log>()
-    let fableCore =
-        match fableCore with
-        | Some fableCore -> fableCore.TrimEnd('/')
-        | None -> (Path.getRelativePath currentFile project.FableCore).TrimEnd('/')
+    let fableLibrary =
+        match fableLibrary with
+        | Some fableLibrary -> fableLibrary.TrimEnd('/')
+        | None -> (Path.getRelativePath currentFile project.LibraryDir).TrimEnd('/')
     member __.GetLogs() =
         logs |> Seq.toList
     member __.GetFormattedLogs() =
@@ -119,7 +117,7 @@ type Compiler(currentFile, project: Project, options, ?fableCore: string) =
     member __.CurrentFile = currentFile
     interface ICompiler with
         member __.Options = options
-        member __.FableCore = fableCore
+        member __.LibraryDir = fableLibrary
         member __.CurrentFile = currentFile
         member x.GetRootModule(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName

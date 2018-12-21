@@ -163,6 +163,10 @@ module Naming =
                 })
         else ident
 
+    /// Does not guarantee unique names, only used to clean function constructor names
+    let unsafeReplaceIdentForbiddenChars (replacement: char) (ident: string): string =
+        ident.ToCharArray() |> Array.mapi (fun i c -> if isIdentChar i c then c else replacement) |> System.String
+
     let removeGetSetPrefix (s: string) =
         if s.StartsWith("get_") || s.StartsWith("set_") then
             s.Substring(4)
@@ -220,6 +224,13 @@ module Naming =
     let getUniqueName baseName (index: int) =
         "$" + baseName + "$$" + string index
 
+    let appendSuffix baseName suffix =
+        if suffix = ""
+        then baseName
+        else baseName + "$" + suffix
+
+    let reflectionSuffix = "reflection"
+
     let private printPart sanitize separator part overloadSuffix =
         (if part = "" then "" else separator + (sanitize part)) +
             (if overloadSuffix = "" then "" else "$$" + overloadSuffix)
@@ -234,7 +245,7 @@ module Naming =
     let buildNameWithoutSanitation name part =
         buildName id name part
 
-    /// This helper is intended for instance and static members in fable-core library compiled from F# (FSharpSet, FSharpMap...)
+    /// This helper is intended for instance and static members in fable-library library compiled from F# (FSharpSet, FSharpMap...)
     let buildNameWithoutSanitationFrom (entityName: string) isStatic memberCompiledName overloadSuffix =
         (if isStatic
             then entityName, StaticMemberPart(memberCompiledName, overloadSuffix)
@@ -275,7 +286,7 @@ module Path =
     let GetFileName (path: string) =
         let normPath = path.Replace("\\", "/").TrimEnd('/')
         let i = normPath.LastIndexOf("/")
-        path.Substring(i + 1)
+        normPath.Substring(i + 1)
 
     let GetFileNameWithoutExtension (path: string) =
         let filename = GetFileName path
@@ -287,7 +298,7 @@ module Path =
         let normPath = path.Replace("\\", "/")
         let i = normPath.LastIndexOf("/")
         if i < 0 then ""
-        else path.Substring(0, i)
+        else normPath.Substring(0, i)
 
     let GetFullPath (path: string) =
 #if FABLE_COMPILER

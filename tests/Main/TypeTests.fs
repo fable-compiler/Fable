@@ -248,6 +248,11 @@ type DowncastTest(value: int) =
     interface System.IDisposable with
         member __.Dispose() = ()
 
+[<Class>]
+type TypeWithClassAttribute =
+    val Pos : int
+    new (pos) = { Pos=pos }
+
 let tests =
   testList "Types" [
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
@@ -657,4 +662,8 @@ let tests =
         f1.Add(4, 5) |> equal 9
         f1.Add2(4, 5) |> equal -1
         f2.Add2(4, 5) |> equal -1
+
+    testCase "ClassAttribute works" <| fun () -> // See #573
+        let t1 = TypeWithClassAttribute(8)
+        t1.Pos |> equal 8
   ]

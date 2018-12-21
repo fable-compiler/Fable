@@ -14,7 +14,11 @@ let visit f e =
         match kind with
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
-        | NumberConstant _ | RegexConstant _ | Enum _ -> e
+        | NumberConstant _ | RegexConstant _ -> e
+        | Enum(kind, name) ->
+            match kind with
+            | NumberEnum e -> Enum(NumberEnum(f e), name) |> Value
+            | StringEnum e -> Enum(StringEnum(f e), name) |> Value
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> Value
         | NewTuple exprs -> NewTuple(List.map f exprs) |> Value
         | NewArray(kind, t) ->
@@ -112,7 +116,11 @@ let getSubExpressions = function
         match kind with
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
-        | NumberConstant _ | RegexConstant _ | Enum _ -> []
+        | NumberConstant _ | RegexConstant _ -> []
+        | Enum(kind, _) ->
+            match kind with
+            | NumberEnum e -> [e]
+            | StringEnum e -> [e]
         | NewOption(e, _) -> Option.toList e
         | NewTuple exprs -> exprs
         | NewArray(kind, _) ->
@@ -221,6 +229,8 @@ module private Transforms =
             | [] -> replaceValues replacements body
             | bindings -> Let(List.rev bindings, replaceValues replacements body)
         match e with
+        | Operation(BinaryOperation(AST.BinaryPlus, Value(StringConstant str1), Value(StringConstant str2)),_,_) ->
+            Value(StringConstant (str1 + str2))
         | Operation(CurriedApply(NestedLambda(args, body, None) as lambda, argExprs), _, _) ->
             if List.sameLength args argExprs
             then applyArgs args argExprs body
@@ -564,4 +574,4 @@ let rec optimizeDeclaration (com: ICompiler) = function
 
 let optimizeFile (com: ICompiler) (file: File) =
     let newDecls = List.map (optimizeDeclaration com) file.Declarations
-    File(file.SourcePath, newDecls, usedVarNames=file.UsedVarNames, dependencies=file.Dependencies)
+    File(file.SourcePath, newDecls, usedVarNames=file.UsedVarNames, inlineDependencies=file.InlineDependencies)

@@ -49,19 +49,19 @@ let checkFableCoreVersion (checkedProject: FSharpCheckProjectResults) =
 
 let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.Message) projFile =
     let isWatchCompile = Array.length dirtyFiles > 0
-    let projectOptions, fableCore, deps =
+    let projectOptions, fableLibrary, deps =
         match prevProject with
         | Some prevProject ->
-            prevProject.ProjectOptions, prevProject.FableCore, prevProject.GetDependencies()
+            prevProject.ProjectOptions, prevProject.LibraryDir, prevProject.GetDependencies()
         | None ->
-            let projectOptions, fableCore =
+            let projectOptions, fableLibrary =
                 getFullProjectOpts checker msg.define msg.rootDir projFile
             Log.logVerbose(lazy
                 let proj = getRelativePath projectOptions.ProjectFileName
                 let opts = projectOptions.OtherOptions |> String.concat "\n   "
                 let files = projectOptions.SourceFiles |> String.concat "\n   "
                 sprintf "F# PROJECT: %s\n   %s\n   %s" proj opts files)
-            projectOptions, fableCore, Map.empty
+            projectOptions, fableLibrary, Map.empty
     match prevProject with
     | Some prevProject when isWatchCompile ->
         ((prevProject.ImplementationFiles, [||]), dirtyFiles) ||> Async.fold (fun (implFiles, errors) dirtyFile ->
@@ -105,7 +105,7 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
                 Printers.printAst outDir implFiles)
             implFilesMap, checkedProject.Errors)
     |> Async.map (fun (implFiles, errors) ->
-        Project(projectOptions, implFiles, errors, deps, fableCore, isWatchCompile))
+        Project(projectOptions, implFiles, errors, deps, fableLibrary, isWatchCompile))
 
 let jsonSettings =
     JsonSerializerSettings(
@@ -114,75 +114,89 @@ let jsonSettings =
         NullValueHandling=NullValueHandling.Ignore)
         // StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
 
-let toJson (msgHandler: Server.MessageHandler) (value: obj) =
-        use writer = msgHandler.ResponseStream
-        use jsonWriter = new JsonTextWriter(writer)
-        let serializer = JsonSerializer.Create(jsonSettings)
-        serializer.Serialize(jsonWriter, value)
-        jsonWriter.Flush()
-
-let sendError msgHandler (ex: Exception) =
+let sendError (respond: obj->unit) (ex: Exception) =
     let rec innerStack (ex: Exception) =
         if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
     let stack = innerStack ex
     Log.logAlways(sprintf "ERROR: %s\n%s" ex.Message stack)
-    ["error", ex.Message] |> dict |> toJson msgHandler
+    ["error", ex.Message] |> dict |> respond
+
+let rec findFsprojUpwards originalFile dir =
+    match IO.Directory.GetFiles(dir, "*.fsproj") with
+    | [||] ->
+        let parentDir = IO.Path.GetDirectoryName(dir)
+        if isNull parentDir
+        then failwithf "Cannot find project file for %s. Do you need symlinks:false in your webpack.config?" originalFile
+        else findFsprojUpwards originalFile parentDir
+    | [|projFile|] -> projFile
+    | _ -> failwithf "Found more than one project file for %s, please disambiguate." originalFile
+
+let getDirtyFiles (project: Project) sourceFile =
+    let isDirty = IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp
+    // In watch compilations, always recompile the requested file in case it has non-solved errors
+    if isDirty || project.HasSent(sourceFile) then
+        project.ProjectOptions.SourceFiles
+        |> Array.filter (fun file ->
+            let file = Path.normalizePath file
+            file = sourceFile || IO.File.GetLastWriteTime(file) > project.TimeStamp)
+        |> project.GetFilesAndDependent
+    else [||]
+
+let addOrUpdateProject state (project: Project) =
+    let state = Map.add project.ProjectFile project state
+    true, state, project
+
+let tryFindAndUpdateProject (checker: FSharpChecker) state (msg: Parser.Message) sourceFile =
+    // Dirty files mean this is recompilation in watch mode
+    let checkIfThereAreDirtyFiles project sourceFile =
+        let dirtyFiles = getDirtyFiles project sourceFile
+        if Array.length dirtyFiles > 0 then
+            createProject checker dirtyFiles (Some project) msg project.ProjectFile
+            |> Async.map (addOrUpdateProject state)
+        // No need to call F# compiler and recreate the project
+        else async.Return(false, state, project)
+
+    let checkIfProjectIsAlreadyInState projFile =
+        let projFile = Path.normalizeFullPath projFile
+        match Map.tryFind projFile state with
+        | Some project ->
+            checkIfThereAreDirtyFiles project sourceFile
+        | None ->
+            createProject checker [||] None msg projFile
+            |> Async.map (addOrUpdateProject state)
+
+    // Check for the `extra.projectFile` option. This is used to
+    // disambiguate files referenced by several projects, see #1116
+    match msg.extra.TryGetValue("projectFile") with
+    | true, projFile ->
+        checkIfProjectIsAlreadyInState projFile
+    | false, _ ->
+        state |> Map.tryPick (fun _ (project: Project) ->
+            if project.ContainsFile(sourceFile)
+            then Some project
+            else None)
+        |> function
+            | Some project ->
+                checkIfThereAreDirtyFiles project sourceFile
+            | None ->
+                IO.Path.GetDirectoryName(sourceFile)
+                |> findFsprojUpwards sourceFile
+                |> checkIfProjectIsAlreadyInState
 
 let updateState (checker: FSharpChecker) (state: Map<string,Project>) (msg: Parser.Message) =
-    let getDirtyFiles (project: Project) sourceFile =
-        let isDirty = IO.File.GetLastWriteTime(sourceFile) > project.TimeStamp
-        // In watch compilations, always recompile the requested file in case it has non-solved errors
-        if isDirty || project.HasSent(sourceFile) then
-            project.ProjectOptions.SourceFiles
-            |> Array.filter (fun file ->
-                let file = Path.normalizePath file
-                file = sourceFile || IO.File.GetLastWriteTime(file) > project.TimeStamp)
-            |> project.GetFilesAndDependent
-        else [||]
-    let addOrUpdateProject state (project: Project) =
-        let state = Map.add project.ProjectFile project state
-        true, state, project
-    let tryFindAndUpdateProject state sourceFile =
-        let checkWatchCompilation project sourceFile =
-            let dirtyFiles = getDirtyFiles project sourceFile
-            if Array.length dirtyFiles > 0 then
-                createProject checker dirtyFiles (Some project) msg project.ProjectFile
-                |> Async.map (addOrUpdateProject state >> Some)
-            else
-                Some(false, state, project) |> async.Return
-        match msg.extra.TryGetValue("projectFile") with
-        | true, projFile ->
-            let projFile = Path.normalizeFullPath projFile
-            match Map.tryFind projFile state with
-            | Some project -> checkWatchCompilation project sourceFile
-            | None -> createProject checker [||] None msg projFile
-                      |> Async.map (addOrUpdateProject state >> Some)
-        | false, _ ->
-            state |> Async.tryPick (fun (KeyValue(_, project: Project)) ->
-                if project.ContainsFile(sourceFile)
-                then checkWatchCompilation project sourceFile
-                else async.Return None)
     match IO.Path.GetExtension(msg.path).ToLower() with
     | ".fsproj" ->
         createProject checker [||] None msg msg.path
         |> Async.map (addOrUpdateProject state)
     | ".fsx" ->
-        if Map.containsKey msg.path state then
-            // When a script is modified, restart the project with new options
-            // (to check for new references, loaded projects, etc.)
-            createProject checker [||] None msg msg.path
-            |> Async.map (addOrUpdateProject state)
-        else
-            tryFindAndUpdateProject state msg.path
-            |> Async.orElse (fun () ->
-                createProject checker [||] None msg msg.path
-                |> Async.map (addOrUpdateProject state))
+        // When a script is modified, restart the project with new options
+        // (to check for new references, loaded projects, etc.)
+        createProject checker [||] None msg msg.path
+        |> Async.map (addOrUpdateProject state)
     | ".fs" ->
-        tryFindAndUpdateProject state msg.path
-        |> Async.orElse (fun () ->
-            state |> Map.map (fun _ p -> p.ProjectFile) |> Seq.toList
-            |> failwithf "%s doesn't belong to any of loaded projects %A" msg.path)
-    | ".fsi" -> failwithf "Signature files cannot be compiled to JS: %s" msg.path
+        tryFindAndUpdateProject checker state msg msg.path
+    | ".fsi" ->
+        failwithf "Signature files cannot be compiled to JS: %s" msg.path
     | _ -> failwithf "Not an F# source file: %s" msg.path
 
 let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFilter: string option) =
@@ -205,13 +219,13 @@ let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFil
         com.AddLog(msg, severity, range, fileName, "FSHARP"))
 
 /// Don't await file compilation to let the agent receive more requests to implement files.
-let startCompilation (msgHandler: Server.MessageHandler) (com: Compiler) (project: Project) =
+let startCompilation (respond: obj->unit) (com: Compiler) (project: Project) =
     async {
         try
             if com.CurrentFile.EndsWith(".fsproj") then
                 // If we compile the last file here, Webpack watcher will ignore changes in it
                 Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles com.CurrentFile
-                |> toJson msgHandler
+                |> respond
             else
                 let babel =
                     FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
@@ -221,17 +235,26 @@ let startCompilation (msgHandler: Server.MessageHandler) (com: Compiler) (projec
                 if not project.IsWatchCompile then
                     addFSharpErrorLogs com project.Errors (Some com.CurrentFile)
                 project.MarkSent(com.CurrentFile)
-                // Don't send dependencies to JS client (see #1241)
                 project.AddDependencies(com.CurrentFile, babel.Dependencies)
-                Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs())
-                |> toJson msgHandler
+                Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs(), babel.Dependencies)
+                |> respond
         with ex ->
-            sendError msgHandler ex
+            sendError respond ex
     } |> Async.Start
 
-let startAgent () = MailboxProcessor<Server.MessageHandler>.Start(fun agent ->
+let startAgent () = MailboxProcessor<AgentMsg>.Start(fun agent ->
     let rec loop (checker: FSharpChecker) (state: Map<string,Project>) = async {
-        use! msgHandler = agent.Receive()
+      match! agent.Receive() with
+      | Respond(value, msgHandler) ->
+        msgHandler.Respond(fun writer ->
+            // CloseOutput=false is necessary to prevent closing the underlying stream
+            use jsonWriter = new JsonTextWriter(writer, CloseOutput=false)
+            let serializer = JsonSerializer.Create(jsonSettings)
+            serializer.Serialize(jsonWriter, value))
+        return! loop checker state
+      | Received msgHandler ->
+        let respond(res: obj) =
+            Respond(res, msgHandler) |> agent.Post
         try
             let msg = Parser.parse msgHandler.Message
             // lazy sprintf "Received message %A" msg |> Log.logVerbose
@@ -241,10 +264,10 @@ let startAgent () = MailboxProcessor<Server.MessageHandler>.Start(fun agent ->
             // F# errors/warnings here so they're not skipped if they affect another file
             if isUpdated && activeProject.IsWatchCompile then
                 addFSharpErrorLogs com activeProject.Errors None
-            startCompilation msgHandler com activeProject
+            startCompilation respond com activeProject
             return! loop checker newState
         with ex ->
-            sendError msgHandler ex
+            sendError respond ex
             return! loop checker state
     }
     let checker = FSharpChecker.Create(keepAssemblyContents=true)

@@ -1,5 +1,8 @@
 ﻿namespace Fable.Tests.Spaces
 
+type Test(flag:bool) =
+    member x.Status = flag
+
 // Check that project references to folders work
 type [<Sealed>] Helper =
     static member CreateArray() = [|5uy|]

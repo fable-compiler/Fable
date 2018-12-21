@@ -373,6 +373,25 @@ let reflectionTests = [
     unionFields |> equal expectedUnionFields
     canMakeSameUnionCases |> equal true
 
+  testCase "FSharp.Reflection: Result" <| fun () ->
+    let typ = typeof<Result<int,string>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Result<_,string>.Ok 5))
+    FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Result<int,_>.Error "foo"))
+
+  testCase "FSharp.Reflection: Choice" <| fun () ->
+    let typ = typeof<Choice<int,string>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Choice<_,string>.Choice1Of2 5))
+    FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Choice<int,_>.Choice2Of2 "foo"))
+
+    let typ = typeof<Choice<float,string list,float>>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [|box -0.3|]) |> equal (box (Choice<_,string list,float>.Choice1Of3 -0.3))
+    FSharpValue.MakeUnion(ucis.[1], [|box ["foo";"bar"]|]) |> equal (box (Choice<float,_,float>.Choice2Of3 ["foo";"bar"]))
+    FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> equal (box (Choice<float,string list,_>.Choice3Of3 3.5))
+    FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> (=) (box (Choice<float,string list,_>.Choice1Of3 3.5)) |> equal false
+
   testCase "Type.GenericTypeArguments works" <| fun () ->
     let recordType = typeof<AsyncRecord>
     let asyncProp = FSharpType.GetRecordFields recordType |> Array.head
@@ -391,10 +410,18 @@ let reflectionTests = [
     let b = create<B>()
     a.Value |> equal 5
     b.Value |> equal 10
+
+  // See https://github.com/Microsoft/visualfsharp/issues/5992
+  testCase "Generic numbers type info doesn't get into runtime" <| fun () ->
+    let value = 0.7833263478179128134089M
+    value.GetType().FullName |> equal "System.Decimal"
 ]
 
+// TODO!!! Add reflection tests for interfaces, erased unions,
+// string enums, imported and replaced types
 #if FABLE_COMPILER
 open Fable.Core
+// open Fable.Core.Reflection
 
 type R1 = { x: int }
 type R2 = { y: int }
@@ -408,9 +435,7 @@ type Maybe<'t> =
     | Just of 't
     | Nothing
 
-// The !!!NAME!!! of this type fails with somethings, I don't know
 type RecWithGenDU<'t> = { Other: 't; Value : Maybe<string> }
-// But this one works, very weird
 type GenericTestRecord<'t> = { Other: 't; Value : Maybe<string> }
 
 // helper class to extract the name of an injected type
@@ -422,6 +447,14 @@ type Types() =
     static member get<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : System.Type =
         let resolvedType = resolver.Value.ResolveType()
         resolvedType
+
+type MyUnion20 =
+    | Union20_A
+    | Union20_B of int * string
+
+type MyRecord20 =
+    { FieldA: int
+      FieldB: string }
 
 let injectTests = [
     testCase "ITypeResolver can be injected" <| fun () ->
@@ -449,18 +482,34 @@ let injectTests = [
     testCase "Name can be extracted from GenericTestRecord" <| fun () ->
         let name = Types.getNameOf<Maybe<list<GenericTestRecord<string>>>>()
         equal false (name = "")
+
+    // TODO!!! Enable these tests when a new Fable.Core version is released
+    // testCase "Can check unions and records without type" <| fun () ->
+    //     let x = box Union20_A
+    //     let y = box { FieldA = 5; FieldB = "foo" }
+    //     isUnion x |> equal true
+    //     isRecord x |> equal false
+    //     isUnion y |> equal false
+    //     isRecord y |> equal true
+
+    // testCase "Can get union values without type" <| fun () ->
+    //     let x = box Union20_A
+    //     let y = Union20_B(5, "foo") |> box
+    //     getCaseTag x |> equal 0
+    //     getCaseTag y |> equal 1
+    //     getCaseName x |> equal "Union20_A"
+    //     getCaseName y |> equal "Union20_B"
+    //     getCaseFields x |> equal [||]
+    //     getCaseFields y |> equal [|5; "foo"|]
 ]
+
 #else
 let injectTests = []
 #endif
 
-
-
 let genericTypeNamesTests =
     testList "Naming generic types"
       [  ]
-
-
 
 let tests =
     testList "Reflection tests" (

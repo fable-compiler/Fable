@@ -1,3 +1,7 @@
+### 2.0.11
+
+* Fix conflicting extensions with same type and member names
+
 ### 2.0.10
 
 * Improve decimal support #1627

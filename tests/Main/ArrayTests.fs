@@ -38,6 +38,10 @@ type MyNumber =
 type MyNumberWrapper =
     { MyNumber: MyNumber }
 
+type Things =
+    { MainThing: int
+      OtherThing: string }
+
 let tests =
   testList "Arrays" [
     testCase "Pattern matching with arrays works" <| fun () ->
@@ -272,6 +276,11 @@ let tests =
            else None)
         result.[0] + result.[1]
         |> equal 7L
+
+    testCase "Array.choose must construct array of output type" <| fun () -> // See #1658
+        let source = [|1; 3; 5; 7|]
+        let target = source |> Array.choose (fun x -> Some { MainThing=x; OtherThing="asd" })
+        target.[3].MainThing |> equal 7
 
     testCase "Array.collect works" <| fun () ->
         let xs = [|[|1|]; [|2|]; [|3|]; [|4|]|]
@@ -822,6 +831,20 @@ let tests =
         Array.splitAt 0 ar |> equal ([||], [|1;2;3;4|])
         Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
         Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
+
+    testCase "Arrays are independent from type of the elements" <| fun () ->
+        let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
+        [|"a";"b"|] |> fromArrayToListAndBack |> equal [|"a";"b"|]
+        [|1;2|] |> fromArrayToListAndBack |> equal [|1;2|]
+
+    testCase "Arrays are independent from being binded to a name" <| fun () ->
+        let intList = [1;2;3]
+        intList  |> List.toArray  |> equal [|1;2;3|]
+        [1;2;3]  |> List.toArray  |> equal [|1;2;3|]
+
+    testCase "Functions on arrays should behave the same whether binded to a name or not" <| fun () ->
+        let fromArrayToListAndBack a = a |> Array.toList |> List.toArray
+        [|1;2|] |> Array.toList |> List.toArray  |> equal ([|1;2|] |> fromArrayToListAndBack)
 
     testCase "Array.skip works" <| fun () ->
         let xs = [|1.; 2.; 3.; 4.; 5.|]

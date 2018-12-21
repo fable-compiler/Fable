@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "bench-compiler": {
+      "commandName": "Project",
+      "commandLineArgs": "./bench-compiler.fsproj",
+      "workingDirectory": "$(SolutionDir)"
+    }
+  }
+}

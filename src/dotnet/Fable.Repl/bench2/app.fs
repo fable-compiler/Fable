@@ -24,16 +24,17 @@ let main argv =
         let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, None)
         let ms0, checker = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
-        let parseFSharp () = fable.ParseFSharpScript(checker, testScriptPath, source)
-        let parseFable ast = fable.CompileToBabelAst(fableCoreDir, ast, testScriptPath, optimized)
+        let parseFSharpScript () = fable.ParseFSharpScript(checker, testScriptPath, source)
+        let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, optimized)
         let fcsMeasures = ResizeArray()
         let fableMeasures = ResizeArray()
         let bench i =
-            let ms1, fsAst = measureTime parseFSharp ()
-            let errors = fable.GetParseErrors fsAst
+            let fileName = testScriptPath
+            let ms1, parseRes = measureTime parseFSharpScript ()
+            let errors = fable.GetParseErrors parseRes
             errors |> Array.iter (printfn "Error: %A")
             if errors.Length > 0 then failwith "Too many errors."
-            let ms2, res = measureTime parseFable fsAst
+            let ms2, res = measureTime parseFable (parseRes, fileName)
             if i = 1 then
                 writeJs compiledScriptPath res.BabelAst
             printfn "iteration %d, FCS time: %d ms, Fable time: %d ms" i ms1 ms2

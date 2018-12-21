@@ -4,16 +4,16 @@
     <Description>Fable Core Library</Description>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Version>2.0.1</Version>
-    <PackageVersion>2.0.1</PackageVersion>
+    <Version>2.0.3</Version>
+    <PackageVersion>2.0.3</PackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Fable.Core.fs" />
+    <Compile Include="Fable.Core.Reflection.fs" />
     <Compile Include="Fable.Import.JS.fs" />
     <Compile Include="Fable.Core.JsInterop.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />
-    <Compile Include="Fable.Core.Experimental.fs" />
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

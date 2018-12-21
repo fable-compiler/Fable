@@ -1,32 +1,33 @@
 module Fable.CLI.Server
 
+open System
 open System.Net
 open System.Net.Sockets
 
-let [<Literal>] SIGTERM = "[SIGTERM]"
-
-type MessageHandler(client: TcpClient, stream: System.IO.Stream, msg: string) =
-    member __.Message = msg
-    member __.ResponseStream = new System.IO.StreamWriter(stream)
-    interface System.IDisposable with
-        member __.Dispose() =
+type MessageHandler(client: IDisposable, stream: System.IO.Stream, msg: string) =
+    interface IMessageHandler with
+        member __.Message = msg
+        member __.Respond(writeTo) =
+            do
+                use writer = new System.IO.StreamWriter(stream)
+                writeTo writer
             client.Dispose()
 
 let rec private loop (server: TcpListener) (buffer: byte[]) (onMessage: MessageHandler->unit) = async {
-    // printfn "Waiting for connection..."
     let! client = Async.AwaitTask(server.AcceptTcpClientAsync())
     let stream = client.GetStream()
     let i = stream.Read(buffer, 0, buffer.Length)
     let data = System.Text.Encoding.UTF8.GetString(buffer, 0, i)
-    if data = SIGTERM then
+    if data = Literals.EXIT then
         Log.logAlways("Closing Fable daemon...")
+        client.Dispose()
         return ()
     else
-        new MessageHandler(client, stream, data) |> onMessage
+        MessageHandler(client, stream, data) |> onMessage
         return! loop server buffer onMessage
 }
 
-let start port onMessage =
+let start port (onMessage: IMessageHandler->unit) =
     let buffer = Array.zeroCreate<byte> 8192
     let server = TcpListener(IPAddress.Parse("127.0.0.1"), port)
     // This is needed to prevent errors in Unix when Fable server is restarted quickly
@@ -36,10 +37,10 @@ let start port onMessage =
     Log.logAlways(sprintf "Fable (%s) daemon started on port %i" Literals.VERSION port)
     loop server buffer onMessage
 
-let stop port = async {
+let stop port =
     use client = new TcpClient()
-    do! client.ConnectAsync(IPAddress.Parse("127.0.0.1"), port) |> Async.AwaitTask
-    let data = System.Text.Encoding.UTF8.GetBytes(SIGTERM)
+    client.Connect(IPAddress.Parse("127.0.0.1"), port)
+    let data = System.Text.Encoding.UTF8.GetBytes(Literals.EXIT)
     use stream = client.GetStream()
     stream.Write(data, 0, data.Length)
-}
+

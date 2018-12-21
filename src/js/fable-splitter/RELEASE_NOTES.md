@@ -1,3 +1,27 @@
+### 2.1.0
+
+* Release _stablish_ version
+
+### 2.1.0-beta-005
+
+* Use fable-babel-plugins package
+
+### 2.1.0-beta-004
+
+* Use fable-compiler package
+
+### 2.1.0-beta-003
+
+* Fix #1646: Don't override `allFiles` in config file if cli flag is not set
+
+### 2.1.0-beta-002
+
+* Remove nodemon dependency
+
+### 2.1.0-beta-001
+
+* Add fable-compiler-dotnet dependency for standalone compilation
+
 ### 2.1.0-alpha-002
 
 * Add `-d|--debug` flag to automatically define "DEBUG" constant

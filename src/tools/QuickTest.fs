@@ -1,11 +1,5 @@
 module QuickTest
 
-// Use this template to make quick tests when adding new features to Fable.
-// You must run a full build at least once (from repo root directory,
-// type `sh build.sh` on OSX/Linux or just `build` on Windows). Then:
-// - When making changes to Fable.Compiler run `build QuickFableCompilerTest`
-// - When making changes to fable-core run `build QuickFableCoreTest`
-
 // Please don't add this file to your commits
 
 open System

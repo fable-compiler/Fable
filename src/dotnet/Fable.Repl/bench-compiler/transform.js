@@ -20,7 +20,7 @@ function fixImportPaths(babelAst, sourcePath) {
     for (const decl of decls) {
         if (decl.source != null && typeof decl.source.value === "string") {
             const importPath = decl.source.value;
-            if (importPath.startsWith("fable-core/") || importPath.match(FSHARP_EXT)) {
+            if (importPath.startsWith("fable-library/") || importPath.match(FSHARP_EXT)) {
                 decl.source.value = getRelPath(sourcePath, importPath);
             }
         }
@@ -54,6 +54,7 @@ for (const filePath of filePaths) {
         fixImportPaths(babelAst, fileName);
         const res = Babel.transformFromAstSync(babelAst, null, babelOptions);
         const fileOut = filePath.replace(/\.json$/, ".js")
+        fs.renameSync(filePath, fileOut);
         fs.writeFileSync(fileOut, res.code);
     }
 }

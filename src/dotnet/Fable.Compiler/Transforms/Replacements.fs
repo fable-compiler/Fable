@@ -111,7 +111,7 @@ module Helpers =
             Any)
 
     /// Records, unions and F# exceptions (value types are assimilated into records) will have a base
-    /// implementing basic methods: toString, toJSON, GetHashCode, Equals, CompareTo. See fable-core/Types
+    /// implementing basic methods: toString, toJSON, GetHashCode, Equals, CompareTo. See fable-library/Types
     let hasBaseImplementingBasicMethods (ent: FSharpEntity) =
         ent.IsFSharpRecord || ent.IsFSharpUnion || ent.IsFSharpExceptionDeclaration || ent.IsValueType
 
@@ -133,28 +133,39 @@ type BuiltinType =
     | BclDictionary of key:Type * value:Type
     | FSharpSet of Type
     | FSharpMap of key:Type * value:Type
+    | FSharpChoice of Type list
+    | FSharpResult of Type * Type
+    | FSharpReference of Type
+
+let (|BuiltinEntity|_|) (ent: FSharpEntity, genArgs) =
+    // TODO: Convert this to dictionary
+    match ent.TryFullName, genArgs with
+    | Some Types.guid, _ -> Some BclGuid
+    | Some Types.timespan, _ -> Some BclTimeSpan
+    | Some Types.datetime, _ -> Some BclDateTime
+    | Some Types.datetimeOffset, _ -> Some BclDateTimeOffset
+    | Some "System.Timers.Timer", _ -> Some BclTimer
+    | Some Types.int64, _ -> Some BclInt64
+    | Some Types.uint64, _ -> Some BclUInt64
+    | Some "Microsoft.FSharp.Core.int64`1", _ -> Some BclInt64
+    | Some Types.decimal, _
+    | Some "Microsoft.FSharp.Core.decimal`1", _ -> Some BclDecimal
+    | Some Types.bigint, _ -> Some BclBigInt
+    | Some Types.quaternion, _ -> Some BclQuaternion
+    | Some Types.vector3, _ -> Some BclVector3
+    | Some Types.fsharpSet, [t] -> Some(FSharpSet(t))
+    | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
+    | Some Types.hashset, [t] -> Some(BclHashSet(t))
+    | Some Types.dictionary, [k;v] -> Some(BclDictionary(k,v))
+    | Some Types.result, [k;v] -> Some(FSharpResult(k,v))
+    | Some Types.reference, [v] -> Some(FSharpReference(v))
+    | Some (Naming.StartsWith Types.choiceNonGeneric _), gen -> Some(FSharpChoice gen)
+    | _ -> None
 
 let (|Builtin|_|) = function
     | DeclaredType(ent, genArgs) ->
-        // TODO: Convert this to dictionary
-        match ent.TryFullName, genArgs with
-        | Some Types.guid, _ -> Some BclGuid
-        | Some Types.timespan, _ -> Some BclTimeSpan
-        | Some Types.datetime, _ -> Some BclDateTime
-        | Some Types.datetimeOffset, _ -> Some BclDateTimeOffset
-        | Some "System.Timers.Timer", _ -> Some BclTimer
-        | Some Types.int64, _ -> Some BclInt64
-        | Some Types.uint64, _ -> Some BclUInt64
-        | Some "Microsoft.FSharp.Core.int64`1", _ -> Some BclInt64
-        | Some Types.decimal, _
-        | Some "Microsoft.FSharp.Core.decimal`1", _ -> Some BclDecimal
-        | Some Types.bigint, _ -> Some BclBigInt
-        | Some Types.quaternion, _ -> Some BclQuaternion
-        | Some Types.vector3, _ -> Some BclVector3
-        | Some Types.fsharpSet, [t] -> Some(FSharpSet(t))
-        | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
-        | Some Types.hashset, [t] -> Some(BclHashSet(t))
-        | Some Types.dictionary, [k;v] -> Some(BclDictionary(k,v))
+        match ent, genArgs with
+        | BuiltinEntity x -> Some x
         | _ -> None
     | _ -> None
 
@@ -168,18 +179,31 @@ type NumberExtKind =
     | Long of unsigned: bool
     | BigInt
 
+let (|NumberExtKind|_|) = function
+    | Fable.Transforms.FSharp2Fable.Patterns.NumberKind kind -> Some (JsNumber kind)
+    | Types.int64 -> Some (Long false)
+    | Types.uint64 -> Some (Long true)
+    | Types.decimal -> Some Decimal
+    | Types.bigint -> Some BigInt
+    | _ -> None
+
 let (|NumberExt|_|) = function
-    | Number n -> Some(JsNumber n)
+    | Number n -> Some (JsNumber n)
+    | Builtin BclInt64 -> Some (Long false)
+    | Builtin BclUInt64 -> Some (Long true)
     | Builtin BclDecimal -> Some Decimal
-    | Builtin BclInt64 -> Some(Long false)
-    | Builtin BclUInt64 -> Some(Long true)
     | Builtin BclBigInt -> Some BigInt
     | _ -> None
 
 let (|Nameof|_|) = function
-    | IdentExpr ident -> Some ident.Name
+    | IdentExpr ident -> Some ident.DisplayName
     | Get(_, ExprGet(Value(StringConstant prop)), _, _) -> Some prop
     | Get(_, FieldGet(fi,_,_), _, _) -> Some fi
+    | NestedLambda(args, Operation(Call(StaticCall(IdentExpr ident), info),_,_), None) ->
+        if List.sameLength args info.Args && List.zip args info.Args |> List.forall (fun (a1, a2) ->
+            match a2 with IdentExpr id2 -> a1.Name = id2.Name | _ -> false)
+        then Some ident.DisplayName
+        else None
     | _ -> None
 
 let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
@@ -203,8 +227,8 @@ let (|ListLiteral|_|) e =
         | Value(NewList(Some(head, tail), _)) -> untail t (head::acc) tail
         | _ -> None
     match e with
-    | Value(NewList(None, t)) -> Some([], t)
-    | Value(NewList(Some(head, tail), t)) -> untail t [head] tail
+    | NewList(None, t) -> Some([], t)
+    | NewList(Some(head, tail), t) -> untail t [head] tail
     | _ -> None
 
 let (|IDictionary|IEqualityComparer|Other|) = function
@@ -237,6 +261,9 @@ let coreModFor = function
     | BclTimeSpan -> "Int32"
     | FSharpSet _ -> "Set"
     | FSharpMap _ -> "Map"
+    | FSharpResult _ -> "Option"
+    | FSharpChoice _ -> "Option"
+    | FSharpReference _ -> "Types"
     | BclHashSet _
     | BclDictionary _ -> failwith "Cannot decide core module"
 
@@ -352,6 +379,22 @@ let toString com (ctx: Context) r (args: Expr list) =
         // | Unit | Boolean | Array _ | Tuple _ | FunctionType _ | EnumType _
         | _ -> Helper.GlobalCall("String", String, [head])
 
+let getParseParams (kind: NumberExtKind) =
+    let isFloatOrDecimal, numberModule, unsigned, bitsize =
+        match kind with
+        | JsNumber Int8 -> false, "Int32", false, 8
+        | JsNumber UInt8 -> false, "Int32", true, 8
+        | JsNumber Int16 -> false, "Int32", false, 16
+        | JsNumber UInt16 -> false, "Int32", true, 16
+        | JsNumber Int32 -> false, "Int32", false, 32
+        | JsNumber UInt32 -> false, "Int32", true, 32
+        | JsNumber Float32 -> true, "Double", false, 32
+        | JsNumber Float64 -> true, "Double", false, 64
+        | Long unsigned -> false, "Long", unsigned, 64
+        | Decimal -> true, "Decimal", false, 128
+        | x -> failwithf "Unexpected kind in getParseParams: %A" x
+    isFloatOrDecimal, numberModule, unsigned, bitsize
+
 let castBigIntMethod typeTo =
     match typeTo with
     | NumberExt n ->
@@ -428,6 +471,17 @@ let fastIntFloor expr =
     let inner = makeUnOp None Any expr UnaryNotBitwise
     makeUnOp None (Number Int32) inner UnaryNotBitwise
 
+let stringToInt com (ctx: Context) r targetType (args: Expr list): Expr =
+    let kind =
+        match targetType with
+        | NumberExt kind -> kind
+        | x -> failwithf "Unexpected type in stringToInt: %A" x
+    let style = int System.Globalization.NumberStyles.Any
+    let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
+    let parseArgs = [makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize]
+    Helper.CoreCall(numberModule, "parse", targetType,
+        [args.Head] @ parseArgs @ args.Tail, ?loc=r)
+
 let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): Expr =
     let fromInteger kind arg =
         let kind = makeIntConst (kindIndex (JsNumber kind))
@@ -437,9 +491,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
     | Char ->
         Helper.InstanceCall(args.Head, "charCodeAt", Number Int32, [makeIntConst 0])
         |> fromInteger UInt16
-    | String ->
-        let args = [args.Head]@[makeBoolConst unsigned]@args.Tail
-        Helper.CoreCall("Long", "fromString", targetType, args)
+    | String -> stringToInt com ctx r targetType args
     | NumberExt kind ->
         match kind with
         | BigInt -> Helper.CoreCall("BigInt", castBigIntMethod targetType, targetType, args)
@@ -470,7 +522,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         | _ -> failwithf "Unexpected non-integer type %A" typeTo
     match sourceType, targetType with
     | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
-    | String, _ -> Helper.CoreCall("Int32", "parse", targetType, args)
+    | String, _ -> stringToInt com ctx r targetType args
     | Builtin BclBigInt, _ -> Helper.CoreCall("BigInt", castBigIntMethod targetType, targetType, args)
     | NumberExt typeFrom, NumberExt typeTo  ->
         if needToCast typeFrom typeTo then
@@ -523,7 +575,8 @@ let toArray (com: ICompiler) returnType expr =
 
 let listToArray com r t (li: Expr) =
     match li with
-    | ListLiteral(exprs, t) -> NewArray(ArrayValues exprs, t) |> Value
+    | Value(ListLiteral(exprs, t)) ->
+        NewArray(ArrayValues exprs, t) |> Value
     | _ ->
         let args = match t with Array genArg -> [li; arrayCons com genArg] | _ -> [li]
         Helper.CoreCall("Array", "ofList", t, args, ?loc=r)
@@ -850,7 +903,7 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
     | Value(Enum(NumberEnum(Value(NumberConstant(rule, _))), _)) ->
         let caseRule = enum(int rule)
         match keyValueList with
-        | MaybeCasted(Value(NewArray(ArrayValues ms, _)) | ListLiteral(ms, _)) ->
+        | MaybeCasted(Value(NewArray(ArrayValues ms, _)|ListLiteral(ms, _))) ->
             (ms, Some []) ||> List.foldBack (fun m acc ->
                 match acc, m with
                 // Try to get the member key and value at compile time for unions and tuples
@@ -900,87 +953,118 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
             |> addError com ctx.InlinePath r
             None
 
-    Map.tryFind moduleName ReplacementsInject.fableCoreModules
+    Map.tryFind moduleName ReplacementsInject.fableReplacementsModules
     |> Option.bind (Map.tryFind methName)
     |> Option.map (List.choose buildArg)
     |> function
         | None -> args
         | Some injections -> args @ injections
 
+// TODO!!! How to add other entities?
+let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
+    match ent.FullName with
+    | Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
+    | Types.matchFail -> makeCoreRef Any "MatchFailureException" "Types" |> Some
+    | Types.result -> makeCoreRef Any "Result" "Option" |> Some
+    | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
+    | entFullName ->
+        com.Options.precompiledLib
+        |> Option.bind (fun tryLib -> tryLib entFullName)
+        |> Option.map (fun (entityName, importPath) ->
+            let entityName = Naming.sanitizeIdentForbiddenChars entityName |> Naming.checkJsKeywords
+            makeCustomImport Any entityName importPath)
+
+let jsConstructor com ent =
+    if FSharp2Fable.Util.isReplacementCandidate ent then
+        match tryEntityRef com ent with
+        | Some entRef -> entRef
+        | None ->
+            defaultArg ent.TryFullName ent.CompiledName
+            |> sprintf "Cannot find %s constructor"
+            |> addErrorAndReturnNull com [] None
+    else
+        FSharp2Fable.Util.entityRefMaybeGlobalOrImported com ent
+
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, args with
-    | ".ctor", _ -> objExpr t [] |> Some
-    | ("Async.AwaitPromise.Static"|"Async.StartAsPromise.Static" as m), _ ->
-        let meth =
-            if m = "Async.AwaitPromise.Static"
-            then "awaitPromise" else "startAsPromise"
-        Helper.CoreCall("Async", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "importDynamic", _ -> Helper.GlobalCall("import", t, args, ?loc=r) |> Some
-    | Naming.StartsWith "import" suffix, _ ->
-        match suffix, args with
-        | "Member", [path]      -> Import(makeStrConst Naming.placeholder, path, CustomImport, t, r) |> Some
-        | "Default", [path]     -> Import(makeStrConst "default", path, CustomImport, t, r) |> Some
-        | "SideEffects", [path] -> Import(makeStrConst "", path, CustomImport, t, r) |> Some
-        | "All", [path]         -> Import(makeStrConst "*", path, CustomImport, t, r) |> Some
-        | _, [selector; path]   -> Import(selector, path, CustomImport, t, r) |> Some
-        | _ -> None
-    // Dynamic casting, erase
-    | "op_BangBang", _ | "op_BangHat", _ -> List.tryHead args
-    | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
-    | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
-        Set(callee, ExprSet prop, value, r) |> Some
-    | ("op_Dollar"|"createNew" as m), callee::args ->
-        let argInfo = { argInfo None args AutoUncurrying with Spread = TupleSpread }
-        if m = "createNew"
-        then constructorCall r t argInfo callee |> Some
-        else staticCall r t argInfo callee |> Some
-    | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
-        NewTuple [name; value] |> Value |> Some
-    | "createObj", [kvs] ->
-        DelayedResolution(AsPojo(kvs, (CaseRules.None |> int |> makeIntConst)), t, r) |> Some
-     | "keyValueList", [caseRule; keyValueList] ->
-            DelayedResolution(AsPojo(keyValueList, caseRule), t, r) |> Some
-    | "toPlainJsObj", _ ->
-        let emptyObj = ObjectExpr([], t, None)
-        Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
-    | "jsOptions", [arg] ->
-        makePojoFromLambda arg |> Some
-    | "jsThis", _ ->
-        makeTypedIdentNonMangled t "this" |> IdentExpr |> Some
-    | "jsConstructor", _ ->
-        match (genArg com ctx r 0 i.GenericArgs) with
-        | DeclaredType(ent, _) when ent.IsClass -> FSharp2Fable.Util.entityRefMaybeImported com ent |> Some
-        | _ -> "Only class types define a function constructor in JS"
-               |> addError com ctx.InlinePath r; None
-    | "createEmpty", _ ->
-        objExpr t [] |> Some
-    | "nameof", _ ->
-        match args with
-        | [Nameof name] -> name
-        | _ -> "Cannot infer name of expression"
-               |> addError com ctx.InlinePath r; Naming.unknown
-        |> makeStrConst |> Some
-    | "nameofLambda", _ ->
-        match args with
-        | [Function(_, Nameof name, _)] -> name
-        | _ -> "Cannot infer name of expression"
-               |> addError com ctx.InlinePath r; Naming.unknown
-        |> makeStrConst |> Some
-    | "AreEqual", _ ->
-        Helper.CoreCall("Util", "assertEqual", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "NotEqual", _ ->
-        Helper.CoreCall("Util", "assertNotEqual", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "jsNative", _ ->
+    match i.DeclaringEntityFullName, i.CompiledName with
+    | _, ".ctor" -> objExpr t [] |> Some
+    | _, "jsNative" ->
         // TODO: Fail at compile time?
         addWarning com ctx.InlinePath r "jsNative is being compiled without replacement, this will fail at runtime."
         let runtimeMsg =
             "A function supposed to be replaced by JS native code has been called, please check."
             |> StringConstant |> Value
         Throw(error runtimeMsg, t, r) |> Some
-    // Deprecated methods
-    | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
-    | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
-    | ("inflate"|"deflate"), _ -> List.tryHead args
+    | _, "Async.AwaitPromise.Static" -> Helper.CoreCall("Async", "awaitPromise", t, args, ?loc=r) |> Some
+    | _, "Async.StartAsPromise.Static" -> Helper.CoreCall("Async", "startAsPromise", t, args, ?loc=r) |> Some
+    | "Fable.Core.Testing.Assert", _ ->
+        match i.CompiledName with
+        | "AreEqual" -> Helper.CoreCall("Util", "assertEqual", t, args, ?loc=r) |> Some
+        | "NotEqual" -> Helper.CoreCall("Util", "assertNotEqual", t, args, ?loc=r) |> Some
+        | _ -> None
+    | "Fable.Core.Reflection", meth ->
+        Helper.CoreCall("Reflection", meth, t, args, ?loc=r) |> Some
+    | "Fable.Core.JsInterop", _ ->
+        match i.CompiledName, args with
+        | "importDynamic", _ -> Helper.GlobalCall("import", t, args, ?loc=r) |> Some
+        | Naming.StartsWith "import" suffix, _ ->
+            match suffix, args with
+            | "Member", [path]      -> Import(makeStrConst Naming.placeholder, path, CustomImport, t, r) |> Some
+            | "Default", [path]     -> Import(makeStrConst "default", path, CustomImport, t, r) |> Some
+            | "SideEffects", [path] -> Import(makeStrConst "", path, CustomImport, t, r) |> Some
+            | "All", [path]         -> Import(makeStrConst "*", path, CustomImport, t, r) |> Some
+            | _, [selector; path]   -> Import(selector, path, CustomImport, t, r) |> Some
+            | _ -> None
+        // Dynamic casting, erase
+        | "op_BangBang", _ | "op_BangHat", _ -> List.tryHead args
+        | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
+        | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
+            Set(callee, ExprSet prop, value, r) |> Some
+        | ("op_Dollar"|"createNew" as m), callee::args ->
+            let argInfo = { argInfo None args AutoUncurrying with Spread = TupleSpread }
+            if m = "createNew"
+            then constructorCall r t argInfo callee |> Some
+            else staticCall r t argInfo callee |> Some
+        | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
+            NewTuple [name; value] |> Value |> Some
+        | "createObj", [kvs] ->
+            DelayedResolution(AsPojo(kvs, (CaseRules.None |> int |> makeIntConst)), t, r) |> Some
+         | "keyValueList", [caseRule; keyValueList] ->
+                DelayedResolution(AsPojo(keyValueList, caseRule), t, r) |> Some
+        | "toPlainJsObj", _ ->
+            let emptyObj = ObjectExpr([], t, None)
+            Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
+        | "jsOptions", [arg] ->
+            makePojoFromLambda arg |> Some
+        | "jsThis", _ ->
+            makeTypedIdentNonMangled t "this" |> IdentExpr |> Some
+        | "jsConstructor", _ ->
+            match (genArg com ctx r 0 i.GenericArgs) with
+            | DeclaredType(ent, _) -> jsConstructor com ent |> Some
+            | _ -> "Only declared types define a function constructor in JS"
+                   |> addError com ctx.InlinePath r; None
+        | "createEmpty", _ ->
+            objExpr t [] |> Some
+        | ("nameof"|"nameof2" as meth), _ ->
+            match args with
+            | [Nameof name as arg] ->
+                if meth = "nameof2"
+                then NewTuple [makeStrConst name; arg] |> Value |> Some
+                else makeStrConst name |> Some
+            | _ -> "Cannot infer name of expression"
+                   |> addError com ctx.InlinePath r
+                   makeStrConst Naming.unknown |> Some
+        | "nameofLambda", _ ->
+            match args with
+            | [Function(_, Nameof name, _)] -> name
+            | _ -> "Cannot infer name of expression"
+                   |> addError com ctx.InlinePath r; Naming.unknown
+            |> makeStrConst |> Some
+        // Deprecated methods
+        | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
+        | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
+        | ("inflate"|"deflate"), _ -> List.tryHead args
+        | _ -> None
     | _ -> None
 
 let getReference r t expr = get r t expr "contents"
@@ -1146,6 +1230,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         ), _ -> fsFormat com ctx r t i thisArg args
     | ("Failure"
     |  "FailurePattern"  // (|Failure|_|)
+    |  "LazyPattern"     // (|Lazy|_|)
     |  "Lock"            // lock
     |  "NullArg"         // nullArg
        ), _ -> fsharpModule com ctx r t i thisArg args
@@ -1456,7 +1541,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [ExprType(Number _)] ->
         makeArray Any [] |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
-    | ".ctor", _, [Value(NewArray(ArrayValues vals, _)) | ListLiteral(vals, _)] ->
+    | ".ctor", _, [Value(NewArray(ArrayValues vals, _)|ListLiteral(vals, _))] ->
         makeArray Any vals |> Some
     | ".ctor", _, args ->
         Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
@@ -1635,7 +1720,7 @@ let results (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr opt
     | _ -> None
     |> Option.map (fun meth -> Helper.CoreCall("Option", meth, t, args, i.SignatureArgTypes, ?loc=r))
 
-// See fable-core/Option.ts for more info on how options behave in Fable runtime
+// See fable-library/Option.ts for more info on how options behave in Fable runtime
 let options (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some c, _ -> Get(c, OptionValue, t, r) |> Some
@@ -1687,48 +1772,50 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     // | "map2" | "map3" -> failwith "TODO"
     | _ -> None
 
-type ParseTarget =
-    | Parse2Int
-    | Parse2Int64
-    | Parse2Float
-    | Parse2Decimal
-
-let parse target (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let isFloat, numberModule =
-        match target with
-        | Parse2Int -> false, "Int32"
-        | Parse2Int64 -> false, "Long"
-        | Parse2Float -> true, "Double"
-        | Parse2Decimal -> true, "Decimal"
+let parse (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let parseCall meth str style =
+        let kind =
+            match i.DeclaringEntityFullName with
+            | NumberExtKind kind -> kind
+            | x -> failwithf "Unexpected type in parse: %A" x
+        let isFloatOrDecimal, numberModule, unsigned, bitsize =
+            getParseParams kind
+        if isFloatOrDecimal then
+            Helper.CoreCall(numberModule, Naming.lowerFirst meth, t,
+                [str], [i.SignatureArgTypes.Head], ?loc=r) |> Some
+        else
+            Helper.CoreCall(numberModule, Naming.lowerFirst meth, t,
+                [str; makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize],
+                [i.SignatureArgTypes.Head; Number Int32; Boolean; Number Int32], ?loc=r) |> Some
+    let isFloat =
+        match i.SignatureArgTypes.Head with
+        | Number (Float32 | Float64) -> true
+        | _ -> false
     match i.CompiledName, args with
     | "IsNaN", [_] when isFloat ->
         Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
     | "IsInfinity", [_] when isFloat ->
         Helper.CoreCall("Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // TODO verify that the number is within the Int32/Double/Single range
-    | "Parse", [str] ->
-        Helper.CoreCall(numberModule, "parse", t,
-            [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
-            [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
-    | "Parse", [str; Value(Enum(NumberEnum(Value(NumberConstant(hexConst', _))), _))] ->
-        let hexConst = float System.Globalization.NumberStyles.HexNumber
-        if hexConst' = hexConst then
-            Helper.CoreCall(numberModule, "parse", t,
-                [str; (if isFloat then makeFloatConst 16.0 else makeIntConst 16)],
-                [i.SignatureArgTypes.Head; Number Float32], ?loc=r) |> Some
-        else None  // TODO:
-    | "Parse", str::_ ->
-        // e.g. Double.Parse(string, IFormatProvider) etc.
-        sprintf "%s.Parse(): second argument is ignored" i.DeclaringEntityFullName
-        |> addWarning com ctx.InlinePath r
-        Helper.CoreCall(numberModule, "parse", t,
-            [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10)],
-            [i.SignatureArgTypes.Head; Number Float32])
-        |> Some
-    | "TryParse", [str; defValue] ->
-        Helper.CoreCall(numberModule, "tryParse", t,
-            [str; (if isFloat then makeFloatConst 10.0 else makeIntConst 10); defValue],
-            [i.SignatureArgTypes.Head; Number Float32; i.SignatureArgTypes.Tail.Head], ?loc=r) |> Some
+    | ("Parse" | "TryParse") as meth,
+            str::Value(Enum(NumberEnum(Value(NumberConstant(style, Int32))), _))::_ ->
+        let style = int style
+        let hexConst = int System.Globalization.NumberStyles.HexNumber
+        let intConst = int System.Globalization.NumberStyles.Integer
+        if style <> hexConst && style <> intConst then
+            sprintf "%s.%s(): NumberStyle %d is ignored" i.DeclaringEntityFullName meth style
+            |> addWarning com ctx.InlinePath r
+        if List.length args > 2 then
+            // e.g. Double.Parse(string, style, IFormatProvider) etc.
+            sprintf "%s.%s(): provider argument is ignored" i.DeclaringEntityFullName meth
+            |> addWarning com ctx.InlinePath r
+        parseCall meth str style
+    | ("Parse" | "TryParse") as meth, str::_ ->
+        if List.length args > 1 then
+            // e.g. Double.Parse(string, IFormatProvider) etc.
+            sprintf "%s.%s(): provider argument is ignored" i.DeclaringEntityFullName meth
+            |> addWarning com ctx.InlinePath r
+        let style = int System.Globalization.NumberStyles.Any
+        parseCall meth str style
     | "ToString", [Value (StringConstant _) as format] ->
         let format = emitJs r String [format] "'{0:' + $0 + '}'"
         Helper.CoreCall("String", "format", t, [format; thisArg.Value], [format.Type; thisArg.Value.Type], ?loc=r) |> Some
@@ -1736,7 +1823,6 @@ let parse target (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Helper.GlobalCall("String", String, [thisArg.Value], ?loc=r) |> Some
     | _ ->
         None
-
 
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
@@ -1766,7 +1852,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     | ".ctor", [arg] ->
         makeDecimalFromExpr t arg |> Some
     | ("Parse" | "TryParse"), _ ->
-        parse Parse2Decimal com ctx r t i thisArg args
+        parse com ctx r t i thisArg args
     | "op_LessThan", [left; right] -> compareIf com r left right BinaryLess |> Some
     | "op_LessThanOrEqual", [left; right] -> compareIf com r left right BinaryLessOrEqual |> Some
     | "op_GreaterThan", [left; right] -> compareIf com r left right BinaryGreater |> Some
@@ -1825,7 +1911,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "EnumOfValue", [arg] ->
         match t with
         | EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> Value |> Some
-        | _ -> None
+        | _ -> Enum(NumberEnum arg, Naming.unknown) |> Value |> Some
     | "EnumToValue", [arg] ->
         match arg with
         | Value(Enum(NumberEnum(v), _)) -> v |> Some
@@ -1892,8 +1978,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "CreateInstance", None, _ ->
         match genArg com ctx r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
-            let entRef = FSharp2Fable.Util.entityRefMaybeImported com ent
-            Helper.ConstructorCall(entRef, t, [], ?loc=r) |> Some
+            Helper.ConstructorCall(jsConstructor com ent, t, [], ?loc=r) |> Some
         | t -> sprintf "Cannot create instance of type unresolved at compile time: %A" t
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d
@@ -2195,12 +2280,16 @@ let dates (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option)
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.CoreCall(moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
-let timeSpans (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
     | ".ctor" -> Helper.CoreCall("TimeSpan", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
     | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t) |> Some
+    | "ToString" when not(List.isEmpty args) ->
+        "TimeSpan.ToString with arguments is not supported"
+        |> addError com ctx.InlinePath r
+        None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.CoreCall("TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2582,10 +2671,16 @@ let private replacedModules =
     Types.valueType, valueTypes
     "System.Enum", enums
     "System.BitConverter", bitConvert
-    Types.int32, parse Parse2Int
-    Types.int64, parse Parse2Int64
-    Types.float32, parse Parse2Float
-    Types.float64, parse Parse2Float
+    Types.int8, parse
+    Types.uint8, parse
+    Types.int16, parse
+    Types.uint16, parse
+    Types.int32, parse
+    Types.uint32, parse
+    Types.int64, parse
+    Types.uint64, parse
+    Types.float32, parse
+    Types.float64, parse
     Types.decimal, decimals
     "System.Convert", convert
     "System.Console", console
@@ -2681,21 +2776,6 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         |> Option.bind (fun tryLib -> tryLib info.DeclaringEntityFullName)
         |> Option.map (precompiledLib r t info thisArg args)
     | _ -> None
-
-// TODO: Add other entities (see Fable 1 Replacements.tryReplaceEntity)
-let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
-    match ent.FullName with
-    | Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
-    | Types.matchFail -> makeCoreRef Any "MatchFailureException" "Types" |> Some
-    | Types.result -> makeCoreRef Any "Result" "Option" |> Some
-    | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
-    | entFullName ->
-        com.Options.precompiledLib
-        |> Option.bind (fun tryLib -> tryLib entFullName)
-        |> Option.map (fun (entityName, importPath) ->
-            let entityName = Naming.sanitizeIdentForbiddenChars entityName |> Naming.checkJsKeywords
-            makeCustomImport Any entityName importPath)
-
 
 let tryBaseConstructor com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) genArgs args =
     match ent.FullName with

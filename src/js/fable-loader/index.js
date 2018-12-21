@@ -2,19 +2,12 @@
 
 var path = require("path");
 var babel = require("@babel/core");
-var fableUtils = require ("fable-utils");
-
-var DEFAULT_PORT =
-    process.env.FABLE_SERVER_PORT != null
-    ? parseInt(process.env.FABLE_SERVER_PORT, 10)
-    : 61225;
+var babelPlugins = require("fable-babel-plugins");
+// var fable = require("../fable-compiler"); // testing
+var fable = require("fable-compiler");
 
 function or(option, _default) {
     return option !== void 0 ? option : _default;
-}
-
-function join(arg) {
-    return Array.isArray(arg) ? arg.join(";") : arg;
 }
 
 function ensureArray(obj) {
@@ -22,9 +15,23 @@ function ensureArray(obj) {
 }
 
 var customPlugins = [
-    fableUtils.babelPlugins.getRemoveUnneededNulls(),
-    fableUtils.babelPlugins.getTransformMacroExpressions(babel.template)
+    babelPlugins.getRemoveUnneededNulls(),
+    babelPlugins.getTransformMacroExpressions(babel.template)
 ];
+
+var compilerCache = null;
+
+function getCompiler(webpack, args) {
+    if (compilerCache == null) {
+        compilerCache = fable.default(args);
+        if (!webpack.watchMode) {
+            webpack.hooks.done.tap("fable-loader", function() {
+                compilerCache.close();
+            });
+        }
+    }
+    return compilerCache;
+}
 
 function transformBabelAst(babelAst, babelOptions, sourceMapOptions, callback) {
     var fsCode = null;
@@ -38,9 +45,13 @@ function transformBabelAst(babelAst, babelOptions, sourceMapOptions, callback) {
 
 var Loader = function(buffer) {
     var callback = this.async();
-    var opts = this.loaders[0].options || {};
 
-    var port = or(opts.port, DEFAULT_PORT);
+    if (process.env.FABLE_SERVER_PORT) {
+        callback(new Error("This version is not compatible with dotnet-fable cli tool, see https://www.npmjs.com/package/fable-loader#usage"));
+        return;
+    }
+
+    var opts = this.loaders[0].options || {};
     var babelOptions = opts.babel || {};
     babelOptions.plugins = customPlugins.concat(babelOptions.plugins || []);
 
@@ -55,24 +66,27 @@ var Loader = function(buffer) {
         path: this.resourcePath,
         rootDir: process.cwd(),
         define: define,
-        plugins: ensureArray(or(opts.plugins, [])),
         typedArrays: or(opts.typedArrays, true),
         clampByteArrays: or(opts.clampByteArrays, false),
         extra: opts.extra || {}
     };
 
-    fableUtils.client.send(port, JSON.stringify(msg)).then(r => {
-        var data = JSON.parse(r);
+    getCompiler(this._compiler, opts.cli).send(msg).then(data => {
         if (data.error) {
             callback(new Error(data.error));
         }
         else {
             try {
+                if (!msg.path.endsWith(".fsproj")) {
+                    ensureArray(data.dependencies).forEach(p => {
+                        // Fable normalizes path separator to '/' which causes issues in Windows
+                        // Use `path.resolve` to restore the separator to the system default
+                        this.addDependency(path.resolve(p));
+                    });
+                }
                 if (typeof data.logs === "object") {
                     var isErrored = false;
                     Object.keys(data.logs).forEach(key => {
-                        // TODO: Fail if there's one or more error logs?
-                        // That would prevent compilation of other files
                         ensureArray(data.logs[key]).forEach(msg => {
                             switch (key)  {
                                 case "error":
@@ -108,8 +122,7 @@ var Loader = function(buffer) {
         }
     })
     .catch(err => {
-        var msg = err.message + "\nMake sure Fable server is running on port " + port;
-        callback(new Error(msg))
+        callback(new Error(err.message))
     })
 };
 

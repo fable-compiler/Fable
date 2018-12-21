@@ -1,5 +1,6 @@
 module.exports = {
   entry: './src/React.TodoMVC.fsproj',
+  mode: "production",
   module: {
     rules: [
       {

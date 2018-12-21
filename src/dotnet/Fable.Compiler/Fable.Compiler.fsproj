@@ -2,13 +2,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Description>Fable: F# to JS Compiler</Description>
-    <Version>2.0.10</Version>
-    <PackageVersion>2.0.10</PackageVersion>
     <OutputType>Exe</OutputType>
-    <PackageType>DotnetCliTool</PackageType>
-    <AssemblyName>dotnet-fable</AssemblyName>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
-    <RuntimeFrameworkVersion>2.0.0</RuntimeFrameworkVersion>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <RuntimeFrameworkVersion>2.1.0</RuntimeFrameworkVersion>
+    <!-- Only used for Nuget distribution -->
+    <Version>2.0.11</Version>
+    <PackageVersion>2.0.11</PackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Global/Fable.Core.fs" />
@@ -34,17 +33,22 @@
     <Compile Include="CLI/ProjectCracker.fs" />
     <Compile Include="CLI/Printers.fs" />
     <Compile Include="CLI/Server.fs" />
+    <Compile Include="CLI/Stdin.fs" />
     <Compile Include="CLI/Agent.fs" />
     <Compile Include="CLI/Main.fs" />
   </ItemGroup>
+  <!-- Special instructions for Nuget distribution -->
+  <PropertyGroup Condition="'$(NugetPackage)' == 'true'">
+    <AssemblyName>dotnet-fable</AssemblyName>
+  </PropertyGroup>
   <ItemGroup Condition="'$(NugetPackage)' == 'true'">
     <Content Include="prefercliruntime">
       <PackagePath>prefercliruntime</PackagePath>
       <Pack>true</Pack>
     </Content>
-    <!-- VS cannot open the project if we have a slash after fable-core
+    <!-- VS cannot open the project if we have a slash after fable-library
          but we need it so `dotnet pack` includes the dir contents in the package -->
-    <Content Include="../../../build/fable-core/" PackagePath="fable-core" />
+    <Content Include="../../../build/fable-library/" PackagePath="fable-library" />
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

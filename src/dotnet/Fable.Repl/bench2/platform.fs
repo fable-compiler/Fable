@@ -1,7 +1,7 @@
 module Bench.Platform
 
 let testScriptPath =  "${entryDir}/test_script.fsx"
-let fableCoreDir = "${entryDir}/../out-fable-core"
+let fableLibraryDir = "${entryDir}/../out-fable-library"
 
 type IFileSystem =
     abstract readFileSync: string -> byte[]
