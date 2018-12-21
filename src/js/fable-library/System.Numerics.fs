@@ -13,6 +13,9 @@ open System
 //    TODO Transform
 //  Quaternion:
 //    TODO lots of stuff
+// for tests, take inspiration from 
+//  - https://github.com/dotnet/corefx/blob/master/src/System.Numerics.Vectors/tests/QuaternionTests.cs
+//  - https://github.com/dotnet/corefx/blob/master/src/System.Numerics.Vectors/tests/Vector3Tests.cs
 
 
 type Vector3 =
