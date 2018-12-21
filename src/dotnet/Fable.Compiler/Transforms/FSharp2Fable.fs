@@ -681,11 +681,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // read a member field (Example: Vector3.X)
     | BasicPatterns.ILFieldGet(Some callee, calleeType, fieldName)
        when (Replacements.isILMemberFieldSupported (makeType com ctx.GenericArgs calleeType) fieldName) ->
-        let! callee = transformExprOpt com ctx (Some callee)
-        let callee =
-            match callee with
-            | Some callee -> callee
-            | None -> entityRef com calleeType.TypeDefinition
+        let! callee = transformExpr com ctx callee
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         let kind = Fable.FieldGet(fieldName, true, typ)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
@@ -694,12 +690,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // write a member field (example: Vector3.X)
     | BasicPatterns.ILFieldSet(Some callee, calleeType, fieldName, value)
        when (Replacements.isILMemberFieldSupported (makeType com ctx.GenericArgs calleeType) fieldName) ->
-        let! callee = transformExprOpt com ctx (Some callee)
+        let! callee = transformExpr com ctx callee
         let! value = transformExpr com ctx value
-        let callee =
-            match callee with
-            | Some callee -> callee
-            | None -> entityRef com calleeType.TypeDefinition
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return Fable.Set(callee, Fable.FieldSet(fieldName, typ), value, makeRangeFrom fsExpr)
 
