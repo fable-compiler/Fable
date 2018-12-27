@@ -204,7 +204,7 @@ module Naming =
             // See #258, #1358
             // See https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
             // See https://twitter.com/FableCompiler/status/930725972629913600
-            "arguments"; "fetch"; "eval"; "window"; "console"; "global"
+            "arguments"; "fetch"; "eval"; "window"; "console"; "global"; "document"
         ]
 
     // A dollar sign is used to prefix chars encoded in hexadecimal
