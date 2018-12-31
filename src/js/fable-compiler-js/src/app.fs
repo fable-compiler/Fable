@@ -3,38 +3,7 @@ module Fable.Compiler.App
 open Fable.Compiler.Platform
 open System.Text.RegularExpressions
 
-// let references = Fable.Repl.Metadata.references false
-
-// Compilation seems to work only with these references
-let references = [|
-    "Fable.Core"
-    // "Fable.Import.Browser"
-    "FSharp.Core"
-    "mscorlib"
-    "netstandard"
-    "System.Collections"
-    "System.Console"
-    "System.Core"
-    "System.Diagnostics.Debug"
-    "System"
-    "System.IO"
-    "System.Numerics"
-    "System.Reflection"
-    "System.Reflection.Extensions"
-    "System.Reflection.Metadata"
-    "System.Reflection.Primitives"
-    "System.Reflection.TypeExtensions"
-    "System.Runtime"
-    "System.Runtime.Extensions"
-    "System.Runtime.Numerics"
-    "System.Text.Encoding"
-    "System.Text.Encoding.Extensions"
-    "System.Text.RegularExpressions"
-    "System.ValueTuple"
-    "System.Threading"
-    "System.Threading.Tasks"
-|]
-
+let references = Fable.Repl.Metadata.references_core
 let metadataPath = __dirname + "/metadata2/" // .NET BCL binaries (metadata)
 
 let (|Regex|_|) (pattern: string) (input: string) =
@@ -143,7 +112,13 @@ let printErrors showWarnings (errors: Fable.Repl.Error[]) =
         errors |> Array.iter printError
         failwith "Too many errors."
 
-let parseFiles projectPath outDir optimized commonjs =
+type CmdLineOptions = {
+    commonjs: bool
+    optimize: bool
+    watchMode: bool
+}
+
+let parseFiles projectPath outDir options =
     // parse project
     let (projectFileName, dllRefs, fileNames, sources, defines) = parseProject projectPath
 
@@ -161,7 +136,7 @@ let parseFiles projectPath outDir optimized commonjs =
         Map.tryFind name extraDll
         |> Option.defaultValue (metadataPath + name)
         |> readAllBytes
-    let createChecker () = fable.CreateChecker(references, readBytesExtra, defines, optimize=false)
+    let createChecker () = fable.CreateChecker(references, readBytesExtra, defines, options.optimize)
     let ms0, checker = measureTime createChecker ()
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0
@@ -174,14 +149,18 @@ let parseFiles projectPath outDir optimized commonjs =
     let showWarnings = true
     parseRes.Errors |> printErrors showWarnings
 
+    // clear cache to lower memory usage
+    if not options.watchMode then
+        fable.ClearParseCaches(checker)
+
     // exclude signature files
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
-    let fableLibraryDist = if commonjs then "/fable-library-commonjs" else "/bundle/fable-library"
+    let fableLibraryDist = if options.commonjs then "/fable-library-commonjs" else "/bundle/fable-library"
     copyFolder (__dirname + fableLibraryDist, Path.Combine(outDir, fableLibraryDir))
-    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, optimized)
+    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, options.optimize)
 
     for fileName in fileNames do
 
@@ -191,7 +170,7 @@ let parseFiles projectPath outDir optimized commonjs =
         res.FableErrors |> printErrors showWarnings
 
         // transform and save Babel AST
-        transformAndSaveBabelAst(res.BabelAst, fileName, outDir, commonjs)
+        transformAndSaveBabelAst(res.BabelAst, fileName, outDir, options.commonjs)
 
 let parseArguments (argv: string[]) =
     // TODO: more sophisticated argument parsing
@@ -212,9 +191,12 @@ let parseArguments (argv: string[]) =
                 let scriptFile = Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectPath) + ".js")
                 let runArgs = opts.[i+1..] |> String.concat " "
                 sprintf "node %s %s" scriptFile runArgs)
-        let optimized = opts |> Array.contains "--optimize-fcs"
-        let commonjs = Option.isSome commandToRun || opts |> Array.contains "--commonjs"
-        parseFiles projectPath outDir optimized commonjs
+        let options = {
+            commonjs = Option.isSome commandToRun || opts |> Array.contains "--commonjs"
+            optimize = opts |> Array.contains "--optimize-fcs"
+            watchMode = opts |> Array.contains "--watch"
+        }
+        parseFiles projectPath outDir options
         commandToRun |> Option.iter runCmd
     | _ -> printfn "%s" usage
 

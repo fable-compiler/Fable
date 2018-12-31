@@ -241,6 +241,10 @@ let init () =
             InteractiveChecker.Create(references, readAllBytes, defines, optimize)
             |> CheckerImpl :> IChecker
 
+        member __.ClearParseCaches(checker) =
+            let c = checker :?> CheckerImpl
+            c.Checker.ClearCache()
+
         member __.ParseFSharpScript(checker, fileName, source) =
             let c = checker :?> CheckerImpl
             let projectFileName = "project" // TODO: make it an argument
