@@ -3,9 +3,21 @@ module Fable.Tests.TimeSpan
 open System
 open Util.Testing
 open Fable.Tests
+open Fable.Tests
 
 let tests =
     testList "TimeSpan" [
+
+        // TODO
+        testCase "TimeSpan.ToString() works" <| fun () ->
+            let t = TimeSpan(0L)
+            let actual = t.ToString()
+#if FABLE_COMPILER
+            let expected = "0"
+#else
+            let expected ="00:00:00"
+#endif
+            equal actual expected
 
         // TODO
         // testCase "TimeSpan.ToString with format works" <| fun () ->
