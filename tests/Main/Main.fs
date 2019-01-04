@@ -1,4 +1,5 @@
 module Fable.Tests.Main
+open System
 
 let allTests =
   [|
@@ -38,6 +39,7 @@ let allTests =
     Strings.tests
     Sudoku.tests
     TailCalls.tests
+    TimeSpan.tests
     TupleTypes.tests
     TypeTests.tests
     UnionTypes.tests

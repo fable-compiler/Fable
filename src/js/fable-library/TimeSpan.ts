@@ -1,5 +1,6 @@
 import { fromNumber, op_Division, op_Multiply, toNumber } from "./Long";
 import { comparePrimitives } from "./Util";
+// import { comparePrimitives, padWithZeros } from "./Util";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
 
@@ -96,4 +97,60 @@ export const compareTo = comparePrimitives;
 
 export function duration(x: number) {
   return Math.abs(x as number);
+}
+
+// export function toString(ts: number) {
+//   const d = days(ts);
+//   const h = hours(ts);
+//   const m = minutes(ts);
+//   const s = seconds(ts);
+//   const ms = milliseconds(ts);
+//   if (d === 0) {
+//     return padWithZeros(h, 2) + ":" + padWithZeros(m, 2) + ":" + padWithZeros(s, 2) + "." + ms;
+//   } else {
+//     return d + "." + padWithZeros(h, 2) + ":" + padWithZeros(m, 2) + ":" + padWithZeros(s, 2) + "." + ms;
+//   }
+// }
+
+export function parse(str: string) {
+  const firstDot = str.search("\\.");
+  const firstColon = str.search("\\:");
+  if (firstDot === -1 && firstColon === -1 ) { // There is only a day ex: 4
+    const d = parseInt(str, 0);
+    if (isNaN(d)) {
+      throw new Error("String was not recognized as a valid TimeSpan.");
+    } else {
+      return create(d, 0, 0, 0, 0);
+    }
+  }
+  if (firstColon > 0) { // process time part
+    // tslint:disable-next-line:max-line-length
+    const r = /^((\d+)\.)?(?:0*)([0-9]|0[0-9]|1[0-9]|2[0-3]):(?:0*)([0-5][0-9]|[0-9])(:(?:0*)([0-5][0-9]|[0-9]))?\.?(\d+)?$/.exec(str);
+    if (r != null && r[3] != null && r[4] != null) {
+      let d = 0;
+      let ms = 0;
+      let s = 0;
+      const h = +r[3];
+      const m = +r[4];
+      if (r[2] != null) {
+        d = +r[2];
+      }
+      if (r[6] != null) {
+        s = +r[6];
+      }
+      if (r[7] != null) {
+        ms = +r[7];
+      }
+      return create(d, h, m, s, ms);
+    }
+  }
+  throw new Error("String was not recognized as a valid TimeSpan.");
+}
+
+export function tryParse(v: any): [boolean, number] {
+  try {
+    return [true, parse(v)];
+  } catch (_err) {
+    return [false, 0];
+  }
 }
