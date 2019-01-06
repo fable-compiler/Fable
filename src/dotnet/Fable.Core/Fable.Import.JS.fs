@@ -1200,3 +1200,5 @@ module JS =
     let [<Global>] clearInterval (token:SetIntervalToken): unit = jsNative
 
     let [<Emit("debugger;")>] debugger () : unit = jsNative
+    
+    let [<Emit("undefined")>] undefined<'a> : 'a = jsNative
