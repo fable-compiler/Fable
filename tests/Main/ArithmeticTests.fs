@@ -129,6 +129,22 @@ let tests =
         equal (round 1.535M, 2.M)
         equal (round 1.525M, 2.M)
         equal (Math.Round 1.425M, 1.M)
+        equal (Math.Round -1.425M, -1.M)
+        equal (Math.Round 1.546M, 2.M)
+        equal (Math.Round -1.546M, -2.M)
+
+    testCase "Decimal round with digits works" <| fun () ->
+        equal(Math.Round(1.426M, 2), 1.43M)
+        equal(Math.Round(1.426M, 1), 1.4M)
+        equal(Math.Round(-1.426M, 2), -1.43M)
+        equal(Math.Round(-1.426M, 1), -1.4M)
+
+    testCase "Decimal truncate works" <| fun () ->
+        equal(Math.Truncate -12.5M, -12.M)
+        equal(Math.Truncate 1.425M, 1.M)
+        equal(Math.Truncate -1.425M, -1.M)
+        equal(Math.Truncate 1.546M, 1.M)
+        equal(Math.Truncate -1.546M, -1.M)
 
     testCase "Decimal ceil works" <| fun () ->
         equal (ceil 11.25M, 12.M)
@@ -238,7 +254,6 @@ let tests =
         equal (round 1.5, 2.)
         equal (round 1.535, 2.)
         equal (round 1.525, 2.)
-        equal (Math.Round 1.425M, 1.M)
 
     testCase "ceil works" <| fun () ->
         equal (ceil 11.25, 12.)
@@ -342,6 +357,23 @@ let tests =
 
     testCase "Math.round works" <| fun () ->
         equal(Math.Round -12.5, -12.)
+        equal(Math.Round 1.425, 1.)
+        equal(Math.Round -1.425, -1.)
+        equal(Math.Round 1.546, 2.)
+        equal(Math.Round -1.546, -2.)
+
+    testCase "Math.round with digits works" <| fun () ->
+        equal(Math.Round(1.426, 2), 1.43)
+        equal(Math.Round(1.426, 1), 1.4)
+        equal(Math.Round(-1.426, 2), -1.43)
+        equal(Math.Round(-1.426, 1), -1.4)
+
+    testCase "Math.truncate works" <| fun () ->
+        equal(Math.Truncate -12.5, -12.)
+        equal(Math.Truncate 1.425, 1.)
+        equal(Math.Truncate -1.425, -1.)
+        equal(Math.Truncate 1.546, 1.)
+        equal(Math.Truncate -1.546, -1.)
 
     testCase "Math.ceil works" <| fun () ->
         equal(Math.Ceiling 11.25, 12.)
