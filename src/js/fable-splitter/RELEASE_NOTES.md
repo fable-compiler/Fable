@@ -1,3 +1,7 @@
+### 2.1.1
+
+* Pass Babel options from splitter.config
+
 ### 2.1.0
 
 * Release _stablish_ version

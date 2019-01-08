@@ -1,3 +1,16 @@
+### 2.1.9
+
+* `TimeSpan` fixes (parsing, stringifying) @rfrerebe
+* Fix `Int64.TryParse` @MangelMaxime
+* Add `ResizeArray.Exists` @wangweipeng
+* Fix #1687: Add `document` to JS keywords @MangelMaxime
+* Fix #1683: Math.Truncate
+* Fix #1689: List.pairwise
+* Fix #1672: List.filter works backwards
+* Fix #1637: Relax GUID parsing
+* Fix #1536: Allow enums with unknown name and fix enum inlining
+
+
 ### 2.1.8
 
 * Added LazyPattern operator @ncave #1669
