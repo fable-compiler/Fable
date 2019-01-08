@@ -1,6 +1,5 @@
 import { fromNumber, op_Division, op_Multiply, toNumber } from "./Long";
-import { comparePrimitives } from "./Util";
-// import { comparePrimitives, padWithZeros } from "./Util";
+import { comparePrimitives, padWithZeros } from "./Util";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
 
@@ -99,18 +98,15 @@ export function duration(x: number) {
   return Math.abs(x as number);
 }
 
-// export function toString(ts: number) {
-//   const d = days(ts);
-//   const h = hours(ts);
-//   const m = minutes(ts);
-//   const s = seconds(ts);
-//   const ms = milliseconds(ts);
-//   if (d === 0) {
-//     return padWithZeros(h, 2) + ":" + padWithZeros(m, 2) + ":" + padWithZeros(s, 2) + "." + ms;
-//   } else {
-//     return d + "." + padWithZeros(h, 2) + ":" + padWithZeros(m, 2) + ":" + padWithZeros(s, 2) + "." + ms;
-//   }
-// }
+export function toString(ts: number) {
+  const d = days(ts);
+  const h = hours(ts);
+  const m = minutes(ts);
+  const s = seconds(ts);
+  const ms = milliseconds(ts);
+  // tslint:disable-next-line:max-line-length
+  return `${d === 0 ? "" : d + "."}${padWithZeros(h, 2)}:${padWithZeros(m, 2)}:${padWithZeros(s, 2)}${ms === 0 ? "" : "." + padWithZeros(ms, 3)}`;
+}
 
 export function parse(str: string) {
   const firstDot = str.search("\\.");

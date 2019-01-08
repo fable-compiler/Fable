@@ -248,11 +248,10 @@ let coreModFor = function
     | BclDateTime -> "Date"
     | BclDateTimeOffset -> "DateOffset"
     | BclTimer -> "Timer"
-    | BclInt64 -> "Long"
-    | BclUInt64 -> "Long"
+    | BclInt64 | BclUInt64 -> "Long"
     | BclDecimal -> "Decimal"
     | BclBigInt -> "BigInt"
-    | BclTimeSpan -> "Int32"
+    | BclTimeSpan -> "TimeSpan"
     | FSharpSet _ -> "Set"
     | FSharpMap _ -> "Map"
     | FSharpResult _ -> "Option"
@@ -364,7 +363,8 @@ let toString com (ctx: Context) r (args: Expr list) =
     | head::tail ->
         match head.Type with
         | Char | String -> head
-        | Builtin (BclInt64 | BclUInt64) -> Helper.CoreCall("Long", "toString", String, args)
+        | Builtin (BclTimeSpan|BclInt64|BclUInt64 as t) ->
+            Helper.CoreCall(coreModFor t, "toString", String, args)
         | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
         | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)

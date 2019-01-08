@@ -3,21 +3,15 @@ module Fable.Tests.TimeSpan
 open System
 open Util.Testing
 open Fable.Tests
-open Fable.Tests
 
 let tests =
     testList "TimeSpan" [
 
-        // TODO
         testCase "TimeSpan.ToString() works" <| fun () ->
-            let t = TimeSpan(0L)
-            let actual = t.ToString()
-#if FABLE_COMPILER
-            let expected = "0"
-#else
-            let expected ="00:00:00"
-#endif
-            equal actual expected
+            TimeSpan(0L).ToString() |> equal "00:00:00"
+            TimeSpan.FromSeconds(12345.).ToString() |> equal "03:25:45"
+            TimeSpan.FromDays(18.).ToString() |> equal "18.00:00:00"
+            TimeSpan.FromMilliseconds(25.).ToString().TrimEnd('0') |> equal "00:00:00.025"
 
         // TODO
         // testCase "TimeSpan.ToString with format works" <| fun () ->
@@ -266,7 +260,7 @@ let tests =
 
         testCase "TimeSpan 0:60:0 parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("0:60:0"))
-#if FABLE_COMPILER            
+#if FABLE_COMPILER
             |> Util.throwsError "String was not recognized as a valid TimeSpan."
 #else
             |> Util.throwsError "The TimeSpan could not be parsed because at least one of the numeric components is out of range or contains too many digits."
