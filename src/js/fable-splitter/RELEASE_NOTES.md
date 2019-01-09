@@ -1,3 +1,7 @@
+### 2.1.2
+
+* Revert change from #1684
+
 ### 2.1.1
 
 * Pass Babel options from splitter.config
@@ -124,4 +128,3 @@
 ### 0.0.4
 
 * First publish
-
