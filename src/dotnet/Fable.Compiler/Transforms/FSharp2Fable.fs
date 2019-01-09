@@ -204,19 +204,13 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
 let private transformDelegate com ctx delegateType expr =
   trampoline {
     let! expr = transformExpr com ctx expr
-    match tryDefinition delegateType with
-    // Special cases: Action and Func with less generic arguments than expecte
-    // | Some(_, Some "System.Action")
-    | Some(_, Some "System.Func`1") ->
-        return expr
-    | _ ->
-        match makeType com ctx.GenericArgs delegateType with
-        | Fable.FunctionType(Fable.DelegateType argTypes, _) ->
-            let arity = List.length argTypes
-            match expr with
-            | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
-            | _ -> return Replacements.uncurryExprAtRuntime arity expr
-        | _ -> return expr
+    match makeType com ctx.GenericArgs delegateType with
+    | Fable.FunctionType(Fable.DelegateType argTypes, _) ->
+        let arity = List.length argTypes |> max 1
+        match expr with
+        | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
+        | _ -> return Replacements.uncurryExprAtRuntime arity expr
+    | _ -> return expr
   }
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
@@ -750,7 +744,8 @@ let private transformImplicitConstructor com (ctx: Context)
             }
         // TODO!!! When adding a ConstructorDeclaration check if there are
         // name clashes for interface/abstract members
-        [Fable.ConstructorDeclaration(Fable.ClassImplicitConstructor info)]
+        let r = getEntityLocation ent |> makeRange
+        [Fable.ConstructorDeclaration(Fable.ClassImplicitConstructor info, Some r)]
 
 /// When using `importMember`, uses the member display name as selector
 let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
@@ -923,7 +918,8 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                       { Entity = ent
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
-                    [Fable.ConstructorDeclaration(Fable.UnionConstructor info)]
+                    let r = getEntityLocation ent |> makeRange
+                    [Fable.ConstructorDeclaration(Fable.UnionConstructor info, Some r)]
                 | None when ent.IsFSharpRecord
                         || ent.IsFSharpExceptionDeclaration
                         || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent)) ->
@@ -934,7 +930,8 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                       { Entity = ent
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
-                    [Fable.ConstructorDeclaration(Fable.CompilerGeneratedConstructor info)]
+                    let r = getEntityLocation ent |> makeRange
+                    [Fable.ConstructorDeclaration(Fable.CompilerGeneratedConstructor info, Some r)]
                 | None ->
                     transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->

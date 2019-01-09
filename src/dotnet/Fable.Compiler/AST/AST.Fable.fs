@@ -95,7 +95,7 @@ type Declaration =
     | ActionDeclaration of Expr
     | ValueDeclaration of Expr * ValueDeclarationInfo
     | AttachedMemberDeclaration of args: Ident list * body: Expr * AttachedMemberDeclarationInfo
-    | ConstructorDeclaration of ConstructorKind
+    | ConstructorDeclaration of ConstructorKind * SourceLocation option
 
 type File(sourcePath, decls, ?usedVarNames, ?inlineDependencies) =
     member __.SourcePath: string = sourcePath

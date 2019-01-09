@@ -552,7 +552,7 @@ let rec optimizeDeclaration (com: ICompiler) = function
         ActionDeclaration(optimizeExpr com expr)
     | ValueDeclaration(value, info) ->
         ValueDeclaration(optimizeExpr com value, info)
-    | ConstructorDeclaration kind ->
+    | ConstructorDeclaration(kind, r) ->
         let kind =
             match kind with
             | ClassImplicitConstructor info ->
@@ -568,7 +568,7 @@ let rec optimizeDeclaration (com: ICompiler) = function
                             info.Arguments, info.Body
                 ClassImplicitConstructor { info with Arguments = args; Body = body }
             | kind -> kind
-        ConstructorDeclaration kind
+        ConstructorDeclaration(kind, r)
     | AttachedMemberDeclaration(args, body, info) ->
         AttachedMemberDeclaration(args, optimizeExpr com body, info)
 

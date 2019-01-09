@@ -260,8 +260,8 @@ let coreModFor = function
     | BclHashSet _
     | BclDictionary _ -> failwith "Cannot decide core module"
 
-let genericTypeInfoError com file r =
-    "Cannot get type info of generic parameter, please inline or inject a type resolver"
+let genericTypeInfoError com file r name =
+    sprintf "Cannot get type info of generic parameter %s, please inline or inject a type resolver" name
     |> addError com file r
 
 let defaultof (t: Type) =
@@ -2531,7 +2531,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     match thisArg with
     | Some(Value(TypeInfo(exprType, exprRange)) as thisArg) ->
         match exprType with
-        | GenericParam _ -> genericTypeInfoError com ctx.InlinePath exprRange
+        | GenericParam name -> genericTypeInfoError com ctx.InlinePath exprRange name
         | _ -> ()
         match i.CompiledName with
         | "get_FullName" -> getTypeFullName false exprType |> returnString

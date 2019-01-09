@@ -498,24 +498,29 @@ module TypeHelpers =
             else makeType com ctxTypeArgs genArg)
         |> Seq.toList
 
-    and makeTypeFromDelegate com ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) (fullName: string) =
-        // tdef.FSharpDelegateSignature doesn't work with types coming f
-        let invokeMember =
-            tdef.MembersFunctionsAndValues
-            |> Seq.find (fun f -> f.DisplayName = "Invoke")
-        let argTypes =
-            invokeMember.CurriedParameterGroups.[0]
-            |> Seq.map (fun p -> makeType com ctxTypeArgs p.Type) |> Seq.toList
-        let returnType =
-            invokeMember.ReturnParameter.Type
-            |> makeType com ctxTypeArgs
+    and makeTypeFromDelegate com ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
+        let argTypes, returnType =
+            try
+                tdef.FSharpDelegateSignature.DelegateArguments |> Seq.map snd,
+                tdef.FSharpDelegateSignature.DelegateReturnType
+            with _ -> // tdef.FSharpDelegateSignature doesn't work with System.Func & friends
+                let invokeMember =
+                    tdef.MembersFunctionsAndValues
+                    |> Seq.find (fun f -> f.DisplayName = "Invoke")
+                invokeMember.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type),
+                invokeMember.ReturnParameter.Type
+        let genArgs = Seq.zip (tdef.GenericParameters |> Seq.map (fun x -> x.Name)) genArgs |> Map
+        let resolveType (t: FSharpType) =
+            if t.IsGenericParameter then Map.find t.GenericParameter.Name genArgs else t
+        let argTypes = argTypes |> Seq.map (resolveType >> makeType com ctxTypeArgs) |> Seq.toList
+        let returnType = returnType |> resolveType |> makeType com ctxTypeArgs
         Fable.FunctionType(Fable.DelegateType argTypes, returnType)
 
     and makeTypeFromDef (com: ICompiler) ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         match getEntityFullName tdef, tdef with
         | _ when tdef.IsArrayType -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
+        | _ when tdef.IsDelegate -> makeTypeFromDelegate com ctxTypeArgs genArgs tdef
         | fullName, _ when tdef.IsEnum -> Fable.EnumType(Fable.NumberEnumType, fullName)
-        | fullName, _ when tdef.IsDelegate -> makeTypeFromDelegate com ctxTypeArgs genArgs tdef fullName
         // Fable "primitives"
         | Types.object, _ -> Fable.Any
         | Types.unit, _ -> Fable.Unit
