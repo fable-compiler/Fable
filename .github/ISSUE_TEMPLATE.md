@@ -13,5 +13,5 @@ Please provide the expected and actual results.
 
 ### Related information
 
-* Fable version (`dotnet fable --version`):
+* Fable version(s): (`yarn info fable-compiler version`)
 * Operating system:
