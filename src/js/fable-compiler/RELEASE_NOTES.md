@@ -1,3 +1,7 @@
+### 2.1.10
+
+* Fix #1698: Reflection info for delegates
+
 ### 2.1.9
 
 * `TimeSpan` fixes (parsing, stringifying) @rfrerebe
