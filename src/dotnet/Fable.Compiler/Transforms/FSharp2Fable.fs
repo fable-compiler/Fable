@@ -18,6 +18,15 @@ open Util
 let inline private transformExprList com ctx xs = trampolineListMap (transformExpr com ctx) xs
 let inline private transformExprOpt com ctx opt = trampolineOptionMap (transformExpr com ctx) opt
 
+// Fable doesn't support arguments passed by ref, see #1696
+let private checkArgumentsPassedByRef com ctx (args: FSharpExpr list) =
+    for arg in args do
+        match arg with
+        | BasicPatterns.AddressOf _ ->
+            "Arguments cannot be passed byref"
+            |> addWarning com ctx.InlinePath (makeRangeFrom arg)
+        | _ -> ()
+
 let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
     let thisArg = ctx.BoundConstructorThis |> Option.map Fable.IdentExpr
     let baseArgs = transformExprList com ctx baseArgs |> run
@@ -402,6 +411,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return transformTraitCall com ctx (makeRangeFrom fsExpr) typ sourceTypes traitName flags argTypes argExprs
 
     | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
+        checkArgumentsPassedByRef com ctx args
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx args
         // TODO: Check answer to #868 in FSC repo
@@ -574,6 +584,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return! transformObjExpr com ctx objType baseCall overrides otherOverrides
 
     | BasicPatterns.NewObject(memb, genArgs, args) ->
+        // TODO: Check arguments passed byref here too?
         let! args = transformExprList com ctx args
         let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
         let typ = makeType com ctx.GenericArgs fsExpr.Type
