@@ -15,8 +15,9 @@
     "build-tests-node": "node out/app ../../../../tests/Main/Fable.Tests.fsproj out-tests && node transform out-tests --commonjs",
     "build-tests-dotnet": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj out-tests && node transform out-tests --commonjs",
     "run-tests": "../../../../node_modules/.bin/mocha --colors out-test/tests/Main/Main.js",
-    "profile": "node --prof out/app",
-    "process": "chcp 65001 > nul && for %x in (isolate-*.log) do node --prof-process %x > %x.txt",
-    "trace": "node --trace-deopt out/app > deopt.txt"
+    "profile": "node --prof out-node/app bench-compiler.fsproj out-node2",
+    "process": "node --prof-process --preprocess -j isolate-*.log > profile.v8log.json",
+    "flamegraph": "speedscope profile.v8log.json",
+    "trace": "node --trace-deopt out-node/app bench-compiler.fsproj out-node2 > deopt.txt"
   }
 }
