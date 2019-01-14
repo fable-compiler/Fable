@@ -3,6 +3,7 @@ module Fable.Tests.TimeSpan
 open System
 open Util.Testing
 open Fable.Tests
+open System.Globalization
 
 let tests =
     testList "TimeSpan" [
@@ -11,7 +12,25 @@ let tests =
             TimeSpan(0L).ToString() |> equal "00:00:00"
             TimeSpan.FromSeconds(12345.).ToString() |> equal "03:25:45"
             TimeSpan.FromDays(18.).ToString() |> equal "18.00:00:00"
-            TimeSpan.FromMilliseconds(25.).ToString().TrimEnd('0') |> equal "00:00:00.025"
+            TimeSpan.FromMilliseconds(25.).ToString() |> equal "00:00:00.0250000"
+
+        testCase "TimeSpan.ToString(\"c\", CultureInfo.InvariantCulture) works" <| fun () ->
+            TimeSpan(0L).ToString("c", CultureInfo.InvariantCulture) |> equal "00:00:00"
+            TimeSpan.FromSeconds(12345.).ToString("c", CultureInfo.InvariantCulture) |> equal "03:25:45"
+            TimeSpan.FromDays(18.).ToString("c", CultureInfo.InvariantCulture) |> equal "18.00:00:00"
+            TimeSpan.FromMilliseconds(25.).ToString("c", CultureInfo.InvariantCulture) |> equal "00:00:00.0250000"
+
+        testCase "TimeSpan.ToString(\"g\", CultureInfo.InvariantCulture) works" <| fun () ->
+            TimeSpan(0L).ToString("g", CultureInfo.InvariantCulture) |> equal "0:00:00"
+            TimeSpan.FromSeconds(12345.).ToString("g", CultureInfo.InvariantCulture) |> equal "3:25:45"
+            TimeSpan.FromDays(18.).ToString("g", CultureInfo.InvariantCulture) |> equal "18:0:00:00"
+            TimeSpan.FromMilliseconds(25.).ToString("g", CultureInfo.InvariantCulture) |> equal "0:00:00.025"
+
+        testCase "TimeSpan.ToString(\"G\", CultureInfo.InvariantCulture) works" <| fun () ->
+            TimeSpan(0L).ToString("G", CultureInfo.InvariantCulture) |> equal "0:00:00:00.0000000"
+            TimeSpan.FromSeconds(12345.).ToString("G", CultureInfo.InvariantCulture) |> equal "0:03:25:45.0000000"
+            TimeSpan.FromDays(18.).ToString("G", CultureInfo.InvariantCulture) |> equal "18:00:00:00.0000000"
+            TimeSpan.FromMilliseconds(25.).ToString("G", CultureInfo.InvariantCulture) |> equal "0:00:00:00.0250000"
 
         // TODO
         // testCase "TimeSpan.ToString with format works" <| fun () ->
