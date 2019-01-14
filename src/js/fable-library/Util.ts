@@ -152,6 +152,17 @@ export function padWithZeros(i: number, length: number) {
   return str;
 }
 
+export function padLeftAndRightWithZeros(i: number, lengthLeft: number, lengthRight: number) {
+  let str = i.toString(10);
+  while (str.length < lengthLeft) {
+    str =  "0" + str;
+  }
+  while (str.length < lengthRight) {
+    str =  str + "0";
+  }
+  return str;
+}
+
 export function dateOffset(date: IDateTime | IDateTimeOffset): number {
   const date1 = date as IDateTimeOffset;
   return typeof date1.offset === "number"

@@ -1,5 +1,5 @@
 import { fromNumber, op_Division, op_Multiply, toNumber } from "./Long";
-import { comparePrimitives, padWithZeros } from "./Util";
+import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
 
@@ -98,14 +98,17 @@ export function duration(x: number) {
   return Math.abs(x as number);
 }
 
-export function toString(ts: number) {
+export function toString(ts: number, format = "c") {
+  if (["c", "g", "G"].indexOf(format) === -1) {
+    throw new Error("Custom formats are not supported");
+  }
   const d = days(ts);
   const h = hours(ts);
   const m = minutes(ts);
   const s = seconds(ts);
   const ms = milliseconds(ts);
   // tslint:disable-next-line:max-line-length
-  return `${d === 0 ? "" : d + "."}${padWithZeros(h, 2)}:${padWithZeros(m, 2)}:${padWithZeros(s, 2)}${ms === 0 ? "" : "." + padWithZeros(ms, 3)}`;
+  return `${d === 0 && (format === "c" || format === "g") ? "" : format === "c" ? d + "." : d + ":" }${format === "g" ? h : padWithZeros(h, 2)}:${padWithZeros(m, 2)}:${padWithZeros(s, 2)}${ms === 0 && (format === "c" || format === "g") ? "" : format === "g" ? "." + padWithZeros(ms, 3) : "." + padLeftAndRightWithZeros(ms, 3, 7)}`;
 }
 
 export function parse(str: string) {
