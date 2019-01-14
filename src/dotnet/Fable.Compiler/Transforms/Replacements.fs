@@ -1550,6 +1550,12 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.InstanceCall(ar, "push", t, args, ?loc=r) |> Some
     | "Remove", Some ar, [arg] ->
         Helper.CoreCall("Array", "removeInPlace", t, [arg; ar], ?loc=r) |> Some
+    | "RemoveAll", Some ar, [arg] ->
+        Helper.CoreCall("Array", "removeAllInPlace", t, [arg; ar], ?loc=r) |> Some
+    | "FindIndex", Some ar, [arg] ->
+        Helper.InstanceCall(ar, "findIndex", t, [arg], ?loc=r) |> Some
+    | "FindLastIndex", Some ar, [arg] ->
+        Helper.CoreCall("Array", "findLastIndex", t, [arg; ar], ?loc=r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator r t ar |> Some
     // ICollection members, implemented in dictionaries and sets too. We need runtime checks (see #1120)
     | "get_Count", Some ar, _ ->

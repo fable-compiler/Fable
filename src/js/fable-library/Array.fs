@@ -453,6 +453,16 @@ let removeInPlace (item: 'T) (array: 'T[]) =
     else
         false
 
+let removeAllInPlace predicate (array: 'T[]) =
+    let rec countRemoveAll count =
+        let i = findIndexImpl predicate array
+        if i > -1 then
+            spliceImpl array i 1 |> ignore
+            countRemoveAll count + 1
+        else
+            count
+    countRemoveAll 0
+
 let copyTo (source: JS.ArrayLike<'T>) sourceIndex (target: JS.ArrayLike<'T>) targetIndex count =
     let diff = targetIndex - sourceIndex
     for i = sourceIndex to sourceIndex + count - 1 do
@@ -520,6 +530,13 @@ let tryFindBack predicate (array: _[]) =
     let rec loop i =
         if i < 0 then None
         elif predicate array.[i] then Some array.[i]
+        else loop (i - 1)
+    loop (array.Length - 1)
+
+let findLastIndex predicate (array: _[]) =
+    let rec loop i =
+        if i < 0 then -1
+        elif predicate array.[i] then i
         else loop (i - 1)
     loop (array.Length - 1)
 
