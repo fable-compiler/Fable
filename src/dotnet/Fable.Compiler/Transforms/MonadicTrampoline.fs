@@ -1,7 +1,5 @@
 ﻿module MonadicTrampoline
 
-#if NETSTANDARD2_0 || !FABLE_COMPILER
-
 type Thunk<'T> =
     | DelayValue of (unit -> Thunk<'T>)
     | ReturnValue of 'T
@@ -15,36 +13,6 @@ type TrampolineBuilder() =
     member __.Delay f = DelayValue f
     member __.Return a = ReturnValue a
     member __.ReturnFrom (a: Thunk<'T>) = a
-
-#else
-
-// Fable cannot tail-call optimize mutually recursive functions, rendering
-// the implementation above useless, so we use the following one instead.
-// However, take note this uses unsafe boxing/unboxing, which is ok
-// in JS but not in .NET (fails with generic types: `obj list :?> Expr list`)
-type Thunk =
-    | DelayValue of (unit -> Thunk)
-    | ReturnValue of obj
-    | BindValue of Thunk * f: (obj -> Thunk)
-
-let run thunk =
-    let rec runInner (cont: (obj->Thunk) list) = function
-        | DelayValue f -> f () |> runInner cont
-        | ReturnValue v ->
-            match cont with
-            | [] -> v
-            | f::cont -> f v |> runInner cont
-        | BindValue(thunk, f) ->
-            runInner (f::cont) thunk
-    runInner [] thunk :?> 'T
-
-type TrampolineBuilder() =
-    member __.Bind(thunk, f: 'T->Thunk) = BindValue(thunk, unbox >> f)
-    member __.Delay f = DelayValue f
-    member __.Return a = ReturnValue a
-    member __.ReturnFrom (a: Thunk) = a
-
-#endif
 
 let trampoline = TrampolineBuilder()
 
