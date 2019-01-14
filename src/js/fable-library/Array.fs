@@ -554,16 +554,11 @@ let tryFindIndexBack predicate (array: _[]) =
         else loop (i - 1)
     loop (array.Length - 1)
 
-let choose (f: 'T->'U option) (source: 'T[]) ([<Inject>] cons: IArrayCons<'U>) =
-    let res = cons.Create 0
-    let mutable j = 0
-    for i = 0 to source.Length - 1 do
-        match f source.[i] with
-        | Some y ->
-            res.[j] <- y
-            j <- j + 1
-        | None -> ()
-    res
+let choose (chooser: 'T->'U option) (array: 'T[]) ([<Inject>] cons: IArrayCons<'U>) =
+    let f x = chooser x |> Option.isSome
+    let g x = chooser x |> Option.get
+    let arr = filterImpl f array
+    map g arr cons
 
 let foldIndexed folder (state: 'State) (array: 'T[]) =
     // if isTypedArrayImpl array then

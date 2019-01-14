@@ -269,7 +269,14 @@ let tests =
         [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
         |> Array.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
-    testCase "Array.choose works" <| fun () ->
+    testCase "Array.choose with ints works" <| fun () ->
+        let xs = [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 |]
+        let result = xs |> Array.choose (fun i ->
+            if i % 2 = 1 then Some i
+            else None)
+        result.Length |> equal 5
+
+    testCase "Array.choose with longs works" <| fun () ->
         let xs = [|1L; 2L; 3L; 4L|]
         let result = xs |> Array.choose (fun x ->
            if x > 2L then Some x
