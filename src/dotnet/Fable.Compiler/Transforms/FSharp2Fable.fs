@@ -18,6 +18,15 @@ open Util
 let inline private transformExprList com ctx xs = trampolineListMap (transformExpr com ctx) xs
 let inline private transformExprOpt com ctx opt = trampolineOptionMap (transformExpr com ctx) opt
 
+// Fable doesn't support arguments passed by ref, see #1696
+let private checkArgumentsPassedByRef com ctx (args: FSharpExpr list) =
+    for arg in args do
+        match arg with
+        | BasicPatterns.AddressOf _ ->
+            "Arguments cannot be passed byref"
+            |> addWarning com ctx.InlinePath (makeRangeFrom arg)
+        | _ -> ()
+
 let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
     let thisArg = ctx.BoundConstructorThis |> Option.map Fable.IdentExpr
     let baseArgs = transformExprList com ctx baseArgs |> run
@@ -204,19 +213,13 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
 let private transformDelegate com ctx delegateType expr =
   trampoline {
     let! expr = transformExpr com ctx expr
-    match tryDefinition delegateType with
-    // Special cases: Action and Func with less generic arguments than expecte
-    // | Some(_, Some "System.Action")
-    | Some(_, Some "System.Func`1") ->
-        return expr
-    | _ ->
-        match makeType com ctx.GenericArgs delegateType with
-        | Fable.FunctionType(Fable.DelegateType argTypes, _) ->
-            let arity = List.length argTypes
-            match expr with
-            | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
-            | _ -> return Replacements.uncurryExprAtRuntime arity expr
-        | _ -> return expr
+    match makeType com ctx.GenericArgs delegateType with
+    | Fable.FunctionType(Fable.DelegateType argTypes, _) ->
+        let arity = List.length argTypes |> max 1
+        match expr with
+        | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
+        | _ -> return Replacements.uncurryExprAtRuntime arity expr
+    | _ -> return expr
   }
 
 let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
@@ -408,6 +411,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return transformTraitCall com ctx (makeRangeFrom fsExpr) typ sourceTypes traitName flags argTypes argExprs
 
     | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
+        checkArgumentsPassedByRef com ctx args
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx args
         // TODO: Check answer to #868 in FSC repo
@@ -580,6 +584,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return! transformObjExpr com ctx objType baseCall overrides otherOverrides
 
     | BasicPatterns.NewObject(memb, genArgs, args) ->
+        // TODO: Check arguments passed byref here too?
         let! args = transformExprList com ctx args
         let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
         let typ = makeType com ctx.GenericArgs fsExpr.Type
@@ -750,7 +755,8 @@ let private transformImplicitConstructor com (ctx: Context)
             }
         // TODO!!! When adding a ConstructorDeclaration check if there are
         // name clashes for interface/abstract members
-        [Fable.ConstructorDeclaration(Fable.ClassImplicitConstructor info)]
+        let r = getEntityLocation ent |> makeRange
+        [Fable.ConstructorDeclaration(Fable.ClassImplicitConstructor info, Some r)]
 
 /// When using `importMember`, uses the member display name as selector
 let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
@@ -923,7 +929,8 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                       { Entity = ent
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
-                    [Fable.ConstructorDeclaration(Fable.UnionConstructor info)]
+                    let r = getEntityLocation ent |> makeRange
+                    [Fable.ConstructorDeclaration(Fable.UnionConstructor info, Some r)]
                 | None when ent.IsFSharpRecord
                         || ent.IsFSharpExceptionDeclaration
                         || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent)) ->
@@ -934,7 +941,8 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                       { Entity = ent
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
-                    [Fable.ConstructorDeclaration(Fable.CompilerGeneratedConstructor info)]
+                    let r = getEntityLocation ent |> makeRange
+                    [Fable.ConstructorDeclaration(Fable.CompilerGeneratedConstructor info, Some r)]
                 | None ->
                     transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->

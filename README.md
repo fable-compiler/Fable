@@ -10,7 +10,7 @@ Fable is an F# to JavaScript compiler powered by [Babel](https://babeljs.io/), d
 
 ## Getting started
 
-Check [this document](docs/getting_started.md).
+Check [this page](https://fable.io/docs/getting_started.html).
 
 ## Building
 

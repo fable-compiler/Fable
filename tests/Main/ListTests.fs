@@ -644,6 +644,16 @@ let tests =
             equal 2 ys.[0]
             equal 5 zs.[2]
 
+    testCase "List.pairwise works" <| fun () ->
+        List.pairwise<int> [] |> equal []
+        List.pairwise [1] |> equal []
+        let xs = [1; 2; 3; 4]
+        let xs2 = xs |> List.pairwise
+        equal [(1, 2); (2, 3); (3, 4)] xs2
+        xs2 |> List.map (fun (x, y) -> sprintf "%i%i" x y)
+        |> String.concat ""
+        |> equal "122334"
+
     testCase "List.permute works" <| fun () ->
             let xs = [1; 2; 3; 4; 5; 6]
             let ys = xs |> List.permute (fun i -> i + 1 - 2 * (i % 2))

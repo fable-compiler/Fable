@@ -453,6 +453,16 @@ let removeInPlace (item: 'T) (array: 'T[]) =
     else
         false
 
+let removeAllInPlace predicate (array: 'T[]) =
+    let rec countRemoveAll count =
+        let i = findIndexImpl predicate array
+        if i > -1 then
+            spliceImpl array i 1 |> ignore
+            countRemoveAll count + 1
+        else
+            count
+    countRemoveAll 0
+
 let copyTo (source: JS.ArrayLike<'T>) sourceIndex (target: JS.ArrayLike<'T>) targetIndex count =
     let diff = targetIndex - sourceIndex
     for i = sourceIndex to sourceIndex + count - 1 do
@@ -523,6 +533,13 @@ let tryFindBack predicate (array: _[]) =
         else loop (i - 1)
     loop (array.Length - 1)
 
+let findLastIndex predicate (array: _[]) =
+    let rec loop i =
+        if i < 0 then -1
+        elif predicate array.[i] then i
+        else loop (i - 1)
+    loop (array.Length - 1)
+
 let findIndexBack predicate (array: _[]) =
     let rec loop i =
         if i < 0 then indexNotFound()
@@ -537,16 +554,11 @@ let tryFindIndexBack predicate (array: _[]) =
         else loop (i - 1)
     loop (array.Length - 1)
 
-let choose (f: 'T->'U option) (source: 'T[]) ([<Inject>] cons: IArrayCons<'U>) =
-    let res = cons.Create 0
-    let mutable j = 0
-    for i = 0 to source.Length - 1 do
-        match f source.[i] with
-        | Some y ->
-            res.[j] <- y
-            j <- j + 1
-        | None -> ()
-    res
+let choose (chooser: 'T->'U option) (array: 'T[]) ([<Inject>] cons: IArrayCons<'U>) =
+    let f x = chooser x |> Option.isSome
+    let g x = chooser x |> Option.get
+    let arr = filterImpl f array
+    map g arr cons
 
 let foldIndexed folder (state: 'State) (array: 'T[]) =
     // if isTypedArrayImpl array then

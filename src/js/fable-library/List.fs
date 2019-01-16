@@ -167,8 +167,12 @@ let iterateIndexed f xs =
 let iterateIndexed2 f xs ys =
     foldIndexed2 (fun i () x y -> f i x y) () xs ys
 
-let ofArray xs =
-    Array.foldBack (fun x acc -> x::acc) xs []
+let ofArray (xs: IList<'T>) =
+    // Array.foldBack (fun x acc -> x::acc) xs []
+    let mutable res = []
+    for i = xs.Count - 1 downto 0 do
+        res <- xs.[i]::res
+    res
 
 let empty<'a> : 'a list = []
 
@@ -457,3 +461,17 @@ let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityCompa
     result
 
 let where predicate xs = filter predicate xs
+
+let pairwise xs =
+    let rec inner xs acc x1 =
+        match xs with
+        | [] -> ofArray acc
+        | x2::xs ->
+            acc.Add((x1, x2))
+            inner xs acc x2
+    match xs with
+    | [] | [_] -> []
+    | x1::x2::xs ->
+        let acc = ResizeArray()
+        acc.Add((x1, x2))
+        inner xs acc x2

@@ -49,6 +49,7 @@ type IBabelResult =
 type IFableManager =
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * defines: string[] * optimize: bool -> IChecker
     [<System.Obsolete>] abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * definesOpt: string[] option -> IChecker
+    abstract ClearParseCaches: checker: IChecker -> unit
     abstract ParseFSharpScript: checker: IChecker * fileName: string * source: string -> IParseResults
     abstract ParseFSharpProject: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] -> IParseResults
     abstract GetParseErrors: parseResults: IParseResults -> Error[]

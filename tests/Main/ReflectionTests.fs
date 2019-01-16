@@ -4,6 +4,19 @@ open Util.Testing
 
 #if !OPTIMIZE_FCS
 
+type MyDelegate = delegate of int * float -> string
+type MyGenDelegate<'a,'b> = delegate of 'b * string -> 'a
+
+// I can declare a type with delegate fields (both C# and F# style). See #1698
+type WithDelegates =
+    { Del1: MyDelegate
+      Del2: MyGenDelegate<int,string>
+      Del3: System.Func<int, float, string>
+      Del4: System.Func<float>
+      Del5: System.Action
+      Del6: System.Action<int>
+      Del7: System.Action<int, string> }
+
 type TestType =
     | Union1 of string
 

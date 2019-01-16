@@ -2673,6 +2673,11 @@ extglob@^2.0.4:
     snapdragon "^0.8.1"
     to-regex "^3.0.1"
 
+fable-babel-plugins@^2.1.0:
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/fable-babel-plugins/-/fable-babel-plugins-2.1.0.tgz#b3202a25f51a6acdf6bc34dc10dd13cf732d291d"
+  integrity sha512-5ZUVrlflbvgA3saIyGJhB1ANqoyZ8UJo12iYSROivql1x9PfKjv16pteNoDFCe6UC1Tn+HaQX46BxyllzLsBTw==
+
 fable-compiler@^2.1.0-beta-003:
   version "2.1.0-beta-003"
   resolved "https://registry.yarnpkg.com/fable-compiler/-/fable-compiler-2.1.0-beta-003.tgz#afb95f4ae52743b83e1021304ef471682126fd5c"

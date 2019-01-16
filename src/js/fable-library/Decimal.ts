@@ -20,8 +20,12 @@ export function abs(x: Decimal) {
   return x.abs();
 }
 
-export function round(x: Decimal) {
-  return x.round(0, x.cmp(0) >= 0 ? 1 /* ROUND_HALF_UP */ : 2 /* ROUND_HALF_EVEN */);
+export function round(x: Decimal, digits: number = 0) {
+  return x.round(digits, x.cmp(0) >= 0 ? 1 /* ROUND_HALF_UP */ : 2 /* ROUND_HALF_EVEN */);
+}
+
+export function truncate(x: Decimal) {
+  return x.round(0, 0 /* ROUND_DOWN */);
 }
 
 export function ceil(x: Decimal) {

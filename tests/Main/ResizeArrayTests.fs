@@ -86,6 +86,18 @@ let tests =
         System.Predicate<_> (fun _ -> false)  |> li.FindLast |> equal None
         System.Predicate<_> Option.isSome  |> li.FindLast |> equal (Some 1)
 
+    testCase "ResizeArray.FindIndex works" <| fun () ->
+        let li = ResizeArray<_>()
+        li.Add(1.); li.Add(2.); li.Add(3.); li.Add(2.); li.Add(5.)
+        System.Predicate<_> (fun x -> x = 2.) |> li.FindIndex |> equal 1
+        System.Predicate<_> (fun x -> x = 0.) |> li.FindIndex |> equal -1
+
+    testCase "ResizeArray.FindLastIndex works" <| fun () ->
+        let li = ResizeArray<_>()
+        li.Add(1.); li.Add(2.); li.Add(3.); li.Add(2.); li.Add(5.)
+        System.Predicate<_> (fun x -> x = 2.) |> li.FindLastIndex |> equal 3
+        System.Predicate<_> (fun x -> x = 0.) |> li.FindLastIndex |> equal -1
+
     testCase "ResizeArray indexer getter works" <| fun () ->
         let li = ResizeArray<_>()
         li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
@@ -134,6 +146,15 @@ let tests =
         li.Add("ch")
         li.Remove("ab") |> equal true
         li.Remove("cd") |> equal false
+
+    testCase "ResizeArray.RemoveAll works" <| fun () ->
+        let li = ResizeArray<_>()
+        li.Add("ab")
+        li.Add("ch")
+        li.Add("ab")
+        System.Predicate<_> (fun x -> x = "ab") |> li.RemoveAll |> equal 2
+        System.Predicate<_> (fun x -> x = "ab") |> li.RemoveAll |> equal 0
+        li.[0] |> equal "ch"
 
     testCase "ResizeArray.RemoveRange works" <| fun () ->
         let xs = ResizeArray<int>()

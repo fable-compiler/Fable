@@ -146,6 +146,18 @@ let tests =
         (fun () -> Int64.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
         (fun () -> Int64.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
 
+    testCase "System.Int64.TryParse works" <| fun () ->
+        tryParse Int64.TryParse 0L "99" |> equal (true, 99L)
+        tryParse Int64.TryParse 0L "foo" |> equal (false, 0L)
+
+    testCase "System.UInt32.TryParse works" <| fun () ->
+        tryParse UInt32.TryParse 0u "99" |> equal (true, 99u)
+        tryParse UInt32.TryParse 0u "foo" |> equal (false, 0u)
+
+    testCase "System.UInt64.TryParse works" <| fun () ->
+        tryParse UInt64.TryParse 0UL "99" |> equal (true, 99UL)
+        tryParse UInt64.TryParse 0UL "foo" |> equal (false, 0UL)
+
     testCase "Parsing integers with different radices works" <| fun () ->
         equal 11 (int "11")
         equal 17 (int "0x11")

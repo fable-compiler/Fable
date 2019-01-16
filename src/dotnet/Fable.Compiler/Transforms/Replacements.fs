@@ -248,11 +248,10 @@ let coreModFor = function
     | BclDateTime -> "Date"
     | BclDateTimeOffset -> "DateOffset"
     | BclTimer -> "Timer"
-    | BclInt64 -> "Long"
-    | BclUInt64 -> "Long"
+    | BclInt64 | BclUInt64 -> "Long"
     | BclDecimal -> "Decimal"
     | BclBigInt -> "BigInt"
-    | BclTimeSpan -> "Int32"
+    | BclTimeSpan -> "TimeSpan"
     | FSharpSet _ -> "Set"
     | FSharpMap _ -> "Map"
     | FSharpResult _ -> "Option"
@@ -261,8 +260,8 @@ let coreModFor = function
     | BclHashSet _
     | BclDictionary _ -> failwith "Cannot decide core module"
 
-let genericTypeInfoError com file r =
-    "Cannot get type info of generic parameter, please inline or inject a type resolver"
+let genericTypeInfoError com file r name =
+    sprintf "Cannot get type info of generic parameter %s, please inline or inject a type resolver" name
     |> addError com file r
 
 let defaultof (t: Type) =
@@ -364,7 +363,8 @@ let toString com (ctx: Context) r (args: Expr list) =
     | head::tail ->
         match head.Type with
         | Char | String -> head
-        | Builtin (BclInt64 | BclUInt64) -> Helper.CoreCall("Long", "toString", String, args)
+        | Builtin (BclTimeSpan|BclInt64|BclUInt64 as t) ->
+            Helper.CoreCall(coreModFor t, "toString", String, args)
         | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
         | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
@@ -1274,6 +1274,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | Builtin(BclDecimal)::_  ->
             Helper.CoreCall("Decimal", "round", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ -> Helper.CoreCall("Util", "round", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | "Truncate", _ ->
+        match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
+        | Builtin(BclDecimal)::_  ->
+            Helper.CoreCall("Decimal", "truncate", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | _ -> Helper.GlobalCall("Math", t, args, i.SignatureArgTypes, memb="trunc", ?loc=r) |> Some
     | "Sign", _ ->
         let args = toFloat com ctx r t args |> List.singleton
         Helper.CoreCall("Util", "sign", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -1545,6 +1550,12 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.InstanceCall(ar, "push", t, args, ?loc=r) |> Some
     | "Remove", Some ar, [arg] ->
         Helper.CoreCall("Array", "removeInPlace", t, [arg; ar], ?loc=r) |> Some
+    | "RemoveAll", Some ar, [arg] ->
+        Helper.CoreCall("Array", "removeAllInPlace", t, [arg; ar], ?loc=r) |> Some
+    | "FindIndex", Some ar, [arg] ->
+        Helper.InstanceCall(ar, "findIndex", t, [arg], ?loc=r) |> Some
+    | "FindLastIndex", Some ar, [arg] ->
+        Helper.CoreCall("Array", "findLastIndex", t, [arg; ar], ?loc=r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator r t ar |> Some
     // ICollection members, implemented in dictionaries and sets too. We need runtime checks (see #1120)
     | "get_Count", Some ar, _ ->
@@ -2283,10 +2294,20 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ".ctor" -> Helper.CoreCall("TimeSpan", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
     | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t) |> Some
-    | "ToString" when not(List.isEmpty args) ->
-        "TimeSpan.ToString with arguments is not supported"
+    | "ToString" when (args.Length = 1) ->
+        "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
         |> addError com ctx.InlinePath r
         None
+    | "ToString" when (args.Length = 2) ->
+        match args.Head with
+        | Value (StringConstant "c")
+        | Value (StringConstant "g")
+        | Value (StringConstant "G") -> 
+            Helper.CoreCall("TimeSpan", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | _ ->
+            "TimeSpan.ToString don't support custom format. It only handles \"c\", \"g\" and \"G\" format, with CultureInfo.InvariantCulture."
+            |> addError com ctx.InlinePath r
+            None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.CoreCall("TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2526,7 +2547,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     match thisArg with
     | Some(Value(TypeInfo(exprType, exprRange)) as thisArg) ->
         match exprType with
-        | GenericParam _ -> genericTypeInfoError com ctx.InlinePath exprRange
+        | GenericParam name -> genericTypeInfoError com ctx.InlinePath exprRange name
         | _ -> ()
         match i.CompiledName with
         | "get_FullName" -> getTypeFullName false exprType |> returnString

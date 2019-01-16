@@ -3,7 +3,7 @@ module Bench.App
 open Bench.Platform
 open System.Text.RegularExpressions
 
-let references = Fable.Repl.Metadata.references false
+let references = Fable.Repl.Metadata.references_core
 let metadataPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, "../metadata2/") // .NET BCL binaries
 
 let parseProjectFile projectPath =
@@ -91,7 +91,13 @@ let printErrors showWarnings (errors: Fable.Repl.Error[]) =
         errors |> Array.iter printError
         failwith "Too many errors."
 
-let parseFiles projectPath outDir optimized =
+type CmdLineOptions = {
+    commonjs: bool
+    optimize: bool
+    watchMode: bool
+}
+
+let parseFiles projectPath outDir options =
     // parse project
     let (projectFileName, fileNames, sources, defines) = parseProject projectPath
 
@@ -100,7 +106,7 @@ let parseFiles projectPath outDir optimized =
 
     // create checker
     let fable = Fable.Repl.Main.init ()
-    let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, defines, optimize=false)
+    let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, defines, options.optimize)
     let ms0, checker = measureTime createChecker ()
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0
@@ -113,12 +119,16 @@ let parseFiles projectPath outDir optimized =
     let showWarnings = false // turning off warnings for cleaner output
     parseRes.Errors |> printErrors showWarnings
 
+    // clear cache to lower memory usage
+    if not options.watchMode then
+        fable.ClearParseCaches(checker)
+
     // exclude signature files
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
-    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, optimized)
+    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, options.optimize)
 
     for fileName in fileNames do
 
@@ -140,13 +150,16 @@ let parseFiles projectPath outDir optimized =
 
 let parseArguments (argv: string[]) =
     // TODO: more sophisticated argument parsing
-    let usage = "Usage: fable <PROJECT_PATH> [--options]"
+    let usage = "Usage: fable <PROJECT_PATH> <OUT_DIR> [--options]"
     let opts, args = argv |> Array.partition (fun s -> s.StartsWith("--"))
     match args with
-    | [| projectPath |] ->
-        let outDir = "./out-test"
-        let optimized = opts |> Array.contains "--optimize-fcs"
-        parseFiles projectPath outDir optimized
+    | [| projectPath; outDir |] ->
+        let options = {
+            commonjs = opts |> Array.contains "--commonjs"
+            optimize = opts |> Array.contains "--optimize-fcs"
+            watchMode = opts |> Array.contains "--watch"
+        }
+        parseFiles projectPath outDir options
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]
