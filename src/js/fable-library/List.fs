@@ -437,6 +437,11 @@ let distinctBy (projection: 'T -> 'Key) (xs:'T list) ([<Inject>] eq: IEqualityCo
 let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
     distinctBy id xs eq
 
+let exactlyOne (xs: 'T list) =
+    if xs.Length = 1 then xs.[0]
+    elif xs.Length = 0 then invalidArg "list" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
+    else invalidArg "list" "Input list too long"
+
 let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T list) list =
     let dict = Dictionary<'Key, 'T list>(eq)
     for v in xs do
