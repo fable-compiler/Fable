@@ -115,6 +115,17 @@ let tests =
                 else None)
             result.Head + result.Tail.Head
             |> equal 7
+    
+    testCase "List.exactlyOne works" <| fun () ->
+            let xs = [1.;]
+            xs |> List.exactlyOne 
+            |> equal 1.
+            
+            let xs2 = [1.;2.]
+            (try List.exactlyOne xs2 |> ignore; false with | _ -> true) |> equal true
+
+            let xs3 = []
+            (try List.exactlyOne xs3 |> ignore; false with | _ -> true) |> equal true
 
     testCase "List.exists works" <| fun () ->
             let xs = [1; 2; 3; 4]
