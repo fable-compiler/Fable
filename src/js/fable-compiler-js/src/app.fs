@@ -4,7 +4,7 @@ open Fable.Compiler.Platform
 open System.Text.RegularExpressions
 
 let references = Fable.Repl.Metadata.references_core
-let metadataPath = __dirname + "/metadata2/" // .NET BCL binaries (metadata)
+let metadataPath = __dirname + "/../lib/" // .NET BCL binaries (metadata)
 
 let (|Regex|_|) (pattern: string) (input: string) =
     let m = Regex.Match(input, pattern)
@@ -172,32 +172,37 @@ let parseFiles projectPath outDir options =
         // transform and save Babel AST
         transformAndSaveBabelAst(res.BabelAst, fileName, outDir, options.commonjs)
 
+let run opts projectPath outDir =
+    let commandToRun =
+        opts |> Array.tryFindIndex ((=) "--run")
+        |> Option.map (fun i ->
+            // TODO: This only works if the project is an .fsx file
+            let scriptFile = Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectPath) + ".js")
+            let runArgs = opts.[i+1..] |> String.concat " "
+            sprintf "node %s %s" scriptFile runArgs)
+    let options = {
+        commonjs = Option.isSome commandToRun || opts |> Array.contains "--commonjs"
+        optimize = opts |> Array.contains "--optimize-fcs"
+        watchMode = opts |> Array.contains "--watch"
+    }
+    parseFiles projectPath outDir options
+    commandToRun |> Option.iter runCmd
+
 let parseArguments (argv: string[]) =
     // TODO: more sophisticated argument parsing
     let usage = "Usage: fable <PROJECT_PATH> <OUT_DIR> [--options]"
-    let opts, args = argv |> Array.partition (fun s -> s.StartsWith("--"))
+    let args, opts =
+        match argv |> Array.tryFindIndex (fun s -> s.StartsWith("--")) with
+        | None -> argv, [||]
+        | Some i -> argv.[..i-1], argv.[i..]
     match opts, args with
     | [| "--help" |], _ -> printfn "%s" usage
     | [| "--version" |], _ -> printfn "v%s" (getVersion())
+    | _, [| projectPath |] ->
+        Path.Combine(Path.GetDirectoryName(projectPath), "bin")
+        |> run opts projectPath
     | _, [| projectPath; outDir |] ->
-        let outDir =
-            if outDir = "--run" then
-                Path.Combine(Path.GetDirectoryName(projectPath), "bin")
-            else outDir
-        let commandToRun =
-            opts |> Array.tryFindIndex ((=) "--run")
-            |> Option.map (fun i ->
-                // TODO: This only works if the project is an .fsx file
-                let scriptFile = Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectPath) + ".js")
-                let runArgs = opts.[i+1..] |> String.concat " "
-                sprintf "node %s %s" scriptFile runArgs)
-        let options = {
-            commonjs = Option.isSome commandToRun || opts |> Array.contains "--commonjs"
-            optimize = opts |> Array.contains "--optimize-fcs"
-            watchMode = opts |> Array.contains "--watch"
-        }
-        parseFiles projectPath outDir options
-        commandToRun |> Option.iter runCmd
+        run opts projectPath outDir
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]

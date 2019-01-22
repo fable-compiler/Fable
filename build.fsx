@@ -257,7 +257,7 @@ let buildNpmFableCompilerJs fast () =
         downloadArtifact (replDir </> "bundle") APPVEYOR_REPL_ARTIFACT_URL
     CleanDir distDir
     FileUtils.cp_r (replDir </> "bundle") (distDir </> "bundle")
-    FileUtils.cp_r (replDir </> "metadata2") (distDir </> "metadata2")
+    FileUtils.cp_r (replDir </> "metadata2") (distDir </> ".." </> "lib")
     Yarn.run CWD "babel" (sprintf "%s --out-dir %s --plugins @babel/plugin-transform-modules-commonjs --quiet"
         (replDir </> "bundle/fable-library") (distDir </> "fable-library-commonjs"))
     Yarn.run CWD "build-compiler-js" ""

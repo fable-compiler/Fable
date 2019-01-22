@@ -1,3 +1,7 @@
+### 1.0.0-alpha-012
+
+* Fix argument parsing and update deps
+
 ### 1.0.0-alpha-010
 
 * Fix #1674: paths on Windows @ncave
