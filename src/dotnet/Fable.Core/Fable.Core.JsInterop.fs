@@ -2,7 +2,6 @@ module Fable.Core.JsInterop
 
 open System
 open Fable.Core
-open Fable.Import
 
 /// Has same effect as `unbox` (dynamic casting erased in compiled JS code).
 /// The casted type can be defined on the call site: `!!myObj?bar(5): float`
@@ -117,44 +116,7 @@ type [<AllowNullLiteral>] JsConstructor =
     [<Emit("new $0($1...)")>]
     abstract Create: [<ParamArray>]args: obj[] -> obj
 
-/// Use it when importing a constructor from a JS library.
-type [<AllowNullLiteral>] JsConstructor<'Out> =
-    [<Emit("new $0()")>]
-    abstract Create: unit->'Out
-
-/// Use it when importing a constructor from a JS library.
-type [<AllowNullLiteral>] JsConstructor<'Arg1,'Out> =
-    [<Emit("new $0($1...)")>]
-    abstract Create: 'Arg1->'Out
-
-/// Use it when importing a constructor from a JS library.
-type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Out> =
-    [<Emit("new $0($1...)")>]
-    abstract Create: 'Arg1*'Arg2->'Out
-
-/// Use it when importing a constructor from a JS library.
-type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Out> =
-    [<Emit("new $0($1...)")>]
-    abstract Create: 'Arg1*'Arg2*'Arg3->'Out
-
-/// Use it when importing a constructor from a JS library.
-type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Arg4,'Out> =
-    [<Emit("new $0($1...)")>]
-    abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4->'Out
-
-/// Use it when importing a constructor from a JS library.
-type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Out> =
-    [<Emit("new $0($1...)")>]
-    abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4*'Arg5->'Out
-
-/// Use it when importing a constructor from a JS library.
-type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out> =
-    [<Emit("new $0($1...)")>]
-    abstract Create: 'Arg1*'Arg2*'Arg3*'Arg4*'Arg5*'Arg6->'Out
-
-/// Use it to cast dynamic functions coming from JS. If you know the argument
-/// and return types, use `System.Func<>` instead. If you need a constructor
-/// (must be applied with `new` keyword), use `JsConstructor`.
+/// Use it when importing dynamic functions from JS. If you need a constructor, use `JsConstructor`.
 ///
 /// ## Sample
 ///     let f: JsFunc = import "myFunction" "./myLib"
@@ -162,10 +124,3 @@ type [<AllowNullLiteral>] JsConstructor<'Arg1,'Arg2,'Arg3,'Arg4,'Arg5,'Arg6,'Out
 type [<AllowNullLiteral>] JsFunc private () =
     [<Emit("$0($1...)")>]
     member __.Invoke([<ParamArray>]args:obj[]): obj = jsNative
-    [<Emit("$0")>] static member From0(f:unit->'b): JsFunc = jsNative
-    [<Emit("$0")>] static member From1(f:'a->'b): JsFunc = jsNative
-    [<Emit("$0")>] static member From2(f:'a->'b->'c): JsFunc = jsNative
-    [<Emit("$0")>] static member From3(f:'a->'b->'c->'d): JsFunc = jsNative
-    [<Emit("$0")>] static member From4(f:'a->'b->'c->'d->'e): JsFunc = jsNative
-    [<Emit("$0")>] static member From5(f:'a->'b->'c->'d->'e->'f): JsFunc = jsNative
-    [<Emit("$0")>] static member From6(f:'a->'b->'c->'d->'e->'f->'g): JsFunc = jsNative

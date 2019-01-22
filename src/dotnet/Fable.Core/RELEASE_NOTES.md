@@ -1,3 +1,8 @@
+### 2.1.0-alpha-002
+
+* Clean Fable.Import.JS module and rename it to Fable.Core.JS
+* Add unions of measure for non-numeric primitive types
+
 ### 2.0.3
 
 * Add `Fable.Core.Reflection` module
