@@ -665,8 +665,7 @@ let isCompatibleWithJsComparison = function
     // TODO: Non-record/union declared types without custom equality
     // should be compatible with JS comparison
     | DeclaredType _ -> false
-    // TODO: Raise warning when building dictionary/hashset with generic params?
-    | GenericParam _ -> true
+    | GenericParam _ -> false
     | Any | Unit | Boolean | Number _ | String | Char | Regex
     | EnumType _ | ErasedUnion _ | FunctionType _ -> true
 
@@ -2302,7 +2301,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         match args.Head with
         | Value (StringConstant "c")
         | Value (StringConstant "g")
-        | Value (StringConstant "G") -> 
+        | Value (StringConstant "G") ->
             Helper.CoreCall("TimeSpan", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ ->
             "TimeSpan.ToString don't support custom format. It only handles \"c\", \"g\" and \"G\" format, with CultureInfo.InvariantCulture."

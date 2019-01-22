@@ -3,6 +3,7 @@ module QuickTest
 // Please don't add this file to your commits
 
 open System
+open System.Collections.Generic
 open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Core.Testing
