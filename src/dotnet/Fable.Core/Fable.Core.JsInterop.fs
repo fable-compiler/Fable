@@ -96,15 +96,6 @@ let inflate<'T>(pojo: obj): 'T = jsNative
 [<Obsolete("Doesn't do anything in Fable 2, please remove or use `toPlainJsObj`")>]
 let deflate(o: 'T): obj = jsNative
 
-/// Reads the name of an identifier, a property or a type
-let nameof(expr: 'a): string = jsNative
-
-/// Like nameof but also returns the expression as second element of the tuple
-let nameof2(expr: 'a): string * 'a = jsNative
-
-/// Reads the name of a property or a type from the lambda body
-let nameofLambda(f: 'a->'b): string = jsNative
-
 /// Compiles to JS `this` keyword.
 ///
 /// ## Sample
@@ -113,6 +104,9 @@ let [<Emit("this")>] jsThis<'T> : 'T = jsNative
 
 /// JS `in` operator
 let [<Emit("$0 in $1")>] isIn (key: string) (target: obj): bool = jsNative
+
+/// JS non-strict null checking
+let [<Emit("$0 == null")>] isNullOrUndefined (target: obj): bool = jsNative
 
 /// Use it when importing a constructor from a JS library.
 type [<AllowNullLiteral>] JsConstructor =

@@ -988,6 +988,21 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             "A function supposed to be replaced by JS native code has been called, please check."
             |> StringConstant |> Value
         Throw(error runtimeMsg, t, r) |> Some
+    | _, ("nameof"|"nameof2" as meth) ->
+        match args with
+        | [Nameof name as arg] ->
+            if meth = "nameof2"
+            then NewTuple [makeStrConst name; arg] |> Value |> Some
+            else makeStrConst name |> Some
+        | _ -> "Cannot infer name of expression"
+               |> addError com ctx.InlinePath r
+               makeStrConst Naming.unknown |> Some
+    | _, "nameofLambda" ->
+        match args with
+        | [Function(_, Nameof name, _)] -> name
+        | _ -> "Cannot infer name of expression"
+               |> addError com ctx.InlinePath r; Naming.unknown
+        |> makeStrConst |> Some
     | _, "Async.AwaitPromise.Static" -> Helper.CoreCall("Async", "awaitPromise", t, args, ?loc=r) |> Some
     | _, "Async.StartAsPromise.Static" -> Helper.CoreCall("Async", "startAsPromise", t, args, ?loc=r) |> Some
     | "Fable.Core.Testing.Assert", _ ->
@@ -1038,21 +1053,6 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                    |> addError com ctx.InlinePath r; None
         | "createEmpty", _ ->
             objExpr t [] |> Some
-        | ("nameof"|"nameof2" as meth), _ ->
-            match args with
-            | [Nameof name as arg] ->
-                if meth = "nameof2"
-                then NewTuple [makeStrConst name; arg] |> Value |> Some
-                else makeStrConst name |> Some
-            | _ -> "Cannot infer name of expression"
-                   |> addError com ctx.InlinePath r
-                   makeStrConst Naming.unknown |> Some
-        | "nameofLambda", _ ->
-            match args with
-            | [Function(_, Nameof name, _)] -> name
-            | _ -> "Cannot infer name of expression"
-                   |> addError com ctx.InlinePath r; Naming.unknown
-            |> makeStrConst |> Some
         // Deprecated methods
         | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
         | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some

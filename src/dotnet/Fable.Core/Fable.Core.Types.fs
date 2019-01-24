@@ -1,12 +1,6 @@
 namespace Fable.Core
+
 open System
-
-#nowarn "1204"
-
-[<AutoOpen>]
-module Exceptions =
-    /// Used to indicate that a member is only implemented in native Javascript
-    let jsNative<'T> : 'T = failwith "JS only"
 
 /// Not used in Fable 2 but added temporarily to avoid errors when using dotnet CLI
 /// to build projects with dependencies referencing Fable.Core 1.x
@@ -15,6 +9,9 @@ type Applicable = obj->obj
 type CaseRules =
     | None = 0
     | LowerFirst = 1
+
+type JsInterfaceAttribute() =
+    inherit Attribute()
 
 /// Used for erased union types and to ignore modules in JS compilation.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
@@ -176,9 +173,3 @@ type [<Erase>] U8<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h> =
     static member op_ErasedCast(x:'f) = Case6 x
     static member op_ErasedCast(x:'g) = Case7 x
     static member op_ErasedCast(x:'h) = Case8 x
-
-module Testing =
-    type Assert =
-        static member AreEqual(expected: 'T, actual: 'T, ?msg: string): unit = jsNative
-        static member NotEqual(expected: 'T, actual: 'T, ?msg: string): unit = jsNative
-
