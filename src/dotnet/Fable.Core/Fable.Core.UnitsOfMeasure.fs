@@ -41,4 +41,4 @@ module UnitOfMeasure =
     #endif
 
     /// generic unit of measure cast function
-    let inline cast (x : ^a) : ^b = _cast<UnitOfMeasureTC,^a,^b> x
+    let [<Emit("$0")>] inline cast (x : ^a) : ^b = _cast<UnitOfMeasureTC,^a,^b> x

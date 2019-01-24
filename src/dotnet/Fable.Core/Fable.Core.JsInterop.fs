@@ -111,6 +111,9 @@ let nameofLambda(f: 'a->'b): string = jsNative
 ///     jqueryMethod(fun x y -> jsThis?add(x, y))
 let [<Emit("this")>] jsThis<'T> : 'T = jsNative
 
+/// JS `in` operator
+let [<Emit("$0 in $1")>] isIn (key: string) (target: obj): bool = jsNative
+
 /// Use it when importing a constructor from a JS library.
 type [<AllowNullLiteral>] JsConstructor =
     [<Emit("new $0($1...)")>]
