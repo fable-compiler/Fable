@@ -92,7 +92,7 @@ let createProject checker dirtyFiles (prevProject: Project option) (msg: Parser.
         { projectOptions with LoadTime = DateTime.Now }
         |> checker.ParseAndCheckProject
         |> Async.map (fun checkedProject ->
-            checkFableCoreVersion checkedProject
+            // checkFableCoreVersion checkedProject
             let optimized = GlobalParams.Singleton.Experimental.Contains("optimize-fcs")
             let implFiles =
                 if not optimized

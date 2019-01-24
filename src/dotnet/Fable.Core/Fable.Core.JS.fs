@@ -1,3 +1,10 @@
+namespace Fable.Import
+
+[<System.Obsolete("Use Fable.Core.JS")>]
+module JS =
+    /// Use Fable.Core.JS
+    let obsolete<'T> : 'T = failwith "Use Fable.Core.JS"
+
 namespace Fable.Core
 
 open System
@@ -258,10 +265,3 @@ module JS =
     let [<Global>] clearInterval (token: int): unit = jsNative
     let [<Emit("debugger;")>] debugger () : unit = jsNative
     let [<Emit("undefined")>] undefined<'a> : 'a = jsNative
-
-namespace Fable.Import
-
-[<System.Obsolete("Use Fable.Core.JS")>]
-module JS =
-    /// Use Fable.Core.JS
-    let obsolete<'T> : 'T = failwith "Use Fable.Core.JS"
