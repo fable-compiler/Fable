@@ -14,7 +14,6 @@
     <Compile Include="Fable.Core.JsInterop.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />
     <Compile Include="Fable.Core.Reflection.fs" />
-    <Compile Include="Fable.Core.UnitsOfMeasure.fs" />
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>
