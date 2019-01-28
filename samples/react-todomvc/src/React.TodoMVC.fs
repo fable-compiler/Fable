@@ -1,30 +1,18 @@
-(**
- - title: React TodoMVC with Fable
- - tagline: Unveil the power of React and functional programming!
- - app-style: width:800px; margin:20px auto 50px auto;
- - intro: This is a port of [React TodoMVC](http://todomvc.com/examples/react/) to show how easy
-   is to take advantage of the full power of [React](https://facebook.github.io/react/) in Fable apps.
-   You can also compare the [F# source code](https://github.com/fable-compiler/Fable/blob/master/samples/browser/react-todomvc/react-todomvc.fsx)
-   with the [original JS implementation](https://github.com/tastejs/todomvc/tree/gh-pages/examples/react)
-   to see the advantages of Fable programming. There's also a port of the [React tutorial](https://github.com/fable-compiler/Fable/tree/master/samples/browser/react-tutorial),
-   including an express server and hot reloading. And remember [Fable is also compatible with React Native](http://www.navision-blog.de/blog/2016/08/06/fable-react-native/) for mobile development!
-*)
+module React.TodoMVC
 
 (**
 ## JavaScript bindings and helpers
 
-Fable includes [React bindings and helpers](https://www.npmjs.com/package/fable-import-react)
-to make interaction with the tool more idiomatic in F#. We will also load a couple more of
-JS libraries: [classnames](https://github.com/JedWatson/classnames) and
-[director](https://github.com/flatiron/director).
+Fable includes React bindings and helpers to make interaction with the tool more idiomatic in F#.
+We will also load a couple more of JS libraries: [classnames](https://github.com/JedWatson/classnames)
+and [director](https://github.com/flatiron/director).
 *)
-
-module React.TodoMVC
 
 open System
 open Fable.Core
 open Fable.Core.JsInterop
-open Fable.Import
+open Browser
+open Browser.Types
 
 // JS utility for conditionally joining classNames together
 let classNames(classes: obj): string =
@@ -49,11 +37,11 @@ For more complicated structures see [JSON serialization with Fable](https://fabl
 
 module Util =
     let load<'T> key: 'T option =
-        !!Browser.localStorage.getItem(key)
+        !!window.localStorage.getItem(key)
         |> Option.map (fun json -> !!JS.JSON.parse(json))
 
     let save key (data: 'T) =
-        Browser.localStorage.setItem(key, JS.JSON.stringify data)
+        window.localStorage.setItem(key, JS.JSON.stringify data)
 
 (**
 ## Model definiton
@@ -130,21 +118,19 @@ and static checking, making our app much more robust than by using plain JS obje
 
 *)
 
-module R = Fable.Helpers.React
-open R.Props
+open Fable.React
+open Fable.React.Props
+module R = Fable.React.Standard
 
 type TodoItemProps =
     { key: Guid
       todo: Todo
       editing: bool
       onSave: string->unit
-      onEdit: React.SyntheticEvent->unit
-      onDestroy: React.SyntheticEvent->unit
-      onCancel: React.SyntheticEvent->unit
-      onToggle: React.SyntheticEvent->unit }
-
-type TodoItemState =
-    { editText: string }
+      onEdit: Event->unit
+      onDestroy: Event->unit
+      onCancel: Event->unit
+      onToggle: Event->unit }
 
 let [<Literal>] ESCAPE_KEY = 27.
 let [<Literal>] ENTER_KEY = 13.
@@ -152,83 +138,73 @@ let [<Literal>] ALL_TODOS = "all"
 let [<Literal>] ACTIVE_TODOS = "active"
 let [<Literal>] COMPLETED_TODOS = "completed"
 
-type TodoItem(props) =
-    inherit React.Component<TodoItemProps, TodoItemState>(props)
-    do base.setInitState({ editText = props.todo.title })
+let mutable private editField: HTMLInputElement = Unchecked.defaultof<_>
 
-    let mutable editField: Browser.HTMLInputElement option = None
+let TodoItem (props: TodoItemProps) =
+    let editText, setState = Hooks.useState(props.todo.title)
+    Hooks.useEffect((fun () ->
+        editField.focus()
+        editField.setSelectionRange(float editField.value.Length, float editField.value.Length)
+        None), [|props.editing|])
 
-    member this.handleSubmit (e: React.SyntheticEvent) =
-        match this.state.editText.Trim() with
+    let handleSubmit (e: Event) =
+        match editText.Trim() with
         | value when value.Length > 0 ->
-            this.props.onSave(value)
-            this.setState { editText = value }
+            props.onSave(value)
+            setState value
         | _ ->
-            this.props.onDestroy(e)
+            props.onDestroy(e)
 
-    member this.handleEdit (ev: React.MouseEvent) =
-        this.props.onEdit(upcast ev)
-        this.setState { editText = this.props.todo.title }
+    let handleEdit (ev: MouseEvent) =
+        props.onEdit(upcast ev)
+        setState props.todo.title
 
-    member this.handleKeyDown (e: React.KeyboardEvent) =
+    let handleKeyDown (e: KeyboardEvent) =
         match e.which with
         | ESCAPE_KEY ->
-            this.setState { editText = this.props.todo.title }
-            this.props.onCancel(upcast e)
+            setState props.todo.title
+            props.onCancel(upcast e)
         | ENTER_KEY ->
-            this.handleSubmit(e)
+            handleSubmit(e)
         | _ -> ()
 
-    member this.handleChange (e: React.SyntheticEvent) =
-        if this.props.editing then
-            this.setState { editText = string (e.target :?> Browser.HTMLInputElement).value }
+    let handleChange (e: Event) =
+        if props.editing then
+            e.Value |> setState
 
-    override this.shouldComponentUpdate (nextProps: TodoItemProps, nextState: TodoItemState) =
-        not(obj.ReferenceEquals(nextProps.todo, this.props.todo))
-        || nextProps.editing <> this.props.editing
-        || nextState.editText <> this.state.editText
 
-    override this.componentDidUpdate (prevProps: TodoItemProps, _) =
-        if not prevProps.editing && this.props.editing then
-            match editField with
-            | None -> ()
-            | Some node ->
-                node.focus()
-                node.setSelectionRange(float node.value.Length, float node.value.Length)
-
-    override this.render () =
-        let className =
-            classNames(
-                createObj [
-                    "completed" ==> this.props.todo.completed
-                    "editing" ==> this.props.editing
-                ])
-        // The React helper defines a simple DSL to build HTML elements.
-        // For more info about transforming F# unions to JS option objects:
-        // https://fable-compiler.github.io/docs/interacting.html#KeyValueList-attribute
-        R.li [ Class className ] [
-            R.div [ Class "view" ] [
-                R.input [
-                    Class "toggle"
-                    Type "checkbox"
-                    Checked this.props.todo.completed
-                    OnChange (fun e -> this.props.onToggle(upcast e))
-                ]
-                R.label [ OnDoubleClick this.handleEdit ]
-                        [ R.str this.props.todo.title ]
-                R.button [
-                    Class "destroy"
-                    OnClick (fun e -> this.props.onDestroy(upcast e)) ] [ ]
-            ]
+    let className =
+        classNames(
+            createObj [
+                "completed" ==> props.todo.completed
+                "editing" ==> props.editing
+            ])
+    // The React helper defines a simple DSL to build HTML elements.
+    // For more info about transforming F# unions to JS option objects:
+    // https://fable-compiler.github.io/docs/interacting.html#KeyValueList-attribute
+    R.li [ Class className ] [
+        R.div [ Class "view" ] [
             R.input [
-                Class "edit"
-                Ref (fun x -> editField <- Some(x:?>Browser.HTMLInputElement))
-                Value this.state.editText
-                OnBlur this.handleSubmit
-                OnChange this.handleChange
-                OnKeyDown this.handleKeyDown
+                Class "toggle"
+                Type "checkbox"
+                Checked props.todo.completed
+                OnChange (fun e -> props.onToggle(e))
             ]
+            R.label [ OnDoubleClick handleEdit ]
+                    [ str props.todo.title ]
+            R.button [
+                Class "destroy"
+                OnClick (fun e -> props.onDestroy(upcast e)) ] [ ]
         ]
+        R.input [
+            Class "edit"
+            Ref (fun x -> editField <- x:?>_)
+            Value editText
+            OnBlur handleSubmit
+            OnChange handleChange
+            OnKeyDown handleKeyDown
+        ]
+    ]
 
 (**
 The next view is `TodoFooter`. This component just presents some buttons below
@@ -244,7 +220,7 @@ the parent and let it re-render the subtree if necessary.
 type TodoFooterProps =
     { count: int
       completedCount: int
-      onClearCompleted: React.MouseEvent->unit
+      onClearCompleted: MouseEvent->unit
       nowShowing: string }
 
 let TodoFooter(props: TodoFooterProps) =
@@ -256,35 +232,35 @@ let TodoFooter(props: TodoFooterProps) =
             R.button [
                 Class "clear-completed"
                 OnClick props.onClearCompleted
-            ] [ R.str "Clear completed" ] |> Some
+            ] [ str "Clear completed" ] |> Some
         else None
     let className category =
         classNames(
             createObj ["selected" ==> (props.nowShowing = category)])
     R.footer [ Class "footer" ] [
         R.span [ Class "todo-count" ] [
-            R.strong [] [ props.count |> string |> R.str ]
-            R.str (" " + activeTodoWord + " left")
+            strong [] [ props.count |> string |> str ]
+            str (" " + activeTodoWord + " left")
         ]
         R.ul [ Class "filters" ] [
             R.li [] [
                 R.a [
                     Href "#/"
                     Class (className ALL_TODOS)
-                ] [ R.str "All" ] ]
-            R.str " "
+                ] [ str "All" ] ]
+            str " "
             R.li [] [
                 R.a [
                     Href "#/active"
                     Class (className ACTIVE_TODOS)
-                ] [ R.str "Active" ] ]
-            R.str " "
+                ] [ str "Active" ] ]
+            str " "
             R.li [] [
                 R.a [
                     Href "#/completed"
                     Class (className COMPLETED_TODOS)
-                ] [ R.str "Completed" ] ]
-            R.ofOption clearButton
+                ] [ str "Completed" ] ]
+            ofOption clearButton
         ]
     ]
 
@@ -311,12 +287,12 @@ type TodoAppState =
       newTodo: string }
 
 type TodoApp(props) =
-    inherit React.Component<TodoAppProps, TodoAppState>(props)
+    inherit Component<TodoAppProps, TodoAppState>(props)
     do base.setInitState({ nowShowing=ALL_TODOS; editing=None; newTodo="" })
 
     override this.componentDidMount () =
         let nowShowing category =
-            fun () -> this.setState({this.state with nowShowing = category})
+            fun () -> this.setState(fun s _ -> {s with nowShowing = category})
         let router =
             Router(createObj [
                     "/" ==> nowShowing ALL_TODOS
@@ -325,19 +301,19 @@ type TodoApp(props) =
             ])
         router?init("/") |> ignore
 
-    member this.handleChange (ev: React.SyntheticEvent) =
-        this.setState({ this.state with newTodo = string (ev.target :?> Browser.HTMLInputElement).value })
+    member this.handleChange (ev: Event) =
+        this.setState(fun s _ -> { s with newTodo = ev.Value })
 
-    member this.handleNewTodoKeyDown (ev: React.KeyboardEvent) =
+    member this.handleNewTodoKeyDown (ev: KeyboardEvent) =
         if ev.keyCode = ENTER_KEY then
             ev.preventDefault()
             let v = this.state.newTodo.Trim()
             if v.Length > 0 then
                 this.props.model.addTodo(v)
-                this.setState({ this.state with newTodo = "" })
+                this.setState(fun s _ -> { s with newTodo = "" })
 
-    member this.toggleAll (ev: React.SyntheticEvent) =
-        this.props.model.toggleAll((ev.target :?> Browser.HTMLInputElement).``checked``)
+    member this.toggleAll (ev: Event) =
+        this.props.model.toggleAll(ev.Checked)
 
     member this.toggle (todoToToggle) =
         this.props.model.toggle(todoToToggle)
@@ -346,14 +322,14 @@ type TodoApp(props) =
         this.props.model.destroy(todo)
 
     member this.edit (todo: Todo) =
-        this.setState({ this.state with editing = Some todo.id })
+        this.setState(fun s _ -> { s with editing = Some todo.id })
 
     member this.save (todoToSave, text) =
         this.props.model.save(todoToSave, text)
-        this.setState({ this.state with editing = None })
+        this.setState(fun s _ -> { s with editing = None })
 
     member this.cancel () =
-        this.setState({ this.state with editing = None })
+        this.setState(fun s _ -> { s with editing = None })
 
     member this.clearCompleted () =
         this.props.model.clearCompleted()
@@ -368,7 +344,7 @@ type TodoApp(props) =
                 | COMPLETED_TODOS -> todo.completed
                 | _ -> true)
             |> Seq.map (fun todo ->
-                R.ofType<TodoItem,_,_>
+                ofFunction TodoItem
                     { key = todo.id
                       todo = todo
                       onToggle = fun _ -> this.toggle(todo)
@@ -390,7 +366,7 @@ type TodoApp(props) =
         let footer =
             if activeTodoCount > 0 || completedCount > 0
             then
-                R.ofFunction TodoFooter
+                ofFunction TodoFooter
                     { count = activeTodoCount
                       completedCount = completedCount
                       nowShowing = this.state.nowShowing
@@ -412,7 +388,7 @@ type TodoApp(props) =
             else None
         R.div [] [
             R.header [ Class "header" ] [
-                R.h1 [] [ R.str "todos" ]
+                R.h1 [] [ str "todos" ]
                 R.input [
                     Class "new-todo"
                     Placeholder "What needs to be done?"
@@ -422,8 +398,8 @@ type TodoApp(props) =
                     AutoFocus true
                 ]
             ]
-            R.ofOption main
-            R.ofOption footer
+            ofOption main
+            ofOption footer
         ]
 
 (**
@@ -435,9 +411,9 @@ in the DOM by using `ReactDom.render` and subscribe to the events. Happy coding!
 
 let model = TodoModel("react-todos")
 let render() =
-    ReactDom.render(
-        R.ofType<TodoApp,_,_> { model = model } [],
-        Browser.document.getElementsByClassName("todoapp").[0]
-    )
+    Fable.ReactDom.render(
+        ofType<TodoApp,_,_> { model = model } [],
+        document.getElementsByClassName("todoapp").[0])
+
 model.subscribe(render)
 render()
