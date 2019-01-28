@@ -31,26 +31,27 @@ let main argv =
         | [|metadataPath; testScriptPath; compiledScriptPath|] -> metadataPath, testScriptPath, compiledScriptPath
         | _ -> metadataPath, testScriptPath, testScriptPath.Replace(".fsx", ".js")
     try
-        let optimized = false
-        // let writeAst = false
+        let optimize = false
         // let fsAstFile = Fable.Path.ChangeExtension(testScriptPath, ".fsharp.ast.txt")
         // let babelAstFile = Fable.Path.ChangeExtension(testScriptPath, ".babel.ast.json")
+        let projectFileName = "project"
+        let fileName = testScriptPath
         let source = readAllText testScriptPath
         let fable = Fable.Repl.Main.init ()
-        let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, None)
+        let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, [||], optimize)
         let ms0, checker = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
-        let parseFSharpScript () = fable.ParseFSharpScript(checker, testScriptPath, source)
-        let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, optimized)
+        // let parseFSharpScript () = fable.ParseFSharpScript(checker, fileName, source)
+        let parseFSharpScript () = fable.ParseFSharpFileInProject(checker, fileName, projectFileName, [|fileName|], [|source|])
+        let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, optimize)
         let bench i =
-            let fileName = testScriptPath
             let ms1, parseRes = measureTime parseFSharpScript ()
             let errors = fable.GetParseErrors parseRes
             errors |> Array.iter (printfn "Error: %A")
             if errors.Length > 0 then failwith "Too many errors."
             let ms2, babelAst = measureTime parseFable (parseRes, fileName)
-            // if i = 1 && writeAst then
-            //     // let fsAstStr = fable.FSharpAstToString(parseRes, fileName, optimized)
+            // if i = 1 then
+            //     // let fsAstStr = fable.FSharpAstToString(parseRes, fileName, optimize)
             //     // printfn "%s Typed AST: %s" fileName fsAstStr
             //     // writeAllText fsAstFile fsAstStr
             //     // printfn "Babel AST: %s" (toJson babelAst)
