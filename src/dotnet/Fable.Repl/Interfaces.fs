@@ -52,6 +52,7 @@ type IFableManager =
     abstract ClearParseCaches: checker: IChecker -> unit
     abstract ParseFSharpScript: checker: IChecker * fileName: string * source: string -> IParseResults
     abstract ParseFSharpProject: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] -> IParseResults
+    abstract ParseFSharpFileInProject: checker: IChecker * fileName: string * projectFileName: string * fileNames: string[] * sources: string[] -> IParseResults
     abstract GetParseErrors: parseResults: IParseResults -> Error[]
     abstract GetDeclarationLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Range option>
     abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<string[]>

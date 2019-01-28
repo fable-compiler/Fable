@@ -11,20 +11,19 @@ type CheckerImpl(checker: InteractiveChecker) =
     member __.Checker = checker
     interface IChecker
 
-let mapErrors (checkProjectResults: FSharpCheckProjectResults) =
-    checkProjectResults.Errors
-    |> Array.map (fun er -> {
-        FileName = er.FileName
-        StartLineAlternate = er.StartLineAlternate
-        StartColumn = er.StartColumn
-        EndLineAlternate = er.EndLineAlternate
-        EndColumn = er.EndColumn
-        Message = er.Message
+let mapError (error: FSharpErrorInfo) =
+    {
+        FileName = error.FileName
+        StartLineAlternate = error.StartLineAlternate
+        StartColumn = error.StartColumn
+        EndLineAlternate = error.EndLineAlternate
+        EndColumn = error.EndColumn
+        Message = error.Message
         IsWarning =
-            match er.Severity with
+            match error.Severity with
             | FSharpErrorSeverity.Error -> false
             | FSharpErrorSeverity.Warning -> true
-    })
+    }
 
 type ParseResults (optimizedProject: Lazy<Project>,
                    unoptimizedProject: Lazy<Project>,
@@ -42,7 +41,7 @@ type ParseResults (optimizedProject: Lazy<Project>,
     member __.CheckProjectResults = checkProjectResults
 
     interface IParseResults with
-        member __.Errors = mapErrors checkProjectResults
+        member __.Errors = checkProjectResults.Errors |> Array.map mapError
 
 let inline private tryGetLexerSymbolIslands (sym: Lexer.LexerSymbol) =
   match sym.Text with
@@ -134,12 +133,12 @@ let makeProject projectOptions (projectResults: FSharpCheckProjectResults) optim
     project
 
 let parseFSharpScript (checker: InteractiveChecker) projectFileName fileName source =
-    let parseResults, typeCheckResults, projectResults =
+    let parseResults, checkResults, projectResults =
         checker.ParseAndCheckScript (projectFileName, fileName, source)
     let projectOptions = makeProjOptions projectFileName [| fileName |]
     let optimizedProject = lazy (makeProject projectOptions projectResults true)
     let unoptimizedProject = lazy (makeProject projectOptions projectResults false)
-    ParseResults (optimizedProject, unoptimizedProject, Some parseResults, Some typeCheckResults, projectResults)
+    ParseResults (optimizedProject, unoptimizedProject, Some parseResults, Some checkResults, projectResults)
 
 let parseFSharpProject (checker: InteractiveChecker) projectFileName fileNames sources =
     let projectResults = checker.ParseAndCheckProject (projectFileName, fileNames, sources)
@@ -147,6 +146,13 @@ let parseFSharpProject (checker: InteractiveChecker) projectFileName fileNames s
     let optimizedProject = lazy (makeProject projectOptions projectResults true)
     let unoptimizedProject = lazy (makeProject projectOptions projectResults false)
     ParseResults (optimizedProject, unoptimizedProject, None, None, projectResults)
+
+let parseFSharpFileInProject (checker: InteractiveChecker) fileName projectFileName fileNames sources =
+    let parseResults, checkResultsOpt, projectResults = checker.ParseAndCheckFileInProject (fileName, projectFileName, fileNames, sources)
+    let projectOptions = makeProjOptions projectFileName fileNames
+    let optimizedProject = lazy (makeProject projectOptions projectResults true)
+    let unoptimizedProject = lazy (makeProject projectOptions projectResults false)
+    ParseResults (optimizedProject, unoptimizedProject, Some parseResults, checkResultsOpt, projectResults)
 
 let tooltipToString (el: FSharpToolTipElement<string>): string[] =
     let dataToString (data: FSharpToolTipElementData<string>) =
@@ -253,6 +259,10 @@ let init () =
         member __.ParseFSharpProject(checker, projectFileName, fileNames, sources) =
             let c = checker :?> CheckerImpl
             parseFSharpProject c.Checker projectFileName fileNames sources :> IParseResults
+
+        member __.ParseFSharpFileInProject(checker, fileName, projectFileName, fileNames, sources) =
+            let c = checker :?> CheckerImpl
+            parseFSharpFileInProject c.Checker fileName projectFileName fileNames sources :> IParseResults
 
         member __.GetParseErrors(parseResults:IParseResults) =
             parseResults.Errors
