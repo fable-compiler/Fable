@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Fable.Transforms/Fable.Transforms.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Interfaces.fs"/>
+    <Compile Include="Metadata.fs"/>
+    <Compile Include="Lexer.fs"/>
+    <Compile Include="Main.fs"/>
+  </ItemGroup>
+
+</Project>

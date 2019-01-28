@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../fcs-fable.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Metadata.fs"/>
+    <Compile Include="Platform.fs"/>
+    <Compile Include="bench.fs"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="2.0.*" />
+  </ItemGroup>
+
+</Project>

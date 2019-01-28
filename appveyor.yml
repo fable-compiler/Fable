@@ -28,10 +28,10 @@ test: off
 # version: 0.0.1.{build}
 artifacts:
 # https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/dotnet/Fable.Repl/repl.zip
-  - path: src\dotnet\Fable.Repl\out
+  - path: src\Fable.Repl\out
     name: repl
     type: zip
 # https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/dotnet/Fable.Repl/repl-bundle.zip
-  - path: src\dotnet\Fable.Repl\bundle
+  - path: src\Fable.Repl\bundle
     name: repl-bundle
     type: zip

@@ -3,12 +3,10 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../../../fable-react/src/Fable.React/Fable.Import.React.fs" />
-    <Compile Include="../../../../fable-react/src/Fable.React/Fable.Helpers.React.fs" />
     <Compile Include="React.TodoMVC.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="2.0.2" />
-    <PackageReference Include="Fable.Import.Browser" Version="1.1.2" />
+    <PackageReference Include="Fable.Browser.Dom" Version="1.0.0-alpha-003" />
+    <PackageReference Include="Fable.React" Version="5.0.0-alpha-005" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,10 @@
 module.exports = {
   entry: './src/React.TodoMVC.fsproj',
-  mode: "production",
+  mode: "development",
+  devServer: {
+      contentBase: "./dist",
+      port: 8080,
+  },
   module: {
     rules: [
       {
