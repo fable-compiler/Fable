@@ -247,6 +247,17 @@ let tests =
         Seq.forall2 (=) xs ys
         |> equal true
 
+    testCase "Seq.forall is lazy" <| fun () -> // See #1715
+        let mutable x = ""
+        let one() = x <- "one"; false
+        let two() = x <- "two"; true
+        let ok =
+            [one; two]
+            |> Seq.map (fun c -> c())
+            |> Seq.forall id
+        ok |> equal false
+        x |> equal "one"
+
     testCase "Seq.head works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
         Seq.head xs

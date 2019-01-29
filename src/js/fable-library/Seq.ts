@@ -267,6 +267,14 @@ export function exists2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, 
   return false;
 }
 
+export function forAll<T>(f: (x: T) => boolean, xs: Iterable<T>) {
+    return !exists((x) => !f(x), xs);
+}
+
+export function forAll2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
+    return !exists2((x, y) => !f(x, y), xs, ys);
+}
+
 export function contains<T>(i: T, xs: Iterable<T>) {
   return exists((x) => equals(x, i), xs);
 }
@@ -335,14 +343,6 @@ export function foldBack2<T1, T2, ST>(
     acc = f(ar1[i], ar2[i], acc, i);
   }
   return acc;
-}
-
-export function forAll<T>(f: (x: T) => boolean, xs: Iterable<T>) {
-  return fold((acc, x) => acc && f(x), true, xs);
-}
-
-export function forAll2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
-  return fold2((acc, x, y) => acc && f(x, y), true, xs, ys);
 }
 
 export function tryHead<T>(xs: Iterable<T>): Option<T> {
