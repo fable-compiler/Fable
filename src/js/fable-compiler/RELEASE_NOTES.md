@@ -1,3 +1,15 @@
+### 2.1.11
+
+* Add `List.exactlyOne` @wangweipeng
+* Add support for more `TimeSpan.ToString` options @rfrerebe
+* Added `ResizeArray.RemoveAll/FindIndexFindLastIndex` @ncave
+* Fix #1705: `Array.choose` always returns empty array for numeric option output types @ncave
+* Fix #1716: `windowed` is not supported
+* Fix #1715: `Seq.forall` is not lazy
+* Fix #1712: HashSet equality works with generics
+* Fix #1696: Add warning when trying to pass an argument byref
+* Skip Fable.Core version check
+
 ### 2.1.10
 
 * Fix #1698: Reflection info for delegates
