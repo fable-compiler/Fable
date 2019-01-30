@@ -897,3 +897,10 @@ let toList (source: 'T[]) =
     for i = (len - 1) downto 0 do
         target <- source.[i]::target
     target
+
+// TODO: Pass array constructor here too?
+let windowed (windowSize: int) (source: 'T[]): 'T[][] =
+    if windowSize <= 0 then
+        failwith "windowSize must be positive"
+    [| for i = windowSize to source.Length do
+        yield source.[i-windowSize..i-1] |]

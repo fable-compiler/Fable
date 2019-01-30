@@ -806,3 +806,29 @@ export function zip<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>) {
 export function zip3<T1, T2, T3>(xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterable<T3>) {
   return map3((x, y, z) => [x, y, z], xs, ys, zs);
 }
+
+export function windowed<T>(windowSize: number, source: Iterable<T>): Iterable<T[]> {
+    if (windowSize <= 0) {
+        throw new Error("windowSize must be positive");
+    }
+    return {
+        [Symbol.iterator]: () => {
+            let window: T[] = [];
+            const iter = source[Symbol.iterator]();
+            return {
+                next: () => {
+                    let cur: IteratorResult<T>;
+                    while (window.length < windowSize) {
+                        if ((cur = iter.next()).done) {
+                            return { done: true };
+                        }
+                        window.push(cur.value);
+                    }
+                    const value = window;
+                    window = window.slice(1);
+                    return { done: false, value };
+                },
+            };
+        },
+    } as Iterable<T[]>;
+}

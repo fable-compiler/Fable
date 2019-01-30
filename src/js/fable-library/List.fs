@@ -480,3 +480,9 @@ let pairwise xs =
         let acc = ResizeArray()
         acc.Add((x1, x2))
         inner xs acc x2
+
+let windowed (windowSize: int) (source: 'T list): 'T list list =
+    if windowSize <= 0 then
+        failwith "windowSize must be positive"
+    [ for i = windowSize to source.Length do
+        yield source.[i-windowSize..i-1] ]

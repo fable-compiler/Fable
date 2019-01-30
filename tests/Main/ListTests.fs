@@ -115,12 +115,12 @@ let tests =
                 else None)
             result.Head + result.Tail.Head
             |> equal 7
-    
+
     testCase "List.exactlyOne works" <| fun () ->
             let xs = [1.;]
-            xs |> List.exactlyOne 
+            xs |> List.exactlyOne
             |> equal 1.
-            
+
             let xs2 = [1.;2.]
             (try List.exactlyOne xs2 |> ignore; false with | _ -> true) |> equal true
 
@@ -736,6 +736,13 @@ let tests =
         List.splitAt 0 li |> equal ([], [1;2;3;4])
         List.splitAt 3 li |> equal ([1;2;3], [4])
         List.splitAt 4 li |> equal ([1;2;3;4], [])
+
+    testCase "List.windowed works" <| fun () -> // See #1716
+        let nums = [ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]
+        List.windowed 3 nums |> equal [[1.0; 1.5; 2.0]; [1.5; 2.0; 1.5]; [2.0; 1.5; 1.0]; [1.5; 1.0; 1.5]]
+        List.windowed 5 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0 ]; [ 1.5; 2.0; 1.5; 1.0; 1.5 ]]
+        List.windowed 6 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]]
+        List.windowed 7 nums |> List.isEmpty |> equal true
 
     testCase "Types with same name as imports work" <| fun () ->
             let li = [List 5]

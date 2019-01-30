@@ -803,4 +803,11 @@ let tests =
       let a = [| for i in 1 .. max -> 0  |] // init with 0
       let b = a |> Seq.filter( fun x -> x > 10) |> Seq.toArray
       equal 0 b.Length
+
+    testCase "Seq.windowed works" <| fun () -> // See #1716
+        let nums = [ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ] :> _ seq
+        Seq.windowed 3 nums |> Seq.toArray |> equal [|[|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|]|]
+        Seq.windowed 5 nums |> Seq.toArray |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+        Seq.windowed 6 nums |> Seq.toArray |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+        Seq.windowed 7 nums |> Seq.isEmpty |> equal true
   ]

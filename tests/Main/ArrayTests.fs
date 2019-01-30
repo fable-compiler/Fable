@@ -879,4 +879,11 @@ let tests =
         xs |> Array.takeWhile (fun i -> i < 3.)
         |> Array.last
         |> equal 2.
+
+    testCase "Array.windowed works" <| fun () -> // See #1716
+        let nums = [| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]
+        Array.windowed 3 nums |> equal [|[|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|]|]
+        Array.windowed 5 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+        Array.windowed 6 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+        Array.windowed 7 nums |> Array.isEmpty |> equal true
   ]
