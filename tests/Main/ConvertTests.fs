@@ -1058,6 +1058,17 @@ let tests =
         equal true success1
         equal false success2
 
+    testCase "Parsed guids with different case are considered the same" <| fun () -> // See #1718
+        let aGuid = Guid.NewGuid()
+
+        let lower = aGuid.ToString().ToLower()
+        let upper = aGuid.ToString().ToUpper()
+        lower = upper |> equal false
+
+        let lowerGuid = Guid.Parse lower
+        let upperGuid = Guid.Parse upper
+        lowerGuid = upperGuid |> equal true
+
     testCase "Convert Guid to byte[] works" <| fun () ->
         let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
         g.ToByteArray() |> equal [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]

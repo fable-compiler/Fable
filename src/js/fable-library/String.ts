@@ -6,9 +6,9 @@ import { escape } from "./RegExp";
 const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
 // RFC 4122 compliant. From https://stackoverflow.com/a/13653180/3922220
-// const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 // Relax GUID parsing, see #1637
-const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const enum StringComparison {
   CurrentCulture = 0,
@@ -282,9 +282,9 @@ export function joinWithIndices<T>(delimiter: string, xs: string[], startIndex: 
 
 /** Validates UUID as specified in RFC4122 (versions 1-5). Trims braces. */
 export function validateGuid(str: string, doNotThrow?: boolean): string | [boolean, string] {
-  const trimmed = trim(str, "{", "}");
-  if (guidRegex.test(trimmed)) {
-    return doNotThrow ? [true, trimmed] : trimmed;
+  const trimmedAndLowered = trim(str, "{", "}").toLowerCase();
+  if (guidRegex.test(trimmedAndLowered)) {
+    return doNotThrow ? [true, trimmedAndLowered] : trimmedAndLowered;
   } else if (doNotThrow) {
     return [false, "00000000-0000-0000-0000-000000000000"];
   }
