@@ -244,7 +244,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
             let kind = makeType com ctx.GenericArgs typ |> Fable.TypeTest
             return Fable.Test(unionExpr, kind, r)
     | OptionUnion _ ->
-        let kind = Fable.OptionTest(unionCase.Name <> "None")
+        let kind = Fable.OptionTest(unionCase.Name <> "None" && unionCase.Name <> "ValueNone")
         return Fable.Test(unionExpr, kind, r)
     | ListUnion _ ->
         let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")

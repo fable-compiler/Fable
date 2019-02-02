@@ -127,9 +127,10 @@ let makeProject projectOptions (projectResults: FSharpCheckProjectResults) optim
         (if optimized
         then projectResults.GetOptimizedAssemblyContents()
         else projectResults.AssemblyContents).ImplementationFiles
-        |> Seq.map (fun file -> Fable.Path.normalizePath file.FileName, file) |> Map
+    let implFilesMap =
+        implFiles |> Seq.map (fun file -> Fable.Path.normalizePathAndEnsureFsExtension file.FileName, file) |> Map
     // Dealing with fableLibraryDir is a bit messy atm, for the REPL, only the value in the Compiler options matters
-    let project = Project(projectOptions, implFiles, projectResults.Errors, Map.empty, "", isWatchCompile=false)
+    let project = Project(projectOptions, implFilesMap, projectResults.Errors, Map.empty, "", isWatchCompile=false)
     project
 
 let parseFSharpScript (checker: InteractiveChecker) projectFileName fileName source =

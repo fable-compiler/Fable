@@ -46,6 +46,7 @@ module Types =
     let [<Literal>] regex = "System.Text.RegularExpressions.Regex"
     let [<Literal>] unit = "Microsoft.FSharp.Core.Unit"
     let [<Literal>] option = "Microsoft.FSharp.Core.FSharpOption`1"
+    let [<Literal>] valueOption = "Microsoft.FSharp.Core.FSharpValueOption`1"
     let [<Literal>] result = "Microsoft.FSharp.Core.FSharpResult`2"
     let [<Literal>] matchFail = "Microsoft.FSharp.Core.MatchFailureException"
     let [<Literal>] choiceNonGeneric = "Microsoft.FSharp.Core.FSharpChoice"

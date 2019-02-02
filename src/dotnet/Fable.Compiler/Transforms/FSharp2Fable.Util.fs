@@ -466,6 +466,7 @@ module Patterns =
         | None -> failwith "Union without definition"
         | Some(tdef, fullName) ->
             match defaultArg fullName tdef.CompiledName with
+            | Types.valueOption
             | Types.option -> OptionUnion typ.GenericArguments.[0]
             | Types.list -> ListUnion typ.GenericArguments.[0]
             | _ ->
@@ -528,6 +529,7 @@ module TypeHelpers =
         | Types.char, _ -> Fable.Char
         | Types.string, _ -> Fable.String
         | Types.regex, _ -> Fable.Regex
+        | Types.valueOption, _
         | Types.option, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Option
         | Types.resizeArray, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
         | Types.list, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.List
