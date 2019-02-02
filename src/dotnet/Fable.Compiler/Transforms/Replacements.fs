@@ -2670,6 +2670,7 @@ let private replacedModules =
     Types.hashset, hashSets
     Types.iset, hashSets
     Types.option, options
+    Types.valueOption, options
     "Microsoft.FSharp.Core.OptionModule", optionModule
     "Microsoft.FSharp.Core.ResultModule", results
     Types.bigint, bigints

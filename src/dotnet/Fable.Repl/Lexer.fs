@@ -48,7 +48,7 @@ let tokenizeLine (args: string[]) lineStr =
         match lineTokenizer.ScanToken lexState with
         | Some tok, state -> loop state (tok :: acc)
         | _ -> List.rev acc
-    loop 0L []
+    loop FSharpTokenizerLexState.Initial []
 
 let inline private isIdentifier t = t.CharClass = FSharpTokenCharKind.Identifier
 let inline private isOperator t = t.ColorClass = FSharpTokenColorKind.Operator

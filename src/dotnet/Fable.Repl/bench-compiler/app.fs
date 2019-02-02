@@ -133,7 +133,7 @@ let parseFiles projectPath outDir options =
     for fileName in fileNames do
 
         // // print F# AST
-        // let fsAstStr = fable.FSharpAstToString(parseRes, fileName, optimized)
+        // let fsAstStr = fable.FSharpAstToString(parseRes, fileName, options.optimize)
         // printfn "%s Typed AST: %s" fileName fsAstStr
 
         // transform F# AST to Babel AST
