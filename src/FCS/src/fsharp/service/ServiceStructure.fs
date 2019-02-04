@@ -2,7 +2,6 @@
 
 namespace Microsoft.FSharp.Compiler.SourceCodeServices
 
-open System.Collections.Generic
 open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler
@@ -103,6 +102,7 @@ module Structure =
         | For
         | While
         | Match
+        | MatchBang
         | MatchLambda
         | MatchClause
         | Lambda
@@ -151,6 +151,7 @@ module Structure =
             | For                 -> "For"
             | While               -> "While"
             | Match               -> "Match"
+            | MatchBang           -> "MatchBang"
             | MatchLambda         -> "MatchLambda"
             | MatchClause         -> "MatchClause"
             | Lambda              -> "Lambda"
@@ -259,7 +260,8 @@ module Structure =
             | SynExpr.LetOrUse (_,_,bindings, body, _) ->
                 parseBindings bindings
                 parseExpr body
-            | SynExpr.Match (seqPointAtBinding,_expr,clauses,_,r) ->
+            | SynExpr.Match (seqPointAtBinding,_expr,clauses,r)
+            | SynExpr.MatchBang (seqPointAtBinding, _expr, clauses, r) ->
                 match seqPointAtBinding with
                 | SequencePointAtBinding sr ->
                     let collapse = Range.endToEnd sr r
@@ -376,8 +378,7 @@ module Structure =
                 // subtract columns so the @@> or @> is not collapsed
                 rcheck Scope.Quote Collapse.Same r (Range.modBoth (if isRaw then 3 else 2) (if isRaw then 3 else 2) r)
                 parseExpr e
-            | SynExpr.Tuple (es,_,r)
-            | SynExpr.StructTuple(es,_,r) ->
+            | SynExpr.Tuple (_, es, _, r) ->
                 rcheck Scope.Tuple Collapse.Same r r
                 List.iter parseExpr es
             | SynExpr.Paren (e,_,_,_) ->
@@ -609,14 +610,14 @@ module Structure =
                 parseAttributes attrs
             | _ -> ()
 
-        let parseModuleOrNamespace isScript (SynModuleOrNamespace (longId,_,isModule,decls,_,attribs,_,r)) =
+        let parseModuleOrNamespace (SynModuleOrNamespace (longId,_,kind,decls,_,attribs,_,r)) =
             parseAttributes attribs
             let idRange = longIdentRange longId
             let fullrange = Range.startToEnd idRange r  
             let collapse = Range.endToEnd idRange r 
         
             // do not return range for top level implicit module in scripts
-            if isModule && not isScript then
+            if kind = NamedModule then
                 rcheck Scope.Module Collapse.Below fullrange collapse
 
             collectHashDirectives decls
@@ -832,14 +833,14 @@ module Structure =
                 List.iter parseModuleSigDeclaration decls
             | _ -> ()
 
-        let parseModuleOrNamespaceSigs (SynModuleOrNamespaceSig(longId,_,isModule,decls,_,attribs,_,r)) =
+        let parseModuleOrNamespaceSigs (SynModuleOrNamespaceSig(longId,_,kind,decls,_,attribs,_,r)) =
             parseAttributes attribs
             let rangeEnd = lastModuleSigDeclRangeElse r decls
             let idrange = longIdentRange longId
             let fullrange = Range.startToEnd idrange rangeEnd
             let collapse = Range.endToEnd idrange rangeEnd
             
-            if isModule then
+            if kind.IsModule then
                 rcheck Scope.Module Collapse.Below fullrange collapse
 
             collectSigHashDirectives decls
@@ -847,8 +848,8 @@ module Structure =
             List.iter parseModuleSigDeclaration decls
 
         match parsedInput with
-        | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules; isScript = isScript)) ->
-            modules |> List.iter (parseModuleOrNamespace isScript)
+        | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) ->
+            modules |> List.iter parseModuleOrNamespace
             getCommentRanges sourceLines
         | ParsedInput.SigFile (ParsedSigFileInput (modules = moduleSigs)) ->
             List.iter parseModuleOrNamespaceSigs moduleSigs

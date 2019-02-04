@@ -66,15 +66,15 @@ type token =
   | RBRACE_IS_HERE
   | MINUS
   | DOLLAR
-  | LBRACE_LESS
   | BAR_RBRACK
-  | GREATER_RBRACE
+  | BAR_RBRACE
   | UNDERSCORE
   | SEMICOLON_SEMICOLON
   | LARROW
   | EQUALS
   | LBRACK
   | LBRACK_BAR
+  | LBRACE_BAR
   | LBRACK_LESS
   | LBRACE
   | QMARK
@@ -261,15 +261,15 @@ type tokenId =
     | TOKEN_RBRACE_IS_HERE
     | TOKEN_MINUS
     | TOKEN_DOLLAR
-    | TOKEN_LBRACE_LESS
     | TOKEN_BAR_RBRACK
-    | TOKEN_GREATER_RBRACE
+    | TOKEN_BAR_RBRACE
     | TOKEN_UNDERSCORE
     | TOKEN_SEMICOLON_SEMICOLON
     | TOKEN_LARROW
     | TOKEN_EQUALS
     | TOKEN_LBRACK
     | TOKEN_LBRACK_BAR
+    | TOKEN_LBRACE_BAR
     | TOKEN_LBRACK_LESS
     | TOKEN_LBRACE
     | TOKEN_QMARK
@@ -498,6 +498,8 @@ type nonTerminalId =
     | NONTERM_memberOrOverride
     | NONTERM_tyconDefnOrSpfnSimpleRepr
     | NONTERM_braceFieldDeclList
+    | NONTERM_anonRecdType
+    | NONTERM_braceBarFieldDeclListCore
     | NONTERM_inlineAssemblyTyconRepr
     | NONTERM_classOrInterfaceOrStruct
     | NONTERM_interfaceMember
@@ -577,7 +579,6 @@ type nonTerminalId =
     | NONTERM_parenPattern
     | NONTERM_tupleParenPatternElements
     | NONTERM_conjParenPatternElements
-    | NONTERM_recordPatternElements
     | NONTERM_recordPatternElementsAux
     | NONTERM_recordPatternElement
     | NONTERM_listPatternElements
@@ -623,12 +624,14 @@ type nonTerminalId =
     | NONTERM_arrowThenExprR
     | NONTERM_forLoopBinder
     | NONTERM_forLoopRange
+    | NONTERM_forLoopDirection
     | NONTERM_inlineAssemblyExpr
     | NONTERM_opt_curriedArgExprs
     | NONTERM_opt_atomicExprAfterType
     | NONTERM_opt_inlineAssemblyTypeArg
     | NONTERM_opt_inlineAssemblyReturnTypes
     | NONTERM_recdExpr
+    | NONTERM_recdExprCore
     | NONTERM_opt_seps_recd
     | NONTERM_seps_recd
     | NONTERM_pathOrUnderscore
@@ -641,7 +644,8 @@ type nonTerminalId =
     | NONTERM_objExprInterfaces
     | NONTERM_opt_objExprInterfaces
     | NONTERM_objExprInterface
-    | NONTERM_forLoopDirection
+    | NONTERM_braceBarExpr
+    | NONTERM_braceBarExprCore
     | NONTERM_anonLambdaExpr
     | NONTERM_anonMatchingExpr
     | NONTERM_typeWithTypeConstraints
@@ -655,7 +659,6 @@ type nonTerminalId =
     | NONTERM_typEOF
     | NONTERM_tupleType
     | NONTERM_tupleOrQuotTypeElements
-    | NONTERM_tupleTypeElements
     | NONTERM_appTypeCon
     | NONTERM_appTypeConPower
     | NONTERM_appType
@@ -663,8 +666,8 @@ type nonTerminalId =
     | NONTERM_appTypePrefixArguments
     | NONTERM_typeArgListElements
     | NONTERM_powerType
-    | NONTERM_appTypeNonAtomicDeprecated
-    | NONTERM_powerTypeNonAtomicDeprecated
+    | NONTERM_atomTypeNonAtomicDeprecated
+    | NONTERM_atomTypeOrAnonRecdType
     | NONTERM_atomType
     | NONTERM_typeArgsNoHpaDeprecated
     | NONTERM_typeArgsActual
@@ -712,6 +715,7 @@ type nonTerminalId =
     | NONTERM_typeKeyword
     | NONTERM_moduleKeyword
     | NONTERM_rbrace
+    | NONTERM_bar_rbrace
     | NONTERM_rparen
     | NONTERM_oblockend
     | NONTERM_ends_other_than_rparen_coming_soon_or_recover

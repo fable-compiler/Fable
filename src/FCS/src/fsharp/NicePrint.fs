@@ -36,6 +36,7 @@ module internal PrintUtilities =
     let squareAngleL x = LeftL.leftBracketAngle ^^ x ^^ RightL.rightBracketAngle
     let angleL x = sepL Literals.leftAngle ^^ x ^^ rightL Literals.rightAngle
     let braceL x = leftL Literals.leftBrace ^^ x ^^ rightL Literals.rightBrace
+    let braceBarL x = leftL Literals.leftBraceBar ^^ x ^^ rightL Literals.rightBraceBar
 
     let comment str = wordL (tagText (sprintf "(* %s *)" str))
 
@@ -105,7 +106,7 @@ module private PrintIL =
     open Microsoft.FSharp.Compiler.AbstractIL.IL
         
     let fullySplitILTypeRef (tref:ILTypeRef) = 
-        (List.collect IL.splitNamespace (tref.Enclosing @ [IL.ungenericizeTypeName tref.Name])) 
+        (List.collect IL.splitNamespace (tref.Enclosing @ [PrettyNaming.DemangleGenericTypeName tref.Name])) 
 
     let layoutILTypeRefName denv path =
         let path = 
@@ -196,7 +197,7 @@ module private PrintIL =
         let args = signatur.ArgTypes |> List.map (layoutILType denv ilTyparSubst) 
         let res  = 
             match cons with
-            | Some className -> layoutILTypeRefName denv (SplitNamesForILPath (ungenericizeTypeName className)) ^^ (pruneParms className ilTyparSubst |> paramsL) // special case for constructor return-type (viz., the class itself)
+            | Some className -> layoutILTypeRefName denv (SplitNamesForILPath (PrettyNaming.DemangleGenericTypeName className)) ^^ (pruneParms className ilTyparSubst |> paramsL) // special case for constructor return-type (viz., the class itself)
             | None           -> signatur.ReturnType |> layoutILType denv ilTyparSubst
         match args with
         | []   -> WordL.structUnit ^^ WordL.arrow ^^ res
@@ -229,7 +230,7 @@ module private PrintIL =
         // return type be passed along as the `cons` parameter.)
         let res  = 
             match cons with
-            | Some className -> layoutILTypeRefName denv (SplitNamesForILPath (ungenericizeTypeName className)) ^^ (pruneParms className ilTyparSubst |> paramsL) // special case for constructor return-type (viz., the class itself)
+            | Some className -> layoutILTypeRefName denv (SplitNamesForILPath (PrettyNaming.DemangleGenericTypeName className)) ^^ (pruneParms className ilTyparSubst |> paramsL) // special case for constructor return-type (viz., the class itself)
             | None           -> retType |> layoutILType denv ilTyparSubst
         match parameters with
         | []   -> WordL.structUnit ^^ WordL.arrow ^^ res
@@ -938,6 +939,14 @@ module private PrintTypes =
           layoutTypeAppWithInfoAndPrec denv env (layoutTyconRef denv tc) prec tc.IsPrefixDisplay args 
 
         // Layout a tuple type 
+        | TType_anon (anonInfo,tys)  ->
+            let core = sepListL (wordL (tagPunctuation ";")) (List.map2 (fun nm ty -> wordL (tagField nm) ^^ wordL (tagPunctuation ":") ^^ layoutTypeWithInfoAndPrec denv env prec ty) (Array.toList anonInfo.SortedNames) tys)
+            if evalAnonInfoIsStruct anonInfo then 
+                WordL.keywordStruct --- braceBarL core
+            else 
+                braceBarL core
+
+        // Layout a tuple type 
         | TType_tuple (tupInfo,t)  ->
             if evalTupInfoIsStruct tupInfo then 
                 WordL.keywordStruct --- bracketL (layoutTypesWithInfoAndPrec denv env 2 (wordL (tagPunctuation "*")) t)
@@ -994,7 +1003,7 @@ module private PrintTypes =
                 let isParamArray = HasFSharpAttribute denv.g denv.g.attrib_ParamArrayAttribute argInfo.Attribs
                 match argInfo.Name, isOptionalArg, isParamArray, tryDestOptionTy denv.g ty with 
                 // Layout an optional argument 
-                | Some(id), true, _, Some ty -> 
+                | Some(id), true, _, ValueSome ty -> 
                     leftL  (tagPunctuation "?") ^^ sepL (tagParameter id.idText) ^^ SepL.colon ^^ layoutTypeWithInfoAndPrec denv env 2 ty 
                 // Layout an unnamed argument 
                 | None, _,_, _ -> 
@@ -1059,7 +1068,7 @@ module private PrintTypes =
     let prettyLayoutOfCurriedMemberSig denv typarInst argInfos retTy parentTyparTys = 
         let (prettyTyparInst, parentTyparTys,argInfos,retTy),cxs = PrettyTypes.PrettifyInstAndCurriedSig denv.g (typarInst, parentTyparTys, argInfos, retTy)
         // Filter out the parent typars, which don't get shown in the member signature 
-        let cxs = cxs |> List.filter (fun (tp,_) -> not (parentTyparTys |> List.exists (fun ty -> match tryDestTyparTy denv.g ty with Some destTypar -> typarEq tp destTypar | None -> false))) 
+        let cxs = cxs |> List.filter (fun (tp,_) -> not (parentTyparTys |> List.exists (fun ty -> match tryDestTyparTy denv.g ty with ValueSome destTypar -> typarEq tp destTypar | _ -> false))) 
         prettyTyparInst, prettyLayoutOfTopTypeInfoAux denv argInfos retTy cxs
 
     // Layout: type spec - class, datatype, record, abbrev 
@@ -1250,7 +1259,7 @@ module InfoMemberPrinting =
         // Layout an optional argument 
         | _, Some nm, true, ptyOpt -> 
             // detect parameter type, if ptyOpt is None - this is .NET style optional argument
-            let pty = defaultArg ptyOpt pty
+            let pty = match ptyOpt with ValueSome x -> x | _ -> pty
             SepL.questionMark ^^
             wordL (tagParameter nm.idText) ^^
             RightL.colon ^^
@@ -1516,7 +1525,7 @@ module private TastDefinitionPrinting =
     /// Another re-implementation of type printing, this time based off provided info objects.
     let layoutProvidedTycon (denv:DisplayEnv) (infoReader:InfoReader) ad m start lhsL ty =
       let g = denv.g
-      let tcref,_ = destAppTy g ty
+      let tcref = tcrefOfAppTy g ty
 
       if isEnumTy g ty then 
         let fieldLs = 

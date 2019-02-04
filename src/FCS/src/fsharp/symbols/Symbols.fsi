@@ -402,26 +402,36 @@ and [<Class>] public FSharpUnionCase =
     /// Indicates if the union case is for a type in an unresolved assembly 
     member IsUnresolved : bool
 
-and internal FSharpFieldData = 
-    | ILField of ILFieldInfo
-    | RecdOrClass of RecdFieldRef
-    | Union of UnionCaseRef * int
+/// A subtype of FSharpSymbol that represents a record or union case field as seen by the F# language
+and [<Class>] public FSharpAnonRecordTypeDetails =
+    
+    /// The assembly where the compiled form of the anonymous type is defined
+    member Assembly : FSharpAssembly
 
-    member TryRecdField: Choice<RecdField, ILFieldInfo>
-    member DeclaringTyconRef: TyconRef
+    /// Names of any enclosing types of the compiled form of the anonymous type (if the anonymous type was defined as a nested type)
+    member EnclosingCompiledTypeNames : string list
+
+    /// The name of the compiled form of the anonymous type
+    member CompiledName : string 
+
+    /// The sorted labels of the anonymous type
+    member SortedFieldNames : string[]
 
 /// A subtype of FSharpSymbol that represents a record or union case field as seen by the F# language
 and [<Class>] public FSharpField =
 
     inherit FSharpSymbol
-#if FABLE_COMPILER
-    internal new : SymbolEnv * FSharpFieldData -> FSharpField
-#endif
     internal new : SymbolEnv * UnionCaseRef * int -> FSharpField
     internal new : SymbolEnv * RecdFieldRef -> FSharpField
 
-    /// Get the declaring entity of this field
-    member DeclaringEntity: FSharpEntity
+    /// Get the declaring entity of this field, if any. Fields from anonymous types do not have a declaring entity
+    member DeclaringEntity: FSharpEntity option
+
+    /// Is this a field from an anonymous record type?
+    member IsAnonRecordField: bool
+
+    /// If the field is from an anonymous record type then get the details of the field including the index in the sorted array of fields
+    member AnonRecordFieldDetails: FSharpAnonRecordTypeDetails * FSharpType[] * int
 
     /// Indicates if the field is declared 'static'
     member IsMutable: bool
@@ -661,9 +671,6 @@ and [<RequireQualifiedAccess>] internal FSharpMemberOrValData =
 and [<Class>] public FSharpMemberOrFunctionOrValue = 
 
     inherit FSharpSymbol
-#if FABLE_COMPILER
-    internal new : SymbolEnv * FSharpMemberOrValData * Item -> FSharpMemberOrFunctionOrValue
-#endif
     internal new : SymbolEnv * ValRef -> FSharpMemberOrFunctionOrValue
     internal new : SymbolEnv * Infos.MethInfo -> FSharpMemberOrFunctionOrValue
 
@@ -954,6 +961,12 @@ and [<Class>] public FSharpType =
 
     /// Indicates if the type is a function type. The GenericArguments property returns the domain and range of the function type.
     member IsFunctionType : bool
+
+    /// Indicates if the type is an anonymous record type. The GenericArguments property returns the type instantiation of the anonymous record type
+    member IsAnonRecordType: bool
+
+    /// Get the details of the anonymous record type.
+    member AnonRecordTypeDetails: FSharpAnonRecordTypeDetails
 
     /// Indicates if the type is a variable type, whether declared, generalized or an inference type parameter  
     member IsGenericParameter : bool

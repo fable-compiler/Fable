@@ -854,11 +854,11 @@ let postTransformExpr (penv:penv) expr =
     | _ -> None
   
 
-let passImplFile penv ass = 
-    ass |> RewriteImplFile {PreIntercept =None
-                            PreInterceptBinding=None
-                            PostTransform= postTransformExpr penv
-                            IsUnderQuotations=false } 
+let passImplFile penv assembly = 
+    assembly |> RewriteImplFile {PreIntercept =None
+                                 PreInterceptBinding=None
+                                 PostTransform= postTransformExpr penv
+                                 IsUnderQuotations=false } 
 
 
 //-------------------------------------------------------------------------

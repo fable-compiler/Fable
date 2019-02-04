@@ -222,15 +222,20 @@ type FSharpParseFileResults(errors: FSharpErrorInfo[], input: Ast.ParsedInput op
                       yield! walkExpr false e2
 
                   | SynExpr.ArrayOrList (_,es,_)
-                  | SynExpr.Tuple (es,_,_) 
-                  | SynExpr.StructTuple (es,_,_) -> 
+                  | SynExpr.Tuple (_,es,_,_) -> 
                       yield! walkExprs es
 
                   | SynExpr.Record (_,copyExprOpt,fs,_) ->
                       match copyExprOpt with
                       | Some (e,_) -> yield! walkExpr true e
                       | None -> ()
-                      yield! walkExprs (List.map (fun (_, v, _) -> v) fs |> List.choose id)
+                      yield! walkExprs (fs |> List.choose p23)
+
+                  | SynExpr.AnonRecd (_isStruct, copyExprOpt, fs, _) ->
+                      match copyExprOpt with
+                      | Some (e,_) -> yield! walkExpr true e
+                      | None -> ()
+                      yield! walkExprs (fs |> List.map snd)
 
                   | SynExpr.ObjExpr (_,args,bs,is,_,_) -> 
                       match args with
@@ -268,7 +273,7 @@ type FSharpParseFileResults(errors: FSharpErrorInfo[], input: Ast.ParsedInput op
                   | SynExpr.Lambda (_,_,_,e,_) -> 
                       yield! walkExpr true e 
 
-                  | SynExpr.Match (spBind,e,cl,_,_) ->
+                  | SynExpr.Match (spBind,e,cl,_) ->
                       yield! walkBindSeqPt spBind
                       yield! walkExpr false e 
                       for (Clause(_,whenExpr,e,_,_)) in cl do 
@@ -320,7 +325,7 @@ type FSharpParseFileResults(errors: FSharpErrorInfo[], input: Ast.ParsedInput op
                       yield! walkExpr true e1
                       yield! walkExpr true e2
 
-                  | SynExpr.MatchBang (spBind,e,cl,_,_) ->
+                  | SynExpr.MatchBang (spBind,e,cl,_) ->
                       yield! walkBindSeqPt spBind
                       yield! walkExpr false e 
                       for (Clause(_,whenExpr,e,_,_)) in cl do 
@@ -761,7 +766,7 @@ module UntypedParseImpl =
                         List.tryPick walkTyparDecl typars
                         |> Option.orElse (List.tryPick walkTypeConstraint constraints)))
                 |> Option.orElse (List.tryPick walkPat pats)
-            | SynPat.Tuple(pats, _) -> List.tryPick walkPat pats
+            | SynPat.Tuple(_,pats, _) -> List.tryPick walkPat pats
             | SynPat.Paren(pat, _) -> walkPat pat
             | SynPat.ArrayOrList(_, pats, _) -> List.tryPick walkPat pats
             | SynPat.IsInst(t, _) -> walkType t
@@ -794,7 +799,7 @@ module UntypedParseImpl =
             | SynType.App(ty, _, types, _, _, _, _) -> 
                 walkType ty |> Option.orElse (List.tryPick walkType types)
             | SynType.LongIdentApp(_, _, _, types, _, _, _) -> List.tryPick walkType types
-            | SynType.Tuple(ts, _) -> ts |> List.tryPick (fun (_, t) -> walkType t)
+            | SynType.Tuple(_,ts, _) -> ts |> List.tryPick (fun (_, t) -> walkType t)
             | SynType.Array(_, t, _) -> walkType t
             | SynType.Fun(t1, t2, _) -> walkType t1 |> Option.orElse (walkType t2)
             | SynType.WithGlobalConstraints(t, _, _) -> walkType t
@@ -822,7 +827,7 @@ module UntypedParseImpl =
             | SynExpr.Paren (e, _, _, _) -> walkExprWithKind parentKind e
             | SynExpr.Quote(_, _, e, _, _) -> walkExprWithKind parentKind e
             | SynExpr.Typed(e, _, _) -> walkExprWithKind parentKind e
-            | SynExpr.Tuple(es, _, _) -> List.tryPick (walkExprWithKind parentKind) es
+            | SynExpr.Tuple(_, es, _, _) -> List.tryPick (walkExprWithKind parentKind) es
             | SynExpr.ArrayOrList(_, es, _) -> List.tryPick (walkExprWithKind parentKind) es
             | SynExpr.Record(_, _, fields, r) -> 
                 ifPosInRange r (fun _ ->
@@ -840,7 +845,7 @@ module UntypedParseImpl =
             | SynExpr.Lambda(_, _, _, e, _) -> walkExprWithKind parentKind e
             | SynExpr.MatchLambda(_, _, synMatchClauseList, _, _) -> 
                 List.tryPick walkClause synMatchClauseList
-            | SynExpr.Match(_, e, synMatchClauseList, _, _) -> 
+            | SynExpr.Match(_, e, synMatchClauseList, _) -> 
                 walkExprWithKind parentKind e |> Option.orElse (List.tryPick walkClause synMatchClauseList)
             | SynExpr.Do(e, _) -> walkExprWithKind parentKind e
             | SynExpr.Assert(e, _) -> walkExprWithKind parentKind e
@@ -872,7 +877,8 @@ module UntypedParseImpl =
             | SynExpr.JoinIn(e1, _, e2, _) -> List.tryPick (walkExprWithKind parentKind) [e1; e2]
             | SynExpr.YieldOrReturn(_, e, _) -> walkExprWithKind parentKind e
             | SynExpr.YieldOrReturnFrom(_, e, _) -> walkExprWithKind parentKind e
-            | (SynExpr.Match(_, e, synMatchClauseList, _, _) | SynExpr.MatchBang(_, e, synMatchClauseList, _, _)) -> 
+            | SynExpr.Match(_, e, synMatchClauseList, _)
+            | SynExpr.MatchBang(_, e, synMatchClauseList, _) -> 
                 walkExprWithKind parentKind e |> Option.orElse (List.tryPick walkClause synMatchClauseList)
             | SynExpr.LetOrUseBang(_, _, _, _, e1, e2, _) -> List.tryPick (walkExprWithKind parentKind) [e1; e2]
             | SynExpr.DoBang(e, _) -> walkExprWithKind parentKind e
@@ -1110,7 +1116,7 @@ module UntypedParseImpl =
 
         let findSetters argList =
             match argList with
-            | SynExpr.Paren(SynExpr.Tuple(parameters, _, _), _, _, _) -> 
+            | SynExpr.Paren(SynExpr.Tuple(false, parameters, _, _), _, _, _) -> 
                 let setters = HashSet()
                 for p in parameters do
                     match p with
@@ -1171,7 +1177,7 @@ module UntypedParseImpl =
             match path with
             | TS.Expr(SynExpr.Paren _)::TS.Expr(NewObjectOrMethodCall(args))::_ -> 
                 if Option.isSome precedingArgument then None else Some args
-            | TS.Expr(SynExpr.Tuple (elements, commas, _))::TS.Expr(SynExpr.Paren _)::TS.Expr(NewObjectOrMethodCall(args))::_ -> 
+            | TS.Expr(SynExpr.Tuple (false, elements, commas, _))::TS.Expr(SynExpr.Paren _)::TS.Expr(NewObjectOrMethodCall(args))::_ -> 
                 match precedingArgument with
                 | None -> Some args
                 | Some e ->
@@ -1276,7 +1282,7 @@ module UntypedParseImpl =
                                     match pat with
                                     | SynPat.Paren(pat, _) -> 
                                         match pat with
-                                        | SynPat.Tuple(pats, _) ->
+                                        | SynPat.Tuple(_, pats, _) ->
                                             pats |> List.tryPick visitParam
                                         | _ -> visitParam pat
                                     | SynPat.Wild(range) when rangeContainsPos range pos -> 

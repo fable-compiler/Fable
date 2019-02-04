@@ -4,12 +4,8 @@ open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Platform
 
-let use_net45_meta = false
-let references = Metadata.references use_net45_meta
-let metadataPath =
-    if use_net45_meta
-    then "/temp/repl/metadata/"  // dotnet 4.5 binaries
-    else "/temp/repl/metadata2/" // dotnet core 2.0 binaries
+let references = Metadata.references_core
+let metadataPath = "/temp/repl/metadata2/" // .NET BCL binaries
 
 [<EntryPoint>]
 let main argv =
