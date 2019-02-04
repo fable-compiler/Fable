@@ -109,20 +109,25 @@ let checkProject (isWatchCompile: bool)
 let createProject (msg: Parser.Message) projFile (prevProject: Project option) =
     match prevProject with
     | Some proj ->
-        // TODO: If now - proj.TimeStamp < 1s skip checking the lastwritetime for performance
-        // TODO: We can also assume files in .fable folder are stable
         let mutable someDirtyFiles = false
-        let sourceFiles =
-            proj.SourceFiles
-            |> Array.map (fun file ->
-                let path = file.NormalizedFullPath
-                let isDirty = IO.File.GetLastWriteTime(path) > proj.TimeStamp
-                someDirtyFiles <- someDirtyFiles || isDirty
-                if isDirty then File(path, readAllText path)
-                else file)
-        if someDirtyFiles then
-            checkProject true msg proj.ProjectOptions proj.LibraryDir sourceFiles proj.Checker
-        else proj
+        // If now - proj.TimeStamp < 1s skip checking the lastwritetime for performance
+        if DateTime.Now - proj.TimeStamp < TimeSpan.FromSeconds(1.) then
+            proj
+        else
+            let sourceFiles =
+                proj.SourceFiles
+                |> Array.map (fun file ->
+                    let path = file.NormalizedFullPath
+                    // Assume files in .fable folder are stable
+                    if path.Contains(".fable/") then file
+                    else
+                        let isDirty = IO.File.GetLastWriteTime(path) > proj.TimeStamp
+                        someDirtyFiles <- someDirtyFiles || isDirty
+                        if isDirty then File(path, readAllText path)
+                        else file)
+            if someDirtyFiles then
+                checkProject true msg proj.ProjectOptions proj.LibraryDir sourceFiles proj.Checker
+            else proj
     | None ->
         let projectOptions, fableLibraryDir =
             getFullProjectOpts msg.define msg.rootDir projFile
