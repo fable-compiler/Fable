@@ -3,7 +3,7 @@ module Bench.App
 open Bench.Platform
 open System.Text.RegularExpressions
 
-let references = Fable.Repl.Metadata.references_core
+let references = Fable.Repl.Metadata.references false
 let metadataPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, "../metadata2/") // .NET BCL binaries
 
 let parseProjectFile projectPath =
