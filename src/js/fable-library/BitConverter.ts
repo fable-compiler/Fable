@@ -77,7 +77,6 @@ export function toChar(bytes: Uint8Array, offset: number) {
   const code = new DataView(bytes.buffer).getUint16(offset, littleEndian);
   return String.fromCharCode(code);
 }
-
 export function toInt16(bytes: Uint8Array, offset: number) {
   return new DataView(bytes.buffer).getInt16(offset, littleEndian);
 }

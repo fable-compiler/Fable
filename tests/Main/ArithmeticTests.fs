@@ -120,6 +120,22 @@ let tests =
     testCase "Decimal Evaluation order is preserved by generated code" <| fun () ->
         equal ((4.4567M - 2.2234M) * 2.6492M + 1.2493M, 7.16575836M)
 
+    testCase "Decimal constructors work" <| fun () ->
+        let d = 1.2493M
+        let bits = Decimal.GetBits(d)
+        let d2 = Decimal(bits)
+        let d3 = Decimal(bits.[0], bits.[1], bits.[2], false, 4uy)
+        equal (d, d2)
+        equal (d, d3)
+
+    testCase "Decimal GetBits works" <| fun () ->
+        let d = Decimal([| -1; -1; -2; 0 |])
+        let bits = Decimal.GetBits(d)
+        let d2 = Decimal(bits)
+        let d3 = Decimal(bits.[0], bits.[1], bits.[2], true, 0uy)
+        equal (d, d2)
+        equal (-d, d3)
+
     testCase "Decimal abs works" <| fun () ->
         equal (abs -4M, 4M)
 

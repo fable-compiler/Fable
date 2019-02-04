@@ -92,12 +92,13 @@ module Operators =
     let [<Literal>] logicalNot = "op_LogicalNot"
     let [<Literal>] unaryNegation = "op_UnaryNegation"
     let [<Literal>] divideByInt = "DivideByInt"
-    // let [<Literal>] equality = "op_Equality"
-    // let [<Literal>] inequality = "op_Inequality"
-    // let [<Literal>] lessThan = "op_LessThan"
-    // let [<Literal>] greaterThan = "op_GreaterThan"
-    // let [<Literal>] lessThanOrEqual = "op_LessThanOrEqual"
-    // let [<Literal>] greaterThanOrEqual = "op_GreaterThanOrEqual"
+
+    let [<Literal>] equality = "op_Equality"
+    let [<Literal>] inequality = "op_Inequality"
+    let [<Literal>] lessThan = "op_LessThan"
+    let [<Literal>] greaterThan = "op_GreaterThan"
+    let [<Literal>] lessThanOrEqual = "op_LessThanOrEqual"
+    let [<Literal>] greaterThanOrEqual = "op_GreaterThanOrEqual"
 
     let standardSet =
         set [ addition

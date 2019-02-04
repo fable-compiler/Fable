@@ -1162,7 +1162,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Function(Lambda tempVar, body, None)
 
     let math r t (args: Expr list) argTypes methName =
-        Helper.GlobalCall("Math", t, args, argTypes, memb=Naming.lowerFirst methName, ?loc=r)
+        let meth = Naming.lowerFirst methName
+        Helper.GlobalCall("Math", t, args, argTypes, meth, ?loc=r)
 
     match i.CompiledName, args with
     | "DefaultArg", _ ->
@@ -1248,12 +1249,14 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | Builtin(BclDecimal)::_  ->
             Helper.CoreCall("Decimal", "pow", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ -> math r t args i.SignatureArgTypes "pow" |> Some
-    | ("Ceil"|"Ceiling"|"Floor" as meth), _ ->
-        let meth = if meth = "Floor" then "floor" else "ceil"
+    | ("Ceiling" | "Floor" as meth), _ ->
+        let meth = Naming.lowerFirst meth
         match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
         | Builtin(BclDecimal)::_  ->
             Helper.CoreCall("Decimal", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-        | _ -> math r t args i.SignatureArgTypes meth |> Some
+        | _ ->
+            let meth = if meth = "ceiling" then "ceil" else meth
+            math r t args i.SignatureArgTypes meth |> Some
     | "Log", [arg1; arg2] ->
         // "Math.log($0) / Math.log($1)"
         let dividend = math None t [arg1] (List.take 1 i.SignatureArgTypes) "log"
@@ -1297,16 +1300,16 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         |> emitJs r t args |> Some
     // Concatenates two lists
     | "op_Append", _ -> Helper.CoreCall("List", "append", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | ("op_Inequality"|"Neq"), [left; right] -> equals com r false left right |> Some
-    | ("op_Equality"|"Eq"), [left; right] -> equals com r true left right |> Some
+    | (Operators.inequality | "Neq"), [left; right] -> equals com r false left right |> Some
+    | (Operators.equality | "Eq"), [left; right] -> equals com r true left right |> Some
     | "IsNull", [arg] -> makeEqOp r arg (Null arg.Type |> Value) BinaryEqual |> Some
     | "Hash", [arg] -> structuralHash r arg |> Some
     // Comparison
     | "Compare", [left; right] -> compare com r left right |> Some
-    | ("op_LessThan"|"Lt"), [left; right] -> compareIf com r left right BinaryLess |> Some
-    | ("op_LessThanOrEqual"|"Lte"), [left; right] -> compareIf com r left right BinaryLessOrEqual |> Some
-    | ("op_GreaterThan"|"Gt"), [left; right] -> compareIf com r left right BinaryGreater |> Some
-    | ("op_GreaterThanOrEqual"|"Gte"), [left; right] -> compareIf com r left right BinaryGreaterOrEqual |> Some
+    | (Operators.lessThan | "Lt"), [left; right] -> compareIf com r left right BinaryLess |> Some
+    | (Operators.lessThanOrEqual | "Lte"), [left; right] -> compareIf com r left right BinaryLessOrEqual |> Some
+    | (Operators.greaterThan | "Gt"), [left; right] -> compareIf com r left right BinaryGreater |> Some
+    | (Operators.greaterThanOrEqual | "Gte"), [left; right] -> compareIf com r left right BinaryGreaterOrEqual |> Some
     | ("Min"|"Max" as meth), _ ->
         let f = makeComparerFunction com t
         Helper.CoreCall("Util", Naming.lowerFirst meth, t, f::args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -1833,38 +1836,29 @@ let parse (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    // The Fable REPL won't take the bits from decimal constants, so we can ignore these constructors
-    // See https://github.com/fable-compiler/Fable/pull/1627
-    #if !FABLE_COMPILER
-    | ".ctor", [Value(NewArray(ArrayValues arVals, _))] ->
-        match arVals with
-        | [ Value(NumberConstant(low, Int32))
-            Value(NumberConstant(mid, Int32))
-            Value(NumberConstant(high, Int32))
-            Value(NumberConstant(signExp, Int32)) ] ->
-                let d = System.Decimal [|int low; int mid; int high; int signExp|]
-                let str = d.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                makeStrConst str |> makeDecimalFromExpr t |> Some
-        | _ -> None
-    | (".ctor" | "MakeDecimal"),
-          [ Value(NumberConstant(low, Int32))
-            Value(NumberConstant(mid, Int32))
-            Value(NumberConstant(high, Int32))
-            Value(BoolConstant isNegative)
-            Value(NumberConstant(scale, UInt8)) ] ->
-                let d = System.Decimal(int low, int mid, int high, isNegative, byte scale)
-                let str = d.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                makeStrConst str |> makeDecimalFromExpr t |> Some
-    #endif
+    | (".ctor" | "MakeDecimal"), ([low; mid; high; isNegative; scale] as args) ->
+        Helper.CoreCall("Decimal", "fromParts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ".ctor", [Value(NewArray(ArrayValues ([low; mid; high; signExp] as args), _))] ->
+        Helper.CoreCall("Decimal", "fromInts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", [arg] ->
-        makeDecimalFromExpr t arg |> Some
+        match arg.Type with
+        | Array (Number Int32) ->
+            Helper.CoreCall("Decimal", "fromIntArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | _ -> makeDecimalFromExpr t arg |> Some
+    | "GetBits", _ ->
+        Helper.CoreCall("Decimal", "getBits", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Parse" | "TryParse"), _ ->
         parse com ctx r t i thisArg args
-    | "op_LessThan", [left; right] -> compareIf com r left right BinaryLess |> Some
-    | "op_LessThanOrEqual", [left; right] -> compareIf com r left right BinaryLessOrEqual |> Some
-    | "op_GreaterThan", [left; right] -> compareIf com r left right BinaryGreater |> Some
-    | "op_GreaterThanOrEqual", [left; right] -> compareIf com r left right BinaryGreaterOrEqual |> Some
-    | "op_UnaryNegation", _ ->
+    | Operators.lessThan, [left; right] -> compareIf com r left right BinaryLess |> Some
+    | Operators.lessThanOrEqual, [left; right] -> compareIf com r left right BinaryLessOrEqual |> Some
+    | Operators.greaterThan, [left; right] -> compareIf com r left right BinaryGreater |> Some
+    | Operators.greaterThanOrEqual, [left; right] -> compareIf com r left right BinaryGreaterOrEqual |> Some
+    |(Operators.addition
+    | Operators.subtraction
+    | Operators.multiply
+    | Operators.division
+    | Operators.modulus
+    | Operators.unaryNegation), _ ->
         applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
     | "op_Explicit", _ ->
         match t with
@@ -1876,6 +1870,9 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             | Decimal -> toDecimal com ctx r t args |> Some
             | BigInt -> None
         | _ -> None
+    | ("Ceiling" | "Floor" | "Round" | "Truncate" as meth), _ ->
+        let meth = Naming.lowerFirst meth
+        Helper.CoreCall("Decimal", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToString", _ -> Helper.InstanceCall(thisArg.Value, "toString", String, []) |> Some
     | _,_ -> None
 
@@ -1993,6 +1990,8 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     // Usage: PowDouble x n
     | "PowDouble", None, _ ->
         Helper.GlobalCall("Math", t, args, i.SignatureArgTypes, memb="pow", ?loc=r) |> Some
+    | "PowDecimal", None, _ ->
+        Helper.CoreCall("Decimal", "pow", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangechar-function-%5bfsharp%5d
     // Type: RangeChar : char -> char -> seq<char>
     // Usage: RangeChar start stop
