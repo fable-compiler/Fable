@@ -281,6 +281,9 @@ let resources =
       ( "Parser.TOKEN.LBRACK",
         "symbol '['"
       );
+      ( "Parser.TOKEN.LBRACE.BAR",
+        "symbol '{|'"
+      );
       ( "Parser.TOKEN.LBRACK.BAR",
         "symbol '[|'"
       );
@@ -295,6 +298,9 @@ let resources =
       );
       ( "Parser.TOKEN.BAR.RBRACK",
         "symbol '|]'"
+      );
+      ( "Parser.TOKEN.BAR.RBRACE",
+        "symbol '|}'"
       );
       ( "Parser.TOKEN.GREATER.RBRACE",
         "symbol '>}'"

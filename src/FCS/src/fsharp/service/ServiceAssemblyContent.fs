@@ -561,7 +561,7 @@ module ParsedInput =
             | SynTypeConstraint.WhereTyparSupportsMember (ts, sign, _) -> List.iter walkType ts; walkMemberSig sign
     
         and walkPat = function
-            | SynPat.Tuple (pats, _)
+            | SynPat.Tuple (_,pats, _)
             | SynPat.ArrayOrList (_, pats, _)
             | SynPat.Ands (pats, _) -> List.iter walkPat pats
             | SynPat.Named (pat, ident, _, _, _) ->
@@ -609,7 +609,7 @@ module ParsedInput =
             | SynType.LongIdent ident -> addLongIdentWithDots ident
             | SynType.App (ty, _, types, _, _, _, _) -> walkType ty; List.iter walkType types
             | SynType.LongIdentApp (_, _, _, types, _, _, _) -> List.iter walkType types
-            | SynType.Tuple (ts, _) -> ts |> List.iter (fun (_, t) -> walkType t)
+            | SynType.Tuple (_, ts, _) -> ts |> List.iter (fun (_, t) -> walkType t)
             | SynType.WithGlobalConstraints (t, typeConstraints, _) ->
                 walkType t; List.iter walkTypeConstraint typeConstraints
             | _ -> ()
@@ -647,7 +647,7 @@ module ParsedInput =
             | SynExpr.TypeTest (e, t, _)
             | SynExpr.Upcast (e, t, _)
             | SynExpr.Downcast (e, t, _) -> walkExpr e; walkType t
-            | SynExpr.Tuple (es, _, _)
+            | SynExpr.Tuple (_, es, _, _)
             | Sequentials es
             | SynExpr.ArrayOrList (_, es, _) -> List.iter walkExpr es
             | SynExpr.App (_, _, e1, e2, _)
@@ -674,7 +674,7 @@ module ParsedInput =
                 List.iter walkExpr [e1; e2]
             | SynExpr.MatchLambda (_, _, synMatchClauseList, _, _) ->
                 List.iter walkClause synMatchClauseList
-            | SynExpr.Match (_, e, synMatchClauseList, _, _) ->
+            | SynExpr.Match (_, e, synMatchClauseList, _) ->
                 walkExpr e
                 List.iter walkClause synMatchClauseList
             | SynExpr.TypeApp (e, _, tys, _, _, _, _) ->
@@ -920,8 +920,9 @@ module ParsedInput =
         let rec walkImplFileInput (ParsedImplFileInput(modules = moduleOrNamespaceList)) = 
             List.iter (walkSynModuleOrNamespace []) moduleOrNamespaceList
 
-        and walkSynModuleOrNamespace (parent: LongIdent) (SynModuleOrNamespace(ident, _, isModule, decls, _, _, _, range)) =
+        and walkSynModuleOrNamespace (parent: LongIdent) (SynModuleOrNamespace(ident, _, kind, decls, _, _, _, range)) =
             if range.EndLine >= currentLine then
+                let isModule = kind.IsModule
                 match isModule, parent, ident with
                 | false, _, _ -> ns := Some (longIdentToIdents ident)
                 // top level module with "inlined" namespace like Ns1.Ns2.TopModule

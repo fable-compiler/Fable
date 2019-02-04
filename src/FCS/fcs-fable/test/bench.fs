@@ -4,7 +4,7 @@ open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Platform
 
-let references = Metadata.references false
+let references = Metadata.references_core
 let metadataPath = "/temp/repl/metadata2/" // .NET BCL binaries
 
 let parseProjectFile projectPath =
@@ -114,6 +114,33 @@ let parseFiles projectPath outDir optimized =
     printfn "--------------------------------------------"
     let showWarnings = false // supress warnings for clarity
     projectResults.Errors |> printErrors showWarnings
+
+    // // modify last file
+    // sources.[sources.Length - 1] <- sources.[sources.Length - 1] + "\n"
+    // let parseFSharpProject () = checker.ParseAndCheckProject(projectFileName, fileNames, sources)
+    // let ms1, projectResults = measureTime parseFSharpProject ()
+    // printfn "Project: %s, FCS time: %d ms (modified last file)" projectFileName ms1
+
+    // // modify middle file
+    // sources.[sources.Length / 2] <- sources.[sources.Length / 2] + "\n"
+    // let parseFSharpProject () = checker.ParseAndCheckProject(projectFileName, fileNames, sources)
+    // let ms1, projectResults = measureTime parseFSharpProject ()
+    // printfn "Project: %s, FCS time: %d ms (modified middle file)" projectFileName ms1
+
+    // // modify first file
+    // sources.[0] <- sources.[0] + "\n"
+    // let parseFSharpProject () = checker.ParseAndCheckProject(projectFileName, fileNames, sources)
+    // let ms1, projectResults = measureTime parseFSharpProject ()
+    // printfn "Project: %s, FCS time: %d ms (modified first file)" projectFileName ms1
+
+    // // clear cache
+    // checker.ClearCache()
+
+    // // after clear cache
+    // sources.[0] <- sources.[0] + "\n"
+    // let parseFSharpProject () = checker.ParseAndCheckProject(projectFileName, fileNames, sources)
+    // let ms1, projectResults = measureTime parseFSharpProject ()
+    // printfn "Project: %s, FCS time: %d ms (after clear cache)" projectFileName ms1
 
     // exclude signature files
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))

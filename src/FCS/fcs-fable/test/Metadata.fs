@@ -1,8 +1,49 @@
 module Metadata
 
+let references_core = [|
+    "Fable.Core"
+    "Fable.Import.Browser"
+    "FSharp.Core"
+    "mscorlib"
+    "netstandard"
+    "System.Collections"
+    "System.Collections.Concurrent"
+    "System.Console"
+    "System.Core"
+    "System.Diagnostics.Debug"
+    "System.Diagnostics.Tracing"
+    "System"
+    "System.IO"
+    "System.Numerics"
+    "System.Reflection"
+    "System.Reflection.Extensions"
+    "System.Reflection.Metadata"
+    "System.Reflection.Primitives"
+    "System.Reflection.TypeExtensions"
+    "System.Runtime"
+    "System.Runtime.Extensions"
+    "System.Runtime.Numerics"
+    "System.Text.Encoding"
+    "System.Text.Encoding.Extensions"
+    "System.Text.RegularExpressions"
+    "System.Threading"
+    "System.Threading.Tasks"
+    "System.ValueTuple"
+|]
+
 let references use_net45_meta =
     if use_net45_meta then
-      [|"Fable.Core";"Fable.Import.Browser";"FSharp.Core";"mscorlib";"System";"System.Core";"System.Data";"System.IO";"System.Xml";"System.Numerics"|]
+      [|"Fable.Core"
+        "Fable.Import.Browser"
+        "FSharp.Core"
+        "mscorlib"
+        "System"
+        "System.Core"
+        "System.Data"
+        "System.IO"
+        "System.Xml"
+        "System.Numerics"
+      |]
     else
       [|"Fable.Core"
         "Fable.Import.Browser"

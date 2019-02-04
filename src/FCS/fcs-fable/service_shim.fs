@@ -53,7 +53,7 @@ open Microsoft.FSharp.Compiler.TypeChecker
 
 type internal TcResult = TcEnv * TopAttribs * TypedImplFile option * ModuleOrNamespaceType
 
-type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState, ctok, reactorOps, moduleNamesDict, parseCache, checkCache) =
+type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState, ctok, reactorOps, parseCache, checkCache) =
     let userOpName = "Unknown"
 
     static member Create(references: string[], readAllBytes: string -> byte[], defines: string[], optimize: bool) =
@@ -79,10 +79,13 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
                     let ccuName = GetOptimizationDataResourceName resource
                     yield resource.GetBytes() ]
 
-        let LoadMod ccuName =
-            let fileName = ccuName + ".dll"
+        let LoadMod (ccuName: string) =
+            let fileName =
+                if ccuName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+                then ccuName
+                else ccuName + ".dll"
             let bytes = readAllBytes fileName
-            let opts : ILReaderOptions =
+            let opts: ILReaderOptions =
                   { ilGlobals = ilGlobals
                     metadataOnly = MetadataOnlyFlag.Yes
                     reduceMemoryUsage = ReduceMemoryFlag.Yes
@@ -95,17 +98,19 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         let memoize_mod = new MemoizationTable<_,_> (LoadMod, keyComparer=HashIdentity.Structural)
 
         let LoadSigData ccuName =
-            let fileName = ccuName + ".dll" // ccuName + ".sigdata"
-            let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssRef ccuName)
             let ilModule = memoize_mod.Apply ccuName
+            let ilShortAssemName = ilModule.ManifestOfAssembly.Name
+            let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssemblyRef ilShortAssemName)
+            let fileName = ilModule.Name //TODO: try with ".sigdata" extension
             match sigDataReaders ilModule with
             | [] -> None
             | bytes::_ -> Some (GetSignatureData (fileName, ilScopeRef, Some ilModule, bytes))
 
         let LoadOptData ccuName =
-            let fileName = ccuName + ".dll" // ccuName + ".optdata"
-            let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssRef ccuName)
             let ilModule = memoize_mod.Apply ccuName
+            let ilShortAssemName = ilModule.ManifestOfAssembly.Name
+            let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssemblyRef ilShortAssemName)
+            let fileName = ilModule.Name //TODO: try with ".optdata" extension
             match optDataReaders ilModule with
             | [] -> None
             | bytes::_ -> Some (GetOptimizationData (fileName, ilScopeRef, Some ilModule, bytes))
@@ -143,8 +148,9 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
                 | ILScopeRef.Module x -> memoize_mod.Apply x.Name
                 | ILScopeRef.Assembly x -> memoize_mod.Apply x.Name
             let ilModule = memoize_mod.Apply ccuName
+            let ilShortAssemName = ilModule.ManifestOfAssembly.Name
+            let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssemblyRef ilShortAssemName)
             let fileName = ilModule.Name
-            let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssRef ccuName)
             let invalidateCcu = new Event<_>()
             let ccu = Import.ImportILAssembly(
                         tcImports.GetImportMap, m, auxModuleLoader, ilScopeRef,
@@ -155,8 +161,9 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         let GetCcuFS m ccuName =
             let sigdata = memoize_sig.Apply ccuName
             let ilModule = memoize_mod.Apply ccuName
+            let ilShortAssemName = ilModule.ManifestOfAssembly.Name
+            let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssemblyRef ilShortAssemName)
             let fileName = ilModule.Name
-            let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssRef ccuName)
             let GetRawTypeForwarders ilModule =
                 match ilModule.Manifest with 
                 | Some manifest -> manifest.ExportedTypes
@@ -164,9 +171,9 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
 #if !NO_EXTENSIONTYPING
             let invalidateCcu = new Event<_>()
 #endif
-            let minfo : PickledCcuInfo = sigdata.Value.RawData //TODO: handle missing sigdata
+            let minfo: PickledCcuInfo = sigdata.Value.RawData //TODO: handle missing sigdata
             let codeDir = minfo.compileTimeWorkingDir
-            let ccuData : CcuData = 
+            let ccuData: CcuData = 
                   { ILScopeRef = ilScopeRef
                     Stamp = newStamp()
                     FileName = Some fileName 
@@ -192,7 +199,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
                     let findCcuInfo name = tcImports.FindCcu (m, name)
                     Some (data.OptionalFixup findCcuInfo) )
 
-            let ccu = CcuThunk.Create(ccuName, ccuData)
+            let ccu = CcuThunk.Create(ilShortAssemName, ccuData)
             let ccuInfo = mkCcuInfo ilGlobals ilScopeRef ilModule ccu
             let ccuOptInfo = { ccuInfo with FSharpOptimizationData = optdata }
             ccuOptInfo, sigdata
@@ -279,18 +286,16 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
                     async.Return (Cancellable.runWithoutCancellation (op ctok))
                 member __.EnqueueOp (userOpName, opName, opArg, op) = (op ctok) }
 
-        // dictionary for de-duplicating module names
-        let moduleNamesDict = ConcurrentDictionary<string, Set<string>>()
         // parse cache, keyed on file name and source hash
         let parseCache = ConcurrentDictionary<string * int, FSharpParseFileResults>(HashIdentity.Structural)
         // type check cache, keyed on file name
-        let checkCache = ConcurrentDictionary<string, TcResult * TcState>(HashIdentity.Structural)
+        let checkCache = ConcurrentDictionary<string, TcResult * (TcState * ModuleNamesDict)>(HashIdentity.Structural)
 
-        InteractiveChecker (tcConfig, tcGlobals, tcImports, tcInitialState, ctok, reactorOps, moduleNamesDict, parseCache, checkCache)
+        InteractiveChecker (tcConfig, tcGlobals, tcImports, tcInitialState, ctok, reactorOps, parseCache, checkCache)
 
     member private x.MakeProjectResults (projectFileName: string, parseResults: FSharpParseFileResults[], tcState: TcState, errors: FSharpErrorInfo[],
                                          symbolUses: TcSymbolUses list, topAttrsOpt: TopAttribs option, tcImplFilesOpt: TypedImplFile list option) =
-        let assemblyRef = mkSimpleAssRef "stdin"
+        let assemblyRef = mkSimpleAssemblyRef "stdin"
         let assemblyDataOpt = None
         let access = tcState.TcEnvFromImpls.AccessRights
         let dependencyFiles = parseResults |> Seq.map (fun x -> x.DependencyFiles) |> Array.concat
@@ -300,38 +305,28 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
 
     member private x.ClearStaleCache (fileName: string, parsingOptions: FSharpParsingOptions) =
         let fileIndex = parsingOptions.SourceFiles |> Array.findIndex ((=) fileName)
+        let filesAbove = parsingOptions.SourceFiles |> Array.take fileIndex
+        // backup all cached typecheck entries above file
+        let cachedAbove = filesAbove |> Array.choose (fun key ->
+            match checkCache.TryGetValue(key) with
+            | true, value -> Some (key, value)
+            | false, _ -> None)
+        // remove all parse cache entries with the same file name
         let staleParseKeys = parseCache.Keys |> Seq.filter (fun (n,_) -> n = fileName) |> Seq.toArray
-        let staleCheckKeys = parsingOptions.SourceFiles |> Array.skip fileIndex
         staleParseKeys |> Array.iter (fun key -> parseCache.Remove(key) |> ignore)
-        staleCheckKeys |> Array.iter (fun key -> checkCache.Remove(key) |> ignore)
+        checkCache.Clear(); // clear all typecheck cache
+        // restore all cached typecheck entries above file
+        cachedAbove |> Array.iter (fun (key, value) -> checkCache.TryAdd(key, value) |> ignore)
 
     member private x.ParseFile (fileName: string, source: string, parsingOptions: FSharpParsingOptions) =
         let parseCacheKey = fileName, hash source
         parseCache.GetOrAdd(parseCacheKey, fun _ ->
             x.ClearStaleCache(fileName, parsingOptions)
             let parseErrors, parseTreeOpt, anyErrors = Parser.parseFile (source, fileName, parsingOptions, userOpName)
-            let parseTreeOpt = parseTreeOpt |> Option.map (DeduplicateParsedInputModuleName moduleNamesDict)
             let dependencyFiles = [||] // interactions have no dependencies
             FSharpParseFileResults (parseErrors, parseTreeOpt, anyErrors, dependencyFiles) )
 
-    // member private x.CheckFile (source: string, projectFileName: string, parseResults: FSharpParseFileResults, tcState: TcState) =
-    //     let fileName = parseResults.FileName
-    //     let loadClosure = None
-    //     let backgroundErrors = [||]
-    //     let checkAlive () = true
-    //     let textSnapshotInfo = None
-    //     let tcResults = Parser.CheckOneFile(
-    //                         parseResults, source, fileName, projectFileName, tcConfig, tcGlobals, tcImports, tcState,
-    //                         loadClosure, backgroundErrors, reactorOps, checkAlive, textSnapshotInfo, userOpName)
-    //     match tcResults with
-    //     | tcErrors, Parser.TypeCheckAborted.No scope ->
-    //         let errors = Array.append parseResults.Errors tcErrors
-    //         let checkResults = FSharpCheckFileResults (fileName, errors, Some scope, parseResults.DependencyFiles, None, reactorOps, true)
-    //         FSharpCheckFileAnswer.Succeeded checkResults
-    //     | _ ->
-    //         FSharpCheckFileAnswer.Aborted
-
-    member private x.CheckFile (projectFileName: string, parseResults: FSharpParseFileResults, tcState: TcState) =
+    member private x.CheckFile (projectFileName: string, parseResults: FSharpParseFileResults, tcState: TcState, moduleNamesDict: ModuleNamesDict) =
         match parseResults.ParseTree with
         | Some input ->
             let capturingErrorLogger = CompilationErrorLogger("TypeCheckFile", tcConfig.errorSeverityOptions)
@@ -342,12 +337,14 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
             let tcSink = TcResultsSink.WithSink sink
             let checkForErrors () = parseResults.ParseHadErrors || errorLogger.ErrorCount > 0
             let prefixPathOpt = None
+
+            let input, moduleNamesDict = input |> DeduplicateParsedInputModuleName moduleNamesDict
             let (tcEnvAtEnd, topAttrs, implFile, ccuSigForFile), tcState =
                 TypeCheckOneInputEventually (checkForErrors, tcConfig, tcImports, tcGlobals, prefixPathOpt, tcSink, tcState, input)
                 |> Eventually.force ctok
 
             let fileName = parseResults.FileName
-            checkCache.[fileName] <- ((tcEnvAtEnd, topAttrs, implFile, ccuSigForFile), tcState)
+            checkCache.[fileName] <- ((tcEnvAtEnd, topAttrs, implFile, ccuSigForFile), (tcState, moduleNamesDict))
 
             let loadClosure = None
             let checkAlive () = true
@@ -369,24 +366,40 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         let fileNameOf = function
             | ParsedInput.SigFile (ParsedSigFileInput(fileName,_,_,_,_)) -> fileName
             | ParsedInput.ImplFile (ParsedImplFileInput(fileName,_,_,_,_,_,_)) -> fileName
-        let cachedTypeCheck tcState (input: ParsedInput) =
+        let cachedTypeCheck (tcState, moduleNamesDict) (input: ParsedInput) =
             let checkCacheKey = fileNameOf input
-            checkCache.GetOrAdd(checkCacheKey, fun _ ->
-                TypeCheckOneInput (ctok, checkForErrors, tcConfig, tcImports, tcGlobals, prefixPathOpt) tcState input)
-        let results, tcState = (tcState, inputs) ||> List.mapFold cachedTypeCheck
+            let typeCheckOneInput _fileName =
+                let input, moduleNamesDict = input |> DeduplicateParsedInputModuleName moduleNamesDict
+                let tcResults, tcState =
+                    TypeCheckOneInput (ctok, checkForErrors, tcConfig, tcImports, tcGlobals, prefixPathOpt) tcState input
+                tcResults, (tcState, moduleNamesDict)
+            checkCache.GetOrAdd(checkCacheKey, typeCheckOneInput)
+        let results, (tcState, moduleNamesDict) =
+            ((tcState, Map.empty), inputs) ||> List.mapFold cachedTypeCheck
         let (tcEnvAtEndOfLastFile, topAttrs, implFiles, _ccuSigsForFiles), tcState =
             TypeCheckMultipleInputsFinish(results, tcState)
         let tcState, declaredImpls = TypeCheckClosedInputSetFinish (implFiles, tcState)
-        tcState, topAttrs, declaredImpls, tcEnvAtEndOfLastFile
+        tcState, topAttrs, declaredImpls, tcEnvAtEndOfLastFile, moduleNamesDict
 
+    /// Errors grouped by file, sorted by line, column
+    member private x.ErrorsByFile (fileNames: string[], errorList: FSharpErrorInfo[] list) =
+        let errorMap = errorList |> Array.concat |> Array.groupBy (fun x -> x.FileName) |> Map.ofArray
+        let errors = fileNames |> Array.choose errorMap.TryFind
+        errors |> Array.iter (Array.sortInPlaceBy (fun x -> x.StartLineAlternate, x.StartColumn))
+        errors |> Array.concat
+
+    /// Clears parse and typecheck caches.
     member x.ClearCache () =
         parseCache.Clear()
         checkCache.Clear()
 
+    /// Parses and checks single file only, left as is for backwards compatibility.
+    /// Despite the name, there is no support for #load etc.
     member x.ParseAndCheckScript (projectFileName: string, fileName: string, source: string) =
         let fileNames = [| fileName |]
         let parsingOptions = FSharpParsingOptions.FromTcConfig(tcConfig, fileNames, false)
         let parseResults = x.ParseFile (fileName, source, parsingOptions)
+        let moduleNamesDict = Map.Empty
         let loadClosure = None
         let backgroundErrors = [||]
         let checkAlive () = true
@@ -394,7 +407,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         let tcState = tcInitialState
         let tcResults = Parser.CheckOneFile(
                             parseResults, source, fileName, projectFileName, tcConfig, tcGlobals, tcImports, tcState,
-                            loadClosure, backgroundErrors, reactorOps, checkAlive, textSnapshotInfo, userOpName)
+                            moduleNamesDict, loadClosure, backgroundErrors, reactorOps, checkAlive, textSnapshotInfo, userOpName)
         match tcResults with
         | tcErrors, Parser.TypeCheckAborted.No scope ->
             let errors = Array.append parseResults.Errors tcErrors
@@ -406,10 +419,13 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         | _ ->
             failwith "unexpected aborted"
 
+    /// Parses and checks the whole project, good for compilers (Fable etc.)
+    /// Does not retain name resolutions and symbol uses which are quite memory hungry (so no intellisense etc.).
+    /// Already parsed files will be cached so subsequent compilations will be faster.
     member x.ParseAndCheckProject (projectFileName: string, fileNames: string[], sources: string[]) =
         // parse files
         let parsingOptions = FSharpParsingOptions.FromTcConfig(tcConfig, fileNames, false)
-        let parseFile (fileName, source) = x.ParseFile(fileName, source, parsingOptions)
+        let parseFile (fileName, source) = x.ParseFile (fileName, source, parsingOptions)
         let parseResults = Array.zip fileNames sources |> Array.map parseFile
         let parseHadErrors = parseResults |> Array.exists (fun p -> p.ParseHadErrors)
         let parsedInputs = parseResults |> Array.choose (fun p -> p.ParseTree) |> Array.toList
@@ -419,18 +435,22 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         let hasTypedErrors () = errorScope.Diagnostics |> List.exists (fun e -> e.Severity = FSharpErrorSeverity.Error)
         let checkForErrors () = parseHadErrors || hasTypedErrors ()
         let prefixPathOpt = None
-        let tcState, topAttrs, tcImplFiles, _tcEnvAtEnd =
+        let tcState, topAttrs, tcImplFiles, _tcEnvAtEnd, _moduleNamesDict =
             x.TypeCheckClosedInputSet (ctok, checkForErrors, tcConfig, tcImports, tcGlobals, prefixPathOpt, tcInitialState, parsedInputs)
 
         // make project results
         let parseErrors = parseResults |> Array.collect (fun p -> p.Errors)
         let typedErrors = errorScope.Diagnostics |> List.toArray
-        let errors = Array.append parseErrors typedErrors //TODO: order by file
+        let errors = x.ErrorsByFile (fileNames, [ parseErrors; typedErrors ])
         let symbolUses = [] //TODO:
         let projectResults = x.MakeProjectResults (projectFileName, parseResults, tcState, errors, symbolUses, Some topAttrs, Some tcImplFiles)
 
         projectResults
 
+    /// Parses and checks file in project, will compile and cache all the files up to this one
+    /// (if not already done before), or fetch them from cache. Returns partial project results,
+    /// up to and including the file requested. Returns parse and typecheck results containing
+    /// name resolutions and symbol uses for the file requested only, so intellisense etc. works.
     member x.ParseAndCheckFileInProject (fileName: string, projectFileName: string, fileNames: string[], sources: string[]) =
         // get files before file
         let fileIndex = fileNames |> Array.findIndex ((=) fileName)
@@ -439,7 +459,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
 
         // parse files before file
         let parsingOptions = FSharpParsingOptions.FromTcConfig(tcConfig, fileNames, false)
-        let parseFile (fileName, source) = x.ParseFile(fileName, source, parsingOptions)
+        let parseFile (fileName, source) = x.ParseFile (fileName, source, parsingOptions)
         let parseResults = Array.zip fileNamesBeforeFile sourcesBeforeFile |> Array.map parseFile
         let parseHadErrors = parseResults |> Array.exists (fun p -> p.ParseHadErrors)
         let parsedInputs = parseResults |> Array.choose (fun p -> p.ParseTree) |> Array.toList
@@ -449,19 +469,20 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         let hasTypedErrors () = errorScope.Diagnostics |> List.exists (fun e -> e.Severity = FSharpErrorSeverity.Error)
         let checkForErrors () = parseHadErrors || hasTypedErrors ()
         let prefixPathOpt = None
-        let tcState, topAttrs, tcImplFiles, _tcEnvAtEnd =
+        let tcState, topAttrs, tcImplFiles, _tcEnvAtEnd, moduleNamesDict =
             x.TypeCheckClosedInputSet (ctok, checkForErrors, tcConfig, tcImports, tcGlobals, prefixPathOpt, tcInitialState, parsedInputs)
 
         // parse and type check file
         let parseFileResults = parseFile (fileName, sources.[fileIndex])
-        let checkFileResults = x.CheckFile (projectFileName, parseFileResults, tcState)
-        let (_tcEnvAtEndFile, topAttrsFile, implFile, _ccuSigForFile), tcState = checkCache.[fileName]
+        let checkFileResults = x.CheckFile (projectFileName, parseFileResults, tcState, moduleNamesDict)
+        let (_tcEnvAtEndFile, topAttrsFile, implFile, _ccuSigForFile), (tcState, _moduleNamesDict) =
+            checkCache.[fileName]
 
         // collect errors
         let parseErrorsBefore = parseResults |> Array.collect (fun p -> p.Errors)
         let typedErrorsBefore = errorScope.Diagnostics |> List.toArray
         let newErrors = match checkFileResults with | Some res -> res.Errors | None -> [||]
-        let errors = [| yield! parseErrorsBefore; yield! typedErrorsBefore; yield! newErrors |] //TODO: order by file
+        let errors = x.ErrorsByFile (fileNames, [ parseErrorsBefore; typedErrorsBefore; newErrors ])
 
         // make partial project results
         let parseResults = Array.append parseResults [| parseFileResults |]
