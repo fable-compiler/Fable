@@ -69,8 +69,8 @@ let rec parseProject projectPath =
     let (projectFileName, dllRefs, projectRefs, sourceFiles, defines) = parseProjectFile projectPath
 
     let projectFileDir = Path.GetDirectoryName projectPath
-    let isAbsolutePath (path: string) = path.StartsWith("/")
-    let trimPath (path: string) = path.TrimStart([|'.';'/'|])
+    let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
+    let trimPath (path: string) = path.TrimStart([|'.';'/'|]).Replace(":", "")
     let makePath path = if isAbsolutePath path then path else Path.Combine(projectFileDir, path)
     let makeName path = Path.Combine(trimPath projectFileDir, trimPath path)
 
