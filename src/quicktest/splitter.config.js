@@ -1,14 +1,15 @@
 const path = require("path");
 
 module.exports = {
-  entry: path.join(__dirname, "QuickTest.fsproj"),
-  outDir: path.join(__dirname, "temp"),
+  cli: { path: resolve("../Fable.Cli") },
+  entry: resolve("QuickTest.fsproj"),
+//   outDir: resolve("temp"),
   fable: {
     define: ["DEBUG"]
   },
-  babel: {
-    plugins: ["@babel/plugin-transform-modules-commonjs"],
-    //   presets: [["@babel/preset-env", { modules: "commonjs" }]],
-  },
   // allFiles: true
 };
+
+function resolve(p) {
+    return path.join(__dirname, p);
+}

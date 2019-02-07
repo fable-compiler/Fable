@@ -3,7 +3,8 @@
   "scripts": {
     "build": "fable build.fsx --run",
     "publish": "fable build.fsx --run publish",
-    "test": "fable build.fsx --run test"
+    "test": "fable build.fsx --run test",
+    "quicktest": "fable-splitter -c src/quicktest/splitter.config.js --watch --run"
   },
   "dependencies": {
     "@babel/cli": "^7.2.3",
