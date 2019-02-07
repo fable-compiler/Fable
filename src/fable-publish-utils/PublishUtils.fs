@@ -97,6 +97,20 @@ let rec removeDirRecursive (p: string): unit =
                 fs?unlinkSync(curPath)
         fs?rmdirSync(p)
 
+let mkDirRecursive (p: string): unit =
+    fs?mkdirSync(p, %["recursive" ==> true])
+
+let rec copyDirRecursive (source: string) (target: string): unit =
+    if fs?existsSync(target) |> not then
+        mkDirRecursive target
+    for file in dirFiles source do
+        let source = source </> file
+        let target = target </> file
+        if isDirectory source then
+            copyDirRecursive source target
+        else
+            fs?copyFileSync(source, target)
+
 let writeFile (filePath: string) (txt: string): unit =
     fs?writeFileSync(filePath, txt)
 
@@ -145,6 +159,13 @@ let run cmd: unit =
         "stdio" ==> "inherit"
     ])
 
+let runInDir cwd cmd: unit =
+    printfn "> %s" cmd
+    childProcess?execSync.Invoke(cmd, %[
+        "stdio" ==> "inherit"
+        "cwd" ==> cwd
+    ])
+
 let runList cmdParts =
     String.concat " " cmdParts |> run
 
@@ -169,7 +190,7 @@ let (|Regex|_|) (pattern: string) (input: string) =
 let replaceRegex (pattern: string) (replacement: string list) (input: string) =
     Regex.Replace(input, pattern, String.concat "" replacement)
 
-module private Publish =
+module Publish =
     let NUGET_VERSION = @"(<Version>)(.*?)(<\/Version>)"
     let NUGET_PACKAGE_VERSION = @"(<PackageVersion>)(.*?)(<\/PackageVersion>)"
     let NPM_VERSION = @"""version"":\s*""(.*?)"""
@@ -252,5 +273,26 @@ module private Publish =
                 printfn "Please revert the version change in .fsproj"
                 reraise()
 
+    let pushNpm (projDir: string) =
+        let checkPkgVersion = function
+            | Regex NPM_VERSION [_;pkgVersion] -> Some pkgVersion
+            | _ -> None
+        let releaseVersion = loadReleaseVersion projDir
+        if needsPublishing checkPkgVersion releaseVersion (projDir </> "package.json") then
+            runInDir projDir ("npm version " + releaseVersion)
+            try
+                let publishCmd =
+                    match splitPrerelease releaseVersion with
+                    | _, Some _ -> "npm publish --tag next"
+                    | _, None -> "npm publish"
+                runInDir projDir publishCmd
+            with _ ->
+                printfn "There's been an error when pushing project: %s" projDir
+                printfn "Please revert the version change in package.json"
+                reraise()
+
 let pushNuget projFile =
     Publish.pushNuget projFile
+
+let pushNpm projDir =
+    Publish.pushNpm projDir

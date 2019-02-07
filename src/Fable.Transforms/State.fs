@@ -27,11 +27,11 @@ type File(normalizedFullPath: string, content: string) =
 
 type Project(projectOptions: FSharpProjectOptions,
              sourceFiles: File array,
+             triggerFile: string,
              checker: InteractiveChecker,
              implFiles: Map<string, FSharpImplementationFileContents>,
              errors: FSharpErrorInfo array,
-             fableLibraryDir: string,
-             isWatchCompile: bool) =
+             fableLibraryDir: string) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
@@ -41,11 +41,11 @@ type Project(projectOptions: FSharpProjectOptions,
         |> Map.map (fun _ file -> FSharp2Fable.Compiler.getRootModuleFullName file)
     member __.TimeStamp = timestamp
     member __.LibraryDir = fableLibraryDir
-    member __.IsWatchCompile = isWatchCompile
     member __.ImplementationFiles = implFiles
     member __.RootModules = rootModules
     member __.InlineExprs = inlineExprs
     member __.Errors = errors
+    member __.TriggerFile = triggerFile
     member __.SourceFiles = sourceFiles
     member __.ProjectOptions = projectOptions
     member __.Checker = checker

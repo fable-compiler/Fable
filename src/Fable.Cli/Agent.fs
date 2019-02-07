@@ -16,23 +16,29 @@ let readAllText path =
     use textReader = new IO.StreamReader(fileStream)
     textReader.ReadToEnd()
 
-let private dllCache = System.Collections.Concurrent.ConcurrentDictionary<string, byte[]>()
+// let private dllCache = System.Collections.Concurrent.ConcurrentDictionary<string, byte[]>()
 
-// The InteractiveChecker expects only the file name without the .dll extension
-let makeReadAllBytes (dllPaths: string[]) =
-    // TODO: Temporary fix, what to do if two assemblies have the same name?
-    let dllNamesDic =
-        dllPaths |> Array.map (fun dllPath ->
-            IO.Path.GetFileNameWithoutExtension(dllPath), dllPath) |> dict
-    dllNamesDic.Keys |> Array.ofSeq,
-    fun (path: string) ->
-        // The InteractiveChecker adds the .dll extenstion at this point
-        let path = dllNamesDic.[path.[..(path.Length-5)]]
-        dllCache.GetOrAdd(path, fun _ -> IO.File.ReadAllBytes path)
+// // The InteractiveChecker expects only the file name without the .dll extension
+// let makeReadAllBytes (dllPaths: string[]) =
+//     // TODO: Temporary fix, what to do if two assemblies have the same name?
+//     let dllNamesDic =
+//         dllPaths |> Array.map (fun dllPath ->
+//             IO.Path.GetFileNameWithoutExtension(dllPath), dllPath) |> dict
+//     dllNamesDic.Keys |> Array.ofSeq,
+//     fun (path: string) ->
+//         // The InteractiveChecker adds the .dll extenstion at this point
+//         let path = dllNamesDic.[path.[..(path.Length-5)]]
+//         dllCache.GetOrAdd(path, fun _ -> IO.File.ReadAllBytes path)
 
-// The InteractiveChecker seems to have problems with the drive letter (C:) on Windows
-let removeDriveLetter (normalizedPath: string) =
-    normalizedPath.[normalizedPath.IndexOf('/')..]
+let getSourceFiles (opts: FSharpProjectOptions) =
+    opts.OtherOptions |> Array.choose (fun path ->
+        // TODO: Dotnet.ProjInfo seems to not resolve well paths for .fsi files. Report?
+        // For now, ignore them, though ncave said they're sometimes necessary for compilation
+        if not(path.StartsWith("-")) && path.EndsWith(".fs") then
+            // These should be already normalized, but just in case
+            // TODO: We should add a NormalizedFullPath type so we don't need normalize everywhere
+            Path.normalizeFullPath path |> Some
+        else None)
 
 let getRelativePath path =
     Path.getRelativePath (IO.Directory.GetCurrentDirectory()) path
@@ -65,34 +71,16 @@ let checkFableCoreVersion (checkedProject: FSharpCheckProjectResults) =
                 failwithf "Fable.Core v%i.%i detected, expecting v%i.%i" actualMajor actualMinor expectedMajor expectedMinor
             // else printfn "Fable.Core version matches"
 
-let createChecker (opts: FSharpProjectOptions) define =
-    let dllNames, readAllBytes =
-        opts.OtherOptions
-        |> Array.choose (fun opt ->
-            if opt.StartsWith("-r:") then
-                let path = opt.[3..]
-                match IO.Path.GetFileNameWithoutExtension(path) with
-                | "WindowsBase" -> None
-                | Naming.StartsWith "Microsoft." _ -> None
-                | (Naming.StartsWith "System." _) as name
-                    when not(Literals.SYSTEM_CORE_REFERENCES.Contains name) -> None
-                | _ -> Some path
-            else None)
-        |> makeReadAllBytes
-    InteractiveChecker.Create(dllNames, readAllBytes, define, false)
-
-let checkProject (isWatchCompile: bool)
-                 (msg: Parser.Message)
+let checkProject (msg: Parser.Message)
                  (opts: FSharpProjectOptions)
                  (fableLibraryDir: string)
+                 (triggerFile: string)
                  (srcFiles: File[])
                  (checker: InteractiveChecker) =
     Log.logAlways(sprintf "Parsing %s..." (getRelativePath opts.ProjectFileName))
     let checkedProject =
         let filePaths, fileContents =
-            srcFiles |> Array.map (fun file ->
-                (removeDriveLetter file.NormalizedFullPath, file.Content))
-            |> Array.unzip
+            srcFiles |> Array.map (fun file -> (file.NormalizedFullPath, file.Content)) |> Array.unzip
         checker.ParseAndCheckProject(opts.ProjectFileName, filePaths, fileContents)
     // checkFableCoreVersion checkedProject
     let optimized = GlobalParams.Singleton.Experimental.Contains("optimize-fcs")
@@ -104,7 +92,7 @@ let checkProject (isWatchCompile: bool)
         implFiles |> Seq.map (fun file -> (file.FileName, file)) |> Map
     tryGetOption "saveAst" msg.extra |> Option.iter (fun outDir ->
         Printers.printAst outDir implFiles)
-    Project(opts, srcFiles, checker, implFilesMap, checkedProject.Errors, fableLibraryDir, isWatchCompile)
+    Project(opts, srcFiles, triggerFile, checker, implFilesMap, checkedProject.Errors, fableLibraryDir)
 
 let createProject (msg: Parser.Message) projFile (prevProject: Project option) =
     match prevProject with
@@ -126,7 +114,7 @@ let createProject (msg: Parser.Message) projFile (prevProject: Project option) =
                         if isDirty then File(path, readAllText path)
                         else file)
             if someDirtyFiles then
-                checkProject true msg proj.ProjectOptions proj.LibraryDir sourceFiles proj.Checker
+                checkProject msg proj.ProjectOptions proj.LibraryDir msg.path sourceFiles proj.Checker
             else proj
     | None ->
         let projectOptions, fableLibraryDir =
@@ -134,20 +122,12 @@ let createProject (msg: Parser.Message) projFile (prevProject: Project option) =
         Log.logVerbose(lazy
             let proj = getRelativePath projectOptions.ProjectFileName
             let opts = projectOptions.OtherOptions |> String.concat "\n   "
-            let files = projectOptions.SourceFiles |> String.concat "\n   "
-            sprintf "F# PROJECT: %s\n   %s\n   %s" proj opts files)
+            sprintf "F# PROJECT: %s\n   %s" proj opts)
         let sourceFiles =
-            projectOptions.SourceFiles |> Array.choose (fun path ->
-                // TODO: Dotnet.ProjInfo seems to not resolve well paths for .fsi files. Report?
-                // For now, ignore them, though ncave said they're sometimes necessary for compilation
-                if path.EndsWith(".fs") then
-                    // These should be already normalized, but just in case
-                    // TODO: We should add a NormalizedFullPath type so we don't need normalize everywhere
-                    let path = Path.normalizeFullPath path
-                    File(path, readAllText path) |> Some
-                else None)
-        createChecker projectOptions msg.define
-        |> checkProject false msg projectOptions fableLibraryDir sourceFiles
+            getSourceFiles projectOptions
+            |> Array.map (fun path -> File(path, readAllText path))
+        InteractiveChecker.Create(projectOptions)
+        |> checkProject msg projectOptions fableLibraryDir projFile sourceFiles
 
 let jsonSettings =
     JsonSerializerSettings(
@@ -175,7 +155,7 @@ let rec findFsprojUpwards originalFile dir =
 
 let addOrUpdateProject state (project: Project) =
     let state = Map.add project.ProjectFile project state
-    true, state, project
+    state, project
 
 let tryFindAndUpdateProject state (msg: Parser.Message) sourceFile =
     let checkIfProjectIsAlreadyInState projFile =
@@ -188,6 +168,7 @@ let tryFindAndUpdateProject state (msg: Parser.Message) sourceFile =
     // disambiguate files referenced by several projects, see #1116
     match msg.extra.TryGetValue("projectFile") with
     | true, projFile ->
+        let projFile = Path.normalizeFullPath projFile
         checkIfProjectIsAlreadyInState projFile
     | false, _ ->
         state |> Map.tryPick (fun _ (project: Project) ->
@@ -220,20 +201,45 @@ let updateState (state: Map<string,Project>) (msg: Parser.Message) =
         failwithf "Signature files cannot be compiled to JS: %s" msg.path
     | _ -> failwithf "Not an F# source file: %s" msg.path
 
-let addFSharpErrorLogs (com: ICompiler) (errors: FSharpErrorInfo array) (fileFilter: string option) =
-    let errors =
-        match fileFilter with
-        | Some file -> errors |> Array.filter (fun er -> (Path.normalizePath er.FileName) = file)
-        | None -> errors
-    errors |> Seq.choose (fun er ->
+let addFSharpErrorLogs (com: ICompiler) (proj: Project) =
+    proj.Errors |> Seq.filter (fun er ->
+        let skip =
+            // If the trigger file is the .fsproj reports errors in the corresponding file.
+            // If another file triggers the compilation (as in watch mode) reports errors there so they don't go missing
+            if proj.TriggerFile.EndsWith(".fsproj") then
+                er.FileName <> com.CurrentFile
+            else proj.TriggerFile <> com.CurrentFile
+        match skip, er.Severity with
+        | true, _ -> false
+        | false, FSharpErrorSeverity.Error -> true
+        | false, FSharpErrorSeverity.Warning ->
+            // TODO: Check level and disabled warnings from project options
+            // From https://github.com/Microsoft/visualfsharp/blob/1bbb60a4ee1bfc1dd1a070d043f5fb012bf74bc4/src/fsharp/CompileOps.fs#L241-L393
+            match er.ErrorNumber with
+            // Level 5 warnings
+            | 21 // RecursiveUseCheckedAtRuntime
+            | 22 // LetRecEvaluatedOutOfOrder
+            | 45 // FullAbstraction
+            | 52 // DefensiveCopyWarning
+            | 1178 // tcNoComparisonNeeded/tcNoEqualityNeeded1
+
+            // Warnings off by default
+            | 1182 // chkUnusedValue - off by default
+            | 3218 // ArgumentsInSigAndImplMismatch - off by default
+            | 3180 // abImplicitHeapAllocation - off by default
+                -> false
+            // Level 2 warnings
+            | _ -> true)
+    |> Seq.map (fun er ->
+        let severity =
+            match er.Severity with
+            | FSharpErrorSeverity.Warning -> Severity.Warning
+            | FSharpErrorSeverity.Error -> Severity.Error
         let range =
             { start={ line=er.StartLineAlternate; column=er.StartColumn}
               ``end``={ line=er.EndLineAlternate; column=er.EndColumn}
               identifierName = None }
-        match er.Severity with
-        | FSharpErrorSeverity.Warning -> None
-        // TODO: Set warning level in the InteractiveChecker
-        | FSharpErrorSeverity.Error -> Some(er.FileName, range, Severity.Error, er.Message))
+        (er.FileName, range, severity, sprintf "%s (code %i)" er.Message er.ErrorNumber))
     |> Seq.distinct // Sometimes errors are duplicated
     |> Seq.iter (fun (fileName, range, severity, msg) ->
         com.AddLog(msg, severity, range, fileName, "FSHARP"))
@@ -244,16 +250,13 @@ let startCompilation (respond: obj->unit) (com: Compiler) (project: Project) =
         try
             if com.CurrentFile.EndsWith(".fsproj") then
                 // If we compile the last file here, Webpack watcher will ignore changes in it
-                Fable2Babel.Compiler.createFacade project.ProjectOptions.SourceFiles com.CurrentFile
+                Fable2Babel.Compiler.createFacade (getSourceFiles project.ProjectOptions) com.CurrentFile
                 |> respond
             else
                 let babel =
                     FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
                     |> FableTransforms.optimizeFile com
                     |> Fable2Babel.Compiler.transformFile com
-                // If this is the first compilation, add errors to each respective file
-                if not project.IsWatchCompile then
-                    addFSharpErrorLogs com project.Errors (Some com.CurrentFile)
                 Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs(), babel.Dependencies)
                 |> respond
         with ex ->
@@ -276,12 +279,9 @@ let startAgent () = MailboxProcessor<AgentMsg>.Start(fun agent ->
         try
             let msg = Parser.parse msgHandler.Message
             // lazy sprintf "Received message %A" msg |> Log.logVerbose
-            let isUpdated, newState, activeProject = updateState state msg
-            let com = Compiler(removeDriveLetter msg.path, activeProject, Parser.toCompilerOptions msg)
-            // If the project has been updated and this is a watch compilation, add
-            // F# errors/warnings here so they're not skipped if they affect another file
-            if isUpdated && activeProject.IsWatchCompile then
-                addFSharpErrorLogs com activeProject.Errors None
+            let newState, activeProject = updateState state msg
+            let com = Compiler(msg.path, activeProject, Parser.toCompilerOptions msg)
+            addFSharpErrorLogs com activeProject
             startCompilation respond com activeProject
             return! loop newState
         with ex ->

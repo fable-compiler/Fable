@@ -1,3 +1,7 @@
+### 2.2.0-beta-001
+
+* Use ncave slim service for F# compiler
+
 ### 2.1.11
 
 * Add `List.exactlyOne` @wangweipeng
