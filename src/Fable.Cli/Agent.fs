@@ -10,6 +10,31 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open ProjectCracker
 
+type File(normalizedFullPath: string, content: string) =
+    member __.NormalizedFullPath = normalizedFullPath
+    member __.Content = content
+
+/// Fable.Transforms.State.Project plus some properties only used here
+type ProjectExtra(project: Project, checker: InteractiveChecker,
+                  sourceFiles: File array, triggerFile: string,
+                  fableLibraryDir: string) =
+    let timestamp = DateTime.Now
+    member __.TimeStamp = timestamp
+    member __.Checker = checker
+    member __.Project = project
+    member __.ProjectOptions = project.ProjectOptions
+    member __.ImplementationFiles = project.ImplementationFiles
+    member __.Errors = project.Errors
+    member __.ProjectFile = project.ProjectFile
+    member __.SourceFiles = sourceFiles
+    member __.TriggerFile = triggerFile
+    member __.LibraryDir = fableLibraryDir
+    member __.ContainsFile(file) =
+        sourceFiles |> Array.exists (fun file2 ->
+            file = file2.NormalizedFullPath)
+    static member Create checker sourceFiles triggerFile fableLibraryDir project =
+        ProjectExtra(project, checker, sourceFiles, triggerFile, fableLibraryDir)
+
 /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
 let readAllText path =
     use fileStream = new IO.FileStream(path, IO.FileMode.Open, IO.FileAccess.Read, IO.FileShare.ReadWrite)
@@ -92,9 +117,10 @@ let checkProject (msg: Parser.Message)
         implFiles |> Seq.map (fun file -> (file.FileName, file)) |> Map
     tryGetOption "saveAst" msg.extra |> Option.iter (fun outDir ->
         Printers.printAst outDir implFiles)
-    Project(opts, srcFiles, triggerFile, checker, implFilesMap, checkedProject.Errors, fableLibraryDir)
+    Project(opts, implFilesMap, checkedProject.Errors)
+    |> ProjectExtra.Create checker srcFiles triggerFile fableLibraryDir
 
-let createProject (msg: Parser.Message) projFile (prevProject: Project option) =
+let createProject (msg: Parser.Message) projFile (prevProject: ProjectExtra option) =
     match prevProject with
     | Some proj ->
         let mutable someDirtyFiles = false
@@ -153,7 +179,7 @@ let rec findFsprojUpwards originalFile dir =
     | [|projFile|] -> projFile
     | _ -> failwithf "Found more than one project file for %s, please disambiguate." originalFile
 
-let addOrUpdateProject state (project: Project) =
+let addOrUpdateProject state (project: ProjectExtra) =
     let state = Map.add project.ProjectFile project state
     state, project
 
@@ -171,7 +197,7 @@ let tryFindAndUpdateProject state (msg: Parser.Message) sourceFile =
         let projFile = Path.normalizeFullPath projFile
         checkIfProjectIsAlreadyInState projFile
     | false, _ ->
-        state |> Map.tryPick (fun _ (project: Project) ->
+        state |> Map.tryPick (fun _ (project: ProjectExtra) ->
             if project.ContainsFile(sourceFile)
             then Some project
             else None)
@@ -185,7 +211,7 @@ let tryFindAndUpdateProject state (msg: Parser.Message) sourceFile =
                 |> findFsprojUpwards sourceFile
                 |> checkIfProjectIsAlreadyInState
 
-let updateState (state: Map<string,Project>) (msg: Parser.Message) =
+let updateState (state: Map<string,ProjectExtra>) (msg: Parser.Message) =
     match IO.Path.GetExtension(msg.path).ToLower() with
     | ".fsproj" ->
         createProject msg msg.path None
@@ -201,7 +227,7 @@ let updateState (state: Map<string,Project>) (msg: Parser.Message) =
         failwithf "Signature files cannot be compiled to JS: %s" msg.path
     | _ -> failwithf "Not an F# source file: %s" msg.path
 
-let addFSharpErrorLogs (com: ICompiler) (proj: Project) =
+let addFSharpErrorLogs (com: ICompiler) (proj: ProjectExtra) =
     proj.Errors |> Seq.filter (fun er ->
         let skip =
             // If the trigger file is the .fsproj reports errors in the corresponding file.
@@ -245,7 +271,7 @@ let addFSharpErrorLogs (com: ICompiler) (proj: Project) =
         com.AddLog(msg, severity, range, fileName, "FSHARP"))
 
 /// Don't await file compilation to let the agent receive more requests to implement files.
-let startCompilation (respond: obj->unit) (com: Compiler) (project: Project) =
+let startCompilation (respond: obj->unit) (com: Compiler) (project: ProjectExtra) =
     async {
         try
             if com.CurrentFile.EndsWith(".fsproj") then
@@ -264,7 +290,7 @@ let startCompilation (respond: obj->unit) (com: Compiler) (project: Project) =
     } |> Async.Start
 
 let startAgent () = MailboxProcessor<AgentMsg>.Start(fun agent ->
-    let rec loop (state: Map<string,Project>) = async {
+    let rec loop (state: Map<string, ProjectExtra>) = async {
       match! agent.Receive() with
       | Respond(value, msgHandler) ->
         msgHandler.Respond(fun writer ->
@@ -280,7 +306,8 @@ let startAgent () = MailboxProcessor<AgentMsg>.Start(fun agent ->
             let msg = Parser.parse msgHandler.Message
             // lazy sprintf "Received message %A" msg |> Log.logVerbose
             let newState, activeProject = updateState state msg
-            let com = Compiler(msg.path, activeProject, Parser.toCompilerOptions msg)
+            let libDir = Path.getRelativePath msg.path activeProject.LibraryDir
+            let com = Compiler(msg.path, activeProject.Project, Parser.toCompilerOptions msg, libDir)
             addFSharpErrorLogs com activeProject
             startCompilation respond com activeProject
             return! loop newState

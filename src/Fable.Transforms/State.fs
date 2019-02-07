@@ -5,6 +5,8 @@ open System
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 #if FABLE_COMPILER
+open  System.Collections.Generic
+
 type Dictionary<'TKey, 'TValue> with
     member x.GetOrAdd (key, valueFactory) =
         match x.TryGetValue key with
@@ -20,18 +22,9 @@ type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
 open System.Collections.Concurrent
 #endif
 
-type File(normalizedFullPath: string, content: string) =
-    member __.NormalizedFullPath = normalizedFullPath
-    member __.Content = content
-
-
 type Project(projectOptions: FSharpProjectOptions,
-             sourceFiles: File array,
-             triggerFile: string,
-             checker: InteractiveChecker,
              implFiles: Map<string, FSharpImplementationFileContents>,
-             errors: FSharpErrorInfo array,
-             fableLibraryDir: string) =
+             errors: FSharpErrorInfo array) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
@@ -39,20 +32,12 @@ type Project(projectOptions: FSharpProjectOptions,
         implFiles
         |> Map.filter (fun file _ -> not(file.EndsWith(".fsi")))
         |> Map.map (fun _ file -> FSharp2Fable.Compiler.getRootModuleFullName file)
-    member __.TimeStamp = timestamp
-    member __.LibraryDir = fableLibraryDir
     member __.ImplementationFiles = implFiles
     member __.RootModules = rootModules
     member __.InlineExprs = inlineExprs
     member __.Errors = errors
-    member __.TriggerFile = triggerFile
-    member __.SourceFiles = sourceFiles
     member __.ProjectOptions = projectOptions
-    member __.Checker = checker
     member __.ProjectFile = projectFile
-    member __.ContainsFile(file) =
-        sourceFiles |> Array.exists (fun file2 ->
-            file = file2.NormalizedFullPath)
     member __.GetOrAddInlineExpr(fullName, generate) =
         inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
@@ -64,14 +49,11 @@ type Log =
       FileName: string option }
 
 /// Type with utilities for compiling F# files to JS
-/// No thread-safe, an instance must be created per file
-type Compiler(currentFile, project: Project, options, ?fableLibraryDir: string) =
+/// Not thread-safe, an instance must be created per file
+type Compiler(currentFile, project: Project, options, fableLibraryDir: string) =
     let mutable id = 0
     let logs = ResizeArray<Log>()
-    let fableLibraryDir =
-        match fableLibraryDir with
-        | Some fableLibraryDir -> fableLibraryDir.TrimEnd('/')
-        | None -> (Path.getRelativePath currentFile project.LibraryDir).TrimEnd('/')
+    let fableLibraryDir = fableLibraryDir.TrimEnd('/')
     member __.GetLogs() =
         logs |> Seq.toList
     member __.GetFormattedLogs() =
