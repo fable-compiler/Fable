@@ -24,7 +24,15 @@ let buildTypescript projectDir =
 let buildLibrary() =
     cleanDirs ["build/fable-library"]
     buildTypescript "src/fable-library"
-    run "npx fable-splitter --fable-library force:${outDir} -c src/fable-library/splitter.config.js"
+    run "npx fable-splitter -c src/fable-library/splitter.config.js"
+
+let test() =
+    if pathExists "build/fable-library" |> not then
+        buildLibrary()
+
+    cleanDirs ["build/tests"]
+    run "npx fable-splitter -c tests/splitter.config.js"
+    run "npx mocha build/tests --reporter dot -t 10000"
 
 let buildCompiler() =
     let projectDir = "src/fable-compiler"
@@ -37,15 +45,23 @@ let buildCompiler() =
     copyDirRecursive "build/fable-library" (projectDir </> "bin/fable-library")
 
 match args with
+| IgnoreCase "test"::_ ->
+    test()
+
 | IgnoreCase "library"::_ ->
     buildLibrary()
 
 | IgnoreCase "compiler"::_ ->
     buildCompiler()
 
-| IgnoreCase "publish-compiler"::_ ->
-    buildCompiler()
-    pushNpm "src/fable-compiler"
+| IgnoreCase "publish"::project ->
+    match project with
+    | [] -> failwith "Pass the project to publish"
+    | IgnoreCase "compiler"::_
+    | IgnoreCase "fable-compiler"::_ ->
+        buildCompiler()
+        pushNpm "src/fable-compiler"
+    | _ -> failwithf "Cannot publish %A" project
 
 | _ ->
     printfn "Please pass a target name"

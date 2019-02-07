@@ -195,7 +195,7 @@ export function format(str: string, ...args: any[]) {
     (match: any, idx: any, pad: any, pattern: any) => {
       let rep = args[idx];
       let padSymbol = " ";
-      if (typeof rep === "number") { // TODO: Long & Decimal || rep instanceof Long || rep instanceof Decimal) {
+      if (typeof rep === "number") {
         switch ((pattern || "").substring(0, 1)) {
           case "f": case "F":
             rep = pattern.length > 1 ? rep.toFixed(pattern.substring(1)) : rep.toFixed(2);
@@ -221,6 +221,21 @@ export function format(str: string, ...args: any[]) {
                 rep = rep.toFixed(decs = m[2].length - 1);
               }
               pad = "," + (m[1].length + (decs ? decs + 1 : 0)).toString();
+              padSymbol = "0";
+            } else if (pattern) {
+              rep = pattern;
+            }
+        }
+      } else if (rep instanceof Long) { // TODO: Other numeric types? Decimal, BigInt
+        switch ((pattern || "").substring(0, 1)) {
+          case "x":
+            rep = toHex(rep); break;
+          case "X":
+            rep = toHex(rep).toUpperCase(); break;
+          default:
+            const m = /^(0+)(\.0+)?$/.exec(pattern);
+            if (m != null) {
+              pad = "," + m[1].length.toString();
               padSymbol = "0";
             } else if (pattern) {
               rep = pattern;

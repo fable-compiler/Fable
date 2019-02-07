@@ -63,6 +63,12 @@ let args: string list =
     |> Seq.skip 2
     |> Seq.toList
 
+let isWindows =
+    nodeProcess?platform = "win32"
+
+let isLinux =
+    nodeProcess?platform = "linux"
+
 let fullPath (p: string): string =
   path?resolve(p)
 
@@ -166,12 +172,21 @@ let runInDir cwd cmd: unit =
         "cwd" ==> cwd
     ])
 
+let tryRunForOutput (cmd: string): string option =
+    try
+        childProcess?execSync.Invoke(cmd).ToString().Trim() |> Some
+    with _ -> None
+
 let runList cmdParts =
     String.concat " " cmdParts |> run
 
 let environVarOrNone (varName: string): string option =
     nodeProcess?env?(varName)
     |> Option.ofObj
+
+let addToEnvPath (p: string): unit =
+    let SEPARATOR = if isWindows then ";" else ":"
+    nodeProcess?env?PATH <- p + SEPARATOR + nodeProcess?env?PATH
 
 let (|IgnoreCase|_|) (pattern: string) (input: string) =
     if String.Equals(input, pattern, StringComparison.OrdinalIgnoreCase) then
@@ -296,3 +311,36 @@ let pushNuget projFile =
 
 let pushNpm projDir =
     Publish.pushNpm projDir
+
+let getDotNetSDKVersionFromGlobalJson(): string =
+    let json = readFile "global.json" |> Fable.Import.JS.JSON.parse
+    json?sdk?version
+
+let installDotnetSdk() =
+    let sdkVersion = getDotNetSDKVersionFromGlobalJson()
+    let mustInstall =
+        match tryRunForOutput "dotnet --version" with
+        | None -> true
+        | Some v -> v <> sdkVersion
+    if mustInstall then
+        let archiveFileName =
+            if isWindows then
+                sprintf "dotnet-sdk-%s-win-x64.zip" sdkVersion
+            elif isLinux then
+                sprintf "dotnet-sdk-%s-linux-x64.tar.gz" sdkVersion
+            else
+                sprintf "dotnet-sdk-%s-osx-x64.tar.gz" sdkVersion
+        let downloadPath = sprintf "https://dotnetcli.blob.core.windows.net/dotnet/Sdk/%s/%s" sdkVersion archiveFileName
+        failwith "TODO: download and unzip"
+        // downloadSDK downloadPath archiveFileName
+        // addToEnvPath dotnetExe
+(*
+function DownloadAndUnzip(URL, outDir){
+    var zlib = require('zlib');
+    var https = require('https');
+    var out = fs.createWriteStream(outDir);
+    var request = https.get(URL, function(response) {
+        response.pipe(zlib.createGunzip()).pipe(out)
+    });
+}
+*)

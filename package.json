@@ -2,15 +2,8 @@
   "private": true,
   "scripts": {
     "build": "fable build.fsx --run",
-    "build-library-typescript": "tsc --project src/fable-library",
-    "build-library-fsharp": "fable-splitter --fable-library force:${outDir} -c src/fable-library/splitter.config.js",
-    "build-library": "concurrently \"npm:build-library-*\"",
-    "build-compiler-typescript": "",
-    "build-compiler-fsharp": "",
-    "build-compiler": "",
-    "clean-compiler": "cd src/fable-compiler && rm -rf dist/ bin/",
-    "clean-build-folder": "rm -rf build",
-    "clean": "concurrently \"npm:clean-*\""
+    "publish": "fable build.fsx --run publish",
+    "test": "fable build.fsx --run test"
   },
   "dependencies": {
     "@babel/cli": "^7.2.3",
@@ -26,7 +19,7 @@
     "concurrently": "^4.1.0",
     "fable-babel-plugins": "^2.1.0",
     "fable-compiler": "^2.1.10",
-    "fable-compiler-js": "^1.0.0-alpha-012",
+    "fable-compiler-js": "^1.0.0-alpha-014",
     "fable-loader": "^2.1.2",
     "fable-splitter": "^2.1.2",
     "mocha": "^5.2.0",

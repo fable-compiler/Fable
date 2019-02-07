@@ -18,10 +18,18 @@ const outDir = useCommonjs
   : "../../build/fable-library";
 
 module.exports = {
-  entry: path.join(__dirname, "Fable.Library.fsproj"),
-  outDir: path.join(__dirname, outDir),
+  cli: {
+    path: resolve("../Fable.Cli"),
+    fableLibrary: "force:${outDir}"
+  },
+  entry: resolve("Fable.Library.fsproj"),
+  outDir: resolve(outDir),
   allFiles: true,
   // port: 61225,
   babel: babelOptions,
   fable: fableOptions,
 };
+
+function resolve(p) {
+  return path.join(__dirname, p);
+}
