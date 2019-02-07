@@ -77,10 +77,14 @@ export function transformAndSaveBabelAst(babelAst, fileName, outDir, commonjs) {
     }
 }
 
-export function runCmd(cmd) {
+export function runCmdAndExitIfFails(cmd) {
     var child_process = require("child_process");
     console.log(">", cmd);
-    child_process.execSync(cmd, {
-        stdio: "inherit"
-    });
+    try {
+        child_process.execSync(cmd, {
+            stdio: "inherit"
+        });
+    } catch (error) {
+        process.exit(-1);
+    }
 }

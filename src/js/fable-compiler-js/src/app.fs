@@ -186,7 +186,7 @@ let run opts projectPath outDir =
         watchMode = opts |> Array.contains "--watch"
     }
     parseFiles projectPath outDir options
-    commandToRun |> Option.iter runCmd
+    commandToRun |> Option.iter runCmdAndExitIfFails
 
 let parseArguments (argv: string[]) =
     // TODO: more sophisticated argument parsing

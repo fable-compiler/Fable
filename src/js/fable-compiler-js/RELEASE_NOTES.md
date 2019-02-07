@@ -1,3 +1,7 @@
+### 1.0.0-alpha-014
+
+* End process with exit code -1 if --run fails
+
 ### 1.0.0-alpha-012
 
 * Fix argument parsing and update deps

@@ -39,7 +39,7 @@ let transformAndSaveBabelAst (babelAst: obj, fileName: string, outDir: string, c
 let initFable (): Fable.Repl.IFableManager =
     import "init" "./bundle/bundle.min.js"
 
-let runCmd (cmd: string): unit =
+let runCmdAndExitIfFails (cmd: string): unit =
     importMember "./util.js"
 
 let [<Emit("__dirname")>] __dirname: string = jsNative
