@@ -1,3 +1,7 @@
+### 2.2.0-beta-001
+
+* Use ncave slim service for F# compiler
+
 ### 2.1.12
 
 * Fix #1724: Handle nuspec files without dependency groups @inosik

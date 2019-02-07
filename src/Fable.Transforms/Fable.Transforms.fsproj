@@ -23,6 +23,9 @@
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../FCS/fcs-fable/fcs-fable.fsproj" />
+    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
+  <!-- <ItemGroup>
+    <ProjectReference Include="../FCS/fcs-fable/fcs-fable.fsproj" />
+  </ItemGroup> -->
 </Project>

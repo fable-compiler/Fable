@@ -38,12 +38,12 @@ type CrackedFsproj =
 let makeProjectOptions project sources otherOptions: FSharpProjectOptions =
     { ProjectId = None
       ProjectFileName = project
-      SourceFiles = sources
-      OtherOptions = otherOptions
+      SourceFiles = [||]
+      OtherOptions = Array.append otherOptions sources
       ReferencedProjects = [| |]
       IsIncompleteTypeCheckEnvironment = false
       UseScriptResolutionRules = false
-      LoadTime = DateTime.Now
+      LoadTime = System.DateTime.MaxValue
       UnresolvedReferences = None
       OriginalLoadReferences = []
       ExtraProjectInfo = None
@@ -77,12 +77,14 @@ let getBasicCompilerArgs (define: string[]) =
         for constant in define do
             yield "--define:" + constant
         yield "--optimize-"
+        // yield "--nowarn:NU1603,NU1604,NU1605,NU1608"
+        // yield "--warnaserror:76"
         yield "--warn:3"
         yield "--fullpaths"
         yield "--flaterrors"
         yield "--target:library"
 #if !NETFX
-        yield "--targetprofile:netcore"
+        yield "--targetprofile:netstandard"
 #endif
     |]
 
@@ -393,8 +395,20 @@ let getFullProjectOpts (define: string[]) (rootDir: string) (projFile: string) =
             if file.EndsWith(".fs") && not(File.Exists(file)) then
                 failwithf "File does not exist: %s" file
         let otherOptions =
-            // We only keep dllRefs for the main project
-            let dllRefs = [| for r in mainProj.DllReferences -> "-r:" + r |]
+            let dllRefs =
+                // We only keep dllRefs for the main project
+                mainProj.DllReferences
+                // We can filter out system references not needed for Fable projects
+                // though it doesn't seem to improve startup time too much
+                |> Seq.filter (fun path ->
+                    match IO.Path.GetFileNameWithoutExtension(path) with
+                    | "WindowsBase" -> false
+                    | Naming.StartsWith "Microsoft." _ -> false
+                    | (Naming.StartsWith "System." _) as name
+                        when not(Literals.SYSTEM_CORE_REFERENCES.Contains name) -> false
+                    | _ -> true)
+                |> Seq.map (fun r -> "-r:" + r)
+                |> Seq.toArray
             let otherOpts = mainProj.OtherCompilerOptions |> Array.ofList
             [ getBasicCompilerArgs define
               otherOpts

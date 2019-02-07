@@ -20,6 +20,9 @@
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.20.0" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
   </ItemGroup>
