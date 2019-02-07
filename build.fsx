@@ -1,3 +1,4 @@
+#r "node_modules/fable-compiler-js/lib/Fable.Core.dll"
 #load "src/fable-publish-utils/PublishUtils.fs"
 open PublishUtils
 open System

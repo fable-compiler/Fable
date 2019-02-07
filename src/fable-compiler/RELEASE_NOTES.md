@@ -1,3 +1,7 @@
+### 2.2.0-beta-002
+
+* Fix fable-library
+
 ### 2.2.0-beta-001
 
 * Use ncave slim service for F# compiler
