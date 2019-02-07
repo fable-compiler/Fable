@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <FSharpSourcesRoot>$(MSBuildProjectDirectory)/../src</FSharpSourcesRoot>
+    <FSharpSourcesRoot>$(MSBuildProjectDirectory)/src</FSharpSourcesRoot>
   </PropertyGroup>
 
   <PropertyGroup>
