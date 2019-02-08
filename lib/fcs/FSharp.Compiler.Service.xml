@@ -29750,7 +29750,7 @@ Special cases where representation uses Lambda.
  Capture information about an interface in ASTs
 </summary>
 </member>
-<member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.InteractiveChecker.ParseAndCheckProject(System.String,System.String[],System.String[])">
+<member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.InteractiveChecker.ParseAndCheckProject(System.String,System.String[],Microsoft.FSharp.Core.FSharpFunc{System.String,System.Tuple{System.Int32,System.Lazy{System.String}}})">
 <summary>
  Parses and checks the whole project, good for compilers (Fable etc.)
  Does not retain name resolutions and symbol uses which are quite memory hungry (so no intellisense etc.).
