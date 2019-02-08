@@ -120,6 +120,8 @@ let tryGetFablePackage (dllPath: string) =
         with _ -> None
     let firstWithName localName (els: XElement seq) =
         els |> Seq.find (fun x -> x.Name.LocalName = localName)
+    let tryFirstWithName localName (els: XElement seq) =
+        els |> Seq.tryFind (fun x -> x.Name.LocalName = localName)
     let elements (el: XElement) =
         el.Elements()
     let attr name (el: XElement) =
@@ -132,6 +134,10 @@ let tryGetFablePackage (dllPath: string) =
     else
         let rootDir = IO.Path.Combine(IO.Path.GetDirectoryName(dllPath), "..", "..")
         let fableDir = IO.Path.Combine(rootDir, "fable")
+        let firstGroupOrAllDependencies (dependencies: XElement seq) =
+            match tryFirstWithName "group" dependencies with
+            | Some firstGroup -> elements firstGroup
+            | None -> dependencies
         match tryFileWithPattern rootDir "*.nuspec",
               tryFileWithPattern fableDir "*.fsproj" with
         | Some nuspecPath, Some fsprojPath ->
@@ -146,7 +152,7 @@ let tryGetFablePackage (dllPath: string) =
                 metadata.Elements()
                 |> firstWithName "dependencies" |> elements
                 // We don't consider different frameworks
-                |> firstWithName "group" |> elements
+                |> firstGroupOrAllDependencies
                 |> Seq.map (attr "id")
                 |> Seq.filter (isSystemPackage >> not)
                 |> Set
