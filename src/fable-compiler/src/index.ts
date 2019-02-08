@@ -4,7 +4,7 @@ import { spawn } from "child_process";
 import * as path from "path";
 import * as readline from "readline";
 
-const BIN_PATH = path.join(__dirname, "../bin/fable-compiler/Fable.Compiler.dll");
+const BIN_PATH = path.join(__dirname, "../bin/fable-cli/Fable.Cli.dll");
 
 // From https://gist.github.com/LeverOne/1308368
 /* tslint:disable:no-bitwise */

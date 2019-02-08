@@ -1,3 +1,7 @@
+### 2.2.0-beta-004
+
+* Fix dotnet assembly name
+
 ### 2.2.0-beta-002
 
 * Fix fable-library
