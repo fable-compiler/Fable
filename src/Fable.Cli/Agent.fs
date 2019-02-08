@@ -57,9 +57,7 @@ let readAllText path =
 
 let getSourceFiles (opts: FSharpProjectOptions) =
     opts.OtherOptions |> Array.choose (fun path ->
-        // TODO: Dotnet.ProjInfo seems to not resolve well paths for .fsi files. Report?
-        // For now, ignore them, though ncave said they're sometimes necessary for compilation
-        if not(path.StartsWith("-")) && path.EndsWith(".fs") then
+        if not(path.StartsWith("-")) then
             // These should be already normalized, but just in case
             // TODO: We should add a NormalizedFullPath type so we don't need normalize everywhere
             Path.normalizeFullPath path |> Some
