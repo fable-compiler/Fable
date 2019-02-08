@@ -1,4 +1,4 @@
-module Fable.Repl.Metadata
+module Fable.Standalone.Metadata
 
 let references_core = [|
     "Fable.Core"

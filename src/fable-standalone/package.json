@@ -1,0 +1,21 @@
+{
+  "name": "fable-standalone",
+  "version": "1.0.0-alpha-000",
+  "main": "index.js",
+  "description": "Fable compiler",
+  "keywords": [
+    "fable",
+    "fsharp",
+    "F#"
+  ],
+  "author": "ncave",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fable-compiler/Fable.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fable-compiler/Fable/issues"
+  },
+  "homepage": "https://github.com/fable-compiler/Fable#readme"
+}

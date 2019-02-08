@@ -1,6 +1,6 @@
 {
   "exclude": [
-    "splitter.config.js"
+    "../splitter.config.js"
   ],
   "compilerOptions": {
     /* Basic Options */

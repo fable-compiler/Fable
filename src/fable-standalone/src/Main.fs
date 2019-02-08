@@ -1,4 +1,4 @@
-module Fable.Repl.Main
+module Fable.Standalone.Main
 
 open System
 open Fable.AST

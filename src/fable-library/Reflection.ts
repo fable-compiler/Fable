@@ -3,9 +3,7 @@ import { compareArraysWith, equalArraysWith } from "./Util";
 
 export type FieldInfo = [string, TypeInfo];
 
-export interface Constructor {
-  new(...args: any[]): any;
-}
+export type Constructor = new(...args: any[]) => any;
 
 export class CaseInfo {
   constructor(public declaringType: TypeInfo,

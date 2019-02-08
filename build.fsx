@@ -22,18 +22,16 @@ let buildTypescript projectDir =
     // run ("npx tslint --project " + projectDir)
     run ("npx tsc --project " + projectDir)
 
+let buildSplitter projectDir =
+    run ("npx fable-splitter -c " + (projectDir </> "splitter.config.js"))
+
+let buildWebpack projectDir =
+    run ("npx webpack --config " + (projectDir </> "webpack.config.js"))
+
 let buildLibrary() =
     cleanDirs ["build/fable-library"]
     buildTypescript "src/fable-library"
-    run "npx fable-splitter -c src/fable-library/splitter.config.js"
-
-let test() =
-    if pathExists "build/fable-library" |> not then
-        buildLibrary()
-
-    cleanDirs ["build/tests"]
-    run "npx fable-splitter -c tests/splitter.config.js"
-    run "npx mocha build/tests --reporter dot -t 10000"
+    buildSplitter "src/fable-library"
 
 let buildCompiler() =
     let projectDir = "src/fable-compiler"
@@ -45,6 +43,48 @@ let buildCompiler() =
     buildLibrary()
     copyDirRecursive "build/fable-library" (projectDir </> "bin/fable-library")
 
+let buildStandalone() =
+    let projectDir = "src/fable-standalone"
+    cleanDirs [projectDir </> "dist"; projectDir </> "out"]
+
+    buildSplitter projectDir
+    buildWebpack projectDir
+    fileSizeInBytes (projectDir </> "dist/fable-standalone.min.js") / 1000
+    |> printfn "fable-standalone bundle size: %iKB"
+
+    // Put fable-library files next to bundle
+    let libraryTarget = projectDir </> "dist/fable-library"
+    copyDirRecursive "build/fable-library" libraryTarget
+    // These files will be used in the browser, so make sure the import paths include .js extension
+    let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
+    dirFiles libraryTarget
+    |> Array.filter (fun file -> file.EndsWith(".js"))
+    |> Array.iter (fun file ->
+        reg.Replace(readFile file, "import $1.js$2")
+        |> writeFile file)
+
+    // Bump version
+    let compilerVersion = Publish.loadReleaseVersion "src/fable-compiler"
+    let standaloneVersion = Publish.loadNpmVersion projectDir
+    let (comMajor, comMinor, _, comPrerelease) = Publish.splitVersion compilerVersion
+    let (staMajor, staMinor, staPatch, _) = Publish.splitVersion standaloneVersion
+    Publish.bumpNpmVersion projectDir
+        (if comMajor > staMajor || comMinor > staMinor then compilerVersion
+         else sprintf "%i.%i.%i%s" staMajor staMinor (staPatch + 1) comPrerelease)
+
+let test() =
+    if pathExists "build/fable-library" |> not then
+        buildLibrary()
+
+    cleanDirs ["build/tests"]
+    buildSplitter "tests"
+    run "npx mocha build/tests --reporter dot -t 10000"
+
+    if environVarOrNone "APPVEYOR" |> Option.isSome then
+        runInDir "tests/Main" "dotnet run"
+        buildStandalone()
+
+
 match args with
 | IgnoreCase "test"::_ ->
     test()
@@ -54,6 +94,9 @@ match args with
 
 | IgnoreCase "compiler"::_ ->
     buildCompiler()
+
+| IgnoreCase "standalone"::_ ->
+    buildStandalone()
 
 | IgnoreCase "publish"::project ->
     match project with
