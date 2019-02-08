@@ -22,9 +22,13 @@ const fableOptions = {
 };
 
 module.exports = {
-  entry: path.join(__dirname, "./Fable.Repl.fsproj"),
-  outDir: path.join(__dirname, "./out"),
-  // port: 61225,
+  cli: { path: resolve("../Fable.Cli") },
+  entry: resolve("./src/Fable.Standalone.fsproj"),
+  outDir: resolve("./out"),
   babel: babelOptions,
   fable: fableOptions,
 };
+
+function resolve(p) {
+  return path.join(__dirname, p);
+}

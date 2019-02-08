@@ -1,4 +1,4 @@
-namespace Fable.Repl
+namespace Fable.Standalone
 
 open Fable.Core
 

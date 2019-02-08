@@ -15,7 +15,7 @@
   },
   "rules": {
     "interface-name": [false],
-    "max-classes-per-file": [false],
+    "max-classes-per-file": [false, 100],
     "no-bitwise": false,
     "no-shadowed-variable": false,
     "object-literal-sort-keys": false,

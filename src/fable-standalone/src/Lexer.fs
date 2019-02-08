@@ -1,3 +1,4 @@
+/// Adapted from https://github.com/fsharp/FsAutoComplete/blob/b692de86d63f8bc3d70763805da80a624cb6920b/src/FsAutoComplete.Core/Lexer.fs
 module FsAutoComplete.Lexer
 
 open Microsoft.FSharp.Compiler.SourceCodeServices

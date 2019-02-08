@@ -82,6 +82,9 @@ let dirFiles (p: string): string[] =
 let isDirectory (p: string): bool =
     fs?lstatSync(p)?isDirectory()
 
+let fileSizeInBytes (p: string): int =
+    fs?lstatSync(p)?size
+
 let pathExists (p: string): bool =
     fs?existsSync(p)
 
@@ -208,8 +211,7 @@ let replaceRegex (pattern: string) (replacement: string list) (input: string) =
 module Publish =
     let NUGET_VERSION = @"(<Version>)(.*?)(<\/Version>)"
     let NUGET_PACKAGE_VERSION = @"(<PackageVersion>)(.*?)(<\/PackageVersion>)"
-    let NPM_VERSION = @"""version"":\s*""(.*?)"""
-    let VERSION = @"\d+\.\d+\.\d+\S*"
+    let VERSION = @"(\d+)\.(\d+)\.(\d+)(\S*)"
 
     let splitPrerelease (version: string) =
         let i = version.IndexOf("-")
@@ -231,8 +233,23 @@ module Publish =
         let projDir = if isDirectory projFile then projFile else dirname projFile
         let releaseNotes = findFileUpwards "RELEASE_NOTES.md" projDir
         match readFile releaseNotes with
-        | Regex VERSION [version] -> version
+        | Regex VERSION (version::_) -> version
         | _ -> failwithf "Couldn't find version in %s" releaseNotes
+
+    let loadNpmVersion projDir =
+        let json =
+            projDir </> "package.json"
+            |> readFile
+            |> Fable.Import.JS.JSON.parse
+        json?version
+
+    let bumpNpmVersion projDir newVersion =
+        runInDir projDir ("npm version " + newVersion)
+
+    // Returns (major, minor, patch, rest)
+    let splitVersion = function
+        | Regex VERSION [_;major;minor;patch;rest] -> (int major, int minor, int patch, rest)
+        | s -> failwithf "Input doesn't match VERSION pattern: %s" s
 
     let needsPublishing (checkPkgVersion: string->string option) (releaseVersion: string) projFile =
         let print msg =
@@ -289,12 +306,11 @@ module Publish =
                 reraise()
 
     let pushNpm (projDir: string) =
-        let checkPkgVersion = function
-            | Regex NPM_VERSION [_;pkgVersion] -> Some pkgVersion
-            | _ -> None
+        let checkPkgVersion json: string option =
+            (Fable.Import.JS.JSON.parse json)?version |> Option.ofObj
         let releaseVersion = loadReleaseVersion projDir
         if needsPublishing checkPkgVersion releaseVersion (projDir </> "package.json") then
-            runInDir projDir ("npm version " + releaseVersion)
+            bumpNpmVersion projDir releaseVersion
             try
                 let publishCmd =
                     match splitPrerelease releaseVersion with
@@ -330,7 +346,7 @@ let installDotnetSdk() =
                 sprintf "dotnet-sdk-%s-linux-x64.tar.gz" sdkVersion
             else
                 sprintf "dotnet-sdk-%s-osx-x64.tar.gz" sdkVersion
-        let downloadPath = sprintf "https://dotnetcli.blob.core.windows.net/dotnet/Sdk/%s/%s" sdkVersion archiveFileName
+        let _downloadPath = sprintf "https://dotnetcli.blob.core.windows.net/dotnet/Sdk/%s/%s" sdkVersion archiveFileName
         failwith "TODO: download and unzip"
         // downloadSDK downloadPath archiveFileName
         // addToEnvPath dotnetExe
