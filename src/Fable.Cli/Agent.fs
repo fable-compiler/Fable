@@ -10,9 +10,21 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open ProjectCracker
 
-type File(normalizedFullPath: string, content: string) =
+/// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
+let readAllText path =
+    use fileStream = new IO.FileStream(path, IO.FileMode.Open, IO.FileAccess.Read, IO.FileShare.ReadWrite)
+    use textReader = new IO.StreamReader(fileStream)
+    textReader.ReadToEnd()
+
+type File(normalizedFullPath: string) =
+    let mutable sourceHash = None
     member __.NormalizedFullPath = normalizedFullPath
-    member __.Content = content
+    member __.ReadSource() =
+        match sourceHash with
+        | Some h -> h, lazy readAllText normalizedFullPath
+        | None ->
+            let source = readAllText normalizedFullPath
+            hash source, lazy source
 
 /// Fable.Transforms.State.Project plus some properties only used here
 type ProjectExtra(project: Project, checker: InteractiveChecker,
@@ -34,26 +46,6 @@ type ProjectExtra(project: Project, checker: InteractiveChecker,
             file = file2.NormalizedFullPath)
     static member Create checker sourceFiles triggerFile fableLibraryDir project =
         ProjectExtra(project, checker, sourceFiles, triggerFile, fableLibraryDir)
-
-/// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
-let readAllText path =
-    use fileStream = new IO.FileStream(path, IO.FileMode.Open, IO.FileAccess.Read, IO.FileShare.ReadWrite)
-    use textReader = new IO.StreamReader(fileStream)
-    textReader.ReadToEnd()
-
-// let private dllCache = System.Collections.Concurrent.ConcurrentDictionary<string, byte[]>()
-
-// // The InteractiveChecker expects only the file name without the .dll extension
-// let makeReadAllBytes (dllPaths: string[]) =
-//     // TODO: Temporary fix, what to do if two assemblies have the same name?
-//     let dllNamesDic =
-//         dllPaths |> Array.map (fun dllPath ->
-//             IO.Path.GetFileNameWithoutExtension(dllPath), dllPath) |> dict
-//     dllNamesDic.Keys |> Array.ofSeq,
-//     fun (path: string) ->
-//         // The InteractiveChecker adds the .dll extenstion at this point
-//         let path = dllNamesDic.[path.[..(path.Length-5)]]
-//         dllCache.GetOrAdd(path, fun _ -> IO.File.ReadAllBytes path)
 
 let getSourceFiles (opts: FSharpProjectOptions) =
     opts.OtherOptions |> Array.choose (fun path ->
@@ -102,9 +94,10 @@ let checkProject (msg: Parser.Message)
                  (checker: InteractiveChecker) =
     Log.logAlways(sprintf "Parsing %s..." (getRelativePath opts.ProjectFileName))
     let checkedProject =
-        let filePaths, fileContents =
-            srcFiles |> Array.map (fun file -> (file.NormalizedFullPath, file.Content)) |> Array.unzip
-        checker.ParseAndCheckProject(opts.ProjectFileName, filePaths, fileContents)
+        let fileDic = srcFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
+        let sourceReader f = fileDic.[f].ReadSource()
+        let filePaths = srcFiles |> Array.map (fun file -> file.NormalizedFullPath)
+        checker.ParseAndCheckProject(opts.ProjectFileName, filePaths, sourceReader)
     // checkFableCoreVersion checkedProject
     let optimized = GlobalParams.Singleton.Experimental.Contains("optimize-fcs")
     let implFiles =
@@ -135,7 +128,7 @@ let createProject (msg: Parser.Message) projFile (prevProject: ProjectExtra opti
                     else
                         let isDirty = IO.File.GetLastWriteTime(path) > proj.TimeStamp
                         someDirtyFiles <- someDirtyFiles || isDirty
-                        if isDirty then File(path, readAllText path)
+                        if isDirty then File(path) // Clear the cached source hash
                         else file)
             if someDirtyFiles then
                 checkProject msg proj.ProjectOptions proj.LibraryDir msg.path sourceFiles proj.Checker
@@ -147,9 +140,7 @@ let createProject (msg: Parser.Message) projFile (prevProject: ProjectExtra opti
             let proj = getRelativePath projectOptions.ProjectFileName
             let opts = projectOptions.OtherOptions |> String.concat "\n   "
             sprintf "F# PROJECT: %s\n   %s" proj opts)
-        let sourceFiles =
-            getSourceFiles projectOptions
-            |> Array.map (fun path -> File(path, readAllText path))
+        let sourceFiles = getSourceFiles projectOptions |> Array.map File
         InteractiveChecker.Create(projectOptions)
         |> checkProject msg projectOptions fableLibraryDir projFile sourceFiles
 
@@ -228,7 +219,7 @@ let updateState (state: Map<string,ProjectExtra>) (msg: Parser.Message) =
 let addFSharpErrorLogs (com: ICompiler) (proj: ProjectExtra) =
     proj.Errors |> Seq.filter (fun er ->
         let skip =
-            // If the trigger file is the .fsproj reports errors in the corresponding file.
+            // If the trigger file is the .fsproj report errors in the corresponding file.
             // If another file triggers the compilation (as in watch mode) reports errors there so they don't go missing
             if proj.TriggerFile.EndsWith(".fsproj") then
                 er.FileName <> com.CurrentFile
