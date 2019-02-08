@@ -24,7 +24,9 @@ type File(normalizedFullPath: string) =
         | Some h -> h, lazy readAllText normalizedFullPath
         | None ->
             let source = readAllText normalizedFullPath
-            hash source, lazy source
+            let h = hash source
+            sourceHash <- Some h
+            h, lazy source
 
 /// Fable.Transforms.State.Project plus some properties only used here
 type ProjectExtra(project: Project, checker: InteractiveChecker,

@@ -80,9 +80,8 @@ let test() =
     buildSplitter "tests"
     run "npx mocha build/tests --reporter dot -t 10000"
 
-    if environVarOrNone "APPVEYOR" |> Option.isSome then
-        runInDir "tests/Main" "dotnet run"
-        buildStandalone()
+    runInDir "tests/Main" "dotnet run"
+    buildStandalone()
 
 
 match args with
