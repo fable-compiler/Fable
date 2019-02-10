@@ -37,7 +37,7 @@ let transformAndSaveBabelAst (babelAst: obj, fileName: string, outDir: string, c
     importMember "./util.js"
 
 let initFable (): Fable.Standalone.IFableManager =
-    import "init" "./bundle/bundle.min.js"
+    import "init" "./bundle/fable-standalone.min.js"
 
 let runCmdAndExitIfFails (cmd: string): unit =
     importMember "./util.js"

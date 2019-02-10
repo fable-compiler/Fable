@@ -72,6 +72,22 @@ let buildStandalone() =
         (if comMajor > staMajor || comMinor > staMinor then compilerVersion
          else sprintf "%i.%i.%i%s" staMajor staMinor (staPatch + 1) comPrerelease)
 
+let buildCompilerJs() =
+    if pathExists "build/fable-library" |> not then
+        buildLibrary()
+    let replDir = "src/fable-standalone/dist"
+    let projDir = "src/fable-compiler-js/src"
+    let distDir = "src/fable-compiler-js/dist"
+    let metaDir = "src/fable-metadata"
+    if pathExists replDir |> not then
+        buildStandalone()
+    cleanDirs [distDir]
+    copyDirRecursive replDir (distDir </> "bundle")
+    copyDirRecursive metaDir (distDir </> ".." </> "lib")
+    run (sprintf "npx babel %s --out-dir %s --plugins @babel/plugin-transform-modules-commonjs --quiet"
+            (replDir </> "fable-library") (distDir </> "fable-library-commonjs"))
+    buildSplitter projDir
+
 let test() =
     if pathExists "build/fable-library" |> not then
         buildLibrary()
@@ -94,6 +110,9 @@ match args with
 
 | IgnoreCase "compiler"::_ ->
     buildCompiler()
+
+| IgnoreCase "compiler-js"::_ ->
+    buildCompilerJs()
 
 | IgnoreCase "standalone"::_ ->
     buildStandalone()
