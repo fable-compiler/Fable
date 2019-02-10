@@ -82,6 +82,15 @@ let dirFiles (p: string): string[] =
 let isDirectory (p: string): bool =
     fs?lstatSync(p)?isDirectory()
 
+let getFullPathsInDirectoryRecursively (p: string) =
+    let rec inner p =
+        [| for file in dirFiles p do
+            let file = p </> file
+            if isDirectory file then
+                yield! inner file
+            else yield file |]
+    inner p
+
 let fileSizeInBytes (p: string): int =
     fs?lstatSync(p)?size
 

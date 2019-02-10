@@ -45,9 +45,15 @@ module System =
                         new IEqualityComparer<'TKey> with
                             member __.GetHashCode(x) = x.GetHashCode()
                             member __.Equals(x, y) = x.Equals(y) }
-                member x.TryAdd (key:'TKey, value:'TValue) = x.[key] <- value; true
+                member x.TryAdd (key:'TKey, value:'TValue) =
+                    x.[key] <- value
+                    true
+                member x.TryRemove (key:'TKey) =
+                    let res = x.TryGetValue(key)
+                    x.Remove(key) |> ignore
+                    res
                 member x.GetOrAdd (key:'TKey, valueFactory: 'TKey -> 'TValue): 'TValue =
-                    match x.TryGetValue key with
+                    match x.TryGetValue(key) with
                     | true, v -> v
                     | false, _ -> let v = valueFactory(key) in x.[key] <- v; v
 

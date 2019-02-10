@@ -2,10 +2,10 @@ module Fable.Transforms.State
 
 open Fable
 open System
+open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 #if FABLE_COMPILER
-open  System.Collections.Generic
 
 type Dictionary<'TKey, 'TValue> with
     member x.GetOrAdd (key, valueFactory) =
@@ -23,15 +23,14 @@ open System.Collections.Concurrent
 #endif
 
 type Project(projectOptions: FSharpProjectOptions,
-             implFiles: Map<string, FSharpImplementationFileContents>,
+             implFiles: IDictionary<string, FSharpImplementationFileContents>,
              errors: FSharpErrorInfo array) =
     let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let rootModules =
-        implFiles
-        |> Map.filter (fun file _ -> not(file.EndsWith(".fsi")))
-        |> Map.map (fun _ file -> FSharp2Fable.Compiler.getRootModuleFullName file)
+        implFiles |> Seq.map (fun kv ->
+            kv.Key, FSharp2Fable.Compiler.getRootModuleFullName kv.Value) |> dict
     member __.ImplementationFiles = implFiles
     member __.RootModules = rootModules
     member __.InlineExprs = inlineExprs
@@ -82,9 +81,9 @@ type Compiler(currentFile, project: Project, options, fableLibraryDir: string) =
         member __.CurrentFile = currentFile
         member x.GetRootModule(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
-            match Map.tryFind fileName project.RootModules with
-            | Some rootModule -> rootModule
-            | None ->
+            match project.RootModules.TryGetValue(fileName) with
+            | true, rootModule -> rootModule
+            | false, _ ->
                 let msg = sprintf "Cannot find root module for %s" fileName
                 (x :> ICompiler).AddLog(msg, Severity.Warning)
                 "" // failwith msg

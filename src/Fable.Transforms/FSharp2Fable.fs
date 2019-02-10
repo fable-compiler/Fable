@@ -964,7 +964,7 @@ let private getRootModuleAndDecls decls =
         | decls -> outerEnt, decls
     getRootModuleAndDeclsInner None decls
 
-let private tryGetMemberArgsAndBody com (implFiles: Map<string, FSharpImplementationFileContents>)
+let private tryGetMemberArgsAndBody com (implFiles: IDictionary<string, FSharpImplementationFileContents>)
                                     fileName entityFullName memberUniqueName =
     let rec tryGetMemberArgsAndBodyInner (entityFullName: string) (memberUniqueName: string) = function
         | FSharpImplementationFileDeclaration.Entity (e, decls) ->
@@ -977,11 +977,11 @@ let private tryGetMemberArgsAndBody com (implFiles: Map<string, FSharpImplementa
             then Some(args, body)
             else None
         | FSharpImplementationFileDeclaration.InitAction _ -> None
-    Map.tryFind fileName implFiles
-    |> Option.bind (fun f ->
-        f.Declarations |> List.tryPick (tryGetMemberArgsAndBodyInner entityFullName memberUniqueName))
+    match implFiles.TryGetValue(fileName) with
+    | true, f -> f.Declarations |> List.tryPick (tryGetMemberArgsAndBodyInner entityFullName memberUniqueName)
+    | false, _ -> None
 
-type FableCompiler(com: ICompiler, implFiles: Map<string, FSharpImplementationFileContents>) =
+type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplementationFileContents>) =
     member val UsedVarNames = HashSet<string>()
     member val InlineDependencies = HashSet<string>()
     member __.Options = com.Options
@@ -1045,12 +1045,12 @@ let getRootModuleFullName (file: FSharpImplementationFileContents) =
     | Some rootEnt -> getEntityFullName rootEnt
     | None -> ""
 
-let transformFile (com: ICompiler) (implFiles: Map<string, FSharpImplementationFileContents>) =
+let transformFile (com: ICompiler) (implFiles: IDictionary<string, FSharpImplementationFileContents>) =
     try
         let file =
-            match Map.tryFind com.CurrentFile implFiles with
-            | Some file -> file
-            | None ->
+            match implFiles.TryGetValue(com.CurrentFile) with
+            | true, file -> file
+            | false, _ ->
                 let projFiles = implFiles |> Seq.map (fun kv -> kv.Key) |> String.concat "\n"
                 failwithf "File %s cannot be found in source list:\n%s" com.CurrentFile projFiles
         let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations

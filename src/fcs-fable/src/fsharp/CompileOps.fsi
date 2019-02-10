@@ -85,6 +85,8 @@ val SplitRelatedDiagnostics: PhasedDiagnostic -> PhasedDiagnostic * PhasedDiagno
 /// Output an error to a buffer
 val OutputPhasedDiagnostic: StringBuilder -> PhasedDiagnostic -> flattenErrors: bool -> unit
 
+#if !FABLE_COMPILER
+
 /// Output an error or warning to a buffer
 val OutputDiagnostic: implicitIncludeDir:string * showFullPaths: bool * flattenErrors: bool * errorStyle: ErrorStyle *  isError:bool -> StringBuilder -> PhasedDiagnostic -> unit
 
@@ -121,6 +123,8 @@ type Diagnostic =
 
 /// Part of LegacyHostedCompilerForTesting
 val CollectDiagnostic: implicitIncludeDir:string * showFullPaths: bool * flattenErrors: bool * errorStyle: ErrorStyle *  warning:bool * PhasedDiagnostic -> seq<Diagnostic>
+
+#endif //!FABLE_COMPILER
 
 //----------------------------------------------------------------------------
 // Resolve assembly references 
@@ -386,7 +390,9 @@ type TcConfigBuilder =
         tryGetMetadataSnapshot: ILReaderTryGetMetadataSnapshot 
           -> TcConfigBuilder
 
+#if !FABLE_COMPILER
     member DecideNames: string list -> outfile: string * pdbfile: string option * assemblyName: string 
+#endif //!FABLE_COMPILER
     member TurnWarningOff: range * string -> unit
     member TurnWarningOn: range * string -> unit
     member AddIncludePath: range * string * string -> unit
@@ -514,6 +520,7 @@ type TcConfig =
     member isInteractive: bool
     member isInvalidationSupported: bool 
 
+#if !FABLE_COMPILER
 
     member ComputeLightSyntaxInitialStatus: string -> bool
     member GetTargetFrameworkDirectories: unit -> string list
@@ -529,9 +536,14 @@ type TcConfig =
     /// File system query based on TcConfig settings
     member MakePathAbsolute: string -> string
 
+#endif //!FABLE_COMPILER
+
+    member emitDebugInfoInQuotations: bool
     member copyFSharpCore: CopyFSharpCoreFlag
     member shadowCopyReferences: bool
     static member Create: TcConfigBuilder * validate: bool -> TcConfig
+
+#if !FABLE_COMPILER
 
 /// Represents a computation to return a TcConfig. Normally this is just a constant immutable TcConfig,
 /// but for F# Interactive it may be based on an underlying mutable TcConfigBuilder.
@@ -546,6 +558,8 @@ type TcConfigProvider =
     /// Get a TcConfigProvider which will continue to respect changes in the underlying
     /// TcConfigBuilder rather than delivering snapshots.
     static member BasedOnMutableBuilder: TcConfigBuilder -> TcConfigProvider
+
+#endif //!FABLE_COMPILER
 
 //----------------------------------------------------------------------------
 // Tables of referenced DLLs 
@@ -577,6 +591,20 @@ type ImportedAssembly =
 #endif
       FSharpOptimizationData: Lazy<Option<Optimizer.LazyModuleInfo>> }
 
+#if FABLE_COMPILER
+
+/// trimmed-down version of TcImports
+[<Sealed>] 
+type TcImports =
+    internal new: unit -> TcImports
+    member FindCcu: range * string -> CcuThunk option
+    member SetTcGlobals: TcGlobals -> unit
+    member GetTcGlobals: unit -> TcGlobals
+    member SetCcuMap: Map<string, ImportedAssembly> -> unit
+    member GetImportedAssemblies: unit -> ImportedAssembly list
+    member GetImportMap: unit -> Import.ImportMap
+
+#else //!FABLE_COMPILER
 
 [<Sealed>] 
 type TcAssemblyResolutions = 
@@ -627,6 +655,8 @@ type TcImports =
     static member BuildNonFrameworkTcImports  : CompilationThreadToken * TcConfigProvider * TcGlobals * TcImports * AssemblyResolution list * UnresolvedAssemblyReference list -> Cancellable<TcImports>
     static member BuildTcImports              : CompilationThreadToken * TcConfigProvider -> Cancellable<TcGlobals * TcImports>
 
+#endif //!FABLE_COMPILER
+
 //----------------------------------------------------------------------------
 // Special resources in DLLs
 //--------------------------------------------------------------------------
@@ -640,6 +670,9 @@ val IsOptimizationDataResource: ILResource -> bool
 /// Determine if an IL resource attached to an F# assembly is an F# quotation data resource for reflected definitions
 val IsReflectedDefinitionsResource: ILResource -> bool
 val GetSignatureDataResourceName: ILResource -> string
+val GetOptimizationDataResourceName: ILResource -> string
+
+#if !FABLE_COMPILER
 
 /// Write F# signature data as an IL resource
 val WriteSignatureData: TcConfig * TcGlobals * Tastops.Remap * CcuThunk * filename: string * inMem: bool -> ILResource
@@ -671,6 +704,8 @@ val ApplyMetaCommandsFromInputToTcConfig: TcConfig * Ast.ParsedInput * string ->
 /// Process the #nowarn in an input
 val ApplyNoWarnsToTcConfig: TcConfig * Ast.ParsedInput * string -> TcConfig
 
+#endif //!FABLE_COMPILER
+
 //----------------------------------------------------------------------------
 // Scoped pragmas
 //--------------------------------------------------------------------------
@@ -680,6 +715,8 @@ val GetScopedPragmasForInput: Ast.ParsedInput -> ScopedPragma list
 
 /// Get an error logger that filters the reporting of warnings based on scoped pragma information
 val GetErrorLoggerFilteringByScopedPragmas: checkFile:bool * ScopedPragma list * ErrorLogger  -> ErrorLogger
+
+#if !FABLE_COMPILER
 
 /// This list is the default set of references for "non-project" files. 
 val DefaultReferencesForScriptsAndOutOfProjectSources: bool -> string list
@@ -691,6 +728,8 @@ val DefaultReferencesForScriptsAndOutOfProjectSources: bool -> string list
 /// Parse one input file
 val ParseOneInputFile: TcConfig * Lexhelp.LexResourceManager * string list * string * isLastCompiland: (bool * bool) * ErrorLogger * (*retryLocked*) bool -> ParsedInput option
 
+#endif //!FABLE_COMPILER
+
 //----------------------------------------------------------------------------
 // Type checking and querying the type checking state
 //--------------------------------------------------------------------------
@@ -699,6 +738,7 @@ val ParseOneInputFile: TcConfig * Lexhelp.LexResourceManager * string list * str
 /// applying the InternalsVisibleTo in referenced assemblies and opening 'Checked' if requested.
 val GetInitialTcEnv: assemblyName: string * range * TcConfig * TcImports * TcGlobals -> TcEnv
                 
+
 [<Sealed>]
 /// Represents the incremental type checking state for a set of inputs
 type TcState =
@@ -796,6 +836,7 @@ type LoadClosure =
       /// Diagnostics seen while processing the compiler options implied root of closure
       LoadClosureRootFileDiagnostics: (PhasedDiagnostic * bool) list }   
 
+#if !FABLE_COMPILER
     /// Analyze a script text and find the closure of its references. 
     /// Used from FCS, when editing a script file.  
     //
@@ -806,3 +847,4 @@ type LoadClosure =
     /// Analyze a set of script files and find the closure of their references. The resulting references are then added to the given TcConfig.
     /// Used from fsi.fs and fsc.fs, for #load and command line. 
     static member ComputeClosureOfScriptFiles: CompilationThreadToken * tcConfig:TcConfig * (string * range) list * implicitDefines:CodeContext * lexResourceManager: Lexhelp.LexResourceManager -> LoadClosure
+#endif //!FABLE_COMPILER

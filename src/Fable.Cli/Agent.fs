@@ -107,7 +107,9 @@ let checkProject (msg: Parser.Message)
         then checkedProject.AssemblyContents.ImplementationFiles
         else checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
     let implFilesMap =
-        implFiles |> Seq.map (fun file -> (file.FileName, file)) |> Map
+        // Sometimes FCS seems to return the path of the signature file instead of the implementation
+        let reg = System.Text.RegularExpressions.Regex("\.fsi$")
+        implFiles |> Seq.map (fun file -> (reg.Replace(file.FileName, ".fs"), file)) |> dict
     tryGetOption "saveAst" msg.extra |> Option.iter (fun outDir ->
         Printers.printAst outDir implFiles)
     Project(opts, implFilesMap, checkedProject.Errors)
@@ -220,33 +222,12 @@ let updateState (state: Map<string,ProjectExtra>) (msg: Parser.Message) =
 
 let addFSharpErrorLogs (com: ICompiler) (proj: ProjectExtra) =
     proj.Errors |> Seq.filter (fun er ->
-        let skip =
-            // If the trigger file is the .fsproj report errors in the corresponding file.
-            // If another file triggers the compilation (as in watch mode) reports errors there so they don't go missing
-            if proj.TriggerFile.EndsWith(".fsproj") then
-                er.FileName <> com.CurrentFile
-            else proj.TriggerFile <> com.CurrentFile
-        match skip, er.Severity with
-        | true, _ -> false
-        | false, FSharpErrorSeverity.Error -> true
-        | false, FSharpErrorSeverity.Warning ->
-            // TODO: Check level and disabled warnings from project options
-            // From https://github.com/Microsoft/visualfsharp/blob/1bbb60a4ee1bfc1dd1a070d043f5fb012bf74bc4/src/fsharp/CompileOps.fs#L241-L393
-            match er.ErrorNumber with
-            // Level 5 warnings
-            | 21 // RecursiveUseCheckedAtRuntime
-            | 22 // LetRecEvaluatedOutOfOrder
-            | 45 // FullAbstraction
-            | 52 // DefensiveCopyWarning
-            | 1178 // tcNoComparisonNeeded/tcNoEqualityNeeded1
-
-            // Warnings off by default
-            | 1182 // chkUnusedValue - off by default
-            | 3218 // ArgumentsInSigAndImplMismatch - off by default
-            | 3180 // abImplicitHeapAllocation - off by default
-                -> false
-            // Level 2 warnings
-            | _ -> true)
+        // If the trigger file is the .fsproj report errors in the corresponding file.
+        // If another file triggers the compilation (as in watch mode) reports errors there so they don't go missing
+        if proj.TriggerFile.EndsWith(".fsproj") || er.Severity = FSharpErrorSeverity.Warning then
+            com.CurrentFile = er.FileName
+        else
+            com.CurrentFile = proj.TriggerFile)
     |> Seq.map (fun er ->
         let severity =
             match er.Severity with
