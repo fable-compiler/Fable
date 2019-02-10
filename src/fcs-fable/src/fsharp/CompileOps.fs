@@ -1810,9 +1810,13 @@ let OutputDiagnosticContext prefix fileLineFn os err =
             Printf.bprintf os "%s%s\n"   prefix line
             Printf.bprintf os "%s%s%s\n" prefix (String.make iA '-') (String.make iLen '^')
 
+#endif //!FABLE_COMPILER
+
 //----------------------------------------------------------------------------
 
 let GetFSharpCoreLibraryName () = "FSharp.Core"
+
+#if !FABLE_COMPILER
 
 // If necessary assume a reference to the latest .NET Framework FSharp.Core with which those tools are built.
 let GetDefaultFSharpCoreReference () = typeof<list<int>>.Assembly.Location
@@ -2024,8 +2028,11 @@ let BasicReferencesForScriptLoadClosure(useFsiAuxLib, assumeDotNetFramework) =
     DefaultReferencesForScriptsAndOutOfProjectSources(assumeDotNetFramework) @ 
     [ if useFsiAuxLib then yield GetFsiLibraryName () ]
 
+#endif //!FABLE_COMPILER
+
 let (++) x s = x @ [s]
 
+#if !FABLE_COMPILER
 
 
 //----------------------------------------------------------------------------
@@ -2097,7 +2104,6 @@ type ResolveAssemblyReferenceMode = Speculative | ReportErrors
 [<RequireQualifiedAccess>]
 type CopyFSharpCoreFlag = Yes | No
 
-#if !FABLE_COMPILER
 /// Represents the file or string used for the --version flag
 type VersionFlag = 
     | VersionString of string
@@ -2109,7 +2115,11 @@ type VersionFlag =
             IL.parseILVersion vstr
         with _ -> errorR(Error(FSComp.SR.buildInvalidVersionString(vstr), rangeStartup)); IL.parseILVersion "0.0.0.0"
 
-    member x.GetVersionString(implicitIncludeDir) = 
+    member x.GetVersionString(implicitIncludeDir: string) = 
+#if FABLE_COMPILER
+        ignore implicitIncludeDir
+        "0.0.0.0"
+#else
          match x with 
          | VersionString s -> s
          | VersionFile s ->
@@ -2120,7 +2130,6 @@ type VersionFlag =
                  use is = System.IO.File.OpenText s
                  is.ReadLine()
          | VersionNone -> "0.0.0.0"
-
 #endif //!FABLE_COMPILER
 
 /// Represents a reference to an assembly. May be backed by a real assembly on disk, or a cross-project
@@ -2231,8 +2240,6 @@ type ImportedAssembly =
 type AvailableImportedAssembly =
     | ResolvedImportedAssembly of ImportedAssembly
     | UnresolvedImportedAssembly of string
-
-#if !FABLE_COMPILER
 
 type CcuLoadFailureAction = 
     | RaiseError
@@ -2512,7 +2519,11 @@ type TcConfigBuilder =
           preferredUiLang = None
           lcid = None
           // See bug 6071 for product banner spec
+#if FABLE_COMPILER
+          productNameForBannerText = FSComp.SR.buildProductName("F#")
+#else
           productNameForBannerText = FSComp.SR.buildProductName(FSharpEnvironment.FSharpBannerVersion)
+#endif
           showBanner = true
           showTimes = false
           showLoadedAssemblies = false
@@ -2552,6 +2563,8 @@ type TcConfigBuilder =
             copyFSharpCore = defaultCopyFSharpCore
             tryGetMetadataSnapshot = tryGetMetadataSnapshot
         }
+
+#if !FABLE_COMPILER
 
     member tcConfigB.ResolveSourceFile(m, nm, pathLoadedFrom) = 
         use unwindBuildPhase = PushThreadBuildPhaseUntilUnwind BuildPhase.Parameter
@@ -2593,6 +2606,8 @@ type TcConfigBuilder =
         tcConfigB.outputFile <- Some(outfile)
         outfile, pdbfile, assemblyName
 
+#endif //!FABLE_COMPILER
+
     member tcConfigB.TurnWarningOff(m, s:string) =
         use unwindBuildPhase = PushThreadBuildPhaseUntilUnwind BuildPhase.Parameter
         match GetWarningNumber(m, s) with 
@@ -2613,7 +2628,13 @@ type TcConfigBuilder =
             tcConfigB.errorSeverityOptions <-
                 { tcConfigB.errorSeverityOptions with WarnOn = ListSet.insert (=) n tcConfigB.errorSeverityOptions.WarnOn }
 
-    member tcConfigB.AddIncludePath (m, path, pathIncludedFrom) = 
+    member tcConfigB.AddIncludePath (m:range, path:string, pathIncludedFrom:string) = 
+#if FABLE_COMPILER
+        ignore m
+        ignore path
+        ignore pathIncludedFrom
+        ()
+#else //!FABLE_COMPILER
         let absolutePath = ComputeMakePathAbsolute pathIncludedFrom path
         let ok = 
             let existsOpt = 
@@ -2626,8 +2647,15 @@ type TcConfigBuilder =
             | None -> false
         if ok && not (List.contains absolutePath tcConfigB.includes) then 
            tcConfigB.includes <- tcConfigB.includes ++ absolutePath
+#endif //!FABLE_COMPILER
 
     member tcConfigB.AddLoadedSource(m, path, pathLoadedFrom) =
+#if FABLE_COMPILER
+        ignore m
+        ignore path
+        ignore pathLoadedFrom
+        ()
+#else //!FABLE_COMPILER
         if FileSystem.IsInvalidPathShim(path) then
             warning(Error(FSComp.SR.buildInvalidFilename(path), m))    
         else 
@@ -2639,6 +2667,7 @@ type TcConfigBuilder =
                     ComputeMakePathAbsolute pathLoadedFrom path
             if not (List.contains path (List.map snd tcConfigB.loadedSources)) then 
                 tcConfigB.loadedSources <- tcConfigB.loadedSources ++ (m, path)
+#endif //!FABLE_COMPILER
 
     member tcConfigB.AddEmbeddedSourceFile (file) = 
         tcConfigB.embedSourceList <- tcConfigB.embedSourceList ++ file
@@ -2673,6 +2702,7 @@ type TcConfigBuilder =
         else 
             ri, fileNameOfPath ri, ILResourceAccess.Public 
 
+#if !FABLE_COMPILER
 
 let OpenILBinary(filename, reduceMemoryUsage, ilGlobals, pdbDirPath, shadowCopyReferences, tryGetMetadataSnapshot) =
       let opts : ILReaderOptions = 
@@ -2697,6 +2727,8 @@ let OpenILBinary(filename, reduceMemoryUsage, ilGlobals, pdbDirPath, shadowCopyR
             filename
       AssemblyReader.GetILModuleReader(location, opts)
 
+#endif //!FABLE_COMPILER
+
 #if DEBUG
 [<System.Diagnostics.DebuggerDisplayAttribute("AssemblyResolution({resolvedPath})")>]
 #endif
@@ -2708,6 +2740,8 @@ type AssemblyResolution =
       ilAssemblyRef : ILAssemblyRef option ref
     }
     override this.ToString() = sprintf "%s%s" (if this.sysdir then "[sys]" else "") this.resolvedPath
+
+#if !FABLE_COMPILER
 
     member this.ProjectReference = this.originalReference.ProjectReference
 
@@ -2752,6 +2786,8 @@ type AssemblyResolution =
             return assemblyRef
       }
 
+#endif //!FABLE_COMPILER
+
 //----------------------------------------------------------------------------
 // Names to match up refs and defs for assemblies and modules
 //--------------------------------------------------------------------------
@@ -2784,6 +2820,12 @@ let GetInternalsVisibleToAttributes ilg ilModule =
 /// This type is immutable and must be kept as such. Do not extract or mutate the underlying data except by cloning it.
 type TcConfig private (data : TcConfigBuilder, validate:bool) =
 
+#if FABLE_COMPILER
+    let _ = validate
+    let fsharpBinariesDirValue = data.defaultFSharpBinariesDir
+    let clrRootValue, targetFrameworkVersionValue = "", ""
+
+#else //!FABLE_COMPILER
     // Validate the inputs - this helps ensure errors in options are shown in visual studio rather than only when built
     // However we only validate a minimal number of options at the moment
     do if validate then try data.version.GetVersionInfo(data.implicitIncludeDir) |> ignore with e -> errorR(e) 
@@ -2874,6 +2916,8 @@ type TcConfig private (data : TcConfigBuilder, validate:bool) =
         | _ ->
             data.defaultFSharpBinariesDir
 #endif
+
+#endif //!FABLE_COMPILER
 
     member x.primaryAssembly = data.primaryAssembly
     member x.autoResolveOpenDirectivesToDlls = data.autoResolveOpenDirectivesToDlls
@@ -3002,6 +3046,8 @@ type TcConfig private (data : TcConfigBuilder, validate:bool) =
     member x.legacyReferenceResolver = data.legacyReferenceResolver
     member tcConfig.CloneOfOriginalBuilder = 
         { data with conditionalCompilationDefines=data.conditionalCompilationDefines }
+
+#if !FABLE_COMPILER
 
     member tcConfig.ComputeCanContainEntryPoint(sourceFiles:string list) = 
         let n = sourceFiles.Length in 
@@ -3832,10 +3878,10 @@ let GetOptimizationDataResourceName (r: ILResource) =
         String.dropPrefix r.Name FSharpOptimizationDataResourceName2
     else failwith "GetOptimizationDataResourceName"
 
-#if !FABLE_COMPILER
-
 let IsReflectedDefinitionsResource (r: ILResource) =
     r.Name.StartsWithOrdinal(QuotationPickler.SerializedReflectedDefinitionsResourceNameBase)
+
+#if !FABLE_COMPILER
 
 let MakeILResource rname bytes = 
     { Name = rname
@@ -5051,6 +5097,45 @@ let GetAssemblyResolutionInformation(ctok, tcConfig : TcConfig) =
     let resolutions = TcAssemblyResolutions.ResolveAssemblyReferences (ctok, tcConfig, assemblyList, [])
     resolutions.GetAssemblyResolutions(), resolutions.GetUnresolvedReferences()
     
+#endif //!FABLE_COMPILER
+
+#if FABLE_COMPILER
+
+// trimmed-down version of TcImports
+[<Sealed>]
+type TcImports() =
+    let mutable tcGlobalsOpt = None
+    let mutable ccuMap = Map<string, ImportedAssembly>([])
+
+    // This is the main "assembly reference --> assembly" resolution routine.
+    let FindCcuInfo (_m, assemblyName) =
+        match ccuMap |> Map.tryFind assemblyName with
+        | Some ccuInfo -> ResolvedCcu(ccuInfo.FSharpViewOfMetadata)
+        | None -> UnresolvedCcu(assemblyName)
+
+    member x.FindCcu (_m: range, assemblyName) =
+        match ccuMap |> Map.tryFind assemblyName with
+        | Some ccuInfo -> Some ccuInfo.FSharpViewOfMetadata
+        | None -> None
+
+    member x.SetTcGlobals g =
+        tcGlobalsOpt <- Some g
+    member x.GetTcGlobals() =
+        tcGlobalsOpt.Value
+    member x.SetCcuMap m =
+        ccuMap <- m
+    member x.GetImportedAssemblies() =
+        ccuMap.Values
+
+    member x.GetImportMap() =
+        let loaderInterface =
+            { new Import.AssemblyLoader with
+                 member x.FindCcuFromAssemblyRef (_ctok, m, ilAssemblyRef) = 
+                    FindCcuInfo(m, ilAssemblyRef.Name)
+            }
+        new Import.ImportMap (tcGlobalsOpt.Value, loaderInterface)
+
+#endif //FABLE_COMPILER
 
 [<RequireQualifiedAccess>]
 type LoadClosureInput = 
@@ -5087,6 +5172,7 @@ type CodeContext =
     | Compilation  // in fsc.exe
     | Editing // in VS
     
+#if !FABLE_COMPILER
 
 module private ScriptPreprocessClosure = 
     open Internal.Utilities.Text.Lexing
@@ -5334,6 +5420,7 @@ type LoadClosure with
         ScriptPreprocessClosure.GetFullClosureOfScriptFiles (ctok, tcConfig, files, codeContext, lexResourceManager)
         
               
+#endif //!FABLE_COMPILER
 
 //----------------------------------------------------------------------------
 // Initial type checking environment
@@ -5359,6 +5446,8 @@ let GetInitialTcEnv (thisAssemblyName:string, initm:range, tcConfig:TcConfig, tc
 
 //----------------------------------------------------------------------------
 // Fault injection
+
+#if !FABLE_COMPILER
 
 /// Inject faults into checking
 let CheckSimulateException(tcConfig:TcConfig) = 
@@ -5387,88 +5476,7 @@ let CheckSimulateException(tcConfig:TcConfig) =
     | Some("tc-fail") -> failwith "simulated"
     | _ -> ()
 
-#endif //!FABLE_COMPILERFABLE_COMPILER
-
-#if FABLE_COMPILER
-
-type AssemblyResolution = 
-    { originalReference : AssemblyReference
-      resolvedPath : string    
-      prepareToolTip : unit -> string
-      sysdir : bool 
-      ilAssemblyRef : ILAssemblyRef option ref
-    }
-
-// cut-down version of LoadClosure
-type LoadClosure = 
-    {
-      SourceFiles: (string * range list) list
-      References: (string * AssemblyResolution list) list
-    }
-
-// cut-down version of TcConfig
-type TcConfig (optimize: bool, defines: string list) =
-    member x.primaryAssembly = PrimaryAssembly.NetStandard
-    member x.implicitIncludeDir = ""
-    member x.compilingFslib = false
-    member x.isInteractive = false
-    member x.mlCompatibility = false
-    member x.noDebugData = false
-    member x.conditionalCompilationDefines = defines
-    member x.emitDebugInfoInQuotations = false
-    member x.errorSeverityOptions = FSharpErrorSeverityOptions.Default
-    member x.light = Some true
-    member x.target = CompilerTarget.WinExe
-    member x.extraOptimizationIterations = if optimize then 0 else 0
-#if DEBUG
-    member x.showOptimizationData = false
-#endif
-    member x.doDetuple = optimize
-    member x.doTLR = optimize
-    member x.doFinalSimplify = optimize
-    member x.optSettings = { Optimizer.OptimizationSettings.Defaults with
-                                jitOptUser = Some optimize
-                                localOptUser = Some optimize
-                                crossModuleOptUser = Some optimize
-                                lambdaInlineThreshold = if optimize then 6 else 0 }
-    member x.emitTailcalls = true
-    member x.internalTestSpanStackReferring = false
-    member x.noConditionalErasure = false
-
-// cut-down version of TcImports
-type TcImports() =
-    let mutable tcGlobalsOpt = None
-    let mutable ccuMap = Map<string, ImportedAssembly>([])
-
-    // This is the main "assembly reference --> assembly" resolution routine.
-    let FindCcuInfo (_, assemblyName) =
-        match ccuMap |> Map.tryFind assemblyName with
-        | Some ccuInfo -> ResolvedCcu(ccuInfo.FSharpViewOfMetadata)
-        | None -> UnresolvedCcu(assemblyName)
-
-    member x.FindCcu (_, assemblyName) =
-        match ccuMap |> Map.tryFind assemblyName with
-        | Some ccuInfo -> Some ccuInfo.FSharpViewOfMetadata
-        | None -> None
-
-    member x.SetTcGlobals g =
-        tcGlobalsOpt <- Some g
-    member x.GetTcGlobals() =
-        tcGlobalsOpt.Value
-    member x.SetCcuMap m =
-        ccuMap <- m
-    member x.GetImportedAssemblies() =
-        ccuMap.Values
-
-    member x.GetImportMap() =
-        let loaderInterface =
-            { new Import.AssemblyLoader with
-                 member x.FindCcuFromAssemblyRef (_ctok, m, ilAssemblyRef) = 
-                    FindCcuInfo(m, ilAssemblyRef.Name)
-            }
-        new Import.ImportMap (tcGlobalsOpt.Value, loaderInterface)
-
-#endif //FABLE_COMPILER
+#endif //!FABLE_COMPILER
 
 //----------------------------------------------------------------------------
 // Type-check sets of files

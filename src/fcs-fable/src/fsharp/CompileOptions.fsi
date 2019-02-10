@@ -73,11 +73,15 @@ val SetDebugSwitch    : TcConfigBuilder -> string option -> OptionSwitch -> unit
 val PrintOptionInfo   : TcConfigBuilder -> unit
 val SetTargetProfile  : TcConfigBuilder -> string -> unit
 
+#if !FABLE_COMPILER
 val GetGeneratedILModuleName : CompilerTarget -> string -> string
+#endif //!FABLE_COMPILER
 
 val GetInitialOptimizationEnv : TcImports * TcGlobals -> IncrementalOptimizationEnv
 val AddExternalCcuToOpimizationEnv : TcGlobals -> IncrementalOptimizationEnv -> ImportedAssembly -> IncrementalOptimizationEnv
 val ApplyAllOptimizations : TcConfig * TcGlobals * ConstraintSolver.TcValF * string * ImportMap * bool * IncrementalOptimizationEnv * CcuThunk * TypedImplFile list -> TypedAssemblyAfterOptimization * Optimizer.LazyModuleInfo * IncrementalOptimizationEnv 
+
+#if !FABLE_COMPILER
 
 val CreateIlxAssemblyGenerator : TcConfig * TcImports * TcGlobals * ConstraintSolver.TcValF * CcuThunk -> IlxGen.IlxAssemblyGenerator
 
@@ -94,3 +98,5 @@ val DoWithErrorColor : bool -> (unit -> 'a) -> 'a
 val ReportTime : TcConfig -> string -> unit
 val GetAbbrevFlagSet : TcConfigBuilder -> bool -> Set<string>
 val PostProcessCompilerArgs : string Set -> string [] -> string list
+
+#endif //!FABLE_COMPILER

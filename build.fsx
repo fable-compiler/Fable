@@ -57,7 +57,7 @@ let buildStandalone() =
     copyDirRecursive "build/fable-library" libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
     let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
-    dirFiles libraryTarget
+    getFullPathsInDirectoryRecursively libraryTarget
     |> Array.filter (fun file -> file.EndsWith(".js"))
     |> Array.iter (fun file ->
         reg.Replace(readFile file, "import $1.js$2")
@@ -80,8 +80,9 @@ let test() =
     buildSplitter "tests"
     run "npx mocha build/tests --reporter dot -t 10000"
 
-    runInDir "tests/Main" "dotnet run"
-    buildStandalone()
+    if environVarOrNone "APPVEYOR" |> Option.isSome then
+        runInDir "tests/Main" "dotnet run"
+        buildStandalone()
 
 
 match args with
