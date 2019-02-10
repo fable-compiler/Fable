@@ -3,8 +3,8 @@ module Bench.App
 open Bench.Platform
 open System.Text.RegularExpressions
 
-let references = Fable.Repl.Metadata.references false
-let metadataPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, "../metadata2/") // .NET BCL binaries
+let references = Fable.Standalone.Metadata.references_core
+let metadataPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, "../../../fable-metadata/") // .NET BCL binaries
 
 let parseProjectFile projectPath =
     let projectFileName = Fable.Path.GetFileName projectPath
@@ -33,7 +33,9 @@ let parseProjectFile projectPath =
 
     // replace some variables
     let projectText = projectText.Replace(@"$(MSBuildProjectDirectory)", ".")
-    let projectText = projectText.Replace(@"$(FSharpSourcesRoot)", "../../src")
+    let m = Regex.Match(projectText, @"<FSharpSourcesRoot[^>]*>([^<]*)<\/FSharpSourcesRoot[^>]*>")
+    let sourcesRoot = if m.Success then m.Groups.[1].Value.Replace("\\", "/") else ""
+    let projectText = projectText.Replace(@"$(FSharpSourcesRoot)", sourcesRoot)
 
     // get source files
     let sourceFilesRegex = @"<Compile\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
@@ -48,8 +50,8 @@ let rec parseProject projectPath =
     let (projectFileName, projectRefs, sourceFiles, defines) = parseProjectFile projectPath
 
     let projectFileDir = Fable.Path.GetDirectoryName projectPath
-    let isAbsolutePath (path: string) = path.StartsWith("/")
-    let trimPath (path: string) = path.TrimStart([|'.';'/'|])
+    let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
+    let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
     let makePath path = if isAbsolutePath path then path else Fable.Path.Combine(projectFileDir, path)
     let makeName path = Fable.Path.Combine(trimPath projectFileDir, trimPath path)
 
@@ -78,8 +80,8 @@ let dedupFileNames fileNames =
             name
     fileNames |> Array.map dedup
 
-let printErrors showWarnings (errors: Fable.Repl.Error[]) =
-    let printError (e: Fable.Repl.Error) =
+let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
+    let printError (e: Fable.Standalone.Error) =
         let errorType = (if e.IsWarning then "Warning" else "Error")
         printfn "%s (%d,%d--%d,%d): %s: %s" e.FileName e.EndLineAlternate
             e.StartColumn e.EndLineAlternate e.EndColumn errorType e.Message
@@ -105,7 +107,7 @@ let parseFiles projectPath outDir options =
     let fileNames = dedupFileNames fileNames
 
     // create checker
-    let fable = Fable.Repl.Main.init ()
+    let fable = Fable.Standalone.Main.init ()
     let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, defines, options.optimize)
     let ms0, checker = measureTime createChecker ()
     printfn "--------------------------------------------"

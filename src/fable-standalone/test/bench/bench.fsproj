@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Fable.Repl.fsproj" />
+    <ProjectReference Include="../Fable.Standalone.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

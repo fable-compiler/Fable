@@ -36,7 +36,7 @@ let copyFolder (from: string, dest: string): unit =
 let transformAndSaveBabelAst (babelAst: obj, fileName: string, outDir: string, commonjs: bool): unit =
     importMember "./util.js"
 
-let initFable (): Fable.Repl.IFableManager =
+let initFable (): Fable.Standalone.IFableManager =
     import "init" "./bundle/bundle.min.js"
 
 let runCmdAndExitIfFails (cmd: string): unit =

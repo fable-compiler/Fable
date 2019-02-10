@@ -34,7 +34,9 @@ let parseProjectFile projectPath =
 
     // replace some variables
     let projectText = projectText.Replace(@"$(MSBuildProjectDirectory)", ".")
-    let projectText = projectText.Replace(@"$(FSharpSourcesRoot)", "../../src")
+    let m = Regex.Match(projectText, @"<FSharpSourcesRoot[^>]*>([^<]*)<\/FSharpSourcesRoot[^>]*>")
+    let sourcesRoot = if m.Success then m.Groups.[1].Value.Replace("\\", "/") else ""
+    let projectText = projectText.Replace(@"$(FSharpSourcesRoot)", sourcesRoot)
 
     // get source files
     let sourceFilesRegex = @"<Compile\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
@@ -50,7 +52,7 @@ let rec parseProject projectPath =
 
     let projectFileDir = Path.GetDirectoryName projectPath
     let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
-    let trimPath (path: string) = path.TrimStart([|'.';'/'|]).Replace(":", "")
+    let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
     let makePath path = if isAbsolutePath path then path else Path.Combine(projectFileDir, path)
     let makeName path = Path.Combine(trimPath projectFileDir, trimPath path)
 

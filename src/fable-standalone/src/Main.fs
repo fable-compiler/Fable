@@ -128,7 +128,7 @@ let makeProject projectOptions (projectResults: FSharpCheckProjectResults) optim
         then projectResults.GetOptimizedAssemblyContents()
         else projectResults.AssemblyContents).ImplementationFiles
     let implFilesMap =
-        implFiles |> Seq.map (fun file -> Fable.Path.normalizePathAndEnsureFsExtension file.FileName, file) |> Map
+        implFiles |> Seq.map (fun file -> Fable.Path.normalizePathAndEnsureFsExtension file.FileName, file) |> dict
     Project(projectOptions, implFilesMap, projectResults.Errors)
 
 let parseFSharpScript (checker: InteractiveChecker) projectFileName fileName source =

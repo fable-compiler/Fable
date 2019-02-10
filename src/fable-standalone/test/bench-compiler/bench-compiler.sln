@@ -1,13 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.28010.2041
+VisualStudioVersion = 15.0.28307.329
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "bench-compiler", "bench-compiler.fsproj", "{9836CB45-8D9D-4DEE-AC71-7D4F18310BCE}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "bench-compiler", "bench-compiler.fsproj", "{18CE56EC-AEF9-4678-A175-DE11CD1C93C9}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Repl", "..\Fable.Repl.fsproj", "{45159054-95CB-4E5C-84A8-DD985371C803}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Standalone", "..\..\src\Fable.Standalone.fsproj", "{9BC5CBA2-837C-4883-9E45-0E08DF4A2851}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "fcs-fable", "..\..\..\..\..\FSharp.Compiler.Service_fable\fcs\fcs-fable\fcs-fable.fsproj", "{908E8F7A-F783-4BCF-9745-1509381D2E74}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "fcs-fable", "..\..\..\fcs-fable\fcs-fable.fsproj", "{3AF41787-123C-41B1-A982-9DE2791DA17D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,23 +15,23 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{9836CB45-8D9D-4DEE-AC71-7D4F18310BCE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9836CB45-8D9D-4DEE-AC71-7D4F18310BCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9836CB45-8D9D-4DEE-AC71-7D4F18310BCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9836CB45-8D9D-4DEE-AC71-7D4F18310BCE}.Release|Any CPU.Build.0 = Release|Any CPU
-		{45159054-95CB-4E5C-84A8-DD985371C803}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{45159054-95CB-4E5C-84A8-DD985371C803}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{45159054-95CB-4E5C-84A8-DD985371C803}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{45159054-95CB-4E5C-84A8-DD985371C803}.Release|Any CPU.Build.0 = Release|Any CPU
-		{908E8F7A-F783-4BCF-9745-1509381D2E74}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{908E8F7A-F783-4BCF-9745-1509381D2E74}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{908E8F7A-F783-4BCF-9745-1509381D2E74}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{908E8F7A-F783-4BCF-9745-1509381D2E74}.Release|Any CPU.Build.0 = Release|Any CPU
+		{18CE56EC-AEF9-4678-A175-DE11CD1C93C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{18CE56EC-AEF9-4678-A175-DE11CD1C93C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{18CE56EC-AEF9-4678-A175-DE11CD1C93C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{18CE56EC-AEF9-4678-A175-DE11CD1C93C9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9BC5CBA2-837C-4883-9E45-0E08DF4A2851}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9BC5CBA2-837C-4883-9E45-0E08DF4A2851}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9BC5CBA2-837C-4883-9E45-0E08DF4A2851}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9BC5CBA2-837C-4883-9E45-0E08DF4A2851}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3AF41787-123C-41B1-A982-9DE2791DA17D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3AF41787-123C-41B1-A982-9DE2791DA17D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3AF41787-123C-41B1-A982-9DE2791DA17D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3AF41787-123C-41B1-A982-9DE2791DA17D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {6A92E45B-B5F3-4CDF-9B66-37304E94E469}
+		SolutionGuid = {7E4D547D-390C-4E0E-90D3-9B49E585BB6D}
 	EndGlobalSection
 EndGlobal
