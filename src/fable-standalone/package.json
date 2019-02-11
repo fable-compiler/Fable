@@ -1,7 +1,7 @@
 {
   "name": "fable-standalone",
-  "version": "1.0.0-alpha-000",
-  "main": "index.js",
+  "version": "1.0.0-beta-001",
+  "main": "dist/fable-standalone.min.js",
   "description": "Fable compiler",
   "keywords": [
     "fable",

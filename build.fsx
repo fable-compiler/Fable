@@ -43,9 +43,19 @@ let buildCompiler() =
     buildLibrary()
     copyDirRecursive "build/fable-library" (projectDir </> "bin/fable-library")
 
+let runStandaloneBench2 () =
+    run "npx babel src/fable-standalone/dist/es2015 --out-dir  src/fable-standalone/dist/commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
+    buildSplitter "src/fable-standalone/test/bench2"
+    runInDir "src/fable-standalone/test/bench2"
+        "node out/app ../../../fable-metadata/lib/ test_script.fs out/test_script.js"
+
+    // Run the test script
+    run "npx babel build/fable-library --out-dir src/fable-standalone/test/out-fable-library --plugins @babel/plugin-transform-modules-commonjs --quiet"
+    run "node src/fable-standalone/test/bench2/out/test_script.js"
+
 let buildStandalone() =
     let projectDir = "src/fable-standalone"
-    cleanDirs [projectDir </> "dist"; projectDir </> "out"]
+    cleanDirs [projectDir </> "dist"]
 
     buildSplitter projectDir
     buildWebpack projectDir
@@ -63,14 +73,17 @@ let buildStandalone() =
         reg.Replace(readFile file, "import $1.js$2")
         |> writeFile file)
 
+    // Test
+    runStandaloneBench2 ()
+
     // Bump version
-    let compilerVersion = Publish.loadReleaseVersion "src/fable-compiler"
-    let standaloneVersion = Publish.loadNpmVersion projectDir
-    let (comMajor, comMinor, _, comPrerelease) = Publish.splitVersion compilerVersion
-    let (staMajor, staMinor, staPatch, _) = Publish.splitVersion standaloneVersion
-    Publish.bumpNpmVersion projectDir
-        (if comMajor > staMajor || comMinor > staMinor then compilerVersion
-         else sprintf "%i.%i.%i%s" staMajor staMinor (staPatch + 1) comPrerelease)
+    // let compilerVersion = Publish.loadReleaseVersion "src/fable-compiler"
+    // let standaloneVersion = Publish.loadNpmVersion projectDir
+    // let (comMajor, comMinor, _, comPrerelease) = Publish.splitVersion compilerVersion
+    // let (staMajor, staMinor, staPatch, _) = Publish.splitVersion standaloneVersion
+    // Publish.bumpNpmVersion projectDir
+    //     (if comMajor > staMajor || comMinor > staMinor then compilerVersion
+    //      else sprintf "%i.%i.%i%s" staMajor staMinor (staPatch + 1) comPrerelease)
 
 let test() =
     if pathExists "build/fable-library" |> not then
@@ -80,10 +93,9 @@ let test() =
     buildSplitter "tests"
     run "npx mocha build/tests --reporter dot -t 10000"
 
-    if environVarOrNone "APPVEYOR" |> Option.isSome then
+    if envVarOrNone "APPVEYOR" |> Option.isSome then
         runInDir "tests/Main" "dotnet run"
         buildStandalone()
-
 
 match args with
 | IgnoreCase "test"::_ ->

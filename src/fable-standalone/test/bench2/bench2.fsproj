@@ -10,8 +10,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../Interfaces.fs"/>
-    <Compile Include="../Metadata.fs"/>
+    <Compile Include="../../src/Interfaces.fs"/>
+    <Compile Include="../../src/Metadata.fs"/>
     <Compile Include="platform.fs"/>
     <Compile Include="app.fs"/>
   </ItemGroup>

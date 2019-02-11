@@ -192,7 +192,10 @@ let tryRunForOutput (cmd: string): string option =
 let runList cmdParts =
     String.concat " " cmdParts |> run
 
-let environVarOrNone (varName: string): string option =
+let envVar (varName: string): string =
+    nodeProcess?env?(varName)
+
+let envVarOrNone (varName: string): string option =
     nodeProcess?env?(varName)
     |> Option.ofObj
 
@@ -284,7 +287,7 @@ module Publish =
         if needsPublishing checkPkgVersion releaseVersion projFile then
             let projDir = dirname projFile
             let nugetKey =
-                match environVarOrNone "NUGET_KEY" with
+                match envVarOrNone "NUGET_KEY" with
                 | Some nugetKey -> nugetKey
                 | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
             // Restore dependencies here so they're updated to latest project versions

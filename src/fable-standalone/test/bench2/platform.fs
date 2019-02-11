@@ -15,7 +15,7 @@ type IProcess =
 let FileSystem: IFileSystem = Fable.Core.JsInterop.importAll "fs"
 let Process: IProcess = Fable.Core.JsInterop.importAll "process"
 
-let initFable (): Fable.Repl.IFableManager = Fable.Core.JsInterop.import "init" "${entryDir}/../out2/Main"
+let initFable (): Fable.Standalone.IFableManager = Fable.Core.JsInterop.import "init" "${entryDir}/../../dist/commonjs/Main"
 let readAllBytes metadataPath (fileName:string) = FileSystem.readFileSync(metadataPath + fileName)
 let readAllText (filePath:string) = (FileSystem.readFileSync (filePath, "utf8")).TrimStart('\uFEFF')
 let writeAllText (filePath:string) (text:string) = FileSystem.writeFileSync (filePath, text)

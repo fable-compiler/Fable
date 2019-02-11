@@ -1,2 +1,2 @@
 # Override .gitignore to include the `dist` folder
-out*/
+test/

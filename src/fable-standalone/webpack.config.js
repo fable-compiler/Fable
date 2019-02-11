@@ -1,7 +1,7 @@
 var path = require("path");
 
 module.exports = {
-    entry: resolve('out/Main.js'),
+    entry: resolve('dist/es2015/Main.js'),
     output: {
         filename: 'fable-standalone.min.js',
         path: resolve('dist'),
