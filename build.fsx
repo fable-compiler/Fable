@@ -44,22 +44,22 @@ let buildLibrary() =
 
 let buildCompiler() =
     let projectDir = "src/fable-compiler"
+    let libraryDir = "build/fable-library"
     cleanDirs [projectDir </> "dist"; projectDir </> "bin"]
     buildTypescript projectDir
     updateVersionInCliUtil()
     run "dotnet publish -c Release -o ../fable-compiler/bin/fable-cli src/Fable.Cli/Fable.Cli.fsproj"
-
     buildLibrary()
-    copyDirRecursive "build/fable-library" (projectDir </> "bin/fable-library")
+    copyDirRecursive libraryDir (projectDir </> "bin/fable-library")
 
 let buildCompilerJs() =
     let projectDir = "src/fable-compiler-js"
+    let libraryDir = "build/fable-library"
     cleanDirs [projectDir </> "dist"]
     buildSplitter projectDir
-
     buildLibrary()
-    copyDirRecursive "build/fable-library" "src/fable-compiler-js/dist/fable-library"
-    runInDir "src/fable-compiler-js" "npx babel dist/fable-library --out-dir dist/fable-library-commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
+    copyDirRecursive libraryDir "src/fable-compiler-js/dist/fable-library"
+    runInDir projectDir "npx babel dist/fable-library --out-dir dist/fable-library-commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
 
 let runStandaloneBench2 () =
     run "npx babel src/fable-standalone/dist/es2015 --out-dir  src/fable-standalone/dist/commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
@@ -73,6 +73,7 @@ let runStandaloneBench2 () =
 
 let buildStandalone() =
     let projectDir = "src/fable-standalone"
+    let libraryDir = "build/fable-library"
     cleanDirs [projectDir </> "dist"]
 
     buildSplitter projectDir
@@ -82,7 +83,8 @@ let buildStandalone() =
 
     // Put fable-library files next to bundle
     let libraryTarget = projectDir </> "dist/fable-library"
-    copyDirRecursive "build/fable-library" libraryTarget
+    buildLibrary()
+    copyDirRecursive libraryDir libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
     let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
     getFullPathsInDirectoryRecursively libraryTarget

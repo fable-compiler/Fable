@@ -107,9 +107,7 @@ let checkProject (msg: Parser.Message)
         then checkedProject.AssemblyContents.ImplementationFiles
         else checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
     let implFilesMap =
-        // Sometimes FCS seems to return the path of the signature file instead of the implementation
-        let reg = System.Text.RegularExpressions.Regex("\.fsi$")
-        implFiles |> Seq.map (fun file -> (reg.Replace(file.FileName, ".fs"), file)) |> dict
+        implFiles |> Seq.map (fun file -> Path.normalizePathAndEnsureFsExtension file.FileName, file) |> dict
     tryGetOption "saveAst" msg.extra |> Option.iter (fun outDir ->
         Printers.printAst outDir implFiles)
     Project(opts, implFilesMap, checkedProject.Errors)

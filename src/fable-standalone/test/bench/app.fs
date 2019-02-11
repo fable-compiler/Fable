@@ -2,12 +2,8 @@ module Bench.App
 
 open Bench.Platform
 
-let use_net45_meta = false
-let references = Fable.Repl.Metadata.references use_net45_meta
-let metadataPath =
-    if use_net45_meta
-    then "/temp/repl/metadata/"  // dotnet 4.5 binaries
-    else "/temp/repl/metadata2/" // dotnet core 2.0 binaries
+let references = Fable.Standalone.Metadata.references_core
+let metadataPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, "../../../fable-metadata/lib/") // .NET BCL binaries
 
 // // Note: importing babel-core has 30% performance impact on the bench
 // #if DOTNET_FILE_SYSTEM
@@ -37,7 +33,7 @@ let main argv =
         let projectFileName = "project"
         let fileName = testScriptPath
         let source = readAllText testScriptPath
-        let fable = Fable.Repl.Main.init ()
+        let fable = Fable.Standalone.Main.init ()
         let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, [||], optimize)
         let ms0, checker = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
