@@ -1,3 +1,10 @@
+### 2.1.12
+
+* Fix #1724: Handle nuspec files without dependency groups @inosik
+* Added Decimal constructors @ncave
+* Added ValueOption @ncave
+* Fix #1718: Parsed guids with different case are considered the same
+
 ### 2.1.11
 
 * Add `List.exactlyOne` @wangweipeng
