@@ -3,8 +3,8 @@ module Fable.Compiler.App
 open Fable.Compiler.Platform
 open System.Text.RegularExpressions
 
-let references = Fable.Repl.Metadata.references_core
-let metadataPath = __dirname + "/../lib/" // .NET BCL binaries (metadata)
+let references = Fable.Standalone.Metadata.references_core
+let metadataPath = getMetadataDir().Trim('\\', '/') + "/" // .NET BCL binaries (metadata)
 
 let (|Regex|_|) (pattern: string) (input: string) =
     let m = Regex.Match(input, pattern)
@@ -69,8 +69,8 @@ let rec parseProject projectPath =
     let (projectFileName, dllRefs, projectRefs, sourceFiles, defines) = parseProjectFile projectPath
 
     let projectFileDir = Path.GetDirectoryName projectPath
-    let isAbsolutePath (path: string) = path.StartsWith("/")
-    let trimPath (path: string) = path.TrimStart([|'.';'/'|])
+    let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
+    let trimPath (path: string) = path.TrimStart([|'.';'/'|]).Replace(":", "")
     let makePath path = if isAbsolutePath path then path else Path.Combine(projectFileDir, path)
     let makeName path = Path.Combine(trimPath projectFileDir, trimPath path)
 
@@ -99,8 +99,8 @@ let dedupFileNames fileNames =
             name
     fileNames |> Array.map dedup
 
-let printErrors showWarnings (errors: Fable.Repl.Error[]) =
-    let printError (e: Fable.Repl.Error) =
+let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
+    let printError (e: Fable.Standalone.Error) =
         let errorType = (if e.IsWarning then "Warning" else "Error")
         printfn "%s (%d,%d--%d,%d): %s: %s" e.FileName e.EndLineAlternate
             e.StartColumn e.EndLineAlternate e.EndColumn errorType e.Message
@@ -158,12 +158,11 @@ let parseFiles projectPath outDir options =
 
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
-    let fableLibraryDist = if options.commonjs then "/fable-library-commonjs" else "/bundle/fable-library"
+    let fableLibraryDist = if options.commonjs then "/fable-library-commonjs" else "/fable-library"
     copyFolder (__dirname + fableLibraryDist, Path.Combine(outDir, fableLibraryDir))
     let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, options.optimize)
 
     for fileName in fileNames do
-
         // transform F# AST to Babel AST
         let ms2, res = measureTime parseFable (parseRes, fileName)
         printfn "File: %s, Fable time: %d ms" fileName ms2

@@ -1,3 +1,7 @@
+### 1.0.0-alpha-016
+
+* Add fable-standalone and fable-metadata dependencies
+
 ### 1.0.0-alpha-014
 
 * End process with exit code -1 if --run fails

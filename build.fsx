@@ -43,6 +43,15 @@ let buildCompiler() =
     buildLibrary()
     copyDirRecursive "build/fable-library" (projectDir </> "bin/fable-library")
 
+let buildCompilerJs() =
+    let projectDir = "src/fable-compiler-js"
+    cleanDirs [projectDir </> "dist"]
+    buildSplitter projectDir
+
+    buildLibrary()
+    copyDirRecursive "build/fable-library" "src/fable-compiler-js/dist/fable-library"
+    runInDir "src/fable-compiler-js" "npx babel dist/fable-library --out-dir dist/fable-library-commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
+
 let runStandaloneBench2 () =
     run "npx babel src/fable-standalone/dist/es2015 --out-dir  src/fable-standalone/dist/commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
     buildSplitter "src/fable-standalone/test/bench2"
@@ -107,6 +116,9 @@ match args with
 | IgnoreCase "compiler"::_ ->
     buildCompiler()
 
+| IgnoreCase "compiler-js"::_ ->
+    buildCompilerJs()
+
 | IgnoreCase "standalone"::_ ->
     buildStandalone()
 
@@ -117,6 +129,9 @@ match args with
     | IgnoreCase "fable-compiler"::_ ->
         buildCompiler()
         pushNpm "src/fable-compiler"
+    | IgnoreCase "fable-compiler-js"::_ ->
+        buildCompilerJs()
+        pushNpm "src/fable-compiler-js"
     | _ -> failwithf "Cannot publish %A" project
 
 | _ ->

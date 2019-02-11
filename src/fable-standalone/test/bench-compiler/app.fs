@@ -48,9 +48,8 @@ let rec parseProject projectPath =
     let (projectFileName, projectRefs, sourceFiles, defines) = parseProjectFile projectPath
 
     let projectFileDir = Fable.Path.GetDirectoryName projectPath
-    let isAbsolutePath (path: string) = path.StartsWith("/")
-    let trimPath (path: string) = path.TrimStart([|'.';'/'|])
-    let makePath path = if isAbsolutePath path then path else Fable.Path.Combine(projectFileDir, path)
+    let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
+    let trimPath (path: string) = path.TrimStart([|'.';'/'|]).Replace(":", "")    let makePath path = if isAbsolutePath path then path else Fable.Path.Combine(projectFileDir, path)
     let makeName path = Fable.Path.Combine(trimPath projectFileDir, trimPath path)
 
     let fileNames = sourceFiles |> Array.map (fun path -> path |> makeName)

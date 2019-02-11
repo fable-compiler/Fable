@@ -1,6 +1,6 @@
 {
   "name": "fable-compiler-js",
-  "version": "1.0.0-alpha-014",
+  "version": "1.0.0-alpha-016",
   "main": "index.js",
   "bin": {
     "fable": "index.js"
@@ -24,6 +24,8 @@
   "dependencies": {
     "@babel/core": "^7.2.2",
     "@babel/plugin-transform-modules-commonjs": "^7.2.0",
-    "fable-babel-plugins": "^2.1.0"
+    "fable-babel-plugins": "^2.1.0",
+    "fable-metadata": "^1.0.0-beta-002",
+    "fable-standalone": "^1.0.0-beta-001"
   }
 }
