@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Global/Fable.Core.fs" />
+    <Compile Include="Global/Prelude.fs" />
+    <Compile Include="Global/Compiler.fs" />
+    <Compile Include="AST/AST.Common.fs" />
+    <Compile Include="AST/AST.Fable.fs" />
+    <Compile Include="AST/AST.Babel.fs" />
+    <Compile Include="MonadicTrampoline.fs" />
+    <Compile Include="Transforms.Util.fs" />
+    <Compile Include="OverloadSuffix.fs" />
+    <Compile Include="FSharp2Fable.Util.fs" />
+    <Compile Include="ReplacementsInject.fs" />
+    <Compile Include="Replacements.fs" />
+    <Compile Include="Inject.fs" />
+    <Compile Include="FSharp2Fable.fs" />
+    <Compile Include="FableTransforms.fs" />
+    <Compile Include="Fable2Babel.fs" />
+    <Compile Include="State.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
+  </ItemGroup>
+  <!-- <ItemGroup>
+    <ProjectReference Include="../FCS/fcs-fable/fcs-fable.fsproj" />
+  </ItemGroup> -->
+</Project>

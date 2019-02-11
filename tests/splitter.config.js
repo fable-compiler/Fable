@@ -1,8 +1,9 @@
 const path = require("path");
 
 module.exports = {
-  entry: path.join(__dirname, "Main/Fable.Tests.fsproj"),
-  outDir: path.join(__dirname, "../build/tests"),
+  cli: { path: resolve("../src/Fable.Cli") },
+  entry: resolve("Main/Fable.Tests.fsproj"),
+  outDir: resolve("../build/tests"),
   fable: { define: defineConstants() },
   babel: {
     plugins: ["@babel/plugin-transform-modules-commonjs"],
@@ -24,4 +25,8 @@ function defineConstants() {
     ar.push("OPTIMIZE_FCS");
   }
   return ar;
+}
+
+function resolve(p) {
+  return path.join(__dirname, p);
 }

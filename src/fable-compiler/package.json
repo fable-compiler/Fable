@@ -1,0 +1,24 @@
+{
+  "name": "fable-compiler",
+  "version": "2.2.0-beta-005",
+  "main": "dist/index.js",
+  "description": "Fable compiler",
+  "keywords": [
+    "fable",
+    "fsharp",
+    "F#"
+  ],
+  "author": "Alfonso Garcia-Caro",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fable-compiler/Fable.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fable-compiler/Fable/issues"
+  },
+  "homepage": "https://github.com/fable-compiler/Fable#readme",
+  "devDependencies": {
+    "@types/node": "^10.12.8"
+  }
+}

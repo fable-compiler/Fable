@@ -26,7 +26,7 @@ let parse (checker: FSharpChecker) projFile =
             |> Async.RunSynchronously
             |> fst
         | ".fsproj" ->
-            let opts, _, _ = Fable.CLI.ProjectCoreCracker.GetProjectOptionsFromProjectFile(projFile)
+            let opts, _, _ = Fable.Cli.ProjectCoreCracker.GetProjectOptionsFromProjectFile(projFile)
             opts
         | ext -> failwithf "Unexpected extension: %s" ext
     // for f in options.OtherOptions do
