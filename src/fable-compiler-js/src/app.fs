@@ -15,62 +15,72 @@ let (|Regex|_|) (pattern: string) (input: string) =
         Some groups
     else None
 
+let parseProjectScript projectPath =
+    let projectFileName = Path.GetFileName projectPath
+    let projectText = readAllText projectPath
+    let projectDir = Path.GetDirectoryName projectPath
+    let dllRefs, srcFiles =
+        (([||], [||]), projectText.Split('\n'))
+        ||> Array.fold (fun (dllRefs, srcFiles) line ->
+            let line = line.Trim()
+            match line.Trim() with
+            | Regex @"^#r\s+""(.*?)""$" [_;path]
+                when not(path.EndsWith("Fable.Core.dll")) ->
+                Array.append [|Path.Combine(projectDir, path)|] dllRefs, srcFiles
+            | Regex @"^#load\s+""(.*?)""$" [_;path] ->
+                dllRefs, Array.append [|Path.Combine(projectDir, path)|] srcFiles
+            | _ -> dllRefs, srcFiles)
+    let sourceFiles = Array.append srcFiles [|projectPath|]
+    (projectFileName, dllRefs, [||], sourceFiles, [|"FABLE_COMPILER"|])
+
 let parseProjectFile projectPath =
     let projectFileName = Path.GetFileName projectPath
     let projectText = readAllText projectPath
-    if projectPath.EndsWith(".fsx") then
-        let projDir = Path.GetDirectoryName projectPath
-        let dllRefs, srcFiles =
-            (([||], [||]), projectText.Split('\n')) ||> Array.fold (fun (dllRefs, srcFiles) line ->
-                let line = line.Trim()
-                match line.Trim() with
-                | Regex @"^#r\s+""(.*?)""$" [_;path]
-                    when not(path.EndsWith("Fable.Core.dll")) ->
-                    Array.append [|Path.Combine(projDir, path)|] dllRefs, srcFiles
-                | Regex @"^#load\s+""(.*?)""$" [_;path] ->
-                    dllRefs, Array.append [|Path.Combine(projDir, path)|] srcFiles
-                | _ -> dllRefs, srcFiles)
-        (projectFileName, dllRefs, [||], Array.append srcFiles [|projectPath|], [|"FABLE_COMPILER"|])
-    else
-        // remove all comments
-        let projectText = Regex.Replace(projectText, @"<!--[\s\S]*?-->", "")
 
-        // get conditional defines
-        let definesRegex = @"<DefineConstants[^>]*>([^<]*)<\/DefineConstants[^>]*>"
-        let defines =
-            Regex.Matches(projectText, definesRegex)
-            |> Seq.collect (fun m -> m.Groups.[1].Value.Split(';'))
-            |> Seq.append ["FABLE_COMPILER"]
-            |> Seq.map (fun s -> s.Trim())
-            |> Seq.distinct
-            |> Seq.except ["$(DefineConstants)"; ""]
-            |> Seq.toArray
+    // remove all comments
+    let projectText = Regex.Replace(projectText, @"<!--[\s\S]*?-->", "")
 
-        // get project references
-        let projectRefsRegex = @"<ProjectReference\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
-        let projectRefs =
-            Regex.Matches(projectText, projectRefsRegex)
-            |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/"))
-            |> Seq.toArray
+    // get conditional defines
+    let definesRegex = @"<DefineConstants[^>]*>([^<]*)<\/DefineConstants[^>]*>"
+    let defines =
+        Regex.Matches(projectText, definesRegex)
+        |> Seq.collect (fun m -> m.Groups.[1].Value.Split(';'))
+        |> Seq.append ["FABLE_COMPILER"]
+        |> Seq.map (fun s -> s.Trim())
+        |> Seq.distinct
+        |> Seq.except ["$(DefineConstants)"; ""]
+        |> Seq.toArray
 
-        // replace some variables
-        let projectText = projectText.Replace(@"$(MSBuildProjectDirectory)", __dirname)
+    // get project references
+    let projectRefsRegex = @"<ProjectReference\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
+    let projectRefs =
+        Regex.Matches(projectText, projectRefsRegex)
+        |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/"))
+        |> Seq.toArray
 
-        // get source files
-        let sourceFilesRegex = @"<Compile\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
-        let sourceFiles =
-            Regex.Matches(projectText, sourceFilesRegex)
-            |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/"))
-            |> Seq.toArray
+    // replace some variables
+    let projectText = projectText.Replace(@"$(MSBuildProjectDirectory)", __dirname)
+    let m = Regex.Match(projectText, @"<FSharpSourcesRoot[^>]*>([^<]*)<\/FSharpSourcesRoot[^>]*>")
+    let sourcesRoot = if m.Success then m.Groups.[1].Value.Replace("\\", "/") else ""
+    let projectText = projectText.Replace(@"$(FSharpSourcesRoot)", sourcesRoot)
 
-        (projectFileName, [||], projectRefs, sourceFiles, defines)
+    // get source files
+    let sourceFilesRegex = @"<Compile\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
+    let sourceFiles =
+        Regex.Matches(projectText, sourceFilesRegex)
+        |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/"))
+        |> Seq.toArray
 
-let rec parseProject projectPath =
-    let (projectFileName, dllRefs, projectRefs, sourceFiles, defines) = parseProjectFile projectPath
+    (projectFileName, [||], projectRefs, sourceFiles, defines)
 
+let rec parseProject (projectPath: string) =
+    let (projectFileName, dllRefs, projectRefs, sourceFiles, defines) =
+        if projectPath.EndsWith(".fsx")
+        then parseProjectScript projectPath
+        else parseProjectFile projectPath
     let projectFileDir = Path.GetDirectoryName projectPath
     let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
-    let trimPath (path: string) = path.TrimStart([|'.';'/'|]).Replace(":", "")
+    let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
     let makePath path = if isAbsolutePath path then path else Path.Combine(projectFileDir, path)
     let makeName path = Path.Combine(trimPath projectFileDir, trimPath path)
 
