@@ -1,0 +1,25 @@
+{
+  "name": "fable-web-worker",
+  "version": "1.0.0-beta-001",
+  "main": "index.js",
+  "description": "Fable run as a web worker",
+  "keywords": [
+    "fable",
+    "fsharp",
+    "F#"
+  ],
+  "author": "Fable compiler contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fable-compiler/Fable.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fable-compiler/Fable/issues"
+  },
+  "homepage": "https://github.com/fable-compiler/Fable#readme",
+  "dependencies": {
+    "@babel/standalone": "^7.3.2",
+    "@babel/template": "^7.2.2"
+  }
+}
