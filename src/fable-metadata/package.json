@@ -1,0 +1,19 @@
+{
+  "name": "fable-metadata",
+  "version": "1.0.0-beta-001",
+  "description": "Assemblies needed to compile F# projects with Fable",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "fable",
+    "fsharp",
+    "F#"
+  ],
+  "author": ".NET Foundation and Contributors",
+  "license": "MIT"
+}
