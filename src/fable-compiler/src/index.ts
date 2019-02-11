@@ -39,9 +39,11 @@ function processArgs(args?: {[x: string]: any}) {
             delete args.path;
         }
         for (const k of Object.keys(args)) {
-            cliArgs.push("--" + k.replace(/[A-Z]/g, (x) => "-" + x.toLowerCase()));
-            if (args[k] !== true) {
-                cliArgs.push(args[k]);
+            if (args[k] !== false) {
+                cliArgs.push("--" + k.replace(/[A-Z]/g, (x) => "-" + x.toLowerCase()));
+                if (args[k] !== true) {
+                    cliArgs.push(args[k]);
+                }
             }
         }
     }

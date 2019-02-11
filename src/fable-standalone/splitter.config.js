@@ -22,7 +22,7 @@ const fableOptions = {
 };
 
 module.exports = {
-  cli: { path: resolve("../Fable.Cli"), verbose: false },
+  cli: { path: resolve("../Fable.Cli") },
   entry: resolve("./src/Fable.Standalone.fsproj"),
   outDir: resolve("./dist/es2015"),
   babel: babelOptions,

@@ -1,3 +1,7 @@
+### 2.2.0-beta-005
+
+* Fix warning filters through .fsproj options
+
 ### 2.2.0-beta-004
 
 * Fix dotnet assembly name
