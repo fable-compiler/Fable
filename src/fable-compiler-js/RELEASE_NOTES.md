@@ -1,3 +1,7 @@
+### 1.0.0-alpha-017
+
+* Update dependencies and other fixes
+
 ### 1.0.0-alpha-016
 
 * Add fable-standalone and fable-metadata dependencies

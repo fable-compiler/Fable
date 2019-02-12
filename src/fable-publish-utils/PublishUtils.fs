@@ -243,15 +243,18 @@ module Publish =
         then version.Substring(0, i), Some(version.Substring(i + 1))
         else version, None
 
-    let rec findFileUpwards fileName dir =
-        let fullPath = dir </> fileName
-        if pathExists fullPath
-        then fullPath
-        else
-            let parent = dirname dir
-            if isNull parent then
-                failwithf "Couldn't find %s directory" fileName
-            findFileUpwards fileName parent
+    let findFileUpwards fileName dir =
+        let originalDir = dir
+        let rec findFileUpwardsInner fileName dir =
+            let fullPath = dir </> fileName
+            if pathExists fullPath
+            then fullPath
+            else
+                let parent = dirname dir
+                if isNull parent then
+                    failwithf "Couldn't find %s upwards from %s" fileName originalDir
+                findFileUpwardsInner fileName parent
+        findFileUpwardsInner fileName dir
 
     let loadReleaseVersion projFile =
         let projDir = if isDirectory projFile then projFile else dirname projFile

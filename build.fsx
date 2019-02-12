@@ -123,6 +123,10 @@ let downloadStandalone() =
     cleanDirs [targetDir]
     downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL targetDir
 
+// TODO: Run fable-splitter tests
+let buildFableSplitter() =
+    buildTypescript "src/fable-splitter"
+
 let packages =
     ["fable-babel-plugins", doNothing
      "fable-compiler", buildCompiler
@@ -130,7 +134,7 @@ let packages =
      "fable-loader", doNothing
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing
-     "fable-splitter", doNothing
+     "fable-splitter", buildFableSplitter
      "fable-standalone", downloadStandalone
     ]
 
@@ -138,8 +142,9 @@ match argsLower with
 | "test"::_ -> test()
 | "library"::_ -> buildLibrary()
 | "compiler"::_ -> buildCompiler()
-| "standalone"::_ -> buildStandalone()
 | "compiler-js"::_ -> buildCompilerJs false
+| "splitter"::_ -> buildFableSplitter()
+| "standalone"::_ -> buildStandalone()
 | "download-standalone"::_ -> downloadStandalone()
 
 | "publish"::restArgs ->

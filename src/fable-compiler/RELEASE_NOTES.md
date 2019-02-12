@@ -1,3 +1,7 @@
+### 2.2.0-beta-006
+
+* Merge with master
+
 ### 2.2.0-beta-005
 
 * Fix warning filters through .fsproj options

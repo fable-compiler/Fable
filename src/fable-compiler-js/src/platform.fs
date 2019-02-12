@@ -8,7 +8,7 @@ let [<Emit("__dirname")>] __dirname: string = jsNative
 let initFable (): Fable.Standalone.IFableManager = import "init" "${entryDir}../../fable-standalone/dist/commonjs"
 let getMetadataDir(): string = __dirname + "/" + "${entryDir}../../fable-metadata/lib"
 #else
-let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone"
+let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone/dist/commonjs"
 let getMetadataDir(): string = importDefault "fable-metadata"
 #endif
 

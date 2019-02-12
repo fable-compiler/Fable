@@ -1,3 +1,7 @@
+### 2.1.3
+
+* Accept fable-compiler 2.2.x dependency
+
 ### 2.1.2
 
 * Add webpack >= 4.23.0 as peerDependency

@@ -1,3 +1,7 @@
+### 2.1.5
+
+* Accept fable-compiler 2.2.x dependency
+
 ### 2.1.2
 
 * Revert change from #1684
