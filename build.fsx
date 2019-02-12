@@ -78,8 +78,8 @@ let buildStandalone() =
     run "npx babel src/fable-standalone/dist/es2015 --out-dir  src/fable-standalone/dist/commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
     // Web Worker
     buildWebpack "src/fable-standalone/src/Worker"
-    fileSizeInBytes (projectDir </> "dist/worker.min.js") / 1000
-    |> printfn "Web worker bundle size: %iKB"
+    // fileSizeInBytes (projectDir </> "dist/worker.min.js") / 1000
+    // |> printfn "Web worker bundle size: %iKB"
 
     // Put fable-library files next to bundle
     let libraryTarget = projectDir </> "dist/fable-library"
@@ -118,6 +118,21 @@ let test() =
         runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
         runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
 
+let downloadStandalone() =
+    let targetDir = "src/fable-standalone/dist"
+    cleanDirs [targetDir]
+    downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL targetDir
+
+let packages =
+    ["fable-babel-plugins", doNothing
+     "fable-compiler", buildCompiler
+     "fable-compiler-js", (fun () -> buildCompilerJs false)
+     "fable-loader", doNothing
+     "fable-metadata", doNothing
+     "fable-publish-utils", doNothing
+     "fable-splitter", doNothing
+     "fable-standalone", downloadStandalone
+    ]
 
 match argsLower with
 | "test"::_ -> test()
@@ -125,23 +140,15 @@ match argsLower with
 | "compiler"::_ -> buildCompiler()
 | "standalone"::_ -> buildStandalone()
 | "compiler-js"::_ -> buildCompilerJs false
+| "download-standalone"::_ -> downloadStandalone()
 
-| "download-standalone"::_ ->
-    let targetDir = "src/fable-standalone/dist"
-    cleanDirs [targetDir]
-    downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL targetDir
-
-| "publish"::project ->
-    match project with
-    | [] -> failwith "Pass the project to publish"
-    | "compiler"::_
-    | "fable-compiler"::_ ->
-        buildCompiler()
-        pushNpm "src/fable-compiler"
-    | "fable-compiler-js"::_ ->
-        buildCompilerJs false
-        pushNpm "src/fable-compiler-js"
-    | _ -> failwithf "Cannot publish %A" project
+| "publish"::restArgs ->
+    let packages =
+        match List.tryHead restArgs with
+        | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
+        | None -> packages
+    for (pkg, buildAction) in packages do
+        pushNpm ("src" </> pkg) buildAction
 
 | _ ->
     printfn "Please pass a target name"

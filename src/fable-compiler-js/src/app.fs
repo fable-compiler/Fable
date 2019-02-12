@@ -4,7 +4,7 @@ open Fable.Compiler.Platform
 open System.Text.RegularExpressions
 
 let references = Fable.Standalone.Metadata.references_core
-let metadataPath = getMetadataDir().Trim('\\', '/') + "/" // .NET BCL binaries (metadata)
+let metadataPath = getMetadataDir().TrimEnd('\\', '/') + "/" // .NET BCL binaries (metadata)
 
 let (|Regex|_|) (pattern: string) (input: string) =
     let m = Regex.Match(input, pattern)
@@ -216,8 +216,5 @@ let parseArguments (argv: string[]) =
 
 [<EntryPoint>]
 let main argv =
-    try
-        parseArguments argv
-    with ex ->
-        printfn "Error: %A" ex.Message
+    parseArguments argv
     0

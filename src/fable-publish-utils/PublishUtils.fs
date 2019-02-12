@@ -329,12 +329,13 @@ module Publish =
                 printfn "Please revert the version change in .fsproj"
                 reraise()
 
-    let pushNpm (projDir: string) =
+    let pushNpm (projDir: string) buildAction =
         let checkPkgVersion json: string option =
             (Fable.Import.JS.JSON.parse json)?version |> Option.ofObj
         let releaseVersion = loadReleaseVersion projDir
         if needsPublishing checkPkgVersion releaseVersion (projDir </> "package.json") then
             bumpNpmVersion projDir releaseVersion
+            buildAction()
             try
                 let publishCmd =
                     match splitPrerelease releaseVersion with
@@ -345,6 +346,8 @@ module Publish =
                 printfn "There's been an error when pushing project: %s" projDir
                 printfn "Please revert the version change in package.json"
                 reraise()
+
+let doNothing () = ()
 
 let pushNuget projFile =
     Publish.pushNuget projFile

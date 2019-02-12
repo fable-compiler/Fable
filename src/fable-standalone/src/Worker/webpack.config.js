@@ -1,10 +1,9 @@
 module.exports = {
+    target: "webworker",
     entry: resolve('Worker.fsproj'),
     output: {
-        filename: 'worker.min.js',
-        path: resolve('../../dist'),
-        // https://github.com/webpack/webpack/issues/6525
-        globalObject: `typeof self !== 'undefined' ? self : this`,
+        filename: 'index.js',
+        path: resolve('../../dist/worker'),
     },
     mode: "production",
     module: {

@@ -8,14 +8,18 @@ open Fable.WebWorker
 
 let FILE_NAME = "test.fs"
 
-let initFable(): IFableManager = import "init" "../../dist/es2015"
-let compileBabelAst(_ast: obj): string = importMember "./util.js"
-let resolveLibCall(libMap: obj, entityName: string): (string*string) option = importMember "./util.js"
-let getAssemblyReader(getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
+type IFableInit =
+    abstract member init: unit -> IFableManager
 
 let [<Global>] self: IWebWorker = jsNative
-let [<Global>] importScripts(path: string): unit = jsNative
+let [<Global("import")>] importDynamic<'T>(path: string): JS.Promise<'T> = jsNative
 let [<Emit("fetch($0).then(x => x.json())")>] fetchJson(url: string): JS.Promise<obj> = jsNative
+
+let resolveLibCall(libMap: obj, entityName: string): (string*string) option = importMember "./util.js"
+let getAssemblyReader(getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
+let getBabelAstCompiler(): JS.Promise<obj->string> = importMember "./util.js"
+let getFableInit() = importDynamic<IFableInit> "../../dist/es2015"
+
 
 let measureTime msg f arg =
     let before: float = self?performance?now()
@@ -26,6 +30,7 @@ let measureTime msg f arg =
 type FableState =
     { Manager: IFableManager
       Checker: IChecker
+      BabelAstCompiler: obj->string
       LoadTime: float
       LibMap: obj }
 
@@ -39,9 +44,11 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
     match state.Fable, msg with
     | None, CreateChecker(refsDirUrl, extraRefs, refsExtraSuffix, libJsonUrl) ->
         let getBlobUrl name =
-            refsDirUrl.Trim('/') + "/" + name + ".dll" + (defaultArg refsExtraSuffix "")
+            refsDirUrl.TrimEnd('/') + "/" + name + ".dll" + (defaultArg refsExtraSuffix "")
         try
-            let manager = initFable()
+            let! babelCompiler = getBabelAstCompiler() |> Async.AwaitPromise
+            let! fable = importDynamic<IFableInit> "../../dist/es2015" |> Async.AwaitPromise
+            let manager = fable.init()
             let! libMap =
                 match libJsonUrl with
                 | Some url -> fetchJson url |> Async.AwaitPromise
@@ -53,6 +60,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             state.Worker.Post Loaded
             return! loop box { state with Fable = Some { Manager = manager
                                                          Checker = checker
+                                                         BabelAstCompiler = babelCompiler
                                                          LoadTime = checkerTime
                                                          LibMap = libMap } }
         with err ->
@@ -74,7 +82,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             let (parseResults, parsingTime) = measureTime "FCS parsing" fable.Manager.ParseFSharpScript (fable.Checker, FILE_NAME, fsharpCode)
             let (res, fableTransformTime) = measureTime "Fable transform" (fun () ->
                 fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, optimize, fun x -> resolveLibCall(fable.LibMap, x))) ()
-            let (jsCode, babelTime) = measureTime "Babel generation" compileBabelAst res.BabelAst
+            let (jsCode, babelTime) = measureTime "Babel generation" fable.BabelAstCompiler res.BabelAst
 
             let stats : CompileStats =
                 { FCS_checker = fable.LoadTime

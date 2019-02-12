@@ -1,8 +1,6 @@
 /// @ts-check
 
 // @ts-ignore
-import * as Babel from "@babel/standalone";
-import BabelTemplate from "@babel/template";
 import * as BabelPlugins from "fable-babel-plugins";
 
 export function resolveLibCall(libMap, entityName) {
@@ -42,7 +40,7 @@ export function getAssemblyReader(getUrl, assemblies) {
         });
 }
 
-function babelOptions(extraPlugin) {
+function babelOptions(BabelTemplate, extraPlugin) {
     var commonPlugins = [
         BabelPlugins.getTransformMacroExpressions(BabelTemplate),
         BabelPlugins.getRemoveUnneededNulls(),
@@ -57,12 +55,17 @@ function babelOptions(extraPlugin) {
     };
 }
 
-export function compileBabelAst(ast) {
-    try {
-        var optionsES2015 = babelOptions();
-        var codeES2015 = Babel.transformFromAst(ast, null, optionsES2015).code;
-        return codeES2015;
-    } catch (err) {
-        console.error(err.message + "\n" + err.stack);
-    }
+export function getBabelAstCompiler() {
+    // @ts-ignore
+    return import("@babel/standalone").then(Babel => {
+        return (ast) => {
+            try {
+                var optionsES2015 = babelOptions(Babel.template);
+                var codeES2015 = Babel.transformFromAst(ast, null, optionsES2015).code;
+                return codeES2015;
+            } catch (err) {
+                console.error(err.message + "\n" + err.stack);
+            }
+        }
+    })
 }
