@@ -8,9 +8,10 @@ open Fable.WebWorker
 
 let FILE_NAME = "test.fs"
 
-let private compileBabelAst(_ast: obj): string = importMember "./util.js"
-let private getAssemblyReader(getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
-let private resolveLibCall(libMap: obj, entityName: string): (string*string) option = importMember "./util.js"
+let initFable(): IFableManager = import "init" "../../fable-standalone/dist/es2015/Main.js"
+let compileBabelAst(_ast: obj): string = importMember "./util.js"
+let resolveLibCall(libMap: obj, entityName: string): (string*string) option = importMember "./util.js"
+let getAssemblyReader(getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
 
 let [<Global>] self: IWebWorker = jsNative
 let [<Global>] importScripts(path: string): unit = jsNative
@@ -36,12 +37,11 @@ type State =
 let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
     let! msg = box.Receive()
     match state.Fable, msg with
-    | None, CreateChecker(fableStandaloneUrl, refsDirUrl, extraRefs, refsExtraSuffix, libJsonUrl) ->
+    | None, CreateChecker(refsDirUrl, extraRefs, refsExtraSuffix, libJsonUrl) ->
         let getBlobUrl name =
             refsDirUrl.Trim('/') + "/" + name + ".dll" + (defaultArg refsExtraSuffix "")
         try
-            importScripts fableStandaloneUrl
-            let manager: IFableManager = self?Fable?init()
+            let manager = initFable()
             let! libMap =
                 match libJsonUrl with
                 | Some url -> fetchJson url |> Async.AwaitPromise
@@ -50,11 +50,13 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             let! reader = getAssemblyReader(getBlobUrl, references) |> Async.AwaitPromise
             let (checker, checkerTime) = measureTime "FCS checker" (fun () ->
                 manager.CreateChecker(references, reader, [||], false)) ()
+            state.Worker.Post Loaded
             return! loop box { state with Fable = Some { Manager = manager
                                                          Checker = checker
                                                          LoadTime = checkerTime
                                                          LibMap = libMap } }
-        with _ ->
+        with err ->
+            JS.console.error("Cannot create F# checker", err)
             state.Worker.Post LoadFailed
             return! loop box state
 
@@ -115,9 +117,12 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
         return! loop box state
 }
 
-MailboxProcessor.Start(fun box ->
+let worker = ObservableWorker(self, WorkerRequest.Decoder)
+let box = MailboxProcessor.Start(fun box ->
     { Fable = None
-      Worker = ObservableWorker(self, WorkerRequest.Decoder)
+      Worker = worker
       CurrentResults = None }
     |> loop box)
-|> ignore
+
+worker
+|> Observable.add box.Post

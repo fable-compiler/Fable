@@ -4,6 +4,12 @@ open PublishUtils
 open System
 open System.Text.RegularExpressions
 
+let FABLE_BRANCH = "master"
+let APPVEYOR_REPL_ARTIFACT_URL_PARAMS = "?branch=" + FABLE_BRANCH + "&pr=false"
+let APPVEYOR_REPL_ARTIFACT_URL =
+    "https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/fable-standalone/fable-standalone.zip"
+    + APPVEYOR_REPL_ARTIFACT_URL_PARAMS
+
 let cleanDirs dirs =
     for dir in dirs do
         removeDirRecursive dir
@@ -17,6 +23,9 @@ let updateVersionInCliUtil() =
         @"let \[<Literal>] VERSION = "".*?""",
         sprintf "let [<Literal>] VERSION = \"%s\"" version)
     |> writeFile filePath
+
+let downloadAndExtractTo (url: string) (targetDir: string) =
+    sprintf "npx download --extract --out %s \"%s\"" targetDir url |> run
 
 let buildTypescript projectDir =
     // run ("npx tslint --project " + projectDir)
@@ -106,30 +115,48 @@ let test() =
         runInDir "tests/Main" "dotnet run"
         buildStandalone()
 
-match args with
-| IgnoreCase "test"::_ ->
+match argsLower with
+| "test"::_ ->
     test()
 
-| IgnoreCase "library"::_ ->
+| "download-standalone"::_ ->
+    let targetDir = "src/fable-standalone/dist"
+    cleanDirs [targetDir]
+    downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL targetDir
+
+| "library"::_ ->
     buildLibrary()
 
-| IgnoreCase "compiler"::_ ->
+| "compiler"::_ ->
     buildCompiler()
 
-| IgnoreCase "compiler-js"::_ ->
+| "compiler-js"::_ ->
     buildCompilerJs()
 
-| IgnoreCase "standalone"::_ ->
+| "standalone"::_ ->
     buildStandalone()
 
-| IgnoreCase "publish"::project ->
+| "web-worker"::_ ->
+    let standaloneDir = "src/fable-standalone/dist"
+    if pathExists standaloneDir |> not then
+        downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL standaloneDir
+
+    let projectDir = "src/fable-web-worker"
+    ["Interfaces.fs"; "Metadata.fs"] |> List.iter (fun filename ->
+        copyFile (standaloneDir </> "../src" </> filename) (projectDir </> "src"))
+
+    cleanDirs [projectDir </> "dist"]
+    buildWebpack projectDir
+    copyDirRecursive (standaloneDir </> "fable-library") (projectDir </> "dist/fable-library")
+
+| "publish"::project ->
     match project with
     | [] -> failwith "Pass the project to publish"
-    | IgnoreCase "compiler"::_
-    | IgnoreCase "fable-compiler"::_ ->
+    | "compiler"::_
+    | "fable-compiler"::_ ->
         buildCompiler()
         pushNpm "src/fable-compiler"
-    | IgnoreCase "fable-compiler-js"::_ ->
+    | "fable-compiler-js"::_ ->
         buildCompilerJs()
         pushNpm "src/fable-compiler-js"
     | _ -> failwithf "Cannot publish %A" project

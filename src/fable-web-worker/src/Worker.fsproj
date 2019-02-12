@@ -4,8 +4,10 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../fable-standalone/src/Interfaces.fs" />
-    <Compile Include="../../fable-standalone/src/Metadata.fs" />
+    <!-- Files copied from fable-standalone -->
+    <Compile Include="Interfaces.fs" />
+    <Compile Include="Metadata.fs" />
+
     <Compile Include="Shared.fs" />
     <Compile Include="Worker.fs" />
   </ItemGroup>

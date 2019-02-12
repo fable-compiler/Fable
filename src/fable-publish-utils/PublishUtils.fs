@@ -63,6 +63,9 @@ let args: string list =
     |> Seq.skip 2
     |> Seq.toList
 
+let argsLower<'T> =
+    args |> List.map (fun x -> x.ToLower())
+
 let isWindows =
     nodeProcess?platform = "win32"
 
@@ -128,6 +131,15 @@ let rec copyDirRecursive (source: string) (target: string): unit =
             copyDirRecursive source target
         else
             fs?copyFileSync(source, target)
+
+let copyFile (source: string) (target: string): unit =
+    if isDirectory source then
+        failwith "Source is a directory, use copyDirRecursive"
+    let target =
+        if pathExists target && isDirectory target then
+            target </> filename source
+        else target
+    fs?copyFileSync(source, target)
 
 let writeFile (filePath: string) (txt: string): unit =
     fs?writeFileSync(filePath, txt)

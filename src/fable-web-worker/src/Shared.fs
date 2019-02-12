@@ -11,8 +11,8 @@ type IWebWorker =
     interface end
 
 type WorkerRequest =
-    /// * referenceExtraSuffix: e.g. add .txt extension to enable gzipping in Github Pages
-    | CreateChecker of fableStandaloneUrl: string * refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option * libJsonUrl: string option
+    /// * refsExtraSuffix: e.g. add .txt extension to enable gzipping in Github Pages
+    | CreateChecker of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option * libJsonUrl: string option
     | ParseCode of fsharpCode: string
     | CompileCode of fsharpCode: string * optimize: bool
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
@@ -47,7 +47,7 @@ type ObservableWorker<'InMsg>(worker: IWebWorker, decoder: Decode.Decoder<'InMsg
         | :? string as msg when not(String.IsNullOrEmpty(msg)) ->
             match Decode.fromString decoder msg with
             | Ok msg ->
-                // Browser.console.log("[" + name + "] Received:", msg)
+                // JS.console.log("[" + name + "] Received:", msg)
                 for listener in listeners.Values do
                     listener.OnNext(msg)
             | Error err -> JS.console.error("[" + name + "] Cannot decode:", err)
