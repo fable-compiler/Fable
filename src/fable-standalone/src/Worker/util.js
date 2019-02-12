@@ -2,6 +2,7 @@
 
 // @ts-ignore
 import * as BabelPlugins from "fable-babel-plugins";
+import { template, transformFromAstSync } from "@babel/core";
 
 export function resolveLibCall(libMap, entityName) {
     if (libMap != null) {
@@ -56,16 +57,17 @@ function babelOptions(BabelTemplate, extraPlugin) {
 }
 
 export function getBabelAstCompiler() {
-    // @ts-ignore
-    return import("@babel/standalone").then(Babel => {
-        return (ast) => {
+    // Use a promise so we can easily make the Babel dependency
+    // an asynchronous chunk if necessary
+    return new Promise(function (resolve) {
+        resolve(function(ast) {
             try {
-                var optionsES2015 = babelOptions(Babel.template);
-                var codeES2015 = Babel.transformFromAst(ast, null, optionsES2015).code;
+                var optionsES2015 = babelOptions(template);
+                var codeES2015 = transformFromAstSync(ast, null, optionsES2015).code;
                 return codeES2015;
             } catch (err) {
                 console.error(err.message + "\n" + err.stack);
             }
-        }
-    })
+        });
+    });
 }

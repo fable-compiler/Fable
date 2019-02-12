@@ -5,10 +5,10 @@ open Fable.Core.JsInterop
 let [<Emit("__dirname")>] __dirname: string = jsNative
 
 #if TEST_LOCAL
-let initFable (): Fable.Standalone.IFableManager = import "init" "${entryDir}../../fable-standalone/dist/commonjs"
+let initFable (): Fable.Standalone.IFableManager = import "init" "${entryDir}../../fable-standalone"
 let getMetadataDir(): string = __dirname + "/" + "${entryDir}../../fable-metadata/lib"
 #else
-let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone/dist/commonjs"
+let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone"
 let getMetadataDir(): string = importDefault "fable-metadata"
 #endif
 

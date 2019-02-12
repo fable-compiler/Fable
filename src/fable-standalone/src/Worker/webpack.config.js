@@ -5,6 +5,12 @@ module.exports = {
         filename: 'index.js',
         path: resolve('../../dist/worker'),
     },
+    node: {
+        // Mock Node.js modules that Babel require()s but that we don't care about.
+        fs: "empty",
+        module: "empty",
+        net: "empty",
+    },
     mode: "production",
     module: {
         rules: [
