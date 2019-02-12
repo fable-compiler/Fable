@@ -31,8 +31,11 @@ let buildTypescript projectDir =
     // run ("npx tslint --project " + projectDir)
     run ("npx tsc --project " + projectDir)
 
+let buildSplitterWithArgs projectDir args =
+    run ("npx fable-splitter -c " + (projectDir </> "splitter.config.js") + " " + args)
+
 let buildSplitter projectDir =
-    run ("npx fable-splitter -c " + (projectDir </> "splitter.config.js"))
+    buildSplitterWithArgs projectDir ""
 
 let buildWebpack projectDir =
     run ("npx webpack --config " + (projectDir </> "webpack.config.js"))
@@ -52,34 +55,31 @@ let buildCompiler() =
     buildLibrary()
     copyDirRecursive libraryDir (projectDir </> "bin/fable-library")
 
-let buildCompilerJs() =
+let buildCompilerJs testLocal =
     let projectDir = "src/fable-compiler-js"
     let libraryDir = "build/fable-library"
     cleanDirs [projectDir </> "dist"]
-    buildSplitter projectDir
-    buildLibrary()
+    if testLocal then
+        buildSplitterWithArgs projectDir "--test-local"
+    else
+        buildSplitter projectDir
+        buildLibrary()
     copyDirRecursive libraryDir "src/fable-compiler-js/dist/fable-library"
     runInDir projectDir "npx babel dist/fable-library --out-dir dist/fable-library-commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
-
-let runStandaloneBench2 () =
-    run "npx babel src/fable-standalone/dist/es2015 --out-dir  src/fable-standalone/dist/commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
-    buildSplitter "src/fable-standalone/test/bench2"
-    runInDir "src/fable-standalone/test/bench2"
-        "node out/app ../../../fable-metadata/lib/ test_script.fs out/test_script.js"
-
-    // Run the test script
-    run "npx babel build/fable-library --out-dir src/fable-standalone/test/out-fable-library --plugins @babel/plugin-transform-modules-commonjs --quiet"
-    run "node src/fable-standalone/test/bench2/out/test_script.js"
 
 let buildStandalone() =
     let projectDir = "src/fable-standalone"
     let libraryDir = "build/fable-library"
     cleanDirs [projectDir </> "dist"]
 
+    // ES2015 modules
     buildSplitter projectDir
-    buildWebpack projectDir
-    fileSizeInBytes (projectDir </> "dist/fable-standalone.min.js") / 1000
-    |> printfn "fable-standalone bundle size: %iKB"
+    // commonjs
+    run "npx babel src/fable-standalone/dist/es2015 --out-dir  src/fable-standalone/dist/commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
+    // Web Worker
+    buildWebpack "src/fable-standalone/src/Worker"
+    fileSizeInBytes (projectDir </> "dist/worker.min.js") / 1000
+    |> printfn "Web worker bundle size: %iKB"
 
     // Put fable-library files next to bundle
     let libraryTarget = projectDir </> "dist/fable-library"
@@ -92,9 +92,6 @@ let buildStandalone() =
     |> Array.iter (fun file ->
         reg.Replace(readFile file, "import $1.js$2")
         |> writeFile file)
-
-    // Test
-    runStandaloneBench2 ()
 
     // Bump version
     // let compilerVersion = Publish.loadReleaseVersion "src/fable-compiler"
@@ -116,40 +113,23 @@ let test() =
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         runInDir "tests/Main" "dotnet run"
         buildStandalone()
+        // Test fable-compiler-js locally
+        buildCompilerJs true
+        runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
+        runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
+
 
 match argsLower with
-| "test"::_ ->
-    test()
+| "test"::_ -> test()
+| "library"::_ -> buildLibrary()
+| "compiler"::_ -> buildCompiler()
+| "standalone"::_ -> buildStandalone()
+| "compiler-js"::_ -> buildCompilerJs false
 
 | "download-standalone"::_ ->
     let targetDir = "src/fable-standalone/dist"
     cleanDirs [targetDir]
     downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL targetDir
-
-| "library"::_ ->
-    buildLibrary()
-
-| "compiler"::_ ->
-    buildCompiler()
-
-| "compiler-js"::_ ->
-    buildCompilerJs()
-
-| "standalone"::_ ->
-    buildStandalone()
-
-| "web-worker"::_ ->
-    let standaloneDir = "src/fable-standalone/dist"
-    if pathExists standaloneDir |> not then
-        downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL standaloneDir
-
-    let projectDir = "src/fable-web-worker"
-    ["Interfaces.fs"; "Metadata.fs"] |> List.iter (fun filename ->
-        copyFile (standaloneDir </> "../src" </> filename) (projectDir </> "src"))
-
-    cleanDirs [projectDir </> "dist"]
-    buildWebpack projectDir
-    copyDirRecursive (standaloneDir </> "fable-library") (projectDir </> "dist/fable-library")
 
 | "publish"::project ->
     match project with
@@ -159,7 +139,7 @@ match argsLower with
         buildCompiler()
         pushNpm "src/fable-compiler"
     | "fable-compiler-js"::_ ->
-        buildCompilerJs()
+        buildCompilerJs false
         pushNpm "src/fable-compiler-js"
     | _ -> failwithf "Cannot publish %A" project
 

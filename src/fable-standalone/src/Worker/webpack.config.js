@@ -1,8 +1,8 @@
 module.exports = {
-    entry: resolve('src/Worker.fsproj'),
+    entry: resolve('Worker.fsproj'),
     output: {
-        filename: 'fable-web-worker.min.js',
-        path: resolve('dist'),
+        filename: 'worker.min.js',
+        path: resolve('../../dist'),
         // https://github.com/webpack/webpack/issues/6525
         globalObject: `typeof self !== 'undefined' ? self : this`,
     },
@@ -14,7 +14,7 @@ module.exports = {
             use: {
                 loader: "fable-loader",
                 options: {
-                    cli: { path: resolve("../Fable.Cli") }
+                    cli: { path: resolve("../../../Fable.Cli") }
                 }
             }
           }

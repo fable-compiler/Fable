@@ -2,6 +2,16 @@ module Fable.Compiler.Platform
 open Fable.Core
 open Fable.Core.JsInterop
 
+let [<Emit("__dirname")>] __dirname: string = jsNative
+
+#if TEST_LOCAL
+let initFable (): Fable.Standalone.IFableManager = import "init" "${entryDir}../../fable-standalone/dist/commonjs"
+let getMetadataDir(): string = __dirname + "/" + "${entryDir}../../fable-metadata/lib"
+#else
+let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone"
+let getMetadataDir(): string = importDefault "fable-metadata"
+#endif
+
 type private IFileSystem =
     abstract readFileSync: string -> byte[]
     abstract readFileSync: string * string -> string
@@ -36,16 +46,8 @@ let copyFolder (from: string, dest: string): unit =
 let transformAndSaveBabelAst (babelAst: obj, fileName: string, outDir: string, commonjs: bool): unit =
     importMember "./util.js"
 
-let initFable (): Fable.Standalone.IFableManager =
-    import "init" "fable-standalone"
-
-let getMetadataDir(): string =
-    importDefault "fable-metadata"
-
 let runCmdAndExitIfFails (cmd: string): unit =
     importMember "./util.js"
-
-let [<Emit("__dirname")>] __dirname: string = jsNative
 
 module Path =
 

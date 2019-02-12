@@ -8,7 +8,7 @@ open Fable.WebWorker
 
 let FILE_NAME = "test.fs"
 
-let initFable(): IFableManager = import "init" "../../fable-standalone/dist/es2015/Main.js"
+let initFable(): IFableManager = import "init" "../../dist/es2015"
 let compileBabelAst(_ast: obj): string = importMember "./util.js"
 let resolveLibCall(libMap: obj, entityName: string): (string*string) option = importMember "./util.js"
 let getAssemblyReader(getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"

@@ -30,7 +30,7 @@ let parseProjectScript projectPath =
             | Regex @"^#load\s+""(.*?)""$" [_;path] ->
                 dllRefs, Array.append [|Path.Combine(projectDir, path)|] srcFiles
             | _ -> dllRefs, srcFiles)
-    let sourceFiles = Array.append srcFiles [|projectPath|]
+    let sourceFiles = Array.append srcFiles [|Path.GetFileName projectPath|]
     (projectFileName, dllRefs, [||], sourceFiles, [|"FABLE_COMPILER"|])
 
 let parseProjectFile projectPath =

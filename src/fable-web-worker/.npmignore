@@ -1,3 +1,0 @@
-# Override .gitignore to include the `dist` folder
-obj/
-bin/

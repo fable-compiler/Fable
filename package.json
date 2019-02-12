@@ -12,6 +12,8 @@
     "@babel/plugin-transform-modules-commonjs": "^7.2.0",
     "@babel/preset-env": "^7.3.1",
     "@babel/register": "^7.0.0",
+    "@babel/standalone": "^7.3.2",
+    "@babel/template": "^7.2.2",
     "@types/node": "^10.12.18",
     "ava": "^1.2.0",
     "babel-loader": "^8.0.5",
