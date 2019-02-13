@@ -220,12 +220,18 @@ let updateState (state: Map<string,ProjectExtra>) (msg: Parser.Message) =
 
 let addFSharpErrorLogs (com: ICompiler) (proj: ProjectExtra) =
     proj.Errors |> Seq.filter (fun er ->
-        // If the trigger file is the .fsproj report errors in the corresponding file.
-        // If another file triggers the compilation (as in watch mode) reports errors there so they don't go missing
-        if proj.TriggerFile.EndsWith(".fsproj") || er.Severity = FSharpErrorSeverity.Warning then
+        // Report warnings always in the corresponding file
+        // but ignore those from packages in `.fable` folder
+        if er.Severity = FSharpErrorSeverity.Warning then
+            com.CurrentFile = er.FileName && not(Naming.isInFableHiddenDir er.FileName)
+        // For errors, if the trigger is the .fsproj (first compilation), report them in the corresponding file
+        elif proj.TriggerFile.EndsWith(".fsproj") then
             com.CurrentFile = er.FileName
+        // If another file triggers the compilation report errors there so they don't go missing
+        // But ignore errors from packages in `.fable` folder, as this is watch mode and users can't do anything
+        // See https://github.com/fable-compiler/Fable/pull/1714#issuecomment-463137486
         else
-            com.CurrentFile = proj.TriggerFile)
+            com.CurrentFile = proj.TriggerFile && not(Naming.isInFableHiddenDir er.FileName))
     |> Seq.map (fun er ->
         let severity =
             match er.Severity with

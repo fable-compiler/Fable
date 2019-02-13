@@ -337,8 +337,8 @@ module Publish =
             (Fable.Import.JS.JSON.parse json)?version |> Option.ofObj
         let releaseVersion = loadReleaseVersion projDir
         if needsPublishing checkPkgVersion releaseVersion (projDir </> "package.json") then
-            bumpNpmVersion projDir releaseVersion
             buildAction()
+            bumpNpmVersion projDir releaseVersion
             try
                 let publishCmd =
                     match splitPrerelease releaseVersion with

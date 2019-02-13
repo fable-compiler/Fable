@@ -1,3 +1,7 @@
+### 2.2.0-beta-007
+
+* Fix report of warnings as errors from files in `.fable` dir
+
 ### 2.2.0-beta-006
 
 * Merge with master

@@ -113,6 +113,9 @@ module Naming =
     let [<Literal>] fableHiddenDir = ".fable"
     let [<Literal>] unknown = "UNKNOWN"
 
+    let isInFableHiddenDir (file: string) =
+        file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableHiddenDir)
+
     /// Interfaces implemented in the prototype or automatically assigned by the F# compiler to unions and records.
     /// TODO: Allow explicit implementation of the first four?
     let ignoredInterfaces =

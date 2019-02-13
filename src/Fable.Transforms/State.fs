@@ -90,19 +90,12 @@ type Compiler(currentFile, project: Project, options, fableLibraryDir: string) =
         member __.GetOrAddInlineExpr(fullName, generate) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
-            match severity, fileName with
-            // TODO!!! Temporarily ignore warnings in Fable packages
-            /// (contained in .fable hidden dir) until they're updated to Fable 2
-            | Severity.Warning, Some file
-                  when file.Split([|'\\'; '/'|])
-                  |> Array.exists ((=) Naming.fableHiddenDir) -> ()
-            | _ ->
-                { Message = msg
-                  Tag = defaultArg tag "FABLE"
-                  Severity = severity
-                  Range = range
-                  FileName = fileName }
-                |> logs.Add
+            { Message = msg
+              Tag = defaultArg tag "FABLE"
+              Severity = severity
+              Range = range
+              FileName = fileName }
+            |> logs.Add
         // TODO: If name includes `$$2` at the end, remove it
         member __.GetUniqueVar(name) =
             id <- id + 1
