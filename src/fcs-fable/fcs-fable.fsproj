@@ -19,8 +19,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="fsstrings.fs"/>
-    <Compile Include="adapters.fs"/>
+    <!-- shims -->
+    <Compile Include="System.fs"/>
+    <Compile Include="System.Collections.Concurrent.fs"/>
+    <Compile Include="System.IO.fs"/>
+    <!-- string resources -->
+    <Compile Include="FSStrings.fs"/>
+    <Compile Include="XmlAdapters.fs"/>
+    <Compile Include="SR.fs"/>
     <Compile Include="codegen/FSComp.fs"/>
     <Compile Include="codegen/FSIstrings.fs"/>
     <!-- <Compile Include="../FSharp.Compiler.Service/AssemblyInfo.fs"/> -->

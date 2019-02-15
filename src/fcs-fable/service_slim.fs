@@ -55,10 +55,10 @@ open Microsoft.FSharp.Compiler.TypeChecker
 type internal TcResult = TcEnv * TopAttribs * TypedImplFile option * ModuleOrNamespaceType
 type internal TcErrors = FSharpErrorInfo[]
 
-type InteractiveChecker private (tcConfig, tcGlobals, tcImports, tcInitialState, ctok, reactorOps, parseCache, checkCache) =
+type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState, ctok, reactorOps, parseCache, checkCache) =
     let userOpName = "Unknown"
 
-    static member private BuildTcImports (tcConfig: TcConfig, references: string[], readAllBytes: string -> byte[]) =
+    static member internal BuildTcImports (tcConfig: TcConfig, references: string[], readAllBytes: string -> byte[]) =
         let tcImports = TcImports ()
         let ilGlobals = IL.EcmaMscorlibILGlobals
 

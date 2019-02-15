@@ -1,14 +1,29 @@
-#r "node_modules/fable-compiler-js/lib/Fable.Core.dll"
+#r "node_modules/fable-metadata/lib/Fable.Core.dll"
 #load "src/fable-publish-utils/PublishUtils.fs"
+
 open PublishUtils
 open System
 open System.Text.RegularExpressions
+open Fable.Core
+open Fable.Import
 
+// Appveyor artifact
 let FABLE_BRANCH = "master"
 let APPVEYOR_REPL_ARTIFACT_URL_PARAMS = "?branch=" + FABLE_BRANCH + "&pr=false"
 let APPVEYOR_REPL_ARTIFACT_URL =
     "https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/fable-standalone/fable-standalone.zip"
     + APPVEYOR_REPL_ARTIFACT_URL_PARAMS
+
+// ncave FCS fork
+let NCAVE_FORK = "https://github.com/ncave/FSharp.Compiler.Service"
+let NCAVE_FORK_LOCAL = "../FSharp.Compiler.Service"
+let NCAVE_FORK_FCS_FABLE_BRANCH = "fable"
+
+type GhRealeases =
+    [<Emit("""new Promise((succeed, fail) =>
+        $0.create({user: $1, token: $2}, $3, $4, { tag_name: $5, name: $5, body: $6 }, (err, res) =>
+            err != null ? fail(err) : succeed(res)))""")>]
+    abstract create: user: string * token: string * owner: string * repo: string * name: string * msg: string -> JS.Promise<obj>
 
 let cleanDirs dirs =
     for dir in dirs do
@@ -127,6 +142,20 @@ let downloadStandalone() =
 let buildFableSplitter() =
     buildTypescript "src/fable-splitter"
 
+let githubRelease() =
+    match envVarOrNone "GITHUB_USER", envVarOrNone "GITHUB_TOKEN" with
+    | Some user, Some token ->
+        async {
+            try
+                let ghreleases: GhRealeases = JsInterop.importAll "ghreleases"
+                let! version, notes = Publish.loadReleaseVersionAndNotes "src/fable-compiler"
+                let! res = ghreleases.create(user, token, "fable-compiler", "Fable", version, String.concat "\n" notes) |> Async.AwaitPromise
+                printfn "Github release %s created successfully" version
+            with ex ->
+                printfn "Github release failed: %s" ex.Message
+        } |> Async.StartImmediate
+    | _ -> failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
+
 let packages =
     ["fable-babel-plugins", doNothing
      "fable-compiler", buildCompiler
@@ -138,6 +167,14 @@ let packages =
      "fable-standalone", downloadStandalone
     ]
 
+let publishPackages restArgs =
+    let packages =
+        match List.tryHead restArgs with
+        | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
+        | None -> packages
+    for (pkg, buildAction) in packages do
+        pushNpm ("src" </> pkg) buildAction
+
 match argsLower with
 | "test"::_ -> test()
 | "library"::_ -> buildLibrary()
@@ -146,15 +183,24 @@ match argsLower with
 | "splitter"::_ -> buildFableSplitter()
 | "standalone"::_ -> buildStandalone()
 | "download-standalone"::_ -> downloadStandalone()
+| "publish"::restArgs -> publishPackages restArgs
+| "github-release"::_ ->
+    publishPackages []
+    githubRelease ()
+| "sync-fcs-fable"::_ ->
+    printfn "Expecting %s repo to be cloned at %s and '%s' branch checked out"
+        NCAVE_FORK NCAVE_FORK_LOCAL NCAVE_FORK_FCS_FABLE_BRANCH
 
-| "publish"::restArgs ->
-    let packages =
-        match List.tryHead restArgs with
-        | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
-        | None -> packages
-    for (pkg, buildAction) in packages do
-        pushNpm ("src" </> pkg) buildAction
-
+    runBashOrCmd (NCAVE_FORK_LOCAL </> "fcs") "build" "CodeGen.Fable"
+    copyDirRecursive (NCAVE_FORK_LOCAL </> "fcs/fcs-fable") "src/fcs-fable"
+    copyDirRecursive (NCAVE_FORK_LOCAL </> "src") "src/fcs-fable/src"
+    removeFile "src/fcs-fable/.gitignore"
+    let fcsFableProj = "src/fcs-fable/fcs-fable.fsproj"
+    Regex.Replace(
+            readFile fcsFableProj,
+            @"(<FSharpSourcesRoot>\$\(MSBuildProjectDirectory\)).*?(<\/FSharpSourcesRoot>)",
+            "$1/src$2")
+    |> writeFile fcsFableProj
 | _ ->
     printfn "Please pass a target name"
 

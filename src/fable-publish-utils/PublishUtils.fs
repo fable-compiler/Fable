@@ -108,6 +108,9 @@ let filenameWithoutExtension (p: string) =
     let i = name.LastIndexOf(".")
     if i > -1 then name.Substring(0, i) else name
 
+let removeFile (p: string): unit =
+    fs?unlinkSync(p)
+
 let rec removeDirRecursive (p: string): unit =
     if fs?existsSync(p) then
         for file in dirFiles p do
@@ -204,6 +207,11 @@ let tryRunForOutput (cmd: string): string option =
 let runList cmdParts =
     String.concat " " cmdParts |> run
 
+let runBashOrCmd cwd (scriptFileName: string) args =
+    if isWindows
+    then runInDir cwd (scriptFileName.Replace("/", "\\") + ".cmd " + args)
+    else runInDir cwd ("sh " + scriptFileName + ".sh " + args)
+
 let envVar (varName: string): string =
     nodeProcess?env?(varName)
 
@@ -255,6 +263,25 @@ module Publish =
                     failwithf "Couldn't find %s upwards from %s" fileName originalDir
                 findFileUpwardsInner fileName parent
         findFileUpwardsInner fileName dir
+
+    let loadReleaseVersionAndNotes projFile =
+        Async.FromContinuations(fun (cont,_,_) ->
+            let projDir = if isDirectory projFile then projFile else dirname projFile
+            let releaseNotes = findFileUpwards "RELEASE_NOTES.md" projDir
+            let mutable version = ""
+            let notes = ResizeArray()
+            let mutable disp = Unchecked.defaultof<IDisposable>
+            disp <- readLines releaseNotes |> Observable.subscribe (fun line ->
+                match line.Trim() with
+                | "" -> ()
+                | Regex VERSION (v::_) ->
+                    match version with
+                    | "" -> version <- v
+                    | _ ->
+                        // We reached next version section, stop reading
+                        disp.Dispose()
+                        cont(version, notes.ToArray())
+                | note -> notes.Add(note)))
 
     let loadReleaseVersion projFile =
         let projDir = if isDirectory projFile then projFile else dirname projFile
