@@ -1,3 +1,7 @@
+### 2.1.4
+
+* Add babelOptions.filename, since it is needed by other Babel plugins @SirUppyPancakes
+
 ### 2.1.3
 
 * Accept fable-compiler 2.2.x dependency
