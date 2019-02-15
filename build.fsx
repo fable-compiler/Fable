@@ -1,4 +1,4 @@
-#r "node_modules/fable-metadata/lib/Fable.Core.dll"
+#r "src/fable-metadata/lib/Fable.Core.dll"
 #load "src/fable-publish-utils/PublishUtils.fs"
 
 open PublishUtils
