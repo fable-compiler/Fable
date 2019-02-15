@@ -35,10 +35,12 @@ function getCompiler(webpack, args) {
 
 function transformBabelAst(babelAst, babelOptions, sourceMapOptions, callback) {
     var fsCode = null;
+    var fileName = sourceMapOptions.path.replace(/\\/g, '/');
     if (sourceMapOptions != null) {
         fsCode = sourceMapOptions.buffer.toString();
         babelOptions.sourceMaps = true;
-        babelOptions.sourceFileName = path.relative(process.cwd(), sourceMapOptions.path.replace(/\\/g, '/'));
+        babelOptions.filename = fileName;
+        babelOptions.sourceFileName = path.relative(process.cwd(), fileName);
     }
     babel.transformFromAst(babelAst, fsCode, babelOptions, callback);
 }
