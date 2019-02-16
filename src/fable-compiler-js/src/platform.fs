@@ -21,8 +21,12 @@ type private IProcess =
     abstract hrtime: unit -> float []
     abstract hrtime: float[] -> float[]
 
+type private IPath =
+    abstract resolve: string -> string
+
 let private FileSystem: IFileSystem = importAll "fs"
 let private Process: IProcess = importAll "process"
+let private Path: IPath = importAll "path"
 
 let readAllBytes (fileName:string) = FileSystem.readFileSync(fileName)
 let readAllText (filePath:string) = (FileSystem.readFileSync (filePath, "utf8")).TrimStart('\uFEFF')
@@ -48,6 +52,12 @@ let transformAndSaveBabelAst (babelAst: obj, fileName: string, outDir: string, c
 
 let runCmdAndExitIfFails (cmd: string): unit =
     importMember "./util.js"
+
+let fullPath (path: string) =
+    Path.resolve(path)
+
+let normalizeFullPath (path: string) =
+    Path.resolve(path).Replace('\\', '/')
 
 module Path =
 

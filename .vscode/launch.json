@@ -71,18 +71,18 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch bench-compiler",
+            "name": "bench-compiler (Node)",
             "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
             "args": ["bench-compiler.fsproj", "out-node2"],
-            "cwd": "${workspaceRoot}//src/fable-standalone/test/bench-compiler"
+            "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
-            "type": "node",
+            "type": "coreclr",
             "request": "launch",
-            "name": "Launch fable-compiler",
-            "program": "${workspaceRoot}/src/js/fable-compiler/dist/app.js",
-            "args": ["../fable-test/fable-test.fsproj", "../fable-test/out"],
-            "cwd": "${workspaceRoot}"
+            "name": "bench-compiler (.NET)",
+            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp2.1/bench-compiler.dll",
+            "args": ["../../../../../fable-test/fable-test.fsproj", "out-test"],
+            "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {
             "type": "node",

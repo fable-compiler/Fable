@@ -2,8 +2,6 @@ module Bench.Platform
 
 #if DOTNET_FILE_SYSTEM && !FABLE_COMPILER
 
-let fableLibraryDir = System.IO.Path.Combine(__SOURCE_DIRECTORY__, "../../../build/fable-library")
-
 let readAllBytes metadataPath (fileName:string) = System.IO.File.ReadAllBytes (metadataPath + fileName)
 let readAllText (filePath:string) = System.IO.File.ReadAllText (filePath, System.Text.Encoding.UTF8)
 let writeAllText (filePath:string) (text:string) = System.IO.File.WriteAllText (filePath, text)
@@ -54,11 +52,12 @@ let toJson = Json.toJson
 let ensureDirExists (dir: string): unit =
     System.IO.Directory.CreateDirectory(dir) |> ignore
 
+let normalizeFullPath (path: string) =
+    System.IO.Path.GetFullPath(path).Replace('\\', '/')
+
 #else
 
 open Fable.Core.JsInterop
-
-let fableLibraryDir = "${entryDir}/../../../build/fable-library"
 
 type private IFileSystem =
     abstract readFileSync: string -> byte[]
@@ -69,8 +68,12 @@ type private IProcess =
     abstract hrtime: unit -> float []
     abstract hrtime: float[] -> float[]
 
+type private IPath =
+    abstract resolve: string -> string
+
 let private FileSystem: IFileSystem = importAll "fs"
 let private Process: IProcess = importAll "process"
+let private Path: IPath = importAll "path"
 
 let readAllBytes metadataPath (fileName:string) = FileSystem.readFileSync(metadataPath + fileName)
 let readAllText (filePath:string) = (FileSystem.readFileSync (filePath, "utf8")).TrimStart('\uFEFF')
@@ -84,6 +87,10 @@ let measureTime (f: 'a -> 'b) x =
 
 let toJson (value: obj) = value |> toJson
 
-let ensureDirExists (dir: string): unit = importMember "./util.js"
+let ensureDirExists (dir: string): unit =
+    importMember "./util.js"
+
+let normalizeFullPath (path: string) =
+    Path.resolve(path).Replace('\\', '/')
 
 #endif
