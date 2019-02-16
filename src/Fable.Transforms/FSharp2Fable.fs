@@ -294,12 +294,41 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs callee args memb
 
-    | TryParse (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
+    | TryGetValueOptimized (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, elseExpr) ->
+        let ctx, ident = bindIdentFrom com ctx outArg
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx membArgs
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
-        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs callee args memb
+        let r = makeRangeFrom fsExpr
+        let identExpr = Fable.IdentExpr ident
+        let tupleExpr = makeCallFrom com ctx r typ false genArgs callee args memb
+        let guardExpr = Fable.Get(identExpr, Fable.TupleGet 0, typ, r)
+        let thenExpr = Fable.Get(identExpr, Fable.TupleGet 1, typ, r)
+        let! elseExpr = transformExpr com ctx elseExpr
+        let body = Fable.IfThenElse (guardExpr, thenExpr, elseExpr)
+        return Fable.Let([ident, tupleExpr], body)
+
+    | TryParse (memb, ownerGenArgs, membGenArgs, membArgs) ->
+        let! args = transformExprList com ctx membArgs
+        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
+        let typ = makeType com ctx.GenericArgs fsExpr.Type
+        let r = makeRangeFrom fsExpr
+        return makeCallFrom com ctx r typ false genArgs None args memb
+
+    | TryParseOptimized (outArg, memb, ownerGenArgs, membGenArgs, membArgs, elseExpr) ->
+        let ctx, ident = bindIdentFrom com ctx outArg
+        let! args = transformExprList com ctx membArgs
+        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
+        let typ = makeType com ctx.GenericArgs fsExpr.Type
+        let r = makeRangeFrom fsExpr
+        let identExpr = Fable.IdentExpr ident
+        let tupleExpr = makeCallFrom com ctx r typ false genArgs None args memb
+        let guardExpr = Fable.Get(identExpr, Fable.TupleGet 0, typ, r)
+        let thenExpr = Fable.Get(identExpr, Fable.TupleGet 1, typ, r)
+        let! elseExpr = transformExpr com ctx elseExpr
+        let body = Fable.IfThenElse (guardExpr, thenExpr, elseExpr)
+        return Fable.Let([ident, tupleExpr], body)
 
     | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let! callee = transformExpr com ctx callee

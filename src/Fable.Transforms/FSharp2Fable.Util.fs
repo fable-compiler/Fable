@@ -366,8 +366,7 @@ module Patterns =
             Some (ident, value, body)
         | _ -> None
 
-    /// This matches the boilerplate F# compiler generates for methods
-    /// like Dictionary.TryGetValue (see #154)
+    /// This matches the boilerplate generated for .TryGetValue (see #154)
     let (|TryGetValue|_|) = function
         | Let((outArg1, (DefaultValue _ as def)),
                 NewTuple(_, [Call(callee, memb, ownerGenArgs, membGenArgs,
@@ -376,18 +375,42 @@ module Patterns =
             Some (callee, memb, ownerGenArgs, membGenArgs, [arg1; def])
         | _ -> None
 
+    /// This matches the boilerplate generated for .TryGetValue (optimized)
+    let (|TryGetValueOptimized|_|) = function
+        | Let((outArg1, (DefaultValue _ as def)), IfThenElse
+                (Call(callee, memb, ownerGenArgs, membGenArgs,
+                    [arg1; AddressOf(Value outArg2)]), Value outArg3, (_ as elseExpr)))
+            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryGetValue" ->
+            Some (outArg1, callee, memb, ownerGenArgs, membGenArgs, [arg1; def], elseExpr)
+        | _ -> None
+
     /// This matches the boilerplate generated for .TryParse
     let (|TryParse|_|) = function
-        | Let((outArg1, (DefaultValue _)),
-                NewTuple(_, [Call(callee, memb, ownerGenArgs, membGenArgs,
-                                    [arg1; AddressOf(Value outArg2)]); Value outArg3]))
+        | Let((outArg1, DefaultValue _),
+                NewTuple(_, [Call(None, memb, ownerGenArgs, membGenArgs,
+                                [arg1; AddressOf(Value outArg2)]); Value outArg3]))
             when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
-            Some (callee, memb, ownerGenArgs, membGenArgs, [arg1])
-        | Let((outArg1, (DefaultValue _)),
-                NewTuple(_, [Call(callee, memb, ownerGenArgs, membGenArgs,
-                                    [arg1; arg2; arg3; AddressOf(Value outArg2)]); Value outArg3]))
+            Some (memb, ownerGenArgs, membGenArgs, [arg1])
+        | Let((outArg1, DefaultValue _),
+                NewTuple(_, [Call(None, memb, ownerGenArgs, membGenArgs,
+                                [arg1; arg2; arg3; AddressOf(Value outArg2)]); Value outArg3]))
             when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
-            Some (callee, memb, ownerGenArgs, membGenArgs, [arg1; arg2; arg3])
+            Some (memb, ownerGenArgs, membGenArgs, [arg1; arg2; arg3])
+        | _ -> None
+
+
+    /// This matches the boilerplate generated for .TryParse (optimized)
+    let (|TryParseOptimized|_|) = function
+        | Let((outArg1, DefaultValue _), IfThenElse
+                (Call (None, memb, ownerGenArgs, membGenArgs,
+                    [arg1; AddressOf(Value outArg2)]), Value outArg3, elseExpr))
+            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
+            Some (outArg1, memb, ownerGenArgs, membGenArgs, [arg1], elseExpr)
+        | Let((outArg1, DefaultValue _), IfThenElse
+                (Call (None, memb, ownerGenArgs, membGenArgs,
+                    [arg1; arg2; arg3; AddressOf(Value outArg2)]), Value outArg3, elseExpr))
+            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
+            Some (outArg1, memb, ownerGenArgs, membGenArgs, [arg1; arg2; arg3], elseExpr)
         | _ -> None
 
     /// This matches the boilerplate generated to wrap .NET events from F#

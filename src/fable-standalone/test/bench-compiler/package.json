@@ -16,7 +16,7 @@
     "build-tests-node": "node out-node/app ../../../../tests/Main/Fable.Tests.fsproj out-tests && node transform out-tests --commonjs",
     "build-tests-dotnet": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj out-tests && node transform out-tests --commonjs",
     "build-tests-dotnet-opt": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj out-tests --optimize-fcs && node transform out-tests --commonjs",
-    "run-tests": "../../../../node_modules/.bin/mocha --colors out-test/tests/Main/Main.js",
+    "run-tests": "node ../../../../node_modules/mocha/bin/mocha --colors out-tests/tests/Main/Main.js",
     "profile": "node --prof out-node/app bench-compiler.fsproj out-node2",
     "process": "node --prof-process --preprocess -j isolate-*.log > profile.v8log.json",
     "flamegraph": "speedscope profile.v8log.json",
