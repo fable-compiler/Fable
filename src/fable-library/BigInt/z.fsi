@@ -35,6 +35,8 @@ namespace BigInt
         static member (&&&)      : x:BigInteger * y:BigInteger -> BigInteger
         /// Return the bitwise or of two big integers
         static member (|||)      : x:BigInteger * y:BigInteger -> BigInteger
+        /// Return the bitwise xor of two big integers
+        static member (^^^)      : x:BigInteger * y:BigInteger -> BigInteger
 
         /// Convert a big integer to a 8-bit signed integer
         member ToSByte : sbyte
