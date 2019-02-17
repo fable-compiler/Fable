@@ -1326,9 +1326,11 @@ module Shim =
             member __.FileStreamCreateShim (fileName: string) = new FileStream(fileName,FileMode.Create,FileAccess.Write,FileShare.Read ,0x1000,false) :> Stream
 
             member __.FileStreamWriteExistingShim (fileName: string) = new FileStream(fileName,FileMode.Open,FileAccess.Write,FileShare.Read ,0x1000,false) :> Stream
-#endif
 
             member __.GetFullPathShim (fileName: string) = System.IO.Path.GetFullPath fileName
+#else //FABLE_COMPILER
+            member __.GetFullPathShim (fileName: string) = fileName
+#endif
 
             member __.IsPathRootedShim (path: string) = Path.IsPathRooted path
 

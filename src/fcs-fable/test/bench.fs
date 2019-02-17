@@ -52,11 +52,9 @@ let rec parseProject projectPath =
 
     let projectFileDir = Path.GetDirectoryName projectPath
     let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
-    let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
     let makePath path = if isAbsolutePath path then path else Path.Combine(projectFileDir, path)
-    let makeName path = Path.Combine(projectFileDir, path) |> trimPath
 
-    let fileNames = sourceFiles |> Array.map (fun path -> path |> makeName)
+    let fileNames = sourceFiles |> Array.map (fun path -> path |> makePath |> normalizeFullPath)
     let sources = sourceFiles |> Array.map (fun path -> path |> makePath |> readAllText)
 
     let parsedProjects = projectRefs |> Array.map makePath |> Array.map parseProject
@@ -67,7 +65,11 @@ let rec parseProject projectPath =
     (projectFileName, fileNames, sources, defines |> Array.distinct)
 
 let dedupFileNames fileNames =
-    let nameSet = System.Collections.Generic.HashSet<string>()
+    let comparerIgnoreCase =
+        { new System.Collections.Generic.IEqualityComparer<string> with
+            member __.Equals(x, y) = x.ToLowerInvariant() = y.ToLowerInvariant()
+            member __.GetHashCode(x) = hash (x.ToLowerInvariant()) }
+    let nameSet = System.Collections.Generic.HashSet<string>(comparerIgnoreCase)
     let padName (name: string) =
         let pos = name.LastIndexOf(".")
         let nm = if pos < 0 then name else name.Substring(0, pos)

@@ -4,9 +4,6 @@
 
 namespace System.IO
 
-module Directory =
-    let GetCurrentDirectory () = "." //TODO: proper xplat implementation
-
 module Path =
     let Combine (path1: string, path2: string) = //TODO: proper xplat implementation
         let path1 =
@@ -29,13 +26,10 @@ module Path =
         else path.Substring(i)
 
     let GetInvalidPathChars () = //TODO: proper xplat implementation
-        Seq.toArray "<>:\"|?*\b\t"
+        Seq.toArray "<>\"|?*\b\t"
     
     let GetInvalidFileNameChars () = //TODO: proper xplat implementation
         Seq.toArray "<>:\"|\\/?*\b\t"
-
-    let GetFullPath (path: string) = //TODO: proper xplat implementation
-        path
 
     let GetFileName (path: string) =
         let normPath = path.Replace("\\", "/").TrimEnd('/')
