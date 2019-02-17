@@ -1433,6 +1433,19 @@ module internal BigNatModule =
         normN r
 
     //----------------------------------------------------------------------------
+    // bitwise xor
+    //--------------------------------------------------------------------------
+
+    let bitXor a b =
+        let rbound = maxInt a.bound b.bound
+        let r = createN rbound
+        for i = 0 to a.bound-1 do
+            r.digits.[i] <- r.digits.[i] ^^^ a.digits.[i]
+        for i = 0 to b.bound-1 do
+            r.digits.[i] <- r.digits.[i] ^^^ b.digits.[i]
+        normN r
+
+    //----------------------------------------------------------------------------
     // hcf
     //--------------------------------------------------------------------------
 

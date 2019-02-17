@@ -66,6 +66,7 @@ let op_RightShift = bigint.(>>>)
 let op_LeftShift = bigint.(<<<)
 let op_BitwiseAnd = bigint.(&&&)
 let op_BitwiseOr = bigint.(|||)
+let op_ExclusiveOr = bigint.(^^^)
 
 let op_LessThan = bigint.op_LessThan
 let op_LessThanOrEqual = bigint.op_LessThanOrEqual

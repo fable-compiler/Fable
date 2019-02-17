@@ -264,6 +264,9 @@ let tests =
     testCase "BigInt Bitwise or can be generated" <| fun () ->
         equal (4I ||| 2I, 6I)
 
+    testCase "BigInt Bitwise xor can be generated" <| fun () ->
+        equal (6I ^^^ 2I, 4I)
+
     testCase "BigInt Bitwise shift left can be generated" <| fun () ->
         equal (4I <<< 2, 16I)
 
