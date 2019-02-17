@@ -14,6 +14,12 @@ let measureTime (f: 'a -> 'b) x =
     sw.Stop()
     sw.ElapsedMilliseconds, res
 
+let normalizeFullPath (path: string) =
+    System.IO.Path.GetFullPath(path).Replace('\\', '/')
+
+let getRelativePath (pathFrom: string) (pathTo: string) =
+    System.IO.Path.GetRelativePath(pathFrom, pathTo).Replace('\\', '/')
+
 #else // !DOTNET_FILE_SYSTEM
 
 open Fable.Core.JsInterop
@@ -27,8 +33,13 @@ type private IProcess =
     abstract hrtime: unit -> float []
     abstract hrtime: float[] -> float[]
 
+type private IPath =
+    abstract resolve: string -> string
+    abstract relative: string * string -> string
+
 let private File: IFileSystem = importAll "fs"
 let private Process: IProcess = importAll "process"
+let private Path: IPath = importAll "path"
 
 let readAllBytes metadataPath (fileName:string) = File.readFileSync (metadataPath + fileName)
 let readAllText (filePath:string) = (File.readFileSync (filePath, "utf8")).TrimStart('\uFEFF')
@@ -39,6 +50,12 @@ let measureTime (f: 'a -> 'b) x =
     let res = f x
     let elapsed = Process.hrtime(startTime)
     int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6), res
+
+let normalizeFullPath (path: string) =
+    Path.resolve(path).Replace('\\', '/')
+
+let getRelativePath (pathFrom: string) (pathTo: string) =
+    Path.relative(pathFrom, pathTo).Replace('\\', '/')
 
 #endif
 

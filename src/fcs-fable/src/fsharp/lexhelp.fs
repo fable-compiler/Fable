@@ -335,7 +335,11 @@ module Keywords =
                     if String.IsNullOrWhiteSpace(filename) then
                         String.Empty
                     else if filename = stdinMockFilename then
+#if !FABLE_COMPILER
                         System.IO.Directory.GetCurrentDirectory()
+#else //FABLE_COMPILER
+                        "."
+#endif
                     else
                         filename 
                         |> FileSystem.GetFullPathShim (* asserts that path is already absolute *)
