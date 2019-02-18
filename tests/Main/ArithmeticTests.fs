@@ -500,6 +500,26 @@ let tests =
         equal(0, compareTo y x)
         equal(1, compareTo z x)
 
+    testCase "Big integer to byte array works" <| fun () ->
+        // values with high bit both 0 and 1 for different array lengths
+        equal(32767I.ToByteArray(), [|255uy; 127uy|])
+        equal(32768I.ToByteArray(), [|0uy; 128uy; 0uy|])
+        equal(-32768I.ToByteArray(), [|0uy; 128uy|])
+        equal(-32769I.ToByteArray(), [|255uy; 127uy; 255uy|])
+        // large numbers
+        equal(111222333444555666777888999I.ToByteArray(), [|231uy; 216uy; 2uy; 164uy; 86uy; 149uy; 8uy; 199uy; 62uy; 0uy; 92uy|])
+        equal(-111222333444555666777888999I.ToByteArray(), [|25uy; 39uy; 253uy; 91uy; 169uy; 106uy; 247uy; 56uy; 193uy; 255uy; 163uy|])
+
+    testCase "Big integer from byte array works" <| fun () ->
+        // values with high bit both 0 and 1 for different array lengths
+        equal(Numerics.BigInteger([|255uy; 127uy|]), 32767I)
+        equal(Numerics.BigInteger([|0uy; 128uy; 0uy|]), 32768I)
+        equal(Numerics.BigInteger([|0uy; 128uy|]), -32768I)
+        equal(Numerics.BigInteger([|255uy; 127uy; 255uy|]), -32769I)
+        // large numbers
+        equal(Numerics.BigInteger([|231uy; 216uy; 2uy; 164uy; 86uy; 149uy; 8uy; 199uy; 62uy; 0uy; 92uy|]), 111222333444555666777888999I)
+        equal(Numerics.BigInteger([|25uy; 39uy; 253uy; 91uy; 169uy; 106uy; 247uy; 56uy; 193uy; 255uy; 163uy|]), -111222333444555666777888999I)
+
     testCase "Member values of decimal type can be compared" <| fun () -> // See #747
         equal(true, decimalOne < decimalTwo)
         equal(false, decimalOne > decimalTwo)
