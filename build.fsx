@@ -86,6 +86,7 @@ let buildStandalone() =
     let projectDir = "src/fable-standalone"
     let libraryDir = "build/fable-library"
     cleanDirs [projectDir </> "dist"]
+    buildLibrary()
 
     // ES2015 modules
     buildSplitter projectDir
@@ -98,7 +99,6 @@ let buildStandalone() =
 
     // Put fable-library files next to bundle
     let libraryTarget = projectDir </> "dist/fable-library"
-    buildLibrary()
     copyDirRecursive libraryDir libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
     let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)

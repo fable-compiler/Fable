@@ -597,11 +597,11 @@ type ClassExpression(body, ?id, ?superClass, ?typeParameters, ?loc) =
 //     member __.Property: Expression = property
 
 // Modules
-/// A specifier in an import or export declaration.
-[<AbstractClass>]
-type ModuleSpecifier(typ, local, ?loc) =
-    inherit Node(typ, ?loc = loc)
-    member __.Local: Identifier = local
+// /// A specifier in an import or export declaration.
+// [<AbstractClass>]
+// type ModuleSpecifier(typ, local, ?loc) =
+//     inherit Node(typ, ?loc = loc)
+//     member __.Local: Identifier = local
 
 /// An imported variable binding, e.g., {foo} in import {foo} from "mod" or {foo as bar} in import {foo as bar} from "mod".
 /// The imported field refers to the name of the export imported from the module.
@@ -609,16 +609,19 @@ type ModuleSpecifier(typ, local, ?loc) =
 /// If it is a basic named import, such as in import {foo} from "mod", both imported and local are equivalent Identifier nodes; in this case an Identifier node representing foo.
 /// If it is an aliased import, such as in import {foo as bar} from "mod", the imported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
 type ImportSpecifier(local, imported, ?loc) =
-    inherit ModuleSpecifier("ImportSpecifier", local, ?loc = loc)
+    inherit Node("ImportSpecifier", ?loc = loc)
+    member __.Local: Identifier = local
     member __.Imported: Identifier = imported
 
 /// A default import specifier, e.g., foo in import foo from "mod".
 type ImportDefaultSpecifier(local, ?loc) =
-    inherit ModuleSpecifier("ImportDefaultSpecifier", local, ?loc = loc)
+    inherit Node("ImportDefaultSpecifier", ?loc = loc)
+    member __.Local: Identifier = local
 
 /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
 type ImportNamespaceSpecifier(local, ?loc) =
-    inherit ModuleSpecifier("ImportNamespaceSpecifier", local, ?loc = loc)
+    inherit Node("ImportNamespaceSpecifier", ?loc = loc)
+    member __.Local: Identifier = local
 
 /// e.g., import foo from "mod";.
 type ImportDeclaration(specifiers, source, ?loc) =
@@ -633,7 +636,8 @@ type ImportDeclaration(specifiers, source, ?loc) =
 /// in this case an Identifier node representing foo. If it is an aliased export, such as in export {bar as foo},
 /// the exported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
 type ExportSpecifier(local, exported, ?loc) =
-    inherit ModuleSpecifier("ExportSpecifier", local, ?loc = loc)
+    inherit Node("ExportSpecifier", ?loc = loc)
+    member __.Local: Identifier = local
     member __.Exported: Identifier = exported
 
 /// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
