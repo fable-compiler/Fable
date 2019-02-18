@@ -1887,6 +1887,8 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
     match thisArg, i.CompiledName with
     | None, ".ctor" ->
         match i.SignatureArgTypes with
+        | [Array _] ->
+            Helper.CoreCall("BigInt", "fromByteArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | [Builtin(BclInt64|BclUInt64)] ->
             Helper.CoreCall("BigInt", "fromInt64", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->

@@ -74,3 +74,66 @@ let op_GreaterThan = bigint.op_GreaterThan
 let op_GreaterThanOrEqual = bigint.op_GreaterThanOrEqual
 let op_Equality = bigint.op_Equality
 let op_Inequality = bigint.op_Inequality
+
+open Microsoft.FSharp.Core.Operators
+
+let private flipTwosComplement currByte lowBitFound =
+    // Two's complement conversion: starting from LSB, copy up to (and including) first 1 bit, then flip all higher bits.
+    match currByte, lowBitFound with
+    | _, true -> currByte ^^^ 255uy &&& 255uy, true // Flip all bits since low bit already found
+    | 0uy, false -> 0uy, false // Haven't found first bit yet and no chance to do so with zero byte
+    | _, false ->
+        // Found first byte containing a 1, flip higher bits and all future bytes
+        let firstBitIndex = [0..7] |> List.find (fun i -> currByte &&& (1uy <<< i) > 0uy)
+        (currByte ^^^ (0b11111110uy <<< firstBitIndex)) &&& 255uy, true
+
+// Spec:
+// https://docs.microsoft.com/en-us/dotnet/api/system.numerics.biginteger.tobytearray?view=netstandard-2.0
+let toByteArray (value:bigint) =
+    if value = zero then [|0uy|]
+    else
+        // If negative, we will encode the bits of the positive value in two's complement form.
+        let isPositive = value > zero
+        let value = if isPositive then value else bigint(-1) * value
+        let rec loop (accumBytes:byte list) consumeValue lowBitFound =
+            if consumeValue <= zero then
+                // Return, with high byte added to indicate sign if current high bit does not represent correct sign.
+                let isHighBitOne = List.head accumBytes &&& 0b10000000uy <> 0uy
+                let accumBytes =
+                    if isPositive && isHighBitOne then 0uy :: accumBytes
+                    elif not isPositive && not isHighBitOne then 0b11111111uy :: accumBytes
+                    else accumBytes
+                accumBytes
+                |> List.toArray
+                |> Array.rev
+            else
+                let currByte = (consumeValue &&& bigint(255) |> toByte)
+                if isPositive then
+                    loop (currByte :: accumBytes) (consumeValue >>> 8) false
+                else
+                    let currByte, lowBitFound = flipTwosComplement currByte lowBitFound
+                    loop (currByte :: accumBytes) (consumeValue >>> 8) lowBitFound
+        loop [] value false
+
+// Spec:
+// https://docs.microsoft.com/en-us/dotnet/api/system.numerics.biginteger.-ctor?view=netstandard-2.0#System_Numerics_BigInteger__ctor_System_Byte___
+let fromByteArray (bytes:byte array) =
+    if isNull bytes then raise (System.ArgumentNullException("bytes"))
+    if bytes.Length = 0 then zero
+    else
+        // If negative, bits are the two's complement of the positive value.
+        // We will reverse the two's complement back to the positive value, and then multiply by -1.
+        let isPositive = bytes.[bytes.Length - 1] &&& 0b10000000uy = 0uy
+        let rec loop (accumBytes:byte list) currIndex lowBitFound =
+            if currIndex = bytes.Length then
+                accumBytes
+                |> List.fold (fun acc b -> (acc <<< 8) ||| (b |> int |> fromInt32)) zero
+                |> fun value -> if isPositive then value else bigint(-1) * value
+            else
+                let currByte = bytes.[currIndex]
+                if isPositive then
+                    loop (currByte :: accumBytes) (currIndex + 1) false
+                else
+                    let currByte, lowBitFound = flipTwosComplement currByte lowBitFound
+                    loop (currByte :: accumBytes) (currIndex + 1) lowBitFound
+        loop [] 0 false
