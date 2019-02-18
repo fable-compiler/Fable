@@ -4,7 +4,9 @@
     "build": "fable build.fsx --run",
     "publish": "fable build.fsx --run publish",
     "test": "fable build.fsx --run test",
-    "quicktest": "fable-splitter -c src/quicktest/splitter.config.js --watch --run"
+    "quicktest": "fable-splitter -c src/quicktest/splitter.config.js --watch --run",
+    "test-js": "node src/fable-compiler-js/dist/app.js tests/Main/Fable.Tests.fsproj build/tests-js --commonjs",
+    "posttest-js": "mocha build/tests-js --reporter dot -t 10000"
   },
   "dependencies": {
     "@babel/cli": "^7.2.3",

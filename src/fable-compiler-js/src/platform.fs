@@ -23,6 +23,7 @@ type private IProcess =
 
 type private IPath =
     abstract resolve: string -> string
+    abstract relative: string * string -> string
 
 let private FileSystem: IFileSystem = importAll "fs"
 let private Process: IProcess = importAll "process"
@@ -47,17 +48,17 @@ let ensureDirExists (dir: string): unit =
 let copyFolder (from: string, dest: string): unit =
     importMember "./util.js"
 
-let transformAndSaveBabelAst (babelAst: obj, fileName: string, outDir: string, commonjs: bool): unit =
+let transformAndSaveBabelAst (babelAst: obj, filePath: string, projDir: string, outDir: string, commonjs: bool): unit =
     importMember "./util.js"
 
 let runCmdAndExitIfFails (cmd: string): unit =
     importMember "./util.js"
 
-let fullPath (path: string) =
-    Path.resolve(path)
-
 let normalizeFullPath (path: string) =
     Path.resolve(path).Replace('\\', '/')
+
+let getRelativePath (pathFrom: string) (pathTo: string) =
+    Path.relative(pathFrom, pathTo).Replace('\\', '/')
 
 module Path =
 

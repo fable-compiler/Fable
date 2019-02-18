@@ -3,6 +3,11 @@ const Path = require("path");
 const Babel = require("@babel/core");
 const BabelPlugins = require("fable-babel-plugins");
 
+const customPlugins = [
+    BabelPlugins.getRemoveUnneededNulls(),
+    BabelPlugins.getTransformMacroExpressions(Babel.template)
+];
+
 const FSHARP_EXT = /\.(fs|fsx)$/i;
 const JAVASCRIPT_EXT = /\.js$/i;
 
@@ -10,39 +15,64 @@ function ensureArray(obj) {
     return (Array.isArray(obj) ? obj : obj != null ? [obj] : []);
 }
 
-function getRelPath(fromPath, toPath) {
-    let relPath = Path.relative(Path.dirname(fromPath), toPath);
-    relPath = relPath.replace(/\\/g, "/").replace(FSHARP_EXT, "");
-    relPath = relPath.match(JAVASCRIPT_EXT) ? relPath : relPath + ".js";
-    return relPath.startsWith("..") ? relPath : "./" + relPath;
+function isRelativePath(path) {
+    return path.startsWith("./") || path.startsWith("../");
 }
 
-function fixImportPaths(babelAst, filePath, outDir) {
-    const sourcePath = Path.relative(outDir, filePath);
+function ensureDirExists(dir, cont) {
+    if (fs.existsSync(dir)) {
+        if (typeof cont === "function") { cont(); }
+    } else {
+        ensureDirExists(Path.dirname(dir), () => {
+            if (!fs.existsSync(dir)) { fs.mkdirSync(dir); }
+            if (typeof cont === "function") { cont(); }
+        });
+    }
+}
+
+function getRelPath(sourcePath, importPath, filePath, projDir, outDir) {
+    if (isRelativePath(importPath)) {
+        importPath = Path.resolve(Path.dirname(sourcePath), importPath);
+    }
+    let relPath = Path.relative(projDir, importPath).replace(/\\/g, "/");
+    relPath = relPath.replace(/\.\.\//g, "").replace(/\.\//g, "").replace(/\:/g, "");
+    relPath = Path.relative(Path.dirname(filePath), Path.join(outDir, relPath));
+    relPath = relPath.replace(/\\/g, "/").replace(FSHARP_EXT, ".js");
+    relPath = relPath.match(JAVASCRIPT_EXT) ? relPath : relPath + ".js";
+    relPath = relPath.startsWith("..") ? relPath : "./" + relPath;
+    return relPath;
+}
+
+function getJsImport(sourcePath, importPath, filePath, projDir, outDir, babelOptions) {
+    const relPath = getRelPath(sourcePath, importPath, filePath, projDir, outDir);
+    // transform and save javascript imports
+    const outPath = Path.join(Path.dirname(filePath), relPath); // TODO: handle duplicates
+    let jsPath = Path.resolve(Path.dirname(sourcePath), importPath);
+    jsPath = jsPath.match(JAVASCRIPT_EXT) ? jsPath : jsPath + ".js";
+    const resAst = Babel.transformFileSync(jsPath, { ast: true, code: false });
+    fixImportPaths(resAst.ast, outPath, outDir);
+    const resCode = Babel.transformFromAstSync(resAst.ast, null, babelOptions);
+    ensureDirExists(Path.dirname(outPath));
+    fs.writeFileSync(outPath, resCode.code);
+    return relPath;
+}
+
+function fixImportPaths(babelAst, filePath, projDir, outDir, babelOptions) {
+    const sourcePath = babelAst.fileName;
     const decls = ensureArray(babelAst.body);
     for (const decl of decls) {
         if (decl.source != null && typeof decl.source.value === "string") {
             const importPath = decl.source.value;
-            if (importPath.startsWith("fable-library/") ||
-                importPath.match(FSHARP_EXT) ||
-                importPath.match(JAVASCRIPT_EXT)) {
-                decl.source.value = getRelPath(sourcePath, importPath);
+            if (importPath.startsWith("fable-library/")) {
+                decl.source.value = getRelPath(filePath, Path.join(outDir, importPath), filePath, outDir, outDir);
+            } else if (importPath.match(FSHARP_EXT)) {
+                decl.source.value = getRelPath(sourcePath, importPath, filePath, projDir, outDir);
+            } else if (isRelativePath(importPath) || Path.isAbsolute(importPath)) {
+                decl.source.value = getJsImport(sourcePath, importPath, filePath, projDir, outDir, babelOptions);
             }
         }
     }
 }
-
-const useCommonjs = process.argv.find(v => v === "--commonjs");
-console.log("Compiling to " + (useCommonjs ? "commonjs" : "ES2015 modules") + "...")
-
-const customPlugins = [
-    BabelPlugins.getRemoveUnneededNulls(),
-    BabelPlugins.getTransformMacroExpressions(Babel.template)
-];
-
-const babelOptions = {
-    plugins: useCommonjs ? customPlugins.concat("@babel/plugin-transform-modules-commonjs") : customPlugins,
-};
 
 function getFilePaths(dir) {
     const subdirs = fs.readdirSync(dir);
@@ -53,17 +83,29 @@ function getFilePaths(dir) {
     return files.reduce((acc, file) => acc.concat(file), []);
 }
 
-const outDir = process.argv[2];
-const filePaths = getFilePaths(outDir);
+function main() {
+    const projPath = Path.resolve(process.argv[2]);
+    const projDir = Path.dirname(projPath)
+    const outDir = Path.resolve(process.argv[3]);
+    const commonjs = process.argv.find(v => v === "--commonjs");
+    const babelOptions = commonjs ?
+        { plugins: customPlugins.concat("@babel/plugin-transform-modules-commonjs") } :
+        { plugins: customPlugins };
 
-for (const filePath of filePaths) {
-    if (filePath.endsWith(".json")) {
-        const babelJson = fs.readFileSync(filePath, "utf8");
-        const babelAst = JSON.parse(babelJson);
-        fixImportPaths(babelAst, filePath, outDir);
-        const res = Babel.transformFromAstSync(babelAst, null, babelOptions);
-        const fileOut = filePath.replace(/\.json$/, ".js")
-        fs.renameSync(filePath, fileOut);
-        fs.writeFileSync(fileOut, res.code);
+    console.log("Compiling to " + (commonjs ? "commonjs" : "ES2015 modules") + "...")
+
+    const filePaths = getFilePaths(outDir);
+    for (const filePath of filePaths) {
+        if (filePath.endsWith(".json")) {
+            const babelJson = fs.readFileSync(filePath, "utf8");
+            const babelAst = JSON.parse(babelJson);
+            fixImportPaths(babelAst, filePath, projDir, outDir, babelOptions);
+            const res = Babel.transformFromAstSync(babelAst, null, babelOptions);
+            const fileOut = filePath.replace(/\.json$/, ".js")
+            fs.renameSync(filePath, fileOut);
+            fs.writeFileSync(fileOut, res.code);
+        }
     }
 }
+
+main()

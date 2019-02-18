@@ -46,29 +46,6 @@
             "stopOnEntry": true
         },
         {
-            "type": "chrome",
-            "request": "launch",
-            "name": "Launch REPL",
-            "url": "http://localhost:8080/repl.html",
-            "webRoot": "${workspaceRoot}/src/dotnet/Fable.Repl/demo"
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch REPL test",
-            "program": "${workspaceRoot}/src/dotnet/Fable.Repl/testapp/out/app.js",
-            "args": ["test_script.fs", "out/test_script.js"],
-            "cwd": "${workspaceRoot}/src/dotnet/Fable.Repl/testapp"
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch REPL bench",
-            "program": "${workspaceRoot}/src/fable-standalone/test/bench/out/app.js",
-            "args": [],
-            "cwd": "${workspaceRoot}/src/fable-standalone/test/bench"
-        },
-        {
             "type": "node",
             "request": "launch",
             "name": "bench-compiler (Node)",
@@ -81,8 +58,16 @@
             "request": "launch",
             "name": "bench-compiler (.NET)",
             "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp2.1/bench-compiler.dll",
-            "args": ["../../../../../fable-test/fable-test.fsproj", "out-test"],
+            "args": ["../../../Fable.Core/Fable.Core.fsproj", "out-test"],
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "transform tests",
+            "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/transform.js",
+            "args": ["../../../../tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
+            "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
             "type": "node",
