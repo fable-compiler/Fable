@@ -4,10 +4,10 @@ open Bench.Platform
 open System.Text.RegularExpressions
 
 let references = Fable.Standalone.Metadata.references_core
-let metadataPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, "../../../fable-metadata/lib/") // .NET BCL binaries
+let metadataPath = Path.Combine(__SOURCE_DIRECTORY__, "../../../fable-metadata/lib/") // .NET BCL binaries
 
 let parseProjectFile projectPath =
-    let projectFileName = Fable.Path.GetFileName projectPath
+    let projectFileName = Path.GetFileName projectPath
     let projectText = readAllText projectPath
 
     // remove all comments
@@ -49,13 +49,11 @@ let parseProjectFile projectPath =
 let rec parseProject projectPath =
     let (projectFileName, projectRefs, sourceFiles, defines) = parseProjectFile projectPath
 
-    let projectFileDir = Fable.Path.GetDirectoryName projectPath
+    let projectFileDir = Path.GetDirectoryName projectPath
     let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
-    let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
-    let makePath path = if isAbsolutePath path then path else Fable.Path.Combine(projectFileDir, path)
-    let makeName path = Fable.Path.Combine(projectFileDir, path) |> trimPath
+    let makePath path = if isAbsolutePath path then path else Path.Combine(projectFileDir, path)
 
-    let fileNames = sourceFiles |> Array.map (fun path -> path |> makeName)
+    let fileNames = sourceFiles |> Array.map (fun path -> path |> makePath |> normalizeFullPath)
     let sources = sourceFiles |> Array.map (fun path -> path |> makePath |> readAllText)
 
     let parsedProjects = projectRefs |> Array.map makePath |> Array.map parseProject
@@ -66,7 +64,11 @@ let rec parseProject projectPath =
     (projectFileName, fileNames, sources, defines |> Array.distinct)
 
 let dedupFileNames fileNames =
-    let nameSet = System.Collections.Generic.HashSet<string>()
+    let comparerIgnoreCase =
+        { new System.Collections.Generic.IEqualityComparer<string> with
+            member __.Equals(x, y) = x.ToLowerInvariant() = y.ToLowerInvariant()
+            member __.GetHashCode(x) = hash (x.ToLowerInvariant()) }
+    let nameSet = System.Collections.Generic.HashSet<string>(comparerIgnoreCase)
     let padName (name: string) =
         let pos = name.LastIndexOf(".")
         let nm = if pos < 0 then name else name.Substring(0, pos)
@@ -143,11 +145,15 @@ let parseFiles projectPath outDir options =
         printfn "File: %s, Fable time: %d ms" fileName ms2
         res.FableErrors |> printErrors showWarnings
 
-        // printfn "%s Babel AST: %s" fileName (toJson res.BabelAst)
-        let jsFileName = Fable.Path.ChangeExtension(fileName, ".json")
-        let jsFilePath = Fable.Path.Combine(outDir, jsFileName)
+        // save Babel AST
+        let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
+        let projDir = normalizeFullPath projectPath |> Path.GetDirectoryName
+        let filePath = getRelativePath projDir fileName |> trimPath
+        let jsFileName = Path.ChangeExtension(filePath, ".json")
+        let jsFilePath = Path.Combine(outDir, jsFileName)
         let jsFileText = toJson res.BabelAst
-        ensureDirExists(Fable.Path.GetDirectoryName(jsFilePath))
+        // printfn "%s Babel AST: %s" fileName jsFileText
+        ensureDirExists(Path.GetDirectoryName jsFilePath)
         writeAllText jsFilePath jsFileText
 
 let parseArguments (argv: string[]) =

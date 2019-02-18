@@ -55,6 +55,9 @@ let ensureDirExists (dir: string): unit =
 let normalizeFullPath (path: string) =
     System.IO.Path.GetFullPath(path).Replace('\\', '/')
 
+let getRelativePath (pathFrom: string) (pathTo: string) =
+    System.IO.Path.GetRelativePath(pathFrom, pathTo).Replace('\\', '/')
+
 #else
 
 open Fable.Core.JsInterop
@@ -70,6 +73,7 @@ type private IProcess =
 
 type private IPath =
     abstract resolve: string -> string
+    abstract relative: string * string -> string
 
 let private FileSystem: IFileSystem = importAll "fs"
 let private Process: IProcess = importAll "process"
@@ -93,4 +97,31 @@ let ensureDirExists (dir: string): unit =
 let normalizeFullPath (path: string) =
     Path.resolve(path).Replace('\\', '/')
 
+let getRelativePath (pathFrom: string) (pathTo: string) =
+    Path.relative(pathFrom, pathTo).Replace('\\', '/')
+
 #endif
+
+module Path =
+
+    let Combine (path1: string, path2: string) =
+        let path1 =
+            if path1.Length = 0 then path1
+            else (path1.TrimEnd [|'\\';'/'|]) + "/"
+        path1 + (path2.TrimStart [|'\\';'/'|])
+
+    let ChangeExtension (path: string, ext: string) =
+        let i = path.LastIndexOf(".")
+        if i < 0 then path
+        else path.Substring(0, i) + ext
+
+    let GetFileName (path: string) =
+        let normPath = path.Replace("\\", "/").TrimEnd('/')
+        let i = normPath.LastIndexOf("/")
+        normPath.Substring(i + 1)
+
+    let GetDirectoryName (path: string) =
+        let normPath = path.Replace("\\", "/")
+        let i = normPath.LastIndexOf("/")
+        if i < 0 then ""
+        else normPath.Substring(0, i)
