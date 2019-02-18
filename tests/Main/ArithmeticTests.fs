@@ -459,6 +459,12 @@ let tests =
         let y = rnd.NextDouble()
         equal(true, y >= 0.0 && y < 1.0)
 
+    // Note: Test could fail sometime during life of universe, if it picks all zeroes.
+    testCase "System.Random.NextBytes works" <| fun () ->
+        let buffer = Array.create 16 0uy // guid-sized buffer
+        System.Random().NextBytes(buffer)
+        equal(buffer = Array.create 16 0uy, false)
+
     testCase "Long integers equality works" <| fun () ->
         let x = 5L
         let y = 5L

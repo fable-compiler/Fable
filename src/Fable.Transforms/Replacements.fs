@@ -2355,6 +2355,12 @@ let random (_: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (arg
         Helper.CoreCall("Util", "randomNext", t, [min; max], [min.Type; max.Type], ?loc=r) |> Some
     | "NextDouble" ->
         Helper.GlobalCall ("Math", t, [], [], memb="random") |> Some
+    | "NextBytes" ->
+        let byteArray =
+            match args with
+            | [b] -> b
+            | _ -> failwith "Unexpected arg count for Random.NextBytes"
+        Helper.CoreCall("Util", "randomBytes", t, [byteArray], [byteArray.Type], ?loc=r) |> Some
     | _ -> None
 
 let cancels (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
