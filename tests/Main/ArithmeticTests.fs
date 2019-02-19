@@ -35,6 +35,12 @@ let tests =
     testCase "Unary negation with negative literal values works" <| fun () ->
         equal(345, -literalNegativeValue)
 
+    testCase "Unary negation with integer MinValue works" <| fun () ->
+        equal(-(-128y), System.SByte.MinValue)
+        equal(-(-32768s), System.Int16.MinValue)
+        equal(-(-2147483648), System.Int32.MinValue)
+        equal(-(-9223372036854775808L), System.Int64.MinValue)
+
     testCase "Infix subtract can be generated" <| fun () ->
         equal (4 - 2, 2)
 

@@ -634,7 +634,12 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | Operators.booleanAnd, [left; right] -> logicOp LogicalAnd left right
         | Operators.booleanOr, [left; right] -> logicOp LogicalOr left right
         | Operators.logicalNot, [operand] -> unOp UnaryNotBitwise operand |> truncateUnsigned
-        | Operators.unaryNegation, [operand] -> unOp UnaryMinus operand
+        | Operators.unaryNegation, [operand] ->
+            match argTypes with
+            | Number Int8::_ -> Helper.CoreCall("Int32", "op_UnaryNegation_Int8", t, args, ?loc=r)
+            | Number Int16::_ -> Helper.CoreCall("Int32", "op_UnaryNegation_Int16", t, args, ?loc=r)
+            | Number Int32::_ -> Helper.CoreCall("Int32", "op_UnaryNegation_Int32", t, args, ?loc=r)
+            | _ -> unOp UnaryMinus operand
         | _ -> sprintf "Operator %s not found in %A" opName argTypes
                |> addErrorAndReturnNull com ctx.InlinePath r
     let argTypes = resolveArgTypes argTypes genArgs
