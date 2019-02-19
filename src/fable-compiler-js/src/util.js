@@ -63,7 +63,7 @@ function getRelPath(sourcePath, importPath, filePath, projDir, outDir) {
 function getJsImport(sourcePath, importPath, filePath, projDir, outDir, babelOptions) {
     const relPath = getRelPath(sourcePath, importPath, filePath, projDir, outDir);
     // transform and save javascript imports
-    const outPath = Path.join(Path.dirname(filePath), relPath); // TODO: handle duplicates
+    const outPath = Path.join(Path.dirname(filePath), relPath); //TODO: handle duplicate files with different content
     let jsPath = Path.resolve(Path.dirname(sourcePath), importPath);
     jsPath = jsPath.match(JAVASCRIPT_EXT) ? jsPath : jsPath + ".js";
     const resAst = Babel.transformFileSync(jsPath, { ast: true, code: false });
@@ -109,7 +109,7 @@ export function transformAndSaveBabelAst(babelAst, filePath, projDir, outDir, co
         // this solves a weird commonjs issue where some imports are not properly qualified
         babelAst = JSON.parse(serializeToJson(babelAst)); // somehow this helps with that
         const jsPath = filePath.replace(FSHARP_EXT, ".js");
-        const outPath = Path.join(outDir, jsPath);
+        const outPath = Path.join(outDir, jsPath); //TODO: handle duplicate files with different content
         ensureDirExists(Path.dirname(outPath));
         const babelOptions = commonjs ?
             { plugins: customPlugins.concat("@babel/plugin-transform-modules-commonjs") } :

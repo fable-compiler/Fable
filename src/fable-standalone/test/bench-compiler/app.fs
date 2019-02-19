@@ -133,6 +133,8 @@ let parseFiles projectPath outDir options =
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
     let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, options.optimize)
+    let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
+    let projDir = normalizeFullPath projectPath |> Path.GetDirectoryName
 
     for fileName in fileNames do
 
@@ -147,8 +149,6 @@ let parseFiles projectPath outDir options =
         res.FableErrors |> printErrors showWarnings
 
         // save Babel AST
-        let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
-        let projDir = normalizeFullPath projectPath |> Path.GetDirectoryName
         let filePath = getRelativePath projDir fileName |> trimPath
         let jsFileName = Path.ChangeExtension(filePath, ".json")
         let jsFilePath = Path.Combine(outDir, jsFileName)
