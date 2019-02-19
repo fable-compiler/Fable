@@ -86,6 +86,7 @@ let buildStandalone() =
     let projectDir = "src/fable-standalone"
     let libraryDir = "build/fable-library"
     cleanDirs [projectDir </> "dist"]
+    buildLibrary()
 
     // ES2015 modules
     buildSplitter projectDir
@@ -98,15 +99,14 @@ let buildStandalone() =
 
     // Put fable-library files next to bundle
     let libraryTarget = projectDir </> "dist/fable-library"
-    buildLibrary()
     copyDirRecursive libraryDir libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
-    let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
-    getFullPathsInDirectoryRecursively libraryTarget
-    |> Array.filter (fun file -> file.EndsWith(".js"))
-    |> Array.iter (fun file ->
-        reg.Replace(readFile file, "import $1.js$2")
-        |> writeFile file)
+    // let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
+    // getFullPathsInDirectoryRecursively libraryTarget
+    // |> Array.filter (fun file -> file.EndsWith(".js"))
+    // |> Array.iter (fun file ->
+    //     reg.Replace(readFile file, "import $1.js$2")
+    //     |> writeFile file)
 
     // Bump version
     // let compilerVersion = Publish.loadReleaseVersion "src/fable-compiler"
@@ -130,8 +130,10 @@ let test() =
         buildStandalone()
         // Test fable-compiler-js locally
         buildCompilerJs true
-        runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
-        runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
+        run "node src/fable-compiler-js tests/Main/Fable.Tests.fsproj build/tests-js --commonjs"
+        run "npx mocha build/tests-js --reporter dot -t 10000"
+        // runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
+        // runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
 
 let downloadStandalone() =
     let targetDir = "src/fable-standalone/dist"

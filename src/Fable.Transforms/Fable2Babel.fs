@@ -1609,17 +1609,18 @@ module Compiler =
 
         interface IBabelCompiler with
             member __.GetImportExpr(ctx, selector, path, kind) =
-                match imports.TryGetValue(path + "::" + selector) with
+                let sanitizedPath =
+                    match kind with
+                    | Fable.CustomImport | Fable.Internal -> path
+                    | Fable.Library -> com.LibraryDir + "/" + path + Naming.targetFileExtension
+                let cachedName = sanitizedPath + "::" + selector
+                match imports.TryGetValue(cachedName) with
                 | true, i ->
                     match i.LocalIdent with
                     | Some localIdent -> upcast Identifier(localIdent)
                     | None -> upcast NullLiteral ()
                 | false, _ ->
                     let localId = getLocalIdent ctx imports path selector
-                    let sanitizedPath =
-                        match kind with
-                        | Fable.CustomImport | Fable.Internal _ -> path
-                        | Fable.Library -> com.LibraryDir + "/" + path + Naming.targetFileExtension
                     let i =
                       { Selector =
                             if selector = Naming.placeholder
@@ -1628,7 +1629,7 @@ module Compiler =
                             else selector
                         LocalIdent = localId
                         Path = sanitizedPath }
-                    imports.Add(path + "::" + selector, i)
+                    imports.Add(cachedName, i)
                     match localId with
                     | Some localId -> upcast Identifier(localId)
                     | None -> upcast NullLiteral ()

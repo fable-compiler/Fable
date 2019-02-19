@@ -102,10 +102,9 @@ module Naming =
         then txt.Substring(0, txt.Length - pattern.Length) |> Some
         else None
 
-    /// This is null to keep compatibility with Require.js
-    /// (which expects paths not to have extensions), in the
-    /// future this will probably be changed to ".js"
-    let targetFileExtension: string = "" // ".js"
+    /// This used to be "" for compatibility with Require.js
+    /// Mainly used for fable-library imports
+    let targetFileExtension = ".js"
 
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
