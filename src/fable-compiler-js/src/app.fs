@@ -173,16 +173,15 @@ let parseFiles projectPath outDir options =
     let fableLibraryDist = if options.commonjs then "/fable-library-commonjs" else "/fable-library"
     copyFolder (__dirname + fableLibraryDist, Path.Combine(outDir, fableLibraryDir))
     let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, options.optimize)
+    let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
+    let projDir = normalizeFullPath projectPath |> Path.GetDirectoryName
 
     for fileName in fileNames do
         // transform F# AST to Babel AST
         let ms2, res = measureTime parseFable (parseRes, fileName)
         printfn "File: %s, Fable time: %d ms" fileName ms2
         res.FableErrors |> printErrors showWarnings
-
         // transform and save Babel AST
-        let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
-        let projDir = normalizeFullPath projectPath |> Path.GetDirectoryName
         let filePath = getRelativePath projDir fileName |> trimPath
         transformAndSaveBabelAst(res.BabelAst, filePath, projDir, outDir, options.commonjs)
 
