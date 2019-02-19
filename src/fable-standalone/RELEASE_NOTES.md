@@ -1,3 +1,7 @@
+### 1.0.0-beta-004
+
+* Compile tests with fable-compiler-js @ncave
+
 ### 1.0.0-beta-003
 
 * Fix web worker

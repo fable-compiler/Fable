@@ -1,3 +1,7 @@
+### 1.0.0-beta-001
+
+* Beta release @ncave
+
 ### 1.0.0-alpha-017
 
 * Update dependencies and other fixes
