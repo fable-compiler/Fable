@@ -15,10 +15,6 @@ function ensureArray(obj) {
     return (Array.isArray(obj) ? obj : obj != null ? [obj] : []);
 }
 
-function isRelativePath(path) {
-    return path.startsWith("./") || path.startsWith("../");
-}
-
 function ensureDirExists(dir, cont) {
     if (fs.existsSync(dir)) {
         if (typeof cont === "function") { cont(); }
@@ -28,6 +24,21 @@ function ensureDirExists(dir, cont) {
             if (typeof cont === "function") { cont(); }
         });
     }
+}
+const uniquePaths = new Map();
+
+function ensureUniquePath(sourcePath, outDir, relPath) {
+    let outPath = Path.resolve(outDir, relPath);
+    while (uniquePaths.has(outPath) && uniquePaths.get(outPath) !== sourcePath) {
+        var i = outPath.lastIndexOf(".");
+        outPath = (i < 0) ? outPath + "_" : outPath.substr(0, i) + "_" + outPath.substr(i);
+    }
+    if (!uniquePaths.has(outPath)) { uniquePaths.set(outPath, sourcePath); }
+    return outPath;
+}
+
+function isRelativePath(path) {
+    return path.startsWith("./") || path.startsWith("../");
 }
 
 function getRelPath(sourcePath, importPath, filePath, projDir, outDir) {
@@ -46,10 +57,10 @@ function getRelPath(sourcePath, importPath, filePath, projDir, outDir) {
 function getJsImport(sourcePath, importPath, filePath, projDir, outDir, babelOptions) {
     const relPath = getRelPath(sourcePath, importPath, filePath, projDir, outDir);
     // transform and save javascript imports
-    const outPath = Path.join(Path.dirname(filePath), relPath); // TODO: handle duplicates
     let jsPath = Path.resolve(Path.dirname(sourcePath), importPath);
     jsPath = jsPath.match(JAVASCRIPT_EXT) ? jsPath : jsPath + ".js";
     const resAst = Babel.transformFileSync(jsPath, { ast: true, code: false });
+    const outPath = ensureUniquePath(jsPath, Path.dirname(filePath), relPath);
     fixImportPaths(resAst.ast, outPath, outDir);
     const resCode = Babel.transformFromAstSync(resAst.ast, null, babelOptions);
     ensureDirExists(Path.dirname(outPath));
