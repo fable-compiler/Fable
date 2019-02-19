@@ -15,17 +15,6 @@ export function getVersion() {
     return require("../package.json").version;
 }
 
-export function ensureDirExists(dir, cont) {
-    if (fs.existsSync(dir)) {
-        if (typeof cont === "function") { cont(); }
-    } else {
-        ensureDirExists(Path.dirname(dir), () => {
-            if (!fs.existsSync(dir)) { fs.mkdirSync(dir); }
-            if (typeof cont === "function") { cont(); }
-        });
-    }
-}
-
 export function serializeToJson(data) {
     return JSON.stringify(data, (key, value) => {
         if (value === Infinity) {
@@ -37,6 +26,29 @@ export function serializeToJson(data) {
         }
         return value;
      });
+}
+
+export function ensureDirExists(dir, cont) {
+    if (fs.existsSync(dir)) {
+        if (typeof cont === "function") { cont(); }
+    } else {
+        ensureDirExists(Path.dirname(dir), () => {
+            if (!fs.existsSync(dir)) { fs.mkdirSync(dir); }
+            if (typeof cont === "function") { cont(); }
+        });
+    }
+}
+
+const uniquePaths = new Map();
+
+function ensureUniquePath(sourcePath, outDir, relPath) {
+    let outPath = Path.resolve(outDir, relPath);
+    while (uniquePaths.has(outPath) && uniquePaths.get(outPath) !== sourcePath) {
+        var i = outPath.lastIndexOf(".");
+        outPath = (i < 0) ? outPath + "_" : outPath.substr(0, i) + "_" + outPath.substr(i);
+    }
+    if (!uniquePaths.has(outPath)) { uniquePaths.set(outPath, sourcePath); }
+    return outPath;
 }
 
 function ensureArray(obj) {
@@ -63,10 +75,10 @@ function getRelPath(sourcePath, importPath, filePath, projDir, outDir) {
 function getJsImport(sourcePath, importPath, filePath, projDir, outDir, babelOptions) {
     const relPath = getRelPath(sourcePath, importPath, filePath, projDir, outDir);
     // transform and save javascript imports
-    const outPath = Path.join(Path.dirname(filePath), relPath); //TODO: handle duplicate files with different content
     let jsPath = Path.resolve(Path.dirname(sourcePath), importPath);
     jsPath = jsPath.match(JAVASCRIPT_EXT) ? jsPath : jsPath + ".js";
     const resAst = Babel.transformFileSync(jsPath, { ast: true, code: false });
+    const outPath = ensureUniquePath(jsPath, Path.dirname(filePath), relPath);
     fixImportPaths(resAst.ast, outPath, outDir);
     const resCode = Babel.transformFromAstSync(resAst.ast, null, babelOptions);
     ensureDirExists(Path.dirname(outPath));
@@ -108,8 +120,9 @@ export function transformAndSaveBabelAst(babelAst, filePath, projDir, outDir, co
     try {
         // this solves a weird commonjs issue where some imports are not properly qualified
         babelAst = JSON.parse(serializeToJson(babelAst)); // somehow this helps with that
+        const sourcePath = babelAst.fileName;
         const jsPath = filePath.replace(FSHARP_EXT, ".js");
-        const outPath = Path.join(outDir, jsPath); //TODO: handle duplicate files with different content
+        const outPath = ensureUniquePath(sourcePath, outDir, jsPath);
         ensureDirExists(Path.dirname(outPath));
         const babelOptions = commonjs ?
             { plugins: customPlugins.concat("@babel/plugin-transform-modules-commonjs") } :
