@@ -26,6 +26,19 @@ export function ensureDirExists(dir, cont) {
     }
 }
 
+export function serializeToJson(data) {
+    return JSON.stringify(data, (key, value) => {
+        if (value === Infinity) {
+           return "Infinity";
+        } else if (value === -Infinity) {
+           return "-Infinity";
+        } else if (value !== value) {
+           return "NaN";
+        }
+        return value;
+     });
+}
+
 function ensureArray(obj) {
     return (Array.isArray(obj) ? obj : obj != null ? [obj] : []);
 }
@@ -94,7 +107,7 @@ export function copyFolder(from, dest) {
 export function transformAndSaveBabelAst(babelAst, filePath, projDir, outDir, commonjs) {
     try {
         // this solves a weird commonjs issue where some imports are not properly qualified
-        babelAst = JSON.parse(JSON.stringify(babelAst)); // somehow this helps with that
+        babelAst = JSON.parse(serializeToJson(babelAst)); // somehow this helps with that
         const jsPath = filePath.replace(FSHARP_EXT, ".js");
         const outPath = Path.join(outDir, jsPath);
         ensureDirExists(Path.dirname(outPath));

@@ -45,9 +45,9 @@ module Json =
                         ContractResolver = Serialization.CamelCasePropertyNamesContractResolver(),
                         NullValueHandling = NullValueHandling.Ignore)
 
-    let toJson (value: obj) = JsonConvert.SerializeObject(value, jsonSettings)
+    let serializeToJson (value: obj) = JsonConvert.SerializeObject(value, jsonSettings)
 
-let toJson = Json.toJson
+let serializeToJson = Json.serializeToJson
 
 let ensureDirExists (dir: string): unit =
     System.IO.Directory.CreateDirectory(dir) |> ignore
@@ -89,7 +89,8 @@ let measureTime (f: 'a -> 'b) x =
     let elapsed = Process.hrtime(startTime)
     int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6), res
 
-let toJson (value: obj) = value |> toJson
+let serializeToJson (data: obj) =
+    importMember "./util.js"
 
 let ensureDirExists (dir: string): unit =
     importMember "./util.js"
