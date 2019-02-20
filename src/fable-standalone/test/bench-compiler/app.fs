@@ -6,6 +6,48 @@ open System.Text.RegularExpressions
 let references = Fable.Standalone.Metadata.references_core
 let metadataPath = Path.Combine(__SOURCE_DIRECTORY__, "../../../fable-metadata/lib/") // .NET BCL binaries
 
+let (|Regex|_|) (pattern: string) (input: string) =
+    let m = Regex.Match(input, pattern)
+    if m.Success then
+        let mutable groups = []
+        for i = m.Groups.Count - 1 downto 0 do
+            groups <- m.Groups.[i].Value::groups
+        Some groups
+    else None
+
+let makeOtherOptions (target, defines, nowarns, otherFlags) =
+    let otherOptions = [|
+        yield "--target:" + target
+        for d in defines do yield "-d:" + d
+        for n in nowarns do yield "-nowarn:" + n
+        for o in otherFlags do yield o
+    |]
+    otherOptions
+
+let parseProjectScript projectPath =
+    let projectFileName = Path.GetFileName projectPath
+    let projectText = readAllText projectPath
+    let projectDir = Path.GetDirectoryName projectPath
+    let dllRefs, srcFiles =
+        (([||], [||]), projectText.Split('\n'))
+        ||> Array.fold (fun (dllRefs, srcFiles) line ->
+            let line = line.Trim()
+            match line.Trim() with
+            | Regex @"^#r\s+""(.*?)""$" [_;path]
+                when not(path.EndsWith("Fable.Core.dll")) ->
+                Array.append [|Path.Combine(projectDir, path)|] dllRefs, srcFiles
+            | Regex @"^#load\s+""(.*?)""$" [_;path] ->
+                dllRefs, Array.append [|Path.Combine(projectDir, path)|] srcFiles
+            | _ -> dllRefs, srcFiles)
+    let projectRefs = [||]
+    let sourceFiles = Array.append srcFiles [|Path.GetFileName projectPath|]
+    let target = "exe"
+    let defines = [|"FABLE_COMPILER"|]
+    let nowarns = [||]
+    let otherFlags = [||]
+    let otherOptions = makeOtherOptions (target, defines, nowarns, otherFlags)
+    (projectFileName, dllRefs, projectRefs, sourceFiles, otherOptions)
+
 let parseProjectFile projectPath =
     let projectFileName = Path.GetFileName projectPath
     let projectText = readAllText projectPath
@@ -13,10 +55,13 @@ let parseProjectFile projectPath =
     // remove all comments
     let projectText = Regex.Replace(projectText, @"<!--[\s\S]*?-->", "")
 
+    // get project type
+    let m = Regex.Match(projectText, @"<OutputType[^>]*>([^<]*)<\/OutputType[^>]*>")
+    let target = if m.Success then m.Groups.[1].Value.ToLowerInvariant() else "library"
+
     // get conditional defines
-    let definesRegex = @"<DefineConstants[^>]*>([^<]*)<\/DefineConstants[^>]*>"
     let defines =
-        Regex.Matches(projectText, definesRegex)
+        Regex.Matches(projectText,  @"<DefineConstants[^>]*>([^<]*)<\/DefineConstants[^>]*>")
         |> Seq.collect (fun m -> m.Groups.[1].Value.Split(';'))
         |> Seq.append ["FABLE_COMPILER"]
         |> Seq.map (fun s -> s.Trim())
@@ -24,15 +69,32 @@ let parseProjectFile projectPath =
         |> Seq.except ["$(DefineConstants)"; ""]
         |> Seq.toArray
 
+    // get nowarns
+    let nowarns =
+        Regex.Matches(projectText, @"<NoWarn[^>]*>([^<]*)<\/NoWarn[^>]*>")
+        |> Seq.collect (fun m -> m.Groups.[1].Value.Split(';'))
+        |> Seq.map (fun s -> s.Trim())
+        |> Seq.distinct
+        |> Seq.except ["$(NoWarn)"; ""]
+        |> Seq.toArray
+
+    // get other flags
+    let otherFlags =
+        Regex.Matches(projectText, @"<OtherFlags[^>]*>([^<]*)<\/OtherFlags[^>]*>")
+        |> Seq.collect (fun m -> m.Groups.[1].Value.Split(' '))
+        |> Seq.map (fun s -> s.Trim())
+        |> Seq.distinct
+        |> Seq.except ["$(OtherFlags)"; ""]
+        |> Seq.toArray
+
     // get project references
-    let projectRefsRegex = @"<ProjectReference\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
     let projectRefs =
-        Regex.Matches(projectText, projectRefsRegex)
+        Regex.Matches(projectText, @"<ProjectReference\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)")
         |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/"))
         |> Seq.toArray
 
     // replace some variables
-    let projectText = projectText.Replace(@"$(MSBuildProjectDirectory)", ".")
+    let projectText = projectText.Replace(@"$(MSBuildProjectDirectory)", __dirname)
     let m = Regex.Match(projectText, @"<FSharpSourcesRoot[^>]*>([^<]*)<\/FSharpSourcesRoot[^>]*>")
     let sourcesRoot = if m.Success then m.Groups.[1].Value.Replace("\\", "/") else ""
     let projectText = projectText.Replace(@"$(FSharpSourcesRoot)", sourcesRoot)
@@ -44,24 +106,30 @@ let parseProjectFile projectPath =
         |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/"))
         |> Seq.toArray
 
-    (projectFileName, projectRefs, sourceFiles, defines)
+    let dllRefs = [||]
+    let otherOptions = makeOtherOptions (target, defines, nowarns, otherFlags)
+    (projectFileName, dllRefs, projectRefs, sourceFiles, otherOptions)
 
-let rec parseProject projectPath =
-    let (projectFileName, projectRefs, sourceFiles, defines) = parseProjectFile projectPath
+let rec parseProject (projectPath: string) =
+    let (projectFileName, dllRefs, projectRefs, sourceFiles, otherOptions) =
+        if projectPath.EndsWith(".fsx")
+        then parseProjectScript projectPath
+        else parseProjectFile projectPath
 
     let projectFileDir = Path.GetDirectoryName projectPath
     let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
     let makePath path = if isAbsolutePath path then path else Path.Combine(projectFileDir, path)
 
-    let fileNames = sourceFiles |> Array.map (fun path -> path |> makePath |> normalizeFullPath)
-    let sources = sourceFiles |> Array.map (fun path -> path |> makePath |> readAllText)
+    let sourcePaths = sourceFiles |> Array.map (fun path -> path |> makePath |> normalizeFullPath)
+    let sourceTexts = sourceFiles |> Array.map (fun path -> path |> makePath |> readAllText)
 
+     // parse and combine all referenced projects into one big project
     let parsedProjects = projectRefs |> Array.map makePath |> Array.map parseProject
-    let fileNames = fileNames |> Array.append (parsedProjects |> Array.collect (fun (_,x,_,_) -> x))
-    let sources   = sources   |> Array.append (parsedProjects |> Array.collect (fun (_,_,x,_) -> x))
-    let defines   = defines   |> Array.append (parsedProjects |> Array.collect (fun (_,_,_,x) -> x))
+    let sourcePaths  = sourcePaths  |> Array.append (parsedProjects |> Array.collect (fun (_,_,x,_,_) -> x))
+    let sourceTexts  = sourceTexts  |> Array.append (parsedProjects |> Array.collect (fun (_,_,_,x,_) -> x))
+    let otherOptions = otherOptions |> Array.append (parsedProjects |> Array.collect (fun (_,_,_,_,x) -> x))
 
-    (projectFileName, fileNames, sources, defines |> Array.distinct)
+    (projectFileName, dllRefs, sourcePaths, sourceTexts, otherOptions |> Array.distinct)
 
 let dedupFileNames fileNames =
     let comparerIgnoreCase =
@@ -103,14 +171,21 @@ type CmdLineOptions = {
 
 let parseFiles projectPath outDir options =
     // parse project
-    let (projectFileName, fileNames, sources, defines) = parseProject projectPath
+    let (projectFileName, dllRefs, fileNames, sources, otherOptions) = parseProject projectPath
 
     // dedup file names
     let fileNames = dedupFileNames fileNames
 
+    // find reference dlls
+    let dllRefMap = dllRefs |> Seq.map (fun x -> Path.GetFileName x, x) |> Map
+    let references = dllRefs |> Array.map Path.GetFileNameWithoutExtension |> Array.append references
+    let findDllPath dllName = Map.tryFind dllName dllRefMap |> Option.defaultValue (metadataPath + dllName)
+    let readAllBytes dllName = findDllPath dllName |> readAllBytes
+
     // create checker
     let fable = Fable.Standalone.Main.init ()
-    let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, defines, options.optimize)
+    let otherOptions = Array.append otherOptions [| if options.optimize then yield "--optimize+" |]
+    let createChecker () = fable.CreateChecker(references, readAllBytes, otherOptions)
     let ms0, checker = measureTime createChecker ()
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0

@@ -239,11 +239,8 @@ let init () =
             InteractiveChecker.Create(references, readAllBytes, defines, optimize)
             |> CheckerImpl :> IChecker
 
-        // obsolete
-        member __.CreateChecker(references, readAllBytes, definesOpt) =
-            let defines = defaultArg definesOpt [| "FABLE_COMPILER"; "DEBUG" |]
-            let optimize = false
-            InteractiveChecker.Create(references, readAllBytes, defines, optimize)
+        member __.CreateChecker(references, readAllBytes, otherOptions) =
+            InteractiveChecker.Create(references, readAllBytes, otherOptions)
             |> CheckerImpl :> IChecker
 
         member __.ClearParseCaches(checker) =
