@@ -847,6 +847,9 @@ let tests =
     // System.BitConverter
     //-------------------------------------
 
+    testCase "BitConverter.IsLittleEndian works" <| fun () ->
+        BitConverter.IsLittleEndian |> equal true
+
     testCase "BitConverter.GetBytes Boolean works" <| fun () ->
         let value = true
         let bytes = BitConverter.GetBytes(value)
