@@ -34,7 +34,8 @@ let main argv =
         let fileName = testScriptPath
         let source = readAllText testScriptPath
         let fable = Fable.Standalone.Main.init ()
-        let createChecker () = fable.CreateChecker(references, readAllBytes metadataPath, [||], optimize)
+        let readAllBytes dllName = readAllBytes (metadataPath + dllName)
+        let createChecker () = fable.CreateChecker(references, readAllBytes, [||], optimize)
         let ms0, checker = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
         // let parseFSharpScript () = fable.ParseFSharpScript(checker, fileName, source)

@@ -2,9 +2,11 @@ module Bench.Platform
 
 #if DOTNET_FILE_SYSTEM
 
-let readAllBytes metadataPath (fileName:string) = System.IO.File.ReadAllBytes (metadataPath + fileName)
-let readAllText (filePath:string) = System.IO.File.ReadAllText (filePath, System.Text.Encoding.UTF8)
-let writeAllText (filePath:string) (text:string) = System.IO.File.WriteAllText (filePath, text)
+open System.IO
+
+let readAllBytes (filePath: string) = File.ReadAllBytes(filePath)
+let readAllText (filePath: string) = File.ReadAllText(filePath, System.Text.Encoding.UTF8)
+let writeAllText (filePath: string) (text: string) = File.WriteAllText(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let sw = System.Diagnostics.Stopwatch.StartNew()
@@ -29,9 +31,9 @@ type private IProcess =
 let private FileSystem: IFileSystem = Fable.Core.JsInterop.importAll "fs"
 let private Process: IProcess = Fable.Core.JsInterop.importAll "process"
 
-let readAllBytes metadataPath (fileName:string) = FileSystem.readFileSync(metadataPath + fileName)
-let readAllText (filePath:string) = (FileSystem.readFileSync (filePath, "utf8")).TrimStart('\uFEFF')
-let writeAllText (filePath:string) (text:string) = FileSystem.writeFileSync (filePath, text)
+let readAllBytes (filePath: string) = FileSystem.readFileSync(filePath)
+let readAllText (filePath: string) = FileSystem.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
+let writeAllText (filePath: string) (text: string) = FileSystem.writeFileSync(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let startTime = Process.hrtime()
