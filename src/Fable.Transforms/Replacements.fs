@@ -2630,6 +2630,11 @@ let tryField returnTyp ownerTyp fieldName =
         Helper.CoreCall(coreModFor BclDateTime, Naming.lowerFirst fieldName, returnTyp, []) |> Some
     | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue") ->
         Helper.CoreCall(coreModFor BclDateTimeOffset, Naming.lowerFirst fieldName, returnTyp, []) |> Some
+    | DeclaredType(ent, genArgs), fieldName ->
+        match ent.TryFullName with
+        | Some "System.BitConverter" ->
+            Helper.CoreCall("BitConverter", Naming.lowerFirst fieldName, returnTyp, []) |> Some
+        | _ -> None
     | _ -> None
 
 let private replacedModules =
