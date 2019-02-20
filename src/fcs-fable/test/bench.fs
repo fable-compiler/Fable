@@ -106,7 +106,8 @@ let parseFiles projectPath outDir optimized =
     let fileNames = dedupFileNames fileNames
 
     // create checker
-    let createChecker () = InteractiveChecker.Create(references, readAllBytes metadataPath, defines, optimize=false)
+    let readAllBytes dllName = readAllBytes (metadataPath + dllName)
+    let createChecker () = InteractiveChecker.Create(references, readAllBytes, defines, optimize=false)
     let ms0, checker = measureTime createChecker ()
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0

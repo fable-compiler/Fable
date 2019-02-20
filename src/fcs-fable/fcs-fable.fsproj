@@ -213,6 +213,7 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceAnalysis.fs"/> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/fsi/fsi.fsi"/> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/fsi/fsi.fs"/> -->
+    <Compile Include="TcImports_shim.fs"/>
     <Compile Include="service_slim.fs"/>
     <Compile Include="ast_print.fs"/>
   </ItemGroup>

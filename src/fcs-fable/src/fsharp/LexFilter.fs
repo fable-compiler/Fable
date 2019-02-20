@@ -413,19 +413,13 @@ type PositionTuple =
     new (x: Position, y: Position) = { X = x; Y = y }
 
 /// Used to save the state related to a token
-#if FABLE_COMPILER
-type TokenTup (token,state,lastTokenPos) =
-    member x.Token : token = token
-    member x.LexbufState : LexbufState = state
-    member x.LastTokenPos: PositionTuple = lastTokenPos
-#else
 [<Class>]
 type TokenTup = 
     val Token : token
     val LexbufState : LexbufState
     val LastTokenPos: PositionTuple
     new (token,state,lastTokenPos) = { Token=token; LexbufState=state;LastTokenPos=lastTokenPos }
-#endif
+
     /// Returns starting position of the token
     member x.StartPos = x.LexbufState.StartPos
     /// Returns end position of the token

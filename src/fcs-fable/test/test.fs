@@ -13,7 +13,8 @@ let main argv =
 
     let defines = [||]
     let optimize = false
-    let checker = InteractiveChecker.Create(references, readAllBytes metadataPath, defines, optimize)
+    let readAllBytes dllName = readAllBytes (metadataPath + dllName)
+    let checker = InteractiveChecker.Create(references, readAllBytes, defines, optimize)
 
     let projectFileName = "project"
     let fileName = "test_script.fsx"
