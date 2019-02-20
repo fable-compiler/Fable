@@ -4,9 +4,9 @@ module Platform
 
 open System.IO
 
-let readAllBytes metadataPath (fileName:string) = File.ReadAllBytes (metadataPath + fileName)
-let readAllText (filePath:string) = File.ReadAllText (filePath, System.Text.Encoding.UTF8)
-let writeAllText (filePath:string) (text:string) = File.WriteAllText (filePath, text)
+let readAllBytes (filePath: string) = File.ReadAllBytes(filePath)
+let readAllText (filePath: string) = File.ReadAllText(filePath, System.Text.Encoding.UTF8)
+let writeAllText (filePath: string) (text:string) = File.WriteAllText(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let sw = System.Diagnostics.Stopwatch.StartNew()
@@ -41,9 +41,9 @@ let private File: IFileSystem = importAll "fs"
 let private Process: IProcess = importAll "process"
 let private Path: IPath = importAll "path"
 
-let readAllBytes metadataPath (fileName:string) = File.readFileSync (metadataPath + fileName)
-let readAllText (filePath:string) = (File.readFileSync (filePath, "utf8")).TrimStart('\uFEFF')
-let writeAllText (filePath:string) (text:string) = File.writeFileSync (filePath, text)
+let readAllBytes (filePath: string) = File.readFileSync(filePath)
+let readAllText (filePath: string) = File.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
+let writeAllText (filePath: string) (text:string) = File.writeFileSync(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let startTime = Process.hrtime()
