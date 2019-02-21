@@ -15,6 +15,7 @@ type Context =
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
       EnclosingEntity: FSharpEntity option
+      InlinedFunction: FSharpMemberOrFunctionOrValue option
       CaughtException: Fable.Ident option
       BoundConstructorThis: Fable.Ident option
       BoundMemberThis: Fable.Ident option
@@ -27,6 +28,7 @@ type Context =
           GenericArgs = Map.empty
           EnclosingMember = None
           EnclosingEntity = enclosingEntity
+          InlinedFunction = None
           CaughtException = None
           BoundConstructorThis = None
           BoundMemberThis = None
@@ -989,24 +991,30 @@ module Util =
                 let t = makeType com ctx.GenericArgs argIdent.FullType
                 foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, t)))::acc) (restArgIdents, [])
             | [], _ -> List.rev acc
-        // TODO: Log error if the inline function is called recursively
-        let args: Fable.Expr list =
-            match callee with
-            | Some c -> c::args
-            | None -> args
-        let inExpr = com.GetInlineExpr(memb)
-        let ctx, bindings =
-            ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
-                // Change type and mark ident as compiler-generated so it can be optimized
-                let ident = { makeIdentFrom com ctx argId with
-                                Type = arg.Type
-                                IsCompilerGenerated = true }
-                let ctx = bindExpr ctx argId (Fable.IdentExpr ident)
-                ctx, (ident, arg)::bindings)
-        let ctx = { ctx with GenericArgs = genArgs.Value |> Map
-                             InlinePath = (inExpr.FileName, r)::ctx.InlinePath }
-        (com.Transform(ctx, inExpr.Body), bindings)
-        ||> List.fold (fun body binding -> Fable.Let([binding], body))
+        // Log error if the inline function is called recursively
+        match ctx.InlinedFunction with
+        | Some memb2 when memb.Equals(memb2) ->
+            sprintf "Recursive functions cannot be inlined: (%s)" memb.FullName
+            |> addErrorAndReturnNull com [] r
+        | _ ->
+            let args: Fable.Expr list =
+                match callee with
+                | Some c -> c::args
+                | None -> args
+            let inExpr = com.GetInlineExpr(memb)
+            let ctx, bindings =
+                ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
+                    // Change type and mark ident as compiler-generated so it can be optimized
+                    let ident = { makeIdentFrom com ctx argId with
+                                    Type = arg.Type
+                                    IsCompilerGenerated = true }
+                    let ctx = bindExpr ctx argId (Fable.IdentExpr ident)
+                    ctx, (ident, arg)::bindings)
+            let ctx = { ctx with GenericArgs = genArgs.Value |> Map
+                                 InlinedFunction = Some memb
+                                 InlinePath = (inExpr.FileName, r)::ctx.InlinePath }
+            (com.Transform(ctx, inExpr.Body), bindings)
+            ||> List.fold (fun body binding -> Fable.Let([binding], body))
 
     let (|Inlined|_|) (com: IFableCompiler) ctx r genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
         if not(isInline memb)
