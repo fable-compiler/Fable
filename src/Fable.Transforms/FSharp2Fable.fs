@@ -533,6 +533,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | _ -> return failwith "makeFunctionArgs returns args with different length"
 
     // Getters and Setters
+    | BasicPatterns.AnonRecordGet(callee, calleeType, fieldIndex) ->
+        let! callee = transformExpr com ctx callee
+        let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames.[fieldIndex]
+        let typ = makeType com ctx.GenericArgs fsExpr.Type
+        let kind = Fable.FieldGet(fieldName, false, typ)
+        return Fable.Get(callee, kind, typ, makeRangeFrom fsExpr)
+
     | BasicPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let! callee = transformExprOpt com ctx callee
         let callee =
@@ -637,7 +644,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
         let genArgs = makeGenArgs com ctx.GenericArgs (getGenericArguments fsType)
-        return Fable.NewRecord(argExprs, fsType.TypeDefinition, genArgs) |> Fable.Value
+        return Fable.NewRecord(argExprs, Fable.DeclaredRecord fsType.TypeDefinition, genArgs) |> Fable.Value
+
+    | BasicPatterns.NewAnonRecord(fsType, argExprs) ->
+        let! argExprs = transformExprList com ctx argExprs
+        return Fable.NewRecord(argExprs, Fable.AnonymousRecord fsType.AnonRecordTypeDetails.SortedFieldNames, []) |> Fable.Value
 
     | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs

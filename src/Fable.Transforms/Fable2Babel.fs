@@ -213,9 +213,10 @@ module Util =
         |> ArrayExpression :> Expression
 
     let makeJsObject pairs =
-        pairs |> List.mapToArray (fun (name, value) ->
+        pairs |> Seq.map (fun (name, value) ->
             let prop, computed = memberFromName name
             ObjectProperty(prop, value, computed_=computed) |> U3.Case1)
+        |> Seq.toArray
         |> ObjectExpression :> Expression
 
     let assign range left right =
@@ -552,10 +553,17 @@ module Util =
             match kind with
             | Fable.NumberEnum x
             | Fable.StringEnum x -> com.TransformAsExpr(ctx, x)
-        | Fable.NewRecord(values, ent, _) ->
-            let consRef = jsConstructor com ctx ent
+        | Fable.NewRecord(values, kind, _) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
-            upcast NewExpression(consRef, values)
+            match kind with
+            | Fable.DeclaredRecord ent ->
+                let consRef = jsConstructor com ctx ent
+                upcast NewExpression(consRef, values)
+            | Fable.AnonymousRecord fieldNames ->
+                Array.zip fieldNames values
+                |> makeJsObject
+                |> Array.singleton
+                |> coreLibCall com ctx "Types" "anonRecord"
         | Fable.NewUnion(values, uci, ent, _) ->
             // Union cases with EraseAttribute are used for `Custom`-like cases in unions meant for `keyValueList`
             match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with

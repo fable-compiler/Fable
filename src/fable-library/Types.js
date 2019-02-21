@@ -215,6 +215,10 @@ Record.prototype.CompareTo = function(other) {
   return recordCompare(this, other);
 };
 
+export function anonRecord(o) {
+  return Object.assign(Object.create(Record), o);
+}
+
 export const FSharpRef = declare(function FSharpRef(contents) {
   this.contents = contents;
 }, Record);

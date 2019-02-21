@@ -460,9 +460,12 @@ module private Transforms =
             let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Emit(macro, Some info), t, r)
         // Uncurry also values in setters or new record/union/tuple
-        | Value(NewRecord(args, ent, genArgs)) ->
-            let args = uncurryConsArgs args ent.FSharpFields
-            Value(NewRecord(args, ent, genArgs))
+        | Value(NewRecord(args, kind, genArgs)) ->
+            let args =
+                match kind with
+                | DeclaredRecord ent -> uncurryConsArgs args ent.FSharpFields
+                | AnonymousRecord _ -> uncurryArgs com AutoUncurrying args
+            Value(NewRecord(args, kind, genArgs))
         | Value(NewUnion(args, uci, ent, genArgs)) ->
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, uci, ent, genArgs))

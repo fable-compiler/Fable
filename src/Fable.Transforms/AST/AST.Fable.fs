@@ -131,6 +131,7 @@ type ImportKind =
 
 type EnumKind = NumberEnum of Expr | StringEnum of Expr
 type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of Expr
+type NewRecordKind = DeclaredRecord of FSharpEntity | AnonymousRecord of fieldNames: string[]
 
 type ValueKind =
     | TypeInfo of Type * SourceLocation option // Error messages need location info
@@ -146,7 +147,7 @@ type ValueKind =
     | NewArray of NewArrayKind * Type
     | NewList of headAndTail: (Expr * Expr) option * Type
     | NewTuple of Expr list
-    | NewRecord of Expr list * FSharpEntity * genArgs: Type list
+    | NewRecord of Expr list * NewRecordKind * genArgs: Type list
     | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
     | NewErasedUnion of Expr * genericArgs: Type list
     member this.Type =
@@ -169,7 +170,10 @@ type ValueKind =
         | NewArray(_, t) -> Array t
         | NewList(_, t) -> List t
         | NewTuple exprs -> exprs |> List.map (fun e -> e.Type) |> Tuple
-        | NewRecord(_, ent, genArgs) -> DeclaredType(ent, genArgs)
+        | NewRecord(_, kind, genArgs) ->
+            match kind with
+            | DeclaredRecord ent -> DeclaredType(ent, genArgs)
+            | AnonymousRecord _ -> Any
         | NewUnion(_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
         | NewErasedUnion(_, genArgs) -> ErasedUnion genArgs
 

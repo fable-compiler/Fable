@@ -28180,7 +28180,7 @@ Special cases where representation uses Lambda.
 </member>
 <member name="T:Microsoft.FSharp.Compiler.SourceCodeServices.FSharpObjectExprOverride">
 <summary>
- Represents a checked method in an object expression, as seen by the F# language.  
+ Represents a checked method in an object expression, as seen by the F# language.
 </summary>
 </member>
 <member name="P:Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr.Type">
@@ -28195,12 +28195,12 @@ Special cases where representation uses Lambda.
 </member>
 <member name="P:Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr.ImmediateSubExpressions">
 <summary>
- The immediate sub-expressions of the expression.  
+ The immediate sub-expressions of the expression.
 </summary>
 </member>
 <member name="T:Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr">
 <summary>
- Represents a checked and reduced expression, as seen by the F# language.  The active patterns 
+ Represents a checked and reduced expression, as seen by the F# language.  The active patterns
  in &apos;FSharp.Compiler.SourceCodeServices&apos; can be used to analyze information about the expression.
 
  Pattern matching is reduced to decision trees and conditional tests. Some other
@@ -29777,7 +29777,7 @@ Special cases where representation uses Lambda.
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|TraitCall|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
 <summary>
- Matches expressions for an unresolved call to a trait 
+ Matches expressions for an unresolved call to a trait
 </summary>
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|ObjectExpr|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
@@ -29817,7 +29817,7 @@ Special cases where representation uses Lambda.
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|WhileLoop|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
 <summary>
- Matches while loops 
+ Matches while loops
 </summary>
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|FastIntegerForLoop|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
@@ -29827,7 +29827,7 @@ Special cases where representation uses Lambda.
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|Sequential|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
 <summary>
- Matches sequential expressions 
+ Matches sequential expressions
 </summary>
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|AddressOf|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
@@ -29863,7 +29863,7 @@ Special cases where representation uses Lambda.
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|NewArray|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
 <summary>
- Matches array expressions 
+ Matches array expressions
 </summary>
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|Coerce|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
@@ -29878,7 +29878,7 @@ Special cases where representation uses Lambda.
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|NewTuple|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
 <summary>
- Matches tuple expressions 
+ Matches tuple expressions
 </summary>
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|UnionCaseTest|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
@@ -29916,9 +29916,20 @@ Special cases where representation uses Lambda.
  Matches expressions which get a field from a record or class
 </summary>
 </member>
+<member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|AnonRecordGet|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
+<summary>
+ Matches expressions getting a field from an anonymous record. The integer represents the
+ index into the sorted fields of the anonymous record.
+</summary>
+</member>
+<member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|NewAnonRecord|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
+<summary>
+ Matches anonymous record expressions
+</summary>
+</member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|NewRecord|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
 <summary>
- Matches record expressions 
+ Matches record expressions
 </summary>
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|LetRec|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
@@ -29943,7 +29954,7 @@ Special cases where representation uses Lambda.
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|NewObject|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
 <summary>
- Matches expressions which are calls to object constructors 
+ Matches expressions which are calls to object constructors
 </summary>
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|Call|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
@@ -29985,12 +29996,12 @@ Special cases where representation uses Lambda.
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|Application|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
 <summary>
- Matches expressions which are the application of function values 
+ Matches expressions which are the application of function values
 </summary>
 </member>
 <member name="M:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns.|Value|_|(Microsoft.FSharp.Compiler.SourceCodeServices.FSharpExpr)">
 <summary>
- Matches expressions which are uses of values 
+ Matches expressions which are uses of values
 </summary>
 </member>
 <member name="T:Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns">
