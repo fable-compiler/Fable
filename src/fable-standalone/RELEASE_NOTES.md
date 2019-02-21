@@ -1,3 +1,7 @@
+### 1.0.0-beta-005
+
+* Anonymous records
+
 ### 1.0.0-beta-004
 
 * Compile tests with fable-compiler-js @ncave

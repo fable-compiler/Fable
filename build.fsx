@@ -101,12 +101,12 @@ let buildStandalone() =
     let libraryTarget = projectDir </> "dist/fable-library"
     copyDirRecursive libraryDir libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
-    // let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
-    // getFullPathsInDirectoryRecursively libraryTarget
-    // |> Array.filter (fun file -> file.EndsWith(".js"))
-    // |> Array.iter (fun file ->
-    //     reg.Replace(readFile file, "import $1.js$2")
-    //     |> writeFile file)
+    let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
+    getFullPathsInDirectoryRecursively libraryTarget
+    |> Array.filter (fun file -> file.EndsWith(".js"))
+    |> Array.iter (fun file ->
+        reg.Replace(readFile file, "import $1.js$2")
+        |> writeFile file)
 
     // Bump version
     // let compilerVersion = Publish.loadReleaseVersion "src/fable-compiler"

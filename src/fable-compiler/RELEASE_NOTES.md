@@ -1,3 +1,7 @@
+### 2.2.0-beta-008
+
+* Anonymous records!
+
 ### 2.2.0-beta-007
 
 * Fix report of warnings as errors from files in `.fable` dir
