@@ -297,7 +297,7 @@ type private ScriptOption =
     | FablePackage of FablePackage
     
 let getProjectOptionsFromScript scriptFile =
-    let (checker: FSharpChecker) = FSharpChecker.Create()
+    let (checker: FSharpChecker) = FSharpChecker.Create(keepAssemblyContents=true)
     let msbuildLocator = MSBuildLocator()
     let netFwInfo = NetFWInfoConfig.Default(msbuildLocator) |> NetFWInfo.Create
 
