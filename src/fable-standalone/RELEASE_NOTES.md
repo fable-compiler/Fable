@@ -1,4 +1,4 @@
-### 1.0.0-beta-005
+### 1.0.0-beta-007
 
 * Anonymous records
 

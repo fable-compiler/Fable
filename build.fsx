@@ -105,7 +105,10 @@ let buildStandalone() =
     getFullPathsInDirectoryRecursively libraryTarget
     |> Array.filter (fun file -> file.EndsWith(".js"))
     |> Array.iter (fun file ->
-        reg.Replace(readFile file, "import $1.js$2")
+        reg.Replace(readFile file, fun m ->
+            let fst = m.Groups.[1].Value
+            if fst.EndsWith(".js") then m.Value
+            else sprintf "import %s.js%s" fst m.Groups.[2].Value)
         |> writeFile file)
 
     // Bump version
@@ -151,6 +154,7 @@ let githubRelease() =
             try
                 let ghreleases: GhRealeases = JsInterop.importAll "ghreleases"
                 let! version, notes = Publish.loadReleaseVersionAndNotes "src/fable-compiler"
+                run <| sprintf "git commit -am \"Release %s\" && git push" version
                 let! res = ghreleases.create(user, token, "fable-compiler", "Fable", version, String.concat "\n" notes) |> Async.AwaitPromise
                 printfn "Github release %s created successfully" version
             with ex ->

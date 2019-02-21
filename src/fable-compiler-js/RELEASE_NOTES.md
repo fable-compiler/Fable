@@ -1,3 +1,7 @@
+### 1.0.0-beta-002
+
+* Added project options parsing @ncave
+
 ### 1.0.0-beta-001
 
 * Beta release @ncave
