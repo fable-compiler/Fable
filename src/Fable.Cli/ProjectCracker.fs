@@ -8,6 +8,9 @@ open System.IO
 open System.Xml.Linq
 open System.Collections.Generic
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open Dotnet.ProjInfo.Workspace
+open Dotnet.ProjInfo.Workspace.FCS
+open System.Reflection
 open Fable
 
 let isSystemPackage (pkgName: string) =
@@ -287,12 +290,81 @@ let getCrackedProjectsFromMainFsproj (projFile: string) =
         List.fold crackProjects [] mainProj.ProjectReferences
         |> List.distinctBy (fun x -> x.ProjectFile)
     refProjs, mainProj
+    
+type private ScriptOption =
+    | Other of string
+    | Dll of string
+    | FablePackage of FablePackage
+    
+let getProjectOptionsFromScript scriptFile =
+    let (checker: FSharpChecker) = FSharpChecker.Create()
+    let msbuildLocator = MSBuildLocator()
+    let netFwInfo = NetFWInfoConfig.Default(msbuildLocator) |> NetFWInfo.Create
+
+    let tfm = netFwInfo.LatestVersion () // or specify a .NET version like `"4.6.1"`
+    let fsxBinder = FsxBinder(netFwInfo, checker)
+
+    let input = System.IO.File.ReadAllText(scriptFile)
+    
+    fsxBinder.GetProjectOptionsFromScriptBy(tfm, scriptFile, input)
+    |> Async.RunSynchronously
+    
+let getCrackedProjectFromScript scriptFile =
+        let fsprojOptions = getProjectOptionsFromScript scriptFile
+        let parsedOptions =
+            fsprojOptions.OtherOptions
+            |> List.ofArray
+            |> List.map (fun line ->
+                if line.StartsWith("-r:") then
+                    let dllPath = line.Substring(3)
+                    match tryGetFablePackage dllPath with
+                    | Some fablePackage -> ScriptOption.FablePackage fablePackage
+                    | None -> ScriptOption.Dll dllPath
+                else
+                    ScriptOption.Other line
+            )
+    
+        let dllReferences =
+            let netcoreappPath = Path.GetDirectoryName(typeof<int>.GetTypeInfo().Assembly.Location)
+            
+            parsedOptions
+            |> List.map (function | ScriptOption.Dll dll -> Some dll | _ -> None)
+            |> List.choose id
+            |> fun dllRx ->
+                Array.fold (fun dllRs rf ->
+                    if not (List.exists (fun r -> Path.GetFileNameWithoutExtension(r) = rf) dllRs) then
+                       let dllPath = Path.Combine(netcoreappPath, (sprintf "%s.dll" rf))
+                       dllPath::dllRs
+                    else
+                        dllRs
+                ) dllRx Fable.Standalone.Metadata.references_core
+    
+            
+        let otherOptions =
+            parsedOptions
+            |> List.map (function | ScriptOption.Other o -> Some o | _ -> None)
+            |> List.choose id
+    
+        let fablePkgs =
+            parsedOptions
+            |> List.map (function | ScriptOption.FablePackage fp -> Some fp | _ -> None)
+            |> List.choose id
+            |> sortFablePackages
+            
+        let crackedProj: CrackedFsproj =
+            { ProjectFile = fsprojOptions.ProjectFileName
+              SourceFiles = fsprojOptions.SourceFiles |> List.ofArray
+              ProjectReferences = []
+              DllReferences = dllReferences
+              PackageReferences = fablePkgs
+              OtherCompilerOptions = otherOptions }
+            
+        [], crackedProj
 
 let getCrackedProjects (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
     | ".fsx" ->
-        // getProjectOptionsFromScript define projFile
-        failwith "Parsing .fsx scripts is not currently possible, please use a .fsproj project"
+        getCrackedProjectFromScript projFile
     | ".fsproj" ->
         getCrackedProjectsFromMainFsproj projFile
     | s -> failwithf "Unsupported project type: %s" s
