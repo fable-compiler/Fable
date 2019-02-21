@@ -49,11 +49,3 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-
-let makeAnonRec() =
-    {| X = 5; Y = "Foo"; F = fun x y -> x + y |}
-
-testCase "Anonymous records work" <| fun () ->
-    let r = makeAnonRec()
-    sprintf "Tell me %s %i times" r.Y (r.F r.X 3)
-    |> equal "Tell me Foo 8 times"
