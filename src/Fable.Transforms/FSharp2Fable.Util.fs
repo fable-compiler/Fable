@@ -2,8 +2,8 @@ namespace Fable.Transforms.FSharp2Fable
 
 open System
 open System.Collections.Generic
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler
+open FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.Core
 open Fable.AST

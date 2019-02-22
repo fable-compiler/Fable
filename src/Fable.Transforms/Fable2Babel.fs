@@ -5,7 +5,7 @@ open Fable.Core
 open Fable.AST
 open Fable.AST.Babel
 open System.Collections.Generic
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 
 type ReturnStrategy =
     | Return

@@ -1,7 +1,7 @@
 [<RequireQualifiedAccess>]
 module Fable.Transforms.Replacements
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open Fable.AST.Fable
