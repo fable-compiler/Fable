@@ -2397,7 +2397,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "get_Value" ->
         if isGroup
         // In JS Regex group values can be undefined, ensure they're empty strings #838
-        then makeLogOp r thisArg.Value (makeStrConst "") LogicalOr |> Some
+        then Operation(LogicalOperation(LogicalOr, thisArg.Value, makeStrConst ""), t, r) |> Some
         else propInt 0 thisArg.Value |> Some
     | "get_Length" ->
         if isGroup
