@@ -368,16 +368,18 @@ module Patterns =
             Some (ident, value, body)
         | _ -> None
 
-    /// This matches the boilerplate generated for .TryGetValue (see #154)
+    /// This matches the boilerplate generated for .TryGetValue (see #154, or DivRem #1744)
     let (|TryGetValue|_|) = function
         | Let((outArg1, (DefaultValue _ as def)),
-                NewTuple(_, [Call(callee, memb, ownerGenArgs, membGenArgs,
-                                    [arg1; AddressOf(Value outArg2)]); Value outArg3]))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryGetValue" ->
-            Some (callee, memb, ownerGenArgs, membGenArgs, [arg1; def])
+                NewTuple(_, [Call(callee, memb, ownerGenArgs, membGenArgs, callArgs); Value outArg3]))
+                when List.isMultiple callArgs && outArg1.IsCompilerGenerated && outArg1 = outArg3 ->
+            match List.splitLast callArgs with
+            | callArgs, AddressOf(Value _) -> Some (callee, memb, ownerGenArgs, membGenArgs, callArgs@[def])
+            | _ -> None
         | _ -> None
 
     /// This matches the boilerplate generated for .TryGetValue (optimized)
+    // TODO: Refactor this as TryGetValue above: see #1744
     let (|TryGetValueOptimized|_|) = function
         | Let((outArg1, (DefaultValue _ as def)), IfThenElse
                 (Call(callee, memb, ownerGenArgs, membGenArgs,

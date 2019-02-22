@@ -250,6 +250,11 @@ let tests =
     testCase "BigInt Infix modulo can be generated" <| fun () ->
         equal (4I % 3I, 1I)
 
+    testCase "BigInt.DivRem works" <| fun () -> // See #1744
+        let quotient,remainder = bigint.DivRem(5I,2I)
+        equal(quotient, 2I)
+        equal(remainder, 1I)
+
     testCase "BigInt Evaluation order is preserved by generated code" <| fun () ->
         equal ((4I - 2I) * 2I + 1I, 5I)
 
