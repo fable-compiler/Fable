@@ -1,5 +1,8 @@
 module List
 
+// Disables warn:1204 raised by use of LanguagePrimitives.ErrorStrings.*
+#nowarn "1204"
+
 open System.Collections.Generic
 open Fable.Core
 
@@ -438,18 +441,23 @@ let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
     distinctBy id xs eq
 
 let exactlyOne (xs: 'T list) =
-    if xs.Length = 1 then xs.[0]
-    elif xs.Length = 0 then invalidArg "list" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
-    else invalidArg "list" "Input list too long"
+    match xs with
+    | [] -> invalidArg "list" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
+    | x::[] -> x
+    | x1::x2::xs -> invalidArg "list" "Input list too long"
 
 let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T list) list =
     let dict = Dictionary<'Key, 'T list>(eq)
+    let keys = ResizeArray()
     for v in xs do
         let key = projection v
-        if dict.ContainsKey(key)
-        then dict.[key] <- v::dict.[key]
-        else dict.Add(key, [v])
-    dict |> Seq.map (fun kv -> kv.Key, reverse kv.Value) |> ofSeq
+        match dict.TryGetValue(key) with
+        | true, prev ->
+            dict.[key] <- v::prev
+        | false, _ ->
+            dict.Add(key, [v])
+            keys.Add(key)
+    keys |> Seq.map (fun key -> key, reverse dict.[key]) |> ofSeq
 
 let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
     let dict = Dictionary<'Key, int ref>(eq)
@@ -484,5 +492,6 @@ let pairwise xs =
 let windowed (windowSize: int) (source: 'T list): 'T list list =
     if windowSize <= 0 then
         failwith "windowSize must be positive"
-    [ for i = windowSize to source.Length do
+    let len = length source
+    [ for i = windowSize to len do
         yield source.[i-windowSize..i-1] ]
