@@ -723,6 +723,12 @@ let tests =
             | _ -> false
         worked |> equal true
 
+    testCase "List.groupBy maintains order" <| fun () ->
+        let xs = [ 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 ]
+        let mapped = xs |> List.take 4 |> List.map (fun (x,y) -> x, [x,y; x,y+1])
+        let grouped = xs |> List.groupBy fst
+        grouped |> equal mapped
+
     testCase "List.unfold works" <| fun () ->
         let xs = 0. |> List.unfold (fun n -> if n < 3.0 then Some(n+1., n+1.) else None)
         let sum =

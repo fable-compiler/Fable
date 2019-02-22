@@ -127,9 +127,9 @@ let test() =
     cleanDirs ["build/tests"]
     buildSplitter "tests"
     run "npx mocha build/tests --reporter dot -t 10000"
+    runInDir "tests/Main" "dotnet run"
 
     if envVarOrNone "APPVEYOR" |> Option.isSome then
-        runInDir "tests/Main" "dotnet run"
         buildStandalone()
         // Test fable-compiler-js locally
         buildCompilerJs true
