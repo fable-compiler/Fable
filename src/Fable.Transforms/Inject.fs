@@ -1,7 +1,7 @@
 module Fable.Transforms.Inject
 
 open System
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open Fable.Transforms

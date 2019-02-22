@@ -6,7 +6,7 @@ open Fable.Transforms
 open Fable.Transforms.State
 open System
 open System.Collections.Generic
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open ProjectCracker
 

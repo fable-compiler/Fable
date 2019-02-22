@@ -7,7 +7,7 @@ open System
 open System.IO
 open System.Xml.Linq
 open System.Collections.Generic
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open Fable
 
 let isSystemPackage (pkgName: string) =

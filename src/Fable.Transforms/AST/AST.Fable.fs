@@ -2,7 +2,7 @@ namespace rec Fable.AST.Fable
 
 open Fable
 open Fable.AST
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open System
 
 type EnumTypeKind = NumberEnumType | StringEnumType

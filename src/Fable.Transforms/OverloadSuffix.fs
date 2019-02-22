@@ -2,7 +2,7 @@
 module Fable.Transforms.OverloadSuffix
 
 open System.Collections.Generic
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 
 type Params = IList<IList<FSharpParameter>>
 

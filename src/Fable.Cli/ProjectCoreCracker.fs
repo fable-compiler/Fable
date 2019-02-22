@@ -4,7 +4,7 @@ module Fable.Cli.ProjectCoreCracker
 open System
 open System.IO
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 
 module MSBuildPrj = Dotnet.ProjInfo.Inspect
 

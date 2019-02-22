@@ -17,7 +17,7 @@ type Severity =
     | Error
     | Info
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 
 type InlineExpr =
     { Args: FSharpMemberOrFunctionOrValue list
