@@ -3,27 +3,6 @@ module BigInt.Exports
 type bigint = BigInt.BigInteger
 
 let isBigInt (x: obj) = x :? bigint
-let get_Zero = bigint.Zero
-let get_One = bigint.One
-let op_Addition = bigint.(+)
-let op_Subtraction = bigint.(-)
-let op_Multiply = bigint.(*)
-let op_Division = bigint.(/)
-let op_Modulus = bigint.(%)
-let op_UnaryNegation = bigint.(~-)
-let op_UnaryPlus = bigint.(~+)
-
-let op_RightShift = bigint.(>>>)
-let op_LeftShift = bigint.(<<<)
-let op_BitwiseAnd = bigint.(&&&)
-let op_BitwiseOr = bigint.(|||)
-
-let op_LessThan = bigint.op_LessThan
-let op_LessThanOrEqual = bigint.op_LessThanOrEqual
-let op_GreaterThan = bigint.op_GreaterThan
-let op_GreaterThanOrEqual = bigint.op_GreaterThanOrEqual
-let op_Equality = bigint.op_Equality
-let op_Inequality = bigint.op_Inequality
 
 let tryParse str =
     try
@@ -42,11 +21,15 @@ let zero = bigint.Zero
 let one = bigint.One
 let two = bigint.Two
 
+let fromString (s:string) = bigint.Parse s
 let fromZero () = bigint.Zero
 let fromOne () = bigint.One
-let fromInt32 (i:int32) = new bigint(i)
 let fromInt64 (i:int64) = new bigint(i)
-let fromString (s:string) = bigint.Parse s
+// We're feeding uint32 here too, so it may happen the value is bigger than Int32.MaxValue
+// In that case we need to convert it to int64 to prevent errors. See #1745
+let fromInt32 (i:int32) =
+    if i > System.Int32.MaxValue then new bigint(box  i :?> uint32 |> int64)
+    else new bigint(i)
 
 let toSByte (x:bigint) = x.ToSByte
 let toByte (x:bigint) = x.ToByte
@@ -68,3 +51,25 @@ let hash (x:bigint) = x.GetHashCode()
 let compare (x:bigint) (y:bigint) = (x :> System.IComparable).CompareTo(y)
 let equals (x:bigint) (y:bigint) = x.Equals(y)
 let toString (x:bigint) = x.ToString()
+
+let get_Zero = bigint.Zero
+let get_One = bigint.One
+let op_Addition = bigint.(+)
+let op_Subtraction = bigint.(-)
+let op_Multiply = bigint.(*)
+let op_Division = bigint.(/)
+let op_Modulus = bigint.(%)
+let op_UnaryNegation = bigint.(~-)
+let op_UnaryPlus = bigint.(~+)
+
+let op_RightShift = bigint.(>>>)
+let op_LeftShift = bigint.(<<<)
+let op_BitwiseAnd = bigint.(&&&)
+let op_BitwiseOr = bigint.(|||)
+
+let op_LessThan = bigint.op_LessThan
+let op_LessThanOrEqual = bigint.op_LessThanOrEqual
+let op_GreaterThan = bigint.op_GreaterThan
+let op_GreaterThanOrEqual = bigint.op_GreaterThanOrEqual
+let op_Equality = bigint.op_Equality
+let op_Inequality = bigint.op_Inequality
