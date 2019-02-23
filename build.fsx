@@ -15,9 +15,10 @@ let APPVEYOR_REPL_ARTIFACT_URL =
     + APPVEYOR_REPL_ARTIFACT_URL_PARAMS
 
 // ncave FCS fork
-let NCAVE_FORK = "https://github.com/ncave/FSharp.Compiler.Service"
-let NCAVE_FORK_LOCAL = "../FSharp.Compiler.Service"
-let NCAVE_FORK_FCS_FABLE_BRANCH = "fable"
+let FCS_REPO = "https://github.com/ncave/FSharp.Compiler.Service"
+let FCS_REPO_LOCAL = "../FSharp.Compiler.Service_fable"
+let FCS_REPO_FABLE_BRANCH = "fable"
+let FCS_REPO_SERVICE_SLIM_BRANCH = "service_slim"
 
 type GhRealeases =
     [<Emit("""new Promise((succeed, fail) =>
@@ -162,6 +163,41 @@ let githubRelease() =
         } |> Async.StartImmediate
     | _ -> failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
 
+let syncFcsRepo() =
+    // FAKE is giving lots of problems with the dotnet SDK version, ignore it
+    let cheatWithDotnetSdkVersion dir f =
+        let path = dir </> "build.fsx"
+        let script = readFile path
+        script.Replace("let dotnetExePath = DotNetCli.InstallDotNetSDK", "let dotnetExePath = \"dotnet\" //DotNetCli.InstallDotNetSDK") |> writeFile path 
+        f ()
+        script.Replace("let dotnetExePath = \"dotnet\" //DotNetCli.InstallDotNetSDK", "let dotnetExePath = DotNetCli.InstallDotNetSDK") |> writeFile path 
+
+    printfn "Expecting %s repo to be cloned at %s" FCS_REPO FCS_REPO_LOCAL
+
+    // TODO: Prompt to reset --hard changes
+    // service_slim
+    runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_SERVICE_SLIM_BRANCH)
+    runInDir FCS_REPO_LOCAL "git pull"
+    cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
+        runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "")
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/netstandard2.0/FSharp.Compiler.Service.dll")  "../fable/lib/fcs/"
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/netstandard2.0/FSharp.Compiler.Service.xml")  "../fable/lib/fcs/"
+
+    // fcs-fable
+    runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_FABLE_BRANCH)
+    runInDir FCS_REPO_LOCAL "git pull"
+    cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
+        runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "CodeGen.Fable")
+    copyDirRecursive (FCS_REPO_LOCAL </> "fcs/fcs-fable") "src/fcs-fable"
+    copyDirRecursive (FCS_REPO_LOCAL </> "src") "src/fcs-fable/src"
+    removeFile "src/fcs-fable/.gitignore"
+    let fcsFableProj = "src/fcs-fable/fcs-fable.fsproj"
+    Regex.Replace(
+            readFile fcsFableProj,
+            @"(<FSharpSourcesRoot>\$\(MSBuildProjectDirectory\)).*?(<\/FSharpSourcesRoot>)",
+            "$1/src$2")
+    |> writeFile fcsFableProj
+
 let packages =
     ["fable-babel-plugins", doNothing
      "fable-compiler", buildCompiler
@@ -193,20 +229,7 @@ match argsLower with
 | "github-release"::_ ->
     publishPackages []
     githubRelease ()
-| "sync-fcs-fable"::_ ->
-    printfn "Expecting %s repo to be cloned at %s and '%s' branch checked out"
-        NCAVE_FORK NCAVE_FORK_LOCAL NCAVE_FORK_FCS_FABLE_BRANCH
-
-    runBashOrCmd (NCAVE_FORK_LOCAL </> "fcs") "build" "CodeGen.Fable"
-    copyDirRecursive (NCAVE_FORK_LOCAL </> "fcs/fcs-fable") "src/fcs-fable"
-    copyDirRecursive (NCAVE_FORK_LOCAL </> "src") "src/fcs-fable/src"
-    removeFile "src/fcs-fable/.gitignore"
-    let fcsFableProj = "src/fcs-fable/fcs-fable.fsproj"
-    Regex.Replace(
-            readFile fcsFableProj,
-            @"(<FSharpSourcesRoot>\$\(MSBuildProjectDirectory\)).*?(<\/FSharpSourcesRoot>)",
-            "$1/src$2")
-    |> writeFile fcsFableProj
+| "sync-fcs-repo"::_ -> syncFcsRepo()
 | _ ->
     printfn "Please pass a target name"
 

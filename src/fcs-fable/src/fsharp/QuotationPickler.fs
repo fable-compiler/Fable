@@ -1,16 +1,13 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-module internal Microsoft.FSharp.Compiler.QuotationPickler
+module internal FSharp.Compiler.QuotationPickler
 
-open Internal.Utilities
-open Internal.Utilities.Collections
-#if FABLE_COMPILER
-open Microsoft.FSharp.Collections
-#endif
+
 open System.Text
-open Microsoft.FSharp.Compiler.AbstractIL.Internal
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.Lib
+open Internal.Utilities.Collections
+open FSharp.Compiler.AbstractIL.Internal
+open FSharp.Compiler
+open FSharp.Compiler.Lib
 
 let mkRLinear mk (vs,body) = List.foldBack (fun v acc -> mk (v,acc)) vs body 
 

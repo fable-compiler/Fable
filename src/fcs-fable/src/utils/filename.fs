@@ -2,11 +2,8 @@
 
 module internal Internal.Utilities.Filename
 
-#if FABLE_COMPILER
-open Internal.Utilities
-#endif
 open System.IO
-open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library 
+open FSharp.Compiler.AbstractIL.Internal.Library 
 
 exception IllegalFileNameChar of string * char
 
@@ -38,9 +35,9 @@ let directoryName (s:string) =
     checkPathForIllegalChars s
     if s = "" then "."
     else 
-        match Path.GetDirectoryName(s) with 
-        | null -> if FileSystem.IsPathRootedShim(s) then s else "."
-        | res -> if res = "" then "." else res
+      match Path.GetDirectoryName(s) with 
+      | null -> if FileSystem.IsPathRootedShim(s) then s else "."
+      | res -> if res = "" then "." else res
 
 let fileNameOfPath s = 
     checkPathForIllegalChars s
