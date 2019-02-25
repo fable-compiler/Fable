@@ -32,8 +32,12 @@ type ImportAttribute(selector: string, from: string) =
     inherit Attribute()
 
 /// Function calls will be replaced by inlined JS code.
-/// More info: http://fable.io/docs/interacting.html#Import-attribute
+/// More info: http://fable.io/docs/interacting.html#emit-attribute
 type EmitAttribute(macro: string) =
+    inherit Attribute()
+
+/// The declaration value will be replaced with the JS code.
+type EmitDeclarationAttribute(macro: string) =
     inherit Attribute()
 
 [<Obsolete("PassGenerics doesn't work in Fable 2, please remove the attribute.")>]

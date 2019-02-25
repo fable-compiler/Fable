@@ -842,6 +842,13 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
               HasSpread = false }
         [Fable.ValueDeclaration(fableValue, info)]
 
+let private functionDeclarationInfo name isPublic (memb: FSharpMemberOrFunctionOrValue): Fable.ValueDeclarationInfo =
+    { Name = name
+      IsPublic = isPublic
+      IsMutable = memb.IsMutable
+      IsEntryPoint = memb.Attributes |> hasAttribute Atts.entryPoint
+      HasSpread = hasSeqSpread memb }
+
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
     let body = transformExpr com bodyCtx body |> run
@@ -859,23 +866,22 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
             let apply = staticCall None Fable.Unit (argInfo None [] Fable.NoUncurrying) fn
             [Fable.ActionDeclaration apply]
         else
-            let info: Fable.ValueDeclarationInfo =
-                { Name = name
-                  IsPublic = isPublic
-                  IsMutable = false
-                  IsEntryPoint = memb.Attributes |> hasAttribute Atts.entryPoint
-                  HasSpread = hasSeqSpread memb }
+            let info = functionDeclarationInfo name isPublic memb
             [Fable.ValueDeclaration(fn, info)]
 
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let isPublic = isPublicMember memb
     let name = getMemberDeclarationName com memb
     com.AddUsedVarName(name)
-    match tryImportAttribute memb.Attributes with
-    | Some(selector, path) ->
+    match memb.Attributes with
+    | ImportAtt(selector, path) ->
         let typ = makeType com Map.empty memb.FullType
         transformImport com None typ memb.IsMutable isPublic name (makeStrConst selector) (makeStrConst path)
-    | None ->
+    | EmitDeclarationAtt macro ->
+        let typ = makeType com Map.empty memb.FullType
+        let info = functionDeclarationInfo name isPublic memb
+        [Fable.ValueDeclaration(Fable.Operation(Fable.Emit(macro, None), typ, None), info)]        
+    | NoAtt ->
         if isModuleValueForDeclarations memb
         then transformMemberValue com ctx isPublic name memb body
         else transformMemberFunction com ctx isPublic name memb args body
@@ -954,14 +960,14 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
         fsDecls |> List.collect (fun fsDecl ->
             match fsDecl with
             | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
-                match tryImportAttribute ent.Attributes with
-                | Some(selector, path) ->
+                match ent.Attributes with
+                | ImportAtt(selector, path) ->
                     let name = getEntityDeclarationName com ent
                     com.AddUsedVarName(name)
                     (makeStrConst selector, makeStrConst path)
                     ||> transformImport com None Fable.Any false (not ent.Accessibility.IsPrivate) name
                 // Discard erased unions and string enums
-                | None when ent.IsFSharpUnion && not (isErasedUnion ent) ->
+                | _ when ent.IsFSharpUnion && not (isErasedUnion ent) ->
                     let entityName = getEntityDeclarationName com ent
                     com.AddUsedVarName(entityName)
                     // TODO: Check Equality/Comparison attributes
@@ -971,7 +977,7 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                         IsPublic = isPublicEntity ent }
                     let r = getEntityLocation ent |> makeRange
                     [Fable.ConstructorDeclaration(Fable.UnionConstructor info, Some r)]
-                | None when ent.IsFSharpRecord
+                | _ when ent.IsFSharpRecord
                         || ent.IsFSharpExceptionDeclaration
                         || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent)) ->
                     let entityName = getEntityDeclarationName com ent
@@ -983,7 +989,7 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                         IsPublic = isPublicEntity ent }
                     let r = getEntityLocation ent |> makeRange
                     [Fable.ConstructorDeclaration(Fable.CompilerGeneratedConstructor info, Some r)]
-                | None ->
+                | _ ->
                     transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
                 transformMemberDecl com ctx meth args body

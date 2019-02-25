@@ -783,11 +783,14 @@ module Util =
                 |> Path.getRelativePath com.CurrentFile
         else path
 
-    let tryImportAttribute (atts: #seq<FSharpAttribute>) =
+    let (|ImportAtt|EmitDeclarationAtt|NoAtt|) (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (function
             | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
-                Some(selector.Trim(), path.Trim())
+                Choice1Of3(selector.Trim(), path.Trim()) |> Some
+            | AttFullName(Atts.emitDeclaration, AttArguments [(:? string as macro)]) ->
+                Choice2Of3(macro) |> Some
             | _ -> None)
+        |> Option.defaultValue (Choice3Of3 ())
 
     /// Function used to check if calls must be replaced by global idents or direct imports
     let tryGlobalOrImportedMember com typ (memb: FSharpMemberOrFunctionOrValue) =
