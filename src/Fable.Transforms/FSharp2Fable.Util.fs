@@ -569,19 +569,24 @@ module TypeHelpers =
 
     and makeType (com: ICompiler) (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
-        if t.IsGenericParameter
-        then resolveGenParam ctxTypeArgs t.GenericParameter
+        if t.IsGenericParameter then
+            resolveGenParam ctxTypeArgs t.GenericParameter
         // Tuple
-        elif t.IsTupleType
-        then makeGenArgs com ctxTypeArgs t.GenericArguments |> Fable.Tuple
+        elif t.IsTupleType then
+            makeGenArgs com ctxTypeArgs t.GenericArguments |> Fable.Tuple
         // Funtion
-        elif t.IsFunctionType
-        then
+        elif t.IsFunctionType then
             let argType = makeType com ctxTypeArgs t.GenericArguments.[0]
             let returnType = makeType com ctxTypeArgs t.GenericArguments.[1]
             Fable.FunctionType(Fable.LambdaType argType, returnType)
-        elif t.HasTypeDefinition
-        then makeTypeFromDef com ctxTypeArgs t.GenericArguments t.TypeDefinition
+        elif t.HasTypeDefinition then
+// No support for provided types when compiling FCS+Fable to JS
+#if !FABLE_COMPILER
+            // TODO: Discard provided generated types too?
+            if t.TypeDefinition.IsProvidedAndErased then Fable.Any
+            else
+#endif            
+                makeTypeFromDef com ctxTypeArgs t.GenericArguments t.TypeDefinition
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
 
     // TODO: This is intended to wrap JS expressions with `| 0`, check enum as well?
