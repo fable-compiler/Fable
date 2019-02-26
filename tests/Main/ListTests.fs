@@ -60,6 +60,11 @@ let tests =
         match ["a";"b"] with [] -> 0 | ["a";"b"] -> 1 | _ -> 2
         |> equal 1
 
+
+    testCase "sprintf works on lists" <| fun () ->
+        let xs = [1.; 2.; 3.; 4.]
+        sprintf "%A" xs |> equal "[1.0; 2.0; 3.0; 4.0]"
+
     testCase "List.Length works" <| fun () ->
             let xs = [1; 2; 3; 4]
             equal 4 xs.Length

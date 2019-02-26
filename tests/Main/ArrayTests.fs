@@ -52,6 +52,10 @@ let tests =
         match [|"a";"b"|] with [|"a";"b"|] -> 1 | _ -> 2
         |> equal 1
 
+    testCase "sprintf works on arrays" <| fun () ->
+        let xs = [|1.; 2.; 3.; 4.|]
+        sprintf "%A" xs |> equal "[|1.0; 2.0; 3.0; 4.0|]"
+
     testCase "ParamArrayAttribute works" <| fun () ->
         ParamArrayTest.Add(1, 2) |> equal 3
 
