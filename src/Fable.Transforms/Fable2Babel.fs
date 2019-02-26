@@ -1470,6 +1470,7 @@ module Util =
 
     let transformImplicitConstructor (com: IBabelCompiler) ctx r (info: Fable.ClassImplicitConstructorInfo) =
         let boundThis = Some("this", info.BoundConstructorThis)
+        let consIdent = Identifier info.EntityName :> Expression
         let args, body = getMemberArgsAndBody com ctx None boundThis info.Arguments info.HasSpread info.Body
         let argIdents, argExprs: Pattern list * Expression list =
             match info.Arguments with
@@ -1480,13 +1481,13 @@ module Util =
                 (restElement(ident args.Head)) :: (List.map identAsPattern args.Tail) |> List.rev,
                 (SpreadElement(ident args.Head) :> Expression) :: (List.map identAsExpr args.Tail) |> List.rev
             | args -> List.map identAsPattern args, List.map identAsExpr args
-        let consIdent = Identifier info.EntityName :> Expression
         let exposedCons =
             FunctionExpression(List.toArray argIdents,
                 BlockStatement [|
                     ReturnStatement(
                         ConditionalExpression(
-                            BinaryExpression(BinaryUnequal, ThisExpression(), NullLiteral()),
+                            // Don't do a null check here, some environments can assign a value to `this`, see #1757
+                            BinaryExpression(BinaryInstanceOf, ThisExpression(), consIdent),
                             callFunctionWithThisContext None consIdent thisExpr argExprs,
                             NewExpression(consIdent,List.toArray argExprs))
             )   |])
