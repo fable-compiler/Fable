@@ -95,9 +95,14 @@ let toByteArray (value:bigint) =
         // If negative, we will encode the bits of the positive value in two's complement form.
         let isPositive = value > zero
         let value = if isPositive then value else bigint(-1) * value
+        let mask32 = System.UInt32.MaxValue |> int64 |> fromInt64
         let rec loop (accumBytes:byte list) consumeValue lowBitFound =
             if consumeValue <= zero then
                 // Return, with high byte added to indicate sign if current high bit does not represent correct sign.
+                let accumBytes =
+                    // Trim excess leading zeros (or 255s if negative i.e. two's complement)
+                    if isPositive then accumBytes |> List.skipWhile (fun b -> b = 0uy)
+                    else accumBytes |> List.skipWhile (fun b -> b = 255uy)
                 let isHighBitOne = List.head accumBytes &&& 0b10000000uy <> 0uy
                 let accumBytes =
                     if isPositive && isHighBitOne then 0uy :: accumBytes
@@ -107,12 +112,19 @@ let toByteArray (value:bigint) =
                 |> List.toArray
                 |> Array.rev
             else
-                let currByte = (consumeValue &&& bigint(255) |> toByte)
+                let currValue = consumeValue &&& mask32 |> toUInt32
                 if isPositive then
-                    loop (currByte :: accumBytes) (consumeValue >>> 8) false
+                    let b0 = currValue |> byte
+                    let b1 = currValue >>> 8 |> byte
+                    let b2 = currValue >>> 16 |> byte
+                    let b3 = currValue >>> 24 |> byte
+                    loop (b3 :: b2 :: b1 :: b0 :: accumBytes) (consumeValue >>> 32) false
                 else
-                    let currByte, lowBitFound = flipTwosComplement currByte lowBitFound
-                    loop (currByte :: accumBytes) (consumeValue >>> 8) lowBitFound
+                    let b0,lowBitFound = flipTwosComplement (currValue |> byte) lowBitFound
+                    let b1,lowBitFound = flipTwosComplement (currValue >>> 8 |> byte) lowBitFound
+                    let b2,lowBitFound = flipTwosComplement (currValue >>> 16 |> byte) lowBitFound
+                    let b3,lowBitFound = flipTwosComplement (currValue >>> 24 |> byte) lowBitFound
+                    loop (b3 :: b2 :: b1 :: b0 :: accumBytes) (consumeValue >>> 32) lowBitFound
         loop [] value false
 
 // Spec:
@@ -124,16 +136,33 @@ let fromByteArray (bytes:byte array) =
         // If negative, bits are the two's complement of the positive value.
         // We will reverse the two's complement back to the positive value, and then multiply by -1.
         let isPositive = bytes.[bytes.Length - 1] &&& 0b10000000uy = 0uy
-        let rec loop (accumBytes:byte list) currIndex lowBitFound =
-            if currIndex = bytes.Length then
-                accumBytes
-                |> List.fold (fun acc b -> (acc <<< 8) ||| (b |> int |> fromInt32)) zero
+        let buffer = Array.create 4 0uy
+        let rec loop (accumUInt32:uint32 list) currIndex bytesRemaining lowBitFound =
+            if bytesRemaining = 0 then
+                accumUInt32
+                |> List.fold (fun acc value -> (acc <<< 32) + (value |> int64 |> fromInt64)) zero
                 |> fun value -> if isPositive then value else bigint(-1) * value
             else
-                let currByte = bytes.[currIndex]
+                let bytesToProcess = min bytesRemaining 4
+                for i in 0 .. bytesToProcess - 1 do buffer.[i] <- bytes.[currIndex + i] // fill buffer with up to 4 bytes
                 if isPositive then
-                    loop (currByte :: accumBytes) (currIndex + 1) false
+                    Array.fill buffer bytesToProcess (4 - bytesToProcess) 0uy // clear any unfilled bytes in buffer
+                    let value =
+                        uint32 buffer.[0]
+                        ||| (uint32 buffer.[1] <<< 8)
+                        ||| (uint32 buffer.[2] <<< 16)
+                        ||| (uint32 buffer.[3] <<< 24)
+                    loop (value :: accumUInt32) (currIndex + bytesToProcess) (bytesRemaining - bytesToProcess) false
                 else
-                    let currByte, lowBitFound = flipTwosComplement currByte lowBitFound
-                    loop (currByte :: accumBytes) (currIndex + 1) lowBitFound
-        loop [] 0 false
+                    Array.fill buffer bytesToProcess (4 - bytesToProcess) 255uy // clear any unfilled bytes in buffer (255 for two's complement)
+                    let b0,lowBitFound = flipTwosComplement buffer.[0] lowBitFound
+                    let b1,lowBitFound = flipTwosComplement buffer.[1] lowBitFound
+                    let b2,lowBitFound = flipTwosComplement buffer.[2] lowBitFound
+                    let b3,lowBitFound = flipTwosComplement buffer.[3] lowBitFound
+                    let value =
+                        uint32 b0
+                        ||| (uint32 b1 <<< 8)
+                        ||| (uint32 b2 <<< 16)
+                        ||| (uint32 b3 <<< 24)
+                    loop (value :: accumUInt32) (currIndex + bytesToProcess) (bytesRemaining - bytesToProcess) lowBitFound
+        loop [] 0 bytes.Length false
