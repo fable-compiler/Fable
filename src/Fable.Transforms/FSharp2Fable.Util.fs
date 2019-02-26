@@ -375,32 +375,20 @@ module Patterns =
                 NewTuple(_, [Call(callee, memb, ownerGenArgs, membGenArgs, callArgs); Value outArg3]))
                 when List.isMultiple callArgs && outArg1.IsCompilerGenerated && outArg1 = outArg3 ->
             match List.splitLast callArgs with
-            | callArgs, AddressOf(Value _) -> Some (callee, memb, ownerGenArgs, membGenArgs, callArgs@[def])
+            | callArgs, AddressOf(Value outArg2) when outArg1 = outArg2 ->
+                Some (callee, memb, ownerGenArgs, membGenArgs, callArgs@[def])
             | _ -> None
         | _ -> None
 
-    /// This matches the boilerplate generated for .TryGetValue (optimized)
-    // TODO: Refactor this as TryGetValue above: see #1744
-    let (|TryGetValueOptimized|_|) = function
+    /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (optimized)
+    let (|ByrefArgToTupleOptimized|_|) = function
         | Let((outArg1, (DefaultValue _ as def)), IfThenElse
-                (Call(callee, memb, ownerGenArgs, membGenArgs,
-                    [arg1; AddressOf(Value outArg2)]), Value outArg3, (_ as elseExpr)))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryGetValue" ->
-            Some (outArg1, callee, memb, ownerGenArgs, membGenArgs, [arg1; def], elseExpr)
-        | _ -> None
-
-    /// This matches the boilerplate generated for .TryParse (optimized)
-    let (|TryParseOptimized|_|) = function
-        | Let((outArg1, DefaultValue _), IfThenElse
-                (Call (None, memb, ownerGenArgs, membGenArgs,
-                    [arg1; AddressOf(Value outArg2)]), Value outArg3, elseExpr))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
-            Some (outArg1, memb, ownerGenArgs, membGenArgs, [arg1], elseExpr)
-        | Let((outArg1, DefaultValue _), IfThenElse
-                (Call (None, memb, ownerGenArgs, membGenArgs,
-                    [arg1; arg2; arg3; AddressOf(Value outArg2)]), Value outArg3, elseExpr))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
-            Some (outArg1, memb, ownerGenArgs, membGenArgs, [arg1; arg2; arg3], elseExpr)
+                (Call(callee, memb, ownerGenArgs, membGenArgs, callArgs), Value outArg3, (_ as elseExpr)))
+                when List.isMultiple callArgs && outArg1.IsCompilerGenerated && outArg1 = outArg3 ->
+            match List.splitLast callArgs with
+            | callArgs, AddressOf(Value outArg2) when outArg1 = outArg2 ->
+                Some (outArg1, callee, memb, ownerGenArgs, membGenArgs, callArgs@[def], elseExpr)
+            | _ -> None
         | _ -> None
 
     /// This matches the boilerplate generated to wrap .NET events from F#
