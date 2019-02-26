@@ -1819,13 +1819,15 @@ let parse (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         if style <> hexConst && style <> intConst then
             sprintf "%s.%s(): NumberStyle %d is ignored" i.DeclaringEntityFullName meth style
             |> addWarning com ctx.InlinePath r
-        if List.length args > 2 then
+        let acceptedArgs = if meth = "Parse" then 2 else 3
+        if List.length args > acceptedArgs then
             // e.g. Double.Parse(string, style, IFormatProvider) etc.
             sprintf "%s.%s(): provider argument is ignored" i.DeclaringEntityFullName meth
             |> addWarning com ctx.InlinePath r
         parseCall meth str style
     | ("Parse" | "TryParse") as meth, str::_ ->
-        if List.length args > 1 then
+        let acceptedArgs = if meth = "Parse" then 1 else 2
+        if List.length args > acceptedArgs then
             // e.g. Double.Parse(string, IFormatProvider) etc.
             sprintf "%s.%s(): provider argument is ignored" i.DeclaringEntityFullName meth
             |> addWarning com ctx.InlinePath r

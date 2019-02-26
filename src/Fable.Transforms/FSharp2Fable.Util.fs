@@ -368,8 +368,9 @@ module Patterns =
             Some (ident, value, body)
         | _ -> None
 
-    /// This matches the boilerplate generated for .TryGetValue (see #154, or DivRem #1744)
-    let (|TryGetValue|_|) = function
+    /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (see #154, or #1744)
+    /// where the F# compiler automatically passes a byref arg and returns it as a tuple
+    let (|ByrefArgToTuple|_|) = function
         | Let((outArg1, (DefaultValue _ as def)),
                 NewTuple(_, [Call(callee, memb, ownerGenArgs, membGenArgs, callArgs); Value outArg3]))
                 when List.isMultiple callArgs && outArg1.IsCompilerGenerated && outArg1 = outArg3 ->
@@ -387,21 +388,6 @@ module Patterns =
             when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryGetValue" ->
             Some (outArg1, callee, memb, ownerGenArgs, membGenArgs, [arg1; def], elseExpr)
         | _ -> None
-
-    /// This matches the boilerplate generated for .TryParse
-    let (|TryParse|_|) = function
-        | Let((outArg1, DefaultValue _),
-                NewTuple(_, [Call(None, memb, ownerGenArgs, membGenArgs,
-                                [arg1; AddressOf(Value outArg2)]); Value outArg3]))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
-            Some (memb, ownerGenArgs, membGenArgs, [arg1])
-        | Let((outArg1, DefaultValue _),
-                NewTuple(_, [Call(None, memb, ownerGenArgs, membGenArgs,
-                                [arg1; arg2; arg3; AddressOf(Value outArg2)]); Value outArg3]))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
-            Some (memb, ownerGenArgs, membGenArgs, [arg1; arg2; arg3])
-        | _ -> None
-
 
     /// This matches the boilerplate generated for .TryParse (optimized)
     let (|TryParseOptimized|_|) = function
@@ -585,7 +571,7 @@ module TypeHelpers =
             // TODO: Discard provided generated types too?
             if t.TypeDefinition.IsProvidedAndErased then Fable.Any
             else
-#endif            
+#endif
                 makeTypeFromDef com ctxTypeArgs t.GenericArguments t.TypeDefinition
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
 

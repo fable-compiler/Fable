@@ -287,7 +287,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! lambda = transformExpr com ctx lambda
         return lambda
 
-    | TryGetValue (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
+    | ByrefArgToTuple (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx membArgs
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
@@ -308,13 +308,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! elseExpr = transformExpr com ctx elseExpr
         let body = Fable.IfThenElse (guardExpr, thenExpr, elseExpr)
         return Fable.Let([ident, tupleExpr], body)
-
-    | TryParse (memb, ownerGenArgs, membGenArgs, membArgs) ->
-        let! args = transformExprList com ctx membArgs
-        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
-        let typ = makeType com ctx.GenericArgs fsExpr.Type
-        let r = makeRangeFrom fsExpr
-        return makeCallFrom com ctx r typ false genArgs None args memb
 
     | TryParseOptimized (outArg, memb, ownerGenArgs, membGenArgs, membArgs, elseExpr) ->
         let ctx, ident = bindIdentFrom com ctx outArg
@@ -880,7 +873,7 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
     | EmitDeclarationAtt macro ->
         let typ = makeType com Map.empty memb.FullType
         let info = functionDeclarationInfo name isPublic memb
-        [Fable.ValueDeclaration(Fable.Operation(Fable.Emit(macro, None), typ, None), info)]        
+        [Fable.ValueDeclaration(Fable.Operation(Fable.Emit(macro, None), typ, None), info)]
     | NoAtt ->
         if isModuleValueForDeclarations memb
         then transformMemberValue com ctx isPublic name memb body
