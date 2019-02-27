@@ -22,6 +22,8 @@ let compareTo (x:'a) (y:'a) = compare x y
 
 let decimalOne = 1M
 let decimalTwo = 2M
+let decimalMinValue = System.Decimal.MinValue
+let decimalMaxValue = System.Decimal.MaxValue
 
 let tests =
   testList "Arithmetic" [
