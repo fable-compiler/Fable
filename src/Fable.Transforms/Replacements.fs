@@ -2631,8 +2631,8 @@ let partialApplyAtRuntime t arity (fn: Expr) (args: Expr list) =
 
 let tryField returnTyp ownerTyp fieldName =
     match ownerTyp, fieldName with
-    | Builtin BclDecimal, "Zero" -> makeIntConst 0 |> makeDecimalFromExpr returnTyp |> Some
-    | Builtin BclDecimal, "One" -> makeIntConst 1 |> makeDecimalFromExpr returnTyp |> Some
+    | Builtin BclDecimal, _ ->
+        Helper.CoreValue(coreModFor BclDecimal, "get_" + fieldName, returnTyp) |> Some
     | String, "Empty" -> makeStrConst "" |> Some
     | Builtin BclGuid, "Empty" -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
     | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some
