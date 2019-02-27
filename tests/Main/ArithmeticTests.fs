@@ -97,8 +97,11 @@ let tests =
         equal (0x0UL * 0x1UL, 0x0UL)
 
     testCase "Decimal literals can be generated" <| fun () ->
-        equal (System.Decimal.Zero, 0.M)
-        equal (System.Decimal.One, 1.M)
+        equal (System.Decimal.Zero, 0M)
+        equal (System.Decimal.One, 1M)
+        equal (System.Decimal.MinusOne, -1M)
+        equal (System.Decimal.MaxValue, 79228162514264337593543950335M)
+        equal (System.Decimal.MinValue, -79228162514264337593543950335M)
 
     testCase "Decimal precision is kept" <| fun () ->
         let items = [ 290.8M
