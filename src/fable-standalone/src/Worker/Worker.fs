@@ -11,15 +11,18 @@ let FILE_NAME = "test.fs"
 type IFableInit =
     abstract member init: unit -> IFableManager
 
-let [<Global>] self: IWebWorker = jsNative
-let [<Global("import")>] importDynamic<'T>(path: string): JS.Promise<'T> = jsNative
+let [<Global>] self: obj = jsNative
+let [<Global>] importScripts(path: string): unit = jsNative
+// let [<Global("import")>] importDynamic<'T>(path: string): JS.Promise<'T> = jsNative
 let [<Emit("fetch($0).then(x => x.json())")>] fetchJson(url: string): JS.Promise<obj> = jsNative
+
+// Load FCS+Fable bundle
+importScripts "bundle.min.js"
+let [<Global("__FABLE_STANDALONE__")>] FableInit: IFableInit = jsNative
 
 let resolveLibCall(libMap: obj, entityName: string): (string*string) option = importMember "./util.js"
 let getAssemblyReader(getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
 let getBabelAstCompiler(): JS.Promise<obj->string> = importMember "./util.js"
-let getFableInit() = importDynamic<IFableInit> "../../dist/es2015"
-
 
 let measureTime msg f arg =
     let before: float = self?performance?now()
@@ -46,9 +49,8 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
         let getBlobUrl name =
             refsDirUrl.TrimEnd('/') + "/" + name + ".dll" + (defaultArg refsExtraSuffix "")
         try
+            let manager = FableInit.init()
             let! babelCompiler = getBabelAstCompiler() |> Async.AwaitPromise
-            let! fable = importDynamic<IFableInit> "../../dist/es2015" |> Async.AwaitPromise
-            let manager = fable.init()
             let! libMap =
                 match libJsonUrl with
                 | Some url -> fetchJson url |> Async.AwaitPromise

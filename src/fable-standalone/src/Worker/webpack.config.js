@@ -2,8 +2,8 @@ module.exports = {
     target: "webworker",
     entry: resolve('Worker.fsproj'),
     output: {
-        filename: 'index.js',
-        path: resolve('../../dist/worker'),
+        filename: 'worker.min.js',
+        path: resolve('../../dist'),
     },
     node: {
         // Mock Node.js modules that Babel require()s but that we don't care about.

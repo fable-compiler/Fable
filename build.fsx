@@ -89,14 +89,12 @@ let buildStandalone() =
     cleanDirs [projectDir </> "dist"]
     buildLibrary()
 
-    // ES2015 modules
-    buildSplitter projectDir
-    // commonjs
-    run "npx babel src/fable-standalone/dist/es2015 --out-dir  src/fable-standalone/dist/commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
-    // Web Worker
+    // bundle.min.js
+    buildWebpack projectDir
+    fileSizeInBytes (projectDir </> "dist/bundle.min.js") / 1000
+    |> printfn "Bundle size: %iKB"
+    // worker.min.js
     buildWebpack "src/fable-standalone/src/Worker"
-    // fileSizeInBytes (projectDir </> "dist/worker.min.js") / 1000
-    // |> printfn "Web worker bundle size: %iKB"
 
     // Put fable-library files next to bundle
     let libraryTarget = projectDir </> "dist/fable-library"
