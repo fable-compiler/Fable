@@ -1,3 +1,9 @@
+### 2.2.0-beta-014
+
+* Add bigint xor operator, bigint byte array conversions, and Random.NextBytes @chadunit
+* Fix Decimal.MinValue/MaxValue
+* Fix provider argument warnings
+
 ### 2.2.0-beta-012
 
 * Fix #1757: Don't do a `this` null check in constructors
