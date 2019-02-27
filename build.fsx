@@ -166,9 +166,9 @@ let syncFcsRepo() =
     let cheatWithDotnetSdkVersion dir f =
         let path = dir </> "build.fsx"
         let script = readFile path
-        script.Replace("let dotnetExePath = DotNetCli.InstallDotNetSDK", "let dotnetExePath = \"dotnet\" //DotNetCli.InstallDotNetSDK") |> writeFile path 
+        Regex.Replace(script, @"let dotnetExePath =[\s\S]*DotNetCli\.InstallDotNetSDK", "let dotnetExePath = \"dotnet\" //DotNetCli.InstallDotNetSDK") |> writeFile path 
         f ()
-        script.Replace("let dotnetExePath = \"dotnet\" //DotNetCli.InstallDotNetSDK", "let dotnetExePath = DotNetCli.InstallDotNetSDK") |> writeFile path 
+        runInDir dir "git reset --hard"
 
     printfn "Expecting %s repo to be cloned at %s" FCS_REPO FCS_REPO_LOCAL
 

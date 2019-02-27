@@ -3439,5 +3439,60 @@ module PrettyNaming =
     let QuoteIdentifierIfNeeded id = Lexhelp.Keywords.QuoteIdentifierIfNeeded id
     let KeywordNames = Lexhelp.Keywords.keywordNames
 
+namespace Microsoft.FSharp.Compiler.SourceCodeServices
+
+    open System
+
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpFindDeclFailureReason  = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpFindDeclResult  = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpProjectContext = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type SemanticClassificationType = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpCheckFileResults = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpCheckProjectResults = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type UnresolvedReferencesSet  = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpParsingOptions = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpProjectOptions  = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpCheckFileAnswer = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpChecker  = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type CompilerEnvironment = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module CompilerEnvironment = begin end
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module DebuggerEnvironment = begin end
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module PrettyNaming = begin end
+
+namespace Microsoft.FSharp.Compiler.Interactive.Shell
+
+    open System
+
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FsiValue = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type EvaluationEventArgs = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type public FsiEvaluationSessionHostConfig = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FsiEvaluationSession = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module Settings = begin end
+
+    /// Defines a read-only input stream used to feed content to the hosted F# Interactive dynamic compiler.
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type CompilerInputStream = A | B
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type CompilerOutputStream  = A | B
 
 #endif //!FABLE_COMPILER

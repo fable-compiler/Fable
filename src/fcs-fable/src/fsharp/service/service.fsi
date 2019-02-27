@@ -817,4 +817,60 @@ module public PrettyNaming =
     /// All the keywords in the F# language 
     val KeywordNames : string list
 
+namespace Microsoft.FSharp.Compiler.SourceCodeServices
+
+    open System
+
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpFindDeclFailureReason  
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpFindDeclResult 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpProjectContext
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type SemanticClassificationType
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpCheckFileResults
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpCheckProjectResults
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type UnresolvedReferencesSet 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpParsingOptions
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpProjectOptions 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpCheckFileAnswer
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpChecker 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type CompilerEnvironment
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module CompilerEnvironment = begin end
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module DebuggerEnvironment = begin end
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module PrettyNaming = begin end
+
+namespace Microsoft.FSharp.Compiler.Interactive.Shell
+    
+    open System
+
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FsiValue 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type EvaluationEventArgs
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type public FsiEvaluationSessionHostConfig 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FsiEvaluationSession 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module Settings = begin end
+
+    /// Defines a read-only input stream used to feed content to the hosted F# Interactive dynamic compiler.
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type CompilerInputStream 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type CompilerOutputStream  
+
 #endif //!FABLE_COMPILER

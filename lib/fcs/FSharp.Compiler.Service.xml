@@ -30661,5 +30661,10 @@ Special cases where representation uses Lambda.
  Get all unused open declarations in a file
 </summary>
 </member>
+<member name="T:Microsoft.FSharp.Compiler.Interactive.Shell.CompilerInputStream">
+<summary>
+ Defines a read-only input stream used to feed content to the hosted F# Interactive dynamic compiler.
+</summary>
+</member>
 </members>
 </doc>

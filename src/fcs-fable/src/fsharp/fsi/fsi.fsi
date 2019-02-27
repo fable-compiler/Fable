@@ -329,3 +329,5 @@ type CompilerOutputStream  =
     new : unit -> CompilerOutputStream
 
     member Read : unit -> string
+
+
