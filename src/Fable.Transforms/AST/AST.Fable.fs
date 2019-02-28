@@ -134,7 +134,7 @@ type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of Expr
 type NewRecordKind = DeclaredRecord of FSharpEntity | AnonymousRecord of fieldNames: string[]
 
 type ValueKind =
-    | TypeInfo of Type * SourceLocation option // Error messages need location info
+    | TypeInfo of Type
     | Null of Type
     | UnitConstant
     | BoolConstant of bool
@@ -274,7 +274,7 @@ type DelayedResolutionKind =
     | Curry of Expr * arity: int
 
 type Expr =
-    | Value of ValueKind
+    | Value of ValueKind * SourceLocation option
     | IdentExpr of Ident
     | TypeCast of Expr * Type
     /// Some expressions must be resolved in the last pass for better optimization
@@ -299,19 +299,19 @@ type Expr =
     | Set of Expr * SetKind * value: Expr * range: SourceLocation option
     // TODO: Check if we actually need range for loops
     | Loop of LoopKind * range: SourceLocation option
-    | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option
-    | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
+    | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
+    | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
     member this.Type =
         match this with
         | Test _ -> Boolean
-        | Value kind -> kind.Type
+        | Value(kind,_) -> kind.Type
         | IdentExpr id -> id.Type
         | TypeCast(_,t) | Import(_,_,_,t,_) | DelayedResolution(_,t,_) | ObjectExpr(_,t,_)
         | Operation(_,t,_) | Get(_,_,t,_) | Throw(_,t,_) | DecisionTreeSuccess(_,_,t) -> t
         | Debugger _ | Set _ | Loop _ -> Unit
         | Sequential exprs -> (List.last exprs).Type
-        | Let(_,expr) | TryCatch(expr,_,_) | IfThenElse(_,expr,_) | DecisionTree(expr,_) -> expr.Type
+        | Let(_,expr) | TryCatch(expr,_,_,_) | IfThenElse(_,expr,_,_) | DecisionTree(expr,_) -> expr.Type
         | Function(kind,body,_) ->
             match kind with
             | Lambda arg -> FunctionType(LambdaType arg.Type, body.Type)
@@ -319,10 +319,13 @@ type Expr =
 
     member this.Range: SourceLocation option =
         match this with
-        | Value _ | Import _ | DelayedResolution _
+        | Import _ | DelayedResolution _
         | ObjectExpr _ | Sequential _ | Let _
-        | IfThenElse _ | TryCatch _ | DecisionTree _ | DecisionTreeSuccess _ -> None
+        | DecisionTree _ | DecisionTreeSuccess _ -> None
 
         | Function(_,e,_) | TypeCast(e,_) -> e.Range
         | IdentExpr id -> id.Range
-        | Debugger r | Test(_,_,r) | Operation(_,_,r) | Get(_,_,_,r) | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r
+
+        | Value(_,r) | IfThenElse(_,_,_,r) | TryCatch(_,_,_,r)
+        | Debugger r | Test(_,_,r) | Operation(_,_,r) | Get(_,_,_,r)
+        | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r

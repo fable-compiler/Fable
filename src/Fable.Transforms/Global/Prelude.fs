@@ -21,6 +21,10 @@ type SourceLocation =
     { start: Position;
       ``end``: Position;
       identifierName: string option }
+    static member (+)(r1, r2) =
+        { start = r1.start
+          ``end`` = r2.start
+          identifierName = None }
     static member Empty =
         { start = Position.Empty
           ``end`` = Position.Empty

@@ -699,7 +699,7 @@ module Util =
                 ctx, untupledArg@accArgs)
         ctx, transformedArgs @ args
 
-    let makeTryCatch com ctx (Transform com ctx body) catchClause finalBody =
+    let makeTryCatch com ctx r (Transform com ctx body) catchClause finalBody =
         let catchClause =
             match catchClause with
             | Some (BindIdent com ctx (catchContext, catchVar), catchBody) ->
@@ -711,7 +711,7 @@ module Util =
             match finalBody with
             | Some (Transform com ctx finalBody) -> Some finalBody
             | None -> None
-        Fable.TryCatch (body, catchClause, finalizer)
+        Fable.TryCatch(body, catchClause, finalizer, r)
 
     let matchGenericParams (genArgs: Fable.Type seq) (genParams: FSharpGenericParameter seq) =
         Seq.zip (genParams |> Seq.map (fun x -> x.Name)) genArgs
@@ -973,7 +973,7 @@ module Util =
                 foldArgs ((argIdent, argExpr)::acc) (restArgIdents, restArgExprs)
             | (argIdent: FSharpMemberOrFunctionOrValue)::restArgIdents, [] ->
                 let t = makeType com ctx.GenericArgs argIdent.FullType
-                foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, t)))::acc) (restArgIdents, [])
+                foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, t), None))::acc) (restArgIdents, [])
             | [], _ -> List.rev acc
         // Log error if the inline function is called recursively
         match ctx.InlinedFunction with
@@ -1017,7 +1017,7 @@ module Util =
                 match condition with
                 | "optional" | "inject" when par.IsOptionalArg ->
                     match arg with
-                    | Fable.Value(Fable.NewOption(None,_)) ->
+                    | Fable.Value(Fable.NewOption(None,_),_) ->
                         match tryFindAtt Atts.inject par.Attributes with
                         | Some _ -> "inject", (com.InjectArgument(ctx, r, genArgs.Value, par))::acc
                         // Don't remove optional arguments if they're not in tail position
@@ -1089,7 +1089,7 @@ module Util =
             if com.Options.verbose && not v.IsCompilerGenerated then // See #1516
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
-            Fable.Value Fable.UnitConstant
+            Fable.Value(Fable.UnitConstant, r)
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None true imported -> imported
         // TODO: Replaced? Check if there're failing tests

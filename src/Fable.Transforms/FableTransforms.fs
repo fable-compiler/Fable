@@ -10,30 +10,30 @@ let visit f e =
     | IdentExpr _ | Debugger _ -> e
     | TypeCast(e, t) -> TypeCast(f e, t)
     | Import(e1, e2, kind, t, r) -> Import(f e1, f e2, kind, t, r)
-    | Value kind ->
+    | Value(kind, r) ->
         match kind with
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ -> e
         | Enum(kind, name) ->
             match kind with
-            | NumberEnum e -> Enum(NumberEnum(f e), name) |> Value
-            | StringEnum e -> Enum(StringEnum(f e), name) |> Value
-        | NewOption(e, t) -> NewOption(Option.map f e, t) |> Value
-        | NewTuple exprs -> NewTuple(List.map f exprs) |> Value
+            | NumberEnum e -> Enum(NumberEnum(f e), name) |> makeValue r
+            | StringEnum e -> Enum(StringEnum(f e), name) |> makeValue r
+        | NewOption(e, t) -> NewOption(Option.map f e, t) |> makeValue r
+        | NewTuple exprs -> NewTuple(List.map f exprs) |> makeValue r
         | NewArray(kind, t) ->
             match kind with
-            | ArrayValues exprs -> NewArray(ArrayValues(List.map f exprs), t) |> Value
-            | ArrayAlloc e -> NewArray(ArrayAlloc(f e), t) |> Value
+            | ArrayValues exprs -> NewArray(ArrayValues(List.map f exprs), t) |> makeValue r
+            | ArrayAlloc e -> NewArray(ArrayAlloc(f e), t) |> makeValue r
         | NewList(ht, t) ->
             let ht = ht |> Option.map (fun (h,t) -> f h, f t)
-            NewList(ht, t) |> Value
+            NewList(ht, t) |> makeValue r
         | NewRecord(exprs, ent, genArgs) ->
-            NewRecord(List.map f exprs, ent, genArgs) |> Value
+            NewRecord(List.map f exprs, ent, genArgs) |> makeValue r
         | NewErasedUnion(e, genArgs) ->
-            NewErasedUnion(f e, genArgs) |> Value
+            NewErasedUnion(f e, genArgs) |> makeValue r
         | NewUnion(exprs, uci, ent, genArgs) ->
-            NewUnion(List.map f exprs, uci, ent, genArgs) |> Value
+            NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
     | Test(e, kind, r) -> Test(f e, kind, r)
     | DelayedResolution(kind, t, r) ->
         match kind with
@@ -78,8 +78,8 @@ let visit f e =
     | Let(bs, body) ->
         let bs = bs |> List.map (fun (i,e) -> i, f e)
         Let(bs, f body)
-    | IfThenElse(cond, thenExpr, elseExpr) ->
-        IfThenElse(f cond, f thenExpr, f elseExpr)
+    | IfThenElse(cond, thenExpr, elseExpr, r) ->
+        IfThenElse(f cond, f thenExpr, f elseExpr, r)
     | Set(e, kind, v, r) ->
         match kind with
         | VarSet | FieldSet _ ->
@@ -89,10 +89,10 @@ let visit f e =
         match kind with
         | While(e1, e2) -> Loop(While(f e1, f e2), r)
         | For(i, e1, e2, e3, up) -> Loop(For(i, f e1, f e2, f e3, up), r)
-    | TryCatch(body, catch, finalizer) ->
+    | TryCatch(body, catch, finalizer, r) ->
         TryCatch(f body,
                  Option.map (fun (i, e) -> i, f e) catch,
-                 Option.map f finalizer)
+                 Option.map f finalizer, r)
     | DecisionTree(expr, targets) ->
         let targets = targets |> List.map (fun (idents, v) -> idents, f v)
         DecisionTree(f expr, targets)
@@ -112,7 +112,7 @@ let getSubExpressions = function
     | IdentExpr _ | Debugger _ -> []
     | TypeCast(e,_) -> [e]
     | Import(e1,e2,_,_,_) -> [e1;e2]
-    | Value kind ->
+    | Value(kind,_) ->
         match kind with
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
@@ -164,7 +164,7 @@ let getSubExpressions = function
     | Throw(e, _, _) -> [e]
     | Sequential exprs -> exprs
     | Let(bs, body) -> (List.map snd bs) @ [body]
-    | IfThenElse(cond, thenExpr, elseExpr) -> [cond; thenExpr; elseExpr]
+    | IfThenElse(cond, thenExpr, elseExpr, _) -> [cond; thenExpr; elseExpr]
     | Set(e, kind, v, _) ->
         match kind with
         | VarSet | FieldSet _ -> [e; v]
@@ -173,7 +173,7 @@ let getSubExpressions = function
         match kind with
         | While(e1, e2) -> [e1; e2]
         | For(_, e1, e2, e3, _) -> [e1; e2; e3]
-    | TryCatch(body, catch, finalizer) ->
+    | TryCatch(body, catch, finalizer, _) ->
         match catch with
         | Some(_,c) -> body::c::(Option.toList finalizer)
         | None -> body::(Option.toList finalizer)
@@ -229,8 +229,8 @@ module private Transforms =
             | [] -> replaceValues replacements body
             | bindings -> Let(List.rev bindings, replaceValues replacements body)
         match e with
-        | Operation(BinaryOperation(AST.BinaryPlus, Value(StringConstant str1), Value(StringConstant str2)),_,_) ->
-            Value(StringConstant (str1 + str2))
+        | Operation(BinaryOperation(AST.BinaryPlus, Value(StringConstant str1, r1), Value(StringConstant str2, r2)),_,_) ->
+            Value(StringConstant(str1 + str2), addRanges [r1; r2])
         | Operation(CurriedApply(NestedLambda(args, body, None) as lambda, argExprs), _, _) ->
             if List.sameLength args argExprs
             then applyArgs args argExprs body
@@ -251,7 +251,7 @@ module private Transforms =
     /// Tuples created when pattern matching multiple elements can usually be erased
     /// after the binding and lambda beta reduction
     let tupleBetaReduction (_: ICompiler) = function
-        | Get(Value(NewTuple exprs), TupleGet index, _, _) -> List.item index exprs
+        | Get(Value(NewTuple exprs, _), TupleGet index, _, _) -> List.item index exprs
         | e -> e
 
     let bindingBetaReduction (com: ICompiler) e =
@@ -325,8 +325,8 @@ module private Transforms =
             when matches arity arity2 -> innerExpr
         | _, Get(DelayedResolution(Curry(innerExpr, arity2),_,_), OptionValue, t, r)
             when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
-        | _, Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity2),_,_)),r))
-            when matches arity arity2 -> Value(NewOption(Some(innerExpr),r))
+        | _, Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity2),_,_)),r1),r2)
+            when matches arity arity2 -> Value(NewOption(Some(innerExpr),r1),r2)
         | _ ->
             match arity with
             | Some arity -> Replacements.uncurryExprAtRuntime arity expr
@@ -416,8 +416,8 @@ module private Transforms =
                         (id, innerExpr)::identsAndValues, Map.add id.Name arity replacements
                     | Get(DelayedResolution(Curry(innerExpr, arity),_,_), OptionValue, t, r) ->
                         (id, Get(innerExpr, OptionValue, t, r))::identsAndValues, Map.add id.Name arity replacements
-                    | Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity),_,_)),r)) ->
-                        (id, Value(NewOption(Some(innerExpr),r)))::identsAndValues, Map.add id.Name arity replacements
+                    | Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity),_,_)),r1),r2) ->
+                        (id, Value(NewOption(Some(innerExpr),r1),r2))::identsAndValues, Map.add id.Name arity replacements
                     | _ -> (id, value)::identsAndValues, replacements)
             if Map.isEmpty replacements
             then Let(identsAndValues, body)
@@ -460,15 +460,15 @@ module private Transforms =
             let info = { info with Args = uncurryArgs com info.SignatureArgTypes info.Args }
             Operation(Emit(macro, Some info), t, r)
         // Uncurry also values in setters or new record/union/tuple
-        | Value(NewRecord(args, kind, genArgs)) ->
+        | Value(NewRecord(args, kind, genArgs), r) ->
             let args =
                 match kind with
                 | DeclaredRecord ent -> uncurryConsArgs args ent.FSharpFields
                 | AnonymousRecord _ -> uncurryArgs com AutoUncurrying args
-            Value(NewRecord(args, kind, genArgs))
-        | Value(NewUnion(args, uci, ent, genArgs)) ->
+            Value(NewRecord(args, kind, genArgs), r)
+        | Value(NewUnion(args, uci, ent, genArgs), r) ->
             let args = uncurryConsArgs args uci.UnionCaseFields
-            Value(NewUnion(args, uci, ent, genArgs))
+            Value(NewUnion(args, uci, ent, genArgs), r)
         | Set(e, FieldSet(fieldName, fieldType), value, r) ->
             let value = uncurryArgs com (Typed [fieldType]) [value]
             Set(e, FieldSet(fieldName, fieldType), List.head value, r)
