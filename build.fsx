@@ -73,15 +73,11 @@ let buildCompiler() =
 
 let buildCompilerJs testLocal =
     let projectDir = "src/fable-compiler-js"
-    let libraryDir = "build/fable-library"
     cleanDirs [projectDir </> "dist"]
     if testLocal then
         buildSplitterWithArgs projectDir "--test-local"
     else
         buildSplitter projectDir
-        buildLibrary()
-    copyDirRecursive libraryDir "src/fable-compiler-js/dist/fable-library"
-    runInDir projectDir "npx babel dist/fable-library --out-dir dist/fable-library-commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
 
 let buildStandalone() =
     let projectDir = "src/fable-standalone"

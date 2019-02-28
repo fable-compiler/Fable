@@ -32,7 +32,7 @@
     <Compile Include="Interfaces.fs"/>
     <Compile Include="Metadata.fs"/>
     <Compile Include="Lexer.fs"/>
-    <Compile Include="index.fs"/>
+    <Compile Include="Main.fs"/>
   </ItemGroup>
 
 </Project>

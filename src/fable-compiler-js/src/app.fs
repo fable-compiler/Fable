@@ -207,11 +207,10 @@ let parseFiles projectPath outDir options =
 
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
-    let fableLibraryDist = if options.commonjs then "/fable-library-commonjs" else "/fable-library"
-    copyFolder (__dirname + fableLibraryDist, Path.Combine(outDir, fableLibraryDir))
     let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, options.optimize)
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
-    let projDir = normalizeFullPath projectPath |> Path.GetDirectoryName
+    let projDir = projectPath |> normalizeFullPath |> Path.GetDirectoryName
+    let libDir = getFableLibDir() |> normalizeFullPath
 
     for fileName in fileNames do
         // transform F# AST to Babel AST
@@ -219,8 +218,8 @@ let parseFiles projectPath outDir options =
         printfn "File: %s, Fable time: %d ms" fileName ms2
         res.FableErrors |> printErrors showWarnings
         // transform and save Babel AST
-        let filePath = getRelativePath projDir fileName |> trimPath
-        transformAndSaveBabelAst(res.BabelAst, filePath, projDir, outDir, options.commonjs)
+        let outPath = getRelativePath projDir fileName |> trimPath
+        transformAndSaveBabelAst(res.BabelAst, outPath, projDir, outDir, libDir, options.commonjs)
 
 let run opts projectPath outDir =
     let commandToRun =

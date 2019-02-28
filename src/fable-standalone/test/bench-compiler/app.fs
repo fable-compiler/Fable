@@ -209,7 +209,7 @@ let parseFiles projectPath outDir options =
     let fableLibraryDir = "fable-library"
     let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, options.optimize)
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
-    let projDir = normalizeFullPath projectPath |> Path.GetDirectoryName
+    let projDir = projectPath |> normalizeFullPath |> Path.GetDirectoryName
 
     for fileName in fileNames do
 
