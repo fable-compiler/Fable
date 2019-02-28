@@ -7,9 +7,11 @@ let [<Emit("__dirname")>] __dirname: string = jsNative
 #if TEST_LOCAL
 let initFable (): Fable.Standalone.IFableManager = import "init" "${entryDir}../../fable-standalone"
 let getMetadataDir(): string = __dirname + "/" + "${entryDir}../../fable-metadata/lib"
+let getFableLibDir(): string = __dirname + "/" + "${entryDir}../../../build/fable-library"
 #else
 let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone"
 let getMetadataDir(): string = importDefault "fable-metadata"
+let getFableLibDir(): string = __dirname + "/" + "${entryDir}../node_modules/fable-standalone/dist/fable-library"
 #endif
 
 type private IFileSystem =
@@ -48,7 +50,7 @@ let ensureDirExists (dir: string): unit =
 let copyFolder (from: string, dest: string): unit =
     importMember "./util.js"
 
-let transformAndSaveBabelAst (babelAst: obj, filePath: string, projDir: string, outDir: string, commonjs: bool): unit =
+let transformAndSaveBabelAst (babelAst: obj, outPath: string, projDir: string, outDir: string, libDir: string, commonjs: bool): unit =
     importMember "./util.js"
 
 let runCmdAndExitIfFails (cmd: string): unit =
