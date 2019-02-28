@@ -1,3 +1,7 @@
+### 1.0.0
+
+* Publish stable
+
 ### 1.0.0-beta-009
 
 * Anonymous records

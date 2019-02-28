@@ -1,3 +1,7 @@
+### 2.2.0-beta-015
+
+* Improve sourcemaps
+
 ### 2.2.0-beta-014
 
 * Add bigint xor operator, bigint byte array conversions, and Random.NextBytes @chadunit

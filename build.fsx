@@ -193,7 +193,8 @@ let syncFcsRepo() =
     |> writeFile fcsFableProj
 
 let packages =
-    ["fable-babel-plugins", doNothing
+    ["Fable.Core", doNothing
+     "fable-babel-plugins", doNothing
      "fable-compiler", buildCompiler
      "fable-compiler-js", (fun () -> buildCompilerJs false)
      "fable-loader", doNothing
@@ -209,7 +210,10 @@ let publishPackages restArgs =
         | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
         | None -> packages
     for (pkg, buildAction) in packages do
-        pushNpm ("src" </> pkg) buildAction
+        if System.Char.IsUpper pkg.[0] then
+            pushNuget ("src" </> pkg </> pkg + ".fsproj") buildAction
+        else
+            pushNpm ("src" </> pkg) buildAction
 
 match argsLower with
 | "test"::_ -> test()
