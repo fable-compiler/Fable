@@ -1,3 +1,8 @@
+### 1.0.1
+
+* Fixed fable-library reference
+* Added warn level and warnaserror options
+
 ### 1.0.0
 
 * Publish stable

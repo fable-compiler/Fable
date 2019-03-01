@@ -15,6 +15,10 @@ export function getVersion() {
     return require("../package.json").version;
 }
 
+export function getFableLibDir() {
+    return Path.join(Path.dirname(require.resolve("fable-standalone")), "fable-library");
+}
+
 export function serializeToJson(data) {
     return JSON.stringify(data, (key, value) => {
         if (value === Infinity) {
