@@ -11,7 +11,7 @@ let getFableLibDir(): string = __dirname + "/" + "${entryDir}../../../build/fabl
 #else
 let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone"
 let getMetadataDir(): string = importDefault "fable-metadata"
-let getFableLibDir(): string = __dirname + "/" + "${entryDir}../node_modules/fable-standalone/dist/fable-library"
+let getFableLibDir(): string = importMember "./util.js"
 #endif
 
 type private IFileSystem =
