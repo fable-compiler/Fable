@@ -6,13 +6,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="2.0.2" />
+    <PackageReference Include="Fable.Core" Version="2.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="../../fable-standalone/src/Interfaces.fs"/>
     <Compile Include="../../fable-standalone/src/Metadata.fs"/>
-    <Compile Include="platform.fs"/>
+    <Compile Include="Platform.fs"/>
+    <Compile Include="ProjectParser.fs"/>
     <Compile Include="app.fs"/>
   </ItemGroup>
 
