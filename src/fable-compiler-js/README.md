@@ -1,6 +1,6 @@
 # fable-compiler-js
 
-[Fable](http://fable.io/) (F# to JS compiler) running entirely on node.js (no dotnet installation required). This version is stil **experimental**. For example, packages are not yet supported.
+[Fable](http://fable.io/) (F# to JS compiler) running entirely on node.js (no dotnet installation required). This version is still **experimental**. For example, packages are not yet supported.
 
 ## Global installation
 
