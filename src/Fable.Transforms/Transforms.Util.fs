@@ -11,6 +11,7 @@ module Atts =
     let [<Literal>] import = "Fable.Core.ImportAttribute" // typeof<Fable.Core.ImportAttribute>.FullName
     let [<Literal>] global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
     let [<Literal>] emit = "Fable.Core.EmitAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
+    let [<Literal>] emitDeclaration = "Fable.Core.EmitDeclarationAttribute" // typeof<Fable.Core.EmitDeclarationAttribute>.FullName
     let [<Literal>] erase = "Fable.Core.EraseAttribute" // typeof<Fable.Core.EraseAttribute>.FullName
     let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
     let [<Literal>] paramList = "Fable.Core.ParamListAttribute" // typeof<Fable.Core.ParamListAttribute>.FullName
@@ -176,7 +177,7 @@ module Log =
 
     let addErrorAndReturnNull (com: ICompiler) inlinePath range error =
         addLog com inlinePath range error Severity.Error
-        AST.Fable.Null AST.Fable.Any |> AST.Fable.Value
+        AST.Fable.Value(AST.Fable.Null AST.Fable.Any, None)
 
     let attachRange (range: SourceLocation option) msg =
         match range with
@@ -249,9 +250,9 @@ module AST =
                 | _, _ -> None
         match expr with
         // Uncurry also function options
-        | Value(NewOption(Some expr, _)) ->
+        | Value(NewOption(Some expr, _), r) ->
             uncurryLambdaInner None [] arity expr
-            |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type)))
+            |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type), r))
         | _ -> uncurryLambdaInner None [] arity expr
 
     let (|MaybeCasted|) = function
@@ -267,9 +268,9 @@ module AST =
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec hasDoubleEvalRisk = function
         | IdentExpr id -> id.IsMutable
-        | Value(Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _) -> false
-        | Value(NewTuple exprs) -> exprs |> List.exists hasDoubleEvalRisk
-        | Value(Enum(kind, _)) ->
+        | Value((Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _),_) -> false
+        | Value(NewTuple exprs,_) -> exprs |> List.exists hasDoubleEvalRisk
+        | Value(Enum(kind, _),_) ->
             match kind with NumberEnum e | StringEnum e -> hasDoubleEvalRisk e
         | Get(_,kind,_,_) ->
             match kind with
@@ -331,8 +332,11 @@ module AST =
     let makeEqOp range left right op =
         Operation(BinaryOperation(op, left, right), Boolean, range)
 
+    let makeValue r value =
+        Value(value, r)
+
     let makeArray elementType arrExprs =
-        NewArray(ArrayValues arrExprs, elementType) |> Value
+        NewArray(ArrayValues arrExprs, elementType) |> makeValue None
 
     let makeDelegate args body =
         Function(Delegate args, body, None)
@@ -341,10 +345,10 @@ module AST =
         (args, body) ||> List.foldBack (fun arg body ->
             Function(Lambda arg, body, None))
 
-    let makeBoolConst (x: bool) = BoolConstant x |> Value
-    let makeStrConst (x: string) = StringConstant x |> Value
-    let makeIntConst (x: int) = NumberConstant (float x, Int32) |> Value
-    let makeFloatConst (x: float) = NumberConstant (x, Float64) |> Value
+    let makeBoolConst (x: bool) = BoolConstant x |> makeValue None
+    let makeStrConst (x: string) = StringConstant x |> makeValue None
+    let makeIntConst (x: int) = NumberConstant (float x, Int32) |> makeValue None
+    let makeFloatConst (x: float) = NumberConstant (x, Float64) |> makeValue None
 
     let makeCoreRef t memberName moduleName =
         Import(makeStrConst memberName, makeStrConst moduleName, Library, t, None)
@@ -481,3 +485,12 @@ module AST =
                         | _ -> fullname // TODO: Prettify other types?
                     else fullname
                 fullname + "[" + gen + "]"
+
+    let addRanges (locs: SourceLocation option seq) =
+        let addTwo (r1: SourceLocation option) (r2: SourceLocation option) =
+            match r1, r2 with
+            | Some r1, None -> Some r1
+            | None, Some r2 -> Some r2
+            | None, None -> None
+            | Some r1, Some r2 -> Some(r1 + r2)
+        (None, locs) ||> Seq.fold addTwo

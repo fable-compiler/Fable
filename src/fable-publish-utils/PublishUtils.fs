@@ -321,12 +321,13 @@ module Publish =
                 sprintf "Already version %s, no need to publish" releaseVersion |> print
             not sameVersion
 
-    let pushNuget (projFile: string) =
+    let pushNuget (projFile: string) buildAction =
         let checkPkgVersion = function
             | Regex NUGET_PACKAGE_VERSION [_;_;pkgVersion;_] -> Some pkgVersion
             | _ -> None
         let releaseVersion = loadReleaseVersion projFile
         if needsPublishing checkPkgVersion releaseVersion projFile then
+            buildAction()
             let projDir = dirname projFile
             let nugetKey =
                 match envVarOrNone "NUGET_KEY" with
@@ -379,11 +380,11 @@ module Publish =
 
 let doNothing () = ()
 
-let pushNuget projFile =
-    Publish.pushNuget projFile
+let pushNuget projFile buildAction =
+    Publish.pushNuget projFile buildAction
 
-let pushNpm projDir =
-    Publish.pushNpm projDir
+let pushNpm projDir buildAction =
+    Publish.pushNpm projDir buildAction
 
 let getDotNetSDKVersionFromGlobalJson(): string =
     let json = readFile "global.json" |> Fable.Import.JS.JSON.parse

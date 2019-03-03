@@ -7,10 +7,8 @@ open System
 open System.IO
 open System.Xml.Linq
 open System.Collections.Generic
-open Microsoft.FSharp.Compiler.SourceCodeServices
-open Dotnet.ProjInfo.Workspace
-open Dotnet.ProjInfo.Workspace.FCS
 open System.Reflection
+open FSharp.Compiler.SourceCodeServices
 open Fable
 
 let isSystemPackage (pkgName: string) =
@@ -295,6 +293,371 @@ type private ScriptOption =
     | Other of string
     | Dll of string
     | FablePackage of FablePackage
+    
+// TEMP NOJAF
+module Utils =
+
+  let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
+      let psi = System.Diagnostics.ProcessStartInfo()
+      psi.FileName <- exePath
+      psi.WorkingDirectory <- workingDir
+      psi.RedirectStandardOutput <- true
+      psi.RedirectStandardError <- true
+      psi.Arguments <- args
+      psi.CreateNoWindow <- true
+      psi.UseShellExecute <- false
+
+      use p = new System.Diagnostics.Process()
+      p.StartInfo <- psi
+
+      p.OutputDataReceived.Add(fun ea -> log (ea.Data))
+
+      p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
+
+      // printfn "running: %s %s" psi.FileName psi.Arguments
+
+      p.Start() |> ignore
+      p.BeginOutputReadLine()
+      p.BeginErrorReadLine()
+      p.WaitForExit()
+
+      let exitCode = p.ExitCode
+
+      exitCode, (workingDir, exePath, args)
+
+  let isWindows () =
+    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+        System.Runtime.InteropServices.OSPlatform.Windows)
+
+let private programFilesX86 () =
+  let environVar v = Environment.GetEnvironmentVariable v
+
+  let wow64 = environVar "PROCESSOR_ARCHITEW6432"
+  let globalArch = environVar "PROCESSOR_ARCHITECTURE"
+  match wow64, globalArch with
+  | "AMD64", "AMD64"
+  | null, "AMD64"
+  | "x86", "AMD64" -> environVar "ProgramFiles(x86)"
+  | _ -> environVar "ProgramFiles"
+  |> fun detected -> if detected = null then @"C:\Program Files (x86)\" else detected
+
+let private vsSkus = ["Community"; "Professional"; "Enterprise"; "BuildTools"]
+let private vsVersions = ["2017"]
+let cartesian a b =
+    [ for a' in a do
+        for b' in b do
+          yield a', b' ]
+    
+module private EnvUtils =
+      // Below code slightly modified from FSAC and from FAKE MSBuildHelper.fs
+
+      let private tryFindFile dirs file =
+          let files =
+              dirs
+              |> Seq.map (fun (path : string) ->
+                  try
+                     let path =
+                        if path.StartsWith("\"") && path.EndsWith("\"")
+                        then path.Substring(1, path.Length - 2)
+                        else path
+                     let dir = new DirectoryInfo(path)
+                     if not dir.Exists then ""
+                     else
+                         let fi = new FileInfo(Path.Combine(dir.FullName, file))
+                         if fi.Exists then fi.FullName
+                         else ""
+                  with
+                  | _ -> "")
+              |> Seq.filter ((<>) "")
+              |> Seq.toList
+          files
+
+      let Stringsplit (splitter: char) (s: string) = s.Split([| splitter |], StringSplitOptions.RemoveEmptyEntries) |> List.ofArray
+
+      let tryFindPath backupPaths tool =
+          let paths = Environment.GetEnvironmentVariable "PATH" |> Stringsplit Path.PathSeparator
+          tryFindFile (paths @ backupPaths) tool
+
+
+
+let installedMSBuilds () =
+
+  // TODO remove shadowing
+  let programFilesX86 = programFilesX86 ()
+
+  let vsRoots =
+    cartesian vsVersions vsSkus 
+    |> List.map (fun (version, sku) -> IO.Path.Combine(programFilesX86, "Microsoft Visual Studio", version, sku))
+
+  if not (Utils.isWindows ()) then
+    ["msbuild"] // we're way past 5.0 now, time to get updated
+  else
+    let legacyPaths =
+        [ Path.Combine(programFilesX86, @"MSBuild\14.0\Bin")
+          Path.Combine(programFilesX86, @"MSBuild\12.0\Bin")
+          Path.Combine(programFilesX86, @"MSBuild\12.0\Bin\amd64")
+          @"c:\Windows\Microsoft.NET\Framework\v4.0.30319"
+          @"c:\Windows\Microsoft.NET\Framework\v4.0.30128"
+          @"c:\Windows\Microsoft.NET\Framework\v3.5" ]
+
+    let sideBySidePaths =
+      vsRoots
+      |> List.map (fun root -> IO.Path.Combine(root, "MSBuild", "15.0", "bin") )
+
+    let ev = Environment.GetEnvironmentVariable "MSBuild"
+    if not (String.IsNullOrEmpty ev) then [ev]
+    else EnvUtils.tryFindPath (sideBySidePaths @ legacyPaths) "MsBuild.exe"
+
+type MSBuildLocator () =
+
+    let installedMSBuilds = lazy (
+        installedMSBuilds () )
+
+    member this.MSBuildFromPATH
+        with get() = Dotnet.ProjInfo.Inspect.MSBuildExePath.Path "msbuild"
+
+    member this.DotnetMSBuildFromPATH
+        with get() =  Dotnet.ProjInfo.Inspect.MSBuildExePath.DotnetMsbuild "dotnet"
+
+    member this.InstalledMSBuilds () =
+        installedMSBuilds.Force()
+        |> List.map (Dotnet.ProjInfo.Inspect.MSBuildExePath.Path)
+
+    member this.LatestInstalledMSBuild () =
+        match installedMSBuilds.Force() with
+        | [] -> this.MSBuildFromPATH
+        | path :: _ -> Dotnet.ProjInfo.Inspect.MSBuildExePath.Path path
+
+type NetFWInfoConfig = {
+    MSBuildHost : Dotnet.ProjInfo.Inspect.MSBuildExePath } with
+
+    static member Default (msbuildLocator: MSBuildLocator) =
+        let latestMSBuild = msbuildLocator.LatestInstalledMSBuild ()
+        { NetFWInfoConfig.MSBuildHost = latestMSBuild }
+
+    static member FromPATH (msbuildLocator: MSBuildLocator) =
+        { NetFWInfoConfig.MSBuildHost = msbuildLocator.MSBuildFromPATH }
+        
+module internal NETFrameworkInfoProvider =
+
+  open System
+  open System.IO
+  open Dotnet.ProjInfo
+  open Dotnet.ProjInfo.Inspect
+
+  let getInstalledNETVersions (msbuildHost: MSBuildExePath) =
+
+    let log = ignore
+
+    let projPath =
+        //create the proj file
+        NETFrameworkInfoFromMSBuild.createEnvInfoProj ()
+        |> Path.GetFullPath
+
+    let projDir = Path.GetDirectoryName(projPath)
+
+    let cmd = NETFrameworkInfoFromMSBuild.installedNETFrameworks
+
+    let runCmd exePath args = Utils.runProcess log projDir exePath (args |> String.concat " ")
+
+    let msbuildExec =
+        msbuild msbuildHost runCmd
+
+    let result =
+        projPath
+        |> getProjectInfo log msbuildExec cmd []
+
+    match result with
+    | Ok (Dotnet.ProjInfo.Inspect.GetResult.InstalledNETFw fws) ->
+        fws
+    | Ok x ->
+        failwithf "error getting msbuild info: unexpected %A" x
+    | Error r ->
+        failwithf "error getting msbuild info: unexpected %A" r
+
+  let private defaultReferencesForNonProjectFiles () =
+    // ref https://github.com/fsharp/FSharp.Compiler.Service/blob/1f497ef86fd5d0a18e5a935f3d16984fda91f1de/src/fsharp/CompileOps.fs#L1801
+    // This list is the default set of references for "non-project" files
+    
+    // TODO make somehow this list public on FCS and use that directly instead of hardcode it in FSAC
+
+    let GetDefaultSystemValueTupleReference () =
+      //TODO check by tfm
+      None
+
+    // from https://github.com/fsharp/FSharp.Compiler.Service/blob/1f497ef86fd5d0a18e5a935f3d16984fda91f1de/src/fsharp/CompileOps.fs#L1803-L1832
+    [
+          yield "System"
+          yield "System.Xml" 
+          yield "System.Runtime.Remoting"
+          yield "System.Runtime.Serialization.Formatters.Soap"
+          yield "System.Data"
+          yield "System.Drawing"
+          yield "System.Core"
+          // These are the Portable-profile and .NET Standard 1.6 dependencies of FSharp.Core.dll.  These are needed
+          // when an F# sript references an F# profile 7, 78, 259 or .NET Standard 1.6 component which in turn refers 
+          // to FSharp.Core for profile 7, 78, 259 or .NET Standard.
+          yield "System.Runtime" // lots of types
+          yield "System.Linq" // System.Linq.Expressions.Expression<T> 
+          yield "System.Reflection" // System.Reflection.ParameterInfo
+          yield "System.Linq.Expressions" // System.Linq.IQueryable<T>
+          yield "System.Threading.Tasks" // valuetype [System.Threading.Tasks]System.Threading.CancellationToken
+          yield "System.IO"  //  System.IO.TextWriter
+          //yield "System.Console"  //  System.Console.Out etc.
+          yield "System.Net.Requests"  //  System.Net.WebResponse etc.
+          yield "System.Collections" // System.Collections.Generic.List<T>
+          yield "System.Runtime.Numerics" // BigInteger
+          yield "System.Threading"  // OperationCanceledException
+          // always include a default reference to System.ValueTuple.dll in scripts and out-of-project sources
+          match GetDefaultSystemValueTupleReference() with 
+          | None -> ()
+          | Some v -> yield v
+
+          yield "System.Web"
+          yield "System.Web.Services"
+          yield "System.Windows.Forms"
+          yield "System.Numerics" 
+    ]
+
+  let getAdditionalArgumentsBy (msbuildHost: MSBuildExePath) targetFramework =
+    let refs =
+      let log = ignore
+
+      let projPath =
+        //create the proj file
+        NETFrameworkInfoFromMSBuild.createEnvInfoProj ()
+        |> Path.GetFullPath
+
+      let projDir = Path.GetDirectoryName(projPath)
+
+      let allRefs = defaultReferencesForNonProjectFiles ()
+
+      let props =
+        targetFramework
+        |> fun tfm -> "TargetFrameworkVersion", tfm
+        |> List.singleton
+        |> List.map (Dotnet.ProjInfo.Inspect.MSBuild.MSbuildCli.Property)
+
+      let cmd () = NETFrameworkInfoFromMSBuild.getReferencePaths allRefs
+
+      let runCmd exePath args = Utils.runProcess log projDir exePath (args |> String.concat " ")
+
+      let msbuildExec =
+        msbuild msbuildHost runCmd
+
+      let result =
+        projPath
+        |> getProjectInfo log msbuildExec cmd props
+
+      match result with
+      | Ok (Dotnet.ProjInfo.Inspect.GetResult.ResolvedNETRefs resolvedRefs) ->
+          resolvedRefs
+      | Ok x ->
+          failwithf "error getting msbuild info: unexpected %A" x
+      | r ->
+          failwithf "error getting msbuild info: unexpected %A" r
+
+    [ yield "--simpleresolution"
+      yield "--noframework"
+      yield! refs |> List.map (sprintf "-r:%s") ]
+    
+module FSharpCompilerServiceCheckerHelper =
+
+  open System.IO
+
+  let private isFSharpCore (s : string) = s.EndsWith "FSharp.Core.dll"
+
+  let private fallbackFsharpCore =
+    //TODO no, use another way. can be wrong by tfm, etc
+    let dir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
+    Path.Combine(dir, "FSharp.Core.dll")
+
+  let internal ensureCorrectFSharpCore (options: string[]) =
+    let fsharpCores, others = Array.partition isFSharpCore options
+
+    // ensure that there is only one fsharpcore ref provided
+    let fsharpCoreRef =
+      match fsharpCores with
+      | [||] -> sprintf "-r:%s" fallbackFsharpCore
+      | [| ref |] -> ref
+      | refs -> Array.head refs
+
+    [| yield fsharpCoreRef
+       yield! others |]
+    
+module FSharpCompilerServiceChecker =
+
+  /// checker.GetProjectOptionsFromScript(file, source, otherFlags = additionaRefs, assumeDotNetFramework = true)
+  type CheckerGetProjectOptionsFromScriptArgs = string * string * (string array) * bool
+  type CheckerGetProjectOptionsFromScript<'a, 'b> = CheckerGetProjectOptionsFromScriptArgs -> Async<'a * 'b>
+
+  let getProjectOptionsFromScript additionalArgumentsBy (checkerGetProjectOptionsFromScript: CheckerGetProjectOptionsFromScript<'a, 'b>) file source targetFramework = async {
+
+    let additionaRefs =
+      additionalArgumentsBy targetFramework
+      |> Array.ofList
+
+    // TODO SRTP
+    let! (rawOptions, _) = checkerGetProjectOptionsFromScript (file, source, additionaRefs, true)
+
+    let mapOtherOptions opts =
+      opts
+      |> FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore
+      |> Array.distinct
+
+    return rawOptions, mapOtherOptions
+
+  }
+
+        
+type NetFWInfo private (msbuildPath) =
+
+    let installedNETVersionsLazy = lazy (NETFrameworkInfoProvider.getInstalledNETVersions msbuildPath)
+
+    let additionalArgsByTfm = System.Collections.Concurrent.ConcurrentDictionary<string, string list>()
+
+    let additionalArgumentsBy targetFramework =
+        let f tfm = NETFrameworkInfoProvider.getAdditionalArgumentsBy msbuildPath tfm
+        additionalArgsByTfm.GetOrAdd(targetFramework, f)
+
+    member this.MSBuildPath
+        with get () : Dotnet.ProjInfo.Inspect.MSBuildExePath = msbuildPath
+
+    member this.InstalledNetFws() =
+        installedNETVersionsLazy.Force()
+
+    member this.LatestVersion () =
+        let maxByVersion list =
+            //TODO extract and test
+            list
+            |> List.map (fun (s: string) -> s, (s.TrimStart('v').Replace(".","").PadRight(3, '0')))
+            |> List.maxBy snd
+            |> fst
+
+        this.InstalledNetFws()
+        |> maxByVersion
+
+    member this.GetProjectOptionsFromScript(checkerGetProjectOptionsFromScript, targetFramework, file, source) =
+        FSharpCompilerServiceChecker.getProjectOptionsFromScript additionalArgumentsBy checkerGetProjectOptionsFromScript file source targetFramework
+
+    static member Create(config: NetFWInfoConfig) =
+        NetFWInfo(config.MSBuildHost)
+        
+type FsxBinder (netFwInfo: NetFWInfo, checker: FSharp.Compiler.SourceCodeServices.FSharpChecker) =
+
+    member this.GetProjectOptionsFromScriptBy(tfm, file, source) = async {
+      let dummy : FSharpCompilerServiceChecker.CheckerGetProjectOptionsFromScript<FSharp.Compiler.SourceCodeServices.FSharpProjectOptions, _> =
+        fun (file, source, otherFlags, assumeDotNetFramework) ->
+          checker.GetProjectOptionsFromScript(file, source, otherFlags = otherFlags, assumeDotNetFramework = assumeDotNetFramework)
+
+      let! (rawOptions, mapper) =
+        netFwInfo.GetProjectOptionsFromScript(dummy, tfm, file, source)
+
+      let rawOptions = { rawOptions with OtherOptions = mapper rawOptions.OtherOptions }
+
+      return rawOptions
+    }
+// END TEMP
     
 let getProjectOptionsFromScript scriptFile =
     let (checker: FSharpChecker) = FSharpChecker.Create(keepAssemblyContents=true)

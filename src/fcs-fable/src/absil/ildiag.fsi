@@ -6,12 +6,12 @@
 /// points to stderr.  All functions call flush() automatically.
 ///
 /// REVIEW: review if we should just switch to System.Diagnostics
-module internal Microsoft.FSharp.Compiler.AbstractIL.Diagnostics
+module internal FSharp.Compiler.AbstractIL.Diagnostics
 
-open Microsoft.FSharp.Core.Printf
-#if !FABLE_COMPILER
 open System.IO
+open Microsoft.FSharp.Core.Printf
 
+#if !FABLE_COMPILER
 val public setDiagnosticsChannel: TextWriter option -> unit 
 #endif
 

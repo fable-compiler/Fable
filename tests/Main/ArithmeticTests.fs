@@ -97,8 +97,11 @@ let tests =
         equal (0x0UL * 0x1UL, 0x0UL)
 
     testCase "Decimal literals can be generated" <| fun () ->
-        equal (System.Decimal.Zero, 0.M)
-        equal (System.Decimal.One, 1.M)
+        equal (System.Decimal.Zero, 0M)
+        equal (System.Decimal.One, 1M)
+        equal (System.Decimal.MinusOne, -1M)
+        equal (System.Decimal.MaxValue, 79228162514264337593543950335M)
+        equal (System.Decimal.MinValue, -79228162514264337593543950335M)
 
     testCase "Decimal precision is kept" <| fun () ->
         let items = [ 290.8M
@@ -250,6 +253,11 @@ let tests =
     testCase "BigInt Infix modulo can be generated" <| fun () ->
         equal (4I % 3I, 1I)
 
+    testCase "BigInt.DivRem works" <| fun () -> // See #1744
+        let quotient,remainder = bigint.DivRem(5I,2I)
+        equal(quotient, 2I)
+        equal(remainder, 1I)
+
     testCase "BigInt Evaluation order is preserved by generated code" <| fun () ->
         equal ((4I - 2I) * 2I + 1I, 5I)
 
@@ -258,6 +266,9 @@ let tests =
 
     testCase "BigInt Bitwise or can be generated" <| fun () ->
         equal (4I ||| 2I, 6I)
+
+    testCase "BigInt Bitwise xor can be generated" <| fun () ->
+        equal (6I ^^^ 2I, 4I)
 
     testCase "BigInt Bitwise shift left can be generated" <| fun () ->
         equal (4I <<< 2, 16I)
@@ -451,6 +462,12 @@ let tests =
         let y = rnd.NextDouble()
         equal(true, y >= 0.0 && y < 1.0)
 
+    // Note: Test could fail sometime during life of universe, if it picks all zeroes.
+    testCase "System.Random.NextBytes works" <| fun () ->
+        let buffer = Array.create 16 0uy // guid-sized buffer
+        System.Random().NextBytes(buffer)
+        equal(buffer = Array.create 16 0uy, false)
+
     testCase "Long integers equality works" <| fun () ->
         let x = 5L
         let y = 5L
@@ -491,6 +508,26 @@ let tests =
         equal(-1, compare y z)
         equal(0, compareTo y x)
         equal(1, compareTo z x)
+
+    testCase "Big integer to byte array works" <| fun () ->
+        // values with high bit both 0 and 1 for different array lengths
+        equal(32767I.ToByteArray(), [|255uy; 127uy|])
+        equal(32768I.ToByteArray(), [|0uy; 128uy; 0uy|])
+        equal(-32768I.ToByteArray(), [|0uy; 128uy|])
+        equal(-32769I.ToByteArray(), [|255uy; 127uy; 255uy|])
+        // large numbers
+        equal(111222333444555666777888999I.ToByteArray(), [|231uy; 216uy; 2uy; 164uy; 86uy; 149uy; 8uy; 199uy; 62uy; 0uy; 92uy|])
+        equal(-111222333444555666777888999I.ToByteArray(), [|25uy; 39uy; 253uy; 91uy; 169uy; 106uy; 247uy; 56uy; 193uy; 255uy; 163uy|])
+
+    testCase "Big integer from byte array works" <| fun () ->
+        // values with high bit both 0 and 1 for different array lengths
+        equal(Numerics.BigInteger([|255uy; 127uy|]), 32767I)
+        equal(Numerics.BigInteger([|0uy; 128uy; 0uy|]), 32768I)
+        equal(Numerics.BigInteger([|0uy; 128uy|]), -32768I)
+        equal(Numerics.BigInteger([|255uy; 127uy; 255uy|]), -32769I)
+        // large numbers
+        equal(Numerics.BigInteger([|231uy; 216uy; 2uy; 164uy; 86uy; 149uy; 8uy; 199uy; 62uy; 0uy; 92uy|]), 111222333444555666777888999I)
+        equal(Numerics.BigInteger([|25uy; 39uy; 253uy; 91uy; 169uy; 106uy; 247uy; 56uy; 193uy; 255uy; 163uy|]), -111222333444555666777888999I)
 
     testCase "Member values of decimal type can be compared" <| fun () -> // See #747
         equal(true, decimalOne < decimalTwo)

@@ -1,13 +1,13 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-module public Microsoft.FSharp.Compiler.Range
+module public FSharp.Compiler.Range
 
-open Internal.Utilities
 open System.Text
 open System.Collections.Generic
-open Microsoft.FSharp.Compiler.AbstractIL 
-open Microsoft.FSharp.Compiler.AbstractIL.Internal 
-open Microsoft.FSharp.Compiler  
+open Internal.Utilities
+open FSharp.Compiler.AbstractIL 
+open FSharp.Compiler.AbstractIL.Internal 
+open FSharp.Compiler  
 
   
 /// An index into a global tables of filenames

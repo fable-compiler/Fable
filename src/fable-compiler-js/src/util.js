@@ -15,6 +15,10 @@ export function getVersion() {
     return require("../package.json").version;
 }
 
+export function getFableLibDir() {
+    return Path.join(Path.dirname(require.resolve("fable-standalone")), "fable-library");
+}
+
 export function serializeToJson(data) {
     return JSON.stringify(data, (key, value) => {
         if (value === Infinity) {
@@ -26,6 +30,10 @@ export function serializeToJson(data) {
         }
         return value;
      });
+}
+
+function ensureArray(obj) {
+    return (Array.isArray(obj) ? obj : obj != null ? [obj] : []);
 }
 
 export function ensureDirExists(dir, cont) {
@@ -41,8 +49,7 @@ export function ensureDirExists(dir, cont) {
 
 const uniquePaths = new Map();
 
-function ensureUniquePath(sourcePath, outDir, relPath) {
-    let outPath = Path.resolve(outDir, relPath);
+function ensureUniquePath(sourcePath, outPath) {
     while (uniquePaths.has(outPath) && uniquePaths.get(outPath) !== sourcePath) {
         var i = outPath.lastIndexOf(".");
         outPath = (i < 0) ? outPath + "_" : outPath.substr(0, i) + "_" + outPath.substr(i);
@@ -51,53 +58,53 @@ function ensureUniquePath(sourcePath, outDir, relPath) {
     return outPath;
 }
 
-function ensureArray(obj) {
-    return (Array.isArray(obj) ? obj : obj != null ? [obj] : []);
-}
-
 function isRelativePath(path) {
     return path.startsWith("./") || path.startsWith("../");
 }
 
-function getRelPath(sourcePath, importPath, filePath, projDir, outDir) {
+function getRelPath(sourcePath, importPath, outPath, projDir, outDir) {
     if (isRelativePath(importPath)) {
         importPath = Path.resolve(Path.dirname(sourcePath), importPath);
     }
     let relPath = Path.relative(projDir, importPath).replace(/\\/g, "/");
     relPath = relPath.replace(/\.\.\//g, "").replace(/\.\//g, "").replace(/\:/g, "");
-    relPath = Path.relative(Path.dirname(filePath), Path.join(outDir, relPath));
+    relPath = Path.relative(Path.dirname(outPath), Path.join(outDir, relPath));
     relPath = relPath.replace(/\\/g, "/").replace(FSHARP_EXT, ".js");
     relPath = relPath.match(JAVASCRIPT_EXT) ? relPath : relPath + ".js";
     relPath = relPath.startsWith("..") ? relPath : "./" + relPath;
     return relPath;
 }
 
-function getJsImport(sourcePath, importPath, filePath, projDir, outDir, babelOptions) {
-    const relPath = getRelPath(sourcePath, importPath, filePath, projDir, outDir);
-    // transform and save javascript imports
-    let jsPath = Path.resolve(Path.dirname(sourcePath), importPath);
+function getJsImport(sourcePath, importPath, outPath, projDir, outDir, babelOptions) {
+    const relPath = getRelPath(sourcePath, importPath, outPath, projDir, outDir);
+    let jsPath = isRelativePath(importPath) ?
+        Path.resolve(Path.dirname(sourcePath), importPath) : importPath;
     jsPath = jsPath.match(JAVASCRIPT_EXT) ? jsPath : jsPath + ".js";
-    const resAst = Babel.transformFileSync(jsPath, { ast: true, code: false });
-    const outPath = ensureUniquePath(jsPath, Path.dirname(filePath), relPath);
-    fixImportPaths(resAst.ast, outPath, outDir);
-    const resCode = Babel.transformFromAstSync(resAst.ast, null, babelOptions);
-    ensureDirExists(Path.dirname(outPath));
-    fs.writeFileSync(outPath, resCode.code);
+    outPath = Path.resolve(Path.dirname(outPath), relPath);
+    // if not already done, transform and save javascript imports
+    if (!uniquePaths.has(outPath) || uniquePaths.get(outPath) !== jsPath) {
+        outPath = ensureUniquePath(jsPath, outPath);
+        const resAst = Babel.transformFileSync(jsPath, { ast: true, code: false });
+        fixImportPaths(resAst.ast.program, jsPath, outPath, projDir, outDir, outDir, babelOptions);
+        const resCode = Babel.transformFromAstSync(resAst.ast, null, babelOptions);
+        ensureDirExists(Path.dirname(outPath));
+        fs.writeFileSync(outPath, resCode.code);
+    }
     return relPath;
 }
 
-function fixImportPaths(babelAst, filePath, projDir, outDir, babelOptions) {
-    const sourcePath = babelAst.fileName;
+function fixImportPaths(babelAst, sourcePath, outPath, projDir, outDir, libDir, babelOptions) {
     const decls = ensureArray(babelAst.body);
     for (const decl of decls) {
         if (decl.source != null && typeof decl.source.value === "string") {
-            const importPath = decl.source.value;
+            let importPath = decl.source.value;
             if (importPath.startsWith("fable-library/")) {
-                decl.source.value = getRelPath(filePath, Path.join(outDir, importPath), filePath, outDir, outDir);
+                importPath = Path.join(libDir, importPath.replace(/^fable-library\//, ""));
+                decl.source.value = getJsImport(sourcePath, importPath, outPath, Path.dirname(libDir), outDir, babelOptions);
             } else if (importPath.match(FSHARP_EXT)) {
-                decl.source.value = getRelPath(sourcePath, importPath, filePath, projDir, outDir);
+                decl.source.value = getRelPath(sourcePath, importPath, outPath, projDir, outDir);
             } else if (isRelativePath(importPath) || Path.isAbsolute(importPath)) {
-                decl.source.value = getJsImport(sourcePath, importPath, filePath, projDir, outDir, babelOptions);
+                decl.source.value = getJsImport(sourcePath, importPath, outPath, projDir, outDir, babelOptions);
             }
         }
     }
@@ -116,18 +123,19 @@ export function copyFolder(from, dest) {
     });
 }
 
-export function transformAndSaveBabelAst(babelAst, filePath, projDir, outDir, commonjs) {
+export function transformAndSaveBabelAst(babelAst, filePath, projDir, outDir, libDir, commonjs) {
     try {
         // this solves a weird commonjs issue where some imports are not properly qualified
         babelAst = JSON.parse(serializeToJson(babelAst)); // somehow this helps with that
         const sourcePath = babelAst.fileName;
         const jsPath = filePath.replace(FSHARP_EXT, ".js");
-        const outPath = ensureUniquePath(sourcePath, outDir, jsPath);
+        let outPath = Path.resolve(outDir, jsPath);
+        outPath = ensureUniquePath(sourcePath, outPath);
         ensureDirExists(Path.dirname(outPath));
         const babelOptions = commonjs ?
             { plugins: customPlugins.concat("@babel/plugin-transform-modules-commonjs") } :
             { plugins: customPlugins };
-        fixImportPaths(babelAst, outPath, projDir, outDir, babelOptions);
+        fixImportPaths(babelAst, sourcePath, outPath, projDir, outDir, libDir, babelOptions);
         const res = Babel.transformFromAstSync(babelAst, null, babelOptions);
         fs.writeFileSync(outPath, res.code);
     } catch (err) {

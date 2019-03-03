@@ -1,10 +1,7 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-module public Microsoft.FSharp.Compiler.Layout
+module public FSharp.Compiler.Layout
 
-#if FABLE_COMPILER
-open Internal.Utilities
-#endif
 open System.Text
 open System.Collections.Generic
 open System.IO

@@ -2,8 +2,8 @@ namespace Fable.Transforms.FSharp2Fable
 
 open System
 open System.Collections.Generic
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler
+open FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.Core
 open Fable.AST
@@ -368,51 +368,27 @@ module Patterns =
             Some (ident, value, body)
         | _ -> None
 
-    /// This matches the boilerplate generated for .TryGetValue (see #154)
-    let (|TryGetValue|_|) = function
+    /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (see #154, or #1744)
+    /// where the F# compiler automatically passes a byref arg and returns it as a tuple
+    let (|ByrefArgToTuple|_|) = function
         | Let((outArg1, (DefaultValue _ as def)),
-                NewTuple(_, [Call(callee, memb, ownerGenArgs, membGenArgs,
-                                    [arg1; AddressOf(Value outArg2)]); Value outArg3]))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryGetValue" ->
-            Some (callee, memb, ownerGenArgs, membGenArgs, [arg1; def])
+                NewTuple(_, [Call(callee, memb, ownerGenArgs, membGenArgs, callArgs); Value outArg3]))
+                when List.isMultiple callArgs && outArg1.IsCompilerGenerated && outArg1 = outArg3 ->
+            match List.splitLast callArgs with
+            | callArgs, AddressOf(Value outArg2) when outArg1 = outArg2 ->
+                Some (callee, memb, ownerGenArgs, membGenArgs, callArgs@[def])
+            | _ -> None
         | _ -> None
 
-    /// This matches the boilerplate generated for .TryGetValue (optimized)
-    let (|TryGetValueOptimized|_|) = function
+    /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (optimized)
+    let (|ByrefArgToTupleOptimized|_|) = function
         | Let((outArg1, (DefaultValue _ as def)), IfThenElse
-                (Call(callee, memb, ownerGenArgs, membGenArgs,
-                    [arg1; AddressOf(Value outArg2)]), Value outArg3, (_ as elseExpr)))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryGetValue" ->
-            Some (outArg1, callee, memb, ownerGenArgs, membGenArgs, [arg1; def], elseExpr)
-        | _ -> None
-
-    /// This matches the boilerplate generated for .TryParse
-    let (|TryParse|_|) = function
-        | Let((outArg1, DefaultValue _),
-                NewTuple(_, [Call(None, memb, ownerGenArgs, membGenArgs,
-                                [arg1; AddressOf(Value outArg2)]); Value outArg3]))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
-            Some (memb, ownerGenArgs, membGenArgs, [arg1])
-        | Let((outArg1, DefaultValue _),
-                NewTuple(_, [Call(None, memb, ownerGenArgs, membGenArgs,
-                                [arg1; arg2; arg3; AddressOf(Value outArg2)]); Value outArg3]))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
-            Some (memb, ownerGenArgs, membGenArgs, [arg1; arg2; arg3])
-        | _ -> None
-
-
-    /// This matches the boilerplate generated for .TryParse (optimized)
-    let (|TryParseOptimized|_|) = function
-        | Let((outArg1, DefaultValue _), IfThenElse
-                (Call (None, memb, ownerGenArgs, membGenArgs,
-                    [arg1; AddressOf(Value outArg2)]), Value outArg3, elseExpr))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
-            Some (outArg1, memb, ownerGenArgs, membGenArgs, [arg1], elseExpr)
-        | Let((outArg1, DefaultValue _), IfThenElse
-                (Call (None, memb, ownerGenArgs, membGenArgs,
-                    [arg1; arg2; arg3; AddressOf(Value outArg2)]), Value outArg3, elseExpr))
-            when outArg1 = outArg2 && outArg1 = outArg3 && memb.CompiledName = "TryParse" ->
-            Some (outArg1, memb, ownerGenArgs, membGenArgs, [arg1; arg2; arg3], elseExpr)
+                (Call(callee, memb, ownerGenArgs, membGenArgs, callArgs), Value outArg3, (_ as elseExpr)))
+                when List.isMultiple callArgs && outArg1.IsCompilerGenerated && outArg1 = outArg3 ->
+            match List.splitLast callArgs with
+            | callArgs, AddressOf(Value outArg2) when outArg1 = outArg2 ->
+                Some (outArg1, callee, memb, ownerGenArgs, membGenArgs, callArgs@[def], elseExpr)
+            | _ -> None
         | _ -> None
 
     /// This matches the boilerplate generated to wrap .NET events from F#
@@ -567,19 +543,24 @@ module TypeHelpers =
 
     and makeType (com: ICompiler) (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
-        if t.IsGenericParameter
-        then resolveGenParam ctxTypeArgs t.GenericParameter
+        if t.IsGenericParameter then
+            resolveGenParam ctxTypeArgs t.GenericParameter
         // Tuple
-        elif t.IsTupleType
-        then makeGenArgs com ctxTypeArgs t.GenericArguments |> Fable.Tuple
+        elif t.IsTupleType then
+            makeGenArgs com ctxTypeArgs t.GenericArguments |> Fable.Tuple
         // Funtion
-        elif t.IsFunctionType
-        then
+        elif t.IsFunctionType then
             let argType = makeType com ctxTypeArgs t.GenericArguments.[0]
             let returnType = makeType com ctxTypeArgs t.GenericArguments.[1]
             Fable.FunctionType(Fable.LambdaType argType, returnType)
-        elif t.HasTypeDefinition
-        then makeTypeFromDef com ctxTypeArgs t.GenericArguments t.TypeDefinition
+        elif t.HasTypeDefinition then
+// No support for provided types when compiling FCS+Fable to JS
+#if !FABLE_COMPILER
+            // TODO: Discard provided generated types too?
+            if t.TypeDefinition.IsProvidedAndErased then Fable.Any
+            else
+#endif
+                makeTypeFromDef com ctxTypeArgs t.GenericArguments t.TypeDefinition
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
 
     // TODO: This is intended to wrap JS expressions with `| 0`, check enum as well?
@@ -718,7 +699,7 @@ module Util =
                 ctx, untupledArg@accArgs)
         ctx, transformedArgs @ args
 
-    let makeTryCatch com ctx (Transform com ctx body) catchClause finalBody =
+    let makeTryCatch com ctx r (Transform com ctx body) catchClause finalBody =
         let catchClause =
             match catchClause with
             | Some (BindIdent com ctx (catchContext, catchVar), catchBody) ->
@@ -730,7 +711,7 @@ module Util =
             match finalBody with
             | Some (Transform com ctx finalBody) -> Some finalBody
             | None -> None
-        Fable.TryCatch (body, catchClause, finalizer)
+        Fable.TryCatch(body, catchClause, finalizer, r)
 
     let matchGenericParams (genArgs: Fable.Type seq) (genParams: FSharpGenericParameter seq) =
         Seq.zip (genParams |> Seq.map (fun x -> x.Name)) genArgs
@@ -781,11 +762,14 @@ module Util =
                 |> Path.getRelativePath com.CurrentFile
         else path
 
-    let tryImportAttribute (atts: #seq<FSharpAttribute>) =
+    let (|ImportAtt|EmitDeclarationAtt|NoAtt|) (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (function
             | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
-                Some(selector.Trim(), path.Trim())
+                Choice1Of3(selector.Trim(), path.Trim()) |> Some
+            | AttFullName(Atts.emitDeclaration, AttArguments [(:? string as macro)]) ->
+                Choice2Of3(macro) |> Some
             | _ -> None)
+        |> Option.defaultValue (Choice3Of3 ())
 
     /// Function used to check if calls must be replaced by global idents or direct imports
     let tryGlobalOrImportedMember com typ (memb: FSharpMemberOrFunctionOrValue) =
@@ -989,7 +973,7 @@ module Util =
                 foldArgs ((argIdent, argExpr)::acc) (restArgIdents, restArgExprs)
             | (argIdent: FSharpMemberOrFunctionOrValue)::restArgIdents, [] ->
                 let t = makeType com ctx.GenericArgs argIdent.FullType
-                foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, t)))::acc) (restArgIdents, [])
+                foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, t), None))::acc) (restArgIdents, [])
             | [], _ -> List.rev acc
         // Log error if the inline function is called recursively
         match ctx.InlinedFunction with
@@ -1033,7 +1017,7 @@ module Util =
                 match condition with
                 | "optional" | "inject" when par.IsOptionalArg ->
                     match arg with
-                    | Fable.Value(Fable.NewOption(None,_)) ->
+                    | Fable.Value(Fable.NewOption(None,_),_) ->
                         match tryFindAtt Atts.inject par.Attributes with
                         | Some _ -> "inject", (com.InjectArgument(ctx, r, genArgs.Value, par))::acc
                         // Don't remove optional arguments if they're not in tail position
@@ -1105,7 +1089,7 @@ module Util =
             if com.Options.verbose && not v.IsCompilerGenerated then // See #1516
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
-            Fable.Value Fable.UnitConstant
+            Fable.Value(Fable.UnitConstant, r)
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None true imported -> imported
         // TODO: Replaced? Check if there're failing tests

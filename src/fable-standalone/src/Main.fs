@@ -5,7 +5,7 @@ open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.State
 open FsAutoComplete
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 
 type CheckerImpl(checker: InteractiveChecker) =
     member __.Checker = checker
@@ -209,7 +209,7 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
    match parseResults.CheckFileResultsOpt with
     | Some checkFile ->
         let ln, residue = findLongIdentsAndResidue(col - 1, lineText)
-        let longName = Microsoft.FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineText, col - 1)
+        let longName = FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineText, col - 1)
         let longName = { longName with QualifyingIdents = ln; PartialIdent = residue }
         let! decls = checkFile.GetDeclarationListInfo(parseResults.ParseFileResultsOpt, line, lineText, longName, fun () -> [])
         return decls.Items |> Array.map (fun decl ->

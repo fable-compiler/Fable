@@ -977,6 +977,9 @@ let tests =
     // System.Numerics.BigInteger
     //-------------------------------------
 
+    testCase "BigInt from uint32 works" <| fun () ->
+        bigint System.UInt32.MaxValue |> equal 4294967295I
+
     testCase "BigInt ToSByte works" <| fun () ->
         let value = 0x02y
         sbyte (bigint (int32 value)) |> equal value

@@ -6,13 +6,13 @@ namespace Internal.Utilities.Collections.Tagged
     #nowarn "69" // interface implementations in augmentations
     #nowarn "60" // override implementations in augmentations
 
-    open Internal.Utilities
-    open Internal.Utilities.Collections
     open Microsoft.FSharp.Core
     open Microsoft.FSharp.Core.Operators
     open Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators
     open System
     open System.Collections.Generic
+    open Internal.Utilities
+    open Internal.Utilities.Collections
 
 
     [<CompilationRepresentation(CompilationRepresentationFlags.UseNullAsTrueValue)>]

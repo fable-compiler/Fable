@@ -25,6 +25,7 @@ module internal BigNatModule =
     val rem        : BigNat -> BigNat -> BigNat
     val bitAnd     : BigNat -> BigNat -> BigNat
     val bitOr      : BigNat -> BigNat -> BigNat
+    val bitXor     : BigNat -> BigNat -> BigNat
     val hcf        : BigNat -> BigNat -> BigNat
 
     val min        : BigNat -> BigNat -> BigNat

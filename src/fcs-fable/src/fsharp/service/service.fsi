@@ -5,30 +5,30 @@
 // type checking and intellisense-like environment-reporting.
 //----------------------------------------------------------------------------
 
-namespace Microsoft.FSharp.Compiler.SourceCodeServices
+namespace FSharp.Compiler.SourceCodeServices
 open System
 open System.IO
 open System.Collections.Generic
 
-open Microsoft.FSharp.Compiler.AbstractIL
-open Microsoft.FSharp.Compiler.AbstractIL.IL
-open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library
-open Microsoft.FSharp.Compiler.AbstractIL.ILBinaryReader
-open Microsoft.FSharp.Compiler 
-open Microsoft.FSharp.Compiler.AccessibilityLogic
-open Microsoft.FSharp.Compiler.Ast
+open FSharp.Compiler.AbstractIL
+open FSharp.Compiler.AbstractIL.IL
+open FSharp.Compiler.AbstractIL.Internal.Library
+open FSharp.Compiler.AbstractIL.ILBinaryReader
+open FSharp.Compiler 
+open FSharp.Compiler.AccessibilityLogic
+open FSharp.Compiler.Ast
 #if !FABLE_COMPILER
-open Microsoft.FSharp.Compiler.Driver
+open FSharp.Compiler.Driver
 #endif
-open Microsoft.FSharp.Compiler.ErrorLogger
-open Microsoft.FSharp.Compiler.Range
-open Microsoft.FSharp.Compiler.TcGlobals
-open Microsoft.FSharp.Compiler.NameResolution
-open Microsoft.FSharp.Compiler.CompileOps
-open Microsoft.FSharp.Compiler.Infos
-open Microsoft.FSharp.Compiler.InfoReader
-open Microsoft.FSharp.Compiler.Tast
-open Microsoft.FSharp.Compiler.Tastops
+open FSharp.Compiler.ErrorLogger
+open FSharp.Compiler.Range
+open FSharp.Compiler.TcGlobals
+open FSharp.Compiler.NameResolution
+open FSharp.Compiler.CompileOps
+open FSharp.Compiler.Infos
+open FSharp.Compiler.InfoReader
+open FSharp.Compiler.Tast
+open FSharp.Compiler.Tastops
 
 /// Represents the reason why the GetDeclarationLocation operation failed.
 [<RequireQualifiedAccess>]
@@ -816,5 +816,61 @@ module public PrettyNaming =
 
     /// All the keywords in the F# language 
     val KeywordNames : string list
+
+namespace Microsoft.FSharp.Compiler.SourceCodeServices
+
+    open System
+
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpFindDeclFailureReason  
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpFindDeclResult 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpProjectContext
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type SemanticClassificationType
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpCheckFileResults
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpCheckProjectResults
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type UnresolvedReferencesSet 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpParsingOptions
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpProjectOptions 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpCheckFileAnswer
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FSharpChecker 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type CompilerEnvironment
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module CompilerEnvironment = begin end
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module DebuggerEnvironment = begin end
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module PrettyNaming = begin end
+
+namespace Microsoft.FSharp.Compiler.Interactive.Shell
+    
+    open System
+
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FsiValue 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type EvaluationEventArgs
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type public FsiEvaluationSessionHostConfig 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type FsiEvaluationSession 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    module Settings = begin end
+
+    /// Defines a read-only input stream used to feed content to the hosted F# Interactive dynamic compiler.
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type CompilerInputStream 
+    [<Obsolete("The namespace Microsoft.FSharp.Compiler has been renamed FSharp.Compiler.  Please adjust your namespace references.")>]
+    type CompilerOutputStream  
 
 #endif //!FABLE_COMPILER

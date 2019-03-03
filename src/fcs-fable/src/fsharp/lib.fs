@@ -1,16 +1,13 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-module internal Microsoft.FSharp.Compiler.Lib
+module internal FSharp.Compiler.Lib
 
-open Internal.Utilities
 open System.IO
 open System.Collections.Generic
-#if FABLE_COMPILER
-open Microsoft.FSharp.Core
-#endif
-open Microsoft.FSharp.Compiler.AbstractIL
-open Microsoft.FSharp.Compiler.AbstractIL.Internal 
-open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library
+open Internal.Utilities
+open FSharp.Compiler.AbstractIL
+open FSharp.Compiler.AbstractIL.Internal 
+open FSharp.Compiler.AbstractIL.Internal.Library
 
 
 /// is this the developer-debug build? 

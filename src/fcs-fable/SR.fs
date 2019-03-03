@@ -2,7 +2,7 @@
 // From SR.fs
 //------------------------------------------------------------------------
 
-namespace Microsoft.FSharp.Compiler
+namespace FSharp.Compiler
 
 module SR =
     let GetString(name: string) =

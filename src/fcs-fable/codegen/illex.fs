@@ -1,18 +1,18 @@
-﻿//# 3 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+﻿//# 3 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
  
 
-module internal Microsoft.FSharp.Compiler.AbstractIL.Internal.AsciiLexer 
+module internal FSharp.Compiler.AbstractIL.Internal.AsciiLexer 
 
 open Internal.Utilities
 open Internal.Utilities.Collections
 open Internal.Utilities.Text
 open Internal.Utilities.Text.Lexing
-open Microsoft.FSharp.Compiler.AbstractIL 
-open Microsoft.FSharp.Compiler.AbstractIL.Internal 
-open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library
+open FSharp.Compiler.AbstractIL 
+open FSharp.Compiler.AbstractIL.Internal 
+open FSharp.Compiler.AbstractIL.Internal.Library
 
-open Microsoft.FSharp.Compiler.AbstractIL.Internal.AsciiParser 
-open Microsoft.FSharp.Compiler.AbstractIL.Internal.AsciiConstants 
+open FSharp.Compiler.AbstractIL.Internal.AsciiParser 
+open FSharp.Compiler.AbstractIL.Internal.AsciiConstants 
 
 
 let lexeme (lexbuf : LexBuffer<_>) = LexBuffer<_>.LexemeString (lexbuf)
@@ -376,93 +376,93 @@ and inline token  (lexbuf : Internal.Utilities.Text.Lexing.LexBuffer<_>) = _fsle
 and _fslex_token  _fslex_state lexbuf =
   match _fslex_tables.Interpret(_fslex_state,lexbuf) with
   | 0 -> ( 
-//# 98 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 98 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          COMMA 
 //# 381 "illex.fs"
           )
   | 1 -> ( 
-//# 99 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 99 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          DOT 
 //# 386 "illex.fs"
           )
   | 2 -> ( 
-//# 100 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 100 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          STAR 
 //# 391 "illex.fs"
           )
   | 3 -> ( 
-//# 101 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 101 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          BANG 
 //# 396 "illex.fs"
           )
   | 4 -> ( 
-//# 102 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 102 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          AMP 
 //# 401 "illex.fs"
           )
   | 5 -> ( 
-//# 103 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 103 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          LPAREN 
 //# 406 "illex.fs"
           )
   | 6 -> ( 
-//# 104 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 104 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          RPAREN 
 //# 411 "illex.fs"
           )
   | 7 -> ( 
-//# 105 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 105 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          LBRACK 
 //# 416 "illex.fs"
           )
   | 8 -> ( 
-//# 106 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 106 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          RBRACK 
 //# 421 "illex.fs"
           )
   | 9 -> ( 
-//# 107 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 107 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          SLASH 
 //# 426 "illex.fs"
           )
   | 10 -> ( 
-//# 108 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 108 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          LESS 
 //# 431 "illex.fs"
           )
   | 11 -> ( 
-//# 109 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 109 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          GREATER 
 //# 436 "illex.fs"
           )
   | 12 -> ( 
-//# 110 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 110 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                            ELIPSES 
 //# 441 "illex.fs"
           )
   | 13 -> ( 
-//# 111 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 111 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                           DCOLON 
 //# 446 "illex.fs"
           )
   | 14 -> ( 
-//# 112 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 112 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                          PLUS 
 //# 451 "illex.fs"
           )
   | 15 -> ( 
-//# 114 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 114 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                         VAL_INT64(int64(lexeme lexbuf)) 
 //# 456 "illex.fs"
           )
   | 16 -> ( 
-//# 123 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 123 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                         let b = lexeme lexbuf in 
                         VAL_INT32_ELIPSES(int32(String.sub b  0 (String.length b - 3))) 
 //# 462 "illex.fs"
           )
   | 17 -> ( 
-//# 126 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 126 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                        let c1 = String.get (lexeme lexbuf) 0 in 
                        let c2 = String.get (lexeme lexbuf) 1 in 
                        if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then 
@@ -471,12 +471,12 @@ and _fslex_token  _fslex_state lexbuf =
 //# 471 "illex.fs"
           )
   | 18 -> ( 
-//# 132 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 132 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                        VAL_INT64(int64(lexeme lexbuf)) 
 //# 476 "illex.fs"
           )
   | 19 -> ( 
-//# 134 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 134 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                        let c1 = (lexeme lexbuf).[6] in 
                        let c2 = (lexeme lexbuf).[7] in 
                        if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then 
@@ -485,42 +485,42 @@ and _fslex_token  _fslex_state lexbuf =
 //# 485 "illex.fs"
           )
   | 20 -> ( 
-//# 141 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 141 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                        VAL_INT64(int64(lexeme lexbuf)) 
 //# 490 "illex.fs"
           )
   | 21 -> ( 
-//# 143 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 143 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                        VAL_FLOAT64( (float (lexeme lexbuf)) ) 
 //# 495 "illex.fs"
           )
   | 22 -> ( 
-//# 146 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 146 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                        let s = (lexeme lexbuf) in kwdOrInstr s 
 //# 500 "illex.fs"
           )
   | 23 -> ( 
-//# 148 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 148 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                        kwdOrInstrOrId (lexeme lexbuf) 
 //# 505 "illex.fs"
           )
   | 24 -> ( 
-//# 151 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 151 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                        VAL_DOTTEDNAME(lexeme lexbuf) 
 //# 510 "illex.fs"
           )
   | 25 -> ( 
-//# 154 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 154 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                        token lexbuf 
 //# 515 "illex.fs"
           )
   | 26 -> ( 
-//# 156 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 156 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                        unexpectedChar lexbuf 
 //# 520 "illex.fs"
           )
   | 27 -> ( 
-//# 158 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+//# 158 "C:\Users\alfon\dev\FSharp.Compiler.Service_fable\fcs\fcs-fable\codegen\..\..\..\src\absil\illex.fsl"
                        EOF 
 //# 525 "illex.fs"
           )

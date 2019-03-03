@@ -1,7 +1,7 @@
 module App
 
 open System.Text.RegularExpressions
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open Platform
 
 let references = Metadata.references_core

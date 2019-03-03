@@ -794,8 +794,18 @@ let tests =
         let xs = [|1; 2|]
         let actual = Array.groupBy (fun _ -> true) xs
         let actualKey, actualGroup = actual.[0]
-        let worked = actualKey = true && actualGroup.[0] = 1 && actualGroup.[1] = 2
+        let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
         worked |> equal true
+
+    testCase "Array.groupBy does not run into undefined exception" <| fun () ->
+        let ys = [| 1;2;3 |] |> Array.groupBy (fun x -> x = 2)
+        ys |> equal [| (false, [| 1;3 |]); (true, [| 2 |]) |]
+
+    testCase "Array.groupBy maintains order" <| fun () ->
+        let xs = [| 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 |]
+        let mapped = xs |> Array.take 4 |> Array.map (fun (x,y) -> x, [|x,y; x,y+1|])
+        let grouped = xs |> Array.groupBy fst
+        grouped |> equal mapped
 
     testCase "Array.except works" <| fun () ->
         Array.except [|2|] [|1; 3; 2|] |> Array.last |> equal 3

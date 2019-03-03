@@ -1,7 +1,7 @@
 module App
 
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler
+open FSharp.Compiler.SourceCodeServices
 open Platform
 
 let references = Metadata.references_core

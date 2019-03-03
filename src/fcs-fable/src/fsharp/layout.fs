@@ -1,13 +1,9 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-module Microsoft.FSharp.Compiler.Layout
+module FSharp.Compiler.Layout
 
 open System
 open System.Collections.Generic
-#if FABLE_COMPILER
-open Internal.Utilities
-open Microsoft.FSharp.Core.Operators
-#endif
 open System.IO
 open Internal.Utilities.StructuredFormat
 open Microsoft.FSharp.Core.Printf

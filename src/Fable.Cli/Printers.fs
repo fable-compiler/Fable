@@ -2,7 +2,7 @@ module Fable.Cli.Printers
 
 open System
 open System.IO
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open Fable
 open Fable.AST

@@ -5,19 +5,15 @@
 // type checking and intellisense-like environment-reporting.
 //--------------------------------------------------------------------------
 
-namespace Microsoft.FSharp.Compiler.SourceCodeServices
+namespace FSharp.Compiler.SourceCodeServices
 
-#if FABLE_COMPILER
-open Internal.Utilities
-open Microsoft.FSharp.Core.Operators
-#endif
 open System
 open System.Collections.Generic
 
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.Ast
-open Microsoft.FSharp.Compiler.Range
-open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library 
+open FSharp.Compiler
+open FSharp.Compiler.Ast
+open FSharp.Compiler.Range
+open FSharp.Compiler.AbstractIL.Internal.Library 
 
 type ShortIdent = string
 type Idents = ShortIdent[]
@@ -497,8 +493,8 @@ type OpenStatementInsertionPoint =
     | Nearest
 
 module ParsedInput =
-    open Microsoft.FSharp.Compiler
-    open Microsoft.FSharp.Compiler.Ast
+    open FSharp.Compiler
+    open FSharp.Compiler.Ast
 
     /// An recursive pattern that collect all sequential expressions to avoid StackOverflowException
     let rec (|Sequentials|_|) = function

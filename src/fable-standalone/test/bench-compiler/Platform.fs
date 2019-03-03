@@ -1,4 +1,4 @@
-module Bench.Platform
+module Fable.Compiler.Platform
 
 let __dirname = "."
 

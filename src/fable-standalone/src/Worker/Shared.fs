@@ -7,9 +7,6 @@ open Fable.Core.JsInterop
 open Fable.Import
 open Thoth.Json
 
-type IWebWorker =
-    interface end
-
 type WorkerRequest =
     /// * refsExtraSuffix: e.g. add .txt extension to enable gzipping in Github Pages
     | CreateChecker of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option * libJsonUrl: string option
@@ -39,7 +36,7 @@ type WorkerAnswer =
     static member Decoder =
         Decode.Auto.generateDecoder<WorkerAnswer>()
 
-type ObservableWorker<'InMsg>(worker: IWebWorker, decoder: Decode.Decoder<'InMsg>, ?name: string) =
+type ObservableWorker<'InMsg>(worker: obj, decoder: Decode.Decoder<'InMsg>, ?name: string) =
     let name = defaultArg name "FABLE WORKER"
     let listeners = new Dictionary<Guid, IObserver<'InMsg>>()
     do worker?addEventListener("message", fun ev ->

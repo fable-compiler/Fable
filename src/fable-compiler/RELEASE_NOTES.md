@@ -1,4 +1,26 @@
-### 2.2.0-beta-008
+### 2.2.0-beta-015
+
+* Improve sourcemaps
+
+### 2.2.0-beta-014
+
+* Add bigint xor operator, bigint byte array conversions, and Random.NextBytes @chadunit
+* Fix Decimal.MinValue/MaxValue
+* Fix provider argument warnings
+
+### 2.2.0-beta-012
+
+* Fix #1757: Don't do a `this` null check in constructors
+* Fix #1753: Regex Group values can be converted to int @vbfox
+* Fix #1749: Cancel Async.Sleep @SirUppyPancakes
+* Fix #1745: bigint from uint32 @chadunit
+* Fix #1744: BigInteger.DivRem @chadunit
+* Fix #1738: List/Array.groupBy doesn't preserve order @ncave
+* Update to latest FCS @ncave
+* Ignore type info of provided erased types
+* Support EmitDeclaration attribute
+
+### 2.2.0-beta-010
 
 * Anonymous records!
 

@@ -15,9 +15,10 @@ let APPVEYOR_REPL_ARTIFACT_URL =
     + APPVEYOR_REPL_ARTIFACT_URL_PARAMS
 
 // ncave FCS fork
-let NCAVE_FORK = "https://github.com/ncave/FSharp.Compiler.Service"
-let NCAVE_FORK_LOCAL = "../FSharp.Compiler.Service"
-let NCAVE_FORK_FCS_FABLE_BRANCH = "fable"
+let FCS_REPO = "https://github.com/ncave/FSharp.Compiler.Service"
+let FCS_REPO_LOCAL = "../FSharp.Compiler.Service_fable"
+let FCS_REPO_FABLE_BRANCH = "fable"
+let FCS_REPO_SERVICE_SLIM_BRANCH = "service_slim"
 
 type GhRealeases =
     [<Emit("""new Promise((succeed, fail) =>
@@ -72,15 +73,11 @@ let buildCompiler() =
 
 let buildCompilerJs testLocal =
     let projectDir = "src/fable-compiler-js"
-    let libraryDir = "build/fable-library"
     cleanDirs [projectDir </> "dist"]
     if testLocal then
         buildSplitterWithArgs projectDir "--test-local"
     else
         buildSplitter projectDir
-        buildLibrary()
-    copyDirRecursive libraryDir "src/fable-compiler-js/dist/fable-library"
-    runInDir projectDir "npx babel dist/fable-library --out-dir dist/fable-library-commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
 
 let buildStandalone() =
     let projectDir = "src/fable-standalone"
@@ -88,14 +85,12 @@ let buildStandalone() =
     cleanDirs [projectDir </> "dist"]
     buildLibrary()
 
-    // ES2015 modules
-    buildSplitter projectDir
-    // commonjs
-    run "npx babel src/fable-standalone/dist/es2015 --out-dir  src/fable-standalone/dist/commonjs --plugins @babel/plugin-transform-modules-commonjs --quiet"
-    // Web Worker
+    // bundle.min.js
+    buildWebpack projectDir
+    fileSizeInBytes (projectDir </> "dist/bundle.min.js") / 1000
+    |> printfn "Bundle size: %iKB"
+    // worker.min.js
     buildWebpack "src/fable-standalone/src/Worker"
-    // fileSizeInBytes (projectDir </> "dist/worker.min.js") / 1000
-    // |> printfn "Web worker bundle size: %iKB"
 
     // Put fable-library files next to bundle
     let libraryTarget = projectDir </> "dist/fable-library"
@@ -105,7 +100,10 @@ let buildStandalone() =
     getFullPathsInDirectoryRecursively libraryTarget
     |> Array.filter (fun file -> file.EndsWith(".js"))
     |> Array.iter (fun file ->
-        reg.Replace(readFile file, "import $1.js$2")
+        reg.Replace(readFile file, fun m ->
+            let fst = m.Groups.[1].Value
+            if fst.EndsWith(".js") then m.Value
+            else sprintf "import %s.js%s" fst m.Groups.[2].Value)
         |> writeFile file)
 
     // Bump version
@@ -124,9 +122,9 @@ let test() =
     cleanDirs ["build/tests"]
     buildSplitter "tests"
     run "npx mocha build/tests --reporter dot -t 10000"
+    runInDir "tests/Main" "dotnet run"
 
     if envVarOrNone "APPVEYOR" |> Option.isSome then
-        runInDir "tests/Main" "dotnet run"
         buildStandalone()
         // Test fable-compiler-js locally
         buildCompilerJs true
@@ -151,6 +149,7 @@ let githubRelease() =
             try
                 let ghreleases: GhRealeases = JsInterop.importAll "ghreleases"
                 let! version, notes = Publish.loadReleaseVersionAndNotes "src/fable-compiler"
+                run <| sprintf "git commit -am \"Release %s\" && git push" version
                 let! res = ghreleases.create(user, token, "fable-compiler", "Fable", version, String.concat "\n" notes) |> Async.AwaitPromise
                 printfn "Github release %s created successfully" version
             with ex ->
@@ -158,8 +157,44 @@ let githubRelease() =
         } |> Async.StartImmediate
     | _ -> failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
 
+let syncFcsRepo() =
+    // FAKE is giving lots of problems with the dotnet SDK version, ignore it
+    let cheatWithDotnetSdkVersion dir f =
+        let path = dir </> "build.fsx"
+        let script = readFile path
+        Regex.Replace(script, @"let dotnetExePath =[\s\S]*DotNetCli\.InstallDotNetSDK", "let dotnetExePath = \"dotnet\" //DotNetCli.InstallDotNetSDK") |> writeFile path 
+        f ()
+        runInDir dir "git reset --hard"
+
+    printfn "Expecting %s repo to be cloned at %s" FCS_REPO FCS_REPO_LOCAL
+
+    // TODO: Prompt to reset --hard changes
+    // service_slim
+    runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_SERVICE_SLIM_BRANCH)
+    runInDir FCS_REPO_LOCAL "git pull"
+    cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
+        runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "")
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/netstandard2.0/FSharp.Compiler.Service.dll")  "../fable/lib/fcs/"
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/netstandard2.0/FSharp.Compiler.Service.xml")  "../fable/lib/fcs/"
+
+    // fcs-fable
+    runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_FABLE_BRANCH)
+    runInDir FCS_REPO_LOCAL "git pull"
+    cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
+        runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "CodeGen.Fable")
+    copyDirRecursive (FCS_REPO_LOCAL </> "fcs/fcs-fable") "src/fcs-fable"
+    copyDirRecursive (FCS_REPO_LOCAL </> "src") "src/fcs-fable/src"
+    removeFile "src/fcs-fable/.gitignore"
+    let fcsFableProj = "src/fcs-fable/fcs-fable.fsproj"
+    Regex.Replace(
+            readFile fcsFableProj,
+            @"(<FSharpSourcesRoot>\$\(MSBuildProjectDirectory\)).*?(<\/FSharpSourcesRoot>)",
+            "$1/src$2")
+    |> writeFile fcsFableProj
+
 let packages =
-    ["fable-babel-plugins", doNothing
+    ["Fable.Core", doNothing
+     "fable-babel-plugins", doNothing
      "fable-compiler", buildCompiler
      "fable-compiler-js", (fun () -> buildCompilerJs false)
      "fable-loader", doNothing
@@ -175,7 +210,10 @@ let publishPackages restArgs =
         | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
         | None -> packages
     for (pkg, buildAction) in packages do
-        pushNpm ("src" </> pkg) buildAction
+        if System.Char.IsUpper pkg.[0] then
+            pushNuget ("src" </> pkg </> pkg + ".fsproj") buildAction
+        else
+            pushNpm ("src" </> pkg) buildAction
 
 match argsLower with
 | "test"::_ -> test()
@@ -189,20 +227,7 @@ match argsLower with
 | "github-release"::_ ->
     publishPackages []
     githubRelease ()
-| "sync-fcs-fable"::_ ->
-    printfn "Expecting %s repo to be cloned at %s and '%s' branch checked out"
-        NCAVE_FORK NCAVE_FORK_LOCAL NCAVE_FORK_FCS_FABLE_BRANCH
-
-    runBashOrCmd (NCAVE_FORK_LOCAL </> "fcs") "build" "CodeGen.Fable"
-    copyDirRecursive (NCAVE_FORK_LOCAL </> "fcs/fcs-fable") "src/fcs-fable"
-    copyDirRecursive (NCAVE_FORK_LOCAL </> "src") "src/fcs-fable/src"
-    removeFile "src/fcs-fable/.gitignore"
-    let fcsFableProj = "src/fcs-fable/fcs-fable.fsproj"
-    Regex.Replace(
-            readFile fcsFableProj,
-            @"(<FSharpSourcesRoot>\$\(MSBuildProjectDirectory\)).*?(<\/FSharpSourcesRoot>)",
-            "$1/src$2")
-    |> writeFile fcsFableProj
+| "sync-fcs-repo"::_ -> syncFcsRepo()
 | _ ->
     printfn "Please pass a target name"
 

@@ -1,7 +1,7 @@
 module Fable.Transforms.Inject
 
 open System
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open Fable.Transforms
@@ -30,7 +30,7 @@ let (|GeneratedInterface|_|) com ctx r t =
         // TODO: Unify with Replacements.injectArg?
         match typDef.TryFullName with
         | Some Types.typeResolver ->
-            let fn = Fable.TypeInfo(t, r) |> Fable.Value |> makeDelegate []
+            let fn = Fable.Value(Fable.TypeInfo t, r) |> makeDelegate []
             Replacements.makeFunctionsObject ["ResolveType", fn] |> Some
         | Some Types.comparer ->
             Replacements.makeComparer com t |> Some

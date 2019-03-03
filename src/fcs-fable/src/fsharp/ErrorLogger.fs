@@ -1,13 +1,9 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-module public Microsoft.FSharp.Compiler.ErrorLogger
+module public FSharp.Compiler.ErrorLogger
 
-open Internal.Utilities
-#if FABLE_COMPILER
-open Microsoft.FSharp.Core.Operators
-#endif
-open Microsoft.FSharp.Compiler 
-open Microsoft.FSharp.Compiler.Range
+open FSharp.Compiler 
+open FSharp.Compiler.Range
 open System
 
 //------------------------------------------------------------------------
@@ -133,6 +129,9 @@ let rec AttachRange m (exn:exn) =
     else 
         match exn with
         // Strip TargetInvocationException wrappers
+#if !FABLE_COMPILER
+        | :? System.Reflection.TargetInvocationException -> AttachRange m exn.InnerException
+#endif
         | UnresolvedReferenceNoRange(a) -> UnresolvedReferenceError(a, m)
         | UnresolvedPathReferenceNoRange(a, p) -> UnresolvedPathReference(a, p, m)
         | Failure(msg) -> InternalError(msg + " (Failure)", m)

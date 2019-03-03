@@ -230,6 +230,9 @@ namespace BigInt
         static member (|||) (x:BigInteger,y:BigInteger) =
             BigInteger.posn (BigNatModule.bitOr x.V y.V)  // sign is ignored
 
+        static member (^^^) (x:BigInteger,y:BigInteger) =
+            BigInteger.posn (BigNatModule.bitXor x.V y.V)  // sign is ignored
+
         static member GreatestCommonDivisor (x:BigInteger,y:BigInteger) =
             match x.SignInt,y.SignInt with
             |  0, 0 -> BigInteger.Zero

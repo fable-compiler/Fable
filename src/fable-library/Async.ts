@@ -35,21 +35,19 @@ export function bind<T, U>(ctx: IAsyncContext<T>, part1: IAsync<U>, part2: (x: U
 }
 
 export function createCancellationToken(arg?: boolean|number): CancellationToken {
-  const token = { isCancelled: false };
+  const token = new CancellationToken(typeof arg === "boolean" ? arg : false);
   if (typeof arg === "number") {
-    setTimeout(() => { token.isCancelled = true; }, arg);
-  } else if (typeof arg === "boolean") {
-    token.isCancelled = arg;
+      setTimeout(() => { token.cancel(); }, arg);
   }
   return token;
 }
 
 export function cancel(token: CancellationToken) {
-  token.isCancelled = true;
+  token.cancel();
 }
 
 export function cancelAfter(token: CancellationToken, ms: number) {
-  setTimeout(() => { token.isCancelled = true; }, ms);
+  setTimeout(() => { token.cancel(); }, ms);
 }
 
 export function isCancellationRequested(token: CancellationToken) {
@@ -75,7 +73,7 @@ export function cancellationToken() {
   return protectedCont((ctx: IAsyncContext<CancellationToken>) => ctx.onSuccess(ctx.cancelToken));
 }
 
-export const defaultCancellationToken = { isCancelled: false };
+export const defaultCancellationToken = new CancellationToken();
 
 export function catchAsync<T>(work: IAsync<T>) {
   return protectedCont((ctx: IAsyncContext<any>) => { // ctx: IAsyncContext<Choice<T, Error>>
@@ -103,11 +101,17 @@ export function parallel<T>(computations: Iterable<IAsync<T>>) {
 }
 
 export function sleep(millisecondsDueTime: number) {
-  return protectedCont((ctx: IAsyncContext<void>) => {
-    setTimeout(() => ctx.cancelToken.isCancelled
-      ? ctx.onCancel(new OperationCanceledError())
-      : ctx.onSuccess(void 0), millisecondsDueTime);
-  });
+    return protectedCont((ctx: IAsyncContext<void>) => {
+        let tokenId: number;
+        const timeoutId = setTimeout(() => {
+            ctx.cancelToken.removeListener(tokenId);
+            ctx.onSuccess(void 0);
+        }, millisecondsDueTime);
+        tokenId = ctx.cancelToken.addListener(() => {
+            clearTimeout(timeoutId);
+            ctx.onCancel(new OperationCanceledError());
+        });
+    });
 }
 
 export function start<T>(computation: IAsync<void>, cancellationToken?: CancellationToken) {

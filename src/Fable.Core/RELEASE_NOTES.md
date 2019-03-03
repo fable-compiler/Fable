@@ -1,3 +1,7 @@
+### 3.0.0-beta-001
+
+* Namespace restructure
+
 ### 2.1.0-alpha-002
 
 * Clean Fable.Import.JS module and rename it to Fable.Core.JS

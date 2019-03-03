@@ -1,7 +1,6 @@
 module Array
 
-// Warning: "This value is for use by compiled F# code and should not be used directly."
-// We skip this for LanguagePrimitives.ErrorStrings.
+// Disables warn:1204 raised by use of LanguagePrimitives.ErrorStrings.*
 #nowarn "1204"
 
 open System.Collections.Generic
@@ -312,26 +311,19 @@ let except (itemsToExclude: seq<'t>) (array: 't[]) ([<Inject>] eq: IEqualityComp
         array |> filterImpl cached.Add
 
 let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'Key>) =
-    let dict = Dictionary<'Key, 'T[]>(eq)
-
-    // Build the groupings
+    let dict = Dictionary<'Key, 'T list>(eq)
+    let keys = ResizeArray()
     for v in array do
         let key = projection v
         match dict.TryGetValue(key) with
-        | true, prev -> pushImpl prev v |> ignore
+        | true, prev ->
+            dict.[key] <- v::prev
         | false, _ ->
-            // Use dynamic array so we can build it up via .push()
-            // Consider benchmarking if another collection type performs better here
-            let prev = [|v|]
-            dict.[key] <- prev
-
-    // Return the array-of-arrays.
-    let result = newDynamicArrayImpl dict.Count
-    let mutable i = 0
-    for group in dict do
-        result.[i] <- group.Key, cons.FromSequence group.Value
-        i <- i + 1
-
+            dict.Add(key, [v])
+            keys.Add(key)
+    let result = newDynamicArrayImpl keys.Count
+    keys |> Seq.iteri (fun i key ->
+        result.[i] <- key, (cons.FromSequence dict.[key] |> reverseImpl))
     result
 
 let inline private emptyImpl (cons: IArrayCons<'T>) = cons.Create(0)
