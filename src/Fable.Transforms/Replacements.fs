@@ -2789,7 +2789,11 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | Some c, "GetFields" -> Helper.CoreCall("Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
         | Some c, "get_Name" ->
             match c with
-            | Value(TypeInfo exprType,_) ->
+            | Value(TypeInfo exprType, loc) ->
+                match exprType with
+                | GenericParam name -> genericTypeInfoError com ctx.InlinePath loc name
+                | _ -> ()
+
                 let fullname = getTypeFullName false exprType
                 let fullname =
                     match fullname.IndexOf("[") with
