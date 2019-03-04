@@ -2,7 +2,6 @@ module Thoth.Json.Decode
 
 open Fable.Core
 open Fable.Core.JsInterop
-open Fable.Import
 
 module Helpers =
     [<Emit("typeof $0")>]
@@ -19,7 +18,7 @@ module Helpers =
     [<Emit("Object.getPrototypeOf($0 || false) === Object.prototype")>]
     let isObject (_ : obj) : bool = jsNative
 
-    let inline isNaN (o: obj) : bool = JS.Number.isNaN(!!o)
+    let inline isNaN (o: obj) : bool = JS.isNaN(!!o)
 
     [<Emit("-2147483648 < $0 && $0 < 2147483647 && ($0 | 0) === $0")>]
     let isValidIntRange (_: obj) : bool = jsNative

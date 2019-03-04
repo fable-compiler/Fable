@@ -31,6 +31,10 @@ type GlobalAttribute() =
 type ImportAttribute(selector: string, from: string) =
     inherit Attribute()
 
+/// Takes the member name from the value it decorates
+type ImportMemberAttribute(from: string) =
+    inherit Attribute()
+
 /// Same as `Import("default", "my-package")`
 type ImportDefaultAttribute(from: string) =
     inherit Attribute()

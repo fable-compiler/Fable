@@ -770,6 +770,8 @@ module Util =
                 Choice1Of3("*", path.Trim()) |> Some
             | AttFullName(Atts.importDefault, AttArguments [(:? string as path)]) ->
                 Choice1Of3("default", path.Trim()) |> Some
+            | AttFullName(Atts.importMember, AttArguments [(:? string as path)]) ->
+                Choice1Of3(Naming.placeholder, path.Trim()) |> Some
             | AttFullName(Atts.emitDeclaration, AttArguments [(:? string as macro)]) ->
                 Choice2Of3(macro) |> Some
             | _ -> None)
@@ -792,6 +794,9 @@ module Util =
                 getImportPath path |> makeCustomImport typ "*" |> Some
             | AttFullName(Atts.importDefault, AttArguments [(:? string as path)]) ->
                 getImportPath path |> makeCustomImport typ "default" |> Some
+            | AttFullName(Atts.importMember, AttArguments [(:? string as path)]) ->
+                let selector = getMemberDisplayName memb
+                getImportPath path |> makeCustomImport typ selector |> Some
             | _ -> None)
 
     let tryGlobalOrImportedEntity (com: ICompiler) (ent: FSharpEntity) =
@@ -810,13 +815,15 @@ module Util =
                 getImportPath path |> makeCustomImport Fable.Any "*" |> Some
             | AttFullName(Atts.importDefault, AttArguments [(:? string as path)]) ->
                 getImportPath path |> makeCustomImport Fable.Any "default" |> Some
+            | AttFullName(Atts.importMember, AttArguments [(:? string as path)]) ->
+                getImportPath path |> makeCustomImport Fable.Any ent.DisplayName |> Some
             | _ -> None)
 
     let isErasedEntity (ent: FSharpEntity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
             | Some(Atts.erase | Atts.stringEnum | Atts.global_
-                    | Atts.import | Atts.importAll | Atts.importDefault) -> true
+                    | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember) -> true
             | _ -> false)
 
     /// Entities coming from assemblies (we don't have access to source code) are candidates for replacement

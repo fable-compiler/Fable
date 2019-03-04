@@ -107,7 +107,9 @@ let parseProjectFile projectPath =
     // get project references
     let projectRefs =
         Regex.Matches(projectText, @"<ProjectReference\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)")
-        |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/"))
+        |> Seq.choose (fun m ->
+            let fsproj = m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/")
+            if fsproj.EndsWith("/Fable.Core.fsproj") then None else Some fsproj)
         |> Seq.toArray
 
     // replace some variables

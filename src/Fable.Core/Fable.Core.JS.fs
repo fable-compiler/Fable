@@ -8,6 +8,7 @@ module JS =
 namespace Fable.Core
 
 open System
+open System.Text.RegularExpressions
 
 module JS =
     type [<AllowNullLiteral>] PropertyDescriptor =
@@ -217,6 +218,12 @@ module JS =
         abstract resolve: value: 'T -> Promise<'T>
         abstract resolve: unit -> Promise<unit>
 
+    and [<AllowNullLiteral>] RegExpConstructor =
+        [<Emit("new $0($1...)")>] abstract Create: pattern: string * ?flags: string -> Regex
+
+    and [<AllowNullLiteral>] ArrayConstructor =
+        abstract isArray: arg: obj -> bool
+
     and [<AllowNullLiteral>] ArrayBuffer =
         abstract byteLength: int with get, set
         abstract slice: ``begin``: int * ?``end``: int -> ArrayBuffer
@@ -282,6 +289,10 @@ module JS =
         [<Emit("$0.buffer")>]
         member __.buffer: ArrayBuffer = jsNative
 
+    type Regex with
+        [<Emit("$0.lastIndex{{=$1}}")>]
+        member __.lastIndex with get(): int = jsNative and set(i): unit = jsNative
+
     let [<Global>] NaN: float = jsNative
     let [<Global>] Infinity: float = jsNative
     let [<Global>] Object: ObjectConstructor = jsNative
@@ -293,6 +304,8 @@ module JS =
     let [<Global>] Set: SetConstructor = jsNative
     let [<Global>] WeakSet: WeakSetConstructor = jsNative
     let [<Global>] Promise: PromiseConstructor = jsNative
+    let [<Global>] RegExp: RegExpConstructor = jsNative
+    let [<Global>] Array: ArrayConstructor = jsNative
     let [<Global>] ArrayBuffer: ArrayBufferConstructor = jsNative
     let [<Global>] DataView: DataViewConstructor = jsNative
     let [<Global>] eval: string -> string = jsNative
@@ -309,5 +322,5 @@ module JS =
     let [<Global>] clearTimeout (token: int): unit = jsNative
     let [<Global>] setInterval(callback: unit -> unit) (ms: int) : int = jsNative
     let [<Global>] clearInterval (token: int): unit = jsNative
-    let [<Emit("debugger;")>] debugger () : unit = jsNative
-    let [<Emit("undefined")>] undefined<'a> : 'a = jsNative
+    let [<Emit("debugger")>] debugger () : unit = jsNative
+    let [<Emit("void 0")>] undefined<'a> : 'a = jsNative

@@ -724,7 +724,7 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
         || Option.isSome meth.LiteralValue
         || meth.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
-            | Some(Atts.erase | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault
+            | Some(Atts.erase | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember
                     | Atts.emit | Atts.emitMethod | Atts.emitConstructor | Atts.emitIndexer | Atts.emitProperty) -> true
             | _ -> false)
         || (match meth.DeclaringEntity with
@@ -855,6 +855,9 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
     com.AddUsedVarName(name)
     match memb.Attributes with
     | ImportAtt(selector, path) ->
+        let selector =
+            if selector = Naming.placeholder then getMemberDisplayName memb
+            else selector
         let typ = makeType com Map.empty memb.FullType
         transformImport com None typ memb.IsMutable isPublic name (makeStrConst selector) (makeStrConst path)
     | EmitDeclarationAtt macro ->
@@ -942,6 +945,9 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
             | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
                 match ent.Attributes with
                 | ImportAtt(selector, path) ->
+                    let selector =
+                        if selector = Naming.placeholder then ent.DisplayName
+                        else selector
                     let name = getEntityDeclarationName com ent
                     com.AddUsedVarName(name)
                     (makeStrConst selector, makeStrConst path)

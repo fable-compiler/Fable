@@ -11,6 +11,7 @@ module Atts =
     let [<Literal>] import = "Fable.Core.ImportAttribute" // typeof<Fable.Core.ImportAttribute>.FullName
     let [<Literal>] importAll = "Fable.Core.ImportAllAttribute" // typeof<Fable.Core.ImportAllAttribute>.FullName
     let [<Literal>] importDefault = "Fable.Core.ImportDefaultAttribute" // typeof<Fable.Core.ImportDefaultAttribute>.FullName
+    let [<Literal>] importMember = "Fable.Core.ImportMemberAttribute" // typeof<Fable.Core.ImportMemberAttribute>.FullName
     let [<Literal>] global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
     let [<Literal>] emit            = "Fable.Core.EmitAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
     let [<Literal>] emitMethod      = "Fable.Core.EmitMethodAttribute" // typeof<Fable.Core.EmitAttribute>.FullName

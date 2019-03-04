@@ -3,11 +3,11 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="2.0.2" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="Util/Util.fs" />
     <Compile Include="Lib.fs" />
     <Compile Include="Lib2.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Fable.Core\Fable.Core.fsproj" />
   </ItemGroup>
 </Project>

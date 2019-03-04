@@ -19,7 +19,7 @@ type Bar(i: int, s: string) =
 let bar: string = importDefault "./js2/lib.js"
 
 /// JSConstructor works
-let BarCons: JsConstructor<int*string,IBar> = import "Bar" "./js2/lib.js"
+let BarCons: JsConstructor = import "Bar" "./js2/lib.js"
 #else
 let foo = "foo"
 

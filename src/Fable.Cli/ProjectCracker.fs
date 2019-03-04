@@ -233,13 +233,15 @@ let fullCrack (projFile: string): CrackedFsproj =
             else
                 (Path.normalizeFullPath line)::src, otherOpts)
     let projRefs =
-        projRefs |> List.map (fun projRef ->
+        projRefs |> List.choose (fun projRef ->
             // Remove dllRefs corresponding to project references
             let projName = Path.GetFileNameWithoutExtension(projRef)
-            let removed = dllRefs.Remove(projName)
-            if not removed then
-                printfn "Couldn't remove project reference %s from dll references" projName
-            Path.normalizeFullPath projRef)
+            if projName = "Fable.Core" then None
+            else
+                let removed = dllRefs.Remove(projName)
+                if not removed then
+                    printfn "Couldn't remove project reference %s from dll references" projName
+                Path.normalizeFullPath projRef |> Some)
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
         dllRefs' |> Seq.choose (fun (dllName, dllPath) ->

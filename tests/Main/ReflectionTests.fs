@@ -434,7 +434,7 @@ let reflectionTests = [
 // string enums, imported and replaced types
 #if FABLE_COMPILER
 open Fable.Core
-// open Fable.Core.Reflection
+open Fable.Core.Reflection
 
 type R1 = { x: int }
 type R2 = { y: int }
@@ -496,24 +496,23 @@ let injectTests = [
         let name = Types.getNameOf<Maybe<list<GenericTestRecord<string>>>>()
         equal false (name = "")
 
-    // TODO!!! Enable these tests when a new Fable.Core version is released
-    // testCase "Can check unions and records without type" <| fun () ->
-    //     let x = box Union20_A
-    //     let y = box { FieldA = 5; FieldB = "foo" }
-    //     isUnion x |> equal true
-    //     isRecord x |> equal false
-    //     isUnion y |> equal false
-    //     isRecord y |> equal true
+    testCase "Can check unions and records without type" <| fun () ->
+        let x = box Union20_A
+        let y = box { FieldA = 5; FieldB = "foo" }
+        isUnion x |> equal true
+        isRecord x |> equal false
+        isUnion y |> equal false
+        isRecord y |> equal true
 
-    // testCase "Can get union values without type" <| fun () ->
-    //     let x = box Union20_A
-    //     let y = Union20_B(5, "foo") |> box
-    //     getCaseTag x |> equal 0
-    //     getCaseTag y |> equal 1
-    //     getCaseName x |> equal "Union20_A"
-    //     getCaseName y |> equal "Union20_B"
-    //     getCaseFields x |> equal [||]
-    //     getCaseFields y |> equal [|5; "foo"|]
+    testCase "Can get union values without type" <| fun () ->
+        let x = box Union20_A
+        let y = Union20_B(5, "foo") |> box
+        getCaseTag x |> equal 0
+        getCaseTag y |> equal 1
+        getCaseName x |> equal "Union20_A"
+        getCaseName y |> equal "Union20_B"
+        getCaseFields x |> equal [||]
+        getCaseFields y |> equal [|5; "foo"|]
 ]
 
 #else
