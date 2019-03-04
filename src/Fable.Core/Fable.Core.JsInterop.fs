@@ -84,18 +84,6 @@ let importDynamic<'T> (path: string): JS.Promise<'T> = jsNative
 /// Used when you need to send an F# record to a JS library accepting only plain JS objects (POJOs)
 let toPlainJsObj(o: 'T): obj = jsNative
 
-[<Obsolete("Not working in Fable 2, please use Thoth.Json")>]
-let toJson(o: 'T): string = jsNative
-
-[<Obsolete("Not working in Fable 2, please use Thoth.Json")>]
-let ofJson<'T>(json: string): 'T = jsNative
-
-[<Obsolete("Doesn't do anything in Fable 2, please remove")>]
-let inflate<'T>(pojo: obj): 'T = jsNative
-
-[<Obsolete("Doesn't do anything in Fable 2, please remove or use `toPlainJsObj`")>]
-let deflate(o: 'T): obj = jsNative
-
 /// Compiles to JS `this` keyword.
 ///
 /// ## Sample

@@ -31,6 +31,14 @@ type GlobalAttribute() =
 type ImportAttribute(selector: string, from: string) =
     inherit Attribute()
 
+/// Same as `Import("default", "my-package")`
+type ImportDefaultAttribute(from: string) =
+    inherit Attribute()
+
+/// Same as `Import("*", "my-package")`
+type ImportAllAttribute(from: string) =
+    inherit Attribute()
+
 /// Function calls will be replaced by inlined JS code.
 /// More info: http://fable.io/docs/interacting.html#emit-attribute
 type EmitAttribute(macro: string) =
@@ -40,13 +48,20 @@ type EmitAttribute(macro: string) =
 type EmitDeclarationAttribute(macro: string) =
     inherit Attribute()
 
-[<Obsolete("PassGenerics doesn't work in Fable 2, please remove the attribute.")>]
-[<AttributeUsage(AttributeTargets.Method)>]
-type PassGenericsAttribute() =
+/// Same as `Emit("$0.methodName($1...)")`
+type EmitMethodAttribute(methodName: string) =
     inherit Attribute()
 
-[<Obsolete("Doesn't do anything in Fable 2, use `Fable.Core.JsInterop.toPlainJsObj` if needed.")>]
-type PojoAttribute() =
+/// Same as `Emit("new $0($1...)")`
+type EmitConstructorAttribute() =
+    inherit Attribute()
+
+/// Same as `Emit("$0[$1]{{=$2}}")`
+type EmitIndexerAttribute() =
+    inherit Attribute()
+
+/// Same as `Emit("$0.propertyName{{=$1}}")`
+type EmitPropertyAttribute(propertyName: string) =
     inherit Attribute()
 
 /// Compile union types as string literals.

@@ -724,10 +724,11 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
         || Option.isSome meth.LiteralValue
         || meth.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
-            | Some(Atts.global_ | Atts.emit | Atts.erase) -> true
+            | Some(Atts.erase | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault
+                    | Atts.emit | Atts.emitMethod | Atts.emitConstructor | Atts.emitIndexer | Atts.emitProperty) -> true
             | _ -> false)
         || (match meth.DeclaringEntity with
-            | Some ent -> isGlobalOrImportedEntity ent
+            | Some ent -> isErasedEntity ent
             | None -> false)
 
 let private transformImplicitConstructor com (ctx: Context)
@@ -945,8 +946,9 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                     com.AddUsedVarName(name)
                     (makeStrConst selector, makeStrConst path)
                     ||> transformImport com None Fable.Any false (not ent.Accessibility.IsPrivate) name
-                // Discard erased unions and string enums
-                | _ when ent.IsFSharpUnion && not (isErasedUnion ent) ->
+                | _ when isErasedEntity ent ->
+                    []
+                | _ when ent.IsFSharpUnion ->
                     let entityName = getEntityDeclarationName com ent
                     com.AddUsedVarName(entityName)
                     // TODO: Check Equality/Comparison attributes

@@ -2,6 +2,7 @@ module QuickTest
 
 // Run a full build (or at least build fable-library) before playing with this file
 // Run `npm run quicktest` to start compiler in watch mode and write your tests below
+// You can check the compiled JS in the "bin" folder within this directory
 // Please don't add this file to your commits
 
 open System

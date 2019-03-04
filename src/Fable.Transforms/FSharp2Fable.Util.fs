@@ -766,6 +766,10 @@ module Util =
         atts |> Seq.tryPick (function
             | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
                 Choice1Of3(selector.Trim(), path.Trim()) |> Some
+            | AttFullName(Atts.importAll, AttArguments [(:? string as path)]) ->
+                Choice1Of3("*", path.Trim()) |> Some
+            | AttFullName(Atts.importDefault, AttArguments [(:? string as path)]) ->
+                Choice1Of3("default", path.Trim()) |> Some
             | AttFullName(Atts.emitDeclaration, AttArguments [(:? string as macro)]) ->
                 Choice2Of3(macro) |> Some
             | _ -> None)
@@ -773,6 +777,9 @@ module Util =
 
     /// Function used to check if calls must be replaced by global idents or direct imports
     let tryGlobalOrImportedMember com typ (memb: FSharpMemberOrFunctionOrValue) =
+        let getImportPath path =
+            lazy getMemberLocation memb
+            |> fixImportedRelativePath com path
         memb.Attributes |> Seq.tryPick (function
             | AttFullName(Atts.global_, att) ->
                 match att with
@@ -780,13 +787,17 @@ module Util =
                     makeTypedIdentNonMangled typ customName |> Fable.IdentExpr |> Some
                 | _ -> getMemberDisplayName memb |> makeTypedIdentNonMangled typ |> Fable.IdentExpr |> Some
             | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
-                let path =
-                    lazy getMemberLocation memb
-                    |> fixImportedRelativePath com path
-                makeCustomImport typ selector path |> Some
+                getImportPath path |> makeCustomImport typ selector |> Some
+            | AttFullName(Atts.importAll, AttArguments [(:? string as path)]) ->
+                getImportPath path |> makeCustomImport typ "*" |> Some
+            | AttFullName(Atts.importDefault, AttArguments [(:? string as path)]) ->
+                getImportPath path |> makeCustomImport typ "default" |> Some
             | _ -> None)
 
     let tryGlobalOrImportedEntity (com: ICompiler) (ent: FSharpEntity) =
+        let getImportPath path =
+            lazy getEntityLocation ent
+            |> fixImportedRelativePath com path
         ent.Attributes |> Seq.tryPick (function
             | AttFullName(Atts.global_, att) ->
                 match att with
@@ -794,22 +805,18 @@ module Util =
                     makeTypedIdentNonMangled Fable.Any customName |> Fable.IdentExpr |> Some
                 | _ -> ent.DisplayName |> makeTypedIdentNonMangled Fable.Any |> Fable.IdentExpr |> Some
             | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
-                let path =
-                    lazy getEntityLocation ent
-                    |> fixImportedRelativePath com path
-                makeCustomImport Fable.Any selector path |> Some
+                getImportPath path |> makeCustomImport Fable.Any selector |> Some
+            | AttFullName(Atts.importAll, AttArguments [(:? string as path)]) ->
+                getImportPath path |> makeCustomImport Fable.Any "*" |> Some
+            | AttFullName(Atts.importDefault, AttArguments [(:? string as path)]) ->
+                getImportPath path |> makeCustomImport Fable.Any "default" |> Some
             | _ -> None)
 
-    let isGlobalOrImportedEntity (ent: FSharpEntity) =
+    let isErasedEntity (ent: FSharpEntity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
-            | Some(Atts.global_ | Atts.import) -> true
-            | _ -> false)
-
-    let isErasedUnion (ent: FSharpEntity) =
-        ent.Attributes |> Seq.exists (fun att ->
-            match att.AttributeType.TryFullName with
-            | Some(Atts.erase | Atts.stringEnum) -> true
+            | Some(Atts.erase | Atts.stringEnum | Atts.global_
+                    | Atts.import | Atts.importAll | Atts.importDefault) -> true
             | _ -> false)
 
     /// Entities coming from assemblies (we don't have access to source code) are candidates for replacement
@@ -925,19 +932,29 @@ module Util =
         | _ -> None
 
     let (|Emitted|_|) com r typ argInfo (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.Attributes with
-        | Try (tryFindAtt Atts.emit) att ->
-            match Seq.tryHead att.ConstructorArguments with
-            | Some(_, (:? string as macro)) ->
+        memb.Attributes |> Seq.tryPick (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some(Naming.StartsWith "Fable.Core.Emit" _ as attFullName) ->
                 let argInfo =
                     // Allow combination of Import and Emit attributes
                     match argInfo, tryGlobalOrImportedMember com Fable.Any memb with
                     | Some argInfo, Some importExpr ->
                         Some { argInfo with Fable.ThisArg = Some importExpr }
                     | _ -> argInfo
-                Fable.Operation(Fable.Emit(macro, argInfo), typ, r) |> Some
-            | _ -> "EmitAttribute must receive a string argument" |> attachRange r |> failwith
-        | _ -> None
+                let macro =
+                    match Seq.tryHead att.ConstructorArguments with
+                    | Some(_, (:? string as macro)) -> macro
+                    | _ -> ""
+                match attFullName with
+                | Atts.emit -> Some macro
+                | Atts.emitMethod -> "$0." + macro + "($1...)" |> Some
+                | Atts.emitConstructor -> "new $0($1...)" |> Some
+                | Atts.emitIndexer -> "$0[$1]{{=$2}}" |> Some
+                | Atts.emitProperty -> "$0." + macro + "{{=$1}}" |> Some
+                | _ -> None
+                |> Option.map (fun macro -> Fable.Operation(Fable.Emit(macro, argInfo), typ, r))
+            | _ -> None
+        )
 
     let (|Imported|_|) com r typ argInfo isModuleValue (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         let importValueType = if Option.isSome argInfo then Fable.Any else typ

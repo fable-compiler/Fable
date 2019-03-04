@@ -80,13 +80,17 @@ function getTransformMacroExpressions(babelTemplate) {
                         }
                         return rep.join(",");
                     })
-                    .replace(/\{\{\$(\d+)\?(.*?)\:(.*?)\}\}/g, (_, g1, g2, g3) => {
+                    .replace(/\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}/g, (_, g1, g2, g3) => {
                         const i = parseInt(g1, 10);
                         return typeof args[i] === "object" && args[i].value ? g2 : g3;
                     })
                     .replace(/\{\{([^\}]*\$(\d+).*?)\}\}/g, (_, g1, g2) => {
                         const i = parseInt(g2, 10);
                         return typeof args[i] === "object" && args[i].type !== "NullLiteral" ? g1 : "";
+                    })
+                    .replace(/\$(\d+)!/, (_, i) => {
+                        const arg = args[parseInt(i, 10)]
+                        return typeof arg === "object" && arg.type === "StringLiteral" ? arg.value : "";
                     });
 
                 // Babel 7 throws error if there're unused arguments, remove them
