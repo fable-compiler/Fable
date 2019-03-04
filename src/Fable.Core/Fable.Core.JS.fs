@@ -217,6 +217,43 @@ module JS =
         abstract resolve: value: 'T -> Promise<'T>
         abstract resolve: unit -> Promise<unit>
 
+    and [<AllowNullLiteral>] ArrayBuffer =
+        abstract byteLength: int with get, set
+        abstract slice: ``begin``: int * ?``end``: int -> ArrayBuffer
+
+    and [<AllowNullLiteral>] ArrayBufferConstructor =
+        [<Emit("new $0($1...)")>] abstract Create: byteLength: int -> ArrayBuffer
+        abstract isView: arg: obj -> bool
+
+    and [<AllowNullLiteral>] ArrayBufferView =
+        abstract buffer: ArrayBuffer
+        abstract byteLength: int
+        abstract byteOffset: int
+
+    and [<AllowNullLiteral>] DataView =
+        abstract buffer: ArrayBuffer
+        abstract byteLength: int
+        abstract byteOffset: int
+        abstract getFloat32: byteOffset: int * ?littleEndian: bool -> float32
+        abstract getFloat64: byteOffset: int * ?littleEndian: bool -> float
+        abstract getInt8: byteOffset: int -> sbyte
+        abstract getInt16: byteOffset: int * ?littleEndian: bool -> int16
+        abstract getInt32: byteOffset: int * ?littleEndian: bool -> int32
+        abstract getUint8: byteOffset: int -> byte
+        abstract getUint16: byteOffset: int * ?littleEndian: bool -> uint16
+        abstract getUint32: byteOffset: int * ?littleEndian: bool -> uint32
+        abstract setFloat32: byteOffset: int * value: float32 * ?littleEndian: bool -> unit
+        abstract setFloat64: byteOffset: int * value: float * ?littleEndian: bool -> unit
+        abstract setInt8: byteOffset: int * value: sbyte -> unit
+        abstract setInt16: byteOffset: int * value: int16 * ?littleEndian: bool -> unit
+        abstract setInt32: byteOffset: int * value: int32 * ?littleEndian: bool -> unit
+        abstract setUint8: byteOffset: int * value: byte -> unit
+        abstract setUint16: byteOffset: int * value: uint16 * ?littleEndian: bool -> unit
+        abstract setUint32: byteOffset: int * value: uint32 * ?littleEndian: bool -> unit
+
+    and [<AllowNullLiteral>] DataViewConstructor =
+        [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?byteLength: float -> DataView
+
     and [<AllowNullLiteral>] Console =
         abstract ``assert``: ?test: bool * ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
         abstract clear: unit -> unit
@@ -238,6 +275,13 @@ module JS =
         abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
         abstract table: ?data: obj -> unit
 
+// Type extensions
+
+    type 'T``[]`` with
+        /// Only valid on numeric arrays (int[], float[]...)
+        [<Emit("$0.buffer")>]
+        member __.buffer: ArrayBuffer = jsNative
+
     let [<Global>] NaN: float = jsNative
     let [<Global>] Infinity: float = jsNative
     let [<Global>] Object: ObjectConstructor = jsNative
@@ -249,6 +293,8 @@ module JS =
     let [<Global>] Set: SetConstructor = jsNative
     let [<Global>] WeakSet: WeakSetConstructor = jsNative
     let [<Global>] Promise: PromiseConstructor = jsNative
+    let [<Global>] ArrayBuffer: ArrayBufferConstructor = jsNative
+    let [<Global>] DataView: DataViewConstructor = jsNative
     let [<Global>] eval: string -> string = jsNative
     let [<Global>] isFinite: float -> bool = jsNative
     let [<Global>] isNaN: float -> bool = jsNative

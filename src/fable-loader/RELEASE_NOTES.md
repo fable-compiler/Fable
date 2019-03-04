@@ -1,3 +1,7 @@
+### 2.1.5
+
+* Update fable-babel-plugins dependency
+
 ### 2.1.4
 
 * Add babelOptions.filename, since it is needed by other Babel plugins @SirUppyPancakes

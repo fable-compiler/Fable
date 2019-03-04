@@ -1,3 +1,8 @@
+### 3.0.0-beta-002
+
+* Array .buffer extension
+* Add Emit and Import attribute aliases
+
 ### 3.0.0-beta-001
 
 * Namespace restructure
