@@ -1,87 +1,11 @@
-module App
+module Fable.Compiler.App
 
-open System.Text.RegularExpressions
 open FSharp.Compiler.SourceCodeServices
-open Platform
+open Fable.Compiler.Platform
+open Fable.Compiler.ProjectParser
 
 let references = Metadata.references_core
 let metadataPath = "/temp/repl/metadata2/" // .NET BCL binaries
-
-let parseProjectFile projectPath =
-    let projectFileName = Path.GetFileName projectPath
-    let projectText = readAllText projectPath
-
-    // remove all comments
-    let projectText = Regex.Replace(projectText, @"<!--[\s\S]*?-->", "")
-
-    // get conditional defines
-    let definesRegex = @"<DefineConstants[^>]*>([^<]*)<\/DefineConstants[^>]*>"
-    let defines =
-        Regex.Matches(projectText, definesRegex)
-        |> Seq.collect (fun m -> m.Groups.[1].Value.Split(';'))
-        |> Seq.append ["FABLE_COMPILER"]
-        |> Seq.map (fun s -> s.Trim())
-        |> Seq.distinct
-        |> Seq.except ["$(DefineConstants)"; ""]
-        |> Seq.toArray
-
-    // get project references
-    let projectRefsRegex = @"<ProjectReference\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
-    let projectRefs =
-        Regex.Matches(projectText, projectRefsRegex)
-        |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/"))
-        |> Seq.toArray
-
-    // replace some variables
-    let projectText = projectText.Replace(@"$(MSBuildProjectDirectory)", ".")
-    let m = Regex.Match(projectText, @"<FSharpSourcesRoot[^>]*>([^<]*)<\/FSharpSourcesRoot[^>]*>")
-    let sourcesRoot = if m.Success then m.Groups.[1].Value.Replace("\\", "/") else ""
-    let projectText = projectText.Replace(@"$(FSharpSourcesRoot)", sourcesRoot)
-
-    // get source files
-    let sourceFilesRegex = @"<Compile\s+[^>]*Include\s*=\s*(""[^""]*|'[^']*)"
-    let sourceFiles =
-        Regex.Matches(projectText, sourceFilesRegex)
-        |> Seq.map (fun m -> m.Groups.[1].Value.TrimStart('"').TrimStart(''').Trim().Replace("\\", "/"))
-        |> Seq.toArray
-
-    (projectFileName, projectRefs, sourceFiles, defines)
-
-let rec parseProject projectPath =
-    let (projectFileName, projectRefs, sourceFiles, defines) = parseProjectFile projectPath
-
-    let projectFileDir = Path.GetDirectoryName projectPath
-    let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
-    let makePath path = if isAbsolutePath path then path else Path.Combine(projectFileDir, path)
-
-    let fileNames = sourceFiles |> Array.map (fun path -> path |> makePath |> normalizeFullPath)
-    let sources = sourceFiles |> Array.map (fun path -> path |> makePath |> readAllText)
-
-    let parsedProjects = projectRefs |> Array.map makePath |> Array.map parseProject
-    let fileNames = fileNames |> Array.append (parsedProjects |> Array.collect (fun (_,x,_,_) -> x))
-    let sources   = sources   |> Array.append (parsedProjects |> Array.collect (fun (_,_,x,_) -> x))
-    let defines   = defines   |> Array.append (parsedProjects |> Array.collect (fun (_,_,_,x) -> x))
-
-    (projectFileName, fileNames, sources, defines |> Array.distinct)
-
-let dedupFileNames fileNames =
-    let comparerIgnoreCase =
-        { new System.Collections.Generic.IEqualityComparer<string> with
-            member __.Equals(x, y) = x.ToLowerInvariant() = y.ToLowerInvariant()
-            member __.GetHashCode(x) = hash (x.ToLowerInvariant()) }
-    let nameSet = System.Collections.Generic.HashSet<string>(comparerIgnoreCase)
-    let padName (name: string) =
-        let pos = name.LastIndexOf(".")
-        let nm = if pos < 0 then name else name.Substring(0, pos)
-        let ext = if pos < 0 then "" else name.Substring(pos)
-        nm + "_" + ext
-    let rec dedup name =
-        if nameSet.Contains(name) then
-            dedup (padName name)
-        else
-            nameSet.Add(name) |> ignore
-            name
-    fileNames |> Array.map dedup
 
 let printErrors showWarnings (errors: FSharpErrorInfo[]) =
     let isWarning (e: FSharpErrorInfo) =
@@ -100,14 +24,16 @@ let printErrors showWarnings (errors: FSharpErrorInfo[]) =
 
 let parseFiles projectPath outDir optimized =
     // parse project
-    let (projectFileName, fileNames, sources, defines) = parseProject projectPath
+    let projSet = makeHashSetIgnoreCase ()
+    let (projectFileName, dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectPath
 
     // dedup file names
-    let fileNames = dedupFileNames fileNames
+    let fileSet = makeHashSetIgnoreCase ()
+    let fileNames = dedupFileNames fileSet fileNames
 
     // create checker
     let readAllBytes dllName = readAllBytes (metadataPath + dllName)
-    let createChecker () = InteractiveChecker.Create(references, readAllBytes, defines, optimize=false)
+    let createChecker () = InteractiveChecker.Create(references, readAllBytes, otherOptions)
     let ms0, checker = measureTime createChecker ()
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0

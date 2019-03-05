@@ -13,6 +13,7 @@
   <ItemGroup>
     <Compile Include="Metadata.fs"/>
     <Compile Include="Platform.fs"/>
+    <Compile Include="ProjectParser.fs"/>
     <Compile Include="bench.fs"/>
   </ItemGroup>
 

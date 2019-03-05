@@ -1,8 +1,8 @@
-module App
+module Fable.Compiler.App
 
 open FSharp.Compiler
 open FSharp.Compiler.SourceCodeServices
-open Platform
+open Fable.Compiler.Platform
 
 let references = Metadata.references_core
 let metadataPath = "/temp/repl/metadata2/" // .NET BCL binaries
