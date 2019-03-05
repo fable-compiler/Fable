@@ -285,17 +285,6 @@ module JS =
         abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
         abstract table: ?data: obj -> unit
 
-// Type extensions
-
-    type 'T``[]`` with
-        /// Only valid on numeric arrays (int[], float[]...)
-        [<Emit("$0.buffer")>]
-        member __.buffer: ArrayBuffer = jsNative
-
-    type Regex with
-        [<Emit("$0.lastIndex{{=$1}}")>]
-        member __.lastIndex with get(): int = jsNative and set(i): unit = jsNative
-
     let [<Global>] Array: ArrayConstructor = jsNative
     let [<Global>] Number: NumberConstructor = jsNative
     let [<Global>] NaN: float = jsNative
