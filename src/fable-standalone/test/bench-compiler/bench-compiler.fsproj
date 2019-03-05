@@ -7,11 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="2.0.3" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../../Fable.Core/Fable.Core.fsproj" />
     <ProjectReference Include="../../src/Fable.Standalone.fsproj" />
   </ItemGroup>
 

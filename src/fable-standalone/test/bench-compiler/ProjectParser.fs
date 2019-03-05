@@ -1,6 +1,7 @@
 module Fable.Compiler.ProjectParser
 
 open Fable.Compiler.Platform
+open System.Collections.Generic
 open System.Text.RegularExpressions
 
 let (|Regex|_|) (pattern: string) (input: string) =
@@ -127,7 +128,33 @@ let parseProjectFile projectPath =
     let otherOptions = parseCompilerOptions projectText
     (projectFileName, dllRefs, projectRefs, sourceFiles, otherOptions)
 
-let rec parseProject (projectPath: string) =
+let makeHashSetIgnoreCase () =
+    let equalityComparerIgnoreCase =
+        { new IEqualityComparer<string> with
+            member __.Equals(x, y) = x.ToLowerInvariant() = y.ToLowerInvariant()
+            member __.GetHashCode(x) = hash (x.ToLowerInvariant()) }
+    HashSet<string>(equalityComparerIgnoreCase)
+
+let dedupProjectRefs (projSet: HashSet<string>) projectRefs =
+    let newRefs = projectRefs |> Array.filter (fun x -> projSet.Contains(x) |> not)
+    projSet.UnionWith(newRefs)
+    newRefs
+
+let dedupFileNames (fileSet: HashSet<string>) fileNames =
+    let padName (fileName: string) =
+        let pos = fileName.LastIndexOf(".")
+        let nm = if pos < 0 then fileName else fileName.Substring(0, pos)
+        let ext = if pos < 0 then "" else fileName.Substring(pos)
+        nm + "_" + ext
+    let rec dedup fileName =
+        if fileSet.Contains(fileName) then
+            dedup (padName fileName)
+        else
+            fileSet.Add(fileName) |> ignore
+            fileName
+    fileNames |> Array.map dedup
+
+let rec parseProject (projSet: HashSet<string>) (projectPath: string) =
     let (projectFileName, dllRefs, projectRefs, sourceFiles, otherOptions) =
         if projectPath.EndsWith(".fsx")
         then parseProjectScript projectPath
@@ -135,34 +162,18 @@ let rec parseProject (projectPath: string) =
 
     let projectFileDir = Path.GetDirectoryName projectPath
     let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
-    let makePath path = if isAbsolutePath path then path else Path.Combine(projectFileDir, path)
+    let makePath path =
+        if isAbsolutePath path then path
+        else Path.Combine(projectFileDir, path)
+        |> normalizeFullPath
 
-    let sourcePaths = sourceFiles |> Array.map (fun path -> path |> makePath |> normalizeFullPath)
-    let sourceTexts = sourceFiles |> Array.map (fun path -> path |> makePath |> readAllText)
+    let sourcePaths = sourceFiles |> Array.map makePath
+    let sourceTexts = sourcePaths |> Array.map readAllText
 
      // parse and combine all referenced projects into one big project
-    let parsedProjects = projectRefs |> Array.map makePath |> Array.map parseProject
+    let parsedProjects = projectRefs |> Array.map makePath |> dedupProjectRefs projSet |> Array.map (parseProject projSet)
     let sourcePaths  = sourcePaths  |> Array.append (parsedProjects |> Array.collect (fun (_,_,x,_,_) -> x))
     let sourceTexts  = sourceTexts  |> Array.append (parsedProjects |> Array.collect (fun (_,_,_,x,_) -> x))
     let otherOptions = otherOptions |> Array.append (parsedProjects |> Array.collect (fun (_,_,_,_,x) -> x))
 
     (projectFileName, dllRefs, sourcePaths, sourceTexts, otherOptions |> Array.distinct)
-
-let dedupFileNames fileNames =
-    let comparerIgnoreCase =
-        { new System.Collections.Generic.IEqualityComparer<string> with
-            member __.Equals(x, y) = x.ToLowerInvariant() = y.ToLowerInvariant()
-            member __.GetHashCode(x) = hash (x.ToLowerInvariant()) }
-    let nameSet = System.Collections.Generic.HashSet<string>(comparerIgnoreCase)
-    let padName (name: string) =
-        let pos = name.LastIndexOf(".")
-        let nm = if pos < 0 then name else name.Substring(0, pos)
-        let ext = if pos < 0 then "" else name.Substring(pos)
-        nm + "_" + ext
-    let rec dedup name =
-        if nameSet.Contains(name) then
-            dedup (padName name)
-        else
-            nameSet.Add(name) |> ignore
-            name
-    fileNames |> Array.map dedup

@@ -432,7 +432,7 @@ module Util =
             match Map.tryFind name genMap with
             | Some t -> t
             | None ->
-                Replacements.genericTypeInfoError com [] r name
+                Replacements.genericTypeInfoError name |> addError com [] r
                 NullLiteral () :> Expression
         | Fable.Unit    -> primitiveTypeInfo "unit"
         | Fable.Boolean -> primitiveTypeInfo "bool"

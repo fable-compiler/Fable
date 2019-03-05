@@ -8,6 +8,6 @@
     <Compile Include="Lib2.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Fable.Core\Fable.Core.fsproj" />
+    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
 </Project>
