@@ -1,12 +1,14 @@
-module Platform
+module Fable.Compiler.Platform
 
-#if DOTNET_FILE_SYSTEM
+let __dirname = "."
+
+#if DOTNET_FILE_SYSTEM && !FABLE_COMPILER
 
 open System.IO
 
 let readAllBytes (filePath: string) = File.ReadAllBytes(filePath)
 let readAllText (filePath: string) = File.ReadAllText(filePath, System.Text.Encoding.UTF8)
-let writeAllText (filePath: string) (text:string) = File.WriteAllText(filePath, text)
+let writeAllText (filePath: string) (text: string) = File.WriteAllText(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let sw = System.Diagnostics.Stopwatch.StartNew()
@@ -15,12 +17,12 @@ let measureTime (f: 'a -> 'b) x =
     sw.ElapsedMilliseconds, res
 
 let normalizeFullPath (path: string) =
-    System.IO.Path.GetFullPath(path).Replace('\\', '/')
+    Path.GetFullPath(path).Replace('\\', '/')
 
 let getRelativePath (pathFrom: string) (pathTo: string) =
-    System.IO.Path.GetRelativePath(pathFrom, pathTo).Replace('\\', '/')
+    Path.GetRelativePath(pathFrom, pathTo).Replace('\\', '/')
 
-#else // !DOTNET_FILE_SYSTEM
+#else
 
 open Fable.Core.JsInterop
 
@@ -37,13 +39,13 @@ type private IPath =
     abstract resolve: string -> string
     abstract relative: string * string -> string
 
-let private File: IFileSystem = importAll "fs"
+let private FileSystem: IFileSystem = importAll "fs"
 let private Process: IProcess = importAll "process"
 let private Path: IPath = importAll "path"
 
-let readAllBytes (filePath: string) = File.readFileSync(filePath)
-let readAllText (filePath: string) = File.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
-let writeAllText (filePath: string) (text:string) = File.writeFileSync(filePath, text)
+let readAllBytes (filePath: string) = FileSystem.readFileSync(filePath)
+let readAllText (filePath: string) = FileSystem.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
+let writeAllText (filePath: string) (text: string) = FileSystem.writeFileSync(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
     let startTime = Process.hrtime()
@@ -67,10 +69,20 @@ module Path =
             else (path1.TrimEnd [|'\\';'/'|]) + "/"
         path1 + (path2.TrimStart [|'\\';'/'|])
 
+    let ChangeExtension (path: string, ext: string) =
+        let i = path.LastIndexOf(".")
+        if i < 0 then path
+        else path.Substring(0, i) + ext
+
     let GetFileName (path: string) =
         let normPath = path.Replace("\\", "/").TrimEnd('/')
         let i = normPath.LastIndexOf("/")
         normPath.Substring(i + 1)
+
+    let GetFileNameWithoutExtension (path: string) =
+        let path = GetFileName path
+        let i = path.LastIndexOf(".")
+        path.Substring(0, i)
 
     let GetDirectoryName (path: string) =
         let normPath = path.Replace("\\", "/")

@@ -13,8 +13,8 @@
     "bench-dotnet": "dotnet run -c Release -p fcs-fable-bench.fsproj ../fcs-fable.fsproj"
   },
   "devDependencies": {
-    "@babel/core": "^7.2.0",
+    "@babel/core": "^7.3.4",
     "@babel/plugin-transform-modules-commonjs": "^7.2.0",
-    "fable-splitter": "2.0.2"
+    "fable-splitter": "^2.1.5"
   }
 }
