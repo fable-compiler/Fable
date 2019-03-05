@@ -19,10 +19,10 @@ module JS =
         abstract get: unit -> obj
         abstract set: v: obj -> unit
 
-    and [<AllowNullLiteral>] Array =
+    and [<AllowNullLiteral>] ArrayConstructor =
         abstract isArray: arg: obj -> bool
 
-    and [<AllowNullLiteral>] Number =
+    and [<AllowNullLiteral>] NumberConstructor =
         abstract isNaN: float -> bool
 
     and [<AllowNullLiteral>] Object =
@@ -296,8 +296,8 @@ module JS =
         [<Emit("$0.lastIndex{{=$1}}")>]
         member __.lastIndex with get(): int = jsNative and set(i): unit = jsNative
 
-    let [<Global>] Array: Array = jsNative
-    let [<Global>] Number: Number = jsNative
+    let [<Global>] Array: ArrayConstructor = jsNative
+    let [<Global>] Number: NumberConstructor = jsNative
     let [<Global>] NaN: float = jsNative
     let [<Global>] Infinity: float = jsNative
     let [<Global>] Object: ObjectConstructor = jsNative
