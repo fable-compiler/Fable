@@ -27,10 +27,12 @@ type CmdLineOptions = {
 
 let parseFiles projectPath outDir options =
     // parse project
-    let (projectFileName, dllRefs, fileNames, sources, otherOptions) = parseProject projectPath
+    let projSet = makeHashSetIgnoreCase ()
+    let (projectFileName, dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectPath
 
     // dedup file names
-    let fileNames = dedupFileNames fileNames
+    let fileSet = makeHashSetIgnoreCase ()
+    let fileNames = dedupFileNames fileSet fileNames
 
     // find reference dlls
     let dllRefMap = dllRefs |> Seq.map (fun x -> Path.GetFileName x, x) |> Map

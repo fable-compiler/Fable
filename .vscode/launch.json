@@ -48,23 +48,23 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "bench-compiler (Node)",
+            "name": "bench-compile tests (Node)",
             "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
-            "args": ["../../../../../fable-test/fable-test.fsproj", "out-test"],
+            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
             "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
             "type": "coreclr",
             "request": "launch",
-            "name": "bench-compiler (.NET)",
+            "name": "bench-compile tests (.NET)",
             "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp2.1/bench-compiler.dll",
-            "args": ["../../../../../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],
+            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {
             "type": "node",
             "request": "launch",
-            "name": "transform tests",
+            "name": "transform tests to JS",
             "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/transform.js",
             "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "${workspaceRoot}/build/fable-library", "--commonjs"],
             "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"

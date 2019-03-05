@@ -19,6 +19,12 @@ module JS =
         abstract get: unit -> obj
         abstract set: v: obj -> unit
 
+    and [<AllowNullLiteral>] Array =
+        abstract isArray: arg: obj -> bool
+
+    and [<AllowNullLiteral>] Number =
+        abstract isNaN: float -> bool
+
     and [<AllowNullLiteral>] Object =
         abstract toString: unit -> string
         abstract toLocaleString: unit -> string
@@ -221,9 +227,6 @@ module JS =
     and [<AllowNullLiteral>] RegExpConstructor =
         [<Emit("new $0($1...)")>] abstract Create: pattern: string * ?flags: string -> Regex
 
-    and [<AllowNullLiteral>] ArrayConstructor =
-        abstract isArray: arg: obj -> bool
-
     and [<AllowNullLiteral>] ArrayBuffer =
         abstract byteLength: int with get, set
         abstract slice: ``begin``: int * ?``end``: int -> ArrayBuffer
@@ -293,6 +296,8 @@ module JS =
         [<Emit("$0.lastIndex{{=$1}}")>]
         member __.lastIndex with get(): int = jsNative and set(i): unit = jsNative
 
+    let [<Global>] Array: Array = jsNative
+    let [<Global>] Number: Number = jsNative
     let [<Global>] NaN: float = jsNative
     let [<Global>] Infinity: float = jsNative
     let [<Global>] Object: ObjectConstructor = jsNative
@@ -305,7 +310,6 @@ module JS =
     let [<Global>] WeakSet: WeakSetConstructor = jsNative
     let [<Global>] Promise: PromiseConstructor = jsNative
     let [<Global>] RegExp: RegExpConstructor = jsNative
-    let [<Global>] Array: ArrayConstructor = jsNative
     let [<Global>] ArrayBuffer: ArrayBufferConstructor = jsNative
     let [<Global>] DataView: DataViewConstructor = jsNative
     let [<Global>] eval: string -> string = jsNative
