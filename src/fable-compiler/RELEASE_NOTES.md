@@ -1,3 +1,9 @@
+### 2.2.0-beta-016
+
+* Fix #1769: Handle empty strings when parsing dates @Zaid-Ajaj
+* Raise type resolve error for non-inlined functions requiring Type.Name @Zaid-Ajaj
+* Emit attribute aliases
+
 ### 2.2.0-beta-015
 
 * Improve sourcemaps

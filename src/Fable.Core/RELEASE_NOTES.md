@@ -1,3 +1,7 @@
+### 3.0.0-beta-003
+
+* Add some missing JS APIs
+
 ### 3.0.0-beta-002
 
 * Array .buffer extension
