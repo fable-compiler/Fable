@@ -276,3 +276,12 @@ module Async =
         | Some x -> return x
         | None -> return! f ()
     }
+
+module File =
+    open System.IO
+
+    /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
+    let readAllTextNonBlocking (path: string) =
+        use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+        use textReader = new StreamReader(fileStream)
+        textReader.ReadToEnd()
