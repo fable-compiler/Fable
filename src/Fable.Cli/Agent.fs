@@ -10,20 +10,14 @@ open FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open ProjectCracker
 
-/// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
-let readAllText path =
-    use fileStream = new IO.FileStream(path, IO.FileMode.Open, IO.FileAccess.Read, IO.FileShare.ReadWrite)
-    use textReader = new IO.StreamReader(fileStream)
-    textReader.ReadToEnd()
-
 type File(normalizedFullPath: string) =
     let mutable sourceHash = None
     member __.NormalizedFullPath = normalizedFullPath
     member __.ReadSource() =
         match sourceHash with
-        | Some h -> h, lazy readAllText normalizedFullPath
+        | Some h -> h, lazy File.readAllTextNonBlocking normalizedFullPath
         | None ->
-            let source = readAllText normalizedFullPath
+            let source = File.readAllTextNonBlocking normalizedFullPath
             let h = hash source
             sourceHash <- Some h
             h, lazy source
