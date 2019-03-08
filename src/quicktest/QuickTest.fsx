@@ -50,3 +50,5 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+
+printfn "Compiling .fsx within .fsproj works"
