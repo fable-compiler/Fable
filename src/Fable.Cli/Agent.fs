@@ -202,11 +202,14 @@ let updateState (state: Map<string,ProjectExtra>) (msg: Parser.Message) =
         createProject msg msg.path None
         |> addOrUpdateProject state
     | ".fsx" ->
-        match Map.tryFind msg.path state with
-        | Some _ ->
-            createProject msg msg.path None
-            |> addOrUpdateProject state
-        | None ->
+        // For .fsx compiled as project we should recreate the project
+        // in case #load or #r directives have changed, but this makes
+        // watch compilation slower. Ignore it for now.
+        // match Map.tryFind msg.path state with
+        // | Some _ ->
+        //     createProject msg msg.path None
+        //     |> addOrUpdateProject state
+        // | None ->
             (state, msg, msg.path) |||> tryFindAndUpdateProject (fun () ->
                 createProject msg msg.path None
                 |> addOrUpdateProject state)

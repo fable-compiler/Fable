@@ -45,6 +45,22 @@ module Tuple3 =
     let item3 (_,_,z) = z
 
 [<RequireQualifiedAccess>]
+module Array =
+    let mapToList (f: 'a -> 'b) (xs: 'a array) =
+        let mutable li = []
+        for i = xs.Length - 1 downto 0 do
+            li <- (f xs.[i])::li
+        li
+
+    let chooseToList (f: 'a -> 'b option) (xs: 'a array) =
+        let mutable li = []
+        for i = xs.Length - 1 downto 0 do
+            match f xs.[i] with
+            | None -> ()
+            | Some x -> li <- x::li
+        li
+
+[<RequireQualifiedAccess>]
 module List =
     let isSingle = function
         | [_] -> true

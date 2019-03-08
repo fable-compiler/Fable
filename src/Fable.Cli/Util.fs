@@ -8,8 +8,12 @@ module Literals =
   let [<Literal>] FORCE = "force:"
   let [<Literal>] EXIT = "exit"
 
+  /// System references needed to compile Fable projects, see fable-standalone/src/Metadata
   let SYSTEM_CORE_REFERENCES =
-    set [| "System"
+        [| // "Fable.Core"
+           // "FSharp.Core"
+           "mscorlib"
+           "netstandard"
            "System.Collections"
            "System.Collections.Concurrent"
            "System.ComponentModel"
@@ -19,6 +23,8 @@ module Literals =
            "System.Core"
            "System.Diagnostics.Debug"
            "System.Diagnostics.Tracing"
+           "System.Globalization"
+           "System"
            "System.IO"
            "System.Numerics"
            "System.Reflection"
@@ -38,6 +44,7 @@ module Literals =
 
 open System.IO
 open System.Reflection
+open System.Text.RegularExpressions
 
 type IMessageHandler =
     abstract Message: string
@@ -202,28 +209,26 @@ module Process =
         p
 
     // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
-    let runCmd log workingDir exePath args =
-        log (workingDir + "> " + exePath + " " + (args |> String.concat " "))
-
+    let private runProcess (workingDir: string) (exePath: string) (args: string) =
         let logOut = System.Collections.Concurrent.ConcurrentQueue<string>()
         let logErr = System.Collections.Concurrent.ConcurrentQueue<string>()
 
-        let runProcess (workingDir: string) (exePath: string) (args: string) =
-            let psi = System.Diagnostics.ProcessStartInfo()
-            psi.FileName <- exePath
-            psi.WorkingDirectory <- workingDir
-            psi.RedirectStandardOutput <- true
-            psi.RedirectStandardError <- true
-            psi.Arguments <- args
-            psi.CreateNoWindow <- true
-            psi.UseShellExecute <- false
+        let psi = System.Diagnostics.ProcessStartInfo()
+        psi.FileName <- exePath
+        psi.WorkingDirectory <- workingDir
+        psi.RedirectStandardOutput <- true
+        psi.RedirectStandardError <- true
+        psi.Arguments <- args
+        psi.CreateNoWindow <- true
+        psi.UseShellExecute <- false
 
-            use p = new System.Diagnostics.Process()
-            p.StartInfo <- psi
+        use p = new System.Diagnostics.Process()
+        p.StartInfo <- psi
 
-            p.OutputDataReceived.Add(fun ea -> logOut.Enqueue (ea.Data))
-            p.ErrorDataReceived.Add(fun ea -> logErr.Enqueue (ea.Data))
+        p.OutputDataReceived.Add(fun ea -> logOut.Enqueue (ea.Data))
+        p.ErrorDataReceived.Add(fun ea -> logErr.Enqueue (ea.Data))
 
+        let exitCode =
             try
                 p.Start() |> ignore
                 p.BeginOutputReadLine()
@@ -231,18 +236,40 @@ module Process =
                 p.WaitForExit()
                 p.ExitCode
             with ex ->
-                log ("Cannot run: " + ex.Message)
+                logErr.Enqueue ("Cannot run: " + ex.Message)
                 -1
 
-        let exitCode =
+        exitCode, logOut.ToArray(), logErr.ToArray()
+
+    // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
+    let runCmd log workingDir exePath args =
+        log (workingDir + "> " + exePath + " " + (args |> String.concat " "))
+
+        let exitCode, logOut, logErr =
             String.concat " " args
             |> runProcess workingDir exePath
 
-        Array.append (logOut.ToArray()) (logErr.ToArray())
+        Array.append logOut logErr
         |> String.concat "\n"
         |> log
 
         exitCode
+
+    let getNetcoreAssembliesDir() =
+        let matchProcessOutput exe args regexPattern =
+            let _, logOut, _ =
+                runProcess "." exe args
+            Regex.Match(String.concat " " logOut, regexPattern)
+        let nugetCache =
+            matchProcessOutput "dotnet" "nuget locals global-packages --list"
+                               @"info\s*:\s*global-packages\s*:\s*(.+)"
+            |> fun m -> m.Groups.[1].Value.Trim()
+        let hostVersion =
+            matchProcessOutput "dotnet" "--info"
+                               @"Host[\s\S]*?Version\s*:\s*([\d.]+)"
+            |> fun m -> m.Groups.[1].Value
+        let v = hostVersion.Split('.')
+        Path.Combine(nugetCache, "microsoft.netcore.app", hostVersion, "ref", "netcoreapp" + v.[0] + "." + v.[1])
 
 [<RequireQualifiedAccess>]
 module Async =
