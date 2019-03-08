@@ -100,6 +100,8 @@ let checkProject (msg: Parser.Message)
         if not optimized
         then checkedProject.AssemblyContents.ImplementationFiles
         else checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
+    if List.isEmpty implFiles then
+        Log.logAlways "The list of files returned by F# compiler is empty"
     let implFilesMap =
         implFiles |> Seq.map (fun file -> Path.normalizePathAndEnsureFsExtension file.FileName, file) |> dict
     tryGetOption "saveAst" msg.extra |> Option.iter (fun outDir ->
@@ -154,47 +156,45 @@ let sendError (respond: obj->unit) (ex: Exception) =
     Log.always(sprintf "ERROR: %s\n%s" ex.Message stack)
     ["error", ex.Message] |> dict |> respond
 
-let rec findFsprojUpwards originalFile dir =
-    match IO.Directory.GetFiles(dir, "*.fsproj") with
-    | [||] ->
-        let parentDir = IO.Path.GetDirectoryName(dir)
-        if isNull parentDir
-        then failwithf "Cannot find project file for %s. Do you need symlinks:false in your webpack.config?" originalFile
-        else findFsprojUpwards originalFile parentDir
-    | [|projFile|] -> projFile
-    | _ -> failwithf "Found more than one project file for %s, please disambiguate." originalFile
+let findFsprojUpwards originalFile =
+    let rec innerLoop dir =
+        match IO.Directory.GetFiles(dir, "*.fsproj") with
+        | [||] ->
+            let parentDir = IO.Path.GetDirectoryName(dir)
+            if isNull parentDir
+            then failwithf "Cannot find project file for %s. Do you need symlinks:false in your webpack.config?" originalFile
+            else innerLoop parentDir
+        | [|projFile|] -> projFile
+        | _ -> failwithf "Found more than one project file for %s, please disambiguate." originalFile
+    IO.Path.GetDirectoryName(originalFile) |> innerLoop
 
 let addOrUpdateProject state (project: ProjectExtra) =
     let state = Map.add project.ProjectFile project state
     state, project
 
-let tryFindAndUpdateProject state (msg: Parser.Message) sourceFile =
-    let checkIfProjectIsAlreadyInState projFile =
-        let projFile = Path.normalizeFullPath projFile
-        Map.tryFind projFile state
-        |> createProject msg projFile
-        |> addOrUpdateProject state
+let checkIfProjectIsAlreadyInState state msg projFile =
+    let projFile = Path.normalizeFullPath projFile
+    Map.tryFind projFile state
+    |> createProject msg projFile
+    |> addOrUpdateProject state
 
+let tryFindAndUpdateProject onNotFound state (msg: Parser.Message) sourceFile =
     // Check for the `extra.projectFile` option. This is used to
     // disambiguate files referenced by several projects, see #1116
     match msg.extra.TryGetValue("projectFile") with
     | true, projFile ->
         let projFile = Path.normalizeFullPath projFile
-        checkIfProjectIsAlreadyInState projFile
+        checkIfProjectIsAlreadyInState state msg projFile
     | false, _ ->
         state |> Map.tryPick (fun _ (project: ProjectExtra) ->
             if project.ContainsFile(sourceFile)
             then Some project
             else None)
-        |> function
-            | Some project ->
-                Some project
-                |> createProject msg project.ProjectFile
-                |> addOrUpdateProject state
-            | None ->
-                IO.Path.GetDirectoryName(sourceFile)
-                |> findFsprojUpwards sourceFile
-                |> checkIfProjectIsAlreadyInState
+        |> function Some project ->
+                        Some project
+                        |> createProject msg project.ProjectFile
+                        |> addOrUpdateProject state
+                    | None -> onNotFound()
 
 let updateState (state: Map<string,ProjectExtra>) (msg: Parser.Message) =
     match IO.Path.GetExtension(msg.path).ToLower() with
@@ -202,12 +202,18 @@ let updateState (state: Map<string,ProjectExtra>) (msg: Parser.Message) =
         createProject msg msg.path None
         |> addOrUpdateProject state
     | ".fsx" ->
-        // When a script is modified, restart the project with new options
-        // (to check for new references, loaded projects, etc.)
-        createProject msg msg.path None
-        |> addOrUpdateProject state
+        match Map.tryFind msg.path state with
+        | Some _ ->
+            createProject msg msg.path None
+            |> addOrUpdateProject state
+        | None ->
+            (state, msg, msg.path) |||> tryFindAndUpdateProject (fun () ->
+                createProject msg msg.path None
+                |> addOrUpdateProject state)
     | ".fs" ->
-        tryFindAndUpdateProject state msg msg.path
+        (state, msg, msg.path) |||> tryFindAndUpdateProject (fun () ->
+            findFsprojUpwards msg.path
+            |> checkIfProjectIsAlreadyInState state msg)
     | ".fsi" ->
         failwithf "Signature files cannot be compiled to JS: %s" msg.path
     | _ -> failwithf "Not an F# source file: %s" msg.path
