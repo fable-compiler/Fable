@@ -2,7 +2,7 @@ const path = require("path");
 
 module.exports = {
   cli: { path: resolve("../Fable.Cli"), verbose: true },
-  entry: resolve("QuickTest.fsproj"),
+  entry: resolve("QuickTest.fsx"),
 //   outDir: resolve("temp"),
   fable: {
     define: ["DEBUG"]

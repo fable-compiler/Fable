@@ -51,4 +51,4 @@ let testCaseAsync msg f =
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
 
-printfn "Compiling .fsx within .fsproj works"
+printfn "Compiling .fsx works"

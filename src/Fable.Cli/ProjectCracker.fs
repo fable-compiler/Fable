@@ -61,22 +61,26 @@ let getProjectOptionsFromScript (define: string[]) scriptFile: CrackedFsproj lis
     checker.GetProjectOptionsFromScript(scriptFile, File.readAllTextNonBlocking scriptFile,
                                         assumeDotNetFramework=false, otherFlags=otherFlags)
     |> Async.RunSynchronously
-    |> fun (opts, _errors) ->
-        // TODO: Check errors
-        let otherOptions =
-            opts.OtherOptions
-            // HACK to fix https://github.com/fsharp/FSharp.Compiler.Service/issues/847
-            |> Array.map (fun x -> x.Replace("System.Private.CoreLib.dll", "System.Runtime.dll"))
+    |> fun (opts, _errors) -> // TODO: Check errors
+        // The FCS resolver uses a wrong dir for System.XXX.dll refs, we need to replace them
+        let badSystemDllDir = opts.OtherOptions |> Array.pick (fun o ->
+            if o.EndsWith("mscorlib.dll") then IO.Path.GetDirectoryName o.[3..] |> Some else None)
+        let goodSystemDllDir = Process.getNetcoreAssembliesDir()
+        let dllRefs =
+            [ yield! Literals.SYSTEM_CORE_REFERENCES |> Seq.map (fun x -> IO.Path.Combine(goodSystemDllDir, x + ".dll"))
+              yield! opts.OtherOptions |> Seq.choose (fun o ->
+                if o.StartsWith("-r:") then
+                    let dllRef = o.[3..]
+                    if not(dllRef.StartsWith(badSystemDllDir)) then Some dllRef else None
+                else None) ]
         [], { ProjectFile = opts.ProjectFileName
-              SourceFiles = List.ofArray opts.SourceFiles
+              SourceFiles = opts.SourceFiles |> Array.mapToList Path.normalizeFullPath
               ProjectReferences = []
-              DllReferences = []
+              DllReferences = dllRefs
               PackageReferences = []
-              OtherCompilerOptions = List.ofArray otherOptions }
+              OtherCompilerOptions = [] }
 
-let getBasicCompilerArgs (define: string[]) (projFile: string) =
-    if projFile.EndsWith(".fsx") then [||]
-    else
+let getBasicCompilerArgs (define: string[]) =
     [|
         // yield "--debug"
         // yield "--debug:portable"
@@ -217,7 +221,7 @@ let fullCrack (projFile: string): CrackedFsproj =
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
     // Try restoring project
-    do
+    if projFile.EndsWith(".fsproj") then
         Process.runCmd Log.always
             (IO.Path.GetDirectoryName projFile)
             "dotnet" ["restore"; IO.Path.GetFileName projFile]
@@ -409,19 +413,9 @@ let getFullProjectOpts (define: string[]) (rootDir: string) (projFile: string) =
             let dllRefs =
                 // We only keep dllRefs for the main project
                 mainProj.DllReferences
-                // We can filter out system references not needed for Fable projects
-                // though it doesn't seem to improve startup time too much
-                |> Seq.filter (fun path ->
-                    match IO.Path.GetFileNameWithoutExtension(path) with
-                    | "WindowsBase" -> false
-                    | Naming.StartsWith "Microsoft." _ -> false
-                    | (Naming.StartsWith "System." _) as name
-                        when not(Literals.SYSTEM_CORE_REFERENCES.Contains name) -> false
-                    | _ -> true)
-                |> Seq.map (fun r -> "-r:" + r)
-                |> Seq.toArray
+                |> List.mapToArray (fun r -> "-r:" + r)
             let otherOpts = mainProj.OtherCompilerOptions |> Array.ofList
-            [ getBasicCompilerArgs define projFile
+            [ getBasicCompilerArgs define
               otherOpts
               dllRefs ]
             |> Array.concat
