@@ -29,66 +29,6 @@ type TestType5 = class end
 
 type GenericRecord<'A,'B> = { a: 'A; b: 'B }
 
-(*
-type PassingGenericsTest =
-    [<PassGenerics>]
-    static member Foo<'T>(x: int) = typeof<'T>
-    [<PassGenerics>]
-    static member Bar<'T,'U>() = typeof<'U>, typeof<'T>
-
-type PassingGenericsTest2 =
-    [<PassGenerics>]
-    static member OnlyAccept<'T>(msg: obj) =
-        let t = typeof<'T>
-        t = typeof<obj> || msg.GetType() = t
-
-type MessageBus () =
-  let _create topic value = ()
-  [<PassGenerics>]
-  member this.create (value:'t) = "topic1: " + (typeof<'t>.Name)
-  [<PassGenerics>]
-  member this.create (topic, value:'t) = topic + ": " + (typeof<'t>.Name)
-  [<PassGenerics>]
-  member this.optionalArgs (value:'t, ?flag1: bool) =
-    let flag1 = defaultArg flag1 false
-    (sprintf "%b: %s" flag1 (typeof<'t>.Name)).ToLower()
-
-let passGenericsAttributeTests = [
-  testCase "PassGenericsAttribute works" <| fun () ->
-    let t = PassingGenericsTest.Foo<string>(5)
-    let t1, t2 = PassingGenericsTest.Bar<TestType, bool>()
-    #if FABLE_COMPILER
-    box t |> equal (box "string")
-    box t1 |> equal (box "boolean")
-    #endif
-    t |> equal typeof<string>
-    t1 |> equal typeof<bool>
-    t2 |> equal typeof<TestType>
-
-  testCase "Comparing types works with primitives" <| fun () ->
-    PassingGenericsTest2.OnlyAccept<int>(43) |> equal true
-    PassingGenericsTest2.OnlyAccept<string>("hi") |> equal true
-    PassingGenericsTest2.OnlyAccept<string>(43) |> equal false
-
-  testCase "Comparing types works with custom types" <| fun () ->
-    PassingGenericsTest2.OnlyAccept<TestType>(Union1 "bye") |> equal true
-    PassingGenericsTest2.OnlyAccept<TestType>(Union2 "bye") |> equal false
-    PassingGenericsTest2.OnlyAccept<obj>("I'll accept anything") |> equal true
-
-  testCase "Overloads with PassGenericsAttribute work" <| fun () ->
-    let x = { name = "" }
-    let bus = MessageBus()
-    bus.create x |> equal "topic1: Firm"
-    bus.create ("global", x) |> equal "global: Firm"
-
-  testCase "Optional arguments with PassGenericsAttribute work" <| fun () ->
-    let x = { name = "" }
-    let bus = MessageBus()
-    bus.optionalArgs(x) |> equal "false: firm"
-    bus.optionalArgs(x, true) |> equal "true: firm"
-]
-*)
-
 let genericTests = [
   testCase "typedefof works" <| fun () ->
     let tdef1 = typedefof<int list>
@@ -469,7 +409,7 @@ type MyRecord20 =
     { FieldA: int
       FieldB: string }
 
-let injectTests = [
+let fableTests = [
     testCase "ITypeResolver can be injected" <| fun () ->
         let x: R1 = Helper.Make [|box 5|]
         let y: R2 = Helper.Make [|box 10|]
@@ -516,7 +456,7 @@ let injectTests = [
 ]
 
 #else
-let injectTests = []
+let fableTests = []
 #endif
 
 let genericTypeNamesTests =
@@ -525,11 +465,10 @@ let genericTypeNamesTests =
 
 let tests =
     testList "Reflection tests" (
-        // passGenericsAttributeTests
         genericTests
         @ typeNameTests
         @ reflectionTests
-        @ injectTests
+        @ fableTests
     )
 
 #else // OPTIMIZE_FCS

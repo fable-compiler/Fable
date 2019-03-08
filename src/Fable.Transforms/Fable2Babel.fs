@@ -802,6 +802,11 @@ module Util =
 
     let transformBindingExprBody (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         match value with
+        // Check imports with name placeholder
+        | Fable.Import((Fable.Value(Fable.StringConstant Naming.placeholder,_)), path, kind, _, r) ->
+            transformImport com ctx r (makeStrConst var.Name) path kind
+        | Fable.Function(_,Fable.Import((Fable.Value(Fable.StringConstant Naming.placeholder,_)), path, kind, _, r),_) ->
+            transformImport com ctx r (makeStrConst var.Name) path kind
         | Fable.Function(args, body, _) ->
             let args =
                 match args with
@@ -809,9 +814,6 @@ module Util =
                 | Fable.Delegate args -> args
             com.TransformFunction(ctx, Some var.Name, args, body)
             ||> makeFunctionExpression (Some var.Name)
-        // Check imports with name placeholder
-        | Fable.Import((Fable.Value(Fable.StringConstant Naming.placeholder,_)), path, kind, _, r) ->
-            transformImport com ctx r (makeStrConst var.Name) path kind
         | _ ->
             com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
 

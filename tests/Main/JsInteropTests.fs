@@ -282,6 +282,10 @@ let tests =
     testCase "Can use values and functions from global modules" <| fun () ->
         GlobalModule.add 3 4 |> equal 7
         GlobalModule.foo |> equal "bar"
+
+    testCase "Local import with curried signatures works" <| fun () ->
+        let add (x:int) (y:int): int = importMember "./js/1foo.js"
+        add 2 3 |> equal 5
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->
