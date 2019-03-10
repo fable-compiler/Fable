@@ -94,7 +94,7 @@ let checkProject (msg: Parser.Message)
                  (triggerFile: string)
                  (srcFiles: File[])
                  (checker: InteractiveChecker) =
-    Log.logAlways(sprintf "Parsing %s..." (getRelativePath opts.ProjectFileName))
+    Log.always(sprintf "Parsing %s..." (getRelativePath opts.ProjectFileName))
     let checkedProject =
         let fileDic = srcFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
         let sourceReader f = fileDic.[f].ReadSource()
@@ -138,7 +138,7 @@ let createProject (msg: Parser.Message) projFile (prevProject: ProjectExtra opti
     | None ->
         let projectOptions, fableLibraryDir =
             getFullProjectOpts msg.define msg.rootDir projFile
-        Log.logVerbose(lazy
+        Log.verbose(lazy
             let proj = getRelativePath projectOptions.ProjectFileName
             let opts = projectOptions.OtherOptions |> String.concat "\n   "
             sprintf "F# PROJECT: %s\n   %s" proj opts)
@@ -157,7 +157,7 @@ let sendError (respond: obj->unit) (ex: Exception) =
     let rec innerStack (ex: Exception) =
         if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
     let stack = innerStack ex
-    Log.logAlways(sprintf "ERROR: %s\n%s" ex.Message stack)
+    Log.always(sprintf "ERROR: %s\n%s" ex.Message stack)
     ["error", ex.Message] |> dict |> respond
 
 let rec findFsprojUpwards originalFile dir =

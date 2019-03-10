@@ -93,6 +93,8 @@ let startServerWithProcess workingDir port exec args =
     startServer port agent.Post <| fun listen ->
         Async.Start listen
         let p =
+            printfn "CWD: %s" workingDir
+            printfn "%s %s" exec args
             Process.Options(envVars=Map["FABLE_SERVER_PORT", string port])
             |> Process.start workingDir exec args
         Console.CancelKeyPress.Add (fun _ -> killProcessAndServer p)

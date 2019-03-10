@@ -19,7 +19,7 @@ let isSystemPackage (pkgName: string) =
         || pkgName = "Fable.Core"
 
 let logWarningAndReturn (v:'T) str =
-    Log.logAlways("[WARNING] " + str); v
+    Log.always("[WARNING] " + str); v
 
 type FablePackage =
     { Id: string
@@ -117,7 +117,7 @@ let tryGetFablePackage (dllPath: string) =
             match files.Length with
             | 0 -> None
             | 1 -> Some files.[0]
-            | _ -> Log.logAlways("More than one file found in " + dir + " with pattern " + pattern)
+            | _ -> Log.always("More than one file found in " + dir + " with pattern " + pattern)
                    None
         with _ -> None
     let firstWithName localName (els: XElement seq) =
@@ -207,8 +207,7 @@ let fullCrack (projFile: string): CrackedFsproj =
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
     // Try restoring project
     do
-        Process.runCmd
-            Console.WriteLine Console.WriteLine
+        Process.runCmd Log.always
             (IO.Path.GetDirectoryName projFile)
             "dotnet" ["restore"; IO.Path.GetFileName projFile]
         |> ignore
@@ -240,7 +239,7 @@ let fullCrack (projFile: string): CrackedFsproj =
             else
                 let removed = dllRefs.Remove(projName)
                 if not removed then
-                    printfn "Couldn't remove project reference %s from dll references" projName
+                    Log.always("Couldn't remove project reference " + projName + " from dll references")
                 Path.normalizeFullPath projRef |> Some)
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
@@ -350,7 +349,7 @@ let copyFableLibraryAndPackageSources rootDir (pkgs: FablePackage list) =
         else
             if isDirectoryEmpty fableLibrarySource then
                 failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
-            Log.logVerbose(lazy ("fable-library: " + fableLibrarySource))
+            Log.verbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableDir, "fable-library" + "." + Literals.VERSION)
             copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
             fableLibraryTarget
@@ -391,7 +390,7 @@ let getFullProjectOpts (define: string[]) (rootDir: string) (projFile: string) =
                             else None)
                         |> Option.defaultValue path)
                 with ex ->
-                    printfn "Cannot replace files: %s" ex.Message
+                    Log.always("Cannot replace files: " + ex.Message)
                     sourceFiles
         for file in sourceFiles do
             if file.EndsWith(".fs") && not(File.Exists(file)) then

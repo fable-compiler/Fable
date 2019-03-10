@@ -109,16 +109,18 @@ type GlobalParams private (verbose, forcePkgs, fableLibraryPath, workingDir) =
 
 [<RequireQualifiedAccess>]
 module Log =
-  open System
+    open System
 
-  let logVerbose(msg: Lazy<string>) =
-    if GlobalParams.Singleton.Verbose then
-      try // Some long verbose message may conflict with other processes
-        Console.WriteLine(msg.Value)
-      with _ -> ()
+    let writerLock = obj()
 
-  let logAlways(msg: string) =
-    Console.WriteLine(msg)
+    let always (msg: string) =
+        lock writerLock (fun () ->
+            Console.Out.WriteLine(msg)
+            Console.Out.Flush())
+
+    let verbose (msg: Lazy<string>) =
+        if GlobalParams.Singleton.Verbose then
+            always msg.Value
 
 module Json =
     open FSharp.Reflection
@@ -186,8 +188,6 @@ module Process =
             if isWindows
             then "cmd", ("/C \"" + fileName + "\" " + args)
             else fileName, args
-        printfn "CWD: %s" workingDir
-        printfn "%s %s" fileName args
         let p = new Process()
         p.StartInfo.FileName <- fileName
         p.StartInfo.Arguments <- args
@@ -202,7 +202,7 @@ module Process =
         p
 
     // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
-    let runCmd log errorLog workingDir exePath args =
+    let runCmd log workingDir exePath args =
         log (workingDir + "> " + exePath + " " + (args |> String.concat " "))
 
         let logOut = System.Collections.Concurrent.ConcurrentQueue<string>()
@@ -231,15 +231,16 @@ module Process =
                 p.WaitForExit()
                 p.ExitCode
             with ex ->
-                errorLog ("Cannot run: " + ex.Message)
+                log ("Cannot run: " + ex.Message)
                 -1
 
         let exitCode =
             String.concat " " args
             |> runProcess workingDir exePath
 
-        for x in logOut.ToArray() do log x
-        for x in logErr.ToArray() do errorLog x
+        Array.append (logOut.ToArray()) (logErr.ToArray())
+        |> String.concat "\n"
+        |> log
 
         exitCode
 

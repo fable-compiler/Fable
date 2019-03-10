@@ -19,7 +19,7 @@ let rec private loop (server: TcpListener) (buffer: byte[]) (onMessage: MessageH
     let i = stream.Read(buffer, 0, buffer.Length)
     let data = System.Text.Encoding.UTF8.GetString(buffer, 0, i)
     if data = Literals.EXIT then
-        Log.logAlways("Closing Fable daemon...")
+        Log.always("Closing Fable daemon...")
         client.Dispose()
         return ()
     else
@@ -34,7 +34,7 @@ let start port (onMessage: IMessageHandler->unit) =
     // See https://github.com/fable-compiler/Fable/issues/809#issuecomment-294073328
     server.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true)
     server.Start()
-    Log.logAlways(sprintf "Fable (%s) daemon started on port %i" Literals.VERSION port)
+    Log.always(sprintf "Fable (%s) daemon started on port %i" Literals.VERSION port)
     loop server buffer onMessage
 
 let stop port =

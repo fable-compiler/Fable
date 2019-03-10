@@ -109,7 +109,7 @@ let printAst outDir (implFiles: FSharpImplementationFileContents list) =
         let target =
             let fileName = System.IO.Path.GetFileNameWithoutExtension(implFile.FileName)
             Path.Combine(outDir, fileName + ".fs.ast")
-        Log.logVerbose(lazy sprintf "Print AST %s" target)
+        Log.verbose(lazy sprintf "Print AST %s" target)
         printFSharpDecls "" implFile.Declarations
         |> fun lines -> System.IO.File.WriteAllLines(target, lines)
         // printFableDecls fableFile.Declarations

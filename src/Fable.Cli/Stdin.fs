@@ -8,10 +8,11 @@ type MessageHandler(client: StreamWriter, id: string, msg: string) =
     interface IMessageHandler with
         member __.Message = msg
         member __.Respond(writeTo) =
-            client.Write("JSON:" + id + ":")
-            writeTo client
-            client.WriteLine()
-            client.Flush() // Important, don't forget
+            lock Log.writerLock (fun () ->
+                client.Write("JSON:" + id + ":")
+                writeTo client
+                client.WriteLine()
+                client.Flush()) // Important, don't forget
 
 let readLine(client: BinaryReader): string option =
     let buffer = StringBuilder()
