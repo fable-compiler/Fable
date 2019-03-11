@@ -1,4 +1,4 @@
-### 2.2.0-beta-016
+### 2.2.0-beta-017
 
 * Fix #1769: Handle empty strings when parsing dates @Zaid-Ajaj
 * Raise type resolve error for non-inlined functions requiring Type.Name @Zaid-Ajaj
