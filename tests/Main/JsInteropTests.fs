@@ -285,7 +285,7 @@ let tests =
 
     testCase "Local import with curried signatures works" <| fun () ->
         let add (x:int) (y:int): int = importMember "./js/1foo.js"
-        add 2 3 |> equal 5
+        3 |> add 2 |> equal 5
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

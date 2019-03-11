@@ -2,16 +2,17 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <OutputType>Exe</OutputType>
+    <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Expecto" Version="5.1.2" />
     <PackageReference Include="FSharp.Core" Version="4.5.2" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
     <ProjectReference Include="../DllRef/Fable.Tests.DllRef.fsproj" />
     <ProjectReference Include="../../tests_external/Fable.Tests.External.fsproj" />
     <ProjectReference Include="../Project With Spaces/Fable.Tests.Spaces.fsproj" />
-    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util/b.fs" />

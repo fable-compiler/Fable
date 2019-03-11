@@ -42,7 +42,8 @@ let parseFiles projectPath outDir options =
 
     // create checker
     let fable = Fable.Standalone.Main.init ()
-    let otherOptions = Array.append otherOptions [| if options.optimize then yield "--optimize+" |]
+    let optimizeFlag = "--optimize" + (if options.optimize then "+" else "-")
+    let otherOptions = otherOptions |> Array.append [| optimizeFlag |]
     let createChecker () = fable.CreateChecker(references, readAllBytes, otherOptions)
     let ms0, checker = measureTime createChecker ()
     printfn "--------------------------------------------"
@@ -53,7 +54,7 @@ let parseFiles projectPath outDir options =
     let ms1, parseRes = measureTime parseFSharpProject ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
-    let showWarnings = false // turning off warnings for cleaner output
+    let showWarnings = true // turning off warnings for cleaner output
     parseRes.Errors |> printErrors showWarnings
 
     // clear cache to lower memory usage

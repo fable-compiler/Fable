@@ -40,23 +40,23 @@ export function fromSeconds(s: number) {
 }
 
 export function days(ts: number) {
-  return Math.floor(ts as number / 86400000);
+  return Math.floor(ts / 86400000);
 }
 
 export function hours(ts: number) {
-  return Math.floor(ts as number % 86400000 / 3600000);
+  return Math.floor(ts % 86400000 / 3600000);
 }
 
 export function minutes(ts: number) {
-  return Math.floor(ts as number % 3600000 / 60000);
+  return Math.floor(ts % 3600000 / 60000);
 }
 
 export function seconds(ts: number) {
-  return Math.floor(ts as number % 60000 / 1000);
+  return Math.floor(ts % 60000 / 1000);
 }
 
 export function milliseconds(ts: number) {
-  return Math.floor(ts as number % 1000);
+  return Math.floor(ts % 1000);
 }
 
 export function ticks(ts: number /* Long */) {
@@ -64,38 +64,41 @@ export function ticks(ts: number /* Long */) {
 }
 
 export function totalDays(ts: number) {
-  return ts as number / 86400000;
+  return ts / 86400000;
 }
 
 export function totalHours(ts: number) {
-  return ts as number / 3600000;
+  return ts / 3600000;
 }
 
 export function totalMinutes(ts: number) {
-  return ts as number / 60000;
+  return ts / 60000;
 }
 
 export function totalSeconds(ts: number) {
-  return ts as number / 1000;
+  return ts / 1000;
 }
 
 export function negate(ts: number) {
-  return ts as number * -1;
+  return ts * -1;
 }
 
 export function add(ts1: number, ts2: number) {
-  return ts1 as number + ts2 as number;
+  return ts1 + ts2;
 }
 
 export function subtract(ts1: number, ts2: number) {
-  return ts1 as number - ts2 as number;
+  return ts1 - ts2;
 }
+
+export const op_Addition = add;
+export const op_Subtraction = subtract;
 
 export const compare = comparePrimitives;
 export const compareTo = comparePrimitives;
 
 export function duration(x: number) {
-  return Math.abs(x as number);
+  return Math.abs(x);
 }
 
 export function toString(ts: number, format = "c") {

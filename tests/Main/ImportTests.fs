@@ -11,7 +11,7 @@ type IFooImported =
 open Fable.Core
 
 [<Import("*", "./js/1foo.js")>]
-let fooAll: IFooImported = failwith "JS only"
+let fooAll: IFooImported = jsNative
 
 [<Import("MyClass", "./js/1foo.js")>]
 type MyClass() =
@@ -27,8 +27,8 @@ type FooOptional =
     abstract Foo2: x: int * y: string option -> int
     abstract Foo3: x: int * y: string -> int
 
-let square : int -> int = JsInterop.importMember "./js/1foo.js"
-// let add : int -> int -> int = JsInterop.importMember "./js/1foo.js"
+let square: int -> int = JsInterop.importMember "./js/1foo.js"
+// let add: int -> int -> int = JsInterop.importMember "./js/1foo.js"
 #endif
 
 let tests =
@@ -36,7 +36,7 @@ let tests =
     #if FABLE_COMPILER
     testCase "Import with relative paths works" <| fun () ->
         fooAll.foo |> equal "foo"
-        let fooAll2: IFooImported = Fable.Core.JsInterop.importAll "./js/1foo.js"
+        let fooAll2: IFooImported = JsInterop.importAll "./js/1foo.js"
         fooAll2.foo |> equal "foo"
 
     testCase "Symbols in external projects work" <| fun () ->
@@ -56,8 +56,13 @@ let tests =
         // Import attribute
         Fable.Tests.Util4.bar2 |> equal 5
 
-    testCase "Import expressions with methods work" <| fun () -> // See #721
-        Fable.Tests.Util.apply (Func<_,_,_>(fun x y -> x + y)) 2 3 |> equal 5
+    testCase "Import with curried signatures works" <| fun () ->
+        // If the import is in another file and cross-module opt (--crossoptimize+) is enabled,
+        // the resulting import path may be wrong if the other module is not in the same folder.
+        let apply = Fable.Tests.Util.apply
+        // let apply (f:Func<int,int,int>) (x:int) (y:int): int = JsInterop.importMember "./js/1foo.js"
+        let add a b = apply (Func<_,_,_>(fun x y -> x + y)) a b
+        3 |> add 2 |> equal 5
 
     testCase "Import with relative paths from referenced dll works" <| fun () ->
         Lib.モジュール.one |> equal 1
@@ -116,7 +121,7 @@ let tests =
         c2.value |> equal "hoho"
 
     testCase "Only omitted optional arguments are removed" <| fun () -> // See #231, #640
-        let x: FooOptional = Fable.Core.JsInterop.import "fooOptional" "./js/1foo.js"
+        let x: FooOptional = JsInterop.import "fooOptional" "./js/1foo.js"
         x.Foo1(5) |> equal 1
         x.Foo1(5, "3") |> equal 2
         x.Foo2(5, None) |> equal 2
