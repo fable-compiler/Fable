@@ -227,9 +227,8 @@ export function tryParse(v: any): [boolean, IDateTime] {
   try {
     // if value is null or whitespace, parsing fails
     if (v === null || v.trim() === "") {
-       return [false, minValue()];
+      return [false, minValue()];
     }
-    
     return [true, parse(v)];
   } catch (_err) {
     return [false, minValue()];

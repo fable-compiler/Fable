@@ -5,7 +5,9 @@ open System
 [<AutoOpen>]
 module Util =
     /// Used to indicate that a member is only implemented in native Javascript
-    let jsNative<'T> : 'T = failwith "JS only"
+    let inline jsNative<'T> : 'T =
+        try failwith "JS only" // try/catch is just for padding so it doesn't get optimized
+        with ex -> raise ex
 
     /// Reads the name of an identifier, a property or a type
     let nameof(expr: 'a): string = jsNative

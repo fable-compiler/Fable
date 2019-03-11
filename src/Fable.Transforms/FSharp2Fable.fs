@@ -294,7 +294,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs callee args memb
 
-    | ByrefArgToTupleOptimized (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, elseExpr) ->
+    | ByrefArgToTupleOptimizedIf (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, elseExpr) ->
         let ctx, ident = bindIdentFrom com ctx outArg
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx membArgs
@@ -306,6 +306,22 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let thenExpr = Fable.Get(identExpr, Fable.TupleGet 1, typ, None)
         let! elseExpr = transformExpr com ctx elseExpr
         let body = Fable.IfThenElse(guardExpr, thenExpr, elseExpr, None)
+        return Fable.Let([ident, tupleExpr], body)
+
+    | ByrefArgToTupleOptimizedLet (id1, id2, callee, memb, ownerGenArgs, membGenArgs, membArgs, restExpr) ->
+        let ctx, ident1 = bindIdentFrom com ctx id1
+        let ctx, ident2 = bindIdentFrom com ctx id2
+        let! callee = transformExprOpt com ctx callee
+        let! args = transformExprList com ctx membArgs
+        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
+        let typ = makeType com ctx.GenericArgs fsExpr.Type
+        let ident = makeIdentUnique com "tuple"
+        let identExpr = Fable.IdentExpr ident
+        let tupleExpr = makeCallFrom com ctx None typ false genArgs callee args memb
+        let id1Expr = Fable.Get(identExpr, Fable.TupleGet 0, typ, None)
+        let id2Expr = Fable.Get(identExpr, Fable.TupleGet 1, typ, None)
+        let! restExpr = transformExpr com ctx restExpr
+        let body = Fable.Let([ident1, id1Expr], Fable.Let([ident2, id2Expr], restExpr))
         return Fable.Let([ident, tupleExpr], body)
 
     | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->

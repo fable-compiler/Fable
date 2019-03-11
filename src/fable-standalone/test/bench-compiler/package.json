@@ -22,7 +22,6 @@
     "build-tests-transform": "node transform ../../../../tests/Main/Fable.Tests.fsproj out-tests ../../../../build/fable-library --commonjs",
     "mocha": "node ../../../../node_modules/mocha/bin/mocha --colors",
     "tests": "npm run mocha out-tests/Main.js",
-    "tests-opt": "npm run mocha out-tests-opt/Main.js",
     "profile": "node --prof out-node/app bench-compiler.fsproj out-node2",
     "process": "node --prof-process --preprocess -j isolate-*.log > profile.v8log.json",
     "flamegraph": "speedscope profile.v8log.json",

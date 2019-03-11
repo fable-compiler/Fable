@@ -42,7 +42,8 @@ let parseFiles projectPath outDir options =
 
     // create checker
     let fable = initFable ()
-    let otherOptions = Array.append otherOptions [| if options.optimize then yield "--optimize+" |]
+    let optimizeFlag = "--optimize" + (if options.optimize then "+" else "-")
+    let otherOptions = otherOptions |> Array.append [| optimizeFlag |]
     let createChecker () = fable.CreateChecker(references, readAllBytes, otherOptions)
     let ms0, checker = measureTime createChecker ()
     printfn "fable-compiler-js v%s" (getVersion())
