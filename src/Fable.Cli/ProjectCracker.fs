@@ -49,82 +49,6 @@ let makeProjectOptions project sources otherOptions: FSharpProjectOptions =
       ExtraProjectInfo = None
       Stamp = None }
 
-let getProjectOptionsFromScript (define: string[]) scriptFile: CrackedFsproj list * CrackedFsproj =
-    let otherFlags = [|
-        yield "--target:library"
-#if !NETFX
-        yield "--targetprofile:netcore"
-#endif
-        for constant in define do yield "--define:" + constant
-    |]
-    let checker = FSharpChecker.Create()
-    checker.GetProjectOptionsFromScript(scriptFile, File.readAllTextNonBlocking scriptFile,
-                                        assumeDotNetFramework=false, otherFlags=otherFlags)
-    |> Async.RunSynchronously
-    |> fun (opts, _errors) -> // TODO: Check errors
-        // The FCS resolver uses a wrong dir for System.XXX.dll refs, we need to replace them
-        let badSystemDllDir = opts.OtherOptions |> Array.pick (fun o ->
-            if o.EndsWith("mscorlib.dll") then IO.Path.GetDirectoryName o.[3..] |> Some else None)
-        let goodSystemDllDir = Process.getNetcoreAssembliesDir()
-        let dllRefs =
-            [ yield! Literals.SYSTEM_CORE_REFERENCES |> Seq.map (fun x -> IO.Path.Combine(goodSystemDllDir, x + ".dll"))
-              yield! opts.OtherOptions |> Seq.choose (fun o ->
-                if o.StartsWith("-r:") then
-                    let dllRef = o.[3..]
-                    if not(dllRef.StartsWith(badSystemDllDir)) then Some dllRef else None
-                else None) ]
-        [], { ProjectFile = opts.ProjectFileName
-              SourceFiles = opts.SourceFiles |> Array.mapToList Path.normalizeFullPath
-              ProjectReferences = []
-              DllReferences = dllRefs
-              PackageReferences = []
-              OtherCompilerOptions = [] }
-
-let getBasicCompilerArgs (define: string[]) =
-    [|
-        // yield "--debug"
-        // yield "--debug:portable"
-        yield "--noframework"
-        yield "--nologo"
-        yield "--simpleresolution"
-        yield "--nocopyfsharpcore"
-        // yield "--define:DEBUG"
-        for constant in define do
-            yield "--define:" + constant
-        yield "--optimize-"
-        // yield "--nowarn:NU1603,NU1604,NU1605,NU1608"
-        // yield "--warnaserror:76"
-        yield "--warn:3"
-        yield "--fullpaths"
-        yield "--flaterrors"
-        yield "--target:library"
-#if !NETFX
-        yield "--targetprofile:netstandard"
-#endif
-    |]
-
-let sortFablePackages (pkgs: FablePackage list) =
-    ([], pkgs) ||> List.fold (fun acc pkg ->
-        match List.tryFindIndexBack (fun x -> pkg.Dependencies.Contains(x.Id)) acc with
-        | None -> pkg::acc
-        | Some targetIdx ->
-            let rec insertAfter x targetIdx i before after =
-                match after with
-                | justBefore::after ->
-                    if i = targetIdx then
-                        if i > 0 then
-                            let dependent, nonDependent =
-                                List.rev before |> List.partition (fun x ->
-                                    x.Dependencies.Contains(pkg.Id))
-                            nonDependent @ justBefore::x::dependent @ after
-                        else
-                            (justBefore::before |> List.rev) @ x::after
-                    else
-                        insertAfter x targetIdx (i + 1) (justBefore::before) after
-                | [] -> failwith "Unexpected empty list in insertAfter"
-            insertAfter pkg targetIdx 0 [] acc
-    )
-
 let tryGetFablePackage (dllPath: string) =
     let tryFileWithPattern dir pattern =
         try
@@ -175,6 +99,96 @@ let tryGetFablePackage (dllPath: string) =
                 |> Set
             } |> Some
         | _ -> None
+
+let sortFablePackages (pkgs: FablePackage list) =
+    ([], pkgs) ||> List.fold (fun acc pkg ->
+        match List.tryFindIndexBack (fun x -> pkg.Dependencies.Contains(x.Id)) acc with
+        | None -> pkg::acc
+        | Some targetIdx ->
+            let rec insertAfter x targetIdx i before after =
+                match after with
+                | justBefore::after ->
+                    if i = targetIdx then
+                        if i > 0 then
+                            let dependent, nonDependent =
+                                List.rev before |> List.partition (fun x ->
+                                    x.Dependencies.Contains(pkg.Id))
+                            nonDependent @ justBefore::x::dependent @ after
+                        else
+                            (justBefore::before |> List.rev) @ x::after
+                    else
+                        insertAfter x targetIdx (i + 1) (justBefore::before) after
+                | [] -> failwith "Unexpected empty list in insertAfter"
+            insertAfter pkg targetIdx 0 [] acc
+    )
+
+let getProjectOptionsFromScript (define: string[]) scriptFile: CrackedFsproj list * CrackedFsproj =
+    let otherFlags = [|
+        yield "--target:library"
+#if !NETFX
+        yield "--targetprofile:netcore"
+#endif
+        for constant in define do yield "--define:" + constant
+    |]
+    let checker = FSharpChecker.Create()
+    checker.GetProjectOptionsFromScript(scriptFile, File.readAllTextNonBlocking scriptFile,
+                                        assumeDotNetFramework=false, otherFlags=otherFlags)
+    |> Async.RunSynchronously
+    |> fun (opts, _errors) -> // TODO: Check errors
+        // The FCS resolver uses a wrong dir for System.XXX.dll refs, we need to replace them
+        let badSystemDllDir = opts.OtherOptions |> Array.pick (fun o ->
+            if o.EndsWith("mscorlib.dll") then IO.Path.GetDirectoryName o.[3..] |> Some else None)
+        let goodSystemDllDir = Process.getNetcoreAssembliesDir()
+        let dllRefs =
+            [ yield! Literals.SYSTEM_CORE_REFERENCES |> Seq.map (fun x -> IO.Path.Combine(goodSystemDllDir, x + ".dll"))
+              yield! opts.OtherOptions |> Seq.choose (fun o ->
+                if o.StartsWith("-r:") then
+                    let dllRef = o.[3..]
+                    if not(dllRef.StartsWith(badSystemDllDir)) then Some dllRef else None
+                else None) ]
+
+        let fablePkgs =
+            opts.OtherOptions
+            |> List.ofArray
+            |> List.map (fun line ->
+                if line.StartsWith("-r:") then
+                    let dllPath = line.Substring(3)
+                    tryGetFablePackage dllPath
+                else
+                    None
+            )
+            |> List.choose id
+            |> sortFablePackages
+
+        [], { ProjectFile = opts.ProjectFileName
+              SourceFiles = opts.SourceFiles |> Array.mapToList Path.normalizeFullPath
+              ProjectReferences = []
+              DllReferences = dllRefs
+              PackageReferences = fablePkgs
+              OtherCompilerOptions = [] }
+
+let getBasicCompilerArgs (define: string[]) =
+    [|
+        // yield "--debug"
+        // yield "--debug:portable"
+        yield "--noframework"
+        yield "--nologo"
+        yield "--simpleresolution"
+        yield "--nocopyfsharpcore"
+        // yield "--define:DEBUG"
+        for constant in define do
+            yield "--define:" + constant
+        yield "--optimize-"
+        // yield "--nowarn:NU1603,NU1604,NU1605,NU1608"
+        // yield "--warnaserror:76"
+        yield "--warn:3"
+        yield "--fullpaths"
+        yield "--flaterrors"
+        yield "--target:library"
+#if !NETFX
+        yield "--targetprofile:netstandard"
+#endif
+    |]
 
 /// Simplistic XML-parsing of .fsproj to get source files, as we cannot
 /// run `dotnet restore` on .fsproj files embedded in Nuget packages.
