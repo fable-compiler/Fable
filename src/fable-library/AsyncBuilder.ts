@@ -36,6 +36,11 @@ export class CancellationToken {
     removeListener(id: number) {
         return this._listeners.delete(id);
     }
+    register(f: (state?: any)=>void, state?: any) {
+        const $ = this;
+        const id = this.addListener(state == null ? f : () => f(state));
+        return { Dispose() { $.removeListener(id); } }
+    }
 }
 
 export class OperationCanceledError extends Error {
