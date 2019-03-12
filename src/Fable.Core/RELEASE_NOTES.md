@@ -1,3 +1,7 @@
+### 3.0.0-beta-004
+
+* Move JS extensions to Fable.Core.Extensions file
+
 ### 3.0.0-beta-003
 
 * Add some missing JS APIs
