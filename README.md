@@ -19,7 +19,10 @@ Make sure the following **requirements** are installed in your system:
 - [dotnet SDK](https://www.microsoft.com/net/download/core)
 - [node.js](https://nodejs.org) with npm
 
-Then run `npm install` to install dependencies and `npm run build` to start the build. Check build.fsx for other build targets. After that, if you want to quickly try changes to Fable source, please check `src/quicktest/QuickTest.fs`.
+Then run `npm install` to install dependencies and `npm run build` to start the build. Check [build.fsx](https://github.com/nojaf/Fable/blob/master/build.fsx#L218) for other build targets. 
+For example: `npm run build -t compiler`.
+
+After that, if you want to quickly try changes to Fable source, please check `src/quicktest/QuickTest.fs`.
 
 ## Using your local build in your projects
 
