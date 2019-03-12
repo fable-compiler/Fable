@@ -269,7 +269,33 @@ module Process =
                                @"Host[\s\S]*?Version\s*:\s*([\d.]+)"
             |> fun m -> m.Groups.[1].Value
         let v = hostVersion.Split('.')
-        Path.Combine(nugetCache, "microsoft.netcore.app", hostVersion, "ref", "netcoreapp" + v.[0] + "." + v.[1])
+        let netCoreAssembliesDir = Path.Combine(nugetCache, "microsoft.netcore.app", hostVersion, "ref", "netcoreapp" + v.[0] + "." + v.[1])
+        
+        if not(Directory.Exists(netCoreAssembliesDir)) then
+            // Create a temp proj file that has the current Microsoft.NETCore.App as dependency.
+            // Restore the proj file which will add the nuget package in the global cache.
+            // We do this because using the System dll listed in C:\Program Files\dotnet\sdk\2.1.503
+            // lead to weird behavior in the checkedProject.AssemblyContents.ImplementationFiles in Agent.fs.
+            let netappCore = sprintf "%s.%s" v.[0] v.[1]
+            let proj = sprintf """<?xml version="1.0" encoding="utf-8"?>
+                                    <Project Sdk="Microsoft.NET.Sdk">
+                                      <PropertyGroup>
+                                        <TargetFramework>netcoreapp%s</TargetFramework>
+                                      </PropertyGroup>
+                                      <ItemGroup>
+                                        <PackageReference Include="Microsoft.NETCore.App" Version="%s" />
+                                      </ItemGroup>
+                                    </Project>
+                                    """ netappCore hostVersion
+                                    
+            let tempFolder = Path.GetTempPath()
+            let tempProj = System.IO.Path.Combine(tempFolder, (sprintf "%s.proj" (System.Guid.NewGuid().ToString("N"))))
+            
+            System.IO.File.WriteAllText(tempProj, proj)
+            let restoreCode = runProcess tempFolder "dotnet" (sprintf "restore \"%s\"" tempProj)
+            System.IO.File.Delete(tempProj)
+            
+        netCoreAssembliesDir
 
 [<RequireQualifiedAccess>]
 module Async =
