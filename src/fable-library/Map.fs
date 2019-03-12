@@ -618,3 +618,5 @@ let countBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Inject>] comparer: ICompare
         |> ignore
 
     dict |> Seq.map (fun kv -> kv.Key, kv.Value)
+
+let count (m:Map<'Key,'Value>) = m.Count

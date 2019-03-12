@@ -162,7 +162,7 @@ let syncFcsRepo() =
     let cheatWithDotnetSdkVersion dir f =
         let path = dir </> "build.fsx"
         let script = readFile path
-        Regex.Replace(script, @"let dotnetExePath =[\s\S]*DotNetCli\.InstallDotNetSDK", "let dotnetExePath = \"dotnet\" //DotNetCli.InstallDotNetSDK") |> writeFile path 
+        Regex.Replace(script, @"let dotnetExePath =[\s\S]*DotNetCli\.InstallDotNetSDK", "let dotnetExePath = \"dotnet\" //DotNetCli.InstallDotNetSDK") |> writeFile path
         f ()
         runInDir dir "git reset --hard"
 
@@ -217,11 +217,11 @@ let publishPackages restArgs =
 
 match argsLower with
 | "test"::_ -> test()
-| "library"::_ -> buildLibrary()
-| "compiler"::_ -> buildCompiler()
-| "compiler-js"::_ -> buildCompilerJs false
-| "splitter"::_ -> buildFableSplitter()
-| "standalone"::_ -> buildStandalone()
+| ("fable-library"|"library")::_ -> buildLibrary()
+| ("fable-compiler"|"compiler")::_ -> buildCompiler()
+| ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs false
+| ("fable-splitter"|"splitter")::_ -> buildFableSplitter()
+| ("fable-standalone"|"standalone")::_ -> buildStandalone()
 | "download-standalone"::_ -> downloadStandalone()
 | "publish"::restArgs -> publishPackages restArgs
 | "github-release"::_ ->

@@ -26,6 +26,11 @@ let tests =
             xs.Count
             |> equal 0
 
+        testCase "Map.count works" <| fun () ->
+            let m1 = Map.empty
+            let c1 = Map.count m1
+            equal 0 c1
+
         testCase "Map.add works" <| fun () ->
             let xs = Map.empty |> Map.add 1 1
             xs.Count
