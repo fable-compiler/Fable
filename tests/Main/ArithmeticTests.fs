@@ -103,13 +103,32 @@ let tests =
         equal (System.Decimal.MaxValue, 79228162514264337593543950335M)
         equal (System.Decimal.MinValue, -79228162514264337593543950335M)
 
+    testCase "Decimal.ToString works" <| fun () ->
+        equal (string 001.23456M, "1.23456")
+        equal (string 1.23456M, "1.23456")
+        equal (string 0.12345M, "0.12345")
+        equal (string 0.01234M, "0.01234")
+        equal (string 0.00123M, "0.00123")
+        equal (string 0.00012M, "0.00012")
+        equal (string 0.00001M, "0.00001")
+        equal (string 0.00000M, "0.00000")
+        equal (string 0.12300M, "0.12300")
+        equal (string 0.0M, "0.0")
+        equal (string 0M, "0")
+        equal (string 1M, "1")
+        equal (string -1M, "-1")
+        equal (string 00000000000000000000000000000.M, "0")
+        equal (string 0.0000000000000000000000000000M, "0.0000000000000000000000000000")
+        equal (string 79228162514264337593543950335M, "79228162514264337593543950335")
+        equal (string -79228162514264337593543950335M, "-79228162514264337593543950335")
+
     testCase "Decimal precision is kept" <| fun () ->
         let items = [ 290.8M
                       290.8M
                       337.12M
                       6.08M
                       -924.8M ]
-        equal(List.sum items, 0M)
+        equal (List.sum items, 0M)
 
     testCase "Decimal Infix add can be generated" <| fun () ->
         equal (4.0868M + 2.289348M, 6.376148M)

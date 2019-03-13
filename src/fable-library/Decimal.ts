@@ -98,15 +98,15 @@ export function toNumber(x: Decimal) {
 function decimalToHex(dec: Uint8Array, bitSize: number) {
   const hex = new Uint8Array(bitSize / 4 | 0);
   let hexCount = 1;
-  for (const d of dec) {
-    let val = d;
+  for (let d = 0; d < dec.length; d++) {
+    let value = dec[d];
     for (let i = 0; i < hexCount; i++) {
-      const digit = hex[i] * 10 + val | 0;
+      const digit = hex[i] * 10 + value | 0;
       hex[i] = digit & 0xF;
-      val = digit >> 4;
+      value = digit >> 4;
     }
-    if (val !== 0) {
-      hex[hexCount++] = val;
+    if (value !== 0) {
+      hex[hexCount++] = value;
     }
   }
   return hex.slice(0, hexCount); // digits in reverse order
@@ -115,8 +115,8 @@ function decimalToHex(dec: Uint8Array, bitSize: number) {
 function hexToDecimal(hex: Uint8Array, bitSize: number) {
   const dec = new Uint8Array(bitSize * 301 / 1000 + 1 | 0);
   let decCount = 1;
-  for (const d of hex) {
-    let carry = d;
+  for (let d = hex.length - 1; d >= 0; d--) {
+    let carry = hex[d];
     for (let i = 0; i < decCount; i++) {
       const val = dec[i] * 16 + carry | 0;
       dec[i] = (val % 10) | 0;
@@ -160,15 +160,13 @@ export function fromParts(low: number, mid: number, high: number, isNegative: bo
   setInt32Bits(hexDigits, low, 0);
   setInt32Bits(hexDigits, mid, 8);
   setInt32Bits(hexDigits, high, 16);
-  const decDigits = hexToDecimal(hexDigits.reverse(), bitSize);
-  const sign = isNegative ? "-" : "";
-  const pos = scale & 0x7F;
-  let decStr = "";
-  for (let i = 0; i < decDigits.length; i++) {
-      if (i === pos) { decStr = "." + decStr; }
-      decStr = "0123456789".charAt(decDigits[i]) + decStr;
-  }
-  const d = new Decimal(sign + decStr);
+  const decDigits = hexToDecimal(hexDigits, bitSize);
+  scale = scale & 0x7F;
+  const big = new Decimal(0);
+  big.c = Array.from(decDigits.reverse());
+  big.e = decDigits.length - scale - 1;
+  big.s = isNegative ? -1 : 1;
+  const d = new Decimal(big);
   return d;
 }
 

@@ -49,7 +49,7 @@ var P = {
    * (JavaScript numbers: -7)
    * -1000000 is the minimum recommended exponent value of a Big.
    */
-  NE = -7,            // 0 to -1000000
+  NE = -29,            // 0 to -1000000
 
   /*
    * The positive exponent (PE) at and above which toString returns exponential notation.
@@ -57,7 +57,7 @@ var P = {
    * 1000000 is the maximum recommended exponent value of a Big.
    * (This limit is not enforced or checked.)
    */
-  PE = 21,            // 0 to 1000000
+  PE = 29,            // 0 to 1000000
 
 
 /**************************************************************************************************/
@@ -345,15 +345,23 @@ P.cmp = function (y) {
   // Compare exponents.
   if (k != l) return k > l ^ isneg ? 1 : -1;
 
-  j = (k = xc.length) < (l = yc.length) ? k : l;
-
   // Compare digit by digit.
-  for (i = -1; ++i < j;) {
-    if (xc[i] != yc[i]) return xc[i] > yc[i] ^ isneg ? 1 : -1;
+  j = Math.max(xc.length, yc.length);
+  for (i = 0; i < j; i++) {
+    k = i < xc.length ? xc[i] : 0;
+    l = i < yc.length ? yc[i] : 0;
+    if (k != l) return k > l ^ isneg ? 1 : -1;
   }
+  return 0;
 
-  // Compare lengths.
-  return k == l ? 0 : k > l ^ isneg ? 1 : -1;
+  // old version (doesn't compare well trailing zeroes, e.g. 1.0 with 1.00)
+  // j = (k = xc.length) < (l = yc.length) ? k : l;
+  // // Compare digit by digit.
+  // for (i = -1; ++i < j;) {
+  //   if (xc[i] != yc[i]) return xc[i] > yc[i] ^ isneg ? 1 : -1;
+  // }
+  // // Compare lengths.
+  // return k == l ? 0 : k > l ^ isneg ? 1 : -1;
 };
 
 
