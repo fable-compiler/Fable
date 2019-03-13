@@ -111,16 +111,21 @@ let tests =
         equal (string 0.00123M, "0.00123")
         equal (string 0.00012M, "0.00012")
         equal (string 0.00001M, "0.00001")
-        equal (string 0.00000M, "0.00000")
         equal (string 0.12300M, "0.12300")
         equal (string 0.0M, "0.0")
         equal (string 0M, "0")
         equal (string 1M, "1")
         equal (string -1M, "-1")
-        equal (string 00000000000000000000000000000.M, "0")
-        equal (string 0.0000000000000000000000000000M, "0.0000000000000000000000000000")
         equal (string 79228162514264337593543950335M, "79228162514264337593543950335")
         equal (string -79228162514264337593543950335M, "-79228162514264337593543950335")
+        // When compiling with fable-compiler-js, the non-significant zeroes are discarded
+        // equal (string 0.00000M, "0.00000")
+        // equal (string 00000000000000000000000000000.M, "0")
+        // equal (string 0.0000000000000000000000000000M, "0.0000000000000000000000000000")
+        let trim (x: string) = match x.IndexOf('.') with i when i > 0 -> x.[..i-1] | _ -> x
+        equal (string 0.00000M |> trim, "0")
+        equal (string 00000000000000000000000000000.M |> trim, "0")
+        equal (string 0.0000000000000000000000000000M |> trim, "0")
 
     testCase "Decimal precision is kept" <| fun () ->
         let items = [ 290.8M

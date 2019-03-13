@@ -101,7 +101,7 @@ let checkProject (msg: Parser.Message)
         then checkedProject.AssemblyContents.ImplementationFiles
         else checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
     if List.isEmpty implFiles then
-        Log.logAlways "The list of files returned by F# compiler is empty"
+        Log.always "The list of files returned by F# compiler is empty"
     let implFilesMap =
         implFiles |> Seq.map (fun file -> Path.normalizePathAndEnsureFsExtension file.FileName, file) |> dict
     tryGetOption "saveAst" msg.extra |> Option.iter (fun outDir ->
