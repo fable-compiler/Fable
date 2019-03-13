@@ -2,10 +2,6 @@ namespace Fable.Core
 
 open System
 
-/// Not used in Fable 2 but added temporarily to avoid errors when using dotnet CLI
-/// to build projects with dependencies referencing Fable.Core 1.x
-type Applicable = obj->obj
-
 type CaseRules =
     | None = 0
     | LowerFirst = 1
@@ -96,6 +92,8 @@ type ReplacesAttribute(replacedTypeFullName: string) =
 type OverloadSuffixAttribute(value: string) =
     inherit Attribute()
 
+/// Can be used in an optional argument decorated with Inject attribute
+/// to automatically pass generic information without inlining the method
 type ITypeResolver<'T> =
     abstract ResolveType: unit -> Type
 

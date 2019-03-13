@@ -6,6 +6,7 @@ open Util.Testing
 #if FABLE_COMPILER
 open Fable.Core
 open Fable.Core.JsInterop
+open Fable.Core.Experimental
 
 [<Global>]
 module GlobalModule =

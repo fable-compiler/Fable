@@ -9,6 +9,7 @@ module Util =
         try failwith "JS only" // try/catch is just for padding so it doesn't get optimized
         with ex -> raise ex
 
+module Experimental =
     /// Reads the name of an identifier, a property or a type
     let nameof(expr: 'a): string = jsNative
 

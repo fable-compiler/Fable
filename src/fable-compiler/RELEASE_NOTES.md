@@ -1,4 +1,13 @@
-### 2.2.0-beta-017
+### 2.2.0-beta-018
+
+* Fix #1784: Decimal.ToString @ncave
+* Fix #1785 CancellationToken.Register
+* Fix #1782: Map.count
+* Fix #1779: Local function imports
+* Remove duplicated sources
+* Lock Console.Out when writing
+
+### 2.2.0-beta-016
 
 * Fix #1769: Handle empty strings when parsing dates @Zaid-Ajaj
 * Raise type resolve error for non-inlined functions requiring Type.Name @Zaid-Ajaj

@@ -1,3 +1,7 @@
+### 3.0.0-beta-005
+
+* Move `nameof` operators to Experimental module
+
 ### 3.0.0-beta-004
 
 * Move JS extensions to Fable.Core.Extensions file
