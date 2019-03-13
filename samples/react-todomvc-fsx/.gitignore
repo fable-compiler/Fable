@@ -1,0 +1,5 @@
+dist/main.js*
+.paket/.store
+.paket/paket.exe
+.paket/load
+paket-files/

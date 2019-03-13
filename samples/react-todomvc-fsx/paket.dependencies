@@ -1,0 +1,6 @@
+storage: none
+source https://www.nuget.org/api/v2
+framework: netstandard2.0
+
+nuget Fable.Browser.Dom 1.0.0-alpha-004 alpha
+nuget Fable.React 5.0.0-alpha-005 alpha
