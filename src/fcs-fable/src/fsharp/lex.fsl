@@ -360,11 +360,7 @@ rule token args skip = parse
      { try 
           let s = removeUnderscores (lexemeTrimRight lexbuf 1)
           // This implements a range check for decimal literals 
-#if FABLE_COMPILER
-          let d = Convert.ToDecimal(s)
-#else
           let d = System.Decimal.Parse(s,System.Globalization.NumberStyles.AllowExponent ||| System.Globalization.NumberStyles.Number,System.Globalization.CultureInfo.InvariantCulture)
-#endif
           DECIMAL d 
        with 
           e -> fail args lexbuf (FSComp.SR.lexOusideDecimal()) (DECIMAL (decimal 0))

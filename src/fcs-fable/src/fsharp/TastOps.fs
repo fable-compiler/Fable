@@ -6495,10 +6495,6 @@ let mkCallNewDecimal (g:TcGlobals) m (e1, e2, e3, e4, e5)          = mkApps g (t
 
 let mkCallNewFormat (g:TcGlobals) m aty bty cty dty ety e1    = mkApps g (typedExprForIntrinsic g m g.new_format_info, [[aty;bty;cty;dty;ety]], [ e1 ], m)
 
-#if FABLE_COMPILER
-let TryEliminateDesugaredConstants (_g:TcGlobals) (_m:range) (_c:Const) : Expr option =
-    None
-#else
 let TryEliminateDesugaredConstants g m c = 
     match c with 
     | Const.Decimal d -> 
@@ -6510,7 +6506,6 @@ let TryEliminateDesugaredConstants g m c =
         | _ -> failwith "unreachable"
     | _ -> 
         None
-#endif
 
 let mkSeqTy (g:TcGlobals) ty = mkAppTy g.seq_tcr [ty] 
 let mkIEnumeratorTy (g:TcGlobals) ty = mkAppTy g.tcref_System_Collections_Generic_IEnumerator [ty] 
