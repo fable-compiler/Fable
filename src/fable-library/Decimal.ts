@@ -178,8 +178,8 @@ export function getBits(d: Decimal) {
   const mid = getInt32Bits(hexDigits, 8);
   const high = getInt32Bits(hexDigits, 16);
   const decStr = d.toString();
-  const pos = decStr.indexOf(".");
-  const scale = (pos < 0) ? 0 : decStr.length - pos - 1;
-  const signExp = ((scale & 0x7F) << 16) * d.s;
+  const dotPos = decStr.indexOf(".");
+  const scale = dotPos < 0 ? 0 : decStr.length - dotPos - 1;
+  const signExp = ((scale & 0x7F) << 16) | (d.s < 0 ? 0x80000000 : 0);
   return [low, mid, high, signExp];
 }

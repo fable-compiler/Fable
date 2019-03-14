@@ -153,8 +153,12 @@ function parse(x, n) {
 
   nl = n.length;
 
-  // Determine leading zeros.
-  for (i = 0; i < nl && n.charAt(i) == '0';) ++i;
+  // Determine leading zeros before decimal point.
+  for (i = 0; i < e && i < nl && n.charAt(i) == '0';) ++i;
+
+  // older version (ignores decimal point).
+  // // Determine leading zeros.
+  // for (i = 0; i < nl && n.charAt(i) == '0';) ++i;
 
   if (i == nl) {
 
@@ -162,13 +166,17 @@ function parse(x, n) {
     x.c = [x.e = 0];
   } else {
 
-    // Determine trailing zeros.
-    for (; nl > 0 && n.charAt(--nl) == '0';);
     x.e = e - i - 1;
     x.c = [];
 
-    // Convert string to array of digits without leading/trailing zeros.
-    for (e = 0; i <= nl;) x.c[e++] = +n.charAt(i++);
+    // Convert string to array of digits without leading zeros
+    for (e = 0; i < nl;) x.c[e++] = +n.charAt(i++);
+
+    // older version (doesn't keep trailing zeroes).
+    // // Determine trailing zeros.
+    // for (; nl > 0 && n.charAt(--nl) == '0';);
+    // // Convert string to array of digits without leading/trailing zeros.
+    // for (e = 0; i <= nl;) x.c[e++] = +n.charAt(i++);
   }
 
   return x;

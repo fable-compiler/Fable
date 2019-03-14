@@ -22,7 +22,7 @@ let printErrors showWarnings (errors: FSharpErrorInfo[]) =
         errors |> Array.iter printError
         failwith "Too many errors."
 
-let parseFiles projectPath outDir optimized =
+let parseFiles projectPath outDir optimize =
     // parse project
     let projSet = makeHashSetIgnoreCase ()
     let (projectFileName, dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectPath
@@ -33,6 +33,8 @@ let parseFiles projectPath outDir optimized =
 
     // create checker
     let readAllBytes dllName = readAllBytes (metadataPath + dllName)
+    let optimizeFlag = "--optimize" + (if optimize then "+" else "-")
+    let otherOptions = otherOptions |> Array.append [| optimizeFlag |]
     let createChecker () = InteractiveChecker.Create(references, readAllBytes, otherOptions)
     let ms0, checker = measureTime createChecker ()
     printfn "--------------------------------------------"
@@ -77,7 +79,7 @@ let parseFiles projectPath outDir optimized =
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
     // this is memory intensive, only do it once
-    let implFiles = if optimized
+    let implFiles = if optimize
                     then projectResults.GetOptimizedAssemblyContents().ImplementationFiles
                     else projectResults.AssemblyContents.ImplementationFiles
 
@@ -95,8 +97,8 @@ let parseArguments (argv: string[]) =
     match args with
     | [| projectPath |] ->
         let outDir = "./out-test"
-        let optimized = opts |> Array.contains "--optimize-fcs"
-        parseFiles projectPath outDir optimized
+        let optimize = opts |> Array.contains "--optimize-fcs"
+        parseFiles projectPath outDir optimize
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]
