@@ -1,3 +1,7 @@
+### 2.1.6
+
+* Fix #1751: Prevent Babel from searching for config files when reading AST
+
 ### 2.1.5
 
 * Accept fable-compiler 2.2.x dependency

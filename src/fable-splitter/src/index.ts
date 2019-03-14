@@ -266,7 +266,14 @@ async function getBabelAst(path: string, options: FableSplitterOptions, info: Co
 
 function getBabelAstFromJsFile(path: string, info: CompilationInfo) {
     return new Promise<Babel.types.Program | null>((resolve) => {
-        Babel.transformFile(path, { code: false, ast: true }, (error, res) => {
+        const babelOpts = {
+            code: false,
+            ast: true,
+            // Prevent Babel from searching for config files, see #1751
+            configFile: false,
+            babelrc: false
+        };
+        Babel.transformFile(path, babelOpts, (error, res) => {
             if (error != null) {
                 const log = `${path}(1,1): error BABEL: ${error.message}`;
                 addLogs({ error: [log] }, info);
