@@ -894,5 +894,7 @@ let toList (source: 'T[]) =
 let windowed (windowSize: int) (source: 'T[]): 'T[][] =
     if windowSize <= 0 then
         failwith "windowSize must be positive"
-    [| for i = windowSize to source.Length do
-        yield source.[i-windowSize..i-1] |]
+    let res = FSharp.Core.Operators.max 0 (source.Length - windowSize) |> Helpers.newDynamicArrayImpl
+    for i = windowSize to source.Length do
+        res.[i - windowSize] <- source.[i-windowSize..i-1]
+    res
