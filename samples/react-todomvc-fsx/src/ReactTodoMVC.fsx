@@ -143,12 +143,15 @@ let [<Literal>] COMPLETED_TODOS = "completed"
 
 let mutable private editField: HTMLInputElement = Unchecked.defaultof<_>
 
+[<Emit("undefined")>]
+let undefined : (unit -> unit) option = jsNative
+
 let TodoItem (props: TodoItemProps) =
     let editText, setState = Hooks.useState(props.todo.title)
     Hooks.useEffect((fun () ->
         editField.focus()
         editField.setSelectionRange(editField.value.Length, editField.value.Length)
-        None), [|props.editing|])
+        undefined), [|props.editing|])
 
     let handleSubmit (e: Event) =
         match editText.Trim() with
@@ -305,7 +308,8 @@ type TodoApp(props) =
         router?init("/") |> ignore
 
     member this.handleChange (ev: Event) =
-        this.setState(fun s _ -> { s with newTodo = ev.Value })
+        let newTodo = ev.Value
+        this.setState(fun s _ -> { s with newTodo = newTodo })
 
     member this.handleNewTodoKeyDown (ev: KeyboardEvent) =
         if ev.keyCode = ENTER_KEY then
