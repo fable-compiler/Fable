@@ -23,7 +23,7 @@
     "fable-compiler": "^2.1.10",
     "fable-compiler-js": "^1.0.0-alpha-017",
     "fable-loader": "2.0.0",
-    "fable-splitter": "2.0.2",
+    "fable-splitter": "^2.1.6",
     "ghreleases": "^3.0.2",
     "mocha": "^5.2.0",
     "tslint": "^5.12.1",
