@@ -616,7 +616,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | Operators.addition, [left; right] -> binOp BinaryPlus left right
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
         | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
-        | (Operators.division|Operators.divideByInt), [left; right] ->
+        | (Operators.division | Operators.divideByInt), [left; right] ->
             match argTypes with
             // Floor result of integer divisions (see #172)
             | Number Integer::_ -> binOp BinaryDivide left right |> fastIntFloor
@@ -646,7 +646,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
     | Builtin(BclInt64|BclUInt64|BclDecimal|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         let opName =
             match bt, opName with
-            | BclUInt64, "op_RightShift" -> "op_RightShiftUnsigned" // See #1482
+            | BclUInt64, Operators.rightShift -> "op_RightShiftUnsigned" // See #1482
+            | BclDecimal, Operators.divideByInt -> Operators.division
             | _ -> opName
         Helper.CoreCall(coreModFor bt, opName, t, args, argTypes, ?loc=r)
     | Builtin(FSharpSet _)::_ ->
@@ -1863,6 +1864,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     | Operators.subtraction
     | Operators.multiply
     | Operators.division
+    | Operators.divideByInt
     | Operators.modulus
     | Operators.unaryNegation), _ ->
         applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
