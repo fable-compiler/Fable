@@ -130,6 +130,17 @@ let tests =
                       -924.8M ]
         equal (List.sum items, 0M)
 
+    testCase "Decimal max precision is kept" <| fun () ->
+        let pi = 3.141592653589793238462643383279502884197169399375105820974944592307816406286M
+        equal (string pi, "3.1415926535897932384626433833")
+
+    testCase "Decimal average precision is kept" <| fun () ->
+        let items = [1M; 2M; 5M]
+        equal (List.average items, 2.6666666666666666666666666667M)
+
+    testCase "Decimal division precision is kept" <| fun () ->
+        equal (string (8M / 3M), "2.6666666666666666666666666667")
+
     testCase "Decimal Infix add can be generated" <| fun () ->
         equal (4.0868M + 2.289348M, 6.376148M)
 

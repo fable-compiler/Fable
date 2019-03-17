@@ -1,3 +1,7 @@
+### 1.0.1
+
+* Decimal fixes
+
 ### 1.0.0
 
 * Publish stable
