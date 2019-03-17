@@ -164,12 +164,6 @@ let tests =
         equal 9  (int "0o11")
         equal 3  (int "0b11")
 
-    testCase "System.Int32.ToString 'x' works" <| fun () ->
-        (5592405).ToString("x") |> equal "555555"
-
-    testCase "System.Int32.ToString works" <| fun () ->
-        (5592405).ToString() |> equal "5592405"
-
     testCase "System.Int32.TryParse works" <| fun () ->
         tryParse Int32.TryParse 0 "1" |> equal (true, 1)
         tryParse Int32.TryParse 0 "    1     " |> equal (true, 1)
@@ -185,6 +179,34 @@ let tests =
     testCase "BigInt.TryParse works" <| fun () ->
         tryParse bigint.TryParse 0I "4234523548923954" |> equal (true, 4234523548923954I)
         tryParse bigint.TryParse 0I "9SayWhat12Huh" |> equal (false, 0I)
+
+    testCase "System.Int32.ToString works" <| fun () ->
+        (5592405).ToString() |> equal "5592405"
+
+    testCase "System.Int32.ToString 'd' works" <| fun () ->
+        (5592405).ToString("d") |> equal "5592405"
+        (5592405).ToString("d10") |> equal "0005592405"
+
+    testCase "System.Int32.ToString 'x' works" <| fun () ->
+        (5592405).ToString("x") |> equal "555555"
+        (5592405).ToString("x10") |> equal "0000555555"
+
+    testCase "System.Int64.ToString works" <| fun () ->
+        (5592405L).ToString() |> equal "5592405"
+
+    testCase "System.Int64.ToString 'd' works" <| fun () ->
+        (5592405L).ToString("d") |> equal "5592405"
+        (5592405L).ToString("d10") |> equal "0005592405"
+
+    testCase "System.Int64.ToString 'x' works" <| fun () ->
+        (5592405L).ToString("x") |> equal "555555"
+        (5592405L).ToString("x10") |> equal "0000555555"
+
+    testCase "System.BigInt.ToString works" <| fun () ->
+        (5592405I).ToString() |> equal "5592405"
+
+    testCase "System.Decimal.ToString works" <| fun () ->
+        (5592405M).ToString() |> equal "5592405"
 
     //-------------------------------------
     // System.Convert

@@ -4,7 +4,7 @@ import Long, { fromBytes as longFromBytes, toBytes as longToBytes, toString as l
 import { escape } from "./RegExp";
 
 const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
-const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:(.+?))?\}/g;
+const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
 // RFC 4122 compliant. From https://stackoverflow.com/a/13653180/3922220
 // const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 // Relax GUID parsing, see #1637
@@ -192,27 +192,32 @@ export function format(str: string, ...args: any[]) {
   }
 
   return str.replace(formatRegExp,
-    (match: any, idx: any, pad: any, pattern: any) => {
+    (match: any, idx: any, pad: any, format: any, precision: any, pattern: any) => {
       let rep = args[idx];
       let padSymbol = " ";
-      if (typeof rep === "number") {
-        switch ((pattern || "").substring(0, 1)) {
+      const isNumericType = (typeof rep === "number") || (rep instanceof Long);
+      // TODO: || (rep instanceof Decimal) || (rep instanceof BigInt);
+      if (isNumericType) {
+        switch (format) {
           case "f": case "F":
-            rep = pattern.length > 1 ? rep.toFixed(pattern.substring(1)) : rep.toFixed(2);
+            rep = precision ? rep.toFixed(precision) : rep.toFixed(2);
             break;
           case "g": case "G":
-            rep = pattern.length > 1 ? rep.toPrecision(pattern.substring(1)) : rep.toPrecision();
+            rep = precision ? rep.toPrecision(precision) : rep.toPrecision();
             break;
           case "e": case "E":
-            rep = pattern.length > 1 ? rep.toExponential(pattern.substring(1)) : rep.toExponential();
+            rep = precision ? rep.toExponential(precision) : rep.toExponential();
             break;
           case "p": case "P":
-            rep = (pattern.length > 1 ? (rep * 100).toFixed(pattern.substring(1)) : (rep * 100).toFixed(2)) + " %";
+            rep = (precision ? (rep * 100).toFixed(precision) : (rep * 100).toFixed(2)) + " %";
             break;
-          case "x":
-            rep = toHex(rep); break;
-          case "X":
-            rep = toHex(rep).toUpperCase(); break;
+          case "d": case "D":
+            rep = precision ? padLeft(rep.toString(), precision, "0") : rep.toString();
+            break;
+          case "x": case "X":
+            rep = precision ? padLeft(toHex(rep), precision, "0") : toHex(rep);
+            if (format === "X") { rep = rep.toUpperCase(); }
+            break;
           default:
             const m = /^(0+)(\.0+)?$/.exec(pattern);
             if (m != null) {
@@ -226,23 +231,8 @@ export function format(str: string, ...args: any[]) {
               rep = pattern;
             }
         }
-      } else if (rep instanceof Long) { // TODO: Other numeric types? Decimal, BigInt
-        switch ((pattern || "").substring(0, 1)) {
-          case "x":
-            rep = toHex(rep); break;
-          case "X":
-            rep = toHex(rep).toUpperCase(); break;
-          default:
-            const m = /^(0+)(\.0+)?$/.exec(pattern);
-            if (m != null) {
-              pad = "," + m[1].length.toString();
-              padSymbol = "0";
-            } else if (pattern) {
-              rep = pattern;
-            }
-        }
       } else if (rep instanceof Date) {
-        rep = dateToString(rep, pattern);
+        rep = dateToString(rep, pattern || format);
       }
       pad = parseInt((pad || "").substring(1), 10);
       if (!isNaN(pad)) {

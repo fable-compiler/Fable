@@ -186,6 +186,10 @@ let tests =
             String.Format("1L <<< 63: {0:x}", (1L <<< 63)) |> equal "1L <<< 63: 8000000000000000"
             String.Format("1uL <<< 63: {0:x}", (1uL <<< 63)) |> equal "1uL <<< 63: 8000000000000000"
 
+      testCase "String.Format {0:x} with precision works" <| fun () ->
+            String.Format("#{0:X3}", 0xC149D) |> equal "#C149D"
+            String.Format("#{0:X6}", 0xC149D) |> equal "#0C149D"
+
       testCase "Printf works with generic argument" <| fun () ->
           spr "bar %s" "a" |> equal "bar a"
           spr "foo %i %i" 3 5 |> equal "foo 3 5"
