@@ -155,10 +155,10 @@ export function padWithZeros(i: number, length: number) {
 export function padLeftAndRightWithZeros(i: number, lengthLeft: number, lengthRight: number) {
   let str = i.toString(10);
   while (str.length < lengthLeft) {
-    str =  "0" + str;
+    str = "0" + str;
   }
   while (str.length < lengthRight) {
-    str =  str + "0";
+    str = str + "0";
   }
   return str;
 }
@@ -501,11 +501,11 @@ export function randomBytes(buffer: Uint8Array) {
   if (buffer == null) { throw new Error("Buffer cannot be null"); }
   for (let i = 0; i < buffer.length; i += 6) {
     // Pick random 48-bit number. Fill buffer in 2 24-bit chunks to avoid bitwise truncation.
-    let r = Math.floor(Math.random() * 281474976710656) // Low 24 bits = chunk 1.
-    let rhi = Math.floor(r / 16777216) // High 24 bits shifted via division = chunk 2.
-    for (let j = 0; j < 6 && i+j < buffer.length; j++) {
-      if (j === 3) { r = rhi }
-      buffer[i+j] = r & 255;
+    let r = Math.floor(Math.random() * 281474976710656); // Low 24 bits = chunk 1.
+    const rhi = Math.floor(r / 16777216); // High 24 bits shifted via division = chunk 2.
+    for (let j = 0; j < 6 && i + j < buffer.length; j++) {
+      if (j === 3) { r = rhi; }
+      buffer[i + j] = r & 255;
       r >>>= 8;
     }
   }
