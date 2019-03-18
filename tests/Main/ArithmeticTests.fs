@@ -141,20 +141,38 @@ let tests =
     testCase "Decimal division precision is kept" <| fun () ->
         equal (string (8M / 3M), "2.6666666666666666666666666667")
 
-    testCase "Decimal Infix add can be generated" <| fun () ->
+    testCase "Decimal Infix add works" <| fun () ->
         equal (4.0868M + 2.289348M, 6.376148M)
 
-    testCase "Decimal Infix subtract can be generated" <| fun () ->
+    testCase "Decimal Infix subtract works" <| fun () ->
         equal (4.0868M - 2.289348M, 1.797452M)
 
-    testCase "Decimal Infix multiply can be generated" <| fun () ->
+    testCase "Decimal Infix multiply works" <| fun () ->
         equal (4.0868M * 2.289348M, 9.3561074064M)
 
-    testCase "Decimal Infix divide can be generated" <| fun () ->
+    testCase "Decimal Infix divide works" <| fun () ->
         equal (4M / 2M, 2M)
 
-    testCase "Decimal Infix modulo can be generated" <| fun () ->
+    testCase "Decimal Infix modulo works" <| fun () ->
         equal (4.0868M % 2.289348M, 1.797452M)
+
+    testCase "Decimal.Add works" <| fun () ->
+        equal (Decimal.Add(4.0868M, 2.289348M), 6.376148M)
+
+    testCase "Decimal.Subtract works" <| fun () ->
+        equal (Decimal.Subtract(4.0868M, 2.289348M), 1.797452M)
+
+    testCase "Decimal.Multiply works" <| fun () ->
+        equal (Decimal.Multiply(4.0868M, 2.289348M), 9.3561074064M)
+
+    testCase "Decimal.Divide works" <| fun () ->
+        equal (Decimal.Divide(4M, 2M), 2M)
+
+    testCase "Decimal.Remainder works" <| fun () ->
+        equal (Decimal.Remainder(4.0868M, 2.289348M), 1.797452M)
+
+    testCase "Decimal.Negate works" <| fun () ->
+        equal (Decimal.Negate(4M), -4M)
 
     testCase "Decimal Evaluation order is preserved by generated code" <| fun () ->
         equal ((4.4567M - 2.2234M) * 2.6492M + 1.2493M, 7.16575836M)

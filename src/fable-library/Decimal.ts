@@ -44,24 +44,24 @@ export function sqrt(x: Decimal) {
   return x.sqrt();
 }
 
+export function op_Addition(x: Decimal, y: Decimal) {
+  return x.add(y);
+}
+
 export function op_Subtraction(x: Decimal, y: Decimal) {
   return x.sub(y);
 }
 
-export function op_Modulus(x: Decimal, y: Decimal) {
-  return x.mod(y);
-}
-
-export function op_Addition(x: Decimal, y: Decimal) {
-  return x.add(y);
+export function op_Multiply(x: Decimal, y: Decimal) {
+  return x.mul(y);
 }
 
 export function op_Division(x: Decimal, y: Decimal) {
   return x.div(y);
 }
 
-export function op_Multiply(x: Decimal, y: Decimal) {
-  return x.mul(y);
+export function op_Modulus(x: Decimal, y: Decimal) {
+  return x.mod(y);
 }
 
 export function op_UnaryNegation(x: Decimal) {
@@ -69,6 +69,13 @@ export function op_UnaryNegation(x: Decimal) {
   x2.s = -x2.s || 0;
   return x2;
 }
+
+export const add = op_Addition;
+export const subtract = op_Subtraction;
+export const multiply = op_Multiply;
+export const divide = op_Division;
+export const remainder = op_Modulus;
+export const negate = op_UnaryNegation;
 
 export function toString(x: Decimal) {
   return x.toString();
