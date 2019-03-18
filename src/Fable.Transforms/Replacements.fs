@@ -1878,7 +1878,8 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
             | Decimal -> toDecimal com ctx r t args |> Some
             | BigInt -> None
         | _ -> None
-    | ("Ceiling" | "Floor" | "Round" | "Truncate" as meth), _ ->
+    | ("Ceiling" | "Floor" | "Round" | "Truncate" |
+        "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate" as meth), _ ->
         let meth = Naming.lowerFirst meth
         Helper.CoreCall("Decimal", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToString", _ -> Helper.InstanceCall(thisArg.Value, "toString", String, []) |> Some
