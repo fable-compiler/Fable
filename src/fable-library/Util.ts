@@ -635,3 +635,10 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
     }
   }
 }
+
+export function addToDict<K, V>(dict: Map<K, V>, k: K, v: V) {
+  if (dict.has(k)) {
+    throw new Error("An item with the same key has already been added. Key: " + k);
+  }
+  dict.set(k, v);
+}

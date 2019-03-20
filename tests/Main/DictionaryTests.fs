@@ -2,6 +2,7 @@ module Fable.Tests.Dictionaries
 
 open System
 open System.Collections.Generic
+open Util
 open Util.Testing
 
 type MyRefType(i: int) =
@@ -219,6 +220,11 @@ let tests =
         let dic = dict <| [ ("A", 1.); ("B", 2.) ]
         dic.ContainsKey("A") |> equal true
         dic.ContainsKey("C") |> equal false
+
+    testCase "Adding 2 items with the same key throws" <| fun () ->
+        let dic = Dictionary<_,_>()
+        dic.Add("A", 65)
+        throwsError "An item with the same key has already been added. Key: A" (fun _ -> dic.Add("A", 95))
 
     // testCase "Dictionaries can be JSON serialized forth and back" <| fun () ->
     //     let x = Dictionary<_,_>()
