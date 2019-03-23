@@ -2,6 +2,18 @@ module Fable.Compiler.App
 
 open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
+open Fable.Core.JsInterop
+
+#if TEST_LOCAL
+let [<Emit("__dirname")>] __dirname: string = jsNative
+let initFable (): Fable.Standalone.IFableManager = import "init" "${entryDir}../../fable-standalone"
+let getMetadataDir(): string = __dirname + "/" + "${entryDir}../../fable-metadata/lib"
+let getFableLibDir(): string = __dirname + "/" + "${entryDir}../../../build/fable-library"
+#else
+let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone"
+let getMetadataDir(): string = importDefault "fable-metadata"
+let getFableLibDir(): string = importMember "./util.js"
+#endif
 
 let references = Fable.Standalone.Metadata.references_core
 let metadataPath = getMetadataDir().TrimEnd('\\', '/') + "/" // .NET BCL binaries (metadata)

@@ -1,18 +1,6 @@
 module Fable.Compiler.Platform
-open Fable.Core
+
 open Fable.Core.JsInterop
-
-let [<Emit("__dirname")>] __dirname: string = jsNative
-
-#if TEST_LOCAL
-let initFable (): Fable.Standalone.IFableManager = import "init" "${entryDir}../../fable-standalone"
-let getMetadataDir(): string = __dirname + "/" + "${entryDir}../../fable-metadata/lib"
-let getFableLibDir(): string = __dirname + "/" + "${entryDir}../../../build/fable-library"
-#else
-let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone"
-let getMetadataDir(): string = importDefault "fable-metadata"
-let getFableLibDir(): string = importMember "./util.js"
-#endif
 
 type private IFileSystem =
     abstract readFileSync: string -> byte[]
