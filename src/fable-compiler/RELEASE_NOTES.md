@@ -1,3 +1,13 @@
+### 2.2.0-beta-019
+
+* Compile .fsx scripts @nojaf
+* Fix #1794: System.String.Format does not pad correctly in hex formatting @ncave
+* Fix #1792: Decimal does not support DivideByInt @ncave
+* Fix #1791: Cyclic dependencies in Array.js/List.js
+* Fix #1790: Dictionary.Add throws on duplicated keys @xdaDaveShaw
+* Fix #1751: ignore Babel config files for AST
+
+
 ### 2.2.0-beta-018
 
 * Fix #1784: Decimal.ToString @ncave
