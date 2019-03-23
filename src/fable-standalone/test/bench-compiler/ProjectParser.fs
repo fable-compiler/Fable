@@ -112,7 +112,7 @@ let parseProjectFile projectPath =
         |> Seq.toArray
 
     // replace some variables
-    let projectText = projectText.Replace(@"$(MSBuildProjectDirectory)", __dirname)
+    let projectText = projectText.Replace(@"$(MSBuildProjectDirectory)", ".")
     let m = Regex.Match(projectText, @"<FSharpSourcesRoot[^>]*>([^<]*)<\/FSharpSourcesRoot[^>]*>")
     let sourcesRoot = if m.Success then m.Groups.[1].Value.Replace("\\", "/") else ""
     let projectText = projectText.Replace(@"$(FSharpSourcesRoot)", sourcesRoot)

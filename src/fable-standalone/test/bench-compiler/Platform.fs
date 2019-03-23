@@ -1,7 +1,5 @@
 module Fable.Compiler.Platform
 
-let __dirname = "."
-
 #if DOTNET_FILE_SYSTEM && !FABLE_COMPILER
 
 open System.IO
