@@ -226,6 +226,11 @@ let tests =
         dic.Add("A", 65)
         throwsError "An item with the same key has already been added. Key: A" (fun _ -> dic.Add("A", 95))
 
+    testCase "Indexer throws when key not found" <| fun () ->
+        let dic = Dictionary<_,_>()
+        dic.Add("A", 65)
+        throwsError "The given key was not present in the dictionary." (fun _ -> dic.["B"] |> ignore)
+
     // testCase "Dictionaries can be JSON serialized forth and back" <| fun () ->
     //     let x = Dictionary<_,_>()
     //     x.Add("a", { i=1; s="1" })

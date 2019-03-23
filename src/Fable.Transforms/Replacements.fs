@@ -2068,8 +2068,9 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Helper.CoreCall("Util", "tryGetValue", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Add", _ ->
         Helper.CoreCall("Util", "addToDict", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | ReplaceName ["get_Item",     "get"
-                   "set_Item",     "set"
+    | "get_Item", _ ->
+        Helper.CoreCall("Util", "getItemFromDict", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | ReplaceName ["set_Item",     "set"
                    "get_Keys",     "keys"
                    "get_Values",   "values"
                    "ContainsKey",  "has"
