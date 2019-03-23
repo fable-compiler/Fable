@@ -16,12 +16,7 @@ module.exports = {
             {
                 test: /\.fs(x|proj)?$/,
                 use: {
-                    loader: "fable-loader",
-                    options: {
-                        cli: {
-                            path: "../../src/Fable.Cli"
-                        }
-                    }
+                    loader: "fable-loader"
                 }
             }
         ]

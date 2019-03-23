@@ -3,3 +3,4 @@ dist/main.js*
 .paket/paket.exe
 .paket/load
 paket-files/
+public/bundle.js
