@@ -13,8 +13,20 @@ function requireLazy(module) {
 }
 
 function getMainScriptPath(options, info) {
-    const lastFile = info.projectFiles[info.projectFiles.length - 1];
-    const mainScript = path.join(options.outDir, info.mapInOutPaths.get(lastFile));
+
+    function getFromFsproj(projectInfo) {
+        const lastFile = projectInfo.projectFiles[projectInfo.projectFiles.length - 1];
+        return projectInfo.mapInOutPaths.get(lastFile);
+    }
+
+    function getFromScript(scriptInfo) {
+        return scriptInfo.mapInOutPaths.get(scriptInfo.entry);
+    }
+
+    const mainScriptName =
+        info.projectFiles.length > 0 ? getFromFsproj(info) : getFromScript(info);
+
+    const mainScript = path.join(options.outDir, mainScriptName);
     return mainScript.endsWith(".js") ? mainScript : mainScript + ".js";
 }
 
