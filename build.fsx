@@ -1,3 +1,6 @@
+// This script is compiled by fable-compiler-js and runs entirely on node.js
+// You can execute it by typing: npx fable build.fsx --run [ARGUMENTS]
+
 #r "src/fable-metadata/lib/Fable.Core.dll"
 #load "src/fable-publish-utils/PublishUtils.fs"
 
