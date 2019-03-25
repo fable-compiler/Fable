@@ -647,6 +647,6 @@ export function getItemFromDict<K, V>(map: Map<K, V>, key: K): V {
   if (map.has(key)) {
     return map.get(key);
   } else {
-    throw new Error("The given key was not present in the dictionary.");
+    throw new Error(`The given key '${key}' was not present in the dictionary.`);
   }
 }
