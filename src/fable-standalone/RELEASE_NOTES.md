@@ -1,3 +1,7 @@
+### 1.0.2
+
+* fcs-fable sync
+
 ### 1.0.1
 
 * Decimal fixes

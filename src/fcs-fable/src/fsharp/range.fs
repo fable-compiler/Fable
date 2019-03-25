@@ -156,7 +156,11 @@ type FileIndexTable() =
         | true, idx ->
             // Record the non-normalized entry if necessary
             if filePath <> normalizedFilePath then 
+#if FABLE_COMPILER
+                (
+#else
                 lock fileToIndexTable (fun () -> 
+#endif
                     fileToIndexTable.[filePath] <- idx)
                     
             // Return the index

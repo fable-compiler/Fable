@@ -1933,11 +1933,13 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         | _ -> None
     | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
         structuralHash r arg |> Some
-    | ("GenericHashWithComparer" | "GenericHashWithComparerIntrinsic"), [comp; arg] ->
+    | ("FastHashTuple2" | "FastHashTuple3" | "FastHashTuple4" | "FastHashTuple5"
+    | "GenericHashWithComparer" | "GenericHashWithComparerIntrinsic"), [comp; arg] ->
         Helper.InstanceCall(comp, "GetHashCode", t, [arg], i.SignatureArgTypes, ?loc=r) |> Some
     | ("GenericComparison" | "GenericComparisonIntrinsic"), [left; right] ->
         compare com r left right |> Some
-    | ("GenericComparisonWithComparer" | "GenericComparisonWithComparerIntrinsic"), [comp; left; right] ->
+    | ("FastCompareTuple2" | "FastCompareTuple3" | "FastCompareTuple4" | "FastCompareTuple5"
+    | "GenericComparisonWithComparer" | "GenericComparisonWithComparerIntrinsic"), [comp; left; right] ->
         Helper.InstanceCall(comp, "Compare", t, [left; right], i.SignatureArgTypes, ?loc=r) |> Some
     | ("GenericLessThan" | "GenericLessThanIntrinsic"), [left; right] ->
         compareIf com r left right BinaryLess |> Some
@@ -1952,7 +1954,8 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("GenericEqualityER" | "GenericEqualityERIntrinsic"), [left; right] ->
         // TODO: In ER mode, equality on two NaNs returns "true".
         equals com r true left right |> Some
-    | ("GenericEqualityWithComparer" | "GenericEqualityWithComparerIntrinsic"), [comp; left; right] ->
+    | ("FastEqualsTuple2" | "FastEqualsTuple3" | "FastEqualsTuple4" | "FastEqualsTuple5"
+    | "GenericEqualityWithComparer" | "GenericEqualityWithComparerIntrinsic"), [comp; left; right] ->
         Helper.InstanceCall(comp, "Equals", t, [left; right], i.SignatureArgTypes, ?loc=r) |> Some
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
         makeEqOp r left right BinaryEqualStrict |> Some
@@ -1988,7 +1991,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         Helper.InstanceCall(ar, "slice", t, [lower; upper], ?loc=r) |> Some
     | "SetArraySlice", None, args ->
         Helper.CoreCall("Array", "setSlice", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "TypeTestGeneric", None, [expr] ->
+    | ("TypeTestGeneric" | "TypeTestFast"), None, [expr] ->
         Test(expr, TypeTest((genArg com ctx r 0 i.GenericArgs)), r) |> Some
     | "CreateInstance", None, _ ->
         match genArg com ctx r 0 i.GenericArgs with
