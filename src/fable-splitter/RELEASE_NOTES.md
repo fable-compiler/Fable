@@ -1,3 +1,7 @@
+### 2.1.7
+
+* Fix compilation of .fsx files @xdaDaveShaw
+
 ### 2.1.6
 
 * Fix #1751: Prevent Babel from searching for config files when reading AST

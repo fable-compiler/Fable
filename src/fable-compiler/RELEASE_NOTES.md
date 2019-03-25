@@ -1,3 +1,8 @@
+### 2.2.0
+
+* Stable version
+* Make dictionary throw key not found when indexing @xdaDaveShaw
+
 ### 2.2.0-beta-019
 
 * Compile .fsx scripts @nojaf
@@ -6,7 +11,6 @@
 * Fix #1791: Cyclic dependencies in Array.js/List.js
 * Fix #1790: Dictionary.Add throws on duplicated keys @xdaDaveShaw
 * Fix #1751: ignore Babel config files for AST
-
 
 ### 2.2.0-beta-018
 
