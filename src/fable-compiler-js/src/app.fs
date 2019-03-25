@@ -2,6 +2,7 @@ module Fable.Compiler.App
 
 open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
+open Fable.Core
 open Fable.Core.JsInterop
 
 #if TEST_LOCAL
