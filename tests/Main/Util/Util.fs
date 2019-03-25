@@ -54,6 +54,15 @@ let throwsError (expected: string) (f: unit -> 'a): unit =
     // TODO better error messages
     equal false success
 
+let throwsAnyError (f: unit -> 'a): unit =
+    let result =
+        try
+            f () |> ignore
+            "succeeded"
+        with _ ->
+            "failed"
+    equal "failed" result
+
 let rec sumFirstSeq (zs: seq<float>) (n: int): float =
    match n with
    | 0 -> 0.
