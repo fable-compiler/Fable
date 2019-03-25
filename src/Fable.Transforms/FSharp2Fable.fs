@@ -256,6 +256,20 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         return Fable.Test(unionExpr, kind, r)
   }
 
+let rec private transformDecisionTargets (com: IFableCompiler) (ctx: Context) acc
+                    (xs: (FSharpMemberOrFunctionOrValue list * FSharpExpr) list) =
+    trampoline {
+        match xs with
+        | [] -> return List.rev acc
+        | (idents, expr)::tail ->
+            let ctx, idents =
+                (idents, (ctx, [])) ||> List.foldBack (fun ident (ctx, idents) ->
+                    let ctx, ident = bindIdentFrom com ctx ident
+                    ctx, ident::idents)
+            let! expr = transformExpr com ctx expr
+            return! transformDecisionTargets com ctx ((idents, expr)::acc) tail
+    }
+
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
   trampoline {
     match fsExpr with
@@ -294,19 +308,36 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs callee args memb
 
-    | ByrefArgToTupleOptimizedIf (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, elseExpr) ->
+    | ByrefArgToTupleOptimizedIf (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, thenExpr, elseExpr) ->
         let ctx, ident = bindIdentFrom com ctx outArg
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx membArgs
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
-        let identExpr = Fable.IdentExpr ident
+        let tupleIdent = makeIdentUnique com "tuple"
+        let tupleIdentExpr = Fable.IdentExpr tupleIdent
         let tupleExpr = makeCallFrom com ctx None typ false genArgs callee args memb
-        let guardExpr = Fable.Get(identExpr, Fable.TupleGet 0, typ, None)
-        let thenExpr = Fable.Get(identExpr, Fable.TupleGet 1, typ, None)
+        let identExpr = Fable.Get(tupleIdentExpr, Fable.TupleGet 1, typ, None)
+        let guardExpr = Fable.Get(tupleIdentExpr, Fable.TupleGet 0, typ, None)
+        let! thenExpr = transformExpr com ctx thenExpr
         let! elseExpr = transformExpr com ctx elseExpr
-        let body = Fable.IfThenElse(guardExpr, thenExpr, elseExpr, None)
-        return Fable.Let([ident, tupleExpr], body)
+        let ifThenElse = Fable.IfThenElse(guardExpr, thenExpr, elseExpr, None)
+        return Fable.Let([tupleIdent, tupleExpr], Fable.Let([ident, identExpr], ifThenElse))
+
+    | ByrefArgToTupleOptimizedTree (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, thenExpr, elseExpr, targetsExpr) ->
+        let ctx, ident = bindIdentFrom com ctx outArg
+        let! callee = transformExprOpt com ctx callee
+        let! args = transformExprList com ctx membArgs
+        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
+        let typ = makeType com ctx.GenericArgs fsExpr.Type
+        let tupleIdentExpr = Fable.IdentExpr ident
+        let tupleExpr = makeCallFrom com ctx None typ false genArgs callee args memb
+        let guardExpr = Fable.Get(tupleIdentExpr, Fable.TupleGet 0, typ, None)
+        let! thenExpr = transformExpr com ctx thenExpr
+        let! elseExpr = transformExpr com ctx elseExpr
+        let! targetsExpr = transformDecisionTargets com ctx [] targetsExpr
+        let ifThenElse = Fable.IfThenElse(guardExpr, thenExpr, elseExpr, None)
+        return Fable.Let([ident, tupleExpr], Fable.DecisionTree(ifThenElse, targetsExpr))
 
     | ByrefArgToTupleOptimizedLet (id1, id2, callee, memb, ownerGenArgs, membGenArgs, membArgs, restExpr) ->
         let ctx, ident1 = bindIdentFrom com ctx id1
@@ -315,14 +346,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! args = transformExprList com ctx membArgs
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
-        let ident = makeIdentUnique com "tuple"
-        let identExpr = Fable.IdentExpr ident
+        let tupleIdent = makeIdentUnique com "tuple"
+        let tupleIdentExpr = Fable.IdentExpr tupleIdent
         let tupleExpr = makeCallFrom com ctx None typ false genArgs callee args memb
-        let id1Expr = Fable.Get(identExpr, Fable.TupleGet 0, typ, None)
-        let id2Expr = Fable.Get(identExpr, Fable.TupleGet 1, typ, None)
+        let id1Expr = Fable.Get(tupleIdentExpr, Fable.TupleGet 0, typ, None)
+        let id2Expr = Fable.Get(tupleIdentExpr, Fable.TupleGet 1, typ, None)
         let! restExpr = transformExpr com ctx restExpr
         let body = Fable.Let([ident1, id1Expr], Fable.Let([ident2, id2Expr], restExpr))
-        return Fable.Let([ident, tupleExpr], body)
+        return Fable.Let([tupleIdent, tupleExpr], body)
 
     | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let! callee = transformExpr com ctx callee
@@ -661,20 +692,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     // Pattern Matching
     | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
         let! fableDecisionExpr = transformExpr com ctx decisionExpr
-        let rec transformDecisionTargets acc xs =
-            trampoline {
-                match xs with
-                | [] -> return List.rev acc
-                | (idents, expr)::tail ->
-                    let ctx, idents =
-                        (idents, (ctx, [])) ||> List.foldBack (fun ident (ctx, idents) ->
-                            let ctx, ident = bindIdentFrom com ctx ident
-                            ctx, ident::idents)
-                    let! expr = transformExpr com ctx expr
-                    return! transformDecisionTargets ((idents, expr)::acc) tail
-            }
-
-        let! fableDecisionTargets = transformDecisionTargets [] decisionTargets
+        let! fableDecisionTargets = transformDecisionTargets com ctx [] decisionTargets
 
         // rewrite last decision target if it throws MatchFailureException
         let compiledFableTargets =

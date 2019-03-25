@@ -275,6 +275,7 @@ export const MatchFailureException = declare(function MatchFailureException(arg1
   this.arg1 = arg1;
   this.arg2 = arg2 | 0;
   this.arg3 = arg3 | 0;
+  this.message = "The match cases were incomplete";
 }, FSharpException);
 
 export const Attribute = declare(function Attribute() { });

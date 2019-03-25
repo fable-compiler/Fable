@@ -11,13 +11,13 @@ module Util =
 
 module Experimental =
     /// Reads the name of an identifier, a property or a type
-    let nameof(expr: 'a): string = jsNative
+    let inline nameof(expr: 'a): string = jsNative
 
     /// Like nameof but also returns the expression as second element of the tuple
-    let nameof2(expr: 'a): string * 'a = jsNative
+    let inline nameof2(expr: 'a): string * 'a = jsNative
 
     /// Reads the name of a property or a type from the lambda body
-    let nameofLambda(f: 'a->'b): string = jsNative
+    let inline nameofLambda(f: 'a -> 'b): string = jsNative
 
 
 module Testing =

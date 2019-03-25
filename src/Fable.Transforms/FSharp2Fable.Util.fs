@@ -383,11 +383,22 @@ module Patterns =
     /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (--optimize+)
     let (|ByrefArgToTupleOptimizedIf|_|) = function
         | Let((outArg1, (DefaultValue _ as def)), IfThenElse
-                (Call(callee, memb, ownerGenArgs, membGenArgs, callArgs), Value outArg3, elseExpr))
-                when List.isMultiple callArgs && outArg1.IsCompilerGenerated && outArg1 = outArg3 ->
+                (Call(callee, memb, ownerGenArgs, membGenArgs, callArgs), thenExpr, elseExpr))
+                when List.isMultiple callArgs && outArg1.IsCompilerGenerated ->
             match List.splitLast callArgs with
             | callArgs, AddressOf(Value outArg2) when outArg1 = outArg2 ->
-                Some (outArg1, callee, memb, ownerGenArgs, membGenArgs, callArgs@[def], elseExpr)
+                Some (outArg1, callee, memb, ownerGenArgs, membGenArgs, callArgs@[def], thenExpr, elseExpr)
+            | _ -> None
+        | _ -> None
+
+    /// This matches another boilerplate generated for TryGetValue/TryParse/DivRem (--optimize+)
+    let (|ByrefArgToTupleOptimizedTree|_|) = function
+        | Let((outArg1, (DefaultValue _ as def)), DecisionTree(IfThenElse
+                (Call(callee, memb, ownerGenArgs, membGenArgs, callArgs), thenExpr, elseExpr), targetsExpr))
+                when List.isMultiple callArgs && outArg1.IsCompilerGenerated ->
+            match List.splitLast callArgs with
+            | callArgs, AddressOf(Value outArg2) when outArg1 = outArg2 ->
+                Some (outArg1, callee, memb, ownerGenArgs, membGenArgs, callArgs@[def], thenExpr, elseExpr, targetsExpr)
             | _ -> None
         | _ -> None
 
