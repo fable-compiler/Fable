@@ -6,7 +6,7 @@ let foo: string = Fable.Core.JsInterop.importMember "./js1/lib.js"
 
 /// Including JS files with same name works
 [<Fable.Core.Import("fooGenerator","./js2/lib.js")>]
-let fooGenerator(i: int): string = failwith "JS only"
+let fooGenerator(i: int): string = Fable.Core.Util.jsNative
 #else
 let foo = "foo"
 let fooGenerator(i: int): string =
@@ -40,7 +40,7 @@ module モジュール =
 
     #if FABLE_COMPILER
     [<Fable.Core.Import("one", "./numbers.js")>]
-    let one: int = failwith "JS only"
+    let one: int = Fable.Core.Util.jsNative
     let three: int = Fable.Core.JsInterop.importMember "./numbers.js"
     #else
     let one: int = 1

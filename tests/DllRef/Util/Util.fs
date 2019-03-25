@@ -5,7 +5,7 @@ let add2 x = x + 2
 
 #if FABLE_COMPILER
 [<Fable.Core.Import("two", "../numbers.js")>]
-let two: int = failwith "JS only"
+let two: int = Fable.Core.Util.jsNative
 let four: int = Fable.Core.JsInterop.importMember "../numbers.js"
 #else
 let two: int = 2

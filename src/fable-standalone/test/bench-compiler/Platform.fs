@@ -64,44 +64,47 @@ let getRelativePath (pathFrom: string) (pathTo: string) =
 
 open Fable.Core.JsInterop
 
-type private IFileSystem =
-    abstract readFileSync: string -> byte[]
-    abstract readFileSync: string * string -> string
-    abstract writeFileSync: string * string -> unit
+module JS =
+    type IFileSystem =
+        abstract readFileSync: string -> byte[]
+        abstract readFileSync: string * string -> string
+        abstract writeFileSync: string * string -> unit
 
-type private IProcess =
-    abstract hrtime: unit -> float []
-    abstract hrtime: float[] -> float[]
+    type IProcess =
+        abstract hrtime: unit -> float []
+        abstract hrtime: float[] -> float[]
 
-type private IPath =
-    abstract resolve: string -> string
-    abstract relative: string * string -> string
+    type IPath =
+        abstract resolve: string -> string
+        abstract relative: string * string -> string
 
-let private FileSystem: IFileSystem = importAll "fs"
-let private Process: IProcess = importAll "process"
-let private Path: IPath = importAll "path"
+    type IUtil =
+        abstract serializeToJson: data: obj -> string
+        abstract ensureDirExists: dir: string -> unit
 
-let readAllBytes (filePath: string) = FileSystem.readFileSync(filePath)
-let readAllText (filePath: string) = FileSystem.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
-let writeAllText (filePath: string) (text: string) = FileSystem.writeFileSync(filePath, text)
+    let FileSystem: IFileSystem = importAll "fs"
+    let Process: IProcess = importAll "process"
+    let Path: IPath = importAll "path"
+    let Util: IUtil = importAll "./util.js"
+
+let readAllBytes (filePath: string) = JS.FileSystem.readFileSync(filePath)
+let readAllText (filePath: string) = JS.FileSystem.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
+let writeAllText (filePath: string) (text: string) = JS.FileSystem.writeFileSync(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
-    let startTime = Process.hrtime()
+    let startTime = JS.Process.hrtime()
     let res = f x
-    let elapsed = Process.hrtime(startTime)
+    let elapsed = JS.Process.hrtime(startTime)
     int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6), res
 
-let serializeToJson (data: obj) =
-    importMember "./util.js"
-
-let ensureDirExists (dir: string): unit =
-    importMember "./util.js"
+let serializeToJson = JS.Util.serializeToJson
+let ensureDirExists = JS.Util.ensureDirExists
 
 let normalizeFullPath (path: string) =
-    Path.resolve(path).Replace('\\', '/')
+    JS.Path.resolve(path).Replace('\\', '/')
 
 let getRelativePath (pathFrom: string) (pathTo: string) =
-    Path.relative(pathFrom, pathTo).Replace('\\', '/')
+    JS.Path.relative(pathFrom, pathTo).Replace('\\', '/')
 
 #endif
 
