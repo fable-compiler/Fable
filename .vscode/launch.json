@@ -90,5 +90,15 @@
             ],
             "internalConsoleOptions": "openOnSessionStart"
         },
+        {
+            "name": "Run Tests (.NET)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/Main/bin/Debug/netcoreapp2.0/Fable.Tests.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/tests/Main",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
     ]
 }
