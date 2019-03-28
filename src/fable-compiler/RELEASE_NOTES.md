@@ -1,3 +1,7 @@
+### 2.2.1
+
+* Update FCS
+
 ### 2.2.0
 
 * Stable version
