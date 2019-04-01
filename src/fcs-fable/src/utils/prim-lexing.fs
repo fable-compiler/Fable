@@ -190,7 +190,7 @@ namespace Internal.Utilities.Text.Lexing
 
 
     module GenericImplFragments = 
-        let startInterpret(lexBuffer:LexBuffer<LexBufferChar>)= 
+        let startInterpret(lexBuffer:LexBuffer<LexBufferChar>) = 
             lexBuffer.BufferScanStart <- lexBuffer.BufferScanStart + lexBuffer.LexemeLength;
             lexBuffer.BufferMaxScanLength <- lexBuffer.BufferMaxScanLength - lexBuffer.LexemeLength;
             lexBuffer.BufferScanLength <- 0;
