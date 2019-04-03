@@ -1,3 +1,8 @@
+### 2.2.3
+
+* Fix BitConverter @ncave
+* Raise error when inlining functions that reference private members
+
 ### 2.2.2
 
 * Update FCS

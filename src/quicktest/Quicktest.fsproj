@@ -4,8 +4,8 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="4.5.2" />
-    <PackageReference Include="Fable.Core" Version="2.0.2" />
+    <PackageReference Include="FSharp.Core" Version="4.6.2" />
+    <PackageReference Include="Fable.Core" Version="3.0.0-beta-005" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="QuickTest.fs" />
