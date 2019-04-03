@@ -8,6 +8,6 @@
     <PackageReference Include="Fable.Core" Version="2.0.2" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="QuickTest.fsx" />
+    <Compile Include="QuickTest.fs" />
   </ItemGroup>
 </Project>

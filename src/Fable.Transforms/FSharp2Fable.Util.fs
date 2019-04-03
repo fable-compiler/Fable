@@ -859,18 +859,23 @@ module Util =
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityRefWithSuffix (com: ICompiler) (ent: FSharpEntity) suffix =
-        if ent.IsInterface then
+        let error msg =
             defaultArg ent.TryFullName ent.CompiledName
-            |> sprintf "Cannot reference an interface %s"
+            |> sprintf "%s: %s" msg
             |> addErrorAndReturnNull com [] None
+        if ent.IsInterface then
+            error "Cannot reference an interface"
         else
             let entLoc = getEntityLocation ent
             let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
             let entityName = getEntityDeclarationName com ent
             let entityName = Naming.appendSuffix entityName suffix
-            if file = com.CurrentFile
-            then makeIdentExprNonMangled entityName
-            else makeInternalImport Fable.Any entityName file
+            if file = com.CurrentFile then
+                makeIdentExprNonMangled entityName
+            elif isPublicEntity ent then
+                makeInternalImport Fable.Any entityName file
+            else
+                error "Cannot inline functions that reference private entities"
 
     let entityRef (com: ICompiler) (ent: FSharpEntity) =
         entityRefWithSuffix com ent ""
@@ -881,9 +886,11 @@ module Util =
         | Some importedEntity -> importedEntity
         | None -> entityRef com ent
 
-    let private memberRefPrivate (com: IFableCompiler) r typ (entity: FSharpEntity option) memberName =
+    let memberRefTyped (com: IFableCompiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
+        let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
+        let memberName = getMemberDeclarationName com memb
         let file =
-            match entity with
+            match memb.DeclaringEntity with
             | Some ent ->
                 let entLoc = getEntityLocation ent
                 Path.normalizePathAndEnsureFsExtension entLoc.FileName
@@ -893,15 +900,15 @@ module Util =
         if file = com.CurrentFile then
             { makeTypedIdentNonMangled typ memberName with Range = r }
             |> Fable.IdentExpr
-        else makeInternalImport typ memberName file
+        elif isPublicMember memb then
+            makeInternalImport typ memberName file
+        else
+            defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName
+            |> sprintf "Cannot reference private members from other files: %s"
+            |> addErrorAndReturnNull com ctx.InlinePath r
 
-    let memberRefTyped (com: IFableCompiler) r typ (memb: FSharpMemberOrFunctionOrValue) =
-        let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
-        getMemberDeclarationName com memb
-        |> memberRefPrivate com r typ memb.DeclaringEntity
-
-    let memberRef (com: IFableCompiler) r (memb: FSharpMemberOrFunctionOrValue) =
-        memberRefTyped com r Fable.Any memb
+    let memberRef (com: IFableCompiler) ctx r (memb: FSharpMemberOrFunctionOrValue) =
+        memberRefTyped com ctx r Fable.Any memb
 
     /// Checks who's the actual implementor of the interface, this entity or any of its parents
     let rec tryFindImplementingEntity (ent: FSharpEntity) interfaceFullName =
@@ -1120,13 +1127,13 @@ module Util =
             callInstanceMember com r typ argInfo memb
         | _ ->
             if isModuleValue
-            then memberRefTyped com r typ memb
+            then memberRefTyped com ctx r typ memb
             else
                 let argInfo =
                     if not argInfo.IsBaseOrSelfConstructorCall && isSelfConstructorCall ctx memb
                     then { argInfo with IsBaseOrSelfConstructorCall = true }
                     else argInfo
-                memberRef com r memb |> staticCall r typ argInfo
+                memberRef com ctx r memb |> staticCall r typ argInfo
 
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType
@@ -1140,4 +1147,4 @@ module Util =
         | Imported com r typ None true imported -> imported
         // TODO: Replaced? Check if there're failing tests
         | Try (tryGetBoundExpr ctx r) expr, _ -> expr
-        | _ -> memberRefTyped com r typ v
+        | _ -> memberRefTyped com ctx r typ v
