@@ -47,6 +47,7 @@ let tests =
 
         testCase "Expr.Value" <| fun () ->
             let e = Expr.Value(10, typeof<int>)
+            equal e.Type typeof<int>
             match e with
             | Value((:? int as o),t) -> 
                 equal o 10
@@ -55,6 +56,7 @@ let tests =
 
         testCase "Expr.Value<'a>" <| fun () ->
             let e = Expr.Value(10)
+            equal e.Type typeof<int>
             match e with
             | Value((:? int as o),t) -> 
                 equal o 10
@@ -63,19 +65,25 @@ let tests =
 
         testCase "Expr.Var" <| fun () ->
             let v = Var("a", typeof<int>)
-            match Expr.Var v with
+            let e = Expr.Var v
+            equal e.Type typeof<int>
+            match e with
             | Var v1 -> equal v v1
             | _ -> failwith "not a var"
 
         testCase "Expr.Lambda" <| fun () ->
             let v = Var("a", typeof<int>)
-            match Expr.Lambda(v, Expr.Var v) with
+            let e = Expr.Lambda(v, Expr.Var v)
+            equal e.Type typeof<int -> int>
+            match e with
             | Lambda(v1, _) -> equal v v1
             | _ -> failwith "not a lambda"
 
         testCase "Expr.Application" <| fun () ->
-            let v = Var("a", typeof<int -> int>)
-            match Expr.Application(Expr.Var v, Expr.Value 10) with
+            let v = Var("a", typeof<int -> float>)
+            let e = Expr.Application(Expr.Var v, Expr.Value 10)
+            equal e.Type typeof<float>
+            match e with
             | Application(v1, _) -> ()
             | _ -> failwith "not a lambda"
 
@@ -85,6 +93,33 @@ let tests =
             | IfThenElse _ -> ()
             | _ -> failwith "not an ifthenelse"
 
+
+        testCase "Expr.Let" <| fun () ->
+            let v = Var("a", typeof<int>)
+            let e = Expr.Let(v, Expr.Value 100, Expr.Var v)
+            match e with
+            | Let(v1, Value _, Var _) -> equal v v1
+            | _ -> failwith "bad let binding"
+
+
+        testCase "Expr.LetRecursive" <| fun () ->
+            let bindings =
+                [
+                    Var("a", typeof<float>), Expr.Value 10.0
+                    Var("b", typeof<bool>), Expr.Value true      
+                ]
+            let e = Expr.LetRecursive(bindings, Expr.Value 100)
+            equal e.Type typeof<int>
+            match e with
+            | LetRecursive([a, va; b, vb], _) -> 
+                equal a.Name "a"
+                equal a.Type va.Type
+                equal a.Type typeof<float>
+
+                equal b.Name "b"
+                equal b.Type vb.Type
+                equal b.Type typeof<bool>
+            | _ -> failwith "bad recursive binding"
 
 
 
