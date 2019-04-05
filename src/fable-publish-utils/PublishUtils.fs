@@ -294,7 +294,7 @@ module Publish =
         let json =
             projDir </> "package.json"
             |> readFile
-            |> Fable.Import.JS.JSON.parse
+            |> Fable.Core.JS.JSON.parse
         json?version
 
     let bumpNpmVersion projDir newVersion =
@@ -362,7 +362,7 @@ module Publish =
 
     let pushNpm (projDir: string) buildAction =
         let checkPkgVersion json: string option =
-            (Fable.Import.JS.JSON.parse json)?version |> Option.ofObj
+            (Fable.Core.JS.JSON.parse json)?version |> Option.ofObj
         let releaseVersion = loadReleaseVersion projDir
         if needsPublishing checkPkgVersion releaseVersion (projDir </> "package.json") then
             buildAction()
@@ -387,7 +387,7 @@ let pushNpm projDir buildAction =
     Publish.pushNpm projDir buildAction
 
 let getDotNetSDKVersionFromGlobalJson(): string =
-    let json = readFile "global.json" |> Fable.Import.JS.JSON.parse
+    let json = readFile "global.json" |> Fable.Core.JS.JSON.parse
     json?sdk?version
 
 let installDotnetSdk() =
