@@ -734,9 +734,32 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return sprintf "Cannot compile ILFieldGet(%A, %s)" ownerTyp fieldName
             |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
-    | BasicPatterns.Quote _ ->
-        return "Quotes are not currently supported by Fable"
-        |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
+
+    | BasicPatterns.Quote expr ->
+
+                
+
+        // let rec test (e : FSharpExpr) =
+        //     trampoline {
+        //         match e with
+        //         | BasicPatterns.Call(None, m, targs, margs, args) ->
+        //             let! args = trampolineListMap test args
+                    
+
+
+        //             return failwith ""
+        //         | _ ->
+        //             return failwith ""                                
+
+        //     }        
+        
+
+
+
+        let! expr = transformExpr com ctx expr
+        return Fable.Quote(false, expr)
+        // return "Quotes are not currently supported by Fable"
+        // |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
     // TODO: Ask. I see this when accessing Result types (all structs?)
     | BasicPatterns.AddressOf(expr) ->

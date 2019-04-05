@@ -92,7 +92,7 @@ module Util =
     let rec isJsStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
         | Fable.Value _ | Fable.Import _ | Fable.DelayedResolution _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
-        | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ | Fable.TypeCast _ -> false
+        | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ | Fable.TypeCast _ | Fable.Quote _ -> false
 
         | Fable.TryCatch _ | Fable.Debugger _
         | Fable.Sequential _ | Fable.Let _ | Fable.Set _
@@ -463,6 +463,8 @@ module Util =
         | Fable.List gen        -> genericTypeInfo "list" [|gen|]
         | Fable.Regex           -> nonGenericTypeInfo Types.regex
         | Fable.MetaType        -> nonGenericTypeInfo Types.type_
+        | Fable.Expr None       -> nonGenericTypeInfo "Expr"
+        | Fable.Expr (Some gen) -> genericTypeInfo "Expr" [|gen|]
         | Fable.DeclaredType(ent, generics) ->
             match ent, generics with
             | Replacements.BuiltinEntity kind ->
@@ -856,6 +858,10 @@ module Util =
             coreLibCall com ctx None "Util" "isArray" [|com.TransformAsExpr(ctx, expr)|]
         | Fable.List _ ->
             jsInstanceof (coreValue com ctx "Types" "List") expr
+
+        | Fable.Expr _ ->
+            coreLibCall com ctx None "ExprUtils" "isExpr" [| com.TransformAsExpr(ctx, expr) |]
+
         | Replacements.Builtin kind ->
             match kind with
             | Replacements.BclGuid -> jsTypeof "string" expr
@@ -1181,9 +1187,57 @@ module Util =
         | Fable.Debugger _ | Fable.Throw _ | Fable.Loop _ | Fable.TryCatch _ ->
             iife com ctx expr :> Expression
 
+        | Fable.Quote(_,expr) ->
+            let serializeExpr (expr : Fable.Expr) =
+                // TODO: proper serialization
+                string expr
+
+            // let mk (name : string) (args : list<Expression>) =
+            //     coreLibCall com ctx None "ExprUtil" ("mk" + name) (List.toArray args)
+
+            // let ident = 
+            //     { 
+            //         Fable.Ident.Name = "Expr" 
+            //         Fable.Ident.Type = Fable.Type.Expr None
+            //         Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent
+            //         Fable.Ident.IsMutable = false
+            //         Fable.Ident.IsCompilerGenerated = false
+            //         Fable.Ident.Range = None
+            //     }
+
+
+
+
+
+
+            // let rec visit (variables : System.Collections.Generic.Dictionary<string, Fable.Ident>) (e : Fable.Expr) =
+            //     match e with
+            //     | Fable.Function(Fable.Lambda a, b, name) ->
+            //         variables.[a.Name] <- a
+            //         coreLibCall com ctx None "ExprUtil" "mkLambda" [| Identifier(a.Name, ?loc = a.Range); visit variables b |]
+
+            //     | Fable.Operation(Fable.OperationKind.Call(call, info), t, r) ->
+            //         failwith ""
+
+            //         // //| Operation of OperationKind * typ: Type * range: SourceLocation option
+            //         // let a = Fable.Get(Fable.IdentExpr ident, Fable.GetKind.FieldGet("Function", false, Fable.FunctionType(Fable.Function)), Fable.Function, None)
+            //         // Fable.Operation(Fable.StaticCall (Fable.Get(Fable.IdentExpr ident, Fable.GetKind.FieldGet "Function")) , Fable.Type.Expr None, None)
+            //         // failwith ""
+
+            //     | _ ->
+            //         failwith ""                
+
+
+
+            let literal = StringLiteral(serializeExpr expr)
+            coreLibCall com ctx None "ExprUtils" "deserialize" [| literal |]
+            
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =
         match expr with
+        | Fable.Quote _ ->
+            [| transformAsExpr com ctx expr |> resolveExpr expr.Type returnStrategy |]
+
         | Fable.TypeCast(e, t) ->
             [|transformCast com ctx t e |> resolveExpr t returnStrategy|]
 

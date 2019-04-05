@@ -1,8 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Global/Fable.Core.fs" />
@@ -24,12 +22,7 @@
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="4.6.2" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="4.6.2" />
-  </ItemGroup>
-  <!-- <ItemGroup>
-    <ProjectReference Include="../FCS/fcs-fable/fcs-fable.fsproj" />
-  </ItemGroup> -->
 </Project>

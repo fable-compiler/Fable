@@ -16,6 +16,7 @@ type Type =
     | Char
     | String
     | Regex
+    | Expr of gen : Option<Type>
     | Number of NumberKind
     | EnumType of kind: EnumTypeKind * fullName: string
     | Option of genericArg: Type
@@ -29,7 +30,7 @@ type Type =
 
     member this.Generics =
         match this with
-        | Option gen | Array gen | List gen -> [gen]
+        | Expr (Some gen) | Option gen | Array gen | List gen -> [gen]
         | FunctionType(LambdaType argType, returnType) -> [argType; returnType]
         | FunctionType(DelegateType argTypes, returnType) -> argTypes @ [returnType]
         | Tuple gen -> gen
@@ -38,6 +39,7 @@ type Type =
         | _ -> []
     member this.ReplaceGenerics(newGen: Type list) =
         match this with
+        | Expr (Some _) -> Expr (Some newGen.Head)
         | Option _ -> Option newGen.Head
         | Array _  -> Array newGen.Head
         | List _   -> List newGen.Head
@@ -302,8 +304,12 @@ type Expr =
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
+    | Quote of typed : bool * value : Expr
+
     member this.Type =
         match this with
+        | Quote(true, value) -> Expr(Some value.Type)
+        | Quote(false, _) -> Expr None 
         | Test _ -> Boolean
         | Value(kind,_) -> kind.Type
         | IdentExpr id -> id.Type
@@ -323,7 +329,7 @@ type Expr =
         | ObjectExpr _ | Sequential _ | Let _
         | DecisionTree _ | DecisionTreeSuccess _ -> None
 
-        | Function(_,e,_) | TypeCast(e,_) -> e.Range
+        | Quote(_,e) | Function(_,e,_) | TypeCast(e,_) -> e.Range
         | IdentExpr id -> id.Range
 
         | Value(_,r) | IfThenElse(_,_,_,r) | TryCatch(_,_,_,r)

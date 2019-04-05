@@ -665,7 +665,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
 
 let isCompatibleWithJsComparison = function
     | Builtin(BclInt64|BclUInt64|BclBigInt)
-    | Array _ | List _ | Tuple _ | Option _ | MetaType -> false
+    | Array _ | List _ | Tuple _ | Option _ | MetaType | Expr _ -> false
     | Builtin(BclGuid|BclTimeSpan) -> true
     // TODO: Non-record/union declared types without custom equality
     // should be compatible with JS comparison
@@ -1721,7 +1721,6 @@ let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName i.OverloadSuffix.Value
         let args = injectArg com ctx r "Map" mangledName i.GenericArgs args
         Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-
 let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let meth = Naming.lowerFirst i.CompiledName
     let args = injectArg com ctx r "Map" meth i.GenericArgs args
@@ -2461,6 +2460,29 @@ let events (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
     | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, None -> Helper.CoreCall("Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
+let exprs (name : string) (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    //| meth, Some x,_ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Value", None, _ ->
+        match args with
+        | [a] ->
+            let _,name = getMangledNames { i with OverloadSuffix = lazy ("") } None
+            Helper.CoreCall("Quotations", name, t, [a; makeTypeInfo None a.Type], i.SignatureArgTypes, ?loc=r) |> Some
+        | _ ->
+            let _,name = getMangledNames { i with OverloadSuffix = lazy ("") } None
+            Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+    
+    | meth, Some x,_ -> 
+        let _,name = getMangledNames i (Some x)
+        Helper.CoreCall("Quotations", name, t, x :: args, i.SignatureArgTypes, ?loc=r) |> Some
+
+
+    | meth, None,_ -> 
+        let _,name = getMangledNames i None
+        Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+
 let observable (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     Helper.CoreCall("Observable", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
@@ -2657,6 +2679,9 @@ let tryField returnTyp ownerTyp fieldName =
 
 let private replacedModules =
   dict [
+    "Microsoft.FSharp.Quotations.FSharpExpr", exprs "Expr"
+    "Microsoft.FSharp.Quotations.FSharpVar", exprs "Var"
+    "Microsoft.FSharp.Quotations.PatternsModule", exprs "Patterns" 
     "System.Math", operators
     "Microsoft.FSharp.Core.Operators", operators
     "Microsoft.FSharp.Core.Operators.Checked", operators
