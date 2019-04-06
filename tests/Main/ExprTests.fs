@@ -18,11 +18,52 @@ type SeppBuilder() =
 
 let sepp = SeppBuilder()
 
+type BlaAttribute(name : string) = 
+    inherit Attribute()
+    member x.Name = name
+    override x.ToString() = sprintf "Bla(%s)" name
+
+type BlubbAttribute(name : string) = 
+    inherit Attribute()
+    member x.Name = name
+    override x.ToString() = sprintf "Blubb(%s)" name
+
 type V2 = { x : int; y : int } with
+    [<Bla("I are static"); Blubb("asdasd")>]
+    static member Blubber = { x = 1; y = 3}
+
+    [<Bla("Prop"); Blubb("asdasd")>]
+    member x.Sepp = 
+        x.x + x.y
+
     static member (+) (l : V2, r : V2) = { x = l.x + r.x; y = l.y + r.y }
+
+    member x.Item
+        with set (i : int) (v : int) =
+            ()        
 
 open FSharp.Quotations
 open FSharp.Quotations.Patterns
+open Fable.Core
+
+type System.Type with
+    [<Emit("$0.NewInfo")>]
+    member x.NewInfo : obj = jsNative
+
+type System.Reflection.MemberInfo with
+
+    [<Emit("$0[6]($1)")>]
+    member x.Invoke1 (v : 'a) : 'b  = Util.jsNative
+
+    [<Emit("$0[6]()")>]
+    member x.Invoke0 () : 'b  = Util.jsNative
+
+    [<Emit("$0[2]")>]
+    member x.IsStatic : bool = Util.jsNative
+
+type Sepp(a : int, b : string) =
+    member x.Yeah = b
+    member x.DoIt(c : int) = a*c
 
 let tests =
     testList "Expr" [
@@ -121,7 +162,16 @@ let tests =
                 equal b.Type typeof<bool>
             | _ -> failwith "bad recursive binding"
 
+        testCase "Expr.NewRecord" <| fun () ->
+            let e = Expr.NewRecord(typeof<V2>, [Expr.Value 10; Expr.Value 1])
+            match e with
+            | NewRecord(t, [a;b]) ->
+                equal t typeof<V2>
+            | _ ->
+                failwith "bad record"                    
 
-
-
+        testCase "CustomAttributes" <| fun () ->
+    
+            let prop = typeof<Sepp>.GetMembers() //.GetProperty("x", System.Reflection.BindingFlags.NonPublic)
+            failwithf "prop: %A" prop
     ]

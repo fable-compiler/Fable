@@ -23,6 +23,9 @@ type Helper =
         let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
         Operation(Call(kind, argInfo (Some callee) args argTypes), returnType, loc)
 
+    static member InstanceField(callee: Expr, memb: string, typ: Type, ?loc: SourceLocation) =
+        Get(callee, GetKind.FieldGet(memb, false, typ), typ, loc)
+
     static member Application(callee: Expr, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?loc: SourceLocation) =
         let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
@@ -2585,48 +2588,85 @@ let controlExtensions (_: ICompiler) (ctx: Context) (_: SourceLocation option) t
             |> fun (args, argTypes) -> List.rev args, List.rev argTypes
         Helper.CoreCall("Observable", meth, t, args, argTypes))
 
-let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
+
+let callTypeInfoMethod (this : Expr) (name : string) (typ : Type) (args : list<Expr>) =
+    // let self = com.TranslateExpr this
+    // let ex = Babel.MemberExpression(self, Identifier "NewInfo", computed, ?loc=r) :> Expression
+    Helper.InstanceCall(Helper.InstanceField(this, "NewInfo", Type.Any), name, typ, args)
+
+let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let returnString r x = StringConstant x |> makeValue r |> Some
-    match thisArg with
-    | Some(Value(TypeInfo exprType, exprRange) as thisArg) ->
-        match exprType with
-        | GenericParam name -> genericTypeInfoError name |> addError com ctx.InlinePath exprRange
-        | _ -> ()
-        match i.CompiledName with
-        | "get_FullName" -> getTypeFullName false exprType |> returnString r
-        | "get_Namespace" ->
-            let fullname = getTypeFullName false exprType
-            match fullname.LastIndexOf(".") with
-            | -1 -> "" |> returnString r
-            | i -> fullname.Substring(0, i) |> returnString r
-        | "get_IsArray" ->
-            match exprType with Array _ -> true | _ -> false
-            |> BoolConstant |> makeValue r |> Some
-        | "GetElementType" ->
-            match exprType with
-            | Array t -> TypeInfo t |> makeValue r |> Some
-            | _ -> Null t |> makeValue r |> Some
-        | "get_IsGenericType" ->
-            List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
-        | "get_GenericTypeArguments" | "GetGenericArguments" ->
-            let arVals = exprType.Generics |> List.map (makeTypeInfo r) |> ArrayValues
-            NewArray(arVals, Any) |> makeValue r |> Some
-        | "GetTypeInfo" -> Some thisArg
-        | "GetGenericTypeDefinition" ->
-            let newGen = exprType.Generics |> List.map (fun _ -> Any)
-            exprType.ReplaceGenerics(newGen) |> TypeInfo |> makeValue exprRange |> Some
-        | _ -> None
-    | Some thisArg ->
-        match i.CompiledName with
-        | "get_GenericTypeArguments" | "GetGenericArguments" ->
-            Helper.CoreCall("Reflection", "getGenerics", t, [thisArg], ?loc=r) |> Some
-        | "get_FullName" | "get_Namespace" | "get_IsArray" | "GetElementType"
-        | "get_IsGenericType" | "GetGenericTypeDefinition" ->
-            let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
-            Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some
-        | "GetTypeInfo" -> Some thisArg
-        | _ -> None
-    | None -> None
+
+
+    match thisArg, i.CompiledName with
+    | Some this, "get_FullName" -> callTypeInfoMethod this "get_FullName" t [] |> Some
+    | Some this, "get_Namespace" -> callTypeInfoMethod this "get_Namespace" t [] |> Some
+    | Some this, "get_IsArray" -> callTypeInfoMethod this "get_IsArray" t [] |> Some
+    | Some this, "GetElementType" -> callTypeInfoMethod this "GetElementType" t [] |> Some
+    | Some this, "get_IsGenericType" -> callTypeInfoMethod this "get_IsGenericType" t [] |> Some
+    | Some this, "get_IsGenericTypeDefinition" -> callTypeInfoMethod this "get_IsGenericTypeDefinition" t [] |> Some
+    | Some this, "get_GenericTypeArguments" -> callTypeInfoMethod this "get_GenericTypeArguments" t [] |> Some
+    | Some this, "GetGenericArguments" -> callTypeInfoMethod this "GetGenericArguments" t [] |> Some
+    | Some this, "GetTypeInfo" -> Some this
+    | Some this, "GetProperties" -> callTypeInfoMethod this "GetProperties" t args |> Some
+    | Some this, "GetMethods" -> callTypeInfoMethod this "GetMethods" t args |> Some
+    | Some this, "GetMembers" -> callTypeInfoMethod this "GetMembers" t args |> Some
+    | Some this, "GetFields" -> callTypeInfoMethod this "GetFields" t args |> Some
+
+    | Some this, "GetProperty" -> callTypeInfoMethod this "GetProperty" t [List.head args] |> Some
+
+    | _ -> None
+    // match thisArg with
+    // | Some(Value(TypeInfo exprType, exprRange) as thisArg) ->
+    //     match exprType with
+    //     | GenericParam name -> genericTypeInfoError name |> addError com ctx.InlinePath exprRange
+    //     | _ -> ()
+    //     match i.CompiledName with
+    //     | "get_FullName" -> getTypeFullName false exprType |> returnString r
+    //     | "get_Namespace" ->
+    //         let fullname = getTypeFullName false exprType
+    //         match fullname.LastIndexOf(".") with
+    //         | -1 -> "" |> returnString r
+    //         | i -> fullname.Substring(0, i) |> returnString r
+    //     | "get_IsArray" ->
+    //         match exprType with Array _ -> true | _ -> false
+    //         |> BoolConstant |> makeValue r |> Some
+    //     | "GetElementType" ->
+    //         match exprType with
+    //         | Array t -> TypeInfo t |> makeValue r |> Some
+    //         | _ -> Null t |> makeValue r |> Some
+    //     | "get_IsGenericType" ->
+    //         List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
+    //     | "get_GenericTypeArguments" | "GetGenericArguments" ->
+    //         let arVals = exprType.Generics |> List.map (makeTypeInfo r) |> ArrayValues
+    //         NewArray(arVals, Any) |> makeValue r |> Some
+    //     | "GetTypeInfo" -> Some thisArg
+    //     | "GetGenericTypeDefinition" ->
+    //         let newGen = exprType.Generics |> List.map (fun _ -> Any)
+    //         exprType.ReplaceGenerics(newGen) |> TypeInfo |> makeValue exprRange |> Some
+    //     | "GetProperties" -> Helper.CoreCall("Reflection", "getTypeProperties", t, [thisArg], ?loc=r) |> Some 
+    //     | "GetFields" -> Helper.CoreCall("Reflection", "getTypeFields", t, [thisArg], ?loc=r) |> Some 
+    //     | "GetMembers" -> Helper.CoreCall("Reflection", "getTypeMembers", t, [thisArg], ?loc=r) |> Some 
+
+    //     | "GetMethods" -> callTypeInfoMethod thisArg "GetMethods" t args |> Some
+
+    //     | _ -> None
+    // | Some thisArg ->
+    //     match i.CompiledName with
+    //     | "get_GenericTypeArguments" | "GetGenericArguments" ->
+    //         Helper.CoreCall("Reflection", "getGenerics", t, [thisArg], ?loc=r) |> Some
+    //     | "get_FullName" | "get_Namespace" | "get_IsArray" | "GetElementType"
+    //     | "get_IsGenericType" | "GetGenericTypeDefinition" ->
+    //         let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+    //         Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some
+    //     | "GetTypeInfo" -> Some thisArg
+    //     | "GetProperties" -> Helper.CoreCall("Reflection", "getTypeProperties", t, [thisArg], ?loc=r) |> Some 
+    //     | "GetFields" -> Helper.CoreCall("Reflection", "getTypeFields", t, [thisArg], ?loc=r) |> Some 
+    //     | "GetMembers" -> Helper.CoreCall("Reflection", "getTypeMembers", t, [thisArg], ?loc=r) |> Some 
+
+    //     | "GetMethods" -> callTypeInfoMethod thisArg "GetMethods" t args |> Some
+    //     | _ -> None
+    // | None -> None
 
 let fsharpType methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with
@@ -2815,10 +2855,28 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         if isFSharpType
         then fsharpType methName r t info args
         else fsharpValue methName r t info args
-    | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+    | "System.Reflection.MemberInfo" 
+    | "System.Reflection.MethodBase"
     | "System.Reflection.PropertyInfo"
-    | "System.Reflection.MemberInfo" ->
+    | "System.Reflection.FieldInfo"
+    | "System.Reflection.MethodInfo" ->
+        match thisArg, info.CompiledName, args with
+        | Some c, "Invoke", _ -> Helper.InstanceCall(c, "Invoke", t, args) |> Some
+        | Some c, "get_Name", [] -> Helper.InstanceCall(c, "get_Name", t, []) |> Some
+        | Some c, "get_DeclaringType", [] -> Helper.InstanceCall(c, "get_DeclaringType", t, []) |> Some
+        | Some c, "GetCustomAttributes", args -> Helper.InstanceCall(c, "GetCustomAttributes", t, args) |> Some
+        | Some c, "GetParameters", [] -> Helper.InstanceCall(c, "GetParameters", t, []) |> Some
+        | Some c, "get_IsStatic", [] -> Helper.InstanceCall(c, "get_IsStatic", t, []) |> Some
+        | Some c, "get_IsGenericMethod", [] -> Helper.InstanceCall(c, "get_IsGenericMethod", t, []) |> Some
+        | Some c, "GetGenericMethodDefinition", [] -> Helper.InstanceCall(c, "GetGenericMethodDefinition", t, []) |> Some
+        | Some c, "get_ReturnType", [] -> Helper.InstanceCall(c, "get_ReturnType", t, []) |> Some
+        | Some c, "get_ReturnParameter", [] -> Helper.InstanceCall(c, "get_ReturnParameter", t, []) |> Some
+        | _ -> None
+
+    | "Microsoft.FSharp.Reflection.UnionCaseInfo" ->
         match thisArg, info.CompiledName with
+        | Some c, "GetCustomAttributes" -> Helper.CoreCall("Reflection", "customAttributes", t, [c], ?loc=r) |> Some
+        | Some c, "get_IsStatic" -> Helper.CoreCall("Reflection", "isStatic", t, [c], ?loc=r) |> Some
         | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
         | Some c, "get_PropertyType" -> makeIntConst 1 |> getExpr r t c |> Some
         | Some c, "GetFields" -> Helper.CoreCall("Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
@@ -2826,7 +2884,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
             match c with
             | Value(TypeInfo exprType, loc) ->
                 match exprType with
-                | GenericParam name -> genericTypeInfoError name |> addError com ctx.InlinePath loc
+                | GenericParam name -> genericTypeInfoError name |> addWarning com ctx.InlinePath loc
                 | _ -> ()
 
                 let fullname = getTypeFullName false exprType

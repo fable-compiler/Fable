@@ -69,6 +69,7 @@ type ExprConstInfo =
     | LetRecCombOp
     | ValueOp of obj * System.Type * Option<string>
     | IfThenElseOp
+    | NewRecordOp of System.Type
 
 and Tree =
     | CombTerm   of ExprConstInfo * Expr list
@@ -99,7 +100,8 @@ and [<Replaces("Microsoft.FSharp.Quotations.FSharpExpr"); CompiledName("FSharpEx
             | LetRecOp, [IteratedLambda(_, E(CombTerm(LetRecCombOp, b2::_)))] -> typeOf b2
             | LetRecOp, _ -> failwith "bad"
             | LetRecCombOp, _ -> failwith "bad"
-            
+
+            | NewRecordOp t, _ -> t
                 
 
     member internal x.Tree = tree
@@ -147,6 +149,9 @@ and [<Replaces("Microsoft.FSharp.Quotations.FSharpExpr"); CompiledName("FSharpEx
 
     static member IfThenElse(c : Expr, i : Expr, e : Expr) =
         Expr(CombTerm(IfThenElseOp, [c; i; e]))
+
+    static member NewRecord(t : System.Type, args : list<Expr>) =
+        Expr(CombTerm(NewRecordOp t, args))
 
 
 [<Replaces("Microsoft.FSharp.Quotations.PatternsModule"); CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -201,4 +206,9 @@ module Patterns =
         | E(CombTerm(IfThenElseOp, [c; i; e])) -> Some (c,i,e)  
         | _ -> None
 
-    
+
+    [<CompiledName("NewRecordPattern")>]
+    let (|NewRecord|_|) (e : Expr) =
+        match e with
+        | E(CombTerm(NewRecordOp t, args)) -> Some (t, args)
+        | _ -> None

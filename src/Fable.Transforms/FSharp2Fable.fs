@@ -27,7 +27,7 @@ let private checkArgumentsPassedByRef com ctx (args: FSharpExpr list) =
             |> addWarning com ctx.InlinePath (makeRangeFrom arg)
         | _ -> ()
 
-let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
+let private transformBaseConsCall com (ctx : Context) r baseEnt (baseCons: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
     let thisArg = ctx.BoundConstructorThis |> Option.map Fable.IdentExpr
     let baseArgs = transformExprList com ctx baseArgs |> run
     let genArgs = genArgs |> Seq.map (makeType com ctx.GenericArgs)
@@ -48,7 +48,7 @@ let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFun
         let baseCons = makeCallFrom com ctx r Fable.Unit true genArgs thisArg baseArgs baseCons
         entityRefMaybeGlobalOrImported com baseEnt, baseCons
 
-let private transformNewUnion com ctx r fsType
+let private transformNewUnion com ctx r (fsType : FSharpType)
                 (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match fsType with
     | ErasedUnion(_, genArgs) ->
@@ -788,6 +788,126 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
             | Some ent -> isErasedEntity ent
             | None -> false)
 
+let private transformAttribute (com: IFableCompiler) (ctx : Context) (a : FSharpAttribute) =
+    let types, args = a.ConstructorArguments |> Seq.toArray |> Array.unzip
+    let ctor = 
+        a.AttributeType.MembersFunctionsAndValues |> Seq.tryPick (fun m ->
+            if m.IsConstructor then
+                let pars = m.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> p.Type)|> Seq.toArray
+                if args.Length = pars.Length then
+                    if FSharp.Collections.Array.forall2 (fun ta tp -> tp = ta) types pars then Some m
+                    else None
+                else      
+                    None
+            else
+                None                    
+        )
+    match ctor with
+    | Some ctor ->
+        let args = 
+            a.ConstructorArguments |> Seq.toList |> List.map (fun (t,v) ->
+                match v with
+                | :? string as str -> Fable.Value(Fable.StringConstant str, None)
+                | _ -> Fable.Value(Fable.StringConstant (string v), None)
+            )
+        let typ = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List() :> IList<_>) a.AttributeType
+        let x = makeCallFrom com ctx None typ false [] None args ctor
+        match a.AttributeType.TryFullName with
+        | Some n -> Some (n,x)
+        | _ -> None
+    | _ ->
+        None 
+
+let private transformUnionCases (com:IFableCompiler) ctx (cases : seq<FSharpUnionCase>) =
+    cases |> Seq.toArray |> Array.map (fun c ->
+        let fields =
+            c.UnionCaseFields |> Seq.toArray |> Array.map (fun f ->
+                {
+                    Fable.MemberInfo.Kind = Fable.Property(f.Name, makeType com ctx.GenericArgs f.FieldType, true, false)
+                    Fable.Attributes = f.PropertyAttributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
+                }
+            )
+
+        { Fable.UnionCaseInfo.Name = c.Name; Fable.UnionCaseInfo.Fields = fields }
+    )
+
+let private transformMemberReflectionInfos (com: FableCompiler) ctx (ent : FSharpEntity) =
+    let realMembers = 
+        ent.TryGetMembersFunctionsAndValues |> Seq.choose (fun m ->
+
+            if m.IsEvent || m.IsEventAddMethod || m.IsEventRemoveMethod then
+                // TODO: support these?
+                None
+            elif m.IsValue then
+                Some {
+                    Fable.MemberInfo.Kind = Fable.Field(m.CompiledName, makeType com ctx.GenericArgs m.FullType, not m.IsInstanceMember)
+                    Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
+                }   
+            elif m.IsProperty then
+                Some {
+                    Fable.MemberInfo.Kind = Fable.Property(m.DisplayName, makeType com ctx.GenericArgs m.ReturnParameter.Type, false, not m.IsInstanceMember)
+                    Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
+                }
+            elif m.IsConstructor then
+                let pars = 
+                    m.CurriedParameterGroups |> Seq.concat |> Seq.toArray |> Array.map (fun p ->
+                        { Fable.ParameterInfo.Name = p.DisplayName; Fable.Type = makeType com ctx.GenericArgs p.Type }
+                    )
+
+                let mangledName = Helpers.getMemberDeclarationName com m
+
+                Some {
+                    Fable.MemberInfo.Kind = Fable.Constructor(pars, mangledName)
+                    Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
+                }
+
+            else // m.IsPropertyGetterMethod || m.IsPropertySetterMethod || m.IsValCompiledAsMethod || m.IsInstanceMember then
+                let pars = 
+                    m.CurriedParameterGroups |> Seq.concat |> Seq.toArray |> Array.map (fun p ->
+                        { Fable.ParameterInfo.Name = p.DisplayName; Fable.Type = makeType com ctx.GenericArgs p.Type }
+                    )
+                let ret = makeType com ctx.GenericArgs m.ReturnParameter.Type
+
+                let mangledName = Helpers.getMemberDeclarationName com m
+
+                Some {
+                    Fable.MemberInfo.Kind = Fable.Method(m.CompiledName, pars, ret, not m.IsInstanceMember, mangledName)
+                    Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
+                }
+                // else
+                //     None                           
+        )
+
+    let special =
+        if ent.IsFSharpRecord then
+            let fields = ent.FSharpFields |> Seq.toArray
+            let parameters = fields |> Array.map (fun f -> { Fable.ParameterInfo.Name = f.Name; Fable.Type = makeType com ctx.GenericArgs f.FieldType})
+            let ctor = "new " + getEntityDeclarationName com ent
+            Seq.concat [            
+                ent.FSharpFields |> Seq.map (fun m -> 
+                    {
+                        Fable.MemberInfo.Kind = Fable.Property(m.Name, makeType com ctx.GenericArgs m.FieldType, true, false)
+                        Fable.Attributes = m.PropertyAttributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
+                    }                   
+                )
+
+                Seq.singleton {
+                    Fable.MemberInfo.Kind = Fable.Constructor(parameters, ctor)                    
+                    Fable.Attributes = [||]
+                }
+
+            ]    
+        elif ent.IsFSharpUnion then
+            // let caseInfos = 
+            //     ent.UnionCases |> Seq.collect (fun c ->
+            //         Seq.empty
+            //     )
+            Seq.empty                
+        else
+            Seq.empty
+
+    Seq.append realMembers special |> Seq.toArray
+
 let private transformImplicitConstructor com (ctx: Context)
             (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     match memb.DeclaringEntity with
@@ -821,6 +941,7 @@ let private transformImplicitConstructor com (ctx: Context)
         let info: Fable.ClassImplicitConstructorInfo =
             { Name = name
               Entity = ent
+              Members = transformMemberReflectionInfos com ctx ent
               EntityName = entityName
               IsEntityPublic = isPublicEntity ent
               IsConstructorPublic = isPublicMember memb
@@ -1015,8 +1136,12 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                     let entityName = getEntityDeclarationName com ent
                     com.AddUsedVarName(entityName)
                     // TODO: Check Equality/Comparison attributes
+                    let props = transformMemberReflectionInfos com ctx ent
+
                     let info: Fable.UnionConstructorInfo =
                       { Entity = ent
+                        Members = props
+                        Cases = transformUnionCases com ctx ent.UnionCases
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
                     let r = getEntityLocation ent |> makeRange
@@ -1027,11 +1152,15 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                     let entityName = getEntityDeclarationName com ent
                     com.AddUsedVarName(entityName)
                     // TODO: Check Equality/Comparison attributes
+                    let props = transformMemberReflectionInfos com ctx ent
                     let info: Fable.CompilerGeneratedConstructorInfo =
                       { Entity = ent
                         EntityName = entityName
-                        IsPublic = isPublicEntity ent }
+                        IsPublic = isPublicEntity ent 
+                        Members = props }
                     let r = getEntityLocation ent |> makeRange
+
+
                     [Fable.ConstructorDeclaration(Fable.CompilerGeneratedConstructor info, Some r)]
                 | _ ->
                     transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub

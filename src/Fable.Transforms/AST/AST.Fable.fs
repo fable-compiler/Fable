@@ -4,6 +4,7 @@ open Fable
 open Fable.AST
 open FSharp.Compiler.SourceCodeServices
 open System
+open System.Reflection
 
 type EnumTypeKind = NumberEnumType | StringEnumType
 type FunctionTypeKind = LambdaType of Type | DelegateType of Type list
@@ -54,6 +55,31 @@ type Type =
         | DeclaredType(ent,_) -> DeclaredType(ent,newGen)
         | t -> t
 
+
+type ParameterInfo =
+    {
+        Name : string
+        Type : Type
+    }
+
+type MemberInfoKind =
+    | Property of name : string * typ : Type * fsharp : bool * isStatic : bool
+    | Field of name : string * typ : Type * isStatic : bool
+    | Method of name : string * parameters : ParameterInfo[] * returnType : Type * isStatic : bool * mangledName : string
+    | Constructor of parameters : ParameterInfo[] * mangledName : string
+
+type MemberInfo =
+    {
+        Kind        : MemberInfoKind
+        Attributes  : array<string * Expr>
+    }
+
+type UnionCaseInfo =
+    {
+        Name : string
+        Fields : MemberInfo[]
+    }
+
 type ValueDeclarationInfo =
     { Name: string
       IsPublic: bool
@@ -64,6 +90,7 @@ type ValueDeclarationInfo =
 type ClassImplicitConstructorInfo =
     { Name: string
       Entity: FSharpEntity
+      Members : MemberInfo[]
       EntityName: string
       IsEntityPublic: bool
       IsConstructorPublic: bool
@@ -75,11 +102,14 @@ type ClassImplicitConstructorInfo =
 
 type UnionConstructorInfo =
     { Entity: FSharpEntity
+      Cases : UnionCaseInfo[]
+      Members : MemberInfo[]
       EntityName: string
       IsPublic: bool }
 
 type CompilerGeneratedConstructorInfo =
     { Entity: FSharpEntity
+      Members : MemberInfo[]
       EntityName: string
       IsPublic: bool }
 
