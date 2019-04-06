@@ -898,11 +898,15 @@ let private transformMemberReflectionInfos (com: FableCompiler) ctx (ent : FShar
 
             ]    
         elif ent.IsFSharpUnion then
-            // let caseInfos = 
-            //     ent.UnionCases |> Seq.collect (fun c ->
-            //         Seq.empty
-            //     )
-            Seq.empty                
+            ent.UnionCases |> Seq.mapi (fun i c ->
+                let mangledName = Helpers.unionCaseCompiledName c |> Option.defaultValue c.Name
+
+                let fields = c.UnionCaseFields |> Seq.toArray |> Array.map (fun f -> f.Name, makeType com ctx.GenericArgs f.FieldType)
+                {
+                    Fable.MemberInfo.Kind = Fable.UnionCaseConstructor(i, c.Name, fields, mangledName)
+                    Fable.Attributes = c.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
+                }    
+            )              
         else
             Seq.empty
 

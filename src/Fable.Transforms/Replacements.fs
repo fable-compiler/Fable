@@ -2592,28 +2592,28 @@ let controlExtensions (_: ICompiler) (ctx: Context) (_: SourceLocation option) t
 let callTypeInfoMethod (this : Expr) (name : string) (typ : Type) (args : list<Expr>) =
     // let self = com.TranslateExpr this
     // let ex = Babel.MemberExpression(self, Identifier "NewInfo", computed, ?loc=r) :> Expression
-    Helper.InstanceCall(Helper.InstanceField(this, "NewInfo", Type.Any), name, typ, args)
-
+    //Helper.InstanceCall(Helper.InstanceField(this, "NewInfo", Type.Any), name, typ, args)
+    Helper.InstanceCall(this, name, typ, args)
 let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let returnString r x = StringConstant x |> makeValue r |> Some
 
 
     match thisArg, i.CompiledName with
-    | Some this, "get_FullName" -> callTypeInfoMethod this "get_FullName" t [] |> Some
-    | Some this, "get_Namespace" -> callTypeInfoMethod this "get_Namespace" t [] |> Some
-    | Some this, "get_IsArray" -> callTypeInfoMethod this "get_IsArray" t [] |> Some
-    | Some this, "GetElementType" -> callTypeInfoMethod this "GetElementType" t [] |> Some
-    | Some this, "get_IsGenericType" -> callTypeInfoMethod this "get_IsGenericType" t [] |> Some
-    | Some this, "get_IsGenericTypeDefinition" -> callTypeInfoMethod this "get_IsGenericTypeDefinition" t [] |> Some
-    | Some this, "get_GenericTypeArguments" -> callTypeInfoMethod this "get_GenericTypeArguments" t [] |> Some
-    | Some this, "GetGenericArguments" -> callTypeInfoMethod this "GetGenericArguments" t [] |> Some
-    | Some this, "GetTypeInfo" -> Some this
-    | Some this, "GetProperties" -> callTypeInfoMethod this "GetProperties" t args |> Some
-    | Some this, "GetMethods" -> callTypeInfoMethod this "GetMethods" t args |> Some
-    | Some this, "GetMembers" -> callTypeInfoMethod this "GetMembers" t args |> Some
-    | Some this, "GetFields" -> callTypeInfoMethod this "GetFields" t args |> Some
+    | Some this, "get_FullName"                 -> callTypeInfoMethod this "get_FullName" t [] |> Some
+    | Some this, "get_Namespace"                -> callTypeInfoMethod this "get_Namespace" t [] |> Some
+    | Some this, "get_IsArray"                  -> callTypeInfoMethod this "get_IsArray" t [] |> Some
+    | Some this, "get_IsGenericType"            -> callTypeInfoMethod this "get_IsGenericType" t [] |> Some
+    | Some this, "get_IsGenericTypeDefinition"  -> callTypeInfoMethod this "get_IsGenericTypeDefinition" t [] |> Some
+    | Some this, "get_GenericTypeArguments"     -> callTypeInfoMethod this "get_GenericTypeArguments" t [] |> Some
+    | Some this, "GetElementType"               -> callTypeInfoMethod this "GetElementType" t [] |> Some
+    | Some this, "GetGenericArguments"          -> callTypeInfoMethod this "GetGenericArguments" t [] |> Some
+    | Some this, "GetTypeInfo"                  -> Some this
+    | Some this, "GetProperties"                -> callTypeInfoMethod this "GetProperties" t args |> Some
+    | Some this, "GetMethods"                   -> callTypeInfoMethod this "GetMethods" t args |> Some
+    | Some this, "GetMembers"                   -> callTypeInfoMethod this "GetMembers" t args |> Some
+    | Some this, "GetFields"                    -> callTypeInfoMethod this "GetFields" t args |> Some
 
-    | Some this, "GetProperty" -> callTypeInfoMethod this "GetProperty" t [List.head args] |> Some
+    | Some this, "GetProperty"                  -> callTypeInfoMethod this "GetProperty" t [List.head args] |> Some
 
     | _ -> None
     // match thisArg with
@@ -2859,6 +2859,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | "System.Reflection.MethodBase"
     | "System.Reflection.PropertyInfo"
     | "System.Reflection.FieldInfo"
+    | "Microsoft.FSharp.Reflection.UnionCaseInfo"
     | "System.Reflection.MethodInfo" ->
         match thisArg, info.CompiledName, args with
         | Some c, "Invoke", _ -> Helper.InstanceCall(c, "Invoke", t, args) |> Some
@@ -2871,33 +2872,34 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | Some c, "GetGenericMethodDefinition", [] -> Helper.InstanceCall(c, "GetGenericMethodDefinition", t, []) |> Some
         | Some c, "get_ReturnType", [] -> Helper.InstanceCall(c, "get_ReturnType", t, []) |> Some
         | Some c, "get_ReturnParameter", [] -> Helper.InstanceCall(c, "get_ReturnParameter", t, []) |> Some
+        | Some c, "GetFields", [] -> Helper.InstanceCall(c, "GetFields", t, []) |> Some
         | _ -> None
 
-    | "Microsoft.FSharp.Reflection.UnionCaseInfo" ->
-        match thisArg, info.CompiledName with
-        | Some c, "GetCustomAttributes" -> Helper.CoreCall("Reflection", "customAttributes", t, [c], ?loc=r) |> Some
-        | Some c, "get_IsStatic" -> Helper.CoreCall("Reflection", "isStatic", t, [c], ?loc=r) |> Some
-        | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
-        | Some c, "get_PropertyType" -> makeIntConst 1 |> getExpr r t c |> Some
-        | Some c, "GetFields" -> Helper.CoreCall("Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
-        | Some c, "get_Name" ->
-            match c with
-            | Value(TypeInfo exprType, loc) ->
-                match exprType with
-                | GenericParam name -> genericTypeInfoError name |> addWarning com ctx.InlinePath loc
-                | _ -> ()
+    // | "Microsoft.FSharp.Reflection.UnionCaseInfo" ->
+    //     match thisArg, info.CompiledName with
+    //     | Some c, "GetCustomAttributes" -> Helper.CoreCall("Reflection", "customAttributes", t, [c], ?loc=r) |> Some
+    //     | Some c, "get_IsStatic" -> Helper.CoreCall("Reflection", "isStatic", t, [c], ?loc=r) |> Some
+    //     | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
+    //     | Some c, "get_PropertyType" -> makeIntConst 1 |> getExpr r t c |> Some
+    //     | Some c, "GetFields" -> Helper.CoreCall("Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
+    //     | Some c, "get_Name" ->
+    //         match c with
+    //         | Value(TypeInfo exprType, loc) ->
+    //             match exprType with
+    //             | GenericParam name -> genericTypeInfoError name |> addWarning com ctx.InlinePath loc
+    //             | _ -> ()
 
-                let fullname = getTypeFullName false exprType
-                let fullname =
-                    match fullname.IndexOf("[") with
-                    | -1 -> fullname
-                    | i -> fullname.[..i - 1]
-                match fullname.LastIndexOf(".") with
-                | -1 -> fullname |> StringConstant |> makeValue r |> Some
-                | i -> fullname.Substring(i + 1) |> StringConstant |> makeValue r |> Some
-            | c ->
-                Helper.CoreCall("Reflection", "name", t, [c], ?loc=r) |> Some
-        | _ -> None
+    //             let fullname = getTypeFullName false exprType
+    //             let fullname =
+    //                 match fullname.IndexOf("[") with
+    //                 | -1 -> fullname
+    //                 | i -> fullname.[..i - 1]
+    //             match fullname.LastIndexOf(".") with
+    //             | -1 -> fullname |> StringConstant |> makeValue r |> Some
+    //             | i -> fullname.Substring(i + 1) |> StringConstant |> makeValue r |> Some
+    //         | c ->
+    //             Helper.CoreCall("Reflection", "name", t, [c], ?loc=r) |> Some
+    //     | _ -> None
     | _ when not info.IsInterface ->
         com.Options.precompiledLib
         |> Option.bind (fun tryLib -> tryLib info.DeclaringEntityFullName)

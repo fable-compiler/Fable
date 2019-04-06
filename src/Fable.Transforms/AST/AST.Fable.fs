@@ -67,6 +67,7 @@ type MemberInfoKind =
     | Field of name : string * typ : Type * isStatic : bool
     | Method of name : string * parameters : ParameterInfo[] * returnType : Type * isStatic : bool * mangledName : string
     | Constructor of parameters : ParameterInfo[] * mangledName : string
+    | UnionCaseConstructor of tag : int * name : string * parameters : array<string * Type> * mangledName : string
 
 type MemberInfo =
     {
