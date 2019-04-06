@@ -185,8 +185,8 @@ module Helpers =
         else not memb.Accessibility.IsPrivate
 
     let makeRange (r: Range.range) =
-        { start = { line = r.StartLine; column = r.StartColumn }
-          ``end``= { line = r.EndLine; column = r.EndColumn }
+        { start = { line = r.StartLine; column = r.StartColumn+1 }
+          ``end``= { line = r.EndLine; column = r.EndColumn+1 }
           identifierName = None }
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
@@ -628,19 +628,35 @@ module TypeHelpers =
             if t.HasTypeDefinition then Some t.TypeDefinition else None
         else None
 
-    let tryFindMember com (entity: FSharpEntity) genArgs membCompiledName isInstance (argTypes: Fable.Type list) =
+    let tryFindMember com (entity: FSharpEntity) genArgs _COMPILED_NAME isInstance (argTypes: Fable.Type list) =
         let argsEqual (args1: Fable.Type list) args1Length (args2: IList<IList<FSharpParameter>>) =
                 let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
                 if args1Length = args2Length then
-                    let args2 = args2 |> Seq.collect (fun g ->
-                        g |> Seq.map (fun p -> makeType com genArgs p.Type) |> Seq.toList)
+                    let args2 =
+                        args2
+                        |> Seq.collect (fun g ->
+                            g |> Seq.map (fun p -> makeType com genArgs p.Type) |> Seq.toList)
                     listEquals (typeEquals false) args1 (Seq.toList args2)
                 else false
         let argTypesLength = List.length argTypes
         getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
-            if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName
+            if m2.IsInstanceMember = isInstance && m2.CompiledName = _COMPILED_NAME
             then argsEqual argTypes argTypesLength m2.CurriedParameterGroups
             else false)
+
+    // let tryFindMember com (entity: FSharpEntity) genArgs membCompiledName isInstance (argTypes : list<Fable.Type>) =
+    //     let argsEqual (args1 : Fable.Type list) args1Length (args2: IList<IList<FSharpParameter>>)=
+    //             let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
+    //             if args1Length = args2Length then
+    //                 let args2 = args2 |> Seq.collect (fun g ->
+    //                     g |> Seq.map (fun p -> makeType com genArgs p.Type) |> Seq.toList)
+    //                 listEquals (typeEquals false) args1 (Seq.toList args2)
+    //             else false
+    //     let argTypesLength = List.length argTypes
+    //     getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
+    //         if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName
+    //         then argsEqual argTypes argTypesLength m2.CurriedParameterGroups
+    //         else false)
 
     let inline (|FableType|) com (ctx: Context) t = makeType com ctx.GenericArgs t
 

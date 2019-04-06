@@ -1058,6 +1058,42 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                    |> addError com ctx.InlinePath r; None
         | "createEmpty", _ ->
             objExpr t [] |> Some
+        | "safeJsObjCast", _ ->
+            match args, i.GenericArgs with
+            | [MaybeCasted(Value(NewRecord(exprs, Fable.AnonymousRecord fieldNames, []),_) as arg)],
+              [(_,DeclaredType(ent, []))] when ent.IsInterface ->
+                // TODO: Check also if there are extra fields in the record not present in the interface?
+                (None, ent.MembersFunctionsAndValues) ||> Seq.fold (fun err memb ->
+                    match err with
+                    | Some _ -> err
+                    | None ->
+                        let expectedType =
+                            if memb.IsPropertyGetterMethod then memb.ReturnParameter.Type
+                            else memb.FullType
+                            |> makeType com
+                        Array.tryFindIndex ((=) memb.DisplayName) fieldNames
+                        |> function
+                            | None ->
+                                match expectedType with
+                                | Option _ -> None // Optional fields can be missing
+                                | _ -> sprintf "Object doesn't contain field '%s'" memb.DisplayName |> Some
+                            | Some i ->
+                                let e = List.item i exprs
+                                match expectedType, e.Type with
+                                | Option t1, Option t2
+                                | Option t1, t2
+                                | t1, t2 -> typeEquals false t1 t2
+                                |> function
+                                    | true -> None
+                                    | false ->
+                                        let typeName = getTypeFullName true expectedType
+                                        sprintf "Expecting type '%s' for field '%s'" typeName memb.DisplayName |> Some)
+                |> function
+                    | None -> Some arg
+                    | Some errMsg -> addErrorAndReturnNull com ctx.InlinePath r errMsg |> Some
+            | _ ->
+                "safeJsObjCast can only be used on anonymous records casted to non-generic interfaces"
+                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         // Deprecated methods
         | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
         | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
