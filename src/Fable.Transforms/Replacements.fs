@@ -336,14 +336,22 @@ let makeTypeInfo r t =
 let makeTypeDefinitionInfo r t =
     let t =
         match t with
-        | Option _ -> Option Any
-        | Array _ -> Array Any
-        | List _ -> List Any
+        | Option _ -> Option (GenericParam "a")
+        | Array _ -> Array (GenericParam "a")
+        | List _ -> List (GenericParam "a")
         | Tuple genArgs ->
-            genArgs |> List.map (fun _ -> Any) |> Tuple
+            genArgs |> List.mapi (fun i _ -> (GenericParam (sprintf "a%d" i))) |> Tuple
         | DeclaredType(ent, genArgs) ->
-            let genArgs = genArgs |> List.map (fun _ -> Any)
+            let names = ent.GenericParameters |> Seq.map (fun p -> p.Name) |> Seq.toList
+            let genArgs = names |> List.map GenericParam
             DeclaredType(ent, genArgs)
+        | FunctionType(kind,r) ->
+            let kind = 
+                match kind with
+                | LambdaType(a) -> LambdaType (GenericParam "a")
+                | DelegateType(a) -> a |> List.mapi (fun i _ -> GenericParam (sprintf "a%d" i)) |> DelegateType
+            FunctionType(kind, GenericParam "b")   
+        | ErasedUnion a -> ErasedUnion a             
         // TODO: Do something with FunctionType and ErasedUnion?
         | t -> t
     TypeInfo t |> makeValue r
@@ -2607,6 +2615,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | Some this, "get_GenericTypeArguments"     -> callTypeInfoMethod this "get_GenericTypeArguments" t [] |> Some
     | Some this, "GetElementType"               -> callTypeInfoMethod this "GetElementType" t [] |> Some
     | Some this, "GetGenericArguments"          -> callTypeInfoMethod this "GetGenericArguments" t [] |> Some
+    | Some this, "GetGenericTypeDefinition"     -> callTypeInfoMethod this "GetGenericTypeDefinition" t [] |> Some
     | Some this, "GetTypeInfo"                  -> Some this
     | Some this, "GetProperties"                -> callTypeInfoMethod this "GetProperties" t args |> Some
     | Some this, "GetMethods"                   -> callTypeInfoMethod this "GetMethods" t args |> Some
@@ -2857,23 +2866,30 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         else fsharpValue methName r t info args
     | "System.Reflection.MemberInfo" 
     | "System.Reflection.MethodBase"
+    | "System.Reflection.ConstructorInfo"
     | "System.Reflection.PropertyInfo"
     | "System.Reflection.FieldInfo"
     | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+    | "FSharp.Reflection.UnionCaseInfo"
     | "System.Reflection.MethodInfo" ->
-        match thisArg, info.CompiledName, args with
-        | Some c, "Invoke", _ -> Helper.InstanceCall(c, "Invoke", t, args) |> Some
-        | Some c, "get_Name", [] -> Helper.InstanceCall(c, "get_Name", t, []) |> Some
-        | Some c, "get_DeclaringType", [] -> Helper.InstanceCall(c, "get_DeclaringType", t, []) |> Some
-        | Some c, "GetCustomAttributes", args -> Helper.InstanceCall(c, "GetCustomAttributes", t, args) |> Some
-        | Some c, "GetParameters", [] -> Helper.InstanceCall(c, "GetParameters", t, []) |> Some
-        | Some c, "get_IsStatic", [] -> Helper.InstanceCall(c, "get_IsStatic", t, []) |> Some
-        | Some c, "get_IsGenericMethod", [] -> Helper.InstanceCall(c, "get_IsGenericMethod", t, []) |> Some
-        | Some c, "GetGenericMethodDefinition", [] -> Helper.InstanceCall(c, "GetGenericMethodDefinition", t, []) |> Some
-        | Some c, "get_ReturnType", [] -> Helper.InstanceCall(c, "get_ReturnType", t, []) |> Some
-        | Some c, "get_ReturnParameter", [] -> Helper.InstanceCall(c, "get_ReturnParameter", t, []) |> Some
-        | Some c, "GetFields", [] -> Helper.InstanceCall(c, "GetFields", t, []) |> Some
-        | _ -> None
+        match thisArg, info.CompiledName with
+        | Some c, "Invoke" -> Helper.InstanceCall(c, "Invoke", t, args) |> Some
+        | Some c, "get_Name" -> Helper.InstanceCall(c, "get_Name", t, []) |> Some
+        | Some c, "get_Tag" -> Helper.InstanceCall(c, "get_Tag", t, []) |> Some
+        | Some c, "get_DeclaringType" -> Helper.InstanceCall(c, "get_DeclaringType", t, []) |> Some
+        | Some c, "GetCustomAttributes" -> Helper.InstanceCall(c, "GetCustomAttributes", t, args) |> Some
+        | Some c, "GetParameters" -> Helper.InstanceCall(c, "GetParameters", t, []) |> Some
+        | Some c, "get_IsStatic" -> Helper.InstanceCall(c, "get_IsStatic", t, []) |> Some
+        | Some c, "get_IsGenericMethod" -> Helper.InstanceCall(c, "get_IsGenericMethod", t, []) |> Some
+        | Some c, "GetGenericMethodDefinition" -> Helper.InstanceCall(c, "GetGenericMethodDefinition", t, []) |> Some
+        | Some c, "get_ReturnType" -> Helper.InstanceCall(c, "get_ReturnType", t, []) |> Some
+        | Some c, "get_ReturnParameter" -> Helper.InstanceCall(c, "get_ReturnParameter", t, []) |> Some
+        | Some c, "GetFields" -> Helper.InstanceCall(c, "GetFields", t, []) |> Some
+        | Some c, "get_PropertyType" -> Helper.InstanceCall(c, "get_PropertyType", t, []) |> Some
+        | _ -> 
+            let isStatic = Option.isNone thisArg
+            sprintf "UNKNOWN reflection member: { isStatic: %A; name: %A; args: %A }" isStatic info.CompiledName args |> addError com [] None
+            None
 
     // | "Microsoft.FSharp.Reflection.UnionCaseInfo" ->
     //     match thisArg, info.CompiledName with

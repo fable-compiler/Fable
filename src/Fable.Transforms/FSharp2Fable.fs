@@ -788,35 +788,42 @@ let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
             | Some ent -> isErasedEntity ent
             | None -> false)
 
+let private skipAttribute (name : string) =
+    // TODO: skip all attributes where definiton not known???
+    name.StartsWith "Microsoft.FSharp.Core" || name.StartsWith "System.Reflection"
+
 let private transformAttribute (com: IFableCompiler) (ctx : Context) (a : FSharpAttribute) =
-    let types, args = a.ConstructorArguments |> Seq.toArray |> Array.unzip
-    let ctor = 
-        a.AttributeType.MembersFunctionsAndValues |> Seq.tryPick (fun m ->
-            if m.IsConstructor then
-                let pars = m.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> p.Type)|> Seq.toArray
-                if args.Length = pars.Length then
-                    if FSharp.Collections.Array.forall2 (fun ta tp -> tp = ta) types pars then Some m
-                    else None
-                else      
-                    None
-            else
-                None                    
-        )
-    match ctor with
-    | Some ctor ->
-        let args = 
-            a.ConstructorArguments |> Seq.toList |> List.map (fun (t,v) ->
-                match v with
-                | :? string as str -> Fable.Value(Fable.StringConstant str, None)
-                | _ -> Fable.Value(Fable.StringConstant (string v), None)
+    match a.AttributeType.TryFullName with
+    | Some fullname when not (skipAttribute fullname) ->
+
+        let types, args = a.ConstructorArguments |> Seq.toArray |> Array.unzip
+        let ctor = 
+            a.AttributeType.MembersFunctionsAndValues |> Seq.tryPick (fun m ->
+                if m.IsConstructor then
+                    let pars = m.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> p.Type)|> Seq.toArray
+                    if args.Length = pars.Length then
+                        if FSharp.Collections.Array.forall2 (fun ta tp -> tp = ta) types pars then Some m
+                        else None
+                    else      
+                        None
+                else
+                    None                    
             )
-        let typ = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List() :> IList<_>) a.AttributeType
-        let x = makeCallFrom com ctx None typ false [] None args ctor
-        match a.AttributeType.TryFullName with
-        | Some n -> Some (n,x)
-        | _ -> None
+        match ctor with
+        | Some ctor ->
+            let args = 
+                a.ConstructorArguments |> Seq.toList |> List.map (fun (t,v) ->
+                    match v with
+                    | :? string as str -> Fable.Value(Fable.StringConstant str, None)
+                    | _ -> Fable.Value(Fable.StringConstant (string v), None)
+                )     
+            let typ = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List() :> IList<_>) a.AttributeType
+            let x = makeCallFrom com ctx None typ false [] None args ctor
+            Some (fullname,x)
+        | _ ->
+            None 
     | _ ->
-        None 
+        None    
 
 let private transformUnionCases (com:IFableCompiler) ctx (cases : seq<FSharpUnionCase>) =
     cases |> Seq.toArray |> Array.map (fun c ->
@@ -898,12 +905,13 @@ let private transformMemberReflectionInfos (com: FableCompiler) ctx (ent : FShar
 
             ]    
         elif ent.IsFSharpUnion then
+            //sprintf "%s: %A" ent.FullName ent.UnionCases.Count |> addWarning com [] None
             ent.UnionCases |> Seq.mapi (fun i c ->
                 let mangledName = Helpers.unionCaseCompiledName c |> Option.defaultValue c.Name
-
+                let mangledTypeName = getEntityDeclarationName com ent
                 let fields = c.UnionCaseFields |> Seq.toArray |> Array.map (fun f -> f.Name, makeType com ctx.GenericArgs f.FieldType)
                 {
-                    Fable.MemberInfo.Kind = Fable.UnionCaseConstructor(i, c.Name, fields, mangledName)
+                    Fable.MemberInfo.Kind = Fable.UnionCaseConstructor(i, c.Name, fields, mangledName, mangledTypeName)
                     Fable.Attributes = c.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
                 }    
             )              
@@ -1141,11 +1149,10 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                     com.AddUsedVarName(entityName)
                     // TODO: Check Equality/Comparison attributes
                     let props = transformMemberReflectionInfos com ctx ent
-
+                    
                     let info: Fable.UnionConstructorInfo =
                       { Entity = ent
                         Members = props
-                        Cases = transformUnionCases com ctx ent.UnionCases
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
                     let r = getEntityLocation ent |> makeRange
