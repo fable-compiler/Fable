@@ -471,13 +471,12 @@ module Util =
         // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
         let fullname = defaultArg ent.TryFullName Naming.unknown
         let fullnameExpr = StringLiteral fullname :> Expression
-        let genMap =
-            let genParamNames = ent.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toArray
-            Array.zip genParamNames generics |> Map
+        let genParamNames = ent.GenericParameters |> Seq.map (fun x -> StringLiteral x.Name :> Expression) |> Seq.toArray |> ArrayExpression :> Expression
+        //let genMap = Array.zip genParamNames generics |> Map
         let members = transformMemberReflectionInfos com ctx r ent mems generics
         //let fields = ArrowFunctionExpression([||], ArrayExpression members :> Expression |> U2.Case2) :> Expression
         let fields = FunctionExpression([||], BlockStatement [| ReturnStatement(ArrayExpression members) :> Statement |]) :> Expression
-        [|fullnameExpr; upcast ArrayExpression generics; fields|]
+        [|fullnameExpr; genParamNames; upcast ArrayExpression generics; fields|]
         |> coreLibCall com ctx None "Reflection" "type"
 
     // and transformUnionReflectionInfo com ctx r (ent: FSharpEntity) (mems : Fable.MemberInfo[]) generics =
@@ -521,7 +520,8 @@ module Util =
         let genericEntity (ent: FSharpEntity) generics =
             let fullname = defaultArg ent.TryFullName Naming.unknown
             let fullnameExpr = StringLiteral fullname :> Expression
-            let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]
+            let genericNames = ent.GenericParameters |> Seq.map (fun p -> StringLiteral p.Name :> Expression) |> Seq.toArray |> ArrayExpression :> Expression
+            let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; genericNames; ArrayExpression generics :> Expression|]
             coreLibCall com ctx None "Reflection" "type" args
         match t with
         // TODO: Type info forErasedUnion?
