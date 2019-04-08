@@ -6,6 +6,13 @@ open Fable.Tests
 open System.Globalization
 open FSharp.Quotations.Patterns
 
+
+type Heinz<'a>(value : 'a) =
+    member x.Sepp = [value]
+
+    member x.Self(v : 'a) = Heinz(v)
+
+
 type Bla() =
     member x.Delay (f : unit -> 'a) = f()
 
@@ -47,19 +54,9 @@ open FSharp.Quotations.Patterns
 open Fable.Core
 
 type System.Type with
-    [<Emit("$0.NewInfo")>]
-    member x.NewInfo : obj = jsNative
 
-type System.Reflection.MemberInfo with
-
-    [<Emit("$0[6]($1)")>]
-    member x.Invoke1 (v : 'a) : 'b  = Util.jsNative
-
-    [<Emit("$0[6]()")>]
-    member x.Invoke0 () : 'b  = Util.jsNative
-
-    [<Emit("$0[2]")>]
-    member x.IsStatic : bool = Util.jsNative
+    [<Emit("$0.toPrettyString()")>]
+    member x.ToPrettyString() : string = jsNative
 
 type Sepp(a : int, b : string) =
     member x.Yeah = b
@@ -172,6 +169,6 @@ let tests =
 
         testCase "CustomAttributes" <| fun () ->
     
-            let prop = typeof<Sepp>.GetMembers() //.GetProperty("x", System.Reflection.BindingFlags.NonPublic)
-            failwithf "prop: %A" prop
+            let prop = typedefof<Heinz<_>> //.MakeGenericType([| typeof<int> |]) //.GetProperty("x", System.Reflection.BindingFlags.NonPublic)
+            failwithf "prop: %s" (prop.ToPrettyString())
     ]

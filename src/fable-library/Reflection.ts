@@ -9,25 +9,30 @@ export class NParameterInfo {
     public ParameterType: NTypeInfo,
   ) { }
 
+  public toPrettyString() {
+    return this.Name + " : " + this.ParameterType.toFullString();
+  }
+
   public toString() {
-    return this.Name + " : " + this.ParameterType.toString();
+    return this.ParameterType.toString() + " " + this.Name;
   }
 }
 
-export class NMemberInfo {
+export abstract class NMemberInfo {
   constructor(
-      public DeclaringType: NTypeInfo,
-      public Name: string,
-      private attributes: CustomAttribute[],
-  ) {}
+    public DeclaringType: NTypeInfo,
+    public Name: string,
+    private attributes: CustomAttribute[],
+    ) {}
 
+  public abstract toPrettyString(): string;
   public get_Name() { return this.Name; }
 
   public get_DeclaringType() { return this.DeclaringType; }
 
   public GetCustomAttributes(a: (boolean|NTypeInfo), b?: boolean) {
     if (typeof a === "boolean") {
-      return this.attributes;
+      return this.attributes.map((att) => att.AttributeValue);
     } else if (a.fullname) {
       return this.attributes.filter((att) => att.AttributeType === a.fullname).map((att) => att.AttributeValue);
     } else {
@@ -36,7 +41,7 @@ export class NMemberInfo {
   }
 }
 
-export class NMethodBase extends NMemberInfo {
+export abstract class NMethodBase extends NMemberInfo {
   public Parameters: NParameterInfo[];
   constructor(
     DeclaringType: NTypeInfo,
@@ -80,8 +85,8 @@ export class NMethodInfo extends NMethodBase {
     return new NParameterInfo("Return", this.ReturnType);
   }
 
-  public toString() {
-    const args = this.Parameters.map((p) => p.toString()).join(", ");
+  public toPrettyString(): string {
+    const args = this.Parameters.map((p) => p.toPrettyString()).join(", ");
 
     let attPrefix = "";
     const atts = this.GetCustomAttributes(true);
@@ -91,7 +96,11 @@ export class NMethodInfo extends NMethodBase {
     let prefix = "member ";
     if (this.IsStatic) { prefix = "static " + prefix; }
 
-    return attPrefix + prefix + this.Name + "(" + args + ") : " + this.ReturnType.toString();
+    return attPrefix + prefix + this.Name + "(" + args + ") : " + this.ReturnType.toFullString();
+  }
+
+  public toString() {
+    return this.toPrettyString();
   }
 
   public Invoke(target: any, ...args: any[]) {
@@ -107,17 +116,15 @@ export class NMethodInfo extends NMethodBase {
 export class NConstructorInfo extends NMethodBase {
   constructor(
     DeclaringType: NTypeInfo,
-    Name: string,
     Parameters: NParameterInfo[],
-    IsStatic: boolean,
     private invoke: (...args: any[]) => any,
     attributes: CustomAttribute[],
   ) {
-    super(DeclaringType, Name, Parameters, IsStatic, attributes);
+    super(DeclaringType, ".ctor", Parameters, true, attributes);
   }
 
-  public toString() {
-    const args = this.Parameters.map((p) => p.toString()).join(", ");
+  public toPrettyString() {
+    const args = this.Parameters.map((p) => p.toPrettyString()).join(", ");
 
     let attPrefix = "";
     const atts = this.GetCustomAttributes(true);
@@ -126,6 +133,10 @@ export class NConstructorInfo extends NMethodBase {
     }
 
     return attPrefix + "new(" + args + ")";
+  }
+
+  public toString() {
+    return this.toPrettyString();
   }
 
   public Invoke(...args: any[]) {
@@ -148,8 +159,8 @@ export class NFieldInfo extends NMemberInfo {
   public get_FieldType() { return this.Type; }
   public get_IsStatic() { return this.IsStatic; }
 
-  public toString() {
-    const typ = this.Type.toString();
+  public toPrettyString() {
+    const typ = this.Type.toFullString();
     let prefix = "val ";
     if (this.IsStatic) { prefix = "static " + prefix; }
 
@@ -161,6 +172,11 @@ export class NFieldInfo extends NMemberInfo {
 
     return attPrefix + prefix + this.Name + " : " + typ;
   }
+
+  public toString() {
+    return this.toPrettyString();
+  }
+
 }
 
 export class NPropertyInfo extends NMemberInfo {
@@ -204,15 +220,15 @@ export class NPropertyInfo extends NMemberInfo {
     s.Invoke(target, [...index, value]);
   }
 
-  public toString() {
+  public toPrettyString() {
     const g = this.get_GetMethod();
     const s = this.get_SetMethod();
-    let typ = this.Type.toString();
+    let typ = this.Type.toFullString();
     if (g && g.Parameters.length > 0) {
-      const prefix = g.Parameters.map((p) => p.ParameterType.toString()).join(" * ");
+      const prefix = g.Parameters.map((p) => p.ParameterType.toFullString()).join(" * ");
       typ = prefix + " -> " + typ;
     } else if (s && s.Parameters.length > 0) {
-      const prefix = s.Parameters.slice(0, s.Parameters.length - 1).map((p) => p.ParameterType.toString()).join(" * ");
+      const prefix = s.Parameters.slice(0, s.Parameters.length - 1).map((p) => p.ParameterType.toFullString()).join(" * ");
       typ = prefix + " -> " + typ;
     }
 
@@ -236,6 +252,11 @@ export class NPropertyInfo extends NMemberInfo {
 
     return attPrefix + prefix + this.Name + " : " + typ + suffix;
   }
+
+  public toString() {
+    return this.toPrettyString();
+  }
+
 }
 
 export class NUnionCaseInfo extends NMemberInfo {
@@ -260,6 +281,17 @@ export class NUnionCaseInfo extends NMemberInfo {
   public get_Tag() {
     return this.Tag;
   }
+
+  public toPrettyString() {
+    const decl = this.DeclaringType.toFullString();
+    const fields = this.Fields.map((tup) => tup[0] + ": " + tup[1].toFullString()).join(" * ");
+    return decl + "." + this.Name + " of " + fields;
+  }
+
+  public toString() {
+    return this.toPrettyString();
+  }
+
 }
 
 export class NTypeInfo {
@@ -295,20 +327,26 @@ export class NTypeInfo {
       const g = _generics.filter((t) => !t.isGenericParameter);
       if (g.length === genericCount) {
         this.generics = g;
+        if (decl) {
+          this.genericMap = decl.genericMap;
+        }
       } else {
         _generics.forEach((g, i) => {
           this.genericMap[g.get_Name()] = i;
         });
-        this.generics = [];
+        this.generics = _generics;
       }
       this.declaration = decl || null;
     }
 
     public ResolveGeneric(t: NTypeInfo): NTypeInfo {
       if (t.isGenericParameter) {
-        if (this.genericMap[t.fullname]) {
+        if (t.fullname in this.genericMap) {
           return this.generics[this.genericMap[t.fullname]];
         } else {
+
+          const mapping = Object.keys(this.genericMap).map((k) => k + ": " + this.genericMap[k]).join(", ");
+          throw new Error("cannot resolve " + t.fullname + " { " + mapping + " }");
           return t;
         }
       } else if (t.genericCount > 0) {
@@ -331,10 +369,10 @@ export class NTypeInfo {
     }
 
   public MakeGenericType(args: NTypeInfo[]) {
-    if (args.length !== this.genericCount) { throw new Error("invalid generic argument count "); }
+    if (args.length !== this.genericCount) { throw new Error("invalid generic argument count"); }
 
     const key = args.map((t) => t.toString()).join(", ");
-    if (this.instantiations[key]) {
+    if (key in this.instantiations) {
       return this.instantiations[key];
     } else {
       const res = new NTypeInfo(this.fullname, this.genericCount, this.isGenericParameter, args, this.members, this);
@@ -426,9 +464,16 @@ export class NTypeInfo {
       return meth;
   }
   public toFullString(): string {
-    if (this.genericCount > 0) {
+    if (this.isGenericParameter) {
+      return "'" + this.fullname;
+    } else if (this.genericCount > 0) {
+      let name = this.fullname;
+      const suffix = "`" + this.genericCount;
+      if (name.endsWith(suffix)) {
+        name = name.substr(0, name.length - suffix.length);
+      }
       const args = this.generics.map((t) => t.toFullString()).join(", ");
-      return this.fullname + "<" + args + ">";
+      return name + "<" + args + ">";
     } else {
       return this.fullname;
     }
@@ -436,19 +481,19 @@ export class NTypeInfo {
 
   public toString(): string {
     if (this.genericCount > 0) {
-      const args = this.generics.map((t) => t.toString()).join(", ");
-      return this.fullname + "<" + args + ">";
+      const suffix = "`" + this.genericCount;
+      return this.fullname.endsWith(suffix) ? this.fullname : this.fullname + suffix;
     } else {
       return this.fullname;
     }
   }
-  public toLongString() {
+  public toPrettyString() {
     const members =
       this
       .GetMembers()
       .filter((m) => !(m instanceof NMethodInfo) || !(m.Name.startsWith("get_") || m.Name.startsWith("set_")))
-      .map((m) => "    " + m.toString()).join("\n");
-    return "type " + this.fullname + "=\n" + members;
+      .map((m) => "    " + m.toPrettyString()).join("\n");
+    return "type " + this.toFullString() + "=\n" + members;
   }
 
   public GetHashCode() {
@@ -510,8 +555,8 @@ function mkNMemberInfo(self: NTypeInfo, info: FieldInfo): NMemberInfo {
       return new NPropertyInfo(self, info[0], mkNTypeInfo(info[1]), info[2], true, info[5]);
     case MemberKind.Constructor:
       return new NConstructorInfo(
-        self, info[0], info[4].map((a) => mkParameterInfo(a)),
-        info[2], info[6], info[5],
+        self, info[4].map((a) => mkParameterInfo(a)),
+        info[6], info[5],
       );
     case MemberKind.Field:
         return new NFieldInfo(self, info[0], mkNTypeInfo(info[1]), info[2], info[5]);
@@ -547,18 +592,19 @@ function mkNTypeInfo(info: NTypeInfo): NTypeInfo {
 
 export function declareNType(fullname: string, generics: number, members: (self: NTypeInfo, gen: NTypeInfo[]) => NMemberInfo[]): NTypeInfo {
   let gen: NTypeInfo = null;
-  if (typeCache[fullname]) {
+  if (fullname in typeCache) {
     gen = typeCache[fullname];
   } else {
     const pars = new Array(generics).map((_, i) => getGenericParamter("a" + i));
-    gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => members(s, pars));
+    const mems = members || ((_self, _gen) => []);
+    gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => mems(s, pars));
     typeCache[fullname] = gen;
   }
   return gen;
 }
 export function declareType(fullname: string, genericNames: string[], generics: NTypeInfo[], members: () => FieldInfo[]): NTypeInfo {
   let gen: NTypeInfo = null;
-  if (typeCache[fullname]) {
+  if (fullname in typeCache) {
     gen = typeCache[fullname];
   } else {
     const gargs = genericNames.map((t) => getGenericParamter(t));
@@ -623,6 +669,31 @@ export function type(fullname: string, genericNames?: string[], generics?: NType
   return declareType(fullname, genNames, gen, f);
 }
 
+export function ntype(fullname: string, genericNames?: string[], generics?: NTypeInfo[], members?: (self: NTypeInfo, pars: NTypeInfo[]) => NMemberInfo[]): NTypeInfo {
+  let gen: NTypeInfo = null;
+  if (fullname in typeCache) {
+    gen = typeCache[fullname];
+  } else {
+    genericNames = genericNames || [];
+    generics = generics || [];
+    members = members || ((_s, _g) => []);
+
+    const pars = genericNames.map((n) => getGenericParamter(n));
+    gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => members(s, pars));
+    typeCache[fullname] = gen;
+  }
+
+  if (generics.length > 0) {
+    return gen.MakeGenericType(generics);
+  } else {
+    return gen;
+  }
+  // const gen = generics || [];
+
+  // const genNames = genericNames || [];
+  // const f = fields || ((_self, _gen) => []);
+  // return declareType(fullname, genNames, gen, f);
+}
 function selectMany<TIn, TOut>(input: TIn[], selectListFn: (t: TIn, i: number) => TOut[]): TOut[] {
   return input.reduce((out, inx, idx) => {
     out.push(...selectListFn(inx, idx));
@@ -653,7 +724,7 @@ export function lambda(argType: NTypeInfo, returnType: NTypeInfo): NTypeInfo {
 
 export function option(generic: NTypeInfo): NTypeInfo {
   let gen: NTypeInfo = null;
-  if (typeCache["Microsoft.FSharp.Core.FSharpOption`1"]) {
+  if ("Microsoft.FSharp.Core.FSharpOption`1" in typeCache) {
     gen = typeCache["Microsoft.FSharp.Core.FSharpOption`1"];
   } else {
     const par = getGenericParamter("a");
@@ -672,7 +743,12 @@ export function option(generic: NTypeInfo): NTypeInfo {
 }
 
 export function list(generic: NTypeInfo): NTypeInfo {
-  return new NTypeInfo("Microsoft.FSharp.Collections.FSharpList`1", 1, false, [generic], (_s) => []);
+  const gen = declareNType("Microsoft.FSharp.Collections.FSharpList`1", 1, (self, gen) => [
+    new NPropertyInfo(self, "Head", gen[0], false, false, []),
+    new NMethodInfo(self, "get_Head", [], gen[0], false, ((l) => l[0]), []),
+  ]);
+  return gen.MakeGenericType([generic]);
+  // return new NTypeInfo("Microsoft.FSharp.Collections.FSharpList`1", 1, false, [generic], (_s) => []);
 }
 
 export function array(generic: NTypeInfo): NTypeInfo {

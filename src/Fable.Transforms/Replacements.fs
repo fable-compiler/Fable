@@ -2622,6 +2622,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | Some this, "GetMembers"                   -> callTypeInfoMethod this "GetMembers" t args |> Some
     | Some this, "GetFields"                    -> callTypeInfoMethod this "GetFields" t args |> Some
 
+    | Some this, "MakeGenericType"              -> callTypeInfoMethod this "MakeGenericType" t args |> Some
     | Some this, "GetProperty"                  -> callTypeInfoMethod this "GetProperty" t [List.head args] |> Some
 
     | _ -> None
