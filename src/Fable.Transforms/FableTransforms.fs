@@ -275,7 +275,8 @@ module private Transforms =
             | value when ident.IsCompilerGenerated
                     // Don't erase the binding if the compiler-generated ident is a tuple, because the getters
                     // will be erased later (see above) and there's a risk the expression gets totally removed
-                    && not(isTuple ident.Type)
+                    && not (isTuple ident.Type)
+                    && not (ident.Name.StartsWith("patternInput")) // tuple may be split into multiple getters
                     && canInlineArg ident.Name value letBody ->
                 replaceValues (Map [ident.Name, value]) letBody
             | _ -> e

@@ -1,3 +1,7 @@
+### 1.0.4
+
+* Fixed optimized patterns
+
 ### 1.0.3
 
 * fcs-fable sync
