@@ -570,7 +570,7 @@ module TypeHelpers =
         // Tuple
         elif t.IsTupleType then
             makeGenArgs com ctxTypeArgs t.GenericArguments |> Fable.Tuple
-        // Funtion
+        // Function
         elif t.IsFunctionType then
             let argType = makeType com ctxTypeArgs t.GenericArguments.[0]
             let returnType = makeType com ctxTypeArgs t.GenericArguments.[1]
@@ -1154,7 +1154,7 @@ module Util =
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
-        | _ when typ = Fable.Unit ->
+        | _ when typ = Fable.Unit && v.CompiledName.EndsWith("@") ->
             if com.Options.verbose && not v.IsCompilerGenerated then // See #1516
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
