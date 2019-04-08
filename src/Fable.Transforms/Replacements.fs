@@ -2607,23 +2607,23 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
 
     match thisArg, i.CompiledName with
-    | Some this, "get_FullName"                 -> callTypeInfoMethod this "get_FullName" t [] |> Some
-    | Some this, "get_Namespace"                -> callTypeInfoMethod this "get_Namespace" t [] |> Some
-    | Some this, "get_IsArray"                  -> callTypeInfoMethod this "get_IsArray" t [] |> Some
-    | Some this, "get_IsGenericType"            -> callTypeInfoMethod this "get_IsGenericType" t [] |> Some
-    | Some this, "get_IsGenericTypeDefinition"  -> callTypeInfoMethod this "get_IsGenericTypeDefinition" t [] |> Some
-    | Some this, "get_GenericTypeArguments"     -> callTypeInfoMethod this "get_GenericTypeArguments" t [] |> Some
-    | Some this, "GetElementType"               -> callTypeInfoMethod this "GetElementType" t [] |> Some
-    | Some this, "GetGenericArguments"          -> callTypeInfoMethod this "GetGenericArguments" t [] |> Some
-    | Some this, "GetGenericTypeDefinition"     -> callTypeInfoMethod this "GetGenericTypeDefinition" t [] |> Some
-    | Some this, "GetTypeInfo"                  -> Some this
-    | Some this, "GetProperties"                -> callTypeInfoMethod this "GetProperties" t args |> Some
-    | Some this, "GetMethods"                   -> callTypeInfoMethod this "GetMethods" t args |> Some
-    | Some this, "GetMembers"                   -> callTypeInfoMethod this "GetMembers" t args |> Some
-    | Some this, "GetFields"                    -> callTypeInfoMethod this "GetFields" t args |> Some
-
-    | Some this, "MakeGenericType"              -> callTypeInfoMethod this "MakeGenericType" t args |> Some
-    | Some this, "GetProperty"                  -> callTypeInfoMethod this "GetProperty" t [List.head args] |> Some
+    | Some this, "get_FullName"                     -> callTypeInfoMethod this "get_FullName" t [] |> Some
+    | Some this, "get_Namespace"                    -> callTypeInfoMethod this "get_Namespace" t [] |> Some
+    | Some this, "get_IsArray"                      -> callTypeInfoMethod this "get_IsArray" t [] |> Some
+    | Some this, "get_IsGenericType"                -> callTypeInfoMethod this "get_IsGenericType" t [] |> Some
+    | Some this, "get_IsGenericTypeDefinition"      -> callTypeInfoMethod this "get_IsGenericTypeDefinition" t [] |> Some
+    | Some this, "get_GenericTypeArguments"         -> callTypeInfoMethod this "get_GenericTypeArguments" t [] |> Some
+    | Some this, "GetElementType"                   -> callTypeInfoMethod this "GetElementType" t [] |> Some
+    | Some this, "GetGenericArguments"              -> callTypeInfoMethod this "GetGenericArguments" t [] |> Some
+    | Some this, "GetGenericTypeDefinition"         -> callTypeInfoMethod this "GetGenericTypeDefinition" t [] |> Some
+    | Some this, "GetTypeInfo"                      -> Some this
+    | Some this, "GetProperties"                    -> callTypeInfoMethod this "GetProperties" t args |> Some
+    | Some this, "GetMethods"                       -> callTypeInfoMethod this "GetMethods" t args |> Some
+    | Some this, "GetMembers"                       -> callTypeInfoMethod this "GetMembers" t args |> Some
+    | Some this, "GetFields"                        -> callTypeInfoMethod this "GetFields" t args |> Some
+    
+    | Some this, "MakeGenericType"                  -> callTypeInfoMethod this "MakeGenericType" t args |> Some
+    | Some this, "GetProperty"                      -> callTypeInfoMethod this "GetProperty" t [List.head args] |> Some
 
     | _ -> None
     // match thisArg with
@@ -2874,6 +2874,11 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | "FSharp.Reflection.UnionCaseInfo"
     | "System.Reflection.MethodInfo" ->
         match thisArg, info.CompiledName with
+        
+        | Some this, "GetGenericMethodDefinition"       -> callTypeInfoMethod this "GetGenericMethodDefinition" t [] |> Some
+        | Some this, "get_IsGenericMethod"              -> callTypeInfoMethod this "get_IsGenericMethod" t [] |> Some
+        | Some this, "get_IsGenericMethodDefinition"    -> callTypeInfoMethod this "get_IsGenericMethodDefinition" t [] |> Some
+        | Some this, "MakeGenericMethod"                -> callTypeInfoMethod this "MakeGenericMethod" t args |> Some
         | Some c, "Invoke" -> Helper.InstanceCall(c, "Invoke", t, args) |> Some
         | Some c, "get_Name" -> Helper.InstanceCall(c, "get_Name", t, []) |> Some
         | Some c, "get_Tag" -> Helper.InstanceCall(c, "get_Tag", t, []) |> Some
@@ -2881,8 +2886,6 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | Some c, "GetCustomAttributes" -> Helper.InstanceCall(c, "GetCustomAttributes", t, args) |> Some
         | Some c, "GetParameters" -> Helper.InstanceCall(c, "GetParameters", t, []) |> Some
         | Some c, "get_IsStatic" -> Helper.InstanceCall(c, "get_IsStatic", t, []) |> Some
-        | Some c, "get_IsGenericMethod" -> Helper.InstanceCall(c, "get_IsGenericMethod", t, []) |> Some
-        | Some c, "GetGenericMethodDefinition" -> Helper.InstanceCall(c, "GetGenericMethodDefinition", t, []) |> Some
         | Some c, "get_ReturnType" -> Helper.InstanceCall(c, "get_ReturnType", t, []) |> Some
         | Some c, "get_ReturnParameter" -> Helper.InstanceCall(c, "get_ReturnParameter", t, []) |> Some
         | Some c, "GetFields" -> Helper.InstanceCall(c, "GetFields", t, []) |> Some

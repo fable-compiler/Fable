@@ -22,7 +22,7 @@ export abstract class NMemberInfo {
   constructor(
     public DeclaringType: NTypeInfo,
     public Name: string,
-    private attributes: CustomAttribute[],
+    public attributes: CustomAttribute[],
     ) {}
 
   public abstract toPrettyString(): string;
@@ -58,25 +58,68 @@ export abstract class NMethodBase extends NMemberInfo {
 
   public get_IsStatic() { return this.IsStatic; }
 
-  public get_IsGenericMethod() {  return false; }
-
-  public GetGenericMethodDefinition() { return this; }
-
 }
 
 export class NMethodInfo extends NMethodBase {
   public ReturnType: NTypeInfo;
+  private isGenericDef: boolean;
+  private genMap: { [name: string]: number } = {};
+
   constructor(
     DeclaringType: NTypeInfo,
+    public GenericArguments: NTypeInfo[],
     Name: string,
     Parameters: NParameterInfo[],
     returnType: NTypeInfo,
     IsStatic: boolean,
     private invoke: (...args: any[]) => any,
     attributes: CustomAttribute[],
+    private declaration?: NMethodInfo,
   ) {
     super(DeclaringType, Name, Parameters, IsStatic, attributes);
-    this.ReturnType = returnType.get_ContainsGenericParameters() ? DeclaringType.ResolveGeneric(returnType) : returnType;
+
+    const isDef = GenericArguments.findIndex((p) => p.isGenericParameter) >= 0;
+    this.isGenericDef = isDef;
+    if (isDef) {
+      GenericArguments.forEach((v, i) => {
+        this.genMap[v.fullname] = i;
+      });
+    } else if (declaration) {
+      this.genMap = declaration.genMap;
+    }
+
+    this.Parameters.forEach((p) => { p.ParameterType = this.ResolveGeneric(p.ParameterType); });
+    this.ReturnType = returnType.get_ContainsGenericParameters() ? this.ResolveGeneric(returnType) : returnType;
+  }
+
+  public ResolveGeneric(t: NTypeInfo): NTypeInfo {
+    if (t.isGenericParameter) {
+      return t.fullname in this.genMap ? this.GenericArguments[this.genMap[t.fullname]] : this.DeclaringType.ResolveGeneric(t);
+    } else if (t.get_ContainsGenericParameters()) {
+      const gen = t.generics.map((t) => this.ResolveGeneric(t));
+      return t.MakeGenericType(gen);
+      // return new NTypeInfo(t.fullname, t.genericCount, t.isGenericParameter, t.generics.map((t) => this.ResolveType(t)), t.members, t.declaration)
+    } else {
+      return t;
+    }
+  }
+
+  public get_IsGenericMethodDefinition() {
+    return this.isGenericDef;
+  }
+
+  public MakeGenericMethod(types: NTypeInfo[]) {
+    return new NMethodInfo(this.DeclaringType, types, this.Name, this.Parameters, this.ReturnType, this.IsStatic, this.invoke, this.attributes, this);
+  }
+
+  public get_IsGenericMethod() {  return this.isGenericDef || this.declaration; }
+
+  public GetGenericMethodDefinition(): NMethodInfo {
+    if (this.declaration) {
+      return this.declaration;
+    } else {
+      return this;
+    }
   }
 
   public get_ReturnType() { return this.ReturnType; }
@@ -311,11 +354,11 @@ export class NTypeInfo {
 
   private static parameterCache: {[i: string]: NTypeInfo} = {};
   public generics: NTypeInfo[] = null;
+  public declaration: NTypeInfo = null;
 
   private instantiations: {[i: string]: NTypeInfo} = {};
   private mems: NMemberInfo[] = null;
   private genericMap: {[name: string]: number} = {};
-  private declaration: NTypeInfo = null;
 
   constructor(
     public fullname: string,
@@ -352,9 +395,6 @@ export class NTypeInfo {
           if (idx < 0 || idx >= this.generics.length) { throw new Error("cannot resolve: " + t.toFullString()); }
           return this.generics[idx];
         } else {
-
-          const mapping = Object.keys(this.genericMap).map((k) => k + ": " + this.genericMap[k]).join(", ");
-          throw new Error("cannot resolve " + t.fullname + " { " + mapping + " }");
           return t;
         }
       } else if (t.genericCount > 0) {
@@ -534,7 +574,7 @@ export function declareNType(fullname: string, generics: number, members: (self:
   if (fullname in typeCache) {
     gen = typeCache[fullname];
   } else {
-    const pars = Array.from({ length: generics }, (_, i) => getGenericParamter("a" + i));
+    const pars = Array.from({ length: generics }, (_, i) => getGenericParameter("a" + i));
 
     const mems = members || ((_self, _gen) => []);
     gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => mems(s, pars));
@@ -543,7 +583,7 @@ export function declareNType(fullname: string, generics: number, members: (self:
   return gen;
 }
 
-export function getGenericParamter(name: string) {
+export function getGenericParameter(name: string) {
   return NTypeInfo.getParameter(name);
 }
 
@@ -592,7 +632,7 @@ export function ntype(fullname: string, genericNames?: string[], generics?: NTyp
     const b = genericNames.findIndex((t) => !t);
     if (b >= 0) { throw new Error("bad hate occured"); }
 
-    const pars = genericNames.map((n) => getGenericParamter(n));
+    const pars = genericNames.map((n) => getGenericParameter(n));
     gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => members(s, pars));
     typeCache[fullname] = gen;
   }
@@ -615,7 +655,7 @@ export function tuple(...generics: NTypeInfo[]): NTypeInfo {
   const gen =
     declareNType(name, generics.length, (self, gen) => selectMany<NTypeInfo, NMemberInfo>(gen, (t, i) => [
       new NPropertyInfo(self, "Item" + i, t, false, false, []),
-      new NMethodInfo(self, "get_Item" + i, [], t, false, ((a) => a[i]), []),
+      new NMethodInfo(self, [], "get_Item" + i, [], t, false, ((a) => a[i]), []),
     ]));
   return gen.MakeGenericType(generics);
 }
@@ -627,7 +667,7 @@ export function delegate(...generics: NTypeInfo[]): NTypeInfo {
       const ret = generics[generics.length - 1];
       const args = generics.slice(0, generics.length - 1).map((t, i) => new NParameterInfo("arg" + i, t));
       return [
-        new NMethodInfo(self, "Invoke", args, ret, false, ((target, ...args) => target(...args)), []),
+        new NMethodInfo(self, [], "Invoke", args, ret, false, ((target, ...args) => target(...args)), []),
       ];
     });
   return gen.MakeGenericType(generics);
@@ -637,7 +677,7 @@ export function lambda(argType: NTypeInfo, returnType: NTypeInfo): NTypeInfo {
   const name = "Microsoft.FSharp.Core.FSharpFunc`2";
   const gen =
     declareNType(name, 2, (self, gen) => [
-      new NMethodInfo(self, "Invoke", [new NParameterInfo("arg", gen[0])], gen[1], false, ((target, ...args) => target(...args)), []),
+      new NMethodInfo(self, [], "Invoke", [new NParameterInfo("arg", gen[0])], gen[1], false, ((target, ...args) => target(...args)), []),
     ]);
   return gen.MakeGenericType([argType, returnType]);
 }
@@ -655,7 +695,7 @@ export function option(generic?: NTypeInfo): NTypeInfo {
 export function list(generic?: NTypeInfo): NTypeInfo {
   const gen = declareNType("Microsoft.FSharp.Collections.FSharpList`1", 1, (self, gen) => [
     new NPropertyInfo(self, "Head", gen[0], false, false, []),
-    new NMethodInfo(self, "get_Head", [], gen[0], false, ((l) => l[0]), []),
+    new NMethodInfo(self, [], "get_Head", [], gen[0], false, ((l) => l[0]), []),
   ]);
   return gen.MakeGenericType([generic]);
   // return new NTypeInfo("Microsoft.FSharp.Collections.FSharpList`1", 1, false, [generic], (_s) => []);
@@ -664,10 +704,10 @@ export function list(generic?: NTypeInfo): NTypeInfo {
 export function array(generic?: NTypeInfo): NTypeInfo {
   const gen = declareNType("_[]", 1, (self, gen) => [
     new NPropertyInfo(self, "Length", int32, false, false, []),
-    new NMethodInfo(self, "get_Length", [], int32, false, ((l) => l.length), []),
+    new NMethodInfo(self, [], "get_Length", [], int32, false, ((l) => l.length), []),
   ]);
   return gen.MakeGenericType([generic]);
-  // generic = generic || getGenericParamter("a");
+  // generic = generic || getGenericParameter("a");
   // return new NTypeInfo(generic.fullname + "[]", 1, false, [generic], (_s) => []);
 }
 

@@ -874,15 +874,12 @@ let private transformMemberReflectionInfos (com: FableCompiler) ctx (ent : FShar
                         { Fable.ParameterInfo.Name = p.DisplayName; Fable.Type = makeType com ctx.GenericArgs p.Type }
                     )
                 let ret = makeType com ctx.GenericArgs m.ReturnParameter.Type
-
                 let mangledName = Helpers.getMemberDeclarationName com m
-
+                let parNames = m.GenericParameters |> Seq.toArray |> Array.map (fun p -> p.Name)                
                 Some {
-                    Fable.MemberInfo.Kind = Fable.Method(m.CompiledName, pars, ret, not m.IsInstanceMember, mangledName)
+                    Fable.MemberInfo.Kind = Fable.Method(parNames, m.CompiledName, pars, ret, not m.IsInstanceMember, mangledName)
                     Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
-                }
-                // else
-                //     None                           
+                }                         
         )
 
     let special =

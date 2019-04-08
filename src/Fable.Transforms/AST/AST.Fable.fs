@@ -65,7 +65,7 @@ type ParameterInfo =
 type MemberInfoKind =
     | Property of name : string * typ : Type * fsharp : bool * isStatic : bool
     | Field of name : string * typ : Type * isStatic : bool
-    | Method of name : string * parameters : ParameterInfo[] * returnType : Type * isStatic : bool * mangledName : string
+    | Method of genericParameters : string[] * name : string * parameters : ParameterInfo[] * returnType : Type * isStatic : bool * mangledName : string
     | Constructor of parameters : ParameterInfo[] * mangledName : string
     | UnionCaseConstructor of tag : int * name : string * parameters : array<string * Type> * mangledName : string * mangledTypeName : string
 

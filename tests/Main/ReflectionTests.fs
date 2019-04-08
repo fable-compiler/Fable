@@ -409,7 +409,17 @@ type MyRecord20 =
     { FieldA: int
       FieldB: string }
 
+type MyClass<'a>() =
+  static member GetValue<'b>(a : 'a, b : 'b) = (a,b)
+
+
 let fableTests = [
+    testCase "Generic Methods" <| fun () ->
+      let tm = typedefof<MyClass<_>>.MakeGenericType [| typeof<int> |]
+      let meth = tm.GetMethods().[0]
+      let m = meth.MakeGenericMethod [| typeof<float> |]
+      m.GetParameters() |> failwithf "%A"
+
     testCase "ITypeResolver can be injected" <| fun () ->
         let x: R1 = Helper.Make [|box 5|]
         let y: R2 = Helper.Make [|box 10|]
