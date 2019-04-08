@@ -1,4 +1,4 @@
-import { Record, Union } from "./Types";
+import { Record, Union, declare } from "./Types";
 import { compareArraysWith, equalArraysWith, stringHash } from "./Util";
 
 // tslint:disable: max-line-length
@@ -336,13 +336,21 @@ export class NTypeInfo {
         });
         this.generics = _generics;
       }
+      if (this.generics.length !== this.genericCount) { throw new Error("invalid generic count"); }
       this.declaration = decl || null;
+
+      if (fullname === "Microsoft.FSharp.Collections.FSharpList`1" && this.generics.length === 0) {
+        throw new Error("bad list type");
+      }
+
     }
 
     public ResolveGeneric(t: NTypeInfo): NTypeInfo {
       if (t.isGenericParameter) {
         if (t.fullname in this.genericMap) {
-          return this.generics[this.genericMap[t.fullname]];
+          const idx = this.genericMap[t.fullname];
+          if (idx < 0 || idx >= this.generics.length) { throw new Error("cannot resolve: " + t.toFullString()); }
+          return this.generics[idx];
         } else {
 
           const mapping = Object.keys(this.genericMap).map((k) => k + ": " + this.genericMap[k]).join(", ");
@@ -357,18 +365,19 @@ export class NTypeInfo {
     }
 
     public GetGenericTypeDefinition() {
-      if (this.genericCount === 0 || this.generics.length === 0) {
+      if (this.genericCount === 0 || this.get_IsGenericTypeDefinition()) {
         return this;
+      } else if (this.declaration) {
+        return this.declaration;
       } else {
-        if (this.declaration) {
-          return this.declaration;
-        } else {
-          return new NTypeInfo(this.fullname, this.genericCount, this.isGenericParameter, [], this.members);
-        }
+        throw new Error("bad HATE");
+        return new NTypeInfo(this.fullname, this.genericCount, this.isGenericParameter, [], this.members);
       }
     }
 
   public MakeGenericType(args: NTypeInfo[]) {
+    args = args.filter((a) => a);
+    if (args.length === 0) { return this; }
     if (args.length !== this.genericCount) { throw new Error("invalid generic argument count"); }
 
     const key = args.map((t) => t.toString()).join(", ");
@@ -404,7 +413,12 @@ export class NTypeInfo {
     return this.genericCount > 0;
   }
   public get_IsGenericTypeDefinition() {
-    return this.genericCount > 0 && !this.generics;
+    if (this.genericCount > 0) {
+      const idx = this.generics.findIndex((g) => g.isGenericParameter);
+      return idx >= 0;
+    } else {
+      return false;
+    }
   }
 
   public get_ContainsGenericParameters(): boolean {
@@ -413,7 +427,7 @@ export class NTypeInfo {
 
   public GetGenericArguments() {
     if (this.genericCount > 0) {
-      if (this.generics) {
+      if (this.generics.length > 0) {
         return this.generics;
       } else {
         return Array(this.genericCount).map((_, i) => NTypeInfo.getParameter(i.toString()));
@@ -508,148 +522,50 @@ export class NTypeInfo {
   }
 }
 
-export enum MemberKind {
-  Property = 0,
-  Field = 1,
-  FSharpField = 2,
-  Constructor = 3,
-  Method = 4,
-  UnionCase = 5,
-}
-
-export type ParameterInfo = [string, NTypeInfo];
-
-export type FieldInfo = [string, NTypeInfo, boolean, MemberKind, ParameterInfo[], CustomAttribute[], (...args: any) => any];
-
 export interface CustomAttribute {
   AttributeType: string;
   AttributeValue: any;
 }
 
-// export type Constructor = new(...args: any[]) => any;
-
-// export class CaseInfo {
-//   constructor(public declaringType: TypeInfo,
-//               public tag: number,
-//               public name: string,
-//               public fields?: TypeInfo[]) {
-//   }
-// }
-
 const typeCache: { [fullname: string]: NTypeInfo } = {};
-
-function mkParameterInfo(info: ParameterInfo) {
-  return new NParameterInfo(info[0], mkNTypeInfo(info[1]));
-}
-
-function mkNMemberInfo(self: NTypeInfo, info: FieldInfo): NMemberInfo {
-  switch (info[3]) {
-    case MemberKind.Method:
-      return new NMethodInfo(
-        self, info[0], info[4].map((a) => mkParameterInfo(a)),
-        mkNTypeInfo(info[1]), info[2], info[6], info[5],
-      );
-    case MemberKind.Property:
-      return new NPropertyInfo(self, info[0], mkNTypeInfo(info[1]), info[2], false, info[5]);
-    case MemberKind.FSharpField:
-      return new NPropertyInfo(self, info[0], mkNTypeInfo(info[1]), info[2], true, info[5]);
-    case MemberKind.Constructor:
-      return new NConstructorInfo(
-        self, info[4].map((a) => mkParameterInfo(a)),
-        info[6], info[5],
-      );
-    case MemberKind.Field:
-        return new NFieldInfo(self, info[0], mkNTypeInfo(info[1]), info[2], info[5]);
-    case MemberKind.UnionCase:
-        const tag = (info[2] as unknown) as number;
-        const arr = info[4].map((v) => [v[0], mkNTypeInfo(v[1])]) as Array<[string, NTypeInfo]>;
-        return new NUnionCaseInfo(self, tag, info[0], info[5], arr, info[6]);
-    default:
-      return null;
-  }
-}
-function mkNMemberInfos(fields: () => FieldInfo[]): (self: NTypeInfo) => NMemberInfo[] {
-  if (fields) {
-    return (self: NTypeInfo) => fields().map((f) => mkNMemberInfo(self, f)).filter((f) => f !== null);
-  } else {
-    return (_self: NTypeInfo) => [];
-  }
-}
-
-function mkNTypeInfo(info: NTypeInfo): NTypeInfo {
-  return info;
-  // if (typeCache[info.fullname]) {
-  //   return typeCache[info.fullname];
-  // } else {
-  //   const gen = info.generics || [];
-  //   const fields = info.fields || (() => []);
-
-  //   const res = new NTypeInfo(info.fullname, gen.length, false, gen.map((a) => mkNTypeInfo(a)), mkNMemberInfos(fields));
-  //   typeCache[info.fullname] = res;
-  //   return res;
-  // }
-}
 
 export function declareNType(fullname: string, generics: number, members: (self: NTypeInfo, gen: NTypeInfo[]) => NMemberInfo[]): NTypeInfo {
   let gen: NTypeInfo = null;
   if (fullname in typeCache) {
     gen = typeCache[fullname];
   } else {
-    const pars = new Array(generics).map((_, i) => getGenericParamter("a" + i));
+    const pars = Array.from({ length: generics }, (_, i) => getGenericParamter("a" + i));
+
     const mems = members || ((_self, _gen) => []);
     gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => mems(s, pars));
     typeCache[fullname] = gen;
   }
   return gen;
 }
-export function declareType(fullname: string, genericNames: string[], generics: NTypeInfo[], members: () => FieldInfo[]): NTypeInfo {
-  let gen: NTypeInfo = null;
-  if (fullname in typeCache) {
-    gen = typeCache[fullname];
-  } else {
-    const gargs = genericNames.map((t) => getGenericParamter(t));
-    gen = new NTypeInfo(fullname, gargs.length, false, gargs, mkNMemberInfos(members));
-    typeCache[fullname] = gen;
-  }
-
-  if (generics.length > 0 && generics.length === gen.genericCount) {
-    return gen.MakeGenericType(generics);
-  } else {
-    return gen;
-  }
-}
 
 export function getGenericParamter(name: string) {
   return NTypeInfo.getParameter(name);
 }
 
-// export class TypeInfo {
-//   public NewInfo: NTypeInfo;
-//   constructor(public fullname: string,
-//               public generics?: TypeInfo[],
-//               public constructor?: Constructor,
-//               public fields?: () => FieldInfo[],
-//               public cases?: () => CaseInfo[]) {
-//     this.NewInfo = mkNTypeInfo(this);
-//   }
-//   public toString() {
-//     return fullName(this);
-//   }
-//   public Equals(other: TypeInfo) {
-//     return equals(this, other);
-//   }
-//   public CompareTo(other: TypeInfo) {
-//     return compare(this, other);
-//   }
-// }
-
 export function getGenerics(t: NTypeInfo): NTypeInfo[] {
-  return t.generics != null ? t.generics : [];
+  const gen = t.generics || [];
+  // const badIdx = gen.findIndex((t) => !t);
+  // if (badIdx >= 0) { throw new Error("bad generic arg: " + badIdx); }
+  return gen;
 }
 
 export function equals(t1: NTypeInfo, t2: NTypeInfo): boolean {
-  return t1.fullname === t2.fullname
-    && equalArraysWith(getGenerics(t1), getGenerics(t2), equals);
+  if (t1.fullname === t2.fullname) {
+    const g1 = getGenerics(t1);
+    const g2 = getGenerics(t2);
+    try {
+      return equalArraysWith(g1, g2, equals);
+    } catch (e) {
+      throw new Error(t1.fullname + " g1: " + g1 + " g2: " + g2);
+    }
+  } else {
+    return false;
+  }
 }
 
 // System.Type is not comparable in .NET, but let's implement this
@@ -662,21 +578,19 @@ export function compare(t1: NTypeInfo, t2: NTypeInfo): number {
   }
 }
 
-export function type(fullname: string, genericNames?: string[], generics?: NTypeInfo[], fields?: () => FieldInfo[]): NTypeInfo {
-  const gen = generics || [];
-  const genNames = genericNames || [];
-  const f: () => FieldInfo[] = fields || (() => []);
-  return declareType(fullname, genNames, gen, f);
-}
-
 export function ntype(fullname: string, genericNames?: string[], generics?: NTypeInfo[], members?: (self: NTypeInfo, pars: NTypeInfo[]) => NMemberInfo[]): NTypeInfo {
   let gen: NTypeInfo = null;
+  generics = generics || [];
+  const a = generics.findIndex((t) => !t);
+  if (a >= 0) { throw new Error("bad hate occured"); }
+
   if (fullname in typeCache) {
     gen = typeCache[fullname];
   } else {
-    genericNames = genericNames || [];
-    generics = generics || [];
     members = members || ((_s, _g) => []);
+    genericNames = genericNames || [];
+    const b = genericNames.findIndex((t) => !t);
+    if (b >= 0) { throw new Error("bad hate occured"); }
 
     const pars = genericNames.map((n) => getGenericParamter(n));
     gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => members(s, pars));
@@ -688,11 +602,6 @@ export function ntype(fullname: string, genericNames?: string[], generics?: NTyp
   } else {
     return gen;
   }
-  // const gen = generics || [];
-
-  // const genNames = genericNames || [];
-  // const f = fields || ((_self, _gen) => []);
-  // return declareType(fullname, genNames, gen, f);
 }
 function selectMany<TIn, TOut>(input: TIn[], selectListFn: (t: TIn, i: number) => TOut[]): TOut[] {
   return input.reduce((out, inx, idx) => {
@@ -702,47 +611,48 @@ function selectMany<TIn, TOut>(input: TIn[], selectListFn: (t: TIn, i: number) =
 }
 
 export function tuple(...generics: NTypeInfo[]): NTypeInfo {
-  const pars = generics.map((_, i) => "a" + i);
+  const name = "System.Tuple`" + generics.length;
   const gen =
-    declareType("System.Tuple`" + pars.length, pars, [], () => selectMany<string, FieldInfo>(pars, (t, i) =>
-      [
-        ["Item" + i, getGenericParamter(t), false, MemberKind.Property, [], [], ((_) => null)],
-        ["get_Item" + i, getGenericParamter(t), false, MemberKind.Method, [], [], ((t) => t[i])],
-      ],
-    ));
+    declareNType(name, generics.length, (self, gen) => selectMany<NTypeInfo, NMemberInfo>(gen, (t, i) => [
+      new NPropertyInfo(self, "Item" + i, t, false, false, []),
+      new NMethodInfo(self, "get_Item" + i, [], t, false, ((a) => a[i]), []),
+    ]));
   return gen.MakeGenericType(generics);
 }
 
 export function delegate(...generics: NTypeInfo[]): NTypeInfo {
-  const gen = declareNType("System.Func`" + generics.length, generics.length, (self, pars) => []);
+  const name = "System.Func`" + generics.length;
+  const gen =
+    declareNType(name, generics.length, (self, gen) => {
+      const ret = generics[generics.length - 1];
+      const args = generics.slice(0, generics.length - 1).map((t, i) => new NParameterInfo("arg" + i, t));
+      return [
+        new NMethodInfo(self, "Invoke", args, ret, false, ((target, ...args) => target(...args)), []),
+      ];
+    });
   return gen.MakeGenericType(generics);
 }
 
 export function lambda(argType: NTypeInfo, returnType: NTypeInfo): NTypeInfo {
-  return new NTypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", 2, false, [argType, returnType], (_s) => []);
+  const name = "Microsoft.FSharp.Core.FSharpFunc`2";
+  const gen =
+    declareNType(name, 2, (self, gen) => [
+      new NMethodInfo(self, "Invoke", [new NParameterInfo("arg", gen[0])], gen[1], false, ((target, ...args) => target(...args)), []),
+    ]);
+  return gen.MakeGenericType([argType, returnType]);
 }
 
-export function option(generic: NTypeInfo): NTypeInfo {
-  let gen: NTypeInfo = null;
-  if ("Microsoft.FSharp.Core.FSharpOption`1" in typeCache) {
-    gen = typeCache["Microsoft.FSharp.Core.FSharpOption`1"];
-  } else {
-    const par = getGenericParamter("a");
-    const r =
-      new NTypeInfo("Microsoft.FSharp.Core.FSharpOption`1", 1, false, [par], (s) =>
-        [
-          new NUnionCaseInfo(s, 0, "None", [], [], ((_) => null)),
-          new NUnionCaseInfo(s, 1, "Some", [], [["Value", par]], ((args) => args[0])),
-        ],
-      );
-    gen = r;
-    typeCache["Microsoft.FSharp.Core.FSharpOption`1"] = r;
-  }
-
+export function option(generic?: NTypeInfo): NTypeInfo {
+  const name = "Microsoft.FSharp.Core.FSharpOption`1";
+  const gen =
+    declareNType(name, 2, (self, gen) => [
+      new NUnionCaseInfo(self, 0, "None", [], [], ((_) => null)),
+      new NUnionCaseInfo(self, 1, "Some", [], [["Value", gen[0]]], ((args, ...rest) => args)),
+    ]);
   return gen.MakeGenericType([generic]);
 }
 
-export function list(generic: NTypeInfo): NTypeInfo {
+export function list(generic?: NTypeInfo): NTypeInfo {
   const gen = declareNType("Microsoft.FSharp.Collections.FSharpList`1", 1, (self, gen) => [
     new NPropertyInfo(self, "Head", gen[0], false, false, []),
     new NMethodInfo(self, "get_Head", [], gen[0], false, ((l) => l[0]), []),
@@ -751,8 +661,14 @@ export function list(generic: NTypeInfo): NTypeInfo {
   // return new NTypeInfo("Microsoft.FSharp.Collections.FSharpList`1", 1, false, [generic], (_s) => []);
 }
 
-export function array(generic: NTypeInfo): NTypeInfo {
-  return new NTypeInfo(generic.fullname + "[]", 1, false, [generic], (_s) => []);
+export function array(generic?: NTypeInfo): NTypeInfo {
+  const gen = declareNType("_[]", 1, (self, gen) => [
+    new NPropertyInfo(self, "Length", int32, false, false, []),
+    new NMethodInfo(self, "get_Length", [], int32, false, ((l) => l.length), []),
+  ]);
+  return gen.MakeGenericType([generic]);
+  // generic = generic || getGenericParamter("a");
+  // return new NTypeInfo(generic.fullname + "[]", 1, false, [generic], (_s) => []);
 }
 
 export const obj: NTypeInfo = NTypeInfo.Simple("System.Object");

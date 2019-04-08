@@ -615,7 +615,8 @@ module Util =
         let resolveGenerics generics: Expression[] =
             generics |> Array.map (transformTypeInfo com ctx r [||] genMap)
         let genericTypeInfo name genArgs =
-            let resolved = resolveGenerics genArgs
+            let gen = genArgs |> Array.exists (function Fable.GenericParam _ -> true | _ -> false)
+            let resolved = if gen then [||] else resolveGenerics genArgs
             coreLibCall com ctx None "Reflection" name resolved
         let genericEntity (ent: FSharpEntity) generics =
             let fullname = defaultArg ent.TryFullName Naming.unknown
