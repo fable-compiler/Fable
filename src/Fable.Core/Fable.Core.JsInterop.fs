@@ -49,9 +49,6 @@ let jsOptions<'T> (f: 'T->unit): 'T = jsNative
 /// Create an empty JS object: {}
 let createEmpty<'T> : 'T = jsNative
 
-/// Casts an anonymous record to an interface checking if fields correspond
-let safeJsObjCast(x: obj): 'T = jsNative
-
 /// Get the JS function constructor for class types
 let jsConstructor<'T> : obj = jsNative
 
