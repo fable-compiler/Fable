@@ -1,4 +1,4 @@
-import { Record, Union, declare } from "./Types";
+import { Record, Union } from "./Types";
 import { compareArraysWith, equalArraysWith, stringHash } from "./Util";
 
 // tslint:disable: max-line-length
@@ -16,14 +16,30 @@ export class NParameterInfo {
   public toString() {
     return this.ParameterType.toString() + " " + this.Name;
   }
+
+  public get_ParameterType() {
+    return this.ParameterType;
+  }
+
+  public get_Name() {
+    return this.Name;
+  }
+
 }
 
 export abstract class NMemberInfo {
+  public attributes: CustomAttribute[];
+
   constructor(
     public DeclaringType: NTypeInfo,
     public Name: string,
-    public attributes: CustomAttribute[],
-    ) {}
+    att: CustomAttribute[],
+    ) {
+
+      if (!Name) { throw new Error(`cannot declare MemberInfo without a name`); }
+      if (!DeclaringType) { throw new Error(`${Name} has no declaring type`); }
+      this.attributes = att || [];
+  }
 
   public abstract toPrettyString(): string;
   public get_Name() { return this.Name; }
@@ -43,14 +59,18 @@ export abstract class NMemberInfo {
 
 export abstract class NMethodBase extends NMemberInfo {
   public Parameters: NParameterInfo[];
+  public IsStatic: boolean;
+
   constructor(
     DeclaringType: NTypeInfo,
     Name: string,
     parameters: NParameterInfo[],
-    public IsStatic: boolean,
+    isStatic: boolean,
     attributes: CustomAttribute[],
   ) {
     super(DeclaringType, Name, attributes);
+    parameters = parameters || [];
+    this.IsStatic = isStatic || false;
     this.Parameters = parameters.map((t) => t.ParameterType.get_ContainsGenericParameters() ? new NParameterInfo(t.Name, DeclaringType.ResolveGeneric(t.ParameterType)) : t);
   }
 
@@ -58,36 +78,56 @@ export abstract class NMethodBase extends NMemberInfo {
 
   public get_IsStatic() { return this.IsStatic; }
 
+  public ParametersAssignable(ts: NTypeInfo[]) {
+    if (this.Parameters.length === ts.length) {
+      const broken =
+        this.Parameters.findIndex((p, i) => {
+            const d = p.ParameterType;
+            const a = ts[i];
+            return !(d.isGenericParameter || d.fullname === "System.Object" || equals(d, a));
+        });
+      return broken < 0;
+    } else {
+      return false;
+    }
+  }
+
 }
 
 export class NMethodInfo extends NMethodBase {
   public ReturnType: NTypeInfo;
+  public GenericArguments: NTypeInfo[];
+
   private isGenericDef: boolean;
   private genMap: { [name: string]: number } = {};
 
   constructor(
-    DeclaringType: NTypeInfo,
-    public GenericArguments: NTypeInfo[],
-    Name: string,
-    Parameters: NParameterInfo[],
+    declaringType: NTypeInfo,
+    genericArguments: NTypeInfo[],
+    name: string,
+    parameters: NParameterInfo[],
     returnType: NTypeInfo,
-    IsStatic: boolean,
+    isStatic: boolean,
     private invoke: (...args: any[]) => any,
     attributes: CustomAttribute[],
     private declaration?: NMethodInfo,
   ) {
-    super(DeclaringType, Name, Parameters, IsStatic, attributes);
+    super(declaringType, name, parameters, isStatic, attributes);
 
-    const isDef = GenericArguments.findIndex((p) => p.isGenericParameter) >= 0;
+    if (!returnType) { throw new Error(`MethodInfo ${name} does not have a return type`); }
+
+    genericArguments = genericArguments || [];
+    const isDef = genericArguments.findIndex((p) => p.isGenericParameter) >= 0;
+
+    this.GenericArguments = genericArguments;
     this.isGenericDef = isDef;
     if (isDef) {
-      GenericArguments.forEach((v, i) => {
+      genericArguments.forEach((v, i) => {
         this.genMap[v.fullname] = i;
       });
     } else if (declaration) {
       this.genMap = declaration.genMap;
     }
-
     this.Parameters.forEach((p) => { p.ParameterType = this.ResolveGeneric(p.ParameterType); });
     this.ReturnType = returnType.get_ContainsGenericParameters() ? this.ResolveGeneric(returnType) : returnType;
   }
@@ -146,9 +186,10 @@ export class NMethodInfo extends NMethodBase {
     return this.toPrettyString();
   }
 
-  public Invoke(target: any, ...args: any[]) {
+  public Invoke(target: any, args: any[]) {
+    args = args || [];
     if (!this.IsStatic) {
-      const a = [target, ...args];
+      if (!target) { throw new Error(`MethodInfo ${this.toPrettyString()} cannot be called without a this argument`); }
       return this.invoke.apply(null, [target, ...args]);
     } else {
       return this.invoke.apply(null, args);
@@ -158,12 +199,12 @@ export class NMethodInfo extends NMethodBase {
 
 export class NConstructorInfo extends NMethodBase {
   constructor(
-    DeclaringType: NTypeInfo,
-    Parameters: NParameterInfo[],
+    declaringType: NTypeInfo,
+    parameters: NParameterInfo[],
     private invoke: (...args: any[]) => any,
     attributes: CustomAttribute[],
   ) {
-    super(DeclaringType, ".ctor", Parameters, true, attributes);
+    super(declaringType, ".ctor", parameters, true, attributes);
   }
 
   public toPrettyString() {
@@ -182,22 +223,26 @@ export class NConstructorInfo extends NMethodBase {
     return this.toPrettyString();
   }
 
-  public Invoke(...args: any[]) {
-      return this.invoke.apply(null, args);
+  public Invoke(args: any[]) {
+    args = args || [];
+    return this.invoke.apply(null, args);
   }
 }
 
 export class NFieldInfo extends NMemberInfo {
   public Type: NTypeInfo = null;
   constructor(
-    DeclaringType: NTypeInfo,
-    Name: string,
+    declaringType: NTypeInfo,
+    name: string,
     type: NTypeInfo,
     public IsStatic: boolean,
     attributes: CustomAttribute[],
   ) {
-    super(DeclaringType, Name, attributes);
-    this.Type = type.get_ContainsGenericParameters() ? DeclaringType.ResolveGeneric(type) : type;
+    super(declaringType, name, attributes);
+
+    if (!type) { throw new Error(`FieldInfo ${name} does not have a type`); }
+
+    this.Type = type.get_ContainsGenericParameters() ? this.DeclaringType.ResolveGeneric(type) : type;
   }
   public get_FieldType() { return this.Type; }
   public get_IsStatic() { return this.IsStatic; }
@@ -233,6 +278,9 @@ export class NPropertyInfo extends NMemberInfo {
     attributes: CustomAttribute[],
   ) {
     super(DeclaringType, Name, attributes);
+
+    if (!type) { throw new Error(`FieldInfo ${Name} does not have a type`); }
+
     this.Type = type.get_ContainsGenericParameters() ? DeclaringType.ResolveGeneric(type) : type;
   }
   public get_PropertyType() { return this.Type; }
@@ -253,14 +301,30 @@ export class NPropertyInfo extends NMemberInfo {
     if (idx >= 0) { return mems[idx] as NMethodInfo; } else { return null; }
   }
 
-  public GetValue(target: any, ...index: any[]) {
-    const g = this.get_GetMethod();
-    return g.Invoke(target, index);
+  public GetValue(target: any, index: any[]): any {
+    if (this.IsFSharp) {
+      // TODO: mangled-names????
+      if (this.Name in target) {
+        return target[this.Name];
+      } else {
+        throw new Error(`property ${this.Name} not in target`);
+      }
+    } else {
+      const g = this.get_GetMethod();
+      if (g === null) { throw new Error(`property ${this.Name} has no GetMethod`); }
+      index = index || [];
+      return g.Invoke(target, index);
+    }
   }
 
-  public SetValue(target: any, value: any, ...index: any[]) {
-    const s = this.get_SetMethod();
-    s.Invoke(target, [...index, value]);
+  public SetValue(target: any, value: any, index: any[]) {
+    if (this.IsFSharp) {
+      target[this.Name] = value;
+    } else {
+      index = index || [];
+      const s = this.get_SetMethod();
+      s.Invoke(target, [...index, value]);
+    }
   }
 
   public toPrettyString() {
@@ -314,6 +378,10 @@ export class NUnionCaseInfo extends NMemberInfo {
     public Invoke: (...args: any[]) => any,
   ) {
     super(DeclaringType, Name, Attributes);
+
+    if (typeof Tag !== "number") { throw new Error(`UnionCase ${Name} does not have a tag`); }
+
+    fields = fields || [];
     this.Fields = fields.map ((tup) => tup[1].get_ContainsGenericParameters() ? [tup[0], DeclaringType.ResolveGeneric(tup[1])] : tup) as Array<[string, NTypeInfo]>;
   }
 
@@ -367,6 +435,12 @@ export class NTypeInfo {
     _generics: NTypeInfo[],
     public members: (self: NTypeInfo) => NMemberInfo[],
     decl?: NTypeInfo) {
+      if (!fullname) { throw new Error("cannot declare type without name"); }
+      members = members || ((_s) => []);
+      _generics = _generics || [];
+      isGenericParameter = isGenericParameter || false;
+      genericCount = genericCount || 0;
+
       const g = _generics.filter((t) => !t.isGenericParameter);
       if (g.length === genericCount) {
         this.generics = g;
@@ -379,20 +453,14 @@ export class NTypeInfo {
         });
         this.generics = _generics;
       }
-      if (this.generics.length !== this.genericCount) { throw new Error("invalid generic count"); }
+      if (this.generics.length !== this.genericCount) { throw new Error(`${this.fullname} contains ${this.genericCount} generic parameters but only ${this.generics.length} given.`); }
       this.declaration = decl || null;
-
-      if (fullname === "Microsoft.FSharp.Collections.FSharpList`1" && this.generics.length === 0) {
-        throw new Error("bad list type");
-      }
-
     }
 
     public ResolveGeneric(t: NTypeInfo): NTypeInfo {
       if (t.isGenericParameter) {
         if (t.fullname in this.genericMap) {
           const idx = this.genericMap[t.fullname];
-          if (idx < 0 || idx >= this.generics.length) { throw new Error("cannot resolve: " + t.toFullString()); }
           return this.generics[idx];
         } else {
           return t;
@@ -410,15 +478,14 @@ export class NTypeInfo {
       } else if (this.declaration) {
         return this.declaration;
       } else {
-        throw new Error("bad HATE");
-        return new NTypeInfo(this.fullname, this.genericCount, this.isGenericParameter, [], this.members);
+        throw new Error(`${this.fullname} does not have a proper generic definition`);
       }
     }
 
   public MakeGenericType(args: NTypeInfo[]) {
     args = args.filter((a) => a);
     if (args.length === 0) { return this; }
-    if (args.length !== this.genericCount) { throw new Error("invalid generic argument count"); }
+    if (args.length !== this.genericCount) { throw new Error(`${this.fullname} contains ${this.genericCount} generic parameters but only ${this.generics.length} given.`); }
 
     const key = args.map((t) => t.toString()).join(", ");
     if (key in this.instantiations) {
@@ -512,10 +579,15 @@ export class NTypeInfo {
       const prop = m.find((m) => m instanceof NPropertyInfo && m.Name === name) as NPropertyInfo;
       return prop;
   }
-  public GetMethod(name: string) {
+  public GetMethod(name: string, types?: NTypeInfo[]) {
       const m = this.GetAllMembers();
-      const meth = m.find((m) => m instanceof NMethodInfo && m.Name === name) as NMethodInfo;
-      return meth;
+      if (types) {
+        const meths = m.filter((m) => m instanceof NMethodInfo && m.Name === name && m.ParametersAssignable(types)) as NMethodInfo[];
+        return meths.length === 1 ? meths[0] : null;
+      } else {
+        const meths = m.filter((m) => m instanceof NMethodInfo && m.Name === name) as NMethodInfo[];
+        return meths.length === 1 ? meths[0] : null;
+      }
   }
   public toFullString(): string {
     if (this.isGenericParameter) {
@@ -651,6 +723,7 @@ function selectMany<TIn, TOut>(input: TIn[], selectListFn: (t: TIn, i: number) =
 }
 
 export function tuple(...generics: NTypeInfo[]): NTypeInfo {
+  if (generics.length === 0) { throw new Error("empty tuple"); }
   const name = "System.Tuple`" + generics.length;
   const gen =
     declareNType(name, generics.length, (self, gen) => selectMany<NTypeInfo, NMemberInfo>(gen, (t, i) => [
@@ -663,7 +736,7 @@ export function tuple(...generics: NTypeInfo[]): NTypeInfo {
 export function delegate(...generics: NTypeInfo[]): NTypeInfo {
   const name = "System.Func`" + generics.length;
   const gen =
-    declareNType(name, generics.length, (self, gen) => {
+    declareNType(name, generics.length, (self, _gen) => {
       const ret = generics[generics.length - 1];
       const args = generics.slice(0, generics.length - 1).map((t, i) => new NParameterInfo("arg" + i, t));
       return [
@@ -881,7 +954,7 @@ export function makeRecord(t: NTypeInfo, values: any[]): any {
     throw new Error(`Expected an array of length ${fields.length} but got ${values.length}`);
   }
   const ctor = t.GetAllMembers().find((m) => m instanceof NConstructorInfo) as NConstructorInfo;
-  return ctor.Invoke(...values);
+  return ctor.Invoke(values);
 }
 
 export function makeTuple(values: any[], t: NTypeInfo): any {

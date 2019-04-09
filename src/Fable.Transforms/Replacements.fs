@@ -336,9 +336,9 @@ let makeTypeInfo r t =
 let makeTypeDefinitionInfo r t =
     let t =
         match t with
-        | Option _ -> Option (GenericParam "a")
-        | Array _ -> Array (GenericParam "a")
-        | List _ -> List (GenericParam "a")
+        | Option _ -> Option (GenericParam "a0")
+        | Array _ -> Array (GenericParam "a0")
+        | List _ -> List (GenericParam "a0")
         | Tuple genArgs ->
             genArgs |> List.mapi (fun i _ -> (GenericParam (sprintf "a%d" i))) |> Tuple
         | DeclaredType(ent, genArgs) ->
@@ -346,11 +346,11 @@ let makeTypeDefinitionInfo r t =
             let genArgs = names |> List.map GenericParam
             DeclaredType(ent, genArgs)
         | FunctionType(kind,r) ->
-            let kind = 
+            let kind, ret = 
                 match kind with
-                | LambdaType(a) -> LambdaType (GenericParam "a")
-                | DelegateType(a) -> a |> List.mapi (fun i _ -> GenericParam (sprintf "a%d" i)) |> DelegateType
-            FunctionType(kind, GenericParam "b")   
+                | LambdaType(a) -> LambdaType (GenericParam "a0"), "a1"
+                | DelegateType(a) -> DelegateType (a |> List.mapi (fun i _ -> GenericParam (sprintf "a%d" i))), sprintf "a%d" a.Length
+            FunctionType(kind, GenericParam ret)   
         | ErasedUnion a -> ErasedUnion a             
         // TODO: Do something with FunctionType and ErasedUnion?
         | t -> t
@@ -2618,7 +2618,13 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | Some this, "GetGenericTypeDefinition"         -> callTypeInfoMethod this "GetGenericTypeDefinition" t [] |> Some
     | Some this, "GetTypeInfo"                      -> Some this
     | Some this, "GetProperties"                    -> callTypeInfoMethod this "GetProperties" t args |> Some
-    | Some this, "GetMethods"                       -> callTypeInfoMethod this "GetMethods" t args |> Some
+    | Some this, "GetMethods"                       -> callTypeInfoMethod this "GetMethods" t [] |> Some
+    | Some this, "GetMethod"                        -> 
+        match args with
+        | [a] when a.Type = Fable.String                                                    -> callTypeInfoMethod this "GetMethod" t [a] |> Some
+        | a::b::_ when a.Type = Fable.String && b.Type = Fable.Array (Fable.MetaType)       -> callTypeInfoMethod this "GetMethod" t [a; b] |> Some
+        | a::_::_::b::_ when a.Type = Fable.String && b.Type = Fable.Array (Fable.MetaType)    -> callTypeInfoMethod this "GetMethod" t [a; b] |> Some
+        | _ -> None
     | Some this, "GetMembers"                       -> callTypeInfoMethod this "GetMembers" t args |> Some
     | Some this, "GetFields"                        -> callTypeInfoMethod this "GetFields" t args |> Some
     
@@ -2842,6 +2848,12 @@ let private replacedModules =
     "System.Reflection.TypeInfo", types
 ]
 
+
+let reflectionMethods =
+    System.Collections.Generic.HashSet<string> [|
+        "asdads"
+    |]
+
 let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match info.DeclaringEntityFullName with
     | Patterns.DicContains replacedModules replacement -> replacement com ctx r t info thisArg args
@@ -2869,6 +2881,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | "System.Reflection.MethodBase"
     | "System.Reflection.ConstructorInfo"
     | "System.Reflection.PropertyInfo"
+    | "System.Reflection.ParameterInfo"
     | "System.Reflection.FieldInfo"
     | "Microsoft.FSharp.Reflection.UnionCaseInfo"
     | "FSharp.Reflection.UnionCaseInfo"
@@ -2890,6 +2903,22 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | Some c, "get_ReturnParameter" -> Helper.InstanceCall(c, "get_ReturnParameter", t, []) |> Some
         | Some c, "GetFields" -> Helper.InstanceCall(c, "GetFields", t, []) |> Some
         | Some c, "get_PropertyType" -> Helper.InstanceCall(c, "get_PropertyType", t, []) |> Some
+        | Some c, "get_ParameterType" -> Helper.InstanceCall(c, "get_ParameterType", t, []) |> Some
+        | Some c, "get_GetMethod" -> Helper.InstanceCall(c, "get_GetMethod", t, []) |> Some
+        | Some c, "get_SetMethod" -> Helper.InstanceCall(c, "get_SetMethod", t, []) |> Some
+
+        | Some c, "SetValue" ->
+            match args with
+            | [a;v] -> Helper.InstanceCall(c, "SetValue", t, [a; v]) |> Some
+            | [a;v;i] -> Helper.InstanceCall(c, "SetValue", t, [a; v; i]) |> Some
+            | a::v::_::_::i::_ -> Helper.InstanceCall(c, "SetValue", t, [a; v; i]) |> Some
+            | _ -> None
+        | Some c, "GetValue" ->
+            match args with
+            | [a] -> Helper.InstanceCall(c, "GetValue", t, [a]) |> Some
+            | [a;i] -> Helper.InstanceCall(c, "GetValue", t, [a; i]) |> Some
+            | a::_::_::i::_ -> Helper.InstanceCall(c, "GetValue", t, [a; i]) |> Some
+            | _ -> None
         | _ -> 
             let isStatic = Option.isNone thisArg
             sprintf "UNKNOWN reflection member: { isStatic: %A; name: %A; args: %A }" isStatic info.CompiledName args |> addError com [] None
