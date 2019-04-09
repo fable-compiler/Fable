@@ -457,6 +457,10 @@ export class NTypeInfo {
       this.declaration = decl || null;
     }
 
+    public MakeArrayType(): NTypeInfo {
+      return array(this);
+    }
+
     public ResolveGeneric(t: NTypeInfo): NTypeInfo {
       if (t.isGenericParameter) {
         if (t.fullname in this.genericMap) {

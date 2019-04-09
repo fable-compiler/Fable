@@ -2616,6 +2616,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | Some this, "GetElementType"                   -> callTypeInfoMethod this "GetElementType" t [] |> Some
     | Some this, "GetGenericArguments"              -> callTypeInfoMethod this "GetGenericArguments" t [] |> Some
     | Some this, "GetGenericTypeDefinition"         -> callTypeInfoMethod this "GetGenericTypeDefinition" t [] |> Some
+    | Some this, "MakeArrayType"                    -> callTypeInfoMethod this "MakeArrayType" t [] |> Some
     | Some this, "GetTypeInfo"                      -> Some this
     | Some this, "GetProperties"                    -> callTypeInfoMethod this "GetProperties" t args |> Some
     | Some this, "GetMethods"                       -> callTypeInfoMethod this "GetMethods" t [] |> Some

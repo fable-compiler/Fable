@@ -48,11 +48,11 @@ let tests =
     //     dof.Offset |> equal (TimeSpan.FromHours(3.))
     //     dof.ToString("HH:mm") |> equal "17:30"
 
-    testCase "DateTimeOffset from Year 1 to 99 works" <| fun () ->
-        let date = DateTimeOffset(1, 1, 1, 0, 0, 0, TimeSpan.Zero)
-        date.Year |> equal 1
-        let date = DateTimeOffset(99, 1, 1, 0, 0, 0, TimeSpan.Zero)
-        date.Year |> equal 99
+    // testCase "DateTimeOffset from Year 1 to 99 works" <| fun () ->
+    //     let date = DateTimeOffset(1, 1, 1, 0, 0, 0, TimeSpan.Zero)
+    //     date.Year |> equal 1
+    //     let date = DateTimeOffset(99, 1, 1, 0, 0, 0, TimeSpan.Zero)
+    //     date.Year |> equal 99
 
     // TODO: These two tests give different values for .NET and JS because DateTimeOffset
     // becomes as a plain JS Date object, so I'm just checking the fields get translated
