@@ -2904,6 +2904,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | Some c, "get_ReturnParameter" -> Helper.InstanceCall(c, "get_ReturnParameter", t, []) |> Some
         | Some c, "GetFields" -> Helper.InstanceCall(c, "GetFields", t, []) |> Some
         | Some c, "get_PropertyType" -> Helper.InstanceCall(c, "get_PropertyType", t, []) |> Some
+        | Some c, "get_FieldType" -> Helper.InstanceCall(c, "get_FieldType", t, []) |> Some
         | Some c, "get_ParameterType" -> Helper.InstanceCall(c, "get_ParameterType", t, []) |> Some
         | Some c, "get_GetMethod" -> Helper.InstanceCall(c, "get_GetMethod", t, []) |> Some
         | Some c, "get_SetMethod" -> Helper.InstanceCall(c, "get_SetMethod", t, []) |> Some

@@ -62,6 +62,29 @@ module Helpers =
     let mkRLinear mk (vs, body) = List.foldBack (fun v acc -> mk(v, acc)) vs body
     let mkLLinear mk (body, vs) = List.fold (fun acc v -> mk(acc, v)) body vs
 
+    open Fable.Import.JS
+    type ByteStream(bytes:Uint8Array, initial:int, len:int) =
+
+        let mutable pos = initial
+        let lim = initial + len
+
+        member b.ReadByte() =
+            if pos >= lim then failwith "end of stream"
+            let res = uint8 bytes.[pos]
+            pos <- pos + 1
+            res
+
+        member b.ReadBytes n =
+            if pos + n > lim then failwith "ByteStream.ReadBytes: end of stream"
+            let res = bytes.slice(float pos, float (pos + n)) //.[pos..pos+n-1]
+            pos <- pos + n
+            res
+
+        member b.ReadUtf8BytesAsString n =
+            let res = System.Text.Encoding.UTF8.GetString(unbox bytes, pos, n)
+            pos <- pos + n
+            res
+
 type ExprConstInfo =
     | AppOp
     | LetOp
