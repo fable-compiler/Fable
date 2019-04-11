@@ -1,6 +1,6 @@
 module ExprUtils 
 
-open Quotations
+open Microsoft.FSharp.Quotations
 
 let deserialize (str : string) =
     let v = Var("a", typeof<int>)

@@ -154,6 +154,10 @@ export class NMethodInfo extends NMethodBase {
 
   public get_IsGenericMethod() {  return this.isGenericDef || this.declaration; }
 
+  public GetGenericArguments(): NTypeInfo[] {
+    return this.GenericArguments;
+  }
+
   public GetGenericMethodDefinition(): NMethodInfo {
     if (this.declaration) {
       return this.declaration;
@@ -287,6 +291,18 @@ export class NPropertyInfo extends NMemberInfo {
   public get_IsStatic() { return this.IsStatic; }
   public get_IsFSharp() { return this.IsFSharp; }
 
+  public get_CanRead() {
+    return this.get_GetMethod() !== null;
+  }
+  public get_CanWrite() {
+    return this.get_SetMethod() !== null;
+  }
+
+  public GetIndexParameters() {
+    const m = this.get_GetMethod();
+    if (m) { return m.GetParameters(); } else { return []; }
+  }
+
   public get_GetMethod() {
     const getterName = "get_" + this.Name;
     const mems = this.DeclaringType.GetAllMembers();
@@ -410,19 +426,20 @@ export class NTypeInfo {
     if (NTypeInfo.parameterCache[i]) {
       return NTypeInfo.parameterCache[i];
     } else {
-      const p = new NTypeInfo(i, 0, true, [], (_s) => []);
+      const p = new NTypeInfo(i, 0, true, [], (_s) => [], null, null);
       this.parameterCache[i] = p;
       return p;
     }
   }
 
   public static Simple(name: string) {
-    return new NTypeInfo(name, 0, false, [], ((_s) => []));
+    return new NTypeInfo(name, 0, false, [], ((_s) => []), null, null);
   }
 
   private static parameterCache: {[i: string]: NTypeInfo} = {};
   public generics: NTypeInfo[] = null;
-  public declaration: NTypeInfo = null;
+  public GenericDeclaration: NTypeInfo = null;
+  public DeclaringType: NTypeInfo = null;
 
   private instantiations: {[i: string]: NTypeInfo} = {};
   private mems: NMemberInfo[] = null;
@@ -434,7 +451,8 @@ export class NTypeInfo {
     public isGenericParameter: boolean,
     _generics: NTypeInfo[],
     public members: (self: NTypeInfo) => NMemberInfo[],
-    decl?: NTypeInfo) {
+    genericDeclaration: NTypeInfo,
+    declaringType: NTypeInfo) {
       if (!fullname) { throw new Error("cannot declare type without name"); }
       members = members || ((_s) => []);
       _generics = _generics || [];
@@ -444,8 +462,8 @@ export class NTypeInfo {
       const g = _generics.filter((t) => !t.isGenericParameter);
       if (g.length === genericCount) {
         this.generics = g;
-        if (decl) {
-          this.genericMap = decl.genericMap;
+        if (genericDeclaration) {
+          this.genericMap = genericDeclaration.genericMap;
         }
       } else {
         _generics.forEach((g, i) => {
@@ -454,11 +472,20 @@ export class NTypeInfo {
         this.generics = _generics;
       }
       if (this.generics.length !== this.genericCount) { throw new Error(`${this.fullname} contains ${this.genericCount} generic parameters but only ${this.generics.length} given.`); }
-      this.declaration = decl || null;
+      this.GenericDeclaration = genericDeclaration || null;
+      this.DeclaringType = declaringType;
+    }
+
+    public get_DeclaringType(): NTypeInfo {
+      return this.DeclaringType;
     }
 
     public MakeArrayType(): NTypeInfo {
       return array(this);
+    }
+
+    public get_IsGenericParameter() {
+      return this.isGenericParameter;
     }
 
     public ResolveGeneric(t: NTypeInfo): NTypeInfo {
@@ -470,7 +497,7 @@ export class NTypeInfo {
           return t;
         }
       } else if (t.genericCount > 0) {
-        return new NTypeInfo(t.fullname, t.genericCount, false, t.generics.map((ta) => this.ResolveGeneric(ta)), t.members, t.declaration);
+        return new NTypeInfo(t.fullname, t.genericCount, false, t.generics.map((ta) => this.ResolveGeneric(ta)), t.members, t.GenericDeclaration, t.DeclaringType);
       } else {
         return t;
       }
@@ -479,8 +506,8 @@ export class NTypeInfo {
     public GetGenericTypeDefinition() {
       if (this.genericCount === 0 || this.get_IsGenericTypeDefinition()) {
         return this;
-      } else if (this.declaration) {
-        return this.declaration;
+      } else if (this.GenericDeclaration) {
+        return this.GenericDeclaration;
       } else {
         throw new Error(`${this.fullname} does not have a proper generic definition`);
       }
@@ -495,7 +522,7 @@ export class NTypeInfo {
     if (key in this.instantiations) {
       return this.instantiations[key];
     } else {
-      const res = new NTypeInfo(this.fullname, this.genericCount, this.isGenericParameter, args, this.members, this);
+      const res = new NTypeInfo(this.fullname, this.genericCount, this.isGenericParameter, args, this.members, this, this.DeclaringType);
       this.instantiations[key] = res;
       return res;
     }
@@ -577,6 +604,26 @@ export class NTypeInfo {
     const m = this.GetAllMembers();
     return m.filter((m) => m instanceof NMethodInfo) as NMethodInfo[];
   }
+  public GetConstructors() {
+    const m = this.GetAllMembers();
+    return m.filter((m) => m instanceof NConstructorInfo) as NConstructorInfo[];
+  }
+  public GetFields() {
+    const m = this.GetAllMembers();
+    return m.filter((m) => m instanceof NFieldInfo) as NFieldInfo[];
+  }
+  public GetConstructor(ts?: NTypeInfo[]) {
+    if (ts) {
+      return this.GetConstructors().find((ctor) => ctor.ParametersAssignable(ts));
+    } else {
+      const ctors = this.GetConstructors();
+      return ctors.length === 1 ? ctors[0] : null;
+    }
+  }
+  public GetField(name: string) {
+    const m = this.GetAllMembers();
+    return m.find((m) => m instanceof NFieldInfo && m.Name === name) as NFieldInfo;
+  }
 
   public GetProperty(name: string) {
       const m = this.GetAllMembers();
@@ -653,7 +700,7 @@ export function declareNType(fullname: string, generics: number, members: (self:
     const pars = Array.from({ length: generics }, (_, i) => getGenericParameter("a" + i));
 
     const mems = members || ((_self, _gen) => []);
-    gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => mems(s, pars));
+    gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => mems(s, pars), null, null);
     typeCache[fullname] = gen;
   }
   return gen;
@@ -694,7 +741,7 @@ export function compare(t1: NTypeInfo, t2: NTypeInfo): number {
   }
 }
 
-export function ntype(fullname: string, genericNames?: string[], generics?: NTypeInfo[], members?: (self: NTypeInfo, pars: NTypeInfo[]) => NMemberInfo[]): NTypeInfo {
+export function ntype(fullname: string, genericNames?: string[], generics?: NTypeInfo[], members?: (self: NTypeInfo, pars: NTypeInfo[]) => NMemberInfo[], declaringType?: NTypeInfo): NTypeInfo {
   let gen: NTypeInfo = null;
   generics = generics || [];
   const a = generics.findIndex((t) => !t);
@@ -705,11 +752,12 @@ export function ntype(fullname: string, genericNames?: string[], generics?: NTyp
   } else {
     members = members || ((_s, _g) => []);
     genericNames = genericNames || [];
+    declaringType = declaringType || null;
     const b = genericNames.findIndex((t) => !t);
     if (b >= 0) { throw new Error("bad hate occured"); }
 
     const pars = genericNames.map((n) => getGenericParameter(n));
-    gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => members(s, pars));
+    gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => members(s, pars), null, declaringType);
     typeCache[fullname] = gen;
   }
 
@@ -849,6 +897,31 @@ export const decimal: NTypeInfo = NTypeInfo.Simple("System.Decimal");
 // }
 
 // FSharpType
+
+export function isType(o: any) {
+  return o instanceof NTypeInfo;
+}
+export function isMemberInfo(o: any) {
+  return o instanceof NMemberInfo;
+}
+export function isMethodBase(o: any) {
+  return o instanceof NMethodBase;
+}
+export function isMethodInfo(o: any) {
+  return o instanceof NMethodInfo;
+}
+export function isPropertyInfo(o: any) {
+  return o instanceof NPropertyInfo;
+}
+export function isUnionCaseInfo(o: any) {
+  return o instanceof NUnionCaseInfo;
+}
+export function isFieldInfo(o: any) {
+  return o instanceof NFieldInfo;
+}
+export function isConstructorInfo(o: any) {
+  return o instanceof NConstructorInfo;
+}
 
 export function getUnionCases(t: NTypeInfo): NUnionCaseInfo[] {
   const cases = t.GetAllMembers().filter((m) => m instanceof NUnionCaseInfo) as NUnionCaseInfo[];

@@ -963,7 +963,8 @@ let private transformImplicitConstructor com (ctx: Context)
         // TODO!!! When adding a ConstructorDeclaration check if there are
         // name clashes for interface/abstract members
         let r = getEntityLocation ent |> makeRange
-        [Fable.ConstructorDeclaration(Fable.ClassImplicitConstructor info, Some r)]
+        let decl = ctx.EnclosingEntity |> Option.bind (Helpers.getModuleReflectionName com)
+        [Fable.ConstructorDeclaration(decl, Fable.ClassImplicitConstructor info, Some r)]
 
 /// When using `importMember`, uses the member display name as selector
 let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
@@ -1153,7 +1154,8 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
                     let r = getEntityLocation ent |> makeRange
-                    [Fable.ConstructorDeclaration(Fable.UnionConstructor info, Some r)]
+                    let decl = ctx.EnclosingEntity |> Option.bind (Helpers.getModuleReflectionName com)
+                    [Fable.ConstructorDeclaration(decl, Fable.UnionConstructor info, Some r)]
                 | _ when ent.IsFSharpRecord
                         || ent.IsFSharpExceptionDeclaration
                         || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent)) ->
@@ -1168,10 +1170,22 @@ let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
                         Members = props }
                     let r = getEntityLocation ent |> makeRange
 
-
-                    [Fable.ConstructorDeclaration(Fable.CompilerGeneratedConstructor info, Some r)]
+                    let decl = ctx.EnclosingEntity |> Option.bind (Helpers.getModuleReflectionName com)
+                    [Fable.ConstructorDeclaration(decl, Fable.CompilerGeneratedConstructor info, Some r)]
+                | _ when ent.IsFSharpModule ->
+                    let declaring = ctx.EnclosingEntity |> Option.bind (Helpers.getModuleReflectionName com)
+                    let name = Helpers.getModuleReflectionName com ent |> Option.get
+                    let decl = 
+                        try Fable.ModuleDeclaration (declaring, name, ent, transformMemberReflectionInfos com ctx ent) |> Some
+                        with e -> e |> sprintf "%A" |> addWarning com [] None; None
+                    match decl with
+                    | Some decl ->                    
+                        decl :: transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
+                    | None ->
+                       transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub                 
                 | _ ->
                     transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
+
             | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
                 transformMemberDecl com ctx meth args body
             | FSharpImplementationFileDeclaration.InitAction fe ->
@@ -1282,8 +1296,15 @@ let transformFile (com: ICompiler) (implFiles: IDictionary<string, FSharpImpleme
                 failwithf "File %s cannot be found in source list:\n%s" com.CurrentFile projFiles
         let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
         let fcom = FableCompiler(com, implFiles)
-        let ctx = Context.Create(rootEnt)
-        let rootDecls = transformDeclarations fcom ctx rootEnt rootDecls
+        //let ctx = Context.Create(rootEnt)
+        let rootDecls = 
+            match rootEnt with
+            | Some ent when ent.IsFSharpModule -> 
+                let ctx = Context.Create(None)
+                transformDeclarations fcom ctx None [FSharpImplementationFileDeclaration.Entity(ent, rootDecls)]
+            | _ -> 
+                let ctx = Context.Create(rootEnt)
+                transformDeclarations fcom ctx rootEnt rootDecls
         Fable.File(com.CurrentFile, rootDecls, set fcom.UsedVarNames, set fcom.InlineDependencies)
     with
     | ex -> exn (sprintf "%s (%s)" ex.Message com.CurrentFile, ex) |> raise

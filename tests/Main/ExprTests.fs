@@ -167,8 +167,8 @@ let tests =
             | _ ->
                 failwith "bad record"                    
 
-        // testCase "CustomAttributes" <| fun () ->
+        testCase "CustomAttributes" <| fun () ->
     
-        //     let prop = typedefof<Heinz<_>> //.MakeGenericType([| typeof<int> |]) //.GetProperty("x", System.Reflection.BindingFlags.NonPublic)
-        //     failwithf "prop: %s" (prop.ToPrettyString())
+            let prop = typedefof<Heinz<_>> //.MakeGenericType([| typeof<int> |]) //.GetProperty("x", System.Reflection.BindingFlags.NonPublic)
+            failwithf "prop: %s" (prop.DeclaringType.Name)
     ]

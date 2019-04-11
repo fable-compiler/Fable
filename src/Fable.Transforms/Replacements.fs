@@ -2475,13 +2475,20 @@ let exprs (name : string) (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo
     match i.CompiledName, thisArg, args with
     //| meth, Some x,_ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Value", None, _ ->
+        let _,name = getMangledNames { i with OverloadSuffix = lazy ("") } None
         match args with
-        | [a] ->
-            let _,name = getMangledNames { i with OverloadSuffix = lazy ("") } None
-            Helper.CoreCall("Quotations", name, t, [a; makeTypeInfo None a.Type], i.SignatureArgTypes, ?loc=r) |> Some
-        | _ ->
-            let _,name = getMangledNames { i with OverloadSuffix = lazy ("") } None
-            Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | [a] -> Helper.CoreCall("Quotations", name, t, [a; makeTypeInfo None a.Type], i.SignatureArgTypes, ?loc=r) |> Some
+        | _ -> Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "ValueWithName", None, _ ->
+        let _,name = getMangledNames { i with OverloadSuffix = lazy ("") } None
+        match args with
+        | [a;n] -> Helper.CoreCall("Quotations", name, t, [a; makeTypeInfo None a.Type; n], i.SignatureArgTypes, ?loc=r) |> Some
+        | _ -> Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "WithValue", None, _ ->
+        let _,name = getMangledNames { i with OverloadSuffix = lazy ("") } None
+        match args with
+        | [a;n] -> Helper.CoreCall("Quotations", name, t, [a; makeTypeInfo None a.Type; n], i.SignatureArgTypes, ?loc=r) |> Some
+        | _ -> Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
     
     | meth, Some x,_ -> 
@@ -2490,6 +2497,12 @@ let exprs (name : string) (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo
 
 
     | meth, None,_ -> 
+        //match t with
+        // | Fable.Expr _ -> 
+        //     let hash = match i.Original with | Some o -> lazy (OverloadSuffix.getExtensionHash o) | _ -> lazy ""
+        //     let _,name = getMangledNames { i with OverloadSuffix = hash } None
+        //     Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        // | _ ->
         let _,name = getMangledNames i None
         Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
@@ -2607,30 +2620,42 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
 
     match thisArg, i.CompiledName with
+    | Some this, "get_IsGenericParameter"           -> callTypeInfoMethod this "get_IsGenericParameter" t [] |> Some
     | Some this, "get_FullName"                     -> callTypeInfoMethod this "get_FullName" t [] |> Some
     | Some this, "get_Namespace"                    -> callTypeInfoMethod this "get_Namespace" t [] |> Some
     | Some this, "get_IsArray"                      -> callTypeInfoMethod this "get_IsArray" t [] |> Some
     | Some this, "get_IsGenericType"                -> callTypeInfoMethod this "get_IsGenericType" t [] |> Some
     | Some this, "get_IsGenericTypeDefinition"      -> callTypeInfoMethod this "get_IsGenericTypeDefinition" t [] |> Some
     | Some this, "get_GenericTypeArguments"         -> callTypeInfoMethod this "get_GenericTypeArguments" t [] |> Some
+    | Some this, "get_DeclaringType"                -> callTypeInfoMethod this "get_DeclaringType" t [] |> Some
     | Some this, "GetElementType"                   -> callTypeInfoMethod this "GetElementType" t [] |> Some
     | Some this, "GetGenericArguments"              -> callTypeInfoMethod this "GetGenericArguments" t [] |> Some
     | Some this, "GetGenericTypeDefinition"         -> callTypeInfoMethod this "GetGenericTypeDefinition" t [] |> Some
     | Some this, "MakeArrayType"                    -> callTypeInfoMethod this "MakeArrayType" t [] |> Some
     | Some this, "GetTypeInfo"                      -> Some this
+
     | Some this, "GetProperties"                    -> callTypeInfoMethod this "GetProperties" t args |> Some
     | Some this, "GetMethods"                       -> callTypeInfoMethod this "GetMethods" t [] |> Some
-    | Some this, "GetMethod"                        -> 
-        match args with
-        | [a] when a.Type = Fable.String                                                    -> callTypeInfoMethod this "GetMethod" t [a] |> Some
-        | a::b::_ when a.Type = Fable.String && b.Type = Fable.Array (Fable.MetaType)       -> callTypeInfoMethod this "GetMethod" t [a; b] |> Some
-        | a::_::_::b::_ when a.Type = Fable.String && b.Type = Fable.Array (Fable.MetaType)    -> callTypeInfoMethod this "GetMethod" t [a; b] |> Some
-        | _ -> None
     | Some this, "GetMembers"                       -> callTypeInfoMethod this "GetMembers" t args |> Some
     | Some this, "GetFields"                        -> callTypeInfoMethod this "GetFields" t args |> Some
+    | Some this, "GetConstructors"                  -> callTypeInfoMethod this "GetConstructors" t args |> Some
+
+    | Some this, "GetProperty"                      -> callTypeInfoMethod this "GetProperty" t [List.head args] |> Some
+    | Some this, "GetMethod"                        -> 
+        match args with
+        | [a] when a.Type = Fable.String            -> callTypeInfoMethod this "GetMethod" t [a] |> Some
+        | [a;b] when a.Type = Fable.String          -> callTypeInfoMethod this "GetMethod" t [a; b] |> Some
+        | a::_::_::b::_ when a.Type = Fable.String && b.Type = Fable.Array (Fable.MetaType)    -> callTypeInfoMethod this "GetMethod" t [a; b] |> Some
+        | _ -> None
+    | Some this, "GetField"                         -> callTypeInfoMethod this "GetField" t [List.head args] |> Some
+    
+    | Some this, "GetConstructor"                   -> 
+        match args with
+        | [] -> callTypeInfoMethod this "GetConstructor" t [] |> Some
+        | [ts] -> callTypeInfoMethod this "GetConstructor" t [ts] |> Some
+        | _ -> None
     
     | Some this, "MakeGenericType"                  -> callTypeInfoMethod this "MakeGenericType" t args |> Some
-    | Some this, "GetProperty"                      -> callTypeInfoMethod this "GetProperty" t [List.head args] |> Some
 
     | _ -> None
     // match thisArg with
@@ -2888,11 +2913,12 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | "FSharp.Reflection.UnionCaseInfo"
     | "System.Reflection.MethodInfo" ->
         match thisArg, info.CompiledName with
-        
+        | Some this, "GetGenericArguments"              -> callTypeInfoMethod this "GetGenericArguments" t [] |> Some
         | Some this, "GetGenericMethodDefinition"       -> callTypeInfoMethod this "GetGenericMethodDefinition" t [] |> Some
         | Some this, "get_IsGenericMethod"              -> callTypeInfoMethod this "get_IsGenericMethod" t [] |> Some
         | Some this, "get_IsGenericMethodDefinition"    -> callTypeInfoMethod this "get_IsGenericMethodDefinition" t [] |> Some
         | Some this, "MakeGenericMethod"                -> callTypeInfoMethod this "MakeGenericMethod" t args |> Some
+        | Some c, "GetIndexParameters" -> Helper.InstanceCall(c, "GetIndexParameters", t, args) |> Some
         | Some c, "Invoke" -> Helper.InstanceCall(c, "Invoke", t, args) |> Some
         | Some c, "get_Name" -> Helper.InstanceCall(c, "get_Name", t, []) |> Some
         | Some c, "get_Tag" -> Helper.InstanceCall(c, "get_Tag", t, []) |> Some
@@ -2908,7 +2934,10 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | Some c, "get_ParameterType" -> Helper.InstanceCall(c, "get_ParameterType", t, []) |> Some
         | Some c, "get_GetMethod" -> Helper.InstanceCall(c, "get_GetMethod", t, []) |> Some
         | Some c, "get_SetMethod" -> Helper.InstanceCall(c, "get_SetMethod", t, []) |> Some
-
+        | Some c, "GetGetMethod" -> Helper.InstanceCall(c, "get_GetMethod", t, [])|> Some
+        | Some c, "GetSetMethod" -> Helper.InstanceCall(c, "get_SetMethod", t, [])|> Some
+        | Some c, "get_CanRead" -> Helper.InstanceCall(c, "get_CanRead", t, [])|> Some
+        | Some c, "get_CanWrite" -> Helper.InstanceCall(c, "get_CanWrite", t, [])|> Some
         | Some c, "SetValue" ->
             match args with
             | [a;v] -> Helper.InstanceCall(c, "SetValue", t, [a; v]) |> Some

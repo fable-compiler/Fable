@@ -127,7 +127,8 @@ type Declaration =
     | ActionDeclaration of Expr
     | ValueDeclaration of Expr * ValueDeclarationInfo
     | AttachedMemberDeclaration of args: Ident list * body: Expr * AttachedMemberDeclarationInfo
-    | ConstructorDeclaration of ConstructorKind * SourceLocation option
+    | ConstructorDeclaration of declaringName : Option<string> * ConstructorKind * SourceLocation option
+    | ModuleDeclaration of declaringName : Option<string> * name : string * ent : FSharpEntity * mems : MemberInfo[]
 
 type File(sourcePath, decls, ?usedVarNames, ?inlineDependencies) =
     member __.SourcePath: string = sourcePath

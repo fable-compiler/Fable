@@ -553,11 +553,13 @@ let optimizeExpr (com: ICompiler) e =
     List.fold (fun e f -> f com e) e optimizations
 
 let rec optimizeDeclaration (com: ICompiler) = function
+    | ModuleDeclaration(decl, name, ent, mems) ->
+        ModuleDeclaration(decl, name, ent, mems)
     | ActionDeclaration expr ->
         ActionDeclaration(optimizeExpr com expr)
     | ValueDeclaration(value, info) ->
         ValueDeclaration(optimizeExpr com value, info)
-    | ConstructorDeclaration(kind, r) ->
+    | ConstructorDeclaration(decl, kind, r) ->
         let kind =
             match kind with
             | ClassImplicitConstructor info ->
@@ -573,7 +575,7 @@ let rec optimizeDeclaration (com: ICompiler) = function
                             info.Arguments, info.Body
                 ClassImplicitConstructor { info with Arguments = args; Body = body }
             | kind -> kind
-        ConstructorDeclaration(kind, r)
+        ConstructorDeclaration(decl, kind, r)
     | AttachedMemberDeclaration(args, body, info) ->
         AttachedMemberDeclaration(args, optimizeExpr com body, info)
 
