@@ -21,6 +21,16 @@ var customPlugins = [
 
 var compilerCache = null;
 
+function getTcpPort(opts) {
+    if (opts.port != null) {
+        return opts.port;
+    } else if (process.env.FABLE_SERVER_PORT != null) {
+        return parseInt(process.env.FABLE_SERVER_PORT, 10);
+    } else {
+        return null;
+    }
+}
+
 function getCompiler(webpack, args) {
     if (compilerCache == null) {
         compilerCache = fable.default(args);
@@ -48,11 +58,6 @@ function transformBabelAst(babelAst, babelOptions, sourceMapOptions, callback) {
 var Loader = function(buffer) {
     var callback = this.async();
 
-    if (process.env.FABLE_SERVER_PORT) {
-        callback(new Error("This version is not compatible with dotnet-fable cli tool, see https://www.npmjs.com/package/fable-loader#usage"));
-        return;
-    }
-
     var opts = this.loaders[0].options || {};
     var babelOptions = opts.babel || {};
     babelOptions.plugins = customPlugins.concat(babelOptions.plugins || []);
@@ -73,7 +78,12 @@ var Loader = function(buffer) {
         extra: opts.extra || {}
     };
 
-    getCompiler(this._compiler, opts.cli).send(msg).then(data => {
+    var port = getTcpPort(opts);
+    var command = port != null
+        ? require("./net-client").send("127.0.0.1", port, JSON.stringify(msg)).then(json => JSON.parse(json))
+        : getCompiler(this._compiler, opts.cli).send(msg);
+
+    command.then(data => {
         if (data.error) {
             callback(new Error(data.error));
         }
