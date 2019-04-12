@@ -1,7 +1,6 @@
 module Fable.Transforms.State
 
 open Fable
-open System
 open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
 
@@ -25,7 +24,6 @@ open System.Collections.Concurrent
 type Project(projectOptions: FSharpProjectOptions,
              implFiles: IDictionary<string, FSharpImplementationFileContents>,
              errors: FSharpErrorInfo array) =
-    let timestamp = DateTime.Now
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let rootModules =

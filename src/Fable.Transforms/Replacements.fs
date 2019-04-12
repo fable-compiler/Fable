@@ -1,14 +1,16 @@
 [<RequireQualifiedAccess>]
 module Fable.Transforms.Replacements
 
+#nowarn "1182"
+
 open FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open Fable.AST.Fable
 open Fable.Core
 
-type Context = Fable.Transforms.FSharp2Fable.Context
-type ICompiler = Fable.Transforms.FSharp2Fable.IFableCompiler
+type Context = FSharp2Fable.Context
+type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = Fable.ReplaceCallInfo
 
 type Helper =
@@ -176,7 +178,7 @@ type NumberExtKind =
     | BigInt
 
 let (|NumberExtKind|_|) = function
-    | Fable.Transforms.FSharp2Fable.Patterns.NumberKind kind -> Some (JsNumber kind)
+    | FSharp2Fable.Patterns.NumberKind kind -> Some (JsNumber kind)
     | Types.int64 -> Some (Long false)
     | Types.uint64 -> Some (Long true)
     | Types.decimal -> Some Decimal
@@ -1019,7 +1021,34 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Helper.CoreCall("Reflection", meth, t, args, ?loc=r) |> Some
     | "Fable.Core.JsInterop", _ ->
         match i.CompiledName, args with
-        | "importDynamic", _ -> Helper.GlobalCall("import", t, args, ?loc=r) |> Some
+        | "importDynamic", _ ->
+            Helper.GlobalCall("import", t, args, ?loc=r) |> Some
+        | "importValueDynamic", [arg] ->
+            let dynamicImport selector path =
+                let import = Helper.GlobalCall("import", t, [path], ?loc=r)
+                match selector with
+                | Value(StringConstant "*",_) -> import
+                | selector ->
+                    let selector =
+                        let m = makeIdentNonMangled "m"
+                        Function(Delegate [m], Get(IdentExpr m, ExprGet selector, Any, None), None)
+                    Helper.InstanceCall(import, "then", t, [selector])
+            let arg =
+                match arg with
+                | IdentExpr ident ->
+                    FSharp2Fable.Identifiers.tryGetBoundValueFromScope ctx ident.Name
+                    |> Option.defaultValue arg
+                | arg -> arg
+            match arg with
+            // TODO: Check this is not a fable-library import?
+            | Import(selector,path,_,_,_) ->
+                dynamicImport selector path |> Some
+            | NestedLambda(args, Operation(Call(StaticCall(Import(selector,path,_,_,_)),info),_,_), None)
+                when argEquals args info.Args ->
+                dynamicImport selector path |> Some
+            | _ ->
+                "The imported value is not coming from a different file"
+                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | Naming.StartsWith "import" suffix, _ ->
             match suffix, args with
             | "Member", [path]      -> Import(makeStrConst Naming.placeholder, path, CustomImport, t, r) |> Some

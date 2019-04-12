@@ -5,7 +5,6 @@ open FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open Fable.Transforms
-open FSharp2Fable.Util
 open FSharp2Fable.Helpers
 open FSharp2Fable.Patterns
 open FSharp2Fable.TypeHelpers

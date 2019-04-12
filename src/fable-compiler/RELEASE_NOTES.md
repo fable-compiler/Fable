@@ -1,3 +1,8 @@
+### 2.3.0-beta-001
+
+* Give warnings if an anonymous record casted to an interface with `!!` mismatches any field
+* Compatibility with `JsInterop.importValueDynamic`
+
 ### 2.2.3
 
 * Fix BitConverter @ncave

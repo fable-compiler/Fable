@@ -1,3 +1,7 @@
+### 3.0.0-beta-006
+
+* Add `JsInterop.importValueDynamic`
+
 ### 3.0.0-beta-005
 
 * Move `nameof` operators to Experimental module

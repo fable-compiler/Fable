@@ -203,7 +203,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
 
       let! members =
         (objType, overrides)::otherOverrides
-        |> trampolineListMap (fun (typ, overrides) ->
+        |> trampolineListMap (fun (_typ, overrides) ->
             overrides |> trampolineListMap mapOverride)
 
       return Fable.ObjectExpr(members |> List.concat, makeType com ctx.GenericArgs objType, baseCall)
@@ -264,7 +264,7 @@ let rec private transformDecisionTargets (com: IFableCompiler) (ctx: Context) ac
         | (idents, expr)::tail ->
             let ctx, idents =
                 (idents, (ctx, [])) ||> List.foldBack (fun ident (ctx, idents) ->
-                    let ctx, ident = bindIdentFrom com ctx ident
+                    let ctx, ident = putArgInScope com ctx ident
                     ctx, ident::idents)
             let! expr = transformExpr com ctx expr
             return! transformDecisionTargets com ctx ((idents, expr)::acc) tail
@@ -309,7 +309,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs callee args memb
 
     | ByrefArgToTupleOptimizedIf (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, thenExpr, elseExpr) ->
-        let ctx, ident = bindIdentFrom com ctx outArg
+        let ctx, ident = putArgInScope com ctx outArg
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx membArgs
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
@@ -326,7 +326,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Fable.Let([tupleIdent, tupleExpr], Fable.Let([ident, identExpr], ifThenElse))
 
     | ByrefArgToTupleOptimizedTree (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, thenExpr, elseExpr, targetsExpr) ->
-        let ctx, ident = bindIdentFrom com ctx outArg
+        let ctx, ident = putArgInScope com ctx outArg
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx membArgs
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
@@ -342,8 +342,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Fable.Let([ident, tupleExpr], Fable.DecisionTree(ifThenElse, targetsExpr))
 
     | ByrefArgToTupleOptimizedLet (id1, id2, callee, memb, ownerGenArgs, membGenArgs, membArgs, restExpr) ->
-        let ctx, ident1 = bindIdentFrom com ctx id1
-        let ctx, ident2 = bindIdentFrom com ctx id2
+        let ctx, ident1 = putArgInScope com ctx id1
+        let ctx, ident2 = putArgInScope com ctx id2
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx membArgs
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
@@ -367,7 +367,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs (Some callee) args memb
 
     // TODO: Detect if it's ResizeArray and compile as FastIntegerForLoop?
-    | ForOf (BindIdent com ctx (newContext, ident), value, body) ->
+    | ForOf (PutArgInScope com ctx (newContext, ident), value, body) ->
         let! value = transformExpr com ctx value
         let! body = transformExpr com newContext body
         return Replacements.iterate (makeRangeFrom fsExpr) ident body value
@@ -376,7 +376,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.FastIntegerForLoop(start, limit, body, isUp) ->
         let r = makeRangeFrom fsExpr
         match body with
-        | BasicPatterns.Lambda (BindIdent com ctx (newContext, ident), body) ->
+        | BasicPatterns.Lambda (PutArgInScope com ctx (newContext, ident), body) ->
             let! start = transformExpr com ctx start
             let! limit = transformExpr com ctx limit
             let! body = transformExpr com newContext body
@@ -414,7 +414,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             // When the type is a ref type, it means this is a reference to a constructor this value `type C() as x`
             | RefType _, _ ->
                 let r = makeRangeFrom fsExpr
-                match tryGetBoundExprWhere ctx r (fun fsRef -> fsRef.IsConstructorThisValue) with
+                match tryGetIdentFromScopeIf ctx r (fun fsRef -> fsRef.IsConstructorThisValue) with
                 | Some e -> e
                 | None -> fail r "Cannot find ConstructorThisValue"
             | _, Some thisArg -> Fable.IdentExpr thisArg
@@ -442,7 +442,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return! transformExpr com ctx body
         else
             let! value = transformExpr com ctx value
-            let ctx, ident = bindIdentFrom com ctx var
+            let ctx, ident = putBindingInScope com ctx var value
             let! body = transformExpr com ctx body
             return Fable.Let([ident, value], body)
 
@@ -450,7 +450,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // First get a context containing all idents and use it compile the values
         let ctx, idents =
             (recBindings, (ctx, []))
-            ||> List.foldBack (fun (BindIdent com ctx (newContext, ident), _) (ctx, idents) ->
+            ||> List.foldBack (fun (PutArgInScope com ctx (newContext, ident), _) (ctx, idents) ->                
                 (newContext, ident::idents))
         let _, bindingExprs = List.unzip recBindings
         let! exprs = transformExprList com ctx bindingExprs
@@ -512,7 +512,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Fable.Operation(Fable.Call(Fable.InstanceCall(Some e2), argInfo), typ, makeRangeFrom fsExpr)
 
     // TODO: Ask: for some reason the F# compiler translates `x.IsSome` as `Application(Call(x, get_IsSome),[unit])`
-    | BasicPatterns.Application(BasicPatterns.Call(Some _, memb, _, [], []) as optionProp, genArgs, [BasicPatterns.Const(null, _)])
+    | BasicPatterns.Application(BasicPatterns.Call(Some _, memb, _, [], []) as optionProp, _genArgs, [BasicPatterns.Const(null, _)])
         when memb.FullName = "Microsoft.FSharp.Core.IsSome" || memb.FullName = "Microsoft.FSharp.Core.IsNone" ->
         return! transformExpr com ctx optionProp
 
@@ -529,7 +529,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
         let altElseExpr =
             match elseExpr with
-            | RaisingMatchFailureExpr fileNameWhereErrorOccurs ->
+            | RaisingMatchFailureExpr _fileNameWhereErrorOccurs ->
                 let errorMessage = "The match cases were incomplete"
                 let rangeOfElseExpr = makeRangeFrom elseExpr
                 let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
@@ -702,7 +702,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             match snd (List.last decisionTargets) with
             | RaisingMatchFailureExpr fileNameWhereErrorOccurs ->
                 match decisionExpr with
-                | BasicPatterns.IfThenElse(BasicPatterns.UnionCaseTest(unionValue, unionType, unionCaseInfo), _, _) ->
+                | BasicPatterns.IfThenElse(BasicPatterns.UnionCaseTest(_unionValue, unionType, _unionCaseInfo), _, _) ->
                     let rangeOfLastDecisionTarget = makeRangeFrom (snd (List.last decisionTargets))
                     let errorMessage =
                         sprintf "The match cases were incomplete against type of '%s' at %s"
@@ -713,7 +713,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                     let throwExpr = Fable.Throw(errorExpr, Fable.Any, rangeOfLastDecisionTarget)
 
                     fableDecisionTargets
-                    |> List.replaceLast (fun lastExpr -> [], throwExpr)
+                    |> List.replaceLast (fun _lastExpr -> [], throwExpr)
 
                 | _ ->
                     // TODO: rewrite other `MatchFailureException` to `failwith "The match cases were incomplete"`
@@ -975,7 +975,7 @@ let rec checkMemberNames (com: FableCompiler) decls =
                 com.AddUsedVarName(memberName, isRoot=true)
         | FSharpImplementationFileDeclaration.InitAction _ -> ()
 
-let private transformDeclarations (com: FableCompiler) ctx rootEnt rootDecls =
+let private transformDeclarations (com: FableCompiler) ctx rootDecls =
     let rec transformDeclarationsInner (com: FableCompiler) (ctx: Context) fsDecls =
         fsDecls |> List.collect (fun fsDecl ->
             match fsDecl with
@@ -1126,7 +1126,7 @@ let transformFile (com: ICompiler) (implFiles: IDictionary<string, FSharpImpleme
         let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
         let fcom = FableCompiler(com, implFiles)
         let ctx = Context.Create(rootEnt)
-        let rootDecls = transformDeclarations fcom ctx rootEnt rootDecls
+        let rootDecls = transformDeclarations fcom ctx rootDecls
         Fable.File(com.CurrentFile, rootDecls, set fcom.UsedVarNames, set fcom.InlineDependencies)
     with
     | ex -> exn (sprintf "%s (%s)" ex.Message com.CurrentFile, ex) |> raise

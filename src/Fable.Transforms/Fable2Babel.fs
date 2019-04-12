@@ -408,8 +408,6 @@ module Util =
         |> coreLibCall com ctx None "Reflection" "union"
 
     and transformTypeInfo (com: IBabelCompiler) ctx r (genMap: Map<string, Expression>) t: Expression =
-        let error msg =
-           addErrorAndReturnNull com r msg
         let primitiveTypeInfo name =
            coreValue com ctx "Reflection" name
         let nonGenericTypeInfo fullname =

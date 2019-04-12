@@ -10,7 +10,7 @@ open Fable.AST
 open Fable.Transforms
 
 type Context =
-    { Scope: (FSharpMemberOrFunctionOrValue * Fable.Expr) list
+    { Scope: (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
@@ -327,11 +327,11 @@ module Patterns =
     /// Detects AST pattern of "raise MatchFailureException()"
     let (|RaisingMatchFailureExpr|_|) (expr: FSharpExpr) =
         match expr with
-        | BasicPatterns.Call(None, methodInfo, [ ], [unitType], [value]) ->
+        | BasicPatterns.Call(None, methodInfo, [ ], [_unitType], [value]) ->
             match methodInfo.FullName with
             | "Microsoft.FSharp.Core.Operators.raise" ->
                 match value with
-                | BasicPatterns.NewRecord(recordType, [ BasicPatterns.Const (value, valueT) ; rangeFrom; rangeTo ]) ->
+                | BasicPatterns.NewRecord(recordType, [BasicPatterns.Const (value, _valueT) ; _rangeFrom; _rangeTo]) ->
                     match recordType.TypeDefinition.FullName with
                     | "Microsoft.FSharp.Core.MatchFailureException"-> Some (value.ToString())
                     | _ -> None
@@ -664,8 +664,8 @@ module Identifiers =
     open Helpers
     open TypeHelpers
 
-    let bindExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) expr =
-        { ctx with Scope = (fsRef, expr)::ctx.Scope}
+    let putIdentInScope (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) (ident: Fable.Ident) value =
+        { ctx with Scope = (fsRef, ident, value)::ctx.Scope}
 
     let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let sanitizedName = (fsRef.CompiledName, Naming.NoMemberPart)
@@ -682,25 +682,36 @@ module Identifiers =
           Range = { makeRange fsRef.DeclarationLocation
                     with identifierName = Some fsRef.DisplayName } |> Some }
 
-    /// Sanitize F# identifier and create new context
-    let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
+    let putArgInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
-        bindExpr ctx fsRef (Fable.IdentExpr ident), ident
+        putIdentInScope ctx fsRef ident None, ident
+        
+    let (|PutArgInScope|) com ctx fsRef = putArgInScope com ctx fsRef
 
-    let (|BindIdent|) com ctx fsRef = bindIdentFrom com ctx fsRef
-
-    let inline tryGetBoundExprWhere (ctx: Context) r predicate =
-        match List.tryFind (fun (fsRef,_)  -> predicate fsRef) ctx.Scope with
-        | Some(_, Fable.IdentExpr ident) ->
+    let putBindingInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
+        let ident = makeIdentFrom com ctx fsRef
+        putIdentInScope ctx fsRef ident (Some value), ident
+        
+    let inline tryGetIdentFromScopeIf (ctx: Context) r predicate =
+        match List.tryFind (fun (fsRef,_,_)  -> predicate fsRef) ctx.Scope with
+        | Some(_,ident,_) ->
             let originalName = ident.Range |> Option.bind (fun r -> r.identifierName)
             { ident with Range = r |> Option.map (fun r -> { r with identifierName = originalName }) }
             |> Fable.IdentExpr |> Some
-        | Some(_, boundExpr) -> Some boundExpr
         | None -> None
 
     /// Get corresponding identifier to F# value in current scope
-    let tryGetBoundExpr (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
-        tryGetBoundExprWhere ctx r (fun fsRef' -> obj.Equals(fsRef, fsRef'))
+    let tryGetIdentFromScope (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
+        tryGetIdentFromScopeIf ctx r (fun fsRef' -> obj.Equals(fsRef, fsRef'))
+
+    let rec tryGetBoundValueFromScope (ctx: Context) identName =
+        match ctx.Scope |> List.tryFind (fun (_,ident,_) -> ident.Name = identName) with
+        | Some(_,_,value) ->
+            match value with
+            | Some(Fable.IdentExpr ident) when not ident.IsMutable ->
+                tryGetBoundValueFromScope ctx ident.Name
+            | v -> v
+        | None -> None
 
 module Util =
     open Helpers
@@ -712,7 +723,7 @@ module Util =
         let ctx, args =
             ((ctx, []), args)
             ||> List.fold (fun (ctx, accArgs) var ->
-                let newContext, arg = bindIdentFrom com ctx var
+                let newContext, arg = putArgInScope com ctx var
                 newContext, arg::accArgs)
         ctx, List.rev args
 
@@ -722,7 +733,7 @@ module Util =
             // Within private members (first arg is ConstructorThisValue) F# AST uses
             // ThisValue instead of Value (with .IsMemberConstructorThisValue = true)
             | (firstArg::restArgs1)::restArgs2 when firstArg.IsConstructorThisValue || firstArg.IsMemberThisValue ->
-                let ctx, thisArg = bindIdentFrom com ctx firstArg
+                let ctx, thisArg = putArgInScope com ctx firstArg
                 let thisArg = { thisArg with Kind = Fable.ThisArgIdentDeclaration }
                 let ctx =
                     if firstArg.IsConstructorThisValue
@@ -740,7 +751,7 @@ module Util =
     let makeTryCatch com ctx r (Transform com ctx body) catchClause finalBody =
         let catchClause =
             match catchClause with
-            | Some (BindIdent com ctx (catchContext, catchVar), catchBody) ->
+            | Some (PutArgInScope com ctx (catchContext, catchVar), catchBody) ->
                 // Add caughtException to context so it can be retrieved by `reraise`
                 let catchContext = { catchContext with CaughtException = Some catchVar }
                 Some (catchVar, com.Transform(catchContext, catchBody))
@@ -889,7 +900,7 @@ module Util =
             if file = com.CurrentFile then
                 makeIdentExprNonMangled entityName
             elif isPublicEntity ent then
-                makeInternalImport Fable.Any entityName file
+                makeInternalImport com Fable.Any entityName file
             else
                 error "Cannot inline functions that reference private entities"
 
@@ -917,7 +928,7 @@ module Util =
             { makeTypedIdentNonMangled typ memberName with Range = r }
             |> Fable.IdentExpr
         elif isPublicMember memb then
-            makeInternalImport typ memberName file
+            makeInternalImport com typ memberName file
         else
             defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName
             |> sprintf "Cannot reference private members from other files: %s"
@@ -1061,7 +1072,7 @@ module Util =
                     let ident = { makeIdentFrom com ctx argId with
                                     Type = arg.Type
                                     IsCompilerGenerated = true }
-                    let ctx = bindExpr ctx argId (Fable.IdentExpr ident)
+                    let ctx = putIdentInScope ctx argId ident (Some arg)
                     ctx, (ident, arg)::bindings)
             let ctx = { ctx with GenericArgs = genArgs.Value |> Map
                                  InlinedFunction = Some memb
@@ -1132,7 +1143,7 @@ module Util =
         | Imported com r typ (Some argInfo) isModuleValue imported -> imported
         | Replaced com ctx r typ argTypes genArgs argInfo isModuleValue replaced -> replaced
         | Inlined com ctx r genArgs callee args expr, _ -> expr
-        | Try (tryGetBoundExpr ctx r) funcExpr, _ ->
+        | Try (tryGetIdentFromScope ctx r) funcExpr, _ ->
             if isModuleValue
             then funcExpr
             else staticCall r typ argInfo funcExpr
@@ -1162,5 +1173,5 @@ module Util =
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None true imported -> imported
         // TODO: Replaced? Check if there're failing tests
-        | Try (tryGetBoundExpr ctx r) expr, _ -> expr
+        | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
         | _ -> memberRefTyped com ctx r typ v
