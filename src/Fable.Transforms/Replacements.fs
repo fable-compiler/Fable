@@ -1995,6 +1995,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         | _ -> Enum(NumberEnum arg, Naming.unknown) |> makeValue r |> Some
     | "EnumToValue", [arg] ->
         match arg with
+        | IdentExpr _ -> arg |> Some
         | Value(Enum(NumberEnum(v),_),_) -> v |> Some
         | _ -> None
     | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
