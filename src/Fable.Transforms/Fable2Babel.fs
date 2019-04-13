@@ -1317,50 +1317,27 @@ module Util =
         | Fable.Debugger _ | Fable.Throw _ | Fable.Loop _ | Fable.TryCatch _ ->
             iife com ctx expr :> Expression
 
-        | Fable.Quote(_,expr) ->
-            let serializeExpr (expr : Fable.Expr) =
-                // TODO: proper serialization
-                string expr
-
-            // let mk (name : string) (args : list<Expression>) =
-            //     coreLibCall com ctx None "ExprUtil" ("mk" + name) (List.toArray args)
-
-            // let ident = 
-            //     { 
-            //         Fable.Ident.Name = "Expr" 
-            //         Fable.Ident.Type = Fable.Type.Expr None
-            //         Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent
-            //         Fable.Ident.IsMutable = false
-            //         Fable.Ident.IsCompilerGenerated = false
-            //         Fable.Ident.Range = None
-            //     }
-
-
-
-
-
-
-            // let rec visit (variables : System.Collections.Generic.Dictionary<string, Fable.Ident>) (e : Fable.Expr) =
-            //     match e with
-            //     | Fable.Function(Fable.Lambda a, b, name) ->
-            //         variables.[a.Name] <- a
-            //         coreLibCall com ctx None "ExprUtil" "mkLambda" [| Identifier(a.Name, ?loc = a.Range); visit variables b |]
-
-            //     | Fable.Operation(Fable.OperationKind.Call(call, info), t, r) ->
-            //         failwith ""
-
-            //         // //| Operation of OperationKind * typ: Type * range: SourceLocation option
-            //         // let a = Fable.Get(Fable.IdentExpr ident, Fable.GetKind.FieldGet("Function", false, Fable.FunctionType(Fable.Function)), Fable.Function, None)
-            //         // Fable.Operation(Fable.StaticCall (Fable.Get(Fable.IdentExpr ident, Fable.GetKind.FieldGet "Function")) , Fable.Type.Expr None, None)
-            //         // failwith ""
-
-            //     | _ ->
-            //         failwith ""                
-
-
-
-            let literal = StringLiteral(serializeExpr expr)
-            coreLibCall com ctx None "ExprUtils" "deserialize" [| literal |]
+        | Fable.Quote(_,data) ->
+            let obj (values : list<string * Expression>) =
+                values |> List.toArray |> Array.map (fun (n,v) -> U3.Case1 (ObjectProperty(StringLiteral n, v))) |> ObjectExpression :> Expression
+            let values = 
+                data.values |> Array.map (fun v ->
+                    obj [ 
+                        "name", StringLiteral v.name :> Expression    
+                        "typ", transformAsExpr com ctx (Fable.Value(Fable.TypeInfo v.typ, None))   
+                        "value", transformAsExpr com ctx v.expr
+                    ]                    
+                )
+            let vars = data.variables |> Array.map (fun (v : Fable.VarData) -> 
+                obj [ 
+                    "name", StringLiteral v.name :> Expression
+                    "typ", transformAsExpr com ctx (Fable.Value(Fable.TypeInfo v.typ, None))
+                    "isMutable", BooleanLiteral v.isMutable :> Expression
+                ]
+            )
+            // let arrName = getTypedArrayName com NumberKind.UInt8
+            // let expr = NewExpression(StringLiteral arrName, data.data |> Array.map (fun v -> NumericLiteral (float v) :> Expression))
+            coreLibCall com ctx None "ExprUtils" "deserialize" [| ArrayExpression values; ArrayExpression vars; StringLiteral (System.Convert.ToBase64String data.data) |]
             
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =

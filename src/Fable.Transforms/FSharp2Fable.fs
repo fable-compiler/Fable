@@ -737,27 +737,33 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.Quote expr ->
 
-                
+        let data = QuotationPickler.serialize expr        
+        data |> sprintf "%A" |> addWarning com ctx.InlinePath (makeRangeFrom fsExpr)
 
-        // let rec test (e : FSharpExpr) =
-        //     trampoline {
-        //         match e with
-        //         | BasicPatterns.Call(None, m, targs, margs, args) ->
-        //             let! args = trampolineListMap test args
-                    
+        let fableData =
+            {
+                Fable.ExprData.typ = makeType com ctx.GenericArgs data.typ
+                Fable.variables = 
+                    data.variables |> Array.map (fun v -> 
+                        {
+                            Fable.VarData.name = v.name; 
+                            Fable.VarData.typ = makeType com ctx.GenericArgs v.typ
+                            Fable.VarData.isMutable = v.isMutable
+                        }
+                    )
+                Fable.values =
+                    data.values |> Array.map (fun v ->
+                        {
+                            Fable.ValueData.name = v.DisplayName
+                            Fable.ValueData.typ = makeType com ctx.GenericArgs v.FullType
+                            Fable.ValueData.expr = makeValueFrom com ctx None v
+                        }                        
+                    )         
+                Fable.data = data.data
+            }
 
 
-        //             return failwith ""
-        //         | _ ->
-        //             return failwith ""                                
-
-        //     }        
-        
-
-
-
-        let! expr = transformExpr com ctx expr
-        return Fable.Quote(false, expr)
+        return Fable.Quote(false, fableData)
         // return "Quotes are not currently supported by Fable"
         // |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 

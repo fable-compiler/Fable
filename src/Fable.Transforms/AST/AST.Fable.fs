@@ -306,6 +306,21 @@ type DelayedResolutionKind =
     | AsPojo of Expr * caseRules: Expr
     | Curry of Expr * arity: int
 
+
+type VarData = 
+    { name : string; typ : Type; isMutable : bool }
+
+type ValueData =
+    { name : string; typ : Type; expr : Expr }
+
+type ExprData =
+    {
+        typ : Type
+        variables: VarData[]
+        values : ValueData[]
+        data : byte[]
+    }
+
 type Expr =
     | Value of ValueKind * SourceLocation option
     | IdentExpr of Ident
@@ -335,11 +350,11 @@ type Expr =
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
-    | Quote of typed : bool * value : Expr
+    | Quote of typed : bool * data : ExprData
 
     member this.Type =
         match this with
-        | Quote(true, value) -> Expr(Some value.Type)
+        | Quote(true, value) -> Expr(Some value.typ)
         | Quote(false, _) -> Expr None 
         | Test _ -> Boolean
         | Value(kind,_) -> kind.Type
@@ -358,9 +373,9 @@ type Expr =
         match this with
         | Import _ | DelayedResolution _
         | ObjectExpr _ | Sequential _ | Let _
-        | DecisionTree _ | DecisionTreeSuccess _ -> None
-
-        | Quote(_,e) | Function(_,e,_) | TypeCast(e,_) -> e.Range
+        | DecisionTree _ | DecisionTreeSuccess _ | Quote _ -> None
+ 
+        | Function(_,e,_) | TypeCast(e,_) -> e.Range
         | IdentExpr id -> id.Range
 
         | Value(_,r) | IfThenElse(_,_,_,r) | TryCatch(_,_,_,r)

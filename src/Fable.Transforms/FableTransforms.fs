@@ -7,7 +7,7 @@ open FSharp.Compiler.SourceCodeServices
 // TODO: Use trampoline here?
 let visit f e =
     match e with
-    | Quote(b, e) -> Quote(b, f e)
+    | Quote(b, e) -> Quote(b, e)
     | IdentExpr _ | Debugger _ -> e
     | TypeCast(e, t) -> TypeCast(f e, t)
     | Import(e1, e2, kind, t, r) -> Import(f e1, f e2, kind, t, r)
@@ -110,7 +110,7 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
         visit (visitFromOutsideIn f) e
 
 let getSubExpressions = function
-    | Quote(_,e) -> [e]
+    | Quote _ -> []
     | IdentExpr _ | Debugger _ -> []
     | TypeCast(e,_) -> [e]
     | Import(e1,e2,_,_,_) -> [e1;e2]
