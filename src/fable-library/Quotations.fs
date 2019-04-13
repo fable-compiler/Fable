@@ -9,8 +9,6 @@ open System.Collections.Generic
 open Microsoft.FSharp
 open Microsoft.FSharp.Core
 open Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators
-open Microsoft.FSharp.Core.Operators
-open Microsoft.FSharp.Primitives.Basics
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Reflection
 open Microsoft.FSharp.Core.Printf
@@ -196,14 +194,96 @@ and [<CompiledName("FSharpExpr")>]
                 | _ -> false
             eq x.Tree y.Tree
         | _ -> false
+    member x.GetLayout(long) =
+        let expr (e:Expr ) = e.GetLayout(long)
+        let exprs (es:Expr list) = es |> List.map expr
+        let parens ls = sprintf "(%s)" (String.concat ", " ls)
+        let pairL l1 l2 = sprintf "(%s, %s)" l1 l2
+        let listL ls = sprintf "[%s]" (String.concat ", " ls)
+        let combTaggedL nm ls = sprintf "%s%s" nm (parens ls)
+        let combL nm ls = sprintf "%s%s" nm (parens ls)
+        let noneL = "None"
+        let someL e = sprintf "Some(%s)" (expr e)
+        let typeL (o: Type) = if long then o.FullName else o.Name
+        let objL (o: 'T) = sprintf "%A" o
+        let varL (v:Var) = v.Name
+        let (|E|) (e: Expr) = e.Tree
+        let (|Lambda|_|) (E x) = match x with LambdaTerm(a, b) -> Some (a, b) | _ -> None
+        let (|IteratedLambda|_|) (e: Expr) = qOneOrMoreRLinear (|Lambda|_|) e
+        let ucaseL (unionCase:UnionCaseInfo) = (if long then objL unionCase else unionCase.Name)
+        let minfoL (minfo: MethodInfo) = if long then objL minfo else minfo.Name
+        let cinfoL (cinfo: ConstructorInfo) = if long then objL cinfo else cinfo.DeclaringType.Name
+        let pinfoL (pinfo: PropertyInfo) = if long then objL pinfo else pinfo.Name
+        let finfoL (finfo: FieldInfo) = if long then objL finfo else finfo.Name
+        let rec (|NLambdas|_|) n (e:Expr) =
+            match e with
+            | _ when n <= 0 -> Some([], e)
+            | Lambda(v, NLambdas ((-) n 1) (vs, b)) -> Some(v::vs, b)
+            | _ -> None
+        // let combL (name : string) (args : seq<string>) = sprintf "%s(%s)" name (String.concat ", " args)
+        // let exprs (es : seq<Expr>) = es |> Seq.map (fun e -> e.GetLayout(long))
 
+        match x.Tree with
+        | CombTerm(AppOp, args) -> combL "Application" (exprs args)
+        | CombTerm(IfThenElseOp, args) -> combL "IfThenElse" (exprs args)
+        | CombTerm(LetRecOp, [IteratedLambda(vs, E(CombTerm(LetRecCombOp, b2::bs)))]) -> combL "LetRecursive" [listL (List.map2 pairL (List.map varL vs) (exprs bs) ); b2.GetLayout(long)]
+        | CombTerm(LetOp, [e;E(LambdaTerm(v, b))]) -> combL "Let" [varL v; e.GetLayout(long); b.GetLayout(long)]
+        | CombTerm(NewRecordOp(ty), args) -> combL "NewRecord" (typeL ty :: exprs args)
+        | CombTerm(NewUnionCaseOp(unionCase), args) -> combL "NewUnionCase" (ucaseL unionCase :: exprs args)
+        | CombTerm(UnionCaseTestOp(unionCase), args) -> combL "UnionCaseTest" (exprs args@ [ucaseL unionCase])
+        | CombTerm(NewTupleOp _, args) -> combL "NewTuple" (exprs args)
+        | CombTerm(TupleGetOp (_, i), [arg]) -> combL "TupleGet" ([expr arg] @ [objL i])
+        | CombTerm(ValueOp(v, _, Some nm), []) -> combL "ValueWithName" [objL v; nm]
+        | CombTerm(ValueOp(v, _, None), []) -> combL "Value" [objL v]
+        | CombTerm(WithValueOp(v, _), [defn]) -> combL "WithValue" [objL v; expr defn]
+        | CombTerm(InstanceMethodCallOp(minfo), obj::args) -> combL "Call" [someL obj; minfoL minfo; listL (exprs args)]
+        | CombTerm(StaticMethodCallOp(minfo), args) -> combL "Call" [noneL; minfoL minfo; listL (exprs args)]
+        | CombTerm(InstancePropGetOp(pinfo), (obj::args)) -> combL "PropertyGet" [someL obj; pinfoL pinfo; listL (exprs args)]
+        | CombTerm(StaticPropGetOp(pinfo), args) -> combL "PropertyGet" [noneL; pinfoL pinfo; listL (exprs args)]
+        | CombTerm(InstancePropSetOp(pinfo), (obj::args)) -> combL "PropertySet" [someL obj; pinfoL pinfo; listL (exprs args)]
+        | CombTerm(StaticPropSetOp(pinfo), args) -> combL "PropertySet" [noneL; pinfoL pinfo; listL (exprs args)]
+        | CombTerm(InstanceFieldGetOp(finfo), [obj]) -> combL "FieldGet" [someL obj; finfoL finfo]
+        | CombTerm(StaticFieldGetOp(finfo), []) -> combL "FieldGet" [noneL; finfoL finfo]
+        | CombTerm(InstanceFieldSetOp(finfo), [obj;v]) -> combL "FieldSet" [someL obj; finfoL finfo; expr v;]
+        | CombTerm(StaticFieldSetOp(finfo), [v]) -> combL "FieldSet" [noneL; finfoL finfo; expr v;]
+        | CombTerm(CoerceOp(ty), [arg]) -> combL "Coerce" [ expr arg; typeL ty]
+        | CombTerm(NewObjectOp cinfo, args) -> combL "NewObject" ([ cinfoL cinfo ] @ exprs args)
+        | CombTerm(DefaultValueOp(ty), args) -> combL "DefaultValue" ([ typeL ty ] @ exprs args)
+        | CombTerm(NewArrayOp(ty), args) -> combL "NewArray" ([ typeL ty ] @ exprs args)
+        | CombTerm(TypeTestOp(ty), args) -> combL "TypeTest" ([ typeL ty] @ exprs args)
+        | CombTerm(AddressOfOp, args) -> combL "AddressOf" (exprs args)
+        | CombTerm(VarSetOp, [E(VarTerm(v)); e]) -> combL "VarSet" [varL v; expr e]
+        | CombTerm(AddressSetOp, args) -> combL "AddressSet" (exprs args)
+        | CombTerm(ForIntegerRangeLoopOp, [e1;e2;E(LambdaTerm(v, e3))]) -> combL "ForIntegerRangeLoop" [varL v; expr e1; expr e2; expr e3]
+        | CombTerm(WhileLoopOp, args) -> combL "WhileLoop" (exprs args)
+        | CombTerm(TryFinallyOp, args) -> combL "TryFinally" (exprs args)
+        | CombTerm(TryWithOp, [e1;Lambda(v1, e2);Lambda(v2, e3)]) -> combL "TryWith" [expr e1; varL v1; expr e2; varL v2; expr e3]
+        | CombTerm(SequentialOp, args) -> combL "Sequential" (exprs args)
+        | CombTerm(NewDelegateOp(ty), [e]) ->
+            let nargs = getDelegateNargs ty
+            if nargs = 0 then
+                match e with
+                | NLambdas 1 ([_], e) -> combL "NewDelegate" ([typeL ty] @ [expr e])
+                | NLambdas 0 ([], e) -> combL "NewDelegate" ([typeL ty] @ [expr e])
+                | _ -> combL "NewDelegate" [typeL ty; expr e]
+            else
+                match e with
+                | NLambdas nargs (vs, e) -> combL "NewDelegate" ([typeL ty] @ (vs |> List.map varL) @ [expr e])
+                | _ -> combL "NewDelegate" [typeL ty; expr e]
+        //| CombTerm(_, args) -> combL "??" (exprs args)
+        | VarTerm(v) -> v.Name
+        | LambdaTerm(v, b) -> combL "Lambda" [varL v; expr b]
+        | HoleTerm _ -> "_"
+        | CombTerm(QuoteOp _, args) -> combL "Quote" (exprs args)
+        | _ -> failwithf "Unexpected term in layout %A" x.Tree
     override x.GetHashCode() =
         x.Tree.GetHashCode()
 
-    // override x.ToString() = x.ToString(false)
+    override x.ToString() = 
+        x.ToString(false)
 
-    // member x.ToString(full) =
-    //     Microsoft.FSharp.Text.StructuredPrintfImpl.Display.layout_to_string Microsoft.FSharp.Text.StructuredPrintfImpl.FormatOptions.Default (x.GetLayout(full))
+    member x.ToString(full) =
+        x.GetLayout(full)
 
 
 
