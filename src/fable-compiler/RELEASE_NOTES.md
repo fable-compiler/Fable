@@ -1,4 +1,4 @@
-### 2.3.0-beta-001
+### 2.3.0
 
 * Give warnings if an anonymous record casted to an interface with `!!` mismatches any field
 * Compatibility with `JsInterop.importValueDynamic`

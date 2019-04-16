@@ -1,3 +1,11 @@
+### 3.0.0
+
+* Add `JsInterop.importValueDynamic`
+* Move `nameof` operators to Experimental module
+* JS extensions
+* Add Emit and Import attribute aliases
+* Namespace restructure
+
 ### 3.0.0-beta-006
 
 * Add `JsInterop.importValueDynamic`
