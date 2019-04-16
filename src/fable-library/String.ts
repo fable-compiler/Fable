@@ -386,12 +386,52 @@ export function toBase64String(inArray: number[]) {
   return typeof btoa === "function" ? btoa(str) : notSupported("btoa");
 }
 
+
+
 export function fromBase64String(b64Encoded: string) {
-  const binary = typeof atob === "function" ? atob(b64Encoded) : notSupported("atob");
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
+  function toValue(c: number) {
+    if (c >= 65 && c <= 90) {
+      return c - 65;
+    } else if (c >= 97 && c <= 122) {
+      return 26 + c - 97;
+    } else if (c >= 48 && c <= 57) {
+      return 52 + c - 48;
+    } else if (c === 43) {
+      return 62;
+    } else if (c === 47) {
+      return 63;
+    } else {
+      return 0;
+    }
   }
+  let pad = 0;
+  while (b64Encoded.charAt(b64Encoded.length - 1 - pad) === "=") {
+    pad = pad + 1;
+  }
+  const length = 3 * b64Encoded.length / 4 - pad;
+
+  const bytes = new Uint8Array(length);
+
+  let o = 0;
+  for (let i = 0; i < bytes.length; i += 3) {
+    const c0 = toValue(b64Encoded.charCodeAt(o));
+    const c1 = toValue(b64Encoded.charCodeAt(o + 1));
+    const c2 = toValue(b64Encoded.charCodeAt(o + 2));
+    const c3 = toValue(b64Encoded.charCodeAt(o + 3));
+
+    const int = (c0 << 18) | (c1 << 12) | (c2 << 6) | c3;
+
+    bytes[i + 0] = (int >> 16) & 0xFF;
+    if (i + 1 < bytes.length) { bytes[i + 1] = (int >> 8) & 0xFF; }
+    if (i + 2 < bytes.length) { bytes[i + 2] = (int) & 0xFF; }
+    o += 4;
+  }
+
+  // const binary = typeof atob === "function" ? atob(b64Encoded) : notSupported("atob");
+  // const bytes = new Uint8Array(binary.length);
+  // for (let i = 0; i < binary.length; i++) {
+  //   bytes[i] = binary.charCodeAt(i);
+  // }
   return bytes;
 }
 

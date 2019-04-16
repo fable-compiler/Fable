@@ -112,7 +112,7 @@ export class NMethodInfo extends NMethodBase {
     attributes: CustomAttribute[],
     private declaration?: NMethodInfo,
   ) {
-    super(declaringType, name, parameters, isStatic, attributes);
+    super(declaringType, name, parameters.map((a) => a), isStatic, attributes);
 
     if (!returnType) { throw new Error(`MethodInfo ${name} does not have a return type`); }
 
@@ -130,11 +130,22 @@ export class NMethodInfo extends NMethodBase {
     }
     this.Parameters.forEach((p) => { p.ParameterType = this.ResolveGeneric(p.ParameterType); });
     this.ReturnType = returnType.get_ContainsGenericParameters() ? this.ResolveGeneric(returnType) : returnType;
+    if (!this.ReturnType) { throw new Error(`MethodInfo ${name} does not have a return type`); }
+
   }
 
   public ResolveGeneric(t: NTypeInfo): NTypeInfo {
     if (t.isGenericParameter) {
-      return t.fullname in this.genMap ? this.GenericArguments[this.genMap[t.fullname]] : this.DeclaringType.ResolveGeneric(t);
+      if (t.fullname in this.genMap) {
+        const idx = this.genMap[t.fullname];
+        if (idx < 0 || idx > this.GenericArguments.length) {
+          throw new Error(`invalid generic index ${idx}`);
+        }
+
+        return this.GenericArguments[idx];
+      } else {
+        return this.DeclaringType.ResolveGeneric(t);
+      }
     } else if (t.get_ContainsGenericParameters()) {
       const gen = t.generics.map((t) => this.ResolveGeneric(t));
       return t.MakeGenericType(gen);
@@ -280,6 +291,8 @@ export class NPropertyInfo extends NMemberInfo {
     public IsStatic: boolean,
     public IsFSharp: boolean,
     attributes: CustomAttribute[],
+    private get?: (target: any) => any,
+    private set?: (target: any, value: any) => void,
   ) {
     super(DeclaringType, Name, attributes);
 
@@ -292,10 +305,10 @@ export class NPropertyInfo extends NMemberInfo {
   public get_IsFSharp() { return this.IsFSharp; }
 
   public get_CanRead() {
-    return this.get_GetMethod() !== null;
+    return this.get || this.get_GetMethod();
   }
   public get_CanWrite() {
-    return this.get_SetMethod() !== null;
+    return this.set || this.get_SetMethod();
   }
 
   public GetIndexParameters() {
@@ -318,7 +331,9 @@ export class NPropertyInfo extends NMemberInfo {
   }
 
   public GetValue(target: any, index: any[]): any {
-    if (this.IsFSharp) {
+    if (this.get) {
+      return this.get(target);
+    } else if (this.IsFSharp) {
       // TODO: mangled-names????
       if (this.Name in target) {
         return target[this.Name];
@@ -334,7 +349,9 @@ export class NPropertyInfo extends NMemberInfo {
   }
 
   public SetValue(target: any, value: any, index: any[]) {
-    if (this.IsFSharp) {
+    if (this.set) {
+      return this.set(target, value);
+    } else if (this.IsFSharp) {
       target[this.Name] = value;
     } else {
       index = index || [];
@@ -383,7 +400,7 @@ export class NPropertyInfo extends NMemberInfo {
 }
 
 export class NUnionCaseInfo extends NMemberInfo {
-  public Fields: Array<[string, NTypeInfo]> = null;
+  public Fields: NPropertyInfo[] = null;
 
   public constructor(
     DeclaringType: NTypeInfo,
@@ -398,11 +415,16 @@ export class NUnionCaseInfo extends NMemberInfo {
     if (typeof Tag !== "number") { throw new Error(`UnionCase ${Name} does not have a tag`); }
 
     fields = fields || [];
-    this.Fields = fields.map ((tup) => tup[1].get_ContainsGenericParameters() ? [tup[0], DeclaringType.ResolveGeneric(tup[1])] : tup) as Array<[string, NTypeInfo]>;
+    this.Fields = fields.map ((tup, i) => {
+      const name = tup[0];
+      const typ = tup[1].get_ContainsGenericParameters() ? DeclaringType.ResolveGeneric(tup[1]) : tup[1];
+      return new NPropertyInfo(DeclaringType, name, typ, false, true, [], (t) => t.fields[i], (t, v) => { t.fields[i] = v; });
+      // tup[1].get_ContainsGenericParameters() ? [tup[0], DeclaringType.ResolveGeneric(tup[1])] : tup) as Array<[string, NTypeInfo]>;
+    });
   }
 
   public GetFields() {
-    return this.Fields.map((nt) => new NPropertyInfo(this.DeclaringType, nt[0], nt[1], false, true, []));
+    return this.Fields;
   }
 
   public get_Tag() {
@@ -411,7 +433,7 @@ export class NUnionCaseInfo extends NMemberInfo {
 
   public toPrettyString() {
     const decl = this.DeclaringType.toFullString();
-    const fields = this.Fields.map((tup) => tup[0] + ": " + tup[1].toFullString()).join(" * ");
+    const fields = this.Fields.map((tup) => tup.Name + ": " + tup.Type.toFullString()).join(" * ");
     return decl + "." + this.Name + " of " + fields;
   }
 
@@ -440,9 +462,9 @@ export class NTypeInfo {
   public generics: NTypeInfo[] = null;
   public GenericDeclaration: NTypeInfo = null;
   public DeclaringType: NTypeInfo = null;
+  public mems: NMemberInfo[] = null;
 
   private instantiations: {[i: string]: NTypeInfo} = {};
-  private mems: NMemberInfo[] = null;
   private genericMap: {[name: string]: number} = {};
 
   constructor(
@@ -514,9 +536,9 @@ export class NTypeInfo {
     }
 
   public MakeGenericType(args: NTypeInfo[]) {
-    args = args.filter((a) => a);
+    // args = args.filter((a) => a);
     if (args.length === 0) { return this; }
-    if (args.length !== this.genericCount) { throw new Error(`${this.fullname} contains ${this.genericCount} generic parameters but only ${this.generics.length} given.`); }
+    if (args.length !== this.genericCount) { throw new Error(`${this.fullname} contains ${this.genericCount} generic parameters but only ${args.length} given.`); }
 
     const key = args.map((t) => t.toString()).join(", ");
     if (key in this.instantiations) {
@@ -810,7 +832,7 @@ export function lambda(argType: NTypeInfo, returnType: NTypeInfo): NTypeInfo {
 export function option(generic?: NTypeInfo): NTypeInfo {
   const name = "Microsoft.FSharp.Core.FSharpOption`1";
   const gen =
-    declareNType(name, 2, (self, gen) => [
+    declareNType(name, 1, (self, gen) => [
       new NUnionCaseInfo(self, 0, "None", [], [], ((_) => null)),
       new NUnionCaseInfo(self, 1, "Some", [], [["Value", gen[0]]], ((args, ...rest) => args)),
     ]);
@@ -997,7 +1019,7 @@ export function getUnionFields(v: any, t: NTypeInfo): [NUnionCaseInfo, any[]] {
 }
 
 export function getUnionCaseFields(uci: NUnionCaseInfo): NPropertyInfo[] {
-  return uci.Fields.map((nt) => new NPropertyInfo(uci.DeclaringType, nt[0], nt[1], false, true, []));
+  return uci.Fields;
 }
 
 export function getRecordFields(v: any): any[] {
@@ -1059,4 +1081,22 @@ export function getCaseName(x: any): string {
 export function getCaseFields(x: any): any[] {
   assertUnion(x);
   return x.fields;
+}
+
+export function createMethod(decl: NTypeInfo, name: string, mpars: string[], margs: NTypeInfo[], declaredArgs: NTypeInfo[], ret: NTypeInfo, isStatic: boolean): NMethodInfo {
+  const found =
+    decl.GetMethods().find((m) =>
+      m.Name === name && m.GenericArguments.length === margs.length &&
+      m.Parameters.length === declaredArgs.length && m.IsStatic === isStatic &&
+      (m.get_IsGenericMethod() ? m.MakeGenericMethod(margs).ParametersAssignable(declaredArgs) : m.ParametersAssignable(declaredArgs)) &&
+      equals(m.ReturnType, ret)
+    );
+  if (found) {
+    return found.get_IsGenericMethod() ? found.MakeGenericMethod(margs) : found;
+  } else {
+    const pp = mpars.map ((n) => getGenericParameter(n));
+    const meth = new NMethodInfo(decl, pp, name, declaredArgs.map((a, i) => new NParameterInfo("arg" + i, a)), ret, isStatic, ((_) => null), []);
+    decl.mems.push(meth);
+    return meth.get_IsGenericMethod() ? meth.MakeGenericMethod(margs) : meth;
+  }
 }

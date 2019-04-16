@@ -43,6 +43,8 @@ type V2 = { x : int; y : int } with
     member x.Sepp = 
         x.x + x.y
 
+    static member GetX (v : V2) = v.x
+
     static member (+) (l : V2, r : V2) = { x = l.x + r.x; y = l.y + r.y }
 
     member x.Item
@@ -61,6 +63,12 @@ type System.Type with
 type Sepp(a : int, b : string) =
     member x.Yeah = b
     member x.DoIt(c : int) = a*c
+
+
+type MyUnion =
+    | Values of int * int
+    | Single of value : int
+
 
 let tests =
     testList "Expr" [
@@ -167,9 +175,71 @@ let tests =
             | _ ->
                 failwith "bad record"                    
 
-        testCase "CustomAttributes" <| fun () ->
-            let b = 10
-            let test = <@ fun (a : int) -> b @>
+        testCase "Quote static call library" <| fun () ->
 
-            failwithf "prop: %A" test
+            match <@@ fun (a : int) -> a + 1 @@> with
+            | Lambda(va,Call(None, add, [Var a; Value(x,y)])) ->
+                equal "op_Addition" add.Name 
+                equal 3 (add.GetGenericArguments().Length)
+                equal a va
+                equal (1 :> obj) x
+                equal y typeof<int>
+            | e ->
+                failwithf "bad expression: %A" e                          
+
+        testCase "Quote static call user" <| fun () ->
+
+            match <@@ V2.GetX @@> with
+            | Lambda(va,Call(None, m, [Var a])) ->
+                equal "GetX" m.Name 
+                equal m (typeof<V2>.GetMethod("GetX"))
+                equal a va
+            | e ->
+                failwithf "bad expression: %A" e             
+
+        testCase "Quote option deconstruct" <| fun () ->        
+            match <@@ fun (v : Option<int>) -> match v with | Some a -> a | None -> 0 @@> with
+            | Lambda(va,IfThenElse(UnionCaseTest(Var v, c), a, b)) ->
+                equal va v
+            | e ->
+                failwithf "bad expression: %A" e             
+
+        testCase "Quote record property" <| fun () ->
+            match <@@ fun (v : V2) -> List.empty @@> with
+            | Lambda(va,PropertyGet(None, prop, [])) ->
+                failwithf "%A" prop
+                // equal va v
+                // equal prop (typeof<V2>.GetProperty("x"))
+            | e ->
+                failwithf "bad expression: %A" e    
+            // let c = {| a = 10 |}
+            // let test = <@ fun (a : MyUnion) -> match a with | Single a -> a | Values (a,b) -> a + b + c.a @>
+            // failwithf "yeah: %A" test
+            // Error: yeah: Lambda(a, Let(x, ValueWithName(10, b), Call(None, op_Multiply, [x, a])))
+
+
+        testCase "megaquote" <| fun () ->
+            let sepp =
+                <@
+                    let mutable b = { x = 10; y = 3 }
+                    let mutable a = 10
+                    while a < 100 do
+                        a <- a + 1
+                        b <- { b with x = b.x + a / 2 }
+
+                    for i in 0 .. 10 do
+                        a <- a / 2
+
+                    b                    
+                @>
+
+            let t = 
+                match <@ Microsoft.FSharp.Core.Operators.abs @> with
+                | Lambda(_, Call(None, meth, _)) -> meth.DeclaringType
+                | _ -> failwith "not a call"
+
+            let str = t.GetMethods() |> Array.map (string) |> String.concat "\n"
+
+            failwith str
+
     ]

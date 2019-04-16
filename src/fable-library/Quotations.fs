@@ -574,61 +574,65 @@ module Patterns =
 
     /// Returns type of lambda application - something like "(fun a -> ..) b"
     let rec typeOfAppliedLambda f =
-        let fty = ((typeOf f):Type)
+        let fty = ((exprType f):Type)
         match fty.GetGenericArguments() with
         | [| _; b|] -> b
         | _ -> raise <| System.InvalidOperationException "(SR.GetString(SR.QillFormedAppOrLet))"
 
     /// Returns type of the Raw quotation or fails if the quotation is ill formed
     /// if 'verify' is true, verifies all branches, otherwise ignores some of them when not needed
-    and typeOf<'T when 'T :> Expr> (e : 'T) : Type =
-        let (E t) = e
-        match t with
-        | VarTerm    v -> v.Type
-        | LambdaTerm (v, b) -> mkFunTy v.Type (typeOf b)
-        | HoleTerm   (ty, _) -> ty
-        | CombTerm   (c, args) ->
-            match c, args with
-            | AppOp, [f;_] -> typeOfAppliedLambda f
-            | LetOp, _ -> match e with Let(_, _, b) -> typeOf b | _ -> failwith "unreachable"
-            | IfThenElseOp, [_;t;_] -> typeOf t
-            | LetRecOp, _ -> match e with LetRecursive(_, b) -> typeOf b | _ -> failwith "unreachable"
-            | LetRecCombOp, _ -> failwith "typeOfConst: LetRecCombOp"
-            | NewRecordOp ty, _ -> ty
-            | NewUnionCaseOp unionCase, _ -> unionCase.DeclaringType
-            | UnionCaseTestOp _, _ -> typeof<Boolean>
-            | ValueOp (_, ty, _), _ -> ty
-            | WithValueOp (_, ty), _ -> ty
-            | TupleGetOp (ty, i), _ -> FSharpType.GetTupleElements(ty).[i]
-            | NewTupleOp ty, _ -> ty
-            | StaticPropGetOp prop, _ -> prop.PropertyType
-            | InstancePropGetOp prop, _ -> prop.PropertyType
-            | StaticPropSetOp _, _ -> typeof<Unit>
-            | InstancePropSetOp _, _ -> typeof<Unit>
-            | InstanceFieldGetOp fld, _ -> fld.FieldType
-            | StaticFieldGetOp fld, _ -> fld.FieldType
-            | InstanceFieldSetOp _, _ -> typeof<Unit>
-            | StaticFieldSetOp _, _ -> typeof<Unit>
-            | NewObjectOp ctor, _ -> ctor.DeclaringType
-            | InstanceMethodCallOp minfo, _ -> minfo.ReturnType |> removeVoid
-            | StaticMethodCallOp minfo, _ -> minfo.ReturnType |> removeVoid
-            | CoerceOp ty, _ -> ty
-            | SequentialOp, [_;b] -> typeOf b
-            | ForIntegerRangeLoopOp, _ -> typeof<Unit>
-            | NewArrayOp ty, _ -> mkArrayTy ty
-            | NewDelegateOp ty, _ -> ty
-            | DefaultValueOp ty, _ -> ty
-            | TypeTestOp _, _ -> typeof<bool>
-            | QuoteOp true, [expr] -> mkExprTy (typeOf expr)
-            | QuoteOp false, [_] -> rawExprTy
-            | TryFinallyOp, [e1;_] -> typeOf e1
-            | TryWithOp, [e1;_;_] -> typeOf e1
-            | WhileLoopOp, _
-            | VarSetOp, _
-            | AddressSetOp, _ -> typeof<Unit>
-            | AddressOfOp, [expr]-> failwith "(typeOf expr).MakeByRefType()"
-            | (AddressOfOp | QuoteOp _ | SequentialOp | TryWithOp | TryFinallyOp | IfThenElseOp | AppOp), _ -> failwith "unreachable"
-
+    and exprType (e : Expr) : Type =
+        let res =
+            let (E t) = e
+            match t with
+            | VarTerm    v -> v.Type
+            | LambdaTerm (v, b) -> mkFunTy v.Type (exprType b)
+            | HoleTerm   (ty, _) -> ty
+            | CombTerm   (c, args) ->
+                match c, args with
+                | AppOp, [f;_] -> typeOfAppliedLambda f
+                | LetOp, _ -> match e with Let(_, _, b) -> exprType b | _ -> failwith "unreachable"
+                | IfThenElseOp, [_;t;_] -> exprType t
+                | LetRecOp, _ -> match e with LetRecursive(_, b) -> exprType b | _ -> failwith "unreachable"
+                | LetRecCombOp, _ -> failwith "typeOfConst: LetRecCombOp"
+                | NewRecordOp ty, _ -> ty
+                | NewUnionCaseOp unionCase, _ -> unionCase.DeclaringType
+                | UnionCaseTestOp _, _ -> typeof<bool>
+                | ValueOp (_, ty, _), _ -> ty
+                | WithValueOp (_, ty), _ -> ty
+                | TupleGetOp (ty, i), _ -> FSharpType.GetTupleElements(ty).[i]
+                | NewTupleOp ty, _ -> ty
+                | StaticPropGetOp prop, _ -> prop.PropertyType
+                | InstancePropGetOp prop, _ -> prop.PropertyType
+                | StaticPropSetOp _, _ -> typeof<unit>
+                | InstancePropSetOp _, _ -> typeof<unit>
+                | InstanceFieldGetOp fld, _ -> fld.FieldType
+                | StaticFieldGetOp fld, _ -> fld.FieldType
+                | InstanceFieldSetOp _, _ -> typeof<unit>
+                | StaticFieldSetOp _, _ -> typeof<unit>
+                | NewObjectOp ctor, _ -> ctor.DeclaringType
+                | InstanceMethodCallOp minfo, _ -> minfo.ReturnType
+                | StaticMethodCallOp minfo, _ -> minfo.ReturnType
+                | CoerceOp ty, _ -> ty
+                | SequentialOp, [_;b] -> exprType b
+                | ForIntegerRangeLoopOp, _ -> typeof<unit>
+                | NewArrayOp ty, _ -> mkArrayTy ty
+                | NewDelegateOp ty, _ -> ty
+                | DefaultValueOp ty, _ -> ty
+                | TypeTestOp _, _ -> typeof<bool>
+                | QuoteOp true, [expr] -> mkExprTy (exprType expr)
+                | QuoteOp false, [_] -> rawExprTy
+                | TryFinallyOp, [e1;_] -> exprType e1
+                | TryWithOp, [e1;_;_] -> exprType e1
+                | WhileLoopOp, _
+                | VarSetOp, _
+                | AddressSetOp, _ -> typeof<unit>
+                | AddressOfOp, [expr]-> failwith "(typeOf expr).MakeByRefType()"
+                | (AddressOfOp | QuoteOp _ | SequentialOp | TryWithOp | TryFinallyOp | IfThenElseOp | AppOp), _ -> failwith "unreachable"
+        if unbox res then
+            res
+        else
+            failwithf "bad type for: %A" e        
 
     //--------------------------------------------------------------------------
     // Constructors for building Raw quotations
@@ -651,7 +655,7 @@ module Patterns =
 
     let checkTypesSR (expectedType: Type) (receivedType : Type) name (threeHoleSR : string) =
         if (expectedType <> receivedType) then
-          invalidArg "receivedType" (String.Format(threeHoleSR, name, expectedType, receivedType))
+          invalidArg "receivedType" (String.Format("{0}/{1}: {1} {2}", threeHoleSR, name, expectedType.FullName, receivedType.FullName))
 
     let checkTypesWeakSR (expectedType: Type) (receivedType : Type) name (threeHoleSR : string) =
         ()
@@ -661,7 +665,7 @@ module Patterns =
     let checkArgs (paramInfos: ParameterInfo[]) (args:list<Expr>) =
         if (paramInfos.Length <> args.Length) then invalidArg "args" ("SR.GetString(SR.QincorrectNumArgs)")
         List.iter2
-            ( fun (p:ParameterInfo) a -> checkTypesWeakSR p.ParameterType (typeOf a) "args" ("SR.GetString(SR.QtmmInvalidParam)"))
+            ( fun (p:ParameterInfo) a -> checkTypesWeakSR p.ParameterType (exprType a) "args" ("SR.GetString(SR.QtmmInvalidParam)"))
             (paramInfos |> Array.toList)
             args
                                                 // todo: shouldn't this be "strong" type check? sometimes?
@@ -679,10 +683,10 @@ module Patterns =
 
     // Checks lambda application for correctness
     let checkAppliedLambda (f, v) =
-        let fty = typeOf f
+        let fty = exprType f
         let ftyG = (if fty.IsGenericType then  fty.GetGenericTypeDefinition() else fty)
         checkTypesSR funTyC ftyG "f" ("SR.GetString(SR.QtmmExpectedFunction)")
-        let vty = (typeOf v)
+        let vty = (exprType v)
         match fty.GetGenericArguments() with
           | [| a; _ |] -> checkTypesSR vty a "f" ("SR.GetString(SR.QtmmFunctionArgTypeMismatch)")
           | _ -> invalidArg  "f" ("SR.GetString(SR.QinvalidFuncType)")
@@ -695,7 +699,7 @@ module Patterns =
         | _ -> invalidArg  "ty" ("String.Format(SR.GetString(SR.notAUnionType), ty.FullName)")
 
     let checkBind(v:Var, e) =
-        let ety = typeOf e
+        let ety = exprType e
         checkTypesSR v.Type ety "let" ("SR.GetString(SR.QtmmVarTypeNotMatchRHS)")
 
     // [Correct by definition]
@@ -735,15 +739,15 @@ module Patterns =
     let mkNewTupleWithType    (ty, args:Expr list) =
         let mems = FSharpType.GetTupleElements ty |> Array.toList
         if (args.Length <> mems.Length) then invalidArg  "args" ("SR.GetString(SR.QtupleLengthsDiffer)")
-        List.iter2(fun mt a -> checkTypesSR mt (typeOf a) "args" ("SR.GetString(SR.QtmmTuple)") ) mems args
+        List.iter2(fun mt a -> checkTypesSR mt (exprType a) "args" ("SR.GetString(SR.QtmmTuple)") ) mems args
         mkFEN (NewTupleOp ty) args
 
     let mkNewTuple (args) =
-        let ty = FSharpType.MakeTupleType(Array.map typeOf (Array.ofList args))
+        let ty = FSharpType.MakeTupleType(Array.map exprType (Array.ofList args))
         mkFEN (NewTupleOp ty) args
 
     let mkTupleGet (ty, n, x) =
-        checkTypesSR ty (typeOf x) "tupleGet" ("SR.GetString(SR.QtmmExprNotMatchTuple)")
+        checkTypesSR ty (exprType x) "tupleGet" ("SR.GetString(SR.QtmmExprNotMatchTuple)")
         let mems = FSharpType.GetTupleElements ty
         if (n < 0 || mems.Length <= n) then invalidArg  "n" ("SR.GetString(SR.QtupleAccessOutOfRange)")
         mkFE1 (TupleGetOp (ty, n)) x
@@ -752,7 +756,7 @@ module Patterns =
     let mkNewRecord (ty, args:list<Expr>) =
         let mems = FSharpType.GetRecordFields(ty)
         if (args.Length <> mems.Length) then invalidArg  "args" ("SR.GetString(SR.QincompatibleRecordLength)")
-        List.iter2 (fun (minfo:PropertyInfo) a -> checkTypesSR minfo.PropertyType (typeOf a) "recd" ("SR.GetString(SR.QtmmIncorrectArgForRecord)")) (Array.toList mems) args
+        List.iter2 (fun (minfo:PropertyInfo) a -> checkTypesSR minfo.PropertyType (exprType a) "recd" ("SR.GetString(SR.QtmmIncorrectArgForRecord)")) (Array.toList mems) args
         mkFEN (NewRecordOp ty) args
 
 
@@ -761,22 +765,22 @@ module Patterns =
         if Unchecked.defaultof<UnionCaseInfo> = unionCase then raise (ArgumentNullException())
         let sargs = unionCase.GetFields()
         if (args.Length <> sargs.Length) then invalidArg  "args" ("SR.GetString(SR.QunionNeedsDiffNumArgs)")
-        List.iter2 (fun (minfo:PropertyInfo) a -> checkTypesSR minfo.PropertyType (typeOf a) "sum" ("SR.GetString(SR.QtmmIncorrectArgForUnion)")) (Array.toList sargs) args
+        List.iter2 (fun (minfo:PropertyInfo) a -> checkTypesSR minfo.PropertyType (exprType a) "sum" ("SR.GetString(SR.QtmmIncorrectArgForUnion)")) (Array.toList sargs) args
         mkFEN (NewUnionCaseOp unionCase) args
 
     let mkUnionCaseTest (unionCase:UnionCaseInfo, expr) =
         if Unchecked.defaultof<UnionCaseInfo> = unionCase then raise (ArgumentNullException())
-        checkTypesSR unionCase.DeclaringType (typeOf expr) "UnionCaseTagTest" ("SR.GetString(SR.QtmmExprTypeMismatch)")
+        checkTypesSR unionCase.DeclaringType (exprType expr) "UnionCaseTagTest" ("SR.GetString(SR.QtmmExprTypeMismatch)")
         mkFE1 (UnionCaseTestOp unionCase) expr
 
     // Conditional etc..
     let mkIfThenElse (e, t, f) =
-        checkTypesSR (typeOf t) (typeOf f) "cond" ("SR.GetString(SR.QtmmTrueAndFalseMustMatch)")
-        checkTypesSR (typeof<Boolean>) (typeOf e) "cond" ("SR.GetString(SR.QtmmCondMustBeBool)")
+        checkTypesSR (exprType t) (exprType f) "cond" ("SR.GetString(SR.QtmmTrueAndFalseMustMatch)")
+        checkTypesSR (typeof<Boolean>) (exprType e) "cond" ("SR.GetString(SR.QtmmCondMustBeBool)")
         mkFE3 IfThenElseOp (e, t, f)
 
     let mkNewArray (ty, args) =
-        List.iter (fun a -> checkTypesSR ty (typeOf a) "newArray" ("SR.GetString(SR.QtmmInitArray)")) args
+        List.iter (fun a -> checkTypesSR ty (exprType a) "newArray" ("SR.GetString(SR.QtmmInitArray)")) args
         mkFEN (NewArrayOp ty) args
 
     let mkInstanceFieldGet(obj, finfo:FieldInfo) =
@@ -795,14 +799,14 @@ module Patterns =
 
     let mkStaticFieldSet (finfo:FieldInfo, value:Expr) =
         if Unchecked.defaultof<FieldInfo> = finfo then raise (ArgumentNullException())
-        checkTypesSR (typeOf value) finfo.FieldType "value" ("SR.GetString(SR.QtmmBadFieldType)")
+        //checkTypesSR (exprType value) finfo.FieldType "value" ("SR.GetString(SR.QtmmBadFieldType)")
         match finfo.IsStatic with
         | true -> mkFE1 (StaticFieldSetOp finfo) value
         | false -> invalidArg  "finfo" ("SR.GetString(SR.QnonStaticNoReceiverObject)")
 
     let mkInstanceFieldSet (obj, finfo:FieldInfo, value:Expr) =
         if Unchecked.defaultof<FieldInfo> = finfo then raise (ArgumentNullException())
-        checkTypesSR (typeOf value) finfo.FieldType "value" ("SR.GetString(SR.QtmmBadFieldType)")
+        //checkTypesSR (exprType value) finfo.FieldType "value" ("SR.GetString(SR.QtmmBadFieldType)")
         match finfo.IsStatic with
         | false ->
             checkObj finfo obj
@@ -819,39 +823,43 @@ module Patterns =
 
     let mkStaticPropGet (pinfo:PropertyInfo, args:list<Expr>) =
         if Unchecked.defaultof<PropertyInfo> = pinfo then raise (ArgumentNullException())
-        if (not pinfo.CanRead) then invalidArg  "pinfo" ("SR.GetString(SR.QreadingSetOnly)")
-        checkArgs (pinfo.GetIndexParameters()) args
-        match pinfo.GetGetMethod(true).IsStatic with
-        | true -> mkFEN (StaticPropGetOp  pinfo) args
-        | false -> invalidArg  "pinfo" ("SR.GetString(SR.QnonStaticNoReceiverObject)")
+        mkFEN (StaticPropGetOp pinfo) args
+        // if (not pinfo.CanRead) then invalidArg  "pinfo" ("SR.GetString(SR.QreadingSetOnly)")
+        // checkArgs (pinfo.GetIndexParameters()) args
+        // match pinfo.GetGetMethod(true).IsStatic with
+        // | true -> mkFEN (StaticPropGetOp  pinfo) args
+        // | false -> invalidArg  "pinfo" ("SR.GetString(SR.QnonStaticNoReceiverObject)")
 
     let mkInstancePropGet (obj, pinfo:PropertyInfo, args:list<Expr>) =
         if Unchecked.defaultof<PropertyInfo> = pinfo then raise (ArgumentNullException())
-        if (not pinfo.CanRead) then invalidArg  "pinfo" ("SR.GetString(SR.QreadingSetOnly)")
-        checkArgs (pinfo.GetIndexParameters()) args
-        match pinfo.GetGetMethod(true).IsStatic with
-        | false ->
-            checkObj pinfo obj
-            mkFEN (InstancePropGetOp pinfo) (obj::args)
-        | true -> invalidArg  "pinfo" ("SR.GetString(SR.QstaticWithReceiverObject)")
+        mkFEN (InstancePropGetOp pinfo) (obj::args)
+        // if (not pinfo.CanRead) then invalidArg  "pinfo" ("SR.GetString(SR.QreadingSetOnly)")
+        // checkArgs (pinfo.GetIndexParameters()) args
+        // match pinfo.GetGetMethod(true).IsStatic with
+        // | false ->
+        //     checkObj pinfo obj
+        //     mkFEN (InstancePropGetOp pinfo) (obj::args)
+        // | true -> invalidArg  "pinfo" ("SR.GetString(SR.QstaticWithReceiverObject)")
 
     let mkStaticPropSet (pinfo:PropertyInfo, args:list<Expr>, value:Expr) =
         if Unchecked.defaultof<PropertyInfo> = pinfo then raise (ArgumentNullException())
-        if (not pinfo.CanWrite) then invalidArg  "pinfo" ("SR.GetString(SR.QwritingGetOnly)")
-        checkArgs (pinfo.GetIndexParameters()) args
-        match pinfo.GetSetMethod(true).IsStatic with
-        | true -> mkFEN (StaticPropSetOp pinfo) (args@[value])
-        | false -> invalidArg  "pinfo" ("SR.GetString(SR.QnonStaticNoReceiverObject)")
+        mkFEN (StaticPropSetOp pinfo) (args@[value])
+        // if (not pinfo.CanWrite) then invalidArg  "pinfo" ("SR.GetString(SR.QwritingGetOnly)")
+        // checkArgs (pinfo.GetIndexParameters()) args
+        // match pinfo.GetSetMethod(true).IsStatic with
+        // | true -> mkFEN (StaticPropSetOp pinfo) (args@[value])
+        // | false -> invalidArg  "pinfo" ("SR.GetString(SR.QnonStaticNoReceiverObject)")
 
     let mkInstancePropSet (obj, pinfo:PropertyInfo, args:list<Expr>, value:Expr) =
         if Unchecked.defaultof<PropertyInfo> = pinfo then raise (ArgumentNullException())
-        if (not pinfo.CanWrite) then invalidArg  "pinfo" ("SR.GetString(SR.QwritingGetOnly)")
-        checkArgs (pinfo.GetIndexParameters()) args
-        match pinfo.GetSetMethod(true).IsStatic with
-        | false ->
-            checkObj pinfo obj
-            mkFEN (InstancePropSetOp pinfo) (obj::(args@[value]))
-        | true -> invalidArg  "pinfo" ("SR.GetString(SR.QstaticWithReceiverObject)")
+        mkFEN (InstancePropSetOp pinfo) (obj::(args@[value]))
+        // if (not pinfo.CanWrite) then invalidArg  "pinfo" ("SR.GetString(SR.QwritingGetOnly)")
+        // checkArgs (pinfo.GetIndexParameters()) args
+        // match pinfo.GetSetMethod(true).IsStatic with
+        // | false ->
+        //     checkObj pinfo obj
+        //     mkFEN (InstancePropSetOp pinfo) (obj::(args@[value]))
+        // | true -> invalidArg  "pinfo" ("SR.GetString(SR.QstaticWithReceiverObject)")
 
     let mkInstanceMethodCall (obj, minfo:MethodInfo, args:list<Expr>) =
         if Unchecked.defaultof<MethodInfo> = minfo then raise (ArgumentNullException())
@@ -870,14 +878,14 @@ module Patterns =
         | false -> invalidArg  "minfo" ("SR.GetString(SR.QnonStaticNoReceiverObject)")
 
     let mkForLoop (v:Var, lowerBound, upperBound, body) =
-        checkTypesSR (typeof<int>) (typeOf lowerBound) "lowerBound" ("SR.GetString(SR.QtmmLowerUpperBoundMustBeInt)")
-        checkTypesSR (typeof<int>) (typeOf upperBound) "upperBound" ("SR.GetString(SR.QtmmLowerUpperBoundMustBeInt)")
+        checkTypesSR (typeof<int>) (exprType lowerBound) "lowerBound" ("SR.GetString(SR.QtmmLowerUpperBoundMustBeInt)")
+        checkTypesSR (typeof<int>) (exprType upperBound) "upperBound" ("SR.GetString(SR.QtmmLowerUpperBoundMustBeInt)")
         checkTypesSR (typeof<int>) (v.Type) "for" ("SR.GetString(SR.QtmmLoopBodyMustBeLambdaTakingInteger)")
         mkFE3 ForIntegerRangeLoopOp (lowerBound, upperBound, mkLambda(v, body))
 
     let mkWhileLoop (guard, body) =
-        checkTypesSR (typeof<bool>) (typeOf guard) "guard" ("SR.GetString(SR.QtmmGuardMustBeBool)")
-        checkTypesSR (typeof<Unit>) (typeOf body) "body" ("SR.GetString(SR.QtmmBodyMustBeUnit)")
+        checkTypesSR (typeof<bool>) (exprType guard) "guard" ("SR.GetString(SR.QtmmGuardMustBeBool)")
+        checkTypesSR (typeof<Unit>) (exprType body) "body" ("SR.GetString(SR.QtmmBodyMustBeUnit)")
         mkFE2 (WhileLoopOp) (guard, body)
 
     let mkNewDelegate (ty, e) =
@@ -886,7 +894,7 @@ module Patterns =
         let ps = targs |> Array.take nargs
         let ret = targs.[targs.Length - 1]
         let dlfun = Array.foldBack mkFunTy ps ret
-        checkTypesSR dlfun (typeOf e) "ty" ("SR.GetString(SR.QtmmFunTypeNotMatchDelegate)")
+        checkTypesSR dlfun (exprType e) "ty" ("SR.GetString(SR.QtmmFunTypeNotMatchDelegate)")
         mkFE1 (NewDelegateOp ty) e
 
     let mkLet (v, e, b) =
@@ -1416,7 +1424,7 @@ module Patterns =
                     match a with
                     | Unique v -> v
                     | Ambiguous f ->
-                        let argTys = List.map typeOf args
+                        let argTys = List.map exprType args
                         f argTys
                 let tyargs = b env.typeInst
                 E (CombTerm (a tyargs, args)))
@@ -1596,7 +1604,7 @@ module Patterns =
         | HoleTerm   (ty, idx) ->
            if idx < 0 || idx >= l.Length then failwith "hole index out of range"
            let h = l.[idx]
-           match typeOf h with
+           match exprType h with
            | expected when expected <> ty -> invalidArg "receivedType" ("String.Format(SR.GetString(SR.QtmmRaw), expected, ty)")
            | _ -> h
 
@@ -1895,7 +1903,7 @@ module Patterns =
 
 
     let cast (expr: Expr) : Expr<'T> =
-        checkTypesSR  (typeof<'T>) (typeOf expr) "expr" ("SR.GetString(SR.QtmmExprHasWrongType)")
+        checkTypesSR  (typeof<'T>) (exprType expr) "expr" ("SR.GetString(SR.QtmmExprHasWrongType)")
         new Expr<'T>(expr.Tree, expr.CustomAttributes)
 
 open Patterns
@@ -1904,7 +1912,7 @@ open Patterns
 type Expr with
     member x.Substitute substitution = substituteRaw substitution x
     member x.GetFreeVars () = (freeInExpr x :> seq<_>)
-    member x.Type = typeOf x
+    member x.Type = exprType x
 
     static member AddressOf (target:Expr) =
         mkAddressOf target
@@ -2015,7 +2023,7 @@ type Expr with
         mkTryFinally (body, compensation)
 
     static member TupleGet (tuple:Expr, index:int) =
-        mkTupleGet (typeOf tuple, index, tuple)
+        mkTupleGet (exprType tuple, index, tuple)
 
     static member TypeTest (source: Expr, target: Type) =
         checkNonNull "target" target

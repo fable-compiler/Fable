@@ -315,10 +315,13 @@ type ValueData =
 
 type ExprData =
     {
-        typ : Type
-        variables: VarData[]
-        values : ValueData[]
-        data : byte[]
+        typ         : Type
+        variables   : VarData[]
+        values      : ValueData[]
+        literals    : Expr[]
+        types       : Type[]
+        members     : array<FSharpEntity * Type * MemberInfo * Type[]>
+        data        : byte[]
     }
 
 type Expr =

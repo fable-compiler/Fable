@@ -1328,6 +1328,7 @@ module Util =
                         "value", transformAsExpr com ctx v.expr
                     ]                    
                 )
+
             let vars = data.variables |> Array.map (fun (v : Fable.VarData) -> 
                 obj [ 
                     "name", StringLiteral v.name :> Expression
@@ -1335,9 +1336,42 @@ module Util =
                     "isMutable", BooleanLiteral v.isMutable :> Expression
                 ]
             )
+
+            let types = data.types |> Array.map (fun t ->
+                transformAsExpr com ctx (Fable.Value(Fable.TypeInfo t, None))
+            )
+
+            let members = data.members |> Array.map (fun (ent, t, m, margs) ->
+                let self = transformAsExpr com ctx (Fable.Value(Fable.TypeInfo t, None))     
+                let minst = margs |> Array.map (fun t -> transformAsExpr com ctx (Fable.Value(Fable.TypeInfo t, None)))
+                
+                let arr = transformMemberReflectionInfosNew com ctx None self (ArrayExpression [||]) ent [|m|]
+                let meth = arr.[0]
+                if margs.Length > 0 then 
+                    CallExpression(MemberExpression(meth, Identifier "MakeGenericMethod"), [| ArrayExpression minst |]) :> Expression
+                else
+                    meth
+
+            )
+
+            let literals = 
+                data.literals |> Array.map (fun e ->
+                    obj [ 
+                        "value", transformAsExpr com ctx e
+                        "typ", transformAsExpr com ctx (Fable.Value(Fable.TypeInfo e.Type, None))     
+                    ]                    
+                )
+
             // let arrName = getTypedArrayName com NumberKind.UInt8
-            // let expr = NewExpression(StringLiteral arrName, data.data |> Array.map (fun v -> NumericLiteral (float v) :> Expression))
-            coreLibCall com ctx None "ExprUtils" "deserialize" [| ArrayExpression values; ArrayExpression vars; StringLiteral (System.Convert.ToBase64String data.data) |]
+            // let expr = NewExpression(Identifier arrName, [| data.data |> Array.map (fun v -> NumericLiteral (float v) :> Expression) |> ArrayExpression |])
+            coreLibCall com ctx None "ExprUtils" "deserialize" [| 
+                ArrayExpression values
+                ArrayExpression vars
+                ArrayExpression types
+                ArrayExpression members
+                ArrayExpression literals
+                StringLiteral (System.Convert.ToBase64String data.data) 
+            |]
             
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =
