@@ -228,7 +228,7 @@ let tests =
                         b <- { b with x = b.x + a / 2 }
 
                     for i in 0 .. 10 do
-                        a <- a / 2
+                        a <- a / i
 
                     b                    
                 @>
@@ -240,6 +240,6 @@ let tests =
 
             let str = t.GetMethods() |> Array.map (string) |> String.concat "\n"
 
-            failwith str
+            failwith (string sepp)
 
     ]

@@ -272,7 +272,11 @@ let rec private transformDecisionTargets (com: IFableCompiler) (ctx: Context) ac
 
 let private skipAttribute (name : string) =
     // TODO: skip all attributes where definiton not known???
-    name.StartsWith "Microsoft.FSharp.Core" || name.StartsWith "System.Reflection"
+    name.StartsWith "Microsoft.FSharp.Core" || 
+    name.StartsWith "System.Reflection" ||
+    name.StartsWith "System.Runtime.CompilerServices" ||
+    name.StartsWith "System.ObsoleteAttribute" ||
+    name.StartsWith "System.Diagnostics"
 
 let private transformAttribute (com: IFableCompiler) (ctx : Context) (a : FSharpAttribute) =
     match a.AttributeType.TryFullName with

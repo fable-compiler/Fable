@@ -1095,7 +1095,7 @@ export function createMethod(decl: NTypeInfo, name: string, mpars: string[], mar
     return found.get_IsGenericMethod() ? found.MakeGenericMethod(margs) : found;
   } else {
     const pp = mpars.map ((n) => getGenericParameter(n));
-    const meth = new NMethodInfo(decl, pp, name, declaredArgs.map((a, i) => new NParameterInfo("arg" + i, a)), ret, isStatic, ((_) => null), []);
+    const meth = new NMethodInfo(decl, pp, name, declaredArgs.map((a, i) => new NParameterInfo("arg" + i, a)), ret, isStatic, ((_) => { throw new Error("cannot invoke"); }), []);
     decl.mems.push(meth);
     return meth.get_IsGenericMethod() ? meth.MakeGenericMethod(margs) : meth;
   }

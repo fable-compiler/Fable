@@ -2766,6 +2766,8 @@ let private replacedModules =
     "Microsoft.FSharp.Quotations.FSharpExpr", exprs "Expr"
     "Microsoft.FSharp.Quotations.FSharpVar", exprs "Var"
     "Microsoft.FSharp.Quotations.PatternsModule", exprs "Patterns" 
+    "Microsoft.FSharp.Quotations.DerivedPatternsModule", exprs "DerivedPatterns" 
+    "Microsoft.FSharp.Quotations.ExprShapeModule", exprs "ExprShape" 
     "System.Math", operators
     "Microsoft.FSharp.Core.Operators", operators
     "Microsoft.FSharp.Core.Operators.Checked", operators

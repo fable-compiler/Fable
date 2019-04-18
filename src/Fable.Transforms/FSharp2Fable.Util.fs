@@ -102,12 +102,12 @@ module Helpers =
     let getModuleReflectionName (com: ICompiler) (ent : FSharpEntity) =
         if ent.IsFSharpModule then 
             let name = 
-                (getEntityMangledName com false ent, Naming.NoMemberPart)
+                (getEntityMangledName com true ent, Naming.NoMemberPart)
                 ||> Naming.sanitizeIdent (fun _ -> false)
             if name = "" then 
-                None
+                Some ""
             else            
-                Some ("Module$" + name)
+                Some name
         else
             None        
 
