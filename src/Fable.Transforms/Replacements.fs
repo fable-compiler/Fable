@@ -1630,8 +1630,12 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.CoreCall("Array", "findLastIndex", t, [arg; ar], ?loc=r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator r t ar |> Some
     // ICollection members, implemented in dictionaries and sets too. We need runtime checks (see #1120)
-    | "get_Count", Some ar, _ ->
-        Helper.CoreCall("Util", "count", t, [ar], ?loc=r) |> Some
+    | "get_Count", Some (MaybeCasted(ar)), _ ->
+        match ar.Type with
+        // Fable translates System.Collections.Generic.List as Array
+        // TODO: Check also IList?
+        | Array _ ->  get r t ar "length" |> Some
+        | _ -> Helper.CoreCall("Util", "count", t, [ar], ?loc=r) |> Some
     | "Clear", Some ar, _ ->
         Helper.CoreCall("Util", "clear", t, [ar], ?loc=r) |> Some
     | "Find", Some ar, [arg] ->
@@ -2758,7 +2762,7 @@ let private replacedModules =
     "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", enumerators
     "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", enumerators
     "System.Collections.Generic.List`1.Enumerator", enumerators
-    "System.Collections.Generic.List`1", resizeArrays
+    Types.resizeArray, resizeArrays
     "System.Collections.Generic.IList`1", resizeArrays
     "System.Collections.Generic.ICollection`1", resizeArrays
     Types.hashset, hashSets
