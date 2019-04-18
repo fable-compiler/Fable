@@ -1,3 +1,7 @@
+### 2.3.2
+
+* Update Dotnet.ProjInfo
+
 ### 2.3.1
 
 * Optimize `ResizeArray.Count`
