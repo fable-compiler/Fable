@@ -1,3 +1,7 @@
+### 2.3.3
+
+* Reflections support for anonymous records
+
 ### 2.3.2
 
 * Update Dotnet.ProjInfo
