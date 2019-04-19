@@ -677,7 +677,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.NewAnonRecord(fsType, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
-        return Fable.NewRecord(argExprs, Fable.AnonymousRecord fsType.AnonRecordTypeDetails.SortedFieldNames, []) |> makeValue (makeRangeFrom fsExpr)
+        let fieldNames = fsType.AnonRecordTypeDetails.SortedFieldNames
+        let genArgs = makeGenArgs com ctx.GenericArgs (getGenericArguments fsType)
+        return Fable.NewRecord(argExprs, Fable.AnonymousRecord fieldNames, genArgs) |> makeValue (makeRangeFrom fsExpr)
 
     | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs

@@ -447,6 +447,7 @@ module AST =
         | _ -> false
 
     let rec getTypeFullName prettify = function
+        | AnonymousRecordType _ -> ""
         | GenericParam name -> "'" + name
         | EnumType(_, fullname) -> fullname
         | Regex    -> Types.regex

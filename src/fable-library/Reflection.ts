@@ -1,4 +1,4 @@
-import { Record, Union } from "./Types";
+import { Record, Union, anonRecord as makeAnonRecord } from "./Types";
 import { compareArraysWith, equalArraysWith } from "./Util";
 
 export type FieldInfo = [string, TypeInfo];
@@ -57,6 +57,10 @@ export function type(fullname: string, generics?: TypeInfo[]): TypeInfo {
 export function record(fullname: string, generics: TypeInfo[],
                        constructor: Constructor, fields: () => FieldInfo[]): TypeInfo {
   return new TypeInfo(fullname, generics, constructor, fields);
+}
+
+export function anonRecord(...fields: FieldInfo[]): TypeInfo {
+    return new TypeInfo("", null, null, () => fields);
 }
 
 export type CaseInfoInput = string | [string, TypeInfo[]];
@@ -248,7 +252,12 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
   if (fields.length !== values.length) {
     throw new Error(`Expected an array of length ${fields.length} but got ${values.length}`);
   }
-  return new t.constructor(...values);
+  return t.constructor != null
+    ? new t.constructor(...values)
+    : makeAnonRecord(fields.reduce((obj, [key,], i) => {
+        obj[key] = values[i];
+        return obj;
+    }, {} as any));
 }
 
 export function makeTuple(values: any[], t: TypeInfo): any {

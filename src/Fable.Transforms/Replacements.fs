@@ -673,6 +673,7 @@ let isCompatibleWithJsComparison = function
     // should be compatible with JS comparison
     | DeclaredType _ -> false
     | GenericParam _ -> false
+    | AnonymousRecordType _ -> false
     | Any | Unit | Boolean | Number _ | String | Char | Regex
     | EnumType _ | ErasedUnion _ | FunctionType _ -> true
 

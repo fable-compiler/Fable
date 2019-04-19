@@ -26,6 +26,7 @@ type Type =
     | GenericParam of name: string
     | ErasedUnion of genericArgs: Type list
     | DeclaredType of FSharpEntity * genericArgs: Type list
+    | AnonymousRecordType of fieldNames: string[] * genericArgs: Type list
 
     member this.Generics =
         match this with
@@ -173,7 +174,7 @@ type ValueKind =
         | NewRecord(_, kind, genArgs) ->
             match kind with
             | DeclaredRecord ent -> DeclaredType(ent, genArgs)
-            | AnonymousRecord _ -> Any
+            | AnonymousRecord fieldNames -> AnonymousRecordType(fieldNames, genArgs) 
         | NewUnion(_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
         | NewErasedUnion(_, genArgs) -> ErasedUnion genArgs
 

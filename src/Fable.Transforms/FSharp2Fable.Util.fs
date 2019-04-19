@@ -575,6 +575,9 @@ module TypeHelpers =
             let argType = makeType com ctxTypeArgs t.GenericArguments.[0]
             let returnType = makeType com ctxTypeArgs t.GenericArguments.[1]
             Fable.FunctionType(Fable.LambdaType argType, returnType)
+        elif t.IsAnonRecordType then
+            let genArgs = makeGenArgs com ctxTypeArgs t.GenericArguments
+            Fable.AnonymousRecordType(t.AnonRecordTypeDetails.SortedFieldNames, genArgs)
         elif t.HasTypeDefinition then
 // No support for provided types when compiling FCS+Fable to JS
 #if !FABLE_COMPILER
