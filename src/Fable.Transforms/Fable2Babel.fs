@@ -399,15 +399,30 @@ module Util =
 
             NewExpression(meth, [|self; genPars; StringLiteral name; ArrayExpression parameters; ret; BooleanLiteral isStatic; invoke; attributes |]) :> Expression
 
-        let newProperty (self : Expression) (isStatic : bool) (isFSharp : bool) (ret : Fable.Type) (name : string) (attributes : ArrayExpression) =
+        let newProperty (self : Expression) (isStatic : bool) (isFSharp : bool) (ret : Fable.Type) (name : string) (attributes : ArrayExpression) (get : Option<Expression>)  (set : Option<Expression>) =
             let prop = coreValue com ctx "Reflection" "NPropertyInfo"
             let ret = transformTypeInfo com ctx r [||] genMap ret
-            NewExpression(prop,  [|self; StringLiteral name; ret; BooleanLiteral isStatic; BooleanLiteral isFSharp; attributes|]) :> Expression
 
-        let newField (self : Expression) (isStatic : bool) (ret : Fable.Type) (name : string) (attributes : ArrayExpression) =
+            let args = [|self; StringLiteral name :> Expression; ret; BooleanLiteral isStatic :> Expression; BooleanLiteral isFSharp :> Expression; attributes :> Expression|]            
+
+            let args = 
+                match get, set with
+                | Some get, Some set -> Array.append args [| get; set |]
+                | Some get, None -> Array.append args [| get |]
+                | None, Some set -> Array.append args [| NullLiteral() :> Expression; set |]
+                | None, None -> args
+
+            NewExpression(prop, args) :> Expression
+
+
+        let newField (self : Expression) (isStatic : bool) (ret : Fable.Type) (name : string) (attributes : ArrayExpression) (get : Option<Expression>) =
             let fld = coreValue com ctx "Reflection" "NFieldInfo"
             let ret = transformTypeInfo com ctx r [||] genMap ret
-            NewExpression(fld,  [|self; StringLiteral name; ret; BooleanLiteral isStatic; attributes|]) :> Expression
+            match get with
+            | Some get -> 
+                NewExpression(fld,  [|self; StringLiteral name; ret; BooleanLiteral isStatic; attributes; get|]) :> Expression
+            | None ->
+                NewExpression(fld,  [|self; StringLiteral name; ret; BooleanLiteral isStatic; attributes|]) :> Expression
 
         mems |> Array.map (fun x ->
             let attributes = ArrayExpression (x.Attributes |> Array.map (fun (fullname, e) -> 
@@ -454,11 +469,14 @@ module Util =
 
                 newMethod self genericParameters isStatic ret name attributes pars invoke
 
-            | Fable.MemberInfoKind.Property(name, typ, fsharp, isStatic) ->
-                newProperty self isStatic fsharp typ name attributes
+            | Fable.MemberInfoKind.Property(name, typ, fsharp, isStatic, get, set) ->
+                let get = get |> Option.map (fun g -> com.TransformAsExpr(ctx, g))
+                let set = set |> Option.map (fun g -> com.TransformAsExpr(ctx, g))
+                newProperty self isStatic fsharp typ name attributes get set
 
-            | Fable.MemberInfoKind.Field(name, typ, isStatic) ->
-                newField self isStatic typ name attributes
+            | Fable.MemberInfoKind.Field(name, typ, isStatic, get) ->
+                let get = get |> Option.map (fun g -> com.TransformAsExpr(ctx, g))
+                newField self isStatic typ name attributes get
         )
     and transformRecordReflectionInfo (com : IBabelCompiler) ctx r (ent: FSharpEntity) declaringName (mems : Fable.MemberInfo[]) generics =
         // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
@@ -982,7 +1000,8 @@ module Util =
             jsInstanceof (coreValue com ctx "Types" "List") expr
 
         | Fable.Expr _ ->
-            coreLibCall com ctx None "ExprUtils" "isExpr" [| com.TransformAsExpr(ctx, expr) |]
+            jsInstanceof (coreValue com ctx "Quotations" "FSharpExpr") expr
+            //coreLibCall com ctx None "ExprUtils" "isExpr" [| com.TransformAsExpr(ctx, expr) |]
 
         | Replacements.Builtin kind ->
             match kind with
@@ -1004,6 +1023,8 @@ module Util =
             | Replacements.FSharpReference _ -> fail "result/choice/reference"
         | Fable.DeclaredType (ent, genArgs) ->
             match ent.TryFullName with
+            | Some "Microsoft.FSharp.Quotations.FSharpExpr" 
+            | Some "Microsoft.FSharp.Quotations.FSharpExpr`1" -> jsInstanceof (coreValue com ctx "Quotations" "FSharpExpr") expr //coreLibCall com ctx None "ExprUtils" "isExpr" [| com.TransformAsExpr(ctx, expr) |]
             | Some "System.Type" -> coreLibCall com ctx None "Reflection" "isType" [|com.TransformAsExpr(ctx, expr)|]  
             | Some "System.Reflection.MemberInfo" -> coreLibCall com ctx None "Reflection" "isMemberInfo" [|com.TransformAsExpr(ctx, expr)|]  
             | Some "System.Reflection.MethodBase" -> coreLibCall com ctx None "Reflection" "isMethodBase" [|com.TransformAsExpr(ctx, expr)|]   

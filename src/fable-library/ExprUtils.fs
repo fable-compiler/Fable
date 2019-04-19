@@ -243,33 +243,39 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
         | 18uy ->
             let typ = types.[stream.ReadInt32()]
             let name = stream.ReadString()
+            let cidx = stream.ReadInt32()
+            let idx = init cidx (fun _ -> read())
             let ret = types.[stream.ReadInt32()]
             let target = read()
-
+            
             let prop = typ.GetProperties() |> FSharp.Collections.Array.tryFind (fun p -> p.Name = name && p.PropertyType = ret)
             match prop with
             | Some prop ->
-                Expr.PropertyGet(target, prop)
+                Expr.PropertyGet(target, prop, idx)
             | None ->
                 let prop = createRecordProperty typ name ret
-                Expr.PropertyGet(target, prop)      
+                Expr.PropertyGet(target, prop, idx)      
 
         | 19uy ->
             let typ = types.[stream.ReadInt32()]
             let name = stream.ReadString()
+            let cidx = stream.ReadInt32()
+            let idx = init cidx (fun _ -> read())
             let ret = types.[stream.ReadInt32()]
 
             let prop = typ.GetProperties() |> FSharp.Collections.Array.tryFind (fun p -> p.Name = name && p.PropertyType = ret)
             match prop with
             | Some prop ->
-                Expr.PropertyGet(prop)
+                Expr.PropertyGet(prop, idx)
             | None ->
                 let prop = createStaticProperty typ name ret
-                Expr.PropertyGet(prop)           
+                Expr.PropertyGet(prop, idx)           
 
         | 20uy ->
             let typ = types.[stream.ReadInt32()]
             let name = stream.ReadString()
+            let cidx = stream.ReadInt32()
+            let idx = init cidx (fun _ -> read())
             let ret = types.[stream.ReadInt32()]
             let target = read()
             let value = read()
@@ -277,24 +283,26 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let prop = typ.GetProperties() |> FSharp.Collections.Array.tryFind (fun p -> p.Name = name && p.PropertyType = ret)
             match prop with
             | Some prop ->
-                Expr.PropertySet(target, prop, value)
+                Expr.PropertySet(target, prop, value, idx)
             | None ->
                 let prop = createRecordProperty typ name ret
-                Expr.PropertySet(target, prop, value)
+                Expr.PropertySet(target, prop, value, idx)
 
         | 21uy ->
             let typ = types.[stream.ReadInt32()]
             let name = stream.ReadString()
+            let cidx = stream.ReadInt32()
+            let idx = init cidx (fun _ -> read())
             let ret = types.[stream.ReadInt32()]
             let value = read()
 
             let prop = typ.GetProperties() |> FSharp.Collections.Array.tryFind (fun p -> p.Name = name && p.PropertyType = ret)
             match prop with
             | Some prop ->
-                Expr.PropertySet(prop, value)
+                Expr.PropertySet(prop, value, idx)
             | None ->
                 let prop = createStaticProperty typ name ret
-                Expr.PropertySet(prop, value)      
+                Expr.PropertySet(prop, value, idx)      
 
         | 22uy ->
             let cnt = stream.ReadInt32()
@@ -384,8 +392,3 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             failwithf "invalid expression: %A at %A" tag  stream.Position      
 
     read()
-
-let isExpr (o : obj) =
-    match o with
-    | :? Expr -> true
-    | _ -> false

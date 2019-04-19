@@ -209,8 +209,50 @@ module Pickler =
             | h :: _ -> h.[i]
             | _ -> failwith "invalid case"
         )            
+let rec propertyGetS (tid : int) (target : Option<FSharpExpr>) (name : string) (index : list<FSharpExpr>) (ret : int) =
+    state {         
+        match target with
+        | Some target ->
+            do! Pickler.write 18uy
+            do! Pickler.write tid
+            do! Pickler.write name
+            do! Pickler.write index.Length
+            for i in index do do! serializeS i
+            do! Pickler.write ret
+            do! serializeS target
+        | None ->
+            do! Pickler.write 19uy
+            do! Pickler.write tid
+            do! Pickler.write name
+            do! Pickler.write index.Length
+            for i in index do do! serializeS i
+            do! Pickler.write ret
+    }
 
-let rec serializeS (expr : FSharpExpr) =
+and propertySetS (tid : int) (target : Option<FSharpExpr>) (name : string) (index : list<FSharpExpr>) (value : FSharpExpr) =
+    state {         
+        let! ret = Pickler.useType value.Type
+        match target with
+        | Some target ->
+            do! Pickler.write 20uy
+            do! Pickler.write tid
+            do! Pickler.write name
+            do! Pickler.write index.Length
+            for i in index do do! serializeS i
+            do! Pickler.write ret
+            do! serializeS target
+            do! serializeS value
+        | None ->
+            do! Pickler.write 21uy
+            do! Pickler.write tid
+            do! Pickler.write name
+            do! Pickler.write index.Length
+            for i in index do do! serializeS i
+            do! Pickler.write ret
+            do! serializeS value
+    }
+
+and serializeS (expr : FSharpExpr) =
     state {
         match expr with
         | BasicPatterns.Lambda(v, b) ->
@@ -237,41 +279,15 @@ let rec serializeS (expr : FSharpExpr) =
             do! serializeS e
             do! serializeS b 
 
-        | BasicPatterns.Call(target, m, targs, margs, args) ->
-            //let! mem = Pickler.useMember m targs margs
-            let! tid = Pickler.useTypeDef m.DeclaringEntity.Value targs
-            let! rid = Pickler.useType m.ReturnParameter.Type
-            let! margs = margs |> List.mapS Pickler.useType
-            let mpars = m.GenericParameters |> Seq.map (fun p -> p.Name) |> Seq.toArray
-            let! aids = m.CurriedParameterGroups |> Seq.concat |> Seq.toList |> List.mapS (fun p -> Pickler.useType p.Type)
-            match target with
-            | Some target ->
-                do! Pickler.write 5uy
-                do! Pickler.write tid
-                do! Pickler.write m.CompiledName
-                do! Pickler.write mpars
-                do! Pickler.write margs
-                do! Pickler.write aids
-                do! Pickler.write rid
-                do! Pickler.write args.Length
+        | BasicPatterns.FSharpFieldGet(target, typ, field) ->
+            let! tid = Pickler.useType typ
+            let! ret = Pickler.useType field.FieldType
+            do! propertyGetS tid target field.Name [] ret
 
-                do! serializeS target
-                for a in args do
-                    do! serializeS a
-
-            | _ ->        
-                do! Pickler.write 6uy
-                do! Pickler.write tid
-                do! Pickler.write m.CompiledName
-                do! Pickler.write mpars
-                do! Pickler.write margs
-                do! Pickler.write aids
-                do! Pickler.write rid
-                do! Pickler.write args.Length
-
-                for a in args do
-                    do! serializeS a
-
+        | BasicPatterns.FSharpFieldSet(target, typ, field, value) ->
+            let! tid = Pickler.useType typ
+            do! propertySetS tid target field.Name [] value
+           
         | BasicPatterns.AddressOf e ->
             do! Pickler.write 7uy
             do! serializeS e
@@ -343,74 +359,17 @@ let rec serializeS (expr : FSharpExpr) =
             do! serializeS e
             do! serializeS b
 
-        | BasicPatterns.FSharpFieldGet(target, typ, field) ->
-            let! tid = Pickler.useType typ
-            let! ret = Pickler.useType field.FieldType
-            match target with
-            | Some target ->
-                do! Pickler.write 18uy
-                do! Pickler.write tid
-                do! Pickler.write field.Name
-                do! Pickler.write ret
-                do! serializeS target
-            | None ->
-                do! Pickler.write 19uy
-                do! Pickler.write tid
-                do! Pickler.write field.Name
-                do! Pickler.write ret
-
-        | BasicPatterns.FSharpFieldSet(target, typ, field, value) ->
-            let! tid = Pickler.useType typ
-            let! ret = Pickler.useType field.FieldType
-            match target with
-            | Some target ->
-                do! Pickler.write 20uy
-                do! Pickler.write tid
-                do! Pickler.write field.Name
-                do! Pickler.write ret
-                do! serializeS target
-                do! serializeS value
-            | None ->
-                do! Pickler.write 21uy
-                do! Pickler.write tid
-                do! Pickler.write field.Name
-                do! Pickler.write ret
-                do! serializeS value
+        
 
         | BasicPatterns.ILFieldGet(target, typ, field) ->
             let! tid = Pickler.useType typ
             let! ret = Pickler.useType expr.Type
-            match target with
-            | Some target ->
-                do! Pickler.write 18uy
-                do! Pickler.write tid
-                do! Pickler.write field
-                do! Pickler.write ret
-                do! serializeS target
-            | None ->
-                do! Pickler.write 19uy
-                do! Pickler.write tid
-                do! Pickler.write field
-                do! Pickler.write ret
+            do! propertyGetS tid target field [] ret
 
         | BasicPatterns.ILFieldSet(target, typ, field, value) ->
             let! tid = Pickler.useType typ
-            let! ret = Pickler.useType value.Type
-            match target with
-            | Some target ->
-                do! Pickler.write 20uy
-                do! Pickler.write tid
-                do! Pickler.write field
-                do! Pickler.write ret
-                do! serializeS target
-                do! serializeS value
-            | None ->
-                do! Pickler.write 21uy
-                do! Pickler.write tid
-                do! Pickler.write field
-                do! Pickler.write ret
-                do! serializeS value
-
+            do! propertySetS tid target field [] value
+          
         | BasicPatterns.LetRec(vs, b) ->
             do! Pickler.write 22uy
             do! Pickler.write vs.Length
@@ -521,6 +480,108 @@ let rec serializeS (expr : FSharpExpr) =
             do! Pickler.pushCases (List.toArray cases)
             do! serializeS target
             do! Pickler.popCases            
+
+
+        | BasicPatterns.Call(target, m, targs, margs, args) ->
+            let args = 
+                match args with
+                    | [unitArg] when Helpers.isUnit unitArg.Type -> []
+                    | args -> args
+
+            if m.IsValue && List.isEmpty args && List.isEmpty margs && Option.isSome m.DeclaringEntity && m.DeclaringEntity.Value.IsFSharpModule then
+                let! tid = Pickler.useTypeDef m.DeclaringEntity.Value targs
+                let! ret = Pickler.useType m.ReturnParameter.Type
+                do! propertyGetS tid target m.CompiledName [] ret
+              
+            //elif m.IsExtensionMember then
+
+            //     if m.IsPropertyGetterMethod then
+            //         let name = 
+            //             let name = m.LogicalName
+            //             if name.StartsWith "get_" then name.Substring(4)
+            //             else name 
+
+            //         let args = 
+            //             match args with
+            //             | unitVal :: rest when Helpers.isUnit unitVal.Type -> rest
+            //             | args -> args
+            //         let! tid = Pickler.useTypeDef m.DeclaringEntity.Value targs
+            //         let! ret = Pickler.useType m.ReturnParameter.Type
+            //         do! propertyGetS tid target name args ret                       
+            //     else
+
+            //     failwithf "%A %A %A %A %A %A" m.DisplayName m.CompiledName m.LogicalName m.FullName m.IsPropertyGetterMethod m.IsPropertySetterMethod
+
+            elif not m.IsExtensionMember && m.IsPropertyGetterMethod then
+                let name = 
+                    let name = m.CompiledName
+                    if name.StartsWith "get_" then name.Substring(4)
+                    else name 
+
+                let args = 
+                    match args with
+                    | unitVal :: rest when Helpers.isUnit unitVal.Type -> rest
+                    | args -> args
+
+                let! tid = Pickler.useTypeDef m.DeclaringEntity.Value targs
+                let! ret = Pickler.useType m.ReturnParameter.Type
+                do! propertyGetS tid target name args ret
+
+            elif not m.IsExtensionMember && m.IsPropertySetterMethod then
+                let name = 
+                    let name = m.CompiledName
+                    if name.StartsWith "set_" then name.Substring(4)
+                    else name 
+                    
+                let args = 
+                    match args with
+                    | unitVal :: rest when Helpers.isUnit unitVal.Type -> rest
+                    | args -> args
+
+                let idx, value =
+                    match args with
+                    | [] -> failwith "bad"
+                    | _ ->
+                        let value = List.last args
+                        let idx = List.take (args.Length - 1) args
+                        idx, value
+
+                let! tid = Pickler.useTypeDef m.DeclaringEntity.Value targs
+                do! propertySetS tid target name idx value
+            else
+                //let! mem = Pickler.useMember m targs margs
+                let! tid = Pickler.useTypeDef m.DeclaringEntity.Value targs
+                let! rid = Pickler.useType m.ReturnParameter.Type
+                let! margs = margs |> List.mapS Pickler.useType
+                let mpars = m.GenericParameters |> Seq.map (fun p -> p.Name) |> Seq.toArray
+                let! aids = m.CurriedParameterGroups |> Seq.concat |> Seq.toList |> List.mapS (fun p -> Pickler.useType p.Type)
+                match target with
+                | Some target ->
+                    do! Pickler.write 5uy
+                    do! Pickler.write tid
+                    do! Pickler.write m.CompiledName
+                    do! Pickler.write mpars
+                    do! Pickler.write margs
+                    do! Pickler.write aids
+                    do! Pickler.write rid
+                    do! Pickler.write args.Length
+
+                    do! serializeS target
+                    for a in args do
+                        do! serializeS a
+
+                | _ ->        
+                    do! Pickler.write 6uy
+                    do! Pickler.write tid
+                    do! Pickler.write m.CompiledName
+                    do! Pickler.write mpars
+                    do! Pickler.write margs
+                    do! Pickler.write aids
+                    do! Pickler.write rid
+                    do! Pickler.write args.Length
+
+                    for a in args do
+                        do! serializeS a
 
         | _ ->
             do! Pickler.write 255uy

@@ -114,7 +114,7 @@ export class NMethodInfo extends NMethodBase {
   ) {
     super(declaringType, name, parameters.map((a) => a), isStatic, attributes);
 
-    if (!returnType) { throw new Error(`MethodInfo ${name} does not have a return type`); }
+    if (!returnType) { throw new Error(`MethodInfo ${declaringType.toFullString()} ${name} does not have a return type`); }
 
     genericArguments = genericArguments || [];
     const isDef = genericArguments.findIndex((p) => p.isGenericParameter) >= 0;
@@ -130,7 +130,7 @@ export class NMethodInfo extends NMethodBase {
     }
     this.Parameters.forEach((p) => { p.ParameterType = this.ResolveGeneric(p.ParameterType); });
     this.ReturnType = returnType.get_ContainsGenericParameters() ? this.ResolveGeneric(returnType) : returnType;
-    if (!this.ReturnType) { throw new Error(`MethodInfo ${name} does not have a return type`); }
+    if (!this.ReturnType) { throw new Error(`MethodInfo ${declaringType.toFullString()} ${name} does not have a return type`); }
 
   }
 
@@ -252,6 +252,7 @@ export class NFieldInfo extends NMemberInfo {
     type: NTypeInfo,
     public IsStatic: boolean,
     attributes: CustomAttribute[],
+    private get?: (t: any) => any,
   ) {
     super(declaringType, name, attributes);
 
@@ -274,6 +275,14 @@ export class NFieldInfo extends NMemberInfo {
     }
 
     return attPrefix + prefix + this.Name + " : " + typ;
+  }
+
+  public GetValue(target: any) {
+    if (this.get) {
+        return this.get(target);
+    } else {
+      throw new Error("cannot get field " + this.toPrettyString());
+    }
   }
 
   public toString() {
@@ -796,7 +805,8 @@ function selectMany<TIn, TOut>(input: TIn[], selectListFn: (t: TIn, i: number) =
   }, new Array<TOut>());
 }
 
-export function tuple(...generics: NTypeInfo[]): NTypeInfo {
+export function tuple(...generics: any[]): NTypeInfo {
+  if (generics.length === 1) { generics = generics[0] as NTypeInfo[]; }
   if (generics.length === 0) { throw new Error("empty tuple"); }
   const name = "System.Tuple`" + generics.length;
   const gen =
@@ -1095,7 +1105,7 @@ export function createMethod(decl: NTypeInfo, name: string, mpars: string[], mar
     return found.get_IsGenericMethod() ? found.MakeGenericMethod(margs) : found;
   } else {
     const pp = mpars.map ((n) => getGenericParameter(n));
-    const meth = new NMethodInfo(decl, pp, name, declaredArgs.map((a, i) => new NParameterInfo("arg" + i, a)), ret, isStatic, ((_) => { throw new Error("cannot invoke"); }), []);
+    const meth = new NMethodInfo(decl, pp, name, declaredArgs.map((a, i) => new NParameterInfo("arg" + i, a)), ret, isStatic, ((_) => { throw new Error("cannot invoke " + decl.fullname + "." + name); }), []);
     decl.mems.push(meth);
     return meth.get_IsGenericMethod() ? meth.MakeGenericMethod(margs) : meth;
   }

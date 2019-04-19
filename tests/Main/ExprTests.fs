@@ -61,15 +61,28 @@ type System.Type with
     member x.ToPrettyString() : string = jsNative
 
 type Sepp(a : int, b : string) =
-    member x.Yeah = b
+    member x.Yeah
+        with get() = b
+        and set (_ : string) = ()
+
     member x.DoIt(c : int) = a*c
 
+    member x.Item
+        with get(i : int) = a + i
+        and set (i : int) (v : int) = ()
 
 type MyUnion =
     | Values of int * int
     | Single of value : int
 
 
+module MyModule =
+    let sepp = Values(1,1)
+
+[<AutoOpen>]
+module Blubber =
+    type Sepp with
+        member x.A = 10
 let tests =
     testList "Expr" [
 
@@ -217,6 +230,13 @@ let tests =
             // failwithf "yeah: %A" test
             // Error: yeah: Lambda(a, Let(x, ValueWithName(10, b), Call(None, op_Multiply, [x, a])))
 
+        testCase "bla" <| fun () ->
+            match <@@ fun (v : Sepp) -> v.A @@> with
+            | Lambda (_, Call(t, meth, args)) ->
+                let res = meth.Invoke(Sepp(1, "a"), [||])
+                failwithf "yeah: %A //// %A //// %A //// %A" (string t) (string meth) (string args) (string res)
+            | _ ->
+                ()
 
         testCase "megaquote" <| fun () ->
             let sepp =

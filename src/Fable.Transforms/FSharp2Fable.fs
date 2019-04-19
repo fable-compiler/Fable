@@ -311,18 +311,23 @@ let private transformAttribute (com: IFableCompiler) (ctx : Context) (a : FSharp
     | _ ->
         None    
 
-let private transformUnionCases (com:IFableCompiler) ctx (cases : seq<FSharpUnionCase>) =
-    cases |> Seq.toArray |> Array.map (fun c ->
-        let fields =
-            c.UnionCaseFields |> Seq.toArray |> Array.map (fun f ->
-                {
-                    Fable.MemberInfo.Kind = Fable.Property(f.Name, makeType com ctx.GenericArgs f.FieldType, true, false)
-                    Fable.Attributes = f.PropertyAttributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
-                }
-            )
+let private makeLambda (argType : Fable.Type) (body : Fable.Expr -> Fable.Expr) =
+    let target = { Fable.Ident.Name = "target"; Fable.Ident.Type = argType; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
+    let body = body (Fable.IdentExpr target)
+    Fable.Function(Fable.FunctionKind.Lambda(target), body, None)
+let private makeLambda2 (a0 : Fable.Type) (a1 : Fable.Type) (body : Fable.Expr -> Fable.Expr -> Fable.Expr) =
+    let v0 = { Fable.Ident.Name = "arg0"; Fable.Ident.Type = a0; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
+    let v1 = { Fable.Ident.Name = "arg1"; Fable.Ident.Type = a1; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
+    let body = body (Fable.IdentExpr v0) (Fable.IdentExpr v1)
+    Fable.Function(Fable.FunctionKind.Delegate [v0; v1], body, None)
 
-        { Fable.UnionCaseInfo.Name = c.Name; Fable.UnionCaseInfo.Fields = fields }
-    )
+let private makeLambda0 (body : Fable.Expr -> Fable.Expr) =
+    let target = { Fable.Ident.Name = "target"; Fable.Ident.Type = Fable.Type.Any; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
+    let body = body (Fable.IdentExpr target)
+    Fable.Function(Fable.FunctionKind.Lambda(target), body, None)
+
+
+
 
 
 let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFunctionOrValue) =
@@ -331,13 +336,58 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
         // TODO: support these?
         None
     elif m.IsValue then
+      
+        let get =                          
+            makeLambda Fable.Type.Any (fun t ->
+                if m.IsInstanceMember then 
+                    let ft = makeType com ctx.GenericArgs m.FullType
+                    Fable.Get(t, Fable.FieldGet(m.CompiledName, m.IsMutable, ft), ft, None)
+                else 
+                    Util.makeValueFrom com ctx None m
+            ) |> Some         
+
+        let set =
+            if m.IsMutable then
+                makeLambda2 Fable.Type.Any Fable.Type.Any (fun t v ->
+                    if m.IsInstanceMember then 
+                        let ft = makeType com ctx.GenericArgs m.FullType
+                        Fable.Set(t, Fable.FieldSet(m.CompiledName, ft), v, None)
+                    else 
+                        let ref = Util.memberRef com ctx None m
+                        Fable.Set(ref, Fable.SetKind.VarSet, v, None)
+                ) |> Some
+            else
+                None
+
+
         Some {
-            Fable.MemberInfo.Kind = Fable.Field(m.CompiledName, makeType com ctx.GenericArgs m.FullType, not m.IsInstanceMember)
+            Fable.MemberInfo.Kind = Fable.Property(m.CompiledName, makeType com ctx.GenericArgs m.FullType, true, not m.IsInstanceMember, get, set)
             Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
         }   
     elif m.IsProperty then
+        let ft = makeType com ctx.GenericArgs m.ReturnParameter.Type
+        
+        let get =
+            if m.HasGetterMethod && m.GetterMethod.GenericParameters.Count = 0 && (m.GetterMethod.CurriedParameterGroups |> Seq.sumBy (fun g -> g.Count)) = 0 then
+                let decl = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List []) m.DeclaringEntity.Value
+                makeLambda decl (fun t ->
+                    let callee = if m.IsInstanceMember then Some t else None
+                    makeCallFrom com ctx None ft false [] callee [] m.GetterMethod
+                ) |> Some
+            else
+                None   
+        let set =
+            if m.HasSetterMethod && m.SetterMethod.GenericParameters.Count = 0 && (m.SetterMethod.CurriedParameterGroups |> Seq.sumBy (fun g -> g.Count)) = 1 then
+                let decl = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List []) m.DeclaringEntity.Value
+                
+                makeLambda2 decl ft (fun t value ->
+                    let callee = if m.IsInstanceMember then Some t else None
+                    makeCallFrom com ctx None ft false [] callee [value] m.SetterMethod
+                ) |> Some
+            else
+                None            
         Some {
-            Fable.MemberInfo.Kind = Fable.Property(m.DisplayName, makeType com ctx.GenericArgs m.ReturnParameter.Type, false, not m.IsInstanceMember)
+            Fable.MemberInfo.Kind = Fable.Property(m.DisplayName, ft, false, not m.IsInstanceMember, get, set)
             Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
         }
     elif m.IsConstructor then
@@ -355,8 +405,12 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
 
     else // m.IsPropertyGetterMethod || m.IsPropertySetterMethod || m.IsValCompiledAsMethod || m.IsInstanceMember then
         let pars = 
-            m.CurriedParameterGroups |> Seq.concat |> Seq.toArray |> Array.map (fun p ->
-                { Fable.ParameterInfo.Name = p.DisplayName; Fable.Type = makeType com ctx.GenericArgs p.Type }
+            m.CurriedParameterGroups |> Seq.concat |> Seq.toArray |> Array.choose (fun p ->
+                let t = makeType com ctx.GenericArgs p.Type
+                if t <> Fable.Type.Unit then
+                    Some { Fable.ParameterInfo.Name = p.DisplayName; Fable.Type = t }
+                else
+                    None                
             )
         let ret = makeType com ctx.GenericArgs m.ReturnParameter.Type
         let mangledName = Helpers.getMemberDeclarationName com m
@@ -953,8 +1007,9 @@ let private transformMemberReflectionInfos (com: FableCompiler) ctx (ent : FShar
             let ctor = "new " + getEntityDeclarationName com ent
             Seq.concat [            
                 ent.FSharpFields |> Seq.map (fun m -> 
+                    let ft = makeType com ctx.GenericArgs m.FieldType
                     {
-                        Fable.MemberInfo.Kind = Fable.Property(m.Name, makeType com ctx.GenericArgs m.FieldType, true, false)
+                        Fable.MemberInfo.Kind = Fable.Property(m.Name, ft, true, false, None, None)
                         Fable.Attributes = m.PropertyAttributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
                     }                   
                 )
