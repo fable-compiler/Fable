@@ -1,10 +1,13 @@
 module Fable.Transforms.FSharp2Fable.QuotationPickler
 
+open Fable.Transforms
 open FSharp.Compiler.SourceCodeServices
+open Fable.Transforms.FSharp2Fable.Helpers
 
 type MemberDescription =
     | Member of FSharpMemberOrFunctionOrValue * list<FSharpType> * list<FSharpType>
     | UnionCase of FSharpUnionCase * list<FSharpType>
+
 
 type BinaryWriter() =
 
@@ -71,6 +74,10 @@ type PicklerState =
         types : list<Choice<FSharpType, FSharpEntity * list<FSharpType>> * int>
 
         cases : list<array<list<FSharpMemberOrFunctionOrValue> * FSharpExpr>>
+
+        com : IFableCompiler
+        ctx : Context
+        err : bool
 
         writer : BinaryWriter      
     }
@@ -246,7 +253,19 @@ module Pickler =
             match s.cases with
             | h :: _ -> h.[i]
             | _ -> failwith "invalid case"
-        )            
+        )   
+
+
+    let inline addError r msg =
+        { run = fun s ->
+            addError s.com s.ctx.InlinePath r msg
+            { s with err = true }, ()
+        }
+
+    let inline addWarning r msg =
+        State.get |> State.map (fun s ->
+            addWarning s.com s.ctx.InlinePath r msg
+        )  
 let rec propertyGetS (tid : int) (target : Option<FSharpExpr>) (name : string) (index : list<FSharpExpr>) (ret : int) =
     state {         
         match target with
@@ -419,7 +438,7 @@ and serializeS (expr : FSharpExpr) =
 
         | BasicPatterns.NewAnonRecord(typ, fields) ->
             // code 23
-            return failwith "bad"
+            do! Pickler.addError (makeRangeFrom expr) "anonymous records not supported atm."
 
         | BasicPatterns.NewArray(elementType, args) ->
             let! tid = Pickler.useType elementType
@@ -430,7 +449,7 @@ and serializeS (expr : FSharpExpr) =
 
         | BasicPatterns.NewDelegate _ ->
             // code 25
-            return failwith "bad"
+            do! Pickler.addError (makeRangeFrom expr) "delegates not supported atm."
 
         | BasicPatterns.NewObject(ctor, targs, args) ->
             let! tid = Pickler.useTypeDef ctor.DeclaringEntity.Value targs
@@ -479,10 +498,12 @@ and serializeS (expr : FSharpExpr) =
 
         | BasicPatterns.UnionCaseTag(e, t) ->
             // code 34
-            return failwith "bad"
+            do! Pickler.addError (makeRangeFrom expr) "UnionCaseTags not supported atm."
+
         | BasicPatterns.UnionCaseSet(target, typ, case, prop, value) ->
             // code 35
-            return failwith "bad"
+            do! Pickler.addError (makeRangeFrom expr) "UnionCaseSet not supported atm."
+
         | BasicPatterns.ValueSet(v, value) ->
             let! var = Pickler.tryGetVar v
             match var with
@@ -492,7 +513,7 @@ and serializeS (expr : FSharpExpr) =
                 do! serializeS value
             | None ->
                 // code 37
-                return failwith "bad"
+                do! Pickler.addError (makeRangeFrom expr) "static property sets not supported atm."
         | BasicPatterns.WhileLoop(guard, body) ->
             do! Pickler.writeByte 38uy
             do! serializeS guard
@@ -531,25 +552,6 @@ and serializeS (expr : FSharpExpr) =
                 let! ret = Pickler.useType m.ReturnParameter.Type
                 do! propertyGetS tid target m.CompiledName [] ret
               
-            //elif m.IsExtensionMember then
-
-            //     if m.IsPropertyGetterMethod then
-            //         let name = 
-            //             let name = m.LogicalName
-            //             if name.StartsWith "get_" then name.Substring(4)
-            //             else name 
-
-            //         let args = 
-            //             match args with
-            //             | unitVal :: rest when Helpers.isUnit unitVal.Type -> rest
-            //             | args -> args
-            //         let! tid = Pickler.useTypeDef m.DeclaringEntity.Value targs
-            //         let! ret = Pickler.useType m.ReturnParameter.Type
-            //         do! propertyGetS tid target name args ret                       
-            //     else
-
-            //     failwithf "%A %A %A %A %A %A" m.DisplayName m.CompiledName m.LogicalName m.FullName m.IsPropertyGetterMethod m.IsPropertySetterMethod
-
             elif not m.IsExtensionMember && m.IsPropertyGetterMethod then
                 let name = 
                     let name = m.CompiledName
@@ -578,7 +580,7 @@ and serializeS (expr : FSharpExpr) =
 
                 let idx, value =
                     match args with
-                    | [] -> failwith "bad"
+                    | [] -> failwith "unreachable"
                     | _ ->
                         let value = List.last args
                         let idx = List.take (args.Length - 1) args
@@ -587,7 +589,6 @@ and serializeS (expr : FSharpExpr) =
                 let! tid = Pickler.useTypeDef m.DeclaringEntity.Value targs
                 do! propertySetS tid target name idx value
             else
-                //let! mem = Pickler.useMember m targs margs
                 let! tid = Pickler.useTypeDef m.DeclaringEntity.Value targs
                 let! rid = Pickler.useType m.ReturnParameter.Type
                 let! margs = margs |> List.mapS Pickler.useType
@@ -640,10 +641,10 @@ type ExprData =
         data        : byte[]
     }
 
-let serialize (expr : FSharpExpr) =
+let serialize (com : IFableCompiler) (ctx : Context) (expr : FSharpExpr) =
     let s = serializeS expr
     let w = BinaryWriter()
-    let s, () = s.run { varId = 0; variables = []; valueId = 0; values = []; writer = w; typeId = 0; types = []; memberId = 0; members = []; literalId = 0; literals = []; cases = [] }
+    let s, () = s.run { varId = 0; variables = []; valueId = 0; values = []; writer = w; typeId = 0; types = []; memberId = 0; members = []; literalId = 0; literals = []; cases = []; com = com; ctx = ctx; err = false }
     
     let data = w.ToByteArray()
     let variables = 
@@ -666,6 +667,7 @@ let serialize (expr : FSharpExpr) =
         literals = literals
         data = data
     }    
+
 
 
 

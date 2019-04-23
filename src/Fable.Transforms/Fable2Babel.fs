@@ -1345,7 +1345,7 @@ module Util =
         | Fable.Debugger _ | Fable.Throw _ | Fable.Loop _ | Fable.TryCatch _ ->
             iife com ctx expr :> Expression
 
-        | Fable.Quote(_,data) ->
+        | Fable.Quote(_,data, r) ->
             let obj (values : list<string * Expression>) =
                 values |> List.toArray |> Array.map (fun (n,v) -> U3.Case1 (ObjectProperty(StringLiteral n, v))) |> ObjectExpression :> Expression
             let values = 
@@ -1392,7 +1392,7 @@ module Util =
 
             // let arrName = getTypedArrayName com NumberKind.UInt8
             // let expr = NewExpression(Identifier arrName, [| data.data |> Array.map (fun v -> NumericLiteral (float v) :> Expression) |> ArrayExpression |])
-            coreLibCall com ctx None "ExprUtils" "deserialize" [| 
+            coreLibCall com ctx r "ExprUtils" "deserialize" [| 
                 ArrayExpression values
                 ArrayExpression vars
                 ArrayExpression types

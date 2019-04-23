@@ -893,9 +893,38 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
 
     | BasicPatterns.Quote expr ->
+        
 
-        let data = QuotationPickler.serialize expr        
+        //let! dummy = transformExpr com ctx expr
+
+        let data = QuotationPickler.serialize com ctx expr        
         //data |> sprintf "%A" |> addWarning com ctx.InlinePath (makeRangeFrom fsExpr)
+
+        let! values =
+            data.values |> Array.toList |> trampolineListMap (fun v ->
+                trampoline {
+                    let! value = 
+                        trampoline {                          
+                            if isInline v then
+                                match ctx.ScopeInlineValues |> List.tryFind (fun (vi,_) -> obj.Equals(vi, v)) with
+                                | Some (_,fsExpr) ->
+                                
+                                    return! transformExpr com ctx fsExpr
+                                | None ->
+                                    return "Cannot resolve locally inlined value: " + v.DisplayName
+                                        |> addErrorAndReturnNull com ctx.InlinePath None
+                            else
+                                return makeValueFrom com ctx None v
+                        }
+
+                    
+                    return {
+                        Fable.ValueData.name = v.DisplayName
+                        Fable.ValueData.typ = makeType com ctx.GenericArgs v.FullType
+                        Fable.ValueData.expr = value
+                    } 
+                }                                       
+            )         
 
         let fableData =
             {
@@ -908,14 +937,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                             Fable.VarData.isMutable = v.isMutable
                         }
                     )
-                Fable.values =
-                    data.values |> Array.map (fun v ->
-                        {
-                            Fable.ValueData.name = v.DisplayName
-                            Fable.ValueData.typ = makeType com ctx.GenericArgs v.FullType
-                            Fable.ValueData.expr = makeValueFrom com ctx None v
-                        }                        
-                    )         
+                Fable.values = List.toArray values
 
                 Fable.ExprData.types =
                     data.types |> Array.map (fun d ->
@@ -950,7 +972,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             }
 
 
-        return Fable.Quote(false, fableData)
+        return Fable.Quote(false, fableData, makeRangeFrom fsExpr)
         // return "Quotes are not currently supported by Fable"
         // |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 

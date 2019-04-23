@@ -354,12 +354,12 @@ type Expr =
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
-    | Quote of typed : bool * data : ExprData
+    | Quote of typed : bool * data : ExprData * range : SourceLocation option
 
     member this.Type =
         match this with
-        | Quote(true, value) -> Expr(Some value.typ)
-        | Quote(false, _) -> Expr None 
+        | Quote(true, value, _) -> Expr(Some value.typ)
+        | Quote(false, _, _) -> Expr None 
         | Test _ -> Boolean
         | Value(kind,_) -> kind.Type
         | IdentExpr id -> id.Type
@@ -377,11 +377,12 @@ type Expr =
         match this with
         | Import _ | DelayedResolution _
         | ObjectExpr _ | Sequential _ | Let _
-        | DecisionTree _ | DecisionTreeSuccess _ | Quote _ -> None
+        | DecisionTree _ | DecisionTreeSuccess _ -> None
  
         | Function(_,e,_) | TypeCast(e,_) -> e.Range
         | IdentExpr id -> id.Range
 
+        | Quote(_,_,r)
         | Value(_,r) | IfThenElse(_,_,_,r) | TryCatch(_,_,_,r)
         | Debugger r | Test(_,_,r) | Operation(_,_,r) | Get(_,_,_,r)
         | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r
