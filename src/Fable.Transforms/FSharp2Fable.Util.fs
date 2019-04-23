@@ -10,7 +10,7 @@ open Fable.AST
 open Fable.Transforms
 
 type Context =
-    { Scope: (FSharpMemberOrFunctionOrValue * Fable.Expr) list
+    { Scope: (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
@@ -197,8 +197,8 @@ module Helpers =
         else not memb.Accessibility.IsPrivate
 
     let makeRange (r: Range.range) =
-        { start = { line = r.StartLine; column = r.StartColumn }
-          ``end``= { line = r.EndLine; column = r.EndColumn }
+        { start = { line = r.StartLine; column = r.StartColumn+1 }
+          ``end``= { line = r.EndLine; column = r.EndColumn+1 }
           identifierName = None }
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
@@ -339,11 +339,11 @@ module Patterns =
     /// Detects AST pattern of "raise MatchFailureException()"
     let (|RaisingMatchFailureExpr|_|) (expr: FSharpExpr) =
         match expr with
-        | BasicPatterns.Call(None, methodInfo, [ ], [unitType], [value]) ->
+        | BasicPatterns.Call(None, methodInfo, [ ], [_unitType], [value]) ->
             match methodInfo.FullName with
             | "Microsoft.FSharp.Core.Operators.raise" ->
                 match value with
-                | BasicPatterns.NewRecord(recordType, [ BasicPatterns.Const (value, valueT) ; rangeFrom; rangeTo ]) ->
+                | BasicPatterns.NewRecord(recordType, [BasicPatterns.Const (value, _valueT) ; _rangeFrom; _rangeTo]) ->
                     match recordType.TypeDefinition.FullName with
                     | "Microsoft.FSharp.Core.MatchFailureException"-> Some (value.ToString())
                     | _ -> None
@@ -582,11 +582,14 @@ module TypeHelpers =
         // Tuple
         elif t.IsTupleType then
             makeGenArgs com ctxTypeArgs t.GenericArguments |> Fable.Tuple
-        // Funtion
+        // Function
         elif t.IsFunctionType then
             let argType = makeType com ctxTypeArgs t.GenericArguments.[0]
             let returnType = makeType com ctxTypeArgs t.GenericArguments.[1]
             Fable.FunctionType(Fable.LambdaType argType, returnType)
+        elif t.IsAnonRecordType then
+            let genArgs = makeGenArgs com ctxTypeArgs t.GenericArguments
+            Fable.AnonymousRecordType(t.AnonRecordTypeDetails.SortedFieldNames, genArgs)
         elif t.HasTypeDefinition then
 // No support for provided types when compiling FCS+Fable to JS
 #if !FABLE_COMPILER
@@ -640,19 +643,35 @@ module TypeHelpers =
             if t.HasTypeDefinition then Some t.TypeDefinition else None
         else None
 
-    let tryFindMember com (entity: FSharpEntity) genArgs membCompiledName isInstance (argTypes: Fable.Type list) =
+    let tryFindMember com (entity: FSharpEntity) genArgs _COMPILED_NAME isInstance (argTypes: Fable.Type list) =
         let argsEqual (args1: Fable.Type list) args1Length (args2: IList<IList<FSharpParameter>>) =
                 let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
                 if args1Length = args2Length then
-                    let args2 = args2 |> Seq.collect (fun g ->
-                        g |> Seq.map (fun p -> makeType com genArgs p.Type) |> Seq.toList)
+                    let args2 =
+                        args2
+                        |> Seq.collect (fun g ->
+                            g |> Seq.map (fun p -> makeType com genArgs p.Type) |> Seq.toList)
                     listEquals (typeEquals false) args1 (Seq.toList args2)
                 else false
         let argTypesLength = List.length argTypes
         getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
-            if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName
+            if m2.IsInstanceMember = isInstance && m2.CompiledName = _COMPILED_NAME
             then argsEqual argTypes argTypesLength m2.CurriedParameterGroups
             else false)
+
+    // let tryFindMember com (entity: FSharpEntity) genArgs membCompiledName isInstance (argTypes : list<Fable.Type>) =
+    //     let argsEqual (args1 : Fable.Type list) args1Length (args2: IList<IList<FSharpParameter>>)=
+    //             let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
+    //             if args1Length = args2Length then
+    //                 let args2 = args2 |> Seq.collect (fun g ->
+    //                     g |> Seq.map (fun p -> makeType com genArgs p.Type) |> Seq.toList)
+    //                 listEquals (typeEquals false) args1 (Seq.toList args2)
+    //             else false
+    //     let argTypesLength = List.length argTypes
+    //     getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
+    //         if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName
+    //         then argsEqual argTypes argTypesLength m2.CurriedParameterGroups
+    //         else false)
 
     let inline (|FableType|) com (ctx: Context) t = makeType com ctx.GenericArgs t
 
@@ -660,8 +679,8 @@ module Identifiers =
     open Helpers
     open TypeHelpers
 
-    let bindExpr (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) expr =
-        { ctx with Scope = (fsRef, expr)::ctx.Scope}
+    let putIdentInScope (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) (ident: Fable.Ident) value =
+        { ctx with Scope = (fsRef, ident, value)::ctx.Scope}
 
     let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let sanitizedName = (fsRef.CompiledName, Naming.NoMemberPart)
@@ -678,25 +697,36 @@ module Identifiers =
           Range = { makeRange fsRef.DeclarationLocation
                     with identifierName = Some fsRef.DisplayName } |> Some }
 
-    /// Sanitize F# identifier and create new context
-    let bindIdentFrom com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
+    let putArgInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
-        bindExpr ctx fsRef (Fable.IdentExpr ident), ident
+        putIdentInScope ctx fsRef ident None, ident
+        
+    let (|PutArgInScope|) com ctx fsRef = putArgInScope com ctx fsRef
 
-    let (|BindIdent|) com ctx fsRef = bindIdentFrom com ctx fsRef
-
-    let inline tryGetBoundExprWhere (ctx: Context) r predicate =
-        match List.tryFind (fun (fsRef,_)  -> predicate fsRef) ctx.Scope with
-        | Some(_, Fable.IdentExpr ident) ->
+    let putBindingInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
+        let ident = makeIdentFrom com ctx fsRef
+        putIdentInScope ctx fsRef ident (Some value), ident
+        
+    let inline tryGetIdentFromScopeIf (ctx: Context) r predicate =
+        match List.tryFind (fun (fsRef,_,_)  -> predicate fsRef) ctx.Scope with
+        | Some(_,ident,_) ->
             let originalName = ident.Range |> Option.bind (fun r -> r.identifierName)
             { ident with Range = r |> Option.map (fun r -> { r with identifierName = originalName }) }
             |> Fable.IdentExpr |> Some
-        | Some(_, boundExpr) -> Some boundExpr
         | None -> None
 
     /// Get corresponding identifier to F# value in current scope
-    let tryGetBoundExpr (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
-        tryGetBoundExprWhere ctx r (fun fsRef' -> obj.Equals(fsRef, fsRef'))
+    let tryGetIdentFromScope (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
+        tryGetIdentFromScopeIf ctx r (fun fsRef' -> obj.Equals(fsRef, fsRef'))
+
+    let rec tryGetBoundValueFromScope (ctx: Context) identName =
+        match ctx.Scope |> List.tryFind (fun (_,ident,_) -> ident.Name = identName) with
+        | Some(_,_,value) ->
+            match value with
+            | Some(Fable.IdentExpr ident) when not ident.IsMutable ->
+                tryGetBoundValueFromScope ctx ident.Name
+            | v -> v
+        | None -> None
 
 module Util =
     open Helpers
@@ -708,7 +738,7 @@ module Util =
         let ctx, args =
             ((ctx, []), args)
             ||> List.fold (fun (ctx, accArgs) var ->
-                let newContext, arg = bindIdentFrom com ctx var
+                let newContext, arg = putArgInScope com ctx var
                 newContext, arg::accArgs)
         ctx, List.rev args
 
@@ -718,7 +748,7 @@ module Util =
             // Within private members (first arg is ConstructorThisValue) F# AST uses
             // ThisValue instead of Value (with .IsMemberConstructorThisValue = true)
             | (firstArg::restArgs1)::restArgs2 when firstArg.IsConstructorThisValue || firstArg.IsMemberThisValue ->
-                let ctx, thisArg = bindIdentFrom com ctx firstArg
+                let ctx, thisArg = putArgInScope com ctx firstArg
                 let thisArg = { thisArg with Kind = Fable.ThisArgIdentDeclaration }
                 let ctx =
                     if firstArg.IsConstructorThisValue
@@ -736,7 +766,7 @@ module Util =
     let makeTryCatch com ctx r (Transform com ctx body) catchClause finalBody =
         let catchClause =
             match catchClause with
-            | Some (BindIdent com ctx (catchContext, catchVar), catchBody) ->
+            | Some (PutArgInScope com ctx (catchContext, catchVar), catchBody) ->
                 // Add caughtException to context so it can be retrieved by `reraise`
                 let catchContext = { catchContext with CaughtException = Some catchVar }
                 Some (catchVar, com.Transform(catchContext, catchBody))
@@ -885,7 +915,7 @@ module Util =
             if file = com.CurrentFile then
                 makeIdentExprNonMangled entityName
             elif isPublicEntity ent then
-                makeInternalImport Fable.Any entityName file
+                makeInternalImport com Fable.Any entityName file
             else
                 error "Cannot inline functions that reference private entities"
 
@@ -913,7 +943,7 @@ module Util =
             { makeTypedIdentNonMangled typ memberName with Range = r }
             |> Fable.IdentExpr
         elif isPublicMember memb then
-            makeInternalImport typ memberName file
+            makeInternalImport com typ memberName file
         else
             defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName
             |> sprintf "Cannot reference private members from other files: %s"
@@ -1057,7 +1087,7 @@ module Util =
                     let ident = { makeIdentFrom com ctx argId with
                                     Type = arg.Type
                                     IsCompilerGenerated = true }
-                    let ctx = bindExpr ctx argId (Fable.IdentExpr ident)
+                    let ctx = putIdentInScope ctx argId ident (Some arg)
                     ctx, (ident, arg)::bindings)
             let ctx = { ctx with GenericArgs = genArgs.Value |> Map
                                  InlinedFunction = Some memb
@@ -1128,7 +1158,7 @@ module Util =
         | Imported com r typ (Some argInfo) isModuleValue imported -> imported
         | Replaced com ctx r typ argTypes genArgs argInfo isModuleValue replaced -> replaced
         | Inlined com ctx r genArgs callee args expr, _ -> expr
-        | Try (tryGetBoundExpr ctx r) funcExpr, _ ->
+        | Try (tryGetIdentFromScope ctx r) funcExpr, _ ->
             if isModuleValue
             then funcExpr
             else staticCall r typ argInfo funcExpr
@@ -1150,7 +1180,7 @@ module Util =
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
-        | _ when typ = Fable.Unit ->
+        | _ when typ = Fable.Unit && v.CompiledName.EndsWith("@") ->
             if com.Options.verbose && not v.IsCompilerGenerated then // See #1516
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
@@ -1158,5 +1188,5 @@ module Util =
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None true imported -> imported
         // TODO: Replaced? Check if there're failing tests
-        | Try (tryGetBoundExpr ctx r) expr, _ -> expr
+        | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
         | _ -> memberRefTyped com ctx r typ v

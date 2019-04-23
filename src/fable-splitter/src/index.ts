@@ -3,12 +3,17 @@ import chalk from "chalk";
 import * as babelPlugins from "fable-babel-plugins";
 import * as fs from "fs-extra";
 import * as Path from "path";
-import * as Process from "process";
 import getCompiler from "./compiler";
+import * as NetClient from "./net-client";
 
-if (Process.env.FABLE_SERVER_PORT) {
-    throw new Error("This version is not compatible with dotnet-fable cli tool, "
-        + "see https://www.npmjs.com/package/fable-splitter#usage");
+function getTcpPort(opts: FableSplitterOptions) {
+    if (opts.port != null) {
+        return opts.port;
+    } else if (process.env.FABLE_SERVER_PORT != null) {
+        return parseInt(process.env.FABLE_SERVER_PORT, 10);
+    } else {
+        return null;
+    }
 }
 
 const FSHARP_EXT = /\.(fs|fsx|fsproj)$/;
@@ -44,6 +49,7 @@ export type FableSplitterOptions = {
     path?: string,
     babel?: Babel.TransformOptions,
     fable?: FableOptions,
+    port?: number
     cli?: {},
     allFiles?: boolean,
     externals?: any,
@@ -240,11 +246,14 @@ async function getBabelAst(path: string, options: FableSplitterOptions, info: Co
     let ast: Babel.types.Program | null = null;
     if (FSHARP_EXT.test(path)) {
         // return Babel AST from F# file
-        const compiler = getCompiler(options.cli);
-        const babelAst: any = await compiler.send(Object.assign({},
+        const msg = Object.assign({},
             options.fable,
             { path, rootDir: process.cwd() },
-        ));
+        );
+        const port = getTcpPort(options);
+        const babelAst = port != null
+            ? await NetClient.send("127.0.0.1", port, msg)
+            : await getCompiler(options.cli).send(msg);
         if (babelAst.error) {
             throw new Error(babelAst.error);
         } else if (path.endsWith(".fsproj")) {

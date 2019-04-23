@@ -251,6 +251,36 @@ let reflectionTests = [
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
+// TODO: Remove this when upgrading dotnet SDK to support anonymous records
+#if FABLE_COMPILER
+  testCase "FSharp.Reflection: Anonymous Record" <| fun () ->
+    let typ = typeof<{| String: string; Int: int |}>
+    let record = {| String = "a"; Int = 1 |}
+    let recordTypeFields = FSharpType.GetRecordFields typ
+    let recordValueFields = FSharpValue.GetRecordFields record
+
+    let expectedRecordFields = // Alphabetical order
+        [| "Int", box 1
+           "String", box "a" |]
+
+    let recordFields =
+        recordTypeFields
+        |> Array.map (fun field -> field.Name)
+        |> flip Array.zip recordValueFields
+
+    FSharpType.IsRecord typ |> equal true
+    recordFields |> equal expectedRecordFields
+
+    Array.zip recordTypeFields recordValueFields
+    |> Array.forall (fun (info, value) ->
+        FSharpValue.GetRecordField(record, info) = value)
+    |> equal true
+
+    FSharpValue.MakeRecord(typ, recordValueFields)
+    |> unbox<{| String: string; Int: int |}>
+    |> equal record
+#endif
+
   testCase "FSharp.Reflection Functions" <| fun () ->
     let recordType = typeof<RecordF>
     let fields = FSharpType.GetRecordFields recordType

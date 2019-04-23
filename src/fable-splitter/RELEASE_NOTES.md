@@ -1,3 +1,7 @@
+### 2.1.8
+
+* Add back possibility to connect to TCP port
+
 ### 2.1.7
 
 * Fix compilation of .fsx files @xdaDaveShaw

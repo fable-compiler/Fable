@@ -398,6 +398,10 @@ export function compare(x: any, y: any): number {
   }
 }
 
+export function ignore(x: any) {
+  return;
+}
+
 export function min<T>(comparer: (x: T, y: T) => number, x: T, y: T) {
   return comparer(x, y) < 0 ? x : y;
 }

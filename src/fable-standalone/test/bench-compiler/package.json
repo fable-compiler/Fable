@@ -11,7 +11,7 @@
     "build-node": "node out-node/app bench-compiler.fsproj out-node2 && npm run build-node-transform",
     "build-node-transform": "node transform bench-compiler.fsproj out-node2 ../../../../build/fable-library --commonjs",
     "splitter": "node ../../../../node_modules/fable-splitter/dist/cli --commonjs",
-    "webpack": "node ../../../../node_modules/webpack-cli/bin/cli.js -p --entry ./out/app.js --output ./out/bundle.js --target node",
+    "webpack": "node ../../../../node_modules/webpack-cli/bin/cli.js -p --entry ./out-node/app.js --output ./out/bundle.js --target node",
     "build-test-node": "node out-node/app ../../../../../fable-test/fable-test.fsproj out-test && npm run build-test-transform",
     "build-test-dotnet": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test && npm run build-test-transform",
     "build-test-dotnet-opt": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --optimize-fcs && npm run build-test-transform",

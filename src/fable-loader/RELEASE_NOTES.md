@@ -1,3 +1,7 @@
+### 2.1.6
+
+* Add back possibility to connect to TCP port
+
 ### 2.1.5
 
 * Update fable-babel-plugins dependency

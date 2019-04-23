@@ -1,3 +1,20 @@
+### 2.3.3
+
+* Reflections support for anonymous records
+
+### 2.3.2
+
+* Update Dotnet.ProjInfo
+
+### 2.3.1
+
+* Optimize `ResizeArray.Count`
+
+### 2.3.0
+
+* Give warnings if an anonymous record casted to an interface with `!!` mismatches any field
+* Compatibility with `JsInterop.importValueDynamic`
+
 ### 2.2.3
 
 * Fix BitConverter @ncave

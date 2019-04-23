@@ -60,7 +60,7 @@ type System.Type with
     [<Emit("$0.toPrettyString()")>]
     member x.ToPrettyString() : string = jsNative
 
-type Sepp(a : int, b : string) =
+type Classy(a : int, b : string) =
     member x.Yeah
         with get() = b
         and set (_ : string) = ()
@@ -77,11 +77,11 @@ type MyUnion =
 
 
 module MyModule =
-    let sepp = Values(1,1)
+    let someValue = Values(1,1)
 
 [<AutoOpen>]
 module Blubber =
-    type Sepp with
+    type Classy with
         member x.A = 10
 let tests =
     testList "Expr" [
@@ -218,48 +218,18 @@ let tests =
                 failwithf "bad expression: %A" e             
 
         testCase "Quote record property" <| fun () ->
-            match <@@ fun (v : V2) -> List.empty @@> with
-            | Lambda(va,PropertyGet(None, prop, [])) ->
-                failwithf "%A" prop
-                // equal va v
-                // equal prop (typeof<V2>.GetProperty("x"))
+            match <@@ fun (v : V2) -> v.x @@> with
+            | Lambda(va,PropertyGet(Some (Var v), prop, [])) ->
+                equal va v
+                equal prop (typeof<V2>.GetProperty("x"))
             | e ->
-                failwithf "bad expression: %A" e    
-            // let c = {| a = 10 |}
-            // let test = <@ fun (a : MyUnion) -> match a with | Single a -> a | Values (a,b) -> a + b + c.a @>
-            // failwithf "yeah: %A" test
-            // Error: yeah: Lambda(a, Let(x, ValueWithName(10, b), Call(None, op_Multiply, [x, a])))
+                failwithf "bad expression: %A" e   
 
-        testCase "bla" <| fun () ->
-            match <@@ fun (v : Sepp) -> v.A @@> with
+        testCase "Quote Extension Property" <| fun () ->
+            match <@@ fun (v : Classy) -> v.A @@> with
             | Lambda (_, Call(t, meth, args)) ->
-                let res = meth.Invoke(Sepp(1, "a"), [||])
-                failwithf "yeah: %A //// %A //// %A //// %A" (string t) (string meth) (string args) (string res)
+                equal "Classy.get_A" meth.Name
             | _ ->
                 ()
-
-        testCase "megaquote" <| fun () ->
-            let sepp =
-                <@
-                    let mutable b = { x = 10; y = 3 }
-                    let mutable a = 10
-                    while a < 100 do
-                        a <- a + 1
-                        b <- { b with x = b.x + a / 2 }
-
-                    for i in 0 .. 10 do
-                        a <- a / i
-
-                    b                    
-                @>
-
-            let t = 
-                match <@ Microsoft.FSharp.Core.Operators.abs @> with
-                | Lambda(_, Call(None, meth, _)) -> meth.DeclaringType
-                | _ -> failwith "not a call"
-
-            let str = t.GetMethods() |> Array.map (string) |> String.concat "\n"
-
-            failwith (string sepp)
 
     ]

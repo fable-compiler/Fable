@@ -531,8 +531,6 @@ module Util =
     //     |> coreLibCall com ctx None "Reflection" "union"
 
     and transformTypeInfo (com: IBabelCompiler) ctx r (mems : Fable.MemberInfo[]) (genMap: string -> Option<Expression>) t: Expression =
-        let error msg =
-           addErrorAndReturnNull com r msg
         let primitiveTypeInfo name =
            coreValue com ctx "Reflection" name
         let nonGenericTypeInfo fullname =
@@ -585,6 +583,11 @@ module Util =
         | Fable.List gen        -> genericTypeInfo "list" [|gen|]
         | Fable.Regex           -> nonGenericTypeInfo Types.regex
         | Fable.MetaType        -> nonGenericTypeInfo Types.type_
+        | Fable.AnonymousRecordType(fieldNames, genArgs) ->
+            let genArgs = resolveGenerics (List.toArray genArgs)
+            Array.zip fieldNames genArgs
+            |> Array.map (fun (k, t) -> ArrayExpression [|StringLiteral k; t|] :> Expression)
+            |> coreLibCall com ctx None "Reflection" "anonRecord"
         | Fable.Expr None       -> nonGenericTypeInfo "Expr"
         | Fable.Expr (Some gen) -> genericTypeInfo "Expr" [|gen|]
         | Fable.DeclaredType(ent, generics) ->
@@ -1021,6 +1024,10 @@ module Util =
             | Replacements.FSharpResult _
             | Replacements.FSharpChoice _
             | Replacements.FSharpReference _ -> fail "result/choice/reference"
+        | Fable.AnonymousRecordType _ ->
+            "Type testing is not yet supported for anonymous records" // TODO
+            |> addWarning com [] range            
+            upcast BooleanLiteral false
         | Fable.DeclaredType (ent, genArgs) ->
             match ent.TryFullName with
             | Some "Microsoft.FSharp.Quotations.FSharpExpr" 

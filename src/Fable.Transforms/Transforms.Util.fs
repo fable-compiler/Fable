@@ -274,6 +274,7 @@ module AST =
     /// When referenced multiple times, is there a risk of double evaluation?
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec hasDoubleEvalRisk = function
+        | Import _ -> false
         | IdentExpr id -> id.IsMutable
         | Value((Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _),_) -> false
         | Value(NewTuple exprs,_) -> exprs |> List.exists hasDoubleEvalRisk
@@ -363,8 +364,9 @@ module AST =
     let makeCustomImport t (selector: string) (path: string) =
         Import(selector.Trim() |> makeStrConst, path.Trim() |> makeStrConst, CustomImport, t, None)
 
-    let makeInternalImport t (selector: string) (path: string) =
-        Import(selector.Trim() |> makeStrConst, path.Trim() |> makeStrConst, Internal, t, None)
+    let makeInternalImport (com: ICompiler) t (selector: string) (path: string) =
+        let path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+        Import(makeStrConst selector, makeStrConst path, Internal, t, None)
 
     let argInfo thisArg args argTypes =
         { ThisArg = thisArg
@@ -398,6 +400,17 @@ module AST =
         | UInt32 -> "Uint32Array"
         | Float32 -> "Float32Array"
         | Float64 -> "Float64Array"
+
+    let argEquals (argIdents: Ident list) argExprs =
+        if List.sameLength argIdents argExprs |> not then false
+        else
+            (true, List.zip argIdents argExprs)
+            ||> List.fold (fun eq (id, expr) ->
+                    if not eq then false
+                    else
+                        match expr with
+                        | IdentExpr id2 -> id.Name = id2.Name
+                        | _ -> false)
 
     let rec listEquals f li1 li2 =
         match li1, li2 with
@@ -434,6 +447,7 @@ module AST =
         | _ -> false
 
     let rec getTypeFullName prettify = function
+        | AnonymousRecordType _ -> ""
         | GenericParam name -> "'" + name
         | EnumType(_, fullname) -> fullname
         | Regex    -> Types.regex

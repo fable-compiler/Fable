@@ -1,14 +1,16 @@
 [<RequireQualifiedAccess>]
 module Fable.Transforms.Replacements
 
+#nowarn "1182"
+
 open FSharp.Compiler.SourceCodeServices
 open Fable
 open Fable.AST
 open Fable.AST.Fable
 open Fable.Core
 
-type Context = Fable.Transforms.FSharp2Fable.Context
-type ICompiler = Fable.Transforms.FSharp2Fable.IFableCompiler
+type Context = FSharp2Fable.Context
+type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = Fable.ReplaceCallInfo
 
 type Helper =
@@ -179,7 +181,7 @@ type NumberExtKind =
     | BigInt
 
 let (|NumberExtKind|_|) = function
-    | Fable.Transforms.FSharp2Fable.Patterns.NumberKind kind -> Some (JsNumber kind)
+    | FSharp2Fable.Patterns.NumberKind kind -> Some (JsNumber kind)
     | Types.int64 -> Some (Long false)
     | Types.uint64 -> Some (Long true)
     | Types.decimal -> Some Decimal
@@ -682,6 +684,7 @@ let isCompatibleWithJsComparison = function
     // should be compatible with JS comparison
     | DeclaredType _ -> false
     | GenericParam _ -> false
+    | AnonymousRecordType _ -> false
     | Any | Unit | Boolean | Number _ | String | Char | Regex
     | EnumType _ | ErasedUnion _ | FunctionType _ -> true
 
@@ -1030,7 +1033,34 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Helper.CoreCall("Reflection", meth, t, args, ?loc=r) |> Some
     | "Fable.Core.JsInterop", _ ->
         match i.CompiledName, args with
-        | "importDynamic", _ -> Helper.GlobalCall("import", t, args, ?loc=r) |> Some
+        | "importDynamic", _ ->
+            Helper.GlobalCall("import", t, args, ?loc=r) |> Some
+        | "importValueDynamic", [arg] ->
+            let dynamicImport selector path =
+                let import = Helper.GlobalCall("import", t, [path], ?loc=r)
+                match selector with
+                | Value(StringConstant "*",_) -> import
+                | selector ->
+                    let selector =
+                        let m = makeIdentNonMangled "m"
+                        Function(Delegate [m], Get(IdentExpr m, ExprGet selector, Any, None), None)
+                    Helper.InstanceCall(import, "then", t, [selector])
+            let arg =
+                match arg with
+                | IdentExpr ident ->
+                    FSharp2Fable.Identifiers.tryGetBoundValueFromScope ctx ident.Name
+                    |> Option.defaultValue arg
+                | arg -> arg
+            match arg with
+            // TODO: Check this is not a fable-library import?
+            | Import(selector,path,_,_,_) ->
+                dynamicImport selector path |> Some
+            | NestedLambda(args, Operation(Call(StaticCall(Import(selector,path,_,_,_)),info),_,_), None)
+                when argEquals args info.Args ->
+                dynamicImport selector path |> Some
+            | _ ->
+                "The imported value is not coming from a different file"
+                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | Naming.StartsWith "import" suffix, _ ->
             match suffix, args with
             | "Member", [path]      -> Import(makeStrConst Naming.placeholder, path, CustomImport, t, r) |> Some
@@ -1040,7 +1070,43 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | _, [selector; path]   -> Import(selector, path, CustomImport, t, r) |> Some
             | _ -> None
         // Dynamic casting, erase
-        | "op_BangBang", _ | "op_BangHat", _ -> List.tryHead args
+        | "op_BangHat", [arg] -> Some arg
+        | "op_BangBang", [arg] ->
+            match arg, i.GenericArgs with
+            | Value(NewRecord(exprs, Fable.AnonymousRecord fieldNames, []),_),
+              [_; (_,DeclaredType(ent, []))] when ent.IsInterface ->
+                // TODO: Check also if there are extra fields in the record not present in the interface?
+                (None, ent.MembersFunctionsAndValues) ||> Seq.fold (fun err memb ->
+                    match err with
+                    | Some _ -> err
+                    | None ->
+                        let expectedType =
+                            if memb.IsPropertyGetterMethod then memb.ReturnParameter.Type
+                            else memb.FullType
+                            |> makeType com
+                        Array.tryFindIndex ((=) memb.DisplayName) fieldNames
+                        |> function
+                            | None ->
+                                match expectedType with
+                                | Option _ -> None // Optional fields can be missing
+                                | _ -> sprintf "Object doesn't contain field '%s'" memb.DisplayName |> Some
+                            | Some i ->
+                                let e = List.item i exprs
+                                match expectedType, e.Type with
+                                | Any, _ -> true
+                                | Option t1, Option t2
+                                | Option t1, t2
+                                | t1, t2 -> typeEquals false t1 t2
+                                |> function
+                                    | true -> None
+                                    | false ->
+                                        let typeName = getTypeFullName true expectedType
+                                        sprintf "Expecting type '%s' for field '%s'" typeName memb.DisplayName |> Some)
+                |> function
+                    | None -> ()
+                    | Some errMsg -> addWarning com ctx.InlinePath r errMsg
+            | _ -> ()
+            Some arg
         | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
         | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
             Set(callee, ExprSet prop, value, r) |> Some
@@ -1190,7 +1256,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", [arg]  -> TypeCast(arg, Unit) |> Some
+    | "Ignore", [arg] -> Helper.CoreCall("Util", "ignore", Unit, [arg], ?loc=r) |> Some
     // Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"), _ ->
         toInt com ctx r t args |> Some
@@ -1576,8 +1642,12 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.CoreCall("Array", "findLastIndex", t, [arg; ar], ?loc=r) |> Some
     | "GetEnumerator", Some ar, _ -> getEnumerator r t ar |> Some
     // ICollection members, implemented in dictionaries and sets too. We need runtime checks (see #1120)
-    | "get_Count", Some ar, _ ->
-        Helper.CoreCall("Util", "count", t, [ar], ?loc=r) |> Some
+    | "get_Count", Some (MaybeCasted(ar)), _ ->
+        match ar.Type with
+        // Fable translates System.Collections.Generic.List as Array
+        // TODO: Check also IList?
+        | Array _ ->  get r t ar "length" |> Some
+        | _ -> Helper.CoreCall("Util", "count", t, [ar], ?loc=r) |> Some
     | "Clear", Some ar, _ ->
         Helper.CoreCall("Util", "clear", t, [ar], ?loc=r) |> Some
     | "Find", Some ar, [arg] ->
@@ -1931,6 +2001,7 @@ let errorStrings = function
 
 let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
+    | "DivideByInt", _ -> applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
     | "GenericZero", _ -> getZero com ctx t |> Some
     | "GenericOne", _ -> getOne com ctx t |> Some
     | "EnumOfValue", [arg] ->
@@ -1939,6 +2010,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         | _ -> Enum(NumberEnum arg, Naming.unknown) |> makeValue r |> Some
     | "EnumToValue", [arg] ->
         match arg with
+        | IdentExpr _ -> arg |> Some
         | Value(Enum(NumberEnum(v),_),_) -> v |> Some
         | _ -> None
     | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
@@ -2802,7 +2874,7 @@ let private replacedModules =
     "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", enumerators
     "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", enumerators
     "System.Collections.Generic.List`1.Enumerator", enumerators
-    "System.Collections.Generic.List`1", resizeArrays
+    Types.resizeArray, resizeArrays
     "System.Collections.Generic.IList`1", resizeArrays
     "System.Collections.Generic.ICollection`1", resizeArrays
     Types.hashset, hashSets

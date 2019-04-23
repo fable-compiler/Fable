@@ -1,4 +1,4 @@
-import { Record, Union } from "./Types";
+import { anonRecord as makeAnonRecord, Record, Union } from "./Types";
 import { compareArraysWith, equalArraysWith, stringHash } from "./Util";
 
 // tslint:disable: max-line-length
@@ -1040,6 +1040,29 @@ export function getRecordField(v: any, field: NPropertyInfo): any {
   return v[field.Name];
 }
 
+export function anonRecord(...fields: Array<[string, NTypeInfo]>): NTypeInfo {
+  const fullName = fields.map((nt) => nt[0] + nt[1].toFullString()).join("_");
+  return declareNType(fullName, 0, (self, _) => {
+    const mems = fields.map((tt) => new NPropertyInfo(self, tt[0], tt[1], false, true, [], ((target) => target[tt[0]])) as NMemberInfo);
+
+    const pars = fields.map ((tt) => new NParameterInfo(tt[0], tt[1]));
+
+    function makeObj(args: any[]) {
+      if (args.length !== fields.length) { throw new Error(`mismatching argument count for anon record ${args.length} expected ${fields.length}`); }
+      const res: any = {};
+      for (let i = 0; i < fields.length; i++) {
+        res[fields[i][0]] = args[i];
+      }
+      return res;
+    }
+
+    const ctor = new NConstructorInfo(self, pars, (...args) => makeAnonRecord(makeObj(args)), []);
+    mems.push(ctor as NMemberInfo);
+
+    return mems;
+  });
+}
+
 export function getTupleFields(v: any): any[] {
   return v;
 }
@@ -1099,7 +1122,7 @@ export function createMethod(decl: NTypeInfo, name: string, mpars: string[], mar
       m.Name === name && m.GenericArguments.length === margs.length &&
       m.Parameters.length === declaredArgs.length && m.IsStatic === isStatic &&
       (m.get_IsGenericMethod() ? m.MakeGenericMethod(margs).ParametersAssignable(declaredArgs) : m.ParametersAssignable(declaredArgs)) &&
-      equals(m.ReturnType, ret)
+      equals(m.ReturnType, ret),
     );
   if (found) {
     return found.get_IsGenericMethod() ? found.MakeGenericMethod(margs) : found;

@@ -241,8 +241,8 @@ let addFSharpErrorLogs (com: ICompiler) (proj: ProjectExtra) =
             | FSharpErrorSeverity.Warning -> Severity.Warning
             | FSharpErrorSeverity.Error -> Severity.Error
         let range =
-            { start={ line=er.StartLineAlternate; column=er.StartColumn}
-              ``end``={ line=er.EndLineAlternate; column=er.EndColumn}
+            { start={ line=er.StartLineAlternate; column=er.StartColumn+1}
+              ``end``={ line=er.EndLineAlternate; column=er.EndColumn+1}
               identifierName = None }
         (er.FileName, range, severity, sprintf "%s (code %i)" er.Message er.ErrorNumber))
     |> Seq.distinct // Sometimes errors are duplicated
