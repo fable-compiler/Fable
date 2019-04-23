@@ -438,7 +438,7 @@ and serializeS (expr : FSharpExpr) =
 
         | BasicPatterns.NewAnonRecord(typ, fields) ->
             // code 23
-            do! Pickler.addError (makeRangeFrom expr) "anonymous records not supported atm."
+            do! Pickler.addError (makeRangeFrom expr) "anonymous records not supported in quotations atm."
 
         | BasicPatterns.NewArray(elementType, args) ->
             let! tid = Pickler.useType elementType
@@ -449,7 +449,7 @@ and serializeS (expr : FSharpExpr) =
 
         | BasicPatterns.NewDelegate _ ->
             // code 25
-            do! Pickler.addError (makeRangeFrom expr) "delegates not supported atm."
+            do! Pickler.addError (makeRangeFrom expr) "delegates not supported in quotations atm."
 
         | BasicPatterns.NewObject(ctor, targs, args) ->
             let! tid = Pickler.useTypeDef ctor.DeclaringEntity.Value targs
@@ -498,11 +498,11 @@ and serializeS (expr : FSharpExpr) =
 
         | BasicPatterns.UnionCaseTag(e, t) ->
             // code 34
-            do! Pickler.addError (makeRangeFrom expr) "UnionCaseTags not supported atm."
+            do! Pickler.addError (makeRangeFrom expr) "UnionCaseTags not supported in quotations atm."
 
         | BasicPatterns.UnionCaseSet(target, typ, case, prop, value) ->
             // code 35
-            do! Pickler.addError (makeRangeFrom expr) "UnionCaseSet not supported atm."
+            do! Pickler.addError (makeRangeFrom expr) "UnionCaseSet not supported in quotations atm."
 
         | BasicPatterns.ValueSet(v, value) ->
             let! var = Pickler.tryGetVar v
@@ -513,7 +513,7 @@ and serializeS (expr : FSharpExpr) =
                 do! serializeS value
             | None ->
                 // code 37
-                do! Pickler.addError (makeRangeFrom expr) "static property sets not supported atm."
+                do! Pickler.addError (makeRangeFrom expr) "static property sets not supported in quotations atm."
         | BasicPatterns.WhileLoop(guard, body) ->
             do! Pickler.writeByte 38uy
             do! serializeS guard
