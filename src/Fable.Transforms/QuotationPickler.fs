@@ -1,13 +1,57 @@
 module Fable.Transforms.FSharp2Fable.QuotationPickler
 
-open System.Collections.Generic
-open FSharp.Compiler.Ast
 open FSharp.Compiler.SourceCodeServices
-open System.IO
 
 type MemberDescription =
     | Member of FSharpMemberOrFunctionOrValue * list<FSharpType> * list<FSharpType>
     | UnionCase of FSharpUnionCase * list<FSharpType>
+
+type BinaryWriter() =
+
+    static let nextPowerOfTwo (v : int) =
+        let mutable x = v - 1
+        x <- x ||| (x >>> 1)
+        x <- x ||| (x >>> 2)
+        x <- x ||| (x >>> 4)
+        x <- x ||| (x >>> 8)
+        x <- x ||| (x >>> 16)
+        x + 1
+
+    let mutable arr : byte[] = Array.zeroCreate 16
+    let mutable position = 0
+
+    member x.Write(bytes : byte[], offset : int, length : int) =
+        let len = position + length
+        if len > arr.Length then
+            let cap = nextPowerOfTwo len
+            let n = Array.zeroCreate cap
+            for i in 0 .. position - 1 do n.[i] <- arr.[i]
+            arr <- n
+
+        let mutable i = offset
+        let mutable o = position
+        for c in 0 .. length - 1 do        
+            arr.[o] <- bytes.[i]
+            o <- o + 1
+            i <- i + 1
+        position <- len        
+
+    member x.Write(bytes : byte[]) =
+        x.Write(bytes, 0, bytes.Length)
+
+    member x.Write(i : uint8) = x.Write [| i |]
+    member x.Write(i : int8) = x.Write [| uint8 i |]
+    member x.Write(i : uint16) = x.Write (System.BitConverter.GetBytes i)
+    member x.Write(i : int16) = x.Write (System.BitConverter.GetBytes i)
+    member x.Write(i : uint32) = x.Write (System.BitConverter.GetBytes i)
+    member x.Write(i : int32) = x.Write (System.BitConverter.GetBytes i)
+    member x.Write(i : uint64) = x.Write (System.BitConverter.GetBytes i)
+    member x.Write(i : int64) = x.Write (System.BitConverter.GetBytes i)
+    member x.Write(i : float32) = x.Write (System.BitConverter.GetBytes i)
+    member x.Write(i : float) = x.Write (System.BitConverter.GetBytes i)
+    member x.Write(i : string) = x.Write (System.Text.Encoding.UTF8.GetBytes i)
+
+    member x.ToByteArray() = arr.[0..position-1]
 
 type PicklerState =
     {
@@ -33,31 +77,31 @@ type PicklerState =
 
 type State<'s, 'a> = { run : 's -> 's * 'a }
 module State = 
-    let get<'s, 'a> = { run = fun s -> s, s }
-    let put (s : 's) = { run = fun _ -> s, () }
-    let modify (f : 's -> 's) = { run = fun s -> f s, () }
+    let inline get<'s, 'a> = { run = fun s -> s, s }
+    let inline put (s : 's) = { run = fun _ -> s, () }
+    let inline modify (f : 's -> 's) = { run = fun s -> f s, () }
 
-    let map (f : 'a -> 'b) (m : State<'s, 'a>) =
+    let inline map (f : 'a -> 'b) (m : State<'s, 'a>) =
         { run = fun s -> 
             let s, a = m.run s
             s, f a
         }
-    let bind (f : 'a -> State<'s, 'b>) (m : State<'s, 'a>) =
+    let inline bind (f : 'a -> State<'s, 'b>) (m : State<'s, 'a>) =
         { run = fun s ->
             let (s,a) = m.run s
             (f a).run s
         }
 
-    let value (v : 'a) = { run = fun s -> s, v }    
+    let inline value (v : 'a) = { run = fun s -> s, v }    
 
     type StateBuilder() =
-        member x.Bind(m : State<'s, 'a>, f : 'a -> State<'s, 'b>) = bind f m
-        member x.Return v = value v
-        member x.ReturnFrom(s : State<'s, 'a>) = s
-        member x.Zero() = value ()
-        member x.Delay (f : unit -> State<'s, 'a>) = { run = fun s -> f().run s }        
-        member x.Combine(l : State<'s, unit>, r : State<'s, 'a>) = l |> bind (fun () -> r)
-        member x.For(seq : seq<'a>, action : 'a -> State<'s, unit>) =
+        member inline x.Bind(m : State<'s, 'a>, f : 'a -> State<'s, 'b>) = bind f m
+        member inline x.Return v = value v
+        member inline x.ReturnFrom(s : State<'s, 'a>) = s
+        member inline x.Zero() = value ()
+        member inline x.Delay (f : unit -> State<'s, 'a>) = { run = fun s -> f().run s }        
+        member inline x.Combine(l : State<'s, unit>, r : State<'s, 'a>) = l |> bind (fun () -> r)
+        member inline x.For(seq : seq<'a>, action : 'a -> State<'s, unit>) =
             { run = fun s ->
                 let mutable s = s
                 for e in seq do
@@ -65,7 +109,7 @@ module State =
                     s <- s1
                 s, ()                
             }
-        member x.While(guard : unit -> bool, body : State<'s, unit>) =
+        member inline x.While(guard : unit -> bool, body : State<'s, unit>) =
             { run = fun s ->
                 let mutable s = s
                 while guard() do
@@ -84,7 +128,7 @@ module List =
             f h |> State.bind (fun h -> mapS f t |> State.map (fun t -> h :: t))
 
 module Pickler =
-    let newVar (l : FSharpMemberOrFunctionOrValue) =
+    let inline newVar (l : FSharpMemberOrFunctionOrValue) =
         { run = fun s ->
             { s with
                 varId = s.varId + 1
@@ -92,15 +136,15 @@ module Pickler =
             }, s.varId
         }
 
-    let tryGetVar (l : FSharpMemberOrFunctionOrValue) =
+    let inline tryGetVar (l : FSharpMemberOrFunctionOrValue) =
         State.get |> State.map (fun s ->
             s.variables |> List.tryPick (fun (m, i) -> if m = l then Some i else None)
         )    
 
-    let getVar (l : FSharpMemberOrFunctionOrValue) =
+    let inline getVar (l : FSharpMemberOrFunctionOrValue) =
         tryGetVar l |> State.map Option.get
 
-    let useValue (l : FSharpMemberOrFunctionOrValue) =
+    let inline useValue (l : FSharpMemberOrFunctionOrValue) =
         { run = fun s ->
             let res = s.values |> List.tryPick (fun (v,i) -> if v = l then Some i else None)
             match res with
@@ -110,7 +154,7 @@ module Pickler =
                 let id = s.valueId
                 { s with valueId = id + 1; values = (l, id) :: s.values }, id
         }
-    let useType (t : FSharpType) =
+    let inline useType (t : FSharpType) =
         { run = fun s ->
             let res = s.types |> List.tryPick (function (Choice1Of2 v,i) when v = t -> Some i | _ -> None)
             match res with
@@ -120,7 +164,7 @@ module Pickler =
                 let id = s.typeId
                 { s with typeId = id + 1; types = (Choice1Of2 t, id) :: s.types }, id
         }
-    let useTypeDef (t : FSharpEntity) (targs : list<FSharpType>) =
+    let inline useTypeDef (t : FSharpEntity) (targs : list<FSharpType>) =
         { run = fun s ->
             let res = s.types |> List.tryPick (function (Choice2Of2(v,ta),i) when v = t && ta = targs -> Some i | _ -> None)
             match res with
@@ -130,7 +174,7 @@ module Pickler =
                 let id = s.typeId
                 { s with typeId = id + 1; types = (Choice2Of2(t, targs), id) :: s.types }, id
         }
-    let useMember (mem : FSharpMemberOrFunctionOrValue) (targs : list<FSharpType>) (margs : list<FSharpType>) =
+    let inline useMember (mem : FSharpMemberOrFunctionOrValue) (targs : list<FSharpType>) (margs : list<FSharpType>) =
         { run = fun s ->
             let res = s.members |> List.tryPick (function (Member(v,t,m),i) when v = mem && t = targs && m = margs -> Some i | _ -> None)
             match res with
@@ -140,7 +184,7 @@ module Pickler =
                 let id = s.memberId
                 { s with memberId = id + 1; members = (Member (mem, targs, margs), id) :: s.members }, id
         }
-    let useUnionCase (case : FSharpUnionCase) (targs : list<FSharpType>) =
+    let inline useUnionCase (case : FSharpUnionCase) (targs : list<FSharpType>) =
         { run = fun s ->
             let res = s.members |> List.tryPick (function (UnionCase(c,t),i) when c = case && t = targs -> Some i | _ -> None)
             match res with
@@ -151,7 +195,7 @@ module Pickler =
                 { s with memberId = id + 1; members = (UnionCase(case,targs), id) :: s.members }, id
         }
 
-    let useLiteral (v : obj) (t : FSharpType) =
+    let inline useLiteral (v : obj) (t : FSharpType) =
         { run = fun s ->
             let res = s.literals |> List.tryPick (fun (vi,ti,i) -> if vi = v && ti = t then Some i else None)
             match res with
@@ -161,39 +205,33 @@ module Pickler =
                 let id = s.literalId
                 { s with literalId = id + 1; literals = (v, t, id) :: s.literals }, id
         }
-    type Writes private() =
-        static member Write(s : BinaryWriter, v : byte) = s.Write v
-        static member Write(s : BinaryWriter, v : byte[]) = s.Write v
-        static member Write(s : BinaryWriter, v : int8) = s.Write v
-        static member Write(s : BinaryWriter, v : uint16) = s.Write v
-        static member Write(s : BinaryWriter, v : int16) = s.Write v
-        static member Write(s : BinaryWriter, v : uint32) = s.Write v
-        static member Write(s : BinaryWriter, v : int32) = s.Write v
-        static member Write(s : BinaryWriter, v : string) = 
-            let bytes = System.Text.Encoding.UTF8.GetBytes v
-            s.Write(bytes.Length)
-            s.Write bytes
-        static member Write(s : BinaryWriter, vs : seq<int32>) = 
-            let vs = Seq.toArray vs
-            s.Write vs.Length
-            for v in vs do s.Write v
 
-        static member Write(s : BinaryWriter, v : string[]) = 
-            Writes.Write(s, v.Length)
-            for str in v do Writes.Write(s, str)
+    let writeByte (b : byte) = { run = fun s -> s.writer.Write b; s, () }
+    let writeInt (b : int) = { run = fun s -> s.writer.Write b; s, () }
 
-    let inline private writeAux< ^a, ^b, ^c when (^a or ^b or ^c) : (static member Write : ^a * ^b -> unit)> (c : ^c) (a : ^a) (b : ^b) =
-        ((^a or ^b or ^c) : (static member Write : ^a * ^b -> unit) (a,b))
-
-    let inline write b = 
-        let doit w b = writeAux Unchecked.defaultof<Writes> w b
+    let writeString (v : string) = 
         { run = fun s ->
-            doit s.writer b
+            let bytes = System.Text.Encoding.UTF8.GetBytes v
+            s.writer.Write(bytes.Length)
+            s.writer.Write bytes
             s, ()
-        }  
+        }
 
+    let writeStringArray (v : string[]) = 
+        state {
+            do! writeInt v.Length
+            for s in v do do! writeString s   
 
-    let pushCases (cs : array<list<FSharpMemberOrFunctionOrValue> * FSharpExpr>) =
+        }
+
+    let writeIntArray (vs : seq<int>) =  
+        { run = fun s ->
+            let vs = Seq.toArray vs
+            s.writer.Write vs.Length
+            for v in vs do s.writer.Write v
+            s, ()
+        }
+    let inline pushCases (cs : array<list<FSharpMemberOrFunctionOrValue> * FSharpExpr>) =
         State.modify (fun s -> { s with cases = cs :: s.cases })    
 
     let popCases  =
@@ -203,7 +241,7 @@ module Pickler =
             | _ -> s
         )
 
-    let getCase (i : int) =
+    let inline getCase (i : int) =
         State.get |> State.map (fun s ->
             match s.cases with
             | h :: _ -> h.[i]
@@ -213,20 +251,20 @@ let rec propertyGetS (tid : int) (target : Option<FSharpExpr>) (name : string) (
     state {         
         match target with
         | Some target ->
-            do! Pickler.write 18uy
-            do! Pickler.write tid
-            do! Pickler.write name
-            do! Pickler.write index.Length
+            do! Pickler.writeByte 18uy
+            do! Pickler.writeInt tid
+            do! Pickler.writeString name
+            do! Pickler.writeInt index.Length
             for i in index do do! serializeS i
-            do! Pickler.write ret
+            do! Pickler.writeInt ret
             do! serializeS target
         | None ->
-            do! Pickler.write 19uy
-            do! Pickler.write tid
-            do! Pickler.write name
-            do! Pickler.write index.Length
+            do! Pickler.writeByte 19uy
+            do! Pickler.writeInt tid
+            do! Pickler.writeString name
+            do! Pickler.writeInt index.Length
             for i in index do do! serializeS i
-            do! Pickler.write ret
+            do! Pickler.writeInt ret
     }
 
 and propertySetS (tid : int) (target : Option<FSharpExpr>) (name : string) (index : list<FSharpExpr>) (value : FSharpExpr) =
@@ -234,21 +272,21 @@ and propertySetS (tid : int) (target : Option<FSharpExpr>) (name : string) (inde
         let! ret = Pickler.useType value.Type
         match target with
         | Some target ->
-            do! Pickler.write 20uy
-            do! Pickler.write tid
-            do! Pickler.write name
-            do! Pickler.write index.Length
+            do! Pickler.writeByte 20uy
+            do! Pickler.writeInt tid
+            do! Pickler.writeString name
+            do! Pickler.writeInt index.Length
             for i in index do do! serializeS i
-            do! Pickler.write ret
+            do! Pickler.writeInt ret
             do! serializeS target
             do! serializeS value
         | None ->
-            do! Pickler.write 21uy
-            do! Pickler.write tid
-            do! Pickler.write name
-            do! Pickler.write index.Length
+            do! Pickler.writeByte 21uy
+            do! Pickler.writeInt tid
+            do! Pickler.writeString name
+            do! Pickler.writeInt index.Length
             for i in index do do! serializeS i
-            do! Pickler.write ret
+            do! Pickler.writeInt ret
             do! serializeS value
     }
 
@@ -257,25 +295,25 @@ and serializeS (expr : FSharpExpr) =
         match expr with
         | BasicPatterns.Lambda(v, b) ->
             let! var = Pickler.newVar v
-            do! Pickler.write 1uy
-            do! Pickler.write var
+            do! Pickler.writeByte 1uy
+            do! Pickler.writeInt var
             return! serializeS b
 
         | BasicPatterns.Value v ->
             match! Pickler.tryGetVar v with
             | Some var -> 
-                do! Pickler.write 2uy
-                do! Pickler.write var
+                do! Pickler.writeByte 2uy
+                do! Pickler.writeInt var
             | None ->
                 let! var = Pickler.useValue v 
-                do! Pickler.write 3uy
-                do! Pickler.write var  
+                do! Pickler.writeByte 3uy
+                do! Pickler.writeInt var  
 
 
         | BasicPatterns.Let((v, e), b) ->
             let! var = Pickler.newVar v
-            do! Pickler.write 4uy
-            do! Pickler.write var
+            do! Pickler.writeByte 4uy
+            do! Pickler.writeInt var
             do! serializeS e
             do! serializeS b 
 
@@ -289,72 +327,72 @@ and serializeS (expr : FSharpExpr) =
             do! propertySetS tid target field.Name [] value
            
         | BasicPatterns.AddressOf e ->
-            do! Pickler.write 7uy
+            do! Pickler.writeByte 7uy
             do! serializeS e
 
         | BasicPatterns.AddressSet(v, e) ->
-            do! Pickler.write 8uy
+            do! Pickler.writeByte 8uy
             do! serializeS v
             do! serializeS e
         
         | BasicPatterns.AnonRecordGet(e, t, i) ->
             let fieldName = t.AnonRecordTypeDetails.SortedFieldNames.[i]
             let! typ = Pickler.useType t
-            do! Pickler.write 9uy
-            do! Pickler.write typ
-            do! Pickler.write fieldName
+            do! Pickler.writeByte 9uy
+            do! Pickler.writeInt typ
+            do! Pickler.writeString fieldName
             do! serializeS e
 
         | BasicPatterns.Application(e, ts, args) ->
-            do! Pickler.write 10uy
+            do! Pickler.writeByte 10uy
             do! serializeS e
-            do! Pickler.write args.Length
+            do! Pickler.writeInt args.Length
             for a in args do
                 do! serializeS a
 
         | BasicPatterns.Const(o, t) ->
-            do! Pickler.write 11uy
+            do! Pickler.writeByte 11uy
             let! vid = Pickler.useLiteral o t
-            do! Pickler.write vid
+            do! Pickler.writeInt vid
 
         | BasicPatterns.IfThenElse(c, i, e) ->
-            do! Pickler.write 12uy
+            do! Pickler.writeByte 12uy
             do! serializeS c
             do! serializeS i
             do! serializeS e
 
         | BasicPatterns.UnionCaseTest(expr, typ, case) ->
-            do! Pickler.write 13uy
+            do! Pickler.writeByte 13uy
             let! tid = Pickler.useType typ
-            do! Pickler.write tid
-            do! Pickler.write case.CompiledName
+            do! Pickler.writeInt tid
+            do! Pickler.writeString case.CompiledName
             do! serializeS expr
 
         | BasicPatterns.UnionCaseGet(target, typ, case, prop) ->
             let index = case.UnionCaseFields |> Seq.findIndex (fun pi -> pi = prop)
             let! tid = Pickler.useType typ
 
-            do! Pickler.write 14uy
-            do! Pickler.write tid
-            do! Pickler.write case.CompiledName
-            do! Pickler.write index
+            do! Pickler.writeByte 14uy
+            do! Pickler.writeInt tid
+            do! Pickler.writeString case.CompiledName
+            do! Pickler.writeInt index
             do! serializeS target
 
         | BasicPatterns.Coerce(t, e) ->
             let! tid = Pickler.useType t
-            do! Pickler.write 15uy
-            do! Pickler.write tid
+            do! Pickler.writeByte 15uy
+            do! Pickler.writeInt tid
             do! serializeS e
             
         | BasicPatterns.DefaultValue t ->
             let! tid = Pickler.useType t
-            do! Pickler.write 16uy
-            do! Pickler.write tid
+            do! Pickler.writeByte 16uy
+            do! Pickler.writeInt tid
 
         | BasicPatterns.FastIntegerForLoop(s, e, BasicPatterns.Lambda(v, b), true) ->
             let! vid = Pickler.newVar v
-            do! Pickler.write 17uy
-            do! Pickler.write vid
+            do! Pickler.writeByte 17uy
+            do! Pickler.writeInt vid
             do! serializeS s
             do! serializeS e
             do! serializeS b
@@ -371,11 +409,11 @@ and serializeS (expr : FSharpExpr) =
             do! propertySetS tid target field [] value
           
         | BasicPatterns.LetRec(vs, b) ->
-            do! Pickler.write 22uy
-            do! Pickler.write vs.Length
+            do! Pickler.writeByte 22uy
+            do! Pickler.writeInt vs.Length
             for (v, e) in vs do
                 let! vid = Pickler.newVar v
-                do! Pickler.write vid
+                do! Pickler.writeInt vid
                 do! serializeS e
             do! serializeS b            
 
@@ -385,9 +423,9 @@ and serializeS (expr : FSharpExpr) =
 
         | BasicPatterns.NewArray(elementType, args) ->
             let! tid = Pickler.useType elementType
-            do! Pickler.write 24uy
-            do! Pickler.write tid
-            do! Pickler.write args.Length
+            do! Pickler.writeByte 24uy
+            do! Pickler.writeInt tid
+            do! Pickler.writeInt args.Length
             for a in args do do! serializeS a
 
         | BasicPatterns.NewDelegate _ ->
@@ -397,46 +435,46 @@ and serializeS (expr : FSharpExpr) =
         | BasicPatterns.NewObject(ctor, targs, args) ->
             let! tid = Pickler.useTypeDef ctor.DeclaringEntity.Value targs
             let! tids = args |> List.mapS (fun a -> Pickler.useType a.Type)
-            do! Pickler.write 26uy
-            do! Pickler.write tid
-            do! Pickler.write tids
+            do! Pickler.writeByte 26uy
+            do! Pickler.writeInt tid
+            do! Pickler.writeIntArray tids
             for a in args do do! serializeS a
 
         | BasicPatterns.NewRecord(typ, args) ->
             let! tid = Pickler.useType typ
-            do! Pickler.write 27uy
-            do! Pickler.write tid
-            do! Pickler.write args.Length
+            do! Pickler.writeByte 27uy
+            do! Pickler.writeInt tid
+            do! Pickler.writeInt args.Length
             for a in args do do! serializeS a
 
         | BasicPatterns.NewTuple(typ, args) ->
-            do! Pickler.write 28uy
-            do! Pickler.write args.Length
+            do! Pickler.writeByte 28uy
+            do! Pickler.writeInt args.Length
             for a in args do do! serializeS a
 
         | BasicPatterns.NewUnionCase(typ, case, args) ->
             let! tid = Pickler.useType typ
-            do! Pickler.write 29uy
-            do! Pickler.write tid
-            do! Pickler.write case.Name
-            do! Pickler.write args.Length
+            do! Pickler.writeByte 29uy
+            do! Pickler.writeInt tid
+            do! Pickler.writeString case.Name
+            do! Pickler.writeInt args.Length
             for a in args do do! serializeS a
         | BasicPatterns.Quote(e) ->
-            do! Pickler.write 30uy
+            do! Pickler.writeByte 30uy
             do! serializeS e
 
         | BasicPatterns.Sequential(l, r) ->
-            do! Pickler.write 31uy
+            do! Pickler.writeByte 31uy
             do! serializeS l
             do! serializeS r
         | BasicPatterns.TupleGet(_typ, i, target) ->
-            do! Pickler.write 32uy
-            do! Pickler.write i
+            do! Pickler.writeByte 32uy
+            do! Pickler.writeInt i
             do! serializeS target
         | BasicPatterns.TypeTest(typ, target) ->
             let! tid = Pickler.useType typ
-            do! Pickler.write 33uy
-            do! Pickler.write tid
+            do! Pickler.writeByte 33uy
+            do! Pickler.writeInt tid
             do! serializeS target
 
         | BasicPatterns.UnionCaseTag(e, t) ->
@@ -449,14 +487,14 @@ and serializeS (expr : FSharpExpr) =
             let! var = Pickler.tryGetVar v
             match var with
             | Some var ->
-                do! Pickler.write 36uy
-                do! Pickler.write var
+                do! Pickler.writeByte 36uy
+                do! Pickler.writeInt var
                 do! serializeS value
             | None ->
                 // code 37
                 return failwith "bad"
         | BasicPatterns.WhileLoop(guard, body) ->
-            do! Pickler.write 38uy
+            do! Pickler.writeByte 38uy
             do! serializeS guard
             do! serializeS body
 
@@ -469,8 +507,8 @@ and serializeS (expr : FSharpExpr) =
                     | [] -> return! serializeS body
                     | (v,e) :: ls ->
                         let! var = Pickler.newVar v
-                        do! Pickler.write 4uy
-                        do! Pickler.write var
+                        do! Pickler.writeByte 4uy
+                        do! Pickler.writeInt var
                         do! serializeS e
                         do! wrap ls
                 }
@@ -557,35 +595,35 @@ and serializeS (expr : FSharpExpr) =
                 let! aids = m.CurriedParameterGroups |> Seq.concat |> Seq.toList |> List.mapS (fun p -> Pickler.useType p.Type)
                 match target with
                 | Some target ->
-                    do! Pickler.write 5uy
-                    do! Pickler.write tid
-                    do! Pickler.write m.CompiledName
-                    do! Pickler.write mpars
-                    do! Pickler.write margs
-                    do! Pickler.write aids
-                    do! Pickler.write rid
-                    do! Pickler.write args.Length
+                    do! Pickler.writeByte 5uy
+                    do! Pickler.writeInt tid
+                    do! Pickler.writeString m.CompiledName
+                    do! Pickler.writeStringArray mpars
+                    do! Pickler.writeIntArray margs
+                    do! Pickler.writeIntArray aids
+                    do! Pickler.writeInt rid
+                    do! Pickler.writeInt args.Length
 
                     do! serializeS target
                     for a in args do
                         do! serializeS a
 
                 | _ ->        
-                    do! Pickler.write 6uy
-                    do! Pickler.write tid
-                    do! Pickler.write m.CompiledName
-                    do! Pickler.write mpars
-                    do! Pickler.write margs
-                    do! Pickler.write aids
-                    do! Pickler.write rid
-                    do! Pickler.write args.Length
+                    do! Pickler.writeByte 6uy
+                    do! Pickler.writeInt tid
+                    do! Pickler.writeString m.CompiledName
+                    do! Pickler.writeStringArray mpars
+                    do! Pickler.writeIntArray margs
+                    do! Pickler.writeIntArray aids
+                    do! Pickler.writeInt rid
+                    do! Pickler.writeInt args.Length
 
                     for a in args do
                         do! serializeS a
 
         | _ ->
-            do! Pickler.write 255uy
-            do! Pickler.write (sprintf "BAD EXPRESSION: %A" expr)
+            do! Pickler.writeByte 255uy
+            do! Pickler.writeString (sprintf "BAD EXPRESSION: %A" expr)
     }      
 
 type VarData = 
@@ -604,11 +642,10 @@ type ExprData =
 
 let serialize (expr : FSharpExpr) =
     let s = serializeS expr
-    use stream = new System.IO.MemoryStream()
-    use w = new System.IO.BinaryWriter(stream)
+    let w = BinaryWriter()
     let s, () = s.run { varId = 0; variables = []; valueId = 0; values = []; writer = w; typeId = 0; types = []; memberId = 0; members = []; literalId = 0; literals = []; cases = [] }
-    w.Flush()
-    let data = stream.ToArray()
+    
+    let data = w.ToByteArray()
     let variables = 
         s.variables 
         |> List.sortBy snd
