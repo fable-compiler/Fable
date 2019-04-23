@@ -425,13 +425,22 @@ let splitAt i xs =
     | 1, x::xs -> [x],xs
     | i, xs -> takeSplitAux true i [] xs
 
+let outOfRange() = failwith "Index out of range"
+
 let slice (lower: int option) (upper: int option) (xs: 'T list) =
-    let lower = defaultArg lower -1
-    let upper = defaultArg upper -1
-    ([], xs) ||> foldIndexed (fun i acc x ->
-        if (lower = -1 || lower <= i) && (upper = -1 || i <= upper)
-        then x::acc
-        else acc) |> reverse
+    let lower = defaultArg lower 0
+    let hasUpper = Option.isSome upper
+    if lower < 0 then outOfRange()
+    elif hasUpper && upper.Value < lower then []
+    else
+        let mutable lastIndex = -1
+        let res =
+            ([], xs) ||> foldIndexed (fun i acc x ->
+                lastIndex <- i
+                if lower <= i && (not hasUpper || i <= upper.Value) then x::acc
+                else acc)
+        if lower > (lastIndex + 1) || (hasUpper && upper.Value > lastIndex) then outOfRange()
+        reverse res
 
 let distinctBy (projection: 'T -> 'Key) (xs:'T list) ([<Inject>] eq: IEqualityComparer<'Key>) =
     let hashSet = HashSet<'Key>(eq)
