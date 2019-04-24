@@ -61,15 +61,17 @@ type System.Type with
     member x.ToPrettyString() : string = jsNative
 
 type Classy(a : int, b : string) =
+    let mutable a = a
+    let mutable b = b
     member x.Yeah
         with get() = b
-        and set (_ : string) = ()
+        and set (v : string) = b <- v
 
     member x.DoIt(c : int) = a*c
 
     member x.Item
         with get(i : int) = a + i
-        and set (i : int) (v : int) = ()
+        and set (i : int) (v : int) = a <- v - i
 
 type MyUnion =
     | Values of int * int
@@ -232,4 +234,29 @@ let tests =
             | _ ->
                 ()
 
+        testCase "Property Get/SetValue working (indexed)" <| fun () ->
+            let instance = Classy(10, "11")
+            let prop = typeof<Classy>.GetProperty "Item"
+            let test = prop.GetValue(instance, [| 15 :> obj |])
+            equal (25 :> obj) test
+            prop.SetValue(instance, 24, [| 15 :> obj |])
+            equal 24 instance.[15]
+
+
+        testCase "Property Get/SetValue working" <| fun () ->
+            let instance = Classy(10, "11")
+            let prop = typeof<Classy>.GetProperty "Yeah"
+            let test = prop.GetValue(instance)
+            equal ("11" :> obj) test
+            prop.SetValue(instance, "123" :> obj)
+            equal "123" instance.Yeah
+
+            // let e = <@@ fun a -> a + 1 @@>
+            // match e.CustomAttributes with
+            // | [Value((:? (string * int * int * int * int) as tup), t)] ->
+            //     let (file, sl, sc, el, ec) = tup
+            //     failwithf "%A" tup
+            // | _ ->
+            //     failwith "no debug info"            
+                
     ]

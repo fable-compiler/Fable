@@ -64,10 +64,10 @@ type ParameterInfo =
     }
 
 type MemberInfoKind =
-    | Property of name : string * typ : Type * fsharp : bool * isStatic : bool * get : Option<Fable.Expr> * set : Option<Fable.Expr>
-    | Field of name : string * typ : Type * isStatic : bool * get : Option<Fable.Expr>
-    | Method of genericParameters : string[] * name : string * parameters : ParameterInfo[] * returnType : Type * isStatic : bool * mangledName : string
-    | Constructor of parameters : ParameterInfo[] * mangledName : string
+    | Property of name : string * typ : Type * fsharp : bool * isStatic : bool * get : Option<Expr> * set : Option<Expr>
+    | Field of name : string * typ : Type * isStatic : bool * get : Option<Expr>
+    | Method of genericParameters : string[] * name : string * parameters : ParameterInfo[] * returnType : Type * isStatic : bool * invoke : Option<Expr>
+    | Constructor of parameters : ParameterInfo[] * invoke : Expr
     | UnionCaseConstructor of tag : int * name : string * parameters : array<string * Type> * mangledName : string * mangledTypeName : string
 
 type MemberInfo =

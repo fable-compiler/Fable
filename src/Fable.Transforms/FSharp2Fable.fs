@@ -321,6 +321,13 @@ let private makeLambda2 (a0 : Fable.Type) (a1 : Fable.Type) (body : Fable.Expr -
     let body = body (Fable.IdentExpr v0) (Fable.IdentExpr v1)
     Fable.Function(Fable.FunctionKind.Delegate [v0; v1], body, None)
 
+let private makeLambda3 (a0 : Fable.Type) (a1 : Fable.Type) (a2 : Fable.Type) (body : Fable.Expr -> Fable.Expr -> Fable.Expr -> Fable.Expr) =
+    let v0 = { Fable.Ident.Name = "arg0"; Fable.Ident.Type = a0; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
+    let v1 = { Fable.Ident.Name = "arg1"; Fable.Ident.Type = a1; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
+    let v2 = { Fable.Ident.Name = "arg2"; Fable.Ident.Type = a2; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
+    let body = body (Fable.IdentExpr v0) (Fable.IdentExpr v1) (Fable.IdentExpr v2)
+    Fable.Function(Fable.FunctionKind.Delegate [v0; v1; v2], body, None)
+
 let private makeLambda0 (body : Fable.Expr -> Fable.Expr) =
     let target = { Fable.Ident.Name = "target"; Fable.Ident.Type = Fable.Type.Any; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
     let body = body (Fable.IdentExpr target)
@@ -328,6 +335,11 @@ let private makeLambda0 (body : Fable.Expr -> Fable.Expr) =
 
 
 
+let rec private (|Snoc|Nil|) (l : list<'a>) =
+    match l with
+    | [] -> Nil
+    | v :: Nil -> Snoc ([], v)
+    | a :: Snoc(h, t) -> Snoc(a :: h, t)
 
 
 let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFunctionOrValue) =
@@ -338,7 +350,7 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
     elif m.IsValue then
       
         let get =                          
-            makeLambda Fable.Type.Any (fun t ->
+            makeLambda2 Fable.Type.Any (Fable.Array Fable.Any) (fun t _ ->
                 if m.IsInstanceMember then 
                     let ft = makeType com ctx.GenericArgs m.FullType
                     Fable.Get(t, Fable.FieldGet(m.CompiledName, m.IsMutable, ft), ft, None)
@@ -348,7 +360,7 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
 
         let set =
             if m.IsMutable then
-                makeLambda2 Fable.Type.Any Fable.Type.Any (fun t v ->
+                makeLambda3 Fable.Type.Any (Fable.Array Fable.Any) Fable.Type.Any (fun t _ v ->
                     if m.IsInstanceMember then 
                         let ft = makeType com ctx.GenericArgs m.FullType
                         Fable.Set(t, Fable.FieldSet(m.CompiledName, ft), v, None)
@@ -368,22 +380,46 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
         let ft = makeType com ctx.GenericArgs m.ReturnParameter.Type
         
         let get =
-            if m.HasGetterMethod && m.GetterMethod.GenericParameters.Count = 0 && (m.GetterMethod.CurriedParameterGroups |> Seq.sumBy (fun g -> g.Count)) = 0 then
+            if m.HasGetterMethod && m.GetterMethod.GenericParameters.Count = 0 then
                 let decl = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List []) m.DeclaringEntity.Value
-                makeLambda decl (fun t ->
-                    let callee = if m.IsInstanceMember then Some t else None
-                    makeCallFrom com ctx None ft false [] callee [] m.GetterMethod
-                ) |> Some
+                match m.GetterMethod.CurriedParameterGroups |> Seq.concat |> Seq.toList with
+                | [] -> 
+                    makeLambda decl (fun t ->
+                        let callee = if m.IsInstanceMember then Some t else None
+                        makeCallFrom com ctx None ft false [] callee [] m.GetterMethod
+                    ) |> Some
+                | args ->
+                    makeLambda2 decl (Fable.Type.Array Fable.Any) (fun t idx ->
+                        let callee = if m.IsInstanceMember then Some t else None
+                        let args = 
+                            args |> List.mapi (fun i a ->
+                                let t = makeType com ctx.GenericArgs a.Type
+                                let index = Fable.Value(Fable.ValueKind.NumberConstant(float i, NumberKind.Int32), None)
+                                Fable.Get(idx, Fable.ExprGet index, t, None)
+                            )
+                        makeCallFrom com ctx None ft false [] callee args m.GetterMethod
+                    ) |> Some
             else
                 None   
         let set =
-            if m.HasSetterMethod && m.SetterMethod.GenericParameters.Count = 0 && (m.SetterMethod.CurriedParameterGroups |> Seq.sumBy (fun g -> g.Count)) = 1 then
+            if m.HasSetterMethod && m.SetterMethod.GenericParameters.Count = 0 then
                 let decl = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List []) m.DeclaringEntity.Value
                 
-                makeLambda2 decl ft (fun t value ->
-                    let callee = if m.IsInstanceMember then Some t else None
-                    makeCallFrom com ctx None ft false [] callee [value] m.SetterMethod
-                ) |> Some
+                match m.SetterMethod.CurriedParameterGroups |> Seq.concat |> Seq.toList with
+                | Nil ->
+                    None
+                | Snoc(idx, _val) ->
+                    makeLambda3 decl (Fable.Array Fable.Any) Fable.Any (fun t ia value ->
+                        let callee = if m.IsInstanceMember then Some t else None
+                        let idx = 
+                            idx |> List.mapi (fun i a ->
+                                let t = makeType com ctx.GenericArgs a.Type
+                                let index = Fable.Value(Fable.ValueKind.NumberConstant(float i, NumberKind.Int32), None)
+                                Fable.Get(ia, Fable.ExprGet index, t, None)
+                            )
+                        makeCallFrom com ctx None ft false [] callee (idx @ [value]) m.SetterMethod
+                    ) |> Some
+
             else
                 None            
         Some {
@@ -396,14 +432,36 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
                 { Fable.ParameterInfo.Name = p.DisplayName; Fable.Type = makeType com ctx.GenericArgs p.Type }
             )
 
-        let mangledName = Helpers.getMemberDeclarationName com m
+        let invoke =
+            makeLambda (Fable.Array Fable.Any) (fun ip ->
+                let decl = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List []) m.DeclaringEntity.Value
+                let pars = m.CurriedParameterGroups |> Seq.concat |> Seq.toList
+                let args = pars |> List.mapi (fun i p ->
+                    let t = makeType com ctx.GenericArgs p.Type
+                    let index = Fable.Value(Fable.ValueKind.NumberConstant(float i, NumberKind.Int32), None)
+                    Fable.Get(ip, Fable.ExprGet index, t, None)
+                )
+
+                let info =
+                    {   Fable.ThisArg  = None
+                        Fable.Args = args
+                        Fable.SignatureArgTypes = Fable.SignatureKind.NoUncurrying
+                        Fable.Spread = Fable.SpreadKind.NoSpread
+                        Fable.IsBaseOrSelfConstructorCall = false 
+                    }
+                                
+                staticCall None decl info (makeValueFrom com ctx None m)
+            )
+
+
+        //let mangledName = Helpers.getMemberDeclarationName com m
 
         Some {
-            Fable.MemberInfo.Kind = Fable.Constructor(pars, mangledName)
+            Fable.MemberInfo.Kind = Fable.Constructor(pars, invoke)
             Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
         }
 
-    else // m.IsPropertyGetterMethod || m.IsPropertySetterMethod || m.IsValCompiledAsMethod || m.IsInstanceMember then
+    else 
         let pars = 
             m.CurriedParameterGroups |> Seq.concat |> Seq.toArray |> Array.choose (fun p ->
                 let t = makeType com ctx.GenericArgs p.Type
@@ -412,11 +470,31 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
                 else
                     None                
             )
+
+
+        let invoke =
+            if Helpers.isInline m then
+                None
+            else        
+                makeLambda2 (Fable.Any) (Fable.Array Fable.Any) (fun target ip ->
+                    let decl = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List []) m.DeclaringEntity.Value
+                    let pars = m.CurriedParameterGroups |> Seq.concat |> Seq.toList
+                    let args = pars |> List.mapi (fun i p ->
+                        let t = makeType com ctx.GenericArgs p.Type
+                        let index = Fable.Value(Fable.ValueKind.NumberConstant(float i, NumberKind.Int32), None)
+                        Fable.Get(ip, Fable.ExprGet index, t, None)
+                    )
+                    if m.IsInstanceMember then
+                        makeCallFrom com ctx None decl false [] (Some target) args  m
+                    else
+                        makeCallFrom com ctx None decl false [] (None) args m                
+                ) |> Some
+
+
         let ret = makeType com ctx.GenericArgs m.ReturnParameter.Type
-        let mangledName = Helpers.getMemberDeclarationName com m
         let parNames = m.GenericParameters |> Seq.toArray |> Array.map (fun p -> p.Name)                
         Some {
-            Fable.MemberInfo.Kind = Fable.Method(parNames, m.CompiledName, pars, ret, not m.IsInstanceMember, mangledName)
+            Fable.MemberInfo.Kind = Fable.Method(parNames, m.CompiledName, pars, ret, not m.IsInstanceMember, invoke)
             Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
         }    
 
@@ -1029,11 +1107,21 @@ let private transformMemberReflectionInfos (com: FableCompiler) ctx (ent : FShar
 
     let special =
         if ent.IsFSharpRecord then
-            let fields = ent.FSharpFields |> Seq.toArray
-            let parameters = fields |> Array.map (fun f -> { Fable.ParameterInfo.Name = f.Name; Fable.Type = makeType com ctx.GenericArgs f.FieldType})
-            let ctor = "new " + getEntityDeclarationName com ent
+            let fields = ent.FSharpFields |> Seq.toList
+            let parameters = fields |> List.map (fun f -> { Fable.ParameterInfo.Name = f.Name; Fable.Type = makeType com ctx.GenericArgs f.FieldType})
+            // let ctor = "new " + getEntityDeclarationName com ent
+            let invoke =
+                makeLambda (Fable.Array Fable.Any) (fun ip ->
+                    let args = 
+                        fields |> List.mapi (fun i a ->
+                            let t = makeType com ctx.GenericArgs a.FieldType
+                            let index = Fable.Value(Fable.ValueKind.NumberConstant(float i, NumberKind.Int32), None)
+                            Fable.Get(ip, Fable.ExprGet index, t, None)
+                        )
+                    Fable.Value(Fable.NewRecord(args, Fable.DeclaredRecord ent, []), None)
+                )
             Seq.concat [            
-                ent.FSharpFields |> Seq.map (fun m -> 
+                fields |> List.map (fun m -> 
                     let ft = makeType com ctx.GenericArgs m.FieldType
                     {
                         Fable.MemberInfo.Kind = Fable.Property(m.Name, ft, true, false, None, None)
@@ -1041,8 +1129,9 @@ let private transformMemberReflectionInfos (com: FableCompiler) ctx (ent : FShar
                     }                   
                 )
 
-                Seq.singleton {
-                    Fable.MemberInfo.Kind = Fable.Constructor(parameters, ctor)                    
+
+                List.singleton {
+                    Fable.MemberInfo.Kind = Fable.Constructor(List.toArray parameters, invoke)                    
                     Fable.Attributes = [||]
                 }
 

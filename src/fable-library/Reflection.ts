@@ -108,7 +108,7 @@ export class NMethodInfo extends NMethodBase {
     parameters: NParameterInfo[],
     returnType: NTypeInfo,
     isStatic: boolean,
-    private invoke: (...args: any[]) => any,
+    private invoke: (target: any, args: any[]) => any,
     attributes: CustomAttribute[],
     private declaration?: NMethodInfo,
   ) {
@@ -205,9 +205,9 @@ export class NMethodInfo extends NMethodBase {
     args = args || [];
     if (!this.IsStatic) {
       if (!target) { throw new Error(`MethodInfo ${this.toPrettyString()} cannot be called without a this argument`); }
-      return this.invoke.apply(null, [target, ...args]);
+      return this.invoke(target, args);
     } else {
-      return this.invoke.apply(null, args);
+      return this.invoke(null, args);
     }
   }
 }
@@ -216,7 +216,7 @@ export class NConstructorInfo extends NMethodBase {
   constructor(
     declaringType: NTypeInfo,
     parameters: NParameterInfo[],
-    private invoke: (...args: any[]) => any,
+    private invoke: (args: any[]) => any,
     attributes: CustomAttribute[],
   ) {
     super(declaringType, ".ctor", parameters, true, attributes);
@@ -240,7 +240,7 @@ export class NConstructorInfo extends NMethodBase {
 
   public Invoke(args: any[]) {
     args = args || [];
-    return this.invoke.apply(null, args);
+    return this.invoke(args);
   }
 }
 
@@ -300,8 +300,8 @@ export class NPropertyInfo extends NMemberInfo {
     public IsStatic: boolean,
     public IsFSharp: boolean,
     attributes: CustomAttribute[],
-    private get?: (target: any) => any,
-    private set?: (target: any, value: any) => void,
+    private get?: (target: any, index: any[]) => any,
+    private set?: (target: any, index: any[], value: any) => void,
   ) {
     super(DeclaringType, Name, attributes);
 
@@ -329,7 +329,11 @@ export class NPropertyInfo extends NMemberInfo {
     const getterName = "get_" + this.Name;
     const mems = this.DeclaringType.GetAllMembers();
     const idx = mems.findIndex((m) => m instanceof NMethodInfo && m.Name === getterName);
-    if (idx >= 0) { return mems[idx] as NMethodInfo; } else { return null; }
+    if (idx >= 0) {
+      return mems[idx] as NMethodInfo;
+    } else {
+      return null;
+    }
   }
 
   public get_SetMethod() {
@@ -341,7 +345,7 @@ export class NPropertyInfo extends NMemberInfo {
 
   public GetValue(target: any, index: any[]): any {
     if (this.get) {
-      return this.get(target);
+      return this.get(target, index);
     } else if (this.IsFSharp) {
       // TODO: mangled-names????
       if (this.Name in target) {
@@ -359,7 +363,7 @@ export class NPropertyInfo extends NMemberInfo {
 
   public SetValue(target: any, value: any, index: any[]) {
     if (this.set) {
-      return this.set(target, value);
+      return this.set(target, index, value);
     } else if (this.IsFSharp) {
       target[this.Name] = value;
     } else {
@@ -1056,7 +1060,7 @@ export function anonRecord(...fields: Array<[string, NTypeInfo]>): NTypeInfo {
       return res;
     }
 
-    const ctor = new NConstructorInfo(self, pars, (...args) => makeAnonRecord(makeObj(args)), []);
+    const ctor = new NConstructorInfo(self, pars, (args) => makeAnonRecord(makeObj(args)), []);
     mems.push(ctor as NMemberInfo);
 
     return mems;
@@ -1128,7 +1132,7 @@ export function createMethod(decl: NTypeInfo, name: string, mpars: string[], mar
     return found.get_IsGenericMethod() ? found.MakeGenericMethod(margs) : found;
   } else {
     const pp = mpars.map ((n) => getGenericParameter(n));
-    const meth = new NMethodInfo(decl, pp, name, declaredArgs.map((a, i) => new NParameterInfo("arg" + i, a)), ret, isStatic, ((_) => { throw new Error("cannot invoke " + decl.fullname + "." + name); }), []);
+    const meth = new NMethodInfo(decl, pp, name, declaredArgs.map((a, i) => new NParameterInfo("arg" + i, a)), ret, isStatic, ((_target, _args) => { throw new Error("cannot invoke " + decl.fullname + "." + name); }), []);
     decl.mems.push(meth);
     return meth.get_IsGenericMethod() ? meth.MakeGenericMethod(margs) : meth;
   }

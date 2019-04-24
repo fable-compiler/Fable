@@ -385,12 +385,12 @@ module Util =
             let par = coreValue com ctx "Reflection" "NParameterInfo"
             NewExpression(par, [| StringLiteral p.Name; transformTypeInfo com ctx r [||] genMap p.Type |]) :> Expression
 
-        let newConstructor (self : Expression) (attributes : ArrayExpression) (parameters : array<Fable.ParameterInfo>) (invoke : ArrowFunctionExpression) =
+        let newConstructor (self : Expression) (attributes : ArrayExpression) (parameters : array<Fable.ParameterInfo>) (invoke : Expression) =
             let ctor = coreValue com ctx "Reflection" "NConstructorInfo"
             let parameters = parameters |> Array.map newParameter
             NewExpression(ctor, [|self; ArrayExpression parameters; invoke; attributes |]) :> Expression
 
-        let newMethod (self : Expression) (genericParameters : string[]) (isStatic : bool) (ret : Fable.Type) (name : string) (attributes : ArrayExpression) (parameters : array<Fable.ParameterInfo>) (invoke : ArrowFunctionExpression) =
+        let newMethod (self : Expression) (genericParameters : string[]) (isStatic : bool) (ret : Fable.Type) (name : string) (attributes : ArrayExpression) (parameters : array<Fable.ParameterInfo>) (invoke : Expression) =
             let meth = coreValue com ctx "Reflection" "NMethodInfo"
             let parameters = parameters |> Array.map newParameter
             let ret = transformTypeInfo com ctx r [||] genMap ret
@@ -448,24 +448,18 @@ module Util =
                     ArrowFunctionExpression(Array.map toPattern args, U2.Case2 body)           
                 newUnionCase self tag name attributes pars invoke
 
-            | Fable.MemberInfoKind.Constructor(pars, mangledName) ->
-                let invoke =
-                    let args = pars |> Array.mapi (fun i p -> Identifier(sprintf "a%d" i))
-                    let body = CallExpression(Identifier(mangledName), Array.map (fun a -> a :> Expression) args) :> Expression
-                    ArrowFunctionExpression(Array.map toPattern args, U2.Case2 body)                        
-
+            | Fable.MemberInfoKind.Constructor(pars, invoke) ->
+                let invoke = com.TransformAsExpr(ctx, invoke)
                 newConstructor self attributes pars invoke
 
-            | Fable.MemberInfoKind.Method(genericParameters, name, pars, ret, isStatic, mangledName) ->
-                let invoke =
-                    let args = pars |> Array.mapi (fun i p -> Identifier(sprintf "a%d" i))
-                    let args = 
-                        if isStatic then args
-                        else Array.append [| Identifier "__self" |] args
-
-                    let body = CallExpression(Identifier(mangledName), Array.map (fun a -> a :> Expression) args) :> Expression
-                    ArrowFunctionExpression(Array.map toPattern args, U2.Case2 body)
-                    //FunctionExpression(Array.map toPattern args, BlockStatement [| ReturnStatement body :> Statement |])
+            | Fable.MemberInfoKind.Method(genericParameters, name, pars, ret, isStatic, invoke) ->
+                let invoke = 
+                    match invoke with 
+                    | Some invoke -> com.TransformAsExpr(ctx, invoke) 
+                    | _ -> 
+                        ArrowFunctionExpression([||], U2.Case1 (BlockStatement [|
+                            ThrowStatement(NewExpression(Identifier "Error", [| StringLiteral "cannot invoke method" :> Expression |])) :> Statement
+                        |])) :> Expression                
 
                 newMethod self genericParameters isStatic ret name attributes pars invoke
 

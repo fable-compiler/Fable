@@ -57,7 +57,7 @@ let buildSplitter projectDir =
     buildSplitterWithArgs projectDir ""
 
 let buildWebpack projectDir =
-    run ("npx --node-arg \"--max_old_space_size=4096\" webpack --config " + (projectDir </> "webpack.config.js"))
+    run ("npx webpack --config " + (projectDir </> "webpack.config.js"))
 
 let buildLibrary() =
     cleanDirs ["build/fable-library"]
