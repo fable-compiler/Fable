@@ -27,10 +27,18 @@ type BinaryStream(arr : Uint8Array) =
 
     member x.Position = position
 
-    member x.ReadByte() =
+    member x.ReadOpCode() =
         let value = arr.[position] //view.getUint8(float position)
         position <- position + 1
-        unbox<byte> value
+        let code = unbox<byte> value
+        if code >= 128uy then
+            let sl = x.ReadInt32()
+            let sc = x.ReadInt32()
+            let el = x.ReadInt32()
+            let ec = x.ReadInt32()
+            code - 128uy, Some(sl, sc, el, ec)
+        else
+            code, None
 
     member x.ReadInt32() =
         let value = view.getInt32(float position, true)
@@ -86,6 +94,8 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
     let values = values |> FSharp.Collections.Array.map (fun v -> Expr.ValueWithName(v.value, v.typ, v.name))
     let variables = variables |> FSharp.Collections.Array.map (fun v -> Var(v.name, v.typ, v.isMutable))
 
+    let file = stream.ReadString()
+
     let init (n : int) (f : int -> 'a) =
         let rec init (i : int) =
             if i >= n then
@@ -97,23 +107,27 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
 
 
     let rec read () =
-        let tag = stream.ReadByte()
+        let tag, range = stream.ReadOpCode()
+        let inline withRange (e : Expr) =
+            match range with
+            | Some(sl, sc, el, ec) -> e.WithRange(file, sl, sc, el, ec)
+            | None -> e
         match tag with
         | 1uy -> 
             let vid = stream.ReadInt32()
             let body = read()
-            Expr.Lambda(variables.[vid], body)
+            Expr.Lambda(variables.[vid], body) |> withRange
         | 2uy ->
             let vid = stream.ReadInt32()
-            Expr.Var(variables.[vid])
+            Expr.Var(variables.[vid]) |> withRange
         | 3uy ->
             let vid = stream.ReadInt32()
-            values.[vid]     
+            values.[vid] |> withRange
         | 4uy ->
             let vid = stream.ReadInt32()  
             let e = read()
             let b = read()
-            Expr.Let(variables.[vid], e, b)   
+            Expr.Let(variables.[vid], e, b) |> withRange  
 
         | 5uy ->
             let decl = types.[stream.ReadInt32()]
@@ -141,10 +155,10 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
                 let mem =
                     if margs.Length > 0 then mem.MakeGenericMethod margs
                     else mem
-                Expr.Call(target, mem, args)
+                Expr.Call(target, mem, args) |> withRange
             | None ->
                 let mem = createMethod decl name mpars margs dargs ret false
-                Expr.Call(target, mem, args)           
+                Expr.Call(target, mem, args) |> withRange
 
         | 6uy ->
             let decl = types.[stream.ReadInt32()]
@@ -171,19 +185,19 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
                 let mem =
                     if margs.Length > 0 then mem.MakeGenericMethod margs
                     else mem
-                Expr.Call(mem, args)
+                Expr.Call(mem, args) |> withRange
             | None ->
                 let mem = createMethod decl name mpars margs dargs ret true
-                Expr.Call(mem, args)     
+                Expr.Call(mem, args) |> withRange  
 
         | 7uy ->
             let e = read()
-            Expr.AddressOf(e)
+            Expr.AddressOf(e) |> withRange
 
         | 8uy ->
             let v = read()
             let e = read()
-            Expr.AddressSet(v, e)        
+            Expr.AddressSet(v, e) |> withRange        
 
         | 9uy ->
             let tid = stream.ReadInt32()  
@@ -191,29 +205,29 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let target = read()
             //let prop = FSharp.Reflection.FSharpType.GetRecordFields target.Type |> FSharp.Collections.Array.find (fun p -> p.Name = name)
             let prop = createRecordProperty target.Type name types.[tid]
-            Expr.PropertyGet(target, prop)      
+            Expr.PropertyGet(target, prop) |> withRange     
 
         | 10uy ->
             let f = read()
             let cnt = stream.ReadInt32()
             let args = init cnt (fun _ -> read())
-            Expr.Applications(f, List.map List.singleton args)
+            Expr.Applications(f, List.map List.singleton args) |> withRange
         | 11uy ->
             let id = stream.ReadInt32()
             let l = literals.[id]
-            Expr.Value(l.value, l.typ)
+            Expr.Value(l.value, l.typ) |> withRange
         | 12uy ->
             let c = read()  
             let i = read()  
             let e = read()      
-            Expr.IfThenElse(c, i, e) 
+            Expr.IfThenElse(c, i, e) |> withRange
 
         | 13uy ->
             let typ = types.[stream.ReadInt32()]
             let name = stream.ReadString()
             let e = read()
             let case = FSharp.Reflection.FSharpType.GetUnionCases(e.Type) |> FSharp.Collections.Array.find (fun c -> c.Name = name)
-            Expr.UnionCaseTest(e, case)  
+            Expr.UnionCaseTest(e, case) |> withRange
 
         | 14uy ->
             let typ = types.[stream.ReadInt32()]
@@ -223,22 +237,22 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let case = FSharp.Reflection.FSharpType.GetUnionCases(typ) |> FSharp.Collections.Array.find (fun c -> c.Name = name)
             let prop = case.GetFields().[index]
 
-            Expr.PropertyGet(target, prop)
+            Expr.PropertyGet(target, prop) |> withRange
         | 15uy ->
             let typ = types.[stream.ReadInt32()]
             let e = read()
-            Expr.Coerce(e, typ)
+            Expr.Coerce(e, typ) |> withRange
 
         | 16uy ->
             let typ = types.[stream.ReadInt32()]
-            Expr.DefaultValue typ
+            Expr.DefaultValue typ |> withRange
 
         | 17uy ->
             let var = variables.[stream.ReadInt32()]
             let s = read()
             let e = read()
             let b = read()
-            Expr.ForIntegerRangeLoop(var, s, e, b)        
+            Expr.ForIntegerRangeLoop(var, s, e, b) |> withRange
 
         | 18uy ->
             let typ = types.[stream.ReadInt32()]
@@ -251,10 +265,10 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let prop = typ.GetProperties() |> FSharp.Collections.Array.tryFind (fun p -> p.Name = name && p.PropertyType = ret)
             match prop with
             | Some prop ->
-                Expr.PropertyGet(target, prop, idx)
+                Expr.PropertyGet(target, prop, idx) |> withRange
             | None ->
                 let prop = createRecordProperty typ name ret
-                Expr.PropertyGet(target, prop, idx)      
+                Expr.PropertyGet(target, prop, idx) |> withRange     
 
         | 19uy ->
             let typ = types.[stream.ReadInt32()]
@@ -266,10 +280,10 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let prop = typ.GetProperties() |> FSharp.Collections.Array.tryFind (fun p -> p.Name = name && p.PropertyType = ret)
             match prop with
             | Some prop ->
-                Expr.PropertyGet(prop, idx)
+                Expr.PropertyGet(prop, idx) |> withRange
             | None ->
                 let prop = createStaticProperty typ name ret
-                Expr.PropertyGet(prop, idx)           
+                Expr.PropertyGet(prop, idx) |> withRange         
 
         | 20uy ->
             let typ = types.[stream.ReadInt32()]
@@ -283,10 +297,10 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let prop = typ.GetProperties() |> FSharp.Collections.Array.tryFind (fun p -> p.Name = name && p.PropertyType = ret)
             match prop with
             | Some prop ->
-                Expr.PropertySet(target, prop, value, idx)
+                Expr.PropertySet(target, prop, value, idx) |> withRange
             | None ->
                 let prop = createRecordProperty typ name ret
-                Expr.PropertySet(target, prop, value, idx)
+                Expr.PropertySet(target, prop, value, idx) |> withRange
 
         | 21uy ->
             let typ = types.[stream.ReadInt32()]
@@ -299,10 +313,10 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let prop = typ.GetProperties() |> FSharp.Collections.Array.tryFind (fun p -> p.Name = name && p.PropertyType = ret)
             match prop with
             | Some prop ->
-                Expr.PropertySet(prop, value, idx)
+                Expr.PropertySet(prop, value, idx) |> withRange
             | None ->
                 let prop = createStaticProperty typ name ret
-                Expr.PropertySet(prop, value, idx)      
+                Expr.PropertySet(prop, value, idx) |> withRange     
 
         | 22uy ->
             let cnt = stream.ReadInt32()
@@ -313,13 +327,13 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
                     v, e
                 )
             let body = read()
-            Expr.LetRecursive(bindings, body)            
+            Expr.LetRecursive(bindings, body) |> withRange
 
         | 24uy ->
             let typ = types.[stream.ReadInt32()]
             let cnt = stream.ReadInt32()
             let args = init cnt (fun _ -> read())
-            Expr.NewArray(typ, args)
+            Expr.NewArray(typ, args) |> withRange
 
         | 26uy ->
             let typ = types.[stream.ReadInt32()]
@@ -335,7 +349,7 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
 
             match ctor with
             | Some ctor ->
-                Expr.NewObject(ctor, args)
+                Expr.NewObject(ctor, args) |> withRange
             | _ ->
                 failwith "no ctor found"      
 
@@ -343,12 +357,12 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let typ = types.[stream.ReadInt32()]  
             let cnt = stream.ReadInt32()
             let args = init cnt (fun _ -> read())
-            Expr.NewRecord(typ, args)
+            Expr.NewRecord(typ, args) |> withRange
             
         | 28uy ->
             let cnt = stream.ReadInt32()
             let args = init cnt (fun _ -> read())
-            Expr.NewTuple(args)
+            Expr.NewTuple(args) |> withRange
             
         | 29uy ->
             let typ = types.[stream.ReadInt32()]  
@@ -357,37 +371,41 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let args = init cnt (fun _ -> read())
             // TODO: non existing unions
             let case = FSharp.Reflection.FSharpType.GetUnionCases(typ) |> FSharp.Collections.Array.find (fun c -> c.Name = name)
-            Expr.NewUnionCase(case, args)
+            Expr.NewUnionCase(case, args) |> withRange
         | 30uy ->
             let e = read()
-            Expr.Quote(e)
+            Expr.Quote(e) |> withRange
 
         | 31uy ->
             let l = read()
             let r = read()
-            Expr.Sequential(l, r)
+            Expr.Sequential(l, r) |> withRange
 
         | 32uy ->
             let i = stream.ReadInt32()
             let t = read()
-            Expr.TupleGet(t, i)     
+            Expr.TupleGet(t, i) |> withRange
 
         | 33uy ->
             let typ = types.[stream.ReadInt32()]  
             let target = read()
-            Expr.TypeTest(target, typ)
+            Expr.TypeTest(target, typ) |> withRange
         | 36uy ->
             let v = variables.[stream.ReadInt32()]
             let value = read()
-            Expr.VarSet(v, value)
+            Expr.VarSet(v, value) |> withRange
         | 38uy ->
             let guard = read()
             let body = read()
-            Expr.WhileLoop(guard, body)
+            Expr.WhileLoop(guard, body) |> withRange
 
-        | 255uy ->
+        | 127uy ->
             let str = stream.ReadString()
-            failwithf "unsupported expression: %s" str
+            match range with
+            | Some (sl, sc, _el, _ec) ->
+                failwithf "%s [%d, %d]: unsupported expression: %s" file sl sc str 
+            | None -> 
+                failwithf "%s: unsupported expression: %s" file str     
         | _ ->
             failwithf "invalid expression: %A at %A" tag  stream.Position      
 
