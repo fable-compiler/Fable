@@ -7,6 +7,7 @@ type CompilerOptions =
       /// Meant for precompiled libraries (like the Repl Lib)
       /// to make public inlined functions part of the JS
       outputPublicInlinedFunctions: bool
+      quotations: bool
       /// Mainly intended for the REPL to compile REPL lib calls
       precompiledLib: (string -> (string*string) option) option
   }
