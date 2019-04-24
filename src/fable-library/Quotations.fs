@@ -1184,7 +1184,7 @@ module ExprShape =
     let RebuildShapeCombination(shape:obj, arguments) =
         // preserve the attributes
         let op, attrs = unbox<ExprConstInfo * Expr list>(shape)
-        EA(CombTerm(op, attrs), arguments)
+        EA(CombTerm(op, arguments), attrs)
         // let e =
         //     match op, arguments with
         //     | AppOp, [f;x] -> mkApplication(f, x)
