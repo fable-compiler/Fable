@@ -100,6 +100,12 @@ let tests =
         79228162514264337593543950335M |> equal System.Decimal.MaxValue
         -79228162514264337593543950335M |> equal System.Decimal.MinValue
 
+    testCase "Decimal devision works" <| fun () ->
+        let a = decimal 0.00001
+        let b = 1000.M
+        let c = decimal 0.00000001
+        a / b |> equal c
+
     testCase "Decimal.ToString works" <| fun () ->
         string 001.23456M |> equal "1.23456"
         string 1.23456M |> equal "1.23456"
