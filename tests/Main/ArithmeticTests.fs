@@ -138,6 +138,12 @@ let tests =
     testCase "Decimal division precision is kept" <| fun () ->
         string (8M / 3M) |> equal "2.6666666666666666666666666667"
 
+    testCase "Decimal division works" <| fun () ->
+        let a = decimal 0.00001
+        let b = 1000.M
+        let c = decimal 0.00000001
+        a / b |> equal c
+
     testCase "Decimal Infix add works" <| fun () ->
         4.0868M + 2.289348M |> equal 6.376148M
 
