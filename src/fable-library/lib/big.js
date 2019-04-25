@@ -97,6 +97,7 @@ function _Big_() {
       x.s = n.s;
       x.e = n.e;
       x.c = n.c.slice();
+      normalize(x);
     } else {
       parse(x, n);
     }
@@ -118,6 +119,14 @@ function _Big_() {
   return Big;
 }
 
+function normalize(x) {
+  x = round(x, DP, 0);
+  if (x.c.length > 1 && !x.c[0]) {
+    let i = x.c.findIndex(x => x);
+    x.c = x.c.slice(i);
+    x.e = x.e - i;
+  }
+}
 
 /*
  * Parse the number or string value passed to a Big constructor.
@@ -335,9 +344,11 @@ P.abs = function () {
 */
 P.cmp = function (y) {
   var isneg,
-    x = this,
+    Big = this.constructor,
+    x = new Big(this),
+    y = new Big(y),
     xc = x.c,
-    yc = (y = new x.constructor(y)).c,
+    yc = y.c,
     i = x.s,
     j = y.s,
     k = x.e,
@@ -379,10 +390,12 @@ P.cmp = function (y) {
  * if necessary, to a maximum of Big.DP decimal places using rounding mode Big.RM.
  */
 P.div = function (y) {
-  var x = this,
-    Big = x.constructor,
-    a = x.c,                  // dividend
-    b = (y = new Big(y)).c,   // divisor
+  var
+    Big = this.constructor,
+    x = new Big(this),
+    y = new Big(y),
+    a = x.c,   // dividend
+    b = y.c,   // divisor
     k = x.s == y.s ? 1 : -1,
     dp = Big.DP;
 
@@ -524,10 +537,11 @@ P.lte = function (y) {
  */
 P.minus = P.sub = function (y) {
   var i, j, t, xlty,
-    x = this,
-    Big = x.constructor,
+    Big = this.constructor,
+    x = new Big(this),
+    y = new Big(y),
     a = x.s,
-    b = (y = new Big(y)).s;
+    b = y.s;
 
   // Signs differ?
   if (a != b) {
@@ -629,10 +643,11 @@ P.minus = P.sub = function (y) {
  */
 P.mod = function (y) {
   var ygtx,
-    x = this,
-    Big = x.constructor,
+    Big = this.constructor,
+    x = new Big(this),
+    y = new Big(y),
     a = x.s,
-    b = (y = new Big(y)).s;
+    b = y.s;
 
   if (!y.c[0]) throw Error(DIV_BY_ZERO);
 
@@ -659,10 +674,11 @@ P.mod = function (y) {
  */
 P.plus = P.add = function (y) {
   var t,
-    x = this,
-    Big = x.constructor,
+    Big = this.constructor,
+    x = new Big(this),
+    y = new Big(y),
     a = x.s,
-    b = (y = new Big(y)).s;
+    b = y.s;
 
   // Signs differ?
   if (a != b) {
@@ -733,9 +749,11 @@ P.plus = P.add = function (y) {
  * n {number} Integer, -MAX_POWER to MAX_POWER inclusive.
  */
 P.pow = function (n) {
-  var x = this,
-    one = new x.constructor(1),
-    y = one,
+  var
+    Big = this.constructor,
+    x = new Big(this),
+    y = new Big(1),
+    one = new Big(1),
     isneg = n < 0;
 
   if (n !== ~~n || n < -MAX_POWER || n > MAX_POWER) throw Error(INVALID + 'exponent');
@@ -776,8 +794,8 @@ P.round = function (dp, rm) {
  */
 P.sqrt = function () {
   var r, c, t,
-    x = this,
-    Big = x.constructor,
+    Big = this.constructor,
+    x = new Big(this),
     s = x.s,
     e = x.e,
     half = new Big(0.5);
@@ -820,10 +838,11 @@ P.sqrt = function () {
  */
 P.times = P.mul = function (y) {
   var c,
-    x = this,
-    Big = x.constructor,
+    Big = this.constructor,
+    x = new Big(this),
+    y = new Big(y),
     xc = x.c,
-    yc = (y = new Big(y)).c,
+    yc = y.c,
     a = xc.length,
     b = yc.length,
     i = x.e,
