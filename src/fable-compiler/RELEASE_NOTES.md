@@ -1,3 +1,8 @@
+### 2.3.4
+
+* Fix #1821: decimal devision @ncave
+* Fix #1817: List slicing
+
 ### 2.3.3
 
 * Reflections support for anonymous records
