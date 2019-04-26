@@ -1,3 +1,7 @@
+### 2.3.5
+
+* Raise error if two or more record/interface/override members have the same name.
+
 ### 2.3.4
 
 * Fix #1821: decimal devision @ncave
