@@ -450,7 +450,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // First get a context containing all idents and use it compile the values
         let ctx, idents =
             (recBindings, (ctx, []))
-            ||> List.foldBack (fun (PutArgInScope com ctx (newContext, ident), _) (ctx, idents) ->                
+            ||> List.foldBack (fun (PutArgInScope com ctx (newContext, ident), _) (ctx, idents) ->
                 (newContext, ident::idents))
         let _, bindingExprs = List.unzip recBindings
         let! exprs = transformExprList com ctx bindingExprs
@@ -756,19 +756,45 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
   }
 
-/// Is compiler generated (CompareTo...) or belongs to ignored entity?
-/// (remember F# compiler puts class methods in enclosing modules)
-let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
-    (meth.IsCompilerGenerated && Naming.ignoredCompilerGenerated.Contains meth.CompiledName)
-        || Option.isSome meth.LiteralValue
-        || meth.Attributes |> Seq.exists (fun att ->
-            match att.AttributeType.TryFullName with
-            | Some(Atts.erase | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember
-                    | Atts.emit | Atts.emitMethod | Atts.emitConstructor | Atts.emitIndexer | Atts.emitProperty) -> true
-            | _ -> false)
-        || (match meth.DeclaringEntity with
-            | Some ent -> isErasedEntity ent
-            | None -> false)
+let private isIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
+    memb.IsCompilerGenerated || Naming.ignoredAttachedMembers.Contains memb.CompiledName
+
+let private isIgnoredNonAttachedMember (meth: FSharpMemberOrFunctionOrValue) =
+    Option.isSome meth.LiteralValue
+    || meth.Attributes |> Seq.exists (fun att ->
+        match att.AttributeType.TryFullName with
+        | Some(Atts.erase | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember
+                | Atts.emit | Atts.emitMethod | Atts.emitConstructor | Atts.emitIndexer | Atts.emitProperty) -> true
+        | _ -> false)
+    || (match meth.DeclaringEntity with
+        | Some ent -> isErasedEntity ent
+        | None -> false)
+
+let private isRecordLike (ent: FSharpEntity) =
+    ent.IsFSharpRecord
+        || ent.IsFSharpExceptionDeclaration
+        || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent))
+
+let private checkAttachedMemberConflicts com isRecordLike (ent: FSharpEntity) =
+    let attachedMembers =
+        if isRecordLike then
+            ent.FSharpFields |> Seq.map (fun fi -> fi.Name, fi.FullName) |> Map
+        else Map.empty
+    (attachedMembers, ent.MembersFunctionsAndValues)
+    ||> Seq.fold (fun attachedMembers memb ->
+        if memb.IsOverrideOrExplicitInterfaceImplementation
+            && not (isIgnoredAttachedMember memb)
+            // memb.IsPropertySetterMethod is false for interfaces implemented in an abstract class
+            && not (memb.IsProperty || memb.LogicalName.StartsWith("set_")) then
+                match Map.tryFind memb.DisplayName attachedMembers with
+                | Some memb2FullName ->
+                    (memb2FullName, memb.CompiledName)
+                    ||> sprintf "Cannot implement two record/interface/abstract members with same name: %s/%s"
+                    |> addError com [] None
+                    attachedMembers
+                | _ -> Map.add memb.DisplayName memb.CompiledName attachedMembers
+        else attachedMembers)
+    |> ignore
 
 let private transformImplicitConstructor com (ctx: Context)
             (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -812,9 +838,8 @@ let private transformImplicitConstructor com (ctx: Context)
               BoundConstructorThis = boundThis
               Body = body
             }
-        // TODO!!! When adding a ConstructorDeclaration check if there are
-        // name clashes for interface/abstract members
         let r = getEntityLocation ent |> makeRange
+        checkAttachedMemberConflicts com false ent
         [Fable.ConstructorDeclaration(Fable.ClassImplicitConstructor info, Some r)]
 
 /// When using `importMember`, uses the member display name as selector
@@ -934,7 +959,7 @@ let private transformAttachedMember (com: FableCompiler) (ctx: Context)
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let ctx = { ctx with EnclosingMember = Some memb }
-    if isIgnoredMember memb then
+    if isIgnoredNonAttachedMember memb then
         if memb.IsMutable && isPublicMember memb && hasAttribute Atts.global_ memb.Attributes then
             "Global members cannot be mutable and public, please make it private: " + memb.DisplayName
             |> addError com [] None
@@ -949,16 +974,9 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         else []
     elif memb.IsImplicitConstructor
     then transformImplicitConstructor com ctx memb args body
-    elif memb.IsExplicitInterfaceImplementation then
-        if Set.contains memb.CompiledName Naming.interfaceMethodsImplementedInPrototype
-        then transformAttachedMember com ctx memb args body
-        else
-            match tryGetInterfaceDefinitionFromMethod memb with
-            | Some interfaceEntity when not(Naming.ignoredInterfaces.Contains interfaceEntity.FullName) ->
-                transformAttachedMember com ctx memb args body
-            | _ -> []
-    elif memb.IsOverrideOrExplicitInterfaceImplementation
-    then transformAttachedMember com ctx memb args body
+    elif memb.IsOverrideOrExplicitInterfaceImplementation then
+        if isIgnoredAttachedMember memb then []
+        else transformAttachedMember com ctx memb args body
     else transformMemberFunctionOrValue com ctx memb args body
 
 // In case this is a recursive module, do a first pass to add
@@ -972,7 +990,7 @@ let rec checkMemberNames (com: FableCompiler) decls =
             | [] -> com.AddUsedVarName(getEntityDeclarationName com ent, isRoot=true)
             | sub -> checkMemberNames com sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->
-            if not(isIgnoredMember memb) then
+            if not(memb.IsOverrideOrExplicitInterfaceImplementation || isIgnoredNonAttachedMember memb) then
                 let memberName = getMemberDeclarationName com memb
                 com.AddUsedVarName(memberName, isRoot=true)
         | FSharpImplementationFileDeclaration.InitAction _ -> ()
@@ -1002,10 +1020,9 @@ let private transformDeclarations (com: FableCompiler) ctx rootDecls =
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
                     let r = getEntityLocation ent |> makeRange
+                    checkAttachedMemberConflicts com false ent
                     [Fable.ConstructorDeclaration(Fable.UnionConstructor info, Some r)]
-                | _ when ent.IsFSharpRecord
-                        || ent.IsFSharpExceptionDeclaration
-                        || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent)) ->
+                | _ when isRecordLike ent ->
                     let entityName = getEntityDeclarationName com ent
                     com.AddUsedVarName(entityName)
                     // TODO: Check Equality/Comparison attributes
@@ -1014,6 +1031,7 @@ let private transformDeclarations (com: FableCompiler) ctx rootDecls =
                         EntityName = entityName
                         IsPublic = isPublicEntity ent }
                     let r = getEntityLocation ent |> makeRange
+                    checkAttachedMemberConflicts com true ent
                     [Fable.ConstructorDeclaration(Fable.CompilerGeneratedConstructor info, Some r)]
                 | _ ->
                     transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub

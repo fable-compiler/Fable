@@ -135,26 +135,10 @@ module Naming =
     let isInFableHiddenDir (file: string) =
         file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableHiddenDir)
 
-    /// Interfaces implemented in the prototype or automatically assigned by the F# compiler to unions and records.
-    /// TODO: Allow explicit implementation of the first four?
-    let ignoredInterfaces =
-        set [ "System.Collections.IStructuralEquatable"
-              "System.Collections.IStructuralComparable"
-              "System.IEquatable`1"
-              "System.IComparable`1"
-              "System.IComparable"
-              "System.Collections.Generic.IEnumerable"
-              "System.Collections.IEnumerable"
-              "System.Collections.Generic.IEnumerator`1"
-            ]
-
-    let interfaceMethodsImplementedInPrototype =
-        set [ "System-IComparable-CompareTo"
-              "System-Collections-Generic-IEnumerable`1-GetEnumerator" ]
-
-    /// Methods automatically assigned by the F# compiler for unions and records. Ignored by Fable.
-    let ignoredCompilerGenerated =
-        set [ "CompareTo"; "Equals"; "GetHashCode" ]
+    let ignoredAttachedMembers =
+        set [ "System-Collections-IEnumerator-get_Current"
+              "System-Collections-IEnumerable-GetEnumerator"
+              "System-IEquatable`1-Equals" ]
 
     let umdModules =
         set ["commonjs"; "amd"; "umd"]
