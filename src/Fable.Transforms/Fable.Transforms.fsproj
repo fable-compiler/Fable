@@ -18,18 +18,14 @@
     <Compile Include="ReplacementsInject.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="Inject.fs" />
+    <Compile Include="QuotationPickler.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="FableTransforms.fs" />
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="4.6.2" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="4.6.2" />
-  </ItemGroup>
-  <!-- <ItemGroup>
-    <ProjectReference Include="../FCS/fcs-fable/fcs-fable.fsproj" />
-  </ItemGroup> -->
 </Project>

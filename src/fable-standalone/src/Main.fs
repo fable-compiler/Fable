@@ -224,6 +224,7 @@ let makeCompiler fableLibrary fileName (project: Project) precompiledLib =
           clampByteArrays = false
           verbose = false
           outputPublicInlinedFunctions = false
+          quotations = true
           precompiledLib = precompiledLib }
     let com = Compiler(fileName, project, options, fableLibrary)
     com

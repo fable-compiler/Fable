@@ -4,6 +4,7 @@ open Fable
 open Fable.AST
 open FSharp.Compiler.SourceCodeServices
 open System
+open System.Reflection
 
 type EnumTypeKind = NumberEnumType | StringEnumType
 type FunctionTypeKind = LambdaType of Type | DelegateType of Type list
@@ -16,6 +17,7 @@ type Type =
     | Char
     | String
     | Regex
+    | Expr of gen : Option<Type>
     | Number of NumberKind
     | EnumType of kind: EnumTypeKind * fullName: string
     | Option of genericArg: Type
@@ -30,7 +32,7 @@ type Type =
 
     member this.Generics =
         match this with
-        | Option gen | Array gen | List gen -> [gen]
+        | Expr (Some gen) | Option gen | Array gen | List gen -> [gen]
         | FunctionType(LambdaType argType, returnType) -> [argType; returnType]
         | FunctionType(DelegateType argTypes, returnType) -> argTypes @ [returnType]
         | Tuple gen -> gen
@@ -39,6 +41,7 @@ type Type =
         | _ -> []
     member this.ReplaceGenerics(newGen: Type list) =
         match this with
+        | Expr (Some _) -> Expr (Some newGen.Head)
         | Option _ -> Option newGen.Head
         | Array _  -> Array newGen.Head
         | List _   -> List newGen.Head
@@ -53,6 +56,32 @@ type Type =
         | DeclaredType(ent,_) -> DeclaredType(ent,newGen)
         | t -> t
 
+
+type ParameterInfo =
+    {
+        Name : string
+        Type : Type
+    }
+
+type MemberInfoKind =
+    | Property of name : string * typ : Type * fsharp : bool * isStatic : bool * get : Option<Expr> * set : Option<Expr>
+    | Field of name : string * typ : Type * isStatic : bool * get : Option<Expr>
+    | Method of genericParameters : string[] * name : string * parameters : ParameterInfo[] * returnType : Type * isStatic : bool * invoke : Option<Expr>
+    | Constructor of parameters : ParameterInfo[] * invoke : Expr
+    | UnionCaseConstructor of tag : int * name : string * parameters : array<string * Type> * mangledName : string * mangledTypeName : string
+
+type MemberInfo =
+    {
+        Kind        : MemberInfoKind
+        Attributes  : array<string * Expr>
+    }
+
+type UnionCaseInfo =
+    {
+        Name : string
+        Fields : MemberInfo[]
+    }
+
 type ValueDeclarationInfo =
     { Name: string
       IsPublic: bool
@@ -63,6 +92,7 @@ type ValueDeclarationInfo =
 type ClassImplicitConstructorInfo =
     { Name: string
       Entity: FSharpEntity
+      Members : MemberInfo[]
       EntityName: string
       IsEntityPublic: bool
       IsConstructorPublic: bool
@@ -74,11 +104,13 @@ type ClassImplicitConstructorInfo =
 
 type UnionConstructorInfo =
     { Entity: FSharpEntity
+      Members : MemberInfo[]
       EntityName: string
       IsPublic: bool }
 
 type CompilerGeneratedConstructorInfo =
     { Entity: FSharpEntity
+      Members : MemberInfo[]
       EntityName: string
       IsPublic: bool }
 
@@ -96,7 +128,8 @@ type Declaration =
     | ActionDeclaration of Expr
     | ValueDeclaration of Expr * ValueDeclarationInfo
     | AttachedMemberDeclaration of args: Ident list * body: Expr * AttachedMemberDeclarationInfo
-    | ConstructorDeclaration of ConstructorKind * SourceLocation option
+    | ConstructorDeclaration of declaringName : Option<string> * ConstructorKind * SourceLocation option
+    | ModuleDeclaration of declaringName : Option<string> * name : string * ent : FSharpEntity * mems : MemberInfo[]
 
 type File(sourcePath, decls, ?usedVarNames, ?inlineDependencies) =
     member __.SourcePath: string = sourcePath
@@ -274,6 +307,24 @@ type DelayedResolutionKind =
     | AsPojo of Expr * caseRules: Expr
     | Curry of Expr * arity: int
 
+
+type VarData = 
+    { name : string; typ : Type; isMutable : bool }
+
+type ValueData =
+    { name : string; typ : Type; expr : Expr }
+
+type ExprData =
+    {
+        typ         : Type
+        variables   : VarData[]
+        values      : ValueData[]
+        literals    : Expr[]
+        types       : Type[]
+        members     : array<FSharpEntity * Type * MemberInfo * Type[]>
+        data        : byte[]
+    }
+
 type Expr =
     | Value of ValueKind * SourceLocation option
     | IdentExpr of Ident
@@ -303,8 +354,12 @@ type Expr =
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
+    | Quote of typed : bool * data : ExprData * range : SourceLocation option
+
     member this.Type =
         match this with
+        | Quote(true, value, _) -> Expr(Some value.typ)
+        | Quote(false, _, _) -> Expr None 
         | Test _ -> Boolean
         | Value(kind,_) -> kind.Type
         | IdentExpr id -> id.Type
@@ -323,10 +378,11 @@ type Expr =
         | Import _ | DelayedResolution _
         | ObjectExpr _ | Sequential _ | Let _
         | DecisionTree _ | DecisionTreeSuccess _ -> None
-
+ 
         | Function(_,e,_) | TypeCast(e,_) -> e.Range
         | IdentExpr id -> id.Range
 
+        | Quote(_,_,r)
         | Value(_,r) | IfThenElse(_,_,_,r) | TryCatch(_,_,_,r)
         | Debugger r | Test(_,_,r) | Operation(_,_,r) | Get(_,_,_,r)
         | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r
