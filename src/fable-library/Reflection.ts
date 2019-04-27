@@ -3,6 +3,16 @@ import { compareArraysWith, equalArraysWith, stringHash } from "./Util";
 
 // tslint:disable: max-line-length
 
+export enum NReflKind {
+  Property = 0,
+  Field = 1,
+  MethodBase = 2,
+  Method = 3,
+  Constructor = 4,
+  UnionCase = 5,
+  Type = 6,
+}
+
 export class NParameterInfo {
   constructor(
     public Name: string,
@@ -41,7 +51,13 @@ export abstract class NMemberInfo {
       this.attributes = att || [];
   }
 
+  public abstract getMemberKind(): NReflKind;
   public abstract toPrettyString(): string;
+
+  public is(kind: NReflKind) {
+    return this.getMemberKind() === kind;
+  }
+
   public get_Name() { return this.Name; }
 
   public get_DeclaringType() { return this.DeclaringType; }
@@ -132,6 +148,10 @@ export class NMethodInfo extends NMethodBase {
     this.ReturnType = returnType.get_ContainsGenericParameters() ? this.ResolveGeneric(returnType) : returnType;
     if (!this.ReturnType) { throw new Error(`MethodInfo ${declaringType.toFullString()} ${name} does not have a return type`); }
 
+  }
+
+  public getMemberKind() {
+    return NReflKind.Method;
   }
 
   public ResolveGeneric(t: NTypeInfo): NTypeInfo {
@@ -234,6 +254,10 @@ export class NConstructorInfo extends NMethodBase {
     return attPrefix + "new(" + args + ")";
   }
 
+  public getMemberKind() {
+    return NReflKind.Constructor;
+  }
+
   public toString() {
     return this.toPrettyString();
   }
@@ -262,6 +286,10 @@ export class NFieldInfo extends NMemberInfo {
   }
   public get_FieldType() { return this.Type; }
   public get_IsStatic() { return this.IsStatic; }
+
+  public getMemberKind() {
+    return NReflKind.Field;
+  }
 
   public toPrettyString() {
     const typ = this.Type.toFullString();
@@ -309,6 +337,10 @@ export class NPropertyInfo extends NMemberInfo {
 
     this.Type = type.get_ContainsGenericParameters() ? DeclaringType.ResolveGeneric(type) : type;
   }
+
+  public getMemberKind() {
+    return NReflKind.Property;
+  }
   public get_PropertyType() { return this.Type; }
   public get_IsStatic() { return this.IsStatic; }
   public get_IsFSharp() { return this.IsFSharp; }
@@ -328,7 +360,7 @@ export class NPropertyInfo extends NMemberInfo {
   public get_GetMethod() {
     const getterName = "get_" + this.Name;
     const mems = this.DeclaringType.GetAllMembers();
-    const idx = mems.findIndex((m) => m instanceof NMethodInfo && m.Name === getterName);
+    const idx = mems.findIndex((m) => isMethodInfo(m) && m.Name === getterName);
     if (idx >= 0) {
       return mems[idx] as NMethodInfo;
     } else {
@@ -339,7 +371,7 @@ export class NPropertyInfo extends NMemberInfo {
   public get_SetMethod() {
     const getterName = "set_" + this.Name;
     const mems = this.DeclaringType.GetAllMembers();
-    const idx = mems.findIndex((m) => m instanceof NMethodInfo && m.Name === getterName);
+    const idx = mems.findIndex((m) => isMethodInfo(m) && m.Name === getterName);
     if (idx >= 0) { return mems[idx] as NMethodInfo; } else { return null; }
   }
 
@@ -434,6 +466,11 @@ export class NUnionCaseInfo extends NMemberInfo {
       return new NPropertyInfo(DeclaringType, name, typ, false, true, [], (t) => t.fields[i], (t, v) => { t.fields[i] = v; });
       // tup[1].get_ContainsGenericParameters() ? [tup[0], DeclaringType.ResolveGeneric(tup[1])] : tup) as Array<[string, NTypeInfo]>;
     });
+  }
+
+
+  public getMemberKind() {
+    return NReflKind.UnionCase;
   }
 
   public GetFields() {
@@ -627,25 +664,25 @@ export class NTypeInfo {
 
   public GetMembers() {
     const m = this.GetAllMembers();
-    return m.filter((m) => !(m instanceof NUnionCaseInfo));
+    return m.filter((m) => !(isUnionCaseInfo(m)));
   }
 
   public GetProperties() {
     const m = this.GetAllMembers();
-    return m.filter((m) => m instanceof NPropertyInfo) as NPropertyInfo[];
+    return m.filter((m) => isPropertyInfo(m)) as NPropertyInfo[];
   }
 
   public GetMethods() {
     const m = this.GetAllMembers();
-    return m.filter((m) => m instanceof NMethodInfo) as NMethodInfo[];
+    return m.filter((m) => isMethodInfo(m)) as NMethodInfo[];
   }
   public GetConstructors() {
     const m = this.GetAllMembers();
-    return m.filter((m) => m instanceof NConstructorInfo) as NConstructorInfo[];
+    return m.filter((m) => isConstructorInfo(m)) as NConstructorInfo[];
   }
   public GetFields() {
     const m = this.GetAllMembers();
-    return m.filter((m) => m instanceof NFieldInfo) as NFieldInfo[];
+    return m.filter((m) => isFieldInfo(m)) as NFieldInfo[];
   }
   public GetConstructor(ts?: NTypeInfo[]) {
     if (ts) {
@@ -657,21 +694,21 @@ export class NTypeInfo {
   }
   public GetField(name: string) {
     const m = this.GetAllMembers();
-    return m.find((m) => m instanceof NFieldInfo && m.Name === name) as NFieldInfo;
+    return m.find((m) => isFieldInfo(m) && m.Name === name) as NFieldInfo;
   }
 
   public GetProperty(name: string) {
       const m = this.GetAllMembers();
-      const prop = m.find((m) => m instanceof NPropertyInfo && m.Name === name) as NPropertyInfo;
+      const prop = m.find((m) => isPropertyInfo(m) && m.Name === name) as NPropertyInfo;
       return prop;
   }
   public GetMethod(name: string, types?: NTypeInfo[]) {
       const m = this.GetAllMembers();
       if (types) {
-        const meths = m.filter((m) => m instanceof NMethodInfo && m.Name === name && m.ParametersAssignable(types)) as NMethodInfo[];
+        const meths = m.filter((m) => isMethodInfo(m) && m.Name === name && (m as NMethodInfo).ParametersAssignable(types)) as NMethodInfo[];
         return meths.length === 1 ? meths[0] : null;
       } else {
-        const meths = m.filter((m) => m instanceof NMethodInfo && m.Name === name) as NMethodInfo[];
+        const meths = m.filter((m) => isMethodInfo(m) && m.Name === name) as NMethodInfo[];
         return meths.length === 1 ? meths[0] : null;
       }
   }
@@ -703,7 +740,7 @@ export class NTypeInfo {
     const members =
       this
       .GetMembers()
-      .filter((m) => !(m instanceof NMethodInfo) || !(m.Name.startsWith("get_") || m.Name.startsWith("set_")))
+      .filter((m) => !(isMethodInfo(m)) || !(m.Name.startsWith("get_") || m.Name.startsWith("set_")))
       .map((m) => "    " + m.toPrettyString()).join("\n");
     return "type " + this.toFullString() + "=\n" + members;
   }
@@ -887,80 +924,39 @@ export const float32: NTypeInfo = NTypeInfo.Simple("System.Single");
 export const float64: NTypeInfo = NTypeInfo.Simple("System.Double");
 export const decimal: NTypeInfo = NTypeInfo.Simple("System.Decimal");
 
-// export function name(info: FieldInfo | CaseInfo | TypeInfo): string {
-//   if (Array.isArray(info)) {
-//     return info[0];
-//   } else if (info instanceof CaseInfo) {
-//     return info.name;
-//   } else {
-//     const i = info.fullname.lastIndexOf(".");
-//     return i === -1 ? info.fullname : info.fullname.substr(i + 1);
-//   }
-// }
-
-// export function fullName(t: TypeInfo): string {
-//   const gen = t.generics != null && !isArray(t) ? t.generics : [];
-//   if (gen.length > 0) {
-//     return t.fullname + "[" + gen.map((x) => fullName(x)).join(",") + "]";
-//   } else {
-//     return t.fullname;
-//   }
-// }
-
-// export function namespace(t: TypeInfo) {
-//   const i = t.fullname.lastIndexOf(".");
-//   return i === -1 ? "" : t.fullname.substr(0, i);
-// }
-
-// export function isArray(t: TypeInfo): boolean {
-//   return t.fullname.endsWith("[]");
-// }
-
-// export function getElementType(t: TypeInfo): TypeInfo {
-//   return isArray(t) ? t.generics[0] : null;
-// }
-
-// export function isGenericType(t: TypeInfo) {
-//   return t.generics != null && t.generics.length > 0;
-// }
-
-// /**
-//  * This doesn't replace types for fields (records) or cases (unions)
-//  * but it should be enough for type comparison purposes
-//  */
-// export function getGenericTypeDefinition(t: TypeInfo) {
-//   return t.generics == null ? t : new TypeInfo(t.fullname, t.generics.map(() => obj));
-// }
-
-// FSharpType
 
 export function isType(o: any) {
-  return o instanceof NTypeInfo;
+  return "fullname" in o;
 }
 export function isMemberInfo(o: any) {
-  return o instanceof NMemberInfo;
+  return "getMemberKind" in o;
 }
 export function isMethodBase(o: any) {
-  return o instanceof NMethodBase;
+  if (isMemberInfo(o)) {
+    const k = o.getMemberKind();
+    return k === NReflKind.Method || k === NReflKind.Constructor;
+  } else {
+    return false;
+  }
 }
 export function isMethodInfo(o: any) {
-  return o instanceof NMethodInfo;
+  return isMemberInfo(o) && o.getMemberKind() === NReflKind.Method;
 }
 export function isPropertyInfo(o: any) {
-  return o instanceof NPropertyInfo;
+  return isMemberInfo(o) && o.getMemberKind() === NReflKind.Property;
 }
 export function isUnionCaseInfo(o: any) {
-  return o instanceof NUnionCaseInfo;
+  return isMemberInfo(o) && o.getMemberKind() === NReflKind.UnionCase;
 }
 export function isFieldInfo(o: any) {
-  return o instanceof NFieldInfo;
+  return isMemberInfo(o) && o.getMemberKind() === NReflKind.Field;
 }
 export function isConstructorInfo(o: any) {
-  return o instanceof NConstructorInfo;
+  return isMemberInfo(o) && o.getMemberKind() === NReflKind.Constructor;
 }
 
 export function getUnionCases(t: NTypeInfo): NUnionCaseInfo[] {
-  const cases = t.GetAllMembers().filter((m) => m instanceof NUnionCaseInfo) as NUnionCaseInfo[];
+  const cases = t.GetAllMembers().filter((m) => isUnionCaseInfo(m)) as NUnionCaseInfo[];
   if (cases.length > 0) {
     return cases;
   } else {
@@ -969,7 +965,7 @@ export function getUnionCases(t: NTypeInfo): NUnionCaseInfo[] {
 }
 
 export function getRecordElements(t: NTypeInfo): NPropertyInfo[] {
-  const fields = t.GetAllMembers().filter((m) => m instanceof NPropertyInfo && (m as NPropertyInfo).IsFSharp) as NPropertyInfo[];
+  const fields = t.GetAllMembers().filter((m) => isPropertyInfo(m) && (m as NPropertyInfo).IsFSharp) as NPropertyInfo[];
   if (fields.length > 0) {
     return fields;
   } else {
@@ -995,8 +991,8 @@ export function getFunctionElements(t: NTypeInfo): [NTypeInfo, NTypeInfo] {
 }
 
 export function isUnion(t: any): boolean {
-  if (t instanceof NTypeInfo) {
-    const idx = (t as NTypeInfo).GetAllMembers().findIndex((m) => m instanceof NUnionCaseInfo);
+  if (isType(t)) {
+    const idx = (t as NTypeInfo).GetAllMembers().findIndex((m) => isUnionCaseInfo(m));
     return idx >= 0;
   } else {
     return t instanceof Union;
@@ -1004,8 +1000,8 @@ export function isUnion(t: any): boolean {
 }
 
 export function isRecord(t: any): boolean {
-  if (t instanceof NTypeInfo) {
-    const idx = t.GetAllMembers().findIndex((m) => m instanceof NPropertyInfo && (m as NPropertyInfo).IsFSharp);
+  if (isType(t)) {
+    const idx = (t as NTypeInfo).GetAllMembers().findIndex((m) => isPropertyInfo(m) && (m as NPropertyInfo).IsFSharp);
     return idx >= 0;
   } else {
     return t instanceof Record;
@@ -1089,7 +1085,7 @@ export function makeRecord(t: NTypeInfo, values: any[]): any {
   if (fields.length !== values.length) {
     throw new Error(`Expected an array of length ${fields.length} but got ${values.length}`);
   }
-  const ctor = t.GetAllMembers().find((m) => m instanceof NConstructorInfo) as NConstructorInfo;
+  const ctor = t.GetAllMembers().find((m) => isConstructorInfo(m)) as NConstructorInfo;
   return ctor.Invoke(values);
 }
 

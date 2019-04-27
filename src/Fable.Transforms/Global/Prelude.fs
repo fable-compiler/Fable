@@ -239,6 +239,7 @@ module Naming =
         check 0
 
     type MemberPart =
+        | ReflectionMemberPart
         | InstanceMemberPart of string * overloadSuffix: string
         | StaticMemberPart of string * overloadSuffix: string
         | NoMemberPart
@@ -260,6 +261,7 @@ module Naming =
     let private buildName sanitize name part =
         (sanitize name) +
             (match part with
+                | ReflectionMemberPart     -> "$" + reflectionSuffix
                 | InstanceMemberPart(s, i) -> printPart sanitize "$$" s i
                 | StaticMemberPart(s, i)   -> printPart sanitize "$$$" s i
                 | NoMemberPart -> "")

@@ -1188,6 +1188,16 @@ let precompiledLib r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr 
         let argInfo = { argInfo thisArg args (Typed i.SignatureArgTypes) with Spread = i.Spread }
         makeCustomImport Any mangledName importPath |> staticCall r t argInfo
 
+let getPrecompiledLibReflectionName entityName =
+    let entityName = Naming.sanitizeIdentForbiddenChars entityName
+    Naming.buildNameWithoutSanitation entityName Naming.ReflectionMemberPart |> Naming.checkJsKeywords
+
+let precompiledLibReflection r (args: Expr list) (entityName, importPath) =
+    let mangledName = getPrecompiledLibReflectionName entityName
+    let argTypes = args |> List.map (fun _ -> MetaType)
+    let argInfo = { argInfo None args (Typed argTypes) with Spread = Fable.NoSpread }
+    makeCustomImport Any mangledName importPath |> staticCall r MetaType argInfo
+
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some callee, _ ->

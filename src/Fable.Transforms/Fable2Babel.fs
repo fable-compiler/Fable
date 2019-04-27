@@ -633,9 +633,25 @@ module Util =
                 /// Check if the entity is actually declared in JS code
                 if ent.IsInterface
                     || FSharp2Fable.Util.isErasedEntity ent
-                    // TODO!!! Get reflection info from types in precompiled libs
                     || FSharp2Fable.Util.isReplacementCandidate ent then
-                    genericEntity ent generics
+
+                    match t with
+                    | Fable.DeclaredType(ent, args) ->
+                        match ent.TryFullName with
+                        | Some fullname ->
+                            let args = args |> List.map (fun a -> Fable.Value(Fable.TypeInfo(a), None))
+                            let call = 
+                                com.Options.precompiledLib
+                                |> Option.bind (fun tryLib -> tryLib fullname)
+                                |> Option.map (Replacements.precompiledLibReflection r args)
+                            
+                            match call with
+                            | Some call -> com.TransformAsExpr(ctx, call)
+                            | None -> genericEntity ent generics 
+                        | _ ->
+                            genericEntity ent generics
+                    | _ ->
+                        genericEntity ent generics
                 else
                     let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
                     CallExpression(com.TransformAsExpr(ctx, reflectionMethodExpr), generics) :> Expression
