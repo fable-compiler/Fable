@@ -210,6 +210,13 @@ let (|Nameof|_|) = function
 let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
     namesAndReplacements |> List.tryPick (fun (name2, replacement) ->
         if name2 = name then Some replacement else None)
+let (|DeclaredFullNameType|_|) = function
+    | DeclaredType(ent, targs) ->
+        match ent.TryFullName with
+        | Some name -> Some (ent, name, targs)
+        | _ -> None
+    | _ ->
+        None
 
 let inline (|ExprType|) (e: Expr) = e.Type
 
@@ -736,6 +743,28 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
         Helper.CoreCall("Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | MetaType ->
         Helper.CoreCall("Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, ("System.Reflection.MemberInfo" | "System.Reflection.MethodBase"), []) ->
+        Helper.CoreCall("Reflection", "memberEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "System.Reflection.ParameterInfo", []) ->
+        Helper.CoreCall("Reflection", "parameterEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "System.Reflection.FieldInfo", []) ->
+        Helper.CoreCall("Reflection", "fieldEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "System.Reflection.PropertyInfo", []) ->
+        Helper.CoreCall("Reflection", "propertyEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "System.Reflection.MethodInfo", []) ->
+        Helper.CoreCall("Reflection", "methodEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "System.Reflection.ConstructorInfo", []) ->
+        Helper.CoreCall("Reflection", "constructorEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "Microsoft.FSharp.Reflection.UnionCaseInfo", []) ->
+        Helper.CoreCall("Reflection", "unionCaseEquals", Boolean, [left; right], ?loc=r) |> is equal
+
     | Tuple _ ->
         Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
     // unsafe optimization, left can sometimes be null

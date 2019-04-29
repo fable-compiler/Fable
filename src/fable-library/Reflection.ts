@@ -1,5 +1,5 @@
 import { anonRecord as makeAnonRecord, Record, Union } from "./Types";
-import { compareArraysWith, equalArraysWith, stringHash } from "./Util";
+import { combineHashCodes, compareArraysWith, equalArraysWith, stringHash } from "./Util";
 
 // tslint:disable: max-line-length
 
@@ -11,6 +11,11 @@ export enum NReflKind {
   Constructor = 4,
   UnionCase = 5,
   Type = 6,
+}
+
+function compareStrings(l: string, r: string) {
+  if (l === r) { return 0; }
+  return l < r ? -1 : 1;
 }
 
 export class NParameterInfo {
@@ -35,6 +40,29 @@ export class NParameterInfo {
     return this.Name;
   }
 
+  public GetHashCode() {
+    return combineHashCodes([stringHash(this.Name), this.ParameterType.GetHashCode()]);
+  }
+
+  public Equals(o: any) {
+    if ("Name" in o && "ParameterType" in o) {
+      return this.Name === o.Name && equals(this.ParameterType, o.ParameterType);
+    } else {
+      return false;
+    }
+  }
+
+  public CompareTo(o: any) {
+    if (o == null) { throw new Error("cannot compare to null"); }
+
+    if ("Name" in o && "ParameterType" in o) {
+      const c = compareStrings(this.Name, o.Name);
+      if (c !== 0) { return c; }
+      return this.ParameterType.CompareTo(o.ParameterType);
+    }
+    throw new Error(`cannot compare to ${o}`);
+  }
+
 }
 
 export abstract class NMemberInfo {
@@ -53,6 +81,10 @@ export abstract class NMemberInfo {
 
   public abstract getMemberKind(): NReflKind;
   public abstract toPrettyString(): string;
+
+  public abstract GetHashCode(): number;
+  public abstract Equals(o: any): boolean;
+  public abstract CompareTo(o: any): number;
 
   public is(kind: NReflKind) {
     return this.getMemberKind() === kind;
@@ -152,6 +184,36 @@ export class NMethodInfo extends NMethodBase {
 
   public getMemberKind() {
     return NReflKind.Method;
+  }
+
+  public GetHashCode() {
+    return combineHashCodes([
+      this.DeclaringType.GetHashCode(),
+      combineHashCodes(this.GenericArguments.map((a) => a.GetHashCode())),
+      stringHash(this.Name),
+      combineHashCodes(this.Parameters.map((a) => a.GetHashCode())),
+      (this.IsStatic ? 1 : 0),
+    ]);
+  }
+
+  public CompareTo(oo: any) {
+    if (!isMethodInfo(oo)) { throw new Error(`cannot compare MethodInfo to ${oo}`); }
+    const o = oo as NMethodInfo;
+    let c = 0;
+    c = compareStrings(this.Name, o.Name); if (c !== 0) { return c; }
+    c = this.IsStatic === o.IsStatic ? 0 : (this.IsStatic < o.IsStatic ? -1 : 1); if (c !== 0) { return c; }
+    c = this.DeclaringType.CompareTo(o.DeclaringType); if (c !== 0) { return c; }
+    c = compareArraysWith(this.GenericArguments, o.GenericArguments, (l, r) => l.CompareTo(r)); if (c !== 0) { return c; }
+    c = compareArraysWith(this.Parameters, o.Parameters, (l, r) => l.CompareTo(r)); if (c !== 0) { return c; }
+    return 0;
+  }
+
+  public Equals(ob: any) {
+    if (isMethodInfo(ob)) {
+      return methodEquals(this, ob as NMethodInfo);
+    } else {
+      return false;
+    }
   }
 
   public ResolveGeneric(t: NTypeInfo): NTypeInfo {
@@ -258,6 +320,30 @@ export class NConstructorInfo extends NMethodBase {
     return NReflKind.Constructor;
   }
 
+  public GetHashCode() {
+    return combineHashCodes([
+      this.DeclaringType.GetHashCode(),
+      combineHashCodes(this.Parameters.map((p) => p.GetHashCode())),
+    ]);
+  }
+
+  public Equals(o: any) {
+    if (isConstructorInfo(o)) {
+      return constructorEquals(this, o as NConstructorInfo);
+    } else {
+      return false;
+    }
+  }
+
+  public CompareTo(oo: any) {
+    if (!isConstructorInfo(oo)) { throw new Error(`cannot compare ConstructorInfo to ${oo}`); }
+    const o = oo as NConstructorInfo;
+    let c = 0;
+    c = this.DeclaringType.CompareTo(o.DeclaringType); if (c !== 0) { return c; }
+    c = compareArraysWith(this.Parameters, o.Parameters, (l, r) => l.CompareTo(r)); if (c !== 0) { return c; }
+    return 0;
+  }
+
   public toString() {
     return this.toPrettyString();
   }
@@ -289,6 +375,32 @@ export class NFieldInfo extends NMemberInfo {
 
   public getMemberKind() {
     return NReflKind.Field;
+  }
+
+  public GetHashCode() {
+    return combineHashCodes([
+      stringHash(this.Name),
+      this.DeclaringType.GetHashCode(),
+      (this.IsStatic ? 1 : 0),
+    ]);
+  }
+
+  public Equals(o: any) {
+    if (isFieldInfo(o)) {
+      return fieldEquals(this, o as NFieldInfo);
+    } else {
+      return false;
+    }
+  }
+
+  public CompareTo(oo: any) {
+    if (!isFieldInfo(oo)) { throw new Error(`cannot compare FieldInfo to ${oo}`); }
+    const o = oo as NFieldInfo;
+    let c = 0;
+    c = compareStrings(this.Name, o.Name); if (c !== 0) { return c; }
+    c = this.IsStatic === o.IsStatic ? 0 : (this.IsStatic < o.IsStatic ? -1 : 1); if (c !== 0) { return c; }
+    c = this.DeclaringType.CompareTo(o.DeclaringType); if (c !== 0) { return c; }
+    return 0;
   }
 
   public toPrettyString() {
@@ -341,6 +453,35 @@ export class NPropertyInfo extends NMemberInfo {
   public getMemberKind() {
     return NReflKind.Property;
   }
+
+  public GetHashCode() {
+    return combineHashCodes([
+      stringHash(this.Name),
+      this.DeclaringType.GetHashCode(),
+      (this.IsFSharp ? 1 : 0),
+      (this.IsStatic ? 1 : 0),
+    ]);
+  }
+
+  public Equals(o: any) {
+    if (isPropertyInfo(o)) {
+      return propertyEquals(this, o as NPropertyInfo);
+    } else {
+      return false;
+    }
+  }
+
+  public CompareTo(oo: any) {
+    if (!isPropertyInfo(oo)) { throw new Error(`cannot compare FieldInfo to ${oo}`); }
+    const o = oo as NPropertyInfo;
+    let c = 0;
+    c = this.IsStatic === o.IsStatic ? 0 : (this.IsStatic < o.IsStatic ? -1 : 1); if (c !== 0) { return c; }
+    c = this.IsFSharp === o.IsFSharp ? 0 : (this.IsFSharp < o.IsFSharp ? -1 : 1); if (c !== 0) { return c; }
+    c = compareStrings(this.Name, o.Name); if (c !== 0) { return c; }
+    c = this.DeclaringType.CompareTo(o.DeclaringType); if (c !== 0) { return c; }
+    return 0;
+  }
+
   public get_PropertyType() { return this.Type; }
   public get_IsStatic() { return this.IsStatic; }
   public get_IsFSharp() { return this.IsFSharp; }
@@ -468,10 +609,34 @@ export class NUnionCaseInfo extends NMemberInfo {
     });
   }
 
-
   public getMemberKind() {
     return NReflKind.UnionCase;
   }
+
+  public GetHashCode() {
+    return combineHashCodes([
+      stringHash(this.Name),
+      this.DeclaringType.GetHashCode(),
+    ]);
+  }
+
+  public Equals(o: any) {
+    if (isUnionCaseInfo(o)) {
+      return unionCaseEquals(this, o as NUnionCaseInfo);
+    } else {
+      return false;
+    }
+  }
+
+  public CompareTo(oo: any) {
+    if (!isUnionCaseInfo(oo)) { throw new Error(`cannot compare UnionCaseInfo to ${oo}`); }
+    const o = oo as NUnionCaseInfo;
+    let c = 0;
+    c = compareStrings(this.Name, o.Name); if (c !== 0) { return c; }
+    c = this.DeclaringType.CompareTo(o.DeclaringType); if (c !== 0) { return c; }
+    return 0;
+  }
+
 
   public GetFields() {
     return this.Fields;
@@ -790,17 +955,126 @@ export function getGenerics(t: NTypeInfo): NTypeInfo[] {
 }
 
 export function equals(t1: NTypeInfo, t2: NTypeInfo): boolean {
-  if (t1.fullname === t2.fullname) {
-    const g1 = getGenerics(t1);
-    const g2 = getGenerics(t2);
-    try {
-      return equalArraysWith(g1, g2, equals);
-    } catch (e) {
-      throw new Error(t1.fullname + " g1: " + g1 + " g2: " + g2);
+  if (t1 === t2) { return true; } else
+  if (t1 == null && t2 != null) { return false; } else
+  if (t1 != null && t2 == null) { return false; } else {
+    if (t1.fullname === t2.fullname) {
+      const g1 = getGenerics(t1);
+      const g2 = getGenerics(t2);
+      try {
+        return equalArraysWith(g1, g2, equals);
+      } catch (e) {
+        throw new Error(t1.fullname + " g1: " + g1 + " g2: " + g2);
+      }
+    } else {
+      return false;
     }
+  }
+}
+
+function typesEqual(l: NTypeInfo[], r: NTypeInfo[]) {
+  if (l.length === r.length) {
+    for (let i = 0; i < l.length; i++) {
+      if (!equals(l[i], r[i])) { return false; }
+    }
+    return true;
   } else {
     return false;
   }
+}
+export function parameterEquals(l: NParameterInfo, r: NParameterInfo) {
+  if (l === r) { return true; } else
+  if (l == null && r != null) { return false; } else
+  if (l != null && r == null) { return false; } else {
+    return l.Name === r.Name && equals(l.ParameterType, r.ParameterType);
+  }
+}
+
+function parametersEqual(l: NParameterInfo[], r: NParameterInfo[]) {
+  if (l.length === r.length) {
+    for (let i = 0; i < l.length; i++) {
+      if (!parameterEquals(l[i], r[i])) { return false; }
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
+
+export function fieldEquals(l: NFieldInfo, r: NFieldInfo) {
+  if (l === r) { return true; } else
+  if (l == null && r != null) { return false; } else
+  if (l != null && r == null) { return false; } else {
+    return l.Name === r.Name && l.IsStatic === r.IsStatic && equals(l.DeclaringType, r.DeclaringType);
+  }
+}
+
+export function propertyEquals(l: NPropertyInfo, r: NPropertyInfo) {
+  if (l === r) { return true; } else
+  if (l == null && r != null) { return false; } else
+  if (l != null && r == null) { return false; } else {
+    return l.Name === r.Name && l.IsFSharp === r.IsFSharp && l.IsStatic === r.IsStatic && equals(l.DeclaringType, r.DeclaringType);
+  }
+}
+function propertiesEqual(l: NPropertyInfo[], r: NPropertyInfo[]) {
+  if (l.length === r.length) {
+    for (let i = 0; i < l.length; i++) {
+      if (!propertyEquals(l[i], r[i])) { return false; }
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
+export function constructorEquals(l: NConstructorInfo, r: NConstructorInfo) {
+  if (l === r) { return true; } else
+  if (l == null && r != null) { return false; } else
+  if (l != null && r == null) { return false; } else {
+    return equals(l.DeclaringType, r.DeclaringType) && parametersEqual(l.Parameters, r.Parameters);
+  }
+}
+
+export function methodEquals(l: NMethodInfo, r: NMethodInfo) {
+  if (l === r) { return true; } else
+  if (l == null && r != null) { return false; } else
+  if (l != null && r == null) { return false; } else {
+    return l.Name === r.Name &&
+           l.IsStatic === r.IsStatic &&
+           equals(l.DeclaringType, r.DeclaringType) &&
+           typesEqual(l.GenericArguments, r.GenericArguments) &&
+           parametersEqual(l.Parameters, r.Parameters);
+  }
+}
+
+export function unionCaseEquals(l: NUnionCaseInfo, r: NUnionCaseInfo) {
+  if (l === r) { return true; } else
+  if (l == null && r != null) { return false; } else
+  if (l != null && r == null) { return false; } else {
+    return l.Name === r.Name && equals(l.DeclaringType, r.DeclaringType);
+  }
+}
+
+export function memberEquals(l: NMemberInfo, r: NMemberInfo) {
+  if (l === r) { return true; } else
+  if (l == null && r != null) { return false; } else
+  if (l != null && r == null) { return false; } else {
+    const lk = l.getMemberKind();
+    const rk = r.getMemberKind();
+    if (lk !== rk) { return false; }
+
+    switch (lk) {
+      case NReflKind.Constructor: return constructorEquals(l as NConstructorInfo, r as NConstructorInfo);
+      case NReflKind.Method: return methodEquals(l as NMethodInfo, r as NMethodInfo);
+      case NReflKind.Field: return fieldEquals(l as NFieldInfo, r as NFieldInfo);
+      case NReflKind.Property: return propertyEquals(l as NPropertyInfo, r as NPropertyInfo);
+      case NReflKind.UnionCase: return unionCaseEquals(l as NUnionCaseInfo, r as NUnionCaseInfo);
+      default: return l === r;
+    }
+  }
+}
+
+export function methodBaseEquals(l: NMemberInfo, r: NMemberInfo) {
+  return memberEquals(l, r);
 }
 
 // System.Type is not comparable in .NET, but let's implement this
@@ -924,12 +1198,11 @@ export const float32: NTypeInfo = NTypeInfo.Simple("System.Single");
 export const float64: NTypeInfo = NTypeInfo.Simple("System.Double");
 export const decimal: NTypeInfo = NTypeInfo.Simple("System.Decimal");
 
-
 export function isType(o: any) {
-  return "fullname" in o;
+  return o != null && "fullname" in o;
 }
 export function isMemberInfo(o: any) {
-  return "getMemberKind" in o;
+  return o != null && "getMemberKind" in o;
 }
 export function isMethodBase(o: any) {
   if (isMemberInfo(o)) {
@@ -940,19 +1213,19 @@ export function isMethodBase(o: any) {
   }
 }
 export function isMethodInfo(o: any) {
-  return isMemberInfo(o) && o.getMemberKind() === NReflKind.Method;
+  return o != null && isMemberInfo(o) && o.getMemberKind() === NReflKind.Method;
 }
 export function isPropertyInfo(o: any) {
-  return isMemberInfo(o) && o.getMemberKind() === NReflKind.Property;
+  return o != null && isMemberInfo(o) && o.getMemberKind() === NReflKind.Property;
 }
 export function isUnionCaseInfo(o: any) {
-  return isMemberInfo(o) && o.getMemberKind() === NReflKind.UnionCase;
+  return o != null && isMemberInfo(o) && o.getMemberKind() === NReflKind.UnionCase;
 }
 export function isFieldInfo(o: any) {
-  return isMemberInfo(o) && o.getMemberKind() === NReflKind.Field;
+  return o != null && isMemberInfo(o) && o.getMemberKind() === NReflKind.Field;
 }
 export function isConstructorInfo(o: any) {
-  return isMemberInfo(o) && o.getMemberKind() === NReflKind.Constructor;
+  return o != null && isMemberInfo(o) && o.getMemberKind() === NReflKind.Constructor;
 }
 
 export function getUnionCases(t: NTypeInfo): NUnionCaseInfo[] {
