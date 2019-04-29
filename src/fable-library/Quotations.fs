@@ -68,26 +68,16 @@ open Helpers
 
 [<Sealed>]
 [<CompiledName("FSharpVar")>]
-[<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2218:OverrideGetHashCodeOnOverridingEquals", Justification="Equals override does not equate further objects, so default GetHashCode is still valid")>]
 type Var(name: string, typ:Type, ?isMutable: bool) =
-    inherit obj()
-
-    static let getStamp =
-        let mutable lastStamp = -1L // first value retrieved will be 0
-        fun () ->
-            let s = lastStamp
-            lastStamp <- s + -1L
-            s
-
     static let globals = new Dictionary<(string*Type), Var>(11)
 
-    let stamp = getStamp ()
+    let id = System.Guid.NewGuid()
     let isMutable = defaultArg isMutable false
 
     member v.Name = name
     member v.IsMutable = isMutable
     member v.Type = typ
-    member v.Stamp = stamp
+    member x.Stamp = id
 
     static member Global(name, typ: Type) =
         checkNonNull "name" name
@@ -100,12 +90,14 @@ type Var(name: string, typ:Type, ?isMutable: bool) =
 
     override v.ToString() = name
 
-    override v.GetHashCode() = base.GetHashCode()
 
-    override v.Equals(obj:obj) =
-        match obj with
-        | :? Var as v2 -> System.Object.ReferenceEquals(v, v2)
-        | _ -> false
+    override x.GetHashCode() =
+        Unchecked.hash id
+
+    override x.Equals o =
+        match o with
+        | :? Var as v -> id = v.Stamp
+        | _ -> false           
 
     interface System.IComparable with
         member v.CompareTo(obj:obj) =
