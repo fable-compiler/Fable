@@ -228,6 +228,6 @@ Compile the test with an npm script to trigger the splitter when the Fable daemo
 }
 ```
 
-> dotnet fable npm-run compile
+> npm run compile
 
 Once the compilation is complete: `npm test`.

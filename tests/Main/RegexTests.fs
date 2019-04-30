@@ -236,4 +236,9 @@ let tests =
         |> Seq.map (fun m -> m.Groups.[1].Value)
         |> Seq.forall (fun value -> value = "")
         |> equal true
+
+    testCase "Group values can be converted to int" <| fun _ -> // See #1753
+        let m = Regex.Match("ABC123", @"([A-Z]+)(\d+)")
+        let group = m.Groups.[2]
+        int (group.Value) |> equal 123
   ]

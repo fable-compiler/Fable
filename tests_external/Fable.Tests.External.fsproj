@@ -3,9 +3,9 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="2.0.2" />
+    <Compile Include="Util4.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Util4.fs" />
+    <ProjectReference Include="../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
 </Project>

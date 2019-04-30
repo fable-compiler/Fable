@@ -116,6 +116,17 @@ let tests =
             result.Head + result.Tail.Head
             |> equal 7
 
+    testCase "List.exactlyOne works" <| fun () ->
+            let xs = [1.;]
+            xs |> List.exactlyOne
+            |> equal 1.
+
+            let xs2 = [1.;2.]
+            (try List.exactlyOne xs2 |> ignore; false with | _ -> true) |> equal true
+
+            let xs3 = []
+            (try List.exactlyOne xs3 |> ignore; false with | _ -> true) |> equal true
+
     testCase "List.exists works" <| fun () ->
             let xs = [1; 2; 3; 4]
             xs |> List.exists (fun x -> x = 2)
@@ -473,6 +484,7 @@ let tests =
             xs.[..2] |> List.sum |> equal 6
             xs.[2..] |> List.sum |> equal 7
             xs.[1..2] |> List.sum |> equal 5
+            xs.[0..-1] |> List.sum |> equal 0
 
     testCase "List.truncate works" <| fun () ->
             [1..3] = (List.truncate 3 [1..5]) |> equal true
@@ -644,6 +656,16 @@ let tests =
             equal 2 ys.[0]
             equal 5 zs.[2]
 
+    testCase "List.pairwise works" <| fun () ->
+        List.pairwise<int> [] |> equal []
+        List.pairwise [1] |> equal []
+        let xs = [1; 2; 3; 4]
+        let xs2 = xs |> List.pairwise
+        equal [(1, 2); (2, 3); (3, 4)] xs2
+        xs2 |> List.map (fun (x, y) -> sprintf "%i%i" x y)
+        |> String.concat ""
+        |> equal "122334"
+
     testCase "List.permute works" <| fun () ->
             let xs = [1; 2; 3; 4; 5; 6]
             let ys = xs |> List.permute (fun i -> i + 1 - 2 * (i % 2))
@@ -702,6 +724,12 @@ let tests =
             | _ -> false
         worked |> equal true
 
+    testCase "List.groupBy maintains order" <| fun () ->
+        let xs = [ 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 ]
+        let mapped = xs |> List.take 4 |> List.map (fun (x,y) -> x, [x,y; x,y+1])
+        let grouped = xs |> List.groupBy fst
+        grouped |> equal mapped
+
     testCase "List.unfold works" <| fun () ->
         let xs = 0. |> List.unfold (fun n -> if n < 3.0 then Some(n+1., n+1.) else None)
         let sum =
@@ -715,6 +743,13 @@ let tests =
         List.splitAt 0 li |> equal ([], [1;2;3;4])
         List.splitAt 3 li |> equal ([1;2;3], [4])
         List.splitAt 4 li |> equal ([1;2;3;4], [])
+
+    testCase "List.windowed works" <| fun () -> // See #1716
+        let nums = [ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]
+        List.windowed 3 nums |> equal [[1.0; 1.5; 2.0]; [1.5; 2.0; 1.5]; [2.0; 1.5; 1.0]; [1.5; 1.0; 1.5]]
+        List.windowed 5 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0 ]; [ 1.5; 2.0; 1.5; 1.0; 1.5 ]]
+        List.windowed 6 nums |> equal [[ 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 ]]
+        List.windowed 7 nums |> List.isEmpty |> equal true
 
     testCase "Types with same name as imports work" <| fun () ->
             let li = [List 5]

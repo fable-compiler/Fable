@@ -8,7 +8,8 @@ Fable numbers are very nearly compatible with .NET semantics, but translating in
 * (non-standard) All floating point numbers are implemented as 64 bit (`double`). This makes `float` numbers more accurate than expected.
 * (non-standard) Arithmetic integers of 32 bits or less are implemented with different truncation from that expected, as whole numbers embedded within `double`.
 * (OK) Conversions between types are correctly truncated.
-* (OK) Bitwise operations are all correct, and when made on 32 bit integers are truncated to 32 bits.
+* (OK) Bitwise operations for 64 bit and 32 bit integers are correct and truncated to the appropriate number of bits.
+* (non-standard) Bitwise operations for 16 bit and 8 bit integers use the underlying JavaScript 32 bit bitwise semantics. Results are not truncated as expected, and shift operands are not masked to fit the data type.
 * (OK) Longs have a custom implementation which is identical in semantics to .NET and truncates in 64 bits: although it is quite slow.
 
 32 bit integers thus differ from .NET in two ways:
@@ -23,8 +24,8 @@ The loss of precision can be seen in a single multiplication:
 
 ```
 
-The multiply product will have internal double representation rounded to `0x0100,0000,2000,0000`. When it is truncated to 32 bits by
-`>>> 0` the result will be  `0x2000,0000` not the .NET exact lower order bits value of `0x2000,0001`.
+The multiply product will have internal double representation rounded to `0x0100_0000_2000_0000`. When it is truncated to 32 bits by
+`>>> 0` the result will be  `0x2000_0000` not the .NET exact lower order bits value of `0x2000_0001`.
 
 The same problem can be seen where repeated arithmetic operations make the internal (non-truncated) value large. For example a linear
 congruence random number generator:

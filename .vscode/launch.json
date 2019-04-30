@@ -46,43 +46,36 @@
             "stopOnEntry": true
         },
         {
-            "type": "chrome",
+            "type": "node",
             "request": "launch",
-            "name": "Launch REPL",
-            "url": "http://localhost:8080/repl.html",
-            "webRoot": "${workspaceRoot}/src/dotnet/Fable.Repl/demo"
+            "name": "bench-compile tests (Node)",
+            "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
+            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
+            // "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],
+            "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
+        },
+        {
+            "type": "coreclr",
+            "request": "launch",
+            "name": "bench-compile tests (.NET)",
+            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp2.1/bench-compiler.dll",
+            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
+            // "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],
+            "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch REPL test",
-            "program": "${workspaceRoot}/src/dotnet/Fable.Repl/testapp/out/app.js",
-            "args": ["test_script.fs", "out/test_script.js"],
-            "cwd": "${workspaceRoot}/src/dotnet/Fable.Repl/testapp"
+            "name": "transform tests to JS",
+            "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/transform.js",
+            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "${workspaceRoot}/build/fable-library", "--commonjs"],
+            "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch REPL bench",
-            "program": "${workspaceRoot}/src/dotnet/Fable.Repl/bench/out/app.js",
-            "args": [],
-            "cwd": "${workspaceRoot}/src/dotnet/Fable.Repl/bench"
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch bench-compiler",
-            "program": "${workspaceRoot}/src/dotnet/Fable.Repl/bench-compiler/out/app.js",
-            "args": ["../../../../../fable-test/fable-test.fsproj"],
-            "cwd": "${workspaceRoot}/src/dotnet/Fable.Repl/bench-compiler"
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch fable-compiler",
-            "program": "${workspaceRoot}/src/js/fable-compiler/dist/app.js",
-            "args": ["../fable-test/fable-test.fsproj", "../fable-test/out"],
-            "cwd": "${workspaceRoot}"
+            "name": "Run test (Node)",
+            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/out-test/src/test.js"
         },
         {
             "type": "node",
@@ -92,9 +85,20 @@
             "args": [
                 "--no-timeouts",
                 "--colors",
-                "${workspaceFolder}/build/tests"
+                "${workspaceFolder}/src/fable-standalone/test/bench-compiler/out-tests"
+                // "${workspaceFolder}/build/tests"
             ],
             "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "name": "Run Tests (.NET)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/Main/bin/Debug/netcoreapp2.0/Fable.Tests.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/tests/Main",
+            "stopAtEntry": false,
+            "console": "internalConsole"
         },
     ]
 }

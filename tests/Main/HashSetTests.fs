@@ -16,6 +16,11 @@ type MyRecord = { a: int }
 
 type R = { i: int; s: string }
 
+type Apa<'t when 't : equality>() =
+    let state = HashSet<'t>()
+    member __.Add t = state.Add t |> ignore
+    member __.Contains t = state.Contains t
+
 let tests =
   testList "HashSets" [
     testCase "HashSet ctor from Enumerable works" <| fun () ->
@@ -194,6 +199,12 @@ let tests =
         hs.Count |> equal 1
         hs.Remove(x1) |> equal true
         hs.Count |> equal 0
+
+    testCase "HashSet equality works with generics" <| fun () -> // See #1712
+        let apa = Apa<R>()
+        apa.Add({ i = 5; s = "foo"})
+        apa.Contains ({ i = 5; s = "foo"}) |> equal true
+        apa.Contains ({ i = 5; s = "fo"}) |> equal false
 
     // testCase "HashSet can be JSON serialized forth and back" <| fun () ->
     //     let x = HashSet<_>()

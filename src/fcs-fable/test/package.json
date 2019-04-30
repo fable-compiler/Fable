@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "scripts": {
+    "build-test": "dotnet run -c Release -p ../../../../Fable/src/dotnet/Fable.Compiler npm-splitter",
+    "splitter": "node ./node_modules/fable-splitter/dist/cli --commonjs",
+    "test-node": "node out-test/test",
+    "test-dotnet": "dotnet run -c Release -p fcs-fable-test.fsproj",
+    "bench-dotnet": "dotnet run -c Release -p bench/fcs-fable-bench.fsproj ../fcs-fable.fsproj"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.4.0",
+    "@babel/plugin-transform-modules-commonjs": "^7.4.0",
+    "fable-splitter": "^2.1.6"
+  }
+}

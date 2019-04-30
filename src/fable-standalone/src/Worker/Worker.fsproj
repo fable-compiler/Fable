@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Interfaces.fs" />
+    <Compile Include="../Metadata.fs" />
+    <Compile Include="Shared.fs" />
+    <Compile Include="Worker.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="2.0.3" />
+    <PackageReference Include="Thoth.Json" Version="2.5.0" />
+  </ItemGroup>
+</Project>

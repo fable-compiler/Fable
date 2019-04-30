@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="4.6.2" />
+    <ProjectReference Include="../../fcs-fable/fcs-fable.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Fable.Transforms -->
+    <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
+    <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
+    <Compile Include="../../Fable.Transforms/Global/Compiler.fs" />
+    <Compile Include="../../Fable.Transforms/AST/AST.Common.fs" />
+    <Compile Include="../../Fable.Transforms/AST/AST.Fable.fs" />
+    <Compile Include="../../Fable.Transforms/AST/AST.Babel.fs" />
+    <Compile Include="../../Fable.Transforms/MonadicTrampoline.fs" />
+    <Compile Include="../../Fable.Transforms/Transforms.Util.fs" />
+    <Compile Include="../../Fable.Transforms/OverloadSuffix.fs" />
+    <Compile Include="../../Fable.Transforms/FSharp2Fable.Util.fs" />
+    <Compile Include="../../Fable.Transforms/ReplacementsInject.fs" />
+    <Compile Include="../../Fable.Transforms/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Inject.fs" />
+    <Compile Include="../../Fable.Transforms/FSharp2Fable.fs" />
+    <Compile Include="../../Fable.Transforms/FableTransforms.fs" />
+    <Compile Include="../../Fable.Transforms/Fable2Babel.fs" />
+    <Compile Include="../../Fable.Transforms/State.fs" />
+
+    <Compile Include="Interfaces.fs"/>
+    <Compile Include="Metadata.fs"/>
+    <Compile Include="Lexer.fs"/>
+    <Compile Include="Main.fs"/>
+  </ItemGroup>
+
+</Project>

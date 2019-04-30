@@ -269,7 +269,14 @@ let tests =
         [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
         |> Array.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
-    testCase "Array.choose works" <| fun () ->
+    testCase "Array.choose with ints works" <| fun () ->
+        let xs = [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 |]
+        let result = xs |> Array.choose (fun i ->
+            if i % 2 = 1 then Some i
+            else None)
+        result.Length |> equal 5
+
+    testCase "Array.choose with longs works" <| fun () ->
         let xs = [|1L; 2L; 3L; 4L|]
         let result = xs |> Array.choose (fun x ->
            if x > 2L then Some x
@@ -787,8 +794,18 @@ let tests =
         let xs = [|1; 2|]
         let actual = Array.groupBy (fun _ -> true) xs
         let actualKey, actualGroup = actual.[0]
-        let worked = actualKey = true && actualGroup.[0] = 1 && actualGroup.[1] = 2
+        let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
         worked |> equal true
+
+    testCase "Array.groupBy does not run into undefined exception" <| fun () ->
+        let ys = [| 1;2;3 |] |> Array.groupBy (fun x -> x = 2)
+        ys |> equal [| (false, [| 1;3 |]); (true, [| 2 |]) |]
+
+    testCase "Array.groupBy maintains order" <| fun () ->
+        let xs = [| 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 |]
+        let mapped = xs |> Array.take 4 |> Array.map (fun (x,y) -> x, [|x,y; x,y+1|])
+        let grouped = xs |> Array.groupBy fst
+        grouped |> equal mapped
 
     testCase "Array.except works" <| fun () ->
         Array.except [|2|] [|1; 3; 2|] |> Array.last |> equal 3
@@ -872,4 +889,11 @@ let tests =
         xs |> Array.takeWhile (fun i -> i < 3.)
         |> Array.last
         |> equal 2.
+
+    testCase "Array.windowed works" <| fun () -> // See #1716
+        let nums = [| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]
+        Array.windowed 3 nums |> equal [|[|1.0; 1.5; 2.0|]; [|1.5; 2.0; 1.5|]; [|2.0; 1.5; 1.0|]; [|1.5; 1.0; 1.5|]|]
+        Array.windowed 5 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+        Array.windowed 6 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
+        Array.windowed 7 nums |> Array.isEmpty |> equal true
   ]

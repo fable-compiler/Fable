@@ -1,355 +1,237 @@
-#r "packages/build/FAKE/tools/FakeLib.dll"
-#load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
-#load "paket-files/build/fable-compiler/fake-helpers/Fable.FakeHelpers.fs"
+// This script is compiled by fable-compiler-js and runs entirely on node.js
+// You can execute it by typing: npx fable build.fsx --run [ARGUMENTS]
 
+#r "src/fable-metadata/lib/Fable.Core.dll"
+#load "src/fable-publish-utils/PublishUtils.fs"
+
+open PublishUtils
 open System
-open System.IO
-open System.Net
 open System.Text.RegularExpressions
-open Fake
-open Fake.Git
-open Octokit
-open Fable.FakeHelpers
+open Fable.Core
+open Fable.Import
 
-#if MONO
-// prevent incorrect output encoding (e.g. https://github.com/fsharp/FAKE/issues/1196)
-System.Console.OutputEncoding <- System.Text.Encoding.UTF8
-#endif
+// Appveyor artifact
+let FABLE_BRANCH = "master"
+let APPVEYOR_REPL_ARTIFACT_URL_PARAMS = "?branch=" + FABLE_BRANCH + "&pr=false"
+let APPVEYOR_REPL_ARTIFACT_URL =
+    "https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/fable-standalone/fable-standalone.zip"
+    + APPVEYOR_REPL_ARTIFACT_URL_PARAMS
 
-module Yarn =
-    open YarnHelper
+// ncave FCS fork
+let FCS_REPO = "https://github.com/ncave/FSharp.Compiler.Service"
+let FCS_REPO_LOCAL = "../FSharp.Compiler.Service_fable"
+let FCS_REPO_FABLE_BRANCH = "fable"
+let FCS_REPO_SERVICE_SLIM_BRANCH = "service_slim"
 
-    let install workingDir =
-        Yarn (fun p ->
-            { p with
-                Command = YarnCommand.Install InstallArgs.Standard
-                WorkingDirectory = workingDir
-            })
+type GhRealeases =
+    [<Emit("""new Promise((succeed, fail) =>
+        $0.create({user: $1, token: $2}, $3, $4, { tag_name: $5, name: $5, body: $6 }, (err, res) =>
+            err != null ? fail(err) : succeed(res)))""")>]
+    abstract create: user: string * token: string * owner: string * repo: string * name: string * msg: string -> JS.Promise<obj>
 
-    let run workingDir script args =
-        Yarn (fun p ->
-            { p with
-                Command = YarnCommand.Custom ("run " + script + " " + args)
-                WorkingDirectory = workingDir
-            })
+let cleanDirs dirs =
+    for dir in dirs do
+        removeDirRecursive dir
 
-let runBashOrCmd cwd (scriptFileName: string) args =
-    if isWindows
-    then run cwd (scriptFileName.Replace("/", "\\") + ".cmd") args
-    else run cwd "sh" (scriptFileName + ".sh " + args)
+let updateVersionInCliUtil() =
+    let filePath = "src/Fable.Cli/Util.fs"
+    let version = Publish.loadReleaseVersion "src/fable-compiler"
+    // printfn "VERSION %s" version
+    Regex.Replace(
+        readFile filePath,
+        @"let \[<Literal>] VERSION = "".*?""",
+        sprintf "let [<Literal>] VERSION = \"%s\"" version)
+    |> writeFile filePath
 
-let addToPath newPath =
-    let path = environVarOrDefault "PATH" ""
-    let separator = if isWindows then ";" else ":"
-    setEnvironVar "PATH" (newPath + separator + path)
+let downloadAndExtractTo (url: string) (targetDir: string) =
+    sprintf "npx download --extract --out %s \"%s\"" targetDir url |> run
 
-// Project info
-let project = "Fable"
+let buildTypescript projectDir =
+    // run ("npx tslint --project " + projectDir)
+    run ("npx tsc --project " + projectDir)
 
-let gitOwner = "fable-compiler"
-let gitHome = "https://github.com/" + gitOwner
+let buildSplitterWithArgs projectDir args =
+    run ("npx fable-splitter -c " + (projectDir </> "splitter.config.js") + " " + args)
 
-let mutable dotnetExePath = environVarOrDefault "DOTNET" "dotnet"
+let buildSplitter projectDir =
+    buildSplitterWithArgs projectDir ""
 
-let CWD = __SOURCE_DIRECTORY__
-let cliBuildDir = CWD </> "build/fable-compiler"
-let libraryBuildDir = CWD </> "build/fable-library"
-let cliSrcDir = CWD </> "src/dotnet/Fable.Compiler"
-let librarySrcDir = CWD </> "src/js/fable-library"
-let ncaveFcsForkRepo = "https://github.com/ncave/FSharp.Compiler.Service"
-let ncaveFcsForkBranch = "fable"
-let ncaveFcsCodeGenTarget = "fcs/build CodeGen.Fable"
-let APPVEYOR_REPL_ARTIFACT_URL = "https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/dotnet/Fable.Repl/repl-bundle.zip?branch=master&pr=false"
+let buildWebpack projectDir =
+    run ("npx webpack --config " + (projectDir </> "webpack.config.js"))
 
-// Targets
-let downloadArtifact path (url: string) =
-    let tempFile = Path.ChangeExtension(Path.GetTempFileName(), ".zip")
-    use client = new WebClient()
-    printfn "GET %s" url
-    client.DownloadFile(Uri url, tempFile)
-    CleanDir path
-    Unzip path tempFile
-    File.Delete tempFile
-    printfn "Artifact unzipped at %s" path
+let buildLibrary() =
+    cleanDirs ["build/fable-library"]
+    buildTypescript "src/fable-library"
+    buildSplitter "src/fable-library"
 
-let installDotnetSdk () =
-    let dotnetcliVersion =
-        Path.Combine(__SOURCE_DIRECTORY__, "global.json")
-        |> findLineAndGetGroupValue "\"version\": \"(.*?)\"" 1
+let buildCompiler() =
+    let projectDir = "src/fable-compiler"
+    let libraryDir = "build/fable-library"
+    cleanDirs [projectDir </> "dist"; projectDir </> "bin"]
+    buildTypescript projectDir
+    updateVersionInCliUtil()
+    run "dotnet publish -c Release -o ../fable-compiler/bin/fable-cli src/Fable.Cli/Fable.Cli.fsproj"
+    buildLibrary()
+    copyDirRecursive libraryDir (projectDir </> "bin/fable-library")
 
-    dotnetExePath <- DotNetCli.InstallDotNetSDK dotnetcliVersion
-    if Path.IsPathRooted(dotnetExePath) then
-        Path.GetDirectoryName(dotnetExePath) |> addToPath
-    run CWD dotnetExePath "--version"
+let buildCompilerJs testLocal =
+    let projectDir = "src/fable-compiler-js"
+    cleanDirs [projectDir </> "dist"]
+    if testLocal then
+        buildSplitterWithArgs projectDir "--test-local"
+    else
+        buildSplitter projectDir
 
-let clean () =
-    !! "build" ++ "**/.fable" ++ "src/**/obj"
-    |> CleanDirs
+let buildStandalone() =
+    let projectDir = "src/fable-standalone"
+    let libraryDir = "build/fable-library"
+    cleanDirs [projectDir </> "dist"]
+    buildLibrary()
 
-let nugetRestore dir =
-    run dir dotnetExePath "restore"
-
-type BuildConfig = Release | Debug
-
-let buildCompilerDotnet cfg outDir () =
-    sprintf "publish -o %s -c %s" (CWD </> outDir)
-        (match cfg with Release -> "Release" | Debug -> "Debug")
-    |> run cliSrcDir dotnetExePath
-
-let buildLibraryTypescriptFiles () =
-    Yarn.run CWD "tsc" (sprintf "--project %s" librarySrcDir)
-
-let runFableCli command fableArgs commandArgs =
-    sprintf
-        // "%s/dotnet-fable.dll %s %s -- %s" cliBuildDir
-        "run -c Release -p %s %s %s --args \"%s\"" cliSrcDir
-        command fableArgs commandArgs
-    |> run CWD dotnetExePath
-
-let buildLibraryFsharpFiles () =
-    runFableCli
-        "fable-splitter"
-        "--fable-library force:${outDir}"  // fable-splitter will adjust the path
-        "-c src/js/fable-library/splitter.config.js"
-
-let buildTypescript projectDir () =
-    Yarn.install CWD
-    let projectDir = CWD </> projectDir
-    // Yarn.run CWD "tslint" [sprintf "--project %s" projectDir]
-    Yarn.run CWD "tsc" (sprintf "--project %s" projectDir)
-
-let buildNpmPackage pkgDir () =
-    Yarn.install CWD
-    let pkgDir = CWD </> pkgDir
-    run pkgDir "npm" "install"
-    run pkgDir "npm" "run build"
-    run pkgDir "npm" "test"
-
-let buildLibraryFull () =
-    Yarn.install CWD
-    Yarn.run CWD "tslint" (sprintf "--project %s" librarySrcDir)
-    buildLibraryTypescriptFiles ()
-    buildLibraryFsharpFiles ()
-    run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run"
-
-let runTestsDotnet () =
-    // CleanDir "tests/Main/obj"
-    run (CWD </> "tests/Main") dotnetExePath "run"
-    // run (CWD </> "src/dotnet/Fable.JsonConverter/tests") dotnetExePath "test"
-
-let runTestsJS () =
-    Yarn.install CWD
-    Yarn.run CWD "build-tests" ""
-
-let updateVersionInFile useNugetVersion releaseNotesPath targetFilePath (regexPatternInTargetFile: string) =
-    let reg = Regex regexPatternInTargetFile
-    let release =
-        CWD </> releaseNotesPath
-        |> ReleaseNotesHelper.LoadReleaseNotes
-    let mainFile = CWD </> targetFilePath
-    (reg, mainFile) ||> replaceLines (fun line m ->
-        let original = m.Value
-        let versionIndex = m.Groups.[1].Index - m.Index
-        let versionLastIndex = versionIndex + m.Groups.[1].Value.Length
-        reg.Replace(line,
-            original.Substring(0, versionIndex) +
-            (if useNugetVersion then release.NugetVersion else release.AssemblyVersion) +
-            (if versionLastIndex < original.Length then original.Substring(versionLastIndex) else "")
-        ) |> Some)
-
-let updateVersionInCliUtil compilerReleaseNotes =
-    updateVersionInFile true
-        compilerReleaseNotes
-        "src/dotnet/Fable.Compiler/CLI/CLI.Util.fs"
-        @"\bVERSION\s*=\s*""(.*?)"""
-    updateVersionInFile false
-        "src/dotnet/Fable.Core/RELEASE_NOTES.md"
-        "src/dotnet/Fable.Compiler/CLI/CLI.Util.fs"
-        @"\bCORE_VERSION\s*=\s*""(.*?)"""
-
-let getBuildParamOrUserInput isPassword buildParam prompt =
-    match getBuildParam buildParam with
-    | s when not (String.IsNullOrWhiteSpace s) -> s
-    | _ -> if isPassword then getUserPassword (prompt + ": ")
-           else getUserInput (prompt + ": ")
-
-let githubRelease releaseNotesDir () =
-    let release =
-        CWD </> releaseNotesDir </> "RELEASE_NOTES.md"
-        |> ReleaseNotesHelper.LoadReleaseNotes
-    let remote =
-        Git.CommandHelper.getGitResult "" "remote -v"
-        |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
-        |> Seq.tryFind (fun (s: string) -> s.Contains(gitOwner + "/" + project))
-        |> function None -> gitHome + "/" + project | Some (s: string) -> s.Split().[0]
-
-    StageAll ""
-    Git.Commit.Commit "" (sprintf "Bump version to %s" release.NugetVersion)
-    Branches.pushBranch "" remote (Information.getBranchName "")
-
-    Branches.tag "" release.NugetVersion
-    Branches.pushTag "" remote release.NugetVersion
-
-    // release on github
-    createClient
-        (getBuildParamOrUserInput false "github-user" "GitHub Username")
-        (getBuildParamOrUserInput true "github-pw" "GitHub Password")
-    |> createRelease gitOwner project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
-    // |> uploadFile (buildDir</>("FSharp.Compiler.Service." + release.NugetVersion + ".nupkg"))
-    |> releaseDraft
-    |> Async.RunSynchronously
-
-let bundleRepl (fetchNcaveFork: bool) () =
-    if fetchNcaveFork then
-        let fcsFableDir =
-            // Appveyor has problems with too long paths so download the fork closer to root
-            // TODO: Another option for local Windows Systems (not AppVeyor)
-            match environVarOrNone "APPVEYOR" with
-            | Some _ -> "/projects/fcs"
-            | None -> CWD </> "paket-files/ncave/FCS"
-
-        let fableJsProj = CWD </> "src/dotnet/Fable.Repl/Fable.Repl.fsproj"
-        let fcsFableProj = fcsFableDir </> "fcs/fcs-fable/fcs-fable.fsproj"
-
-        let reg = Regex(@"ProjectReference Include="".*?""")
-        (reg, fableJsProj) ||> replaceLines (fun line _ ->
-            let replacement = reg.Replace(line, sprintf @"ProjectReference Include=""%s""" fcsFableProj)
-            printfn "REPLACED:\n\t%s\n\t%s" line replacement
-            Some replacement)
-
-        CleanDir fcsFableDir
-        Repository.cloneSingleBranch CWD ncaveFcsForkRepo ncaveFcsForkBranch fcsFableDir
-
-        runBashOrCmd fcsFableDir "fcs/build" "CodeGen.Fable"
-        Directory.GetFiles(fcsFableDir </> "fcs/fcs-fable/codegen")
-        |> Seq.iter (printfn "%s")
-
-    // Build REPL
-    Yarn.install CWD
-    Yarn.run CWD "build-repl-modules" ""
-    Yarn.run CWD "bundle-repl" ""
-
-    let replDir = CWD </> "src/dotnet/Fable.Repl"
-    let bundleSize = IO.FileInfo(replDir </> "bundle/bundle.min.js").Length / 1000L
-    printfn "REPL bundle size: %iKB" bundleSize
+    // bundle.min.js
+    buildWebpack projectDir
+    fileSizeInBytes (projectDir </> "dist/bundle.min.js") / 1000
+    |> printfn "Bundle size: %iKB"
+    // worker.min.js
+    buildWebpack "src/fable-standalone/src/Worker"
 
     // Put fable-library files next to bundle
-    let libraryTarget = replDir </> "bundle/fable-library"
-    FileUtils.cp_r libraryBuildDir libraryTarget
+    let libraryTarget = projectDir </> "dist/fable-library"
+    copyDirRecursive libraryDir libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
     let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
-    for file in Directory.EnumerateFiles(libraryTarget, "*.js", SearchOption.AllDirectories) do
-        File.WriteAllText(file, reg.Replace(File.ReadAllText(file), "import $1.js$2"))
+    getFullPathsInDirectoryRecursively libraryTarget
+    |> Array.filter (fun file -> file.EndsWith(".js"))
+    |> Array.iter (fun file ->
+        reg.Replace(readFile file, fun m ->
+            let fst = m.Groups.[1].Value
+            if fst.EndsWith(".js") then m.Value
+            else sprintf "import %s.js%s" fst m.Groups.[2].Value)
+        |> writeFile file)
 
-    // Write version number in a version.txt file
-    let release =
-        CWD </> "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
-        |> ReleaseNotesHelper.LoadReleaseNotes
-    File.WriteAllText(replDir </> "bundle/version.txt", release.NugetVersion)
+    // Bump version
+    // let compilerVersion = Publish.loadReleaseVersion "src/fable-compiler"
+    // let standaloneVersion = Publish.loadNpmVersion projectDir
+    // let (comMajor, comMinor, _, comPrerelease) = Publish.splitVersion compilerVersion
+    // let (staMajor, staMinor, staPatch, _) = Publish.splitVersion standaloneVersion
+    // Publish.bumpNpmVersion projectDir
+    //     (if comMajor > staMajor || comMinor > staMinor then compilerVersion
+    //      else sprintf "%i.%i.%i%s" staMajor staMinor (staPatch + 1) comPrerelease)
 
-let buildNpmFableCompilerJs fast () =
-    if not fast then
-        buildLibraryFull ()
-    let replDir = CWD </> "src/dotnet/Fable.Repl"
-    let distDir = CWD </> "src/js/fable-compiler-js/dist"
-    if not(fast && Directory.Exists(replDir </> "bundle")) then
-        // bundleRepl false ()
-        downloadArtifact (replDir </> "bundle") APPVEYOR_REPL_ARTIFACT_URL
-    CleanDir distDir
-    FileUtils.cp_r (replDir </> "bundle") (distDir </> "bundle")
-    FileUtils.cp_r (replDir </> "metadata2") (distDir </> "metadata2")
-    Yarn.run CWD "babel" (sprintf "%s --out-dir %s --plugins @babel/plugin-transform-modules-commonjs --quiet"
-        (replDir </> "bundle/fable-library") (distDir </> "fable-library-commonjs"))
-    Yarn.run CWD "build-compiler-js" ""
+let test() =
+    if pathExists "build/fable-library" |> not then
+        buildLibrary()
 
-let buildNpmFableCompilerDotnet () =
-    let projectDir = "src/js/fable-compiler"
-    CleanDir (projectDir </> "dist")
-    CleanDir (projectDir </> "bin")
-    buildTypescript projectDir ()
-    buildLibraryFull ()
-    updateVersionInCliUtil "src/js/fable-compiler/RELEASE_NOTES.md"
-    buildCompilerDotnet Release (projectDir </> "bin/fable-compiler") ()
-    FileUtils.cp_r libraryBuildDir (projectDir </> "bin/fable-library")
+    cleanDirs ["build/tests"]
+    buildSplitter "tests"
+    run "npx mocha build/tests --reporter dot -t 10000"
+    runInDir "tests/Main" "dotnet run"
 
-let runBench2 () =
-    Yarn.install CWD
-    Yarn.run CWD "babel" "src/dotnet/Fable.Repl/out --out-dir src/dotnet/Fable.Repl/out2 --plugins @babel/plugin-transform-modules-commonjs --quiet"
-    Yarn.run CWD "build-bench2" ""
-    Yarn.run CWD "start-bench2" ""
+    if envVarOrNone "APPVEYOR" |> Option.isSome then
+        buildStandalone()
+        // Test fable-compiler-js locally
+        buildCompilerJs true
+        run "node src/fable-compiler-js tests/Main/Fable.Tests.fsproj build/tests-js --commonjs"
+        run "npx mocha build/tests-js --reporter dot -t 10000"
+        // runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
+        // runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
 
-    // Run the test script
-    Yarn.run CWD "babel" "build/fable-library --out-dir src/dotnet/Fable.Repl/out-fable-library --plugins @babel/plugin-transform-modules-commonjs --quiet"
-    Yarn.run CWD "test-bench2" ""
+let downloadStandalone() =
+    let targetDir = "src/fable-standalone/dist"
+    cleanDirs [targetDir]
+    downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL targetDir
 
-Target "Clean" clean
-Target "FableLibrary" buildLibraryFull
-Target "FableLibraryTypescriptOnly" buildLibraryTypescriptFiles
-Target "FableLibraryFSharpOnly" buildLibraryFsharpFiles
-Target "FableLibraryInjects" (fun _ ->
-    run (CWD </> "src/tools/InjectProcessor") dotnetExePath "run")
-Target "fable-splitter" (buildNpmPackage "src/js/fable-splitter")
-Target "fable-compiler" buildNpmFableCompilerDotnet
-Target "fable-compiler-js" (buildNpmFableCompilerJs true)
-Target "RunTestsJS" runTestsJS
-Target "RunTestsDotnet" runTestsDotnet
+// TODO: Run fable-splitter tests
+let buildFableSplitter() =
+    buildTypescript "src/fable-splitter"
 
-Target "PublishPackages" (fun () ->
-    let baseDir = CWD </> "src"
-    let packages = [
-        // Nuget packages
-        Package("dotnet/Fable.Core/Fable.Core.fsproj", (fun () ->
-            updateVersionInFile false
-                "src/dotnet/Fable.Core/RELEASE_NOTES.md"
-                "src/dotnet/Fable.Core/AssemblyInfo.fs"
-                @"\bAssemblyVersion\s*\(\s*""(.*?)"""
-        ))
-        Package("dotnet/Fable.Compiler/Fable.Compiler.fsproj", (fun () ->
-            buildLibraryFull ()
-            updateVersionInCliUtil "src/dotnet/Fable.Compiler/RELEASE_NOTES.md"
-        ), pkgName="dotnet-fable", msbuildProps=["NugetPackage", "true"])
-        // NPM packages
-        Package ("js/fable-compiler-js", buildNpmFableCompilerJs false)
-        Package ("js/fable-compiler", buildNpmFableCompilerDotnet)
-        Package "js/fable-loader"
-        Package "js/fable-babel-plugins"
-        Package "js/rollup-plugin-fable"
-        Package("js/fable-splitter", buildNpmPackage "src/js/fable-splitter")
+let githubRelease() =
+    match envVarOrNone "GITHUB_USER", envVarOrNone "GITHUB_TOKEN" with
+    | Some user, Some token ->
+        async {
+            try
+                let ghreleases: GhRealeases = JsInterop.importAll "ghreleases"
+                let! version, notes = Publish.loadReleaseVersionAndNotes "src/fable-compiler"
+                run <| sprintf "git commit -am \"Release %s\" && git push" version
+                let! res = ghreleases.create(user, token, "fable-compiler", "Fable", version, String.concat "\n" notes) |> Async.AwaitPromise
+                printfn "Github release %s created successfully" version
+            with ex ->
+                printfn "Github release failed: %s" ex.Message
+        } |> Async.StartImmediate
+    | _ -> failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
+
+let syncFcsRepo() =
+    // FAKE is giving lots of problems with the dotnet SDK version, ignore it
+    let cheatWithDotnetSdkVersion dir f =
+        let path = dir </> "build.fsx"
+        let script = readFile path
+        Regex.Replace(script, @"let dotnetExePath =[\s\S]*DotNetCli\.InstallDotNetSDK", "let dotnetExePath = \"dotnet\" //DotNetCli.InstallDotNetSDK") |> writeFile path
+        f ()
+        runInDir dir "git reset --hard"
+
+    printfn "Expecting %s repo to be cloned at %s" FCS_REPO FCS_REPO_LOCAL
+
+    // TODO: Prompt to reset --hard changes
+    // service_slim
+    runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_SERVICE_SLIM_BRANCH)
+    runInDir FCS_REPO_LOCAL "git pull"
+    cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
+        runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "")
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/netstandard2.0/FSharp.Compiler.Service.dll")  "../fable/lib/fcs/"
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/netstandard2.0/FSharp.Compiler.Service.xml")  "../fable/lib/fcs/"
+
+    // fcs-fable
+    runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_FABLE_BRANCH)
+    runInDir FCS_REPO_LOCAL "git pull"
+    cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
+        runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "CodeGen.Fable")
+    copyDirRecursive (FCS_REPO_LOCAL </> "fcs/fcs-fable") "src/fcs-fable"
+    copyDirRecursive (FCS_REPO_LOCAL </> "src") "src/fcs-fable/src"
+    removeFile "src/fcs-fable/.gitignore"
+    let fcsFableProj = "src/fcs-fable/fcs-fable.fsproj"
+    Regex.Replace(
+            readFile fcsFableProj,
+            @"(<FSharpSourcesRoot>\$\(MSBuildProjectDirectory\)).*?(<\/FSharpSourcesRoot>)",
+            "$1/src$2")
+    |> writeFile fcsFableProj
+
+let packages =
+    ["Fable.Core", doNothing
+     "fable-babel-plugins", doNothing
+     "fable-compiler", buildCompiler
+     "fable-compiler-js", (fun () -> buildCompilerJs false)
+     "fable-loader", doNothing
+     "fable-metadata", doNothing
+     "fable-publish-utils", doNothing
+     "fable-splitter", buildFableSplitter
+     "fable-standalone", downloadStandalone
     ]
-    installDotnetSdk ()
-    clean ()
-    publishPackages2 baseDir dotnetExePath packages
-)
 
-Target "All" (fun () ->
-    installDotnetSdk ()
-    clean ()
-    buildLibraryFull ()
-    runTestsJS ()
+let publishPackages restArgs =
+    let packages =
+        match List.tryHead restArgs with
+        | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
+        | None -> packages
+    for (pkg, buildAction) in packages do
+        if System.Char.IsUpper pkg.[0] then
+            pushNuget ("src" </> pkg </> pkg + ".fsproj") buildAction
+        else
+            pushNpm ("src" </> pkg) buildAction
 
-    match environVarOrNone "APPVEYOR", environVarOrNone "TRAVIS" with
-    | Some _, _ -> runTestsDotnet (); bundleRepl true (); runBench2 ()
-    | _, Some _ -> () // .NET tests fail in Travis for obscure reasons
-    | None, None -> runTestsDotnet () // Don't build repl locally (takes too long)
-)
+match argsLower with
+| "test"::_ -> test()
+| ("fable-library"|"library")::_ -> buildLibrary()
+| ("fable-compiler"|"compiler")::_ -> buildCompiler()
+| ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs false
+| ("fable-splitter"|"splitter")::_ -> buildFableSplitter()
+| ("fable-standalone"|"standalone")::_ -> buildStandalone()
+| "download-standalone"::_ -> downloadStandalone()
+| "publish"::restArgs -> publishPackages restArgs
+| "github-release"::_ ->
+    publishPackages []
+    githubRelease ()
+| "sync-fcs-repo"::_ -> syncFcsRepo()
+| _ ->
+    printfn "Please pass a target name"
 
-Target "BundleReplLocally" (fun () ->
-    printfn "Make sure you've run target All or FableLibrary before this."
-    printfn "You need to clone '%s' branch of '%s' repository in a sibling folder named: %s."
-        ncaveFcsForkBranch ncaveFcsForkRepo "FSharp.Compiler.Service_fable"
-    printfn "And run '%s' build target." ncaveFcsCodeGenTarget
-    bundleRepl false ())
-
-Target "BuildReplAsNodeApp" (fun () ->
-    printfn "Make sure you've run target BundleReplLocally before this."
-    printfn "Check 'start-bench2' script in package.json to see how to run the REPL as a node app."
-    runBench2 ()
-)
-
-Target "GitHubRelease" (githubRelease "src/js/fable-compiler")
-
-"PublishPackages"
-==> "GitHubRelease"
-
-// Start build
-RunTargetOrDefault "All"
+printf "Build finished successfully"

@@ -3,7 +3,6 @@ module Fable.Tests.DateTime
 open System
 open Util.Testing
 open Fable.Tests
-open Fable.Tests
 
 let toSigFigs nSigFigs x =
     let absX = abs x
@@ -28,10 +27,9 @@ let tests =
         DateTime(2017, 9, 5).ToString("yyyyMM")
         |> equal "201709"
 
-    // TODO
-    // testCase "TimeSpan.ToString with format works" <| fun () ->
-    //     TimeSpan.FromMinutes(234.).ToString("hh\:mm\:ss")
-    //     |> equal "03:54:00"
+    testCase "DateTime.ToString with milliseconds" <| fun () -> // See #1726
+        DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("ss.fff")
+        |> equal "11.345"
 
     testCase "DateTime.ToString with Round-trip format works for Utc" <| fun () ->
         let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
@@ -188,7 +186,7 @@ let tests =
         equal d2.Ticks d3.Ticks
 
     testCase "DateTime <-> Ticks isomorphism" <| fun () ->
-        let checkIsomorphism (d: DateTime) = 
+        let checkIsomorphism (d: DateTime) =
             try
                 let ticks = d.Ticks
                 let kind = d.Kind
@@ -201,7 +199,7 @@ let tests =
                 equal ticks fromTicksWithKind.Ticks
                 equal kind fromTicksWithKind.Kind
             with e ->
-                failwithf "%A: %O" d e      
+                failwithf "%A: %O" d e
 
             try
                 equal d.Ticks (DateTime d.Ticks).Ticks
@@ -500,155 +498,6 @@ let tests =
         let t = d.TimeOfDay
 
         t |> equal (TimeSpan(0, 13, 23, 30, 1))
-
-    testCase "TimeSpan constructors work" <| fun () ->
-        let t1 = TimeSpan(20000L)
-        let t2 = TimeSpan(3, 3, 3)
-        let t3 = TimeSpan(5, 5, 5, 5)
-        let t4 = TimeSpan(7, 7, 7, 7, 7)
-
-        t1.TotalMilliseconds |> equal 2.0
-        t2.TotalMilliseconds |> equal 10983000.0
-        t3.TotalMilliseconds |> equal 450305000.0
-        t4.TotalMilliseconds |> equal 630427007.0
-
-        t1.TotalMilliseconds + t2.TotalMilliseconds + t3.TotalMilliseconds + t4.TotalMilliseconds
-        |> equal 1091715009.0
-
-    testCase "TimeSpan static creation works" <| fun () ->
-        let t1 = TimeSpan.FromTicks(20000L)
-        let t2 = TimeSpan.FromMilliseconds(2.)
-        let t3 = TimeSpan.FromDays   (2.)
-        let t4 = TimeSpan.FromHours  (2.)
-        let t5 = TimeSpan.FromMinutes(2.)
-        let t6 = TimeSpan.FromSeconds(2.)
-        let t7 = TimeSpan.Zero
-        t1.TotalMilliseconds + t2.TotalMilliseconds + t3.TotalMilliseconds + t4.TotalMilliseconds +
-           t5.TotalMilliseconds + t6.TotalMilliseconds + t7.TotalMilliseconds
-        |> equal 180122004.0
-
-    testCase "TimeSpan components work" <| fun () ->
-        let t = TimeSpan.FromMilliseconds(96441615.)
-        t.Days + t.Hours + t.Minutes + t.Seconds + t.Milliseconds |> float
-        |> equal 686.
-
-    testCase "TimeSpan.Ticks works" <| fun () ->
-        let t = TimeSpan.FromTicks(20000L)
-        t.Ticks
-        |> equal 20000L
-
-    // NOTE: This test fails because of very small fractions, so I cut the fractional part
-    testCase "TimeSpan totals work" <| fun () ->
-        let t = TimeSpan.FromMilliseconds(96441615.)
-        t.TotalDays + t.TotalHours + t.TotalMinutes + t.TotalSeconds |> floor
-        |> equal 98076.0
-
-    testCase "TimeSpan.Duration works" <| fun () ->
-        let test ms expected =
-            let t = TimeSpan.FromMilliseconds(ms)
-            t.Duration().TotalMilliseconds
-            |> equal expected
-        test 1. 1.
-        test -1. 1.
-        test 0. 0.
-
-    testCase "TimeSpan.Negate works" <| fun () ->
-        let test ms expected =
-            let t = TimeSpan.FromMilliseconds(ms)
-            t.Negate().TotalMilliseconds
-            |> equal expected
-        test 1. -1.
-        test -1. 1.
-        test 0. 0.
-
-    testCase "TimeSpan Addition works" <| fun () ->
-        let test ms1 ms2 expected =
-            let t1 = TimeSpan.FromMilliseconds(ms1)
-            let t2 = TimeSpan.FromMilliseconds(ms2)
-            let res1 = t1.Add(t2).TotalMilliseconds
-            let res2 = (t1 + t2).TotalMilliseconds
-            equal true (res1 = res2)
-            equal expected res1
-        test 1000. 2000. 3000.
-        test 200. -1000. -800.
-        test -2000. 1000. -1000.
-        test -200. -300. -500.
-        test 0. 1000. 1000.
-        test -2000. 0. -2000.
-        test 0. 0. 0.
-
-    testCase "TimeSpan Subtraction works" <| fun () ->
-        let test ms1 ms2 expected =
-            let t1 = TimeSpan.FromMilliseconds(ms1)
-            let t2 = TimeSpan.FromMilliseconds(ms2)
-            let res1 = t1.Subtract(t2).TotalMilliseconds
-            let res2 = (t1 - t2).TotalMilliseconds
-            equal true (res1 = res2)
-            equal expected res1
-        test 1000. 2000. -1000.
-        test 200. -2000. 2200.
-        test -2000. 1000. -3000.
-        test 200. -300. 500.
-        test 0. 1000. -1000.
-        test 1000. 1000. 0.
-        test 0. 0. 0.
-
-    testCase "TimeSpan Comparison works" <| fun () ->
-        let test ms1 ms2 expected =
-            let t1 = TimeSpan.FromMilliseconds(ms1)
-            let t2 = TimeSpan.FromMilliseconds(ms2)
-            let res1 = compare t1 t2
-            let res2 = t1.CompareTo(t2)
-            let res3 = TimeSpan.Compare(t1, t2)
-            equal true (res1 = res2 && res2 = res3)
-            equal expected res1
-        test 1000. 2000. -1
-        test 2000. 1000. 1
-        test -2000. -2000. 0
-        test 200. -200. 1
-        test 0. 1000. -1
-        test 1000. 1000. 0
-        test 0. 0. 0
-
-    testCase "TimeSpan GreaterThan works" <| fun () ->
-        let test ms1 ms2 expected =
-            let t1 = TimeSpan.FromMilliseconds(ms1)
-            let t2 = TimeSpan.FromMilliseconds(ms2)
-            t1 > t2
-            |> equal expected
-        test 1000. 2000. false
-        test 2000. 1000. true
-        test -2000. -2000. false
-
-    testCase "TimeSpan LessThan works" <| fun () ->
-        let test ms1 ms2 expected =
-            let t1 = TimeSpan.FromMilliseconds(ms1)
-            let t2 = TimeSpan.FromMilliseconds(ms2)
-            t1 < t2
-            |> equal expected
-        test 1000. 2000. true
-        test 2000. 1000. false
-        test -2000. -2000. false
-
-    testCase "TimeSpan Equality works" <| fun () ->
-        let test ms1 ms2 expected =
-            let t1 = TimeSpan.FromMilliseconds(ms1)
-            let t2 = TimeSpan.FromMilliseconds(ms2)
-            t1 = t2
-            |> equal expected
-        test 1000. 2000. false
-        test 2000. 1000. false
-        test -2000. -2000. true
-
-    testCase "TimeSpan Inequality works" <| fun () ->
-        let test ms1 ms2 expected =
-            let t1 = TimeSpan.FromMilliseconds(ms1)
-            let t2 = TimeSpan.FromMilliseconds(ms2)
-            t1 <> t2
-            |> equal expected
-        test 1000. 2000. true
-        test 2000. 1000. true
-        test -2000. -2000. false
 
     testCaseAsync "Timer with AutoReset = true works" <| fun () ->
         async {

@@ -4,10 +4,10 @@ open System
 open System.IO
 open System.Collections.Generic
 open System.Text.RegularExpressions
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.Ast
-open Microsoft.FSharp.Compiler.SourceCodeServices
-open Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns
+open FSharp.Compiler
+open FSharp.Compiler.Ast
+open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices.BasicPatterns
 
 let parse (checker: FSharpChecker) projFile =
     let projFile = Path.GetFullPath(projFile)
@@ -19,7 +19,7 @@ let parse (checker: FSharpChecker) projFile =
             |> Async.RunSynchronously
             |> fst
         | ".fsproj" ->
-            let opts, _, _ = Fable.CLI.ProjectCoreCracker.GetProjectOptionsFromProjectFile(projFile)
+            let opts, _, _ = Fable.Cli.ProjectCoreCracker.GetProjectOptionsFromProjectFile(projFile)
             opts
         | ext -> failwithf "Unexpected extension: %s" ext
     // for f in options.OtherOptions do

@@ -319,7 +319,7 @@ let parse (parser:Parser<'a->'a,'a>) url args =
     |> parseHelp
 
 #if FABLE_COMPILER
-open Fable.Import
+open Fable.Core
 
 let internal toKeyValuePair (segment:string) =
     match segment.Split('=') with

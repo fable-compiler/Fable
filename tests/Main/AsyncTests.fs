@@ -22,6 +22,12 @@ type Get =
     | GetZero of replyChannel: AsyncReplyChannel<int>
     | GetOne of replyChannel: AsyncReplyChannel<int>
 
+let sleepAndAssign token res =
+    Async.StartImmediate(async {
+        do! Async.Sleep 200
+        res := true
+    }, token)
+
 let tests =
   testList "Async" [
     testCase "Simple async translates without exception" <| fun () ->
@@ -112,11 +118,6 @@ let tests =
     #if FABLE_COMPILER
     testCaseAsync "Async cancellation works" <| fun () ->
         async {
-            let sleepAndAssign token res =
-                Async.StartImmediate(async {
-                    do! Async.Sleep 200
-                    res := true
-                }, token)
             let res1, res2, res3 = ref false, ref false, ref false
             let tcs1 = new System.Threading.CancellationTokenSource(50)
             let tcs2 = new System.Threading.CancellationTokenSource()
@@ -130,6 +131,19 @@ let tests =
             equal false !res1
             equal false !res2
             equal true !res3
+        }
+
+    testCaseAsync "CancellationTokenSource.Register works" <| fun () ->
+        async {
+            let mutable x = 0
+            let res1 = ref false
+            let tcs1 = new System.Threading.CancellationTokenSource(50)
+            let foo = tcs1.Token.Register(fun () ->
+                x <- x + 1)
+            sleepAndAssign tcs1.Token res1
+            do! Async.Sleep 500
+            equal false !res1
+            equal 1 x
         }
     #endif
 

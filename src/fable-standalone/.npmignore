@@ -1,0 +1,4 @@
+# Override .gitignore to include the `dist` folder
+test/
+src/**/bin/
+src/**/obj/

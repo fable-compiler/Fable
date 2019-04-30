@@ -6,6 +6,7 @@ open Util.Testing
 #if FABLE_COMPILER
 open Fable.Core
 open Fable.Core.JsInterop
+open Fable.Core.Experimental
 
 [<Global>]
 module GlobalModule =
@@ -282,6 +283,10 @@ let tests =
     testCase "Can use values and functions from global modules" <| fun () ->
         GlobalModule.add 3 4 |> equal 7
         GlobalModule.foo |> equal "bar"
+
+    testCase "Local import with curried signatures works" <| fun () ->
+        let add (x:int) (y:int): int = importMember "./js/1foo.js"
+        3 |> add 2 |> equal 5
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

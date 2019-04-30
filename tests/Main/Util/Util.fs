@@ -28,13 +28,13 @@ module Testing =
 let foo: string = Fable.Core.JsInterop.importMember "../js/1foo.js"
 
 [<Fable.Core.Import("foo", "../js/1foo.js")>]
-let foo2: string = failwith "JS only"
+let foo2: string = Fable.Core.Util.jsNative
 
-let apply (f:Func<int,int,int>) (x:int) (y:int) = Fable.Core.JsInterop.importMember "../js/1foo.js"
+let apply (f:Func<int,int,int>) (x:int) (y:int): int = Fable.Core.JsInterop.importMember "../js/1foo.js"
 #else
 let foo = "foo"
 let foo2 = "foo"
-let apply (f:Func<int,int,int>) (x:int) (y:int) = f.Invoke(x, y)
+let apply (f:Func<int,int,int>) (x:int) (y:int): int = f.Invoke(x, y)
 #endif
 
 // Idents starting with a digit doesn't cause an error
@@ -53,6 +53,15 @@ let throwsError (expected: string) (f: unit -> 'a): unit =
             false
     // TODO better error messages
     equal false success
+
+let throwsAnyError (f: unit -> 'a): unit =
+    let result =
+        try
+            f () |> ignore
+            "succeeded"
+        with _ ->
+            "failed"
+    equal "failed" result
 
 let rec sumFirstSeq (zs: seq<float>) (n: int): float =
    match n with

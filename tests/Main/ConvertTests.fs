@@ -146,17 +146,23 @@ let tests =
         (fun () -> Int64.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
         (fun () -> Int64.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError "Input string was not in a correct format."
 
+    testCase "System.Int64.TryParse works" <| fun () ->
+        tryParse Int64.TryParse 0L "99" |> equal (true, 99L)
+        tryParse Int64.TryParse 0L "foo" |> equal (false, 0L)
+
+    testCase "System.UInt32.TryParse works" <| fun () ->
+        tryParse UInt32.TryParse 0u "99" |> equal (true, 99u)
+        tryParse UInt32.TryParse 0u "foo" |> equal (false, 0u)
+
+    testCase "System.UInt64.TryParse works" <| fun () ->
+        tryParse UInt64.TryParse 0UL "99" |> equal (true, 99UL)
+        tryParse UInt64.TryParse 0UL "foo" |> equal (false, 0UL)
+
     testCase "Parsing integers with different radices works" <| fun () ->
         equal 11 (int "11")
         equal 17 (int "0x11")
         equal 9  (int "0o11")
         equal 3  (int "0b11")
-
-    testCase "System.Int32.ToString 'x' works" <| fun () ->
-        (5592405).ToString("x") |> equal "555555"
-
-    testCase "System.Int32.ToString works" <| fun () ->
-        (5592405).ToString() |> equal "5592405"
 
     testCase "System.Int32.TryParse works" <| fun () ->
         tryParse Int32.TryParse 0 "1" |> equal (true, 1)
@@ -173,6 +179,34 @@ let tests =
     testCase "BigInt.TryParse works" <| fun () ->
         tryParse bigint.TryParse 0I "4234523548923954" |> equal (true, 4234523548923954I)
         tryParse bigint.TryParse 0I "9SayWhat12Huh" |> equal (false, 0I)
+
+    testCase "System.Int32.ToString works" <| fun () ->
+        (5592405).ToString() |> equal "5592405"
+
+    testCase "System.Int32.ToString 'd' works" <| fun () ->
+        (5592405).ToString("d") |> equal "5592405"
+        (5592405).ToString("d10") |> equal "0005592405"
+
+    testCase "System.Int32.ToString 'x' works" <| fun () ->
+        (5592405).ToString("x") |> equal "555555"
+        (5592405).ToString("x10") |> equal "0000555555"
+
+    testCase "System.Int64.ToString works" <| fun () ->
+        (5592405L).ToString() |> equal "5592405"
+
+    testCase "System.Int64.ToString 'd' works" <| fun () ->
+        (5592405L).ToString("d") |> equal "5592405"
+        (5592405L).ToString("d10") |> equal "0005592405"
+
+    testCase "System.Int64.ToString 'x' works" <| fun () ->
+        (5592405L).ToString("x") |> equal "555555"
+        (5592405L).ToString("x10") |> equal "0000555555"
+
+    testCase "System.BigInt.ToString works" <| fun () ->
+        (5592405I).ToString() |> equal "5592405"
+
+    testCase "System.Decimal.ToString works" <| fun () ->
+        (5592405M).ToString() |> equal "5592405"
 
     //-------------------------------------
     // System.Convert
@@ -835,6 +869,9 @@ let tests =
     // System.BitConverter
     //-------------------------------------
 
+    testCase "BitConverter.IsLittleEndian works" <| fun () ->
+        BitConverter.IsLittleEndian |> equal true
+
     testCase "BitConverter.GetBytes Boolean works" <| fun () ->
         let value = true
         let bytes = BitConverter.GetBytes(value)
@@ -962,6 +999,9 @@ let tests =
     // System.Numerics.BigInteger
     //-------------------------------------
 
+    testCase "BigInt from uint32 works" <| fun () ->
+        bigint System.UInt32.MaxValue |> equal 4294967295I
+
     testCase "BigInt ToSByte works" <| fun () ->
         let value = 0x02y
         sbyte (bigint (int32 value)) |> equal value
@@ -1045,6 +1085,17 @@ let tests =
         let success2, _ = Guid.TryParse("96258006-c4ba-4a7f-80c4")
         equal true success1
         equal false success2
+
+    testCase "Parsed guids with different case are considered the same" <| fun () -> // See #1718
+        let aGuid = Guid.NewGuid()
+
+        let lower = aGuid.ToString().ToLower()
+        let upper = aGuid.ToString().ToUpper()
+        lower = upper |> equal false
+
+        let lowerGuid = Guid.Parse lower
+        let upperGuid = Guid.Parse upper
+        lowerGuid = upperGuid |> equal true
 
     testCase "Convert Guid to byte[] works" <| fun () ->
         let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")

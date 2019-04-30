@@ -2,7 +2,6 @@ module Thoth.Json.Decode
 
 open Fable.Core
 open Fable.Core.JsInterop
-open Fable.Import
 
 module Helpers =
     [<Emit("typeof $0")>]

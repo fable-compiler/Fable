@@ -1,27 +1,28 @@
-#  F# |> BABEL
+# F# |> BABEL
 
 ### The compiler that emits JavaScript you can be proud of!
 
-[![Mono Build Status](https://travis-ci.org/fable-compiler/Fable.svg "Mono Build Status")](https://travis-ci.org/fable-compiler/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![NuGet Status](https://img.shields.io/nuget/v/dotnet-fable.svg?style=flat)](https://www.nuget.org/packages/dotnet-fable/) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Mono Build Status](https://travis-ci.org/fable-compiler/Fable.svg?branch=master "Mono Build Status")](https://travis-ci.org/fable-compiler/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5/branch/master?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![npm version](https://badge.fury.io/js/fable-compiler.svg)](https://www.npmjs.com/package/fable-compiler) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-[RELEASE NOTES](https://github.com/fable-compiler/Fable/blob/master/src/dotnet/Fable.Compiler/RELEASE_NOTES.md) · [Follow us on Twitter!](https://twitter.com/FableCompiler)
+[Follow us on Twitter!](https://twitter.com/FableCompiler)
 
 Fable is an F# to JavaScript compiler powered by [Babel](https://babeljs.io/), designed to produce readable and standard code. [Check the website](http://fable.io) for more information and if you find the project useful, don't forget to give us a star!
 
 ## Getting started
 
-Check [this document](docs/getting_started.md).
+Check [this page](https://fable.io/docs/getting_started.html).
 
 ## Building
 
 Make sure the following **requirements** are installed in your system:
 
-- [dotnet SDK](https://www.microsoft.com/net/download/core) 2.0 or higher
-- [node.js](https://nodejs.org) 6.11 or higher
-- [yarn](https://yarnpkg.com)
-- [Mono](http://www.mono-project.com/) if you're on Linux or macOS.
+- [dotnet SDK](https://www.microsoft.com/net/download/core)
+- [node.js](https://nodejs.org) with npm
 
-Then you just need to type `./build.cmd` or `./build.sh` depending on your system to build a local copy of Fable and run the test suite. After that, if you want to quickly try changes to Fable source, please check `src/tools/QuickTest.fs`.
+Then run `npm install` to install dependencies and `npm run build` to start the build. Check [build.fsx](https://github.com/fable-compiler/Fable/blob/4839311afe4cfc3fd0849915c7cdf831ca1ab74c/build.fsx#L218) for other build targets. 
+For example: `npm run build compiler`.
+
+After that, if you want to quickly try changes to Fable source, please check `src/quicktest/QuickTest.fs`.
 
 ## Using your local build in your projects
 
@@ -37,7 +38,7 @@ Many of you are making really useful contributions that you also need for your o
             options: {
                 cli: {
                     // This should be the path to your local clone of Fable
-                    path: "../Fable/src/dotnet/Fable.Compiler"
+                    path: "../Fable/src/Fable.Cli"
                 }
             }
         }
@@ -53,6 +54,6 @@ Many of you are making really useful contributions that you also need for your o
 
 Just by using Fable you're already contributing! You can help a lot the community by sharing examples and experiences in your personal blog and sending a PR to [fable-awesome](https://github.com/kunjee17/awesome-fable).
 
-Send bug reports (ideally with minimal code to reproduce the problem) and feature requests to the [GitHub repository](https://github.com/fable-compiler/Fable/issues). Issues with the label `discussion` will be also added to ask the opinion of the community on different topics like roadmap, etc. For more immediate comments you can use the [Gitter chat](https://gitter.im/fable-compiler/Fable).
+Send bug reports (ideally with minimal code to reproduce the problem) and feature requests to the [GitHub repository](https://github.com/fable-compiler/Fable/issues). To interact with the community you can use the [Gitter chat](https://gitter.im/fable-compiler/Fable) but please note maintainers are not checking the chat regularly.
 
-If you are up to contribute a fix or a feature yourself, you're more than welcome! Please send first an issue or a minimal Work In Progess PR so we can discuss the implementation details in advance. We're planning to add documentation for developers directly in the code, either as README files in each directory or as comments in the source. This is currently an ongoing effort.
+If you are up to contribute a fix or a feature yourself, you're more than welcome! Please send first an issue or a minimal Work In Progess PR so we can discuss the implementation details in advance.

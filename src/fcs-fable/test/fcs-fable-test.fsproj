@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../fcs-fable.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Metadata.fs"/>
+    <Compile Include="Platform.fs"/>
+    <Compile Include="test.fs"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="4.6.2" />
+    <PackageReference Include="Fable.Core" Version="2.0.*" />
+  </ItemGroup>
+
+</Project>

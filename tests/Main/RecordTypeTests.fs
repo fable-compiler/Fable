@@ -30,8 +30,26 @@ type Parent =
 type MutatingRecord =
     { uniqueA: int; uniqueB: int }
 
+// TODO: Remove this when dotnet tests support anonymous records
+#if FABLE_COMPILER
+let makeAnonRec() =
+    {| X = 5; Y = "Foo"; F = fun x y -> x + y |}
+#endif
+
 let tests =
   testList "RecordTypes" [
+#if FABLE_COMPILER
+    testCase "Anonymous records work" <| fun () ->
+        let r = makeAnonRec()
+        sprintf "Tell me %s %i times" r.Y (r.F r.X 3)
+        |> equal "Tell me Foo 8 times"
+        let x = {| Foo = "baz"; Bar = 23 |}
+        let y = {| Foo = "baz" |}
+        x = {| y with Bar = 23 |} |> equal true
+        // x = {| y with Baz = 23 |} |> equal true // Doesn't compile
+        x = {| y with Bar = 14 |} |> equal false
+#endif
+
     testCase "Recursive record does not cause issues" <| fun () ->
         let r = { things = [ { things = [] } ] }
         equal r.things.Length 1
