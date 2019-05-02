@@ -83,6 +83,10 @@ type MyStrings =
 #endif
 type Field = OldPassword | NewPassword | ConfirmPassword
 
+type MyInterface =
+    abstract foo: int
+    abstract bar: string
+
 let validatePassword = function
     | OldPassword -> "op"
     | NewPassword -> "np"
@@ -223,6 +227,15 @@ let tests =
         expected?Foo |> equal 5
         compiletime?names?(0)?Name |> equal "Mikhail"
         compiletime?names?(0)?Name |> equal "Mikhail"
+
+    testCase "Cast an anonymous record to an interface" <| fun () ->
+        // The first three must raise warnings
+        // let x: MyInterface = !!{| foo = "4"; bar = "5" |}
+        // let y: MyInterface = !!{| foo = 4 |}
+        // let z: MyInterface = !!{| foo = 4; bAr = "5" |}
+        let u: MyInterface = !!{| foo = 4; bar = "5" |}
+        equal 4 u.foo
+        equal "5" u.bar
 
     testCase "Unit argument is not replaced by null in dynamic programming" <| fun () ->
         let o = createObj ["foo" ==> fun () -> argCount]
