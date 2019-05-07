@@ -9,7 +9,6 @@ open System
 // WIP Notes:
 //  need to check if auto-generated equality is OK
 //  Vector3:
-//    TODO ToString
 //    TODO Transform
 //  Quaternion:
 //    TODO lots of stuff
@@ -56,14 +55,14 @@ type Vector3 =
         // note: net-fx uses System.Globalization.NumberFormatInfo.GetInstance(formatProvider).NumberGroupSeparator
         let numberGroupSeparator = "."
         stringBuilder.Append('<')
-          //.Append(((IFormattable)X).ToString(format, formatProvider))
-          //.Append(numberGroupSeparator)
-          //.Append(' ')
-          //.Append(((IFormattable)Y).ToString(format, formatProvider))
-          //.Append(numberGroupSeparator)
-          //.Append(' ')
-          //.Append(((IFormattable)Z).ToString(format, formatProvider))
-          //.Append('>')
+          .Append(this.X.ToString(format, formatProvider))
+          .Append(numberGroupSeparator)
+          .Append(' ')
+          .Append(this.Y.ToString(format, formatProvider))
+          .Append(numberGroupSeparator)
+          .Append(' ')
+          .Append(this.Z.ToString(format, formatProvider))
+          .Append('>')
           |> ignore
         stringBuilder.ToString()
 
