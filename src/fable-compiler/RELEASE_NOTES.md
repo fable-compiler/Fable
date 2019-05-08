@@ -1,3 +1,7 @@
+### 2.3.7
+
+* Fix SRTP with anonymous records
+
 ### 2.3.6
 
 * Fix #1825: FSharp.Reflection: MakeTupleType

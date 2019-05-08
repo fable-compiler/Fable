@@ -30,7 +30,12 @@ type Parent =
 type MutatingRecord =
     { uniqueA: int; uniqueB: int }
 
-// TODO: Remove this when dotnet tests support anonymous records
+type Id = Id of string
+
+let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
+    Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
+
+// TODO: Remove this (and the one below) when dotnet tests support anonymous records
 #if FABLE_COMPILER
 let makeAnonRec() =
     {| X = 5; Y = "Foo"; F = fun x y -> x + y |}
@@ -38,6 +43,7 @@ let makeAnonRec() =
 
 let tests =
   testList "RecordTypes" [
+
 #if FABLE_COMPILER
     testCase "Anonymous records work" <| fun () ->
         let r = makeAnonRec()
@@ -48,6 +54,11 @@ let tests =
         x = {| y with Bar = 23 |} |> equal true
         // x = {| y with Baz = 23 |} |> equal true // Doesn't compile
         x = {| y with Bar = 14 |} |> equal false
+
+    testCase "SRTP works with anonymous records" <| fun () ->
+        let ar = [| {|Id=Id"foo"; Name="Sarah"|}; {|Id=Id"bar"; Name="James"|} |]
+        replaceById {|Id=Id"ja"; Name="Voll"|} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
+        replaceById {|Id=Id"foo"; Name="Anna"|} ar |> Seq.head |> fun x -> equal "Anna" x.Name
 #endif
 
     testCase "Recursive record does not cause issues" <| fun () ->

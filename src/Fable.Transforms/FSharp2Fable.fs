@@ -145,6 +145,15 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
                 |> Option.orElseWith (fun () ->
                     resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args)
             else resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args
+        | Fable.AnonymousRecordType(sortedFieldNames, genArgs)
+                when isInstance && List.isEmpty args && Option.isSome thisArg ->
+            let fieldName = Naming.removeGetSetPrefix traitName
+            Seq.zip sortedFieldNames genArgs
+            |> Seq.tryPick (fun (fi, fiType) ->
+                if fi = fieldName then
+                    let kind = Fable.FieldGet(fi, false, fiType)
+                    Fable.Get(thisArg.Value, kind, typ, r) |> Some
+                else None)
         | _ -> None
     ) |> Option.defaultWith (fun () ->
         "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)
