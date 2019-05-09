@@ -1,5 +1,5 @@
 {
-  "name": "fable-compiler",
+  "name": "fable-compiler-quotations",
   "version": "2.3.7",
   "main": "dist/index.js",
   "description": "Fable compiler",
