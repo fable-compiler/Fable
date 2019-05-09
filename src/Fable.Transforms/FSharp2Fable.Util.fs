@@ -688,13 +688,13 @@ module Identifiers =
     let putArgInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
         putIdentInScope ctx fsRef ident None, ident
-        
+
     let (|PutArgInScope|) com ctx fsRef = putArgInScope com ctx fsRef
 
     let putBindingInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
         putIdentInScope ctx fsRef ident (Some value), ident
-        
+
     let inline tryGetIdentFromScopeIf (ctx: Context) r predicate =
         match List.tryFind (fun (fsRef,_,_)  -> predicate fsRef) ctx.Scope with
         | Some(_,ident,_) ->
@@ -1168,7 +1168,7 @@ module Util =
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
-        | _ when typ = Fable.Unit && v.CompiledName.EndsWith("@") ->
+        | _ when typ = Fable.Unit ->
             if com.Options.verbose && not v.IsCompilerGenerated then // See #1516
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
