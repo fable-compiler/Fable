@@ -77,6 +77,8 @@ type PointWithCounter(a: int, b: int) =
 
 let inline f x y = x + y
 
+let inline sum x = fun y -> x + y
+
 module FooModule =
     type FooInline() =
         member __.Bar = "Bar"
@@ -483,6 +485,15 @@ let tests =
       let res2 = MiscTestsHelper.Type.New(5).MethodI(false).MethodI(true).MethodI()
       equal res1.a res2.a
       MiscTestsHelper.counter() |> equal 3
+
+    testCase "Inlined arguments with delayed resolution are only evaluated once" <| fun () ->
+        let mutable x = 0
+        let foo() =
+            x <- x + 1
+            10
+        let f = sum (foo())
+        f 20 |> f |> equal 40
+        equal 1 x
 
     testCase "Calls to core lib from a subfolder work" <| fun () ->
         Util2.Helper.Format("{0} + {0} = {1}", 2, 4)

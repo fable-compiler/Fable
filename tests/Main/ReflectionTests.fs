@@ -325,6 +325,10 @@ let reflectionTests = [
     |> unbox<float * string * int[]>
     |> equal (5., "foo", [|2;3|])
 
+    let real = typeof<float * string * int[]>
+    let generated = FSharpType.MakeTupleType [|typeof<float>; typeof<string>; typeof<int[]>|]
+    equal real generated
+
   testCase "FSharp.Reflection: Union" <| fun () ->
     let typ = typeof<TestUnion>
     let unionCase1 = StringCase("a", "b")

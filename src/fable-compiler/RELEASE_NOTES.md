@@ -1,3 +1,16 @@
+### 2.3.7
+
+* Fix SRTP with anonymous records
+
+### 2.3.6
+
+* Fix #1825: FSharp.Reflection: MakeTupleType
+* Fix anonymous record casting with !!
+
+### 2.3.5
+
+* Raise error if two or more record/interface/override members have the same name.
+
 ### 2.3.4
 
 * Fix #1821: decimal devision @ncave

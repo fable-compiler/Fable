@@ -942,6 +942,21 @@ let tests7 = [
 
         equal expected actual
     #endif
+
+    // testCase "TODO: failwithf is not compiled as function" <| fun () ->
+    //     let makeFn value =
+    //         if value then
+    //             // If we change this to 5 or similar
+    //             // (not a function), it will fail immediately
+    //             fun x -> x + x
+    //         else
+    //             failwithf "Expecting true but got %s" "false"
+
+    //     let f = makeFn false
+    //     // It should fail here but it doesn't,
+    //     // it only fails if `f` is called
+    //     let x = 5 // f 5
+    //     equal x 5
 ]
 
 let tests =

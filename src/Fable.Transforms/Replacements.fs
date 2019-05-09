@@ -1102,7 +1102,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_BangHat", [arg] -> Some arg
         | "op_BangBang", [arg] ->
             match arg, i.GenericArgs with
-            | Value(NewRecord(exprs, Fable.AnonymousRecord fieldNames, []),_),
+            | Value(NewRecord(exprs, Fable.AnonymousRecord fieldNames, _),_),
               [_; (_,DeclaredType(ent, []))] when ent.IsInterface ->
                 // TODO: Check also if there are extra fields in the record not present in the interface?
                 (None, ent.MembersFunctionsAndValues) ||> Seq.fold (fun err memb ->
@@ -1132,10 +1132,12 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                                         let typeName = getTypeFullName true expectedType
                                         sprintf "Expecting type '%s' for field '%s'" typeName memb.DisplayName |> Some)
                 |> function
-                    | None -> ()
-                    | Some errMsg -> addWarning com ctx.InlinePath r errMsg
-            | _ -> ()
-            Some arg
+                    | Some errMsg ->
+                        addWarning com ctx.InlinePath r errMsg
+                        Some arg
+                    | None ->
+                        List.zip (Array.toList fieldNames) exprs |> objExpr t |> Some
+            | _ -> Some arg
         | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
         | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
             Set(callee, ExprSet prop, value, r) |> Some
@@ -2826,7 +2828,7 @@ let fsharpType methName (r: SourceLocation option) t (i: CallInfo) (args: Expr l
     | "MakeFunctionType" ->
         Helper.CoreCall("Reflection", "lambda", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "MakeTupleType" ->
-        Helper.CoreCall("Reflection", "tuple", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.CoreCall("Reflection", "tuple", t, args, i.SignatureArgTypes, hasSpread=true, ?loc=r) |> Some
     // Prevent name clash with FSharpValue.GetRecordFields
     | "GetRecordFields" ->
         Helper.CoreCall("Reflection", "getRecordElements", t, args, i.SignatureArgTypes, ?loc=r) |> Some

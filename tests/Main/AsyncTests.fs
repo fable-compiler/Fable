@@ -28,6 +28,11 @@ let sleepAndAssign token res =
         res := true
     }, token)
 
+let asyncMap f a = async {
+    let! a = a
+    return f a
+}
+
 let tests =
   testList "Async" [
     testCase "Simple async translates without exception" <| fun () ->
@@ -459,4 +464,14 @@ let tests =
         x <- x + result1 + result2
         equal x "ABCDEF"
       }
+
+    testCaseAsync "Unit arguments are erased" <| fun () -> // See #1832
+        let mutable token = 0
+        async {
+            let! res =
+                async.Return 5
+                |> asyncMap (fun x -> token <- x)
+            equal 5 token
+            res
+        }
   ]

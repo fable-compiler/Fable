@@ -200,18 +200,23 @@ let replaceValues replacements expr =
             | None -> e
         | e -> e)
 
-let countReferences limit identName body =
+// When inlining args, if the body contains a function avoid inlining
+// to prevent multiple evaluation because of delayed resolution
+let countReferences avoidFunctions limit identName body =
     let mutable count = 0
     body |> deepExists (function
         | IdentExpr id2 when id2.Name = identName ->
             count <- count + 1
             count > limit
+        | Function _ when avoidFunctions ->
+            count <- limit + 1
+            true
         | _ -> false) |> ignore
     count
 
 let canInlineArg identName value body =
     // Don't erase expressions referenced 0 times, they may have side-effects
-    not(hasDoubleEvalRisk value) || (countReferences 1 identName body = 1)
+    not(hasDoubleEvalRisk value) || (countReferences true 1 identName body = 1)
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
@@ -268,7 +273,7 @@ module private Transforms =
             | Get(IdentExpr tupleIdent, TupleGet _, _, _) as value when tupleIdent.IsCompilerGenerated ->
                 replaceValues (Map [ident.Name, value]) letBody
             | Function(args, funBody, currentName) when ident.IsCompilerGenerated
-                                                    && (countReferences 1 ident.Name letBody <= 1) ->
+                                                    && (countReferences false 1 ident.Name letBody <= 1) ->
                 if Option.isSome currentName then
                     sprintf "Unexpected named function when erasing binding (%s > %s)" currentName.Value ident.Name
                     |> addWarning com [] ident.Range

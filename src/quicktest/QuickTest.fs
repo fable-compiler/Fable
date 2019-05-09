@@ -43,7 +43,15 @@ let testCase (msg: string) f: unit =
     printfn ""
 
 let testCaseAsync msg f =
-    testCase msg (fun () -> f () |> Async.StartImmediate)
+    testCase msg (fun () ->
+        async {
+            try
+                do! f ()
+            with ex ->
+                printfn "%s" ex.Message
+                if ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not then
+                    printfn "%s" ex.StackTrace
+        } |> Async.StartImmediate)
 
 // Write here your unit test, you can later move it
 // to Fable.Tests project. For example:

@@ -145,6 +145,15 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
                 |> Option.orElseWith (fun () ->
                     resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args)
             else resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args
+        | Fable.AnonymousRecordType(sortedFieldNames, genArgs)
+                when isInstance && List.isEmpty args && Option.isSome thisArg ->
+            let fieldName = Naming.removeGetSetPrefix traitName
+            Seq.zip sortedFieldNames genArgs
+            |> Seq.tryPick (fun (fi, fiType) ->
+                if fi = fieldName then
+                    let kind = Fable.FieldGet(fi, false, fiType)
+                    Fable.Get(thisArg.Value, kind, typ, r) |> Some
+                else None)
         | _ -> None
     ) |> Option.defaultWith (fun () ->
         "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)
@@ -272,7 +281,7 @@ let rec private transformDecisionTargets (com: IFableCompiler) (ctx: Context) ac
 
 let private skipAttribute (name : string) =
     // TODO: skip all attributes where definiton not known???
-    name.StartsWith "Microsoft.FSharp.Core" || 
+    name.StartsWith "Microsoft.FSharp.Core" ||
     name.StartsWith "System.Reflection" ||
     name.StartsWith "System.Runtime.CompilerServices" ||
     name.StartsWith "System.ObsoleteAttribute" ||
@@ -283,33 +292,33 @@ let private transformAttribute (com: IFableCompiler) (ctx : Context) (a : FSharp
     | Some fullname when not (skipAttribute fullname) ->
 
         let types, args = a.ConstructorArguments |> Seq.toArray |> Array.unzip
-        let ctor = 
+        let ctor =
             a.AttributeType.MembersFunctionsAndValues |> Seq.tryPick (fun m ->
                 if m.IsConstructor then
                     let pars = m.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> p.Type)|> Seq.toArray
                     if args.Length = pars.Length then
                         if FSharp.Collections.Array.forall2 (fun ta tp -> tp = ta) types pars then Some m
                         else None
-                    else      
+                    else
                         None
                 else
-                    None                    
+                    None
             )
         match ctor with
         | Some ctor ->
-            let args = 
+            let args =
                 a.ConstructorArguments |> Seq.toList |> List.map (fun (t,v) ->
                     match v with
                     | :? string as str -> Fable.Value(Fable.StringConstant str, None)
                     | _ -> Fable.Value(Fable.StringConstant (string v), None)
-                )     
+                )
             let typ = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List() :> IList<_>) a.AttributeType
             let x = makeCallFrom com ctx None typ false [] None args ctor
             Some (fullname,x)
         | _ ->
-            None 
+            None
     | _ ->
-        None    
+        None
 
 let private makeLambda (argType : Fable.Type) (body : Fable.Expr -> Fable.Expr) =
     let target = { Fable.Ident.Name = "target"; Fable.Ident.Type = argType; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
@@ -348,23 +357,23 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
             // TODO: support these?
             None
         elif m.IsValue then
-          
-            let get =                          
+
+            let get =
                 makeLambda2 Fable.Type.Any (Fable.Array Fable.Any) (fun t _ ->
-                    if m.IsInstanceMember then 
+                    if m.IsInstanceMember then
                         let ft = makeType com ctx.GenericArgs m.FullType
                         Fable.Get(t, Fable.FieldGet(m.CompiledName, m.IsMutable, ft), ft, None)
-                    else 
+                    else
                         Util.makeValueFrom com ctx None m
-                ) |> Some         
+                ) |> Some
 
             let set =
                 if m.IsMutable then
                     makeLambda3 Fable.Type.Any (Fable.Array Fable.Any) Fable.Type.Any (fun t _ v ->
-                        if m.IsInstanceMember then 
+                        if m.IsInstanceMember then
                             let ft = makeType com ctx.GenericArgs m.FullType
                             Fable.Set(t, Fable.FieldSet(m.CompiledName, ft), v, None)
-                        else 
+                        else
                             let ref = Util.memberRef com ctx None m
                             Fable.Set(ref, Fable.SetKind.VarSet, v, None)
                     ) |> Some
@@ -374,16 +383,16 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
 
             Some {
                 Fable.MemberInfo.Kind = Fable.Property(m.CompiledName, makeType com ctx.GenericArgs m.FullType, true, not m.IsInstanceMember, get, set)
-                Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
-            }   
+                Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)
+            }
         elif m.IsProperty then
             let ft = makeType com ctx.GenericArgs m.ReturnParameter.Type
-            
+
             let get =
                 if m.HasGetterMethod && m.GetterMethod.GenericParameters.Count = 0 then
                     let decl = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List []) m.DeclaringEntity.Value
                     match m.GetterMethod.CurriedParameterGroups |> Seq.concat |> Seq.toList with
-                    | [] -> 
+                    | [] ->
                         makeLambda decl (fun t ->
                             let callee = if m.IsInstanceMember then Some t else None
                             makeCallFrom com ctx None ft false [] callee [] m.GetterMethod
@@ -391,7 +400,7 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
                     | args ->
                         makeLambda2 decl (Fable.Type.Array Fable.Any) (fun t idx ->
                             let callee = if m.IsInstanceMember then Some t else None
-                            let args = 
+                            let args =
                                 args |> List.mapi (fun i a ->
                                     let t = makeType com ctx.GenericArgs a.Type
                                     let index = Fable.Value(Fable.ValueKind.NumberConstant(float i, NumberKind.Int32), None)
@@ -400,18 +409,18 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
                             makeCallFrom com ctx None ft false [] callee args m.GetterMethod
                         ) |> Some
                 else
-                    None   
+                    None
             let set =
                 if m.HasSetterMethod && m.SetterMethod.GenericParameters.Count = 0 then
                     let decl = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List []) m.DeclaringEntity.Value
-                    
+
                     match m.SetterMethod.CurriedParameterGroups |> Seq.concat |> Seq.toList with
                     | Nil ->
                         None
                     | Snoc(idx, _val) ->
                         makeLambda3 decl (Fable.Array Fable.Any) Fable.Any (fun t ia value ->
                             let callee = if m.IsInstanceMember then Some t else None
-                            let idx = 
+                            let idx =
                                 idx |> List.mapi (fun i a ->
                                     let t = makeType com ctx.GenericArgs a.Type
                                     let index = Fable.Value(Fable.ValueKind.NumberConstant(float i, NumberKind.Int32), None)
@@ -421,13 +430,13 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
                         ) |> Some
 
                 else
-                    None            
+                    None
             Some {
                 Fable.MemberInfo.Kind = Fable.Property(m.DisplayName, ft, false, not m.IsInstanceMember, get, set)
-                Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
+                Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)
             }
         elif m.IsConstructor then
-            let pars = 
+            let pars =
                 m.CurriedParameterGroups |> Seq.concat |> Seq.toArray |> Array.map (fun p ->
                     { Fable.ParameterInfo.Name = p.DisplayName; Fable.Type = makeType com ctx.GenericArgs p.Type }
                 )
@@ -447,9 +456,9 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
                             Fable.Args = args
                             Fable.SignatureArgTypes = Fable.SignatureKind.NoUncurrying
                             Fable.Spread = Fable.SpreadKind.NoSpread
-                            Fable.IsBaseOrSelfConstructorCall = false 
+                            Fable.IsBaseOrSelfConstructorCall = false
                         }
-                                    
+
                     staticCall None decl info (makeValueFrom com ctx None m)
                 )
 
@@ -458,24 +467,24 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
 
             Some {
                 Fable.MemberInfo.Kind = Fable.Constructor(pars, invoke)
-                Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
+                Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)
             }
 
-        else 
-            let pars = 
+        else
+            let pars =
                 m.CurriedParameterGroups |> Seq.concat |> Seq.toArray |> Array.choose (fun p ->
                     let t = makeType com ctx.GenericArgs p.Type
                     if t <> Fable.Type.Unit then
                         Some { Fable.ParameterInfo.Name = p.DisplayName; Fable.Type = t }
                     else
-                        None                
+                        None
                 )
 
 
             let invoke =
                 if Helpers.isInline m then
                     None
-                else        
+                else
                     makeLambda2 (Fable.Any) (Fable.Array Fable.Any) (fun target ip ->
                         let decl = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List []) m.DeclaringEntity.Value
                         let pars = m.CurriedParameterGroups |> Seq.concat |> Seq.toList
@@ -487,18 +496,18 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
                         if m.IsInstanceMember then
                             makeCallFrom com ctx None decl false [] (Some target) args  m
                         else
-                            makeCallFrom com ctx None decl false [] (None) args m                
+                            makeCallFrom com ctx None decl false [] (None) args m
                     ) |> Some
 
 
             let ret = makeType com ctx.GenericArgs m.ReturnParameter.Type
-            let parNames = m.GenericParameters |> Seq.toArray |> Array.map (fun p -> p.Name)                
+            let parNames = m.GenericParameters |> Seq.toArray |> Array.map (fun p -> p.Name)
             Some {
                 Fable.MemberInfo.Kind = Fable.Method(parNames, m.CompiledName, pars, ret, not m.IsInstanceMember, invoke)
-                Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
-            }    
+                Fable.Attributes = m.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)
+            }
     else
-        None        
+        None
 
 
 
@@ -682,7 +691,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // First get a context containing all idents and use it compile the values
         let ctx, idents =
             (recBindings, (ctx, []))
-            ||> List.foldBack (fun (PutArgInScope com ctx (newContext, ident), _) (ctx, idents) ->                
+            ||> List.foldBack (fun (PutArgInScope com ctx (newContext, ident), _) (ctx, idents) ->
                 (newContext, ident::idents))
         let _, bindingExprs = List.unzip recBindings
         let! exprs = transformExprList com ctx bindingExprs
@@ -977,18 +986,18 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
             //let! dummy = transformExpr com ctx expr
 
-            let data = QuotationPickler.serialize com ctx expr        
+            let data = QuotationPickler.serialize com ctx expr
             //data |> sprintf "%A" |> addWarning com ctx.InlinePath (makeRangeFrom fsExpr)
 
             let! values =
                 data.values |> Array.toList |> trampolineListMap (fun v ->
                     trampoline {
-                        let! value = 
-                            trampoline {                          
+                        let! value =
+                            trampoline {
                                 if isInline v then
                                     match ctx.ScopeInlineValues |> List.tryFind (fun (vi,_) -> obj.Equals(vi, v)) with
                                     | Some (_,fsExpr) ->
-                                    
+
                                         return! transformExpr com ctx fsExpr
                                     | None ->
                                         return "Cannot resolve locally inlined value: " + v.DisplayName
@@ -997,22 +1006,22 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                                     return makeValueFrom com ctx None v
                             }
 
-                        
+
                         return {
                             Fable.ValueData.name = v.DisplayName
                             Fable.ValueData.typ = makeType com ctx.GenericArgs v.FullType
                             Fable.ValueData.expr = value
-                        } 
-                    }                                       
-                )         
+                        }
+                    }
+                )
 
             let fableData =
                 {
                     Fable.ExprData.typ = makeType com ctx.GenericArgs data.typ
-                    Fable.variables = 
-                        data.variables |> Array.map (fun v -> 
+                    Fable.variables =
+                        data.variables |> Array.map (fun v ->
                             {
-                                Fable.VarData.name = v.name; 
+                                Fable.VarData.name = v.name;
                                 Fable.VarData.typ = makeType com ctx.GenericArgs v.typ
                                 Fable.VarData.isMutable = v.isMutable
                             }
@@ -1027,9 +1036,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                         )
 
                     Fable.ExprData.members =
-                        data.members |> Array.map (fun m -> 
+                        data.members |> Array.map (fun m ->
                             match m with
-                            | QuotationPickler.MemberDescription.Member (m, targs, margs) ->                         
+                            | QuotationPickler.MemberDescription.Member (m, targs, margs) ->
                                 let d = m.DeclaringEntity.Value
                                 let t = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List(targs)) d
                                 let mem =  transformMemberInfo com ctx m |> Option.get
@@ -1039,14 +1048,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                                 let d = c.ReturnType.TypeDefinition
                                 let t = makeType com ctx.GenericArgs c.ReturnType
                                 let mem = transformUnionCaseAsMember com ctx c
-                                d, t, mem, [||]                                         
-                        )          
+                                d, t, mem, [||]
+                        )
 
                     Fable.literals =
                         data.literals |> Array.map (fun (v,t) ->
                             let ft = makeType com ctx.GenericArgs t
                             Replacements.makeTypeConst (makeRangeFrom fsExpr) ft v
-                        )                
+                        )
 
                     Fable.data = data.data
                 }
@@ -1054,8 +1063,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
             return Fable.Quote(false, fableData, makeRangeFrom fsExpr)
         else
-            return "Quotes can be enabled by adding a define FABLE_QUOTATIONS to your fable-config "       
-            |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr) 
+            return "Quotes can be enabled by adding a define FABLE_QUOTATIONS to your fable-config "
+            |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
     // TODO: Ask. I see this when accessing Result types (all structs?)
     | BasicPatterns.AddressOf(expr) ->
@@ -1070,23 +1079,49 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
   }
 
-/// Is compiler generated (CompareTo...) or belongs to ignored entity?
-/// (remember F# compiler puts class methods in enclosing modules)
-let private isIgnoredMember (meth: FSharpMemberOrFunctionOrValue) =
-    (meth.IsCompilerGenerated && Naming.ignoredCompilerGenerated.Contains meth.CompiledName)
-        || Option.isSome meth.LiteralValue
-        || meth.Attributes |> Seq.exists (fun att ->
-            match att.AttributeType.TryFullName with
-            | Some(Atts.erase | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember
-                    | Atts.emit | Atts.emitMethod | Atts.emitConstructor | Atts.emitIndexer | Atts.emitProperty) -> true
-            | _ -> false)
-        || (match meth.DeclaringEntity with
-            | Some ent -> isErasedEntity ent
-            | None -> false)
+let private isIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
+    memb.IsCompilerGenerated || Naming.ignoredAttachedMembers.Contains memb.CompiledName
+
+let private isIgnoredNonAttachedMember (meth: FSharpMemberOrFunctionOrValue) =
+    Option.isSome meth.LiteralValue
+    || meth.Attributes |> Seq.exists (fun att ->
+        match att.AttributeType.TryFullName with
+        | Some(Atts.erase | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember
+                | Atts.emit | Atts.emitMethod | Atts.emitConstructor | Atts.emitIndexer | Atts.emitProperty) -> true
+        | _ -> false)
+    || (match meth.DeclaringEntity with
+        | Some ent -> isErasedEntity ent
+        | None -> false)
+
+let private isRecordLike (ent: FSharpEntity) =
+    ent.IsFSharpRecord
+        || ent.IsFSharpExceptionDeclaration
+        || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent))
+
+let private checkAttachedMemberConflicts com isRecordLike (ent: FSharpEntity) =
+    let attachedMembers =
+        if isRecordLike then
+            ent.FSharpFields |> Seq.map (fun fi -> fi.Name, fi.FullName) |> Map
+        else Map.empty
+    (attachedMembers, ent.MembersFunctionsAndValues)
+    ||> Seq.fold (fun attachedMembers memb ->
+        if memb.IsOverrideOrExplicitInterfaceImplementation
+            && not (isIgnoredAttachedMember memb)
+            // memb.IsPropertySetterMethod is false for interfaces implemented in an abstract class
+            && not (memb.IsProperty || memb.LogicalName.StartsWith("set_")) then
+                match Map.tryFind memb.DisplayName attachedMembers with
+                | Some memb2FullName ->
+                    (memb2FullName, memb.CompiledName)
+                    ||> sprintf "Cannot implement two record/interface/abstract members with same name: %s/%s"
+                    |> addError com [] None
+                    attachedMembers
+                | _ -> Map.add memb.DisplayName memb.CompiledName attachedMembers
+        else attachedMembers)
+    |> ignore
 
 let private transformUnionCaseAsMember (com: IFableCompiler) ctx (c : FSharpUnionCase) =
     let mangledName = Helpers.unionCaseCompiledName c |> Option.defaultValue c.Name
-    
+
     if c.ReturnType.HasTypeDefinition then
         let ent = c.ReturnType.TypeDefinition
         let tag = ent.UnionCases |> Seq.findIndex (fun ci -> ci.Name = c.Name)
@@ -1094,18 +1129,18 @@ let private transformUnionCaseAsMember (com: IFableCompiler) ctx (c : FSharpUnio
         let fields = c.UnionCaseFields |> Seq.toArray |> Array.map (fun f -> f.Name, makeType com ctx.GenericArgs f.FieldType)
         {
             Fable.MemberInfo.Kind = Fable.UnionCaseConstructor(tag, c.Name, fields, mangledName, mangledTypeName)
-            Fable.Attributes = c.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
-        } 
-    else    
+            Fable.Attributes = c.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)
+        }
+    else
         //let mangledTypeName = getEntityDeclarationName com ent
         let fields = c.UnionCaseFields |> Seq.toArray |> Array.map (fun f -> f.Name, makeType com ctx.GenericArgs f.FieldType)
         {
             Fable.MemberInfo.Kind = Fable.UnionCaseConstructor(0, c.Name, fields, mangledName, mangledName)
-            Fable.Attributes = c.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
-        }    
+            Fable.Attributes = c.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)
+        }
 
 let private transformMemberReflectionInfos (com: FableCompiler) ctx (ent : FSharpEntity) =
-    let realMembers = 
+    let realMembers =
         ent.TryGetMembersFunctionsAndValues |> Seq.choose (transformMemberInfo com ctx)
 
     let special =
@@ -1115,7 +1150,7 @@ let private transformMemberReflectionInfos (com: FableCompiler) ctx (ent : FShar
             // let ctor = "new " + getEntityDeclarationName com ent
             let invoke =
                 makeLambda (Fable.Array Fable.Any) (fun ip ->
-                    let args = 
+                    let args =
                         fields |> List.mapi (fun i a ->
                             let t = makeType com ctx.GenericArgs a.FieldType
                             let index = Fable.Value(Fable.ValueKind.NumberConstant(float i, NumberKind.Int32), None)
@@ -1123,22 +1158,22 @@ let private transformMemberReflectionInfos (com: FableCompiler) ctx (ent : FShar
                         )
                     Fable.Value(Fable.NewRecord(args, Fable.DeclaredRecord ent, []), None)
                 )
-            Seq.concat [            
-                fields |> List.map (fun m -> 
+            Seq.concat [
+                fields |> List.map (fun m ->
                     let ft = makeType com ctx.GenericArgs m.FieldType
                     {
                         Fable.MemberInfo.Kind = Fable.Property(m.Name, ft, true, false, None, None)
-                        Fable.Attributes = m.PropertyAttributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
-                    }                   
+                        Fable.Attributes = m.PropertyAttributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)
+                    }
                 )
 
 
                 List.singleton {
-                    Fable.MemberInfo.Kind = Fable.Constructor(List.toArray parameters, invoke)                    
+                    Fable.MemberInfo.Kind = Fable.Constructor(List.toArray parameters, invoke)
                     Fable.Attributes = [||]
                 }
 
-            ]    
+            ]
         elif ent.IsFSharpUnion then
             //sprintf "%s: %A" ent.FullName ent.UnionCases.Count |> addWarning com [] None
             ent.UnionCases |> Seq.mapi (fun i c ->
@@ -1147,9 +1182,9 @@ let private transformMemberReflectionInfos (com: FableCompiler) ctx (ent : FShar
                 let fields = c.UnionCaseFields |> Seq.toArray |> Array.map (fun f -> f.Name, makeType com ctx.GenericArgs f.FieldType)
                 {
                     Fable.MemberInfo.Kind = Fable.UnionCaseConstructor(i, c.Name, fields, mangledName, mangledTypeName)
-                    Fable.Attributes = c.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)      
-                }    
-            )              
+                    Fable.Attributes = c.Attributes |> Seq.toArray |> Array.choose (transformAttribute com ctx)
+                }
+            )
         else
             Seq.empty
 
@@ -1198,10 +1233,9 @@ let private transformImplicitConstructor com (ctx: Context)
               BoundConstructorThis = boundThis
               Body = body
             }
-        // TODO!!! When adding a ConstructorDeclaration check if there are
-        // name clashes for interface/abstract members
         let r = getEntityLocation ent |> makeRange
         let decl = ctx.EnclosingEntity |> Option.bind (Helpers.getModuleReflectionName com)
+        checkAttachedMemberConflicts com false ent
         [Fable.ConstructorDeclaration(decl, Fable.ClassImplicitConstructor info, Some r)]
 
 /// When using `importMember`, uses the member display name as selector
@@ -1321,7 +1355,7 @@ let private transformAttachedMember (com: FableCompiler) (ctx: Context)
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let ctx = { ctx with EnclosingMember = Some memb }
-    if isIgnoredMember memb then
+    if isIgnoredNonAttachedMember memb then
         if memb.IsMutable && isPublicMember memb && hasAttribute Atts.global_ memb.Attributes then
             "Global members cannot be mutable and public, please make it private: " + memb.DisplayName
             |> addError com [] None
@@ -1336,16 +1370,9 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         else []
     elif memb.IsImplicitConstructor
     then transformImplicitConstructor com ctx memb args body
-    elif memb.IsExplicitInterfaceImplementation then
-        if Set.contains memb.CompiledName Naming.interfaceMethodsImplementedInPrototype
-        then transformAttachedMember com ctx memb args body
-        else
-            match tryGetInterfaceDefinitionFromMethod memb with
-            | Some interfaceEntity when not(Naming.ignoredInterfaces.Contains interfaceEntity.FullName) ->
-                transformAttachedMember com ctx memb args body
-            | _ -> []
-    elif memb.IsOverrideOrExplicitInterfaceImplementation
-    then transformAttachedMember com ctx memb args body
+    elif memb.IsOverrideOrExplicitInterfaceImplementation then
+        if isIgnoredAttachedMember memb then []
+        else transformAttachedMember com ctx memb args body
     else transformMemberFunctionOrValue com ctx memb args body
 
 // In case this is a recursive module, do a first pass to add
@@ -1359,7 +1386,7 @@ let rec checkMemberNames (com: FableCompiler) decls =
             | [] -> com.AddUsedVarName(getEntityDeclarationName com ent, isRoot=true)
             | sub -> checkMemberNames com sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->
-            if not(isIgnoredMember memb) then
+            if not(memb.IsOverrideOrExplicitInterfaceImplementation || isIgnoredNonAttachedMember memb) then
                 let memberName = getMemberDeclarationName com memb
                 com.AddUsedVarName(memberName, isRoot=true)
         | FSharpImplementationFileDeclaration.InitAction _ -> ()
@@ -1385,7 +1412,7 @@ let private transformDeclarations (com: FableCompiler) ctx rootDecls =
                     com.AddUsedVarName(entityName)
                     // TODO: Check Equality/Comparison attributes
                     let props = transformMemberReflectionInfos com ctx ent
-                    
+
                     let info: Fable.UnionConstructorInfo =
                       { Entity = ent
                         Members = props
@@ -1393,10 +1420,9 @@ let private transformDeclarations (com: FableCompiler) ctx rootDecls =
                         IsPublic = isPublicEntity ent }
                     let r = getEntityLocation ent |> makeRange
                     let decl = ctx.EnclosingEntity |> Option.bind (Helpers.getModuleReflectionName com)
+                    checkAttachedMemberConflicts com false ent
                     [Fable.ConstructorDeclaration(decl, Fable.UnionConstructor info, Some r)]
-                | _ when ent.IsFSharpRecord
-                        || ent.IsFSharpExceptionDeclaration
-                        || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent)) ->
+                | _ when isRecordLike ent ->
                     let entityName = getEntityDeclarationName com ent
                     com.AddUsedVarName(entityName)
                     // TODO: Check Equality/Comparison attributes
@@ -1404,23 +1430,24 @@ let private transformDeclarations (com: FableCompiler) ctx rootDecls =
                     let info: Fable.CompilerGeneratedConstructorInfo =
                       { Entity = ent
                         EntityName = entityName
-                        IsPublic = isPublicEntity ent 
+                        IsPublic = isPublicEntity ent
                         Members = props }
                     let r = getEntityLocation ent |> makeRange
 
                     let decl = ctx.EnclosingEntity |> Option.bind (Helpers.getModuleReflectionName com)
+                    checkAttachedMemberConflicts com true ent
                     [Fable.ConstructorDeclaration(decl, Fable.CompilerGeneratedConstructor info, Some r)]
                 | _ when ent.IsFSharpModule ->
                     let declaring = ctx.EnclosingEntity |> Option.bind (Helpers.getModuleReflectionName com)
                     let name = Helpers.getModuleReflectionName com ent |> Option.get
-                    let decl = 
+                    let decl =
                         try Fable.ModuleDeclaration (declaring, name, ent, transformMemberReflectionInfos com ctx ent) |> Some
                         with e -> e |> sprintf "%A" |> addWarning com [] None; None
                     match decl with
-                    | Some decl ->                    
+                    | Some decl ->
                         decl :: transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
                     | None ->
-                       transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub                 
+                       transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
                 | _ ->
                     transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
 
@@ -1535,12 +1562,12 @@ let transformFile (com: ICompiler) (implFiles: IDictionary<string, FSharpImpleme
         let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
         let fcom = FableCompiler(com, implFiles)
         //let ctx = Context.Create(rootEnt)
-        let rootDecls = 
+        let rootDecls =
             match rootEnt with
-            | Some ent when ent.IsFSharpModule -> 
+            | Some ent when ent.IsFSharpModule ->
                 let ctx = Context.Create(None)
                 transformDeclarations fcom ctx [FSharpImplementationFileDeclaration.Entity(ent, rootDecls)]
-            | _ -> 
+            | _ ->
                 let ctx = Context.Create(rootEnt)
                 transformDeclarations fcom ctx rootDecls
         Fable.File(com.CurrentFile, rootDecls, set fcom.UsedVarNames, set fcom.InlineDependencies)
