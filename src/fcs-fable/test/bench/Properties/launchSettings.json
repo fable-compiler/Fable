@@ -2,7 +2,7 @@
   "profiles": {
     "fcs-fable-bench": {
       "commandName": "Project",
-      "commandLineArgs": "../fcs-fable.fsproj",
+      "commandLineArgs": "../../fcs-fable.fsproj",
       "workingDirectory": "$(SolutionDir)"
     }
   }
