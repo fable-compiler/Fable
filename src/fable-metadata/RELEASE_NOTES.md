@@ -1,3 +1,7 @@
+### 1.1.1
+
+* Fable.Repl.Lib
+
 ### 1.1.0
 
 * Fable.Core 3 and Fable.Browser.Dom 1.0
