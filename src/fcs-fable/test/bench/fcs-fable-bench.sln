@@ -5,9 +5,9 @@ VisualStudioVersion = 15.0.28307.106
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "fcs-fable-bench", "fcs-fable-bench.fsproj", "{83F34C34-6804-4436-923E-E2C539AA59F0}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "fcs-fable", "..\fcs-fable.fsproj", "{7D5BC9E3-CEE5-4E1B-BF4E-67553841FD37}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "fcs-fable", "../../fcs-fable.fsproj", "{7D5BC9E3-CEE5-4E1B-BF4E-67553841FD37}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "fcs-fable-test", "fcs-fable-test.fsproj", "{C270F69E-224E-4438-8EF3-5AB59FF11453}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "fcs-fable-test", "../fcs-fable-test.fsproj", "{C270F69E-224E-4438-8EF3-5AB59FF11453}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
