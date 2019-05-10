@@ -1,6 +1,6 @@
 {
   "name": "fable-metadata",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Assemblies needed to compile F# projects with Fable",
   "main": "index.js",
   "directories": {

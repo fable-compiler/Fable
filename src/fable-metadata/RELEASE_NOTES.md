@@ -1,3 +1,7 @@
+### 1.1.2
+
+* Add Recharts to Fable.Repl.Lib
+
 ### 1.1.1
 
 * Fable.Repl.Lib
