@@ -4,7 +4,6 @@ open System
 open System.Collections.Generic
 open Fable.Core
 open Fable.Core.JsInterop
-open Fable.Import
 open Thoth.Json
 
 type WorkerRequest =
@@ -36,7 +35,7 @@ type WorkerAnswer =
     static member Decoder =
         Decode.Auto.generateDecoder<WorkerAnswer>()
 
-type ObservableWorker<'InMsg>(worker: obj, decoder: Decode.Decoder<'InMsg>, ?name: string) =
+type ObservableWorker<'InMsg>(worker: obj, decoder: Decoder<'InMsg>, ?name: string) =
     let name = defaultArg name "FABLE WORKER"
     let listeners = new Dictionary<Guid, IObserver<'InMsg>>()
     do worker?addEventListener("message", fun ev ->
@@ -49,11 +48,12 @@ type ObservableWorker<'InMsg>(worker: obj, decoder: Decode.Decoder<'InMsg>, ?nam
                     listener.OnNext(msg)
             | Error err -> JS.console.error("[" + name + "] Cannot decode:", err)
         | _ -> ())
+    member __.Worker = worker
     member __.HasListeners =
         listeners.Count > 0
-    member __.Post msg =
-        worker?postMessage(Encode.Auto.toString(0, msg))
-    member this.PostAndAwaitResponse(msg, picker) =
+    member inline this.Post(msg: 'OutMsg): unit =
+        this.Worker?postMessage(Encode.Auto.toString(0, msg))
+    member inline this.PostAndAwaitResponse(msg: 'OutMsg, picker: 'InMsg -> 'Res option): Async<'Res> =
         Async.FromContinuations(fun (cont, err, cancel) ->
             let mutable disp = Unchecked.defaultof<IDisposable>
             disp <- this |> Observable.subscribe(fun msg ->
@@ -62,7 +62,7 @@ type ObservableWorker<'InMsg>(worker: obj, decoder: Decode.Decoder<'InMsg>, ?nam
                     disp.Dispose()
                     cont res
                 | None -> ())
-            worker?postMessage(Encode.Auto.toString(0, msg))
+            this.Worker?postMessage(Encode.Auto.toString(0, msg))
         )
     member __.Subscribe obs =
         let id = Guid.NewGuid()

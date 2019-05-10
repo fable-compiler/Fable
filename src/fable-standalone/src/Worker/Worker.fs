@@ -2,7 +2,6 @@ module Fable.WebWorker.Main
 
 open Fable.Core
 open Fable.Core.JsInterop
-open Fable.Import
 open Fable.Standalone
 open Fable.WebWorker
 
