@@ -45,7 +45,8 @@ let references use_net45_meta =
         "System.Data"
         "System.IO"
         "System.Xml"
-        "System.Numerics"|]
+        "System.Numerics"
+      |]
     else
       [|"Fable.Core"
         "Fable.Import.Browser"

@@ -2,7 +2,6 @@ module Metadata
 
 let references_core = [|
     "Fable.Core"
-    "Fable.Import.Browser"
     "FSharp.Core"
     "mscorlib"
     "netstandard"
@@ -15,6 +14,7 @@ let references_core = [|
     "System.Core"
     "System.Diagnostics.Debug"
     "System.Diagnostics.Tracing"
+    "System.Globalization"
     "System"
     "System.IO"
     "System.Numerics"
