@@ -887,4 +887,8 @@ let tests =
     testCase "Inlined methods can have optional arguments" <| fun () ->
         StaticClass.Add(2, 3) |> equal 5
         StaticClass.Add(5) |> equal 7
+
+    testCase "Ignore shouldn't return value" <| fun () -> // See #1360
+        let producer () = 7
+        equal (box ()) (box(ignore(producer())))
   ]
