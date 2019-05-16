@@ -1,3 +1,5 @@
+import { isUndefined } from "util";
+
 // tslint:disable:ban-types
 
 // Object.assign flattens getters and setters
@@ -559,29 +561,50 @@ export function uncurry(arity: number, f: Function) {
   //   }
   //   return res;
   // };
+  let t : any;
   switch (arity) {
     case 2:
-      return (a1: any, a2: any) => f(a1)(a2);
+      t = (a1: any, a2: any) => f(a1)(a2);
+      break;
     case 3:
-      return (a1: any, a2: any, a3: any) => f(a1)(a2)(a3);
+      t = (a1: any, a2: any, a3: any) => f(a1)(a2)(a3);
+      break;
     case 4:
-      return (a1: any, a2: any, a3: any, a4: any) => f(a1)(a2)(a3)(a4);
+      t = (a1: any, a2: any, a3: any, a4: any) => f(a1)(a2)(a3)(a4);
+      break;
     case 5:
-      return (a1: any, a2: any, a3: any, a4: any, a5: any) => f(a1)(a2)(a3)(a4)(a5);
+      t = (a1: any, a2: any, a3: any, a4: any, a5: any) => f(a1)(a2)(a3)(a4)(a5);
+      break;
     case 6:
-      return (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any) => f(a1)(a2)(a3)(a4)(a5)(a6);
+      t = (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any) => f(a1)(a2)(a3)(a4)(a5)(a6);
+      break;
     case 7:
-      return (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7);
+      t = (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7);
+      break;
     case 8:
-      return (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any, a8: any) =>
+      t = (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any, a8: any) =>
         f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8);
+      break;
     default:
       throw new Error("Uncurrying to more than 8-arity is not supported: " + arity);
   }
+
+  t.fable_uncurried = f;
+  t.fable_arity = arity;
+
+  return t;
 }
 
 export function curry(arity: number, f: Function): Function {
   if (f == null) { return null; }
+
+  let t :any = f;
+  if (!isUndefined(t.fable_uncurried)) {
+    if (t.fable_arity >= arity) {
+      return t.fable_uncurried;
+    }
+  }
+
   switch (arity) {
     case 2:
       return (a1: any) => (a2: any) => f(a1, a2);
@@ -610,6 +633,20 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
   if (f == null) {
     return null;
   } else {
+    let t :any = f;
+    if (!isUndefined(t.fable_uncurried)) {
+      if (t.fable_arity >= arity) {
+        // apply fable_uncurried arity times with given args
+        let current : Function = t.fable_uncurried;
+        for (let i = 0; i < args.length; i++) {
+          const currentArg = args[i];
+          current = current.apply(null, [currentArg]);
+        }
+        return current;
+      }
+    }
+
+
     switch (arity) {
       case 1:
         // Wrap arguments to make sure .concat doesn't destruct arrays. Example
