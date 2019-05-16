@@ -909,6 +909,22 @@ let tests7 = [
         (-5, vals, ops) |||> List.fold2 (fun acc (v1,v2) op -> acc * op v1 v2)
         |> equal 45
 
+    testCase "Fix lambda uncurry/curry semantic #1836" <| fun () ->
+        let map (mapSetState: int -> (int -> unit))  =
+            mapSetState 1
+
+        let mutable doMapCalled = 0
+        let mutable doMapResultCalled = 0
+        let doMap (i:int) : (int -> unit) =
+            doMapCalled <- doMapCalled + 1
+            (fun j -> doMapResultCalled <- doMapResultCalled + 1) 
+
+        let setState = map (doMap)
+        setState 1
+        setState 2
+        doMapCalled |> equal 1
+        doMapResultCalled |> equal 2
+
     #if FABLE_COMPILER
     testCase "Composing methods returning 2-arity lambdas works" <| fun _ ->
         let infoHelp version =
