@@ -589,7 +589,7 @@ export function uncurry(arity: number, f: Function) {
       throw new Error("Uncurrying to more than 8-arity is not supported: " + arity);
   }
 
-  t.fable_uncurried = f;
+  t.fable_curried = f;
   t.fable_arity = arity;
 
   return t;
@@ -599,9 +599,9 @@ export function curry(arity: number, f: Function): Function {
   if (f == null) { return null; }
 
   let t :any = f;
-  if (!isUndefined(t.fable_uncurried)) {
+  if (!isUndefined(t.fable_curried)) {
     if (t.fable_arity >= arity) {
-      return t.fable_uncurried;
+      return t.fable_curried;
     }
   }
 
@@ -634,10 +634,10 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
     return null;
   } else {
     let t :any = f;
-    if (!isUndefined(t.fable_uncurried)) {
+    if (!isUndefined(t.fable_curried)) {
       if (t.fable_arity >= arity) {
-        // apply fable_uncurried arity times with given args
-        let current : Function = t.fable_uncurried;
+        // apply fable_curried arity times with given args
+        let current : Function = t.fable_curried;
         for (let i = 0; i < args.length; i++) {
           const currentArg = args[i];
           current = current.apply(null, [currentArg]);
