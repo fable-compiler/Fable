@@ -766,6 +766,28 @@ type BaseClass2 (f: string -> string -> string) =
 type AddString2 (f: string -> string -> string) =
   inherit BaseClass2 (fun a b -> f a b + " - " + f b a)
 
+module private PseudoElmish =
+    type Dispatch<'msg> = 'msg -> unit
+    type SetState<'model, 'msg> = 'model -> Dispatch<'msg> -> unit
+    type Program<'model, 'msg> = { setState: SetState<'model, 'msg> }
+
+    let mutable doMapRunTimes = 0
+    let mutable setStateAccumulated = ""
+
+    let map (mapSetState: SetState<'model, 'msg> -> SetState<'model, 'msg>) (program: Program<'model, 'msg>) =
+        { setState = mapSetState (program.setState) }
+
+    let withChanges (program: Program<'model,'msg>) =
+        let doMap (setState: SetState<'model, 'msg>): SetState<'model, 'msg> =
+            doMapRunTimes <- doMapRunTimes + 1
+            setState
+
+        program |> map doMap
+
+    let testProgram: Program<string, string> = {
+        setState = (fun m d -> setStateAccumulated <- setStateAccumulated + m)
+    }
+
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
         (lengthWrapper []) |> equal 0
@@ -943,20 +965,34 @@ let tests7 = [
         equal expected actual
     #endif
 
-    // testCase "TODO: failwithf is not compiled as function" <| fun () ->
-    //     let makeFn value =
-    //         if value then
-    //             // If we change this to 5 or similar
-    //             // (not a function), it will fail immediately
-    //             fun x -> x + x
-    //         else
-    //             failwithf "Expecting true but got %s" "false"
+    testCase "failwithf is not compiled as function" <| fun () ->
+        let makeFn value =
+            if value then
+                // When one of the branches is a function
+                // failwithf can be compiled to a function
+                // because of optimizations
+                fun x -> x + x
+            else
+                failwithf "Boom!"
 
-    //     let f = makeFn false
-    //     // It should fail here but it doesn't,
-    //     // it only fails if `f` is called
-    //     let x = 5 // f 5
-    //     equal x 5
+        let mutable x = ""
+        try
+            // It should fail even if `f` is not called
+            let f = makeFn false
+            ()
+        with ex -> x <- ex.Message
+        equal "Boom!" x
+
+
+    testCase "Partial Applying caches side-effects" <| fun () -> // See #
+        let changedProgram = PseudoElmish.withChanges PseudoElmish.testProgram
+
+        changedProgram.setState "Foo" (fun _ -> ())
+        changedProgram.setState "Bar" (fun _ -> ())
+        changedProgram.setState "Baz" (fun _ -> ())
+
+        PseudoElmish.doMapRunTimes |> equal 1
+        PseudoElmish.setStateAccumulated |> equal "FooBarBaz"
 ]
 
 let tests =

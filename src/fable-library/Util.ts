@@ -544,36 +544,36 @@ export function uncurry(arity: number, f: Function) {
   // f may be a function option with None value
   if (f == null) { return null; }
 
-  // return (...args: any[]) => {
-  //   // In some cases there may be more arguments applied than necessary
-  //   // (e.g. index when mapping an array), discard them
-  //   args = args.slice(0, arity);
-  //   let res = f;
-  //   while (args.length > 0) {
-  //       const curArgs = args.splice(0, res.length);
-  //       res = res.apply(null, curArgs);
-  //   }
-  //   return res;
-  // };
+  let uncurriedFn: Function;
   switch (arity) {
     case 2:
-      return (a1: any, a2: any) => f(a1)(a2);
+      uncurriedFn = (a1: any, a2: any) => f(a1)(a2);
+      break;
     case 3:
-      return (a1: any, a2: any, a3: any) => f(a1)(a2)(a3);
+      uncurriedFn = (a1: any, a2: any, a3: any) => f(a1)(a2)(a3);
+      break;
     case 4:
-      return (a1: any, a2: any, a3: any, a4: any) => f(a1)(a2)(a3)(a4);
+      uncurriedFn = (a1: any, a2: any, a3: any, a4: any) => f(a1)(a2)(a3)(a4);
+      break;
     case 5:
-      return (a1: any, a2: any, a3: any, a4: any, a5: any) => f(a1)(a2)(a3)(a4)(a5);
+      uncurriedFn = (a1: any, a2: any, a3: any, a4: any, a5: any) => f(a1)(a2)(a3)(a4)(a5);
+      break;
     case 6:
-      return (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any) => f(a1)(a2)(a3)(a4)(a5)(a6);
+      uncurriedFn = (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any) => f(a1)(a2)(a3)(a4)(a5)(a6);
+      break;
     case 7:
-      return (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any) => f(a1)(a2)(a3)(a4)(a5)(a6)(a7);
+      uncurriedFn = (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any) =>
+        f(a1)(a2)(a3)(a4)(a5)(a6)(a7);
+      break;
     case 8:
-      return (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any, a8: any) =>
+      uncurriedFn = (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any, a8: any) =>
         f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8);
+      break;
     default:
       throw new Error("Uncurrying to more than 8-arity is not supported: " + arity);
   }
+  (uncurriedFn as any).curried = f;
+  return uncurriedFn;
 }
 
 export function curry(arity: number, f: Function): Function {
@@ -605,6 +605,12 @@ export function curry(arity: number, f: Function): Function {
 export function partialApply(arity: number, f: Function, args: any[]): any {
   if (f == null) {
     return null;
+  } else if ("curried" in f) {
+    f = (f as any).curried;
+    for (var i = 0; i < args.length; i++) {
+        f = f(args[i]);
+    }
+    return f;
   } else {
     switch (arity) {
       case 1:
