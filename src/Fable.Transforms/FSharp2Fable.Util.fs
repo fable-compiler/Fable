@@ -679,9 +679,8 @@ module Identifiers =
         com.AddUsedVarName sanitizedName
         { Name = sanitizedName
           Type = makeType com ctx.GenericArgs fsRef.FullType
-          Kind = Fable.UnspecifiedIdent
+          Kind = if fsRef.IsCompilerGenerated then Fable.CompilerGenerated else Fable.UserDeclared
           IsMutable = fsRef.IsMutable
-          IsCompilerGenerated = fsRef.IsCompilerGenerated
           Range = { makeRange fsRef.DeclarationLocation
                     with identifierName = Some fsRef.DisplayName } |> Some }
 
@@ -1074,7 +1073,7 @@ module Util =
                     // Change type and mark ident as compiler-generated so it can be optimized
                     let ident = { makeIdentFrom com ctx argId with
                                     Type = arg.Type
-                                    IsCompilerGenerated = true }
+                                    Kind = Fable.InlinedArg }
                     let ctx = putIdentInScope ctx argId ident (Some arg)
                     ctx, (ident, arg)::bindings)
             let ctx = { ctx with GenericArgs = genArgs.Value |> Map

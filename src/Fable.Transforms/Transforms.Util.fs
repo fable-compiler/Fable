@@ -206,6 +206,20 @@ module AST =
     let inline (|ExprType|) (e: Expr) = e.Type
     let inline (|IdentType|) (id: Ident) = id.Type
 
+    /// ATTENTION: Only intended to be used in lambdaBetaReduction
+    let rec (|NestedCompilerGeneratedLetsAndLambdas|_|) expr =
+        let rec nestedLetsAndLambdas identValues lambdaArgs body =
+            match body with
+            | Let([ident, value], body) when ident.IsCompilerGenerated ->
+                nestedLetsAndLambdas ((ident, value)::identValues) lambdaArgs body
+            | Function(Lambda arg, body, None) when arg.IsCompilerGenerated ->
+                nestedLetsAndLambdas identValues (arg::lambdaArgs) body
+            | _ -> List.rev identValues, List.rev lambdaArgs, body
+        match expr with
+        | Let([ident, value], body) when ident.IsCompilerGenerated ->
+            nestedLetsAndLambdas [ident, value] [] body |> Some
+        | _ -> None
+
     let (|NestedLambdaType|_|) t =
         let rec nestedLambda acc = function
             | FunctionType(LambdaType arg, returnType) ->
@@ -272,6 +286,7 @@ module AST =
         | e -> e
 
     /// When referenced multiple times, is there a risk of double evaluation?
+    /// Functions return true because we don't want to duplicate them in the code
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec hasDoubleEvalRisk = function
         | Import _ -> false
@@ -300,9 +315,8 @@ module AST =
     let makeIdentNonMangled name =
         { Name = name
           Type = Any
-          Kind = UnspecifiedIdent
+          Kind = CompilerGenerated
           IsMutable = false
-          IsCompilerGenerated = true
           Range = None }
 
     /// Mangles ident name to prevent conflicts in the file
@@ -313,9 +327,8 @@ module AST =
     let makeTypedIdentNonMangled typ name =
         { Name = name
           Type = typ
-          Kind = UnspecifiedIdent
+          Kind = CompilerGenerated
           IsMutable = false
-          IsCompilerGenerated = true
           Range = None }
 
     /// Mangles ident name to prevent conflicts in the file

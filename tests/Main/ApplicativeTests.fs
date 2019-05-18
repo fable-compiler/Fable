@@ -984,7 +984,7 @@ let tests7 = [
         equal "Boom!" x
 
 
-    testCase "Partial Applying caches side-effects" <| fun () -> // See #
+    testCase "Partial Applying caches side-effects" <| fun () -> // See #1836
         let changedProgram = PseudoElmish.withChanges PseudoElmish.testProgram
 
         changedProgram.setState "Foo" (fun _ -> ())
@@ -993,6 +993,27 @@ let tests7 = [
 
         PseudoElmish.doMapRunTimes |> equal 1
         PseudoElmish.setStateAccumulated |> equal "FooBarBaz"
+
+    testCase "Partial Applying locally caches side-effects" <| fun () -> // See #1836
+        let mutable doMapRunTimes = 0
+        let mutable setStateAccumulated = ""
+
+        let inline map mapSetState (program: PseudoElmish.Program<'model, 'msg>) =
+            { PseudoElmish.setState = mapSetState (program.setState) }
+
+        let changedProgram =
+            { PseudoElmish.setState = (fun m d -> setStateAccumulated <- setStateAccumulated + m) }
+            |> map (fun setState ->
+                doMapRunTimes <- doMapRunTimes + 1
+                setState)
+
+        changedProgram.setState "Foo" (fun _ -> ())
+        changedProgram.setState "Bar" (fun _ -> ())
+        changedProgram.setState "Baz" (fun _ -> ())
+
+        doMapRunTimes |> equal 1
+        setStateAccumulated |> equal "FooBarBaz"
+
 ]
 
 let tests =

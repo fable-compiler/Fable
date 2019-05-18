@@ -105,7 +105,9 @@ type File(sourcePath, decls, ?usedVarNames, ?inlineDependencies) =
     member __.InlineDependencies: Set<string> = defaultArg inlineDependencies Set.empty
 
 type IdentKind =
-    | UnspecifiedIdent
+    | UserDeclared
+    | CompilerGenerated
+    | InlinedArg
     | BaseValueIdent
     | ThisArgIdentDeclaration
 
@@ -114,8 +116,11 @@ type Ident =
       Type: Type
       Kind: IdentKind
       IsMutable: bool
-      IsCompilerGenerated: bool
       Range: SourceLocation option }
+      member x.IsCompilerGenerated =
+        match x.Kind with CompilerGenerated -> true | _ -> false
+      member x.IsInlinedArg =
+        match x.Kind with InlinedArg -> true | _ -> false
       member x.IsBaseValue =
         match x.Kind with BaseValueIdent -> true | _ -> false
       member x.IsThisArgDeclaration =
@@ -174,7 +179,7 @@ type ValueKind =
         | NewRecord(_, kind, genArgs) ->
             match kind with
             | DeclaredRecord ent -> DeclaredType(ent, genArgs)
-            | AnonymousRecord fieldNames -> AnonymousRecordType(fieldNames, genArgs) 
+            | AnonymousRecord fieldNames -> AnonymousRecordType(fieldNames, genArgs)
         | NewUnion(_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
         | NewErasedUnion(_, genArgs) -> ErasedUnion genArgs
 
