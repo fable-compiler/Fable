@@ -321,27 +321,27 @@ let private transformAttribute (com: IFableCompiler) (ctx : Context) (a : FSharp
         None
 
 let private makeLambda (argType : Fable.Type) (body : Fable.Expr -> Fable.Expr) =
-    let target = { Fable.Ident.Name = "target"; Fable.Ident.Type = argType; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
+    let target = { Fable.Ident.Name = "target"; Fable.Ident.Type = argType; Fable.Ident.Kind = Fable.IdentKind.CompilerGenerated; Fable.Ident.IsMutable = false; Fable.Ident.Range = None }
     let body = body (Fable.IdentExpr target)
     Fable.Function(Fable.FunctionKind.Lambda(target), body, None)
+
 let private makeLambda2 (a0 : Fable.Type) (a1 : Fable.Type) (body : Fable.Expr -> Fable.Expr -> Fable.Expr) =
-    let v0 = { Fable.Ident.Name = "arg0"; Fable.Ident.Type = a0; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
-    let v1 = { Fable.Ident.Name = "arg1"; Fable.Ident.Type = a1; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
+    let v0 = { Fable.Ident.Name = "arg0"; Fable.Ident.Type = a0; Fable.Ident.Kind = Fable.IdentKind.CompilerGenerated; Fable.Ident.IsMutable = false; Fable.Ident.Range = None }
+    let v1 = { Fable.Ident.Name = "arg1"; Fable.Ident.Type = a1; Fable.Ident.Kind = Fable.IdentKind.CompilerGenerated; Fable.Ident.IsMutable = false; Fable.Ident.Range = None }
     let body = body (Fable.IdentExpr v0) (Fable.IdentExpr v1)
     Fable.Function(Fable.FunctionKind.Delegate [v0; v1], body, None)
 
 let private makeLambda3 (a0 : Fable.Type) (a1 : Fable.Type) (a2 : Fable.Type) (body : Fable.Expr -> Fable.Expr -> Fable.Expr -> Fable.Expr) =
-    let v0 = { Fable.Ident.Name = "arg0"; Fable.Ident.Type = a0; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
-    let v1 = { Fable.Ident.Name = "arg1"; Fable.Ident.Type = a1; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
-    let v2 = { Fable.Ident.Name = "arg2"; Fable.Ident.Type = a2; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
+    let v0 = { Fable.Ident.Name = "arg0"; Fable.Ident.Type = a0; Fable.Ident.Kind = Fable.IdentKind.CompilerGenerated; Fable.Ident.IsMutable = false; Fable.Ident.Range = None }
+    let v1 = { Fable.Ident.Name = "arg1"; Fable.Ident.Type = a1; Fable.Ident.Kind = Fable.IdentKind.CompilerGenerated; Fable.Ident.IsMutable = false; Fable.Ident.Range = None }
+    let v2 = { Fable.Ident.Name = "arg2"; Fable.Ident.Type = a2; Fable.Ident.Kind = Fable.IdentKind.CompilerGenerated; Fable.Ident.IsMutable = false; Fable.Ident.Range = None }
     let body = body (Fable.IdentExpr v0) (Fable.IdentExpr v1) (Fable.IdentExpr v2)
     Fable.Function(Fable.FunctionKind.Delegate [v0; v1; v2], body, None)
 
 let private makeLambda0 (body : Fable.Expr -> Fable.Expr) =
-    let target = { Fable.Ident.Name = "target"; Fable.Ident.Type = Fable.Type.Any; Fable.Ident.Kind = Fable.IdentKind.UnspecifiedIdent; Fable.Ident.IsMutable = false; Fable.Ident.IsCompilerGenerated = false; Fable.Ident.Range = None }
+    let target = { Fable.Ident.Name = "target"; Fable.Ident.Type = Fable.Type.Any; Fable.Ident.Kind = Fable.IdentKind.CompilerGenerated; Fable.Ident.IsMutable = false; Fable.Ident.Range = None }
     let body = body (Fable.IdentExpr target)
     Fable.Function(Fable.FunctionKind.Lambda(target), body, None)
-
 
 
 let rec private (|Snoc|Nil|) (l : list<'a>) =

@@ -80,6 +80,10 @@ let inline f x y = x + y
 let inline sum x = fun y -> x + y
 
 module FooModule =
+    let mutable genericValueBackend = 0
+    let inline genericValue<'T> = genericValueBackend <- genericValueBackend + 1; 5
+    let add x y = x + y
+
     type FooInline() =
         member __.Bar = "Bar"
         member val Value = 0uy with get, set
@@ -495,6 +499,12 @@ let tests =
         f 20 |> f |> equal 40
         equal 1 x
 
+    testCase "Don't inline values that evaluate multiple times" <| fun () ->
+        let li = [1;2;3;4]
+        let res = List.map (FooModule.add FooModule.genericValue) li
+        equal 1 FooModule.genericValueBackend
+        equal [6;7;8;9] res
+
     testCase "Calls to core lib from a subfolder work" <| fun () ->
         Util2.Helper.Format("{0} + {0} = {1}", 2, 4)
         |> equal "2 + 2 = 4"
@@ -887,4 +897,8 @@ let tests =
     testCase "Inlined methods can have optional arguments" <| fun () ->
         StaticClass.Add(2, 3) |> equal 5
         StaticClass.Add(5) |> equal 7
+
+    testCase "Ignore shouldn't return value" <| fun () -> // See #1360
+        let producer () = 7
+        equal (box ()) (box(ignore(producer())))
   ]

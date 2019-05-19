@@ -1,3 +1,7 @@
+### 2.3.8
+
+* Fix #1832: unit arguments
+
 ### 2.3.7
 
 * Fix SRTP with anonymous records

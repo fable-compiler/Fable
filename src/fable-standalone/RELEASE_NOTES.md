@@ -1,3 +1,7 @@
+### 1.1.1
+
+* Update bundle and Worker dependencies
+
 ### 1.0.4
 
 * Fixed optimized patterns

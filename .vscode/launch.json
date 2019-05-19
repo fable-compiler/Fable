@@ -85,8 +85,8 @@
             "args": [
                 "--no-timeouts",
                 "--colors",
-                "${workspaceFolder}/src/fable-standalone/test/bench-compiler/out-tests"
-                // "${workspaceFolder}/build/tests"
+                // "${workspaceFolder}/src/fable-standalone/test/bench-compiler/out-tests"
+                "${workspaceFolder}/build/tests"
             ],
             "internalConsoleOptions": "openOnSessionStart"
         },

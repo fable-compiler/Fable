@@ -200,23 +200,48 @@ let replaceValues replacements expr =
             | None -> e
         | e -> e)
 
-// When inlining args, if the body contains a function avoid inlining
-// to prevent multiple evaluation because of delayed resolution
-let countReferences avoidFunctions limit identName body =
+let countReferences limit identName body =
     let mutable count = 0
     body |> deepExists (function
         | IdentExpr id2 when id2.Name = identName ->
             count <- count + 1
             count > limit
-        | Function _ when avoidFunctions ->
-            count <- limit + 1
-            true
         | _ -> false) |> ignore
+    count
+
+/// Values with risk of double evaluation must be captured. If it appears in the body
+/// of a function it can leak, so consider as it had exceeded the references limit.
+let countReferencesPreventingLeak limit identName body =
+    let rec traverse f (insideFunction: bool) (exprs: Expr list) =
+        (false, exprs) ||> List.fold (fun stop expr ->
+            stop ||
+                let stop, insideFunction', exprs = f insideFunction expr
+                stop ||
+                    match exprs with
+                    | [] -> false
+                    | exprs -> traverse f (insideFunction || insideFunction') exprs)
+    let mutable count = 0
+    (false, [body]) ||> traverse (fun insideFunction expr ->
+        match expr with
+        | IdentExpr id2 when id2.Name = identName ->
+            count <- (if insideFunction then limit else count) + 1
+            count > limit, false, []
+        // If the function is immediately applied we don't have to worry about leaks
+        // | NestedApply(NestedLambda(args, body, _), argExprs, _, _) when List.sameLength args argExprs ->
+        //     false, false, argExprs @ [body]
+        | Function(_,body,_) ->
+            false, true, [body]
+        | e ->
+            false, false, getSubExpressions e) |> ignore
     count
 
 let canInlineArg identName value body =
     // Don't erase expressions referenced 0 times, they may have side-effects
-    not(hasDoubleEvalRisk value) || (countReferences true 1 identName body = 1)
+    if not(hasDoubleEvalRisk value) then true
+    else
+        match value with
+        | Function _ -> countReferences 1 identName body = 1
+        | _ -> countReferencesPreventingLeak 1 identName body = 1
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
@@ -236,8 +261,22 @@ module private Transforms =
             | [] -> replaceValues replacements body
             | bindings -> Let(List.rev bindings, replaceValues replacements body)
         match e with
+        // TODO: Other binary operations and numeric types, also recursive?
         | Operation(BinaryOperation(AST.BinaryPlus, Value(StringConstant str1, r1), Value(StringConstant str2, r2)),_,_) ->
             Value(StringConstant(str1 + str2), addRanges [r1; r2])
+        // The F# compiler converts non-curried module and class members to curried lambdas when necessary
+        // but we can remove all the wrapping if the result is immediately applied
+        // We assume the compiler generated bindings/args can be inlined
+        | NestedApply(NestedCompilerGeneratedLetsAndLambdas(identValues, lambdaArgs, body), appliedArgs,_,_)
+                when List.sameLength lambdaArgs appliedArgs ->
+            let replacements =
+                List.zip lambdaArgs appliedArgs
+                |> List.map (fun (i,v) -> i.Name,v) |> Map
+            let replacements =
+                (replacements, identValues)
+               ||> List.fold (fun replacements (i,v) ->
+                    Map.add i.Name (replaceValues replacements v) replacements)
+            replaceValues replacements body
         | Operation(CurriedApply(NestedLambda(args, body, None) as lambda, argExprs), _, _) ->
             if List.sameLength args argExprs
             then applyArgs args argExprs body
@@ -273,13 +312,13 @@ module private Transforms =
             | Get(IdentExpr tupleIdent, TupleGet _, _, _) as value when tupleIdent.IsCompilerGenerated ->
                 replaceValues (Map [ident.Name, value]) letBody
             | Function(args, funBody, currentName) when ident.IsCompilerGenerated
-                                                    && (countReferences false 1 ident.Name letBody <= 1) ->
+                                                    && (countReferences 1 ident.Name letBody <= 1) ->
                 if Option.isSome currentName then
                     sprintf "Unexpected named function when erasing binding (%s > %s)" currentName.Value ident.Name
                     |> addWarning com [] ident.Range
                 let replacement = Function(args, funBody, Some ident.Name)
                 replaceValues (Map [ident.Name, replacement]) letBody
-            | value when ident.IsCompilerGenerated
+            | value when (ident.IsInlinedArg || ident.IsCompilerGenerated)
                     // Don't erase the binding if the compiler-generated ident is a tuple, because the getters
                     // will be erased later (see above) and there's a risk the expression gets totally removed
                     && not (isTuple ident.Type)
@@ -344,7 +383,7 @@ module private Transforms =
     // TODO: Do we need to do this recursively, and check options and delegates too?
     let checkSubArguments com expectedType (expr: Expr) =
         match expectedType, expr with
-        | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs, returnType))
+        | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_))
                 when List.sameLength expectedArgs actualArgs ->
             let _, replacements =
                 ((0, Map.empty), expectedArgs, actualArgs)
@@ -361,20 +400,14 @@ module private Transforms =
             if Map.isEmpty replacements
             then expr
             else
-                let args = List.map (fun _ -> makeIdentUnique com "arg") actualArgs
-                let argExprs =
-                    args |> List.mapi (fun i arg ->
-                        let argExpr = IdentExpr arg
+                let mappings =
+                    actualArgs |> List.mapi (fun i _ ->
                         match Map.tryFind i replacements with
                         | Some (expectedArity, actualArity) ->
-                            let argExpr =
-                                if expectedArity > 1
-                                then Replacements.curryExprAtRuntime expectedArity argExpr
-                                else argExpr
-                            Replacements.uncurryExprAtRuntime actualArity argExpr
-                        | None -> argExpr)
-                let body = Operation(CurriedApply(expr, argExprs), returnType, None)
-                makeLambda args body
+                            NewTuple [makeIntConst expectedArity; makeIntConst actualArity] |> makeValue None
+                        | None -> makeIntConst 0)
+                    |> makeArray Any
+                Replacements.Helper.CoreCall("Util", "mapCurriedArgs", expectedType, [expr; mappings])
         | _ -> expr
 
     let uncurryArgs com argTypes args =

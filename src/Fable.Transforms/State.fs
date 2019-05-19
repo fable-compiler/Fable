@@ -82,7 +82,7 @@ type Compiler(currentFile, project: Project, options, fableLibraryDir: string) =
             match project.RootModules.TryGetValue(fileName) with
             | true, rootModule -> rootModule
             | false, _ ->
-                let msg = sprintf "Cannot find root module for %s" fileName
+                let msg = sprintf "Cannot find root module for %s. If this belongs to a package, make sure it includes the source files." fileName
                 (x :> ICompiler).AddLog(msg, Severity.Warning)
                 "" // failwith msg
         member __.GetOrAddInlineExpr(fullName, generate) =

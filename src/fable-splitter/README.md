@@ -44,7 +44,7 @@ module.exports = {
   entry: "src/App.fsproj",
   outDir: "out",
   babel: {
-    presets: [["env", { modules: "commonjs" }]],
+    presets: [["@babel/preset-env", { modules: "commonjs" }]],
     sourceMaps: false,
   }
 }
