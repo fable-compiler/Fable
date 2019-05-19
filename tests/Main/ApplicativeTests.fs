@@ -612,6 +612,17 @@ module CurriedApplicative =
 
     open Option.Operators
 
+    let apply3 (f: 'a->'a->'b->'c) (a: 'a) =
+        f a a
+
+    let changeArity (f: 'a->'a->'a->'b) (a: 'a) =
+        apply3 f a
+
+    let inline changeArityInlined (f: 'a->'a->'a->'b) (a: 'a) =
+        apply3 f a
+
+    let addModule5 h i j k l = h + i + j + k + l
+
     let tests = [
         testCase "Option.apply (<*>) non-curried" <| fun () ->
             let f x = x + 1
@@ -634,6 +645,18 @@ module CurriedApplicative =
                 f'
             let r = Some f <*> Some 2 <*> Some 3
             r |> equal (Some 5)
+
+        // TODO: Add tests with side-effects
+        testCase "Currying/uncurrying works" <| fun () ->
+            let addLocal x y z u v = x + y + z + u + v
+            let f1 = changeArity addModule5 2
+            let f2 = changeArity addLocal 2
+            let f3 = changeArityInlined addModule5 2
+            let f4 = changeArityInlined addLocal 2
+            f1 1 2 3 |> equal 10
+            f2 1 2 3 |> equal 10
+            f3 1 2 3 |> equal 10
+            f4 1 2 3 |> equal 10
     ]
 
 type Node(parent: HTMLElement option) =
@@ -767,6 +790,9 @@ type AddString2 (f: string -> string -> string) =
   inherit BaseClass2 (fun a b -> f a b + " - " + f b a)
 
 module private PseudoElmish =
+    let justReturn2 (f: 'a->'b->'c) = f
+    let justReturn3 (f: 'a->'b->'c->'d) = f
+
     type Dispatch<'msg> = 'msg -> unit
     type SetState<'model, 'msg> = 'model -> Dispatch<'msg> -> unit
     type Program<'model, 'msg> = { setState: SetState<'model, 'msg> }
@@ -774,15 +800,34 @@ module private PseudoElmish =
     let mutable doMapRunTimes = 0
     let mutable setStateAccumulated = ""
 
+    let reset() =
+        doMapRunTimes <- 0
+        setStateAccumulated <- ""
+
     let map (mapSetState: SetState<'model, 'msg> -> SetState<'model, 'msg>) (program: Program<'model, 'msg>) =
         { setState = mapSetState (program.setState) }
 
-    let withChanges (program: Program<'model,'msg>) =
-        let doMap (setState: SetState<'model, 'msg>): SetState<'model, 'msg> =
-            doMapRunTimes <- doMapRunTimes + 1
-            setState
+    let doMap (setState: SetState<'model, 'msg>): SetState<'model, 'msg> =
+        doMapRunTimes <- doMapRunTimes + 1
+        setState
 
+    let withChanges (program: Program<'model,'msg>) =
         program |> map doMap
+
+    let mapWithPreviousCurrying2 (mapSetState: SetState<'model, 'msg> -> SetState<'model, 'msg>) (program: Program<'model, 'msg>) =
+        let mapSetState = justReturn2 mapSetState
+        { setState = mapSetState (program.setState) }
+
+    let withChangesAndCurrying2 (program: Program<'model,'msg>) =
+        program |> mapWithPreviousCurrying2 doMap
+
+    let mapWithPreviousCurrying3 (mapSetState: SetState<'model, 'msg> -> SetState<'model, 'msg>) (program: Program<'model, 'msg>) =
+        let mapSetState = justReturn3 mapSetState
+        // let mapSetState = justReturn3 (fun x y z -> mapSetState x y z)
+        { setState = mapSetState (program.setState) }
+
+    let withChangesAndCurrying3 (program: Program<'model,'msg>) =
+        program |> mapWithPreviousCurrying3 doMap
 
     let testProgram: Program<string, string> = {
         setState = (fun m d -> setStateAccumulated <- setStateAccumulated + m)
@@ -985,14 +1030,26 @@ let tests7 = [
 
 
     testCase "Partial Applying caches side-effects" <| fun () -> // See #1836
+        PseudoElmish.reset()
         let changedProgram = PseudoElmish.withChanges PseudoElmish.testProgram
-
         changedProgram.setState "Foo" (fun _ -> ())
         changedProgram.setState "Bar" (fun _ -> ())
-        changedProgram.setState "Baz" (fun _ -> ())
-
         PseudoElmish.doMapRunTimes |> equal 1
-        PseudoElmish.setStateAccumulated |> equal "FooBarBaz"
+        PseudoElmish.setStateAccumulated |> equal "FooBar"
+
+        PseudoElmish.reset()
+        let changedProgram = PseudoElmish.withChangesAndCurrying3 PseudoElmish.testProgram
+        changedProgram.setState "Foo" (fun _ -> ())
+        changedProgram.setState "Bar" (fun _ -> ())
+        PseudoElmish.doMapRunTimes |> equal 1
+        PseudoElmish.setStateAccumulated |> equal "FooBar"
+
+        PseudoElmish.reset()
+        let changedProgram = PseudoElmish.withChangesAndCurrying2 PseudoElmish.testProgram
+        changedProgram.setState "Foo" (fun _ -> ())
+        changedProgram.setState "Bar" (fun _ -> ())
+        PseudoElmish.doMapRunTimes |> equal 1
+        PseudoElmish.setStateAccumulated |> equal "FooBar"
 
     testCase "Partial Applying locally caches side-effects" <| fun () -> // See #1836
         let mutable doMapRunTimes = 0

@@ -381,7 +381,7 @@ module private Transforms =
     // TODO: Do we need to do this recursively, and check options and delegates too?
     let checkSubArguments com expectedType (expr: Expr) =
         match expectedType, expr with
-        | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs, returnType))
+        | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_))
                 when List.sameLength expectedArgs actualArgs ->
             let _, replacements =
                 ((0, Map.empty), expectedArgs, actualArgs)
@@ -398,20 +398,14 @@ module private Transforms =
             if Map.isEmpty replacements
             then expr
             else
-                let args = List.map (fun _ -> makeIdentUnique com "arg") actualArgs
-                let argExprs =
-                    args |> List.mapi (fun i arg ->
-                        let argExpr = IdentExpr arg
+                let mappings =
+                    actualArgs |> List.mapi (fun i _ ->
                         match Map.tryFind i replacements with
                         | Some (expectedArity, actualArity) ->
-                            let argExpr =
-                                if expectedArity > 1
-                                then Replacements.curryExprAtRuntime expectedArity argExpr
-                                else argExpr
-                            Replacements.uncurryExprAtRuntime actualArity argExpr
-                        | None -> argExpr)
-                let body = Operation(CurriedApply(expr, argExprs), returnType, None)
-                makeLambda args body
+                            NewTuple [makeIntConst expectedArity; makeIntConst actualArity] |> makeValue None
+                        | None -> makeIntConst 0)
+                    |> makeArray Any
+                Replacements.Helper.CoreCall("Util", "mapCurriedArgs", expectedType, [expr; mappings])
         | _ -> expr
 
     let uncurryArgs com argTypes args =

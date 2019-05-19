@@ -540,9 +540,17 @@ export function clear<T>(col: Iterable<T>) {
   }
 }
 
+const CURRIED_KEY = "__CURRIED__";
+
 export function uncurry(arity: number, f: Function) {
   // f may be a function option with None value
   if (f == null) { return null; }
+
+  // The function is already uncurried
+  if (f.length > 1) {
+//   if (CURRIED_KEY in f) { // This doesn't always work
+    return f;
+  }
 
   let uncurriedFn: Function;
   switch (arity) {
@@ -572,12 +580,15 @@ export function uncurry(arity: number, f: Function) {
     default:
       throw new Error("Uncurrying to more than 8-arity is not supported: " + arity);
   }
-  (uncurriedFn as any).curried = f;
+  (uncurriedFn as any)[CURRIED_KEY] = f;
   return uncurriedFn;
 }
 
 export function curry(arity: number, f: Function): Function {
   if (f == null) { return null; }
+  if (CURRIED_KEY in f) {
+      return (f as any)[CURRIED_KEY];
+  }
   switch (arity) {
     case 2:
       return (a1: any) => (a2: any) => f(a1, a2);
@@ -605,8 +616,8 @@ export function curry(arity: number, f: Function): Function {
 export function partialApply(arity: number, f: Function, args: any[]): any {
   if (f == null) {
     return null;
-  } else if ("curried" in f) {
-    f = (f as any).curried;
+  } else if (CURRIED_KEY in f) {
+    f = (f as any)[CURRIED_KEY];
     for (var i = 0; i < args.length; i++) {
         f = f(args[i]);
     }
@@ -640,6 +651,35 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
         throw new Error("Partially applying to more than 8-arity is not supported: " + arity);
     }
   }
+}
+
+type CurriedArgMapping = [number, number] | 0;
+
+export function mapCurriedArgs(fn: Function, mappings: CurriedArgMapping[]) {
+    function mapArg(fn: Function, arg: any, mappings: CurriedArgMapping[], idx: number) {
+        const mapping = mappings[idx];
+        if (mapping !== 0) {
+            const expectedArity = mapping[0];
+            const actualArity = mapping[1];
+            if (expectedArity > 1) {
+                arg = curry(expectedArity, arg);
+            }
+            if (actualArity > 1) {
+                arg = uncurry(actualArity, arg);
+            }
+        }
+        const res = fn(arg);
+        if (idx + 1 === mappings.length) {
+            return res;
+        } else {
+            return function(arg: any) {
+                return mapArg(res, arg, mappings, idx + 1)
+            }
+        }
+    }
+    return function (arg: any) {
+        return mapArg(fn, arg, mappings, 0);
+    }
 }
 
 export function addToDict<K, V>(dict: Map<K, V>, k: K, v: V) {
