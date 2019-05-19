@@ -1071,6 +1071,21 @@ let tests7 = [
         doMapRunTimes |> equal 1
         setStateAccumulated |> equal "FooBarBaz"
 
+    testCase "Fix lambda uncurry/curry semantic #1836" <| fun () ->
+        let map (mapSetState: int -> (int -> unit))  =
+            mapSetState 1
+
+        let mutable doMapCalled = 0
+        let mutable doMapResultCalled = 0
+        let doMap (i:int) : (int -> unit) =
+            doMapCalled <- doMapCalled + 1
+            (fun j -> doMapResultCalled <- doMapResultCalled + 1)
+
+        let setState = map (doMap)
+        setState 1
+        setState 2
+        doMapCalled |> equal 1
+        doMapResultCalled |> equal 2
 ]
 
 let tests =
