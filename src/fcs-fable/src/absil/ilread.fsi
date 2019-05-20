@@ -75,10 +75,14 @@ type ILModuleReader =
     inherit System.IDisposable
 
 #if !FABLE_COMPILER
+
 /// Open a binary reader, except first copy the entire contents of the binary into 
 /// memory, close the file and ensure any subsequent reads happen from the in-memory store. 
 /// PDB files may not be read with this option. 
 val internal OpenILModuleReader: string -> ILReaderOptions -> ILModuleReader
+
+val internal ClearAllILModuleReaderCache : unit -> unit
+
 #endif
 
 /// Open a binary reader based on the given bytes. 

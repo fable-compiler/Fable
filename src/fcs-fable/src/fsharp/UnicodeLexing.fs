@@ -6,7 +6,7 @@ module internal FSharp.Compiler.UnicodeLexing
 // Functions for Unicode char-based lexing (new code).
 //
 
-open FSharp.Compiler.AbstractIL.Internal.Library 
+open FSharp.Compiler.AbstractIL.Internal.Library
 open Internal.Utilities
 open System.IO 
 
@@ -17,8 +17,11 @@ type Lexbuf = LexBuffer<LexBufferChar>
 let StringAsLexbuf =
     Lexbuf.FromString
   
-let FunctionAsLexbuf =
-    Lexbuf.FromFunction
+let FunctionAsLexbuf (bufferFiller: LexBufferChar[] * int * int -> int) : Lexbuf =
+    LexBuffer<LexBufferChar>.FromFunction bufferFiller
+
+let SourceTextAsLexbuf sourceText =
+    LexBuffer<char>.FromSourceText sourceText
      
 #if !FABLE_COMPILER
 
