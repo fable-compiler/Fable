@@ -1,3 +1,8 @@
+### 2.3.10
+
+* Fix #1836: Partial Applying caches side-effects
+* Bring beta reduction optimizations
+
 ### 2.3.8
 
 * Fix #1832: unit arguments
