@@ -261,6 +261,7 @@ module JS =
         abstract setUint16: byteOffset: int * value: uint16 * ?littleEndian: bool -> unit
         abstract setUint32: byteOffset: int * value: uint32 * ?littleEndian: bool -> unit
 
+    // TODO: Add constructors for other typed arrays from buffer?
     and [<AllowNullLiteral>] DataViewConstructor =
         [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?byteLength: float -> DataView
 

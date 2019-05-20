@@ -9,9 +9,15 @@ module Extensions =
         static member StartAsPromise(workflow: Async<'T>, ?token: System.Threading.CancellationToken): JS.Promise<'T> = jsNative
 
     type 'T``[]`` with
-        /// Only valid on numeric arrays (int[], float[]...)
+        /// Only valid on numeric arrays compiled as JS TypedArrays
         [<Emit("$0.buffer")>]
         member __.buffer: JS.ArrayBuffer = jsNative
+        /// Only valid on numeric arrays compiled as JS TypedArrays
+        [<Emit("$0.byteOffset")>]
+        member __.byteOffset: int = jsNative
+        /// Only valid on numeric arrays compiled as JS TypedArrays
+        [<Emit("$0.byteLength")>]
+        member __.byteLength: int = jsNative
 
     type Text.RegularExpressions.Regex with
         [<Emit("$0.lastIndex{{=$1}}")>]

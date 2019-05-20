@@ -1,3 +1,7 @@
+### 1.1.2
+
+* fable-compiler 2.3.10
+
 ### 1.1.1
 
 * Update bundle and Worker dependencies
