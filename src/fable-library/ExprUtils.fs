@@ -1,10 +1,14 @@
-module ExprUtils 
+module ExprUtils
 
 open Microsoft.FSharp.Quotations
 open Fable.Core
-open Fable.Import.JS
+open Fable.Core.JS
+open Fable.Core.JsInterop
 open System.Reflection
 open FSharp.Collections
+
+[<Emit("new Uint8Array($0, $1, $2)")>]
+let private createUint8Array(buffer: ArrayBuffer, byteOffset: int, byteLength: int): byte[] = jsNative
 
 type IValue =
     abstract member typ : System.Type
@@ -21,8 +25,8 @@ type ILiteral =
     abstract member value : obj
 
 
-type BinaryStream(arr : Uint8Array) =
-    let view = DataView.Create(arr.buffer, arr.byteOffset, arr.byteLength)
+type BinaryStream(arr : byte[]) =
+    let view = DataView.Create(arr.buffer, arr?byteOffset, arr?byteLength)
     let mutable position = 0
 
     member x.Position = position
@@ -41,7 +45,7 @@ type BinaryStream(arr : Uint8Array) =
             code, None
 
     member x.ReadInt32() =
-        let value = view.getInt32(float position, true)
+        let value = view.getInt32(position, true)
         position <- position + 4
         unbox<int> value
 
@@ -56,7 +60,7 @@ type BinaryStream(arr : Uint8Array) =
 
     member x.ReadString() =
         let length = x.ReadInt32()
-        let view = Uint8Array.Create(arr.buffer, arr.byteOffset + float position, float length)
+        let view = createUint8Array(arr.buffer, arr?byteOffset + position, length)
         let value = System.Text.Encoding.UTF8.GetString(unbox view)
         position <- position + length
         value
@@ -103,7 +107,7 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             else
                 let h = f i
                 h :: init (i + 1)
-        init 0                    
+        init 0
 
 
     let rec read () =
@@ -113,7 +117,7 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             | Some(sl, sc, el, ec) -> e.WithRange(file, sl, sc, el, ec)
             | None -> e
         match tag with
-        | 1uy -> 
+        | 1uy ->
             let vid = stream.ReadInt32()
             let body = read()
             Expr.Lambda(variables.[vid], body) |> withRange
@@ -124,10 +128,10 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let vid = stream.ReadInt32()
             values.[vid] |> withRange
         | 4uy ->
-            let vid = stream.ReadInt32()  
+            let vid = stream.ReadInt32()
             let e = read()
             let b = read()
-            Expr.Let(variables.[vid], e, b) |> withRange  
+            Expr.Let(variables.[vid], e, b) |> withRange
 
         | 5uy ->
             let decl = types.[stream.ReadInt32()]
@@ -142,10 +146,10 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let args = init cnt (fun _ -> read())
 
             let mem =
-                decl.GetMethods() |> FSharp.Collections.Array.tryFind (fun m -> 
+                decl.GetMethods() |> FSharp.Collections.Array.tryFind (fun m ->
                     m.Name = name && m.GetParameters().Length = cnt &&
                     m.GetGenericArguments().Length = margs.Length &&
-                    FSharp.Collections.Array.forall2 (fun (p : ParameterInfo) (a : Expr) -> p.ParameterType = a.Type) 
+                    FSharp.Collections.Array.forall2 (fun (p : ParameterInfo) (a : Expr) -> p.ParameterType = a.Type)
                         (if m.IsGenericMethod then m.MakeGenericMethod(margs).GetParameters() else m.GetParameters())
                         (List.toArray args)
                 )
@@ -172,10 +176,10 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let args = init cnt (fun _ -> read())
 
             let mem =
-                decl.GetMethods() |> FSharp.Collections.Array.tryFind (fun m -> 
+                decl.GetMethods() |> FSharp.Collections.Array.tryFind (fun m ->
                     m.Name = name && m.GetParameters().Length = cnt &&
                     m.GetGenericArguments().Length = margs.Length &&
-                    FSharp.Collections.Array.forall2 (fun (p : ParameterInfo) (a : Expr) -> p.ParameterType = a.Type) 
+                    FSharp.Collections.Array.forall2 (fun (p : ParameterInfo) (a : Expr) -> p.ParameterType = a.Type)
                         (if m.IsGenericMethod then m.MakeGenericMethod(margs).GetParameters() else m.GetParameters())
                         (List.toArray args)
                 )
@@ -188,7 +192,7 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
                 Expr.Call(mem, args) |> withRange
             | None ->
                 let mem = createMethod decl name mpars margs dargs ret true
-                Expr.Call(mem, args) |> withRange  
+                Expr.Call(mem, args) |> withRange
 
         | 7uy ->
             let e = read()
@@ -197,15 +201,15 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
         | 8uy ->
             let v = read()
             let e = read()
-            Expr.AddressSet(v, e) |> withRange        
+            Expr.AddressSet(v, e) |> withRange
 
         | 9uy ->
-            let tid = stream.ReadInt32()  
+            let tid = stream.ReadInt32()
             let name = stream.ReadString()
             let target = read()
             //let prop = FSharp.Reflection.FSharpType.GetRecordFields target.Type |> FSharp.Collections.Array.find (fun p -> p.Name = name)
             let prop = createRecordProperty target.Type name types.[tid]
-            Expr.PropertyGet(target, prop) |> withRange     
+            Expr.PropertyGet(target, prop) |> withRange
 
         | 10uy ->
             let f = read()
@@ -217,9 +221,9 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let l = literals.[id]
             Expr.Value(l.value, l.typ) |> withRange
         | 12uy ->
-            let c = read()  
-            let i = read()  
-            let e = read()      
+            let c = read()
+            let i = read()
+            let e = read()
             Expr.IfThenElse(c, i, e) |> withRange
 
         | 13uy ->
@@ -261,14 +265,14 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let idx = init cidx (fun _ -> read())
             let ret = types.[stream.ReadInt32()]
             let target = read()
-            
+
             let prop = typ.GetProperties() |> FSharp.Collections.Array.tryFind (fun p -> p.Name = name && p.PropertyType = ret)
             match prop with
             | Some prop ->
                 Expr.PropertyGet(target, prop, idx) |> withRange
             | None ->
                 let prop = createRecordProperty typ name ret
-                Expr.PropertyGet(target, prop, idx) |> withRange     
+                Expr.PropertyGet(target, prop, idx) |> withRange
 
         | 19uy ->
             let typ = types.[stream.ReadInt32()]
@@ -283,7 +287,7 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
                 Expr.PropertyGet(prop, idx) |> withRange
             | None ->
                 let prop = createStaticProperty typ name ret
-                Expr.PropertyGet(prop, idx) |> withRange         
+                Expr.PropertyGet(prop, idx) |> withRange
 
         | 20uy ->
             let typ = types.[stream.ReadInt32()]
@@ -316,11 +320,11 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
                 Expr.PropertySet(prop, value, idx) |> withRange
             | None ->
                 let prop = createStaticProperty typ name ret
-                Expr.PropertySet(prop, value, idx) |> withRange     
+                Expr.PropertySet(prop, value, idx) |> withRange
 
         | 22uy ->
             let cnt = stream.ReadInt32()
-            let bindings = 
+            let bindings =
                 init cnt (fun _ ->
                     let v = variables.[stream.ReadInt32()]
                     let e = read()
@@ -340,10 +344,10 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let argts = stream.ReadInt32Array() |> FSharp.Collections.Array.map (fun t -> types.[t])
             let args = init argts.Length (fun _ -> read())
 
-            let ctor = 
-                typ.GetConstructors() 
-                |> FSharp.Collections.Array.tryFind (fun ctor -> 
-                    ctor.GetParameters().Length = argts.Length && 
+            let ctor =
+                typ.GetConstructors()
+                |> FSharp.Collections.Array.tryFind (fun ctor ->
+                    ctor.GetParameters().Length = argts.Length &&
                     FSharp.Collections.Array.forall2 (fun (p : ParameterInfo) t -> p.ParameterType = t) (ctor.GetParameters()) argts
                 )
 
@@ -351,21 +355,21 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             | Some ctor ->
                 Expr.NewObject(ctor, args) |> withRange
             | _ ->
-                failwith "no ctor found"      
+                failwith "no ctor found"
 
         | 27uy ->
-            let typ = types.[stream.ReadInt32()]  
+            let typ = types.[stream.ReadInt32()]
             let cnt = stream.ReadInt32()
             let args = init cnt (fun _ -> read())
             Expr.NewRecord(typ, args) |> withRange
-            
+
         | 28uy ->
             let cnt = stream.ReadInt32()
             let args = init cnt (fun _ -> read())
             Expr.NewTuple(args) |> withRange
-            
+
         | 29uy ->
-            let typ = types.[stream.ReadInt32()]  
+            let typ = types.[stream.ReadInt32()]
             let name = stream.ReadString()
             let cnt = stream.ReadInt32()
             let args = init cnt (fun _ -> read())
@@ -387,7 +391,7 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             Expr.TupleGet(t, i) |> withRange
 
         | 33uy ->
-            let typ = types.[stream.ReadInt32()]  
+            let typ = types.[stream.ReadInt32()]
             let target = read()
             Expr.TypeTest(target, typ) |> withRange
         | 36uy ->
@@ -403,10 +407,10 @@ let deserialize (values : IValue[]) (variables : IVariable[]) (types : System.Ty
             let str = stream.ReadString()
             match range with
             | Some (sl, sc, _el, _ec) ->
-                failwithf "%s [%d, %d]: unsupported expression: %s" file sl sc str 
-            | None -> 
-                failwithf "%s: unsupported expression: %s" file str     
+                failwithf "%s [%d, %d]: unsupported expression: %s" file sl sc str
+            | None ->
+                failwithf "%s: unsupported expression: %s" file str
         | _ ->
-            failwithf "invalid expression: %A at %A" tag  stream.Position      
+            failwithf "invalid expression: %A at %A" tag  stream.Position
 
     read()
