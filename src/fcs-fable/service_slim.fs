@@ -39,6 +39,7 @@ open FSharp.Compiler.Layout
 open FSharp.Compiler.Tast
 open FSharp.Compiler.Tastops
 open FSharp.Compiler.TcGlobals 
+open FSharp.Compiler.Text
 open FSharp.Compiler.Infos
 open FSharp.Compiler.InfoReader
 open FSharp.Compiler.NameResolution
@@ -59,6 +60,7 @@ type internal TcErrors = FSharpErrorInfo[]
 
 type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState, ctok, reactorOps, parseCache, checkCache) =
     let userOpName = "Unknown"
+    let suggestNamesForErrors = true
 
     static member Create(references: string[], readAllBytes: string -> byte[], defines: string[], optimize: bool) =
         let otherOptions = [|
@@ -154,7 +156,8 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         let parseCacheKey = fileName, hash source
         parseCache.GetOrAdd(parseCacheKey, fun _ ->
             x.ClearStaleCache(fileName, parsingOptions)
-            let parseErrors, parseTreeOpt, anyErrors = Parser.parseFile (source, fileName, parsingOptions, userOpName)
+            let sourceText = SourceText.ofString source
+            let parseErrors, parseTreeOpt, anyErrors = Parser.parseFile (sourceText, fileName, parsingOptions, userOpName, suggestNamesForErrors)
             let dependencyFiles = [||] // interactions have no dependencies
             FSharpParseFileResults (parseErrors, parseTreeOpt, anyErrors, dependencyFiles) )
 
@@ -173,7 +176,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
             |> Eventually.force ctok
 
         let fileName = parseResults.FileName
-        let tcErrors = ErrorHelpers.CreateErrorInfos (tcConfig.errorSeverityOptions, false, fileName, (capturingErrorLogger.GetErrors()))
+        let tcErrors = ErrorHelpers.CreateErrorInfos (tcConfig.errorSeverityOptions, false, fileName, (capturingErrorLogger.GetErrors()), suggestNamesForErrors)
         (tcResult, tcErrors), (tcState, moduleNamesDict)
 
     member private x.CheckFile (projectFileName: string, parseResults: FSharpParseFileResults, tcState: TcState, moduleNamesDict: ModuleNamesDict) =
@@ -231,6 +234,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
     /// Parses and checks single file only, left as is for backwards compatibility.
     /// Despite the name, there is no support for #load etc.
     member x.ParseAndCheckScript (projectFileName: string, fileName: string, source: string) =
+        let sourceText = SourceText.ofString source
         let fileNames = [| fileName |]
         let parsingOptions = FSharpParsingOptions.FromTcConfig(tcConfig, fileNames, false)
         let parseResults = x.ParseFile (fileName, source, parsingOptions)
@@ -241,8 +245,8 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         let textSnapshotInfo = None
         let tcState = tcInitialState
         let tcResults = Parser.CheckOneFile(
-                            parseResults, source, fileName, projectFileName, tcConfig, tcGlobals, tcImports, tcState,
-                            moduleNamesDict, loadClosure, backgroundErrors, reactorOps, checkAlive, textSnapshotInfo, userOpName)
+                            parseResults, sourceText, fileName, projectFileName, tcConfig, tcGlobals, tcImports, tcState,
+                            moduleNamesDict, loadClosure, backgroundErrors, reactorOps, checkAlive, textSnapshotInfo, userOpName, suggestNamesForErrors)
         match tcResults with
         | tcErrors, Parser.TypeCheckAborted.No scope ->
             let errors = Array.append parseResults.Errors tcErrors

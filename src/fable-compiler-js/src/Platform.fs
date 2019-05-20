@@ -47,8 +47,8 @@ let runCmdAndExitIfFails = JS.Util.runCmdAndExitIfFails
 let normalizeFullPath (path: string) =
     JS.Path.resolve(path).Replace('\\', '/')
 
-let getRelativePath (pathFrom: string) (pathTo: string) =
-    JS.Path.relative(pathFrom, pathTo).Replace('\\', '/')
+let getRelativePath (path: string) (pathTo: string) =
+    JS.Path.relative(path, pathTo).Replace('\\', '/')
 
 module Path =
 

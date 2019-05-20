@@ -18,8 +18,8 @@ let APPVEYOR_REPL_ARTIFACT_URL =
     + APPVEYOR_REPL_ARTIFACT_URL_PARAMS
 
 // ncave FCS fork
-let FCS_REPO = "https://github.com/ncave/FSharp.Compiler.Service"
-let FCS_REPO_LOCAL = "../FSharp.Compiler.Service_fable"
+let FCS_REPO = "https://github.com/ncave/fsharp"
+let FCS_REPO_LOCAL = "../fsharp_fable"
 let FCS_REPO_FABLE_BRANCH = "fable"
 let FCS_REPO_SERVICE_SLIM_BRANCH = "service_slim"
 

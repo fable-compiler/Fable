@@ -259,7 +259,7 @@ module TcImports =
                             tcConfig.compilingFslib, ilGlobals, fslibCcu.FSharpViewOfMetadata,
                             tcConfig.implicitIncludeDir, tcConfig.mlCompatibility,
                             tcConfig.isInteractive, tryFindSysTypeCcu,
-                            tcConfig.emitDebugInfoInQuotations, tcConfig.noDebugData)
+                            tcConfig.emitDebugInfoInQuotations, tcConfig.noDebugData, tcConfig.pathMap)
 
 #if DEBUG
         // the global_g reference cell is used only for debug printing

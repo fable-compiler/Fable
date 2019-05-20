@@ -24,23 +24,15 @@ type internal HashMultiMap<'Key,'Value>(n: int, hasheq: IEqualityComparer<'Key>)
 #endif
 
     member x.GetRest(k) =
-#if FABLE_COMPILER
-        let ok, res = rest.TryGetValue(k)
-#else
-        let mutable res = []
-        let ok = rest.TryGetValue(k,&res)
-#endif
-        if ok then res else []
+        match rest.TryGetValue k with
+        | true, res -> res
+        | _ -> []
 
     member x.Add(y,z) = 
-#if FABLE_COMPILER
-        let ok, res = firstEntries.TryGetValue(y)
-#else
-        let mutable res = Unchecked.defaultof<'Value>
-        let ok = firstEntries.TryGetValue(y,&res)
-#endif
-        if ok then 
+        match firstEntries.TryGetValue y with
+        | true, res ->
             rest.[y] <- res :: x.GetRest(y)
+        | _ -> ()
         firstEntries.[y] <- z
 
     member x.Clear() = 
@@ -66,24 +58,16 @@ type internal HashMultiMap<'Key,'Value>(n: int, hasheq: IEqualityComparer<'Key>)
 
     member x.Item 
         with get(y : 'Key) = 
-#if FABLE_COMPILER
-            let ok, res = firstEntries.TryGetValue(y)
-#else
-            let mutable res = Unchecked.defaultof<'Value>
-            let ok = firstEntries.TryGetValue(y,&res)
-#endif
-            if ok then res else raise (KeyNotFoundException("The item was not found in collection"))
+            match firstEntries.TryGetValue y with
+            | true, res -> res
+            | _ -> raise (KeyNotFoundException("The item was not found in collection"))
         and set (y:'Key) (z:'Value) = 
             x.Replace(y,z)
 
     member x.FindAll(y) = 
-#if FABLE_COMPILER
-        let ok, res = firstEntries.TryGetValue(y)
-#else
-        let mutable res = Unchecked.defaultof<'Value>
-        let ok = firstEntries.TryGetValue(y,&res)
-#endif
-        if ok then res :: x.GetRest(y) else []
+        match firstEntries.TryGetValue y with
+        | true, res -> res :: x.GetRest(y)
+        | _ -> []
 
     member x.Fold f acc = 
         let mutable res = acc
@@ -110,45 +94,32 @@ type internal HashMultiMap<'Key,'Value>(n: int, hasheq: IEqualityComparer<'Key>)
     member x.ContainsKey(y) = firstEntries.ContainsKey(y)
 
     member x.Remove(y) = 
-#if FABLE_COMPILER
-        let ok, _ = firstEntries.TryGetValue(y)
-#else
-        let mutable res = Unchecked.defaultof<'Value>
-        let ok = firstEntries.TryGetValue(y,&res)
-#endif
+        match firstEntries.TryGetValue y with
         // NOTE: If not ok then nothing to remove - nop
-        if ok then 
+        | true, _res ->
             // We drop the FirstEntry. Here we compute the new FirstEntry and residue MoreEntries
-#if FABLE_COMPILER
-            let ok, res = rest.TryGetValue(y)
-#else
-            let mutable res = []
-            let ok = rest.TryGetValue(y,&res)
-#endif
-            if ok then 
+            match rest.TryGetValue y with
+            | true, res ->
                 match res with 
                 | [h] -> 
                     firstEntries.[y] <- h; 
                     rest.Remove(y) |> ignore
-                | (h::t) -> 
+                | (h :: t) -> 
                     firstEntries.[y] <- h
                     rest.[y] <- t
                 | _ -> 
                     ()
-            else
+            | _ ->
                 firstEntries.Remove(y) |> ignore 
+        | _ -> ()
 
     member x.Replace(y,z) = 
         firstEntries.[y] <- z
 
     member x.TryFind(y) =
-#if FABLE_COMPILER
-        let ok, res = firstEntries.TryGetValue(y)
-#else
-        let mutable res = Unchecked.defaultof<'Value>
-        let ok = firstEntries.TryGetValue(y,&res)
-#endif
-        if ok then Some(res) else None
+        match firstEntries.TryGetValue y with
+        | true, res -> Some res
+        | _ -> None
 
     member x.Count = firstEntries.Count
 
@@ -166,6 +137,7 @@ type internal HashMultiMap<'Key,'Value>(n: int, hasheq: IEqualityComparer<'Key>)
             }
             elems.GetEnumerator()
 #else //!FABLE_COMPILER
+
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
 
         member s.GetEnumerator() = 
