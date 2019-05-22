@@ -1,3 +1,7 @@
+### 1.1.3
+
+* Don't crash REPL compilation on Babel errors
+
 ### 1.1.2
 
 * fable-compiler 2.3.10
