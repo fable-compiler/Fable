@@ -15,7 +15,6 @@
     "@babel/preset-env": "^7.4.3",
     "@babel/register": "^7.4.0",
     "@types/node": "^11.13.0",
-    "ava": "^1.4.1",
     "babel-loader": "^8.0.5",
     "concurrently": "^4.1.0",
     "download-cli": "^1.1.1",

@@ -2,7 +2,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import fableSplitter from "./index";
+import fableSplitter, { CompilationInfo } from "./index";
 import runScript from "./run";
 
 const chokidarLazy = requireLazy("chokidar");
@@ -146,6 +146,27 @@ function mustRun(args: string[]): [boolean, string[]] {
     return i >= 0 ? [true, args.slice(i + 1)] : [false, []];
 }
 
+function onCompiled(args: string[], opts: any, info: CompilationInfo, mustFinish = false) {
+    const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
+    if (!hasError) {
+        if (typeof opts.onCompiled === "function") {
+            opts.onCompiled();
+        }
+        const [isRun, runArgs] = mustRun(args);
+        if (isRun) {
+            const job = runScript(getMainScriptPath(opts, info), runArgs);
+            if (mustFinish) {
+                job.then((code) => { process.exit(code); });
+                return;
+            }
+        }
+    }
+    if (mustFinish) {
+        process.exit(hasError ? 1 : 0);
+    }
+
+}
+
 function run(entry, args) {
     const cfgFile = findArgValue(args, ["-c", "--config"]);
 
@@ -180,10 +201,7 @@ function run(entry, args) {
     console.log(`fable-splitter ${getVersion()}`);
     fableSplitter(opts).then((info) => {
         if (findFlag(args, ["-w", "--watch"])) {
-            const [isRun, runArgs] = mustRun(args);
-            if (isRun) {
-                runScript(getMainScriptPath(opts, info), runArgs);
-            }
+            onCompiled(args, opts, info);
             let cachedInfo = info;
             let ready = false;
             let next: [string, Date]|null = null;
@@ -213,23 +231,13 @@ function run(entry, args) {
                                     watcher.add(newFiles);
                                 }
                                 cachedInfo = info2;
-                                if (isRun) {
-                                    runScript(getMainScriptPath(opts, info2), runArgs);
-                                }
+                                onCompiled(args, opts, info2);
                             });
                         }
                     }
                 });
         } else {
-            const [isRun, runArgs] = mustRun(args);
-            const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
-            if (!hasError && isRun) {
-                runScript(getMainScriptPath(opts, info), runArgs).then((code) => {
-                    process.exit(code);
-                });
-            } else {
-                process.exit(hasError ? 1 : 0);
-            }
+            onCompiled(args, opts, info, true);
         }
     });
 }
