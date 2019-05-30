@@ -8,7 +8,7 @@ open PublishUtils
 open System
 open System.Text.RegularExpressions
 open Fable.Core
-open Fable.Import
+open Fable.Core.JsInterop
 
 // Appveyor artifact
 let FABLE_BRANCH = "master"
@@ -28,6 +28,8 @@ type GhRealeases =
         $0.create({user: $1, token: $2}, $3, $4, { tag_name: $5, name: $5, body: $6 }, (err, res) =>
             err != null ? fail(err) : succeed(res)))""")>]
     abstract create: user: string * token: string * owner: string * repo: string * name: string * msg: string -> JS.Promise<obj>
+
+let concurrently(commands: string[]): unit = importDefault "concurrently"
 
 let cleanDirs dirs =
     for dir in dirs do
@@ -63,6 +65,16 @@ let buildLibrary() =
     cleanDirs ["build/fable-library"]
     buildTypescript "src/fable-library"
     buildSplitter "src/fable-library"
+
+let quicktest() =
+    cleanDirs ["build/fable-library"]
+    concurrently [|
+        // Watch fable-library
+        "npx tsc --project src/fable-library --watch"
+        "npx fable-splitter -c src/fable-library/splitter.config.js --watch"
+        // Restart splitter on changes so latest fable-library and compiler are picked
+        "chokidar \"src/quicktest/*.fs\" -c \"fable-splitter -c src/quicktest/splitter.config.js --run\""
+    |]
 
 let buildCompiler() =
     let projectDir = "src/fable-compiler"
@@ -220,6 +232,7 @@ let publishPackages restArgs =
 
 match argsLower with
 | "test"::_ -> test()
+| "quicktest"::_ -> quicktest()
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-compiler"|"compiler")::_ -> buildCompiler()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs false
