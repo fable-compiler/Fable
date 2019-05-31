@@ -281,11 +281,12 @@ let rec private transformDecisionTargets (com: IFableCompiler) (ctx: Context) ac
 
 let private skipAttribute (name : string) =
     // TODO: skip all attributes where definiton not known???
-    name.StartsWith "Microsoft.FSharp.Core" ||
-    name.StartsWith "System.Reflection" ||
-    name.StartsWith "System.Runtime.CompilerServices" ||
-    name.StartsWith "System.ObsoleteAttribute" ||
-    name.StartsWith "System.Diagnostics"
+    // name.StartsWith "Microsoft.FSharp.Core" ||
+    // name.StartsWith "System.Reflection" ||
+    // name.StartsWith "System.Runtime.CompilerServices" ||
+    // name.StartsWith "System.ObsoleteAttribute" ||
+    // name.StartsWith "System.Diagnostics"
+    false
 
 let private transformAttribute (com: IFableCompiler) (ctx : Context) (a : FSharpAttribute) =
     match a.AttributeType.TryFullName with
@@ -310,11 +311,29 @@ let private transformAttribute (com: IFableCompiler) (ctx : Context) (a : FSharp
                 a.ConstructorArguments |> Seq.toList |> List.map (fun (t,v) ->
                     match v with
                     | :? string as str -> Fable.Value(Fable.StringConstant str, None)
+                    | :? int8 as v -> Fable.Value(Fable.NumberConstant(float v, NumberKind.Int8), None)
+                    | :? uint8 as v -> Fable.Value(Fable.NumberConstant(float v, NumberKind.UInt8), None)
+                    | :? int16 as v -> Fable.Value(Fable.NumberConstant(float v, NumberKind.Int16), None)
+                    | :? uint16 as v -> Fable.Value(Fable.NumberConstant(float v, NumberKind.UInt16), None)
+                    | :? int32 as v -> Fable.Value(Fable.NumberConstant(float v, NumberKind.Int32), None)
+                    | :? uint32 as v -> Fable.Value(Fable.NumberConstant(float v, NumberKind.UInt32), None)
+                    | :? float32 as v -> Fable.Value(Fable.NumberConstant(float v, NumberKind.Float32), None)
+                    | :? float as v -> Fable.Value(Fable.NumberConstant(v, NumberKind.Float64), None)
                     | _ -> Fable.Value(Fable.StringConstant (string v), None)
                 )
+            
+            
             let typ = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List() :> IList<_>) a.AttributeType
-            let x = makeCallFrom com ctx None typ false [] None args ctor
-            Some (fullname,x)
+            try
+                let x = makeCallFrom com ctx None typ false [] None args ctor
+                match x with
+                | AST.Fable.Value(AST.Fable.Null AST.Fable.Any, None) ->
+                    com.RemoveLastError()
+                    None
+                | _ ->                
+                    Some (fullname,x)
+            with _ ->
+                None                   
         | _ ->
             None
     | _ ->
@@ -1544,6 +1563,9 @@ type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplemen
             com.GetOrAddInlineExpr(fullName, generate)
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
+
+        member __.RemoveLastError() = 
+            com.RemoveLastError()
 
 let getRootModuleFullName (file: FSharpImplementationFileContents) =
     let rootEnt, _ = getRootModuleAndDecls file.Declarations

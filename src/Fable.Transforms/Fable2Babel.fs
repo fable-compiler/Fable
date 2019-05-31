@@ -1901,6 +1901,8 @@ module Compiler =
             member __.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
             member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
+            member __.RemoveLastError() =
+                com.RemoveLastError()
 
     let makeCompiler com = new BabelCompiler(com)
 

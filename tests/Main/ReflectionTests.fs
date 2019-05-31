@@ -23,6 +23,7 @@ type TestType =
 type TestType2 =
     | Union2 of string
 
+[<System.Runtime.CompilerServices.Extension>]
 type TestType3 = class end
 type TestType4 = class end
 type TestType5 = class end

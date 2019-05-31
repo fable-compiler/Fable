@@ -34,3 +34,4 @@ type ICompiler =
     abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
     abstract AddLog: msg:string * severity: Severity * ?range:SourceLocation
                         * ?fileName:string * ?tag: string -> unit
+    abstract RemoveLastError : unit -> unit                    

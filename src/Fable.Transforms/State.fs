@@ -94,6 +94,13 @@ type Compiler(currentFile, project: Project, options, fableLibraryDir: string) =
               Range = range
               FileName = fileName }
             |> logs.Add
+
+        member __.RemoveLastError() =
+            let mutable i = logs.Count - 1
+            while i >= 0 && logs.[i].Severity <> Severity.Error do
+                i <- i - 1
+            if i >= 0 then logs.RemoveAt i  
+               
         // TODO: If name includes `$$2` at the end, remove it
         member __.GetUniqueVar(name) =
             id <- id + 1
