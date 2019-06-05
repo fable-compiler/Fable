@@ -90,6 +90,18 @@ let tests =
             let mutable value = Some "Alfonso"
             fun () -> match value with Some x -> value <- None; Some x | None -> None
         getOnlyOnce() |> Option.map ((+) "Hello ") |> equal (Some "Hello Alfonso")
+        getOnlyOnce() |> Option.map ((+) "Hello ") |> equal None
+
+    testCase "Option.map2 works" <| fun () ->
+        (Some 2, Some 3) ||> Option.map2 (+) |> equal (Some 5)
+        (None, Some 3) ||> Option.map2 (+) |> equal None
+        (Some 2, None) ||> Option.map2 (+) |> equal None
+
+    testCase "Option.map3 works" <| fun () ->
+        (Some 2, Some 3, Some 4) |||> Option.map3 (fun x y z -> x + y + z) |> equal (Some 9)
+        (None, Some 3, Some 4) |||> Option.map3 (fun x y z -> x + y + z) |> equal None
+        (Some 2, None, Some 4) |||> Option.map3 (fun x y z -> x + y + z) |> equal None
+        (Some 2, Some 3, None) |||> Option.map3 (fun x y z -> x + y + z) |> equal None
 
     testCase "Option.bind works" <| fun () ->
         let getOnlyOnce =

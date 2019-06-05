@@ -1839,6 +1839,8 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
             | _ -> f.Type, arg.Type // unexpected
         let args = [arg; Value(NewOption(None, argType), None); f]
         Helper.CoreCall("Option", "defaultArg", t, args, [argType; Option argType; fType],  ?loc=r) |> Some
+    | ("Map2" | "Map3"), args ->
+        Helper.CoreCall("Option", "map", t, args, i.SignatureArgTypes,  ?loc=r) |> Some
     | "Filter", _ ->
         Helper.CoreCall("Option", "filter", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToArray", [arg] ->
@@ -1856,7 +1858,6 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
             then "List", "ofArray"
             else "Seq", Naming.lowerFirst meth
         Helper.CoreCall(moduleName, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | "map2" | "map3" -> failwith "TODO"
     | _ -> None
 
 let parse (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
