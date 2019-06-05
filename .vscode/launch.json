@@ -31,9 +31,9 @@
             "type": "node",
             "request": "launch",
             "name": "Launch Quicktest.js",
-            "program": "${workspaceRoot}/src/tools/temp/QuickTest.js",
+            "program": "${workspaceRoot}/src/quicktest/bin/QuickTest.js",
             "args": ["--help"],
-            "cwd": "${workspaceRoot}/src/tools/temp",
+            "cwd": "${workspaceRoot}/src/quicktest",
             "stopOnEntry": true
         },
         {

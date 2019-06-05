@@ -272,6 +272,14 @@ let tests =
         d.ToUniversalTime().Kind <> d.Kind
         |> equal true
 
+    testCase "DateTime.SpecifyKind works" <| fun () -> // See #1844
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+        let d2 = DateTime.SpecifyKind(d, DateTimeKind.Utc)
+        d2.Kind |> equal DateTimeKind.Utc
+        d.Ticks = d2.Ticks |> equal true
+        // let d3 = d.ToUniversalTime()
+        // d.Ticks = d3.Ticks |> equal false
+
     testCase "DateTime.Date works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30)
         d.Date.Hour |> equal 0
