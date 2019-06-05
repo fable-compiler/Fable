@@ -1,5 +1,11 @@
 ### 2.3.10
 
+* Fix #1844: DateTime.SpecifyKind
+* Fix #1843: Remove project.assets.json check
+* Fix #1842: Add Option.map2/map3
+
+### 2.3.10
+
 * Fix #1836: Partial Applying caches side-effects
 * Bring beta reduction optimizations
 
