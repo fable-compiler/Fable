@@ -79,6 +79,25 @@ export function ofArray<T>(xs: ArrayLike<T>) {
   return delay(() => unfold((i) => i < xs.length ? [xs[i], i + 1] : null, 0));
 }
 
+export function allPairs<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>): Iterable<[T1, T2]> {
+    let firstEl = true;
+    const ysCache: T2[] = [];
+    return collect((x: T1) => {
+        if (firstEl) {
+            firstEl = false;
+            return map((y: T2) => {
+                ysCache.push(y);
+                return [x, y];
+            }, ys);
+        } else {
+            return ysCache.map(y => [x, y]);
+            // return map(function (i) {
+            //     return [x, ysCache[i]];
+            // }, rangeNumber(0, 1, ysCache.length - 1));
+        }
+    }, xs);
+}
+
 export function append<T>(xs: Iterable<T>, ys: Iterable<T>) {
   return delay(() => {
     let firstDone = false;
@@ -119,7 +138,7 @@ export function averageBy<T, T2>(f: (a: T) => T2, xs: Iterable<T>, averager: IGe
   return averager.DivideByInt(total, count);
 }
 
-export function concat<T>(xs: Iterable<Iterable<T>>) {
+export function concat<T>(xs: Iterable<Iterable<T>>): Iterable<T> {
   return delay(() => {
     const iter = xs[Symbol.iterator]();
     let output: any = { value: null };
@@ -148,7 +167,7 @@ export function concat<T>(xs: Iterable<Iterable<T>>) {
   });
 }
 
-export function collect<T, U>(f: (x: T) => Iterable<U>, xs: Iterable<T>) {
+export function collect<T, U>(f: (x: T) => Iterable<U>, xs: Iterable<T>): Iterable<U> {
   return concat(map(f, xs));
 }
 
@@ -423,7 +442,7 @@ export function length<T>(xs: Iterable<T>) {
     : fold((acc, x) => acc + 1, 0, xs);
 }
 
-export function map<T, U>(f: (x: T) => U, xs: Iterable<T>) {
+export function map<T, U>(f: (x: T) => U, xs: Iterable<T>): Iterable<U> {
   return delay(() => unfold((iter) => {
     const cur = iter.next();
     return !cur.done ? [f(cur.value), iter] : null;

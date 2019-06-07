@@ -896,4 +896,14 @@ let tests =
         Array.windowed 5 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
         Array.windowed 6 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
         Array.windowed 7 nums |> Array.isEmpty |> equal true
+
+    testCase "Array.allPairs works" <| fun () ->
+        let xs = [|1;2;3;4|]
+        let ys = [|'a';'b';'c';'d';'e';'f'|]
+        Array.allPairs xs ys
+        |> equal
+            [|(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+              (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+              (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+              (4, 'd'); (4, 'e'); (4, 'f')|]
   ]

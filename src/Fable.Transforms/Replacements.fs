@@ -548,9 +548,8 @@ let arrayCons (com: ICompiler) genArg =
         getTypedArrayName com numberKind |> makeIdentExprNonMangled
     | _ -> makeIdentExprNonMangled "Array"
 
-// TODO: Should we pass the empty list representation here?
 let toList returnType expr =
-    Helper.CoreCall("Seq", "toList", returnType, [expr])
+    Helper.CoreCall("List", "ofSeq", returnType, [expr])
 
 let toArray (com: ICompiler) returnType expr =
     // match expr, returnType with
@@ -1729,6 +1728,9 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         newArray (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
         eq (get r (Number Int32) ar "length") (makeIntConst 0) |> Some
+    | "AllPairs", args ->
+        let allPairs = Helper.CoreCall("Seq", "allPairs", t, args, i.SignatureArgTypes, ?loc=r)
+        toArray com t allPairs |> Some
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
@@ -1766,6 +1768,9 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     // literals to arrays) after the beta reduction pass
     | "ToSeq", [x] -> toSeq t x |> Some
     | "ToArray", [x] -> listToArray com r t x |> Some
+    | "AllPairs", args ->
+        let allPairs = Helper.CoreCall("Seq", "allPairs", t, args, i.SignatureArgTypes, ?loc=r)
+        toList t allPairs |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "List" meth i.GenericArgs args

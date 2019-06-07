@@ -1,5 +1,6 @@
-### 2.3.10
+### 2.3.11
 
+* Fix #1845: Seq/Array/List.allPairs
 * Fix #1844: DateTime.SpecifyKind
 * Fix #1843: Remove project.assets.json check
 * Fix #1842: Add Option.map2/map3
