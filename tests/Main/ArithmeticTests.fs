@@ -209,6 +209,14 @@ let tests =
         Math.Round 1.546M |> equal 2.M
         Math.Round -1.546M |> equal -2.M
 
+    testCase "Decimal round half to even works" <| fun () ->
+        round 1.5M |> equal 2.M
+        round 2.5M |> equal 2.M
+        round 3.5M |> equal 4.M
+        round -1.5M |> equal -2.M
+        round -2.5M |> equal -2.M
+        round -3.5M |> equal -4.M
+
     testCase "Decimal round with digits works" <| fun () ->
         Math.Round(1.426M, 2) |> equal 1.43M
         Math.Round(1.426M, 1) |> equal 1.4M
