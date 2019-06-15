@@ -21,7 +21,7 @@ export function abs(x: Decimal) {
 }
 
 export function round(x: Decimal, digits: number = 0) {
-  return x.round(digits, x.cmp(0) >= 0 ? 1 /* ROUND_HALF_UP */ : 2 /* ROUND_HALF_EVEN */);
+  return x.round(digits, 2 /* ROUND_HALF_EVEN */);
 }
 
 export function truncate(x: Decimal) {
