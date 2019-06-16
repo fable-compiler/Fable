@@ -1,3 +1,7 @@
+### 2.3.12
+
+* Fix #1848: decimal should round up .5
+
 ### 2.3.11
 
 * Fix #1845: Seq/Array/List.allPairs
