@@ -8,8 +8,8 @@
   "bin": {
     "fable-splitter": "./dist/cli.js"
   },
-  "homepage": "https://github.com/fable-compiler/Fable/tree/master/src/typescript/fable-splitter#readme",
-  "repository": "https://github.com/fable-compiler/Fable/tree/master/src/typescript/fable-splitter",
+  "homepage": "https://github.com/fable-compiler/Fable/blob/master/src/fable-splitter/README.md",
+  "repository": "https://github.com/fable-compiler/Fable/blob/master/src/fable-splitter",
   "keywords": [
     "fable",
     "fsharp",
